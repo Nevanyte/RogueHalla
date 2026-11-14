@@ -783,8 +783,16 @@ fn all_three_sizes_occur_and_maps_with_three_pools_mix_sizes() {
 /// 0 / 104 / 80 after. The volcano took no ground from Plague (zone 4936 tiles, floor median 4517, 10 camps, before and
 /// after; usable near-band ground 283 tiles before, 290 after).
 ///
-/// This test fails when the direction starts being delivered (a Large pool, or a pool near the tree, on seeds 1-32):
-/// then restore tests 4 and 5 to "pools in both bands" and "all three classes occur", and update the DEV-034 row.
+/// Re-measured on P-MAPGEN-SIG-HOLY-1's build (2026-11-14: the Holy hall's site moves every option-on map): one Large
+/// pool (240 tiles), in the near band, on one map of seeds 1-32. That is the chance fit this comment already measured
+/// (2 of 96 maps before the volcano packet), not the direction: the owner's rule is still not delivered. The pin is
+/// therefore a ceiling of chance fits, not an exact zero, so that the next packet that moves every map does not fail
+/// it for a reason that is not the pools' (`chance_fits_allowed`).
+///
+/// This test fails when Large pools or near-band pools stop being rare on seeds 1-32 (more than `chance_fits_allowed`
+/// of either): that is the direction starting to be delivered, or the pools having changed. Then measure, restore
+/// tests 4 and 5 to "pools in both bands" and "all three classes occur" if the direction holds on most maps, and update
+/// the DEV-034 row.
 #[test]
 fn known_gap_no_large_pool_and_no_pool_near_the_tree_on_seeds_1_to_32() {
     let (mut large, mut near) = (0usize, 0usize);
@@ -795,13 +803,21 @@ fn known_gap_no_large_pool_and_no_pool_near_the_tree_on_seeds_1_to_32() {
             near += usize::from(pool_band(a, &p) == Band::Near);
         }
     }
-    assert_eq!(
-        (large, near),
-        (0, 0),
-        "Large pools and near-band pools over seeds 1-32 (DEV-034 records 0 and 0 as a known gap): a non-zero value \
-         means the owner's direction \"three sizes, large near the tree\" has started being delivered; restore tests 4 \
-         and 5 to their full form and update the DEV-034 row"
+    eprintln!("Large pools {large}, near-band pools {near} over seeds 1-32 (DEV-034)");
+    assert!(
+        large <= chance_fits_allowed() && near <= chance_fits_allowed(),
+        "Large pools {large} and near-band pools {near} over seeds 1-32, more than {} of either (DEV-034 records the \
+         gap: at most a chance fit or two): the owner's direction \"three sizes, large near the tree\" may have \
+         started being delivered; measure, then restore tests 4 and 5 to their full form and update the DEV-034 row",
+        chance_fits_allowed()
     );
+}
+
+/// The Large pools, and the near-band pools, a set of 32 maps may hold by chance while the direction is not delivered:
+/// 0 after P-MAPGEN-SIG-SCALE-4, 1 after P-MAPGEN-SIG-HOLY-1, and 2 of 96 maps before either. Thirty-two maps with the
+/// direction delivered would hold dozens.
+fn chance_fits_allowed() -> usize {
+    2
 }
 
 // --------------------------------------------------------------------------------------------------------------------
