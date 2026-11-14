@@ -1,14 +1,15 @@
 //! P-LAND-FIRE-1: the Fire styler's end-of-attempt guarantees (`style_zones::guarantees(Zone::Fire)`), run by the
 //! pipeline on the finished map of a signature attempt with the Fire frame (`pipeline::Refusal::Guarantee`).
 //!
-//! Owner direction (`docs/coordination/LAND_GENERATION_REQUIREMENTS.md` section 3): "Craters keep clear of all three
-//! streams. Every Fire camp keeps its crater; size falls with distance and none is dropped." The styler fits each crater
-//! (`craters.rs` `place_craters`: the band's option, then each smaller one, down to `radius_min4`); these two rules are
-//! the net, in this order:
-//! - `"crater-per-camp"`: every Fire camp of the map has its crater (a `Crater` feature of zone Fire anchored on the
-//!   camp's tile), and every Fire crater stands on a Fire camp; none is dropped;
+//! Owner direction (`docs/coordination/LAND_GENERATION_REQUIREMENTS.md` section 3) as decided 2026-11-14: "Craters keep
+//! clear of all three streams", with the gentler rule for the camps: a camp's crater takes its band's option, then each
+//! smaller allowed one (`craters.rs` `place_craters`, down to `radius_min4`), and a camp no size fits goes without (a
+//! measured gap of about 1 camp in 20). So "every Fire camp has a crater" is NOT a guarantee and no attempt is refused
+//! for a missing crater. The two rules, in this order:
 //! - `"crater-clear-of-lava"`: no stream or pool lava (`stream_lava`: the frame's lava outside the cone's box) lies
-//!   inside a Fire crater's disc, and no tile a Fire crater owns lies within `lava_clearance()` tiles (Chebyshev) of it.
+//!   inside a Fire crater's disc, and no tile a Fire crater owns lies within `lava_clearance()` tiles (Chebyshev) of it;
+//! - `"crater-on-camp"`: every Fire crater (a `Crater` feature of zone Fire) is anchored on a Fire camp's tile; a camp
+//!   without a crater passes.
 //!
 //! Both read the finished map and the frame only. Pure: no draw, no hashing, nothing written.
 use crate::constants::TILE;
@@ -23,12 +24,12 @@ use crate::mapgen::style_zones::Guarantee;
 pub fn guarantees() -> &'static [Guarantee] {
     &[
         Guarantee {
-            rule: "crater-per-camp",
-            check: crater_per_camp,
-        },
-        Guarantee {
             rule: "crater-clear-of-lava",
             check: crater_clear_of_lava,
+        },
+        Guarantee {
+            rule: "crater-on-camp",
+            check: crater_on_camp,
         },
     ]
 }
@@ -73,20 +74,18 @@ fn is_fire_crater(m: &GameMapData, k: usize) -> bool {
         .is_some_and(|f| f.kind == FeatureKind::Crater && f.zone == Zone::Fire)
 }
 
-/// `"crater-per-camp"`: every Fire camp's tile (its world position over `TILE`, floored) anchors a Fire crater, and
-/// every Fire crater's anchor is a Fire camp's tile.
-fn crater_per_camp(m: &GameMapData, _: &LandmarkFrame) -> bool {
+/// `"crater-on-camp"`: every Fire crater's anchor is the tile (world position over `TILE`, floored) of a Fire camp. A
+/// Fire camp with no crater passes (the measured gap, owner decision 2026-11-14).
+fn crater_on_camp(m: &GameMapData, _: &LandmarkFrame) -> bool {
     let camps: Vec<(i32, i32)> = m
         .camps
         .iter()
         .filter(|c| c.zone == Zone::Fire)
         .map(|c| ((c.x / TILE).floor() as i32, (c.y / TILE).floor() as i32))
         .collect();
-    let craters: Vec<(i32, i32)> = (0..m.features.len())
+    (0..m.features.len())
         .filter(|&k| is_fire_crater(m, k))
-        .map(|k| (m.features[k].ax, m.features[k].ay))
-        .collect();
-    camps.iter().all(|t| craters.contains(t)) && craters.iter().all(|t| camps.contains(t))
+        .all(|k| camps.contains(&(m.features[k].ax, m.features[k].ay)))
 }
 
 /// `"crater-clear-of-lava"`: no stream or pool lava in a Fire crater's disc, and no Fire crater tile within
@@ -262,42 +261,49 @@ mod tests {
     #[test]
     fn the_rules_are_registered_in_order_and_the_clearance_is_the_apron() {
         let names: Vec<_> = guarantees().iter().map(|g| g.rule).collect();
-        assert_eq!(names, ["crater-per-camp", "crater-clear-of-lava"]);
+        assert_eq!(names, ["crater-clear-of-lava", "crater-on-camp"]);
         assert_eq!(lava_clearance(), 2);
     }
 
     #[test]
-    fn every_fire_camp_needs_its_crater_and_every_crater_a_camp() {
+    fn every_fire_crater_needs_a_camp_but_a_camp_needs_no_crater() {
         let f = frame(&[]);
         let mut m = map();
-        assert!(check("crater-per-camp", &m, &f), "no camps, no craters");
+        assert!(check("crater-on-camp", &m, &f), "no camps, no craters");
         camp(&mut m, Zone::Fire, 10, 12);
         camp(&mut m, Zone::Frost, 30, 30);
         assert!(
-            !check("crater-per-camp", &m, &f),
-            "the Fire camp has no crater"
+            check("crater-on-camp", &m, &f),
+            "the Fire camp has no crater: not refused"
         );
-        feature(&mut m, FeatureKind::Crater, Zone::Frost, (10, 12), 20);
-        feature(&mut m, FeatureKind::Barrow, Zone::Fire, (10, 12), 20);
+        feature(&mut m, FeatureKind::Crater, Zone::Frost, (10, 11), 20);
+        feature(&mut m, FeatureKind::Barrow, Zone::Fire, (10, 11), 20);
         assert!(
-            !check("crater-per-camp", &m, &f),
-            "a Frost crater or a Fire barrow is not its crater"
+            check("crater-on-camp", &m, &f),
+            "a Frost crater or a Fire barrow is not a Fire crater: ignored"
         );
         let mut stray = m.clone();
         feature(&mut stray, FeatureKind::Crater, Zone::Fire, (10, 11), 20);
         assert!(
-            !check("crater-per-camp", &stray, &f),
+            !check("crater-on-camp", &stray, &f),
             "one tile off the camp"
         );
         feature(&mut stray, FeatureKind::Crater, Zone::Fire, (10, 12), 20);
         assert!(
-            !check("crater-per-camp", &stray, &f),
+            !check("crater-on-camp", &stray, &f),
             "the stray crater stands on no Fire camp"
         );
         feature(&mut m, FeatureKind::Crater, Zone::Fire, (10, 12), 20);
         assert!(
-            check("crater-per-camp", &m, &f),
-            "the Fire camp has its crater; the Frost camp needs none"
+            check("crater-on-camp", &m, &f),
+            "the Fire camp has its crater"
+        );
+        let mut frost = map();
+        camp(&mut frost, Zone::Frost, 10, 12);
+        feature(&mut frost, FeatureKind::Crater, Zone::Fire, (10, 12), 20);
+        assert!(
+            !check("crater-on-camp", &frost, &f),
+            "a Frost camp is not a Fire camp"
         );
     }
 

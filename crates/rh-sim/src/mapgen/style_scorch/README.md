@@ -11,13 +11,14 @@ The shared-seam proposal extracts the existing Forge `radius4` and radial `Frame
 With the Fire frame (`pipeline::Options::signature`) the lava river is not drawn (the volcano's three streams replace
 it) and each camp's crater size comes from its band round the volcano (`craters.rs` `camp_band`): near the largest
 radius option, mid the second, far the smallest, core any that keeps out of the core. Owner rule: "Craters keep clear
-of all three streams. Every Fire camp keeps its crater; size falls with distance and none is dropped." So the band's
-option is tried first, then each smaller option down to `radius_min4` (never a larger one); an option whose disc
+of all three streams", with the gentler rule decided 2026-11-14 for the camps (not every camp keeps its crater). So the
+band's option is tried first, then each smaller option down to `radius_min4` (never a larger one); an option whose disc
 (16 * d^2 < r4^2 round the camp tile) holds stream or pool lava is skipped, and so is one the rim, route-stretch, core
-or pen-share checks refuse. A camp no option fits has no crater, and the attempt is refused by the guarantees in
-`guarantees.rs` (`style_zones::guarantees(Zone::Fire)`, run by the pipeline on the finished map):
-`"crater-per-camp"` and `"crater-clear-of-lava"` (no stream or pool lava in a crater's disc, no crater tile within
-`lava_clearance()` = 2 tiles of it). Stream and pool lava is read from the frame (`guarantees::stream_lava`: cells
+or pen-share checks refuse. A camp no option fits goes without a crater, and no attempt is refused for it: a measured gap of about 1 Fire camp in
+20 (32 of 640 on seeds 1-64, worst map 2; owner decision 2026-11-14; causes: lava in every allowed disc, rim too
+short). The guarantees in `guarantees.rs` (`style_zones::guarantees(Zone::Fire)`, run by the pipeline on the finished
+map) are, in order, `"crater-clear-of-lava"` (no stream or pool lava in a crater's disc, no crater tile within
+`lava_clearance()` = 2 tiles of it) and `"crater-on-camp"` (every Fire crater stands on a Fire camp). Stream and pool lava is read from the frame (`guarantees::stream_lava`: cells
 written LOW with the lava terrain outside the cone's box), one definition for the styler and the guarantees. No draw:
 trying more options reads hash noise only. Option off (no frame) is untouched.
 

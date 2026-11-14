@@ -96,13 +96,14 @@ impl Callbacks<'_> {
     /// One crater per camp, centred on it (a pen). Without a Fire anchor every crater is drawn and placed as before
     /// (G8). With one (signature mode) the camp's band round the volcano (`camp_band`) chooses the size among its radius
     /// options: near the largest, mid the second (the smallest when there is one), far the smallest; a core-band camp
-    /// takes the largest option that keeps every tile out of the core. P-LAND-FIRE-1 (owner: "every Fire camp keeps
-    /// its crater; size falls with distance and none is dropped"; "craters keep clear of all three streams"): when the
+    /// takes the largest option that keeps every tile out of the core. P-LAND-FIRE-1 (owner: "craters keep clear of all
+    /// three streams"; the gentler camp rule of 2026-11-14): when the
     /// band's option is refused (route stretch, rim, core, the runtime's pen share) or its disc holds stream or pool
     /// lava, each smaller option is tried in turn, never a larger one and never one under `radius_min4`; a size whose
     /// breached rim is too short or stretches a route is tried again as a bare ring (`crater`'s `bare`) before the next
     /// smaller size. A camp that no
-    /// option fits has no crater, and the attempt is refused by the `"crater-per-camp"` guarantee (`guarantees.rs`).
+    /// option fits goes without a crater and no attempt is refused for it (the measured gap, owner decision
+    /// 2026-11-14; `guarantees.rs` checks only clearance of lava and that each crater stands on a camp).
     /// No draw: the raster reads hash noise only, and a refused pen's tiles are rolled back.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn place_craters(
