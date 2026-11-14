@@ -23,7 +23,8 @@
 //!   A camp may have no crater (the route and rim checks refuse it, as legacy allows); the count floor bounds that.
 //!   P-LAND-FIRE-1 (owner direction, `LAND_GENERATION_REQUIREMENTS.md` section 3: every Fire camp keeps its crater,
 //!   craters keep clear of the streams): a crater may take a smaller option than its band's, never a larger one
-//!   (`mapgen_land_fire.rs` pins that every camp has one and how few shrink).
+//!   (`mapgen_land_fire.rs` pins how few shrink, and, by the owner's decision of 2026-11-14, the measured gap of
+//!   camps left without one: about 1 in 20).
 //! * crater size (for the means): the crater feature's tile count (`MapFeature::tiles`).
 //! * a stream's lava: the lava tiles (tile 2, terrain 1) its feature owns. A stream is two tiles wide when, over its own
 //!   lava: (a) no tile is a neck: a tile whose run of stream lava along one axis is 1 while its run along the other
