@@ -1,4 +1,5 @@
 """No host, SDK, shell, package, network, or installer execution."""
+import base64
 import datetime as dt
 import hashlib
 import io
@@ -335,6 +336,40 @@ class LaunchFlags(unittest.TestCase):
         readme = Path(__file__).with_name('README.md').read_text()
         for word in ('map_pool', 'signature_landmarks', 'lobby_timing'):
             self.assertIn(word, readme)
+
+class BotBrainSetting(unittest.TestCase):
+    def test_full_adds_exactly_the_flag_on_source_only(self):
+        c = dict(C, bot_brain='full')
+        config(json.dumps(c), NOW)
+        self.assertEqual(app_unit(c, False), GOLDEN_SOURCE_UNIT.replace(' --database-url', ' --bot-brain full --database-url', 1))
+        self.assertEqual(app_unit(c, True), GOLDEN_TRAINING_UNIT)
+
+    def test_off_and_absent_are_byte_identical(self):
+        c = dict(C, bot_brain='off')
+        config(json.dumps(c), NOW)
+        self.assertEqual(app_unit(c, False), GOLDEN_SOURCE_UNIT)
+        self.assertEqual(app_unit(c, True), GOLDEN_TRAINING_UNIT)
+        self.assertEqual(app_unit(C, False), GOLDEN_SOURCE_UNIT)
+
+    def test_other_values_are_refused(self):
+        for value in ('on', True, 1, '', None, 'Full'):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'bot_brain'):
+                config(json.dumps(dict(C, bot_brain=value)), NOW)
+
+    def test_all_settings_together_and_user_data(self):
+        c = dict(C, map_pool=True, signature_landmarks=True, lobby_timing='legacy', bot_brain='full')
+        config(json.dumps(c), NOW)
+        line = exec_line(c, False)
+        self.assertIn(' --map-pool --signature-landmarks --bot-brain full ', line)
+        live = dict(c, expires_at=(dt.datetime.now(dt.timezone.utc)+dt.timedelta(hours=11)).strftime('%Y-%m-%dT%H:%M:%SZ'))
+        data = render(json.dumps(live).encode(), b'x')
+        encoded = re.search(r"printf '%s' '([A-Za-z0-9+/=]+)' \| base64 --decode > /etc/rougehalla-demo.json", data).group(1)
+        self.assertEqual(json.loads(base64.b64decode(encoded))['bot_brain'], 'full')
+
+    def test_example_and_readme_document_it(self):
+        example = json.loads(Path(__file__).with_name('config.example.json').read_text())
+        self.assertEqual(example.get('bot_brain'), 'off')
+        self.assertIn('bot_brain', Path(__file__).with_name('README.md').read_text())
 
 
 if __name__ == '__main__':
