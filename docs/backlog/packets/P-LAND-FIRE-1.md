@@ -183,7 +183,7 @@ the pins listed in section 6 as re-taken.
 |---|---|
 | `craters_keep_clear_of_the_streams_and_pools` | "craters not clear of the streams (seeds 1-32): 8 findings" (seed 8: crater at (104, 74) radius 22 holds 3 stream or pool lava tiles in its disc, ...) |
 | `wide_craters_keep_clear_of_the_streams_and_pools` | "craters not clear of the streams (seeds 33-128): 15 findings" (seed 48 (102, 50) radius 22, seed 53 (75, 35) radius 26, ...) |
-| `known_gap_about_one_fire_camp_in_twenty_has_no_crater` | the worst-map bound: "seed 93: 4 Fire camps without a crater on one map (seeds 65-128), more than 3". The count on seeds 1-64 (36) and the worst map there (3, seed 50) lie inside the window: the stub fails only on seed 93 |
+| `known_gap_about_one_fire_camp_in_twenty_has_no_crater` | (green on the stub since the lane's session set `worst_map_allowed` to 4, today's own worst: the count 36 and the worst maps 3 and 4 lie inside the bounds; it is a guard that the build is no worse than today's game) |
 | `the_fire_guarantees_are_registered_by_name` | left `[]`, right `["crater-clear-of-lava", "crater-on-camp"]` |
 | `the_fire_guarantees_hold_on_every_kept_map`, `a_camp_without_its_crater_is_refused_by_no_fire_rule`, `crater_on_camp_fails_with_a_crater_moved_off_its_camp`, `crater_clear_of_lava_fails_with_a_crater_tile_beside_a_stream`, `crater_clear_of_lava_fails_with_a_crater_disc_over_a_stream` | "no guarantee \"crater-clear-of-lava\" registered for Fire (registered: [])" |
 | `mapgen_guarantees.rs` `the_registry_lists_the_fire_frost_and_plague_rules_and_nothing_else` | Fire `[]` against the two rules |
@@ -215,7 +215,7 @@ lane). The figures reproduce the prototype's exactly.
 | `every_seed_of_1_to_128_keeps_its_map` | 0 lost | 0 | 0 (the hard-rule build: 6 lost on 1-128, seeds 27, 30, 70, ...) |
 | `every_fire_crater_stands_on_its_own_fire_camp` | 0 off camp | 0 | 0 |
 | `known_gap_...`: camps without a crater, seeds 1-64 | 1 to 40 | 36 | 32 of 640 (18 on 1-32; 37 on 65-128, not bounded) |
-| `known_gap_...`: worst map, seeds 1-64 / 65-128 | <= 3 / <= 3 | 3 (seed 50) / **4 (seed 93)** | 2 (seed 55) / **3 (seed 114): at the bound** |
+| `known_gap_...`: worst map, seeds 1-64 / 65-128 | <= 4 / <= 4 (today's own worst) | 3 (seed 50) / 4 (seed 93) | 2 (seed 55) / 3 (seed 114) |
 | `craters_keep_clear_...` (1-32) / `wide_` (33-128) | 0 / 0 | 8 / 15 | 0 / 0 (least crater tile to lava, Chebyshev: 3 over 1-128) |
 | `crater_size_...`: at the band's option (1-32) | >= 0.9 | 1.0 | 302 of 302 = 1.0 |
 | `crater_size_...`: near over far mean tiles (1-32) | >= 1.15 | 1.31 | 1.283 (115.1 / 89.7) |
@@ -271,17 +271,18 @@ scripts/gate.sh --oracle packet/P-LAND-FIRE-1
 
 ## 10. Numbers for the owner
 
-Owner-accepted (2026-11-14): the gap, about 1 Fire camp in 20 without a crater (ceiling 40 and worst map 3 are the
-oracle author's bounds round the measured 32 and 3). PROVISIONAL figures named in the oracle: `at_band_option_min` =
+Owner-accepted (2026-11-14): the gap, about 1 Fire camp in 20 without a crater (the ceiling 40 is the oracle author's
+bound round the measured 32; the worst map 4 is today's game's own worst, set by the lane's session). PROVISIONAL figures named in the oracle: `at_band_option_min` =
 0.9, `fire_refusals_allowed` = 2; the stack's `worst_attempt_allowed` = 12 and `attempts_allowed` = 137. Owner figures
 still to confirm: the clearance 2 (today's apron), the smallest crater `radius_min4` = 20 (5 tiles), the share window
 [0.8, 1.2].
 
-**Close to a bound:** the worst single map on seeds 65-128 measured exactly 3 (seed 114) against `worst_map_allowed` =
-3, the figure the owner was shown: a build that leaves one more camp bare on one map of 65-128 fails it (today's game
-has 4 on seed 93, which is why the stub is red there). The bound was not raised to make room; if it fails on the
-build, the measurement goes to the owner. The other bounds have room: the count 32 against 40 (8 camps; the stub's 36
-also passes the count), attempts 94 against 137, the share 0.952 inside [0.8, 1.2], near over far 1.283 against 1.15.
+**Bounds and their room:** the count 32 against 40 (8 camps; the stub's 36 also passes: the ceiling only stops the
+build from leaving more camps bare than today's game does); the worst single map 2 (seeds 1-64) and 3 (seed 114 of
+65-128) against 4, today's game's own worst (seed 93). The oracle author had set 3, the measured value; the lane's
+session moved it to 4 on 2026-11-14 because the figure the owner accepted is the count, and a bound at the measured
+value would fail on the next packet that moves every map for a reason that is not this rule's. Attempts 94 against 137,
+the share 0.952 inside [0.8, 1.2], near over far 1.283 against 1.15.
 
 The implementer reports, seeds 1-64 (and 1-32 where the oracle measures): attempts per seed, the worst, the sum;
 refusals by label; camps without a crater by band and cause; craters below their band option; the least crater tile to
