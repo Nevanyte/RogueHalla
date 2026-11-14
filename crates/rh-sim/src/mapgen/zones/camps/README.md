@@ -38,10 +38,12 @@ Reach is compared with no collision mask, a WALL/LOW mask and direct empty typed
 `place_camps_reserving(&context, &mut rng_callback, &ZonePartition, &[Reserve])` (P-MAPGEN-SIG-RESERVE-1, the
 generator's signature option only; ADR 0028) is `place_camps` round reserved landmark sites: every candidate and every
 Lloyd pole whose halo meets a site is refused (`PoleSearch::halo_ok`, which `place_camps` sets to `CampContext::halo_ok`,
-so its draws are unchanged); a site's own camp (the church's and the cave's) is placed first in its zone as label 1,
-counts in the spacing of every later camp, seeds its territory label in every Lloyd step, never moves and is the zone's
-first elite, the second elite following the legacy rule against it. With the option off the Prefix calls `place_camps`
-and nothing here runs.
+so its draws are unchanged); a site's own camps (`Reserve::camps`: the church's or the cave's one, the Holy hall's two,
+P-MAPGEN-SIG-HOLY-1) are placed first in their zone as labels 1, 2, ..., count in the spacing of every later camp, seed
+their territory labels in every Lloyd step and never move. With `Reserve::elite` (the church, the cave) the first is
+the zone's first elite, the second elite following the legacy rule against it; without it (the hall) the zone's elites
+follow the legacy rule among all its camps. A site camp that is not a legal camp tile, or two of a site's camps closer
+than the camp gap, fail the round. With the option off the Prefix calls `place_camps` and nothing here runs.
 
 No I/O, clock, entropy, global mutable scratch, new dependency, legacy pin change or modification to parent foundations
 is introduced. Post-styler territory repair, spots, faction renumbering, stylers, full generator/certifier and map-pin

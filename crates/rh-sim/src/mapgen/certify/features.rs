@@ -483,3 +483,143 @@ fn fence(m: &GameMapData, z: u8, out: &mut Certificate) {
         }
     }
 }
+
+/// P-MAPGEN-SIG-HOLY-1: the drawn hall's `feature-whole` reading (owner decision 2026-11-14, 3), on doctored copies of
+/// one option-on map: the shrine alone is exempt.
+#[cfg(test)]
+mod hall_tests {
+    use crate::map::{TILE_FLOOR, TILE_WALL};
+    use crate::mapdata::{FeatureKind, GameMapData, TileRect};
+    use crate::mapgen::certify::{certify, Options, Strict};
+
+    fn whole_failures(m: &GameMapData) -> usize {
+        certify(
+            m,
+            &Options {
+                styled: true,
+                zone: true,
+                strict: Strict::All,
+            },
+        )
+        .expect("certified")
+        .failures
+        .iter()
+        .filter(|f| f.rule == "feature-whole")
+        .count()
+    }
+
+    /// Seed 1's first option-on map and the index of its one `Hall` (the drawn hall).
+    fn hall_map() -> (GameMapData, usize) {
+        let fixed = crate::mapgen::coliseum::fixed_layout();
+        let generator = crate::mapgen::pipeline::Pipeline::new(&fixed);
+        let options = crate::mapgen::pipeline::Options {
+            decor: false,
+            signature: true,
+            ..crate::mapgen::pipeline::Options::default()
+        };
+        let m = (0..16)
+            .find_map(|n| generator.styled_attempt(1, n, options).expect("generator"))
+            .expect("seed 1: an option-on map");
+        let k = m
+            .features
+            .iter()
+            .position(|f| f.kind == FeatureKind::Hall)
+            .expect("the hall");
+        (m, k)
+    }
+
+    /// The hall's wall tiles that belong to no 3 x 3 pier: the shrine (the tiles of 8-connected wall groups that are
+    /// not exactly 3 x 3).
+    fn shrine_tiles(m: &GameMapData, k: usize) -> Vec<usize> {
+        let w = m.w as usize;
+        let walls: Vec<usize> = (0..m.tiles.len())
+            .filter(|&i| usize::from(m.feature_grid[i]) == k + 1 && m.tiles[i] == TILE_WALL)
+            .collect();
+        let mut seen = vec![false; m.tiles.len()];
+        let mut out = Vec::new();
+        for &s in &walls {
+            if seen[s] {
+                continue;
+            }
+            seen[s] = true;
+            let (mut group, mut stack) = (Vec::new(), vec![s]);
+            while let Some(i) = stack.pop() {
+                group.push(i);
+                let (x, y) = ((i % w) as i32, (i / w) as i32);
+                for dy in -1..=1 {
+                    for dx in -1..=1 {
+                        let (nx, ny) = (x + dx, y + dy);
+                        if nx < 0 || ny < 0 || nx >= w as i32 || ny >= m.h as i32 {
+                            continue;
+                        }
+                        let j = ny as usize * w + nx as usize;
+                        if !seen[j] && walls.binary_search(&j).is_ok() {
+                            seen[j] = true;
+                            stack.push(j);
+                        }
+                    }
+                }
+            }
+            let xs = group.iter().map(|i| i % w);
+            let ys = group.iter().map(|i| i / w);
+            let span = |v: Vec<usize>| v.iter().max().unwrap() - v.iter().min().unwrap();
+            let square = group.len() == 9
+                && span(xs.collect()) == 2
+                && span(ys.collect()) == 2;
+            if !square {
+                out.extend(group);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn only_the_drawn_halls_one_shrine_is_exempt() {
+        let (m, k) = hall_map();
+        assert_eq!(whole_failures(&m), 0, "the drawn hall as built");
+        let shrine = shrine_tiles(&m, k);
+        assert_eq!(shrine.len(), 27, "the shrine's walls");
+        // No shrine: no group is exempt either (exactly one non-pier group is the rule).
+        let mut bare = m.clone();
+        for &i in &shrine {
+            bare.tiles[i] = TILE_FLOOR;
+            bare.feature_grid[i] = 0;
+        }
+        bare.features[k].tiles -= shrine.len() as u32;
+        assert_eq!(whole_failures(&bare), 1, "a hall without its shrine");
+        // A second non-pier group beside the shrine: a lone hall wall on open floor inside the box.
+        let w = m.w as usize;
+        let b = m.features[k].bbox;
+        let lone = (0..m.tiles.len()).find(|&i| {
+            let (x, y) = ((i % w) as i32, (i / w) as i32);
+            x > b.x
+                && y > b.y
+                && x < b.x + b.w as i32 - 1
+                && y < b.y + b.h as i32 - 1
+                && (-1..=1).all(|dy| {
+                    (-1..=1).all(|dx| {
+                        let j = ((y + dy) as usize) * w + (x + dx) as usize;
+                        m.tiles[j] == TILE_FLOOR && m.feature_grid[j] == 0
+                    })
+                })
+        });
+        let lone = lone.expect("an open floor tile in the hall's box");
+        let mut extra = m.clone();
+        extra.tiles[lone] = TILE_WALL;
+        extra.feature_grid[lone] = u8::try_from(k + 1).unwrap();
+        extra.features[k].tiles += 1;
+        assert_eq!(whole_failures(&extra), 1, "a second non-pier wall group");
+        // A hall whose box is not the Holy anchor's footprint gets no exemption: its shrine fails.
+        let mut moved = m.clone();
+        let a = moved
+            .anchors
+            .iter_mut()
+            .find(|a| a.kind == FeatureKind::Hall)
+            .expect("the Holy anchor");
+        a.footprint = TileRect {
+            x: a.footprint.x + 1,
+            ..a.footprint
+        };
+        assert_eq!(whole_failures(&moved), 1, "a hall off the anchor's footprint");
+    }
+}

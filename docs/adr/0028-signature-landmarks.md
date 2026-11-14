@@ -32,7 +32,7 @@ of them. On 2026-11-12 the owner set the order and rules that tie generation tog
 | G6 | **Seeded, local randomness.** Every choice is drawn from a stream of (map seed, attempt, zone, step). |
 | G7 | **Clusters and edges, not scatter.** |
 | G8 | **Legacy stays reachable.** With the option off the generator's output is byte-identical to today's. |
-| G9 | **A landmark is a fixed blueprint** (owner decision 2026-11-12, requirements L1-L6 in `docs/coordination/LAND_GENERATION_REQUIREMENTS.md`): one size and one layout per landmark, all five. Between maps only its place within its site rule, its rotation and its mirror vary. A site that cannot hold the blueprint discards the attempt; a landmark is never served smaller or with fewer parts (the volcano always has three streams). Built for the Frost cave (P-MAPGEN-SIG-SCALE-1, decision 11: `docs/landmarks/blueprints/cave.txt`), the Plague bog tree (P-MAPGEN-SIG-SCALE-3, decision 4: `docs/landmarks/blueprints/bog.txt`) and the Sentenced church (P-MAPGEN-SIG-SCALE-2, decision 5: `docs/landmarks/blueprints/church.txt`). Built for the Fire volcano with its three streams (P-MAPGEN-SIG-SCALE-4, decision 10: `docs/landmarks/blueprints/volcano.txt`). Not yet built: the Holy hall describes today's variable shape until P-MAPGEN-SIG-HOLY-1 lands. |
+| G9 | **A landmark is a fixed blueprint** (owner decision 2026-11-12, requirements L1-L6 in `docs/coordination/LAND_GENERATION_REQUIREMENTS.md`): one size and one layout per landmark, all five. Between maps only its place within its site rule, its rotation and its mirror vary. A site that cannot hold the blueprint discards the attempt; a landmark is never served smaller or with fewer parts (the volcano always has three streams). Built for the Frost cave (P-MAPGEN-SIG-SCALE-1, decision 11: `docs/landmarks/blueprints/cave.txt`), the Plague bog tree (P-MAPGEN-SIG-SCALE-3, decision 4: `docs/landmarks/blueprints/bog.txt`) and the Sentenced church (P-MAPGEN-SIG-SCALE-2, decision 5: `docs/landmarks/blueprints/church.txt`). Built for the Fire volcano with its three streams (P-MAPGEN-SIG-SCALE-4, decision 10: `docs/landmarks/blueprints/volcano.txt`). Built for the Holy hall with its two camps (P-MAPGEN-SIG-HOLY-1, decision 13: `docs/landmarks/blueprints/hall.txt`): G9 holds for all five. |
 | G10 | **Every thematic obstacle is placed by a rule that reads the landmark** (its anchor, bands and front). No styler lays its obstacles as if the landmark were not there. Built for Fire's craters and Frost's first lake; the rest is the land-generation task (`P-LAND-*`). |
 
 ## Decision
@@ -121,7 +121,7 @@ of them. On 2026-11-12 the owner set the order and rules that tie generation tog
    is at the cave's mouth (decision 11), and the strict certifier (every zone) finds zero failures. The landmark-apron
    rule (P-MAPGEN-SIG-FROST-2) is symmetric: for every ordered pair of the five landmarks (the volcano, whose streams
    and pools count as its tiles while its apron is the cone's box grown by the core band; the church with its
-   graveyard; the bog tree; the cave; the Holy hall on the Holy anchor's footprint), no tile of one lies in the other's
+   graveyard; the bog tree; the cave; the Holy hall, decision 13), no tile of one lies in the other's
    boxes grown by the core band. At placement only the volcano and the bog tree keep out of the aprons marked before
    them (`Site::ground`); the church and the cave read no apron (`Site::wall` only; seed 46's cave stood in the
    volcano's apron), and no landmark keeps the earlier ones out of its own. The end-of-attempt discard is the rule for
@@ -131,8 +131,8 @@ of them. On 2026-11-12 the owner set the order and rules that tie generation tog
    every checkpoint and state hash); `MapExport::validate` carries them on `ValidatedMap` for the export, and the
    decoration bake reads them from the generator's map at pool-build time. Fire the volcano (centre the site's centre tile, a
    crater tile; footprint the blueprint's 22 x 22 box; the six outlets as entrance), Sentenced the church (centre the camp tile, the door as entrance), Plague the tree (centre the site's centre tile, footprint the blueprint's 29 x 29 box, the six
-   causeway openings as entrance), Holy
-   the largest `Hall` (written when the map is finished: the hall is placed by the Holy styler in step 3), Frost the
+   causeway openings as entrance), Holy the hall (centre the inner rect's centre tile, footprint the blueprint's
+   37 x 37 box, the nave's seven front tiles as entrance; decision 13), Frost the
    cave (centre the camp tile, footprint the blueprint's 29 x 29 box, the mouth as entrance). Not in the
    map hash (they restate hashed features). `rh-map/2` does not move: older readers refuse a document with anchors, which exists only inside an
    option-on server.
@@ -247,6 +247,29 @@ of them. On 2026-11-12 the owner set the order and rules that tie generation tog
    toward the coliseum (spread 27 against 30-32). The legacy landmark recipes treat every site tile as protected
    (`LandmarkStage::protect` itself is unchanged: the signature step reads it). The sites are generator working state
    only: not on `LayerData`, not exported, not hashed. Option off: the Prefix is `begin_attempt`'s, draw for draw.
+   Since P-MAPGEN-SIG-HOLY-1 the Holy zone reserves a fifth site (decision 13).
+13. **Holy, the hall** (`Hall`, job cover; P-MAPGEN-SIG-HOLY-1; owner decisions 2026-11-12, 2026-11-13 and
+   2026-11-14). The owner-approved blueprint (G9): `docs/landmarks/blueprints/hall.txt`, 37 x 37 tiles, an open
+   colonnade, mirror symmetric, carried byte-equal in the crate as `signature/hall.txt` (`Definition::hall_grid`): `#`
+   wall (32 piers of 3 x 3 and the shrine's 27 walls), `L` the shrine's 3 x 3 healing light (floor of the catalog's
+   `light` terrain), `E` the two camps on the nave's centre line, `D` the shrine's door, `*` six nave light marks (all
+   three named marks on plain floor). The fifth table entry, placed last by the generic stamp: `Placement::Centre` in
+   the inner rect of a Holy site of `Definition::hall_site_side` 41 (the hall plus the 2-tile apron), reserved in the
+   Prefix on the back-edge rule of Fire, Sentenced and Frost; front toward the coliseum; the entrance the nave's front
+   run (`EntranceRule::FrontRun(b'E')`); no doorway check; member kind `Hall`. The Holy site carries both camps
+   (`ReservedSite::camp` the back `E`, `extra` the front one, landed where the stamp will land them; the mirror draw
+   cannot move them, they stand on the mirror axis); both are fixed labels in camp placement, and the Holy elites are
+   legacy's rule among all ten Holy camps (`ReservedSite::elite` false; owner decision 2026-11-13). Every tile of the
+   Holy site takes the territory label of the nearer of its two camps (`relabel_sites`). The hall feature's params are
+   the legacy `Hall` row's (axis, pitch 6, radius 18, 32 piers, 0 bays). In signature mode the Holy styler places no
+   hall and no bay light (the legacy shrines keep theirs). Spawn points (owner decision 2026-11-14, 2) may stand on the
+   hall's open floor: the box is the keep mask, and the spawn pool keeps off the ring round the box, the hall's walls
+   and light and every tile within `Definition::shrine_clear` 3 of a light tile. The certifier's `feature-whole`
+   (owner decision 2026-11-14, 3): the hall that is the Holy anchor's (kind `Hall`, box = footprint) has exactly one wall
+   group that is not an exact 3 x 3 (the shrine); every other group is a pier; every other `Hall` keeps the rule that
+   all are piers. Draws: the Holy stream's one reservation draw per Prefix round, then the stamp's one mirror draw; no
+   other. Seeds 1-64 (optimised test build): every seed keeps a map; attempts 93 / 189 (seeds 1-32 / 1-64), worst
+   attempt index 11; 4.34 spawn-pool points per map on the hall's open floor; no hall camp is an elite.
 
 ## Measurements (seeds 1-16, `decor: false`, debug test build, macOS arm64)
 
@@ -313,9 +336,10 @@ seeds exceeds chance, and seeds beyond 128. No change made: total attempts still
 
 ## Consequences
 
-- The Holy hall is an anchor only after step 3. Moving it into the Landmarks phase means porting the hall's placement
-  out of the Holy styler (`style_sanctum`) into this step, publishing it to the styler (which then builds round it
-  instead of placing it), and re-pinning the option-on Holy layouts: a styler packet.
+- The Holy hall is placed in the Landmarks phase with the other four (decision 13). With its site taken out, the Holy
+  styler fills 0.006 of the rest of the zone's free ground (median, seeds 1-64; 0.004 with the option off and the
+  styler hall's box and apron taken out): its hall was its main fill. Whether Holy needs more of its own land is the
+  owner's call.
 - The Fire and Frost stylers arrange round their anchors; the others wait for `P-MAPGEN-SIG-STYLE-1`.
 - On a seed whose far Frost camp sits in a narrow strip of the zone (seeds 17 and 18 of 1-32) there is no room for a
   lake within reach of the mouth; such an attempt is discarded (P-MAPGEN-SIG-FROST-2) and the seed lands on a later

@@ -1870,4 +1870,174 @@ mod tests {
         assert!(!ctx.doors_intact(&m));
         assert!(!ctx.intact(&m));
     }
+
+    /// P-MAPGEN-SIG-HOLY-1: the Holy site's relabel gives each tile the nearer of its two camps, `camp` on a tie (the
+    /// tiles on the perpendicular bisector), and a camp of the site no longer counts as a stray.
+    #[test]
+    fn the_holy_relabel_takes_the_nearer_camp_and_the_back_one_on_a_tie() {
+        let camps = [camp(1, 5, 5), camp(5, 20, 10), camp(5, 20, 14)];
+        let mut holy = site(Zone::Holy, 18, 8, Some(camps[1].site));
+        holy.rect = TileRect {
+            x: 18,
+            y: 8,
+            w: 5,
+            h: 9,
+        };
+        holy.extra = vec![camps[2].site];
+        holy.elite = false;
+        assert_eq!(stray_camp(&holy, &camps, &[1, 2]), None);
+        assert_eq!(stray_camp(&holy, &camps, &[1]), Some(2));
+        let mut grid = vec![9u8; W * H];
+        relabel_sites(std::slice::from_ref(&holy), &camps, &mut grid);
+        for y in 8..17 {
+            for x in 18..23 {
+                // Row 12 is as far from both camps: the back camp (label 2) keeps it.
+                let want = if y <= 12 { 2 } else { 3 };
+                assert_eq!(grid[y * W + x], want, "({x}, {y})");
+            }
+        }
+        assert_eq!(grid[7 * W + 20], 9, "outside the site");
+    }
+
+    /// The finished map's Holy anchor comes from the hall's frame alone (`finish` reads no styler feature): one Holy
+    /// anchor, its entrance the seven nave tiles, and the map is intact.
+    #[test]
+    fn the_holy_anchor_is_the_frames_and_the_hall_is_intact() {
+        let fixed = crate::mapgen::coliseum::fixed_layout();
+        let ctx = SignatureContext::new(&fixed);
+        let m = signature_map();
+        let holy: Vec<&ZoneAnchor> = m.anchors.iter().filter(|a| a.zone == Zone::Holy).collect();
+        assert_eq!(holy.len(), 1);
+        assert_eq!(holy[0].kind, FeatureKind::Hall);
+        assert_eq!(holy[0].entrance.len(), 7);
+        assert!(ctx.doors_intact(&m));
+        assert!(ctx.intact(&m));
+    }
+
+    /// A hall wall turned to floor (still owned by the hall, no light) is not what the drawing wrote: not intact.
+    #[test]
+    fn a_hall_wall_turned_to_plain_floor_is_not_intact() {
+        let fixed = crate::mapgen::coliseum::fixed_layout();
+        let ctx = SignatureContext::new(&fixed);
+        let mut m = signature_map();
+        let k = m
+            .features
+            .iter()
+            .position(|f| f.kind == FeatureKind::Hall)
+            .expect("the hall");
+        let i = (0..m.tiles.len())
+            .find(|&i| usize::from(m.feature_grid[i]) == k + 1 && m.tiles[i] == TILE_WALL)
+            .expect("a hall wall");
+        m.tiles[i] = TILE_FLOOR;
+        assert!(!ctx.intact(&m));
+    }
+
+    /// The Hall's spawn mask (owner decision 2026-11-14, 2): the box is the keep mask; `near1` holds the ring round the
+    /// box, the written walls and light, and every tile within `shrine_clear` of a light tile, and nothing else of the
+    /// box (the open floor stays open to the spawn pool). The Hall's params are the legacy row's.
+    #[test]
+    fn the_hall_keeps_spawns_off_its_walls_and_clear_of_its_light_only() {
+        let fixed = crate::mapgen::coliseum::fixed_layout();
+        let ctx = SignatureContext::new(&fixed);
+        let context = crate::mapgen::attempt::AttemptContext::new(&fixed);
+        let frame = (0..8)
+            .find_map(|n| {
+                crate::mapgen::attempt::begin_attempt_signature(&context, 1, n, true)
+                    .expect("prefix input")
+            })
+            .expect("a prefix");
+        let mut stage = crate::mapgen::landmarks::stage::StageContext::new(&fixed)
+            .apply(&frame, &crate::mapgen::landmarks::recipes::Recipes::default())
+            .expect("stage input")
+            .expect("a stage");
+        stage.masks.near1.fill(0);
+        stage.masks.boxes.fill(0);
+        // A 9 x 9 box at (40, 40): a 3 x 3 pier in each corner and a 1 x 1 light in the middle.
+        let light = spec::light_code();
+        let mut cells = Vec::new();
+        for y in 40..49 {
+            for x in 40..49 {
+                let corner = (x < 43 || x > 45) && (y < 43 || y > 45);
+                if corner {
+                    cells.push((y * W + x, TILE_WALL, 0));
+                } else if (x, y) == (44, 44) {
+                    cells.push((y * W + x, TILE_FLOOR, light));
+                }
+            }
+        }
+        cells.sort_unstable_by_key(|c| c.0);
+        let piece = Piece {
+            kind: FeatureKind::Hall,
+            job: FeatureJob::Cover,
+            anchor: (44, 44),
+            cells: cells.clone(),
+        };
+        let mut terrain = vec![0u8; W * H];
+        let bbox = ctx.write(&mut stage, &mut terrain, Zone::Holy, &piece);
+        assert_eq!(bbox, TileRect { x: 40, y: 40, w: 9, h: 9 });
+        let (b, c) = (ctx.rules.bands[0] as usize, ctx.rules.shrine_clear as usize);
+        for y in 30..60usize {
+            for x in 30..60usize {
+                let i = y * W + x;
+                let inside = (40..49).contains(&x) && (40..49).contains(&y);
+                let ring = !inside && (40 - b..49 + b).contains(&x) && (40 - b..49 + b).contains(&y);
+                let written = cells.iter().any(|c| c.0 == i);
+                let near_light = x.abs_diff(44) <= c && y.abs_diff(44) <= c;
+                assert_eq!(stage.masks.boxes[i], u8::from(inside), "boxes ({x}, {y})");
+                assert_eq!(
+                    stage.masks.near1[i],
+                    u8::from(ring || written || near_light),
+                    "near1 ({x}, {y})"
+                );
+            }
+        }
+        let f = stage.state.features.last().expect("the hall feature");
+        assert_eq!(f.p[1..], [R.hall_pitch, 4, 4, 0]);
+        assert!((0..=1).contains(&f.p[0]));
+    }
+
+    /// P-MAPGEN-SIG-HOLY-1: the entrance check is a real check (`entrance_door`): a front run whose glyphs write
+    /// different things is refused; one that writes one thing is its door; no entrance, no door.
+    #[test]
+    fn an_entrance_whose_glyphs_write_different_things_is_refused() {
+        use blueprint::{EntranceRule, Glyph, Legend};
+        let g = |ch, write| Glyph {
+            ch,
+            write,
+            feature: None,
+            legality: Legality::Floor,
+            mark: ch == b'E',
+        };
+        let legend = Legend(vec![
+            g(b'.', Write::Nothing),
+            g(b'E', Write::Nothing),
+            g(b'o', Write::Floor(3)),
+            Glyph {
+                feature: Some(FeatureKind::Hall),
+                ..g(b'#', Write::Wall)
+            },
+        ]);
+        let mixed = Blueprint::parse("#E#\n.o.\n", &legend).expect("parses");
+        assert_eq!(entrance_door(&mixed, EntranceRule::FrontRun(b'E')), Err(()));
+        let plain = Blueprint::parse("#E#\n...\n", &legend).expect("parses");
+        assert_eq!(
+            entrance_door(&plain, EntranceRule::FrontRun(b'E')),
+            Ok(Some(Door {
+                write: None,
+                owner: None
+            }))
+        );
+        assert_eq!(entrance_door(&plain, EntranceRule::None), Ok(None));
+        // The shipped table: every entry keeps its drawing, the hall's door is the nave's plain floor.
+        let fixed = crate::mapgen::coliseum::fixed_layout();
+        let ctx = SignatureContext::new(&fixed);
+        assert!(ctx.landmarks.iter().all(|(_, bp)| bp.is_some()));
+        assert_eq!(
+            ctx.doors.iter().find(|(z, _)| *z == Zone::Holy).map(|d| d.1),
+            Some(Door {
+                write: None,
+                owner: None
+            })
+        );
+    }
 }

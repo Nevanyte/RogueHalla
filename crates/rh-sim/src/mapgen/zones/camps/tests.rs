@@ -351,3 +351,113 @@ fn hull_preserves_y_x_orientation_collinear_removal_and_empty_singletons() {
     assert_eq!(hull(&[161, 162, 163]), [161, 163]);
     assert_eq!(hull(&[161, 162, 321, 322]), [161, 321, 322, 162]);
 }
+/// One partition and today's camps on it (`place_camps`), the first seed from 1 on which both exist, and the stream
+/// state right after the partition (so the reserving placement draws from the same point).
+fn a_partition_and_its_camps(
+    zones: &ZoneContext<'_>,
+    context: &CampContext<'_, '_>,
+) -> (ZonePartition, CampLayout, Mulberry32) {
+    for seed in 1..64 {
+        let mut rng = Mulberry32::new(seed);
+        let Some(part) = super::super::partition_zones(zones, &mut || rng.next_f64()) else {
+            continue;
+        };
+        let after = rng.clone();
+        if let Some(layout) = place_camps(context, &mut || rng.next_f64(), &part) {
+            return (part, layout, after);
+        }
+    }
+    panic!("no partition with camps on seeds 1-63");
+}
+/// P-MAPGEN-SIG-HOLY-1: a site may pin several camps. Pinned camps keep their tiles, in order, as the zone's first labels
+/// (1, 2); with the site's `elite` the first is the zone's first elite, without it the zone's elites follow today's rule
+/// among all its camps (the farthest from the centre, then the farthest of the rest at least `elite_min_sep` from it);
+/// two pinned camps closer than the camp gap refuse the round.
+#[test]
+fn a_site_pins_two_camps_and_its_elite_flag_chooses_the_elite_rule() {
+    let fixed = crate::mapgen::coliseum::fixed_layout();
+    let zones = ZoneContext::new(&fixed);
+    let context = CampContext::new(&zones);
+    let d = &context.rules;
+    let (part, today, stream) = a_partition_and_its_camps(&zones, &context);
+    // Two of zone 1's own camps today: legal tiles, spaced at least the gap.
+    let pins: Vec<usize> = today
+        .camps
+        .iter()
+        .filter(|c| c.zone == 1)
+        .take(2)
+        .map(|c| c.site)
+        .collect();
+    let site = |camps: Vec<usize>, elite: bool| Reserve {
+        zone: 1,
+        x0: pins[0] % W,
+        y0: pins[0] / W,
+        x1: pins[0] % W,
+        y1: pins[0] / W,
+        camps,
+        elite,
+    };
+    let centre = CY as usize * W + CX as usize;
+    let mut placed = 0;
+    for elite in [false, true] {
+        let mut rng = stream.clone();
+        let Some(layout) = place_camps_reserving(
+            &context,
+            &mut || rng.next_f64(),
+            &part,
+            &[site(pins.clone(), elite)],
+        ) else {
+            continue;
+        };
+        placed += 1;
+        let zone1: Vec<&CampSite> = layout.camps.iter().filter(|c| c.zone == 1).collect();
+        assert_eq!(zone1.len(), d.camps_per_zone);
+        assert_eq!(
+            (zone1[0].site, zone1[1].site),
+            (pins[0], pins[1]),
+            "pinned, in order"
+        );
+        let elites: Vec<usize> = (0..zone1.len()).filter(|&k| zone1[k].elite).collect();
+        if elite {
+            assert!(zone1[0].elite, "the pinned elite camp is an elite");
+        } else {
+            let mut by_far: Vec<usize> = (0..zone1.len()).collect();
+            by_far.sort_by(|&a, &b| {
+                d2i(zone1[b].site, centre)
+                    .cmp(&d2i(zone1[a].site, centre))
+                    .then(a.cmp(&b))
+            });
+            let first = by_far[0];
+            let second = by_far[1..]
+                .iter()
+                .copied()
+                .find(|&c| {
+                    f64::from(d2i(zone1[c].site, zone1[first].site))
+                        >= d.elite_min_sep * d.elite_min_sep
+                })
+                .unwrap_or(by_far[1]);
+            let mut want = vec![first, second];
+            want.truncate(d.elites_per_zone);
+            want.sort_unstable();
+            assert_eq!(elites, want, "today's elite rule among all the zone's camps");
+        }
+    }
+    assert!(placed > 0, "no reserving placement succeeded");
+    // Two pinned camps, each a legal camp tile, closer than the camp gap.
+    let near = (0..N)
+        .find(|&t| {
+            context.halo_ok[t]
+                && t != pins[0]
+                && f64::from(d2i(t, pins[0])) < d.camp_gap * d.camp_gap
+        })
+        .expect("a legal tile near the first pin");
+    let mut rng = stream.clone();
+    let close = vec![pins[0], near];
+    assert!(place_camps_reserving(
+        &context,
+        &mut || rng.next_f64(),
+        &part,
+        &[site(close, false)]
+    )
+    .is_none());
+}

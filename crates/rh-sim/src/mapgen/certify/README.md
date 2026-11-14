@@ -16,7 +16,7 @@ The source inventory is 64 diagnostic labels: 46 main checks, 16 feature/piece c
 - Camp/elite counts and order, spacing, centre/chest/clearing/halo/spots, elite spot/pair selection, territory partition/connectivity/radius and exact area/radius records.
 - Spawn count/diversity, placement, pair/camp spacing, wall-separated close pairs, actual findPath route ratio and sampled hazard budget.
 - Region order and all derived views, outdoor poles, crate/ground constraints, building margins and reachability.
-- Feature tables, variants/jobs/anchors/boxes/counts/zones/order, landmark design/margin/halo clearance/doors/interior and building association; strict ownership, hazard ownership, physical class, overlap, sizes, jobs, whole gallows/piers, every kind's parameter grammar, small wall pieces and fence detour/run rules.
+- Feature tables, variants/jobs/anchors/boxes/counts/zones/order, landmark design/margin/halo clearance/doors/interior and building association; strict ownership, hazard ownership, physical class, overlap, sizes, jobs, whole gallows/piers (P-MAPGEN-SIG-HOLY-1: the drawn hall, the `Hall` whose box is the Holy anchor's footprint, has exactly one non-pier wall group, its shrine), every kind's parameter grammar, small wall pieces and fence detour/run rules.
 - Independent terrain T1–T11, unstyled emptiness, additional protected-place checks, ICE neighbors and zone-specific terrain/floor checks.
 
 Report-only ray profiles, engagement pairs, camp graphs, windows, footprints and sweep percentiles are intentionally not exposed by this hard-only API and never become failures. This is not a report-statistics port.

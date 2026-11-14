@@ -13,6 +13,8 @@ light bays, lit bays, raw planned floor, feature ID, route stretch/measurement c
 Shapes use the shared source-exact scan, then bounded worst-member corridor thinning, fallback,
 group placement and narrow `set_hall_pier_count` correction. Surface re-stamps the shared shrine
 and keeps bay lighting out of its cells. Props preserve source kind, order, hash salts and variants.
+In signature mode (the zone's landmark frame is the drawn hall, P-MAPGEN-SIG-HOLY-1, ADR 0028 decision 13) `shape`
+returns the empty plan: the styler places no hall, so no bay and no bay light; the legacy shrines keep their stamps.
 Continuation plans are checked before writes for invalid dimensions/indices, carriers and limits;
 they are internal callback state, not authenticated external gameplay inputs.
 
