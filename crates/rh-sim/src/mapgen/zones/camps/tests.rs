@@ -439,7 +439,10 @@ fn a_site_pins_two_camps_and_its_elite_flag_chooses_the_elite_rule() {
             let mut want = vec![first, second];
             want.truncate(d.elites_per_zone);
             want.sort_unstable();
-            assert_eq!(elites, want, "today's elite rule among all the zone's camps");
+            assert_eq!(
+                elites, want,
+                "today's elite rule among all the zone's camps"
+            );
         }
     }
     assert!(placed > 0, "no reserving placement succeeded");

@@ -292,9 +292,9 @@ pub(super) fn check(m: &GameMapData, out: &mut Certificate) {
             // the anchor's footprint) has exactly one wall group that is not a 3 x 3 pier, the shrine; every other group
             // is still an exact pier.
             let drawn_hall = f.kind == K::Hall
-                && m.anchors.iter().any(|a| {
-                    a.zone == f.zone && a.kind == K::Hall && a.footprint == f.bbox
-                });
+                && m.anchors
+                    .iter()
+                    .any(|a| a.zone == f.zone && a.kind == K::Hall && a.footprint == f.bbox);
             let good = if f.kind == K::Gallows {
                 sizes.len() == 1 && non_squares == 0
             } else if drawn_hall {
@@ -563,9 +563,7 @@ mod hall_tests {
             let xs = group.iter().map(|i| i % w);
             let ys = group.iter().map(|i| i / w);
             let span = |v: Vec<usize>| v.iter().max().unwrap() - v.iter().min().unwrap();
-            let square = group.len() == 9
-                && span(xs.collect()) == 2
-                && span(ys.collect()) == 2;
+            let square = group.len() == 9 && span(xs.collect()) == 2 && span(ys.collect()) == 2;
             if !square {
                 out.extend(group);
             }
@@ -620,6 +618,10 @@ mod hall_tests {
             x: a.footprint.x + 1,
             ..a.footprint
         };
-        assert_eq!(whole_failures(&moved), 1, "a hall off the anchor's footprint");
+        assert_eq!(
+            whole_failures(&moved),
+            1,
+            "a hall off the anchor's footprint"
+        );
     }
 }

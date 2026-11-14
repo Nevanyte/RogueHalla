@@ -1228,11 +1228,8 @@ impl<'f> SignatureContext<'f> {
     /// core band.
     fn aprons_apart(&self, map: &GameMapData) -> bool {
         // Each feature's landmark: its table entry (`spec::Spec::members`).
-        let landmark: Vec<Option<usize>> = map
-            .features
-            .iter()
-            .map(|f| self.entry_of(f.kind))
-            .collect();
+        let landmark: Vec<Option<usize>> =
+            map.features.iter().map(|f| self.entry_of(f.kind)).collect();
         let b = self.rules.bands[0];
         map.features.iter().enumerate().all(|(k, f)| {
             let Some(host) = landmark[k] else {
@@ -1341,10 +1338,7 @@ fn hall_camps(
         w: u32::try_from(side - 2 * b).ok()?,
         h: u32::try_from(side - 2 * b).ok()?,
     };
-    let t = (
-        inner.x + inner.w as i32 / 2,
-        inner.y + inner.h as i32 / 2,
-    );
+    let t = (inner.x + inner.w as i32 / 2, inner.y + inner.h as i32 / 2);
     let o = Orientation {
         front: axis(front(t.0, t.1)),
         mirrored: false,
@@ -1950,7 +1944,10 @@ mod tests {
             })
             .expect("a prefix");
         let mut stage = crate::mapgen::landmarks::stage::StageContext::new(&fixed)
-            .apply(&frame, &crate::mapgen::landmarks::recipes::Recipes::default())
+            .apply(
+                &frame,
+                &crate::mapgen::landmarks::recipes::Recipes::default(),
+            )
             .expect("stage input")
             .expect("a stage");
         stage.masks.near1.fill(0);
@@ -1977,13 +1974,22 @@ mod tests {
         };
         let mut terrain = vec![0u8; W * H];
         let bbox = ctx.write(&mut stage, &mut terrain, Zone::Holy, &piece);
-        assert_eq!(bbox, TileRect { x: 40, y: 40, w: 9, h: 9 });
+        assert_eq!(
+            bbox,
+            TileRect {
+                x: 40,
+                y: 40,
+                w: 9,
+                h: 9
+            }
+        );
         let (b, c) = (ctx.rules.bands[0] as usize, ctx.rules.shrine_clear as usize);
         for y in 30..60usize {
             for x in 30..60usize {
                 let i = y * W + x;
                 let inside = (40..49).contains(&x) && (40..49).contains(&y);
-                let ring = !inside && (40 - b..49 + b).contains(&x) && (40 - b..49 + b).contains(&y);
+                let ring =
+                    !inside && (40 - b..49 + b).contains(&x) && (40 - b..49 + b).contains(&y);
                 let written = cells.iter().any(|c| c.0 == i);
                 let near_light = x.abs_diff(44) <= c && y.abs_diff(44) <= c;
                 assert_eq!(stage.masks.boxes[i], u8::from(inside), "boxes ({x}, {y})");
@@ -2036,7 +2042,10 @@ mod tests {
         let ctx = SignatureContext::new(&fixed);
         assert!(ctx.landmarks.iter().all(|(_, bp)| bp.is_some()));
         assert_eq!(
-            ctx.doors.iter().find(|(z, _)| *z == Zone::Holy).map(|d| d.1),
+            ctx.doors
+                .iter()
+                .find(|(z, _)| *z == Zone::Holy)
+                .map(|d| d.1),
             Some(Door {
                 write: None,
                 owner: None

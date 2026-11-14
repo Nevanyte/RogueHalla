@@ -164,7 +164,9 @@ impl<'a> Callbacks<'a> {
         let b = c.base();
         // P-MAPGEN-SIG-HOLY-1: in signature mode the hall is the Landmarks phase's (the zone's frame, a `Hall`): the
         // styler places no hall, so no bay and no bay light. The legacy shrines keep their stamps (`surface`).
-        if b.landmark.is_some_and(|f| f.anchor.kind == FeatureKind::Hall) {
+        if b.landmark
+            .is_some_and(|f| f.anchor.kind == FeatureKind::Hall)
+        {
             return Ok(Plan::default());
         }
         let (w, h) = (b.w as i32, b.h as i32);
