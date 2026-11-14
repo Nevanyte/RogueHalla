@@ -542,7 +542,7 @@
     },
     {
       "path": "tools/card-runtime-fixtures/capture.mts",
-      "sha256": "3c6c419263018b9710f419e31708148b83f32af748b68fb856d2b794aef8359c"
+      "sha256": "e1a7d65a6d234910b63b9efdf52eb6e5ce5efd646af19b00006fb28b0699482c"
     },
     {
       "path": "tools/card-runtime-fixtures/capture.sh",
@@ -580,7 +580,7 @@
   "immutableReferences": [
     {
       "path": "parity/card-catalog/source.json",
-      "sha256": "e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3",
+      "sha256": "9e194b56fa5e435c6546440d3f22ba40d671dc79d259936f3db90d26ad1e96ca",
       "reuse": [
         "catalog/*",
         "eligibility/*",
@@ -635,23 +635,41 @@
   "acceptedProvenanceOverlay": {
     "path": "parity/card-catalog/source.json",
     "originalSha256": "d50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e",
-    "priorAcceptedEffectiveSha256": "2ddb8f85114ff6e8e70c2d70b8207ed3f32c71431845f3cce1007be494e39792",
-    "effectiveSha256": "e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3",
+    "priorAcceptedEffectiveSha256": "e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3",
+    "effectiveSha256": "9e194b56fa5e435c6546440d3f22ba40d671dc79d259936f3db90d26ad1e96ca",
     "acceptedChanges": [
       {
-        "leaf": "/protectedSha256/tools/protocol-js/check-vectors.mjs",
-        "from": "3c96f5b013d7ee647b4d4b67c762e5db5b38dc8fd7e669c7a4b139c9a0778a90",
-        "to": "1173a06fa8b2d0017367795f4a07c82bfe87285cbcc300df197aa5ee80aa47b3",
-        "evidence": "docs/evidence/browser-provenance14/{README.md,receipt.json,logs}"
+        "leaf": "/protectedSha256/tools/browser-proof/proof.mjs",
+        "from": "9d9a5f64a59ecc048653975f5b60fa9a74e71edffc983037c64aea96ac74d8a7",
+        "to": "1ddd14104f861e2afcdf2b9d95379d0927719ca5d87bf3b648c9694f5869459a",
+        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-14/README.md"
       },
       {
-        "leaf": "/protectedSha256/tools/browser-proof/proof.mjs",
-        "from": "6aea66795ed18edd941a4bc65c62070d6a6e2fce1b57cd98d0238db134fcfd66",
-        "to": "9d9a5f64a59ecc048653975f5b60fa9a74e71edffc983037c64aea96ac74d8a7",
-        "evidence": "docs/evidence/browser-provenance14/{README.md,receipt.json,logs}"
+        "leaf": "/protectedSha256/tools/pgtest/start.sh",
+        "from": "b448fe86d46d64bfcbe97f7c52bf6bd3da55b5c86219252fc3f1587fdfb72721",
+        "to": "0853f9192e73a40d95d6f37279f393e6c2ad6f9e35bbfad3f4adcf716475c2af",
+        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-14/README.md"
+      },
+      {
+        "leaf": "/protectedSha256/tools/pgtest/stop.sh",
+        "from": "87458c41c1ed06e3e755a6fbad5ef8013afbe7ac82d7d4977df81154505c9e81",
+        "to": "0971de3231e7e1c4442d8683760e98ed8b931ca32a5e4c6af27072c90b39317a",
+        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-14/README.md"
+      },
+      {
+        "leaf": "/protectedSha256/tools/protocol-js/check-first-playable.mjs",
+        "from": "ff675e15c7e3f3ce571a81b0d922d516b2e8e3d9e708c8b6459bf0ce7e4ef654",
+        "to": "cfbbbace0546e1be670f39fa8c3f33c93eacf9393497862d3a71d67f2fa69e3a",
+        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-14/README.md"
+      },
+      {
+        "leaf": "/protectedSha256/tools/protocol-js/check-vectors.mjs",
+        "from": "1173a06fa8b2d0017367795f4a07c82bfe87285cbcc300df197aa5ee80aa47b3",
+        "to": "aebbcc177fb42dc39676c26b5bf64ec21b142c6230805f7eaf0328b82d547b2b",
+        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-14/README.md"
       }
     ],
-    "preservedPriorLineage": "catalog original d50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e -> accepted 9e76292b7ae74d305da2729a2ceba63965e64aa9fd670ab85568ae7909270507 -> accepted 2ddb8f85114ff6e8e70c2d70b8207ed3f32c71431845f3cce1007be494e39792 -> this effectiveSha256; earlier exact leaf transitions/receipts remain in docs/evidence/ci-card-catalog-protocol13 and docs/evidence/ci-browser-provenance-chain; this hop admits only the two listed current-to-final protected leaves",
+    "preservedPriorLineage": "catalog original d50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e -> accepted 9e76292b7ae74d305da2729a2ceba63965e64aa9fd670ab85568ae7909270507 -> accepted 2ddb8f85114ff6e8e70c2d70b8207ed3f32c71431845f3cce1007be494e39792 -> accepted e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3 -> this effectiveSha256; earlier exact leaf transitions/receipts remain in docs/evidence/ci-card-catalog-protocol13, docs/evidence/ci-browser-provenance-chain and docs/evidence/browser-provenance14; this hop admits only the five listed current-to-final protected leaves",
     "rejects": "any catalog hash other than effectiveSha256"
   }
 }

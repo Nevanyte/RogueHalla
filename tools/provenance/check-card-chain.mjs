@@ -18,27 +18,27 @@ const eq = (kind, path, expected, actual, detail) => { if (expected !== actual) 
 const need = (p) => { if (!existsSync(join(root, p))) { fail('missing-file', p, 'exists', 'missing'); return false; } return true; };
 
 const EXPECTED = {
-  catalogSource: 'e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3',
-  protocolVectors: '1173a06fa8b2d0017367795f4a07c82bfe87285cbcc300df197aa5ee80aa47b3',
-  browserProof: '9d9a5f64a59ecc048653975f5b60fa9a74e71edffc983037c64aea96ac74d8a7',
-  runtimeSource: 'f67417ff219039296852886e61aa9661ac535d2f5ce0126fa3f76f6a3a740337',
-  runtimeInput: 'b13c5605bdfc08b5264440ed03376cbb50c620ac6432afa1280cd777f2ddd931',
-  runtimeCaptureTool: '3c6c419263018b9710f419e31708148b83f32af748b68fb856d2b794aef8359c',
-  witnessSource: '744dbf747d13a32a13c1b7e2bfc992cfbe0c530c5a25fa3e6e7350cfdde2a569',
-  witnessInput: '1ae4dab1ce1b2dbdce6fe675178b1956624b035c9aa00b6bbe8291196461b700',
-  witnessCaptureTool: '6385d891b525524cf5f96a967a8c3afc6bd155e25ed84b0960d48aaee93f188b',
+  catalogSource: '9e194b56fa5e435c6546440d3f22ba40d671dc79d259936f3db90d26ad1e96ca',
+  protocolVectors: 'aebbcc177fb42dc39676c26b5bf64ec21b142c6230805f7eaf0328b82d547b2b',
+  browserProof: '1ddd14104f861e2afcdf2b9d95379d0927719ca5d87bf3b648c9694f5869459a',
+  runtimeSource: 'e6c71914af6c07c80573181b53ec6466c65f605ff3982ce53c4e77ba20c4f827',
+  runtimeInput: '4c67e83e8997c615b71cd54f3d3ea8648c274a0df377f90b6294864024ec16cf',
+  runtimeCaptureTool: 'e1a7d65a6d234910b63b9efdf52eb6e5ce5efd646af19b00006fb28b0699482c',
+  witnessSource: '783c6a573e92b6ae5f7a25b4d5198ddaa65a3692d32758cbf743ca0642ab327e',
+  witnessInput: 'e073f9c70a47fd33290946b0893feb678defcbad7619b934cdc5b2895e85547c',
+  witnessCaptureTool: '6b7a591084336945312213e22158b80ab6750e116be39afa816b3fbadd7854dd',
   frozenPins: '7ed1086915fafd5fa129669270d6d53090f4b81052660a18318df60cab8b3023',
   frozenSource: 'c2e5d1a071f3f7a05a6c3e8bf46fbdba8f0c7ae47d4de1aea8e62a1726ecd019',
   runtimeSourceOriginal: 'c2e5d1a071f3f7a05a6c3e8bf46fbdba8f0c7ae47d4de1aea8e62a1726ecd019',
-  runtimeSourcePrior: '9e357ed421c876de39c004236a83563116b390fc9d75043af24047dc952fe049',
+  runtimeSourcePrior: 'f67417ff219039296852886e61aa9661ac535d2f5ce0126fa3f76f6a3a740337',
   runtimeInputOriginal: '2ea71ac15addc60e406aebbb7defedf8492c135d0a787a15808b69e4bc34d39a',
-  runtimeInputPrior: '4dd8dff0f8474e7cc312b1a9588560fe06984e42bb878ee0dd40182bd32a968e',
+  runtimeInputPrior: 'b13c5605bdfc08b5264440ed03376cbb50c620ac6432afa1280cd777f2ddd931',
   toolOriginal: '24df22055a3c77b75e01b478d04a477a57690d7f71220916d0816551102fff9e',
-  toolPrior: '508e4ed7f473dcccea774fe769756e863bd531a3abe5dca682d5df7ddda87794',
+  toolPrior: '3c6c419263018b9710f419e31708148b83f32af748b68fb856d2b794aef8359c',
   docOriginal: 'd5d3c30632494c98fb96ce4ddad76da2e716322609ccca767e52b868ec16742d',
   docAccepted: 'd0fa1b753a7016e07c9bb3b3db4ae55ef483df176c343296c80e2c8756ba5ed8',
   catalogOriginal: 'd50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e',
-  catalogPrior: '2ddb8f85114ff6e8e70c2d70b8207ed3f32c71431845f3cce1007be494e39792',
+  catalogPrior: 'e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3',
 };
 const overlays = [
   { path: 'parity/card-runtime/source.json', original: EXPECTED.runtimeSourceOriginal, prior: EXPECTED.runtimeSourcePrior, effective: EXPECTED.runtimeSource },
@@ -94,11 +94,14 @@ if (need('parity/card-runtime/source.json')) {
     eq('runtime-overlay-original', 'provenance.acceptedProvenanceOverlay.originalSha256', EXPECTED.catalogOriginal, ov.originalSha256);
     eq('runtime-overlay-prior', 'provenance.acceptedProvenanceOverlay.priorAcceptedEffectiveSha256', EXPECTED.catalogPrior, ov.priorAcceptedEffectiveSha256);
     eq('runtime-overlay-effective', 'provenance.acceptedProvenanceOverlay.effectiveSha256', EXPECTED.catalogSource, ov.effectiveSha256);
-    eq('runtime-overlay-preserved-prior-lineage', 'provenance.acceptedProvenanceOverlay.preservedPriorLineage', 'catalog original d50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e -> accepted 9e76292b7ae74d305da2729a2ceba63965e64aa9fd670ab85568ae7909270507 -> accepted 2ddb8f85114ff6e8e70c2d70b8207ed3f32c71431845f3cce1007be494e39792 -> this effectiveSha256; earlier exact leaf transitions/receipts remain in docs/evidence/ci-card-catalog-protocol13 and docs/evidence/ci-browser-provenance-chain; this hop admits only the two listed current-to-final protected leaves', ov.preservedPriorLineage);
-    eq('runtime-overlay-leaf-count', 'provenance.acceptedProvenanceOverlay.acceptedChanges', 2, (ov.acceptedChanges ?? []).length);
+    eq('runtime-overlay-preserved-prior-lineage', 'provenance.acceptedProvenanceOverlay.preservedPriorLineage', 'catalog original d50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e -> accepted 9e76292b7ae74d305da2729a2ceba63965e64aa9fd670ab85568ae7909270507 -> accepted 2ddb8f85114ff6e8e70c2d70b8207ed3f32c71431845f3cce1007be494e39792 -> accepted e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3 -> this effectiveSha256; earlier exact leaf transitions/receipts remain in docs/evidence/ci-card-catalog-protocol13, docs/evidence/ci-browser-provenance-chain and docs/evidence/browser-provenance14; this hop admits only the five listed current-to-final protected leaves', ov.preservedPriorLineage);
+    eq('runtime-overlay-leaf-count', 'provenance.acceptedProvenanceOverlay.acceptedChanges', 5, (ov.acceptedChanges ?? []).length);
     const expectedLeaves = {
-      '/protectedSha256/tools/protocol-js/check-vectors.mjs': ['3c96f5b013d7ee647b4d4b67c762e5db5b38dc8fd7e669c7a4b139c9a0778a90', EXPECTED.protocolVectors],
-      '/protectedSha256/tools/browser-proof/proof.mjs': ['6aea66795ed18edd941a4bc65c62070d6a6e2fce1b57cd98d0238db134fcfd66', EXPECTED.browserProof],
+      '/protectedSha256/tools/browser-proof/proof.mjs': ['9d9a5f64a59ecc048653975f5b60fa9a74e71edffc983037c64aea96ac74d8a7', EXPECTED.browserProof],
+      '/protectedSha256/tools/pgtest/start.sh': ['b448fe86d46d64bfcbe97f7c52bf6bd3da55b5c86219252fc3f1587fdfb72721', '0853f9192e73a40d95d6f37279f393e6c2ad6f9e35bbfad3f4adcf716475c2af'],
+      '/protectedSha256/tools/pgtest/stop.sh': ['87458c41c1ed06e3e755a6fbad5ef8013afbe7ac82d7d4977df81154505c9e81', '0971de3231e7e1c4442d8683760e98ed8b931ca32a5e4c6af27072c90b39317a'],
+      '/protectedSha256/tools/protocol-js/check-first-playable.mjs': ['ff675e15c7e3f3ce571a81b0d922d516b2e8e3d9e708c8b6459bf0ce7e4ef654', 'cfbbbace0546e1be670f39fa8c3f33c93eacf9393497862d3a71d67f2fa69e3a'],
+      '/protectedSha256/tools/protocol-js/check-vectors.mjs': ['1173a06fa8b2d0017367795f4a07c82bfe87285cbcc300df197aa5ee80aa47b3', EXPECTED.protocolVectors],
     };
     for (const change of ov.acceptedChanges ?? []) {
       const want = expectedLeaves[change.leaf];
@@ -106,7 +109,7 @@ if (need('parity/card-runtime/source.json')) {
       else {
         eq('runtime-overlay-leaf-from', change.leaf + '.from', want[0], change.from);
         eq('runtime-overlay-leaf-to', change.leaf + '.to', want[1], change.to);
-        eq('runtime-overlay-leaf-evidence', change.leaf + '.evidence', 'docs/evidence/browser-provenance14/{README.md,receipt.json,logs}', change.evidence);
+        eq('runtime-overlay-leaf-evidence', change.leaf + '.evidence', 'docs/evidence/ci-provenance-refresh-2026-11-14/README.md', change.evidence);
       }
     }
     for (const p of (ov.acceptedChanges ?? []).map((c) => c.leaf)) delete expectedLeaves[p];
