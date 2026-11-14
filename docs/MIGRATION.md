@@ -68,6 +68,20 @@ died; re-run green). The pattern-kill hook is registered only in the named agent
 agent does not use. From now on process-driving work goes through the named implementer agents; queue Q27 asks the
 owner whether to register the hook in his own settings, the only place that covers every agent.
 
+**Owner, 2026-11-14 afternoon (chat): "Yes, Brain bots"** (queue Q26). The beta host's config sets `bot_brain:
+"full"`. Before he answered, the host's exact Source flags were run locally on `25b181101` with `--bot-brain full`,
+`--bot-learning single-writer` and a real Postgres (the combination had never been exercised): the server started,
+applied its migrations, took the learner's lease with no "learning disabled" line, held 20 Hz for seven minutes at
+about 4 percent of a core and 50 MB with one client and seven bots, ended the room when the client left and committed
+the result; the learner wrote `faction|` and `opener|` rows during the match. Not covered: a match ending by
+elimination or its own timer (so the Brain's end-of-match learning path), tick lateness (the host's flags open no
+control endpoint), the `[bots]` lines (merged after that build).
+
+**Relayed by the map generator session from its chat ("Yea to all 3", not confirmed here):** the gentler Fire crater
+rule with "about 1 camp in 20 without a crater" recorded as a measured gap (32 of 640 on seeds 1 to 64; the hard rule
+lost two seeds' maps); the Holy hall's spawn points on its open floor, 3 tiles clear of the shrine (without it 26 of
+64 seeds lose their map); the shrine's walls exempt from the 3 x 3 pier rule. Its packets follow the deploy.
+
 **Deploy readiness:** unchanged: the AWS sign-in is expired and Docker Desktop's engine does not answer (both the
 owner's); the DNS record is set by hand in Cloudflare.
 
