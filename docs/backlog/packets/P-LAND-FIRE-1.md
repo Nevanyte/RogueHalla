@@ -174,15 +174,16 @@ Not in scope: `landmarks/signature/**` (volcano, intact), the Prefix, `pipeline/
 
 ## 7. Acceptance checks
 
-All of `crates/rh-sim/tests/mapgen_land_fire.rs` (17 tests), the amended files below, and the whole rh-sim suite except
+All of `crates/rh-sim/tests/mapgen_land_fire.rs` (16 tests), the amended files below, and the whole rh-sim suite except
 the pins listed in section 6 as re-taken.
 
 ### Red on the stub (by assertion)
 
 | Test | Assertion on the stub |
 |---|---|
-| `craters_keep_clear_of_the_streams_and_pools` | STUB_CLEAR |
-| `wide_craters_keep_clear_of_the_streams_and_pools` | STUB_WIDE_CLEAR |
+| `craters_keep_clear_of_the_streams_and_pools` | "craters not clear of the streams (seeds 1-32): 8 findings" (seed 8: crater at (104, 74) radius 22 holds 3 stream or pool lava tiles in its disc, ...) |
+| `wide_craters_keep_clear_of_the_streams_and_pools` | "craters not clear of the streams (seeds 33-128): 15 findings" (seed 48 (102, 50) radius 22, seed 53 (75, 35) radius 26, ...) |
+| `known_gap_about_one_fire_camp_in_twenty_has_no_crater` | the worst-map bound: "seed 93: 4 Fire camps without a crater on one map (seeds 65-128), more than 3". The count on seeds 1-64 (36) and the worst map there (3, seed 50) lie inside the window: the stub fails only on seed 93 |
 | `the_fire_guarantees_are_registered_by_name` | left `[]`, right `["crater-clear-of-lava", "crater-on-camp"]` |
 | `the_fire_guarantees_hold_on_every_kept_map`, `a_camp_without_its_crater_is_refused_by_no_fire_rule`, `crater_on_camp_fails_with_a_crater_moved_off_its_camp`, `crater_clear_of_lava_fails_with_a_crater_tile_beside_a_stream`, `crater_clear_of_lava_fails_with_a_crater_disc_over_a_stream` | "no guarantee \"crater-clear-of-lava\" registered for Fire (registered: [])" |
 | `mapgen_guarantees.rs` `the_registry_lists_the_fire_frost_and_plague_rules_and_nothing_else` | Fire `[]` against the two rules |
@@ -190,26 +191,47 @@ the pins listed in section 6 as re-taken.
 
 ### Green on the stub: guards that must stay green
 
-`every_seed_of_1_to_128_keeps_its_map` (the hard-rule build fails it: seeds 27, 30, 70),
-`every_fire_crater_stands_on_its_own_fire_camp`, `known_gap_about_one_fire_camp_in_twenty_has_no_crater` (the stub's
-36 lies inside the owner's window by design: the pin bounds the build against today's game, it does not demand an
-improvement), `the_frames_lava_outside_the_cone_is_the_streams_and_pools`,
+`every_seed_of_1_to_128_keeps_its_map`, `every_fire_crater_stands_on_its_own_fire_camp`,
+`the_frames_lava_outside_the_cone_is_the_streams_and_pools`,
 `crater_size_falls_with_distance_and_shrinks_only_below_its_bands_option`,
 `crater_share_of_free_ground_stays_within_a_fifth_of_todays`, `the_volcano_keeps_its_three_streams_and_pools`,
 `the_attempt_bounds_hold_and_the_fire_guarantees_refuse_little`.
 
 ### Checked against the decided behaviour
 
-MEASURED_TABLE
+Run by the oracle author on the scratch branch `scratch/fire-soft-check` @ `7d38aa282` (local, never merged, never
+pushed): this packet's tests at `0fbd3657d` with `crates/rh-sim/src/mapgen/style_scorch/` and
+`style_zones/guarantee.rs` taken from `agent/opus/P-LAND-FIRE-1` @ `9f8e23e38`, and `guarantees()` changed to
+`crater-clear-of-lava` then `crater-on-camp` (the prototype's V1 `crater_on_camp`, verbatim). Command:
+`cargo test --no-fail-fast -p rh-sim --features trusted-status-probes --test mapgen_land_fire --test mapgen_guarantees
+--test mapgen_signature_fire_bands --test mapgen_signature_fire --test mapgen_signature_volcano` (opt-level 2, debug
+assertions on). All 16 tests of `mapgen_land_fire.rs` pass, and `mapgen_signature_fire_bands.rs`,
+`mapgen_signature_fire.rs`, `mapgen_signature_volcano.rs`; in `mapgen_guarantees.rs` the two amended tests pass and
+only `the_refusal_labels_of_seeds_1_to_32_are_todays_relabelled` is red (seed 30's labels: section 6, re-taken by the
+lane). The figures reproduce the prototype's exactly.
+
+| Test | Bound | Stub | Decided rule (V1) |
+|---|---|---|---|
+| `every_seed_of_1_to_128_keeps_its_map` | 0 lost | 0 | 0 (the hard-rule build: 6 lost on 1-128, seeds 27, 30, 70, ...) |
+| `every_fire_crater_stands_on_its_own_fire_camp` | 0 off camp | 0 | 0 |
+| `known_gap_...`: camps without a crater, seeds 1-64 | 1 to 40 | 36 | 32 of 640 (18 on 1-32; 37 on 65-128, not bounded) |
+| `known_gap_...`: worst map, seeds 1-64 / 65-128 | <= 3 / <= 3 | 3 (seed 50) / **4 (seed 93)** | 2 (seed 55) / **3 (seed 114): at the bound** |
+| `craters_keep_clear_...` (1-32) / `wide_` (33-128) | 0 / 0 | 8 / 15 | 0 / 0 (least crater tile to lava, Chebyshev: 3 over 1-128) |
+| `crater_size_...`: at the band's option (1-32) | >= 0.9 | 1.0 | 302 of 302 = 1.0 |
+| `crater_size_...`: near over far mean tiles (1-32) | >= 1.15 | 1.31 | 1.283 (115.1 / 89.7) |
+| `crater_share_...`: median on/off (1-32) | [0.8, 1.2] | 0.960 | 0.952 |
+| `the_attempt_bounds_...`: worst / sum / Fire refusals (1-32) | 12 / 137 / 2 | 9 / 89 / 0 | 9 / 94 / 0 (the hard-rule build: 139 attempts) |
+| `the_fire_guarantees_hold_on_every_kept_map` (1-128) | all pass | red (none registered) | pass on all 128, 59 of them with a bare camp |
+| the doctored-map tests (1-32) | >= 16 maps each | red (none registered) | pass, 32 maps each |
 
 ## Oracle files (read-only for implementers)
 
-- `crates/rh-sim/tests/mapgen_land_fire.rs` (`oracle:` `259596c3f`; amended by `oracle-amend:` AMEND_FIRE)
-- `crates/rh-sim/tests/mapgen_guarantees.rs` (`oracle-amend:` `f497c1a92`, then AMEND_GUAR)
-- `crates/rh-sim/tests/mapgen_signature_fire_bands.rs` (`oracle-amend:` `3d574d4c6`, then AMEND_BANDS (comment only))
+- `crates/rh-sim/tests/mapgen_land_fire.rs` (`oracle:` `259596c3f`; amended by `oracle-amend:` `b09360931`)
+- `crates/rh-sim/tests/mapgen_guarantees.rs` (`oracle-amend:` `f497c1a92`, then `fba4a6671`)
+- `crates/rh-sim/tests/mapgen_signature_fire_bands.rs` (`oracle-amend:` `3d574d4c6`, then `4a4c21d60` (comment only))
 - `docs/backlog/packets/P-LAND-FIRE-1.md` (this brief)
 - `docs/coordination/LAND_GENERATION_REQUIREMENTS.md` (section 3, Fire: the decision of 2026-11-14 added under the
-  owner's sentence)
+  owner's sentence; `oracle:` `b239f82a7`)
 
 Stub (the implementer replaces or edits; `stub:` commit `e5f3987da`): `style_scorch/guarantees.rs` (empty
 `guarantees()`, `lava_clearance()` = `bands[0]`; its header still names the old `crater-per-camp`: the implementer
@@ -256,8 +278,10 @@ still to confirm: the clearance 2 (today's apron), the smallest crater `radius_m
 [0.8, 1.2].
 
 **Close to a bound:** the worst single map on seeds 65-128 measured exactly 3 (seed 114) against `worst_map_allowed` =
-3: a build that leaves one more camp bare on that map fails it. The bound was not raised to make room; if it fails, the
-measurement goes to the owner.
+3, the figure the owner was shown: a build that leaves one more camp bare on one map of 65-128 fails it (today's game
+has 4 on seed 93, which is why the stub is red there). The bound was not raised to make room; if it fails on the
+build, the measurement goes to the owner. The other bounds have room: the count 32 against 40 (8 camps; the stub's 36
+also passes the count), attempts 94 against 137, the share 0.952 inside [0.8, 1.2], near over far 1.283 against 1.15.
 
 The implementer reports, seeds 1-64 (and 1-32 where the oracle measures): attempts per seed, the worst, the sum;
 refusals by label; camps without a crater by band and cause; craters below their band option; the least crater tile to
