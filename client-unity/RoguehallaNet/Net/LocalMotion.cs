@@ -243,6 +243,20 @@ namespace Roguehalla.Net
         }
 
         /// <summary>
+        /// P-FROST-WALL-PREDICT-1 (stub; the implementer replaces the body): the standing walls the client holds
+        /// (<c>Collections.Fields</c>, rows of kind <see cref="AreaKind.Wall"/>; other kinds ignored). Their tiles are LOW on
+        /// <see cref="WalkMap"/>, as the server's <c>barriers::body_map</c>; a wall that rises on the remaining walk re-plans it
+        /// as the server's <c>raise_wall</c> does. Called after every State message; the same wall set again changes nothing.
+        /// </summary>
+        public void SetWalls(System.Collections.Generic.IReadOnlyList<AreaView> fields) { }
+
+        /// <summary>
+        /// P-FROST-WALL-PREDICT-1 (stub): the map the walk mirror plans and steers on (the base map with every standing wall's
+        /// tiles LOW; the base map object itself when no wall stands). Keyboard steering reads it.
+        /// </summary>
+        public MapBlob WalkMap { get { return _map; } }
+
+        /// <summary>
         /// Records a move order and starts predicting the walk from the local model position (which is the accepted authoritative
         /// position whenever the walk is settled, so the plan root is where the server will apply the order). <paramref name="seq"/>
         /// 0 means the input was dropped and is ignored.
