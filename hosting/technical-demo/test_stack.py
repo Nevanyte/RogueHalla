@@ -88,13 +88,16 @@ class StackTests(unittest.TestCase):
     def test_encoded_gzip_larger_than_one_parameter_roundtrips_without_double_encoding(self):
         # Synthetic incompressible payload, not the bootstrap or an executed script.
         import random
-        raw = random.Random(84).randbytes(12000)
+        # 15000 incompressible bytes need the fifth chunk (added 2026-11-14 when the rendered script outgrew four):
+        # more than 16384 base64 characters, at most 20480, and under EC2's 16384 raw bytes of user data.
+        raw = random.Random(84).randbytes(15000)
         packed = gzip.compress(raw, mtime=0)
+        self.assertLessEqual(len(packed), 16384)
         encoded = base64.b64encode(packed).decode('ascii')
-        self.assertGreater(len(encoded), 4096)
-        self.assertLessEqual(len(encoded), 16384)
+        self.assertGreater(len(encoded), 16384)
+        self.assertLessEqual(len(encoded), 20480)
         chunks = [encoded[i:i + 4096] for i in range(0, len(encoded), 4096)]
-        chunks += [''] * (4 - len(chunks))
+        chunks += [''] * (5 - len(chunks))
         supplied = {'EncodedGzipUserData' + str(i + 1): v for i, v in enumerate(chunks)}
         join = TEMPLATE['Resources']['DemoHost']['Properties']['UserData']
         self.assertEqual(set(join), {'Fn::Join'})

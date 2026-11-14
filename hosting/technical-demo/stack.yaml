@@ -6,6 +6,8 @@ Description: Disposable Calgary technical demo; PREPARATION ONLY, Root approval 
 # Bootstrap currently does ONE get_object, not a missing-key wait; never race upload.
 # Split encoded bytes at multiples of 4, each <=4096 ASCII bytes; join does not
 # base64 again. Root must verify joined gzip <=16384B and exact decompressed script.
+# Five chunks (<=20480 base64 chars, <=15360 gzip bytes) since 2026-11-14: the rendered
+# script outgrew four (17744 chars); EC2's own limit is 16384 raw bytes of user data.
 # No secret values belong in UserData. This template cannot enforce the expiry
 # window or equality to embedded bootstrap config (including protocol/content
 # identity); Root must compare these values before launch.
@@ -62,6 +64,11 @@ Parameters:
     MaxLength: 4096
     AllowedPattern: '^[A-Za-z0-9+/=]*$'
   EncodedGzipUserData4:
+    Type: String
+    Default: ''
+    MaxLength: 4096
+    AllowedPattern: '^[A-Za-z0-9+/=]*$'
+  EncodedGzipUserData5:
     Type: String
     Default: ''
     MaxLength: 4096
@@ -179,7 +186,7 @@ Resources:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs: {VolumeSize: 8, VolumeType: gp3, Encrypted: true, DeleteOnTermination: true}
-      UserData: !Join ['', [!Ref EncodedGzipUserData1, !Ref EncodedGzipUserData2, !Ref EncodedGzipUserData3, !Ref EncodedGzipUserData4]]
+      UserData: !Join ['', [!Ref EncodedGzipUserData1, !Ref EncodedGzipUserData2, !Ref EncodedGzipUserData3, !Ref EncodedGzipUserData4, !Ref EncodedGzipUserData5]]
       Tags: [{Key: Project, Value: RoguehallaRun}, {Key: Purpose, Value: technical-demo}]
       PropagateTagsToVolumeOnCreation: true
   ExpiryRole:
