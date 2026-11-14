@@ -440,6 +440,9 @@ pub struct Room {
     /// The fill policy's spec per seated bot (tier/persona/faction), for the P-BOTS-5 record caller.
     bot_specs: Vec<(PlayerId, BotSeatSpec)>,
     reported_bots: std::collections::BTreeSet<u32>,
+    /// Brain seats whose fallback was logged (once each), and whether the match-start line was.
+    fallback_logged: std::collections::BTreeSet<PlayerId>,
+    brain_start_logged: bool,
     #[cfg(test)]
     log_sink: Vec<String>,
     fill_to: usize,
@@ -569,6 +572,8 @@ impl Room {
             bots: Vec::new(),
             bot_specs: Vec::new(),
             reported_bots: Default::default(),
+            fallback_logged: Default::default(),
+            brain_start_logged: false,
             #[cfg(test)]
             log_sink: Vec::new(),
             fill_to: if training { 0 } else { cfg.fill_bots_to },
@@ -1277,6 +1282,52 @@ impl Room {
         self.bot_lines.push((id, DelayLine::new()));
     }
 
+    /// Prints one `[bots]` line (and keeps it for tests).
+    fn bots_log(&mut self, line: String) {
+        eprintln!("{line}");
+        #[cfg(test)]
+        self.log_sink.push(line);
+    }
+
+    /// P-BOT-BRAIN-FAULT-LOG-1: a Brain seat's first fault logs one line (and counts); the steady path scans a handful of
+    /// seats and allocates nothing. Also the once-per-match line saying how many Brain seats the match started with.
+    fn log_brain_fallbacks(&mut self) {
+        if !self.brain_start_logged && self.sim.phase() == Phase::Active {
+            self.brain_start_logged = true;
+            let k = self.bots.iter().filter(|s| s.budget.is_some()).count();
+            if k > 0 {
+                let line = format!(
+                    "[bots] match={} fill bots: {k} brain",
+                    crate::control::room_id_hex(self.id)
+                );
+                self.bots_log(line);
+            }
+        }
+        for i in 0..self.bots.len() {
+            let seat = &self.bots[i];
+            let Some(fault) = seat.fault.as_ref().filter(|_| seat.budget.is_some()) else {
+                continue;
+            };
+            let player = seat.player();
+            if self.fallback_logged.contains(&player) {
+                continue;
+            }
+            let reason = fault_kind(fault);
+            self.fallback_logged.insert(player);
+            self.metrics.brain_fallbacks.fetch_add(1, Ordering::Relaxed);
+            let number = self
+                .bot_specs
+                .iter()
+                .find(|(id, _)| *id == player)
+                .map_or(0, |(_, spec)| spec.number);
+            let line = format!(
+                "[bots] match={} seat={number} brain fell back to the fallback bot: {reason}",
+                crate::control::room_id_hex(self.id)
+            );
+            self.bots_log(line);
+        }
+    }
+
     /// A bot took (`seated`) or gave up its seat: the director's public lobby listing (P-LOBBY-ACTIVITY-1) shows bot seats.
     fn report_bot(&self, name: &str, seated: bool) {
         let _ = self.reports.send(RoomReport::BotSeat {
@@ -1464,6 +1515,7 @@ impl Room {
             self.step_us.record(us);
             self.metrics.step_us.record(us);
             rh_policy::feed_seats(&self.sim, &mut self.bots);
+            self.log_brain_fallbacks();
             for h in &mut self.humans {
                 if h.outbox.is_none() {
                     h.fx.rebind(&self.sim, h.player);
@@ -1856,6 +1908,23 @@ fn guarded<T>(room: &mut Room, f: impl FnOnce(&mut Room) -> T) -> Option<T> {
             room.crashed();
             None
         }
+    }
+}
+
+/// The short kind of a seat fault, for the log (never the payload of an error).
+fn fault_kind(fault: &rh_policy::Fault) -> &'static str {
+    use rh_policy::Fault;
+    match fault {
+        Fault::Input(_) => "input refused",
+        Fault::Delivery(_) => "delivery error",
+        Fault::FxProjection(_) => "fx projection error",
+        Fault::ItemObservation(_) => "item observation error",
+        Fault::WorkerStopped => "worker stopped",
+        Fault::Panicked => "panicked",
+        Fault::OverBudget { .. } => "over budget",
+        Fault::Late { .. } => "late",
+        Fault::IncompatibleContract { .. } => "incompatible contract",
+        Fault::IncompatibleObservation { .. } => "incompatible observation",
     }
 }
 

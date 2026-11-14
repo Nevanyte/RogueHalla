@@ -208,6 +208,8 @@ pub struct Metrics {
     pub steps: Counter,
     /// Steps the pacer dropped (a backlog beyond the catch-up bound).
     pub dropped_steps: Counter,
+    /// Brain fill seats that fell back to the fallback bot (once per seat per match; P-BOT-BRAIN-FAULT-LOG-1).
+    pub brain_fallbacks: Counter,
     /// Bytes of every frame rooms encoded for their humans.
     pub bytes_out: Counter,
     /// Outbox pushes by rooms: one per human per tick that had any frame (`Outbox::push_tick`). Each push wakes the
@@ -256,6 +258,7 @@ impl Metrics {
             wakes: Counter::new(),
             steps: Counter::new(),
             dropped_steps: Counter::new(),
+            brain_fallbacks: Counter::new(),
             bytes_out: Counter::new(),
             outbox_pushes: Counter::new(),
             step_us: AtomicHistogram::new(),
@@ -335,6 +338,7 @@ impl Metrics {
             "wakes": n(&self.wakes),
             "steps": n(&self.steps),
             "droppedSteps": n(&self.dropped_steps),
+            "brainFallbacks": n(&self.brain_fallbacks),
             "bytesOut": n(&self.bytes_out),
             "outboxPushes": n(&self.outbox_pushes),
             "stepUs": self.step_us.json(),
