@@ -193,6 +193,10 @@ const FLOOR_SHARE: &str = "Repair(FloorShare)";
 /// fan moved every option-on attempt. 57 refusals over seeds 1-32 (89 attempts): `Signature` 18 (the Fire volcano's
 /// streams or floor split), `SpawnRatio` 14, `Prefix` 9, lake-at-mouth 6, `Repair(RadiusPost)` 5, `SignatureDiscarded`
 /// 2, `SpawnPool` 2, `Repair(FloorShare)` 1.
+///
+/// Re-pinned by P-LAND-FIRE-1 (2026-11-14) from its build with `print_pinned_labels`: only seed 30 moved (its map is
+/// attempt 9, was 4: the craters' new shapes change what repair and the later checks see). 62 refusals over seeds 1-32
+/// (94 attempts); no Fire guarantee refuses.
 fn pinned_labels() -> [(i64, &'static [&'static str]); 32] {
     [
         (1, &[LAKE]),
@@ -237,7 +241,20 @@ fn pinned_labels() -> [(i64, &'static [&'static str]); 32] {
         (27, &[]),
         (28, &[LAKE, SPAWN_POOL]),
         (29, &[SPAWN_RATIO]),
-        (30, &[RADIUS_POST, PREFIX, PREFIX, PREFIX]),
+        (
+            30,
+            &[
+                RADIUS_POST,
+                PREFIX,
+                PREFIX,
+                PREFIX,
+                FLOOR_SHARE,
+                SD,
+                SPAWN_POOL,
+                SPAWN_RATIO,
+                SIG,
+            ],
+        ),
         (31, &[SIG]),
         (32, &[]),
     ]
@@ -247,9 +264,11 @@ fn pinned_labels() -> [(i64, &'static [&'static str]); 32] {
 // The registry.
 // ---------------------------------------------------------------------------------------------------------------------
 
-/// Frost lists `lake-at-mouth`; Plague lists `pool-walks` then `pool-wet`; Fire, Sentenced and Holy list nothing yet.
+/// Frost lists `lake-at-mouth`; Plague lists `pool-walks` then `pool-wet`; Fire lists `crater-clear-of-lava` then
+/// `crater-on-camp` (P-LAND-FIRE-1, owner decision 2026-11-14: a Fire camp without a crater is no refusal);
+/// Sentenced and Holy list nothing yet.
 #[test]
-fn the_registry_lists_the_frost_and_plague_rules_and_nothing_else() {
+fn the_registry_lists_the_fire_frost_and_plague_rules_and_nothing_else() {
     let got: Vec<(Zone, Vec<&str>)> = [
         Zone::Fire,
         Zone::Sentenced,
@@ -263,7 +282,7 @@ fn the_registry_lists_the_frost_and_plague_rules_and_nothing_else() {
     assert_eq!(
         got,
         vec![
-            (Zone::Fire, vec![]),
+            (Zone::Fire, vec!["crater-clear-of-lava", "crater-on-camp"]),
             (Zone::Sentenced, vec![]),
             (Zone::Plague, vec!["pool-walks", "pool-wet"]),
             (Zone::Frost, vec!["lake-at-mouth"]),
@@ -277,7 +296,8 @@ fn the_registry_lists_the_frost_and_plague_rules_and_nothing_else() {
 // Each check, called directly.
 // ---------------------------------------------------------------------------------------------------------------------
 
-/// Every registered guarantee of every frame's zone holds on the kept map of each of seeds 1-32 (3 checks per map).
+/// Every registered guarantee of every frame's zone holds on the kept map of each of seeds 1-32 (5 checks per map since
+/// P-LAND-FIRE-1).
 #[test]
 fn every_guarantee_holds_on_every_kept_map_of_seeds_1_to_32() {
     let mut checked = 0;
@@ -297,8 +317,8 @@ fn every_guarantee_holds_on_every_kept_map_of_seeds_1_to_32() {
     }
     assert_eq!(
         checked,
-        32 * 3,
-        "lake-at-mouth, pool-walks and pool-wet on 32 maps"
+        32 * 5,
+        "lake-at-mouth, pool-walks, pool-wet, crater-clear-of-lava and crater-on-camp on 32 maps"
     );
 }
 
@@ -484,4 +504,27 @@ fn a_lake_failure_is_refused_after_records_as_the_frost_guarantee() {
         "seed {seed} attempt {n}: {:?}",
         got.as_ref().err()
     );
+}
+
+/// Prints `pinned_labels`' rows from this build, ready to paste, for a packet that moves option-on attempts (a re-pin):
+/// `cargo test -p rh-sim --features trusted-status-probes --test mapgen_guarantees print_pinned_labels -- --ignored
+/// --nocapture`. A label without a constant above stops it: add the constant first.
+#[test]
+#[ignore = "prints the pin table; run by hand for a re-pin"]
+fn print_pinned_labels() {
+    let name = |l: &str| match l {
+        SD => "SD",
+        LAKE => "LAKE",
+        SPAWN_RATIO => "SPAWN_RATIO",
+        PREFIX => "PREFIX",
+        RADIUS_POST => "RADIUS_POST",
+        SIG => "SIG",
+        SPAWN_POOL => "SPAWN_POOL",
+        FLOOR_SHARE => "FLOOR_SHARE",
+        other => panic!("no constant for the label {other}: add one"),
+    };
+    for r in runs() {
+        let row: Vec<&str> = r.refused.iter().map(|(l, _)| name(l)).collect();
+        println!("        ({}, &[{}]),", r.seed, row.join(", "));
+    }
 }

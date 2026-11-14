@@ -96,8 +96,15 @@ impl Callbacks<'_> {
     /// One crater per camp, centred on it (a pen). Without a Fire anchor every crater is drawn and placed as before
     /// (G8). With one (signature mode) the camp's band round the volcano (`camp_band`) chooses the size among its radius
     /// options: near the largest, mid the second (the smallest when there is one), far the smallest; a core-band camp
-    /// takes the largest option that keeps every tile out of the core. The camp has no crater when the route-stretch,
-    /// rim or core checks refuse its band's option (P-MAPGEN-SIG-FIRE-2).
+    /// takes the largest option that keeps every tile out of the core. P-LAND-FIRE-1 (owner: "craters keep clear of all
+    /// three streams"; the gentler camp rule of 2026-11-14): when the
+    /// band's option is refused (route stretch, rim, core, the runtime's pen share) or its disc holds stream or pool
+    /// lava, each smaller option is tried in turn, never a larger one and never one under `radius_min4`; a size whose
+    /// breached rim is too short or stretches a route is tried again as a bare ring (`crater`'s `bare`) before the next
+    /// smaller size. A camp that no
+    /// option fits goes without a crater and no attempt is refused for it (the measured gap, owner decision
+    /// 2026-11-14; `guarantees.rs` checks only clearance of lava and that each crater stands on a camp).
+    /// No draw: the raster reads hash noise only, and a refused pen's tiles are rolled back.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn place_craters(
         &self,
@@ -124,6 +131,11 @@ impl Callbacks<'_> {
         } else {
             Vec::new()
         };
+        // Signature mode: the volcano's stream and pool lava, read from the Fire frame (the guarantees' definition).
+        let stream_lava: Vec<(i32, i32)> = match c.base().landmark {
+            Some(frame) if anchor.is_some() => guarantees::stream_lava(frame, c.base().w).collect(),
+            _ => Vec::new(),
+        };
         for (k, camp) in mine.iter().enumerate() {
             let mut r4 = r4s[k];
             let mut candidates = vec![r4];
@@ -134,16 +146,20 @@ impl Callbacks<'_> {
             }
             if let Some(anchor) = anchor {
                 // Signature mode (P-MAPGEN-SIG-FIRE-2): the size comes from the camp's band, not legacy's freer share.
+                // P-LAND-FIRE-1: the band's option first, then each smaller one down to `radius_min4` (never a larger
+                // one), skipping any whose disc holds stream or pool lava; the first that is kept is the camp's crater.
                 let w = c.base().w as i32;
                 let tries: &[i32] = match camp_band(anchor, camp, r4) {
-                    Band::Core => &candidates,
-                    Band::Near => &candidates[..1],
-                    Band::Mid => &candidates[1.min(candidates.len() - 1)..][..1],
+                    Band::Core | Band::Near => &candidates,
+                    Band::Mid => &candidates[1.min(candidates.len() - 1)..],
                     Band::Far => &candidates[candidates.len() - 1..],
                 };
                 for &size in tries {
+                    if guarantees::disc_holds(&stream_lava, camp.x, camp.y, size) {
+                        continue;
+                    }
                     let mut trial = stretch;
-                    let Some((mut spec, dirs)) = self.crater(
+                    let mut found = self.crater(
                         c,
                         camp,
                         k,
@@ -152,8 +168,27 @@ impl Callbacks<'_> {
                         edges,
                         &bands,
                         has_members,
+                        false,
                         &mut trial,
-                    ) else {
+                    );
+                    if found.is_none() {
+                        // P-LAND-FIRE-1: the same size as a bare ring (its rim too short once breached toward the
+                        // neighbouring camps): only the frontier's breach and the route guard's crossing beams.
+                        trial = stretch;
+                        found = self.crater(
+                            c,
+                            camp,
+                            k,
+                            size,
+                            nodes,
+                            edges,
+                            &bands,
+                            has_members,
+                            true,
+                            &mut trial,
+                        );
+                    }
+                    let Some((mut spec, dirs)) = found else {
                         continue;
                     };
                     // The bowl claims no floor in a stream's or pool's apron (its rim already keeps out: `no_block`).
@@ -166,10 +201,10 @@ impl Callbacks<'_> {
                         .map(|b| b.0)
                         .chain(spec.floor.iter().flatten().copied())
                         .any(|i| signature::band(anchor, i % w, i / w) == Band::Core);
-                    if !core {
+                    // A pen the runtime refuses (too little of its rim stands) writes nothing: try the next size.
+                    if !core && self.commit(c, camp, size, dirs, &spec, plan)? {
                         stretch = trial;
                         r4s[k] = size;
-                        self.commit(c, camp, size, dirs, &spec, plan)?;
                         break;
                     }
                 }
@@ -196,6 +231,7 @@ impl Callbacks<'_> {
                 edges,
                 &bands,
                 has_members,
+                false,
                 &mut stretch,
             ) {
                 self.commit(c, camp, r4, dirs, &spec, plan)?;
@@ -242,21 +278,25 @@ impl Callbacks<'_> {
         dirs: Vec<usize>,
         spec: &FeatureSpec,
         plan: &mut Plan,
-    ) -> Result<(), Error> {
-        if let Some(placed) = c.place_feature(spec)? {
-            plan.craters.push(Crater {
-                camp: camp.index,
-                x: camp.x,
-                y: camp.y,
-                r4,
-                dirs,
-                rim: placed.written,
-            });
-        }
-        Ok(())
+    ) -> Result<bool, Error> {
+        let Some(placed) = c.place_feature(spec)? else {
+            return Ok(false);
+        };
+        plan.craters.push(Crater {
+            camp: camp.index,
+            x: camp.x,
+            y: camp.y,
+            r4,
+            dirs,
+            rim: placed.written,
+        });
+        Ok(true)
     }
     /// The crater of radius `r4` (quarter tiles) round `camp`, breached for its routes, or `None` when its rim is too
-    /// short or it stretches a route too far. `stretch` is the worst route stretch accepted so far.
+    /// short or it stretches a route too far. `stretch` is the worst route stretch accepted so far. A `bare` ring
+    /// (signature mode only, P-LAND-FIRE-1) starts with no breach toward the neighbouring camps: it keeps only the
+    /// crossing beams the route guard and the stretch check add, as any crater does, and on a frontier the one breach a
+    /// frontier crater falls back to when none of its own faces away from the frontier.
     #[allow(clippy::too_many_arguments)]
     fn crater(
         &self,
@@ -268,11 +308,16 @@ impl Callbacks<'_> {
         edges: &[kit::Edge],
         bands: &[Vec<i32>],
         has_members: bool,
+        bare: bool,
         stretch: &mut i64,
     ) -> Option<(FeatureSpec, Vec<usize>)> {
         let d = &self.definition.crater;
         let w = c.base().w;
-        let mut beams = breaches(k, nodes, edges, d);
+        let mut beams = if bare {
+            Vec::new()
+        } else {
+            breaches(k, nodes, edges, d)
+        };
         let (count, sx, sy) = raster::frontier(self, c, camp, r4);
         let mut frontier_dir = None;
         if count >= d.frontier_min && (sx != 0 || sy != 0) {

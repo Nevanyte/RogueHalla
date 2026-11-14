@@ -21,8 +21,9 @@ pub struct Guarantee {
 }
 
 /// The guarantees of `zone`'s styler, in the order they run: each styler's list, written beside it
-/// (`style_rime::guarantees`: `"lake-at-mouth"`; `style_warren::guarantees`: `"pool-walks"`, `"pool-wet"`); none yet
-/// for Fire, Sentenced and Holy.
+/// (`style_rime::guarantees`: `"lake-at-mouth"`; `style_warren::guarantees`: `"pool-walks"`, `"pool-wet"`;
+/// `style_scorch::guarantees`: `"crater-clear-of-lava"`, `"crater-on-camp"`, P-LAND-FIRE-1; a Fire camp without a
+/// crater is not refused, owner decision 2026-11-14); none yet for Sentenced and Holy.
 ///
 /// A list runs only for a zone that has a landmark frame on the attempt (`signature::reserved_zones`): the pipeline
 /// loops over the frames, not over the zones. Holy has no frame until its hall is a signature landmark
@@ -32,7 +33,8 @@ pub fn guarantees(zone: Zone) -> &'static [Guarantee] {
     match zone {
         Zone::Frost => crate::mapgen::style_rime::guarantees(),
         Zone::Plague => crate::mapgen::style_warren::guarantees(),
-        Zone::Fire | Zone::Sentenced | Zone::Holy => &[],
+        Zone::Fire => crate::mapgen::style_scorch::guarantees(),
+        Zone::Sentenced | Zone::Holy => &[],
     }
 }
 

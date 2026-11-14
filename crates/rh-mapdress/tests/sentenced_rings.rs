@@ -514,7 +514,7 @@ const NO_ORIGIN_GOLDEN: [u64; 4] = [
     0x2575_51cc_6f8a_a706,
     0xa3d8_de89_e18c_c4eb,
     0xb2b3_eca6_91ca_38a1,
-    0x24ea_d6fa_f6a0_6938,
+    0x7021_6153_1edd_69a9,
 ];
 
 /// Re-pin helper, not a check: prints `NO_ORIGIN_GOLDEN` as it comes out on this tree, ready to paste over the constant

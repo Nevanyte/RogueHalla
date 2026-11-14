@@ -435,10 +435,10 @@ const SIG_GOLDEN: [[u64; 4]; 4] = [
         0x62d4cba837a405d9,
     ],
     [
-        0x80d0010d00adf21a,
-        0x4b4b00d3dc26ab70,
-        0x184e4bf88d9cc99e,
-        0xa8b4c0814c19606f,
+        0xe18e72eb0976f54d,
+        0xd4d367a1c855dccd,
+        0xe3a65516a5b9e119,
+        0x67e61b16439ae79b,
     ],
 ];
 /// The same for the default (option off) maps.

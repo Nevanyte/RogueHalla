@@ -57,6 +57,11 @@ Packets are named `P-LAND-<ZONE>-<n>`. Order: Sentenced, Plague, Frost; Fire aft
   `SignatureDiscarded` attempts you measured.
 - **Fire** (`style_scorch/`). Craters keep clear of all three streams. **Every Fire camp keeps its crater**; size falls
   with distance and none is dropped. This answers your open question (section 6, fourth item).
+  - *Owner decision 2026-11-14 (P-LAND-FIRE-1):* "land the gentler rule now, with craters guaranteed clear of lava,
+    and record 'about 1 camp in 20 without a crater' as a measured gap." Hard: `crater-clear-of-lava`, `crater-on-camp`;
+    a camp's crater shrinks through the allowed sizes and goes without only when none fits; no attempt is refused for
+    it and no seed loses its map. Measured (seeds 1-64, option on): 32 of 640 Fire camps without a crater (today 36);
+    "every Fire camp keeps its crater" is not delivered and stays an open direction.
 - **Every zone.** About today's share of the zone's free ground as fence, bog and ice, within about a fifth, measured
   after the site is taken out. Barrows, guard houses, spires, headlands and craters keep today's rules and move only
   where they would collide with the new arrangement.

@@ -104,41 +104,43 @@ pub fn pinned_off() -> [(i64, &'static str, u64); 8] {
 
 /// Seeds 1-32, option on (`pipeline::Options { signature: true, ..Default::default() }`, `certified_styled`): (seed,
 /// the accepted attempt, `map_hash`, `map_digest`). Re-pinned by P-MAPGEN-SIG-SCALE-4 (2026-11-14: the 22 x 22 volcano
-/// with three streams and the Fire fan; 89 attempts over the 32 seeds, worst 9 on seed 22).
+/// with three streams and the Fire fan; 89 attempts over the 32 seeds, worst 9 on seed 22), then by P-LAND-FIRE-1
+/// (2026-11-14: Fire craters keep clear of the lava and shrink to fit; 15 of the 32 maps moved; 94 attempts, worst 9
+/// on seeds 22 and 30).
 pub fn pinned_on_maps() -> [(i64, u64, &'static str, u64); 32] {
     [
         (1, 1, "72b7d697", 0x0278_c324_ed7e_b71b),
         (2, 0, "b84d49c8", 0x4cb8_e47a_651f_9db6),
         (3, 1, "9d32c159", 0x3e07_1525_218d_057b),
-        (4, 0, "27ec1783", 0x0bb4_8731_b36e_b323),
+        (4, 0, "95105424", 0x0c91_b512_fb05_6170),
         (5, 0, "5f14ef7b", 0x28ff_32af_17cc_f28a),
         (6, 0, "6bfe49e8", 0xb932_fd7f_e504_85e9),
-        (7, 2, "a69ed836", 0xb5cd_5bcd_3be4_0337),
-        (8, 1, "f7b0b961", 0x24df_fbae_5e51_2f35),
-        (9, 2, "db09abaf", 0xf36e_118a_bb16_6308),
+        (7, 2, "8c4b24bd", 0x24f9_d219_7576_2ff2),
+        (8, 1, "32979352", 0x7ab9_7067_1a42_e177),
+        (9, 2, "c8ff23b3", 0x2862_9fcf_7f00_9bef),
         (10, 0, "72f8e6de", 0xc3e9_8190_ab47_d951),
         (11, 0, "d1d49be6", 0x81f1_dbed_4369_a988),
-        (12, 1, "b583aad5", 0x71b8_e60a_4068_d954),
-        (13, 3, "ed59efd2", 0x28f7_ec62_445a_fe95),
+        (12, 1, "7ada642b", 0x8931_6a84_8ab9_1a99),
+        (13, 3, "b0bbb0e4", 0xfd5a_a42a_3e01_31d8),
         (14, 1, "1d12c80c", 0xa07d_0910_a638_0eb0),
-        (15, 0, "4d6aa3a5", 0x72d0_2906_348c_7bd6),
+        (15, 0, "c845e54a", 0x9d71_7b39_df9b_ac2b),
         (16, 2, "625955e7", 0x08e7_e5de_8e3f_7122),
         (17, 2, "66742d6b", 0x4c95_8508_187e_48a9),
-        (18, 7, "a6eb84c4", 0xf8da_1d59_d883_4b95),
-        (19, 0, "27923d72", 0xe654_58be_5d1c_458b),
+        (18, 7, "2a0c1255", 0x9a85_99df_c9b9_0877),
+        (19, 0, "99cd681a", 0xbd25_aba2_4ea1_db2c),
         (20, 0, "f2dbd96d", 0x2ece_6c97_669c_849f),
         (21, 1, "4efccec8", 0x292d_217a_6907_30f5),
         (22, 9, "219c86a8", 0xc5e9_cb7c_48d3_6acd),
         (23, 4, "e2f137f2", 0x3f0b_998c_deb7_2d1c),
-        (24, 4, "9ef2a4d9", 0x0b4e_c412_4f4f_f566),
-        (25, 1, "cb86cfdd", 0x8ce8_b0a6_d7c1_d4cf),
+        (24, 4, "b51a6467", 0x2243_170d_5ea9_2061),
+        (25, 1, "7c54c4d7", 0xfacc_de82_01e3_ef3b),
         (26, 7, "2bfaaca2", 0xc0f5_8dc2_bf43_967f),
-        (27, 0, "ed4ea447", 0x0733_4801_219b_f5b0),
+        (27, 0, "72fee7fc", 0x152b_db93_d9d7_4bb0),
         (28, 2, "d81b2446", 0x5e55_4757_e173_fea6),
-        (29, 1, "84260b47", 0x0c12_8189_8006_348d),
-        (30, 4, "4f4b140f", 0x58bb_a5bb_441a_ef98),
+        (29, 1, "7b98f40e", 0x1df4_28b8_0982_bc61),
+        (30, 9, "9bce46a1", 0xc92b_8e62_67fb_358b),
         (31, 1, "cefe90db", 0x53c1_2b7c_7e71_3372),
-        (32, 0, "530f8c02", 0x8af0_ec61_6052_491a),
+        (32, 0, "38589500", 0x92e6_5b6f_6496_c4a8),
     ]
 }
 

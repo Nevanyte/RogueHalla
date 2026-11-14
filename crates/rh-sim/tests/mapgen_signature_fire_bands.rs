@@ -21,6 +21,10 @@
 //! * the band's radius: near, the largest option; mid, the second option (the smallest when there is one only); far,
 //!   the smallest. Core (the largest pen would reach the core band): any option, the largest that keeps out of it.
 //!   A camp may have no crater (the route and rim checks refuse it, as legacy allows); the count floor bounds that.
+//!   P-LAND-FIRE-1 (owner direction, `LAND_GENERATION_REQUIREMENTS.md` section 3: every Fire camp keeps its crater,
+//!   craters keep clear of the streams): a crater may take a smaller option than its band's, never a larger one
+//!   (`mapgen_land_fire.rs` pins how few shrink, and, by the owner's decision of 2026-11-14, the measured gap of
+//!   camps left without one: about 1 in 20).
 //! * crater size (for the means): the crater feature's tile count (`MapFeature::tiles`).
 //! * a stream's lava: the lava tiles (tile 2, terrain 1) its feature owns. A stream is two tiles wide when, over its own
 //!   lava: (a) no tile is a neck: a tile whose run of stream lava along one axis is 1 while its run along the other
@@ -230,8 +234,9 @@ fn radius(m: &GameMapData, k: usize) -> i32 {
 // G4 by construction: each crater's size is its camp's band's radius option.
 // --------------------------------------------------------------------------------------------------------------------
 
-/// Every Fire crater stands on a Fire camp; its radius is one of the camp's options and, outside the core band,
-/// exactly the band's option: near the largest, mid the second, far the smallest.
+/// Every Fire crater stands on a Fire camp; its radius is one of the camp's options and, outside the core band, at
+/// most the band's option: near the largest, mid the second, far the smallest (exactly the band's option until
+/// P-LAND-FIRE-1, which lets a crater shrink to be kept or to keep clear of the streams).
 #[test]
 fn craters_take_their_bands_radius_option() {
     let mut bad = Vec::new();
@@ -254,7 +259,7 @@ fn craters_take_their_bands_radius_option() {
             let used = radius(m, k);
             let ok = match c.target() {
                 None => c.options.contains(&used),
-                Some(t) => used == t,
+                Some(t) => c.options.contains(&used) && used <= t,
             };
             if !ok {
                 bad.push(format!(
@@ -271,7 +276,7 @@ fn craters_take_their_bands_radius_option() {
     eprintln!("camps / craters per band (core, near, mid, far): {per_band:?}");
     assert!(
         bad.is_empty(),
-        "{} craters off their band's radius option; first {:#?}",
+        "{} craters off their camp's options or above their band's option; first {:#?}",
         bad.len(),
         &bad[..bad.len().min(12)]
     );
