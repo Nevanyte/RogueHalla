@@ -101,10 +101,11 @@ fn landmark(kind: FeatureKind) -> FeatureSpec {
     }
 }
 
-/// The table for definition `d`, one entry per landmark in `reserved_zones` order (Fire, Sentenced, Plague, Frost).
-/// The terrain codes the legends write are the terrain catalog's (`super::catalog_codes`), not `d`'s mirrors.
+/// The table for definition `d`, one entry per landmark in `reserved_zones` order (Fire, Sentenced, Plague, Frost,
+/// Holy). The terrain codes the legends write are the terrain catalog's (`super::catalog_codes`, `light_code`), not
+/// `d`'s mirrors.
 pub fn specs(d: &Definition) -> Vec<Spec> {
-    use FeatureKind::{BogTree, Cave, Church, Graveyard, LavaPool, LavaStream, Volcano};
+    use FeatureKind::{BogTree, Cave, Church, Graveyard, Hall, LavaPool, LavaStream, Volcano};
     let codes = catalog_codes();
     vec![
         // The volcano (P-MAPGEN-SIG-SCALE-4): the cone (`#` foot, `X` slope, `H` rim, all wall) round its crater lake and
@@ -208,5 +209,45 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             by_tile: Vec::new(),
             any_terrain: Vec::new(),
         },
+        // The Holy hall (P-MAPGEN-SIG-HOLY-1): an open colonnade of 3 x 3 piers and the shrine (`#` walls), the shrine's
+        // healing light `L` (floor of the catalog's `light` terrain), `E` the two camps on the nave's centre line, `D` the
+        // shrine's door, `*` the nave's light marks; centred in its site's inner rect (37 in 37). The entrance is the
+        // nave's front run through the `E` column; no doorway check (walkable from every side).
+        Spec {
+            zone: Zone::Holy,
+            kind: Hall,
+            drawing: Some(d.hall_grid),
+            legend: Legend(vec![
+                solid(b'#', Write::Wall, Hall, Legality::Wall),
+                solid(b'L', Write::Floor(light_code()), Hall, Legality::Floor),
+                plain(b'.'),
+                mark(b'*'),
+                mark(b'D'),
+                mark(b'E'),
+            ]),
+            features: vec![FeatureSpec {
+                kind: Hall,
+                job: FeatureJob::Cover,
+                anchor: FeatureAnchor::Centre,
+            }],
+            placement: Placement::Centre,
+            entrance: EntranceRule::FrontRun(b'E'),
+            doorway: false,
+            members: vec![Hall],
+            by_tile: Vec::new(),
+            any_terrain: Vec::new(),
+        },
     ]
+}
+
+/// The terrain catalog's code of the kind keyed `light` (the shrine's healing light), looked up by key as
+/// `catalog_codes` looks up the others (kept out of `TerrainCodes`, which callers build literally). Panics when the
+/// catalog lacks it: the table cannot be built without it.
+pub(super) fn light_code() -> u8 {
+    let k = crate::mapgen::terrain_gate::DEFAULT_DEFINITION
+        .kinds
+        .iter()
+        .position(|k| k.key == "light")
+        .expect("signature: no terrain kind \"light\" in the catalog");
+    u8::try_from(k).expect("signature: terrain code")
 }

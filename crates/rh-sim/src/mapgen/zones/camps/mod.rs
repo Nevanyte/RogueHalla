@@ -470,22 +470,27 @@ pub fn place_camps(
     None
 }
 /// A reserved landmark site as camp placement reads it (P-MAPGEN-SIG-RESERVE-1): the zone label, the site's tiles
-/// (inclusive x0, y0, x1, y1) and the tile of the camp placed inside it (the church's and the cave's), if any.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// (inclusive x0, y0, x1, y1), the tiles of the camps placed inside it (P-MAPGEN-SIG-HOLY-1: the church's or the cave's
+/// one, the Holy hall's two; empty for the others) and whether the first of them is the zone's first elite (the
+/// church's and the cave's) or the zone's elites follow today's rule among all its camps (the hall's).
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Reserve {
     pub zone: u8,
     pub x0: usize,
     pub y0: usize,
     pub x1: usize,
     pub y1: usize,
-    pub camp: Option<usize>,
+    pub camps: Vec<usize>,
+    pub elite: bool,
 }
 /// `place_camps` round reserved landmark sites (P-MAPGEN-SIG-RESERVE-1; the signature option only: with the option off
 /// the Prefix calls `place_camps`, whose draws stay today's). Every candidate and every Lloyd pole whose halo meets a
-/// site is refused. A zone whose site carries a camp places it first: it counts in the spacing of every later camp,
-/// seeds its own territory label in every Lloyd step, never moves, and is the zone's first elite (the second follows
-/// today's rule against it); the zone's other `camps_per_zone - 1` camps follow today's process. `None` (the round
-/// fails and the partition is redrawn) as `place_camps`, or when a site's camp is not a legal camp tile.
+/// site is refused. A zone whose site carries camps places them first, in order: each counts in the spacing of every
+/// later camp, seeds its own territory label (1, 2, ...) in every Lloyd step and never moves; with the site's `elite`
+/// the first is the zone's first elite (the second follows today's rule against it), without it the zone's elites
+/// follow today's rule among all its camps (P-MAPGEN-SIG-HOLY-1); the zone's other camps follow today's process.
+/// `None` (the round fails and the partition is redrawn) as `place_camps`, or when a site's camp is not a legal camp
+/// tile or two of a site's camps stand closer than the camp gap.
 pub fn place_camps_reserving(
     context: &CampContext<'_, '_>,
     rng: &mut impl FnMut() -> f64,
@@ -516,15 +521,17 @@ pub fn place_camps_reserving(
                 })
         })
         .collect();
-    let inside_of = |z: usize| {
-        reserved
-            .iter()
-            .find(|r| usize::from(r.zone) == z)
-            .and_then(|r| r.camp)
-    };
-    if (1..=ZONES)
-        .any(|z| inside_of(z).is_some_and(|c| !context.halo_ok.get(c).copied().unwrap_or(false)))
-    {
+    let site_of = |z: usize| reserved.iter().find(|r| usize::from(r.zone) == z);
+    let inside_of = |z: usize| site_of(z).map_or(&[][..], |r| &r.camps[..]);
+    let pin_elite = |z: usize| site_of(z).is_some_and(|r| r.elite && !r.camps.is_empty());
+    let gap2 = d.camp_gap * d.camp_gap;
+    if (1..=ZONES).any(|z| {
+        let pinned = inside_of(z);
+        pinned.iter().enumerate().any(|(n, &c)| {
+            !context.halo_ok.get(c).copied().unwrap_or(false)
+                || pinned[..n].iter().any(|&o| f64::from(d2i(o, c)) < gap2)
+        })
+    }) {
         return None;
     }
     let zone_tiles: Vec<Vec<usize>> = (1..=ZONES)
@@ -536,7 +543,6 @@ pub fn place_camps_reserving(
                 .collect()
         })
         .collect();
-    let gap2 = d.camp_gap * d.camp_gap;
     let radius2 = d.territory_radius_max * d.territory_radius_max;
     let mut terr = vec![0u8; N];
     let mut tm = vec![0; N];
@@ -554,7 +560,10 @@ pub fn place_camps_reserving(
                 break;
             }
             let pinned = inside_of(z);
-            if pinned.is_some_and(|c| placed.iter().any(|&o| f64::from(d2i(o, c)) < gap2)) {
+            if pinned
+                .iter()
+                .any(|&c| placed.iter().any(|&o| f64::from(d2i(o, c)) < gap2))
+            {
                 ok = false;
                 break;
             }
@@ -574,14 +583,15 @@ pub fn place_camps_reserving(
                 .map(|&site| placed.iter().all(|&o| f64::from(d2i(o, site)) >= gap2))
                 .collect();
             let k = d.camps_per_zone;
-            let avoid: Vec<usize> = placed.iter().copied().chain(pinned).collect();
+            let avoid: Vec<usize> = placed.iter().chain(pinned).copied().collect();
             let first = first_candidate(rng, &sites, d.candidates, &avoid, gap2);
             if first.is_empty() {
                 ok = false;
                 break;
             }
-            // The pinned camp is label 1 (index 0) and is processed as a placed site for coverage and spacing.
-            let mut at: Vec<usize> = pinned.into_iter().chain(first).collect();
+            // The pinned camps are labels 1, 2, ... (indices 0, 1, ...) and are processed as placed sites for coverage
+            // and spacing.
+            let mut at: Vec<usize> = pinned.iter().copied().chain(first).collect();
             let mut min_d = vec![1 << 30; zt.len()];
             let mut spaced = clear;
             let mut seen = 0;
@@ -628,7 +638,7 @@ pub fn place_camps_reserving(
                 ok = false;
                 break;
             }
-            let fixed_label = |n: usize| pinned.is_some() && n == 1;
+            let fixed_label = |n: usize| n >= 1 && n <= pinned.len();
             let mut final_sites = None;
             for step in 0..d.lloyd_steps {
                 for &t in zt {
@@ -670,7 +680,7 @@ pub fn place_camps_reserving(
                     let mut all = true;
                     for n in 1..=k {
                         let site = if fixed_label(n) {
-                            Some(at[0])
+                            Some(at[n - 1])
                         } else {
                             poles.pole(n, &sites, &fixed, true)
                         };
@@ -689,7 +699,7 @@ pub fn place_camps_reserving(
                 let mut moved = Vec::new();
                 for n in 1..=k {
                     if fixed_label(n) {
-                        moved.push(at[0]);
+                        moved.push(at[n - 1]);
                         continue;
                     }
                     let fixed: Vec<usize> = placed.iter().chain(&moved).copied().collect();
@@ -721,8 +731,8 @@ pub fn place_camps_reserving(
                     .cmp(&d2i(camps[a].site, centre))
                     .then(a.cmp(&b))
             });
-            // The pinned camp is the first elite; otherwise today's (the camp farthest from the centre).
-            let first = if pinned.is_some() { base } else { by_far[0] };
+            // A pinned elite camp is the first elite; otherwise today's (the camp farthest from the centre).
+            let first = if pin_elite(z) { base } else { by_far[0] };
             let rest: Vec<usize> = by_far.iter().copied().filter(|&c| c != first).collect();
             let second = rest
                 .iter()

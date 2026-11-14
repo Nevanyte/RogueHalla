@@ -279,15 +279,28 @@ pub(super) fn check(m: &GameMapData, out: &mut Certificate) {
                 b.2 = b.2.max(i % R.size);
                 b.3 = b.3.max(i / R.size);
             }
-            let squares = sizes.iter().zip(&bounds).all(|(&s, b)| {
-                s == R.square_side * R.square_side
-                    && b.2 - b.0 == R.square_side - 1
-                    && b.3 - b.1 == R.square_side - 1
-            });
+            let non_squares = sizes
+                .iter()
+                .zip(&bounds)
+                .filter(|&(&s, b)| {
+                    s != R.square_side * R.square_side
+                        || b.2 - b.0 != R.square_side - 1
+                        || b.3 - b.1 != R.square_side - 1
+                })
+                .count();
+            // P-MAPGEN-SIG-HOLY-1 (owner decision 2026-11-14, 3): the drawn hall (the Holy anchor's: kind `Hall`, its box
+            // the anchor's footprint) has exactly one wall group that is not a 3 x 3 pier, the shrine; every other group
+            // is still an exact pier.
+            let drawn_hall = f.kind == K::Hall
+                && m.anchors.iter().any(|a| {
+                    a.zone == f.zone && a.kind == K::Hall && a.footprint == f.bbox
+                });
             let good = if f.kind == K::Gallows {
-                sizes.len() == 1 && squares
+                sizes.len() == 1 && non_squares == 0
+            } else if drawn_hall {
+                non_squares == 1
             } else {
-                !sizes.is_empty() && squares
+                !sizes.is_empty() && non_squares == 0
             };
             out.check(
                 "feature-whole",
