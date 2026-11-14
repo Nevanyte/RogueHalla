@@ -21,7 +21,9 @@ if (!protocolMatch) throw new Error("probe protocol constant not found");
 const expectedProtocol = Number(protocolMatch[1]);
 const vectors = JSON.parse(readFileSync(resolve(repo, `protocol/fixtures/v${expectedProtocol}.json`), "utf8"));
 if (vectors.protocol !== expectedProtocol) throw new Error("probe and golden-vector protocol differ");
-const expectedStateKeys = "1,2,3,4,5,6,7,8,9,10,11,12"; // ADR0026: key 12, the roster
+// Every key a seated player receives on join and resume: 1..=MAX_STATE_KEYS (crates/rh-protocol/src/state.rs:6).
+// Key 12: the roster (ADR0026). Key 13: the viewer's own build summary (P-WIRE17-HUD-1).
+const expectedStateKeys = "1,2,3,4,5,6,7,8,9,10,11,12,13";
 const port = Number(process.argv[process.argv.indexOf("--port") + 1]) || 7443;
 const bin = resolve(repo, process.env.RH_SERVER_BIN || "target/debug/rh-server");
 const report = { server: bin, url: `https://localhost:${port}/probe`, tls: "self-signed (ignoreHTTPSErrors)", checks: {}, measured: {} };
