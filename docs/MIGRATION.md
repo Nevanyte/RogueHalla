@@ -4,6 +4,52 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Release checks (2026-11-14): the release tree is on origin; what the checks found; current checkpoint
+
+Integration branch `feature/unity-rework` @ `25b181101` on origin (integration 46: full gate with Postgres and the
+release-only step green, 22 steps). **Identities: protocol 18**, observation 30, policy contract 25, checkpoint 32,
+replay 25, content hash `7a542a13187f034c`. Staged on `coord/int-47`, not gated: the map generator session's fix of
+the gate's `--oracle-check` (a silent pass under bash 3.2; any run without a result line now fails) and
+P-BROWSER-PROOF-KEYS-1.
+
+**Release Web build and proof, on `25b181101` against a local server with the host's flags** (map pool and landmarks
+on, 10 s lobby): the binary takes every flag; `/info` says protocol 18 and `7a542a13187f034c`; the Web build succeeds
+(107 MB, no shader error), bakes the same hash and changes no tracked file; the page connects, the match plays a
+pooled map with all five landmarks, eight seats; the hosting folder's 35 offline tests pass. **Browser proof:**
+`tools/browser-proof/proof.mjs` first said FAIL on a pin that had been stale since 2026-11-11 (it expected state keys
+1 to 12; key 13 is the viewer's own build summary); fixed (P-BROWSER-PROOF-KEYS-1), PASS, 15 checks. The gate does not
+run this proof; CI does. Not confirmed: the hub's lobby panel when page and server share an origin (it was
+"unavailable" across two local ports).
+
+**A match on the host's flags ends in about a minute with the default fill bots.** With `--min-players 1
+--fill-bots 8` a lone human is seated with seven `HumanBot`s; they park at camps they cannot win and die (137 bot
+deaths in the runs: 80 to mobs, 57 to a fighter; none removed, none in a hazard at spawn), and the last fighter
+standing wins (`crates/rh-sim/src/systems/settle.rs:127-133`); "win bonus withheld" is the rule for fewer than three
+humans. 21 runs, 180 s cap: 9 ended, median 74 s, range 41 to 112 s; the idle human won without fighting in 4 and was
+killed in 9. Not the landmarks, not the shutdown, not an AFK rule; the Web rounds ran long because their guide starts
+the server with no fill bots. **With `--bot-brain full`** (the ported Brain as the fill bots, HumanBot as fallback):
+12 runs, 600 s cap, none ended; first bot death at a median of 89 s (15 to 404); 24 bot deaths: 12 to bots, 11 to
+mobs, 1 to lava; a live room held 20 Hz (4,007 steps, none late or dropped) at 3 to 6 percent of a core and 37 to 45
+MB on this machine (not measured on a t3.small). A Brain seat's fallback is not logged anywhere. Queue Q26;
+P-HOST-BOT-BRAIN-1 (a `bot_brain` config key for the host, prepared on a branch, merged only on the owner's yes) and
+P-BOT-BRAIN-FAULT-LOG-1 (one log line when a Brain seat falls back) are in flight. Not determined: whether the last
+beta, which ran the same flags, had matches this short, or what legacy's pace is.
+
+**The walk through a wall (Web round 14) is the client gap, not a server rule gap.** A server test under the live
+hitboxes sends the client's own stream of `Move` orders (every 100 ms, 64 u ahead) into a standing wall for the
+caster and a bystander: the foot box never overlaps an ice tile; the server plans round the wall's nearer end in about
+a second (`crates/rh-sim/tests/frost_wall_held_key.rs`, green). P-FROST-WALL-PREDICT-1 (the client keeps a walk map
+with standing walls blocked for both prediction and key steering) is implemented and in its gate.
+
+**A coordinator error:** at 14:47:09 a general-purpose agent of this session ran `pkill -f` on a path pattern; at that
+moment background shells of this session and of the map generator session were terminated (one of its test runs
+died; re-run green). The pattern-kill hook is registered only in the named agent definitions, which a general-purpose
+agent does not use. From now on process-driving work goes through the named implementer agents; queue Q27 asks the
+owner whether to register the hook in his own settings, the only place that covers every agent.
+
+**Deploy readiness:** unchanged: the AWS sign-in is expired and Docker Desktop's engine does not answer (both the
+owner's); the DNS record is set by hand in Cloudflare.
+
 ## Integration 46 (2026-11-14): protocol 18; the release tree; current checkpoint
 
 Staged as `coord/int-46` on `fffbad5c6` and under gate. **Identities: protocol 18** (P-PROTOCOL-18-STAMP-1,
