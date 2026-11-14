@@ -6,6 +6,21 @@ This leaf ports `scorch.shape`, `scorch.surface`, and `scorch.props` from the un
 
 The shared-seam proposal extracts the existing Forge `radius4` and radial `Frame` arithmetic unchanged into crate-private helpers. The original landmark recipe delegates to them; its complete source-state and trace fixtures still pass. Common `camp_nodes_from` is the separate Warren seam, using the same original body and fixed-distance length gate. The test-only runtime prefix restoration seam is the previously reviewed Holy proposal; it is not a production state mutator.
 
+## Signature mode: craters round the volcano (P-LAND-FIRE-1)
+
+With the Fire frame (`pipeline::Options::signature`) the lava river is not drawn (the volcano's three streams replace
+it) and each camp's crater size comes from its band round the volcano (`craters.rs` `camp_band`): near the largest
+radius option, mid the second, far the smallest, core any that keeps out of the core. Owner rule: "Craters keep clear
+of all three streams. Every Fire camp keeps its crater; size falls with distance and none is dropped." So the band's
+option is tried first, then each smaller option down to `radius_min4` (never a larger one); an option whose disc
+(16 * d^2 < r4^2 round the camp tile) holds stream or pool lava is skipped, and so is one the rim, route-stretch, core
+or pen-share checks refuse. A camp no option fits has no crater, and the attempt is refused by the guarantees in
+`guarantees.rs` (`style_zones::guarantees(Zone::Fire)`, run by the pipeline on the finished map):
+`"crater-per-camp"` and `"crater-clear-of-lava"` (no stream or pool lava in a crater's disc, no crater tile within
+`lava_clearance()` = 2 tiles of it). Stream and pool lava is read from the frame (`guarantees::stream_lava`: cells
+written LOW with the lava terrain outside the cone's box), one definition for the styler and the guarantees. No draw:
+trying more options reads hash noise only. Option off (no frame) is untouched.
+
 ## Capture and parity
 
 `tools/map-fixtures/style-scorch.ts` admits only Linux x64 Node 22.23.4. It observes six unchanged `tryAttempt` callers across seeds, attempts, wrapping inputs, and decor modes. It compares the complete original and observed final map (or null) and hash, then captures the genuine pre-Fire input, including scratch and wrote buffers. Every current actual case returns a map; the null comparison path is present but this corpus does not claim an actual null case.
