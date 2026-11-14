@@ -1957,7 +1957,7 @@ mod tests {
         let mut cells = Vec::new();
         for y in 40..49 {
             for x in 40..49 {
-                let corner = (x < 43 || x > 45) && (y < 43 || y > 45);
+                let corner = !(43..=45).contains(&x) && !(43..=45).contains(&y);
                 if corner {
                     cells.push((y * W + x, TILE_WALL, 0));
                 } else if (x, y) == (44, 44) {
