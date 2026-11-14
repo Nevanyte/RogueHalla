@@ -247,8 +247,9 @@ fn pinned_labels() -> [(i64, &'static [&'static str]); 32] {
 // The registry.
 // ---------------------------------------------------------------------------------------------------------------------
 
-/// Frost lists `lake-at-mouth`; Plague lists `pool-walks` then `pool-wet`; Fire lists `crater-per-camp` then
-/// `crater-clear-of-lava` (P-LAND-FIRE-1); Sentenced and Holy list nothing yet.
+/// Frost lists `lake-at-mouth`; Plague lists `pool-walks` then `pool-wet`; Fire lists `crater-clear-of-lava` then
+/// `crater-on-camp` (P-LAND-FIRE-1, owner decision 2026-11-14: a Fire camp without a crater is no refusal);
+/// Sentenced and Holy list nothing yet.
 #[test]
 fn the_registry_lists_the_fire_frost_and_plague_rules_and_nothing_else() {
     let got: Vec<(Zone, Vec<&str>)> = [
@@ -264,7 +265,7 @@ fn the_registry_lists_the_fire_frost_and_plague_rules_and_nothing_else() {
     assert_eq!(
         got,
         vec![
-            (Zone::Fire, vec!["crater-per-camp", "crater-clear-of-lava"]),
+            (Zone::Fire, vec!["crater-clear-of-lava", "crater-on-camp"]),
             (Zone::Sentenced, vec![]),
             (Zone::Plague, vec!["pool-walks", "pool-wet"]),
             (Zone::Frost, vec!["lake-at-mouth"]),
@@ -300,7 +301,7 @@ fn every_guarantee_holds_on_every_kept_map_of_seeds_1_to_32() {
     assert_eq!(
         checked,
         32 * 5,
-        "lake-at-mouth, pool-walks, pool-wet, crater-per-camp and crater-clear-of-lava on 32 maps"
+        "lake-at-mouth, pool-walks, pool-wet, crater-clear-of-lava and crater-on-camp on 32 maps"
     );
 }
 
