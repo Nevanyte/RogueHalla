@@ -261,10 +261,12 @@ fn maps() -> impl Iterator<Item = &'static Landed> {
     })
 }
 
+/// One wide seed: the seed, and its map with the accepted attempt's prefix (`None`: no map).
+type Wide = (i64, Option<(GameMapData, attempt::AttemptState)>);
+
 /// Seeds 33-128, option on: (seed, the map and the accepted attempt's prefix), generated once per test binary.
-fn wide_maps() -> &'static Vec<(i64, Option<(GameMapData, attempt::AttemptState)>)> {
-    static MAPS: OnceLock<Vec<(i64, Option<(GameMapData, attempt::AttemptState)>)>> =
-        OnceLock::new();
+fn wide_maps() -> &'static Vec<Wide> {
+    static MAPS: OnceLock<Vec<Wide>> = OnceLock::new();
     MAPS.get_or_init(|| {
         let fixed = coliseum::fixed_layout();
         let generator = pipeline::Pipeline::new(&fixed);
