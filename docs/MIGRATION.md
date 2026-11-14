@@ -4,6 +4,52 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Beta live 2026-11-14: `play.rougehalla.com` runs `2f33045d6`; current checkpoint
+
+**Live since 2026-11-14 22:06 UTC (16:06 CST); the host expires 2026-11-15 09:42:16 UTC (03:42 CST).** Server and
+Unity Web client are both built from `2f33045d6` (`feature/unity-rework` on origin): protocol 18, observation 30,
+policy contract 25, checkpoint 32, replay 25, content hash `7a542a13187f034c`. Owner approval: "I just want game to be
+playable online by tonight. So I pre approve what you need to do to get the current updated version up and running",
+after "I give you permission and full access to docker AWS and cloud flare".
+
+- **Host:** stack `rougehalla-demo-20261114-beta` in `ca-west-1`, one `t3.small` (instance `i-010bcbb43c2d8f21d`,
+  public address `40.176.136.102`, standard CPU credits), bundle bucket `rh-demo-20261114-7a54`, expiry schedule
+  enabled. Config: `map_pool: true`, `signature_landmarks: true`, `lobby_timing: "legacy"`, `bot_brain: "full"`, run id
+  `beta1114`. The Source unit therefore runs `--min-players 1 --fill-bots 8 --max-rooms 1 --lobby-seconds 10
+  --fill-seconds 3 --map-pool --signature-landmarks --bot-brain full … --bot-learning single-writer`.
+- **Bundle:** 129,546,240 bytes, sha256 `d817dfe6d675…b608b970` (local, uploaded and config equal): the Linux x86-64
+  server binary built through `hosting/Dockerfile` from `2f33045d6` (sha256 `1f8da82ba0c8…b1b236dc`), `source-map.json`
+  from `parity/arena/source.json`, and the Web build of the same commit (107 MB, 35 files, no shader error, baked hash
+  equal to the server's).
+- **Checks before launch, all on `2f33045d6`:** full gate; browser proof PASS (15 checks); the Linux binary in a Linux
+  container with the host's flags reports protocol 18 and the content hash; a driven session in the Web client against
+  a local server with those flags: `[bots] … fill bots: 7 brain`, the match still running at 4 minutes, the hub's lobby
+  panel working, no console error, and the Frost Wall walk fix seen: a held key stops against the ice (no snap, not
+  inside it), a click beyond a wall paths round its end. Not obtained there: the count of living fighters per minute;
+  the exact collision edge at a wall's end.
+- **Checks after launch:** `https://play.rougehalla.com/info` and `/training/info` say protocol 18, content
+  `7a542a13187f034c`, ready; the page loads in the owner's Chrome (about 80 s for the first load at the host's shaped
+  8 Mbit/s); a match was joined under a throwaway callsign (`launchcheck`): planning screen with a pooled five-zone map
+  and its landmarks, then live play beside the volcano's streams at 121 fps and 108 ms; `/api/lobby` showed the room
+  active with one human and bots. Two shots sent to the owner. Not checked on the host: its log (no shell access by
+  design), whether any Brain seat fell back, CPU credit use, a match played to its end.
+- **One change was needed to launch, and it is not in `2f33045d6`:** the rendered start-up script (33 KB; 13,307
+  bytes gzip; 17,744 base64 characters) no longer fits the stack's four 4,096-character parameters. The stack template
+  takes a fifth (`78d6e0451` on staging: `hosting/technical-demo/stack.yaml`, `test_stack.py`; hosting tests 40 OK;
+  `aws cloudformation validate-template` accepted it). The stack was created from that staging template; the server,
+  the client and `bootstrap.py` are exactly `2f33045d6`'s. It reaches origin with integration 48.
+- **DNS:** the single `play.rougehalla.com` A record in Cloudflare changed from `56.112.74.247` (the terminated 11
+  November host, a stale record) to `40.176.136.102`, DNS only, TTL auto, through the owner's signed-in Chrome. It must
+  be removed or repointed after 09:42 UTC tomorrow: the address returns to AWS's pool when the host is terminated.
+- **AWS sign-in:** the CLI session was renewed through the owner's Chrome (the active root sign-in of the staging
+  account selected; no credential typed).
+- **Cleanup:** the 11 November stack `rougehalla-demo-20261111-beta` and its bucket (already empty) are deleted. Only
+  today's stack, bucket and schedule remain.
+- **Known at launch, told to the owner:** client garbage of about 0.5 to 0.9 MB per wall rise or fall; the bog tree
+  reads as a dark blocky mass; an ember ring by a lava pool can hold a player while burning; a Brain bot was seen to
+  die in lava once; matches with Brain bots were not seen to end within ten minutes in testing; the hub's first load
+  is slow at the host's shaped bandwidth.
+
 ## Owner delegation 2026-11-14 (chat, evening); the release commit; current checkpoint
 
 Integration branch `feature/unity-rework` @ `2f33045d6` on origin (integration 47: full gate with Postgres and the
