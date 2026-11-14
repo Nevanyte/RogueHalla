@@ -104,9 +104,12 @@ fn smallest_radius4() -> i32 {
 }
 
 /// PROVISIONAL (oracle author's, for the owner): the least share of Fire craters over seeds 1-32 that take exactly
-/// their band's option (stub 1.0; the decided rule: 3 of about 600 craters below it on seeds 1-64).
+/// their band's option. Measured 1.0 on the stub, on P-LAND-FIRE-1's build (302 of 302) and on P-MAPGEN-SIG-HOLY-1's
+/// maps (304 of 304); 3 of about 600 craters shrink on seeds 1-64. 0.98 allows six shrunk craters in about 300: it
+/// keeps most of what "a crater's radius is its band's option" pinned before the gentler rule (the coordinator's
+/// review of P-LAND-FIRE-1, 2026-11-14; was 0.9).
 fn at_band_option_min() -> f64 {
-    0.9
+    0.98
 }
 
 /// Size falls with distance: the near band's (core and near camps) mean crater tiles at least this many times the far
@@ -126,8 +129,9 @@ fn fire_rules() -> [&'static str; 2] {
 }
 
 /// The measured gap the owner accepted on 2026-11-14: Fire camps without a crater over seeds 1-64, option on.
-/// Today's game (the stub) leaves 36 of 640; the decided rule (prototype V1) 32. The ceiling sits a few camps above
-/// today's figure, so the build may not leave more camps bare than today's game does.
+/// Today's game (the stub) leaves 36 of 640; the decided rule measured 32 on P-LAND-FIRE-1's own maps and 35 once
+/// P-MAPGEN-SIG-HOLY-1 moved every map: the count scatters by a few camps with the maps. The ceiling, 40 (1 camp in 16),
+/// sits that scatter above "about 1 in 20"; it is NOT "no worse than today's game" (37 to 40 would pass).
 fn gap_ceiling() -> usize {
     40
 }
@@ -138,13 +142,13 @@ fn gap_floor() -> usize {
     1
 }
 
-/// The most Fire camps without a crater on one map: no worse than today's game's own worst, 4 (the stub, seed 93 of
-/// seeds 65-128; 3 on seed 50 of seeds 1-64). The decided rule measured 2 on seeds 1-64 and 3 on seed 114. The figure
-/// the owner accepted is the count (`gap_ceiling`), not this one: a bound set at the measured 3 would go red with the
-/// next packet that moves every map (the Holy hall, the Frost lake) for a reason that is not this rule's (the lane's
-/// session, 2026-11-14).
+/// The most Fire camps without a crater on one map: half the zone's ten camps. Measured on three sets of maps: today's
+/// game 3 and 4 (seeds 1-64 and 65-128), P-LAND-FIRE-1's own build 2 and 3, and 4 (seed 54) and 3 once
+/// P-MAPGEN-SIG-HOLY-1 moved every map. The figure the owner accepted is the count (`gap_ceiling`), not this one: it
+/// is a guard against a map losing most of its craters, set one above the worst measured so that a packet that moves
+/// every map does not fail it for a reason that is not this rule's (the lane's session, 2026-11-14).
 fn worst_map_allowed() -> usize {
-    4
+    5
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -611,9 +615,9 @@ fn known_gap_about_one_fire_camp_in_twenty_has_no_crater() {
     );
     assert!(
         missing.len() <= gap_ceiling(),
-        "{} of {camps} Fire camps without a crater on seeds 1-64, above the ceiling {} (today's game 36, the rule the \
-         owner accepted on 2026-11-14 measured 32): the build leaves more camps bare than today's game. Fix the \
-         build; the ceiling moves only with the owner's approval. First {:#?}",
+        "{} of {camps} Fire camps without a crater on seeds 1-64, above the ceiling {} (today's game 36; the rule the \
+         owner accepted on 2026-11-14 measured 32, and 35 on the hall's maps): more than about 1 camp in 16 is bare. \
+         Fix the build; the ceiling moves only with the owner's approval. First {:#?}",
         missing.len(),
         gap_ceiling(),
         &missing[..missing.len().min(12)]
@@ -751,6 +755,7 @@ fn crater_size_falls_with_distance_and_shrinks_only_below_its_bands_option() {
     }
     verdict("craters larger than their band allows", &bad);
     let share = at_option as f64 / total.max(1) as f64;
+    eprintln!("{at_option} of {total} craters take their band's option ({share:.3})");
     assert!(
         share >= at_band_option_min(),
         "{at_option} of {total} craters take their band's option ({share:.3} < {})",
