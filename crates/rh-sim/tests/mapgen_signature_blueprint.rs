@@ -897,9 +897,16 @@ fn placed_landed_rederives_every_written_cell() {
             accepted += 1;
             let zones: Vec<Zone> = placed.landed().iter().map(|l| l.zone).collect();
             // Amended by P-MAPGEN-SIG-SCALE-4: the volcano is landed from its drawing too (was Sentenced, Plague, Frost).
+            // Amended by P-MAPGEN-SIG-HOLY-1: and the Holy hall, last (was Fire, Sentenced, Plague, Frost).
             assert_eq!(
                 zones,
-                vec![Zone::Fire, Zone::Sentenced, Zone::Plague, Zone::Frost],
+                vec![
+                    Zone::Fire,
+                    Zone::Sentenced,
+                    Zone::Plague,
+                    Zone::Frost,
+                    Zone::Holy
+                ],
                 "seed {seed} attempt {n}: the landed landmarks"
             );
             for landed in &placed.landed() {
