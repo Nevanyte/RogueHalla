@@ -81,6 +81,58 @@ echo 1 >crates/a/src/lib.rs; git commit -q -am "stub: P3 stubs only"
 rc=0; out="$(GATE_STOP_AFTER_CHECKS=1 bash scripts/gate.sh --oracle-check --base main 2>&1)" || rc=$?
 if [[ $rc -ne 0 && $rc -ne 42 && "$out" == *"no oracle commit"* ]]; then ok "oracle-check: a branch with only stub commits has no oracle"; else bad "oracle-check no oracle commit (rc=$rc)" "$out"; fi
 
+# --oracle-check run to its end, with a fake cargo on PATH (nothing is built): the oracle's crate has no feature list
+# (every crate but rh-sim). Under bash 3.2 (macOS /bin/bash) an empty "${array[@]}" is an unbound variable with set -u:
+# the mode stopped there with no result line and exit code 0, a silent pass. Run under every bash on this machine.
+git checkout -q main
+printf '[package]\nname = "a"\n' >crates/a/Cargo.toml
+git add -A; git commit -q -m "base: a manifest for crate a"
+git checkout -q -b packet/P4 main
+echo 2 >crates/a/src/lib.rs; git commit -q -am "stub: P4 stubs"
+echo 2 >crates/a/tests/t.rs; git commit -q -am "oracle: P4 failing tests"
+mkdir -p "$TMP/fakecargo"
+cat >"$TMP/fakecargo/cargo" <<'EOF'
+#!/bin/sh
+# Fake cargo for scripts/gate.test.sh: fmt, clippy and --no-run pass; the test run is red on the target FAKE_CARGO_RED
+# names (cargo's own "to rerun" line), green when it is unset.
+case "$*" in
+  *--no-fail-fast*)
+    if [ -n "${FAKE_CARGO_RED:-}" ]; then
+      printf 'test red ... FAILED\nerror: test failed, to rerun pass `%s`\n' "$FAKE_CARGO_RED"
+      exit 101
+    fi ;;
+esac
+exit 0
+EOF
+chmod +x "$TMP/fakecargo/cargo"
+# A copy of the gate with a fault planted in the mode (an unbound variable): whatever stops the script mid-run, the run
+# ends in a GATE FAIL line and a non-zero exit code, never in silence.
+sed 's/^  RED=()$/  RED=(); : "$GATE_TEST_PLANTED_UNBOUND"/' scripts/gate.sh >"$TMP/gate.broken.sh"
+grep -q 'GATE_TEST_PLANTED_UNBOUND' "$TMP/gate.broken.sh" || bad "oracle-check: could not plant the fault (the mode's RED=() line moved)"
+oc() { # <bash> <gate script> <red target or ''>: the mode on packet/P4 with the fake cargo
+  PATH="$TMP/fakecargo:$PATH" FAKE_CARGO_RED="$3" "$1" "$2" --oracle-check --base main 2>&1
+}
+seen=""
+for sh in bash /bin/bash; do
+  command -v "$sh" >/dev/null 2>&1 || continue
+  v="$("$sh" -c 'echo "$BASH_VERSION"')"
+  case "$seen" in *"|$v|"*) continue ;; esac
+  seen="$seen|$v|"
+  rc=0; out="$(oc "$sh" scripts/gate.sh '-p a --test t')" || rc=$?
+  if [[ $rc -eq 0 && "$out" == *"GATE ORACLE-CHECK PASS"*"-p a --test t"* ]]; then ok "oracle-check (bash $v): a crate with no feature list reaches the result line, red in its oracle file"
+  else bad "oracle-check to its end, no feature list (bash $v, rc=$rc)" "$out"; fi
+  rc=0; out="$(oc "$sh" scripts/gate.sh '')" || rc=$?
+  if [[ $rc -ne 0 && "$out" == *"GATE FAIL: the oracle is green on the stub"* && "$out" != *"GATE ORACLE-CHECK PASS"* ]]; then ok "oracle-check (bash $v): an oracle that is green on the stub fails"
+  else bad "oracle-check green oracle (bash $v, rc=$rc)" "$out"; fi
+  rc=0; out="$(oc "$sh" scripts/gate.sh '-p a --test elsewhere')" || rc=$?
+  if [[ $rc -ne 0 && "$out" == *"GATE FAIL: red outside the oracle"* && "$out" != *"GATE ORACLE-CHECK PASS"* ]]; then ok "oracle-check (bash $v): a red target outside the oracle commits fails"
+  else bad "oracle-check red outside the oracle (bash $v, rc=$rc)" "$out"; fi
+  rc=0; out="$(oc "$sh" "$TMP/gate.broken.sh" '-p a --test t')" || rc=$?
+  if [[ $rc -ne 0 && "$out" == *"GATE FAIL"*"without a result line"* && "$out" != *"GATE ORACLE-CHECK PASS"* ]]; then ok "a gate that breaks mid-run (bash $v) ends in GATE FAIL and a non-zero exit code"
+  else bad "gate broken mid-run is not silent (bash $v, rc=$rc)" "$out"; fi
+done
+git checkout -q main
+
 # The oracle-check mode never prints the plain pass line: its tree is red by design, and "^GATE PASS" is what
 # coordinators grep for.
 if sed -n '/^if \[\[ "\$MODE" == oracle-check \]\]; then$/,/^fi$/p' "$SRC/scripts/gate.sh" | grep -q 'GATE PASS'; then
