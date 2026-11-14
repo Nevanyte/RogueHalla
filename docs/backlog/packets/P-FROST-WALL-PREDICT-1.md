@@ -166,13 +166,42 @@ Legacy is the unreleased patch (owner decision 2), not merged into `packages/`; 
 
 ## Oracle files (read-only for implementers)
 
-- `crates/rh-parity/src/frost_wall_walk_goldens.rs`
-- `crates/rh-parity/src/bin/frost_wall_walk_fixtures.rs`
-- `crates/rh-parity/src/lib.rs` (the `pub mod frost_wall_walk_goldens;` line)
-- `crates/rh-parity/Cargo.toml` (the `[[bin]]` entry)
 - `crates/rh-parity/tests/frost_wall_walk_golden.rs`
 - `protocol/fixtures/frost_wall_walk_v1.json`
 - `client-unity/RoguehallaNet.Tests/FrostWallWalkTests.cs`
+- `docs/backlog/packets/P-FROST-WALL-PREDICT-1.md` (this brief)
+
+In `stub:` commits (the gate allows no `crates/*/src` or `Cargo.toml` file in an oracle commit), not to be edited by the
+implementer all the same: the generator `crates/rh-parity/src/frost_wall_walk_goldens.rs`,
+`crates/rh-parity/src/bin/frost_wall_walk_fixtures.rs`, the `pub mod` line in `crates/rh-parity/src/lib.rs`, the
+`[[bin]]` entry in `crates/rh-parity/Cargo.toml` (its output is a protected golden and the golden test is an oracle
+file, so an edit there shows as a stale fixture); and the C# stub, `client-unity/RoguehallaNet/Net/LocalMotion.cs` and its
+Unity copy (`SetWalls` no-op, `WalkMap` returning the base map), which the implementer replaces.
+
+## The oracle
+
+- Rust side (GREEN, must stay green): `frost_wall_walk_goldens.rs` runs nine cases on a 40 x 24 room (and a corridor
+  variant) with a live-config sim (`frost_wish = Wall`, `Archetypes`, Fire hero walker, Frost caster at tile (5, 12)
+  aiming at (12, 12): the wall stands on column 12, rows 9..=15, landing tick 6, falling tick 86) and asserts each case
+  still shows its event (tiles, gap rows 11..=13 free, push with `displace_seq + 1` east of the ice, keyboard stop
+  within 426..=428, detour kept after the fall, the expiry boundary E - 1 / E round, E + 1 straight). Facts the vectors
+  show: a click on the wall's middle tile snaps the goal to the FAR side (368, 400) and the server walks round to it; the
+  rising wall re-plans a walk under way to `[(432, 272), (368, 272), (208, 400)]` in the landing tick.
+  `tests/frost_wall_walk_golden.rs` is green (the committed file is current).
+- C# side (RED today on assertions; all 11 green with a ~40-line prototype of the design above, and the full C# suite
+  stayed green with it, prototype discarded): `client-unity/RoguehallaNet.Tests/FrostWallWalkTests.cs`
+  - red, `|drawn - server| > 0.01` at the first diverging tick: `AClickPastAStandingWallTakesTheServersPathRoundIt`,
+    `AClickOnAStandingWallGoesWhereTheServerSnapsTheGoal`, `AWallRisingOnTheWalkReplansItOnTheLandingTick`,
+    `AFallingWallReplansNothingAndTheDetourIsWalkedToItsEnd`, `OrdersOnTheExpiryTickStillGoRoundAndTheNextTickGoesThrough`,
+    `AWalkerInTheGapOfAGappedWallStaysInsideTheGap`;
+  - red, steering goal 413 vs the server-map goal 429 at tick 14: `TheHeldKeySteersOnTheWallAndStopsAgainstTheIce`;
+  - red, `WalkMap` is still the Welcome map: `TheWalkMapHasTheWallTilesLowWhileTheyStandAndIsTheWelcomeMapItselfOtherwise`,
+    `ASteadyFrameWithAStandingWallAllocatesNothingInTheWalkMirror` (precondition: the wall is on the walk map; then
+    `AllocationProbe.PerCall` of `SetWalls(same walls, fresh array)` + `Step` must be 0 bytes);
+  - green guards: `AFreezeWorldWithNoWallWalksExactlyAsToday`, `AWalkerTheWallLandsOnFollowsTheServersPushAndNeverFightsIt`
+    (drawn == server at the push tick, lag <= 32 u after it, no snap, settles within 0.01).
+- The Unity caller lines (`Session.cs` State branch, `MatchClient.cs:478`) have no test of their own here: the reviewer
+  checks them by reading.
 
 ## Existing tests that pin what this packet touches
 
