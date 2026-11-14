@@ -42,3 +42,7 @@ path = "src/bin/hitbox_fixtures.rs"
 [[bin]]
 name = "frost-wall-aim-fixtures"
 path = "src/bin/frost_wall_aim_fixtures.rs"
+
+[[bin]]
+name = "frost-wall-walk-fixtures"
+path = "src/bin/frost_wall_walk_fixtures.rs"

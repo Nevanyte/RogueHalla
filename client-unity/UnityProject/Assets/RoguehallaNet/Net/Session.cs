@@ -468,6 +468,7 @@ namespace Roguehalla.Net
                     else Motion.SetCollisionMap(Map);
                 }
                 _predictionGatesLocked = locked;
+                if (Motion != null) Motion.SetWalls(Collections.Fields); // P-FROST-WALL-PREDICT-1: walls before this tick's snapshot
                 if (CollectionsChanged != null) CollectionsChanged(Collections);
                 return;
             }

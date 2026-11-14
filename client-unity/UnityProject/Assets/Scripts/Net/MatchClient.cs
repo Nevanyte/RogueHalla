@@ -475,7 +475,7 @@ namespace Roguehalla.Client
             if (keyX != 0 || keyY != 0)
             {
                 var dir = new Vector2(keyX, keyY);
-                bool have = Session.Map != null && KeyboardSteer.TryGoal(_steerPathfinder, Session.Map, myX, myY, keyX, keyY, Session.OwnFoot, out _steerGoalX, out _steerGoalY);
+                bool have = Session.Map != null && KeyboardSteer.TryGoal(_steerPathfinder, Session.Motion != null ? Session.Motion.WalkMap : Session.Map, myX, myY, keyX, keyY, Session.OwnFoot, out _steerGoalX, out _steerGoalY);
                 if (have)
                 {
                     if (!_steering || dir != _lastDir || now - _lastSteer >= SteerRepeatMs)
