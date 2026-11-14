@@ -41,10 +41,16 @@ fn site_side() -> u32 {
     34
 }
 
-/// The zones that reserve a site, in the order of `AttemptState::reserved` (Holy keeps its hall rule until
-/// P-MAPGEN-SIG-HOLY-1).
-fn styled() -> [Zone; 4] {
-    [Zone::Fire, Zone::Sentenced, Zone::Plague, Zone::Frost]
+/// The zones that reserve a site, in the order of `AttemptState::reserved` (amended by P-MAPGEN-SIG-HOLY-1: the Holy
+/// hall's 41 site is reserved last; was Fire, Sentenced, Plague, Frost).
+fn styled() -> [Zone; 5] {
+    [
+        Zone::Fire,
+        Zone::Sentenced,
+        Zone::Plague,
+        Zone::Frost,
+        Zone::Holy,
+    ]
 }
 
 /// How far beyond the zone's centroid distance the Fire, Sentenced and Frost sites' centres stand (the brief's rule is
@@ -270,8 +276,8 @@ fn centroid_distance(l: &Landed, zone: Zone) -> f64 {
 
 /// Every styled zone has a site of at least `site_side()` a side, wholly in its zone; Fire, Sentenced and Frost on the
 /// back edge (centre at least `back_edge_slack()` beyond the zone's centroid distance), Plague at least at its
-/// centroid distance (its outer third where a site fits there: the brief); a camp tile for the church and the cave
-/// only.
+/// centroid distance (its outer third where a site fits there: the brief); a camp tile for the church, the cave and
+/// (amended by P-MAPGEN-SIG-HOLY-1) the Holy hall, which also stands on the back edge, only.
 #[test]
 fn every_styled_zone_reserves_a_site_on_its_rule() {
     for l in maps() {
@@ -312,7 +318,7 @@ fn every_styled_zone_reserves_a_site_on_its_rule() {
             );
             assert_eq!(
                 r.camp.is_some(),
-                matches!(r.zone, Zone::Sentenced | Zone::Frost),
+                matches!(r.zone, Zone::Sentenced | Zone::Frost | Zone::Holy),
                 "seed {seed}: {:?} site camp {:?}",
                 r.zone,
                 r.camp
@@ -321,17 +327,17 @@ fn every_styled_zone_reserves_a_site_on_its_rule() {
     }
 }
 
-/// No camp's halo meets any reserved site, except the camp drawn inside the church's or the cave's site, whose whole
-/// halo lies in its own site.
+/// No camp's halo meets any reserved site, except a camp drawn inside the church's or the cave's site (or, amended by
+/// P-MAPGEN-SIG-HOLY-1, either of the Holy hall's two: `camp` and `extra`), whose whole halo lies in its own site.
 #[test]
 fn no_camp_halo_touches_a_site_but_its_own_camp() {
     for l in maps() {
         let ss = sites(l);
         for c in &l.map.camps {
             let t = world_cell(c.x, c.y);
-            let own = ss
-                .iter()
-                .find(|r| r.camp.map(tile_cell) == Some(t) && r.zone == c.zone);
+            let own = ss.iter().find(|r| {
+                r.zone == c.zone && r.camp.iter().chain(&r.extra).any(|&s| tile_cell(s) == t)
+            });
             for h in halo_of(t) {
                 for r in ss {
                     let in_site = inside(grow(r.rect, 0), h);
@@ -364,7 +370,12 @@ fn the_church_and_cave_camp_is_an_elite_in_the_far_half_of_its_site() {
     for l in maps() {
         let m = &l.map;
         let col = (m.coliseum.centre.x / R.tile, m.coliseum.centre.y / R.tile);
-        for r in sites(l).iter().filter(|r| r.camp.is_some()) {
+        // Amended by P-MAPGEN-SIG-HOLY-1: the church's and the cave's sites only (the Holy hall's two camps stand on its
+        // nave's centre line and follow legacy's elite rule: `mapgen_signature_hall.rs`).
+        for r in sites(l)
+            .iter()
+            .filter(|r| r.camp.is_some() && matches!(r.zone, Zone::Sentenced | Zone::Frost))
+        {
             let t = tile_cell(r.camp.unwrap());
             let camp = m
                 .camps
