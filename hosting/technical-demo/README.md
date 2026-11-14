@@ -192,7 +192,8 @@ byte-identical to the earlier ones. The owner chooses the values at deploy time.
   players and fill seconds anyway, so it wins whenever both are present; the pair is dropped to avoid a misleading unit.
 - `bot_brain` (`"off"`/`"full"`, default `"off"`): `"full"` adds `--bot-brain full`; the ported Brain plays the fill bots and
   falls back to HumanBot on a fault. Measured on the release commit with these flags: HumanBot fill bots die within a
-  minute and matches end at 41 to 112 s, while with the Brain no match ended within 600 s in 12 runs.
+  minute and matches end at 41 to 112 s, while with the Brain no match ended within 600 s in 12 runs (measured with
+  the learner off and no database, not in the host's exact configuration).
 
 Any other key or value is refused. Offline check of the rendered flags: `test_offline.py` (`LaunchFlags`). Local proof
 that the "all three on" command starts a real server: build `rh-server`, then run it on loopback with the Source options

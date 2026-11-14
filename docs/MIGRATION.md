@@ -4,6 +4,27 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integration 47 (2026-11-14): the wall prediction, the Brain switch for the host, test and tool fixes
+
+Staged as `coord/int-47` on `25b181101` and under gate. Identities unchanged (protocol 18, observation 30, policy
+contract 25, checkpoint 32, replay 25, content hash `7a542a13187f034c`). Each reviewed before the merge:
+- **P-FROST-WALL-PREDICT-1** (reviewer-opus LAND): the client's walk prediction and key steering plan on a walk map
+  with standing walls blocked (`LocalMotion.SetWalls`, `WalkMap`), re-planning on the landing tick as the server does;
+  a mirror checked against Rust-generated walk vectors (`protocol/fixtures/frost_wall_walk_v1.json`), no rule added.
+  A server test pins that a held-key stream of `Move`s never crosses standing ice. Costs about 0.5 to 0.9 MB of
+  transient garbage per wall rise or fall on the client. Not seen in the running client yet.
+- **P-HOST-BOT-BRAIN-1** (reviewed LAND WITH NOTES): `hosting/technical-demo` gains an optional config key `bot_brain`
+  (`off`/`full`, default off; absent or off renders byte-identical units). Merged default-off under the owner's
+  instruction of today to go with the recommendation that gets the game live; whether the deploy sets `full` is queue
+  Q26. The Brain together with the learner on Postgres had never been exercised: a local run of the host's exact
+  Source flags is in progress and its result is recorded with the deploy.
+- **P-BOT-BRAIN-FAULT-LOG-1** (LAND): `[bots]` log lines at match start and on a Brain seat's first fallback; a
+  `brainFallbacks` counter in the loopback health. No behaviour change.
+- **P-BROWSER-PROOF-KEYS-1**, **P-TEST-HARDEN-1b** (the exact-count decode allocation tests take the minimum of
+  several runs: the single-mean assertion of P-TEST-HARDEN-1 failed about one loaded run in five; exact equality kept;
+  the flake did not reproduce in 30 runs, so the fix rests on the reasoning), and the map generator session's fix of
+  the gate's `--oracle-check` silent pass.
+
 ## Release checks (2026-11-14): the release tree is on origin; what the checks found; current checkpoint
 
 Integration branch `feature/unity-rework` @ `25b181101` on origin (integration 46: full gate with Postgres and the
