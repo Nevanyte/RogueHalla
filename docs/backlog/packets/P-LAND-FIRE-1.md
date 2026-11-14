@@ -1,61 +1,100 @@
-# P-LAND-FIRE-1: every Fire camp keeps its crater, and craters keep clear of the volcano's three streams
+# P-LAND-FIRE-1: Fire craters keep clear of the volcano's three streams and stand on their camps; a camp's crater shrinks to fit, and about 1 camp in 20 goes without (the owner's measured gap)
 
 - **Serves:** owner direction for the land-generation lane (`docs/coordination/LAND_GENERATION_REQUIREMENTS.md`
-  section 3, Fire item and "Every zone" item; it answers the landmark lane's open question, section 6 fourth item).
-  ORDER_OF_OPERATIONS: the signature-map work (ADR 0028) under the owner's map-generation direction; not a sim tick,
-  wire or Unity change.
+  section 3, Fire item and "Every zone" item; it answers the landmark lane's open question, section 6 fourth item), as
+  amended by the **owner's decision of 2026-11-14** (section 0 below). ORDER_OF_OPERATIONS: the signature-map work
+  (ADR 0028) under the owner's map-generation direction; not a sim tick, wire or Unity change.
 - **Implementer tier:** implementer-opus (rh-sim mapgen: the Fire styler in signature mode, an end-of-attempt guarantee
   that changes which attempts are kept; every option-on map may move)
 - **Reviewer:** reviewer-opus
-- **Integration base:** stacked on `agent/opus/P-MAPGEN-SIG-SCALE-4` @ `5b49a874b` (the 22 x 22 volcano with three
-  streams; reviewed, on the coordinator's staging, not on origin). Gate with `scripts/gate.sh --oracle packet/P-LAND-FIRE-1
-  --base agent/opus/P-MAPGEN-SIG-SCALE-4` (and `--oracle-check --base agent/opus/P-MAPGEN-SIG-SCALE-4` on this branch).
+- **Integration base:** `origin/feature/unity-rework` @ `2f33045d6` (the packet branch was rebased onto it; SCALE-4's
+  volcano is in it). Gate with `scripts/gate.sh --oracle packet/P-LAND-FIRE-1` (and `--oracle-check` on this branch;
+  add `--base origin/feature/unity-rework` if `docs/agent/INTEGRATION_BRANCH` does not resolve to origin's tip).
 - **D-rules touched:** D1: option off byte-identical (G8; the new code runs only with a Fire frame, the guarantees only
   with the option on); no legacy counterpart (DEV-020: legacy has no volcano) · D2 n/a · no sim tick, wire, protocol or
   Unity change; nothing new is serialized or hashed (guarantees are generator rules, not content: `style_zones::guarantee`).
-- **Status:** oracle written 2026-11-14 (oracle-author, Opus). Numbers marked PROVISIONAL are not the owner's: the
-  implementer measures them and the coordinator takes them to the owner.
+- **Status:** oracle written 2026-11-14 (oracle-author, Opus); **amended the same day to the owner's decision of
+  2026-11-14** (this revision). The hard-rule build exists (`agent/opus/P-LAND-FIRE-1` @ `9f8e23e38`); the implementer
+  changes it as section 4 says.
 - **Sibling packets prepared at the same time (keep out of their files):** P-LAND-FROST-1 (`style_rime/`),
   P-MAPGEN-SIG-HOLY-1 (`landmarks/signature/`, the Prefix).
 
-## The owner's rule (verbatim, `LAND_GENERATION_REQUIREMENTS.md` section 3)
+## 0. The owner's decision of 2026-11-14 (the authority for this revision)
 
-> - **Fire** (`style_scorch/`). Craters keep clear of all three streams. **Every Fire camp keeps its crater**; size falls
->   with distance and none is dropped. This answers your open question (section 6, fourth item).
-> - **Every zone.** About today's share of the zone's free ground as fence, bog and ice, within about a fifth, measured
->   after the site is taken out. Barrows, guard houses, spires, headlands and craters keep today's rules and move only
->   where they would collide with the new arrangement.
+The hard-rule build (every camp keeps its crater, refused otherwise) lost seeds 27, 30 and 70 in 16 attempts (its
+hand-off `docs/coordination/HANDOFF_P-LAND-FIRE-1_2026-11-14.md` on `agent/opus/P-LAND-FIRE-1`). The owner was asked
+three questions, each worded so that "yes" accepts the recommendation, and answered **"Yea to all 3"**. Question 1,
+verbatim:
 
-Standing rules: **guarantees are hard** (an attempt that cannot deliver one is refused and the next is tried; nothing is
-served downgraded); **numbers are targets** (a number that cannot be met goes to the owner with the measurement; it is
-not changed quietly); option off stays byte-identical; the owner is shown a picture of real output on eight seeds.
+> **Fire craters:** "land the gentler rule now, with craters guaranteed clear of lava, and record 'about 1 camp in 20
+> without a crater' as a measured gap."
 
-## 1. Today's code (base `5b49a874b`)
+(The alternatives offered and not taken: move the Fire camps away from the streams and the map corners now; or the hard
+rule with its lost maps.) Questions 2 and 3 concern the Holy hall (P-MAPGEN-SIG-HOLY-1), not this packet.
 
-- `crates/rh-sim/src/mapgen/style_scorch/craters.rs:102-205` `place_craters`: one crater (a `Crater` pen) centred on
-  each Fire camp. Option off (no anchor): legacy's freer-share choice among the camp's radius options, as
+What "yes" means in the generator:
+- **Hard (end-of-attempt guarantees):** `crater-clear-of-lava` (as built) and `crater-on-camp` (every Fire crater
+  stands on a Fire camp: the second half of the old `crater-per-camp`).
+- **Not a guarantee any more:** "every Fire camp has a crater". A camp's crater takes its band's option first, then each
+  smaller allowed size (never larger, never under `radius_min4`), skipping a size whose disc holds stream or pool lava,
+  retrying a size whose rim is too short as a bare ring; **a camp goes without only when no allowed size fits; no
+  attempt is refused for a missing crater; no seed loses its map.**
+- **The owner's direction "every Fire camp keeps its crater" is NOT delivered.** The test that stood for it
+  (`every_fire_camp_has_its_crater`, and its `wide_` twin) is replaced, **by the owner's decision**, with a measured-gap
+  pin, `known_gap_about_one_fire_camp_in_twenty_has_no_crater`: a ceiling near today's figure and a floor of one, so
+  that the day the gap closes the test says so and the rule can be promoted to a guarantee.
+
+Standing rules, unchanged: guarantees are hard; numbers are targets (a number that cannot be met goes to the owner with
+its measurement); a landmark or zone rule never loses a seed; option off stays byte-identical; the owner sees a picture
+of real output on eight seeds before the merge request.
+
+### The measured gap the owner accepted
+
+Prototype variant V1 (`RH_PROTO_FIRE_SOFT=1`) on the scratch branch `agent/opus/P-LAND-FIRE-1-soft-measure` @
+`3987501d9` (never merged): the build with the per-camp half of the guarantee removed. Option on, no decor, 16 attempts.
+
+| | seeds 1-32 | seeds 1-64 | seeds 65-128 |
+|---|---|---|---|
+| seeds with a map | 32 | 64 | 64 |
+| attempts sum / worst index | 94 / 9 | 197 / 10 | 194 / 9 |
+| Fire camps without a crater | 18 | 32 of 640 | 37 |
+| maps with every camp cratered | | 36 | 33 |
+| most camps without on one map | | 2 (seeds 10, 29, 54, 55) | 3 (seed 114) |
+| Fire guarantee refusals | 0 | 0 | 0 |
+
+Today's game (the packet stub): 36 of 640 on seeds 1-64 (18 on 1-32), 35 maps complete, worst map 3 (seed 50).
+Causes on seeds 1-64 (V1): stream or pool lava in every allowed disc 15 (camps 4.0 to 5.39 tiles from lava); rim too
+short at every size 14 (frontier and edge camps; four at map corners with 1 to 3 open ring tiles); the runtime refused
+the pen's share 3. By band: far 17 of 327, mid 6 of 69, near 9 of 223, core 0 of 21. Other V1 figures, seeds 1-64:
+craters below their band's option 3 (near, by 4 quarter tiles), above 0; kept as a bare ring 16; crater share on/off
+median 0.952 (1-32) / 0.973 (1-64); near (core + near) over far mean tiles 1.338; least crater tile to lava
+(Chebyshev) 4 (3 on seeds 65-128, which the clearance of 2 dry tiles allows).
+
+Not taken, recorded for a later packet if the owner asks: a lowered rim minimum (6) rescues 5 of the 14 rim camps and
+needs a `CraterRules` field (content hash moves); letting a camp grow rescues none; the 15 lava camps need a smaller
+smallest crater or stream steering; giving every camp a crater means placing Fire camps farther from the streams and
+the map corners (the Prefix; every map moves; not measured).
+
+## 1. Today's code (base `2f33045d6`)
+
+- `crates/rh-sim/src/mapgen/style_scorch/craters.rs` `place_craters`: one crater (a `Crater` pen) centred on each Fire
+  camp. Option off (no anchor): legacy's freer-share choice among the camp's radius options, as
   `packages/shared/src/zoneStyle/scorch.ts:46-60` (`R_MIN4 = 20`, `R_MAX4 = 26`, `R_MAX4_ELITE = 30`, `RIM_MIN = 8`;
   `:506-541` legacy also leaves a crater out when its rim is short or it stretches a route: option off has 8-10
-  craters for 10 camps). Signature mode (`:135-176`): the camp's band (`camp_band`, `:85-94`) picks **one** option
-  (near the largest, mid the second, far the smallest; core any that keeps out of the core); if that one option fails
-  the rim, route-stretch or core checks the camp **has no crater** (`continue` at `:176`). This is where camps lose
-  their crater.
-- `craters.rs:208-236` `lava_apron`: every tile within `signature::DEFAULT_DEFINITION.bands[0]` = 2 (Chebyshev) of a
-  lava or ember tile owned by a `LavaStream` or `LavaPool` feature; the crater's bowl floor is cut out of it (`:160-162`)
-  and its rim kept out by `no_block`. `SignatureContext::intact` (`landmarks/signature/mod.rs:1028-1060`) discards a map
-  with any styler tile in that apron. So today's clearance is 2 tiles, already kept on every kept map; but the crater
-  is centred on the camp regardless of the stream, so a stream can run through a crater's ring with the ring merely cut
-  where it passes.
+  craters for 10 camps). Signature mode: the camp's band (`camp_band`) picks **one** option (near the largest, mid the
+  second, far the smallest; core any that keeps out of the core); if that one option fails the rim, route-stretch or
+  core checks the camp has no crater.
+- `craters.rs` `lava_apron`: every tile within `signature::DEFAULT_DEFINITION.bands[0]` = 2 (Chebyshev) of a lava or
+  ember tile owned by a `LavaStream` or `LavaPool` feature; the crater's bowl floor is cut out of it and its rim kept
+  out by `no_block`. `SignatureContext::intact` discards a map with any styler tile in that apron. So today's clearance
+  is 2 tiles, already kept on every kept map; but the crater is centred on the camp regardless of the stream, so a
+  stream can run through a crater's ring with the ring merely cut where it passes.
 - `style_zones/guarantee.rs` `guarantees`: Fire returned `&[]` (the stub points it at `style_scorch::guarantees`, still
   empty).
 - The radius options: `search_family::scorch::radius4` R = clamp(floor(2 * nearest other Fire camp - 3.2), 20, 26 or 30
   elite); options R, R - 4, R - 8 (`CraterRules::radius_shrink4`), those >= `radius_min4` = 20.
 
-## 2. Baseline measurements (oracle author, base `5b49a874b`, option on and off, no decor, `certified_styled`)
-
-Temporary ignored test (not committed). "Its crater" = the `Crater` feature of zone Fire anchored on the camp's tile.
-Lava = LOW lava tiles owned by `LavaStream`/`LavaPool` (equal to the frame's lava outside the cone's box: pinned by
-`the_frames_lava_outside_the_cone_is_the_streams_and_pools`).
+## 2. Baseline measurements (oracle author, before the rebase; the stub's figures above confirm them)
 
 | Measure | Seeds 1-32 | Seeds 1-64 |
 |---|---|---|
@@ -65,64 +104,50 @@ Lava = LOW lava tiles owned by `LavaStream`/`LavaPool` (equal to the frame's lav
 | camps without a crater, option on | 18 camps on 15 maps | 36 camps on 29 maps |
 | craters with stream or pool lava inside their disc (radius p[1]/4) | 8 craters on 8 maps (seeds 8, 15, 19, 24, 25, 27, 29, 32) | 15 craters on 13 maps |
 | least Chebyshev distance crater tile to stream/pool lava | 3 | 3 (8 craters at 3, 134 at 4; none within 2) |
-| craters touching lava (<= 1) / within 2 | 0 / 0 | 0 / 0 |
 | least distance camp tile to stream/pool lava (Euclidean) | | 4.0 tiles (7 camps of 640 under 4.5, 15 under 5.5) |
 | crater share of free ground on / off (median of per-seed ratios) | 1.001 | 1.002 (per seed 0.73-1.40) |
 | attempts (sum) / worst attempt index | 89 / 9 (seed 22) | |
 
-Crater size by band ("size falls with distance" today), seeds 1-64, option on; the radius is exactly the band's option
-for every crater:
-
-| Band (camp) | camps | dropped | radii (quarter tiles) | crater tiles mean (min-max) |
-|---|---|---|---|---|
-| core | 21 | 0 | 26-30 | 168.9 (124-190) |
-| near | 224 | 12 | 20-30 | 115.3 (60-191) |
-| mid | 68 | 7 | 20-26 | 92.6 (72-143) |
-| far | 327 | 17 | 20-22 | 88.1 (55-113) |
-
-Dropped camps lie both beside streams (camp 5-7 tiles from lava: the apron cuts the rim below `rim_min`) and far from
-the volcano (map corners and edges, e.g. seed 20 (6, 153), seed 22 (153, 6): the one far-band option fails the rim or
-route checks; option off keeps those craters with a smaller or larger option).
-
 ## 3. The rule, as the oracle states it (header of `tests/mapgen_land_fire.rs`)
 
-1. **None dropped:** every Fire camp has its crater; every Fire crater stands on a Fire camp.
-2. **Clear of the streams:** no stream or pool lava (the Fire frame's LOW lava outside the cone's box) lies in a
+1. **Every seed keeps its map:** seeds 1-128 each have a map within 16 attempts with the option on.
+2. **On its camp:** every Fire crater stands on a Fire camp, one crater per camp at most.
+3. **The measured gap (owner decision 2026-11-14):** over seeds 1-64 the Fire camps without a crater number at least
+   1 and at most 40; no map of seeds 1-64 or of seeds 65-128 has more than 3.
+4. **Clear of the streams:** no stream or pool lava (the Fire frame's LOW lava outside the cone's box) lies in a
    crater's disc (16 * d^2 < p[1]^2 round the camp tile), and no tile a crater owns lies within
-   `style_scorch::lava_clearance()` = **2** tiles (Chebyshev) of that lava: today's apron, pinned, not a new number.
-3. **Size falls with distance:** a crater's radius is one of its camp's options, at least the smallest crater
-   (**`radius_min4` = 20 quarter tiles, a ring 5 tiles out**: today's floor; owner figure to confirm), and at most its
-   band's option (core: any option). It may shrink below its band's option (to be kept, or to keep clear) but never
-   grows. At least 90% (PROVISIONAL) take exactly their band's option; near-band craters average at least 1.15 times
-   the far band's tiles (today 1.31).
-4. **Guarantees** registered for Fire, in order: `"crater-per-camp"` (rule 1), `"crater-clear-of-lava"` (rule 2), each
-   a pure read of the finished map and the Fire frame (`fn(&GameMapData, &LandmarkFrame) -> bool`).
-5. **Amounts:** the median over seeds 1-32 of (crater share of free ground, option on, the site taken out: the anchor's
-   core band and the tiles within the clearance of stream/pool lava) / (option off) lies in [0.8, 1.2].
-6. **The volcano untouched:** the Fire frame writes the cone then (stream, pool) three times; three Fire `LavaStream`
-   and three `LavaPool` features; `mapgen_signature_volcano.rs` stays green unchanged.
-7. **Attempts:** worst attempt index <= 12, attempts over seeds 1-32 <= 137 (the stack's figures), and at most **8**
-   (PROVISIONAL) attempts refused by a Fire guarantee over seeds 1-32.
+   `style_scorch::lava_clearance()` = **2** tiles (Chebyshev) of that lava (seeds 1-128).
+5. **Size falls with distance:** a crater's radius is one of its camp's options, at least `radius_min4` = 20 quarter
+   tiles, and at most its band's option (core: any option). It may shrink below its band's option but never grows. At
+   least 90% (PROVISIONAL) take exactly their band's option; near-band craters average at least 1.15 times the far
+   band's tiles (seeds 1-32).
+6. **Guarantees** registered for Fire, in order: `"crater-clear-of-lava"` (rule 4), `"crater-on-camp"` (rule 2), each a
+   pure read of the finished map and the Fire frame (`fn(&GameMapData, &LandmarkFrame) -> bool`). A map with a camp
+   lacking its crater is refused by no Fire rule.
+7. **Amounts:** the median over seeds 1-32 of (crater share of free ground, option on, the site taken out) / (option
+   off) lies in [0.8, 1.2].
+8. **The volcano untouched:** the Fire frame writes the cone then (stream, pool) three times; three Fire `LavaStream`
+   and three `LavaPool` features.
+9. **Attempts:** worst attempt index <= 12, attempts over seeds 1-32 <= 137 (the stack's figures), and at most **2**
+   attempts refused by a Fire guarantee over seeds 1-32 (measured 0).
 
-## 4. The design (a few lines; the implementer decides the details)
+## 4. The design now: what the implementer changes on `agent/opus/P-LAND-FIRE-1`
 
-- In signature mode, `place_craters` tries the camp's band option first, then each **smaller** option in order down to
-  `radius_min4`, never a larger one; the first that passes today's rim, route-stretch and core checks **and** holds no
-  stream or pool lava in its disc is committed. Option off is untouched (the `anchor.is_none()` path).
-- The lava to test against comes from the Fire frame (`BaseContext::landmark`: the cells written LOW with the lava
-  terrain outside `anchor.footprint`), the same definition the guarantees use; keep one helper for both.
-- A camp that no option fits gets no crater from the styler, and `crater-per-camp` refuses the attempt (never a crater
-  outside the rules, never a crater smaller than `radius_min4`).
-- `style_scorch/guarantees.rs`: the two checks; `guarantees()` a promoted literal (no `const`/`static`: `tests/content.rs`
-  reads every upper-case one as a tunable); `lava_clearance()` stays a function.
-- Cheaper fits worth trying before refusing (implementer's choice, keep today's rules otherwise): the extra-breach paths
-  that already exist (`crossing_beam`), counting the apron-cut rim against `rim_floor_min` the way today's guard does.
-- **Option outside this scope (for the coordinator):** if refusals stay high because camps sit 4-5 tiles from a
-  stream (no 5-tile crater can hold no lava then), the honest fix is upstream: keep the streams off crater ground in
-  `landmarks/signature/volcano.rs` (a stream refused or shortened where its lava would fall within radius_min4 / 4
-  tiles of a Fire camp). Cost: the landmark lane's file (P-MAPGEN-SIG-HOLY-1 is open there), more `Signature` refusals
-  (SCALE-4's measurement of bending streams: Fire refusals 38 to 81 over seeds 1-64 and a lost seed), and every
-  option-on map moves again. Not in this packet's scope; the alternative owner choice is a smaller smallest crater.
+Start from `agent/opus/P-LAND-FIRE-1` @ `9f8e23e38` (the hard-rule build, already on this packet's base): rebase it onto
+this packet's tip (the new oracle commits), then:
+
+- **Drop the per-camp half of the guarantee.** `style_scorch/guarantees.rs`: replace `crater-per-camp` with
+  `crater-on-camp` (every Fire crater's anchor is a Fire camp's tile; a camp without a crater passes), and register
+  `crater-clear-of-lava` then `crater-on-camp`. `crater-clear-of-lava` is unchanged.
+- **Keep everything else as built:** `place_craters` (band's option, each smaller allowed size, disc skip, bare-ring
+  retry); a camp with no fitting size simply gets no crater. Option off untouched.
+- **No prototype knobs** (`proto.rs`, environment reads, logs: none of it comes over), **no new draw** (the raster reads
+  hash noise only), no `CraterRules` field.
+- **In-crate tests for both rules** in `guarantees.rs` (the build's hand-built-map tests, with the per-camp test
+  rewritten for `crater-on-camp`: a camp without its crater passes; a crater one tile off its camp, a Frost crater or a
+  Fire barrow are read correctly; the registry order).
+- **README** (`style_scorch/README.md`): the two rules and the measured gap (owner decision 2026-11-14).
+- Doc comments: the stub's `guarantees.rs` header and the Fire arm of `style_zones/guarantee.rs` name the two rules.
 
 ## 5. Exclusive write scope
 
@@ -140,8 +165,8 @@ Not in scope: `landmarks/signature/**` (volcano, intact), the Prefix, `pipeline/
   --all-features --lib style_scorch`).
 - Every other zone's tests (`mapgen_land_plague.rs`, `mapgen_land_sentenced.rs`, `mapgen_signature_frost_lake.rs`, the
   volcano, church, bog tree, reserve, scale and table oracles) green with their current numbers.
-- **Re-taken by the lane's session, not the implementer** (they pin today's option-on attempts and will go red when
-  craters change which attempts are kept): `tests/support/signature_pins.rs` option-on map and Landmarks-phase pins
+- **Re-taken by the lane's session, not the implementer** (they pin today's option-on attempts and go red when craters
+  change which attempts are kept): `tests/support/signature_pins.rs` option-on map and Landmarks-phase pins
   (`pinned_on_maps`, `pinned_landmarks`, read by `mapgen_signature_blueprint.rs`, `mapgen_landmark_frame.rs` and the
   other `mapgen_signature_*` files), `mapgen_guarantees.rs` `pinned_labels` (the refusal-label sequence of seeds 1-32)
   and the lake-refusal count `seen == 6` in `a_lake_failure_is_refused_after_records_as_the_frost_guarantee`. The
@@ -149,49 +174,64 @@ Not in scope: `landmarks/signature/**` (volcano, intact), the Prefix, `pipeline/
 
 ## 7. Acceptance checks
 
-All of `crates/rh-sim/tests/mapgen_land_fire.rs` (14 tests), the two amended files below, and the whole rh-sim suite
-except the pins listed in section 6 as re-taken. Red on the stub (by assertion):
+All of `crates/rh-sim/tests/mapgen_land_fire.rs` (17 tests), the amended files below, and the whole rh-sim suite except
+the pins listed in section 6 as re-taken.
+
+### Red on the stub (by assertion)
 
 | Test | Assertion on the stub |
 |---|---|
-| `every_fire_camp_has_its_crater` | "Fire camps without their crater (seeds 1-32): 18 findings" (seed 4 (34, 41), seed 5 (152, 152), ...) |
-| `wide_every_fire_camp_has_its_crater` | seeds 33-96 (18 camps on seeds 33-64 alone: seed 35 (42, 135), ...) |
-| `craters_keep_clear_of_the_streams_and_pools` | "craters not clear of the streams (seeds 1-32): 8 findings" (seed 8 crater (104, 74) radius 22 holds 3 lava tiles in its disc, ...) |
-| `wide_craters_keep_clear_of_the_streams_and_pools` | seeds 48, 53, 54, 55 (3), 61, 65, 72, 77, 92, 96, ... |
-| `the_fire_guarantees_are_registered_by_name` | left `[]`, right `["crater-per-camp", "crater-clear-of-lava"]` |
-| `the_fire_guarantees_hold_on_every_kept_map`, `crater_per_camp_fails_with_a_crater_removed`, `crater_clear_of_lava_fails_with_a_crater_tile_beside_a_stream`, `crater_clear_of_lava_fails_with_a_crater_disc_over_a_stream` | "no guarantee \"crater-per-camp\" registered for Fire (registered: [])" |
+| `craters_keep_clear_of_the_streams_and_pools` | STUB_CLEAR |
+| `wide_craters_keep_clear_of_the_streams_and_pools` | STUB_WIDE_CLEAR |
+| `the_fire_guarantees_are_registered_by_name` | left `[]`, right `["crater-clear-of-lava", "crater-on-camp"]` |
+| `the_fire_guarantees_hold_on_every_kept_map`, `a_camp_without_its_crater_is_refused_by_no_fire_rule`, `crater_on_camp_fails_with_a_crater_moved_off_its_camp`, `crater_clear_of_lava_fails_with_a_crater_tile_beside_a_stream`, `crater_clear_of_lava_fails_with_a_crater_disc_over_a_stream` | "no guarantee \"crater-clear-of-lava\" registered for Fire (registered: [])" |
 | `mapgen_guarantees.rs` `the_registry_lists_the_fire_frost_and_plague_rules_and_nothing_else` | Fire `[]` against the two rules |
 | `mapgen_guarantees.rs` `every_guarantee_holds_on_every_kept_map_of_seeds_1_to_32` | 96 checks, 160 expected |
 
-Green on the stub, guards that must stay green: `the_frames_lava_outside_the_cone_is_the_streams_and_pools`,
+### Green on the stub: guards that must stay green
+
+`every_seed_of_1_to_128_keeps_its_map` (the hard-rule build fails it: seeds 27, 30, 70),
+`every_fire_crater_stands_on_its_own_fire_camp`, `known_gap_about_one_fire_camp_in_twenty_has_no_crater` (the stub's
+36 lies inside the owner's window by design: the pin bounds the build against today's game, it does not demand an
+improvement), `the_frames_lava_outside_the_cone_is_the_streams_and_pools`,
 `crater_size_falls_with_distance_and_shrinks_only_below_its_bands_option`,
 `crater_share_of_free_ground_stays_within_a_fifth_of_todays`, `the_volcano_keeps_its_three_streams_and_pools`,
 `the_attempt_bounds_hold_and_the_fire_guarantees_refuse_little`.
 
+### Checked against the decided behaviour
+
+MEASURED_TABLE
+
 ## Oracle files (read-only for implementers)
 
-- `crates/rh-sim/tests/mapgen_land_fire.rs` (new; `oracle:` commit `3b171e76c`)
-- `crates/rh-sim/tests/mapgen_guarantees.rs` (amended; `oracle-amend:` commit `3f69ba83c`)
-- `crates/rh-sim/tests/mapgen_signature_fire_bands.rs` (amended; `oracle-amend:` commit `ca27b6797`)
+- `crates/rh-sim/tests/mapgen_land_fire.rs` (`oracle:` `259596c3f`; amended by `oracle-amend:` AMEND_FIRE)
+- `crates/rh-sim/tests/mapgen_guarantees.rs` (`oracle-amend:` `f497c1a92`, then AMEND_GUAR)
+- `crates/rh-sim/tests/mapgen_signature_fire_bands.rs` (`oracle-amend:` `3d574d4c6`, then AMEND_BANDS (comment only))
 - `docs/backlog/packets/P-LAND-FIRE-1.md` (this brief)
+- `docs/coordination/LAND_GENERATION_REQUIREMENTS.md` (section 3, Fire: the decision of 2026-11-14 added under the
+  owner's sentence)
 
-Stub (the implementer replaces or edits; `stub:` commit `8cc2ddab7`): `style_scorch/guarantees.rs` (new: empty
-`guarantees()`, `lava_clearance()` = `bands[0]`), `style_scorch/mod.rs` (`mod guarantees;`, `pub use`),
-`style_zones/guarantee.rs` (Fire arm points at `style_scorch::guarantees`).
+Stub (the implementer replaces or edits; `stub:` commit `e5f3987da`): `style_scorch/guarantees.rs` (empty
+`guarantees()`, `lava_clearance()` = `bands[0]`; its header still names the old `crater-per-camp`: the implementer
+rewrites it), `style_scorch/mod.rs` (`mod guarantees;`, `pub use`), `style_zones/guarantee.rs` (Fire arm points at
+`style_scorch::guarantees`). No new stub was needed for this revision.
 
-## 8. Existing oracles amended (each alone in its `oracle-amend:` commit, for the owner)
+## 8. Existing and earlier oracles amended (each in an `oracle-amend:` commit, for the owner)
 
 | File, test | Old | New | Why |
 |---|---|---|---|
-| `mapgen_guarantees.rs` `the_registry_lists_the_frost_and_plague_rules_and_nothing_else` | renamed `the_registry_lists_the_fire_frost_and_plague_rules_and_nothing_else`; `(Zone::Fire, vec![])` | `(Zone::Fire, vec!["crater-per-camp", "crater-clear-of-lava"])` | the new Fire guarantees |
-| `mapgen_guarantees.rs` `every_guarantee_holds_on_every_kept_map_of_seeds_1_to_32` | `checked == 32 * 3` | `checked == 32 * 5` | two Fire checks per map |
-| `mapgen_signature_fire_bands.rs` `craters_take_their_bands_radius_option` | outside the core, radius `== ` the band's option | radius one of the camp's options and `<=` the band's option (header note added) | the owner's "none is dropped" means a crater may shrink to be kept; it never grows. The new oracle bounds how often (at least 90% at the band's option, PROVISIONAL) and keeps "size falls with distance" (near mean >= 1.15 x far). This loosens a G4 test on purpose: the owner's newer rule. |
-
-Not amended, still valid: `mapgen_signature_fire_bands.rs` `near_band_craters_are_larger_than_far_band_ones` (a near
-crater shrinks at most to the far option of the same set, never below it) and
-`no_crater_in_the_core_and_the_crater_count_holds`, `mapgen_signature_fire.rs`
-`craters_are_arranged_by_band_round_the_volcano` (count floor on >= off - 2: implied by "none dropped"). Not amended,
-will go red after the implementation and are re-taken by the lane's session: section 6.
+| `mapgen_guarantees.rs` `the_registry_lists_the_fire_frost_and_plague_rules_and_nothing_else` | `(Zone::Fire, vec![])` (before this packet); then `["crater-per-camp", "crater-clear-of-lava"]` | `(Zone::Fire, vec!["crater-clear-of-lava", "crater-on-camp"])` | the Fire guarantees as decided 2026-11-14 |
+| `mapgen_guarantees.rs` `every_guarantee_holds_on_every_kept_map_of_seeds_1_to_32` | `checked == 32 * 3` | `checked == 32 * 5` (message names the new rules) | two Fire checks per map |
+| `mapgen_signature_fire_bands.rs` `craters_take_their_bands_radius_option` | outside the core, radius `==` the band's option | radius one of the camp's options and `<=` the band's option | a crater may shrink to be kept or to keep clear; it never grows. Loosens a G4 test on purpose. Header comment now names the measured gap (2026-11-14) instead of "every camp has one". |
+| `mapgen_land_fire.rs` `every_fire_camp_has_its_crater` | every Fire camp has its crater, seeds 1-32 | **replaced by the owner's decision** with `known_gap_about_one_fire_camp_in_twenty_has_no_crater` (seeds 1-64: 1 <= camps without <= 40; worst map <= 3 on 1-64 and 65-128) and `every_fire_crater_stands_on_its_own_fire_camp` (seeds 1-128) | the owner accepted about 1 camp in 20 without a crater as a measured gap |
+| `mapgen_land_fire.rs` `wide_every_fire_camp_has_its_crater` | seeds 33-96 | removed; seeds 33-128 feed the gap pin and the on-camp test | same |
+| `mapgen_land_fire.rs` (new) `every_seed_of_1_to_128_keeps_its_map` | (`land` panicked on a lost seed) | a lost seed is an assertion | "no seed loses its map" |
+| `mapgen_land_fire.rs` `the_fire_guarantees_are_registered_by_name` | `["crater-per-camp", "crater-clear-of-lava"]` | `["crater-clear-of-lava", "crater-on-camp"]` | the decision |
+| `mapgen_land_fire.rs` `crater_per_camp_fails_with_a_crater_removed` | per-camp refuses a removed crater | replaced by `a_camp_without_its_crater_is_refused_by_no_fire_rule` (removed crater: every Fire rule passes) and `crater_on_camp_fails_with_a_crater_moved_off_its_camp` (anchor moved one tile off any camp, disc still dry: on-camp refuses, clear passes) | the decision |
+| `mapgen_land_fire.rs` the two `crater_clear_of_lava_fails_*` | companion rule `crater-per-camp` still holds | companion rule `crater-on-camp` still holds | the decision |
+| `mapgen_land_fire.rs` `the_fire_guarantees_hold_on_every_kept_map` | seeds 1-32 | seeds 1-128 | the maps with a bare camp are kept maps too |
+| `mapgen_land_fire.rs` `the_attempt_bounds_hold_and_the_fire_guarantees_refuse_little` | Fire refusals <= 8 (PROVISIONAL) | <= 2 (measured 0) | no attempt is refused for a missing crater; the net should not catch |
+| `mapgen_land_fire.rs` `wide_craters_keep_clear_of_the_streams_and_pools` | seeds 33-96 | seeds 33-128 | the decision's measured ranges |
 
 ## 9. Validation commands
 
@@ -199,32 +239,34 @@ will go red after the implementation and are re-taken by the lane's session: sec
 cd <worktree> && export PATH="$HOME/.cargo/bin:$PATH"
 # optimised test builds run the map tests about eight times faster (debug assertions stay on):
 export CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_PROFILE_DEV_OPT_LEVEL=2 CARGO_PROFILE_TEST_OPT_LEVEL=2
-cargo test -p rh-sim --features trusted-status-probes --test mapgen_land_fire
+cargo test -p rh-sim --features trusted-status-probes --test mapgen_land_fire -- --nocapture
 cargo test -p rh-sim --features trusted-status-probes --test mapgen_guarantees --test mapgen_signature_fire_bands \
   --test mapgen_signature_fire --test mapgen_signature_volcano --test mapgen_land_plague --test mapgen_land_sentenced
 cargo test -p rh-sim --all-features --lib style_scorch
 scripts/gate.sh --quick
-scripts/gate.sh --oracle packet/P-LAND-FIRE-1 --base agent/opus/P-MAPGEN-SIG-SCALE-4
+scripts/gate.sh --oracle packet/P-LAND-FIRE-1
 ```
 
-## 10. Numbers for the owner (the implementer measures on the real build and reports in the hand-off)
+## 10. Numbers for the owner
 
-PROVISIONAL figures named in the oracle: `fire_refusals_allowed` = 8 (seeds 1-32), `at_band_option_min` = 0.9; the
-stack's `worst_attempt_allowed` = 12 and `attempts_allowed` = 137. Owner figures to confirm: the clearance 2 (today's
-apron), the smallest crater `radius_min4` = 20 (5 tiles), the share window [0.8, 1.2].
+Owner-accepted (2026-11-14): the gap, about 1 Fire camp in 20 without a crater (ceiling 40 and worst map 3 are the
+oracle author's bounds round the measured 32 and 3). PROVISIONAL figures named in the oracle: `at_band_option_min` =
+0.9, `fire_refusals_allowed` = 2; the stack's `worst_attempt_allowed` = 12 and `attempts_allowed` = 137. Owner figures
+still to confirm: the clearance 2 (today's apron), the smallest crater `radius_min4` = 20 (5 tiles), the share window
+[0.8, 1.2].
 
-Report, seeds 1-64, option on (and 1-32 where the oracle measures):
-- attempts per seed, the worst, the sum; refusals by reason (labels), the Fire guarantee refusals by rule;
-- craters per map (always 10 for 10 camps), craters per band at and below their band option, crater tiles by band;
-- the least distance crater tile to stream/pool lava, the count of craters with lava within 1, 2, 3 tiles of their
-  ring; the least camp-to-lava distance among camps on kept maps;
-- crater share of free ground on/off per seed and its median;
-- time per map (option on) before and after.
+**Close to a bound:** the worst single map on seeds 65-128 measured exactly 3 (seed 114) against `worst_map_allowed` =
+3: a build that leaves one more camp bare on that map fails it. The bound was not raised to make room; if it fails, the
+measurement goes to the owner.
+
+The implementer reports, seeds 1-64 (and 1-32 where the oracle measures): attempts per seed, the worst, the sum;
+refusals by label; camps without a crater by band and cause; craters below their band option; the least crater tile to
+lava; crater share on/off median; time per map (option on) before and after.
 
 ## 11. The picture
 
 The lane's session renders eight seeds (1-8) of the Fire zone after the build: tiles, stream and pool lava, each
-crater's ring, the camp tiles; the owner approves the sheet before a merge is asked for.
+crater's ring, the camp tiles (the bare camps marked); the owner sees the sheet before a merge is asked for.
 
 ## 12. Known traps
 
@@ -240,5 +282,5 @@ crater's ring, the camp tiles; the owner approves the sheet before a merge is as
 - **The frame's lava:** read it from `BaseContext::landmark` / the guarantee's `LandmarkFrame` (cells LOW with
   `DEFAULT_DEFINITION.lava`, outside `anchor.footprint`); do not rebuild the streams from map features.
 - **Option off:** every new branch sits behind `anchor.is_some()`; the legacy path's freer-share selection is untouched.
-- **Refusals vs fitting:** the guarantee is the net, not the method; if refusals exceed 8 or the attempt bounds break,
-  stop and report the measurement (section 4's upstream option) rather than loosening a test.
+- **The gap pin is not a target to tune.** If it fails above the ceiling, the build got worse than today's game: fix
+  the build. If it fails at zero, the owner's direction is delivered: report it, do not edit the pin.
