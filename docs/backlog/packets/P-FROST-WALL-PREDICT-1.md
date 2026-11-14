@@ -169,6 +169,7 @@ Legacy is the unreleased patch (owner decision 2), not merged into `packages/`; 
 - `crates/rh-parity/tests/frost_wall_walk_golden.rs`
 - `protocol/fixtures/frost_wall_walk_v1.json`
 - `client-unity/RoguehallaNet.Tests/FrostWallWalkTests.cs`
+- `crates/rh-sim/tests/frost_wall_held_key.rs` (server guard, green)
 - `docs/backlog/packets/P-FROST-WALL-PREDICT-1.md` (this brief)
 
 In `stub:` commits (the gate allows no `crates/*/src` or `Cargo.toml` file in an oracle commit), not to be edited by the
@@ -202,6 +203,32 @@ Unity copy (`SetWalls` no-op, `WalkMap` returning the base map), which the imple
     (drawn == server at the push tick, lag <= 32 u after it, no snap, settles within 0.01).
 - The Unity caller lines (`Session.cs` State branch, `MatchClient.cs:478`) have no test of their own here: the reviewer
   checks them by reading.
+- Server guard (coordinator addition 2026-11-14, after the live report "the server position went x 1266, 1528, 1782
+  over 3 s through where a wall stood"): `crates/rh-sim/tests/frost_wall_held_key.rs`, GREEN on `fffbad5c6`. Live
+  walk/wall config (`live_content()`'s abilities, `frost_wish`, `hitboxes`, `hazards`, `walk_hints`; `wish_lock_ms` 0;
+  the live lifecycle and PvE content cannot start on a test room and do not walk). A Frost caster raises a wall at the
+  minimum range (64 u) across the walk (column 12, rows 17..=23); for the wall's life a `Move` every 2 ticks to 64 u
+  ahead of the walker's current position (today's client stream), for the caster, a bystander on the line, a
+  bystander set down against the ice by the push, and goals on the ice tile centres. Every standing tick: the foot box
+  overlaps no ice tile, and the walker is east of the ice only after a tick beyond the ice's rows (round an end, not
+  through). Outcomes pinned so it is not vacuous: 64 u-ahead goals get round the 7-tile wall's nearer end in about 1 s
+  (y 537, one tile above the ice); goals on an ice tile snap to the tile in front (x 368) and the walker stops there.
+  Conclusion: the server does not let a walker through; the live symptom is the client gap this packet covers (the
+  drawn sprite walks the client's straight plan into the ice), plus a server walk that goes round the end while its x
+  keeps advancing (an x-only `where` readout cannot tell round from through). Not established: the live wall's
+  orientation and whether it had already fallen (4 s life) during the 3 s readout.
+
+## The investigation's fix shape, and where this brief differs
+
+The coordinator's investigation proposed: rebuild the client collision map with the wall tiles when walls rise or
+fall, beside the gate handling at `Session.cs:463-469`, and hand it to the walk prediction (`Motion.SetCollisionMap`)
+and to key steering (`KeyboardSteer.TryGoal` at `MatchClient.cs:478`), restoring legacy's slide along the wall
+(`RaidScene.ts` `planMap()` feeds both). This brief keeps that shape (one rebuilt map, both readers, legacy's slide) with
+one difference the oracle requires: the map goes in through `LocalMotion.SetWalls`, not `SetCollisionMap`.
+`SetCollisionMap` suspends prediction and drops the walk and the pending order (`LocalMotion.cs:237-243`, pinned by
+`LocalMotionTests.ExplicitCollisionReplacementInvalidatesCachedNavigationAndTheOldWalk`), so a wall rising mid-walk
+would stop the predicted walk instead of re-planning it on the landing tick as the server does
+(`AWallRisingOnTheWalkReplansItOnTheLandingTick`). Steering reads `Motion.WalkMap`, the same map.
 
 ## Existing tests that pin what this packet touches
 
