@@ -18,6 +18,7 @@ mod combat;
 mod fire_roam;
 mod frost;
 pub mod frost_wall_goldens;
+pub mod frost_wall_walk_goldens;
 pub mod hitbox_goldens;
 mod holy;
 mod hunt;
