@@ -97,6 +97,12 @@ namespace Roguehalla.Net
         static readonly PathPoint[] NoPath = new PathPoint[0];
 
         MapBlob _map;
+        // P-FROST-WALL-PREDICT-1: the map the walk plans and steers on (_map with every standing wall's tiles LOW; _map itself
+        // when no wall stands), and the walls it was built from (keys and tiles, reused arrays; written only when the set changes).
+        MapBlob _walkMap;
+        AreaKey[] _wallKeys = new AreaKey[4];
+        MapTile[][] _wallTiles = new MapTile[4][];
+        int _wallCount;
         bool _predictionSuspended;
         bool _alive;
         byte _displaceSeq;
@@ -208,7 +214,7 @@ namespace Roguehalla.Net
         public int ConsecutiveOutOfToleranceSamples { get; private set; }
 
         /// <summary>Keeps the map the server walks; the Phase 1 pathfinder builds its navigation tables once for it.</summary>
-        public LocalMotion(MapBlob map) { _map = map; _predictionSuspended = map == null; }
+        public LocalMotion(MapBlob map) { _map = map; _walkMap = map; _predictionSuspended = map == null; }
 
         /// <summary>
         /// Stops prediction when the server changes collision geometry that this client cannot represent (for example locked
@@ -239,22 +245,109 @@ namespace Roguehalla.Net
             SuspendPrediction();
             _map = map;
             _pathfinder.InvalidateMap();
+            RebuildWalkMap(); // the walls held stand on the new base map too
             _predictionSuspended = map == null;
         }
 
         /// <summary>
-        /// P-FROST-WALL-PREDICT-1 (stub; the implementer replaces the body): the standing walls the client holds
-        /// (<c>Collections.Fields</c>, rows of kind <see cref="AreaKind.Wall"/>; other kinds ignored). Their tiles are LOW on
-        /// <see cref="WalkMap"/>, as the server's <c>barriers::body_map</c>; a wall that rises on the remaining walk re-plans it
-        /// as the server's <c>raise_wall</c> does. Called after every State message; the same wall set again changes nothing.
+        /// P-FROST-WALL-PREDICT-1: the standing walls the client holds (<c>Collections.Fields</c>, rows of kind
+        /// <see cref="AreaKind.Wall"/>; other kinds ignored). Their tiles are LOW on <see cref="WalkMap"/>, as the server's
+        /// <c>barriers::body_map</c> (<c>map.with_low</c>: a FLOOR tile becomes LOW). When a wall was added and the remaining walk
+        /// runs into the new map (rh-sim <c>barriers::walk_blocked</c>: each remaining leg from the model position, a 12 u disc),
+        /// the walk is re-planned from the model position to its last waypoint with the own <see cref="Foot"/>, as
+        /// <c>raise_wall</c> (<c>effects.rs:350-371</c>) does in the landing tick; an unreachable goal stops it. A wall that
+        /// falls re-plans nothing. Called after every State message (before that tick's snapshot); the same wall set again,
+        /// in any array, changes nothing and allocates nothing. Suspended prediction keeps the walls for when it resumes.
         /// </summary>
-        public void SetWalls(System.Collections.Generic.IReadOnlyList<AreaView> fields) { }
+        public void SetWalls(System.Collections.Generic.IReadOnlyList<AreaView> fields)
+        {
+            int count = 0;
+            bool same = true, added = false;
+            int n = fields == null ? 0 : fields.Count;
+            for (int i = 0; i < n; i++)
+            {
+                AreaView f = fields[i];
+                if (f.Kind != AreaKind.Wall || f.Tiles == null) continue;
+                if (count >= _wallCount || !_wallKeys[count].Equals(f.Key)) same = false;
+                if (!added && !HoldsWall(f.Key)) added = true;
+                count++;
+            }
+            if (same && count == _wallCount) return;
+            if (count > _wallKeys.Length)
+            {
+                int size = Math.Max(count, _wallKeys.Length * 2);
+                _wallKeys = new AreaKey[size];
+                _wallTiles = new MapTile[size][];
+            }
+            count = 0;
+            for (int i = 0; i < n; i++)
+            {
+                AreaView f = fields[i];
+                if (f.Kind != AreaKind.Wall || f.Tiles == null) continue;
+                _wallKeys[count] = f.Key;
+                _wallTiles[count] = f.Tiles;
+                count++;
+            }
+            for (int i = count; i < _wallCount; i++) _wallTiles[i] = null;
+            _wallCount = count;
+            RebuildWalkMap();
+            if (added && Initialized && _alive && !_predictionSuspended && WalkBlocked())
+            {
+                PathPoint goal = _path[_path.Length - 1];
+                _goalX = goal.X;
+                _goalY = goal.Y;
+                PlanFrom(_modelX, _modelY);
+            }
+        }
 
         /// <summary>
-        /// P-FROST-WALL-PREDICT-1 (stub): the map the walk mirror plans and steers on (the base map with every standing wall's
-        /// tiles LOW; the base map object itself when no wall stands). Keyboard steering reads it.
+        /// P-FROST-WALL-PREDICT-1: the map the walk mirror plans and steers on (the base map with every standing wall's tiles
+        /// LOW; the base map object itself when no wall stands). Keyboard steering reads it.
         /// </summary>
-        public MapBlob WalkMap { get { return _map; } }
+        public MapBlob WalkMap { get { return _walkMap; } }
+
+        bool HoldsWall(AreaKey key)
+        {
+            for (int i = 0; i < _wallCount; i++) if (_wallKeys[i].Equals(key)) return true;
+            return false;
+        }
+
+        /// <summary>The C# <c>TileMap::with_low</c> over the base map; allocates a new map only when a wall stands.</summary>
+        void RebuildWalkMap()
+        {
+            if (_map == null || _wallCount == 0) { _walkMap = _map; return; }
+            byte[] tiles = (byte[])_map.Tiles.Clone();
+            int w = _map.W, h = _map.H;
+            for (int i = 0; i < _wallCount; i++)
+            {
+                MapTile[] cells = _wallTiles[i];
+                for (int j = 0; j < cells.Length; j++)
+                {
+                    int x = cells[j].X, y = cells[j].Y;
+                    if (x >= w || y >= h) continue;
+                    int at = y * w + x;
+                    if (tiles[at] == MapBlob.Floor) tiles[at] = MapBlob.Low;
+                }
+            }
+            _walkMap = new MapBlob(_map.W, _map.H, tiles);
+        }
+
+        /// <summary>rh-sim <c>barriers::walk_blocked</c>: does the remaining walk from the model position cross the walk map?</summary>
+        bool WalkBlocked()
+        {
+            if (_walkMap == null || _pathIndex >= _path.Length) return false;
+            double fx = _modelX, fy = _modelY;
+            for (int i = _pathIndex; i < _path.Length; i++)
+            {
+                if (!_pathfinder.SegmentClear(_walkMap, fx, fy, _path[i].X, _path[i].Y, WallReplanRadius)) return true;
+                fx = _path[i].X;
+                fy = _path[i].Y;
+            }
+            return false;
+        }
+
+        /// <summary>rh-sim <c>PLAYER_RADIUS</c>: <c>walk_blocked</c> tests every fighter's legs with this disc, whatever its foot.</summary>
+        const double WallReplanRadius = 12.0;
 
         /// <summary>
         /// Records a move order and starts predicting the walk from the local model position (which is the accepted authoritative
@@ -686,7 +779,7 @@ namespace Roguehalla.Net
         {
             _walkFromX = fromX;
             _walkFromY = fromY;
-            _path = _map == null ? NoPath : _pathfinder.FindPath(_map, fromX, fromY, _goalX, _goalY, _foot);
+            _path = _walkMap == null ? NoPath : _pathfinder.FindPath(_walkMap, fromX, fromY, _goalX, _goalY, _foot);
             _pathIndex = 0;
         }
 
