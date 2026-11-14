@@ -4,6 +4,38 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Owner delegation 2026-11-14 (chat, evening); the release commit; current checkpoint
+
+Integration branch `feature/unity-rework` @ `2f33045d6` on origin (integration 47: full gate with Postgres and the
+release-only step green, 22 steps). **This is the release commit.** Identities: protocol 18, observation 30, policy
+contract 25, checkpoint 32, replay 25, content hash `7a542a13187f034c`.
+
+**The owner's words, in order:** "Yes, Brain bots"; "I have logged into both cloudflare and AWS on chrome with
+Claude"; "You may force kill and reopen docker"; "I give you permission and full access to docker AWS and cloud
+flare"; "For your questions I lean on the side of allowing as much independent decision making as possible". He also
+noted that all AWS testing so far has cost USD 0.46.
+
+**What the coordinator does under that:** the launch steps without asking again (the Linux build, today's stack and
+bucket, the upload, the one 12-hour host, the one DNS record for `play.rougehalla.com`), reporting each after it is
+done; and the open questions it had a recommendation for: Q24 (DEV-001 to DEV-008 and DEV-011 accepted, marked as the
+coordinator's acceptance under the delegation, not the owner's signature), Q25 (the pull request to `main` is opened
+with the shared `.claude/settings.json` as he approved it on 2026-11-12, and says so), Q27 (registering the kill hook
+for every agent waits until after the launch: the owner's checkout holds an uncommitted change to that file, and a
+commit touching it would block the fast-forward). The 11 November stack and its bucket are deleted once today's host
+is confirmed live (named to him; no objection). **What it does not take from the delegation** (its own reading): a
+product direction with no clear best answer, spend beyond the one approved host, a merge into `main` or
+`optimization_port`, a deletion he has not been shown by name, credentials (it types none), and his standing
+prohibitions.
+
+**Launch preparation done:** the AWS CLI sign-in renewed through the owner's Chrome (no credential typed); Docker
+Desktop's backend, hung since 2026-11-12, force-killed with his permission and restarted; the Linux x86-64 server
+binary built from `2f33045d6` through `hosting/Dockerfile` (16.8 MB), and run in a Linux container with the host's
+flags: protocol 18, content `7a542a13187f034c`, ready. A safety seen there: the server refuses dev sign-in on a
+public bind unless told `--insecure-dev-auth` (used for that local check only; the host binds loopback with the
+database). Read-only account state: the 11 November stack and bucket exist, no instance runs, the machine image and
+the template are valid, and `play.rougehalla.com` still resolves to the terminated host's address `56.112.74.247`
+(a stale record; replaced at launch).
+
 ## Integration 47 (2026-11-14): the wall prediction, the Brain switch for the host, test and tool fixes
 
 Staged as `coord/int-47` on `25b181101` and under gate. Identities unchanged (protocol 18, observation 30, policy
