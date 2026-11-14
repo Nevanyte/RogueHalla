@@ -99,7 +99,9 @@ impl Callbacks<'_> {
     /// takes the largest option that keeps every tile out of the core. P-LAND-FIRE-1 (owner: "every Fire camp keeps
     /// its crater; size falls with distance and none is dropped"; "craters keep clear of all three streams"): when the
     /// band's option is refused (route stretch, rim, core, the runtime's pen share) or its disc holds stream or pool
-    /// lava, each smaller option is tried in turn, never a larger one and never one under `radius_min4`. A camp that no
+    /// lava, each smaller option is tried in turn, never a larger one and never one under `radius_min4`; a size whose
+    /// breached rim is too short or stretches a route is tried again as a bare ring (`crater`'s `bare`) before the next
+    /// smaller size. A camp that no
     /// option fits has no crater, and the attempt is refused by the `"crater-per-camp"` guarantee (`guarantees.rs`).
     /// No draw: the raster reads hash noise only, and a refused pen's tiles are rolled back.
     #[allow(clippy::too_many_arguments)]
@@ -156,7 +158,7 @@ impl Callbacks<'_> {
                         continue;
                     }
                     let mut trial = stretch;
-                    let Some((mut spec, dirs)) = self.crater(
+                    let mut found = self.crater(
                         c,
                         camp,
                         k,
@@ -165,8 +167,27 @@ impl Callbacks<'_> {
                         edges,
                         &bands,
                         has_members,
+                        false,
                         &mut trial,
-                    ) else {
+                    );
+                    if found.is_none() {
+                        // P-LAND-FIRE-1: the same size as a bare ring (its rim too short once breached toward the
+                        // neighbouring camps): only the frontier's breach and the route guard's crossing beams.
+                        trial = stretch;
+                        found = self.crater(
+                            c,
+                            camp,
+                            k,
+                            size,
+                            nodes,
+                            edges,
+                            &bands,
+                            has_members,
+                            true,
+                            &mut trial,
+                        );
+                    }
+                    let Some((mut spec, dirs)) = found else {
                         continue;
                     };
                     // The bowl claims no floor in a stream's or pool's apron (its rim already keeps out: `no_block`).
@@ -209,6 +230,7 @@ impl Callbacks<'_> {
                 edges,
                 &bands,
                 has_members,
+                false,
                 &mut stretch,
             ) {
                 self.commit(c, camp, r4, dirs, &spec, plan)?;
@@ -270,7 +292,10 @@ impl Callbacks<'_> {
         Ok(true)
     }
     /// The crater of radius `r4` (quarter tiles) round `camp`, breached for its routes, or `None` when its rim is too
-    /// short or it stretches a route too far. `stretch` is the worst route stretch accepted so far.
+    /// short or it stretches a route too far. `stretch` is the worst route stretch accepted so far. A `bare` ring
+    /// (signature mode only, P-LAND-FIRE-1) starts with no breach toward the neighbouring camps: it keeps only the
+    /// crossing beams the route guard and the stretch check add, as any crater does, and on a frontier the one breach a
+    /// frontier crater falls back to when none of its own faces away from the frontier.
     #[allow(clippy::too_many_arguments)]
     fn crater(
         &self,
@@ -282,11 +307,16 @@ impl Callbacks<'_> {
         edges: &[kit::Edge],
         bands: &[Vec<i32>],
         has_members: bool,
+        bare: bool,
         stretch: &mut i64,
     ) -> Option<(FeatureSpec, Vec<usize>)> {
         let d = &self.definition.crater;
         let w = c.base().w;
-        let mut beams = breaches(k, nodes, edges, d);
+        let mut beams = if bare {
+            Vec::new()
+        } else {
+            breaches(k, nodes, edges, d)
+        };
         let (count, sx, sy) = raster::frontier(self, c, camp, r4);
         let mut frontier_dir = None;
         if count >= d.frontier_min && (sx != 0 || sy != 0) {
