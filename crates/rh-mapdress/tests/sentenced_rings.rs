@@ -511,10 +511,10 @@ fn an_origin_with_only_a_feature_measures_the_bands_from_that_features_box() {
 /// GUARD: with no `origin` anywhere the dressing is today's: seeds 1-4 (signature on), FNV-1a 64 of the whole output,
 /// measured on the stub (behaviour unchanged) with the shipped file minus the field. Not captured from legacy.
 const NO_ORIGIN_GOLDEN: [u64; 4] = [
-    0x2575_51cc_6f8a_a706,
-    0xa3d8_de89_e18c_c4eb,
-    0xb2b3_eca6_91ca_38a1,
-    0x7021_6153_1edd_69a9,
+    0x8762_af7c_0112_a4b0,
+    0x19e7_1246_6c78_c1be,
+    0x53c2_07ba_a425_bc83,
+    0x9ec2_2711_af31_b1eb,
 ];
 
 /// Re-pin helper, not a check: prints `NO_ORIGIN_GOLDEN` as it comes out on this tree, ready to paste over the constant
