@@ -4,6 +4,31 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integration 49 (2026-11-14, after the launch): the pull request; Fire craters
+
+Integration branch `feature/unity-rework` @ `91af8942f` on origin (integration 48: full gate green, 22 steps: the
+launch record and the stack template's fifth user-data chunk). **The pull request to `main` is open, not merged:**
+Nevanyte/RougeHalla#65. The live host stays on `2f33045d6` until it expires (2026-11-15 09:42 UTC); the DNS record
+must be removed or repointed after that.
+
+Staged as `coord/int-49`: **P-LAND-FIRE-1** (map generator session, `854ecfbf7`; the coordinator's reviewer-opus:
+LAND). A Fire crater is guaranteed clear of the volcano's stream and pool lava (no crater tile within 2 tiles of it,
+and no lava inside the crater's disc) and on its camp; it takes its band's size, then each smaller allowed size, then
+a bare ring; a camp goes without only when none fits, and no attempt is refused for a missing crater. Measured by
+that session: 32 of 640 Fire camps without a crater on seeds 1 to 64 (today's game: 36), no seed without a map on 1
+to 128, attempts on seeds 1 to 32 from 89 to 94. Option-off maps are byte-identical; 15 of 32 option-on pins moved.
+**Tests changed, owner-directed (his answer in that session's chat):** `every_fire_camp_has_its_crater` is replaced
+by a pin of the gap (1 to 40 camps on seeds 1 to 64, worst single map at most 4); `craters_take_their_bands_radius_option`
+now accepts a smaller allowed size (the share at the band's own size bounded at 0.9, measured 1.0). The reviewer's
+caution, recorded: the gap pin also passes on today's game, so it guards against getting worse, not the new rule
+(the clearance and registry tests do that); its ceiling of 40 would not notice a slide from 32 back to 36. Passed to
+that session as tidy-ups for its next packet: ceiling 36 or a reworded message, the share bound nearer 0.98, a bare
+ring with no opening refused in the styler instead of by the certifier.
+
+Next from that lane: the Holy hall (P-MAPGEN-SIG-HOLY-1; with its moved maps one map of 32 gets a Large Plague pool
+near the tree by chance, so DEV-034's known-gap pin will be re-worded as a measured ceiling), then the Frost lake,
+which is back with the owner (his rule cannot be a hard guarantee: at best 45 of 64 seeds keep a map).
+
 ## Beta live 2026-11-14: `play.rougehalla.com` runs `2f33045d6`; current checkpoint
 
 **Live since 2026-11-14 22:06 UTC (16:06 CST); the host expires 2026-11-15 09:42:16 UTC (03:42 CST).** Server and
