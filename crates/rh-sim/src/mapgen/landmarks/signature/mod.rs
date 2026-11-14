@@ -11,7 +11,7 @@
 //! main stream and the stylers' streams are untouched (G6).
 //!
 //! Every landmark stands in the site its zone reserved in the Prefix (P-MAPGEN-SIG-RESERVE-1): the volcano, the church,
-//! the bog tree and the cave are their approved drawings, read and landed from the per-landmark table (`spec`,
+//! the bog tree, the cave and the Holy hall (P-MAPGEN-SIG-HOLY-1) are their approved drawings, read and landed from the per-landmark table (`spec`,
 //! `blueprint`, `stamp`); the volcano's three lava streams continue from its outlets (`volcano::streams`,
 //! P-MAPGEN-SIG-SCALE-4). Integer geometry only.
 pub mod blueprint;
@@ -673,10 +673,12 @@ impl<'f> SignatureContext<'f> {
     }
 
     /// P-MAPGEN-SIG-RESERVE-1: one prefix round's sites, in `reserved_zones` order, on the round's partition `zone`. A
-    /// zone's candidates are the `site_side` squares wholly of its tiles, off `hard` (border, coliseum, road, lanes) and
-    /// off the open map corners, whose centre point lies beyond the zone's line: Fire, Sentenced and Frost the zone
-    /// centroid's distance from the map centre plus `back_slack`, Plague the start of its outer third plus
-    /// `outer_slack`. A Sentenced or Frost square also needs its camp tile (`inside_camp`). One uniform draw among the
+    /// zone's candidates are the `site_side` squares (Holy: `hall_site_side`, P-MAPGEN-SIG-HOLY-1) wholly of its tiles,
+    /// off `hard` (border, coliseum, road, lanes) and off the open map corners, whose centre point lies beyond the zone's
+    /// line: Fire, Sentenced, Frost and Holy the zone centroid's distance from the map centre plus `back_slack`, Plague
+    /// the start of its outer third plus `outer_slack`. A Sentenced or Frost square also needs its camp tile
+    /// (`inside_camp`), a Holy square its two hall camps (`hall_camps`: `camp` the back one, `extra` the front one,
+    /// `elite` false). One uniform draw among the
     /// candidates, the zone's one draw of the round on its stream; without a candidate, Plague takes the deepest square
     /// still beyond its centroid (largest centre distance, first in row order), drawing nothing. `None` when a zone has
     /// no square: the round fails as a camp failure does. Draws only from `streams` (`reserved_zones` order).
@@ -850,12 +852,13 @@ impl<'f> SignatureContext<'f> {
     }
 
     /// Places each zone's signature landmark (Fire: the volcano with its streams and pools; Sentenced: the church and its
-    /// graveyard; Plague: the bog tree; Frost: the cave) into the stage's layers and masks, in that order (`place`). Each
+    /// graveyard; Plague: the bog tree; Frost: the cave; Holy: the hall) into the stage's layers and masks, in that order
+    /// (`place`). Each
     /// zone's table entry (`spec::specs`) is drawn by the generic `stamp`, and its landing is recorded in
     /// `Placed::landed`; the volcano's streams continue from its outlets (`volcano::streams`). Only the volcano and the
     /// bog tree keep their tiles out of the aprons marked before them (`Site::ground`: their legends'
-    /// `Legality::WallGround`, and the streams' own test); the church and the
-    /// cave place their walls on any free wall tile (`Site::wall`). The rule that no landmark lies in another's apron is
+    /// `Legality::WallGround`, and the streams' own test); the church, the
+    /// cave and the hall place their walls on any free wall tile (`Site::wall`). The rule that no landmark lies in another's apron is
     /// the end-of-attempt discard (`intact`). `Ok(None)` refuses the attempt (G5: a zone that cannot hold its landmark is
     /// never built without it; the pipeline tries the next attempt), and so does a prefix without a zone's reserved site
     /// (`begin_attempt`'s, the option-off prefix): every landmark is built inside its site.
@@ -880,7 +883,7 @@ impl<'f> SignatureContext<'f> {
     /// before it in `apply` had placed nothing: the same site, stream, draws and checks (`place`), its features written
     /// into `stage`, and a `Placed` holding only its terrain and its frame (built as `apply` builds it). A test seam: what
     /// each landmark's own oracle pins without depending on the others. `Ok(None)` where `apply` would refuse at this
-    /// zone, and for a zone that reserves no site (Holy).
+    /// zone, and for a zone that reserves no site.
     pub fn apply_only(
         &self,
         frame: &AttemptFrame,
@@ -1178,8 +1181,8 @@ impl<'f> SignatureContext<'f> {
     /// `intact`'s entrance check: every entrance tile of every anchor holds exactly what its landmark's drawing wrote
     /// there (`Door`, from the entry's legend): the volcano's outlets LOW with the lava terrain, owned by a volcano
     /// feature of the anchor's zone; the church's gate, the tree's causeways and the cave's mouth floor that no feature
-    /// of their landmark owns. An anchor without a drawn entrance (the Holy hall's, which is empty) keeps the rule from
-    /// before P-MAPGEN-SIG-SCALE-4: floor.
+    /// of their landmark owns, and (P-MAPGEN-SIG-HOLY-1) the hall's nave floor that the hall does not own. An anchor
+    /// without a drawn entrance keeps the rule from before P-MAPGEN-SIG-SCALE-4: floor.
     fn doors_intact(&self, map: &GameMapData) -> bool {
         map.anchors.iter().all(|a| {
             let members = self
