@@ -1,5 +1,6 @@
 //! Fire stage-six callbacks. Real guarded runtime operations; shared Forge and feature-kit definitions.
 mod craters;
+mod guarantees;
 mod raster;
 mod river;
 mod rules;
@@ -21,6 +22,7 @@ use crate::mapgen::{
     },
     terrain_gate::TerrainGateDefinition,
 };
+pub use guarantees::{guarantees, lava_clearance};
 pub use rules::{
     default_definition, visit_content, CraterRules, DecorRules, Definition, RiverRules,
 };
