@@ -193,6 +193,10 @@ const FLOOR_SHARE: &str = "Repair(FloorShare)";
 /// fan moved every option-on attempt. 57 refusals over seeds 1-32 (89 attempts): `Signature` 18 (the Fire volcano's
 /// streams or floor split), `SpawnRatio` 14, `Prefix` 9, lake-at-mouth 6, `Repair(RadiusPost)` 5, `SignatureDiscarded`
 /// 2, `SpawnPool` 2, `Repair(FloorShare)` 1.
+///
+/// Re-pinned by P-LAND-FIRE-1 (2026-11-14) from its build with `print_pinned_labels`: only seed 30 moved (its map is
+/// attempt 9, was 4: the craters' new shapes change what repair and the later checks see). 62 refusals over seeds 1-32
+/// (94 attempts); no Fire guarantee refuses.
 fn pinned_labels() -> [(i64, &'static [&'static str]); 32] {
     [
         (1, &[LAKE]),
@@ -237,7 +241,20 @@ fn pinned_labels() -> [(i64, &'static [&'static str]); 32] {
         (27, &[]),
         (28, &[LAKE, SPAWN_POOL]),
         (29, &[SPAWN_RATIO]),
-        (30, &[RADIUS_POST, PREFIX, PREFIX, PREFIX]),
+        (
+            30,
+            &[
+                RADIUS_POST,
+                PREFIX,
+                PREFIX,
+                PREFIX,
+                FLOOR_SHARE,
+                SD,
+                SPAWN_POOL,
+                SPAWN_RATIO,
+                SIG,
+            ],
+        ),
         (31, &[SIG]),
         (32, &[]),
     ]
@@ -487,4 +504,27 @@ fn a_lake_failure_is_refused_after_records_as_the_frost_guarantee() {
         "seed {seed} attempt {n}: {:?}",
         got.as_ref().err()
     );
+}
+
+/// Prints `pinned_labels`' rows from this build, ready to paste, for a packet that moves option-on attempts (a re-pin):
+/// `cargo test -p rh-sim --features trusted-status-probes --test mapgen_guarantees print_pinned_labels -- --ignored
+/// --nocapture`. A label without a constant above stops it: add the constant first.
+#[test]
+#[ignore = "prints the pin table; run by hand for a re-pin"]
+fn print_pinned_labels() {
+    let name = |l: &str| match l {
+        SD => "SD",
+        LAKE => "LAKE",
+        SPAWN_RATIO => "SPAWN_RATIO",
+        PREFIX => "PREFIX",
+        RADIUS_POST => "RADIUS_POST",
+        SIG => "SIG",
+        SPAWN_POOL => "SPAWN_POOL",
+        FLOOR_SHARE => "FLOOR_SHARE",
+        other => panic!("no constant for the label {other}: add one"),
+    };
+    for r in runs() {
+        let row: Vec<&str> = r.refused.iter().map(|(l, _)| name(l)).collect();
+        println!("        ({}, &[{}]),", r.seed, row.join(", "));
+    }
 }

@@ -361,7 +361,7 @@ const NO_ANCHOR_GOLDEN: [u64; 4] = [
     0xe4b78cf62e053a6d,
     0x9aa0a5defe8b4dc5,
     0x7af37655fb550449,
-    0xb8af3afd2b3a3039,
+    0x35f14d130f5c6f84,
 ];
 
 /// The shipped file without any `terrainRings` list (P-DRESS-MARSH-1): the marsh rings change Plague's ground, so the
