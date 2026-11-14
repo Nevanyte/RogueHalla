@@ -440,6 +440,8 @@ pub struct Room {
     /// The fill policy's spec per seated bot (tier/persona/faction), for the P-BOTS-5 record caller.
     bot_specs: Vec<(PlayerId, BotSeatSpec)>,
     reported_bots: std::collections::BTreeSet<u32>,
+    #[cfg(test)]
+    log_sink: Vec<String>,
     fill_to: usize,
     /// The scheduled fill policy (legacy BotManager). None keeps the immediate placeholder fill.
     fill: Option<BotFillState>,
@@ -567,6 +569,8 @@ impl Room {
             bots: Vec::new(),
             bot_specs: Vec::new(),
             reported_bots: Default::default(),
+            #[cfg(test)]
+            log_sink: Vec::new(),
             fill_to: if training { 0 } else { cfg.fill_bots_to },
             fill: None,
             min_players,
@@ -1151,6 +1155,12 @@ impl Room {
 
     /// The seated fill bots' telemetry tags (id, callsign, tier, persona, faction, seed). The lobby HUD's head count and
     /// its presentation stay with the client/coordinator; this is the native per-bot telemetry surface.
+    /// The `[bots]` lines this room printed (tests only).
+    #[cfg(test)]
+    fn log_lines(&self) -> &[String] {
+        &self.log_sink
+    }
+
     pub fn bot_specs(&self) -> &[(PlayerId, BotSeatSpec)] {
         &self.bot_specs
     }
@@ -3872,6 +3882,99 @@ mod tests {
             assert_eq!(seat.fault, None);
         }
         assert!(!names(&human).is_empty() && names(&human).iter().all(|n| n == "human"));
+    }
+
+    /// P-BOT-BRAIN-FAULT-LOG-1: a Brain seat that falls back says so once per seat; the start line shows the Brain was
+    /// seated; with the flag off the log has neither. (The `eprintln!` itself is read, not tested.)
+    #[test]
+    fn a_brain_seat_fallback_is_logged_once_per_seat() {
+        let run = |brain: crate::bot_fill::BotBrain, extra_ticks: usize| {
+            let start = Instant::now();
+            let tick = Duration::from_millis(50);
+            let (tx, _rx) = mpsc::unbounded_channel();
+            let mut config = cfg(tick);
+            config.fill_bots_to = 0;
+            config.fixed_bot_seed = Some(105);
+            config.fixed_secrets = Some(Secrets::from_seed(7));
+            let mut room = Room::new([22; 16], config, tx, start).with_bot_fill(BotFillConfig {
+                fill_to: 4,
+                arrival_seconds: 0.,
+                jitter_ms: 0.,
+                seed: Some(5),
+                brain,
+                ..BotFillConfig::default()
+            });
+            for i in 0..2u64 {
+                room.join(
+                    format!("human{i}"),
+                    None,
+                    Arc::new(Outbox::default()),
+                    i + 1,
+                    1,
+                    None,
+                )
+                .unwrap();
+            }
+            let mut at = start;
+            for _ in 0..600 {
+                at += tick;
+                room.wake(at);
+                if room.sim.phase() == Phase::Active {
+                    break;
+                }
+            }
+            for _ in 0..extra_ticks {
+                at += tick;
+                room.wake(at);
+            }
+            room
+        };
+        let id = crate::control::room_id_hex([22; 16]);
+        let fallback_lines = |room: &Room| -> Vec<String> {
+            room.log_lines()
+                .iter()
+                .filter(|l| l.contains("brain fell back to the fallback bot"))
+                .cloned()
+                .collect()
+        };
+        let short = run(crate::bot_fill::BotBrain::Full, 5);
+        let long = run(crate::bot_fill::BotBrain::Full, 400);
+        let seats = long.bots.len();
+        assert!(seats > 0);
+        for seat in &long.bots {
+            assert!(seat.fault.is_some(), "the seat falls back as before");
+            assert!(seat.stats.fallback_decisions > 0);
+        }
+        assert_eq!(fallback_lines(&short).len(), seats, "one line per seat");
+        let lines = fallback_lines(&long);
+        assert_eq!(lines.len(), seats, "no more lines after many more ticks");
+        for (i, (_, spec)) in long.bot_specs().iter().enumerate() {
+            let prefix = format!(
+                "[bots] match={id} seat={} brain fell back to the fallback bot: ",
+                spec.number
+            );
+            assert_eq!(
+                lines.iter().filter(|l| l.starts_with(&prefix)).count(),
+                1,
+                "seat {i}: {lines:?}"
+            );
+        }
+        let start_line = format!("[bots] match={id} fill bots: {seats} brain");
+        assert_eq!(
+            long.log_lines()
+                .iter()
+                .filter(|l| **l == start_line)
+                .count(),
+            1,
+            "{:?}",
+            long.log_lines()
+        );
+        let off = run(crate::bot_fill::BotBrain::Off, 50);
+        assert!(
+            off.log_lines().iter().all(|l| !l.starts_with("[bots]")),
+            "{:?}",
+            off.log_lines()
+        );
     }
 
     /// P-BOTS-7 remainder: a fill room with a running raid, for the delay-line and name-seam tests.
