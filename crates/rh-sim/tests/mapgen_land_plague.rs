@@ -808,14 +808,16 @@ fn known_gap_no_large_pool_and_no_pool_near_the_tree_on_seeds_1_to_32() {
         large <= chance_fits_allowed() && near <= chance_fits_allowed(),
         "Large pools {large} and near-band pools {near} over seeds 1-32, more than {} of either (DEV-034 records the \
          gap: at most a chance fit or two): the owner's direction \"three sizes, large near the tree\" may have \
-         started being delivered; measure, then restore tests 4 and 5 to their full form and update the DEV-034 row",
+         started being delivered, which is the owner's to say: the packet stops here and the measurement goes to the \
+         owner (then, if so, restore tests 4 and 5 to their full form and update the DEV-034 row)",
         chance_fits_allowed()
     );
 }
 
 /// The Large pools, and the near-band pools, a set of 32 maps may hold by chance while the direction is not delivered:
 /// 0 after P-MAPGEN-SIG-SCALE-4, 1 after P-MAPGEN-SIG-HOLY-1, and 2 of 96 maps before either. Thirty-two maps with the
-/// direction delivered would hold dozens.
+/// direction delivered would hold dozens. A packet whose maps exceed it stops and the measurement goes to the owner:
+/// that is the point where "delivered or not" becomes a real question (the coordinator, 2026-11-14).
 fn chance_fits_allowed() -> usize {
     2
 }

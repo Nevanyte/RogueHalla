@@ -131,7 +131,9 @@ fn fire_rules() -> [&'static str; 2] {
 /// The measured gap the owner accepted on 2026-11-14: Fire camps without a crater over seeds 1-64, option on.
 /// Today's game (the stub) leaves 36 of 640; the decided rule measured 32 on P-LAND-FIRE-1's own maps and 35 once
 /// P-MAPGEN-SIG-HOLY-1 moved every map: the count scatters by a few camps with the maps. The ceiling, 40 (1 camp in 16),
-/// sits that scatter above "about 1 in 20"; it is NOT "no worse than today's game" (37 to 40 would pass).
+/// sits that scatter above "about 1 in 20"; it is NOT "no worse than today's game" (37 to 40 would pass). It is the
+/// last value set on the lane's own judgment (the coordinator, 2026-11-14): a packet whose maps exceed it stops, and
+/// the measurement goes to the owner with a recommendation.
 fn gap_ceiling() -> usize {
     40
 }
@@ -146,7 +148,8 @@ fn gap_floor() -> usize {
 /// game 3 and 4 (seeds 1-64 and 65-128), P-LAND-FIRE-1's own build 2 and 3, and 4 (seed 54) and 3 once
 /// P-MAPGEN-SIG-HOLY-1 moved every map. The figure the owner accepted is the count (`gap_ceiling`), not this one: it
 /// is a guard against a map losing most of its craters, set one above the worst measured so that a packet that moves
-/// every map does not fail it for a reason that is not this rule's (the lane's session, 2026-11-14).
+/// every map does not fail it for a reason that is not this rule's (the lane's session, 2026-11-14). Like the ceiling,
+/// it is the last value set on the lane's own judgment: beyond it the packet stops and the owner decides.
 fn worst_map_allowed() -> usize {
     5
 }
@@ -617,7 +620,8 @@ fn known_gap_about_one_fire_camp_in_twenty_has_no_crater() {
         missing.len() <= gap_ceiling(),
         "{} of {camps} Fire camps without a crater on seeds 1-64, above the ceiling {} (today's game 36; the rule the \
          owner accepted on 2026-11-14 measured 32, and 35 on the hall's maps): more than about 1 camp in 16 is bare. \
-         Fix the build; the ceiling moves only with the owner's approval. First {:#?}",
+         40 is the last value set on the lane's own judgment: a packet whose maps exceed it stops, and the measurement \
+         goes to the owner with a recommendation. First {:#?}",
         missing.len(),
         gap_ceiling(),
         &missing[..missing.len().min(12)]
@@ -640,8 +644,9 @@ fn known_gap_about_one_fire_camp_in_twenty_has_no_crater() {
         );
         assert!(
             worst.0 <= worst_map_allowed(),
-            "seed {}: {} Fire camps without a crater on one map (seeds {name}), more than {} (the rule the owner \
-             accepted on 2026-11-14 measured 2 on seeds 1-64 and 3 on seeds 65-128): {:#?}",
+            "seed {}: {} Fire camps without a crater on one map (seeds {name}), more than {} (measured 2 to 4 on three sets \
+             of maps). 5 is the last value set on the lane's own judgment: a packet whose maps exceed it stops, and \
+             the measurement goes to the owner with a recommendation: {:#?}",
             worst.1,
             worst.0,
             worst_map_allowed(),
