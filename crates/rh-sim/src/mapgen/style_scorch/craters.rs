@@ -130,9 +130,7 @@ impl Callbacks<'_> {
         };
         // Signature mode: the volcano's stream and pool lava, read from the Fire frame (the guarantees' definition).
         let stream_lava: Vec<(i32, i32)> = match c.base().landmark {
-            Some(frame) if anchor.is_some() => {
-                guarantees::stream_lava(frame, c.base().w).collect()
-            }
+            Some(frame) if anchor.is_some() => guarantees::stream_lava(frame, c.base().w).collect(),
             _ => Vec::new(),
         };
         for (k, camp) in mine.iter().enumerate() {
