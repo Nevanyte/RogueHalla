@@ -138,6 +138,14 @@ pub struct Definition {
     /// pools run in it (`fan`).
     pub fan_depth: i32,
     pub fan_side: i32,
+    /// P-MAPGEN-SIG-HOLY-1: the Holy hall's approved blueprint (owner decisions 2026-11-13: one drawing, 37 x 37, two
+    /// Holy camps inside on the nave's centre line; ADR 0028 G9), the text of `hall.txt` beside this file, a byte-equal
+    /// copy of `docs/landmarks/blueprints/hall.txt` (as `cave_grid`). Lines starting `;` are its legend; the rest is the
+    /// 37 x 37 grid, front (toward the coliseum) at the bottom, mirror symmetric about column 18. STUB: not read yet.
+    pub hall_grid: &'static str,
+    /// P-MAPGEN-SIG-HOLY-1 (owner decision 2026-11-13): the side (tiles) of the Holy zone's reserved site: the 37-tile
+    /// hall plus the apron (`bands[0]`) on each side. The other four zones keep `site_side`. STUB: not read yet.
+    pub hall_site_side: i32,
 }
 
 pub const DEFAULT_DEFINITION: Definition = Definition {
@@ -173,6 +181,8 @@ pub const DEFAULT_DEFINITION: Definition = Definition {
     outlet_len: [(7, 10), (10, 14), (7, 10)],
     fan_depth: 14,
     fan_side: 14,
+    hall_grid: include_str!("hall.txt"),
+    hall_site_side: 41,
 };
 
 /// One zone's reserved landmark site (P-MAPGEN-SIG-RESERVE-1): chosen in the Prefix, after the partition and before
@@ -186,6 +196,13 @@ pub struct ReservedSite {
     pub zone: Zone,
     pub rect: TileRect,
     pub camp: Option<usize>,
+    /// P-MAPGEN-SIG-HOLY-1: the further camps placed inside the site after `camp`, in the drawing's grid order (the
+    /// Holy hall's second `E`, the front one); empty for the other four sites. STUB: always empty.
+    pub extra: Vec<usize>,
+    /// P-MAPGEN-SIG-HOLY-1: whether `camp` is the zone's first elite (the church's and the cave's camp), or the zone's
+    /// elites follow legacy's rule among all its camps (the Holy hall's two camps; owner decision 2026-11-13). False for
+    /// a site without a camp. STUB: set but not read (camp placement still makes every site camp the first elite).
+    pub elite: bool,
     pub stream: Mulberry32,
 }
 
@@ -733,6 +750,8 @@ impl<'f> SignatureContext<'f> {
                     h: side as u32,
                 },
                 camp,
+                extra: Vec::new(),
+                elite: camp.is_some(),
                 stream: rng.clone(),
             });
         }
@@ -1499,6 +1518,8 @@ mod tests {
             zone,
             rect: TileRect { x, y, w: 4, h: 3 },
             camp,
+            extra: Vec::new(),
+            elite: camp.is_some(),
             stream: Mulberry32::new(1),
         }
     }
