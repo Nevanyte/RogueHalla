@@ -361,7 +361,8 @@ class BotBrainSetting(unittest.TestCase):
         config(json.dumps(c), NOW)
         line = exec_line(c, False)
         self.assertIn(' --map-pool --signature-landmarks --bot-brain full ', line)
-        data = render(json.dumps(c).encode(), b'x')
+        live = dict(c, expires_at=(dt.datetime.now(dt.timezone.utc)+dt.timedelta(hours=11)).strftime('%Y-%m-%dT%H:%M:%SZ'))
+        data = render(json.dumps(live).encode(), b'x')
         encoded = re.search(r"printf '%s' '([A-Za-z0-9+/=]+)' \| base64 --decode > /etc/rougehalla-demo.json", data).group(1)
         self.assertEqual(json.loads(base64.b64decode(encoded))['bot_brain'], 'full')
 
