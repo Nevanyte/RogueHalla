@@ -106,7 +106,8 @@ fn member_kinds(z: Zone) -> &'static [FeatureKind] {
         Zone::Sentenced => &[FeatureKind::Church, FeatureKind::Graveyard],
         Zone::Plague => &[FeatureKind::BogTree],
         Zone::Frost => &[FeatureKind::Cave],
-        Zone::Holy => &[],
+        // Amended by P-MAPGEN-SIG-HOLY-1: the drawn hall (was none: the styler's hall had no frame).
+        Zone::Holy => &[FeatureKind::Hall],
     }
 }
 
