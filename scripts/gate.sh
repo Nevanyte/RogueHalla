@@ -162,7 +162,9 @@ if [[ -z "${GATE_STOP_AFTER_CHECKS:-}" || -z "${RH_PGTEST_OWNER:-}" ]]; then RH_
 export RH_PGTEST_OWNER
 PGT_TMP="${TMPDIR:-/tmp}"; PGT_TMP="${PGT_TMP%/}"
 pgtest_dirs() { { ls -d "$PGT_TMP"/rh-pgtest.* /tmp/rh-pgtest.* 2>/dev/null || true; } | sort -u; }
+RESULT="" # set where a result line is printed; a run that ends without one is a fault of this script (see cleanup)
 cleanup() {
+  local rc=$?
   rm -f "$STEP_LOG"
   local d port bin="${PGBIN:-/opt/homebrew/opt/postgresql@16/bin}"
   while read -r d; do
@@ -178,12 +180,18 @@ cleanup() {
       echo "gate: could not stop rh-pgtest cluster $d (left in place)" >&2
     fi
   done <<<"$(pgtest_dirs)"
+  # The script stopped before any result line (an unbound variable, a command that failed outside a step; bash 3.2
+  # then leaves exit code 0): say so and fail. A gate that printed no result has not passed.
+  if [[ -z "$RESULT" ]]; then
+    echo; echo "GATE FAIL: scripts/gate.sh stopped without a result line (exit code $rc): a fault in the gate itself, not a pass"
+    echo "log: $LOG"; exit 1
+  fi
 }
 trap cleanup EXIT
 exec > >(tee "$LOG") 2>&1
 
 SKIPPED=() FAILED=() NOTRUN=() BROKEN="" TESTHOOK=""
-fail() { echo; echo "GATE FAIL: $*"; echo "log: $LOG"; exit 1; }
+fail() { RESULT=fail; echo; echo "GATE FAIL: $*"; echo "log: $LOG"; exit 1; }
 note() { echo "   - $*"; }
 red() { # a step went red: fail fast, or with --keep-going remember it and carry on
   if ((KEEP_GOING)); then FAILED+=("$1"); else fail "$1"; fi
@@ -207,6 +215,7 @@ run() { # run <name> <cmd...>: stop at the first red step (--keep-going: record 
 }
 finish() { # finish <label> <exit code when green>: the one place a result line is printed
   local label="$1" okrc="$2" joined="" f n=${#FAILED[@]}
+  RESULT=finish
   echo
   if ((n)); then
     for f in "${FAILED[@]}"; do joined="${joined:+$joined; }$f"; done
@@ -323,7 +332,7 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
 fi
 # Test hook for scripts/gate.test.sh (not for normal use): stop after the path and environment checks, before any build,
 # with exit 42 (never 0: a gate that built nothing must not look green).
-if [[ -n "${GATE_STOP_AFTER_CHECKS:-}" ]]; then echo "GATE STOP (test hook)"; exit 42; fi
+if [[ -n "${GATE_STOP_AFTER_CHECKS:-}" ]]; then RESULT=stop; echo "GATE STOP (test hook)"; exit 42; fi
 
 # ---------- what changed --------------------------------------------------------------------------------------------
 CRATES="$(grep -oE '^crates/[^/]+' <<<"$CHANGED" | cut -d/ -f2 | sort -u || true)"
@@ -356,12 +365,14 @@ if [[ "$MODE" == oracle-check ]]; then
   run "rustfmt" cargo fmt --all -- --check
   for c in $CRATES; do
     [[ -f "crates/$c/Cargo.toml" ]] || continue
+    # feat is empty for every crate but rh-sim, and bash 3.2 (macOS /bin/bash) reads an empty "${feat[@]}" as an unbound
+    # variable under set -u: expand it only when it is set.
     feat=(); [[ "$c" == rh-sim ]] && feat=(--features trusted-status-probes)
     run "clippy $c (all features)" cargo clippy --locked -p "$c" --all-targets --all-features -- -D warnings
-    run "tests of $c build" cargo test --locked -p "$c" "${feat[@]}" --no-run
+    run "tests of $c build" cargo test --locked -p "$c" ${feat[@]+"${feat[@]}"} --no-run
     echo "== tests of $c on the stub (every target, no fail-fast)"
-    echo "   \$ cargo test --locked -p $c ${feat[*]} --no-fail-fast"
-    cargo test --locked -p "$c" "${feat[@]}" --no-fail-fast >"$STEP_LOG" 2>&1 || true
+    echo "   \$ cargo test --locked -p $c ${feat[*]-} --no-fail-fast"
+    cargo test --locked -p "$c" ${feat[@]+"${feat[@]}"} --no-fail-fast >"$STEP_LOG" 2>&1 || true
     cat "$STEP_LOG" >>"$LOG"
     while read -r target; do
       [[ -n "$target" ]] || continue
@@ -379,6 +390,7 @@ if [[ "$MODE" == oracle-check ]]; then
   done
   ((${#RED[@]})) || fail "the oracle is green on the stub: no test target fails, so there is nothing for an implementer to make pass"
   # Its own success line, not the plain pass line: this tree is red by design, and coordinators grep for the plain one.
+  RESULT=oracle-check
   echo; echo "GATE ORACLE-CHECK PASS — red on the stub, in oracle files only: ${RED[*]}"; echo "log: $LOG"
   exit 0
 fi

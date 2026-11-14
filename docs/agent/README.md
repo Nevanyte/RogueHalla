@@ -126,6 +126,10 @@ line is `GATE FAIL (n steps): <step>; <step>` with exit code 1. A cargo test or 
 later cargo steps `not run (after <step>)`, listed on the result and never counted as passed. Without the flag the first
 red step ends the run (`GATE FAIL: <step>`). The coordinator uses `--keep-going` on the merged tree.
 
+Every run ends in a result line. If the script itself stops before printing one (a fault in `scripts/gate.sh`), it
+prints `GATE FAIL: scripts/gate.sh stopped without a result line` and exits 1: read a gate by its result line, and
+report that one as a gate bug.
+
 Path checks: protected paths need `--allow-protected` (owner approval), shared records `--coordinator`, wire packets
 `--regen-fixtures`, build artefacts `--allow-artefacts` (a Showcase font asset under
 `UnityProject/Assets/Resources/Showcase/`, `BakedContent.cs`, `ProjectSettings/ShaderGraphSettings.asset`: rewritten by
