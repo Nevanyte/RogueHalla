@@ -56,6 +56,10 @@ against a real Caddy here (none installed); the browser side was proven with a N
   `/api/lobby` 404 (static server is not the game server) and the CoreCopy/HDRDebugView "shader not supported" lines, which
   the baseline prints identically. Wire sizes in the browser: wasm 9,233,356, data 28,375,893.
 - `node --test Tools/build-size.test.cjs`: 4 pass.
+- Review (reviewer, LAND WITH NOTES): page-called `SendMessage` methods might be stripped under High. Checked: on the High build
+  without any link.xml, `SendMessage('RhAudioDebug','SetMusicVolume','0.41')` logs `[audio] ... set music volume 0.41`, so the
+  linker keeps them. `Assets/link.xml` still preserves the page-called types and the UI lab's reflection targets
+  (`CollectionsView.Props` setter and `Apply`, the `OwnerCombatView` constructor); cost 811 bytes of wasm.
 
 ## 4. Not established
 Runtime frame time (no perf-matrix run); Safari and Firefox; a full match to its result screen on the final build; the

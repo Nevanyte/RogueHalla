@@ -1,0 +1,19 @@
+<!--
+  Managed stripping is High on the Web player (P-WEB-OPT-1). These types are reached only by name, which the linker cannot see:
+  - SendMessage from the page (Tools/perf-*.cjs, atmosphere-shots, adaptive-check, audio-probe, the UI and contrast lab jslibs):
+    PerfRecorder ("Frame-time recorder"), AudioDebugHooks ("RhAudioDebug"), UiLabStage ("UiLab"), ContrastLabStage ("ContrastLab").
+  - Reflection in UiLabStage: CollectionsView.Props setter and CollectionsView.Apply, the OwnerCombatView constructor.
+  A new SendMessage or reflection target belongs here too.
+-->
+<linker>
+  <assembly fullname="Roguehalla.Client">
+    <type fullname="Roguehalla.Client.PerfRecorder" preserve="all"/>
+    <type fullname="Roguehalla.Client.AudioDebugHooks" preserve="all"/>
+    <type fullname="Roguehalla.Client.UiLabStage" preserve="all"/>
+    <type fullname="Roguehalla.Client.ContrastLabStage" preserve="all"/>
+  </assembly>
+  <assembly fullname="RoguehallaNet">
+    <type fullname="Roguehalla.Net.CollectionsView" preserve="all"/>
+    <type fullname="Roguehalla.Net.OwnerCombatView" preserve="all"/>
+  </assembly>
+</linker>
