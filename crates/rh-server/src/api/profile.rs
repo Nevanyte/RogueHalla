@@ -14,8 +14,10 @@ use axum::routing::any;
 use axum::{Extension, Router};
 use rh_persist::account::LeaderRow;
 use rh_persist::cosmetics::{self, SLOTS};
+use rh_persist::tutorial::{self, Tutorial, TutorialState};
 use rh_persist::{
     valid_callsign, valid_month, Claim, EquipOutcome, Profile, PurchaseOutcome, Store,
+    TutorialOutcome,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -29,6 +31,7 @@ pub(super) fn routes() -> Router<St> {
         .route("/api/profile/{name}", any(claim))
         .route("/api/profile/{name}/purchase", any(purchase))
         .route("/api/profile/{name}/equip", any(equip))
+        .route("/api/profile/{name}/tutorial", any(tutorial))
         .route(
             "/api/profile/{name}/matches/{match_id}/settlement",
             any(settlement),
@@ -103,6 +106,8 @@ struct ProfileDto {
     cosmetics: CosmeticsDto,
     achievements: BTreeMap<String, i64>,
     progress: ProgressDto,
+    tutorial: Option<Tutorial>,
+    tutorial_due: bool,
 }
 #[derive(Serialize)]
 struct StatsDto {
@@ -127,7 +132,21 @@ struct ProgressDto {
     wins_by_weapon: BTreeMap<String, i64>,
 }
 
+/// The current first-login tutorial version; bumping it re-offers the tutorial to profiles that have never played.
+pub const TUTORIAL_VERSION: u32 = 1;
+
+/// Due only for a profile that has never played and has not finished (or skipped) this tutorial version.
+fn tutorial_due(runs: i64, t: Option<&Tutorial>) -> bool {
+    runs == 0
+        && t.is_none_or(|t| {
+            t.version < TUTORIAL_VERSION
+                || (t.version == TUTORIAL_VERSION && t.state == TutorialState::Step)
+        })
+}
+
 fn dto(p: Profile) -> Value {
+    let tutorial = tutorial::parse(p.progress.rest.get("tutorial"));
+    let tutorial_due = tutorial_due(p.stats.runs, tutorial.as_ref());
     serde_json::to_value(ProfileDto {
         name: p.callsign,
         gv: p.gv,
@@ -152,6 +171,8 @@ fn dto(p: Profile) -> Value {
             wins_by_faction: p.progress.wins_by_faction,
             wins_by_weapon: p.progress.wins_by_weapon,
         },
+        tutorial,
+        tutorial_due,
     })
     .expect("plain data serializes")
 }
@@ -225,6 +246,7 @@ fn shop_err(code: &'static str, need_have: Option<(i64, i64)>) -> Response {
         "insufficient_gv" => (402, "not enough GV"),
         "not_owned" => (409, "not owned"),
         "slot_mismatch" => (400, "that item does not go in that slot"),
+        "bad_tutorial" => (400, "bad tutorial progress"),
         _ => (500, "internal error"),
     };
     let mut body = serde_json::json!({ "error": msg, "code": code });
@@ -521,6 +543,14 @@ struct EquipBody {
     id: Value,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TutorialBody {
+    version: u32,
+    step: u32,
+    state: String,
+}
+
 /// The shared prefix of the two shop routes, in the legacy order: method, name, token proof and bucket (before the body is
 /// read), media type, body. `None` for the id means the token was not the profile's own (answered after the body checks).
 async fn shop_prelude<T: serde::de::DeserializeOwned>(
@@ -654,6 +684,44 @@ async fn equip(
         Ok(EquipOutcome::NotOwned) => shop_err("not_owned", None),
         Ok(EquipOutcome::BadToken) => forbidden(),
         Err(e) => store_err("POST /api/profile/equip", e),
+    }
+}
+
+async fn tutorial(
+    axum::extract::State(st): axum::extract::State<St>,
+    name: Result<Path<String>, axum::extract::rejection::PathRejection>,
+    req: Request,
+) -> Response {
+    let (token, pid, _headers, body) = match shop_prelude::<TutorialBody>(&st, name, req).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    let Some(pid) = pid else {
+        return forbidden();
+    };
+    let state = match body.state.as_str() {
+        "step" => TutorialState::Step,
+        "done" => TutorialState::Done,
+        "skipped" => TutorialState::Skipped,
+        _ => return shop_err("bad_tutorial", None),
+    };
+    if body.version < 1 {
+        return shop_err("bad_tutorial", None);
+    }
+    let new = Tutorial {
+        version: body.version,
+        step: body.step,
+        state,
+    };
+    let store = store_of(&st);
+    let _slot = match slot(&st).await {
+        Ok(s) => s,
+        Err(r) => return r,
+    };
+    match store.set_tutorial_by_id(pid, &token, new).await {
+        Ok(TutorialOutcome::Ok) => current_profile(store, pid).await,
+        Ok(TutorialOutcome::BadToken) => forbidden(),
+        Err(e) => store_err("POST /api/profile/tutorial", e),
     }
 }
 
@@ -811,6 +879,34 @@ async fn leaderboard(axum::extract::State(st): axum::extract::State<St>, req: Re
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tutorial_is_due_only_for_unplayed_profiles_without_a_finished_current_version() {
+        let t = |version, state| Tutorial {
+            version,
+            step: 3,
+            state,
+        };
+        assert!(tutorial_due(0, None));
+        assert!(tutorial_due(
+            0,
+            Some(&t(TUTORIAL_VERSION, TutorialState::Step))
+        ));
+        assert!(!tutorial_due(
+            0,
+            Some(&t(TUTORIAL_VERSION, TutorialState::Done))
+        ));
+        assert!(!tutorial_due(
+            0,
+            Some(&t(TUTORIAL_VERSION, TutorialState::Skipped))
+        ));
+        assert!(tutorial_due(
+            0,
+            Some(&t(TUTORIAL_VERSION - 1, TutorialState::Done))
+        ));
+        assert!(!tutorial_due(1, None));
+        assert!(!tutorial_due(1, Some(&t(0, TutorialState::Step))));
+    }
 
     #[test]
     fn limit_follows_the_legacy_rules() {

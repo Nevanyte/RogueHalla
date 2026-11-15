@@ -18,6 +18,7 @@ pub mod cosmetics;
 pub mod legacy;
 pub mod model;
 mod settlement;
+pub mod tutorial;
 pub use settlement::CommittedSettlement;
 
 use std::collections::BTreeMap;
@@ -178,6 +179,12 @@ pub enum PurchaseOutcome {
 pub enum EquipOutcome {
     Ok,
     NotOwned,
+    BadToken,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TutorialOutcome {
+    Ok,
     BadToken,
 }
 
@@ -1110,6 +1117,43 @@ impl Store {
         self.gv_epoch
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(EquipOutcome::Ok)
+    }
+
+    /// Merges a tutorial marker into `progress.tutorial` for the already authenticated durable principal (see
+    /// [`tutorial::merge`] for the monotonic rules), under the profile row lock. Changes nothing else.
+    pub async fn set_tutorial_by_id(
+        &self,
+        profile_id: i64,
+        token: &str,
+        new: tutorial::Tutorial,
+    ) -> Result<TutorialOutcome> {
+        let mut tx = self.pool.begin().await?;
+        let Some(pid) = locked_authorized(&mut tx, ProfileLookup::Id(profile_id), token).await?
+        else {
+            return Ok(TutorialOutcome::BadToken);
+        };
+        let mut progress: Json<Progress> =
+            sqlx::query_scalar("SELECT progress FROM profiles WHERE profile_id = $1")
+                .bind(pid)
+                .fetch_one(&mut *tx)
+                .await?;
+        let stored = tutorial::parse(progress.rest.get("tutorial"));
+        let merged = tutorial::merge(stored, new);
+        if stored != Some(merged) {
+            progress.rest.insert(
+                "tutorial".to_owned(),
+                serde_json::to_value(merged).expect("plain data serializes"),
+            );
+            sqlx::query(
+                "UPDATE profiles SET progress = $2, updated_at = now() WHERE profile_id = $1",
+            )
+            .bind(pid)
+            .bind(&progress)
+            .execute(&mut *tx)
+            .await?;
+        }
+        tx.commit().await?;
+        Ok(TutorialOutcome::Ok)
     }
 }
 
