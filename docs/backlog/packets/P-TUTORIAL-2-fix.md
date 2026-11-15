@@ -49,3 +49,12 @@ Trivial one-line change; Sonnet.
 - The ring check is inclusive (`<=`); the fix must keep the ring centre strictly more than `RingRadius` from spawn.
 
 ## Notes from previous attempts
+
+## Oracle evidence
+- Oracle: `client-unity/RoguehallaNet.Tests/TutorialFlowRingFixTests.cs` (3 tests; `TutorialFlowTests.cs` untouched).
+  - `TrainingGeometryFirstObservationDoesNotAdvanceAndRingIsClearOfSpawn`: spawn (784,144), rack (880,144); no advance; ring centre (904,144), 120 u from spawn (>= 2 x RingRadius).
+  - `SweepOfRackDistancesAndDirectionsNeverAdvancesOnFirstObservation`: 9 directions x rack 1..400 u (step 3), over 1000 cases; no advance, centre exactly RingDistance from spawn, radius 48.
+  - `WalkingIntoTheRingStillAdvancesAfterAFirstNonAdvancingObservation`: rack 5/96/300 u; first obs no, x+30 no, x+100 advances to Pickup.
+- Run 2026-11-15 `DOTNET_ROOT=/opt/dotnet dotnet test client-unity/RoguehallaNet.Tests`: build OK; Failed 3, Passed 2168, Total 2171; the three red are exactly the new tests, on assertions.
+- Existing pin kept green: `TutorialFlowTests.MoveNeedsTheOwnPositionInsideTheRingAimedAtTheRack` (rack 400 u away, ring at 120 u).
+- Legacy quirk: the rack-at-<=1 u case already falls back to +x; the sweep includes rack 1 u.
