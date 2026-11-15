@@ -286,14 +286,33 @@ fn land(generator: &pipeline::Pipeline<'_>, seed: i64) -> Result<Landed, (i64, V
 fn run() -> &'static Run {
     static RUN: OnceLock<Run> = OnceLock::new();
     RUN.get_or_init(|| {
-        let fixed = coliseum::fixed_layout();
-        let generator = pipeline::Pipeline::new(&fixed);
+        // Eight threads of 16 seeds each, joined in seed order (each map depends on its seed alone).
+        let all: Vec<i64> = seeds().collect();
+        let landed: Vec<Result<Landed, (i64, Vec<String>)>> = std::thread::scope(|s| {
+            let handles: Vec<_> = all
+                .chunks(16)
+                .map(|chunk| {
+                    s.spawn(move || {
+                        let fixed = coliseum::fixed_layout();
+                        let generator = pipeline::Pipeline::new(&fixed);
+                        chunk
+                            .iter()
+                            .map(|&seed| land(&generator, seed))
+                            .collect::<Vec<_>>()
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .flat_map(|h| h.join().expect("a seed thread panicked"))
+                .collect()
+        });
         let mut run = Run {
             kept: Vec::new(),
             lost: Vec::new(),
         };
-        for seed in seeds() {
-            match land(&generator, seed) {
+        for l in landed {
+            match l {
                 Ok(l) => run.kept.push(l),
                 Err(lost) => run.lost.push(lost),
             }
