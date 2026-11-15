@@ -31,7 +31,8 @@ pub struct AttemptState {
     /// empty with the signature option off. Generator working state only (never exported).
     pub reserved: Vec<ReservedSite>,
     /// P-MAPGEN-SIG-SCALE-4: the fans the Prefix reserved with its signature definition (`SignatureContext::fan` of each
-    /// reserved site, as its table entry says: today the Fire site's, inclusive (x0, y0, x1, y1)), the one record the legacy landmark stage reads, so
+    /// reserved site, as its table entry says: the Fire site's, and the cave's room unless the round gave it up
+    /// (P-LAND-FROST-1), inclusive (x0, y0, x1, y1)), the one record the legacy landmark stage reads, so
     /// both readers keep out of the same tiles; empty with the signature option off. Generator working state only.
     pub fans: Vec<(usize, usize, usize, usize)>,
 }
@@ -364,3 +365,89 @@ fn assemble_with(
 }
 #[cfg(test)]
 mod tests;
+/// P-LAND-FROST-1: the soft retry of the Prefix's camp round.
+#[cfg(test)]
+mod soft_fan {
+    use super::*;
+    use crate::mapdata::Zone;
+    use crate::mapgen::landmarks::signature::spec::{specs, Fan, FanHold, Spec};
+    use crate::mapgen::landmarks::signature::DEFAULT_DEFINITION;
+
+    fn table(cave: Option<Fan>, hold: FanHold) -> Vec<Spec> {
+        let mut t = specs(&DEFAULT_DEFINITION);
+        let e = t
+            .iter_mut()
+            .find(|s| s.zone == Zone::Frost)
+            .expect("the cave's entry");
+        e.fan = cave;
+        e.fan_hold = hold;
+        t
+    }
+
+    /// A soft fan that holds another site's camp fails the first try at the site-camp check, which draws nothing, so the
+    /// retry is the round without the soft fan on the same stream: every attempt (state, recorded fans and the camp
+    /// stream's position) equals the one a table without the cave's fan gives. Seeds 1-8, attempts 0-3.
+    #[test]
+    fn a_soft_fan_given_up_at_the_site_camp_check_leaves_the_round_as_without_it() {
+        let fixed = crate::mapgen::coliseum::fixed_layout();
+        let d = DEFAULT_DEFINITION;
+        let whole = Some(Fan {
+            depth: 200,
+            side: 200,
+        });
+        let soft =
+            AttemptContext::new(&fixed).with_signature_table(&d, table(whole, FanHold::Soft));
+        let none = AttemptContext::new(&fixed).with_signature_table(&d, table(None, FanHold::Hard));
+        let mut prefixes = 0;
+        for seed in 1..=8 {
+            for n in 0..4 {
+                let a = begin_attempt_signature(&soft, seed, n, true).expect("input");
+                let b = begin_attempt_signature(&none, seed, n, true).expect("input");
+                assert_eq!(a, b, "seed {seed} attempt {n}");
+                prefixes += usize::from(a.is_some());
+            }
+        }
+        assert!(prefixes >= 8, "only {prefixes} prefixes to compare");
+    }
+
+    /// The same whole-map fan marked `Hard` is never given up: no round can hold it, so no attempt of seeds 1-8 forms a
+    /// prefix; and with the default table the cave's room, when recorded, is the second fan after the volcano's.
+    #[test]
+    fn a_hard_fan_is_never_given_up_and_a_kept_room_is_recorded() {
+        let fixed = crate::mapgen::coliseum::fixed_layout();
+        let d = DEFAULT_DEFINITION;
+        let whole = Some(Fan {
+            depth: 200,
+            side: 200,
+        });
+        let hard =
+            AttemptContext::new(&fixed).with_signature_table(&d, table(whole, FanHold::Hard));
+        for seed in 1..=8 {
+            for n in 0..4 {
+                assert_eq!(
+                    begin_attempt_signature(&hard, seed, n, true).expect("input"),
+                    None,
+                    "seed {seed} attempt {n}: a hard whole-map fan was given up"
+                );
+            }
+        }
+        let default = AttemptContext::new(&fixed);
+        let mut kept = 0;
+        for seed in 1..=8 {
+            if let Some(f) = (0..4)
+                .find_map(|n| begin_attempt_signature(&default, seed, n, true).expect("input"))
+            {
+                assert!(
+                    (1..=2).contains(&f.state.fans.len()),
+                    "seed {seed}: fans {:?}",
+                    f.state.fans
+                );
+                kept += usize::from(f.state.fans.len() == 2);
+            }
+        }
+        assert!(
+            kept > 0,
+            "the cave's room was kept on no prefix of seeds 1-8"
+        );
+    }
+}
