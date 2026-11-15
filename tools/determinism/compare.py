@@ -57,7 +57,14 @@ INVENTORY_SIM_KEYS = {
 SIM_KEYS = INVENTORY_SIM_KEYS
 REPLAY_SIM_KEYS = SIM_KEYS | {
     "abilities", "wish_lock_ms", "lifecycle", "hazards", "initial_loot", "mob_mode", "regen", "consumables", "quests", "training", "dummies",
+    # Added after the list was written; each is compared for equality across the two targets like every replay byte.
+    "walk_hints", "hitboxes", "mob_spacing", "regen_in_combat", "camp_buffs", "frost_wish",
 }
+# Replay-config leaves whose serialized form is JSON null (the default) or one named string.
+REPLAY_NULLABLE_NAMES = {
+    "mob_spacing": {"off"}, "regen_in_combat": {"off"}, "camp_buffs": {"themed"}, "frost_wish": {"wall"},
+}
+HITBOX_MODES = {"LegacyCircle", "Archetypes"}
 REPLAY_KEYS = {
     "format", "content_hash", "build", "match_id", "config", "arena", "secrets",
     "start", "ticks", "hashes",
@@ -252,11 +259,25 @@ def validate_sim(config, path, full=False):
     require(config["faction_mode"] in faction_modes(), path + ".faction_mode",
             "unknown faction mode")
     if full:
+        # Optional leaves are serializer defaults: validated when present, never required.
         for key in ("abilities", "lifecycle", "hazards", "mob_mode"):
-            string(config[key], path + "." + key)
-        boolean(config["initial_loot"], path + ".initial_loot")
-        number(config["wish_lock_ms"], path + ".wish_lock_ms")
-        require(config["wish_lock_ms"] >= 0, path + ".wish_lock_ms", "must be nonnegative")
+            if key in config:
+                string(config[key], path + "." + key)
+        if "initial_loot" in config:
+            boolean(config["initial_loot"], path + ".initial_loot")
+        if "wish_lock_ms" in config:
+            number(config["wish_lock_ms"], path + ".wish_lock_ms")
+            require(config["wish_lock_ms"] >= 0, path + ".wish_lock_ms", "must be nonnegative")
+        for key, names in REPLAY_NULLABLE_NAMES.items():
+            if key in config:
+                require(config[key] is None or config[key] in names, path + "." + key,
+                        "expected null or one of {}".format(sorted(names)))
+        if "consumables" in config:
+            boolean(config["consumables"], path + ".consumables")
+        if config.get("walk_hints") is not None:
+            boolean(config["walk_hints"], path + ".walk_hints")
+        if "hitboxes" in config:
+            require(config["hitboxes"] in HITBOX_MODES, path + ".hitboxes", "unknown hitbox mode")
 
 
 def validate_inventory_scenario(spec, path):
