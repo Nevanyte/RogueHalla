@@ -47,9 +47,10 @@ None beyond the integration base.
 - `cargo test -p rh-server --all-features --test account_api --test account_api_memory` green.
 
 ## Oracle files (read-only for implementers)
-- `crates/rh-persist/src/tutorial.rs` tests module (against a stub `merge`/`parse`) — or `crates/rh-persist/tests/tutorial.rs` if the oracle author prefers an integration file
-- `crates/rh-server/tests/account_api.rs` (tutorial test + DTO key list)
-- `crates/rh-server/tests/account_api_memory.rs` (503 for the new route)
+- `crates/rh-persist/tests/tutorial.rs` (`merge_is_monotonic`, `parse_tolerates_garbage`; red against the stub `merge`/`parse` in `crates/rh-persist/src/tutorial.rs`, which the implementer replaces)
+- `crates/rh-server/tests/account_api.rs`: new `tutorial_progress_is_authenticated_validated_and_monotonic` + `tutorial()` helper (oracle commit); the DTO key list in `claim_open_and_token_rules` gains `tutorial`, `tutorialDue` (oracle-amend commit, for the owner)
+- `crates/rh-server/tests/account_api_memory.rs`: the 503 table gains `POST /api/profile/alpha/tutorial` (oracle-amend commit, for the owner)
+- Not pinned by an oracle: a `tutorial_due` unit test in `profile.rs` (the gate's lib-red rule needs a separate test file; the integration test pins `tutorialDue` for unplayed/played profiles). The implementer may add a unit test of their own with `tutorial_due(runs, Option<&Tutorial>)` and `TUTORIAL_VERSION`.
 
 ## 9. Validation commands
 - `cargo test -p rh-persist -p rh-server --all-features` (with DATABASE_URL)
