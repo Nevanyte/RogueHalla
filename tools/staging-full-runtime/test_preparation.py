@@ -91,17 +91,23 @@ class Preparation(unittest.TestCase):
             'crates/rh-server/src/' + name + '.rs'
             for name in ('runtime', 'main', 'lib', 'director', 'room')})
         # The plan freezes the native source AT the candidate commit, not the moving working tree (P-CI-GREEN-2): the
-        # port moves on after a staging candidate is frozen. The bytes are read through git at p.BASE; a shallow
-        # checkout without that commit (CI fetches depth 1) checks only that the manifest is well formed.
+        # port moves on after a staging candidate is frozen. The bytes are read through git at p.BASE. CI fetches that
+        # commit before this test (rust.yml), so a missing commit is a FAILURE there and in any full clone; only a
+        # shallow clone outside CI (or a tree that is not a git repository) skips, and says so.
         for path, digest in pins['files'].items():
             with self.subTest(path=path):
                 self.assertRegex(digest, r'^[0-9a-f]{64}$')
         have = subprocess.run(['git', '-C', str(root), 'cat-file', '-e', p.BASE + '^{commit}'],
                               capture_output=True).returncode == 0
+        if not have:
+            shallow = subprocess.run(['git', '-C', str(root), 'rev-parse', '--is-shallow-repository'],
+                                     capture_output=True, text=True)
+            may_skip = (shallow.returncode != 0 or shallow.stdout.strip() == 'true') and not os.environ.get('GITHUB_ACTIONS')
+            self.assertTrue(may_skip, 'the candidate commit ' + p.BASE + ' is not in this checkout: fetch it '
+                            '(git fetch --no-tags --depth=1 origin ' + p.BASE + '); the byte check must not be skipped here')
+            self.skipTest('candidate commit not in this shallow checkout (outside CI): manifest shape checked only')
         for path, digest in pins['files'].items():
             with self.subTest(path=path, commit=p.BASE):
-                if not have:
-                    self.skipTest('candidate commit not in this (shallow) checkout')
                 blob = subprocess.run(['git', '-C', str(root), 'show', p.BASE + ':' + path],
                                       capture_output=True, check=True).stdout
                 self.assertEqual(hashlib.sha256(blob).hexdigest(), digest, path)

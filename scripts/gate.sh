@@ -124,7 +124,7 @@ provenance_audit() {
 # only the pin and control checks, a fraction of a second). Both were red on this branch while the gate was green
 # (P-CI-GREEN-2): the staging pins hashed the moving tree, the witness pinned the live docs/CONTRACTS.md.
 offline_pin_checks() {
-  run "staging preparation + NPC witness context pins (offline, as CI)" bash -c 'export PYTHONDONTWRITEBYTECODE=1; python3 -m unittest discover -s tools/staging-full-runtime -p "test_*.py" && python3 -m unittest discover -s tools/staging-full-runtime/installer -p "test_*.py" && python3 tools/npc-witness-context/tests.py'
+  run "staging preparation + NPC witness context pins (offline, as CI)" bash -c 'export PYTHONDONTWRITEBYTECODE=1; python3 -m unittest discover -s tools/staging-full-runtime -p "test_*.py" && python3 -m unittest discover -s tools/staging-full-runtime/installer -p "test_*.py" && python3 tools/npc-witness-context/tests.py || { echo; echo "A pinned NPC-witness input or the staging manifest changed. Do not edit tools/npc-witness-context/context.json or tools/staging-full-runtime/native-pins.json; name the file in the hand-off and the coordinator decides (P-CI-GREEN-2)."; exit 1; }'
 }
 cheap_area_checks() { provenance_audit; offline_pin_checks; unity_tool_tests; jsvectors; reload_proof_tests; csharp; } # full-mode order; quick picks by changed path
 full_steps() {
