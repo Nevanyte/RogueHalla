@@ -66,6 +66,17 @@ pub struct Fan {
     pub side: i32,
 }
 
+/// P-MAPGEN-SIG-HOLY-1-fix: how the params of a landmark's own feature (`MapFeature::p`) are derived from what the step
+/// wrote.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FeatureParams {
+    /// No params.
+    None,
+    /// The legacy `Hall` row the certifier (`feature-params`) and the client read: [axis, pitch, radius, piers, bays]
+    /// (`hall_params`).
+    Hall,
+}
+
 /// One signature landmark.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Spec {
@@ -106,6 +117,9 @@ pub struct Spec {
     /// P-MAPGEN-SIG-HOLY-1-fix: the fan reserved in front of the site (`Fan`); `None` without one. `SignatureContext::fan`
     /// reads it.
     pub fan: Option<Fan>,
+    /// P-MAPGEN-SIG-HOLY-1-fix: the params the entry's own feature (the one of kind `Spec::kind`) is written with
+    /// (`MapFeature::p`, `FeatureParams`). `SignatureContext::write` reads it.
+    pub params: FeatureParams,
 }
 
 /// A glyph that writes `write`, owned by `feature`, on a tile passing `legality`.
@@ -182,11 +196,14 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             members: vec![Volcano, LavaStream, LavaPool],
             by_tile: vec![LavaStream, LavaPool],
             any_terrain: Vec::new(),
-            // Stub (P-MAPGEN-SIG-HOLY-1-fix): placeholders; the implementer writes today's values.
-            site_side: 0,
+            site_side: d.site_side,
             site_camps: None,
             spawn: SpawnRule::Box,
-            fan: None,
+            fan: Some(Fan {
+                depth: d.fan_depth,
+                side: d.fan_side,
+            }),
+            params: FeatureParams::None,
         },
         // The church (`#` walls, `P` pillars) and its graveyard (`G` headstones, `+` the LOW fence), `E` on the camp;
         // the entrance is the main gate, the open front row through `E`'s column.
@@ -218,11 +235,14 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             members: vec![Church, Graveyard],
             by_tile: Vec::new(),
             any_terrain: vec![Church],
-            // Stub (P-MAPGEN-SIG-HOLY-1-fix): placeholders; the implementer writes today's values.
-            site_side: 0,
-            site_camps: None,
+            site_side: d.site_side,
+            site_camps: Some(SiteCamps {
+                glyph: b'E',
+                elite: true,
+            }),
             spawn: SpawnRule::Box,
             fan: None,
+            params: FeatureParams::None,
         },
         // The bog tree (`T` trunk, `r` roots, `%` marsh), off every apron marked before it, centred in its site; the
         // entrance is the causeways `:` on the box's edge.
@@ -244,11 +264,11 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             members: vec![BogTree],
             by_tile: Vec::new(),
             any_terrain: Vec::new(),
-            // Stub (P-MAPGEN-SIG-HOLY-1-fix): placeholders; the implementer writes today's values.
-            site_side: 0,
+            site_side: d.site_side,
             site_camps: None,
             spawn: SpawnRule::Box,
             fan: None,
+            params: FeatureParams::None,
         },
         // The cave (`#` walls, `R` rock, `=` ice floor), `E` on the camp; the entrance is the mouth `D`.
         Spec {
@@ -270,11 +290,14 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             members: vec![Cave],
             by_tile: Vec::new(),
             any_terrain: Vec::new(),
-            // Stub (P-MAPGEN-SIG-HOLY-1-fix): placeholders; the implementer writes today's values.
-            site_side: 0,
-            site_camps: None,
+            site_side: d.site_side,
+            site_camps: Some(SiteCamps {
+                glyph: b'E',
+                elite: true,
+            }),
             spawn: SpawnRule::Box,
             fan: None,
+            params: FeatureParams::None,
         },
         // The Holy hall (P-MAPGEN-SIG-HOLY-1): an open colonnade of 3 x 3 piers and the shrine (`#` walls), the shrine's
         // healing light `L` (floor of the catalog's `light` terrain), `E` the two camps on the nave's centre line, `D` the
@@ -303,11 +326,17 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             members: vec![Hall],
             by_tile: Vec::new(),
             any_terrain: Vec::new(),
-            // Stub (P-MAPGEN-SIG-HOLY-1-fix): placeholders; the implementer writes today's values.
-            site_side: 0,
-            site_camps: None,
-            spawn: SpawnRule::Box,
+            site_side: d.hall_site_side,
+            site_camps: Some(SiteCamps {
+                glyph: b'E',
+                elite: false,
+            }),
+            spawn: SpawnRule::OpenFloor {
+                clear_of: b'L',
+                by: d.shrine_clear,
+            },
             fan: None,
+            params: FeatureParams::Hall,
         },
     ]
 }

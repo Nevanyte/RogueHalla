@@ -249,10 +249,9 @@ fn assemble_with(
                     // is reserved too (no zone, no camp), so no camp's halo enters it. A camp the sites carry (the
                     // church's, the cave's) is fixed already: when its halo reaches into the fan the round fails, as a
                     // camp failure does, and the partition and the sites are drawn again.
-                    let d = context.sites.definition();
                     let fans: Vec<(usize, usize, usize, usize)> = reserved
                         .iter()
-                        .filter_map(|r| crate::mapgen::landmarks::signature::fan(r, d))
+                        .filter_map(|r| context.sites.fan(r))
                         .collect();
                     let mut sites = sites;
                     sites.extend(fans.iter().map(|&(x0, y0, x1, y1)| Reserve {
@@ -264,15 +263,13 @@ fn assemble_with(
                         camps: Vec::new(),
                         elite: false,
                     }));
-                    let layout =
-                        if crate::mapgen::landmarks::signature::fan_holds_a_site_camp(&reserved, d)
-                        {
-                            None
-                        } else {
-                            crate::mapgen::zones::camps::place_camps_reserving(
-                                &camps, rng, &partition, &sites,
-                            )
-                        };
+                    let layout = if context.sites.fan_holds_a_site_camp(&reserved) {
+                        None
+                    } else {
+                        crate::mapgen::zones::camps::place_camps_reserving(
+                            &camps, rng, &partition, &sites,
+                        )
+                    };
                     (layout, reserved, fans)
                 }
                 None => (None, Vec::new(), Vec::new()),
