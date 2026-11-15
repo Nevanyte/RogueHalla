@@ -16,6 +16,14 @@ namespace Roguehalla.Net.Ui
         public static bool CardVisible(bool confirmedPractice, bool windowFocused, bool higherPanelVisible, bool flowActive)
         { return confirmedPractice && windowFocused && !higherPanelVisible && flowActive; }
 
+        /// <summary>The Done card stays up in confirmed practice after the flow completes until the player closes it (P-TUTORIAL-3-fix).</summary>
+        public static bool DoneCardVisible(bool confirmedPractice, bool windowFocused, bool higherPanelVisible, bool flowDone, bool doneDismissed)
+        { return false; }
+
+        /// <summary>Arming the flow and saving "step" require that the Training launch actually started (P-TUTORIAL-3-fix).</summary>
+        public static bool ShouldArm(bool launchStarted)
+        { return true; }
+
         public static bool WelcomeVisible(bool tutorialDue, bool menuVisible, bool dismissedThisSession, bool inMatch)
         { return tutorialDue && menuVisible && !dismissedThisSession && !inMatch; }
 
