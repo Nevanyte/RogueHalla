@@ -159,6 +159,12 @@ pub struct Definition {
     /// spawn-pool tile lies within this Chebyshev distance of a tile of the shrine's light ("3 tiles clear of the
     /// shrine"); the hall's walls and light are kept from the pool too (`SignatureContext::write`).
     pub shrine_clear: i32,
+    /// P-LAND-FROST-1 (owner decision 2026-11-14, "the softer reservation"): the Frost lake's room, the cave's fan
+    /// (`spec::Spec::fan` of the cave's entry, `spec::FanHold::Soft`): `cave_fan_depth` tiles deep in front of the Frost
+    /// site's inner rect and as wide as the inner rect plus `cave_fan_side` tiles on each side. Measured as decided: 24
+    /// and 0 (prototype `agent/opus/P-LAND-FROST-1-stack-measure`, seeds 1-128). STUB: the cave's entry has no fan yet.
+    pub cave_fan_depth: i32,
+    pub cave_fan_side: i32,
 }
 
 pub const DEFAULT_DEFINITION: Definition = Definition {
@@ -197,6 +203,8 @@ pub const DEFAULT_DEFINITION: Definition = Definition {
     hall_grid: include_str!("hall.txt"),
     hall_site_side: 41,
     shrine_clear: 3,
+    cave_fan_depth: 24,
+    cave_fan_side: 0,
 };
 
 /// One zone's reserved landmark site (P-MAPGEN-SIG-RESERVE-1): chosen in the Prefix, after the partition and before
