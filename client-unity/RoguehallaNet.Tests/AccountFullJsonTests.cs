@@ -34,6 +34,19 @@ namespace Roguehalla.Net.Tests
             Assert.Throws<NotSupportedException>(() => ((IList<string>)profile.Cosmetics.Owned).Add("unearned"));
         }
 
+        [Test]
+        public void TutorialFieldsAreOptionalAndParsedWhenPresent()
+        {
+            Assert.IsTrue(AccountFullJson.TryProfile(Profile().ToString(), out var old));
+            Assert.IsNull(old.Tutorial); Assert.IsFalse(old.TutorialDue);
+            JObject body = Profile(); body["profile"]["tutorial"] = JObject.Parse(@"{""version"":1,""step"":3,""state"":""step""}"); body["profile"]["tutorialDue"] = true;
+            Assert.IsTrue(AccountFullJson.TryProfile(body.ToString(), out var p));
+            Assert.IsNotNull(p.Tutorial, "stored tutorial progress is parsed");
+            Assert.AreEqual(3, p.Tutorial.Step); Assert.AreEqual("step", p.Tutorial.State); Assert.AreEqual(1, p.Tutorial.Version); Assert.IsTrue(p.TutorialDue);
+            body["profile"]["tutorial"] = "junk";
+            Assert.IsTrue(AccountFullJson.TryProfile(body.ToString(), out var junk)); Assert.IsNull(junk.Tutorial);
+        }
+
         [TestCase("missing-month-map")]
         [TestCase("missing-counter")]
         [TestCase("missing-progress-map")]
