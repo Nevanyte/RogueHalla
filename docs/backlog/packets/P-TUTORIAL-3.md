@@ -69,6 +69,6 @@ All brief references hold except as noted. `MatchHud.cs`: `_chromeStage.SetAsLas
 - `StepLabel(index, total, copy, wishKey)`: "Step n/total \u00B7 copy" for 1..total, `{wish}` replaced by `wishKey`; index 0 or > total gives the copy alone.
 
 ## Oracle evidence
-(filled after the run)
+`dotnet test client-unity/RoguehallaNet.Tests` on the stub commit: Failed 8, Passed 2156, Total 2164; all 8 failures are the new TutorialMarkerRulesTests (assertions on the stub defaults false/null/default). `sync-net.sh --check` clean. `gate.sh --oracle-check` cannot judge C#.
 
 ## Notes from previous attempts
