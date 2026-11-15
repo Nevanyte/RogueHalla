@@ -80,7 +80,7 @@ namespace Roguehalla.Net.Tests
             var frame = Snap(BaseTick, actors, me).Encode();
             object sink = null;
             // Exact equality met by any one run: a real allocation is in every run, collector noise only adds.
-            double b = AllocationProbe.PerCallExact(i => { sink = ServerMsg.Decode(frame, frame.Length); }, 88.0 * (me ? 2 : 1) + 40 * actors, Iterations);
+            double b = AllocationProbe.PerCallExact(i => { sink = ServerMsg.Decode(frame, frame.Length); }, (me ? 176.0 : 88.0) + 40 * actors, Iterations);
             GC.KeepAlive(sink);
             return b;
         }
