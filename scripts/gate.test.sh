@@ -183,7 +183,7 @@ git checkout -q -B work main
 # --list-steps prints the full-mode order and runs nothing.
 rc=0; out="$(bash scripts/gate.sh --list-steps 2>&1)" || rc=$?
 prev=0 order_ok=1 missing=""
-for pat in "path checks" "rustfmt" "Unity tool tests" "JS decoder vs golden" "reload-proof" "C# net library tests" \
+for pat in "path checks" "rustfmt" "card provenance chain" "Unity tool tests" "JS decoder vs golden" "reload-proof" "C# net library tests" \
   "Unity copy of the net library" "clippy workspace (all features)" "workspace tests except rh-sim" "rh-sim suite" \
   "Postgres suite" "parity report" "Unity EditMode" "headless smoke" "release-only checks"; do
   n="$(grep -nF -- "$pat" <<<"$out" | head -n 1 | cut -d: -f1 || true)"
@@ -282,6 +282,12 @@ else bad "fail fast (rc=$rc)" "$out"; fi
 # Quick mode runs the Unity tool tests (which hold the docs tests) when a doc they read changes.
 if grep -qE "if has '[^']*\^docs/unity/[^']*'; then unity_tool_tests; fi" "$SRC/scripts/gate.sh"; then ok "quick mode: a change under docs/unity/ runs the Unity tool tests (the docs tests)"
 else bad "quick mode docs selection" "the quick-mode line that runs unity_tool_tests does not select ^docs/unity/"; fi
+
+# Quick mode runs the card provenance audit when a tool, a card corpus or the web client changes; full mode always
+# (it heads the cheap area checks, so --list-steps shows it; P-CI-GREEN-1).
+if grep -qF "if has '^tools/|^parity/card-catalog/|^parity/card-runtime/|^parity/card-runtime-witness/|^crates/rh-server/web/'; then provenance_audit; fi" "$SRC/scripts/gate.sh" \
+  && grep -qE '^cheap_area_checks\(\) \{ provenance_audit;' "$SRC/scripts/gate.sh"; then ok "the card provenance audit runs in full mode always and in quick mode for tools/, the card corpora and the web client"
+else bad "provenance audit selection" "gate.sh does not select provenance_audit in both modes"; fi
 
 echo
 echo "$PASSES passed, $FAILS failed"

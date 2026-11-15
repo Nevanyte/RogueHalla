@@ -112,7 +112,11 @@ sim_tests() {
   run "rh-sim content registry" cargo test --locked -p rh-sim --features trusted-status-probes --test content
   run "rh-sim suite (trusted-status-probes, as CI)" cargo test --locked -p rh-sim --features trusted-status-probes
 }
-cheap_area_checks() { unity_tool_tests; jsvectors; reload_proof_tests; csharp; } # full-mode order; quick picks by changed path
+# The accepted card provenance chain (catalog, runtime and witness pins) is audited by a read-only node script. CI's
+# `provenance` job runs it and gates `rust`, `simulation`, `csharp` and `card-runtime-source`: a stale pin there skipped
+# every real suite for days while this gate stayed green (P-CI-GREEN-1, 2026-11-14).
+provenance_audit() { run "card provenance chain (pins current)" node tools/provenance/check-card-chain.mjs; }
+cheap_area_checks() { provenance_audit; unity_tool_tests; jsvectors; reload_proof_tests; csharp; } # full-mode order; quick picks by changed path
 full_steps() {
   run "rustfmt" cargo fmt --all -- --check
   cheap_area_checks
@@ -400,6 +404,7 @@ if [[ "$MODE" == quick ]]; then
   # Same relative order as full mode: the cheap area checks first, then the crates, the parity report, EditMode.
   # The tool tests include the docs tests, which read docs/unity/*.md: a dial row or a round note must fail here,
   # in an implementer's quick gate, not eighty minutes into the coordinator's full gate (integrations 40 and 43).
+  if has '^tools/|^parity/card-catalog/|^parity/card-runtime/|^parity/card-runtime-witness/|^crates/rh-server/web/'; then provenance_audit; fi
   if has '^client-unity/UnityProject/Tools/|^docs/unity/|^client-unity/UnityProject/Assets/Editor/Look/'; then unity_tool_tests; fi
   if has '^crates/rh-protocol/|^protocol/fixtures/|^tools/protocol-js/'; then jsvectors; fi
   if has '^crates/rh-protocol/|^protocol/fixtures/|^crates/rh-server/web/|^tools/unity-browser-reload-proof/'; then reload_proof_tests; fi
