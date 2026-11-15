@@ -2,14 +2,14 @@
 
 ```
 PACKET:          P-MAPGEN-SIG-HOLY-1-fix — serves the review note of P-MAPGEN-SIG-HOLY-1 (note 1) and ADR 0028 (the per-landmark table is the landmark contract)
-BRANCH:          agent/sonnet/P-MAPGEN-SIG-HOLY-1-fix @ the commit that adds the section "Gate and review" (last code commit: "doc fixes (relabelled_zones, landmark_kind, reserve, module ...)"; packet/P-MAPGEN-SIG-HOLY-1-fix; rebased by the lane's session onto the coordinator's staging head)
-GATE:            PASS (quick, --oracle packet/P-MAPGEN-SIG-HOLY-1-fix --base coord/int-51) on 1311cb07e over coord/int-51 @ 42a25051a, run by the lane's session: path checks, rustfmt, the card provenance chain, the staging preparation pins, clippy rh-sim, the content registry, the whole rh-sim suite as CI, the parity report. [not run: the full gate (the coordinator's); rh-mapdress and rh-server are not in the changed crates: the implementer ran cargo test -p rh-mapdress green.] One docs-only commit (this file, ADR 0028 decision 14) follows the gated commit.
+BRANCH:          agent/sonnet/P-MAPGEN-SIG-HOLY-1-fix @ the commit that adds the section "Gate and review" (last code commit f30ed0690, the two review notes; packet/P-MAPGEN-SIG-HOLY-1-fix @ 95c7fbf01; base origin/feature/unity-rework @ 86dd4adca)
+GATE:            PASS (quick, --oracle packet/P-MAPGEN-SIG-HOLY-1-fix --base origin/feature/unity-rework) on f30ed0690, run by the lane's session from an empty build folder of this worktree's own: path checks, rustfmt, the card provenance chain, the staging preparation pins, clippy rh-sim, the content registry, the whole rh-sim suite as CI (92 result lines, none failed), the parity report. [not run: the full gate (the coordinator's). Run besides it on the same build: cargo test -p rh-mapdress, green.] One docs-only commit (this file) follows the gated commit.
 CHANGED:         crates/rh-sim/src/mapgen/landmarks/signature/{mod.rs,spec.rs,volcano.rs}, crates/rh-sim/src/mapgen/attempt/mod.rs, this file; docs/adr/0028-signature-landmarks.md (decision 14, added by the lane's session)
 D-RULES:         D1 none (no generated map moves: every pin and golden green, unedited) · D2 n/a · D5/D6/D9 none (no draw, wire, save, hash or content-hash change; no new const/static)
 DEVIATIONS:      none
-SHARED RECORDS:  proposed edits: docs/adr/0028-signature-landmarks.md (outside this packet's write scope, so not edited): in decision 12/13 add "The per-landmark table `spec::Spec` carries the site's side (`site_side`), its camps and whether the first is the zone's elite (`site_camps`), the spawn rule (`spawn`: `Box` or `OpenFloor { clear_of, by }`), the fan (`fan`) and the own feature's params (`params`); `reserve`, `write`, `fan` and `fan_holds_a_site_camp` read the entry, no zone or kind branch decides them." There is no signature README in the tree; the module doc of `signature/mod.rs` says it now.
+SHARED RECORDS:  none. (ADR 0028 decision 14 and the wording of decision 10 were added by the lane's session on this branch, outside the packet's literal write scope: a docs change for the coordinator to accept or strike.)
 LEGACY DOUBTS:   none (no legacy counterpart, DEV-020)
-NOT ESTABLISHED: the Hall params home (`Spec::params`) is read by `write` but no test doctors it (only the default is observable); a Pin entry's own `site_side` differing from `Definition::site_side` is not exercised by any test; `gate.sh --quick --oracle ... --base ...` not run.
+NOT ESTABLISHED: the full gate; the Hall params home (`Spec::params`) is read by `write` but no test doctors it (only the default is observable); a Pin entry's own `site_side` differing from `Definition::site_side` is not exercised by any test; the own-fan test does not cover an `extra` camp, or a camp-carrying site with its own fan against another site's fan (not needed today)
 RISKS:           none known; a changed candidate count would have moved `pinned_on_maps` / `pinned_landmarks`, which are green.
 ```
 
@@ -43,3 +43,38 @@ Left:
 - `cargo fmt --check` clean; `cargo clippy -p rh-sim --lib --tests --features trusted-status-probes -- -D warnings` clean.
 
 No pin, golden or existing test file changed: `git diff --stat packet/P-MAPGEN-SIG-HOLY-1-fix..HEAD -- 'crates/*/tests'` is empty. The only test-adjacent edit is the setup of the in-module test named above (in `signature/mod.rs`).
+
+## Gate and review (the lane's session, 2026-11-14)
+
+- **Gate:** as the block says. An earlier quick gate passed on the implementer's tip (1311cb07e, before the review
+  notes); a second run was stopped and discarded by the lane's session because its build folder was, for an hour,
+  shared with another worktree on a different branch (binaries of one worktree can be taken as fresh by the other);
+  the result above is from a clean build in this worktree's own folder.
+- **Guards (no re-pin, no test file edited):** `signature_pins.rs` `pinned_on_maps`, `pinned_landmarks` (it digests the
+  spawn masks) and `pinned_off`, `mapgen_guarantees.rs` `pinned_labels`, the rh-mapdress goldens: all green on
+  f30ed0690. `git diff --stat packet/P-MAPGEN-SIG-HOLY-1-fix..HEAD -- 'crates/*/tests'` is empty.
+- **Moved expectations:** none. The oracle is one new file (`mapgen_signature_site_rules.rs`, 11 tests through a
+  doctored table); no existing test was amended.
+- **Review:** reviewer-opus on dd223694d, reading only (no test run: the coordinator's gate had the machine):
+  **LAND WITH NOTES**, two notes, both fixable without moving a byte. It compared `reserve`, `stamp`, `write`, the fans
+  and the attempt's use of them against the base and found no input on which the shipped table behaves differently;
+  no draw added, dropped or reordered; option off untouched.
+  - **Note 1, fixed in f30ed0690:** `relabel_sites` still filtered by zone (`relabelled_zones()` or Holy). It now
+    relabels every reserved site that carries a camp (`r.camp.is_some()`): identical today (Sentenced, Frost and Holy
+    always carry one; Fire and Plague never do), and a later entry given site camps is relabelled without a line here.
+    `relabelled_zones()` stays for the oracle that pins it; its doc says so.
+  - **Note 2, fixed in f30ed0690:** `site_camps` means two things by placement (a pinned entry's camp is the pinned
+    tile and its glyph was never read; a centred entry's camps are its glyph's landed tiles) and nothing tied the pin
+    glyph to the camp glyph. `from_table` now checks (`debug_assert!`) that a pinned entry's site camps name its pin
+    glyph, and `SiteCamps::glyph`'s doc says the field is unused for a pinned entry and must equal the pin's.
+- **Minor, not notes** (the reviewer's list; no packet): the module doc claimed the table carries every
+  per-landmark rule (corrected in f30ed0690: Plague's line rule and deepest-square fallback in `reserve` and the
+  volcano's streams in `place` are still decided by zone); ADR decision 14's wording on the glyph and the elite flag
+  and decision 10's `signature::fan` (corrected); `reserve`'s reason for "looks unreachable" (reworded: not seen,
+  not proven); `attempt/mod.rs:34`'s doc line is over 120 columns and it, `attempt/mod.rs:248` and
+  `landmarks/stage/mod.rs:121` still read as Fire-only (left: comments); `from_table` and `with_signature_table`
+  could be `#[doc(hidden)]` and `from_table`'s "the table keeps `reserved_zones` order" is unchecked (lookups are by
+  zone); `Piece::clear` is cloned into every piece of a multi-feature open-floor entry (harmless; not the hall).
+- **For the next packet (the Frost cave's reserved room):** it is one table line, `fan: Some(Fan { depth, side })` on
+  the cave's entry; the cave's own camp is not tested against its own fan here, and `place_camps_reserving` checks a
+  site's own camps against the halo rule, not against the reserved rects.
