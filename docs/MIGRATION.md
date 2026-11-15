@@ -4,6 +4,48 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integration 52 (2026-11-14, night): landmark site rules as table data; disk; what CI now says
+
+Integration branch `feature/unity-rework` @ `86dd4adca` on origin (integrations 50 and 51 as one tree: the Holy
+hall, P-CI-GREEN-1 and -2, P-TEST-HARDEN-1c; full gate green on the third run). The live host is unchanged on
+`2f33045d6` and expires 2026-11-15 09:42 UTC.
+
+**Three gate runs for 50 and 51, and what each taught:** (1) red on the exact-count decode allocation test at load
+average 35 (56 bytes over 2,000 calls in the minimum of five runs): now the first clean run of at most 25
+(P-TEST-HARDEN-1c; not reproduced in 760 loaded runs, so it rests on the reasoning); (2) red on `rh-server`
+`result_recovery`, which read the `committed` counter the instant the row count caught up, while the disk had 3 GiB
+free: now a bounded wait for the same value; (3) green, with the other session confirming its lane idle first.
+From here the coordinator asks that session for "clear" before a gate.
+
+**Disk, owner request ("clear as much disk space AS POSSIBLE"):** from 3 GiB free to about 410. The map generator
+session deleted its three build folders (236 GiB) and its 17 finished harness worktrees (24 GiB); Docker's images,
+build cache, stopped containers and volumes were pruned (about 69 GiB; the VM image went from 72 to 2.3 GiB); the
+coordinator's finished agent worktrees (about 23 GiB), the unused incremental cache and day-old artefacts of the
+shared `target` (about 39 GiB), regenerable home caches (about 15 GiB) and scratch build output (2.7 GiB).
+**A coordinator error:** the Docker agent was told nothing in Docker needed keeping and pruned everything unused,
+including an eight-month-old `sqlserver` container (Azure SQL Edge) and 6.7 GB of volumes that were not this
+project's; not looked at first, not named to the owner; unrecoverable. Told to the owner. Left for him: `~/.codex` (57
+GiB), `~/Parallels` (35 GiB), thirteen older worktrees with uncommitted work (11.5 GiB), the Trash (not measurable).
+**One builder per target folder:** the coordinator suggested that session share one `target` across its three
+worktrees; with worktrees on different commits cargo ran a stale test binary from another worktree's source without
+rebuilding. It undid the sharing and discarded that window's results. The coordinator's gate worktree shares the
+main checkout's `target`, into which only that worktree ever builds; a deliberate test of that is owed.
+
+Staged as `coord/int-52`: **P-MAPGEN-SIG-HOLY-1-fix** (`841253de9`; the coordinator's reviewer-opus: LAND): each
+signature landmark's site rules are table data read by `reserve`, `write`, `fan` and `relabel_sites`; for the five
+shipped entries every value equals what it replaces; no pin, golden or existing test moved. Relayed from that
+session's chat ("Yes to both"): the Frost lake is built first in front of the cave mouth on softly reserved ground,
+its parts as targets and never a refusal; Holy's ground outside the hall stays open. Measured there and not taken:
+refusing a bare crater ring with no opening (49 Fire camps without a crater against the ceiling of 40, no attempt
+saved).
+
+**The pull request's CI at `86dd4adca`:** `provenance`, `report-contract`, `csharp`, `card-runtime-source` green.
+`rust` ran for the first time in days: 24 minutes, everything green up to the step "Admitted private, Card and Room
+source witnesses remain byte exact", where a bot private-source fixture's generated `coverage.json` no longer equals
+its recapture (`c4ea7643…` against the pinned `e7487e04…`); six later steps of the same kind did not run.
+P-CI-GREEN-3 follows this gate. `perfproof` stays red by design (said in the pull request). `simulation` and the
+native determinism jobs were still running.
+
 ## Integration 51 (2026-11-14, late): the pull request's CI, second layer
 
 Staged as `coord/int-51` on top of 50 (which is under gate): **P-CI-GREEN-2** (`50ba46e54`; reviewer-opus LAND WITH
