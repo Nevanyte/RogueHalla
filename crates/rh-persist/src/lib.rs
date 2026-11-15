@@ -18,6 +18,7 @@ pub mod cosmetics;
 pub mod legacy;
 pub mod model;
 mod settlement;
+pub mod tutorial;
 pub use settlement::CommittedSettlement;
 
 use std::collections::BTreeMap;
