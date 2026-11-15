@@ -4,6 +4,58 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integration 54 (2026-11-15, night): the Frost lake built first (P-LAND-FROST-1); merged by the map generator session
+
+**Who and why.** The coordinator's session was archived when this packet was ready. Asked in the map generator
+session's chat how the merge should be delivered, the owner answered **"Please push and merge the changes"**
+(2026-11-15). That session therefore did the coordinator's steps for this one integration and says so here: a staging
+branch `coord/int-54` on the local integration head, a reviewer-opus read of the merge, the full gate, these records,
+and the push. `main` is not touched: the pull request Nevanyte/RougeHalla#65 stays open for the owner. The main
+checkout was not touched either (it needs `git pull --ff-only`).
+
+**What the push carries.** (1) Integration 53 below (P-WEB-OPT-1), which the coordinator had merged on the local
+`feature/unity-rework` (`dd1ee2367`) and not pushed: its full gate, not run then, is the one reported here. (2)
+**P-LAND-FROST-1** (`agent/opus/P-LAND-FROST-1` @ `d540f1706`, merge `b40e8e094`): with the `signature` option the Frost
+lake is built first in front of the cave's mouth; the cave's table entry reserves a soft room (a fan 24 deep) that
+the Prefix gives up for an attempt when it blocks camp placement; the parts of the owner's lake rule are counted
+targets in the oracle and never a refusal (owner decision 2026-11-14, "Yes to both"); Frost's guarantee list stays
+`lake-at-mouth`; a built lake under 40 tiles falls back to the earlier signature growth.
+
+**Gate.** Full gate (`scripts/gate.sh --coordinator --keep-going --base origin/feature/unity-rework`, with a throwaway Postgres) on `coord/int-54` @ `b40e8e094`, run by the map generator session in its own worktree and build folder: **GATE PASS (full)**, nothing skipped: rustfmt, the card provenance chain and the staging pins, the Unity tool tests, the JS vector checks, the reload-proof tests, the C# library tests and the Unity copy check, clippy (all and default features), the workspace tests, the rh-sim suite, the rh-server and rh-placement Postgres suites, the parity report, Unity EditMode 1581 of 1581, the headless smoke and the release-only checks. Not run here, as always: the source-witness capture checks, perfproof, cross-architecture determinism, the browser proof and the Unity Web build. This is also the first full gate on integration 53.
+
+**Review.** reviewer-opus on `4ba89dbe7`: LAND WITH NOTES, two notes, both fixed before the merge (`b432cc1fb`: the
+plan's `grown` records the lake's area before shelves and regrowth, no map moves; `7dccffb06`: the oracle's line target
+requires the centroid ahead of the mouth, and a known-gap pin counts lakes behind the mouth's front). reviewer-opus on
+the merge and on the commits added after the first review (read-only): LAND; the merge is a clean union of its two
+parents; the implementation was rebased after the first review and its tree differs from the reviewed one by the
+oracle amendment only.
+
+**Identities:** unchanged (protocol 18, observation 30, policy contract 25, checkpoint 32, replay 25, content hash
+`7a542a13187f034c`): no wire, tick, save or content change; option off is byte-identical.
+
+**Moved expectations** (every option-on map moves; the table is in
+`docs/coordination/HANDOFF_P-LAND-FROST-1_2026-11-14.md`): `pinned_on_maps` all 32 rows (attempts on seeds 1-32 96 ->
+97; worst attempt 11 -> 10), `pinned_landmarks` 29 of 32 rows, `pinned_labels` (the lake-refusal count 6 -> 2), the
+rh-mapdress option-on goldens; `mapgen_signature_table.rs`'s alone-equals-together sample widened from seeds 1-16
+(floor 20; 19 accepted with the Holy site and the cave's room) to seeds 1-32 (floor 30; 40 accepted).
+
+**Measured on the build, seeds 1-128** (today's value in brackets): 128 maps (128); worst attempt 10 (11); a lake at
+the mouth on every map; stray ice on 0 maps (56); lakes of 340-460 tiles on 47 (30), median 314 (254); exactly 3 dry
+tiles between mouth and shore on 113 (0); the centroid within 4 of the line and ahead of the mouth on 91; a dry way
+3 wide on 128 (48); one smaller second lake on 105 (37); the whole rule on 25 (0). **Closest margins:** the ice share
+against option off, 0.809 on seeds 1-32 against the owner's window 0.8 to 1.2 (he was told; under 0.8 a packet stops
+and goes to him); the line count 91 against a floor of 85. Guards of other zones: Fire camps without a crater 18 of
+640 (ceiling 40), Plague chance fits 0 / 0 (ceiling 2 / 2).
+
+**With the owner (queue Q28, Q29).** This build lets the lake use ground beside and behind the cave: on 106 of 128
+maps a mouth-lake tile lies behind the mouth's front and on 5 the lake's centroid does; pinned as a known gap (at most
+115 and 8). A variant that forbids it is ready on `agent/opus/P-LAND-FROST-1-front` (lakes of 340-460 on 32 maps,
+the whole rule on 18: two of the lane's floors would come down by his word). "Every kept map has a lake at the mouth"
+is observed on seeds 1-128, not guaranteed: making "a Frost lake exists" a refusal could cost a seed.
+
+**Left as found:** the open `hosting/` item of integration 53; the live host (`2f33045d6`, expiring 2026-11-15 09:42
+UTC); the coordinator's side branches.
+
 ## Integration 53 (2026-11-15, early): a smaller Unity Web player (P-WEB-OPT-1)
 
 Integration branch `feature/unity-rework` @ `29cea378e`, local (not pushed). Owner request: "a complete optimization sweep

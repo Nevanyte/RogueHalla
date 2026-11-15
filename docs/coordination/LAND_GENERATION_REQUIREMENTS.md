@@ -61,8 +61,9 @@ Packets are named `P-LAND-<ZONE>-<n>`. Order: Sentenced, Plague, Frost; Fire aft
     way, second lake) are **targets**: built for on every map, measured, reported, never a reason to refuse a map.
     Frost's guarantee list stays `lake-at-mouth`. The cave's table entry reserves a **soft** room in front of the site
     (24 deep, the inner rect's width): when a Prefix round's camps cannot be placed with it, they are placed once more
-    without it and the room is not reserved for that attempt. Every map keeps a lake at the mouth (the build falls back
-    to today's growth when the built-first lake comes out empty). Measured on the decided prototype (option on, seeds
+    without it and the room is not reserved for that attempt. Every kept map of seeds 1-128 has a lake at the mouth (the build
+    falls back to the earlier growth when the built-first lake comes out under 40 tiles); this is observed, not a
+    guarantee (owner queue Q29). Measured on the decided prototype (option on, seeds
     1-128; today's game in brackets): 128 maps (128), worst attempt 10 (11); lake of 340-460 tiles on 46 (30), median
     305.5 (254); exactly 3 dry tiles on 111 (0); centroid within 4 of the line on 90 (81); a dry way 3 wide on 124 (48);
     one smaller second lake on 104 (37); stray ice on 0 (56); the whole rule on 25 (0); ice share against option off,
