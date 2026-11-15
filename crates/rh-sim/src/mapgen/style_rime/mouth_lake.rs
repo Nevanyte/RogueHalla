@@ -108,8 +108,8 @@ pub(super) fn best_first(
             }
         }
     } else {
-        for i in 0..set.len() {
-            if set[i] == 1 {
+        for (i, &v) in set.iter().enumerate() {
+            if v == 1 {
                 push(i, &mut seen, &mut heap);
             }
         }
@@ -190,6 +190,7 @@ fn square(w: usize, h: usize, i: usize, r: i32) -> Option<impl Iterator<Item = u
 /// The dry way: from a square whose centre lies at least 2 beyond `far` along the line to a square that holds a mouth
 /// tile or a tile 4-adjacent to one, through squares (half-width `r`) of `dry` tiles; a square costs 1 plus `cost(tile)`
 /// summed over its tiles. Returns the walk's square centres (cheapest, then fewest steps), or `None`.
+#[allow(clippy::too_many_arguments)]
 fn way_walk(
     w: usize,
     h: usize,

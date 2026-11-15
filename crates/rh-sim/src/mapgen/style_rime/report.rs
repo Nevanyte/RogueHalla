@@ -87,7 +87,9 @@ fn print_frost_measurements() {
                     .iter()
                     .enumerate()
                     .filter(|&(j, _)| j != i)
-                    .map(|(_, b)| crate::math::sqrt((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)))
+                    .map(|(_, b)| {
+                        crate::math::sqrt((a.0 - b.0) * (a.0 - b.0) + (a.1 - b.1) * (a.1 - b.1))
+                    })
                     .fold(f64::MAX, f64::min);
                 if near < f64::MAX {
                     nn_sum += near;
