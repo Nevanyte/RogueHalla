@@ -121,7 +121,7 @@ def main():
     check_pin(repo, m["historicalDoc"])
     # The live docs/CONTRACTS.md is a status record that changes at most integrations; the witness never reads it (the
     # frozen historical copy is mounted over it), so it is recorded in the receipt, not pinned (P-CI-GREEN-2).
-    live = (repo / "docs/CONTRACTS.md").read_bytes()
+    live = plain(repo / "docs/CONTRACTS.md").read_bytes()
     current_doc = dict(path="docs/CONTRACTS.md", bytes=len(live), sha256=sha(live), pinned=False)
     w = m["witnesses"][a.witness]
     inventories(repo, w)
