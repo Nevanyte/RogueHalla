@@ -40,6 +40,8 @@ pub struct FeatureSpec {
 /// follow legacy's rule among all its camps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SiteCamps {
+    /// The camp glyph. Read for a centred entry (its landed tiles are the camps). Unused for a `Placement::Pin` entry,
+    /// whose camp is the pinned tile; there it must equal the pin glyph (`SignatureContext::from_table` checks it).
     pub glyph: u8,
     pub elite: bool,
 }

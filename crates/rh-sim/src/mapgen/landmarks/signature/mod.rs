@@ -15,11 +15,13 @@
 //! `blueprint`, `stamp`); the volcano's three lava streams continue from its outlets (`volcano::streams`,
 //! P-MAPGEN-SIG-SCALE-4). Integer geometry only.
 //!
-//! The table (`spec::Spec`) carries every per-landmark rule (P-MAPGEN-SIG-HOLY-1-fix): the drawing and its legend, the
-//! site's side (`site_side`), the camps the site carries and whether the first is the zone's elite (`site_camps`), what
-//! the spawn pool may use (`spawn`), the fan reserved in front of the site (`fan`) and the params of its own feature
-//! (`params`). `reserve`, `write`, `fan` and `fan_holds_a_site_camp` read the entry; a new landmark fact is one table
-//! line, not a zone or kind branch.
+//! The table (`spec::Spec`) carries each landmark's site rules (P-MAPGEN-SIG-HOLY-1-fix): the drawing and its legend,
+//! the site's side (`site_side`), the camps the site carries and whether the first is the zone's elite (`site_camps`),
+//! what the spawn pool may use (`spawn`), the fan reserved in front of the site (`fan`) and the params of its own
+//! feature (`params`). `reserve`, `write`, `fan`, `fan_holds_a_site_camp` and `relabel_sites` read the entry; a new
+//! landmark fact of these kinds is one table line, not a zone or kind branch. Still decided by zone, older than the
+//! table: where a site may stand (`reserve`: Plague's outer-third line and its deepest-square fallback) and the
+//! volcano's streams (`place`, Fire only).
 pub mod blueprint;
 mod bog_tree;
 mod cave;
@@ -233,15 +235,16 @@ pub fn reserved_zones() -> [Zone; 5] {
 /// P-MAPGEN-SIG-SCALE-1: the zones whose reserved site is relabelled to its one inside camp's territory
 /// (`relabel_sites`): the Sentenced site, round which the blueprint church stands (P-MAPGEN-SIG-SCALE-2), and the Frost
 /// site, round which the blueprint cave stands (public so that the church's oracle, `tests/mapgen_signature_church.rs`,
-/// can read the list). The Holy site, with its two camps, is relabelled too (P-MAPGEN-SIG-HOLY-1) but is not in this
-/// list: `relabel_sites` names its zone itself.
+/// can read the list). `relabel_sites` does not read this list: it relabels every reserved site that carries a camp
+/// (`spec::Spec::site_camps`), so the Holy site, with its two camps, is relabelled too (P-MAPGEN-SIG-HOLY-1) and a
+/// later entry given site camps needs no line here. The list stays for the oracle that pins it.
 pub fn relabelled_zones() -> [Zone; 2] {
     [Zone::Sentenced, Zone::Frost]
 }
 
 /// P-MAPGEN-SIG-SCALE-1 (coordinator decision 2026-11-13): before repair runs, no tile of a reserved site with an inside
-/// camp belongs to another camp's territory. Every tile of such a site (the whole `rect`, apron included) of a
-/// `relabelled_zones` zone takes the inside camp's label, its index in `camps` (the prefix's) + 1. The reservation keeps
+/// camp belongs to another camp's territory. Every tile of such a site (the whole `rect`, apron included; any entry
+/// whose table line gives it site camps) takes the inside camp's label, its index in `camps` (the prefix's) + 1. The reservation keeps
 /// the other camps' halos out of the site, not their territories: without this the blueprint's walls cut those
 /// territories and repair hands the pieces to camps beyond the territory radius (`Repair(RadiusPost)`). Called by the
 /// pipeline on repair's copy of the territory grid on option-on attempts only (no sites otherwise: nothing changes). A
@@ -251,10 +254,7 @@ pub fn relabelled_zones() -> [Zone; 2] {
 /// of its rect takes the label of the nearer of its camps (squared distance; the earlier, `camp`, on a tie). With one
 /// inside camp that is the rule above.
 pub fn relabel_sites(reserved: &[ReservedSite], camps: &[CampSite], territory: &mut [u8]) {
-    for r in reserved
-        .iter()
-        .filter(|r| relabelled_zones().contains(&r.zone) || r.zone == Zone::Holy)
-    {
+    for r in reserved.iter().filter(|r| r.camp.is_some()) {
         // The site's own camps (`camp`, then `extra`) found among the prefix's: (index, tile x, tile y, label).
         let own: Vec<(usize, i32, i32, u8)> = r
             .camp
@@ -515,6 +515,15 @@ impl<'f> SignatureContext<'f> {
     /// `spec::specs(d)` (`from_definition` passes that): the seam through which a test runs the reservation, the stamp,
     /// the write and the fans on a doctored entry. `table` keeps `reserved_zones` order, one entry per zone.
     pub fn from_table(fixed: &'f FixedLayout, d: &Definition, table: Vec<spec::Spec>) -> Self {
+        // A pinned entry's camp is the pinned tile (`inside_camp`), and its drawing is pinned on that tile by the same
+        // glyph: the two must agree, or the stamp refuses every attempt for a reason the table does not show.
+        debug_assert!(
+            table.iter().all(|e| match e.placement {
+                blueprint::Placement::Pin(g) => e.site_camps.is_some_and(|c| c.glyph == g),
+                blueprint::Placement::Centre => true,
+            }),
+            "from_table: a pinned entry's `site_camps` names its pin glyph"
+        );
         let sd = spawns::DEFAULT_DEFINITION;
         let road = u16::from(crate::mapgen::coliseum::default_definition().ring_road)
             + u16::from(sd.landmark_road_margin);
@@ -714,8 +723,8 @@ impl<'f> SignatureContext<'f> {
     /// (`Placement::Pin`: the church, the cave) the one camp tile `inside_camp`, a centred entry (the hall) the landed
     /// tiles of the camp glyph (`centred_camps`: `camp` the first in grid order, `extra` the rest); the first is the
     /// zone's elite when `SiteCamps::elite` says so, else the zone's elites follow legacy's rule. A site's camp tile is
-    /// not tested for legality here: when it is not a legal camp tile `place_camps_reserving` fails the round (it looks
-    /// unreachable for the shipped table: a pinned tile moves only along the axis that already dominates). One uniform
+    /// not tested for legality here: when it is not a legal camp tile `place_camps_reserving` fails the round (not
+    /// seen on the shipped table: the site is inside its zone and off the hard mask; nothing proves it cannot happen). One uniform
     /// draw among the candidates, the zone's one draw of the round on its stream; without a candidate, Plague takes the
     /// deepest square still beyond its centroid (largest centre distance, first in row order), drawing nothing. `None`
     /// when a zone has no square: the round fails as a camp failure does. Draws only from `streams` (`reserved_zones`
