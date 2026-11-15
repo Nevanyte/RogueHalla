@@ -814,7 +814,7 @@ fn first_prefix(context: &attempt::AttemptContext<'_>, seed: i64) -> Option<atte
     })
 }
 
-/// Findings on one prefix: a camp halo of another site's or zone's camp, or a building of the legacy landmark stage,
+/// Findings on one prefix: a camp halo of another site's or zone's camp, or a tile the legacy landmark stage writes,
 /// inside a recorded fan.
 fn fan_intrusions(fixed: &coliseum::FixedLayout, frame: &attempt::AttemptFrame) -> Vec<String> {
     let zones = ZoneContext::new(fixed);
@@ -845,19 +845,18 @@ fn fan_intrusions(fixed: &coliseum::FixedLayout, frame: &attempt::AttemptFrame) 
         .apply(frame, &recipes::Recipes::default())
         .expect("stage input")
     {
-        for b in &st.buildings {
-            let r = (b.x, b.y, b.x + b.w - 1, b.y + b.h - 1);
-            for &(x0, y0, x1, y1) in &s.fans {
-                let apart =
-                    r.2 < x0 as i32 || r.0 > x1 as i32 || r.3 < y0 as i32 || r.1 > y1 as i32;
-                if !apart {
-                    out.push(format!(
-                        "seed {} attempt {}: legacy building {b:?} in the fan {:?}",
-                        s.seed,
-                        s.attempt,
-                        (x0, y0, x1, y1)
-                    ));
-                }
+        // The legacy stage keeps the tiles its buildings write out of the recorded fans (its admission refuses a
+        // written tile on a protected one, `stage/mod.rs`); a building's box may still touch a fan where it writes
+        // nothing (seen: a 9 x 9 box's corner on the volcano's fan, seed 52, on the decided prototype).
+        for (i, (&after, &before)) in st.state.tiles.iter().zip(&s.tiles).enumerate() {
+            if after == before {
+                continue;
+            }
+            if let Some(fan) = s.fans.iter().find(|&&f| in_rect(f, i)) {
+                out.push(format!(
+                    "seed {} attempt {}: the legacy stage wrote tile {i} in the fan {fan:?}",
+                    s.seed, s.attempt
+                ));
             }
         }
     }
@@ -1227,10 +1226,10 @@ fn only_a_soft_fan_is_given_up_and_then_it_is_not_recorded() {
 }
 
 /// On the default table, the cave's room is kept for the attempt (recorded after the volcano's fan) on most kept maps of
-/// seeds 1-128 and given up on some; every recorded fan keeps every other camp's halo and every building of the legacy
-/// landmark stage out (prototype: kept on 114, given up on 14).
+/// seeds 1-128 and given up on some; every recorded fan keeps every other camp's halo and every tile the legacy
+/// landmark stage writes out (prototype: kept on 114, given up on 14).
 #[test]
-fn a_kept_room_keeps_camp_halos_and_legacy_buildings_out() {
+fn a_kept_room_keeps_camp_halos_and_the_legacy_stages_walls_out() {
     let fixed = coliseum::fixed_layout();
     let context = attempt::AttemptContext::new(&fixed);
     let d = DEFAULT_DEFINITION;
