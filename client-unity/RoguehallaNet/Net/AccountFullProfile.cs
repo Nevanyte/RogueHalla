@@ -48,13 +48,17 @@ namespace Roguehalla.Net
         { Owned = AccountData.List(owned); Equipped = AccountData.Map(equipped); }
     }
 
-    /// <summary>Server-stored tutorial progress. STUB (P-TUTORIAL-2): the implementer validates state and fills the doc.</summary>
+    /// <summary>Server-stored tutorial progress. <see cref="State"/> is "step", "done" or "skipped" (a legacy "started" is read too); presentation only.</summary>
     public sealed class AccountTutorialState
     {
         public int Version { get; }
         public int Step { get; }
         public string State { get; }
-        public AccountTutorialState(int version, int step, string state) { Version = version; Step = step; State = state; }
+        public AccountTutorialState(int version, int step, string state)
+        {
+            if (version < 0 || step < 0 || state != "started" && state != "step" && state != "done" && state != "skipped") throw new ArgumentException("tutorial state");
+            Version = version; Step = step; State = state;
+        }
     }
 
     /// <summary>Complete known server profile DTO. This is a delivered fact, never local unlock, money or purchase authority.</summary>
