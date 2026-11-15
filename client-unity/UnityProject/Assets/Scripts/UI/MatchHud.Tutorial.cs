@@ -1,0 +1,122 @@
+using System;
+using Roguehalla.Net;
+using Roguehalla.Net.Protocol;
+using Roguehalla.Net.Ui;
+
+namespace Roguehalla.Client
+{
+    /// <summary>
+    /// Tutorial wiring (P-TUTORIAL-3). Presentation only: <see cref="TutorialFlow"/> advances from accepted server snapshots through
+    /// <see cref="TutorialObserver"/>; this sends no input. Progress saves are fire-and-forget and never block play.
+    /// </summary>
+    public sealed partial class MatchHud
+    {
+        // The Wish key the client binds (MatchClient: R).
+        const string TutorialWishKey = "R";
+        readonly TutorialFlow _tutFlow = new TutorialFlow();
+        TutorialView _tutView;
+        TutorialObserver _tutObserver;
+        Session _tutObserverSession;
+        bool _tutArmed;
+        string _tutDismissedFor;
+
+        void InitializeTutorial()
+        {
+            _tutView = gameObject.AddComponent<TutorialView>();
+            _tutView.Initialize(_stage, _chromeStage, StartTutorialFromWelcome, SkipTutorialFromWelcome, SkipTutorial);
+            _modernSettings.ReplayTutorialRequested += ReplayTutorial;
+        }
+
+        AccountFullProfile TutorialProfile { get { return _client?.AccountFlow?.Snapshot?.FullProfile; } }
+
+        bool TutorialMenuVisible =>
+            _menu != null && _menu.gameObject.activeSelf && !_signIn.gameObject.activeSelf && !_settings.gameObject.activeSelf &&
+            !_modernSettings.IsVisible && !AnyHubPanelVisible && !ResumeChooserVisible;
+
+        void StartTutorialFromWelcome()
+        {
+            var profile = TutorialProfile;
+            _tutDismissedFor = profile?.Name;
+            if (TutorialMarkerRules.WelcomeAction(profile?.Tutorial, TutorialFlow.Version) == "Resume") _tutFlow.ResumeAt(profile.Tutorial.Step);
+            else _tutFlow.Restart();
+            BeginTutorialRun();
+            StartTraining();
+        }
+
+        void SkipTutorialFromWelcome()
+        {
+            _tutDismissedFor = TutorialProfile?.Name;
+            _tutFlow.Skip(); _tutArmed = false; SaveTutorial("skipped");
+        }
+
+        void SkipTutorial()
+        {
+            _tutFlow.Skip(); _tutArmed = false; SaveTutorial("skipped");
+        }
+
+        /// <summary>Settings "Replay tutorial": start over and launch Training (or continue in the current practice session).</summary>
+        void ReplayTutorial()
+        {
+            _tutFlow.Restart(); BeginTutorialRun();
+            if (TutorialMenuVisible) StartTraining();
+        }
+
+        void BeginTutorialRun()
+        {
+            _tutArmed = true;
+            if (_tutFlow.Start()) SaveTutorial("step");
+        }
+
+        // Fire and forget: a failed or unavailable save is only a result code.
+        void SaveTutorial(string state)
+        {
+            var api = _client?.AccountOwner?.Api;
+            if (api == null) return;
+            try { var ignored = api.SaveTutorialAsync(TutorialFlow.Version, _tutFlow.Index, state); }
+            catch (Exception) { }
+        }
+
+        void DropTutorialObserver()
+        {
+            if (_tutObserver != null) _tutObserver.Dispose();
+            _tutObserver = null; _tutObserverSession = null;
+        }
+
+        // Same gate as RefreshTrainingConsole: only the real accepted-snapshot subscriber of a confirmed practice session counts.
+        void RefreshTutorial(Session session, ServerMsg.Snapshot accepted)
+        {
+            if (_tutView == null) return;
+            bool practice = isActiveAndEnabled && _trainingWindowFocused && _client != null && session != null &&
+                ReferenceEquals(_session, session) && ReferenceEquals(_client.Session, session) && ReferenceEquals(session.Latest, accepted) &&
+                _client.ConfirmedPractice && session.State == SessionState.InMatch && session.LastResult == null && !TrainingHigherPanelVisible;
+            if (!practice || !_tutArmed || !_tutFlow.Running) { if (!practice) DropTutorialObserver(); return; }
+            if (!ReferenceEquals(session, _tutObserverSession)) { DropTutorialObserver(); _tutObserver = new TutorialObserver(session); _tutObserverSession = session; }
+            if (_tutObserver.TryBuild(out var observation) && _tutFlow.Evaluate(observation))
+            {
+                if (_tutFlow.Done) { _tutArmed = false; SaveTutorial("done"); }
+                else SaveTutorial("step");
+            }
+        }
+
+        void TickTutorial()
+        {
+            if (_tutView == null) return;
+            var profile = TutorialProfile;
+            bool inMatch = _session != null && _session.State == SessionState.InMatch;
+            bool welcome = profile != null && !_tutArmed && _tutDismissedFor != profile.Name &&
+                TutorialMarkerRules.WelcomeVisible(profile.TutorialDue, TutorialMenuVisible, false, inMatch);
+            if (welcome != _tutView.WelcomeShown)
+            {
+                string action = welcome ? TutorialMarkerRules.WelcomeAction(profile.Tutorial, TutorialFlow.Version) : "Start";
+                _tutView.SetWelcome(welcome, action == "Resume" ? "Resume" : "Start",
+                    (action == "Resume" ? "Pick up the tutorial where you left off." : "A short guided walk through Training: move, grab a weapon, hit a dummy, swap and cast your Wish.") +
+                    "\nNothing in Training is recorded.");
+            }
+
+            bool card = TutorialMarkerRules.CardVisible(_client != null && _client.ConfirmedPractice, _trainingWindowFocused,
+                TrainingHigherPanelVisible, _tutArmed && _tutFlow.Running);
+            _tutView.SetCard(card, card ? TutorialMarkerRules.StepLabel(_tutFlow.Index, TutorialFlow.StepCount - 2, _tutFlow.Copy, TutorialWishKey) : null);
+            if (card) _tutView.ShowMarker(_client.Cam, _tutFlow.Target);
+        }
+    }
+}

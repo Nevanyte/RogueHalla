@@ -90,6 +90,7 @@ namespace Roguehalla.Client
             InitializeFeatures();
             InitializeTrainingConsole();
             _chromeStage.SetAsLastSibling();
+            InitializeTutorial();
             ApplyLegacyViewport(_stageScaler.Viewport);
             ShowMenu();
         }
@@ -225,7 +226,7 @@ namespace Roguehalla.Client
         void OnDisable() { HudIconHint.CloseAll(); CloseResumeChooser(); UnbindTrainingSession(); }
         void OnDestroy() { Unbind(); if (_trainingConsole != null) _trainingConsole.OpenStateChanged -= ConsumeTrainingUiUpdate; if (_showcaseSettings != null) _showcaseSettings.Changed -= ApplyTextScale; if (_uiPrefs != null) _uiPrefs.Changed -= ApplyDisplayPreferences; UiBrowserStorage.CaptureTab(false); }
         void Changed(SessionState state) { NoteSessionState(state); if (_session != null) RefreshCollections(_session.Collections); RefreshPlayerFlows(); _dirty = _rewardsDirty = true; }
-        void Snapshot(ServerMsg.Snapshot snapshot) { RefreshTrainingConsole(_session, snapshot); _dirty = true; }
+        void Snapshot(ServerMsg.Snapshot snapshot) { RefreshTrainingConsole(_session, snapshot); RefreshTutorial(_session, snapshot); _dirty = true; }
         void Collections(CollectionsView view) { RefreshCollections(view); RefreshPlayerFlows(); _dirty = _rewardsDirty = true; }
         void Events(ServerMsg.Events events)
         {
@@ -246,6 +247,7 @@ namespace Roguehalla.Client
         void HudLateUpdate()
         {
             TickFeatures();
+            TickTutorial();
             TickWishTileMotion();
             RefreshSettlementRow();
             if (_session != null && _session.ReconnectAttempt != _bannerAttempt) _dirty = true;
