@@ -19,11 +19,12 @@ namespace Roguehalla.Client
         Session _tutObserverSession;
         bool _tutArmed;
         string _tutDismissedFor;
+        bool _tutDoneDismissed;
 
         void InitializeTutorial()
         {
             _tutView = gameObject.AddComponent<TutorialView>();
-            _tutView.Initialize(_stage, _chromeStage, StartTutorialFromWelcome, SkipTutorialFromWelcome, SkipTutorial);
+            _tutView.Initialize(_stage, _chromeStage, StartTutorialFromWelcome, SkipTutorialFromWelcome, SkipTutorial, CloseTutorialDone);
             _modernSettings.ReplayTutorialRequested += ReplayTutorial;
         }
 
@@ -39,8 +40,7 @@ namespace Roguehalla.Client
             _tutDismissedFor = profile?.Name;
             if (TutorialMarkerRules.WelcomeAction(profile?.Tutorial, TutorialFlow.Version) == "Resume") _tutFlow.ResumeAt(profile.Tutorial.Step);
             else _tutFlow.Restart();
-            BeginTutorialRun();
-            StartTraining();
+            if (TutorialMarkerRules.ShouldArm(StartTraining())) BeginTutorialRun();
         }
 
         void SkipTutorialFromWelcome()
@@ -57,13 +57,17 @@ namespace Roguehalla.Client
         /// <summary>Settings "Replay tutorial": start over and launch Training (or continue in the current practice session).</summary>
         void ReplayTutorial()
         {
-            _tutFlow.Restart(); BeginTutorialRun();
-            if (TutorialMenuVisible) StartTraining();
+            _tutFlow.Restart(); _tutDoneDismissed = false;
+            bool launched = TutorialMenuVisible ? StartTraining() : _client != null && _client.ConfirmedPractice;
+            if (TutorialMarkerRules.ShouldArm(launched)) BeginTutorialRun();
         }
+
+        // Close only hides the Done card: never Skip, never save "skipped" (the stored "done" must survive).
+        void CloseTutorialDone() { _tutDoneDismissed = true; }
 
         void BeginTutorialRun()
         {
-            _tutArmed = true;
+            _tutArmed = true; _tutDoneDismissed = false;
             if (_tutFlow.Start()) SaveTutorial("step");
         }
 
@@ -113,9 +117,14 @@ namespace Roguehalla.Client
                     "\nNothing in Training is recorded.");
             }
 
-            bool card = TutorialMarkerRules.CardVisible(_client != null && _client.ConfirmedPractice, _trainingWindowFocused,
+            bool practice = _client != null && _client.ConfirmedPractice;
+            if (!practice) _tutDoneDismissed = true; // practice ended: the Done card is gone until a restart
+            bool card = TutorialMarkerRules.CardVisible(practice, _trainingWindowFocused,
                 TrainingHigherPanelVisible, _tutArmed && _tutFlow.Running);
-            _tutView.SetCard(card, card ? TutorialMarkerRules.StepLabel(_tutFlow.Index, TutorialFlow.StepCount - 2, _tutFlow.Copy, TutorialWishKey) : null);
+            bool doneCard = TutorialMarkerRules.DoneCardVisible(practice, _trainingWindowFocused,
+                TrainingHigherPanelVisible, _tutFlow.Done, _tutDoneDismissed);
+            bool shown = card || doneCard;
+            _tutView.SetCard(shown, shown ? TutorialMarkerRules.StepLabel(_tutFlow.Index, TutorialFlow.StepCount - 2, _tutFlow.Copy, TutorialWishKey) : null, doneCard);
             if (card) _tutView.ShowMarker(_client.Cam, _tutFlow.Target);
         }
     }

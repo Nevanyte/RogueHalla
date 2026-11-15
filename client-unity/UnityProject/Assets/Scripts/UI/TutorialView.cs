@@ -21,8 +21,10 @@ namespace Roguehalla.Client
         TMP_Text _welcomeBody, _startLabel, _cardText;
         Transform _ring;
         Image _edgeImage;
+        TMP_Text _cardButtonLabel;
+        bool _cardDone;
 
-        public void Initialize(RectTransform stage, RectTransform chrome, Action start, Action skipWelcome, Action skipStep)
+        public void Initialize(RectTransform stage, RectTransform chrome, Action start, Action skipWelcome, Action skipStep, Action closeDone)
         {
             _stage = stage;
             var theme = UiTheme.Current;
@@ -38,7 +40,7 @@ namespace Roguehalla.Client
             _card = HudUi.Box(stage, "TutorialCard", HudAnchor.BottomLeft, 12f, 44f, CardWidth, 58f);
             HudUi.Surface(_card, theme.Surface, theme.CornerRadius, theme.AccentDim, false, true);
             _cardText = HudUi.Label(HudUi.At(_card, "Copy", 10f, 6f, CardWidth - 76f, 46f), "Label", "", theme.SizeBody, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, false, UiFontRole.Body, true);
-            HudUi.Button(_card, "Skip", "Skip", HudAnchor.MiddleRight, 8f, 0, 56f, 24f, () => skipStep(), theme.SizeSmall, theme.CornerRadiusSmall);
+            _cardButtonLabel = HudUi.Button(_card, "Skip", "Skip", HudAnchor.MiddleRight, 8f, 0, 56f, 24f, () => { if (_cardDone) closeDone(); else skipStep(); }, theme.SizeSmall, theme.CornerRadiusSmall).GetComponentInChildren<TMP_Text>();
             _card.gameObject.SetActive(false);
 
             var ring = new GameObject("TutorialRing");
@@ -64,9 +66,10 @@ namespace Roguehalla.Client
             _welcome.gameObject.SetActive(visible);
         }
 
-        public void SetCard(bool visible, string label)
+        public void SetCard(bool visible, string label, bool done = false)
         {
-            if (visible) _cardText.text = label;
+            _cardDone = done;
+            if (visible) { _cardText.text = label; _cardButtonLabel.text = done ? "Close" : "Skip"; }
             _card.gameObject.SetActive(visible);
             if (!visible) HideMarker();
         }

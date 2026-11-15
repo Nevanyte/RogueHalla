@@ -45,11 +45,11 @@ namespace Roguehalla.Client
             _launch.SignInRequested = () => SetSignInVisible(true);
             _launch.GuideRequested = () => { CloseHubPanels(); _hubGuide.ShowTab(HubGuideView.GuideTab.Champions); };
             _launch.PlayRequested = StartRun;
-            _launch.TrainingRequested = StartTraining;
+            _launch.TrainingRequested = () => StartTraining();
             _launch.CancelRequested = () => _client.Leave();
             _launch.FactionChosen = SetFaction;
             _launch.Atrium.PlayRequested = StartRun;
-            _launch.Atrium.TrainingRequested = StartTraining;
+            _launch.Atrium.TrainingRequested = () => StartTraining();
             _launch.Atrium.FactionPicked = SetFaction;
             InitializeResumeMenu();
             _signInBackdrop = ModalBackdrop("SignInModal");
@@ -103,10 +103,11 @@ namespace Roguehalla.Client
             if (_joinMatch == null || !_joinMatch.interactable) return;
             _showcaseAudio?.UnlockFromUserGesture(); _client.Join(_nickname.text, _faction, MatchLaunchMode.Arena);
         }
-        void StartTraining()
+        bool StartTraining()
         {
-            if (_joinTraining == null || !_joinTraining.interactable) return;
+            if (_joinTraining == null || !_joinTraining.interactable) return false;
             _showcaseAudio?.UnlockFromUserGesture(); _client.Join(_nickname.text, _faction, MatchLaunchMode.Training);
+            return true;
         }
         // The pending menu keeps Leave available in the global header while preventing
         // controls from reaching a destination that has not delivered its mode fact.
