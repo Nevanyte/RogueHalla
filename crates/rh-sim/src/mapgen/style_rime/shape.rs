@@ -227,6 +227,11 @@ pub(super) fn run(cb: &Callbacks<'_>, c: &mut ShapeContext<'_, '_>) -> Result<Pl
         if sig.is_some() && lake.area < d.lake_min {
             continue;
         }
+        // The lake's size as grown, before its shelves and (in signature mode) the regrowth that follows them: what
+        // the plan's `grown` records and `admit` checks against `lake_min`. In signature mode it is at least `lake_min`
+        // by the test above. It is not the size the lake ends at: a regrowth that comes out smaller is not refused here
+        // (`lake-at-mouth` and the oracle's counts read the finished map).
+        let grown = lake.area;
         let set = &lake.set;
         let mut shore = vec![];
         {
@@ -474,11 +479,7 @@ pub(super) fn run(cb: &Callbacks<'_>, c: &mut ShapeContext<'_, '_>) -> Result<Pl
             seed: lake.seed as i32,
             clr: clr[lake.seed],
             tiles: ice,
-            grown: if sig.is_some() {
-                lake.area.max(d.lake_min)
-            } else {
-                lake.area
-            },
+            grown,
             ice: 0,
         });
     }
