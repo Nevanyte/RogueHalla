@@ -221,6 +221,16 @@ impl Rig {
         .await
     }
 
+    async fn tutorial(&self, name: &str, token: &str, body: &str) -> Resp {
+        post_json(
+            self.addr,
+            &format!("/api/profile/{name}/tutorial"),
+            &[("x-profile-token", token)],
+            body,
+        )
+        .await
+    }
+
     async fn reconcile_clean(&self) {
         let r = rh_persist::admin::reconcile(&self.store).await.unwrap();
         assert!(r.ok(), "{r:?}");
@@ -798,6 +808,93 @@ async fn equip_validates_slot_item_and_ownership() {
         .status,
         200
     );
+    rig.done().await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn tutorial_progress_is_authenticated_validated_and_monotonic() {
+    let rig = rig(open_cfg()).await;
+    let token = rig.claim("Learner").await;
+    let body = |v: u32, s: u32, st: &str| format!(r#"{{"version":{v},"step":{s},"state":"{st}"}}"#);
+    let p = rig.profile("Learner", &token).await;
+    assert_eq!(p["tutorial"], serde_json::Value::Null);
+    assert_eq!(p["tutorialDue"], true);
+
+    assert_eq!(
+        rig.tutorial("Learner", "bad", &body(1, 1, "step"))
+            .await
+            .status,
+        403
+    );
+    assert_eq!(
+        rig.tutorial("Learner", "", &body(1, 1, "step"))
+            .await
+            .status,
+        403
+    );
+    for bad in [
+        body(0, 1, "step"),
+        body(1, 1, "nope"),
+        r#"{"version":1,"step":1}"#.to_owned(),
+        r#"{"version":1,"step":-1,"state":"step"}"#.to_owned(),
+        r#"{"version":1,"step":1,"state":"step","x":1}"#.to_owned(),
+    ] {
+        let r = rig.tutorial("Learner", &token, &bad).await;
+        assert_eq!(r.status, 400, "{bad}");
+    }
+    assert_eq!(
+        rig.tutorial("Learner", &token, &body(0, 1, "step"))
+            .await
+            .json()["code"],
+        "bad_tutorial"
+    );
+    assert_eq!(
+        rig.profile("Learner", &token).await["tutorial"],
+        serde_json::Value::Null
+    );
+
+    let t = |r: Resp| {
+        assert_eq!(r.status, 200, "{}", r.body);
+        let p = r.json()["profile"].clone();
+        (p["tutorial"].clone(), p["tutorialDue"].clone())
+    };
+    // step keeps the max, and a step is still due
+    let (v, due) = t(rig.tutorial("Learner", &token, &body(1, 4, "step")).await);
+    assert_eq!(v, serde_json::json!({"version":1,"step":4,"state":"step"}));
+    assert_eq!(due, true);
+    let (v, _) = t(rig.tutorial("Learner", &token, &body(1, 2, "step")).await);
+    assert_eq!(v["step"], 4);
+    // done is not undone by a later step; an older version is ignored
+    let (v, due) = t(rig.tutorial("Learner", &token, &body(1, 6, "done")).await);
+    assert_eq!(v, serde_json::json!({"version":1,"step":6,"state":"done"}));
+    assert_eq!(due, false);
+    let (v, due) = t(rig.tutorial("Learner", &token, &body(1, 9, "step")).await);
+    assert_eq!(v["state"], "done");
+    assert_eq!(due, false);
+    let (v, _) = t(rig
+        .tutorial("Learner", &token, &body(1, 6, "skipped"))
+        .await);
+    assert_eq!(v["state"], "skipped");
+    // a higher version replaces; the older one is then ignored
+    let (v, due) = t(rig.tutorial("Learner", &token, &body(2, 0, "step")).await);
+    assert_eq!(v["version"], 2);
+    assert_eq!(
+        due, false,
+        "version 2 is above the server's current version"
+    );
+    let (v, _) = t(rig.tutorial("Learner", &token, &body(1, 9, "done")).await);
+    assert_eq!(v["version"], 2);
+
+    // Played profiles are never due; nothing else in the profile moved.
+    let token = rig.claim("Veteran").await;
+    rig.bank("Veteran", 5).await;
+    let p = rig.profile("Veteran", &token).await;
+    assert!(p["stats"]["runs"].as_i64().unwrap() > 0);
+    assert_eq!(p["tutorialDue"], false);
+    let gv = p["gv"].clone();
+    let (_, due) = t(rig.tutorial("Veteran", &token, &body(1, 1, "step")).await);
+    assert_eq!(due, false);
+    assert_eq!(rig.profile("Veteran", &token).await["gv"], gv);
     rig.done().await;
 }
 
