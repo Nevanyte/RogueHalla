@@ -56,6 +56,24 @@ namespace Roguehalla.Net.Tests
             return result;
         }
 
+        /// <summary>For an exact expectation: measures one run at a time and returns as soon as a run equals
+        /// <paramref name="expectedBytesPerCall"/> exactly (or is below it, which is a real change and fails the caller's
+        /// assertion); after <paramref name="maxRuns"/> runs returns the minimum seen. Collector noise only adds bytes and is
+        /// occasional, a real allocation is in every run. Cannot hide a steady per-call allocation, or one every Nth call
+        /// with N up to the iteration count (present in every run). Can hide an allocation that occurs in fewer than all of
+        /// <paramref name="maxRuns"/> runs, a genuinely occasional one, which a single-mean test would report as a flake.</summary>
+        public static double PerCallExact(Action<int> body, double expectedBytesPerCall, int iterations = DefaultIterations, int maxRuns = 25)
+        {
+            double best = double.MaxValue;
+            for (int r = 0; r < maxRuns; r++)
+            {
+                double got = PerCall(body, iterations);
+                if (got <= expectedBytesPerCall) return got;
+                best = Math.Min(best, got);
+            }
+            return best;
+        }
+
         /// <summary>The minimum of <paramref name="runs"/> measurements.</summary>
         public static double PerCallMin(Action<int> body, int runs = 5, int iterations = DefaultIterations)
         {
