@@ -169,7 +169,7 @@ of them. On 2026-11-12 the owner set the order and rules that tie generation tog
    within 45 degrees of straight ahead). Ember floor edges every stream and pool, owned by it. An attempt is used only
    with all three streams, total lava (cone, streams, pools) within `lava_budget` (PROVISIONAL 200-270; measured 223-244 on seeds 1-64), and
    the zone's floor unsplit by the cone with its streams and pools; otherwise it is refused (`Refusal::Signature`),
-   never served with fewer streams. **The fan** (owner decision 2026-11-14): `signature::fan`, a rectangle in front of
+   never served with fewer streams. **The fan** (owner decision 2026-11-14): `SignatureContext::fan` (the entry's `fan`), a rectangle in front of
    the Fire site's inner rect along the front axis read at the site's centre tile, `fan_depth` (14) deep and the inner
    rect's width plus `fan_side` (14) on each side, clipped to the map. The Prefix passes it to camp placement as a
    reserved rect with no zone and no camp, so no camp's halo enters it (a round whose church or cave camp, fixed with
@@ -271,6 +271,16 @@ of them. On 2026-11-12 the owner set the order and rules that tie generation tog
    other. Seeds 1-64 (optimised test build): every seed keeps a map; attempts 96 / 192 (seeds 1-32 / 1-64) on the
    tree with P-LAND-FIRE-1 merged (93 / 189 on the hall alone), worst attempt index 11 (seed 11; the oracles' bound is
    12); 4.34 spawn-pool points per map on the hall's open floor; no hall camp is an elite.
+
+14. **The table carries each landmark's site rules** (P-MAPGEN-SIG-HOLY-1-fix, the review note of the hall packet).
+   `spec::Spec` holds, beside the drawing and its legend: the reserved site's side (`site_side`), the site's camp or camps
+   (`site_camps`: a centred entry's are its camp glyph's landed tiles, a pinned entry's is the pinned tile and the
+   glyph must equal the pin's) and whether the first is the zone's first elite, the spawn rule (`spawn`: the whole
+   box and its apron closed, or the open floor allowed with a glyph's tiles and their surroundings closed), the
+   reserved ground in front of the site (`fan`: depth and side; only Fire has one today) and the feature's params
+   (`params`). `reserve`, `write`, `fan`, `fan_holds_a_site_camp` and `relabel_sites` read the entry: no zone or feature kind decides
+   them, the hall's light is found by its glyph, and a site's own camps are not tested against its own fan. A new
+   landmark fact of these kinds is one table line. No generated map moved (every pin and golden unchanged).
 
 ## Measurements (seeds 1-16, `decor: false`, debug test build, macOS arm64)
 

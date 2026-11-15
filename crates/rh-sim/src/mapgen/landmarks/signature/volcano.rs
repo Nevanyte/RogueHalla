@@ -217,6 +217,7 @@ pub(super) fn streams(
                 job: FeatureJob::Crossing,
                 anchor,
                 cells: out,
+                clear: Vec::new(),
             });
         }
     }

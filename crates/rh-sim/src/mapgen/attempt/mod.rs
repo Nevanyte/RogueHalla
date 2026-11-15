@@ -30,8 +30,8 @@ pub struct AttemptState {
     /// P-MAPGEN-SIG-RESERVE-1: each styled zone's reserved landmark site, in the order Fire, Sentenced, Plague, Frost;
     /// empty with the signature option off. Generator working state only (never exported).
     pub reserved: Vec<ReservedSite>,
-    /// P-MAPGEN-SIG-SCALE-4: the fans the Prefix reserved with its signature definition (`signature::fan` of each
-    /// reserved site; the Fire site's, inclusive (x0, y0, x1, y1)), the one record the legacy landmark stage reads, so
+    /// P-MAPGEN-SIG-SCALE-4: the fans the Prefix reserved with its signature definition (`SignatureContext::fan` of each
+    /// reserved site, as its table entry says: today the Fire site's, inclusive (x0, y0, x1, y1)), the one record the legacy landmark stage reads, so
     /// both readers keep out of the same tiles; empty with the signature option off. Generator working state only.
     pub fans: Vec<(usize, usize, usize, usize)>,
 }
@@ -77,6 +77,16 @@ impl<'f> AttemptContext<'f> {
     /// builds with, so the sites and the landmarks never read different numbers (P-MAPGEN-SIG-RESERVE-1).
     pub fn with_signature(mut self, d: &crate::mapgen::landmarks::signature::Definition) -> Self {
         self.sites = SignatureContext::from_definition(self.fixed, d);
+        self
+    }
+    /// P-MAPGEN-SIG-HOLY-1-fix: as `with_signature`, with the per-landmark table `table` in place of
+    /// `signature::spec::specs(d)` (`SignatureContext::from_table`): a test seam for a doctored table entry.
+    pub fn with_signature_table(
+        mut self,
+        d: &crate::mapgen::landmarks::signature::Definition,
+        table: Vec<crate::mapgen::landmarks::signature::spec::Spec>,
+    ) -> Self {
+        self.sites = SignatureContext::from_table(self.fixed, d, table);
         self
     }
     /// The signature definition the reservation reads.
@@ -239,10 +249,9 @@ fn assemble_with(
                     // is reserved too (no zone, no camp), so no camp's halo enters it. A camp the sites carry (the
                     // church's, the cave's) is fixed already: when its halo reaches into the fan the round fails, as a
                     // camp failure does, and the partition and the sites are drawn again.
-                    let d = context.sites.definition();
                     let fans: Vec<(usize, usize, usize, usize)> = reserved
                         .iter()
-                        .filter_map(|r| crate::mapgen::landmarks::signature::fan(r, d))
+                        .filter_map(|r| context.sites.fan(r))
                         .collect();
                     let mut sites = sites;
                     sites.extend(fans.iter().map(|&(x0, y0, x1, y1)| Reserve {
@@ -254,15 +263,13 @@ fn assemble_with(
                         camps: Vec::new(),
                         elite: false,
                     }));
-                    let layout =
-                        if crate::mapgen::landmarks::signature::fan_holds_a_site_camp(&reserved, d)
-                        {
-                            None
-                        } else {
-                            crate::mapgen::zones::camps::place_camps_reserving(
-                                &camps, rng, &partition, &sites,
-                            )
-                        };
+                    let layout = if context.sites.fan_holds_a_site_camp(&reserved) {
+                        None
+                    } else {
+                        crate::mapgen::zones::camps::place_camps_reserving(
+                            &camps, rng, &partition, &sites,
+                        )
+                    };
                     (layout, reserved, fans)
                 }
                 None => (None, Vec::new(), Vec::new()),

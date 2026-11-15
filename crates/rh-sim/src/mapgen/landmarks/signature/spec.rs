@@ -32,6 +32,53 @@ pub struct FeatureSpec {
     pub anchor: FeatureAnchor,
 }
 
+/// P-MAPGEN-SIG-HOLY-1-fix: the camps a reserved site carries, fixed with the site in the Prefix before camp placement.
+/// With `Placement::Pin(glyph)` the site's one camp is the pinned tile (`site_depth` from the site's far edge, on its
+/// centre line); with `Placement::Centre` the site's camps are the landed tiles of `glyph` (grid order: the first is
+/// `ReservedSite::camp`, the rest `ReservedSite::extra`) where the drawing lands centred, unmirrored, in the site's inner
+/// rect. `elite`: whether the first camp is the zone's first elite (`ReservedSite::elite`); when false the zone's elites
+/// follow legacy's rule among all its camps.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SiteCamps {
+    /// The camp glyph. Read for a centred entry (its landed tiles are the camps). Unused for a `Placement::Pin` entry,
+    /// whose camp is the pinned tile; there it must equal the pin glyph (`SignatureContext::from_table` checks it).
+    pub glyph: u8,
+    pub elite: bool,
+}
+
+/// P-MAPGEN-SIG-HOLY-1-fix: which of a landmark's tiles the spawn pool may use (what `SignatureContext::write` marks in
+/// `LandmarkStage::masks`: `boxes` the keep mask, `near1` the tiles closed to the spawn pool). Applies to the entry's
+/// box-shaped features (not its `by_tile` kinds, whose masks follow their own tiles).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SpawnRule {
+    /// The whole box and its apron (`bands[0]` tiles round it) are closed to the spawn pool; the box is the keep mask.
+    Box,
+    /// The box is the keep mask, and its open floor is allowed: closed are the tiles the feature writes, the ring of
+    /// `bands[0]` tiles round the box, and every tile within `by` tiles (Chebyshev) of a tile of glyph `clear_of` (found
+    /// by its glyph in the drawing, not by what it writes).
+    OpenFloor { clear_of: u8, by: i32 },
+}
+
+/// P-MAPGEN-SIG-HOLY-1-fix: a fan reserved in front of a site's inner rect (toward the coliseum, along the front axis
+/// read at the site's centre tile), `depth` tiles deep and as wide as the inner rect plus `side` tiles on each side,
+/// clipped to the map (`SignatureContext::fan`). Camp halos and the legacy landmark stage's buildings keep out of it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Fan {
+    pub depth: i32,
+    pub side: i32,
+}
+
+/// P-MAPGEN-SIG-HOLY-1-fix: how the params of a landmark's own feature (`MapFeature::p`) are derived from what the step
+/// wrote.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FeatureParams {
+    /// No params.
+    None,
+    /// The legacy `Hall` row the certifier (`feature-params`) and the client read: [axis, pitch, radius, piers, bays]
+    /// (`hall_params`).
+    Hall,
+}
+
 /// One signature landmark.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Spec {
@@ -59,6 +106,22 @@ pub struct Spec {
     /// building, whose end-of-attempt check has always read its wall tiles only (the legend writes terrain 0). Kept
     /// exactly: a stricter check would discard more maps and move attempts; tightening it is a behaviour change.
     pub any_terrain: Vec<FeatureKind>,
+    /// P-MAPGEN-SIG-HOLY-1-fix: the side (tiles) of the square site the zone reserves in the Prefix (the drawing plus
+    /// the apron, `bands[0]`, on each side): `Definition::site_side` for the four, `Definition::hall_site_side` for the
+    /// hall. `SignatureContext::reserve` reads it.
+    pub site_side: i32,
+    /// P-MAPGEN-SIG-HOLY-1-fix: the camps the site carries (`SiteCamps`); `None` for a site without a camp (the volcano,
+    /// the tree). `SignatureContext::reserve` reads it.
+    pub site_camps: Option<SiteCamps>,
+    /// P-MAPGEN-SIG-HOLY-1-fix: what the spawn pool may use of the landmark (`SpawnRule`). `SignatureContext::write`
+    /// reads it.
+    pub spawn: SpawnRule,
+    /// P-MAPGEN-SIG-HOLY-1-fix: the fan reserved in front of the site (`Fan`); `None` without one. `SignatureContext::fan`
+    /// reads it.
+    pub fan: Option<Fan>,
+    /// P-MAPGEN-SIG-HOLY-1-fix: the params the entry's own feature (the one of kind `Spec::kind`) is written with
+    /// (`MapFeature::p`, `FeatureParams`). `SignatureContext::write` reads it.
+    pub params: FeatureParams,
 }
 
 /// A glyph that writes `write`, owned by `feature`, on a tile passing `legality`.
@@ -135,6 +198,14 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             members: vec![Volcano, LavaStream, LavaPool],
             by_tile: vec![LavaStream, LavaPool],
             any_terrain: Vec::new(),
+            site_side: d.site_side,
+            site_camps: None,
+            spawn: SpawnRule::Box,
+            fan: Some(Fan {
+                depth: d.fan_depth,
+                side: d.fan_side,
+            }),
+            params: FeatureParams::None,
         },
         // The church (`#` walls, `P` pillars) and its graveyard (`G` headstones, `+` the LOW fence), `E` on the camp;
         // the entrance is the main gate, the open front row through `E`'s column.
@@ -166,6 +237,14 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             members: vec![Church, Graveyard],
             by_tile: Vec::new(),
             any_terrain: vec![Church],
+            site_side: d.site_side,
+            site_camps: Some(SiteCamps {
+                glyph: b'E',
+                elite: true,
+            }),
+            spawn: SpawnRule::Box,
+            fan: None,
+            params: FeatureParams::None,
         },
         // The bog tree (`T` trunk, `r` roots, `%` marsh), off every apron marked before it, centred in its site; the
         // entrance is the causeways `:` on the box's edge.
@@ -187,6 +266,11 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             members: vec![BogTree],
             by_tile: Vec::new(),
             any_terrain: Vec::new(),
+            site_side: d.site_side,
+            site_camps: None,
+            spawn: SpawnRule::Box,
+            fan: None,
+            params: FeatureParams::None,
         },
         // The cave (`#` walls, `R` rock, `=` ice floor), `E` on the camp; the entrance is the mouth `D`.
         Spec {
@@ -208,6 +292,14 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             members: vec![Cave],
             by_tile: Vec::new(),
             any_terrain: Vec::new(),
+            site_side: d.site_side,
+            site_camps: Some(SiteCamps {
+                glyph: b'E',
+                elite: true,
+            }),
+            spawn: SpawnRule::Box,
+            fan: None,
+            params: FeatureParams::None,
         },
         // The Holy hall (P-MAPGEN-SIG-HOLY-1): an open colonnade of 3 x 3 piers and the shrine (`#` walls), the shrine's
         // healing light `L` (floor of the catalog's `light` terrain), `E` the two camps on the nave's centre line, `D` the
@@ -236,6 +328,17 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             members: vec![Hall],
             by_tile: Vec::new(),
             any_terrain: Vec::new(),
+            site_side: d.hall_site_side,
+            site_camps: Some(SiteCamps {
+                glyph: b'E',
+                elite: false,
+            }),
+            spawn: SpawnRule::OpenFloor {
+                clear_of: b'L',
+                by: d.shrine_clear,
+            },
+            fan: None,
+            params: FeatureParams::Hall,
         },
     ]
 }
