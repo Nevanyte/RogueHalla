@@ -120,7 +120,13 @@ provenance_audit() {
   # the coordinator's (a protected path), never by an implementer editing a hash.
   run "card provenance chain (pins current)" bash -c 'node tools/provenance/check-card-chain.mjs || { echo; echo "A file the provenance chain pins has changed (see the paths above). Do not edit a pin. Stop, name the file in the hand-off, and the coordinator schedules a provenance refresh (route: docs/evidence/ci-provenance-refresh-2026-11-14/README.md)."; exit 1; }'
 }
-cheap_area_checks() { provenance_audit; unity_tool_tests; jsvectors; reload_proof_tests; csharp; } # full-mode order; quick picks by changed path
+# CI's `rust` job also runs the offline staging-preparation unittests and the NPC witness context pins (no Docker here:
+# only the pin and control checks, a fraction of a second). Both were red on this branch while the gate was green
+# (P-CI-GREEN-2): the staging pins hashed the moving tree, the witness pinned the live docs/CONTRACTS.md.
+offline_pin_checks() {
+  run "staging preparation + NPC witness context pins (offline, as CI)" bash -c 'export PYTHONDONTWRITEBYTECODE=1; python3 -m unittest discover -s tools/staging-full-runtime -p "test_*.py" && python3 -m unittest discover -s tools/staging-full-runtime/installer -p "test_*.py" && python3 tools/npc-witness-context/tests.py'
+}
+cheap_area_checks() { provenance_audit; offline_pin_checks; unity_tool_tests; jsvectors; reload_proof_tests; csharp; } # full-mode order; quick picks by changed path
 full_steps() {
   run "rustfmt" cargo fmt --all -- --check
   cheap_area_checks
@@ -411,6 +417,7 @@ if [[ "$MODE" == quick ]]; then
   # Half a second, and it pins about 480 paths across tools/, parity/ and packages/: run it on every quick gate
   # rather than guess which change touches one.
   provenance_audit
+  offline_pin_checks
   if has '^client-unity/UnityProject/Tools/|^docs/unity/|^client-unity/UnityProject/Assets/Editor/Look/'; then unity_tool_tests; fi
   if has '^crates/rh-protocol/|^protocol/fixtures/|^tools/protocol-js/'; then jsvectors; fi
   if has '^crates/rh-protocol/|^protocol/fixtures/|^crates/rh-server/web/|^tools/unity-browser-reload-proof/'; then reload_proof_tests; fi

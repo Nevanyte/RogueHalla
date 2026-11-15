@@ -35,7 +35,11 @@ jobs:
             uname_arch: aarch64
             target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    # A cold release build of rh-sim, rh-policy and rh-headless with their test binaries takes about 27 minutes on two
+    # build jobs (P-CI-GREEN-2: runs 43649783114 and 43655059685 were cancelled by the old 30-minute cap inside the
+    # test step, so the rust-cache was never saved and every run started cold). Once a run completes and saves the
+    # cache, later runs take a few minutes.
+    timeout-minutes: 75
     env:
       CARGO_BUILD_JOBS: "2"
       CARGO_INCREMENTAL: "0"
@@ -123,7 +127,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
             recorded_target: x86_64-unknown-linux-gnu
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 20
+    timeout-minutes: 45
     env:
       CARGO_BUILD_JOBS: "2"
       CARGO_INCREMENTAL: "0"

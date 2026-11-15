@@ -71,10 +71,13 @@ def check_output_owner(info, uid, gid):
     require(stat.S_ISDIR(info.st_mode) and stat.S_IMODE(info.st_mode) == 0o700
             and (info.st_uid, info.st_gid) == (uid, gid), "fresh output must already be caller-owned private0700")
 
-def docker_args(repo, out, snapshot, image, name, script, uid, gid):
+def docker_args(repo, out, snapshot, image, name, script, uid, gid, requirements=None):
     user_ids(uid, gid)
     args = ["run", "--user", f"{uid}:{gid}", "--rm", "--pull=never", "--platform", "linux/amd64", "--name", name, "--label", f"rh.npc-context.owner={name}", "--cidfile", str(out / "container.cid"), "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges:true", "--pids-limit=256", "--memory=2g", "--cpus=2"]  # File ceiling applies only to Source below; npm remains under the other bounds.
-    for src, dst, readonly in [(repo, "/repo", True), (snapshot, "/repo/docs/CONTRACTS.md", True), (out, "/out", False)]:
+    mounts = [(repo, "/repo", True), (snapshot, "/repo/docs/CONTRACTS.md", True)]
+    if requirements is not None:  # frozen like CONTRACTS: the live status docs change after the oracle was captured
+        mounts.append((requirements, "/repo/docs/REQUIREMENTS.md", True))
+    for src, dst, readonly in [*mounts, (out, "/out", False)]:
         require("," not in str(src), "mount path contains comma")
         args += ["--mount", f"type=bind,src={src},dst={dst}" + (",readonly" if readonly else "")]
     private = f",mode=0700,uid={uid},gid={gid}"
@@ -119,7 +122,12 @@ def main():
     require(m["format"] == "npc-witness-historical-doc-context/1", "context format")
     snapshot = plain(repo / m["historicalDoc"]["path"])
     check_pin(repo, m["historicalDoc"])
-    check_pin(repo, m["currentDoc"])
+    requirements = plain(repo / m["historicalRequirements"]["path"])
+    check_pin(repo, m["historicalRequirements"])
+    # The live docs/CONTRACTS.md is a status record that changes at most integrations; the witness never reads it (the
+    # frozen historical copy is mounted over it), so it is recorded in the receipt, not pinned (P-CI-GREEN-2).
+    live = plain(repo / "docs/CONTRACTS.md").read_bytes()
+    current_doc = dict(path="docs/CONTRACTS.md", bytes=len(live), sha256=sha(live), pinned=False)
     w = m["witnesses"][a.witness]
     inventories(repo, w)
     for p, pin in w["pins"].items():
@@ -144,8 +152,8 @@ def main():
     (out / "empty-docker-config").mkdir(mode=0o700)
     docker = [str(executable), "--config", str(out / "empty-docker-config"), "--host", f"unix://{socket}"]
     name = "rh-npc-context-" + uuid.uuid4().hex
-    argv = docker + docker_args(repo, out, snapshot, m["image"], name, w["script"], uid, gid)
-    receipt = dict(format="npc-historical-context-run/1", status="ERROR", witness=a.witness, code=a.expected_code_sha, contextSha256=sha((HERE / "context.json").read_bytes()), historicalDoc=m["historicalDoc"], currentNormativeDoc=m["currentDoc"], argv=argv, timeoutSeconds=a.timeout, network="default Docker network for locked npm only; no host credentials/config/cache", started=time.time())
+    argv = docker + docker_args(repo, out, snapshot, m["image"], name, w["script"], uid, gid, requirements)
+    receipt = dict(format="npc-historical-context-run/1", status="ERROR", witness=a.witness, code=a.expected_code_sha, contextSha256=sha((HERE / "context.json").read_bytes()), historicalDoc=m["historicalDoc"], historicalRequirements=m["historicalRequirements"], currentNormativeDoc=current_doc, argv=argv, timeoutSeconds=a.timeout, network="default Docker network for locked npm only; no host credentials/config/cache", started=time.time())
     child = None
     try:
         image = subprocess.check_output(docker + ["image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", m["image"]], env=ENV, timeout=15).decode().strip()

@@ -6,11 +6,6 @@
     "bytes": 87296,
     "sha256": "2c9e0b9b562752ec907fe8ffa0e67986e6f6005a11c744f657fd67863de6e7cd"
   },
-  "currentDoc": {
-    "path": "docs/CONTRACTS.md",
-    "bytes": 88542,
-    "sha256": "456652ccc0b8441f39464513fdf31843b9882e0bcece44958e7d620a987d359a"
-  },
   "image": "node@sha256:aaa4b5baf1ecff3b283486bb1f90405cdda225a3e6f79660d2c559fa510a7292",
   "platform": "linux/amd64",
   "witnesses": {
@@ -18,10 +13,6 @@
       "script": "tools/npc-continuity-fixtures/capture.mts",
       "toolDirectory": "tools/npc-continuity-fixtures",
       "pins": {
-        "docs/REQUIREMENTS.md": {
-          "bytes": 11434,
-          "sha256": "45f4a590c36bae776ed213297b2468cdbda0edc788946c670c04335923fb51c4"
-        },
         "package-lock.json": {
           "bytes": 153409,
           "sha256": "991869bdfbbefb6874220500197c61db302a4d2b2603dfc2288fd7032ce1d481"
@@ -1425,10 +1416,6 @@
       "script": "tools/npc-runner-callsite-fixtures/capture.mts",
       "toolDirectory": "tools/npc-runner-callsite-fixtures",
       "pins": {
-        "docs/REQUIREMENTS.md": {
-          "bytes": 11434,
-          "sha256": "45f4a590c36bae776ed213297b2468cdbda0edc788946c670c04335923fb51c4"
-        },
         "package-lock.json": {
           "bytes": 153409,
           "sha256": "991869bdfbbefb6874220500197c61db302a4d2b2603dfc2288fd7032ce1d481"
@@ -2856,5 +2843,10 @@
         "sha256": "0c9344109283d2cf848c83892924071e9277f163d79e69e3c634c3d19c7f4a58"
       }
     }
+  },
+  "historicalRequirements": {
+    "path": "tools/npc-witness-context/REQUIREMENTS.197926e2.md",
+    "bytes": 11434,
+    "sha256": "45f4a590c36bae776ed213297b2468cdbda0edc788946c670c04335923fb51c4"
   }
 }

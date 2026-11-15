@@ -90,9 +90,21 @@ class Preparation(unittest.TestCase):
         self.assertEqual(set(pins['files']), {
             'crates/rh-server/src/' + name + '.rs'
             for name in ('runtime', 'main', 'lib', 'director', 'room')})
+        # The plan freezes the native source AT the candidate commit, not the moving working tree (P-CI-GREEN-2): the
+        # port moves on after a staging candidate is frozen. The bytes are read through git at p.BASE; a shallow
+        # checkout without that commit (CI fetches depth 1) checks only that the manifest is well formed.
         for path, digest in pins['files'].items():
             with self.subTest(path=path):
-                self.assertEqual(hashlib.sha256((root / path).read_bytes()).hexdigest(), digest, path)
+                self.assertRegex(digest, r'^[0-9a-f]{64}$')
+        have = subprocess.run(['git', '-C', str(root), 'cat-file', '-e', p.BASE + '^{commit}'],
+                              capture_output=True).returncode == 0
+        for path, digest in pins['files'].items():
+            with self.subTest(path=path, commit=p.BASE):
+                if not have:
+                    self.skipTest('candidate commit not in this (shallow) checkout')
+                blob = subprocess.run(['git', '-C', str(root), 'show', p.BASE + ':' + path],
+                                      capture_output=True, check=True).stdout
+                self.assertEqual(hashlib.sha256(blob).hexdigest(), digest, path)
 
     def test_missing_wrong_stale_cost_credit_and_over_total_refuse(self):
         cases = [lambda x: x.update(account='961470857356'), lambda x: x.update(region='ca-central-1'),

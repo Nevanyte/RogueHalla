@@ -61,6 +61,21 @@ class ContextControls(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "tool inventory"):
                 API["inventories"](root, w)
 
+    def test_every_pin_matches_the_tree_and_no_live_status_doc_is_pinned(self):
+        # What CI's `run.py` checks before it starts Docker, offline (P-CI-GREEN-2). A pin on a status document the
+        # coordinator edits at most integrations (docs/CONTRACTS.md, docs/REQUIREMENTS.md) would drift every week: those
+        # are frozen as historical copies mounted over the live paths instead.
+        m = json.loads((HERE / "context.json").read_text())
+        repo = HERE.parent.parent
+        self.assertNotIn("currentDoc", m)
+        rows = [m["historicalDoc"], m["historicalRequirements"]]
+        for w in m["witnesses"].values():
+            rows += [dict(path=p, **pin) for p, pin in w["pins"].items()] + [w["oracle"]]
+        for row in rows:
+            with self.subTest(path=row["path"]):
+                self.assertNotIn(row["path"], ("docs/CONTRACTS.md", "docs/REQUIREMENTS.md"))
+                API["check_pin"](repo, row)
+
     def test_one_write_original_script_and_mount_envelope(self):
         m = json.loads((HERE / "context.json").read_text())
         for w in m["witnesses"].values():
@@ -72,6 +87,8 @@ class ContextControls(unittest.TestCase):
             self.assertIn("--pull=never", args)
             self.assertIn("--read-only", args)
             self.assertIn("type=bind,src=/historical.md,dst=/repo/docs/CONTRACTS.md,readonly", args)
+            args_r = API["docker_args"](Path("/repo-source"), Path("/fresh"), Path("/historical.md"), m["image"], "owned", w["script"], 1001, 1002, Path("/req.md"))
+            self.assertIn("type=bind,src=/req.md,dst=/repo/docs/REQUIREMENTS.md,readonly", args_r)
             self.assertEqual(sum(x.startswith("/repo/") and ":rw,exec,size=" in x for x in args), 4)
             self.assertIn("NPM_CONFIG_USERCONFIG=/tmp/empty-user-npmrc", args)
             self.assertIn("NPM_CONFIG_GLOBALCONFIG=/tmp/empty-global-npmrc", args)
