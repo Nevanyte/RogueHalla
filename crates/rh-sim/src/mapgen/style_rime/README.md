@@ -77,9 +77,39 @@ the source defaults, capture tool, fixture and callback algorithms are unchanged
 
 Signature mode (P-MAPGEN-SIG-FROST-1, ADR 0028 decision 11) runs only when the styler is handed
 the zone's landmark frame (`BaseContext::landmark`, read by `signature_anchor`; P-MAPGEN-LANDMARK-
-FRAME-1): the mere is seeded within reach of the cave's mouth (`lakes::grow_lakes_at`), no lake
-tile lies in the cave's core band, the mere keeps off the spawn routes (`lakes::keep_off_routes`)
-and the second lake stays smaller. Without the frame every draw and write above is unchanged (G8).
+FRAME-1): no lake tile lies in the cave's core band. Without the frame every draw and write
+above is unchanged (G8).
+
+Since P-LAND-FROST-1 (owner decision 2026-11-14, "Yes to both": build the lake first in front of
+the mouth, on softly reserved ground, as targets that never cost a map) the lakes are built, not
+grown and repaired (`mouth_lake::build`, all on the styler's noise, no RNG draw):
+
+1. the near shore `mouth_gap + 1` from the mouth (Chebyshev and floor steps), nearest the line from
+   the mouth to the coliseum's centre tile; when that ground is taken, the free tile nearest the mouth;
+2. the mouth lake grown best-first from it to `build_rule().lake_target` (400) tiles under an ellipse
+   on the line plus today's lake noise, off the route bands, the ring road's clearing and the gap;
+3. the dry way: a walk of `way_width` squares of dry floor round one flank to the mouth; when the lake
+   leaves none, the cheapest walk is planned, taken out of the lake and the lake regrown elsewhere;
+   the way and the ground within `mouth_gap + 2` of the mouth take no wall (`Sig::keep`);
+4. one second lake from today's second seed, `spacing` dry tiles from the mouth lake, to
+   `second_target` (100) tiles or 75% of the mouth lake, whichever is fewer;
+5. the spawn routes drawn round both lakes (`RouteBook::ensure_wet`); a band that still clips a lake
+   is taken out of it and the lake regrown; after the headlands and spires each lake is brought back
+   to its size on its own ground and kept to one body (no stray ice).
+
+The fallback: when the built mouth lake is under `lake_min` (the plan would drop it and the second
+lake with it, leaving no ice at the mouth) or the frame gives no line, the styler takes that map back
+to the growth it had before the packet, on a fresh route book: the mere seeded within reach of the
+mouth (`lakes::grow_lakes_at`, else `lakes::grow_lakes`), `fill`, `keep_off_routes` after a seeded
+mere; `lake-at-mouth` then decides the map as before. On seeds 1-128 it fires on 7 attempts, all
+refused (4 by `lake-at-mouth`), so no kept map is a fallback map today.
+
+The rule's parts (`targets.rs`: `lake_rule`, `mouth_lake_holds`, `dry_way_holds`,
+`second_lake_holds`) are pure reads of the finished map with the oracle's definitions
+(`tests/mapgen_land_frost.rs`); they are targets, not registered guarantees. The room in front of
+the cave is the cave entry's soft fan (`landmarks/signature/spec.rs`, `FanHold::Soft`; the Prefix
+gives it up for a round whose camps cannot be placed with it). `report.rs` is an ignored per-seed
+report for hand-offs.
 
 End-of-attempt guarantee (P-MAPGEN-GUARANTEES-1, `guarantees.rs`, signature mode only):
 `"lake-at-mouth"`, the finished map's largest unowned Frost ice body lies within

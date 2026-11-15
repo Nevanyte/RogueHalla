@@ -277,10 +277,35 @@ of them. On 2026-11-12 the owner set the order and rules that tie generation tog
    (`site_camps`: a centred entry's are its camp glyph's landed tiles, a pinned entry's is the pinned tile and the
    glyph must equal the pin's) and whether the first is the zone's first elite, the spawn rule (`spawn`: the whole
    box and its apron closed, or the open floor allowed with a glyph's tiles and their surroundings closed), the
-   reserved ground in front of the site (`fan`: depth and side; only Fire has one today) and the feature's params
-   (`params`). `reserve`, `write`, `fan`, `fan_holds_a_site_camp` and `relabel_sites` read the entry: no zone or feature kind decides
-   them, the hall's light is found by its glyph, and a site's own camps are not tested against its own fan. A new
-   landmark fact of these kinds is one table line. No generated map moved (every pin and golden unchanged).
+   reserved ground in front of the site (`fan`: depth and side; Fire's, and since P-LAND-FROST-1 the cave's room,
+   decision 15) and the feature's params (`params`). `reserve`, `write`, `fan`, `fan_holds_a_site_camp` and
+   `relabel_sites` read the entry for these rules: the site's side, its camps, the spawn rule, the fan and the params
+   are not decided by a zone or feature kind there, the hall's light is found by its glyph, and a site's own camps are
+   not tested against its own fan. Still decided by zone or kind outside the table: Plague's line rule and its
+   deepest-square fallback in `reserve`, and the volcano's streams in `place`. `from_table`'s check that a pinned
+   entry's `site_camps` names its pin glyph is a `debug_assert!` (checked in debug builds, not in release). `reserve`
+   and `streams` are public for the test seam (`AttemptContext::with_signature_table` and the oracles that replay a
+   reservation). A new landmark fact of these kinds is one table line. No generated map moved (every pin and golden
+   unchanged). (Wording corrected by P-LAND-FROST-1, the coordinator's request.)
+
+15. **The cave's room is a soft fan** (P-LAND-FROST-1; owner decision 2026-11-14, "Yes to both": build the Frost lake
+   first in front of the cave's mouth, with the softer ground reservation, as targets that never cost a map). The
+   cave's table entry carries `fan: Some(Fan { depth: cave_fan_depth, side: cave_fan_side })` (24 and 0, in
+   `Definition`) with `fan_hold: FanHold::Soft` (`spec::FanHold`, a separate `Spec` field because tests build `Fan`
+   literals); the volcano's stays `Hard`. The Prefix's camp round reserves every fan on the first try, as decision 10
+   does. When that try fails (a site's camp in a fan, or the camp placement) and a soft fan was reserved, the round is
+   tried once more with the soft fans left out: the site-camp check against the hard fans only
+   (`hard_fan_holds_a_site_camp`), then `place_camps_reserving` continuing the same camp stream (no reset; nothing else
+   drawn; a first try that fails at the site-camp check drew nothing). When the retry succeeds the soft fans are not
+   recorded (`AttemptState::fans` holds only what was reserved, so the legacy landmark stage keeps its writes out of
+   the recorded fans alone and the Frost styler takes the ground it finds); when it fails the round fails as before. A
+   hard fan is never given up. The Frost styler in signature mode builds the mouth lake first on that ground
+   (`style_rime/mouth_lake.rs`), and the parts of the owner's lake rule (`style_rime::lake_rule`: about 400 tiles, 3
+   dry tiles to the shore, on the line to the coliseum, a dry way 3 wide, one smaller second lake) are targets checked
+   by pure functions (`mouth_lake_holds`, `dry_way_holds`, `second_lake_holds`), never registered guarantees: Frost's
+   list stays `lake-at-mouth`. When the built mouth lake is under `lake_min`, the styler falls back to its growth from
+   before the packet for that map and `lake-at-mouth` decides. Seeds 1-128: every seed keeps a map, worst attempt
+   index 10; the room kept on 113 kept maps and given up on 15; the measured targets are in the packet's hand-off.
 
 ## Measurements (seeds 1-16, `decor: false`, debug test build, macOS arm64)
 
