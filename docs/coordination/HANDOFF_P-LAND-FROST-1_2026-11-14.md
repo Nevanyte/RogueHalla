@@ -3,8 +3,14 @@
 ```
 PACKET:          P-LAND-FROST-1 — serves LAND_GENERATION_REQUIREMENTS section 3 (Frost; "Every zone"), owner decision
                  2026-11-14 ("Yes to both", OWNER_DECISIONS row 10); ADR 0028 G10. Signature option only.
-BRANCH:          agent/opus/P-LAND-FROST-1 @ 20ccc2f90 (code; this hand-off is the next commit)
-GATE:            not run by the implementer (coordinator's brief: targeted tests, fmt and clippy only; see below)
+BRANCH:          agent/opus/P-LAND-FROST-1 @ the commit that adds the section "Gate, pins and review" (last code
+                 commit b432cc1fb, the review's note 1; packet/P-LAND-FROST-1 @ 7dccffb06; base
+                 origin/feature/unity-rework @ b71590c8f)
+GATE:            PASS (quick, --oracle packet/P-LAND-FROST-1 --base origin/feature/unity-rework) on b432cc1fb, run by
+                 the lane's session: rustfmt, the provenance chain, the staging pins, clippy and tests of rh-mapdress,
+                 clippy rh-sim, the content registry, the whole rh-sim suite as CI, the parity report. [not run: the
+                 full gate (the coordinator's). Beside it: cargo test -p rh-server, 49 targets green.] One docs-only
+                 commit (this file) follows the gated commit. See "Gate, pins and review" for the first run's failure.
 CHANGED:         crates/rh-sim/src/mapgen/attempt/mod.rs (the soft retry; its unit tests; the `fans` doc)
                  crates/rh-sim/src/mapgen/landmarks/signature/spec.rs (the cave's fan and FanHold::Soft; FanHold's doc)
                  crates/rh-sim/src/mapgen/landmarks/signature/mod.rs (fan_hold, hard_fan_holds_a_site_camp; docs)
@@ -180,3 +186,95 @@ totals); `style_rime::report` reprints the table: `cargo test -p rh-sim --featur
   `streams` are public for the test seam. The soft fan is decision 15.
 - `fan_holds_a_site_camp`'s doc said "no site with a camp has a fan today"; the cave now has both (its own camp is
   excepted from its own room). Updated.
+
+## Gate, pins and review (the lane's session, 2026-11-15)
+
+**Read first.** Every option-on map moves again (the cave's soft room in the Prefix; the lake built first). Attempts
+on seeds 1-32: 96 -> 97; worst attempt 11 (seed 11) -> 10 (seed 16). No seed of 1-128 is without a map. Values at
+or near a bound on this build (seeds 1-128 unless said):
+
+| Guard | Measured | Bound | Whose |
+|---|---|---|---|
+| Ice share against option off, median, seeds 1-32 | 0.809 | 0.8 to 1.2 | the owner's ("within about a fifth") |
+| Centroid within 4 of the line and ahead of the mouth | 91 | at least 85 | the lane's floor |
+| The whole lake rule at once | 25 | at least 21 | the lane's floor |
+| Worst kept attempt index | 10 | at most 12 | the stack's |
+| Maps with a mouth-lake tile behind the mouth's front / with the centroid behind it | 106 / 5 | at most 115 / 8 | a known gap, with the owner |
+| Fire camps without a crater, seeds 1-64 / most on one map | 18 of 640 / 2 | 40 / 5 | last set on the lane's judgment |
+| Plague Large pools / near-band pools, seeds 1-32 | 0 / 0 | 2 / 2 | last set on the lane's judgment |
+
+- **Gate:** PASS (quick, `--oracle packet/P-LAND-FROST-1 --base origin/feature/unity-rework`) on the commit named in
+  the block below, run by the lane's session in this worktree's own build folder: path checks, rustfmt, the card
+  provenance chain, the staging pins, clippy and tests of rh-mapdress, clippy rh-sim, the content registry, the whole
+  rh-sim suite as CI, the parity report. Not run: the full gate (the coordinator's). Beside it: `cargo test -p
+  rh-server`, 49 targets green (on 4ba89dbe7, before the two review fixes, which move no map).
+  History: the first quick gate (on e38811243) FAILED on one test, `mapgen_signature_table.rs`
+  `each_landmark_placed_alone_equals_it_placed_with_the_others`: "only 19 accepted Landmarks phases" against a
+  sample floor of 20 of 32; the whole suite with `--no-fail-fast` showed that test alone. The lane's session widened
+  its sample (below); the gate then passed on 4ba89dbe7 and again after the review fixes.
+- **Pins re-taken from this build** (`re-pin:` commit on the packet branch, constants only, with `repin.py`):
+
+  | Expectation | Old | New |
+  |---|---|---|
+  | `signature_pins.rs` `pinned_on_maps` (seeds 1-32, option on) | 96 attempts, worst 11 (seed 11) | all 32 rows moved; 22 seeds keep another attempt; 97 attempts, worst 10 (seed 16), then 6 (seed 29), 5 (seed 32) |
+  | `signature_pins.rs` `pinned_landmarks` (seeds 1-16, attempts 0 and 1) | | 29 of 32 rows moved (the cave's room is reserved in the Prefix) |
+  | `mapgen_guarantees.rs` `pinned_labels` | 64 refusals over seeds 1-32 | 25 seeds' rows changed; 65 refusals: Prefix 21, Signature 15, Repair(RadiusPost) 15, SpawnRatio 5, SignatureDiscarded 3, SpawnPool 3, lake-at-mouth 2, Repair(FloorShare) 1 |
+  | `mapgen_guarantees.rs` the lake-refusal count | 6 | 2 |
+  | `rh-mapdress` `NO_ANCHOR_GOLDEN` / `SIG_GOLDEN` / `NO_ORIGIN_GOLDEN` | | 4 of 4 / 16 of 16 / 4 of 4 values |
+  | `pinned_off`, the rh-mapdress option-off goldens | | unchanged |
+
+- **Existing tests amended** (each an `oracle-amend:` commit on the packet branch):
+
+  | Test | Old | New | Why |
+  |---|---|---|---|
+  | `mapgen_signature_site_rules.rs` `the_table_holds_todays_site_camp_spawn_and_fan_rules` | the cave has no fan | the cave's fan from the definition (24, 0), soft | the owner's decision |
+  | `mapgen_signature_site_rules.rs` `an_entrys_fan_is_reserved_with_its_numbers` | doctored table removes no fan | it also removes the cave's fan | so that it still records only its two doctored fans |
+  | `mapgen_signature_table.rs` `each_landmark_placed_alone_equals_it_placed_with_the_others` | seeds 1-16 (32 phases), floor 20 accepted | seeds 1-32 (64 phases), floor 30; 40 accepted, the count printed | with the Holy site and the cave's room 19 of 32 were accepted, one under the floor; the floor only guards the sample's size, and the comparison now runs on more phases than it ever did |
+  | `mapgen_land_frost.rs` the line target (review note 2) | centroid within 4 of the line through the mouth (93 maps) | and ahead of the mouth (91 maps); renamed `the_mouth_lake_centroid_stands_ahead_of_the_mouth_on_the_line_on_most_maps`; floor 85 unchanged | the old reading counted a centroid behind the mouth |
+  | `mapgen_land_frost.rs` `known_gap_the_mouth_lake_reaches_behind_the_mouths_front` (review note 2) | (new) | at most 115 maps with a mouth-lake tile behind the mouth's front (106), at most 8 with the centroid behind it (5); fails when the first falls to 5 or fewer, so that a packet closing the gap tightens it | "in front of the mouth" was not tested |
+
+- **Owner-directed tests:** the owner's rule for the lake is a set of TARGETS by his decision of 2026-11-14 ("Yes to
+  both"): each part is a counted floor above today's value and stated against its measurement; none passes on a
+  handful of seeds. His own number, the ice share window, is kept exactly (0.8 to 1.2) and the build sits at 0.809:
+  a later packet that moves it under 0.8 stops and goes to him.
+- **What the owner has in front of him (2026-11-15), no answer yet:** this build lets the lake use ground beside and
+  behind the cave: on 106 of the 128 kept maps some tile of the mouth lake lies behind the mouth's front, on 5 the
+  lake's centroid does (seeds 3, 11, 19, 54, 83). Three variants were built and measured on seeds 1-128 and shown to
+  him on eight seeds (today / this build / a rounded lake):
+
+  | | today | this build ("stretched") | rounded (scratch `agent/opus/P-LAND-FROST-1-shape` @ 100c37f1c) | never behind the mouth (scratch `agent/opus/P-LAND-FROST-1-front` @ 18c5b383d) |
+  |---|---|---|---|---|
+  | all 13 oracle tests | | yes | no (3 red) | no (2 red) |
+  | lakes of 340-460 tiles | 30 | 47 | 22 | 32 |
+  | median lake | 254 | 314 | 281 | 287 |
+  | the whole rule | 0 | 25 | 18 | 18 |
+  | ice share, seeds 1-32 | 0.64 | 0.809 | 0.833 | 0.836 |
+  | a lake tile behind the mouth / the centroid behind | not measured | 106 / 5 | 2 / 0 | 1 / 0 |
+  | spires / headlands, seeds 1-32 | | 38 / 123 | 18 / 112 | 41 / 109 |
+
+  This build is the behaviour whose numbers he approved and the only one that passes every floor, so it is the one
+  sent; "never behind the mouth" is ready on its scratch branch and needs two of the lane's floors lowered (lakes of
+  340-460 from 40 to about 30; the whole rule from 21 to about 15), which only his word allows. The straight
+  diagonal sides of the lakes are in today's maps too (the lane's reading of the pictures: route bands, camp halos
+  and the zone's edge cut them; not measured).
+- **Review:** reviewer-opus on 4ba89dbe7: **LAND WITH NOTES**, two notes; it re-ran `mapgen_land_frost` (13 of 13,
+  the hand-off's numbers exactly) and read the Prefix's retry, the table, the styler, the oracle and the re-pins.
+  - **Note 1, fixed (the last code commit):** `style_rime/shape.rs` clamped the plan's `grown` to `lake_min` after the
+    regrowth that follows shelves and spires. It now records the lake's area before them, as with the option off
+    (at least `lake_min` by the filter above it). No map moves: every pin and golden is green unedited.
+  - **Note 2, fixed (the two `mapgen_land_frost.rs` rows above):** the oracle did not test "in front of the mouth"
+    and its line count accepted a centroid behind the mouth.
+  - **Raised, not a note, with the owner:** "every kept map has a lake at the mouth" is observed on seeds 1-128, not
+    guaranteed: if the built lake and the fallback both yield nothing (or the regrowth after shelves empties the
+    lake), `lake-at-mouth` passes a map with no Frost ice and the map is kept. Registering "a Frost lake exists" as a
+    refusal would close it and could cost a seed: his trade.
+- **Minor, not notes** (the reviewer's list; no packet): the brief's acceptance table names
+  `a_kept_room_keeps_camp_halos_and_legacy_buildings_out` (the test is `..._the_legacy_stages_walls_out`); this
+  file's BRANCH line named a commit that is on no branch (corrected below); `soft_fan::a_hard_fan_is_never_given_up_
+  and_a_kept_room_is_recorded` asserts only one kept room over 8 seeds (the oracle counts 113); the unit test of the
+  retry covers a first try that failed the site-camp check, not one that failed in placement (pinned by the digests
+  only); `targets.rs` and `mouth_lake.rs` keep their numbers out of the content hash because they are read in
+  signature mode only (the existing convention).
+- **Picture:** eight seeds of this build beside today's and beside the rounded variant, sent to the owner
+  (2026-11-14 and 2026-11-15): the gap of 3 dry tiles, a dry way and a second lake on all eight, no stray ice; the
+  whole rule on seed 8 only; seed 3's lake wraps the cave's side (its centroid is behind the mouth).
