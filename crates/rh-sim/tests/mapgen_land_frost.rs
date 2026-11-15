@@ -36,9 +36,14 @@
 //!   are one lake. Stray ice: more than one other lake.
 //! * Chebyshev distance between two tile sets: the least max(|dx|, |dy|) over their tiles; d means d - 1 tiles between.
 //! * the size target: the mouth lake holds `size` (340-460) tiles.
-//! * the line target (counted): the mouth lake's centroid lies at most `axis_offset` (4) tiles off the line. The
-//!   mouth-lake target (below) also asks that the centroid lie strictly between M and C along the line (0 < s < |C - M|)
-//!   and that the line cross the lake (some lake tile with s > 0 has its point within 0.5 of the line).
+//! * the line target (counted): the mouth lake's centroid lies at most `axis_offset` (4) tiles off the line and ahead
+//!   of the mouth, strictly between M and C along it (0 < s < |C - M|): "on the line from the coliseum to the mouth"
+//!   (amended after the build's review, 2026-11-15: it counted the line's extension behind the mouth too). The
+//!   mouth-lake target (below) also asks that the line cross the lake (some lake tile with s > 0 has its point within
+//!   0.5 of the line).
+//! * behind the mouth's front (the known gap, `known_gap_the_mouth_lake_reaches_behind_the_mouths_front`): a point with
+//!   s < `mouth_gap` (3), s measured as above from M toward C (the build's report, `style_rime/report.rs` on
+//!   `agent/opus/P-LAND-FROST-1-front`, uses the same coordinate and threshold).
 //! * the gap target: the mouth lake's Chebyshev distance from the mouth is exactly `mouth_gap` + 1 (3 tiles between),
 //!   the fewest 4-connected floor steps from a mouth tile (step 0) to the lake are exactly `mouth_gap` + 1, and no
 //!   unowned Frost ice of any lake lies within Chebyshev `mouth_gap` of a mouth tile.
@@ -152,9 +157,24 @@ fn gap_floor() -> usize {
     97
 }
 
-/// The centroid within 4 tiles of the line: prototype 90, today 81. The floor must lie above today's: 85.
+/// The centroid within 4 tiles of the line and ahead of the mouth (amended 2026-11-15): the build 91 (93 with the old
+/// reading, which counted the line behind the mouth too); the prototype 90 and today's game 81 with the old reading, so
+/// today's value with the new reading is at most 81 (not re-measured: the new reading only takes maps away). Floor 85:
+/// above today's, 6 under the build's.
 fn line_floor() -> usize {
     85
+}
+
+/// KNOWN GAP ceilings (`known_gap_the_mouth_lake_reaches_behind_the_mouths_front`), kept maps of seeds 1-128: a mouth-lake
+/// tile behind the mouth's front, measured 106 on the build (`agent/opus/P-LAND-FROST-1` @ 4ba89dbe7), ceiling 115; the
+/// centroid behind it, measured 5 (seeds 3, 11, 19, 54, 83), ceiling 8. Set a little above the measurement on the lane's
+/// judgment (2026-11-15); the last values so set.
+fn behind_tile_ceiling() -> usize {
+    115
+}
+
+fn behind_centroid_ceiling() -> usize {
+    8
 }
 
 /// A dry way 3 wide: prototype 124, today 48.
@@ -551,14 +571,20 @@ fn near_line(l: &Lakes) -> Result<(), String> {
         return Err("no mouth lake".into());
     };
     let off = l.off(c);
-    if off <= f64::from(rule().axis_offset) {
-        Ok(())
-    } else {
-        Err(format!(
+    if off > f64::from(rule().axis_offset) {
+        return Err(format!(
             "mouth lake centroid {off:.1} tiles off the line (allowed {})",
             rule().axis_offset
-        ))
+        ));
     }
+    let along = l.along_pt(c);
+    if !(along > 0.0 && along < l.reach) {
+        return Err(format!(
+            "mouth lake centroid {along:.1} along the line, not ahead of the mouth toward the coliseum ({:.1})",
+            l.reach
+        ));
+    }
+    Ok(())
 }
 
 /// The whole line part of the mouth-lake target: near the line, between M and C along it, crossed by it.
@@ -1327,17 +1353,84 @@ fn three_dry_tiles_lie_between_mouth_and_shore_on_most_maps() {
     );
 }
 
-/// The mouth lake's centroid lies within 4 tiles of the line from the mouth to the coliseum on at least `line_floor`
-/// maps.
+/// The mouth lake's centroid lies within 4 tiles of the line and ahead of the mouth (between the mouth and the
+/// coliseum along it) on at least `line_floor` maps. Amended 2026-11-15 (review of the build, note 2): the count read
+/// the centroid's distance to the whole line through the mouth, so a centroid behind the mouth counted.
 #[test]
-fn the_mouth_lake_stands_on_the_line_on_most_maps() {
+fn the_mouth_lake_centroid_stands_ahead_of_the_mouth_on_the_line_on_most_maps() {
     let (met, misses) = count(|_, l| near_line(l));
     floor_pin(
-        "the mouth lake's centroid within 4 tiles of the line",
+        "the mouth lake's centroid within 4 tiles of the line, ahead of the mouth",
         met,
         line_floor(),
-        "decided prototype 90, today's game 81",
+        "the build 91 (93 with the old reading); today's game at most 81",
         &misses,
+    );
+}
+
+/// KNOWN GAP (put to the owner on 2026-11-15). The owner's rule is "built in front of the mouth". This build lets the
+/// mouth lake use ground beside and behind the cave: on seeds 1-128, count (a) the kept maps with some mouth-lake tile
+/// behind the mouth's front and (b) the kept maps whose mouth-lake centroid is behind it. "Behind the front": the
+/// tile's point (or the centroid) has s < `mouth_gap` (3), s the coordinate along the line from the mouth point M
+/// toward the coliseum's centre tile's point C (file comment; the definition of the build's report,
+/// `style_rime/report.rs` on `agent/opus/P-LAND-FROST-1-front`, which measured 106 and 5). The alternative put to the
+/// owner is a variant that forbids it (32 instead of 47 lakes of 340-460 tiles). Until he answers, the look is pinned:
+/// the ceilings sit a little above the measured counts, because these counts scatter with every packet that moves the
+/// maps; they are the last values set on the lane's judgment: a packet whose maps exceed one stops and the measurement
+/// goes to the owner; a packet that brings (a) to a handful should tighten this pin.
+#[test]
+fn known_gap_the_mouth_lake_reaches_behind_the_mouths_front() {
+    let front = f64::from(rule().mouth_gap);
+    let (mut tile_behind, mut centroid_behind) = (Vec::new(), Vec::new());
+    for r in maps() {
+        let l = lakes(&r.map, &r.frame);
+        if let Some(least) = l.lake.iter().map(|&c| l.along(c)).min_by(f64::total_cmp) {
+            if least < front {
+                tile_behind.push((r.seed, least));
+            }
+        }
+        if let Some(c) = l.centroid() {
+            let s = l.along_pt(c);
+            if s < front {
+                centroid_behind.push((r.seed, s));
+            }
+        }
+    }
+    let n = maps().len();
+    eprintln!(
+        "kept maps of seeds 1-128 ({n}): a mouth-lake tile behind the front on {}, the centroid on {}: {centroid_behind:?}",
+        tile_behind.len(),
+        centroid_behind.len()
+    );
+    for (what, got, ceiling, measured) in [
+        (
+            "some mouth-lake tile",
+            tile_behind.len(),
+            behind_tile_ceiling(),
+            "measured 106 on the build",
+        ),
+        (
+            "the mouth-lake centroid",
+            centroid_behind.len(),
+            behind_centroid_ceiling(),
+            "measured 5 on the build",
+        ),
+    ] {
+        assert!(
+            got <= ceiling,
+            "{what} behind the mouth's front (s < {front}) on {got} of {n} kept maps of seeds 1-128, above the ceiling \
+             {ceiling} ({measured}). The owner's rule is \"built in front of the mouth\"; this build lets the lake use \
+             ground beside and behind the cave, a KNOWN GAP put to the owner on 2026-11-15 with the alternative (a \
+             variant that forbids it: 32 instead of 47 lakes of 340-460 tiles). This ceiling is the last value set on \
+             the lane's judgment: a packet whose maps exceed it stops, and the measurement goes to the owner. Do not \
+             raise it."
+        );
+    }
+    assert!(
+        tile_behind.len() > 5,
+        "only {} kept maps with a mouth-lake tile behind the mouth's front: the gap is nearly closed; tighten this pin \
+         (and tell the owner)",
+        tile_behind.len()
     );
 }
 
