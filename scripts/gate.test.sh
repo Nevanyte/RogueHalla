@@ -290,6 +290,13 @@ if sed -n '/^if \[\[ "\$MODE" == quick \]\]; then$/,/^fi$/p' "$SRC/scripts/gate.
   && grep -qE '^cheap_area_checks\(\) \{ provenance_audit;' "$SRC/scripts/gate.sh"; then ok "the card provenance audit runs in both modes always and tells the reader what to do when it is red"
 else bad "provenance audit selection" "gate.sh does not select provenance_audit in both modes"; fi
 
+# The offline staging-preparation and NPC witness context pin checks (CI's `rust` job runs them; P-CI-GREEN-2) run in both
+# modes always, and the full-mode list shows them.
+if sed -n '/^if \[\[ "\$MODE" == quick \]\]; then$/,/^fi$/p' "$SRC/scripts/gate.sh" | grep -qE '^  offline_pin_checks$' \
+   && grep -qE '^cheap_area_checks\(\) \{ provenance_audit; offline_pin_checks;' "$SRC/scripts/gate.sh" \
+   && grep -qF 'staging preparation + NPC witness context pins' <<<"$(bash "$SRC/scripts/gate.sh" --list-steps 2>&1)"; then ok "the offline staging and NPC witness pin checks run in both modes"
+else bad "offline pin checks selection" "gate.sh does not select offline_pin_checks in both modes"; fi
+
 echo
 echo "$PASSES passed, $FAILS failed"
 [[ $FAILS -eq 0 ]]
