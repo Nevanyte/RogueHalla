@@ -66,10 +66,14 @@ function summarise(files, budgetMb) {
 
 const mb = n => (n / MB).toFixed(2);
 
+// A precompressed sidecar (Tools/precompress-web.cjs writes Web.wasm.br next to Web.wasm) is another encoding of a file
+// already counted, not a second download: skip it.
+const isSidecar = full => /\.(br|gz)$/i.test(full) && fs.existsSync(full.replace(/\.(br|gz)$/i, ''));
+
 function run(opts) {
   if (!fs.existsSync(opts.dir) || !fs.statSync(opts.dir).isDirectory()) throw Object.assign(new Error(`no build directory at ${opts.dir}`), { exitCode: 2 });
   const files = [];
-  for (const f of walk(opts.dir)) files.push({ path: f.rel, ...measureFile(fs.readFileSync(f.full), f.rel, opts.brotliQuality) });
+  for (const f of walk(opts.dir)) if (!isSidecar(f.full)) files.push({ path: f.rel, ...measureFile(fs.readFileSync(f.full), f.rel, opts.brotliQuality) });
   if (!files.length) throw Object.assign(new Error(`${opts.dir} is empty`), { exitCode: 2 });
   const summary = summarise(files, opts.budgetMb);
   const report = { generatedAt: new Date().toISOString(), label: opts.label, dir: path.relative(path.resolve(__dirname, '../../..'), opts.dir),
