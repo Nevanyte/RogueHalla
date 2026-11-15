@@ -132,13 +132,14 @@ namespace Roguehalla.Net
         void SetRing(TutorialObservation o)
         {
             // Aim the ring at the rack when it is known (so the path leads onward), else straight along +x.
-            float ux = 1f, uy = 0f, dist = RingDistance;
+            // Always RingDistance from the spawn, even when the rack is nearer.
+            float ux = 1f, uy = 0f;
             if (o.HasRack)
             {
                 float rx = o.RackX - o.X, ry = o.RackY - o.Y, len = (float)Math.Sqrt(rx * rx + ry * ry);
-                if (len > 1f) { ux = rx / len; uy = ry / len; dist = Math.Min(RingDistance, len * .5f); }
+                if (len > 1f) { ux = rx / len; uy = ry / len; }
             }
-            _ringX = o.X + ux * dist; _ringY = o.Y + uy * dist; _ringSet = true;
+            _ringX = o.X + ux * RingDistance; _ringY = o.Y + uy * RingDistance; _ringSet = true;
         }
 
         void Retarget(TutorialObservation o, bool dummy)
