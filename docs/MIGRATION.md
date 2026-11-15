@@ -4,6 +4,29 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integration 51 (2026-11-14, late): the pull request's CI, second layer
+
+Staged as `coord/int-51` on top of 50 (which is under gate): **P-CI-GREEN-2** (`50ba46e54`; reviewer-opus LAND WITH
+NOTES, the note applied by the coordinator). Three things the `rust` job and the determinism workflow would have shown
+red as soon as `provenance` went green:
+- **`staging-full-runtime`** froze five `crates/rh-server/src` files for the staging candidate `3253da049` (2026-11-09,
+  a plan marked not deployable) and compared them with the LIVE tree, which has moved 56 commits. The test now reads
+  the bytes at the candidate commit through git; the plan is not refrozen. CI's checkout is depth 1, so `rust.yml`
+  fetches that commit first, and the test fails rather than skips when the commit is missing in CI or a full clone.
+- **`npc-witness-context`** pinned the live `docs/CONTRACTS.md` and `docs/REQUIREMENTS.md`, status documents that
+  change at most integrations; the witness runs against frozen copies mounted over them (both equal the bytes its
+  oracles record), and the live hash is only recorded in the receipt. The witness container run was not repeated.
+- **"Native determinism"** was cancelled at exactly its 30-minute cap on both runs of this branch (a cold release
+  build takes about 27 minutes, measured from the log; it never finishes, so its cache is never saved). `produce` gets
+  75 minutes and `verify-foreign-replay` 45: an estimate with margin, not a measured completion; nothing is known for
+  arm64; a push during a cold run still cancels it.
+The gate gains "offline pin checks" (both modes, always, about half a second), which says what to do when red.
+**Still red on the pull request by design:** `perfproof` (the merge-base with `main` predates the map it loads).
+**Not established:** about 40 CI-only checks that need Linux x64 Node 22.23.4 failed on this machine's Node and are
+neither green nor red until CI runs them; the first complete `rust` job on this branch will say.
+**Owner approval used:** the delegation of 2026-11-14 ("as much independent decision making as possible") for edits
+under `.github/` (`input-latency.yml`, `determinism.yml`, `rust.yml`) and `scripts/gate.sh` in P-CI-GREEN-1 and -2.
+
 ## Integration 50 (2026-11-14, evening): the Holy hall; the pull request's CI
 
 Integration branch `feature/unity-rework` @ `a5fac52eb` on origin (integration 49: full gate green; P-LAND-FIRE-1).
