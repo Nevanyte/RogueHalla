@@ -4,6 +4,25 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integration 53 (2026-11-15, early): a smaller Unity Web player (P-WEB-OPT-1)
+
+Integration branch `feature/unity-rework` @ `29cea378e`, local (not pushed). Owner request: "a complete optimization sweep
+of the unity front end", on the live commit, then "Yes, land it". Branch `packet/P-WEB-OPT-1` from `2f33045d6`, whose
+`client-unity/UnityProject` equals 52's apart from three test files. Reviewer (Sonnet): LAND WITH NOTES. Note 1
+(page-called and reflected types under High stripping) is applied as `Assets/link.xml`; on the High build without it a
+`SendMessage` debug hook still worked. Note 2 (a match to its result screen, account/practice flows) is not done. Note 3
+(the host change) is the open item below. Measurements, settings and evidence: `docs/backlog/packets/P-WEB-OPT-1.md`.
+
+- **Web Player settings:** managed stripping Minimal -> High, splash screen off, initial memory 32 -> 256 MB.
+- **Size:** Web.wasm 58.0 -> 50.5 MB raw, Web.data 45.0 -> 42.0 MB.
+- **First download:** today's live host sends 51.6 MB (Caddy zstd, measured). With the new player that falls about 5%;
+  with the `Tools/precompress-web.cjs` Brotli sidecars it would be 37.7 MB.
+- **Checks:** browser run against a local `rh-server` of `2f33045d6`, hub to an in-match bot fight, no exception.
+  Quick gate on the merged tree: PASS, including EditMode 1581/1581.
+- **Full gate:** not run. No Rust changed, and the map-generator lane was not asked for "clear".
+- **Open, owner approval (`hosting/`):** `file_server { precompressed br }` in `hosting/technical-demo/bootstrap.py`, and
+  the precompress step before bundling. The live host still runs `2f33045d6` and expires 2026-11-15 09:42 UTC.
+
 ## Integration 52 (2026-11-14, night): landmark site rules as table data; disk; what CI now says
 
 Integration branch `feature/unity-rework` @ `86dd4adca` on origin (integrations 50 and 51 as one tree: the Holy
