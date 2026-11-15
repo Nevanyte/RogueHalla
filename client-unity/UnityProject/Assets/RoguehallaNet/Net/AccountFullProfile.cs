@@ -48,6 +48,15 @@ namespace Roguehalla.Net
         { Owned = AccountData.List(owned); Equipped = AccountData.Map(equipped); }
     }
 
+    /// <summary>Server-stored tutorial progress. STUB (P-TUTORIAL-2): the implementer validates state and fills the doc.</summary>
+    public sealed class AccountTutorialState
+    {
+        public int Version { get; }
+        public int Step { get; }
+        public string State { get; }
+        public AccountTutorialState(int version, int step, string state) { Version = version; Step = step; State = state; }
+    }
+
     /// <summary>Complete known server profile DTO. This is a delivered fact, never local unlock, money or purchase authority.</summary>
     public sealed class AccountFullProfile
     {
@@ -59,9 +68,13 @@ namespace Roguehalla.Net
         public AccountFullCosmetics Cosmetics { get; }
         public IReadOnlyDictionary<string, long> Achievements { get; }
         public AccountFullProgress Progress { get; }
+        public AccountTutorialState Tutorial { get; }
+        public bool TutorialDue { get; }
         public AccountFullProfile(string name, long gv, long gvLifetime, IDictionary<string, long> gvByMonth,
-            AccountFullStats stats, AccountFullCosmetics cosmetics, IDictionary<string, long> achievements, AccountFullProgress progress)
+            AccountFullStats stats, AccountFullCosmetics cosmetics, IDictionary<string, long> achievements, AccountFullProgress progress,
+            AccountTutorialState tutorial = null, bool tutorialDue = false)
         {
+            Tutorial = tutorial; TutorialDue = tutorialDue;
             AccountEndpoint.NormalizeName(name); Name = name;
             Gv = AccountData.Count(gv); GvLifetime = AccountData.Count(gvLifetime); GvByMonth = AccountData.Map(gvByMonth);
             Stats = stats ?? throw new ArgumentNullException(nameof(stats)); Cosmetics = cosmetics ?? throw new ArgumentNullException(nameof(cosmetics));

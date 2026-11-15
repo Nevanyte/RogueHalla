@@ -7,7 +7,7 @@ namespace Roguehalla.Net
 {
     public enum AccountApiFailure { None, NoOwner, Stale, Cancelled, BadRequest, Forbidden, PasscodeRequired, UnknownCosmetic, UnknownSlot, NotForSale, AlreadyOwned, InsufficientGv, NotOwned, SlotMismatch, RateLimited, Unavailable, Unreadable }
     public enum AccountApiReadKind { Leaderboard, Settlement }
-    public enum AccountMutationKind { Purchase, Equip }
+    public enum AccountMutationKind { Purchase, Equip, Tutorial }
     public enum AccountMutationState { Ready, InFlight, Confirmed, Refused, Unknown }
     public sealed class AccountApiError
     {
@@ -234,6 +234,10 @@ namespace Roguehalla.Net
             var operation = new AccountMutation(_flow.ApiEndpoint.StorageScope, owner.Account, kind, item, slot);
             _operations.Add(operation.Id, operation); return operation;
         }
+
+        /// <summary>STUB (P-TUTORIAL-2): the implementer posts to /tutorial; until then every call fails with a code.</summary>
+        public Task<AccountApiResult> SaveTutorialAsync(int version, int step, string state, CancellationToken cancellation = default)
+            => Task.FromResult(new AccountApiResult(AccountApiFailure.NoOwner));
 
         bool Owns(AccountMutation operation, AccountHubFlow.ApiOwner owner) => owner != null &&
             operation.Scope == _flow.ApiEndpoint.StorageScope && AccountEndpoint.NormalizeName(operation.Name) == owner.ExpectedSelection &&
