@@ -249,26 +249,58 @@ fn assemble_with(
                     // is reserved too (no zone, no camp), so no camp's halo enters it. A camp the sites carry (the
                     // church's, the cave's) is fixed already: when its halo reaches into the fan the round fails, as a
                     // camp failure does, and the partition and the sites are drawn again.
-                    let fans: Vec<(usize, usize, usize, usize)> = reserved
+                    //
+                    // P-LAND-FROST-1 (owner decision 2026-11-14, "the softer reservation"): every entry's fan is
+                    // reserved on the first try, as above. When that try fails and a `Soft` fan was reserved (the
+                    // cave's room), the round is tried once more with the soft fans left out: the site-camp check
+                    // against the hard fans only, then the camp placement continuing the same camp stream (no reset,
+                    // nothing else drawn). When the retry succeeds the soft fans are not recorded (`fans` holds what
+                    // was reserved); when it fails the round fails. A `Hard` fan is never given up.
+                    let entries: Vec<((usize, usize, usize, usize), bool)> = reserved
                         .iter()
-                        .filter_map(|r| context.sites.fan(r))
+                        .filter_map(|r| {
+                            let soft = context.sites.fan_hold(r)
+                                == Some(crate::mapgen::landmarks::signature::spec::FanHold::Soft);
+                            context.sites.fan(r).map(|f| (f, soft))
+                        })
                         .collect();
-                    let mut sites = sites;
-                    sites.extend(fans.iter().map(|&(x0, y0, x1, y1)| Reserve {
-                        zone: 0,
-                        x0,
-                        y0,
-                        x1,
-                        y1,
-                        camps: Vec::new(),
-                        elite: false,
-                    }));
-                    let layout = if context.sites.fan_holds_a_site_camp(&reserved) {
-                        None
-                    } else {
-                        crate::mapgen::zones::camps::place_camps_reserving(
-                            &camps, rng, &partition, &sites,
-                        )
+                    let place =
+                        |hard_only: bool,
+                         rng: &mut _|
+                         -> (Option<_>, Vec<(usize, usize, usize, usize)>) {
+                            let fans: Vec<(usize, usize, usize, usize)> = entries
+                                .iter()
+                                .filter(|&&(_, soft)| !(hard_only && soft))
+                                .map(|&(f, _)| f)
+                                .collect();
+                            let blocked = if hard_only {
+                                context.sites.hard_fan_holds_a_site_camp(&reserved)
+                            } else {
+                                context.sites.fan_holds_a_site_camp(&reserved)
+                            };
+                            if blocked {
+                                return (None, fans);
+                            }
+                            let mut with = sites.clone();
+                            with.extend(fans.iter().map(|&(x0, y0, x1, y1)| Reserve {
+                                zone: 0,
+                                x0,
+                                y0,
+                                x1,
+                                y1,
+                                camps: Vec::new(),
+                                elite: false,
+                            }));
+                            let layout = crate::mapgen::zones::camps::place_camps_reserving(
+                                &camps, rng, &partition, &with,
+                            );
+                            (layout, fans)
+                        };
+                    let (layout, fans) = match place(false, &mut *rng) {
+                        (None, _) if entries.iter().any(|&(_, soft)| soft) => {
+                            place(true, &mut *rng)
+                        }
+                        first => first,
                     };
                     (layout, reserved, fans)
                 }

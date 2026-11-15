@@ -1,6 +1,9 @@
 //! Frost stage-six callbacks. All writes use the guarded phase-specific runtime.
 mod guarantees;
 mod lakes;
+mod mouth_lake;
+#[cfg(test)]
+mod report;
 mod routes;
 mod rules;
 mod shape;

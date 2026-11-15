@@ -14,6 +14,40 @@ pub(super) struct Lake {
     pub sum_y: usize,
     pub val: Vec<i32>,
 }
+impl Lake {
+    /// Signature mode (P-LAND-FROST-1): a lake from a built tile set (no value field: nothing regrows it from one).
+    pub(super) fn from_set(w: usize, h: usize, seed: usize, set: Vec<u8>) -> Self {
+        let (mut x0, mut y0, mut x1, mut y1, mut sum_x, mut sum_y, mut area) =
+            (w, h, 0, 0, 0, 0, 0);
+        for (i, &v) in set.iter().enumerate() {
+            if v == 1 {
+                let (x, y) = (i % w, i / w);
+                sum_x += x;
+                sum_y += y;
+                area += 1;
+                x0 = x0.min(x);
+                x1 = x1.max(x);
+                y0 = y0.min(y);
+                y1 = y1.max(y);
+            }
+        }
+        if area == 0 {
+            (x0, y0) = (0, 0);
+        }
+        Self {
+            seed,
+            set,
+            area,
+            x0,
+            y0,
+            x1,
+            y1,
+            sum_x,
+            sum_y,
+            val: Vec::new(),
+        }
+    }
+}
 pub(super) fn value_field(
     b: &BaseContext<'_>,
     noise: &crate::mapgen::style_features::Noise,

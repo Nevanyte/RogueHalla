@@ -162,7 +162,8 @@ pub struct Definition {
     /// P-LAND-FROST-1 (owner decision 2026-11-14, "the softer reservation"): the Frost lake's room, the cave's fan
     /// (`spec::Spec::fan` of the cave's entry, `spec::FanHold::Soft`): `cave_fan_depth` tiles deep in front of the Frost
     /// site's inner rect and as wide as the inner rect plus `cave_fan_side` tiles on each side. Measured as decided: 24
-    /// and 0 (prototype `agent/opus/P-LAND-FROST-1-stack-measure`, seeds 1-128). STUB: the cave's entry has no fan yet.
+    /// and 0 (prototype `agent/opus/P-LAND-FROST-1-stack-measure`, seeds 1-128). The Prefix gives the room up for a
+    /// round whose camps cannot be placed with it, and then does not record it (`attempt`, the soft retry).
     pub cave_fan_depth: i32,
     pub cave_fan_side: i32,
 }
@@ -637,22 +638,41 @@ impl<'f> SignatureContext<'f> {
     }
 
     /// P-MAPGEN-SIG-HOLY-1-fix: the fan of reserved site `r` as its table entry says (`spec::Spec::fan`), inclusive
-    /// (x0, y0, x1, y1) clipped to the map; `None` for an entry without a fan (today only the volcano's has one). The
-    /// Prefix records these (`AttemptState::fans`).
+    /// (x0, y0, x1, y1) clipped to the map; `None` for an entry without a fan (on the default table the volcano's, hard,
+    /// and the cave's room, soft: P-LAND-FROST-1). The Prefix records the fans it kept (`AttemptState::fans`).
     pub fn fan(&self, r: &ReservedSite) -> Option<(usize, usize, usize, usize)> {
         let f = self.entry(r.zone)?.fan?;
         Some(fan_rect(r, &self.rules, f))
     }
 
+    /// P-LAND-FROST-1: how reserved site `r`'s fan holds (`spec::Spec::fan_hold`), `None` when its entry has no fan. The
+    /// Prefix gives up a `Soft` fan for the round when the round's camps cannot be placed with it; never a `Hard` one.
+    pub fn fan_hold(&self, r: &ReservedSite) -> Option<spec::FanHold> {
+        self.entry(r.zone)
+            .filter(|e| e.fan.is_some())
+            .map(|e| e.fan_hold)
+    }
+
     /// P-MAPGEN-SIG-HOLY-1-fix: whether the certifier's halo of a camp a reserved site carries (`camp`, `extra`) reaches
     /// into a fan (`fan`) of another site. Those camps are fixed with the sites, before camp placement can keep them out
-    /// of a fan: the Prefix fails the round when one does (the partition and the sites are drawn again). A site's own
-    /// camps are not tested against its own fan: the site's drawing and its camps are placed together, so its camps are
-    /// where they are by design (no site with a camp has a fan today).
+    /// of a fan: the Prefix fails the round when one does (the partition and the sites are drawn again; with a soft fan
+    /// reserved it first tries the round without the soft fans, `hard_fan_holds_a_site_camp`). A site's own camps are not
+    /// tested against its own fan: the site's drawing and its camps are placed together, so its camps are where they are
+    /// by design (the cave's camp stands inside its site, behind its own room).
     pub fn fan_holds_a_site_camp(&self, reserved: &[ReservedSite]) -> bool {
+        self.fan_holds_with(reserved, false)
+    }
+
+    /// P-LAND-FROST-1: `fan_holds_a_site_camp` over the `Hard` fans only (the Prefix's retry without the soft fans).
+    pub fn hard_fan_holds_a_site_camp(&self, reserved: &[ReservedSite]) -> bool {
+        self.fan_holds_with(reserved, true)
+    }
+
+    fn fan_holds_with(&self, reserved: &[ReservedSite], hard_only: bool) -> bool {
         let fans: Vec<(usize, (usize, usize, usize, usize))> = reserved
             .iter()
             .enumerate()
+            .filter(|(_, r)| !(hard_only && self.fan_hold(r) == Some(spec::FanHold::Soft)))
             .filter_map(|(k, r)| self.fan(r).map(|f| (k, f)))
             .collect();
         if fans.is_empty() {

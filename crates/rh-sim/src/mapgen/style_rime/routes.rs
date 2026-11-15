@@ -58,6 +58,30 @@ impl RouteBook {
         d: &Definition,
         fixed: &FixedLayout,
     ) {
+        self.ensure_inner(b, lakes, d, fixed, None);
+    }
+    /// Signature mode (P-LAND-FROST-1): `ensure`, with the `wet` tiles walls on the walk's view (rebuilt per call, not
+    /// kept), so the routes go round the lakes instead of across them.
+    pub fn ensure_wet(
+        &mut self,
+        b: &BaseContext<'_>,
+        lakes: &[Lake],
+        d: &Definition,
+        fixed: &FixedLayout,
+        wet: &[u8],
+    ) {
+        self.view = None;
+        self.ensure_inner(b, lakes, d, fixed, Some(wet));
+        self.view = None;
+    }
+    fn ensure_inner(
+        &mut self,
+        b: &BaseContext<'_>,
+        lakes: &[Lake],
+        d: &Definition,
+        fixed: &FixedLayout,
+        wet: Option<&[u8]>,
+    ) {
         let Some(mouths) = &self.mouths else {
             return;
         };
@@ -87,6 +111,9 @@ impl RouteBook {
                 for (i, t) in tiles.iter_mut().enumerate() {
                     if b.mask[i] == 0 && fixed.painted_mask[i] == 1 {
                         *t = TILE_FLOOR;
+                    }
+                    if wet.is_some_and(|wet| wet[i] == 1) {
+                        *t = TILE_WALL;
                     }
                 }
                 self.view =

@@ -70,10 +70,12 @@ pub struct Fan {
 
 /// P-LAND-FROST-1 (owner decision 2026-11-14, "the softer reservation"): whether an entry's fan (`Spec::fan`) may be
 /// given up. `Hard`: the fan is reserved on every round and a round whose camps cannot be placed round it fails (the
-/// volcano's, owner decision of P-MAPGEN-SIG-SCALE-4). `Soft`: when a Prefix round's camp placement fails with the fan
-/// reserved, the round's camps are placed once more without it; the fan is then not reserved for the attempt (not
-/// recorded in `AttemptState::fans`). A separate field, not a `Fan` field: `tests/mapgen_signature_site_rules.rs`
-/// builds `Fan` literals. STUB: the Prefix does not read it yet.
+/// volcano's, owner decision of P-MAPGEN-SIG-SCALE-4). `Soft` (the cave's room): when a Prefix round fails with every
+/// fan reserved (a site's camp in a fan, or the camp placement), the round is tried once more with the soft fans left
+/// out: the site-camp check against the hard fans only, then the camp placement continuing the same camp stream. When
+/// that succeeds the soft fans are not reserved for the attempt (not recorded in `AttemptState::fans`, so the legacy
+/// landmark stage and the zone stylers see open ground); when it fails the round fails as today. A separate field, not
+/// a `Fan` field: `tests/mapgen_signature_site_rules.rs` builds `Fan` literals.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FanHold {
     Hard,
@@ -315,8 +317,11 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
                 elite: true,
             }),
             spawn: SpawnRule::Box,
-            fan: None,
-            fan_hold: FanHold::Hard,
+            fan: Some(Fan {
+                depth: d.cave_fan_depth,
+                side: d.cave_fan_side,
+            }),
+            fan_hold: FanHold::Soft,
             params: FeatureParams::None,
         },
         // The Holy hall (P-MAPGEN-SIG-HOLY-1): an open colonnade of 3 x 3 piers and the shrine (`#` walls), the shrine's
