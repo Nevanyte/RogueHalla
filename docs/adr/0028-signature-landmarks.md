@@ -268,8 +268,9 @@ of them. On 2026-11-12 the owner set the order and rules that tie generation tog
    (owner decision 2026-11-14, 3): the hall that is the Holy anchor's (kind `Hall`, box = footprint) has exactly one wall
    group that is not an exact 3 x 3 (the shrine); every other group is a pier; every other `Hall` keeps the rule that
    all are piers. Draws: the Holy stream's one reservation draw per Prefix round, then the stamp's one mirror draw; no
-   other. Seeds 1-64 (optimised test build): every seed keeps a map; attempts 93 / 189 (seeds 1-32 / 1-64), worst
-   attempt index 11; 4.34 spawn-pool points per map on the hall's open floor; no hall camp is an elite.
+   other. Seeds 1-64 (optimised test build): every seed keeps a map; attempts 96 / 192 (seeds 1-32 / 1-64) on the
+   tree with P-LAND-FIRE-1 merged (93 / 189 on the hall alone), worst attempt index 11 (seed 11; the oracles' bound is
+   12); 4.34 spawn-pool points per map on the hall's open floor; no hall camp is an elite.
 
 ## Measurements (seeds 1-16, `decor: false`, debug test build, macOS arm64)
 

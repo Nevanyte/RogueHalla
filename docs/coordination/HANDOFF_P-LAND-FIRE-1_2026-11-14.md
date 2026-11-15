@@ -131,7 +131,7 @@ crater on seeds 1-64 are the same 32 camps the test prints (seeds 5, 8, 9, 10 x2
     then discards the attempt (it costs an attempt rather than being avoided).
   - `craters.rs` lines 96-107: the reflowed doc comment has two broken lines.
 - **Picture:** eight seeds of the real build (Fire zone, camps with and without a crater marked) sent to the owner:
-  six maps complete, one camp without a crater on each of seeds 5 and 8, no crater within 3 tiles of lava.
+  six maps complete, one camp without a crater on each of seeds 5 and 8, no crater tile within 2 tiles (Chebyshev) of lava.
 
 ## History: the hard-rule build (same day, superseded)
 

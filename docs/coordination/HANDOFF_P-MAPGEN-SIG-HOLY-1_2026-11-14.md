@@ -1,30 +1,66 @@
-# Hand-off: P-MAPGEN-SIG-HOLY-1 (implementer-opus, 2026-11-14)
+# Hand-off: P-MAPGEN-SIG-HOLY-1 (implementer-opus, then the lane's session, 2026-11-14)
+
+**Read first (the lane's session; figures on the tree with P-LAND-FIRE-1 merged, base a5fac52eb).** The Holy site
+moves every option-on Prefix, so every option-on pin row and every landmark pin row moved. Attempts on seeds 1-32:
+94 -> 96; on seeds 1-64: 192. No seed of 1-128 is without a map. Guard values at or near a bound:
+
+| Guard | Measured | Bound | Whose |
+|---|---|---|---|
+| Worst attempt index, seeds 1-32 (every signature oracle) | 11 (seed 11; was 9) | 12 | the stack's |
+| Fire camps without a crater, seeds 1-64 (`mapgen_land_fire`) | 35 of 640 (was 32) | 40 | last set on the lane's judgment |
+| Most Fire camps without a crater on one map | 4 (seed 54; was 2) | 5 | last set on the lane's judgment |
+| Plague Large pools / near-band pools, seeds 1-32 (DEV-034 pin) | 1 / 1 (was 0 / 0) | 2 / 2 | last set on the lane's judgment |
+
+Beyond any of the last three a later packet stops and the measurement goes to the owner (the coordinator's rule,
+written into the tests' messages).
 
 ```
 PACKET:          P-MAPGEN-SIG-HOLY-1 — serves owner direction 2026-11-12 (G1-G3), owner decision 4 (2026-11-10), owner
                  decisions 2026-11-13 (way A, one 37 x 37 blueprint, two camps, 41 site, legacy elites; ADR 0028 G9) and
                  2026-11-14 (spawn points on the hall's open floor; the shrine walls exempt from the pier rule)
-BRANCH:          agent/opus/P-MAPGEN-SIG-HOLY-1 @ 938eaca48 (code; this file is the next commit)
-GATE:            not run by the implementer (targeted tests, cargo fmt --check and
-                 cargo clippy -p rh-sim --lib --tests --features trusted-status-probes -- -D warnings: green)
-CHANGED:         crates/rh-sim/src/mapgen/landmarks/signature/{mod.rs, spec.rs}
+BRANCH:          agent/opus/P-MAPGEN-SIG-HOLY-1 @ the commit that adds this block (the last code commit is 01cd99280,
+                 "clippy (range contains in the spawn-mask unit test)"; packet/P-MAPGEN-SIG-HOLY-1 @ f060a2983; base
+                 origin/feature/unity-rework @ a5fac52eb)
+GATE:            PASS (quick, --oracle packet/P-MAPGEN-SIG-HOLY-1 --base origin/feature/unity-rework) on 96c5f8838, run
+                 by the lane's session: rustfmt, clippy and tests of rh-mapdress, clippy rh-sim, the content registry,
+                 the whole rh-sim suite as CI, the parity report. [not run: the full gate (the coordinator's, on the
+                 merged tree). Run besides it: cargo test -p rh-server, 49 targets green, no Postgres.] One docs-only
+                 commit (this file, ADR 0028's figures, one sentence of the Fire hand-off) follows the gated commit.
+CHANGED:         crates/rh-sim/src/mapgen/landmarks/signature/{mod.rs, spec.rs, hall.txt (new, the stub's)}
                  crates/rh-sim/src/mapgen/attempt/mod.rs
                  crates/rh-sim/src/mapgen/zones/camps/{mod.rs, tests.rs, README.md}
                  crates/rh-sim/src/mapgen/certify/{features.rs, README.md}
                  crates/rh-sim/src/mapgen/style_sanctum/{mod.rs, README.md}
-                 docs/adr/0028-signature-landmarks.md
-                 docs/coordination/HANDOFF_P-MAPGEN-SIG-HOLY-1_2026-11-14.md
+                 docs/adr/0028-signature-landmarks.md, this file, docs/coordination/HANDOFF_P-LAND-FIRE-1_2026-11-14.md
+                 (one sentence). Packet branch (oracle, amendments, pins): tests mapgen_signature_hall.rs (new),
+                 mapgen_signature_{reserve,blueprint,table,church}.rs, mapgen_landmark_frame.rs, mapgen_land_plague.rs,
+                 mapgen_land_fire.rs, mapgen_guarantees.rs, support/signature_pins.rs, rh-mapdress tests anchor.rs /
+                 marsh.rs / sentenced_rings.rs (golden constants only), the brief
 D-RULES:         D1: option off byte-identical (pins::pinned_off, rh-mapdress OFF_GOLDEN tests green); no legacy
                  counterpart for the option-on hall (DEV-020). D2 n/a. No sim tick, wire, protocol or Unity change.
 DEVIATIONS:      none new (DEV-020 covers the option-on hall)
-SHARED RECORDS:  proposed edits: docs/DEVIATIONS.md DEV-034 (Plague known gap): seeds 1-32 now show 1 Large pool, in the
-                 near band (see "Red tests" below); the lane's session re-pins the digests listed below.
+SHARED RECORDS:  proposed edits: docs/DEVIATIONS.md DEV-034 (Plague known gap): "re-measured on P-MAPGEN-SIG-HOLY-1's
+                 maps: 1 Large pool, in the near band, on one map of seeds 1-32 (a chance fit, as 2 of 96 maps before
+                 the volcano); the direction is still not delivered; the pin is a ceiling of 2 and 2".
+                 docs/OWNER_DECISIONS.md: a row "2026-11-14, the Holy hall: spawn points allowed on its open floor
+                 (off walls, 3 tiles clear of the shrine's light); the shrine's walls exempt from the 3 x 3 pier rule;
+                 taken in the land-generation session's chat ('Yea to all 3')"
 LEGACY DOUBTS:   none
-NOT ESTABLISHED: time per map before (stub) was not measured on the same machine run; the other zones' land reports
-                 before/after were not compared (their floor tests are green); seeds beyond 128; the owner's picture.
-RISKS:           the Holy styler's share of the zone outside the site is 0.006 (median) — its hall was its fill (owner's
-                 call, numbers below); mapgen_land_plague's known-gap pin flipped (1 Large near-band pool).
+NOT ESTABLISHED: the full gate; time per map before (stub) on the same run; the other zones' land reports before and
+                 after (their floor tests are green; the Plague report is in the lane's section); seeds beyond 128;
+                 which reading of "3 tiles clear of the shrine" the owner meant (the build and the measurement use the
+                 shrine's light: see the lane's section)
+RISKS:           the Holy styler's share of the zone outside the site is 0.006 (median): its hall was its fill (told to
+                 the owner; nothing decided); the worst attempt 11 against 12 will be the Frost room packet's tightest
+                 bound; the review's structural note (below) should land before that packet.
 ```
+
+**Note on the figures below:** the implementer measured on the hall alone, before it was stacked on P-LAND-FIRE-1
+(attempts 93 / 189, worst 11). On the merged tree: 96 / 192, worst 11 (seed 11); refusals on seeds 1-64: Signature
+45, Prefix 28, Repair(RadiusPost) 20, lake-at-mouth 17, SpawnRatio 12, SignatureDiscarded 3, SpawnPool 2,
+Repair(FloorShare) 1; spawn-pool points on the hall's open floor 278 on seeds 1-64 (4.34 per map); hall camps that are
+elites 0; Holy share medians as below. Where the sections below say "1-32" beside the spawn-point figures, the figures
+are for seeds 1-64.
 
 ## What was built (against the brief's design items)
 
@@ -162,3 +198,61 @@ Seeds 1-8, accepted attempt index (for the owner's picture): 1:1, 2:0, 3:1, 4:0,
 - The prototype's `*` was a plain glyph; the oracle wants it a mark (it is one here).
 - `relabelled_zones()` stays [Sentenced, Frost] (the church oracle pins its length); the Holy relabel is by zone.
 - The attempt README has no section on the signature reservation, so it was not edited.
+
+## Gate, pins and review (the lane's session, 2026-11-14)
+
+- **Gate:** as the block says (output in the session's scratchpad, `verify/hall_gate.txt`).
+- **Pins re-taken from this build on the tree with P-LAND-FIRE-1 merged** (`re-pin:` commit on the packet branch,
+  constants only; `scratchpad/repin.py` runs the three printers):
+
+  | Expectation | Old | New |
+  |---|---|---|
+  | `signature_pins.rs` `pinned_on_maps` (seeds 1-32, option on) | 94 attempts, worst 9 (seeds 22, 30) | all 32 rows moved; kept attempt changed on 14 seeds (7: 2->3, 8: 1->2, 9: 2->3, 11: 0->11, 13: 3->1, 14: 1->0, 16: 2->8, 18: 7->5, 22: 9->5, 23: 4->0, 24: 4->1, 26: 7->5, 29: 1->3, 30: 9->7); 96 attempts, worst 11 (seed 11), then 8 (seed 16), 7 (seed 30) |
+  | `signature_pins.rs` `pinned_landmarks` (seeds 1-16, attempts 0 and 1) | | all 32 rows moved (the Landmarks phase now places the hall; the Holy site moves the Prefix) |
+  | `mapgen_guarantees.rs` `pinned_labels` | 62 refusals over seeds 1-32 | 17 seeds' rows changed; 64 refusals: Signature 22, Prefix 16, Repair(RadiusPost) 11, lake-at-mouth 6 (unchanged), SpawnRatio 5, SpawnPool 2, SignatureDiscarded 1, Repair(FloorShare) 1 |
+  | `rh-mapdress` `NO_ANCHOR_GOLDEN` / `SIG_GOLDEN` / `NO_ORIGIN_GOLDEN` | | 4 of 4 / 16 of 16 / 4 of 4 values |
+  | `pinned_off`, the rh-mapdress option-off goldens | | unchanged |
+
+- **Oracle amendments after the build** (the lane's session, each an `oracle-amend:` commit):
+
+  | Test | Old | New | Why |
+  |---|---|---|---|
+  | `mapgen_land_plague.rs` `known_gap_no_large_pool_and_no_pool_near_the_tree_on_seeds_1_to_32` (DEV-034) | exactly 0 Large pools and 0 near-band pools | at most 2 and 2 | the hall's maps hold 1 and 1: one Large pool of 240 tiles in the near band on one map of 32, a chance fit (2 of 96 maps before the volcano). **The owner's direction "three sizes, large near the tree" is still NOT delivered.** Beyond 2 the packet stops and the owner decides |
+  | `mapgen_land_fire.rs` gap ceiling comment and message | "no more camps bare than today's game" | "40, about 1 camp in 16; not 'no worse than today'" | 37 to 40 would pass; measured 32 on Fire's maps, 35 here; today's game 36 |
+  | `mapgen_land_fire.rs` `worst_map_allowed` | 4 | 5 | measured 4 (seed 54) here; a guard, not the owner's figure; the last raise on the lane's judgment |
+  | `mapgen_land_fire.rs` `at_band_option_min` | 0.9 | 0.98 | measured 1.0 (302 of 302, 304 of 304); now printed (the coordinator's review of P-LAND-FIRE-1) |
+
+  Plague on seeds 1-32, option on, before (Fire merged) and after (the hall): pools 64 -> 67; styler bog 4,636 ->
+  4,751 tiles (median per map 131 -> 120.5); largest pool 171 -> 240; Large pools 0 -> 1; near-band pools 0 -> 1;
+  bog share on/off, median ratio 0.48 -> 0.53; free ground on, median 3,568 -> 3,572.5.
+- **Owner-directed tests:** none passes on a few seeds only. The spawn-point decision is pinned by "none on a wall or
+  the light or within 3 tiles of the light" on seeds 1-128 and "at least 32 pool points on the hall's open floor on
+  at least 8 maps" (measured about 139 on seeds 1-32).
+- **"3 tiles clear of the shrine":** the owner's words, from the lane's question. The measurement behind the question
+  and this build keep spawn points 3 tiles (Chebyshev) from the shrine's **light**, which is the shrine's own box plus
+  one row in front and one behind: a spawn point may stand one tile outside the shrine's side wall. Reported to the
+  owner with the picture; if the owner means the shrine's walls, the mask grows and the spawn pool is measured again.
+- **Review:** reviewer-opus on 96c5f8838: **LAND WITH NOTES**, one note, structural; no behaviour defect, no broken
+  guarantee.
+  - **Note 1 (becomes P-MAPGEN-SIG-HOLY-1-fix, a refactor guarded by the digests):** the hall's site and spawn rules
+    are Holy special cases, not table data: `reserve` branches on `Zone::Holy` for the side and the camps, `write`
+    branches on `FeatureKind::Hall` for the spawn mask and the params, and the mask finds the light as "any written
+    floor with terrain", not by its glyph. Smallest fix: three `spec::Spec` fields (`site_side`, `site_camps`, a
+    `spawn` rule) that `reserve` and `write` read; no map moves. It should land before the Frost room packet, which
+    adds its own site exception in the same function, and which must not test a site's own camps against its own fan
+    (`fan_holds_a_site_camp` now reads every fan against every site camp).
+- **Minor, not notes** (the reviewer's list; no packet; the comment fixes ride with the fix packet):
+  - `signature/mod.rs`: the new `hall_marks` doc was inserted inside `inside_camp`'s doc comment.
+  - `certify/features.rs`: the exemption could require the one non-pier group to enclose the hall's light tiles (it
+    accepts one non-pier group of any shape; the generator cannot produce another, `intact` checks every owned tile).
+  - `reserve` does not itself refuse a square whose `E` tiles are not legal camp tiles; `place_camps_reserving` fails
+    the round instead (it looks unreachable; the doc should say so).
+  - `relabelled_zones()` says Sentenced and Frost only, yet Holy is relabelled through a zone test; its doc should
+    mention Holy. `landmark_kind()`'s wording omits `Hall` (only T5 reads it).
+  - Fire `worst_map_allowed` 4 to 5 was not needed by this tree's measurement (4 would pass).
+  - `certify/README.md`, `zones/camps/README.md` and `zones/camps/tests.rs` are docs and tests of in-scope modules,
+    outside the literal write scope.
+  - A failed entrance-glyph check makes every Prefix round fail for Holy (refused at the Prefix, not at the stamp).
+- **Picture:** eight seeds of the real build (Holy zone: piers, shrine, light, the two hall camps, spawn points
+  inside and outside the hall) sent to the owner: 32 exact piers and one shrine on every map, 4 to 6 spawn points on
+  the hall's open floor, none on a wall, on the light or within 3 tiles of it.
