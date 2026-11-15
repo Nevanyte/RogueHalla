@@ -63,3 +63,12 @@ files are unchanged on this base. Move the two flow files to `Net/Ui/`.
 - `ServerTimeMs` and `ReadyAt` are doubles.
 
 ## Notes from previous attempts
+
+## Oracle evidence (oracle-author, 2026-11-15)
+- Stub commit: `TutorialFlow`, `TutorialObserver`, `TutorialObservation`/`TutorialTarget`, `AccountTutorialState`, `AccountFullProfile.Tutorial/TutorialDue`, `AccountMutationKind.Tutorial` and a `SaveTutorialAsync` that returns `NoOwner`; synced copies with `.meta` files. `AccountFullJson.cs` is untouched by the stub, so the implementer adds `OptionalTutorial` parsing and the `EncodeMutation` tutorial body there (write scope above).
+- `dotnet test client-unity/RoguehallaNet.Tests` on `packet/P-TUTORIAL-2`: builds; Failed 13, Passed 2143, Total 2156. Every failure is an assertion in a new oracle test:
+  TutorialFlowTests (10): WelcomeAdvancesOnlyOnExplicitStartNeverOnObservations, MoveNeedsTheOwnPositionInsideTheRingAimedAtTheRack, PickupDoesNotAdvanceWithoutAWeaponChange, HitNeedsALandedHitOnTheDummy, SwapNeedsTwoWeaponsAndAnActiveSlotChange, WishNeedsANewCastNotAWishAlreadyOnCooldown, FullPlaythroughReachesDone, ResumeClampsAndRestartReturnsToWelcome, SkipStopsEvaluationAndRestartRevivesIt, CopyKeepsKeyPlaceholderForTheUiToFill;
+  AccountApiServiceTests (2): SaveTutorialPostsTheTripleToTheTutorialRouteWithTheOwnerTokenAndLeavesNothingPending, SaveTutorialFailuresAreResultCodesNeverThrows;
+  AccountFullJsonTests (1): TutorialFieldsAreOptionalAndParsedWhenPresent.
+- `bash client-unity/sync-net.sh --check`: clean. `scripts/gate.sh --oracle-check`: GATE FAIL "no Rust crate changed" (it cannot judge C# oracles; expected).
+- Changes against the prior implementation's tests: the Wish copy test now asserts the exact string "Press {wish} to cast your Wish (click to place it if it aims)"; the two SaveTutorial tests and the JSON test gained a guard assertion (request count, `Tutorial` not null) so the stubs fail on an assertion rather than an exception. No existing test was changed (additions only).
