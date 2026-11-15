@@ -53,3 +53,15 @@ Low; small presentation fix. Unity code uncompiled here.
 - `Flow.Skip()` is a no-op when Done, but `SkipTutorial` still saves "skipped": the Close path must not reuse it.
 
 ## Notes from previous attempts
+
+## Rule surface (stubbed in `TutorialMarkerRules`, implementer fills in)
+- `DoneCardVisible(confirmedPractice, windowFocused, higherPanelVisible, flowDone, doneDismissed)` = confirmedPractice && windowFocused && !higherPanelVisible && flowDone && !doneDismissed.
+- `ShouldArm(launchStarted)` = launchStarted. Use it in `StartTutorialFromWelcome` and `ReplayTutorial` before arming and saving "step".
+- `StepLabel(7, 5, copy, key)` already returns the copy alone (pinned, passes today). Close must only set a dismissed flag, never Skip or save "skipped".
+
+## Oracle evidence
+- Oracle file: `client-unity/RoguehallaNet.Tests/TutorialMarkerRulesFixTests.cs` (4 tests). The existing `TutorialMarkerRulesTests.cs` is untouched.
+- `dotnet test client-unity/RoguehallaNet.Tests` builds: Failed 2, Passed 2166, Total 2168.
+- Red on assertions: `ArmingRequiresAStartedLaunch` (expected False, was True) and `DoneCardShowsInPracticeAfterCompletionUntilClosed` (expected True, was False).
+- Green against the stubs by design (negative guards): `DoneCardHidesWhenPracticeEndsOrIsCoveredOrUnfocused`, `DoneCardShowsTheCopyAloneWithoutStepPrefix`.
+- `bash client-unity/sync-net.sh --check`: up to date.
