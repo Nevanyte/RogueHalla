@@ -786,6 +786,12 @@ async fn a_full_spool_falls_back_to_memory_retry_loudly_and_loses_nothing() {
         files(&dir, ".rec").is_empty()
     })
     .await;
+    // The row count reaches 2 before the director's own counter is bumped: wait for the counter, bounded, rather
+    // than read it the instant the database catches up (it read 1 once under a loaded, nearly full disk).
+    wait_until("both counted as committed", 10, || async {
+        info(&d, "committed") == 2
+    })
+    .await;
     assert_eq!(info(&d, "committed"), 2);
     db.reconcile_clean().await;
     db.drop_db().await;
