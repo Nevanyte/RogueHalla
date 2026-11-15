@@ -283,10 +283,11 @@ else bad "fail fast (rc=$rc)" "$out"; fi
 if grep -qE "if has '[^']*\^docs/unity/[^']*'; then unity_tool_tests; fi" "$SRC/scripts/gate.sh"; then ok "quick mode: a change under docs/unity/ runs the Unity tool tests (the docs tests)"
 else bad "quick mode docs selection" "the quick-mode line that runs unity_tool_tests does not select ^docs/unity/"; fi
 
-# Quick mode runs the card provenance audit when a tool, a card corpus or the web client changes; full mode always
+# Quick mode runs the card provenance audit always (half a second), and says what to do when it is red; full mode always
 # (it heads the cheap area checks, so --list-steps shows it; P-CI-GREEN-1).
-if grep -qF "if has '^tools/|^parity/card-catalog/|^parity/card-runtime/|^parity/card-runtime-witness/|^crates/rh-server/web/'; then provenance_audit; fi" "$SRC/scripts/gate.sh" \
-  && grep -qE '^cheap_area_checks\(\) \{ provenance_audit;' "$SRC/scripts/gate.sh"; then ok "the card provenance audit runs in full mode always and in quick mode for tools/, the card corpora and the web client"
+if sed -n '/^if \[\[ "\$MODE" == quick \]\]; then$/,/^fi$/p' "$SRC/scripts/gate.sh" | grep -qE '^  provenance_audit$' \
+   && grep -qF 'Do not edit a pin. Stop, name the file in the hand-off' "$SRC/scripts/gate.sh" \
+  && grep -qE '^cheap_area_checks\(\) \{ provenance_audit;' "$SRC/scripts/gate.sh"; then ok "the card provenance audit runs in both modes always and tells the reader what to do when it is red"
 else bad "provenance audit selection" "gate.sh does not select provenance_audit in both modes"; fi
 
 echo
