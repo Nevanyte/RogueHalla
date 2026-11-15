@@ -4,6 +4,41 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integration 50 (2026-11-14, evening): the Holy hall; the pull request's CI
+
+Integration branch `feature/unity-rework` @ `a5fac52eb` on origin (integration 49: full gate green; P-LAND-FIRE-1).
+The live host is unchanged on `2f33045d6`.
+
+Staged as `coord/int-50`: **P-MAPGEN-SIG-HOLY-1** (map generator session, `4abed9ba4`; the coordinator's
+reviewer-opus: LAND WITH NOTES, one structural note). With the option on, Holy's landmark is one fixed 37 x 37
+drawing on a 41-tile site: an open colonnade of 32 piers, a shrine with its light, and two of Holy's ten camps on the
+nave (the elites follow legacy's rule); spawn points may stand on the hall's open floor, never on a wall, at least 7
+tiles from a camp and 3 tiles (Chebyshev) from the light; the shrine's walls are exempt from the certifier's pier
+rule only on a map that has the hall's anchor. Option-off maps are byte-identical (the certifier's rule is the same
+test for legacy halls; no anchor exists with the option off). Every option-on pin row and every landmark row moved.
+Wire unchanged: the Holy anchor's 7 entrance tiles fit the cap; the client's `HallLandmark` was built for this
+drawing and its tests pin the same counts; the content hash does not move.
+**Guards at or near a bound** (that session's figures): worst attempt index on seeds 1 to 32 is 11 against 12 (seed
+11: attempts 0 to 10 refused for mixed reasons; about 7 percent of Holy site searches find no 41-tile square), so the
+next map-moving packet will probably hit it; Fire camps without a crater 35 of 640 against 40; worst single map 4
+against 5; the Plague pin 1 and 1 against 2 and 2. The last three carry, in their messages, the rule agreed with the
+coordinator: beyond them the packet stops and the owner decides.
+**Reported, not decided:** outside the hall the Holy zone is now almost bare (about 0.6 percent of its free ground
+filled against about 21 percent before: the old procedural temple was its main fill). **For a Web round:** the
+client's `TempleLayout` finds "a dense pillar hall" from tiles and may lay its golden-temple ground, props and portals
+over `HallLandmark`'s art (an overlap that already existed with the old hall); not seen in a render. Repair
+(`RadiusPost`) refusals rose from 8 to 20 on seeds 1 to 64, cause not analysed. The structural note
+(P-MAPGEN-SIG-HOLY-1-fix: the hall's site and spawn rules as table data) is in progress in that lane and lands before
+the Frost room.
+
+**The pull request's CI (Nevanyte/RougeHalla#65) is red, and has been on this branch for days:** `provenance` (five
+pinned checksums of tool files stale since their last refresh on 2026-11-08; because `rust`, `simulation`, `csharp`
+and `card-runtime-source` need it, CI has been skipping the real suites), `report-contract` (the frozen protocol-14
+proof cannot run against a protocol-18 probe; the gate excludes it, CI did not), `perfproof` (the merge-base with
+`main` predates `parity/maps/seed1.map.json`; it cannot pass on this pull request). No branch protection requires
+them. P-CI-GREEN-1 is in progress: refresh the pins by the documented route, add the audit to the gate, drop the
+frozen proof from CI, and run locally what the unblocked jobs run that the gate does not.
+
 ## Integration 49 (2026-11-14, after the launch): the pull request; Fire craters
 
 Integration branch `feature/unity-rework` @ `91af8942f` on origin (integration 48: full gate green, 22 steps: the
