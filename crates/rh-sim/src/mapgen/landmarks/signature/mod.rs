@@ -519,6 +519,13 @@ impl<'f> SignatureContext<'f> {
     }
 
     pub fn from_definition(fixed: &'f FixedLayout, d: &Definition) -> Self {
+        Self::from_table(fixed, d, spec::specs(d))
+    }
+
+    /// P-MAPGEN-SIG-HOLY-1-fix: the context of definition `d` with the per-landmark table `table` in place of
+    /// `spec::specs(d)` (`from_definition` passes that): the seam through which a test runs the reservation, the stamp,
+    /// the write and the fans on a doctored entry. `table` keeps `reserved_zones` order, one entry per zone.
+    pub fn from_table(fixed: &'f FixedLayout, d: &Definition, table: Vec<spec::Spec>) -> Self {
         let sd = spawns::DEFAULT_DEFINITION;
         let road = u16::from(crate::mapgen::coliseum::default_definition().ring_road)
             + u16::from(sd.landmark_road_margin);
@@ -553,7 +560,6 @@ impl<'f> SignatureContext<'f> {
             },
             "signature: the definition's terrain codes are not the catalog's"
         );
-        let table = spec::specs(d);
         let mut owned: Vec<(FeatureKind, Owned)> = volcano::owned(&codes);
         for s in table.iter().filter(|s| s.drawing.is_some()) {
             for g in &s.legend.0 {
@@ -624,6 +630,20 @@ impl<'f> SignatureContext<'f> {
         &self.rules
     }
 
+    /// P-MAPGEN-SIG-HOLY-1-fix: the fan of reserved site `r` as its table entry says (`spec::Spec::fan`), inclusive
+    /// (x0, y0, x1, y1) clipped to the map; `None` for an entry without a fan. The Prefix records these
+    /// (`AttemptState::fans`). Stub: today's Fire-only `fan(r, definition)`.
+    pub fn fan(&self, r: &ReservedSite) -> Option<(usize, usize, usize, usize)> {
+        fan(r, &self.rules)
+    }
+
+    /// P-MAPGEN-SIG-HOLY-1-fix: whether the certifier's halo of a camp a reserved site carries (`camp`, `extra`) reaches
+    /// into another site's fan (`fan`); a site's own camps are not tested against its own fan. Stub: today's
+    /// `fan_holds_a_site_camp(reserved, definition)`, which tests every camp against every fan.
+    pub fn fan_holds_a_site_camp(&self, reserved: &[ReservedSite]) -> bool {
+        fan_holds_a_site_camp(reserved, &self.rules)
+    }
+
     /// P-MAPGEN-SIG-BLUEPRINT-2 (review finding 6): the terrain codes this context writes and checks for the bog, the
     /// lava, the ember and the ice: the terrain catalog's (`catalog_codes`), looked up by key when the context is built.
     pub fn terrain_codes(&self) -> TerrainCodes {
@@ -651,7 +671,7 @@ impl<'f> SignatureContext<'f> {
 
     /// P-MAPGEN-SIG-RESERVE-1: each reserving zone's signature stream, `hash_seed(seed, attempt, zone slot, stream)`, in
     /// `reserved_zones` order: the streams the Landmarks phase draws from, begun in the Prefix.
-    pub(crate) fn streams(
+    pub fn streams(
         &self,
         seed: i64,
         attempt: u64,
@@ -682,7 +702,7 @@ impl<'f> SignatureContext<'f> {
     /// candidates, the zone's one draw of the round on its stream; without a candidate, Plague takes the deepest square
     /// still beyond its centroid (largest centre distance, first in row order), drawing nothing. `None` when a zone has
     /// no square: the round fails as a camp failure does. Draws only from `streams` (`reserved_zones` order).
-    pub(crate) fn reserve(
+    pub fn reserve(
         &self,
         zone: &[u8],
         order: &[FactionId],

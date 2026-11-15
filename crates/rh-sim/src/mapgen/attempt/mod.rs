@@ -79,6 +79,16 @@ impl<'f> AttemptContext<'f> {
         self.sites = SignatureContext::from_definition(self.fixed, d);
         self
     }
+    /// P-MAPGEN-SIG-HOLY-1-fix: as `with_signature`, with the per-landmark table `table` in place of
+    /// `signature::spec::specs(d)` (`SignatureContext::from_table`): a test seam for a doctored table entry.
+    pub fn with_signature_table(
+        mut self,
+        d: &crate::mapgen::landmarks::signature::Definition,
+        table: Vec<crate::mapgen::landmarks::signature::spec::Spec>,
+    ) -> Self {
+        self.sites = SignatureContext::from_table(self.fixed, d, table);
+        self
+    }
     /// The signature definition the reservation reads.
     pub fn signature_definition(&self) -> &crate::mapgen::landmarks::signature::Definition {
         self.sites.definition()
