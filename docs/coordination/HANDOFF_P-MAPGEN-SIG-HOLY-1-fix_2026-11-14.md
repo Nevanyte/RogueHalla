@@ -2,9 +2,9 @@
 
 ```
 PACKET:          P-MAPGEN-SIG-HOLY-1-fix — serves the review note of P-MAPGEN-SIG-HOLY-1 (note 1) and ADR 0028 (the per-landmark table is the landmark contract)
-BRANCH:          agent/sonnet/P-MAPGEN-SIG-HOLY-1-fix @ see `git log -1` (the hand-off commit follows fe50d738e)
-GATE:            not run by the implementer (targeted tests and clippy below; scripts/gate.sh not run, as instructed)
-CHANGED:         crates/rh-sim/src/mapgen/landmarks/signature/{mod.rs,spec.rs,volcano.rs}, crates/rh-sim/src/mapgen/attempt/mod.rs, this file
+BRANCH:          agent/sonnet/P-MAPGEN-SIG-HOLY-1-fix @ the commit that adds the section "Gate and review" (last code commit: "doc fixes (relabelled_zones, landmark_kind, reserve, module ...)"; packet/P-MAPGEN-SIG-HOLY-1-fix; rebased by the lane's session onto the coordinator's staging head)
+GATE:            PASS (quick, --oracle packet/P-MAPGEN-SIG-HOLY-1-fix --base coord/int-51) on 1311cb07e over coord/int-51 @ 42a25051a, run by the lane's session: path checks, rustfmt, the card provenance chain, the staging preparation pins, clippy rh-sim, the content registry, the whole rh-sim suite as CI, the parity report. [not run: the full gate (the coordinator's); rh-mapdress and rh-server are not in the changed crates: the implementer ran cargo test -p rh-mapdress green.] One docs-only commit (this file, ADR 0028 decision 14) follows the gated commit.
+CHANGED:         crates/rh-sim/src/mapgen/landmarks/signature/{mod.rs,spec.rs,volcano.rs}, crates/rh-sim/src/mapgen/attempt/mod.rs, this file; docs/adr/0028-signature-landmarks.md (decision 14, added by the lane's session)
 D-RULES:         D1 none (no generated map moves: every pin and golden green, unedited) · D2 n/a · D5/D6/D9 none (no draw, wire, save, hash or content-hash change; no new const/static)
 DEVIATIONS:      none
 SHARED RECORDS:  proposed edits: docs/adr/0028-signature-landmarks.md (outside this packet's write scope, so not edited): in decision 12/13 add "The per-landmark table `spec::Spec` carries the site's side (`site_side`), its camps and whether the first is the zone's elite (`site_camps`), the spawn rule (`spawn`: `Box` or `OpenFloor { clear_of, by }`), the fan (`fan`) and the own feature's params (`params`); `reserve`, `write`, `fan` and `fan_holds_a_site_camp` read the entry, no zone or kind branch decides them." There is no signature README in the tree; the module doc of `signature/mod.rs` says it now.

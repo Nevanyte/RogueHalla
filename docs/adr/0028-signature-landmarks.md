@@ -272,6 +272,15 @@ of them. On 2026-11-12 the owner set the order and rules that tie generation tog
    tree with P-LAND-FIRE-1 merged (93 / 189 on the hall alone), worst attempt index 11 (seed 11; the oracles' bound is
    12); 4.34 spawn-pool points per map on the hall's open floor; no hall camp is an elite.
 
+14. **The table carries each landmark's site rules** (P-MAPGEN-SIG-HOLY-1-fix, the review note of the hall packet).
+   `spec::Spec` holds, beside the drawing and its legend: the reserved site's side (`site_side`), the glyph that pins
+   the site's camp or camps and whether they are the zone's elites (`site_camps`), the spawn rule (`spawn`: the whole
+   box and its apron closed, or the open floor allowed with a glyph's tiles and their surroundings closed), the
+   reserved ground in front of the site (`fan`: depth and side; only Fire has one today) and the feature's params
+   (`params`). `reserve`, `write`, `fan` and `fan_holds_a_site_camp` read the entry: no zone or feature kind decides
+   them, the hall's light is found by its glyph, and a site's own camps are not tested against its own fan. A new
+   landmark fact of these kinds is one table line. No generated map moved (every pin and golden unchanged).
+
 ## Measurements (seeds 1-16, `decor: false`, debug test build, macOS arm64)
 
 Option off: one attempt on every seed, 260-370 ms per certified map. Option on: every seed gives a map with one tree,
