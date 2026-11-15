@@ -6,11 +6,6 @@
     "bytes": 87296,
     "sha256": "2c9e0b9b562752ec907fe8ffa0e67986e6f6005a11c744f657fd67863de6e7cd"
   },
-  "currentDoc": {
-    "path": "docs/CONTRACTS.md",
-    "bytes": 88542,
-    "sha256": "456652ccc0b8441f39464513fdf31843b9882e0bcece44958e7d620a987d359a"
-  },
   "image": "node@sha256:aaa4b5baf1ecff3b283486bb1f90405cdda225a3e6f79660d2c559fa510a7292",
   "platform": "linux/amd64",
   "witnesses": {

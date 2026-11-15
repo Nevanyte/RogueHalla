@@ -119,7 +119,10 @@ def main():
     require(m["format"] == "npc-witness-historical-doc-context/1", "context format")
     snapshot = plain(repo / m["historicalDoc"]["path"])
     check_pin(repo, m["historicalDoc"])
-    check_pin(repo, m["currentDoc"])
+    # The live docs/CONTRACTS.md is a status record that changes at most integrations; the witness never reads it (the
+    # frozen historical copy is mounted over it), so it is recorded in the receipt, not pinned (P-CI-GREEN-2).
+    live = (repo / "docs/CONTRACTS.md").read_bytes()
+    current_doc = dict(path="docs/CONTRACTS.md", bytes=len(live), sha256=sha(live), pinned=False)
     w = m["witnesses"][a.witness]
     inventories(repo, w)
     for p, pin in w["pins"].items():
@@ -145,7 +148,7 @@ def main():
     docker = [str(executable), "--config", str(out / "empty-docker-config"), "--host", f"unix://{socket}"]
     name = "rh-npc-context-" + uuid.uuid4().hex
     argv = docker + docker_args(repo, out, snapshot, m["image"], name, w["script"], uid, gid)
-    receipt = dict(format="npc-historical-context-run/1", status="ERROR", witness=a.witness, code=a.expected_code_sha, contextSha256=sha((HERE / "context.json").read_bytes()), historicalDoc=m["historicalDoc"], currentNormativeDoc=m["currentDoc"], argv=argv, timeoutSeconds=a.timeout, network="default Docker network for locked npm only; no host credentials/config/cache", started=time.time())
+    receipt = dict(format="npc-historical-context-run/1", status="ERROR", witness=a.witness, code=a.expected_code_sha, contextSha256=sha((HERE / "context.json").read_bytes()), historicalDoc=m["historicalDoc"], currentNormativeDoc=current_doc, argv=argv, timeoutSeconds=a.timeout, network="default Docker network for locked npm only; no host credentials/config/cache", started=time.time())
     child = None
     try:
         image = subprocess.check_output(docker + ["image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", m["image"]], env=ENV, timeout=15).decode().strip()
