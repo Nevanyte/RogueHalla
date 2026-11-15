@@ -55,6 +55,23 @@ Packets are named `P-LAND-<ZONE>-<n>`. Order: Sentenced, Plague, Frost; Fire aft
   400 tiles (give or take 15%), on the line from the coliseum to the mouth, 3 dry tiles between mouth and shore, and
   always one dry way round it to the mouth at least 3 wide. One smaller second lake elsewhere. This aims at the
   `SignatureDiscarded` attempts you measured.
+  - *Owner decision 2026-11-14 (P-LAND-FROST-1), answered "Yes to both":* "build it first in front of the cave mouth,
+    with the softer ground reservation, as targets that never cost a map?" Measured as hard guarantees the rule cannot
+    hold (at best 45 of 64 seeds kept a map; a hard room loses seed 70 of 1-128), so its parts (size, gap, line, dry
+    way, second lake) are **targets**: built for on every map, measured, reported, never a reason to refuse a map.
+    Frost's guarantee list stays `lake-at-mouth`. The cave's table entry reserves a **soft** room in front of the site
+    (24 deep, the inner rect's width): when a Prefix round's camps cannot be placed with it, they are placed once more
+    without it and the room is not reserved for that attempt. Every map keeps a lake at the mouth (the build falls back
+    to today's growth when the built-first lake comes out empty). Measured on the decided prototype (option on, seeds
+    1-128; today's game in brackets): 128 maps (128), worst attempt 10 (11); lake of 340-460 tiles on 46 (30), median
+    305.5 (254); exactly 3 dry tiles on 111 (0); centroid within 4 of the line on 90 (81); a dry way 3 wide on 124 (48);
+    one smaller second lake on 104 (37); stray ice on 0 (56); the whole rule on 25 (0); ice share against option off,
+    median over seeds 1-32, 0.810 (0.639). The ice share is at the edge of "within about a fifth": a build under 0.8
+    stops and goes to the owner.
+- **Holy.** *Owner decision 2026-11-14:* the ground outside the hall stays open, as today: nothing is added there. The
+  Holy styler's fill outside the hall's site is about 0.4 to 0.6 percent of the zone's free ground, before and after
+  the hall packet (the 21 percent measured before was the styler's own hall). "Every zone: about today's share" is read
+  for Holy as today's share outside its landmark.
 - **Fire** (`style_scorch/`). Craters keep clear of all three streams. **Every Fire camp keeps its crater**; size falls
   with distance and none is dropped. This answers your open question (section 6, fourth item).
   - *Owner decision 2026-11-14 (P-LAND-FIRE-1):* "land the gentler rule now, with craters guaranteed clear of lava,
