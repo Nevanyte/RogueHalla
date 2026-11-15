@@ -671,12 +671,7 @@ impl<'f> SignatureContext<'f> {
 
     /// P-MAPGEN-SIG-RESERVE-1: each reserving zone's signature stream, `hash_seed(seed, attempt, zone slot, stream)`, in
     /// `reserved_zones` order: the streams the Landmarks phase draws from, begun in the Prefix.
-    pub fn streams(
-        &self,
-        seed: i64,
-        attempt: u64,
-        order: &[FactionId],
-    ) -> Option<Vec<Mulberry32>> {
+    pub fn streams(&self, seed: i64, attempt: u64, order: &[FactionId]) -> Option<Vec<Mulberry32>> {
         reserved_zones()
             .iter()
             .map(|&z| {
