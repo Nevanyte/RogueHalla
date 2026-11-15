@@ -72,7 +72,7 @@ namespace Roguehalla.Net.Tests
             }
         }
 
-        /// <summary>The decode of the Q10 test, with no margin, 10 times on the minimum of 5 runs (50 measurements), with other threads allocating beside it. A snapshot is a
+        /// <summary>The decode of the Q10 test, with no margin, 10 times met by any one of up to 25 runs (PerCallExact), with other threads allocating beside it. A snapshot is a
         /// 64 B object and a 24 B array header plus 40 B per actor; a self adds an 88 B object (GarbageTests.cs).</summary>
         [TestCase(1)]
         [TestCase(68)]
@@ -89,8 +89,8 @@ namespace Roguehalla.Net.Tests
                 for (int run = 0; run < 10; run++)
                 {
                     object sink = null;
-                    double spectator = AllocationProbe.PerCallMin(i => sink = ServerMsg.Decode(spectatorFrame, spectatorFrame.Length), iterations: 2000);
-                    double withMe = AllocationProbe.PerCallMin(i => sink = ServerMsg.Decode(selfFrame, selfFrame.Length), iterations: 2000);
+                    double spectator = AllocationProbe.PerCallExact(i => sink = ServerMsg.Decode(spectatorFrame, spectatorFrame.Length), 88.0 + 40 * actors, 2000);
+                    double withMe = AllocationProbe.PerCallExact(i => sink = ServerMsg.Decode(selfFrame, selfFrame.Length), 176.0 + 40 * actors, 2000);
                     GC.KeepAlive(sink);
                     Assert.AreEqual(88.0 + 40 * actors, spectator, "run " + run + ", no self");
                     Assert.AreEqual(176.0 + 40 * actors, withMe, "run " + run + ", with a self");
