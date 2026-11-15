@@ -327,7 +327,9 @@ async fn claim_open_and_token_rules() {
             "gvLifetime",
             "name",
             "progress",
-            "stats"
+            "stats",
+            "tutorial",
+            "tutorialDue"
         ]
     );
 

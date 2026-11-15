@@ -71,6 +71,7 @@ async fn without_a_database_profile_routes_answer_503_and_health_works() {
         ("GET", "/api/profile/alpha"),
         ("POST", "/api/profile/alpha/purchase"),
         ("POST", "/api/profile/alpha/equip"),
+        ("POST", "/api/profile/alpha/tutorial"),
         ("GET", "/api/leaderboard"),
     ] {
         let r = http::request(addr, m, p, &[], None).await;
