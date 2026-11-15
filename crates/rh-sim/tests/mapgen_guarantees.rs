@@ -202,78 +202,62 @@ const FLOOR_SHARE: &str = "Repair(FloorShare)";
 /// option-on Prefix. 64 refusals over seeds 1-32 (96 attempts): `Signature` 22, `Prefix` 16, `Repair(RadiusPost)` 11,
 /// lake-at-mouth 6, `SpawnRatio` 5, `SpawnPool` 2, `SignatureDiscarded` 1, `Repair(FloorShare)` 1; worst attempt 11
 /// (seed 11).
+///
+/// Re-pinned by P-LAND-FROST-1 (2026-11-14) with `print_pinned_labels`: the cave's softly reserved room moves the
+/// Prefix on most attempts and the lake is built first. 65 refusals over seeds 1-32 (97 attempts): `Prefix` 21,
+/// `Signature` 15, `Repair(RadiusPost)` 15, `SpawnRatio` 5, `SignatureDiscarded` 3, `SpawnPool` 3, lake-at-mouth 2
+/// (was 6), `Repair(FloorShare)` 1; worst attempt 10 (seed 16).
 fn pinned_labels() -> [(i64, &'static [&'static str]); 32] {
     [
-        (1, &[LAKE]),
-        (2, &[]),
+        (1, &[SIG]),
+        (2, &[FLOOR_SHARE, SIG]),
         (3, &[PREFIX]),
-        (4, &[]),
+        (4, &[SD]),
         (5, &[]),
         (6, &[]),
-        (7, &[SIG, SPAWN_RATIO, PREFIX]),
-        (8, &[RADIUS_POST, RADIUS_POST]),
-        (9, &[LAKE, SIG, SPAWN_POOL]),
-        (10, &[]),
-        (
-            11,
-            &[
-                PREFIX,
-                PREFIX,
-                LAKE,
-                SIG,
-                SIG,
-                SIG,
-                SPAWN_RATIO,
-                PREFIX,
-                PREFIX,
-                PREFIX,
-                SIG,
-            ],
-        ),
-        (12, &[SIG]),
-        (13, &[SIG]),
-        (14, &[]),
-        (15, &[]),
+        (7, &[SIG]),
+        (8, &[RADIUS_POST, PREFIX]),
+        (9, &[]),
+        (10, &[PREFIX, LAKE]),
+        (11, &[]),
+        (12, &[SD]),
+        (13, &[RADIUS_POST, PREFIX]),
+        (14, &[PREFIX]),
+        (15, &[PREFIX, PREFIX, PREFIX]),
         (
             16,
             &[
                 SIG,
                 RADIUS_POST,
-                RADIUS_POST,
+                SPAWN_POOL,
                 LAKE,
                 SIG,
+                SIG,
                 RADIUS_POST,
+                PREFIX,
                 RADIUS_POST,
                 SIG,
             ],
         ),
-        (17, &[PREFIX, LAKE]),
-        (18, &[SIG, PREFIX, PREFIX, SIG, SIG]),
+        (17, &[SPAWN_RATIO]),
+        (18, &[RADIUS_POST, SIG, PREFIX]),
         (19, &[]),
-        (20, &[]),
-        (21, &[RADIUS_POST]),
-        (22, &[PREFIX, SIG, SPAWN_RATIO, RADIUS_POST, SIG]),
+        (20, &[PREFIX, RADIUS_POST, PREFIX, RADIUS_POST]),
+        (21, &[PREFIX, RADIUS_POST, SIG, SPAWN_RATIO]),
+        (22, &[]),
         (23, &[]),
-        (24, &[PREFIX]),
-        (25, &[SIG]),
-        (26, &[LAKE, SIG, SIG, PREFIX, SIG]),
+        (24, &[]),
+        (25, &[SIG, PREFIX, PREFIX, SIG, SPAWN_RATIO]),
+        (26, &[]),
         (27, &[]),
-        (28, &[SD, SPAWN_RATIO]),
-        (29, &[RADIUS_POST, RADIUS_POST, SIG]),
+        (28, &[SPAWN_RATIO, SD, SPAWN_RATIO, RADIUS_POST, PREFIX]),
         (
-            30,
-            &[
-                RADIUS_POST,
-                PREFIX,
-                PREFIX,
-                PREFIX,
-                FLOOR_SHARE,
-                SPAWN_RATIO,
-                SPAWN_POOL,
-            ],
+            29,
+            &[RADIUS_POST, RADIUS_POST, SIG, RADIUS_POST, PREFIX, PREFIX],
         ),
+        (30, &[RADIUS_POST, SIG, PREFIX, SPAWN_POOL]),
         (31, &[SIG]),
-        (32, &[]),
+        (32, &[PREFIX, RADIUS_POST, SPAWN_POOL, PREFIX, SIG]),
     ]
 }
 
@@ -503,8 +487,9 @@ fn a_lake_failure_is_refused_after_records_as_the_frost_guarantee() {
             }
         }
     }
-    // 11 on P-MAPGEN-GUARANTEES-1's base; 6 since P-MAPGEN-SIG-SCALE-4 (`pinned_labels`).
-    assert_eq!(seen, 6, "lake-at-mouth refusals over seeds 1-32");
+    // 11 on P-MAPGEN-GUARANTEES-1's base; 6 since P-MAPGEN-SIG-SCALE-4; 2 since P-LAND-FROST-1 builds the lake in
+    // front of the mouth first (`pinned_labels`).
+    assert_eq!(seen, 2, "lake-at-mouth refusals over seeds 1-32");
     let (seed, n) = first.expect("a lake refusal");
     let fixed = coliseum::fixed_layout();
     let got = pipeline::Pipeline::new(&fixed).generate_styled(seed, Some(n), on());

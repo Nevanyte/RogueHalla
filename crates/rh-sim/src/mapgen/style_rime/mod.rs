@@ -1,9 +1,13 @@
 //! Frost stage-six callbacks. All writes use the guarded phase-specific runtime.
 mod guarantees;
 mod lakes;
+mod mouth_lake;
+#[cfg(test)]
+mod report;
 mod routes;
 mod rules;
 mod shape;
+mod targets;
 use crate::map::{TILE_FLOOR, TILE_WALL};
 use crate::mapdata::{FeatureJob, FeatureKind, MapFeature, ZoneAnchor};
 use crate::mapgen::{
@@ -17,6 +21,7 @@ use crate::mapgen::{
 };
 pub use guarantees::guarantees;
 pub use rules::{default_definition, visit_content, Definition};
+pub use targets::{dry_way_holds, lake_rule, mouth_lake_holds, second_lake_holds, LakeRule};
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LakePlan {

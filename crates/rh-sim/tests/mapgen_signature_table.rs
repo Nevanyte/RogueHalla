@@ -239,6 +239,11 @@ fn landmark(st: &LandmarkStage, placed: &Placed, zone: Zone) -> Landmark {
 /// volcano refuses more Landmarks phases (Fire Signature refusals: its middle or a side stream not laid, the floor
 /// split), so 25 of the 32 phases are accepted on this build (crossings still 0); the floor only keeps the comparison
 /// from running on too few phases, and 20 leaves room for the maps to move again.
+///
+/// Widened for P-LAND-FROST-1 (the lane's session, 2026-11-14): with the Holy site and the cave's softly reserved
+/// room more Prefixes are refused, and only 19 of the 32 phases of seeds 1-16 were accepted, one under the floor.
+/// The sample is now seeds 1-32 (64 phases) and the floor 30, so the comparison runs on more phases than it ever
+/// did; the count is printed. The floor still only guards the sample's size.
 #[test]
 fn each_landmark_placed_alone_equals_it_placed_with_the_others() {
     let fixed = coliseum::fixed_layout();
@@ -249,7 +254,7 @@ fn each_landmark_placed_alone_equals_it_placed_with_the_others() {
     let w = coliseum::W as i32;
     let (mut phases, mut crossings) = (0, 0);
     let mut bad = Vec::new();
-    for seed in 1..=16 {
+    for seed in 1..=32 {
         for n in 0..2 {
             let Some(frame) =
                 attempt::begin_attempt_signature(&context, seed, n, true).expect("prefix input")
@@ -317,7 +322,8 @@ fn each_landmark_placed_alone_equals_it_placed_with_the_others() {
             }
         }
     }
-    assert!(phases >= 20, "only {phases} accepted Landmarks phases");
+    eprintln!("{phases} accepted Landmarks phases of 64 (seeds 1-32, attempts 0 and 1)");
+    assert!(phases >= 30, "only {phases} accepted Landmarks phases");
     assert_eq!(
         crossings, 0,
         "stream or pool tiles in another zone's site: compare the volcano without them"

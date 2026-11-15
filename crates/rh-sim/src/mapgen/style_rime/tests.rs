@@ -2038,3 +2038,58 @@ fn malformed_gate_geometry_refuses_before_sampling_or_writes() {
         eq(&snap(&rt), &before, "gate geometry no-write");
     }
 }
+/// P-LAND-FROST-1, the fallback: when the built-first mouth lake comes out under `lake_min` (the plan would drop it, and
+/// the second lake with it: the zone would end with no ice at the mouth), the styler grows today's signature lakes for
+/// that map instead, and `lake-at-mouth` decides the map. So with the guarantees off no attempt-0 map of seeds 1-128
+/// ends without unowned Frost ice (on this build the fallback fires on attempt 0 of seeds 13, 33, 74, 91 and 119;
+/// without it 33, 74 and 119 end with none).
+#[test]
+fn a_built_lake_under_lake_min_falls_back_to_todays_growth() {
+    use crate::mapdata::{FeatureKind, Zone};
+    use crate::mapgen::{coliseum, pipeline};
+    let fixed = coliseum::fixed_layout();
+    let on = pipeline::Options {
+        decor: false,
+        signature: true,
+        ..pipeline::Options::default()
+    };
+    let ice = crate::mapgen::landmarks::signature::DEFAULT_DEFINITION.ice;
+    let seeds: Vec<i64> = (1..=128).collect();
+    let dry: Vec<i64> = std::thread::scope(|s| {
+        let handles: Vec<_> = seeds
+            .chunks(16)
+            .map(|chunk| {
+                let fixed = &fixed;
+                s.spawn(move || {
+                    let g = pipeline::Pipeline::new(fixed).with_guarantees(|_| &[]);
+                    chunk
+                        .iter()
+                        .copied()
+                        .filter(|&seed| {
+                            let (r, _) =
+                                g.styled_attempt_with_trace(seed, 0, on).expect("generator");
+                            let Some(m) = r.map else {
+                                return false;
+                            };
+                            let cave = m.features.iter().position(|f| f.kind == FeatureKind::Cave);
+                            !(0..m.tiles.len()).any(|i| {
+                                m.region_grid[i] == Zone::Frost.code()
+                                    && m.tiles[i] == TILE_FLOOR
+                                    && m.terrain[i] == ice
+                                    && cave.is_none_or(|k| usize::from(m.feature_grid[i]) != k + 1)
+                            })
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().expect("a seed thread panicked"))
+            .collect()
+    });
+    assert!(
+        dry.is_empty(),
+        "attempt 0 of seeds {dry:?} ends with no Frost lake"
+    );
+}

@@ -224,6 +224,9 @@ fn box_and_cells(w: &Written) -> (TileRect, Vec<(usize, u8, u8)>) {
 /// its `E` camps without the elite pin, the volcano's and the tree's none; the four close their box and apron to the
 /// spawn pool, the hall opens its floor but `shrine_clear` round its light `L`; only the volcano has a fan,
 /// (`fan_depth`, `fan_side`). On the default definition and on one with every one of those numbers moved.
+///
+/// Amended by P-LAND-FROST-1 (owner decision 2026-11-14, "the softer reservation"): the cave's entry has a fan too, the
+/// Frost lake's room (`cave_fan_depth`, `cave_fan_side`; soft, pinned by `tests/mapgen_land_frost.rs`). Was: Frost `None`.
 #[test]
 fn the_table_holds_todays_site_camp_spawn_and_fan_rules() {
     let moved = Definition {
@@ -258,7 +261,16 @@ fn the_table_holds_todays_site_camp_spawn_and_fan_rules() {
                 None,
             ),
             (Zone::Plague, d.site_side, None, SpawnRule::Box, None),
-            (Zone::Frost, d.site_side, elite(true), SpawnRule::Box, None),
+            (
+                Zone::Frost,
+                d.site_side,
+                elite(true),
+                SpawnRule::Box,
+                Some(Fan {
+                    depth: d.cave_fan_depth,
+                    side: d.cave_fan_side,
+                }),
+            ),
             (
                 Zone::Holy,
                 d.hall_site_side,
@@ -652,6 +664,9 @@ fn a_cave_given_the_open_floor_rule_opens_its_plain_floor() {
 /// The Prefix records each entry's fan (`AttemptState::fans`, in `reserved_zones` order) with the entry's numbers, for
 /// any zone: the volcano's given (9, 3) and the tree's given (4, 0) both get theirs; no camp stands in a fan, and no
 /// building of the legacy landmark stage reaches into one. Seeds 1-8, at least 4 prefixes.
+///
+/// Amended by P-LAND-FROST-1: the cave's entry has a (soft) fan since that packet; it is removed here so that the
+/// recorded fans are the two this test gives (Fire, Plague), as before. Was: no Frost line in the doctoring.
 #[test]
 fn an_entrys_fan_is_reserved_with_its_numbers() {
     let fixed = coliseum::fixed_layout();
@@ -660,6 +675,7 @@ fn an_entrys_fan_is_reserved_with_its_numbers() {
     let table = doctored(&d, |t| {
         entry(t, Zone::Fire).fan = Some(fire);
         entry(t, Zone::Plague).fan = Some(plague);
+        entry(t, Zone::Frost).fan = None;
     });
     let context = attempt::AttemptContext::new(&fixed).with_signature_table(&d, table);
     let mut checked = 0;

@@ -68,6 +68,20 @@ pub struct Fan {
     pub side: i32,
 }
 
+/// P-LAND-FROST-1 (owner decision 2026-11-14, "the softer reservation"): whether an entry's fan (`Spec::fan`) may be
+/// given up. `Hard`: the fan is reserved on every round and a round whose camps cannot be placed round it fails (the
+/// volcano's, owner decision of P-MAPGEN-SIG-SCALE-4). `Soft` (the cave's room): when a Prefix round fails with every
+/// fan reserved (a site's camp in a fan, or the camp placement), the round is tried once more with the soft fans left
+/// out: the site-camp check against the hard fans only, then the camp placement continuing the same camp stream. When
+/// that succeeds the soft fans are not reserved for the attempt (not recorded in `AttemptState::fans`, so the legacy
+/// landmark stage and the zone stylers see open ground); when it fails the round fails as today. A separate field, not
+/// a `Fan` field: `tests/mapgen_signature_site_rules.rs` builds `Fan` literals.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FanHold {
+    Hard,
+    Soft,
+}
+
 /// P-MAPGEN-SIG-HOLY-1-fix: how the params of a landmark's own feature (`MapFeature::p`) are derived from what the step
 /// wrote.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -119,6 +133,8 @@ pub struct Spec {
     /// P-MAPGEN-SIG-HOLY-1-fix: the fan reserved in front of the site (`Fan`); `None` without one. `SignatureContext::fan`
     /// reads it.
     pub fan: Option<Fan>,
+    /// P-LAND-FROST-1: whether `fan` may be given up (`FanHold`); read only when `fan` is `Some`.
+    pub fan_hold: FanHold,
     /// P-MAPGEN-SIG-HOLY-1-fix: the params the entry's own feature (the one of kind `Spec::kind`) is written with
     /// (`MapFeature::p`, `FeatureParams`). `SignatureContext::write` reads it.
     pub params: FeatureParams,
@@ -205,6 +221,7 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
                 depth: d.fan_depth,
                 side: d.fan_side,
             }),
+            fan_hold: FanHold::Hard,
             params: FeatureParams::None,
         },
         // The church (`#` walls, `P` pillars) and its graveyard (`G` headstones, `+` the LOW fence), `E` on the camp;
@@ -244,6 +261,7 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             }),
             spawn: SpawnRule::Box,
             fan: None,
+            fan_hold: FanHold::Hard,
             params: FeatureParams::None,
         },
         // The bog tree (`T` trunk, `r` roots, `%` marsh), off every apron marked before it, centred in its site; the
@@ -270,6 +288,7 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             site_camps: None,
             spawn: SpawnRule::Box,
             fan: None,
+            fan_hold: FanHold::Hard,
             params: FeatureParams::None,
         },
         // The cave (`#` walls, `R` rock, `=` ice floor), `E` on the camp; the entrance is the mouth `D`.
@@ -298,7 +317,11 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
                 elite: true,
             }),
             spawn: SpawnRule::Box,
-            fan: None,
+            fan: Some(Fan {
+                depth: d.cave_fan_depth,
+                side: d.cave_fan_side,
+            }),
+            fan_hold: FanHold::Soft,
             params: FeatureParams::None,
         },
         // The Holy hall (P-MAPGEN-SIG-HOLY-1): an open colonnade of 3 x 3 piers and the shrine (`#` walls), the shrine's
@@ -338,6 +361,7 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
                 by: d.shrine_clear,
             },
             fan: None,
+            fan_hold: FanHold::Hard,
             params: FeatureParams::Hall,
         },
     ]
