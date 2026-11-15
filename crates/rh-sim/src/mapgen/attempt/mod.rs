@@ -30,8 +30,8 @@ pub struct AttemptState {
     /// P-MAPGEN-SIG-RESERVE-1: each styled zone's reserved landmark site, in the order Fire, Sentenced, Plague, Frost;
     /// empty with the signature option off. Generator working state only (never exported).
     pub reserved: Vec<ReservedSite>,
-    /// P-MAPGEN-SIG-SCALE-4: the fans the Prefix reserved with its signature definition (`signature::fan` of each
-    /// reserved site; the Fire site's, inclusive (x0, y0, x1, y1)), the one record the legacy landmark stage reads, so
+    /// P-MAPGEN-SIG-SCALE-4: the fans the Prefix reserved with its signature definition (`SignatureContext::fan` of each
+    /// reserved site, as its table entry says: today the Fire site's, inclusive (x0, y0, x1, y1)), the one record the legacy landmark stage reads, so
     /// both readers keep out of the same tiles; empty with the signature option off. Generator working state only.
     pub fans: Vec<(usize, usize, usize, usize)>,
 }

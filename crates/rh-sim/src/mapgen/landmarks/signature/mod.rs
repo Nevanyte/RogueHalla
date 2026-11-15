@@ -14,6 +14,12 @@
 //! the bog tree, the cave and the Holy hall (P-MAPGEN-SIG-HOLY-1) are their approved drawings, read and landed from the per-landmark table (`spec`,
 //! `blueprint`, `stamp`); the volcano's three lava streams continue from its outlets (`volcano::streams`,
 //! P-MAPGEN-SIG-SCALE-4). Integer geometry only.
+//!
+//! The table (`spec::Spec`) carries every per-landmark rule (P-MAPGEN-SIG-HOLY-1-fix): the drawing and its legend, the
+//! site's side (`site_side`), the camps the site carries and whether the first is the zone's elite (`site_camps`), what
+//! the spawn pool may use (`spawn`), the fan reserved in front of the site (`fan`) and the params of its own feature
+//! (`params`). `reserve`, `write`, `fan` and `fan_holds_a_site_camp` read the entry; a new landmark fact is one table
+//! line, not a zone or kind branch.
 pub mod blueprint;
 mod bog_tree;
 mod cave;
