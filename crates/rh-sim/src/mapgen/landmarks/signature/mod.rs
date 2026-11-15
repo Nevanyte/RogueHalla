@@ -11,7 +11,7 @@
 //! main stream and the stylers' streams are untouched (G6).
 //!
 //! Every landmark stands in the site its zone reserved in the Prefix (P-MAPGEN-SIG-RESERVE-1): the volcano, the church,
-//! the bog tree and the cave are their approved drawings, read and landed from the per-landmark table (`spec`,
+//! the bog tree, the cave and the Holy hall (P-MAPGEN-SIG-HOLY-1) are their approved drawings, read and landed from the per-landmark table (`spec`,
 //! `blueprint`, `stamp`); the volcano's three lava streams continue from its outlets (`volcano::streams`,
 //! P-MAPGEN-SIG-SCALE-4). Integer geometry only.
 pub mod blueprint;
@@ -138,6 +138,19 @@ pub struct Definition {
     /// pools run in it (`fan`).
     pub fan_depth: i32,
     pub fan_side: i32,
+    /// P-MAPGEN-SIG-HOLY-1: the Holy hall's approved blueprint (owner decisions 2026-11-13: one drawing, 37 x 37, two
+    /// Holy camps inside on the nave's centre line; ADR 0028 G9), the text of `hall.txt` beside this file, a byte-equal
+    /// copy of `docs/landmarks/blueprints/hall.txt` (as `cave_grid`). Lines starting `;` are its legend; the rest is the
+    /// 37 x 37 grid, front (toward the coliseum) at the bottom, mirror symmetric about column 18. Parsed as `cave_grid`;
+    /// a grid that does not parse refuses every option-on attempt at the hall.
+    pub hall_grid: &'static str,
+    /// P-MAPGEN-SIG-HOLY-1 (owner decision 2026-11-13): the side (tiles) of the Holy zone's reserved site: the 37-tile
+    /// hall plus the apron (`bands[0]`) on each side. The other four zones keep `site_side`.
+    pub hall_site_side: i32,
+    /// P-MAPGEN-SIG-HOLY-1 (owner decision 2026-11-14, 2): spawn points may stand on the hall's open floor, but no
+    /// spawn-pool tile lies within this Chebyshev distance of a tile of the shrine's light ("3 tiles clear of the
+    /// shrine"); the hall's walls and light are kept from the pool too (`SignatureContext::write`).
+    pub shrine_clear: i32,
 }
 
 pub const DEFAULT_DEFINITION: Definition = Definition {
@@ -173,26 +186,42 @@ pub const DEFAULT_DEFINITION: Definition = Definition {
     outlet_len: [(7, 10), (10, 14), (7, 10)],
     fan_depth: 14,
     fan_side: 14,
+    hall_grid: include_str!("hall.txt"),
+    hall_site_side: 41,
+    shrine_clear: 3,
 };
 
 /// One zone's reserved landmark site (P-MAPGEN-SIG-RESERVE-1): chosen in the Prefix, after the partition and before
 /// the camps, with the option on only (`SignatureContext::reserve`). `rect` is the whole site (the landmark's footprint
-/// plus its apron); `camp` is the tile of the camp placed inside it (the church's and the cave's elite camp), `None`
-/// for the volcano and the tree. `stream` is the zone's signature stream after the reservation's draws: the Landmarks
-/// phase continues it, never re-using a draw. Generator working state only: nothing reads it after the Landmarks phase
-/// and it is never exported.
+/// plus its apron); `camp` is the tile of the camp placed inside it (the church's and the cave's elite camp, the Holy
+/// hall's back camp), `None` for the volcano and the tree. `stream` is the zone's signature stream after the
+/// reservation's draws: the Landmarks phase continues it, never re-using a draw. Generator working state only: nothing
+/// reads it after the Landmarks phase and it is never exported.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReservedSite {
     pub zone: Zone,
     pub rect: TileRect,
     pub camp: Option<usize>,
+    /// P-MAPGEN-SIG-HOLY-1: the further camps placed inside the site after `camp`, in the drawing's grid order (the
+    /// Holy hall's second `E`, the front one); empty for the other four sites.
+    pub extra: Vec<usize>,
+    /// P-MAPGEN-SIG-HOLY-1: whether `camp` is the zone's first elite (the church's and the cave's camp), or the zone's
+    /// elites follow legacy's rule among all its camps (the Holy hall's two camps; owner decision 2026-11-13). False for
+    /// a site without a camp. Read by the Prefix's camp placement (`zones::camps::Reserve::elite`).
+    pub elite: bool,
     pub stream: Mulberry32,
 }
 
-/// The zones that reserve a site, in the order of `AttemptState::reserved` (Holy keeps its hall rule). A function, not a
-/// const: `tests/content.rs` reads consts as tunables.
-pub fn reserved_zones() -> [Zone; 4] {
-    [Zone::Fire, Zone::Sentenced, Zone::Plague, Zone::Frost]
+/// The zones that reserve a site, in the order of `AttemptState::reserved` and of placement (P-MAPGEN-SIG-HOLY-1: the
+/// Holy hall last). A function, not a const: `tests/content.rs` reads consts as tunables.
+pub fn reserved_zones() -> [Zone; 5] {
+    [
+        Zone::Fire,
+        Zone::Sentenced,
+        Zone::Plague,
+        Zone::Frost,
+        Zone::Holy,
+    ]
 }
 
 /// P-MAPGEN-SIG-SCALE-1: the zones whose reserved site is relabelled to its inside camp's territory (`relabel_sites`):
@@ -209,45 +238,65 @@ pub fn relabelled_zones() -> [Zone; 2] {
 /// territories and repair hands the pieces to camps beyond the territory radius (`Repair(RadiusPost)`). Called by the
 /// pipeline on repair's copy of the territory grid on option-on attempts only (no sites otherwise: nothing changes). A
 /// pure write: no draw. Public so that P-MAPGEN-SIG-SCALE-2's oracle (`tests/mapgen_signature_church.rs`) can call it.
+///
+/// P-MAPGEN-SIG-HOLY-1: the Holy site (the hall's, with its two camps `camp` and `extra`) is relabelled too: each tile
+/// of its rect takes the label of the nearer of its camps (squared distance; the earlier, `camp`, on a tie). With one
+/// inside camp that is the rule above.
 pub fn relabel_sites(reserved: &[ReservedSite], camps: &[CampSite], territory: &mut [u8]) {
     for r in reserved
         .iter()
-        .filter(|r| relabelled_zones().contains(&r.zone))
+        .filter(|r| relabelled_zones().contains(&r.zone) || r.zone == Zone::Holy)
     {
-        let Some(inside) = r.camp.and_then(|t| camps.iter().position(|c| c.site == t)) else {
+        // The site's own camps (`camp`, then `extra`) found among the prefix's: (index, tile x, tile y, label).
+        let own: Vec<(usize, i32, i32, u8)> = r
+            .camp
+            .iter()
+            .chain(&r.extra)
+            .filter_map(|&t| {
+                let k = camps.iter().position(|c| c.site == t)?;
+                let label = u8::try_from(k + 1).ok()?;
+                Some((k, (t % W) as i32, (t / W) as i32, label))
+            })
+            .collect();
+        if own.is_empty() {
             continue;
-        };
-        let Ok(label) = u8::try_from(inside + 1) else {
-            continue;
-        };
+        }
         // `place_camps_reserving` keeps every other camp's halo, so its site tile, out of the rect; a camp left inside
         // would lose its own tile's territory here and fail far away (repair's safety nets admission).
+        let inside: Vec<usize> = own.iter().map(|o| o.0).collect();
         debug_assert!(
-            stray_camp(r, camps, inside).is_none(),
-            "relabel_sites: camp {:?} (zone {}) lies in the {:?} site {:?} of camp {inside}",
-            stray_camp(r, camps, inside),
-            stray_camp(r, camps, inside).map_or(0, |k| camps[k].zone),
+            stray_camp(r, camps, &inside).is_none(),
+            "relabel_sites: camp {:?} (zone {}) lies in the {:?} site {:?} of camps {inside:?}",
+            stray_camp(r, camps, &inside),
+            stray_camp(r, camps, &inside).map_or(0, |k| camps[k].zone),
             r.zone,
             r.rect
         );
         for y in r.rect.y..r.rect.y + r.rect.h as i32 {
             for x in r.rect.x..r.rect.x + r.rect.w as i32 {
-                if let Some(i) = at(x, y) {
-                    territory[i] = label;
+                let Some(i) = at(x, y) else {
+                    continue;
+                };
+                // The first of the nearest (`min_by_key` keeps the first minimum).
+                if let Some(o) = own
+                    .iter()
+                    .min_by_key(|o| (o.1 - x).pow(2) + (o.2 - y).pow(2))
+                {
+                    territory[i] = o.3;
                 }
             }
         }
     }
 }
 
-/// The first camp other than `inside` (indices into `camps`) whose site tile lies in site `r`'s rect; `None` when there is
+/// The first camp not in `inside` (indices into `camps`) whose site tile lies in site `r`'s rect; `None` when there is
 /// none, as `place_camps_reserving` guarantees (`relabel_sites`'s precondition).
-fn stray_camp(r: &ReservedSite, camps: &[CampSite], inside: usize) -> Option<usize> {
+fn stray_camp(r: &ReservedSite, camps: &[CampSite], inside: &[usize]) -> Option<usize> {
     let (x0, y0) = (r.rect.x, r.rect.y);
     let (x1, y1) = (x0 + r.rect.w as i32, y0 + r.rect.h as i32);
     camps.iter().enumerate().position(|(k, c)| {
         let (x, y) = ((c.site % W) as i32, (c.site / W) as i32);
-        k != inside && x >= x0 && x < x1 && y >= y0 && y < y1
+        !inside.contains(&k) && x >= x0 && x < x1 && y >= y0 && y < y1
     })
 }
 
@@ -301,18 +350,22 @@ pub fn fan(r: &ReservedSite, d: &Definition) -> Option<(usize, usize, usize, usi
     Some((clip(a0, W), clip(b0, H), clip(a1, W), clip(b1, H)))
 }
 
-/// P-MAPGEN-SIG-SCALE-4: whether the certifier's halo of a camp placed inside a reserved site (the church's, the cave's)
-/// reaches into the Fire fan. Those camps are fixed with the sites, before camp placement can keep them out of the fan:
-/// the Prefix fails the round when one does (the partition and the sites are drawn again).
+/// P-MAPGEN-SIG-SCALE-4: whether the certifier's halo of a camp placed inside a reserved site (the church's, the cave's,
+/// the Holy hall's two: `camp` and `extra`) reaches into a Fire fan. Those camps are fixed with the sites, before camp
+/// placement can keep them out of the fan: the Prefix fails the round when one does (the partition and the sites are
+/// drawn again).
 pub(crate) fn fan_holds_a_site_camp(reserved: &[ReservedSite], d: &Definition) -> bool {
-    let Some((x0, y0, x1, y1)) = reserved.iter().find_map(|r| fan(r, d)) else {
+    let fans: Vec<(usize, usize, usize, usize)> =
+        reserved.iter().filter_map(|r| fan(r, d)).collect();
+    if fans.is_empty() {
         return false;
-    };
+    }
     let mut halo = vec![0u8; W * H];
-    for t in reserved.iter().filter_map(|r| r.camp) {
+    for &t in reserved.iter().flat_map(|r| r.camp.iter().chain(&r.extra)) {
         mark_halo(&mut halo, t);
     }
-    (y0..=y1).any(|y| (x0..=x1).any(|x| halo[y * W + x] != 0))
+    fans.iter()
+        .any(|&(x0, y0, x1, y1)| (y0..=y1).any(|y| (x0..=x1).any(|x| halo[y * W + x] != 0)))
 }
 
 /// The signature landmarks' feature kinds: each zone's landmark and its parts, not the stylers' features (the legacy
@@ -523,7 +576,7 @@ impl<'f> SignatureContext<'f> {
                 .all(|m| owned.iter().any(|(k, _)| k == m)),
             "signature: a member kind with no owned-tile rule"
         );
-        let landmarks: Vec<(spec::Spec, Option<Blueprint>)> = table
+        let mut landmarks: Vec<(spec::Spec, Option<Blueprint>)> = table
             .into_iter()
             .map(|s| {
                 let drawing = s.drawing.and_then(|t| Blueprint::parse(t, &s.legend).ok());
@@ -542,29 +595,20 @@ impl<'f> SignatureContext<'f> {
         // The entrance tiles' glyph writes, read from each drawing's legend: the volcano's outlets `O` (LOW lava, owned
         // by the volcano); the church's gate, the tree's causeways and the cave's mouth write nothing. An anchor's
         // entrance is sorted by map tile, which loses the glyph of each tile: an entry's entrance glyphs must all write
-        // one thing.
-        let doors: Vec<(Zone, Door)> = landmarks
-            .iter()
-            .filter_map(|(s, bp)| {
-                let bp = bp.as_ref()?;
-                let writes: Vec<Door> = bp
-                    .entrance(s.entrance)
-                    .into_iter()
-                    .filter_map(|g| bp.char_at(g).and_then(|ch| bp.legend().glyph(ch)))
-                    .map(|g| Door {
-                        write: written(g.write),
-                        owner: g.feature,
-                    })
-                    .collect();
-                let first = *writes.first()?;
-                debug_assert!(
-                    writes.iter().all(|w| *w == first),
-                    "signature: the {:?} entrance's glyphs write different things",
-                    s.zone
-                );
-                Some((s.zone, first))
-            })
-            .collect();
+        // one thing. An entry whose entrance breaks that keeps no drawing (in every build, P-MAPGEN-SIG-HOLY-1): it
+        // refuses every option-on attempt at its landmark, as a drawing that does not parse does, rather than being
+        // checked against the wrong door.
+        let mut doors: Vec<(Zone, Door)> = Vec::new();
+        for (s, bp) in &mut landmarks {
+            let Some(drawing) = bp.as_ref() else {
+                continue;
+            };
+            match entrance_door(drawing, s.entrance) {
+                Ok(Some(door)) => doors.push((s.zone, door)),
+                Ok(None) => {}
+                Err(()) => *bp = None,
+            }
+        }
         Self {
             _fixed: core::marker::PhantomData,
             rules: *d,
@@ -629,10 +673,12 @@ impl<'f> SignatureContext<'f> {
     }
 
     /// P-MAPGEN-SIG-RESERVE-1: one prefix round's sites, in `reserved_zones` order, on the round's partition `zone`. A
-    /// zone's candidates are the `site_side` squares wholly of its tiles, off `hard` (border, coliseum, road, lanes) and
-    /// off the open map corners, whose centre point lies beyond the zone's line: Fire, Sentenced and Frost the zone
-    /// centroid's distance from the map centre plus `back_slack`, Plague the start of its outer third plus
-    /// `outer_slack`. A Sentenced or Frost square also needs its camp tile (`inside_camp`). One uniform draw among the
+    /// zone's candidates are the `site_side` squares (Holy: `hall_site_side`, P-MAPGEN-SIG-HOLY-1) wholly of its tiles,
+    /// off `hard` (border, coliseum, road, lanes) and off the open map corners, whose centre point lies beyond the zone's
+    /// line: Fire, Sentenced, Frost and Holy the zone centroid's distance from the map centre plus `back_slack`, Plague
+    /// the start of its outer third plus `outer_slack`. A Sentenced or Frost square also needs its camp tile
+    /// (`inside_camp`), a Holy square its two hall camps (`hall_camps`: `camp` the back one, `extra` the front one,
+    /// `elite` false). One uniform draw among the
     /// candidates, the zone's one draw of the round on its stream; without a candidate, Plague takes the deepest square
     /// still beyond its centroid (largest centre distance, first in row order), drawing nothing. `None` when a zone has
     /// no square: the round fails as a camp failure does. Draws only from `streams` (`reserved_zones` order).
@@ -643,21 +689,26 @@ impl<'f> SignatureContext<'f> {
         streams: &mut [Mulberry32],
     ) -> Option<Vec<ReservedSite>> {
         let d = &self.rules;
-        let side = usize::try_from(d.site_side)
-            .ok()
-            .filter(|&s| s > 0 && s <= W.min(H))?;
         let co = spawns::DEFAULT_DEFINITION.corner_open;
         let corner = |x: usize, y: usize| x.min(W - 1 - x) <= co && y.min(H - 1 - y) <= co;
         let from_centre = |x: f64, y: f64| {
             let (dx, dy) = (x - W as f64 / 2.0, y - H as f64 / 2.0);
             crate::math::sqrt(dx * dx + dy * dy)
         };
-        let half = side as f64 / 2.0;
         // Summed-area table of the tiles a site may not hold.
         let stride = W + 1;
         let mut bad = vec![0i32; stride * (H + 1)];
         let mut out = Vec::with_capacity(reserved_zones().len());
         for (k, &z) in reserved_zones().iter().enumerate() {
+            let hall_zone = z == Zone::Holy;
+            let side = usize::try_from(if hall_zone {
+                d.hall_site_side
+            } else {
+                d.site_side
+            })
+            .ok()
+            .filter(|&s| s > 0 && s <= W.min(H))?;
+            let half = side as f64 / 2.0;
             let slot = slot_of(order, z)?;
             let (mut sx, mut sy, mut n) = (0i64, 0i64, 0i64);
             let (mut lo, mut hi) = (f64::MAX, 0.0f64);
@@ -688,7 +739,13 @@ impl<'f> SignatureContext<'f> {
                 centroid + d.back_slack
             };
             let camp_zone = matches!(z, Zone::Sentenced | Zone::Frost);
-            let mut candidates = Vec::new();
+            // The hall's `E` tiles in grid order (back, front): the Holy site's camps.
+            let hall = if hall_zone {
+                Some(self.hall_marks()?)
+            } else {
+                None
+            };
+            let mut candidates: Vec<(usize, usize, Option<usize>, Vec<usize>)> = Vec::new();
             let mut deepest: Option<(f64, usize, usize)> = None;
             for y in 0..=H - side {
                 for x in 0..=W - side {
@@ -708,7 +765,16 @@ impl<'f> SignatureContext<'f> {
                     };
                     let r = from_centre(x as f64 + half, y as f64 + half);
                     if r > line {
-                        candidates.push((x, y, camp));
+                        let camps = match &hall {
+                            Some((bp, marks)) => {
+                                match hall_camps(bp, marks, x as i32, y as i32, side as i32, d) {
+                                    Some(c) => c,
+                                    None => continue,
+                                }
+                            }
+                            None => Vec::new(),
+                        };
+                        candidates.push((x, y, camp, camps));
                     } else if z == Zone::Plague
                         && r >= centroid
                         && deepest.is_none_or(|(best, _, _)| r > best)
@@ -718,11 +784,17 @@ impl<'f> SignatureContext<'f> {
                 }
             }
             let rng = &mut streams[k];
-            let (x, y, camp) = if candidates.is_empty() {
+            let (x, y, camp, hall_camps) = if candidates.is_empty() {
                 let (_, x, y) = deepest?;
-                (x, y, None)
+                (x, y, None, Vec::new())
             } else {
-                candidates[pick(rng, candidates.len())]
+                let n = pick(rng, candidates.len());
+                candidates.swap_remove(n)
+            };
+            // The hall's camps: `camp` the back `E`, `extra` the rest; legacy's elite rule (owner decision 2026-11-13).
+            let (camp, extra, elite) = match hall_camps.split_first() {
+                Some((&first, rest)) => (Some(first), rest.to_vec(), false),
+                None => (camp, Vec::new(), camp.is_some()),
             };
             out.push(ReservedSite {
                 zone: z,
@@ -733,6 +805,8 @@ impl<'f> SignatureContext<'f> {
                     h: side as u32,
                 },
                 camp,
+                extra,
+                elite,
                 stream: rng.clone(),
             });
         }
@@ -747,6 +821,14 @@ impl<'f> SignatureContext<'f> {
     /// `None` when the camp tile's own door axis (the church's and the cave's rule) differs. A guard only, not a filter
     /// on where sites go: the camp moves deeper along the axis that already dominates, which cannot turn it, and at these
     /// numbers it refuses none of the 16,129 square positions on the 160x160 map (P-MAPGEN-SIG-RESERVE-1 review).
+    /// P-MAPGEN-SIG-HOLY-1: the Holy entry's parsed drawing and its camp tiles (`E`, grid order: the back one, then the
+    /// front one); `None` when the entry has no drawing (the reservation then fails, as the stamp would).
+    fn hall_marks(&self) -> Option<(&Blueprint, Vec<(i32, i32)>)> {
+        let (_, bp) = self.landmarks.iter().find(|(s, _)| s.zone == Zone::Holy)?;
+        let bp = bp.as_ref()?;
+        Some((bp, bp.tiles_of(b'E')))
+    }
+
     fn inside_camp(&self, x: i32, y: i32) -> Option<usize> {
         let (side, depth) = (self.rules.site_side, self.rules.site_depth);
         let (mx, my) = (x + side / 2, y + side / 2);
@@ -770,12 +852,13 @@ impl<'f> SignatureContext<'f> {
     }
 
     /// Places each zone's signature landmark (Fire: the volcano with its streams and pools; Sentenced: the church and its
-    /// graveyard; Plague: the bog tree; Frost: the cave) into the stage's layers and masks, in that order (`place`). Each
+    /// graveyard; Plague: the bog tree; Frost: the cave; Holy: the hall) into the stage's layers and masks, in that order
+    /// (`place`). Each
     /// zone's table entry (`spec::specs`) is drawn by the generic `stamp`, and its landing is recorded in
     /// `Placed::landed`; the volcano's streams continue from its outlets (`volcano::streams`). Only the volcano and the
     /// bog tree keep their tiles out of the aprons marked before them (`Site::ground`: their legends'
-    /// `Legality::WallGround`, and the streams' own test); the church and the
-    /// cave place their walls on any free wall tile (`Site::wall`). The rule that no landmark lies in another's apron is
+    /// `Legality::WallGround`, and the streams' own test); the church, the
+    /// cave and the hall place their walls on any free wall tile (`Site::wall`). The rule that no landmark lies in another's apron is
     /// the end-of-attempt discard (`intact`). `Ok(None)` refuses the attempt (G5: a zone that cannot hold its landmark is
     /// never built without it; the pipeline tries the next attempt), and so does a prefix without a zone's reserved site
     /// (`begin_attempt`'s, the option-off prefix): every landmark is built inside its site.
@@ -800,7 +883,7 @@ impl<'f> SignatureContext<'f> {
     /// before it in `apply` had placed nothing: the same site, stream, draws and checks (`place`), its features written
     /// into `stage`, and a `Placed` holding only its terrain and its frame (built as `apply` builds it). A test seam: what
     /// each landmark's own oracle pins without depending on the others. `Ok(None)` where `apply` would refuse at this
-    /// zone, and for a zone that reserves no site (Holy).
+    /// zone, and for a zone that reserves no site.
     pub fn apply_only(
         &self,
         frame: &AttemptFrame,
@@ -924,7 +1007,37 @@ impl<'f> SignatureContext<'f> {
             stage.state.feature_owner[i] = id;
         }
         let b = self.rules.bands[0];
-        if self.by_tile(p.kind) {
+        if p.kind == FeatureKind::Hall {
+            // P-MAPGEN-SIG-HOLY-1 (owner decision 2026-11-14, 2): spawn points may stand on the hall's open floor. Its
+            // box is the keep mask (`boxes`); the spawn pool and its halo (`near1`) keep off the ring round the box,
+            // the hall's written tiles (walls and light) and every tile within `shrine_clear` of a light tile.
+            let (x1, y1) = (bbox.x + bbox.w as i32 - 1, bbox.y + bbox.h as i32 - 1);
+            for y in bbox.y - b..=y1 + b {
+                for x in bbox.x - b..=x1 + b {
+                    if let Some(i) = at(x, y) {
+                        if x >= bbox.x && x <= x1 && y >= bbox.y && y <= y1 {
+                            stage.masks.boxes[i] = 1;
+                        } else {
+                            stage.masks.near1[i] = 1;
+                        }
+                    }
+                }
+            }
+            let c = self.rules.shrine_clear;
+            for &(i, tile, kind) in &p.cells {
+                stage.masks.near1[i] = 1;
+                if tile == TILE_FLOOR && kind != 0 {
+                    let (cx, cy) = ((i % W) as i32, (i / W) as i32);
+                    for y in cy - c..=cy + c {
+                        for x in cx - c..=cx + c {
+                            if let Some(j) = at(x, y) {
+                                stage.masks.near1[j] = 1;
+                            }
+                        }
+                    }
+                }
+            }
+        } else if self.by_tile(p.kind) {
             // A stream's or pool's box is a long diagonal: its apron and keep mask follow its own tiles.
             for &(i, _, _) in &p.cells {
                 stage.masks.boxes[i] = 1;
@@ -957,7 +1070,11 @@ impl<'f> SignatureContext<'f> {
             jobs: vec![p.job],
             ax: p.anchor.0,
             ay: p.anchor.1,
-            p: Vec::new(),
+            p: if p.kind == FeatureKind::Hall {
+                hall_params(p, bbox)
+            } else {
+                Vec::new()
+            },
             bbox,
             tiles: p.cells.len() as u32,
         });
@@ -965,27 +1082,11 @@ impl<'f> SignatureContext<'f> {
     }
 
     /// Writes the finished map's anchors (G3): each frame's anchor as the Landmarks phase placed it (P-MAPGEN-LANDMARK-
-    /// FRAME-1: no footprint is re-read from the finished features; records keep every landmark feature's box), plus
-    /// the Holy hall's (the largest `Hall` feature, placed by the Holy styler, until P-MAPGEN-SIG-HOLY-1 gives the hall a
-    /// frame), in zone-code order.
+    /// FRAME-1: no footprint is re-read from the finished features; records keep every landmark feature's box), in
+    /// zone-code order. Since P-MAPGEN-SIG-HOLY-1 the Holy hall is one of them (the Holy styler places no hall of its own
+    /// in signature mode); no anchor is read from a styler's feature.
     pub fn finish(&self, map: &mut GameMapData, frames: &[frame::LandmarkFrame]) {
         let mut out: Vec<ZoneAnchor> = frames.iter().map(|f| f.anchor.clone()).collect();
-        let hall = map
-            .features
-            .iter()
-            .enumerate()
-            .filter(|(_, f)| f.kind == FeatureKind::Hall && f.zone == Zone::Holy)
-            .max_by_key(|&(k, f)| (f.tiles, core::cmp::Reverse(k)));
-        if let Some((_, f)) = hall {
-            out.push(ZoneAnchor {
-                zone: Zone::Holy,
-                kind: FeatureKind::Hall,
-                centre: TilePt { x: f.ax, y: f.ay },
-                footprint: f.bbox,
-                front: front(f.ax, f.ay),
-                entrance: Vec::new(),
-            });
-        }
         out.sort_by_key(|a| a.zone.code());
         map.anchors = out;
     }
@@ -1080,8 +1181,8 @@ impl<'f> SignatureContext<'f> {
     /// `intact`'s entrance check: every entrance tile of every anchor holds exactly what its landmark's drawing wrote
     /// there (`Door`, from the entry's legend): the volcano's outlets LOW with the lava terrain, owned by a volcano
     /// feature of the anchor's zone; the church's gate, the tree's causeways and the cave's mouth floor that no feature
-    /// of their landmark owns. An anchor without a drawn entrance (the Holy hall's, which is empty) keeps the rule from
-    /// before P-MAPGEN-SIG-SCALE-4: floor.
+    /// of their landmark owns, and (P-MAPGEN-SIG-HOLY-1) the hall's nave floor that the hall does not own. An anchor
+    /// without a drawn entrance keeps the rule from before P-MAPGEN-SIG-SCALE-4: floor.
     fn doors_intact(&self, map: &GameMapData) -> bool {
         map.anchors.iter().all(|a| {
             let members = self
@@ -1123,29 +1224,12 @@ impl<'f> SignatureContext<'f> {
     /// ones out of its own apron. This check is the rule for all five, and symmetric, so the placement order decides
     /// nothing. The landmarks: each table entry's member features (`spec::Spec::members`: the volcano with its streams
     /// and pools, whose by-tile aprons this check skips, so its apron is the cone's box; the church with its graveyard;
-    /// the bog tree; the cave), and the Holy hall (the Holy `Hall` on the Holy anchor's footprint). An apron is each of
-    /// the landmark's boxes grown by the core band.
+    /// the bog tree; the cave; the Holy hall, P-MAPGEN-SIG-HOLY-1). An apron is each of the landmark's boxes grown by the
+    /// core band.
     fn aprons_apart(&self, map: &GameMapData) -> bool {
-        let holy = map
-            .anchors
-            .iter()
-            .find(|a| a.zone == Zone::Holy)
-            .map(|a| a.footprint);
-        let hall = holy.and_then(|fp| {
-            map.features
-                .iter()
-                .position(|f| f.kind == FeatureKind::Hall && f.zone == Zone::Holy && f.bbox == fp)
-        });
-        // Each feature's landmark: its table entry (`spec::Spec::members`), the hall one past the table's last.
-        let landmark: Vec<Option<usize>> = map
-            .features
-            .iter()
-            .enumerate()
-            .map(|(k, f)| {
-                self.entry_of(f.kind)
-                    .or_else(|| (hall == Some(k)).then_some(self.landmarks.len()))
-            })
-            .collect();
+        // Each feature's landmark: its table entry (`spec::Spec::members`).
+        let landmark: Vec<Option<usize>> =
+            map.features.iter().map(|f| self.entry_of(f.kind)).collect();
         let b = self.rules.bands[0];
         map.features.iter().enumerate().all(|(k, f)| {
             let Some(host) = landmark[k] else {
@@ -1168,6 +1252,127 @@ impl<'f> SignatureContext<'f> {
             })
         })
     }
+}
+
+/// P-MAPGEN-SIG-HOLY-1: the drawn hall's feature params, the legacy `Hall` row the certifier (`feature-params`) and
+/// the client read: [axis, pitch, radius, piers, bays]. Axis 1 when the nave runs along y (the front read at the anchor
+/// is vertical), else 0; pitch `R.hall_pitch`; radius half the box's side less one (18 for 37); piers the wall pieces
+/// (8-connected) that are exact `R.square_side` squares (32); no bays.
+fn hall_params(p: &Piece, bbox: TileRect) -> Vec<i32> {
+    let vertical = axis(front(p.anchor.0, p.anchor.1)).0 == 0;
+    let walls: Vec<usize> = p
+        .cells
+        .iter()
+        .filter(|c| c.1 == TILE_WALL)
+        .map(|c| c.0)
+        .collect();
+    let piers = wall_pieces(&walls)
+        .iter()
+        .filter(|g| exact_square(g, R.square_side))
+        .count();
+    vec![
+        i32::from(vertical),
+        R.hall_pitch,
+        (bbox.w.min(bbox.h) as i32 - 1) / 2,
+        i32::try_from(piers).unwrap_or(i32::MAX),
+        0,
+    ]
+}
+
+/// The 8-connected pieces of tiles `walls` (sorted ascending), each in discovery order.
+fn wall_pieces(walls: &[usize]) -> Vec<Vec<usize>> {
+    let mut seen = vec![false; walls.len()];
+    let mut out = Vec::new();
+    for s in 0..walls.len() {
+        if seen[s] {
+            continue;
+        }
+        seen[s] = true;
+        let (mut piece, mut stack) = (Vec::new(), vec![s]);
+        while let Some(k) = stack.pop() {
+            piece.push(walls[k]);
+            let (x, y) = ((walls[k] % W) as i32, (walls[k] / W) as i32);
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    let Some(j) = at(x + dx, y + dy) else {
+                        continue;
+                    };
+                    if let Ok(n) = walls.binary_search(&j) {
+                        if !seen[n] {
+                            seen[n] = true;
+                            stack.push(n);
+                        }
+                    }
+                }
+            }
+        }
+        out.push(piece);
+    }
+    out
+}
+
+/// Whether tiles `g` are exactly a full `side` x `side` square.
+fn exact_square(g: &[usize], side: usize) -> bool {
+    let b = bounds(g.iter().copied());
+    g.len() == side * side && b.w as usize == side && b.h as usize == side
+}
+
+/// P-MAPGEN-SIG-HOLY-1: the Holy site's camp tiles for the square of side `side` with top-left (x, y): the hall's camp
+/// marks `marks` (grid order) where the drawing lands centred in the site's inner rect (the site less `bands[0]`), its
+/// front `axis(front(t))` at the inner rect's centre tile `t`, as `stamp` reads it. Unmirrored: the hall's `E` tiles
+/// stand on its mirror axis, so the stamp's later mirror draw cannot move them. `None` (not a candidate) when the
+/// drawing does not land there or a camp tile is off the map; the camps' halo legality is camp placement's
+/// (`zones::camps::place_camps_reserving`).
+fn hall_camps(
+    bp: &Blueprint,
+    marks: &[(i32, i32)],
+    x: i32,
+    y: i32,
+    side: i32,
+    d: &Definition,
+) -> Option<Vec<usize>> {
+    let b = d.bands[0];
+    let inner = TileRect {
+        x: x + b,
+        y: y + b,
+        w: u32::try_from(side - 2 * b).ok()?,
+        h: u32::try_from(side - 2 * b).ok()?,
+    };
+    let t = (inner.x + inner.w as i32 / 2, inner.y + inner.h as i32 / 2);
+    let o = Orientation {
+        front: axis(front(t.0, t.1)),
+        mirrored: false,
+    };
+    let landing = bp.land(Placement::Centre, o, &Target { inner, camp: None })?;
+    marks
+        .iter()
+        .map(|&g| {
+            let p = landing.tile(g);
+            at(p.0, p.1)
+        })
+        .collect()
+}
+
+/// What `intact` accepts on the entrance tiles of drawing `bp` under entrance rule `rule` (`Door`): `Ok(None)` for a
+/// drawing without an entrance, `Err` when its entrance tiles' glyphs do not all write one thing (or a tile has no
+/// glyph): such an entry cannot be judged by one door and is refused (`SignatureContext::from_definition`).
+fn entrance_door(bp: &Blueprint, rule: blueprint::EntranceRule) -> Result<Option<Door>, ()> {
+    let mut door: Option<Door> = None;
+    for g in bp.entrance(rule) {
+        let glyph = bp
+            .char_at(g)
+            .and_then(|ch| bp.legend().glyph(ch))
+            .ok_or(())?;
+        let d = Door {
+            write: written(glyph.write),
+            owner: glyph.feature,
+        };
+        if door.is_some_and(|first| first != d) {
+            return Err(());
+        }
+        door = Some(d);
+    }
+    Ok(door)
 }
 
 /// The (tile, terrain) a glyph's write leaves on its map tile; `None` for `Write::Nothing`.
@@ -1499,6 +1704,8 @@ mod tests {
             zone,
             rect: TileRect { x, y, w: 4, h: 3 },
             camp,
+            extra: Vec::new(),
+            elite: camp.is_some(),
             stream: Mulberry32::new(1),
         }
     }
@@ -1511,9 +1718,9 @@ mod tests {
         let camps = [camp(1, 5, 5), camp(2, 30, 31), camp(3, 61, 61)];
         let frost = site(Zone::Frost, 60, 60, Some(camps[2].site));
         let crowded = [camp(4, 61, 61), camp(4, 63, 62), camp(4, 64, 62)];
-        assert_eq!(stray_camp(&frost, &crowded, 0), Some(1));
+        assert_eq!(stray_camp(&frost, &crowded, &[0]), Some(1));
         assert_eq!(
-            stray_camp(&frost, &[crowded[0].clone(), crowded[2].clone()], 0),
+            stray_camp(&frost, &[crowded[0].clone(), crowded[2].clone()], &[0]),
             None
         );
     }
@@ -1544,7 +1751,7 @@ mod tests {
                         .position(|c| c.site == t)
                         .unwrap_or_else(|| panic!("seed {seed} attempt {n}: no camp on {t}"));
                     assert_eq!(
-                        stray_camp(r, camps, inside),
+                        stray_camp(r, camps, &[inside]),
                         None,
                         "seed {seed} attempt {n}: a camp in the {:?} site",
                         r.zone
@@ -1659,5 +1866,190 @@ mod tests {
         m.terrain[i] = ctx.terrain_codes().ice;
         assert!(!ctx.doors_intact(&m));
         assert!(!ctx.intact(&m));
+    }
+
+    /// P-MAPGEN-SIG-HOLY-1: the Holy site's relabel gives each tile the nearer of its two camps, `camp` on a tie (the
+    /// tiles on the perpendicular bisector), and a camp of the site no longer counts as a stray.
+    #[test]
+    fn the_holy_relabel_takes_the_nearer_camp_and_the_back_one_on_a_tie() {
+        let camps = [camp(1, 5, 5), camp(5, 20, 10), camp(5, 20, 14)];
+        let mut holy = site(Zone::Holy, 18, 8, Some(camps[1].site));
+        holy.rect = TileRect {
+            x: 18,
+            y: 8,
+            w: 5,
+            h: 9,
+        };
+        holy.extra = vec![camps[2].site];
+        holy.elite = false;
+        assert_eq!(stray_camp(&holy, &camps, &[1, 2]), None);
+        assert_eq!(stray_camp(&holy, &camps, &[1]), Some(2));
+        let mut grid = vec![9u8; W * H];
+        relabel_sites(std::slice::from_ref(&holy), &camps, &mut grid);
+        for y in 8..17 {
+            for x in 18..23 {
+                // Row 12 is as far from both camps: the back camp (label 2) keeps it.
+                let want = if y <= 12 { 2 } else { 3 };
+                assert_eq!(grid[y * W + x], want, "({x}, {y})");
+            }
+        }
+        assert_eq!(grid[7 * W + 20], 9, "outside the site");
+    }
+
+    /// The finished map's Holy anchor comes from the hall's frame alone (`finish` reads no styler feature): one Holy
+    /// anchor, its entrance the seven nave tiles, and the map is intact.
+    #[test]
+    fn the_holy_anchor_is_the_frames_and_the_hall_is_intact() {
+        let fixed = crate::mapgen::coliseum::fixed_layout();
+        let ctx = SignatureContext::new(&fixed);
+        let m = signature_map();
+        let holy: Vec<&ZoneAnchor> = m.anchors.iter().filter(|a| a.zone == Zone::Holy).collect();
+        assert_eq!(holy.len(), 1);
+        assert_eq!(holy[0].kind, FeatureKind::Hall);
+        assert_eq!(holy[0].entrance.len(), 7);
+        assert!(ctx.doors_intact(&m));
+        assert!(ctx.intact(&m));
+    }
+
+    /// A hall wall turned to floor (still owned by the hall, no light) is not what the drawing wrote: not intact.
+    #[test]
+    fn a_hall_wall_turned_to_plain_floor_is_not_intact() {
+        let fixed = crate::mapgen::coliseum::fixed_layout();
+        let ctx = SignatureContext::new(&fixed);
+        let mut m = signature_map();
+        let k = m
+            .features
+            .iter()
+            .position(|f| f.kind == FeatureKind::Hall)
+            .expect("the hall");
+        let i = (0..m.tiles.len())
+            .find(|&i| usize::from(m.feature_grid[i]) == k + 1 && m.tiles[i] == TILE_WALL)
+            .expect("a hall wall");
+        m.tiles[i] = TILE_FLOOR;
+        assert!(!ctx.intact(&m));
+    }
+
+    /// The Hall's spawn mask (owner decision 2026-11-14, 2): the box is the keep mask; `near1` holds the ring round the
+    /// box, the written walls and light, and every tile within `shrine_clear` of a light tile, and nothing else of the
+    /// box (the open floor stays open to the spawn pool). The Hall's params are the legacy row's.
+    #[test]
+    fn the_hall_keeps_spawns_off_its_walls_and_clear_of_its_light_only() {
+        let fixed = crate::mapgen::coliseum::fixed_layout();
+        let ctx = SignatureContext::new(&fixed);
+        let context = crate::mapgen::attempt::AttemptContext::new(&fixed);
+        let frame = (0..8)
+            .find_map(|n| {
+                crate::mapgen::attempt::begin_attempt_signature(&context, 1, n, true)
+                    .expect("prefix input")
+            })
+            .expect("a prefix");
+        let mut stage = crate::mapgen::landmarks::stage::StageContext::new(&fixed)
+            .apply(
+                &frame,
+                &crate::mapgen::landmarks::recipes::Recipes::default(),
+            )
+            .expect("stage input")
+            .expect("a stage");
+        stage.masks.near1.fill(0);
+        stage.masks.boxes.fill(0);
+        // A 9 x 9 box at (40, 40): a 3 x 3 pier in each corner and a 1 x 1 light in the middle.
+        let light = spec::light_code();
+        let mut cells = Vec::new();
+        for y in 40..49 {
+            for x in 40..49 {
+                let corner = !(43..=45).contains(&x) && !(43..=45).contains(&y);
+                if corner {
+                    cells.push((y * W + x, TILE_WALL, 0));
+                } else if (x, y) == (44, 44) {
+                    cells.push((y * W + x, TILE_FLOOR, light));
+                }
+            }
+        }
+        cells.sort_unstable_by_key(|c| c.0);
+        let piece = Piece {
+            kind: FeatureKind::Hall,
+            job: FeatureJob::Cover,
+            anchor: (44, 44),
+            cells: cells.clone(),
+        };
+        let mut terrain = vec![0u8; W * H];
+        let bbox = ctx.write(&mut stage, &mut terrain, Zone::Holy, &piece);
+        assert_eq!(
+            bbox,
+            TileRect {
+                x: 40,
+                y: 40,
+                w: 9,
+                h: 9
+            }
+        );
+        let (b, c) = (ctx.rules.bands[0] as usize, ctx.rules.shrine_clear as usize);
+        for y in 30..60usize {
+            for x in 30..60usize {
+                let i = y * W + x;
+                let inside = (40..49).contains(&x) && (40..49).contains(&y);
+                let ring =
+                    !inside && (40 - b..49 + b).contains(&x) && (40 - b..49 + b).contains(&y);
+                let written = cells.iter().any(|c| c.0 == i);
+                let near_light = x.abs_diff(44) <= c && y.abs_diff(44) <= c;
+                assert_eq!(stage.masks.boxes[i], u8::from(inside), "boxes ({x}, {y})");
+                assert_eq!(
+                    stage.masks.near1[i],
+                    u8::from(ring || written || near_light),
+                    "near1 ({x}, {y})"
+                );
+            }
+        }
+        let f = stage.state.features.last().expect("the hall feature");
+        assert_eq!(f.p[1..], [R.hall_pitch, 4, 4, 0]);
+        assert!((0..=1).contains(&f.p[0]));
+    }
+
+    /// P-MAPGEN-SIG-HOLY-1: the entrance check is a real check (`entrance_door`): a front run whose glyphs write
+    /// different things is refused; one that writes one thing is its door; no entrance, no door.
+    #[test]
+    fn an_entrance_whose_glyphs_write_different_things_is_refused() {
+        use blueprint::{EntranceRule, Glyph, Legend};
+        let g = |ch, write| Glyph {
+            ch,
+            write,
+            feature: None,
+            legality: Legality::Floor,
+            mark: ch == b'E',
+        };
+        let legend = Legend(vec![
+            g(b'.', Write::Nothing),
+            g(b'E', Write::Nothing),
+            g(b'o', Write::Floor(3)),
+            Glyph {
+                feature: Some(FeatureKind::Hall),
+                ..g(b'#', Write::Wall)
+            },
+        ]);
+        let mixed = Blueprint::parse("#E#\n.o.\n", &legend).expect("parses");
+        assert_eq!(entrance_door(&mixed, EntranceRule::FrontRun(b'E')), Err(()));
+        let plain = Blueprint::parse("#E#\n...\n", &legend).expect("parses");
+        assert_eq!(
+            entrance_door(&plain, EntranceRule::FrontRun(b'E')),
+            Ok(Some(Door {
+                write: None,
+                owner: None
+            }))
+        );
+        assert_eq!(entrance_door(&plain, EntranceRule::None), Ok(None));
+        // The shipped table: every entry keeps its drawing, the hall's door is the nave's plain floor.
+        let fixed = crate::mapgen::coliseum::fixed_layout();
+        let ctx = SignatureContext::new(&fixed);
+        assert!(ctx.landmarks.iter().all(|(_, bp)| bp.is_some()));
+        assert_eq!(
+            ctx.doors
+                .iter()
+                .find(|(z, _)| *z == Zone::Holy)
+                .map(|d| d.1),
+            Some(Door {
+                write: None,
+                owner: None
+            })
+        );
     }
 }

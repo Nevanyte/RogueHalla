@@ -230,7 +230,8 @@ fn assemble_with(
                                 y0: r.rect.y as usize,
                                 x1: (r.rect.x + r.rect.w as i32 - 1) as usize,
                                 y1: (r.rect.y + r.rect.h as i32 - 1) as usize,
-                                camp: r.camp,
+                                camps: r.camp.iter().chain(&r.extra).copied().collect(),
+                                elite: r.elite,
                             }
                         })
                         .collect();
@@ -250,7 +251,8 @@ fn assemble_with(
                         y0,
                         x1,
                         y1,
-                        camp: None,
+                        camps: Vec::new(),
+                        elite: false,
                     }));
                     let layout =
                         if crate::mapgen::landmarks::signature::fan_holds_a_site_camp(&reserved, d)

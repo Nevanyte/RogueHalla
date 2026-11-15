@@ -33,7 +33,8 @@ use std::sync::OnceLock;
 /// Each landmark's member kinds and by-tile kinds as `signature/mod.rs` writes them by hand on Part 1's tree:
 /// `is_signature` (the union of the member kinds), `by_tile` (the lava streams and pools), the `intact` arms (one arm
 /// per member kind) and `aprons_apart` (Fire: volcano, streams, pools; Sentenced: church and graveyard; Plague: bog
-/// tree; Frost: cave). The Holy hall is not a table entry (`reserved_zones` has no Holy; HOLY-1).
+/// tree; Frost: cave). The Holy hall is not listed here: its entry's member kinds are P-MAPGEN-SIG-HOLY-1's
+/// implementer's (that brief, design 6; its entry is pinned by `mapgen_signature_hall.rs`).
 fn membership() -> Vec<(Zone, Vec<FeatureKind>, Vec<FeatureKind>)> {
     use FeatureKind::{BogTree, Cave, Church, Graveyard, LavaPool, LavaStream, Volcano};
     vec![
@@ -382,7 +383,8 @@ fn guard_every_shipped_drawing_is_the_approved_file() {
         )),
         Zone::Plague => Some(include_str!("../../../docs/landmarks/blueprints/bog.txt")),
         Zone::Frost => Some(include_str!("../../../docs/landmarks/blueprints/cave.txt")),
-        _ => None,
+        // P-MAPGEN-SIG-HOLY-1: the hall's drawing (37 x 37, owner decision 2026-11-13).
+        Zone::Holy => Some(include_str!("../../../docs/landmarks/blueprints/hall.txt")),
     };
     for s in specs(&DEFAULT_DEFINITION) {
         let Some(shipped) = s.drawing else { continue };

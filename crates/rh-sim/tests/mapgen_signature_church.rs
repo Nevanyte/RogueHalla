@@ -741,6 +741,8 @@ fn relabel_sites_labels_the_frost_and_the_sentenced_sites() {
         zone,
         rect: TileRect { x, y, w: 4, h: 3 },
         camp,
+        extra: Vec::new(),
+        elite: camp.is_some(),
         stream: Mulberry32::new(1),
     };
     let camps = vec![camp(1, 5, 5), camp(2, 30, 31), camp(3, 61, 61)];
