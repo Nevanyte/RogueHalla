@@ -72,6 +72,8 @@ class ContextControls(unittest.TestCase):
             self.assertIn("--pull=never", args)
             self.assertIn("--read-only", args)
             self.assertIn("type=bind,src=/historical.md,dst=/repo/docs/CONTRACTS.md,readonly", args)
+            args_r = API["docker_args"](Path("/repo-source"), Path("/fresh"), Path("/historical.md"), m["image"], "owned", w["script"], 1001, 1002, Path("/req.md"))
+            self.assertIn("type=bind,src=/req.md,dst=/repo/docs/REQUIREMENTS.md,readonly", args_r)
             self.assertEqual(sum(x.startswith("/repo/") and ":rw,exec,size=" in x for x in args), 4)
             self.assertIn("NPM_CONFIG_USERCONFIG=/tmp/empty-user-npmrc", args)
             self.assertIn("NPM_CONFIG_GLOBALCONFIG=/tmp/empty-global-npmrc", args)
