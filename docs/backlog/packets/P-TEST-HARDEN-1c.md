@@ -18,3 +18,8 @@ count: those are in every run. It can hide an allocation that happens in fewer t
 occasional one, which the old single-mean test would have flagged as a flake rather than a finding.
 
 **Proof.** `dotnet test ... --filter PlainDecode` in a loop of 20 under load, before and after (see the hand-off).
+
+**Result.** The flake did not reproduce on the unfixed tree: 0 failures in 20 `PlainDecode` runs beside 4 loops, 0 of 20
+beside 12 loops (load average up to 67, the 12 loops themselves 0 of 480), 0 of 20 with `DOTNET_GCHighMemPercent=0x0A`.
+After the fix: 0 of 20 beside 8 loops. Runtime about 5 s idle (unfixed); about 2.8 s per run loaded (fixed). The fix rests
+on the stated reasoning, not on a reproduced before/after.
