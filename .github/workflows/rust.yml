@@ -145,12 +145,28 @@ jobs:
           bash tools/barrier-view-fixtures/capture.sh --check
       - name: Admitted private, Card and Room source witnesses remain byte exact
         # Source-fixture freshness only: this does not claim full native Brain composition/admission.
+        # Every witness is checked even after one differs, so one red line never hides the others' state.
         run: |
-          bash tools/card-bleed-fixtures/capture.sh --check
-          bash tools/bot-private-brain-fixtures/capture.sh --check
-          bash tools/bot-private-modules-fixtures/capture.sh --check
-          bash tools/bot-private-tactics-fixtures/capture.sh --check
-          bash tools/quest-room-feedback-fixtures/capture.sh --check
+          fail=0
+          for witness in card-bleed bot-private-brain bot-private-modules bot-private-tactics quest-room-feedback; do
+            bash "tools/$witness-fixtures/capture.sh" --check || { echo "::error::$witness source witness differs"; fail=1; }
+          done
+          exit "$fail"
+      - name: Bot private Brain witness recaptured on CI's platform (diagnostic, only after a red step)
+        # P-CI-GREEN-4: the committed coverage.json matches an emulated linux/amd64 capture on a Mac, and native x86_64
+        # recomputes other bytes. This keeps CI's own bytes so the differing leaves can be named. Writes nothing back.
+        if: failure()
+        run: |
+          RH_BOT_BRAIN_OUTPUT="$GITHUB_WORKSPACE/.ci-brain-recapture" bash tools/bot-private-brain-fixtures/capture.sh || true
+          sha256sum .ci-brain-recapture/* parity/policy/bot-private-brain/* || true
+      - name: Upload the Bot private Brain recapture
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bot-private-brain-recapture
+          path: .ci-brain-recapture/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: NPC context diagnostic receipts (bounded, no raw fixture or environment dump)
         if: always()
         run: |
