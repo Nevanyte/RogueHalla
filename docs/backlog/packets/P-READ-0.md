@@ -73,3 +73,22 @@ step is selected in quick and full mode.
 `python3 -m unittest scripts/test_readability_check.py` green; `python3 scripts/readability_check.py` prints
 `readability: OK (...)` on the branch; `scripts/gate.sh --quick --allow-protected --oracle packet/P-READ-0` PASS; the
 AGENTS.md hand-off report with the final `readability: OK (...)` line and the counts per kind.
+
+## Oracle notes
+
+`python3 -m unittest scripts/test_readability_check.py` (111 tests, about 20 s; each builds temporary git repositories).
+Readings the brief left open, each pinned by a test:
+
+- All output goes to stdout; the summary is the last non-blank stdout line. `FAIL (1 problems)` is literal (no plural).
+- A `readme` rule applies to a fixed directory (`hosting`, `tools`, ...) only if it holds tracked files; a README must be
+  tracked and directly in that directory. The path in the message may carry a trailing `/`.
+- Every problem line starts `<kind> <path>:` where kind is the entry's kind (`size`, `header`, `readme`, `frozen`,
+  `exempt`), also for stale, grew and missing-path problems. Malformed/duplicate/unknown-kind lines are pinned only by
+  exit 1 and the problem count (one problem per bad line).
+- `frozen` only needs its file to exist: it does not waive a size/header violation (that still needs its own entry).
+- `exempt` on a file that is not over size is not stale; `exempt` never waives `header` or `readme`.
+- A `size` entry whose max is above the file's current count (shrunk, still over) passes.
+- `--write-allowlist` prints `size <path> <current-lines>`, `header <path>`, `readme <dir>` and the kept `frozen` and
+  `exempt` lines; kinds sorted alphabetically (header, readme, size), grouped contiguously, then path; files under an
+  `exempt` glob get no `size` line; it exits 0 even when the allowlist is malformed and its output makes the check pass.
+- Counts in the OK line are the number of allowlist entries of each kind.
