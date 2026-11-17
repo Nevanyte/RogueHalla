@@ -70,7 +70,7 @@ class ComparatorTests(unittest.TestCase):
             "match_id": None,
             "config": copy.deepcopy(spec["sim"]),
             "arena": arena,
-            "secrets": {"order_salt": 1, "spawn_seed": 2},
+            "secrets": {"order_salt": 1, "spawn_seed": 2, "reward_salt": [3, 4, 5, 6]},
             "start": {"Active": {"placements": placements}},
             "ticks": [{"tick": 2, "inputs": [{"Leave": {"player": 1}}]}],
             "hashes": list(range(1, spec["max_ticks"] + 1)),
@@ -198,6 +198,25 @@ class ComparatorTests(unittest.TestCase):
             elapsed_ms=999999,
             rustc_vv=p["rustc_vv"].replace("aarch64-unknown-linux-gnu", "different-host")))
         self.assertEqual(self.run_compare(), 6)
+
+    NEW_LEAVES = {
+        "consumables": True, "walk_hints": None, "hitboxes": "Archetypes", "mob_spacing": None,
+        "regen_in_combat": None, "camp_buffs": None, "frost_wish": "wall",
+    }
+
+    def test_new_replay_config_leaves_pass_when_equal_and_fail_when_targets_differ(self):
+        self.mutate_both_replays(lambda r: r["config"].update(self.NEW_LEAVES))
+        self.assertEqual(self.run_compare(), 6)
+        self.mutate_replay(self.right, lambda r: r["config"].update(frost_wish=None))
+        self.assert_rejected()
+
+    def test_unknown_replay_config_key_and_bad_new_leaf_values_fail(self):
+        self.mutate_both_replays(lambda r: r["config"].update(invented_leaf=True))
+        self.assert_rejected()
+        for key, bad in (("frost_wish", "freeze"), ("hitboxes", "Round"), ("consumables", 1)):
+            self.reset()
+            self.mutate_both_replays(lambda r: r["config"].update({key: bad}))
+            self.assert_rejected()
 
     def test_literal_cargo_workflow_command_passes(self):
         for directory in (self.left, self.right):
