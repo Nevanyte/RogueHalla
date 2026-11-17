@@ -1,3 +1,5 @@
+//! Test driver of the ability source corpus (`parity/abilities/source.json`): replays a case's actions on a `Sim`,
+//! comparing against the captured timeline after each action and checkpoint-restoring along the way.
 use super::*;
 
 pub(super) fn run_case(c: &V) -> Sim {

@@ -1,3 +1,5 @@
+//! Zone and camp geometry the landmark runtime reads: `ZoneGeometry`, `ZoneInfo`, `CampInfo`, `FloatTilePoint` and the
+//! `chamfer` distance transform.
 use super::*;
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FloatTilePoint {

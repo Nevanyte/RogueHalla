@@ -1,3 +1,5 @@
+//! The Fire (Scorch) landmark recipe: its template, `Definition` of numbers (with `visit_content` for the content
+//! hash), the volcano `Frame` and radius helpers, and `Recipe::apply`, which places the stamp through the landmark search.
 use super::super::TemplateDefinition;
 use crate::map::TILE_FLOOR;
 use crate::mapdata::{FeatureJob, FeatureKind};

@@ -1,3 +1,5 @@
+//! The per-runtime lookup tables of the landmark search (`Tables`): wall and floor fit tables, `candidates` that fit a
+//! template, and `patch` to update them after a stamp is placed.
 use super::{PlanningPolicy, Stamp};
 use crate::map::TILE_FLOOR;
 use crate::mapdata::FeatureKind;

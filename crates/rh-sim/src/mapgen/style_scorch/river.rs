@@ -1,3 +1,4 @@
+//! The lava river of the Fire stage-six styler: `place_river` chooses a path, its fords and its bands between camps.
 use super::*;
 #[derive(Clone, Copy)]
 struct Band {

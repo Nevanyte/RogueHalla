@@ -1,3 +1,5 @@
+//! Test-only encoder of the private-tactics `Memory` into the source value tree (`encode_memory`) for the replay
+//! transcript. Textually included by `source_trace.rs`, so it shares that file's imports.
 fn encode_memory(mem: &super::super::memory::Memory) -> SVal {
     use super::super::memory::{ContainersWeapon, MemoryView};
     let MemoryView {

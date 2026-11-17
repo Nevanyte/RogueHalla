@@ -1,3 +1,5 @@
+//! The mirror fields derived from a fold (`StatMirrors`, `WireMirrors`, `MirrorField`), from `mods.ts`: what the fold
+//! reports to the sim and to the wire, rounded as the source does.
 use crate::math::js_round;
 use crate::stat_fold::{default_definition, js, Folded, StatFoldDefinition, StatSums};
 

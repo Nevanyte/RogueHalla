@@ -1,3 +1,5 @@
+//! Site planning for the Plague stage-six styler: barrow `Site`s, the `Ground` that tracks free tiles, and the core,
+//! rock and crescent candidates a site is chosen from.
 use super::*;
 use crate::mapgen::landmarks::recipe_support::{js_round, Node};
 use crate::mapgen::landmarks::recipes::direct_family::warren::Road;

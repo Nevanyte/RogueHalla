@@ -1,3 +1,5 @@
+//! The numbers of the stat fold (`StatFoldDefinition`, `ChestBoostDefinition`) and `visit_content`, which feeds them to
+//! the content hash.
 use crate::stat_fold::ChestBoostStat;
 
 #[derive(Clone, Copy, Debug, PartialEq)]

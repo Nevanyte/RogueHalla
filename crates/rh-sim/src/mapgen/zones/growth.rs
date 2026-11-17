@@ -1,3 +1,5 @@
+//! Zone growth of the pre-styler partition, from legacy zones.ts: the spine, quota growth, balance, peel and smooth
+//! passes, with the source's heap tie-breaking.
 use super::{ZoneDefinition, N, W, ZONES};
 use crate::mapgen::grid_ops::{NB4, RING_OFF, SIMPLE};
 // Encoding of the legacy Int32 heap key, not a tunable gameplay value.

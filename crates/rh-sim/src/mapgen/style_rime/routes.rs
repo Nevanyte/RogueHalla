@@ -1,3 +1,5 @@
+//! Route bookkeeping for the Frost stage-six styler: `RouteBook` ensures the ways from camp mouths exist (dry or wet)
+//! and tells how much of a lake may be iced over.
 use super::*;
 use crate::mapgen::coliseum::GateSide;
 use crate::{

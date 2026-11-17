@@ -1,3 +1,5 @@
+//! Graph helpers of the feature kit over placed nodes: minimum spanning tree, relative-neighborhood edges, shortcut
+//! edges and the cyclomatic number.
 use super::{dist2, Node};
 pub type Edge = [usize; 2];
 fn distance(nodes: &[Node], a: usize, b: usize) -> f64 {

@@ -1,3 +1,5 @@
+//! The fold itself, from `packages/shared/src` `mods.ts`: zeroed and identity sums, `fold_stat_rows`, `fold_rows`,
+//! `folded_max_hp` and the `FoldContext` and `Folded` they take and return.
 use super::boost::boost_base;
 use crate::stat_fold::{
     chest_boost_gain_with_definition, default_definition, js, requirements_met, BoostCounts,
