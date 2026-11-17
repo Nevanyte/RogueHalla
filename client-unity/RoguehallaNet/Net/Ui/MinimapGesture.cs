@@ -2,6 +2,7 @@ using System;
 
 namespace Roguehalla.Net.Ui
 {
+    /// <summary>Which mouse button a minimap gesture uses; MinimapGesture below turns the presses into camera peeks and move destinations.</summary>
     public enum MinimapButton : byte { Left, Right }
 
     /// <summary>Tracks minimap pointer gestures and yields only changed movement destinations.</summary>

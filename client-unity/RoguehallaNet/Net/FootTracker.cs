@@ -2,6 +2,7 @@ using System;
 
 namespace Roguehalla.Net
 {
+    /// <summary>The kinds of foot event (print, step sound, idle ring) that FootTracker below derives from delivered actor positions.</summary>
     public enum FootEventKind : byte
     {
         /// <summary>A foot lands on ground that leaves a print (or, on water or bog, a footfall ripple).</summary>

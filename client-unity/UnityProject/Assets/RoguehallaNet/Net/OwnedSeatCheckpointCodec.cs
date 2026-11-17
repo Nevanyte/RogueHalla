@@ -5,6 +5,7 @@ using System.Text;
 namespace Roguehalla.Net
 {
     // Local canonical record, not a network protocol. Fixed ordered fields reject duplicates/unknown fields by construction.
+    /// <summary>Encodes and parses the local canonical text of an OwnedSeatCheckpoint record; a storage format, not a network protocol.</summary>
     internal static class OwnedSeatCheckpointCodec
     {
         static readonly UTF8Encoding Utf8 = new UTF8Encoding(false, true);
