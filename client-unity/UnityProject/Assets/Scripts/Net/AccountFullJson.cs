@@ -158,7 +158,20 @@ namespace Roguehalla.Client
                 new AccountFullCosmetics(StringList(Required(cosmetics, "owned")), Strings(Required(cosmetics, "equipped"))),
                 Counts(Required(p, "achievements")),
                 new AccountFullProgress(Integer(Required(progress, "qualifiedWins")), Integer(Required(progress, "bountyRuns")), Integer(Required(progress, "bestRunKills")),
-                    Counts(Required(progress, "winsByFaction")), Counts(Required(progress, "winsByWeapon"))));
+                    Counts(Required(progress, "winsByFaction")), Counts(Required(progress, "winsByWeapon"))),
+                OptionalTutorial(p), p.TryGetValue("tutorialDue", out var due) && due.Type == JTokenType.Boolean && (bool)due);
+        }
+
+        // Missing or malformed tutorial data (an older server) means "no stored progress", never a profile failure.
+        static AccountTutorialState OptionalTutorial(JObject profile)
+        {
+            try
+            {
+                if (!profile.TryGetValue("tutorial", out var token) || token.Type != JTokenType.Object) return null;
+                JObject t = (JObject)token;
+                return new AccountTutorialState((int)Integer(Required(t, "version")), (int)Integer(Required(t, "step")), String(Required(t, "state")));
+            }
+            catch (Exception error) when (Malformed(error)) { return null; }
         }
 
         public static bool TryProfile(string json, out AccountFullProfile profile)
@@ -222,6 +235,8 @@ namespace Roguehalla.Client
 
         public static string EncodeMutation(AccountApiRequest request)
         {
+            if (request.Tutorial != null)
+                return new JObject { ["version"] = request.Tutorial.Version, ["step"] = request.Tutorial.Step, ["state"] = request.Tutorial.State }.ToString(Formatting.None);
             var body = new JObject { ["id"] = request.ItemId == null ? JValue.CreateNull() : new JValue(request.ItemId) };
             if (!request.PurchaseId.HasValue) body["slot"] = request.Slot;
             return body.ToString(Formatting.None);

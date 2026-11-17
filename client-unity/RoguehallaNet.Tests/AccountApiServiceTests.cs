@@ -189,6 +189,34 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
+        public async Task SaveTutorialPostsTheTripleToTheTutorialRouteWithTheOwnerTokenAndLeavesNothingPending()
+        {
+            var rig = new Rig(); await rig.Open();
+            var saving = rig.Api.SaveTutorialAsync(1, 3, "step");
+            Assert.AreEqual(1, rig.Transport.Requests.Count, "one request is sent");
+            var request = rig.Transport.Requests[0].Request;
+            Assert.AreEqual("POST", request.Method); Assert.IsTrue(request.Url.EndsWith("/api/profile/Alice/tutorial") || request.Url.EndsWith("/tutorial"), request.Url);
+            Assert.IsTrue(request.Headers.Any(h => h.Key == "x-profile-token")); Assert.IsNull(request.PurchaseId);
+            var json = JObject.Parse(AccountFullJson.EncodeMutation(request));
+            Assert.AreEqual(1, (int)json["version"]); Assert.AreEqual(3, (int)json["step"]); Assert.AreEqual("step", (string)json["state"]);
+            rig.Transport.Requests[0].Reply.SetResult(new AccountApiResponse(200, Profile())); Assert.IsTrue((await saving).PublishedCurrent);
+            Assert.AreEqual(0, rig.Api.PendingOperations.Count);
+        }
+
+        [Test]
+        public async Task SaveTutorialFailuresAreResultCodesNeverThrows()
+        {
+            var rig = new Rig();
+            Assert.AreEqual(AccountApiFailure.NoOwner, (await rig.Api.SaveTutorialAsync(1, 1, "step")).Failure);
+            await rig.Open();
+            Assert.AreEqual(AccountApiFailure.BadRequest, (await rig.Api.SaveTutorialAsync(1, 1, "bogus")).Failure);
+            var saving = rig.Api.SaveTutorialAsync(1, 1, "done");
+            Assert.AreEqual(1, rig.Transport.Requests.Count, "one request is sent");
+            rig.Transport.Requests[0].Reply.SetResult(new AccountApiResponse(503));
+            Assert.AreNotEqual(AccountApiFailure.None, (await saving).Failure); Assert.AreEqual(0, rig.Api.PendingOperations.Count);
+        }
+
+        [Test]
         public async Task CancelledAlreadySentEquipKeepsUnknownMetadataAndNeverPretendsRollbackOrGrant()
         {
             var rig = new Rig(); await rig.Open(); var operation = rig.Api.CreateEquip("skin", null); var cancel = new CancellationTokenSource();

@@ -33,6 +33,8 @@ namespace Roguehalla.Client
         sealed class Switch { public Button Button; public Image Track; public RectTransform Knob; }
 
         public RectTransform Root => _root;
+        /// <summary>Raised after settings close when the player presses "Replay tutorial"; the owner restarts the flow and launches Training.</summary>
+        public event Action ReplayTutorialRequested;
         public bool IsVisible => _root != null && _root.gameObject.activeSelf;
 
         public void Initialize(Transform root, ShowcaseSettings source, TacticalMapController map,
@@ -85,6 +87,9 @@ namespace Roguehalla.Client
             SegmentedRow("Minimap size");
             Heading("Controls");
             _quickCast = SwitchRow("Quick cast", () => _prefs.SetQuickCast(!_prefs.QuickCast), "Abilities you aim (Frost Wall) cast at the cursor the moment you press the key. Off: the key shows where it lands and a click places it.");
+            Heading("Tutorial");
+            var replay = ControlRow("Training walkthrough", RowHeight);
+            HudUi.Button(replay, "ReplayTutorial", "Replay tutorial", HudAnchor.MiddleRight, 0, 0, 120f, 22f, () => { CloseByUser(); ReplayTutorialRequested?.Invoke(); }, theme.SizeSmall, theme.CornerRadiusSmall);
             FooterRow();
 
             _source.Changed += Refresh;

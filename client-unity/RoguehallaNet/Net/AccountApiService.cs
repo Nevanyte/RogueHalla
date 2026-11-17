@@ -7,7 +7,7 @@ namespace Roguehalla.Net
 {
     public enum AccountApiFailure { None, NoOwner, Stale, Cancelled, BadRequest, Forbidden, PasscodeRequired, UnknownCosmetic, UnknownSlot, NotForSale, AlreadyOwned, InsufficientGv, NotOwned, SlotMismatch, RateLimited, Unavailable, Unreadable }
     public enum AccountApiReadKind { Leaderboard, Settlement }
-    public enum AccountMutationKind { Purchase, Equip }
+    public enum AccountMutationKind { Purchase, Equip, Tutorial }
     public enum AccountMutationState { Ready, InFlight, Confirmed, Refused, Unknown }
     public sealed class AccountApiError
     {
@@ -27,6 +27,8 @@ namespace Roguehalla.Net
         public Guid? PurchaseId { get; }
         public AccountApiReadKind ReadKind { get; }
         public string MatchId { get; }
+        /// <summary>Set only for the tutorial progress write (POST /tutorial); the body is the version/step/state triple.</summary>
+        public AccountTutorialState Tutorial { get; }
         public IEnumerable<KeyValuePair<string, string>> Headers
         {
             get
@@ -38,8 +40,8 @@ namespace Roguehalla.Net
             }
         }
         internal AccountApiRequest(AccountEndpoint endpoint, string url, string method, string token, string item = null, string slot = null,
-            Guid? purchaseId = null, AccountApiReadKind readKind = AccountApiReadKind.Leaderboard, string matchId = null)
-        { Endpoint = endpoint; Url = url; Method = method; OwnerToken = token; ItemId = item; Slot = slot; PurchaseId = purchaseId; ReadKind = readKind; MatchId = matchId; }
+            Guid? purchaseId = null, AccountApiReadKind readKind = AccountApiReadKind.Leaderboard, string matchId = null, AccountTutorialState tutorial = null)
+        { Endpoint = endpoint; Url = url; Method = method; OwnerToken = token; ItemId = item; Slot = slot; PurchaseId = purchaseId; ReadKind = readKind; MatchId = matchId; Tutorial = tutorial; }
         public bool HasAllowedTarget()
         {
             if (!Uri.TryCreate(Url, UriKind.Absolute, out var uri)) return false;
@@ -67,12 +69,13 @@ namespace Roguehalla.Net
         public AccountMutationKind Kind { get; }
         public string ItemId { get; }
         public string Slot { get; }
+        public AccountTutorialState Tutorial { get; }
         public AccountMutationState State { get; internal set; }
         public AccountApiError Error { get; internal set; }
         internal string Scope { get; }
         internal string Token { get; }
-        internal AccountMutation(string scope, OwnedAccount owner, AccountMutationKind kind, string item, string slot)
-        { Scope = scope; Name = owner.CanonicalName; Token = owner.Token; Kind = kind; ItemId = item; Slot = slot; }
+        internal AccountMutation(string scope, OwnedAccount owner, AccountMutationKind kind, string item, string slot, AccountTutorialState tutorial = null)
+        { Scope = scope; Name = owner.CanonicalName; Token = owner.Token; Kind = kind; ItemId = item; Slot = slot; Tutorial = tutorial; }
     }
     /// <summary>Secret-free pending metadata; selection changes do not erase an uncertain server transaction.</summary>
     public sealed class AccountMutationInfo
@@ -226,13 +229,29 @@ namespace Roguehalla.Net
 
         public AccountMutation CreatePurchase(string itemId) => Create(AccountMutationKind.Purchase, itemId, null);
         public AccountMutation CreateEquip(string slot, string itemId) => Create(AccountMutationKind.Equip, itemId, slot);
-        AccountMutation Create(AccountMutationKind kind, string item, string slot)
+        AccountMutation Create(AccountMutationKind kind, string item, string slot, AccountTutorialState tutorial = null)
         {
             var owner = _flow.CaptureApiOwner();
             if (owner == null) throw new InvalidOperationException("Confirmed current ownership is required.");
             if (kind == AccountMutationKind.Purchase && item == null || kind == AccountMutationKind.Equip && slot == null) throw new ArgumentException("A mutation payload is required.");
-            var operation = new AccountMutation(_flow.ApiEndpoint.StorageScope, owner.Account, kind, item, slot);
+            var operation = new AccountMutation(_flow.ApiEndpoint.StorageScope, owner.Account, kind, item, slot, tutorial);
             _operations.Add(operation.Id, operation); return operation;
+        }
+
+        /// <summary>
+        /// Best-effort tutorial progress write (POST /tutorial, same token and transport as equip). Never throws: a missing owner or a failed
+        /// save is only a result code. The operation is dropped from the registry once it settles, so nothing stays pending.
+        /// </summary>
+        public async Task<AccountApiResult> SaveTutorialAsync(int version, int step, string state, CancellationToken cancellation = default)
+        {
+            AccountTutorialState payload;
+            try { payload = new AccountTutorialState(version, step, state); }
+            catch (ArgumentException) { return new AccountApiResult(AccountApiFailure.BadRequest); }
+            AccountMutation operation;
+            try { operation = Create(AccountMutationKind.Tutorial, null, null, payload); }
+            catch (InvalidOperationException) { return new AccountApiResult(AccountApiFailure.NoOwner); }
+            try { return await SendAsync(operation, cancellation); }
+            finally { _operations.Remove(operation.Id); }
         }
 
         bool Owns(AccountMutation operation, AccountHubFlow.ApiOwner owner) => owner != null &&
@@ -257,9 +276,9 @@ namespace Roguehalla.Net
             {
                 if (!_flow.CurrentApiOwner(owner)) return new AccountApiResult(AccountApiFailure.Stale);
                 if (cancellation.IsCancellationRequested) return new AccountApiResult(AccountApiFailure.Cancelled);
-                string suffix = operation.Kind == AccountMutationKind.Purchase ? "/purchase" : "/equip";
+                string suffix = operation.Kind == AccountMutationKind.Purchase ? "/purchase" : operation.Kind == AccountMutationKind.Tutorial ? "/tutorial" : "/equip";
                 var request = new AccountApiRequest(_flow.ApiEndpoint, _flow.ApiEndpoint.ProfileUrl(owner.Account.CanonicalName) + suffix,
-                    "POST", owner.Account.Token, operation.ItemId, operation.Slot, operation.Kind == AccountMutationKind.Purchase ? operation.Id : (Guid?)null);
+                    "POST", owner.Account.Token, operation.ItemId, operation.Slot, operation.Kind == AccountMutationKind.Purchase ? operation.Id : (Guid?)null, tutorial: operation.Tutorial);
                 if (!request.HasAllowedTarget()) return new AccountApiResult(AccountApiFailure.BadRequest);
                 operation.State = AccountMutationState.InFlight; operation.Error = null;
                 AccountApiResponse response;
