@@ -70,23 +70,6 @@ frozen crates/rh-sim/src/systems/training.rs named by tools/training-fixtures/ru
 frozen crates/rh-sim/src/systems/training/console.rs named by tools/heal-barrier-fixtures/run-mutants.sh
 frozen crates/rh-sim/src/systems/wind.rs named by tools/consumable-fixtures/run-mutants.sh
 frozen crates/rh-sim/src/traders/runtime.rs named by tools/trade-fixtures/run-mutants.sh
-header client-unity/RoguehallaNet.Probe/Program.cs
-header client-unity/RoguehallaNet/Net/AccountApiService.cs
-header client-unity/RoguehallaNet/Net/AccountConnectionPolicy.cs
-header client-unity/RoguehallaNet/Net/AccountFullProfile.cs
-header client-unity/RoguehallaNet/Net/AccountHubFlow.cs
-header client-unity/RoguehallaNet/Net/AccountSettlement.cs
-header client-unity/RoguehallaNet/Net/Collections.cs
-header client-unity/RoguehallaNet/Net/FootTracker.cs
-header client-unity/RoguehallaNet/Net/MatchPhase.cs
-header client-unity/RoguehallaNet/Net/OwnedSeatCheckpoint.cs
-header client-unity/RoguehallaNet/Net/OwnedSeatCheckpointCodec.cs
-header client-unity/RoguehallaNet/Net/Ui/LobbyActivity.cs
-header client-unity/RoguehallaNet/Net/Ui/MinimapGesture.cs
-header client-unity/RoguehallaNet/Net/Ui/OverheadStack.cs
-header client-unity/RoguehallaNet/Net/Ui/TutorialFlow.cs
-header client-unity/RoguehallaNet/Net/Ui/UiInputGate.cs
-header client-unity/RoguehallaNet/Net/Ui/WeaponRange.cs
 header client-unity/UnityProject/Assets/Editor/AssetReadinessPreviewMenu.cs
 header client-unity/UnityProject/Assets/Editor/FlareCatalogImporter.cs
 header client-unity/UnityProject/Assets/Editor/FlareExpansionImporter.cs
