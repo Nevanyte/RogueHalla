@@ -13,6 +13,7 @@ frozen crates/rh-placement/src/ledger/postgres.rs path list in crates/rh-placeme
 frozen crates/rh-placement/src/service/mod.rs path list in crates/rh-placement/tests/crash_restart.rs
 frozen crates/rh-placement/src/service/run.rs path list in crates/rh-placement/tests/crash_restart.rs
 frozen crates/rh-policy/src/bots/bot.rs named by tools/knowledge-repair-fixtures/run-mutants.sh
+frozen crates/rh-policy/src/bots/brain.rs named by tools/bot-brain-prefix-fixtures/run-mutants.py (path built from cases)
 frozen crates/rh-policy/src/bots/build_route.rs named by tools/bot-mob-hunt-fixtures/run-mutants.sh
 frozen crates/rh-policy/src/bots/clicks.rs named by tools/bot-fixtures/run-mutants.sh
 frozen crates/rh-policy/src/bots/humanizer.rs named by tools/bot-fixtures/run-mutants.sh
