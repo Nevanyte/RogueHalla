@@ -297,6 +297,12 @@ if sed -n '/^if \[\[ "\$MODE" == quick \]\]; then$/,/^fi$/p' "$SRC/scripts/gate.
    && grep -qF 'staging preparation + NPC witness context pins' <<<"$(bash "$SRC/scripts/gate.sh" --list-steps 2>&1)"; then ok "the offline staging and NPC witness pin checks run in both modes"
 else bad "offline pin checks selection" "gate.sh does not select offline_pin_checks in both modes"; fi
 
+# The readability check (docs/agent/READABILITY.md; P-READ-0) runs in both modes always, and the full-mode list shows it.
+if sed -n '/^if \[\[ "\$MODE" == quick \]\]; then$/,/^fi$/p' "$SRC/scripts/gate.sh" | grep -qE '^  readability_check$' \
+   && grep -qE '^cheap_area_checks\(\) \{ provenance_audit; offline_pin_checks; readability_check;' "$SRC/scripts/gate.sh" \
+   && grep -qF 'readability (scripts/readability_check.py)' <<<"$(bash "$SRC/scripts/gate.sh" --list-steps 2>&1)"; then ok "the readability check runs in both modes"
+else bad "readability check selection" "gate.sh does not select readability_check in both modes"; fi
+
 # The determinism comparator's own tests (P-CI-GREEN-3: its fixture had rotted unnoticed) ride in the same offline step.
 if grep -qF 'unittest discover -s tools/determinism' "$SRC/scripts/gate.sh" \
    && grep -qF 'determinism comparator tests' <<<"$(bash "$SRC/scripts/gate.sh" --list-steps 2>&1)"; then ok "the determinism comparator tests run in the offline pin step"
