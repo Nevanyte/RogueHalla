@@ -1,8 +1,9 @@
-//! The public entry points of the rules identity: [`content_hash`] and the `content_hash_of_*` perturbation
-//! variants that `tests/content.rs` uses to move one definition at a time.
+//! The rules identity: [`content_hash`] and the `content_hash_of_*` perturbation variants that `tests/content.rs`
+//! uses to move one definition at a time (the per-stream word hashes live in `fold.rs`).
 
 use super::*;
 
+/// Identity of the rules in this build: a 64-bit FNV-1a over the whole content registry, the faction and weapon tables,
 /// the rule flags and probes of the content formulas. Sent in the protocol's Welcome and recorded in replays.
 pub fn content_hash() -> u64 {
     content_hash_of(REGISTRY)
