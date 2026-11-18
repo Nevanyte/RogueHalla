@@ -61,6 +61,7 @@ use self::site::{
     bounds, camp_halo, centred_camps, entrance_door, hall_params, mark_halo, pick, stamp, written,
 };
 
+// Stays in this file: `crates/rh-sim/tests/content.rs` reads the tunables from `signature/mod.rs` by path.
 pub const DEFAULT_DEFINITION: Definition = Definition {
     stream: 5,
     bands: [2, 6, 14],
