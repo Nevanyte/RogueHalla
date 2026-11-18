@@ -4,4 +4,6 @@ These are exact copies of the six owner-provided agent prompts and two design PD
 
 Original files remain in the primary checkout for running agents that reference their existing paths. Those local originals and the redundant `context_copy/` documentation snapshot are excluded through the repository-local Git info/exclude file. They were backed up before consolidation under the private cleanup archive; no source artifact was deleted. This directory is the tracked, reviewable copy.
 
+`7_DeepSeek_Post_Rust_Development.md` is a later prompt of the same kind, moved here from the repository root; it is not in the manifest.
+
 Current project state belongs in [MIGRATION.md](../MIGRATION.md). Historical prompts and diagrams may describe incomplete or superseded work; neither an assignment nor an agent’s completion claim proves integration.

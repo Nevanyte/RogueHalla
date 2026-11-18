@@ -8,3 +8,15 @@ docs/evidence/unity-functional-8cdbd77d/editor-first/evidence/ShaderGraphSetting
 docs/evidence/unity-functional-8cdbd77d/editor-first/evidence/source-overlays.patch whitespace=-blank-at-eol
 docs/evidence/unity-functional-9c658e04/editor-first/ShaderGraphSettings.asset.observed.txt whitespace=-blank-at-eol
 docs/evidence/unity-functional-9c658e04/editor-first/source-overlays.patch whitespace=-blank-at-eol
+
+# GitHub language bar and diffs: legacy and third-party code is vendored, captures and fixtures are generated,
+# captured records are documentation. Only linguist-* attributes: no build or test tool reads them.
+packages/** linguist-vendored
+client-unity/UnityProject/Assets/Art/ThirdParty/** linguist-vendored
+parity/**/*.json linguist-generated
+protocol/fixtures/** linguist-generated
+protocol/fixtures/README.md -linguist-generated
+crates/rh-sim/src/mapgen/fixtures/** linguist-generated
+crates/rh-sim/src/mapgen/fixtures/README.md -linguist-generated
+client-unity/UnityProject/Assets/Scripts/BakedContent.cs linguist-generated
+docs/evidence/** linguist-documentation

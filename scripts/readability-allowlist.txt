@@ -71,6 +71,7 @@ frozen crates/rh-sim/src/systems/training/console.rs named by tools/heal-barrier
 frozen crates/rh-sim/src/systems/wind.rs named by tools/consumable-fixtures/run-mutants.sh
 frozen crates/rh-sim/src/traders/runtime.rs named by tools/trade-fixtures/run-mutants.sh
 header client-unity/UnityProject/Assets/Scripts/BakedContent.cs
+readme packages
 size crates/rh-headless/src/tournament.rs 2055
 size crates/rh-sim/src/checkpoint.rs 1972
 size crates/rh-sim/src/schedule.rs 2533
