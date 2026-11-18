@@ -97,3 +97,39 @@ Low. oracle-author (Sonnet), implementer-sonnet, reviewer (Sonnet). No crate cod
 - `git ls-files` lists `Unfinished code/...` with a space: quote paths in shell.
 - The readability check's `readme` rule already covers the fixed directories of READABILITY.md; the root rule adds the
   other top-level folders. Do not report the same missing README twice.
+
+## Oracle notes
+
+Oracle files: `scripts/test_repo_front_page.py` (new), `scripts/test_readability_check.py` (class `RootRule`
+appended; no existing test changed).
+
+**Conflict for the coordinator and owner (an existing test the root rule breaks).**
+`ReadmeRule.test_readme_not_required_in_other_directories` (scripts/test_readability_check.py) builds a root
+`README.md` that names nothing, plus top-level `misc/`, `crates/` and `client-unity/` with no READMEs, and asserts
+exit 0. Check 1 requires each such directory to be named in the root README and to hold a README, so the test is red
+under any implementation of the packet. It needs an `oracle-amend:` commit (give the test a root README that names
+`misc/`, `crates/`, `client-unity/` and add the three READMEs, or an allowlist) with the owner's approval. This oracle
+leaves it unchanged; a reference implementation made the other 137 pass and left only this test red.
+
+**Readings pinned (each has a test in `RootRule`):**
+- The root rule runs only when a root `README.md` is tracked. Most existing tests build repositories with no root
+  README and `crates/foo/...` only; this keeps them green (`test_root_rule_is_off_without_a_tracked_root_readme`).
+  Whether the whitespace check also runs without a root README is left open (untested).
+- Naming: the root README text contains `` `<name>/`` or `](<name>/`; `` `name` `` without a slash, a bare word,
+  `` `docs/name/` `` and `` `foo<name>/` `` do not name it.
+- Whitespace is judged on the first path component only and reported once per entry, for directories and for files
+  (`root my notes.txt: ...`); whitespace deeper down is allowed.
+- A non-fixed directory without a README is reported as either `root <dir>: ...` or `readme <dir>/: ...`
+  (the tests accept both): it must be in the `readme` set so `readme <name>` allowlisting and the stale rule work. It
+  is reported once. An allowlisted missing README never excuses an unnamed directory.
+- A fixed directory (e.g. `tools`) missing its README is reported once as `readme tools/: ...`, never also as `root`.
+- Top-level files, dot directories and untracked directories are exempt from naming and README.
+- Check 3 reading: "any file under" `crates/rh-sim/src/mapgen/fixtures` and `protocol/fixtures` is tested on tracked
+  non-`.md` files (the fixtures folder holds a README.md, which stays a document), `parity` on tracked `*.json`,
+  `docs/evidence` on every tracked file.
+- Check 2 compares blob ids against commit `e0f257a29` (so the branch must contain it) via `git hash-object` of the
+  working file, and requires the new paths tracked. The moved-reference test also asserts `Unfinished code/` is gone
+  from `docs/legacy/INVENTORY.md` and `testing/TUNING_SENTENCED.md`, the old DeepSeek name from
+  `docs/agent/REVIEW-2026-11-10.md`, and the new name present in `docs/agent-prompts/README.md`.
+- Check 4: labels are the `^[A-Z][A-Z -]*:` lines of the fenced AGENTS.md block starting `PACKET:`; the template
+  needs them in order at line start, and a non-empty text mentioning "packet" before `PACKET:`.

@@ -856,5 +856,148 @@ class WriteAllowlist(Case):
         self.assertNotIn("big.rs", res.out)
 
 
+# ======================================================================
+# The root rule (packet P-GH-1): top-level names, naming in the root README, a README per folder
+# ======================================================================
+class RootRule(Case):
+    """Applies only when a root README.md is tracked (the real repository always has one)."""
+
+    def root_repo(self, readme, dirs=("maps",), readmes=True):
+        """A root README.md with the given text, and each top-level directory in `dirs` holding a file and
+        (when `readmes`) its own README.md."""
+        self.write("README.md", readme)
+        for d in dirs:
+            self.write(d + "/data.txt", "x\n")
+            if readmes:
+                self.write(d + "/README.md", "# r\n")
+
+    def test_root_directory_named_with_backtick_slash_passes(self):
+        self.root_repo("The `maps/` folder holds maps.\n")
+        self.assertOk(self.run_check())
+
+    def test_root_directory_named_in_a_link_passes(self):
+        self.root_repo("See [maps](maps/README.md).\n")
+        self.assertOk(self.run_check())
+
+    def test_root_directory_named_by_a_path_inside_it_passes(self):
+        self.root_repo("The first map is `maps/first-playable.json`.\n")
+        self.assertOk(self.run_check())
+
+    def test_root_directory_not_named_fails(self):
+        self.root_repo("Nothing about folders here.\n")
+        self.assertFails(self.run_check(), 1, r"root maps/?: ")
+
+    def test_root_bare_word_or_no_slash_does_not_name_a_directory(self):
+        self.root_repo("The maps folder, also `maps` and [maps](maps.md).\n")
+        self.assertFails(self.run_check(), 1, r"root maps/?: ")
+
+    def test_root_nested_mention_does_not_name_the_top_level_directory(self):
+        self.root_repo("Look in `docs/maps/` and [x](docs/maps/a.md); also `foomaps/`.\n")
+        self.assertFails(self.run_check(), 1, r"root maps/?: ")
+
+    def test_root_each_unnamed_directory_is_reported(self):
+        self.root_repo("Names `a/` only.\n", dirs=("a", "b", "c"))
+        self.assertFails(self.run_check(), 2)
+        self.assertFails(self.run_check(), line=r"root b/?: ")
+        self.assertFails(self.run_check(), line=r"root c/?: ")
+
+    def test_root_missing_readme_fails_unlisted(self):
+        self.root_repo("The `maps/` folder.\n", readmes=False)
+        self.assertFails(self.run_check(), 1, r"(root|readme) maps/?: ")
+
+    def test_root_readme_in_subdirectory_does_not_satisfy_the_directory(self):
+        self.root_repo("The `maps/` folder.\n", readmes=False)
+        self.write("maps/sub/README.md", "# s\n")
+        self.assertFails(self.run_check(), 1, r"(root|readme) maps/?: ")
+
+    def test_root_untracked_readme_does_not_count(self):
+        self.root_repo("The `maps/` folder.\n", readmes=False)
+        self.write("maps/README.md", "# r\n", track=False)
+        self.assertFails(self.run_check(), 1, r"(root|readme) maps/?: ")
+
+    def test_root_missing_readme_passes_when_allowlisted(self):
+        self.root_repo("The `maps/` folder.\n", readmes=False)
+        self.allow("readme maps\n")
+        res = self.run_check()
+        self.assertOk(res)
+        self.assertIn("1 without README", res.last)
+
+    def test_root_allowlist_does_not_excuse_an_unnamed_directory(self):
+        self.root_repo("Nothing.\n", readmes=False)
+        self.allow("readme maps\n")
+        self.assertFails(self.run_check(), 1, r"root maps/?: ")
+
+    def test_root_stale_readme_allowlist_entry_still_fails(self):
+        self.root_repo("The `maps/` folder.\n")
+        self.allow("readme maps\n")
+        self.assertFails(self.run_check(), 1, r"readme maps: directory has a README now")
+
+    def test_root_dot_directories_are_ignored(self):
+        self.root_repo("Nothing about dot folders.\n", dirs=())
+        self.write(".github/workflows/ci.yml", "x\n")
+        self.write(".codex/config.toml", "x\n")
+        self.assertOk(self.run_check())
+
+    def test_root_top_level_files_need_no_naming_or_readme(self):
+        self.root_repo("Nothing.\n", dirs=())
+        self.write("LICENSE", "x\n")
+        self.write("Cargo.toml", "x\n")
+        self.assertOk(self.run_check())
+
+    def test_root_untracked_directory_is_ignored(self):
+        self.root_repo("Nothing.\n", dirs=())
+        self.write("scratch/a.txt", "x\n", track=False)
+        self.assertOk(self.run_check())
+
+    def test_root_whitespace_in_a_directory_name_fails(self):
+        self.root_repo("The `Saved work/` folder.\n", dirs=("Saved work",))
+        self.assertFails(self.run_check(), 1, r"root Saved work/?: ")
+
+    def test_root_whitespace_in_a_file_name_fails(self):
+        self.root_repo("Nothing.\n", dirs=())
+        self.write("my notes.txt", "x\n")
+        self.assertFails(self.run_check(), 1, r"root my notes\.txt: ")
+
+    def test_root_whitespace_deeper_down_is_allowed(self):
+        self.root_repo("The `maps/` folder.\n")
+        self.write("maps/old notes/a b.txt", "x\n")
+        self.assertOk(self.run_check())
+
+    def test_root_problem_lines_start_with_root_and_the_path(self):
+        self.root_repo("Nothing.\n")
+        res = self.run_check()
+        lines = [l for l in res.out.splitlines() if l.startswith("root ")]
+        self.assertEqual(len(lines), 1, res.text)
+        self.assertRegex(lines[0], r"^root maps/?: \S")
+
+    def test_root_fixed_readme_directory_missing_readme_is_reported_once(self):
+        self.root_repo("The `tools/` folder.\n", dirs=("tools",), readmes=False)
+        res = self.run_check()
+        self.assertFails(res, 1, r"readme tools/?: ")
+        self.assertNotRegex(res.out, r"(?m)^root tools")
+
+    def test_root_fixed_readme_directory_unnamed_but_with_readme_fails_as_root(self):
+        self.root_repo("Nothing.\n", dirs=("tools",))
+        self.assertFails(self.run_check(), 1, r"root tools/?: ")
+
+    def test_root_fixed_directory_allowlisted_and_named_passes(self):
+        self.root_repo("The `tools/` folder.\n", dirs=("tools",), readmes=False)
+        self.allow("readme tools\n")
+        self.assertOk(self.run_check())
+
+    def test_root_rule_is_off_without_a_tracked_root_readme(self):
+        # Reading pinned in the packet's Oracle notes: with no root README.md the rule has nothing to
+        # check names against and is not applied (the older tests build repositories this way).
+        self.clean_crate()
+        self.write("misc/notes.txt", "x\n")
+        self.assertOk(self.run_check())
+
+    def test_root_write_allowlist_does_not_list_root_problems(self):
+        self.root_repo("Nothing.\n")
+        res = self.run_check("--write-allowlist")
+        self.assertEqual(res.code, 0, res.text)
+        self.assertNotIn("maps", res.out)
+
+
 if __name__ == "__main__":
     unittest.main()
