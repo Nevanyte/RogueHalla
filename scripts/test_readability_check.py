@@ -352,7 +352,7 @@ class ReadmeRule(Case):
         self.write("misc/notes.txt", "x\n")
         self.write("crates/stray.txt", "x\n")
         self.write("client-unity/loose.txt", "x\n")
-        self.write("README.md", "# root\n")
+        # No root README: the root rule (P-GH-1) is off, so this pins the fixed-directory readme rule alone.
         self.assertOk(self.run_check())
 
     def test_readme_must_be_tracked(self):
