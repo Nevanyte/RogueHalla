@@ -13,6 +13,7 @@ using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Extra overhead marks around one actor: barrier bubble, elite rings and star, signature cue text, brand ring, immunity, roam glow, and the tier pips and stat marks.</summary>
     public sealed class OverheadExtras
     {
         public const byte TaxedBit = 16, SuppressedBit = 32, ExecBlockedBit = 64;

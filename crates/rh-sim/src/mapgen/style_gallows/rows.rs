@@ -1,3 +1,5 @@
+//! Row layout for the Sentenced stage-six styler: `RowPlan`, the `Grid` of row and slot coordinates, and `flush`, which
+//! lays one open stretch of a row with its gates.
 use super::*;
 use crate::mapgen::style_features::viterbi_path;
 use std::collections::BTreeSet;

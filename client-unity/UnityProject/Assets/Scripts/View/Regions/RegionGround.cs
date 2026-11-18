@@ -6,6 +6,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Builds and owns the ground mesh and material of the arena's regions and terrain from the map planes.</summary>
     public sealed class RegionGround : System.IDisposable
     {
         public const int RegionTexelsPerTile = 2, TerrainTexelsPerTile = 4;

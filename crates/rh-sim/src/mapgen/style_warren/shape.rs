@@ -1,3 +1,4 @@
+//! The Plague stage-six styler's `shape`: places barrows from the planned sites, prunes the route and builds the `Plan`.
 use super::planning::{in_slot, site_of, Ground, Site};
 use super::*;
 use crate::mapgen::landmarks::recipe_support::js_round;

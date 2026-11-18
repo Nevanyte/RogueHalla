@@ -1,3 +1,4 @@
+//! The Frost stage-six styler's `run`: faceted lake outlines (`facet`), shelves and features, building the `Plan`.
 use super::*;
 use crate::mapgen::{
     landmarks::{

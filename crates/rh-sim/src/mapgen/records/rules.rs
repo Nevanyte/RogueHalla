@@ -1,3 +1,5 @@
+//! The faction and default mob-weapon table used when records are finalized (`Definition`), with `visit_content` for
+//! the content hash.
 use crate::mapdata::{RegionWeapon, Zone};
 
 /// Canonical faction and default mob-weapon policy, borrowed by runtime and identity.

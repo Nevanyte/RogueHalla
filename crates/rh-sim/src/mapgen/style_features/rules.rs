@@ -1,3 +1,5 @@
+//! The numeric policies of the feature kit (chamfer weights, majority threshold, path costs), `Definition`, with
+//! `visit_content` for the content hash.
 /// Numeric feature policies, in stable declaration order. Fixed geometry encodings are not policies.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Definition {

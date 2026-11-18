@@ -2,6 +2,7 @@ using System;
 
 namespace Roguehalla.Net
 {
+    /// <summary>Whether a match receipt is committed or still unknown; the file also holds the receipt DTO and the match-id formatting it keys on.</summary>
     public enum AccountSettlementStatus { Unknown, Committed }
     public enum AccountSettlementOutcome { Won, Draw, Died, Mia }
 

@@ -1,3 +1,5 @@
+//! Test-only builder of the client 14 scene-candidate fixture document (valid cases plus malformed and replayed
+//! negatives), run through the real `rh_protocol::scene_candidate::Receiver`. Extends the base `fixture` module.
 // Reuse the existing native/declared private scene-candidate source fixture verbatim.
 use super::fixture as original;
 

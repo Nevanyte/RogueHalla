@@ -1,3 +1,5 @@
+//! Validation of a `LayerData` map export: bounds, uniqueness and reference checks on metadata, collision and every
+//! camp, region and feature record. Each refusal is a `MapDataError` naming the path and reason; called by `mapdata`.
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]

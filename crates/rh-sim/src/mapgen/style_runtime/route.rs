@@ -1,3 +1,5 @@
+//! `RouteGuard` of the stage-six runtime: the baseline corridors and seeds, and the worst-member check that refuses a
+//! write which would stretch a route.
 use super::*;
 use crate::mapgen::grid_topology::{descent_path, segment_blocked, walk_field16};
 /// Immutable baseline corridors and seeds; only worst-member and private probe change on a query.

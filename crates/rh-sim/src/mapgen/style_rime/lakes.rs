@@ -1,3 +1,5 @@
+//! Lake growth for the Frost stage-six styler: a `Lake` set, its value field, growth at a seed, keeping it off routes
+//! and filling it.
 use super::*;
 use crate::mapgen::landmarks::signature;
 use crate::mapgen::style_features::{argmax_in, fbm_q, flood_above, majority_smooth, tau_for_area};

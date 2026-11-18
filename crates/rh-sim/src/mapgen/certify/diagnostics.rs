@@ -1,3 +1,4 @@
+//! Human-readable failure text for the map certificate (`message`), derived from facts recomputed on the finished map.
 #![allow(clippy::needless_range_loop)]
 //! Diagnostic text is derived from independently recomputed finished-map facts.
 // Row-major geometric scans deliberately index several independent layers.

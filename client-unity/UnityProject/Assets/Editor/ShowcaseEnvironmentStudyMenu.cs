@@ -4,6 +4,7 @@ using Roguehalla.Client;
 
 namespace Roguehalla.Editor
 {
+    /// <summary>Editor menu item that enters Play mode on the no-network preview bootstrap and swaps in the environment study built from the imported expansion catalog.</summary>
     [InitializeOnLoad]
     public static class ShowcaseEnvironmentStudyMenu
     {

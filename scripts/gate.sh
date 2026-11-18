@@ -126,7 +126,12 @@ provenance_audit() {
 offline_pin_checks() {
   run "staging preparation + NPC witness context pins + determinism comparator tests (offline, as CI)" bash -c 'export PYTHONDONTWRITEBYTECODE=1; python3 -m unittest discover -s tools/staging-full-runtime -p "test_*.py" && python3 -m unittest discover -s tools/staging-full-runtime/installer -p "test_*.py" && python3 tools/npc-witness-context/tests.py && python3 -m unittest discover -s tools/determinism -p "test_*.py" || { echo; echo "A pinned NPC-witness input or the staging manifest changed. Do not edit tools/npc-witness-context/context.json or tools/staging-full-runtime/native-pins.json; name the file in the hand-off and the coordinator decides (P-CI-GREEN-2)."; exit 1; }'
 }
-cheap_area_checks() { provenance_audit; offline_pin_checks; unity_tool_tests; jsvectors; reload_proof_tests; csharp; } # full-mode order; quick picks by changed path
+# The readability standard (docs/agent/READABILITY.md): README, module header and file-size rules over tracked files,
+# with the allowlist of what does not meet them yet (owner direction 2026-11-16; P-READ-0). Cheap, so always run.
+readability_check() {
+  run "readability (scripts/readability_check.py)" bash -c 'python3 scripts/readability_check.py || { echo; echo "Fix what the lines above name. If your work removed a violation, delete that line from scripts/readability-allowlist.txt. Never add size/header/readme lines for new code: new code is born readable (docs/agent/READABILITY.md)."; exit 1; }'
+}
+cheap_area_checks() { provenance_audit; offline_pin_checks; readability_check; unity_tool_tests; jsvectors; reload_proof_tests; csharp; } # full-mode order; quick picks by changed path
 full_steps() {
   run "rustfmt" cargo fmt --all -- --check
   cheap_area_checks
@@ -418,6 +423,7 @@ if [[ "$MODE" == quick ]]; then
   # rather than guess which change touches one.
   provenance_audit
   offline_pin_checks
+  readability_check
   if has '^client-unity/UnityProject/Tools/|^docs/unity/|^client-unity/UnityProject/Assets/Editor/Look/'; then unity_tool_tests; fi
   if has '^crates/rh-protocol/|^protocol/fixtures/|^tools/protocol-js/'; then jsvectors; fi
   if has '^crates/rh-protocol/|^protocol/fixtures/|^crates/rh-server/web/|^tools/unity-browser-reload-proof/'; then reload_proof_tests; fi

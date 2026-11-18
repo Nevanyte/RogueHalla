@@ -1,3 +1,5 @@
+//! The feature checks of the map certificate (`check`): feature counts, kinds and variants, footprints, ownership and
+//! the fence around each zone, read from the finished map only.
 #![allow(clippy::needless_range_loop)]
 use super::*;
 // Row-major geometric scans deliberately index several independent layers.

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 
 namespace Roguehalla.Net
 {
+    /// <summary>The state of the account hub page flow (idle, opening, owned, preparing a join, refreshing, failed); AccountHubFlow below is the coordinator that moves through it.</summary>
     public enum AccountHubState { Idle, Opening, Owned, PreparingJoin, Refreshing, Failed }
     public enum AccountRefreshReason { None, User, Join, Result }
 

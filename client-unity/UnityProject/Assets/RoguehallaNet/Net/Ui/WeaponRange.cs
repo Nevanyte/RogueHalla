@@ -2,6 +2,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Net.Ui
 {
+    /// <summary>The shape kind (none, lane, circle, arc) of a weapon's range guide; WeaponRange below computes the geometry.</summary>
     public enum WeaponRangeKind : byte { None = 0, Lane = 1, Circle = 2, Arc = 3 }
 
     /// <summary>The ground shape of the held weapon's reach, in sim units and radians (sim +y south). Kind None draws nothing.</summary>

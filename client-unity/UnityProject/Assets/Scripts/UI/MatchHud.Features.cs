@@ -8,6 +8,7 @@ using UnityEngine.InputSystem;
 
 namespace Roguehalla.Client
 {
+    /// <summary>HUD part that builds the stage, viewport and combat HUD, applies display preferences, and tracks the match-end and metrics lines.</summary>
     public sealed partial class MatchHud
     {
         BuildDrawer _drawer;

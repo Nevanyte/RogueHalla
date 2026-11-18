@@ -8,6 +8,7 @@ using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Draws the local player's weapon reach as an arc or circle mesh under the hit zones and actors; display only.</summary>
     public sealed class WeaponRangePresenter
     {
         const int MaxPoints = 72, ArcSteps = 32, CircleSteps = 64;

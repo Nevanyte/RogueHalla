@@ -8,6 +8,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Builds the wall meshes of the map in row chunks that are culled off screen, and owns their material.</summary>
     public sealed class RegionWalls : System.IDisposable
     {
         public const float WallHeight = .67f;           // legacy face height in world units

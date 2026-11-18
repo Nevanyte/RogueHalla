@@ -1,3 +1,5 @@
+//! Grid-field helpers of the feature kit: chamfer distance, majority smoothing, connected components, small-piece
+//! pruning, threshold floods and area-matching thresholds, all with the source's neighbor order.
 use super::Definition;
 fn grid(n: usize, w: usize, h: usize) {
     assert!(w > 0 && h > 0 && n == w * h)

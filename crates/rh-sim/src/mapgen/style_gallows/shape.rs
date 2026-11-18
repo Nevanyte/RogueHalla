@@ -1,3 +1,4 @@
+//! The Sentenced stage-six styler's `shape`: chooses the row orientation, scores square candidates and builds the `Plan`.
 use super::lanes;
 use super::rows::Grid;
 use super::*;

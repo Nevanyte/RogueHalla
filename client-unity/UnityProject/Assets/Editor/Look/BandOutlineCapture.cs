@@ -12,6 +12,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Editor
 {
+    /// <summary>Editor-only batch capture that builds a small bog-pool map, with or without the band plane, so the outline bands can be rendered and compared.</summary>
     public static class BandOutlineCapture
     {
         public const int N = 60;

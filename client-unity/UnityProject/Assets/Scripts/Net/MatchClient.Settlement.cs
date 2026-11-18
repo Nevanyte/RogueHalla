@@ -6,6 +6,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Settlement half of <see cref="MatchClient"/>: after a result it reads the account API until the server confirms the saved credit, retrying and pausing as needed.</summary>
     public sealed partial class MatchClient
     {
         enum SettlementState { None, Checking, Unknown, Committed, Error, Paused }

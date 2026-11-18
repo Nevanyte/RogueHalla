@@ -4,6 +4,7 @@ using Roguehalla.Client;
 
 namespace Roguehalla.Editor
 {
+    /// <summary>Editor menu item that enters Play mode on the no-network preview bootstrap and swaps in the asset-readiness workshop, once the expansion catalog has been imported.</summary>
     [InitializeOnLoad]
     public static class AssetReadinessPreviewMenu
     {

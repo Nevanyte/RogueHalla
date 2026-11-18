@@ -5,6 +5,7 @@ using UnityEngine.UI;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Anchor points of a HUD element on its parent; <c>HudUi</c> builds anchored HUD elements from them.</summary>
     public enum HudAnchor { TopLeft, TopCenter, TopRight, MiddleLeft, Center, MiddleRight, BottomLeft, BottomCenter, BottomRight }
 
     /// <summary>

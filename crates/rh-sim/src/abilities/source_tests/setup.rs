@@ -1,3 +1,5 @@
+//! Test setup of the ability source corpus: loads `parity/abilities/source.json`, maps captured ids and points to sim
+//! ids and positions, and builds the room, arena and `Sim` a case starts from.
 use super::*;
 thread_local! {static PLAYER_COUNT:std::cell::Cell<u32>=const {std::cell::Cell::new(0)};}
 pub(super) fn corpus() -> V {

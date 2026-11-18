@@ -1,3 +1,5 @@
+//! The effect rows the fold reads, from `effects.ts`: `EffectRow`, `EffectKind`, `WhileRow`, `RowLocation`, and
+//! `requirements_met`.
 use crate::stat_fold::{
     ConvertFrom, ConvertTo, EffectFlag, EffectStat, FlatStat, MultKey, StatKey,
 };

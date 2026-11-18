@@ -1,3 +1,5 @@
+//! Zone measurements of the pre-styler partition, from legacy zones.ts: the pseudo-angle, chamfer distances, ring
+//! contact and sliver counts.
 use super::{ZoneContext, H, N, W, ZONES};
 /// Rational angular ordering in [0,4), with the source's NaN at (0,0).
 pub fn pseudo_angle(dx: f64, dy: f64) -> f64 {

@@ -1,3 +1,6 @@
+//! The determinism sweep: parses the command line, loads the scenario inventory, runs each scenario through the headless
+//! `Env` (fresh run, replay, checkpoint restore and continuation) and writes the manifest, fold and failure records.
+//! Entered from `bin/determinism_sweep.rs` through `main_entry`; used by the determinism checks in CI.
 mod sha256;
 
 use rh_headless::digest::{fold_all, OutcomeDigest};

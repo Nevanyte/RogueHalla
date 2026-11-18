@@ -6,6 +6,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Cached code-drawn sprites for small indicator shapes (polygons, lines, rings, discs), rasterised from a shape table keyed by name.</summary>
     public static class IndicatorArt
     {
         const int Size = 64;

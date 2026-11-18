@@ -9,6 +9,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Draws the fog over unseen ground, and supplies the tint the minimap and Tab map use, from the clearings the client reports.</summary>
     public sealed class VisionFog : IDisposable
     {
         /// <summary>Above world art, effects and health bars, below every HUD canvas.</summary>

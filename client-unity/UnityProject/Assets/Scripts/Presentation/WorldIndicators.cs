@@ -11,6 +11,7 @@ using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Draws world-space cues from delivered facts: labels, marker plates, fall decals and chest timer rings.</summary>
     public sealed class WorldIndicators
     {
         const int LabelOrder = 29100, DecalOrder = 1240, RingOrder = 1236, MaxDecals = 16, MaxChestRings = 8, Segs = WorldIndicatorRules.RingSteps;

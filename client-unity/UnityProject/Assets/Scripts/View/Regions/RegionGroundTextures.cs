@@ -7,6 +7,7 @@ using static Roguehalla.Client.RegionNoise;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Generates the procedural ground detail and normal texture arrays, one layer per region.</summary>
     public static class RegionGroundTextures
     {
         public const int Size = 256, Layers = 6;

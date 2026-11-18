@@ -2,6 +2,7 @@ using System;
 
 namespace Roguehalla.Net
 {
+    /// <summary>Which kind of match a launch destination starts (arena or training); the destination types below say where each is available.</summary>
     public enum MatchLaunchMode { Arena, Training }
 
     /// <summary>

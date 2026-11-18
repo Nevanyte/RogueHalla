@@ -1,3 +1,5 @@
+//! Craters for the Fire stage-six styler: one per camp, sized by band round the volcano, with rim, lava apron and
+//! the beams that breach the rim toward neighbouring camps.
 use super::raster::{self, Beam};
 use super::*;
 fn breaches(i: usize, nodes: &[kit::Node], edges: &[kit::Edge], d: &CraterRules) -> Vec<Beam> {

@@ -1,3 +1,5 @@
+//! Chest boosts of the stat fold, from `packages/shared/src/chestBoosts.ts`: `BoostCounts`, `chest_boost_bonus` and
+//! `chest_boost_gain`.
 use crate::stat_fold::{
     default_definition, js, ChestBoostStat, StatFoldDefinition, StatKey, StatSums,
 };

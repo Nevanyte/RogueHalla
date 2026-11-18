@@ -8,6 +8,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Surface layer for the Plague zone: classifies each floor tile as mud, grass or shallow water from seeded noise.</summary>
     public sealed class PlagueGround : ISurfaceLayer
     {
         public const byte None = 0, Mud = 1, Grass = 2, Water = 3;

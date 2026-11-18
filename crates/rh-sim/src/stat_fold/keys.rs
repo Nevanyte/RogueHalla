@@ -1,3 +1,5 @@
+//! The closed key enums of the stat fold from `effects.ts` (`EffectStat`, `FlatStat`, `StatKey`, `MultKey`, flags,
+//! conversions) with their `source_order` lists.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum EffectStat {
     MaxHp,

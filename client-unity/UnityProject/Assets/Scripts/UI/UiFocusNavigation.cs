@@ -5,6 +5,7 @@ using UnityEngine.UI;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Tab-key focus cycling over the active, interactable controls under a root.</summary>
     public static class UiFocusNavigation
     {
         public static bool Cycle(Transform root, bool backwards)

@@ -8,6 +8,7 @@ using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Full-screen vignette on an overlay canvas that flashes in the theme's danger colour when the local player is hit; strength follows a pulse and halves under reduced motion.</summary>
     public sealed class HurtVignette
     {
         readonly GameObject _go;

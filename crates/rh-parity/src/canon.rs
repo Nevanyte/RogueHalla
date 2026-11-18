@@ -1,3 +1,5 @@
+//! Canonical projection of Rust sim events into the JSON rows the legacy capture emits (`canon`, `launch`), and the
+//! tolerant row comparison (`first_difference`). Used by the parity runner in `lib.rs` to compare tick by tick.
 use crate::{angle_close, close, fid, Event, Sim, Value};
 
 fn projectile_id(n: u32) -> String {

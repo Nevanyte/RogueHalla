@@ -9,6 +9,7 @@ using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The client's MonoBehaviour: owns the transport, the Session, the interpolated actors and the HUD, reads keyboard and pointer input each frame, and drives ArenaView to draw what the server reports.</summary>
     public sealed partial class MatchClient : MonoBehaviour
     {
         public string Url = "ws://127.0.0.1:7777/ws", Profile = "unity1";

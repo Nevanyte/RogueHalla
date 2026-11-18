@@ -11,6 +11,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Draws Frost ice walls from the server's fields, plus the Wish aim preview and the telegraph line, as meshes; it follows server render time and decides no outcome.</summary>
     public sealed class FrostWallPresenter : IDisposable
     {
         // ---- looks-only dials (docs/unity/DIALS.md) ----

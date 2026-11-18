@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The marker shapes of the minimap and Tab map; <c>MapGlyphs</c> draws them into one atlas.</summary>
     public enum MapGlyph { Disc, Ring, Diamond, Triangle, Plus, Asterisk, Square, SquareRing, Cross, Trefoil, Line, DiamondRing }
 
     /// <summary>

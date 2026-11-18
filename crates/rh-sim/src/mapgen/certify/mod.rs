@@ -1,3 +1,4 @@
+//! The map certifier: `Certificate`, `Failure`, `Options` and the checks that accept or refuse a finished map.
 #![allow(clippy::needless_range_loop)]
 //! Independent hard-map certification. Reads only the finished DTO; no generator
 //! validation, placement bookkeeping or repair routines are used. Report-only

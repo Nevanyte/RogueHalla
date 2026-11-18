@@ -27,8 +27,10 @@ using System.Runtime.InteropServices;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The render modes of the contrast lab stage: the normal frame, the frame with actors culled, and the flat-colour mask of the actors only.</summary>
     public enum LabMode { Normal, NoActors, Mask }
 
+    /// <summary>The serverless contrast-lab MonoBehaviour (<c>?contrastlab=1</c>): draws synthetic actors through the real presentation path over one zone's ground, then freezes the frame so the contrast tool can measure it.</summary>
     public sealed class ContrastLabStage : MonoBehaviour
     {
 #if UNITY_WEBGL && !UNITY_EDITOR

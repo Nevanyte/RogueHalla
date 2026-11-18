@@ -1,3 +1,5 @@
+//! Path searches of the feature kit: `noisy_path` over a `PathSource`, and the `viterbi_rows` and `viterbi_path` row
+//! solvers.
 use super::{Definition, Noise, DIR8};
 use crate::map::TILE_FLOOR;
 use std::cmp::Reverse;

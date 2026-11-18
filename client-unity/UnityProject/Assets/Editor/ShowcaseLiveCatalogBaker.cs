@@ -13,6 +13,7 @@ using Roguehalla.Client;
 
 namespace Roguehalla.Editor
 {
+    /// <summary>Editor baker that rebuilds the live showcase catalog from the full-base and expansion catalogs, packing atlases and stripping the baked ground shadow, and writes a receipt.</summary>
     public static class ShowcaseLiveCatalogBaker
     {
         const string OutputRoot = "Assets/Art/Derived/ShowcaseLive/";

@@ -1,3 +1,5 @@
+//! Test helpers of the ability source corpus: compare the sim's state, statuses, casts and events against the captured
+//! legacy frames (floats within 2e-6), and step the sim as the source did.
 use super::*;
 pub(super) fn compare_value(actual: &V, expected: &V, path: &str) {
     match (actual, expected) {

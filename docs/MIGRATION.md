@@ -4,6 +4,53 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integrations 56 and 57 (2026-11-18): `main` updated, then the readability sweep
+
+**`main`.** Pull request Nevanyte/RougeHalla#65 merged (merge commit `b2136927a`, head `f2867f64a` = integration 55),
+on the owner's "Yes, both" (2026-11-16) and "Please continue to update main" (2026-11-18). CI on that head: Native
+determinism green (cross-architecture compare and both replay verifications: P-CI-GREEN-3 works); Perf gate red by
+design (its merge-base with `main` predated the map; it can run now); the `rust` job red only at the Bot private Brain
+and Bot private modules **coverage** witnesses. Both `source.json` witnesses are byte-exact; the coverage output is not
+stable run to run on native x86_64 (one container captured `e7487e04...` and its own check recomputed `f5a766cc...`), so
+no recapture can fix it: **P-CI-GREEN-4 step 2** (make V8 coverage deterministic or project it; what the witness proves
+is the owner's to agree) is open, and until it lands the `rust` job's later witness steps are skipped on CI.
+
+**The sweep (owner direction 2026-11-16).** Standard: `docs/agent/READABILITY.md`. Tool: `scripts/readability_check.py`
+with `scripts/readability-allowlist.txt`, a gate step in quick and full mode (P-READ-0; reviewer LAND WITH NOTES, note
+applied; a coordinator fix after P-READ-A3: a file pulled in by `include!` is a fragment and takes a plain `//` header,
+because rustc rejects `//!` there). Sixteen packets, all Sonnet implementers, generated from one script with the
+allowlist lines each removes as its oracle; every one moved or commented code only, and none changed a fixture, pin,
+golden or test expectation.
+
+- **Wave A (navigation):** A1 READMEs for seven crates; A2 the root `README.md` as an 80-line front page (the legacy
+  game's text moved verbatim to `docs/legacy/LEGACY_GAME_README.md`), `docs/README.md` and five component READMEs;
+  A3 `//!` headers on 51 Rust modules; A4 `/// <summary>` on 85 Unity scripts; A5 the same on 17 net-library files.
+  Reviewer (Sonnet) LAND on all.
+- **Wave B (file structure, moves only):** B1 `rh-server` room.rs 4,206 -> 704 and director.rs 3,688 -> 579; B2
+  main.rs 1,980 -> 574 (startup helpers to `startup/`, `main()` byte-identical) and wire.rs 2,001 -> 484; B3
+  `rh-protocol` lib.rs, encode.rs, map.rs (1,894/1,958/1,786 -> 258/114/454); B4 delta.rs 2,486 -> 190 and state.rs
+  2,470 -> 275 (fixtures byte-identical, C# 2171/2171); B5 `rh-sim` content.rs 1,684 -> 536 and observe.rs 1,592 ->
+  1,144 (content hash fed in the same order); B6 the signature landmark generator 2,143 -> 958 (map digests unchanged);
+  B7 `rh-policy` lib.rs 2,018 -> 1,235 and the humanizer source 2,588 -> 344; B8 the status-probes binary 1,549 -> 152;
+  B9 the C# protocol types (three files -> 15); B10 LocalMotion.cs and Pathfinder.cs (partials; walk vectors pass);
+  B11 three Unity views (partials). Reviewer-opus on B3, B4, B5 and B6; reviewer (Sonnet) on the rest; all LAND, three
+  with one note each, applied by the coordinator (a `#[path]` comment, a lost doc line, a README line).
+- **Left, on purpose:** four oversized files named by mutation runners (`schedule.rs`, `systems/frost.rs`,
+  `checkpoint.rs`, `rh-headless/src/tournament.rs`; `frozen` with 64 others); the generated `BakedContent.cs` without a
+  summary; the dormant legacy Brain and `samples.rs` exempt from the size rule; `docs/evidence/` and `docs/rework/`
+  indexed in place (70 code files and 800 documents link into them).
+- **Found on the way:** `tools/unity-readiness/check-inventory.mjs` already failed on integration 55 (its reviewed
+  protocol revision is stale) and no gate or CI step runs it; it also looks for named types by file, which B3 moved
+  (`WireSelf`, `WireActor` now in `actor.rs`); it needs a refresh before anyone relies on it. The gate's `--oracle`
+  mode refuses any `parity/` change on an implementer branch, so a provenance refresh is gated without it.
+
+**Gate.** Full gate (`--coordinator --allow-protected --keep-going --base f2867f64a`, throwaway Postgres) on
+`coord/int-57` @ `05f8c9a1a`: **GATE PASS (full)**, every step, including readability, Unity EditMode 1581 of 1581,
+both Postgres suites, the parity report, the headless smoke and the release-only checks (34 minutes on an idle machine).
+
+**Identities:** unchanged (protocol 18, observation 30, policy contract 25, checkpoint 32, replay 25, content hash
+`7a542a13187f034c`).
+
 ## Integration 55 (2026-11-16 to 18): the tutorial lane, CI's last layers, and the merge to `main`
 
 **Owner direction 2026-11-16.** Asked to move the Unity, Rust and AWS work to `main` and make the whole project as

@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The temple's colour palette (stone, gilt, glass, shadow), derived from the Holy region palette.</summary>
     public static class TempleStyle
     {
         static Color P(int slot) { return (Color)RegionPaletteGenerated.Srgb[5][slot]; }

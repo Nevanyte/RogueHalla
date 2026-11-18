@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 
 namespace Roguehalla.Net
 {
+    /// <summary>Account API types: the failure, read and mutation enums that open this file, then the request, response and transport shapes and AccountApiService, which runs the off-tick account reads and writes.</summary>
     public enum AccountApiFailure { None, NoOwner, Stale, Cancelled, BadRequest, Forbidden, PasscodeRequired, UnknownCosmetic, UnknownSlot, NotForSale, AlreadyOwned, InsufficientGv, NotOwned, SlotMismatch, RateLimited, Unavailable, Unreadable }
     public enum AccountApiReadKind { Leaderboard, Settlement }
     public enum AccountMutationKind { Purchase, Equip, Tutorial }

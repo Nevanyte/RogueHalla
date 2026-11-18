@@ -1,5 +1,6 @@
 namespace Roguehalla.Net.Ui
 {
+    /// <summary>The keys and key actions the UI input model distinguishes; UiInputGate below decides who owns each key (map, chest choice, escape).</summary>
     public enum UiKey { Other, Tab, C, Escape, Digit0, Digit1, Digit2, Digit3 }
     public enum UiKeyAction { Unhandled, ShowMap, HideMap, FocusChest, ReleaseChest, ChooseChest0, ChooseChest1, ChooseChest2, SkipChest }
 
