@@ -237,7 +237,12 @@ pub(super) fn normalized_hit(v: &V) -> V {
     }
     v
 }
-pub(super) fn actor_patch_current(v: &V, runtime: bool, h: &Harness, id: PlayerId) -> R<ActorPatch> {
+pub(super) fn actor_patch_current(
+    v: &V,
+    runtime: bool,
+    h: &Harness,
+    id: PlayerId,
+) -> R<ActorPatch> {
     let mut v = v.clone();
     if !runtime && (v.get("x").is_some() || v.get("y").is_some()) {
         let snap = h.snapshot();

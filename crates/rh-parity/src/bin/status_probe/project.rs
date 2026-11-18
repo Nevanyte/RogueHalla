@@ -144,7 +144,13 @@ if h.cut!=1.{v["cut"]=json!(h.cut)}v}).collect();
     )?;
     Ok(())
 }
-pub(super) fn reads(ids: &Ids, snap: &Snapshot, id: PlayerId, at: Option<f64>, view: rt::StatView) -> R<V> {
+pub(super) fn reads(
+    ids: &Ids,
+    snap: &Snapshot,
+    id: PlayerId,
+    at: Option<f64>,
+    view: rt::StatView,
+) -> R<V> {
     let p = snap
         .players
         .iter()

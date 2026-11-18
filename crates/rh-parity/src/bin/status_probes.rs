@@ -12,17 +12,17 @@ mod admission;
 mod boundary_v3;
 #[path = "status_probe/compare.rs"]
 mod compare;
-#[path = "status_probe/operation.rs"]
-mod operation;
 #[path = "status_probe/harness.rs"]
 mod harness;
 #[path = "status_probe/ids.rs"]
 mod ids;
+#[path = "status_probe/operation.rs"]
+mod operation;
 #[path = "status_probe/project.rs"]
 mod project;
 #[path = "status_probe/roles.rs"]
 mod roles;
-use self::{compare::*, operation::*, harness::*, ids::*, project::*, roles::*};
+use self::{compare::*, harness::*, ids::*, operation::*, project::*, roles::*};
 fn run(path: &str, only: Option<&str>) -> R<(usize, usize)> {
     let root =
         serde_json::from_slice::<admission::Unique>(&fs::read(path).map_err(|e| e.to_string())?)
