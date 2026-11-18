@@ -207,9 +207,6 @@ header crates/rh-sim/src/stat_fold/rows.rs
 header crates/rh-sim/src/status_runtime/mutation.rs
 header crates/rh-sim/src/status_runtime/readers.rs
 header crates/rh-sim/src/status_runtime/rules.rs
-size client-unity/RoguehallaNet/Protocol/MapBlob.cs 1100
-size client-unity/RoguehallaNet/Protocol/Messages.cs 1876
-size client-unity/RoguehallaNet/Protocol/State.cs 1245
 size client-unity/UnityProject/Assets/Scripts/Presentation/WishFxPresenter.cs 895
 size client-unity/UnityProject/Assets/Scripts/UI/HubCosmeticsView.cs 805
 size client-unity/UnityProject/Assets/Scripts/View/ArenaView.cs 899
