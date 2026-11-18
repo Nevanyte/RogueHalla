@@ -1,3 +1,5 @@
+//! Floor connectivity for the stage-six runtime: `floor_components` labels the floor components and
+//! `repair_connectivity` rejoins them, in the source's queue order.
 use super::*;
 /// Source kit.floorComponents, including exact left/right/up/down queue order.
 pub fn floor_components(tiles: &[u8], w: usize, h: usize) -> Result<(Vec<i32>, Vec<usize>), Error> {

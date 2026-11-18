@@ -1,3 +1,5 @@
+//! The Sentenced (Gallows) landmark recipe: its template, `Definition` of numbers (with `visit_content` for the content
+//! hash) and `Recipe::apply`, which places the stamp through the landmark search.
 use super::super::TemplateDefinition;
 use crate::mapdata::{FeatureJob, FeatureKind, TileRect};
 use crate::mapgen::landmarks::{

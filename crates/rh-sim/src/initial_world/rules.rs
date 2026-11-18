@@ -1,3 +1,5 @@
+//! The numeric policy of the initial loot and travel placement (ground-weapon chance, chest weights, stat crates,
+//! cannon search radius, RNG tags), and `visit_content`, which feeds it to the content hash.
 use crate::WeaponId;
 /// Sole owner of initial loot/travel policy; the coordinator registers this actual visitor.
 pub struct Definition {

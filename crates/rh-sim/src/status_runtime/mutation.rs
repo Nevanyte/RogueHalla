@@ -1,3 +1,5 @@
+//! Changing a status list: `apply` (with `StatusApply` and the stacking `AddValue`), `Selector` matching and
+//! `remove_into`.
 use super::*;
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]

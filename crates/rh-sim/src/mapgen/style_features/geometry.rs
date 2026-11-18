@@ -1,3 +1,4 @@
+//! Small geometry helpers of the feature kit: 16-way direction index, segment distance, disc offsets and the beam test.
 use super::{dist2, DIR16};
 pub fn dir_index16(dx: f64, dy: f64) -> usize {
     let (mut best, mut bd) = (0, dx * f64::from(DIR16[0][0]) + dy * f64::from(DIR16[0][1]));

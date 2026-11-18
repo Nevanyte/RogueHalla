@@ -1,3 +1,5 @@
+//! Rasterisation helpers of the Fire stage-six styler: crater rings, bowls and rims, the blocked and frontier tests,
+//! arc keeping and band connectivity.
 use super::*;
 pub(super) type Beam = [f64; 2];
 fn ring(cb: &Callbacks<'_>, r4: i32) -> Vec<(i32, i32, f64, f64)> {

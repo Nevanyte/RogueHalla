@@ -1,3 +1,5 @@
+//! The status rule table: `StatusKind`, how each kind combines and what cleanses it (`STATUS_RULES`), and
+//! `visit_content` for the content hash.
 use crate::constants::{AXE_SHRED_CAP, AXE_SHRED_MS};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]

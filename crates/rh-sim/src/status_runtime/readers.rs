@@ -1,3 +1,5 @@
+//! Read-only queries over a status list: `value`, `has`, `find`, hidden and untargetable, and the can-move,
+//! can-act and can-cast blocks.
 use super::*;
 pub const HASTE_BASE_FLOOR: f64 = 0.05;
 pub const DEATH_FLOOR_DEFAULT_HP: f64 = 1.;

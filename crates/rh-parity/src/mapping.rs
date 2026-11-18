@@ -1,3 +1,5 @@
+//! Maps captured legacy fixture inputs onto Rust `RawCommand`s (`raw_command`), lists the `msg` keys each input type may
+//! carry, and names the event kinds the parity projection fully covers. Used by the parity runner in `lib.rs`.
 use crate::{FixInput, RawCommand, Value};
 
 /// The fixture input as a raw command (None for a type outside the slice).

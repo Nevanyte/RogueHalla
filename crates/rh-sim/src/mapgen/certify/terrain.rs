@@ -1,3 +1,4 @@
+//! The terrain checks (T1 to T11) of the map certificate: `check` records failures, `errors` lists them as text.
 #![allow(clippy::needless_range_loop)]
 //! Independent T1–T11 checks. In particular this module never calls terrain_gate.
 // Row-major geometric scans deliberately index several independent layers.

@@ -1,3 +1,4 @@
+//! Feature transactions of the stage-six `Runtime`: logged writes with `mark` and `rollback`, and `place_feature`.
 use super::*;
 impl Runtime<'_> {
     pub(super) fn log_write(&mut self, i: usize) {

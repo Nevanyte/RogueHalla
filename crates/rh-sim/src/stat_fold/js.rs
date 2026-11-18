@@ -1,3 +1,4 @@
+//! JavaScript `Math.min` and `Math.max` semantics (NaN and signed zero) so the fold matches the legacy binary64 results.
 pub(crate) fn min(a: f64, b: f64) -> f64 {
     if a.is_nan() || b.is_nan() {
         f64::NAN
