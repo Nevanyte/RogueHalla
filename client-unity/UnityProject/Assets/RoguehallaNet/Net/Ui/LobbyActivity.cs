@@ -6,6 +6,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Net.Ui
 {
+    /// <summary>The phase of a lobby room; the file also holds the parsed lobby response model and the parser for GET /api/lobby.</summary>
     public enum LobbyPhase { Lobby, Planning, Active, Finished }
 
     public sealed class LobbyPerson

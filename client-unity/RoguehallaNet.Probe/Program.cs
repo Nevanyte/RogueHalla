@@ -11,6 +11,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Probe
 {
+    /// <summary>Command-line probe: connects one Session to a server, sends a move order every 500 ms, leaves, and prints one JSON line (welcome, snapshots, RTT, rejects, errors) for scripts to check.</summary>
     public static class Program
     {
         public static Task<int> Main(string[] args) { return Run(args, Console.Out, Console.Error); }

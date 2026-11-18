@@ -2,6 +2,7 @@ using System;
 
 namespace Roguehalla.Net
 {
+    /// <summary>The tutorial steps, from Welcome to Done; TutorialFlow below is the state machine that advances them from server observations.</summary>
     public enum TutorialStep { Welcome = 0, Move = 1, Pickup = 2, Hit = 3, Swap = 4, Wish = 5, Done = 6 }
     public enum TutorialTargetKind { None, Point, Actor, Container }
 

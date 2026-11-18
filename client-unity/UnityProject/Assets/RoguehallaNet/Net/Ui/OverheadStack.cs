@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 namespace Roguehalla.Net.Ui
 {
+    /// <summary>Kind of actor an overhead stack is built for; the file also holds the element, tone and facts types and OverheadStack, which lays out the bars, name and marks above an actor.</summary>
     public enum OverheadActorKind : byte { Player, Mob, Elite, Dummy }
 
     /// <summary>

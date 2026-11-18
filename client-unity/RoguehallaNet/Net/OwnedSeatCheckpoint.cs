@@ -2,6 +2,7 @@ using System;
 
 namespace Roguehalla.Net
 {
+    /// <summary>Seat checkpoint types: the mode and the read, write and clear status enums that open this file, then the storage interface, the record and the store that keep one owned seat for resume.</summary>
     public enum OwnedSeatMode { Arena, Training }
     public enum SeatCheckpointReadStatus { Ready, Missing, Invalid, Mismatch, Unavailable }
     public enum SeatCheckpointWriteStatus { Saved, Unsaved, Unavailable, Invalid }

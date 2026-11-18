@@ -2,6 +2,7 @@ using System;
 
 namespace Roguehalla.Net
 {
+    /// <summary>Why an owned match URL is refused against the account endpoint (missing endpoint, bad page, bad match URL, origin mismatch); AccountConnectionPolicy below decides it.</summary>
     public enum AccountConnectionFailure { None, MissingAccountEndpoint, InvalidPage, InvalidMatchUrl, OriginMismatch }
 
     /// <summary>Credential routing policy only. It grants neither hosted placement nor training admission.</summary>

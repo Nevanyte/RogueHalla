@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 
 namespace Roguehalla.Net
 {
+    /// <summary>Read-only helpers that validate and freeze the counts, maps and lists of the account profile DTOs defined in this file.</summary>
     internal static class AccountData
     {
         internal static long Count(long value)
