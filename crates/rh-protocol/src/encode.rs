@@ -28,8 +28,8 @@ mod server;
 mod snapshot;
 mod welcome;
 
-pub use self::welcome::{encode_welcome, encode_welcome_into, WelcomeHeader, WELCOME_HEADER_LEN};
 use self::record::point_valid;
+pub use self::welcome::{encode_welcome, encode_welcome_into, WelcomeHeader, WELCOME_HEADER_LEN};
 pub(crate) use self::{record::*, snapshot::*};
 
 const fn opt_len(present: bool, len: usize) -> usize {
@@ -109,10 +109,6 @@ fn encode_into<F: Frame>(m: &F, out: &mut Vec<u8>) -> Result<usize, EncodeError>
     );
     Ok(len)
 }
-
-
-
-
 
 #[cfg(test)]
 mod tests;

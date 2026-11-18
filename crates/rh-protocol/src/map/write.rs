@@ -301,7 +301,12 @@ pub(super) fn check_anchors(w: u16, h: u16, anchors: &[MapAnchor]) -> Result<(),
 /// The checks on an anchor row's fixed part, shared by the encoder and the decoder, in the wire rules' order: zone, order
 /// (`previous` is the zone of the row before, 0 for the first), kind, footprint, centre, front. The entrance is checked
 /// by the caller.
-pub(super) fn check_anchor_head(a: &MapAnchor, previous: u8, w: u16, h: u16) -> Result<(), &'static str> {
+pub(super) fn check_anchor_head(
+    a: &MapAnchor,
+    previous: u8,
+    w: u16,
+    h: u16,
+) -> Result<(), &'static str> {
     if a.zone == 0 || a.zone > MAX_CAMP_ZONE {
         return Err("anchor zone");
     }

@@ -3,7 +3,11 @@
 use super::*;
 
 /// The first reason a decoder would reject this Snapshot's content (None when it is encodable).
-pub(super) fn snapshot_fault(phase: u8, me: Option<&WireSelf>, actors: &[WireActor]) -> Option<&'static str> {
+pub(super) fn snapshot_fault(
+    phase: u8,
+    me: Option<&WireSelf>,
+    actors: &[WireActor],
+) -> Option<&'static str> {
     if phase > MAX_PHASE_CODE {
         return Some("phase");
     }

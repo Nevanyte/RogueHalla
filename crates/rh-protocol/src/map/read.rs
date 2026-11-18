@@ -320,7 +320,12 @@ pub(super) fn read_props(r: &mut Reader<'_>, w: u16, h: u16) -> Result<(), Decod
 
 /// The value checks of one prop row in the wire rules' order (flags, kind, variant, tile, order), shared by the encoder
 /// and the decoder; `previous` is the row before it.
-pub(super) fn check_prop(p: &MapProp, previous: Option<&MapProp>, w: u16, h: u16) -> Result<(), &'static str> {
+pub(super) fn check_prop(
+    p: &MapProp,
+    previous: Option<&MapProp>,
+    w: u16,
+    h: u16,
+) -> Result<(), &'static str> {
     if p.flags & !(PROP_FLAG_TALL | PROP_FLAG_LEGACY) != 0 {
         return Err("prop flags");
     }
