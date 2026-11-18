@@ -555,7 +555,6 @@ impl Director {
         tokio::spawn(Self::report_loop(d.clone(), rx));
         d
     }
-
 }
 
 /// Reserves one slot in a room's command mailbox (bounded wait). `Ok(None)`: the room is already gone, so there is nobody to

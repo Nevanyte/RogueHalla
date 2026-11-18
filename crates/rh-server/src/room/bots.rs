@@ -74,7 +74,10 @@ impl Room {
 
     /// The delay line's send half (source BotManager.deliver): a fill bot's proposal gets its arrival from the manager's
     /// line stream; a seat with no fill spec (the immediate placeholder fill) submits now, as before.
-    pub(super) fn enqueue_bot_commands(&mut self, proposed: Vec<(PlayerId, rh_sim::PublicCommand)>) {
+    pub(super) fn enqueue_bot_commands(
+        &mut self,
+        proposed: Vec<(PlayerId, rh_sim::PublicCommand)>,
+    ) {
         if proposed.is_empty() {
             return;
         }

@@ -117,7 +117,6 @@ async fn source_planning_transport_delivers_each_owner_plan_and_starts_the_run()
     );
 }
 
-
 #[test]
 fn catch_up_carries_a_real_wish_start_from_its_visible_step() {
     use rh_protocol::{WireCommand, WireFx};
@@ -294,9 +293,8 @@ async fn a_renewal_that_observes_the_result_release_preserves_reliable_resume() 
     assert_eq!(room.sim.phase(), Phase::Active);
     room.leave(other.player, GoneReason::Left);
     assert!(room.wake(start + tick * 2));
-    assert!(std::iter::from_fn(|| rx.try_recv().ok()).any(
-        |r| matches!(r, RoomReport::Result{fence:Some(4),profile,..} if profile=="Winner")
-    ));
+    assert!(std::iter::from_fn(|| rx.try_recv().ok())
+        .any(|r| matches!(r, RoomReport::Result{fence:Some(4),profile,..} if profile=="Winner")));
     // Durable record_result released this fence, but its director completion is still in
     // flight when renewal returns false. The room must still deliver the already earned result.
     validity.send_replace(start);

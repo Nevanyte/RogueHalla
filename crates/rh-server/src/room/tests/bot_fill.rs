@@ -449,8 +449,7 @@ fn running_fill_room(
 
 #[test]
 fn a_fill_bots_command_arrives_after_the_configured_latency() {
-    let (mut room, last) =
-        running_fill_room(100., 9, Arc::new(std::collections::HashSet::new()));
+    let (mut room, last) = running_fill_room(100., 9, Arc::new(std::collections::HashSet::new()));
     let tick = Duration::from_millis(50);
     // Find the first wake on which the seated bots propose: with a 100 ms one-way latency those proposals cannot be
     // applied by the same or the next 50 ms step (the source deliver/beforeStep rule).
@@ -510,8 +509,7 @@ fn a_fill_bot_never_draws_a_profile_owned_callsign() {
 /// MAX_QUEUED, which the source stats do not report at all) is the separate native bot_line_dropped counter.
 #[test]
 fn bot_refused_is_delivery_intake_only_and_line_drops_are_separate() {
-    let (mut room, _last) =
-        running_fill_room(0., 13, Arc::new(std::collections::HashSet::new()));
+    let (mut room, _last) = running_fill_room(0., 13, Arc::new(std::collections::HashSet::new()));
     assert!(
         !room.bot_lines.is_empty(),
         "the fill seated bots with delay lines"

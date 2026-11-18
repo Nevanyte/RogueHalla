@@ -66,7 +66,13 @@ impl Director {
 
     /// Gives a lease back off the asking task (no-op in memory), then tells `owner`'s entry (if it is still that entry).
     /// Best effort: an unreleased lease only expires later. Releasing by fence is harmless when the lease moved on.
-    pub(super) fn give_back(&self, key: &ProfileKey, match_id: MatchId, fence: i64, owner: Option<u64>) {
+    pub(super) fn give_back(
+        &self,
+        key: &ProfileKey,
+        match_id: MatchId,
+        fence: i64,
+        owner: Option<u64>,
+    ) {
         let Some(d) = self.me.upgrade() else {
             return;
         };
@@ -366,7 +372,11 @@ impl Director {
     /// Waits, until `deadline` at the latest, while `key` is a `Leaving` profile. Returns at once for a free profile and
     /// for one with a live seat or an admission in flight (the caller refuses those: concurrent ownership is never
     /// weakened).
-    pub(super) async fn wait_while_leaving(&self, key: &ProfileKey, deadline: tokio::time::Instant) {
+    pub(super) async fn wait_while_leaving(
+        &self,
+        key: &ProfileKey,
+        deadline: tokio::time::Instant,
+    ) {
         loop {
             // Register for the wake-up before looking, so a free between the look and the wait is not missed.
             let notified = self.freed.notified();

@@ -60,7 +60,10 @@ impl Director {
     /// The fill policy a new room gets, with the room's fill count (the config's own fill_to is the default for
     /// direct room construction): None leaves the room on its immediate placeholder fill. This initializes its snapshot;
     /// the live sink installed on the fill state refreshes it again before every actual managed arrival.
-    pub(super) fn fill_policy(&self, fill_bots_to: usize) -> Option<crate::bot_fill::BotFillConfig> {
+    pub(super) fn fill_policy(
+        &self,
+        fill_bots_to: usize,
+    ) -> Option<crate::bot_fill::BotFillConfig> {
         self.cfg.bot_fill.as_ref().map(|fill| {
             let mut config = crate::bot_fill::BotFillConfig {
                 fill_to: fill_bots_to,

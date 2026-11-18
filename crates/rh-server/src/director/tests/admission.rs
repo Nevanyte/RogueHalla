@@ -174,8 +174,7 @@ async fn cancelling_after_join_was_seated_retires_the_exact_seat_and_reservation
     let cloned = d.clone();
     let out = Arc::new(Outbox::default());
     let connection = out.clone();
-    let attempt =
-        tokio::spawn(async move { cloned.admit(hello("Archer"), connection, 1).await });
+    let attempt = tokio::spawn(async move { cloned.admit(hello("Archer"), connection, 1).await });
     let mut command = rx.recv().await.expect("join");
     let RoomCmd::JoinLeased { reply, .. } = &mut command else {
         panic!("expected leased join")

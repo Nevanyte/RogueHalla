@@ -301,9 +301,7 @@ async fn failed_publish_holds_wish_barrier_owner_combat_and_new_pickup_handles()
                 me: Some(me),
                 owner_combat: Some(group),
                 ..
-            } if me.wish.is_some() && me.barrier == 30. && me.barrier_ring_step > 0 => {
-                Some(*group)
-            }
+            } if me.wish.is_some() && me.barrier == 30. && me.barrier_ring_step > 0 => Some(*group),
             _ => None,
         })
         .expect("the actual prepared owner group accompanies Wish and barrier");

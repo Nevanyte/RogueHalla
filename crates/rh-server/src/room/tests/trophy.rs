@@ -76,8 +76,8 @@ fn live_fire_feed_matches_core() {
 #[tokio::test(start_paused = true)]
 async fn real_trophy_room_enqueue_rejection_does_not_issue_or_spend_handles() {
     use rh_protocol::{
-        ClientMsg, RewardChestHandle as WireRewardChestHandle, ServerMsg, StateItem,
-        TrophyStatKey, WireCommand, WireRewardChest, WireRewardId,
+        ClientMsg, RewardChestHandle as WireRewardChestHandle, ServerMsg, StateItem, TrophyStatKey,
+        WireCommand, WireRewardChest, WireRewardId,
     };
     use rh_sim::{kill_augments::KillStatKey, reward_chests::RewardChestView, Observation};
 
@@ -85,12 +85,10 @@ async fn real_trophy_room_enqueue_rejection_does_not_issue_or_spend_handles() {
         decoded(out)
             .into_iter()
             .find_map(|message| match message {
-                ServerMsg::State { items, .. } => {
-                    items.into_iter().find_map(|item| match item {
-                        StateItem::RewardChests(rows) => Some(rows),
-                        _ => None,
-                    })
-                }
+                ServerMsg::State { items, .. } => items.into_iter().find_map(|item| match item {
+                    StateItem::RewardChests(rows) => Some(rows),
+                    _ => None,
+                }),
                 _ => None,
             })
             .expect("a full/replacement reward state")
@@ -114,16 +112,10 @@ async fn real_trophy_room_enqueue_rejection_does_not_issue_or_spend_handles() {
                 assert_eq!(source.taken, encoded.taken);
                 assert_eq!(source.taken_by.map(|id| id.0), encoded.taken_by);
                 match (source.id, encoded.id) {
-                    (
-                        rh_sim::reward_chests::OptionId::Card(id),
-                        WireRewardId::Card(wire_id),
-                    ) => {
+                    (rh_sim::reward_chests::OptionId::Card(id), WireRewardId::Card(wire_id)) => {
                         assert_eq!(wire_id, id.index() as u8);
                     }
-                    (
-                        rh_sim::reward_chests::OptionId::Boost(id),
-                        WireRewardId::Boost(wire_id),
-                    ) => {
+                    (rh_sim::reward_chests::OptionId::Boost(id), WireRewardId::Boost(wire_id)) => {
                         assert_eq!(wire_id, id.index() as u8);
                     }
                     (
@@ -199,15 +191,15 @@ async fn real_trophy_room_enqueue_rejection_does_not_issue_or_spend_handles() {
                 None,
             )
             .unwrap();
-        let (welcome_protocol, welcome_content) =
-            match ServerMsg::decode(&joined.welcome).unwrap() {
-                ServerMsg::Welcome {
-                    protocol,
-                    content_hash,
-                    ..
-                } => (protocol, content_hash),
-                other => panic!("join returned {other:?}, expected Welcome"),
-            };
+        let (welcome_protocol, welcome_content) = match ServerMsg::decode(&joined.welcome).unwrap()
+        {
+            ServerMsg::Welcome {
+                protocol,
+                content_hash,
+                ..
+            } => (protocol, content_hash),
+            other => panic!("join returned {other:?}, expected Welcome"),
+        };
         assert_eq!(welcome_protocol, rh_protocol::PROTOCOL_VERSION);
         let mut peer_outboxes = Vec::new();
         for player in 1..4 {
