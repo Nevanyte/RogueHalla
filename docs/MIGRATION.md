@@ -4,6 +4,52 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integration 55 (2026-11-16 to 18): the tutorial lane, CI's last layers, and the merge to `main`
+
+**Owner direction 2026-11-16.** Asked to move the Unity, Rust and AWS work to `main` and make the whole project as
+human readable as possible with Sonnet sub-agents, the owner answered **"Yes, both"** to the coordinator's plan: merge
+to `main` first, then a behaviour-preserving readability sweep on top (standard `docs/agent/READABILITY.md`, packets
+`P-READ-*`). The yes covered pushing `feature/unity-rework`, merging pull request Nevanyte/RougeHalla#65 into `main`,
+P-CI-GREEN-3's `scripts/gate.sh` edit and the readability step in the gate. **2026-11-18:** "Approve the CI change"
+(P-CI-GREEN-4's `.github/workflows/rust.yml` diagnostic) and "Please continue to update main".
+
+**What this integration carries** (staged as `coord/int-55`, then `coord/int-55-final`):
+- **The tutorial lane** (branch `claude/serene-pasteur-m3kd4y`, a cloud session on integration 52): P-TUTORIAL-1
+  (account tutorial progress in `rh-persist` and the account API; reviewer-opus LAND), P-TUTORIAL-2, -2-fix, -3, -3-fix
+  (Unity and RoguehallaNet presentation; reviewer LAND). Unity generated the two missing `.meta` files of the synced
+  copy (`TutorialFlow.cs.meta`, `TutorialObserver.cs.meta`) during the gate; committed here.
+- **P-CI-GREEN-3** (reviewer LAND): the cross-architecture comparator knows the new `SimConfig` leaves; its tests ride
+  in the gate's offline step.
+- **P-CI-GREEN-5** (reviewer LAND): P-CI-GREEN-3 changed two catalog-protected files, so the card provenance chain was
+  refreshed by the 2026-11-14 route (catalog, runtime and witness recaptured in the pinned image; only the two pins and
+  provenance leaves moved). Evidence: `docs/evidence/ci-provenance-refresh-2026-11-17/`.
+- **P-CI-GREEN-4, step 1** (the CI change): the five source-witness checks all run even after one differs, and a red
+  run uploads the Bot private Brain recapture made on CI's own platform. Cause found so far: the committed
+  `parity/policy/bot-private-brain/coverage.json` (`c4ea7643...`) reproduces byte for byte from an emulated
+  linux/amd64 capture on the owner's Mac, while CI's native x86_64 run computes `e7487e04...`; no input moved since the
+  capture (`5a5a28c6d`). Step 2 names the differing leaves from CI's artifact and fixes the witness.
+- **Quest design notes** (future only, docs; also a Ready packet P-BALANCE-3 and a workbook).
+
+**Reviews.** reviewer-opus on the merge: LAND, on condition that Unity EditMode compiles the tutorial lane's C# (it
+had never been compiled: the cloud session had no Editor). It does.
+
+**Gate.** Full gate (`--coordinator --allow-protected --keep-going --base origin/feature/unity-rework`, throwaway
+Postgres) on `coord/int-55` @ `a1770f1dc`: every step green, Unity EditMode 1581 of 1581, both Postgres suites, the
+parity report, the headless smoke and the release-only checks, except **card provenance chain**, the one P-CI-GREEN-5
+then fixed. Quick gate on the P-CI-GREEN-5 tree (`551814bc4`, the same tree as the merge `7f63cbc7a`): PASS, provenance
+included. The CI change is not exercised by any local gate; CI is its proof.
+
+**Identities:** unchanged (protocol 18, observation 30, policy contract 25, checkpoint 32, replay 25, content hash
+`7a542a13187f034c`): no wire, tick, save or content change.
+
+**This machine.** The full gate took 14 hours under a load average up to 209 (it shared the CPU with Docker emulation
+and agents). Docker Desktop was off; an agent started it, and its keychain credential helper hung every pull until the
+coordinator restarted it and pulled with a scratch `DOCKER_CONFIG` without `credsStore`. The gate's `--oracle` mode
+refuses any `parity/` change on an implementer branch, so a provenance refresh is gated without `--oracle`.
+
+**Next:** push, read CI, finish P-CI-GREEN-4 from CI's bytes, merge #65 into `main`. Then the readability sweep
+(integration 56, the check and its allowlist, P-READ-0; packets P-READ-A1 to A5 and B1 to B11).
+
 ## Integration 54 (2026-11-15, night): the Frost lake built first (P-LAND-FROST-1); merged by the map generator session
 
 **Who and why.** The coordinator's session was archived when this packet was ready. Asked in the map generator
