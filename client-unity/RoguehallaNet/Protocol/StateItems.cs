@@ -4,6 +4,7 @@ using System.Text;
 
 namespace Roguehalla.Net.Protocol
 {
+    /// <summary>Key 1: the receiving player's inventory. The state items of keys 1 to 9 (inventory to arena) are in this file.</summary>
     public sealed class InventoryState : StateItem
     {
         public override uint Key { get { return 1; } }
