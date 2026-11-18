@@ -73,6 +73,5 @@ frozen crates/rh-sim/src/traders/runtime.rs named by tools/trade-fixtures/run-mu
 header client-unity/UnityProject/Assets/Scripts/BakedContent.cs
 size crates/rh-headless/src/tournament.rs 2055
 size crates/rh-sim/src/checkpoint.rs 1972
-size crates/rh-sim/src/mapgen/landmarks/signature/mod.rs 2143
 size crates/rh-sim/src/schedule.rs 2533
 size crates/rh-sim/src/systems/frost.rs 3073
