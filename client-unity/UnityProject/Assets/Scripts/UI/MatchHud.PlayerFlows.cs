@@ -6,6 +6,7 @@ using UnityEngine.EventSystems;
 
 namespace Roguehalla.Client
 {
+    /// <summary>HUD part for the player flow pages (quest journal, trader dialog, notices) and for blocking the planning map while one is open.</summary>
     public sealed partial class MatchHud
     {
         QuestJournalView _questJournal;

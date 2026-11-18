@@ -10,6 +10,7 @@ using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Draws the world marks the server reports (such as merchants): glyph and label plates, with a catalog figure for traders.</summary>
     public sealed class WorldMarks
     {
         sealed class Mark { public SpriteRenderer Glyph, GlyphPlate, LabelPlate, Figure, Shadow, Cast, Goods; public Transform FigureRoot; public TextMeshPro Label; public string Text; }

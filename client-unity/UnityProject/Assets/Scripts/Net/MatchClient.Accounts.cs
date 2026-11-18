@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Account and launch half of <see cref="MatchClient"/>: launch targets and mode, profile and faction selection, and the owned join that signs in before connecting.</summary>
     public sealed partial class MatchClient
     {
         public string PageUrl = "", AccountApi = "", PendingSignInKey = "";

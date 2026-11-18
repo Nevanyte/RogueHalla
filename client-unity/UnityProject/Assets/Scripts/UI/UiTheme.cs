@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The font roles (body and display) a theme text can use; <c>UiTheme</c> holds the HUD's colours, fonts and panel sprites.</summary>
     public enum UiFontRole { Body, Display }
 
     /// <summary>

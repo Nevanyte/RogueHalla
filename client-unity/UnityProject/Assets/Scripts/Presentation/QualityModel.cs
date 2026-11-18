@@ -4,6 +4,7 @@ using System;
 // table, the URL flag parser and the adaptive controller.
 namespace Roguehalla.Client
 {
+    /// <summary>The quality presets, Low to Ultra; the preset table, URL flag parser and adaptive controller below are pure C#, unit-tested without Unity.</summary>
     public enum ShowcaseQuality { Low = 0, Medium = 1, High = 2, Ultra = 3 }
     public enum ShowcaseQualityMode { Adaptive, Manual }
 

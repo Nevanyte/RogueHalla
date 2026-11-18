@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Deterministic integer-hash and tileable value-noise functions that the region art and scatter use.</summary>
     public static class RegionNoise
     {
         public static uint Hash(int x, int y, int seed)

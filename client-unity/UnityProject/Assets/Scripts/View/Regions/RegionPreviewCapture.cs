@@ -14,6 +14,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Editor batch capture that builds a region ground from a map file and renders it to an image for review.</summary>
     public static class RegionPreviewCapture
     {
         static string Arg(string name, string fallback)

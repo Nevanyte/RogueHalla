@@ -6,6 +6,7 @@ using Roguehalla.Net;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Diagnostic probe, on only for <c>?inputlat=1</c>, that logs how long a movement key press takes to show in the frame, the local walk and the server position.</summary>
     public static class InputLatencyProbe
     {
         static int _enabled = -1; // -1 unknown

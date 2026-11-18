@@ -8,6 +8,7 @@ using UnityEngine.UI;
 
 namespace Roguehalla.Client
 {
+    /// <summary>HUD part for resuming a saved run: the resume chooser overlay, its input handling and the forget-run action.</summary>
     public sealed partial class MatchHud
     {
         sealed class ResumeSelectableState

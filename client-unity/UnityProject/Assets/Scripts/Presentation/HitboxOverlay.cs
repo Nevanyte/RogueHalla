@@ -9,6 +9,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Diagnostic overlay, on only for <c>?hitboxes=1</c>, that outlines actors' foot and body boxes, props and shots with pooled line sprites.</summary>
     public sealed class HitboxOverlay
     {
         /// <summary>True for <c>?hitboxes=1</c> in a URL query string (with or without the leading '?'); anything else is off.</summary>

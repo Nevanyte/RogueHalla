@@ -1,6 +1,7 @@
 // Reproducible editor authoring; invoke through the running Editor.
 namespace Roguehalla.Editor
 {
+    /// <summary>Editor authoring helper that configures the torch light presets (normal-map quality and distance) and saves them as prefab variants.</summary>
     public static class ShowcaseSetup
     {
         [UnityEditor.MenuItem("Roguehalla/Art/Configure Torch Presets")]

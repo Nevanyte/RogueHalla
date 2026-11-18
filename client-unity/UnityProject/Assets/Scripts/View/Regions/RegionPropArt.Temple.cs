@@ -7,6 +7,7 @@ using static Roguehalla.Client.RegionCanvas;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Temple (Holy zone) part of <c>RegionPropArt</c>: the paint definitions of the temple props such as the minaret.</summary>
     public static partial class RegionPropArt
     {
         static void AddTemple(List<Def> l)

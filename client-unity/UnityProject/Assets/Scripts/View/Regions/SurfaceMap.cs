@@ -12,6 +12,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The kinds of surface underfoot (snow, sand, mud, water and so on); <c>SurfaceMap</c> answers which one is at a tile.</summary>
     public enum SurfaceKind : byte
     {
         None, Snow, Ice, Sand, TempleFloor, Flagstone, Basalt, Ember, Lava, Mud, Grass, ShallowWater, Bog, Limestone, HolyLight

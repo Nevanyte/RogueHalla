@@ -11,6 +11,7 @@ using Roguehalla.Client;
 
 namespace Roguehalla.Editor
 {
+    /// <summary>Editor importer (menu Import Flare Expansion): slices the staged Flare expansion sheets into sprite atlases and writes the AssetReadiness catalog the art workshops read.</summary>
     public static class FlareExpansionImporter
     {
         const string Source = "Assets/Art/ThirdParty/FlareExpansion/Raw/";

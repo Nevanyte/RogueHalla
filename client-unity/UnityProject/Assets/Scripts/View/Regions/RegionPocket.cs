@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>A smooth 0..1 mask over tile coordinates that marks where a region's secondary greenery grows.</summary>
     public static class RegionPocket
     {
         /// <summary>Mask value where secondary greenery starts in each region (see RegionThemes ground parameters).</summary>

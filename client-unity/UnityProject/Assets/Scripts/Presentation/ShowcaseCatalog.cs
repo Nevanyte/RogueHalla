@@ -3,6 +3,7 @@ using UnityEngine.Audio;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Asset holding the sprite frames and timing of every actor look (idle, walk, attack and so on); the presenters read it and nothing is drawn here.</summary>
     [CreateAssetMenu(menuName = "Roguehalla/Presentation Catalog")]
     public sealed class ShowcaseCatalog : ScriptableObject
     {

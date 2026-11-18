@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>HUD part for the end-of-run results card and the saved-credit settlement row; every fact shown comes from the server's Result.</summary>
     public sealed partial class MatchHud
     {
         TMP_Text _settlementText;

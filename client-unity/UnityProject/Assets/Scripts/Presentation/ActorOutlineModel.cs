@@ -8,6 +8,7 @@ using System;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The numbers and tone rule for the actor outline stroke: its width, its dark and light luminance, and the contrast it aims for against the ground. Pure arithmetic.</summary>
     public static class ActorOutlineModel
     {
         /// <summary>Relative luminance the dark stroke shows on screen (near black, a touch of blue so it reads as ink rather than a hole).</summary>

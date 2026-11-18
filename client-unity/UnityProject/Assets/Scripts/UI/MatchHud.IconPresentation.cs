@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>HUD part for icon hints: the training launcher placement, damage readout, champion rows and inventory icon hints.</summary>
     public sealed partial class MatchHud
     {
         static readonly string[] StatNames = { "Offense", "Soul", "Defense", "Soul defense", "Health", "Attack speed", "Movement speed", "Life steal" };

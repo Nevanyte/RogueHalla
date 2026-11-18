@@ -22,6 +22,7 @@ using System.Runtime.InteropServices;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The serverless indicator gallery stage (<c>?uilab=1</c>): a MonoBehaviour that feeds synthetic actors and events through the real presentation path, then freezes each page so the gallery tool can capture it.</summary>
     public sealed class UiLabStage : MonoBehaviour
     {
 #if UNITY_WEBGL && !UNITY_EDITOR

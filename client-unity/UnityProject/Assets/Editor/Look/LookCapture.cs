@@ -20,6 +20,7 @@ using ArenaView = Roguehalla.Client.ArenaView;
 
 namespace Roguehalla.Editor
 {
+    /// <summary>Editor-only batch tool that builds a small one-zone map through the real ArenaView and renders named scenes to PNG; run it through look-capture.sh.</summary>
     public static class LookCapture
     {
         const int N = 60;

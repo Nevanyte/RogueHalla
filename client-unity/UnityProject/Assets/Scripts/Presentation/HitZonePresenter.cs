@@ -11,6 +11,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Draws a swing's hit zone (windup telegraph and fan) from delivered weapon shapes and attack events; display only.</summary>
     public sealed class HitZonePresenter
     {
         const int Arc = 24, Rings = 3, Order = 1999; // over the ground, its decor and the temple floor art (1235 vanished on the Holy floor, UI lab), under every actor (2000+)

@@ -7,6 +7,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The region identifiers (Fire to Coliseum); the terrain kinds, wall styles and per-region prop rules in this file are looks-only tables.</summary>
     public enum RegionId : byte { None = 0, Fire = 1, Sentenced = 2, Plague = 3, Frost = 4, Holy = 5, Coliseum = 6 }
     public enum TerrainKind : byte { None = 0, Lava = 1, Fence = 2, Crevasse = 3, Ember = 4, Bog = 5, Ice = 6, Light = 7 }
     /// <summary>Wall and low-obstacle skin.</summary>

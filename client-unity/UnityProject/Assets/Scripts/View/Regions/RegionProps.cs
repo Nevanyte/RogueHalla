@@ -10,6 +10,7 @@ using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Places and draws the region props (decor and server-sent props) as sprites, fading tall ones that would hide an actor behind them.</summary>
     public sealed class RegionProps : System.IDisposable
     {
         public struct Placement { public string Art; public float X, Y, Scale; public bool Flip; public int Tx, Ty; public int Bias;

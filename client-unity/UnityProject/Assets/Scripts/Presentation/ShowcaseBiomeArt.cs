@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The zone looks (Fire, Sentenced, Plague, Frost, Holy, or Neutral) that <c>ShowcaseBiomeArt</c> draws surface art for.</summary>
     public enum ShowcaseBiome { Neutral = -1, Fire, Sentenced, Plague, Frost, Holy }
     public enum ShowcaseTerrainArt { Lava, HealingLight, Ice, Bog }
 

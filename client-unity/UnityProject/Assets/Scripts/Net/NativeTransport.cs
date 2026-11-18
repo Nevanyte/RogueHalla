@@ -11,6 +11,7 @@ using Roguehalla.Net;
 
 namespace Roguehalla.Client
 {
+    /// <summary>WebSocket transport for the Editor and standalone players, built on <c>ClientWebSocket</c>; its events are queued for the main thread.</summary>
     public sealed class NativeTransport : ITransport
     {
         readonly ConcurrentQueue<Action> _events = new ConcurrentQueue<Action>();

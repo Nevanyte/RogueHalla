@@ -8,6 +8,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Adds Coliseum banner, rack and torch prop placements beside walls on its floor tiles, using seeded hashes.</summary>
     public static class ColiseumProps
     {
         public static void Add(MapBlob map, List<RegionProps.Placement> list, int seed)

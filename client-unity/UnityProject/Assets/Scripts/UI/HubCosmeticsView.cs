@@ -12,6 +12,7 @@ using UnityEngine.UI;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The tabs of the cosmetics hub page: Shop, Wardrobe and Titles.</summary>
     public enum HubCosmeticsTab { Shop, Wardrobe, Titles }
 
     /// <summary>Account backed cosmetics pages. Catalog labels are metadata; ownership and every mutation remain server owned.</summary>

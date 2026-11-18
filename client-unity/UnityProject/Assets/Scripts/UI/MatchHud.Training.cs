@@ -8,6 +8,7 @@ using UnityEngine.InputSystem.LowLevel;
 
 namespace Roguehalla.Client
 {
+    /// <summary>HUD part for the training console: its keyboard and focus ownership, refresh and unbinding.</summary>
     public sealed partial class MatchHud
     {
         TrainingConsoleView _trainingConsole;

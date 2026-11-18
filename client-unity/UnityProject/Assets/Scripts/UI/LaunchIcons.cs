@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The pictograms on the launch screen; <c>LaunchIcons</c> draws them into one atlas.</summary>
     public enum LaunchIcon { Shop, Wardrobe, Titles, Achievements, Leaderboard, Counters, Arena, Training, Profile, Guide, Resume, Key, Play, Check }
 
     /// <summary>
