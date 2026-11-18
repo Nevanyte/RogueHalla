@@ -71,9 +71,6 @@ frozen crates/rh-sim/src/systems/training/console.rs named by tools/heal-barrier
 frozen crates/rh-sim/src/systems/wind.rs named by tools/consumable-fixtures/run-mutants.sh
 frozen crates/rh-sim/src/traders/runtime.rs named by tools/trade-fixtures/run-mutants.sh
 header client-unity/UnityProject/Assets/Scripts/BakedContent.cs
-size client-unity/UnityProject/Assets/Scripts/Presentation/WishFxPresenter.cs 895
-size client-unity/UnityProject/Assets/Scripts/UI/HubCosmeticsView.cs 806
-size client-unity/UnityProject/Assets/Scripts/View/ArenaView.cs 899
 size crates/rh-headless/src/tournament.rs 2055
 size crates/rh-sim/src/checkpoint.rs 1972
 size crates/rh-sim/src/mapgen/landmarks/signature/mod.rs 2143
