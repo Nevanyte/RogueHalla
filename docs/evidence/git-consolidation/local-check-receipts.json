@@ -1,0 +1,472 @@
+{
+  "note": "Logs are retained in the private return-cleanup-2026-11-08 archive. Batch scopes and exclusions are in README.md; these hashes do not claim one monolithic current full-port run.",
+  "artifacts": [
+    {
+      "file": "native-integration.log",
+      "bytes": 41213,
+      "sha256": "c3d496bbd1691595b283f6fb820d292b8b2cc4cb477efcb3124af5568102b1c5"
+    },
+    {
+      "file": "native-integration-tests.log",
+      "bytes": 5143,
+      "sha256": "7d497ac2db8409e534e216f692e337ff573ece3fbd0ca00c1d6788e04295eee1"
+    },
+    {
+      "file": "native-integration-rest.log",
+      "bytes": 19276,
+      "sha256": "15579b89ca769406145351ab97cfc3dee3f285d341f45758f4dbb007fb8ffb04"
+    },
+    {
+      "file": "native-doctests.log",
+      "bytes": 584,
+      "sha256": "4d938f9b9f973065dcd8c13a0c930c371f429ee2c3bfc0768f6b36418b474b6a"
+    },
+    {
+      "file": "workspace-integration.log",
+      "bytes": 94979,
+      "sha256": "402e8dc6cc7a58fefcbe7859b152b1769dd0aa65b05956af3def6706b937917e"
+    },
+    {
+      "file": "csharp-final.log",
+      "bytes": 1029,
+      "sha256": "757d3834cce573cf80a6c214d45b2055c35aa691ff9b0090c137309667f61e5e"
+    },
+    {
+      "file": "unity-compile.json",
+      "bytes": 611,
+      "sha256": "1f88d18e3583055f48d333cd5d32f8ae97ab71df89682217b09dba0cb0f455b3"
+    },
+    {
+      "file": "browser-proof.json",
+      "bytes": 4365,
+      "sha256": "7463827d8c3705a379e3caa01e2a7a4aba2900d749f23ce79cc729f86924dd21"
+    },
+    {
+      "file": "clippy-all-final.log",
+      "bytes": 679,
+      "sha256": "396b827780633d74f8097b36c73696592a9064aea32a5f8989daff624b2542ca"
+    },
+    {
+      "file": "clippy-default-final.log",
+      "bytes": 929,
+      "sha256": "8e4b06837ba9ea6367cf595c89086de5bcbdc04fe534e068af3c34f319b65445"
+    },
+    {
+      "file": "fmt-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "parity-final.log",
+      "bytes": 14846,
+      "sha256": "8ab00cac6cacdfd0b7b56a1730e6b8a5850de3dc5f5d4b155bd4303fbd003322"
+    },
+    {
+      "file": "pnet3-integration.log",
+      "bytes": 13499,
+      "sha256": "593bd2cfe50b25438f13827b4b1b950bb36b9ace61abb26345a0e9b95e8b1e5a"
+    },
+    {
+      "file": "latency-final.log",
+      "bytes": 1601,
+      "sha256": "3f4dde918a753933e29ef133caa9c8e58b07579e1e8c73f35924e393a8cd1d47"
+    },
+    {
+      "file": "readiness-final.log",
+      "bytes": 949,
+      "sha256": "67e446dd7667e7879d1a40193e268ebf3c5442296ce0c5912d9005149bcf7f97"
+    },
+    {
+      "file": "knowledge-integration.log",
+      "bytes": 18421,
+      "sha256": "670dacb5f4c51508ae30d36fd72303ce549f63c42ee21afac782ec4822c0f89f"
+    },
+    {
+      "file": "clippy-knowledge-final.log",
+      "bytes": 556,
+      "sha256": "850caaa942c47c569897a333fe4582e26989f30be61e1d02498ba3849277ac5f"
+    },
+    {
+      "file": "fmt-knowledge-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "clippy-default-pnet3-final.log",
+      "bytes": 356,
+      "sha256": "f16f7c8397b2e88cf4a6b6bf2269b0bd0aa7d36a9e2981390cf01cf02ff37683"
+    },
+    {
+      "file": "clippy-pnet3-final.log",
+      "bytes": 304,
+      "sha256": "5ed1f913dd88c299e42153e64d1ea353faae2553a627a4ab433c1266383647eb"
+    },
+    {
+      "file": "fmt-pnet3-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "server-build-final.log",
+      "bytes": 555,
+      "sha256": "ca07f7ff5cbe08eb30e3fd82e16a987c637c9bdb09361e4fce3541d29432a1a1"
+    },
+    {
+      "file": "browser-proof-final.json",
+      "bytes": 4383,
+      "sha256": "d2405c2992c810ae8940ebfd9581e69ad4363c11c1c897b990dcb7e415ec2a66"
+    },
+    {
+      "file": "latency-merged.log",
+      "bytes": 1599,
+      "sha256": "241f7d67e877c68eff4ce2b842e9400315e90bdcbdecd43b90b20e572ceae0a0"
+    },
+    {
+      "file": "caddy-loopback-adapt.json",
+      "bytes": 856,
+      "sha256": "c15f1d0a520a2220a8c5ef19f258d2d01f9f203d343f9fa4549b7a3f89484010"
+    },
+    {
+      "file": "learning-union-server.log",
+      "bytes": 15620,
+      "sha256": "73d4107c8ed88d739e55e2f00df3db32e726a9c1011b4b5fa3bc05c7841c3273"
+    },
+    {
+      "file": "learning-union-persist.log",
+      "bytes": 1463,
+      "sha256": "66665a6284cb754c77e00fcf42cdc309c1a46eaf24edff47a50711ab124bbbc4"
+    },
+    {
+      "file": "learning-union-policy.log",
+      "bytes": 6607,
+      "sha256": "4584fdf6de38256d736c94dd10dbab4609498f65b15a83709f6ffd9c924ee31b"
+    },
+    {
+      "file": "clippy-learning-final.log",
+      "bytes": 682,
+      "sha256": "de47f50a0c236646de040fd9ebbf702d9bb3dbffa0da4630a661f8fe7ef8822b"
+    },
+    {
+      "file": "clippy-learning-default-final.log",
+      "bytes": 556,
+      "sha256": "ea03ed32617d9f7773a97466b22e6a09afb9d5e84e49e1b7d9eed72a1931fe3a"
+    },
+    {
+      "file": "fmt-learning-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "server-build-learning-final.log",
+      "bytes": 436,
+      "sha256": "c5cfe544f4bc9eb7d3d0af77768730937b35ced246bf311e3d00c583df5a63c5"
+    },
+    {
+      "file": "browser-proof-learning-final.json",
+      "bytes": 4381,
+      "sha256": "15f5572810fb9c3453cc463b2be8d6d79c38afbed2e22f2ba22d00e5c97584a8"
+    },
+    {
+      "file": "tournament-repair-final.log",
+      "bytes": 1549,
+      "sha256": "03394250964f1e2aef7e732679d123fc857b7d2961138b67e695df2547e283c3"
+    },
+    {
+      "file": "control-default-final.log",
+      "bytes": 2443,
+      "sha256": "f479fe74ce98d759f9291102e7f046997f0d3a11d40e855eb9d2d2aedb698824"
+    },
+    {
+      "file": "control-all-final.log",
+      "bytes": 2571,
+      "sha256": "06dc74b625a7d08928989d71809d8497ff049ceaf2898ff7e7788e749b1e23d2"
+    },
+    {
+      "file": "clippy-tournament-final.log",
+      "bytes": 432,
+      "sha256": "f3fc17b8529514c4729b1a291f20813dae518d54b36fc5fbe9cc02a94c35c036"
+    },
+    {
+      "file": "clippy-tournament-default-final.log",
+      "bytes": 432,
+      "sha256": "5e4ac486691d66582346340da12d5b76466d8587c1fd51630df26f593dee6395"
+    },
+    {
+      "file": "fmt-tournament-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "ci-failed-rust.log",
+      "bytes": 142939,
+      "sha256": "085ed080c0e22a194ef0601adc9b372dfe2cfe606b33fc016c0d8001e81e2934"
+    },
+    {
+      "file": "bot-fill-isolated-tests.log",
+      "bytes": 45762,
+      "sha256": "fa3f9226e9811374072666ee1651de34dc4a389e08c998991b3067ca2461b58c"
+    },
+    {
+      "file": "clippy-isolated-final.log",
+      "bytes": 6648,
+      "sha256": "1fdee7975d820330b993de80a389cf9935e263ec4e6b62b8968303fd75de47f8"
+    },
+    {
+      "file": "clippy-isolated-default-final.log",
+      "bytes": 929,
+      "sha256": "21d5c1f7fda1d6f5734f5b62019b593f492e759fd57885df508ea29321d3d94f"
+    },
+    {
+      "file": "fmt-isolated-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "server-build-bot-fill-final.log",
+      "bytes": 1528,
+      "sha256": "47e635c04c4beb2e1420ebe8cbe5d765e32e8c3db7681436fb3c2475a03e7d7f"
+    },
+    {
+      "file": "browser-proof-bot-fill-final.json",
+      "bytes": 4406,
+      "sha256": "ab4405a01eba99b8faf720d64a418ff0ad5c1d338b4641e2b44cb4b4339857ee"
+    },
+    {
+      "file": "pnet1-goldens-final.log",
+      "bytes": 733,
+      "sha256": "f2f26de2bb17c915753fad6e4f62877615617087222e4f2f5307e0c0ab510391"
+    },
+    {
+      "file": "csharp-art-final.log",
+      "bytes": 949,
+      "sha256": "eab7b940d17ff486e39b47fcdb5c0569ae0555bd827141749e110e8855502763"
+    },
+    {
+      "file": "art-static-final.log",
+      "bytes": 1928,
+      "sha256": "45e4d92b6a94da17e364ba2ad5cb9777d431c781d7a7c3f47a11b0a5f51986f4"
+    },
+    {
+      "file": "ci-b01-timeout.log",
+      "bytes": 526342,
+      "sha256": "01fd734dd980fc46043dc96a089df2c0222789cca10a0283e20d85e09aa14861"
+    },
+    {
+      "file": "workspace-sim-features.txt",
+      "bytes": 2519,
+      "sha256": "c93949bafa6a18ba46830ab091a45b7143d3f1df86613914d9917ce1674b65d6"
+    },
+    {
+      "file": "art-final-http-hashes.json",
+      "bytes": 2505,
+      "sha256": "2b50515a3b4f9407d3250f87434b80d21fdbf81cbb702bac45090de510e42bc0"
+    },
+    {
+      "file": "art-final-contract.log",
+      "bytes": 504,
+      "sha256": "9d83d0bb6c17253837376edd70060a8f0b77f590372604a2f79decd807ddd24e"
+    },
+    {
+      "file": "art-repair-http-hashes.json",
+      "bytes": 3469,
+      "sha256": "bcdc635055dee295f6870bc9b2f1dcde30237364b6168c462f0170a64aa5a2b7"
+    },
+    {
+      "file": "art-repair-contract.log",
+      "bytes": 603,
+      "sha256": "4e96fd26d7d3451c66b1d15cab0e418f197a673fce7b66b8b370cb35f4e3277a"
+    },
+    {
+      "file": "compose-abc-bot-fill.log",
+      "bytes": 2281,
+      "sha256": "114a21bd103045631356c0472f9ea42c667e33ef3c03d510afbbf0346a233c89"
+    },
+    {
+      "file": "compose-abc-traders.log",
+      "bytes": 1552,
+      "sha256": "28f4ac852f6e34174e1388a7d3e63530c814c634b5827d9feb8661c50b19abbf"
+    },
+    {
+      "file": "compose-abc-quests.log",
+      "bytes": 1686,
+      "sha256": "cef3f02f69c6039b84ca87807f153c9af75a1f67180ec797b5be0d3307ace334"
+    },
+    {
+      "file": "compose-abc-fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "compose-abc-clippy.log",
+      "bytes": 1152,
+      "sha256": "19e44e3016ebdcebe81988930b1676cce6f2e1d77b60affa939200a0ee525e6a"
+    },
+    {
+      "file": "compose-abc-capture-addbot.log",
+      "bytes": 27,
+      "sha256": "c527e940c4b3fea89b0054a8939ccdb2488b301cbbbc7f443ddffc45469c7db1"
+    },
+    {
+      "file": "compose-abc-capture-trade.log",
+      "bytes": 132,
+      "sha256": "c43f4c3e898e47bea952b9f515c767e43cd5d366df0999e88d34caf16fcdae06"
+    },
+    {
+      "file": "compose-abc-capture-quests.log",
+      "bytes": 270,
+      "sha256": "789871f8720f644b2005c9bdc1a4c57251b38348a40d251c2c5ea6775c5f69cf"
+    },
+    {
+      "file": "compose-native-workspace.log",
+      "bytes": 106668,
+      "sha256": "59689198af9b94f769227bad74c428b54342a4d15b5ece54f146cce8e24196eb"
+    },
+    {
+      "file": "compose-native-clippy-all.log",
+      "bytes": 766,
+      "sha256": "7531672232816d86b7e6bd2a3f5ef344cb9787913b6243e30b05f8922a02b226"
+    },
+    {
+      "file": "compose-native-clippy-default.log",
+      "bytes": 655,
+      "sha256": "e0b089d9933e8efeaba3dfc23646c1ffaad283bd194651514318ee3ac0eae27e"
+    },
+    {
+      "file": "compose-native-fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "compose-d-capture-telemetry.log",
+      "bytes": 121,
+      "sha256": "8dec107bfec4fb4750b2cb0ef1a20efaa473b7803877f637433b45c9a8206061"
+    },
+    {
+      "file": "compose-d-capture-tournament.log",
+      "bytes": 52,
+      "sha256": "3fd5037ccf1600d4bd9cbaa56aeda4515e754d494d96f552ff138a71132c8de1"
+    },
+    {
+      "file": "compose-native-server-build.log",
+      "bytes": 364,
+      "sha256": "cf4b3050314d79966449cb070fecd1550530d029dfe06285c977edff1de4200c"
+    },
+    {
+      "file": "compose-native-wss.json",
+      "bytes": 4420,
+      "sha256": "5e25896689a7d614e302500f116334d4c618f4d515fcd632de6b91e1737d633b"
+    },
+    {
+      "file": "compose-native-wss.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "compose-native-parity-report.log",
+      "bytes": 14821,
+      "sha256": "055c49c70257d05ee2976f96b01177211cc501d8021d8b71cd634e19f98f7122"
+    },
+    {
+      "file": "percept-witness-capture.log",
+      "bytes": 445,
+      "sha256": "8913a6108462a6761a125c972a19c0623e2dd122045f12052ab932b73eb586a6"
+    },
+    {
+      "file": "percept-witness-mutants.log",
+      "bytes": 1175,
+      "sha256": "dc04f758b2babcb7239e26e73aa5a1f68edccfcd05c8d0c02ebcbe92ccfd403d"
+    },
+    {
+      "file": "percept-witness-integrated.log",
+      "bytes": 773,
+      "sha256": "df010c35ec40b274226b941663718b42ae655bfa05dd7da6e83b0f9278829f79"
+    },
+    {
+      "file": "percept-witness-fmt-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "percept-witness-clippy-final.log",
+      "bytes": 160,
+      "sha256": "6e1f664fd1b6b7635cb07dc8127f75b6632bbc91983b53e208c0d467c2d5c086"
+    },
+    {
+      "file": "percept-witness-clippy.log",
+      "bytes": 1112,
+      "sha256": "91c990c3ce1f0169716fb23d5c82ec2e3b06c9f1e6e85cabe302d001b7a37bdf",
+      "result": "Initial strict lint failed on a needless test borrow; corrected in follow-up. Final log passes."
+    },
+    {
+      "file": "barrier-view-capture.log",
+      "bytes": 971,
+      "sha256": "7017d633bb4d1e2999091be63816d3f140d7e1eb6f2fbf0e8d53c366ba067fac"
+    },
+    {
+      "file": "barrier-view-mutants.log",
+      "bytes": 1891,
+      "sha256": "48119abe1cf6dfcb9421a18f02ff3f5fa14028d06c8667541e8b072e2617483a"
+    },
+    {
+      "file": "g6-source-capture.log",
+      "bytes": 133,
+      "sha256": "b0fe58fe3f67e6d0c59c2d93371bb5c831ed29e4ff956f27756a1b08ecf8bfed",
+      "scope": "Original10 source cases byte-exact only; real caller timing/anti-heal/feature build remain held."
+    },
+    {
+      "file": "native-g6-frost-root.log",
+      "bytes": 7453,
+      "sha256": "624953c0c1bc9681b4c76c60d3dcd2b71ad673ded43136d91f693daf192aad13"
+    },
+    {
+      "file": "g6-callers-source-root.log",
+      "bytes": 132,
+      "sha256": "d22c24a97de4f24e8ac8bffc5345e05f589937d1acf135a60b3633870d1203aa"
+    },
+    {
+      "file": "frost-resistance-source-root.log",
+      "bytes": 57,
+      "sha256": "8bbe4f08084b71dbed520a82ab173e2f55f140e9db1e2acbf2b856c70ad89ceb"
+    },
+    {
+      "file": "barrier-observation-source-native.log",
+      "bytes": 1331,
+      "sha256": "83446c9d137352db6025904c75523438c6a0688a6f40e357b2c3fb83d0ab9b2a"
+    },
+    {
+      "file": "sentenced-root-admission.log",
+      "bytes": 3195,
+      "sha256": "2057c6d0f293bce7b802a9ae996e2a289f047da7c542b16de3a3b5b8c83cc4d7"
+    },
+    {
+      "file": "wish-public-corrected-root.log",
+      "bytes": 453,
+      "sha256": "9e7662514356874d4e15e5beaea758562728c42f9d27ff71625138b34a1e04df"
+    },
+    {
+      "file": "trophy-corrected-root.log",
+      "bytes": 463,
+      "sha256": "6a2865bde4397c47c5c0eeda64938d8041bcbcfc01b8796cd8afe82185678c22"
+    },
+    {
+      "file": "wish-public-merged-root.log",
+      "bytes": 1529,
+      "sha256": "6149b7f8d99fef7d35fc08e8524848a3df80ab01ac263ee1ec7db7523be6f386"
+    },
+    {
+      "file": "trophy-merged-root.log",
+      "bytes": 245,
+      "sha256": "4a80be7d07b3ae9a303635ffbcdb489a05ef81da0b97aebfcc5b94921bca49e1"
+    },
+    {
+      "file": "wish-public-mutants-root.log",
+      "bytes": 1130,
+      "sha256": "0774b76bbe756e956761069b9ed416752aef68fc91aefdeb836012a5fa76d69b"
+    },
+    {
+      "file": "trophy-mutants-root.log",
+      "bytes": 1158,
+      "sha256": "1d5618e3872af9b9625305b09b489d1f0c6370a1184936394a4d7c0430086080"
+    }
+  ]
+}

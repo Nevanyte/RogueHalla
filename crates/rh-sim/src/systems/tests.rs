@@ -1,0 +1,1187 @@
+//! The seams the systems share: the input seam (`Cx::submit`, C-INPUT), hook dispatch and the deferred queue.
+
+use super::*;
+use crate::arenas::practice_arena;
+use crate::constants::{MAX_ACTIONS_PER_TICK, TICK_MS};
+use crate::hooks::{self, HookArgs, Hx};
+use crate::input::{cmd, RawCommand};
+use crate::state::Packet;
+use crate::{FactionId, Placement, Secrets, Sim, SimConfig, Vec2};
+
+fn sim() -> Sim {
+    let ps: Vec<Placement> = (0..2)
+        .map(|i| Placement {
+            profile: format!("p{i}"),
+            faction: FactionId::Holy,
+            bot: false,
+            at: Vec2::new(300.0 + 600.0 * i as f64, 300.0),
+            hp: None,
+            weapon0: None,
+            weapon1: None,
+        })
+        .collect();
+    Sim::reset_active(
+        SimConfig::default(),
+        practice_arena(),
+        Secrets::from_seed(11),
+        &ps,
+    )
+}
+
+/// Runs one fixed step exactly as `Sim::step` does, then lets `actor` act inside the same `Cx`.
+fn step_with_actor(sim: &mut Sim, actor: impl FnOnce(&mut Cx)) {
+    sim.w.server_time += TICK_MS;
+    sim.w.tick += 1;
+    let mut ev = std::mem::take(&mut sim.w.pending_events);
+    let mut cx = Cx {
+        stats: crate::status_runtime::stats::Inputs::default(),
+        #[cfg(feature = "trusted-status-probes")]
+        probe: None,
+        k: &sim.k,
+        w: &mut sim.w,
+        s: &mut sim.s,
+        ev: &mut ev,
+        pf: &mut sim.pf,
+    };
+    step(&mut cx);
+    actor(&mut cx);
+}
+
+fn commands() -> Vec<Command> {
+    let mut v = vec![
+        cmd(RawCommand::Move {
+            x: 700.0,
+            y: 320.0,
+            seq: Some(1),
+        }),
+        cmd(RawCommand::Aim { a: 0.4 }),
+    ];
+    // Past the order budget (30 tokens) and the per-tick action cap.
+    v.extend((0..40).map(|i| {
+        if i % 2 == 0 {
+            cmd(RawCommand::Attack { a: 0.1, t: None })
+        } else {
+            cmd(RawCommand::Release { a: 0.1, t: None })
+        }
+    }));
+    v.push(cmd(RawCommand::Stop { seq: Some(2) }));
+    v
+}
+
+#[test]
+fn a_command_through_cx_submit_and_through_sim_submit_leaves_identical_state() {
+    let mut a = sim();
+    let mut b = a.clone();
+    let (mut over_budget, mut queue_full) = (0, 0);
+    for cmd in commands() {
+        for id in [PlayerId(1), PlayerId(2), PlayerId(99)] {
+            let ra = a.submit(id, cmd);
+            // The same command through a `Cx` built by hand, outside a step.
+            let mut ev = std::mem::take(&mut b.w.pending_events);
+            let rb = Cx {
+                stats: crate::status_runtime::stats::Inputs::default(),
+                #[cfg(feature = "trusted-status-probes")]
+                probe: None,
+                k: &b.k,
+                w: &mut b.w,
+                s: &mut b.s,
+                ev: &mut ev,
+                pf: &mut b.pf,
+            }
+            .submit(id, cmd);
+            b.w.pending_events = ev;
+            assert_eq!(ra, rb, "{cmd:?} for {id:?}");
+            over_budget += (ra == Err(Reject::OverBudget)) as u32;
+            queue_full += (ra == Err(Reject::QueueFull)) as u32;
+        }
+    }
+    assert!(
+        over_budget > 0 && queue_full > 0,
+        "both rejections exercised"
+    );
+    const { assert!(MAX_ACTIONS_PER_TICK < 40) };
+    assert_eq!(a.w, b.w);
+    assert_eq!(a.state_hash(), b.state_hash());
+    a.step();
+    b.step();
+    assert_eq!(a.w, b.w);
+}
+
+#[test]
+fn an_actor_inside_the_tick_acts_exactly_like_a_submit_after_the_step() {
+    let cmds = [
+        cmd(RawCommand::Move {
+            x: 500.0,
+            y: 300.0,
+            seq: Some(3),
+        }),
+        cmd(RawCommand::Attack { a: 0.0, t: None }),
+    ];
+    let mut a = sim();
+    let mut b = a.clone();
+    a.step();
+    for c in cmds {
+        a.submit(PlayerId(1), c).unwrap();
+    }
+    step_with_actor(&mut b, |cx| {
+        for c in cmds {
+            cx.submit(PlayerId(1), c).unwrap();
+        }
+    });
+    assert_eq!(a.w, b.w);
+    // Both queues apply on the next tick identically.
+    a.step();
+    b.step();
+    assert_eq!(a.w, b.w);
+    assert_eq!(a.state_hash(), b.state_hash());
+}
+
+#[test]
+fn a_proposal_is_validated_before_it_queues() {
+    let mut s = sim();
+    let before = s.w.clone();
+    let mut ev = Vec::new();
+    let mut cx = Cx {
+        stats: crate::status_runtime::stats::Inputs::default(),
+        #[cfg(feature = "trusted-status-probes")]
+        probe: None,
+        k: &s.k,
+        w: &mut s.w,
+        s: &mut s.s,
+        ev: &mut ev,
+        pf: &mut s.pf,
+    };
+    let bad = RawCommand::Move {
+        x: f64::NAN,
+        y: 1.0,
+        seq: None,
+    };
+    assert_eq!(cx.propose(PlayerId(1), bad), Err(Reject::NonFinite));
+    assert_eq!(*cx.w, before, "a rejected proposal leaves no trace");
+    let far = RawCommand::Move {
+        x: 1e9,
+        y: 1.0,
+        seq: None,
+    };
+    cx.propose(PlayerId(1), far).unwrap();
+    assert_eq!(
+        cx.w.players[0].inputs.mv,
+        Some(crate::input::MoveCmd::Move {
+            x: crate::constants::WORLD_W,
+            y: 1.0,
+            seq: None
+        }),
+        "the validated (clamped) command is what queues"
+    );
+}
+
+fn with_hx<R>(sim: &mut Sim, f: impl FnOnce(&mut Hx) -> R) -> R {
+    let mut ev = Vec::new();
+    f(&mut Hx {
+        stats: crate::status_runtime::stats::Inputs::default(),
+        fx: None,
+        k: &sim.k,
+        w: &mut sim.w,
+        ev: &mut ev,
+    })
+}
+
+#[test]
+fn the_drop_body_hook_empties_the_slots_through_the_dispatcher() {
+    use crate::content::WeaponId;
+    let mut s = sim();
+    s.w.players[1].weapon.weapon0 = Some(WeaponId::Sword);
+    s.w.players[1].weapon.weapon1 = Some(WeaponId::Axe);
+    let victim = s.w.players[1].id;
+    with_hx(&mut s, |hx| {
+        hooks::fire(
+            hx,
+            HookArgs::DropBody {
+                victim,
+                between_ticks: false,
+            },
+        )
+    });
+    assert_eq!(s.w.players[1].weapon.weapon0, None);
+    assert_eq!(s.w.players[1].weapon.weapon1, None);
+}
+
+#[test]
+fn a_pending_hook_changes_nothing() {
+    let mut s = sim();
+    let before = s.w.clone();
+    let id = s.w.players[0].id;
+    let hp = s.w.players[0].vitals.hp;
+    with_hx(&mut s, |hx| {
+        // Lifecycle hooks now have real reset/vision links. Hurt remains pending.
+        hooks::fire(
+            hx,
+            HookArgs::Hurt {
+                id,
+                amount: 1.,
+                before: hp,
+            },
+        );
+    });
+    assert_eq!(s.w, before);
+}
+
+fn hit(by: u32, victim: u32, raw: f64) -> ledger::Entry {
+    ledger::Entry {
+        terrain: false,
+        dot: false,
+        ability: None,
+        arena: false,
+        source: None,
+        critical: false,
+        critical_mult: None,
+        sig: None,
+        execute: false,
+        victim: PlayerId(victim),
+        by: Some(PlayerId(by)),
+        packet: Packet {
+            raw,
+            phys: raw,
+            magic: 0.0,
+            true_: 0.0,
+        },
+        weapon: Some(crate::content::WeaponId::Fists),
+        stagger: false,
+        projectile: None,
+        scale: 1.0,
+        derived: false,
+        passive: false,
+    }
+}
+
+#[test]
+fn a_deferred_hit_opens_the_next_ticks_ledger() {
+    let mut s = sim();
+    let max = s.w.players[1].vitals.max_hp;
+    let h0 = s.state_hash();
+    s.w.deferred.defer_hit(hit(1, 2, 10.0));
+    assert_ne!(
+        s.state_hash(),
+        h0,
+        "a queued effect is part of the state hash"
+    );
+    let json = serde_json::to_value(&s).unwrap();
+    assert!(
+        json["world"]["deferred"]["hits"].is_array(),
+        "a non-empty queue is part of the checkpoint"
+    );
+    let mut restored: Sim = serde_json::from_value(json).unwrap();
+    s.step();
+    restored.step();
+    assert!(s.w.players[1].vitals.hp < max, "the deferred hit landed");
+    assert!(s.w.deferred.hits.is_empty(), "and the queue is spent");
+    assert_eq!(s.w, restored.w, "a restored queue lands identically");
+    let mut json = serde_json::to_value(&s).unwrap();
+    assert_eq!(
+        json["world"]["deferred"]["hits"],
+        serde_json::json!([]),
+        "an empty queue is still serialized: the state hash and the layout check allow no skipped field"
+    );
+    // A checkpoint written while the empty queue was omitted still restores.
+    json["world"].as_object_mut().unwrap().remove("deferred");
+    let old: Sim = serde_json::from_value(json).unwrap();
+    assert_eq!(s.w, old.w);
+}
+
+fn credit(by: u32) -> ledger::PayLater {
+    ledger::PayLater::CreditKill {
+        by: PlayerId(by),
+        victim: PlayerId(99),
+        outcome: crate::Outcome::Died,
+        victim_bot: false,
+        bounty: 0,
+    }
+}
+
+#[test]
+fn pay_later_outside_the_pass_pays_at_once() {
+    let mut s = sim();
+    with_hx(&mut s, |hx| hx.pay_later(credit(1)));
+    assert_eq!(
+        s.w.players[0].credit.kills, 1,
+        "legacy: not collecting, pay now"
+    );
+    assert!(s.w.pay.items.is_empty());
+}
+
+#[test]
+fn pay_later_inside_the_pass_waits_for_its_end_and_pays_in_order() {
+    let mut s = sim();
+    s.w.pay.collecting = true;
+    with_hx(&mut s, |hx| {
+        hx.pay_later(credit(1));
+        hx.pay_later(credit(2));
+        hx.pay_later(credit(1));
+    });
+    assert_eq!(
+        (s.w.players[0].credit.kills, s.w.players[1].credit.kills),
+        (0, 0),
+        "nothing is paid while the pass collects"
+    );
+    assert_eq!(
+        s.w.pay.items,
+        vec![
+            ledger::Payout::Ordinary(credit(1)),
+            ledger::Payout::Ordinary(credit(2)),
+            ledger::Payout::Ordinary(credit(1))
+        ]
+    );
+    let mut ev = Vec::new();
+    ledger::pay_all(&s.k, &mut s.w, &mut ev, &mut s.pf);
+    assert_eq!(
+        (s.w.players[0].credit.kills, s.w.players[1].credit.kills),
+        (2, 1)
+    );
+    assert!(s.w.pay.items.is_empty() && !s.w.pay.collecting);
+    with_hx(&mut s, |hx| hx.pay_later(credit(2)));
+    assert_eq!(
+        s.w.players[1].credit.kills, 2,
+        "after the pass it pays at once again"
+    );
+}
+
+#[test]
+fn a_payout_of_the_pass_lands_in_the_same_tick_not_the_next() {
+    let mut s = sim();
+    s.w.players[1].vitals.hp = 1.0;
+    s.w.deferred.defer_hit(hit(1, 2, 1.0e6));
+    s.step();
+    assert_eq!(s.w.players[1].vitals.hp, 0.0, "the lethal hit landed");
+    assert_eq!(
+        s.w.players[0].credit.kills, 1,
+        "and its kill credit was paid in that tick's pass"
+    );
+    assert!(s.w.pay.items.is_empty() && !s.w.pay.collecting);
+    let json = serde_json::to_value(&s).unwrap();
+    assert!(
+        json["world"].get("pay").is_none(),
+        "the payout queue is never part of a checkpoint"
+    );
+}
+
+/// A hit nobody dealt (legacy: sudden death, `by` null): it damages, it takes no PvP factor, and it credits no one. A kill
+/// by it names no killer.
+#[test]
+fn a_sourceless_hit_damages_and_credits_no_one() {
+    let mut s = sim();
+    let (sourced, mut free) = (hit(1, 2, 4.0), hit(1, 2, 4.0));
+    free.by = None;
+    free.weapon = None;
+    let max = s.w.players[1].vitals.max_hp;
+    s.w.deferred.defer_hit(free.clone());
+    s.step();
+    let taken = max - s.w.players[1].vitals.hp;
+    assert!(taken > 0.0, "the sourceless hit landed");
+    assert!(
+        s.w.players[0].credit.damaged.is_empty() && s.w.players[1].credit.last_hit.is_none(),
+        "and gave nobody damage or rival credit"
+    );
+    let mut t = sim();
+    t.w.deferred.defer_hit(sourced);
+    t.step();
+    assert!(
+        t.w.players[0].credit.damaged.contains(&PlayerId(2)),
+        "a sourced hit does"
+    );
+    let taken_sourced = max - t.w.players[1].vitals.hp;
+    assert!(
+        taken > taken_sourced,
+        "the sourceless hit takes no PvP factor (sourced {taken_sourced}, free {taken})"
+    );
+
+    let mut k = sim();
+    k.w.players[1].vitals.hp = 1.0;
+    // A rival's recent hit does not make the arena's kill theirs (legacy: sudden death credits nobody).
+    let now = k.w.server_time;
+    k.w.players[1].credit.last_hit = Some((PlayerId(1), now));
+    k.w.deferred.defer_hit(free);
+    let evs = k.step();
+    assert_eq!(k.w.players[1].vitals.hp, 0.0);
+    assert_eq!(k.w.players[1].fate.killed_by, None);
+    assert_eq!(k.w.players[0].credit.kills, 0);
+    assert!(
+        !evs.iter().any(|e| matches!(e, Event::Gv { .. })),
+        "no GV paid"
+    );
+    assert!(evs.iter().any(|e| matches!(
+        e,
+        Event::Hit {
+            by: None,
+            weapon: None,
+            ..
+        }
+    )));
+    assert!(evs
+        .iter()
+        .any(|e| matches!(e, Event::Death { by: None, .. })));
+}
+
+/// Three fighters spread out on the practice arena, named p0 p1 p2 (ids 1 2 3), one hit point each.
+fn sim3() -> Sim {
+    let ps: Vec<Placement> = (0..3)
+        .map(|i| Placement {
+            profile: format!("p{i}"),
+            faction: FactionId::Holy,
+            bot: false,
+            at: Vec2::new(300.0 + 300.0 * i as f64, 300.0),
+            hp: Some(1.0),
+            weapon0: None,
+            weapon1: None,
+        })
+        .collect();
+    Sim::reset_active(
+        SimConfig::default(),
+        practice_arena(),
+        Secrets::from_seed(21),
+        &ps,
+    )
+}
+
+#[test]
+fn kill_credit_is_paid_after_every_victim_took_their_damage() {
+    // p1 kills p2 and p2 kills p3 in the same pass: both hits land (the ledger is simultaneous), both die, and only then do
+    // the two kill credits go out, in the order they were queued. A victim who is down but not yet settled can still be
+    // credited: no reward decides who survives the pass.
+    let mut s = sim3();
+    let mut ev = Vec::new();
+    let mut cx = Cx {
+        stats: crate::status_runtime::stats::Inputs::default(),
+        #[cfg(feature = "trusted-status-probes")]
+        probe: None,
+        k: &s.k,
+        w: &mut s.w,
+        s: &mut s.s,
+        ev: &mut ev,
+        pf: &mut s.pf,
+    };
+    settle::mark_tick_start(&mut cx);
+    inputs::action_order(&mut cx);
+    cx.s.ledger.push(hit(1, 2, 1.0e6));
+    cx.s.ledger.push(hit(2, 3, 1.0e6));
+    ledger::apply(&mut cx);
+    assert!(cx.s.ledger.is_empty());
+    assert!(cx.w.pay.items.is_empty() && !cx.w.pay.collecting);
+    let at = |f: &dyn Fn(&Event) -> bool| ev.iter().position(f).unwrap_or(usize::MAX);
+    let death2 = at(&|e| matches!(e, Event::Death { id, .. } if *id == PlayerId(2)));
+    let death3 = at(&|e| matches!(e, Event::Death { id, .. } if *id == PlayerId(3)));
+    assert!(
+        death2 < ev.len() && death3 < ev.len(),
+        "both victims died: {ev:?}"
+    );
+    let credits: Vec<(usize, PlayerId)> = ev
+        .iter()
+        .enumerate()
+        .filter_map(|(i, e)| match e {
+            Event::Gv { id, .. } => Some((i, *id)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        credits.iter().map(|(_, id)| *id).collect::<Vec<_>>(),
+        [PlayerId(1), PlayerId(2)],
+        "one kill credit per kill, in queue order: {ev:?}"
+    );
+    assert!(
+        credits.iter().all(|(i, _)| *i > death2.max(death3)),
+        "every credit comes after both deaths: {ev:?}"
+    );
+}
+
+#[test]
+fn a_hit_by_a_departed_shooter_is_named_from_the_roster() {
+    // leave_mia's shape: a fighter leaves between ticks (MIA, removed from the seats) and a hit it dealt is still queued (a
+    // deferred entry survives one tick boundary). The victim dies of it: the result names the shooter from its roster entry,
+    // credits nobody (the shooter is gone: no kill, no GV) and the Death names no attacker.
+    let mut s = sim3();
+    s.w.deferred.defer_hit(hit(2, 1, 1.0e6));
+    s.remove_player(PlayerId(2));
+    assert!(s.player(PlayerId(2)).is_none(), "the shooter is gone");
+    let events = s.step();
+    let resolved = |id: u32| {
+        events.iter().find_map(|e| match e {
+            Event::Resolved { id: i, result, .. } if *i == PlayerId(id) => Some(result.clone()),
+            _ => None,
+        })
+    };
+    let victim = resolved(1).expect("the victim's run resolved");
+    assert_eq!(victim.outcome, crate::results::Outcome::Died);
+    assert_eq!(
+        victim.killed_by.as_deref(),
+        Some("p1"),
+        "the departed shooter is named from the roster (id 2 joined as p1)"
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::Death { id, by: None, .. } if *id == PlayerId(1))),
+        "{events:?}"
+    );
+    assert!(
+        !events.iter().any(|e| matches!(e, Event::Gv { .. })),
+        "no credit for a shooter who left: {events:?}"
+    );
+    assert_eq!(s.w.players.iter().map(|p| p.credit.kills).sum::<u32>(), 0);
+}
+
+#[test]
+fn the_far_reject_in_in_arc_gives_the_exact_verdict() {
+    use super::melee::in_arc;
+    use crate::constants::{ARC_EPS, PLAYER_RADIUS};
+    use crate::math::{angle_between, asin, atan2, hypot};
+    use crate::rng::Mulberry32;
+    // The test as first written: the hypot first, then the two rejects, then the arc.
+    fn reference(origin: Vec2, a: f64, reach: f64, half_arc: f64, p: Vec2, r: f64) -> bool {
+        let dx = p.x - origin.x;
+        let dy = p.y - origin.y;
+        let d = hypot(dx, dy);
+        if d <= r {
+            return true;
+        }
+        if d > reach + r {
+            return false;
+        }
+        angle_between(atan2(dy, dx), a) <= half_arc + asin((r / d).min(1.0)) + ARC_EPS
+    }
+    let mut rng = Mulberry32::new(7);
+    let mut out = 0u32;
+    for n in 0..400_000u32 {
+        let reach = [38.0, 56.0, 90.0, 0.0][(n % 4) as usize];
+        let half_arc = 0.2 + rng.next_f64();
+        let origin = Vec2::new(
+            100.0 + rng.next_f64() * 500.0,
+            100.0 + rng.next_f64() * 500.0,
+        );
+        let a = (rng.next_f64() - 0.5) * 6.4;
+        // Targets around the edge of the reach (where the pre-check hands over to the exact test), and anywhere.
+        let (dist, ang) = if n % 3 == 0 {
+            (
+                (reach + PLAYER_RADIUS) * (1.0 + (rng.next_f64() - 0.5) * 4e-9),
+                rng.next_f64() * 6.3,
+            )
+        } else {
+            (
+                rng.next_f64() * 4.0 * (reach + PLAYER_RADIUS + 1.0),
+                rng.next_f64() * 6.3,
+            )
+        };
+        // Sanctioned: test input generation only. Both the arc test and its reference see the same `p`, whatever its last
+        // bit is on this platform; nothing the sim computes depends on it.
+        #[allow(clippy::disallowed_methods)]
+        let p = Vec2::new(origin.x + dist * ang.cos(), origin.y + dist * ang.sin());
+        let want = reference(origin, a, reach, half_arc, p, PLAYER_RADIUS);
+        assert_eq!(
+            in_arc(origin, a, reach, half_arc, p, PLAYER_RADIUS),
+            want,
+            "{origin:?} {a} {reach} {half_arc} {p:?}"
+        );
+        out += !want as u32;
+    }
+    assert!(out > 100_000, "the sample has plenty of misses: {out}");
+}
+
+/// The melee pass as it was written before the shared rewound positions: `position_at` per (swing, body) pair.
+fn melee_reference(
+    k: &crate::statics::MatchStatic,
+    w: &crate::state::World,
+    melee: &[melee::MeleeReq],
+    ledger: &mut Vec<ledger::Entry>,
+    ev: &mut Vec<Event>,
+) {
+    use crate::constants::PLAYER_RADIUS;
+    use crate::content::{staggers, Shape};
+    use crate::geometry::ray_blocked;
+    use crate::map::MASK_MELEE;
+    let bodies: Vec<usize> = (0..w.players.len())
+        .filter(|&i| w.players[i].standing())
+        .collect();
+    for req in melee {
+        let Some(ai) = w.idx(req.attacker) else {
+            continue;
+        };
+        if !w.players[ai].standing() {
+            continue;
+        }
+        let Shape::Arc { reach, half_arc } = weapons::weapon_shape(req.weapon) else {
+            continue;
+        };
+        let origin = w.players[ai].position_at(req.rewind_t);
+        ev.push(Event::Swing {
+            by: req.attacker,
+            weapon: req.weapon,
+            x: origin.x,
+            y: origin.y,
+            a: req.a,
+        });
+        for &ti in &bodies {
+            if ti == ai {
+                continue;
+            }
+            let at = w.players[ti].position_at(req.rewind_t);
+            if !melee::in_arc(origin, req.a, reach, half_arc, at, PLAYER_RADIUS) {
+                continue;
+            }
+            if ray_blocked(&k.arena.map, origin.x, origin.y, at.x, at.y, MASK_MELEE) {
+                continue;
+            }
+            ledger.push(ledger::Entry {
+                terrain: false,
+                dot: false,
+                ability: None,
+                arena: false,
+                source: None,
+                critical: false,
+                critical_mult: None,
+                sig: None,
+                execute: false,
+                victim: w.players[ti].id,
+                by: Some(req.attacker),
+                packet: req.packet,
+                weapon: Some(req.weapon),
+                stagger: staggers(req.weapon),
+                projectile: None,
+                scale: 1.0,
+                derived: false,
+                passive: false,
+            });
+        }
+    }
+}
+
+#[test]
+fn shared_rewound_positions_give_the_ledger_of_the_per_pair_pass() {
+    use crate::content::WeaponId;
+    // Nine fighters in a knot, each with a jittery two-second history, then batches of one to seven swings at mixed rewind
+    // times (the bots' common one, a human's own lag, a repeat of an earlier value, a time before the history and one after
+    // it): the ledger and the Swing events must equal the per-pair pass's, and a lone swing takes the direct path.
+    let ps: Vec<Placement> = (0..9)
+        .map(|i| Placement {
+            profile: format!("p{i}"),
+            faction: FactionId::Holy,
+            bot: false,
+            at: Vec2::new(600.0 + 14.0 * (i % 3) as f64, 300.0 + 14.0 * (i / 3) as f64),
+            hp: None,
+            weapon0: None,
+            weapon1: None,
+        })
+        .collect();
+    let mut sim = Sim::reset_active(
+        SimConfig::default(),
+        practice_arena(),
+        Secrets::from_seed(5),
+        &ps,
+    );
+    let mut rng = crate::rng::Mulberry32::new(99);
+    let base = sim.w.server_time;
+    for n in 1..=40 {
+        let now = base + n as f64 * TICK_MS;
+        for p in sim.w.players.iter_mut() {
+            p.body.x += (rng.next_f64() - 0.5) * 9.0;
+            p.body.y += (rng.next_f64() - 0.5) * 9.0;
+            let (x, y) = (p.body.x, p.body.y);
+            p.body.history.record(now, x, y);
+        }
+    }
+    sim.w.server_time = base + 40.0 * TICK_MS;
+    let now = sim.w.server_time;
+    let ids: Vec<crate::state::PlayerId> = sim.w.players.iter().map(|p| p.id).collect();
+    let pkt = Packet {
+        raw: 10.0,
+        phys: 10.0,
+        magic: 0.0,
+        true_: 0.0,
+    };
+    let mut hits = 0usize;
+    for batch in 0..80u32 {
+        let n = 1 + (batch % 7) as usize;
+        let mut reqs = Vec::new();
+        for j in 0..n {
+            let r = rng.next_f64();
+            let rewind_t = if r < 0.45 {
+                now - TICK_MS
+            } else if r < 0.6 {
+                now - 100.0
+            } else if r < 0.7 {
+                base - 1000.0
+            } else if r < 0.8 {
+                now + 50.0
+            } else {
+                now - rng.next_f64() * 500.0
+            };
+            reqs.push(melee::MeleeReq {
+                attacker: ids[(batch as usize + j * 4) % ids.len()],
+                weapon: [WeaponId::Sword, WeaponId::Fists][j % 2],
+                a: (rng.next_f64() - 0.5) * 6.4,
+                rewind_t,
+                packet: pkt,
+            });
+        }
+        let (mut want_ledger, mut want_ev) = (Vec::new(), Vec::new());
+        melee_reference(&sim.k, &sim.w, &reqs, &mut want_ledger, &mut want_ev);
+        sim.s.melee.extend(reqs.iter().copied());
+        let mut ev = Vec::new();
+        {
+            let mut cx = Cx {
+                stats: crate::status_runtime::stats::Inputs::default(),
+                #[cfg(feature = "trusted-status-probes")]
+                probe: None,
+                k: &sim.k,
+                w: &mut sim.w,
+                s: &mut sim.s,
+                ev: &mut ev,
+                pf: &mut sim.pf,
+            };
+            melee::resolve(&mut cx);
+        }
+        assert_eq!(sim.s.ledger, want_ledger, "batch {batch}");
+        assert_eq!(ev, want_ev, "batch {batch}");
+        assert!(sim.s.melee.is_empty());
+        hits += want_ledger.len();
+        sim.s.ledger.clear();
+    }
+    assert!(hits > 200, "the swings connect: {hits}");
+}
+
+#[test]
+fn the_pvp_caps_match_the_diagnostic_case() {
+    // The source's diagnostic-G1-G2-G3-ledger-caps: a Boom/Glass Cannon attacker's huge weapon hit and two of its own huge
+    // dots, plus another source's dot, against a 5x vitality victim: the hit is cut to the PvP hit cap and each source's dots
+    // share the per-source budget.
+    let ps: Vec<Placement> = [
+        (300., 320., FactionId::Holy),
+        (332., 320., FactionId::Holy),
+        (1100., 600., FactionId::Fire),
+    ]
+    .iter()
+    .enumerate()
+    .map(|(i, &(x, y, faction))| Placement {
+        profile: format!("P{i}"),
+        faction,
+        bot: false,
+        at: Vec2::new(x, y),
+        hp: None,
+        weapon0: None,
+        weapon1: None,
+    })
+    .collect();
+    let mut s = Sim::reset_active(
+        SimConfig::default(),
+        practice_arena(),
+        Secrets::from_seed(12),
+        &ps,
+    );
+    for card in [
+        crate::cards::CardId::HereComesTheBoom,
+        crate::cards::CardId::GlassCannon,
+        crate::cards::CardId::FirstImpressions,
+        crate::cards::CardId::TunnelVision,
+        crate::cards::CardId::Haste1,
+        crate::cards::CardId::Rhythm,
+    ] {
+        assert!(crate::cards::grant(&s.k, &mut s.w, PlayerId(1), card));
+    }
+    for _ in 0..5 {
+        assert!(crate::cards::grant(
+            &s.k,
+            &mut s.w,
+            PlayerId(2),
+            crate::cards::CardId::Vitality3
+        ));
+    }
+    let max_hp = s.w.players[1].vitals.max_hp;
+    let mut ev = Vec::new();
+    let mut cx = Cx {
+        stats: crate::status_runtime::stats::Inputs::default(),
+        #[cfg(feature = "trusted-status-probes")]
+        probe: None,
+        k: &s.k,
+        w: &mut s.w,
+        s: &mut s.s,
+        ev: &mut ev,
+        pf: &mut s.pf,
+    };
+    settle::mark_tick_start(&mut cx);
+    inputs::action_order(&mut cx);
+    let mut weapon_hit = hit(1, 2, 1.0e6);
+    weapon_hit.weapon = Some(crate::content::WeaponId::Sword);
+    weapon_hit.packet.phys = 1.0;
+    cx.s.ledger.push(weapon_hit);
+    for by in [1u32, 1u32, 3u32] {
+        let mut dot = hit(by, 2, 1.0e6);
+        dot.dot = true;
+        dot.weapon = None;
+        dot.packet.phys = 1.0;
+        cx.s.ledger.push(dot);
+    }
+    ledger::apply(&mut cx);
+    let weapon_amount =
+        cx.s.landed
+            .iter()
+            .filter(|h| h.by == Some(PlayerId(1)))
+            .map(|h| h.amount)
+            .fold(0., f64::max);
+    let cap = crate::constants::PVP_HIT_CAP_SHARE * max_hp;
+    assert!(
+        (weapon_amount - cap).abs() < 1e-6,
+        "the weapon hit is cut to the hit cap: {weapon_amount} vs {cap}"
+    );
+    // The source's recorded diagnostic amount for this build.
+    assert!(
+        (cap - 901.6874999999999).abs() < 1e-6,
+        "the diagnostic case's hit cap: {cap} (max hp {max_hp})"
+    );
+    let one_source_dots: f64 =
+        cx.s.landed
+            .iter()
+            .filter(|h| h.by == Some(PlayerId(1)) && h.dot)
+            .map(|h| h.amount)
+            .sum();
+    let dot_budget = crate::constants::PVP_DOT_CAP_SHARE * max_hp * 0.05;
+    assert!(
+        one_source_dots <= dot_budget + 1e-6,
+        "one source's dots share the budget: {one_source_dots} vs {dot_budget}"
+    );
+}
+
+#[test]
+fn the_race_and_lifesteal_match_the_diagnostic_case() {
+    // The source's diagnostic-G4-race-pass-start-and-G5-lifesteal: two Race to 0 holders at 20% and 40% health trade 30 true
+    // damage; each hit is multiplied by both races (2.5 x 2.5 = 6.25 -> 187.5), and the lifesteal feed divides the race out
+    // (30 per hit), so p0's twelve Leech III copies and Bloodthirst heal 51 and p1 heals 12.9.
+    let ps: Vec<Placement> = [
+        (300., 320., FactionId::Holy),
+        (332., 320., FactionId::Holy),
+        (1100., 600., FactionId::Fire),
+    ]
+    .iter()
+    .enumerate()
+    .map(|(i, &(x, y, faction))| Placement {
+        profile: format!("P{i}"),
+        faction,
+        bot: false,
+        at: Vec2::new(x, y),
+        hp: None,
+        weapon0: None,
+        weapon1: None,
+    })
+    .collect();
+    let mut s = Sim::reset_active(
+        SimConfig {
+            quests: false,
+            pvp_rules: false,
+            ..Default::default()
+        },
+        practice_arena(),
+        Secrets::from_seed(12),
+        &ps,
+    );
+    // The pass-start fractions drive Holy's own share and Bloodthirst's while-row: set them before the grants recompute
+    // the modifiers (the after-damage then reads the captured signature fraction).
+    s.w.players[0].vitals.hp = s.w.players[0].vitals.max_hp * 0.2;
+    s.w.players[1].vitals.hp = s.w.players[1].vitals.max_hp * 0.4;
+    s.w.players[0].signature.hp_frac = 0.2;
+    s.w.players[1].signature.hp_frac = 0.4;
+    assert!(crate::cards::grant(
+        &s.k,
+        &mut s.w,
+        PlayerId(1),
+        crate::cards::CardId::RaceToZero
+    ));
+    for _ in 0..12 {
+        assert!(crate::cards::grant(
+            &s.k,
+            &mut s.w,
+            PlayerId(1),
+            crate::cards::CardId::Leech3
+        ));
+    }
+    assert!(crate::cards::grant(
+        &s.k,
+        &mut s.w,
+        PlayerId(1),
+        crate::cards::CardId::Bloodthirst
+    ));
+    assert!(crate::cards::grant(
+        &s.k,
+        &mut s.w,
+        PlayerId(2),
+        crate::cards::CardId::RaceToZero
+    ));
+    let mut ev = Vec::new();
+    let mut cx = Cx {
+        stats: crate::status_runtime::stats::Inputs::default(),
+        #[cfg(feature = "trusted-status-probes")]
+        probe: None,
+        k: &s.k,
+        w: &mut s.w,
+        s: &mut s.s,
+        ev: &mut ev,
+        pf: &mut s.pf,
+    };
+    settle::mark_tick_start(&mut cx);
+    inputs::action_order(&mut cx);
+    let true_hit = |by: u32, victim: u32| {
+        let mut e = hit(by, victim, 30.);
+        e.weapon = Some(crate::content::WeaponId::Sword);
+        e.packet.phys = 0.;
+        e.packet.magic = 0.;
+        e.packet.true_ = 1.;
+        e
+    };
+    cx.s.ledger.push(true_hit(1, 2));
+    cx.s.ledger.push(true_hit(2, 1));
+    cx.s.ledger.push(true_hit(1, 2));
+    // The mods system: re-fold every fighter (this is where Bloodthirst's while-hold lands).
+    crate::systems::items::fold_armor(&mut cx);
+    ledger::apply(&mut cx);
+    let amounts: Vec<f64> = cx.s.landed.iter().map(|h| h.amount).collect();
+    assert!(
+        amounts.iter().all(|a| (a - 187.5).abs() < 1e-6),
+        "every hit carries both races: {amounts:?}"
+    );
+    // Bloodthirst's while-hold is in the cached fold: at 20% health the x2 lifesteal multiplier is folded for p0.
+    let stats = crate::status_runtime::stats::Inputs::default();
+    assert!(
+        (stats.view(&cx.w.players[0].core).lifesteal_mult - 2.).abs() < 1e-12,
+        "Bloodthirst doubles the capped rows below half health"
+    );
+    signatures::after_damage(&mut cx);
+    let heal = |id: PlayerId| {
+        cx.ev
+            .iter()
+            .filter_map(|e| match e {
+                Event::Heal { id: who, amount } if *who == id => Some(*amount),
+                _ => None,
+            })
+            .sum::<f64>()
+    };
+    // The source's heals are 51 (two 30-damage hits x LIFESTEAL_MAX 0.85: Holy's own 0.55 plus the rows' capped 0.25
+    // doubled by Bloodthirst's while-hold) and 12.9 (one x its 0.43 own share).
+    assert!(
+        (heal(PlayerId(1)) - 51.).abs() < 1e-6,
+        "p0 heals 51: {}",
+        heal(PlayerId(1))
+    );
+    assert!(
+        (heal(PlayerId(2)) - 12.900000000000006).abs() < 1e-6,
+        "p1 heals 12.9: {}",
+        heal(PlayerId(2))
+    );
+}
+
+#[test]
+fn the_g8_runtime_floor_case_reproduces_the_source() {
+    // The source's diagnostic-G8-runtime-floor-extra-rows: a capture rig puts an out-of-build `maxHp` row (-2) on p0 and
+    // syncs max hp. G8's floor holds the bar at half the faction's (572.5 = 1145 x 0.5) and the carried hp follows it down;
+    // one 1-damage physical sword hit by p1 is mitigated by holy armor (78 -> 1 / 1.78 = 0.5617977528089888) against that
+    // floor; taking the rows away restores 1145 and keeps the damage as a deficit (1144.438202247191). The seam is the
+    // source's `setExtraRows` diagnostic, outside any legal card build (the source's own domain field says so).
+    use crate::stat_fold::{EffectKind, EffectRow, EffectStat};
+
+    let ps: Vec<Placement> = [
+        (300., 320., FactionId::Holy),
+        (332., 320., FactionId::Holy),
+        (1100., 600., FactionId::Fire),
+    ]
+    .iter()
+    .enumerate()
+    .map(|(i, &(x, y, faction))| Placement {
+        profile: format!("P{i}"),
+        faction,
+        bot: false,
+        at: Vec2::new(x, y),
+        hp: None,
+        weapon0: None,
+        weapon1: None,
+    })
+    .collect();
+    let mut s = Sim::reset_active(
+        SimConfig {
+            quests: false,
+            pvp_rules: false,
+            ..Default::default()
+        },
+        practice_arena(),
+        Secrets::from_seed(12),
+        &ps,
+    );
+    // The source's p1 holds five stacking Vitality III copies: 1145 x (1 + 5 x 0.25) = 2576.25 (the per-copy fold).
+    for _ in 0..5 {
+        assert!(crate::cards::grant(
+            &s.k,
+            &mut s.w,
+            PlayerId(2),
+            crate::cards::CardId::Vitality3
+        ));
+    }
+    assert!((s.w.players[1].vitals.max_hp - 2576.25).abs() < 1e-9);
+    // The diagnostic row, applied then synced exactly as the capture engine does (setExtraRows, then syncMaxHp).
+    let floor_row = [EffectRow::new(EffectKind::Stat {
+        stat: EffectStat::MaxHp,
+        v: -2.0,
+    })];
+    let p0 = crate::fighter::FighterIx::of_slot(0);
+    crate::modifiers::refold_with_extra_rows(&s.k, &mut s.w, p0, &floor_row);
+    crate::modifiers::sync_max_hp(&mut s.w.players[0]);
+    assert!(
+        (s.w.players[0].vitals.max_hp - 572.5).abs() < 1e-9,
+        "the G8 floor holds the bar at half the faction's: {}",
+        s.w.players[0].vitals.max_hp
+    );
+    assert!(
+        (s.w.players[0].vitals.hp - 572.5).abs() < 1e-9,
+        "the bar follows the floor down: {}",
+        s.w.players[0].vitals.hp
+    );
+    {
+        // The pass: mark the tick start and the order, inject the source's one sword hit, apply the ledger.
+        let mut ev = Vec::new();
+        let mut cx = Cx {
+            stats: crate::status_runtime::stats::Inputs::default(),
+            #[cfg(feature = "trusted-status-probes")]
+            probe: None,
+            k: &s.k,
+            w: &mut s.w,
+            s: &mut s.s,
+            ev: &mut ev,
+            pf: &mut s.pf,
+        };
+        settle::mark_tick_start(&mut cx);
+        ledger::open(&mut cx);
+        inputs::action_order(&mut cx);
+        let mut weapon_hit = hit(2, 1, 1.0);
+        weapon_hit.weapon = Some(crate::content::WeaponId::Sword);
+        weapon_hit.packet.phys = 1.0;
+        cx.s.ledger.push(weapon_hit);
+        ledger::apply(&mut cx);
+        assert_eq!(cx.s.landed.len(), 1);
+        let landed = cx.s.landed[0].amount;
+        assert!(
+            (landed - 0.5617977528089888).abs() < 1e-15,
+            "holy armor mitigates the 1-damage hit: {landed}"
+        );
+        assert!(
+            (cx.w.players[0].vitals.hp - 571.938202247191).abs() < 1e-9,
+            "hp carries the hit against the floor: {}",
+            cx.w.players[0].vitals.hp
+        );
+    }
+    // Take the rows away: the bar grows back to 1145 and the hit stays a deficit.
+    crate::modifiers::refold_with_extra_rows(&s.k, &mut s.w, p0, &[]);
+    crate::modifiers::sync_max_hp(&mut s.w.players[0]);
+    assert!(
+        (s.w.players[0].vitals.max_hp - 1145.).abs() < 1e-9,
+        "the max restores: {}",
+        s.w.players[0].vitals.max_hp
+    );
+    assert!(
+        (s.w.players[0].vitals.hp - 1144.438202247191).abs() < 1e-9,
+        "the hit stays a deficit: {}",
+        s.w.players[0].vitals.hp
+    );
+    {
+        // The step that follows reads the fraction and lands nothing (the source's last two actions).
+        let mut ev = Vec::new();
+        let mut cx = Cx {
+            stats: crate::status_runtime::stats::Inputs::default(),
+            #[cfg(feature = "trusted-status-probes")]
+            probe: None,
+            k: &s.k,
+            w: &mut s.w,
+            s: &mut s.s,
+            ev: &mut ev,
+            pf: &mut s.pf,
+        };
+        settle::mark_tick_start(&mut cx);
+        assert!(
+            (cx.w.players[0].vitals.hp_frac_at_tick_start - 0.9995093469407781).abs() < 1e-15,
+            "the pass-start fraction: {}",
+            cx.w.players[0].vitals.hp_frac_at_tick_start
+        );
+        ledger::open(&mut cx);
+        inputs::action_order(&mut cx);
+        ledger::apply(&mut cx);
+        assert!(cx.s.landed.is_empty(), "the last step lands nothing");
+        assert!((cx.w.players[0].vitals.hp - 1144.438202247191).abs() < 1e-9);
+    }
+}
+
+#[test]
+fn the_while_rows_fold_from_the_fighter_state() {
+    // The source folds a `while` row only while its condition holds (`holdsNow`: on every refold and once a tick in
+    // updateMods, which is the ported `mods.updateMods` -> `items::fold_armor`). The shipped rows the conditions cover are
+    // below max health (Bloodthirst, Last Rites), unarmed (Fists of Fury's attack speed) and not shooting (Fleet's move
+    // speed). `fightTime` stays pending (no Rust fight-clock state yet) and `afterCast` has no admitted row.
+    let ps: Vec<Placement> = (0..2)
+        .map(|i| Placement {
+            profile: format!("P{i}"),
+            faction: FactionId::Holy,
+            bot: false,
+            at: Vec2::new(300.0 + 32.0 * i as f64, 320.0),
+            hp: None,
+            weapon0: None,
+            weapon1: None,
+        })
+        .collect();
+    let mut s = Sim::reset_active(
+        SimConfig::default(),
+        practice_arena(),
+        Secrets::from_seed(13),
+        &ps,
+    );
+    let ix = crate::fighter::FighterIx::of_slot(0);
+    let refold = |s: &mut Sim| crate::modifiers::recompute(&s.k, &mut s.w, ix);
+    let view = |s: &Sim| crate::status_runtime::stats::Inputs::default().view(&s.w.players[0].core);
+    let as_mult = |s: &Sim| s.w.players[0].modifiers.mirrors().as_mult;
+    let speed = |s: &Sim| s.w.players[0].modifiers.mirrors().speed_mult;
+
+    // Bloodthirst: the lifesteal multiplier doubles strictly below half health.
+    assert!(crate::cards::grant(
+        &s.k,
+        &mut s.w,
+        PlayerId(1),
+        crate::cards::CardId::Bloodthirst
+    ));
+    assert!((view(&s).lifesteal_mult - 1.).abs() < 1e-12, "full health");
+    s.w.players[0].vitals.hp = s.w.players[0].vitals.max_hp * 0.5;
+    refold(&mut s);
+    assert!(
+        (view(&s).lifesteal_mult - 1.).abs() < 1e-12,
+        "exactly half is not below it"
+    );
+    s.w.players[0].vitals.hp -= 1.0;
+    refold(&mut s);
+    assert!((view(&s).lifesteal_mult - 2.).abs() < 1e-12, "below half");
+
+    // Fists of Fury: +40% attack speed only while the active hand's slot is empty.
+    assert!(crate::cards::grant(
+        &s.k,
+        &mut s.w,
+        PlayerId(1),
+        crate::cards::CardId::FistsOfFury
+    ));
+    assert!((as_mult(&s) - 1.4).abs() < 1e-9, "unarmed: {}", as_mult(&s));
+    s.w.players[0].weapon.weapon0 = Some(crate::content::WeaponId::Sword);
+    refold(&mut s);
+    assert!((as_mult(&s) - 1.0).abs() < 1e-9, "armed: {}", as_mult(&s));
+
+    // Fleet III: +15% move speed while not shooting, ending 2.5 s after a shot left (the row's own window).
+    assert!(crate::cards::grant(
+        &s.k,
+        &mut s.w,
+        PlayerId(1),
+        crate::cards::CardId::Fleet3
+    ));
+    assert!((speed(&s) - 1.15).abs() < 1e-9, "not shooting");
+    let now = s.w.server_time;
+    s.w.players[0].weapon.last_shot_at = Some(now);
+    refold(&mut s);
+    assert!((speed(&s) - 1.0).abs() < 1e-9, "a fresh shot");
+    s.w.players[0].weapon.last_shot_at = Some(now - 2500.0);
+    refold(&mut s);
+    assert!((speed(&s) - 1.15).abs() < 1e-9, "the window ended");
+}

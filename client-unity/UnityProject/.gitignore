@@ -1,0 +1,17 @@
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+*.csproj
+*.sln
+*.suo
+*.user
+.vs/
+.idea/
+
+# Purchased Unity Asset Store content: local only, never committed (public repo)
+/Assets/Licensed/
+/Assets/Licensed.meta

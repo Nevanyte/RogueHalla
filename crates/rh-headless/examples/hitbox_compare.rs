@@ -1,0 +1,475 @@
+//! ADR0024 P-HB-9 measurement (not a balance harness: there is no Rust duel/TTK harness yet, P-BALANCE-1): full-map bot
+//! matches with the live `--runtime source-arena` SimConfig and the live fill bots (HumanBot), run on the same seeds in
+//! both hitbox modes. Per mode it reports:
+//!
+//! * ranged shots and hits per shooter class (bot / mob), shooter look, intended target look and weapon. A shot's
+//!   intended target is attributed at launch: the hostile fighter nearest the shot's bearing (within 0.5 rad and the
+//!   weapon's range plus 40 u), on ground positions. A shot counts as a hit when it ends on a body (hit, reflected or
+//!   blocked). The look is the archetype the fighter has under `Archetypes` (the same in both modes, for pairing);
+//! * melee swings and swings that hit at least one body, per class and weapon;
+//! * hits, player and mob deaths, damage per weapon and match length.
+//!
+//!   cargo run --release -p rh-headless --example hitbox_compare -- <map> <seed_from> <seed_to> [max_ticks] [modes]
+//!
+//! * mob spacing (ADR0024 addendum "Mob spacing"): for every engaged regional mob with another regional mob within
+//!   [`PACK`] u, its distance to the nearest one (mean, minimum, share under [`OVERLAP`] u, where two foot boxes overlap);
+//!   the share of ticks with two engaged mobs within [`STACKED`] u of each other (among ticks with two or more engaged),
+//!   and the same for chasing mobs only (`Mob::chasing`: walking a chase path; among ticks with two or more chasing);
+//!   spacing steps per tick (mean, max; `Sim::mob_spacing_diagnostics`) and path searches per tick (mean, max;
+//!   `Sim::path_searches`, every A* search of the tick, players' included). Spacing is on exactly under
+//!   `archetypes` (`rh_sim::archetype::mob_spacing`); the mode `archetypes-nospacing` runs the same seeds with
+//!   `SimConfig::mob_spacing = Off` (measurement only; recorded in the config and so the state hash; the server refuses
+//!   it). The header line says which.
+//!
+//! `modes` is `both` (default), `legacy`, `archetypes`, `archetypes-nospacing` or `spacing` (archetypes with spacing
+//! off, then on). A panic or a hang (a match that neither ends nor reaches
+//! `max_ticks`) is a failure of the run, so this doubles as the archetype-mode soak.
+use rh_headless::{Agent, AgentSpec, Env, EnvConfig};
+use rh_sim::archetype::{assign, HitboxMode, Identity, MobSpacing, ARCHETYPES};
+use rh_sim::events::Event;
+use rh_sim::fighter::FighterAffiliation;
+use rh_sim::math::{angle_between, atan2, hypot};
+use rh_sim::{FactionId, PlayerId, ProjectileEnd, SimConfig, Vec2, WeaponId};
+use std::collections::{BTreeMap, HashMap};
+
+/// The live content world (`SimConfig::live_content()`, which the server's `Settings::sim` builds on) with short lobby
+/// timers and the hitbox mode and mob spacing under measurement.
+pub fn live_config((hitboxes, spacing): (HitboxMode, MobSpacing)) -> SimConfig {
+    SimConfig {
+        mob_spacing: spacing,
+        min_players: 1,
+        lobby_seconds: 5.,
+        fill_seconds: 3.,
+        hitboxes,
+        ..SimConfig::live_content()
+    }
+}
+
+/// A neighbour within this many units makes an engaged mob part of a pack (it is measured).
+const PACK: f64 = 120.;
+/// Two mobs closer than this have overlapping foot boxes (10 u half-width each).
+const OVERLAP: f64 = 20.;
+/// Two mobs closer than this stand on top of each other.
+const STACKED: f64 = 8.;
+
+#[derive(Default)]
+struct Spacing {
+    samples: u64,
+    sum: f64,
+    min: Option<f64>,
+    overlapping: u64,
+    ticks_engaged: u64,
+    ticks_stacked: u64,
+    ticks_chasing: u64,
+    ticks_chasing_stacked: u64,
+    ticks: u64,
+    steps: u64,
+    steps_max: u32,
+    offsets: u64,
+    searches: u64,
+    searches_max: u64,
+}
+
+fn spacing_tick(sim: &rh_sim::Sim, out: &mut Spacing) {
+    use rh_sim::mob_runtime::MobKind;
+    let all: Vec<(bool, bool, Vec2)> = sim
+        .mobs()
+        .iter()
+        .filter(|m| {
+            m.status == rh_sim::state::Status::Alive
+                && m.zombie.is_none()
+                && matches!(m.kind, MobKind::Regional | MobKind::Practice)
+        })
+        .map(|m| (m.engaged(), m.chasing(), m.core.pos()))
+        .collect();
+    let chasing: Vec<Vec2> = all.iter().filter(|m| m.1).map(|m| m.2).collect();
+    if chasing.len() >= 2 {
+        out.ticks_chasing += 1;
+        let close = chasing.iter().enumerate().any(|(i, p)| {
+            chasing[i + 1..]
+                .iter()
+                .any(|q| hypot(p.x - q.x, p.y - q.y) < STACKED)
+        });
+        out.ticks_chasing_stacked += close as u64;
+    }
+    let mobs: Vec<(bool, Vec2)> = all.iter().map(|m| (m.0, m.2)).collect();
+    let engaged = mobs.iter().filter(|m| m.0).count();
+    if engaged >= 2 {
+        out.ticks_engaged += 1;
+    }
+    let mut stacked = false;
+    for (i, &(e, p)) in mobs.iter().enumerate() {
+        if !e {
+            continue;
+        }
+        let mut nearest = f64::INFINITY;
+        for (j, &(f, q)) in mobs.iter().enumerate() {
+            if i == j {
+                continue;
+            }
+            let d = hypot(p.x - q.x, p.y - q.y);
+            nearest = nearest.min(d);
+            stacked |= f && d < STACKED;
+        }
+        if nearest <= PACK {
+            out.samples += 1;
+            out.sum += nearest;
+            out.min = Some(out.min.map_or(nearest, |m: f64| m.min(nearest)));
+            out.overlapping += (nearest < OVERLAP) as u64;
+        }
+    }
+    if engaged >= 2 && stacked {
+        out.ticks_stacked += 1;
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Who {
+    look: &'static str,
+    mob: bool,
+    zombie_of: Option<PlayerId>,
+    faction: Option<FighterAffiliation>,
+    pos: Vec2,
+    alive: bool,
+}
+
+fn look(identity: Identity) -> &'static str {
+    ARCHETYPES[assign(HitboxMode::Archetypes, identity).0 as usize].key
+}
+
+fn roster(sim: &rh_sim::Sim) -> HashMap<PlayerId, Who> {
+    let mut out = HashMap::new();
+    for p in sim.players() {
+        out.insert(
+            p.id,
+            Who {
+                look: look(Identity::Player(p.vitals.faction)),
+                mob: false,
+                zombie_of: None,
+                faction: Some(p.vitals.faction),
+                pos: p.pos(),
+                alive: p.vitals.hp > 0.,
+            },
+        );
+    }
+    for m in sim.mobs() {
+        let Some(identity) = m.identity() else {
+            continue;
+        };
+        out.insert(
+            m.core.id,
+            Who {
+                look: look(identity),
+                mob: true,
+                zombie_of: m.owner,
+                faction: None,
+                pos: m.core.pos(),
+                alive: m.core.vitals.hp > 0.,
+            },
+        );
+    }
+    out
+}
+
+fn hostile(owner: PlayerId, a: &Who, b: &Who) -> bool {
+    match (a.mob, b.mob) {
+        (true, _) => !b.mob,
+        (false, true) => b.zombie_of != Some(owner),
+        (false, false) => a.faction != b.faction,
+    }
+}
+
+#[derive(Default)]
+struct Tally {
+    shots: u64,
+    hits: u64,
+}
+
+#[derive(Default)]
+struct Mode {
+    matches: u64,
+    ticks: u64,
+    terminated: u64,
+    truncated: u64,
+    hit_events: u64,
+    player_deaths: u64,
+    mob_deaths: u64,
+    // (class, shooter look, target look, weapon)
+    ranged: BTreeMap<(&'static str, &'static str, &'static str, &'static str), Tally>,
+    // (class, weapon)
+    ranged_total: BTreeMap<(&'static str, &'static str), Tally>,
+    melee: BTreeMap<(&'static str, &'static str), Tally>,
+    damage: BTreeMap<&'static str, f64>,
+    // (class, weapon, homing, end reason) for misses and hits, to see why a shot class misses
+    ends: BTreeMap<(&'static str, &'static str, bool, String), u64>,
+    spacing: Spacing,
+}
+
+fn weapon_name(w: WeaponId) -> &'static str {
+    match w {
+        WeaponId::Sword => "sword",
+        WeaponId::Bow => "bow",
+        WeaponId::Wand => "wand",
+        WeaponId::Shield => "shield",
+        WeaponId::Axe => "axe",
+        WeaponId::Fists => "fists",
+        #[allow(unreachable_patterns)]
+        _ => "other",
+    }
+}
+
+fn run(
+    arena: &rh_sim::Arena,
+    mode: (HitboxMode, MobSpacing),
+    seed: u64,
+    max_ticks: u32,
+    out: &mut Mode,
+) {
+    let agents = (0..8)
+        .map(|i| AgentSpec {
+            profile: format!("bot{i}"),
+            faction: FactionId::ALL[(i + seed as usize) % 5],
+            bot: true,
+            agent: Agent::Policy {
+                policy: Box::new(rh_policy::bots::HumanBot::new(
+                    rh_policy::bots::TierId::ALL[(i + seed as usize) % 3],
+                    rh_policy::bots::PersonaId::ALL[i % 4],
+                )),
+            },
+        })
+        .collect();
+    let mut env = Env::new(
+        EnvConfig {
+            arena: arena.clone(),
+            sim: live_config(mode),
+            max_ticks,
+            record: false,
+        },
+        agents,
+        seed,
+    );
+    // projectile id -> (class, shooter look, target look, weapon)
+    let mut pending: HashMap<u32, (&'static str, &'static str, &'static str, &'static str)> =
+        HashMap::new();
+    let mut homing: HashMap<u32, bool> = HashMap::new();
+    let mut ticks = 0u64;
+    let mut last_searches = env.sim.path_searches();
+    let progress = loop {
+        let p = env.advance(&[]);
+        ticks += 1;
+        let events = env.last_events();
+        let mut who: Option<HashMap<PlayerId, Who>> = None;
+        let mut swings: Vec<(PlayerId, WeaponId)> = Vec::new();
+        for e in events {
+            match e {
+                Event::ProjectileLaunched(l) if !l.reflected => {
+                    let r = who.get_or_insert_with(|| roster(&env.sim));
+                    let Some(shooter) = r.get(&l.owner).copied() else {
+                        continue;
+                    };
+                    let bearing = atan2(l.velocity.y, l.velocity.x);
+                    let mut best: Option<(f64, f64, &'static str)> = None;
+                    for (&id, t) in r.iter() {
+                        if id == l.owner || !t.alive || !hostile(l.owner, &shooter, t) {
+                            continue;
+                        }
+                        let (dx, dy) = (t.pos.x - l.origin.x, t.pos.y - l.origin.y);
+                        let d = hypot(dx, dy);
+                        if d > l.range + 40. || d < 1e-6 {
+                            continue;
+                        }
+                        let dev = angle_between(atan2(dy, dx), bearing);
+                        if dev <= 0.5 && best.is_none_or(|b| (dev, d) < (b.0, b.1)) {
+                            best = Some((dev, d, t.look));
+                        }
+                    }
+                    let weapon = if l.kind == rh_sim::ProjectileKind::Arrow {
+                        "bow"
+                    } else {
+                        "wand"
+                    };
+                    homing.insert(l.id, l.target.is_some());
+                    pending.insert(
+                        l.id,
+                        (
+                            if shooter.mob { "mob" } else { "bot" },
+                            shooter.look,
+                            best.map_or("?", |b| b.2),
+                            weapon,
+                        ),
+                    );
+                }
+                Event::ProjectileEnded { launch, reason, .. } => {
+                    if let Some(key) = pending.remove(&launch.id) {
+                        let h = homing.remove(&launch.id).unwrap_or(false);
+                        *out.ends
+                            .entry((key.0, key.3, h, format!("{reason:?}")))
+                            .or_default() += 1;
+                        let hit = matches!(
+                            reason,
+                            ProjectileEnd::Hit | ProjectileEnd::Reflected | ProjectileEnd::Blocked
+                        );
+                        for t in [
+                            out.ranged.entry(key).or_default(),
+                            out.ranged_total.entry((key.0, key.3)).or_default(),
+                        ] {
+                            t.shots += 1;
+                            t.hits += hit as u64;
+                        }
+                    }
+                }
+                Event::Swing { by, weapon, .. } => swings.push((*by, *weapon)),
+                Event::Hit {
+                    by, amount, weapon, ..
+                } => {
+                    out.hit_events += 1;
+                    if let (Some(_), Some(w)) = (by, weapon) {
+                        *out.damage.entry(weapon_name(*w)).or_default() += amount;
+                    }
+                }
+                Event::Death { id, .. } => {
+                    if env.sim.players().iter().any(|p| p.id == *id) {
+                        out.player_deaths += 1;
+                    } else {
+                        out.mob_deaths += 1;
+                    }
+                }
+                _ => {}
+            }
+        }
+        if !swings.is_empty() {
+            let mob_ids: Vec<PlayerId> = env.sim.mobs().iter().map(|m| m.core.id).collect();
+            for (by, weapon) in swings {
+                let landed = events.iter().any(|e| {
+                    matches!(e, Event::Hit { by: Some(b), weapon: Some(w), passive: false, .. } if *b == by && *w == weapon)
+                        || matches!(e, Event::Block { by: b, weapon: w, passive: false, .. } if *b == by && *w == weapon)
+                });
+                let class = if mob_ids.contains(&by) { "mob" } else { "bot" };
+                let t = out.melee.entry((class, weapon_name(weapon))).or_default();
+                t.shots += 1;
+                t.hits += landed as u64;
+            }
+        }
+        spacing_tick(&env.sim, &mut out.spacing);
+        let d = env.sim.mob_spacing_diagnostics();
+        let searches = env.sim.path_searches();
+        let sp = &mut out.spacing;
+        sp.ticks += 1;
+        sp.steps += u64::from(d.steps);
+        sp.steps_max = sp.steps_max.max(d.steps);
+        sp.offsets += u64::from(d.chase_offsets);
+        let s = searches - last_searches;
+        sp.searches += s;
+        sp.searches_max = sp.searches_max.max(s);
+        last_searches = searches;
+        if p.terminated || p.truncated {
+            break p;
+        }
+    };
+    out.matches += 1;
+    out.ticks += ticks;
+    out.terminated += progress.terminated as u64;
+    out.truncated += progress.truncated as u64;
+}
+
+fn rate(t: &Tally) -> f64 {
+    if t.shots == 0 {
+        0.
+    } else {
+        t.hits as f64 / t.shots as f64
+    }
+}
+
+fn main() {
+    let a: Vec<String> = std::env::args().collect();
+    let arena = rh_headless::load_arena(&a[1]).unwrap();
+    let (from, to): (u64, u64) = (a[2].parse().unwrap(), a[3].parse().unwrap());
+    let max_ticks: u32 = a.get(4).map_or(12_000, |v| v.parse().unwrap());
+    let (legacy, on, off) = (
+        (HitboxMode::LegacyCircle, MobSpacing::Auto),
+        (HitboxMode::Archetypes, MobSpacing::Auto),
+        (HitboxMode::Archetypes, MobSpacing::Off),
+    );
+    let modes: Vec<(HitboxMode, MobSpacing)> = match a.get(5).map(String::as_str) {
+        None | Some("both") => vec![legacy, on],
+        Some("legacy") => vec![legacy],
+        Some("archetypes") => vec![on],
+        Some("archetypes-nospacing") => vec![off],
+        Some("spacing") => vec![off, on],
+        Some(other) => panic!(
+            "modes must be both, legacy, archetypes, archetypes-nospacing or spacing, not {other:?}"
+        ),
+    };
+    let mut results = Vec::new();
+    for &mode in &modes {
+        let mut m = Mode::default();
+        for seed in from..to {
+            run(&arena, mode, seed, max_ticks, &mut m);
+        }
+        results.push((mode, m));
+    }
+    for (mode, m) in &results {
+        let sp = &m.spacing;
+        println!(
+            "== {mode:?} spacing {}: engaged-in-pack samples {} meanNearest {:.1} minNearest {:.2} overlapShare(<{OVERLAP}) {:.3} ticksWith2+Engaged {} stackedTickShare(<{STACKED}) {:.3}",
+            if rh_sim::archetype::mob_spacing(&live_config(*mode)) { "on" } else { "off" },
+            sp.samples,
+            sp.sum / sp.samples.max(1) as f64,
+            sp.min.unwrap_or(f64::NAN),
+            sp.overlapping as f64 / sp.samples.max(1) as f64,
+            sp.ticks_engaged,
+            sp.ticks_stacked as f64 / sp.ticks_engaged.max(1) as f64,
+        );
+        println!(
+            "== {mode:?}: ticksWith2+Chasing {} chasingStackedShare(<{STACKED}) {:.3} spacingSteps/tick mean {:.3} max {} chaseOffsets/tick {:.3} pathSearches/tick mean {:.3} max {}",
+            sp.ticks_chasing,
+            sp.ticks_chasing_stacked as f64 / sp.ticks_chasing.max(1) as f64,
+            sp.steps as f64 / sp.ticks.max(1) as f64,
+            sp.steps_max,
+            sp.offsets as f64 / sp.ticks.max(1) as f64,
+            sp.searches as f64 / sp.ticks.max(1) as f64,
+            sp.searches_max,
+        );
+        println!(
+            "== {mode:?}: matches {} terminated {} truncated {} ticks {} (mean {:.0}) hits {} playerDeaths {} mobDeaths {}",
+            m.matches,
+            m.terminated,
+            m.truncated,
+            m.ticks,
+            m.ticks as f64 / m.matches.max(1) as f64,
+            m.hit_events,
+            m.player_deaths,
+            m.mob_deaths
+        );
+        for ((class, w), t) in &m.ranged_total {
+            println!(
+                "ranged {class:<4} {w:<6} shots {:>6} hits {:>6} rate {:.3}",
+                t.shots,
+                t.hits,
+                rate(t)
+            );
+        }
+        for ((class, w), t) in &m.melee {
+            println!(
+                "melee  {class:<4} {w:<6} swings {:>6} landed {:>6} rate {:.3}",
+                t.shots,
+                t.hits,
+                rate(t)
+            );
+        }
+        for ((class, w, h, why), n) in &m.ends {
+            println!("end    {class:<4} {w:<6} homing {h:<5} {why:<10} {n}");
+        }
+        for (w, d) in &m.damage {
+            println!("damage {w:<6} {d:.0}");
+        }
+        for ((class, s, t, w), x) in &m.ranged {
+            println!(
+                "pair {class:<4} {s:<20} -> {t:<20} {w:<5} shots {:>5} hits {:>5} rate {:.3}",
+                x.shots,
+                x.hits,
+                rate(x)
+            );
+        }
+    }
+}

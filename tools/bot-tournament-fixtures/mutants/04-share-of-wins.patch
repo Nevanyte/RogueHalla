@@ -1,0 +1,11 @@
+--- a/crates/rh-headless/src/tournament.rs
++++ b/crates/rh-headless/src/tournament.rs
+@@ -1191,7 +1191,7 @@
+         share_of_wins: if total_wins == 0. {
+             f64::NAN
+         } else {
+-            wins / total_wins
++            wins / (total_wins + 1.)
+         },
+         place: mean_interval(&per_game_place, 1.645),
+         kills_per_bot: per(&|b| b.kills),

@@ -1,0 +1,11 @@
+--- a/crates/rh-sim/src/traders/runtime.rs
++++ b/crates/rh-sim/src/traders/runtime.rs
+@@ -288,7 +288,7 @@
+                     .map(|(_, at)| *at)
+             })
+             .unwrap_or(0.);
+-    if now < ready_at {
++    if now < ready_at && false {
+         return;
+     }
+     let held = slot_item(

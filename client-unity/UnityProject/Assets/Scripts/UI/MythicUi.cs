@@ -1,0 +1,297 @@
+using TMPro;
+using UnityEngine;
+using UnityEngine.Events;
+using UnityEngine.UI;
+
+namespace Roguehalla.Client
+{
+    public enum MythicGlyph { Sword, Shield, Axe, Bow, Wand, Potion, Wish, Health, Armor, Speed, Cards, Map }
+
+    /// <summary>Reusable, asset-free controls for the mythic runtime interface.</summary>
+    public static class MythicUi
+    {
+        public enum ButtonStyle { Primary, Secondary, Quiet }
+        public static Color32 HoverFill => UiTheme.Current.SurfaceHover;
+        public static Color32 SelectedFill => UiTheme.Current.SurfaceSelected;
+
+        /// <summary>Retained for call sites; the translucent "glass" opacity cap is gone, opacity now comes from the theme tokens.</summary>
+        public static Color Backdrop(Color color) { return color; }
+
+        public static void Border(Transform parent, Color color, float width = 1)
+        {
+            // Outline duplicates the filled quad beneath translucent panels. Edge-only geometry leaves the center clear.
+            BorderEdge(parent, "FrameTop", new Vector2(0, 1), Vector2.one, new Vector2(0, -width), Vector2.zero, color);
+            BorderEdge(parent, "FrameBottom", Vector2.zero, new Vector2(1, 0), Vector2.zero, new Vector2(0, width), color);
+            BorderEdge(parent, "FrameLeft", Vector2.zero, new Vector2(0, 1), Vector2.zero, new Vector2(width, 0), color);
+            BorderEdge(parent, "FrameRight", new Vector2(1, 0), Vector2.one, new Vector2(-width, 0), Vector2.zero, color);
+        }
+        static void BorderEdge(Transform parent, string name, Vector2 min, Vector2 max, Vector2 insetMin, Vector2 insetMax, Color color)
+        {
+            var edge = Rect(parent, name, min, max, insetMin, insetMax).gameObject.AddComponent<Image>();
+            edge.color = color; edge.raycastTarget = false;
+        }
+
+        static readonly Sprite[] GlyphSprites = new Sprite[12];
+        // AD, AP, ARM, SHD, HP, AS, SPD, LS come from UiTheme.Stat. Shared by the compact HUD and full ledger.
+        static Color32[] BoostColors => UiTheme.Current.Stat;
+
+        public static Color BoostColor(int index) => index >= 0 && index < BoostColors.Length ? BoostColors[index] : ShowcasePalette.Text;
+
+        public static Color GlyphColor(MythicGlyph glyph)
+        {
+            switch (glyph)
+            {
+                case MythicGlyph.Sword: return BoostColors[0];
+                case MythicGlyph.Axe: return UiTheme.Current.Danger;
+                case MythicGlyph.Bow: return BoostColors[5];
+                case MythicGlyph.Wand: return BoostColors[1];
+                case MythicGlyph.Armor: return BoostColors[2];
+                case MythicGlyph.Shield: return BoostColors[3];
+                case MythicGlyph.Health: return BoostColors[4];
+                case MythicGlyph.Potion: return UiTheme.Current.Success;
+                case MythicGlyph.Speed: return BoostColors[6];
+                case MythicGlyph.Cards: return BoostColors[7];
+                case MythicGlyph.Map: return BoostColors[6];
+                default: return ShowcasePalette.Gold;
+            }
+        }
+
+        public static RectTransform Rect(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax,
+            Vector2? offsetMin = null, Vector2? offsetMax = null)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = anchorMin; rect.anchorMax = anchorMax;
+            rect.offsetMin = offsetMin ?? Vector2.zero; rect.offsetMax = offsetMax ?? Vector2.zero;
+            return rect;
+        }
+
+        public static RectTransform Panel(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax,
+            Color? fill = null, bool raycast = true)
+        {
+            var rect = Rect(parent, name, anchorMin, anchorMax);
+            var color = fill ?? (Color)ShowcasePalette.Panel;
+            var theme = UiTheme.Current;
+            // A visible panel is a crisp rounded, framed card; a clear one stays a plain invisible hit area.
+            if (color.a > .05f) HudUi.Surface(rect, color, theme.CornerRadiusLarge, theme.Border, raycast, true);
+            else { var image = rect.gameObject.AddComponent<Image>(); image.color = color; image.raycastTarget = raycast; }
+            return rect;
+        }
+
+        public static TMP_Text Text(Transform parent, string name, string value, Vector2 anchorMin, Vector2 anchorMax,
+            float fontSize, Color? color = null, TextAlignmentOptions alignment = TextAlignmentOptions.MidlineLeft, bool heading = false)
+        {
+            var rect = Rect(parent, name, anchorMin, anchorMax, new Vector2(6, 3), new Vector2(-6, -3));
+            var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
+            text.font = heading ? HeadingFont : Font;
+            text.text = value ?? "";
+            text.richText = false;
+            text.fontSize = fontSize; text.fontSizeMin = Mathf.Max(9, fontSize * .72f); text.fontSizeMax = fontSize;
+            text.enableAutoSizing = true; text.color = color ?? ShowcasePalette.Text;
+            text.alignment = alignment; text.enableWordWrapping = true;
+            text.raycastTarget = false;
+            var scale = text.gameObject.AddComponent<MythicTextScale>(); scale.BaseSize = fontSize * 1.5f;
+            scale.Apply(ShowcaseSettings.Current != null ? ShowcaseSettings.Current.TextScale : 1f);
+            return text;
+        }
+
+        public static void ApplyTextScale(Transform root, float scale)
+        {
+            foreach (var style in root.GetComponentsInChildren<MythicTextScale>(true)) style.Apply(scale);
+        }
+
+        public static TMP_Text ScrollText(Transform parent, string name, string value, Vector2 min, Vector2 max, float size)
+        {
+            var frame = Rect(parent, name, min, max);
+            var scroll = frame.gameObject.AddComponent<UnityEngine.UI.ScrollRect>();
+            scroll.horizontal = false; scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 36;
+            var viewport = Rect(frame, "Viewport", Vector2.zero, Vector2.one);
+            var image = viewport.gameObject.AddComponent<UnityEngine.UI.Image>(); image.color = Color.clear; image.raycastTarget = true;
+            viewport.gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
+            var label = Text(viewport, "Content", value, new Vector2(0, 1), Vector2.one, size);
+            label.rectTransform.pivot = new Vector2(.5f, 1); label.enableAutoSizing = false;
+            label.gameObject.AddComponent<UnityEngine.UI.ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scroll.viewport = viewport; scroll.content = label.rectTransform;
+            return label;
+        }
+
+        public static Button Button(Transform parent, string name, string label, Vector2 anchorMin, Vector2 anchorMax,
+            UnityAction onClick, ButtonStyle style = ButtonStyle.Secondary, float fontSize = 16)
+        {
+            var rect = Rect(parent, name, anchorMin, anchorMax);
+            var theme = UiTheme.Current;
+            var image = HudUi.Surface(rect, Color.white, theme.CornerRadius, style == ButtonStyle.Primary ? theme.BorderStrong : theme.Border, true, style != ButtonStyle.Quiet);
+            var button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; // the colour block below supplies the visible fill
+            var minimum = rect.gameObject.AddComponent<LayoutElement>(); minimum.minWidth = 44; minimum.minHeight = 44;
+            if (Mathf.Approximately(anchorMin.x, anchorMax.x) && Mathf.Approximately(rect.sizeDelta.x, 0)) rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 44);
+            if (Mathf.Approximately(anchorMin.y, anchorMax.y) && Mathf.Approximately(rect.sizeDelta.y, 0)) rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 44);
+            var colors = button.colors;
+            colors.normalColor = style == ButtonStyle.Primary ? theme.AccentDim : style == ButtonStyle.Quiet ? theme.Surface : theme.SurfaceRaised;
+            bool primary = style == ButtonStyle.Primary;
+            // Primary buttons are gold fills carrying dark ink; every other state keeps cream text on a dark fill.
+            colors.highlightedColor = primary ? theme.Accent : theme.SurfaceHover;
+            colors.pressedColor = primary ? theme.AccentDim : theme.SurfaceSelected;
+            colors.selectedColor = primary ? theme.Accent : theme.SurfaceHover;
+            colors.disabledColor = theme.SurfaceDisabled; colors.fadeDuration = .08f;
+            button.colors = colors;
+            button.onClick.AddListener(onClick);
+            UiFocusHalo.Attach(button, theme.CornerRadius); // keyboard focus ring, as on the launch screen
+            var caption = Text(rect, "Label", label, Vector2.zero, Vector2.one, fontSize,
+                primary ? (Color)theme.OutlineDark : (Color)ShowcasePalette.Text,
+                TextAlignmentOptions.Center);
+            if (primary) caption.fontStyle = FontStyles.Bold;
+            return button;
+        }
+
+        /// <summary>
+        /// Marks a tab-like button selected or not through its colour block (the button's graphic stays white, so the fill is the theme token
+        /// and not a token multiplied by another token, which painted tabs near black). Primary-looking selection uses the accent fill.
+        /// </summary>
+        public static void Select(Button button, bool selected, bool accent = false)
+        {
+            var theme = UiTheme.Current;
+            if (button.targetGraphic is Image image) image.color = Color.white;
+            var colors = button.colors;
+            colors.normalColor = selected ? (accent ? theme.AccentDim : theme.SurfaceSelected) : theme.SurfaceRaised;
+            colors.highlightedColor = selected && accent ? theme.Accent : theme.SurfaceHover; colors.selectedColor = colors.highlightedColor;
+            button.colors = colors;
+        }
+
+        /// <summary>A thin accent rule under a panel heading (the settled skin's heading underline).</summary>
+        public static Image Rule(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax)
+        {
+            var rect = Rect(parent, name, anchorMin, anchorMax);
+            var image = rect.gameObject.AddComponent<Image>(); image.color = UiTheme.With(UiTheme.Current.AccentDim, 1f); image.raycastTarget = false; return image;
+        }
+
+        public static ScrollRect ScrollView(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax,
+            out RectTransform content)
+        {
+            var root = Rect(parent, name, anchorMin, anchorMax);
+            var scroll = root.gameObject.AddComponent<ScrollRect>();
+            scroll.horizontal = false; scroll.vertical = true; scroll.movementType = ScrollRect.MovementType.Clamped;
+            var viewport = Rect(root, "Viewport", Vector2.zero, Vector2.one);
+            var maskImage = viewport.gameObject.AddComponent<Image>(); maskImage.color = Color.white; maskImage.raycastTarget = true;
+            viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+            content = Rect(viewport, "Content", new Vector2(0, 1), new Vector2(1, 1), Vector2.zero, Vector2.zero);
+            content.pivot = new Vector2(.5f, 1);
+            var grid = content.gameObject.AddComponent<GridLayoutGroup>();
+            grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+            grid.startAxis = GridLayoutGroup.Axis.Horizontal;
+            grid.childAlignment = TextAnchor.UpperCenter;
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount; grid.constraintCount = 2;
+            grid.cellSize = new Vector2(208, 164); grid.spacing = new Vector2(12, 12);
+            grid.padding = new RectOffset(8, 8, 8, 8);
+            content.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scroll.viewport = viewport; scroll.content = content; scroll.inertia = true; scroll.scrollSensitivity = 36;
+            return scroll;
+        }
+
+        public static Image Icon(Transform parent, string name, MythicGlyph glyph, Vector2 anchorMin, Vector2 anchorMax)
+        {
+            var rect = Rect(parent, name, anchorMin, anchorMax);
+            var image = rect.gameObject.AddComponent<Image>();
+            image.sprite = GlyphSprite(glyph); image.color = GlyphColor(glyph);
+            image.preserveAspect = true; image.raycastTarget = false;
+            return image;
+        }
+
+        public static Image Icon(Transform parent, string name, MythicGlyph glyph, float size)
+        {
+            var rect = Rect(parent, name, new Vector2(.5f, .5f), new Vector2(.5f, .5f));
+            rect.sizeDelta = new Vector2(size, size);
+            var image = rect.gameObject.AddComponent<Image>();
+            image.sprite = GlyphSprite(glyph); image.color = GlyphColor(glyph);
+            image.preserveAspect = true; image.raycastTarget = false;
+            return image;
+        }
+
+        static TMP_FontAsset Font => UiTheme.Current.Font(UiFontRole.Body);
+        static TMP_FontAsset HeadingFont => UiTheme.Current.Font(UiFontRole.Display);
+
+        /// <summary>Design size of a glyph (the numbers in <see cref="DrawGlyph"/>), the supersample factor and the delivered texture size.</summary>
+        const int GlyphDesign = 48, GlyphSuper = 8, GlyphOut = 96;
+
+        public static Sprite GlyphSprite(MythicGlyph glyph)
+        {
+            int index = Mathf.Clamp((int)glyph, 0, GlyphSprites.Length - 1);
+            if (GlyphSprites[index] != null) return GlyphSprites[index];
+            // Drawn at 8x the design size and box-filtered down to 96 px, then mip-mapped: crisp, anti-aliased edges at any scale.
+            int hi = GlyphDesign * GlyphSuper, ratio = hi / GlyphOut;
+            var big = new Color32[hi * hi];
+            for (int i = 0; i < big.Length; i++) big[i] = new Color32(255, 255, 255, 0);
+            DrawGlyph(big, hi, glyph);
+            var pixels = new Color32[GlyphOut * GlyphOut];
+            for (int y = 0; y < GlyphOut; y++)
+                for (int x = 0; x < GlyphOut; x++)
+                {
+                    int sum = 0;
+                    for (int dy = 0; dy < ratio; dy++) for (int dx = 0; dx < ratio; dx++) sum += big[(y * ratio + dy) * hi + x * ratio + dx].a;
+                    pixels[y * GlyphOut + x] = new Color32(255, 255, 255, (byte)(sum / (ratio * ratio)));
+                }
+            var texture = new Texture2D(GlyphOut, GlyphOut, TextureFormat.RGBA32, true) { filterMode = FilterMode.Trilinear, wrapMode = TextureWrapMode.Clamp, name = "Mythic glyph " + glyph };
+            texture.SetPixels32(pixels); texture.Apply(true, true);
+            GlyphSprites[index] = Sprite.Create(texture, new Rect(0, 0, GlyphOut, GlyphOut), new Vector2(.5f, .5f), GlyphOut, 0, SpriteMeshType.FullRect);
+            GlyphSprites[index].name = "Mythic " + glyph;
+            return GlyphSprites[index];
+        }
+
+        static void DrawGlyph(Color32[] pixels, int size, MythicGlyph glyph)
+        {
+            // Neutral ink lets the opaque Image tint supply the intended hue without multiplying baked-in gold.
+            Color32 ink = new Color32(255, 255, 255, 255);
+            Color32 Clear = new Color32(255, 255, 255, 0);
+            switch (glyph)
+            {
+                case MythicGlyph.Sword: Line(pixels,size,13,8,35,38,ink,4); Line(pixels,size,12,8,18,12,ink,4); Line(pixels,size,16,15,25,7,ink,4); break;
+                case MythicGlyph.Shield: Poly(pixels,size,new[]{new Vector2(24,42),new Vector2(38,35),new Vector2(36,18),new Vector2(24,7),new Vector2(12,18),new Vector2(10,35)},ink); Line(pixels,size,24,38,24,12,Clear,2); break;
+                case MythicGlyph.Axe: Line(pixels,size,16,8,31,39,ink,4); Poly(pixels,size,new[]{new Vector2(27,32),new Vector2(35,40),new Vector2(41,31),new Vector2(37,20),new Vector2(27,21)},ink); break;
+                case MythicGlyph.Bow: Line(pixels,size,31,7,31,41,ink,3); Line(pixels,size,31,7,14,24,ink,2); Line(pixels,size,14,24,31,41,ink,2); Line(pixels,size,10,24,39,24,ink,2); break;
+                case MythicGlyph.Wand: Line(pixels,size,14,9,30,30,ink,4); Circle(pixels,size,34,35,7,ink); Circle(pixels,size,34,35,3,Clear); break;
+                case MythicGlyph.Potion: Poly(pixels,size,new[]{new Vector2(19,39),new Vector2(29,39),new Vector2(29,33),new Vector2(36,25),new Vector2(33,11),new Vector2(15,11),new Vector2(12,25),new Vector2(19,33)},ink); Line(pixels,size,17,26,31,26,Clear,3); break;
+                case MythicGlyph.Wish: Star(pixels,size,24,24,19,7,5,ink); break;
+                case MythicGlyph.Health: Circle(pixels,size,24,24,17,ink); Line(pixels,size,24,14,24,34,Clear,4); Line(pixels,size,14,24,34,24,Clear,4); break;
+                case MythicGlyph.Armor: Poly(pixels,size,new[]{new Vector2(9,36),new Vector2(14,13),new Vector2(24,8),new Vector2(34,13),new Vector2(39,36),new Vector2(30,40),new Vector2(24,32),new Vector2(18,40)},ink); break;
+                case MythicGlyph.Speed: Poly(pixels,size,new[]{new Vector2(7,27),new Vector2(24,42),new Vector2(41,27),new Vector2(34,27),new Vector2(24,36),new Vector2(14,27)},ink); Line(pixels,size,10,19,29,19,ink,3); Line(pixels,size,15,12,34,12,ink,3); break;
+                case MythicGlyph.Cards: Poly(pixels,size,new[]{new Vector2(10,10),new Vector2(33,10),new Vector2(33,37),new Vector2(10,37)},ink); Line(pixels,size,16,17,27,17,Clear,2); Line(pixels,size,16,24,27,24,Clear,2); Line(pixels,size,16,31,24,31,Clear,2); Line(pixels,size,18,7,39,7,ink,3); break;
+                default: Circle(pixels,size,24,24,18,ink); Circle(pixels,size,24,24,12,Clear); Line(pixels,size,8,24,40,24,ink,2); Line(pixels,size,24,8,24,40,ink,2); Circle(pixels,size,24,24,4,ink); break;
+            }
+        }
+
+        static void Pixel(Color32[] p,int s,int x,int y,Color32 c)
+        { if(x>=0&&x<s&&y>=0&&y<s) p[y*s+x]=c; }
+        // The glyph shapes are authored on a 48 unit grid; every primitive scales them to the buffer so the same drawing renders at any resolution.
+        static float K(int s) { return s / (float)GlyphDesign; }
+        static void Line(Color32[] p,int s,int x0,int y0,int x1,int y1,Color32 c,int width)
+        {
+            float k = K(s), r = Mathf.Max(.5f, width * k * .5f);
+            var a = new Vector2(x0 * k, y0 * k); var b = new Vector2(x1 * k, y1 * k);
+            int minX = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(a.x, b.x) - r)), maxX = Mathf.Min(s - 1, Mathf.CeilToInt(Mathf.Max(a.x, b.x) + r));
+            int minY = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(a.y, b.y) - r)), maxY = Mathf.Min(s - 1, Mathf.CeilToInt(Mathf.Max(a.y, b.y) + r));
+            var seg = b - a; float len2 = seg.sqrMagnitude, r2 = r * r;
+            for (int y = minY; y <= maxY; y++) for (int x = minX; x <= maxX; x++)
+            {
+                var q = new Vector2(x + .5f, y + .5f);
+                float t = len2 > 0f ? Mathf.Clamp01(Vector2.Dot(q - a, seg) / len2) : 0f;
+                if ((q - (a + seg * t)).sqrMagnitude <= r2) p[y * s + x] = c;
+            }
+        }
+        // A ring two design units thick (the old 1 px outline was the main source of the soft, thin look).
+        static void Circle(Color32[] p,int s,int cx,int cy,int r,Color32 c)
+        {
+            float k = K(s), outer = (r + 1f) * k, inner = Mathf.Max(0f, (r - 1f) * k), px = cx * k, py = cy * k;
+            for (int y = Mathf.Max(0, Mathf.FloorToInt(py - outer)); y <= Mathf.Min(s - 1, Mathf.CeilToInt(py + outer)); y++)
+                for (int x = Mathf.Max(0, Mathf.FloorToInt(px - outer)); x <= Mathf.Min(s - 1, Mathf.CeilToInt(px + outer)); x++)
+                {
+                    float d = Mathf.Sqrt((x + .5f - px) * (x + .5f - px) + (y + .5f - py) * (y + .5f - py));
+                    if (d <= outer && d >= inner) p[y * s + x] = c;
+                }
+        }
+        static void Poly(Color32[] p,int s,Vector2[] pts,Color32 c)
+        { for(int i=0;i<pts.Length;i++){var a=pts[i];var b=pts[(i+1)%pts.Length];Line(p,s,(int)a.x,(int)a.y,(int)b.x,(int)b.y,c,3);} }
+        static void Star(Color32[] p,int s,int cx,int cy,int outer,int inner,int points,Color32 c)
+        { Vector2 prev=Vector2.zero; for(int i=0;i<points*2;i++){float a=-Mathf.PI/2+i*Mathf.PI/points;float r=(i%2==0)?outer:inner;var v=new Vector2(cx+Mathf.Cos(a)*r,cy+Mathf.Sin(a)*r);if(i>0)Line(p,s,(int)prev.x,(int)prev.y,(int)v.x,(int)v.y,c,2);prev=v;} Line(p,s,(int)prev.x,(int)prev.y,(int)(cx+0),(int)(cy-outer),c,2); }
+    }
+
+}

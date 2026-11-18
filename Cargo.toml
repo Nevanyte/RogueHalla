@@ -1,0 +1,28 @@
+# Roguehalla Rust workspace: the authoritative simulation, protocol, live server, headless runner and persistence.
+# Builds and tests with no Unity and no AWS (see docs/MIGRATION.md "Commands").
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+license = "MIT"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[profile.release]
+debug = 1
+
+# The map generator and the sim are compute-bound, and their tests generate whole maps. Unoptimised, one mapgen test
+# target takes 40 to 50 s; with these it takes about 5 s (measured 2026-11-14 on mapgen_signature_blueprint and
+# mapgen_signature_church). Debug assertions and overflow checks stay on: only the optimisation level changes, and the
+# `test` profile inherits it.
+[profile.dev.package.rh-sim]
+opt-level = 2
+
+[profile.dev.package.rh-mapdress]
+opt-level = 2

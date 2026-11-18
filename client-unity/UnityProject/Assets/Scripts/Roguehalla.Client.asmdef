@@ -1,0 +1,17 @@
+{
+  "name": "Roguehalla.Client",
+  "rootNamespace": "Roguehalla.Client",
+  "references": [
+    "RoguehallaNet",
+    "Unity.InputSystem",
+    "UnityEngine.UI",
+    "Unity.TextMeshPro",
+    "Unity.RenderPipelines.Core.Runtime",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "Unity.RenderPipelines.Universal.2D.Runtime"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "autoReferenced": true
+}

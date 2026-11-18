@@ -1,0 +1,8 @@
+--- a/crates/rh-sim/src/systems/frost.rs
++++ b/crates/rh-sim/src/systems/frost.rs
+@@ -30,3 +30,4 @@
+ pub(crate) fn resisted_attack_chill(min_chill: f64, resist: f64) -> f64 {
+-    crate::status_runtime::resist_slow(min_chill, resist)
++    let _ = resist;
++    min_chill
+ }

@@ -1,0 +1,170 @@
+# Private Wish / barrier networking candidate
+
+This branch implements P-NET-12 under ADR0022. It is not an admitted release or a completed R-to-server feature.
+The coordinator owns final composition, identities and admission.
+
+- Branch: `codex/wish-barrier-net12`.
+- Immutable base: `5e9f2ac1c54053fcff5e570ee3bc8a15b6bb5bcc`.
+- Stable client runtime/API checkpoint for art: `abd1ccfe6edc90df16c64283af09c913bddbd81d`.
+- Additional measured presentation-layout assertion: `f5b72387` (no runtime API change).
+- Raw producer timestamps: `fa2aa817`; offset-clock producer regression: `21518355`.
+- Per-step spatial publication: `a4892e89`.
+- Completed G6 branch `2a384510` composed by merge `04b4313a`.
+- Candidate protocol 12 / Observation 18; policy interface unchanged. Final content reconciliation remains separate.
+
+## Client contract for art
+
+`Session.Me` is the owned scalar `SelfView`: `WishView?`, `Barrier` and `BarrierRingStep` are authoritative facts.
+`WishView` carries the delivered ability, ready/full clocks, recharge duration, maximum/current stock, optional next
+charge deadline and optional cast ability/start/landing clocks. A held charge is not local eligibility. Missing self,
+missing Wish, Full/reset and explicit Delta clears reset these facts; the client does not compute gameplay stock rules.
+
+`Session.Snapshots.Sample(renderMs, callerOwnedList)` supplies `InterpActor.BarrierPct` and `BarrierRingStep` with the
+other delivered remote facts. `Latest` and `SnapshotReceived` expose recycled codec objects; callers must not retain
+them. `FxReceived` carries confirmed `WishStarted`, `WishLanded` and `WishEnded` (wire 6/7/8; fixture JSON `cast*`).
+Landing identities and geometry are independently optional; do not reconstruct absent points or one-ended Blaze art.
+
+Subscribe to `Session.TimelineReset`. Welcome and accepted non-increasing source-time samples start a new presentation
+epoch; art clears old transient FX/animation queues and timers tied to that epoch while preserving canonical current
+self, membership and movement state. `TimelineEpoch` exposes the reset count. The art lease covers lifecycle/subscription
+hunks in `MatchClient`, plus its HUD/Arena/presenter files. R/Q/E, picked references, focus-loss release and the
+Poll -> input -> FlushInput -> Present sequence stay in the networking scope.
+
+## Measured memory implications
+
+The existing layout/allocation tests now measure `WireActor` at 32 bytes versus the base's 28: two delivered barrier bytes
+and two alignment bytes. At 512 actors this adds 2,048 bytes per actor array. The 40-snapshot buffer and its single spare
+therefore add at most 83,968 bytes (82 KiB) of retained actor-array data; this is not a total process-memory measurement.
+The Snapshot object grows 8 bytes and WireSelf grows 16 bytes. Plain decode allocation bounds are measured at 32 bytes per
+actor plus 88 bytes for a spectator snapshot or 176 bytes with self, versus the old 28 plus 80/160. Some-Wish/Some-Cast pooled
+decode and held-Wish Delta-copy controls retain zero steady allocations. `Unsafe.SizeOf<InterpActor>()` is 32 bytes;
+the two new members occupy existing padding, so this list element's footprint does not grow.
+
+The native sealed report preallocates 512 pairs of viewer masks, adding 1 KiB of retained mask data per Sim report.
+Warmed ability and barrier observation allocation controls pass. Point permission checks run only for raw Start/Landed
+rows and use the completed step's existing sight/ward rules; no final catch-up world is queried for carried geometry.
+
+## Executed checks
+
+- `dotnet test client-unity/RoguehallaNet.Tests --no-restore`: 383 passed, 0 failed. The later measured InterpActor assertion
+  passed in the existing focused layout test.
+- `bash client-unity/sync-net.sh --check`: copies match.
+- `node tools/protocol-js/check-vectors.mjs`: 39 server vectors, 110 malformed, 13 chains, 18,032 checks.
+- Root `cargo test -p rh-protocol`: 91 passed, 0 failed, confirmed by the per-binary test inventory (the earlier worker
+  aggregate of 88 understated this run). Strict all-target Clippy passes. `v11.json` unchanged. Generated `v12.json` SHA256:
+  `11e2474cf1c9da8f72b016ea27249b7ac192b09e95b49853e42cbf6b0dcc9f36`.
+- Native OwnerView tests: 5 passed. Additive actual-source stock/cooldown/UI witness: 5/10/6 cases and byte-exact check,
+  corpus SHA256 `a8da4bd8c3b26216e30aacf4c2569378fa789ebcca879164a64294709d86908b`.
+  See `tools/wish-publication-fixtures/README.md`; zero-duration helper diagnostics do not invent a production rule.
+- Actual raw timestamp/required-serde/restore tests: 5 passed after G6 composition, including a genuine restored offset
+  clock, real between-step removal, timestamp-only hash sensitivity and 12 identical continuation event/hash steps.
+- Numeric-domain unit controls for all three pending Wish event timestamp variants: passed; finite endpoints accepted,
+  NaN/infinities/negative/future clocks refused. Missing timestamps are refused by the required serde fields.
+- `cargo check -p rh-sim --all-targets`: passed.
+- Pre-G6 `cargo test -p rh-sim --lib`: 589 passed, 2 failed, 1 ignored. The original ability source gate passed with 58 cases
+  executed and five strict NPC-signature cases still pending (despite its test name containing `all_63_cases`). The two
+  failures were Observation 17 metadata expectations. The training expectation was corrected to 18 and its focused test
+  passed. The locked ability hash tape still stops at metadata before comparing actual gameplay hashes; it has not
+  been regenerated or declared matching.
+- `cargo test -p rh-sim --lib fx_projector::`: 15 passed after the spatial changes.
+- `cargo test -p rh-sim --test wish_spatial_projection`: 7 passed after G6 composition. Real producer and explicit
+  diagnostic privacy controls are separately labeled; actual Freeze/Trial casts expose their caster.
+- Post-G6 `cargo test -p rh-sim --test barrier_view_source --test barrier_observe_no_alloc --test abilities_no_alloc`: 7 passed.
+- Strict default and all-feature `rh-sim --all-targets` Clippy: passed.
+- Generic `hash_coverage` serialized-leaf gate: passed with the real pending cancellation scenario, zero unhashed leaves.
+  Its other five tests passed in the prior full-target run; the repaired leaf gate was rerun separately. New closed-enum
+  validation is documented, and otherwise-null MIA result options use declared serialization perturbations solely for
+  hash sensitivity. No coverage exclusions or invented gameplay/source outcomes were added.
+- Server transport commit `d5570d6e`: library 163/163 and live socket 17/17 at its first complete checkpoint. Subsequent
+  review fixes passed focused original-f64 point-boundary, nonzero-barrier failed-publish and corrected Frost hidden-ref
+  tests. Strict all-target Clippy, formatting and diff checks pass. The hidden-ref test drains a full source second after
+  acknowledgement rather than stopping before a later FX frame. The nonzero barrier bootstrap is a labeled transport
+  control, not a source-producer claim.
+
+The source barrier consumer imports the six immutable corpora and only claims its recorded numerical leaves/refusals.
+Its imported NPC statement is narrowed to row-array invariance. It does not prove full perceive, renderer or G6 parity.
+
+## Still required
+
+Server Cast/owner/FX/explicit-Full opt-in integration is committed. Its real socket controls exercise all five abilities,
+Q/E no-ops, default Off and hidden-target misses; Room controls exercise per-step catch-up and rejected publication.
+Native spatial tests and actual-time headless hashing (`e8b2fb67`) pass, with historical parity serialization preserved.
+G6 state/checkpoint/hash-coverage scope is composed. Required pending event time restore bounds and the real cancellation
+checkpoint/hash/continue proof pass, including the broad hash-coverage leaf gate. The single
+reserved checkpoint 25 / replay 19 is retained. Content, Frost, schedule changes and final derived tapes remain owned
+by the coordinator. The authorized full G6 branch merge imported its intermediate tape; this lane has not regenerated
+it or relabeled it as the final transport/Frost union. Historical source corpora remain immutable.
+
+The separate source human R/queued FX/renderer witness, art's transient reset controls, and final composed Editor/Web
+all-five R-to-server proof remain INCOMPLETE. Existing strict NPC-signature gates remain in place. No cloud deployment
+or spend is part of this candidate work.
+
+## Opt-in client proof API
+
+`LatencyTrace` remains disabled in ordinary players. The Web collector is explicitly installed by the browser harness;
+the Editor observer requires `LatencyTrace.BeginEditor()` and stops with `EndEditor()`. Both cap records at 20,000 and
+flag overflow; `ReadEditor()` copies only the bounded Editor records. These CPU milestones do not prove display scanout.
+Web `collector.recording = false` disables marker collection during the normal 45-second readiness warm-up while the
+harness still observes network readiness. Set it true at the explicit measured-trial boundary. Undefined keeps the
+existing movement harness behavior. Editor begins its trace at the equivalent boundary; overflow during a measured
+trial is always a failure rather than a reason to erase evidence.
+
+- `sampleWish` is recorded only after the actual R-key `ReadInput` path queues a nonzero Cast sequence. It uses the
+  existing `moveSeq` trace field for that order sequence, plus the actual cursor ground point and Unity frame. The input
+  path, command contents, eligibility and Poll/Flush scheduling are unchanged.
+- `collector.targetsRequested = true` requests one Web observation; `RequestEditorTargets()` does the same in Editor.
+  `targetViewport` carries Unity screen width/height, `targetSelf` carries the owner's projected screen position, and
+  `targetActor` carries each current delivered reference, actor kind in `moveSeq`, and projected screen position.
+  Screen Y is bottom-up. The harness must convert through the actual canvas rectangle and confirm the outgoing actor
+  reference; these observations do not select or submit an action.
+- Art calls `LatencyTrace.WishPresented(string kind, uint caster, int ability, double sourceTime)` only after applying
+  the actual confirmed occurrence, including nonspatial termination. Accepted kinds are `presentWishStarted`,
+  `presentWishLanded`, `presentWishEnded`; absent caster is 0. Ability and original source time are copied from the
+  delivered fact. Each record also includes Unity frame and local observation time; no tick-derived restamping or
+  same-frame/ability/time deduplication occurs.
+
+The JS guard suite passes 7/7, including malformed/absent opt-ins, broken collectors, one-shot requests, shared cap and
+two identical-timestamp anonymous Wish occurrences. Actual Unity compilation, art hook application and live input
+execution remain the subsequent composition proof; this observer API alone does not satisfy them.
+A temporary pinned .NET 8.0.427 check with a Unity time stub also compiled ordinary player, Editor and WebGL branches;
+ordinary stayed disabled and Editor begin/end/reset/request/cap/occurrence behavior passed. Native Web imports were not
+invoked by that check. This is an observer compiler/contract check, not a Unity or input run.
+
+## Browser proof harness review controls
+
+The runner selects the last trusted pointer event that reached the requested endpoint, so a two-step move cannot retain
+the intermediate point as evidence. Own-caster landed FX and applied landed markers require ordered one-to-one pairing,
+including identical producer timestamps; dropping one duplicate presentation fails. The synthetic report suite passes
+15/15, including the intermediate-pointer and dropped-duplicate negative controls.
+
+Before opening either client, the runner requires the spawned direct child PID to own the exact `127.0.0.1:port` TCP
+listener both before and after `/info`. Four local Node-child process controls pass: owned readiness, a healthy foreign
+listener plus an alive non-listening child, ownership lost during HTTP readiness, and invalid/exited child identity.
+The foreign listener remains untouched. The runner's syntax, help path and diff checks pass. These are harness controls;
+no live all-five browser/Unity input proof is claimed by these checks.
+
+## Editor proof utility controls
+
+`Assets/Editor/WishProof` is an Editor-only diagnostic assembly. It queues Unity Input System pointer/R device events
+through normal dynamic updates; it does not call `ReadInput`, `Session.Cast` or `InputSystem.Update`. The ready-owner
+gate keeps tracing off through the ordinary opening lock and requires live phase, an alive owner, positive stock and no
+active cast. The recorded R sample must precede an actual byte-decoded native Cast queue record in the same Unity frame,
+from the single active session, with identical order sequence, point and selected actor reference. That queue milestone is not a completed socket
+write. Only input tag `0x02` and received FX tag `0x85` payloads enter the optional native trace; Hello/Welcome credentials
+and tickets are excluded.
+
+Each copied own landing binds its latest preceding native dispatch record, before synchronous Session/art subscribers,
+then its exact packet list position and original source time. Every observed landing after the encoded queue needs one
+distinct applied marker in order; missing/extra duplicates, reused receipts, reordered or wrong-caster markers fail.
+Later presentation frames and equal local clock readings are accepted only with ordered trace evidence. Input release,
+proof-fact or trace overflow cannot retain a complete verdict. Owner facts are copied scalar values; raw pooled DTOs are
+not retained. Tick verifies that MatchClient still references the same active Session object. The owner completion gate
+requires a later authoritative snapshot from that session's same nonzero player and same ability, after the matched
+encoded Cast queue frame, with a strict charge decrease from the ready baseline. Owner/ability changes, increased stock,
+maximum-charge-only changes, recharge-only changes, and another owner's update do not pass.
+
+The reproducible `tools/latency/editor-proof-contract/WishProofContract.csproj` check links the actual trace, native
+transport, proof and C# protocol sources against Unity API stubs. It passes the ready/no-stock/active-cast, encoded Cast,
+receipt/callback ordering, duplicate occurrence, queue-boundary, strict same-owner charge-spend and overflow controls. It is not a Unity Editor run.
+Real art consumers are still supplied by the coordinator's composition, and the all-five Editor/Web player-loop proof
+remains INCOMPLETE until that composed build is exercised.

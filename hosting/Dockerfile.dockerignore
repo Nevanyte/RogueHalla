@@ -1,0 +1,9 @@
+*
+!Cargo.toml
+!Cargo.lock
+!crates
+!maps/first-playable.json
+!hosting/glbridge
+!parity/maps/seed1.map.json
+**/target
+**/node_modules

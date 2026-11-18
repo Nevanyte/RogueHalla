@@ -1,0 +1,483 @@
+//! Source mobAI: post-damage decisions queue ordinary validated inputs for the next tick.
+use super::Cx;
+use crate::{
+    constants::*,
+    input::RawCommand,
+    math::{hypot, wrap_angle},
+    mob_runtime::{Brain, BrainMode},
+    state::{Status, World},
+    statics::MatchStatic,
+    PlayerId, Vec2,
+};
+fn distance(a: Vec2, b: Vec2) -> f64 {
+    hypot(a.x - b.x, a.y - b.y)
+}
+pub(crate) fn enabled(w: &World) -> bool {
+    w.mob_runtime.as_ref().is_some_and(|r| r.combat)
+}
+pub(crate) fn territory(k: &MatchStatic, p: Vec2) -> u32 {
+    let x = (p.x / TILE).floor() as i64;
+    let y = (p.y / TILE).floor() as i64;
+    let m = &k.arena.map;
+    if x < 0 || y < 0 || x >= i64::from(m.w) || y >= i64::from(m.h) {
+        return 0;
+    }
+    m.layers()
+        .and_then(|l| {
+            l.data()
+                .territory_grid
+                .get((y * i64::from(m.w) + x) as usize)
+        })
+        .map_or(0, |v| u32::from(*v))
+}
+/// Legacy `leashOk`: the one rule lives in [`crate::mapdata::patience::leash_ok`] (the patience plane shares it); a map
+/// without layers has no camps or territory, so it keeps the `MOB_LEASH_RADIUS` circle.
+fn leash(k: &MatchStatic, camp: u32, home: Vec2, p: Vec2, margin: f64) -> bool {
+    match k.arena.map.layers() {
+        Some(l) => crate::mapdata::patience::leash_ok(l.data(), camp, home, p, margin),
+        None => distance(p, home) <= MOB_LEASH_RADIUS - margin,
+    }
+}
+pub(crate) fn targetable(w: &World, id: PlayerId) -> bool {
+    w.player(id).is_some_and(|p| {
+        p.standing() && !crate::status_runtime::untargetable(&p.statuses.instances, w.server_time)
+    })
+}
+fn pick(w: &World, b: &mut Brain) -> Option<PlayerId> {
+    b.threat
+        .retain(|(id, _)| w.player(*id).is_some_and(|p| p.standing()));
+    let mut most = 0.;
+    let mut best = None;
+    for &(id, threat) in &b.threat {
+        if threat > most && targetable(w, id) {
+            most = threat;
+            best = Some(id);
+        }
+    }
+    best
+}
+pub(crate) fn wake(b: &mut Brain, target: PlayerId, now: f64) {
+    b.mode = BrainMode::Fight;
+    b.target = Some(target);
+    b.last_combat_at = now;
+    b.goal = None;
+    b.moving = false;
+    b.holding = false;
+}
+pub(crate) fn add_threat(b: &mut Brain, id: PlayerId, amount: f64) {
+    if let Some((_, v)) = b.threat.iter_mut().find(|(p, _)| *p == id) {
+        *v += amount
+    } else {
+        b.threat.push((id, amount));
+    }
+}
+/// Returns a camp-wide wake request. A ledger caller settles these after the complete pass.
+pub(crate) fn aggro(
+    w: &mut World,
+    id: PlayerId,
+    by: PlayerId,
+    amount: f64,
+) -> Option<(u32, PlayerId)> {
+    if amount <= 0. || w.player(by).is_none() {
+        return None;
+    }
+    let m = w.mobs.get_mut(id)?;
+    if m.status != Status::Alive || m.brain.is_none() {
+        // A dummy has no runtime brain in the source (mobs.addMob stores none), so it never aggros or fights.
+        return None;
+    }
+    let camp = m.camp;
+    let mut b = m.brain.take()?;
+    add_threat(&mut b, by, amount);
+    if b.mode == BrainMode::Idle {
+        if let Some(target) = pick(w, &mut b) {
+            wake(&mut b, target, w.server_time);
+        }
+    }
+    let out = (b.mode == BrainMode::Fight)
+        .then_some(b.target)
+        .flatten()
+        .filter(|t| targetable(w, *t))
+        .map(|t| (camp, t));
+    w.mobs.get_mut(id).expect("no structural mutation").brain = Some(b);
+    out
+}
+pub(crate) fn wake_mates(w: &mut World, camp: u32, target: PlayerId) {
+    if !targetable(w, target) {
+        return;
+    }
+    let now = w.server_time;
+    for m in &mut w.mobs {
+        if m.camp == camp
+            && m.status == Status::Alive
+            && m.brain.is_some()
+            && m.regional_brain().mode == BrainMode::Idle
+        {
+            if !m
+                .regional_brain_mut()
+                .threat
+                .iter()
+                .any(|(id, _)| *id == target)
+            {
+                m.regional_brain_mut().threat.push((target, 0.));
+            }
+            wake(m.regional_brain_mut(), target, now);
+        }
+    }
+}
+fn due(b: &Brain, phase: u32, now: f64) -> bool {
+    b.goal.is_none()
+        || (now - b.last_move_at >= MOB_REPATH_PHASE_PERIOD as f64
+            && ((now + f64::from(phase)) / f64::from(MOB_REPATH_PHASE_PERIOD)).floor()
+                != ((now - TICK_MS + f64::from(phase)) / f64::from(MOB_REPATH_PHASE_PERIOD))
+                    .floor())
+}
+fn send(cx: &mut Cx, id: PlayerId, b: &mut Brain, to: Vec2) {
+    cx.propose(
+        id,
+        RawCommand::Move {
+            x: to.x,
+            y: to.y,
+            seq: None,
+        },
+    )
+    .expect("finite source mob move");
+    b.goal = Some(to);
+    b.last_move_at = cx.w.server_time;
+    b.moving = true;
+}
+fn disarm(cx: &mut Cx, id: PlayerId, b: &mut Brain) {
+    let now = cx.w.server_time;
+    let m = cx.w.mobs.get_mut(id).unwrap();
+    super::weapons::cancel_action(&mut m.core, now);
+    m.core.weapon.held = false;
+    m.core.weapon.buffered_until = 0.;
+    m.core.weapon.aim_at = 0.;
+    b.holding = false;
+}
+fn home(cx: &mut Cx, id: PlayerId, b: &mut Brain) {
+    let m = cx.w.mobs.get(id).unwrap();
+    let at = m.core.pos();
+    let home = m.home;
+    let phase = m.repath_phase;
+    let facing = m.home_facing;
+    if distance(at, home) > MOB_HOME_RADIUS {
+        if due(b, phase, cx.w.server_time) {
+            send(cx, id, b, home)
+        }
+        return;
+    }
+    let end = m.core.motion.path.as_slice().last().copied();
+    disarm(cx, id, b);
+    if end.is_none_or(|p| distance(p, home) > MOB_HEADING_HOME) {
+        if distance(at, home) > MOB_ON_SPOT {
+            cx.propose(
+                id,
+                RawCommand::Move {
+                    x: home.x,
+                    y: home.y,
+                    seq: None,
+                },
+            )
+            .unwrap();
+        } else if end.is_some() {
+            cx.propose(id, RawCommand::Stop { seq: None }).unwrap();
+        }
+    }
+    cx.propose(id, RawCommand::Aim { a: facing }).unwrap();
+    b.last_aim = Some(facing);
+    let m = cx.w.mobs.get_mut(id).unwrap();
+    m.core.vitals.hp = m.core.vitals.max_hp;
+    b.mode = BrainMode::Idle;
+    b.target = None;
+    b.threat.clear();
+    b.goal = None;
+    b.moving = false;
+}
+fn give_up(cx: &mut Cx, id: PlayerId, b: &mut Brain) {
+    disarm(cx, id, b);
+    b.mode = BrainMode::Return;
+    b.target = None;
+    b.threat.clear();
+    b.goal = None;
+    home(cx, id, b);
+}
+pub(crate) fn think(cx: &mut Cx) {
+    cx.s.spacing_diag = Default::default();
+    if !enabled(cx.w) {
+        return;
+    }
+    // Event reads do not submit actions; the shared Block event wakes an idle shield holder. Only this step's events
+    // (legacy `world.events`, emptied every step): never a Block an earlier step left in the caller's buffer.
+    for i in cx.s.step_event_start..cx.ev.len() {
+        if let crate::events::Event::Block { id, by, .. } = cx.ev[i] {
+            if cx
+                .w
+                .mobs
+                .get(id)
+                .is_some_and(|m| m.brain.as_ref().is_some_and(|b| b.mode == BrainMode::Idle))
+            {
+                if let Some((camp, target)) = aggro(cx.w, id, by, 1.) {
+                    wake_mates(cx.w, camp, target);
+                }
+            }
+        }
+    }
+    // Archetype hitboxes only (ADR0024 addendum "Mob spacing"): who stands where, read once; mobs only queue inputs below.
+    if super::mob_spacing::on(cx.k) {
+        super::mob_spacing::index(cx.w, &mut cx.s.mob_spacing);
+    }
+    for i in 0..cx.w.mobs.len() {
+        let m = &cx.w.mobs[i];
+        if m.status != Status::Alive
+            || m.brain.is_none()
+            || m.zombie.is_some()
+            || m.regional_brain().mode == BrainMode::Idle
+            || crate::status_runtime::has(
+                &m.core.statuses.instances,
+                crate::status_runtime::StatusKind::Stun,
+                cx.w.server_time,
+            )
+        {
+            continue;
+        }
+        let id = m.core.id;
+        let mut b = cx.w.mobs[i].brain.take().expect("regional AI only");
+        if cx.w.mobs[i].core.motion.path.is_empty() {
+            b.moving = false;
+        }
+        if b.mode == BrainMode::Return {
+            home(cx, id, &mut b)
+        } else {
+            fight(cx, id, &mut b)
+        }
+        cx.w.mobs.get_mut(id).unwrap().brain = Some(b);
+    }
+}
+fn fight(cx: &mut Cx, id: PlayerId, b: &mut Brain) {
+    let now = cx.w.server_time;
+    let m = cx.w.mobs.get(id).unwrap();
+    let camp = m.camp;
+    let home = m.home;
+    let phase = m.repath_phase;
+    let from = m.core.pos();
+    let weapon = m.core.active_weapon();
+    b.holding = m.core.weapon.held;
+    if !leash(cx.k, camp, home, from, 0.) || now - b.last_combat_at >= MOB_GIVE_UP_SECONDS * 1000. {
+        give_up(cx, id, b);
+        return;
+    }
+    if b.target.is_none_or(|t| !targetable(cx.w, t)) {
+        b.target = pick(cx.w, b);
+        b.goal = None;
+    }
+    let Some(target) = b.target.and_then(|t| cx.w.player(t)) else {
+        give_up(cx, id, b);
+        return;
+    };
+    let at = target.pos();
+    let vel = super::targeting::velocity(target, now);
+    let ix = cx.w.fighter_idx(id).unwrap();
+    let sheet = cx.w.paced_faction_spec(ix).expect("regional faction");
+    let mirrors = cx.w.core(ix).modifiers.mirrors();
+    let tm =
+        crate::content::mirror_timings(&sheet, weapon, mirrors.as_mult, mirrors.windup_mult, true);
+    let mask = if matches!(
+        crate::content::weapon(weapon).shape,
+        crate::content::Shape::Arc { .. }
+    ) {
+        MASK_MELEE
+    } else {
+        MASK_SIGHT
+    };
+    // The map bodies and swings read now: a standing Frost Wall's tiles are LOW (legacy mobAI.ts:271 `collisionMap(world)`
+    // carries the barrier overlay in 78dd8bd4), so a melee mob across one has no line of sight and chases round it.
+    let held = crate::barriers::held(cx.w);
+    let map = crate::barriers::body_map(cx.k, &held, cx.w.rt.gates_locked);
+    let out = crate::combat_policy::decide(
+        crate::combat_policy::Input {
+            from,
+            to: at,
+            vel,
+            los: crate::geometry::has_line_of_sight(map, from, at, mask),
+            weapon,
+            windup: tm.windup,
+            lock: false,
+            delay: TICK_MS / 1000.,
+        },
+        |a, to| {
+            leash(cx.k, camp, home, to, MOB_LEASH_MARGIN)
+                && distance(to, at) > distance(a, at)
+                && crate::geometry::segment_clear(map, a, to, PLAYER_RADIUS, MASK_MOVE)
+        },
+    );
+    if b.last_aim
+        .is_none_or(|a| wrap_angle(out.aim - a).abs() >= MOB_AIM_DEADBAND)
+    {
+        cx.propose(id, RawCommand::Aim { a: out.aim }).unwrap();
+        b.last_aim = Some(out.aim);
+    }
+    if out.hold && !b.holding {
+        cx.propose(
+            id,
+            RawCommand::Attack {
+                a: out.aim,
+                t: None,
+            },
+        )
+        .unwrap();
+        b.last_aim = Some(out.aim);
+        b.holding = true;
+    } else if !out.hold && b.holding {
+        cx.propose(
+            id,
+            RawCommand::Release {
+                a: out.aim,
+                t: None,
+            },
+        )
+        .unwrap();
+        b.last_aim = Some(out.aim);
+        b.holding = false;
+    }
+    match out.movement {
+        crate::combat_policy::Move::Stop => match spacing_step(cx, id, b, from, at, weapon, mask) {
+            Spaced::Step(to) => {
+                // Not `send`: the chase's repath clock and goal stay as they were, so the spacing step never delays or
+                // reorders a chase.
+                cx.propose(
+                    id,
+                    RawCommand::Move {
+                        x: to.x,
+                        y: to.y,
+                        seq: None,
+                    },
+                )
+                .expect("finite spacing step");
+                b.moving = true;
+                cx.s.spacing_diag.steps += 1;
+                // The mobs that think after this one see where it is going.
+                super::mob_spacing::relocate(&mut cx.s.mob_spacing, id, from, to);
+            }
+            // One order (one path search) per step: the mob walks it out before it looks again.
+            Spaced::Walking => {}
+            Spaced::No => {
+                if b.moving {
+                    cx.propose(id, RawCommand::Stop { seq: None }).unwrap();
+                    b.moving = false;
+                }
+            }
+        },
+        crate::combat_policy::Move::Point(to) => {
+            if due(b, phase, now) {
+                // A chase's goal fans out by the spacing push (same order, same repath clock); a retreat is the
+                // policy's own.
+                let goal = if out.chase {
+                    chase_goal(cx, id, from, to, at, mask)
+                } else {
+                    to
+                };
+                send(cx, id, b, goal)
+            }
+        }
+    }
+}
+
+/// What mob spacing does for a mob whose policy wants it to stay put (`systems/mob_spacing.rs`).
+enum Spaced {
+    /// Nothing: the legacy circle, alone, settled, no room to move, or the mob cannot move this tick.
+    No,
+    /// The mob is still walking the spacing step it was given: no new order until it arrives.
+    Walking,
+    /// A new step.
+    Step(Vec2),
+}
+
+/// The mob-spacing step of a mob whose policy wants it to stay put. A step stays in the policy's stop band round the
+/// target (so it neither wakes a chase nor a retreat), keeps line of sight with the policy's mask, stays inside the leash
+/// with the same margin a retreat uses, and walks a segment the mob's own foot box clears (the pathfinder's direct-path
+/// test).
+fn spacing_step(
+    cx: &Cx,
+    id: PlayerId,
+    b: &Brain,
+    from: Vec2,
+    at: Vec2,
+    weapon: crate::content::WeaponId,
+    mask: u8,
+) -> Spaced {
+    if !super::mob_spacing::on(cx.k) {
+        return Spaced::No;
+    }
+    let Some(m) = cx.w.mobs.get(id) else {
+        return Spaced::No;
+    };
+    if super::mob_spacing::walking(m, b.goal).is_some() {
+        return Spaced::Walking;
+    }
+    // A mob that cannot move this tick (rooted, casting, winding a swing) gets no order: a Move it cannot walk would
+    // only cost a path search. It looks again once it can.
+    let now = cx.w.server_time;
+    if super::weapons::move_multiplier(&m.core, now) == 0.
+        || crate::status_runtime::cannot_move(&m.core.statuses, now)
+    {
+        return Spaced::No;
+    }
+    // One look in MOB_SPACING_LOOK_TICKS ticks, staggered by id: a packed crowd with no room left would otherwise re-weigh
+    // every candidate every tick.
+    if (u64::from(cx.w.tick) + u64::from(id.0)) % u64::from(MOB_SPACING_LOOK_TICKS) != 0 {
+        return Spaced::No;
+    }
+    let (camp, home, foot, room) = (m.camp, m.home, m.core.foot(), super::mob_spacing::room(m));
+    let p = crate::combat_policy::spacing(weapon, false);
+    let band = super::mob_spacing::Band {
+        lo: if p.retreat > 0. {
+            p.retreat + MOB_SPACING_BAND_SLACK
+        } else {
+            0.
+        },
+        hi: p.far - MOB_SPACING_BAND_SLACK,
+    };
+    let held = crate::barriers::held(cx.w);
+    let map = crate::barriers::body_map(cx.k, &held, cx.w.rt.gates_locked);
+    super::mob_spacing::step(&cx.s.mob_spacing, id, room, from, at, band, |to| {
+        foot.segment_clear(map, from, to, MASK_MOVE)
+            && leash(cx.k, camp, home, to, MOB_LEASH_MARGIN)
+            && crate::geometry::has_line_of_sight(map, to, at, mask)
+    })
+    .map_or(Spaced::No, Spaced::Step)
+}
+
+/// The goal of a chase order (`systems/mob_spacing.rs` [`super::mob_spacing::lateral`]): the policy's point `to`,
+/// shifted sideways (across the line from the mob to `to`) away from the pack-mates inside the mob's room, so a pack
+/// chasing along one line fans out instead of running in one file. The shift turns the heading by at most about 22
+/// degrees and shrinks with the distance left, so the mob still walks into its band and stops there (no circling). The
+/// shifted goal
+/// must clear the mob's foot box, be reachable in a straight line from `to` with that foot box (same side of every wall
+/// and corner), see the target with the policy's mask and lie inside the leash; otherwise the plain goal (a doorway or
+/// a corridor: overlap where there is no room). Not under the legacy circle.
+fn chase_goal(cx: &mut Cx, id: PlayerId, from: Vec2, to: Vec2, at: Vec2, mask: u8) -> Vec2 {
+    if !super::mob_spacing::on(cx.k) {
+        return to;
+    }
+    let Some(m) = cx.w.mobs.get(id) else {
+        return to;
+    };
+    let (camp, home, foot, room) = (m.camp, m.home, m.core.foot(), super::mob_spacing::room(m));
+    let Some(off) = super::mob_spacing::lateral(&cx.s.mob_spacing, id, room, from, to) else {
+        return to;
+    };
+    let goal = Vec2::new(to.x + off.x, to.y + off.y);
+    let held = crate::barriers::held(cx.w);
+    let map = crate::barriers::body_map(cx.k, &held, cx.w.rt.gates_locked);
+    if foot.clear(map, goal, MASK_MOVE)
+        && foot.segment_clear(map, to, goal, MASK_MOVE)
+        && crate::geometry::has_line_of_sight(map, goal, at, mask)
+        && leash(cx.k, camp, home, goal, 0.)
+    {
+        cx.s.spacing_diag.chase_offsets += 1;
+        goal
+    } else {
+        to
+    }
+}

@@ -1,0 +1,640 @@
+// Owns the network session, turns input into orders and exposes authoritative state for presentation.
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using Roguehalla.Net;
+using Roguehalla.Net.Protocol;
+using Roguehalla.Net.Ui;
+
+namespace Roguehalla.Client
+{
+    public sealed partial class MatchClient : MonoBehaviour
+    {
+        public string Url = "ws://127.0.0.1:7777/ws", Profile = "unity1";
+        /// <summary>The admission ticket, sent as its UTF-8 bytes (the dev server checks the callsign secret; P-HOST-1 defines hosted tickets).</summary>
+        public string Token = "t1";
+        public ulong ContentHash;
+        /// <summary>-1 = server default.</summary>
+        public int Faction = -1;
+        public bool AutoJoin;
+        public MatchHud Hud { get; private set; }
+        public ArenaView Arena;
+        public Camera Cam;
+
+        public Session Session { get; private set; }
+        Session _presentationSession;
+        Func<ITransport> _transportFactory = TransportFactory.Create;
+        readonly List<InterpActor> _actors = new List<InterpActor>();
+        /// <summary>The remote actors drawn this frame (the render-time sample); read-only for HUD overlays such as the edge threat glows.</summary>
+        public IReadOnlyList<InterpActor> Actors { get { return _actors; } }
+        readonly List<InterpActor> _targetActors = new List<InterpActor>();
+        const double SteerRepeatMs = 100;
+        Vector2 _lastDir;
+        readonly Pathfinder _steerPathfinder = new Pathfinder();
+        double _steerGoalX, _steerGoalY;
+        const double HoldRepeatMs = 100;
+        const float HoldMovedU = 8f;
+        readonly OrderBudget _orderBudget = new OrderBudget();
+        StopRetry _stopRetry;
+        bool _rightHeld;
+        float _holdX, _holdY;
+        double _lastHold;
+        double _lastSteer;
+        bool _steering;
+        float _aimAngle;
+        float _nextReconLog;
+        int _fxSwings, _fxHits;
+        bool _attackHeld;
+        bool _traceLatency;
+        uint _traceDraw;
+        MatchLaunchTarget _sessionTarget;
+        int _sessionFaction;
+        long _sessionGeneration;
+        uint _confirmedModeEpoch;
+        bool _modeConfirmed;
+        Action<SessionState> _boundLaunchState;
+        Action<ServerMsg.Snapshot> _boundLaunchSnapshot;
+        Action _boundLaunchTimeline;
+
+        // Welcome has no mode. Its default Training=false is never confirmation, including on resume.
+        public bool LaunchVerified => this != null && !_destroying && Session != null && (_sessionTarget == null || _modeConfirmed &&
+            _sessionGeneration == _joinGeneration && Session.Latest != null &&
+            Session.TimelineEpoch == _confirmedModeEpoch && _sessionTarget.MatchesServer(Session.Training));
+        public bool LaunchPending => _sessionTarget != null && Session != null && !LaunchVerified &&
+            (Session.State == SessionState.Idle || Session.State == SessionState.Connecting || Session.State == SessionState.HelloSent ||
+             Session.State == SessionState.InMatch || Session.State == SessionState.Reconnecting);
+        public bool ConfirmedPractice => _sessionTarget != null && LaunchVerified && Session != null && Session.Training;
+        public string PendingLaunchText => "Verifying " + (_sessionTarget?.Mode == MatchLaunchMode.Training ? "Training" : "Arena") + " with the server…";
+
+        static double NowMs() { return Time.realtimeSinceStartupAsDouble * 1000.0; }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        internal void InitializeLayoutReview(Session session)
+        {
+            Session = session;
+            Hud = gameObject.AddComponent<MatchHud>(); Hud.Initialize(this); Hud.Bind(session);
+        }
+#endif
+
+        void Start()
+        {
+            InitializeAccounts();
+            InitializeSeatResume();
+            Hud = gameObject.AddComponent<MatchHud>();
+            Hud.Initialize(this);
+            if (AutoJoin) Join(Profile, Faction);
+        }
+
+        void JoinCore(string nickname, int faction, MatchLaunchTarget target, string ownerToken, long generation,
+            AccountSettlementAccess settlementAccess = null, AccountJoinIntent ownerIntent = null, OwnedSeatCheckpoint resumeRecord = null)
+        {
+            if (_destroying || generation != _joinGeneration) return;
+            CloseCurrentSession(keepCheckpoint: resumeRecord != null);
+            if (_destroying || generation != _joinGeneration) return;
+            Profile = string.IsNullOrWhiteSpace(nickname) ? Profile : nickname.Trim();
+            Faction = faction;
+            _actors.Clear(); _steering = false; _attackHeld = false;
+            var arena = new GameObject("Arena").AddComponent<ArenaView>();
+            Arena = arena;
+            var transport = _transportFactory();
+            if (_destroying || generation != _joinGeneration)
+            {
+                if (ReferenceEquals(Arena, arena)) { Arena = null; DestroyOwnedArena(arena.gameObject); }
+                transport.Close(); return;
+            }
+            var session = new Session(transport, new SessionOptions
+            {
+                Url = target.Url, Profile = Profile, Ticket = System.Text.Encoding.UTF8.GetBytes(ownerToken ?? ""), ContentHash = ContentHash, Build = "unity-web-0.1.0",
+                Faction = Faction >= 0 ? (byte)Faction : (byte?)null, Now = NowMs,
+                InitialResume = resumeRecord?.CreateSeed(),
+            });
+            Session = session; _sessionTarget = target; _sessionFaction = faction;
+            _sessionGeneration = generation; _modeConfirmed = false;
+            BindOwnedSeatSession(session, ownerIntent, target, faction, generation, resumeRecord);
+            _boundLaunchState = state =>
+            {
+                if (!CurrentLaunchSession(session, generation)) return;
+                if (state != SessionState.InMatch) { Hud?.UnbindTrainingSession(); _steering = false; _attackHeld = false; }
+                if (state == SessionState.Failed || state == SessionState.Rejected || state == SessionState.Ended) Hud?.RefreshLaunchConfirmation(session);
+                SeatSessionStateChanged(session, generation, state);
+                Debug.Log("[net] " + state + (session.RejectCode.HasValue ? " " + session.RejectCode + ": " + session.RejectReason : "") + (session.Error != null ? " " + session.Error : ""));
+            };
+            _boundLaunchSnapshot = snapshot =>
+            {
+                if (!CurrentLaunchSession(session, generation) || !ReferenceEquals(session.Latest, snapshot)) return;
+                if (!SeatResumeModeAllowed(session)) { RefuseLaunch("The profile changed. Load it again before resuming."); return; }
+                if (!CurrentLaunchTarget(target, faction)) { RefuseLaunch("The connection changed. Start your run again."); return; }
+                if (!target.MatchesServer(session.Training))
+                {
+                    RefuseLaunch("The server returned " + (session.Training ? "Training" : "Arena") +
+                        " for the selected " + target.Mode + " destination. Return to the menu and check the connection.");
+                    return;
+                }
+                bool wasVerified = LaunchVerified;
+                _confirmedModeEpoch = session.TimelineEpoch; _modeConfirmed = true;
+                CaptureConfirmedSeat(session);
+                if (!CurrentLaunchSession(session, generation)) return;
+                if (!wasVerified) Hud?.RefreshLaunchConfirmation(session);
+            };
+            _boundLaunchTimeline = () =>
+            {
+                if (!CurrentLaunchSession(session, generation)) return;
+                _modeConfirmed = false;
+                Hud?.UnbindTrainingSession();
+                Hud?.RefreshLaunchConfirmation(session);
+            };
+            session.StateChanged += _boundLaunchState;
+            // Validate before HUD subscribers see any accepted owner snapshot.
+            session.SnapshotReceived += _boundLaunchSnapshot;
+            session.TimelineReset += _boundLaunchTimeline;
+            BindSettlementSession(session, settlementAccess, generation);
+            Hud?.Bind(session);
+            if (!CurrentLaunchSession(session, generation)) return;
+            BindPresentationSession(session);
+            if (!SeatResumeConnectAllowed(session))
+            {
+                if (CurrentLaunchSession(session, generation)) CloseCurrentSession(detach: true, keepCheckpoint: true);
+                return;
+            }
+            if (!CurrentLaunchSession(session, generation)) return;
+            session.Connect();
+        }
+
+        bool CurrentLaunchSession(Session session, long generation) => this != null && !_destroying &&
+            generation == _joinGeneration && ReferenceEquals(Session, session);
+
+        void RefuseLaunch(string reason)
+        {
+            AccountUiError = reason;
+            CancelOwnedJoin();
+        }
+
+        void CloseCurrentSession(bool detach = false, bool keepCheckpoint = false)
+        {
+            var old = Session;
+            var oldArena = Arena;
+            long retirementGeneration = _joinGeneration;
+            var oldCheckpoint = TakeSeatBinding(keepCheckpoint);
+            Hud?.UnbindTrainingSession();
+            UnbindSettlementSession();
+            Session = null; _sessionTarget = null; _modeConfirmed = false;
+            if (old != null)
+            {
+                old.StateChanged -= _boundLaunchState;
+                old.SnapshotReceived -= _boundLaunchSnapshot;
+                old.TimelineReset -= _boundLaunchTimeline;
+            }
+            _boundLaunchState = null; _boundLaunchSnapshot = null; _boundLaunchTimeline = null;
+            UnbindPresentationSession(); ResetPresentationTimeline();
+            Arena = null;
+            _actors.Clear(); _steering = false; _attackHeld = false;
+            if (oldArena != null) DestroyOwnedArena(oldArena.gameObject);
+            if (!_destroying) Hud?.ShowMenu();
+            // Retired-session callbacks may synchronously start another launch. All old
+            // binding/arena mutations must finish before invoking the old session's Leave.
+            if (!keepCheckpoint) ClearSeatRecord(oldCheckpoint);
+            if (detach || this == null || _destroying || retirementGeneration != _joinGeneration) old?.Detach();
+            else old?.Leave();
+        }
+
+        // The caller has already detached ownership. Never look up a mutable Arena
+        // here: teardown callbacks may install a replacement while this root retires.
+        static void DestroyOwnedArena(GameObject owned)
+        {
+            if (owned == null) return;
+            owned.SetActive(false);
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                if (owned != null) UnityEngine.Object.DestroyImmediate(owned);
+                return;
+            }
+#endif
+            if (owned != null) UnityEngine.Object.Destroy(owned);
+        }
+
+        public void Leave()
+        {
+            if (this == null || _destroying) return;
+            CancelOwnedJoin();
+        }
+
+        void OnApplicationFocus(bool focused)
+        {
+            if (!focused) Hud?.ReleaseUiFocusForWindowLoss();
+            else Hud?.RestoreUiFocusAfterWindowGain();
+            if (focused || Session == null || Session.State != SessionState.InMatch) return;
+            if (_attackHeld) Session.Input.Release(_aimAngle, Session.Clock.RenderMs);
+            if (_steering) Session.OrderStop();
+            bool queued = _attackHeld || _steering;
+            _attackHeld = _steering = false;
+            // A hidden tab may not run Update again for a long time: send the Release/Stop now, not on the next frame.
+            if (queued) Session.FlushInput();
+            Hud?.TacticalMap?.ReleaseTransient();
+        }
+
+        void OnDestroy()
+        {
+            RetireRuntime();
+        }
+
+        void OnApplicationQuit() { RetireRuntime(); }
+
+        void BindPresentationSession(Session session)
+        {
+            UnbindPresentationSession();
+            _presentationSession = session;
+            ResetPresentationTimeline();
+            if (session == null) return;
+            session.FxReceived += PresentFx;
+            session.TimelineReset += ResetPresentationTimeline;
+        }
+        void UnbindPresentationSession()
+        {
+            if (_presentationSession == null) return;
+            _presentationSession.FxReceived -= PresentFx;
+            _presentationSession.TimelineReset -= ResetPresentationTimeline;
+            _presentationSession = null;
+        }
+        void ResetPresentationTimeline()
+        {
+            if (Arena != null) Arena.ResetTransientPresentation(Session != null ? Session.ServerTimeMs : 0);
+            if (Hud != null) Hud.ResetTransientPresentation();
+            var soundscape = GetComponent<ShowcaseSoundscape>();
+            if (soundscape != null) soundscape.ResetTransientCues();
+        }
+
+        void PresentFx(ServerMsg.Fx fx)
+        {
+            if (!LaunchVerified || Arena == null) return;
+            // Fx of tick T happened in step T: interpolated remote poses reach it when render time reaches snapshot T's
+            // source time. Anchor on the newest snapshot so a source-time override (epoch cut) is respected.
+            var s = _presentationSession ?? Session;
+            if (s != null && _traceLatency)
+                foreach (var f in fx.List)
+                {   // Opt-in trace: the owner's attack telegraph facts the walk mirror consumes.
+                    if (f.Kind == FxKind.Windup && f.By == s.PlayerId) LatencyTrace.Mark("ownWindup", s.PlayerId, f.Weapon, f.Ms, fx.Tick);
+                    else if (f.Kind == FxKind.Stagger && f.Id == s.PlayerId) LatencyTrace.Mark("ownStagger", s.PlayerId, 0, 0, fx.Tick);
+                    else if (f.Kind == FxKind.Cancel && f.Id == s.PlayerId) LatencyTrace.Mark("ownCancel", s.PlayerId, 0, 0, fx.Tick);
+                }
+            if (s != null && InputLatencyProbe.Enabled)
+                foreach (var f in fx.List)
+                {   // Dev flag ?inputlat=1: confirmed swings and hits by the local player (shots versus hits for the aim proof).
+                    if (f.By != s.PlayerId) continue;
+                    if (f.Kind == FxKind.Swing) _fxSwings++; else if (f.Kind == FxKind.Hit) _fxHits++;
+                }
+            if (s == null) { Arena.ConfirmedFx(fx); return; }
+            var latest = s.Latest;
+            double dueMs = latest != null ? latest.ServerMs + ((double)fx.Tick - latest.Tick) * Wire.TickMs : double.NaN;
+            var pmFx = PerfMarks.Begin();
+            Arena.ConfirmedFx(fx, s.PlayerId, dueMs);
+            PerfMarks.End(PerfMarks.Sec.FxCues, pmFx);
+        }
+
+        void Update()
+        {
+            if (Session == null) { EscapeConsumedByAim = false; Hud?.ReadUiInput(); return; }
+            var session = Session;
+            if (_sessionTarget != null && !CurrentLaunchTarget(_sessionTarget, _sessionFaction))
+            { RefuseLaunch("The connection changed. Start your run again."); return; }
+            _traceLatency = LatencyTrace.Enabled;
+            if (PausePredictionOff && session.Motion != null) session.Motion.PredictAttackPause = false;
+            if (_traceLatency) LatencyTrace.Mark("frameStart", Session.PlayerId, 0, 0, 0);
+            var pmPoll = PerfMarks.Begin(); session.Poll(); PerfMarks.End(PerfMarks.Sec.NetPoll, pmPoll);
+            if (!ReferenceEquals(Session, session)) return;
+            ReadAimEscape();
+            Hud?.ReadUiInput();
+            if (!ReferenceEquals(Session, session) || !LaunchVerified) return;
+            if (Session.State != SessionState.InMatch && Session.State != SessionState.Ended) return;
+            if (Arena != null && !Arena.HasMap && Session.Map != null) Arena.Build(Session.Map, Session.Vision);
+            Session.Snapshots.Sample(Session.Clock.RenderMs, _actors);
+            // Camera first: the cursor ground point read by ReadInput must use this frame's camera, or aim is a frame stale.
+            var pmCam = PerfMarks.Begin(); FollowCamera(); PerfMarks.End(PerfMarks.Sec.Camera, pmCam);
+            if (_traceLatency && LatencyTrace.TakeTargetRequest()) TraceTargetScreens();
+            bool probe = InputLatencyProbe.Enabled && Session.Motion != null && Session.Motion.Initialized && Session.Me != null;
+            if (probe && Session.State == SessionState.InMatch && (Hud == null || !Hud.BlocksKeyboardInput))
+                InputLatencyProbe.BeginFrame(Keyboard.current, NowMs(), Session.Motion.DrawnX, Session.Motion.DrawnY, Session.Me.X, Session.Me.Y);
+            if (Session.State == SessionState.InMatch)
+            {
+                ReadInput();
+                _wishAim.Frame(Session, _wishFrame);
+                Arena?.TickFrostWallAim(Session, _wishAim.Aiming, _wishFrame);
+                Session.FlushInput();
+            }
+            var pmPresent = PerfMarks.Begin(); Present(); PerfMarks.End(PerfMarks.Sec.Present, pmPresent);
+            if (probe)
+            {
+                // Dev flag ?inputlat=1: the prediction reconciliation counters, once a second (how often and how far the server moved us).
+                var motion = Session.Motion;
+                if (Time.unscaledTime >= _nextReconLog && motion.ReconSamples > 0)
+                {
+                    _nextReconLog = Time.unscaledTime + 1f;
+                    Debug.Log(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                        "[recon] samples={0} corrections(>{1}u)={2} big(>{3}u)={4} maxErr={5:F3} meanErr={6:F4} snaps={7} foot={8} swings={9} hits={10}",
+                        motion.ReconSamples, LocalMotion.ReconCorrectionU, motion.ReconCorrections, LocalMotion.ReconBigU, motion.ReconBig,
+                        motion.ReconMaxErr, motion.ReconErrSum / motion.ReconSamples, motion.Snaps, motion.Foot, _fxSwings, _fxHits));
+                }
+            }
+            if (probe) InputLatencyProbe.EndFrame(NowMs(), Session.Motion.DrawnX, Session.Motion.DrawnY, Session.Me.X, Session.Me.Y);
+        }
+
+        // P-UNITY-FROST-WALL-1: the Wish key, left click, right click and Esc go through WishAim; it sends every cast through Session.CollectWishInput.
+        readonly WishAim _wishAim = new WishAim();
+        WishAimFrame _wishFrame;
+        /// <summary>The aim's Wall preview (exposed so a test can open it).</summary>
+        public WishAim WishAim { get { return _wishAim; } }
+        /// <summary>True for the frame in which an Esc press only closed the Frost Wall aim: the HUD, the map and Training's Leave must skip it.</summary>
+        public bool EscapeConsumedByAim { get; private set; }
+        /// <summary>Decides, once per frame and BEFORE the HUD reads input (<see cref="Update"/> calls it first; the HUD's ReadUiInput is called
+        /// from Update, never from its own Update, so the order is this call's position, not Unity's script order), whether this frame's
+        /// Esc press belongs to the aim.</summary>
+        public void ReadAimEscape()
+        {
+            var kb = Keyboard.current;
+            EscapeConsumedByAim = kb != null && kb.escapeKey.wasPressedThisFrame && _wishAim.Escape();
+        }
+        WishAimFrame MakeWishFrame(float myX, float myY, bool blocked, bool haveCursor, float sx, float sy, uint? actor)
+        {
+            var hud = Session.Welcome != null ? Session.Welcome.Hud : null;
+            return new WishAimFrame { Wish = hud != null ? hud.FrostWish : FrostWishKind.Freeze, QuickCast = false, UiOwnsInput = blocked,
+                HasGroundPoint = haveCursor, CursorX = sx, CursorY = sy, ActorRef = actor, CasterX = myX, CasterY = myY, Facing = _aimAngle,
+                Numbers = hud != null ? hud.FrostWall : null };
+        }
+
+        void ReadInput()
+        {
+            var m = Session.Motion;
+            if (m == null || !m.Initialized) return;
+            double now = NowMs();
+            float myX = m.DrawnX, myY = m.DrawnY;
+            // A Stop the server may have dropped (over budget orders are ignored silently) is sent again until the echo arrives.
+            if (_stopRetry.Due(now, m.OrderPending)) { OrderStop(false); }
+
+            var mouse = Mouse.current;
+            // Release is always forwarded, even if the pointer moved onto a panel after pressing.
+            if (_attackHeld && mouse != null && mouse.leftButton.wasReleasedThisFrame)
+            {
+                Session.Input.Release(_aimAngle, Session.Clock.RenderMs); _attackHeld = false;
+            }
+            if (mouse != null && !mouse.rightButton.isPressed) _rightHeld = false;
+            bool keyboardBlocked = Hud != null && Hud.BlocksKeyboardInput;
+            bool blocked = Hud != null && Hud.BlocksPointerInput;
+            // Opening a map/menu cancels a held attack immediately; release is never swallowed by UI capture.
+            if ((keyboardBlocked || Hud != null && Hud.TacticalMap != null && Hud.TacticalMap.PointerBlocked) && _attackHeld)
+            {
+                Session.Input.Release(_aimAngle, Session.Clock.RenderMs); _attackHeld = false;
+            }
+            if (keyboardBlocked)
+            {
+                if (_steering) { OrderStop(); _steering = false; }
+                return;
+            }
+            float sx = myX, sy = myY;
+            bool haveCursor = !blocked && mouse != null && Cam != null && Arena != null && Arena.ScreenToServer(Cam, mouse.position.ReadValue(), out sx, out sy);
+            _wishFrame = MakeWishFrame(myX, myY, blocked, haveCursor, sx, sy, null);
+            if (haveCursor)
+            {
+                // Projectiles are simulated on the ground and drawn raised by the shooter's chest: aim at the cursor's ground point
+                // shifted that far toward screen-down so the drawn shot leaves the chest and passes through the cursor (ChestAim).
+                _aimAngle = (float)ChestAim.Angle(myX, myY, sx, sy, Session.OwnChest);
+                if (HitboxOverlay.Enabled && mouse.leftButton.wasPressedThisFrame)
+                    Debug.Log(string.Format(System.Globalization.CultureInfo.InvariantCulture, "[aim] t={0:F1} from={1:F2},{2:F2} cursor={3:F2},{4:F2} chest={5} angle={6:F5}",
+                        Time.realtimeSinceStartup * 1000f, myX, myY, sx, sy, Session.OwnChest, _aimAngle));
+                Session.Input.Aim(_aimAngle);
+                bool aimClick = false;
+                if (mouse.leftButton.wasPressedThisFrame)
+                {
+                    byte aimSeq = _wishAim.Click(Session, _wishFrame, out aimClick);
+                    if (_traceLatency && aimSeq != 0) LatencyTrace.Mark("sampleWish", Session.PlayerId, aimSeq, sx, sy);
+                }
+                if (mouse.leftButton.wasPressedThisFrame && !aimClick)
+                {
+                    // The wand locks the nearest candidate within the legacy snap radius (world units) and never fires an unlocked
+                    // shot; a miss sends nothing. The server still decides the lock (range, sight, hostility).
+                    var weapon = Session.Me != null ? (WeaponId?)Session.Me.Weapon : null;
+                    var click = TargetPick.Decide(weapon, weapon == WeaponId.Wand ? PickWorld(sx, sy) : 0);
+                    if (click.Kind == ClickOrderKind.Target)
+                    {
+                        Session.Input.Target(click.Target);
+                        Arena.LockDisplay.Note(click.Target, NowMs());
+                    }
+                    else if (click.Kind == ClickOrderKind.None) { }
+                    else
+                    {
+                        Session.Input.Attack(_aimAngle, Session.Clock.RenderMs); _attackHeld = true;
+                        Arena?.LocalAttackCue(Session.PlayerId);
+                        if (mouse.leftButton.wasReleasedThisFrame)
+                        {
+                            Session.Input.Release(_aimAngle, Session.Clock.RenderMs); _attackHeld = false;
+                        }
+                    }
+                }
+                if (mouse.rightButton.wasPressedThisFrame)
+                {
+                    _wishAim.RightClick();
+                    if (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) { Session.Input.AttackMove(sx, sy); _orderBudget.Spend(now); _stopRetry.Cancel(); }
+                    else
+                    {
+                        OrderMove(sx, sy);
+                        // Holding the button keeps steering toward the cursor, like legacy holdMove.
+                        _rightHeld = true; _holdX = sx; _holdY = sy; _lastHold = now;
+                    }
+                }
+                else if (_rightHeld && mouse.rightButton.isPressed && !_steering && now - _lastHold >= HoldRepeatMs &&
+                    (sx - _holdX) * (sx - _holdX) + (sy - _holdY) * (sy - _holdY) > HoldMovedU * HoldMovedU && _orderBudget.TryTake(now))
+                {
+                    OrderMove(sx, sy, true);
+                    _holdX = sx; _holdY = sy; _lastHold = now;
+                }
+            }
+            var kb = Keyboard.current;
+            if (kb == null) return;
+            if (kb.rKey.wasPressedThisFrame)
+            {
+                uint target = haveCursor && mouse != null ? VisibleActorAt(mouse.position.ReadValue()) : 0;
+                _wishFrame.ActorRef = target == 0 ? (uint?)null : target;
+                _wishFrame.QuickCast = UiDisplayPreferences.QuickCastStored; // read only when the key needs it
+                byte seq = _wishAim.Key(Session, _wishFrame);
+                if (_traceLatency && seq != 0) LatencyTrace.Mark("sampleWish", Session.PlayerId, seq, sx, sy);
+            }
+            if (Hud == null || !Hud.ChestOwnsDigits)
+            {
+                if (kb.digit1Key.wasPressedThisFrame) Session.Input.Swap(0);
+                if (kb.digit2Key.wasPressedThisFrame) Session.Input.Swap(1);
+            }
+            if (kb.qKey.wasPressedThisFrame) Session.Input.Swap();
+            if (kb.eKey.wasPressedThisFrame) Session.Input.UseConsumable();
+            if (kb.fKey.wasPressedThisFrame) PickupFocus();
+            // Server +y points down the screen. This sends destinations; it never simulates movement. As in legacy
+            // keyboardMoveGoal, the destination is the first body-clear straight goal (held heading, then each axis of a
+            // diagonal, 64 down to 8 u) so steering into or along a wall slides instead of path-walking around it.
+            bool arrows = Hud == null || !Hud.ConsumesArrowNavigation;
+            int keyX = (kb.dKey.isPressed || arrows && kb.rightArrowKey.isPressed ? 1 : 0) - (kb.aKey.isPressed || arrows && kb.leftArrowKey.isPressed ? 1 : 0);
+            int keyY = (kb.sKey.isPressed || arrows && kb.downArrowKey.isPressed ? 1 : 0) - (kb.wKey.isPressed || arrows && kb.upArrowKey.isPressed ? 1 : 0);
+            if (keyX != 0 || keyY != 0)
+            {
+                var dir = new Vector2(keyX, keyY);
+                bool have = Session.Map != null && KeyboardSteer.TryGoal(_steerPathfinder, Session.Motion != null ? Session.Motion.WalkMap : Session.Map, myX, myY, keyX, keyY, Session.OwnFoot, out _steerGoalX, out _steerGoalY);
+                if (have)
+                {
+                    if (!_steering || dir != _lastDir || now - _lastSteer >= SteerRepeatMs)
+                    {
+                        OrderMove((float)_steerGoalX, (float)_steerGoalY);
+                        _lastDir = dir; _lastSteer = now; _steering = true;
+                    }
+                }
+                else if (_steering) { OrderStop(); _steering = false; }
+            }
+            else if (_steering) { OrderStop(); _steering = false; }
+        }
+
+        void OrderMove(float x, float y, bool budgeted = false)
+        {
+            if (!budgeted) _orderBudget.Spend(NowMs());
+            Arena?.LockDisplay.Note(0, NowMs());
+            _stopRetry.Cancel(); // a newer move supersedes an unechoed Stop
+            byte seq = Session.OrderMove(x, y);
+            if (_traceLatency && seq != 0) LatencyTrace.Mark("sampleMove", Session.PlayerId, seq, x, y);
+        }
+
+        /// <summary>A move order from a map pixel: the same path as a world right-click. A repeat (held drag) is dropped when over the order budget.</summary>
+        public bool OrderMapMove(float x, float y, bool repeat)
+        {
+            if (Session == null || Session.State != SessionState.InMatch) return false;
+            if (repeat && !_orderBudget.TryTake(NowMs())) return false;
+            OrderMove(x, y, repeat);
+            return true;
+        }
+
+        void OrderStop(bool fresh = true)
+        {
+            double now = NowMs();
+            _orderBudget.Spend(now);
+            Arena?.LockDisplay.Note(0, now);
+            byte seq = Session.OrderStop();
+            _stopRetry.Sent(now, fresh);
+            if (_traceLatency) LatencyTrace.Mark("sampleStop", Session.PlayerId, seq, 0, 0);
+        }
+
+        public void PickupFocus()
+        {
+            if (LaunchVerified && Session.State == SessionState.InMatch && Session.Collections.Focus.HasValue)
+                Session.Input.Pickup(Session.Collections.Focus.Value.Handle);
+        }
+
+        // One-shot, explicitly enabled proof data from the same delivered set and camera as the input picker.
+        void TraceTargetScreens()
+        {
+            if (Cam == null || Arena == null || Session.Me == null) return;
+            LatencyTrace.Mark("targetViewport", 0, 0, Screen.width, Screen.height);
+            var self = Cam.WorldToScreenPoint(ArenaView.WorldPoint(Session.Me.X, Session.Me.Y));
+            if (self.z > 0) LatencyTrace.Mark("targetSelf", Session.PlayerId, 0, self.x, self.y);
+            Session.Snapshots.Sample(Session.Snapshots.NewestMs, _targetActors);
+            foreach (var actor in _targetActors)
+            {
+                if (actor.Id == Session.PlayerId) continue;
+                DrawnPosition(actor, out float x, out float y);
+                var screen = Cam.WorldToScreenPoint(ArenaView.WorldPoint(x, y));
+                if (screen.z > 0) LatencyTrace.Mark("targetActor", actor.Id, (int)actor.Kind, screen.x, screen.y);
+            }
+        }
+
+        /// <summary>UI-facing: the living fighter under the pointer (what a left click would lock), 0 when none or over the HUD. Display only.</summary>
+        uint HoverActor()
+        {
+            var mouse = Mouse.current;
+            if (mouse == null || Cam == null || Session.Me == null || Session.Me.Status != ActorStatus.Alive) return 0;
+            if (UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return 0;
+            if (Arena == null || !Arena.ScreenToServer(Cam, mouse.position.ReadValue(), out float hx, out float hy)) return 0;
+            return PickWorld(hx, hy);
+        }
+
+        readonly List<PickCandidate> _pickList = new List<PickCandidate>();
+
+        /// <summary>Legacy pickTarget: nearest eligible actor to the cursor's world point, at drawn feet positions. OwnCompanion stays false: the wire carries no zombie owner.</summary>
+        uint PickWorld(float cx, float cy)
+        {
+            Session.Snapshots.Sample(Session.Snapshots.NewestMs, _targetActors);
+            _pickList.Clear();
+            foreach (var actor in _targetActors)
+            {
+                DrawnPosition(actor, out float x, out float y);
+                _pickList.Add(new PickCandidate { Id = actor.Id, X = x, Y = y, Kind = actor.Kind, Status = actor.Status, Effects = actor.Effects });
+            }
+            bool locked = Session.Collections.Arena.HasValue && Session.Collections.Arena.Value.GatesLocked;
+            return TargetPick.Pick(cx, cy, _pickList, Session.PlayerId, locked);
+        }
+
+        uint VisibleActorAt(Vector2 pointer)
+        {
+            uint id = 0; float best = float.PositiveInfinity;
+            // Use the newest delivered membership: observer refs can change between snapshots.
+            Session.Snapshots.Sample(Session.Snapshots.NewestMs, _targetActors);
+            foreach (var actor in _targetActors)
+            {
+                if (actor.Id == Session.PlayerId) continue;
+                DrawnPosition(actor, out float x, out float y);
+                var screen = Cam.WorldToScreenPoint(ArenaView.WorldPoint(x, y));
+                if (screen.z <= 0) continue;
+                // The drawn body stands above the feet: with a delivered body box the whole box is clickable (ADR0024).
+                var row = Roguehalla.Net.Protocol.WireArchetype.Find(Session.Archetypes, actor.Archetype);
+                bool body = row != null && row.Hull == 1;
+                Vector2 a = default, b = default;
+                if (body)
+                {
+                    a = Cam.WorldToScreenPoint(ArenaView.WorldPoint(x + row.Ox - row.Bx, y + row.Oy - row.By));
+                    b = Cam.WorldToScreenPoint(ArenaView.WorldPoint(x + row.Ox + row.Bx, y + row.Oy + row.By));
+                }
+                float d = ActorPick.Score(pointer, screen, body, a, b);
+                if (d >= 0f && d < best) { best = d; id = actor.Id; }
+            }
+            return id;
+        }
+
+        // Hit geometry follows ArenaView.Present: remote players are drawn at this frame's render-time sample (_actors),
+        // NPCs and players not yet in that sample at their newest delivered position.
+        void DrawnPosition(InterpActor newest, out float x, out float y)
+        {
+            x = newest.X; y = newest.Y;
+            if (newest.Kind != ActorKind.Player) return;
+            foreach (var drawn in _actors)
+                if (drawn.Id == newest.Id) { x = drawn.X; y = drawn.Y; return; }
+        }
+
+        void FollowCamera()
+        {
+            if (Cam == null || Arena == null) return;
+            if (Hud != null && Hud.TacticalMap != null && Hud.TacticalMap.IsPeeking)
+            { var at = Hud.TacticalMap.PeekAt; Arena.FollowExact(Cam, at.x, at.y); }
+            else if (Session.Motion != null && Session.Motion.Initialized)
+                Arena.FollowSmoothed(Cam, Session.Motion.DrawnX, Session.Motion.DrawnY, Time.unscaledDeltaTime, false);
+        }
+
+        void Present()
+        {
+            if (Arena == null) return;
+            // Renderer membership is refreshed independently of optional audio components.
+            Arena.RefreshVisibility(Session, presentFollows: true);   // Present below draws the creatures, cues and fades once
+            Arena.SetHover(HoverActor());
+            Arena.PresentCollections(Session.Collections);
+            Arena.WeaponRangeSuppressed = Hud != null && Hud.TacticalMap != null && (Hud.TacticalMap.IsOpen || Hud.TacticalMap.IsPeeking);   // legacy hides the range guide over the map and a peek
+            Arena.Present(_actors, Session.Me, Session.Motion, _aimAngle);
+            if (_traceLatency)
+            {
+                if (Session.Me != null && Session.Motion != null)
+                {
+                    LatencyTrace.Mark("presentSelf", Session.PlayerId, Session.Me.MoveSeq, Session.Motion.DrawnX, Session.Motion.DrawnY);
+                    // Reconciliation counters: x = samples compared, y = summed model-versus-server error, moveSeq slot = snaps (the pull-back the server forced).
+                    LatencyTrace.Mark("presentRecon", Session.PlayerId, Session.Motion.Snaps, Session.Motion.ReconSamples, Session.Motion.ReconErrSum);
+                    var oc = Session.Me.OwnerCombat;
+                    if (oc.HasValue && oc.Value.DrawStartedAt != 0 && oc.Value.DrawStartedAt != _traceDraw)
+                        LatencyTrace.Mark("ownDraw", Session.PlayerId, 0, oc.Value.DrawStartedAt, oc.Value.ReadyAt); // a bow draw began (the server's own fact)
+                    _traceDraw = oc.HasValue ? oc.Value.DrawStartedAt : 0;
+                }
+                foreach (var actor in _actors)
+                    LatencyTrace.Mark("presentActor", actor.Id, 0, actor.X, actor.Y);
+            }
+        }
+    }
+}

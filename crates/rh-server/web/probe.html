@@ -1,0 +1,1526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roguehalla protocol probe</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #11131a; color: #d8dce6; font: 14px/1.4 system-ui, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 16px; }
+  canvas { width: 100%; background: #1b1f2a; image-rendering: pixelated; border-radius: 6px; }
+  pre { background: #1b1f2a; padding: 8px; border-radius: 6px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Roguehalla protocol probe</h1>
+  <p>A browser client for protocol v18 over the browser WebSocket API (the transport a Unity Web build uses). It is a test
+  harness for Stage 1, not the game client. Click to walk; hold Space to attack toward the cursor.</p>
+  <canvas id="c" width="960" height="640"></canvas>
+  <pre id="s">connecting…</pre>
+</main>
+<script>
+"use strict";
+// ---- protocol v18 (mirror of crates/rh-protocol; tools/protocol-js/check-vectors.mjs holds this block to protocol/fixtures/v18.json) ----
+class W {
+  constructor() { this.b = new Uint8Array(256); this.n = 0; this.v = new DataView(this.b.buffer); }
+  need(k) { if (this.n + k > this.b.length) { const nb = new Uint8Array(this.b.length * 2 + k); nb.set(this.b); this.b = nb; this.v = new DataView(nb.buffer); } }
+  u8(x) { this.need(1); this.v.setUint8(this.n, x); this.n += 1; }
+  u16(x) { this.need(2); this.v.setUint16(this.n, x, true); this.n += 2; }
+  u32(x) { this.need(4); this.v.setUint32(this.n, x >>> 0, true); this.n += 4; }
+  u64(x) { this.need(8); this.v.setBigUint64(this.n, BigInt.asUintN(64, x), true); this.n += 8; }
+  varint(x) { x = x >>> 0; while (x > 0x7f) { this.u8((x & 0x7f) | 0x80); x >>>= 7; } this.u8(x); }
+  f32(x) { this.need(4); this.v.setFloat32(this.n, x, true); this.n += 4; }
+  f64(x) { this.need(8); this.v.setFloat64(this.n, x, true); this.n += 8; }
+  bytes(a) { this.need(a.length); this.b.set(a, this.n); this.n += a.length; }
+  // At most 255 bytes; longer is refused, never cut (like rh-protocol and the C# mirror).
+  str(s) { const e = new TextEncoder().encode(s); if (e.length > 255) throw new Error("string of " + e.length + " bytes does not fit the wire (max 255)"); this.u8(e.length); this.bytes(e); }
+  // u16 length + bytes: the opaque admission ticket (at most MAX_TICKET bytes; longer is refused, never cut).
+  blob(a) { if (a.length > MAX_TICKET) throw new Error("ticket of " + a.length + " bytes does not fit the wire (max " + MAX_TICKET + ")"); this.u16(a.length); this.bytes(a); }
+  out() { return this.b.slice(0, this.n); }
+}
+class R {
+  constructor(buf, p = 0, limit = buf.byteLength) { this.v = new DataView(buf); this.p = p; this.limit = limit; }
+  need(k) { if (this.p + k > this.limit) throw new Error("truncated"); }
+  u8() { this.need(1); const x = this.v.getUint8(this.p); this.p += 1; return x; }
+  u16() { this.need(2); const x = this.v.getUint16(this.p, true); this.p += 2; return x; }
+  u32() { this.need(4); const x = this.v.getUint32(this.p, true); this.p += 4; return x; }
+  // Canonical unsigned LEB128 into a u32 (a Number); anything else is malformed.
+  varint() {
+    let v = 0;
+    for (let i = 0; i < 5; i++) {
+      const b = this.u8(), g = b & 0x7f;
+      if (i === 4 && g > 0x0f) throw new Error("bad varint");
+      v += g * 2 ** (7 * i);
+      if ((b & 0x80) === 0) { if (i > 0 && g === 0) throw new Error("bad varint"); return v; }
+    }
+    throw new Error("bad varint");
+  }
+  varintU16(what) { const v = this.varint(); if (v > 65535) throw new Error("bad " + what); return v; }
+  // A byte that must be at most `max` (a status or phase code).
+  code(max, what) { const v = this.u8(); if (v > max) throw new Error("bad " + what); return v; }
+  u64() { this.need(8); const x = this.v.getBigUint64(this.p, true); this.p += 8; return x; }
+  f32() { this.need(4); const x = this.v.getFloat32(this.p, true); this.p += 4; return x; }
+  f64() { this.need(8); const x = this.v.getFloat64(this.p, true); this.p += 8; return x; }
+  bytes(n) { this.need(n); const a = new Uint8Array(this.v.buffer.slice(this.p, this.p + n)); this.p += n; return a; }
+  // Strict UTF-8 (fatal), like rh-protocol (String::from_utf8) and the C# mirror.
+  str() { const b = this.bytes(this.u8()); try { return UTF8.decode(b); } catch { throw new Error("bad utf-8"); } }
+  opt(f) { const t = this.u8(); if (t === 0) return null; if (t === 1) return f(); throw new Error("bad option"); }
+}
+function cursor(view, p = 0, limit = view.byteLength) {
+  const r = Object.create(R.prototype); r.v = view; r.p = p; r.limit = limit; return r;
+}
+const UTF8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+const MAX_MAP_TILES = 1024 * 1024;
+// P-FROST-WALL-2: most tiles one key 3 wall row may carry (rh-protocol MAX_WALL_TILES).
+const MAX_WALL_TILES = 64;
+// Protocol 17: six decodable planes (collision, terrain, regions, bushes, ground variants and, section version 3, the camp
+// patience plane).
+const MAX_MAP_DECODED_BYTES = 6 * 1024 * 1024;
+const MAX_MAP_RUNS = 6 * 1024 * 1024;
+const TERRAIN_MAX = 7, REGION_MAX = 6, GROUND_VERSION = 2;
+// P-WIRE17-MAP-2: section version 3 adds a second presence byte after the first; its bit 1 is the camp patience plane,
+// bit 2 (P-WIRE17-MAP-3) the landmark anchors.
+const GROUND_VERSION_PRESENCE2 = 3, PRESENCE2_PATIENCE = 1, PRESENCE2_ANCHORS = 2, PRESENCE2_KNOWN = 3;
+// P-WIRE17-MAP-3 anchor caps (crates/rh-protocol/src/map.rs): five rows, sixteen entrance tiles, kind codes 1..5 (volcano,
+// church, bog tree, cave, hall), a DIR16 front; a row is 16 fixed bytes then 4 per entrance tile.
+const MAX_MAP_ANCHORS = 5, MAX_ANCHOR_ENTRANCE = 16, MAX_ANCHOR_KIND = 5, ANCHOR_DIRS = 16, ANCHOR_FIXED_LEN = 16;
+// Protocol 17 public map sections (crates/rh-protocol/src/map.rs): caps and the presence bits after terrain (1) and regions (2).
+const MAX_MAP_CAMPS = 64, MAX_COLISEUM_GATES = 8, MAX_GATE_TILES = 16, MAX_MAP_PROPS = 8192;
+const PRESENCE_CAMPS = 4, PRESENCE_COLISEUM = 8, PRESENCE_BUSHES = 16, PRESENCE_PROPS = 32, PRESENCE_GROUND_VARIANTS = 64;
+// Map dressing value caps (P-DRESS-BAKE-1; the same constants as crates/rh-protocol/src/map.rs).
+const PROP_FLAG_TALL = 1, PROP_FLAG_LEGACY = 2, MAX_PROP_KIND = 100, LEGACY_PROP_KINDS = 34, MAX_PROP_VARIANT = 3;
+const MAX_GROUND_VARIANT = 15;
+function fnv(w, h, tiles) {
+  let x = 0x811c9dc5;
+  const eat = (b) => { x ^= b; x = Math.imul(x, 0x01000193) >>> 0; };
+  for (const v of [w, h]) for (let i = 0; i < 4; i++) eat((v >>> (8 * i)) & 255);
+  for (const t of tiles) eat(t);
+  return x >>> 0;
+}
+function fnvByte(x, b) { return Math.imul((x ^ b) >>> 0, 0x01000193) >>> 0; }
+function fnvU32(x, v) { v >>>= 0; for (let i = 0; i < 4; i++) x = fnvByte(x, (v >>> (8 * i)) & 255); return x; }
+function fnvText(x, s) { for (let i = 0; i < s.length; i++) x = fnvByte(x, s.charCodeAt(i)); return x; }
+function fnvRuns(x, r, runs) {
+  for (let i = 0; i < runs; i++) { const value = r.u8(), len = r.u16(); for (let j = 0; j < len; j++) x = fnvByte(x, value); }
+  return x;
+}
+function fnvPlane(x, r, descriptor) { r.u32(); return fnvRuns(x, r, descriptor.runs); }
+function readPlane(r, n, maxValue, reserveBytes, what) {
+  const start = r.p, runs = r.u32();
+  if (runs < 1 || runs > n || runs > MAX_MAP_RUNS || runs * 3 > r.limit - r.p - reserveBytes) throw new Error("bad " + what + " runs");
+  let cells = 0;
+  for (let i = 0; i < runs; i++) {
+    const value = r.u8(), len = r.u16();
+    if (value > maxValue || len === 0 || cells + len > n) throw new Error("bad " + what + " run");
+    cells += len;
+  }
+  if (cells !== n) throw new Error("bad " + what + " length");
+  return { start, runs, limit: r.limit };
+}
+function fnvSpan(x, view, start, end) { for (let i = start; i < end; i++) x = fnvByte(x, view.getUint8(i)); return x; }
+// A bush or ground-variant plane: zero or overlong runs are "run", a short plane "length", missing bytes truncated; then
+// (when maxValue is given) a cell above it is "<valueReason>", after every run check as in Rust.
+function readPublicPlane(r, n, what, maxValue = 255, valueReason = "") {
+  const start = r.p, runs = r.u32();
+  if (runs < 1 || runs > n) throw new Error("bad map " + what + " run");
+  if (runs * 3 > r.limit - r.p) throw new Error("truncated");
+  let cells = 0, max = 0;
+  for (let i = 0; i < runs; i++) {
+    const value = r.u8(), len = r.u16();
+    if (len === 0 || cells + len > n) throw new Error("bad map " + what + " run");
+    cells += len;
+    if (value > max) max = value;
+  }
+  if (cells !== n) throw new Error("bad map " + what + " length");
+  if (max > maxValue) throw new Error("bad map " + valueReason);
+  return { start, runs, limit: r.limit };
+}
+// P-WIRE17-MAP-2: the camp patience plane. A run count the extension cannot hold is truncated (checked first, unlike the
+// other planes), then zero or overlong runs are "run", a short plane "length", and a cell past the camp count
+// "patience camp", after every run check as in Rust.
+function readPatiencePlane(r, n, campCount) {
+  const start = r.p, runs = r.u32();
+  if (runs * 3 > r.limit - r.p) throw new Error("truncated");
+  if (runs < 1 || runs > n) throw new Error("bad map patience run");
+  let cells = 0, max = 0;
+  for (let i = 0; i < runs; i++) {
+    const value = r.u8(), len = r.u16();
+    if (len === 0 || cells + len > n) throw new Error("bad map patience run");
+    cells += len;
+    if (value > max) max = value;
+  }
+  if (cells !== n) throw new Error("bad map patience length");
+  if (max > campCount) throw new Error("bad map patience camp");
+  return { start, runs, limit: r.limit };
+}
+function readMapCamps(r) {
+  const count = r.u8();
+  if (count === 0 || count > MAX_MAP_CAMPS) throw new Error("bad map camp count");
+  if (count * 7 > r.limit - r.p) throw new Error("truncated");
+  const camps = [];
+  for (let i = 0; i < count; i++) {
+    const x = r.u16(), y = r.u16(), radius = r.u16(), zone = r.u8();
+    if (zone === 0 || zone > 5) throw new Error("bad map camp zone");
+    camps.push({ x, y, r: radius, zone });
+  }
+  return camps;
+}
+function readMapColiseum(r, w, h) {
+  const x = r.u16(), y = r.u16(), cw = r.u16(), ch = r.u16();
+  if (cw === 0 || ch === 0 || x + cw > w || y + ch > h) throw new Error("bad map coliseum rect");
+  const count = r.u8();
+  if (count > MAX_COLISEUM_GATES) throw new Error("bad map gate count");
+  const gates = [];
+  for (let g = 0; g < count; g++) {
+    const side = r.u8();
+    if (side > 3) throw new Error("bad map gate side");
+    const n = r.u8();
+    if (n === 0 || n > MAX_GATE_TILES) throw new Error("bad map gate tiles");
+    const tiles = [];
+    for (let t = 0; t < n; t++) {
+      const tx = r.u16(), ty = r.u16();
+      if (tx >= w || ty >= h) throw new Error("bad map gate tile");
+      tiles.push({ x: tx, y: ty });
+    }
+    gates.push({ side, tiles });
+  }
+  return { x, y, w: cw, h: ch, gates };
+}
+// P-WIRE17-MAP-3: the landmark anchors, checked in the Rust order: count; per row (its 16 fixed bytes present, else
+// truncated) zone, order (ascending, no duplicates), kind, footprint (inside the map, non-empty), centre (inside the
+// half-open footprint), front, entrance count; the entrance bytes present (else truncated), each tile on the map.
+function readMapAnchors(r, w, h) {
+  const count = r.u8();
+  if (count === 0 || count > MAX_MAP_ANCHORS) throw new Error("bad map anchor count");
+  const anchors = [];
+  let prev = 0;
+  for (let i = 0; i < count; i++) {
+    if (ANCHOR_FIXED_LEN > r.limit - r.p) throw new Error("truncated");
+    const zone = r.u8(), kind = r.u8(), cx = r.u16(), cy = r.u16();
+    const fx = r.u16(), fy = r.u16(), fw = r.u16(), fh = r.u16(), front = r.u8(), n = r.u8();
+    if (zone === 0 || zone > 5) throw new Error("bad map anchor zone");
+    if (zone <= prev) throw new Error("bad map anchor order");
+    if (kind === 0 || kind > MAX_ANCHOR_KIND) throw new Error("bad map anchor kind");
+    if (fw === 0 || fh === 0 || fx + fw > w || fy + fh > h) throw new Error("bad map anchor footprint");
+    if (cx < fx || cx >= fx + fw || cy < fy || cy >= fy + fh) throw new Error("bad map anchor centre");
+    if (front >= ANCHOR_DIRS) throw new Error("bad map anchor front");
+    if (n > MAX_ANCHOR_ENTRANCE) throw new Error("bad map anchor entrance");
+    if (n * 4 > r.limit - r.p) throw new Error("truncated");
+    const entrance = [];
+    for (let t = 0; t < n; t++) {
+      const x = r.u16(), y = r.u16();
+      if (x >= w || y >= h) throw new Error("bad map anchor entrance");
+      entrance.push({ x, y });
+    }
+    anchors.push({ zone, kind, centre: { x: cx, y: cy }, footprint: { x: fx, y: fy, w: fw, h: fh }, front, entrance });
+    prev = zone;
+  }
+  return anchors;
+}
+// Map dressing rows (P-DRESS-BAKE-1), checked in the Rust order: flags, kind, variant, tile (32 world units), (y, x, kind) order.
+function readMapProps(r, w, h) {
+  const count = r.u16();
+  if (count === 0 || count > MAX_MAP_PROPS) throw new Error("bad map prop count");
+  if (count * 7 > r.limit - r.p) throw new Error("truncated");
+  const props = [];
+  let prev = null;
+  for (let i = 0; i < count; i++) {
+    const kind = r.u8(), x = r.u16(), y = r.u16(), variant = r.u8(), flags = r.u8();
+    if (flags & ~(PROP_FLAG_TALL | PROP_FLAG_LEGACY)) throw new Error("bad map prop flags");
+    if (flags & PROP_FLAG_LEGACY) {
+      if (kind >= LEGACY_PROP_KINDS) throw new Error("bad map prop kind");
+    } else {
+      if (kind === 0 || kind > MAX_PROP_KIND) throw new Error("bad map prop kind");
+      if (variant > MAX_PROP_VARIANT) throw new Error("bad map prop variant");
+    }
+    if (Math.floor(x / 32) >= w || Math.floor(y / 32) >= h) throw new Error("bad map prop tile");
+    if (prev && !(y > prev.y || (y === prev.y && (x > prev.x || (x === prev.x && kind > prev.kind)))))
+      throw new Error("bad map prop order");
+    prev = { kind, x, y, variant, flags };
+    props.push(prev);
+  }
+  return props;
+}
+function fillPlane(buf, descriptor, n) {
+  const r = cursor(buf, descriptor.start, descriptor.limit);
+  const runs = r.u32(), out = new Uint8Array(n); let p = 0;
+  for (let i = 0; i < runs; i++) { const value = r.u8(), len = r.u16(); out.fill(value, p, p + len); p += len; }
+  return out;
+}
+function checkTerrainAgainstCollision(collisionBuf, collision, terrainBuf, terrain, n) {
+  const a = cursor(collisionBuf, collision.start, collision.limit), b = cursor(terrainBuf, terrain.start, terrain.limit);
+  let ar = a.u32(), br = b.u32(), av = 0, bv = 0, an = 0, bn = 0, left = n;
+  while (left > 0) {
+    if (!an) { av = a.u8(); an = a.u16(); ar--; }
+    if (!bn) { bv = b.u8(); bn = b.u16(); br--; }
+    if (bv !== 0 && !((bv <= 3 && (av === 1 || av === 2)) || (bv >= 4 && av === 0))) throw new Error("bad terrain collision");
+    const take = Math.min(an, bn); an -= take; bn -= take; left -= take;
+  }
+}
+const PROTOCOL = 18;
+const MAX_TICKET = 448;
+const MAX_QUEST_VIEW_BYTES = 24 * 1024;
+const MAX_TRADE_VIEW_BYTES = 2213;
+// Quantized remote actors and swings (rh-protocol quant.rs): positions are u16 at 1/8 u, angles u16 over 2 pi read as a signed code.
+const FACING_STEP_F32 = Math.fround(2 * Math.PI / 65536);
+const dqPos = (q) => q / 8;
+const dqAngle = (q) => Math.fround(((q << 16) >> 16) * FACING_STEP_F32);
+// `ticket`: opaque admission credential bytes (a string is sent as its UTF-8); `profile` is the display name.
+function hello(contentHash, profile, ticket, faction, resume) {
+  const w = new W(); w.u8(1); w.u16(PROTOCOL); w.u64(contentHash); w.str("probe-js"); w.str(profile);
+  w.blob(typeof ticket === "string" ? new TextEncoder().encode(ticket) : ticket);
+  if (faction === null) w.u8(0); else { w.u8(1); w.u8(faction); }
+  if (!resume) w.u8(0); else { w.u8(1); w.bytes(resume); }
+  return w.out();
+}
+function input(seq, cmds) {
+  if (cmds.length > 16) throw new Error("too many commands");
+  const w = new W(); w.u8(2); w.u32(seq); w.u16(cmds.length);
+  for (const c of cmds) {
+    if (c.k === "move" || c.k === "attackMove") { w.u8(c.k === "move" ? 1 : 11); w.f32(c.x); w.f32(c.y); if (c.seq == null) w.u8(0); else { w.u8(1); w.u8(c.seq); } }
+    else if (c.k === "swap") { if (c.slot != null && c.slot !== 0 && c.slot !== 1) throw new Error("bad slot"); w.u8(6); if (c.slot == null) w.u8(0); else { w.u8(1); w.u8(c.slot); } }
+    else if (c.k === "pickup") { if (!Number.isInteger(c.handle) || c.handle <= 0 || c.handle > 0xffffffff) throw new Error("bad container"); w.u8(7); w.u32(c.handle); }
+    else if(c.k === "choose") { if(!Number.isInteger(c.handle) || c.handle<=0 || c.handle>0xffffffff || !Number.isInteger(c.pick) || c.pick < -1 || c.pick > 2) throw new Error("bad reward choice"); w.u8(8);w.u32(c.handle);w.u8(c.pick & 255); }
+    else if (c.k === "plan") {
+      if (c.spawn != null && c.spawn !== 0 && c.spawn !== 1) throw new Error("bad plan spawn");
+      if (c.boon != null && c.boon !== 0 && c.boon !== 1) throw new Error("bad plan boon");
+      w.u8(14); w.u8((c.spawn != null ? 1 : 0) | (c.boon != null ? 2 : 0) | (c.ready != null ? 4 : 0));
+      if (c.spawn != null) w.u8(c.spawn);
+      if (c.boon != null) w.u8(c.boon);
+      if (c.ready != null) w.u8(c.ready ? 1 : 0);
+    }
+    else if(c.k === "useConsumable") { w.u8(9); }
+    else if(c.k === "target") { if(!Number.isInteger(c.actorRef)||c.actorRef<=0||c.actorRef>0xffffffff) throw new Error("bad actor reference");w.u8(10);w.u32(c.actorRef); }
+    else if(c.k === "huntTarget") { if(!Number.isInteger(c.actorRef)||c.actorRef<=0||c.actorRef>0xffffffff) throw new Error("bad hunt target");w.u8(12);w.u32(c.actorRef); }
+    else if(c.k === "consumeCorpse") { if(!Number.isInteger(c.handle)||c.handle<=0||c.handle>0xffffffff) throw new Error("bad corpse handle");w.u8(13);w.u32(c.handle); }
+    else if(c.k === "questAccept") { if(!Number.isInteger(c.handle)||c.handle<=0||c.handle>0xffffffff) throw new Error("bad quest handle");w.u8(17);w.varint(c.handle); }
+    else if(c.k === "trade") { if (!Number.isInteger(c.kind) || c.kind < 0 || c.kind > 1 || !Number.isInteger(c.pick) || c.pick < 0 || c.pick > 2) throw new Error("bad trade command"); w.u8(18); w.u8(c.kind); w.u8(c.pick); }
+    else if(c.k === "cast") {
+      if (!Number.isInteger(c.slot) || c.slot < 0 || c.slot > 2) throw new Error("bad cast slot");
+      if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || !Number.isFinite(Math.fround(c.x)) || !Number.isFinite(Math.fround(c.y))) throw new Error("non-finite");
+      if (c.actorRef != null && (!Number.isInteger(c.actorRef) || c.actorRef <= 0 || c.actorRef > 0xffffffff)) throw new Error("bad actor reference");
+      if (c.t != null && !Number.isFinite(c.t)) throw new Error("non-finite");
+      if (c.seq != null && (!Number.isInteger(c.seq) || c.seq < 0 || c.seq > 255)) throw new Error("bad order sequence");
+      w.u8(16); w.u8(c.slot); w.f32(c.x); w.f32(c.y);
+      if (c.actorRef == null) w.u8(0); else { w.u8(1); w.u32(c.actorRef); }
+      if (c.t == null) w.u8(0); else { w.u8(1); w.f64(c.t); }
+      if (c.seq == null) w.u8(0); else { w.u8(1); w.u8(c.seq); }
+    }
+    else if (c.k === "stop") { w.u8(2); if (c.seq == null) w.u8(0); else { w.u8(1); w.u8(c.seq); } }
+    else if (c.k === "aim") { w.u8(3); w.f32(c.a); }
+    else if (c.k === "attack") { w.u8(4); w.f32(c.a); if (c.t == null) w.u8(0); else { w.u8(1); w.f64(c.t); } }
+    else if (c.k === "release") { w.u8(5); w.f32(c.a); if (c.t == null) w.u8(0); else { w.u8(1); w.f64(c.t); } }
+    else if (c.k === "train") {
+      if (!Number.isInteger(c.command) || c.command < 1 || c.command > 5) throw new Error("bad train command");
+      const options = c.options || [];
+      if (options.length > 3) throw new Error("bad train options");
+      w.u8(15); w.u8(c.command); w.varint(c.id); w.u64(c.count); w.u8(options.length);
+      for (const o of options) w.u8(o);
+    }
+    else throw new Error("bad command");
+  }
+  return w.out();
+}
+// Strict client mirror for vector checks; real authority remains validate + Sim::submit.
+function decodeClient(buf) {
+  if (buf.byteLength > 1024) throw new Error("too large");
+  const r = new R(buf), finite = (x) => { if (!Number.isFinite(x)) throw new Error("non-finite"); return x; };
+  let m; const tag = r.u8();
+  if (tag === 1) {
+    m = { t: "hello", protocol: r.u16(), contentHash: r.u64(), build: r.str(), profile: r.str() };
+    const n = r.u16(); if (n > MAX_TICKET) throw new Error("ticket too long");
+    m.ticket = r.bytes(n); m.faction = r.opt(() => r.u8()); m.resume = r.opt(() => r.bytes(16));
+  } else if (tag === 2) {
+    m = { t: "input", seq: r.u32(), cmds: [] }; const n = r.u16();
+    if (n > 16) throw new Error("too many commands");
+    for (let i = 0; i < n; i++) {
+      const k = r.u8(); let c;
+      if (k === 1 || k === 11) c = { k: k===1 ? "move" : "attackMove", x: finite(r.f32()), y: finite(r.f32()), seq: r.opt(() => r.u8()) };
+      else if(k === 9) c={k:"useConsumable"};
+      else if(k === 10) {const actorRef=r.u32();if(!actorRef)throw new Error("bad actor reference");c={k:"target",actorRef};}
+      else if(k === 12) {const actorRef=r.u32();if(!actorRef)throw new Error("bad hunt target");c={k:"huntTarget",actorRef};}
+      else if(k === 13) {const handle=r.u32();if(!handle)throw new Error("bad corpse handle");c={k:"consumeCorpse",handle};}
+      else if(k === 17) {const handle=r.varint();if(!handle)throw new Error("bad quest handle");c={k:"questAccept",handle};}
+      else if (k === 18) { const kind = r.u8(), pick = r.u8(); if (kind > 1 || pick > 2) throw new Error("bad trade command"); c = { k: "trade", kind, pick }; }
+      else if (k === 16) {
+        const slot = r.code(2, "cast slot"), x = finite(r.f32()), y = finite(r.f32());
+        const actorRef = strictOpt(r, () => { const v = r.u32(); if (!v) throw new Error("bad actor reference"); return v; });
+        const t = strictOpt(r, () => finite(r.f64()));
+        const seq = strictOpt(r, () => r.u8());
+        c = { k: "cast", slot, x, y, actorRef, t, seq };
+      }
+      else if (k === 2) c = { k: "stop", seq: r.opt(() => r.u8()) };
+      else if (k === 3) c = { k: "aim", a: finite(r.f32()) };
+      else if (k === 4 || k === 5) c = { k: k === 4 ? "attack" : "release", a: finite(r.f32()), t: r.opt(() => finite(r.f64())) };
+      else if (k === 6) { const slot = r.opt(() => r.u8()); if (slot !== null && slot > 1) throw new Error("bad slot"); c = { k: "swap", slot }; }
+      else if (k === 7) { const handle = r.u32(); if (handle === 0) throw new Error("bad container"); c = { k: "pickup", handle }; }
+      else if(k === 8) { const handle=r.u32(), byte=r.u8(), pick=byte===255?-1:byte; if(!handle || pick>2) throw new Error("bad reward choice"); c={k:"choose",handle,pick}; }
+      else if (k === 14) {
+        const flags = r.u8(); if (flags & ~7) throw new Error("bad plan flags");
+        const spawn = (flags & 1) ? r.u8() : null; if (spawn !== null && spawn > 1) throw new Error("bad plan spawn");
+        const boon = (flags & 2) ? r.u8() : null; if (boon !== null && boon > 1) throw new Error("bad plan boon");
+        const ready = (flags & 4) ? r.u8() !== 0 : null;
+        c = { k: "plan", spawn, boon, ready };
+      }
+      else if (k === 15) {
+        const command = r.u8(); if (command < 1 || command > 5) throw new Error("bad train command");
+        const id = r.varint(), count = r.u64(), on = r.u8(); if (on > 3) throw new Error("bad train options");
+        const options = []; for (let j = 0; j < on; j++) options.push(r.u8());
+        c = { k: "train", command, id, count, options };
+        m.cmds.push(c); continue;
+      }
+      else throw new Error("bad command");
+      m.cmds.push(c);
+    }
+  } else if (tag === 3) m = { t: "ping", nonce: r.u32(), clientMs: finite(r.f64()) };
+  else if (tag === 4 || tag === 5) m = { t: tag === 4 ? "leave" : "resync" };
+  else throw new Error("bad client tag");
+  if (r.p !== buf.byteLength) throw new Error("trailing bytes");
+  return m;
+}
+function ping(nonce) { const w = new W(); w.u8(3); w.u32(nonce); w.f64(performance.now()); return w.out(); }
+function leave() { return new Uint8Array([4]); }
+// "Send me a full snapshot" (a delta was refused).
+function resync() { return new Uint8Array([5]); }
+function decode(buf) {
+  if (buf.byteLength > 256 * 1024) throw new Error("frame too large");
+  // Refuse a mismatched Welcome before its map is decoded or the tracker changes its baseline.
+  const prefix = new DataView(buf);
+  if (buf.byteLength >= 3 && prefix.getUint8(0) === 0x81 && prefix.getUint16(1, true) !== PROTOCOL) {
+    const e = new Error("protocol mismatch"); e.protocolMismatch = true; throw e;
+  }
+  const r = new R(buf);
+  const m = decodeBody(r);
+  if (r.p !== buf.byteLength) throw new Error("trailing bytes");
+  if (m.t === "snapshot") {
+    validateGiverActors(m.actors, false);
+    validateOwnerCombatGroup(m.ownerCombat, m.me, m.actors, false);
+  }
+  return m;
+}
+// Protocol-12 and later options are explicitly strict without changing the v1..v11 option rules.
+function strictOpt(r, f) {
+  const tag = r.u8();
+  if (tag === 0) return null;
+  if (tag !== 1) throw new Error("bad option");
+  return f();
+}
+function nonnegative(x, what) {
+  if (!Number.isFinite(x) || x < 0) throw new Error("bad " + what);
+  return x;
+}
+function readAbility(r) { return r.code(4, "ability"); }
+function readWish(r) {
+  const ability = readAbility(r);
+  const readyAt = nonnegative(r.f64(), "Wish clock");
+  const fullAt = strictOpt(r, () => nonnegative(r.f64(), "Wish clock"));
+  const maxCharges = r.u8();
+  const rechargeMs = nonnegative(r.f64(), "Wish duration");
+  const charges = r.u8();
+  if (maxCharges < 1 || maxCharges > 2 || charges > maxCharges) throw new Error("bad Wish charges");
+  const nextChargeAt = strictOpt(r, () => nonnegative(r.f64(), "Wish clock"));
+  const cast = strictOpt(r, () => {
+    const ability = readAbility(r), startedAt = nonnegative(r.f64(), "Wish clock"), landsAt = nonnegative(r.f64(), "Wish clock");
+    if (landsAt < startedAt) throw new Error("bad Wish cast order");
+    return { ability, startedAt, landsAt };
+  });
+  return { ability, readyAt, fullAt, maxCharges, rechargeMs, charges, nextChargeAt, cast };
+}
+function readOwnerBarrier(r) {
+  const amount = r.f32(), ring = r.u8();
+  if (!Number.isFinite(amount) || amount < 0 || ring > 8) throw new Error("bad owner barrier");
+  return { amount, ring };
+}
+function readActorBarrier(r) {
+  const pct = r.u8(), ring = r.u8();
+  if (pct > 100 || ring > 8) throw new Error("bad actor barrier");
+  return { pct, ring };
+}
+function readOwnerCombatMirror(r) {
+  const value = r.f64();
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value < 50) throw new Error("bad owner combat mirror");
+  return value;
+}
+function readOwnerCombat(r) {
+  const state = r.u8();
+  let lock;
+  if (state === 0) lock = { clear: true };
+  else if (state === 1) lock = { held: true, target: null };
+  else if (state === 2) {
+    const target = r.varint();
+    if (target === 0) throw new Error("bad owner combat reference");
+    lock = { held: true, target };
+  } else throw new Error("bad owner combat lock");
+  return {
+    lock, drawStartedAt: r.u32(), readyAt: r.u32(),
+    asMilli: readOwnerCombatMirror(r), windupMilli: readOwnerCombatMirror(r), speedMilli: readOwnerCombatMirror(r),
+  };
+}
+function copyOwnerCombat(group) {
+  if (group == null) return null;
+  const lock = group.lock?.clear === true ? { clear: true } : { held: true, target: group.lock?.target ?? null };
+  return { lock, drawStartedAt: group.drawStartedAt, readyAt: group.readyAt,
+    asMilli: group.asMilli, windupMilli: group.windupMilli, speedMilli: group.speedMilli };
+}
+function validOwnerCombatShape(group) {
+  if (group == null || !Number.isInteger(group.drawStartedAt) || group.drawStartedAt < 0 || group.drawStartedAt > 0xffffffff
+    || !Number.isInteger(group.readyAt) || group.readyAt < 0 || group.readyAt > 0xffffffff) return false;
+  for (const value of [group.asMilli, group.windupMilli, group.speedMilli])
+    if (!Number.isFinite(value) || !Number.isInteger(value) || value < 50) return false;
+  const lock = group.lock;
+  if (lock?.clear === true && lock.held !== true && !Object.prototype.hasOwnProperty.call(lock, "target")) return true;
+  return lock?.held === true && lock.clear !== true
+    && (lock.target === null || (Number.isInteger(lock.target) && lock.target > 0 && lock.target <= 0xffffffff));
+}
+function validateOwnerCombatGroup(group, me, actors, trackerCandidate) {
+  if (group == null) return;
+  const fail = (code) => {
+    if (trackerCandidate) throw refused("owner_combat");
+    throw new Error("bad owner combat " + code.replace("owner_combat_", ""));
+  };
+  if (!me) fail("owner_combat_owner");
+  if (!validOwnerCombatShape(group)) fail("owner_combat_fields");
+  if (group.lock.held && group.lock.target !== null && !actors.some(a => a.id === group.lock.target)) fail("owner_combat_reference");
+}
+function readWishPoint(r) { return strictOpt(r, () => ({ x: dqPos(r.u16()), y: dqPos(r.u16()) })); }
+function readWishActor(r) { return strictOpt(r, () => { const id = r.varint(); if (!id) throw new Error("bad actor reference"); return id; }); }
+function readArchetypes(r) {
+  const n = r.u8();
+  if (n > 32) throw new Error("bad archetype count");
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const id = r.u8(), key = r.str(), hull = r.u8();
+    let row;
+    if (hull === 0) row = { id, key, hull, r: r.u8() };
+    else if (hull === 1) {
+      const fx = r.u8(), fy = r.u8(), bx = r.u8(), by = r.u8();
+      const ox = (r.u8() << 24) >> 24, oy = (r.u8() << 24) >> 24;
+      row = { id, key, hull, fx, fy, bx, by, ox, oy };
+    } else throw new Error("bad archetype hull");
+    row.chest = r.u8();
+    if (key.length === 0 || key.length > 24 || !/^[\x21-\x7e]+$/.test(key)) throw new Error("bad archetype");
+    if (hull === 0 ? row.r === 0 : (row.fx === 0 || row.fy === 0 || row.bx === 0 || row.by === 0)) throw new Error("bad archetype");
+    if (rows.length && id <= rows[rows.length - 1].id) throw new Error("bad archetype order");
+    rows.push(row);
+  }
+  return rows;
+}
+// Protocol 16: the vision rule's parameters (public constants and map metadata), between the archetype table and the map.
+function readVision(r) {
+  const version = r.u8(), tile = r.f64(), radius = r.f64(), trailMs = r.f64(), updateMs = r.f64(), sightMask = r.u8();
+  const flag = r.u8();
+  if (flag > 1) throw new Error("bad vision");
+  const coliseum = flag ? { x: r.u16(), y: r.u16(), w: r.u16(), h: r.u16() } : null;
+  const within = (v, lo, hi, open) => Number.isFinite(v) && v <= hi && (open ? v > lo : v >= lo);
+  if (version === 0 || !within(tile, 0, 1024, true) || !within(radius, 0, 1e6, true) || !within(trailMs, 0, 1e9, false)
+    || !within(updateMs, 0, 1e6, true) || sightMask === 0 || (coliseum && (coliseum.w === 0 || coliseum.h === 0))) throw new Error("bad vision");
+  return { version, tile, radius, trailMs, updateMs, sightMask, coliseum };
+}
+// Protocol 16: the weapon table (each weapon's hit shape from the sim content), between the vision block and the map:
+// count u8, then per row id u8, kind u8 (0 none, 1 arc, 2 projectile), reach f64, halfArc f64, speed f64, radius f64.
+function readWeapons(r) {
+  const n = r.u8();
+  if (n > 32) throw new Error("bad weapon count");
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const id = r.u8(), kind = r.u8();
+    if (kind > 2) throw new Error("bad weapon kind");
+    rows.push({ id, kind, reach: r.f64(), halfArc: r.f64(), speed: r.f64(), radius: r.f64() });
+  }
+  const ok = (v) => Number.isFinite(v) && v >= 0 && v <= 1e6;
+  for (const w of rows) {
+    if (![w.reach, w.halfArc, w.speed, w.radius].every(ok)) throw new Error("bad weapon");
+    const fits = w.kind === 0 ? w.reach === 0 && w.halfArc === 0 && w.speed === 0 && w.radius === 0
+      : w.kind === 1 ? w.reach > 0 && w.halfArc > 0 && w.halfArc <= Math.PI && w.speed === 0 && w.radius === 0
+      : w.reach > 0 && w.speed > 0 && w.halfArc === 0;
+    if (!fits) throw new Error("bad weapon");
+  }
+  for (let i = 1; i < n; i++) if (rows[i].id <= rows[i - 1].id) throw new Error("bad weapon order");
+  return rows;
+}
+// P-WIRE17-HUD-2b: the HUD content block, between the weapon table and the map: scaling count u8 (<= 32), rows of id u8,
+// ad f64, ap f64, bonusHp f64, bonusDefense f64, dominant u8 (0/1); term count u8 (<= 30), rows of code u8 (< 30),
+// value f64. Ids and codes strictly ascend; every value finite in 0..=1e6. Checked in the Rust order: a count over its cap
+// before any row, a dominant byte or a code as soon as read, then values, then order. P-FROST-WALL-2: codes 23-29 (23 Frost's
+// Wish in this room, 0 Freeze, 1 Wall; 24-29 the wall's numbers).
+const HUD_TERM_COUNT = 30;
+function readHud(r) {
+  const ok = (v) => Number.isFinite(v) && v >= 0 && v <= 1e6;
+  const n = r.u8();
+  if (n > 32) throw new Error("bad scaling count");
+  const scaling = [];
+  for (let i = 0; i < n; i++) {
+    const id = r.u8(), ad = r.f64(), ap = r.f64(), bonusHp = r.f64(), bonusDefense = r.f64(), dominant = r.u8();
+    if (dominant > 1) throw new Error("bad scaling dominant");
+    scaling.push({ id, ad, ap, bonusHp, bonusDefense, dominant: dominant === 1 });
+  }
+  for (const s of scaling) if (![s.ad, s.ap, s.bonusHp, s.bonusDefense].every(ok)) throw new Error("bad scaling");
+  for (let i = 1; i < n; i++) if (scaling[i].id <= scaling[i - 1].id) throw new Error("bad scaling order");
+  const m = r.u8();
+  if (m > HUD_TERM_COUNT) throw new Error("bad hud term count");
+  const terms = [];
+  for (let i = 0; i < m; i++) {
+    const code = r.u8();
+    if (code >= HUD_TERM_COUNT) throw new Error("bad hud term code");
+    terms.push({ code, value: r.f64() });
+  }
+  for (const t of terms) if (!ok(t.value)) throw new Error("bad hud term");
+  for (let i = 1; i < m; i++) if (terms[i].code <= terms[i - 1].code) throw new Error("bad hud term order");
+  return { scaling, terms };
+}
+// Protocol 16 (ADR0026) indicator facts, checked in the Rust order: off-hand code 0..=16 (0 empty, else weapon + 1), build
+// marks (first stat key in the low nibble, second in the high one, each 0 none or 1..=9; a second needs a first and differs
+// from it), the mark plate (tier 0..=4, brand and tax 0..=100) and the flags (bit 0 wish ready, 1 engaged, 2 teleport
+// immune, 3 roam ready).
+function checkIndicators(offhand, buildMarks, markTier, brand, markTax, flags) {
+  const first = buildMarks & 15, second = buildMarks >> 4;
+  if (offhand > 16) throw new Error("bad offhand");
+  if (first > 9 || second > 9 || (second !== 0 && (first === 0 || first === second))) throw new Error("bad build marks");
+  if (markTier > 4 || brand > 100 || markTax > 100) throw new Error("bad mark");
+  if (flags & ~15) throw new Error("bad flags");
+}
+function decodeBody(r) {
+  const tag = r.u8();
+  if (tag === 0x81) {
+    const m = { t: "welcome", protocol: r.u16(), content: r.u64(), match: r.bytes(16), player: r.u32(), session: r.bytes(16), tickRate: r.u8(), tick: r.u32(), serverMs: r.f64() };
+    // Protocol 16 (ADR0024): the hitbox archetype table sits between the header and the map.
+    m.archetypes = readArchetypes(r);
+    m.vision = readVision(r);
+    m.weapons = readWeapons(r);
+    m.hud = readHud(r);
+    // Preflight a copied bounded suffix first. No decoded plane allocation occurs until every byte,
+    // run, domain, terrain/collision relation, and hash in the complete map has been checked.
+    const p = cursor(r.v, r.p, r.limit);
+    const w = p.u16(), h = p.u16(), hash = p.u32(), n = w * h;
+    if (w === 0 || h === 0 || n > MAX_MAP_TILES) throw new Error("bad map size");
+    const collision = readPlane(p, n, 2, 4 + 11, "map");
+    let collisionHash = fnvU32(fnvU32(0x811c9dc5, w), h);
+    collisionHash = fnvPlane(collisionHash, cursor(p.v, collision.start, collision.limit), collision);
+    if ((collisionHash >>> 0) !== hash) throw new Error("bad map hash");
+    const extensionLength = p.u32();
+    if (extensionLength < 11 || extensionLength > p.v.byteLength - p.p) throw new Error("bad map extension length");
+    const extStart = p.p, extEnd = extStart + extensionLength, ext = cursor(p.v, extStart, extEnd);
+    const sectionVersion = ext.u8(), flags = ext.u8();
+    if (sectionVersion !== GROUND_VERSION && sectionVersion !== GROUND_VERSION_PRESENCE2) throw new Error("bad ground version");
+    if (flags & ~0x7f) throw new Error("bad ground presence");
+    // Version 3: a second presence byte with at least one known bit (no such section means version 2).
+    const presence2 = sectionVersion === GROUND_VERSION_PRESENCE2 ? ext.u8() : 0;
+    if (sectionVersion === GROUND_VERSION_PRESENCE2 && (presence2 === 0 || (presence2 & ~PRESENCE2_KNOWN))) throw new Error("bad ground presence");
+    const semanticHash = ext.u32();
+    const hasPatience = (presence2 & PRESENCE2_PATIENCE) !== 0;
+    const hasTerrain = (flags & 1) !== 0, hasRegions = (flags & 2) !== 0;
+    const hasBushes = (flags & PRESENCE_BUSHES) !== 0, hasVariants = (flags & PRESENCE_GROUND_VARIANTS) !== 0;
+    const planes = 1 + Number(hasTerrain) + Number(hasRegions) + Number(hasBushes) + Number(hasVariants) + Number(hasPatience);
+    if (n * planes > MAX_MAP_DECODED_BYTES) throw new Error("map decoded data too large");
+    const cumulativeRuns = { count: collision.runs };
+    let terrain = null, regions = null;
+    const semanticStart = fnvText(0x811c9dc5, "rh-ground/1\0");
+    let semantic = fnvU32(fnvU32(semanticStart, w), h);
+    semantic = fnvByte(semantic, sectionVersion); semantic = fnvByte(semantic, flags);
+    if (sectionVersion === GROUND_VERSION_PRESENCE2) semantic = fnvByte(semantic, presence2);
+    if (hasTerrain) {
+      terrain = readPlane(ext, n, TERRAIN_MAX, (hasRegions ? 4 + 3 : 0) + 5, "terrain");
+      cumulativeRuns.count += terrain.runs;
+      if (cumulativeRuns.count > MAX_MAP_RUNS) throw new Error("too many map runs");
+      const tr = cursor(p.v, terrain.start, extEnd); semantic = fnvPlane(semantic, tr, terrain);
+    }
+    if (hasRegions) {
+      regions = readPlane(ext, n, REGION_MAX, 5, "region");
+      cumulativeRuns.count += regions.runs;
+      if (cumulativeRuns.count > MAX_MAP_RUNS) throw new Error("too many map runs");
+      const rr = cursor(p.v, regions.start, extEnd); semantic = fnvPlane(semantic, rr, regions);
+    }
+    // Protocol 17 public sections in presence-bit order; list sections hash their exact wire bytes, planes their cells.
+    let camps = [], mapColiseum = null, bushes = null, props = [], variants = null, patience = null, anchors = [];
+    if (flags & PRESENCE_CAMPS) { const at = ext.p; camps = readMapCamps(ext); semantic = fnvSpan(semantic, p.v, at, ext.p); }
+    if (flags & PRESENCE_COLISEUM) { const at = ext.p; mapColiseum = readMapColiseum(ext, w, h); semantic = fnvSpan(semantic, p.v, at, ext.p); }
+    if (hasBushes) {
+      bushes = readPublicPlane(ext, n, "bushes");
+      cumulativeRuns.count += bushes.runs;
+      if (cumulativeRuns.count > MAX_MAP_RUNS) throw new Error("too many map runs");
+      semantic = fnvPlane(semantic, cursor(p.v, bushes.start, extEnd), bushes);
+    }
+    if (flags & PRESENCE_PROPS) { const at = ext.p; props = readMapProps(ext, w, h); semantic = fnvSpan(semantic, p.v, at, ext.p); }
+    if (hasVariants) {
+      variants = readPublicPlane(ext, n, "ground variants", MAX_GROUND_VARIANT, "ground variant");
+      cumulativeRuns.count += variants.runs;
+      if (cumulativeRuns.count > MAX_MAP_RUNS) throw new Error("too many map runs");
+      semantic = fnvPlane(semantic, cursor(p.v, variants.start, extEnd), variants);
+    }
+    if (hasPatience) {
+      patience = readPatiencePlane(ext, n, camps.length);
+      cumulativeRuns.count += patience.runs;
+      if (cumulativeRuns.count > MAX_MAP_RUNS) throw new Error("too many map runs");
+      semantic = fnvPlane(semantic, cursor(p.v, patience.start, extEnd), patience);
+    }
+    if (presence2 & PRESENCE2_ANCHORS) { const at = ext.p; anchors = readMapAnchors(ext, w, h); semantic = fnvSpan(semantic, p.v, at, ext.p); }
+    if (terrain) checkTerrainAgainstCollision(p.v, collision, p.v, terrain, n);
+    const terrainMode = ext.u8(), contextHash = ext.u32();
+    if (terrainMode > 2) throw new Error("bad terrain mode");
+    if (ext.p !== extEnd) throw new Error("bad map extension length");
+    if ((semantic >>> 0) !== semanticHash) throw new Error("bad semantic hash");
+    let expectedContext = fnvText(0x811c9dc5, "rh-map-context/1\0");
+    expectedContext = fnvU32(expectedContext, hash); expectedContext = fnvU32(expectedContext, semanticHash);
+    expectedContext = fnvByte(expectedContext, terrainMode);
+    if ((expectedContext >>> 0) !== contextHash) throw new Error("bad context hash");
+    const mapEnd = p.p + extensionLength;
+    if (mapEnd !== r.limit) throw new Error("trailing bytes");
+    const tiles = fillPlane(p.v, collision, n);
+    const terrainBytes = terrain ? fillPlane(p.v, terrain, n) : null;
+    const regionBytes = regions ? fillPlane(p.v, regions, n) : null;
+    const c = m.vision.coliseum;
+    if (c && (c.x + c.w > w || c.y + c.h > h)) throw new Error("bad vision");
+    r.p = mapEnd;
+    m.map = { w, h, tiles, hash, terrain: terrainBytes, regions: regionBytes, terrainMode, semanticHash, contextHash,
+      camps, coliseum: mapColiseum, bushes: bushes ? fillPlane(p.v, bushes, n) : null, props,
+      groundVariants: variants ? fillPlane(p.v, variants, n) : null, patience: patience ? fillPlane(p.v, patience, n) : null,
+      anchors };
+    return m;
+  }
+  if (tag === 0x82) {
+    const code = r.u16();
+    if (code < 1) throw new Error("bad reject code " + code);
+    return { t: "reject", code, reason: r.str() };
+  }
+  if (tag === 0x83) {
+    const tick = r.varint(), ack = r.varint(), head = r.varint();
+    // Append-only varint head: bits 17/18 are Wish/barrier, bit 19 overrides tick*50, bit 20 is owner combat, bit 21 the
+    // self's hitbox archetype, bits 22..=24 the self's indicator flags, build marks and mark plate (protocol 16).
+    if ((head & ~0x1ffffff) !== 0 || ((head & 1) === 0 && (head & (0xfbff | 0x60000 | 0x200000 | 0x1c00000)) !== 0)) throw new Error("bad head");
+    const s = { t: "snapshot", tick, serverMs: tick * 50, phase: 1, ack, training: (head & 0x10000) !== 0, me: null, actors: [], ownerCombat: null };
+    if (head & 1) {
+      const id = r.varint(), x = r.f32(), y = r.f32(), facing = r.f32();
+      const maxHp = (head & 0x100) ? r.f32() : r.varintU16("max_hp");
+      let faction = 0, weapon = 0;
+      if (head & 2) { const k = r.u8(); faction = k & 15; weapon = k >> 4; }
+      const hp = (head & 4) ? r.f32() : maxHp;
+      const readyIn = (head & 8) ? r.u16() : 0;
+      const kills = (head & 0x10) ? r.varintU16("kills") : 0;
+      const bounty = (head & 0x20) ? r.varintU16("bounty") : 0;
+      const moveSeq = (head & 0x40) ? r.u8() : 0;
+      const gv = (head & 0x80) ? r.varintU16("gv") : 0;
+      const status = (head & 0x200) ? r.code(3, "status") : 1;
+      const effects = (head & 0x800) ? r.u16() : 0, displaceSeq = (head & 0x1000) ? r.u8() : 0, sig = (head & 0x2000) ? r.u8() : 0;
+      let huntTarget = null; if (head & 0x4000) { huntTarget = r.varint(); if (huntTarget === 0) throw new Error("bad hunt target"); }
+      const huntStacks = (head & 0x8000) ? r.varintU16("hunt_stacks") : 0;
+      const wish = (head & 0x20000) ? readWish(r) : null;
+      const barrier = (head & 0x40000) ? readOwnerBarrier(r) : { amount: 0, ring: 0 };
+      const archetype = (head & 0x200000) ? r.u8() : 0;
+      const flags = (head & 0x400000) ? r.u8() : 0, buildMarks = (head & 0x800000) ? r.u8() : 0;
+      let markTier = 0, brand = 0, markTax = 0;
+      if (head & 0x1000000) { markTier = r.u8(); brand = r.u8(); markTax = r.u8(); }
+      checkIndicators(0, buildMarks, markTier, brand, markTax, flags);
+      s.me = { id, faction, x, y, facing, hp, maxHp, status, weapon, readyIn, kills, bounty, gv, moveSeq, effects, displaceSeq, sig, huntTarget, huntStacks, wish, barrierBits: barrier.amount, barrierRingStep: barrier.ring, archetype, flags, buildMarks, markTier, brand, markTax };
+    }
+    if (head & 0x400) s.phase = r.code(3, "phase");
+    if (head & 0x80000) s.serverMs = nonnegative(r.f64(), "server time");
+    const n = r.varint();
+    if (n > 512) throw new Error("too many actors");
+    let prev = null;
+    for (let i = 0; i < n; i++) {
+      const field = r.varint();
+      let id = field;
+      if (prev !== null) { id = prev + field; if (field === 0 || id > 0xffffffff) throw new Error("bad actor order"); }
+      prev = id;
+      const mask = r.varint();
+      if (mask & ~0x7fff) throw new Error("bad actor mask");
+      const x = dqPos(r.u16()), y = dqPos(r.u16()), facing = dqAngle(r.u16());
+      let faction = 0, weapon = 0;
+      if (mask & 1) { const k = r.u8(); faction = k & 15; weapon = k >> 4; }
+      const hpPct = (mask & 2) ? r.u8() : 100;
+      if (hpPct > 100) throw new Error("bad hp_pct");
+      const status = (mask & 4) ? r.code(3, "status") : 1;
+      const bounty = (mask & 8) ? r.varintU16("bounty") : 0;
+      const kind = (mask & 0x10) ? r.u8() : 0;
+      const effects = (mask & 0x20) ? r.u16() : 0, displaceSeq = (mask & 0x40) ? r.u8() : 0, mobTypeCode=(mask & 0x80)?r.code(30,"mob type"):0,sig=(mask & 0x100)?r.u8():0;
+      const barrier = (mask & 0x200) ? readActorBarrier(r) : { pct: 0, ring: 0 };
+      const archetype = (mask & 0x400) ? r.u8() : 0;
+      // Protocol 16 (ADR0026): bits 11 flags, 12 off-hand, 13 build marks, 14 mark plate (tier, brand, tax).
+      const flags = (mask & 0x800) ? r.u8() : 0, offhand = (mask & 0x1000) ? r.u8() : 0, buildMarks = (mask & 0x2000) ? r.u8() : 0;
+      let markTier = 0, brand = 0, markTax = 0;
+      if (mask & 0x4000) { markTier = r.u8(); brand = r.u8(); markTax = r.u8(); }
+      checkIndicators(offhand, buildMarks, markTier, brand, markTax, flags);
+      s.actors.push({ id, faction, x, y, facing, hpPct, status, weapon, bounty, kind, effects, displaceSeq, mobTypeCode, sig, barrierPct: barrier.pct, barrierRingStep: barrier.ring, archetype, flags, offhand, buildMarks, markTier, brand, markTax });
+    }
+    if (head & 0x100000) s.ownerCombat = readOwnerCombat(r);
+    return s;
+  }
+  if (tag === 0x87) {
+    // A snapshot delta: syntax and ranges only (Tracker decides whether it applies).
+    const tick = r.varint(), age = r.varint();
+    if (age < 1 || age > 64 || age > tick) throw new Error("bad base age");
+    const ack = r.varint(), head = r.varint();
+    // Append-only varint head: bits 21/22 are self Wish/barrier, bit 23 overrides time, bit 24 replaces owner combat, bit 25
+    // is the self's hitbox archetype, bits 26..=28 the self's indicator flags, build marks and mark plate (protocol 16).
+    if ((head & ~0x1fffffff) !== 0 || ((head & 1) === 0 && (head & (0xffe7e | 0x600000 | 0x2000000 | 0x1c000000)) !== 0)) throw new Error("bad head");
+    const d = { t: "delta", tick, baseTick: tick - age, serverMs: tick * 50, phase: null, ack, training: (head & 0x100000) !== 0, me: null, changed: [], departed: [] };
+    if (head & 1) {
+      const m = head & 0xffe7e, s = { mask: m };
+      if (m & 0x0002) s.x = r.f32();
+      if (m & 0x0004) s.y = r.f32();
+      if (m & 0x0008) s.facing = r.f32();
+      if (m & 0x0010) s.moveSeq = r.u8();
+      if (m & 0x0020) s.hp = r.f32();
+      if (m & 0x0040) s.readyIn = r.u16();
+      if (m & 0x0200) s.maxHp = r.f32();
+      if (m & 0x0400) s.kit = r.u8();
+      if (m & 0x0800) s.kills = r.varintU16("kills");
+      if (m & 0x1000) s.bounty = r.varintU16("bounty");
+      if (m & 0x2000) s.gv = r.varintU16("gv");
+      if (m & 0x4000) s.status = r.code(3, "status");
+      if (m & 0x8000) s.effects = r.u16();
+      if (m & 0x10000) s.displaceSeq = r.u8();
+      if (m & 0x20000) s.sig=r.u8();
+      if (m & 0x40000) { const target = r.varint(); s.huntTarget = target === 0 ? null : target; }
+      if (m & 0x80000) s.huntStacks = r.varintU16("hunt_stacks");
+      if (head & 0x200000) s.wish = strictOpt(r, () => readWish(r));
+      if (head & 0x400000) { const barrier = readOwnerBarrier(r); s.barrierBits = barrier.amount; s.barrierRingStep = barrier.ring; }
+      if (head & 0x2000000) s.archetype = r.u8();
+      if (head & 0x4000000) s.flags = r.u8();
+      if (head & 0x8000000) s.buildMarks = r.u8();
+      if (head & 0x10000000) { s.markTier = r.u8(); s.brand = r.u8(); s.markTax = r.u8(); }
+      checkIndicators(0, s.buildMarks ?? 0, s.markTier ?? 0, s.brand ?? 0, s.markTax ?? 0, s.flags ?? 0);
+      d.me = s;
+    }
+    if (head & 0x100) d.phase = r.code(3, "phase");
+    if (head & 0x800000) d.serverMs = nonnegative(r.f64(), "server time");
+    const n = r.varint();
+    if (n > 512) throw new Error("too many actors");
+    let prev = null;
+    for (let i = 0; i < n; i++) {
+      const field = r.varint();
+      let id = field;
+      if (prev !== null) { id = prev + field; if (field === 0 || id > 0xffffffff) throw new Error("bad actor order"); }
+      prev = id;
+      const mask = r.varint();
+      if (mask & ~0x3ffff) throw new Error("bad actor mask");
+      const a = { id, mask };
+      if (mask & 1) a.x = r.u16();
+      if (mask & 2) a.y = r.u16();
+      if (mask & 4) a.facing = r.u16();
+      if (mask & 8) a.kit = r.u8();
+      if (mask & 16) { a.hpPct = r.u8(); if (a.hpPct > 100) throw new Error("bad hp_pct"); }
+      if (mask & 32) a.bounty = r.varintU16("bounty");
+      if (mask & 64) a.status = r.code(3, "status");
+      if (mask & 128) a.kind = r.u8();
+      if (mask & 256) a.effects = r.u16();
+      if (mask & 512) a.displaceSeq = r.u8();
+      if (mask & 1024) a.mobTypeCode=r.code(30,"mob type");
+      if (mask & 2048) a.sig=r.u8();
+      if (mask & 4096) { const barrier = readActorBarrier(r); a.barrierPct = barrier.pct; a.barrierRingStep = barrier.ring; }
+      if (mask & 8192) a.archetype = r.u8();
+      // Protocol 16 (ADR0026): bits 14 flags, 15 off-hand, 16 build marks, 17 mark plate.
+      if (mask & 0x4000) a.flags = r.u8();
+      if (mask & 0x8000) a.offhand = r.u8();
+      if (mask & 0x10000) a.buildMarks = r.u8();
+      if (mask & 0x20000) { a.markTier = r.u8(); a.brand = r.u8(); a.markTax = r.u8(); }
+      checkIndicators(a.offhand ?? 0, a.buildMarks ?? 0, a.markTier ?? 0, a.brand ?? 0, a.markTax ?? 0, a.flags ?? 0);
+      d.changed.push(a);
+    }
+    if (head & 0x80) {
+      const k = r.varint();
+      if (k === 0) throw new Error("bad departed");
+      if (k > 512) throw new Error("too many actors");
+      let last = null;
+      for (let i = 0; i < k; i++) {
+        const field = r.varint();
+        let id = field;
+        if (last !== null) { id = last + field; if (field === 0 || id > 0xffffffff) throw new Error("bad departed order"); }
+        last = id;
+        d.departed.push(id);
+      }
+    }
+    if (head & 0x1000000) {
+      const available = r.u8();
+      if (available > 1) throw new Error("bad owner combat availability");
+      d.ownerCombat = available === 0 ? null : readOwnerCombat(r);
+      if (d.ownerCombat !== null && !d.me) throw new Error("bad owner combat owner");
+    }
+    return d;
+  }
+  if (tag === 0x84) {
+    const e = { t: "events", tick: r.u32(), events: [] }; const n = r.u16();
+    for (let i = 0; i < n; i++) {
+      const k = r.u8();
+      if (k === 1) e.events.push({ k: "death", id: r.u32(), by: r.opt(() => r.u32()) });
+      else if (k === 2) e.events.push({ k: "bounty", id: r.u32(), bounty: r.u16() });
+      else if (k === 3) e.events.push({ k: "ended", winner: r.opt(() => r.u32()), draw: r.u8() !== 0 });
+      else if (k === 4) e.events.push({ k: "result", outcome: r.u8(), place: r.u8(), players: r.u8(), kills: r.u16(), killedBy: r.opt(() => r.str()), gvTotal: r.u32(), gvWin: r.u32(), durationSec: r.u32(), withheld: r.u8() !== 0 });
+      else if (k === 5) { const reason = r.u8(); if (reason < 1 || reason > 5) throw new Error("bad field"); e.events.push({ k: "pickupRefused", reason }); }
+      else if(k === 7) {const notice=r.u8();if(notice<1||notice>10)throw new Error("bad potion notice");e.events.push({k:"potionNotice",notice});}
+      else if(k === 6) { const reason=r.u8(); if(reason<1 || reason>9) throw new Error("bad chest reason"); e.events.push({k:"chestRefused",reason}); }
+      else if (k === 8) e.events.push({ k: "windEmblem" });
+      else if(k === 9) {
+        const code=r.u8(); if(code<1 || code>4) throw new Error("bad cannon notice");
+        if(code===4) { const seconds=r.u16(); if(seconds<1 || seconds>75) throw new Error("bad cannon notice"); e.events.push({k:"cannonNotice",code,seconds}); }
+        else e.events.push({k:"cannonNotice",code});
+      }
+      else if(k === 10) e.events.push({k:"toast",text:r.str()});
+      // Protocol 16 (ADR0026): a camp was cleared (its index in the map's camp list).
+      else if (k === 11) e.events.push({ k: "campCleared", camp: r.u16() });
+      else throw new Error("bad event");
+    }
+    return e;
+  }
+  if (tag === 0x85) {
+    const f = { t: "fx", tick: r.varint(), fx: [] }; const n = r.varint();
+    if (n > 65535) throw new Error("too many fx");
+    for (let i = 0; i < n; i++) {
+      const k = r.u8();
+      if (k === 1) { const by = r.varint(), weapon = r.u8(); f.fx.push({ k: "swing", by, weapon, x: dqPos(r.u16()), y: dqPos(r.u16()), a: dqAngle(r.u16()) }); }
+      // Protocol 16 (ADR0026): the hit's last byte is flags (bit 0 passive, bit 1 critical); other bits are refused.
+      else if (k === 2) { const victim = r.varint(), by = r.varint(), amount = r.f32(), flags = r.code(3, "hit flags"); f.fx.push({ k: "hit", victim, by, amount, passive: (flags & 1) !== 0, critical: (flags & 2) !== 0 }); }
+      else if (k === 3) f.fx.push({ k: "block", id: r.varint(), by: r.varint(), weapon: r.u8() });
+      else if (k === 4) f.fx.push({ k: "stagger", id: r.varint() });
+      else if (k === 5) f.fx.push({ k: "teleport" });
+      else if (k === 6) {
+        const eventTime = nonnegative(r.f64(), "Wish event time"), caster = r.varint();
+        if (!caster) throw new Error("bad actor reference");
+        const ability = readAbility(r), duration = nonnegative(r.f64(), "Wish duration"), target = readWishActor(r), anchor = readWishPoint(r);
+        f.fx.push({ k: "castStarted", eventTime, caster, ability, duration, target, anchor });
+      }
+      else if (k === 7) {
+        const eventTime = nonnegative(r.f64(), "Wish event time"), ability = readAbility(r);
+        const caster = readWishActor(r), target = readWishActor(r), anchor = readWishPoint(r), destination = readWishPoint(r);
+        if ((ability === 3 && ((anchor === null) !== (destination === null))) || (ability !== 3 && destination !== null)) throw new Error("bad Wish landing geometry");
+        if (caster === null && anchor === null && destination === null) throw new Error("bad anonymous Wish landing");
+        f.fx.push({ k: "castLanded", eventTime, ability, caster, target, anchor, destination });
+      }
+      else if (k === 8) {
+        const eventTime = nonnegative(r.f64(), "Wish event time"), caster = r.varint();
+        if (!caster) throw new Error("bad actor reference");
+        const ability = readAbility(r), reason = r.code(2, "Wish end reason");
+        f.fx.push({ k: "castEnded", eventTime, caster, ability, reason });
+      }
+      // Protocol 16 (ADR0026): windup telegraph (angle quantized as a swing's), its cancel, signature/ability damage, heals.
+      else if (k === 9) { const by = r.varint(), weapon = r.code(15, "windup weapon"); f.fx.push({ k: "windup", by, weapon, a: dqAngle(r.u16()), ms: r.u16() }); }
+      else if (k === 10) f.fx.push({ k: "cancel", id: r.varint() });
+      else if (k === 11) {
+        const victim = r.varint(), by = r.varint(), kind = r.u8();
+        if (!((kind >= 1 && kind <= 5) || (kind >= 16 && kind <= 20))) throw new Error("bad hit kind");
+        f.fx.push({ k: "sigHit", victim, by, kind, amount: r.f32() });
+      }
+      else if (k === 12) { const id = r.varint(); f.fx.push({ k: "heal", id, amount: r.f32() }); }
+      else throw new Error("bad fx");
+    }
+    return f;
+  }
+  if (tag === 0x86) return { t: "pong", nonce: r.u32(), clientMs: r.f64(), serverMs: r.f64() };
+  if (tag === 0x88) {
+    return { t: "state", tick: r.varint(), items: readState(r) };
+  }
+  throw new Error("unknown tag " + tag);
+}
+
+// Protocol 16 (ADR0026) State key 12, the roster (names and bot flags of everyone seated): count u8 (at most 32), rows
+// strictly ascending by id: id varint (nonzero), flags u8 (0, or 1 bot), name (u8 length, 1..=24 UTF-8 bytes, no control
+// character).
+function readRoster(r) {
+  const n = r.u8();
+  if (n > 32) throw new Error("bad roster count");
+  const rows = []; let last = 0;
+  for (let i = 0; i < n; i++) {
+    const id = r.varint();
+    if (!id) throw new Error("bad roster id");
+    if (id <= last) throw new Error("bad roster order");
+    last = id;
+    const flags = r.u8();
+    if (flags > 1) throw new Error("bad roster flags");
+    const len = r.u8(), raw = r.bytes(len);
+    let name; try { name = UTF8.decode(raw); } catch { throw new Error("bad utf-8"); }
+    if (len < 1 || len > 24 || /[\u0000-\u001f\u007f-\u009f]/.test(name)) throw new Error("bad roster name");
+    rows.push({ id, bot: flags === 1, name });
+  }
+  return rows;
+}
+// P-WIRE17-HUD-1: every HUD number is an integer count of HUD_QUANTUM (1e-4); stat codes 0 Offense, 1 Soul Offense,
+// 2 Damage, 3 Attack speed, 4 Life steal, 5 Health, 6 Defense, 7 Soul Defense, 8 Move speed. Each quantized integer is
+// kept, with `value` its scaled double (no recomputation).
+const HUD_QUANTUM = 1e-4, HUD_STAT_COUNT = 9, MAX_SUMMARY_MOB_ROWS = 20, PANEL_CODE_COUNT = 28, MAX_PANEL_VALUES = 28;
+// A camp row's HUD tail: reward u8 (0 none / 1 + stat code) [+ amount u16 > 0], then ward u8 (0 none / 1 yours /
+// 2 another player's) [+ expiresAt f64, finite, >= 0]. A ward is a verdict for this viewer, never an owner id.
+function readCampHud(r, c) {
+  const reward = r.code(HUD_STAT_COUNT, "camp reward");
+  c.reward = null;
+  if (reward) { const amount = r.u16(); if (!amount) throw new Error("bad camp"); c.reward = { stat: reward - 1, amount, value: amount * HUD_QUANTUM }; }
+  const ward = r.code(2, "camp ward");
+  c.ward = null;
+  if (ward) { const expiresAt = r.f64(); if (!Number.isFinite(expiresAt) || expiresAt < 0) throw new Error("bad camp"); c.ward = { verdict: ward, yours: ward === 1, expiresAt }; }
+  return c;
+}
+// State key 13 (P-WIRE17-HUD-1), the owner's own build summary: present u8 (0/1); when 1: 9 x i32 gains, count u8
+// (at most 20), rows of mob u8 (< 30, strictly ascending), stat u8 (< 9), stacks varint (>= 1), total i32.
+function readBuildSummary(r) {
+  return r.opt(() => {
+    const gains = [];
+    for (let i = 0; i < 9; i++) gains.push(r.u32() | 0);
+    const n = r.u8(); if (n > MAX_SUMMARY_MOB_ROWS) throw new Error("too many summary mob rows");
+    const mobRows = []; let last = -1;
+    for (let i = 0; i < n; i++) {
+      const mobType = r.u8(); if (mobType >= 30) throw new Error("bad summary mob code");
+      if (mobType <= last) throw new Error("bad summary mob order"); last = mobType;
+      const stat = r.u8(); if (stat >= HUD_STAT_COUNT) throw new Error("bad summary stat code");
+      const stacks = r.varint(); if (!stacks) throw new Error("bad summary stacks");
+      const total = r.u32() | 0;
+      mobRows.push({ mobType, stat, stacks, total, value: total * HUD_QUANTUM });
+    }
+    // P-WIRE17-HUD-2: the owner's champion panel; the count is refused before any row is read.
+    const m = r.u8(); if (m > MAX_PANEL_VALUES) throw new Error("too many summary panel values");
+    const panel = []; let lastCode = -1;
+    for (let i = 0; i < m; i++) {
+      const code = r.u8(); if (code >= PANEL_CODE_COUNT) throw new Error("bad summary panel code");
+      if (code <= lastCode) throw new Error("bad summary panel order"); lastCode = code;
+      const quanta = r.u32() | 0;
+      panel.push({ code, quanta, value: quanta * HUD_QUANTUM });
+    }
+    return { gains, values: gains.map(g => g * HUD_QUANTUM), mobRows, panel };
+  });
+}
+// Complete replacements. Decode the entire frame before a collection consumer changes retained state.
+function readState(r) {
+  const n = r.varint(); if (n > 13) throw new Error("too many state keys");
+  const flag = () => r.opt(() => true) !== null;
+  const strictBool = (what) => { const v = r.u8(); if (v > 1) throw new Error("bad " + what); return v === 1; };
+  const finite = (x) => { if (!Number.isFinite(x)) throw new Error("bad field"); return x; };
+  const handle = () => { const v = r.varint(); if (!v) throw new Error("bad handle"); return v; };
+  const actor = () => r.opt(() => handle());
+  const weapon = () => { const v = r.code(5, "carried weapon"); return v ? v - 1 : null; };
+  const count = () => { const v = r.varint(); if (v > 512) throw new Error("too many state rows"); return v; };
+  const items = []; let previous = 0;
+  for (let i = 0; i < n; i++) {
+    const key = r.varint(); if (key <= previous || key > 13) throw new Error("bad state key"); previous = key;
+    let value;
+    // Key 1: the counts are read (and checked) before the owner's clocks (P-WIRE17-HUD-3: server ms, finite, >= 0).
+    if (key === 1) {
+      const clock = () => r.opt(() => { const t = r.f64(); if (!Number.isFinite(t) || t < 0) throw new Error("bad inventory clock"); return t; });
+      value = r.opt(() => ({ activeSlot: r.code(1, "active slot"), slots: [weapon(), weapon()], potionSmall: r.code(5, "potion count"), potionLarge: r.code(5, "potion count"), potionsHealing: r.code(3, "potion count"), healingUntil: clock(), speedBoostUntil: clock() }));
+    }
+    else if (key === 2) {
+      const rows = []; let last = 0;
+      for (let j = 0, k = count(); j < k; j++) {
+        const h = handle(); if (h <= last) throw new Error("bad prop handles"); last = h;
+        const x = r.u16(), y = r.u16(), kind = r.u8(); let prop;
+        if (kind === 1) prop = { kind, weapon: r.code(4, "carried weapon") };
+        else if (kind === 2) prop = { kind, open: flag() };
+        else if (kind === 3) prop = { kind, label: r.str() };
+        else if (kind === 4) prop = { kind, label: r.str() };
+        else if (kind === 5) prop = { kind };
+        else if (kind === 6) prop = { kind, readyAt: r.varint() };
+        else if (kind === 7) prop = { kind, quest: handle(), fetch: strictBool("quest fetch flag") };
+        else throw new Error("bad prop kind");
+        rows.push({ handle: h, x, y, ...prop });
+      }
+      const h = r.varint(); let focus = null;
+      if (h) {
+        const bodyHint = weapon(), row = rows.find(p => p.handle === h);
+        if (!row || (bodyHint !== null && row.kind !== 3)) throw new Error("bad prop focus");
+        focus = { handle: h, bodyHint };
+      }
+      value = { rows, focus };
+    } else if (key === 3) {
+      value = [];
+      // P-FROST-WALL-2, in the Rust order: the common row is read whole; a kind >= 4 is refused before any tile list; a
+      // wall (kind 3) then carries `count u8` (1..=64, "wall tiles") and that many u32 tiles (the whole list against the
+      // frame first: truncated), each below the map tile cap ("wall tile"), strictly ascending ("wall order"); then the
+      // common checks ("field"). Rows of other kinds have no `tiles` key.
+      for (let j = 0, k = count(); j < k; j++) {
+        const f = { kind: r.u8(), ability: r.u8(), owner: actor(), subject: actor() };
+        for (const name of ["x", "y", "x2", "y2", "r", "vx", "vy"]) f[name] = r.f32();
+        f.startedAt = r.f64(); f.endsAt = r.f64();
+        if (f.kind > 3) throw new Error("bad field");
+        if (f.kind === 3) {
+          const m = r.u8();
+          if (m === 0 || m > MAX_WALL_TILES) throw new Error("bad wall tiles");
+          r.need(m * 4);
+          f.tiles = [];
+          for (let t = 0; t < m; t++) f.tiles.push(r.u32());
+          if (f.tiles.some((t) => t >= MAX_MAP_TILES)) throw new Error("bad wall tile");
+          for (let t = 1; t < m; t++) if (f.tiles[t] <= f.tiles[t - 1]) throw new Error("bad wall order");
+        }
+        if (f.ability > 4) throw new Error("bad field");
+        for (const name of ["x", "y", "x2", "y2", "r", "vx", "vy", "startedAt", "endsAt"]) finite(f[name]);
+        if (f.r < 0 || f.endsAt < f.startedAt) throw new Error("bad field");
+        value.push(f);
+      }
+    } else if (key === 4) {
+      value = []; let last = 0;
+      for (let j = 0, k = count(); j < k; j++) {
+        const h = handle(); if (h <= last) throw new Error("bad reward chest"); last = h;
+        const x = r.u16(), y = r.u16(), expiresAt = finite(r.f64()), options = [], k = r.code(3, "reward options");
+        for (let o = 0; o < k; o++) {
+          const kind = r.u8(); let reward;
+          if (kind === 1) reward = { kind, id: r.code(79, "reward id") };
+          else if (kind === 2) reward = { kind, id: r.code(7, "reward id") };
+          else if (kind === 3 && PROTOCOL >= 13) {
+            const key = r.code(8, "Trophy key"), gain = r.f64();
+            if (!Number.isFinite(gain) || gain <= 0) throw new Error("bad Trophy gain");
+            reward = { kind, key, gain };
+          } else throw new Error("bad reward kind");
+          options.push({ ...reward, taken: flag(), takenBy: actor() });
+        }
+        value.push({ handle: h, x, y, expiresAt, options, picked: flag(), canChoose: flag() });
+      }
+    } else if(key===7) {
+      value=[];for(let j=0,k=count();j<k;j++)value.push({kind:r.code(1,"projectile"),x:r.u16(),y:r.u16(),facing:r.u16(),owner:actor(),height:r.u8()});
+    } else if(key===6) {
+      value=[];for(let j=0,k=count();j<k;j++){const c={mobType:r.code(29,"camp"),elite:r.code(30,"camp"),alive:r.varint(),state:r.code(2,"camp"),clearedAt:finite(r.f64()),respawnAt:finite(r.f64())};if(c.alive>512||c.clearedAt<0||c.respawnAt<c.clearedAt)throw new Error("bad camp");value.push(readCampHud(r,c));}
+    } else if (key === 8) {
+      const zone = () => { const z = r.u8(); if (z < 1 || z > 5) throw new Error("bad zone"); return z; };
+      const opt = () => r.opt(() => {
+        const o = { index: r.varint(), x: r.u16(), y: r.u16(), zone: zone(), walkSeconds: r.opt(() => finite(r.f32())) };
+        if (o.walkSeconds !== null && o.walkSeconds < 0) throw new Error("bad walk");
+        return o;
+      });
+      value = r.opt(() => {
+        const pickCode = () => { const v = r.u8(); if (v > 2) throw new Error("bad plan pick"); return v === 0 ? null : v - 1; };
+        const p = {
+          endsAt: finite(r.f64()),
+          spawns: [r.opt(() => r.varint()), r.opt(() => r.varint())],
+          taken: [flag(), flag()],
+          pick: pickCode(),
+          boons: [],
+        };
+        for (let b = 0, nb = r.code(4, "plan boons"); b < nb; b++) p.boons.push(r.str());
+        p.boon = pickCode();
+        p.ready = flag();
+        p.options = [opt(), opt()];
+        if (p.endsAt < 0) throw new Error("bad plan deadline");
+        return p;
+      });
+    } else if (key === 9) {
+      value = r.opt(() => {
+        const a = {
+          lobbyEndsAt: finite(r.f64()), planEndsAt: finite(r.f64()), raidStartedAt: finite(r.f64()),
+          patienceEndsAt: r.opt(() => finite(r.f64())), inColiseum: flag(), gatesLocked: flag(),
+          suddenDeathAt: finite(r.f64()), startedWith: r.varintU16("started_with"), minPlayers: r.u8(),
+        };
+        if (a.startedWith > 512) throw new Error("bad started_with");
+        if (a.minPlayers > 32) throw new Error("bad min players");
+        return a;
+      });
+    } else if (key === 10) value = readQuests(r, strictBool, finite, handle);
+    else if (key === 11) value = readTrade(r, strictBool);
+    else if (key === 12) value = readRoster(r);
+    else if (key === 13) value = readBuildSummary(r);
+    else value = r.opt(() => ({ cards: Array.from(r.bytes(80)), boosts: Array.from(r.bytes(8)) }));
+    items.push({ key, value });
+  }
+  // A frame that replaces both collections is independently required to be self-consistent, even before a Tracker
+  // combines it with retained collections from an earlier State frame.
+  const propsItem = items.find(item => item.key === 2), questsItem = items.find(item => item.key === 10);
+  if (propsItem && questsItem) {
+    validateQuestPropReferences(new Map([[2, propsItem.value], [10, questsItem.value]]));
+  }
+  return items;
+}
+
+function readQuests(r, strictBool, finite, handle) {
+  const start = r.p, available = r.u8();
+  if (available === 0) return null;
+  if (available !== 1) throw new Error("bad quest availability");
+  const rowsCount = (what, max) => { const n = r.varint(); if (n > max) throw new Error("too many " + what); return n; };
+  const position = (what) => {
+    const v = finite(r.f64()); if (v < 0 || v > 8191.875) throw new Error("bad " + what + " position"); return v;
+  };
+  const boundedString = (max, allowEmpty, what) => {
+    const v = r.str(), bytes = new TextEncoder().encode(v).length;
+    if ((!allowEmpty && bytes === 0) || bytes > max) throw new Error("bad " + what);
+    return v;
+  };
+  const unknownCount = r.varint(), displayUnknownCount = r.varint();
+  if (unknownCount > 20 || displayUnknownCount > unknownCount) throw new Error("bad quest unknown counts");
+  const ownerRosterRaw = r.varint(), ownerRoster = ownerRosterRaw || null;
+  const roster = [], rosterIds = new Set();
+  for (let i = 0, n = rowsCount("quest roster", 8); i < n; i++) {
+    const id = handle(); if (rosterIds.has(id)) throw new Error("duplicate quest roster id"); rosterIds.add(id);
+    roster.push({ id, label: boundedString(255, true, "quest label") });
+  }
+  if (ownerRoster !== null && !rosterIds.has(ownerRoster)) throw new Error("unknown owner quest roster id");
+  const rows = [], questHandles = new Set();
+  for (let i = 0, n = rowsCount("quest rows", 20); i < n; i++) {
+    const rowHandle = handle(); if (questHandles.has(rowHandle)) throw new Error("duplicate quest handle"); questHandles.add(rowHandle);
+    const def = boundedString(16, false, "quest definition");
+    const giver = { x: position("quest giver"), y: position("quest giver") };
+    const state = r.code(3, "quest status"), expiresAt = finite(r.f64());
+    if (expiresAt < 0) throw new Error("bad quest deadline");
+    const participants = [], participantIds = new Set();
+    for (let j = 0, pn = rowsCount("quest participants", 8); j < pn; j++) {
+      const id = handle(), accepted = strictBool("quest accepted flag"), progress = r.varint(), visited = r.u8();
+      if (participantIds.has(id)) throw new Error("duplicate quest participant id"); participantIds.add(id);
+      if (visited & ~0x1f) throw new Error("bad quest visited mask");
+      participants.push({ id, accepted, progress, visited });
+    }
+    const carrierRaw = r.varint(), carrier = carrierRaw || null;
+    const hasDoneBy = strictBool("quest done-by presence"), doneBy = hasDoneBy ? boundedString(255, true, "quest done-by") : null;
+    // Flag 16: the carrier's public actor id follows (non-zero); without a carrier it is as unknown as 32..128.
+    const flags = r.u8(); if ((flags & ~31) || ((flags & 16) && carrier === null)) throw new Error("bad quest flags");
+    let carrierActor = null;
+    if (flags & 16) { carrierActor = r.varint(); if (carrierActor === 0) throw new Error("bad quest carrier actor"); }
+    const ownerProgress = r.varint(), ownerVisited = r.u8();
+    if (ownerVisited & ~0x1f) throw new Error("bad quest visited mask");
+    const name = r.str(), giverLabel = r.str(), brief = r.str(), objective = r.str(), reward = r.str();
+    rows.push({
+      handle: rowHandle, def, giver, state, expiresAt, participants, carrier, carrierActor, doneBy,
+      canAccept: (flags & 1) !== 0, ownerAccepted: (flags & 2) !== 0,
+      ownerCompleted: (flags & 4) !== 0, ownerReady: (flags & 8) !== 0,
+      ownerProgress, ownerVisited, name, giverLabel, brief, objective, reward,
+    });
+  }
+  const objectives = [], objectivesPerQuest = new Map();
+  for (let i = 0, n = rowsCount("quest objectives", 160); i < n; i++) {
+    const quest = handle(), at = { x: position("quest objective"), y: position("quest objective") };
+    const count = (objectivesPerQuest.get(quest) || 0) + 1;
+    if (count > 8) throw new Error("too many objectives per quest");
+    objectivesPerQuest.set(quest, count); objectives.push({ quest, at });
+  }
+  if (r.p - start > MAX_QUEST_VIEW_BYTES) throw new Error("quest payload too large");
+  const view = { unknownCount, displayUnknownCount, ownerRoster, roster, rows, objectives };
+  for (const row of rows) {
+    for (const p of row.participants) if (!rosterIds.has(p.id)) throw new Error("unknown quest participant roster id");
+    if (row.carrier !== null && !rosterIds.has(row.carrier)) throw new Error("unknown quest carrier roster id");
+  }
+  for (const objective of objectives) if (!questHandles.has(objective.quest)) throw new Error("unknown objective quest handle");
+  return view;
+}
+
+function readTrade(r, strictBool) {
+  const start = r.p;
+  const available = strictBool("trade flag");
+  if (!available) return null;
+  const tradeUsed = strictBool("trade flag");
+  const offerCount = r.varint(); if (offerCount > 3) throw new Error("too many trade offers");
+  const offers = [];
+  for (let i = 0; i < offerCount; i++) {
+    const cost = r.u8(); if (cost > 6) throw new Error("bad trade stat");
+    const costValue = r.f64();
+    const gain = r.u8(); if (gain > 6) throw new Error("bad trade stat");
+    const gainValue = r.f64();
+    const label = r.str();
+    if (cost === gain || !Number.isFinite(costValue) || costValue <= 0 || !Number.isFinite(gainValue) || gainValue <= 0) throw new Error("bad trade offer");
+    offers.push({ cost, costValue, gain, gainValue, label });
+  }
+  const statCount = r.varint(); if (statCount > 7) throw new Error("too many trade stats");
+  const stats = [];
+  for (let i = 0; i < statCount; i++) {
+    const stat = r.u8(); if (stat > 6) throw new Error("bad trade stat");
+    const value = r.f64();
+    if (!Number.isFinite(value)) throw new Error("bad trade delta");
+    stats.push({ stat, value });
+  }
+  const barterReadyAt = r.opt(() => {
+    const value = r.f64(); if (!Number.isFinite(value) || value < 0) throw new Error("bad trade deadline"); return value;
+  });
+  const merchantCount = r.varint(); if (merchantCount > 2) throw new Error("too many trade merchants");
+  const merchants = [];
+  for (let i = 0; i < merchantCount; i++) {
+    const kind = r.u8(); if (kind > 1) throw new Error("bad trade kind");
+    const x = r.f64(), y = r.f64(), name = r.str();
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 8191.875 || y < 0 || y > 8191.875) throw new Error("bad trade merchant");
+    merchants.push({ kind, x, y, name });
+  }
+  const barterLabels = [r.str(), r.str(), r.str()];
+  if (r.p - start > MAX_TRADE_VIEW_BYTES) throw new Error("trade payload too large");
+  return { tradeUsed, offers, stats, barterReadyAt, merchants, barterLabels };
+}
+
+function validateAndCopyTradeValue(value) {
+  const bad = (message) => { throw new Error(message); };
+  const isRecord = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+  const exactKeys = (v, keys) => isRecord(v) && Object.keys(v).length === keys.length && keys.every(k => Object.prototype.hasOwnProperty.call(v, k));
+  const textBytes = (v, what) => {
+    if (typeof v !== "string") bad("bad " + what);
+    const encoded = new TextEncoder().encode(v);
+    if (UTF8.decode(encoded) !== v) bad("bad utf-8");
+    if (encoded.length > 255) bad("bad " + what);
+    return encoded.length;
+  };
+  if (value === null) return null;
+  if (!exactKeys(value, ["tradeUsed", "offers", "stats", "barterReadyAt", "merchants", "barterLabels"])) bad("bad trade view");
+  if (typeof value.tradeUsed !== "boolean") bad("bad trade flag");
+  if (!Array.isArray(value.offers) || value.offers.length > 3) bad("too many trade offers");
+  if (!Array.isArray(value.stats) || value.stats.length > 7) bad("too many trade stats");
+  if (!Array.isArray(value.merchants) || value.merchants.length > 2) bad("too many trade merchants");
+  if (!Array.isArray(value.barterLabels) || value.barterLabels.length !== 3) bad("bad trade barter labels");
+  let size = 1 + 1 + 1; // availability, used, offer count
+  const offers = value.offers.map(offer => {
+    if (!exactKeys(offer, ["cost", "costValue", "gain", "gainValue", "label"])) bad("bad trade offer");
+    const labelBytes = textBytes(offer.label, "trade offer label");
+    if (!Number.isInteger(offer.cost) || offer.cost < 0 || offer.cost > 6
+      || !Number.isInteger(offer.gain) || offer.gain < 0 || offer.gain > 6) bad("bad trade stat");
+    if (offer.cost === offer.gain || !Number.isFinite(offer.costValue) || offer.costValue <= 0
+      || !Number.isFinite(offer.gainValue) || offer.gainValue <= 0) bad("bad trade offer");
+    size += 19 + labelBytes;
+    return { cost: offer.cost, costValue: offer.costValue, gain: offer.gain, gainValue: offer.gainValue, label: offer.label };
+  });
+  size += 1 + value.stats.length * 9; // stat count and fixed-width rows
+  const stats = value.stats.map(row => {
+    if (!exactKeys(row, ["stat", "value"]) || !Number.isInteger(row.stat) || row.stat < 0 || row.stat > 6) bad("bad trade stat");
+    if (!Number.isFinite(row.value)) bad("bad trade delta");
+    return { stat: row.stat, value: row.value };
+  });
+  let barterReadyAt = value.barterReadyAt;
+  size += 1;
+  if (barterReadyAt !== null) {
+    if (!Number.isFinite(barterReadyAt) || barterReadyAt < 0) bad("bad trade deadline");
+    size += 8;
+  }
+  size += 1; // merchant count
+  const merchants = value.merchants.map(merchant => {
+    if (!exactKeys(merchant, ["kind", "x", "y", "name"]) || !Number.isInteger(merchant.kind) || merchant.kind < 0 || merchant.kind > 1) bad("bad trade kind");
+    if (!Number.isFinite(merchant.x) || !Number.isFinite(merchant.y) || merchant.x < 0 || merchant.x > 8191.875
+      || merchant.y < 0 || merchant.y > 8191.875) bad("bad trade merchant");
+    const nameBytes = textBytes(merchant.name, "trade merchant name");
+    size += 18 + nameBytes;
+    return { kind: merchant.kind, x: merchant.x, y: merchant.y, name: merchant.name };
+  });
+  const barterLabels = value.barterLabels.map(label => {
+    const bytes = textBytes(label, "trade barter label"); size += 1 + bytes; return label;
+  });
+  if (size > MAX_TRADE_VIEW_BYTES) bad("trade payload too large");
+  return { tradeUsed: value.tradeUsed, offers, stats, barterReadyAt, merchants, barterLabels };
+}
+
+function validateQuestPropReferences(collections) {
+  const props = collections.get(2);
+  if (!props) return;
+  const questView = collections.get(10);
+  const questHandles = new Set(questView?.rows?.map(row => row.handle) ?? []);
+  for (const prop of props.rows) {
+    if (prop.kind === 7 && (questView === null || !questHandles.has(prop.quest))) {
+      throw new Error("quest prop references unavailable quest");
+    }
+  }
+}
+
+// A client's snapshot decoder (mirror of rh-protocol SnapshotTracker): holds the last snapshot applied, the base of the next delta.
+// A delta it cannot apply is REFUSED (an Error with a `code`), the held snapshot is kept, and nothing is repaired or clamped.
+function refused(code) { const e = new Error("refused " + code); e.code = code; return e; }
+// Kind 4 is the contextual neutral QuestGiver representation. Keep raw faction/weapon
+// nibbles on the wire model; only the exact paired sentinel has presentation meaning.
+function isValidGiverActor(a) { return a.kind !== 4 || (a.faction === 15 && a.weapon === 15 && a.mobTypeCode === 0); }
+function validateGiverActors(actors, trackerCandidate) {
+  if (actors.some(a => !isValidGiverActor(a))) {
+    if (trackerCandidate) throw refused("giver_actor");
+    throw new Error("bad giver actor");
+  }
+}
+function remoteActorPresentation(a) {
+  return a.kind === 4 ? { faction: null, weapon: null, neutral: true }
+    : { faction: a.faction, weapon: a.weapon, neutral: false };
+}
+class Tracker {
+  constructor() { this.reset(); }
+  reset() { this.base = null; this.collections = new Map(); }
+  decode(buf) { return this.apply(decode(buf)); }
+  apply(m) {
+    if (m.t === "welcome") { this.reset(); return m; }
+    if (m.t === "state") {
+      const candidate = new Map(this.collections);
+      for (const item of m.items) candidate.set(item.key, item.key === 11 ? validateAndCopyTradeValue(item.value) : item.value);
+      validateQuestPropReferences(candidate);
+      this.collections = candidate;
+      return m;
+    }
+    if (m.t === "snapshot") {
+      validateGiverActors(m.actors, false);
+      validateOwnerCombatGroup(m.ownerCombat, m.me, m.actors, true);
+      const ownerCombat = copyOwnerCombat(m.ownerCombat);
+      this.base = { tick: m.tick, serverMs: m.serverMs, phase: m.phase, training: m.training, me: m.me, actors: m.actors, ownerCombat };
+      return m;
+    }
+    if (m.t !== "delta") return m;
+    const b = this.base;
+    if (!b) throw refused("no_base");
+    if (b.tick !== m.baseTick) throw refused("base_mismatch");
+    if (m.me && !b.me) throw refused("self_without_base");
+    const dep = m.departed, out = [];
+    let bi = 0, di = 0;
+    // Copies (or retires, when departed) the base actors below `limit` (all when null); a departed id no base actor matches is refused.
+    const flush = (limit) => {
+      while (bi < b.actors.length && (limit === null || b.actors[bi].id < limit)) {
+        const a = b.actors[bi];
+        if (di < dep.length && dep[di] < a.id) throw refused("unknown_departed");
+        if (di < dep.length && dep[di] === a.id) di++; else out.push(a);
+        bi++;
+      }
+    };
+    const upd = (a, ch) => {
+      const n = { ...a, id: ch.id };
+      if (ch.mask & 64) n.status = ch.status;
+      if (ch.mask & 128) n.kind = ch.kind;
+      if (ch.mask & 256) n.effects = ch.effects;
+      if (ch.mask & 512) n.displaceSeq = ch.displaceSeq;
+      if (ch.mask & 1024) n.mobTypeCode=ch.mobTypeCode;
+      if (ch.mask & 2048) n.sig=ch.sig;
+      if (ch.mask & 4096) { n.barrierPct = ch.barrierPct; n.barrierRingStep = ch.barrierRingStep; }
+      if (ch.mask & 8192) n.archetype = ch.archetype;
+      if (ch.mask & 0x4000) n.flags = ch.flags;
+      if (ch.mask & 0x8000) n.offhand = ch.offhand;
+      if (ch.mask & 0x10000) n.buildMarks = ch.buildMarks;
+      if (ch.mask & 0x20000) { n.markTier = ch.markTier; n.brand = ch.brand; n.markTax = ch.markTax; }
+      if (ch.mask & 1) n.x = dqPos(ch.x);
+      if (ch.mask & 2) n.y = dqPos(ch.y);
+      if (ch.mask & 4) n.facing = dqAngle(ch.facing);
+      if (ch.mask & 8) { n.faction = ch.kit & 15; n.weapon = ch.kit >> 4; }
+      if (ch.mask & 16) n.hpPct = ch.hpPct;
+      if (ch.mask & 32) n.bounty = ch.bounty;
+      return n;
+    };
+    for (const ch of m.changed) {
+      flush(ch.id);
+      if (bi < b.actors.length && b.actors[bi].id === ch.id) {
+        if (di < dep.length && dep[di] === ch.id) throw refused("departed_and_changed");
+        out.push(upd(b.actors[bi], ch));
+        bi++;
+      } else {
+        // A new actor starts from the default actor and must carry its position (bits 0..2).
+        if ((ch.mask & 7) !== 7) throw refused("incomplete_new_actor");
+        out.push(upd({ faction: 0, weapon: 0, hpPct: 100, status: 1, bounty: 0, kind: 0, effects: 0, displaceSeq: 0, mobTypeCode:0,sig:0,barrierPct:0,barrierRingStep:0,archetype:0,flags:0,offhand:0,buildMarks:0,markTier:0,brand:0,markTax:0 }, ch));
+      }
+    }
+    flush(null);
+    if (di < dep.length) throw refused("unknown_departed");
+    if (out.length > 512) throw refused("too_many_actors");
+    // Kind and kit are independently optional in a delta. Validate the fully merged
+    // candidate before changing the held baseline, so retained identity fields count.
+    validateGiverActors(out, true);
+    let me = null;
+    if (m.me) {
+      const d = m.me, s = { ...b.me };
+      if (d.mask & 0x0002) s.x = d.x;
+      if (d.mask & 0x0004) s.y = d.y;
+      if (d.mask & 0x0008) s.facing = d.facing;
+      if (d.mask & 0x0010) s.moveSeq = d.moveSeq;
+      if (d.mask & 0x0020) s.hp = d.hp;
+      if (d.mask & 0x0040) s.readyIn = d.readyIn;
+      if (d.mask & 0x0200) s.maxHp = d.maxHp;
+      if (d.mask & 0x0400) { s.faction = d.kit & 15; s.weapon = d.kit >> 4; }
+      if (d.mask & 0x0800) s.kills = d.kills;
+      if (d.mask & 0x1000) s.bounty = d.bounty;
+      if (d.mask & 0x2000) s.gv = d.gv;
+      if (d.mask & 0x4000) s.status = d.status;
+      if (d.mask & 0x8000) s.effects = d.effects;
+      if (d.mask & 0x10000) s.displaceSeq = d.displaceSeq;
+      if (d.mask & 0x20000) s.sig=d.sig;
+      if (d.mask & 0x40000) s.huntTarget = d.huntTarget;
+      if (d.mask & 0x80000) s.huntStacks = d.huntStacks;
+      if (Object.prototype.hasOwnProperty.call(d, "wish")) s.wish = d.wish;
+      if (Object.prototype.hasOwnProperty.call(d, "barrierBits")) { s.barrierBits = d.barrierBits; s.barrierRingStep = d.barrierRingStep; }
+      if (Object.prototype.hasOwnProperty.call(d, "archetype")) s.archetype = d.archetype;
+      if (Object.prototype.hasOwnProperty.call(d, "flags")) s.flags = d.flags;
+      if (Object.prototype.hasOwnProperty.call(d, "buildMarks")) s.buildMarks = d.buildMarks;
+      if (Object.prototype.hasOwnProperty.call(d, "markTier")) { s.markTier = d.markTier; s.brand = d.brand; s.markTax = d.markTax; }
+      me = s;
+    }
+    // Replacement is transactional with the reconstructed owner and actor scene.
+    // If the delta omitted this group, retain it only while that same owner exists.
+    if (Object.prototype.hasOwnProperty.call(m, "ownerCombat")) {
+      validateOwnerCombatGroup(m.ownerCombat, me, out, true);
+    }
+    const ownerCombat = Object.prototype.hasOwnProperty.call(m, "ownerCombat")
+      ? copyOwnerCombat(m.ownerCombat)
+      : (me === null ? null : copyOwnerCombat(b.ownerCombat));
+    validateOwnerCombatGroup(ownerCombat, me, out, true);
+    const s = { t: "snapshot", tick: m.tick, serverMs: m.serverMs, phase: m.phase === null ? b.phase : m.phase, ack: m.ack, training: m.training, me, actors: out, ownerCombat };
+    this.base = { tick: s.tick, serverMs: s.serverMs, phase: s.phase, training: s.training, me: s.me, actors: s.actors, ownerCombat: copyOwnerCombat(ownerCombat) };
+    return s;
+  }
+}
+
+// ---- probe state (read by automated browser tests through window.__probe) ----
+const qs = new URLSearchParams(location.search);
+const profile = qs.get("profile") || ("web" + Math.floor(Math.random() * 1e6));
+const ticket = qs.get("ticket") || qs.get("token") || "dev";
+const faction = qs.has("faction") ? Number(qs.get("faction")) : null;
+const P = window.__probe = { welcome: null, stateFrames: 0, firstStateAfterWelcome: [], collections: {}, snapshots: 0, lastTick: 0, me: null, actors: [], events: [], results: [], rejects: [], rtts: [], fx: 0, errors: [], refused: [], fullSnapshots: 0, deltaSnapshots: 0, resyncs: 0, firstSnapshotAfterWelcome: [], resumes: 0, inputSeq: 0, moveSeq: 0, open: false };
+const tracker = new Tracker();
+let needFull = false, awaitingFirst = false, awaitingState = false, resyncAt = 0;
+const RESYNC_RETRY_MS = 2000;
+function askFull() { needFull = true; resyncAt = performance.now(); P.resyncs++; send(resync()); }
+let ws = null, session = null, contentHash = 0n, map = null, nonce = 0, mouse = { x: 0, y: 0 }, attacking = false;
+
+async function connect(resume) {
+  if (contentHash === 0n) {
+    const info = await (await fetch("/info", { cache: "no-store" })).json();
+    contentHash = BigInt("0x" + info.contentHash);
+  }
+  const url = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
+  let protocolRejected = false;
+  ws = new WebSocket(url);
+  ws.binaryType = "arraybuffer";
+  ws.onopen = () => { P.open = true; P.helloAt = performance.now(); ws.send(hello(contentHash, profile, ticket, faction, resume ? session : null)); };
+  ws.onclose = () => { P.open = false; };
+  ws.onerror = () => P.errors.push("socket error");
+  ws.onmessage = (ev) => {
+    if (protocolRejected) return;
+    let m;
+    const tag = new Uint8Array(ev.data)[0];
+    try { m = tracker.decode(ev.data); } catch (e) {
+      if (e.protocolMismatch) { protocolRejected = true; P.rejects.push({ code: 1, reason: e.message }); ws.close(); return; }
+      // A delta that does not apply (or cannot be read) is refused, not fatal: ask for a Full snapshot once and skip deltas until it
+      // comes; ask again only if it is RESYNC_RETRY_MS late (the server never drops a request: this covers a lost one).
+      if (e.code || tag === 0x87) { P.refused.push(String(e.message)); if (!needFull || performance.now() - resyncAt >= RESYNC_RETRY_MS) askFull(); }
+      else P.errors.push(String(e));
+      return;
+    }
+    if (m.t === "welcome") { needFull = false; awaitingFirst = true; awaitingState = true; P.collections = {}; }
+    if (m.t === "snapshot") {
+      if (tag === 0x83) { needFull = false; P.fullSnapshots++; } else P.deltaSnapshots++;
+      if (awaitingFirst) { awaitingFirst = false; P.firstSnapshotAfterWelcome.push(tag === 0x83 ? "full" : "delta"); }
+    }
+    if (m.t === "welcome") { if (!resume) { P.joinMs = { pageToWelcome: performance.now(), helloToWelcome: performance.now() - P.helloAt }; } else { P.resumeMs = performance.now() - P.helloAt; } P.welcome = { player: m.player, tick: m.tick, mapW: m.map.w, mapH: m.map.h, mapHash: m.map.hash, tickRate: m.tickRate }; session = m.session; map = m.map; if (resume) P.resumes++; }
+    else if (m.t === "snapshot") { P.snapshots++; P.lastTick = m.tick; P.me = m.me; P.actors = m.actors; P.phase = m.phase; P.ack = m.ack; }
+    else if (m.t === "events") { for (const e of m.events) { P.events.push(e); if (e.k === "result") P.results.push(e); } }
+    else if (m.t === "state") { P.stateFrames++; P.collections = Object.fromEntries(tracker.collections); if (awaitingState) { awaitingState = false; P.firstStateAfterWelcome.push(m.items.map(i => i.key)); } }
+    else if (m.t === "fx") P.fx += m.fx.length;
+    else if (m.t === "pong") P.rtts.push(performance.now() - m.clientMs);
+    else if (m.t === "reject") P.rejects.push({ code: m.code, reason: m.reason });
+  };
+}
+function send(bytes) { if (ws && ws.readyState === 1) ws.send(bytes); }
+P.move = (x, y) => { P.moveSeq = (P.moveSeq + 1) & 255; send(input(++P.inputSeq, [{ k: "move", x, y, seq: P.moveSeq }])); return P.moveSeq; };
+P.cast = (slot, x, y, actorRef = null, t = null, seq = null) => send(input(++P.inputSeq, [{ k: "cast", slot, x, y, actorRef, t, seq }]));
+P.choose = (handle,pick) => send(input(++P.inputSeq,[{k:"choose",handle,pick}]));
+P.pickup = (handle) => send(input(++P.inputSeq,[{k:"pickup",handle}]));
+P.attack = (a) => send(input(++P.inputSeq, [{ k: "attack", a, t: null }]));
+P.dropAndResume = () => new Promise((res) => { const old = ws; old.onclose = () => { P.open = false; connect(true).then(res); }; old.close(); });
+P.leave = () => send(leave());
+P.requestResync = askFull;
+// Test hook: forget the snapshot held (as if a delta had been lost), so the next delta is refused and the page asks for a Full one.
+P.loseSnapshot = () => { tracker.base = null; };
+setInterval(() => send(ping(++nonce)), 500);
+
+// ---- input and drawing ----
+const cv = document.getElementById("c"), g = cv.getContext("2d"), st = document.getElementById("s");
+const COLORS = [0xff7043, 0x9575cd, 0x9ccc65, 0x4fc3f7, 0xfff176].map((c) => "#" + c.toString(16).padStart(6, "0"));
+function view() { if (!P.me || !map) return null; const s = 1; return { s, ox: P.me.x - cv.width / 2 / s, oy: P.me.y - cv.height / 2 / s }; }
+cv.addEventListener("mousemove", (e) => { const b = cv.getBoundingClientRect(); mouse = { x: (e.clientX - b.left) * cv.width / b.width, y: (e.clientY - b.top) * cv.height / b.height }; });
+cv.addEventListener("mousedown", () => { const v = view(); if (v) P.move(mouse.x / v.s + v.ox, mouse.y / v.s + v.oy); });
+addEventListener("keydown", (e) => { if (e.code === "Space") attacking = true; });
+addEventListener("keyup", (e) => { if (e.code === "Space") attacking = false; });
+setInterval(() => { const v = view(); if (attacking && v) P.attack(Math.atan2(mouse.y / v.s + v.oy - P.me.y, mouse.x / v.s + v.ox - P.me.x)); }, 100);
+function draw() {
+  const v = view();
+  g.fillStyle = "#1b1f2a"; g.fillRect(0, 0, cv.width, cv.height);
+  if (v) {
+    const T = 32;
+    const x0 = Math.max(0, Math.floor(v.ox / T)), y0 = Math.max(0, Math.floor(v.oy / T));
+    for (let ty = y0; ty < Math.min(map.h, y0 + cv.height / T + 2); ty++) for (let tx = x0; tx < Math.min(map.w, x0 + cv.width / T + 2); tx++) {
+      const t = map.tiles[ty * map.w + tx]; if (t === 0) continue;
+      g.fillStyle = t === 1 ? "#4a5068" : "#7a5a3a"; g.fillRect(tx * T - v.ox, ty * T - v.oy, T, T);
+    }
+    const disc = (a, me) => { const look = remoteActorPresentation(a); g.fillStyle = look.neutral ? "#c7cbd4" : (COLORS[look.faction] || "#ccc"); g.beginPath(); g.arc(a.x - v.ox, a.y - v.oy, 12, 0, Math.PI * 2); g.fill(); if (me) { g.strokeStyle = "#fff"; g.stroke(); } };
+    for (const a of P.actors) if (a.status === 1) disc(a, false);
+    if (P.me && P.me.status === 1) disc(P.me, true);
+  }
+  const rtt = P.rtts.slice(-10).sort((a, b) => a - b);
+  st.textContent = JSON.stringify({ profile, player: P.welcome && P.welcome.player, tick: P.lastTick, phase: P.phase, hp: P.me && Math.round(P.me.hp), visible: P.actors.length, rttMs: rtt.length ? Math.round(rtt[rtt.length >> 1]) : null, results: P.results, rejects: P.rejects, errors: P.errors });
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+connect(false).catch((e) => P.errors.push(String(e)));
+</script>
+</body>
+</html>

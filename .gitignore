@@ -12,3 +12,16 @@ packages/client/.vitest/
 .wrangler/
 deployment/cloudflare/build-meta.json
 .vitest/
+
+# Rust
+/target
+
+# Claude Code subagent worktrees
+.claude/worktrees/
+
+# Agent process (docs/agent/README.md)
+.agent-runs/
+.claude/settings.local.json
+CLAUDE.local.md
+.env
+.env.*

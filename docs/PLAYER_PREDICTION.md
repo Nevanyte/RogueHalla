@@ -1,5 +1,26 @@
 # Predicting players so ping feels faster
 
+## Current Rust/Unity implementation (2026-11-10 UTC)
+
+The research below concerns the legacy TypeScript client. Current Rust/Unity delivery follows the
+[technical demo scope](coordination/TECHNICAL_DEMO.md) and [competitive netcode plan](NETCODE_COMPETITIVE_PLAN.md).
+No learned predictor or ML model is part of this implementation.
+
+Reviewed Wave1 integration `fe0e2983` keeps server authority and the20Hz step. The local movement mirror now reconciles
+against a bounded history at the observed order delay, retains its prediction lead, and corrects while newer movement
+is pending. A reusable movement byte alone is insufficient: alignment/history retirement also require the exact command's
+sent input frame and a fresh acknowledgement. The retained regression goes2failed/2passed to4passed; the full managed
+suite passes956. Existing Rust walk/path fixtures remain in use. Buffed movement now uses delivered `speed_milli`, with
+additional C# model tests; a new Rust-generated buffed-walk vector is not claimed.
+
+Accepted rewind is `min(srtt + 220ms, 300ms)` (estimator floor20ms, default100ms), so fresh sessions and clients at80ms
+RTT or above receive the full300ms window. This is an owner-authorized fairness change. Source review and102 affected
+Rust tests, format and strict server lint pass; the actual Unity Client/Net assemblies compile without errors. Real-link
+latency/FPS gains remain unmeasured. The running optimized demo is still the separately frozen pre-Wave1 baseline until
+new artifacts are built and compared.
+
+## Historical legacy research
+
 Status: **research and plan, with Stage 0 and Stage 1 shipped, and Stage 2 built on branch `claude/draw-ahead`**. Only what "Shipped in this pass" lists is built.
 Local numbers come from `bench/predictBench.ts` bot runs on 2026-11-02 and a plain-JS cost microbenchmark. Sources
 are at the end.
@@ -417,3 +438,109 @@ Human factors:
 Local: `bench/predictBench.ts` on the branch where the harness was written, before its port to main, 2026-11-02.
 The cited set is 3 runs of 4 bots, 7,249 rows; the second set is 3 runs, 10,176 rows. The cost figures come from a
 plain-JS microbenchmark. Neither report is in the repository.
+
+## Historical Rust / Unity measurement — P-NET-1 Phase 0
+
+These are historical protocol-6 slice measurements at `f62d3441`, not a benchmark of the integrated protocol-11/native-17 game. Later gameplay, collection State, transport and client changes need their own measurements. The earlier TypeScript research and learned-model proposals are historical context, not adopted Rust/Unity work; current R-ML prohibits training, models, datasets, Python bindings and inference services.
+
+Measured 2026-11-08 on macOS arm64 (Rust 1.97.0, release `wirebench`), branch `pnet-1/phase-0` based on `f62d3441`
+(with these bench changes uncommitted). Every run
+goes through the shipped observation -> wire -> protocol path (`wire::Publisher` + one `ConnEncoder` per viewer), with 8
+viewers (every player), seed 1, 2400 ticks (120 s at the fixed 20 Hz step), on `parity/maps/seed1.map.json` (160 x 160
+tiles, 32 u/tile). Each number is payload bytes per player per second: Events is the reliable `Events` frame, Fx the
+droppable fx frame, Snapshot the Full-or-delta frame the connection writer sent (one Full frame per viewer at startup,
+then deltas).
+
+### The load model (what idle, typical and heavy mean in the run)
+
+| Scenario | What runs |
+|---|---|
+| `idle` | Eight `rh_policy::scripted::Idle` seats in the same `Env` (same map, spawns, seed); they hold; no combat. The floor cost of eight viewers. |
+| `typical` | Exactly the default bench: eight `Brawler(2)` seats on the map's own spawns; walk to the nearest visible fighter, attack below 80 u, wander otherwise. It is the same source as the no-flag baseline command, so `--scenario typical` reproduces the baseline line. |
+| `heavy` | Same map, all eight fighters on a 36 u ring around the most central open 9x9-tile floor block. Each seat is a `Scrum` load policy: it attacks the nearest visible fighter within 80 u every 13 ticks (about 1.5 swings/s, the fist interval) and re-issues a Move order every 2 ticks (10 orders/s) to circle-strafe that target, both inside the C-INPUT 15 orders/s budget (about 11.5/s). All eight are placed with `hp = 1e6` so nobody dies inside the 120 s window (health goes on the wire as a percent clamped to 100, so this costs no bytes); every viewer sees the other seven for the whole run, and the scrum keeps moving and swinging throughout. It is the replication ceiling of an 8-way melee, not a claim about normal play. |
+
+The slice has no mobs, items or cards in any of these runs (`SimConfig::default()`: lifecycle off, mobs off, no initial
+loot). The heavy scenario adds no game rule: only placement, policy orders and the starting hp pool, all through public
+`rh-sim` / `rh-policy` APIs. In the `typical` run 3 of the 8 bots are still alive at the end (the default bots fight when
+they meet), which is why its mean visible-actor count is below 1.
+
+### Measured
+
+| Scenario | Events B/s | Fx B/s | Snapshot B/s | Total B/s | Total KB/s | Snapshots as Full frames B/s | Frames/player/s | Encode us/player-tick | Sim step us | Mean visible actors | Alive at 120 s |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| idle | 0 | 0 | 139 | 139 | 0.14 | 619 | 20.0 | 0.34 | 6.93 | 1.00 | 8 |
+| typical | 0 | 43 | 249 | 292 | 0.29 | 766 | 22.1 | 2.03 | 19.96 | 0.97 | 3 |
+| heavy | 0 | 1266 | 524 | 1790 | 1.79 | 1819 | 28.2 | 0.83 | 11.40 | 7.00 | 8 |
+
+`Encode us/player-tick` is the wall time of the whole per-viewer pass (observe, wire build, delta encode) divided by
+viewer-ticks; `Sim step us` is the simulation step alone. Both are CPU measurements and vary a few percent between runs
+(the timings above are one run; the byte columns are stable across runs). Events is zero because no reliable event
+(death, bounty, result) was observed by a viewer in any of the three runs: the slice's combat produces hit Fx, not events.
+The heavy row's snapshot column is smaller than a naive "8 moving fighters" estimate because a delta only carries the
+actors whose quantized wire state changed since the previous frame and the scrum's orbit is a small move per tick; the
+Full-frame column (1,819 B/s) is the no-delta upper bound for that same run.
+
+Raw report lines from one run (`--scenario all --compare-full`):
+
+```json
+{"scenario":"idle","aliveAtEnd":8,"map":"160x160","players":8,"steps":2400,"welcomeBytes":4911,"bytesPerPlayerPerSec":139,"snapshotBytesPerPlayerPerSec":139,"fullSnapshotBytesPerPlayerPerSec":619,"fullSnapshotFrames":8,"deltaSnapshotFrames":19192,"eventBytesPerPlayerPerSec":0,"fxBytesPerPlayerPerSec":0,"framesPerPlayerPerSec":20.0,"meanSnapshotBytes":7.0,"meanVisibleActors":1.00,"observeEncodeUsPerPlayerTick":0.34,"simStepUsMean":6.93}
+{"scenario":"typical","aliveAtEnd":3,"map":"160x160","players":8,"steps":2400,"welcomeBytes":4911,"bytesPerPlayerPerSec":292,"snapshotBytesPerPlayerPerSec":249,"fullSnapshotBytesPerPlayerPerSec":766,"fullSnapshotFrames":8,"deltaSnapshotFrames":19192,"eventBytesPerPlayerPerSec":0,"fxBytesPerPlayerPerSec":43,"framesPerPlayerPerSec":22.1,"meanSnapshotBytes":12.4,"meanVisibleActors":0.97,"observeEncodeUsPerPlayerTick":2.03,"simStepUsMean":19.96}
+{"scenario":"heavy","aliveAtEnd":8,"map":"160x160","players":8,"steps":2400,"welcomeBytes":4911,"bytesPerPlayerPerSec":1790,"snapshotBytesPerPlayerPerSec":524,"fullSnapshotBytesPerPlayerPerSec":1819,"fullSnapshotFrames":8,"deltaSnapshotFrames":19192,"eventBytesPerPlayerPerSec":0,"fxBytesPerPlayerPerSec":1266,"framesPerPlayerPerSec":28.2,"meanSnapshotBytes":26.2,"meanVisibleActors":7.00,"observeEncodeUsPerPlayerTick":0.83,"simStepUsMean":11.40}
+```
+
+(The `note` field is the same in all three and is omitted here.)
+
+### Reproduce
+
+```bash
+# the brief's baseline, unchanged
+cargo run --release -p rh-server --bin wirebench -- --map parity/maps/seed1.map.json --ticks 2400 --seed 1
+# the idle / typical / heavy report (one JSON line each, scenario-tagged)
+cargo run --release -p rh-server --bin wirebench -- --map parity/maps/seed1.map.json --ticks 2400 --seed 1 --scenario all
+# the same, plus what each snapshot would cost as a Full frame
+cargo run --release -p rh-server --bin wirebench -- --map parity/maps/seed1.map.json --ticks 2400 --seed 1 --scenario all --compare-full
+```
+
+Run from the repository root. Without `--scenario` the output is the same single line the baseline has always printed
+(same fields, same order; `typical` is that source).
+
+### Decision
+
+> Add delta compression only if the measured *typical* load exceeds the legacy gate of **20 KB/s per client**, or the owner sets a lower budget. Otherwise record **"not needed"** with the numbers.
+
+**Recorded decision: not needed.** The measured typical load is **292 B/s per client (0.29 KB/s), 1.5% of the 20 KB/s
+gate (about 69x under it)**; its snapshot path alone is 249 B/s, and even sending every snapshot as a Full frame would
+cost 766 B/s. The heavy ceiling is 1,790 B/s (1.79 KB/s, 9% of the gate, about 11x under), and **3,085 B/s total** if every heavy
+snapshot were a Full frame (**1,819 B/s snapshots + 1,266 B/s Fx**). No delta compression was added and `PROTOCOL_VERSION` is unchanged. The packet's caveat
+stands: the slice sends full observations and heavier mechanics will change the answer, so re-run this bench when mobs,
+items or cards add actors or snapshot fields.
+
+### Latency evidence: not measured
+
+Input-to-photon latency and p95 frame jitter at 50 / 100 / 150 ms RTT with about 1% loss were **not measured**, and no
+number for them is claimed here. Reasons:
+
+- This phase measured an engine-independent headless session and did not instrument a rendering client. Later Unity bootstrap/first-playable evidence does not retroactively provide input-to-photon timestamps for these runs.
+- The only in-scope network aid would be a new `netsim` proxy or an in-process lossy link. Even with one, a lossy-link
+  test can measure server and protocol behaviour but not input-to-photon without a client that renders, so the requested
+  figure needs infrastructure beyond this phase's write scope.
+
+The Unity rendering client is real and has been exercised end-to-end in a browser:
+[`evidence/stage2-unity/`](evidence/stage2-unity/README.md) (the actual IL2CPP/WebGL build driven by Chromium over a real
+browser WebSocket with acknowledged WASD movement) and [`evidence/first-playable-calgary/`](evidence/first-playable-calgary/README.md)
+(the actual Unity Web player completed the MVP loop against the Rust server in Calgary on 2026-11-06; bounded temporary
+staging, since removed). What is missing for input-to-photon and p95 jitter at 50/100/150 ms RTT with about 1% loss is the
+instrumentation: photon timestamps plus an opt-in client trace over a controlled lossy link. That harness is owned by the
+parallel Unity input-latency workstream (`tools/latency/**` plus opt-in browser/Unity trace hooks, owner-authorized
+2026-11-08), so this phase defers the end-to-end numbers there instead of duplicating or colliding with that work.
+
+Playwright 1.64.1 is available for the browser proof in this checkout (isolated install; point `NODE_PATH` at
+`/Users/nevinmckinnon/.codex/tools/rougehalla-stage2/browser/node_modules`), so `node tools/browser-proof/proof.mjs` is
+runnable here and is not skipped for a missing dependency.
+
+What *was* measurable is above: the server's own per-tick cost. On the heavy run one tick is 11.4 us of sim step plus
+0.83 us per viewer for observe + encode (8 viewers: about 18 us, roughly 0.04% of the 50 ms tick budget); idle and
+typical are lower. The structural server-side input-to-snapshot delay is bounded by one tick (commands queue and are
+applied at the next 20 Hz step), i.e. 0-50 ms before transport; the network and render shares are exactly what this phase
+cannot measure. Phase 3's RTT-bounded rewind test (in-process link, 150 ms RTT) is the first place a network delay is
+injected.

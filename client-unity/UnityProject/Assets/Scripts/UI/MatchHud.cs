@@ -1,0 +1,580 @@
+using System;
+using System.Text;
+using TMPro;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
+using Roguehalla.Net;
+using Roguehalla.Net.Ui;
+using Roguehalla.Net.Protocol;
+
+namespace Roguehalla.Client
+{
+    /// <summary>Displays delivered facts and forwards explicit user intents. Contains no gameplay decisions.</summary>
+    public sealed partial class MatchHud : MonoBehaviour
+    {
+        MatchClient _client;
+        Session _session;
+        Action<ServerMsg.Events> _boundNoticeEvents;
+        RectTransform _root, _stage, _chromeStage, _menu, _hud, _rewards, _results, _settings;
+        HudStage _stageScaler, _chromeScaler;
+        TMP_InputField _nickname;
+        TMP_Text _banner, _vitals, _build, _wishCard, _rewardTitle, _resultTitle, _notice;
+        RectTransform _healthBarFill, _barrierBarFill;
+        readonly UnityEngine.UI.Button[] _options = new UnityEngine.UI.Button[3];
+        readonly UnityEngine.UI.Button[] _headerActions = new UnityEngine.UI.Button[3];
+        UnityEngine.UI.Button _skip, _pickup;
+        ShowcaseSettings _showcaseSettings;
+        ShowcaseAudio _showcaseAudio;
+        readonly System.Collections.Generic.List<TMP_Text> _scaledText = new System.Collections.Generic.List<TMP_Text>();
+        readonly System.Collections.Generic.List<float> _textBaseSize = new System.Collections.Generic.List<float>();
+        readonly UnityEngine.UI.Button[] _slots = new UnityEngine.UI.Button[2];
+        int _faction = 4, _chestIndex;
+        RewardChestHandle _shownChest;
+        bool _dirty, _rewardsDirty;
+        SessionState _bannerState = (SessionState)(-1);
+        bool _bannerPractice;
+        int _bannerPhase = -1, _bannerAttempt = -1;
+        float _lastHp = float.NaN, _lastMaxHp;
+        WishView? _lastWish;
+        float _lastBarrier = float.NaN;
+        byte _lastBarrierRing;
+        double _lastServerTime = double.NaN;
+        ushort _lastKills, _lastGv;
+        ActorStatus _lastStatus;
+        WireResult _lastResult, _pendingResult; float _pendingResultAt;
+        /// <summary>Seconds a defeated player sees the death line before the results card (legacy DEATH_RESULTS_DELAY_MS).</summary>
+        public const float DeathResultsDelay = 1.5f;
+        string _feedback = "";
+        InventoryView? _inventoryShown;
+        PropView? _focusShown;
+        byte[] _cardsShown = Array.Empty<byte>();
+        readonly byte[] _boostsShown = new byte[8];
+        bool _buildShown, _hasBuildShown;
+        ulong _rewardSignature = ulong.MaxValue;
+        static readonly string[] Factions = { "Fire", "Sentenced", "Plague", "Frost", "Holy" };
+        static readonly string[] Phases = { "Lobby — waiting for players", "Match active", "Match ended", "Planning — choose your spawn" };
+        static readonly string[] Outcomes = { "Victory", "Draw", "Defeated", "Missing in action" };
+
+        public bool BlocksWorldInput => BlocksKeyboardInput || BlocksPointerInput;
+
+        public void Initialize(MatchClient client)
+        {
+            _client = client; _faction = client.Faction >= 0 && client.Faction < Factions.Length ? client.Faction : 4;
+            if (EventSystem.current == null)
+                new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+            else if (EventSystem.current.GetComponent<InputSystemUIInputModule>() == null)
+            {
+                foreach (var module in EventSystem.current.GetComponents<BaseInputModule>()) module.enabled = false;
+                EventSystem.current.gameObject.AddComponent<InputSystemUIInputModule>();
+            }
+            var go = new GameObject("MatchUI", typeof(RectTransform), typeof(Canvas), typeof(UnityEngine.UI.CanvasScaler), typeof(UnityEngine.UI.GraphicRaycaster));
+            go.transform.SetParent(transform, false);
+            _root = (RectTransform)go.transform;
+            _showcaseSettings = go.AddComponent<ShowcaseSettings>();
+            _showcaseAudio = go.AddComponent<ShowcaseAudio>();
+            _showcaseSettings.Changed += ApplyTextScale;
+            go.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+            var scaler = go.GetComponent<UnityEngine.UI.CanvasScaler>();
+            scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080); scaler.matchWidthOrHeight = .5f;
+            EnsureStage();
+            CreateTopAndToastPills();
+            CreateLegacyChrome();
+            CreateJoinMenu();
+            SetFaction(_faction);
+            CreateCombatHud();
+            CreateChestPanel();
+            CreateResultsCard();
+            InitializeFeatures();
+            InitializeTrainingConsole();
+            _chromeStage.SetAsLastSibling();
+            InitializeTutorial();
+            ApplyLegacyViewport(_stageScaler.Viewport);
+            ShowMenu();
+        }
+
+        void SetFaction(int value)
+        {
+            _faction = value;
+            _client?.SelectFaction(value);
+            _launch?.SetFaction(value);
+            _backdrop?.FocusFaction(value);
+            _hubGuide?.SetFaction(value);
+        }
+
+        void ToggleSettings()
+        {
+            SuspendTrainingForPanel();
+            _showcaseAudio?.UnlockFromUserGesture();
+            bool show = !_modernSettings.IsVisible;
+            if (show) { SetSignInVisible(false); CloseHubPanels(); _drawer?.SetVisible(false); _help?.gameObject.SetActive(false); _map?.SetOpen(false); }
+            _modernSettings.SetVisible(show);
+            RefreshHeaderActionsVisibility();
+        }
+
+        void JoinAgain()
+        {
+            if (_showcaseAudio != null) _showcaseAudio.UnlockFromUserGesture();
+            _client.Join(_client.Profile, _faction);
+        }
+
+        void ApplyTextScale()
+        {
+            float scale = _showcaseSettings != null ? _showcaseSettings.TextScale : 1f;
+            for (int i = 0; i < _scaledText.Count; i++)
+            {
+                if (_scaledText[i] == null) continue;
+                _scaledText[i].fontSize = _textBaseSize[i] * scale;
+                _scaledText[i].fontSizeMin = _textBaseSize[i] * .75f * scale;
+                _scaledText[i].fontSizeMax = _textBaseSize[i] * scale;
+            }
+            MythicUi.ApplyTextScale(_root, scale);
+            LayoutTerrainNote();   // the note's box is measured for its text at the new size
+            _hubGuide?.RefreshScale(scale);
+            _hubCosmetics?.RefreshScale(scale);
+        }
+        void Swap(byte slot) { if (Active) _session.Input.Swap(slot); EventSystem.current?.SetSelectedGameObject(null); }
+        void UsePotion() { if (Active) _session.Input.UseConsumable(); EventSystem.current?.SetSelectedGameObject(null); }
+        bool Active { get { return _session != null && _session.State == SessionState.InMatch && (_client == null || _client.LaunchVerified); } }
+        void Choose(sbyte pick)
+        {
+            if (!Active || !_shownChest.IsValid || (pick >= 0 && !_options[pick].interactable) || (pick < 0 && !_skip.interactable)) return;
+            _session.Input.Choose(_shownChest, pick);
+            ReleaseChestFocus();
+        }
+        public void Bind(Session session)
+        {
+            CloseResumeChooser();
+            Unbind(); _session = session; ResetMatchEnded();
+            session.StateChanged += Changed; session.SnapshotReceived += Snapshot;
+            session.CollectionsChanged += Collections;
+            session.TimelineReset += ResetPlayerFlowTimeline;
+            _menu.gameObject.SetActive(false); _hud.gameObject.SetActive(true); _settings.gameObject.SetActive(false);
+            SetSignInVisible(false); CloseHubPanels();
+            _results.gameObject.SetActive(false); _rewards.gameObject.SetActive(false);
+            _feedback = ""; _lastResult = _pendingResult = null; _lastHp = float.NaN; _chestIndex = 0; _shownChest = default;
+            _lastWish = null; _lastBarrier = float.NaN; _lastBarrierRing = 0; _lastServerTime = double.NaN;
+            _inventoryShown = null; _focusShown = null; _buildShown = false; _rewardSignature = ulong.MaxValue;
+            _dirty = _rewardsDirty = true; _bannerState = (SessionState)(-1); _bannerPhase = -1;
+            ClearOwnerPresentation("Awaiting server");
+            // Menu/modal visibility can keep these controls inactive until the next HUD tick.
+            _pickup.interactable = false; _pickup.GetComponentInChildren<TMP_Text>(true).text = "F"; _pickup.gameObject.SetActive(false);
+            _slots[0].GetComponentInChildren<TMP_Text>(true).text = "1";
+            _slots[1].GetComponentInChildren<TMP_Text>(true).text = "2";
+            RefreshCollections(session.Collections);
+            RefreshLaunchConfirmation(session);
+            RotateNoticeEvents();
+        }
+
+        void RotateNoticeEvents()
+        {
+            var session = _session;
+            if (session == null) return;
+            if (_boundNoticeEvents != null) session.EventsReceived -= _boundNoticeEvents;
+            uint epoch = session.TimelineEpoch;
+            Action<ServerMsg.Events> handler = null;
+            handler = batch =>
+            {
+                // An earlier subscriber may reset this same Session or rebind the HUD while
+                // the old invocation list is still running. Only this binding may append.
+                if (ReferenceEquals(_session, session) && session.TimelineEpoch == epoch &&
+                    ReferenceEquals(_boundNoticeEvents, handler)) Events(batch);
+            };
+            _boundNoticeEvents = handler;
+            session.EventsReceived += handler;
+        }
+        void Unbind()
+        {
+            CloseResumeChooser();
+            UnbindTrainingSession();
+            if (_session == null) return;
+            _session.StateChanged -= Changed; _session.SnapshotReceived -= Snapshot;
+            _session.CollectionsChanged -= Collections;
+            var noticeEvents = _boundNoticeEvents;
+            _boundNoticeEvents = null;
+            _session.EventsReceived -= noticeEvents;
+            _session.TimelineReset -= ResetPlayerFlowTimeline;
+            BindPlayerFlows(null);
+            _session = null;
+        }
+        public void ShowMenu()
+        {
+            CloseResumeChooser();
+            Unbind(); CloseHubPanels(); _menu.gameObject.SetActive(true); _hud.gameObject.SetActive(false); _focusCallsignPending = true;
+            if (_launchMenuInput != null) _launchMenuInput.interactable = true;
+            _rewards.gameObject.SetActive(false); _results.gameObject.SetActive(false); _settings.gameObject.SetActive(false);
+            ClearOwnerPresentation("Awaiting server");
+            _banner.text = "Choose a faction and join"; _notice.text = ""; Set(_plateStatus, "");
+            _map?.Bind(null); _drawer?.SetVisible(false); RefreshHeaderActionsVisibility(); ReleaseChestFocus();
+        }
+
+        /// <summary>Clears ephemeral notices and redraws owner facts after an accepted presentation clock cut.</summary>
+        public void ResetTransientPresentation()
+        {
+            _feedback = "";
+            Set(_notice, "");
+            _wishMotion.Reset();
+            ResetPlayerFlowTimeline();
+            if (_session == null) ClearOwnerPresentation("Awaiting server");
+            else if (_session.Me == null) ClearOwnerPresentation(_session.Latest == null ? "Awaiting server" : "Unavailable");
+            else RefreshOwnerPresentation(_session.Me, _session.ServerTimeMs);
+            _dirty = true;
+        }
+
+        void OnDisable() { HudIconHint.CloseAll(); CloseResumeChooser(); UnbindTrainingSession(); }
+        void OnDestroy() { Unbind(); if (_trainingConsole != null) _trainingConsole.OpenStateChanged -= ConsumeTrainingUiUpdate; if (_showcaseSettings != null) _showcaseSettings.Changed -= ApplyTextScale; if (_uiPrefs != null) _uiPrefs.Changed -= ApplyDisplayPreferences; UiBrowserStorage.CaptureTab(false); }
+        void Changed(SessionState state) { NoteSessionState(state); if (_session != null) RefreshCollections(_session.Collections); RefreshPlayerFlows(); _dirty = _rewardsDirty = true; }
+        void Snapshot(ServerMsg.Snapshot snapshot) { RefreshTrainingConsole(_session, snapshot); RefreshTutorial(_session, snapshot); _dirty = true; }
+        void Collections(CollectionsView view) { RefreshCollections(view); RefreshPlayerFlows(); _dirty = _rewardsDirty = true; }
+        void Events(ServerMsg.Events events)
+        {
+            if (_session?.LastResult != null) UnbindTrainingSession();
+            if (_session != null)
+            {
+                if (_playerFlowEpoch != _session.TimelineEpoch) ResetPlayerFlowTimeline();
+                _orderedNotices?.Append(events);
+            }
+            if (_session != null) NoteMatchEnded(events);
+            _dirty = true;
+        }
+        void LateUpdate()
+        {
+            var pmHud = PerfMarks.Begin();
+            HudLateUpdate(); PerfMarks.End(PerfMarks.Sec.Hud, pmHud);
+        }
+        void HudLateUpdate()
+        {
+            TickFeatures();
+            TickTutorial();
+            TickWishTileMotion();
+            RefreshSettlementRow();
+            if (_session != null && _session.ReconnectAttempt != _bannerAttempt) _dirty = true;
+            if (!_dirty || _session == null) return;
+            _dirty = false;
+            int phase = _session.Snapshots.Newest == null ? -1 : _session.Snapshots.Newest.Phase;
+            string banner = _banner.text;
+            bool practiceBanner = _session.State == SessionState.InMatch && _client != null && _client.ConfirmedPractice && !_client.LaunchPending;
+            if (_bannerPractice != practiceBanner || _bannerState != _session.State || _bannerPhase != phase || _bannerAttempt != _session.ReconnectAttempt)
+            {
+            if (_session.State == SessionState.InMatch)
+            {
+                var latest = _session.Snapshots.Newest;
+                banner = _client != null && _client.LaunchPending ? _client.PendingLaunchText :
+                    _client != null && _client.ConfirmedPractice ? "PRACTICE · No run rewards or banking" :
+                    latest == null ? "Joined — waiting for arena state" : Phases[latest.Phase];
+                if (_session.Me == null && latest != null) banner += " · Spectating";
+            }
+            else if (_session.State == SessionState.Reconnecting || _session.State == SessionState.HelloSent && _session.ReconnectAttempt > 0)
+                banner = "Connection interrupted · resuming seat (attempt " + _session.ReconnectAttempt + ")";
+            else if (_session.State == SessionState.Rejected) banner = "Join rejected: " + _session.RejectReason;
+            else if (_session.State == SessionState.Failed) banner = "Connection failed: " + _session.Error;
+            else banner = _session.State.ToString();
+            Set(_banner, banner); Set(_plateStatus, practiceBanner ? TrainingBanner : banner); _bannerPractice = practiceBanner; _bannerState = _session.State; _bannerPhase = phase; _bannerAttempt = _session.ReconnectAttempt;
+            }
+            if (_client != null && _client.LaunchPending) return;
+            var pmOwner = PerfMarks.Begin();
+            HudOwnerRefresh(banner);
+            PerfMarks.End(PerfMarks.Sec.HudOwner, pmOwner);
+        }
+        void HudOwnerRefresh(string banner)
+        {
+            Set(_notice, _feedback);
+            var me = _session.Me;
+            if (me == null)
+            {
+                ClearOwnerPresentation(_session.Latest == null ? "Awaiting server" : "Unavailable");
+            }
+            else
+            {
+                RefreshOwnerPresentation(me, _session.ServerTimeMs);
+            }
+            if (_rewardsDirty) { _rewardsDirty = false; RefreshRewards(); }
+            else if (_rewards.gameObject.activeSelf && _session.Collections.RewardChests.Count > 0)
+            { var cs = _session.Collections.RewardChests; RefreshChestClock(cs[_chestIndex % cs.Count]); RefreshChestHint(cs.Count > 1); }
+            if (_session.LastResult != null && !ReferenceEquals(_lastResult, _session.LastResult))
+            {
+                // Legacy main.ts DEATH_RESULTS_DELAY_MS: a killed player sees the "YOU DIED" line and the fall for 1.5 s before the results card
+                // replaces it; every other outcome shows at once.
+                if (!ReferenceEquals(_pendingResult, _session.LastResult))
+                { _pendingResult = _session.LastResult; _pendingResultAt = Time.unscaledTime + (_pendingResult.Outcome == 2 ? DeathResultsDelay : 0f); }
+            }
+            if (_session.LastResult != null && !ReferenceEquals(_lastResult, _session.LastResult) && Time.unscaledTime >= _pendingResultAt)
+            {
+                _lastResult = _session.LastResult; var r = _lastResult;
+                ShowResultFacts(r);
+                ClosePlayerFlows();
+                _results.gameObject.SetActive(true); _rewards.gameObject.SetActive(false);
+            }
+            if ((_session.State == SessionState.Failed || _session.State == SessionState.Rejected || _session.State == SessionState.Ended) && _session.LastResult == null && !PlayerFlowVisible && !_menu.gameObject.activeSelf)
+            {
+                ShowResultMessage(banner + "\nNo authoritative result received.");
+                _results.gameObject.SetActive(true);
+            }
+            RefreshWorldHudVisibility();
+        }
+        /// <summary>Renders only delivered owner facts; the accepted server clock is used for elapsed-time labels.</summary>
+        internal void RefreshOwnerPresentation(SelfView me, double serverTimeMs)
+        {
+            RefreshDamageReadout(me);
+            // The healing and wind seconds count down with the clock: re-run the (cached) texts every frame.
+            if (_session != null) ApplyInventoryHints(_session.Collections.Inventory, serverTimeMs);
+            if (me.Hp != _lastHp || me.MaxHp != _lastMaxHp || me.Kills != _lastKills || me.Gv != _lastGv || me.Status != _lastStatus || me.Barrier != _lastBarrier || me.BarrierRingStep != _lastBarrierRing)
+            {
+                Set(_vitals, ShowcasePalette.GetFactionName((int)me.Faction) + " · HP " + me.Hp.ToString("0.#") + " / " + me.MaxHp.ToString("0.#") + " · Barrier " + me.Barrier.ToString("0.#"));
+                Set(_combatStats, "Kills " + me.Kills + " · GV " + me.Gv + " · " + me.Status);
+                _lastHp = me.Hp; _lastMaxHp = me.MaxHp; _lastKills = me.Kills; _lastGv = me.Gv; _lastStatus = me.Status; _lastBarrier = me.Barrier; _lastBarrierRing = me.BarrierRingStep;
+                OwnerVitalBars.Percent(me, out float healthPercent, out float barrierPercent);
+                float healthEnd = healthPercent / 100f;
+                float barrierEnd = (healthPercent + barrierPercent) / 100f;
+                _healthBarFill.anchorMax = new Vector2(healthEnd, 1f);
+                _barrierBarFill.anchorMin = new Vector2(healthEnd, 0f);
+                _barrierBarFill.anchorMax = new Vector2(barrierEnd, 1f);
+            }
+            bool wishChanged = _lastWish.HasValue != me.Wish.HasValue;
+            if (!wishChanged && me.Wish.HasValue && _lastWish.HasValue) wishChanged = !WishEquals(me.Wish.Value, _lastWish.Value);
+            if (wishChanged || serverTimeMs != _lastServerTime)
+            {
+                // Rebuild the texts only when a value they show changed (stock, ability, or a timer's shown whole second).
+                var block = HudContent;
+                var key = WishTextKey.Of(me.Wish, serverTimeMs, block, me.Faction);
+                if (!_wishKeyValid || !key.Equals(_wishKey))
+                {
+                    _wishKey = key; _wishKeyValid = true;
+                    _wishCardText = FormatWishCard(me.Wish, serverTimeMs, block, me.Faction);
+                    Set(_wishCard, _wishCardText);
+                    Set(_wishSummary, WishIconText(me.Wish, serverTimeMs));
+                    if (_wishHint != null) _wishHint.Text = _wishCardText;
+                }
+                _lastWish = me.Wish; _lastServerTime = serverTimeMs;
+            }
+            RefreshLegacyHud(me, serverTimeMs);
+        }
+
+        internal void ClearOwnerPresentation(string reason)
+        {
+            _wishKeyValid = false;
+            _lastHp = float.NaN; _lastBarrier = 0f; _lastBarrierRing = 0; _lastWish = null; _lastServerTime = double.NaN;
+            Set(_vitals, reason == "Unavailable" ? "Waiting / spectating" : "Waiting for player state");
+            Set(_combatStats, "Awaiting player stats");
+            Set(_wishCard, "R · WISH\n" + reason);
+            Set(_wishSummary, "—");
+            if (_wishHint != null) _wishHint.Text = "R · Wish\n" + reason;
+            RefreshDamageReadout(null);
+            RefreshLegacyHud(null, 0d);
+            if (_healthBarFill != null) _healthBarFill.anchorMax = Vector2.zero;
+            if (_barrierBarFill != null) { _barrierBarFill.anchorMin = Vector2.zero; _barrierBarFill.anchorMax = Vector2.zero; }
+        }
+
+        internal static string FormatWishCard(WishView? wish, double serverTimeMs, Roguehalla.Net.Protocol.WireHudContent block = null, FactionId faction = default(FactionId))
+        {
+            if (!wish.HasValue) return "R · WISH\nNone delivered";
+            var w = wish.Value;
+            var text = new StringBuilder("R · ").Append(HudContentText.WishName(block, w.Ability)).Append(" · ").Append(w.Charges).Append('/').Append(w.MaxCharges);
+            // P-UNITY-HUD-STATUS-1: legacy abilitySlot.ts texts ("Ready in 9", "2:05"); a line whose time has run out reads nothing.
+            var readyIn = SlotText.ReadyIn(w.ReadyAt - serverTimeMs);
+            text.Append(" charges\n").Append(readyIn.Length > 0 ? readyIn : "Ready");
+            var recharge = SlotText.Cooldown(w.RechargeMs);
+            if (recharge.Length > 0) text.Append("\nRecharge ").Append(recharge);
+            if (w.NextChargeAt.HasValue) { var next = SlotText.Cooldown(w.NextChargeAt.Value - serverTimeMs); if (next.Length > 0) text.Append("\nNext charge in ").Append(next); }
+            if (w.FullAt.HasValue) { var full = SlotText.Cooldown(w.FullAt.Value - serverTimeMs); if (full.Length > 0) text.Append("\nFull charges in ").Append(full); }
+            if (w.Cast.HasValue)
+            {
+                var cast = w.Cast.Value;
+                var landsIn = SlotText.Cooldown(cast.LandsAt - serverTimeMs);
+                text.Append("\nCasting ").Append(HudContentText.WishName(block, cast.Ability));
+                if (landsIn.Length > 0) text.Append(" · ").Append(landsIn);
+            }
+            var tip = HudContentText.WishTip(block, faction);
+            if (tip.Length > 0) text.Append('\n').Append(tip);
+            return text.ToString();
+        }
+
+        struct WishTextKey
+        {
+            public Roguehalla.Net.Protocol.WireHudContent Block; public FactionId Faction;
+            public bool Has, HasCast; public AbilityId Ability, CastAbility; public int Charges, MaxCharges, Recharge, Ready, Next, Full, Lands;
+            static int Sec(double ms) { return ms > 0d ? (int)Math.Ceiling(ms / 1000d) : 0; }
+            public static WishTextKey Of(WishView? wish, double now, Roguehalla.Net.Protocol.WireHudContent block, FactionId faction)
+            {
+                var k = new WishTextKey(); k.Block = block; k.Faction = faction;
+                if (!wish.HasValue) return k;
+                var w = wish.Value; k.Has = true; k.Ability = w.Ability; k.Charges = w.Charges; k.MaxCharges = w.MaxCharges;
+                k.Recharge = Sec(w.RechargeMs); k.Ready = Sec(w.ReadyAt - now);
+                k.Next = w.NextChargeAt.HasValue ? Sec(w.NextChargeAt.Value - now) : -1; k.Full = w.FullAt.HasValue ? Sec(w.FullAt.Value - now) : -1;
+                if (w.Cast.HasValue) { k.HasCast = true; k.CastAbility = w.Cast.Value.Ability; k.Lands = Sec(w.Cast.Value.LandsAt - now); }
+                return k;
+            }
+            public bool Equals(WishTextKey o)
+            {
+                return ReferenceEquals(Block, o.Block) && Faction == o.Faction && Has == o.Has && HasCast == o.HasCast && Ability == o.Ability && CastAbility == o.CastAbility && Charges == o.Charges && MaxCharges == o.MaxCharges
+                    && Recharge == o.Recharge && Ready == o.Ready && Next == o.Next && Full == o.Full && Lands == o.Lands;
+            }
+        }
+        WishTextKey _wishKey; bool _wishKeyValid; string _wishCardText;
+
+        static bool WishEquals(WishView a, WishView b)
+        {
+            if (a.Ability != b.Ability || a.ReadyAt != b.ReadyAt || a.FullAt != b.FullAt || a.MaxCharges != b.MaxCharges || a.RechargeMs != b.RechargeMs || a.Charges != b.Charges || a.NextChargeAt != b.NextChargeAt || a.Cast.HasValue != b.Cast.HasValue) return false;
+            return !a.Cast.HasValue || a.Cast.Value.Ability == b.Cast.Value.Ability && a.Cast.Value.StartedAt == b.Cast.Value.StartedAt && a.Cast.Value.LandsAt == b.Cast.Value.LandsAt;
+        }
+        void RefreshCollections(CollectionsView view)
+        {
+            RefreshBuildIcons(view);
+            if (!view.Inventory.HasValue)
+            {
+                _inventoryShown = null;
+            }
+            if (view.Inventory.HasValue && (!_inventoryShown.HasValue ||
+                view.Inventory.Value.ActiveSlot != _inventoryShown.Value.ActiveSlot || view.Inventory.Value.Slot0 != _inventoryShown.Value.Slot0 ||
+                view.Inventory.Value.Slot1 != _inventoryShown.Value.Slot1 || view.Inventory.Value.PotionSmall != _inventoryShown.Value.PotionSmall ||
+                view.Inventory.Value.PotionLarge != _inventoryShown.Value.PotionLarge ||
+                view.Inventory.Value.PotionsHealing != _inventoryShown.Value.PotionsHealing))
+            {
+                var inv = view.Inventory.Value; _inventoryShown = inv;
+            }
+            UpdateInventoryHints(view.Inventory);
+            if (view.Focus.HasValue != _focusShown.HasValue || view.Focus.HasValue &&
+                (!view.Focus.Value.Handle.Equals(_focusShown.Value.Handle) || view.Focus.Value.Weapon != _focusShown.Value.Weapon || view.Focus.Value.Kind != _focusShown.Value.Kind))
+            {
+                _focusShown = view.Focus;
+                _pickup.interactable = view.Focus.HasValue;
+                _pickup.gameObject.SetActive(view.Focus.HasValue);
+                string what = view.Focus.HasValue ? (view.Focus.Value.Weapon.HasValue ? view.Focus.Value.Weapon.ToString() : view.Focus.Value.Kind.ToString()) : "";
+                if (_pickupText != null)
+                {
+                    string held = _inventoryShown.HasValue ? (_inventoryShown.Value.ActiveSlot == 0 ? _inventoryShown.Value.Slot0 : _inventoryShown.Value.Slot1)?.ToString() : null;
+                    Set(_pickupText, !view.Focus.HasValue ? "F" : view.Focus.Value.Weapon.HasValue && held != null ? "F  swap " + held + " for " + what : "F  take " + what);
+                }
+                if (_pickupHint != null) _pickupHint.Text = view.Focus.HasValue ? "F · Pick up " + what : "F · Pick up\nNo pickup in range";
+            }
+            bool buildChanged = !_buildShown || _hasBuildShown != view.HasBuild || !ReferenceEquals(_summaryShown, view.Summary);
+            _summaryShown = view.Summary;
+            if (_cardsShown.Length != view.Cards.Count)
+            {
+                _cardsShown = new byte[view.Cards.Count];
+                buildChanged = true;
+            }
+            for (int i = 0; i < _cardsShown.Length; i++)
+            { byte value = i < view.Cards.Count ? view.Cards[i] : (byte)0; if (_cardsShown[i] != value) buildChanged = true; _cardsShown[i] = value; }
+            for (int i = 0; i < _boostsShown.Length; i++)
+            { byte value = i < view.Boosts.Count ? view.Boosts[i] : (byte)0; if (_boostsShown[i] != value) buildChanged = true; _boostsShown[i] = value; }
+            if (!buildChanged) return;
+            _buildShown = true; _hasBuildShown = view.HasBuild;
+            var text = new StringBuilder("BUILD  "); bool any = false;
+            for (int i = 0; i < view.Cards.Count; i++) if (view.Cards[i] > 0) { text.Append(CardDisplayCatalog.Title((byte)i)).Append('×').Append(view.Cards[i]).Append("  "); any = true; }
+            for (int i = 0; i < view.Boosts.Count; i++) if (view.Boosts[i] > 0) { text.Append((BoostId)i).Append('+').Append(view.Boosts[i]).Append("  "); any = true; }
+            if (!any) text.Append(view.HasBuild ? "None" : "awaiting server");
+            Set(_build, view.HasBuild ? BuildHudText.ExtrasHeader(CountCards(view), view.Summary) : "Cards & mob bonuses");
+            if (_buildHint != null) _buildHint.Text = "B · Full build details\n" + text;
+            RefreshCardsRow(view);
+        }
+        object _summaryShown;
+        void RefreshRewards()
+        {
+            var chests = _session.Collections.RewardChests;
+            bool show = chests.Count > 0 && !_results.gameObject.activeSelf && WorldHudVisible;
+            _rewards.gameObject.SetActive(show);
+            if (!show) { _shownChest = default; ReleaseChestFocus(); return; }
+            _chestIndex %= chests.Count;
+            var chest = chests[_chestIndex]; if (!_shownChest.Equals(chest.Handle)) ReleaseChestFocus(); _shownChest = chest.Handle;
+            RefreshChestClock(chest); RefreshChestHint(chests.Count > 1);
+            // A presentation cache only; all option eligibility comes directly from the server.
+            ulong signature = chest.Handle.Value;
+            unchecked
+            {
+                signature = signature * 397 ^ (ulong)chests.Count;
+                signature = signature * 397 ^ (ulong)_chestIndex;
+                signature = signature * 397 ^ (chest.Picked ? 1UL : 0UL);
+                signature = signature * 397 ^ (chest.CanChoose ? 1UL : 0UL);
+                signature = signature * 397 ^ (Active ? 1UL : 0UL);
+                foreach (var option in chest.Options)
+                {
+                    signature = signature * 397 ^ (ulong)(option.Card.HasValue ? (int)option.Card.Value + 1 : 0);
+                    signature = signature * 397 ^ (ulong)(option.Boost.HasValue ? (int)option.Boost.Value + 1 : 0);
+                    signature = signature * 397 ^ (ulong)(option.KillKey.HasValue ? (int)option.KillKey.Value + 1 : 0);
+                    signature = signature * 397 ^ unchecked((ulong)BitConverter.DoubleToInt64Bits(option.KillGain));
+                    signature = signature * 397 ^ (option.Taken ? 1UL : 0UL);
+                }
+            }
+            if (_rewardSignature == signature) return;
+            _rewardSignature = signature;
+            bool trophy = false;
+            foreach (var option in chest.Options) trophy |= option.KillKey.HasValue;
+            Set(_rewardTitle, (trophy ? "Trophy " : "Chest ") + (_chestIndex + 1) + " / " + chests.Count + (chest.Picked ? " · chosen" : chest.CanChoose ? "" : " · unavailable"));
+            for (int i = 0; i < _options.Length; i++)
+            {
+                _options[i].gameObject.SetActive(i < chest.Options.Count);
+                if (i >= chest.Options.Count) continue;
+                var option = chest.Options[i];
+                string label = option.KillKey.HasValue ? TrophyText.Title(option.KillKey.Value, option.KillGain)
+                    : option.Card.HasValue ? CardDisplayCatalog.Title((byte)option.Card.Value) : option.Boost.HasValue ? BoostLabel(option.Boost.Value) : "";
+                Set(_options[i].GetComponentInChildren<TMP_Text>(), label + (option.Taken ? " · taken" : ""));
+                _options[i].interactable = Active && chest.CanChoose && !chest.Picked && !option.Taken;
+                FillChestCard(i, option, _options[i].interactable);
+                _options[i].GetComponentInChildren<TMP_Text>().color = option.Taken ? ShowcasePalette.Success :
+                    _options[i].interactable ? ShowcasePalette.Gold : ShowcasePalette.MutedText;
+            }
+            _skip.interactable = Active && chest.CanChoose && !chest.Picked;
+        }
+        static void Set(TMP_Text text, string value) { if (text != null && text.text != value) text.text = value; }
+        static RectTransform Rect(Transform parent, string name, float x0, float y0, float x1, float y1)
+        {
+            var rect = (RectTransform)new GameObject(name, typeof(RectTransform)).transform;
+            rect.SetParent(parent, false); rect.anchorMin = new Vector2(x0, y0); rect.anchorMax = new Vector2(x1, y1);
+            rect.offsetMin = rect.offsetMax = Vector2.zero; return rect;
+        }
+        static RectTransform Panel(Transform parent, string name, float x0, float y0, float x1, float y1)
+        {
+            var r = Rect(parent, name, x0, y0, x1, y1);
+            HudUi.Surface(r, ShowcasePalette.Panel, UiTheme.Current.CornerRadius, UiTheme.Current.Border);
+            return r;
+        }
+
+        TMP_Text Text(Transform parent, string name, string text, float x0, float y0, float x1, float y1, int size)
+        {
+            size = Mathf.RoundToInt(size * 1.5f);
+            var r = Rect(parent, name, x0, y0, x1, y1);
+            var label = r.gameObject.AddComponent<TextMeshProUGUI>();
+            bool decorativeTitle = name == "Title" || name == "RewardTitle" || name == "ResultsTitle" || name == "SettingsTitle";
+            label.font = UiTheme.Current.Font(decorativeTitle ? UiFontRole.Display : UiFontRole.Body);
+            label.text = text; label.fontSize = size * (_showcaseSettings != null ? _showcaseSettings.TextScale : 1f); label.color = ShowcasePalette.Text;
+            if (decorativeTitle) label.characterSpacing = 2.0f;
+            label.alignment = TextAlignmentOptions.MidlineLeft; label.raycastTarget = false; label.richText = false;
+            label.enableAutoSizing = true; label.fontSizeMin = size * .75f * (_showcaseSettings != null ? _showcaseSettings.TextScale : 1f); label.fontSizeMax = size * (_showcaseSettings != null ? _showcaseSettings.TextScale : 1f);
+            _scaledText.Add(label); _textBaseSize.Add(size);
+            return label;
+        }
+        UnityEngine.UI.Button Button(Transform parent, string name, string text, float x0, float y0, float x1, float y1, UnityEngine.Events.UnityAction action)
+        {
+            var r = Panel(parent, name, x0, y0, x1, y1);
+            var theme = UiTheme.Current;
+            var background = r.GetComponent<UnityEngine.UI.Image>();
+            background.color = Color.white; // the colour block supplies the visible fill
+            var button = r.gameObject.AddComponent<UnityEngine.UI.Button>();
+            button.targetGraphic = background; button.onClick.AddListener(action);
+            var label = Text(r, "Label", text, .04f, .05f, .96f, .95f, 20); label.alignment = TextAlignmentOptions.Center;
+            var colors = button.colors;
+            colors.normalColor = theme.SurfaceRaised;
+            colors.highlightedColor = theme.SurfaceHover;
+            colors.selectedColor = theme.SurfaceHover;
+            colors.pressedColor = theme.SurfaceSelected;
+            colors.disabledColor = theme.SurfaceDisabled;
+            colors.fadeDuration = .12f;
+            button.colors = colors;
+            return button;
+        }
+        TMP_InputField Input(Transform parent, string value, float x0, float y0, float x1, float y1)
+        {
+            var r = Panel(parent, "Nickname", x0, y0, x1, y1);
+            var viewport = Rect(r, "Viewport", .04f, .02f, .96f, .98f);
+            viewport.gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
+            var label = Text(viewport, "Text", "", 0, 0, 1, 1, 24);
+            var input = r.gameObject.AddComponent<TMP_InputField>();
+            input.textViewport = viewport; input.textComponent = (TextMeshProUGUI)label;
+            input.characterLimit = 16; input.lineType = TMP_InputField.LineType.SingleLine; input.text = value;
+            return input;
+        }
+    }
+}

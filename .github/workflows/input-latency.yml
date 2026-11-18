@@ -1,0 +1,49 @@
+name: Latency report checks
+
+on:
+  pull_request:
+    paths:
+      - 'tools/latency/**'
+      - 'docs/evidence/input-latency/**'
+      - 'client-unity/RoguehallaNet/**'
+      - 'client-unity/UnityProject/Assets/Scripts/Net/**'
+      - 'client-unity/UnityProject/Assets/Plugins/WebGL/**'
+      - 'client-unity/UnityProject/Tools/profile-*.cjs'
+      - 'client-unity/UnityProject/Tools/webgl-profile-init.js'
+      - 'hosting/staging-mvp/staging.py'
+      - 'hosting/staging-mvp/test_latency_render.py'
+      - '.github/workflows/input-latency.yml'
+  push:
+    branches: [optimization_port, feature/unity-rework, "integration/**"]
+    paths:
+      - 'tools/latency/**'
+      - 'docs/evidence/input-latency/**'
+      - 'client-unity/UnityProject/Tools/profile-*.cjs'
+      - 'client-unity/UnityProject/Tools/webgl-profile-init.js'
+      - 'hosting/staging-mvp/staging.py'
+      - 'hosting/staging-mvp/test_latency_render.py'
+      - '.github/workflows/input-latency.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  report-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.4'
+      - run: node --test tools/latency/latency.test.cjs
+      # profile-hub14.test.cjs is not run: it is the frozen protocol-14 proof and needs a protocol-14 codec block in
+      # crates/rh-server/web/probe.html, which no longer exists (protocol 18): "P14 probe codec block is unavailable".
+      # scripts/gate.sh excludes it the same way (UNITY_TOOL_TEST_EXCLUDE).
+      - name: Check passive profiler and bounded local runner
+        run: node --test client-unity/UnityProject/Tools/profile-m5-b.test.cjs
+      - run: python3 hosting/staging-mvp/test_latency_render.py
+      - name: Check saved measurements against current completeness rules
+        run: node tools/latency/check-evidence.cjs
+      # A fresh real-Unity run requires the pinned Editor/build and a running test match.
+      # This job checks the harness and saved evidence; it does not report new network measurements.

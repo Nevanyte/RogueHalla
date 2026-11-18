@@ -1,0 +1,222 @@
+//! The overhead build marks (ADR0026, B2) against the legacy formula: `parity/build-marks/legacy.json`, written by
+//! `parity/legacy-capture/build-marks.ts` from `packages/shared/src/combatReadability.ts` (display mode). Each case gives
+//! the public inputs (faction, cards, decoded mirrors, max hp, kill stats, mob kill stacks as farm rows); the Rust scores
+//! must equal the legacy `investedStats` bit for bit and the marks must be its first two keys.
+//!
+//! Holy's camp lifesteal (`holyCampLifestealOf`, 0.005 per eligible camp clear, combatReadability.ts:133) is part of the
+//! leech score: the `holy_camp_clears` case (20 clears) is compared with the legacy result like every other case
+//! (P-HOLY-DEMON-BLOOD-1 removed the DEV-012 exception that compared it at zero clears).
+use super::{invested_scores, top_two, KillStatKey, KillStats, Readable};
+use crate::cards::{Build, CardId};
+use crate::stat_fold::StatMirrors;
+use crate::FactionId;
+
+const CAPTURE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../parity/build-marks/legacy.json"
+);
+
+fn faction(s: &str) -> FactionId {
+    FactionId::ALL
+        .into_iter()
+        .find(|f| f.as_str() == s)
+        .unwrap_or_else(|| panic!("faction {s}"))
+}
+
+fn key(s: &str) -> KillStatKey {
+    // The legacy readability keys equal the trophy keys; its kill-stat map spells leech "lifesteal".
+    KillStatKey::parse(if s == "lifesteal" { "leech" } else { s })
+        .unwrap_or_else(|| panic!("stat key {s}"))
+}
+
+#[test]
+fn build_marks_match_the_legacy_readability_formula() {
+    let doc: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(CAPTURE).expect("build-marks capture"))
+            .expect("build-marks json");
+    assert_eq!(doc["format"], "rh-build-marks/1");
+    let cases = doc["cases"].as_array().expect("cases");
+    assert!(
+        cases.len() >= 8,
+        "the capture covers ties, thresholds and every source of a score"
+    );
+    for case in cases {
+        let name = case["name"].as_str().unwrap();
+        let build = Build::from_counts(case["cards"].as_object().unwrap().iter().map(|(id, n)| {
+            let card = CardId::ALL
+                .into_iter()
+                .find(|c| c.as_str() == id)
+                .unwrap_or_else(|| panic!("{name}: card {id}"));
+            (card, n.as_u64().unwrap() as u8)
+        }));
+        let m = &case["mirrors"];
+        let f = |k: &str| m[k].as_f64().unwrap();
+        let mirrors = StatMirrors {
+            as_mult: f("asMult"),
+            windup_mult: f("windupMult"),
+            speed_mult: f("speedMult"),
+            armor_bonus: f("armorBonus"),
+            shield_bonus: f("shieldBonus"),
+            ad_bonus: f("adBonus"),
+            ap_bonus: f("apBonus"),
+        };
+        let mut kill = KillStats::default();
+        for (k, v) in case["killStats"].as_object().unwrap() {
+            kill.add(key(k), v.as_f64().unwrap());
+        }
+        // Mob kill stacks fold as farm rows (legacy `mobStatRows`); kill stats are read as stored values, as in the source.
+        let mut farm = crate::modifiers::Farm::default();
+        for (mob, n) in case["mobStats"].as_object().unwrap() {
+            let id = crate::mob_catalog::MobTypeId::ALL
+                .into_iter()
+                .find(|m| m.as_str() == mob)
+                .unwrap_or_else(|| panic!("{name}: mob {mob}"));
+            farm.set(id, n.as_u64().unwrap());
+        }
+        let (farm_rows, farm_len) = farm.rows();
+        let r = Readable {
+            build: &build,
+            faction: faction(case["faction"].as_str().unwrap()),
+            mirrors,
+            max_hp: case["maxHp"].as_f64().unwrap(),
+            farm_rows: &farm_rows[..farm_len],
+            kill: &kill,
+            camp_clears: case["campClears"].as_u64().unwrap() as u16,
+        };
+        let scores = invested_scores(&r, false);
+        let expected = case;
+        let want: Vec<(KillStatKey, f64)> = expected["invested"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| {
+                (
+                    key(s["key"].as_str().unwrap()),
+                    s["score"].as_f64().unwrap(),
+                )
+            })
+            .collect();
+        for (k, score) in &want {
+            assert_eq!(
+                scores[k.index()].to_bits(),
+                score.to_bits(),
+                "{name}: {k:?}"
+            );
+        }
+        for k in KillStatKey::ALL {
+            if !want.iter().any(|(w, _)| *w == k) {
+                assert!(
+                    !(scores[k.index()] > 0.01),
+                    "{name}: {k:?} = {} is not shown by legacy",
+                    scores[k.index()]
+                );
+            }
+        }
+        let marks: Vec<KillStatKey> = expected["marks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| key(s.as_str().unwrap()))
+            .collect();
+        let got: Vec<KillStatKey> = top_two(&scores).into_iter().flatten().collect();
+        assert_eq!(got, marks, "{name}");
+    }
+}
+
+#[test]
+fn top_two_keeps_the_earlier_key_on_a_tie_and_skips_small_or_nan_scores() {
+    let mut s = [0.0; 9];
+    assert_eq!(top_two(&s), [None, None]);
+    s[KillStatKey::Leech.index()] = 3.0;
+    s[KillStatKey::Ap.index()] = 3.0;
+    s[KillStatKey::Ad.index()] = 0.01;
+    s[KillStatKey::Armor.index()] = f64::NAN;
+    assert_eq!(
+        top_two(&s),
+        [Some(KillStatKey::Ap), Some(KillStatKey::Leech)]
+    );
+    s[KillStatKey::Mr.index()] = 4.0;
+    assert_eq!(top_two(&s), [Some(KillStatKey::Mr), Some(KillStatKey::Ap)]);
+    s = [0.0; 9];
+    s[KillStatKey::Speed.index()] = 0.02;
+    assert_eq!(top_two(&s), [Some(KillStatKey::Speed), None]);
+}
+
+/// Integration-1 review finding (P-LEECH-GROUPING-1): legacy `combatReadability` sums the leech score as
+/// `cardLeech(...) + killStat(...)`, where `cardLeech` is `max(0, min(0.25, rows)) + max(0, farm)`
+/// (combatReadability.ts:102, :135): `(cards + farm) + kill`, each part clamped on its own. The score must equal that
+/// grouping bit for bit, and the inputs below must include a case where the other grouping differs (or the test proves
+/// nothing).
+#[test]
+fn the_leech_score_groups_its_sum_as_legacy() {
+    use crate::cards::CardRow;
+    use crate::stat_fold::{EffectKind, StatKey};
+    let faction = FactionId::Fire;
+    let rows_leech = |id: CardId| -> f64 {
+        id.definition()
+            .selection(faction)
+            .1
+            .iter()
+            .map(|row| match row {
+                CardRow::Fold(EffectKind::Stat { stat, v })
+                    if StatKey::from(*stat) == StatKey::Lifesteal =>
+                {
+                    *v
+                }
+                _ => 0.,
+            })
+            .sum()
+    };
+    let card = CardId::ALL
+        .into_iter()
+        .find(|c| rows_leech(*c) > 0.)
+        .expect("a card with a lifesteal row");
+    let cards = rows_leech(card);
+    let build = Build::from_counts([(card, 1)]);
+    let mirrors = StatMirrors {
+        as_mult: 1.,
+        windup_mult: 1.,
+        speed_mult: 1.,
+        armor_bonus: 0.,
+        shield_bonus: 0.,
+        ad_bonus: 0.,
+        ap_bonus: 0.,
+    };
+    let mut told_apart = false;
+    for stacks in 1..=20u64 {
+        let mut farm = crate::modifiers::Farm::default();
+        farm.set(crate::mob_catalog::MobTypeId::RotMonk, stacks);
+        let (farm_rows, farm_len) = farm.rows();
+        let farm_leech: f64 = farm_rows[..farm_len]
+            .iter()
+            .map(|row| match row.kind {
+                EffectKind::Stat { stat, v } if StatKey::from(stat) == StatKey::Lifesteal => v,
+                _ => 0.,
+            })
+            .sum();
+        for kill_leech in [0.01, 0.02, 0.03, 0.07, 0.1] {
+            let mut kill = KillStats::default();
+            kill.add(KillStatKey::Leech, kill_leech);
+            let r = Readable {
+                build: &build,
+                faction,
+                mirrors,
+                max_hp: crate::content::faction(faction).hp,
+                farm_rows: &farm_rows[..farm_len],
+                kill: &kill,
+                camp_clears: 0,
+            };
+            let got = invested_scores(&r, false)[KillStatKey::Leech.index()];
+            let card_part = cards.clamp(0., 0.25);
+            let legacy = ((card_part + farm_leech.max(0.)) + kill_leech) / 0.05;
+            let other = (card_part + (farm_leech + kill_leech).max(0.)) / 0.05;
+            told_apart |= legacy.to_bits() != other.to_bits();
+            assert_eq!(
+                got.to_bits(),
+                legacy.to_bits(),
+                "{stacks} stacks, kill {kill_leech}: {got} vs legacy {legacy}"
+            );
+        }
+    }
+    assert!(told_apart, "no input separates the two groupings");
+}

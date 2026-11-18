@@ -1,0 +1,43 @@
+[package]
+name = "rh-sim"
+description = "Roguehalla authoritative simulation core: fixed-step, deterministic, no I/O, no wall clock."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+# Pure-Rust transcendental functions: identical results on every declared target (no platform libm differences).
+libm = "0.2"
+# Exact ECMAScript Number strings for legacy map identity and validation diagnostics.
+ryu-js = "=1.0.3"
+serde = { version = "1", features = ["derive", "rc"] }
+
+[dev-dependencies]
+serde_json = { version = "1", features = ["float_roundtrip"] }
+# Counting allocator for tests/no_alloc.rs: the allocation-free tick is a permanent gate, not a one-off measurement.
+dhat = "0.3"
+# Thread-local counting allocator for the allocation tests (dev only; see that crate).
+rh-alloc-count = { path = "../rh-alloc-count" }
+
+[features]
+# Trusted parity harness only; never a gameplay command or a production default.
+trusted-status-probes = ["schedule-trace"]
+# Records which ported rows of the tick schedule ran, in order (tests only: enabled by rh-parity as a dev-dependency
+# feature, never in a production build). See src/schedule.rs.
+schedule-trace = []
+# Scaling measurements past the real lobby cap (`Sim::synthetic`): used by rh-headless's scalebench only, never in a
+# production build.
+bench = []
+
+[lints]
+workspace = true
+
+[[test]]
+name = "status_privacy_review"
+required-features = ["trusted-status-probes"]
+
+[[test]]
+name = "status_alloc_review"
+required-features = ["trusted-status-probes"]

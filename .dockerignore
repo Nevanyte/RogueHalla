@@ -14,6 +14,12 @@ packages/*/test
 packages/server/bench
 coverage
 *.log
+# Local credentials must never reach an image layer (the build does `COPY . .`).
+.env*
+*.pem
+*.key
+.aws
+.codex
 .DS_Store
 **/__pycache__
 **/*.pyc
@@ -23,3 +29,14 @@ docs
 *.md
 Dockerfile
 .dockerignore
+# The Rust + Unity migration (docs/MIGRATION.md) is not part of the legacy game image.
+target
+crates
+client-unity
+parity
+protocol
+tools
+Cargo.toml
+Cargo.lock
+rust-toolchain.toml
+.github

@@ -1,0 +1,115 @@
+using UnityEngine;
+using Roguehalla.Net;
+
+namespace Roguehalla.Client
+{
+    /// <summary>
+    /// Fixed child-renderer owner for the optional faction/role/elite art overlay. Configure once under a grounded actor;
+    /// Present updates cached sprites, visibility and depth without allocating. The actor root owns its lifetime.
+    /// </summary>
+    public sealed class ShowcaseIdentityOwner : MonoBehaviour
+    {
+        SpriteRenderer _mantle;
+        SpriteRenderer _factionBack, _factionGlyph;
+        bool _configured;
+        int _sortingBase = int.MinValue; float _lift;
+        public bool StandaloneFactionBadge { get; set; } = true;
+        /// <summary>The faction mantle silhouette behind a player's body. Off: it stuck out unevenly behind an animated body and read as a ghost copy.</summary>
+        public static bool MantleEnabled = false;
+        /// <summary>The faction mantle renderer (the contrast outline attaches to it).</summary>
+        public SpriteRenderer Mantle { get { EnsureRenderers(); return _mantle; } }
+
+        /// <summary>Finds or creates a single owner directly below the actor's grounded root.</summary>
+        public static ShowcaseIdentityOwner Configure(Transform groundedParent)
+        {
+            if (groundedParent == null) return null;
+            var owner = groundedParent.GetComponent<ShowcaseIdentityOwner>();
+            if (owner == null) owner = groundedParent.gameObject.AddComponent<ShowcaseIdentityOwner>();
+            owner.EnsureRenderers();
+            return owner;
+        }
+
+        /// <summary>
+        /// Applies already-delivered actor metadata. Regional mob faction/role/elite come only from its canonical MobTypeId;
+        /// player faction comes from its public faction field. Zombies, dummies, bad ids and absent facts use neutral art.
+        /// </summary>
+        public void Present(int faction, ActorKind kind, MobTypeId? mobType, int groundSortingOrder, bool visible, float lift = 0f)
+        {
+            EnsureRenderers();
+            MobIdentityInfo mobInfo = default;
+            bool knownMob = kind == ActorKind.RegionalMob && mobType.HasValue &&
+                ShowcaseIdentityAssets.TryGetMobInfo(mobType.Value, out mobInfo) && (int)mobInfo.Faction == faction;
+            // A future/unknown mob id must never inherit an enum-parity faction or an unrelated display identity.
+            int factionIndex = knownMob ? (int)mobInfo.Faction : kind == ActorKind.Player && faction >= 0 && faction < 5 ? faction : 5;
+            bool show = visible;
+
+            Sprite mantle = ShowcaseIdentityAssets.GetFactionSilhouette(factionIndex);
+            Sprite factionGlyph = ShowcaseIdentityAssets.GetFactionGlyph(factionIndex);
+
+            // The static faction silhouette behind the body is gone: it did not animate with the figure, so it read as a second, fainter model. Faction identity is carried by
+            // the footprint, the insignia plate and the body tint (owner feedback; contrast brief).
+            Set(_mantle, mantle, show && kind == ActorKind.Player && MantleEnabled, groundSortingOrder - 2);
+            Set(_factionBack, ShowcaseIdentityAssets.GetBadgeBackdrop(), show && StandaloneFactionBadge, groundSortingOrder + 4);
+            Set(_factionGlyph, factionGlyph, show && StandaloneFactionBadge, groundSortingOrder + 5);
+            if (_sortingBase != groundSortingOrder || _lift != lift)
+            {
+                _sortingBase = groundSortingOrder; _lift = lift;   // badges ride the look's body height, so a short creature's mark stays on its body, clear of the name plate
+                Place(_mantle, new Vector3(0, .72f, -.005f), new Vector3(.9f, .7f, 1));
+                Place(_factionBack, new Vector3(-.68f, 1.30f + lift, -.012f), new Vector3(.31f, .31f, 1));
+                Place(_factionGlyph, new Vector3(-.68f, 1.30f + lift, -.013f), new Vector3(.205f, .205f, 1));
+            }
+        }
+
+        /// <summary>Clears visual identities when a root is pooled or the actor leaves observation.</summary>
+        public void Clear()
+        {
+            if (!_configured) return;
+            HideAll();
+        }
+
+        void EnsureRenderers()
+        {
+            if (_configured) return;
+            ShowcaseSprites.Initialize();
+            _mantle = CreatePart("Faction mantle");
+            _mantle.sharedMaterial = ShowcaseSprites.Lit;
+            _mantle.color = new Color(.48f,.48f,.48f,.92f);
+            _factionBack = CreatePart("Faction badge backplate"); _factionGlyph = CreatePart("Faction badge glyph");
+            _configured = true;
+        }
+
+        SpriteRenderer CreatePart(string objectName)
+        {
+            var child = new GameObject(objectName);
+            child.transform.SetParent(transform, false);
+            var renderer = child.AddComponent<SpriteRenderer>();
+            renderer.sharedMaterial = ShowcaseIdentityAssets.UnlitMaterial;
+            renderer.color = Color.white;
+            renderer.enabled = false;
+            return renderer;
+        }
+
+        void Set(SpriteRenderer renderer, Sprite sprite, bool enabled, int order)
+        {
+            if (renderer.sprite != sprite) renderer.sprite = sprite;
+            if (renderer.sortingOrder != order) renderer.sortingOrder = order;
+            if (renderer.enabled != enabled) renderer.enabled = enabled;
+        }
+
+        static void Place(SpriteRenderer renderer, Vector3 position, Vector3 scale)
+        {
+            renderer.transform.localPosition = position;
+            renderer.transform.localScale = scale;
+        }
+
+        void HideAll()
+        {
+            _mantle.enabled = _factionBack.enabled = _factionGlyph.enabled = false;
+        }
+
+        void OnDisable()
+        {
+            if (_configured) HideAll();
+        }
+    }
+}

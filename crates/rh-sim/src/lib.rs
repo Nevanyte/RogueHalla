@@ -1,0 +1,122 @@
+//! Roguehalla simulation core (Stage 1 slice). See docs/CONTRACTS.md for the invariants this crate guarantees and
+//! docs/backlog/README.md for the mechanics that are not ported yet.
+//!
+//! Boundaries: no sockets, files, threads, wall clock or entropy. The live server (`rh-server`) and the headless runner
+//! (`rh-headless`) drive the same [`Sim`] through [`Sim::submit`] and [`Sim::step`].
+
+// `!(x > 0.0)` is deliberate throughout: it is the legacy NaN-safe test ("not a positive number"), not `x <= 0.0`.
+#![allow(clippy::neg_cmp_op_on_partial_ord)]
+
+pub mod abilities;
+mod actor_refs;
+pub mod archetype;
+pub mod arenas;
+pub mod barriers;
+pub mod build_summary;
+pub mod checkpoint;
+mod collision;
+pub mod constants;
+pub mod content;
+pub mod events;
+pub mod factions;
+pub mod fighter;
+pub mod fx_projector;
+pub mod fx_report;
+pub mod geometry;
+mod hash;
+mod hooks;
+pub mod initial_world;
+pub mod input;
+pub mod item_view;
+pub mod kill_augments;
+mod lifecycle;
+pub mod projectile_view;
+pub use projectile_view::ProjectileView;
+pub mod map;
+pub mod mapdata;
+pub mod mapgen;
+pub mod math;
+pub mod mob_catalog;
+pub mod mob_runtime;
+pub mod observe;
+mod owner_combat;
+pub mod pathfind;
+pub mod potions;
+pub mod private_rng;
+pub mod quest_view;
+pub mod quests;
+pub mod replay;
+pub mod results;
+pub mod rng;
+pub mod schedule;
+mod scratch;
+pub mod sight;
+pub mod sim;
+pub mod stat_fold;
+pub mod state;
+pub mod statics;
+pub mod status_runtime;
+pub mod store;
+mod systems;
+mod vision;
+
+pub use checkpoint::{CheckpointError, CHECKPOINT_FORMAT};
+pub use content::{FactionId, WeaponId};
+pub use events::PickupRefusal;
+pub use events::{Class, Visibility};
+pub use fx_projector::{FeedStatus, FxError, FxProjector};
+pub use input::{validate, Command, PublicCommand, RawCommand, Reject};
+pub use item_view::{
+    Inventory, ItemObserver, OfferError, PickupHandle, PropCue, PropKind, VisibleProp,
+    MAX_VISIBLE_PROPS,
+};
+pub use map::TileMap;
+pub use math::Vec2;
+pub use observe::{
+    observe, observe_events_into, observe_events_into_cached, observe_into, observe_into_cached,
+    public_snapshot, try_observe, try_observe_into, try_observe_into_cached, try_public_snapshot,
+    Observation, SeenEvent, OBSERVATION_VERSION,
+};
+pub use owner_combat::{OwnerCombatView, OwnerLockView};
+pub use sight::{SightCache, SightStats};
+pub use sim::{
+    Arena, Event, Outcome, Phase, Placement, PlayerId, RunResult, Secrets, Sim, SimConfig, Status,
+};
+pub use state::{
+    Container, ContainerKind, ProjectileEnd, ProjectileKind, ProjectileLaunch, WeaponItem,
+};
+pub mod terrain;
+pub mod traders;
+pub use statics::{CampBuffRule, FactionMode, FrostWish, RegenInCombat};
+pub use store::{EntityId, Store};
+
+pub use systems::signatures::LandedHit;
+
+/// Trusted diagnostics of one player's Fire roaming state (the source's synced `roamCharge`/`roamReady`), never an
+/// observation: this slice adds no wire field (the evidence records the deferred client mirror).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+pub struct FireRoamState {
+    pub id: PlayerId,
+    /// The derived charge mirror in 0..=1000 (0 for a non-Fire or inactive seat).
+    pub charge: f64,
+    /// The independent armed-burst flag.
+    pub ready: bool,
+}
+
+pub mod cards;
+pub(crate) mod combat_policy;
+pub mod modifiers;
+
+pub mod reward_chests;
+
+pub use systems::arena_rules::{ArenaMode, ArenaRules, ColiseumSchedule};
+pub use systems::planning::{ArenaView, PlanView, PlanningView, SpawnOptionView};
+
+#[cfg(test)]
+mod build_summary_tests;
+#[cfg(test)]
+mod camp_buff_tests;
+#[cfg(test)]
+mod card_witness_tests;
+#[cfg(test)]
+mod pack_leader_native_tests;

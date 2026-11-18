@@ -1,0 +1,396 @@
+# ADR0028: Signature landmarks
+
+Status: **Proposed.** Owner beta-follow-up decisions 5 and 6 (MIGRATION, 2026-11-10); owner direction 2026-11-12 (the
+generation order and the core rules G1-G8 below). Packets P-SIGNATURE-1, P-SIGNATURE-1-fix (the server post-pass) and
+P-MAPGEN-SIGNATURE-CORE-1 (the generator step), P-MAPGEN-SIG-FIRE-1 (the Fire volcano in the generator),
+P-MAPGEN-SIG-FIRE-2 (craters sized by band, streams two tiles wide), P-MAPGEN-SIG-FROST-1 (the Frost cave in the
+generator; the server post-pass deleted), P-MAPGEN-SIG-RESERVE-1 (each landmark's site reserved in the Prefix before
+the camps; decision 12), P-MAPGEN-SIG-SCALE-1 (the Frost cave is the approved blueprint; the site's territory relabel), P-MAPGEN-SIG-SCALE-2 (the Sentenced church, graveyard and churchyard are the approved blueprint; the Sentenced site relabelled). The `DEVIATIONS.md` row (DEV-020) is proposed in the hand-off; the owner signs. DEV-028
+(proposed, unsigned) is the elite rule under the option (decision 12).
+
+**Per-operation checklist.** D1: new terrain with no legacy counterpart, an intentional difference (DEV-020); with the
+option off every map is byte-identical (G8). D2: n/a. No sim tick, wire or protocol change; the map export format stays
+`rh-map/2`; the content hash does not move (the signature tables are listed as non-gameplay while the option is off by
+default; the owner may promote them).
+
+## Context
+
+Each zone should be recognisable at a glance: a volcano with lava (Fire), a church with a graveyard (Sentenced), a giant
+bog tree (Plague), a frozen cave (Frost), the temple hall (Holy). P-SIGNATURE-1 added them in `rh-server` after the whole
+map was generated, squeezed into leftover floor: wrong order, 9 to 16 of 16 maps per zone, and the stylers knew nothing
+of them. On 2026-11-12 the owner set the order and rules that tie generation together.
+
+## The core rules (owner direction 2026-11-12; binding for all generation work)
+
+| # | Rule |
+|---|---|
+| G1 | **Order.** (1) zones (partition, coliseum, camps); (2) one landmark per zone; (3) thematic obstacles (the zone styler); (4) decoration (`rh-mapdress`). No step moves what an earlier step placed. |
+| G2 | **One landmark per zone, placed by a site rule**, before any obstacle: Fire volcano on the zone's back edge; Sentenced church around the far elite camp; Plague bog tree in the outer third; Frost cave on the back edge around the far elite camp; Holy the temple hall. Where the zone exists, the landmark exists. |
+| G3 | **The landmark is the zone's anchor** (centre, footprint, facing: toward the coliseum is "front"). Steps 3 and 4 arrange the zone around it and nothing else. |
+| G4 | **Bands.** Chebyshev distance from the anchor's footprint: core, near, mid, far (one table). Each zone gives each band an obstacle family and a decoration family; density falls with distance; far blends into the neighbour. |
+| G5 | **Keep-clear outranks theme.** Camps, spawns and their walks, routes, gate lanes, crate and ground spots stay free. The generator's own checks and the certifier judge: a failing map is discarded, never repaired by removing the landmark. |
+| G6 | **Seeded, local randomness.** Every choice is drawn from a stream of (map seed, attempt, zone, step). |
+| G7 | **Clusters and edges, not scatter.** |
+| G8 | **Legacy stays reachable.** With the option off the generator's output is byte-identical to today's. |
+| G9 | **A landmark is a fixed blueprint** (owner decision 2026-11-12, requirements L1-L6 in `docs/coordination/LAND_GENERATION_REQUIREMENTS.md`): one size and one layout per landmark, all five. Between maps only its place within its site rule, its rotation and its mirror vary. A site that cannot hold the blueprint discards the attempt; a landmark is never served smaller or with fewer parts (the volcano always has three streams). Built for the Frost cave (P-MAPGEN-SIG-SCALE-1, decision 11: `docs/landmarks/blueprints/cave.txt`), the Plague bog tree (P-MAPGEN-SIG-SCALE-3, decision 4: `docs/landmarks/blueprints/bog.txt`) and the Sentenced church (P-MAPGEN-SIG-SCALE-2, decision 5: `docs/landmarks/blueprints/church.txt`). Built for the Fire volcano with its three streams (P-MAPGEN-SIG-SCALE-4, decision 10: `docs/landmarks/blueprints/volcano.txt`). Built for the Holy hall with its two camps (P-MAPGEN-SIG-HOLY-1, decision 13: `docs/landmarks/blueprints/hall.txt`): G9 holds for all five. |
+| G10 | **Every thematic obstacle is placed by a rule that reads the landmark** (its anchor, bands and front). No styler lays its obstacles as if the landmark were not there. Built for Fire's craters and Frost's first lake; the rest is the land-generation task (`P-LAND-*`). |
+
+## Decision
+
+1. **Where.** `rh_sim::mapgen::landmarks::signature`, a step inside the Landmarks phase: `pipeline::build_attempt`
+   runs it right after the legacy landmark stage and before the spawn preparation, only when
+   `pipeline::Options::signature` (serde default `false`) and the attempt is styled. Zones in order Fire, Sentenced,
+   Plague, Frost; the volcano and the bog tree keep out of the aprons marked before them, and the end-of-attempt
+   discard keeps every landmark out of every other's apron (decision 6). Each landmark's site is reserved earlier, in
+   the Prefix before the camps (decision 12); the step builds inside it. All four landmarks are generator-placed; nothing is
+   added after generation. Not a landmark recipe: the legacy
+   stage admits only floor-to-wall writes owned by `FeatureKind::Landmark`, whose certifier rules and `map.buildings`
+   records belong to the legacy buildings.
+2. **How later steps see it.** The step writes the stage's tiles, features and feature owners, marks each landmark's
+   footprint in `masks.boxes` (repair's keep mask, the ground spots, the region pole) and the footprint grown by the
+   core band (2 tiles, the apron) in `masks.near1` (the spawn pool keeps off it; the stylers' `protect`/`no_block`
+   covers its unowned tiles; owned tiles are refused by `feature_owner`). A lava stream's or pool's box is a long
+   diagonal, so its keep mask is its own tiles and its apron those tiles grown by the core band. Its terrain (the bog,
+   the lava and ember, the cave's ice) is the attempt's starting terrain layer.
+3. **Randomness.** One stream per zone: `Mulberry32(hash_seed(seed, attempt, zone slot, 5))` (0-2 stylers, 3 recipes,
+   4 bushes). The attempt's main stream and every styler stream draw exactly what they drew before. The stream's first
+   draws are the Prefix's site choices (decision 12, one per prefix round that reaches the zone); the Landmarks phase
+   continues the stream after them (`ReservedSite::stream`), never re-using a draw. With the option on the main stream
+   draws what the Prefix's own steps draw (its camps are placed round the sites, so later draws move with them).
+4. **Plague, the bog tree** (`FeatureKind::BogTree`, job landmark; certifier row: wall, no LOW). The owner-approved
+   blueprint (G9; P-MAPGEN-SIG-SCALE-3): `docs/landmarks/blueprints/bog.txt`, 29 x 29 tiles, carried byte-equal in the
+   crate as `signature/bog.txt` (`Definition::bog_grid`, `include_str!`) and parsed once per context. `T` trunk (a
+   disc 11 tiles across round the drawing's centre (14, 14), 93 tiles) and `r` root (62) are wall tiles owned by the tree
+   (terrain 0): the trunk with its three roots is one 8-connected wall group of 137, and three free stumps of 6 tiles
+   (= `piece_min`) touch neither it nor each other, not even diagonally. `%` is the tree's marsh (213 tiles, floor with
+   the `bog` terrain, owned by the tree); `.` dry floor and the three 2-wide causeways `:` stay unwritten floor. The
+   drawing's centre stands on the Plague site's centre tile (the site has no camp), so the box lies at offset (3, 3) from
+   the site's corner in every orientation, inside the inner rect. Orientation as the cave's (decision 11): the front row
+   faces the dominant axis of DIR16 from the centre tile toward the coliseum, mirrored or not by the tree's one draw on
+   the Plague stream (after the reservation's draw; the drawing has no symmetry, so the eight orientations are eight
+   layouts). Anchor: centre the centre tile (a trunk tile, the feature's anchor point), footprint the 29 x 29 box (walls
+   or marsh reach every edge row and column, so the feature's `bbox` that `finish` re-reads is the box), entrance the
+   six causeway tiles on the box's edge (grid (12, 0), (13, 0), (0, 11), (0, 12), (13, 28), (14, 28), turned and
+   mirrored with the box). The attempt is refused (`Refusal::Signature`) when a wall or marsh tile is not free Plague
+   floor off every halo, off the legacy landmark protection (`protect`, as `Site::ground` reads it) and off every apron
+   marked before the step (`masks.near1`: the legacy buildings grown by one tile, and the volcano's) inside the inner
+   rect, a dry or causeway tile is not free Plague floor inside it, a wall piece is
+   under `piece_min`, or the walls split the zone's floor; the tree is never served smaller. The site (decision 12)
+   carries the outer-third rule: a Plague site lies beyond the outer-third line + 2 where one fits (20 of seeds 1-64 at
+   34 tiles, on each seed's accepted attempt), else it is the zone's deepest free square (the other 44), its centre still beyond the zone's centroid (coordinator
+   decision 2026-11-12: keep the 34-tile site rather than a smaller one or the outer half). No territory relabel: the
+   site has no inside camp. Without a reserved site (a `begin_attempt` prefix, which only tests feed the step) the
+   earlier rule-drawn tree remains: a 13-tile trunk (squared distance <= 4) with dry ground to squared distance 10 and
+   bog in the bands 13-21 and 36-56, at least 60 bog tiles in all four quadrants, its centre at least 2 tiles beyond the
+   start of the outer third, a uniform draw over every legal centre.
+5. **Sentenced, the church and graveyard** (`Church`, job landmark; `Graveyard`, job cover; certifier rows: the church
+   wall, the graveyard wall and LOW with the fence terrain `R.fence_kind`). The owner-approved blueprint (G9;
+   P-MAPGEN-SIG-SCALE-2): `docs/landmarks/blueprints/church.txt`, 29 x 29 tiles, carried byte-equal in the crate as
+   `signature/church.txt` (`Definition::church_grid`, `include_str!`) and parsed once per context. `#` wall and `P`
+   pillar are the `Church` feature (wall, terrain 0): the building only, columns 3-25 and rows 3-16 of the drawing, its
+   anchor point the camp tile, its front wall line open only at the 3-tile door `D` (the Sentenced lanes read the door
+   there). `G` headstones (wall, terrain 0) and `+` fence (LOW, the fence terrain: the plots' fences and the churchyard
+   fence on the drawing's outer rows and columns) are one `Graveyard` feature, whose box is the whole drawing; `.`, `D`,
+   `E` and the lantern marks `*` stay unwritten floor. It stands round the Sentenced site's camp (decision 12), the
+   drawing's `E` on the camp tile, oriented as the cave (decision 11): the door and the 5-tile main gate (the open run
+   of the front row through `E`'s column) face the dominant axis of DIR16 from the camp toward the coliseum, mirrored
+   or not by the church's one draw on the Sentenced stream (the drawing is mirror-symmetric, so both mirror states land
+   the same tiles). Anchor: centre the camp tile, footprint the 29 x 29 box (kept as placed by `finish`, which re-reads
+   the other landmarks' footprints from their features), entrance the main gate. The attempt is refused
+   (`Refusal::Signature`) when a wall or fence tile is not free Sentenced floor off every halo inside the inner rect, any
+   other tile is not free Sentenced floor inside it, the 2 tiles beyond each main-gate tile are not open floor, a wall
+   piece is under `piece_min`, or the walls and fence split the zone's floor; the church is never served smaller.
+   Without a reserved site (a `begin_attempt` prefix, which only tests feed the step) the earlier rule-drawn church
+   remains: around the far elite camp (the zone's elite camp farthest from the map centre). A rectangular wall ring: each wall line 4-7 tiles from the camp
+   tile (the certifier's camp halo reaches 3), or the side leans on the map border when the border is at most 9 away; a
+   side whose own wall would leave under 2 tiles to the border must lean on it. So the church may be off-centre. The
+   3-tile door is on the side of the dominant axis of the front (DIR16 toward the coliseum), its axis up to 5 tiles off
+   the camp's axis. Beyond the door, at least four 2x3 headstones mirrored about the door axis, every stone starting 3
+   tiles past the door line; layouts in order: two rows of two wide, two rows of two narrow, one row of four. Choice:
+   the first layout, then the door axis nearest the camp, admitting any rectangle; a uniform draw among those
+   rectangles. A choice that splits the zone's floor or leaves a wall piece under 6 tiles is redrawn.
+6. **Refusal.** A zone with no legal site refuses the attempt in the Landmarks phase (`Refusal::Signature`); the
+   pipeline tries the next one. A styler that cannot build round a landmark in its zone (a landmark precondition, such
+   as the Sentenced church's door not reading as three open tiles in one run; never lack of room) returns
+   `style_runtime::Error::Landmark`, and the attempt is refused in the Styler phase (`Refusal::StyleLandmark`, the next
+   one tried); any other styler error still fails the call. After records, a signature map is discarded
+   (`Refusal::SignatureDiscarded`) unless every signature tile is still as placed (the cave: walls, and floor
+   carrying its ice), every entrance tile is still
+   floor, no styler feature owns a tile of an apron (styler floor claims do not read
+   `no_block`), no landmark's tiles lie in another landmark's apron, the Frost zone's largest ice body outside the cave
+   is at the cave's mouth (decision 11), and the strict certifier (every zone) finds zero failures. The landmark-apron
+   rule (P-MAPGEN-SIG-FROST-2) is symmetric: for every ordered pair of the five landmarks (the volcano, whose streams
+   and pools count as its tiles while its apron is the cone's box grown by the core band; the church with its
+   graveyard; the bog tree; the cave; the Holy hall, decision 13), no tile of one lies in the other's
+   boxes grown by the core band. At placement only the volcano and the bog tree keep out of the aprons marked before
+   them (`Site::ground`); the church and the cave read no apron (`Site::wall` only; seed 46's cave stood in the
+   volcano's apron), and no landmark keeps the earlier ones out of its own. The end-of-attempt discard is the rule for
+   all five, independent of the placement order.
+7. **Anchors (G3).** `GameMapData.anchors` only, zone-code order, omitted from JSON when empty. They are not on the
+   sim's `LayerData` (checkpointed state, whose layout rule forbids skipped fields; serializing them always would move
+   every checkpoint and state hash); `MapExport::validate` carries them on `ValidatedMap` for the export, and the
+   decoration bake reads them from the generator's map at pool-build time. Fire the volcano (centre the site's centre tile, a
+   crater tile; footprint the blueprint's 22 x 22 box; the six outlets as entrance), Sentenced the church (centre the camp tile, the door as entrance), Plague the tree (centre the site's centre tile, footprint the blueprint's 29 x 29 box, the six
+   causeway openings as entrance), Holy the hall (centre the inner rect's centre tile, footprint the blueprint's
+   37 x 37 box, the nave's seven front tiles as entrance; decision 13), Frost the
+   cave (centre the camp tile, footprint the blueprint's 29 x 29 box, the mouth as entrance). Not in the
+   map hash (they restate hashed features). `rh-map/2` does not move: older readers refuse a document with anchors, which exists only inside an
+   option-on server.
+8. **Bands (G4).** `signature::band(anchor, x, y)`: Chebyshev distance from the footprint, core <= 2, near <= 6,
+   mid <= 14, far beyond. The Fire styler uses it for its craters (decision 10; since P-MAPGEN-SIG-SCALE-4 the footprint is the 22 x 22 cone,
+   so the bands sit about 8 tiles farther out than round the old 5 x 5 cone), the Frost styler for its mere
+   (decision 11); the other stylers and `rh-mapdress` from `P-MAPGEN-SIG-STYLE-1` on.
+9. **Server.** `--map-pool --signature-landmarks` sets the generator option and nothing else: the served map is the
+   generator's own map, exported. The `rh-server` post-pass (`signature.rs`, which last built the Frost cave as a rock
+   arch on 9 of 16 maps) is deleted (P-MAPGEN-SIG-FROST-1).
+10. **Fire, the volcano** (`Volcano`, job landmark; `LavaStream` and `LavaPool`, job crossing; certifier rows in
+   `SIGNATURE_KINDS`). The owner-approved blueprint (G9; P-MAPGEN-SIG-SCALE-4, requirements L1 and L4):
+   `docs/landmarks/blueprints/volcano.txt`, 22 x 22 tiles (owner decision 2026-11-14, "22 across"; it replaces the
+   approved 30 x 30 drawing, which no map could hold), carried byte-equal in the crate as `signature/volcano.txt`
+   (`Definition::volcano_grid`). `#`, `X`, `H` (foot, slope, rim) are wall, `~` (the crater lake and three channels)
+   and `O` (the six outlets, three runs of two on the front row, a named mark) LOW lava, `.` floor in the cut corners;
+   every written glyph `Legality::WallGround` (off the legacy protection and the aprons marked before, as the old cone).
+   Placed by the generic stamp, `Placement::Centre`: the box is centred in the Fire site's unchanged 30 x 30 inner rect
+   (4 tiles spare on every side), in one of eight
+   orientations (one mirror draw), front toward the coliseum; the anchor's centre is the site's centre tile (one of the
+   four middle crater tiles), its entrance the six outlets (`intact` accepts an entrance tile its own landmark owns).
+   Exactly three streams, laid after the stamp and before anything is written (`volcano::streams`): one per outlet
+   run, in grid order (one length draw per run, left, middle, right as drawn), heading the run's
+   `Definition::outlet_heading` turned with the drawing (45 degrees left, straight ahead, 45 degrees right), two lava
+   tiles wide, the first pair continuing the run's outlets. A stream is a line through free ground (Fire floor outside
+   the camp halos and every apron; not the legacy landmark protection, which reaches into the site's apron ring in
+   front of the outlets); where blocked it bends one direction step at a time (at most two from its own heading, three
+   from the front) or ends sooner. Necks at turns are filled as before (P-MAPGEN-SIG-FIRE-2); a band that is not one
+   4-connected piece is cut shorter. It ends in a lava pool (squared radius 4, else 2; at least 6 lava tiles with a 2x2
+   block). Its length (1 + the fewest 8-connected steps through its lava from its run to its pool) lies in its run's
+   `outlet_len` (sides 7-10, middle 10-14: owner decision 2026-11-14); the middle is laid first and the sides are held below it, so it is
+   strictly the longest. Streams and pools keep 3 tiles from each other (not asked within squared distance 20 of a
+   run) and never touch; the pools fan out (beyond the front row, the side pools on their own sides, the middle one
+   within 45 degrees of straight ahead). Ember floor edges every stream and pool, owned by it. An attempt is used only
+   with all three streams, total lava (cone, streams, pools) within `lava_budget` (PROVISIONAL 200-270; measured 223-244 on seeds 1-64), and
+   the zone's floor unsplit by the cone with its streams and pools; otherwise it is refused (`Refusal::Signature`),
+   never served with fewer streams. **The fan** (owner decision 2026-11-14): `SignatureContext::fan` (the entry's `fan`), a rectangle in front of
+   the Fire site's inner rect along the front axis read at the site's centre tile, `fan_depth` (14) deep and the inner
+   rect's width plus `fan_side` (14) on each side, clipped to the map. The Prefix passes it to camp placement as a
+   reserved rect with no zone and no camp, so no camp's halo enters it (a round whose church or cave camp, fixed with
+   the sites, has its halo in it fails as a camp failure does); the legacy landmark stage marks it in the recipes'
+   protection, so no legacy building enters it. Nothing else is forbidden there: the streams and pools run in it.
+   **Terrain rule T5** (a LOW tile within 4 tiles of floor; owner decision 2026-11-14) does not count a signature
+   landmark's own lava: a LOW tile of the lava terrain owned by a `Volcano`, `LavaStream`, `LavaPool`, `Church`,
+   `Graveyard`, `BogTree` or `Cave` feature (`signature::t5_exempt`, read by the terrain gate and the certifier; each
+   passes its own lava code). The crater lake's middle is the one such tile today. Any other far LOW tile still fails,
+   option on or off; option-off maps have no signature feature, so no option-off verdict moves. **Fairness is
+   unchanged**: repair's `floor_share_max` and the certifier's `zone-floor-share` stay 1.15. The Fire styler (`style_scorch`) reads the frame's anchor: it places no lava river, and
+   a crater (a camp's pen; it cannot move)
+   takes its size from its camp's band, fixed before any pen is drawn (P-MAPGEN-SIG-FIRE-2): the band of
+   `dc - ceil(R / 4)`, `dc` the camp tile's distance from the footprint and `R` its largest radius option (the radius
+   options are R, R - 4, R - 8 quarter tiles, those at least the minimum). Near takes the largest option, mid the
+   second (the smallest when there is one), far the smallest; a core camp takes the largest option that keeps every
+   tile out of the core band. Legacy's freer-share choice is skipped. A camp whose band's option the route-stretch,
+   rim or core checks refuse has no crater. No crater bowl claims floor in a stream's or pool's apron.
+11. **Frost, the cave** (`Cave`, job landmark; certifier row in `SIGNATURE_KINDS`: wall, no LOW). The owner-approved
+   blueprint (G9; P-MAPGEN-SIG-SCALE-1): `docs/landmarks/blueprints/cave.txt`, 29 x 29 tiles, carried byte-equal in
+   the crate as `signature/cave.txt` (`Definition::cave_grid`, `include_str!`; the server image's build context holds
+   no `docs/`) and parsed once per context. `#` wall and `R` rock are wall tiles owned by the cave (terrain 0); `=` is
+   the cave's ice (floor with the `ice` terrain, owned by the cave: 226 of the drawing's 627 floor tiles, each with
+   floor on all eight sides and off the camp's halo); `.`, the camp tile `E` and the 3-tile mouth `D` stay unwritten
+   floor. It stands round the Frost site's camp (decision 12: the zone's first elite), the drawing's `E` on the camp
+   tile, in one of eight orientations: the mouth faces the dominant axis of DIR16 from the camp toward the coliseum
+   (front direction u; unmirrored the drawing's +x goes to (u.y, -u.x)), mirrored or not by the cave's one draw on the
+   Frost stream (after the reservation's draw; option on only). The box then lies inside the site's inner rect, its
+   offset from the site's corner (2, 3) with the mouth toward +x, (3, 3) toward -x, (3, 2) toward +y, (3, 3) toward
+   -y; 3 floor tiles (one row of the inner rect and the apron) lie between the mouth and the site's edge. The attempt is
+   refused (`Refusal::Signature`) when a wall or rock tile is not free Frost floor off every halo inside the inner
+   rect, any other tile is not free Frost floor inside it, the 2 tiles beyond each mouth tile are not open floor, a wall
+   piece is under `piece_min`, or the walls split the zone's floor; the cave is never served smaller. No size search,
+   no forecourt (there is one placement). Without a reserved site (a `begin_attempt` prefix, which only tests feed the
+   step) the earlier rule-drawn chamber round the far elite camp remains (P-MAPGEN-SIG-FROST-1: a rectangular ring
+   4-7 tiles from the camp, one 3-tile mouth toward the coliseum, interior ice, a forecourt preferred). The Frost styler
+   (`style_rime`) learns signature mode from the `Cave` feature in its zone (`signature_anchor`; the mouth is the floor
+   on the box's edge with floor just outside it): no lake tile in the cave's core band; the first lake (the mere) is
+   seeded at the allowed tile within 8 floor steps of the mouth with the most clearance and grown round its seed (value
+   falling with chamfer distance, plus the styler's noise), off the route guard's corridor; while a spawn route crosses
+   it, it is regrown off the routes (at most 3 times); the second lake grows to at most 75% of the mere's area. Spires
+   and headlands keep their placement rules, which already keep them off the cave's apron (`no_block`). The mouth
+   faces the lake (P-MAPGEN-SIG-FROST-2, G5): when the finished map's Frost zone holds ice the cave does not own, its
+   largest 4-connected body (the first in row order on a size tie) must lie within `lake_reach + lake_slack` (8 + 2 =
+   10) walked floor steps of the mouth (any floor, any zone, from the Frost anchor's `entrance`), else the attempt is
+   discarded (`Refusal::Guarantee { zone: Frost, rule: "lake-at-mouth" }` since P-MAPGEN-GUARANTEES-1; it was
+   `Refusal::SignatureDiscarded`) and the next one is tried; the styler is not changed. A Frost zone with no
+   ice outside the cave is kept (the styler may place none).
+12. **Sites reserved before the camps** (P-MAPGEN-SIG-RESERVE-1; G1: zones, then each zone's landmark place, then
+   everything round it). With the option on a styled attempt, the Prefix (`attempt::begin_attempt_signature`) reserves,
+   in every round after the partition and before the camps, one square site per zone (Fire, Sentenced, Plague, Frost;
+   `AttemptState::reserved`), `site_side` 34 tiles: the SCALE packets' landmark target (30) plus the apron on each
+   side. Candidates: the squares wholly of the zone's tiles, off the border, coliseum, road and lanes and off the open
+   map corners, whose centre lies beyond the zone's line (Fire, Sentenced, Frost: the centroid's distance + 2; Plague:
+   decision 4). One uniform draw on the zone's signature stream; a zone without a square fails the round as a camp
+   failure does, and the next round redraws the partition (a zone never loses a camp). The Sentenced and Frost sites
+   carry their camp: on the site's centre line along the door axis, `site_depth` 9 tiles from the far edge. A square
+   whose camp tile would turn the door axis is refused, a guard only: moving the camp deeper along the axis that already
+   dominates cannot turn it, and at these numbers it refuses 0 of the 16,129 square positions on the 160x160 map
+   (reviewer's model), so it is not a filter on where sites go. Camp placement (`place_camps_reserving`) then refuses
+   every candidate and Lloyd pole whose halo meets a site; a site's camp is placed first in its zone, counts in the
+   spacing of the others, keeps its own territory label in every Lloyd step, never moves, and is the zone's first
+   elite; the zone's other 9 camps follow the legacy process. The reservation keeps the other camps' halos out of a
+   site, not their territories: on an option-on attempt, after the Landmarks phase and before the stylers and repair
+   read the territory grid, every tile of the Sentenced and the Frost sites takes its inside camp's territory label
+   (the camp's index + 1; P-MAPGEN-SIG-SCALE-1, coordinator decision 2026-11-13; the Sentenced site with its blueprint
+   church, P-MAPGEN-SIG-SCALE-2). Without
+   it the blueprint cave's walls cut neighbouring Frost territories and repair hands the pieces to camps beyond the
+   30-tile territory radius (`Repair(RadiusPost)`: 247 refusals and 7 seeds without a map on seeds 1-64). No draw;
+   option off has no sites, so nothing is relabelled. **The elite rule (coordinator decision put to the owner, not yet ruled on; DEV-028, proposed):**
+   legacy makes the camp farthest from the coliseum the first elite (`packages/shared/src/zones.ts:38-41, 869-879`);
+   under the option the Sentenced and Frost first elite is the camp the church or cave stands round, the second the
+   legacy rule against it, and the certifier's `elite-selection` reads the Church or Cave anchor's centre (a map
+   without one, every option-off map, keeps the legacy rule). Keeping legacy's rule would crowd those zones' camps
+   toward the coliseum (spread 27 against 30-32). The legacy landmark recipes treat every site tile as protected
+   (`LandmarkStage::protect` itself is unchanged: the signature step reads it). The sites are generator working state
+   only: not on `LayerData`, not exported, not hashed. Option off: the Prefix is `begin_attempt`'s, draw for draw.
+   Since P-MAPGEN-SIG-HOLY-1 the Holy zone reserves a fifth site (decision 13).
+13. **Holy, the hall** (`Hall`, job cover; P-MAPGEN-SIG-HOLY-1; owner decisions 2026-11-12, 2026-11-13 and
+   2026-11-14). The owner-approved blueprint (G9): `docs/landmarks/blueprints/hall.txt`, 37 x 37 tiles, an open
+   colonnade, mirror symmetric, carried byte-equal in the crate as `signature/hall.txt` (`Definition::hall_grid`): `#`
+   wall (32 piers of 3 x 3 and the shrine's 27 walls), `L` the shrine's 3 x 3 healing light (floor of the catalog's
+   `light` terrain), `E` the two camps on the nave's centre line, `D` the shrine's door, `*` six nave light marks (all
+   three named marks on plain floor). The fifth table entry, placed last by the generic stamp: `Placement::Centre` in
+   the inner rect of a Holy site of `Definition::hall_site_side` 41 (the hall plus the 2-tile apron), reserved in the
+   Prefix on the back-edge rule of Fire, Sentenced and Frost; front toward the coliseum; the entrance the nave's front
+   run (`EntranceRule::FrontRun(b'E')`); no doorway check; member kind `Hall`. The Holy site carries both camps
+   (`ReservedSite::camp` the back `E`, `extra` the front one, landed where the stamp will land them; the mirror draw
+   cannot move them, they stand on the mirror axis); both are fixed labels in camp placement, and the Holy elites are
+   legacy's rule among all ten Holy camps (`ReservedSite::elite` false; owner decision 2026-11-13). Every tile of the
+   Holy site takes the territory label of the nearer of its two camps (`relabel_sites`). The hall feature's params are
+   the legacy `Hall` row's (axis, pitch 6, radius 18, 32 piers, 0 bays). In signature mode the Holy styler places no
+   hall and no bay light (the legacy shrines keep theirs). Spawn points (owner decision 2026-11-14, 2) may stand on the
+   hall's open floor: the box is the keep mask, and the spawn pool keeps off the ring round the box, the hall's walls
+   and light and every tile within `Definition::shrine_clear` 3 of a light tile. The certifier's `feature-whole`
+   (owner decision 2026-11-14, 3): the hall that is the Holy anchor's (kind `Hall`, box = footprint) has exactly one wall
+   group that is not an exact 3 x 3 (the shrine); every other group is a pier; every other `Hall` keeps the rule that
+   all are piers. Draws: the Holy stream's one reservation draw per Prefix round, then the stamp's one mirror draw; no
+   other. Seeds 1-64 (optimised test build): every seed keeps a map; attempts 96 / 192 (seeds 1-32 / 1-64) on the
+   tree with P-LAND-FIRE-1 merged (93 / 189 on the hall alone), worst attempt index 11 (seed 11; the oracles' bound is
+   12); 4.34 spawn-pool points per map on the hall's open floor; no hall camp is an elite.
+
+14. **The table carries each landmark's site rules** (P-MAPGEN-SIG-HOLY-1-fix, the review note of the hall packet).
+   `spec::Spec` holds, beside the drawing and its legend: the reserved site's side (`site_side`), the site's camp or camps
+   (`site_camps`: a centred entry's are its camp glyph's landed tiles, a pinned entry's is the pinned tile and the
+   glyph must equal the pin's) and whether the first is the zone's first elite, the spawn rule (`spawn`: the whole
+   box and its apron closed, or the open floor allowed with a glyph's tiles and their surroundings closed), the
+   reserved ground in front of the site (`fan`: depth and side; Fire's, and since P-LAND-FROST-1 the cave's room,
+   decision 15) and the feature's params (`params`). `reserve`, `write`, `fan`, `fan_holds_a_site_camp` and
+   `relabel_sites` read the entry for these rules: the site's side, its camps, the spawn rule, the fan and the params
+   are not decided by a zone or feature kind there, the hall's light is found by its glyph, and a site's own camps are
+   not tested against its own fan. Still decided by zone or kind outside the table: Plague's line rule and its
+   deepest-square fallback in `reserve`, and the volcano's streams in `place`. `from_table`'s check that a pinned
+   entry's `site_camps` names its pin glyph is a `debug_assert!` (checked in debug builds, not in release). `reserve`
+   and `streams` are public for the test seam (`AttemptContext::with_signature_table` and the oracles that replay a
+   reservation). A new landmark fact of these kinds is one table line. No generated map moved (every pin and golden
+   unchanged). (Wording corrected by P-LAND-FROST-1, the coordinator's request.)
+
+15. **The cave's room is a soft fan** (P-LAND-FROST-1; owner decision 2026-11-14, "Yes to both": build the Frost lake
+   first in front of the cave's mouth, with the softer ground reservation, as targets that never cost a map). The
+   cave's table entry carries `fan: Some(Fan { depth: cave_fan_depth, side: cave_fan_side })` (24 and 0, in
+   `Definition`) with `fan_hold: FanHold::Soft` (`spec::FanHold`, a separate `Spec` field because tests build `Fan`
+   literals); the volcano's stays `Hard`. The Prefix's camp round reserves every fan on the first try, as decision 10
+   does. When that try fails (a site's camp in a fan, or the camp placement) and a soft fan was reserved, the round is
+   tried once more with the soft fans left out: the site-camp check against the hard fans only
+   (`hard_fan_holds_a_site_camp`), then `place_camps_reserving` continuing the same camp stream (no reset; nothing else
+   drawn; a first try that fails at the site-camp check drew nothing). When the retry succeeds the soft fans are not
+   recorded (`AttemptState::fans` holds only what was reserved, so the legacy landmark stage keeps its writes out of
+   the recorded fans alone and the Frost styler takes the ground it finds); when it fails the round fails as before. A
+   hard fan is never given up. The Frost styler in signature mode builds the mouth lake first on that ground
+   (`style_rime/mouth_lake.rs`), and the parts of the owner's lake rule (`style_rime::lake_rule`: about 400 tiles, 3
+   dry tiles to the shore, on the line to the coliseum, a dry way 3 wide, one smaller second lake) are targets checked
+   by pure functions (`mouth_lake_holds`, `dry_way_holds`, `second_lake_holds`), never registered guarantees: Frost's
+   list stays `lake-at-mouth`. When the built mouth lake is under `lake_min`, the styler falls back to its growth from
+   before the packet for that map and `lake-at-mouth` decides. Seeds 1-128: every seed keeps a map, worst attempt
+   index 10; the room kept on 113 kept maps and given up on 15; the measured targets are in the packet's hand-off.
+
+## Measurements (seeds 1-16, `decor: false`, debug test build, macOS arm64)
+
+Option off: one attempt on every seed, 260-370 ms per certified map. Option on: every seed gives a map with one tree,
+one church and one graveyard, certified with zero failures; 13 seeds at attempt 0, seeds 9 and 16 at attempt 1, seed 8
+at attempt 2; 470-680 ms per map at attempt 0 (the step plus the in-pipeline certification), up to about 1 s at
+attempt 2. The refused first attempts of seeds 8, 9 and 16 put the far elite camp in a 9-11 tile strip of the zone along
+the map edge, where the door side points into a neighbouring zone or any church would seal the strip from the zone.
+
+With the cave (P-MAPGEN-SIG-FROST-1; four landmarks): seeds 1-32 refuse exactly the attempts they refused with three
+(worst attempt index 2, seed 8); the cave itself refuses no attempt. Seeds 1-16 generate in about 12 s in all (about
+0.75 s per certified map with its refused attempts). Every cave holds 8-65 ice tiles. On seeds 1-16 and on 30 of seeds
+1-32 the zone's largest ice body outside the cave is 3-5 floor steps from the mouth, its nearest tile in the near band;
+on seeds 17 and 18 the far camp sits in a 12-14 tile strip of the zone along the edge with another camp within 15
+tiles, so no lake fits within reach of the mouth by the styler's clearance rules and the mere grows where it does today.
+
+With the end-of-attempt lake and landmark-apron rules (P-MAPGEN-SIG-FROST-2): on seeds 1-64 the largest ice body
+outside the cave was 3 floor steps from the mouth on 61 seeds (seed 25: 5) and 98, 102 and 20 steps on seeds 17, 18
+and 34; every cave found its mouth with the forecourt, so the far lakes are not fallback cases. Under the rules seed 17
+lands on attempt 1 (was 0), 18 on 3 (was 0; attempt 1 refused `Repair(RadiusPost)`, 2 `Signature`), 34 on 1 (was 0:
+far lake, and bog tree and cave in each other's aprons), 46 on 1 (was 0: volcano and cave in each other's aprons) and
+49 on 4 (was 0: bog tree and cave; attempts 1-3 refused by the existing rules); every other seed lands on the same
+attempt with the same map, each moved seed's lake is 3 steps from the mouth, and no accepted attempt of seeds 1-40
+breaches an apron. Worst attempt index: 3 on seeds 1-32 (seed 18), 7 on 1-64 (seed 51, unchanged), against the limit
+16. About 0.67 s per certified map on seeds 1-40 with its refused attempts (0.64 s before; seed 17 1.05 s, 18 1.3 s).
+The two checks are one flood fill, one bounded walk and one scan of the landmarks' grown boxes per finished map.
+
+The two paragraphs above measured the rule-drawn cave (8-65 ice tiles, chambers 9-15 tiles a side). With the blueprint
+cave and the Frost site's territory relabel (P-MAPGEN-SIG-SCALE-1, decisions 11 and 12; `mapgen_signature_scale`'s
+`report_seeds_1_to_64`, debug test build): every seed of 1-64 gives a map; the cave is the 29 x 29 drawing on 64 of
+64, its box at the offsets of decision 11, both mirror states and all four front directions occur, and 3 floor tiles
+lie between the mouth and the site's edge on every seed. Attempts used: 59 on seeds 1-32 (41 before), worst index 4
+(seed 14; 1 before); 132 on seeds 1-64 (101 before), worst index 9 (seed 33; 5 before). Refusals on seeds 1-64: 12
+`Prefix`, 8 `Repair(RadiusPost)`, 48 `SignatureDiscarded` (the oracle author's split: 26 for the lake, which the Frost
+styler does not yet build at the mouth, 21 for the landmark-intact / styler-apron checks, 1 by the certifier, seed 19
+attempt 1, the Frost styler's mere owning a wall tile), 0 `Signature`: the cave refused no attempt. The largest
+unowned ice body is 3-9 walked floor steps from the mouth on the accepted maps. The blueprint without the relabel
+cost 396 attempts on seeds 1-64 and lost 7 seeds (247 `Repair(RadiusPost)`).
+
+With the blueprint tree as well (P-MAPGEN-SIG-SCALE-3, decision 4; `mapgen_signature_bog_tree`'s `report_seeds_1_to_64`,
+debug test build): every seed of 1-64 gives a map; the tree is the 29 x 29 drawing at box offset (3, 3) on 64 of 64,
+both mirror states and all four front directions occur. Attempts used: 46 on seeds 1-32 (59 with the rule-drawn tree),
+worst index 2 (seed 12; 4 before); 109 on seeds 1-64 (132 before), worst index 6 (seeds 46 and 52; 9 before). Refusals
+on seeds 1-64: 10 `Prefix`, 6 `Repair(RadiusPost)`, 26 `SignatureDiscarded`, 3 `SpawnRatio` (new: every later step
+sees a different map; not traced), 0 `Signature`: the tree refused no attempt.
+
+**Spawn-pool refusals with the blueprint bog tree** (P-MAPGEN-SIG-SCALE-3 at `42ce9a72f`; `decor: false`, signature
+on, seeds 1-128, release build, traced 2026-11-13 with a temporary print in `spawn_gate`, since removed).
+`Refusal::SpawnRatio` ends 3 attempts on seeds 1-64 (seed 12 attempt 1, 46 attempt 5, 62 attempt 1) and 2 on seeds
+65-128 (88 attempt 0, 111 attempt 0); the parent commit `50f474eb7` gave 0 and 3 on the same seeds. Every one is
+refused by the last check of `gate_spawn_walks` (`spawns/mod.rs`): the hazard filter (`hazard_walk_max` 8) leaves
+22-23 spawns of a pool of 25-26, under `pool_min` 24; the walk ratio (1.11-1.14 against 1.2) and the zone count pass.
+The tree's marsh is not the cause: no refused attempt has a tree-owned bog tile on any spawn walk, and removing the
+tree's bog from the counts changes no outcome (turning hazards off passes all five). The dropped spawns are in Fire,
+Sentenced and Holy (seed 111 also drops two Plague spawns at 9 hazard tiles each, none of them the tree's). On
+accepted maps of seeds 1-64 no spawn that passes the hazard filter has tree bog on its walk (323 Plague spawns; worst
+0), and no spawn of any zone is in a tree box or its dry ring (nearest 3 tiles outside); the only two walks in 181
+attempts that cross the marsh (9 tiles; a Holy spawn on seed 14, a Frost spawn on seed 112, beside the Plague box)
+are dropped by the same hazard limit and their attempts were accepted. What changed is the margin: the mean pool at
+the gate is 27.1 (28.2 before) and pools of 25-26 occur in 35 of 92 attempts (4 of 111 before), while the share of
+attempts dropping 3 or more spawns is unchanged (5 of 92; 7 of 111). Not established: why the pool is smaller (the
+box's exclusion margin is a candidate, not shown, and every zone's mean fell), whether 5 refusals against 3 over 128
+seeds exceeds chance, and seeds beyond 128. No change made: total attempts still fell with the blueprint tree.
+
+## Consequences
+
+- The Holy hall is placed in the Landmarks phase with the other four (decision 13). With its site taken out, the Holy
+  styler fills 0.006 of the rest of the zone's free ground (median, seeds 1-64; 0.004 with the option off and the
+  styler hall's box and apron taken out): its hall was its main fill. Whether Holy needs more of its own land is the
+  owner's call.
+- The Fire and Frost stylers arrange round their anchors; the others wait for `P-MAPGEN-SIG-STYLE-1`.
+- On a seed whose far Frost camp sits in a narrow strip of the zone (seeds 17 and 18 of 1-32) there is no room for a
+  lake within reach of the mouth; such an attempt is discarded (P-MAPGEN-SIG-FROST-2) and the seed lands on a later
+  attempt whose cave has its lake at the mouth, at the cost of one to three extra attempts on those seeds. A seed whose
+  every attempt put the lake far would exhaust its attempts; none of seeds 1-64 comes near (worst 7 of 16).
+- Landmarks crowding each other's aprons (seen as the bog tree or the volcano against the cave) are discarded, not
+  kept apart at placement: the placement rules, and so every kept map, are unchanged. Moving the guard into placement
+  would change site choices and every pinned option-on map.
+- The Frost spires and headlands are not arranged to flank the approach in the near band: only the core band is
+  enforced (the lake's `allow` and the apron discard); spires follow the mere and headlands its shore.
+- The Fire craters stay camp pens: size and presence are their only levers, and both now follow the camp's band
+  (seeds 1-32: near-band craters 134 tiles on average against 90 far; 136 before P-MAPGEN-SIG-FROST-2 moved seeds
+  17 and 18 to later attempts). Density does not yet fall with distance: far
+  pens are not thinned (a rule that drops them on purpose meets the count floor of option-off minus two; owner
+  question).
+- Elite bushes read the stylers' `protect` and stay out of every apron. Repair's walls (the safety net's connectivity
+  fill and `wall-far`/`wall-stray`, recorded as `Infill`) keep off the footprint (`masks.boxes`) but not the rest of the
+  apron; the intact check allows them there.
