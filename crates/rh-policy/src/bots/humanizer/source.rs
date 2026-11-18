@@ -46,6 +46,8 @@ fn err(path: &str, message: impl Into<String>) -> String {
     format!("{path}: {}", message.into())
 }
 
+// This file is itself loaded by `#[path]` from `feature_tests.rs`, so a plain `mod x;` would look in the
+// wrong directory: each child names its file explicitly.
 #[path = "source/mv.rs"]
 mod mv;
 use self::mv::*;
