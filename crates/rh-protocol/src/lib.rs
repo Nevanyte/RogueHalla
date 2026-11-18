@@ -167,6 +167,7 @@ pub mod samples;
 pub mod scene_candidate;
 pub mod state;
 
+// Message types and codecs, one file per concern; their public items are re-exported below.
 mod actor;
 mod command;
 mod masks;
@@ -228,7 +229,7 @@ pub const MAX_COMMANDS_PER_INPUT: usize = 16;
 /// more ([`EncodeError::TooMany`]); deciding what fits is the observation's job, never the codec's.
 pub const MAX_ACTORS: usize = 512;
 
-
+// Frame tags and command tags, shared by the encoders and the decoders in the files above.
 const T_HELLO: u8 = 0x01;
 const T_INPUT: u8 = 0x02;
 const T_PING: u8 = 0x03;
