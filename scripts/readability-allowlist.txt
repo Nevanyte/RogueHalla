@@ -216,7 +216,6 @@ size client-unity/UnityProject/Assets/Scripts/Presentation/WishFxPresenter.cs 89
 size client-unity/UnityProject/Assets/Scripts/UI/HubCosmeticsView.cs 805
 size client-unity/UnityProject/Assets/Scripts/View/ArenaView.cs 899
 size crates/rh-headless/src/tournament.rs 2055
-size crates/rh-parity/src/bin/status_probes.rs 1549
 size crates/rh-server/src/main.rs 1980
 size crates/rh-server/src/wire.rs 2001
 size crates/rh-sim/src/checkpoint.rs 1972
