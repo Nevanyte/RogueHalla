@@ -12,12 +12,13 @@ and, with the `postgres` feature, `rh-persist`. Its clients are the Unity build 
 
 ## Entry points
 
-- `src/main.rs`: the command line; the file header lists every flag.
+- `src/main.rs`: the command line; the file header lists every flag. `src/startup/` holds what `main` calls: flag
+  parsing, settings, the database connect, the first-playable profile.
 - `src/lib.rs`: the module list.
-- `src/director.rs`: admission, room placement, session resume, and off-tick handling of results.
+- `src/director.rs` (and `src/director/`): admission, room placement, session resume, and off-tick handling of results.
 - `src/room.rs` (and `src/room/`): one match task. `src/pacer.rs` is its fixed-step clock.
 - `src/conn.rs`, `src/outbox.rs`, `src/wire.rs`: the per-connection path (frame guards, slow-client isolation,
-  sim-to-wire conversion).
+  sim-to-wire conversion; `src/wire/tests/` holds the wire tests by topic).
 - `src/lobby.rs`, `src/bot_fill.rs`, `src/map_pool.rs`: lobby rules, bot fill, map making and dressing.
 - `src/control.rs`: the loopback-only `/control/*` API. `src/api.rs` and `src/api/`: the account API.
 - `src/bin/wirebench.rs`, `src/bin/densitybench.rs`: benchmarks (need `--features bench`). `web/probe.html`: the browser probe.
