@@ -124,46 +124,6 @@ pub struct Definition {
     pub cave_fan_side: i32,
 }
 
-pub const DEFAULT_DEFINITION: Definition = Definition {
-    stream: 5,
-    bands: [2, 6, 14],
-    bog: 5,
-    lava: 1,
-    ember: 4,
-    ice: 6,
-    outer_slack: 2.0,
-    back_slack: 2.0,
-    stream_min: 4,
-    stream_start: 1,
-    stream_bend: 2,
-    front_max: 3,
-    stream_gap: 3,
-    start_d2: 20,
-    pool_d2: &[4, 2],
-    lava_budget: (200, 270),
-    doorway: 2,
-    lake_reach: 8,
-    lake_tries: 8,
-    lake_rounds: 3,
-    second_share: 75,
-    lake_slack: 2,
-    site_side: 34,
-    site_depth: 9,
-    cave_grid: include_str!("cave.txt"),
-    bog_grid: include_str!("bog.txt"),
-    church_grid: include_str!("church.txt"),
-    volcano_grid: include_str!("volcano.txt"),
-    outlet_heading: [(-1, 1), (0, 1), (1, 1)],
-    outlet_len: [(7, 10), (10, 14), (7, 10)],
-    fan_depth: 14,
-    fan_side: 14,
-    hall_grid: include_str!("hall.txt"),
-    hall_site_side: 41,
-    shrine_clear: 3,
-    cave_fan_depth: 24,
-    cave_fan_side: 0,
-};
-
 /// One zone's reserved landmark site (P-MAPGEN-SIG-RESERVE-1): chosen in the Prefix, after the partition and before
 /// the camps, with the option on only (`SignatureContext::reserve`). `rect` is the whole site (the landmark's footprint
 /// plus its apron); `camp` is the tile of the camp placed inside it (the church's and the cave's elite camp, the Holy
