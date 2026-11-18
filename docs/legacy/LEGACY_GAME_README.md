@@ -1,0 +1,602 @@
+> **This file describes the legacy TypeScript game** (`packages/`, Colyseus + Phaser). It is the reference the Rust
+> server and the Unity client are being ported from, and it still runs as written below. It was the repository's root
+> README until the root README became a front page for the whole project (see [../../README.md](../../README.md)). The
+> text from here on is moved unchanged, except that relative links were re-pointed for this folder.
+
+# RougeHalla
+
+> **Migration in progress.** A Rust authoritative server and a Unity browser client are replacing this TypeScript stack;
+> the game below still runs as documented. State, commands and the handoff: [docs/MIGRATION.md](../MIGRATION.md),
+> [AGENTS.md](../../AGENTS.md). Lead ownership, active lanes and acceptance gates: [docs/PROJECT_COORDINATION.md](../PROJECT_COORDINATION.md).
+
+Public hosting: [Cloudflare deployment and profile migration](../CLOUDFLARE_PUBLIC.md). The public game uses a Cloudflare Worker, cloud game container and private R2 profiles. The laptop playtest launcher and its tunnel are an optional local development path. Balance telemetry and the live dashboard: [docs/TELEMETRY.md](../TELEMETRY.md).
+
+## Live playtest rules
+
+These rules supersede older controls, range, healing, vision, and quest descriptions below. This release builds on current main's zone maps, uncapped normal-mob stat growth, champion progression passives, and elite augment chests.
+
+- WASD / arrow keys move. Left-click attacks toward the cursor (hold to repeat); only wand clicks lock onto enemies and home. Right-click ground still walks. Player melee hits immediately while moving, with no attack windup or root. Bow and wand pause movement for the final 0.2 s before release. Enemy mobs and the zombie keep their telegraphs.
+- A camp clear leaves at most one loose weapon: only the camp's last mob drops its weapon (any kill still arms an empty hand; when several of a camp's mobs die in the same tick, the earliest-spawned of them is the one), and only about a quarter of ground spots hold a weapon (was 35%).
+- Wish cooldowns: Frost Freeze 45 s, Plague Swarm 120 s, Holy Last Stand 150 s, Sentenced Trial 180 s. Fire's Blaze Step holds 2 charges and recharges one every 30 s; the slot shows the charges and, during the run's opening Wish lock, the lock's countdown. Wishful Thinking also shortens a charged Wish's recharge while a charge is in hand (at most 30 s a minute, never under half the recharge).
+- Coliseum: everyone standing is teleported in at 10:00 of the run, again at 15:00, then every 2 minutes (never sooner than 30 s after a death reopened the gates).
+- Bots go for a build: each draws one of its faction's two builds (its stat weights are what a kill adds in a fight, so a bot's farmed kit beats a random farmer's), plans a route of the camps whose stats that build wants (sequenced by value per second, including waits for respawns, elites only after 6 minutes and 12 mob kills), takes off-build mobs only when they are in the way, and re-plans when a planned camp is contested (another player at it, its mobs dying while the bot is away, or cleared before the bot arrives; a zone contested twice is avoided for a minute). Bots carrying a bow or wand also farm ranged mobs.
+- Every game is an 8-player game: the server fills each lobby with up to 7 bots (`BOTS_FILL_TO` 8).
+- Bots prefer farming: most fill bots are farmers or cautious (persona mix farmer 4, hunter 1, opportunist 2, cautious 3), leave even fights alone, hold off on players for the first 4 minutes unless a kill is nearly certain, and keep farming camps for the whole run (only Hunters stop at 40 mob kills). They still fight back when attacked, fight in the coliseum and in sudden death, and see a bush player who exposes itself. In a 60-game Easy/Normal/Hard tournament (seed 3, patience 600) mob kills per bot-game went from 3.5 to 10.7, player kills (= deaths to bots) from 0.49 to 0.37, and the first kill from 95 s to 362 s.
+- Kill augments: only killing a player or bot (never a mob) drops a private "Trophy" at your feet for 30 s. Press C near it to choose 1 of 3 of the victim's top stat investments (Offense, Soul Offence, damage, max health, attack speed, Defense, Soul Defense, speed, leech); the pick adds 50% (`KILL_AUG_SHARE`) of the victim's bonus in that stat for the rest of the run. Only the killer can pick it, a skip pays nothing, and the gain is earned stats (not card power, so no PvP-factor change). Attack speed and move speed count only the victim's lasting investments (base cards, mob stats, earlier Trophies; never more than its current value): a timed haste, a low-hp `while` row or the gain half of a trade-off augment is not handed on. Bots pick them through the normal chest module and read the Trophy's own 30 s clock.
+- A soft ground outline and faint fill show the equipped weapon's range: an aimed melee arc, a bow firing lane, or a wand circle. It follows your movement and aim and hides while viewing the Tab map.
+- Your own basic attacks animate locally: melee sweeps follow your displayed character, and ranged shots appear at release without waiting for a network round trip. Hits, damage, and impact feedback still come from the server; a shot the server refuses disappears without dealing damage.
+- Bushes: each elite camp has two to four small patches of brush (4 to 10 tiles each, map feature kind `bush`, walkable floor, no hazards) outside its clearing, hugging the walls, low ground and other architecture round it; the bush stage changes no tile, terrain byte, prop, crate, ground spot or other feature (`generateMap(seed, attempt, { bushes: false })` is the same map without them). Like League, you see out of a bush normally and see your bush mates; a player standing in a bush is hidden from other players outside that bush, or in a different bush (server targeting, the client view and bots all honour it) unless they come within 64 u, stand in the same bush, or just attacked or cast (exposed until a second after the attack or cast lands; the exposure takes effect at the start of the next abilities phase, so a same-tick lock or cast on them never depends on input order). Mobs are never concealed, and bushes block no movement or shots. Honest-client concealment only: positions are still synced.
+- Combat feedback keeps opponents and projectiles moving continuously. Opponent sweeps follow their displayed bodies, your ranged movement pause follows the local draw/release, and confirmed incoming hit feedback appears with its HP/barrier state update. Your own confirmed melee hits and blocked swings on others (the flash, number, impact and shake) also appear with the state update that carries them, not a render delay later; your arrows and balls, and everyone else's hits, keep the interpolation timing.
+- Reach in world units: fists 72, sword 112, shield 96, axe 112, bow 520, wand 640. Arrows have a larger 7-unit collision radius. Bow draws for up to 0.5 s / 55% of its attack interval, wand casts for up to 0.45 s / 50%; each pauses movement for at most the final 0.2 s.
+- Q or 1/2 swaps weapons, R casts Wish, E drinks a potion, F picks up items or enters a cannon. Empty slots remain fists. Plague consumes bodies automatically on walk-over; Sentenced hunt controls remain.
+- Physical stats read Offense and Defense. Magic stats read Soul Offence (SO) and Soul Defense (SD). The faction display name is Holy.
+- Players slowly regenerate: 0.8% max HP/s with no hit dealt or taken for 3s, 0.25%/s while fighting (not while the coliseum is locked, not while down). Anti-heal and healing-taken cards apply; it shows no heal numbers and feeds no Second Skin barrier. `REGEN=0` turns it off.
+- Camp clears automatically store a healing potion for standing damage contributors, including ranged attackers outside the camp. Nearby contributors still receive camp-clear progression. Large potions heal 40% max HP over 5s; small potions found in weapon chests heal 25% over 5s. Carry up to 5 of each; large is used first. Pressing E while a potion heals starts another; up to 3 potions heal concurrently (the HUD shows the count).
+- One-use wind emblems appear at random clear-floor locations at random 8–15s intervals, capped at 12 on the ground. Walk over one for +50% movement for 5s; it disappears, with no inventory or activation key.
+- Travel cannons connect distant regions. F enters and blasts to the linked destination; each cannon reloads for 75s. Cannons are sealed while coliseum gates are locked.
+- Holy area's Light terrain now heals 3% max HP/s, five times its former rate. Holy receives 6%/s through its existing home bonus. The combat healing lockout remains.
+- Vision trails last 30s. Camp wards last 120s; camp respawns remain 180s. Minimap size is saved in Settings (75%–200%).
+- Other fighters are drawn up to 50 ms fresher on a steady link: Settings > Network > **Draw remote fighters ahead** (on by default) shortens the render delay by one tick and draws a player who the server says keeps walking up to one tick past its newest position, a moving mob up to 25 ms, then corrects any miss smoothly. Off shows only what the server sent, at the old delay. On a lossy link the delay is already near its 150 ms ceiling, so the gain shrinks (about 9-14 ms measured with 1% loss) and a fighter can snap 32 units or more a few times a minute. Your attacks still rewind to the moment the setting off would show, so hits are judged as before; a moving target can therefore be drawn up to one tick's walk (8.5 units) past the spot the server tests. With it on, an arrow or a ball is not drawn through a wall before the server's word on where it stopped arrives.
+- Stat chests: world crates no longer hold weapons (a small potion only). Camps drop no stat chest (a camp's reward is the fixed mob stats per kill, the clear heal or potion and its ward). Only a few crates per map (`STAT_CHEST_CRATES_PER_MAP`, 3, picked privately at world build, so nothing tells which before you open it) hold one: opening such a crate with F drops a 15s **Stat Chest** with 3 distinct multiplicative boosts (`1/2/3` or click, same panel and `choose` path as augment chests): "Soul Offence x1.2", "Offense x1.2", Defense, Soul Defense, Max HP, Attack Speed, Move Speed or Leech. A pick adds 20% of max(your bonus in that stat, a floor of +5 Offense/SO, +8 Defense/SD, +3% HP/attack speed, +1.2% move speed, +1% leech), with 3 picks per stat counting (+20%, +16%, +12.8%). Attack speed and leech are multiplied as their caps leave them, and one pick adds at most +9 Offense/SO, +11 Defense/SD, +6.5% max HP or attack speed, +4% move speed or +3.5% leech, always under a tier-I base card. A stat picked three times is greyed ("Stat maxed"; bots pass it over). Skipping pays the heal/GV only at an elite camp's chest: a crate's stat chest and a Trophy pay nothing for a skip. That is worth several mob stacks (a stack is +1 Offense/SO, +1.25 Defense, +1.5 SD, +1% or +0.25% leech) and less than a tier-I stat card on a built-up sheet; boosts are not cards, so they add no card power or PvP factor, and every augment (a rule plus card power) outranks them. Rolled from the private reward stream.
+- Camp previews show rewards and elite warnings, with no simulated win/remaining-HP percentages. Weapon chests conceal their contents until opened.
+- Above players, the left build icon shows their secondary weapon; the next two show their strongest stat investments. Hold Tab for a roster left of the map with weapon icons and the top three stat gains, ranked strongest first. The equipped weapon has a gold border and check mark; each icon keeps its weapon and slot label for accessibility.
+- Plague automatically consumes dead player bodies by walking over them. A body lasts the whole run and shows as a green X on a living Plague's minimap and Tab map until someone harvests it. The first raises one zombie that follows Plague and assists his current enemy. Every body grants Plague 3% base max HP and grows the zombie. The zombie is built from health, mostly bonus health (the zombie rework): its max HP is 8% of Plague's max HP + 0.8 per point of bonus max HP (max HP above Plague's base max HP), and each physical hit is 0.3% of max HP + 2.5% of bonus max HP + 0.15 × bonus Offense, at most 3% of max HP. No SO and no defenses feed it. It attacks whatever Plague has locked, so a wand commands it from range. It regenerates 5% of its max HP per second (a quarter of that for 4 s after it is hit), with both multiplied by `1 + 0.10 × (bodies − 1)`. It attacks once a second. Farming, cards and stat trades that raise Plague's max HP grow the zombie the most (an all-health build fields a zombie several times a damage build's). A fallen zombie requires another body to revive, retaining all growth; owner death or leaving the run removes it. Corpse growth replaces the old disease-stack multiplier; base disease and execute remain. Zombie deaths grant no loot, GV or bodies, and zombie damage respects the owner's PvP growth.
+- Faction rework: no faction counters another. Every faction pair at equal kit is tuned to an even 1v1 (python fit `testing/flatten_sheet.py`, real-sim |hp left| at most 3% on fists, win share 48-52% under the noise model; testing/TUNING_BALANCE.md section 13), so duels turn on Wishes, weapons and camp scaling. Every faction has equal Defense and SD. Frost's chill now slows everything the chilled enemy deals (cooldowns and damage over time alike). Fire's backlash returns the same per second of enemy attacks whatever the enemy. Sentenced's mark is a plain share of the target's max HP per landed hit (40% physical, 60% magic), scaling fully with attack speed and +0.35% per bonus Offense/SO/Defense/SD point; the old tax, suppression, tier amplifier and attack-speed damping are gone. Holy's lifesteal is 7% + 60% × missing HP (cap 60%); SO adds no lifesteal. Each eligible camp clear adds +0.5% permanent lifesteal. Frost's Frozen Justice gives +25 Defense and +25 SD while fighting elites. Fire's roam burst, armed after 20 s out of combat, is physical: 50 + 0.4 × bonus Offense.
+- Two builds per faction (build rebalance, testing/TUNING_BALANCE.md 13.8: every build 47-55% against a generic minute-5 kit): Fire AD burst assassin (Offense feeds the burn, 0.5 magic DPS per point), or AP burn tank (SO feeds the burn at 0.6; backlash +0.15% per bonus Defense+SD). Sentenced stat-bully bruiser (bonus stats grow the mark) or attack-speed max-HP punisher. Plague attack-speed SO disease build on a wand or bow (each weapon hit on the disease target adds 0.8 × SO, paid evenly at the hit rate, so attack speed carries it), or zombie commander: stack max health and command the zombie with a wand from range (no hard restriction: the commander's zombie is simply bigger, and its SO-less disease small). Duel reads with one body consumed: commander 61%, SO wand 59%, Offense bow 51%; without a zombie 40%, 46%, 38%. Frost Defense/SD shield tank, or bow kiter (Frost bow/wand hits slow the target's walk to 85% for 1.2 s at any range); Frost's attack chill deepens 0.7% per bonus SD point and 4.5% per +10% bonus attack speed (at most +20%). Holy lifesteal juggernaut (its card leech counts 2.7×, still capped at 25%), or Soul-damage Holy (wand, or sword) whose SO raises its lifesteal.
+- The sword scales with whichever of Offense or SO you hold more of (1.0× either, physical or magic), so Soul-burst sword builds exist.
+- Camps follow the new sheet; Plague and Holy zone mobs deal 85% / 92% of their sheet damage so every elite camp stays clearable.
+- Tactical farming: kills take longer and pay more, so travelling to the right camp beats farming the closest one. The map is 160 x 160 tiles (was 136) with ten camps a zone (was eight; still two elite camps a zone, 50 camps in all). Every mob has 2x the hp and deals half the damage (`MOB_HP_MULT`, `MOB_DMG_MULT`), so a camp takes about twice as long and costs about the same hp. A normal kill grants 3 stat stacks (`MOB_KILL_STACKS`; e.g. "+3% damage per kill") and 6 GV, an elite kill 30 GV, with mob GV capped at 90 a run. Quests grant 10-20 stacks and 1.25x their old GV from a 50 GV pot.
+- Defense and Soul Defense camps pay more: a Bailiff, Rime Stalker or Zealot kill gives +3.75 Defense and a Chain Warden, Frost Wisp or Seraph Shard kill +4.5 Soul Defense (both were +3; `DEFENSE_PER_STACK` 1.25, `SOUL_DEFENSE_PER_STACK` 1.5). They counter an Offense or Soul Offence build without being the kill to take at random. `testing/FARM_ROUTE_PROOF.md` shows that walking to the camps your build needs beats farming the nearest camp for every build.
+- Camps hit harder, melee ones most: on top of the half damage of the tactical-farming pass, a normal mob with a sword, axe or shield deals 1.6x (`MOB_MELEE_DMG_MULT`) and one with a bow or wand 1.2x (`MOB_RANGED_DMG_MULT`). Melee mobs crowd round you, where an arc or a splash hits several at once, while shooters kite and spread out. Elites are unchanged. Every normal camp is still cleared by a fresh player on fists (a Fire on fists ends a melee brute camp near 15% hp), and every elite camp by a minute-5 kit.
+- Elites are buffed again: on top of `ELITE_K` 0.65 and the mob multipliers an elite has 2x the hp (`ELITE_HP_MULT`, was 1.5) and deals 1.5x the damage (`ELITE_DMG_MULT`, was 1.05): about 2.7x the old elite's hp and 0.7x its hit, so a fight with one lasts much longer and costs about twice the hp. Every elite camp is still cleared by at least one faction on its zone's weapon holding the minute-5 card kit. Each of the ten elites has its own look in the world and its own gold icon above its camp on the minimap, the Tab map and the planning screen.
+- The minimap is about 30% bigger (195-312 px). The route you plan is also drawn on the ground as a cyan dashed line, with a cyan ring round every camp you added as a stop; both fade away as you walk over them ("Show route" turns both off).
+- There are 20 quests per run: 10 known and 10 rumoured. Current acceptance and private objective-route rules remain.
+- One Wandering Villager trades weapons and potions. One Soul Broker offers 3 persistent random stat exchanges based on current stats; choose 1 once per run (12% cost for 18% gain). Both wander and stop for nearby visitors. Trades preserve uncapped farming, augments, and champion progression.
+
+
+A top-down 2.5D roguelike battle arena. Up to 8 players pick one of five factions and drop into a generated map with empty hands: every run starts on fists. They loot chests and farm neutral mobs for weapons, farm each normal mob type for an uncapped fixed stat bonus, challenge elites for interactive augments and fight until one is left standing. The weapon loop decides matchups; the factions are tuned to even fights and differ in how they win and how they scale. A player who has farmed cards hits other players far harder than a fresh one (the PvP factor), so early fights are slow and late fights are short. If nobody dies for a while, everyone still standing is teleported into the coliseum at the centre and locked in until somebody does. The last one standing wins **Glorious Victory** (GV), a currency that only buys cosmetics. Weapons and cards never outlive a run. GV, stats, cosmetics, titles and achievements persist per callsign.
+
+The first playable in [docs/GAME_DESIGN.md](../GAME_DESIGN.md) is built: a walkable hub, the faction pick, fists and five weapons, five faction signatures, a generated 160 x 160 map of five zones, each with its own designed shape, a planning step before each run, twenty competitive quest offers with ten shown during planning, regional mobs of 30 types in mono-type camps (one hit wakes the whole camp), fixed stat rewards for twenty normal mob types, shared interactive augment chests from elite deaths, and camp clears that store healing potions, bounties, the patience timer and coliseum, GV, a shop, achievements, a monthly leaderboard and a training room. That document has the rules, the numbers and the reasons for them. This one covers running, playing and testing the code. Engineering rules and open issues are in [docs/legacy/CLAUDE_LEGACY.md](CLAUDE_LEGACY.md).
+
+It is still a prototype: colored shapes, no sound, no accounts (a callsign is a token kept in your browser), one server process, and numbers that are first picks. See [Known limitations](#known-limitations).
+
+Stack: Phaser 4, Colyseus 0.18, Express 5, Vite 8, TypeScript 7, Vitest 5, npm workspaces. The design tools in `testing/` are Python.
+
+## Requirements and setup
+
+- Node.js 22.12 or newer, preferably an LTS release (22 or 24). Vitest 5 declares `^22.12 || ^24 || >=26`, so Node 23 and 25 may print engine warnings. It was developed on 25.8 and runs there.
+- npm 7 or newer (workspaces) and a desktop browser with a mouse and keyboard.
+- Python 3 with numpy, only for the design tools in `testing/` (see [Testing](#testing)). It was run on 3.9.
+
+```bash
+npm install      # once, at the repo root (installs all three workspaces)
+npm run dev      # game server on :2567 and Vite client on :5173
+```
+
+Open http://localhost:5173. Vite runs with `strictPort`, so it fails instead of picking another port if 5173 is busy.
+
+## Playing
+
+### Champion and weapon guides
+
+Open **Champions & weapons · guide** from the main menu, even before loading a callsign. **Champions** explains each passive and Wish, highlights the two generally recommended weapons beside the champion's name, and gives build examples and their limits. Hold Shift or select More details for exact ability rules. **Weapon guide** explains every weapon's scaling, mechanics and intended counter matchups. Switch the example champion to see the physical/magic split of an actual unmodified hit; expand Exact attack formula for the math.
+
+The champion sets the base attack's damage type. The weapon adds damage from its listed stats: Offense/bonus HP/Defense contribute physical damage; Soul Offence contributes magic damage. Scaling coefficients are damage per second at base attack speed, not flat damage per hit. A weapon counter comes from its mechanics and positioning, with no automatic matchup damage bonus.
+
+### Vision and camp routes
+
+Your player reveals a wall-blocked circle of 900 ground units, independent of screen width. Seen tiles keep providing live vision for 30 seconds after you leave. Visible opponents light the screen edge in their direction: green far away, through yellow, to red nearby. Clearing a whole camp grants its clearing player a personal ward for two minutes; the entire camp returns at full health three minutes after its clear. The Camps & wards dock lists every camp's surviving mobs, ward owner/countdown and respawn countdown for everyone, including beyond vision.
+
+### Callsigns and two tabs
+
+Open two tabs and give each a callsign:
+
+```
+http://localhost:5173/?profile=alice
+http://localhost:5173/?profile=bob
+```
+
+A callsign (2 to 16 letters, digits, `_` or `-`) is a profile. The first load of an unused name claims it. The server hands back a token. The client keeps it in `localStorage` as `raid.token.<callsign>` and proves ownership with it on every later load. Without `?profile=` a tab starts with a random `op-xxxx` name. Edit it and press Load to claim one. Once a callsign has loaded, the tab remembers it for reloads in `sessionStorage`.
+
+Tabs in the same browser share `localStorage`, so two tabs can load the same callsign. But a profile can be in only one run at a time ("profile already in a raid"). A second browser, a private window, or cleared site data does not have the token, and the menu will say the callsign is taken. There is no in-game recovery for that.
+
+### Playing alone
+
+Bots are headless players with a human-like brain (design: `docs/BOTS.md`). They use the same HTTP API and play with the same controls as the browser: they walk (`move`), aim and attack toward their foe (`attack`/`release`), or click a foe with a wand (`target`) for the server to chase and aim, and they swap and pick up weapons, they cast their faction's Wish (`cast`) when it is ready and the moment suits it, they pick a start on the planning screen (`plan`), and they walk to an elite's augment chest and take a card (`choose`). They see only what a player's screen shows, react in a few hundred milliseconds, miss clicks, and come in three tiers (`easy`, `normal`, `hard`) and four personalities (`farmer`, `hunter`, `opportunist`, `cautious`). They farm mobs while no player is close and hunt players otherwise, and they join the same lobby as everyone else. Press Start Run in your tab first, then start some:
+
+```bash
+npm run bots -- 3
+```
+
+They arrive in your lobby and the run starts after the fill window. If the bots go first, two of them reach `MIN_PLAYERS` and start a run `FILL_SECONDS` later without you. Raise `LOBBY_SECONDS` or `FILL_SECONDS` for more time to join. For a quiet sandbox, start the server with `MIN_PLAYERS=1 FILL_SECONDS=1 npm run dev` (add `PLAN_SECONDS=0` to skip the 45-second planning screen). You get a solo run (it has no winner) with mobs, so you can test fighting and cards. The [training room](#training) is better for trying weapons.
+
+The server also fills its own lobbies with bots that live inside the room (no profile, no connection): up to `BOTS_FILL_TO` players (default 8: every game is an 8-player game, with up to 7 bots), arriving in the last seconds before the countdown ends. They are tagged `[BOT]`. The headless bots above are separate clients on top of that, so for a lobby of only the bots you launch, or only you, start the server with `BOTS_FILL_TO=0 npm run dev`.
+
+### The hub
+
+You start in a small walkable room. It is drawn on the client only: there is no server room while you are in it. Walk with right-click or `WASD` / arrow keys. Stand at a station and press `E` (or click it) to use it.
+
+**Lobby activity** shows who is in the current game, its phase and elapsed playing time, and the named players waiting in the hub. Bots are labelled separately. When the public server's single game is occupied, the panel explains why a new run cannot start; an existing game lobby can still accept players before planning begins. The lists refresh automatically while the hub is visible. Load a callsign to appear in the waiting list; closed or inactive tabs disappear after a short presence timeout. Waiting here does not reserve a place or join a queue.
+
+| Station | Where | What it does |
+| --- | --- | --- |
+| The Arena (stairs) | North wall | Join a run (matchmade lobby). |
+| Training Grounds (door) | East wall | Start a private practice room. |
+| Five pedestals | South | Pick a faction. |
+| Shop, Wardrobe, Achievements, Leaderboard (kiosks) | West wall | Open that panel. |
+| Weapon counters | Centre of the floor | A weapon matchup guide with selectable weapons and arrows toward the weapons they beat. |
+
+Your avatar wears your equipped cosmetics and your faction's colour, and stands on bare fists (a run starts unarmed). The menu docked on the left offers the same things: callsign, GV and stats, a card per faction, Start Run, Training, and the panels (shop, wardrobe, titles, achievements, leaderboard, counters).
+
+**Pick a faction before each run.** The pick is remembered on this device. A player who has never picked gets a round-robin default from the server, and that run counts for no faction title.
+
+### Factions and weapons
+
+Each faction beats exactly two others and loses to exactly two. Each weapon does too. The last faction is Holy (`holy` in code). Hit points, damage and the signature numbers are in [docs/GAME_DESIGN.md](../GAME_DESIGN.md) section 8: the balance pass compressed them so that a favourite wins a fair fight with a margin that two equal players' play can overturn.
+
+| Faction | Hp | Rate × hit | Armor / shield | Signature | Beats |
+| --- | --- | --- | --- | --- | --- |
+| Fire | 835 | 0.60/s × 100 | 0 / 45 | Dragonslayer: 18 burn a second (magic, over time), and a hit back on every swing the target makes (physical, 58 to 104 a swing by the target's weapon). | Sentenced, Plague |
+| Sentenced | 880 | 0.95/s × 34.840203 | 135 / 120 | Marked: landed hits pulse true damage and climb four tiers, taxing attack speed, suppressing damage and blocking lethal execute bonuses. Enemy weapon swaps promote the mark. Hitting a camp member marks its whole group. | Plague, Frost |
+| Plague | 1375 | 1.85/s × 20 | 190 / 0 | Rat King: 43 disease a second (magic) and an execute that adds up to 207 a second once the target is under half hp. Its DoTs cannot crit; auto attacks can. | Frost, Holy |
+| Frost | 1200 | 0.45/s × 170 | 20 / 190 | Living Wall of Ice: everyone engaged with it attacks at 48% speed; within 100 u, movement starts 30% slower, holds for 1 s and thaws over 3 s. Its hits are 90% physical. | Holy, Fire |
+| Holy | 1400 | 0.95/s × 96 | 0 / 250 | Radiant: heals a share of damage dealt equal to 11% plus 85% of its missing-health fraction, at most 75%. | Fire, Sentenced |
+
+Armor cuts physical damage and the shield (magic resist) cuts magic damage, each by 1 / (1 + stat / 100); true damage ignores both. Game pace doubles every faction's damage numbers and leaves hp alone. The balance target is for a favourite to finish with 10-35% of its hp left; the current Sentenced measurements are in [testing/TUNING_SENTENCED.md](../../testing/TUNING_SENTENCED.md).
+
+| Weapon | Shape | Numbers | Beats |
+| --- | --- | --- | --- |
+| Fists | What an empty hand fights with, and how every run starts: the shortest reach (72), the fastest swing, a weak hit. Pierces shields and never staggers. Not an item (it cannot be dropped, picked up or looted) and not in the loop. | Speed +150%, damage ×0.60, scales with 0.6 Offense + 0.6 SO | Nothing |
+| Sword | 90 degree swing, reach 112. A hit that is not blocked staggers (a target can't be staggered again for 1.1 s). | Speed +115%, damage ×0.75, 1.0 Offense | Axe, Wand |
+| Bow | Arrow, 900 u/s, range 520. A fixed full draw (rooted), then it looses at full damage: there are no partial draws. | Speed +95%, damage ×0.8, 1.0 Offense | Sword, Axe |
+| Wand | Ball, 380 u/s, range 640. A short cast (rooted) before the ball leaves. Pierces shields and deletes enemy arrows (a ball that does keeps 60% of its damage). Its impact splashes 30% of its damage onto other enemies within 48 u of the target. | Speed +65%, damage ×0.8, 1.0 SO + 0.3 Offense | Bow, Shield |
+| Shield | Raised toward the cursor (60 degrees either side); bashes its target, reach 96. A frontal sword or bash hit is blocked only in part (7%: the rest still lands, and never staggers; half of the blocked part is riposted), and an arrow is reflected carrying 15% of its damage. | Speed +60%, damage ×0.75, 0.4 per bonus armor or magic resist + 0.3 SO | Sword, Bow |
+| Axe | 180 degree swing, reach 112. Pierces shields and destroys balls. Every hit shreds 3 armor for 3 s, up to 6. Player swings land immediately while moving. | Speed +40%, damage ×0.77, 1.0 Offense + 0.02 per bonus max hp | Wand, Shield |
+
+"Speed" is the boost on the faction's attack rate, "damage" the weapon's multiplier on its dps, and "scales with" what a point of a card's stat adds per second (Offense and SO come from cards and mob rewards; see step 5 of [A run](#a-run) below).
+
+Units are world units: a tile is 32. Player sword, axe, shield and fists attacks land immediately without pausing movement; their cooldown still controls attack cadence. Bow uses up to 0.5 s / 55% of its interval to draw; wand uses up to 0.45 s / 50% to cast. NPC melee telegraphs and the zombie's 0.2 s windup remain. Attack speed shortens the interval and windup together. A ranged shot pauses movement for the final 0.2 s before release. See [combat rules](../GAME_DESIGN.md#95-as-built-mouse-orders-and-basic-attacks-october-28-combat-port). You start with empty hands and carry up to two weapons, and swapping shares one attack cooldown. A weapon comes from a chest, the ground, a body or a mob: a mob that dies to you while your hand is empty puts its weapon straight into it. Weapons and cards add to a hit through your stats: Offense and Soul Offence (SO) are scaled by each weapon differently (the weapon bar shows how). The faction pick alone rarely decides a fight: the weapon you hold against the one your enemy holds, and the cards you have farmed, do. Full rules, timings and the reasons are in [docs/GAME_DESIGN.md](../GAME_DESIGN.md) sections 8 to 10.
+
+#### Wishes
+
+Each faction has one **Wish**, an ability on `R` for the moment the weapons do not cover. It is locked for the first 45 s of a run and then has a cooldown that nothing shortens: Frost 45 s, Plague 120 s, Holy 150 s, Sentenced 180 s. Fire's Blaze Step stores up to 2 charges and one charge comes back every 30 s (the slot shows the count and the next charge's timer). The server refuses a cast it cannot take (cooling down, stunned or silenced, no valid target) at no cost. Once a cast begins its cooldown is spent, even if it then fizzles or is interrupted (only a stun or a silence interrupts one). Every fighter's name carries a small icon of its Wish, grey while it is locked or cooling down, and your own slot sits at the right end of the weapon bar. In the training room a Wish is ready at once and (a Blaze Step charge) recharges in 5 s.
+
+| Faction | Wish | What it does | What beats it |
+| --- | --- | --- | --- |
+| Frost | Freeze | After a 0.25 s cast, stuns the enemy nearest your cursor for 1.25 s (range 450 u, line of sight). A stun cancels a windup, the bow's draw included. | Break line of sight or leave range during the cast. It is not a projectile, so nothing else dodges it. |
+| Plague | Swarm | After a 0.25 s cast you cannot be targeted for 8 s: nobody can lock you or aim an ability at you, and mobs lose you. Attacking or casting shows you from its start until half a second after it lands. A cloud on the ground marks where you are. | Arrows, balls and swings already on the way still hit. A hiding Plague that attacks is revealed, so it escapes rather than fights. |
+| Sentenced | Trial | After a 0.35 s cast, puts a ring of radius 300 u on an enemy within 400 u for 5 s. Inside it the enemy deals 20% less and takes 20% more from you. A target already at mark tier 3 or 4 gets a tighter 200 u ring. Walking out stuns it for 1 s. | Break line of sight or leave range during the cast, then stay and fight inside the ring, or accept the stun. |
+| Fire | Blaze Step | Blink up to 300 u toward your cursor, through walls, with no cast time. It leaves a burning trail for 2.5 s: 30 true damage a second to anyone else on it, lingering 2 s. | Don't stand on the trail. It cannot cross the locked coliseum gates or land in a sealed pocket. It has no warning before the cast. |
+| Holy | Last Stand | For 5 s you cannot fall below 1 hp and you walk 30% faster. At the end, 30% of the damage you took is healed back. It has no warning before the cast. | It is a loan, not a refill: a Holy that lives through it comes out with 30% of the damage back, so don't spend burst on it, wait for it to end. |
+
+Freeze and Trial pick the enemy nearest the cursor, within 64 u like a left-click. Blaze Step goes toward the cursor. Swarm and Last Stand need no aim. The full rules, the numbers and what is a best guess are in [docs/GAME_DESIGN.md](../GAME_DESIGN.md) sections 8.8 and 8.9.
+
+### Controls
+
+WASD or arrow keys move. Left-click attacks toward the cursor; hold to repeat. Only a wand can lock onto an enemy and home its projectiles.
+
+| Input | In a run |
+| --- | --- |
+| `WASD` / arrow keys | Move; release to stop. Movement drops a wand lock. A ranged shot pauses walking only for its final 0.2 s before release. |
+| Left-click / hold | Swing or shoot toward the cursor. With a wand, click an enemy to lock it, chase into range and repeat homing shots. |
+| Right-click ground | Walk to that point using pathfinding. |
+| Mouse position | Aim attacks and face the shield. |
+| `Q` / `1` / `2` | Swap weapons or select a slot. |
+| `R` | Cast your faction's Wish. |
+| `E` | Use a stored healing potion (large first). A press the server will take shows at once; one made while a stun or a cast will still hold you when it arrives says so at once and is not sent. Any other refusal (3 already healing, full health, none stored) comes from the server. |
+| `F` | Pick up a highlighted weapon, potion or accepted quest item; talk to a quest giver; enter a ready travel cannon. |
+| `C` | Focus an elite chest's choices. Then `1` / `2` / `3` pick, `0` skips and `C` / `Esc` returns control. |
+| `J` | Toggle the quest log. |
+| Hold `Tab` | Show the map, route and ranked roster: two weapon icons (equipped highlighted) and top three stats. |
+| `Esc` | Close focused panels or leave training. |
+
+Walk over wind emblems to consume them automatically for a five-second speed boost. Nearby wandering traders open their exchange panel; select one offer to trade.
+
+During the planning step before a run (see below) nobody moves, and the screen has its own controls: `1` / `2` or a click pick the first or second dealt spawn, a click on the map adds a route stop (a click on a stop takes it out, up to 12), the arrow keys move between the map's markers, `Enter` on a camp adds a stop, `Delete` on a stop removes it, and the Ready button locks your pick. Settings add "Show route", minimap size (75%–200%) and a map text size (100%, 125%, 150%).
+
+A wand lock ends when movement, a weapon swap, a new target, death or loss of the target's range/vision invalidates it. Only wand balls home; arrows follow the launch direction. Each projectile has its weapon's finite flight range. Bow and wand users can move through most of the draw or cast, pausing only for the final 0.2 s before release.
+
+In the hub: right-click or `WASD` / arrows to walk, `E` or a click at a station. Shortcuts are ignored while a text field has focus. Clicks that begin on a menu or panel never reach the world.
+
+### A run
+
+1. **Lobby.** The timer starts when the first player joins and lasts `LOBBY_SECONDS` (30). Once `MIN_PLAYERS` (2) are in, the remaining wait is cut to at most `FILL_SECONDS` (5). Eight human players start it at once (fill bots never do, and a human joining a lobby that holds bots takes the newest bot's seat). If the timer runs out with fewer than `MIN_PLAYERS`, the run starts with whoever is there. A solo run has no winner and no win bonus. Nobody can act in the lobby, but it shows the map small and read-only: the zones, every camp's mob type and the factions in the room.
+2. **Planning.** For `PLAN_SECONDS` (45) the room is locked and nobody moves, fights or is hurt. You are dealt two spawns about the same walk from the coliseum and in different zones, and pick one: the first to pick a spawn holds it, and a spawn someone else took shows as taken at once. The screen shows each camp's mob type (its role and the weapon it drops), your faction's matchup against it, and ten known quest offers with their givers, durations that start on acceptance and rewards (plus a count of ten rumoured offers), and you can draw a route (kept in this tab, never sent, shown faintly on the minimap during the run). These are planning rows only: quest giver NPCs and items appear when the raid starts. Ready locks your pick, and the run starts early once everyone connected is ready. With no pick you get your first free spawn. A server started with `PLAN_SECONDS=0` skips this step.
+3. **Early run.** Everyone starts at the spawn they picked, on fists and with nothing else. The starts of a map all lie about the same walk from the coliseum, spread over the zones. A map has 20 to 30 crates (4 to 6 a zone, a small potion and a stat choice each, no weapon) and 30 to 45 weapons loose on the ground. The walk from a start to the coliseum is about 12 seconds (11 to 13 for most starts). Take what you need, farm mobs, and pick fights you can win.
+4. **Mobs.** The map is 160 x 160 tiles with five zones of equal area around the coliseum, one per faction, tinted in its colour; their shapes and places change with every seed, and they meet with no walls between them (a dashed line in each zone's colour marks a border). Each zone has its own designed shape and way of moving through it: the Scorch's camps sit in basalt craters with breaches and a lava river with fords, the Gallows' long fence rows have staggered gates, the Warren forks every road round a rock barrow (dry side, bog side or tunnel), the Rime has two ice lakes with headlands, and the Sanctum's heart is a hall of square pillars with lit bays. A few small buildings (a forge, a guard house, a burrow, a watchtower, a shrine) stand in the zones. A mob fights as its zone's faction at a fraction of full strength (more for an elite), shaped by its type's role (swarm, brute, skirmisher, caster, or a plain grunt) and carrying its type's own weapon: casters shoot, and every zone drops two or three kinds of weapon, so each weapon can be farmed in at least two zones. Each zone has two elite camps, one for each of its two elite types, with the elite at 65% of the sheet's strength, then 2x hp and half damage like every mob, and 2x hp and 1.5x damage on top of that. So the map is a shopping list for counters.
+   - A zone has eight camps, 40 on a map, each with 3 to 5 mobs, two of them elite camps. Camps are mono-type: every normal mob of a camp is one of its zone's four normal types (each type stands in two of the zone's eight camps), and each of the two elite camps holds one of the zone's two elites, a different one in each. Normal kills pay GV, the mob's weapon, and one fixed stat stack of that type, with no farming cap. Elites drop an augment chest instead of a stat stack (below).
+   - Mobs are neutral until hit, and a hit on one wakes its whole camp onto you; a mob that is already walking home stays out of it. A woken mob chases and fights with spacing that suits its weapon. It gives up when it leaves its camp's territory (the part of the zone nearer to that camp than to the zone's other camps), or gets 24 tiles from its camp spot, or 20 s after it last dealt damage. It walks home without re-engaging, remains targetable and heals at 50% of maximum HP per second.
+   - The zones, what their mobs carry, and the types (every normal camp is one normal type, every zone has two elites):
+
+     | Zone | Mobs carry | Normal types | Elite types |
+     | --- | --- | --- | --- |
+     | Fire (the Scorch) | axe, wand | Ember Imp, Cinder Hound, Magma Brute, Flame Caller | Wyrmling, Ash Drake |
+     | Sentenced (the Gallows) | sword, bow, shield | Bailiff, Chain Warden, Inquisitor, Pardoner | Executioner, Gaoler |
+     | Plague (the Warren) | bow, wand, axe | Plague Rat, Bloatfly, Rot Monk, Miasma Witch | Rat Ogre, Pox Behemoth |
+     | Frost (the Rime) | shield, bow, axe | Frost Wisp, Ice Golem, Rime Stalker, Frostbow Sentry | Glacial Warden, Avalanche Troll |
+     | Holy (the Sanctum) | wand, sword | Acolyte, Seraph Shard, Penitent, Zealot | Blood Saint, Archon |
+
+     A normal mob is its zone's faction at 22% of the hp and damage (an elite 65%), then shaped by its role: a grunt is plain, a swarm mob has 70% of the hp, 90% of the damage and walks 10% faster, a brute 140% of the hp, 80% of the damage and walks 10% slower, a skirmisher 85% of the hp, 110% of the damage and walks 15% faster, a caster 75% of the hp and 120% of the damage and shoots. A plague mob's execute is scaled down twice, so it does not out-kill the other zones. A fist clears a camp of four normal mobs in 24 of 25 faction-and-zone pairings; an elite camp (the elite and three normal mobs) is for armed, carded players (4 of 25).
+   - A map has about 160 mobs, and they never hurt each other. A full camp clear stores a potion for each standing damage contributor, including ranged attackers outside the camp, and grants a personal vision ward to the credited killer. Elite deaths drop augment chests even while escorts survive; normal clears drop no chest (only the potion and the ward). Three minutes after its last mob dies, the complete original roster respawns at full health and the ward ends. Individual deaths do not start a respawn timer. Camp counts and timers are public in the Camps & wards dock.
+   - A kill pays GV (2, an elite 10, scaled by the reward curve below, at most 30 a run from mobs) and feeds that curve. Its fixed stat reward is independent of the curve. The mob's weapon goes straight into your hand if it is empty ("Armed: Bow"); otherwise it lands on the ground, unless you already hold that type. The kill goes to whoever did it the most damage.
+5. **Stats, augments and the feed.** Every normal type gives one predictable small stat increase per credited kill, with no farming cap. The HUD shows each type’s reward and your cumulative stacks. Elite deaths drop a shared chest with up to three distinct interactive augments; each option can be claimed once, and each player picks or skips once. Quests award normal-type stat stacks and GV. Raw stat cards and simple conditional stat bonuses are excluded from reward pools. Augment tiers still feed the existing PvP factor, shown on the build strip, and combat guards bound combined effects. Feed and catch-up affect mob GV only; stat gains stay fixed. The full reward table and zone themes are in [docs/MOB_PROGRESSION.md](../MOB_PROGRESSION.md).
+6. **Bounty.** Past 2 player kills, a bounty sits on you: `10 x (kills - 2)^1.5` GV (10 at three kills, 28 at four, 52 at five). Mob kills never raise it. Everyone is told "<name> is on a rampage" when it rises, and a crown marks you. Whoever kills you is paid the bounty on top of the kill (GV only: nothing you hold moves to them, and your body keeps your weapons for whoever takes them). Leaving within 5 s of being hit counts as a kill for whoever hit you, so quitting does not dodge a bounty. A mob that finishes a player a rival hit within 5 s credits the rival.
+7. **Coliseum schedule.** Everyone still standing is teleported into the coliseum and its four gates close at 10:00 of the run (counted from the end of planning), again at 15:00, then every 2 minutes (17:00, 19:00, ...; `COLISEUM_*_SECONDS`). Slots are on the run clock: a death outside the coliseum moves nothing. A death, a leave included, opens the gates again; the next teleport is the next slot at least 30 s later (`COLISEUM_MIN_GAP_SECONDS`), and bots go back to farming. The old patience timer (5:00 with 8 standing down to 2:00 at 3, restarted by every death; `PATIENCE_SECONDS`, `PATIENCE_MIN_SECONDS`, `FIRST_PATIENCE_SECONDS`) is used only when a dev sets `PATIENCE_SECONDS` or `FIRST_PATIENCE_SECONDS`, or `COLISEUM_SCHEDULE=0`. Mobs do not count. You are immune for 1.5 s after the teleport, arrows and balls in flight are removed, and every living mob goes back to its camp at full health.
+8. **Sudden death.** Locked in for `SUDDEN_DEATH_SECONDS` (60) with no death, everyone standing loses 2% of max hp per second, and 2% more for every further second, until somebody dies. A death opens the gates.
+9. **Outcome.** The last one standing wins. If the last players go down in the same tick, the one with the higher hp fraction at the start of that tick wins. An exact tie is a draw. Leaving mid-run counts as a death (missing in action), and so does leaving during the planning step: planning is part of the run, so a leave there is a loss in your stats with no GV (a server restart during planning voids the run instead). A dropped connection keeps your seat for 10 s first (in the run you stay in the fight, and hittable). In the lobby, leaving costs nothing.
+10. **Results.** A kill pays 10 GV. Winning pays 50 more, but only if the run started with 3 or more players and you damaged at least 2 different opponents. Otherwise you still win, without the bonus. GV earned is kept when you die. It banks the moment your run resolves. The results screen shows the outcome, your place, time, kills, who killed you, the GV rows and any achievements unlocked. A dead player sees "YOU DIED" for 1.5 s first, while the run goes on for everyone else. Back to hub reloads the profile.
+
+The HUD shows players standing, your run GV and bounty, the arena timer (coliseum, locked gates, sudden death), a minimap (zones, camps with the cleared ones crossed out, camp chests with a countdown, closed gates, living mobs, your planned route, known quest givers, your active objective and parcel carriers), the cards row and the build strip under your hp, a weapon bar with the shared cooldown, a red flash when you take a real hit, and a green or red screen tint when the nearest enemy in sight is countered by you or counters you.
+
+#### Quests
+
+Each arena run has **twenty standing quest offers**: ten known during planning and ten rumoured. They ask you to kill mobs or a player, collect tokens, or carry a parcel back from a far zone. Walk to an offer's giver and press `F`: a card opens with the offer, and **Accept** (`Enter` or `1`, or a click) starts it for you. Nothing counts until you have accepted it (kills, tokens, the parcel and the turn-in are ignored before, and nothing you already did counts afterwards); a token or parcel you try to take first is refused and stays where it lies. Then finish the objective and stand by the giver to turn it in automatically; the first player to do so closes it for everyone. Givers are neutral and immune to attacks and Wishes, so they are turn-in points, not enemies. Each offer has a fixed duration that begins when the first player accepts it; an unaccepted offer remains open until the coliseum teleport or run end, unless a public kill offer becomes impossible to finish. A kill offer closes early when clearing camps leaves no standing player able to finish it: nobody has the whole objective yet and the live mobs it counts no longer cover what each lacks.
+
+Quest rosters, ids and placement use a separate private random stream, seeded from its own secret (not the public seed, and independent of the reward stream), never the reward or world streams, so enabling quests does not change later reward rolls. The hidden givers are placed in their own private pass and the ids come out of a private shuffle; the public map seed and known giver positions do not determine the hidden positions. Every giver, token and parcel stands on ground a player can walk to from the coliseum and off hazard floor; givers also keep clear of camps, and no token or parcel lies on a camp chest or a mob's rest spot.
+
+The planning screen shows the known givers, durations and rewards (and says to accept at the giver in the run) so you can choose a spawn and route. **J** opens the quest log during planning and the run, grouped by open/completed/expired status, each open row marked Accepted or Not accepted (talk to its giver); completed and expired rows do not keep counting down. In training, J opens a panel explaining that practice has no quests. The log is placed live just below the HUD plate (wherever the cards row and the build strip end), clear of the coliseum countdown and the weapon bar; the world shows only open givers plus items and parcel carriers, and the minimap shows known givers, your active objective and carriers. Walking near a rumoured giver reveals it: if several standing players discover it on one tick, the secret `tieRank` chooses the finder. That player gets the quest privately **four seconds** before everyone else sees it. Until then, other clients get only the remaining rumour count, not its identity or position. An unaccepted rumoured offer can close unseen at the coliseum teleport or run end (a camp clear never closes one or moves the count); the count then drops without saying where.
+
+Use `F` for quest tokens and ground parcels of an offer you accepted; it never offers a quest item the server would refuse (the offer is not accepted yet, the quest is over, you already carry a parcel, someone else carries it, you have enough tokens), so a usable weapon pickup is not shadowed. Tokens count on pickup. You can carry one parcel at a time, everyone sees its carrier, and dying drops it for someone else to steal. Swarm and Blaze Step keep the parcel, and a Swarm-hidden carrier's parcel and marker remain visible at their position. Ordinary farming still pays while carrying.
+
+A completion grants 10–20 normal-mob stat stacks from its destination zone, based on objective and travel effort and independent of feed and pays the offer's GV from a separate **50 GV per-run quest cap**, and removes the giver and items. Results list quest GV separately. Completed and expired rows disappear after a 20-second grace period. Offers that expire together show as one toast, and you get one completion toast, so the GV line stays visible. The coliseum teleport and run end close every open quest without a reward, remove givers, tokens and parcels (including a carried parcel), and prevent further hidden reveals. Full rules and the assumption-based balance worksheet are in [docs/quests.md](../quests.md).
+
+#### Camp chests and cards
+
+When an **elite** dies, one **augment chest** appears on its camp's chest tile (an ordinary camp clear drops no chest: its reward is the stat stacks per kill; the clear heal below still applies) for **15 seconds**, whoever got the kill, and everyone who fought the camp and stands near it is healed: a scratched player gets a little back, one who was ganked low nearly all of it. The chest offers up to three interactive augments, the same to everyone (older text: the chest used to offer a stat card, a conditional card and an augment). A conditional card needs a stat card of its kind in your build; conditional cards and augments are one per player, stat cards stack. Each player picks **once** (a skip counts as the pick), and each option goes to the first player who takes it, so what you get depends on who is standing there. A panel opens on the right edge when you are within 88 units of a live chest with a clear line (and stays open out to 92); it shows a countdown, the three cards (title, tier, what it does, and why it is on offer for you: "Deepens your Attack Damage", "You have Leech", "New") and who took what, and it never takes a click meant for the world. Press `C` to focus it, then `1` / `2` / `3` to take a card or `0` to skip, or click. The server checks everything from your position: a pick fails with a short message ("Too far away", "Already taken", "Needs Leech", "Already yours", "Can't do that now" while stunned or casting, ...).
+
+A skip heals 15% of your max hp (not within 3 s of a fight, and not at full hp) and otherwise pays 3 GV. Every card in the catalog is built and can be rolled. The ones you hold show as a row under your hp. The full rules and numbers are in [docs/GAME_DESIGN.md](../GAME_DESIGN.md) section 12.
+
+### Training
+
+The Training Grounds door starts a private room of one, created fresh each time, with your picked faction. Next to your spawn are a plain dummy, a shield dummy (reflects arrows, ripostes swords) and a rack with one of each weapon. Nothing is recorded: no GV, no stats, no achievements, no timer, no results, no mobs of its own. If you go down you are stood back up. Leave with the button or `Esc`. A room whose player sends no input the server accepts for 5 minutes is closed. A message the server rejects does not count as input.
+
+**The practice console.** A **Console** button in the training bar opens a small panel (training rooms only; an arena room refuses every `train` message). It sets how many copies of any card you hold (1, 2, 3 or 9 of a stat card, one of a conditional card or an augment; a conditional card needs a stat card of its kind first, and a card that is not built is set but does nothing, and the toast says so) or takes it off, spawns a practice camp (three mobs of a type, one for an elite type, asleep near you, so hitting one wakes the rest), drops a card chest two tiles away with three cards of your choice (or a rolled one), and clears all of it (cards, practice mobs, chests; the dummies and the rack stay). Practice mobs pay nothing and drop no chest, but clearing a practice camp heals you as a real one does. Caps: 12 practice mobs at once, 6 chests, a short pause between camps and between chests. The console takes no game key; `Esc` inside it hands the keyboard back, and the next `Esc` leaves training.
+
+### GV, the shop and progress
+
+GV comes from the run and is kept when you die (it banks the moment your run resolves):
+
+| Source | GV |
+| --- | --- |
+| Win (last one standing) | 50, only if the run started with 3 or more players and you damaged at least 2 different opponents |
+| Player kill | 10 |
+| Bounty claimed | 10 × (your victim's player kills − 2)^1.5: 10, 28, 52, 80 at 3, 4, 5, 6 kills |
+| Mob kill | 2 (an elite 10) × the mob reward curve (×0.98 at no feed, ×0.65 at a feed of 5, never under ×0.3; ×1.25 more if you are far behind), at most 30 a run from mobs and chest skips together |
+| Chest skip, with nothing to heal | 3, inside the same 30 |
+| Quest | 5 to 13, from a pot of at most 24 a run, and a card |
+
+GV buys cosmetics only: body colours, outlines, trails, titles, and golden looks for each faction and weapon. Nothing changes combat. Spending lowers your balance but never your lifetime total or your monthly total. The monthly total is what the leaderboard ranks (UTC months, any past month, your own place even outside the top 20). Achievements (kills, wins, a win with each faction, golden-look goals) are computed on the server from banked runs. They unlock once and grant titles and cosmetics. Win goals count only wins that earn the win bonus. Equipped cosmetics are read when you join a run, so a change in the wardrobe applies from the next run. See [docs/GAME_DESIGN.md](../GAME_DESIGN.md) section 13.
+
+## Commands
+
+All from the repo root.
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Server (`tsx watch`, :2567) and client (Vite, :5173) together. Ctrl+C stops both. |
+| `npm test` | Vitest in the client, server and shared workspaces. The server suite includes end-to-end runs over real sockets. |
+| `npm run typecheck` | `tsc --noEmit` in every workspace. |
+| `npm run build` | Production build of the client into `packages/client/dist`. Vite does not type-check, so run `typecheck` too. |
+| `npm run playtest -- --no-tunnel` | Host a playtest: builds the client, runs the production server and (without `--no-tunnel`) a Cloudflare quick tunnel. See [Hosting a playtest](#hosting-a-playtest). The flags need npm's `--` in front. |
+| `npm run playtest:signin -- <callsign>` | Print a sign-in link for a returning playtest player (`--all` for everyone, `--url <address>` to override the address). See [Hosting a playtest](#hosting-a-playtest). |
+| `npm run bots -- 3` | Start 3 headless bots against the running dev server. Flags need a second `--` (below). |
+| `npm run harness -w @raid/server` | Weapon duel harness (see [Testing](#testing)). The root has no `harness` script. |
+| `npm run harness:factions -- --python` | Faction cycle harness (see [Testing](#testing)). |
+| `npm run harness:zones -w @raid/server` | Zone duel harness: duels on fenced and real terrain (see [Testing](#testing)). |
+| `npm run start -w @raid/server` | Run the server once without file watching. |
+| `npm run preview -w @raid/client` | Serve the output of `npm run build` locally. |
+
+The end-to-end tests start their own server on a free port with a temporary profile file. They are safe to run while `npm run dev` is up and never touch your real profiles. `tsx watch` restarts the server when server or shared source changes. A restart is a graceful shutdown: the run is void (not recorded), but players still in it are paid the GV they had earned.
+
+**Bot flags.** The root `bots` script nests npm, which swallows flags unless you add a second `--`:
+
+```bash
+npm run bots -- -- 3 --url http://host:2567 --faction random --loop
+npm run bots -w @raid/server -- 3 --verbose        # the same, without the nesting
+```
+
+`--url` (default `http://localhost:2567`), `--prefix` (profile names are `<prefix>1..N`, default `bot`), `--faction <id|rotate|random>` (default `rotate`: five bots make a lobby with one of each; ids are `fire`, `sentenced`, `plague`, `frost`, `holy`), `--tier <easy|normal|hard|mix>` (default `hard`; `mix` rolls a tier per bot and run, 30% easy, 45% normal, 25% hard, like the server's own fill bots), `--persona <farmer|hunter|opportunist|cautious|random>` (default `random`: each bot rolls one per run), `--seed <n>` (the same seed against the same lobby plays the same; default random), `--stats <file>` (a learning file the bots read and add to; default none, so no learning), `--loop` (queue again after each run), `--verbose`. The count is 1 to 64. Bot tokens are kept in `packages/server/data/bot-tokens.json` so the same names can be reused.
+
+### Server environment variables
+
+Set them on the command line, for example `MIN_PLAYERS=1 FILL_SECONDS=1 PATIENCE_SECONDS=20 npm run dev` for fast solo testing. A missing or non-numeric value falls back to the default. They are read in `packages/server/src/config.ts`, with defaults from `packages/shared/src/constants.ts`.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `RAID_PORT` | `2567` | Port the server listens on. |
+| `STASH_FILE` | `packages/server/data/stash.json` | Where profiles are saved (git-ignored). The name predates profiles v2. A v1 stash file there is migrated in place. |
+| `MIN_PLAYERS` | `2` | Players needed before the lobby wait is cut to `FILL_SECONDS`. |
+| `LOBBY_SECONDS` | `30` | Lobby wait, counted from the first join. |
+| `FILL_SECONDS` | `5` | Longest wait left once `MIN_PLAYERS` have joined. |
+| `PLAN_SECONDS` | `45` | The planning step after the lobby (spawn pick, camps, route). It ends early once everyone connected is ready. `0` skips it: the run starts straight from the lobby. Training rooms never plan. |
+| `PATIENCE_SECONDS` | `300` | With 8 players standing and no death for this long, everyone standing is teleported into the coliseum. |
+| `PATIENCE_MIN_SECONDS` | 40% of `PATIENCE_SECONDS` | The same wait with 3 or fewer standing, linear in between. Kept between 0 and `PATIENCE_SECONDS`. |
+| `COLISEUM_FIRST_SECONDS` / `COLISEUM_SECOND_SECONDS` / `COLISEUM_REPEAT_SECONDS` / `COLISEUM_MIN_GAP_SECONDS` | `600` / `900` / `120` / `30` | The coliseum schedule on the run clock. Off (patience timer instead) when `PATIENCE_SECONDS` or `FIRST_PATIENCE_SECONDS` is set, or with `COLISEUM_SCHEDULE=0`. |
+| `FIRST_PATIENCE_SECONDS` | `300`, or `PATIENCE_SECONDS` when that is set | The first patience wait of a run, flat whatever the player count, armed when planning ends. Setting only `PATIENCE_SECONDS` (to shorten a run) makes that the flat first wait too, as in the example above; set this one as well to keep them apart. `0` makes it scale with the players standing like every later wait. |
+| `SUDDEN_DEATH_SECONDS` | `60` | Locked in the coliseum this long with no death, sudden death starts. |
+| `WISH_LOCK_SECONDS` | `45` | Every Wish stays locked this long after a run starts. A training room has no lock. The end-to-end tests use 5. |
+| `TRAINING_IDLE_SECONDS` | `300` | A training room whose player sends no accepted input for this long is closed. |
+| `DUMMIES` | off | `1` or `true`: training dummies and a weapon rack next to every spawn in arena runs too. |
+| `MOBS` | on | `0` or `false`: no regional mobs. |
+| `QUESTS` | on | `0` or `false`: no quest offers in arena runs. Training rooms never have quests. |
+| `MAP_POOL` | `8` | Certified maps the server keeps ready, made by a worker thread (about 130 MB more memory for the worker, its tables and tsx). `0` runs no worker: every room generates its own map on the main thread, about 33 ms (64 at p99, 80 at worst) and logged. An empty pool does the same for one room. |
+| `COLYSEUS_LATENCY` | `0` | Netcode testing: the simulated minimum round trip in ms (half each way) of every connection. A TCP-faithful model (`packages/server/src/net/netSim.ts`): per connection and direction a FIFO, so messages never reorder. |
+| `NET_JITTER_MS` | `0` | Mean of the extra per-message delay (exponential, so right-skewed), each way, on top of `COLYSEUS_LATENCY`. |
+| `NET_LOSS_PCT` | `0` | Percent of messages that need a retransmission: they wait an extra timeout (at least 200 ms) and everything behind them waits too (head-of-line blocking). |
+| `NET_SEED` | random | Seeds the jitter and loss draws, for repeatable runs. |
+| `ALLOW_NETSIM_WHEN_HOSTING` | off | `1`: let a server that is hosting (`NODE_ENV=production` or `CLIENT_DIR`) install the network simulator anyway. Without it the simulator is refused there with one warning, since it would slow every player; `npm run playtest` drops the three variables above. |
+| `TRACE_INPUTS` | unset | A file path: every arena run appends its per-tick movement trace (`packages/server/src/sim/trace.ts`) to it as JSONL, for `bench/predictBench.ts --trace`. The file is capped at 512 MB. A local measurement: a hosting server refuses it with one warning. |
+| `ALLOW_TRACE_WHEN_HOSTING` | off | `1`: let a hosting server record `TRACE_INPUTS` anyway (it records every player's movement). `npm run playtest` and the deploy drop both variables. |
+| `CLIENT_DIR` | unset | A built client (`packages/client/dist`) to serve from the same port as the API and the websocket. Setting it, or `NODE_ENV=production`, is "hosting": see [Hosting a playtest](#hosting-a-playtest). |
+| `PLAYTEST_PASSCODE` | unset | When set, a passcode is needed to claim a new callsign and to join a room. |
+| `CLIENT_BUILD_CHECK`, `CLIENT_BUILD` | on when hosting | A hosting server refuses a join from a page built against a different `packages/shared/src` (a tab that outlived a deploy: it shows a Reload card) and lets in a join that names no build (bots, a dev build). `CLIENT_BUILD_CHECK=0` turns the check off; `CLIENT_BUILD=<hash>` requires that build instead of the server's own. |
+| `PASSCODE_FAILS_PER_MINUTE`, `PASSCODE_FAILS_PER_MINUTE_ALL` | `6`, `40` | With a passcode set: wrong guesses a minute per client address and in all, before the server answers 429 (on the profile route and on joining). |
+| `PLAYTEST_TUNNEL`, `PLAYTEST_HOSTNAME` | unset | Launcher only (`npm run playtest`): the named tunnel and its address, as `--named` and `--hostname` ([A stable link](#a-stable-link)). |
+| `CORS_ORIGINS` | unset | Hosting only: comma-separated origins that may read `/api` and matchmaking from another site. Nobody else may. |
+| `MAX_ARENA_ROOMS`, `MAX_TRAINING_ROOMS` | `4`, `8` hosting; no limit in dev | Rooms alive at once. A room beyond that is refused with "server is full"; joining an open lobby still works. |
+| `MAX_NEW_PROFILES_PER_HOUR`, `MAX_NEW_PROFILES_PER_IP_PER_HOUR` | `30`, `10` hosting; no limit in dev | New callsigns an hour, in all and per address (behind a tunnel the address is `CF-Connecting-IP`, trusted only when the connection comes from this machine; otherwise the socket's address). Answers 429. |
+| `SHOP_BURST`, `SHOP_PER_SECOND` | `6`, `3` hosting; no limit in dev | One profile's shop and wardrobe request budget. Answers 429. |
+| `ORDER_BURST`, `ORDER_PER_SECOND` | `30`, `15` | One player's budget of in-match orders (`move`, `stop`, `target`, `swap`, `pickup`, `cast`, `plan`, `choose`, `train`, `attack`, `release`; not `aim`). Excess orders are dropped silently. The browser sends about 10 a second while the right button is held. |
+
+A `0` for any limit above turns it off.
+
+### Client environment variable
+
+`VITE_SERVER_URL` points the client at a server. Unset, a dev build opens a WebSocket to `<page hostname>:2567` and calls `/api` on its own origin, which Vite proxies to `localhost:2567`; a production build (what the server serves when hosting) talks to its own origin for both, so `https` pages get `wss`. Set, the WebSocket and the REST base both derive from it (`ws` becomes `http`, `wss` becomes `https`) and `/api` is a cross-origin request. The proxy target and the default port are fixed at 2567, so changing `RAID_PORT` also needs this, for example `RAID_PORT=3000 VITE_SERVER_URL=http://localhost:3000 npm run dev`. Vite inlines it at build time, so set it when running `npm run build` too.
+
+## Hosting a playtest
+
+Up to 8 friends can play on your Mac with one command, from anywhere, over a Cloudflare quick tunnel (free, no account).
+
+```bash
+brew install cloudflared          # once
+npm run playtest                  # builds the client, starts the server and the tunnel
+```
+
+It prints a banner with a `https://something.trycloudflare.com` link. Send that link to your friends. They open it, type a callsign and press Start Run. It was tested in Chrome on a Mac only: Edge (Chromium) is expected to work, and Firefox and Safari are untested (Safari also caps at 60 fps unless "Prefer Page Rendering Updates near 60fps" is turned off in its feature flags). Each start has a new link, so a friend who played before needs their own sign-in link (`npm run playtest:signin -- <callsign>`, below), unless you set up [a stable link](#a-stable-link); a new friend just picks a callsign.
+
+What the command does: builds the client (`VITE_SERVER_URL` unset), starts the production server as one process (`NODE_ENV=production`, no file watching) that serves the page, the API and the websocket on one port, waits for it to answer, opens the tunnel and prints the link and the Wi-Fi address. On a Mac it also runs `caffeinate -is` so the machine does not idle-sleep while it hosts.
+
+Flags need npm's `--` in front of them:
+
+```bash
+npm run playtest -- --no-tunnel               # this Mac and the same Wi-Fi only
+npm run playtest -- --port 2600               # another port (default 2567, or RAID_PORT)
+npm run playtest -- --no-build                # reuse the build in packages/client/dist
+PLAYTEST_PASSCODE=pick-something npm run playtest   # ask players for a passcode
+npm run playtest -- --named roguehalla-test --hostname playtest.example.com   # your own named tunnel: the same address every time (A stable link, below)
+```
+
+- **Stopping.** Press Ctrl+C once. The server saves the profiles first (a few seconds); pressing it again only prints a note. If the launcher itself dies (kill -9, a crash), the server notices its pipe close and shuts down the same way (profiles saved, lock freed), and the tunnel goes too: cloudflared runs under `scripts/tunnelGuard.mjs`, which ends it within a few seconds of the launcher's death, so the old public address cannot keep pointing at the port for whatever you run there next. Only if the guard is killed as well can a cloudflared stay up; the launcher records its pid next to the profile file and the next `npm run playtest` stops it. If the tunnel dies by itself the banner says so, and `playtest:signin` says the address is dead instead of printing links to it.
+- **Returning players need a sign-in link.** A browser keeps a callsign's token per address, and a quick tunnel has a new address every start, so a friend who comes back and types their callsign is told it is taken (its token is not on this device). Print their link and send it to them alone: `npm run playtest:signin -- <callsign>` (`--all` prints one per callsign; `--url <address>` overrides the address, which the running playtest records next to the profile file, in `<profile file>.link.json`). It reads the profile file and never writes it. The link is `<address>/?profile=<callsign>#key=<token>` (plus `&code=` when there is a passcode): the token is in the part after `#`, which a browser never sends to any server, so the tunnel cannot see it, and the page takes it out of the address bar at once and keeps it apart as an unproven claim: it tries it on its next request to the server and keeps it as the callsign's token only once the server accepts it. **The link is that callsign's password**: anyone who opens it plays as that callsign, so send each one privately. A link whose key is wrong (a copy cut short) is dropped when the server refuses it and does not block the right link; a link never replaces a callsign the browser already proved. New players do not need one, they just pick a callsign. A stable address makes this unnecessary (see [A stable link](#a-stable-link)).
+- **Profiles** are in `~/.rougehalla/playtest-profiles.json` (override with `STASH_FILE`), separate from the dev file and kept across branches and worktrees. Back it up by copying it while the server is stopped (or any time: writes are atomic).
+- **Keeping the Mac awake.** The script does it. By hand: `caffeinate -dis`. With the lid closed it only stays up on power with an external display.
+- **Passcode.** Off by default (the banner says how to turn it on). Without one, anyone who gets the link can claim new callsigns, up to 30 an hour in all. With `PLAYTEST_PASSCODE` set, a new callsign and every join need it. The printed link carries it (`?code=...`), the browser remembers it, and a friend who opens the plain link sees "This playtest needs a passcode: open the link your host sent." Sign-in links carry it too. Use visible ASCII only. Wrong passcodes are throttled: 6 a minute per address and 40 in all (`PASSCODE_FAILS_PER_MINUTE`, `PASSCODE_FAILS_PER_MINUTE_ALL`), on the profile route and on joining alike; past that the server answers 429 ("Too many wrong passcodes from your connection. Wait a minute...") without looking at the guess. A guesser who keeps changing address can still use up the 40 and make everyone wait out the minute. Pick something longer than a common word.
+- **A stable address.** Optional, with a domain of your own: [A stable link](#a-stable-link) below. The quick tunnel stays the default.
+- **Guards** for a public link, all on while hosting and tunable (see the environment table): only the served page may read the API (no `Access-Control-Allow-Origin: *`; `CORS_ORIGINS` allows more), caps on rooms (4 runs, 8 practice rooms), on new callsigns (30 an hour, 10 per address) and on shop requests, and a budget of in-match orders per player. They are best guesses for 8 friends. The network simulator (`COLYSEUS_LATENCY`, `NET_JITTER_MS`, `NET_LOSS_PCT`) is never live on a public link: the launcher drops those variables (with a note, in case one was left exported in your shell), and a server that is hosting refuses to install it unless `ALLOW_NETSIM_WHEN_HOSTING=1`, with one warning. To test with lag, run `npm run dev` or the server yourself.
+- **Troubleshooting.** A quick tunnel's address changes every start, so a new run needs a new link (and returning players their sign-in links, above). The tunnel has no uptime guarantee: if the banner says it stopped, restart. A player who loses connection keeps their seat for 10 seconds and is reconnected if they come back in time, then counts as gone. The Mac itself may not open its own new link for a minute or two (its resolver cached "no such name" while the tunnel came up); use `http://localhost:2567` there. If the server says the port is busy, stop the other server (or `npm run dev`) or pick `--port`.
+- **Other ways.** Tailscale (everyone installs it and joins your tailnet, then use `--no-tunnel` and the Mac's tailnet address) keeps it private. Router port forwarding exposes your home IP address and needs TLS in front for `wss`; not recommended. A VPS: the `Dockerfile` builds the client and runs the same server in one container, with the profile file in a `/data` volume (`docker build -t rougehalla .`, then `docker run -d -p 2567:2567 -v rougehalla-data:/data -e PLAYTEST_PASSCODE=pick-something rougehalla`); put TLS (Caddy, nginx) in front of it. It was checked here by running its steps by hand, since no Docker daemon was running.
+
+### A stable link
+
+A quick tunnel has a new address at every start, which is why returning friends need sign-in links. A **named tunnel** on a domain you own has one address for good: friends' browsers keep their callsigns between sessions, so nobody needs a link (only a callsign on a new browser or device, or after clearing site data, does: `npm run playtest:signin -- <callsign>` still works and prints your stable address). It is opt-in and the quick tunnel stays the default. It costs nothing beyond the domain: a Cloudflare account is free.
+
+Setup, once. Nothing here is automated, because every step is your login or your domain. The tunnel name and the address are yours to choose; the examples use `roguehalla-test` and `playtest.example.com`.
+
+1. Create a free account at cloudflare.com and add your domain to it ("Add a site"). Cloudflare shows two nameservers: set them at the registrar where you bought the domain, and wait until Cloudflare says the site is active (minutes to a day).
+2. `cloudflared tunnel login`. It opens a browser: log in, pick the domain, authorize. It saves `~/.cloudflared/cert.pem`.
+3. `cloudflared tunnel create roguehalla-test`. It makes the tunnel and saves its credentials file, `~/.cloudflared/<tunnel id>.json`.
+4. `cloudflared tunnel route dns roguehalla-test playtest.example.com`. It makes `playtest.example.com` point at the tunnel.
+
+Then, for every playtest:
+
+```bash
+npm run playtest -- --named roguehalla-test --hostname playtest.example.com
+```
+
+or put `PLAYTEST_TUNNEL=roguehalla-test` and `PLAYTEST_HOSTNAME=playtest.example.com` in your shell profile and run plain `npm run playtest` (`--quick` makes one run use a quick tunnel instead). The banner prints `https://playtest.example.com/` to share. Everything else is as above: the same guards, the passcode, the profile file, the stop and clean-up behaviour (the tunnel ends with the launcher, however it ends).
+
+- **Keep `~/.cloudflared/` private.** `cert.pem` can manage your DNS and the `<id>.json` file lets anyone run your tunnel. Never commit, share or paste them. This project's launcher never reads or prints their contents.
+- **If something is missing**, the launcher says so in plain words, shows cloudflared's own error line (nothing secret-looking) and tells you what to run; it keeps serving on this Mac and the local network meanwhile.
+- **One machine at a time.** Run a given named tunnel from one place only; two connectors split the traffic between them.
+- It was tested here only against a stand-in `cloudflared` that prints what a named tunnel prints, never against a real account, so the first real run is the real test.
+
+### Public Cloudflare updates
+
+The public game at `play.roguehalla.com` runs in Cloudflare. `npm run deploy` builds the current checkout and publishes the Worker, browser assets and cloud game container. It uses the committed custom domain, half-CPU allocation, room limits and private R2 storage; the Mac game server and its old automatic watcher stay disabled.
+
+Publish a checked main revision with Node 24, Docker and the existing Wrangler login:
+
+```bash
+git pull --ff-only
+npm ci
+npm run deploy:check
+npm run cf:typecheck
+npm run cf:test
+npm run deploy
+npm run deploy:status
+```
+
+See [Cloudflare deployment and recovery](../CLOUDFLARE_PUBLIC.md) for profile persistence, startup and capacity limits. Releases are published from the owner's computer with `npm run deploy`. `.github/workflows/deploy.yml` is an optional manual alternative ("Run workflow" on the Actions tab, from `main`): it runs the same gates (typecheck, Cloudflare typecheck and tests, the full `npm test` unless skipped, the build and the compiled smoke test), `wrangler deploy`, and waits until `/build-info.json` reports the commit. It needs the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Pushing to `main` publishes nothing by itself.
+
+### Optional local release manager
+
+The previous Mac release manager remains available under explicit `deploy:local` commands for separate local playtests. Its `publicUrl` defaults to the configured loopback port. Public Cloudflare hostnames are refused by the local deployer, its watcher and named playtest launcher before starting a local server. Use a separate profile file and a separate hostname for local testing.
+
+```bash
+npm run deploy:local -- --config /absolute/path/local-deploy.json
+npm run deploy:local:status -- --config /absolute/path/local-deploy.json
+npm run deploy:local:rollback -- --config /absolute/path/local-deploy.json
+npm run deploy:local:auto -- --config /absolute/path/local-deploy.json
+npm run deploy:local:auto:stop -- --config /absolute/path/local-deploy.json
+```
+
+The private config must have mode `0600`, a `repository`, and absolute paths for `stateDir` and `stashFile`. Local automatic updates use the macOS LaunchAgent `com.rougehalla.autodeploy`; keep this disabled for the public game. The old `deploy:auto:status` and `deploy:auto:stop` aliases remain available to inspect or disable existing installations.
+
+## Balance telemetry
+
+Off unless configured. With `TELEMETRY_DIR=./.telemetry npm run dev` (or `npm run tournament -- --games 200 --telemetry ./.telemetry`) every arena run writes one run record (players, builds, farming, chest offers and picks, deaths by cause, duel segments, a 1 Hz position sample) as NDJSON; training rooms record nothing and bot games are tagged as bots. The recorder never draws randomness or changes an outcome, and costs about 1-3% of a tick (`npx tsx packages/server/bench/stepBench.ts --telemetry`). To see the dashboard over those records locally: `npx tsx deployment/cloudflare/scripts/dashboardLocal.ts ./.telemetry`, then open the printed address. On Cloudflare the container posts records to the Worker, which keeps them in R2 and a SQLite Durable Object and serves the dashboard at `/stats`; the secrets and steps are in [docs/CLOUDFLARE_PUBLIC.md](../CLOUDFLARE_PUBLIC.md) ("Telemetry and the balance dashboard"), the contract in [docs/TELEMETRY.md](../TELEMETRY.md), offline analysis in `testing/telemetry/`.
+
+## Testing
+
+```bash
+npm test                    # client, server and shared; about a minute, about 4,000 tests
+npm run typecheck
+npm test -w @raid/server    # one workspace
+```
+
+What the suites cover:
+
+- **Shared** (`packages/shared/test`): the pure rules. The faction law and the weapon formula are checked against numbers printed by the Python model, so the two cannot drift apart. The map generator is certified here too (below).
+- **Server** (`packages/server/test`): the sim headless (ledger, the PvP factor and its guards, weapons, fists, signatures, mobs, cards and their hooks, the camp heal, feed, arena, training), the room and HTTP API, shutdown, the profile store and shop, the fx wire format, the fill bots (`test/bots/`, `botSeat`, `botRoom`, `botLobby`) and `e2e.test.ts`. `questBench.test.ts` runs the report-only quest harness end to end at its smallest size and fails if it goes blind (no quest runtime, no offers, no rows). In `e2e.test.ts` four bots (Hard tier, hunter, farmer, hunter and opportunist personas, with the server's own bot fill off) play whole runs against a real server, and the GV ledger, stats and file must balance. It replays a run once if the bots showed no kill, signature hit, mob kill or landed Wish (or, when a camp was cleared, a chest card taken), and fails if the replay lacks it too.
+- **Gates**: `perf.test.ts` (with 8 players and the map's ~160 mobs, `step()` averages under 5 ms with a p99 under 15 ms, also in the pathfinder's worst case with every live card held on all 8 players and with the quests on, and the same tick with 8 in-process fill bots, whose share stays under 1.5 ms on average), `bandwidth.test.ts` (under 20 KB/s per client, also with 7 fill bots and with quests on, where it must stay within 1.5 KB/s of the same runs without) and `packages/shared/test/mapgen.perf.test.ts` (a certified map costs 93 ms or less with the zone stylers and 48 ms without, scaled by a yardstick measured on one machine; a map takes about 33 ms on average, 80 at worst, on the machine it was measured on). The generator has its own certification: 200 seeds in 8 parallel shards, checked by an independent certifier (hard checks plus per-zone measures, with every wall owned by a named feature) and pinned byte for byte; `mapSweep.ts` runs the same certifier over thousands of seeds.
+- **Client** (`packages/client/test`): the views and the DOM overlay against fakes for Phaser and the DOM. There are no browser tests, so look at the real thing after a rendering change.
+
+**Soak.** For a long run, start the server and leave `npm run bots -- -- 6 --loop` going. The Phase 13 soak ran 6 looping bots for 43 hours: about 15,600 run results, no server errors, every run over within 190 s, and the server's RSS flat at about 330 MB after a 30-minute warm-up.
+
+### Harnesses and benchmarks
+
+These report. They never fail the build, and they are what to run before touching a weapon or faction number.
+
+| Command | What it does |
+| --- | --- |
+| `npm run harness -w @raid/server` | Weapon duels in the real sim between two policy-driven clients: the weapon matrix, a style grid for every edge with a ranged weapon, an edge verdict (holds, or fails and why), the same edges when both fighters click each other (the target lock), and kiting (a shooter that stands, strafes, kites, orb-walks or locks its chaser). About 55 s. `-- --core` skips the sensitivity passes (about 40 s), `-- --quick` takes a few seconds, `-- --help` lists the filters. `-- --kiting-only` runs only the kiting sections and the faction edges against a kiting shooter; `--shooter-cards haste2,fleet2` gives the shooters of those duels cards (the chaser has none) and `--shooter-as 1.2` an attack-speed multiplier on top. |
+| `npm run harness:factions -- --python` | Every faction edge with the same weapon on both sides, and the signature openings, in the real sim. Checked pair by pair against `testing/realtime.py` (about 5 s). `-- --mode policy` plays them as moving fighters (about 20 s), `-- --mode full` with real arcs and flight (about 7 s). |
+| `npm run harness:zones -w @raid/server` | Duels where the terrain is: the Rows condition (Fire's axe against Sentenced's bow at a fence row, 96 setups against the open-floor control; it holds, 96 of 96), `-- --variants` for the gate variants and `-- --source map --seeds N` for every designed edge inside the real zones of generated maps against open floor (about 5 s for the Rows alone). |
+| `npx tsx packages/server/bench/pullWindow.ts [--maps 40] [--pairs 2000]` | How much longer than the unbounded string pull the shipped `findPath` is (share of paths over 1% longer, longest ratio) and what it costs per path: the generator's spawn gate depends on `findPath`, so `PULL_WINDOW` changes re-pin every map. |
+| `npx tsx packages/server/bench/stepBench.ts [--cards] [--stress] [--quests]` | Cost of one `step()` with 8 players and the map's ~160 mobs. `--cards` gives all 8 players every live card once. `--quests` gives the run the quest roster (its givers stand among the mobs); the output counts the quest offers. `--stress` wakes every camp every second and has the players re-lock constantly (the pathfinder's worst case). Then the same map with a hazard on every fourth floor tile, against it with the effects off. `--bots 8` plays the same tick with 8 in-process fill bots instead and reports the whole tick and the bots' share apart (`--clock cpu` for steadier numbers). |
+| `npx tsx packages/server/bench/bandwidth.ts [seed=N quests=1]` | Bytes per second one client receives, headless with the real encoder: typical, heavy, idle, typical with 5 camp chests up, and a `bots` scenario (7 fill bots in a headless room and one client at a camp). `quests=1` gives the run the quest roster. |
+| `npm run questbench -w @raid/server` | Quest balance in the real sim: scripted quest-takers against a farm-only baseline (3 seeds, 5 seats per policy, one per faction, 300 s; about 27 s). Per quest: completions over attempts, the quest's own seconds against the farm seconds for the same power gain (below 1 = faster than farming, target 1.0-1.35), live power, deaths and fights. `-- --quick`, `--seeds N`, `--players N`. Definitions and a first result are in [docs/quests.md](../quests.md). |
+| `npm run tournament -- --games 400 --lineup E,E,N,N,H,H` | Headless bot-against-bot games with no Room: per-tier wins, placements, reaction and click statistics (`docs/BOTS.md` 9.3, the tuning log in `docs/BOTS_TUNING.md`). `--patience 300 --sudden 60 --max-minutes 15` plays the real timers; `-- --help` lists the flags. |
+| `npx tsx packages/server/bench/mobDuel.ts` | Real-sim duels of a starting player (on fists unless `--weapon` says otherwise) against every zone's mob type and elite. `--style stand` has the player stand and fight; `--types` prints one row per mob type. `--sweep` tries other scales (`--ks`, `--eks`). |
+| `npx tsx packages/server/bench/campDuel.ts` | The same against a whole mono-type camp (`--size N` mobs, 4 by default, the generator's median: that many normals, or the elite and N - 1), with a territory like a generated camp's. The `camp` pull is the real rule: the mobs are placed with their camp and the first hit wakes them all. `single` (one at a time) and `group` (all awake at the start, harsher) are the older pulls (`--pulls camp,single,group`; they keep the 9-tile circle). `--weapon sig|<id>` and `--weapons` try other starters (fists by default), `--types` prints one row per mob type and checks the gates (every normal type's camp cleared by most fists starters, every elite type's by at least one faction on its zone's weapon holding the minute-5 card kit; `--elite-kit N` picks the kit minute, 0 = the bare weapon). mobDuel and campDuel also take `--minute N`, the card kit the player holds, `--seeds N`, `--cap SECONDS`, `--no-territory` (the 9-tile circle instead), `--json FILE`, `--k X` / `--elite-k X` another scale, and `--sweep` (with `--ks`, `--eks`, `--sizes`) prints the pairings cleared (of 25) per scale and camp size. `--map` plays the camp pull at one of the zone's real camps on the game's themed map. |
+| `npx tsx packages/server/bench/ttkCurve.ts [--minutes 0,1,2,3,4,5]` | The balance pass's time-to-kill curve: how long an even duel lasts (first hit to the end) at minute 0 on fists and with the cards one camp a minute adds, over every faction pair. Report only; `test/ttkCurve.test.ts` is its reduced gate. |
+| `npx tsx packages/server/bench/matchups.ts --layer faction\|weapon\|fed` | The ten faction edges (hp the favourite keeps, its win % under the play-noise model, the damage multiplier the underdog would need) each weapon edge pooled over all 25 faction pairs (`--cross`), or a farmed player against a fresh one on fists (`fed`). Report only. |
+| `npx tsx packages/server/bench/farmVsFight.ts` | A player who killed one mob on fists against a fresh player on fists: does farming pay? Report only. |
+| `npx tsx packages/server/bench/augments.ts [--card id]` | The strongest builds of augments against the minute-5 kit with the guards on: win %, and the fastest and median kill time. Report only. |
+| `npx tsx packages/server/bench/pickValue.ts <card\|all\|base\|conditional\|augment>` | What one card is worth in a mirror duel, holder against non-holder. Report only. |
+| `npx tsx packages/server/bench/mobExecute.ts` | How fast one mob of each zone kills a motionless player at 25% hp (the Plague mob's execute is scaled to match the others). Report only. |
+| `npx tsx packages/server/bench/botPicks.ts [seeds...]` | What eight bots (two per persona) take from the camps' chests. Report only. |
+| `npx tsx packages/shared/scripts/printMap.ts <seed> [attempt]` | An ASCII dump of a map: zones, territory edges, camps, chests, crates, landmarks, features, the spawn pool. Without an attempt it prints the first that certifies. |
+| `npx tsx packages/shared/scripts/printZone.ts <seed> [zone] [--plain] [--props] [--features]` | An ASCII dump of one zone of a map; `--features` draws every tile a named feature owns as its kind's letter. |
+| `npx tsx packages/shared/scripts/mapBench.ts [seeds] [from=] [styler=default\|none\|zone]` | What the generator costs per seed (mean, p50, p90, p99, max), how many attempts seeds need, how many are discarded, failures by reason, time per stage against the targets (zones, landmarks, spawns, styler, nets, crates, post, terrain, records, spawn gate, gates), and the stylers' time per zone. |
+| `npx tsx packages/shared/scripts/mapSweep.ts <count> [from=] [styler=default\|none\|zone\|demo] [strict=auto\|0\|1]` | The independent certifier on every seed (themed maps by default): the hard checks (connectivity, zones and territories, the spawn pool with its 10-tile rule and its findPath walk ratio, hazards on the spawn walks, validateTerrain, and with `strict` that every wall belongs to a named feature and no wall piece is under 6 tiles) and the per-zone measures (how far a player sees, how often a wall stands between two fighters, camp-to-camp detours and loops, feature counts) judged against their windows. Prints one JSON line on stdout and a table on stderr; ranges run in parallel and `merge=a.json,b.json` joins them. |
+| `npx tsx packages/shared/scripts/pinMaps.ts [final] > packages/shared/test/mapPins.ts` | Re-pins the maps of seeds 0 to 199 (and the stylers' output on a synthetic open fixture) after a deliberate change to the generator. Run it in its own process; while a zone styler's `version` differs from the pinned one the pin tests skip. |
+
+The map scripts are for the generator: run `mapSweep.ts` before and after touching it (a non-empty `failed` list in its JSON line is a broken guarantee, though the script still exits 0).
+
+### The design tools in `testing/`
+
+Python, no install beyond numpy (only `test_rpsls.py` needs nothing). They are the design source of truth for the faction numbers. [testing/CLASS_SHEET.md](../../testing/CLASS_SHEET.md) is the sheet and [testing/COUNTER_REVIEW.md](../../testing/COUNTER_REVIEW.md) the review of every matchup.
+
+| Command | What it does |
+| --- | --- |
+| `python3 testing/test_rpsls.py` | The design oracle: the 10-edge faction graph, each faction beats exactly two, power-scale and name-shuffle invariance, jitter robustness (relaxed for the compressed edges), a purity audit, and the identity tests. Standard library only, about 9 s. Exits non-zero on a failure. |
+| `python3 testing/matchup_band.py [--reference]` | How close the ten designed edges are: the hp the favourite keeps and the mirrors' fight lengths, from the sheet in `classes.py` (no geometry), against the owner's 10-35% band. Standard library only, about 3 s. `--reference` prints the table to paste into `packages/shared/test/factions.test.ts`. |
+| `python3 testing/test_kite.py` | The kiting guarantee at duel pace: a perfect orb-walking archer or mage (roots for its windup at each shot, walks away at full speed between shots; a Frost shooter's move chill included) must win at most 65% of its duels against the melee faction that beats it, under the play-noise model. One PASS, EXCEPT (the one named exception) or FAIL per cell. Needs numpy, about 10 s. Exits non-zero on a FAIL. `--shooter-as X` and `--shooter-dmg X` judge the same 20 cells with every shooter buffed (attack speed, outgoing damage; the chaser never is). |
+| `python3 testing/kite_windup_sweep.py` | Sweeps the bow's and the wand's windup cap and share against the kiting guarantee's older, stricter measure (a stress test now, not the gate) and prints the smallest ones that hold every cell, and the shortest Frost windup that lets a chaser arrive. Needs numpy, about 10 s. |
+| `python3 testing/kite_buff_sweep.py [--jobs N]` | How much a buff on the shooter can add before the kiting guarantee's older, stricter measure breaks (a stress test, not the gate): the largest attack-speed multiplier for which all 20 cells hold, the same for a damage row, and the retired Plague Rat buff's rows. Needs numpy, about 30 s on 8 cores. Report only; the numbers are in [testing/TUNING_ROGUE.md](../../testing/TUNING_ROGUE.md). |
+| `python3 testing/realtime_report.py [what-if.json] [sections]` | The 20 Hz model (`realtime.py`): cadence tables, duels with signature openings, kiting, buff thresholds, the longest stretch with no swing. Needs numpy, about 40 s. |
+| `python3 testing/weapon_reference.py` | Prints the weapon tables to paste into `packages/shared/test/weapons.test.ts` and `packages/server/src/harness/parity.ts` when a weapon number changes. Needs numpy. |
+
+`realtime_paced.py` is the same model at duel pace as JSON. `harness:factions --python` runs it for you. The tuning logs are [testing/TUNING_9_1.md](../../testing/TUNING_9_1.md) (weapons), [testing/TUNING_10.md](../../testing/TUNING_10.md) (signatures) [testing/TUNING_CONTROLS.md](../../testing/TUNING_CONTROLS.md) (the controls rework: the windups, the kite check against an orb-walker, the real-sim before and after) and [testing/TUNING_ROGUE.md](../../testing/TUNING_ROGUE.md) (the roguelike buffs, now cards: attack speed against the kiting guarantee, the cap, the power of a build; on the old sheet) and [testing/TUNING_BALANCE.md](../../testing/TUNING_BALANCE.md) (the balance pass: the TTK curve, the compressed sheet, the cards' measurements and how to re-run them).
+
+## Architecture
+
+```
+ browser tab                                          Node process
++--------------------------------------+            +----------------------------------------+
+| hub scene (client only)              |            |                                        |
+| menu --- /api/profile, /leaderboard -+--- HTTP --->| Express: profiles, shop, leaderboard   |
+| RaidScene: mouse + keys -> inputs ---+--- WS ----->| RaidRoom (thin adapter, two modes)     |
+|   (Phaser 4 + DOM overlay)           |            |   handlers: validate, enqueue only     |
+| SnapshotBuffer: draw 20-150 ms behind|<-- 20 Hz --|   sim/step() every 50 ms (pure)        |
+|   serverNow (adaptive); fx in time   |   patches  |   events -> one fxs batch / toast /    |
+| generateMap(seed, attempt) [worker]  |   + fxs    |     result messages                    |
++--------------------------------------+            |   ProfileStore -> stash.json           |
+                                                    +----------------------------------------+
+```
+
+- **`packages/shared`**: TypeScript source used directly by both sides (no build step). Constants, wire messages, the Colyseus schema, and the pure logic both ends must agree on: the faction and weapon catalogs, the rules between weapons, the card catalog and its guards, signature numbers, the mob types, the Wish and status catalogs and the blink rule, `generateMap` (the zone map generator), A* pathfinding, ray casts, snapshot interpolation and the compact `fxs` codec.
+- **`packages/server`**: `RaidRoom` (the Colyseus adapter), `sim/` (the game rules; `arena.ts` owns the run lifecycle, `step.ts` the tick order), `mapPool.ts` and `mapWorker.ts` (the map pool and its worker thread), `persistence/` (the profile store), `bots/`, `harness/` and `bench/`.
+- **`packages/client`**: `net/` (connection, REST, clock sync, interpolation, the map worker), `scenes/` (the hub and the run), `hub/` (the hub's layout and art), `render/` (2.5D projection and views) and `ui/` (DOM overlay: menu, HUD, panels, results). [docs/legacy/CLAUDE_LEGACY.md](CLAUDE_LEGACY.md) has the file-by-file layout.
+
+How it fits together:
+
+- **Authoritative server.** Clients send inputs only (`move`, `stop`, `target`, `aim`, `attack`, `release`, `swap`, `pickup`, `cast`, `choose` at a camp's chest, and `plan` during the planning step; a training room also takes `train`). The browser sends `target` for a wand, `attack` and `release` for every other weapon, and `cast` for a Wish; mobs and the weapon harness use `attack` and `release` too. The bots click like the browser does. Positions, damage and outcomes are never accepted from a client.
+- **Fixed 20 Hz tick and input queues.** Message handlers validate (finite numbers clamped to the world, short ids) and enqueue into a per-player queue. The latest move and aim win, orders replace each other in arrival order (a `move` or `stop` drops a lock, a `target` replaces what came before it), at most 6 actions are kept per tick, and a client sending more than 200 messages a second (`MAX_MESSAGES_PER_SECOND`, sized for a stalled uplink's burst) is disconnected; every order but `aim` also spends a per-player budget (`ORDER_BURST`/`ORDER_PER_SECOND`). The sim drains the queues at the start of each 50 ms step in a per-tick shuffled order, so same-tick races are fair. A patch goes out after every step.
+- **Pure sim.** `sim/` never imports Colyseus or touches sockets. Gameplay modules register actions and systems into a world. `step()` returns events and the room turns them into messages and profile changes, so most of the game is tested headless.
+- **One damage ledger per tick.** Swings, arrows, balls and signature damage are recorded as hits and applied all at once. Results are settled once at the end of the tick. So the order players happen to be processed in never decides who wins.
+- **The target lock is server-side.** `sim/targeting.ts` plays a locked player's weapon as mob AI plays a mob's: it paths into range, holds the trigger and aims each attack at the target, every tick after the inputs and before the weapons. For a wand the browser only says whom to lock; any other weapon's click is a directional `attack`. It is synced as `PlayerState.attackTarget` so every client can draw the ring.
+- **Mobs are players who send inputs.** They go through the same combat code and input handlers as a player.
+- **Schema sync.** State uses decorator-free `schema()` builders. Only the server imports the schema at runtime. The client imports types and decodes by reflection. Projectiles are not in the state. All the visual events of a step, and every arrow and ball that left during it, go out as one compact `fxs` message.
+- **Planning deals are private.** The two spawns each player is dealt, their picks and which are taken travel only in that player's own `plan` message, never in the synced state. The deal and the camp rosters draw from a private server stream; rosters are then published in the state (the planning screen shows them), and a player's route stays in the browser.
+- **The map is never synced.** State carries only how to build it: the `seed`, the `attempt` of the generator that certified, and a `mapHash`. The server, the bots and every client call `generateMap(seed, attempt)`, which is deterministic (seeded `mulberry32`, and integer-only maths in the generator and in `findPath`: `+ - * /`, `sqrt`, floor, ceil, round, abs, min, max, sign, imul and bit operations, with none of the 23 `Math` functions engines may round differently (`random`, trig, `exp`, `log`, `pow`, `hypot` and the like), which a test spies on through a generation, `mapHash` and `findPath`; other shared code, such as the weapon policies, quests and the planning display, still uses them where nothing has to agree across machines), and a client whose map hashes differently is told to reload and leaves. The generator certifies every map as it makes it (connectivity, equal zones, camp spacing, spawn starts at least 10 tiles apart unless a wall is between them with fair walks to the coliseum, every wall owned by a named feature of its zone) and never relaxes a check. There is no sight cap: how far you see is each zone's shape ([docs/ZONE_SHAPES_AS_BUILT.md](../ZONE_SHAPES_AS_BUILT.md)). Loot is rolled server-side from a private RNG, so the seed reveals the layout but not the contents.
+- **Maps are made ahead.** A worker thread on the server keeps `MAP_POOL` (8) certified maps ready and an arena room takes one when its first player joins (a training room copies a recent one, so practice never drains the pool); an empty pool makes one on the spot. The client builds the map in a Web Worker while the loading screen shows, and warms it up in the hub.
+- **Render in the past, except you.** Every other entity is drawn behind an estimated server clock by interpolating buffered snapshots, at an adaptive delay (`RenderClock`: 70-150 ms, about 70 on a good link, starting at `INTERP_DELAY_MS` 100). With the draw-ahead on (the default, setting "Draw remote fighters ahead", `net/remoteDraw.ts`) the delay is 50 ms shorter (20-150 ms) and a remote player the server says keeps walking (its walk hint, `PlayerExtraState.walkTicks`) is drawn up to one tick past its newest snapshot, a moving mob 25 ms; anything the guess got wrong is corrected smoothly, and nothing it computes is sent. The local player is predicted (`net/localMotion.ts`): an order walks a model at once along the path the server will walk, and each patch pulls it back in line. Nothing it computes is ever sent.
+- **Lag compensation.** An `attack` or `release` (the browser's click with any weapon but the wand, the harness) carries the server time the client was rendering. The server keeps about 300 ms of position history (`MAX_REWIND_MS`) and samples swing attackers and targets at that time. A locked attack (a wand click, the only lock the browser makes) has no timestamp: it is timed in the present, one tick back, and aimed at its target as it lands. Arrows and balls fly in present server time.
+- **Training is a mode of the same room.** The server registers `raid` (arena) and `training` (a private room of one) and forces the mode, so a client cannot pick it. The practice console's `train` message is dropped at the door unless the room is a training room.
+- **Camp chests are the server's.** A cleared camp's chest, its options (rolled from the private reward stream) and every pick live in the sim; the panel only sends `choose { chest, pick }`. Picks resolve in the tick's secret order, so a same-tick race is fair. The options are in the synced state (the chest is contested), which makes them readable from anywhere by a modified client.
+- **Persistence.** Profiles (GV balance, lifetime GV, GV per UTC month, stats, cosmetics, achievements) live in memory and are saved to one JSON file (version 2). A version 1 file from the extraction build is migrated on start: stashes are dropped, stats and tokens kept, and the original is saved first as `stash.json.bak-v1`. Mutations are synchronous. Writes are coalesced and atomic (temp file, fsync, rename, directory fsync), retried with backoff on failure, and flushed on graceful shutdown. A malformed profile entry is dropped and the original kept as `stash.json.bak-<time>`. A file that cannot be parsed at all stops the server from starting and is moved to `stash.json.corrupt-<time>` instead of being overwritten. To reset, stop the server and delete it.
+
+When GV banks:
+
+| Event | Effect |
+| --- | --- |
+| Your run resolves (won, draw, died, left) | Its GV (kills, mobs, bounty, quests, win bonus) and stats are saved at once. |
+| Leave or disconnect in the lobby | Nothing to save. |
+| Training | Nothing is ever recorded. |
+| Graceful server shutdown mid-run | The run is void and not recorded. GV earned so far is paid. |
+| Hard kill of the server mid-run | GV earned in that run is lost (see below). |
+
+HTTP, all under `/api`. `x-profile-token` carries a profile's token.
+
+| Request | What it does |
+| --- | --- |
+| `GET /api/health` | `{ ok: true }`. |
+| `GET /api/profile/:name` | Claims a free name (no token header) or returns the profile when the token matches. While hosting, a free name needs the `x-playtest-passcode` header when a passcode is set (401 without it) and answers 429 past the new-profile caps. |
+| `POST /api/profile/:name/purchase` | Body `{ id }`: buys a cosmetic at its catalog price. Needs the token. |
+| `POST /api/profile/:name/equip` | Body `{ slot, id }`: equips an owned cosmetic (`id: null` empties the slot). Needs the token. |
+| `GET /api/leaderboard?month=YYYY-MM&limit=N&name=callsign` | Public: names, equipped titles and GV banked that UTC month (`limit` defaults to 20, at most 100). `you` (the named profile's place) comes only with that profile's token. |
+
+## Known limitations
+
+Netcode and scale:
+
+- **No interest management.** Every client receives every player's position and weapons, every public container's contents (a camp chest's cards and who took them included), every public mob and every projectile. A modified client can see all of it, and there is no fog of war. Unrevealed quests are the deliberate exception: their defs, givers and items stay server-side until private reveal and then publication.
+- **Swarm hides a fighter only from an honest client.** The browser does not draw a swarmed fighter and cannot click it, and the server refuses every lock and ability aimed at it. But every client still receives every position, and the server still accepts the low-level `attack` input, so a modified client can find a swarmed player and attack its true position. The fix is interest management plus refusing `attack` from game clients.
+- **Mixed timelines on screen.** Other fighters' positions and effects are drawn 70-150 ms in the past (20-150 with the draw-ahead, the default; yours is predicted). Health bars, status, containers and the timers show the latest patch, so they can lead what you see by a tick or two. Deaths are the exception: a victim stays drawn until their death is due.
+- **Prediction is partial.** Your own character is predicted for its walk, its Blaze Step, and the roots and haste it is told of; anything else the server does to it arrives as a correction (a smooth slide, or a snap past 96 units). Other fighters are still drawn in the past (70-150 ms, or 20-150 with the draw-ahead, which draws a walking player at most one tick ahead), so a swing at a moving target can look to miss by about a delay's walk; melee still rewinds to the render time the setting off would use (the draw-ahead never shortens the rewind), so a target drawn ahead can be up to one tick's walk (8.5 units) past the spot the server tests.
+- **Single process only.** The "profile already in a raid" guard and the profile file are process-local.
+- **Maps cost memory, and a burst can outrun the pool.** The server's map worker adds about 130 MB (measured when the generator still carried 44 MB of lane tables per process; they are gone and it has not been re-measured), and a map is about 110 KB by structured clone. More than 8 rooms starting inside a third of a second empty the pool, and the next room generates its own map on the main thread (about 33 ms, 64 at p99, 80 at worst; logged). The client was measured in Chrome at normal speed only, not with a throttled CPU.
+- **Lag compensation trusts the client's timestamp** anywhere inside the 300 ms rewind window, so a cheating client can pick the most favourable moment. It only matters for the low-level `attack` and `release` messages: the browser's locked attacks carry no timestamp. The window only covers clients up to about 150 ms RTT. Beyond that, swings at moving targets miss.
+
+Identity and persistence:
+
+- **Profiles are weakly authenticated.** The only credential is a random token in the browser's `localStorage`. There are no passwords, recovery, expiry or rotation. Tokens are stored in plain text in the profile file and travel unencrypted unless you put TLS in front. Clearing site data forfeits the profile, and anyone who copies the token owns its GV.
+- **Few rate limits.** In dev (`npm run dev`) matchmaking, the shop endpoints, room creation and new profiles have no limit beyond one active run per profile, and `/api` answers every origin. Hosting turns on the guards in [Hosting a playtest](#hosting-a-playtest) (room and new-profile caps, a shop limit, same-origin only). In-match orders have a per-player budget everywhere. Move spam still costs a path search per order, up to that budget.
+- **A hard kill loses the GV of runs in progress.** SIGKILL, power loss or OOM mid-run loses it. The whole JSON file is rewritten on every change, and there is no TLS, structured logging or metrics. This is a dev setup, not a deployment.
+- **GV can still be farmed with spare callsigns.** The win bonus needs 3+ players and damage on 2+ opponents, which stops the cheapest trick. But throwaway callsigns that get killed still pay out kills and the bonus.
+
+Gameplay and content:
+
+- **Placeholder art and balance.** Colored shapes, no audio, numbers that are first picks. The weapon and faction numbers are tuned in `testing/` and the harnesses. The mob, card and PvP-factor numbers are tuned only against scripted players, and the win rates in the balance benches assume a play-noise model of two equal players, not people.
+- **The Wishes are first picks too.** Every Wish number, the trail's burn, the 5 s training cooldown and the caps on the status kinds are best guesses, and none of them was run through the weapon harness or the kiting check, which never cast (see [testing/WISHES.md](../../testing/WISHES.md)). Blaze Step and Last Stand have no warning before the cast, which is an owner question ([docs/GAME_DESIGN.md](../GAME_DESIGN.md) section 18).
+- **Wand > Shield fails in the weapon harness's policy matrix (in under a quarter of its duels).** The harness wand backs away from a charging shield, and with no ranged slows that no longer works. It holds at 100% when both fighters click each other, which is how the controls are played; nothing was changed for it. Numbers and reasons in [testing/TUNING_CONTROLS.md](../../testing/TUNING_CONTROLS.md).
+- **The controls are a first pick too.** Wands snap to enemies within 64 units of the cursor and lock out to 640 units, with 1.5 s of grace after losing line of sight. Other weapons use directional attacks; ranged windups finish before movement. The list of these guesses is in [docs/legacy/CLAUDE_LEGACY.md](CLAUDE_LEGACY.md).
+- **Cards and the camp chests are first picks.** The card numbers (provisional beyond the tier-I stat sizes, and for the augments) and the PvP factor are the balance pass's, measured in the real sim against scripted players under a noise model, never against people (`testing/TUNING_BALANCE.md`). The Fleet cards are off while you shoot and for 2.5 s after, and Quickdraw shortens melee windups only, so neither touches the ranged windups that make kiting a trade (`testing/TUNING_ROGUE.md` section 7, measured on the old faction sheet). Second Skin's barrier is wired (unit-tested, not measured in a duel), and the kiting check has one named exception (Holy against Fire's wand). The chest panel's grey-out uses the prediction's delay, not a measured ping. Mob strength was measured with one scripted player per fight on fists, never with humans. Details in [docs/legacy/CLAUDE_LEGACY.md](CLAUDE_LEGACY.md) and [docs/GAME_DESIGN.md](../GAME_DESIGN.md) sections 11 and 18.
+- **Quest balance is provisional.** The worksheet in [docs/quests.md](../quests.md) uses stated travel and fight-time assumptions. questBench is a small-sample, report-only real-sim harness (its first R2 run has effectively 1-3 completions per quest; use `--seeds 6` or more), not final balance evidence. Quest rewards are cards now (a tier by the quest's time) and were not measured against play; the owner tunes them. [docs/quests.md](../quests.md) has the measured placement cost, the quests-on and quests-off step and bandwidth numbers, and a browser-check placeholder that is still pending. Current bots farm and fight but do not choose quests.
+- **Not built:** the rest of the roguelike plan (the zones' terrain is on and the maps are themed; active skills on Q and E, relics and curses, "?" camps, start boons, the generator's 8-camp zones; see [docs/ROGUELIKE_PLAN.md](../ROGUELIKE_PLAN.md)), raid bosses, secrets, friends, private matches, chat, the 30-second warning and host voice line before the teleport, and the minimap pings for bountied players (the crown is built). They are in [docs/GAME_DESIGN.md](../GAME_DESIGN.md) sections 2.2, 6, 12.4 and 15.
+- **No teams, parties or queues.** Every join lands in the first open lobby. Reloading the page mid-run drops the connection and cannot resume it (the client reconnects only within the same page session), so the seat times out after 10 s and the player is MIA. Static weapon crates and loose weapons do not respawn; each cleared camp can drop another reward chest after its next respawn cycle.
+
+Client and tooling:
+
+- **Desktop only.** Mouse and keyboard, no touch or gamepad, no rebinding.
+- The client has unit tests but no browser tests.
+- The server's private RNG (loot, spawn assignment) is `Math.random`, which is not cryptographically secure.
+
+Combat port source: [verified live version and branch](../COMBAT_UPGRADE_BASE.md).
+
+## License
+
+Project-authored code is available under the [MIT license](../../LICENSE), selected by the owner on 2026-11-05. Third-party dependencies and assets retain their original terms. Unity tooling and runtime licensing are separate; redistribution review is tracked in `docs/backlog/README.md` (P-OSS-2).
