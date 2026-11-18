@@ -242,9 +242,6 @@ size client-unity/RoguehallaNet/Net/Pathfinder.cs 809
 size client-unity/RoguehallaNet/Protocol/MapBlob.cs 1100
 size client-unity/RoguehallaNet/Protocol/Messages.cs 1876
 size client-unity/RoguehallaNet/Protocol/State.cs 1245
-size client-unity/UnityProject/Assets/Scripts/Presentation/WishFxPresenter.cs 895
-size client-unity/UnityProject/Assets/Scripts/UI/HubCosmeticsView.cs 805
-size client-unity/UnityProject/Assets/Scripts/View/ArenaView.cs 899
 size crates/rh-headless/src/tournament.rs 2055
 size crates/rh-parity/src/bin/status_probes.rs 1549
 size crates/rh-policy/src/bots/humanizer/source.rs 2588
