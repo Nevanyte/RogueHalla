@@ -254,9 +254,7 @@ size crates/rh-protocol/src/encode.rs 1958
 size crates/rh-protocol/src/lib.rs 1894
 size crates/rh-protocol/src/map.rs 1786
 size crates/rh-protocol/src/state.rs 2470
-size crates/rh-server/src/director.rs 3688
 size crates/rh-server/src/main.rs 1980
-size crates/rh-server/src/room.rs 4206
 size crates/rh-server/src/wire.rs 2001
 size crates/rh-sim/src/checkpoint.rs 1972
 size crates/rh-sim/src/content.rs 1684
