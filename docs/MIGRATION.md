@@ -4,6 +4,58 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integration 58 (2026-11-18): the GitHub front page
+
+**Owner direction 2026-11-18:** "Please begin working on it all using sub agents", the answer to the coordinator's list of
+ways to make the GitHub repository readable and easy to navigate (About box, merged branches, root folders, language
+bar, a PR template, a first release, the repository's name), after "Please continue to update main".
+
+**`main`.** Pull request Nevanyte/RougeHalla#66 (the readability sweep, head `e50ca28cc` = integrations 56 and 57)
+merged as `34da1a2bd`. CI on that head read as on #65: every job green except the `rust` job's Bot private Brain and Bot
+private modules coverage witnesses (P-CI-GREEN-4 step 2, open).
+
+**GitHub settings.** The description now names the Rust server and the Unity Web client (it said "Phaser 4 client,
+Colyseus 0.18 authoritative server"); topics `rust`, `unity`, `webgl`, `roguelike`, `multiplayer`, `game-server`,
+`deterministic-simulation`, `aws`; the wiki tab, never created, is off.
+
+**Branches.** The 141 remote branches already merged into `main` are deleted. Name, tip and date of each are in
+`.agent-runs/deleted-remote-branches-2026-11-18.txt` (local; restore one with `git push origin <sha>:refs/heads/<name>`).
+Kept: `main`, `optimization_port`, `feature/unity-rework`, and the 27 not merged into `main` (7 `claude/`, 4 `codex/`,
+16 `deepseek/`, all from 2026-10-28 to 2026-11-10), which are the owner's to keep or drop.
+
+**Release `v0.1.0`.** Tag and GitHub release on `b2136927a` (the #65 merge: the Rust server, the Unity Web client and
+the AWS staging work on `main`). Notes drafted by a Sonnet agent from this record and PR #65, checked by the
+coordinator; two lines corrected (the ported Brain is behind `rh-server --bot-brain full`, off by default; the gate
+result cited is the one under Integration 55).
+
+**P-GH-1, the repository front page.** oracle-author (Sonnet) `517c0b32c`; coordinator oracle-amend `2d06536e9` (one
+P-READ-0 test built a root README naming no folders, which the new rule rejects; it now runs without a root README and
+still pins the fixed-directory `readme` rule alone); implementer-sonnet `5bf251a88`, quick gate PASS, 151 unit tests
+green; reviewer (Sonnet) LAND, no notes. Merged as `1f7935a5b`.
+
+- `Unfinished code/` moved to `docs/legacy/saved-work/` and `DeepSeek_post_rust_development.md` to
+  `docs/agent-prompts/7_DeepSeek_Post_Rust_Development.md`, renames only. `deployment/` (the legacy Cloudflare deploy
+  path in `deploy.yml`), `testing/` (cited by many captured records) and `maps/` (read by `rh-server` tests, `rh-headless`
+  examples and Unity tools) stay at the root.
+- READMEs for `crates/`, `deployment/` and `testing/`; root README rows for `maps/`, `deployment/` and `testing/`.
+- The readability check's fifth rule, `root`: top-level names carry no whitespace, and every top-level folder is named in
+  the root README and holds a README (`readme packages` allowlisted: protected).
+- `.gitattributes` (`linguist-*` only, read by GitHub and no tool here): `packages/**` and the Unity third-party art
+  vendored; parity JSON, protocol fixtures, map-generator fixtures and `BakedContent.cs` generated; `docs/evidence/**`
+  documentation. The language bar now leads with Rust and C#, and fixture refreshes fold away in pull-request diffs.
+- `.github/pull_request_template.md`: the AGENTS.md hand-off report.
+
+**Gate.** Full on `1f7935a5b` (`--coordinator --keep-going --allow-protected`; the protected path is the PR
+template): PASS (full), every step, including both Postgres suites, the parity report, Unity EditMode 1581/1581 and the
+headless smoke.
+
+**Held for the owner: renaming the repository to `RogueHalla`.** "rougehalla" is also the Rust stack's practice domain
+(`play.rougehalla.com`; `play.roguehalla.com` is the live legacy game, `hosting/AGENTS.md`), the Cloudflare worker
+`rougehalla`, the R2 bucket `rougehalla-profiles` and the CloudFormation stacks `rougehalla-infra-*`. GitHub redirects
+the old URLs, but `hosting-fleet-deploy.yml` assumes an AWS role through GitHub OIDC, whose trust policy is not in the
+repository; the AWS CLI is not installed here, so whether it names `Nevanyte/RougeHalla` is not established. If it does,
+a rename stops that deploy until the policy is updated, which is an AWS change and the owner's.
+
 ## Integrations 56 and 57 (2026-11-18): `main` updated, then the readability sweep
 
 **`main`.** Pull request Nevanyte/RougeHalla#65 merged (merge commit `b2136927a`, head `f2867f64a` = integration 55),
