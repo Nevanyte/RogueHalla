@@ -224,7 +224,6 @@ header crates/rh-sim/src/stat_fold/rows.rs
 header crates/rh-sim/src/status_runtime/mutation.rs
 header crates/rh-sim/src/status_runtime/readers.rs
 header crates/rh-sim/src/status_runtime/rules.rs
-header crates/rh-sim/src/systems/frost/source_helpers.rs
 readme client-unity/RoguehallaNet
 readme client-unity/UnityProject
 readme crates/rh-alloc-count

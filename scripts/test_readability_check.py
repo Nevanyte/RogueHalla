@@ -250,6 +250,18 @@ class RustHeaderRule(Case):
         self.write("crates/foo/src/late.rs", "use std::fmt;\n//! too late\n")
         self.assertFails(self.run_check(), 1, r"header crates/foo/src/late\.rs: ")
 
+    def test_included_fragment_takes_a_plain_comment_header(self):
+        self.clean_crate()
+        self.write("crates/foo/src/host.rs", '//! Host.\ninclude!("host/part.rs");\n')
+        self.write("crates/foo/src/host/part.rs", "// Fragment included by host.rs.\nfn g() {}\n")
+        self.assertOk(self.run_check())
+
+    def test_included_fragment_without_comment_fails(self):
+        self.clean_crate()
+        self.write("crates/foo/src/host.rs", '//! Host.\ninclude!("host/part.rs");\n')
+        self.write("crates/foo/src/host/part.rs", "fn g() {}\n")
+        self.assertFails(self.run_check(), 1, r"header crates/foo/src/host/part\.rs: ")
+
     def test_header_empty_file_fails(self):
         self.clean_crate()
         self.write("crates/foo/src/empty.rs", "")

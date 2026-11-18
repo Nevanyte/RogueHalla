@@ -44,7 +44,8 @@ rules, linking its `AGENTS.md` if it has one. No status, history, packet IDs or 
 
 **Rust module header** (`//!`, one to five lines): what this module is for and who uses it. If it ports legacy code,
 name the source (`packages/server/src/...`). If it holds a rule that matters for determinism (draw order, tick order),
-say so in one line. Plain words, present tense.
+say so in one line. Plain words, present tense. A file pulled in with `include!("...")` is a fragment, not a module:
+rustc rejects `//!` there, so its header is a plain `//` comment saying which file includes it and why.
 
 **C# summary**: one or two sentences on the type's job, and for a MonoBehaviour what it draws or listens to.
 

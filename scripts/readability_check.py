@@ -7,6 +7,7 @@ Exit 0 when every violation is covered by a live allowlist entry and no entry is
 Standard library only.
 """
 
+import posixpath
 import argparse
 import os
 import re
@@ -63,11 +64,26 @@ def source_kind(rel):
     return None
 
 
-def has_rust_header(data):
+def has_rust_header(data, fragment=False):
+    """A module starts with `//!`. A fragment pulled in by `include!` cannot (rustc rejects an inner doc comment
+    there), so its header is a plain `//` comment."""
     for line in data.decode("utf-8", "replace").splitlines():
         if line.strip():
-            return line.strip().startswith("//!")
+            return line.strip().startswith("//" if fragment else "//!")
     return False
+
+
+INCLUDE_RE = re.compile(r'include!\(\s*"([^"]+\.rs)"\s*\)')
+
+
+def included_fragments(root, files):
+    """Paths of .rs files named by an `include!("...")` in a tracked Rust file, resolved against its directory."""
+    out = set()
+    for rel in files:
+        if rel.endswith(".rs") and rel.startswith("crates/"):
+            for m in INCLUDE_RE.finditer(read_bytes(root, rel).decode("utf-8", "replace")):
+                out.add(posixpath.normpath(posixpath.join(posixpath.dirname(rel), m.group(1))))
+    return out
 
 
 def has_csharp_summary(data):
@@ -110,6 +126,7 @@ def find_violations(root, files, exempt_res):
     """Returns (size {path: lines}, header set, readme set)."""
     size, header, readme = {}, set(), set()
     fileset = set(files)
+    fragments = included_fragments(root, files)
     for rel in files:
         kind = source_kind(rel)
         if kind is None:
@@ -119,7 +136,7 @@ def find_violations(root, files, exempt_res):
         n = count_lines(data)
         if n > limit and not any(r.match(rel) for r in exempt_res):
             size[rel] = n
-        ok = has_rust_header(data) if kind == "rust" else has_csharp_summary(data)
+        ok = has_rust_header(data, rel in fragments) if kind == "rust" else has_csharp_summary(data)
         if not ok:
             header.add(rel)
     for d in readme_dirs(files):
