@@ -7,6 +7,7 @@ using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Holds the server's weapon table from the Welcome message and hands it to the hit-zone and range presenters.</summary>
     public static class LegacyFacts
     {
         static WireWeapon[] _lastWeapons;

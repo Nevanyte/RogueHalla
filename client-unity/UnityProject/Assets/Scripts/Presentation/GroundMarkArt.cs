@@ -7,6 +7,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Cached code-drawn ring and puddle sprites for ground marks; the renderer supplies the tint.</summary>
     public static class GroundMarkArt
     {
         const int Size = 128;

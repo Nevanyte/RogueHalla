@@ -8,6 +8,7 @@ using UnityEngine.UI;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The two tabs of the help guide, Controls and Mechanics; <c>HelpGuideView</c> draws them from <c>HelpGuideContent</c>.</summary>
     public enum HelpGuideTab { Controls, Mechanics }
 
     public sealed class HelpGuideEntry
@@ -161,6 +162,7 @@ namespace Roguehalla.Client
     }
 
     /// <summary>Two-tab, scrollable help and glossary panel. All copy is presentation data; it never implements mechanics.</summary>
+    /// <summary>The help guide panel MonoBehaviour: shows the Controls and Mechanics tabs built from <c>HelpGuideContent</c>.</summary>
     public sealed class HelpGuideView : MonoBehaviour
     {
         RectTransform _root, _card;

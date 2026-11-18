@@ -15,6 +15,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Editor batch capture that loads a map file and renders the atmosphere (particles, light and haze) to images for review.</summary>
     public static class AtmospherePreviewCapture
     {
         [Serializable] class MapJson { public int w, h; public int[] tiles, terrain, regionGrid; }

@@ -8,6 +8,7 @@ using UnityEngine;
 
 namespace Roguehalla.Editor
 {
+    /// <summary>Editor build entry points for batch and menu use: prepares the TextMesh Pro resources, creates the Main scene, builds the WebGL player and verifies the audio assets.</summary>
     public static class RhBuild
     {
         const string ScenePath = "Assets/Scenes/Main.unity";

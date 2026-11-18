@@ -5,6 +5,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Saved-run half of <see cref="MatchClient"/>: tracks the owned seat checkpoint and resumes the current run through the account flow.</summary>
     public sealed partial class MatchClient
     {
         OwnedSeatCheckpointStore _seatStore;

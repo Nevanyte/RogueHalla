@@ -8,6 +8,7 @@ using static Roguehalla.Client.RegionCanvas;
 
 namespace Roguehalla.Client
 {
+    /// <summary>A prop sprite with its size and transparent margins; the <c>RegionPropArt</c> class below paints and serves the procedural region props.</summary>
     public sealed class RegionPropSprite
     {
         public string Key; public Sprite Sprite; public float Width, Height;

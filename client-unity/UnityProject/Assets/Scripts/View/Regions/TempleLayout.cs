@@ -20,6 +20,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Finds the Holy zone's temple footprint on the map and lays out its hall, pillars and decor; also a surface layer for the temple floor.</summary>
     public sealed class TempleLayout : ISurfaceLayer
     {
         public const float MinCoverage = .35f, MaxCoverage = .70f, TargetCoverage = .52f;

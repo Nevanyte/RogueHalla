@@ -16,6 +16,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The pose an actor is shown in on the contrast lab stage; the plan below lays out the synthetic map and its measurement cells as pure data.</summary>
     public enum LabPose : byte { Idle = 0, Walk = 1 }
 
     /// <summary>One catalog look and the synthetic public row that makes the real presenter pick it.</summary>

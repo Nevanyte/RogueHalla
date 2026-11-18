@@ -5,6 +5,7 @@ using UnityEngine.UI;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Glyphs of the mythic runtime interface; <c>MythicUi</c> builds its asset-free controls.</summary>
     public enum MythicGlyph { Sword, Shield, Axe, Bow, Wand, Potion, Wish, Health, Armor, Speed, Cards, Map }
 
     /// <summary>Reusable, asset-free controls for the mythic runtime interface.</summary>

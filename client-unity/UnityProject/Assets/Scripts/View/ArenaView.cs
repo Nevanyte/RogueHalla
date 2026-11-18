@@ -10,6 +10,7 @@ using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The MonoBehaviour that draws the arena: ground, walls, props, actors, effects and fog from the observed state, turning server coordinates into world space. It decides no outcomes.</summary>
     public sealed class ArenaView : MonoBehaviour
     {
         public const float Scale = 1f / 32f;
@@ -805,8 +806,7 @@ namespace Roguehalla.Client
             var plate = ShowcaseSprites.Create(_fxRoot, "Confirmed damage plate", "bar", 30000, Color.white, Vector2.one, Vector3.zero, false); plate.gameObject.SetActive(false);
             return new Flash{Sprite=sprite,Plate=plate,Text=text};
         }
-        /// <summary>
-        /// Follows the owner with light smoothing (absorbs 2 to 6 u reconciliation corrections, legacy CameraFollow). The cursor is
+        /// <summary>Follows the owner with light smoothing (absorbs 2 to 6 u reconciliation corrections, legacy CameraFollow). The cursor is
         /// always mapped through the camera as it actually stands (<see cref="ScreenToServer"/>), so smoothing never skews aim.
         /// Cuts straight to the target on a jump, a long frame, or when <paramref name="cut"/> is set.
         /// </summary>

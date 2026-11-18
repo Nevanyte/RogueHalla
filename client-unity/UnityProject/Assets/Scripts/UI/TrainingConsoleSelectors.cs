@@ -7,6 +7,7 @@ using Roguehalla.Net;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Choice lists for the training console (mobs by position, id and name) and their bounds, so the view and the request builder agree.</summary>
     public static class TrainingConsoleSelectors
     {
         public const ulong MaxSafeInteger = 9007199254740991UL;

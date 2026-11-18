@@ -2,6 +2,7 @@
 // Source order is CardId::ALL; rules, formulas, readiness, and eligibility are deliberately excluded.
 namespace Roguehalla.Client
 {
+    /// <summary>Display-only table of every card's id, title, description and tags, generated from the Rust card catalog; it holds no rules.</summary>
     public static class CardDisplayCatalog
     {
         public const int Count = 80;

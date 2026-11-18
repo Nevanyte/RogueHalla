@@ -8,6 +8,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Latency trace hooks: in the WebGL player they forward frame marks to the page script, in the Editor they keep an in-memory record for tests.</summary>
     public static class LatencyTrace
     {
 #if UNITY_WEBGL && !UNITY_EDITOR

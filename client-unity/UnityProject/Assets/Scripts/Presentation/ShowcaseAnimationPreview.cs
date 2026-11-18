@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The actions the no-network animation preview can show; <c>ShowcaseAnimationPreview</c> resolves their catalog frames.</summary>
     public enum ShowcasePreviewAction { Idle, Walk, Attack, Block, Hit, Death, Cast, Shoot }
 
     /// <summary>Resolves staged catalog frames for the no-network animation preview only.</summary>

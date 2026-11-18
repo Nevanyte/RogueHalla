@@ -7,6 +7,7 @@ using UnityEngine.EventSystems;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Account half of the HUD: the join menu, sign-in and recovery modals, launch confirmation and the hub panels (progress, cosmetics, guides).</summary>
     public sealed partial class MatchHud
     {
         RectTransform _signIn, _signInBackdrop;

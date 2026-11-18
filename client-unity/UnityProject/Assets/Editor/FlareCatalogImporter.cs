@@ -10,6 +10,7 @@ using Roguehalla.Client;
 
 namespace Roguehalla.Editor
 {
+    /// <summary>Editor importer (menu Import Flare Catalog): slices the raw Flare sprite sheets for the knight, goblin, skeleton and hero layers into a ShowcaseCatalog asset with per-clip frames.</summary>
     public static class FlareCatalogImporter
     {
         const string Source = "Assets/Art/ThirdParty/Flare/Raw/";

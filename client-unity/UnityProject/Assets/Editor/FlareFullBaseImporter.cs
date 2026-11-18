@@ -14,6 +14,7 @@ using Roguehalla.Client;
 
 namespace Roguehalla.Editor
 {
+    /// <summary>Editor importer (menu Import Full Flare Base): builds an isolated, versioned catalog of the full-size base animations with a receipt, leaving the shipped catalog untouched.</summary>
     public static class FlareFullBaseImporter
     {
         const string SourceRoot = "Assets/Art/ThirdParty/Flare/Raw/";

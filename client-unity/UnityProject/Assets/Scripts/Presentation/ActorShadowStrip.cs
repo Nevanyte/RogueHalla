@@ -6,6 +6,7 @@ using System;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Pixel rule that clears the baked ground shadow from a sprite while keeping the figure and its anti-aliased edge. Pure, and applying it twice changes nothing.</summary>
     public static class ActorShadowStrip
     {
         /// <summary>A pixel at or above this alpha (80%) is part of the figure.</summary>

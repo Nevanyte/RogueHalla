@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Identifiers of the screen particle presets (snow, embers, dust, spores, pollen); the layer specs below become pooled particle systems.</summary>
     public enum ParticlePresetId : byte { None = 0, Snow, Embers, Dust, Spores, Pollen }
 
     /// <summary>

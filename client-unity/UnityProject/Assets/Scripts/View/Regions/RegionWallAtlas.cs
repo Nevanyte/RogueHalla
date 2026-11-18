@@ -11,6 +11,7 @@ using static Roguehalla.Client.RegionCanvas;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Wall atlas layout: the cell sizes and variants of tops, faces and low walls, and which iron shade each region's fence uses.</summary>
     public static class RegionWallAtlas
     {
         public const int TileW = 128, TopH = 100, FaceH = 86, LowH = 132, RimH = 12, ContactH = 40;

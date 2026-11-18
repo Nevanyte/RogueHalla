@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The compact HUD action icons that <c>HudActionGlyphs</c> draws in code.</summary>
     public enum HudActionGlyph { Help, Settings, Leave, Pickup, Fullscreen }
 
     /// <summary>Cached, code-drawn neutral glyphs for compact HUD actions.</summary>

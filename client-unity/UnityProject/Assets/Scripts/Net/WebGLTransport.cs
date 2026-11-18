@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 
 namespace Roguehalla.Client
 {
+    /// <summary>WebSocket transport for the WebGL player, calling the page's JavaScript bridge (<c>RhWs_*</c>); outside WebGL its connect throws.</summary>
     public sealed class WebGLTransport : ITransport
     {
         public event Action Opened;

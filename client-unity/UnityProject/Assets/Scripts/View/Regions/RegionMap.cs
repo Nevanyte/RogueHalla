@@ -10,6 +10,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Region and terrain lookup by tile for the map, with a debounced <c>LocalRegionChanged</c> event for the player's region.</summary>
     public sealed class RegionMap
     {
         /// <summary>A new region must hold under the player for this long before <see cref="LocalRegionChanged"/> fires, so a ragged border never flickers.</summary>

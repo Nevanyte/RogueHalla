@@ -10,6 +10,7 @@ using System.Runtime.InteropServices;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Startup entry that builds the scene: a camera, then either a lab or preview stage chosen by a page query flag, or the Match (ArenaView, MatchClient, soundscape) configured from the query string. <c>Query</c> reads one flag.</summary>
     public static class Bootstrap
     {
         const string DefaultUrl = "ws://127.0.0.1:7777/ws";

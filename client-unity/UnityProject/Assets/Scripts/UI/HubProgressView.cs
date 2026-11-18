@@ -12,6 +12,7 @@ using UnityEngine.UI;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The tabs of the progress hub page: Profile, Achievements and Leaderboard.</summary>
     public enum HubProgressTab { Profile, Achievements, Leaderboard }
 
     /// <summary>Read-only account progress panes. All values come from the account API or its published snapshot.</summary>

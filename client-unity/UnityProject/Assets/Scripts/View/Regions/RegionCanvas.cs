@@ -10,6 +10,7 @@ namespace Roguehalla.Client
     public delegate float Sdf(float x, float y);
     public delegate Color Shader2(float x, float y, float depth);
 
+    /// <summary>A small CPU pixel canvas with signed-distance shape primitives and shading, which the region art is painted on.</summary>
     public sealed class RegionCanvas
     {
         public readonly int W, H;

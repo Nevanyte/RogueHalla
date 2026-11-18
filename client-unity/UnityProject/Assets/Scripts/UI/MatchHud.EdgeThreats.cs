@@ -7,6 +7,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>HUD part that updates the screen-edge glows for off-screen fighters; <c>EdgeThreats.Collect</c> picks which ones.</summary>
     public sealed partial class MatchHud
     {
         const int MaxEdgeThreats = 24;

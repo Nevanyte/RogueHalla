@@ -11,6 +11,7 @@ using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Draws the name plate and indicator marks over each fighter from the facts the server delivered; it derives no game state.</summary>
     public sealed class OverheadIndicators
     {
         /// <summary>The protocol 16 indicator facts of one fighter (ADR0026), all delivered: its name, the top two stat marks, the Sentenced mark, immunity, roam, engaged.</summary>

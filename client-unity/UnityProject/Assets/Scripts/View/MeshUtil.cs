@@ -5,6 +5,7 @@ using UnityEngine.Rendering;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Accumulates coloured quads, triangles, lines, discs, rings and weapon shapes into vertex, colour and index lists, and turns them into a mesh.</summary>
     public sealed class MeshBuilder
     {
         public readonly List<Vector3> V = new List<Vector3>();
