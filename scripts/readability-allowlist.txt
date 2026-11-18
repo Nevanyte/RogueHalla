@@ -219,8 +219,6 @@ size crates/rh-headless/src/tournament.rs 2055
 size crates/rh-parity/src/bin/status_probes.rs 1549
 size crates/rh-policy/src/bots/humanizer/source.rs 2588
 size crates/rh-policy/src/lib.rs 2018
-size crates/rh-protocol/src/delta.rs 2486
-size crates/rh-protocol/src/state.rs 2470
 size crates/rh-server/src/director.rs 3688
 size crates/rh-server/src/main.rs 1980
 size crates/rh-server/src/room.rs 4206
