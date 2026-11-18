@@ -220,8 +220,6 @@ size crates/rh-parity/src/bin/status_probes.rs 1549
 size crates/rh-server/src/main.rs 1980
 size crates/rh-server/src/wire.rs 2001
 size crates/rh-sim/src/checkpoint.rs 1972
-size crates/rh-sim/src/content.rs 1684
 size crates/rh-sim/src/mapgen/landmarks/signature/mod.rs 2143
-size crates/rh-sim/src/observe.rs 1592
 size crates/rh-sim/src/schedule.rs 2533
 size crates/rh-sim/src/systems/frost.rs 3073
