@@ -1,5 +1,3 @@
-//! Test helpers of the Frost source corpus, textually included by `frost/source_tests.rs`: apply captured commands
-//! directly to the sim and check the Frost rows and camps.
 // Included in frost::tests::sources. These are explicitly declared helper diagnostics from the new actual-source
 // corpus: direct engagement/mode edits, constructors, lifecycle calls and clock jumps are not ordinary runtime or
 // checkpoint/restore witnesses. In particular no captured post-state is ever installed into the native world.
