@@ -231,7 +231,10 @@ fn dry_run_names_the_documented_commands_and_edits_nothing() {
 #[test]
 fn a_malformed_hash_is_refused() {
     let root = temp_root("bad");
-    for bad in ["zzzz", "7a542a13", "0x7a542a13187f034c"] {
+    // Built at run time: a literal copy of the hash in this file would itself be a seventh pinned copy.
+    let prefixed = format!("0x{}", hex(content_hash()));
+    let short = hex(content_hash())[..8].to_string();
+    for bad in ["zzzz", short.as_str(), prefixed.as_str()] {
         let o = run(Some(&root), &["--check", "--hash", bad]);
         assert_eq!(o.status.code(), Some(2), "--hash {bad}: {}", text(&o));
     }
