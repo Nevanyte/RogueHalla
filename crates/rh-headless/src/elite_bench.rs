@@ -342,7 +342,12 @@ fn fight(
         weapon0: Some(weapon),
         weapon1: None,
     }];
-    let mut sim = Sim::reset_active(config(), arena.clone(), Secrets::from_seed(seed), &placement);
+    let mut sim = Sim::reset_active(
+        config(),
+        arena.clone(),
+        Secrets::from_seed(seed),
+        &placement,
+    );
     let me: PlayerId = sim.players()[0].id;
     if let Some(b) = build {
         apply(&mut sim, me, b).map_err(|e| format!("a sampled build was refused: {e:?}"))?;
@@ -652,7 +657,8 @@ pub fn run(args: &[String]) -> Result<Output, String> {
     let overall_cols = columns_of(&all);
     table += &row("overall", "", n, &overall_cols);
     table += "  reference column: banked_12 (12 camps banked, 12 stacks a camp: the workbook player); bots bank far fewer camps than the workbook player, so bot_sample is the bots' reality and the two are not comparable\n";
-    table += "  owner target: an average minute-5 build dies 10-20% of the time soloing an elite camp";
+    table +=
+        "  owner target: an average minute-5 build dies 10-20% of the time soloing an elite camp";
     let report = Report {
         version: 1,
         mode: "elite",
@@ -692,7 +698,11 @@ fn wilson(deaths: u64, samples: u64) -> Option<[f64; 2]> {
     if samples == 0 {
         return None;
     }
-    let (n, p, z) = (samples as f64, deaths as f64 / samples as f64, 1.959_963_984_540_054);
+    let (n, p, z) = (
+        samples as f64,
+        deaths as f64 / samples as f64,
+        1.959_963_984_540_054,
+    );
     let denom = 1. + z * z / n;
     let centre = (p + z * z / (2. * n)) / denom;
     let half = z * (p * (1. - p) / n + z * z / (4. * n * n)).sqrt() / denom;
