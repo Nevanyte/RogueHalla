@@ -41,7 +41,7 @@ No runtime, rules, captured fixture, option-off golden, or unrelated golden chan
 - Keep `OFF_GOLDEN` in `marsh.rs` fixed and verify every option-off test remains green.
 - Preserve runtime dressing algorithms and all unrelated test values.
 - The Plague water/mud ring values remain behaviorally checked by structural tests in `marsh.rs`; its aggregate signature digest may change only because the map identity changed.
-- The pre-door mapdress fallback remains independently verified at pre-door revision `b7d07a453` by P-STORM-CHURCH-DRESS-1.
+- The pre-door mapdress fallback remains independently verified at pre-door revision `b7d07a453`: `anchor.rs`, `marsh.rs`, and `sentenced_rings.rs` all pass their pre-door signature-map pin tests there.
 
 ## Acceptance checks
 
