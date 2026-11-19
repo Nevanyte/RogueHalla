@@ -190,6 +190,13 @@ Packet details:
     - Coordinator 2026-11-19: routed to Opus. The bound must accept a Wish cooldown that changes between casts.
   - Wishful's Rust override text, the C# line and the `CardDisplayReworkTests` digest move together in this packet.
   - Third Time's 2.5× and Gambler's split chances already landed with P-AUG-CONTENT-1.
+- **P-AUG-NATIVE-3, Wish Engine** (coordinator note 2026-11-19, from the P-AUG-TUNE-1 review):
+  - Today's Wish restore check (`abilities/checkpoint.rs`: `wish_cooldowns`, `prior_min`, the Rework Wishful budget
+    bound) assumes a Wish cooldown only lengthens between casts. Arcane Overload is the one Wish-cooldown lever, and a
+    guard test pins that.
+  - Wish Engine shortens the cooldown, so the envelope must be redone for it. That probably means a per-cast budget record
+    and a checkpoint-format bump. At the least, the guard must be extended to its mechanism.
+  - Route that part to Opus.
 - **P-AUG-POOL-1:**
   - `REWORK_POOL` is `INTERACTIVE` plus Committed, Fists of Fury, Machine Gun, Here Comes the Boom and A Race to 0.
     `INTERACTIVE` itself stays untouched.
