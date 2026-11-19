@@ -55,6 +55,13 @@ namespace Roguehalla.Client
             get { if (!_continuity.HasValue) { string u = Application.absoluteURL ?? ""; _continuity = !u.Contains("mob.continuity=0"); } return _continuity.Value; }
             set { _continuity = value; }
         }
+        static bool? _glide;
+        /// <summary>False only with <c>?mob.glide=0</c> in the page URL: creatures are drawn at each delivered step (the measurement baseline).</summary>
+        public static bool GlideEnabled
+        {
+            get { if (!_glide.HasValue) { string u = Application.absoluteURL ?? ""; _glide = !u.Contains("mob.glide=0"); } return _glide.Value; }
+            set { _glide = value; }
+        }
         static bool Fades(ActorKind kind) { return kind == ActorKind.Player || (ContinuityEnabled && (kind == ActorKind.RegionalMob || kind == ActorKind.Zombie)); }
         static bool IsCreature(ActorKind kind) { return kind == ActorKind.RegionalMob || kind == ActorKind.Zombie; }
         MobCandidate[] _candidates = new MobCandidate[16];

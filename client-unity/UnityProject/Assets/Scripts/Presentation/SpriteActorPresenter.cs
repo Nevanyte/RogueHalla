@@ -23,6 +23,8 @@ namespace Roguehalla.Client
             public Vector3 LastPosition;
             public float AttackUntil;
             public GaitState Gait;
+            /// <summary>Creature glide between 20 Hz observations (CreatureGlide); kept across a renewed handle with the art.</summary>
+            public GlideState Glide;
             public float StampTime;
             public bool LocalCue;
             public float AttackAt, HitAt, BlockAt, DeadAt, HitUntil, BlockUntil;
@@ -413,7 +415,7 @@ namespace Roguehalla.Client
                 {
                     a = _pool.Count > 0 ? _pool.Pop() : Create(); _active.Add(id, a);
                     a.Root.SetActive(true); a.LastPosition = ArenaView.WorldPoint(x, y); a.AttackUntil = 0;
-                    a.Gait.Reset(); a.StampTime = Time.unscaledTime;
+                    a.Gait.Reset(); a.Glide.Reset(); a.StampTime = Time.unscaledTime;
                     a.HitUntil=a.BlockUntil=0;a.Dead=false;a.HoldDeathFrame=false;a.WishUntil=0;a.WishTintAmount=0;
                     if (IsCreature(kind)) MobArt.Created++;
                     BeginEnter(a, local, kind, IsCreature(kind) ? VisionFade.EnterStartAlpha(status) : 0f);
@@ -421,6 +423,14 @@ namespace Roguehalla.Client
             }
             if (IsCreature(kind)) a.Look = LookOf(kind, faction, mob, archetypeKey);
             a.Stamp = _stamp; a.Fade.Note(id, local, status, kind);
+            // Creatures arrive in 50 ms steps from the newest observation: draw each step as a short slide (CreatureGlide, presentation
+            // only). Players keep their own paths (the local walk prediction, remote interpolation). ?mob.glide=0 draws the raw steps.
+            if (!local && IsCreature(kind) && GlideEnabled)
+            {
+                float glideNow = Time.unscaledTime;
+                CreatureGlide.Target(ref a.Glide, x, y, glideNow);
+                CreatureGlide.Sample(in a.Glide, glideNow, out x, out y);
+            }
             var position = ArenaView.WorldPoint(x, y);
             // Gait reads displacement only (presentation). Present can run twice in a frame for NPCs: a zero-dt call leaves
             // LastPosition alone so the next real frame still sees the whole displacement.

@@ -494,18 +494,24 @@ namespace Roguehalla.Client
                     if (chest.CanChoose) Prop("rune", p + new Vector3(0, 1), new Vector2(.3f, .4f), new Color(1, .85f, .46f), order + 2);
                 }
                 bool trailTick = Time.unscaledTime >= _nextTrail; if (trailTick) _nextTrail = Time.unscaledTime + .025f;
+                // The flights arrive at 20 Hz (an arrow covers 45 units a tick): each frame carries every delivered flight forward along its
+                // heading for the time since it arrived (ProjectileGlide, presentation only; ?shot.glide=0 draws the raw rows).
+                if (!ReferenceEquals(collections.Projectiles, _shotsRows)) { _shotsRows = collections.Projectiles; _shotsAt = Time.unscaledTime; }
+                float shotAge = ShotGlide ? Time.unscaledTime - _shotsAt : 0f;
+                var sight = _visionFog != null ? _visionFog.Rule : null;
                 foreach (var shot in collections.Projectiles)
                 {
+                    ProjectileGlide.Lead(shot.Kind, shot.X, shot.Y, shot.Facing, shotAge, sight, out float sx, out float sy);
                     // ADR0024: the ground track is (X, Y); the shot is DRAWN raised by its delivered height (the shooter's chest at launch,
                     // 0 under legacy hitboxes), with a soft shadow left on the ground track so depth reads.
-                    var ground = WorldPoint(shot.X, shot.Y); var p = ProjectileDrawPoint(shot.X, shot.Y, shot.Height);
+                    var ground = WorldPoint(sx, sy); var p = ProjectileDrawPoint(sx, sy, shot.Height);
                     bool arrow = shot.Kind == ProjectileKind.Arrow;
                     if (shot.Height > 0f)
-                        Prop("shadow", ground, arrow ? new Vector2(.5f, .17f) : new Vector2(.55f, .22f), new Color(0, 0, 0, .55f), 2000 + Mathf.RoundToInt(shot.Y * .5f) - 8);
+                        Prop("shadow", ground, arrow ? new Vector2(.5f, .17f) : new Vector2(.55f, .22f), new Color(0, 0, 0, .55f), 2000 + Mathf.RoundToInt(sy * .5f) - 8);
                     var r = Prop(arrow ? "spark" : "glow", p, arrow ? new Vector2(.6f, .14f) : new Vector2(.7f, .7f),
                         arrow ? new Color(1.6f, 1.25f, .6f) : new Color(1.5f, .55f, 2), 29000);
                     r.transform.rotation = Quaternion.Euler(0, 0, ProjectileScreenAngleDeg(shot.Facing));
-                    _overlay?.NoteShot(shot.X, shot.Y, shot.Height);
+                    _overlay?.NoteShot(sx, sy, shot.Height);
                     ProjectileFx(p, shot.Facing, arrow, trailTick);      // render pass: trail puffs and a small travelling light
                 }
                 _sparks.Observe(collections.Tick, collections.Projectiles, _camCenter, _camHalf.x, _camHalf.y, ref _sparkRng);
@@ -534,6 +540,14 @@ namespace Roguehalla.Client
         }
         /// <summary>UI-facing: the fighter a click would lock right now (pointer pick), 0 for none. Set by the match client each frame.</summary>
         public void SetHover(uint actorId) { _hoverId = actorId; }
+        IReadOnlyList<NetProjectileView> _shotsRows; float _shotsAt;
+        static bool? _shotGlide;
+        /// <summary>False only with <c>?shot.glide=0</c> in the page URL: flights are drawn at each delivered row (the measurement baseline).</summary>
+        public static bool ShotGlide
+        {
+            get { if (!_shotGlide.HasValue) { string u = Application.absoluteURL ?? ""; _shotGlide = !u.Contains("shot.glide=0"); } return _shotGlide.Value; }
+            set { _shotGlide = value; }
+        }
         void ProjectileFx(Vector3 p, float facing, bool arrow, bool trailTick)
         {
             float a = ProjectileScreenAngleDeg(facing) * Mathf.Deg2Rad;
