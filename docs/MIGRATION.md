@@ -45,13 +45,33 @@ Nothing is pushed and `main` is untouched.
   - It fixes the `BuildMarkCache` clone/restore allocation, a regression since `948064758`.
   - It runs the two no-allocation test files, which the gate's feature set compiles out.
 
-**Elite measurement so far** (owner checkpoint ahead). Duelist at banked_12, 900 fights over 3 seeds:
-- Headline 33.0%. Decided fights give 40%.
-- The melee rows are trustworthy: axe 23%, sword 32%, shield 29%.
+**Elite measurement (owner checkpoint, 2026-11-19).** Bench: P-ELITE-BENCH-2's Duelist (`5a2b9c0c4`). It commits
+to the elite camp, ranged weapons stand and shoot, it casts Wish, and it never dodges or retreats. Reference build:
+banked_12. 900 fights per point (10 elite camps × 5 factions × 6 weapons × 3 seeds).
+
+Today's numbers (k 0.65, hp ×2.0, dmg ×1.5):
+- 43.1% overall (decided 43.8%).
+- By weapon: axe 23%, shield 29%, sword 32%, fists 43%, wand 63%, bow 75%.
 - Brawler upper bound: 46.4%.
-- Per camp, from Blood Saint 7.8% to Avalanche Troll 64.4%.
-- `EliteTuning` is one global table (k 0.65, hp ×2.0, dmg ×1.5). It can move the average but cannot even out camps.
-- A throwaway sweep of dmg_mult × hp_mult is running.
+
+A throwaway sweep of `REWORK_ELITES` (k 0.65), banked_12, Duelist, overall death rate:
+
+| dmg × | hp 2.0 | hp 1.5 |
+|---|---|---|
+| 1.5 | 43.1% | 32.0% |
+| 1.2 | 33.9% | 22.1% |
+| 1.0 | 27.4% | 18.3% |
+| 0.8 | 21.1% | 14.6% |
+
+- **(dmg 1.0, hp 1.5):**
+  - By weapon: sword 9%, axe 6%, shield 7%, fists 15%, wand 26%, bow 51%.
+  - By camp: from executioner 2% to avalancheTroll 50%.
+  - banked_0 70%, banked_18 7%.
+- **(dmg 0.8, hp 1.5):** bow 45%, avalancheTroll 42%.
+- Results: `elite-sweep/` in the coordinator scratchpad.
+- The global table cannot even out Avalanche Troll, or bow against elites.
+- The coordinator recommends (dmg 1.0, hp 1.5), because the bench's rates are an upper bound (no dodging). This waits for
+  the owner.
 
 **Integration 62 review (reviewer-opus): LAND WITH NOTES.** One note:
 - The Rework pool tables (`REWORK_POOL`, `faction_only`, the Eye for an Eye weight flag) are outside the content hash.
