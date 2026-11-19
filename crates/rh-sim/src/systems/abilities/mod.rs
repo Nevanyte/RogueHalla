@@ -154,9 +154,10 @@ pub(crate) fn handle(cx: &mut Cx, ix: FighterIx, cmd: &ActionCmd) {
     let p = &mut cx.w.players[ix.slot()];
     let previous_ready_at = p.stocks.ready_at(slot);
     let previous_full_at = p.stocks.wish_full_at;
-    let cooldown = a::cooldown(
+    // The row this world casts (`def` above), as the Wish restore validator reads it (`abilities::cooldown_for`).
+    let cooldown = a::cooldown_for(
+        &cx.k.config,
         ability,
-        cx.k.config.training,
         Some(p.modifiers.wish_cooldown_mult()),
     );
     let (full, ready) = a::spend_charge(

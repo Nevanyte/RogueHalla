@@ -51,16 +51,17 @@ fn charge_clock_lattice(cooldowns: [f64; 2]) -> f64 {
     a
 }
 
-/// The Wish cooldowns a spend of this player's Wish can carry: the faction Wish's cooldown with no multiplier (a cast
-/// before the build held a `WishCooldown` card) and with the build's multiplier now. A build only grows, and exactly one
+/// The Wish cooldowns a spend of this player's Wish can carry: the world's Wish row's cooldown (`cooldown_for`, the one
+/// the producer spends) with no multiplier (a cast before the build held a `WishCooldown` card) and with the build's
+/// multiplier now. A build only grows, and exactly one
 /// card, unique, carries a `WishCooldown` row, a factor of at least 1 (`wish_cooldown_lever_tests`), so every cast's
 /// cooldown is one of the two and a later cast's is never shorter than an earlier one's. The stored spend keeps the
 /// cooldown it was cast with: a grant between two casts (a chest pick of Arcane Overload while the Wish cools down)
 /// changes the multiplier now, not the spend.
 fn wish_cooldowns(k: &crate::statics::MatchStatic, ability: AbilityId, wish_mult: f64) -> [f64; 2] {
     [
-        cooldown(ability, k.config.training, None),
-        cooldown(ability, k.config.training, Some(wish_mult)),
+        cooldown_for(&k.config, ability, None),
+        cooldown_for(&k.config, ability, Some(wish_mult)),
     ]
 }
 
@@ -101,6 +102,7 @@ fn max_trim_cut(numbers: &crate::cards::CardNumbers, budget: f64, elapsed: f64) 
     budget * (1. + elapsed.max(0.) / numbers.wishful_window_ms)
 }
 
+/// Every row it reads is the world's own (`definition_for`, `cooldown_for`), the one the producer cast and spent with.
 pub(crate) fn validate(
     k: &crate::statics::MatchStatic,
     w: &crate::state::World,
@@ -170,7 +172,7 @@ pub(crate) fn validate(
                 if !has_spend && (stocks.wish_ready_at != initial || full_at != initial) {
                     return Err("unproduced Wish stock clocks".into());
                 }
-                let def = definition(wish(p.faction()));
+                let def = definition_for(&k.config, wish(p.faction()));
                 // The spend's own cooldown (checked above to be one a cast can have had); the multiplier now may be
                 // a later grant's. Without a spend the clocks are the opening lock and no equation reads it.
                 let recharge = p
@@ -288,7 +290,9 @@ pub(crate) fn validate(
         if !full || !w.is_player(ix) {
             return Err("Wish producer outside player full mode".into());
         }
-        let def = definition(c.ability);
+        // The row this world cast (`definition_for`): under `frost_wish = Wall` Frost's Wish is the placed Frost Wall,
+        // whose producer holds no unit target; the catalog's Freeze row would refuse it as forged provenance.
+        let def = definition_for(&k.config, c.ability);
         let stocks = w.players[ix.slot()].stocks;
         if c.ability != wish(w.players[ix.slot()].faction())
             || d.slot != Slot::Wish
