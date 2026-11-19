@@ -112,7 +112,14 @@ namespace Roguehalla.Client
                     var delta = _actors.TryPosition(f.By, out var source) ? p - source : Vector3.right;
                     _sparks.Hit(p, f.Kind == FxKind.Block, ref _sparkRng, pigment, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg, f.Passive);
                 }
-                if (f.Kind == FxKind.Swing && Time.unscaledTime - f.CreatedAt < .35f) _hitZones.Swing(f.Subject, f.Weapon, f.X, f.Y, f.A, Time.unscaledTime);
+                if (f.Kind == FxKind.Swing)
+                {
+                    if (Time.unscaledTime - f.CreatedAt < .35f)
+                        _hitZones.Swing(f.Subject, f.Weapon, f.X, f.Y, f.A, Time.unscaledTime);
+                    // Melee has the ground stroke and the attack animation. The
+                    // above-actor impact rim belongs to a delivered contact.
+                    if (WeaponShapes.TryGet(f.Weapon, out _)) return;
+                }
                 if (_flashes.Count >= 48) return;
                 var flash = _flashPool.Count > 0 ? _flashPool.Pop() : CreateFlash();
                 flash.Actor = f.Subject; flash.Position = p + new Vector3(0, .65f); flash.Start = Time.unscaledTime; flash.Duration = f.Kind==FxKind.Hit || f.Kind==FxKind.SigHit ? .55f : .2f;

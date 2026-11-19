@@ -1,8 +1,6 @@
-// Melee hit-zone indicator: a soft translucent white sector on the ground showing the area a delivered swing can hit (reach and arc from
-// the WeaponShapes provider, aimed along the swing's angle, centred on the attacker raised by its chest height in archetype mode), a
-// brighter band sweeping across it through the swing, then a quick fade. Pooled meshes with fixed topology (no per-frame allocation);
-// drawn on the ground layer under actors. Nothing is drawn when the provider has no row for the weapon, for an actor that is not
-// delivered, or when ?fx.hitzone=0. Presentation only: it reads the delivered Swing fx and simulates nothing.
+// Melee warning outlines trace the delivered reach and angle. A brief outer
+// stroke replaces them on a delivered swing. Pooled fixed-topology meshes draw
+// below actors. Hit and block feedback are handled independently.
 using System.Collections.Generic;
 using UnityEngine;
 using Roguehalla.Net;
@@ -17,7 +15,8 @@ namespace Roguehalla.Client
         const int Arc = 24, Rings = 3, Order = 1999; // over the ground, its decor and the temple floor art (1235 vanished on the Holy floor, UI lab), under every actor (2000+)
         /// <summary>Opacity of the dark edge line (the light one is <see cref="HitZoneModel.EdgeAlpha"/>): together they read on every ground (ActorOutlineEditModeTests).</summary>
         public const float EdgeDarkAlpha = .9f;
-        const float EdgeLight = 1.3f, EdgeDark = 2.8f; // sim units: a light hairline outside a dark one, so the extent reads on any ground (the fill alpha is unchanged)
+        const float EdgeLight = 1.3f, EdgeDark = 2.8f; // sim units: narrow light hairline over a dark edge
+        const float StrokeMs = 88f;
         // base fan (centre + rings) + 2 outline strips (dark, light) each = arc strip + two side strips
         const int FanVerts = 1 + Rings * (Arc + 1), StripVerts = 2 * (Arc + 1) + 8, TotalVerts = FanVerts + 2 * StripVerts;
 
@@ -99,7 +98,7 @@ namespace Roguehalla.Client
 
         /// <summary>
         /// The enemy (or own) wind-up telegraph (B13): the weapon's real zone, drawn from the Windup fx until the swing lands, a Cancel or a Stagger.
-        /// The band sweeps once through the sector over the wind-up, so the player sees when the swing comes. Melee arcs only.
+        /// A faint band marks windup progress inside the high-contrast perimeter. Melee arcs only.
         /// </summary>
         public bool Windup(uint by, byte weapon, float angle, float ms, float now)
         {
@@ -211,26 +210,33 @@ namespace Roguehalla.Client
 
         void Write(Zone z, float age, bool reduced)
         {
-            float fade = HitZoneModel.Fade(age), centre = HitZoneModel.BandCentre(age, reduced);
+            float strokeFade = Mathf.Clamp01(1f - age / StrokeMs);
+            float bandAge = z.Windup ? age : age * HitZoneModel.SweepMs / StrokeMs;
+            float centre = HitZoneModel.BandCentre(bandAge, reduced);
+            float edgeFade = z.Windup ? 1f : .4f * strokeFade;
             int vi = 0;
-            // Fan: centre then rings. The band lights the ring vertices it covers (a wedge following the weapon).
-            z.V[vi] = P(z.Ox, z.Oy); z.C[vi++] = Tint(HitZoneModel.BaseAlpha * .55f * FillGain * fade);
+            z.V[vi] = P(z.Ox, z.Oy); z.C[vi++] = Tint(z.Windup ? .027f : 0f);
             for (int r = 1; r <= Rings; r++)
             {
-                float rr = r / (float)Rings, radius = z.Reach * rr;
+                // Move the inner edge of the swing stroke near the tip. Its fully
+                // transparent inner rings keep the middle clear of stacked wash.
+                float rr = z.Windup ? r / (float)Rings : .82f + (r - 1) * .09f;
+                float radius = z.Reach * rr;
                 for (int i = 0; i <= Arc; i++)
                 {
                     float k = i / (float)Arc;
                     HitZoneModel.ArcPoint(z.Ox, z.Oy, radius, z.Half, z.Angle, k, out float px, out float py);
                     z.V[vi] = P(px, py);
-                    float a = HitZoneModel.BaseAlpha * (.6f + .4f * rr) + HitZoneModel.BandAlpha * HitZoneModel.BandWeight(k, centre) * rr;
-                    z.C[vi++] = Tint(a * FillGain * fade);
+                    float band = HitZoneModel.BandWeight(k, centre);
+                    float a = z.Windup ? .027f + (.017f + .026f * band) * rr
+                        : r == Rings && !reduced ? .36f * strokeFade * band : 0f;
+                    z.C[vi++] = Tint(a);
                 }
             }
             for (int s = 0; s < 2; s++)
             {
                 float w = s == 0 ? EdgeDark : EdgeLight;
-                Color32 col = s == 0 ? Dark(EdgeDarkAlpha * fade) : White(HitZoneModel.EdgeAlpha * fade);
+                Color32 col = s == 0 ? Dark(EdgeDarkAlpha * edgeFade) : White(HitZoneModel.EdgeAlpha * edgeFade);
                 for (int i = 0; i <= Arc; i++)
                 {
                     float k = i / (float)Arc;
@@ -250,8 +256,6 @@ namespace Roguehalla.Client
             z.Mesh.SetVertices(z.V); z.Mesh.SetColors(z.C);
         }
 
-        // The fill is a cool steel blue, not white: white at .1 alpha vanished on sand and snow (UI lab). A dark outer edge and a light inner edge outline it on any ground.
-        const float FillGain = 2.6f;
         static Color32 Tint(float a) { return new Color32(0x6f, 0x9f, 0xd6, (byte)Mathf.RoundToInt(Mathf.Clamp01(a) * 255f)); }
         static Color32 White(float a) { return new Color32(255, 255, 255, (byte)Mathf.RoundToInt(Mathf.Clamp01(a) * 255f)); }
         static Color32 Dark(float a) { var d = UiTheme.Current.OutlineDark; return new Color32(d.r, d.g, d.b, (byte)Mathf.RoundToInt(Mathf.Clamp01(a) * 255f)); }
