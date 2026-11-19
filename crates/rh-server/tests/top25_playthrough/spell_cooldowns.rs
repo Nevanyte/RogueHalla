@@ -27,7 +27,7 @@ fn move_a_to(room: &mut Room, a: &mut Client, b: &mut Client, at: WireQuestPoint
     a.input(
         room,
         WireCommand::Stop {
-            seq: Some(a.seq as u8 + 1),
+            seq: Some((a.seq as u8).wrapping_add(1)),
         },
     );
     wake(room, a, b);
@@ -137,7 +137,7 @@ async fn public_quest_frame_keeps_zero_charge_spell_and_drop_reacquire_valid() {
             "token progress is publicly published",
             |_, a, _| {
                 quest_row(a, "ember_walk")
-                    .is_some_and(|row| row.owner_progress >= u32::from(target) + 1)
+                    .is_some_and(|row| row.owner_progress > u32::from(target))
             },
         );
     }
