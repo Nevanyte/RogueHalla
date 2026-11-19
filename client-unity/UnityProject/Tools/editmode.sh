@@ -42,11 +42,22 @@ RESULTS="$OUT/results.xml" LOG="$OUT/editor.log"
 echo "editmode: $EDITOR_BIN"
 echo "editmode: results $RESULTS, log $LOG"
 
+# The suite includes GPU readback tests; `-nographics` selects Unity's null renderer and
+# produces misleading pixel failures. Use a virtual X server on Linux only when no
+# display is already available, and keep the installed Editor and test arguments intact.
+TEST_LAUNCH=("$EDITOR_BIN")
+if [[ "$(uname -s)" == "Linux" && -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+  if command -v xvfb-run >/dev/null 2>&1; then
+    TEST_LAUNCH=(xvfb-run -a "$EDITOR_BIN")
+  fi
+fi
+
 RC=0
-"$EDITOR_BIN" -batchmode -nographics -projectPath "$PROJECT" -runTests -testPlatform EditMode \
+"${TEST_LAUNCH[@]}" -batchmode -projectPath "$PROJECT" -runTests -testPlatform EditMode \
   -testResults "$RESULTS" -logFile "$LOG" >/dev/null 2>&1 || RC=$?
 
 # Leave the tree as found.
+f=""
 while IFS= read -r f; do
   [[ -z "$f" ]] && continue
   git -C "$REPO" checkout -- "$f"
