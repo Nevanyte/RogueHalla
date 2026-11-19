@@ -12,6 +12,8 @@ The candidate uses protocol 19, observation 31, policy contract 26, checkpoint `
 
 Two human seats completed every catalog quest and exercised their named rewards in deterministic generated matches. Two independently rendered WebGL players received the same ten physical offers and took one into the raid through the journal. [Two-browser playtest and screenshot](evidence/quest25-playtest-2026-11-19/README.md) · [Protocol provenance](evidence/quest25-provenance-2026-11-19/README.md)
 
+The full gate passed at `1beb7e7cd` with PostgreSQL and the pinned Unity Editor. It included both release-mode bot checks and the legacy parity report. [Packet hand-off and verification results](coordination/HANDOFF_P-QUEST25_2026-11-19.md)
+
 ## Integration 58 (2026-11-18): the GitHub front page
 
 **Owner direction 2026-11-18:** "Please begin working on it all using sub agents", the answer to the coordinator's list of
