@@ -16,12 +16,24 @@ namespace Roguehalla.Net.Tests
         public void GeneratedPresentationPreservesEveryAuthoritativeCosmeticAndContainsNoGoalCode()
         {
             string cosmetics = Resource("PresentationCosmetics"), achievements = Resource("PresentationAchievements");
-            Assert.IsTrue(JToken.DeepEquals(JToken.Parse(Resource("Cosmetics")), JToken.Parse(cosmetics)));
+            var authoritative = JArray.Parse(Resource("Cosmetics"));
+            var displayed = JArray.Parse(cosmetics);
+            Assert.AreEqual(authoritative.Count, displayed.Count);
+            for (int i = 0; i < authoritative.Count; i++)
+            {
+                var source = (JObject)authoritative[i].DeepClone();
+                var view = (JObject)displayed[i].DeepClone();
+                if ((string)source["id"] == "gilded-sentenced") source["name"] = "Gilded Haunted";
+                Assert.IsTrue(JToken.DeepEquals(source, view), "presentation changes only the gilded Haunted display name; ids, target, code, and slot stay authoritative");
+            }
             Assert.IsTrue(AccountFullJson.TryCosmeticCatalog(cosmetics, out var catalog)); Assert.AreEqual(57, catalog.Count);
             Assert.IsTrue(AccountFullJson.TryAchievementCatalog(achievements, out var badges)); Assert.AreEqual(26, badges.Count);
             var ids = catalog.Select(c => c.Id).ToArray(); Assert.AreEqual(37, catalog.Count(c => c.Price.HasValue));
             foreach (var badge in badges) foreach (var reward in badge.Rewards) CollectionAssert.Contains(ids, reward);
             Assert.AreEqual("First Blood", badges[0].Name); Assert.AreEqual("Kill another player.", badges[0].Description);
+            var gildedHaunted = badges.Single(x => x.Id == "gild_sentenced");
+            Assert.AreEqual("Gilded Haunted", gildedHaunted.Name);
+            StringAssert.StartsWith("Win 3 runs as Haunted.", gildedHaunted.Description);
             Assert.IsFalse(achievements.Contains("\"goal\""));
             Assert.Throws<NotSupportedException>(() => ((System.Collections.Generic.IList<string>)badges[0].Rewards).Add("unearned"));
             Assert.IsFalse(AccountFullJson.TryAchievementCatalog("[{\"id\":\"a\",\"name\":\"A\",\"desc\":\"A\",\"reward\":[],\"goal\":{}}]", out _));
