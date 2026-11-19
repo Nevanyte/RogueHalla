@@ -22,11 +22,34 @@ namespace Roguehalla.Client
                 float u = (x + .5f) / w * 2 - 1, v = (y + .5f) / h * 2 - 1, r = Mathf.Sqrt(u * u + v * v), a; Color rgb = Color.white;
                 switch (key)
                 {
-                    case "flake":   // bright core with a cool blue-grey rim so a flake still reads on pale snow
-                        a = SS(1f, .45f, r) * .95f;
-                        rgb = Color.Lerp(new Color(.55f, .72f, .93f), Color.white, SS(.62f, .3f, r)); break;
+                    case "flake":   // cool, wind-bent dry-brush stroke with a few broken bristles
+                    {
+                        float centre = -.22f + .19f * v + .045f * Mathf.Sin(v * 6.1f);
+                        float body = Mathf.Pow(Mathf.Clamp01(1f - v * v), .72f);
+                        float width = .018f + .285f * body;
+                        float edge = Mathf.Abs(u - centre) / width;
+                        float grain = Mathf.Sin(u * 49f + v * 13f) * Mathf.Sin(u * 17f - v * 31f);
+                        float tooth = edge + .07f * grain;
+                        a = SS(1.12f, .66f, tooth) * SS(1.08f, .88f, Mathf.Abs(v)) * .92f;
+                        if (grain < -.91f && edge < .82f) a *= .28f; // fine translucent gaps through the brush
+                        rgb = Color.Lerp(new Color(.36f, .53f, .69f), new Color(.98f, 1f, 1f), SS(1.12f, .64f, edge));
+                        break;
+                    }
                     case "mote": a = Mathf.Pow(Mathf.Clamp01(1f - r), 1.8f); break;
-                    case "ember": a = Mathf.Exp(-r * r * 5.5f) * .7f + Mathf.Exp(-r * r * 40f) * .6f; break;
+                    case "ember": // upright, flame-tapered loft mark, carried by the existing pooled ember layers
+                    {
+                        float centre = .18f + .13f * v + .045f * Mathf.Sin(v * 5.3f);
+                        float body = Mathf.Pow(Mathf.Clamp01(1f - v * v), .7f);
+                        float width = .025f + .235f * body;
+                        float edge = Mathf.Abs(u - centre) / width;
+                        float grain = Mathf.Sin(u * 39f + v * 11f) * Mathf.Sin(u * 21f - v * 27f);
+                        float top = SS(1.08f, .66f, v), foot = SS(-.97f, -.73f, v);
+                        a = SS(1.1f, .67f, edge + .055f * grain) * top * foot;
+                        if (grain < -.88f && edge < .75f) a *= .22f;
+                        float core = SS(1.05f, .48f, edge);
+                        rgb = Color.Lerp(new Color(.58f, .18f, .08f), new Color(1f, .88f, .36f), core);
+                        break;
+                    }
                     case "spore": a = Mathf.Exp(-r * r * 4f) * .45f + Mathf.Clamp01(1f - Mathf.Abs(r - .5f) * 7f) * .35f + Mathf.Exp(-r * r * 60f) * .6f; break;
                     case "chaff": { float e = Mathf.Sqrt(u * u + v * v * 9f); a = SS(1f, .55f, e); break; }
                     case "shaft": a = Mathf.Pow(Mathf.Clamp01(1f - Mathf.Abs(u)), 1.7f) * SS(1f, .5f, Mathf.Abs(v)); break;
@@ -147,7 +170,7 @@ namespace Roguehalla.Client
                 main.startSizeZ = 1f;
             }
             else { main.startSize3D = false; main.startSize = new ParticleSystem.MinMaxCurve(s.SizeMin, s.SizeMax); }
-            if (Mathf.Abs(s.Rotation) > .01f) { main.startRotation3D = false; main.startRotation = s.Rotation * Mathf.Deg2Rad; }
+            if (s.FixedRotation || Mathf.Abs(s.Rotation) > .01f) { main.startRotation3D = false; main.startRotation = s.Rotation * Mathf.Deg2Rad; }
             else main.startRotation = new ParticleSystem.MinMaxCurve(0f, 6.2832f);
             main.startColor = new Color(s.Tint.r, s.Tint.g, s.Tint.b, s.Tint.a);
             main.maxParticles = Mathf.Max(1, ParticlePresets.LayerBudget(s, _density));
