@@ -3,6 +3,6 @@ namespace Roguehalla.Client
 {
     public static class BakedContent
     {
-        public const ulong Hash = 0xabed1bee9a62b4f8UL;
+        public const ulong Hash = 0xc890f52fd7ab4546UL;
     }
 }
