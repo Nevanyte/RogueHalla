@@ -10,6 +10,7 @@
 //! 4. a `Rework` checkpoint holding fold cards with a ranged packet in flight restores and plays on identically.
 use rh_sim::arenas::practice_arena;
 use rh_sim::cards::{CardId, Tuning};
+use rh_sim::mob_catalog::MobTypeId;
 use rh_sim::mob_runtime::{EliteTuning, MobMode};
 use rh_sim::reward_chests::{augment_pool, conditional_pool, INTERACTIVE};
 use rh_sim::{
@@ -453,6 +454,20 @@ fn without_rules(sim: &Sim) -> Value {
     v
 }
 
+/// The checkpoint with the fields the elite helper share writes taken out. The share is stat stacks through the ordinary
+/// farm path, so exactly these differ and nothing else (the equality of everything else stays exact):
+/// - `world.players[*].farm.counts`: the stacks themselves (the share is asserted on them separately, by `Farm::count`);
+/// - `world.players[*].core.modifiers.farm`: the folded farm sums the recompute derives from those counts. A stat the
+///   share pays that also moves max hp or a mirrored stat would change more fields; the fixture's camp stat does not,
+///   and if it ever does the equality fails here, naming the field, rather than being masked wider.
+fn mask_share(mut v: Value) -> Value {
+    for p in v["world"]["players"].as_array_mut().unwrap() {
+        p["farm"]["counts"] = Value::Null;
+        p["core"]["modifiers"]["farm"] = Value::Null;
+    }
+    v
+}
+
 const FOLD_CARDS: [CardId; 6] = [
     CardId::Committed,
     CardId::MachineGun,
@@ -468,10 +483,17 @@ const FOLD_CARDS: [CardId; 6] = [
 /// config and therefore the digest (so every state hash) differ. The run grants fold cards (Committed, Machine Gun, Arcane
 /// Overload) and coin/streak/stillness cards (Gambler, Third Time, Plant Your Feet) to the bow holder and Here Comes the
 /// Boom to the sword holder, then fights the elite camp. Floors (not on every seed): the elite is hurt on at least one seed.
+///
+/// Oracle-amend, P-ELITE-SHARE-1: under `Rework` elites an elite kill pays each standing contributor the helper share
+/// (`REWORK_ELITE_SHARE_STACKS` stacks of the camp's normal stat), so a seed on which an elite dies legitimately differs
+/// in exactly that. On such a seed the test asserts the share (every contributor holds exactly that many more stacks of
+/// that stat than in the Legacy world, nothing else in the farm differs) and compares the worlds with only the fields
+/// the share writes masked (`mask_share`); a seed on which no elite dies keeps the exact comparison.
 #[test]
 fn legacy_and_equal_elite_rework_play_the_same_match() {
     const TICKS: u32 = 240;
     let mut elite_hurt_seeds = 0;
+    let mut elite_kill_seeds = 0;
     for seed in [11u64, 12, 13] {
         let mut sims = [EliteRule::Legacy, EliteRule::Rework].map(|rule| {
             let sim = Sim::reset_active(
@@ -497,10 +519,52 @@ fn legacy_and_equal_elite_rework_play_the_same_match() {
             "seed {seed}: the fixture's elite camp spawned"
         );
         let mut hurt = false;
+        // The elite mobs, each with the stat its camp's normal kills pay (the camp's buff, else the camp's normal type),
+        // the players who damaged it, and the players owed the share when it dies.
+        let elite_ids: Vec<(PlayerId, MobTypeId)> = sims[0]
+            .0
+            .mobs()
+            .iter()
+            .filter(|m| m.elite)
+            .map(|m| {
+                let camp = m.camp as usize;
+                let stat = sims[0].0.camp_buffs().get(camp).copied().flatten();
+                let normal = sims[0].0.camp_rosters()[camp].mob_type;
+                (m.core.id, stat.unwrap_or(normal))
+            })
+            .collect();
+        let mut wounded: Vec<(PlayerId, PlayerId)> = Vec::new(); // (elite, player who hit it)
+        let mut paid: Vec<(MobTypeId, PlayerId)> = Vec::new(); // (stat, player owed the share)
         for t in 0..TICKS {
             let legacy = drive_tick(&mut sims[0].0, t);
             let rework = drive_tick(&mut sims[1].0, t);
             assert_eq!(legacy, rework, "seed {seed}, tick {t}: the events differ");
+            for e in &rework {
+                match e {
+                    Event::Hit {
+                        victim,
+                        by: Some(by),
+                        amount,
+                        ..
+                    } if *amount > 0.
+                        && elite_ids.iter().any(|(id, _)| id == victim)
+                        && !wounded.contains(&(*victim, *by)) =>
+                    {
+                        wounded.push((*victim, *by));
+                    }
+                    Event::Death { id, .. } => {
+                        if let Some((_, stat)) = elite_ids.iter().find(|(eid, _)| eid == id) {
+                            // The share reaches each contributor still standing when the kill pays.
+                            for (_, by) in wounded.iter().filter(|(v, _)| v == id) {
+                                if sims[1].0.player(*by).is_some_and(|p| p.standing()) {
+                                    paid.push((*stat, *by));
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
             assert_ne!(
                 sims[0].0.state_hash(),
                 sims[1].0.state_hash(),
@@ -529,12 +593,39 @@ fn legacy_and_equal_elite_rework_play_the_same_match() {
         let rework_cp = serde_json::to_value(&sims[1].0).unwrap();
         assert_eq!(rework_cp["statics"]["config"]["augments"], Value::Null);
         assert_eq!(rework_cp["statics"]["config"]["elites"], json!("rework"));
-        assert_eq!(
-            without_rules(&sims[0].0),
-            without_rules(&sims[1].0),
-            "seed {seed}: the worlds differ beyond the two rules"
-        );
+        if paid.is_empty() {
+            assert_eq!(
+                without_rules(&sims[0].0),
+                without_rules(&sims[1].0),
+                "seed {seed}: the worlds differ beyond the two rules"
+            );
+        } else {
+            elite_kill_seeds += 1;
+            // The share, exactly: each seated player holds `share x (deaths they were owed)` more stacks of each stat.
+            let share = u64::from(rh_sim::constants::REWORK_ELITE_SHARE_STACKS);
+            for pid in [PlayerId(1), PlayerId(2)] {
+                for ty in MobTypeId::ALL {
+                    let owed = paid.iter().filter(|(t, by)| *t == ty && *by == pid).count() as u64;
+                    let had = sims[0].0.player(pid).unwrap().farm.count(ty);
+                    let has = sims[1].0.player(pid).unwrap().farm.count(ty);
+                    assert_eq!(
+                        has,
+                        had + share * owed,
+                        "seed {seed}: player {pid:?}, {ty:?}: Rework holds the share on top of Legacy's stacks"
+                    );
+                }
+            }
+            assert_eq!(
+                mask_share(without_rules(&sims[0].0)),
+                mask_share(without_rules(&sims[1].0)),
+                "seed {seed}: the worlds differ beyond the two rules and the helper share"
+            );
+        }
     }
+    assert!(
+        elite_kill_seeds >= 1,
+        "the sweep never killed an elite: the share half of the equivalence was not exercised"
+    );
     assert!(
         elite_hurt_seeds >= 1,
         "the sweep never hurt the elite: the equivalence did not exercise elite combat"
