@@ -94,6 +94,7 @@ node - "$HEADLESS_RESULTS" "$GRAPHICS_RESULTS" "$HEADLESS_RC" "$GRAPHICS_RC" <<'
 const fs = require('fs');
 const inputs = process.argv.slice(2, 4);
 const codes = process.argv.slice(4).map(Number);
+const unesc = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 const reports = inputs.map((path) => {
   const xml = fs.readFileSync(path, 'utf8');
   const run = /<test-run\b[^>]*>/.exec(xml);
@@ -101,14 +102,13 @@ const reports = inputs.map((path) => {
   const cases = xml.match(/<test-case\b[\s\S]*?<\/test-case>/g) || [];
   const names = cases.map((c) => {
     const head = /<test-case\b[^>]*>/.exec(c)[0];
-    return { name: attr(head, 'fullname'), result: attr(head, 'result'), message: c };
+    return { name: unesc(attr(head, 'fullname')), result: attr(head, 'result'), message: c };
   });
   return { total: +attr(run && run[0], 'total'), passed: +attr(run && run[0], 'passed'), failed: +attr(run && run[0], 'failed'), names };
 });
 const [headless, graphics] = reports;
 const combined = reports.reduce((a, r) => ({ total: a.total + r.total, passed: a.passed + r.passed, failed: a.failed + r.failed }), { total: 0, passed: 0, failed: 0 });
 console.log(`editmode: total ${combined.total}, passed ${combined.passed}, failed ${combined.failed} (headless ${headless.total}; graphics ${graphics.total})`);
-const unesc = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 const all = reports.flatMap((r) => r.names);
 const seen = new Set();
 let unique = true;
