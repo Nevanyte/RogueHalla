@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Orients every molten reach away from the volcano that feeds it.</summary>
     internal sealed partial class StormBoundCurrent
     {
         // A single painted centreline can run upstream on one arm of a fork. Start each
