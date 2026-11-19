@@ -123,13 +123,15 @@ namespace Roguehalla.Client
             weapon=default; faction=default; kind=default; type=null; return false;
         }
         sealed class Flash { public SpriteRenderer Sprite, Plate; public TMP_Text Text; public uint Actor; public float Start, Duration; public Vector3 Position; public Color Color; public float Size; public Color TextColor; public float LaneX; public int AlphaByte = 255; }
-        struct PendingFx { public FxKind Kind; public uint Subject; public float Amount; public double DueMs; public float QueuedAt; public float X, Y, A, CreatedAt; public byte Weapon; public uint By; public bool Passive, Crit; public byte SigKind; }
+        System.Action<uint, ProjectileKind, float, float, float> _observedProjectile;
+        struct PendingFx { public ushort WindupMs; public FxKind Kind; public uint Subject; public float Amount; public double DueMs; public float QueuedAt; public float X, Y, A, CreatedAt; public byte Weapon; public uint By; public bool Passive, Crit; public byte SigKind; }
 
         void Awake()
         {
             ShowcaseSprites.Initialize();
             _catalog = Resources.Load<ShowcaseCatalog>("Showcase/Catalog");
             _actors = new SpriteActorPresenter(transform, _catalog);
+            _observedProjectile = _actors.ObservedProjectile;
             _actors.Surfaces = Surfaces;   // name colours follow the ground under a name (P-UNITY-NAME-LEGIBLE-1)
             _visionFog = new VisionFog(transform); _actors.Delivered = _membership; _actors.OnDeparted = _visionFog.AuditDeparture; _actors.OnArrived = _visionFog.AuditArrival;
             _visionFog.AuditLog = Application.absoluteURL != null && Application.absoluteURL.Contains("vision.audit=1");
@@ -233,8 +235,10 @@ namespace Roguehalla.Client
                 bool initialized = motion != null && motion.Initialized;
                 OwnerVitalBars.Percent(me, out float healthPercent, out float barrierPercent);
                 float mx = initialized ? motion.DrawnX : me.X, my = initialized ? motion.DrawnY : me.Y;
+                double tickMs = (_visionSession?.Latest?.Tick ?? 0u) * (double)Wire.TickMs;
                 _actors.Present(me.Id, mx, my, aimAngle, healthPercent,
-                    me.Faction, me.Status, me.Weapon, ActorKind.Player, null, me.Effects, me.SelfSig, true, barrierPercent, me.BarrierRingStep, ArchetypeKey(me.Archetype), FootHx(me.Archetype), FootHy(me.Archetype));
+                    me.Faction, me.Status, me.Weapon, ActorKind.Player, null, me.Effects, me.SelfSig, true, barrierPercent, me.BarrierRingStep, ArchetypeKey(me.Archetype), FootHx(me.Archetype), FootHy(me.Archetype),
+                    me.OwnerCombat?.DrawStartedAt ?? 0, tickMs);
                 var inv = _inventory; WeaponId? second = Indicators.SecondaryWeapon(inv.HasValue, inv.HasValue ? inv.Value.ActiveSlot : (byte)0, inv.HasValue ? inv.Value.Slot0 : null, inv.HasValue ? inv.Value.Slot1 : null);
                 if (IndicatorDemo) DemoIndicators(me.Id, second);
                 else { _actors.PresentMarks(me.Id, LegacyFacts.Of(me, LegacyFacts.NameOf(_visionSession, me.Id))); _actors.PresentIndicators(me.Id, me.Bounty, second.HasValue, second ?? WeaponId.Fists, false, -1, false, false, _wishState, _wishAbility); }
@@ -440,9 +444,11 @@ namespace Roguehalla.Client
                         // Ground weapons are the protocol's five carried weapon ids. Unsupported or absent
                         // values get a neutral stone cue and never borrow a known weapon glyph.
                         int weapon = p.Weapon.HasValue ? (int)p.Weapon.Value : -1;
-                        string glyph = weapon >= 0 && weapon <= 4 ? "weapon" + weapon : "stone";
-                        Color tint = weapon >= 0 && weapon <= 4 ? ShowcasePalette.Gold : ShowcasePalette.MutedText;
-                        Prop(glyph, position + new Vector3(0, .22f), new Vector2(.48f, .48f), tint, order);
+                        bool equipment = weapon >= 0 && weapon <= 4;
+                        string glyph = equipment ? StormInkWeaponMotion.KeyFor((WeaponId)weapon) : "stone";
+                        Color tint = equipment ? Color.white : ShowcasePalette.MutedText;
+                        float size = equipment ? StormInkWeaponMotion.Size : .48f;
+                        Prop(glyph, position + new Vector3(0, equipment ? .39f : .22f), Vector2.one * size, tint, order);
                     }
                     else if (p.Kind == PropAppearance.WindEmblem)
                     {
@@ -508,7 +514,7 @@ namespace Roguehalla.Client
                     _overlay?.NoteShot(shot.X, shot.Y, shot.Height);
                     ProjectileFx(p, shot.Facing, arrow, trailTick);      // render pass: trail puffs and a small travelling light
                 }
-                _sparks.Observe(collections.Tick, collections.Projectiles, _camCenter, _camHalf.x, _camHalf.y, ref _sparkRng);
+                _sparks.Observe(collections.Tick, collections.Projectiles, _camCenter, _camHalf.x, _camHalf.y, ref _sparkRng, _observedProjectile);
             }
             for (int i = _used; i < _props.Count; i++) _props[i].gameObject.SetActive(false);
             _markVisible = _markVisible ?? MarkVisible;

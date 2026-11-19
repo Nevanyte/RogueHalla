@@ -134,13 +134,11 @@ namespace Roguehalla.Client.Tests
                 ActorKind.Player, null, 0, 0, false);
             presenter.End();
 
-            var appearance = catalog.Find("hero");
-            Assert.That(appearance.Death, Is.Not.Null.And.Not.Empty);
-            int count = appearance.Death.Length / 8;
-            int direction = ((Mathf.RoundToInt(0 / (Mathf.PI / 4)) + 5) % 8 + 8) % 8;
             var body = parent.transform.Find("Observed actor/Authored character").GetComponent<SpriteRenderer>();
-            Assert.That(body.sprite, Is.SameAs(appearance.Death[direction * count + count - 1]),
-                "timeline reset holds the real authored terminal death frame regardless of Editor uptime");
+            Assert.That(body.sprite.name, Is.EqualTo("FireChampion/2/2"));
+            var expectedUp = Quaternion.Euler(0f, 0f, 78f) * Vector3.up;
+            Assert.That(Vector3.Distance(body.transform.localRotation * Vector3.up, expectedUp), Is.LessThan(.0001f),
+                "timeline reset holds the painted terminal fall regardless of Editor uptime");
         }
 
         static Dictionary<OverheadKind, OverheadElement> Layout(float hp, float barrier)

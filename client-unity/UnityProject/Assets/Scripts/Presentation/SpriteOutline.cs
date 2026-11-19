@@ -18,6 +18,7 @@ namespace Roguehalla.Client
         static readonly int SrcTex = Shader.PropertyToID("_SrcTex"), SrcRect = Shader.PropertyToID("_SrcRect"), Outline = Shader.PropertyToID("_Outline"),
             UvMapId = Shader.PropertyToID("_UvMap"), Src2TexId = Shader.PropertyToID("_Src2Tex"), Src2RectId = Shader.PropertyToID("_Src2Rect"), Src2TexelId = Shader.PropertyToID("_Src2Texel"),
             ToSrc2Id = Shader.PropertyToID("_ToSrc2"), Src2ModeId = Shader.PropertyToID("_Src2Mode"),
+            ChordId = Shader.PropertyToID("_RhBowChord"), ChordWidthId = Shader.PropertyToID("_RhBowChordWidth"),
             SrcTexel = Shader.PropertyToID("_SrcTexel"), ToneId = Shader.PropertyToID("_Tone"), Prior = Shader.PropertyToID("_Prior"), GrabFlag = Shader.PropertyToID("_RhOutlineGrab"), RimFlag = Shader.PropertyToID("_RhRim");
 
         /// <summary>
@@ -166,6 +167,16 @@ namespace Roguehalla.Client
         /// </summary>
         public void SetCompanion(SpriteRenderer other, bool union) { _comp = other; _compUnion = union; }
 
+        Vector4 _companionChord;
+        float _companionChordWidth;
+
+        /// <summary>The union samples the same rest-string cutout as its drawn-bow companion.</summary>
+        internal void SetCompanionChord(Vector4 chord, float width)
+        {
+            _companionChord = chord;
+            _companionChordWidth = width;
+        }
+
         static Matrix4x4 Norm(Sprite sp)
         {
             var r = sp.textureRect; var pv = sp.pivot; float ppu = sp.pixelsPerUnit;
@@ -247,6 +258,11 @@ namespace Roguehalla.Client
                 Block.SetVector(Src2TexelId, new Vector4(1f / rc.width, 1f / rc.height, 0, 0));
                 Block.SetMatrix(ToSrc2Id, toComp);
                 Block.SetFloat(Src2ModeId, union ? 1f : 2f);
+                if (_companionChordWidth > 0f)
+                {
+                    Block.SetVector(ChordId, _companionChord);
+                    Block.SetFloat(ChordWidthId, _companionChordWidth);
+                }
             }
             else Block.SetFloat(Src2ModeId, 0f);
             Block.SetVector(ToneId, new Vector4(_ratio * ToneScale, 0, 0, 0));
