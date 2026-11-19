@@ -130,7 +130,7 @@ impl Link {
         let mut n = 0;
         for a in self.tracker.actors().iter().filter(|a| a.kind != 0) {
             assert_eq!(
-                (a.walk_dir, a.walk_ticks),
+                a.walk_hint(),
                 (0, 0),
                 "a non-player actor (id {}, kind {}) carries a walk hint",
                 a.id,
@@ -180,7 +180,7 @@ fn a_walking_player_s_hint_round_trips_full_and_delta_frames_and_no_mob_carries_
     }
     let still = link.walker().expect("the viewer is delivered the walker");
     assert_eq!(
-        (still.walk_dir, still.walk_ticks),
+        still.walk_hint(),
         (0, 0),
         "a standing player carries no hint"
     );
@@ -198,7 +198,7 @@ fn a_walking_player_s_hint_round_trips_full_and_delta_frames_and_no_mob_carries_
         }
         let w = link.walker().expect("the walker stays delivered");
         assert_eq!(
-            (w.walk_dir, w.walk_ticks),
+            w.walk_hint(),
             (SOUTH, FULL_HINT),
             "tick {t} ({kind:?} frame): a player walking a clear lane south carries (64, 3)"
         );
@@ -219,7 +219,7 @@ fn a_walking_player_s_hint_round_trips_full_and_delta_frames_and_no_mob_carries_
     let w = link.walker().expect("the walker stays delivered");
     assert_eq!(kind, FrameKind::Delta, "the stop goes out as a delta");
     assert_eq!(
-        (w.walk_dir, w.walk_ticks),
+        w.walk_hint(),
         (0, 0),
         "the delta of the stop tick clears the hint to (0, 0)"
     );
@@ -235,7 +235,7 @@ fn a_walking_player_s_hint_round_trips_full_and_delta_frames_and_no_mob_carries_
         }
         let w = link.walker().expect("the walker stays delivered");
         assert_eq!(
-            (w.walk_dir, w.walk_ticks),
+            w.walk_hint(),
             (0, FULL_HINT),
             "tick {t}: walking east again, a delta sets (0, 3)"
         );

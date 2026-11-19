@@ -53,8 +53,12 @@ None (base has P-NET-DELAY-1). 1b depends on this.
 
 ### Wire design (follow exactly)
 
-- `rh_protocol::WireActor` gains `pub walk_dir: u8` and `pub walk_ticks: u8` (the stub commit adds them; every
-  constructor sets 0). `QActor` gains the same two bytes (`from_wire`, `to_wire`, `NEW` = 0, 0).
+- `rh_protocol::WireActor` gains `pub walk_dir: u8` and `pub walk_ticks: u8`, and keeps the accessor
+  `pub fn walk_hint(&self) -> (u8, u8)` returning `(walk_dir, walk_ticks)` (the stub adds the accessor returning `(0, 0)`;
+  the oracle reads the hint through it). `QActor` gains the same two bytes (`from_wire`, `to_wire`, `NEW` = 0, 0).
+  Adding the fields changes `WireActor`'s derived `Debug` text, which the golden vectors' `debug` strings contain: that is
+  why the stub is an accessor (a field stub turned `tests/vectors.rs` red against `v18.json`), and why `v19.json` differs
+  from `v18.json` in every `debug` string that prints an actor (`..., mark_tax: 0, walk_dir: 0, walk_ticks: 0 }`).
 - **Full frame:** a new actor mask bit `AM_WALK = 1 << 15` (ADR 0011, append only; bit 15 is the first unused bit,
   `masks.rs:49-80`), present only when `walk_ticks != 0`, followed by two bytes `walk_dir, walk_ticks` after the mark
   plate. Absent decodes to `(0, 0)`. `AM_KNOWN` gains it; `full_len` and `full_mask` count it.
@@ -154,8 +158,9 @@ lengths stay.
 `crates/rh-policy/tests/{frost_wall_delivery,quest_carrier_delivery,hud_roam_terms,hud_clock_delivery,hud_delivery,hud_panel_delivery}.rs`
 (each pins observation 30 and policy 25; append "31/26: P-NET-DRAWAHEAD-1a" to the message).
 
-**Struct literals without `..`** (compile-only, done by the stub commit): `crates/rh-protocol/src/snapshot_read.rs:276`,
-`delta/actor.rs:102`, `delta/diff.rs:190`, `tests/size.rs:110`, `crates/rh-policy/src/delivery/projection.rs:149`.
+**Struct literals without `..`** (they gain the two fields with the implementation): `crates/rh-protocol/src/snapshot_read.rs:276`,
+`delta/actor.rs:102`, `tests/size.rs:110` (an old test: a compile-only line; better, give the busy-match actor a
+non-zero hint so `MAX_ACTOR_LEN` is exercised), `crates/rh-policy/src/delivery/projection.rs:149`.
 `ActorView` literals in tests (`crates/rh-server/src/wire/tests.rs:72` `view`, and any other) gain the fields when the
 implementer adds them.
 
@@ -208,8 +213,8 @@ masks), `crates/rh-protocol/AGENTS.md` (three decoders, one branch), `docs/CONTR
 
 - Every wire byte of a frame whose actors all have `walk_ticks == 0` except the version u16 of Hello/Welcome: that is
   every existing golden vector (no sample actor walks today). Check by the P-PROTOCOL-18 method: `v19.json` equals
-  `v18.json` with `011200 -> 011300`, `811200 -> 811300`, header and debug text 18 -> 19, plus only the new vectors and
-  the two moved refusal vectors.
+  `v18.json` with `011200 -> 011300`, `811200 -> 811300`, header and debug text 18 -> 19, actor `debug` strings gaining
+  `walk_dir: 0, walk_ticks: 0`, plus only the new vectors and the two moved refusal vectors.
 - Parity, the state hash, checkpoints and replays: unchanged (no sim state or tick order touched).
 - The memo (`ActorMemo`) is still a pure cache.
 
@@ -224,8 +229,8 @@ masks), `crates/rh-protocol/AGENTS.md` (three decoders, one branch), `docs/CONTR
 - `crates/rh-server/tests/walk_hint_wire.rs`
 - `docs/backlog/packets/P-NET-DRAWAHEAD-1a.md`
 
-Implementer-replaceable (stub commit): the two `WireActor` fields in `crates/rh-protocol/src/actor.rs` and the
-`walk_dir: 0, walk_ticks: 0` lines in the literals listed above; `public byte WalkDir, WalkTicks;` in
+Implementer-replaceable (stub commit): the `WireActor::walk_hint` stub in `crates/rh-protocol/src/actor.rs`;
+`public byte WalkDir, WalkTicks;` in
 `client-unity/RoguehallaNet/Protocol/WireActor.cs` (declared, not yet decoded: 1b's oracle builds actors with them).
 
 The oracle, `walk_hint_wire.rs` (one test, `a_walking_player_s_hint_round_trips_full_and_delta_frames_and_no_mob_carries_one`):
