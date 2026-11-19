@@ -74,9 +74,7 @@ pub struct History {
 impl Default for History {
     fn default() -> Self {
         const { assert!(history_cap() <= u8::MAX as usize) };
-        const {
-            assert!(history_cap() as f64 * shortest_tick_ms() > MAX_REWIND_MS + LEGACY_TICK_MS)
-        };
+        const { assert!(history_cap() as f64 * shortest_tick_ms() > MAX_REWIND_MS + LEGACY_TICK_MS) };
         Self {
             buf: [Sample {
                 t: 0.0,
@@ -1393,7 +1391,11 @@ mod tests {
 
     /// The legacy recorder at any step: push, then trim while longer than two and the oldest is before the cutoff.
     fn reference_at(h: &mut Vec<Sample>, now: f64, step: f64) {
-        h.push(Sample { t: now, x: 0.0, y: 0.0 });
+        h.push(Sample {
+            t: now,
+            x: 0.0,
+            y: 0.0,
+        });
         let cutoff = now - MAX_REWIND_MS - step;
         while h.len() > 2 && h[0].t < cutoff {
             h.remove(0);
@@ -1415,7 +1417,11 @@ mod tests {
                 assert!(ring.len() < history_cap(), "{spacing} ms spacing");
             }
             let want = ((MAX_REWIND_MS + cutoff_step) / spacing) as usize + 1;
-            assert_eq!(ring.len(), want, "{spacing} ms spacing, {cutoff_step} ms cutoff");
+            assert_eq!(
+                ring.len(),
+                want,
+                "{spacing} ms spacing, {cutoff_step} ms cutoff"
+            );
         }
     }
 

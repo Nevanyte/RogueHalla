@@ -358,7 +358,6 @@ fn read_tick_ms<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u32, D::Error>
     }
 }
 
-
 /// `SimConfig::frost_wish`. `Freeze` serializes as nothing (JSON `null`; the hashing serializer folds no word for a
 /// unit), so a config that leaves it alone has the statics digest, state hashes, checkpoints and replays it had before
 /// the field existed. `Wall` is the string `"wall"` in a human-readable format (the JSON config, checkpoint and replay)

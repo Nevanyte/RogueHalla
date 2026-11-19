@@ -61,8 +61,7 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
     }
     let earliest = earliest_teleport(r, w, tick_ms);
 
-    if teleported
-        .is_some_and(|at| at < earliest || at > now || at % tick_ms != 0.)
+    if teleported.is_some_and(|at| at < earliest || at > now || at % tick_ms != 0.)
         || (teleported.is_none() && w.players.iter().any(|p| p.vision.has_locked_reveals()))
     {
         return fail();
