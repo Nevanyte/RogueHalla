@@ -12,7 +12,7 @@ mod elite_bench;
 use elite_bench::{run, sample_builds, SampleFile, MINUTE5_TICK, SAMPLE_PATH};
 use rh_headless::load_arena;
 use rh_sim::mob_catalog::{elites_of, normal_types_of};
-use rh_sim::trusted_build::{apply, TrustedBuild};
+use rh_sim::trusted_build::apply;
 use rh_sim::{FactionId, Placement, Secrets, Sim, SimConfig, WeaponId};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
