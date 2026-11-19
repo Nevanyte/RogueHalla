@@ -6,7 +6,11 @@ fn quest_bridge_wire_bounds_cover_the_native_domain() {
     use rh_protocol::state::{
         MAX_QUEST_OBJECTIVES, MAX_QUEST_OBJECTIVES_PER_ROW, MAX_QUEST_ROSTER, MAX_QUEST_ROWS,
     };
-    assert_eq!(MAX_QUEST_ROWS, rh_sim::constants::QUEST_COUNT as usize);
+    let current_pool = rh_sim::quests::board::catalog::QuestId::ALL.len();
+    assert_eq!(
+        MAX_QUEST_ROWS,
+        current_pool.max(rh_sim::constants::QUEST_COUNT as usize)
+    );
     assert_eq!(MAX_QUEST_ROSTER, rh_sim::constants::MAX_PLAYERS);
     let catalog = rh_sim::quests::catalog::DEFINITION;
     assert_eq!(catalog.iter().map(|row| row.id.len()).max(), Some(16));
