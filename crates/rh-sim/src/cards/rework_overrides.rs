@@ -281,6 +281,24 @@ pub(crate) static REWORK_OVERRIDES: &[CardDef] = &[
     },
 
     CardDef {
+        id: CardId::WishfulThinking,
+        kind: CardKind::Augment,
+        tier: 2,
+        base: None,
+        requires: None,
+        unique: true,
+        ready: true,
+        title: "Wishful Thinking",
+        text: "Each hit you land shortens your Wish's cooldown by 1.5% of its full length (at most 20% a minute).",
+        tags: &[MechanicTag::Wish],
+        rows: &[
+            CardRow::Trigger(TriggerRow { on: TriggerOn::Hit, arg: 0.0, once: false, action: TriggerAction::Cooldown { ms: 1000.0 } }),
+        ],
+        selections: &[
+        ],
+    },
+
+    CardDef {
         id: CardId::Hemorrhage,
         kind: CardKind::Augment,
         tier: 1,

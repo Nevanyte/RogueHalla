@@ -584,4 +584,8 @@ content! {
     /// Eye for an Eye: how many times it counts in a Rework chest's draws when an eligible picker owns a returned-damage
     /// source (P-AUG-POOL-1; a whole number of copies).
     REWORK_EYE_FOR_AN_EYE_WEIGHT: f64 = 2., "weight";
+    /// Wishful Thinking: each landed hit's cut as a share of the cast's full Wish cooldown (P-AUG-TUNE-1).
+    REWORK_WISHFUL_HIT_SHARE: f64 = 0.015, "share";
+    /// Wishful Thinking: the most one rolling window may cut, as a share of the cast's full Wish cooldown (P-AUG-TUNE-1).
+    REWORK_WISHFUL_BUDGET_SHARE: f64 = 0.20, "share";
 }
