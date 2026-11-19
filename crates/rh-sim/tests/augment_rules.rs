@@ -223,8 +223,9 @@ const REWORKED: [CardId; 18] = [
 ];
 
 /// Legacy is the legacy catalog and constants in every respect; under Rework (P-AUG-CONTENT-1 filled its table) only the
-/// 18 reworked cards and the named numbers the packet moves differ: every other card, Wishful Thinking's and Race to 0's
-/// numbers, the pool and its offers stay legacy. (The numbers themselves are `cards/rework_content_tests.rs`.)
+/// 18 reworked cards and the named numbers the packet moves differ: every other card, Race to 0's numbers, the pool and
+/// its offers stay legacy. Wishful Thinking's Rework row is text-only (P-AUG-TUNE-1: its rule reads the
+/// `REWORK_WISHFUL_*` shares; its catalog rows stay). (The numbers themselves are `cards/rework_content_tests.rs`.)
 #[test]
 fn the_card_table_is_the_legacy_catalog_under_legacy_and_for_unchanged_cards_under_rework() {
     use rh_sim::constants as c;
@@ -250,7 +251,19 @@ fn the_card_table_is_the_legacy_catalog_under_legacy_and_for_unchanged_cards_und
         assert_eq!(t.rule(), rule, "the table knows its rule");
         let legacy_rule = rule == AugmentRule::Legacy;
         for id in CardId::ALL {
-            if legacy_rule || !REWORKED.contains(&id) {
+            if !legacy_rule && id == CardId::WishfulThinking {
+                // Coordinator oracle-amend for P-AUG-TUNE-1: a text-only override (its text describes the share rule).
+                assert_eq!(
+                    t.def(id).rows,
+                    id.definition().rows,
+                    "{rule:?} {id:?}: text-only override"
+                );
+                assert_ne!(
+                    t.def(id).text,
+                    id.definition().text,
+                    "{rule:?} {id:?}: the Rework text"
+                );
+            } else if legacy_rule || !REWORKED.contains(&id) {
                 assert_eq!(
                     t.def(id),
                     id.definition(),
