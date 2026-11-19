@@ -136,8 +136,7 @@ async fn public_quest_frame_keeps_zero_charge_spell_and_drop_reacquire_valid() {
             4,
             "token progress is publicly published",
             |_, a, _| {
-                quest_row(a, "ember_walk")
-                    .is_some_and(|row| row.owner_progress > u32::from(target))
+                quest_row(a, "ember_walk").is_some_and(|row| row.owner_progress > u32::from(target))
             },
         );
     }
