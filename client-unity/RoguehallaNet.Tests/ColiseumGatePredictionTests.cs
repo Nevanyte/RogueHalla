@@ -119,7 +119,8 @@ namespace Roguehalla.Net.Tests
             now = 100; t.Enqueue(Gates(3, false)); s.Poll();
             CollectionAssert.AreEqual(map.Tiles, s.Motion.WalkMap.Tiles, "unlocked: the open Welcome map again");
             s.OrderMove(600, (float)StartY); s.FlushInput();
-            now = 400; s.Poll();
+            // Frames every 50 ms: one Step walks at most MaxStepMs (legacy MAX_FRAME_MS), so a single late poll cannot cover 30 u.
+            for (now = 150; now <= 400; now += 50) s.Poll();
             Assert.AreEqual(StartY, s.Motion.DrawnY, 0.01, "the open gate is walked straight through");
             Assert.Greater(s.Motion.DrawnX, StartX + 30, "prediction runs on the open map");
         }
