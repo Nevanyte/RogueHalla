@@ -48,9 +48,20 @@ namespace Roguehalla.Client
 
             int tw = w * TerrainTexelsPerTile, th = h * TerrainTexelsPerTile;
             var terA = new Color32[tw * th]; var terB = new Color32[tw * th];
-            BakeTerrain(RegionMap.EffectiveTerrain(map), w, h, terA, terB);
+            byte[] effectiveTerrain = RegionMap.EffectiveTerrain(map);
+            BakeTerrain(effectiveTerrain, w, h, terA, terB);
             Material.SetTexture("_TerA", Tex("Terrain A", tw, th, terA));
             Material.SetTexture("_TerB", Tex("Terrain B", tw, th, terB));
+            if (Material.HasProperty("_StormFlowMap") && SystemInfo.SupportsTextureFormat(TextureFormat.RGBAHalf))
+            {
+                var flow = StormBoundCurrent.CreateTexture(map, plague, effectiveTerrain);
+                if (flow != null)
+                {
+                    _owned.Add(flow);
+                    Material.SetTexture("_StormFlowMap", flow);
+                    Material.SetFloat("_StormFlowOn", 1f);
+                }
+            }
 
             // Plague mud, grass and shallow water (r water, g grass, b depth), 2 texels per tile.
             const int plgTexels = 2;
