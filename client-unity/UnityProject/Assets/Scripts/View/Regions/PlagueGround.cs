@@ -15,6 +15,7 @@ namespace Roguehalla.Client
         public readonly int W, H;
         /// <summary>Per tile: 0 not Plague floor, 1 mud, 2 grass, 3 shallow water.</summary>
         public readonly byte[] Kind;
+        byte[] _paintedVariants;
         public int MudTiles, GrassTiles, WaterTiles;
         public int FloorTiles { get { return MudTiles + GrassTiles + WaterTiles; } }
 
@@ -43,6 +44,7 @@ namespace Roguehalla.Client
             var g = new PlagueGround(map != null ? map.W : 0, map != null ? map.H : 0);
             if (map == null || map.Regions == null || map.Tiles == null) return g;
             int w = map.W, h = map.H; var tiles = map.Tiles; var regions = map.Regions; var terrain = RegionMap.EffectiveTerrain(map);
+            if (map.GroundVariants != null && StormInkWash(map) != null) g._paintedVariants = map.GroundVariants;
             bool dressed = RegionProps.IsDressed(map);   // the server dresses the ground: no noise water or mud of our own
             for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
             {
@@ -60,12 +62,22 @@ namespace Roguehalla.Client
 
         internal static bool BindStormInkGround(Material material, MapBlob map)
         {
-            if (!StormCypressGeometry.For(map).Eligible) return false;
-            var wash = Resources.Load<Texture2D>("StormInk/Plague/MarshWash");
+            var wash = StormInkWash(map);
             if (wash == null) return false;
             material.SetTexture("_StormMarshWash", wash);
             material.SetFloat("_StormMarshOn", 1f);
             return true;
+        }
+
+        static Texture2D StormInkWash(MapBlob map) => StormCypressGeometry.For(map).Eligible
+            ? Resources.Load<Texture2D>("StormInk/Plague/MarshWash") : null;
+
+        static byte PaintedKind(byte fallback, byte variant)
+        {
+            if (fallback == None) return None; // walls, non-Plague floor and effective terrain are ineligible
+            if (variant == 7) return Water;
+            if (variant == 8) return Mud;
+            return fallback;
         }
 
         static bool NearBog(byte[] terrain, int w, int h, int x, int y)
@@ -85,6 +97,7 @@ namespace Roguehalla.Client
         {
             byte k = KindAt(tx, ty); kind = SurfaceKind.None;
             if (k == None || region != RegionId.Plague) return false;
+            if (_paintedVariants != null) k = PaintedKind(k, _paintedVariants[ty * W + tx]);
             kind = k == Water ? SurfaceKind.ShallowWater : k == Grass ? SurfaceKind.Grass : SurfaceKind.Mud;
             return true;
         }
@@ -107,14 +120,8 @@ namespace Roguehalla.Client
             {
                 int tile = (y / texelsPerTile) * W + x / texelsPerTile;
                 byte k = Kind[tile];
-                // A dressed map supplies water (7) and mud (8) as public ground variants. Use them as
-                // pigment for walkable ground while retaining the surface used for footsteps and wading.
-                if (k != None && pigmentVariants != null)
-                {
-                    byte variant = pigmentVariants[tile];
-                    if (variant == 7) k = Water;
-                    else if (variant == 8) k = Mud;
-                }
+                // Shipped variants opt into the same pigment and surface classification.
+                if (pigmentVariants != null) k = PaintedKind(k, pigmentVariants[tile]);
                 int i = y * ow + x; water[i] = k == Water ? 1f : 0f; grass[i] = k == Grass ? 1f : 0f;
             }
             System.Array.Copy(water, depth, water.Length);
