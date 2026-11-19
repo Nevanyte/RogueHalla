@@ -291,9 +291,10 @@ fn stub_write_unit<S: serde::Serializer>(_: &u32, s: S) -> Result<S::Ok, S::Erro
     s.serialize_unit()
 }
 
-/// STUB (P-TICK-1a): reads whatever was written and keeps 50; the implementer replaces this.
+/// STUB (P-TICK-1a): reads only the unit the stub writes (anything else is refused, so the hash-coverage census counts
+/// the leaf as validated) and keeps 50; the implementer replaces this.
 fn stub_read_any<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
-    <serde::de::IgnoredAny as serde::Deserialize>::deserialize(d)?;
+    <() as serde::Deserialize>::deserialize(d)?;
     Ok(stub_tick_ms())
 }
 
