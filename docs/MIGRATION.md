@@ -6,46 +6,57 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 
 ## Resumed (2026-11-19): the elite and augment rework, wave 3
 
-**Owner direction 2026-11-19:** "resume" (after "please pause and save all development" the same day). Nothing is pushed
-and `main` is untouched.
+**Owner direction 2026-11-19:** "resume" (after "please pause and save all development" the same day). Owner OK the same
+day:
+- merge P-NOALLOC-GATE-1, including its `scripts/gate.sh` and `.github/workflows/rust.yml` edits, after review;
+- delete `packet/P-AUG-POOL-1-merge-int61` (done).
 
-**Integration branch.** `feature/unity-rework` @ `ae0e984f2`.
-- Integration 61 landed: P-AUG-CONTENT-1 and P-AUG-UI-1, plus the coordinator's oracle-amend `08bbb1405`.
-- Full gate PASS on `3c530434f`: `--coordinator --keep-going --allow-artefacts --regen-fixtures --base 8f330dd01`,
-  EditMode 1581/1581.
-- Identities: content hash `10dfa3b399dc43a1`, checkpoint `rh-checkpoint/33`.
-- reviewer-opus integration review of int-61 is pending.
+Nothing is pushed and `main` is untouched.
 
-**Wave 3 in flight.**
-- **P-AUG-POOL-1**
-  - Oracle on `packet/P-AUG-POOL-1` @ `958ffab5f`, replayed onto int-61, oracle-check PASS.
-  - Opus is implementing.
-  - Content-hash move 5 is accepted (`REWORK_EYE_FOR_AN_EYE_WEIGHT`).
-  - The reference branch `packet/P-AUG-POOL-1-merge-int61` can be deleted with the owner's OK.
-- **P-AUG-TUNE-1**
-  - Oracle on `packet/P-AUG-TUNE-1` @ `040f32280`, oracle-check PASS.
-  - It waits for POOL-1: both append registry rows and regold, so their write scopes overlap.
-  - Routed to implementer-opus, not Sonnet. Wishful's restore bound must never refuse a state the sim reached,
-    including a Wish cooldown that changes between casts inside the 60 s window.
-- **P-ELITE-BENCH-1**
-  - **Plan decision 8 is revised** (coordinator, 2026-11-19).
-  - The bot soak cannot supply the minute-5 build. Over seeds 1..80, all 56 minute-5 bot builds hold 0 cards, which is
-    structural: cards come only from elite chests. 39 of the 56 hold 0 stacks, and the most any holds is 51.
-  - The workbook (Augment_Value, `banked` = 12 CE at t = 5 min, 12 stacks a camp) assumes about 144 stacks.
-  - The bench now measures **banked-camp builds**: N seeded normal camps, each paying 12 stacks of its stat, no cards.
-    N ∈ {0, 6, 12, 18}, with N = 12 the reference for the 10–20% target. The bot sample is kept as one extra column.
-  - The oracle-amend is with oracle-author. Then the implementer (agent/sonnet/P-ELITE-BENCH-1 @ `2a653ec59`) resumes.
-- **P-ELITE-SHARE-1 (wave 4):** oracle-author is writing it from int-61, with a scope disjoint from POOL-1 and TUNE-1.
-  - Coordinator decisions: only contributors alive at the kill are paid, and each player once.
+**Integration branch:** `feature/unity-rework` @ `5aaadea74`.
+- **Integration 61:** P-AUG-CONTENT-1 and P-AUG-UI-1.
+  - Full gate PASS. reviewer-opus: LAND WITH NOTES, one note, which became P-AUG-CONTENT-1-fix.
+- **Integration 62** (fast-forward):
+  - P-ELITE-BENCH-1: the elite camp bench, with banked-camp builds.
+  - P-AUG-CONTENT-1-fix: a test-only guard that every override number is a hashed `REWORK_*` row.
+  - P-AUG-POOL-1: the Rework chest pool, the faction offer rule, the Eye for an Eye weight and a camp-chest restore check.
+  - Full gate PASS: `--coordinator --keep-going --allow-artefacts --regen-fixtures --base 10001a404`, EditMode 1581/1581.
+  - The `rh-headless` Cargo.toml gains a feature flag (`elite-bench`) and no dependency; `Cargo.lock` is unchanged.
+  - The integration review is pending.
+- **Identities:** content hash `abed1bee9a62b4f8` (move 5), checkpoint `rh-checkpoint/33`.
+- **Coordinator oracle-amend `373b919fe`** (`rework_content_tests.rs`): CONTENT-1's REWORK rows must be one ordered run, no
+  longer the registry tail, and the pool line checks Legacy. reviewer-opus judged it honest.
 
-**Found, not this rework's packet.**
-- `pack_leader_warm` `camps_snapshot_warm_original_clone_restore_allocates_nothing` fails in a plain
-  `cargo test -p rh-sim` on int-61: clone and restore each allocate 32 bytes, at tick 116.
-- It is compiled out under `trusted-status-probes`, so the gate and CI run zero tests there.
-- Where it started is not established yet.
+**In flight**
+- **P-AUG-TUNE-1:** Opus is implementing, from `packet/P-AUG-TUNE-1` @ `785dde23d`. Content-hash move 6.
+  - It also folds in a live restore defect found by its oracle, in both worlds. Granting a card that changes the Wish
+    cooldown (Arcane Overload) after a cast, then checkpointing before the next cast, makes the restore refuse with
+    `invalid card Wish spend` (`abilities/checkpoint.rs:75-89`).
+- **P-ELITE-SHARE-1:** attempt 2.
+  - reviewer-opus rejected attempt 1: an elite Award's `mob_type` is the elite's own type, which has no farm row, so
+    on-theme camps paid nobody. The brief was wrong, not the implementer.
+  - The oracle was amended (`3ad3d72d0`, real camps plus a wiring test through `hurt` and the payout queue).
+- **P-ELITE-BENCH-2:** a scripted Duelist fighter beside the Brawler, plus outcome books, `--jobs` and 3 seeds.
+  - The live fill bot was tried and dropped: it needs an Env seam and wandered away from the elite camp in 3 of 4
+    fights. That also explains why soak bots bank so few camps.
+  - The review found that the kiting Duelist triggers the 20 s give-up, so camps reset. The fix is folded in before
+    merge: ranged Duelists stand and shoot, and the table reports per-weapon decided rates and resets.
+- **P-NOALLOC-GATE-1** (side session, reviewer-opus LAND) joins integration 63.
+  - It fixes the `BuildMarkCache` clone/restore allocation, a regression since `948064758`.
+  - It runs the two no-allocation test files, which the gate's feature set compiles out.
 
-**Owner checkpoint ahead:** the elite death-rate table (banked-camp builds) and the proposed elite numbers, before
-P-ELITE-TUNE-1.
+**Elite measurement so far** (owner checkpoint ahead). Duelist at banked_12, 900 fights over 3 seeds:
+- Headline 33.0%. Decided fights give 40%.
+- The melee rows are trustworthy: axe 23%, sword 32%, shield 29%.
+- Brawler upper bound: 46.4%.
+- Per camp, from Blood Saint 7.8% to Avalanche Troll 64.4%.
+- `EliteTuning` is one global table (k 0.65, hp ×2.0, dmg ×1.5). It can move the average but cannot even out camps.
+- A throwaway sweep of dmg_mult × hp_mult is running.
+
+**Noted for later packets, no packet yet**
+- `REWORK_POOL` and the faction-only list are not folded into the content hash, following the `INTERACTIVE` precedent;
+  P-AUG-NATIVE-4 should fold them.
+- `REWORK_EYE_FOR_AN_EYE_WEIGHT` is an f64 used as a whole count of copies.
 
 ## Elite and augment rework (2026-11-18): approved plan, in progress
 
