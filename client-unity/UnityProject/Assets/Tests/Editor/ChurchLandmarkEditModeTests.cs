@@ -326,6 +326,27 @@ namespace Roguehalla.Client.Tests
             }
         }
 
+        [TestCaseSource(nameof(Orientations))]
+        public void PewRowsCrossTheAisleAndThePulpitStandsUpright(int k)
+        {
+            var site = Church(k);
+            using (var scene = new Scene(site.Map, site.Anchor))
+            {
+                var lm = Built(scene, "orientation " + k);
+                bool aisleRunsOnX = site.Door[0].x == site.Door[1].x;
+                foreach (var pew in Named(lm, "Church pew"))
+                {
+                    Assert.That(TryBounds(new[] { pew }, out var bounds), Is.True);
+                    float across = aisleRunsOnX ? bounds.size.y / ArenaView.GroundSquash : bounds.size.x;
+                    float along = aisleRunsOnX ? bounds.size.x : bounds.size.y / ArenaView.GroundSquash;
+                    Assert.Greater(across, 3f * along, "the bench spans a bank of seats across the aisle");
+                    Assert.Greater(across, 3f, "one bench seats a row of fighters");
+                }
+                var pulpit = Named(lm, "Church pulpit").Single();
+                Assert.Greater(Vector3.Dot(pulpit.up, Vector3.up), .98f, "the raised pulpit stays upright in the camera");
+            }
+        }
+
         // ---- the graveyard ----------------------------------------------------------------------------------------------------------------
 
         [TestCaseSource(nameof(Orientations))]
