@@ -17,7 +17,55 @@ With the default, nothing observable changes.
 - P-TICK-0 (ADR 0029 accepted)
 
 ## 3. Relevant legacy paths
-- `packages/shared/src/constants.ts:11-13`: the legacy step (20 Hz, 50 ms)
+- `packages/shared/src/constants.ts:11-13`: the legacy step (`TICK_RATE = 20`, `TICK_MS = 1000 / TICK_RATE`, `PATCH_MS`).
+- `packages/server/src/sim/step.ts:302-305`: legacy `step(world, dtMs)` already takes the step length as a parameter:
+  `s.serverTime += dtMs; s.tick++` (time first, then the counter; Rust `sim.rs:525-529` keeps that order).
+- `packages/server/src/sim/movement.ts:101-105`: `recordHistory` trims with `cutoff = now - MAX_REWIND_MS - TICK_MS`
+  (Rust `state.rs:136`); at 25 ms the cutoff reads the sim's step.
+- `packages/server/src/rooms/RaidRoom.ts:323,395,626`: the room paces with the constant `TICK_MS` (server side, P-TICK-3).
+
+No RNG draw, same-tick competition or death case is involved: the packet changes only the step length and where it is
+recorded. The step adds `tick_ms` before the tick counter moves, every step, in every phase (lobby, active, ended).
+
+## 3a. Established facts (oracle author, 2026-11-19)
+- Today: `constants.rs:62-63` (`TICK_RATE: u32 = 20`, `TICK_MS: f64 = 1000.0 / TICK_RATE as f64`), `sim.rs:525`
+  (`self.w.server_time += TICK_MS`), `state.rs:50-52` (`history_cap()`), `state.rs:68` (const assert),
+  `state.rs:136` (trim cutoff), `checkpoint.rs:486-493` (clock bound `u32::MAX * TICK_MS`), `checkpoint.rs:821`
+  (rewind samples at least one tick apart), `systems/arena_validation.rs:45,63,69,111-113,166,198`.
+- Construction: `Sim::try_new` (`sim.rs:98`) returns `Result<Sim, &'static str>` and already refuses configs through
+  `terrain::validate_config`, `abilities::validate_config`, `arena_rules::validate_config` (`sim.rs:136-138`); a
+  `tick_ms` outside {50, 25} is refused there (and `Sim::new`/`reset_active` panic through it). `Sim::restore` must
+  refuse it too (a checkpoint is the other way a config enters).
+- Digest pattern: `hash.rs:21-32` documents the three config fields whose default folds no word
+  (`mob_spacing`, `regen_in_combat`, `camp_buffs`; `frost_wish` follows them, `statics.rs:263-300`): the default
+  serializes as a unit. In JSON a unit is `null`, so those fields DO write a key (`"mob_spacing": null`) to a checkpoint.
+  The brief's "no key to a checkpoint when it is 50" and "the pattern hash.rs already uses" therefore disagree; the
+  oracle accepts either (at 50 the checkpoint's `tick_ms` is absent or `null`), and the digest guard is what pins the
+  hash.
+- **Trap: renaming the registry constants moves the content hash.** `TICK_RATE` and `TICK_MS` are rows 0 and 1 of the
+  `content!` registry (`constants.rs:60-63`), and `content_hash` folds each row's name
+  (`tests/content.rs` `removing_renaming_or_reordering_a_row_perturbs_the_hash`). Renaming them to
+  `LEGACY_TICK_*` changes `GOLDEN_CONTENT_HASH 0x7a54_2a13_187f_034c` (`tests/content.rs:568`,
+  `tests/frost_wall_content.rs:93`), `parity/abilities/hash-tape.json`, `protocol/fixtures/archetypes_v1.json` and the
+  Unity `BakedContent.cs`. Keep the registry rows' names; add `LEGACY_TICK_MS`/`LEGACY_TICK_RATE` as plain `pub const`
+  aliases outside the registry (or the reverse: keep the rows and deprecate nothing in the registry). Coordinator to
+  confirm the brief's section 5 wording.
+- `item_view.rs` has no tick-sized ring: its only `TICK_MS` use is a test loop (`item_view.rs:1279`). The vision trail
+  and update periods counted in ticks are in `vision.rs:18,21,291,403,1035` (outside this write scope; P-TICK-1b).
+
+## 3b. Existing tests that pin what this packet touches
+- `crates/rh-sim/tests/content.rs:559-568` `hash_golden`: content hash `0x7a54_2a13_187f_034c` (see the trap above).
+- `crates/rh-sim/tests/content.rs:349` `MISSING_AT_BASE` lists `TICK_RATE` by name.
+- `crates/rh-sim/tests/frost_wall_content.rs:93`: the same content hash.
+- `crates/rh-sim/src/state.rs:1301-1362` `the_history_ring_is_the_trimmed_vec_it_replaced`,
+  `the_ring_holds_the_whole_rewind_window`: at 50 ms the ring holds `(MAX_REWIND_MS + TICK_MS) / TICK_MS + 1` samples and
+  `len < history_cap()`; still true when the cap grows for 25 ms.
+- `crates/rh-sim/src/checkpoint.rs:1352-1356`: the clock bound `u32::MAX * TICK_MS` is refused above and accepted at.
+- `crates/rh-sim/tests/hash_coverage.rs`: every serialized leaf changes the state hash, with the config-field pattern at
+  lines 635-769 (`mob_spacing`, `regen_in_combat`, `frost_wish`, `camp_buffs`); a non-default `tick_ms` belongs there.
+- `crates/rh-sim/src/hash.rs:539-553` `the_statics_digest_sees_config_map_and_spawns`.
+- Many tests read `TICK_MS` directly (about 40 test files under `crates/rh-sim`, `rh-policy`, `rh-server`); the
+  deprecated alias keeps them building. No conflict found with the oracle below.
 
 ## 4. New paths
 - tests beside the code they cover
