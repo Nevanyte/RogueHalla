@@ -142,6 +142,9 @@ Legacy doubts (flag, do not fix; a behaviour fix is its own packet):
     `gambler_doubles_about_eighteen_percent_and_halves_about_twelve` (20000 entries, 1.5 points; tells 18/12 from 15/15),
     `the_fold_reads_the_rework_numbers` (Committed row 1.22, Boom fold and outgoing row 2.6 vs 2.5, Machine Gun 0.55,
     Glass Cannon max health ratio, Arcane Overload 1.5 vs 2.0): each as Rework vs Legacy worlds.
+- `crates/rh-sim/tests/augment_rules.rs` (amended, `oracle-amend:`; items 1 and 2 below)
+- `client-unity/UnityProject/Assets/Tests/Editor/BuildDrawerEditModeTests.cs` (amended, `oracle-amend:`; item 3 below)
+- `docs/backlog/packets/P-AUG-CONTENT-1.md` (this packet)
 - `crates/rh-sim/src/cards/tuning.rs`: ONE `mod` line (`#[path = "rework_content_tests.rs"] mod rework_content_tests;`) is in
   the `stub:` commit, not an oracle edit. (The new file is added in the `oracle:` commit, so the `stub:` commit alone does
   not build its tests.)
