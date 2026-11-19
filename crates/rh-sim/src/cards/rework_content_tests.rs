@@ -212,31 +212,33 @@ fn changed() -> Vec<(CardId, Vec<CardRow>, &'static str)> {
 
 /// The registry rows this packet appends (name, value), in the appended order: the Appendix A numbers. The elite helper
 /// share (decision 7, `REWORK_ELITE_SHARE_STACKS` = 12, a `u32` row) follows them.
-const REGISTERED: &[(&str, f64)] = &[
-    ("REWORK_TANK_ENGINE_PER", 1.5),
-    ("REWORK_TANK_ENGINE_CAP", 350.0),
-    ("REWORK_PLANT_FEET_BONUS", 0.35),
-    ("REWORK_SLOW_BURN_DOT", 0.85),
-    ("REWORK_POCKET_SAND_SLOW", 0.4),
-    ("REWORK_POCKET_SAND_MS", 1500.0),
-    ("REWORK_OVERKILL_RADIUS", 260.0),
-    ("REWORK_THIRD_TIME_EXTRA", 1.5),
-    ("REWORK_SPIKED_SHELL_SHARE", 0.2),
-    ("REWORK_SIPHON_SHARE", 0.25),
-    ("REWORK_HEMORRHAGE_PER", 0.12),
-    ("REWORK_SECOND_WIND_BELOW", 0.3),
-    ("REWORK_SECOND_WIND_HEAL", 0.25),
-    ("REWORK_GAMBLER_UP_CHANCE", 0.18),
-    ("REWORK_GAMBLER_DOWN_CHANCE", 0.12),
-    ("REWORK_COMMITTED_DAMAGE", 0.22),
-    ("REWORK_GLASS_CANNON_MAX_HP", -0.22),
-    ("REWORK_MACHINE_GUN_HIT", 0.55),
-    ("REWORK_FISTS_ATTACK_SPEED", 0.5),
-    ("REWORK_BOOM_HIT", 2.6),
-    ("REWORK_OUTGOING_ROW_CAP", 2.6),
-    ("REWORK_VAMPIRIC_LIFESTEAL", 0.18),
-    ("REWORK_ARCANE_OVERLOAD_WISH_COOLDOWN", 1.5),
-];
+fn registered_rows() -> Vec<(&'static str, f64)> {
+    vec![
+        ("REWORK_TANK_ENGINE_PER", 1.5),
+        ("REWORK_TANK_ENGINE_CAP", 350.0),
+        ("REWORK_PLANT_FEET_BONUS", 0.35),
+        ("REWORK_SLOW_BURN_DOT", 0.85),
+        ("REWORK_POCKET_SAND_SLOW", 0.4),
+        ("REWORK_POCKET_SAND_MS", 1500.0),
+        ("REWORK_OVERKILL_RADIUS", 260.0),
+        ("REWORK_THIRD_TIME_EXTRA", 1.5),
+        ("REWORK_SPIKED_SHELL_SHARE", 0.2),
+        ("REWORK_SIPHON_SHARE", 0.25),
+        ("REWORK_HEMORRHAGE_PER", 0.12),
+        ("REWORK_SECOND_WIND_BELOW", 0.3),
+        ("REWORK_SECOND_WIND_HEAL", 0.25),
+        ("REWORK_GAMBLER_UP_CHANCE", 0.18),
+        ("REWORK_GAMBLER_DOWN_CHANCE", 0.12),
+        ("REWORK_COMMITTED_DAMAGE", 0.22),
+        ("REWORK_GLASS_CANNON_MAX_HP", -0.22),
+        ("REWORK_MACHINE_GUN_HIT", 0.55),
+        ("REWORK_FISTS_ATTACK_SPEED", 0.5),
+        ("REWORK_BOOM_HIT", 2.6),
+        ("REWORK_OUTGOING_ROW_CAP", 2.6),
+        ("REWORK_VAMPIRIC_LIFESTEAL", 0.18),
+        ("REWORK_ARCANE_OVERLOAD_WISH_COOLDOWN", 1.5),
+    ]
+}
 
 fn registered(name: &str) -> Option<ContentVal> {
     REGISTRY.iter().find(|e| e.name == name).map(|e| e.val)
@@ -304,7 +306,8 @@ fn rework_named_numbers_are_the_augment_tuning_numbers() {
 /// in the listed order, and the elite helper share (decision 7) is registered at 12.
 #[test]
 fn every_changed_number_is_a_hashed_rework_registry_row() {
-    for (name, want) in REGISTERED {
+    let rows = registered_rows();
+    for (name, want) in &rows {
         match registered(name) {
             Some(ContentVal::F64(x)) => assert_eq!(x, *want, "{name}"),
             other => panic!("{name}: not registered as an f64 row ({other:?})"),
@@ -317,7 +320,7 @@ fn every_changed_number_is_a_hashed_rework_registry_row() {
     );
     // Appended at the end, in order, never reordered: the last rows of the registry are exactly these names.
     let names: Vec<&str> = REGISTRY.iter().map(|e| e.name).collect();
-    let tail: Vec<&str> = REGISTERED
+    let tail: Vec<&str> = rows
         .iter()
         .map(|(n, _)| *n)
         .chain(["REWORK_ELITE_SHARE_STACKS"])
@@ -482,8 +485,8 @@ fn gambler_doubles_about_eighteen_percent_and_halves_about_twelve() {
     ] {
         let sim = world(augments);
         let (mut ups, mut downs) = (0u32, 0u32);
-        const N: u32 = 20_000;
-        for index in 0..N {
+        let total = 20_000u32;
+        for index in 0..total {
             match crate::cards::gambler_factor(&sim.k, &sim.w, PlayerId(1), PlayerId(2), index) {
                 2.0 => ups += 1,
                 0.5 => downs += 1,
@@ -491,8 +494,8 @@ fn gambler_doubles_about_eighteen_percent_and_halves_about_twelve() {
             }
         }
         let (u, d) = (
-            f64::from(ups) / f64::from(N),
-            f64::from(downs) / f64::from(N),
+            f64::from(ups) / f64::from(total),
+            f64::from(downs) / f64::from(total),
         );
         assert!(
             (u - up).abs() < 0.015,
