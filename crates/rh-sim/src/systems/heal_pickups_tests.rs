@@ -145,7 +145,11 @@ fn the_rule_numbers_are_the_lane_defaults() {
     assert_eq!(DEFINITION.respawn_ms, 30_000.0, "30 s, the owner's dial");
     assert_eq!(DEFINITION.reach, 20.0, "a 12 u body plus 8 u");
     // A body touches at most two pickups (they are a tile apart) and none from the exact cluster centre.
-    assert!(DEFINITION.reach < TILE && DEFINITION.reach < TILE * std::f64::consts::FRAC_1_SQRT_2);
+    const {
+        assert!(
+            DEFINITION.reach < TILE && DEFINITION.reach < TILE * std::f64::consts::FRAC_1_SQRT_2
+        )
+    };
 }
 
 /// Four pickups on the grand map, on open floor around the coliseum centre, in NW, NE, SW, SE order; none on a legacy
