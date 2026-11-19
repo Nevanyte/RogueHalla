@@ -199,7 +199,15 @@ pub(crate) fn on_mob_killed(hx: &mut crate::hooks::Hx, args: &crate::hooks::Hook
                     .is_some_and(|p| p.standing() && near_camp(k, camp, p.pos()))
             })
             .collect();
-        drop_augment_in(k.cards, &mut *hx.w, spot, Some(camp as u16), *zone, true, &eligible);
+        drop_augment_in(
+            k.cards,
+            &mut *hx.w,
+            spot,
+            Some(camp as u16),
+            *zone,
+            true,
+            &eligible,
+        );
     } else {
         // Source: an elite without a camp (a training/dummy death) drops at its body with no eligible pickers, so the
         // conditional pool is empty and no card is held by all.

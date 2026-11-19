@@ -564,7 +564,15 @@ mod wishful_tests {
         let now = 5000.;
         let mut st = stocks(now);
         let mut trims = Vec::new();
-        wishful_thinking(crate::cards::Tuning::legacy().numbers(), 1, 1000., now, &mut st, cast, &mut trims);
+        wishful_thinking(
+            crate::cards::Tuning::legacy().numbers(),
+            1,
+            1000.,
+            now,
+            &mut st,
+            cast,
+            &mut trims,
+        );
         // floorAt = max(now, cast.at + 0.5 * cooldown) = 5000, clockEnd 8000: cut 1000.
         assert_eq!(st.wish_ready_at, now + 2000.);
         assert_eq!(trims.len(), 1);
@@ -574,7 +582,15 @@ mod wishful_tests {
             at: now,
             ms: crate::constants::WISHFUL_BUDGET_MS,
         }];
-        wishful_thinking(crate::cards::Tuning::legacy().numbers(), 1, 1000., now, &mut st2, cast, &mut trims2);
+        wishful_thinking(
+            crate::cards::Tuning::legacy().numbers(),
+            1,
+            1000.,
+            now,
+            &mut st2,
+            cast,
+            &mut trims2,
+        );
         assert_eq!(st2.wish_ready_at, now + 3000.);
         // Floor: only 200 ms above the floor can be cut.
         let cast_late = Some(WishSpend {
@@ -587,7 +603,15 @@ mod wishful_tests {
             ..Default::default()
         };
         let mut trims3 = Vec::new();
-        wishful_thinking(crate::cards::Tuning::legacy().numbers(), 5, 1000., now, &mut st3, cast_late, &mut trims3);
+        wishful_thinking(
+            crate::cards::Tuning::legacy().numbers(),
+            5,
+            1000.,
+            now,
+            &mut st3,
+            cast_late,
+            &mut trims3,
+        );
         assert_eq!(st3.wish_ready_at, now);
         // An expired trim leaves the window.
         let mut st4 = stocks(now);
@@ -595,7 +619,15 @@ mod wishful_tests {
             at: now - crate::constants::WISHFUL_WINDOW_MS,
             ms: crate::constants::WISHFUL_BUDGET_MS,
         }];
-        wishful_thinking(crate::cards::Tuning::legacy().numbers(), 1, 1000., now, &mut st4, cast, &mut trims4);
+        wishful_thinking(
+            crate::cards::Tuning::legacy().numbers(),
+            1,
+            1000.,
+            now,
+            &mut st4,
+            cast,
+            &mut trims4,
+        );
         assert_eq!(st4.wish_ready_at, now + 2000.);
         assert_eq!(trims4.len(), 1);
     }

@@ -399,11 +399,17 @@ mod elite_rule_tests {
             );
             let mut cp = serde_json::to_value(&sim).unwrap();
             assert!(cp["world"]["mob_runtime"].is_object(), "{elites:?}");
-            assert_eq!(cp["world"]["mob_runtime"]["elites"], serde_json::Value::Null);
+            assert_eq!(
+                cp["world"]["mob_runtime"]["elites"],
+                serde_json::Value::Null
+            );
             assert!(Sim::restore(&cp).is_ok(), "{elites:?}: the produced world");
             cp["world"]["mob_runtime"]["elites"] = serde_json::json!("rework");
             let err = Sim::restore(&cp).expect_err("a runtime rule the config does not store");
-            assert!(format!("{err:?}").contains("elite rule"), "{elites:?}: {err:?}");
+            assert!(
+                format!("{err:?}").contains("elite rule"),
+                "{elites:?}: {err:?}"
+            );
         }
     }
 }

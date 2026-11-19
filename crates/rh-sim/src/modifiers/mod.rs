@@ -884,7 +884,10 @@ pub(crate) fn maximum_packet(tuning: &crate::cards::Tuning, weapon: crate::Weapo
             let f = crate::content::paced(id);
             let base_hp = crate::content::faction(id).hp;
             let fold_of = |build: &crate::cards::Build| {
-                PacketParts::of(&fold_build(tuning, build, &farm, base_hp, id, Some(&holds)), base_hp)
+                PacketParts::of(
+                    &fold_build(tuning, build, &farm, base_hp, id, Some(&holds)),
+                    base_hp,
+                )
             };
             let base = fold_of(&supported);
             let parts = if rework {
@@ -1039,7 +1042,10 @@ mod race_tests {
     fn the_race_multiplier_is_the_inverse_hp_fraction_capped() {
         assert!((hp_race_mult(crate::cards::Tuning::legacy(), 1.0, 2.5) - 1.0).abs() < 1e-12);
         assert!((hp_race_mult(crate::cards::Tuning::legacy(), 0.5, 2.5) - 2.0).abs() < 1e-12);
-        assert!((hp_race_mult(crate::cards::Tuning::legacy(), 0.2, 2.5) - 2.5).abs() < 1e-12, "capped");
+        assert!(
+            (hp_race_mult(crate::cards::Tuning::legacy(), 0.2, 2.5) - 2.5).abs() < 1e-12,
+            "capped"
+        );
         assert!((hp_race_mult(crate::cards::Tuning::legacy(), 0.8, 1.2) - 1.2).abs() < 1e-12);
     }
 }

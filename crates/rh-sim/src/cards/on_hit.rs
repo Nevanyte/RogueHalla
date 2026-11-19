@@ -245,12 +245,7 @@ fn run_on_hit(
             ) + 1)
                 .checked_rem(numbers.third_time_every)
                 == Some(0);
-        1. + f64::from(u8::from(unarmed))
-            + if third {
-                numbers.third_time_extra
-            } else {
-                0.
-            }
+        1. + f64::from(u8::from(unarmed)) + if third { numbers.third_time_extra } else { 0. }
     });
     let k = weapon.map_or(
         crate::constants::PLAIN_ON_HIT_POWER,
