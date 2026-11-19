@@ -86,6 +86,11 @@ read the rule from config, do not add a hash tag), P-AUG-RULES-1 packet.
 
 ## Oracle files (read-only for implementers)
 - `crates/rh-sim/src/systems/mob_life/share_tests.rs`
+- `crates/rh-sim/tests/augment_rules.rs` (oracle-amend, for the owner: `legacy_and_equal_elite_rework_play_the_same_match`
+  asserted that a Rework-elites world equals the Legacy one. Under this packet an elite kill deliberately differs by the
+  helper share, so on a seed where an elite dies it asserts the share per player and per stat through `Farm::count`, and
+  compares the worlds with only `world.players[*].farm.counts` and `world.players[*].core.modifiers.farm` masked; a seed
+  with no elite death keeps the exact comparison, and a floor requires at least one elite-kill seed.)
 
 Tests and what they pin. They run on a real seed1 map (Pve, three seated players) and build every elite `Award` from the
 camp's real elite mob, so its `mob_type` is the elite type; the expected stat is the camp's buff else `CampRoster::mob_type`.
