@@ -466,7 +466,7 @@ pub fn run(args: &[String]) -> Result<Output, String> {
         value(n)?.map_or(Ok(d), |v| v.parse().map_err(|_| format!("bad {n}")))
     };
     let seed0 = num("--seed", 1)?;
-    let seeds = num("--seeds", if quick { 1 } else { 10 })?;
+    let seeds = num("--seeds", 1)?;
     let max_ticks = u32::try_from(num("--max-ticks", 1800)?).map_err(|_| "bad --max-ticks")?;
     let (source, path) = match value("--builds")? {
         Some(p) => (p.to_string(), root_path(p)),

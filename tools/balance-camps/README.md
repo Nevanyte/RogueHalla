@@ -41,37 +41,51 @@ Stdout is one JSON object; same seed and flags give identical bytes. It exits 0 
 
 ## Elite mode (packet P-ELITE-BENCH-1)
 
-`camp_bench --elite` puts one fighter carrying a sampled minute-5 build against each of the 10 elite camps (2 per
-zone) for every faction x weapon x seed, under `SimConfig::live_content()` (augments and elites `Rework`), and prints a
-JSON report on stdout and a death-rate table on stderr (per camp and overall: samples, deaths, rate; the owner target is
-10-20% for an average minute-5 build). It needs the feature: a build without it prints that and exits 2.
+`camp_bench --elite` puts one fighter against each of the 10 elite camps (2 per zone) for every faction x weapon x seed,
+under `SimConfig::live_content()` (augments and elites `Rework`), once per build **column**, and prints a JSON report on
+stdout and a death-rate table on stderr (per camp and overall: samples, then one death rate per column; the owner target
+is 10-20% for an average minute-5 build). It needs the feature: a build without it prints that and exits 2.
 
 ```
-cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --elite --seed 1 --seeds 10 > elite.json 2> elite-table.txt
+cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --elite --seed 1 --seeds 1 > elite.json 2> elite-table.txt
 cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --elite --quick     # Frost,Holy x Sword,Wand x 2 elites x 1 seed
 cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --sample-builds --seeds 1..81 > tools/balance-camps/minute5_builds.json
 ```
 
-Flags: `--seed S` (first seed, default 1; it is both the map-roll seed and the world seed), `--seeds N` (default 10; quick
-1), `--max-ticks N` (1800), `--builds PATH` (default the checked-in sample), `--control-bare` (no build: a negative
-control). Cell order is faction, weapon, elite kind, seed; a seed that rolls no camp of that elite is listed in
-`skipped`. Cell `k` (counting skipped cells) uses build `k % builds`. The build is applied at tick 0 through
-`rh_sim::trusted_build::apply` and the fighter walks 4-10 tiles to the camp, so Plant Your Feet's stillness clock is
-reset by the walk and its opening swing is not free (`start_dist`, `first_hit_tick` are reported).
+Flags: `--seed S` (first seed, default 1; it is both the map-roll seed and the world seed), `--seeds N` (default 1),
+`--max-ticks N` (1800), `--builds PATH` (default the checked-in bot sample). One seed of the full run is 1500 fights
+(5 factions x 6 weapons x 10 elites x 5 columns) and takes about 7.5 CPU minutes in release (15 minutes wall on a busy
+machine), so the default is one seed (30 samples per camp and column); more seeds scale linearly. A seed that rolls no
+camp of an elite is listed in `skipped`.
 
-Config overrides on top of `live_content()`, because a lone fighter needs them: `lifecycle` Off (the source-arena match
-rules would end or reshape a one-player match), `regen` off and `quests` off (as the non-elite bench, so no passive
-healing or quest reward mixes in), `min_players` 1 and a short lobby. Everything else is the live world.
+### The banked-camp model (why the reference is not the bot sample)
+
+The reference build follows the design workbook (`Augment_Value`, assumption `banked`): 12 normal camps already banked at
+minute 5, one camp = 12 stacks of the stat its kills pay (`camp_buffs` under `Themed`, else the camp's own mob type).
+`banked_camp_build(probe, seed, N)` draws N non-elite camps of the world with replacement and merges stacks by stat; no
+cards, no boosts. Columns: `banked_0` (the bare fighter, the negative control), `banked_6`, `banked_12` (the
+**reference**: `per_camp` and `overall` report its rate as their own), `banked_18`, and `bot_sample`. Every column fights
+the same camp from the same start with the same seed. Each column carries a Wilson 95% interval (`ci95`).
+
+Why not just the bots' minute-5 builds: measured over seeds 1..80, all 56 sampled builds hold 0 cards (cards come only
+from elite chests, so a first elite fight has none) and 39 of 56 hold no stacks. Bots bank far fewer camps than the
+workbook player, so `bot_sample` is the bots' reality and `banked_12` the design target, and they are not comparable. In
+the quick run the first sample builds are empty, so `bot_sample` equals `banked_0` there.
+
+The build is applied at tick 0 through `rh_sim::trusted_build::apply` and the fighter walks 4-10 tiles to the camp
+(`start_dist`, `first_hit_tick` are reported), so Plant Your Feet's stillness clock is reset by the walk.
 
 `minute5_builds.json` is written only by `--sample-builds` (never hand-edited): 8 `HumanBot` seats as
 `examples/source_soak.rs`, `live_content()`, every bot still standing at tick 6000 contributes its cards, boosts and farm
 stacks. `ended_early` lists the seeds whose match ended before minute 5; they contribute nothing.
 
-Caveats:
+Config overrides on top of `live_content()`: `lifecycle: ArenaMode::Off` (needed: `Sim::reset_active` refuses the Source
+lifecycle), `min_players` 1 and a short lobby (a lone fighter), `regen` off and `quests` off (as the non-elite bench, so
+no passive healing or quest reward mixes in). Everything else is the live world.
 
-* The fighter is the scripted `Brawler`, which may skew death rates (see above).
-* Bots misvalue the reworked cards until P-AUG-BOTS-1, so the builds are "what bots pick today", not what an
-  owner-directed player would build.
-* Survivorship: the sample holds only players alive in matches that reached minute 5 (most matches end earlier), so the
-  builds are those of the survivors.
+### Caveats
+
+* The fighter is the scripted `Brawler` (swings from 80 u whatever the weapon): rates are "Brawler with weapon W".
+* Bots misvalue the reworked cards until P-AUG-BOTS-1, so the `bot_sample` builds are "what bots pick today".
+* Survivorship in the bot sample: only about 3 in 8 matches reach minute 5, and builds are those of the players standing.
 * Before P-ELITE-TUNE-1 the elite numbers equal legacy: the table is a baseline, not a result.
