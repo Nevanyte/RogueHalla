@@ -587,6 +587,8 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
 mod mob_lifecycle_tests;
 #[cfg(test)]
 mod pay_tests;
+#[cfg(test)]
+mod share_tests;
 
 pub(crate) fn reap(cx: &mut Cx) {
     if !mob_ai::enabled(cx.w) {
