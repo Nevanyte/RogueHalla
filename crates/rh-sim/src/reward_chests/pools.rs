@@ -26,8 +26,28 @@ pub const INTERACTIVE: [CardId; 14] = [
 
 /// P-AUG-POOL-1: the interactive augments a `Rework` world's chest may offer: `INTERACTIVE` plus Committed, Fists of
 /// Fury, Machine Gun, Here Comes the Boom and A Race to 0 (plan of record `docs/backlog/AUGMENT_ELITE_REWORK.md`).
-/// STUB: still `INTERACTIVE`; the implementer lists the 19 ids.
-pub static REWORK_POOL: &[CardId] = &INTERACTIVE;
+/// Source order: the 14 of `INTERACTIVE`, then the five. A chest walks `CardId::ALL` (catalog order), not this order.
+pub static REWORK_POOL: &[CardId] = &[
+    CardId::SlowBurn,
+    CardId::Overkill,
+    CardId::TankEngine,
+    CardId::PocketSand,
+    CardId::Gambler,
+    CardId::ThirdTimesTheCharm,
+    CardId::EyeForAnEye,
+    CardId::BestOffense,
+    CardId::PlantYourFeet,
+    CardId::WishfulThinking,
+    CardId::Hemorrhage,
+    CardId::SpikedShell,
+    CardId::Siphon,
+    CardId::SecondWind,
+    CardId::Committed,
+    CardId::FistsOfFury,
+    CardId::MachineGun,
+    CardId::HereComesTheBoom,
+    CardId::RaceToZero,
+];
 
 /// P-AUG-POOL-1 (decision 5): who a pool entry may be offered to. `Faction(f)`: only when every eligible picker at the
 /// chest is faction `f` (and there is at least one picker).
@@ -42,6 +62,17 @@ pub enum Offer {
 pub struct Picker {
     pub build: Build,
     pub faction: FactionId,
+}
+
+impl Offer {
+    /// Decision 5: may this entry be offered to these eligible pickers? A `Faction(f)` entry needs at least one picker,
+    /// every one of them faction `f` (with no picker, e.g. a campless elite's chest, no faction card is offered).
+    pub fn admits(self, pickers: &[Picker]) -> bool {
+        match self {
+            Offer::Any => true,
+            Offer::Faction(f) => !pickers.is_empty() && pickers.iter().all(|p| p.faction == f),
+        }
+    }
 }
 
 pub const fn is_interactive(id: CardId) -> bool {

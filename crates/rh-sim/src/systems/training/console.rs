@@ -409,8 +409,12 @@ fn chest(
         .filter(|id| live_interactive(k.cards, *id))
         .collect();
     let ids: Vec<CardId> = if options.iter().all(|o| o.is_none()) {
-        let build = w.players[ix.slot()].build;
-        let pool = k.cards.augment_pool(&[build]);
+        // Legacy `trainChest`: the player is the one picker, through the drop's offer path (`k.cards.offer_pool`).
+        let p = &w.players[ix.slot()];
+        let pool = k.cards.offer_pool(&[reward_chests::Picker {
+            build: p.build,
+            faction: p.faction(),
+        }]);
         let mut draw = || w.reward_rng.next_f64();
         reward_chests::roll_with(&mut draw, &pool, false, None)
     } else {

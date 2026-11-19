@@ -51,6 +51,12 @@ pub struct Tuning {
     overrides: &'static [CardDef],
     /// The interactive augments a chest may offer (legacy `INTERACTIVE_AUGMENT_IDS`); P-AUG-POOL-1 gives `Rework` its own.
     pool: &'static [CardId],
+    /// P-AUG-POOL-1 (decision 5): the pool cards offered only to a chest whose eligible pickers are all one faction;
+    /// every other pool card is `Offer::Any`. Empty in both real tables until P-AUG-NATIVE-4.
+    faction_only: &'static [(CardId, crate::FactionId)],
+    /// P-AUG-POOL-1 (Appendix A "Eye for an Eye"): Eye for an Eye counts `REWORK_EYE_FOR_AN_EYE_WEIGHT` times in a
+    /// chest's draws when an eligible picker owns a returned-damage source. Off under `Legacy` (no weighting).
+    weight_eye_for_an_eye: bool,
 }
 
 /// Why an override row is refused: it changes more than row numbers and text.
@@ -82,6 +88,8 @@ static LEGACY: Tuning = Tuning {
     },
     overrides: &[],
     pool: &crate::reward_chests::INTERACTIVE,
+    faction_only: &[],
+    weight_eye_for_an_eye: false,
 };
 static REWORK: Tuning = Tuning {
     rule: AugmentRule::Rework,
@@ -100,7 +108,9 @@ static REWORK: Tuning = Tuning {
         third_time_extra: crate::constants::REWORK_THIRD_TIME_EXTRA,
     },
     overrides: super::rework_overrides::REWORK_OVERRIDES,
-    pool: &crate::reward_chests::INTERACTIVE,
+    pool: crate::reward_chests::REWORK_POOL,
+    faction_only: &[],
+    weight_eye_for_an_eye: true,
 };
 
 impl Tuning {
@@ -179,19 +189,56 @@ impl Tuning {
             })
             .collect()
     }
-    /// P-AUG-POOL-1: the offer rule of a pool card in this world (`None`: not in the pool). STUB: every pool card is
-    /// `Any`.
+    /// P-AUG-POOL-1: the offer rule of a pool card in this world (`None`: not in the pool).
     pub fn offer(&self, id: CardId) -> Option<crate::reward_chests::Offer> {
-        self.pool
-            .contains(&id)
-            .then_some(crate::reward_chests::Offer::Any)
+        use crate::reward_chests::Offer;
+        if !self.pool.contains(&id) {
+            return None;
+        }
+        Some(
+            self.faction_only
+                .iter()
+                .find(|(c, _)| *c == id)
+                .map_or(Offer::Any, |(_, f)| Offer::Faction(*f)),
+        )
     }
-    /// P-AUG-POOL-1: the cards a chest offers these eligible pickers in this world: [`Tuning::augment_pool`] filtered by
-    /// each entry's [`crate::reward_chests::Offer`], with Eye for an Eye weighted toward pickers who own a
-    /// returned-damage source (it may then appear more than once). STUB: the faction-blind, unweighted pool.
+    /// P-AUG-POOL-1: the cards a chest offers these eligible pickers in this world: [`Tuning::augment_pool`] (catalog
+    /// order) less the entries whose [`crate::reward_chests::Offer`] does not admit the pickers, then, when the table
+    /// weights it and an eligible picker owns a returned-damage source, Eye for an Eye repeated beside itself to count
+    /// `REWORK_EYE_FOR_AN_EYE_WEIGHT` times. The draw protocol is unchanged (`roll_with`: one tier draw and one index
+    /// draw per pick; its distinct-pick filter drops every copy once picked), so the weighting adds no draw. Under
+    /// `Legacy` this is exactly `augment_pool` of the pickers' builds.
     pub fn offer_pool(&self, pickers: &[crate::reward_chests::Picker]) -> Vec<CardId> {
         let builds: Vec<Build> = pickers.iter().map(|p| p.build).collect();
-        self.augment_pool(&builds)
+        let mut pool = self.augment_pool(&builds);
+        if !self.faction_only.is_empty() {
+            pool.retain(|id| self.offer(*id).is_some_and(|o| o.admits(pickers)));
+        }
+        if self.weight_eye_for_an_eye && pickers.iter().any(|p| self.owns_returned_damage(p)) {
+            if let Some(i) = pool.iter().position(|id| *id == CardId::EyeForAnEye) {
+                // A whole number of copies (the registered weight is 2: one extra).
+                let copies = crate::constants::REWORK_EYE_FOR_AN_EYE_WEIGHT as usize;
+                for _ in 1..copies {
+                    pool.insert(i, CardId::EyeForAnEye);
+                }
+            }
+        }
+        pool
+    }
+    /// P-AUG-POOL-1: does the picker own a returned-damage source, a card whose rows under this table (for its
+    /// faction) hold a `TriggerAction::Return` (today Spiked Shell; legacy `cardHooks.ts:128-146`)?
+    fn owns_returned_damage(&self, picker: &crate::reward_chests::Picker) -> bool {
+        picker.build.cards().any(|id| {
+            self.rows(id, picker.faction).iter().any(|row| {
+                matches!(
+                    row,
+                    CardRow::Trigger(super::TriggerRow {
+                        action: TriggerAction::Return { .. },
+                        ..
+                    })
+                )
+            })
+        })
     }
     /// Does the build hold a base card of this base stat (source `ownedBase`)?
     pub(crate) fn owns_base(&self, build: &Build, base: super::BaseStatId) -> bool {
@@ -210,22 +257,25 @@ impl Tuning {
             numbers,
             overrides,
             pool: &crate::reward_chests::INTERACTIVE,
+            faction_only: &[],
+            weight_eye_for_an_eye: false,
         })
     }
     /// P-AUG-POOL-1: a test table with its own pool and faction-only entries (`faction_only`: the cards whose offer is
-    /// `Faction(f)`; every other pool card is `Any`), the legacy numbers and no override. STUB: ignores `faction_only`.
+    /// `Faction(f)`; every other pool card is `Any`), the legacy numbers, no override and no Eye for an Eye weighting.
     #[cfg(test)]
     pub(crate) fn for_test_pool(
         rule: AugmentRule,
         pool: &'static [CardId],
         faction_only: &'static [(CardId, crate::FactionId)],
     ) -> Tuning {
-        let _ = faction_only;
         Tuning {
             rule,
             numbers: LEGACY.numbers,
             overrides: &[],
             pool,
+            faction_only,
+            weight_eye_for_an_eye: false,
         }
     }
 }

@@ -660,7 +660,7 @@ pub(crate) fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
     crate::abilities::checkpoint::validate(k, w)?;
     crate::systems::initial_loot::validate(k, w)?;
     crate::systems::potions::validate(w)?;
-    crate::reward_chests::validate_world(w, near)?;
+    crate::reward_chests::validate_world(w, k.cards.pool(), near)?;
     crate::terrain::validate(k, w, near)?;
     for e in &w.deferred.hits {
         if (e.execute && e.sig != Some(crate::factions::SignatureKind::Disease))
