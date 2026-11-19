@@ -521,6 +521,8 @@ impl OwnerView {
 pub(crate) mod checkpoint;
 mod effect_checkpoint;
 #[cfg(test)]
+mod frost_restore_tests;
+#[cfg(test)]
 mod owner_view_tests;
 #[cfg(test)]
 mod source_tests;
