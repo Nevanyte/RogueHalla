@@ -47,16 +47,49 @@ stdout and a death-rate table on stderr (per camp and overall: samples, then one
 is 10-20% for an average minute-5 build). It needs the feature: a build without it prints that and exits 2.
 
 ```
-cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --elite --seed 1 --seeds 1 > elite.json 2> elite-table.txt
+cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --elite --seed 1 --fighter both > elite.json 2> elite-table.txt   # the owner command: three seeds, all cores
 cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --elite --quick     # Frost,Holy x Sword,Wand x 2 elites x 1 seed
 cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --sample-builds --seeds 1..81 > tools/balance-camps/minute5_builds.json
 ```
 
-Flags: `--seed S` (first seed, default 1; it is both the map-roll seed and the world seed), `--seeds N` (default 1),
-`--max-ticks N` (1800), `--builds PATH` (default the checked-in bot sample). One seed of the full run is 1500 fights
-(5 factions x 6 weapons x 10 elites x 5 columns) and takes about 7.5 CPU minutes in release (15 minutes wall on a busy
-machine), so the default is one seed (30 samples per camp and column); more seeds scale linearly. A seed that rolls no
-camp of an elite is listed in `skipped`.
+Flags: `--seed S` (first seed, default 1; it is both the map-roll seed and the world seed), `--seeds N` (default 3 for a
+full run, 1 for `--quick`), `--max-ticks N` (1800), `--builds PATH` (default the checked-in bot sample),
+`--fighter brawler|duelist|both` (default `brawler`, P-ELITE-BENCH-1's run; the owner command passes `both`), and
+`--kind ID[,ID]` and `--weapon W[,W]` (restrict the elite kinds and the weapons, also under `--quick`; unknown values
+are an error), and `--jobs N` (default all cores): independent fights run on N std threads and the output is byte-identical for any N.
+One seed with one fighter is 1500 fights (5 factions x 6 weapons x 10 elites x 5 columns); `--fighter both` doubles it.
+A seed that rolls no camp of an elite is listed in `skipped`.
+
+### The fighters
+
+* `duelist` (the **reference**): a bench-local scripted policy (`src/elite_bench/duelist.rs`) that acts only through
+  `PublicCommand`s (validate + `Sim::submit`). It targets only the camp's members (mob type in the camp's types, within
+  800 u of the camp centre, nearest first; with none visible it walks to the centre). Melee weapons close to 0.9 x reach
+  and swing; ranged weapons walk to 0.8 x range and then stand and shoot: they never step back (see the give-up rule below). It casts its Wish when it has a charge, the ready time has passed and no cast is
+  running, and the target is valid (unit ability: within its range; self: a member within 250 u or the fighter lost hp in
+  the last 2 s; point or placed: within 400 u).
+  The Wish is locked for the first 45 s (about tick 900), so short fights never cast. It never retreats and does not read
+  dodges.
+* `brawler`: the upper bound. P-ELITE-BENCH-1's `Brawler` (walk to the nearest actor, swing from 80 u whatever the
+  weapon, no abilities, no heals). It moves into `upper_bound` under `--fighter both`.
+
+The report's `per_camp` and `overall` describe the reference fighter's `banked_12` column (`reference_fighter`,
+`reference`); the Brawler's are under `upper_bound`. A cell carries `fighter`, `engaged`, `actions` (commands submitted by
+kind), `attack_ticks`, `attack_dist_mean` (mean distance to the nearest living member on ticks it attacked) and `resets`
+(times a living member of the camp left fight mode while the fighter lived: a give-up). The top-level `by_weapon` block
+holds the same column fields per fighter, weapon and column.
+
+### Outcome accounting
+
+Each column reports `samples`, `engaged`, `deaths` (died), `cleared`, `truncated` and `no_engage`. A fight is **engaged**
+when the fighter dealt damage to, or took damage from, a member of the target camp (read from the hit, ability, signature
+and bleed events). A fight that is not engaged is `no_engage` whatever else happened; the Brawler's fights all count as
+engaged (a Brawler that never arrives is `truncated`). `death_rate` = died / engaged and `clear_rate` = cleared / engaged,
+with `ci95` the Wilson interval of died / engaged. `decided` = died + cleared, `decided_rate` = died / decided with
+`decided_ci95`: the rate with the truncated fights taken out, printed as `decided <fighter> <column>:` lines, and per weapon
+as `weapon <fighter> <weapon> banked_12:` lines; all three are `null` when nothing engaged. The `ci95` spread is over
+faction x weapon x seed within the seeds run, with one camp placement per elite kind (the map is fixed; seeds vary the
+fight and the banked draw). The stderr table ends each fighter block with one `counts <fighter> <column>:` line.
 
 ### The banked-camp model (why the reference is not the bot sample)
 
@@ -83,9 +116,19 @@ Config overrides on top of `live_content()`: `lifecycle: ArenaMode::Off` (needed
 lifecycle), `min_players` 1 and a short lobby (a lone fighter), `regen` off and `quests` off (as the non-elite bench, so
 no passive healing or quest reward mixes in). Everything else is the live world.
 
+### The give-up rule
+
+A fighting mob gives up after 20 s without hitting a player (`MOB_GIVE_UP_SECONDS`, `mob_ai.rs`) and in Return mode
+regenerates to full in 2 s. A ranged fighter that steps back to stay out of reach therefore resets the camp and the fight
+ends `truncated`. That is legacy behaviour, not a sim defect, so the duelist stands and shoots; `resets` shows when it
+still happens.
+
 ### Caveats
 
-* The fighter is the scripted `Brawler` (swings from 80 u whatever the weapon): rates are "Brawler with weapon W".
+* The Brawler is an **upper bound** (no abilities, no kiting, swings from 80 u). The duelist is nearer to a player but
+  never retreats and does not read dodges, so its rates remain biased upward too. A ranged duelist kites and so
+  `truncated` more often (a truncated fight is a non-death): ranged rows can understate deaths, which is why truncated
+  and `no_engage` fights are counted, not hidden.
 * Bots misvalue the reworked cards until P-AUG-BOTS-1, so the `bot_sample` builds are "what bots pick today".
 * Survivorship in the bot sample: only about 3 in 8 matches reach minute 5, and builds are those of the players standing.
 * Before P-ELITE-TUNE-1 the elite numbers equal legacy: the table is a baseline, not a result.
