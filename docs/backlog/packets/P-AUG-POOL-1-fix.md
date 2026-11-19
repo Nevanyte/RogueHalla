@@ -155,6 +155,13 @@ What each oracle test pins (`chest_pool_content.rs`):
 - `which_rule_holds_which_table_is_folded` (**red at the stub**): swapping the two tables, or giving Legacy the Rework
   pool, moves the hash.
 
+At the stub, the four red tests fail on their first `assert_ne!` (e.g. "removing SlowBurn from the Legacy pool does not
+move content_hash"), both hashes `0xc890f52fd7ab4546`; the two green ones pass. A throwaway prototype (not committed:
+`visit_progression_content` delegating to a `visit_progression_content_with(tables, ..)` that appends, per table, the
+rule, pool length and ids, pair count and pairs, and the flag; the seam collecting those words into
+`content_hash_of_progression_words`) passed all six and `tests/progression_content.rs`; `tests/content.rs` then failed
+only `hash_golden` (the expected regold).
+
 ## 9. Validation commands
 - `cargo test -p rh-sim --test chest_pool_content`
 - `cargo test -p rh-sim --test content --test progression_content`
