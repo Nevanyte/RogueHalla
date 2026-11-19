@@ -272,13 +272,18 @@ pub struct SimConfig {
     pub frost_wish: FrostWish,
     /// The step length in milliseconds (ADR 0029): 50 (the default: legacy, parity, every capture) or 25.
     /// STUB (P-TICK-1a): not yet read, validated, serialized or hashed; the implementer replaces this.
-    #[serde(skip, default = "stub_tick_ms")]
+    #[serde(default = "stub_tick_ms", skip_serializing_if = "stub_never_written")]
     pub tick_ms: u32,
 }
 
 /// STUB (P-TICK-1a): the implementer replaces this.
 fn stub_tick_ms() -> u32 {
     50
+}
+
+/// STUB (P-TICK-1a): the field is never written (so it reaches no checkpoint and no hash); the implementer replaces this.
+fn stub_never_written(_: &u32) -> bool {
+    true
 }
 
 /// `SimConfig::frost_wish`. `Freeze` serializes as nothing (JSON `null`; the hashing serializer folds no word for a
