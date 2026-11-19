@@ -137,7 +137,7 @@ fn resolve_swings(cx: &mut Cx) {
                 }
                 // Plant Your Feet: an armed attack carries its bonus and spends the clock.
                 if crate::cards::plant_armed(&w.players[ai], w.server_time) {
-                    baked *= 1. + crate::constants::PLANT_FEET_BONUS;
+                    baked *= 1. + k.cards.numbers().plant_feet_bonus;
                     crate::cards::spend_plant(&mut w.players[ai], w.server_time);
                 }
                 if baked > 1. {

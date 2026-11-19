@@ -1092,18 +1092,15 @@ impl World {
                     .as_str(),
             )
             .expect("catalog type");
+            // The world's elite numbers (P-AUG-RULES-1: the rule its mob runtime stores).
+            let elites = crate::mob_runtime::EliteTuning::of_world(self);
             let k = if m.elite {
-                crate::constants::ELITE_K
+                elites.k
             } else {
                 crate::constants::MOB_K
             };
             f.hp = (f.hp * k)
-                * (crate::constants::MOB_HP_MULT
-                    * if m.elite {
-                        crate::constants::ELITE_HP_MULT
-                    } else {
-                        1.
-                    })
+                * (crate::constants::MOB_HP_MULT * if m.elite { elites.hp_mult } else { 1. })
                 * ty.role_def().hp_mult;
             f.hit = self.point_damage(ix, f.hit, false);
         }
@@ -1130,17 +1127,14 @@ impl World {
                 .as_str(),
         )
         .expect("catalog type");
+        // The world's elite numbers (P-AUG-RULES-1: the rule its mob runtime stores).
+        let elites = crate::mob_runtime::EliteTuning::of_world(self);
         let k = if m.elite {
-            crate::constants::ELITE_K
+            elites.k
         } else {
             crate::constants::MOB_K
         };
-        let d = crate::constants::MOB_DMG_MULT
-            * if m.elite {
-                crate::constants::ELITE_DMG_MULT
-            } else {
-                1.
-            };
+        let d = crate::constants::MOB_DMG_MULT * if m.elite { elites.dmg_mult } else { 1. };
         let zone = match ty.zone {
             crate::FactionId::Plague => crate::constants::MOB_PLAGUE_DAMAGE,
             crate::FactionId::Holy => crate::constants::MOB_HOLY_DAMAGE,

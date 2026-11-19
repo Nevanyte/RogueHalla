@@ -14,6 +14,9 @@ pub(crate) mod on_hit;
 pub(crate) mod on_hurt;
 pub(crate) mod on_overkilled;
 pub use catalog::*;
+mod rework_overrides;
+mod tuning;
+pub use tuning::{check_override, CardNumbers, ShapeError, Tuning};
 
 /// The source build's card count map (one byte per card in wire order). A newtype so the 80-byte array has Default and a
 /// strict 80-element serde form (serde arrays stop at 32).
@@ -123,10 +126,13 @@ pub(crate) fn gambler_factor(
             crate::private_rng::SaltPart::Num(index),
         ],
     );
-    if roll < crate::constants::GAMBLER_CHANCE {
-        crate::constants::GAMBLER_UP
-    } else if roll < 2. * crate::constants::GAMBLER_CHANCE {
-        crate::constants::GAMBLER_DOWN
+    // Legacy `roll < CHANCE` up, `roll < 2 * CHANCE` down: `CHANCE + CHANCE == 2 * CHANCE` exactly in f64, so the
+    // legacy table draws the same coin; the rework splits the two chances (plan decision 4).
+    let n = k.cards.numbers();
+    if roll < n.gambler_up_chance {
+        n.gambler_up
+    } else if roll < n.gambler_up_chance + n.gambler_down_chance {
+        n.gambler_down
     } else {
         1.
     }
@@ -212,8 +218,11 @@ pub struct Trim {
 }
 
 /// Source `wishfulThinking`: `n` hits shorten a cast Wish's cooldown by the owned hit-trigger's `ms` each, capped by the
-/// window budget and never below the cast-cooldown floor. Mutates the stock clocks and records the trim.
+/// window budget and never below the cast-cooldown floor. Mutates the stock clocks and records the trim. The window, budget
+/// and floor are the world's table's (`numbers`, from `k.cards`). The restore bound on the trims
+/// (`abilities/checkpoint.rs`) still reads the legacy constants: a table that changes them updates that bound too.
 pub fn wishful_thinking(
+    numbers: &CardNumbers,
     n: u32,
     ms: f64,
     now: f64,
@@ -234,11 +243,11 @@ pub fn wishful_thinking(
     if !(clock_end > now) {
         return;
     }
-    trims.retain(|t| now - t.at < crate::constants::WISHFUL_WINDOW_MS);
+    trims.retain(|t| now - t.at < numbers.wishful_window_ms);
     let used: f64 = trims.iter().map(|t| t.ms).sum();
-    let floor_at = (cast.at + crate::constants::WISHFUL_FLOOR_SHARE * cast.cooldown_ms).max(now);
+    let floor_at = (cast.at + numbers.wishful_floor_share * cast.cooldown_ms).max(now);
     let cut = (f64::from(n) * ms)
-        .min(crate::constants::WISHFUL_BUDGET_MS - used)
+        .min(numbers.wishful_budget_ms - used)
         .min(clock_end - floor_at);
     if !(cut > 0.) {
         return;
@@ -338,8 +347,11 @@ impl Build {
                 u32::from(*n) <= crate::stat_fold::default_definition().chest_boost_max_picks
             })
     }
+    /// The build's fold rows under the world's card table (an override row's numbers, never the catalog's, once a
+    /// table has one): the input of the stat fold and of its restore re-fold.
     pub(crate) fn rows(
         &self,
+        tuning: &Tuning,
         faction: crate::FactionId,
     ) -> ([EffectRow<'static>; MAX_FOLD_ROWS], usize) {
         let empty = EffectRow {
@@ -350,7 +362,7 @@ impl Build {
         let mut rows = [empty; MAX_FOLD_ROWS];
         let mut n = 0;
         for id in self.cards() {
-            let (_, def_rows) = id.definition().selection(faction);
+            let def_rows = tuning.rows(id, faction);
             // A base card stacks: its rows apply once per copy (source countIn); a unique card is held once.
             for _ in 0..self.count(id) {
                 for row in def_rows {
@@ -402,7 +414,7 @@ pub(crate) fn on_blocked(hx: &mut crate::hooks::Hx, args: &crate::hooks::HookArg
         let mut rows = [(TriggerAction::Cooldown { ms: 0. }, 0.); 4];
         let mut n = 0;
         for card in p.build.cards() {
-            for row in card.definition().rows {
+            for row in hx.k.cards.def(card).rows {
                 if let CardRow::Trigger(t) = row {
                     if t.on == TriggerOn::Block && n < rows.len() {
                         rows[n] = (t.action, t.arg);
@@ -555,7 +567,15 @@ mod wishful_tests {
         let now = 5000.;
         let mut st = stocks(now);
         let mut trims = Vec::new();
-        wishful_thinking(1, 1000., now, &mut st, cast, &mut trims);
+        wishful_thinking(
+            crate::cards::Tuning::legacy().numbers(),
+            1,
+            1000.,
+            now,
+            &mut st,
+            cast,
+            &mut trims,
+        );
         // floorAt = max(now, cast.at + 0.5 * cooldown) = 5000, clockEnd 8000: cut 1000.
         assert_eq!(st.wish_ready_at, now + 2000.);
         assert_eq!(trims.len(), 1);
@@ -565,7 +585,15 @@ mod wishful_tests {
             at: now,
             ms: crate::constants::WISHFUL_BUDGET_MS,
         }];
-        wishful_thinking(1, 1000., now, &mut st2, cast, &mut trims2);
+        wishful_thinking(
+            crate::cards::Tuning::legacy().numbers(),
+            1,
+            1000.,
+            now,
+            &mut st2,
+            cast,
+            &mut trims2,
+        );
         assert_eq!(st2.wish_ready_at, now + 3000.);
         // Floor: only 200 ms above the floor can be cut.
         let cast_late = Some(WishSpend {
@@ -578,7 +606,15 @@ mod wishful_tests {
             ..Default::default()
         };
         let mut trims3 = Vec::new();
-        wishful_thinking(5, 1000., now, &mut st3, cast_late, &mut trims3);
+        wishful_thinking(
+            crate::cards::Tuning::legacy().numbers(),
+            5,
+            1000.,
+            now,
+            &mut st3,
+            cast_late,
+            &mut trims3,
+        );
         assert_eq!(st3.wish_ready_at, now);
         // An expired trim leaves the window.
         let mut st4 = stocks(now);
@@ -586,7 +622,15 @@ mod wishful_tests {
             at: now - crate::constants::WISHFUL_WINDOW_MS,
             ms: crate::constants::WISHFUL_BUDGET_MS,
         }];
-        wishful_thinking(1, 1000., now, &mut st4, cast, &mut trims4);
+        wishful_thinking(
+            crate::cards::Tuning::legacy().numbers(),
+            1,
+            1000.,
+            now,
+            &mut st4,
+            cast,
+            &mut trims4,
+        );
         assert_eq!(st4.wish_ready_at, now + 2000.);
         assert_eq!(trims4.len(), 1);
     }

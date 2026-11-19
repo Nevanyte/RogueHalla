@@ -91,8 +91,31 @@ pub(crate) fn drop_stat(w: &mut World, at: Vec2) -> u32 {
     });
     insert(w, at, options, None)
 }
-/// Source chest drop: the interactive augment pool of the eligible pickers, rolled with the reward RNG (exact draw order).
+/// [`drop_augment_in`] under the legacy card table (the capture tests' form).
+#[cfg(test)]
 pub(crate) fn drop_augment(
+    w: &mut World,
+    at: Vec2,
+    camp: Option<u16>,
+    zone: crate::FactionId,
+    elite: bool,
+    eligible: &[PlayerId],
+) -> u32 {
+    drop_augment_in(
+        crate::cards::Tuning::legacy(),
+        w,
+        at,
+        camp,
+        zone,
+        elite,
+        eligible,
+    )
+}
+
+/// Source chest drop: the interactive augment pool of the eligible pickers under the world's card table (`k.cards`),
+/// rolled with the reward RNG (exact draw order).
+pub(crate) fn drop_augment_in(
+    tuning: &crate::cards::Tuning,
     w: &mut World,
     at: Vec2,
     camp: Option<u16>,
@@ -104,7 +127,7 @@ pub(crate) fn drop_augment(
         .iter()
         .filter_map(|pid| w.player(*pid).map(|p| p.build))
         .collect();
-    let pool = augment_pool(&pickers);
+    let pool = tuning.augment_pool(&pickers);
     let mut options = [None; 3];
     if !pool.is_empty() {
         let mut draw = || w.reward_rng.next_f64();
@@ -176,11 +199,19 @@ pub(crate) fn on_mob_killed(hx: &mut crate::hooks::Hx, args: &crate::hooks::Hook
                     .is_some_and(|p| p.standing() && near_camp(k, camp, p.pos()))
             })
             .collect();
-        drop_augment(&mut *hx.w, spot, Some(camp as u16), *zone, true, &eligible);
+        drop_augment_in(
+            k.cards,
+            &mut *hx.w,
+            spot,
+            Some(camp as u16),
+            *zone,
+            true,
+            &eligible,
+        );
     } else {
         // Source: an elite without a camp (a training/dummy death) drops at its body with no eligible pickers, so the
         // conditional pool is empty and no card is held by all.
-        drop_augment(&mut *hx.w, *at, None, *zone, true, &[]);
+        drop_augment_in(k.cards, &mut *hx.w, *at, None, *zone, true, &[]);
     }
 }
 
@@ -300,13 +331,13 @@ pub(crate) fn choose(
         match option {
             OptionId::Card(id) if w.players[pi].build.owns(id) => return Err(Refusal::Owned),
             OptionId::Card(id)
-                if id.definition().requires.is_some_and(|req| {
+                if k.cards.def(id).requires.is_some_and(|req| {
                     !crate::cards::CardId::ALL.iter().any(|base| {
-                        base.definition().base == Some(req) && w.players[pi].build.owns(*base)
+                        k.cards.def(*base).base == Some(req) && w.players[pi].build.owns(*base)
                     })
                 }) =>
             {
-                return Err(Refusal::Needs(id.definition().requires.expect("checked")));
+                return Err(Refusal::Needs(k.cards.def(id).requires.expect("checked")));
             }
             OptionId::Boost(id)
                 if u32::from(w.players[pi].build.boosts[id.index()])

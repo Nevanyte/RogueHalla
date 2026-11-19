@@ -32,7 +32,13 @@
 //! new config field must say in its own doc whether its default adds a word to the digest; one whose default adds none
 //! needs a non-default encoding of its own, checked in `tests/hash_coverage.rs` against every other such field.
 //!
-//! Two World exceptions. `MobRuntime::buffs` (P-CAMP-BUFF-THEMES-1, coordinator decision) writes its empty row as a unit
+//! The config's later silent switches (`frost_wish`, and P-AUG-RULES-1's `augments` and `elites`) follow the same rule:
+//! their non-default values fold the tags `"frost_wish=wall"`, `"augments=rework"` and `"elites=rework"`, which no other
+//! field writes (`tests/augment_rules.rs` checks all 64 combinations of the six silent switches).
+//!
+//! Three World exceptions. `MobRuntime::elites` (P-AUG-RULES-1) writes `EliteRule::Legacy` as a unit (no word), so every
+//! world whose elite numbers are legacy keeps its hash and checkpoint; it is safe because `check_world` admits exactly
+//! the one value `EliteTuning::stored_rule(config.elites)` per statics digest. `MobRuntime::buffs` (P-CAMP-BUFF-THEMES-1, coordinator decision) writes its empty row as a unit
 //! (no word) so every `CampBuffRule::Legacy` world keeps its hash and checkpoint; it is safe only because `check_world`
 //! admits that untagged shape exactly when the digest holds `Legacy` (or the world has no camps) and a row of one entry
 //! per camp exactly when it holds `Themed`, so two states under one digest never differ by its presence alone.

@@ -6,12 +6,12 @@
 //! decoding); malformed or truncated input is an `Err`, never a panic.
 
 use crate::constants::{TICK_MS, TILE};
-use crate::content::WeaponId;
 use crate::pathfind::Pathfinder;
 use crate::scratch::TickScratch;
 use crate::sim::Sim;
-use crate::state::{ActionKind, World};
+use crate::state::{ActionKind, Packet, World};
 use crate::statics::MatchStatic;
+use crate::{cards::Tuning, content::WeaponId};
 use serde::de::value::{MapAccessDeserializer, MapDeserializer, SeqDeserializer};
 use serde::de::{
     self, Deserialize, Deserializer, IgnoredAny, IntoDeserializer, MapAccess, Visitor,
@@ -270,10 +270,9 @@ fn content_mismatch(checkpoint: u64) -> Option<CheckpointError> {
 
 /// A projectile starts with its faction's weapon damage. Reflections, interceptions and arrow
 /// deletions only reduce it. Check pending ranged packets too, before they can become a flight.
-pub(crate) fn valid_ranged_packet(packet: crate::state::Packet, weapon: WeaponId) -> bool {
-    let maximum = crate::modifiers::maximum_packet(weapon);
+pub(crate) fn valid_ranged_packet(tuning: &Tuning, packet: Packet, weapon: WeaponId) -> bool {
     let shares = [packet.phys, packet.magic, packet.true_];
-    (0.0..=maximum).contains(&packet.raw)
+    (0.0..=crate::modifiers::maximum_packet(tuning, weapon)).contains(&packet.raw)
         && shares.iter().all(|v| (0.0..=1.0).contains(v))
         && (shares.iter().sum::<f64>() - 1.0).abs() <= 4.0 * f64::EPSILON
 }
@@ -343,7 +342,7 @@ fn check_camp_buffs(k: &MatchStatic, w: &World) -> Result<(), String> {
     }
 }
 
-fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
+pub(crate) fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
     // Validate actor classes before any player-only facade or faction/brain consumer can run.
     if w.players.iter().any(|p| p.core.faction_id().is_none()) {
         return Err("neutral player affiliation".into());
@@ -641,7 +640,7 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
             || pr.time != w.server_time
             || !velocity_ok(st.velocity)
             || !velocity_ok(pr.velocity)
-            || !valid_ranged_packet(pr.packet, weapon)
+            || !valid_ranged_packet(k.cards, pr.packet, weapon)
             // A Fire seat's armed attack can launch the flight; a departed owner's flag is unreachable for the burst
             // because the source consults only present players.
             || (pr.roam_armed
@@ -863,6 +862,7 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
             ));
         }
         if !p.modifiers.valid(
+            k.cards,
             &p.build,
             &p.farm,
             &p.kill_stats,
@@ -913,7 +913,7 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
             if a.kind != expected
                 || a.weapon != p.active_weapon()
                 || !finite
-                || (a.kind != ActionKind::Swing && !valid_ranged_packet(pk, a.weapon))
+                || (a.kind != ActionKind::Swing && !valid_ranged_packet(k.cards, pk, a.weapon))
                 || a.lands_at < a.started_at
                 || (a.roam_armed && p.faction() != crate::FactionId::Fire)
             {

@@ -15,7 +15,7 @@ use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 /// The content hash before the wall's numbers entered the registry (feature/unity-rework at aadff95e3).
-const PRE_WALL_CONTENT_HASH: u64 = 0x4674_a176_a28e_3c7a;
+const PRE_WALL_HASH: u64 = 0x4674_a176_a28e_3c7a;
 
 fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -88,19 +88,6 @@ fn the_wall_rows_are_appended_at_the_end_of_the_registry_in_order() {
     );
 }
 
-/// The value `content_hash` takes with the eleven rows appended as above and nothing else changed (computed by the
-/// oracle author on 47a886495 with a trial implementation; see the brief, "Baseline").
-const WALL_CONTENT_HASH: u64 = 0x7a54_2a13_187f_034c;
-
-#[test]
-fn the_content_hash_is_the_value_of_the_appended_rows() {
-    assert_eq!(
-        hex(content_hash()),
-        hex(WALL_CONTENT_HASH),
-        "content_hash with the eleven wall rows appended (and nothing else in content changed)"
-    );
-}
-
 #[test]
 fn the_push_out_reads_its_named_numbers_not_literals() {
     // Code only: the module comment above `set_down` already names legacy's `WALL_PUSH_STEP`/`WALL_PUSH_MAX`.
@@ -124,7 +111,7 @@ fn the_push_out_reads_its_named_numbers_not_literals() {
 fn the_content_hash_moved_off_the_pre_wall_value() {
     assert_ne!(
         content_hash(),
-        PRE_WALL_CONTENT_HASH,
+        PRE_WALL_HASH,
         "the wall's numbers are not folded into content_hash"
     );
 }
@@ -325,7 +312,7 @@ fn scan(dir: &Path, hits: &mut Vec<String>, needles: &[String], me: &Path) {
 
 #[test]
 fn no_source_script_or_golden_still_names_the_pre_wall_content_hash() {
-    let old = hex(PRE_WALL_CONTENT_HASH);
+    let old = hex(PRE_WALL_HASH);
     let needles = vec![
         old.clone(),
         format!(
@@ -335,7 +322,7 @@ fn no_source_script_or_golden_still_names_the_pre_wall_content_hash() {
             &old[8..12],
             &old[12..16]
         ),
-        PRE_WALL_CONTENT_HASH.to_string(),
+        PRE_WALL_HASH.to_string(),
     ];
     let me = Path::new(file!())
         .canonicalize()

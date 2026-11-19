@@ -3,7 +3,7 @@
 //! Source: `packages/shared/src/rewards.ts` — `conditionalPool`, `rewardAugmentPool`, `pickTiered`, `rollChestOptions`
 //! and `ZONE_AUGMENT_THEMES` — with the interactive augment set from `cards.ts` (`INTERACTIVE_AUGMENT_IDS`). A draw is a
 //! unit double, as the source `Rng` is; the callers supply the stream (production: the reward RNG, tests: the frozen tape).
-use crate::cards::{Build, CardId, CardKind};
+use crate::cards::{Build, CardId};
 use crate::FactionId;
 
 /// The source's interactive augments, in augment source order.
@@ -35,42 +35,16 @@ pub const fn is_interactive(id: CardId) -> bool {
     false
 }
 
-fn owned_base(build: &Build, base: crate::cards::BaseStatId) -> bool {
-    build.cards().any(|id| id.definition().base == Some(base))
-}
-
-fn held_by_all(pickers: &[Build], id: CardId) -> bool {
-    !pickers.is_empty() && pickers.iter().all(|b| b.owns(id))
-}
-
 /// Source `conditionalPool`: live conditionals a picker's base unlocks and not every picker holds, in catalog order.
+/// The legacy card table's; a world reads its own (`k.cards.conditional_pool`, `cards::Tuning`).
 pub fn conditional_pool(pickers: &[Build]) -> Vec<CardId> {
-    CardId::ALL
-        .into_iter()
-        .filter(|id| {
-            let def = id.definition();
-            def.kind == CardKind::Conditional
-                && def.ready
-                && def
-                    .requires
-                    .is_some_and(|base| pickers.iter().any(|b| owned_base(b, base)))
-                && !held_by_all(pickers, *id)
-        })
-        .collect()
+    crate::cards::Tuning::legacy().conditional_pool(pickers)
 }
 
-/// Source `rewardAugmentPool`: live interactive augments not held by every picker, in catalog order.
+/// Source `rewardAugmentPool`: live interactive augments not held by every picker, in catalog order. The legacy card
+/// table's; a world reads its own (`k.cards.augment_pool`, `cards::Tuning`).
 pub fn augment_pool(pickers: &[Build]) -> Vec<CardId> {
-    CardId::ALL
-        .into_iter()
-        .filter(|id| {
-            let def = id.definition();
-            def.kind == CardKind::Augment
-                && def.ready
-                && is_interactive(*id)
-                && !held_by_all(pickers, *id)
-        })
-        .collect()
+    crate::cards::Tuning::legacy().augment_pool(pickers)
 }
 
 /// Source `ZONE_AUGMENT_THEMES`.
