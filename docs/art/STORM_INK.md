@@ -12,3 +12,9 @@ Original artwork generated for RogueHalla with OpenAI image generation from the 
 | Executioner | Broad, masked enforcer in a red cape, squared shoulders, plum robes and black lamellar apron. |
 
 Both prompts requested a weapon-free, isolated 4 × 4 directional sprite sheet, visible feet, transparent gutters, bold ink contours and flat fills. The in-game weapon follows the fighter's equipped weapon.
+
+## Church furnishings and contact
+
+The oak pew and raised pulpit are original cutouts generated for this project from the selected church study. Their warm edge highlights pick out hand-cut oak, worn stair treads and shallow diamond and lancet carvings. They are transparent single sprites. Unity places them on the floor within the two banks of pews and the side of the nave using the delivered wall layout.
+
+The contact mark is an original monochrome dry-brush drawing generated for this project. Black bristles frame an opaque white centre that takes its pigment from the delivered attacker's faction. A confirmed weapon hit displays the mark for 65 ms. The mark uses a bounded particle pool and the same quality switch as impact sparks.
