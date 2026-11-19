@@ -6,6 +6,10 @@
 - **Integration base:** `feature/unity-rework` (head `ec6d2c2a9`, contains P-SIM-BENCH-SEAM-1 and P-AUG-RULES-1)
 - **D-rules touched:** D1 loose proof, no legacy capture (owner 2026-11-10) · D2 n/a · D5/D6/D9 none
 
+> **REVISION 2026-11-19 (coordinator decision, revises plan decision 8): read section 12 first.** The reference build is
+> a banked-camp build (workbook model), not the bot minute-5 sample; the bot sample stays as one extra column. Where
+> sections 1, 8 and 11 below speak of "the build" or `--control-bare`, section 12 governs.
+
 ## 1. ID and outcome
 `camp_bench --elite` (build with `--features elite-bench`) puts one fighter, carrying a build sampled from a bot at minute 5 of a live soak match, against each elite camp (10 kinds: 2 per zone), for every faction x weapon x seed, under `SimConfig::live_content()` (augments and elites `Rework`). It prints a JSON report on stdout and a readable death-rate table on stderr: per elite camp and overall, a solo death rate and a sample count. A second command, `camp_bench --sample-builds`, writes the checked-in sample `tools/balance-camps/minute5_builds.json`. The bench changes no rule and no number; the existing non-elite output is byte-identical.
 
@@ -53,7 +57,7 @@ CLI (flags after the program name; `run(args)` in `elite_bench.rs` is the whole 
 - The sampler: 8 `HumanBot` seats as `source_soak.rs`, `live_content()`, read every seated bot's cards (`build.counts()`), boosts and farm stacks at tick 6000. A match that ends before 6000 contributes nothing and is listed in `ended_early`.
 
 ## Oracle files (read-only for implementers)
-- `crates/rh-headless/tests/elite_bench.rs`
+- `crates/rh-headless/tests/elite_bench.rs` (revised 2026-11-19, section 12)
 - `crates/rh-headless/tests/fixtures/camp_bench_quick_list.json`
 - `crates/rh-headless/tests/fixtures/camp_bench_quick_400.json`
 - `crates/rh-sim/tests/trusted_build_leak_paths.rs`
@@ -65,6 +69,92 @@ Existing tests this packet's area touches (none changed): `crates/rh-headless/te
 - `cargo test --locked -p rh-headless --test elite_bench --test camp_bench` and `cargo test --locked -p rh-sim --features trusted-status-probes --test trusted_build_leak_paths --test trusted_build_feature_guard`
 - Sample: `cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --sample-builds --seeds 1..21 > tools/balance-camps/minute5_builds.json`
 - **Owner-checkpoint command (coordinator):** `cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --elite --seed 1 --seeds 10 > /tmp/elite.json 2> /tmp/elite-table.txt` = 5 factions x 6 weapons x 10 elites x 10 seeds = 3000 fights of at most 1800 ticks. Measured on the debug build: 16 fights x 400 ticks take 0.1 s; the implementer must report the release wall time of this exact command (expectation: minutes). If it exceeds 15 minutes, lower `--seeds` default and say so.
+
+## 12. Revision 2026-11-19: banked-camp builds (governs over 1, 8 and 11 where they differ)
+
+### Why decision 8 changed (measured by the implementer, branch `agent/sonnet/P-ELITE-BENCH-1` @ 2a653ec59, seeds 1..80)
+1. All 56 sampled minute-5 bot builds hold **0 cards**. Structural: cards come only from elite chests, so a player's first
+   elite fight has none. A card floor in the oracle can never be met.
+2. 39 of the 56 builds hold **0 stacks**; the rest hold 3 to 51. The bot sample is a bare fighter more often than not
+   (measured here: the first 16 sample builds, which the quick run uses, are all empty, so `bot_sample` equals `banked_0`
+   fight for fight).
+3. So the bare-vs-build negative control cannot pass on the sample, and a table built on it measures "a bare fighter".
+4. `fighter_sim()` under `live_content()` unchanged panics in `Sim::reset_active` (Source lifecycle, sim.rs:211); the
+   bench needs `lifecycle: ArenaMode::Off` (the implementer's `config()` also turns regen and quests off: its own choice).
+
+### The reference build: banked camps (workbook model)
+`docs/quests/FUTURE_ONLY_Quest_Design_Discussion.xlsx`, sheet `Augment_Value`, assumption `banked` = 12 CE ("camps already
+banked at pick-up") at t = 5 min; one camp = 12 stacks. For a seed `s` and a count `N`:
+`banked_camp_build(probe, s, N)` draws N normal (non-elite) camps of the world (with replacement, seeded by `s`) and grants
+12 stacks of the stat each drawn camp's normal kills pay (`probe.camp_buffs()[i]` under `CampBuffRule::Themed`, else the
+camp's own `mob_type`; the stat mapping is `rh_sim::modifiers::farm::DEFINITION`). No cards, no boosts. It is applied at
+tick 0 through `trusted_build::apply` (the Plant note of section 11 stands). Stacks of one stat merge into one entry, so
+the stack total is exactly N x 12. In a run, the camp draw of cell seed `s` uses the probe world of seed `s`.
+
+### Report shape
+- Columns (constants in `elite_bench.rs`): `banked_0`, `banked_6`, `banked_12`, `banked_18`, `bot_sample`
+  (`BANKED_CAMPS = [0, 6, 12, 18]`, `REFERENCE_CAMPS = 12`, `BOT_COLUMN`). `banked_0` is the bare fighter and replaces
+  `--control-bare` (dropped; passing it is not required to work).
+- Cell order: faction, weapon, elite kind, seed, then column (the 5 columns innermost, same fight seed and camp for each).
+  A skipped cell is listed once, in `skipped`, with no column. Every cell has `column` and `camps` (N, or null for the
+  bot sample) and `build_index` (null for banked columns; for `bot_sample` = ordinal of the (faction, weapon, kind, seed)
+  place, skips included, `% builds.len()`).
+- `per_camp[]` and `overall` keep `samples`, `deaths`, `death_rate` as the **reference column (banked_12)** and add
+  `columns[]` (`column camps samples deaths death_rate ci95`), one entry per column in the order above. `ci95` is a 95%
+  interval of the death rate (Wilson; `[lo, hi]`, null when `samples == 0`).
+- Top level: `reference: "banked_12"`; `builds` describes the bot sample (`source`, `tick`, `count`).
+- Table (stderr): the caveat, a header naming the five columns, one line per camp with its sample count and one `{:.1}%`
+  per column, an `overall` line, a line that the reference is `banked_12` and that bots bank far fewer camps than the
+  workbook player, and the owner target (10-20%).
+
+### Sample file
+`tools/balance-camps/minute5_builds.json` stays, generated by `camp_bench --sample-builds`, never hand-written. Oracle
+floors: at least 40 builds from at least 10 seeds, every listed stack positive, **no card floor** (zero cards is the
+measured truth), some build holds a stack. The implementer's sample over seeds 1..81 (56 builds, 22 seeds) satisfies it.
+
+### Wall time
+The owner command (`--elite --seed 1 --seeds 10`, release) must finish in **15 minutes or less**. Fights per run are
+now 5 columns x factions x weapons x elites x seeds (15000 at 10 seeds), so the implementer picks `--seeds` per cell to fit
+(the default may change), reports the release wall time and the samples per cell, and the 95% interval on each death
+rate (`ci95`) is what the owner reads to judge whether a cell has enough seeds. The debug quick run (80 fights, 400 ticks)
+takes about 25 s in the test binary.
+
+### README caveats (`tools/balance-camps/README.md`, implementer writes them)
+- The fighter is the scripted Brawler (swings from 80 u whatever the weapon): rates are "Brawler with weapon W".
+- Bots misvalue reworked cards until P-AUG-BOTS-1.
+- Survivorship in the bot sample (only about 3 in 8 matches reach minute 5; builds are those of the players standing).
+- Bots bank far fewer camps than the workbook player (39 of 56 sampled builds hold no stacks): the `bot_sample` column is
+  the bots' reality, `banked_12` the design target, and they are not comparable.
+- The table before P-ELITE-TUNE-1 is a baseline (elite numbers equal legacy until CONTENT packets fill the tables).
+- Config overrides on top of `live_content()` and why: `lifecycle: ArenaMode::Off` (needed), `min_players 1` and a short
+  lobby (lone fighter), and whatever else the bench keeps (regen, quests off).
+
+### Measured control margin (prototype, quick run, seeds 1..=2, 400 ticks, 16 paired fights; Frost,Holy x Sword,Wand x the
+two fire elites)
+| column | deaths of 16 | damage dealt |
+|---|---|---|
+| banked_0 | 11 | 31428 |
+| banked_6 | 7 | 39220 |
+| banked_12 | 6 | 49412 (x1.57 of bare) |
+| banked_18 | 1 | 53373 |
+| bot_sample | 11 | 31428 (the first 16 builds are empty) |
+The oracle asserts: damage at 12 camps >= x1.25 bare, fewer deaths than bare, at least 3/4 of paired fights deal more, and
+damage rises 0 < 6 < 12 < 18. The ratio floor sits well below the measured x1.57 and well above x1.00 (an ignored build).
+Starting hp does not rise at 12 camps on these seeds (no max-hp stat drawn), so no hp assertion exists. Deaths at 16
+fights are coarse (death rate 6 to 11 of 16); this is a negative control, not an estimate of the table.
+
+### Stub signatures (committed; the implementer adopts them)
+In `crates/rh-headless/src/elite_bench.rs`: `pub const CAMP_STACKS: u64 = 12`, `pub const BANKED_CAMPS: [u32; 4]`,
+`pub const REFERENCE_CAMPS: u32 = 12`, `pub const BOT_COLUMN: &str = "bot_sample"`,
+`pub fn banked_camp_build(probe: &Sim, seed: u64, camps: u32) -> TrustedBuild` (stubbed to the empty build).
+The existing `run`, `sample_builds`, `SampleFile` signatures are unchanged.
+
+### Oracle changes of this revision (all in `crates/rh-headless/tests/elite_bench.rs`, one `oracle:` commit)
+`fighter_sim` uses `lifecycle: ArenaMode::Off`; the card floor is gone and the sample floor is 40 builds from 10 seeds;
+`the_quick_run_...` counts 5 columns per fought cell; per-camp and overall consistency read the reference column; new
+tests `a_banked_camp_build_holds_n_times_12_...`, `a_banked_camp_build_is_a_pure_function_...`,
+`each_cell_uses_the_documented_build_of_its_column`, `the_report_has_a_column_per_build_...` (columns, `ci95`, table),
+`twelve_banked_camps_beat_the_bare_fighter_...` (control). The old bare-control test and `--control-bare` are removed.
 
 ## 10. Risk and suggested model tier
 Sonnet, `reviewer`. Mostly plumbing over existing `camp_bench` code. The care points are the feature isolation and reading builds out of the sim.
@@ -82,5 +172,7 @@ Sonnet, `reviewer`. Mostly plumbing over existing `camp_bench` code. The care po
 <!-- Coordinator appends on escalation. -->
 
 ## Doubts reported with the oracle
+- (2026-11-19) The first revision's sample floors (a card, a stack) were met by nothing: see section 12. The sample test
+  now has no card floor.
 - The oracle's sample floors are weak (at least 8 builds, some card, some stack) because no sample exists yet; the implementer reports the real distribution (builds per match, empty builds) and the coordinator tightens if it is knife-edge.
 - `tests/elite_bench.rs` runs the elite code in process through `#[path]`; the CLI is covered by one process test that adapts to the feature (`the_binary_exits_zero_with_the_feature_and_says_so_without_it`), which under default features only checks the refusal. `cargo test --all-features -p rh-headless` exercises the real binary path.

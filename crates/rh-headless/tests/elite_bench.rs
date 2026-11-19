@@ -9,11 +9,14 @@
 #[path = "../src/elite_bench.rs"]
 mod elite_bench;
 
-use elite_bench::{run, sample_builds, SampleFile, MINUTE5_TICK, SAMPLE_PATH};
+use elite_bench::{
+    banked_camp_build, run, sample_builds, SampleFile, BANKED_CAMPS, BOT_COLUMN, CAMP_STACKS,
+    MINUTE5_TICK, REFERENCE_CAMPS, SAMPLE_PATH,
+};
 use rh_headless::load_arena;
 use rh_sim::mob_catalog::{elites_of, normal_types_of};
 use rh_sim::trusted_build::apply;
-use rh_sim::{FactionId, Placement, Secrets, Sim, SimConfig, WeaponId};
+use rh_sim::{ArenaMode, FactionId, Placement, Secrets, Sim, SimConfig, WeaponId};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
@@ -80,11 +83,17 @@ fn the_checked_in_sample_is_well_formed() {
     assert!(with_builds
         .iter()
         .all(|s| (f.seeds[0]..f.seeds[1]).contains(s)));
-    // Floor: enough builds for an average to mean something (8 bots per match; players dead by minute 5 may be absent).
+    // Floors (coordinator 2026-11-19): the bot sample is one extra column of the report, so it needs enough builds from
+    // enough matches to be an average. 56 builds from 22 seeds were measured over seeds 1..81.
     assert!(
-        f.builds.len() >= 8,
-        "at least 8 sampled builds, got {}",
+        f.builds.len() >= 40,
+        "at least 40 sampled builds, got {}",
         f.builds.len()
+    );
+    assert!(
+        with_builds.len() >= 10,
+        "builds from at least 10 matches, got {}",
+        with_builds.len()
     );
     let keys: Vec<(u64, u32)> = f.builds.iter().map(|b| (b.seed, b.bot)).collect();
     let mut sorted = keys.clone();
@@ -97,20 +106,27 @@ fn the_checked_in_sample_is_well_formed() {
         .builds
         .iter()
         .all(|b| factions.contains(b.faction.as_str())));
-    // A minute-5 build is not empty: some build holds a card and some holds a stat stack.
-    assert!(
-        f.builds.iter().any(|b| !b.build.cards.is_empty()),
-        "some sampled build holds cards"
-    );
+    // Minute-5 bot builds hold NO cards on today's rules (cards come only from elite chests, so a player's first elite
+    // fight has none: measured, 0 of 56) and many hold no stacks (39 of 56): the sample may hold zero cards. Some build
+    // holds a stat stack, every listed stack is positive, and the file is generated (regeneration tests below).
     assert!(
         f.builds.iter().any(|b| !b.build.stacks.is_empty()),
         "some sampled build holds normal-mob stat stacks"
     );
+    assert!(f
+        .builds
+        .iter()
+        .all(|b| b.build.stacks.iter().all(|&(_, n)| n > 0)));
 }
 
-fn fighter_sim(faction: FactionId) -> Sim {
+/// A lone fighter in the live world. The one override beyond `live_content()` that the oracle needs: the Source lifecycle
+/// makes `Sim::reset_active` panic ("reset_active cannot bypass source planning; start from a lobby", sim.rs:211), so
+/// `lifecycle: ArenaMode::Off` (the bench does the same). The bench's other overrides (regen, quests) are its own choice
+/// and are not needed to build a world or apply a build.
+fn fighter_sim_seeded(faction: FactionId, seed: u64) -> Sim {
     let arena = Arc::new(load_arena(root().join(MAP_REL).to_str().unwrap()).unwrap());
     let cfg = SimConfig {
+        lifecycle: ArenaMode::Off,
         min_players: 1,
         lobby_seconds: 5.,
         fill_seconds: 3.,
@@ -125,7 +141,10 @@ fn fighter_sim(faction: FactionId) -> Sim {
         weapon0: Some(WeaponId::Sword),
         weapon1: None,
     }];
-    Sim::reset_active(cfg, arena, Secrets::from_seed(1), &placement)
+    Sim::reset_active(cfg, arena, Secrets::from_seed(seed), &placement)
+}
+fn fighter_sim(faction: FactionId) -> Sim {
+    fighter_sim_seeded(faction, 1)
 }
 
 #[test]
@@ -204,6 +223,113 @@ fn the_whole_sample_regenerates_identically() {
     );
 }
 
+// ---- the banked-camp build ------------------------------------------------------------------------------------
+
+/// The stat types the normal (non-elite) camps of this world pay: under `camp_buffs = Themed` a camp's kills pay its buff
+/// type's stat, else its own type's.
+fn paid_by_normal_camps(sim: &Sim) -> BTreeSet<&'static str> {
+    let buffs = sim.camp_buffs();
+    sim.camp_rosters()
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.elite.is_none())
+        .map(|(i, r)| {
+            buffs
+                .get(i)
+                .copied()
+                .flatten()
+                .unwrap_or(r.mob_type)
+                .as_str()
+        })
+        .collect()
+}
+fn total_stacks(b: &rh_sim::trusted_build::TrustedBuild) -> u64 {
+    b.stacks.iter().map(|&(_, n)| n).sum()
+}
+
+#[test]
+fn a_banked_camp_build_holds_n_times_12_stat_stacks_of_what_normal_camps_pay_and_nothing_else() {
+    assert_eq!(
+        CAMP_STACKS, 12,
+        "workbook Augment_Value: one camp = 12 stacks"
+    );
+    assert_eq!(BANKED_CAMPS, [0, 6, 12, 18]);
+    assert_eq!(REFERENCE_CAMPS, 12);
+    let normal: BTreeSet<&'static str> = FactionId::ALL
+        .into_iter()
+        .flat_map(|z| normal_types_of(z).map(|t| t.id.as_str()))
+        .collect();
+    let mut seen_two_stats = false;
+    for seed in 1..=6u64 {
+        let probe = fighter_sim_seeded(FactionId::Frost, seed);
+        let paid = paid_by_normal_camps(&probe);
+        assert!(!paid.is_empty(), "the world has normal camps");
+        for n in [0u32, 1, 6, 12, 18] {
+            let b = banked_camp_build(&probe, seed, n);
+            assert_eq!(
+                total_stacks(&b),
+                u64::from(n) * 12,
+                "seed {seed}: {n} camps hold exactly {n} x 12 stacks"
+            );
+            assert!(b.cards.is_empty(), "no cards");
+            assert!(b.boosts.is_empty(), "no boosts");
+            assert!(
+                b.stacks.iter().all(|&(_, k)| k > 0),
+                "no empty stack entries"
+            );
+            let mobs: Vec<&'static str> = b.stacks.iter().map(|&(m, _)| m.as_str()).collect();
+            let distinct: BTreeSet<&'static str> = mobs.iter().copied().collect();
+            assert_eq!(distinct.len(), mobs.len(), "one entry per stat type");
+            for m in &mobs {
+                assert!(normal.contains(m), "{m} is a normal mob type");
+                assert!(
+                    paid.contains(m),
+                    "seed {seed}: {m} is paid by no normal camp of this world"
+                );
+            }
+            if n == 12 && mobs.len() >= 2 {
+                seen_two_stats = true;
+            }
+            // The trusted seam takes it, and the fighter then holds exactly those stacks and no new card.
+            let mut sim = fighter_sim_seeded(FactionId::Holy, seed);
+            let me = sim.players()[0].id;
+            let cards_before = sim.players()[0].build.counts();
+            apply(&mut sim, me, &b).expect("the seam accepts a banked-camp build");
+            let p = &sim.players()[0];
+            for &(m, k) in &b.stacks {
+                assert_eq!(p.farm.count(m), k);
+            }
+            assert_eq!(p.build.counts(), cards_before, "no card granted");
+        }
+    }
+    assert!(
+        seen_two_stats,
+        "a 12-camp build draws camps of more than one stat on some seed"
+    );
+}
+
+#[test]
+fn a_banked_camp_build_is_a_pure_function_of_seed_and_world_and_seeds_draw_different_camps() {
+    let mut builds = Vec::new();
+    for seed in 1..=8u64 {
+        let probe = fighter_sim_seeded(FactionId::Frost, seed);
+        let a = banked_camp_build(&probe, seed, 12);
+        let again = banked_camp_build(&fighter_sim_seeded(FactionId::Frost, seed), seed, 12);
+        assert_eq!(a, again, "same seed, same build");
+        // The draw seed matters on its own, not only through the world.
+        builds.push((a, banked_camp_build(&probe, seed + 1000, 12)));
+    }
+    let distinct: BTreeSet<String> = builds.iter().map(|(a, _)| format!("{a:?}")).collect();
+    assert!(
+        distinct.len() >= 2,
+        "different seeds give different camp draws somewhere in seeds 1..=8"
+    );
+    assert!(
+        builds.iter().any(|(a, b)| a != b),
+        "a different draw seed on the same world gives a different draw somewhere in 8 worlds"
+    );
+}
+
 // ---- the elite run --------------------------------------------------------------------------------------------
 
 /// The first zone's elites, as the quick run uses them.
@@ -260,10 +386,11 @@ fn the_quick_run_reports_a_complete_elite_inventory() {
     let expected = 2 * 2 * kinds.len() as u64 * QUICK_SEEDS;
     let cells = r["cells"].as_array().expect("cells");
     let skipped = r["skipped"].as_array().expect("skipped");
+    // Every faction x weapon x elite x seed is skipped (listed once) or fought once per column (4 banked + bot sample).
     assert_eq!(
-        cells.len() as u64 + skipped.len() as u64,
-        expected,
-        "every faction x weapon x elite x seed is a cell or a skip"
+        cells.len() as u64,
+        (expected - skipped.len() as u64) * 5,
+        "5 build columns per fought cell"
     );
     assert!(!cells.is_empty(), "floor: at least one fight ran");
     // Order: faction, weapon, kind, seed (seed innermost), each exactly once.
@@ -273,6 +400,7 @@ fn the_quick_run_reports_a_complete_elite_inventory() {
             s(c, "weapon").to_string(),
             s(c, "kind").to_string(),
             u(c, "seed"),
+            c["column"].as_str().unwrap_or("").to_string(),
         )
     };
     let keys: Vec<_> = cells.iter().chain(skipped.iter()).map(key).collect();
@@ -318,7 +446,15 @@ fn the_report_states_the_rules_the_build_source_and_the_brawler_caveat() {
         "the default build source is the checked-in minute-5 sample"
     );
     assert_eq!(u(&r["builds"], "tick"), 6000);
-    assert!(u(&r["builds"], "count") >= 8);
+    assert!(
+        u(&r["builds"], "count") >= 40,
+        "builds describes the bot sample column"
+    );
+    assert_eq!(
+        r["reference"],
+        json!("banked_12"),
+        "the reference column is 12 banked camps (workbook Augment_Value, assumption banked)"
+    );
     let caveat = s(r, "caveat");
     assert!(
         caveat.contains("Brawler"),
@@ -350,7 +486,11 @@ fn death_rates_are_consistent_per_camp_overall_and_in_the_table() {
     let (mut samples, mut deaths) = (0u64, 0u64);
     for (row, kind) in per_camp.iter().zip(&kinds) {
         assert_eq!(s(row, "kind"), kind);
-        let mine: Vec<&Value> = cells.iter().filter(|c| s(c, "kind") == kind).collect();
+        // The row's own samples/deaths are the reference column (12 banked camps); the columns carry the rest.
+        let mine: Vec<&Value> = cells
+            .iter()
+            .filter(|c| s(c, "kind") == kind && s(c, "column") == "banked_12")
+            .collect();
         let n = u(row, "samples");
         let d = u(row, "deaths");
         assert_eq!(n, mine.len() as u64, "samples counts the fights of {kind}");
@@ -386,7 +526,11 @@ fn death_rates_are_consistent_per_camp_overall_and_in_the_table() {
     let o = &r["overall"];
     assert_eq!(u(o, "samples"), samples);
     assert_eq!(u(o, "deaths"), deaths);
-    assert_eq!(samples, cells.len() as u64);
+    assert_eq!(
+        samples * 5,
+        cells.len() as u64,
+        "5 columns of the same cells"
+    );
     assert!(samples >= 1);
     let pct = format!("{:.1}%", 100. * deaths as f64 / samples as f64);
     let overall = table
@@ -433,15 +577,19 @@ fn builds_are_applied_before_the_first_step_and_the_fighter_walks_to_the_camp() 
     }
 }
 
+const COLUMNS: [&str; 5] = ["banked_0", "banked_6", "banked_12", "banked_18", BOT_COLUMN];
+
 #[test]
-fn each_cell_uses_the_documented_build_and_a_bare_control_differs() {
+fn each_cell_uses_the_documented_build_of_its_column() {
     let (_, r, _) = quick();
     let n = u(&r["builds"], "count");
     let cells = r["cells"].as_array().unwrap();
-    // Build choice is a pure function of the cell's place in the inventory (faction, weapon, kind, seed order, skips
-    // included): ordinal % count. Rebuild the ordinal from the same listing.
-    let mut all: Vec<&Value> = cells
+    // The bot-sample column's build is a pure function of the cell's place in the inventory (faction, weapon, kind, seed
+    // order, skips included): ordinal % count. Rebuild the ordinal from the same listing. Banked columns carry their
+    // camp count and no sample index.
+    let mut places: Vec<&Value> = cells
         .iter()
+        .filter(|c| s(c, "column") == BOT_COLUMN)
         .chain(r["skipped"].as_array().unwrap().iter())
         .collect();
     let order = |v: &&Value| {
@@ -459,31 +607,170 @@ fn each_cell_uses_the_documented_build_and_a_bare_control_differs() {
             .unwrap();
         (f, w, k, u(v, "seed"))
     };
-    all.sort_by_key(order);
-    for (ordinal, c) in all.iter().enumerate() {
-        if c.get("build_index").is_some() && !c["build_index"].is_null() {
+    places.sort_by_key(order);
+    for (ordinal, c) in places.iter().enumerate() {
+        if c.get("column").is_some() {
             assert_eq!(
                 u(c, "build_index"),
                 ordinal as u64 % n,
-                "build of cell {ordinal}"
+                "bot-sample build of cell {ordinal}"
             );
         }
     }
-    // Negative control: the same fights with no build change what the fighter deals somewhere.
-    let bare = run(&quick_args(&["--control-bare"])).expect("runs");
-    let bare: Value = serde_json::from_str(&bare.json).unwrap();
-    assert_eq!(bare["control"], json!("bare"));
-    let sum = |v: &Value| -> f64 {
-        v["cells"]
+    for c in cells {
+        let col = s(c, "column");
+        assert!(COLUMNS.contains(&col), "column {col}");
+        if col == BOT_COLUMN {
+            assert!(c["camps"].is_null());
+        } else {
+            assert_eq!(
+                col,
+                format!("banked_{}", u(c, "camps")),
+                "a banked column names its camp count"
+            );
+            assert!(
+                c["build_index"].is_null(),
+                "a banked build has no sample index"
+            );
+        }
+    }
+}
+
+#[test]
+fn the_report_has_a_column_per_build_for_every_elite_camp_and_overall() {
+    let (_, r, table) = quick();
+    let cells = r["cells"].as_array().unwrap();
+    let check = |row: &Value, filter: &dyn Fn(&&Value) -> bool, what: &str| {
+        let cols = row["columns"]
             .as_array()
-            .unwrap()
-            .iter()
-            .map(|c| num(c, "damage_dealt"))
-            .sum()
+            .unwrap_or_else(|| panic!("{what} has columns"));
+        let names: Vec<&str> = cols.iter().map(|c| s(c, "column")).collect();
+        assert_eq!(
+            names, COLUMNS,
+            "{what}: banked 0, 6, 12, 18, then the bot sample"
+        );
+        for (c, name) in cols.iter().zip(COLUMNS) {
+            let mine: Vec<&Value> = cells
+                .iter()
+                .filter(|x| s(x, "column") == name)
+                .filter(filter)
+                .collect();
+            let n = u(c, "samples");
+            let d = u(c, "deaths");
+            assert_eq!(n, mine.len() as u64, "{what} {name}: samples");
+            assert_eq!(
+                d,
+                mine.iter().filter(|x| s(x, "outcome") == "died").count() as u64
+            );
+            if n > 0 {
+                let rate = num(c, "death_rate");
+                assert!((rate - d as f64 / n as f64).abs() < 1e-12);
+                // A 95% interval on each death rate (the owner reads rates with their uncertainty).
+                let ci = c["ci95"]
+                    .as_array()
+                    .unwrap_or_else(|| panic!("{what} {name}: ci95"));
+                let (lo, hi) = (ci[0].as_f64().unwrap(), ci[1].as_f64().unwrap());
+                assert!(
+                    0. <= lo && lo <= rate + 1e-12 && rate <= hi + 1e-12 && hi <= 1.,
+                    "{what} {name}: {lo} <= {rate} <= {hi}"
+                );
+                assert!(
+                    hi - lo > 1e-9,
+                    "{what} {name}: a few samples cannot give a point interval"
+                );
+            } else {
+                assert!(c["death_rate"].is_null() && c["ci95"].is_null());
+            }
+        }
     };
+    let per_camp = r["per_camp"].as_array().unwrap();
+    assert_eq!(per_camp.len(), quick_kinds().len());
+    for row in per_camp {
+        let kind = s(row, "kind").to_string();
+        check(row, &|c: &&Value| s(c, "kind") == kind, &kind);
+        // The table line of the camp shows one percentage per column.
+        let line = table.lines().find(|l| l.contains(kind.as_str())).unwrap();
+        for c in row["columns"].as_array().unwrap() {
+            if u(c, "samples") > 0 {
+                let pct = format!("{:.1}%", 100. * num(c, "death_rate"));
+                assert!(line.contains(&pct), "{kind} line carries {pct}: {line}");
+            }
+        }
+    }
+    check(&r["overall"], &|_c: &&Value| true, "overall");
+    // The header names every column.
+    for name in COLUMNS {
+        assert!(
+            table.contains(name),
+            "the table names column {name}:\n{table}"
+        );
+    }
+    // The reference column (12 camps banked) is what per_camp and overall report as their own rate.
+    for row in per_camp.iter().chain(std::iter::once(&r["overall"])) {
+        let refc = &row["columns"][2];
+        assert_eq!(row["samples"], refc["samples"]);
+        assert_eq!(row["deaths"], refc["deaths"]);
+        assert_eq!(row["death_rate"], refc["death_rate"]);
+    }
     assert!(
-        (sum(&bare) - sum(r)).abs() > 1e-9,
-        "a minute-5 build changes the damage the fighter deals (the build is applied, not ignored)"
+        table.to_lowercase().contains("bots bank far fewer camps"),
+        "the table says bots bank far fewer camps than the workbook player"
+    );
+}
+
+/// Margin of the negative control. Measured on the prototype (quick run, seeds 1..=2, 400 ticks, 16 paired fights):
+/// damage dealt 31428 bare, 39220 at 6 camps, 49412 at 12 camps (x1.57), 53373 at 18 camps; deaths 11, 7, 6, 1 of 16.
+/// The floor is x1.25: well below the measured x1.57, well above noise (a build that is ignored gives exactly x1.00).
+const CONTROL_DEALT_RATIO: f64 = 1.25;
+
+#[test]
+fn twelve_banked_camps_beat_the_bare_fighter_on_the_same_fight_seed() {
+    // Negative control (replaces the bare-run flag): banked_0 IS the bare fighter. On each fought cell (same faction,
+    // weapon, elite, seed, so the same fight seed and camp), the 12-camp build must deal more damage and die no more.
+    let (_, r, _) = quick();
+    let cells = r["cells"].as_array().unwrap();
+    let get =
+        |col: &str| -> Vec<&Value> { cells.iter().filter(|c| s(c, "column") == col).collect() };
+    let (bare, full) = (get("banked_0"), get("banked_12"));
+    assert_eq!(bare.len(), full.len());
+    assert!(bare.len() >= 8, "floor: at least 8 paired fights");
+    // Cells are listed faction, weapon, kind, seed, column: the k-th banked_0 and banked_12 are the same fight.
+    for (b, f) in bare.iter().zip(&full) {
+        for k in ["faction", "weapon", "kind"] {
+            assert_eq!(b[k], f[k]);
+        }
+        assert_eq!(b["seed"], f["seed"]);
+    }
+    let sum = |v: &[&Value], k: &str| v.iter().map(|c| num(c, k)).sum::<f64>();
+    let (dealt0, dealt12) = (sum(&bare, "damage_dealt"), sum(&full, "damage_dealt"));
+    let deaths = |v: &[&Value]| v.iter().filter(|c| s(c, "outcome") == "died").count();
+    let (d0, d12) = (deaths(&bare), deaths(&full));
+    assert!(
+        dealt12 >= dealt0 * CONTROL_DEALT_RATIO,
+        "damage dealt with 12 banked camps {dealt12} vs bare {dealt0}: needs x{CONTROL_DEALT_RATIO}"
+    );
+    assert!(
+        d12 < d0,
+        "12 banked camps die less than the bare fighter: {d12} vs {d0} deaths"
+    );
+    let better = bare
+        .iter()
+        .zip(&full)
+        .filter(|(b, f)| num(f, "damage_dealt") > num(b, "damage_dealt"))
+        .count();
+    assert!(
+        better * 4 >= bare.len() * 3,
+        "at least three quarters of the paired fights deal more with the build: {better} of {}",
+        bare.len()
+    );
+    // More camps never mean less damage in total (0 < 6 < 12 < 18).
+    let by_col: Vec<f64> = COLUMNS[..4]
+        .iter()
+        .map(|c| sum(&get(c), "damage_dealt"))
+        .collect();
+    assert!(
+        by_col.windows(2).all(|w| w[0] < w[1]),
+        "damage dealt rises with banked camps: {by_col:?}"
     );
 }
 
