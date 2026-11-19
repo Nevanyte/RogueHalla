@@ -318,11 +318,11 @@ fn styled_pipeline_certifies_grand_maps() {
             .map(|p| ((p.x / TILE).floor() as i32, (p.y / TILE).floor() as i32))
             .collect();
         assert_eq!(spawns, grand_spawns(), "seed {seed}");
-        for i in 0..W * H {
+        for (i, &is_l) in l.iter().enumerate() {
             if f.co_floor[i] == 0 {
                 continue;
             }
-            let want = if l[i] != 0 { TILE_WALL } else { TILE_FLOOR };
+            let want = if is_l != 0 { TILE_WALL } else { TILE_FLOOR };
             assert_eq!(
                 map.tiles[i],
                 want,
