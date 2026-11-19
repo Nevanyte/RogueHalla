@@ -20,21 +20,28 @@ namespace Roguehalla.Client
         };
 
         internal static bool HasMobWeaponTrack(ActorKind kind, FactionId? faction, MobTypeId? mob, WeaponId? weapon) =>
-            kind == ActorKind.RegionalMob && mob == MobTypeId.Bailiff && faction == FactionId.Sentenced && weapon == WeaponId.Sword;
+            kind == ActorKind.RegionalMob && ((mob == MobTypeId.Bailiff && faction == FactionId.Sentenced && weapon == WeaponId.Sword) ||
+                (mob == MobTypeId.AshDrake && faction == FactionId.Fire && weapon == WeaponId.Wand));
 
         public static bool TryMobHand(MobTypeId? mob, Sprite body, bool leftHand, out Vector2 uv)
         {
             uv = default;
-            if (mob != MobTypeId.Bailiff || body == null) return false;
+            if (mob != MobTypeId.Bailiff || !MobPoseIndex(mob, body, out int index)) return false;
+            uv = BailiffPalms[index].UV(leftHand);
+            return true;
+        }
+
+        static bool MobPoseIndex(MobTypeId? mob, Sprite body, out int index)
+        {
+            index = -1;
+            if (!mob.HasValue || (uint)mob.Value >= Creatures.Length || body == null) return false;
             var sheet = Creatures[(int)mob.Value];
             if (sheet == null) return false;
             Rect rect = body.rect;
             int row = Rows - 1 - Mathf.RoundToInt(rect.y / rect.height);
             int col = Mathf.RoundToInt(rect.x / rect.width);
-            int index = row * Columns + col;
-            if ((uint)index >= (uint)BailiffPalms.Length || sheet.Poses[index] != body) return false;
-            uv = BailiffPalms[index].UV(leftHand);
-            return true;
+            index = row * Columns + col;
+            return (uint)index < sheet.Poses.Length && sheet.Poses[index] == body;
         }
     }
 }
