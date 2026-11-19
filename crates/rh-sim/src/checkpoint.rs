@@ -6,12 +6,12 @@
 //! decoding); malformed or truncated input is an `Err`, never a panic.
 
 use crate::constants::{TICK_MS, TILE};
-use crate::content::WeaponId;
 use crate::pathfind::Pathfinder;
 use crate::scratch::TickScratch;
 use crate::sim::Sim;
-use crate::state::{ActionKind, World};
+use crate::state::{ActionKind, Packet, World};
 use crate::statics::MatchStatic;
+use crate::{cards::Tuning, content::WeaponId};
 use serde::de::value::{MapAccessDeserializer, MapDeserializer, SeqDeserializer};
 use serde::de::{
     self, Deserialize, Deserializer, IgnoredAny, IntoDeserializer, MapAccess, Visitor,
@@ -270,14 +270,9 @@ fn content_mismatch(checkpoint: u64) -> Option<CheckpointError> {
 
 /// A projectile starts with its faction's weapon damage. Reflections, interceptions and arrow
 /// deletions only reduce it. Check pending ranged packets too, before they can become a flight.
-pub(crate) fn valid_ranged_packet(
-    tuning: &crate::cards::Tuning,
-    packet: crate::state::Packet,
-    weapon: WeaponId,
-) -> bool {
-    let maximum = crate::modifiers::maximum_packet(tuning, weapon);
+pub(crate) fn valid_ranged_packet(tuning: &Tuning, packet: Packet, weapon: WeaponId) -> bool {
     let shares = [packet.phys, packet.magic, packet.true_];
-    (0.0..=maximum).contains(&packet.raw)
+    (0.0..=crate::modifiers::maximum_packet(tuning, weapon)).contains(&packet.raw)
         && shares.iter().all(|v| (0.0..=1.0).contains(v))
         && (shares.iter().sum::<f64>() - 1.0).abs() <= 4.0 * f64::EPSILON
 }
@@ -343,73 +338,6 @@ fn check_camp_buffs(k: &MatchStatic, w: &World) -> Result<(), String> {
                 }
             }
             Ok(())
-        }
-    }
-}
-
-/// P-AUG-RULES-1: the elite rule a mob runtime stores (`MobRuntime::elites`, read by the elite readers without the match
-/// statics) is the hashed config's, as `EliteTuning::stored_rule` writes it. One value per statics digest, so the unit
-/// form of `Legacy` cannot be confused with a written `Rework` (`hash.rs` module docs).
-fn check_elite_rule(k: &MatchStatic, w: &World) -> Result<(), String> {
-    let Some(rt) = w.mob_runtime.as_ref() else {
-        return Ok(());
-    };
-    let want = crate::mob_runtime::EliteTuning::stored_rule(k.config.elites);
-    if rt.elites == want {
-        Ok(())
-    } else {
-        Err(format!(
-            "the mob runtime's elite rule {:?} is not the config's ({:?}, stored as {want:?})",
-            rt.elites, k.config.elites
-        ))
-    }
-}
-
-#[cfg(test)]
-mod elite_rule_tests {
-    use crate::arenas::practice_arena;
-    use crate::content::FactionId;
-    use crate::math::Vec2;
-    use crate::sim::{Placement, Secrets, Sim, SimConfig};
-    use crate::EliteRule;
-
-    /// `check_elite_rule`'s refusal: a training world (it always installs a mob runtime) whose runtime claims an elite
-    /// rule its config does not store is refused, under either config rule (both store `Legacy` while the Rework elite
-    /// numbers equal the legacy ones).
-    #[test]
-    fn a_mob_runtime_elite_rule_the_config_does_not_store_is_refused() {
-        for elites in [EliteRule::Legacy, EliteRule::Rework] {
-            let sim = Sim::reset_active(
-                SimConfig {
-                    training: true,
-                    elites,
-                    ..SimConfig::default()
-                },
-                practice_arena(),
-                Secrets::from_seed(9),
-                &[Placement {
-                    profile: "elite-rule".into(),
-                    faction: FactionId::Holy,
-                    bot: false,
-                    at: Vec2::new(400., 320.),
-                    hp: None,
-                    weapon0: None,
-                    weapon1: None,
-                }],
-            );
-            let mut cp = serde_json::to_value(&sim).unwrap();
-            assert!(cp["world"]["mob_runtime"].is_object(), "{elites:?}");
-            assert_eq!(
-                cp["world"]["mob_runtime"]["elites"],
-                serde_json::Value::Null
-            );
-            assert!(Sim::restore(&cp).is_ok(), "{elites:?}: the produced world");
-            cp["world"]["mob_runtime"]["elites"] = serde_json::json!("rework");
-            let err = Sim::restore(&cp).expect_err("a runtime rule the config does not store");
-            assert!(
-                format!("{err:?}").contains("elite rule"),
-                "{elites:?}: {err:?}"
-            );
         }
     }
 }
@@ -732,7 +660,6 @@ pub(crate) fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
     }
     crate::systems::mobs::validate(k, w, near)?;
     check_camp_buffs(k, w)?;
-    check_elite_rule(k, w)?;
     crate::barriers::check(k, w)?;
     crate::status_runtime::checkpoint::validate_world(w, near)?;
     crate::abilities::checkpoint::validate(k, w)?;

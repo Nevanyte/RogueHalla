@@ -102,7 +102,7 @@ static `LEGACY_ELITES` or `REWORK_ELITES` (both the legacy `ELITE_K` / `ELITE_HP
 - `MobRuntime::elites` is set where the runtime is built to `EliteTuning::stored_rule(config.elites)`: the config's
   rule, except that a rule whose numbers equal the legacy ones is stored as `Legacy` (it writes nothing). So today a
   `Rework` world's world bytes equal the `Legacy` world's; once `REWORK_ELITES` differs, a `Rework` world's runtime
-  writes `"rework"` and the state hash folds it. `check_world` (`checkpoint.rs`, `check_elite_rule`) admits exactly
+  writes `"rework"` and the state hash folds it. `check_world` (`systems/mobs.rs` `check_elite_rule`, run by `mobs::validate`) admits exactly
   that one value per statics digest.
 - `Mob::born_with(elites, ...)` takes the table for an elite's spawn hp; `Mob::born` is the legacy form for births that
   are never elite and for tests.
