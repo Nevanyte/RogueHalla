@@ -64,7 +64,7 @@ fn hit(
     (ready_at - st.wish_ready_at, st)
 }
 
-/// Part 1: the named numbers are registered rows (appended after `REWORK_ELITE_SHARE_STACKS`, in this order) that the
+/// Part 1: the named numbers are registered rows (appended after the existing REWORK rows, in this order) that the
 /// Rework table reads; the window and floor stay legacy; Legacy keeps its millisecond rule.
 #[test]
 fn wishful_numbers_are_registered_rows_the_rework_table_reads() {
@@ -74,15 +74,22 @@ fn wishful_numbers_are_registered_rows_the_rework_table_reads() {
     };
     assert_eq!(by("REWORK_WISHFUL_HIT_SHARE"), 0.015, "1.5% per hit");
     assert_eq!(by("REWORK_WISHFUL_BUDGET_SHARE"), 0.20, "20% a window");
+    // Appended after the last existing REWORK row (`REWORK_EYE_FOR_AN_EYE_WEIGHT` on coord/int-62), adjacent, in this order.
     let names: Vec<&str> = REGISTRY.iter().map(|e| e.name).collect();
+    let at = |n: &str| {
+        names
+            .iter()
+            .position(|x| *x == n)
+            .unwrap_or_else(|| panic!("{n} not registered"))
+    };
     assert_eq!(
-        &names[names.len() - 3..],
-        &[
-            "REWORK_ELITE_SHARE_STACKS",
-            "REWORK_WISHFUL_HIT_SHARE",
-            "REWORK_WISHFUL_BUDGET_SHARE"
-        ],
-        "appended at the end, in order"
+        at("REWORK_WISHFUL_BUDGET_SHARE"),
+        at("REWORK_WISHFUL_HIT_SHARE") + 1,
+        "adjacent, in order"
+    );
+    assert!(
+        at("REWORK_WISHFUL_HIT_SHARE") > at("REWORK_EYE_FOR_AN_EYE_WEIGHT"),
+        "appended after the rows that exist"
     );
     let n = rework().numbers();
     assert_eq!(n.wishful_hit_share, by("REWORK_WISHFUL_HIT_SHARE"));

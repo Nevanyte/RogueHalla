@@ -2,9 +2,9 @@
 
 - **Serves:** the owner's elite and augment rework approval of 2026-11-18 (`docs/backlog/AUGMENT_ELITE_REWORK.md`, the
   P-AUG-TUNE-1 row and Appendix A's Wishful Thinking row; content-hash move 4, accepted by the coordinator).
-- **Implementer tier:** implementer-sonnet (Opus if the restore bound needs new serialized state; see section 10)
+- **Implementer tier:** implementer-sonnet implementer-opus (coordinator routing, 2026-11-19: the restore bound must hold across a Wish cooldown that changes between casts; see section 10)
 - **Reviewer:** reviewer-opus
-- **Integration base:** `feature/unity-rework` as `coord/int-61` @ `3c530434f`
+- **Integration base:** `coord/int-62` @ `5aaadea74` (`feature/unity-rework` + P-ELITE-BENCH-1, P-AUG-CONTENT-1-fix, P-AUG-POOL-1)
 - **D-rules touched:** D1 loose proof (owner direction 2026-11-10); D2 n/a; D5/D6/D9 none (no wire; text-only client
   change). Legacy is unchanged and byte-identical.
 
@@ -18,7 +18,7 @@ the restore bound can read it without new state. Window and floor keep their leg
 
 ## 2. Dependencies
 
-`coord/int-61` @ `3c530434f` (P-AUG-RULES-1, P-AUG-CONTENT-1, P-AUG-UI-1 and Plant merged). If the coordinator adds fix
+`coord/int-62` @ `5aaadea74` (P-AUG-RULES-1, P-AUG-CONTENT-1, P-AUG-UI-1, Plant, ELITE-BENCH-1, the CONTENT-1 guard and P-AUG-POOL-1 merged). If the coordinator adds fix
 commits, merge them in.
 
 ## 3. Relevant legacy paths
@@ -42,7 +42,7 @@ None outside the oracle files. Registry rows `REWORK_WISHFUL_HIT_SHARE` and `REW
 
 ## 5. Exclusive write scope
 
-- `crates/rh-sim/src/constants.rs` (append after `REWORK_ELITE_SHARE_STACKS`, in this order:
+- `crates/rh-sim/src/constants.rs` (append after the last REWORK row, `REWORK_EYE_FOR_AN_EYE_WEIGHT` on int-62, adjacent and in this order:
   `REWORK_WISHFUL_HIT_SHARE: f64 = 0.015, "share"; REWORK_WISHFUL_BUDGET_SHARE: f64 = 0.20, "share";`)
 - `crates/rh-sim/src/cards/tuning.rs` (REWORK table points `wishful_hit_share` / `wishful_budget_share` at them;
   LEGACY keeps `0.` = the millisecond rule, so its arithmetic is untouched)
@@ -86,16 +86,16 @@ checkpoint bound with it.
 - `crates/rh-sim/src/cards/wishful_rework_tests.rs` (numbers, text-only override, cut share, budget, rolling window,
   floor and charge clock, Legacy)
 - `crates/rh-sim/src/abilities/source_tests/wishful_rework_restore_tests.rs` (the restore bound, both rules, a played Rework
-  world)
+  world, a cooldown that lengthens between casts)
 - `client-unity/RoguehallaNet.Tests/CardDisplayReworkTests.cs` (the Wishful row back in `Retuned`: "1.5%", "full",
   "20%" present, "1 s", "30 s" absent; rest count `80 - 22`; digest `5cc91496...56a4d0`). This reverts the test half of
   coordinator commit `08bbb1405`; it fails until the catalog line is restored.
-- `crates/rh-sim/src/cards/rework_content_tests.rs`: `oracle-amend` commit, two edits to P-AUG-CONTENT-1's tests (for
-  the owner): (a) `every_changed_number_is_a_hashed_rework_registry_row`'s end-of-registry list now ends with the two
-  new rows after `REWORK_ELITE_SHARE_STACKS` (it said the registry ends there); (b)
-  `legacy_is_unchanged_and_unlisted_cards_keep_their_catalog_rows` skips the Wishful row's `text` (its rows are still
-  asserted equal to the catalog's). The existing assertion that Rework keeps `wishful_budget_ms`, `wishful_window_ms`
-  and `wishful_floor_share` legacy still holds (those fields are untouched).
+- `crates/rh-sim/src/cards/rework_content_tests.rs`: `oracle-amend` commit, one edit to P-AUG-CONTENT-1's tests (for
+  the owner): `legacy_is_unchanged_and_unlisted_cards_keep_their_catalog_rows` skips the Wishful row's `text` (its
+  rows are still asserted equal to the catalog's). Appends no longer break the registry-run test (373b919fe).
+- `crates/rh-sim/src/cards/rework_guard_tests.rs` (P-AUG-CONTENT-1-fix, existing, read-only): every number an override
+  row changes must bit-equal a `REWORK_*` registry value. Wishful's override is text-only, so it passes; a bare literal
+  in the row would fail it.
 
 Stub commit (the implementer replaces the zeros): `CardNumbers::wishful_hit_share` and `wishful_budget_share`
 (`tuning.rs`, both tables `0.` = legacy ms path), the two `mod` lines, `setup.rs` reading `config.augments: "rework"`
@@ -119,16 +119,15 @@ Stub commit (the implementer replaces the zeros): `CardNumbers::wishful_hit_shar
 
 ## 10. Risk and suggested model tier
 
-Sonnet, `reviewer-opus`. The restore bound is the risk (plan Risks: "TUNE-1 then escalates to Opus"). No new state is
-needed for the cap the oracle pins: `cast.cooldown_ms` is in `card_runtime.wish_cast`, already validated against the
-build. **Plan doubt for the implementer to resolve, not pinned by a test:** trims persist 60 s but `wish_cast` is
-replaced at every cast, and the cooldown can change between casts (a card taken, Arcane Overload). A bound that reads
-the CURRENT cast's cooldown can refuse a state the sim reached: trims cut at a 60 s cooldown (12 000 each window)
-checked against a later 40 s cast (8 000). The runtime has the same shape (old trims count against the new cast's
-budget), so such a world simply cuts nothing more, but its checkpoint then holds a sum over the current budget. If the
-Sonnet attempt cannot make the bound safe without a per-trim record of the cooldown it was cut against (a serialized
-field: format bump, hash, restore), it stops and escalates to Opus; do not weaken the cap tests. A safe bound that
-needs no state is the largest full cooldown the build could have cast with.
+Opus, `reviewer-opus`. The restore bound is the risk. The oracle pins the cap (20% of the cast's full cooldown, per trim
+and per window sum) and that a Wish cooldown which LENGTHENS between casts inside the 60 s window restores
+(`a_cooldown_that_lengthens_between_casts_restores_in_both_worlds`: Wishful trims under the short cooldown, Arcane
+Overload taken, a second cast under the long one). Finding on the other direction (a cooldown that SHORTENS): no
+reachable lever. `WishCooldown` multipliers come only from Arcane Overload and only lengthen; no card is removed alone;
+the training console's `clear` and a raid start both clear `card_trims` (`cards/runtime.rs:31-52`). So a bound that reads
+only the current cast's `cooldown_ms` is sound for every reachable state; a bound that reads a stale, shorter cooldown
+is not. No new serialized field is needed for this. Do not weaken the cap tests. If a per-trim cooldown record seems
+needed after all, that is a format bump (`CHECKPOINT_FORMAT`, hash, restore) and goes back to the coordinator.
 
 ## 11. Known traps
 
@@ -137,7 +136,7 @@ needs no state is the largest full cooldown the build could have cast with.
 - Legacy must keep its exact float arithmetic (`n * ms`, `BUDGET - used`); Rework's `0.015 * cd` times `n`: the oracle
   uses exact values with 40 000, 60 000 (600, 900, 1800, 8 000), so compute `n * (share * cd)` or `share * cd * n`
   and check it prints those exactly.
-- `REGISTRY` tail order is asserted; the `scripts/regolden-content.sh` run moves content hash `10dfa3b399dc43a1`.
+- `REGISTRY` tail order is asserted; the `scripts/regolden-content.sh` run moves content hash `abed1bee9a62b4f8` (move 6; POOL-1 was move 5).
 - `a_played_rework_world...` reads the Rework cooldown from the played state (45 000 there; Legacy plays 60 000 in the
   same case), so do not copy a constant into the test.
 
