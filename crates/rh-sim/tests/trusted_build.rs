@@ -92,7 +92,10 @@ fn scene(arena: &Arena) -> Vec2 {
     for dist in [160., 128., 96.] {
         for k in 0..16 {
             let a = f64::from(k) * std::f64::consts::TAU / 16.;
-            let p = Vec2::new(centre.x + a.cos() * dist, centre.y + a.sin() * dist);
+            let p = Vec2::new(
+                centre.x + rh_sim::math::cos(a) * dist,
+                centre.y + rh_sim::math::sin(a) * dist,
+            );
             if floor_line(p, centre) {
                 return p;
             }
@@ -218,9 +221,8 @@ fn a_minute_five_build_reaches_the_fold_and_survives_a_checkpoint() {
             .filter(|m| m.camp == 0 && m.zombie.is_none() && m.core.vitals.hp > 0.)
             .map(|m| m.core.pos())
             .min_by(|a, b| {
-                let da = (a.x - at.x).powi(2) + (a.y - at.y).powi(2);
-                let db = (b.x - at.x).powi(2) + (b.y - at.y).powi(2);
-                da.total_cmp(&db)
+                let d2 = |p: &Vec2| (p.x - at.x) * (p.x - at.x) + (p.y - at.y) * (p.y - at.y);
+                d2(a).total_cmp(&d2(b))
             });
         // One order every 5 ticks (the submit budget refuses one every tick).
         if let Some(t) = target.filter(|_| tick % 5 == 0) {
