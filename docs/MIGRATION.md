@@ -70,8 +70,9 @@ A throwaway sweep of `REWORK_ELITES` (k 0.65), banked_12, Duelist, overall death
 - **(dmg 0.8, hp 1.5):** bow 45%, avalancheTroll 42%.
 - Results: `elite-sweep/` in the coordinator scratchpad.
 - The global table cannot even out Avalanche Troll, or bow against elites.
-- The coordinator recommends (dmg 1.0, hp 1.5), because the bench's rates are an upper bound (no dodging). This waits for
-  the owner.
+- The coordinator recommended (dmg 1.0, hp 1.5), because the bench's rates are an upper bound (no dodging).
+- **Owner 2026-11-19: "dmg 1.0, hp 1.5".** P-ELITE-TUNE-1 sets `REWORK_ELITES` to dmg_mult 1.0 and hp_mult 1.5 (k 0.65)
+  through two `REWORK_ELITE_*` registry rows, with a before and after bench table.
 
 **Integration 62 review (reviewer-opus): LAND WITH NOTES.** One note:
 - The Rework pool tables (`REWORK_POOL`, `faction_only`, the Eye for an Eye weight flag) are outside the content hash.
