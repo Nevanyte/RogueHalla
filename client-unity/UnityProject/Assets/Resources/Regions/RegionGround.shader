@@ -678,42 +678,13 @@ Shader "Roguehalla/RegionGround"
                             float time = _RhInkClock.x;
                             if (kd == 1)            // lava: dark crust over warped molten channels
                             {
-                                float2 q = t * 1.6 + float2(Fbm(t * 0.9 + time * 0.05), Fbm(t * 0.9 + 9.0 - time * 0.05)) * 2.2;
-                                float2 w = Worley(q);
-                                float chan = 1.0 - smoothstep(0.0, 0.34, w.y);
-                                float heat = saturate(chan * 1.25 + inner * 0.45 + (Fbm(t * 3.0 + time * 0.2) - 0.5) * 0.35);
-                                tc = lerp(deep, light, saturate(heat * 1.1));
-                                te = glow * (heat * heat * 0.85 + 0.15 * inner) * InkLavaPulse(t);   // a glowing material with crust detail, not a white sheet
-                                tc = lerp(tc, deep * 0.5, (1.0 - heat) * 0.5);
-                                hh = (1.0 - heat) * 0.07; gl = 0.30;
+                                InkLavaSurface(t, inner, glow, tc, te, hh);
+                                gl = .18;
                             }
-                            else if (kd == 6)       // ice: glassy cyan sheet, pale frozen shore, cracks and moving glints
+                            else if (kd == 6)       // mineral wash beneath fixed, wind-swept ice facets
                             {
-                                float2 w = Worley(t * 0.9 + float2(Fbm(t * 0.5), Fbm(t * 0.5 + 5.0)) * 1.2);
-                                float crack = 1.0 - smoothstep(0.0, 0.05, w.y);
-                                float streak = smoothstep(0.55, 0.9, VNoise(float2(t.x * 0.7 + t.y * 1.9, t.x * 0.2 - t.y * 0.4) * 1.3));
-                                float shore = 1.0 - smoothstep(0.0, 0.55, inner);
-                                tc = lerp(light, deep, saturate(inner * 0.85 + (Fbm(t * 0.35) - 0.5) * 0.4));
-                                tc = lerp(tc, light, streak * 0.42 + shore * 0.45);
-                                tc = lerp(tc, float3(0.95, 0.99, 1.0), crack * 0.40);
-                                float glint = InkIceGlint(t, crack, streak);
-                                te = glow * (crack * 0.10 + glint * 0.55);
-                                hh = streak * 0.025 - crack * 0.045; gl = 1.0;
-                                // Translucency: a darker, blurred, parallax-shifted layer beneath (cracks and bubbles at depth),
-                                // a fresnel-like sheen toward the screen edge and sun glints.
-                                [branch] if (_RhSwitch.z > 0.5)
-                                {
-                                    float2 tb = t * 0.55 + (t - _RhCam.xy) * 0.07 + float2(Fbm(t * 0.3 + 2.0), Fbm(t * 0.3 + 8.0)) * 0.8;
-                                    float2 w2 = Worley(tb);
-                                    float deepCrack = 1.0 - smoothstep(0.0, 0.10, w2.y);
-                                    float bubbles = smoothstep(0.80, 0.95, VNoise(tb * 5.0 + 3.0));
-                                    float3 under = lerp(deep * 0.6, deep * 0.3, Fbm(tb * 0.7)) + float3(0.55, 0.8, 0.95) * (deepCrack * 0.22 + bubbles * 0.18);
-                                    float depthMask = saturate(inner * 1.4);
-                                    tc = lerp(tc, under, 0.42 * depthMask);
-                                    float fres = pow(saturate(length(t - _RhCam.xy) / 13.0), 2.0);
-                                    tc += float3(0.55, 0.75, 0.95) * fres * 0.2 * depthMask;
-                                    te += glow * glint * .38 * depthMask;
-                                }
+                                InkIceSurface(t, inner, glow, tc, te, hh);
+                                gl = .38;
                             }
                             else if (kd == 5)       // bog: thick, opaque sludge with a crust, rising bubbles and a sickly glow (gameplay terrain: never see-through, no sun glints)
                             {
@@ -741,15 +712,8 @@ Shader "Roguehalla/RegionGround"
                             }
                             else if (kd == 4)       // embers: charred ground with pulsing glowing cracks
                             {
-                                float2 w = Worley(t * 1.5 + Fbm(t * 0.8) * 1.5);
-                                float crack = 1.0 - smoothstep(0.0, 0.16, w.y);
-                                // Contrast pass (docs/rework/evidence/contrast): the cracks keep their hue and their pulse but their luminance range is calmer, so a fighter's
-                                // edge reads against them (was pulse 0.65 + 0.35 sin, emission x 1.5, crack colour mix 0.6; now emission x 0.6, mix 0.3).
-                                float pulse = 0.72 + 0.28 * sin(time * 1.7 + w.x * 9.0 + H21(floor(t)) * 6.28);
-                                tc = deep * (0.75 + 0.5 * Fbm(t * 2.0));
-                                te = glow * crack * pulse * 0.6 + glow * 0.06;
-                                tc = lerp(tc, light, crack * 0.3);
-                                hh = -crack * 0.05; gl = 0.12;
+                                InkEmberSurface(t, glow, tc, te, hh);
+                                gl = .08;
                             }
                             else if (kd == 7)       // light: warm sanctified ground, concentric shimmer and slow sparks
                             {
@@ -826,6 +790,9 @@ Shader "Roguehalla/RegionGround"
                 lit.rgb = RhFogGrade(i.world, lit.rgb);
                 float paper = dot(lit.rgb, float3(.22, .67, .11));
                 lit.rgb = lerp(lit.rgb, paper * float3(.95, 1.0, 1.02), .48 * marshWater);
+                // Keep the mineral wash visible under Frost's blue regional light.
+                float iceSheet = smoothstep(.34, .76, ta.g);
+                lit.rgb = lerp(lit.rgb, paper * float3(.90, .99, 1.06), .38 * iceSheet);
                 return lit;
             }
             ENDHLSL

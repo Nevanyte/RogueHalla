@@ -128,14 +128,13 @@ namespace Roguehalla.Client
             _planner.Build(RegionMap.EffectiveTerrain(map), map.W, map.H);
             if (RegionAtmosphereTable.AccentFor(TerrainKind.None).Enabled && map.Regions != null)
                 foreach (var pl in RegionProps.Scatter(map))
-                    if (pl.Art == "sent.lantern")
+                    if (RegionProps.TryFlameSocket(pl.Art, out var socket))
                     {
-                        // RegionPropArt paints the suspended cage 13 px aside and 95 px above the foot.
                         float unit = pl.Scale / RegionPropArt.PixelsPerUnit;
-                        _planner.AddLantern(pl.X + (pl.Flip ? -13f : 13f) * unit, pl.Y, 95f * unit);
+                        float x = pl.X + (pl.Flip ? -socket.x : socket.x) * unit;
+                        if (pl.Art == "sent.lantern") _planner.AddLantern(x, pl.Y, socket.y * unit);
+                        else _planner.AddTempleLamp(x, pl.Y, socket.y * unit);
                     }
-                    else if (pl.Art == "col.torch" || pl.Art == "temple.brazier")
-                        _planner.AddTempleLamp(pl.X, pl.Y, pl.Scale * (pl.Art == "col.torch" ? 82f : 50f) / RegionPropArt.PixelsPerUnit);
             var temple = TempleLayout.For(map);
             bool inkLamps = temple.IsSignature && Resources.Load<Sprite>("StormInk/Holy/AisleLamp") != null;
             float flameAboveFoot = TempleLayout.LampFlame - TempleLayout.LampFoot;
