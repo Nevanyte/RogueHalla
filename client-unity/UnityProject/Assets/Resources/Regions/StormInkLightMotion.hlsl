@@ -3,12 +3,21 @@
 
 // Tile-anchored brush marks use the same atmosphere clock as the sun and local lamps.
 
-float InkWaterReflection(float2 t, float wet)
+// Station increases downstream; cross is measured to the side of the connected channel.
+// Break the crests into a few strokes. Reeds, the bed and the waterline stay in place.
+float InkWaterReflection(float2 t, float wet, float4 channel)
 {
-    float grain = VNoise(float2(t.x * .84 + t.y * .18, t.y * .52));
-    float sweep = t.y * 2.46 + t.x * .39 + grain * .62 - _RhInkClock.x * .095;
-    float band = 1.0 - smoothstep(.015, .095, abs(frac(sweep) - .5));
-    return wet * band * smoothstep(.43, .76, grain) * _RhInkClock.z;
+    if (_StormFlowOn < .5) channel = float4(0, 0, wet, 0);
+    float depth = smoothstep(.08, .74, channel.z);
+    float s = channel.x - _RhInkClock.x * .29;
+    float2 water = float2(s, channel.y);
+    float crest = s * 1.08 - .21 * abs(channel.y) + .21 * VNoise(water * float2(.71, 1.88));
+    float ribbon = 1.0 - smoothstep(.015, .10, abs(frac(crest) - .5));
+    float breaks = smoothstep(.32, .78, VNoise(water * float2(.74, 3.12) + 7.1));
+    // A quiet pool catches short ripples parallel to the rim. Its shore has no downstream conveyor.
+    float bow = channel.z * 2.35 + VNoise(t * 1.18) * .44 - _RhInkClock.x * .083;
+    float pool = (1.0 - smoothstep(.018, .095, abs(frac(bow) - .5))) * smoothstep(.39, .71, VNoise(t * 1.07));
+    return wet * depth * lerp(pool * .48, ribbon * breaks, channel.w) * _RhInkClock.z;
 }
 
 float InkBogMeniscus(float2 t)
@@ -93,47 +102,63 @@ float InkLavaPulse(float2 t)
     return .89 + .11 * sin(dot(t, float2(.49, -.25)) + pigment * 3.0 - _RhInkClock.x * 1.06);
 }
 
-// A broad red current carries long gold strokes past dark rafts of crust. The bank
-// and the flowing interior are both bounded by the delivered molten terrain.
-void InkLavaSurface(float2 t, float inner, float4 sides, float3 glow, out float3 colour, out float3 emission, out float height)
+// Paint the length of the channel along the original painting's diagonal stroke.
+// The wet interior carries pigment past a slower fold; the rough cooling shelf is fixed to rock.
+float2 LavaPaintUV(float station, float across)
 {
-    float2 bank = float2(sides.x - sides.y, sides.z - sides.w);
-    float2 axis = float2(bank.y, -bank.x);
-    if (dot(axis, float2(.82,-.57)) < 0) axis = -axis;
-    float2 current = normalize(axis + float2(.60,-.43));
-    float2 uv = float2(t.x, -t.y) / 6.4 + (.034 * VNoise(t * .43));
-    float2 travel = float2(current.x, -current.y) * .16;
-    float phase = frac(_RhInkClock.x * .145);
-    float4 first = ElementalPaint(uv - travel * (phase - .5), 7);
-    float4 next = ElementalPaint(uv - travel * (frac(phase + .5) - .5), 7);
-    float4 ink = lerp(first, next, abs(phase * 2.0 - 1.0));
-    if (ink.a > .5)
+    return float2(.070 * station + .23 * across, .070 * station - .23 * across);
+}
+
+void InkLavaSurface(float2 t, float inner, float4 channel, float3 glow, out float3 colour, out float3 emission, out float height)
+{
+    // On devices without the field format, retain a still molten painting and its shore.
+    if (_StormFlowOn < .5) channel = float4(t.x, -t.y, inner, 0);
+    float bankGrain = VNoise(t * 3.15 + 9.4);
+    float shore = smoothstep(.03, .54, inner);
+    float depth = smoothstep(.09, .75, channel.z);
+    float flow = channel.w;
+    float station = channel.x;
+    float across = channel.y;
+    // A small stationary warp keeps hand-painted edges irregular all the way round a bend.
+    across += (VNoise(t * .86) - .5) * .38;
+    float time = _StormFlowOn > .5 ? _RhInkClock.x : 0.0;
+    float2 fastUV = LavaPaintUV(station - .56 * time, across);
+    float2 slowUV = LavaPaintUV(station - .16 * time + 2.4, across + .48);
+    // Broad basins expose more stationary crust. Cross-fade sampled washes, never unrelated UV origins.
+    float2 basinUV = float2(t.x, -t.y) / 5.7;
+    float4 fast = ElementalPaint(fastUV, 7);
+    float4 slow = ElementalPaint(slowUV, 7);
+    [branch] if (flow < .48)
     {
-        float liquid = smoothstep(.34, .87, ink.r);
-        float gold = smoothstep(.22, .74, ink.g) * liquid;
-        float white = smoothstep(.39, .87, ink.b) * gold;
-        float3 pigment = SRGBToLinear(ink.rgb);
-        colour = pigment * (.58 + inner * .16) + float3(.016,.005,.006);
-        emission = (float3(.48,.070,.010) * liquid + float3(.72,.56,.10) * gold
-            + float3(.52,.53,.29) * white) * InkLavaPulse(t);
-        height = (1.0 - liquid) * .046;
-        return;
+        float2 swirl = .013 * depth * float2(sin(time * .21 + channel.z * 2.2), cos(time * .16 + across));
+        float4 basin = ElementalPaint(basinUV + swirl, 7);
+        slow = lerp(basin, slow, smoothstep(.06, .48, flow));
     }
-    float2 flow = float2(.69*t.x + .30*t.y, -.23*t.x + .91*t.y);
-    float bend = VNoise(t * .43) * 1.35 + VNoise(t * 1.11) * .28;
-    float2 p = float2(flow.x * .50, flow.y * 2.1 + bend * 2.9);
-    float grain = Fbm(p + float2(-_RhInkClock.x * .105, 0));
-    float crust = smoothstep(.57, .68, grain + .089 * (1.0 - inner));
-    float brush = 1.0 - smoothstep(.018, .14, abs(frac(flow.y * .94 + bend - grain * .47) - .50));
-    float gold = brush * smoothstep(.27,.61,grain) * (1.0 - crust);
-    float strand = VNoise(p * float2(2.1, 3.7) + float2(-_RhInkClock.x * .21, 0));
-    float tip = smoothstep(.51, .82, strand) * gold;
-    float core = (1.0 - crust) * (.10 + .40 * inner) * (.67 + .60 * grain);
-    colour = lerp(float3(.22, .037, .015), float3(.55, .155, .027), smoothstep(.23, .68, grain));
-    colour = lerp(colour, float3(.063, .036, .031) * (.72 + .62 * grain), crust);
-    emission = (float3(.96, .13, .018) * core + float3(.8, .42, .08) * gold
-        + float3(.60, .48, .14) * tip + glow * (.030 * inner)) * InkLavaPulse(t);
-    height = .046 * crust - .012 * gold;
+    float4 ink = lerp(slow, fast, smoothstep(.08, .84, depth) * (.23 + .75 * flow));
+    float liquid = smoothstep(.33, .87, ink.r);
+    float gold = smoothstep(.19, .73, ink.g) * liquid;
+    float white = smoothstep(.38, .86, ink.b) * gold;
+    // Keep the outer stroke thick where the lip overhangs, thin where a hot seam meets rock.
+    float edge = min(inner + bankGrain * .10, channel.z);
+    float exposed = smoothstep(.018 + bankGrain * .08, .22 + bankGrain * .13, edge);
+    float3 shelf = lerp(float3(.045,.014,.021), float3(.16,.049,.030), bankGrain);
+    if (ink.a <= .5)
+    {
+        float f = VNoise(float2(station * .68 - time * .22, across * 3.4));
+        liquid = smoothstep(.22,.63,f);
+        gold = smoothstep(.51,.73,f);
+        white = gold * smoothstep(.70,.84,f);
+        ink.rgb = lerp(float3(.26,.065,.037), float3(1.0,.67,.13), liquid);
+    }
+    float3 pigment = SRGBToLinear(ink.rgb) * (.59 + .15 * depth) + float3(.018,.005,.007);
+    colour = lerp(shelf, pigment, exposed);
+    float pulse = .94 + .06 * sin(station * .72 - time * .68 + across * .26);
+    emission = (float3(.49,.082,.012) * liquid + float3(.74,.55,.10) * gold
+        + float3(.49,.49,.26) * white) * exposed * pulse;
+    // Only small breaks in the cooled lip catch a red line from the fluid underneath.
+    float crack = (1.0 - exposed) * smoothstep(.47,.79,bankGrain) * shore;
+    emission += glow * (.14 * crack);
+    height = (1.0 - exposed) * .039 - exposed * (.030 + .022 * liquid);
 }
 
 // Ember terrain is cooling cinder. Short, disconnected flecks sit inside the ash.

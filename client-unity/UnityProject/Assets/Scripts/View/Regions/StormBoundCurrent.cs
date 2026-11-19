@@ -13,7 +13,10 @@ namespace Roguehalla.Client
         readonly byte[] _wet;
         readonly int[] _component, _shore, _distance, _parent, _station;
         readonly Color[] _field;
+        readonly Vector2[] _tangent;
         readonly List<int> _cells = new List<int>(), _path = new List<int>();
+        readonly List<Vector2> _centres = new List<Vector2>();
+        readonly List<float> _lengths = new List<float>();
         readonly Queue<int> _queue = new Queue<int>();
         readonly SortedSet<(int cost, int cell)> _pending = new SortedSet<(int, int)>();
 
@@ -29,6 +32,7 @@ namespace Roguehalla.Client
             _parent = new int[count];
             _station = new int[count];
             _field = new Color[count];
+            _tangent = new Vector2[count];
             for (int i = 0; i < count; i++) _component[i] = Unvisited;
         }
 
@@ -196,6 +200,19 @@ namespace Roguehalla.Client
             _path.Clear();
             for (int i = end; i != Unvisited; i = _parent[i]) _path.Add(i);
             _path.Reverse();
+            _centres.Clear();
+            _lengths.Clear();
+            for (int s = 0; s < _path.Count; s++)
+            {
+                // Round off the cardinal stair-steps of a diagonal stream. Project every wet centre
+                // into this same smooth frame so the two sides of the brush keep their width.
+                int lo = Mathf.Max(0, s - 1), hi = Mathf.Min(s + 1, _path.Count - 1);
+                Vector2 point = Position(_path[s]);
+                if (s != lo && s != hi)
+                    point = (Position(_path[lo]) + 2f * point + Position(_path[hi])) * .25f;
+                _centres.Add(point);
+                _lengths.Add(s == 0 ? 0f : _lengths[lo] + Vector2.Distance(point, _centres[lo]));
+            }
         }
 
         void Project(int component)
@@ -218,12 +235,12 @@ namespace Roguehalla.Client
                     _station[n] = s;
                     _queue.Enqueue(n);
                 }
-                Vector2 axis = Position(_path[Mathf.Min(s + 2, _path.Count - 1)]) -
-                    Position(_path[Mathf.Max(s - 2, 0)]);
-                Vector2 offset = Position(i) - Position(_path[s]);
+                Vector2 axis = _centres[Mathf.Min(s + 2, _path.Count - 1)] - _centres[Mathf.Max(s - 2, 0)];
+                Vector2 offset = Position(i) - _centres[s];
                 Vector2 tangent = axis.normalized;
+                _tangent[i] = tangent;
                 float lateral = tangent.x * offset.y - tangent.y * offset.x;
-                float longitudinal = Mathf.Clamp(s + Vector2.Dot(tangent, offset), 0, _path.Count - 1);
+                float longitudinal = Mathf.Clamp(_lengths[s] + Vector2.Dot(tangent, offset), 0, _lengths[_lengths.Count - 1]);
                 float width = _shore[_path[s]];
                 float tip = Mathf.Clamp01(Mathf.Min(s, _path.Count - s - 1) / 3f);
                 float channel = 1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(1.5f, 3.5f, width));
@@ -238,20 +255,32 @@ namespace Roguehalla.Client
             for (int i = 0; i < _wet.Length; i++)
             {
                 if (_wet[i] != 0) continue;
-                // Preserve coordinates into the half-texel clamp apron, with zero depth and motion.
-                int source = Unvisited;
+                // Bilinear samples on a one-tile stream straddle both banks. Continue its local coordinate
+                // grid across the half-texel apron, leaving every dry texel at zero depth and speed.
+                int x = i % _width, y = i / _width;
                 int component = Unvisited;
                 bool shared = false;
-                for (int d = 0; d < 4; d++)
+                Vector2 projected = Vector2.zero;
+                float weights = 0;
+                for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
                 {
-                    int n = Neighbour(i, d);
-                    if (n == Unvisited || _wet[n] == 0) continue;
-                    if (component != Unvisited && component != _component[n]) { shared = true; break; }
-                    if (source == Unvisited || _shore[n] > _shore[source]) source = n;
+                    int nx = x + dx, ny = y + dy;
+                    if (nx < 0 || nx >= _width || ny < 0 || ny >= _height) continue;
+                    int n = ny * _width + nx;
+                    if (_wet[n] == 0) continue;
+                    if (component != Unvisited && _component[n] != component) shared = true;
                     component = _component[n];
+                    Vector2 tangent = _tangent[n];
+                    var delta = new Vector2(-dx, -dy);
+                    float weight = 1f / delta.sqrMagnitude;
+                    float station = _field[n].r + Vector2.Dot(tangent, delta);
+                    float side = _field[n].g + tangent.x * delta.y - tangent.y * delta.x;
+                    projected += new Vector2(station, side) * weight;
+                    weights += weight;
                 }
-                if (!shared && source != Unvisited)
-                    _field[i] = new Color(_field[source].r, _field[source].g, 0, 0);
+                if (!shared && weights > 0)
+                    _field[i] = new Color(projected.x / weights, projected.y / weights, 0, 0);
             }
         }
     }
