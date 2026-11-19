@@ -24,6 +24,26 @@ pub const INTERACTIVE: [CardId; 14] = [
     CardId::SecondWind,
 ];
 
+/// P-AUG-POOL-1: the interactive augments a `Rework` world's chest may offer: `INTERACTIVE` plus Committed, Fists of
+/// Fury, Machine Gun, Here Comes the Boom and A Race to 0 (plan of record `docs/backlog/AUGMENT_ELITE_REWORK.md`).
+/// STUB: still `INTERACTIVE`; the implementer lists the 19 ids.
+pub static REWORK_POOL: &[CardId] = &INTERACTIVE;
+
+/// P-AUG-POOL-1 (decision 5): who a pool entry may be offered to. `Faction(f)`: only when every eligible picker at the
+/// chest is faction `f` (and there is at least one picker).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Offer {
+    Any,
+    Faction(FactionId),
+}
+
+/// P-AUG-POOL-1: one eligible picker at a chest, as the offer rules read it (its build and its faction).
+#[derive(Clone, Copy, Debug)]
+pub struct Picker {
+    pub build: Build,
+    pub faction: FactionId,
+}
+
 pub const fn is_interactive(id: CardId) -> bool {
     let mut i = 0;
     while i < INTERACTIVE.len() {

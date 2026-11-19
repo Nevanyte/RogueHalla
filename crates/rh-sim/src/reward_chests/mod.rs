@@ -451,4 +451,6 @@ pub(crate) fn validate_world(w: &World, near: impl Fn(f64, f64) -> bool) -> Resu
 #[cfg(test)]
 mod chest_runtime_tests;
 #[cfg(test)]
+mod pool_tests;
+#[cfg(test)]
 mod tests;

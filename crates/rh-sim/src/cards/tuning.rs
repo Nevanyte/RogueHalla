@@ -179,6 +179,20 @@ impl Tuning {
             })
             .collect()
     }
+    /// P-AUG-POOL-1: the offer rule of a pool card in this world (`None`: not in the pool). STUB: every pool card is
+    /// `Any`.
+    pub fn offer(&self, id: CardId) -> Option<crate::reward_chests::Offer> {
+        self.pool
+            .contains(&id)
+            .then_some(crate::reward_chests::Offer::Any)
+    }
+    /// P-AUG-POOL-1: the cards a chest offers these eligible pickers in this world: [`Tuning::augment_pool`] filtered by
+    /// each entry's [`crate::reward_chests::Offer`], with Eye for an Eye weighted toward pickers who own a
+    /// returned-damage source (it may then appear more than once). STUB: the faction-blind, unweighted pool.
+    pub fn offer_pool(&self, pickers: &[crate::reward_chests::Picker]) -> Vec<CardId> {
+        let builds: Vec<Build> = pickers.iter().map(|p| p.build).collect();
+        self.augment_pool(&builds)
+    }
     /// Does the build hold a base card of this base stat (source `ownedBase`)?
     pub(crate) fn owns_base(&self, build: &Build, base: super::BaseStatId) -> bool {
         build.cards().any(|id| self.def(id).base == Some(base))
@@ -197,6 +211,22 @@ impl Tuning {
             overrides,
             pool: &crate::reward_chests::INTERACTIVE,
         })
+    }
+    /// P-AUG-POOL-1: a test table with its own pool and faction-only entries (`faction_only`: the cards whose offer is
+    /// `Faction(f)`; every other pool card is `Any`), the legacy numbers and no override. STUB: ignores `faction_only`.
+    #[cfg(test)]
+    pub(crate) fn for_test_pool(
+        rule: AugmentRule,
+        pool: &'static [CardId],
+        faction_only: &'static [(CardId, crate::FactionId)],
+    ) -> Tuning {
+        let _ = faction_only;
+        Tuning {
+            rule,
+            numbers: LEGACY.numbers,
+            overrides: &[],
+            pool,
+        }
     }
 }
 

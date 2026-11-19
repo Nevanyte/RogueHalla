@@ -71,6 +71,7 @@ const NON_GAMEPLAY: &[(&str, &str, &str)] = &[
     ("modifiers/mod.rs", "MAX_FOLD_INPUT", "fixed fold scratch bound (the catalog rows plus the test-only diagnostic overlay), not a game rule"),
     ("modifiers/mod.rs", "NO_BIT", "sentinel marking a row that owns no while bit, not a game rule"),
     ("reward_chests/pools.rs", "INTERACTIVE", "the source interactive augment id list (identifiers only); tiers and rows are the registered catalog"),
+    ("reward_chests/pools.rs", "REWORK_POOL", "P-AUG-POOL-1: the Rework world's chest augment id list (identifiers only: INTERACTIVE plus five built augments); tiers and rows are the registered catalog"),
     ("kill_augments.rs", "ALL", "the nine readable investment keys in source order (identifiers only); the UNIT numbers are the registered kill-augments table"),
     ("quests/catalog.rs", "ALL", "the three quest verb kinds in source order (identifiers only); the rows are the registered quests table"),
     ("traders/mod.rs", "ALL", "the two trader kinds in source order (identifiers only); the visitors fold their kind/name/id rows"),
