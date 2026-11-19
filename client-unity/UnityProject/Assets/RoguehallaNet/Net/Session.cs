@@ -86,6 +86,8 @@ namespace Roguehalla.Net
         readonly SelfView _me = new SelfView();
         bool _hasMe;
         bool _predictionGatesLocked;
+        // P-COLISEUM-GATES-1: the locked body map, built once per Welcome map (null until first needed).
+        MapBlob _closedGateMap, _closedGateMapOf;
         /// <summary>
         /// The local player as of the newest applied snapshot, or null before the first one and while spectating (no self). Gameplay
         /// code reads this, not <see cref="Latest"/>: it is one owned object overwritten in place per snapshot (so it makes no garbage
@@ -462,10 +464,16 @@ namespace Roguehalla.Net
                 bool locked = Collections.Arena.HasValue && Collections.Arena.Value.GatesLocked;
                 if (Motion != null && locked != _predictionGatesLocked)
                 {
-                    // Welcome contains the open map, not gate geometry. A locked arena must draw authoritative self
-                    // positions until the server says it is open again; never infer a second collision model.
-                    if (locked) Motion.SuspendPrediction();
-                    else Motion.SetCollisionMap(Map);
+                    // P-COLISEUM-GATES-1: while locked the server walks on closed_gates (the Welcome map with every
+                    // Coliseum.Gates tile WALL; standing walls LOW on top through SetWalls below), as legacy predicts on
+                    // withGates(map). A map without gate geometry keeps the authoritative self until the arena opens.
+                    if (!locked) Motion.SetCollisionMap(Map);
+                    else
+                    {
+                        MapBlob closed = ClosedGateMap();
+                        if (closed != null) Motion.SetCollisionMap(closed);
+                        else Motion.SuspendPrediction();
+                    }
                 }
                 _predictionGatesLocked = locked;
                 if (Motion != null) Motion.SetWalls(Collections.Fields); // P-FROST-WALL-PREDICT-1: walls before this tick's snapshot
@@ -576,6 +584,19 @@ namespace Roguehalla.Net
             _lastResyncAt = now;
             ResyncsSent++;
             Send(new ClientMsg.Resync());
+        }
+
+        /// <summary>rh-sim <c>closed_gates</c> of the current Welcome map (cached per map object), or null when it has no
+        /// gate tile.</summary>
+        MapBlob ClosedGateMap()
+        {
+            MapBlob open = Map;
+            if (!ReferenceEquals(open, _closedGateMapOf))
+            {
+                _closedGateMap = Ui.ColiseumGates.ClosedMap(open);
+                _closedGateMapOf = open;
+            }
+            return _closedGateMap;
         }
 
         void OnWelcome(ServerMsg.Welcome w)
