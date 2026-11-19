@@ -97,7 +97,7 @@ Join: 426 if wire-build differs (SHA-256 of `packages/shared/src`).
 
 ## 8. Licensing / assets
 - No LICENSE file at repo root (`ls LICENSE*` fails). All 4 package.json files (`/`, shared, server, client) have `"private": true` and no `license` field. Treat as all-rights-reserved/unlicensed; ask owner.
-- Client assets: no fonts, images or audio files in `packages/client` (only index.html, src ts/css, test/dev html). Font stack is system fonts (`index.html:17`); art is procedural Graphics/baked textures ("colored shapes only"). No third-party fonts found (no @font-face/@fontsource hits). Third-party code deps: Phaser 4, Colyseus 0.18, wrangler, vitest etc. (licenses not audited). `Unfinished code/` top-level dir exists (contents not inspected).
+- Client assets: no fonts, images or audio files in `packages/client` (only index.html, src ts/css, test/dev html). Font stack is system fonts (`index.html:17`); art is procedural Graphics/baked textures ("colored shapes only"). No third-party fonts found (no @font-face/@fontsource hits). Third-party code deps: Phaser 4, Colyseus 0.18, wrangler, vitest etc. (licenses not audited). Archived saved work from the legacy game lives in `docs/legacy/saved-work/` (moved from a root folder; contents not inspected).
 
 ## 9. Stale-doc discrepancies
 | Doc says | Code says |

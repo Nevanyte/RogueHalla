@@ -35,6 +35,9 @@ exception is local walk prediction, mirrored from Rust and always corrected by t
 | [`client-unity/RoguehallaNet`](client-unity/RoguehallaNet/README.md) | Engine-free C# library: codec, client state, pathfinding, walk prediction. |
 | [`client-unity/UnityProject`](client-unity/UnityProject/README.md) | Rendering, UI, audio, FX. No game rules. |
 | [`hosting/`](hosting/README.md) | AWS staging recipes, placement edge tooling, GameLift bridge. |
+| [`maps/`](maps/README.md) | The hand-authored first-playable staging map, read by `rh-server` and the Unity tools. |
+| [`deployment/`](deployment/README.md) | The legacy game's Cloudflare deployment (used by `.github/workflows/deploy.yml`). |
+| [`testing/`](testing/README.md) | The legacy balance workbench: Python sims and tuning notes, not a test suite. |
 | `packages/` | The legacy TypeScript game. Read-only reference. |
 
 ## Run the Rust server locally

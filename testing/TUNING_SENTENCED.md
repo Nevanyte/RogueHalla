@@ -60,4 +60,4 @@ Regression coverage: client 2,139/2,139 tests across 107 files and shared 1,726/
 
 `python3 testing/test_kite.py` still has eight failures under latest main's shorter ranged windups: Fire>Plague bow/wand, Sentenced>Frost bow/wand, Plague>Frost bow/wand and Holy>Fire bow/wand. Main's combat upgrade already documented ten failures in this legacy model before the redesign. Its assertions and historical exception remain unchanged. The two Frost-shooter groups have infinite free-fire time in that continuous orb-walk model. These controls tradeoffs and the secondary weapon health margins still need human playtesting.
 
-D9 tournament share is unmeasured because the available tournament report mixes farming and free-for-all outcomes rather than isolated faction duel shares. The unrelated deferred bot and quest tasks remain in `Unfinished code/README.md`.
+D9 tournament share is unmeasured because the available tournament report mixes farming and free-for-all outcomes rather than isolated faction duel shares. The unrelated deferred bot and quest tasks remain in `docs/legacy/saved-work/README.md`.

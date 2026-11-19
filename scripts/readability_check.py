@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Readability check: README, module header and file-size rules over tracked files.
+"""Readability check: root, README, module header and file-size rules over tracked files.
 
 The standard is docs/agent/READABILITY.md; the allowlist is scripts/readability-allowlist.txt.
 Run: python3 scripts/readability_check.py [--root DIR] [--allowlist FILE] [--write-allowlist]
@@ -109,9 +109,17 @@ def glob_regex(pattern):
     return re.compile("^" + "".join(out) + "$")
 
 
+def top_level_dirs(files):
+    """Top-level directories of tracked files whose names do not start with a dot."""
+    return {f.split("/")[0] for f in files if "/" in f and not f.startswith(".")}
+
+
 def readme_dirs(files):
-    """Directories that must hold a README, because they hold tracked files."""
+    """Directories that must hold a README, because they hold tracked files. With a tracked root README.md the
+    root rule adds every other top-level directory."""
     dirs = set()
+    if "README.md" in files:
+        dirs |= top_level_dirs(files)
     for f in files:
         parts = f.split("/")
         if parts[0] == "crates" and len(parts) >= 3:
@@ -143,6 +151,22 @@ def find_violations(root, files, exempt_res):
         if d + "/README.md" not in fileset:
             readme.add(d)
     return size, header, readme
+
+
+def root_problems(root, files):
+    """The root rule (only with a tracked root README.md): no whitespace in a top-level name, and every top-level
+    directory named in the root README as `<name>/ or ](<name>/. Missing READMEs are the readme rule's."""
+    if "README.md" not in files:
+        return []
+    text = read_bytes(root, "README.md").decode("utf-8", "replace")
+    problems = []
+    for name in sorted({f.split("/")[0] for f in files}):
+        if re.search(r"\s", name):
+            problems.append("root %s: name has whitespace; rename it" % name)
+    for name in sorted(top_level_dirs(files)):
+        if "`" + name + "/" not in text and "](" + name + "/" not in text:
+            problems.append("root %s/: not named in the root README.md; add a row to its repository map" % name)
+    return problems
 
 
 def parse_allowlist(path):
@@ -256,6 +280,7 @@ def check(root, allowlist):
     for p in sorted(readme - listed["readme"]):
         problems.append("readme %s/: no README.md; add one" % p)
 
+    problems += root_problems(root, files)
     for line in problems:
         print(line)
     if problems:

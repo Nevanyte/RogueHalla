@@ -7,13 +7,14 @@ governs the readability packets (`P-READ-*`) and, through the gate's readability
 A reader new to the repository should be able to go **root README → component README → module header → code** and
 know at each step where to look next.
 
-## The four rules (enforced)
+## The five rules (enforced)
 
 `python3 scripts/readability_check.py` runs in every gate (quick and full). It checks tracked files only.
 
 | Rule | Applies to | Requirement |
 |---|---|---|
 | `readme` | each `crates/*/`, and `client-unity/RoguehallaNet`, `client-unity/UnityProject`, `hosting`, `tools`, `scripts`, `parity`, `protocol`, `docs` | a `README.md` |
+| `root` | the repository root (when a root `README.md` is tracked) | no whitespace in a top-level name; every top-level directory not starting with `.` is named in the root `README.md` (as `` `<name>/ `` or `](<name>/`) and holds a `README.md` (or has a `readme <name>` allowlist line) |
 | `header` | every non-test `crates/*/src/**/*.rs` | the first non-blank line starts with `//!` |
 | `header` | every non-test `client-unity/**/*.cs` (not the synced copy in `UnityProject/Assets/RoguehallaNet/`) | a `/// <summary>` before the first type declaration |
 | `size` | the same files | Rust at most **1,500** lines, C# at most **800** (whole file: inline tests count) |
