@@ -140,7 +140,48 @@ Rust readers today (each must read the seam after this packet):
 - Every oracle file below green; the parity report MATCH unchanged; `tests/content.rs` content hash unchanged.
 
 ## Oracle files (read-only for implementers)
-- (filled in by the `oracle:` commits)
+- `crates/rh-sim/tests/augment_rules.rs` (new; `oracle:`): the rules' defaults and `live_content`, the JSON encoding
+  and refusals, 64 distinct statics identities over the six silent config switches, the card table and the elite
+  table legacy under both rules, equivalence of `Legacy` and empty `Rework` over seeds 11-13 on the elite-camp PvE
+  fixture with fold cards granted through chests (events every tick, elite hp every tick, final checkpoint minus the
+  two rule fields; floor: the elite is hurt on at least one seed, measured on all three), and a `Rework` checkpoint
+  with Committed + Machine Gun + Arcane Overload and an arrow in flight that restores and plays on identically.
+- `crates/rh-sim/src/cards/tuning_tests.rs` (new; `oracle:`, a `#[path]` module of `cards/tuning.rs`; the stub commit
+  holds a one-line placeholder so the stub compiles): the shape guard (numbers and text admitted; tier, kind, unique,
+  ready, base, requires, title, tags, id, a flag, a stat or mult key, a row added or removed, a selection added, a
+  trigger's event, once or action refused), the test constructor through the guard, the real override table through
+  the guard, a doctored +22% Committed reaching the fold and the restore check (and refused under the legacy table),
+  the G1 cap reaching both the fold clamp (Boom 2.6) and the outgoing ceiling, Gambler's chances and factors read
+  from the table, and the Rework ranged envelope covering eight fold cards (alone and together) at maximum boosts and
+  farm, every faction, bow and wand, within 4x the legacy one.
+- `crates/rh-sim/tests/hash_coverage.rs` (`oracle-amend:`, for the owner): `the_serde_skips_are_exactly_the_documented_ones`
+  counts `statics.rs` 8 (was 7), the new skip being `MatchStatic::cards`, with its reason.
+- `crates/rh-server/tests/live_content.rs` (`oracle-amend:`, for the owner): the exhaustive expected source-arena and
+  training configs state `augments: Rework, elites: Rework` (the stub commit wrote `Legacy` there to compile).
+
+Red on the stub, each on an assertion: all 7 tests of `augment_rules`, 6 of the 7 `tuning_tests` (the real-table guard
+is green: the table is empty), and `rh-server` `live_content`'s two table tests after its amend commit.
+`hash_coverage::the_serde_skips_are_exactly_the_documented_ones` is red on the stub commit alone and green after its
+amend commit (the stub already holds the field).
+
+### The stub (implementer-editable; commit `stub:`)
+- `statics.rs`: `AugmentRule`, `EliteRule` (both variants serialize as unit, JSON reads only `null`), the two
+  `SimConfig` fields with `#[serde(default)]`, `Legacy` in `Default`, NOT yet in `live_content()`;
+  `MatchStatic::cards: &'static cards::Tuning` (`#[serde(skip)]`) set from `Tuning::of(&config)`. `lib.rs` re-exports.
+- `cards/tuning.rs`: `Tuning { rule, numbers, overrides }` with `of(&SimConfig) -> &'static Tuning`, `rule()`,
+  `numbers() -> &CardNumbers`, `def(id) -> &'static CardDef`, `pool() -> &'static [CardId]`, `augment_pool(&[Build])`,
+  `conditional_pool(&[Build])`, `#[cfg(test)] for_test(rule, CardNumbers, &'static [CardDef]) -> Result<Tuning,
+  ShapeError>`; `CardNumbers` (12 public fields, named in the file); `ShapeError { id, what }`;
+  `check_override(legacy, rework) -> Result<(), ShapeError>`. The stub returns NaN numbers, an empty pool and an
+  unchecked table.
+- `cards/rework_overrides.rs`: `REWORK_OVERRIDES: &[CardDef] = &[]` (its layout header is the contract).
+- `mob_runtime.rs`: `EliteTuning { k, hp_mult, dmg_mult }`, `EliteTuning::of(EliteRule) -> &'static EliteTuning`
+  (stub NaN).
+- Signatures: `outgoing_damage(tuning, ...)`, `execute_share(tuning, ...)`, `maximum_packet(tuning, weapon)`,
+  `checkpoint::valid_ranged_packet(tuning, packet, weapon)` (callers pass `k.cards`; the stub ignores it);
+  `checkpoint::check_world` is `pub(crate)`.
+- Compile-only `augments: Legacy, elites: Legacy` lines in every full `SimConfig` literal (rh-sim, rh-server,
+  rh-headless, rh-load; the stub commit's file list) and `sim.k.cards` in `modifiers/camps_tests.rs`.
 
 ## 9. Validation commands
 - `export PATH="$HOME/.cargo/bin:$PATH"; cargo test -p rh-sim --features trusted-status-probes --test augment_rules`
@@ -162,6 +203,68 @@ invisible while the tables are empty. Cross-crate (rh-sim, rh-server, rh-headles
   client's `CardDisplayCatalog` text equal Rust's exactly; the live client will show Rework text, so Rust holds it in
   `rework_overrides.rs` in the same layout. The mirror test is left alone here (the table is empty, so it stays green);
   a later packet amends it to prefer an override's text over `catalog_data.rs`.
-- (survey below)
+- The stat fold has its OWN copies of the G1 and G4 caps (`stat_fold/definition.rs:47, :52`, applied at
+  `stat_fold/fold.rs:205-207, :216-218`; legacy `shared/mods.ts:284, :288`), separate from
+  `constants::OUTGOING_ROW_CAP` (`modifiers/mod.rs:899-905`) and `HP_RACE_CAP` (`:665`). The plan names only the
+  latter; Boom 2.6 needs both, so the table's `outgoing_row_cap` / `hp_race_cap` must reach the fold (e.g.
+  `fold_rows_with_definition` with a copy of the default definition carrying the table's caps) in `recompute_core`,
+  `Modifiers::valid` and `fold_build`. Do not edit `stat_fold/definition.rs` (content hash).
+- Readers beyond the plan's list read card rows and must use `k.cards.def(id)` (each has `k` or `hx.k`): the hooks
+  (`on_hit.rs`, `after_damage.rs`, `on_hurt.rs`, `on_overkilled.rs`, `cards/mod.rs` `on_blocked`: Tank Engine's
+  fortify `per`/`cap` is a Rework row), `reward_chests/mod.rs:303-309`, `systems/training/console.rs`, and two
+  restore bounds, `modifiers/mod.rs:82` (mark rate over every card) and `systems/mob_checkpoint.rs:66` (Hemorrhage's
+  bleed `ms`). A row reader left on `CardId::definition()` makes an override half-applied; the empty table hides it.
+- `Build::has_flag`, `add`, `valid`, `power` stay on the catalog: the shape guard keeps flags, `unique` and `tier`
+  equal, so they cannot differ.
+- Gambler: legacy is `roll < CHANCE` up, `roll < 2 * CHANCE` down. Read it as `roll < up` up, `roll < up + down`
+  down; `0.15 + 0.15 == 2. * 0.15` exactly in f64, so the legacy draw is unchanged.
+- Third Time: legacy `(streak + 1) % 3 == 0` and one extra application (`on_hit.rs:236-245`); `third_time_every` (3)
+  and `third_time_extra` (1.0) must reproduce it bit for bit (`1. + unarmed + extra`).
+- The ranged envelope today (`maximum_packet`) folds only `cards::SUPPORTED` with `Farm::maximum()`; at maximum farm
+  the packet is about 1e30 (a very loose bound). Arcane Overload's AP x1.5 still lifts a real packet above it (Fire
+  wand 1.61e30 against 1.12e30 on the stub). Under `Rework` fold every card a player can hold (a per-component maximum
+  is safest: Glass Cannon lowers HP); under `Legacy` keep it as it is. A Legacy training world can set Arcane Overload
+  by console and would be refused at restore: pre-existing, not this packet; flagged.
+- P-AUG-PLANT-1 will scale a ranged packet's raw by `1 + plant_feet_bonus` (legacy `weapons.ts:336-338`); the
+  envelope will then need that factor too (that packet's concern, noted for it).
+- The two tags: `Rework` must fold a word no other config field writes (`RegenInCombat` docs, `statics.rs:313-326`);
+  `augments` and `elites` are adjacent and both `"rework"` in JSON, so their hasher tags must differ from each other
+  (e.g. `"augments=rework"`, `"elites=rework"`); the 64-identity test checks it.
+- The elite seam must add no `#[serde(skip)]` (the amended skip list allows exactly `MatchStatic::cards`). Readers
+  without `k` (`World::faction_spec`, `point_damage`, `sentenced::npc_pulse`) can reach the rule through the world's
+  `MobRuntime` (installed in every world that has mobs, training included: `systems/mobs.rs:70, :157`), e.g. a stored
+  `EliteRule` copy that serializes as nothing under `Legacy` (the `CampBuffs` precedent, `mob_runtime.rs:449-470`,
+  `hash.rs:36-40`) with a `check_world` rule tying it to `k.config.elites` and one refusal test; or by threading `k`.
+  `spawn_hp` and every `Mob::born` caller hold `k`. rh-policy reads `EliteTuning::of(config.elites)` through the
+  start struct that already carries `frost_wish` (`rh-policy/src/lib.rs:78, :95`).
+- `Tuning::of` returns statics (no per-call build, no allocation per step).
+
+### Survey: existing tests that pin what this packet touches
+- `rh-sim/tests/hash_coverage.rs` `the_serde_skips_are_exactly_the_documented_ones` (`statics.rs` 7 skips): amended
+  to 8 (`oracle-amend`). `every_serialized_leaf_of_a_match_changes_the_state_hash`,
+  `in_flight_projectile_leaves_are_hashed_or_validated` (packet leaves validated by the envelope),
+  `mob_spacing_and_regen_in_combat_are_four_separate_statics_identities`,
+  `the_default_spacing_and_regen_still_fold_nothing`, `native29_*`: Legacy worlds only; stay green unchanged.
+- `rh-server/tests/live_content.rs`: exhaustive expected live configs; amended to `Rework` (`oracle-amend`).
+  `camp_buffs_profile.rs`, `frost_wall_live_room.rs`, `frost_wall_welcome.rs` read single fields; unaffected.
+- `rh-sim/tests/content.rs:560-568` `hash_golden` (`GOLDEN_CONTENT_HASH`) and `every_registry_row_perturbs_the_hash`:
+  the content hash must not move (no registry row, no `stat_fold::definition` change here).
+- `rh-sim/tests/card_catalog.rs` (catalog pinned to the capture, `:326`): `catalog_data.rs` unchanged.
+- `rh-sim/tests/reward_pools.rs`: `augment_pool` / `conditional_pool` against the capture; keep the public functions.
+- `rh-sim/src/stat_fold/tests.rs:289-291`: the default fold clamps `hit` and `hpRace` at 2.5; keep the default
+  definition's caps.
+- `rh-sim/src/modifiers/mod.rs` tests (`the_outgoing_row_cap_holds_against_boom_and_glass_cannon`,
+  `a_cached_while_hold_is_validated_against_its_bits`, `hp_race_mult` at `:951-954`) and `modifiers/camps_tests.rs`
+  (stub-edited for the new `tuning` argument): legacy answers unchanged.
+- `rh-sim/src/cards/mod.rs` tests (`wishful_thinking` at `:555-586`) and `abilities/checkpoint.rs:19-45` (the
+  Wishful restore bound on `WISHFUL_BUDGET_MS` / `WINDOW_MS`): unchanged under Legacy; P-AUG-TUNE-1's concern.
+- `rh-sim/tests/no_alloc.rs`, `cards_no_alloc.rs`, the other `*_no_alloc.rs`: zero allocations per step.
+- `rh-sim/tests/checkpoint.rs`, `replay.rs`: Legacy checkpoints and replays restore and verify unchanged.
+- `rh-parity` (hash tape `parity/abilities/hash-tape.json`, `tests/schedule.rs`) and the parity report:
+  byte-identical; `rh-headless` determinism sweep (stub-edited literal).
+- Unity `BuildDrawerEditModeTests.cs:38` (C# mirror of `catalog_data.rs` titles and text): untouched here (empty
+  table).
 
 ## Notes from previous attempts
+- Coordinator amendment 2026-11-19 (before any attempt): overrides carry text; the guard admits row numbers and
+  `text` only; the table is one regex-friendly file (sections 1 and 11).
