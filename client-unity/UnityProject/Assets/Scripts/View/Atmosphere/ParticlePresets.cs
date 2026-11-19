@@ -40,18 +40,18 @@ namespace Roguehalla.Client
         static readonly ParticleLayerSpec[] Snow =
         {
             // far: tiny, dense, slow, faint, drifting slower than the ground
-            new ParticleLayerSpec { Texture = "flake", MaxParticles = 150, Rate = 24, LifeMin = 6, LifeMax = 9, SizeMin = .11f, SizeMax = .18f, Wind = new Vector2(.55f, -.85f), Gust = .5f, Noise = .35f, NoiseFreq = .35f, Tint = new Color(.97f, .99f, 1f, .85f), Parallax = .25f, Spin = 10f },
+            new ParticleLayerSpec { Texture = "flake", MaxParticles = 150, Rate = 24, LifeMin = 6, LifeMax = 9, SizeMin = .22f, SizeMax = .34f, Wind = new Vector2(.55f, -.85f), Gust = .5f, Noise = .35f, NoiseFreq = .35f, Tint = new Color(.72f, .84f, .96f, .95f), Parallax = .25f, Spin = 10f },
             // mid: flakes with sway, behind actors
-            new ParticleLayerSpec { Texture = "flake", MaxParticles = 90, Rate = 12, LifeMin = 5, LifeMax = 7.5f, SizeMin = .19f, SizeMax = .3f, Wind = new Vector2(.8f, -1.35f), Gust = .65f, Noise = .55f, NoiseFreq = .28f, Tint = new Color(1f, 1f, 1f, .95f), Parallax = 0f, Spin = 25f },
+            new ParticleLayerSpec { Texture = "flake", MaxParticles = 90, Rate = 12, LifeMin = 5, LifeMax = 7.5f, SizeMin = .55f, SizeMax = .78f, Wind = new Vector2(.8f, -1.35f), Gust = .65f, Noise = .55f, NoiseFreq = .28f, Tint = new Color(.82f, .91f, 1f, 1f), Parallax = 0f, Spin = 25f },
             // near: a few large soft out-of-focus flakes, quick, low alpha, above everything (never large enough to hide an actor)
-            new ParticleLayerSpec { Texture = "flake", MaxParticles = 22, Rate = 3.4f, LifeMin = 3.5f, LifeMax = 5f, SizeMin = .34f, SizeMax = .5f, Wind = new Vector2(1.5f, -2.5f), Gust = .8f, Noise = .8f, NoiseFreq = .22f, Tint = new Color(.92f, .97f, 1f, .4f), Parallax = -.3f, AboveActors = true, Spin = 40f },
+            new ParticleLayerSpec { Texture = "flake", MaxParticles = 22, Rate = 3.4f, LifeMin = 3.5f, LifeMax = 5f, SizeMin = .38f, SizeMax = .5f, Wind = new Vector2(1.5f, -2.5f), Gust = .8f, Noise = .8f, NoiseFreq = .22f, Tint = new Color(.92f, .97f, 1f, .72f), Parallax = -.3f, AboveActors = true, Spin = 40f },
             // glitter: tiny twinkling ice sparkles hanging in the air
             new ParticleLayerSpec { Texture = "mote", MaxParticles = 40, Rate = 6.5f, LifeMin = 1.6f, LifeMax = 3f, SizeMin = .08f, SizeMax = .16f, Wind = new Vector2(.1f, -.1f), Noise = .12f, NoiseFreq = .5f, Tint = new Color(.82f, .95f, 1f, .95f), Parallax = .1f, Twinkle = 2f },
         };
         static readonly ParticleLayerSpec[] Embers =
         {
-            new ParticleLayerSpec { Texture = "ember", MaxParticles = 70, Rate = 10, LifeMin = 3.5f, LifeMax = 6f, SizeMin = .05f, SizeMax = .12f, Wind = new Vector2(.4f, 1.1f), Gust = .5f, Noise = .6f, NoiseFreq = .4f, Tint = new Color(1f, .55f, .16f, .95f), Parallax = .15f, Twinkle = 3f, FixedRotation = true },
-            new ParticleLayerSpec { Texture = "ember", MaxParticles = 28, Rate = 4, LifeMin = 3f, LifeMax = 5f, SizeMin = .1f, SizeMax = .2f, Wind = new Vector2(.6f, 1.7f), Gust = .6f, Noise = .8f, NoiseFreq = .3f, Tint = new Color(1f, .42f, .1f, .8f), Parallax = -.1f, AboveActors = true, Twinkle = 2f, FixedRotation = true },
+            new ParticleLayerSpec { Texture = "ember", MaxParticles = 70, Rate = 10, LifeMin = 3.5f, LifeMax = 6f, SizeMin = .18f, SizeMax = .28f, Wind = new Vector2(.4f, 1.1f), Gust = .5f, Noise = .6f, NoiseFreq = .4f, Tint = new Color(1f, .68f, .28f, 1f), Parallax = .15f, Twinkle = 3f, FixedRotation = true },
+            new ParticleLayerSpec { Texture = "ember", MaxParticles = 28, Rate = 4, LifeMin = 3f, LifeMax = 5f, SizeMin = .32f, SizeMax = .48f, Wind = new Vector2(.6f, 1.7f), Gust = .6f, Noise = .8f, NoiseFreq = .3f, Tint = new Color(1f, .55f, .18f, .78f), Parallax = -.1f, AboveActors = true, Twinkle = 2f, FixedRotation = true },
             new ParticleLayerSpec { Texture = "mote", MaxParticles = 40, Rate = 6, LifeMin = 6, LifeMax = 9, SizeMin = .08f, SizeMax = .16f, Wind = new Vector2(.25f, .35f), Noise = .35f, NoiseFreq = .25f, Tint = new Color(.28f, .2f, .2f, .35f), Parallax = .2f },
         };
         static readonly ParticleLayerSpec[] Dust =
