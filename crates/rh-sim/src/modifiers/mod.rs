@@ -63,8 +63,14 @@ pub(crate) fn mark_progress_increment(rate: f64, chill: f64) -> f64 {
 
 /// The largest mark rate any shipped catalog ownership can reach: base 1 plus the per-card MarkRate rows, with a
 /// unique card counted once and a stacking base/conditional card at its maximum byte count. The root can fold this
-/// derived helper into the content identity; it is not an invented permissive bound.
+/// derived helper into the content identity; it is not an invented permissive bound. The legacy card table's (the content
+/// hash folds this one); a world's restore bound reads its own table ([`maximum_mark_rate_in`]).
 pub(crate) fn maximum_mark_rate() -> f64 {
+    maximum_mark_rate_in(crate::cards::Tuning::legacy())
+}
+
+/// [`maximum_mark_rate`] over a card table's rows (an override's MarkRate numbers, not the catalog's).
+pub(crate) fn maximum_mark_rate_in(tuning: &crate::cards::Tuning) -> f64 {
     fn rows_rate(rows: &[crate::cards::CardRow]) -> f64 {
         rows.iter()
             .filter_map(|row| match row {
@@ -79,7 +85,7 @@ pub(crate) fn maximum_mark_rate() -> f64 {
     }
     let mut extra = 0.;
     for id in crate::cards::CardId::ALL {
-        let def = id.definition();
+        let def = tuning.def(id);
         let per = def
             .selections
             .iter()
@@ -162,9 +168,11 @@ impl Runtime {
         MultSums::from_source_values(self.mults).get(fold::MultKey::Linger)
     }
     /// Validate the cached fold. `frozen_guard` is the owner's Frost Frozen Justice flag: it is the one positive source,
-    /// so its capped bonus is only admitted when the trusted state says the guard actually holds.
+    /// so its capped bonus is only admitted when the trusted state says the guard actually holds. `tuning` is the world's
+    /// card table (`k.cards`): the re-fold reads its rows and fold caps, exactly as `recompute_core` did.
     pub(crate) fn valid(
         &self,
+        tuning: &crate::cards::Tuning,
         build: &crate::cards::Build,
         farm: &Farm,
         kill_stats: &crate::kill_augments::KillStats,
@@ -192,7 +200,7 @@ impl Runtime {
         // The fold depends on which `while` rows held (source Build.holds): the stored bits are the cache's input, so
         // re-fold with exactly them and demand the exact answer. Bits past the build's while rows are inert (the fold
         // never asks about those rows), which is harmless: they cannot buy any stat.
-        let (rows, n) = build.rows(faction);
+        let (rows, n) = build.rows(tuning, faction);
         let (bit_of, _) = while_bit_of(&rows[..n]);
         let holds = |loc: RowLocation, _: &WhileRow| {
             bit_of
@@ -201,7 +209,7 @@ impl Runtime {
         };
         let combined_farm = combined_farm_rows(farm, kill_stats, trade_stats);
         let boosts = fold::BoostCounts::from_source_values(build.boosts().map(f64::from));
-        let folded = fold::fold_rows(
+        let folded = fold::fold_rows_with_definition(
             &rows[..n],
             &FoldContext {
                 base_max_hp: base_hp,
@@ -210,6 +218,7 @@ impl Runtime {
                 holds: Some(&holds),
                 ..Default::default()
             },
+            &tuning.fold_definition(),
         );
         if self.sums != folded.sums.source_values()
             || self.farm != folded.farm_sums.source_values()
@@ -327,7 +336,7 @@ fn recompute_core<'a>(
     };
     let base_hp = crate::content::faction(faction).hp;
     let boosts = fold::BoostCounts::from_source_values(build.boosts().map(f64::from));
-    let (rows, n) = build.rows(faction);
+    let (rows, n) = build.rows(k.cards, faction);
     let combined: Vec<fold::EffectRow<'_>>;
     let fold_rows: &[fold::EffectRow<'_>] = if extra_rows.is_empty() {
         &rows[..n]
@@ -372,7 +381,8 @@ fn recompute_core<'a>(
             .is_some_and(|bit| *bit != NO_BIT && (holds >> *bit) & 1 == 1)
     };
     let combined_farm = combined_farm_rows(&farm, &kill_stats, &trade_stats);
-    let folded = fold::fold_rows(
+    // The world's card table: its fold caps (G1 `hit`, G4 `hpRace`) clamp the fold; under `Legacy` the default ones.
+    let folded = fold::fold_rows_with_definition(
         fold_rows,
         &FoldContext {
             base_max_hp: base_hp,
@@ -381,6 +391,7 @@ fn recompute_core<'a>(
             holds: Some(&answers),
             ..Default::default()
         },
+        &k.cards.fold_definition(),
     );
     let own_as_rows = if end_mods && holds != w.core(ix).modifiers.holds {
         crate::systems::sentenced::mark_tax::OwnAsRows {
@@ -660,9 +671,9 @@ pub(crate) fn hp_race_cap(core: &crate::fighter::FighterCore) -> f64 {
     MultSums::from_source_values(core.modifiers.mults).get(fold::MultKey::HpRace)
 }
 
-/// Source `hpRaceMult`: the hp-fraction multiplier of a Race to 0, capped.
-pub(crate) fn hp_race_mult(hp_frac: f64, cap: f64) -> f64 {
-    let ceiling = cap.clamp(1., crate::constants::HP_RACE_CAP);
+/// Source `hpRaceMult`: the hp-fraction multiplier of a Race to 0, capped (G4: the world's table's `hp_race_cap`).
+pub(crate) fn hp_race_mult(tuning: &crate::cards::Tuning, hp_frac: f64, cap: f64) -> f64 {
+    let ceiling = cap.clamp(1., tuning.numbers().hp_race_cap);
     if !(hp_frac > 0.) {
         return ceiling;
     }
@@ -681,7 +692,8 @@ pub(crate) fn execute_share(
     camps_cleared: u16,
 ) -> f64 {
     let has = build.cards().any(|id| {
-        id.definition()
+        tuning
+            .def(id)
             .rows
             .iter()
             .any(|r| matches!(r, crate::cards::CardRow::Vs(v) if matches!(v.test, crate::cards::VsTest::HpBelow)))
@@ -783,17 +795,18 @@ pub(crate) fn mark_pulse_group(
 }
 
 fn fold_build(
+    tuning: &crate::cards::Tuning,
     build: &crate::cards::Build,
     farm: &Farm,
     base: f64,
     faction: crate::FactionId,
     holds: Option<&fold::WhileAnswer<'_>>,
 ) -> fold::Folded {
-    let (rows, n) = build.rows(faction);
+    let (rows, n) = build.rows(tuning, faction);
     let boosts = fold::BoostCounts::from_source_values(build.boosts().map(f64::from));
     {
         let (farm_rows, len) = farm.rows();
-        fold::fold_rows(
+        fold::fold_rows_with_definition(
             &rows[..n],
             &FoldContext {
                 base_max_hp: base,
@@ -802,14 +815,57 @@ fn fold_build(
                 holds,
                 ..Default::default()
             },
+            &tuning.fold_definition(),
         )
     }
 }
+
+/// The packet-bearing parts of one fold, for the ranged envelope: the attack rate and the four scaled bonuses.
+#[derive(Clone, Copy)]
+struct PacketParts {
+    rate: f64,
+    ad: f64,
+    ap: f64,
+    hp: f64,
+    defense: f64,
+}
+
+impl PacketParts {
+    fn of(folded: &fold::Folded, base_hp: f64) -> Self {
+        let m = fold::decode_mirrors(&fold::encode_mirrors(&fold::mirrors_from_fold(folded)));
+        Self {
+            rate: m.as_mult.max(fold::cap_as_mult(f64::MAX)),
+            ad: m.ad_bonus,
+            ap: m.ap_bonus,
+            hp: (folded.max_hp - base_hp).max(0.),
+            defense: m.armor_bonus.max(0.) + m.shield_bonus,
+        }
+    }
+    fn get(&self, part: usize) -> f64 {
+        [self.rate, self.ad, self.ap, self.hp, self.defense][part]
+    }
+    /// The packet these parts fire (summing both dominant sides is conservative).
+    fn packet(&self, f: &crate::content::FactionSpec, weapon: crate::WeaponId) -> f64 {
+        let interval = crate::content::attack_interval(f, weapon, self.rate);
+        let sc = DEFINITION.weapon_scaling[weapon.code() as usize];
+        crate::content::damage_per_hit(f, weapon, self.rate)
+            + (sc[0] * self.ad + sc[1] * self.ap + sc[2] * self.hp + sc[3] * self.defense)
+                * self.rate
+                * interval
+    }
+}
+
 /// Conservative supported-source envelope for snapshots fired before the present build/refold. It folds the all-cards build
 /// under both while assignments and keeps the largest packet: whichever way a build's conditional rows land, a real packet
 /// is at most this (the rows only add attack speed and damage when they hold).
-pub(crate) fn maximum_packet(_tuning: &crate::cards::Tuning, weapon: crate::WeaponId) -> f64 {
-    let build = crate::cards::Build {
+///
+/// Under `Legacy` the build is `cards::SUPPORTED` (unchanged since before P-AUG-RULES-1). Under `Rework` a live player can
+/// hold any augment of the table (its retuned rows included), so the envelope is a per-part maximum: for each packet part
+/// (rate, AD, AP, bonus hp, defense) it folds `SUPPORTED` plus every fold-bearing augment that does not lower that part
+/// when added alone (Glass Cannon lowers hp, Machine Gun and Boom move the rate), and fires the packet of the five maxima.
+pub(crate) fn maximum_packet(tuning: &crate::cards::Tuning, weapon: crate::WeaponId) -> f64 {
+    let max_boosts = [crate::stat_fold::default_definition().chest_boost_max_picks as u8; 8];
+    let supported = crate::cards::Build {
         counts: {
             let mut counts = crate::cards::Counts::default();
             for id in crate::cards::SUPPORTED {
@@ -817,29 +873,58 @@ pub(crate) fn maximum_packet(_tuning: &crate::cards::Tuning, weapon: crate::Weap
             }
             counts
         },
-        boosts: [crate::stat_fold::default_definition().chest_boost_max_picks as u8; 8],
+        boosts: max_boosts,
     };
     let farm = Farm::maximum();
+    let rework = tuning.rule() == crate::AugmentRule::Rework;
     let mut out = 0f64;
     for all_while in [false, true] {
         let holds = |_: RowLocation, _: &WhileRow| all_while;
         for id in crate::FactionId::ALL {
             let f = crate::content::paced(id);
             let base_hp = crate::content::faction(id).hp;
-            let folded = fold_build(&build, &farm, base_hp, id, Some(&holds));
-            let m = fold::decode_mirrors(&fold::encode_mirrors(&fold::mirrors_from_fold(&folded)));
-            let rate = m.as_mult.max(fold::cap_as_mult(f64::MAX));
-            let interval = crate::content::attack_interval(&f, weapon, rate);
-            let sc = DEFINITION.weapon_scaling[weapon.code() as usize];
-            // Summing both dominant sides is conservative; every real snapshot is <= this envelope.
-            let packet = crate::content::damage_per_hit(&f, weapon, rate)
-                + (sc[0] * m.ad_bonus
-                    + sc[1] * m.ap_bonus
-                    + sc[2] * (folded.max_hp - base_hp).max(0.)
-                    + sc[3] * (m.armor_bonus.max(0.) + m.shield_bonus))
-                    * rate
-                    * interval;
-            out = out.max(packet);
+            let fold_of = |build: &crate::cards::Build| {
+                PacketParts::of(&fold_build(tuning, build, &farm, base_hp, id, Some(&holds)), base_hp)
+            };
+            let base = fold_of(&supported);
+            let parts = if rework {
+                // The augments whose rows fold at all (trigger, on-hit and vs rows never reach the packet).
+                let candidates = crate::cards::CardId::ALL.into_iter().filter(|c| {
+                    tuning.def(*c).kind == crate::cards::CardKind::Augment
+                        && !supported.owns(*c)
+                        && tuning
+                            .rows(*c, id)
+                            .iter()
+                            .any(|r| matches!(r, crate::cards::CardRow::Fold(_)))
+                });
+                let mut keep = [supported; 5];
+                for c in candidates {
+                    let alone = fold_of(&crate::cards::Build {
+                        counts: {
+                            let mut counts = supported.counts;
+                            counts.0[c.index()] = 1;
+                            counts
+                        },
+                        boosts: max_boosts,
+                    });
+                    for (part, build) in keep.iter_mut().enumerate() {
+                        if alone.get(part) >= base.get(part) {
+                            build.counts.0[c.index()] = 1;
+                        }
+                    }
+                }
+                let most = |part: usize| fold_of(&keep[part]).get(part).max(base.get(part));
+                PacketParts {
+                    rate: most(0),
+                    ad: most(1),
+                    ap: most(2),
+                    hp: most(3),
+                    defense: most(4),
+                }
+            } else {
+                base
+            };
+            out = out.max(parts.packet(&f, weapon));
         }
     }
     out
@@ -883,7 +968,7 @@ fn vs_holds(v: &crate::cards::VsRow, frac: f64, streak: u16, probe: VsProbe) -> 
 /// ledger freezes it before any victim/payout); mobs and unknown attackers pass 0. The camps scale reads only that value.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn outgoing_damage(
-    _tuning: &crate::cards::Tuning,
+    tuning: &crate::cards::Tuning,
     p: &crate::fighter::FighterCore,
     build: &crate::cards::Build,
     victim_frac: f64,
@@ -903,15 +988,15 @@ pub(crate) fn outgoing_damage(
         OutgoingKind::Other => 1.,
     } * (if baked > 0. { baked } else { 1. });
     let ceiling = if own > 1. {
-        crate::constants::OUTGOING_ROW_CAP / own
+        tuning.numbers().outgoing_row_cap / own
     } else {
-        crate::constants::OUTGOING_ROW_CAP
+        tuning.numbers().outgoing_row_cap
     };
     let farm = StatSums::from_source_values(p.modifiers.farm).damage;
     let mut sum = sums.damage;
     let mut any_rows = sums.damage != 0.;
     for id in build.cards() {
-        for row in id.definition().rows {
+        for row in tuning.def(id).rows {
             match row {
                 crate::cards::CardRow::Vs(v) => {
                     any_rows = true;
@@ -952,10 +1037,10 @@ mod race_tests {
 
     #[test]
     fn the_race_multiplier_is_the_inverse_hp_fraction_capped() {
-        assert!((hp_race_mult(1.0, 2.5) - 1.0).abs() < 1e-12);
-        assert!((hp_race_mult(0.5, 2.5) - 2.0).abs() < 1e-12);
-        assert!((hp_race_mult(0.2, 2.5) - 2.5).abs() < 1e-12, "capped");
-        assert!((hp_race_mult(0.8, 1.2) - 1.2).abs() < 1e-12);
+        assert!((hp_race_mult(crate::cards::Tuning::legacy(), 1.0, 2.5) - 1.0).abs() < 1e-12);
+        assert!((hp_race_mult(crate::cards::Tuning::legacy(), 0.5, 2.5) - 2.0).abs() < 1e-12);
+        assert!((hp_race_mult(crate::cards::Tuning::legacy(), 0.2, 2.5) - 2.5).abs() < 1e-12, "capped");
+        assert!((hp_race_mult(crate::cards::Tuning::legacy(), 0.8, 1.2) - 1.2).abs() < 1e-12);
     }
 }
 
@@ -1136,6 +1221,7 @@ mod guard_tests {
         ));
         let valid = |p: &crate::state::Player| {
             p.modifiers.valid(
+                sim.k.cards,
                 &p.build,
                 &p.farm,
                 &p.kill_stats,

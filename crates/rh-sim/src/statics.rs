@@ -286,8 +286,12 @@ pub struct SimConfig {
     pub elites: EliteRule,
 }
 
-/// `SimConfig::augments`. STUB (P-AUG-RULES-1): the implementer gives `Rework` its encoding (`"rework"` in a
-/// human-readable format, a tag of its own in the state hasher), as [`CampBuffRule`] does.
+/// `SimConfig::augments` (P-AUG-RULES-1). `Legacy` serializes as nothing (JSON `null`; the hashing serializer folds no
+/// word for a unit), so a config that leaves it alone has the statics digest, state hashes, checkpoints and replays it had
+/// before the field existed. `Rework` is the string `"rework"` in a human-readable format (the JSON config, checkpoint and
+/// replay) and the string `"augments=rework"` in any other (the state hasher): a value no other config field writes, for
+/// the reason [`RegenInCombat`] documents (this field follows four others whose default also folds nothing). `elites`
+/// follows it and also writes `"rework"` in JSON, so the two hasher tags differ from each other as well.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum AugmentRule {
     #[default]
@@ -295,7 +299,8 @@ pub enum AugmentRule {
     Rework,
 }
 
-/// `SimConfig::elites`. STUB (P-AUG-RULES-1): as [`AugmentRule`].
+/// `SimConfig::elites` (P-AUG-RULES-1): as [`AugmentRule`], with the hasher tag `"elites=rework"`. A world with a mob
+/// runtime also keeps the rule its elites play there (`MobRuntime::elites`, tied to this field by `check_world`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum EliteRule {
     #[default]
@@ -303,19 +308,33 @@ pub enum EliteRule {
     Rework,
 }
 
+/// What `AugmentRule::Rework` writes to a serializer that is not human-readable (the state hasher). JSON keeps
+/// `"rework"`.
+const AUGMENTS_REWORK_TAG: &str = "augments=rework";
+
+/// What `EliteRule::Rework` writes to a serializer that is not human-readable (the state hasher). JSON keeps `"rework"`.
+const ELITES_REWORK_TAG: &str = "elites=rework";
+
 impl serde::Serialize for AugmentRule {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        // STUB: both variants write nothing.
-        s.serialize_unit()
+        match self {
+            Self::Legacy => s.serialize_unit(),
+            Self::Rework if s.is_human_readable() => s.serialize_str("rework"),
+            Self::Rework => s.serialize_str(AUGMENTS_REWORK_TAG),
+        }
     }
 }
 
 impl<'de> serde::Deserialize<'de> for AugmentRule {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        // Each format reads back exactly what it writes; JSON refuses the tag as it refuses any other unknown value.
+        let human = d.is_human_readable();
         match Option::<String>::deserialize(d)?.as_deref() {
             None => Ok(Self::Legacy),
+            Some("rework") if human => Ok(Self::Rework),
+            Some(AUGMENTS_REWORK_TAG) if !human => Ok(Self::Rework),
             Some(other) => Err(serde::de::Error::custom(format!(
-                "augments must be null, not {other:?}"
+                "augments must be null or \"rework\", not {other:?}"
             ))),
         }
     }
@@ -323,17 +342,24 @@ impl<'de> serde::Deserialize<'de> for AugmentRule {
 
 impl serde::Serialize for EliteRule {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        // STUB: both variants write nothing.
-        s.serialize_unit()
+        match self {
+            Self::Legacy => s.serialize_unit(),
+            Self::Rework if s.is_human_readable() => s.serialize_str("rework"),
+            Self::Rework => s.serialize_str(ELITES_REWORK_TAG),
+        }
     }
 }
 
 impl<'de> serde::Deserialize<'de> for EliteRule {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        // Each format reads back exactly what it writes; JSON refuses the tag as it refuses any other unknown value.
+        let human = d.is_human_readable();
         match Option::<String>::deserialize(d)?.as_deref() {
             None => Ok(Self::Legacy),
+            Some("rework") if human => Ok(Self::Rework),
+            Some(ELITES_REWORK_TAG) if !human => Ok(Self::Rework),
             Some(other) => Err(serde::de::Error::custom(format!(
-                "elites must be null, not {other:?}"
+                "elites must be null or \"rework\", not {other:?}"
             ))),
         }
     }
@@ -521,6 +547,10 @@ impl SimConfig {
             camp_buffs: CampBuffRule::Themed,
             // Owner decision 2026-11-10 (legacy 78dd8bd4): Frost Wall replaces Freeze (P-FROST-WALL-3, DEV-029).
             frost_wish: FrostWish::Wall,
+            // Owner decision 2026-11-18 (`backlog/AUGMENT_ELITE_REWORK.md`, decision 1): the augment and elite rework
+            // (P-AUG-RULES-1; the tables equal legacy until the content packets fill them).
+            augments: AugmentRule::Rework,
+            elites: EliteRule::Rework,
             ..Self::default()
         }
     }
