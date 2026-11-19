@@ -183,6 +183,15 @@ namespace Roguehalla.Client
                         ? Color.Lerp(new Color(.47f, .62f, .52f), new Color(.74f, .81f, .65f), pigment)
                         : Color.Lerp(new Color(.64f, .71f, .60f, 1f), new Color(.82f, .86f, .76f, 1f), pigment);
                 }
+                if (art.UsesAuthoredTexture && pl.Art == "holy.paver")
+                {
+                    float wear = RegionNoise.Hash01(pl.Tx, pl.Ty, visualSeed + 123);
+                    float size = Mathf.Lerp(.70f, 1.04f, wear);
+                    scaleX *= size;
+                    scaleY *= size;
+                    flip = RegionNoise.Hash01(pl.Tx, pl.Ty, visualSeed + 125) < .5f;
+                    tint.a = Mathf.Lerp(.49f, .73f, wear);
+                }
                 var go = new GameObject(pl.Art); go.transform.SetParent(_root.transform, false);
                 Vector3 foot = ArenaView.WorldPoint(pl.X * 32f, pl.Y * 32f);
                 go.transform.localPosition = foot; go.transform.localScale = new Vector3(flip ? -scaleX : scaleX, scaleY, 1f);

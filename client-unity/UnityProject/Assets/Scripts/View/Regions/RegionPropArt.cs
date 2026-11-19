@@ -707,6 +707,13 @@ namespace Roguehalla.Client
                 for (int k = 0; k < 3; k++) c.Fill(Intersect(shaft, Capsule(new Vector2(cx - 6 + k * 6, gy + 26), new Vector2(cx - 6 + k * 6, gy + 70), .5f, .5f)), Flat(Alpha(stoneD, .45f)));
                 c.Glow(cx, gy + 72, 10f, gold, .18f);
             }, true);
+            Add(l, "holy.paver", 84, 30, 5, (c, gy) =>
+            {
+                var stone = Poly(new Vector2(5, gy + 6), new Vector2(10, gy + 18),
+                    new Vector2(71, gy + 19), new Vector2(79, gy + 13),
+                    new Vector2(74, gy + 4), new Vector2(12, gy + 3));
+                c.Fill(stone, Flat(stoneM), Alpha(stoneD, .65f), .9f);
+            }, false, "StormInk/Props/HolyPaver");
             Add(l, "holy.rock", 96, 60, 8, (c, gy) =>
             {
                 c.SoftShadow(50, gy + 1, 34f, 6f, .3f, Alpha(shadow, 1f));
