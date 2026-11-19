@@ -520,6 +520,24 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
         },
         amount,
     );
+    if a.elite && k.config.elites == crate::EliteRule::Rework {
+        // Rework helper share (owner 2026-11-18): every standing contributor, the killer included, is paid one camp's
+        // worth of the stat the camp's normal kills pay. `grant_mob_stat` refuses a player who is not standing.
+        let paid = w
+            .mob_runtime
+            .as_ref()
+            .and_then(|rt| rt.buffs.0.get(a.camp as usize).copied().flatten())
+            .unwrap_or(a.mob_type);
+        for &helper in &a.contributors {
+            crate::modifiers::grant_mob_stat(
+                k,
+                w,
+                helper,
+                paid,
+                u64::from(crate::constants::REWORK_ELITE_SHARE_STACKS),
+            );
+        }
+    }
     if !a.elite {
         // a7b5c4ce mobLife.ts:265-270: the stat is the camp's buff (an off-theme camp under `CampBuffRule::Themed`, paying
         // another zone's type's stat), else the mob's own type's. A `Legacy` world has no buff row.
