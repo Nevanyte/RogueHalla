@@ -107,22 +107,37 @@ fn the_legacy_elite_table_is_unchanged() {
 fn the_rework_elite_numbers_are_registry_rows_that_the_table_reads() {
     let constants = include_str!("../src/constants.rs");
     assert!(
-        constants.contains("REWORK_ELITE_DMG_MULT: f64 = 1.0") ||
-            constants.contains("REWORK_ELITE_DMG_MULT: f64 = 1.,"),
+        constants.contains("REWORK_ELITE_DMG_MULT: f64 = 1.0")
+            || constants.contains("REWORK_ELITE_DMG_MULT: f64 = 1.,"),
         "constants.rs registers REWORK_ELITE_DMG_MULT = 1.0"
     );
     assert!(
         constants.contains("REWORK_ELITE_HP_MULT: f64 = 1.5"),
         "constants.rs registers REWORK_ELITE_HP_MULT = 1.5"
     );
-    assert!(constants.contains("ELITE_HP_MULT: f64 = 2.,"), "legacy hp stays");
-    assert!(constants.contains("ELITE_DMG_MULT: f64 = 1.5,"), "legacy dmg stays");
+    assert!(
+        constants.contains("ELITE_HP_MULT: f64 = 2.,"),
+        "legacy hp stays"
+    );
+    assert!(
+        constants.contains("ELITE_DMG_MULT: f64 = 1.5,"),
+        "legacy dmg stays"
+    );
     let table = include_str!("../src/mob_runtime.rs");
     let at = table.find("static REWORK_ELITES").expect("the table");
     let body = &table[at..at + table[at..].find("};").unwrap()];
-    assert!(body.contains("crate::constants::REWORK_ELITE_DMG_MULT"), "{body}");
-    assert!(body.contains("crate::constants::REWORK_ELITE_HP_MULT"), "{body}");
-    assert!(body.contains("crate::constants::ELITE_K"), "k stays ELITE_K: {body}");
+    assert!(
+        body.contains("crate::constants::REWORK_ELITE_DMG_MULT"),
+        "{body}"
+    );
+    assert!(
+        body.contains("crate::constants::REWORK_ELITE_HP_MULT"),
+        "{body}"
+    );
+    assert!(
+        body.contains("crate::constants::ELITE_K"),
+        "k stays ELITE_K: {body}"
+    );
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -133,12 +148,19 @@ fn the_rework_elite_numbers_are_registry_rows_that_the_table_reads() {
 fn a_rework_elite_spawns_with_legacy_hp_times_1_5_over_2_and_normals_do_not_move() {
     let legacy = world(EliteRule::Legacy, &[spawn_point()]);
     let rework = world(EliteRule::Rework, &[spawn_point()]);
-    assert_eq!(legacy.mobs().len(), rework.mobs().len(), "same camps, same mobs");
+    assert_eq!(
+        legacy.mobs().len(),
+        rework.mobs().len(),
+        "same camps, same mobs"
+    );
     let mut zones: Vec<FactionId> = vec![];
     let mut types: Vec<&str> = vec![];
     let mut elites = 0;
     for (l, r) in legacy.mobs().iter().zip(rework.mobs()) {
-        assert_eq!((l.core.id, l.mob_type, l.elite), (r.core.id, r.mob_type, r.elite));
+        assert_eq!(
+            (l.core.id, l.mob_type, l.elite),
+            (r.core.id, r.mob_type, r.elite)
+        );
         if !l.elite {
             assert_eq!(
                 (l.core.vitals.hp, l.core.vitals.max_hp),
@@ -152,9 +174,18 @@ fn a_rework_elite_spawns_with_legacy_hp_times_1_5_over_2_and_normals_do_not_move
         let zone = elite_zone(l);
         let want_legacy = spawn_hp(EliteTuning::of(EliteRule::Legacy), zone, true, ty);
         let want_rework = spawn_hp(EliteTuning::of(EliteRule::Rework), zone, true, ty);
-        assert_eq!(l.core.vitals.max_hp, want_legacy, "{ty:?}: Legacy HP is the legacy formula");
-        assert_eq!(r.core.vitals.max_hp, want_rework, "{ty:?}: Rework HP is the Rework formula");
-        assert_eq!(r.core.vitals.hp, r.core.vitals.max_hp, "{ty:?}: spawns at full HP");
+        assert_eq!(
+            l.core.vitals.max_hp, want_legacy,
+            "{ty:?}: Legacy HP is the legacy formula"
+        );
+        assert_eq!(
+            r.core.vitals.max_hp, want_rework,
+            "{ty:?}: Rework HP is the Rework formula"
+        );
+        assert_eq!(
+            r.core.vitals.hp, r.core.vitals.max_hp,
+            "{ty:?}: spawns at full HP"
+        );
         let ratio = r.core.vitals.max_hp / l.core.vitals.max_hp;
         assert!(
             (ratio - 1.5 / 2.0).abs() < 1e-9,
@@ -168,8 +199,14 @@ fn a_rework_elite_spawns_with_legacy_hp_times_1_5_over_2_and_normals_do_not_move
         }
     }
     assert!(elites >= 2, "the seed1 map has elite camps");
-    assert!(zones.len() >= 2, "elites of at least two zones were measured: {zones:?}");
-    assert!(types.len() >= 2, "at least two elite types were measured: {types:?}");
+    assert!(
+        zones.len() >= 2,
+        "elites of at least two zones were measured: {zones:?}"
+    );
+    assert!(
+        types.len() >= 2,
+        "at least two elite types were measured: {types:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -215,9 +252,13 @@ fn a_rework_elite_hits_for_legacy_damage_times_1_0_over_1_5() {
         let Some((lt, legacy)) = first_elite_hit(EliteRule::Legacy, near, 200) else {
             continue;
         };
-        let (rt, rework) = first_elite_hit(EliteRule::Rework, near, 200)
-            .unwrap_or_else(|| panic!("{zone:?}: the Rework elite never hit where the Legacy one did"));
-        assert_eq!(lt, rt, "{zone:?}: the first elite hit lands on the same tick");
+        let (rt, rework) = first_elite_hit(EliteRule::Rework, near, 200).unwrap_or_else(|| {
+            panic!("{zone:?}: the Rework elite never hit where the Legacy one did")
+        });
+        assert_eq!(
+            lt, rt,
+            "{zone:?}: the first elite hit lands on the same tick"
+        );
         let ratio = rework / legacy;
         assert!(
             (ratio - 1.0 / 1.5).abs() < 0.02,
@@ -273,11 +314,9 @@ fn world_with_a_hurt_elite(elites: EliteRule) -> Option<Sim> {
             if sim.player(PlayerId(1)).is_some_and(|p| !p.standing()) {
                 break;
             }
-            if sim
-                .mobs()
-                .iter()
-                .any(|m| m.elite && m.core.vitals.hp > 0. && m.core.vitals.hp < m.core.vitals.max_hp)
-            {
+            if sim.mobs().iter().any(|m| {
+                m.elite && m.core.vitals.hp > 0. && m.core.vitals.hp < m.core.vitals.max_hp
+            }) {
                 return Some(sim);
             }
         }
@@ -297,17 +336,33 @@ fn a_rework_checkpoint_with_a_hurt_elite_stores_the_rule_restores_and_hashes_equ
     );
     assert_eq!(cp["statics"]["config"]["elites"], json!("rework"));
     let mut restored = Sim::restore(cp.clone()).expect("the Rework checkpoint restores");
-    assert_eq!(restored.state_hash(), sim.state_hash(), "hash after restore");
+    assert_eq!(
+        restored.state_hash(),
+        sim.state_hash(),
+        "hash after restore"
+    );
     for m in restored.mobs().iter().filter(|m| m.elite) {
         let zone = elite_zone(m);
-        let want = spawn_hp(EliteTuning::of(EliteRule::Rework), zone, true, m.mob_type.unwrap());
-        assert_eq!(m.core.vitals.max_hp, want, "the restored elite keeps its Rework max HP");
+        let want = spawn_hp(
+            EliteTuning::of(EliteRule::Rework),
+            zone,
+            true,
+            m.mob_type.unwrap(),
+        );
+        assert_eq!(
+            m.core.vitals.max_hp, want,
+            "the restored elite keeps its Rework max HP"
+        );
     }
     for t in 0..60 {
         let a = drive_tick(&mut sim, 1000 + t);
         let b = drive_tick(&mut restored, 1000 + t);
         assert_eq!(a, b, "tick {t} after the restore: events");
-        assert_eq!(sim.state_hash(), restored.state_hash(), "tick {t} after the restore");
+        assert_eq!(
+            sim.state_hash(),
+            restored.state_hash(),
+            "tick {t} after the restore"
+        );
     }
 }
 
@@ -323,10 +378,16 @@ fn the_stored_elite_rule_is_checked_against_the_config_and_the_hash_folds_it() {
     // And the Legacy world stores nothing and is not the Rework world.
     let legacy = world_with_a_hurt_elite(EliteRule::Legacy).expect("a hurt Legacy elite");
     let lcp = serde_json::to_value(&legacy).unwrap();
-    assert_eq!(lcp["world"]["mob_runtime"]["elites"], Value::Null, "Legacy writes nothing");
+    assert_eq!(
+        lcp["world"]["mob_runtime"]["elites"],
+        Value::Null,
+        "Legacy writes nothing"
+    );
     let mut claims = lcp.clone();
     claims["world"]["mob_runtime"]["elites"] = json!("rework");
-    assert!(Sim::restore(claims).is_err(), "a Legacy config with a Rework runtime is refused");
+    assert!(
+        Sim::restore(claims).is_err(),
+        "a Legacy config with a Rework runtime is refused"
+    );
     assert_ne!(sim.state_hash(), legacy.state_hash());
 }
-
