@@ -7,8 +7,8 @@ namespace Roguehalla.Client
 {
     /// <summary>
     /// P-UNITY-LANDMARK-3: the Sentenced church's art (kind 2), painted procedurally once per map and derived only from the tiles the
-        /// framework classified (never from a copy of the drawing), so it is right in all eight orientations. With opposing doorways,
-        /// the building's split wall halves are reunited from their shared bounds; every other wall group is a headstone plot. Pieces:
+    /// framework classified (never from a copy of the drawing), so it is right in all eight orientations. With opposing doorways,
+    /// the building's split wall halves are reunited from their shared bounds; every other wall group is a headstone plot. Pieces:
     ///  - roof: a slate gable over the building's box, the ridge along its long axis, the two slopes shaded differently, with an eave
     ///    shadow; one roof piece through Landmark.AddRoofRenderer. It starts above the south wall's face (the face stays visible) and
     ///    reaches over the wall caps RegionWalls draws, fully opaque over them, so no block shows at a soft edge;
@@ -24,8 +24,7 @@ namespace Roguehalla.Client
         static readonly Color SlateLit = new Color(.37f, .38f, .48f), SlateDark = new Color(.20f, .20f, .28f), Ridge = new Color(.58f, .58f, .68f),
             Ink = new Color(.06f, .06f, .10f), Stone = new Color(.55f, .55f, .63f), StoneLit = new Color(.70f, .70f, .78f), StoneDark = new Color(.32f, .32f, .41f),
             Moss = new Color(.33f, .42f, .30f), Earth = new Color(.23f, .20f, .21f), DeadGrass = new Color(.31f, .34f, .26f), Warm = new Color(1f, .72f, .32f);
-        static readonly Color WineGlass = new Color(.34f, .055f, .11f), WineLight = new Color(.62f, .13f, .20f), Wood = new Color(.34f, .19f, .11f),
-            WoodLight = new Color(.58f, .36f, .21f), WoodDark = new Color(.14f, .09f, .08f), Rune = new Color(.77f, .67f, .51f);
+
 
         sealed class Group
         {
@@ -235,241 +234,116 @@ namespace Roguehalla.Client
 
         // ---- the nave: a painted slate grid with faint inlaid runes ----------------------------------------------------------
 
-        static void BuildSlateFloor(Landmark lm, Group b)
+        static void BuildSlateFloor(Landmark lm, Group room)
         {
-            const int P = 12;
-            float x0 = b.MinX, y0 = -(b.MaxY + 1) * Sq, width = b.MaxX - b.MinX + 1, height = (b.MaxY - b.MinY + 1) * Sq;
-            float centre = (b.MinX + b.MaxX + 1) * .5f;
-            var cv = new Canvas(x0, y0, width, height, P);
+            const int ppu = 24;
+            bool acrossX = Mathf.Abs(lm.FrontVector.y) > Mathf.Abs(lm.FrontVector.x);
+            float centre = acrossX ? (room.MinX + room.MaxX + 1) * .5f : (room.MinY + room.MaxY + 1) * .5f;
+            var wash = Resources.Load<Texture2D>("StormInk/Church/SlateWash");
+            var pigment = wash != null ? wash.GetPixels32() : null;
+            float x0 = room.MinX, y0 = -(room.MaxY + 1) * Sq;
+            var cv = new Canvas(x0, y0, room.MaxX - room.MinX + 1, (room.MaxY - room.MinY + 1) * Sq, ppu);
             cv.Paint((wx, wy) =>
             {
-                int tx = Mathf.FloorToInt(wx), ty = Mathf.FloorToInt(-wy / Sq);
+                float mapY = -wy / Sq;
+                int tx = Mathf.FloorToInt(wx), ty = Mathf.FloorToInt(mapY);
                 if (!lm.IsInterior(tx, ty)) return default;
-                float u = wx - tx, v = -wy / Sq - ty;
-                float grain = RegionNoise.Hash01(tx, ty, 57);
-                Color color = Color.Lerp(new Color(.19f, .19f, .25f), new Color(.34f, .34f, .40f), .2f + grain * .35f);
-                float aisle = Mathf.Abs(wx - centre);
-                if (aisle < 2.15f) color = Color.Lerp(color, new Color(.38f, .34f, .35f), .3f + .16f * (1f - aisle / 2.15f));
-                float grout = Mathf.Min(Mathf.Min(u, 1f - u), Mathf.Min(v, 1f - v));
-                if (grout < .035f) color = Color.Lerp(new Color(.08f, .08f, .12f), color, .62f);
-                float tileMark = (ty % 3 + 3) % 3;
-                if (aisle < .24f && tileMark == 1f && Mathf.Abs(u - .5f) < .055f) color = Color.Lerp(color, Rune, .42f);
-                if (aisle < .8f && tileMark == 1f && Mathf.Abs(v - .5f) < .035f && u > .32f && u < .68f) color = Color.Lerp(color, Rune, .28f);
-                float crack = Mathf.Abs((u - .18f) - (v - .34f) * .24f);
-                if (grain > .88f && v > .2f && v < .7f && crack < .014f) color = Shade(color, .69f);
-                return color;
+                Color stone = new Color(.44f, .42f, .42f);
+                if (pigment != null)
+                {
+                    int px = Mathf.FloorToInt(Mathf.Repeat(wx / 6f, 1f) * wash.width);
+                    int py = Mathf.FloorToInt(Mathf.Repeat(-mapY / 6f, 1f) * wash.height);
+                    Color brush = pigment[py * wash.width + px];
+                    stone = Color.Lerp(new Color(brush.grayscale, brush.grayscale, brush.grayscale * 1.05f), brush, .38f);
+                }
+                float across = (acrossX ? wx : mapY) - centre;
+                float along = acrossX ? mapY - room.MinY : wx - room.MinX;
+                float halfWidth = Mathf.Abs(across);
+                float wear = 1f - Mathf.SmoothStep(0f, 1f, halfWidth / 2.25f);
+                stone = Color.Lerp(stone * .91f, stone * 1.16f + new Color(.025f, .017f, .008f), wear);
+                // One quiet line of carved lozenges follows the two doors. The middle crossing stays clear.
+                float rhythm = Mathf.Abs(Mathf.Repeat(along + 1.25f, 4.5f) - 2.25f);
+                float cut = Mathf.Abs(halfWidth + rhythm * .76f - .38f);
+                if (halfWidth < .43f && rhythm < .58f && cut < .045f) stone = Shade(stone, .54f);
+                stone.a = 1f;
+                return stone;
             });
             cv.ToSprite(lm, "Church slate and runes", "Church slate floor", -88);
         }
 
-        // ---- light pews and a carved pulpit. These drawings have no collider or map footprint. --------------------------------
-
-        static void BuildInteriorFurnishings(Landmark lm, Group b)
+        // Both banks have the same facing. Height on screen follows projection; upright props keep their painted vertical.
+        static void BuildInteriorFurnishings(Landmark lm, Group room)
         {
-            // The nave runs from the rear threshold to the front threshold. In this rectangular footprint that is its shorter
-            // dimension; the broader dimension holds two banks of pews with an open centre aisle.
-            bool naveAlongX = b.MaxX - b.MinX < b.MaxY - b.MinY;
-            float alongMin = naveAlongX ? b.MinX : b.MinY, alongMax = naveAlongX ? b.MaxX : b.MaxY;
-            float across = naveAlongX ? (b.MinY + b.MaxY + 1) * .5f : (b.MinX + b.MaxX + 1) * .5f;
-            float[] stations = { alongMin + 1.3f, alongMin + 6.7f, alongMax - 2.2f };
-            float[] banks = { -7.5f, -4.5f, 4.5f, 7.5f };
-            for (int r = 0; r < stations.Length; r++) for (int c = 0; c < banks.Length; c++)
+            bool aisleOnX = Mathf.Abs(lm.FrontVector.x) > Mathf.Abs(lm.FrontVector.y);
+            float alongMin = aisleOnX ? room.MinX : room.MinY, alongMax = aisleOnX ? room.MaxX : room.MaxY;
+            float across = aisleOnX ? (room.MinY + room.MaxY + 1) * .5f : (room.MinX + room.MaxX + 1) * .5f;
+            var pew = Resources.Load<Sprite>("StormInk/Church/OakPew");
+            float[] rows = { alongMin + 1.55f, alongMin + 2.65f, alongMax - 1.55f, alongMax - .45f };
+            foreach (float row in rows)
+            for (int bank = -1; bank <= 1; bank += 2)
             {
-                float x = naveAlongX ? stations[r] : across + banks[c];
-                float y = naveAlongX ? across + banks[c] : stations[r];
-                if (!PewFits(lm, x, y, naveAlongX)) continue;
-                bool positiveSide = banks[c] > 0f;
-                BuildPew(lm, x, y, naveAlongX ? (positiveSide ? 0f : 180f) : (positiveSide ? 90f : -90f));
-            }
-            float frontX = lm.FrontVector.x, frontY = lm.FrontVector.y;
-            float back = frontX != 0f ? (frontX > 0f ? b.MinX : b.MaxX) + (frontX > 0f ? 6f : -6f) :
-                         frontY > 0f ? b.MinY + 6f : b.MaxY - 6f;
-            float side = 6.8f;
-            float pulpitX = naveAlongX ? back : across + side * (frontY >= 0f ? 1f : -1f);
-            float pulpitY = naveAlongX ? across + side * (frontX >= 0f ? 1f : -1f) : back;
-            if (!lm.IsInterior(Mathf.FloorToInt(pulpitX), Mathf.FloorToInt(pulpitY)))
-            {
-                float candidateX = (b.MinX + b.MaxX + 1) * .5f, candidateY = (b.MinY + b.MaxY + 1) * .5f;
-                for (int r = 0; r < stations.Length && !lm.IsInterior(Mathf.FloorToInt(pulpitX), Mathf.FloorToInt(pulpitY)); r++)
+                float bankCentre = across + bank * 4.85f;
+                float x = aisleOnX ? row : bankCentre, y = aisleOnX ? bankCentre : row;
+                const float length = 4.55f, depth = .82f;
+                int first = Mathf.FloorToInt(bankCentre - length * .5f), last = Mathf.FloorToInt(bankCentre + length * .5f);
+                bool fits = true;
+                for (int tile = first; tile <= last; tile++)
                 {
-                    pulpitX = naveAlongX ? stations[r] : candidateX + side * (frontY >= 0f ? 1f : -1f);
-                    pulpitY = naveAlongX ? candidateY + side * (frontX >= 0f ? 1f : -1f) : stations[r];
+                    if (lm.IsInterior(aisleOnX ? Mathf.FloorToInt(x) : tile, aisleOnX ? tile : Mathf.FloorToInt(y))) continue;
+                    fits = false;
+                    break;
                 }
+                if (fits)
+                    AddAssetSprite(lm, pew, "Church pew", x, y, aisleOnX ? length * Sq : length,
+                        aisleOnX ? depth : depth * Sq, aisleOnX ? 90f : 0f, 2);
             }
-            if (lm.IsInterior(Mathf.FloorToInt(pulpitX), Mathf.FloorToInt(pulpitY))) BuildPulpit(lm, pulpitX, pulpitY, naveAlongX ? (frontX >= 0f ? 0f : 180f) : (frontY >= 0f ? 90f : -90f));
+            var pulpit = Resources.Load<Sprite>("StormInk/Church/GothicPulpit");
+            float front = aisleOnX ? lm.FrontVector.x : lm.FrontVector.y;
+            float nearRear = front > 0 ? alongMin + 2.2f : alongMax - 1.2f;
+            float onSide = across + (front > 0 ? 8.8f : -8.8f);
+            float px = aisleOnX ? nearRear : onSide, py = aisleOnX ? onSide : nearRear;
+            if (lm.IsInterior(Mathf.FloorToInt(px), Mathf.FloorToInt(py)))
+                AddAssetSprite(lm, pulpit, "Church pulpit", px, py, 2.15f, 2.5f, 0f, 3);
         }
 
-        static bool PewFits(Landmark lm, float cx, float cy, bool naveAlongX)
+        static void AddAssetSprite(Landmark lm, Sprite sprite, string objectName, float x, float row,
+            float width, float height, float rotation, int sortOffset)
         {
-            if (naveAlongX)
-            {
-                int x0 = Mathf.FloorToInt(cx - .82f), x1 = Mathf.FloorToInt(cx + .82f), y = Mathf.FloorToInt(cy);
-                for (int x = x0; x <= x1; x++) if (!lm.IsInterior(x, y)) return false;
-            }
-            else
-            {
-                int y0 = Mathf.FloorToInt(cy - .82f), y1 = Mathf.FloorToInt(cy + .82f), x = Mathf.FloorToInt(cx);
-                for (int y = y0; y <= y1; y++) if (!lm.IsInterior(x, y)) return false;
-            }
-            return true;
-        }
-
-        static void BuildPew(Landmark lm, float cx, float row, float rotation)
-        {
-            var sprite = Resources.Load<Sprite>("StormInk/Church/OakPew");
-            if (sprite != null)
-            {
-                AddAssetSprite(lm, sprite, "Church oak pew", "Church pew", cx, -row * Sq, 1.82f, .68f * Sq, 2000 + 16 * (Mathf.FloorToInt(row) + 1) + 2, rotation);
-                return;
-            }
-            const int P = 20;
-            float width = 1.82f, depth = .68f, baseY = -(row + .5f) * Sq;
-            var cv = new Canvas(cx - width / 2f - .16f, baseY - .14f, width + .32f, depth + .32f, P);
-            cv.Paint((wx, wy) =>
-            {
-                float x = wx - cx, y = wy - baseY;
-                float shadow = x * x / (width * width * .48f) + y * y / (.18f * .18f);
-                if (y < .04f && shadow < 1f) return new Color(.015f, .012f, .022f, .26f * (1f - shadow));
-                if (Mathf.Abs(x) > width * .5f || y < 0f || y > depth) return default;
-                float left = Mathf.Abs(x), edge = Mathf.Min(width * .5f - left, y, depth - y);
-                Color wood = Color.Lerp(Wood, WoodLight, .18f + .2f * RegionNoise.Hash01(Mathf.FloorToInt(x * 17f), Mathf.FloorToInt(y * 31f), 71));
-                if (y < .15f)
-                {
-                    if (edge < .035f) return WoodDark;
-                    bool carving = left > .68f && left < .78f && (y > .04f && y < .12f);
-                    return carving ? Rune : wood;
-                }
-                if (y < .5f)
-                {
-                    if (edge < .04f || y < .2f) return WoodDark;
-                    float seam = Mathf.Abs(x / .38f - Mathf.Round(x / .38f));
-                    return seam < .045f ? Shade(wood, .68f) : wood;
-                }
-                if (y < .61f && left < width * .47f)
-                {
-                    if (edge < .035f) return Ink;
-                    return Shade(WoodLight, y > .57f ? .72f : 1.08f);
-                }
-                return default;
-            });
-            cv.ToSprite(lm, "Church oak pew", "Church pew", 2000 + 16 * (Mathf.FloorToInt(row) + 1) + 2);
-        }
-
-        static void BuildPulpit(Landmark lm, float cx, float row, float rotation)
-        {
-            var sprite = Resources.Load<Sprite>("StormInk/Church/GothicPulpit");
-            if (sprite != null)
-            {
-                AddAssetSprite(lm, sprite, "Church carved pulpit", "Church pulpit", cx, -row * Sq, 1.38f, 1.38f * Sq, 2000 + 16 * (Mathf.FloorToInt(row) + 1) + 3, rotation);
-                return;
-            }
-            const int P = 24;
-            float baseY = -(row + 1f) * Sq, width = 1.35f, height = 1.15f;
-            var cv = new Canvas(cx - 1.05f, baseY - .28f, 2.1f, 1.92f, P);
-            cv.Paint((wx, wy) =>
-            {
-                float x = wx - cx, y = wy - baseY;
-                float shadow = x * x / .72f + (y + .04f) * (y + .04f) / .11f;
-                if (y < .05f && shadow < 1f) return new Color(.01f, .008f, .014f, .32f * (1f - shadow));
-                if (Mathf.Abs(x) < .72f && y >= .02f && y < .23f) return y < .08f || Mathf.Abs(x) > .66f ? StoneDark : Shade(Stone, .75f);
-                float topY = .36f - Mathf.Abs(x) * .35f;
-                if (Mathf.Abs(x) < .64f && y > .2f && y < topY)
-                {
-                    if (Mathf.Abs(x) > .52f || y < .24f) return Ink;
-                    if (Mathf.Abs(x) < .07f && y > .29f && y < .35f || Mathf.Abs(x) < .20f && y > .31f && y < .34f) return Rune;
-                    return Color.Lerp(WoodDark, Wood, Mathf.Clamp01(.5f + x * .28f));
-                }
-                if (y >= topY && y < .72f && Mathf.Abs(x) < width * .5f - Mathf.Max(0f, y - .48f) * .8f)
-                {
-                    if (Mathf.Abs(x) > width * .5f - .07f || Mathf.Abs(y - .61f) < .04f) return WoodDark;
-                    return Color.Lerp(Wood, WoodLight, .4f + .2f * Mathf.Sin(x * 17f));
-                }
-                if (y > .71f && y < height && Mathf.Abs(x) < width * .5f - (y - .71f) * .5f)
-                {
-                    if (Mathf.Abs(x) < .05f || Mathf.Abs(x) < .24f && y > .9f) return Rune;
-                    return WoodDark;
-                }
-                return default;
-            });
-            cv.ToSprite(lm, "Church carved pulpit", "Church pulpit", 2000 + 16 * (Mathf.FloorToInt(row) + 1) + 3);
-        }
-
-        static void AddAssetSprite(Landmark lm, Sprite sprite, string textureName, string objectName, float x, float y, float width, float height, int order, float rotation)
-        {
-            var go = new GameObject(objectName); go.transform.SetParent(lm.Root.transform, false);
-            go.transform.localPosition = new Vector3(x, y, 0f);
+            if (sprite == null) return;
+            var go = new GameObject(objectName);
+            go.transform.SetParent(lm.Root.transform, false);
+            go.transform.localPosition = new Vector3(x, -row * Sq, 0f);
             go.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
-            var renderer = go.AddComponent<SpriteRenderer>(); renderer.sprite = sprite; renderer.sharedMaterial = lm.Material; renderer.sortingOrder = order;
-            Vector2 dimensions = sprite.bounds.size;
-            renderer.transform.localScale = new Vector3(width / Mathf.Max(dimensions.x, .01f), height / Mathf.Max(dimensions.y, .01f), 1f);
+            var renderer = go.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
+            renderer.sharedMaterial = lm.Material;
+            renderer.sortingOrder = 2000 + 16 * (Mathf.FloorToInt(row) + 1) + sortOffset;
+            Vector2 size = sprite.bounds.size;
+            go.transform.localScale = new Vector3(width / size.x, height / size.y, 1f);
         }
 
-        // ---- narrow garnet lancets and candlelight painted into the inner church walls ------------------------------------------
-
-        static void BuildWindows(Landmark lm, Group b)
+        static void BuildWindows(Landmark lm, Group room)
         {
-            bool sideWallsRunAlongY = b.MaxY - b.MinY > b.MaxX - b.MinX;
-            float[] along = sideWallsRunAlongY ? new[] { b.MinY + 3.2f, b.MaxY - 3.2f } : new[] { b.MinX + 3.2f, b.MaxX - 3.2f };
-            float[] sides = sideWallsRunAlongY ? new[] { b.MinX + 1.25f, b.MaxX - 1.25f } : new[] { b.MinY + 1.25f, b.MaxY - 1.25f };
-            foreach (float a in along) foreach (float s in sides)
+            var glass = Resources.Load<Sprite>("StormInk/Church/GarnetLancet");
+            var candles = Resources.Load<Sprite>("StormInk/Church/Candelabrum");
+            bool aisleOnX = Mathf.Abs(lm.FrontVector.x) > Mathf.Abs(lm.FrontVector.y);
+            float across = aisleOnX ? (room.MinY + room.MaxY + 1) * .5f : (room.MinX + room.MaxX + 1) * .5f;
+            int first = aisleOnX ? room.MinX : room.MinY, last = aisleOnX ? room.MaxX : room.MaxY;
+            float[] bays = { -8.2f, -4.2f, 4.2f, 8.2f };
+            // Set the light in the reveals and plant its candelabrum on the floor inside it.
+            foreach (int end in new[] { first, last })
+            foreach (float bay in bays)
             {
-                float x = sideWallsRunAlongY ? s : a, y = sideWallsRunAlongY ? a : s;
-                if (lm.IsInterior(Mathf.FloorToInt(x), Mathf.FloorToInt(y)))
-                {
-                    BuildWindow(lm, x, y, sideWallsRunAlongY ? 90f : 0f);
-                    BuildCandle(lm, x + (sideWallsRunAlongY ? .45f : 0f), y + (sideWallsRunAlongY ? 0f : .45f));
-                }
+                float wall = end + .5f;
+                float x = aisleOnX ? wall : across + bay, y = aisleOnX ? across + bay : wall;
+                if (!lm.IsWall(Mathf.FloorToInt(x), Mathf.FloorToInt(y))) continue;
+                AddAssetSprite(lm, glass, "Church stained glass", x, y, 1.13f, 1.92f, 0f, 4);
+                float inside = end == first ? 1.1f : -1.1f;
+                float cx = aisleOnX ? x + inside : x + Mathf.Sign(bay) * .8f;
+                float cy = aisleOnX ? y + Mathf.Sign(bay) * .8f : y + inside;
+                if (lm.IsInterior(Mathf.FloorToInt(cx), Mathf.FloorToInt(cy)))
+                    AddAssetSprite(lm, candles, "Church candle flame", cx, cy, .48f, .94f, 0f, 5);
             }
-        }
-
-        static void BuildWindow(Landmark lm, float cx, float cy, float rotation)
-        {
-            const int P = 20;
-            float baseY = -(cy + .7f) * Sq;
-            var cv = new Canvas(cx - .52f, baseY, 1.04f, 1.55f * Sq, P);
-            cv.Paint((wx, wy) =>
-            {
-                float x = (wx - cx) / .46f, y = (-wy / Sq) - (cy + .7f);
-                float top = .78f - Mathf.Abs(x) * .65f;
-                if (Mathf.Abs(x) >= 1f || y < .04f || y > top) return default;
-                bool rim = Mathf.Abs(x) > .83f || y < .11f || y > top - .06f;
-                if (rim) return Ink;
-                float tint = .82f + .26f * RegionNoise.Hash01(Mathf.FloorToInt(wx * 19f), Mathf.FloorToInt(wy * 23f), 97);
-                Color glass = Color.Lerp(WineGlass, WineLight, .2f + .4f * (1f - Mathf.Abs(x)));
-                glass = Shade(glass, tint);
-                if (Mathf.Abs(x) < .045f || Mathf.Abs(y - .35f) < .035f) return Rune;
-                if (Mathf.Abs(x) > .65f && y > .16f && y < .46f) glass = Shade(glass, .6f);
-                glass.a = .92f; return glass;
-            });
-            var renderer = cv.ToSprite(lm, "Church garnet window", "Church stained glass", 2000 + 16 * Mathf.FloorToInt(cy) + 4);
-            if (rotation != 0f)
-            {
-                Vector2 size = renderer.sprite.bounds.size;
-                Vector3 position = renderer.transform.localPosition;
-                var pivot = new GameObject("Church lancet alignment"); pivot.transform.SetParent(lm.Root.transform, false);
-                pivot.transform.localPosition = position + new Vector3(size.x * .5f, size.y * .5f, 0f);
-                renderer.transform.SetParent(pivot.transform, false);
-                renderer.transform.localPosition = new Vector3(-size.x * .5f, -size.y * .5f, 0f);
-                pivot.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
-            }
-        }
-
-        static void BuildCandle(Landmark lm, float x, float y)
-        {
-            const int P = 16;
-            float baseY = -(y + .5f) * Sq;
-            var cv = new Canvas(x - .48f, baseY - .35f, .96f, .82f, P);
-            cv.Paint((wx, wy) =>
-            {
-                float dx = wx - x, dy = wy - baseY;
-                float glow = dx * dx / .18f + dy * dy / .22f;
-                if (glow < 1f) return new Color(1f, .51f, .19f, .25f * (1f - glow));
-                if (dy > .08f && dy < .36f && Mathf.Abs(dx) < .07f) return dx > .05f || dy < .11f || dy > .33f ? Ink : WoodLight;
-                if (dy >= .36f && dy < .53f && Mathf.Abs(dx) < .045f) return Ink;
-                if (dy > .48f && dy < .67f && Mathf.Abs(dx) < .075f - (dy - .48f) * .35f) return Color.Lerp(Warm, new Color(1f, .95f, .72f), Mathf.Clamp01((dy - .48f) * 5f));
-                return default;
-            });
-            cv.ToSprite(lm, "Church candle", "Church candle flame", 2000 + 16 * (Mathf.FloorToInt(y) + 1) + 5);
         }
 
         // ---- the roof -----------------------------------------------------------------------------------------------------------
