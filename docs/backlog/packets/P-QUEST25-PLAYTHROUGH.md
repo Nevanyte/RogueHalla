@@ -47,3 +47,5 @@ Quest collections send replacements when they change. Each seat must keep the la
 ## Local WebGL evidence
 
 Two separately rendered Chrome players joined the same Rust room. The journal and tactical map delivered the shared board into the raid, and accepting Two Banners changed only the first seat. [Result and planning journal screenshot](../../evidence/quest25-playtest-2026-11-19/README.md)
+
+The normal source-endpoint socket test also exercises a moving stat broker on private seeds 2, 5 and 8. The test follows public sightings and waits for an acknowledged arrival and an owner quote. The director’s in-process test configuration accepts a fixed private seed. The game server draws fresh secrets for each room.

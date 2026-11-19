@@ -95,7 +95,11 @@ impl Director {
         let _permit = QUEST_MAP_WORKERS
             .try_acquire()
             .map_err(|_| "quest map workers are busy")?;
-        self.build_room(fill_bots_to, Some(crate::room::random_secrets()))
+        let secrets = self
+            .cfg
+            .fixed_board_secrets
+            .unwrap_or_else(crate::room::random_secrets);
+        self.build_room(fill_bots_to, Some(secrets))
     }
 
     pub(super) async fn prepare_board_room_async(
