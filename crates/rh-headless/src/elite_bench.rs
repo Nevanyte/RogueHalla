@@ -442,6 +442,9 @@ pub fn run(args: &[String]) -> Result<Output, String> {
                 .ok_or_else(|| format!("{n} needs a value")),
         }
     };
+    if flag("--fighter") || flag("--jobs") {
+        return Err("P-ELITE-BENCH-2: --fighter and --jobs are not implemented".into());
+    }
     if flag("--sample-builds") {
         let (a, b) = match value("--seeds")? {
             None => (1, 21),
@@ -718,6 +721,37 @@ pub const BANKED_CAMPS: [u32; 4] = [0, 6, 12, 18];
 pub const REFERENCE_CAMPS: u32 = 12;
 /// Column name of the bot minute-5 sample (the banked ones are `banked_<N>`).
 pub const BOT_COLUMN: &str = "bot_sample";
+
+/// Which fighter(s) a run seats (packet P-ELITE-BENCH-2). Absent flag = `Brawler`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(dead_code)] // stub: the implementer wires it
+pub enum FighterChoice {
+    Brawler,
+    Duelist,
+    Both,
+}
+
+/// The parsed flags of an elite run (packet P-ELITE-BENCH-2).
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
+pub struct Options {
+    pub quick: bool,
+    pub fighter: FighterChoice,
+    pub seed0: u64,
+    pub seeds: u64,
+    pub max_ticks: u32,
+    pub jobs: usize,
+}
+
+/// Default `--seeds` of a full run (a quick run keeps 1).
+#[allow(dead_code)]
+pub const OWNER_DEFAULT_SEEDS: u64 = 3;
+
+/// Parses the flags of an elite run (not `--sample-builds`). Stub of P-ELITE-BENCH-2.
+#[allow(dead_code)]
+pub fn parse_options(_args: &[String]) -> Result<Options, String> {
+    Err("P-ELITE-BENCH-2: parse_options not implemented".into())
+}
 
 /// SplitMix64: the bench's own seeded draw (the sim's RNG is not touched).
 fn splitmix(state: &mut u64) -> u64 {
