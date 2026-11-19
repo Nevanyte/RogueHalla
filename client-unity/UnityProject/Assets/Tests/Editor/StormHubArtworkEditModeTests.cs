@@ -54,7 +54,7 @@ namespace Roguehalla.Client.Tests
             guide.Initialize((RectTransform)root.transform, _ => { });
             guide.ShowTab(HubGuideView.GuideTab.Champions);
 
-            var factions = new[] { "Fire", "Sentenced", "Plague", "Frost", "Holy" };
+            var factions = new[] { "Fire", "Haunted", "Plague", "Frost", "Holy" };
             for (int i = 0; i < factions.Length; i++)
             {
                 var cardIcon = guide.Content.Find("Card_" + i + "/Head/FactionIcon").GetComponent<Image>();

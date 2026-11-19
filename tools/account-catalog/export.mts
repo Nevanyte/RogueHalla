@@ -17,8 +17,15 @@ assert.deepEqual(fixture.catalog.map(({ id, reward }: any) => ({ id, reward })),
 assert.equal(new Set(COSMETICS.map(c => c.id)).size, COSMETICS.length);
 assert.equal(new Set(ACHIEVEMENTS.map(a => a.id)).size, ACHIEVEMENTS.length);
 for (const a of ACHIEVEMENTS) for (const reward of a.reward) assert.ok(COSMETICS.some(c => c.id === reward));
-const cosmetics = JSON.stringify(rust, null, 2) + '\n';
-const achievements = JSON.stringify(ACHIEVEMENTS.map(({ id, name, desc, reward }) => ({ id, name, desc, reward })), null, 2) + '\n';
+// Stable ids and source catalog records keep their legacy identity. The Unity account screens use these presentation
+// aliases so a player sees the same approved faction name as the map, guide and HUD.
+const cosmetics = JSON.stringify(rust.map((item: any) => item.id === 'gilded-sentenced'
+ ? { ...item, name: 'Gilded Haunted' } : item), null, 2) + '\n';
+const achievements = JSON.stringify(ACHIEVEMENTS.map(({ id, name, desc, reward }) => {
+ const haunted = desc.replace(/\bSentenced\b/g, 'Haunted');
+ return id === 'gild_sentenced' ? { id, name: 'Gilded Haunted', desc: haunted, reward }
+  : { id, name, desc: haunted, reward };
+}), null, 2) + '\n';
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
 const files = { 'cosmetics.json': cosmetics, 'achievements.json': achievements };
 const manifest = JSON.stringify({ format: 'rh-account-presentation/1', authority: 'server-only',

@@ -17,8 +17,6 @@ namespace Roguehalla.Client
         public static Color32 Success => UiTheme.Current.Success;
         public static Color32 Warning => UiTheme.Current.Warning;
 
-        static readonly string[] FactionNames = { "Fire", "Sentenced", "Plague", "Frost", "Holy" };
-
         public static Color32 Faction(int faction)
         {
             return UiTheme.Current.FactionColor(faction);
@@ -26,7 +24,7 @@ namespace Roguehalla.Client
 
         public static string GetFactionName(int faction)
         {
-            return faction >= 0 && faction < FactionNames.Length ? FactionNames[faction] : "Unknown";
+            return Roguehalla.Net.Ui.FactionPresentation.Name(faction);
         }
 
         /// <summary>WCAG 2.1 relative-luminance contrast ratio, useful for UI palette checks.</summary>

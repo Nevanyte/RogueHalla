@@ -20,10 +20,10 @@ namespace Roguehalla.Net.Ui
             if ((row.Effects & (HiddenBit | UntargetableBit)) != 0) return false;
             if (row.Faction == null) return false;
             int f = (int)row.Faction.Value;
-            if (f < 0 || f >= FactionNames.Length) return false;
+            if (f < 0 || f >= FactionPresentation.Count) return false;
             int w = row.Weapon.HasValue ? (int)row.Weapon.Value : 5;
             string weapon = w >= 0 && w < WorldIndicatorRules.WeaponNames.Length ? WorldIndicatorRules.WeaponNames[w] : "Fists";
-            lines.Add(FactionNames[f] + " · " + weapon + " · " + Roles[f]);
+            lines.Add(FactionPresentation.Name(f) + " · " + weapon + " · " + FactionPresentation.Role(f));
             lines.Add("Health " + row.HpPct.ToString(System.Globalization.CultureInfo.InvariantCulture) + "%");
             AddChip(row.TopStat1, lines);
             AddChip(row.TopStat2, lines);
@@ -32,9 +32,6 @@ namespace Roguehalla.Net.Ui
 
         const ushort UntargetableBit = 128, HiddenBit = 256;
 
-        // Must agree with Unity's ShowcasePalette.FactionNames and HubGuideView.Roles (FactionId order).
-        static readonly string[] FactionNames = { "Fire", "Sentenced", "Plague", "Frost", "Holy" };
-        static readonly string[] Roles = { "Glass-cannon duelist", "Patient executioner", "Attrition swarm", "Control bruiser", "Sustain juggernaut" };
         // combatReadability.ts:44-54, indexed by StatKey (1..9).
         static readonly string[] StatLabels = { null, "Offense", "Soul Offence", "Damage", "Health", "Attack Speed", "Defense", "Soul Defense", "Move Speed", "Leech" };
 

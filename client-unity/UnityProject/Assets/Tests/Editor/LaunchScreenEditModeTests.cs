@@ -106,7 +106,7 @@ namespace Roguehalla.Client.Tests
         {
             Layout(Windows[0]);
             string[] weapons = { "Axes", "Swords", "Bows", "Shields", "Wands" }, regions = { "Volcanic wastes", "Gothic graveyard", "Forgotten city", "Frozen plains", "Desert oasis" };
-            string[] names = { "Fire", "Sentenced", "Plague", "Frost", "Holy" };
+            string[] names = { "Fire", "Haunted", "Plague", "Frost", "Holy" };
             var shapes = new HashSet<Sprite>();
             for (int i = 0; i < 5; i++)
             {
