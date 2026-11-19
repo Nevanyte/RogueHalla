@@ -95,7 +95,28 @@ recorded. The step adds `tick_ms` before the tick counter moves, every step, in 
 - Construction with any other `tick_ms` (for example 33) is refused.
 
 ## Oracle files (read-only for implementers)
-- To be written by oracle-author on `packet/P-TICK-1a` (a test module beside `sim.rs` and a digest-guard test).
+- `crates/rh-sim/tests/tick_ms.rs` (integration test, public API only, instead of a module beside `sim.rs`): default 50
+  and serde default 50; a 25 ms config writes `"tick_ms": 25`; a 25 ms sim keeps `server_time == tick * 25` exactly at
+  every one of 10,000 steps; a 25 ms checkpoint records 25, restores with the same hash and keeps stepping at 25 in
+  lock-step; a 50 ms checkpoint has no non-null `tick_ms` and restores at 50; the same world at 50 and 25 ms hashes
+  differently (at construction, after a step, and when a 25 ms checkpoint is edited to 50); `Sim::try_new` refuses
+  33, 0, 1, 20, 24, 40, 75, 100, 1000, `u32::MAX` and accepts 50, 25; `Sim::restore` refuses a checkpoint edited to 33;
+  a 25 ms replay records 25, verifies at every step and ends at 25. Red on the stub: 7 tests fail by assertion, 3 pass
+  (the 50 ms ones).
+- `crates/rh-headless/tests/tick_ms_digest_guard.rs`: the digest guard. `run_bot_match_with(seed1 map from
+  parity/maps/seed1.map.json, 8 Brawlers, seed 1, 4000 ticks, digest on)` with `SimConfig::default()`: 4000 env steps
+  (sim tick 4001, `server_time == tick * 50`), not terminated, state hash `0x2b20_ce9e_ab4e_809a`, outcome digest
+  `0x8c87_a634_c4ab_c2b3`. Pinned on this branch after the inert stub (the stub's field is `serde(skip)`, so it reaches no
+  serializer and no hash). Green now; must stay green.
+- `docs/backlog/packets/P-TICK-1a.md` (this file).
+
+## Stub (implementer replaces)
+- `statics.rs`: `SimConfig::tick_ms: u32` with `#[serde(skip, default = "stub_tick_ms")]`, default 50, unvalidated,
+  unserialized, unhashed. `sim.rs`: `Sim::tick_ms()` returns 50.
+- Compile-only `tick_ms: 50,` lines in every exhaustive `SimConfig { .. }` literal (22 files, mostly `rh-server` tests
+  and binaries, `rh-headless/src/bin/determinism_sweep_support/mod.rs`, `rh-load/tests/smoke.rs`, two `rh-sim` test
+  helpers). They are outside section 5's write scope; the implementer may switch them to the legacy constant but needs no
+  other edit there.
 
 ## 9. Validation commands
 - `cargo test -p rh-sim`, `cargo test -p rh-parity`, `scripts/gate.sh --quick --oracle packet/P-TICK-1a`
