@@ -17,6 +17,8 @@ Shader "Roguehalla/RegionGround"
         _TerA("Terrain A", 2D) = "black" {}
         _TerB("Terrain B", 2D) = "black" {}
         _PlgTex("Plague ground", 2D) = "black" {}
+        [HideInInspector] _StormFlowOn("Liquid coordinates present", Float) = 0
+        [NoScaleOffset] _StormFlowMap("Liquid channel coordinates", 2D) = "black" {}
         [NoScaleOffset] _StormMarshWash("Storm Ink marsh wash", 2D) = "white" {}
         [HideInInspector] _StormMarshOn("Storm Ink marsh present", Float) = 0
         [NoScaleOffset] _StormTempleStone("Storm Ink temple stone", 2D) = "white" {}
@@ -158,6 +160,8 @@ Shader "Roguehalla/RegionGround"
             }
 
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
+            TEXTURE2D(_StormFlowMap);
+            float _StormFlowOn;
             #include "StormInkLightMotion.hlsl"
 
             struct Ground { float3 col; float3 emis; float th; float thw; };   // th/thw: procedural surface height (tiles) and its weight, for derivative normals
@@ -193,7 +197,7 @@ Shader "Roguehalla/RegionGround"
 
 
             // ---- Plague: dark mud, deep grass, shallow translucent water (plg = water, grass, depth) ------------------------------
-            Ground ShadePlague(float2 t, float macro, float3 plg)
+            Ground ShadePlague(float2 t, float macro, float3 plg, float4 channel)
             {
                 float2 uv1 = t * 0.25;
                 float2 uv2 = float2(t.x * 0.8660 - t.y * 0.5, t.x * 0.5 + t.y * 0.8660) * 0.1754 + 0.37;
@@ -216,8 +220,10 @@ Shader "Roguehalla/RegionGround"
                 float3 emis = 0; float thv = 0;
                 [branch] if (w > 0.002)
                 {
-                    float2 flow = float2(time * 0.05, -time * 0.03);
-                    float2 dist = (float2(VNoise(t * 2.3 + flow), VNoise(t * 2.3 + 17.0 - flow)) - 0.5) * 0.10;
+                    float bankSpeed = smoothstep(.06, .78, channel.z) * channel.w;
+                    float2 flow = float2(-time * .07, 0.0);
+                    float2 lens = channel.xy * float2(1.15, 2.3) + flow;
+                    float2 dist = (float2(VNoise(lens), VNoise(lens + 17.0)) - .5) * (.045 * bankSpeed);
                     float4 bed = SAMPLE_TEXTURE2D_ARRAY(_GroundTex, sampler_GroundTex, (t + dist) * 0.25, 2);
                     float3 bedC = lerp(mudC * (0.55 + 0.6 * bed.r), secC * 0.6, saturate(plg.y * 0.8));   // the bed shows through at the shore
                     float3 deepC = lerp(baseC, secC, 0.5) * 0.62 + float3(0.0, 0.030, 0.034);    // dark green, not blue
@@ -227,8 +233,8 @@ Shader "Roguehalla/RegionGround"
                     // sun glints sit along the single sun direction, soft and thin; broken light shafts lie across the surface
                     float gl = pow(saturate(VNoise(float2(dot(t, perp) * 3.6, dot(t, ShadowT) * 11.0) + flow * 4.0)), 18.0);
                     float ray = smoothstep(0.62, 0.95, VNoise(float2(dot(t, perp) * 0.42 + time * 0.03, dot(t, ShadowT) * 0.07)));
-                    float rip = 0.5 + 0.5 * sin(dot(t, float2(1.7, 1.1)) * 3.0 + VNoise(t * 1.3) * 6.0 - time * 0.9);
-                    thv = (rip - 0.5) * 0.045 + (VNoise(t * 2.3 + flow * 3.0) - 0.5) * 0.04;      // water surface height: ripples take the local lights as moving glints
+                    float rip = 0.5 + 0.5 * sin(3.2 * channel.x + VNoise(t * 1.3) * 2.0 - time * .7);
+                    thv = ((rip - .5) * .045 + (VNoise(t * 2.3 + flow * 3.0) - .5) * .04) * (.15 + .85 * bankSpeed);      // water surface height: ripples take the local lights as moving glints
                     [branch] if (_RhFx.x > 0.5)
                     {
                         // Caustics: a bright net of light crawling over the bed, bent by the ripples, strongest in the shallows.
@@ -575,19 +581,22 @@ Shader "Roguehalla/RegionGround"
                                 paperUV += (float2(VNoise(t * .63), VNoise(t * .59 + 17.2)) - .5) * .85;
                             }
                             float4 plg = SAMPLE_TEXTURE2D(_PlgTex, sampler_RhRegA, paperUV / _Map.xy);
+                            float4 waterChannel = 0;
+                            [branch] if (plg.r > .12)
+                                waterChannel = SAMPLE_TEXTURE2D_LOD(_StormFlowMap, sampler_RhRegA, tSun / _Map.xy, 0);
                             [branch] if (_StormMarshOn > 0.5)
                             {
                                 g = (Ground)0;
                                 if (plg.r > .15)
                                 {
-                                    g = ShadePlague(t, macro, plg.rgb);
+                                    g = ShadePlague(t, macro, plg.rgb, waterChannel);
                                     g.emis *= .10;
                                 }
                                 g.col = StormMarshFloor(t, plg);
-                                float reflection = InkWaterReflection(t, smoothstep(.38, .82, plg.r));
-                                g.col += float3(.055, .079, .068) * reflection;
+                                float reflection = InkWaterReflection(tSun, smoothstep(.35, .8, plg.r), waterChannel);
+                                g.col += float3(.085, .117, .107) * reflection;
                             }
-                            else g = ShadePlague(t, macro, plg.rgb);
+                            else g = ShadePlague(t, macro, plg.rgb, waterChannel);
                         }
                         else g = ShadeRegion(k2 + 1, k2, t, macro, pocketN);
                         if (k2 == 5) g.col = ColiseumSand(t, g.col, VNoise(t * 3.0));
@@ -659,11 +668,11 @@ Shader "Roguehalla/RegionGround"
                 }
 
                 // Terrain surfaces on top: organic edges from a noise-offset coverage threshold.
-                float2 tuv = t / _Map.xy;
+                // Heat shimmer bends detail above the ground. The physical bank stays on the map.
+                float2 tuv = tSun / _Map.xy;
                 half4 ta = SAMPLE_TEXTURE2D(_TerA, sampler_RhRegA, tuv);
                 half4 tb = SAMPLE_TEXTURE2D(_TerB, sampler_RhRegA, tuv);
-                // These four bank samples set both the direction of the current and the
-                // reach of its reflected glow. They are shared with the existing spill pass.
+                // Nearby molten coverage controls warm spill onto the banks.
                 float4 lavaSides = 0;
                 [branch] if (wgt[0] / tot > .05)
                 {
@@ -673,7 +682,7 @@ Shader "Roguehalla/RegionGround"
                     lavaSides.z = SAMPLE_TEXTURE2D_LOD(_TerA, sampler_RhRegA, tuv + float2(0, reach.y), 0).r;
                     lavaSides.w = SAMPLE_TEXTURE2D_LOD(_TerA, sampler_RhRegA, tuv - float2(0, reach.y), 0).r;
                 }
-                float edgeNoise = (Fbm(t * 1.7 + 3.1) - 0.5) * 0.30;
+                float edgeNoise = (Fbm(tSun * 1.7 + 3.1) - 0.5) * 0.30;
                 float cov[8] = { 0, ta.r, 0, tb.g, ta.a, ta.b, ta.g, tb.r };   // kind id -> coverage (2 fence has no ground art)
                 float tmax = max(max(ta.r, ta.g), max(max(ta.b, ta.a), max(tb.r, tb.g)));
                 [branch] if (tmax > 0.06)
@@ -690,7 +699,8 @@ Shader "Roguehalla/RegionGround"
                             float time = _RhInkClock.x;
                             if (kd == 1)            // lava: dark crust over warped molten channels
                             {
-                                InkLavaSurface(t, inner, lavaSides, glow, tc, te, hh);
+                                float4 channel = SAMPLE_TEXTURE2D_LOD(_StormFlowMap, sampler_RhRegA, tuv, 0);
+                                InkLavaSurface(tSun, inner, channel, glow, tc, te, hh);
                                 gl = .18;
                             }
                             else if (kd == 6)       // mineral wash beneath fixed, wind-swept ice facets
