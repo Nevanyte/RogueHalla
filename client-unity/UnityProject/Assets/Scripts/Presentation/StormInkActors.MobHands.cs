@@ -20,14 +20,15 @@ namespace Roguehalla.Client
         };
 
         internal static bool HasMobWeaponTrack(ActorKind kind, FactionId? faction, MobTypeId? mob, WeaponId? weapon) =>
-            kind == ActorKind.RegionalMob && ((mob == MobTypeId.Bailiff && faction == FactionId.Sentenced && weapon == WeaponId.Sword) ||
+            kind == ActorKind.RegionalMob && (((mob == MobTypeId.Bailiff || mob == MobTypeId.Executioner) && faction == FactionId.Sentenced && weapon == WeaponId.Sword) ||
                 (mob == MobTypeId.AshDrake && faction == FactionId.Fire && weapon == WeaponId.Wand));
 
         public static bool TryMobHand(MobTypeId? mob, Sprite body, bool leftHand, out Vector2 uv)
         {
             uv = default;
-            if (mob != MobTypeId.Bailiff || !MobPoseIndex(mob, body, out int index)) return false;
-            uv = BailiffPalms[index].UV(leftHand);
+            var palms = mob == MobTypeId.Bailiff ? BailiffPalms : mob == MobTypeId.Executioner ? ExecutionerPalms : null;
+            if (palms == null || !MobPoseIndex(mob, body, out int index)) return false;
+            uv = palms[index].UV(leftHand);
             return true;
         }
 

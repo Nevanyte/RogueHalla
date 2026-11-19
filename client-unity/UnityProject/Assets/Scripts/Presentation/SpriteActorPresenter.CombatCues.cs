@@ -15,6 +15,25 @@ namespace Roguehalla.Client
                 StormInkActors.TryCreatureFocus(a.MobType, a.Body.sprite, out uv)
             : StormInkActors.TryHand(a.Faction, a.Body.sprite, leftHand, out uv);
 
+        static StormInkWeaponMotion.Pose RegionalWeaponPose(Art a, StormInkWeaponMotion.Pose pose,
+            StormInkWeaponMotion.Phase phase, float progress, int row, bool reduced)
+        {
+            if (a.Kind != ActorKind.RegionalMob) return pose;
+            return a.MobType switch
+            {
+                MobTypeId.AshDrake => StormInkActors.DrakeCast(pose, phase, progress, row, reduced),
+                MobTypeId.Executioner => StormInkActors.ExecutionerCut(pose, phase, progress, row, reduced),
+                _ => pose
+            };
+        }
+
+        static float EquipmentScale(Art a)
+        {
+            // A bite-mounted focus must clear the drake's ground marker and overhead health bar.
+            float scale = StormInkWeaponMotion.Size / ActorVisualScale;
+            return a.Kind == ActorKind.RegionalMob && a.MobType == MobTypeId.AshDrake ? scale * .53f : scale;
+        }
+
         static void ClearWeaponMotion(Art a)
         {
             a.AttackAt = a.AttackUntil = a.WindupAt = a.WindupUntil = 0f;
