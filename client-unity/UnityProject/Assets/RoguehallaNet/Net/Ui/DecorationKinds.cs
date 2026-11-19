@@ -72,7 +72,7 @@ namespace Roguehalla.Net.Ui
             new DecorationKind("holy.shrub", 44, false, "holy.shrub"),
             new DecorationKind("holy.flowers", 45, false, "holy.flowers"),
             new DecorationKind("holy.grass", 46, false, "holy.grass"),
-            new DecorationKind("holy.paver", 47, false, "holy.rock"),
+            new DecorationKind("holy.paver", 47, false, "holy.paver"),
             new DecorationKind("holy.banner", 48, false, "col.banner"),
             new DecorationKind("holy.hedge", 49, false, "holy.shrub"),
             new DecorationKind("holy.turf", 50, false, "holy.grass"),

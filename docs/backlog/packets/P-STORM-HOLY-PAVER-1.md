@@ -1,0 +1,9 @@
+# P-STORM-HOLY-PAVER-1: Render delivered Holy pavers as laid stone
+
+- **ID and outcome:** Owner-approved Holy Hall dressing. Map kind 47 uses a low authored stone paver in the existing region prop atlas. True kind 42 rocks retain their current art and placement.
+- **Dependencies:** Owner-reviewed original `Resources/StormInk/Props/HolyPaver.png` and importer.
+- **Write scope:** The kind 47 art key in `client-unity/RoguehallaNet/Net/Ui/DecorationKinds.cs` and synchronized Unity copy, the Holy paver atlas entry and its fallback in `RegionPropArt.cs`, paver-only presentation in `RegionProps.cs` if required by the reviewed look, the HolyPaver texture and importer, `StormInkHolyPaverEditModeTests.cs` and metadata, and this packet.
+- **Contracts:** Presentation only. Preserve IDs, variants, flags, ordered server rows, collision and placement. Use the same shared atlas, material, depth convention and parent group as existing dressing. Legacy flagged rows still use the placeholder and kind 42 retains the procedural rock. Missing or unreadable paver art uses a plain low procedural flagstone under the paver key.
+- **Oracle:** The focused EditMode test fails on the old rock alias. It checks a readable authored texture, a separate low sprite with the shared atlas and transparent margin, unchanged kind 42 atlas path and legacy path, and shipped renderers' row/group/material/foot identity.
+- **Validation:** Focused oracle; existing `DressedMapEditModeTests`, `RegionPropMarginEditModeTests`, engine-free decoration kind tests and sync check.
+- **Risk:** The packed row must retain the transparent margin and the physical ground pivot. There are 98 paver rows in the certified Hall footprint, including nine in the walkable gate-width aisle. Cosmetic shrubs and real bush concealment are outside scope.
