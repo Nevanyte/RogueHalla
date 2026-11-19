@@ -6,7 +6,7 @@
   "Eye for an Eye").
 - **Implementer tier:** implementer-opus (chest offer draws: reward RNG draw order is behaviour; `check_world` rule)
 - **Reviewer:** reviewer-opus
-- **Integration base:** feature/unity-rework (head ec6d2c2a9 when written)
+- **Integration base:** coord/int-61 (3c530434f: CONTENT-1 + UI-1 + PLANT-1 on 8f330dd01; content hash 10dfa3b399dc43a1, checkpoint rh-checkpoint/33). Written on ec6d2c2a9, replayed onto int-61. Run the gate with `--base coord/int-61` until int-61 is the integration branch.
 - **D-rules touched:** D1 loose proof (owner direction 2026-11-10): one rough test per claim; the Legacy world's offers
   and draw sequence are pinned byte-identical by a seeded golden captured on the integration head · D2 n/a · D5/D6/D9
   none
@@ -20,7 +20,7 @@ with the same reward-RNG draws.
    `INTERACTIVE` and the `Legacy` table's pool stay byte-for-byte the same.
 2. **Per-card offer rule (decision 5).** Each pool entry is `Offer::Any` or `Offer::Faction(f)`. A `Faction(f)` card is
    offered only when every eligible picker at the chest is faction `f`. **With no eligible picker (a campless elite's
-   chest, legacy `chests.ts:222-226`), a `Faction` card is not offered** (decided here: "every picker" is vacuously true
+   chest, legacy `chests.ts:222-226`), a `Faction` card is not offered** (approved by the coordinator 2026-11-19; "every picker" is vacuously true
    for every faction at once, which would put faction-only cards in every campless chest). No real faction card exists
    until P-AUG-NATIVE-4; both real tables hold only `Any` entries, and the rule is proved through a test-only table.
 3. **Eye for an Eye weighting** (Appendix A: "offered more often to players who own a returned-damage source";
@@ -108,17 +108,15 @@ Rust today:
   reward_pools --test content` green.
 
 ## Existing tests that pin what this packet changes
-- `crates/rh-sim/tests/augment_rules.rs:203-260` `the_card_table_is_the_legacy_catalog_under_both_rules`: asserts
+- `crates/rh-sim/tests/augment_rules.rs` `the_card_table_is_the_legacy_catalog_under_legacy_and_for_unchanged_cards_under_rework` (was `..._under_both_rules`): asserts
   `t.pool() == INTERACTIVE` and `t.augment_pool(p) == augment_pool(p)` (the legacy form) for **both** rules, including
   `Rework` and `live_content()`. **Conflict**: this packet makes the Rework pool differ by design. Amended in the
   `oracle-amend:` commit (for the owner/coordinator): the two pool assertions apply to `Legacy` only; under `Rework`,
   `t.pool() == REWORK_POOL`. Everything else in the test (defs, numbers) is unchanged.
-- `crates/rh-sim/tests/augment_rules.rs:432-505` `legacy_and_empty_rework_play_the_same_match`: equal events and worlds
-  under both rules over 240 ticks of an elite-camp fight. **Conflict, confirmed** with a throwaway prototype of this
-  packet: on seed 11 the elite dies, and its camp chest rolls from the rule's own pool, so `world.reward_chests` differs
-  (events and every other world field stay equal, the reward RNG included). Amended in the same `oracle-amend:` commit:
-  each camp chest's card options are checked against its rule's pool (`INTERACTIVE` / `REWORK_POOL`) and then left out
-  of the world comparison. Nothing else in the test changes.
+- `crates/rh-sim/tests/augment_rules.rs` `legacy_and_equal_elite_rework_play_the_same_match` (renamed by CONTENT-1's
+  amendment; augments `Legacy` in both worlds). On ec6d2c2a9 this test compared Legacy and Rework augments and failed with
+  a throwaway version of this packet: the elite died on seed 11 and its camp chest rolled from the rule's own pool.
+  CONTENT-1 now runs both worlds on `Legacy` augments, so the camp chests are equal and this packet no longer amends it.
 - `crates/rh-sim/tests/reward_pools.rs:59, 93-98, 137` and `crates/rh-sim/src/reward_chests/tests.rs:235-279`
   (`source_restricted_pool_and_rng_continuation`): the legacy pool, its pickers filter, and the exact draws and RNG
   continuation against the legacy capture. Unchanged; must stay green.
@@ -134,8 +132,8 @@ Rust today:
 ## Oracle files (read-only for implementers)
 - `crates/rh-sim/src/reward_chests/pool_tests.rs`
 - `crates/rh-sim/tests/augment_rules.rs` (the `oracle-amend:` commit: the Rework pool assertions in
-  `the_card_table_is_the_legacy_catalog_under_both_rules` and the camp-chest options in
-  `legacy_and_empty_rework_play_the_same_match`; for the owner/coordinator to approve)
+  `the_card_table_is_the_legacy_catalog_under_legacy_and_for_unchanged_cards_under_rework`; approved by the
+  coordinator 2026-11-19)
 
 What each oracle test pins (`pool_tests.rs`):
 - `the_rework_pool_is_interactive_plus_five_built_augments_and_legacy_is_unchanged`: `INTERACTIVE` exact; Legacy pool
@@ -143,7 +141,7 @@ What each oracle test pins (`pool_tests.rs`):
   every pool id a live augment below 80; the five reach `offer_pool` under Rework only; real tables are all `Any`;
   Glass Cannon outside.
 - `legacy_offers_and_draws_are_the_integration_heads`: 240 Legacy camp-chest drops (zones, elite and normal, 0-3
-  pickers, a Spiked Shell holder) fold to a golden captured at the integration head (green at the stub; must stay green).
+  pickers, a Spiked Shell holder) fold to a golden captured at the integration head (green at the stub; must stay green; unchanged after replaying onto int-61, so CONTENT-1 and PLANT-1 moved no Legacy draw).
 - `a_faction_card_is_offered_only_when_every_eligible_picker_is_that_faction`: test-only table (Glass Cannon as
   Frost-only): `offer`, `offer_pool` over six picker sets (no picker: not offered), and 400 real drops each for a Fire,
   a Frost and a mixed chest (Fire and mixed never; Frost at least 20 times).
@@ -183,13 +181,17 @@ P-AUG-NATIVE-1b/4 and P-AUG-BOTS-1 build on.
 3. **Ids.** `Counts` stays 80 entries; every pool id stays below 80 on the wire. No new `CardId`.
 4. **`Picker` needs the faction.** `Build` has no faction: `drop_augment_in` reads `p.faction()` beside `p.build` for
    each eligible id, in the eligible list's order.
-5. **Content hash.** Registering `REWORK_EYE_FOR_AN_EYE_WEIGHT` moves `content_hash`: a move the plan's decision 10 does
-   not list (it names three). Run `scripts/regolden-content.sh` after CONTENT-1 has landed in the base (it rewrites
-   `BakedContent.cs`, a build artefact by name: `scripts/gate.sh --allow-artefacts`). If the coordinator prefers no
-   fourth move, the constant can ride in CONTENT-1's registry rows instead; the oracle does not read it.
+5. **Content hash.** Registering `REWORK_EYE_FOR_AN_EYE_WEIGHT` moves `content_hash`. The coordinator accepted this as
+   move 5 (2026-11-19; TUNE-1 is move 4). Regold only through `scripts/regolden-content.sh` (it rewrites `BakedContent.cs`,
+   a build artefact by name: `scripts/gate.sh --allow-artefacts`).
 6. **`REWORK_POOL` and `tests/content.rs`.** A new `const`/`static` in `src` must be registered or listed in
    `NON_GAMEPLAY`; the stub lists it. If the implementer inlines the pool or renames it, update that row.
 7. **Restore rule scope.** Check camp chests only (`camp: Some`); refusing `camp: None` chests breaks a dozen existing
    tests that declare such chests to grant cards.
 
 ## Notes from previous attempts
+
+Known unrelated red: `crates/rh-sim/tests/pack_leader_warm.rs`
+`camps_snapshot_warm_original_clone_restore_allocates_nothing` fails in a plain `cargo test -p rh-sim` on coord/int-61
+itself, with this packet's stub files reverted to int-61 (clone and restore each allocate 32 bytes once, at tick 116).
+Under `--features trusted-status-probes`, which the gate uses, the test is compiled out. Not caused by this packet.
