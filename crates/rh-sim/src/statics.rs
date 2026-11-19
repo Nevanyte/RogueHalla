@@ -270,6 +270,15 @@ pub struct SimConfig {
     /// world keeps `Freeze`.
     #[serde(default)]
     pub frost_wish: FrostWish,
+    /// The step length in milliseconds (ADR 0029): 50 (the default: legacy, parity, every capture) or 25.
+    /// STUB (P-TICK-1a): not yet read, validated, serialized or hashed; the implementer replaces this.
+    #[serde(skip, default = "stub_tick_ms")]
+    pub tick_ms: u32,
+}
+
+/// STUB (P-TICK-1a): the implementer replaces this.
+fn stub_tick_ms() -> u32 {
+    50
 }
 
 /// `SimConfig::frost_wish`. `Freeze` serializes as nothing (JSON `null`; the hashing serializer folds no word for a
@@ -485,6 +494,7 @@ impl Default for SimConfig {
             regen_in_combat: RegenInCombat::Legacy,
             camp_buffs: CampBuffRule::Legacy,
             frost_wish: FrostWish::Freeze,
+            tick_ms: stub_tick_ms(),
         }
     }
 }

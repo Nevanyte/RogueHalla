@@ -284,6 +284,10 @@ impl Sim {
     pub fn tick(&self) -> u32 {
         self.w.tick
     }
+    /// The sim's step length in milliseconds (ADR 0029). STUB (P-TICK-1a): always the legacy 50 until implemented.
+    pub fn tick_ms(&self) -> u32 {
+        50
+    }
     pub fn server_time(&self) -> f64 {
         self.w.server_time
     }

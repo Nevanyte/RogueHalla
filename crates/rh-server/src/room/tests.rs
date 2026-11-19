@@ -135,6 +135,7 @@ pub(super) fn cfg(tick: Duration) -> RoomConfig {
             faction_mode: rh_sim::FactionMode::Off,
             // Off until the coordinator-owned quest transport packet lands; the lifecycle has its own config switch.
             quests: false,
+            tick_ms: 50,
         },
         arena: assets.arena,
         welcome_map: assets.welcome_map,
