@@ -129,6 +129,26 @@ only the current cast's `cooldown_ms` is sound for every reachable state; a boun
 is not. No new serialized field is needed for this. Do not weaken the cap tests. If a per-trim cooldown record seems
 needed after all, that is a format bump (`CHECKPOINT_FORMAT`, hash, restore) and goes back to the coordinator.
 
+### Folded-in defect: a Wish spend refused after a grant (coordinator, 2026-11-19)
+
+After a card grant changes the Wish cooldown multiplier (a chest pick of Arcane Overload while the Wish cools down is
+ordinary play) and before the next cast, `validate` refuses the checkpoint with `invalid card Wish spend`. Cause:
+`abilities/checkpoint.rs:75-89` requires the stored `wish_cast.cooldown_ms` to equal `cooldown(wish(faction), training,
+Some(p.modifiers.wish_cooldown_mult()))` recomputed NOW, but the stored value is what the cast was spent with, under the
+multiplier of that moment. Oracle: `a_grant_between_a_cast_and_the_next_cast_checkpoints_and_plays_on_in_both_worlds`
+(Legacy and Rework: cast, grant Arcane Overload, checkpoint before the next cast; it must restore, hash equal, and play
+equal through the next cast). It is red today with the restore refusal.
+
+Write scope: the validation that refuses, `abilities/checkpoint.rs:80-86` (the spend check), and every other place that
+recomputes the cooldown from the current multiplier and compares it with stored clocks (`:121-126` `recharge`,
+`:257-283`), because the stock equations (`full_at == spend.at + recharge`, the charge lattice) use the same
+recomputed value and will refuse the same state. The fix must keep refusing a genuinely forged Wish spend: a cooldown
+no multiplier the build could have held produces (zero, non-integer, past the largest the faction's Wish can have), an
+`at` off the tick lattice or before the first cast, a nulled spend with stocks that need it. Existing forged-spend
+tests that must stay green: `abilities/source_tests/repair_tests.rs:33` (`cooldown_ms` 150001 on a completed spend),
+`cards/fight_clock_tests.rs:635` (cooldown 0, `at` 99, nulled spend). Keep at least one of them.
+Do not paper over it by dropping the check.
+
 ## 11. Known traps
 
 - `ms` passed to `wishful_thinking` is 1000 under both rules (flag row): under Rework do not use it.

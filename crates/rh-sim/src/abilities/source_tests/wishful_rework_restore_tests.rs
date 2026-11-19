@@ -210,3 +210,74 @@ fn a_cooldown_that_lengthens_between_casts_restores_in_both_worlds() {
         }
     }
 }
+
+/// A checkpoint taken after a grant changed the Wish cooldown multiplier and before the next cast restores.
+/// Live defect on int-62: `validate` (`abilities/checkpoint.rs:80-86`) demands the stored `wish_cast.cooldown_ms` equal
+/// `cooldown(wish, training, current multiplier)`, but the stored value is what the cast was spent with; taking Arcane
+/// Overload (a chest pick, ordinary play) while the Wish cools down changes the multiplier and the restore is refused
+/// with `invalid card Wish spend`. The restored sim must also hash and play on equal to the original through the next
+/// cast. A genuinely forged spend must still be refused (`repair_tests.rs:33` cooldown 150001 on a completed spend;
+/// `cards/fight_clock_tests.rs:635` cooldown 0, `at` 99 and a nulled spend; the cap tests above).
+#[test]
+fn a_grant_between_a_cast_and_the_next_cast_checkpoints_and_plays_on_in_both_worlds() {
+    for rework in [false, true] {
+        let corpus = corpus();
+        let case = corpus["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == CASE)
+            .unwrap();
+        let mut input = case["input"].clone();
+        input["players"][0]["cards"] = json!([]);
+        if rework {
+            input["config"] = json!({"augments": "rework"});
+        }
+        let mut s = construct(&input);
+        let actions = input["actions"].as_array().unwrap();
+        // The first cast, then a few ticks while it cools down.
+        for inp in actions[0]["inputs"].as_array().unwrap() {
+            enqueue(&mut s, inp);
+        }
+        for _ in 0..4 {
+            s.step();
+        }
+        let before = s.w.players[0].card_runtime.unwrap().wish_cast.unwrap();
+        let id = s.w.players[0].id;
+        assert!(crate::cards::grant(
+            &s.k,
+            &mut s.w,
+            id,
+            crate::cards::CardId::ArcaneOverload
+        ));
+        let v = serde_json::to_value(&s).unwrap();
+        let mut r = match Sim::restore(v) {
+            Ok(r) => r,
+            Err(e) => panic!("rework={rework}: the checkpoint after the grant is refused: {e:?}"),
+        };
+        assert_eq!(
+            r.state_hash(),
+            s.state_hash(),
+            "rework={rework}: equal at restore"
+        );
+        // Play on through the next cast (the case's second cast) in both.
+        for inp in actions[2]["inputs"].as_array().unwrap() {
+            enqueue(&mut s, inp);
+            enqueue(&mut r, inp);
+        }
+        for t in 0..12 {
+            s.step();
+            r.step();
+            assert_eq!(
+                s.state_hash(),
+                r.state_hash(),
+                "rework={rework}: tick {t} after restore"
+            );
+        }
+        let after = s.w.players[0].card_runtime.unwrap().wish_cast.unwrap();
+        assert!(
+            after.cooldown_ms > before.cooldown_ms,
+            "rework={rework}: the next cast is under the longer cooldown"
+        );
+    }
+}
