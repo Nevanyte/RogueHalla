@@ -325,21 +325,23 @@ fn every_changed_number_is_a_hashed_rework_registry_row() {
         Some(ContentVal::U64(12)),
         "decision 7: one camp's worth of stacks"
     );
-    // Appended at the end, in order, never reordered: the last rows of the registry are exactly these names.
+    // Appended as one run, in order, never reordered. Later packets append their own rows after this run
+    // (coordinator oracle-amend 2026-11-19: the run used to have to end the registry, which every append broke).
     let names: Vec<&str> = REGISTRY.iter().map(|e| e.name).collect();
-    let tail: Vec<&str> = rows
+    let run: Vec<&str> = rows
         .iter()
         .map(|(n, _)| *n)
         .chain(["REWORK_ELITE_SHARE_STACKS"])
         .collect();
-    assert!(
-        names.len() > tail.len(),
-        "the registry is not just the REWORK rows"
-    );
+    let start = names
+        .iter()
+        .position(|n| *n == run[0])
+        .expect("the first CONTENT-1 REWORK row is registered");
+    assert!(start > 0, "the registry is not just the REWORK rows");
     assert_eq!(
-        &names[names.len() - tail.len()..],
-        &tail[..],
-        "the REWORK rows end the registry, in this order"
+        names.get(start..start + run.len()),
+        Some(&run[..]),
+        "the CONTENT-1 REWORK rows are one run in the registry, in this order"
     );
     // The numbers the tables carry are the rows' values (a literal copy would be an unhashed second source).
     let by = |n: &str| match registered(n) {
@@ -375,7 +377,8 @@ fn legacy_is_unchanged_and_unlisted_cards_keep_their_catalog_rows() {
     assert_eq!(n.outgoing_row_cap, 2.5);
     assert_eq!(n.hp_race_cap, 2.5);
     assert_eq!(legacy().fold_definition().outgoing_row_cap, 2.5);
-    assert_eq!(rework().pool(), &crate::reward_chests::INTERACTIVE[..]);
+    // The Rework pool is P-AUG-POOL-1's (`reward_chests::pool_tests`); the Legacy pool stays the legacy one.
+    assert_eq!(legacy().pool(), &crate::reward_chests::INTERACTIVE[..]);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
