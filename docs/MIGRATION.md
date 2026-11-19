@@ -4,6 +4,49 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Paused (2026-11-19): the elite and augment rework, in wave 3
+
+**Owner direction 2026-11-19:** "please pause and save all development". Every agent and gate of the coordinator session
+is stopped. Nothing is pushed, nothing deleted, and `main` is untouched.
+
+**On `feature/unity-rework`, gated:** through `8f330dd01`.
+- Integration 59: P-CONTENT-REGOLDEN-1, P-AUG-RULES-1, P-SIM-BENCH-SEAM-1.
+- Integration 60: P-AUG-PLANT-1, checkpoint `rh-checkpoint/33`.
+- Each passed the full gate, and reviewer-opus's integration review returned LAND. Their full record is on
+  `coord/int-61`.
+
+**Saved, not yet on the integration branch:**
+- **`coord/int-61` @ `3c530434f`.**
+  - What it holds:
+    - P-AUG-CONTENT-1 and P-AUG-UI-1 merged onto `8f330dd01`, both reviewer LAND;
+    - the hash tape re-recorded on the merge;
+    - coordinator oracle-amend `08bbb1405` (Wishful Thinking's text held at legacy until P-AUG-TUNE-1);
+    - the record of integrations 59 to 61. Content hash `10dfa3b399dc43a1`.
+  - Its full gate was stopped mid-run. Resume:
+    1. Rerun `scripts/gate.sh --coordinator --keep-going --allow-artefacts --regen-fixtures --base 8f330dd01` in a clean
+       worktree at that commit.
+    2. On PASS, fast-forward the integration branch.
+- **`packet/P-AUG-TUNE-1` @ `8c93618e4`.** The oracle is unfinished, in one WIP commit on `3c530434f`.
+  - Resume: split it into `stub:` and `oracle:` commits, finish the restore tests, then pass `--oracle-check`.
+  - The content hash move it makes (two `REWORK_WISHFUL_*` rows, move 4) is accepted.
+- **`packet/P-AUG-POOL-1` @ `07ffb5a25`.** The oracle is committed, but its `--oracle-check` result and hand-off were
+  never seen. Resume: rerun the check and read the brief before dispatching the Opus implementer.
+- **`agent/sonnet/P-ELITE-BENCH-1` @ `2a653ec59`.** The elite mode, minute-5 sampler, sample file and README are
+  committed. Not yet established: the gate, the sample statistics and the owner-command wall time.
+  - Resume:
+    1. `scripts/gate.sh --quick --oracle packet/P-ELITE-BENCH-1`, and `cargo test --locked --all-features -p rh-headless`.
+    2. Review.
+    3. The release run, then the owner checkpoint table.
+
+**Worktrees kept.** Each has a row in `.agent-runs/worktrees.csv`, session `490944cf`:
+- `agent-a966e8f4986a32c3f` (P-AUG-POOL-1 oracle)
+- `agent-a7dab1f3e66fe1032` (P-AUG-TUNE-1 oracle)
+- `agent-a120f7fa768207bf2` (P-ELITE-BENCH-1)
+- `agent-ade09a30385b6a120` and `agent-a46e4fa3f1fc80ea0`: done, can be cleaned.
+
+**Next after resume:** finish wave 3 (TUNE-1, POOL-1, ELITE-BENCH-1), then the planned owner checkpoint: the elite
+death-rate table and proposed elite numbers before P-ELITE-TUNE-1.
+
 ## Elite and augment rework (2026-11-18): approved plan, in progress
 
 **Owner direction 2026-11-18:**
