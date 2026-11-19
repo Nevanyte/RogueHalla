@@ -609,7 +609,7 @@ namespace Roguehalla.Client
                     var frond = Union(Capsule(new Vector2(cx, gy + 2), mid, 3.2f, 3.4f), Capsule(mid, tip, 3.4f, .6f));
                     c.Fill(frond, Vertical(Mix(leafLight, spore, .08f), leafDark, gy + len, gy), Alpha(Shade(leafDark, .4f), .8f), 1.2f);
                 }
-            });
+            }, false, "StormInk/Props/PlagueFern");
             Add(l, "plague.column", 80, 148, 8, (c, gy) =>
             {
                 float cx = 40; c.SoftShadow(cx + 6, gy + 1, 26f, 6f, .4f, Alpha(shadow, 1f));

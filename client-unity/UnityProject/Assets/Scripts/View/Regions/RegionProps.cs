@@ -171,14 +171,17 @@ namespace Roguehalla.Client
                 float scaleX = pl.Scale, scaleY = pl.Scale;
                 bool flip = pl.Flip;
                 Color tint = Color.white;
-                if (art.UsesAuthoredTexture && pl.Art == "plague.rubble")
+                bool fern = pl.Art == "plague.fern";
+                if (art.UsesAuthoredTexture && (fern || pl.Art == "plague.rubble"))
                 {
                     int vx = pl.Tx + pl.Kind * 97, vy = pl.Ty + pl.Variant * 151;
                     scaleX *= Mathf.Lerp(.84f, .98f, RegionNoise.Hash01(vx, vy, visualSeed + 101));
-                    scaleY *= Mathf.Lerp(.66f, .82f, RegionNoise.Hash01(vx, vy, visualSeed + 103));
+                    scaleY *= Mathf.Lerp(fern ? .88f : .66f, fern ? 1f : .82f, RegionNoise.Hash01(vx, vy, visualSeed + 103));
                     flip = RegionNoise.Hash01(vx, vy, visualSeed + 107) < .5f;
                     float pigment = RegionNoise.Hash01(vx, vy, visualSeed + 109);
-                    tint = Color.Lerp(new Color(.64f, .71f, .60f, 1f), new Color(.82f, .86f, .76f, 1f), pigment);
+                    tint = fern
+                        ? Color.Lerp(new Color(.47f, .62f, .52f), new Color(.74f, .81f, .65f), pigment)
+                        : Color.Lerp(new Color(.64f, .71f, .60f, 1f), new Color(.82f, .86f, .76f, 1f), pigment);
                 }
                 var go = new GameObject(pl.Art); go.transform.SetParent(_root.transform, false);
                 Vector3 foot = ArenaView.WorldPoint(pl.X * 32f, pl.Y * 32f);
