@@ -149,13 +149,16 @@ namespace Roguehalla.Client.Tests
             Assert.AreEqual(37, sent.QuestTarget);
         }
 
-        [Test]
-        public void MapsAndWorldUseDeliveredPersonalAndPublicPointsAndRemoveCompletedGivers()
+        [TestCase("barrow_run")]
+        [TestCase("letters")]
+        [TestCase("watchtowers")]
+        [TestCase("gatecrasher")]
+        public void MapsAndWorldUseDeliveredPersonalAndPublicPointsAndRemoveCompletedGivers(string definition)
         {
             var personal = new QuestHandle(71);
             var marked = new QuestHandle(72);
             var state = QuestState(personal);
-            state.View.Rows[0].Def = "barrow_run";
+            state.View.Rows[0].Def = definition;
             state.View.Rows[0].State = QuestRowState.Open;
             state.View.Rows[0].OwnerAccepted = true;
             var carrier = new RosterId(1);

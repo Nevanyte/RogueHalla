@@ -152,6 +152,34 @@ fn two_deliveries_are_pending_on_the_same_tick_and_finish_independently() {
 }
 
 #[test]
+fn opposing_banners_pay_only_at_the_destination_of_each_delivery() {
+    let mut sim = scenario(&[QuestId::TwoBanners], [false; 2]);
+    let [outbound, returning] = owners(&sim.w);
+    let home = sim.w.players[0].pos();
+    let outpost = Vec2::new(home.x + 256., home.y);
+    sim.w.quests.as_mut().unwrap().offers[0].tokens[0] = outpost;
+    run(&mut sim, |cx| {
+        for (owner, branch) in [(outbound, 0), (returning, 1)] {
+            accept(cx, 0, owner);
+            interact(cx, owner, 900, 2, branch);
+            assert_eq!(objective_for_owner(cx.w, owner, 900, 0), Some(outpost));
+            cx.w.players.get_mut(owner).unwrap().body.x = outpost.x;
+        }
+        interact(cx, returning, 900, 3, 0);
+        system(cx);
+        assert!(pending(cx.w, outbound, 900).is_some());
+        assert!(
+            pending(cx.w, returning, 900).is_none(),
+            "taking the rival banner starts the return trip"
+        );
+        assert_eq!(objective_for_owner(cx.w, returning, 900, 0), Some(home));
+        cx.w.players.get_mut(returning).unwrap().body.x = home.x;
+        system(cx);
+        assert!(pending(cx.w, returning, 900).is_some());
+    });
+}
+
+#[test]
 fn crown_drops_with_power_and_freshly_returns_after_turn_in() {
     let mut sim = scenario(&[QuestId::TheBurningCrown], [false; 2]);
     let [a, b] = owners(&sim.w);

@@ -320,8 +320,9 @@ namespace Roguehalla.Client
             return false;
         }
 
-        // The public board uses underscore-delimited definition IDs, with Letters as its one single-word ID.
-        public static bool IsBoardRow(QuestRowView row) => row.Def == "letters" || row.Def?.IndexOf('_') >= 0;
+        // Multiword board IDs use underscores. Legacy IDs use hyphens or distinct single words.
+        public static bool IsBoardRow(QuestRowView row) =>
+            row.Def == "letters" || row.Def == "watchtowers" || row.Def == "gatecrasher" || row.Def?.IndexOf('_') >= 0;
         public static bool ShowsOffer(QuestRowView row) => !row.OwnerCompleted || !IsBoardRow(row);
 
         public static bool TrySend(Session session, uint epoch, QuestView view, QuestHandle quest, byte action, byte target)

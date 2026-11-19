@@ -386,7 +386,6 @@ fn endpoint(w: &World, o: &Offer, id: QuestId, a: &Attempt) -> Vec2 {
     match id {
         Letters | TuberEats | EvenSkeletonsGetCold => o.tokens.first().copied().unwrap_or(o.at),
         TwoBanners if a.branch == Some(0) => o.tokens.first().copied().unwrap_or(o.at),
-        TwoBanners if a.branch == Some(1) && !a.ready => o.tokens.first().copied().unwrap_or(o.at),
         TradeUp => a
             .progress
             .checked_sub(1)
