@@ -373,10 +373,8 @@ fn aim(sim: &Sim, pid: PlayerId) -> Option<f64> {
         .filter(|m| m.core.vitals.hp > 0.)
         .map(|m| {
             let at = m.core.pos();
-            (
-                (at.x - me.x).powi(2) + (at.y - me.y).powi(2),
-                (at.y - me.y).atan2(at.x - me.x),
-            )
+            let (dx, dy) = (at.x - me.x, at.y - me.y);
+            (dx * dx + dy * dy, rh_sim::math::atan2(dy, dx))
         })
         .min_by(|a, b| a.0.total_cmp(&b.0))
         .map(|(_, a)| a)
