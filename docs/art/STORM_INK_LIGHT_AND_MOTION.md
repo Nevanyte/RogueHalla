@@ -19,6 +19,8 @@ Use the region sun, ambient grade and world shadow mask for the shared direction
 | Fire | Matte angular basalt, ember ground broken into dry flecks, and continuous red-orange lava channels. | Long vermilion currents carry small gold strokes past dark rafts of crust. Cooling cinder shows short, disconnected flecks. The lava core pulses below the crust. Near rock receives a softer warm wash. Rising embers start close to a heat source and fade to brown. Concentrate the brightest gold at combat contact. |
 | Lamps and candles | The flame and glass mark the emitter. The iron post and stone base receive ambient light. | Mark the wick or cage relative to the sprite’s painted foot. Use this point to position the warm light and to mask flame colour inside an atlas cell after packing. A short warm pool reaches the floor, a nearby actor and the near face of a prop. Keep the flame readable when particle density falls. |
 
+MineralIce and MoltenInk are original colour paintings. Unity imports each into a 256-pixel slice at the end of the existing ground detail array. A narrow edge blend lets a vein cross tile boundaries in the same direction. On ice, preserve cobalt in the deeper plates and place the pale moving glint on the painted fracture. For lava, the same four samples of the molten bank orient the flowing colour and set the reach of its warm reflection. Gold and ivory belong in the current; the floating crust and nearby cinder carry darker reds.
+
 ## Layers and their order
 
 1. **Ground and contact.** Terrain supplies the base wash and the true ice, lava or bog boundary. Painted mud and shallow variants supply decoration. The ground shadow and footprint sit beneath the actor.
