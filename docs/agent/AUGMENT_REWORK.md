@@ -49,7 +49,7 @@ Readers still on the legacy numbers, and why (each is a later packet's to move i
 | `cards/fight_clock.rs` `watches` | reads only the `while` condition, a shape the guard keeps equal; its caller (`systems/items.rs`) has no `k` |
 | `kill_augments::build_marks` (observation marks) | display only; its callers (`fx_report.rs`, `observe.rs`) hold no `k` |
 | `quests/rules.rs` (card base and tier) | shape fields the guard keeps equal |
-| `content_hash` (`maximum_mark_rate()`) | the content identity is the legacy one until P-AUG-CONTENT-1 folds the rework rows |
+| `content_hash` (`maximum_mark_rate()`) | the legacy mark rate; the `REWORK_*` numbers are hashed through the registry (P-AUG-CONTENT-1) |
 
 ### Adding an override row (P-AUG-CONTENT-1 and later)
 
