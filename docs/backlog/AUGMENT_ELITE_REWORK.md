@@ -96,6 +96,8 @@ add") get their Augment_Tuning numbers but stay out of the elite pool.
    1. P-AUG-CONTENT-1
    2. P-AUG-NATIVE-1a
    3. P-ELITE-TUNE-1
+   - Added 2026-11-19 (coordinator): P-AUG-TUNE-1 (two Wishful rows) and P-AUG-POOL-1 (the Eye for an Eye weight)
+     each move it once more, also only through the script.
 
 **Owner checkpoint (the one planned stop).** After wave 3 the coordinator runs the elite bench and shows the owner
 the death-rate table and the proposed elite numbers. P-ELITE-TUNE-1 waits for the owner's OK.
@@ -285,7 +287,7 @@ Before any `git push` or merge into `main`, ask the owner.
 - **Legacy and parity.**
   - Parity fixtures, the determinism sweep and `card_catalog` stay green on every merge, which proves the default
     world is unchanged.
-  - The hash tape moves only at the three content moves.
+  - The hash tape moves only at the content moves (decision 10).
 - **Live world.**
   - The `rh-headless` `source_soak` example runs clean under `live_content` (Rework) after W3, W5 and W7.
   - Restoring a checkpoint taken mid-soak works, including builds with retuned and native cards.
