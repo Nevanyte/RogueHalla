@@ -17,6 +17,8 @@ Shader "Roguehalla/RegionGround"
         _TerA("Terrain A", 2D) = "black" {}
         _TerB("Terrain B", 2D) = "black" {}
         _PlgTex("Plague ground", 2D) = "black" {}
+        [NoScaleOffset] _StormMarshWash("Storm Ink marsh wash", 2D) = "white" {}
+        [HideInInspector] _StormMarshOn("Storm Ink marsh present", Float) = 0
         _VariantTex("Ground variants (rgb tint, a strength, 1 texel per tile)", 2D) = "black" {}
         _VariantOn("Ground variants present", Float) = 0
         _VariantSoft("Soft band gains present", Float) = 0
@@ -65,8 +67,6 @@ Shader "Roguehalla/RegionGround"
             // Sampler states shared to stay under the 16 sampler limit of the Web target (GLES3): the state of the texture a sampler is named after governs.
             // sampler_RhRegA (RhSun.hlsl) = bilinear, clamp, no mips: "Region weights A", made by RegionGround.Tex in RegionGround.cs. _RegA/_RegB/_TerA/_TerB/_PlgTex are all made by that same Tex (bilinear, clamp).
             // sampler_TempleTex = point, clamp: "Temple piers" and "Ground variants" are both created point/clamp in RegionGround.cs.
-            TEXTURE2D(_RegA);
-            TEXTURE2D(_RegB);
             TEXTURE2D(_TerA);
             TEXTURE2D(_TerB);
             TEXTURE2D(_PlgTex);   // r shallow water, g grass, b water depth (Plague only)
@@ -518,6 +518,8 @@ Shader "Roguehalla/RegionGround"
                 return lerp(c, s, inSand * 0.85 * _Coliseum.w);
             }
 
+            #include "StormInkMarsh.hlsl"
+
             half4 Frag(Varyings i) : SV_Target
             {
                 float2 t = float2(i.world.x, -i.world.y / _Map.z);
@@ -539,13 +541,15 @@ Shader "Roguehalla/RegionGround"
                 // Ragged, noise-warped region borders on top of the blurred weight textures.
                 float2 warp = (float2(VNoise(t * 0.55 + 7.3), VNoise(t * 0.55 + 91.7)) - 0.5) * 1.6;
                 float2 ruv = (t + warp) / _Map.xy;
-                half4 wa = SAMPLE_TEXTURE2D(_RegA, sampler_RhRegA, ruv);
-                half4 wb = SAMPLE_TEXTURE2D(_RegB, sampler_RhRegA, ruv);
+                // Use the same region planes as RhSun so the two painted washes can reuse the old sampler slots.
+                half4 wa = SAMPLE_TEXTURE2D(_RhRegA, sampler_RhRegA, ruv);
+                half4 wb = SAMPLE_TEXTURE2D(_RhRegB, sampler_RhRegB, ruv);
                 float wgt[6] = { wa.r, wa.g, wa.b, wa.a, wb.r, wb.g };
                 float tot = 0;
                 [unroll] for (int k = 0; k < 6; k++) { wgt[k] = smoothstep(0.10, 0.90, wgt[k]); tot += wgt[k]; }
                 tot = max(tot, 1e-3);
 
+                float paintedMarsh = _StormMarshOn * saturate(wgt[2] / tot);
                 float macro = Fbm(t * 0.06);
                 float pocketN = wb.b;                                   // baked on the CPU (RegionPocket) so props can use the same mask
                 float3 col = 0, emis = 0;
@@ -554,7 +558,28 @@ Shader "Roguehalla/RegionGround"
                     [branch] if (wgt[k2] > 0.004)
                     {
                         Ground g;
-                        if (k2 == 2) g = ShadePlague(t, macro, SAMPLE_TEXTURE2D(_PlgTex, sampler_RhRegA, t / _Map.xy).rgb);
+                        if (k2 == 2)
+                        {
+                            float2 paperUV = t;
+                            [branch] if (_StormMarshOn > 0.5)
+                            {
+                                // Bleed neighbouring decorative washes by less than half a tile. The hazard below
+                                // keeps its own delivered footprint.
+                                paperUV += (float2(VNoise(t * .63), VNoise(t * .59 + 17.2)) - .5) * .85;
+                            }
+                            float4 plg = SAMPLE_TEXTURE2D(_PlgTex, sampler_RhRegA, paperUV / _Map.xy);
+                            [branch] if (_StormMarshOn > 0.5)
+                            {
+                                g = (Ground)0;
+                                if (plg.r > .15)
+                                {
+                                    g = ShadePlague(t, macro, plg.rgb);
+                                    g.emis *= .10;
+                                }
+                                g.col = StormMarshFloor(t, plg);
+                            }
+                            else g = ShadePlague(t, macro, plg.rgb);
+                        }
                         else g = ShadeRegion(k2 + 1, k2, t, macro, pocketN);
                         if (k2 == 5) g.col = ColiseumSand(t, g.col, VNoise(t * 3.0));
                         float wk = wgt[k2] / tot;
@@ -563,7 +588,9 @@ Shader "Roguehalla/RegionGround"
                         [branch] if (locLit)
                         {
                             float4 nr = SAMPLE_TEXTURE2D_ARRAY_GRAD(_GroundNrm, sampler_GroundNrm, tSun * 0.25, k2, gdx, gdy);
-                            gTilt += (nr.rg * 2.0 - 1.0) * wk; gGloss += nr.b * wk;
+                            float relief = k2 == 2 ? 1.0 - .80 * _StormMarshOn : 1.0;
+                            gTilt += (nr.rg * 2.0 - 1.0) * wk * relief;
+                            gGloss += nr.b * wk * relief;
                         }
                     }
                 }
@@ -574,6 +601,7 @@ Shader "Roguehalla/RegionGround"
                 // band's outline wanders like the bog's beside it. The tile gain times the soft gain is capped at 255/128, as one baked texel always was.
                 [branch] if (_VariantOn > 0.5)
                 {
+                    float3 beforeVariants = col;
                     half4 vt = SAMPLE_TEXTURE2D_LOD(_VariantTex, sampler_TempleTex, (floor(t) + 0.5) / _Map.xy, 0);
                     col *= lerp(1.0, vt.rgb * (255.0 / 128.0), vt.a);
                     [branch] if (_VariantSoft > 0.5)
@@ -589,6 +617,7 @@ Shader "Roguehalla/RegionGround"
                         float3 sg = lerp(lerp(s00, s10, f.x), lerp(s01, s11, f.x), f.y) * (255.0 / 128.0);
                         col *= min(sg, (255.0 / 128.0) / lerp(1.0, vt.rgb * (255.0 / 128.0), vt.a));
                     }
+                    col = lerp(col, beforeVariants, .58 * paintedMarsh);
                 }
 
                 float templeIn = 0.0;                                   // 1 inside the temple floor: holy-light terrain is then drawn as a translucent pool on the stone so the inlay stays readable
@@ -597,7 +626,7 @@ Shader "Roguehalla/RegionGround"
                     float3 tcol, temis; float tin;
                     float tS = _Temple.z;
                     float dE = min(min(t.x - _Temple.x, _Temple.x + tS - t.x), min(t.y - _Temple.y, _Temple.y + tS - t.y));
-                    [branch] if (dE > -3.2)
+                    if (dE > -3.2)
                     {
                         TempleSurface(t, tcol, temis, tin); templeIn = tin;
                         // cast shadow line of the plinth and arcade on the sand: the sun is north-west, so the shade falls to the south and east (a hint on the other sides)
@@ -684,6 +713,12 @@ Shader "Roguehalla/RegionGround"
                                 te = glow * (crustLine * 0.16 + bub * 0.5 + saturate(inner + 0.2) * (0.06 + 0.08 * breathe));
                                 tc += bub * glow * 0.2;
                                 hh = bub * 0.05 + (1.0 - crustLine) * 0.03; gl = 0.45;
+                                [branch] if (_StormMarshOn > 0.5 && wa.b > 0.60)
+                                {
+                                    StormMarshChannel(t, inner, tc, te);
+                                    hh *= 0.35;
+                                    gl = 0.28;
+                                }
                             }
                             else if (kd == 4)       // embers: charred ground with pulsing glowing cracks
                             {
@@ -740,8 +775,14 @@ Shader "Roguehalla/RegionGround"
                 float sunStr; float3 shMul;
                 float3 sunM = RhSunMul(i.world, 0.65, sunStr, shMul);
                 float3 albedo = col;
+                // On matte marsh water, use quiet reflections. The luminous accents still light the actors.
+                float marshWater = paintedMarsh * smoothstep(.24, .60, ta.b);
+                // Let the broad paper wash carry the landform. Keep direction and colour from the regional sun,
+                // with a much smaller dapple on wet ground than on needles, bark and upright objects.
+                float3 marshSun = max(_RhAmbCol[3].rgb + _RhSunCol[3].rgb * .65, _RhFloorCol[3].rgb);
+                sunM = lerp(sunM, marshSun, .77 * paintedMarsh * _RhSwitch.x);
                 float shade = SAMPLE_TEXTURE2D_LOD(_RhShadowMask, sampler_RhShadowMask, tSun / _Map.xy, 0).r * sunStr * _RhSwitch.y;
-                col *= sunM * lerp(float3(1, 1, 1), shMul, saturate(shade));
+                col *= sunM * lerp(float3(1, 1, 1), shMul, saturate(shade) * (1.0 - .53 * paintedMarsh));
                 SurfaceData2D surfaceData;
                 InputData2D inputData;
                 // mask = 0: the "with Mask" light blend styles (accent point lights while the analytic local lights are on) skip this surface; see RhLocalLights.hlsl.
@@ -759,10 +800,13 @@ Shader "Roguehalla/RegionGround"
                     float gloss = max(gGloss, templeIn * 0.3);
                     RhLocalLights(tSun, normalize(float3(tilt, 1.0)), gloss, 12.0 + 40.0 * saturate(gloss), 1.0, 1.0, 0.0, dif, spc);
                     float hr = RhHeadroom(lit.rgb);
-                    lit.rgb += albedo * _Exposure * dif * hr + spc * saturate(hr + 0.05);
+                    float3 reflected = albedo * _Exposure * dif * hr + spc * saturate(hr + 0.05);
+                    lit.rgb += reflected * (1.0 - .44 * paintedMarsh - .38 * marshWater);
                 }
                 lit.a = 1;
                 lit.rgb = RhFogGrade(i.world, lit.rgb);
+                float paper = dot(lit.rgb, float3(.22, .67, .11));
+                lit.rgb = lerp(lit.rgb, paper * float3(.95, 1.0, 1.02), .48 * marshWater);
                 return lit;
             }
             ENDHLSL

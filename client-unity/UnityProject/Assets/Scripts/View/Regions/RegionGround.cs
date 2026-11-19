@@ -28,6 +28,7 @@ namespace Roguehalla.Client
             var shader = Resources.Load<Shader>("Regions/RegionGround");
             Material = new Material(shader) { name = "Roguehalla / region ground" };
             _owned.Add(Material);
+            bool paintedMarsh = PlagueGround.BindStormInkGround(Material, map);
 
             var ground = RegionGroundTextures.Build(out var groundNormals); _owned.Add(ground); _owned.Add(groundNormals);
             Material.SetTexture("_GroundTex", ground); Material.SetTexture("_GroundNrm", groundNormals);
@@ -52,7 +53,7 @@ namespace Roguehalla.Client
 
             // Plague mud, grass and shallow water (r water, g grass, b depth), 2 texels per tile.
             const int plgTexels = 2;
-            Material.SetTexture("_PlgTex", Tex("Plague ground", w * plgTexels, h * plgTexels, plague.Bake(plgTexels)));
+            Material.SetTexture("_PlgTex", Tex("Plague ground", w * plgTexels, h * plgTexels, plague.Bake(plgTexels, paintedMarsh ? map.GroundVariants : null)));
             // Temple: footprint (x0, y0, size, found); great crossing, light count and apse radius; portals and apse edge; the stone; lamp and brazier pools; pier presence per tile.
             bool hasTemple = temple != null && temple.Found;
             Material.SetVector("_Temple", hasTemple ? new Vector4(temple.X0, temple.Y0, temple.Size, 1f) : Vector4.zero);

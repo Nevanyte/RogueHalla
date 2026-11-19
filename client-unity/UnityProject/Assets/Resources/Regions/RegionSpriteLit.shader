@@ -6,6 +6,8 @@ Shader "Roguehalla/RegionSpriteLit"
     {
         [PerRendererData] _MainTex("Sprite Texture", 2D) = "white" {}
         _Ndl("Sun facing", Float) = 0.55
+        [PerRendererData] _WetRootContact("Wet root pigment", Float) = 0
+        [HideInInspector] _LayeredCanopy("Overlapping ink wash", Float) = 0
     }
     SubShader
     {
@@ -52,6 +54,8 @@ Shader "Roguehalla/RegionSpriteLit"
 
             CBUFFER_START(UnityPerMaterial)
                 half _Ndl;
+                half _LayeredCanopy;
+                half _WetRootContact;
             CBUFFER_END
 
             float _RhSwayV;   // atlas V below which the art is wind-capable (RegionPropArt packs it first); 0 = no sway
@@ -92,6 +96,19 @@ Shader "Roguehalla/RegionSpriteLit"
             half4 Frag(Varyings i) : SV_Target
             {
                 half4 main = i.color * SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv);
+                [branch] if (_WetRootContact > 0.5h)
+                {
+                    half silt = 1.0h - smoothstep(.035h, .34h, i.uv.y);
+                    main.rgb *= lerp(half3(1, 1, 1), half3(.48h, .55h, .47h), silt);
+                    main.a *= 1.0h - .25h * silt;
+                }
+                // The tree keeps its soft silhouette away from combat. Clear overlapping washes at the torsos
+                // of the same visible actors already uploaded for ground shadows and foliage.
+                [branch] if (_LayeredCanopy > 0.5h && i.color.a < 0.85h)
+                {
+                    float2 tile = float2(i.world.x, -(i.world.y - 0.62) / _RhMapInfo.z);
+                    main.a *= lerp(i.color.a, 1.0h, RhActorClear(tile));
+                }
                 clip(main.a - 0.004);
                 float sunStr; float3 shMul;
                 main.rgb *= RhSunMul(i.world, _Ndl, sunStr, shMul);

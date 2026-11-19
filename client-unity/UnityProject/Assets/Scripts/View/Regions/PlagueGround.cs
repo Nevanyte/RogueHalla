@@ -58,6 +58,20 @@ namespace Roguehalla.Client
             return g;
         }
 
+        internal static bool BindStormInkGround(Material material, MapBlob map)
+        {
+            foreach (var anchor in map.Anchors)
+            {
+                if (anchor.Kind != MapBlob.AnchorKindBogTree || anchor.Zone != (byte)RegionId.Plague) continue;
+                var wash = Resources.Load<Texture2D>("StormInk/Plague/MarshWash");
+                if (wash == null) return false;
+                material.SetTexture("_StormMarshWash", wash);
+                material.SetFloat("_StormMarshOn", 1f);
+                return true;
+            }
+            return false;
+        }
+
         static bool NearBog(byte[] terrain, int w, int h, int x, int y)
         {
             if (terrain == null) return false;
@@ -84,15 +98,27 @@ namespace Roguehalla.Client
         /// (0 at the shore, 1 well inside). Soft edges come from a box blur, then every texel over a tile that is not Plague floor is
         /// cleared, so water never reaches a wall, a low obstacle, a terrain surface or another region.
         /// </summary>
-        public Color32[] Bake(int texelsPerTile)
+        public Color32[] Bake(int texelsPerTile) => Bake(texelsPerTile, null);
+
+        public Color32[] Bake(int texelsPerTile, byte[] pigmentVariants)
         {
+            if (pigmentVariants != null && pigmentVariants.Length != W * H) pigmentVariants = null;
             int ow = W * texelsPerTile, oh = H * texelsPerTile;
             var px = new Color32[ow * oh];
             if (FloorTiles == 0) return px;
             var water = new float[ow * oh]; var grass = new float[ow * oh]; var depth = new float[ow * oh]; var tmp = new float[ow * oh];
             for (int y = 0; y < oh; y++) for (int x = 0; x < ow; x++)
             {
-                byte k = Kind[(y / texelsPerTile) * W + x / texelsPerTile];
+                int tile = (y / texelsPerTile) * W + x / texelsPerTile;
+                byte k = Kind[tile];
+                // A dressed map supplies water (7) and mud (8) as public ground variants. Use them as
+                // pigment for walkable ground while retaining the surface used for footsteps and wading.
+                if (k != None && pigmentVariants != null)
+                {
+                    byte variant = pigmentVariants[tile];
+                    if (variant == 7) k = Water;
+                    else if (variant == 8) k = Mud;
+                }
                 int i = y * ow + x; water[i] = k == Water ? 1f : 0f; grass[i] = k == Grass ? 1f : 0f;
             }
             System.Array.Copy(water, depth, water.Length);

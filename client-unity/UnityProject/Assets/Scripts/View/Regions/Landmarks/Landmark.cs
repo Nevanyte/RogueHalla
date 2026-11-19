@@ -14,6 +14,8 @@ namespace Roguehalla.Client
     public sealed class Landmark
     {
         public MapAnchor Anchor { get; private set; }
+        internal MapBlob SourceMap { get; private set; }
+        internal bool IsDeliveredAnchor { get { return System.Array.IndexOf(SourceMap.Anchors, Anchor) >= 0; } }
         /// <summary>The landmark's root object (child of the view's parent); every renderer of the landmark is below it.</summary>
         public GameObject Root { get; private set; }
         /// <summary>Wall tiles of the collision plane inside the footprint.</summary>
@@ -47,6 +49,8 @@ namespace Roguehalla.Client
         bool[] _wall, _low, _interior, _roofMask, _fadeMask; byte[] _terrain; bool _coverSet;
         readonly List<SpriteRenderer> _roof = new List<SpriteRenderer>();
         SpriteRenderer[] _roofArray = new SpriteRenderer[0];
+        readonly List<SpriteRenderer> _fadeRenderers = new List<SpriteRenderer>();
+        SpriteRenderer[] _fadeRendererArray = new SpriteRenderer[0];
         readonly List<Object> _owned = new List<Object>();
         /// <summary>Set by LandmarkView.NoteActor for the frame; cleared by Tick.</summary>
         internal bool ActorInside;
@@ -85,6 +89,14 @@ namespace Roguehalla.Client
             _fadeMask = mask;
         }
 
+        /// <summary>Adds tiles to an art-provided fade set without discarding the tiles it already registered.</summary>
+        public void AddFadeTiles(IEnumerable<MapTile> tiles)
+        {
+            if (tiles == null) return;
+            if (_fadeMask == null) _fadeMask = _coverSet ? (bool[])_roofMask.Clone() : (bool[])_interior.Clone();
+            foreach (var t in tiles) if (Local(t.X, t.Y, out int i)) _fadeMask[i] = true;
+        }
+
         /// <summary>Whether an actor on tile (x, y) fades the roof: the fade set when the art gave one, else the cover set when the art gave
         /// one, else the interior.</summary>
         internal bool Fades(int x, int y)
@@ -110,6 +122,14 @@ namespace Roguehalla.Client
             _roof.Add(r); _roofArray = _roof.ToArray();
         }
 
+        /// <summary>Adds a renderer to the actor-driven fade set while retaining its art-defined row sorting order.</summary>
+        public void AddFadeRenderer(SpriteRenderer r)
+        {
+            if (r == null) return;
+            Tint(r, RoofAlpha);
+            _fadeRenderers.Add(r); _fadeRendererArray = _fadeRenderers.ToArray();
+        }
+
         /// <summary>The landmark's ground pieces (see <see cref="AddGroundPiece"/>); empty until a piece is added.</summary>
         public SpriteRenderer[] GroundRenderers { get { return _groundArray; } }
         SpriteRenderer[] _groundArray = new SpriteRenderer[0];
@@ -130,6 +150,7 @@ namespace Roguehalla.Client
             if (a == RoofAlpha) return;
             RoofAlpha = a;
             for (int i = 0; i < _roofArray.Length; i++) Tint(_roofArray[i], a);
+            for (int i = 0; i < _fadeRendererArray.Length; i++) Tint(_fadeRendererArray[i], a);
         }
 
         static void Tint(SpriteRenderer r, float a) { var c = r.color; c.a = a; r.color = c; }
@@ -141,7 +162,7 @@ namespace Roguehalla.Client
             if (f.W == 0 || f.H == 0 || f.X + f.W > map.W || f.Y + f.H > map.H) return null;
             var lm = new Landmark
             {
-                Anchor = anchor, FootX = f.X, FootY = f.Y, FootW = f.W, FootH = f.H, RoofAlpha = LandmarkView.RoofOpaqueAlpha,
+                Anchor = anchor, SourceMap = map, FootX = f.X, FootY = f.Y, FootW = f.W, FootH = f.H, RoofAlpha = LandmarkView.RoofOpaqueAlpha,
                 RoofOrder = 2000 + 16 * (f.Y + f.H), ArchTiles = anchor.Entrance,
                 FrontVector = new Vector2(Mathf.Cos(anchor.Front * Mathf.PI / 8f), Mathf.Sin(anchor.Front * Mathf.PI / 8f)),
             };
@@ -175,7 +196,7 @@ namespace Roguehalla.Client
         internal void Dispose()
         {
             foreach (var o in _owned) RegionUtil.Kill(o);
-            _owned.Clear(); _roof.Clear(); _roofArray = new SpriteRenderer[0]; _ground.Clear(); _groundArray = new SpriteRenderer[0];
+            _owned.Clear(); _roof.Clear(); _roofArray = new SpriteRenderer[0]; _fadeRenderers.Clear(); _fadeRendererArray = new SpriteRenderer[0]; _ground.Clear(); _groundArray = new SpriteRenderer[0];
             if (Root != null) RegionUtil.Kill(Root);
             Root = null;
         }
