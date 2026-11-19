@@ -39,7 +39,7 @@ No mapdress runtime, rules, capture, or other golden files are in scope.
 - Keep all four `OFF_GOLDEN` values byte-for-byte unchanged.
 - Keep mapdress's no-anchor fallback algorithm unchanged.
 - Re-pin only the four `NO_ANCHOR_GOLDEN` values corresponding to seeds 1–4 on current signature-on maps.
-- Confirm the historical one-door map generated at the pre-door revision still dresses to the previous fallback result, using a detached temporary worktree and the unchanged old expected values. No map dump or checked-in fixture is needed.
+- Confirm the historical one-door map generated at the pre-door revision still dresses to the previous fallback result, using a detached temporary worktree at pre-door commit `b7d07a453` and the unchanged old expected values. The historical comparison passed all four seeds with no map dump or checked-in fixture.
 
 ## Acceptance checks
 
