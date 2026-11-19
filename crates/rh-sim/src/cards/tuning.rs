@@ -159,6 +159,14 @@ impl Tuning {
             }
         }
     }
+    /// P-AUG-POOL-1-fix: the static table of a rule (what [`Tuning::of`] returns for a config with that rule), for the
+    /// content-hash fold of the chest inputs (`content::chest_pool_tables`).
+    pub fn of_rule(rule: AugmentRule) -> &'static Tuning {
+        match rule {
+            AugmentRule::Legacy => &LEGACY,
+            AugmentRule::Rework => &REWORK,
+        }
+    }
     /// The legacy table (the public pool functions and the readers with no world, e.g. a bare test helper).
     pub(crate) fn legacy() -> &'static Tuning {
         &LEGACY
@@ -192,6 +200,14 @@ impl Tuning {
     /// The interactive augments a chest may offer in this world (legacy `INTERACTIVE_AUGMENT_IDS`).
     pub fn pool(&self) -> &'static [CardId] {
         self.pool
+    }
+    /// P-AUG-POOL-1-fix: the pool cards offered only to a one-faction chest (`Offer::Faction`), as listed in the table.
+    pub fn faction_only(&self) -> &'static [(CardId, crate::FactionId)] {
+        self.faction_only
+    }
+    /// P-AUG-POOL-1-fix: does this table weight Eye for an Eye for returned-damage owners (see [`Tuning::offer_pool`])?
+    pub fn weights_eye_for_an_eye(&self) -> bool {
+        self.weight_eye_for_an_eye
     }
     /// Source `rewardAugmentPool` under this table: live pool augments not held by every picker, in catalog order.
     pub fn augment_pool(&self, pickers: &[Build]) -> Vec<CardId> {
