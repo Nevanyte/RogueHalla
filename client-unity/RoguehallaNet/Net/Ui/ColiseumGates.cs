@@ -7,6 +7,8 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Net.Ui
 {
+    /// <summary>The coliseum gate tiles of the Welcome map: the closed-gate tile list for the drawing and the locked body map
+    /// for the walk mirror.</summary>
     public static class ColiseumGates
     {
         /// <summary>Clears <paramref name="into"/>, then, when <paramref name="gatesLocked"/>, adds every gate's tiles, gate by
