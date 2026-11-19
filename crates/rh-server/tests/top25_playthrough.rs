@@ -5,7 +5,7 @@ use rh_server::room::{MapAssets, Room, RoomCmd, RoomConfig};
 use rh_sim::mapgen::{coliseum, pipeline};
 use rh_sim::quests::board::{catalog::RewardId, map_admission};
 use rh_sim::{ArenaMode, ArenaRules, FactionId, Phase, PlayerId, Secrets, SimConfig};
-use std::{sync::Arc, time::Duration};
+use std::{ops::Range, sync::Arc, time::Duration};
 use tokio::{
     sync::{mpsc, oneshot},
     time::Instant,
@@ -14,6 +14,9 @@ use tokio::{
 const QUEST: &str = "stay_a_while";
 const TICK: Duration = Duration::from_millis(50);
 
+#[path = "top25_playthrough/spell_cooldowns.rs"]
+mod spell_cooldowns;
+
 struct Client {
     player: PlayerId,
     conn: u64,
@@ -21,6 +24,7 @@ struct Client {
     session: [u8; 16],
     outbox: Arc<Outbox>,
     board: WireQuestView,
+    last_quest_frame: Option<Vec<u8>>,
 }
 
 impl Client {
@@ -50,6 +54,7 @@ impl Client {
             session: joined.session,
             outbox,
             board: Default::default(),
+            last_quest_frame: None,
         }
     }
 
@@ -61,6 +66,7 @@ impl Client {
                 for item in items {
                     if let StateItem::Quests(Some(view)) = item {
                         self.board = view;
+                        self.last_quest_frame = Some(bytes.clone());
                     }
                 }
             }
@@ -101,6 +107,7 @@ impl Client {
         self.conn += 10;
         self.outbox = Arc::new(Outbox::default());
         self.board = WireQuestView::default();
+        self.last_quest_frame = None;
         let (reply, mut resumed) = oneshot::channel();
         room.handle(
             RoomCmd::Resume {
@@ -199,15 +206,18 @@ fn until(
     assert!(condition(room, a, b), "{why}");
 }
 
-#[tokio::test(start_paused = true)]
-async fn two_seated_clients_finish_the_same_quest_and_resume_independent_stasis_state() {
+fn test_room(
+    secrets: Secrets,
+    placement_attempts: Range<u64>,
+    room_id: [u8; 16],
+    rules: ArenaRules,
+) -> Room {
     let fixed = coliseum::fixed_layout();
     let generator = pipeline::Pipeline::new(&fixed);
-    let secrets = Secrets::from_seed(14);
     let export = map_admission::generate(
         &generator,
         1,
-        0..24,
+        placement_attempts,
         pipeline::Options {
             decor: false,
             ..Default::default()
@@ -217,19 +227,14 @@ async fn two_seated_clients_finish_the_same_quest_and_resume_independent_stasis_
     .unwrap();
     let assets = MapAssets::new(export.validate().unwrap().into_arena().unwrap()).unwrap();
     let (reports, _back) = mpsc::unbounded_channel();
-    let mut room = Room::new(
-        [4; 16],
+    Room::new(
+        room_id,
         RoomConfig {
             sim: SimConfig {
                 min_players: 2,
                 lobby_seconds: 0.05,
                 fill_seconds: 0.05,
-                lifecycle: ArenaMode::Source(ArenaRules {
-                    plan_seconds: 3.,
-                    first_patience_seconds: None,
-                    coliseum_schedule: None,
-                    ..Default::default()
-                }),
+                lifecycle: ArenaMode::Source(rules),
                 ..SimConfig::live_content()
             },
             arena: assets.arena,
@@ -244,6 +249,22 @@ async fn two_seated_clients_finish_the_same_quest_and_resume_independent_stasis_
         },
         reports,
         Instant::now(),
+    )
+}
+
+#[tokio::test(start_paused = true)]
+async fn two_seated_clients_finish_the_same_quest_and_resume_independent_stasis_state() {
+    let secrets = Secrets::from_seed(14);
+    let mut room = test_room(
+        secrets,
+        0..24,
+        [4; 16],
+        ArenaRules {
+            plan_seconds: 3.,
+            first_patience_seconds: None,
+            coliseum_schedule: None,
+            ..Default::default()
+        },
     );
     let mut a = Client::join(&mut room, "alice", 1);
     let mut b = Client::join(&mut room, "bob", 2);
