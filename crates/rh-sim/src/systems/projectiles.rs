@@ -23,6 +23,10 @@ pub(crate) struct Spawn {
     pub packet: Packet,
     /// The launch came from an armed Fire attack (the source's armed-packet mark).
     pub roam_armed: bool,
+    /// Plant Your Feet: the shot's `PendingAction::range_mult` (legacy `SpawnRequest.rangeMult`); 1 when unplanted.
+    #[allow(dead_code)]
+    // P-AUG-PLANT-1 stub: `spawn` reads it once implemented; remove this allow then.
+    pub range_mult: f64,
 }
 #[derive(Clone, Copy, Debug)]
 struct Swept {

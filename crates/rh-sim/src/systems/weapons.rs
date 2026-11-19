@@ -250,6 +250,8 @@ fn land(cx: &mut Cx, ix: FighterIx, act: PendingAction) {
                 aim,
                 packet: act.packet,
                 roam_armed: act.roam_armed,
+                // P-AUG-PLANT-1 stub: the implementer carries `act.range_mult`.
+                range_mult: 1.0,
             });
             p.weapon.draw_started_at = 0.0;
         }

@@ -412,6 +412,7 @@ mod privacy {
             aim: 0.,
             packet,
             roam_armed: false,
+            range_mult: 1.0,
         });
         crate::systems::signatures::after_weapons(&mut Cx {
             stats: crate::status_runtime::stats::Inputs::default(),
