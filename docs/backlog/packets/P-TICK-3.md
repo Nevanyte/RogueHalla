@@ -16,6 +16,8 @@ they keep their wall-clock time, and every decoder bounds them the same way. `pu
 reads the room's rate. The server still sends 20 everywhere until P-TICK-5 and P-TICK-6.
 
 ## 2. Dependencies
+- The "Cut delay on other players" thread's walk-hint wire change (protocol 19) merges first, agreed 2026-11-19: this
+  packet then becomes protocol **20** (`v20.json`) and rebases onto it.
 - P-TICK-1b merged; no other protocol or fixture packet in flight (shared-file rule)
 
 ## 3. Relevant legacy paths
