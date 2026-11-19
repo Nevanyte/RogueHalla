@@ -51,7 +51,9 @@ namespace Roguehalla.Client.Tests
         Session _session;
         FakeTransport _transport;
         Keyboard _keyboard;
+        Mouse _mouse;
         Keyboard _previousKeyboard;
+        Mouse _previousMouse;
         InputSettings _originalInputSettings, _fixtureInputSettings;
         HideFlags _originalInputSettingsHideFlags;
         TMP_InputField _typingField;
@@ -64,6 +66,7 @@ namespace Roguehalla.Client.Tests
             _previousEvents = EventSystem.current;
             _originalInputSettings = InputSystem.settings;
             _previousKeyboard = Keyboard.current;
+            _previousMouse = Mouse.current;
             try
             {
                 Assert.That(_originalInputSettings != null, Is.True, "the manager must start with live InputSettings");
@@ -108,6 +111,8 @@ namespace Roguehalla.Client.Tests
             _keyboard.MakeCurrent();
             Assert.That(_keyboard.enabled, Is.True, "injected test keyboard must be enabled");
             Assert.That(Keyboard.current, Is.SameAs(_keyboard), "keyboard consumers must see the controlled device");
+            _mouse = InputSystem.AddDevice<Mouse>();
+            _mouse.MakeCurrent();
 
             _root = new GameObject("UI input routing fixture");
             _client = _root.AddComponent<MatchClient>();
@@ -145,7 +150,8 @@ namespace Roguehalla.Client.Tests
             _transport.Deliver(new ServerMsg.Snapshot
             {
                 Tick = 1, ServerTimeOverrideMs = 1000, Phase = 1,
-                Me = new WireSelf { Id = 3, X = 320, Y = 320, Hp = 100, MaxHp = 100, Status = 1, Weapon = 0 }
+                Me = new WireSelf { Id = 3, X = 320, Y = 320, Hp = 100, MaxHp = 100, Status = 1, Weapon = 0 },
+                Actors = new[] { new WireActor { Id = 4, X = 322, Y = 320, Faction = 2, HpPct = 100, Status = 1 } }
             });
             _session.Poll();
             Invoke(_hud, "LateUpdate");
@@ -237,11 +243,13 @@ namespace Roguehalla.Client.Tests
         {
             try
             {
+                if (_mouse != null && _mouse.added) InputSystem.RemoveDevice(_mouse);
                 if (_keyboard != null && _keyboard.added) InputSystem.RemoveDevice(_keyboard);
             }
             finally
             {
                 if (_previousKeyboard != null && _previousKeyboard.added) _previousKeyboard.MakeCurrent();
+                if (_previousMouse != null && _previousMouse.added) _previousMouse.MakeCurrent();
             }
         }
 
@@ -286,15 +294,127 @@ namespace Roguehalla.Client.Tests
         }
 
         [Test]
-        public void PlainDigitOneQueuesWeaponSwap()
+        public void SpaceQueuesWeaponSwap()
         {
-            Press(Key.Digit1);
+            Press(Key.Space);
             ReadBothAndFlush();
 
             var commands = _transport.TakeCommands();
             Assert.That(commands.Count, Is.EqualTo(1));
             Assert.That(commands[0].Kind, Is.EqualTo(CommandKind.Swap));
             Assert.That(commands[0].Slot, Is.EqualTo((byte?)0));
+        }
+
+        [TestCase(Key.LeftShift, (byte)1)]
+        [TestCase(Key.Q, (byte)2)]
+        [TestCase(Key.R, (byte)0)]
+        public void QuestAndWishKeysQueueTheirSerializedCastSlot(Key key, byte slot)
+        {
+            Press(key);
+            ReadBothAndFlush();
+
+            var commands = _transport.TakeCommands();
+            Assert.That(commands.Count, Is.EqualTo(1));
+            Assert.That(commands[0].Kind, Is.EqualTo(CommandKind.Cast));
+            Assert.That(commands[0].Slot, Is.EqualTo((byte?)slot));
+        }
+
+        [Test]
+        public void DigitKeysNoLongerSwapWeaponsOutsideChestChoice()
+        {
+            Press(Key.Digit1, Key.Digit2);
+            ReadBothAndFlush();
+            Assert.That(_transport.TakeCommands(), Is.Empty);
+        }
+
+        [Test]
+        public void QuestCastUsesOnlyTheVisibleActorUnderThePointer()
+        {
+            var cameraObject = new GameObject("Visible target input camera");
+            cameraObject.transform.SetParent(_root.transform, false);
+            cameraObject.transform.position = ArenaView.WorldPoint(322, 320) + new Vector3(0, 0, -10);
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.orthographic = true;
+            camera.orthographicSize = 10;
+            camera.pixelRect = new Rect(0, 0, 200, 200);
+            _client.Cam = camera;
+            var arenaObject = new GameObject("Visible target input arena");
+            arenaObject.transform.SetParent(_root.transform, false);
+            _client.Arena = arenaObject.AddComponent<ArenaView>();
+
+            _mouse.MakeCurrent();
+            InputSystem.QueueStateEvent(_mouse, new MouseState { position = new Vector2(100, 100) });
+            InputSystem.QueueStateEvent(_keyboard, new KeyboardState(Key.LeftShift));
+            InputSystem.Update();
+            Invoke(_client, "ReadInput");
+            _session.FlushInput();
+
+            var commands = _transport.TakeCommands();
+            Assert.That(commands.Count, Is.EqualTo(1));
+            Assert.That(commands[0].Kind, Is.EqualTo(CommandKind.Cast));
+            Assert.That(commands[0].Slot, Is.EqualTo((byte?)1));
+            Assert.That(commands[0].ActorRef, Is.EqualTo((uint)4), "only the delivered visible actor under the pointer may be selected");
+        }
+
+        [Test]
+        public void TypingAndKeyboardModalDoNotCastQuestAbilities()
+        {
+            _typingField = HudTestPaths.Find(_hud.transform, "MatchUI/JoinMenu/Nickname").GetComponent<TMP_InputField>();
+            HudTestPaths.Find(_hud.transform, "MatchUI/JoinMenu").gameObject.SetActive(true);
+            _typingField.transform.SetParent(_root.transform, false);
+            EventSystem.current.SetSelectedGameObject(_typingField.gameObject);
+            _typingField.ActivateInputField();
+            Invoke(_typingField, "LateUpdate");
+            Assert.That(_typingField.isFocused, Is.True);
+            HudTestPaths.Find(_hud.transform, "MatchUI/JoinMenu").gameObject.SetActive(false);
+
+            Press(Key.LeftShift);
+            ReadBothAndFlush();
+            Assert.That(_hud.BlocksKeyboardInput, Is.True);
+            Assert.That(_transport.TakeCommands(), Is.Empty);
+        }
+
+        [Test]
+        public void ShiftRightClickQueuesNormalMove()
+        {
+            var cameraObject = new GameObject("Input route camera");
+            cameraObject.transform.SetParent(_root.transform, false);
+            cameraObject.transform.position = new Vector3(0, 0, -10);
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.orthographic = true;
+            camera.orthographicSize = 10;
+            camera.pixelRect = new Rect(0, 0, 200, 200);
+            _client.Cam = camera;
+            var arenaObject = new GameObject("Input route arena");
+            arenaObject.transform.SetParent(_root.transform, false);
+            _client.Arena = arenaObject.AddComponent<ArenaView>();
+
+            _keyboard.MakeCurrent();
+            InputSystem.QueueStateEvent(_keyboard, new KeyboardState(Key.LeftShift));
+            InputSystem.QueueStateEvent(_mouse, new MouseState { position = new Vector2(120, 100) }.WithButton(MouseButton.Right));
+            InputSystem.Update();
+            Invoke(_client, "ReadInput");
+            _session.FlushInput();
+
+            var commands = _transport.TakeCommands();
+            Assert.That(commands.Count, Is.EqualTo(1));
+            Assert.That(commands[0].Kind, Is.EqualTo(CommandKind.Move));
+
+            ReleaseKeys();
+            InputSystem.QueueStateEvent(_mouse, new MouseState());
+            InputSystem.Update();
+            Press(Key.Tab);
+            _hud.ReadUiInput();
+            Assert.That(_hud.BlocksPointerInput, Is.True);
+            ReleaseKeys();
+            InputSystem.QueueStateEvent(_mouse, new MouseState { position = new Vector2(120, 100) }.WithButton(MouseButton.Right));
+            InputSystem.Update();
+            Invoke(_client, "ReadInput");
+            _session.FlushInput();
+            commands = _transport.TakeCommands();
+            Assert.That(commands.Exists(command => command.Kind == CommandKind.Move), Is.False,
+                "pointer modal capture prevents the ordinary right-click movement");
+            Assert.That(commands.Exists(command => command.Kind == CommandKind.AttackMove), Is.False);
         }
 
         [Test]
@@ -577,6 +697,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(_keyboard.escapeKey.isPressed, Is.False);
             Assert.That(_keyboard.tabKey.isPressed, Is.False);
             Assert.That(_keyboard.wKey.isPressed, Is.False);
+            Assert.That(_keyboard.leftShiftKey.isPressed, Is.False);
         }
 
         KeyControl KeyControlFor(Key key)
@@ -585,6 +706,11 @@ namespace Roguehalla.Client.Tests
             {
                 case Key.C: return _keyboard.cKey;
                 case Key.Digit1: return _keyboard.digit1Key;
+                case Key.Digit2: return _keyboard.digit2Key;
+                case Key.Space: return _keyboard.spaceKey;
+                case Key.LeftShift: return _keyboard.leftShiftKey;
+                case Key.Q: return _keyboard.qKey;
+                case Key.R: return _keyboard.rKey;
                 case Key.B: return _keyboard.bKey;
                 case Key.H: return _keyboard.hKey;
                 case Key.Escape: return _keyboard.escapeKey;

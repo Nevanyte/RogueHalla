@@ -14,7 +14,7 @@ public sealed class HelpGuideViewEditModeTests
         var sections = HelpGuideContent.Controls;
         CollectionAssert.AreEqual(new[] { "In a run and in practice", "Planning before the run", "In the hub", "Anywhere" }, sections.Select(x => x.Title));
         string all = string.Join("\n", sections.SelectMany(x => x.Entries).Select(x => x.Keys));
-        foreach (string key in new[] { "W · A · S · D / Arrows", "Left click", "Right click", "1 · 2", "Q", "E", "F", "R",
+        foreach (string key in new[] { "W · A · S · D / Arrows", "Left click", "Right click", "Space", "Shift · Q", "E", "F", "R",
             "J", "Enter", "C", "0 (after C)", "Hold Tab", "Delete", "Page Up · Page Down", "Hold Shift", "Alt + Enter", "H", "Esc" })
             StringAssert.Contains(key, all);
         Assert.That(sections.SelectMany(x => x.Entries).Count(), Is.GreaterThanOrEqualTo(40));

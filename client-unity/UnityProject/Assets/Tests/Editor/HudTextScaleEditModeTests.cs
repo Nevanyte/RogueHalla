@@ -182,9 +182,9 @@ namespace Roguehalla.Client.Tests
                 Add("SlotKey " + (i + 1), Find(weaponBar, "Slot" + (i + 1) + "/Key/Label"), (i + 1).ToString());
                 Add("SlotName " + (i + 1), slotNames[i], "Shield", "Empty");
             }
-            Add("SwapKey", Find(weaponBar, "QSwap/Key/Label"), "Q");
+            Add("SwapKey", Find(weaponBar, "QSwap/Key/Label"), "Space");
             Add("SwapCaption", Find(weaponBar, "QSwap/Caption/Label"), "SWAP");
-            Add("ControlsLine", Find(weaponBar, "ControlsLine/Label"), "WASD move · Click attack · R Wish");
+            Add("ControlsLine", Find(weaponBar, "ControlsLine/Label"), "WASD move · Click attack · Shift/Q quest · R Wish");
             Add("PickupHint", (TMP_Text)GetField("_pickupText"), "F  swap Shield for Fists", "F");
             Add("WishKey", Find(wishTile, "Key/Label"), "R");
             Add("WishSeconds", (TMP_Text)GetField("_wishSeconds"), "125");
