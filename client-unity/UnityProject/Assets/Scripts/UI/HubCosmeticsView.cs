@@ -158,7 +158,7 @@ namespace Roguehalla.Client
 
         void Build()
         {
-            _panel = MythicUi.Panel(_root, "HubCosmeticsPanel", new Vector2(.37f, .17f), new Vector2(.98f, .87f), ShowcasePalette.Panel, true);
+            _panel = MythicUi.Panel(_root, "HubCosmeticsPanel", new Vector2(.37f, .17f), new Vector2(.98f, .87f), UiTheme.With(ShowcasePalette.Panel, .86f), true);
             _heading = MythicUi.Text(_panel, "CosmeticsHeading", "ACCOUNT COSMETICS", new Vector2(.03f, .91f), new Vector2(.72f, .99f), 27, ShowcasePalette.Gold, heading: true);
             MythicUi.Rule(_panel, "HeadingRule", new Vector2(.035f, .905f), new Vector2(.40f, .908f));
             _wallet = MythicUi.Text(_panel, "Wallet", "PROFILE · refreshing", new Vector2(.035f, .84f), new Vector2(.69f, .91f), 18, ShowcasePalette.Text);

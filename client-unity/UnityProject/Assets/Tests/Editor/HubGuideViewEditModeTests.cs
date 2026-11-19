@@ -90,7 +90,7 @@ namespace Roguehalla.Client.Tests
             {
                 var card = guide.Content.Find("Card_" + i);
                 Assert.IsNotNull(card, "Expected the guide card for " + expected[i]);
-                // A faction card leads with its generated pictogram (no bracket mark): the title sits in the Head row beside the icon.
+                // A faction card leads with its decorative portrait; the existing title and choice labels remain visible.
                 var title = card.Find("Head/Title") ?? card.Find("Title");
                 StringAssert.Contains(expected[i], title.GetComponent<TMPro.TMP_Text>().text);
                 StringAssert.DoesNotContain("[", title.GetComponent<TMPro.TMP_Text>().text);
