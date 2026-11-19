@@ -54,15 +54,23 @@ namespace Roguehalla.Client
             var cover = new List<Roguehalla.Net.Protocol.MapTile>();                                            // the roof's cover: the building's interior, walls and pillars (no headstone, gate or yard)
             for (int y = building.MinY; y <= building.MaxY; y++) for (int x = building.MinX; x <= building.MaxX; x++)
                 if (lm.IsWall(x, y) || lm.IsInterior(x, y)) cover.Add(new Roguehalla.Net.Protocol.MapTile((ushort)x, (ushort)y));
-            lm.SetCover(cover);
             var doors = DoorRuns(lm, building);
+            // The rear cut occupies tiles of the original roof footprint. Both open doorways
+            // stay out of the fade mask and retain their visual roof notches.
+            lm.SetFadeTiles(cover);
+            var centre = new Vector2((building.MinX + building.MaxX) * .5f, (building.MinY + building.MaxY) * .5f);
             var notches = new List<Box>(doors.Count);
             var directions = new List<Vector2Int>(doors.Count);
             foreach (var door in doors)
             {
+                var centreOfRun = ((Vector2)door[0] + (Vector2)door[door.Count - 1]) * .5f;
+                if (Vector2.Dot(centreOfRun - centre, lm.FrontVector) < 0f)
+                    foreach (var tile in door)
+                        cover.Add(new Roguehalla.Net.Protocol.MapTile((ushort)tile.x, (ushort)tile.y));
                 notches.Add(DoorNotch(building, door, out var normal));
                 directions.Add(normal);
             }
+            lm.SetCover(cover);
             BuildSlateFloor(lm, building);
             BuildRoof(lm, building, notches);
             for (int i = 0; i < doors.Count; i++) BuildDoor(lm, doors[i], directions[i]);
