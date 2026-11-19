@@ -158,6 +158,7 @@ namespace Roguehalla.Client
             _material = litShader != null ? new Material(litShader) { name = "Roguehalla / region props (sun lit)" } : ShowcaseSprites.Lit;
             if (litShader != null) _owned.Add(_material);
             var placements = Scatter(map);
+            int visualSeed = unchecked((int)(map.LayerHash ^ (map.SemanticHash * 2654435761u)));
             HashSet<byte> warned = null;
             foreach (var pl in placements)
             {
@@ -167,13 +168,26 @@ namespace Roguehalla.Client
                     if (warned.Add(pl.Kind)) Debug.LogWarning("RegionProps: unknown decoration kind " + pl.Kind + " drawn as the placeholder");
                 }
                 if (!RegionPropArt.TryGet(pl.Art, out var art)) continue;
+                float scaleX = pl.Scale, scaleY = pl.Scale;
+                bool flip = pl.Flip;
+                Color tint = Color.white;
+                if (art.UsesAuthoredTexture && pl.Art == "plague.rubble")
+                {
+                    int vx = pl.Tx + pl.Kind * 97, vy = pl.Ty + pl.Variant * 151;
+                    scaleX *= Mathf.Lerp(.84f, .98f, RegionNoise.Hash01(vx, vy, visualSeed + 101));
+                    scaleY *= Mathf.Lerp(.66f, .82f, RegionNoise.Hash01(vx, vy, visualSeed + 103));
+                    flip = RegionNoise.Hash01(vx, vy, visualSeed + 107) < .5f;
+                    float pigment = RegionNoise.Hash01(vx, vy, visualSeed + 109);
+                    tint = Color.Lerp(new Color(.64f, .71f, .60f, 1f), new Color(.82f, .86f, .76f, 1f), pigment);
+                }
                 var go = new GameObject(pl.Art); go.transform.SetParent(_root.transform, false);
                 Vector3 foot = ArenaView.WorldPoint(pl.X * 32f, pl.Y * 32f);
-                go.transform.localPosition = foot; go.transform.localScale = new Vector3(pl.Flip ? -pl.Scale : pl.Scale, pl.Scale, 1f);
+                go.transform.localPosition = foot; go.transform.localScale = new Vector3(flip ? -scaleX : scaleX, scaleY, 1f);
                 var sr = go.AddComponent<SpriteRenderer>(); sr.sprite = art.Sprite; sr.sharedMaterial = _material;
+                sr.color = tint;
                 sr.sortingOrder = 2000 + Mathf.RoundToInt(pl.Y * 32f * .5f) + pl.Bias;
                 bool tall = IsTall(pl, art);
-                var prop = new Prop { Renderer = sr, FootX = foot.x, FootY = foot.y, HalfW = art.Width * .5f * pl.Scale * .8f, Height = art.Height * pl.Scale, Tall = tall, Alpha = 1f, MarkFrame = -10, Base = Color.white };
+                var prop = new Prop { Renderer = sr, FootX = foot.x, FootY = foot.y, HalfW = art.Width * .5f * scaleX * .8f, Height = art.Height * scaleY, Tall = tall, Alpha = 1f, MarkFrame = -10, Base = tint };
                 int index = _props.Count; _props.Add(prop);
                 if (tall)
                 {

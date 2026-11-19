@@ -18,6 +18,8 @@ namespace Roguehalla.Client
         public int MarginLeft, MarginRight, MarginBottom, MarginTop;
         /// <summary>Size of the cropped sprite in pixels. ExceededCell: the art reaches past its nominal cell (it used to be cut off there).</summary>
         public int PixelWidth, PixelHeight; public bool ExceededCell;
+        /// <summary>True only when a readable authored texture supplied this sprite; procedural fallbacks do not opt into authored-art presentation variation.</summary>
+        public bool UsesAuthoredTexture;
         public int MinMargin { get { return Mathf.Min(Mathf.Min(MarginLeft, MarginRight), Mathf.Min(MarginBottom, MarginTop)); } }
     }
 
@@ -34,7 +36,7 @@ namespace Roguehalla.Client
         public static bool TryGet(string key, out RegionPropSprite sprite) { Ensure(); return _all.TryGetValue(key, out sprite); }
         public static IEnumerable<string> Keys { get { Ensure(); return _all.Keys; } }
 
-        struct Def { public string Key; public int W, H, Ground; public Action<RegionCanvas, int> Paint; public bool Tall; }
+        struct Def { public string Key; public int W, H, Ground; public Action<RegionCanvas, int> Paint; public bool Tall; public string TexturePath; }
 
         static Color P(int region, int slot) { return RegionPaletteGenerated.Srgb[region][slot]; }
         static readonly Color Ink = new Color(.05f, .06f, .10f, .85f);
@@ -77,11 +79,13 @@ namespace Roguehalla.Client
         }
 
         /// <summary>Paints one def on its padded canvas and returns the crop. <paramref name="pivot"/> is the foot in the cropped canvas (pixels).</summary>
-        static RegionCanvas PaintCropped(Def d, out Vector2 pivot, out int[] margins)
+        static RegionCanvas PaintCropped(Def d, out Vector2 pivot, out int[] margins, out bool usedTexture)
         {
             int padS = DebugNoPadding ? 0 : PadSide, padT = DebugNoPadding ? 0 : PadTop, padB = DebugNoPadding ? 0 : PadBottom;
             var full = new RegionCanvas(d.W + 2 * padS, d.H + padB + padT) { OriginX = padS, OriginY = padB, DesignW = d.W, DesignH = d.H };
-            d.Paint(full, d.Ground);
+            var source = string.IsNullOrEmpty(d.TexturePath) ? null : Resources.Load<Texture2D>(d.TexturePath);
+            usedTexture = source != null && source.isReadable && PaintTextureOverride(full, d, source);
+            if (!usedTexture) d.Paint(full, d.Ground);
             int x0 = full.W, x1 = -1, y0 = full.H, y1 = -1;
             for (int y = 0; y < full.H; y++) for (int x = 0; x < full.W; x++)
             {
@@ -109,8 +113,8 @@ namespace Roguehalla.Client
             int swayCount = ordered.Count;
             foreach (var d in defs) if (!Sways(d.Key)) ordered.Add(d);
             defs = ordered;
-            var cvs = new RegionCanvas[defs.Count]; var pivots = new Vector2[defs.Count]; var margins = new int[defs.Count][];
-            for (int i = 0; i < defs.Count; i++) cvs[i] = PaintCropped(defs[i], out pivots[i], out margins[i]);
+            var cvs = new RegionCanvas[defs.Count]; var pivots = new Vector2[defs.Count]; var margins = new int[defs.Count][]; var authored = new bool[defs.Count];
+            for (int i = 0; i < defs.Count; i++) cvs[i] = PaintCropped(defs[i], out pivots[i], out margins[i], out authored[i]);
             int aw = aw0, ah = ah0; RectInt[] rects;
             while (!TryPack(cvs, aw, ah, out rects, swayCount)) ah *= 2;
             SwayV = swayCount <= 0 ? 0f : swayCount >= defs.Count ? 2f : (rects[swayCount].y - 1f) / ah;
@@ -126,7 +130,8 @@ namespace Roguehalla.Client
                 var rect = new Rect(rects[i].x, rects[i].y, cvs[i].W, cvs[i].H);
                 var sprite = Sprite.Create(_atlas, rect, new Vector2(pivots[i].x / cvs[i].W, pivots[i].y / cvs[i].H), PixelsPerUnit, 0, SpriteMeshType.FullRect);
                 sprite.name = d.Key;
-                _all[d.Key] = new RegionPropSprite { Key = d.Key, Sprite = sprite, Width = Mathf.Max(d.W, 2f * Mathf.Max(pivots[i].x, cvs[i].W - pivots[i].x)) / PixelsPerUnit, Height = (d.H - d.Ground) / (float)PixelsPerUnit, Tall = d.Tall,
+                float width = authored[i] ? d.W / (float)PixelsPerUnit : Mathf.Max(d.W, 2f * Mathf.Max(pivots[i].x, cvs[i].W - pivots[i].x)) / PixelsPerUnit;
+                _all[d.Key] = new RegionPropSprite { Key = d.Key, Sprite = sprite, Width = width, Height = (d.H - d.Ground) / (float)PixelsPerUnit, Tall = d.Tall, UsesAuthoredTexture = authored[i],
                     MarginLeft = margins[i][0], MarginRight = margins[i][1], MarginBottom = margins[i][2], MarginTop = margins[i][3], PixelWidth = cvs[i].W, PixelHeight = cvs[i].H, ExceededCell = margins[i][4] == 1 };
             }
         }
@@ -143,8 +148,40 @@ namespace Roguehalla.Client
             });
         }
 
-        static void Add(List<Def> l, string key, int w, int h, int ground, Action<RegionCanvas, int> paint, bool tall = false)
-        { l.Add(new Def { Key = key, W = w, H = h, Ground = ground, Paint = paint, Tall = tall }); }
+        static void Add(List<Def> l, string key, int w, int h, int ground, Action<RegionCanvas, int> paint, bool tall = false, string texturePath = null)
+        { l.Add(new Def { Key = key, W = w, H = h, Ground = ground, Paint = paint, Tall = tall, TexturePath = texturePath }); }
+
+        /// <summary>Copies a tightly cropped authored texture into its original design bounds, aligned at ground contact.
+        /// Returns false for empty/unreadable inputs so the original procedural paint remains the fallback.</summary>
+        static bool PaintTextureOverride(RegionCanvas canvas, Def def, Texture2D source)
+        {
+            var pixels = source.GetPixels32();
+            int minX = source.width, minY = source.height, maxX = -1, maxY = -1;
+            for (int y = 0; y < source.height; y++) for (int x = 0; x < source.width; x++)
+            {
+                if (pixels[y * source.width + x].a / 255f <= EdgeAlpha) continue;
+                minX = Mathf.Min(minX, x); minY = Mathf.Min(minY, y);
+                maxX = Mathf.Max(maxX, x); maxY = Mathf.Max(maxY, y);
+            }
+            if (maxX < minX || maxY < minY) return false;
+
+            float sourceW = maxX - minX + 1, sourceH = maxY - minY + 1;
+            float scale = Mathf.Min(def.W / sourceW, (def.H - def.Ground) / sourceH);
+            float drawW = sourceW * scale, drawH = sourceH * scale;
+            int padSide = DebugNoPadding ? 0 : PadSide, padBottom = DebugNoPadding ? 0 : PadBottom;
+            float left = padSide + (def.W - drawW) * .5f;
+            float bottom = padBottom + def.Ground;
+            int x0 = Mathf.Max(0, Mathf.FloorToInt(left)), x1 = Mathf.Min(canvas.W, Mathf.CeilToInt(left + drawW));
+            int y0 = Mathf.Max(0, Mathf.FloorToInt(bottom)), y1 = Mathf.Min(canvas.H, Mathf.CeilToInt(bottom + drawH));
+            for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++)
+            {
+                float u = Mathf.Clamp01((x + .5f - left) / drawW), v = Mathf.Clamp01((y + .5f - bottom) / drawH);
+                int sx = Mathf.Min(maxX, minX + Mathf.FloorToInt(u * sourceW));
+                int sy = Mathf.Min(maxY, minY + Mathf.FloorToInt(v * sourceH));
+                canvas.Px[y * canvas.W + x] = pixels[sy * source.width + sx];
+            }
+            return true;
+        }
 
         // ---- shared pieces ------------------------------------------------------------------------------------------------
 
@@ -594,7 +631,7 @@ namespace Roguehalla.Client
                 Rock(c, 56, gy + 1, 15, 11, 8, stoneD, stoneM, stoneL);
                 Lumps(c, 44, gy + 4, 28, 14, 3, leafDark, leafMid, leafLight, 15);
                 Blades(c, 80, gy + 3, 5, 20, 12, 1.3f, leafMid, leafLight, 3, .4f);
-            });
+            }, false, "StormInk/Props/PlagueRubble");
             Add(l, "plague.mushroom", 96, 84, 8, (c, gy) =>
             {
                 c.SoftShadow(48, gy + 1, 30f, 5f, .35f, Alpha(shadow, 1f)); c.Glow(48, gy + 20, 36f, spore, .22f);
