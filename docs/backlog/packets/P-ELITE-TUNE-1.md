@@ -77,12 +77,63 @@ C-PARITY (Legacy and every parity fixture unchanged), C-TICK/C-RNG (no change), 
 ## Existing tests that pin what this packet changes
 (Measured by running `cargo test -p rh-sim` with `REWORK_ELITES` set to hp 1.5 / dmg 1.0; see the results block below.)
 
-RESULTS_PLACEHOLDER
+Method: with `REWORK_ELITES` temporarily set to hp 1.5 / dmg 1.0 (not committed), ran `cargo test -p rh-sim --features
+trusted-status-probes --no-fail-fast` (whole crate), `cargo test -p rh-headless --features elite-bench` (debug), the gate's release-only
+headless files (`frost_wall_bots`, `frost_wall_live`, `brain_choices`, release), `rh-server --test live_content` and `rh-policy`/`rh-server`.
+Exactly three existing tests moved; everything else stayed green:
+
+1. `crates/rh-sim/tests/augment_rules.rs::the_elite_table_is_the_legacy_constants_under_both_rules` asserted both rules
+   equal the legacy constants (`ELITE_K`, `ELITE_HP_MULT`, `ELITE_DMG_MULT`). **Amended** (oracle-amend): Legacy equals
+   them; Rework has `k` = `ELITE_K`, hp 1.5, dmg 1.0. (Renamed `..._under_legacy_and_the_owners_numbers_under_rework`.)
+2. `crates/rh-sim/tests/augment_rules.rs::legacy_and_equal_elite_rework_play_the_same_match` compared Legacy against a
+   Rework world with legacy-equal elite numbers (events every tick, the whole world, the elite's hp equal, the helper
+   share). Its premise breaks: the Rework elite spawns with 0.75x the HP at tick 0. The seam has no equal-table switch
+   (`EliteTuning::of` is a pair of statics, no `for_test`), so the first option (keep the purpose through a test-only
+   equal table) would need production code. **I chose the second: retarget** to
+   `rework_elites_differ_from_legacy_only_in_elite_numbers_until_the_first_elite_strike`: same seeds, fold cards and
+   inputs; until the first hit an elite deals (in either world) the events are equal on every tick, the state hashes
+   differ, the elite's max HP is exactly 0.75x Legacy's, the damage it has taken is equal, and (every 10th tick) the whole
+   checkpoint equals Legacy's apart from the config rules, `world.mob_runtime.elites` and the elite mobs' hp/max_hp. The
+   fight after that (damage x1.0/1.5) is pinned by `tests/elite_tune.rs`; the helper share stays pinned by
+   `systems/mob_life/share_tests.rs` (the share assertions this test carried since P-ELITE-SHARE-1 are removed from it,
+   because the fixture's players hit the elite on tick 0 and the elite's first strike is early; they are not lost:
+   `share_tests` covers every elite camp of five worlds, killer included, plus a real death through `hurt`).
+   The old test's elite-hurt and elite-kill floors are replaced by a floor that at least one of the three seeds reaches an elite strike.
+3. `crates/rh-sim/src/systems/mobs.rs` `elite_rule_tests::a_mob_runtime_elite_rule_the_config_does_not_store_is_refused`
+   asserted the training world's runtime stores `null` under BOTH config rules and that `"rework"` is refused. Under the new
+   numbers a Rework world stores `"rework"`, so the test failed on its first assertion. It lives in `mobs.rs`, which the gate does not
+   admit as an oracle file (only `_tests.rs`, `tests.rs` or `tests/` in `src/` can be), so the semantic-preserving
+   rewrite (the stored rule is read from `EliteTuning::stored_rule(config)`; the refused value is the other rule; same
+   refusal asserted, true before and after) is in the **`stub:` commit**, i.e. the implementer's file by gate rules but
+   not in the implementer's task. **For the coordinator/owner:** a changed expectation in an existing test, outside the
+   `oracle-amend` convention for the reason above; the new `elite_tune.rs::the_stored_elite_rule_is_checked_against_the_config_and_the_hash_folds_it`
+   additionally pins both refusals (null under a Rework config, `"rework"` under a Legacy config) on a real Rework world.
+
+Checked and unchanged (no edit, green with the new numbers): `tests/hash_coverage.rs` (the Rework scenario
+`elite_rework_mob_state` and the `world.mob_runtime.elites` row already exist and perturb the field; the 64
+silent-switch identities), `tests/content.rs` (its NON_GAMEPLAY text for `REWORK_ELITES` says "the legacy ones until
+P-ELITE-TUNE-1" and becomes stale prose, an entry the implementer may not edit; the check is by name only; the content-hash golden moves by script), the
+elite bench oracles (`rh-headless` `elite_bench.rs`, `elite_bench_duelist.rs`, `camp_bench.rs`: they assert shape,
+ordering and relative ordering, not the death rates), `share_tests.rs` (stacks, not HP), `brain_choices`,
+`frost_wall_bots`, `frost_wall_live` (release), `rh-server` `live_content`. No test pins `REWORK_ELITES == LEGACY_ELITES` besides item 1.
+The bots (`rh-policy`) read the Legacy table by design and are untouched.
+
+The oracle itself, on the unchanged tree (stub numbers = legacy): `the_legacy_elite_table_is_unchanged` passes (regression guard);
+the other six fail by assertion: table numbers, registry rows by source text, spawn HP ratio, first-hit damage ratio,
+`mob_runtime.elites == "rework"` in the checkpoint, the refusal pair.
 
 ## Oracle files (read-only for implementers)
-- `crates/rh-sim/tests/elite_tune.rs`
-
-AMEND_PLACEHOLDER
+- `crates/rh-sim/tests/elite_tune.rs` (new). Tests: `the_rework_elite_table_is_hp_1_5_dmg_1_0_and_k_stays`;
+  `the_legacy_elite_table_is_unchanged`; `the_rework_elite_numbers_are_registry_rows_that_the_table_reads` (source text of
+  `constants.rs` and the `REWORK_ELITES` body); `a_rework_elite_spawns_with_legacy_hp_times_1_5_over_2_and_normals_do_not_move`
+  (every elite of the seed1 PvE world against Legacy, floors: at least two zones and two types; also against `spawn_hp`);
+  `a_rework_elite_hits_for_legacy_damage_times_1_0_over_1_5` (the first elite hit on a fighting player, one elite per zone,
+  floor of two zones, same tick under both rules, ratio 2/3 within 2%);
+  `a_rework_checkpoint_with_a_hurt_elite_stores_the_rule_restores_and_hashes_equal` (stores `"rework"`, restores,
+  hash equal, plays on equal for 60 ticks, restored elites keep Rework max HP);
+  `the_stored_elite_rule_is_checked_against_the_config_and_the_hash_folds_it`.
+- `crates/rh-sim/tests/augment_rules.rs` (**oracle-amend**, for the owner: items 1 and 2 above).
+- `crates/rh-sim/src/systems/mobs.rs` `elite_rule_tests` (item 3: a `stub:` commit, not an oracle file; the implementer leaves it as committed).
 
 ## 9. Validation commands
 - `export PATH="$HOME/.cargo/bin:$HOME/.dotnet:$PATH"; cargo test -p rh-sim --test elite_tune`
