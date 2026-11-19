@@ -1,9 +1,9 @@
 # ADR0029: A 40 Hz live tick, with 20 Hz kept for legacy and parity
 
-Status: **Proposed.** Owner direction 2026-11-19: "lets do 40, league works because the auto attacks and spells stop
+Status: **Accepted** by the owner 2026-11-19 ("okay for all 3": accept the ADR, sign DEV-039, push). Owner direction 2026-11-19: "lets do 40, league works because the auto attacks and spells stop
 character movement saving the need to calculate moving attacks and direction unlike our game, 40 tick should be fine"
 (project thread, after the assessment "Faster server tick: cost and recommendation"). The owner weighed 80 and 120 Hz
-and declined them. Packets P-TICK-0 to P-TICK-6. Proposed deviation DEV-039; the owner signs.
+and declined them. Packets P-TICK-0 to P-TICK-6. Deviation DEV-039, signed by the owner 2026-11-19.
 
 **Per-operation checklist.** D1: parity stays byte-exact at 50 ms; every existing capture and golden vector is replayed
 unchanged. Loose proof (owner direction 2026-11-10) for the 25 ms behaviour: walk distance per second and weapon timings
@@ -11,7 +11,7 @@ at 25 ms match 50 ms within one tick. D2: n/a (no balance number moves). D5: not
 length that the owner approved as a responsiveness fix. D9: unchanged (the server stays authoritative; the client's walk
 prediction reads the rate instead of assuming it). Conflicts: C-TICK (Accepted, FROZEN) names 20 Hz and +50 ms per step,
 and D10 freezes Rust outside named changes. The owner's 2026-11-19 direction is newer than both; this ADR records the
-amendment, and C-TICK's row changes only when the owner accepts this ADR.
+amendment, and C-TICK's row was amended on acceptance.
 
 ## Context
 
@@ -54,7 +54,7 @@ that are multiples of 50 ms land on both grids (56 of the 58 literal millisecond
 8. **The server picks the rate per room** from a setting whose default stays 50 until P-TICK-6 measures 25 ms on full
    maps and flips it. Rolling back is a setting change.
 
-## Proposed C-TICK text (applied by the coordinator once the owner accepts this ADR)
+## C-TICK text (applied on acceptance, 2026-11-19)
 
 "Fixed step of `SimConfig::tick_ms` (50 or 25 ms; 50 for legacy, parity and every capture); sim time +`tick_ms` per
 step; fixed system order, held as an executable schedule checked against the legacy record."
