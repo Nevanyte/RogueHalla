@@ -64,6 +64,8 @@ fn launch(
         halved: false,
         reflections,
         roam_armed,
+        // P-AUG-PLANT-1 stub: the implementer carries the launching attack's factor.
+        range_mult: 1.0,
     });
     swept.push(Swept {
         from: start.origin,
@@ -920,6 +922,7 @@ mod tests {
                     true_: 0.,
                 },
                 roam_armed: false,
+                range_mult: 1.0,
             });
             let ev = s.step();
             assert_eq!(

@@ -530,6 +530,9 @@ mod on_hit_salvage2_tests;
 mod on_hit_salvage2_review_tests;
 
 #[cfg(test)]
+mod plant_feet_tests;
+
+#[cfg(test)]
 mod wishful_tests {
     use super::{wishful_thinking, Trim};
     use crate::abilities::Stocks;

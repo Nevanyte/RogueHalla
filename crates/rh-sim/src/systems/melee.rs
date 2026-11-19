@@ -20,6 +20,8 @@ pub(crate) struct MeleeReq {
     pub(crate) a: f64,
     pub(crate) rewind_t: f64,
     pub(crate) packet: Packet,
+    /// Plant Your Feet: the swing's `PendingAction::range_mult` (legacy `MeleeRequest.rangeMult`); 1 when unplanted.
+    pub(crate) range_mult: f64,
 }
 
 /// System (legacy melee.resolveMelee): every swing that landed this tick, tested against the bodies standing at its

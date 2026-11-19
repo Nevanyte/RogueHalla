@@ -549,6 +549,7 @@ mod tests {
                         true_: 0.,
                     },
                     roam_armed: false,
+                    range_mult: 1.0,
                 });
                 p.weapon.draw_started_at = 9000.;
             }
@@ -931,6 +932,7 @@ mod tests {
                 true_: 0.,
             },
             roam_armed: false,
+            range_mult: 1.0,
         });
         p.weapon.draw_started_at = 9_900.;
         after_damage(&mut s.w);
@@ -1269,6 +1271,7 @@ mod tests {
             a: 0.,
             packet,
             roam_armed: false,
+            range_mult: 1.0,
         };
         let mut events = Vec::new();
         // The instant attackStarted hook is source player-only: an instant NPC swing is NOT corrected there.

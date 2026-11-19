@@ -254,6 +254,7 @@ fn method_world(c: &Value) -> Sim {
             a: 0.,
             packet,
             roam_armed: false,
+            range_mult: 1.0,
         });
     }
     if let Some(held) = input["held"].as_bool() {
@@ -1000,6 +1001,7 @@ mod boundary24 {
                     a: a["a"].as_f64().unwrap_or(0.),
                     packet,
                     roam_armed: false,
+                    range_mult: 1.0,
                 })
             };
         }

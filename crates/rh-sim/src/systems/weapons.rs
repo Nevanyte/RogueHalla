@@ -191,6 +191,8 @@ fn start_attack(
         a: aim,
         packet,
         roam_armed: false,
+        // P-AUG-PLANT-1 stub: the implementer decides Plant Your Feet here (legacy `startAttack`).
+        range_mult: 1.0,
     });
     p.weapon.ready_at = start + tm.interval * 1000.0;
     if tm.root > 0.0 {
@@ -228,6 +230,8 @@ fn land(cx: &mut Cx, ix: FighterIx, act: PendingAction) {
                 a: act.a,
                 rewind_t,
                 packet: act.packet,
+                // P-AUG-PLANT-1 stub: the implementer carries `act.range_mult`.
+                range_mult: 1.0,
             });
         }
         ActionKind::Cast | ActionKind::Draw => {
