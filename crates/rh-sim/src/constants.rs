@@ -531,4 +531,54 @@ content! {
     /// A fighter with no room on either side keeps a gap: every wall tile whose centre is within this of it on both
     /// axes leaves the wall (legacy `raiseWall` `:585` `PLAYER_RADIUS + 32`, unnamed in legacy).
     WALL_GAP_REACH: f64 = PLAYER_RADIUS + 32., "u";
+
+    // ---- The Augment_Tuning rework numbers (P-AUG-CONTENT-1; read only under SimConfig::augments = Rework). ----
+    /// Tank Engine: max health gained per blocked point.
+    REWORK_TANK_ENGINE_PER: f64 = 1.5, "x";
+    /// Tank Engine: the most max health it can add.
+    REWORK_TANK_ENGINE_CAP: f64 = 350., "hp";
+    /// Plant Your Feet: the damage bonus.
+    REWORK_PLANT_FEET_BONUS: f64 = 0.35, "share";
+    /// Slow Burn: the damage-over-time multiplier.
+    REWORK_SLOW_BURN_DOT: f64 = 0.85, "x";
+    /// Pocket Sand: the slow on the attacker.
+    REWORK_POCKET_SAND_SLOW: f64 = 0.4, "share";
+    /// Pocket Sand: how long the slow lasts.
+    REWORK_POCKET_SAND_MS: f64 = 1500., "ms";
+    /// Overkill: the splash radius.
+    REWORK_OVERKILL_RADIUS: f64 = 260., "u";
+    /// Third Time's the Charm: extra on-hit applications (1 + 1.5 = 2.5x).
+    REWORK_THIRD_TIME_EXTRA: f64 = 1.5, "x";
+    /// Spiked Shell: the returned share.
+    REWORK_SPIKED_SHELL_SHARE: f64 = 0.2, "share";
+    /// Siphon: the damage-over-time lifesteal.
+    REWORK_SIPHON_SHARE: f64 = 0.25, "share";
+    /// Hemorrhage: the bleed per hit.
+    REWORK_HEMORRHAGE_PER: f64 = 0.12, "share";
+    /// Second Wind: the health share that triggers it.
+    REWORK_SECOND_WIND_BELOW: f64 = 0.3, "share";
+    /// Second Wind: the heal share.
+    REWORK_SECOND_WIND_HEAL: f64 = 0.25, "share";
+    /// Gambler: the chance to double.
+    REWORK_GAMBLER_UP_CHANCE: f64 = 0.18, "chance";
+    /// Gambler: the chance to halve.
+    REWORK_GAMBLER_DOWN_CHANCE: f64 = 0.12, "chance";
+    /// Committed: the damage bonus.
+    REWORK_COMMITTED_DAMAGE: f64 = 0.22, "share";
+    /// Glass Cannon: the max health change.
+    REWORK_GLASS_CANNON_MAX_HP: f64 = -0.22, "share";
+    /// Machine Gun: the hit multiplier.
+    REWORK_MACHINE_GUN_HIT: f64 = 0.55, "x";
+    /// Fists of Fury: the unarmed attack speed bonus.
+    REWORK_FISTS_ATTACK_SPEED: f64 = 0.5, "share";
+    /// Here Comes the Boom: the hit multiplier.
+    REWORK_BOOM_HIT: f64 = 2.6, "x";
+    /// The outgoing row ceiling and the fold's hit clamp under Rework.
+    REWORK_OUTGOING_ROW_CAP: f64 = 2.6, "x";
+    /// Vampiric Pact: the lifesteal.
+    REWORK_VAMPIRIC_LIFESTEAL: f64 = 0.18, "share";
+    /// Arcane Overload: the Wish cooldown multiplier.
+    REWORK_ARCANE_OVERLOAD_WISH_COOLDOWN: f64 = 1.5, "x";
+    /// Elite helper share: one camp's worth of stacks (read by P-ELITE-SHARE-1).
+    REWORK_ELITE_SHARE_STACKS: u32 = 12, "stacks";
 }
