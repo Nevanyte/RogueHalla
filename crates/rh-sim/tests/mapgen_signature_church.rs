@@ -456,7 +456,7 @@ fn the_generators_church_blueprint_is_the_approved_drawing() {
     assert!(
         g.iter()
             .flat_map(|r| r.iter())
-            .all(|c| b"#PG+.DE*".contains(c)),
+            .all(|c| b"#PG+.DER*".contains(c)),
         "the drawing holds a character outside the legend"
     );
     assert_eq!(tiles_of(b"E"), vec![(14, 7)], "the drawing's camp tile");
@@ -464,6 +464,11 @@ fn the_generators_church_blueprint_is_the_approved_drawing() {
         tiles_of(b"D"),
         vec![(13, 16), (14, 16), (15, 16)],
         "the drawing's church door"
+    );
+    assert_eq!(
+        tiles_of(b"R"),
+        vec![(13, 3), (14, 3), (15, 3)],
+        "the centred rear doorway opposite the church's front door"
     );
     let b = tiles_of(b"#P");
     let bx = (
@@ -476,11 +481,11 @@ fn the_generators_church_blueprint_is_the_approved_drawing() {
     let door_line: Vec<i32> = (bx.0..=bx.2)
         .filter(|&gx| !matches!(ch((gx, bx.3)), b'#' | b'P'))
         .collect();
-    assert_eq!(
-        door_line,
-        vec![13, 14, 15],
-        "the building's front wall line"
-    );
+    assert_eq!(door_line, vec![13, 14, 15], "the building's front wall line");
+    let rear_line: Vec<i32> = (bx.0..=bx.2)
+        .filter(|&gx| !matches!(ch((gx, bx.1)), b'#' | b'P'))
+        .collect();
+    assert_eq!(rear_line, vec![13, 14, 15], "the building's rear wall line");
     assert!(
         tiles_of(b"G")
             .into_iter()
