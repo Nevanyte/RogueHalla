@@ -146,8 +146,8 @@ the death-rate table and the proposed elite numbers. P-ELITE-TUNE-1 waits for th
 |---|---|---|---|
 | P-AUG-RULES-1 | Opus · Opus · reviewer-opus | Tuning and elite seam above, guide | — |
 | P-CONTENT-REGOLDEN-1 | Sonnet · Sonnet · reviewer | One documented command that recomputes the content hash and refreshes every pinned copy (list below) | — |
-| P-AUG-UI-1 | Sonnet (C#) · Sonnet · reviewer | `CardDisplayCatalog.cs` text for the 22 retuned cards | — |
-| P-AUG-CONTENT-1 | Sonnet · Sonnet · reviewer | Every Augment_Tuning number as `REWORK_*` registry rows; fill the override table; Boom cap 2.6; helper-share count 12; regold (move 1) | RULES-1, REGOLDEN-1 |
+| P-AUG-UI-1 | Sonnet (C#) · Sonnet · reviewer | `CardDisplayCatalog.cs` text for the 22 retuned cards. Implemented at `b2fc08016` and green on its oracle; parked: the EditMode mirror test pins the client text to `catalog_data.rs` (legacy), so it merges in the same integration as CONTENT-1 | — |
+| P-AUG-CONTENT-1 | Sonnet · Sonnet · reviewer | Every Augment_Tuning number as `REWORK_*` registry rows; fill the override table, including each card's rework text (the exact strings on `agent/sonnet/P-AUG-UI-1`); Boom cap 2.6; helper-share count 12; regold (move 1). Its oracle-author amends `BuildDrawerEditModeTests.cs:38` in an `oracle-amend:` commit so the client text mirrors the live (override) text | RULES-1, REGOLDEN-1; merges together with UI-1 |
 | P-SIM-BENCH-SEAM-1 | Opus · Opus · reviewer-opus | Feature-gated trusted build setup (cards and stat stacks) for headless tools, in a new module | RULES-1 |
 | P-AUG-PLANT-1 | Opus · Opus · reviewer-opus | Port Plant Your Feet's range multiplier for every weapon onto the pending action (`checkpoint.rs:916`) | RULES-1 |
 | P-AUG-TUNE-1 | Sonnet · Sonnet · reviewer-opus | Logic that reads the new rows (details below) | CONTENT-1 |
@@ -212,6 +212,9 @@ Packet details:
 - **P-AUG-UI-2:**
   - Native card text, Marked Man's included.
   - Training-console selector generator: it asserts 80 cards and 14 pool entries; regenerate the selectors.
+  - Refresh the stale `CardDisplayCatalog.cs` hash in `tools/training-console/training-console-source-pins.json:19`.
+  - Extend the EditMode mirror test (`BuildDrawerEditModeTests.cs:38`, which counts `CardId::ALL` = 80) to the native
+    cards.
   - HUD counters and pips, the Best Offense hit marker, Pathfinder's collection, and the first-pick countdown in
     `MatchHud.Chest.cs`.
 - **P-AUG-DOCS-1:**
