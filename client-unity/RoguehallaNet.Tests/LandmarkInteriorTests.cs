@@ -153,6 +153,8 @@ namespace Roguehalla.Net.Tests
             Assert.That(church.W, Is.EqualTo(29)); Assert.That(church.H, Is.EqualTo(29));
             int building = 0; for (int y = 4; y <= 15; y++) for (int x = 4; x <= 24; x++) if (".E".IndexOf(church.Cell[x, y]) >= 0) building++;
             Assert.That(building, Is.EqualTo(204), "guard on the checked-in drawing: 21 x 12 less 48 pillar tiles");
+            Assert.That(church.All().Count(t => t.c == 'D'), Is.EqualTo(3));
+            Assert.That(church.All().Count(t => t.c == 'R'), Is.EqualTo(3), "the rear doorway is a second three-tile opening");
             for (int x = 12; x <= 16; x++) Assert.That(church.Cell[x, 28], Is.EqualTo('.'), "main gate column " + x);
         }
 
@@ -173,6 +175,8 @@ namespace Roguehalla.Net.Tests
             Assert.That(LandmarkInterior.Count(flags), Is.EqualTo(204), "orientation " + k + ": the building's floor only");
             foreach (var (x, y, c) in where.All())
                 Assert.That(flags[y * church.W + x], Is.EqualTo(c == 'i'), "orientation " + k + " tile (" + x + ", " + y + ")");
+            foreach (var (x, y, c) in church.All().Where(t => t.c == 'D' || t.c == 'R'))
+                Assert.That(flags[y * church.W + x], Is.False, "orientation " + k + ": both thresholds stay outside the roofed interior at (" + x + ", " + y + ")");
         }
     }
 }

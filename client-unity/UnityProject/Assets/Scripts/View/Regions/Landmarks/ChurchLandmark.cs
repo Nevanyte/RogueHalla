@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
+using Roguehalla.Net.Ui;
 using UnityEngine;
 
 namespace Roguehalla.Client
 {
     /// <summary>
     /// P-UNITY-LANDMARK-3: the Sentenced church's art (kind 2), painted procedurally once per map and derived only from the tiles the
-    /// framework classified (never from a copy of the drawing), so it is right in all eight orientations. The wall groups of the footprint
-    /// are found from the tiles: the largest is the building (walls, pillars, and the closed doorway on its box border), every other
-    /// group is a headstone plot. Pieces:
+        /// framework classified (never from a copy of the drawing), so it is right in all eight orientations. With opposing doorways,
+        /// the building's split wall halves are reunited from their shared bounds; every other wall group is a headstone plot. Pieces:
     ///  - roof: a slate gable over the building's box, the ridge along its long axis, the two slopes shaded differently, with an eave
     ///    shadow; one roof piece through Landmark.AddRoofRenderer. It starts above the south wall's face (the face stays visible) and
     ///    reaches over the wall caps RegionWalls draws, fully opaque over them, so no block shows at a soft edge;
@@ -24,6 +24,8 @@ namespace Roguehalla.Client
         static readonly Color SlateLit = new Color(.37f, .38f, .48f), SlateDark = new Color(.20f, .20f, .28f), Ridge = new Color(.58f, .58f, .68f),
             Ink = new Color(.06f, .06f, .10f), Stone = new Color(.55f, .55f, .63f), StoneLit = new Color(.70f, .70f, .78f), StoneDark = new Color(.32f, .32f, .41f),
             Moss = new Color(.33f, .42f, .30f), Earth = new Color(.23f, .20f, .21f), DeadGrass = new Color(.31f, .34f, .26f), Warm = new Color(1f, .72f, .32f);
+        static readonly Color WineGlass = new Color(.34f, .055f, .11f), WineLight = new Color(.62f, .13f, .20f), Wood = new Color(.34f, .19f, .11f),
+            WoodLight = new Color(.58f, .36f, .21f), WoodDark = new Color(.14f, .09f, .08f), Rune = new Color(.77f, .67f, .51f);
 
         sealed class Group
         {
@@ -47,20 +49,64 @@ namespace Roguehalla.Client
         {
             var groups = FindGroups(lm);
             if (groups.Count == 0) return;
+            MergeOpposingWallHalves(groups);
             var building = groups[0];
             foreach (var g in groups) if (g.Tiles.Count > building.Tiles.Count) building = g;
             var cover = new List<Roguehalla.Net.Protocol.MapTile>();                                            // the roof's cover: the building's interior, walls and pillars (no headstone, gate or yard)
             for (int y = building.MinY; y <= building.MaxY; y++) for (int x = building.MinX; x <= building.MaxX; x++)
                 if (lm.IsWall(x, y) || lm.IsInterior(x, y)) cover.Add(new Roguehalla.Net.Protocol.MapTile((ushort)x, (ushort)y));
             lm.SetCover(cover);
-            var door = DoorTiles(lm, building);
-            Box notch = default; bool horizontalRun = true, outwardNorthOrWest = false;
-            if (door.Count > 0) notch = DoorNotch(building, door, out horizontalRun, out outwardNorthOrWest);
-            BuildRoof(lm, building, notch);
-            if (door.Count > 0) BuildDoor(lm, door, horizontalRun, outwardNorthOrWest);
+            var doors = DoorRuns(lm, building);
+            var notches = new List<Box>(doors.Count);
+            var directions = new List<Vector2Int>(doors.Count);
+            foreach (var door in doors)
+            {
+                notches.Add(DoorNotch(building, door, out var normal));
+                directions.Add(normal);
+            }
+            BuildSlateFloor(lm, building);
+            BuildRoof(lm, building, notches);
+            for (int i = 0; i < doors.Count; i++) BuildDoor(lm, doors[i], directions[i]);
+            BuildInteriorFurnishings(lm, building);
+            BuildWindows(lm, building);
             if (lm.ArchTiles.Length > 0) BuildGate(lm);
             foreach (var g in groups)                                                   // a plot lies outside the building's box; the pillar blocks inside it stay as RegionWalls draws them
                 if (g != building && !(g.MinX >= building.MinX && g.MaxX <= building.MaxX && g.MinY >= building.MinY && g.MaxY <= building.MaxY)) BuildGravestones(lm, g);
+        }
+
+        /// <summary>Two wall halves with identical long bounds are one building when the matching door gap is narrow.</summary>
+        static void MergeOpposingWallHalves(List<Group> groups)
+        {
+            for (int i = 0; i < groups.Count; i++)
+            {
+                var a = groups[i];
+                for (int j = i + 1; j < groups.Count; j++)
+                {
+                    var b = groups[j];
+                    if (!OpposingHalves(a, b)) continue;
+                    a.Tiles.AddRange(b.Tiles);
+                    a.MinX = Mathf.Min(a.MinX, b.MinX); a.MaxX = Mathf.Max(a.MaxX, b.MaxX);
+                    a.MinY = Mathf.Min(a.MinY, b.MinY); a.MaxY = Mathf.Max(a.MaxY, b.MaxY);
+                    a.Tiles.Sort((x, y) => x.y != y.y ? x.y.CompareTo(y.y) : x.x.CompareTo(y.x));
+                    groups.RemoveAt(j);
+                    return;
+                }
+            }
+        }
+
+        static bool OpposingHalves(Group a, Group b)
+        {
+            if (a.MinY == b.MinY && a.MaxY == b.MaxY && (a.MaxX < b.MinX || b.MaxX < a.MinX))
+            {
+                int gap = a.MaxX < b.MinX ? b.MinX - a.MaxX - 1 : a.MinX - b.MaxX - 1;
+                return a.MaxY - a.MinY >= 7 && gap > 0 && gap <= LandmarkInterior.MaxOpening;
+            }
+            if (a.MinX == b.MinX && a.MaxX == b.MaxX && (a.MaxY < b.MinY || b.MaxY < a.MinY))
+            {
+                int gap = a.MaxY < b.MinY ? b.MinY - a.MaxY - 1 : a.MinY - b.MaxY - 1;
+                return a.MaxX - a.MinX >= 7 && gap > 0 && gap <= LandmarkInterior.MaxOpening;
+            }
+            return false;
         }
 
         // ---- reading the tiles --------------------------------------------------------------------------------------------------
@@ -92,23 +138,36 @@ namespace Roguehalla.Client
             return groups;
         }
 
-        /// <summary>The closed doorway of the building: the non-wall tiles on its box border (the walls of the box are otherwise whole).</summary>
-        static List<Vector2Int> DoorTiles(Landmark lm, Group b)
+        /// <summary>Every small, wall-bounded opening on the building edge is a threshold.</summary>
+        static List<List<Vector2Int>> DoorRuns(Landmark lm, Group b)
         {
-            var door = new List<Vector2Int>();
-            for (int y = b.MinY; y <= b.MaxY; y++) for (int x = b.MinX; x <= b.MaxX; x++)
+            var doors = new List<List<Vector2Int>>();
+            AddEdgeRuns(lm, b, b.MinY, true, doors);
+            AddEdgeRuns(lm, b, b.MaxY, true, doors);
+            AddEdgeRuns(lm, b, b.MinX, false, doors);
+            AddEdgeRuns(lm, b, b.MaxX, false, doors);
+            return doors;
+        }
+
+        static void AddEdgeRuns(Landmark lm, Group b, int edge, bool horizontal, List<List<Vector2Int>> doors)
+        {
+            int start = horizontal ? b.MinX : b.MinY, end = horizontal ? b.MaxX : b.MaxY;
+            int position = start;
+            while (position <= end)
             {
-                bool edgeX = x == b.MinX || x == b.MaxX, edgeY = y == b.MinY || y == b.MaxY;
-                if ((edgeX || edgeY) && !(edgeX && edgeY) && !lm.IsWall(x, y)) door.Add(new Vector2Int(x, y));   // border tiles, never a corner
+                Vector2Int At(int n) { return horizontal ? new Vector2Int(n, edge) : new Vector2Int(edge, n); }
+                if (lm.IsWall(At(position).x, At(position).y)) { position++; continue; }
+                int runStart = position;
+                while (position <= end && !lm.IsWall(At(position).x, At(position).y)) position++;
+                int runLength = position - runStart;
+                bool bounded = runStart > start && position <= end;
+                if (bounded && runLength > 0 && runLength <= LandmarkInterior.MaxOpening)
+                {
+                    var door = new List<Vector2Int>(runLength);
+                    for (int n = runStart; n < position; n++) door.Add(At(n));
+                    doors.Add(door);
+                }
             }
-            if (door.Count > 5) door.Clear();                                       // not a doorway: no door art, no notch
-            else if (door.Count > 0)                                                // one contiguous run along one border line, or no door at all
-            {
-                Extent(door, out int x0, out int y0, out int x1, out int y1);
-                bool oneLine = (x0 == x1 || y0 == y1) && (x1 - x0 + 1) * (y1 - y0 + 1) == door.Count;
-                if (!oneLine) door.Clear();
-            }
-            return door;
         }
 
         static void Extent(List<Vector2Int> tiles, out int x0, out int y0, out int x1, out int y1)
@@ -117,16 +176,21 @@ namespace Roguehalla.Client
             foreach (var t in tiles) { x0 = Mathf.Min(x0, t.x); x1 = Mathf.Max(x1, t.x); y0 = Mathf.Min(y0, t.y); y1 = Mathf.Max(y1, t.y); }
         }
 
-        /// <summary>The hole the roof leaves over the door tiles and a head's height above them; extends outward past the roof's edge.</summary>
-        static Box DoorNotch(Group b, List<Vector2Int> door, out bool horizontalRun, out bool outwardNorthOrWest)
+        /// <summary>The roof opening over a doorway and a head's height above it, extended beyond its outside edge.</summary>
+        static Box DoorNotch(Group b, List<Vector2Int> door, out Vector2Int outward)
         {
             Extent(door, out int x0, out int y0, out int x1, out int y1);
-            horizontalRun = y0 == y1 && (door.Count > 1 || y0 == b.MinY || y0 == b.MaxY);
-            outwardNorthOrWest = horizontalRun ? y0 == b.MinY : x0 == b.MinX;
-            var n = new Box { Valid = true, X0 = x0, X1 = x1 + 1, Y0 = -(y1 + 1) * Sq, Y1 = -y0 * Sq + Wall + .5f };
-            if (horizontalRun && outwardNorthOrWest) n.Y1 += .6f;
-            if (!horizontalRun) { if (outwardNorthOrWest) n.X0 -= .6f; else n.X1 += .6f; }
-            return n;
+            if (y0 == y1)
+            {
+                bool north = y0 == b.MinY;
+                outward = new Vector2Int(0, north ? 1 : -1);
+                float y = north ? -y0 * Sq : -(y0 + 1) * Sq;
+                return new Box { Valid = true, X0 = x0, X1 = x1 + 1, Y0 = y - (north ? .1f : 0f) - (north ? 0f : Wall), Y1 = y + (north ? Wall : .1f) + .5f };
+            }
+            bool west = x0 == b.MinX;
+            outward = new Vector2Int(west ? -1 : 1, 0);
+            float x = west ? x0 : x0 + 1;
+            return new Box { Valid = true, X0 = x - (west ? Wall + .5f : .1f), X1 = x + (west ? .1f : Wall + .5f), Y0 = -(y1 + 1) * Sq, Y1 = -y0 * Sq };
         }
 
         // ---- the canvas ---------------------------------------------------------------------------------------------------------
@@ -169,9 +233,248 @@ namespace Roguehalla.Client
         static Color WithAlpha(Color c, float a) { c.a = a; return c; }
         static float Noise(float x, float y, int seed) { return RegionNoise.Periodic(x, y, 61, seed); }
 
+        // ---- the nave: a painted slate grid with faint inlaid runes ----------------------------------------------------------
+
+        static void BuildSlateFloor(Landmark lm, Group b)
+        {
+            const int P = 12;
+            float x0 = b.MinX, y0 = -(b.MaxY + 1) * Sq, width = b.MaxX - b.MinX + 1, height = (b.MaxY - b.MinY + 1) * Sq;
+            float centre = (b.MinX + b.MaxX + 1) * .5f;
+            var cv = new Canvas(x0, y0, width, height, P);
+            cv.Paint((wx, wy) =>
+            {
+                int tx = Mathf.FloorToInt(wx), ty = Mathf.FloorToInt(-wy / Sq);
+                if (!lm.IsInterior(tx, ty)) return default;
+                float u = wx - tx, v = -wy / Sq - ty;
+                float grain = RegionNoise.Hash01(tx, ty, 57);
+                Color color = Color.Lerp(new Color(.19f, .19f, .25f), new Color(.34f, .34f, .40f), .2f + grain * .35f);
+                float aisle = Mathf.Abs(wx - centre);
+                if (aisle < 2.15f) color = Color.Lerp(color, new Color(.38f, .34f, .35f), .3f + .16f * (1f - aisle / 2.15f));
+                float grout = Mathf.Min(Mathf.Min(u, 1f - u), Mathf.Min(v, 1f - v));
+                if (grout < .035f) color = Color.Lerp(new Color(.08f, .08f, .12f), color, .62f);
+                float tileMark = (ty % 3 + 3) % 3;
+                if (aisle < .24f && tileMark == 1f && Mathf.Abs(u - .5f) < .055f) color = Color.Lerp(color, Rune, .42f);
+                if (aisle < .8f && tileMark == 1f && Mathf.Abs(v - .5f) < .035f && u > .32f && u < .68f) color = Color.Lerp(color, Rune, .28f);
+                float crack = Mathf.Abs((u - .18f) - (v - .34f) * .24f);
+                if (grain > .88f && v > .2f && v < .7f && crack < .014f) color = Shade(color, .69f);
+                return color;
+            });
+            cv.ToSprite(lm, "Church slate and runes", "Church slate floor", -88);
+        }
+
+        // ---- light pews and a carved pulpit. These drawings have no collider or map footprint. --------------------------------
+
+        static void BuildInteriorFurnishings(Landmark lm, Group b)
+        {
+            // The nave runs from the rear threshold to the front threshold. In this rectangular footprint that is its shorter
+            // dimension; the broader dimension holds two banks of pews with an open centre aisle.
+            bool naveAlongX = b.MaxX - b.MinX < b.MaxY - b.MinY;
+            float alongMin = naveAlongX ? b.MinX : b.MinY, alongMax = naveAlongX ? b.MaxX : b.MaxY;
+            float across = naveAlongX ? (b.MinY + b.MaxY + 1) * .5f : (b.MinX + b.MaxX + 1) * .5f;
+            float[] stations = { alongMin + 1.3f, alongMin + 6.7f, alongMax - 2.2f };
+            float[] banks = { -7.5f, -4.5f, 4.5f, 7.5f };
+            for (int r = 0; r < stations.Length; r++) for (int c = 0; c < banks.Length; c++)
+            {
+                float x = naveAlongX ? stations[r] : across + banks[c];
+                float y = naveAlongX ? across + banks[c] : stations[r];
+                if (!PewFits(lm, x, y, naveAlongX)) continue;
+                bool positiveSide = banks[c] > 0f;
+                BuildPew(lm, x, y, naveAlongX ? (positiveSide ? 0f : 180f) : (positiveSide ? 90f : -90f));
+            }
+            float frontX = lm.FrontVector.x, frontY = lm.FrontVector.y;
+            float back = frontX != 0f ? (frontX > 0f ? b.MinX : b.MaxX) + (frontX > 0f ? 6f : -6f) :
+                         frontY > 0f ? b.MinY + 6f : b.MaxY - 6f;
+            float side = 6.8f;
+            float pulpitX = naveAlongX ? back : across + side * (frontY >= 0f ? 1f : -1f);
+            float pulpitY = naveAlongX ? across + side * (frontX >= 0f ? 1f : -1f) : back;
+            if (!lm.IsInterior(Mathf.FloorToInt(pulpitX), Mathf.FloorToInt(pulpitY)))
+            {
+                float candidateX = (b.MinX + b.MaxX + 1) * .5f, candidateY = (b.MinY + b.MaxY + 1) * .5f;
+                for (int r = 0; r < stations.Length && !lm.IsInterior(Mathf.FloorToInt(pulpitX), Mathf.FloorToInt(pulpitY)); r++)
+                {
+                    pulpitX = naveAlongX ? stations[r] : candidateX + side * (frontY >= 0f ? 1f : -1f);
+                    pulpitY = naveAlongX ? candidateY + side * (frontX >= 0f ? 1f : -1f) : stations[r];
+                }
+            }
+            if (lm.IsInterior(Mathf.FloorToInt(pulpitX), Mathf.FloorToInt(pulpitY))) BuildPulpit(lm, pulpitX, pulpitY, naveAlongX ? (frontX >= 0f ? 0f : 180f) : (frontY >= 0f ? 90f : -90f));
+        }
+
+        static bool PewFits(Landmark lm, float cx, float cy, bool naveAlongX)
+        {
+            if (naveAlongX)
+            {
+                int x0 = Mathf.FloorToInt(cx - .82f), x1 = Mathf.FloorToInt(cx + .82f), y = Mathf.FloorToInt(cy);
+                for (int x = x0; x <= x1; x++) if (!lm.IsInterior(x, y)) return false;
+            }
+            else
+            {
+                int y0 = Mathf.FloorToInt(cy - .82f), y1 = Mathf.FloorToInt(cy + .82f), x = Mathf.FloorToInt(cx);
+                for (int y = y0; y <= y1; y++) if (!lm.IsInterior(x, y)) return false;
+            }
+            return true;
+        }
+
+        static void BuildPew(Landmark lm, float cx, float row, float rotation)
+        {
+            var sprite = Resources.Load<Sprite>("StormInk/Church/OakPew");
+            if (sprite != null)
+            {
+                AddAssetSprite(lm, sprite, "Church oak pew", "Church pew", cx, -row * Sq, 1.82f, .68f * Sq, 2000 + 16 * (Mathf.FloorToInt(row) + 1) + 2, rotation);
+                return;
+            }
+            const int P = 20;
+            float width = 1.82f, depth = .68f, baseY = -(row + .5f) * Sq;
+            var cv = new Canvas(cx - width / 2f - .16f, baseY - .14f, width + .32f, depth + .32f, P);
+            cv.Paint((wx, wy) =>
+            {
+                float x = wx - cx, y = wy - baseY;
+                float shadow = x * x / (width * width * .48f) + y * y / (.18f * .18f);
+                if (y < .04f && shadow < 1f) return new Color(.015f, .012f, .022f, .26f * (1f - shadow));
+                if (Mathf.Abs(x) > width * .5f || y < 0f || y > depth) return default;
+                float left = Mathf.Abs(x), edge = Mathf.Min(width * .5f - left, y, depth - y);
+                Color wood = Color.Lerp(Wood, WoodLight, .18f + .2f * RegionNoise.Hash01(Mathf.FloorToInt(x * 17f), Mathf.FloorToInt(y * 31f), 71));
+                if (y < .15f)
+                {
+                    if (edge < .035f) return WoodDark;
+                    bool carving = left > .68f && left < .78f && (y > .04f && y < .12f);
+                    return carving ? Rune : wood;
+                }
+                if (y < .5f)
+                {
+                    if (edge < .04f || y < .2f) return WoodDark;
+                    float seam = Mathf.Abs(x / .38f - Mathf.Round(x / .38f));
+                    return seam < .045f ? Shade(wood, .68f) : wood;
+                }
+                if (y < .61f && left < width * .47f)
+                {
+                    if (edge < .035f) return Ink;
+                    return Shade(WoodLight, y > .57f ? .72f : 1.08f);
+                }
+                return default;
+            });
+            cv.ToSprite(lm, "Church oak pew", "Church pew", 2000 + 16 * (Mathf.FloorToInt(row) + 1) + 2);
+        }
+
+        static void BuildPulpit(Landmark lm, float cx, float row, float rotation)
+        {
+            var sprite = Resources.Load<Sprite>("StormInk/Church/GothicPulpit");
+            if (sprite != null)
+            {
+                AddAssetSprite(lm, sprite, "Church carved pulpit", "Church pulpit", cx, -row * Sq, 1.38f, 1.38f * Sq, 2000 + 16 * (Mathf.FloorToInt(row) + 1) + 3, rotation);
+                return;
+            }
+            const int P = 24;
+            float baseY = -(row + 1f) * Sq, width = 1.35f, height = 1.15f;
+            var cv = new Canvas(cx - 1.05f, baseY - .28f, 2.1f, 1.92f, P);
+            cv.Paint((wx, wy) =>
+            {
+                float x = wx - cx, y = wy - baseY;
+                float shadow = x * x / .72f + (y + .04f) * (y + .04f) / .11f;
+                if (y < .05f && shadow < 1f) return new Color(.01f, .008f, .014f, .32f * (1f - shadow));
+                if (Mathf.Abs(x) < .72f && y >= .02f && y < .23f) return y < .08f || Mathf.Abs(x) > .66f ? StoneDark : Shade(Stone, .75f);
+                float topY = .36f - Mathf.Abs(x) * .35f;
+                if (Mathf.Abs(x) < .64f && y > .2f && y < topY)
+                {
+                    if (Mathf.Abs(x) > .52f || y < .24f) return Ink;
+                    if (Mathf.Abs(x) < .07f && y > .29f && y < .35f || Mathf.Abs(x) < .20f && y > .31f && y < .34f) return Rune;
+                    return Color.Lerp(WoodDark, Wood, Mathf.Clamp01(.5f + x * .28f));
+                }
+                if (y >= topY && y < .72f && Mathf.Abs(x) < width * .5f - Mathf.Max(0f, y - .48f) * .8f)
+                {
+                    if (Mathf.Abs(x) > width * .5f - .07f || Mathf.Abs(y - .61f) < .04f) return WoodDark;
+                    return Color.Lerp(Wood, WoodLight, .4f + .2f * Mathf.Sin(x * 17f));
+                }
+                if (y > .71f && y < height && Mathf.Abs(x) < width * .5f - (y - .71f) * .5f)
+                {
+                    if (Mathf.Abs(x) < .05f || Mathf.Abs(x) < .24f && y > .9f) return Rune;
+                    return WoodDark;
+                }
+                return default;
+            });
+            cv.ToSprite(lm, "Church carved pulpit", "Church pulpit", 2000 + 16 * (Mathf.FloorToInt(row) + 1) + 3);
+        }
+
+        static void AddAssetSprite(Landmark lm, Sprite sprite, string textureName, string objectName, float x, float y, float width, float height, int order, float rotation)
+        {
+            var go = new GameObject(objectName); go.transform.SetParent(lm.Root.transform, false);
+            go.transform.localPosition = new Vector3(x, y, 0f);
+            go.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
+            var renderer = go.AddComponent<SpriteRenderer>(); renderer.sprite = sprite; renderer.sharedMaterial = lm.Material; renderer.sortingOrder = order;
+            Vector2 dimensions = sprite.bounds.size;
+            renderer.transform.localScale = new Vector3(width / Mathf.Max(dimensions.x, .01f), height / Mathf.Max(dimensions.y, .01f), 1f);
+        }
+
+        // ---- narrow garnet lancets and candlelight painted into the inner church walls ------------------------------------------
+
+        static void BuildWindows(Landmark lm, Group b)
+        {
+            bool sideWallsRunAlongY = b.MaxY - b.MinY > b.MaxX - b.MinX;
+            float[] along = sideWallsRunAlongY ? new[] { b.MinY + 3.2f, b.MaxY - 3.2f } : new[] { b.MinX + 3.2f, b.MaxX - 3.2f };
+            float[] sides = sideWallsRunAlongY ? new[] { b.MinX + 1.25f, b.MaxX - 1.25f } : new[] { b.MinY + 1.25f, b.MaxY - 1.25f };
+            foreach (float a in along) foreach (float s in sides)
+            {
+                float x = sideWallsRunAlongY ? s : a, y = sideWallsRunAlongY ? a : s;
+                if (lm.IsInterior(Mathf.FloorToInt(x), Mathf.FloorToInt(y)))
+                {
+                    BuildWindow(lm, x, y, sideWallsRunAlongY ? 90f : 0f);
+                    BuildCandle(lm, x + (sideWallsRunAlongY ? .45f : 0f), y + (sideWallsRunAlongY ? 0f : .45f));
+                }
+            }
+        }
+
+        static void BuildWindow(Landmark lm, float cx, float cy, float rotation)
+        {
+            const int P = 20;
+            float baseY = -(cy + .7f) * Sq;
+            var cv = new Canvas(cx - .52f, baseY, 1.04f, 1.55f * Sq, P);
+            cv.Paint((wx, wy) =>
+            {
+                float x = (wx - cx) / .46f, y = (-wy / Sq) - (cy + .7f);
+                float top = .78f - Mathf.Abs(x) * .65f;
+                if (Mathf.Abs(x) >= 1f || y < .04f || y > top) return default;
+                bool rim = Mathf.Abs(x) > .83f || y < .11f || y > top - .06f;
+                if (rim) return Ink;
+                float tint = .82f + .26f * RegionNoise.Hash01(Mathf.FloorToInt(wx * 19f), Mathf.FloorToInt(wy * 23f), 97);
+                Color glass = Color.Lerp(WineGlass, WineLight, .2f + .4f * (1f - Mathf.Abs(x)));
+                glass = Shade(glass, tint);
+                if (Mathf.Abs(x) < .045f || Mathf.Abs(y - .35f) < .035f) return Rune;
+                if (Mathf.Abs(x) > .65f && y > .16f && y < .46f) glass = Shade(glass, .6f);
+                glass.a = .92f; return glass;
+            });
+            var renderer = cv.ToSprite(lm, "Church garnet window", "Church stained glass", 2000 + 16 * Mathf.FloorToInt(cy) + 4);
+            if (rotation != 0f)
+            {
+                Vector2 size = renderer.sprite.bounds.size;
+                Vector3 position = renderer.transform.localPosition;
+                var pivot = new GameObject("Church lancet alignment"); pivot.transform.SetParent(lm.Root.transform, false);
+                pivot.transform.localPosition = position + new Vector3(size.x * .5f, size.y * .5f, 0f);
+                renderer.transform.SetParent(pivot.transform, false);
+                renderer.transform.localPosition = new Vector3(-size.x * .5f, -size.y * .5f, 0f);
+                pivot.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
+            }
+        }
+
+        static void BuildCandle(Landmark lm, float x, float y)
+        {
+            const int P = 16;
+            float baseY = -(y + .5f) * Sq;
+            var cv = new Canvas(x - .48f, baseY - .35f, .96f, .82f, P);
+            cv.Paint((wx, wy) =>
+            {
+                float dx = wx - x, dy = wy - baseY;
+                float glow = dx * dx / .18f + dy * dy / .22f;
+                if (glow < 1f) return new Color(1f, .51f, .19f, .25f * (1f - glow));
+                if (dy > .08f && dy < .36f && Mathf.Abs(dx) < .07f) return dx > .05f || dy < .11f || dy > .33f ? Ink : WoodLight;
+                if (dy >= .36f && dy < .53f && Mathf.Abs(dx) < .045f) return Ink;
+                if (dy > .48f && dy < .67f && Mathf.Abs(dx) < .075f - (dy - .48f) * .35f) return Color.Lerp(Warm, new Color(1f, .95f, .72f), Mathf.Clamp01((dy - .48f) * 5f));
+                return default;
+            });
+            cv.ToSprite(lm, "Church candle", "Church candle flame", 2000 + 16 * (Mathf.FloorToInt(y) + 1) + 5);
+        }
+
         // ---- the roof -----------------------------------------------------------------------------------------------------------
 
-        static void BuildRoof(Landmark lm, Group b, Box notch)
+        static void BuildRoof(Landmark lm, Group b, List<Box> notches)
         {
             const int P = 16; const float Ov = .35f, Course = .32f;
             float xa = b.MinX - Ov, xb = b.MaxX + 1 + Ov;
@@ -181,7 +484,7 @@ namespace Roguehalla.Client
             var cv = new Canvas(xa - .15f, ya, xb - xa + .3f, yb - ya + .15f, P);
             cv.Paint((wx, wy) =>
             {
-                if (notch.Contains(wx, wy)) return default;
+                for (int i = 0; i < notches.Count; i++) if (notches[i].Contains(wx, wy)) return default;
                 float outside = Mathf.Max(Mathf.Max(xa - wx, wx - xb), Mathf.Max(ya - wy, wy - yb));
                 if (outside > 0f)
                 {
@@ -203,7 +506,7 @@ namespace Roguehalla.Client
                 if (-outside < .05f) c = Ink;
                 else if (-outside < .11f && (ridgeX ? (wx < xa + .11f || wx > xb - .11f) : (wy < ya + .11f || wy > yb - .11f))) c = Shade(c, 1.25f);   // the gable edge board
                 if (wy < ya + .3f && wx > xa + .05f && wx < xb - .05f) c = Shade(c, .62f + .38f * (wy - ya) / .3f);   // the eave's shadow, on the roof's own lower rows
-                if (notch.Dist(wx, wy) < .06f) c = Ink;
+                for (int i = 0; i < notches.Count; i++) if (notches[i].Dist(wx, wy) < .06f) { c = Ink; break; }
                 c.a = 1f; return c;
             });
             lm.AddRoofRenderer(cv.ToSprite(lm, "Church roof", "Church roof (slate gable)", 0));
@@ -211,34 +514,26 @@ namespace Roguehalla.Client
 
         // ---- the door ------------------------------------------------------------------------------------------------------------
 
-        static void BuildDoor(Landmark lm, List<Vector2Int> door, bool horizontalRun, bool outwardNorthOrWest)
+        static void BuildDoor(Landmark lm, List<Vector2Int> door, Vector2Int outward)
         {
             Extent(door, out int x0, out int y0, out int x1, out int y1);
-            if (horizontalRun && !outwardNorthOrWest) { BuildArchDoor(lm, x0, x1, y1); return; }   // the south wall's door: seen head on
+            if (y0 == y1) { BuildArchDoor(lm, x0, x1, y0, outward.y); return; }
             Flagstones(lm, "Church door", x0, y0, x1, y1, -84);                                    // else: a worn sill and two jamb posts
-            if (horizontalRun)
-            {
-                float baseY = -(y0 + .85f) * Sq;
-                Post(lm, "Church door", x0, baseY, .62f, 1.4f, false, 2000 + 16 * y0 + 1);
-                Post(lm, "Church door", x1 + 1, baseY, .62f, 1.4f, false, 2000 + 16 * y0 + 1);
-            }
-            else
-            {
-                float cx = x0 + .5f;
-                Post(lm, "Church door", cx, -y0 * Sq, .62f, 1.4f, false, 2000 + 16 * (y0 - 1) + 1);
-                Post(lm, "Church door", cx, -(y1 + 1) * Sq, .62f, 1.4f, false, 2000 + 16 * y1 + 1);
-            }
+            float cx = x0 + .5f;
+            Post(lm, "Church door", cx, -y0 * Sq, .62f, 1.4f, false, 2000 + 16 * (y0 - 1) + 1);
+            Post(lm, "Church door", cx, -(y1 + 1) * Sq, .62f, 1.4f, false, 2000 + 16 * y1 + 1);
         }
 
         /// <summary>A pointed stone arch on the door tiles with a dark opening (see-through at the floor), a keystone and a cross.</summary>
-        static void BuildArchDoor(Landmark lm, int x0, int x1, int row)
+        static void BuildArchDoor(Landmark lm, int x0, int x1, int row, int outwardSign)
         {
             const int P = 24; const float OutA = 1.5f, OutSpring = .8f, OutRise = .9f, InA = 1.0f, InSpring = .72f, InRise = .55f;
-            float half = (x1 - x0 + 1) / 2f, cx = (x0 + x1 + 1) / 2f, scale = half / OutA, by = -(row + 1) * Sq;
-            var cv = new Canvas(cx - half - .1f, by - .02f, 2f * half + .2f, 2.1f, P);
+            float half = (x1 - x0 + 1) / 2f, cx = (x0 + x1 + 1) / 2f, scale = half / OutA;
+            float baseY = outwardSign > 0 ? -row * Sq : -(row + 1) * Sq;
+            var cv = new Canvas(cx - half - .1f, baseY - .02f, 2f * half + .2f, 2.1f, P);
             cv.Paint((wx, wy) =>
             {
-                float lx = (wx - cx) / scale, ly = wy - by, dx = Mathf.Abs(lx);
+                float lx = (wx - cx) / scale, ly = (wy - baseY) * outwardSign, dx = Mathf.Abs(lx);
                 float apex = OutSpring + OutRise;
                 if (ly > apex - .03f)                                                  // the cross on the apex
                 {
