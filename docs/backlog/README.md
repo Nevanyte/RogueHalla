@@ -206,6 +206,22 @@ Paths are relative to `packages/` unless they start with `crates/`, `docs/`, `de
 | P-MOBS-1 | Full regional mob runtime: true non-seat actors, shared NPC combat/AI, camp lifecycle and applied rewards | P-MOBS-CATALOG-1; P-STATUS-1 for actor integration; staged card/stat producers for completion | Selected shared-actor Holy/Fire/Plague PvE and camp lifecycle/rewards implemented with source/headless/Unity proof; full regional runtime/scale gates remain open | server/src/sim/mobAI.ts, mobLife.ts, camps.ts; shared/mobs.ts, rosters.ts |
 | P-MOBS-2 | Camp-clear heal, wards, elite chests, regen, `campCleared` hook chain | P-MOBS-1, P-CARDS-2 | Coarse | server/src/sim/campHeal.ts, regen.ts, camps.ts |
 
+### 1a. Live tick rate (ADR 0029, owner direction 2026-11-19)
+
+The live server moves to a 40 Hz (25 ms) step; parity, captures and fixtures stay at 50 ms. Order and parallel groups:
+[P-TICK-0](packets/P-TICK-0.md).
+
+| ID | Outcome | Depends on | Status | Legacy owners |
+|---|---|---|---|---|
+| P-TICK-0 | ADR 0029, the C-TICK amendment and DEV-039 recorded | none | Ready packet ([spec](packets/P-TICK-0.md)) | shared/constants.ts |
+| P-TICK-1a | `SimConfig::tick_ms` 50 or 25 in the sim core, save, restore and hash | P-TICK-0 | Ready packet ([spec](packets/P-TICK-1a.md)) | shared/constants.ts |
+| P-TICK-1b | every `rh-sim` system reads the sim's step; tick-counted rules in milliseconds | P-TICK-1a | Ready packet ([spec](packets/P-TICK-1b.md)) | shared/walk.ts, constants.ts |
+| P-TICK-2 | bots and headless read the step | P-TICK-1b | Ready packet ([spec](packets/P-TICK-2.md)) | shared/constants.ts |
+| P-TICK-3 | protocol 19: snapshot time from the Welcome rate, delta limits scaled | P-TICK-1b | Ready packet ([spec](packets/P-TICK-3.md)) | shared/constants.ts |
+| P-TICK-4 | Unity library reads the step; walk and pause vectors at both rates | P-TICK-3 | Ready packet ([spec](packets/P-TICK-4.md)) | shared/walk.ts |
+| P-TICK-5 | server rooms run at their configured step; rewind window follows it | P-TICK-3 | Ready packet ([spec](packets/P-TICK-5.md)) | shared/constants.ts |
+| P-TICK-6 | measure 25 ms on full maps, then flip the live default | P-TICK-2, 4, 5 | Ready packet ([spec](packets/P-TICK-6.md)) | none |
+
 ### 2. Bots
 
 | ID | Outcome | Depends on | Status | Legacy owners |
