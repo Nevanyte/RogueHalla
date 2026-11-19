@@ -163,8 +163,9 @@ What the oracle asserts (loose proof: directions and rough sizes, plus the invar
   and 2 Ad boosts. Against an identical world without the build: max hp is about 12% higher (within 1%) and current hp
   equals it; the summary's damage is about +0.32 (12% stacks + Committed's 20%); attack speed is up about 15%; Offense
   is up; the counts read back. It observes at once (stale-cache check), emits no event, gives the same hash as a twin
-  given the same request, checkpoints and restores to the same hash, fights 400 ticks (attacking the camp, and a hit
-  involving the fighter lands), and checkpoints and restores again.
+  given the same request, checkpoints and restores to the same hash, fights 400 ticks in the bench Brawler's way (move
+  to the nearest camp-0 mob, attack within 80 units, one order every 5 ticks; a hit involving the fighter lands) with
+  the restored copy in step, and checkpoints and restores again.
 - `invalid_requests_are_refused_and_change_nothing`: each of a conditional without its base, a unique card twice in one
   request, a unique card already held, an elite's stacks, a boost past the cap, an unknown player, and a valid card
   mixed with an invalid one is the named `Err`, leaves the state hash unchanged and grants nothing; a conditional after
@@ -172,7 +173,16 @@ What the oracle asserts (loose proof: directions and rough sizes, plus the invar
 - `an_unknown_card_name_is_a_parse_error`: JSON with an unknown card, mob or boost name is a serde error; the documented
   form parses.
 - `trusted_build_feature_guard.rs` (runs with or without the feature): the manifests, the `lib.rs` line and the two
-  server build recipes, as in 7. It is green on the stub and guards later packets.
+  server build recipes, as in 7 (`no_server_build_can_turn_on_a_trusted_feature`,
+  `the_trusted_build_api_exists_only_under_its_feature`), and `the_guard_sees_a_leak_through_another_crates_feature`,
+  which plants leaks in synthetic manifests (an rh-server feature naming `rh-headless/elite-bench`, a shipped dependency
+  enabling a trusted feature, a recipe) and requires the guard to see each. It is green on the stub and guards later
+  packets.
+
+State of the oracle on the stub (checked by the author with a throwaway implementation, then discarded): with a
+correct `apply` all six tests pass; leaving out the build-mark cache drop fails the first test at
+`fx_report.rs:87` ("stale build-mark cache row"). On the stub, `a_minute_five_build_...` fails at "TankEngine held once"
+and `invalid_requests_...` at "a conditional without its base card"; the JSON test and the three guard tests pass.
 
 ## Existing tests this could disturb (survey)
 
