@@ -12,7 +12,7 @@ namespace Roguehalla.Client
     public sealed class CombatSparks
     {
         const int MaxShots = 64;
-        struct Shot { public float X, Y; public ProjectileKind Kind; public uint Owner; public bool Matched; }
+        struct Shot { public float X, Y, Facing; public ProjectileKind Kind; public uint Owner; public bool Matched; }
         readonly ParticleSystem _spark, _trail, _contact;
         readonly Shot[] _prev = new Shot[MaxShots], _cur = new Shot[MaxShots];
         int _prevN, _curN; uint _tick = uint.MaxValue;
@@ -58,12 +58,13 @@ namespace Roguehalla.Client
         /// Compare this snapshot's projectile rows with the previous snapshot's (once per new server tick): a shot that was seen and now is gone struck
         /// something (a wall or a body) near where it was last seen; sparks and a flash go there. Only when that spot is well inside the camera.
         /// </summary>
-        public void Observe(uint tick, IReadOnlyList<NetProjectileView> shots, Vector3 camCenter, float halfW, float halfH, ref uint rng)
+        public void Observe(uint tick, IReadOnlyList<NetProjectileView> shots, Vector3 camCenter, float halfW, float halfH, ref uint rng, System.Action<uint, ProjectileKind, float, float, float> observedLaunch = null)
         {
             if (tick == _tick) return;
+            bool continuous = _tick != uint.MaxValue;
             _tick = tick;
             _curN = 0;
-            if (shots != null) for (int i = 0; i < shots.Count && _curN < MaxShots; i++) _cur[_curN++] = new Shot { X = shots[i].X, Y = shots[i].Y, Kind = shots[i].Kind, Owner = shots[i].Owner ?? 0u };
+            if (shots != null) for (int i = 0; i < shots.Count && _curN < MaxShots; i++) _cur[_curN++] = new Shot { X = shots[i].X, Y = shots[i].Y, Facing = shots[i].Facing, Kind = shots[i].Kind, Owner = shots[i].Owner ?? 0u };
             for (int i = 0; i < _prevN; i++)
             {
                 int best = -1; float bd = 60f * 60f;                     // a shot moves a few tens of sim units per snapshot
@@ -78,7 +79,14 @@ namespace Roguehalla.Client
                 if (Mathf.Abs(w.x - camCenter.x) > halfW - 1.5f || Mathf.Abs(w.y - camCenter.y) > halfH - 1.5f) continue;
                 Impact(w, _prev[i].Kind, ref rng);
             }
-            _prevN = _curN; for (int i = 0; i < _curN; i++) { _prev[i] = _cur[i]; _prev[i].Matched = false; }
+            for (int i = 0; i < _curN; i++)
+            {
+                var shot = _cur[i];
+                if (continuous && shot.Owner != 0 && !shot.Matched)
+                    observedLaunch?.Invoke(shot.Owner, shot.Kind, shot.X, shot.Y, shot.Facing);
+                _prev[i] = shot;
+            }
+            _prevN = _curN;
         }
 
         void Impact(Vector3 world, ProjectileKind kind, ref uint rng)

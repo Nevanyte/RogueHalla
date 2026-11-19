@@ -14,7 +14,7 @@ namespace Roguehalla.Client
     /// </summary>
     public sealed partial class ArenaView
     {
-        /// <summary>Presentation-only swing at the owner's click; see <see cref="SpriteActorPresenter.LocalAttackCue"/>.</summary>
+        /// <summary>Presentation-only feedback at the owner's click; see <see cref="SpriteActorPresenter.LocalAttackCue"/>.</summary>
         public void LocalAttackCue(uint id) { _actors.LocalAttackCue(id); }
         float _frostLength = 224;
         /// <summary>Draws or puts away the Frost Wall aim preview (display only; WishAim sends the cast).</summary>
@@ -44,14 +44,14 @@ namespace Roguehalla.Client
                     continue;
                 }
                 // Protocol 16 fx (ADR0026): the wind-up telegraph and its end; the rest are numbers drawn by PresentFx.
-                if (f.Kind == FxKind.Windup) { DiagWindupFx++; _hitZones?.Windup(f.By, f.Weapon, f.A, f.Ms, Time.unscaledTime); DiagWindupDrawn = HitZonePresenter.DiagWindupsStarted; continue; }
-                if (f.Kind == FxKind.Cancel) { _hitZones?.CancelWindup(f.Id); continue; }
+                if (f.Kind == FxKind.Windup) { DiagWindupFx++; _hitZones?.Windup(f.By, f.Weapon, f.A, f.Ms, Time.unscaledTime); DiagWindupDrawn = HitZonePresenter.DiagWindupsStarted; }
+                if (f.Kind == FxKind.Cancel) _hitZones?.CancelWindup(f.Id);
                 if (f.Kind == FxKind.Stagger) _hitZones?.CancelWindup(f.Id);
                 if (f.Kind == FxKind.Hit && f.Critical) DiagCritFx++;
                 if (f.Kind == FxKind.Hit) { DiagHitFx++; if (f.Victim == _localId) { DiagHitFxOnMe++; DiagLastAmountOnMe = f.Amount; DiagLastPassiveOnMe = f.Passive; } } // scenario probe counters
                 if (f.Kind == FxKind.Hit && f.Victim == _localId && _localId != 0 && !f.Passive) _vignette.Hit(f.Amount, _selfMaxHp, Time.unscaledTime); // legacy screenFeedback: real hits only
-                uint subject = f.Kind == FxKind.Hit || f.Kind == FxKind.SigHit ? f.Victim : f.Kind == FxKind.Stagger || f.Kind == FxKind.Block || f.Kind == FxKind.Heal ? f.Id : f.By;
-                var cue=new PendingFx{Kind=f.Kind,Subject=subject,Amount=f.Amount,X=f.X,Y=f.Y,A=f.A,Weapon=f.Weapon,By=f.By,Passive=f.Passive,Crit=f.Critical,SigKind=f.HitKind,CreatedAt=Time.unscaledTime};
+                uint subject = f.Kind == FxKind.Hit || f.Kind == FxKind.SigHit ? f.Victim : f.Kind == FxKind.Stagger || f.Kind == FxKind.Block || f.Kind == FxKind.Heal || f.Kind == FxKind.Cancel ? f.Id : f.By;
+                var cue=new PendingFx{Kind=f.Kind,Subject=subject,Amount=f.Amount,X=f.X,Y=f.Y,A=f.A,Weapon=f.Weapon,WindupMs=f.Ms,By=f.By,Passive=f.Passive,Crit=f.Critical,SigKind=f.HitKind,CreatedAt=Time.unscaledTime};
                 bool own = owner != 0 && (subject == owner || f.By == owner || f.Victim == owner);
                 if (!own && _renderReady && dueMs > _renderMs && dueMs - _renderMs <= MaxFxLeadMs &&
                     _scheduledFx.Count < MaxScheduledFx && _actors.Contains(subject) && !IsLatestNpc(subject))
@@ -104,7 +104,8 @@ namespace Roguehalla.Client
         {
                 if (f.Kind == FxKind.Heal && Indicators.HealText(f.Amount) == null) return;      // heals under 1 are not shown
                 if (!_actors.TryPosition(f.Subject, out var p)) return;
-                _actors.ConfirmedCue(f.Subject,f.Kind);
+                _actors.ConfirmedCue(f.Subject, f.Kind, (WeaponId)f.Weapon, f.A, f.WindupMs);
+                if (f.Kind == FxKind.Windup || f.Kind == FxKind.Cancel) return;
                 if (f.Kind == FxKind.Hit || f.Kind == FxKind.Block)
                 {
                     FactionId? pigment = _actors.TrySoundContext(f.By, out _, out var faction, out _, out _) ? faction : (FactionId?)null;

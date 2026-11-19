@@ -2,16 +2,13 @@
 
 The owner selected Storm Ink on 2026-11-19. The church study sets the camera and value range. Broad dry-brush strokes carry the world. Figures use ink contours and flatter fills. Elemental pigment peaks at contact and falls away through recovery.
 
-## Church cast
+## Champion cast and equipment
 
-Original artwork generated for RogueHalla with OpenAI image generation from the owner's approved design board. Both sheets are production PNGs under `Assets/Resources/StormInk/Actors`. Each contains four directional rows and four action columns (ready, stride, anticipation, strike). Their footprints and animation clocks come from the delivered archetype. The standing artwork is drawn on a common foot baseline, with no baked ground shadow.
+All five champions and the Executioner use original 512 × 1024 transparent sheets under `Assets/Resources/StormInk/Actors`. The 128 × 128 cells share a foot baseline and carry no painted ground shadow. Rows from the top are S, SE, E, NE, N, NW, W and SW. Columns are ready, stride, anticipation and strike. The delivered actor archetype still sets world scale and clip timing.
 
-| Sheet | Subject and generation brief |
-|---|---|
-| SentencedChampion | Agile duelist in a pointed blackened-iron hood, ivory stole, muted wine sash and divided Gothic tabard. |
-| Executioner | Broad, masked enforcer in a red cape, squared shoulders, plum robes and black lamellar apron. |
+The Haunted fighter has a loose reaper cloak and black gloves. The Executioner keeps its broad masked silhouette, garnet mantle and black lamellar apron. Fire, Plague, Frost and Holy have their own painted posture and costume. The champions' palms are registered on each view and pose.
 
-Both prompts requested a weapon-free, isolated 4 × 4 directional sprite sheet, visible feet, transparent gutters, bold ink contours and flat fills. The in-game weapon follows the fighter's equipped weapon.
+Sword, Bow, Wand, Axe and Shield each use a single shared 1024 × 512 turntable with eight 256 × 256 views. Equipment keeps its shape through equip, attack and drop. Confirmed cues select a stance and direction without replacing the authoritative action. The bow draws from the painted right hand while the left holds its grip. Regional creatures beyond the Executioner remain on their existing appearance path.
 
 ## Church furnishings and contact
 

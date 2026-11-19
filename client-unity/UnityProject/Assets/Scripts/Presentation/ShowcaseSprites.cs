@@ -1,3 +1,4 @@
+using Roguehalla.Net;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -38,6 +39,24 @@ namespace Roguehalla.Client
         {
             Initialize();
             if (Sprites.TryGetValue(key, out var cached) && cached != null) return cached;
+            WeaponId? weaponArt = key switch
+            {
+                "weapon0" => WeaponId.Sword,
+                "weapon1" => WeaponId.Bow,
+                "weapon2" => WeaponId.Wand,
+                "weapon3" => WeaponId.Shield,
+                "weapon4" => WeaponId.Axe,
+                _ => null,
+            };
+            if (weaponArt.HasValue)
+            {
+                var authored = StormInkWeaponArt.Get(weaponArt.Value);
+                if (authored != null)
+                {
+                    Sprites[key] = authored;
+                    return authored;
+                }
+            }
             const int n = 128;
             var texture = new Texture2D(n, n, TextureFormat.RGBA32, false) { name = "Original / " + key, filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
             var pixels = new Color[n * n];
@@ -72,6 +91,13 @@ namespace Roguehalla.Client
                         c = new Color((.43f + grain) * mortar, (.48f + grain) * mortar, (.54f + grain) * mortar);
                         break;
                     case "bar": break;
+                    case "handwrap":
+                        float wrap = new Vector2(u * 1.12f, v * 1.28f).magnitude;
+                        a = Mathf.Clamp01((.84f - wrap) * 40f);
+                        float seam = Mathf.Min(Mathf.Abs(v + u * .32f + .19f), Mathf.Abs(v + u * .32f - .21f));
+                        c = Color.white * (Mathf.Lerp(.47f, 1f, Mathf.Clamp01((v + .6f) * .75f)) -
+                            (seam < .055f ? .19f : 0f));
+                        break;
                     case "chest":
                         a = Mathf.Abs(u) < .88f && Mathf.Abs(v) < .62f ? 1 : 0;
                         bool trim = Mathf.Abs(u) > .62f || Mathf.Abs(v) > .45f || Mathf.Abs(u) < .08f;

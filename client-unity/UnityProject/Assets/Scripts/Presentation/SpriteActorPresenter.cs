@@ -13,15 +13,19 @@ namespace Roguehalla.Client
         sealed class Art
         {
             public GameObject Root;
-            public SpriteRenderer Body, Shadow, Cast, Halo, Hp, HpBack, Barrier, Weapon, Status;
+            public SpriteRenderer Body, Shadow, Cast, Halo, Hp, HpBack, Barrier, Weapon, WeaponSupport, Status;
             public ShowcaseIdentityOwner Identity;
             public SpriteOutline[] Plates; public SpriteOutline OutBody, OutHp, OutFoot; // CONTRAST: adaptive neutral outlines (SpriteOutline.cs)
+            public StormInkBowstring Bowstring;
             public SpriteRenderer[] BarrierRing;
             public SpriteRenderer[] StatusIcons;
             public ShowcasePointLight Light;
             public ShowcaseCatalog.Appearance Appearance;
             public Vector3 LastPosition;
             public float AttackUntil;
+            public float WindupAt, WindupUntil, AttackFacing;
+            public bool HasAttackFacing;
+            public uint DrawStartedAt;
             public GaitState Gait;
             public float StampTime;
             public bool LocalCue;
@@ -81,10 +85,10 @@ namespace Roguehalla.Client
             foreach (var pair in _active)
             {
                 var a = pair.Value;
-                a.AttackUntil = a.HitUntil = a.BlockUntil = 0; a.WishUntil = 0;
+                ClearWeaponMotion(a);
+                a.HitUntil = a.BlockUntil = 0; a.WishUntil = 0;
                 a.Gait.Reset();
                 a.AttackAt = a.HitAt = a.BlockAt = a.DeadAt = 0;
-                a.LocalCue = false;
                 a.HoldDeathFrame = a.Dead;
             }
         }
@@ -93,41 +97,97 @@ namespace Roguehalla.Client
             if (_active.TryGetValue(id, out var art)) { position = art.Root.transform.position; return true; }
             position = default; return false;
         }
-        /// <summary>
-        /// Cosmetic swing at the moment of the owner's click, before the server answers. It carries no rule: hit, damage and
-        /// cooldown come only from the server. The clip simply ends if the server never confirms; the first confirmed swing
-        /// within <see cref="LocalCueWindow"/> adopts it instead of restarting it.
-        /// </summary>
+        static bool HasWeaponTrack(Art a) => StormInkWeaponMotion.Supports(a.Kind, a.Faction, a.WeaponId);
+
+        static void ClearWeaponMotion(Art a)
+        {
+            a.AttackAt = a.AttackUntil = a.WindupAt = a.WindupUntil = 0f;
+            a.HasAttackFacing = a.LocalCue = false;
+            a.DrawStartedAt = 0;
+            a.Bowstring?.Clear(a.Weapon, a.OutBody);
+        }
+
+        /// <summary>Local click feedback settles the champion into a guard until a delivered cue commits the motion.</summary>
         public void LocalAttackCue(uint id)
         {
             if (!_active.TryGetValue(id, out var art) || art.Dead || !art.WeaponId.HasValue) return;
             float now = Time.unscaledTime;
-            if (art.AttackUntil > now && !art.LocalCue) return; // a confirmed swing is already playing
+            if (HasWeaponTrack(art))
+            {
+                if (art.AttackUntil > now || art.WindupUntil > now) return;
+                art.WindupAt = now;
+                art.WindupUntil = now + .16f;
+                art.HasAttackFacing = false;
+                art.LocalCue = true;
+                return;
+            }
+            if (art.AttackUntil > now && !art.LocalCue) return;
             art.AttackAt = now; art.LocalCue = true;
             art.AttackUntil = now + ClipDuration(AttackFrames(art.Appearance, art.WeaponId.Value, out float fps), fps, .32f);
         }
+
         const float LocalCueWindow = .6f;
-        public void ConfirmedCue(uint id, FxKind kind)
+
+        public void ConfirmedCue(uint id, FxKind kind, WeaponId? cueWeapon = null, float? aim = null,
+            float windupMs = 0f)
         {
-            if (!_active.TryGetValue(id,out var art)) return;
-            float now=Time.unscaledTime;
-            if(kind==FxKind.Swing && art.WeaponId.HasValue)
+            if (!_active.TryGetValue(id, out var art) || art.Dead) return;
+            float now = Time.unscaledTime;
+            if (kind == FxKind.Cancel || kind == FxKind.Teleport)
             {
-                if(art.LocalCue && now-art.AttackAt<LocalCueWindow) { art.LocalCue=false; return; }
-                art.LocalCue=false;
-                art.AttackAt=now;
-                var clip=AttackFrames(art.Appearance,art.WeaponId.Value,out float fps);
-                art.AttackUntil=now+ClipDuration(clip,fps,.32f);
+                ClearWeaponMotion(art);
+                return;
             }
-            else if(kind==FxKind.Hit || kind==FxKind.Stagger)
+            if (kind == FxKind.Windup)
             {
-                art.HitAt=now;art.HitUntil=now+ClipDuration(art.Appearance?.Hit,art.Appearance!=null ? art.Appearance.HitFPS : 10,.2f);
+                if (!HasWeaponTrack(art) || !art.Root.activeSelf || cueWeapon != art.WeaponId) return;
+                ClearWeaponMotion(art);
+                art.WindupAt = now;
+                art.WindupUntil = now + windupMs * .001f;
+                art.AttackFacing = aim.GetValueOrDefault();
+                art.HasAttackFacing = aim.HasValue;
+                return;
             }
-            else if(kind==FxKind.Block)
+            if (kind == FxKind.Swing && art.WeaponId.HasValue)
             {
-                art.BlockAt=now;art.BlockUntil=now+ClipDuration(art.Appearance?.Block,art.Appearance!=null ? art.Appearance.BlockFPS : 10,.2f);
+                bool tracked = HasWeaponTrack(art);
+                if (tracked && (!art.Root.activeSelf || (cueWeapon.HasValue && cueWeapon != art.WeaponId))) return;
+                if (!tracked && art.LocalCue && now - art.AttackAt < LocalCueWindow) { art.LocalCue = false; return; }
+                art.LocalCue = false;
+                art.WindupUntil = 0f;
+                art.AttackAt = now;
+                art.AttackFacing = aim.GetValueOrDefault();
+                art.HasAttackFacing = aim.HasValue;
+                var clip = AttackFrames(art.Appearance, art.WeaponId.Value, out float fps);
+                art.AttackUntil = now + ClipDuration(clip, fps, .32f);
+            }
+            else if (kind == FxKind.Hit || kind == FxKind.Stagger)
+            {
+                if (kind == FxKind.Stagger) ClearWeaponMotion(art);
+                art.HitAt = now;
+                art.HitUntil = now + ClipDuration(art.Appearance?.Hit, art.Appearance != null ? art.Appearance.HitFPS : 10, .2f);
+            }
+            else if (kind == FxKind.Block)
+            {
+                art.BlockAt = now;
+                art.BlockUntil = now + ClipDuration(art.Appearance?.Block, art.Appearance != null ? art.Appearance.BlockFPS : 10, .2f);
             }
         }
+
+        internal void ObservedProjectile(uint owner, ProjectileKind kind, float x, float y, float aim)
+        {
+            if (!_active.TryGetValue(owner, out var art) || !HasWeaponTrack(art) ||
+                (kind != ProjectileKind.Arrow && kind != ProjectileKind.Ball)) return;
+            // The projected collection has no launch id. A newly seen shot may be an old shot arriving from fog.
+            // Require it to be near the delivered owner, and require the delivered weapon to agree.
+            var origin = art.Root.transform.position;
+            float dx = x - origin.x / ArenaView.Scale;
+            float dy = y + origin.y / (ArenaView.Scale * ArenaView.GroundSquash);
+            if (dx * dx + dy * dy > 80f * 80f) return;
+            var weapon = kind == ProjectileKind.Arrow ? WeaponId.Bow : WeaponId.Wand;
+            ConfirmedCue(owner, FxKind.Swing, weapon, aim);
+        }
+
         /// <summary>
         /// Plays the character clip that fits a delivered Wish cue on an observed actor: Cast for Freeze, Swarm and Trial, Attack
         /// for Blaze Step, Block for Last Stand (each falling back to another clip when the character lacks it).
@@ -388,6 +448,7 @@ namespace Roguehalla.Client
         {
             var art=_active[id];
             if (TryParkBody(id, art)) return; // a dead creature waits for its renewed id (SpriteActorPresenter.Fade.cs)
+            if (HasWeaponTrack(art)) ClearWeaponMotion(art);
             if (TryBeginExit(id, art)) return; // a living actor that left sight fades out (SpriteActorPresenter.Fade.cs)
             _active.Remove(id); Release(art);
         }
@@ -404,7 +465,7 @@ namespace Roguehalla.Client
         }
 
         public void Present(uint id, float x, float y, float facing, float hp, FactionId? faction, ActorStatus status, WeaponId? weapon,
-            ActorKind kind, MobTypeId? mob, ushort effects, byte signature, bool local, float barrierPct = 0f, byte barrierRingStep = 0, string archetypeKey = null, float footHx = 0f, float footHy = 0f)
+            ActorKind kind, MobTypeId? mob, ushort effects, byte signature, bool local, float barrierPct = 0f, byte barrierRingStep = 0, string archetypeKey = null, float footHx = 0f, float footHy = 0f, uint drawStartedAt = 0, double sampleTickMs = 0)
         {
             if (!_active.TryGetValue(id, out var a))
             {
@@ -412,7 +473,7 @@ namespace Roguehalla.Client
                 else
                 {
                     a = _pool.Count > 0 ? _pool.Pop() : Create(); _active.Add(id, a);
-                    a.Root.SetActive(true); a.LastPosition = ArenaView.WorldPoint(x, y); a.AttackUntil = 0;
+                    a.Root.SetActive(true); a.LastPosition = ArenaView.WorldPoint(x, y); ClearWeaponMotion(a);
                     a.Gait.Reset(); a.StampTime = Time.unscaledTime;
                     a.HitUntil=a.BlockUntil=0;a.Dead=false;a.HoldDeathFrame=false;a.WishUntil=0;a.WishTintAmount=0;
                     if (IsCreature(kind)) MobArt.Created++;
@@ -440,8 +501,49 @@ namespace Roguehalla.Client
             bool dead = status == ActorStatus.Dead || status == ActorStatus.Mia;
             if(dead && !a.Dead) { a.DeadAt=Time.unscaledTime; a.HoldDeathFrame=false; }
             if(!dead) a.HoldDeathFrame=false;
+            float hiddenAlpha = Indicators.HiddenAlpha(effects, local);
+            if (dead || hiddenAlpha <= 0f || a.WeaponId != weapon || a.Faction != faction)
+            {
+                ClearWeaponMotion(a);
+                a.BlockUntil = 0f;
+            }
             a.Dead=dead;a.WeaponId=weapon; a.Faction=faction; a.Kind=kind; a.MobType=mob;
-            if (!weapon.HasValue) a.AttackUntil = 0;
+            bool trackedWeapon = !dead && hiddenAlpha > 0f && HasWeaponTrack(a);
+            var phase = StormInkWeaponMotion.Phase.Guard;
+            float weaponProgress = 0f, poseFacing = facing;
+            if (trackedWeapon)
+            {
+                if (weapon == WeaponId.Bow && a.DrawStartedAt != drawStartedAt)
+                {
+                    // The owner snapshot carries a start edge only. A cleared draw cannot start a release.
+                    if (drawStartedAt != 0)
+                    {
+                        a.WindupAt = gaitNow - Mathf.Max(0f, (float)(sampleTickMs - drawStartedAt) * .001f);
+                        a.WindupUntil = 0f;
+                        a.LocalCue = false;
+                    }
+                    a.DrawStartedAt = drawStartedAt;
+                }
+                if (a.BlockUntil > gaitNow && weapon == WeaponId.Shield)
+                    phase = StormInkWeaponMotion.Phase.Block;
+                else if (a.AttackUntil > gaitNow)
+                {
+                    float hold = StormInkWeaponMotion.ContactHold(faction.Value);
+                    float age = gaitNow - a.AttackAt;
+                    phase = age < hold ? StormInkWeaponMotion.Phase.Strike : StormInkWeaponMotion.Phase.Follow;
+                    weaponProgress = (age - hold) / Mathf.Max(.01f, a.AttackUntil - a.AttackAt - hold);
+                    if (a.HasAttackFacing) poseFacing = a.AttackFacing;
+                }
+                else if (a.WindupUntil > gaitNow || a.DrawStartedAt != 0)
+                {
+                    phase = StormInkWeaponMotion.Phase.Ready;
+                    // Cosmetic bow pull saturates while the delivered draw remains open. Only a shown arrow starts its release.
+                    weaponProgress = a.DrawStartedAt != 0 ? (gaitNow - a.WindupAt) * 4f :
+                        (gaitNow - a.WindupAt) / Mathf.Max(.01f, a.WindupUntil - a.WindupAt);
+                    if (a.LocalCue) weaponProgress = Mathf.Min(.48f, weaponProgress);
+                    if (a.HasAttackFacing) poseFacing = a.AttackFacing;
+                }
+            }
             bool isMob = kind != ActorKind.Player;
             // The server's archetype key (catalog key) picks the look; a key the catalog lacks falls back to the faction/type mapping.
             string key = ShowcaseActorLook.AppearanceKey(kind, faction, mob, archetypeKey);
@@ -455,7 +557,7 @@ namespace Roguehalla.Client
             float fallAngle = dead && (appearance == null || appearance.Death == null || appearance.Death.Length == 0) ? 75f : 0f;
             Sprite[] frames=appearance?.Idle;
             float fps=appearance!=null ? appearance.IdleFPS : 10;
-            float elapsed=Time.unscaledTime;bool loop=true,walkPhase=false;
+            float elapsed=Time.unscaledTime;bool loop=true,walkPhase=false,useWeaponPhase=false;
             if(appearance!=null)
             {
                 if(dead && appearance.Death!=null && appearance.Death.Length>0)
@@ -464,10 +566,15 @@ namespace Roguehalla.Client
                 { elapsed-=a.WishAt;loop=false; }
                 else if(a.BlockUntil>Time.unscaledTime && appearance.Block!=null && appearance.Block.Length>0)
                 { frames=appearance.Block;fps=appearance.BlockFPS;elapsed-=a.BlockAt;loop=false; }
-                else if(a.HitUntil>Time.unscaledTime && appearance.Hit!=null && appearance.Hit.Length>0)
+                else if(phase != StormInkWeaponMotion.Phase.Strike && a.HitUntil>gaitNow && appearance.Hit!=null && appearance.Hit.Length>0)
                 { frames=appearance.Hit;fps=appearance.HitFPS;elapsed-=a.HitAt;loop=false; }
-                else if(a.AttackUntil>Time.unscaledTime && weapon.HasValue)
-                { frames=AttackFrames(appearance,weapon.Value,out fps);elapsed-=a.AttackAt;loop=false; }
+                else if(trackedWeapon ? phase == StormInkWeaponMotion.Phase.Ready || phase == StormInkWeaponMotion.Phase.Strike ||
+                    phase == StormInkWeaponMotion.Phase.Follow && !reduced : a.AttackUntil > gaitNow && weapon.HasValue)
+                {
+                    frames = AttackFrames(appearance, weapon.Value, out fps);
+                    elapsed -= a.AttackAt; loop = false;
+                    useWeaponPhase = trackedWeapon;
+                }
                 else if(a.Gait.Walking && appearance.Walk.Length>0)
                 { frames=appearance.Walk;fps=appearance.WalkFPS;walkPhase=true; }
             }
@@ -476,10 +583,16 @@ namespace Roguehalla.Client
                 // Catalog arrays are direction-major, with exactly eight source directions. Facing is artwork only.
                 int count = frames.Length / 8;
                 // Flare: SW,W,NW,N,NE,E,SE,S; server facing zero is screen east.
-                int direction = ((Mathf.RoundToInt(facing / (Mathf.PI / 4)) + 5) % 8 + 8) % 8;
+                int direction = ((Mathf.RoundToInt((useWeaponPhase ? poseFacing : facing) / (Mathf.PI / 4)) + 5) % 8 + 8) % 8;
                 int rawFrame=walkPhase ? 0 : Mathf.Max(0,Mathf.FloorToInt(elapsed*Mathf.Max(1,fps)));
                 int frame = dead && a.HoldDeathFrame ? count - 1 :
                     reduced ? (dead ? count-1 : 0) : walkPhase ? Gait.FrameIndex(a.Gait.Phase,count) : loop ? rawFrame%Mathf.Max(1,count) : Mathf.Min(count-1,rawFrame);
+                if (useWeaponPhase)
+                {
+                    // The assembled sheet's wind-up and contact poses meet the delivered combat phases.
+                    frame = phase == StormInkWeaponMotion.Phase.Ready ? 0 :
+                        phase == StormInkWeaponMotion.Phase.Strike ? count / 2 : count - 1;
+                }
                 var painted = StormInkActors.Frame(kind, faction, mob, appearance, frames, direction, frame, count, out bool mirror);
                 a.Body.sprite = painted != null ? painted : frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
                 float height = appearance.WorldHeight;
@@ -572,12 +685,83 @@ namespace Roguehalla.Client
                 segment.color = (Color)theme.Info;
                 segment.sortingOrder = order + 10;
             }
-            a.Weapon.sortingOrder = order + 2;
-            a.Weapon.transform.localPosition = new Vector3(Mathf.Cos(facing) * .42f, .6f - Mathf.Sin(facing) * .12f, 0);
-            a.Weapon.sprite = weapon.HasValue ? ShowcaseSprites.Get("weapon" + Mathf.Clamp((int)weapon.Value,0,5)) : null;
-            a.Weapon.transform.localRotation = Quaternion.Euler(0, 0, -facing * Mathf.Rad2Deg - 90);
-            a.Weapon.transform.localScale = Vector3.one * (weapon == WeaponId.Fists ? .35f : .65f);
-            a.Weapon.enabled = !dead && weapon.HasValue;
+            a.WeaponSupport.enabled = false;
+            bool drawingString = false;
+            if (trackedWeapon)
+            {
+                int poseRow = StormInkActors.PoseRowForFacing(poseFacing);
+                var pose = StormInkWeaponMotion.Sample(faction.Value, weapon.Value, phase, weaponProgress, poseRow, reduced);
+                if (useWeaponPhase) a.Body.transform.localRotation = Quaternion.Euler(0, 0, pose.BodyLean);
+                var authored = StormInkWeaponArt.Get(weapon.Value, poseRow);
+                var sprite = authored != null ? authored : ShowcaseSprites.Get(StormInkWeaponMotion.KeyFor(weapon.Value));
+                float scale = StormInkWeaponMotion.Size / ActorVisualScale;
+                var signedScale = new Vector3(authored == null && pose.FlipFallback ? -scale : scale, scale, scale);
+                var offset = SpriteSocket(sprite, StormInkWeaponArt.Grip(weapon.Value, poseRow), signedScale);
+
+                bool leftHand = StormInkWeaponMotion.PrimaryHand(weapon.Value) == StormInkWeaponMotion.Hand.Left;
+                bool registered = StormInkActors.TryHand(faction, a.Body.sprite, leftHand, out var handUv);
+                Vector3 grip = registered ? BodySocket(a.Body, handUv) : (Vector3)pose.Grip;
+                float angle = pose.Angle;
+                Vector3 supportFromGrip = Vector3.zero;
+                Vector3? drawPalm = null;
+                if (pose.HasSupport && useWeaponPhase)
+                {
+                    supportFromGrip = SpriteSocket(sprite, StormInkWeaponArt.Support(weapon.Value, poseRow), signedScale) - offset;
+                    if (registered && StormInkActors.TryHand(faction, a.Body.sprite, !leftHand, out var supportUv))
+                    {
+                        // Both palms can guide angle when close enough to the fixed weapon geometry.
+                        // The painted primary palm remains the pivot and the sprite keeps its uniform size.
+                        var supportPalm = BodySocket(a.Body, supportUv);
+                        var palms = supportPalm - grip;
+                        if (weapon == WeaponId.Bow && authored != null && !a.LocalCue)
+                            drawPalm = supportPalm;
+                        else if (palms.sqrMagnitude > .001f && Mathf.Abs(palms.magnitude - supportFromGrip.magnitude) < .10f)
+                        {
+                            float restAngle = Mathf.Atan2(supportFromGrip.y, supportFromGrip.x) * Mathf.Rad2Deg;
+                            float palmsAngle = Mathf.Atan2(palms.y, palms.x) * Mathf.Rad2Deg;
+                            angle += Mathf.Clamp(Mathf.DeltaAngle(angle + restAngle, palmsAngle), -18f, 18f);
+                        }
+                    }
+                }
+
+                var rotation = Quaternion.Euler(0, 0, angle);
+                a.Weapon.sprite = sprite;
+                a.Weapon.sortingOrder = order + (pose.Behind ? -2 : 2);
+                a.Weapon.transform.localScale = signedScale;
+                a.Weapon.transform.localRotation = rotation;
+                a.Weapon.transform.localPosition = grip - rotation * offset;
+                if (drawPalm.HasValue)
+                {
+                    a.Bowstring ??= StormInkBowstring.Create(a.Root.transform);
+                    drawingString = a.Bowstring != null;
+                    a.Bowstring?.Draw(a.Weapon, a.OutBody, poseRow, drawPalm.Value, hiddenAlpha);
+                }
+                if (pose.HasSupport && useWeaponPhase && !registered)
+                {
+                    var support = a.WeaponSupport;
+                    support.enabled = true;
+                    support.sortingOrder = order + (pose.SupportBehind ? -1 : 3);
+                    support.transform.localPosition = grip + rotation * supportFromGrip;
+                    support.transform.localRotation = rotation;
+                    var wrap = StormInkWeaponMotion.SupportWrap(faction.Value);
+                    wrap.a = hiddenAlpha;
+                    support.color = wrap;
+                }
+            }
+            else
+            {
+                a.Weapon.sortingOrder = order + 2;
+                a.Weapon.transform.localPosition = new Vector3(Mathf.Cos(facing) * .42f, .6f - Mathf.Sin(facing) * .12f, 0);
+                a.Weapon.sprite = weapon.HasValue
+                    ? StormInkWeaponArt.Get(weapon.Value, StormInkActors.PoseRowForFacing(facing)) ??
+                        ShowcaseSprites.Get(StormInkWeaponMotion.KeyFor(weapon.Value))
+                    : null;
+                a.Weapon.transform.localRotation = Quaternion.Euler(0, 0, -facing * Mathf.Rad2Deg - 90);
+                a.Weapon.transform.localScale = Vector3.one * (weapon == WeaponId.Fists ? .35f : StormInkWeaponMotion.Size / ActorVisualScale);
+            }
+            if (!drawingString) a.Bowstring?.Clear(a.Weapon, a.OutBody);
+            a.Weapon.color = weapon == WeaponId.Fists ? new Color(.9f, .86f, .72f, hiddenAlpha) : new Color(1f, 1f, 1f, hiddenAlpha);
+            a.Weapon.enabled = !dead && weapon.HasValue && hiddenAlpha > 0f;
             a.Status.enabled = false; // the generic status cue is replaced by the per-status glyphs (OverheadIndicators)
             a.Status.sortingOrder = order + 6; a.Status.color = color;
             a.Status.transform.localPosition = new Vector3(.55f, 1.5f, 0);
@@ -592,7 +776,6 @@ namespace Roguehalla.Client
             a.Light.Configure(color, local ? .65f : .2f, .3f, 2.4f, .5f, false, true);
             a.Light.SetVisible(!dead && local);
             // A hidden fighter (Swarm) is not drawn for anyone else and faint for its owner (legacy PlayerView).
-            float hiddenAlpha = Indicators.HiddenAlpha(effects, local);
             if (hiddenAlpha > 0f && hiddenAlpha < 1f) { var bc = a.Body.color; bc.a *= hiddenAlpha; a.Body.color = bc; }
             bool hideAll = hiddenAlpha <= 0f; if (a.Root.activeSelf == hideAll) a.Root.SetActive(!hideAll);
             // CONTRAST: outlines last, once every source sprite, transform, enabled state and sort order is final for the frame.
@@ -613,6 +796,18 @@ namespace Roguehalla.Client
             // SURFACE-FX HOOK: delivered actors only (see SurfaceFx); prints, ripples and footsteps come from here and nowhere else.
             // A fighter that is hidden from this viewer (not drawn at all) leaves no prints, ripples or footsteps either.
             if (Fx != null && !hideAll) Fx.Note(id, x, y, kind, local, dead, appearance != null ? appearance.WorldHeight : 1.6f, a.Gait.Walking, a.Gait.Phase, appearance != null && appearance.Walk != null ? appearance.Walk.Length / 8 : 0);
+        }
+
+        static Vector3 BodySocket(SpriteRenderer body, Vector2 socket)
+        {
+            var transform = body.transform; // Body and weapon share the grounded actor parent.
+            return transform.localPosition + transform.localRotation * SpriteSocket(body.sprite, socket, transform.localScale);
+        }
+
+        static Vector3 SpriteSocket(Sprite sprite, Vector2 socket, Vector3 signedScale)
+        {
+            Vector2 pixel = Vector2.Scale(socket, sprite.rect.size) - sprite.pivot;
+            return Vector3.Scale((Vector3)(pixel / sprite.pixelsPerUnit), signedScale);
         }
 
         Art Create()
@@ -643,7 +838,10 @@ namespace Roguehalla.Client
                 segment.enabled = false;
                 a.BarrierRing[i] = segment;
             }
-            a.Weapon = ShowcaseSprites.Create(t, "Equipped weapon cue", "bar", 3, new Color(.9f, .86f, .72f), Vector2.one, Vector3.zero, false);
+            a.Weapon = ShowcaseSprites.Create(t, "Equipped weapon cue", "bar", 3, Color.white, Vector2.one, Vector3.zero, false);
+            a.WeaponSupport = ShowcaseSprites.Create(t, "Supporting hand on weapon", "handwrap", 4, Color.white,
+                new Vector2(.16f, .13f), Vector3.zero, false);
+            a.WeaponSupport.enabled = false;
             a.Status = ShowcaseSprites.Create(t, "Public status cue", "rune", 6, Color.white, new Vector2(.18f, .18f), new Vector3(.55f, 1.5f), false);
             a.StatusIcons = new SpriteRenderer[13];
             for(int bit=0;bit<a.StatusIcons.Length;bit++)
@@ -679,7 +877,7 @@ namespace Roguehalla.Client
             if (!StrokeLayer.Exists) return;
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
             {
-                if (r == a.Body || r == a.Weapon || r == a.Halo || r == a.Shadow || r == a.Cast) continue;
+                if (r == a.Body || r == a.Weapon || r == a.WeaponSupport || r == a.Halo || r == a.Shadow || r == a.Cast) continue;
                 string n = r.gameObject.name;
                 if (n.IndexOf("ring", System.StringComparison.OrdinalIgnoreCase) >= 0 || n.IndexOf("bubble", System.StringComparison.OrdinalIgnoreCase) >= 0 || n.Contains("shade")
                     || n == "Contact shadow" || n == "Cast shadow" || n == "Faction mantle") continue;
