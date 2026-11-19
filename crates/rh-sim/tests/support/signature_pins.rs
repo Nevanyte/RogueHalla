@@ -1,10 +1,10 @@
-// The signature landmarks' digest-neutrality pins, in one place (P-MAPGEN-SIG-BLUEPRINT-1). A packet that is meant to
-// change no generated map proves it against these; a packet that is meant to move a landmark re-pins them here, once,
-// with the values `mapgen_signature_blueprint.rs` `print_signature_pins` prints (run it with `--ignored --nocapture`),
-// and says so in its brief. Pinned on the stub commit of P-MAPGEN-SIG-BLUEPRINT-1 (the generator of
-// feature/unity-rework @ 9890f291b, which holds the blueprint church and the Plague pools), before the generic stamp.
-// The option-on pins (`pinned_on_maps`, `pinned_landmarks`) were last re-taken by P-MAPGEN-SIG-SCALE-4 on
-// agent/opus/P-MAPGEN-SIG-SCALE-4 (the 22 x 22 volcano with three streams; its shas changed with later rebases); `pinned_off` is unchanged.
+// The signature landmarks' generated-map pins, in one place (P-MAPGEN-SIG-BLUEPRINT-1). A packet meant to preserve
+// maps proves them against these; a packet that changes an approved signature landmark re-pins only its option-on
+// arrays using `mapgen_signature_blueprint.rs` `print_signature_pins` (`--ignored --nocapture`) and records why in its
+// brief. The original pins were measured before the generic stamp on the stub commit of P-MAPGEN-SIG-BLUEPRINT-1 (the
+// generator of feature/unity-rework @ 9890f291b, which holds the blueprint church and the Plague pools). The signature
+// option-on pins were last changed by P-STORM-CHURCH-MAP-2: the approved rear church door changes church tiles and its
+// generated map hashes. The option-off pins remain from the original P-MAPGEN-SIG-BLUEPRINT-1 baseline.
 //
 // Anchors are not in `map_hash`; the JSON digests below sort each anchor's `entrance` row-major first, so that
 // P-MAPGEN-SIG-BLUEPRINT-2, which sorts the entrances in the generator (nothing in the generator, the server or the
@@ -108,84 +108,86 @@ pub fn pinned_off() -> [(i64, &'static str, u64); 8] {
 /// (2026-11-14: Fire craters keep clear of the lava and shrink to fit; 15 of the 32 maps moved; 94 attempts, worst 9
 /// on seeds 22 and 30), then by P-MAPGEN-SIG-HOLY-1 (2026-11-14: the Holy hall's reserved site and its two camps move
 /// every option-on Prefix, so all 32 maps; 96 attempts, worst 11 on seed 11), then by P-LAND-FROST-1 (2026-11-14: the
-/// Frost lake built first on the cave's softly reserved room; all 32 maps; 97 attempts, worst 10 on seed 16).
+/// Frost lake built first on the cave's softly reserved room; all 32 maps; 97 attempts, worst 10 on seed 16), then
+/// P-STORM-CHURCH-MAP-2 (2026-11-19: the approved rear church opening changes signature-on map hashes; option-off pins
+/// remain unchanged).
 pub fn pinned_on_maps() -> [(i64, u64, &'static str, u64); 32] {
     [
-        (1, 1, "820db995", 0x8afc_56a7_1f15_6633),
-        (2, 2, "28fd17d6", 0x4ce8_5a89_d31a_479f),
-        (3, 1, "de070922", 0x21e0_17a3_7011_9c88),
-        (4, 1, "d2b54130", 0x5a06_ad57_dc7a_f22b),
-        (5, 0, "ba9ee3c8", 0xee46_d4ee_cfdd_b28e),
-        (6, 0, "99f48770", 0x6150_e68c_37c9_0920),
-        (7, 1, "af64e9d2", 0xd683_2df5_1993_1ec6),
-        (8, 2, "0be488ff", 0xcb07_864d_2774_0095),
-        (9, 0, "ba036b68", 0x6494_ea37_d1ff_a4b6),
-        (10, 2, "329bbece", 0xcaa5_bd85_ee02_a42e),
-        (11, 0, "c89e36bc", 0xb254_f886_0387_4f0a),
-        (12, 1, "a67f2d0b", 0x8a63_5d78_a52d_837b),
-        (13, 2, "78de99e0", 0x4e77_7b05_4178_beb7),
-        (14, 1, "a4167744", 0xbf30_ebe3_1948_2ffd),
-        (15, 3, "f64ced4b", 0x6d30_67ee_f494_f28b),
-        (16, 10, "231f16c0", 0x4116_f2ab_e412_008c),
-        (17, 1, "a941a9e7", 0xcbcd_6a92_777c_dda1),
-        (18, 3, "559c6a84", 0xb653_049c_5af9_0694),
-        (19, 0, "e3010cca", 0xd3c5_8ce2_a346_483e),
-        (20, 4, "2ff009cc", 0x82ce_88c9_e18c_a713),
-        (21, 4, "bc9d85b9", 0xf8d7_b02f_f8e5_8195),
-        (22, 0, "c34bbb8b", 0xd87f_7ad1_70e2_bd5c),
-        (23, 0, "0b6d0f9e", 0xc6d6_8cd5_407e_0dab),
-        (24, 0, "08c339cd", 0x92c9_cea1_5b69_b413),
-        (25, 5, "dadc85df", 0xc479_a41f_b156_7c1f),
-        (26, 0, "cb5fc4b5", 0xadac_c7fc_7afc_75b5),
-        (27, 0, "ce19cbd5", 0x47fa_595c_c1a6_718a),
-        (28, 5, "3c32091d", 0x2912_1aa7_c466_5a69),
-        (29, 6, "959486b1", 0x55cf_a642_1321_b560),
-        (30, 4, "89dd400c", 0x0e41_ec18_d07f_b05a),
-        (31, 1, "fcb85307", 0xd3cc_cc3e_3354_9519),
-        (32, 5, "c6b085db", 0x7102_3f39_0d6b_6355),
+        (1, 1, "12ecb887", 0x731bc496b476d845),
+        (2, 2, "d05c8266", 0xbd1f04f4cb0752b5),
+        (3, 1, "e261090e", 0xa1b26a646bdd46a3),
+        (4, 1, "e8a2e4a4", 0x1d674bff040394a8),
+        (5, 0, "625074c5", 0x9b8541f267355cca),
+        (6, 0, "9f576b5d", 0x03850a6ba8653f1a),
+        (7, 1, "f878537c", 0x1e700f116bb9e3ab),
+        (8, 2, "5c026b14", 0xf46728d5dea6e111),
+        (9, 0, "f1fddcd1", 0x061064351d69dac4),
+        (10, 2, "69cd6008", 0x4f6c64b924500e25),
+        (11, 0, "5405ddf6", 0x202190c58d0db72a),
+        (12, 1, "793782ac", 0x4f31fdf3b9f46bdd),
+        (13, 2, "723e0003", 0x2ae52b5e3a2ec249),
+        (14, 1, "3781123d", 0xe198a6309c94957d),
+        (15, 3, "223097a1", 0x63965d4c11891d09),
+        (16, 10, "ebee9072", 0x7b98dcd81ebe5abe),
+        (17, 1, "600edf06", 0x1c44c188c3127eef),
+        (18, 3, "b3659ca2", 0x0da68650ff55d9e3),
+        (19, 0, "c95ebacf", 0x240fc85458b4a61d),
+        (20, 4, "8e62ed6e", 0x6e6ff842fb9aed7e),
+        (21, 4, "14df4002", 0xbb88be34e1f0c9ea),
+        (22, 0, "8f426622", 0xcc959dcf0f19ce30),
+        (23, 0, "0a62722b", 0xd76a850ad89baa59),
+        (24, 0, "4c60b84e", 0x221694494c2e4ff2),
+        (25, 5, "57658851", 0x5cc1443457aab6c5),
+        (26, 0, "f9d4d8a0", 0x173ef7c609bee07f),
+        (27, 0, "34508bf4", 0x9493c262c06e9ac3),
+        (28, 5, "0728b88a", 0x4d368ded60fa7630),
+        (29, 6, "2d5ae090", 0x7f977b0359507ba3),
+        (30, 4, "282d7871", 0xe7c24dd3c4ac6f0b),
+        (31, 1, "b2dd20a1", 0x4e922da76b97ad0f),
+        (32, 5, "facc255d", 0x3d35c59c734af4f1),
     ]
 }
-
 /// Seeds 1-16, attempts 0 and 1, option on: (seed, attempt, `landmarks_digest`). Seeds 2 and 11 fail their prefix on
 /// attempt 1 (1); no attempt here is refused by the stage (2). Re-pinned by P-MAPGEN-SIG-SCALE-4 (2026-11-14): the
 /// three-stream volcano's signature step refuses five of them (3: seed 7 attempt 0, 9/1, 12/0, 13/0, 16/0).
 // Re-pinned by P-MAPGEN-SIG-HOLY-1 (2026-11-14): the Landmarks phase now places the hall in its reserved Holy site, and
 // the site moves every option-on Prefix: all 32 rows moved.
 // Re-pinned by P-LAND-FROST-1 (2026-11-14): the cave's soft room is reserved in the Prefix (and given up on a failed
-// camp placement): 29 of the 32 rows moved.
+// camp placement): 29 of the 32 rows moved. Re-pinned by P-STORM-CHURCH-MAP-2 (2026-11-19) after the approved rear
+// church opening; option-off map pins remain unchanged.
 pub fn pinned_landmarks() -> [(i64, u64, u64); 32] {
     [
-        (1, 0, 0x0000_0000_0000_0003),
-        (1, 1, 0x8cc8_1f1a_24b2_f993),
-        (2, 0, 0xbbf9_6371_73b3_f929),
-        (2, 1, 0x0000_0000_0000_0003),
-        (3, 0, 0x0000_0000_0000_0001),
-        (3, 1, 0x158b_a2f2_60a4_58da),
-        (4, 0, 0x54e7_a1ea_8ccb_004c),
-        (4, 1, 0x49c8_49af_478d_57ec),
-        (5, 0, 0xb6a3_b15c_f956_8a77),
-        (5, 1, 0x0000_0000_0000_0003),
-        (6, 0, 0x3705_b7ed_a478_59a4),
-        (6, 1, 0x0000_0000_0000_0001),
-        (7, 0, 0x0000_0000_0000_0003),
-        (7, 1, 0x99da_9471_3773_d092),
-        (8, 0, 0x3bd0_8034_ced2_cd80),
-        (8, 1, 0x0000_0000_0000_0001),
-        (9, 0, 0xf77b_6cac_0e2a_838f),
-        (9, 1, 0xeb50_b237_5d8d_5521),
-        (10, 0, 0x0000_0000_0000_0001),
-        (10, 1, 0x8e4e_5bee_e610_8dec),
-        (11, 0, 0xf009_0239_e4bf_9fe8),
-        (11, 1, 0x07e6_8fa6_7954_ce1b),
-        (12, 0, 0x19e3_8c75_dfe4_e0da),
-        (12, 1, 0x4b3b_2a6d_088d_edda),
-        (13, 0, 0x098b_c367_fa96_747f),
-        (13, 1, 0x0000_0000_0000_0001),
-        (14, 0, 0x0000_0000_0000_0001),
-        (14, 1, 0x712f_23d3_9a27_11ad),
-        (15, 0, 0x0000_0000_0000_0001),
-        (15, 1, 0x0000_0000_0000_0001),
-        (16, 0, 0x0000_0000_0000_0003),
-        (16, 1, 0xbd8c_f8d6_fe49_5797),
+        (1, 0, 0x3),
+        (1, 1, 0xea75e718e61a5975),
+        (2, 0, 0x1cd53150f4784cbd),
+        (2, 1, 0x3),
+        (3, 0, 0x1),
+        (3, 1, 0x64633790204496cc),
+        (4, 0, 0xc49bc30f4e3bb97b),
+        (4, 1, 0x17407afd6775d9ed),
+        (5, 0, 0x6637a2766ff02ee1),
+        (5, 1, 0x3),
+        (6, 0, 0x0d84013e542a1cf2),
+        (6, 1, 0x1),
+        (7, 0, 0x3),
+        (7, 1, 0x252e235aadca852b),
+        (8, 0, 0x07a2f911fa2c316f),
+        (8, 1, 0x1),
+        (9, 0, 0x33741a10b1ae888d),
+        (9, 1, 0xb778a226222f7fe8),
+        (10, 0, 0x1),
+        (10, 1, 0x99bb0c5e5de3e9ec),
+        (11, 0, 0x708e35c399c0f386),
+        (11, 1, 0x09cbb5e9c1300133),
+        (12, 0, 0x3ce8650df26c1b15),
+        (12, 1, 0x1efcff2abd9dccce),
+        (13, 0, 0x79416113b639ae70),
+        (13, 1, 0x1),
+        (14, 0, 0x1),
+        (14, 1, 0x09534b3a921e0cc6),
+        (15, 0, 0x1),
+        (15, 1, 0x1),
+        (16, 0, 0x3),
+        (16, 1, 0x2a4ab39f911bf0af),
     ]
 }
