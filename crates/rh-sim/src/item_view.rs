@@ -361,6 +361,8 @@ impl ItemObserver {
                     ready_at: ready_ms(c.ready_at),
                 },
                 ContainerKind::WindEmblem => PropKind::WindEmblem,
+                // P-COLISEUM-HEALS-1: not on the wire yet (P-COLISEUM-HEALS-2); the pickup is not offered.
+                ContainerKind::Heal => continue,
             };
             let cue = PropCue {
                 x: position(c.at.x)?,

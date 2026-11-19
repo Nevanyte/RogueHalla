@@ -412,6 +412,9 @@ pub enum ContainerKind {
     /// A walk-over wind emblem (legacy container kind "consumable" carrying `windEmblem`): it holds no inventory
     /// item and is consumed by the wind system, never by the pickup action.
     WindEmblem,
+    /// P-COLISEUM-HEALS-1 STUB: a walk-over heal pickup at the grand coliseum centre (`systems::heal_pickups`): no item;
+    /// `ready_at` is the server time it is next available. Never created yet.
+    Heal,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
