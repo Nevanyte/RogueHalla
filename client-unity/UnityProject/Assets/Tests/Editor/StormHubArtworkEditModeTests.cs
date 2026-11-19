@@ -3,6 +3,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace Roguehalla.Client.Tests
 {
@@ -35,7 +36,7 @@ namespace Roguehalla.Client.Tests
             var image = floor.GetComponent<Image>();
             Assert.AreSame(expected, image.sprite);
             Assert.IsTrue(image.raycastTarget, "The floor Image is the existing walk-to-point hit surface.");
-            Assert.IsNotNull(floor.GetComponent("HubFloorPointer"));
+            Assert.IsNotNull(floor.GetComponent<IPointerClickHandler>(), "A pointer click on the painted floor must still initiate movement.");
             Assert.IsFalse(floor.Find("FloorTint").GetComponent<Image>().raycastTarget);
 
             var shop = floor.parent.Find("Station_Shop").GetComponent<Button>();
