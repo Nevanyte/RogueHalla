@@ -38,3 +38,5 @@ The coordinator regenerates the v19 vectors with `cargo run --locked -p rh-proto
 The v19 JS vector changes also require the existing card provenance chain to be refreshed. The coordinator uses the documented pinned linux/amd64 catalog, runtime, and witness capture scripts, records the recursive provenance-only differences, and reruns their checks and the full gate. The original gameplay cases and frozen pins remain intact.
 
 Explicit practice, load and transport test configurations keep their quest board disabled. The normal `SimConfig::live_content()` profile enables the new board.
+
+Policy contract 26 pairs with observation 31. Its delivered collections now carry the updated quest view, public effects and optional destroyed terrain.

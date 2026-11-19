@@ -53,7 +53,9 @@ use std::time::{Duration, Instant};
 /// Wall (field kind 3) with its tile list; bots do not decide on it.
 /// Version 25 (observation 30, P-FROST-WALL-BOTS-1): [`MatchStart`] carries `frost_wish`, the room's Frost Wish (the
 /// room-wide public value every human client reads from the Welcome's HUD block, term 23); bots aim Frost Wall by it.
-pub const POLICY_CONTRACT_VERSION: u16 = 25;
+/// Version 26 (protocol 19, observation 31) delivers personal quest slots and actions, public quest
+/// markers, and destroyed terrain. Fill bots receive their own view and cannot accept quests.
+pub const POLICY_CONTRACT_VERSION: u16 = 26;
 
 /// Everything a policy may know about a match before its first observation, all of it public static data (the map
 /// and spawn points), never match state. Never a [`rh_sim::Secrets`] value and never the sim itself (C-OBS, C-RNG, C-POLICY).
