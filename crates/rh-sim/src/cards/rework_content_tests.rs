@@ -364,7 +364,10 @@ fn legacy_is_unchanged_and_unlisted_cards_keep_their_catalog_rows() {
     assert_eq!(listed.len(), 18);
     for id in CardId::ALL {
         assert_eq!(legacy().def(id), id.definition(), "Legacy {id:?}");
-        if !listed.contains(&id) {
+        // Wishful Thinking's override is text only (P-AUG-TUNE-1, `wishful_rework_tests`): its rows are the catalog's.
+        if id == CardId::WishfulThinking {
+            assert_eq!(rework().def(id).rows, id.definition().rows);
+        } else if !listed.contains(&id) {
             assert_eq!(rework().def(id), id.definition(), "Rework {id:?} unchanged");
         }
     }

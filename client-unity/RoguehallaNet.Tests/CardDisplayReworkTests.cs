@@ -10,14 +10,14 @@ namespace Roguehalla.Net.Tests
     /// <summary>P-AUG-UI-1: hand-written card text carries the Rework numbers (docs/backlog/AUGMENT_ELITE_REWORK.md, Appendix A).</summary>
     public sealed class CardDisplayReworkTests
     {
-        // id, substrings the description must contain, substrings it must no longer contain. Wishful Thinking's text
-        // moves with its rule in P-AUG-TUNE-1 (coordinator amendment at the P-AUG-CONTENT-1 + P-AUG-UI-1 merge).
+        // id, substrings the description must contain, substrings it must no longer contain.
         static readonly object[][] Retuned =
         {
             new object[] { "TankEngine", new[] { "1.5", "+350" }, new[] { "+250" } },
             new object[] { "PlantYourFeet", new[] { "+35% range and damage", "1 s" }, new[] { "25%" } },
             new object[] { "SlowBurn", new[] { "15% less per second", "twice as long" }, new[] { "30%" } },
             new object[] { "PocketSand", new[] { "40%", "1.5 s" }, new[] { "30%", "for 1 s" } },
+            new object[] { "WishfulThinking", new[] { "1.5%", "full", "20%" }, new[] { "1 s", "30 s" } },
             new object[] { "Overkill", new[] { "260 u" }, new[] { "200 u" } },
             new object[] { "ThirdTimesTheCharm", new[] { "3rd hit", "2.5x" }, new[] { "twice" } },
             new object[] { "SpikedShell", new[] { "20% of the damage" }, new[] { "15%" } },
@@ -84,8 +84,8 @@ namespace Roguehalla.Net.Tests
             var changed = Retuned.Select(r => (string)r[0]).Concat(Unchanged.Select(u => u[0])).ToHashSet();
             var rest = CardDisplayCatalog.Snapshot().Where(r => !changed.Contains(r.Id))
                 .Select(r => string.Join("\u001f", r.Id, r.Title, r.Description, r.Tags));
-            Assert.AreEqual(80 - 21, rest.Count());
-            Assert.AreEqual("ed0028ee25c836cb5337fad5a87ec867555078fdf3201ebb0b618becaf79071a", Sha(string.Join("\n", rest)));
+            Assert.AreEqual(80 - 22, rest.Count());
+            Assert.AreEqual("5cc91496a8f7c458fe8e4b7ffb1cad9c652001e3276e7ed807c52b117d56a4d0", Sha(string.Join("\n", rest)));
         }
     }
 }
