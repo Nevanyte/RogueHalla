@@ -56,16 +56,19 @@ pub(crate) struct BuildMarkCache {
     tick: Option<u32>,
     rows: Vec<(PlayerId, [Option<crate::kill_augments::KillStatKey>; 2])>,
 }
-impl BuildMarkCache {
-    /// An empty cache (no tick: observers compute directly) with room for `seats` rows. Every projection is built
-    /// fresh, not cloned, on a clone, a restore or a reset, so this is where the buffer's capacity comes from: without it
-    /// the first refresh after one of those allocates (P-NOALLOC-GATE-1).
-    fn with_seats(seats: usize) -> Self {
+/// An empty cache (no tick: observers compute directly) with room for a full lobby's rows. Every projection is built
+/// fresh, not cloned, on a clone, a restore or a reset, and the trusted build setup replaces the cache after editing its
+/// inputs, so this is where the buffer's capacity comes from: without it the first refresh after any of those allocates
+/// (P-NOALLOC-GATE-1).
+impl Default for BuildMarkCache {
+    fn default() -> Self {
         Self {
             tick: None,
-            rows: Vec::with_capacity(seats),
+            rows: Vec::with_capacity(crate::constants::MAX_PLAYERS),
         }
     }
+}
+impl BuildMarkCache {
     fn refresh(&mut self, w: &crate::state::World) {
         self.rows.clear();
         self.rows.extend(
@@ -114,7 +117,7 @@ impl Projection {
         Self {
             report,
             identity,
-            marks: BuildMarkCache::with_seats(crate::constants::MAX_PLAYERS),
+            marks: BuildMarkCache::default(),
         }
     }
     /// Cold Clone/restore preparation for the actual NPC domain. Keep the
