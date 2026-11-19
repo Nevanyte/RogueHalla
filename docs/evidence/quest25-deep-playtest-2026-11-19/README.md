@@ -60,6 +60,7 @@ A Luna subagent independently replayed all 2,928 recorded player inputs. Its 25 
 - Two separate Chrome players joined the same live room and completed Tuber Eats in succession. After the first player delivered the potato, their board showed nine offers. The second player still saw the tenth offer unaccepted, accepted it at the giver and delivered their own potato. Both ended with nine offers. [Two-browser observations](two-browser-completion.json)
 - The browser driver accepted Rime Hunt in several encounters and equipped a sword from a public drop. Those solo runs did not clear the camp. The independently replayable armed room run completed the quest using 62 attack inputs.
 - In Chrome, The Bargain player collected two physical swords, accepted the quest and followed the owner’s objective marker to the hag. Trading the spare for lifesteal left the first sword equipped and cleared the quest.
+- In ten additional Warren and Rime maps, both players completed each quest and 20 premature interaction attempts were rejected. An initial test stopped on Rime Hunt map 20004 because it compared a newly spawned enemy with itself. Inspection at 85.3 seconds showed three live camp enemies, IDs 216–218. The second player cleared that camp and earned Tornado. [Alternate-map results](alternate-maps.csv)
 
 ## Defects reproduced and fixed
 
