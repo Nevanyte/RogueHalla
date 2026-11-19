@@ -1,0 +1,823 @@
+{
+  "protocol": 20,
+  "acceptance_rooms": 21,
+  "acceptance_websocket_frames": {
+    "websocketFramesReceived": 26676,
+    "websocketFramesSent": 14544,
+    "pageErrors": []
+  },
+  "quests": {
+    "smugglers_run": {
+      "name": "Smuggler's Run",
+      "planning_detail_observed": true,
+      "acceptance_round": 1,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 33.68798005223815,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Carry your parcel back to the giver while publicly marked on every map.",
+      "completion": {
+        "journal_actions": [
+          "Take the parcel"
+        ],
+        "tactical_map_destinations": [
+          {
+            "x": 4176,
+            "y": 2000
+          },
+          {
+            "x": 1264,
+            "y": 4048
+          },
+          {
+            "x": 4176,
+            "y": 2000
+          }
+        ],
+        "remaining_offers": [
+          "hold_the_fort",
+          "let_him_cook",
+          "elite_slayer",
+          "barrow_run",
+          "a_bone_to_pick",
+          "rime_hunt",
+          "lost_brother",
+          "pilgrims_path",
+          "gatecrasher"
+        ],
+        "reward_slots": [
+          {
+            "slot": 0,
+            "reward": 3,
+            "charges": 1,
+            "readyAt": 58300
+          }
+        ]
+      }
+    },
+    "two_banners": {
+      "name": "Two Banners",
+      "planning_detail_observed": true,
+      "acceptance_round": 1,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 34.99328507013878,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Choose one of two opposing banner deliveries between the Gallows giver and a rival outpost; your choice does not close either branch for others.",
+      "completion": {
+        "server_confirmed": true,
+        "rival_outpost": [
+          {
+            "x": 1968,
+            "y": 4720
+          }
+        ],
+        "return_to_home": [
+          {
+            "x": 4176,
+            "y": 2000
+          }
+        ],
+        "remaining_offers": [
+          "smugglers_run",
+          "let_him_cook",
+          "tuber_eats",
+          "a_cruel_joke",
+          "a_bone_to_pick",
+          "rime_hunt",
+          "whispers_in_the_brush",
+          "gatecrasher",
+          "stay_a_while"
+        ],
+        "reward_slots": [
+          {
+            "slot": 0,
+            "reward": 7,
+            "charges": 1,
+            "readyAt": 76850
+          }
+        ]
+      }
+    },
+    "ember_walk": {
+      "name": "Ember Walk",
+      "planning_detail_observed": true,
+      "acceptance_round": 11,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 43.77510708153666,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Collect three tokens on burning ember ground in the Scorch.",
+      "completion": {
+        "journal_actions": [
+          "Collect ember token",
+          "Collect ember token",
+          "Collect ember token"
+        ],
+        "tactical_map_destinations": [
+          {
+            "x": 1072,
+            "y": 1744
+          },
+          {
+            "x": 720,
+            "y": 1648
+          },
+          {
+            "x": 720,
+            "y": 1552
+          },
+          {
+            "x": 720,
+            "y": 1904
+          },
+          {
+            "x": 1072,
+            "y": 1744
+          }
+        ],
+        "remaining_offers": [
+          "the_warden",
+          "smugglers_run",
+          "tuber_eats",
+          "barrow_run",
+          "a_cruel_joke",
+          "rime_hunt",
+          "whispers_in_the_brush",
+          "letters",
+          "trade_up"
+        ],
+        "reward_slots": [
+          {
+            "slot": 0,
+            "reward": 9,
+            "charges": 1,
+            "readyAt": 40550
+          }
+        ],
+        "slots_after_cast": [
+          {
+            "slot": 0,
+            "reward": 9,
+            "charges": 0,
+            "readyAt": 67100
+          }
+        ]
+      }
+    },
+    "let_him_cook": {
+      "name": "Let Him Cook",
+      "planning_detail_observed": true,
+      "acceptance_round": 1,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 51.30077972117004,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Bring an apple, wildberries, and turtle stew from three zones.",
+      "completion": {
+        "journal_actions": [
+          "Take the turtle stew",
+          "Take the wildberries",
+          "Take the apple"
+        ],
+        "tactical_map_destinations": [
+          {
+            "x": 1040,
+            "y": 1840
+          },
+          {
+            "x": 592,
+            "y": 3568
+          },
+          {
+            "x": 3312,
+            "y": 4048
+          },
+          {
+            "x": 2800,
+            "y": 1104
+          },
+          {
+            "x": 1040,
+            "y": 1840
+          }
+        ],
+        "remaining_offers": [
+          "the_warden",
+          "smugglers_run",
+          "elite_slayer",
+          "the_bargain",
+          "a_bone_to_pick",
+          "watchtowers",
+          "even_skeletons_get_cold",
+          "pilgrims_path",
+          "trade_up"
+        ],
+        "reward_slots": []
+      }
+    },
+    "barrow_run": {
+      "name": "Barrow Run",
+      "planning_detail_observed": true,
+      "acceptance_round": 1,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 50.36715199413186,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Tour the Warren barrows and the bored tunnel.",
+      "completion": {
+        "server_confirmed": true,
+        "reward_slots": [
+          {
+            "slot": 0,
+            "reward": 20,
+            "charges": 1,
+            "readyAt": 62300
+          }
+        ],
+        "events": {
+          "progress1": 1,
+          "progress2": 2,
+          "progress3": 3
+        }
+      }
+    },
+    "feed_or_hunt": {
+      "name": "Feed or Hunt",
+      "planning_detail_observed": true,
+      "acceptance_round": 1,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 45.98314908746481,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Feed a regional creature three zone items instead of hunting its kind.",
+      "completion": {
+        "journal_actions": [
+          "Gather feed",
+          "Gather feed",
+          "Gather feed",
+          "Feed the forager",
+          "Feed the forager",
+          "Feed the forager"
+        ],
+        "tactical_map_destinations": [
+          {
+            "x": 1360,
+            "y": 3952
+          },
+          {
+            "x": 1264,
+            "y": 4048
+          },
+          {
+            "x": 2000,
+            "y": 4720
+          },
+          {
+            "x": 1360,
+            "y": 3952
+          }
+        ],
+        "remaining_offers": [
+          "bounty_hunter",
+          "two_banners",
+          "ember_walk",
+          "elite_slayer",
+          "barrow_run",
+          "watchtowers",
+          "even_skeletons_get_cold",
+          "letters",
+          "trade_up"
+        ],
+        "reward_slots": []
+      }
+    },
+    "rime_hunt": {
+      "name": "Rime Hunt",
+      "planning_detail_observed": true,
+      "acceptance_round": 3,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 50.6806669253672,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Clear one Frost camp of ranged mobs on the ice."
+    },
+    "even_skeletons_get_cold": {
+      "name": "Even Skeletons Get Cold",
+      "planning_detail_observed": true,
+      "acceptance_round": 2,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 48.481439747598316,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Deliver a coat to a scout in the next zone.",
+      "completion": {
+        "journal_actions": [
+          "Deliver the coat"
+        ],
+        "tactical_map_destinations": [
+          {
+            "x": 3312,
+            "y": 4016
+          },
+          {
+            "x": 1264,
+            "y": 4016
+          }
+        ],
+        "remaining_offers": [
+          "hold_the_fort",
+          "bounty_hunter",
+          "ember_walk",
+          "the_burning_crown",
+          "the_bargain",
+          "a_cruel_joke",
+          "whispers_in_the_brush",
+          "gatecrasher",
+          "trade_up"
+        ],
+        "reward_slots": []
+      }
+    },
+    "pilgrims_path": {
+      "name": "Pilgrim's Path",
+      "planning_detail_observed": true,
+      "acceptance_round": 3,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 37.36361866843197,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Visit both Sanctum shrines and two light bays.",
+      "completion": {
+        "server_confirmed": true,
+        "reward_slots": [
+          {
+            "slot": 0,
+            "reward": 16,
+            "charges": 1,
+            "readyAt": 54450
+          }
+        ],
+        "events": {
+          "progress1": 2,
+          "progress2": 3,
+          "progress3": 4
+        }
+      }
+    },
+    "stay_a_while": {
+      "name": "Stay A While",
+      "planning_detail_observed": true,
+      "acceptance_round": 10,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 32.5582554815212,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Complete a 30-second uninterrupted meditation channel at the monk; any player can interrupt it.",
+      "completion": {
+        "journal_actions": [
+          "Meditate"
+        ],
+        "tactical_map_destinations": [
+          {
+            "x": 2832,
+            "y": 1232
+          },
+          {
+            "x": 2832,
+            "y": 1232
+          }
+        ],
+        "remaining_offers": [
+          "the_warden",
+          "bounty_hunter",
+          "the_burning_crown",
+          "tuber_eats",
+          "the_bargain",
+          "feed_or_hunt",
+          "rime_hunt",
+          "lost_brother",
+          "letters"
+        ],
+        "reward_slots": [
+          {
+            "slot": 0,
+            "reward": 18,
+            "charges": 1,
+            "readyAt": 52150
+          }
+        ],
+        "slots_after_cast": []
+      }
+    },
+    "bounty_hunter": {
+      "name": "Bounty Hunter",
+      "planning_detail_observed": true,
+      "acceptance_round": 12,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 49.229665853019604,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Kill a player who has an active bounty; a living fill bot may be marked when no real bounty exists."
+    },
+    "the_burning_crown": {
+      "name": "The Burning Crown",
+      "planning_detail_observed": true,
+      "acceptance_round": 21,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 45.494285355415755,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Carry the crown back to its giver; it grows your stats, burns you, is shown on every map, and drops on death.",
+      "completion": {
+        "journal_actions": [
+          "Take the Burning Crown"
+        ],
+        "tactical_map_destinations": [
+          {
+            "x": 1072,
+            "y": 1744
+          },
+          {
+            "x": 336,
+            "y": 304
+          },
+          {
+            "x": 1072,
+            "y": 1744
+          }
+        ],
+        "remaining_offers": [
+          "hold_the_fort",
+          "smugglers_run",
+          "elite_slayer",
+          "the_bargain",
+          "a_cruel_joke",
+          "whispers_in_the_brush",
+          "lost_brother",
+          "stay_a_while",
+          "trade_up"
+        ],
+        "reward_slots": []
+      }
+    },
+    "the_bargain": {
+      "name": "The Bargain",
+      "planning_detail_observed": true,
+      "acceptance_round": 2,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 51.45570910987447,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Strike a bargain at the hag: pay stat stacks or a weapon.",
+      "completion": {
+        "hag": {
+          "quest": 6,
+          "at": {
+            "x": 1264,
+            "y": 4048
+          }
+        },
+        "interaction": "Trade spare weapon for lifesteal",
+        "weapons_before": [
+          0,
+          0
+        ],
+        "weapons_after": [
+          0,
+          null
+        ],
+        "remaining_offers": [
+          "hold_the_fort",
+          "two_banners",
+          "ember_walk",
+          "tuber_eats",
+          "barrow_run",
+          "watchtowers",
+          "even_skeletons_get_cold",
+          "pilgrims_path",
+          "gatecrasher"
+        ]
+      }
+    },
+    "watchtowers": {
+      "name": "Watchtowers",
+      "planning_detail_observed": true,
+      "acceptance_round": 3,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 30.44240463563935,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Visit the Rime watchtowers.",
+      "completion": {
+        "server_confirmed": true,
+        "reward_slots": [
+          {
+            "slot": 0,
+            "reward": 17,
+            "charges": 1,
+            "readyAt": 41100
+          }
+        ],
+        "events": {
+          "progress1": 1,
+          "progress2": 2
+        }
+      }
+    },
+    "gatecrasher": {
+      "name": "Gatecrasher",
+      "planning_detail_observed": true,
+      "acceptance_round": 12,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 43.59323341987837,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Damage two distinct opponents during one coliseum lock and survive until the gates reopen."
+    },
+    "elite_slayer": {
+      "name": "Elite Slayer",
+      "planning_detail_observed": true,
+      "acceptance_round": 3,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 42.80490626084811,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Kill an elite in the Scorch; each accepted player's progress is independent."
+    },
+    "a_bone_to_pick": {
+      "name": "A Bone to Pick",
+      "planning_detail_observed": true,
+      "acceptance_round": 3,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 46.87963310436615,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Hunt a named skeleton archer who kites you across the Warren."
+    },
+    "letters": {
+      "name": "Letters",
+      "planning_detail_observed": true,
+      "acceptance_round": 4,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 40.577087130546964,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Carry a token between givers in opposite zones before the next coliseum lock; it expires at that lock and can be retried.",
+      "completion": {
+        "journal_actions": [
+          "Deliver the letter"
+        ],
+        "tactical_map_destinations": [
+          {
+            "x": 2864,
+            "y": 1136
+          },
+          {
+            "x": 1264,
+            "y": 4080
+          }
+        ],
+        "remaining_offers": [
+          "bounty_hunter",
+          "two_banners",
+          "elite_slayer",
+          "tuber_eats",
+          "the_bargain",
+          "feed_or_hunt",
+          "watchtowers",
+          "lost_brother",
+          "trade_up"
+        ],
+        "reward_slots": [
+          {
+            "slot": 0,
+            "reward": 12,
+            "charges": 1,
+            "readyAt": 48400
+          }
+        ]
+      }
+    },
+    "a_cruel_joke": {
+      "name": "A Cruel Joke",
+      "planning_detail_observed": true,
+      "acceptance_round": 4,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 50.36715199413186,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Scare three quest givers away; they flee for 60 seconds for you alone, then return.",
+      "completion": {
+        "journal_actions": [
+          "Scare the giver",
+          "Scare the giver",
+          "Scare the giver"
+        ],
+        "tactical_map_destinations": [
+          {
+            "x": 1360,
+            "y": 3952
+          },
+          {
+            "x": 1360,
+            "y": 4048
+          },
+          {
+            "x": 3312,
+            "y": 4048
+          },
+          {
+            "x": 3312,
+            "y": 3952
+          },
+          {
+            "x": 1360,
+            "y": 3952
+          }
+        ],
+        "remaining_offers": [
+          "the_warden",
+          "two_banners",
+          "ember_walk",
+          "tuber_eats",
+          "feed_or_hunt",
+          "watchtowers",
+          "lost_brother",
+          "pilgrims_path",
+          "gatecrasher"
+        ],
+        "reward_slots": [
+          {
+            "slot": 0,
+            "reward": 13,
+            "charges": 1,
+            "readyAt": 62150
+          }
+        ]
+      }
+    },
+    "whispers_in_the_brush": {
+      "name": "Whispers in the Brush",
+      "planning_detail_observed": true,
+      "acceptance_round": 4,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 45.426203891586454,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Find three tokens hidden in bushes; they appear only when you are close.",
+      "completion": {
+        "server_confirmed": true,
+        "reward_slots": [
+          {
+            "slot": 0,
+            "reward": 15,
+            "charges": 2,
+            "readyAt": 60850
+          }
+        ],
+        "events": {
+          "progress1": 1,
+          "progress2": 2,
+          "progress3": 3
+        }
+      }
+    },
+    "trade_up": {
+      "name": "Trade Up",
+      "planning_detail_observed": true,
+      "acceptance_round": 4,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 21.76235281397669,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Barter your parcel with three wandering traders in turn.",
+      "completion": {
+        "journal_actions": [
+          "Barter with the trader",
+          "Cash out"
+        ],
+        "tactical_map_destinations": [
+          {
+            "x": 2832,
+            "y": 1232
+          },
+          {
+            "x": 945,
+            "y": 1712
+          }
+        ],
+        "remaining_offers": [
+          "hold_the_fort",
+          "two_banners",
+          "ember_walk",
+          "elite_slayer",
+          "the_bargain",
+          "feed_or_hunt",
+          "whispers_in_the_brush",
+          "lost_brother",
+          "pilgrims_path"
+        ],
+        "reward_slots": []
+      }
+    },
+    "hold_the_fort": {
+      "name": "Hold the Fort",
+      "planning_detail_observed": true,
+      "acceptance_round": 11,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 37.05671329192628,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Hold a Gallows guard house for 45 seconds of uncontested occupation; your hold is shown on every map.",
+      "completion": {
+        "server_confirmed": true,
+        "reward_slots": [
+          {
+            "slot": 0,
+            "reward": 5,
+            "charges": 1,
+            "readyAt": 84500
+          }
+        ],
+        "events": {}
+      }
+    },
+    "tuber_eats": {
+      "name": "Tuber Eats",
+      "planning_detail_observed": true,
+      "acceptance_round": 9,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 43.77510708153666,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Deliver a rancid potato across the map.",
+      "completion": {
+        "journal_actions": [
+          "Deliver the rancid potato"
+        ],
+        "tactical_map_destinations": [
+          {
+            "x": 1040,
+            "y": 1840
+          },
+          {
+            "x": 4336,
+            "y": 2064
+          }
+        ],
+        "remaining_offers": [
+          "the_warden",
+          "bounty_hunter",
+          "the_burning_crown",
+          "barrow_run",
+          "a_bone_to_pick",
+          "watchtowers",
+          "even_skeletons_get_cold",
+          "pilgrims_path",
+          "trade_up"
+        ],
+        "reward_slots": []
+      }
+    },
+    "lost_brother": {
+      "name": "Lost Brother",
+      "planning_detail_observed": true,
+      "acceptance_round": 8,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 49.00663220422294,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Fetch a named relic from another zone.",
+      "completion": {
+        "journal_actions": [
+          "Take the lost relic"
+        ],
+        "tactical_map_destinations": [
+          {
+            "x": 3312,
+            "y": 3952
+          },
+          {
+            "x": 912,
+            "y": 1744
+          },
+          {
+            "x": 3312,
+            "y": 3952
+          }
+        ],
+        "remaining_offers": [
+          "bounty_hunter",
+          "smugglers_run",
+          "ember_walk",
+          "tuber_eats",
+          "a_cruel_joke",
+          "a_bone_to_pick",
+          "even_skeletons_get_cold",
+          "letters",
+          "stay_a_while"
+        ],
+        "reward_slots": [
+          {
+            "slot": 0,
+            "reward": 21,
+            "charges": 1,
+            "readyAt": 63650
+          },
+          {
+            "slot": 1,
+            "reward": 22,
+            "charges": 1,
+            "readyAt": 63650
+          }
+        ]
+      }
+    },
+    "the_warden": {
+      "name": "The Warden",
+      "planning_detail_observed": true,
+      "acceptance_round": 9,
+      "approach": "Tab tactical map right-click path",
+      "distance_from_giver": 51,
+      "accept_control": "ACCEPT QUEST",
+      "objective_after_acceptance": "Kill a huge-stat elite in the Gallows by fighting it across fences, which shots cross but bodies cannot."
+    }
+  }
+}

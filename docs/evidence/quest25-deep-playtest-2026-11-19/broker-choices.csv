@@ -1,0 +1,82 @@
+journal_button_label,action,target,encoded_unity_input_hex
+Trade damage for move speed,5,1,0201000000010013050501
+Trade damage for max HP,5,2,0202000000010013050502
+Trade damage for ability power,5,3,0203000000010013050503
+Trade damage for armor,5,4,0204000000010013050504
+Trade damage for shield,5,5,0205000000010013050505
+Trade damage for attack damage,5,6,0206000000010013050506
+Trade damage for attack speed,5,7,0207000000010013050507
+Trade damage for lifesteal,5,8,0208000000010013050508
+Trade move speed for damage,5,9,0209000000010013050509
+Trade move speed for max HP,5,11,020a00000001001305050b
+Trade move speed for ability power,5,12,020b00000001001305050c
+Trade move speed for armor,5,13,020c00000001001305050d
+Trade move speed for shield,5,14,020d00000001001305050e
+Trade move speed for attack damage,5,15,020e00000001001305050f
+Trade move speed for attack speed,5,16,020f000000010013050510
+Trade move speed for lifesteal,5,17,0210000000010013050511
+Trade max HP for damage,5,18,0211000000010013050512
+Trade max HP for move speed,5,19,0212000000010013050513
+Trade max HP for ability power,5,21,0213000000010013050515
+Trade max HP for armor,5,22,0214000000010013050516
+Trade max HP for shield,5,23,0215000000010013050517
+Trade max HP for attack damage,5,24,0216000000010013050518
+Trade max HP for attack speed,5,25,0217000000010013050519
+Trade max HP for lifesteal,5,26,021800000001001305051a
+Trade ability power for damage,5,27,021900000001001305051b
+Trade ability power for move speed,5,28,021a00000001001305051c
+Trade ability power for max HP,5,29,021b00000001001305051d
+Trade ability power for armor,5,31,021c00000001001305051f
+Trade ability power for shield,5,32,021d000000010013050520
+Trade ability power for attack damage,5,33,021e000000010013050521
+Trade ability power for attack speed,5,34,021f000000010013050522
+Trade ability power for lifesteal,5,35,0220000000010013050523
+Trade armor for damage,5,36,0221000000010013050524
+Trade armor for move speed,5,37,0222000000010013050525
+Trade armor for max HP,5,38,0223000000010013050526
+Trade armor for ability power,5,39,0224000000010013050527
+Trade armor for shield,5,41,0225000000010013050529
+Trade armor for attack damage,5,42,022600000001001305052a
+Trade armor for attack speed,5,43,022700000001001305052b
+Trade armor for lifesteal,5,44,022800000001001305052c
+Trade shield for damage,5,45,022900000001001305052d
+Trade shield for move speed,5,46,022a00000001001305052e
+Trade shield for max HP,5,47,022b00000001001305052f
+Trade shield for ability power,5,48,022c000000010013050530
+Trade shield for armor,5,49,022d000000010013050531
+Trade shield for attack damage,5,51,022e000000010013050533
+Trade shield for attack speed,5,52,022f000000010013050534
+Trade shield for lifesteal,5,53,0230000000010013050535
+Trade attack damage for damage,5,54,0231000000010013050536
+Trade attack damage for move speed,5,55,0232000000010013050537
+Trade attack damage for max HP,5,56,0233000000010013050538
+Trade attack damage for ability power,5,57,0234000000010013050539
+Trade attack damage for armor,5,58,023500000001001305053a
+Trade attack damage for shield,5,59,023600000001001305053b
+Trade attack damage for attack speed,5,61,023700000001001305053d
+Trade attack damage for lifesteal,5,62,023800000001001305053e
+Trade attack speed for damage,5,63,023900000001001305053f
+Trade attack speed for move speed,5,64,023a000000010013050540
+Trade attack speed for max HP,5,65,023b000000010013050541
+Trade attack speed for ability power,5,66,023c000000010013050542
+Trade attack speed for armor,5,67,023d000000010013050543
+Trade attack speed for shield,5,68,023e000000010013050544
+Trade attack speed for attack damage,5,69,023f000000010013050545
+Trade attack speed for lifesteal,5,71,0240000000010013050547
+Trade lifesteal for damage,5,72,0241000000010013050548
+Trade lifesteal for move speed,5,73,0242000000010013050549
+Trade lifesteal for max HP,5,74,024300000001001305054a
+Trade lifesteal for ability power,5,75,024400000001001305054b
+Trade lifesteal for armor,5,76,024500000001001305054c
+Trade lifesteal for shield,5,77,024600000001001305054d
+Trade lifesteal for attack damage,5,78,024700000001001305054e
+Trade lifesteal for attack speed,5,79,024800000001001305054f
+Trade spare weapon for damage,7,0,0249000000010013050700
+Trade spare weapon for move speed,7,1,024a000000010013050701
+Trade spare weapon for max HP,7,2,024b000000010013050702
+Trade spare weapon for ability power,7,3,024c000000010013050703
+Trade spare weapon for armor,7,4,024d000000010013050704
+Trade spare weapon for shield,7,5,024e000000010013050705
+Trade spare weapon for attack damage,7,6,024f000000010013050706
+Trade spare weapon for attack speed,7,7,0250000000010013050707
+Trade spare weapon for lifesteal,7,8,0251000000010013050708

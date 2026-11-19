@@ -8,11 +8,15 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 
 The owner approved activating the workbook’s Top 25 in normal Rust and Unity raids. The local implementation is on `codex/top25-quests`, based on `feature/unity-rework` at `24a2ce99f`. The ten-offer board is shared during planning. Each player completes the selected offers once per match and receives their own named rewards. Training and the K1 parity path retain their separate configurations. [Quest rules](quests.md) · [DEV-039](DEVIATIONS.md#entries)
 
-The candidate uses protocol 19, observation 31, policy contract 26, checkpoint `rh-checkpoint/33`, replay `rh-replay/26` and content `7639672bbb0933c9`. Returning players resume server-held quest and reward state. Unity presents the delivered offers, objective actions, spell slots and public cues. [Board packet](backlog/packets/P-QUEST25-BOARD-1.md) · [Two-seat release check](backlog/packets/P-QUEST25-PLAYTHROUGH.md)
+The candidate uses protocol 20, observation 31, policy contract 26, checkpoint `rh-checkpoint/33`, replay `rh-replay/26` and content `7639672bbb0933c9`. Returning players resume server-held quest and reward state. Unity presents the delivered offers, objective actions, spell slots and public cues. [Board packet](backlog/packets/P-QUEST25-BOARD-1.md) · [Two-seat release check](backlog/packets/P-QUEST25-PLAYTHROUGH.md)
 
 Two human seats completed every catalog quest and exercised their named rewards in deterministic generated matches. Two independently rendered WebGL players received the same ten physical offers and took one into the raid through the journal. [Two-browser playtest and screenshot](evidence/quest25-playtest-2026-11-19/README.md) · [Protocol provenance](evidence/quest25-provenance-2026-11-19/README.md)
 
-The full gate passed at `1beb7e7cd` with PostgreSQL and the pinned Unity Editor. It included both release-mode bot checks and the legacy parity report. [Packet hand-off and verification results](coordination/HANDOFF_P-QUEST25_2026-11-19.md)
+The deeper local playtest completed all 25 quests in authoritative rooms using 2,928 recorded player input frames. The completing player kept the reward after reconnecting. A second player retained the original offer. Chrome accepted all 25 in rendered Unity WebGL. The test also covers both banner deliveries, single-word map markers, reusable spell recharge and all 81 broker choices. [Quest-by-quest results](evidence/quest25-deep-playtest-2026-11-19/README.md)
+
+The full protocol 20 gate passed at `ba5b0c696` with PostgreSQL, legacy parity, 2,186 C# tests, 1,601 Unity EditMode tests and the release-mode bot checks. [Full playtest and replay](evidence/quest25-deep-playtest-2026-11-19/README.md)
+
+The earlier protocol 19 full gate passed at `1beb7e7cd` with PostgreSQL and the pinned Unity Editor. It included both release-mode bot checks and the legacy parity report. [Packet hand-off and verification results](coordination/HANDOFF_P-QUEST25_2026-11-19.md)
 
 ## Integration 58 (2026-11-18): the GitHub front page
 

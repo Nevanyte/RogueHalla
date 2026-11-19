@@ -1,0 +1,26 @@
+quest,zone,reward_description,appearances_in_256_boards,webgl_v20_planning_and_acceptance,webgl_completion_protocol,unity_editor_quest_frames,unity_button_inputs_replayed,controlled_players_completed,room_seats,room_test_seed,winner_seat,witness_seat,witness_retained_offer,room_wakes,encoded_room_input_frames,room_evidence
+The Warden,Gallows,"Warden's Cage: a six-second fence ring that stops bodies and melee, but not shots.",97,True,,13,2,2,8,40,5,8,True,3025,930,Defeated the Warden with a party and earned Warden’s Cage
+Hold the Fort,Gallows,Turret: hits players and mobs.,92,True,v20,13,2,2,2,2,1,2,True,1532,8,Occupied the guardhouse and earned Turret
+Bounty Hunter,Gallows,Hook: pulls the first enemy hit.,107,True,,13,2,2,7,1,1,7,True,5903,788,Killed a player with a 10 GV bounty
+Smuggler's Run,Gallows,Shoulder Charge: a ground dash that knocks back the first enemy hit.,110,True,v20,17,4,2,2,4,1,2,True,958,6,Picked up the parcel and carried it home
+Two Banners,Gallows,Warhorn: taunts and gains a buff per enemy taunted.,106,True,v20,19,5,2,2,1,1,2,True,1404,9,Carried the rival banner back to the Gallows
+Ember Walk,Scorch,Spell Shield: blocks the next spell.,102,True,v20,25,8,2,2,1,1,2,True,186,10,Collected three ember tokens and returned
+The Burning Crown,Scorch,Crown power: stats accumulated while carrying.,108,True,v20,17,4,2,2,1,1,2,True,455,6,Picked up the crown and banked its power
+Let Him Cook,Scorch,Chef's Kiss: +20% to your lowest stat.,93,True,v20,25,8,2,2,3,1,2,True,1598,12,Collected all three ingredients and turned them in
+Elite Slayer,Scorch,Smite: bursts a mob and can steal kills.,104,True,,13,2,2,8,4,5,8,True,712,272,Defeated a Scorch elite with a party and earned Smite
+Tuber Eats,Scorch,Breaker's Helm: 20% of axe and bow damage ignores armor.,105,True,v20,17,4,2,2,3,1,2,True,852,7,Delivered the rancid potato
+Barrow Run,Warren,WallBuster: destroys walls within 300 units.,97,True,v20,13,2,2,2,1,1,2,True,695,9,Visited the barrows and returned
+The Bargain,Warren,"Convert 20 stacks into 24 of a stat you choose, or trade your spare weapon for a stat.",111,True,v20,17,4,2,3,2,1,2,True,1011,22,Found two weapons and traded the spare at the hag
+A Cruel Joke,Warren,Swap-Stick: swaps weapons with a target for 10 seconds.,101,True,v20,25,8,2,2,4,1,2,True,929,12,Scared three different givers
+A Bone to Pick,Warren,Bolas: roots for 1.5 seconds; reusable with a cooldown.,109,True,,13,2,2,8,10,1,2,True,945,180,Defeated the Barrow Archer with a party and earned Bolas
+Feed or Hunt,Warren,+6% damage as a zone stat.,94,True,v20,37,14,2,2,3,1,2,True,968,16,Gathered feed and fed the forager three times
+Rime Hunt,Rime,"Tornado: pulls, with strength that scales with max HP.",91,True,,13,2,2,2,1,1,2,True,1329,128,Contributed to clearing the camp with 62 attack inputs
+Watchtowers,Rime,Scout Falcon: a long reveal shot.,114,True,v20,13,2,2,2,2,1,2,True,539,8,Visited both towers and returned
+Whispers in the Brush,Rime,Lantern Ward: reusable charges reveal a radius.,102,True,v20,25,8,2,2,2,1,2,True,822,12,"Guided search, proximity reveal and three hidden pickups"
+Even Skeletons Get Cold,Rime,Warm Coat: immune to chill and bog slow.,102,True,v20,17,4,2,2,4,1,2,True,539,6,Delivered the coat
+Lost Brother,Rime,"BlindRage and StillMind draughts: one of each, claimable separately.",103,True,v20,17,4,2,2,1,1,2,True,1192,8,Retrieved the relic and received both draughts
+Pilgrim's Path,Sanctum,"Cleanse: removes roots, stuns, and pulls.",123,True,v20,13,2,2,2,2,1,2,True,790,10,Completed the four-point pilgrimage
+Gatecrasher,Sanctum,"Rebirth Egg: plant it; after a real death, hatch there with 40% HP.",90,True,,13,2,2,7,1,1,7,True,2739,220,Damaged two opponents during one lock and survived reopening
+Letters,Sanctum,Forget-Me-Not Seed: mark a spot and teleport back later.,106,True,v20,17,4,2,2,1,1,2,True,732,6,Delivered the letter
+Stay A While,Sanctum,"Stasis: 2.5 seconds invulnerable, but unable to act.",102,True,v20,17,4,2,2,2,1,2,True,1039,7,Completed a 30-second meditation
+Trade Up,Sanctum,Escalating permanent stats; cash out at any step.,91,True,v20,25,8,2,2,7,1,2,True,401,236,Bartered and cashed out at stage one
