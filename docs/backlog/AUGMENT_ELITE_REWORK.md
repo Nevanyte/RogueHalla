@@ -187,8 +187,9 @@ Packet details:
 - **P-AUG-TUNE-1:**
   - Wishful Thinking takes 1.5% of the full cooldown per hit, at most 20% a minute. It must keep the
     `abilities/checkpoint.rs:19-40` bound, or the packet escalates to Opus.
-  - Third Time's the Charm applies on-hit effects 2.5× (`on_hit.rs:237`).
-  - Gambler gets its split chances (decision 4).
+    - Coordinator 2026-11-19: routed to Opus. The bound must accept a Wish cooldown that changes between casts.
+  - Wishful's Rust override text, the C# line and the `CardDisplayReworkTests` digest move together in this packet.
+  - Third Time's 2.5× and Gambler's split chances already landed with P-AUG-CONTENT-1.
 - **P-AUG-POOL-1:**
   - `REWORK_POOL` is `INTERACTIVE` plus Committed, Fists of Fury, Machine Gun, Here Comes the Boom and A Race to 0.
     `INTERACTIVE` itself stays untouched.

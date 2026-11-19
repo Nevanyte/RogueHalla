@@ -105,7 +105,7 @@ Unity text of the same cards). Sonnet; reviewer LAND and LAND. Content hash `10d
 - The two fixtures moved only in `contentHash`; at the merge the tape was re-recorded by its documented command
   (checkpoint 33 + the new hash).
 
-**Identities:** protocol 18, observation 30, policy contract 25, checkpoint 33 (was 32), replay 25, content hash
+**Identities:** protocol 18, observation 30, policy contract 25, checkpoint 33 (since integration 60), replay 25, content hash
 `10dfa3b399dc43a1` (was `7a542a13187f034c`).
 
 ## Integration 58 (2026-11-18): the GitHub front page
