@@ -51,8 +51,9 @@ fn go(a: &[&str]) -> (String, Value, String) {
     (out.json, v, out.table)
 }
 
-/// The shared run of both fighters: quick, one seed, 1200 ticks. The Wish is locked for the first 45 s (about tick 900:
-/// `abilities::WISH_LOCK_MS`), so a run that must see a cast has to be longer than that.
+/// The shared run of both fighters: quick, one seed, 1200 ticks. The quick kinds (the zone-0 elites) die in 175-900 ticks,
+/// before the Wish unlocks (45 s, about tick 900: `abilities::WISH_LOCK_MS`), so no cast is expected here; the long run
+/// below covers casts.
 fn both() -> &'static (String, Value, String) {
     static B: OnceLock<(String, Value, String)> = OnceLock::new();
     B.get_or_init(|| {
@@ -66,6 +67,32 @@ fn both() -> &'static (String, Value, String) {
             "1200",
             "--fighter",
             "both",
+            "--jobs",
+            "2",
+        ])
+    })
+}
+
+/// A long-fight sweep of the duelist: the glacialWarden camp (fights of 700-1500 ticks, past the Wish lock) with the ranged
+/// weapons, Frost and Holy (the quick factions), the five columns, one seed, the default 1800-tick cap. 20 fights.
+/// `--kind` and `--weapon` (comma lists of elite kinds and weapons) override the quick sweep's zone and weapons.
+fn long() -> &'static (String, Value, String) {
+    static L: OnceLock<(String, Value, String)> = OnceLock::new();
+    L.get_or_init(|| {
+        go(&[
+            "--quick",
+            "--kind",
+            "glacialWarden",
+            "--weapon",
+            "bow,wand",
+            "--seed",
+            "1",
+            "--seeds",
+            "1",
+            "--max-ticks",
+            "1800",
+            "--fighter",
+            "duelist",
             "--jobs",
             "2",
         ])
@@ -134,6 +161,12 @@ fn the_flags_default_to_three_seeds_all_cores_and_the_brawler() {
         assert!(parse_options(&args(bad)).is_err(), "{bad:?} is refused");
         assert!(run(&args(bad)).is_err(), "{bad:?} is refused by run");
     }
+    for bad in [
+        &["--quick", "--kind", "nonesuch"][..],
+        &["--quick", "--weapon", "spear"],
+    ] {
+        assert!(run(&args(bad)).is_err(), "{bad:?} is refused by run");
+    }
 }
 
 #[test]
@@ -167,7 +200,7 @@ fn a_run_without_the_fighter_flag_is_the_brawler_run() {
 // ---- the duelist is not a Brawler in disguise ------------------------------------------------------------------------
 
 #[test]
-fn the_duelist_casts_its_wish_and_the_brawler_never_does() {
+fn the_brawler_emits_only_move_and_attack_and_never_casts() {
     let (_, r, _) = both();
     assert_eq!(r["fighter"], "both");
     let duel = cells_of(r, "duelist");
@@ -198,34 +231,53 @@ fn the_duelist_casts_its_wish_and_the_brawler_never_does() {
             .any(|c| c["actions"]["Attack"].as_u64().unwrap_or(0) > 0),
         "the Brawler swings in some fight"
     );
-    // `Aim` alone would not count: an ability cast (the Wish: `PublicCommand::Cast`) is required. Measured (prototype,
-    // this exact sweep): 9 Cast commands over the 16 wand fights, none in sword fights (they end before the 45 s lock).
-    let casts: u64 = duel
-        .iter()
-        .map(|c| c["actions"]["Cast"].as_u64().unwrap_or(0))
-        .sum();
-    assert!(
-        casts >= 1,
-        "floor: some duelist fight casts its Wish; kinds seen {:?}",
-        kinds(&duel)
-    );
-    assert_eq!(
-        brawl
-            .iter()
-            .map(|c| c["actions"]["Cast"].as_u64().unwrap_or(0))
-            .sum::<u64>(),
-        0
-    );
-    // A cast only after the lock: the fight must have lasted past 45 s (tick 900).
-    assert!(duel
-        .iter()
-        .filter(|c| c["actions"]["Cast"].as_u64().unwrap_or(0) > 0)
-        .all(|c| u(c, "ticks") >= 900));
     // Counts are real counts.
     assert!(duel
         .iter()
         .flat_map(|c| c["actions"].as_object().unwrap().values())
         .all(|n| n.as_u64().is_some()));
+}
+
+#[test]
+fn the_duelist_casts_its_wish_once_it_unlocks() {
+    let (_, r, _) = long();
+    let duel = cells_of(r, "duelist");
+    assert_eq!(duel.len(), arr(r, "cells").len(), "a duelist-only run");
+    assert_eq!(
+        duel.len(),
+        (4 - arr(r, "skipped").len()) * 5,
+        "Frost,Holy x bow,wand x one kind x 5 columns"
+    );
+    let casts = |c: &Value| c["actions"]["Cast"].as_u64().unwrap_or(0);
+    // `Aim` alone would not count: an ability cast (the Wish: `PublicCommand::Cast`) is required. Measured (prototype, this
+    // run, 20 fights): the 7 fights that last 1000 ticks or more all cast (Frost's Freeze on the target, Holy's Last Stand
+    // on itself); of the 13 shorter ones (375-999 ticks) only those past tick 900 cast. Nothing casts before tick 900.
+    let long_fights: Vec<_> = duel.iter().filter(|c| u(c, "ticks") >= 1000).collect();
+    assert!(
+        long_fights.len() >= 4,
+        "floor: fights past the Wish lock exist ({})",
+        long_fights.len()
+    );
+    for c in &long_fights {
+        assert!(
+            casts(c) >= 1,
+            "a duelist fight of {} ticks casts its Wish: {c}",
+            u(c, "ticks")
+        );
+    }
+    for c in &duel {
+        if casts(c) > 0 {
+            assert!(u(c, "ticks") >= 900, "the Wish is locked for 45 s: {c}");
+        }
+    }
+    // Both target kinds: Frost's Freeze (Unit) and Holy's Last Stand (Self_) are cast.
+    for faction in ["frost", "holy"] {
+        assert!(
+            duel.iter()
+                .any(|c| s(c, "faction") == faction && casts(c) >= 1),
+            "{faction} casts its Wish somewhere in the sweep"
+        );
+    }
 }
 
 #[test]
@@ -247,10 +299,10 @@ fn a_ranged_duelist_fights_from_much_further_than_the_brawler() {
         dn >= 8 && bn >= 8,
         "floor: wand fights that attacked ({dn}, {bn})"
     );
-    // Measured on the prototype: duelist 358.5 u vs Brawler 54.4 u (6.6x, gap 304 u). The floors sit well below that and
-    // well above "no kiting" (ratio 1).
+    // Measured with the stand-and-shoot rule (no step back), quick sweep, 1200 ticks, 20 wand fights per fighter: duelist
+    // 202 u vs Brawler 50 u (4.1x, gap 152 u). The floors sit below that and above "no standing off" (ratio 1).
     assert!(
-        dw >= 2.5 * bw && dw - bw >= 150.,
+        dw >= 2.5 * bw && dw - bw >= 100.,
         "a wand duelist attacks from about 0.8 of its range: duelist {dw:.1} u vs Brawler {bw:.1} u"
     );
     // Melee: the duelist closes to its reach, it does not hang back (reach 112 u for the sword).
@@ -611,6 +663,9 @@ fn the_caveat_and_table_say_what_the_fighters_are() {
         "no_engage",
         "truncated",
         "retreat",
+        "give-up",
+        "reset",
+        "decided",
     ] {
         assert!(caveat.contains(want), "the caveat names {want:?}: {caveat}");
     }
@@ -667,6 +722,9 @@ fn the_readme_documents_the_duelist_the_owner_command_and_the_limits() {
         "ci95",
         "duelist",
         "banked_12",
+        "decided",
+        "resets",
+        "give-up",
     ] {
         assert!(text.contains(want), "README names {want:?}");
     }
@@ -674,4 +732,151 @@ fn the_readme_documents_the_duelist_the_owner_command_and_the_limits() {
         !text.contains("rates are \"Brawler with weapon W\"") || text.contains("upper bound"),
         "the Brawler line is no longer the whole story"
     );
+}
+
+// ---- the give-up rule: a ranged fighter must not reset the camp ---------------------------------------------------------
+
+#[test]
+fn a_ranged_duelist_stands_and_shoots_so_fights_are_decided_not_truncated() {
+    // Legacy: a fighting mob gives up after 20 s without hitting a player (`MOB_GIVE_UP_SECONDS`, rh-sim
+    // `systems/mob_ai.rs:266`; `last_combat_at` is refreshed only when a mob hits a player, `ledger.rs:1218`) and in Return
+    // mode regenerates to full in 2 s (`mob_life.rs:605-616`). A duelist that steps back to stay out of reach goes unhit
+    // for 20 s and the camp resets: pure kiting truncated half of the owner run's ranged fights. The duelist therefore
+    // walks to 0.8 x range and stands there. (Legacy behaviour, not a sim defect.)
+    let (_, r, _) = long();
+    let ranged: Vec<&Value> = cells_of(r, "duelist")
+        .into_iter()
+        .filter(|c| ["bow", "wand"].contains(&s(c, "weapon")))
+        .collect();
+    assert_eq!(ranged.len(), arr(r, "cells").len());
+    assert!(
+        ranged.len() >= 16,
+        "floor: ranged fights ({})",
+        ranged.len()
+    );
+    let truncated = ranged
+        .iter()
+        .filter(|c| s(c, "outcome") == "truncated")
+        .count();
+    // Measured with the stand-and-shoot rule: 0 of 20 truncated (bow 0 of 10, wand 0 of 10). The same sweep with the step
+    // back rule: wand 10 of 10 truncated (or no_engage). The floor (15%) is far from both.
+    assert!(
+        truncated * 100 <= 15 * ranged.len(),
+        "ranged duelist fights are decided: {truncated} truncated of {}",
+        ranged.len()
+    );
+    let banked12: Vec<_> = ranged
+        .iter()
+        .filter(|c| s(c, "column") == "banked_12")
+        .collect();
+    assert!(banked12.iter().all(|c| s(c, "outcome") != "truncated"));
+}
+
+#[test]
+fn a_ranged_duelist_does_not_reset_the_camp() {
+    // `resets` per cell: the number of times a living member of the target camp left fight mode (gave up, returned, healed
+    // to full) while the fighter was alive and the camp not yet cleared; measured from sim truth by the bench. The owner
+    // run's step-back duelist did it often; the stand-and-shoot one measured 0 in both sweeps below (and 7% of wand fights
+    // in the full 1500-fight sweep). Allow a tenth of the fights.
+    for (name, run_) in [("long", long()), ("quick", both())] {
+        let (_, r, _) = run_;
+        for c in arr(r, "cells") {
+            assert!(c["resets"].is_u64(), "{name}: resets on every cell: {c}");
+        }
+        let ranged: Vec<&Value> = cells_of(r, "duelist")
+            .into_iter()
+            .filter(|c| ["bow", "wand"].contains(&s(c, "weapon")))
+            .collect();
+        assert!(ranged.len() >= 16, "{name}: floor ({})", ranged.len());
+        let with = ranged.iter().filter(|c| u(c, "resets") > 0).count();
+        assert!(
+            with * 10 <= ranged.len(),
+            "{name}: {with} of {} ranged duelist fights reset the camp",
+            ranged.len()
+        );
+    }
+}
+
+// ---- per weapon, and the decided rate ---------------------------------------------------------------------------------------
+
+#[test]
+fn the_per_weapon_block_exists_and_its_books_balance() {
+    let (_, r, _) = both();
+    let rows = arr(r, "by_weapon");
+    // duelist then Brawler; weapons in `WeaponId::ALL` order (sword before wand); the five columns innermost.
+    assert_eq!(rows.len(), 2 * 2 * 5);
+    let want: Vec<(&str, &str, &str)> = ["duelist", "brawler"]
+        .into_iter()
+        .flat_map(|f| {
+            ["sword", "wand"]
+                .into_iter()
+                .flat_map(move |w| COLUMNS.map(|c| (f, w, c)))
+        })
+        .collect();
+    let got: Vec<(&str, &str, &str)> = rows
+        .iter()
+        .map(|x| (s(x, "fighter"), s(x, "weapon"), s(x, "column")))
+        .collect();
+    assert_eq!(got, want);
+    for chunk in rows.chunks(5) {
+        let (f, w) = (s(&chunk[0], "fighter"), s(&chunk[0], "weapon"));
+        let cells: Vec<&Value> = cells_of(r, f)
+            .into_iter()
+            .filter(|c| s(c, "weapon") == w)
+            .collect();
+        assert!(!cells.is_empty());
+        check_columns(&Value::Array(chunk.to_vec()), &cells, &format!("{f} {w}"));
+    }
+}
+
+#[test]
+fn the_table_prints_the_decided_rate_beside_the_headline() {
+    let (_, r, table) = both();
+    let pct = |rate: &Value| {
+        rate.as_f64()
+            .map_or("n/a".to_string(), |x| format!("{:.1}%", 100. * x))
+    };
+    for (fighter, overall) in [
+        ("duelist", &r["overall"]),
+        ("brawler", &r["upper_bound"]["overall"]),
+    ] {
+        for col in arr(overall, "columns") {
+            let name = s(col, "column");
+            let prefix = format!("  decided {fighter} {name}:");
+            let line = table
+                .lines()
+                .find(|l| l.starts_with(&prefix))
+                .unwrap_or_else(|| panic!("a line starting {prefix:?} in:\n{table}"));
+            let want = format!(
+                "died={} cleared={} rate={}",
+                u(col, "deaths"),
+                u(col, "cleared"),
+                pct(&col["decided_rate"])
+            );
+            assert_eq!(line[prefix.len()..].trim(), want, "{line}");
+        }
+    }
+    // The reference column, per weapon.
+    for row in arr(r, "by_weapon")
+        .iter()
+        .filter(|x| s(x, "column") == "banked_12")
+    {
+        let prefix = format!(
+            "  weapon {} {} banked_12:",
+            s(row, "fighter"),
+            s(row, "weapon")
+        );
+        let line = table
+            .lines()
+            .find(|l| l.starts_with(&prefix))
+            .unwrap_or_else(|| panic!("a line starting {prefix:?} in:\n{table}"));
+        let want = format!(
+            "died={} cleared={} truncated={} rate={}",
+            u(row, "deaths"),
+            u(row, "cleared"),
+            u(row, "truncated"),
+            pct(&row["decided_rate"])
+        );
+        assert_eq!(line[prefix.len()..].trim(), want, "{line}");
+    }
 }
