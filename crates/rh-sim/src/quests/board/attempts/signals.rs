@@ -341,7 +341,7 @@ pub(super) fn burn_crown(cx: &mut Cx) {
     });
 }
 
-pub(super) const BARGAIN_STAT_COUNT: u8 = 9;
+pub(crate) const BARGAIN_STAT_COUNT: u8 = 9;
 pub(crate) const BARGAIN_COST: u64 = 20;
 pub(super) const BARGAIN_STAT_NAMES: [&str; BARGAIN_STAT_COUNT as usize] = [
     "damage",

@@ -125,7 +125,7 @@ impl Frame for ClientMsg {
                         || matches!(c, WireCommand::Cast { slot, actor, .. }
                             if *slot > 2 || actor.is_some_and(|id| id == 0))
                         || matches!(c, WireCommand::Trade { pick, .. } if *pick > 2)
-                        || matches!(c, WireCommand::QuestInteract { action, target, .. } if !(1..=9).contains(action) || (matches!(*action, 1 | 4 | 6) && *target != 0) || (*action == 2 && *target > 1) || (*action == 5 && *target > 48) || (*action == 8 && *target > 2))
+                        || matches!(c, WireCommand::QuestInteract { action, target, .. } if !(1..=9).contains(action) || (matches!(*action, 1 | 4 | 6) && *target != 0) || (*action == 2 && *target > 1) || (*action == 5 && *target > 80) || (*action == 8 && *target > 2))
                 }) {
                     return Err(EncodeError::BadValue("command"));
                 }

@@ -311,7 +311,7 @@ impl ClientMsg {
                             if !(1..=9).contains(&action)
                                 || (matches!(action, 1 | 4 | 6) && target != 0)
                                 || (action == 2 && target > 1)
-                                || (action == 5 && target > 48)
+                                || (action == 5 && target > 80)
                                 || (action == 8 && target > 2)
                             {
                                 return Err(DecodeError::BadField("quest interaction"));

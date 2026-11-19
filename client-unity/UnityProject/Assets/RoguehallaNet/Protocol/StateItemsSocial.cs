@@ -305,12 +305,12 @@ namespace Roguehalla.Net.Protocol
             StateItem.Require(count < 8, "quest objectives per row");
             objectiveCounts[objective.Quest] = count + 1;
         }
-        foreach (var spell in view.Spells) StateItem.Require(spell.Slot <= 1 && spell.Reward <= 48 && spell.Charges > 0 && StateItem.Finite(spell.ReadyAt) && spell.ReadyAt >= 0, "quest spell");
+        foreach (var spell in view.Spells) StateItem.Require(spell.Slot <= 1 && spell.Reward <= 48 && StateItem.ValidQuestSpellClock(spell.Charges, spell.ReadyAt), "quest spell");
         var pendingIds = new HashSet<QuestHandle>();
         foreach (var pending in view.Pending) StateItem.Require(pending.IsValid && handles.Contains(pending) && pendingIds.Add(pending), "pending quest reference");
         var dropIds = new HashSet<byte>();
-        foreach (var drop in view.Drops) StateItem.Require(drop.Reward <= 48 && drop.Charges > 0 && StateItem.Finite(drop.ReadyAt) && drop.ReadyAt >= 0 && QuestPositionValid(drop.X) && QuestPositionValid(drop.Y) && dropIds.Add(drop.Index), "quest drop");
-        foreach (var action in view.Actions) StateItem.Require(action != null && (action.Action == 9 ? dropIds.Contains(action.Target) : handles.Contains(action.Quest)) && action.Action >= 1 && action.Action <= 9 && !((action.Action == 1 || action.Action == 4 || action.Action == 6) && action.Target != 0) && !(action.Action == 2 && action.Target > 1) && !(action.Action == 5 && action.Target > 48) && !(action.Action == 8 && action.Target > 2) && action.Points != null && action.Points.Length <= 16 && (action.Points.Length % 2) == 0 && Array.TrueForAll(action.Points, QuestPositionValid) && Label(action.Label), "quest action");
+        foreach (var drop in view.Drops) StateItem.Require(drop.Reward <= 48 && StateItem.ValidQuestSpellClock(drop.Charges, drop.ReadyAt) && QuestPositionValid(drop.X) && QuestPositionValid(drop.Y) && dropIds.Add(drop.Index), "quest drop");
+        foreach (var action in view.Actions) StateItem.Require(action != null && (action.Action == 9 ? dropIds.Contains(action.Target) : handles.Contains(action.Quest)) && action.Action >= 1 && action.Action <= 9 && !((action.Action == 1 || action.Action == 4 || action.Action == 6) && action.Target != 0) && !(action.Action == 2 && action.Target > 1) && !(action.Action == 5 && action.Target > 80) && !(action.Action == 8 && action.Target > 2) && action.Points != null && action.Points.Length <= 16 && (action.Points.Length % 2) == 0 && Array.TrueForAll(action.Points, QuestPositionValid) && Label(action.Label), "quest action");
     }
 
     static bool QuestPositionValid(double value) => StateItem.Finite(value) && value >= 0 && value <= 8191.875;

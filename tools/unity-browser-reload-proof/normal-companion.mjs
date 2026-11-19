@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const EXPECTED_PROTOCOL = 19;
+const EXPECTED_PROTOCOL = 20;
 const EXPECTED_CONTENT_HASH = '7639672bbb0933c9';
 const MAX_COMMANDS = 16;
 const MAX_EVENT_ROWS = 512;
@@ -22,10 +22,10 @@ function loadCodec() {
   // The codec constant and generated vectors are authoritative; the probe's prose marker can lag a protocol bump.
   const start = html.search(/\/\/ ---- protocol v\d+ /);
   const end = html.indexOf('// ---- probe state', start);
-  if (start < 0 || end <= start) throw new Error('protocol v19 codec block is unavailable');
+  if (start < 0 || end <= start) throw new Error('protocol v20 codec block is unavailable');
   const source = html.slice(start, end);
   const codec = new Function(`${source}\nreturn { PROTOCOL, hello, input, decode, decodeClient, Tracker, ping, leave };`)();
-  if (codec.PROTOCOL !== EXPECTED_PROTOCOL) throw new Error('protocol v19 codec block is unavailable');
+  if (codec.PROTOCOL !== EXPECTED_PROTOCOL) throw new Error('protocol v20 codec block is unavailable');
   return codec;
 }
 

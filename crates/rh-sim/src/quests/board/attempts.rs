@@ -13,10 +13,10 @@ pub(crate) use interactions::{interact, objective_for_owner, visible_giver};
 pub(crate) use signals::{
     bargain_stacks, bargain_stat, bargain_take, bind_target, on_bounty_kill, on_camp_cleared,
     on_drop_body, on_hit_landed, on_mob_killed, on_player_killed, on_target_killed, on_teleported,
-    BARGAIN_COST,
+    BARGAIN_COST, BARGAIN_STAT_COUNT,
 };
 
-use self::signals::{BARGAIN_STAT_COUNT, BARGAIN_STAT_NAMES};
+use self::signals::BARGAIN_STAT_NAMES;
 use super::{catalog::QuestId, quest};
 use crate::constants::{PLAYER_SPEED, QUEST_TURN_IN_RANGE, TICK_MS};
 use crate::hooks::Hx;

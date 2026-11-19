@@ -651,12 +651,14 @@ pub fn validate(raw: RawCommand) -> Result<Command, Reject> {
             action,
             target,
         } => {
+            use crate::quests::board::attempts::BARGAIN_STAT_COUNT;
             let valid = match action {
                 1 | 4 | 6 => target == 0,
                 2 => target <= 1,
                 3 => target < 8,
-                7 => target < 9,
-                5 => target <= 48,
+                7 => target < BARGAIN_STAT_COUNT,
+                // The Bargain encodes the give/receive pair as give * 9 + receive.
+                5 => target < BARGAIN_STAT_COUNT * BARGAIN_STAT_COUNT,
                 8 => target <= 2,
                 9 => true,
                 _ => false,

@@ -12,6 +12,8 @@ namespace Roguehalla.Net.Protocol
         internal abstract void Write(Writer w);
         internal const int MaxRows = 512, MaxKeys = (int)StateKey.DestroyedTerrain;
         internal static void Require(bool condition, string name) { if (!condition) throw new EncodeException(name); }
+        internal static bool ValidQuestSpellClock(byte charges, double readyAt) =>
+            Finite(readyAt) && readyAt >= 0 && (charges > 0 || readyAt > 0);
         internal static bool Finite(double v) { return !double.IsNaN(v) && !double.IsInfinity(v); }
         internal static bool QuestFlag(ref Reader r, string field)
         {
@@ -152,7 +154,7 @@ namespace Roguehalla.Net.Protocol
             for (int i = 0; i < view.Spells.Length; i++)
             {
                 var spell = new WireQuestSpell { Slot=r.U8(), Reward=r.U8(), Charges=r.U8(), ReadyAt=r.F64() };
-                if (spell.Slot > 1 || spell.Reward > 48 || spell.Charges == 0 || !Finite(spell.ReadyAt) || spell.ReadyAt < 0 || !slots.Add(spell.Slot)) throw new DecodeException(DecodeError.BadField, "quest spell");
+                if (spell.Slot > 1 || spell.Reward > 48 || !ValidQuestSpellClock(spell.Charges, spell.ReadyAt) || !slots.Add(spell.Slot)) throw new DecodeException(DecodeError.BadField, "quest spell");
                 view.Spells[i] = spell;
             }
             view.Pending = new QuestHandle[Count(ref r, 10)];
@@ -162,7 +164,7 @@ namespace Roguehalla.Net.Protocol
             for (int i = 0; i < view.Drops.Length; i++)
             {
                 var drop = new WireQuestDrop { Index=r.U8(), Reward=r.U8(), Charges=r.U8(), ReadyAt=r.F64(), X=QuestPosition(ref r), Y=QuestPosition(ref r) };
-                if (drop.Reward > 48 || drop.Charges == 0 || !Finite(drop.ReadyAt) || drop.ReadyAt < 0 || !dropIds.Add(drop.Index)) throw new DecodeException(DecodeError.BadField, "quest drop");
+                if (drop.Reward > 48 || !ValidQuestSpellClock(drop.Charges, drop.ReadyAt) || !dropIds.Add(drop.Index)) throw new DecodeException(DecodeError.BadField, "quest drop");
                 view.Drops[i]=drop;
             }
             view.Actions = new WireQuestAction[Count(ref r, 256)];

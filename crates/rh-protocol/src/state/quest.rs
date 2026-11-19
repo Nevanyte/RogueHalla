@@ -101,6 +101,11 @@ pub(super) fn valid_quest_point(point: WireQuestPoint) -> bool {
         && (0.0..=8191.875).contains(&point.y)
 }
 
+// A reusable spell can be equipped or dropped while its last charge is recharging.
+fn valid_spell_clock(charges: u8, ready_at: f64) -> bool {
+    ready_at.is_finite() && ready_at >= 0. && (charges > 0 || ready_at > 0.)
+}
+
 impl WireQuestView {
     pub fn check(&self) -> Result<(), EncodeError> {
         if self.unknown_count > 25 || self.display_unknown_count > self.unknown_count {
@@ -134,13 +139,11 @@ impl WireQuestView {
         {
             return Err(EncodeError::BadValue("quest owner data count"));
         }
-        if self.spells.iter().any(|s| {
-            s.slot > 1
-                || s.reward > 48
-                || s.charges == 0
-                || !s.ready_at.is_finite()
-                || s.ready_at < 0.0
-        }) || self.spells.windows(2).any(|w| w[0].slot >= w[1].slot)
+        if self
+            .spells
+            .iter()
+            .any(|s| s.slot > 1 || s.reward > 48 || !valid_spell_clock(s.charges, s.ready_at))
+            || self.spells.windows(2).any(|w| w[0].slot >= w[1].slot)
             || self
                 .pending
                 .iter()
@@ -152,9 +155,7 @@ impl WireQuestView {
         let mut drop_ids = Vec::with_capacity(self.drops.len());
         for d in &self.drops {
             if d.reward > 48
-                || d.charges == 0
-                || !d.ready_at.is_finite()
-                || d.ready_at < 0.0
+                || !valid_spell_clock(d.charges, d.ready_at)
                 || !valid_quest_point(d.at)
             {
                 return Err(EncodeError::BadValue("quest drop"));
@@ -174,7 +175,7 @@ impl WireQuestView {
                 || !(1..=9).contains(&a.action)
                 || (matches!(a.action, 1 | 4 | 6) && a.target != 0)
                 || (a.action == 2 && a.target > 1)
-                || (a.action == 5 && a.target > 48)
+                || (a.action == 5 && a.target > 80)
                 || (a.action == 8 && a.target > 2)
                 || a.at.len() > MAX_QUEST_ACTION_POINTS
                 || a.at.iter().any(|p| !valid_quest_point(*p))

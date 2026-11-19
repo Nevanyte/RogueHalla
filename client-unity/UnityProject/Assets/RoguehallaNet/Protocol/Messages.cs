@@ -64,7 +64,7 @@ namespace Roguehalla.Net.Protocol
         public static WireCommand QuestAccept(QuestHandle handle) { return new WireCommand { Kind = CommandKind.QuestAccept, QuestRef = handle }; }
         public static WireCommand QuestInteract(QuestHandle handle, byte action, byte target)
         {
-            if (!handle.IsValid || action < 1 || action > 9 || (action == 1 || action == 4 || action == 6) && target != 0 || action == 2 && target > 1 || action == 5 && target > 48 || action == 8 && target > 2)
+            if (!handle.IsValid || action < 1 || action > 9 || (action == 1 || action == 4 || action == 6) && target != 0 || action == 2 && target > 1 || action == 5 && target > 80 || action == 8 && target > 2)
                 throw new ArgumentOutOfRangeException(nameof(action));
             return new WireCommand { Kind = CommandKind.QuestInteract, QuestRef = handle, QuestAction = action, QuestTarget = target };
         }
@@ -174,7 +174,7 @@ namespace Roguehalla.Net.Protocol
                             case 19:
                             {
                                 var handle = StateItem.ReadQuestHandle(ref r); byte action = r.U8(), target = r.U8();
-                                if (action < 1 || action > 9 || (action == 1 || action == 4 || action == 6) && target != 0 || action == 2 && target > 1 || action == 5 && target > 48 || action == 8 && target > 2)
+                                if (action < 1 || action > 9 || (action == 1 || action == 4 || action == 6) && target != 0 || action == 2 && target > 1 || action == 5 && target > 80 || action == 8 && target > 2)
                                     throw new DecodeException(DecodeError.BadField, "quest interaction");
                                 inp.Commands.Add(WireCommand.QuestInteract(handle, action, target)); break;
                             }
@@ -284,7 +284,7 @@ namespace Roguehalla.Net.Protocol
                             w.Varint(c.QuestRef.Value);
                             break;
                         case CommandKind.QuestInteract:
-                            if (!c.QuestRef.IsValid || c.QuestAction < 1 || c.QuestAction > 9 || (c.QuestAction == 1 || c.QuestAction == 4 || c.QuestAction == 6) && c.QuestTarget != 0 || c.QuestAction == 2 && c.QuestTarget > 1 || c.QuestAction == 5 && c.QuestTarget > 48 || c.QuestAction == 8 && c.QuestTarget > 2) throw new ArgumentException("quest interaction");
+                            if (!c.QuestRef.IsValid || c.QuestAction < 1 || c.QuestAction > 9 || (c.QuestAction == 1 || c.QuestAction == 4 || c.QuestAction == 6) && c.QuestTarget != 0 || c.QuestAction == 2 && c.QuestTarget > 1 || c.QuestAction == 5 && c.QuestTarget > 80 || c.QuestAction == 8 && c.QuestTarget > 2) throw new ArgumentException("quest interaction");
                             w.Varint(c.QuestRef.Value); w.U8(c.QuestAction); w.U8(c.QuestTarget);
                             break;
                         case CommandKind.Trade:

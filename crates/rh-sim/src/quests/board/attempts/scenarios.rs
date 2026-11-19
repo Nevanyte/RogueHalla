@@ -774,3 +774,31 @@ fn all_twenty_five_quests_accept_exercise_their_objective_and_turn_in() {
     }
     panic!("catalog sweep missed quests: {uncovered:?}");
 }
+
+#[test]
+fn a_published_lifesteal_trade_can_be_submitted_and_settled() {
+    use crate::mob_catalog::MobTypeId::{PlagueRat, RotMonk};
+    let layout = coliseum::fixed_layout();
+    let generator = pipeline::Pipeline::new(&layout);
+    let mut raid = Raid::new(new_raid(&generator, Secrets::from_seed(2)), TheBargain);
+    raid.accept();
+    let at = raid.objective(0);
+    raid.arrange(raid.seat, at);
+    let farm = &mut raid.sim.w.players.get_mut(raid.seat).unwrap().farm;
+    farm.set(RotMonk, BARGAIN_COST);
+    let previous = farm.count(PlagueRat);
+
+    let (handle, journal) = raid.entry();
+    let choice = journal
+        .actions
+        .iter()
+        .find(|a| a.quest == handle && a.label == "Trade lifesteal for attack speed")
+        .expect("the broker offers the player's lifesteal stacks");
+    raid.action(choice.action, choice.target);
+
+    assert!(is_completed(&raid.sim.w, raid.seat, raid.offer));
+    let farm = &raid.sim.w.player(raid.seat).unwrap().farm;
+    assert_eq!(farm.count(RotMonk), 0);
+    assert_eq!(farm.count(PlagueRat), previous + 24);
+    assert!(!is_completed(&raid.sim.w, raid.witness, raid.offer));
+}

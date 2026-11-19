@@ -273,6 +273,17 @@ pub fn client_samples() -> Vec<(&'static str, ClientMsg)> {
             },
         ),
         (
+            "input_bargain_lifesteal_for_attack_speed",
+            ClientMsg::Input {
+                seq: 81,
+                commands: vec![WireCommand::QuestInteract {
+                    handle: QuestHandle::new(2).unwrap(),
+                    action: 5,
+                    target: 79,
+                }],
+            },
+        ),
+        (
             "input_trade",
             ClientMsg::Input {
                 seq: 79,
@@ -1463,6 +1474,32 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
             ServerMsg::State {
                 tick: 209,
                 items: vec![StateItem::Quests(Some(quest_view_owner_payload()))],
+            },
+        ),
+        (
+            "state_quests_recharging_and_bargain",
+            ServerMsg::State {
+                tick: 210,
+                items: vec![StateItem::Quests(Some({
+                    let mut view = quest_view_owner_payload();
+                    view.spells[0] = WireQuestSpell {
+                        slot: 0,
+                        reward: 9,
+                        charges: 0,
+                        ready_at: 25_350.,
+                    };
+                    view.drops[0].reward = 15;
+                    view.drops[0].charges = 0;
+                    view.drops[0].ready_at = 53_900.;
+                    view.actions.push(WireQuestAction {
+                        quest: view.rows[0].handle,
+                        action: 5,
+                        target: 79,
+                        at: vec![],
+                        label: "Trade lifesteal for attack speed".into(),
+                    });
+                    view
+                }))],
             },
         ),
         (

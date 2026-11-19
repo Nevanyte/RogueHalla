@@ -125,10 +125,10 @@ fn constants_match_the_brief() {
     assert_eq!((FROST_WISH_FREEZE, FROST_WISH_WALL), (0.0, 1.0));
 }
 
-/// Guard: the protocol number is 18 (P-PROTOCOL-18-STAMP-1 stamped it; until then one number grew by serial packets).
+/// Guard: the protocol number is 20; v18 remains covered by the historical stamp test.
 #[test]
-fn guard_the_protocol_is_18() {
-    assert_eq!(PROTOCOL_VERSION, 19);
+fn guard_the_protocol_is_20() {
+    assert_eq!(PROTOCOL_VERSION, 20);
 }
 
 // ---- layout --------------------------------------------------------------------------------------------------------

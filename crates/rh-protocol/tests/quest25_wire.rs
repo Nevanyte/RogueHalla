@@ -13,7 +13,7 @@ fn quest_interaction_command_is_strict_and_round_trips() {
     };
     let bytes = msg.try_encode().unwrap();
     assert_eq!(ClientMsg::decode(&bytes).unwrap(), msg);
-    assert_eq!(PROTOCOL_VERSION, 19);
+    assert_eq!(PROTOCOL_VERSION, 20);
     let bad_fixed_target = ClientMsg::Input {
         seq: 10,
         commands: vec![WireCommand::QuestInteract {
@@ -28,7 +28,7 @@ fn quest_interaction_command_is_strict_and_round_trips() {
         Err(DecodeError::BadField("quest interaction"))
     );
     assert_eq!(
-        ClientMsg::decode(&[2, 1, 0, 0, 0, 1, 0, 19, 1, 5, 49]),
+        ClientMsg::decode(&[2, 1, 0, 0, 0, 1, 0, 19, 1, 5, 81]),
         Err(DecodeError::BadField("quest interaction"))
     );
 }
