@@ -139,6 +139,14 @@ pub const DEFAULT_DEFINITION: FixedDefinition<'static> = FixedDefinition {
         },
     ],
 };
+/// P-COLISEUM-GRAND-1 STUB: the grand coliseum (owner request 2026-11-19), an octagon 36 tiles across with four L
+/// walls; the implementer replaces this copy of the legacy definition with the brief's numbers. Not folded into the
+/// content identity (packet brief, "Content identity").
+pub const GRAND_DEFINITION: FixedDefinition<'static> = DEFAULT_DEFINITION;
+/// The grand coliseum's layout, built by the same [`fixed_layout_from`]; [`fixed_layout`] stays the legacy one.
+pub fn grand_layout() -> FixedLayout {
+    fixed_layout_from(&GRAND_DEFINITION)
+}
 pub fn default_definition() -> FixedDefinition<'static> {
     DEFAULT_DEFINITION
 }

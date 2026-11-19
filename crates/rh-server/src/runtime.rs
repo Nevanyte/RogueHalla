@@ -112,6 +112,15 @@ fn switch_flag(args: &[String], flag: &str) -> Result<bool, String> {
 }
 
 impl Settings {
+    /// P-COLISEUM-GRAND-1 STUB: the map pool's generator, the one `main.rs` hands to
+    /// [`crate::map_pool::MapPool::start`]: `--signature-landmarks`, and the grand coliseum unless `--legacy-coliseum`.
+    pub fn styled_maker(&self) -> crate::map_pool::StyledMaker {
+        crate::map_pool::StyledMaker {
+            signature: self.signature_landmarks,
+            grand_coliseum: false,
+        }
+    }
+
     /// No flag (or explicit core) retains the existing binary configuration. Misspelled runtime flags fail closed.
     pub fn from_args(args: &[String]) -> Result<Option<Self>, String> {
         if args

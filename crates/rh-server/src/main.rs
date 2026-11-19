@@ -226,9 +226,12 @@ async fn main() {
         // P-MAP-3: certified maps made ahead on a worker thread; the configured --map is the last resort.
         let configured = rh_server::room::MapAssets::new(cfg.arena.clone())
             .unwrap_or_else(|e| panic!("the configured map encodes as a Welcome: {e:?}"));
-        let signature = runtime.as_ref().is_some_and(|r| r.signature_landmarks);
+        let maker = runtime
+            .as_ref()
+            .map(rh_server::runtime::Settings::styled_maker)
+            .unwrap_or_default();
         cfg.map_pool = Some(std::sync::Arc::new(rh_server::map_pool::MapPool::start(
-            configured, signature,
+            configured, maker,
         )));
         eprintln!(
             "[server] map pool on: each room takes its own certified map (target {})",

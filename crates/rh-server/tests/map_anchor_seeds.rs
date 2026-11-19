@@ -15,7 +15,10 @@ const SEEDS: std::ops::RangeInclusive<u32> = 1..=8;
 
 #[test]
 fn every_landmark_anchor_on_seeds_1_to_8_is_one_the_wire_accepts() {
-    let maker = StyledMaker { signature: true };
+    let maker = StyledMaker {
+        signature: true,
+        grand_coliseum: false,
+    };
     for seed in SEEDS {
         // The pool's own path: the generator's map, dressed, with its anchors read before the arena drops them.
         let made = maker

@@ -445,7 +445,10 @@ fn signature_landmarks_only_set_the_generator_option() {
             ..pipeline::Options::default()
         }
     );
-    let maker = StyledMaker { signature: true };
+    let maker = StyledMaker {
+        signature: true,
+        grand_coliseum: false,
+    };
     assert_eq!(
         maker.options(),
         pipeline::Options {
