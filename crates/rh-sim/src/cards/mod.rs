@@ -14,6 +14,8 @@ pub(crate) mod on_hit;
 pub(crate) mod on_hurt;
 pub(crate) mod on_overkilled;
 pub use catalog::*;
+#[cfg(test)]
+mod rework_guard_tests;
 mod rework_overrides;
 mod tuning;
 pub use tuning::{check_override, CardNumbers, ShapeError, Tuning};
