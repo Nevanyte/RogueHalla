@@ -38,3 +38,40 @@ Stdout is one JSON object; same seed and flags give identical bytes. It exits 0 
 * `LegacyCircle` is parity-proven on `parity/fixtures/mob_camp` and `crowded_8` only; it is the legacy stand-in here.
 * `packages/server/bench/campDuel.ts` is the conceptual legacy cross-check, not a numeric oracle.
 * Regen, consumables and quests are off, so lifesteal healing is not mixed with other healing.
+
+## Elite mode (packet P-ELITE-BENCH-1)
+
+`camp_bench --elite` puts one fighter carrying a sampled minute-5 build against each of the 10 elite camps (2 per
+zone) for every faction x weapon x seed, under `SimConfig::live_content()` (augments and elites `Rework`), and prints a
+JSON report on stdout and a death-rate table on stderr (per camp and overall: samples, deaths, rate; the owner target is
+10-20% for an average minute-5 build). It needs the feature: a build without it prints that and exits 2.
+
+```
+cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --elite --seed 1 --seeds 10 > elite.json 2> elite-table.txt
+cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --elite --quick     # Frost,Holy x Sword,Wand x 2 elites x 1 seed
+cargo run --release -p rh-headless --features elite-bench --bin camp_bench -- --sample-builds --seeds 1..81 > tools/balance-camps/minute5_builds.json
+```
+
+Flags: `--seed S` (first seed, default 1; it is both the map-roll seed and the world seed), `--seeds N` (default 10; quick
+1), `--max-ticks N` (1800), `--builds PATH` (default the checked-in sample), `--control-bare` (no build: a negative
+control). Cell order is faction, weapon, elite kind, seed; a seed that rolls no camp of that elite is listed in
+`skipped`. Cell `k` (counting skipped cells) uses build `k % builds`. The build is applied at tick 0 through
+`rh_sim::trusted_build::apply` and the fighter walks 4-10 tiles to the camp, so Plant Your Feet's stillness clock is
+reset by the walk and its opening swing is not free (`start_dist`, `first_hit_tick` are reported).
+
+Config overrides on top of `live_content()`, because a lone fighter needs them: `lifecycle` Off (the source-arena match
+rules would end or reshape a one-player match), `regen` off and `quests` off (as the non-elite bench, so no passive
+healing or quest reward mixes in), `min_players` 1 and a short lobby. Everything else is the live world.
+
+`minute5_builds.json` is written only by `--sample-builds` (never hand-edited): 8 `HumanBot` seats as
+`examples/source_soak.rs`, `live_content()`, every bot still standing at tick 6000 contributes its cards, boosts and farm
+stacks. `ended_early` lists the seeds whose match ended before minute 5; they contribute nothing.
+
+Caveats:
+
+* The fighter is the scripted `Brawler`, which may skew death rates (see above).
+* Bots misvalue the reworked cards until P-AUG-BOTS-1, so the builds are "what bots pick today", not what an
+  owner-directed player would build.
+* Survivorship: the sample holds only players alive in matches that reached minute 5 (most matches end earlier), so the
+  builds are those of the survivors.
+* Before P-ELITE-TUNE-1 the elite numbers equal legacy: the table is a baseline, not a result.
