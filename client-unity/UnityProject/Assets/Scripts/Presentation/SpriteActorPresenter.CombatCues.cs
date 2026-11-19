@@ -11,7 +11,8 @@ namespace Roguehalla.Client
             StormInkActors.HasMobWeaponTrack(a.Kind, a.Faction, a.MobType, a.WeaponId);
 
         static bool TryWeaponHand(Art a, bool leftHand, out Vector2 uv) => a.Kind == ActorKind.RegionalMob
-            ? StormInkActors.TryMobHand(a.MobType, a.Body.sprite, leftHand, out uv)
+            ? StormInkActors.TryMobHand(a.MobType, a.Body.sprite, leftHand, out uv) ||
+                StormInkActors.TryCreatureFocus(a.MobType, a.Body.sprite, out uv)
             : StormInkActors.TryHand(a.Faction, a.Body.sprite, leftHand, out uv);
 
         static void ClearWeaponMotion(Art a)
