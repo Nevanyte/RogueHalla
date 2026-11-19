@@ -20,3 +20,5 @@ The oak pew and raised pulpit are original cutouts generated for this project fr
 The contact mark is an original monochrome dry-brush drawing generated for this project. Black bristles frame an opaque white centre that takes its pigment from the delivered attacker's faction. A confirmed weapon hit displays the mark for 65 ms. The mark uses a bounded particle pool and the same quality switch as impact sparks.
 
 The aisle uses an original dry-brush slate study with muted ochre and grey masonry. The garnet lancet and bronze three-branch candelabrum are original transparent paintings generated for this church. They share the overhead camera angle and visible worn edges of the oak furnishings.
+
+The candelabrum has a taller transparent canvas for the central smoke. The softest pixels and a clear margin survive export. The sprite pivot keeps the base planted at the original height.

@@ -342,7 +342,8 @@ namespace Roguehalla.Client
                 float cx = aisleOnX ? x + inside : x + Mathf.Sign(bay) * .8f;
                 float cy = aisleOnX ? y + Mathf.Sign(bay) * .8f : y + inside;
                 if (lm.IsInterior(Mathf.FloorToInt(cx), Mathf.FloorToInt(cy)))
-                    AddAssetSprite(lm, candles, "Church candle flame", cx, cy, .48f, .94f, 0f, 5);
+                    // The transparent headroom holds the smoke. Its lower pivot anchors the candle base.
+                    AddAssetSprite(lm, candles, "Church candle flame", cx, cy, .68f, 1.295f, 0f, 5);
             }
         }
 
