@@ -25,10 +25,14 @@ namespace Roguehalla.Client.Tests
             for (int y = 4; y <= 18; y++) Wet(16, y);
             Wet(4, 5); Wet(5, 5);
             var map = new MapBlob(size, size, tiles, terrain, regions, MapBlob.GroundTerrainAll);
-            typeof(MapBlob).GetProperty("GroundVariants").SetValue(map, variant);
+            // Bake consumes an already classified surface. The fixture has no cypress
+            // blueprint, so it supplies the same classification at that input boundary.
+            var marsh = PlagueGround.Build(map);
+            for (int i = 0; i < variant.Length; i++)
+                if (variant[i] == 7) marsh.Kind[i] = PlagueGround.Water;
             var type = typeof(RegionGround).Assembly.GetType("Roguehalla.Client.StormBoundCurrent");
             var bake = type.GetMethod("Bake", BindingFlags.Static | BindingFlags.NonPublic);
-            var field = (Color[])bake.Invoke(null,new object[] { map,PlagueGround.Build(map),terrain });
+            var field = (Color[])bake.Invoke(null,new object[] { map,marsh,terrain });
             foreach (var axis in new[] { Vector2Int.left, Vector2Int.right, Vector2Int.down })
             {
                 int index = (18 + axis.y * 7) * size + 16 + axis.x * 7;
