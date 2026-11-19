@@ -189,6 +189,8 @@ struct CellOut {
     elite: bool,
     seed: u64,
     camp: u32,
+    column: String,
+    camps: Option<u32>,
     build_index: Option<usize>,
     build_applied_tick: u32,
     start_dist: f64,
@@ -208,18 +210,29 @@ struct SkipOut {
     seed: u64,
 }
 #[derive(Serialize)]
+struct ColumnOut {
+    column: String,
+    camps: Option<u32>,
+    samples: u64,
+    deaths: u64,
+    death_rate: Option<f64>,
+    ci95: Option<[f64; 2]>,
+}
+#[derive(Serialize)]
 struct PerCamp {
     kind: String,
     zone: String,
     samples: u64,
     deaths: u64,
     death_rate: Option<f64>,
+    columns: Vec<ColumnOut>,
 }
 #[derive(Serialize)]
 struct Overall {
     samples: u64,
     deaths: u64,
     death_rate: Option<f64>,
+    columns: Vec<ColumnOut>,
 }
 #[derive(Serialize)]
 struct Rules {
@@ -242,8 +255,7 @@ struct Report {
     rules: Rules,
     solo: bool,
     caveat: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    control: Option<&'static str>,
+    reference: String,
     builds: BuildsOut,
     cells: Vec<CellOut>,
     skipped: Vec<SkipOut>,
@@ -411,7 +423,7 @@ fn pct(deaths: u64, samples: u64) -> String {
 }
 
 /// The whole elite mode minus the process: `args` are the flags after the program name (`--quick`, `--seed N`,
-/// `--seeds N`, `--max-ticks N`, `--builds PATH`, `--control-bare`; or `--sample-builds [--seeds A..B]`). `Ok` whenever
+/// `--seeds N`, `--max-ticks N`, `--builds PATH`; or `--sample-builds [--seeds A..B]`). `Ok` whenever
 /// it reported, even if every fighter died or every fight was cut off; `Err` only for bad arguments or an unreadable
 /// sample.
 pub fn run(args: &[String]) -> Result<Output, String> {
@@ -456,7 +468,6 @@ pub fn run(args: &[String]) -> Result<Output, String> {
     let seed0 = num("--seed", 1)?;
     let seeds = num("--seeds", if quick { 1 } else { 10 })?;
     let max_ticks = u32::try_from(num("--max-ticks", 1800)?).map_err(|_| "bad --max-ticks")?;
-    let bare = flag("--control-bare");
     let (source, path) = match value("--builds")? {
         Some(p) => (p.to_string(), root_path(p)),
         None => (SAMPLE_PATH.to_string(), root_path(SAMPLE_PATH)),
@@ -466,7 +477,7 @@ pub fn run(args: &[String]) -> Result<Output, String> {
             .map_err(|e| format!("cannot read builds {}: {e}", path.display()))?;
         serde_json::from_str(&text).map_err(|e| format!("cannot parse builds {source}: {e}"))?
     };
-    if sample.builds.is_empty() && !bare {
+    if sample.builds.is_empty() {
         return Err("the build sample is empty".into());
     }
 
@@ -487,8 +498,10 @@ pub fn run(args: &[String]) -> Result<Output, String> {
     }
     let map = root_path(MAP_REL);
     let arena = Arc::new(load_arena(map.to_str().ok_or("map path")?)?);
-    // One probe world per seed picks each elite's camp; every fighter then fights the same camp from the same point.
+    // One probe world per seed picks each elite's camp and the banked camps; every fighter then fights the same camp
+    // from the same point.
     let mut scenes: BTreeMap<u64, Vec<Option<Scene>>> = BTreeMap::new();
+    let mut banked: BTreeMap<(u64, u32), TrustedBuild> = BTreeMap::new();
     for seed in seed0..seed0.saturating_add(seeds) {
         let probe = Sim::reset_active(
             config(),
@@ -511,11 +524,22 @@ pub fn run(args: &[String]) -> Result<Output, String> {
                 .map(|&(_, id)| scene_for(&probe, &arena, id))
                 .collect(),
         );
+        for n in BANKED_CAMPS {
+            banked.insert((seed, n), banked_camp_build(&probe, seed, n));
+        }
     }
 
+    // Columns: the banked ones, then the bot sample.
+    let col_names: Vec<String> = BANKED_CAMPS
+        .iter()
+        .map(|n| format!("banked_{n}"))
+        .chain(std::iter::once(BOT_COLUMN.to_string()))
+        .collect();
+    let ncol = col_names.len();
     let mut cells = Vec::new();
     let mut skipped = Vec::new();
-    let mut tally: Vec<(u64, u64)> = vec![(0, 0); kinds.len()];
+    // tally[kind][column] = (samples, deaths)
+    let mut tally: Vec<Vec<(u64, u64)>> = vec![vec![(0, 0); ncol]; kinds.len()];
     let mut ordinal = 0usize;
     for &f in &factions {
         for &w in &weapons {
@@ -532,61 +556,102 @@ pub fn run(args: &[String]) -> Result<Output, String> {
                         });
                         continue;
                     };
-                    let idx = (!bare).then(|| ord % sample.builds.len());
-                    let build = idx.map(|i| &sample.builds[i].build);
-                    let m = fight(&arena, seed, f, w, scene, build, max_ticks)?;
-                    tally[ki].0 += 1;
-                    tally[ki].1 += u64::from(m.outcome == "died");
-                    cells.push(CellOut {
-                        faction: f.as_str().into(),
-                        weapon: w.as_str().into(),
-                        kind: kind.as_str().into(),
-                        zone: zone.as_str().into(),
-                        elite: true,
-                        seed,
-                        camp: scene.camp,
-                        build_index: idx,
-                        build_applied_tick: 0,
-                        start_dist: scene.dist,
-                        outcome: m.outcome,
-                        ticks: m.ticks,
-                        first_hit_tick: m.first_hit,
-                        hp_start: m.hp_start,
-                        hp_remaining: m.hp_left,
-                        damage_dealt: m.dealt,
-                        damage_taken: m.taken,
-                    });
+                    for (ci, name) in col_names.iter().enumerate() {
+                        let (camps, idx, build) = if ci < BANKED_CAMPS.len() {
+                            let n = BANKED_CAMPS[ci];
+                            (Some(n), None, &banked[&(seed, n)])
+                        } else {
+                            let i = ord % sample.builds.len();
+                            (None, Some(i), &sample.builds[i].build)
+                        };
+                        let m = fight(&arena, seed, f, w, scene, Some(build), max_ticks)?;
+                        tally[ki][ci].0 += 1;
+                        tally[ki][ci].1 += u64::from(m.outcome == "died");
+                        cells.push(CellOut {
+                            faction: f.as_str().into(),
+                            weapon: w.as_str().into(),
+                            kind: kind.as_str().into(),
+                            zone: zone.as_str().into(),
+                            elite: true,
+                            seed,
+                            camp: scene.camp,
+                            column: name.clone(),
+                            camps,
+                            build_index: idx,
+                            build_applied_tick: 0,
+                            start_dist: scene.dist,
+                            outcome: m.outcome,
+                            ticks: m.ticks,
+                            first_hit_tick: m.first_hit,
+                            hp_start: m.hp_start,
+                            hp_remaining: m.hp_left,
+                            damage_dealt: m.dealt,
+                            damage_taken: m.taken,
+                        });
+                    }
                 }
             }
         }
     }
+    let refc = BANKED_CAMPS
+        .iter()
+        .position(|&n| n == REFERENCE_CAMPS)
+        .expect("the reference column is a banked column");
+    let columns_of = |t: &[(u64, u64)]| -> Vec<ColumnOut> {
+        col_names
+            .iter()
+            .zip(t)
+            .enumerate()
+            .map(|(ci, (name, &(n, d)))| ColumnOut {
+                column: name.clone(),
+                camps: BANKED_CAMPS.get(ci).copied(),
+                samples: n,
+                deaths: d,
+                death_rate: rate(d, n),
+                ci95: wilson(d, n),
+            })
+            .collect()
+    };
     let per_camp: Vec<PerCamp> = kinds
         .iter()
         .zip(&tally)
-        .map(|(&(zone, kind), &(n, d))| PerCamp {
+        .map(|(&(zone, kind), t)| PerCamp {
             kind: kind.as_str().into(),
             zone: zone.as_str().into(),
-            samples: n,
-            deaths: d,
-            death_rate: rate(d, n),
+            samples: t[refc].0,
+            deaths: t[refc].1,
+            death_rate: rate(t[refc].1, t[refc].0),
+            columns: columns_of(t),
         })
         .collect();
-    let (n, d) = tally.iter().fold((0, 0), |a, t| (a.0 + t.0, a.1 + t.1));
+    let all: Vec<(u64, u64)> = (0..ncol)
+        .map(|ci| {
+            tally
+                .iter()
+                .fold((0, 0), |a, t| (a.0 + t[ci].0, a.1 + t[ci].1))
+        })
+        .collect();
+    let (n, d) = all[refc];
+
     let mut table = format!("elite camps, solo fighter. {CAVEAT}\n");
-    for p in &per_camp {
-        table += &format!(
-            "  {:<24} {:<8} samples {:>5}  deaths {:>5}  death rate {:>6}\n",
-            p.kind,
-            p.zone,
-            p.samples,
-            p.deaths,
-            pct(p.deaths, p.samples)
-        );
+    table += &format!("  {:<24} {:<8} {:>13}", "camp", "zone", "samples");
+    for c in &col_names {
+        table += &format!(" {c:>11}");
     }
-    table += &format!(
-        "  overall                  samples {n:>5}  deaths {d:>5}  death rate {:>6}\n",
-        pct(d, n)
-    );
+    table += "\n";
+    let row = |label: &str, zone: &str, n: u64, cols: &[ColumnOut]| {
+        let mut l = format!("  {label:<24} {zone:<8} {n:>13}");
+        for c in cols {
+            l += &format!(" {:>11}", pct(c.deaths, c.samples));
+        }
+        l + "\n"
+    };
+    for p in &per_camp {
+        table += &row(&p.kind, &p.zone, p.samples, &p.columns);
+    }
+    let overall_cols = columns_of(&all);
+    table += &row("overall", "", n, &overall_cols);
+    table += "  reference column: banked_12 (12 camps banked, 12 stacks a camp: the workbook player); bots bank far fewer camps than the workbook player, so bot_sample is the bots' reality and the two are not comparable\n";
     table += "  owner target: an average minute-5 build dies 10-20% of the time soloing an elite camp";
     let report = Report {
         version: 1,
@@ -600,7 +665,7 @@ pub fn run(args: &[String]) -> Result<Output, String> {
         },
         solo: true,
         caveat: CAVEAT,
-        control: bare.then_some("bare"),
+        reference: format!("banked_{REFERENCE_CAMPS}"),
         builds: BuildsOut {
             source,
             tick: sample.tick,
@@ -613,10 +678,75 @@ pub fn run(args: &[String]) -> Result<Output, String> {
             samples: n,
             deaths: d,
             death_rate: rate(d, n),
+            columns: overall_cols,
         },
     };
     Ok(Output {
         json: serde_json::to_string(&report).map_err(|e| e.to_string())?,
         table,
     })
+}
+
+/// Wilson 95% interval of a rate (`None` without samples).
+fn wilson(deaths: u64, samples: u64) -> Option<[f64; 2]> {
+    if samples == 0 {
+        return None;
+    }
+    let (n, p, z) = (samples as f64, deaths as f64 / samples as f64, 1.959_963_984_540_054);
+    let denom = 1. + z * z / n;
+    let centre = (p + z * z / (2. * n)) / denom;
+    let half = z * (p * (1. - p) / n + z * z / (4. * n * n)).sqrt() / denom;
+    Some([(centre - half).max(0.), (centre + half).min(1.)])
+}
+
+/// Banked-camp model (coordinator 2026-11-19, revising plan decision 8): workbook `Augment_Value`, assumption `banked`
+/// = 12 camps already banked at minute 5, one camp = 12 stacks.
+pub const CAMP_STACKS: u64 = 12;
+/// The banked-camp columns of the report, in order; the bot sample is one more column after them.
+pub const BANKED_CAMPS: [u32; 4] = [0, 6, 12, 18];
+/// The column `per_camp` and `overall` report as their own rate.
+pub const REFERENCE_CAMPS: u32 = 12;
+/// Column name of the bot minute-5 sample (the banked ones are `banked_<N>`).
+pub const BOT_COLUMN: &str = "bot_sample";
+
+/// SplitMix64: the bench's own seeded draw (the sim's RNG is not touched).
+fn splitmix(state: &mut u64) -> u64 {
+    *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    let mut z = *state;
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^ (z >> 31)
+}
+
+/// A build of `camps` normal camps banked: draw `camps` non-elite camps of `probe`'s world (with replacement, seeded by
+/// `seed`) and add `CAMP_STACKS` stacks of the stat each drawn camp's kills pay (`camp_buffs()[i]` when set, else the
+/// camp's own `mob_type`); stacks of one stat merge into one entry. No cards, no boosts. Pure in (`probe`, `seed`,
+/// `camps`).
+pub fn banked_camp_build(probe: &Sim, seed: u64, camps: u32) -> TrustedBuild {
+    let buffs = probe.camp_buffs();
+    let pays: Vec<MobTypeId> = probe
+        .camp_rosters()
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.elite.is_none())
+        .map(|(i, r)| buffs.get(i).copied().flatten().unwrap_or(r.mob_type))
+        .collect();
+    let mut stacks: Vec<(MobTypeId, u64)> = Vec::new();
+    if pays.is_empty() {
+        return TrustedBuild::default();
+    }
+    let mut state = seed ^ 0xBA4C_ED00_CA3D_5EED;
+    for _ in 0..camps {
+        let stat = pays[(splitmix(&mut state) % pays.len() as u64) as usize];
+        match stacks.iter_mut().find(|(m, _)| *m == stat) {
+            Some(e) => e.1 += CAMP_STACKS,
+            None => stacks.push((stat, CAMP_STACKS)),
+        }
+    }
+    stacks.sort_by_key(|(m, _)| m.as_str());
+    TrustedBuild {
+        cards: Vec::new(),
+        stacks,
+        boosts: Vec::new(),
+    }
 }
