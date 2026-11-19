@@ -23,7 +23,8 @@ Nothing is pushed and `main` is untouched.
   - P-ELITE-SHARE-1, the helper share, after a reviewer-opus REJECT and two oracle-amends;
   - P-AUG-TUNE-1, Wishful Thinking plus three Wish restore fixes for reachable states.
   - Full gate PASS on `289fb9424`: `--coordinator --keep-going --allow-artefacts --regen-fixtures --allow-protected --base
-    4194c9b14`, EditMode 1581/1581, and the new no-alloc step ran. The integration review is pending.
+    4194c9b14`, EditMode 1581/1581, and the new no-alloc step ran. Postgres suites ran with pgtest.
+  - reviewer-opus integration review: **LAND**.
 - **Identities:** content hash `c890f52fd7ab4546` (move 6), checkpoint `rh-checkpoint/33`.
 - **Coordinator oracle-amends:**
   - `373b919fe` for P-AUG-POOL-1: CONTENT-1's rows are one run, and the pool line checks Legacy.
@@ -77,6 +78,11 @@ A throwaway sweep of `REWORK_ELITES` (k 0.65), banked_12, Duelist, overall death
   move 7, after P-AUG-TUNE-1 lands, because both regold.
 
 **Noted for later packets, no packet yet**
+- `card_trims` probably allocates on the first Wishful trim after a clone or restore (capacity == len). That is the warm-path
+  class P-NOALLOC-GATE-1 fixed for `BuildMarkCache`. It predates the rework and is unmeasured; the no-alloc tests never drive
+  Wishful (int-63 review).
+- The training console `clear` resets the build but leaves the Wish stocks, which a Full-abilities checkpoint after a
+  clear may refuse. It predates the rework and is unchecked (int-63 review).
 - `REWORK_EYE_FOR_AN_EYE_WEIGHT` is an f64 used as a whole count of copies.
 
 ## Elite and augment rework (2026-11-18): approved plan, in progress
