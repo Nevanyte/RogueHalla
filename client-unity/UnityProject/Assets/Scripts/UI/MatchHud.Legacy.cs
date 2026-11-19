@@ -367,23 +367,23 @@ namespace Roguehalla.Client
                 var active = HudUi.Fill(rect, "ActiveWeapon", theme.BorderStrong);
                 active.sprite = UiSprites.Frame(theme, theme.CornerRadius); active.type = UnityEngine.UI.Image.Type.Sliced;
                 _weaponActiveBars[i] = active; active.enabled = false;
-                _weaponHints[i] = HudIconHint.Attach(button, _root, (i + 1) + " · Empty weapon slot");
+                _weaponHints[i] = HudIconHint.Attach(button, _root, "Slot " + (i + 1) + " · Empty weapon slot");
             }
 
-            // Q swap chip between the slots.
+            // Space swap chip between the slots.
             var chip = HudUi.Box(_weaponBar, "QSwap", HudAnchor.BottomLeft, RowSlot(1).X, rowBottom + (SlotHeight - 40f) / 2f, SwapWidth, 40f);
             var chipImage = HudUi.Surface(chip, Color.white, theme.CornerRadius, theme.Border, true, true);
             _swapChip = chip.gameObject.AddComponent<UnityEngine.UI.Button>(); _swapChip.targetGraphic = chipImage;
             HudUi.ApplyColors(_swapChip, theme.SurfaceRaised);
             _swapChip.onClick.AddListener(() => { if (_inventoryShown.HasValue) Swap((byte)(_inventoryShown.Value.ActiveSlot == 0 ? 1 : 0)); });
-            HudUi.Label(HudUi.At(chip, "Key", 0, 6, SwapWidth, 14), "Label", "Q", theme.SizeSmall, theme.TextPrimary, TextAlignmentOptions.Center, true);
+            HudUi.Label(HudUi.At(chip, "Key", 0, 6, SwapWidth, 14), "Label", "Space", theme.SizeSmall, theme.TextPrimary, TextAlignmentOptions.Center, true);
             HudUi.Label(HudUi.At(chip, "Caption", 0, 23, SwapWidth, 11), "Label", "SWAP", 7f, theme.TextSecondary, TextAlignmentOptions.Center);
-            HudIconHint.Attach(_swapChip, _root, "Q · Swap weapons");
+            HudIconHint.Attach(_swapChip, _root, "Space · Swap weapons");
 
             CreateWishTile(theme, rowBottom);
             CreateConsumables(theme);
             CreatePickupHint(theme, rowBottom + SlotHeight + BarGap);
-            var controls = HudUi.Label(HudUi.Box(_weaponBar, "ControlsLine", HudAnchor.BottomCenter, 0, -14f, 240, 13), "Label", "WASD move · Click attack · R Wish", theme.SizeTiny, theme.TextSecondary, TextAlignmentOptions.Center);
+            var controls = HudUi.Label(HudUi.Box(_weaponBar, "ControlsLine", HudAnchor.BottomCenter, 0, -14f, 240, 13), "Label", "WASD move · Click attack · Shift/Q quest · R Wish", theme.SizeTiny, theme.TextSecondary, TextAlignmentOptions.Center);
             controls.raycastTarget = false;
         }
 

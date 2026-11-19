@@ -434,13 +434,9 @@ namespace Roguehalla.Client
                 if (mouse.rightButton.wasPressedThisFrame)
                 {
                     _wishAim.RightClick();
-                    if (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) { Session.Input.AttackMove(sx, sy); _orderBudget.Spend(now); _stopRetry.Cancel(); }
-                    else
-                    {
-                        OrderMove(sx, sy);
-                        // Holding the button keeps steering toward the cursor, like legacy holdMove.
-                        _rightHeld = true; _holdX = sx; _holdY = sy; _lastHold = now;
-                    }
+                    OrderMove(sx, sy);
+                    // Holding the button keeps steering toward the cursor, like legacy holdMove.
+                    _rightHeld = true; _holdX = sx; _holdY = sy; _lastHold = now;
                 }
                 else if (_rightHeld && mouse.rightButton.isPressed && !_steering && now - _lastHold >= HoldRepeatMs &&
                     (sx - _holdX) * (sx - _holdX) + (sy - _holdY) * (sy - _holdY) > HoldMovedU * HoldMovedU && _orderBudget.TryTake(now))
@@ -461,10 +457,18 @@ namespace Roguehalla.Client
             }
             if (Hud == null || !Hud.ChestOwnsDigits)
             {
-                if (kb.digit1Key.wasPressedThisFrame) Session.Input.Swap(0);
-                if (kb.digit2Key.wasPressedThisFrame) Session.Input.Swap(1);
+                if (kb.spaceKey.wasPressedThisFrame) Session.Input.Swap();
             }
-            if (kb.qKey.wasPressedThisFrame) Session.Input.Swap();
+            if (kb.shiftKey.wasPressedThisFrame)
+            {
+                uint target = haveCursor && mouse != null ? VisibleActorAt(mouse.position.ReadValue()) : 0;
+                Session.Cast(1, sx, sy, target == 0 ? (uint?)null : target);
+            }
+            if (kb.qKey.wasPressedThisFrame)
+            {
+                uint target = haveCursor && mouse != null ? VisibleActorAt(mouse.position.ReadValue()) : 0;
+                Session.Cast(2, sx, sy, target == 0 ? (uint?)null : target);
+            }
             if (kb.eKey.wasPressedThisFrame) Session.Input.UseConsumable();
             if (kb.fKey.wasPressedThisFrame) PickupFocus();
             // Server +y points down the screen. This sends destinations; it never simulates movement. As in legacy
