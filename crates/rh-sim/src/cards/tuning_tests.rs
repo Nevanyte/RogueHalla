@@ -31,22 +31,25 @@ fn legacy_numbers() -> CardNumbers {
     }
 }
 
-const COMMITTED_ROWS_22: &[CardRow] = &[
-    CardRow::Fold(EffectKind::Flag {
-        flag: EffectFlag::LockSecondSlot,
-    }),
-    CardRow::Fold(EffectKind::Stat {
-        stat: EffectStat::Damage,
-        v: 0.22,
-    }),
-    CardRow::Fold(EffectKind::Stat {
-        stat: EffectStat::AttackSpeed,
-        v: 0.15,
-    }),
-];
+fn committed_rows_22() -> &'static [CardRow] {
+    &[
+        CardRow::Fold(EffectKind::Flag {
+            flag: EffectFlag::LockSecondSlot,
+        }),
+        CardRow::Fold(EffectKind::Stat {
+            stat: EffectStat::Damage,
+            v: 0.22,
+        }),
+        CardRow::Fold(EffectKind::Stat {
+            stat: EffectStat::AttackSpeed,
+            v: 0.15,
+        }),
+    ]
+}
 
 /// Committed with the Augment_Tuning damage (+22%) and its text: a legal override (row number and text only).
-const COMMITTED_22: CardDef = CardDef {
+fn committed_22() -> CardDef {
+    CardDef {
     id: CardId::Committed,
     kind: CardKind::Augment,
     tier: 3,
@@ -57,31 +60,35 @@ const COMMITTED_22: CardDef = CardDef {
     title: "Committed",
     text: "Your second weapon slot is locked. The weapon you hold deals +22% damage and attacks 15% faster.",
     tags: &[],
-    rows: COMMITTED_ROWS_22,
+    rows: committed_rows_22(),
     selections: &[],
-};
+}
+}
 
-const BOOM_ROWS_26: &[CardRow] = &[
-    CardRow::Fold(EffectKind::Mult {
-        key: MultKey::AsPost,
-        v: 0.5,
-    }),
-    CardRow::Fold(EffectKind::Mult {
-        key: MultKey::Hit,
-        v: 2.6,
-    }),
-    CardRow::Fold(EffectKind::Mult {
-        key: MultKey::Dot,
-        v: 1.25,
-    }),
-    CardRow::Fold(EffectKind::Mult {
-        key: MultKey::Returned,
-        v: 1.25,
-    }),
-];
+fn boom_rows_26() -> &'static [CardRow] {
+    &[
+        CardRow::Fold(EffectKind::Mult {
+            key: MultKey::AsPost,
+            v: 0.5,
+        }),
+        CardRow::Fold(EffectKind::Mult {
+            key: MultKey::Hit,
+            v: 2.6,
+        }),
+        CardRow::Fold(EffectKind::Mult {
+            key: MultKey::Dot,
+            v: 1.25,
+        }),
+        CardRow::Fold(EffectKind::Mult {
+            key: MultKey::Returned,
+            v: 1.25,
+        }),
+    ]
+}
 
 /// Here Comes the Boom at 2.6x (decision 2 of the plan): a legal override.
-const BOOM_26: CardDef = CardDef {
+fn boom_26() -> CardDef {
+    CardDef {
     id: CardId::HereComesTheBoom,
     kind: CardKind::Augment,
     tier: 3,
@@ -92,24 +99,27 @@ const BOOM_26: CardDef = CardDef {
     title: "Here Comes the Boom",
     text: "Your attack speed is halved, but your hits deal 2.6x damage, Offense and SO alike. Your damage over time and returned damage deal 1.25x.",
     tags: &[MechanicTag::Dot, MechanicTag::Returned],
-    rows: BOOM_ROWS_26,
+    rows: boom_rows_26(),
     selections: &[],
-};
+}
+}
 
 /// Tank Engine at 1.5 HP per point blocked, cap 350 (Augment_Tuning): a trigger row's numbers, a legal override.
-const TANK_ROWS_15: &[CardRow] = &[CardRow::Trigger(TriggerRow {
-    on: TriggerOn::Block,
-    arg: 0.0,
-    once: false,
-    action: TriggerAction::Fortify {
-        per: 1.5,
-        cap: 350.0,
-    },
-})];
+fn tank_rows_15() -> &'static [CardRow] {
+    &[CardRow::Trigger(TriggerRow {
+        on: TriggerOn::Block,
+        arg: 0.0,
+        once: false,
+        action: TriggerAction::Fortify {
+            per: 1.5,
+            cap: 350.0,
+        },
+    })]
+}
 
-static COMMITTED_TABLE: [CardDef; 1] = [COMMITTED_22];
-static BOOM_TABLE: [CardDef; 1] = [BOOM_26];
-static DOUBLED_TABLE: [CardDef; 2] = [COMMITTED_22, COMMITTED_22];
+fn table(rows: Vec<CardDef>) -> &'static [CardDef] {
+    Box::leak(rows.into_boxed_slice())
+}
 
 fn leak(t: Tuning) -> &'static Tuning {
     Box::leak(Box::new(t))
@@ -165,13 +175,13 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
             "{id:?}"
         );
     }
-    assert_eq!(check_override(committed, &COMMITTED_22), Ok(()));
+    assert_eq!(check_override(committed, &committed_22()), Ok(()));
     assert_eq!(
-        check_override(CardId::HereComesTheBoom.definition(), &BOOM_26),
+        check_override(CardId::HereComesTheBoom.definition(), &boom_26()),
         Ok(())
     );
     let tank = CardDef {
-        rows: TANK_ROWS_15,
+        rows: tank_rows_15(),
         ..*CardId::TankEngine.definition()
     };
     assert_eq!(
@@ -185,7 +195,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
             "tier",
             CardDef {
                 tier: 2,
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
@@ -193,7 +203,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
             "kind",
             CardDef {
                 kind: CardKind::Conditional,
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
@@ -201,7 +211,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
             "unique",
             CardDef {
                 unique: false,
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
@@ -209,7 +219,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
             "ready",
             CardDef {
                 ready: false,
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
@@ -217,7 +227,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
             "base",
             CardDef {
                 base: Some(BaseStatId::Ad),
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
@@ -225,7 +235,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
             "requires",
             CardDef {
                 requires: Some(BaseStatId::Ad),
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
@@ -233,7 +243,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
             "title",
             CardDef {
                 title: "Committed!",
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
@@ -241,7 +251,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
             "tags",
             CardDef {
                 tags: &[MechanicTag::OnHit],
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
@@ -249,7 +259,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
             "id",
             CardDef {
                 id: CardId::MachineGun,
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
@@ -269,7 +279,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
                         v: 0.15,
                     }),
                 ],
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
@@ -289,7 +299,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
                         v: 0.15,
                     }),
                 ],
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
@@ -312,7 +322,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
                         flag: EffectFlag::NoCrit,
                     }),
                 ],
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
@@ -323,19 +333,19 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
                     stat: EffectStat::Damage,
                     v: 0.22,
                 })],
-                ..COMMITTED_22
+                ..committed_22()
             },
             committed,
         ),
         (
             "a selection added",
             CardDef {
-                selections: &[Selection {
+                selections: Box::leak(Box::new([Selection {
                     faction: FactionId::Fire,
                     text: "Fire's Committed.",
-                    rows: COMMITTED_ROWS_22,
-                }],
-                ..COMMITTED_22
+                    rows: committed_rows_22(),
+                }])),
+                ..committed_22()
             },
             committed,
         ),
@@ -360,7 +370,7 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
                         v: 1.25,
                     }),
                 ],
-                ..BOOM_26
+                ..boom_26()
             },
             CardId::HereComesTheBoom.definition(),
         ),
@@ -409,12 +419,12 @@ fn the_shape_guard_admits_row_numbers_and_text_only() {
 #[test]
 fn the_test_constructor_builds_through_the_guard() {
     let numbers = legacy_numbers();
-    assert!(Tuning::for_test(AugmentRule::Rework, numbers, &COMMITTED_TABLE).is_ok());
-    static DOCTORED: [CardDef; 1] = [CardDef {
+    assert!(Tuning::for_test(AugmentRule::Rework, numbers, table(vec![committed_22()])).is_ok());
+    let doctored = table(vec![CardDef {
         tier: 2,
-        ..COMMITTED_22
-    }];
-    static FLAGGED: [CardDef; 1] = [CardDef {
+        ..committed_22()
+    }]);
+    let flagged = table(vec![CardDef {
         rows: &[
             CardRow::Fold(EffectKind::Flag {
                 flag: EffectFlag::Gambler,
@@ -428,14 +438,15 @@ fn the_test_constructor_builds_through_the_guard() {
                 v: 0.15,
             }),
         ],
-        ..COMMITTED_22
-    }];
-    for (what, table) in [
-        ("a changed tier", &DOCTORED[..]),
-        ("a changed flag", &FLAGGED[..]),
-        ("two rows for one card", &DOUBLED_TABLE[..]),
+        ..committed_22()
+    }]);
+    let doubled = table(vec![committed_22(), committed_22()]);
+    for (what, rows) in [
+        ("a changed tier", doctored),
+        ("a changed flag", flagged),
+        ("two rows for one card", doubled),
     ] {
-        let built = Tuning::for_test(AugmentRule::Rework, numbers, table);
+        let built = Tuning::for_test(AugmentRule::Rework, numbers, rows);
         assert!(built.is_err(), "the table with {what} was built");
         assert_eq!(built.unwrap_err().id, CardId::Committed, "{what}");
     }
@@ -471,8 +482,12 @@ fn the_real_override_table_passes_the_guard() {
 fn a_retuned_fold_row_reaches_the_fold_and_the_restore_check() {
     let mut sim = setup(rework(), FactionId::Fire);
     sim.k.cards = leak(
-        Tuning::for_test(AugmentRule::Rework, legacy_numbers(), &COMMITTED_TABLE)
-            .expect("a numbers-and-text override is admitted"),
+        Tuning::for_test(
+            AugmentRule::Rework,
+            legacy_numbers(),
+            table(vec![committed_22()]),
+        )
+        .expect("a numbers-and-text override is admitted"),
     );
     assert!(crate::cards::grant(
         &sim.k,
@@ -523,7 +538,7 @@ fn the_outgoing_row_cap_reaches_the_fold_clamp_and_the_outgoing_ceiling() {
                 outgoing_row_cap: 2.6,
                 ..legacy_numbers()
             },
-            &BOOM_TABLE,
+            table(vec![boom_26()]),
         )
         .expect("a numbers-and-text override is admitted"),
     );
