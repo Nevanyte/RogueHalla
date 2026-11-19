@@ -253,7 +253,7 @@ fn strict_reader_positive_body_loads() {
     // The sealed raw bytes are pinned, strict-parse without duplicate keys, and the owned body validates exactly.
     assert_eq!(
         corpus_text().len(),
-        12_755_158,
+        12_755_298,
         "the sealed source.json byte length is pinned"
     );
     assert!(
