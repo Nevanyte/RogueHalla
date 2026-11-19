@@ -65,10 +65,14 @@ const MAP_REL: &str = "crates/rh-sim/src/mapdata/fixtures/seed1.map.json";
 const START_DIST: f64 = 320.;
 const CAVEAT: &str = "Two scripted fighters, neither a player. The Brawler is an upper bound (no abilities, no kiting, \
 swings from 80 u whatever the weapon, no heals), so its death rates are biased high. The duelist is nearer to a player: it \
-walks to its camp, uses its weapon range (melee closes to reach, ranged weapons hold about 80% of range and step back) and \
+walks to its camp, uses its weapon range (melee closes to reach, ranged weapons stand and shoot at about 80% of range) and \
 casts its Wish when ready, but it never retreats and does not read dodges, so its rates remain biased upward. The ci95 is \
 the Wilson interval of deaths over engaged fights: its spread is over faction x weapon x seed within the seeds run, with one \
 camp placement per elite kind (the map is fixed; the world seed varies the fight and the banked draw, not where camps are). \
+The headline rate (died / engaged) counts truncated fights as non-deaths, so the decided rate (died / (died + cleared)) \
+is printed beside it. A fighting mob gives up after 20 s without hitting a player and regenerates to full in 2 s (the \
+legacy give-up rule), so a fighter that kites resets the camp: the duelist stands and shoots at 0.8 of its range and never \
+steps back, and each cell's resets counts the camps' give-ups (legacy behaviour, not a sim defect). \
 Fights that never touched the camp are no_engage and fights cut off by the tick cap are truncated: both are counted, not \
 hidden, and a truncated fight is a non-death, so kiting weapons can understate deaths. Banked builds hold no cards, so the \
 bots' misvaluing of reworked cards (until P-AUG-BOTS-1) does not enter; the bot_sample column does carry it, and only \
@@ -218,6 +222,7 @@ struct CellOut {
     actions: BTreeMap<String, u64>,
     attack_ticks: u32,
     attack_dist_mean: Option<f64>,
+    resets: u64,
 }
 #[derive(Serialize)]
 struct SkipOut {
@@ -236,9 +241,19 @@ struct ColumnOut {
     cleared: u64,
     truncated: u64,
     no_engage: u64,
+    decided: u64,
     death_rate: Option<f64>,
     clear_rate: Option<f64>,
     ci95: Option<[f64; 2]>,
+    decided_rate: Option<f64>,
+    decided_ci95: Option<[f64; 2]>,
+}
+#[derive(Serialize)]
+struct WeaponRow {
+    fighter: &'static str,
+    weapon: String,
+    #[serde(flatten)]
+    column: ColumnOut,
 }
 #[derive(Serialize)]
 struct PerCamp {
@@ -293,6 +308,7 @@ struct Report {
     overall: Overall,
     #[serde(skip_serializing_if = "Option::is_none")]
     upper_bound: Option<UpperBound>,
+    by_weapon: Vec<WeaponRow>,
 }
 
 struct Scene {
@@ -384,6 +400,7 @@ struct Fought {
     actions: BTreeMap<String, u64>,
     attack_ticks: u32,
     attack_dist_mean: Option<f64>,
+    resets: u64,
 }
 
 /// The variant name of a command (`Move`, `Attack`, `Cast`, ...), as submitted.
@@ -451,7 +468,17 @@ fn fight(
         actions: BTreeMap::new(),
         attack_ticks: 0,
         attack_dist_mean: None,
+        resets: 0,
     };
+    let mut was_engaged: Vec<bool> = members
+        .iter()
+        .map(|id| {
+            env.sim
+                .mobs()
+                .iter()
+                .any(|b| b.core.id == *id && b.engaged())
+        })
+        .collect();
     let mut dist_sum = 0.;
     let mut touched = false;
     let mut healed = 0.;
@@ -526,6 +553,21 @@ fn fight(
             m.hp_left = 0.;
             break;
         }
+        // A living member leaving fight mode (gave up, returned, healed to full) is a reset of the camp.
+        for b in env
+            .sim
+            .mobs()
+            .iter()
+            .filter(|b| b.camp == scene.camp && b.zombie.is_none())
+        {
+            if let Some(i) = members.iter().position(|id| *id == b.core.id) {
+                let now = b.engaged();
+                if was_engaged[i] && !now && b.status == rh_sim::state::Status::Alive {
+                    m.resets += 1;
+                }
+                was_engaged[i] = now;
+            }
+        }
         let alive = env.sim.camp_rosters()[scene.camp as usize].alive;
         let any = env.sim.mobs().iter().any(|b| {
             b.camp == scene.camp && b.zombie.is_none() && b.status == rh_sim::state::Status::Alive
@@ -587,6 +629,33 @@ impl Tally {
     }
 }
 
+fn columns_of(col_names: &[String], t: &[Tally]) -> Vec<ColumnOut> {
+    col_names
+        .iter()
+        .zip(t)
+        .enumerate()
+        .map(|(ci, (name, t))| {
+            let decided = t.died + t.cleared;
+            ColumnOut {
+                column: name.clone(),
+                camps: BANKED_CAMPS.get(ci).copied(),
+                samples: t.samples,
+                engaged: t.engaged,
+                deaths: t.died,
+                cleared: t.cleared,
+                truncated: t.truncated,
+                no_engage: t.no_engage,
+                decided,
+                death_rate: rate(t.died, t.engaged),
+                clear_rate: rate(t.cleared, t.engaged),
+                ci95: wilson(t.died, t.engaged),
+                decided_rate: rate(t.died, decided),
+                decided_ci95: wilson(t.died, decided),
+            }
+        })
+        .collect()
+}
+
 /// One fighter's report blocks and table text.
 struct Block {
     per_camp: Vec<PerCamp>,
@@ -601,26 +670,7 @@ fn block(
     col_names: &[String],
     refc: usize,
 ) -> Block {
-    let columns_of = |t: &[Tally]| -> Vec<ColumnOut> {
-        col_names
-            .iter()
-            .zip(t)
-            .enumerate()
-            .map(|(ci, (name, t))| ColumnOut {
-                column: name.clone(),
-                camps: BANKED_CAMPS.get(ci).copied(),
-                samples: t.samples,
-                engaged: t.engaged,
-                deaths: t.died,
-                cleared: t.cleared,
-                truncated: t.truncated,
-                no_engage: t.no_engage,
-                death_rate: rate(t.died, t.engaged),
-                clear_rate: rate(t.cleared, t.engaged),
-                ci95: wilson(t.died, t.engaged),
-            })
-            .collect()
-    };
+    let columns_of = |t: &[Tally]| columns_of(col_names, t);
     let per_camp: Vec<PerCamp> = kinds
         .iter()
         .zip(tally)
@@ -664,6 +714,15 @@ fn block(
             c.column, c.samples, c.engaged, c.deaths, c.cleared, c.truncated, c.no_engage
         );
     }
+    for c in &overall.columns {
+        table += &format!(
+            "  decided {fighter} {}: died={} cleared={} rate={}\n",
+            c.column,
+            c.deaths,
+            c.cleared,
+            pct(c.deaths, c.decided)
+        );
+    }
     Block {
         per_camp,
         overall,
@@ -691,10 +750,15 @@ pub struct Options {
     pub seeds: u64,
     pub max_ticks: u32,
     pub jobs: usize,
+    /// `--kind ID,ID`: restrict the elite kinds (any zone, also under `--quick`); `None` = the default set.
+    pub kinds: Option<Vec<String>>,
+    /// `--weapon W,W`: restrict the weapons (also under `--quick`); `None` = the default set.
+    pub weapons: Option<Vec<String>>,
 }
 
 /// Parses the flags of an elite run (not `--sample-builds`): `--quick`, `--fighter brawler|duelist|both`, `--seed N`,
-/// `--seeds N`, `--max-ticks N`, `--jobs N` (>= 1). `--builds PATH` is read by `run`.
+/// `--seeds N`, `--max-ticks N`, `--jobs N` (>= 1), `--kind ID[,ID]`, `--weapon W[,W]` (unknown values are an
+/// error). `--builds PATH` is read by `run`.
 pub fn parse_options(args: &[String]) -> Result<Options, String> {
     let flag = |n: &str| args.iter().any(|a| a == n);
     let value = |n: &str| -> Result<Option<&str>, String> {
@@ -723,6 +787,28 @@ pub fn parse_options(args: &[String]) -> Result<Options, String> {
             _ => return Err(format!("bad --jobs {v}: a number of at least 1")),
         },
     };
+    let list = |n: &str, valid: Vec<String>| -> Result<Option<Vec<String>>, String> {
+        let Some(v) = value(n)? else { return Ok(None) };
+        let items: Vec<String> = v.split(',').map(str::to_string).collect();
+        match items.iter().find(|i| !valid.contains(i)) {
+            Some(bad) => Err(format!("unknown {n} {bad}: one of {}", valid.join(","))),
+            None => Ok(Some(items)),
+        }
+    };
+    let kinds = list(
+        "--kind",
+        FactionId::ALL
+            .into_iter()
+            .flat_map(|z| elites_of(z).map(|t| t.id.as_str().to_string()))
+            .collect(),
+    )?;
+    let weapons = list(
+        "--weapon",
+        WeaponId::ALL
+            .into_iter()
+            .map(|w| w.as_str().to_string())
+            .collect(),
+    )?;
     Ok(Options {
         quick,
         fighter,
@@ -730,6 +816,8 @@ pub fn parse_options(args: &[String]) -> Result<Options, String> {
         seeds: num("--seeds", if quick { 1 } else { OWNER_DEFAULT_SEEDS })?,
         max_ticks: u32::try_from(num("--max-ticks", 1800)?).map_err(|_| "bad --max-ticks")?,
         jobs,
+        kinds,
+        weapons,
     })
 }
 
@@ -789,6 +877,8 @@ pub fn run(args: &[String]) -> Result<Output, String> {
         seeds,
         max_ticks,
         jobs,
+        kinds: kind_filter,
+        weapons: weapon_filter,
     } = parse_options(args)?;
     let (source, path) = match value("--builds")? {
         Some(p) => (p.to_string(), root_path(p)),
@@ -815,14 +905,25 @@ pub fn run(args: &[String]) -> Result<Output, String> {
         .collect();
     let weapons: Vec<WeaponId> = WeaponId::ALL
         .into_iter()
-        .filter(|w| !quick || matches!(w, WeaponId::Sword | WeaponId::Wand))
+        .filter(|w| match &weapon_filter {
+            Some(l) => l.iter().any(|n| n == w.as_str()),
+            None => !quick || matches!(w, WeaponId::Sword | WeaponId::Wand),
+        })
         .collect();
     let mut kinds: Vec<(FactionId, MobTypeId)> = Vec::new();
     for zone in FactionId::ALL {
-        if quick && zone != FactionId::ALL[0] {
+        if quick && kind_filter.is_none() && zone != FactionId::ALL[0] {
             continue;
         }
-        kinds.extend(elites_of(zone).map(|t| (zone, t.id)));
+        kinds.extend(
+            elites_of(zone)
+                .filter(|t| {
+                    kind_filter
+                        .as_ref()
+                        .is_none_or(|l| l.iter().any(|n| n == t.id.as_str()))
+                })
+                .map(|t| (zone, t.id)),
+        );
     }
     let map = root_path(MAP_REL);
     let arena = Arc::new(load_arena(map.to_str().ok_or("map path")?)?);
@@ -949,6 +1050,9 @@ pub fn run(args: &[String]) -> Result<Output, String> {
     }
 
     let mut cells = Vec::new();
+    // by_tally[fighter][weapon][column], over all kinds and seeds
+    let mut by_tally: Vec<Vec<Vec<Tally>>> =
+        vec![vec![vec![Tally::default(); ncol]; weapons.len()]; whos.len()];
     // tallies[fighter][kind][column]
     let mut tallies: Vec<Vec<Vec<Tally>>> =
         vec![vec![vec![Tally::default(); ncol]; kinds.len()]; whos.len()];
@@ -959,6 +1063,11 @@ pub fn run(args: &[String]) -> Result<Output, String> {
             .position(|&w| w == j.who)
             .expect("a seated fighter");
         tallies[wi][j.ki][j.ci].add(m.outcome, m.engaged);
+        let wpi = weapons
+            .iter()
+            .position(|&w| w == j.weapon)
+            .expect("a run weapon");
+        by_tally[wi][wpi][j.ci].add(m.outcome, m.engaged);
         let scene = scenes[&j.seed][j.ki].as_ref().expect("a fought scene");
         let (zone, kind) = kinds[j.ki];
         cells.push(CellOut {
@@ -986,6 +1095,7 @@ pub fn run(args: &[String]) -> Result<Output, String> {
             actions: m.actions,
             attack_ticks: m.attack_ticks,
             attack_dist_mean: m.attack_dist_mean,
+            resets: m.resets,
         });
     }
     let refc = BANKED_CAMPS
@@ -1001,12 +1111,41 @@ pub fn run(args: &[String]) -> Result<Output, String> {
     let upper = if blocks.len() > 1 { blocks.pop() } else { None };
     let reference = blocks.remove(0);
 
+    // Per weapon (all kinds and seeds), per fighter: the duelist first, as `whos`.
+    let mut by_weapon: Vec<WeaponRow> = Vec::new();
+    let mut weapon_lines: Vec<String> = Vec::new();
+    for (wi, who) in whos.iter().enumerate() {
+        let mut lines = String::new();
+        for (wpi, w) in weapons.iter().enumerate() {
+            for column in columns_of(&col_names, &by_tally[wi][wpi]) {
+                if column.camps == Some(REFERENCE_CAMPS) {
+                    lines += &format!(
+                        "  weapon {} {} banked_{REFERENCE_CAMPS}: died={} cleared={} truncated={} rate={}\n",
+                        who.name(),
+                        w.as_str(),
+                        column.deaths,
+                        column.cleared,
+                        column.truncated,
+                        pct(column.deaths, column.decided)
+                    );
+                }
+                by_weapon.push(WeaponRow {
+                    fighter: who.name(),
+                    weapon: w.as_str().into(),
+                    column,
+                });
+            }
+        }
+        weapon_lines.push(lines);
+    }
     let mut table = format!("elite camps, solo fighter. {CAVEAT}\n");
     table += &format!("{reference_fighter} fighter\n");
     table += &reference.table;
+    table += &weapon_lines[0];
     if let Some(u) = &upper {
         table += "Brawler (upper bound)\n";
         table += &u.table;
+        table += &weapon_lines[1];
     }
     table += &format!(
         "  reference: fighter {reference_fighter}, column banked_{REFERENCE_CAMPS} (12 camps banked, 12 stacks a camp: the workbook player); bots bank far fewer camps than the workbook player, so bot_sample is the bots' reality and the two are not comparable\n"
@@ -1041,6 +1180,7 @@ pub fn run(args: &[String]) -> Result<Output, String> {
         skipped,
         per_camp: reference.per_camp,
         overall: reference.overall,
+        by_weapon,
         upper_bound: upper.map(|u| UpperBound {
             fighter: "brawler",
             per_camp: u.per_camp,

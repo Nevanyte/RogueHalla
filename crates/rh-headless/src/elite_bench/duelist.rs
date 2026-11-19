@@ -15,10 +15,8 @@ const CAMP_RADIUS: f64 = 800.;
 const MELEE_FRACTION: f64 = 0.9;
 /// Ranged: hold at this fraction of the weapon range.
 const HOLD_FRACTION: f64 = 0.8;
-/// Ranged: step back when a member is nearer than this fraction of the range (half the hold distance).
-const STEP_BACK_FRACTION: f64 = 0.4;
-/// Length of one step back.
-const STEP_BACK: f64 = 200.;
+/// A `Self_` Wish also fires when the fighter lost hp within this many milliseconds.
+const HIT_WINDOW_MS: f64 = 2000.;
 /// A `Self_` Wish is cast when the target is within this distance.
 const SELF_CAST_RANGE: f64 = 250.;
 /// A `Point` or `Placed` Wish is cast when the target is within this distance.
@@ -28,6 +26,9 @@ pub struct Duelist {
     centre: Vec2,
     types: Vec<MobTypeId>,
     config: SimConfig,
+    /// The fighter's hp at its last observation, and the server time of its last loss (for the `Self_` Wish).
+    last_hp: Option<f64>,
+    last_hit_ms: f64,
 }
 
 impl Duelist {
@@ -36,6 +37,8 @@ impl Duelist {
             centre,
             types,
             config,
+            last_hp: None,
+            last_hit_ms: f64::NEG_INFINITY,
         }
     }
 }
@@ -50,7 +53,10 @@ impl Policy for Duelist {
             decision_interval_ticks: 1,
         }
     }
-    fn reset(&mut self, _: &MatchStart) {}
+    fn reset(&mut self, _: &MatchStart) {
+        self.last_hp = None;
+        self.last_hit_ms = f64::NEG_INFINITY;
+    }
     fn decide(&mut self, obs: &Observation) -> Vec<PublicCommand> {
         let mut out = Vec::new();
         self.decide_into(obs, &mut out);
@@ -64,6 +70,11 @@ impl Policy for Duelist {
         if me.status != rh_sim::Status::Alive {
             return;
         }
+        if self.last_hp.is_some_and(|h| me.hp < h) {
+            self.last_hit_ms = obs.server_time;
+        }
+        self.last_hp = Some(me.hp);
+        let hit_lately = obs.server_time - self.last_hit_ms <= HIT_WINDOW_MS;
         let dist2 = |x: f64, y: f64, p: (f64, f64)| (x - p.0) * (x - p.0) + (y - p.1) * (y - p.1);
         let target = obs
             .visible
@@ -95,7 +106,7 @@ impl Policy for Duelist {
             if w.charges > 0 && obs.server_time >= w.ready_at && w.cast.is_none() {
                 let (ok, x, y, id) = match definition_for(&self.config, w.ability).target {
                     Target::Unit(r) => (d <= r, t.x, t.y, Some(t.id)),
-                    Target::Self_ => (d <= SELF_CAST_RANGE, me.x, me.y, None),
+                    Target::Self_ => (d <= SELF_CAST_RANGE || hit_lately, me.x, me.y, None),
                     Target::Point | Target::Placed { .. } => {
                         (d <= POINT_CAST_RANGE, t.x, t.y, None)
                     }
@@ -130,21 +141,14 @@ impl Policy for Duelist {
                     go
                 });
             }
+            // Stand and shoot: a mob gives up after 20 s without hitting a player, so a fighter that kites resets the
+            // camp. Approach to the hold distance, then never step back.
             Shape::Projectile { range, .. } => {
-                if d < STEP_BACK_FRACTION * range {
-                    let d = d.max(1e-6);
-                    out.push(PublicCommand::Move {
-                        x: me.x - dx / d * STEP_BACK,
-                        y: me.y - dy / d * STEP_BACK,
-                        seq: None,
-                    });
+                out.push(if d <= HOLD_FRACTION * range {
+                    attack
                 } else {
-                    out.push(if d <= HOLD_FRACTION * range {
-                        attack
-                    } else {
-                        go
-                    });
-                }
+                    go
+                });
             }
         }
     }
