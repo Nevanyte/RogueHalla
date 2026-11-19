@@ -53,9 +53,12 @@ Nothing is pushed and `main` is untouched.
 - `EliteTuning` is one global table (k 0.65, hp ×2.0, dmg ×1.5). It can move the average but cannot even out camps.
 - A throwaway sweep of dmg_mult × hp_mult is running.
 
+**Integration 62 review (reviewer-opus): LAND WITH NOTES.** One note:
+- The Rework pool tables (`REWORK_POOL`, `faction_only`, the Eye for an Eye weight flag) are outside the content hash.
+- It becomes **P-AUG-POOL-1-fix** (Opus): fold them in `content/fold.rs`, with a perturbation test. That is content-hash
+  move 7, after P-AUG-TUNE-1 lands, because both regold.
+
 **Noted for later packets, no packet yet**
-- `REWORK_POOL` and the faction-only list are not folded into the content hash, following the `INTERACTIVE` precedent;
-  P-AUG-NATIVE-4 should fold them.
 - `REWORK_EYE_FOR_AN_EYE_WEIGHT` is an f64 used as a whole count of copies.
 
 ## Elite and augment rework (2026-11-18): approved plan, in progress
