@@ -26,6 +26,8 @@ None. The legacy game has no signature church (`DEV-020`).
 - `crates/rh-sim/src/mapgen/landmarks/signature/spec.rs`
 - `crates/rh-sim/tests/mapgen_signature_church.rs`
 - `docs/landmarks/blueprints/church.txt`
+- `docs/landmarks/blueprints/README.md`
+- `docs/DEVIATIONS.md` (DEV-020 scope note)
 - `docs/backlog/packets/P-STORM-CHURCH-MAP-1.md`
 
 The repository coordinator updates any backlog index or shared status record.
