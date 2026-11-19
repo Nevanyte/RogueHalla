@@ -43,3 +43,27 @@
 
 `scripts/gate.sh --quick --oracle packet/P-CI-GREEN-4` PASS; the five `--check` lines green, their output in the
 hand-off; the AGENTS.md hand-off report, with the cause in one paragraph under `NOT ESTABLISHED`/`RISKS` as fits.
+
+## Step 2 hand-off (2026-11-19)
+
+Owner choice 2026-11-19 (decision card in the "Cut delay on other players" thread): "Record reached or not, no counts".
+
+**Cause.** Both `source.json` witnesses were byte-exact; only `coverage.json` moved, and it moved between two runs in
+the same container (brain: write `8549e292…`, check of the same tree recomputed a different hash). Field diff against the
+pin: V8 hit counts (`144` vs `138`), and functions that report block detail in one run but only a function-level count
+in the next (`isBlockCoverage` false vs true; a tsx `__name` helper listed or not). The tool modules are imported before
+`Profiler.startPreciseCoverage`, so their functions' block counters depend on when V8 lazily compiles or flushes their
+bytecode: the tool was nondeterministic, not an input change.
+
+**Fix.** `reached.mts` (one copy per tool directory) projects each script's coverage onto the merged source ranges whose
+innermost covering V8 range ran; counts are dropped. Ledger formats are now `rh-bot-private-{brain,modules}-coverage/2`.
+Recaptured with the documented commands, modules first (brain pins modules' tools and outputs), then each `controls`
+and `manifest.mjs --write`. Mutation controls unchanged: modules 26/26 killed; brain 23 killed, the same single survivor
+(`redundant-first-flag-only`) as before.
+
+**Evidence.** Each witness ran three times (write, check, check again) in the pinned image with identical bytes:
+modules `coverage.json` `03ef7834…`, brain `217d4973…`. All five `capture.sh --check` lines of the CI step pass;
+`scripts/gate.sh --quick` PASS. Run locally with the image's npm pointed at this session's proxy CA (`--network host`,
+`npm_config_cafile`); nothing in the captured bytes depends on that.
+
+**Not established.** That CI's x86_64 runner gives the same bytes: the next CI run is the proof.
