@@ -10,7 +10,7 @@ The church and cypress pilots, delivered Holy hall, existing regional sun, poole
 
 ## Exclusive write scope
 
-This packet, the design guide, and the following paths inside client-unity/UnityProject/Assets: Resources/Regions/{RegionGround.shader,RegionSpriteLit.shader,StormInkMarsh.hlsl,StormInkLightMotion.hlsl}, Scripts/View/Atmosphere/{AccentLights,RegionAtmosphere}.cs, Scripts/View/Regions/{RegionProps,TempleLayout.Signature}.cs and Scripts/View/Regions/Landmarks/{Landmark,StormInkLandmarkSprite,HallLandmark.StormInk,ChurchLandmark}.cs. Include the oracle below and metadata for new files.
+This packet, the design guide, and the following paths inside client-unity/UnityProject/Assets: Resources/Regions/{RegionGround.shader,RegionSpriteLit.shader,RegionActorLit.shader,StormInkMarsh.hlsl,StormInkLightMotion.hlsl}, Scripts/View/ArenaView.Build.cs, Scripts/View/Atmosphere/{AccentLights,RegionAtmosphere}.cs, Scripts/View/Regions/{RegionProps,TempleLayout.Signature}.cs and Scripts/View/Regions/Landmarks/{Landmark,StormInkLandmarkSprite,HallLandmark.StormInk,ChurchLandmark}.cs. Include the oracle below and metadata for new files.
 
 ## Behaviour to preserve
 

@@ -6,7 +6,7 @@ namespace Roguehalla.Client
     internal static class StormInkLandmarkSprite
     {
         internal static SpriteRenderer Place(Landmark landmark, Sprite sprite, string name, Vector2 contact,
-            Vector2 size, Vector2 normalizedContact, int sortingOrder)
+            Vector2 size, Vector2 normalizedContact, int sortingOrder, bool flame = false)
         {
             var bounds = sprite.bounds;
             var scale = new Vector2(size.x / bounds.size.x, size.y / bounds.size.y);
@@ -18,7 +18,7 @@ namespace Roguehalla.Client
             go.transform.localScale = new Vector3(scale.x, scale.y, 1f);
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
-            renderer.sharedMaterial = landmark.Material;
+            renderer.sharedMaterial = landmark.PaintedMaterial(flame);
             renderer.sortingOrder = sortingOrder;
             return renderer;
         }

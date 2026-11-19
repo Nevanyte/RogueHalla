@@ -315,7 +315,7 @@ namespace Roguehalla.Client
         }
 
         static void AddAssetSprite(Landmark lm, Sprite sprite, string objectName, float x, float row,
-            float width, float height, float rotation, int sortOffset)
+            float width, float height, float rotation, int sortOffset, bool flame = false)
         {
             if (sprite == null) return;
             var go = new GameObject(objectName);
@@ -324,10 +324,15 @@ namespace Roguehalla.Client
             go.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
-            renderer.sharedMaterial = lm.Material;
+            renderer.sharedMaterial = lm.PaintedMaterial(flame);
             renderer.sortingOrder = 2000 + 16 * (Mathf.FloorToInt(row) + 1) + sortOffset;
             Vector2 size = sprite.bounds.size;
             go.transform.localScale = new Vector3(width / size.x, height / size.y, 1f);
+            if (flame)
+            {
+                float pivot = sprite.pivot.y / sprite.rect.height;
+                lm.CandleSockets.Add(new Vector3(x, row, (.70f - pivot) * height));
+            }
         }
 
         static void BuildWindows(Landmark lm, Group room)
@@ -351,7 +356,7 @@ namespace Roguehalla.Client
                 float cy = aisleOnX ? y + Mathf.Sign(bay) * .8f : y + inside;
                 if (lm.IsInterior(Mathf.FloorToInt(cx), Mathf.FloorToInt(cy)))
                     // The transparent headroom holds the smoke. Its lower pivot anchors the candle base.
-                    AddAssetSprite(lm, candles, "Church candle flame", cx, cy, .68f, 1.295f, 0f, 5);
+                    AddAssetSprite(lm, candles, "Church candle flame", cx, cy, .68f, 1.295f, 0f, 5, flame: true);
             }
         }
 

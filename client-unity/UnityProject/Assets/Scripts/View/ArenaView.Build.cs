@@ -66,6 +66,7 @@ namespace Roguehalla.Client
             _regionWalls = RegionWalls.Build(_mapRoot, map, RegionExposure);
             _regionProps = RegionProps.Build(_mapRoot, map);
             _landmarks = LandmarkView.Build(_mapRoot, map);
+            if (_atmos != null) _atmos.Lights.RegisterLandmarkCandles(_landmarks);
             HasMap = true;
             ApplyQuality();
         }

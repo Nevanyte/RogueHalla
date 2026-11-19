@@ -5,6 +5,7 @@ Shader "Roguehalla/RegionSpriteLit"
     Properties
     {
         [PerRendererData] _MainTex("Sprite Texture", 2D) = "white" {}
+        [PerRendererData] _StormInkResponse("Ink response (original, matte, flame)", Float) = 0
         _Ndl("Sun facing", Float) = 0.55
         [PerRendererData] _WetRootContact("Wet root pigment", Float) = 0
         [HideInInspector] _LayeredCanopy("Overlapping ink wash", Float) = 0
@@ -54,6 +55,7 @@ Shader "Roguehalla/RegionSpriteLit"
 
             CBUFFER_START(UnityPerMaterial)
                 half _Ndl;
+                half _StormInkResponse;
                 half _LayeredCanopy;
                 half _WetRootContact;
             CBUFFER_END
@@ -111,6 +113,8 @@ Shader "Roguehalla/RegionSpriteLit"
                 }
                 clip(main.a - 0.004);
                 float sunStr; float3 shMul;
+                bool painted = _StormInkResponse > .5h;
+                half3 pigment = main.rgb;
                 main.rgb *= RhSunMul(i.world, _Ndl, sunStr, shMul);
                 SurfaceData2D surfaceData;
                 InputData2D inputData;
@@ -121,7 +125,13 @@ Shader "Roguehalla/RegionSpriteLit"
                 half4 lit = CombinedShapeLightShared(surfaceData, inputData);
                 // Emissive paint: bright, saturated pixels (lantern glass and flame, crystals, vents, glowing fungus) glow a little on their own, so they carry
                 // the bloom threshold at night; white snow and pale stone are not saturated and stay as they are.
-                [branch] if (_RhLI.x > 0.5)
+                [branch] if (_StormInkResponse > 1.5h)
+                {
+                    // Only the upper flame and lit glass carry light. A gold stone border stays matte.
+                    half hot = smoothstep(.30h, .72h, pigment.r - pigment.b) * smoothstep(.50h, .82h, pigment.r);
+                    lit.rgb += pigment * (.25h * hot * smoothstep(.62h, .80h, i.uv.y)) * main.a;
+                }
+                else if (!painted && _RhLI.x > .5)
                 {
                     float mx = max(albedo.r, max(albedo.g, albedo.b)), mn = min(albedo.r, min(albedo.g, albedo.b));
                     float em = smoothstep(0.62, 0.92, mx) * smoothstep(0.32, 0.62, (mx - mn) / max(mx, 0.01));
@@ -136,14 +146,22 @@ Shader "Roguehalla/RegionSpriteLit"
                         float2 oa = px * 3.0, ol = px * 1.2;
                         float aR = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv + float2(oa.x, 0)).a, aL = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv - float2(oa.x, 0)).a;
                         float aU = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv + float2(0, oa.y)).a, aD = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv - float2(0, oa.y)).a;
-                        float3 lw = float3(0.2126, 0.7152, 0.0722);
-                        float lR = dot(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv + float2(ol.x, 0)).rgb, lw), lL = dot(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv - float2(ol.x, 0)).rgb, lw);
-                        float lU = dot(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv + float2(0, ol.y)).rgb, lw), lD = dot(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv - float2(0, ol.y)).rgb, lw);
-                        float2 tilt = float2(-(aR - aL) * 0.9 - (lR - lL) * 1.4, (aU - aD) * 0.9 + (lU - lD) * 1.4);   // tile space: y is down
+                        float2 tilt = float2(aL - aR, aU - aD) * (painted ? .32 : .9);
+                        [branch] if (!painted)
+                        {
+                            float3 lw = float3(.2126, .7152, .0722);
+                            float lR = dot(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv + float2(ol.x, 0)).rgb, lw);
+                            float lL = dot(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv - float2(ol.x, 0)).rgb, lw);
+                            float lU = dot(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv + float2(0, ol.y)).rgb, lw);
+                            float lD = dot(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv - float2(0, ol.y)).rgb, lw);
+                            tilt += float2(lL - lR, lU - lD) * 1.4;
+                        }
                         float3 dif, spc;
-                        RhLocalLights(pt, normalize(float3(tilt, 1.0)), 0.10, 14.0, 0.8, 1.0, 0.0, dif, spc);
+                        RhLocalLights(pt, normalize(float3(tilt, 1.0)), painted ? .018 : .10, 14.0, 0.8, 1.0, 0.0, dif, spc);
                         float hr = RhHeadroom(lit.rgb);
-                        lit.rgb += (albedo * dif * hr + spc * saturate(hr + 0.05)) * main.a;
+                        float ink = painted ? smoothstep(.012, .16, max(pigment.r, max(pigment.g, pigment.b))) : 1.0;
+                        float3 receiver = painted ? pigment : albedo;
+                        lit.rgb += (receiver * dif * hr + spc * saturate(hr + .05) * ink) * main.a;
                     }
                 }
                 lit.rgb = RhFogGrade(i.world, lit.rgb);

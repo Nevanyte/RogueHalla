@@ -27,7 +27,7 @@ namespace Roguehalla.Client
                 int order = StormInkLandmarkSprite.RowOrder(point.y);
                 if (lamp == null) Post(lm, "Holy aisle lamp", contact.x, contact.y, .58f, .85f, true, order);
                 else StormInkLandmarkSprite.Place(lm, lamp, "Holy aisle lamp", contact,
-                    new Vector2(.82f, 1.28f), new Vector2(.5f, .13f), order);
+                    new Vector2(.82f, TempleLayout.AisleLampHeight), new Vector2(.5f, TempleLayout.LampFoot), order, flame: true);
             }
         }
 
@@ -77,13 +77,10 @@ namespace Roguehalla.Client
             if (lamp == null) BuildDoor(lm, door, horizontal, outwardNorthOrWest);
             else
             {
-                Extent(door, out int x0, out int y0, out int x1, out int y1);
-                var ends = horizontal
-                    ? new[] { new Vector2(x0, y0 + .5f), new Vector2(x1 + 1, y0 + .5f) }
-                    : new[] { new Vector2(x0 + .5f, y0), new Vector2(x0 + .5f, y1 + 1) };
-                foreach (var end in ends)
+                foreach (var end in temple.ShrineLamps)
                     StormInkLandmarkSprite.Place(lm, lamp, "Hall door", new Vector2(end.x, -end.y * Sq),
-                        new Vector2(.63f, 1f), new Vector2(.5f, .13f), StormInkLandmarkSprite.RowOrder(end.y));
+                        new Vector2(.63f, TempleLayout.JambLampHeight), new Vector2(.5f, TempleLayout.LampFoot),
+                        StormInkLandmarkSprite.RowOrder(end.y), flame: true);
             }
             BuildLight(lm);
 

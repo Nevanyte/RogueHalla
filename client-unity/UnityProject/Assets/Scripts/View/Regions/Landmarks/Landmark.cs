@@ -45,6 +45,21 @@ namespace Roguehalla.Client
         public int FootH { get; private set; }
         /// <summary>The material sprites of this landmark share (sun-lit like the region props).</summary>
         public Material Material { get; private set; }
+        // Authored candle sockets: map tile X/Y and painted height above the contact.
+        internal readonly List<Vector3> CandleSockets = new List<Vector3>();
+        Material _ink, _flame;
+        internal Material PaintedMaterial(bool flame)
+        {
+            if (!Material.HasProperty("_StormInkResponse")) return Material;
+            ref var shared = ref (flame ? ref _flame : ref _ink);
+            if (shared == null)
+            {
+                shared = new Material(Material) { name = flame ? "Storm Ink / painted flame" : "Storm Ink / matte pigment" };
+                shared.SetFloat("_StormInkResponse", flame ? 2f : 1f);
+                Own(shared);
+            }
+            return shared;
+        }
 
         bool[] _wall, _low, _interior, _roofMask, _fadeMask; byte[] _terrain; bool _coverSet;
         readonly List<SpriteRenderer> _roof = new List<SpriteRenderer>();

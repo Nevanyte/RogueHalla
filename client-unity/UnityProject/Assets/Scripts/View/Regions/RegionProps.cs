@@ -160,6 +160,12 @@ namespace Roguehalla.Client
             var placements = Scatter(map);
             int visualSeed = unchecked((int)(map.LayerHash ^ (map.SemanticHash * 2654435761u)));
             HashSet<byte> warned = null;
+            MaterialPropertyBlock mattePigment = null;
+            if (_material.HasProperty("_StormInkResponse"))
+            {
+                mattePigment = new MaterialPropertyBlock();
+                mattePigment.SetFloat("_StormInkResponse", 1f);
+            }
             foreach (var pl in placements)
             {
                 if (pl.Shipped && (pl.Flags & 2) == 0 && !DecorationKinds.TryGet(pl.Kind, out _))
@@ -196,6 +202,7 @@ namespace Roguehalla.Client
                 Vector3 foot = ArenaView.WorldPoint(pl.X * 32f, pl.Y * 32f);
                 go.transform.localPosition = foot; go.transform.localScale = new Vector3(flip ? -scaleX : scaleX, scaleY, 1f);
                 var sr = go.AddComponent<SpriteRenderer>(); sr.sprite = art.Sprite; sr.sharedMaterial = _material;
+                if (art.UsesAuthoredTexture && mattePigment != null) sr.SetPropertyBlock(mattePigment);
                 sr.color = tint;
                 sr.sortingOrder = 2000 + Mathf.RoundToInt(pl.Y * 32f * .5f) + pl.Bias;
                 bool tall = IsTall(pl, art);

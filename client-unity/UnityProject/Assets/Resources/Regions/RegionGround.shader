@@ -157,6 +157,8 @@ Shader "Roguehalla/RegionGround"
                 return float2(d1, d2 - d1);
             }
 
+            #include "StormInkLightMotion.hlsl"
+
             struct Ground { float3 col; float3 emis; float th; float thw; };   // th/thw: procedural surface height (tiles) and its weight, for derivative normals
 
             Ground ShadeRegion(int id, int layer, float2 t, float macro, float pocketN)
@@ -182,9 +184,9 @@ Shader "Roguehalla/RegionGround"
                 float3 e = 0;
                 float acc = saturate(g.b * par.z);
                 c = lerp(c, accC, acc);
-                e += accC * g.b * par2.y * (0.75 + 0.25 * sin(_Time.y * 1.4 + t.x * 0.4 + t.y * 0.3));
+                e += accC * g.b * par2.y * (0.75 + 0.25 * sin(_RhInkClock.x * 1.4 + t.x * 0.4 + t.y * 0.3));
                 // B-channel glints twinkle white (frost glitter, sand shimmer).
-                c += g.b * par2.w * (0.5 + 0.5 * sin(_Time.y * 2.3 + t.x * 7.0 + t.y * 5.0)) * float3(0.9, 0.97, 1.0);
+                c += g.b * par2.w * (0.5 + 0.5 * sin(_RhInkClock.x * 2.3 + t.x * 7.0 + t.y * 5.0)) * float3(0.9, 0.97, 1.0);
                 Ground r; r.col = c; r.emis = e; r.th = 0; r.thw = 0; return r;
             }
 
@@ -201,7 +203,7 @@ Shader "Roguehalla/RegionGround"
                 float w = smoothstep(0.34, 0.46, plg.x + edgeN);
                 float gr = smoothstep(0.34, 0.52, plg.y + edgeN * 1.2) * (1.0 - w);
                 float inner = saturate(plg.z * 1.1 + (plg.x + edgeN - 0.5) * 0.9);
-                float time = _Time.y;
+                float time = _RhInkClock.x;
                 // mud: clods and wet pits
                 float3 mud = mudC * (0.95 + 0.9 * g.r);
                 mud = lerp(mud, mudC * 0.42, smoothstep(0.55, 0.8, g.b) * 0.55 + smoothstep(0.35, 0.0, g.a) * 0.25);
@@ -281,7 +283,7 @@ Shader "Roguehalla/RegionGround"
                 float dW = t.x - _Temple.x, dE2 = _Temple.x + S - t.x, dN = t.y - _Temple.y, dS = _Temple.y + S - t.y;
                 float dEdge = min(min(dW, dE2), min(dN, dS));
                 inside = smoothstep(-0.03, 0.03, dEdge);
-                float time = _Time.y;
+                float time = _RhInkClock.x;
                 float3 stone = _TempleStone.rgb;
                 float3 stoneL = lerp(stone, float3(1, 1, 1), 0.16), stoneD = stone * 0.74;
                 float3 keyE = _PalKey[5].rgb, giltE = lerp(_PalAcc[5].rgb, keyE, 0.5);                // emission: the raw palette values, added after lighting
@@ -539,7 +541,7 @@ Shader "Roguehalla/RegionGround"
                                + SAMPLE_TEXTURE2D_LOD(_TerA, sampler_RhRegA, lu - o1, 0).r + SAMPLE_TEXTURE2D_LOD(_TerA, sampler_RhRegA, lu + o2, 0).r
                                + SAMPLE_TEXTURE2D_LOD(_TerA, sampler_RhRegA, lu - o2, 0).r;
                     float amp = smoothstep(0.08, 0.7, prox * 0.2);
-                    float tm = _Time.y;
+                    float tm = _RhInkClock.x;
                     t += amp * 0.04 * float2(sin(t.y * 7.0 + tm * 3.1) + sin(t.x * 5.0 - tm * 2.3), cos(t.x * 6.0 + tm * 2.7) + sin(t.y * 4.0 + tm * 1.9));
                 }
                 // Ragged, noise-warped region borders on top of the blurred weight textures.
@@ -581,6 +583,8 @@ Shader "Roguehalla/RegionGround"
                                     g.emis *= .10;
                                 }
                                 g.col = StormMarshFloor(t, plg);
+                                float reflection = InkWaterReflection(t, smoothstep(.38, .82, plg.r));
+                                g.col += float3(.055, .079, .068) * reflection;
                             }
                             else g = ShadePlague(t, macro, plg.rgb);
                         }
@@ -671,7 +675,7 @@ Shader "Roguehalla/RegionGround"
                             float inner = saturate((cv + edgeNoise - 0.5) * 2.2);       // 0 at the shore, 1 deep inside
                             float3 deep = _TerDeep[kd].rgb, light = _TerLight[kd].rgb, glow = _TerGlow[kd].rgb;
                             float3 tc = deep; float3 te = 0; float hh = 0, gl = 0.15;
-                            float time = _Time.y;
+                            float time = _RhInkClock.x;
                             if (kd == 1)            // lava: dark crust over warped molten channels
                             {
                                 float2 q = t * 1.6 + float2(Fbm(t * 0.9 + time * 0.05), Fbm(t * 0.9 + 9.0 - time * 0.05)) * 2.2;
@@ -679,7 +683,7 @@ Shader "Roguehalla/RegionGround"
                                 float chan = 1.0 - smoothstep(0.0, 0.34, w.y);
                                 float heat = saturate(chan * 1.25 + inner * 0.45 + (Fbm(t * 3.0 + time * 0.2) - 0.5) * 0.35);
                                 tc = lerp(deep, light, saturate(heat * 1.1));
-                                te = glow * (heat * heat * 0.85 + 0.15 * inner) * (0.85 + 0.15 * sin(time * 1.5 + q.x * 2.0));   // a glowing material with crust detail, not a white sheet
+                                te = glow * (heat * heat * 0.85 + 0.15 * inner) * InkLavaPulse(t);   // a glowing material with crust detail, not a white sheet
                                 tc = lerp(tc, deep * 0.5, (1.0 - heat) * 0.5);
                                 hh = (1.0 - heat) * 0.07; gl = 0.30;
                             }
@@ -692,7 +696,7 @@ Shader "Roguehalla/RegionGround"
                                 tc = lerp(light, deep, saturate(inner * 0.85 + (Fbm(t * 0.35) - 0.5) * 0.4));
                                 tc = lerp(tc, light, streak * 0.42 + shore * 0.45);
                                 tc = lerp(tc, float3(0.95, 0.99, 1.0), crack * 0.40);
-                                float glint = pow(saturate(VNoise(t * 3.2 + float2(time * 0.35, 0))), 14.0) * 1.4;
+                                float glint = InkIceGlint(t, crack, streak);
                                 te = glow * (crack * 0.10 + glint * 0.55);
                                 hh = streak * 0.025 - crack * 0.045; gl = 1.0;
                                 // Translucency: a darker, blurred, parallax-shifted layer beneath (cracks and bubbles at depth),
@@ -708,7 +712,7 @@ Shader "Roguehalla/RegionGround"
                                     tc = lerp(tc, under, 0.42 * depthMask);
                                     float fres = pow(saturate(length(t - _RhCam.xy) / 13.0), 2.0);
                                     tc += float3(0.55, 0.75, 0.95) * fres * 0.2 * depthMask;
-                                    te += glow * pow(saturate(VNoise(t * 7.0 + float2(time * 0.6, -time * 0.4))), 22.0) * 2.4 * depthMask;
+                                    te += glow * glint * .38 * depthMask;
                                 }
                             }
                             else if (kd == 5)       // bog: thick, opaque sludge with a crust, rising bubbles and a sickly glow (gameplay terrain: never see-through, no sun glints)
@@ -729,6 +733,8 @@ Shader "Roguehalla/RegionGround"
                                 [branch] if (_StormMarshOn > 0.5 && wa.b > 0.60)
                                 {
                                     StormMarshChannel(t, inner, tc, te);
+                                    float lip = InkBogMeniscus(t) * inner;
+                                    tc = lerp(tc, float3(.27, .30, .225), lip * .35);
                                     hh *= 0.35;
                                     gl = 0.28;
                                 }
@@ -780,7 +786,7 @@ Shader "Roguehalla/RegionGround"
                     [unroll] for (int q = 0; q < 4; q++) lp += SAMPLE_TEXTURE2D_LOD(_TerA, sampler_RhRegA, tuv + float2(q < 2 ? (q == 0 ? 2.6 : -2.6) : 0.0, q >= 2 ? (q == 2 ? 2.6 : -2.6) : 0.0) / _Map.xy, 0).r;
                     lp = lp * 0.25 + ta.r * 0.5;
                     float lg = smoothstep(0.03, 0.55, lp) * (1.0 - smoothstep(0.4, 0.5, ta.r));
-                    emis += _TerGlow[1].rgb * lg * lg * 0.16 * (0.85 + 0.15 * sin(_Time.y * 1.3 + t.x * 0.8));
+                    emis += _TerGlow[1].rgb * lg * lg * 0.16 * InkLavaPulse(t);
                     col = lerp(col, col * float3(1.25, 0.95, 0.8), saturate(lg));
                 }
 

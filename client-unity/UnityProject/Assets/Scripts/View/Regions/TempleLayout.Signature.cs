@@ -12,6 +12,10 @@ namespace Roguehalla.Client
         public Vector2 Door { get; private set; }
         public Vector2 Shrine { get; private set; }
 
+        internal const float AisleLampHeight = 1.28f, JambLampHeight = 1f;
+        internal const float LampFoot = .13f, LampFlame = .84f;
+        internal readonly List<Vector2> ShrineLamps = new List<Vector2>(2);
+
         internal MapAnchor SignatureAnchor { get; private set; }
         internal List<HallLandmark.Group> SignaturePiers { get; private set; }
         internal HallLandmark.Group ShrineWalls { get; private set; }
@@ -71,6 +75,17 @@ namespace Roguehalla.Client
             SignaturePiers = piers;
             ShrineWalls = shrine;
             ShrineDoor = doors;
+            var d0 = doors[0]; var d1 = doors[doors.Count - 1];
+            if (d0.y == d1.y)
+            {
+                ShrineLamps.Add(new Vector2(d0.x, door.y));
+                ShrineLamps.Add(new Vector2(d1.x + 1f, door.y));
+            }
+            else
+            {
+                ShrineLamps.Add(new Vector2(door.x, d0.y));
+                ShrineLamps.Add(new Vector2(door.x, d1.y + 1f));
+            }
             Entrance = entrance;
             Door = door;
             Shrine = entrance + depth * axis;
