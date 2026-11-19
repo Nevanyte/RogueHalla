@@ -144,9 +144,18 @@ pub(crate) fn plant_armed(p: &crate::state::Player, now: f64) -> bool {
         && now - p.card_still_since >= crate::constants::PLANT_FEET_MS
 }
 
-/// Source `spendPlant`: the armed attack was spent; stand still for PLANT_FEET_MS again.
+/// Source `spendPlant`: the armed attack was spent; stand still for PLANT_FEET_MS again. Called once per attack, when
+/// it starts (`systems::weapons::step_weapon`, legacy `startAttack`), whether or not the attack later meets anyone.
 pub(crate) fn spend_plant(p: &mut crate::state::Player, now: f64) {
     p.card_still_since = now;
+}
+
+/// Plant Your Feet's restore rule for a pending action's or a flight's `range_mult`: 1 (unplanted) up to the table's
+/// planted factor `1 + plant_feet_bonus`, finite. A range, not the two exact values, so any factor the world's table
+/// can produce restores (a `Rework` table's larger bonus too). A factor above 1 on a fighter without the card (or a
+/// mob) is admitted: it is bounded like a planted attack's and changes the state hash.
+pub(crate) fn valid_range_mult(tuning: &Tuning, range_mult: f64) -> bool {
+    (1.0..=1. + tuning.numbers().plant_feet_bonus).contains(&range_mult)
 }
 
 /// Source `stillness`: a player that moved (or is not standing) was last seen moving now.

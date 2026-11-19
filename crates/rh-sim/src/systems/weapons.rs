@@ -101,6 +101,9 @@ fn step_weapon(cx: &mut Cx, ix: FighterIx) {
         }
     }
     let npc = !cx.w.is_player(ix);
+    // Plant Your Feet (legacy `startAttack`, `plantArmed` at the server time, players only): decided here, before the
+    // attack exists, and spent below only if one starts.
+    let planted = !npc && crate::cards::plant_armed(&cx.w.players[ix.slot()], now);
     let zombie_profile = super::plague_zombies::attack_profile(cx.k, cx.w, cx.w.core(ix).id);
     let sheet = cx.w.paced_faction_spec(ix);
     let base_hp = cx.w.faction_spec(ix).map(|f| f.hp);
@@ -133,8 +136,19 @@ fn step_weapon(cx: &mut Cx, ix: FighterIx) {
             };
             (tm, packet)
         };
-        start_attack(p, now, cx.ev, weapon, tm, packet);
+        // The armed attack carries `1 + bonus` range and damage (the table's bonus: `k.cards`); the damage factor is
+        // the baked multiplier the ledger counts against the outgoing row cap (legacy `packet.mult`).
+        let (mut packet, mut range_mult) = (packet, 1.0);
+        if planted {
+            let bonus = 1. + cx.k.cards.numbers().plant_feet_bonus;
+            packet.raw *= bonus;
+            range_mult = bonus;
+        }
+        start_attack(p, now, cx.ev, weapon, tm, packet, range_mult);
         let id = p.id;
+        if planted {
+            crate::cards::spend_plant(&mut cx.w.players[ix.slot()], now);
+        }
         if cx.k.config.faction_mode.frost() {
             cx.s.attack_started[ix.slot()] = true;
         }
@@ -164,6 +178,7 @@ fn start_attack(
     weapon: WeaponId,
     tm: Timings,
     packet: crate::state::Packet,
+    range_mult: f64,
 ) {
     let start = if p.weapon.pressed_at <= p.weapon.ready_at {
         p.weapon.ready_at.max(now - TICK_MS)
@@ -191,8 +206,7 @@ fn start_attack(
         a: aim,
         packet,
         roam_armed: false,
-        // P-AUG-PLANT-1 stub: the implementer decides Plant Your Feet here (legacy `startAttack`).
-        range_mult: 1.0,
+        range_mult,
     });
     p.weapon.ready_at = start + tm.interval * 1000.0;
     if tm.root > 0.0 {
@@ -230,8 +244,7 @@ fn land(cx: &mut Cx, ix: FighterIx, act: PendingAction) {
                 a: act.a,
                 rewind_t,
                 packet: act.packet,
-                // P-AUG-PLANT-1 stub: the implementer carries `act.range_mult`.
-                range_mult: 1.0,
+                range_mult: act.range_mult,
             });
         }
         ActionKind::Cast | ActionKind::Draw => {
@@ -250,8 +263,7 @@ fn land(cx: &mut Cx, ix: FighterIx, act: PendingAction) {
                 aim,
                 packet: act.packet,
                 roam_armed: act.roam_armed,
-                // P-AUG-PLANT-1 stub: the implementer carries `act.range_mult`.
-                range_mult: 1.0,
+                range_mult: act.range_mult,
             });
             p.weapon.draw_started_at = 0.0;
         }
