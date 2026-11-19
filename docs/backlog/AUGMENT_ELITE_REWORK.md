@@ -79,7 +79,13 @@ add") get their Augment_Tuning numbers but stay out of the elite pool.
 6. "Killer" means the credited killer, the player with the most damage (`mob_life.rs:243-252`).
 7. Helper share: each player in the elite camp's contributor snapshot (`mob_life.rs:199-207, 284-290`), killer
    included, gets 12 stacks (one camp's worth) of the stat the camp's normal kills pay.
-8. The "average minute-5 build" means bot builds sampled at minute 5 from the live soak (`rh-headless` `source_soak`).
+8. The "average minute-5 build" is a **banked-camp build** (revised by the coordinator 2026-11-19; first version: bot
+   builds sampled at minute 5 from the live soak). It follows the workbook (Augment_Value: 12 camps banked at minute 5,
+   12 stacks a camp): N seeded normal camps, each paying 12 stacks of its stat, no cards.
+   - The table reports N ∈ {0, 6, 12, 18}, with N = 12 the reference, plus the bot sample as one extra column.
+   - Reason: all 56 minute-5 bot builds over seeds 1..80 hold no cards, since cards come only from elite chests. 39 of
+     them hold no stacks, and the most any holds is 51.
+   - Details: `docs/backlog/packets/P-ELITE-BENCH-1.md` section 12.
    - The bench report notes that its fighter is the scripted Brawler, which may skew death rates.
 9. Marked Man takes the Augment_Tuning nerf: +50% stat stacks from kills (not double), and its holder is always shown
    on every minimap.
@@ -284,7 +290,7 @@ Before any `git push` or merge into `main`, ask the owner.
   - The `rh-headless` `source_soak` example runs clean under `live_content` (Rework) after W3, W5 and W7.
   - Restoring a checkpoint taken mid-soak works, including builds with retuned and native cards.
   - A Marked Man holder appears on every other player's minimap, and nothing else private leaks.
-- **Elites.** The bench table before and after ELITE-TUNE-1 shows an average minute-5 build dying 10–20% of the time
+- **Elites.** The bench table before and after ELITE-TUNE-1 shows the reference banked-camp build (12 camps) dying 10–20% of the time
   solo, and the owner sees it.
 - **Wire.** The v19 fixtures decode in Rust, C# and JS, and the server refuses protocol 18 clients.
 - **Unity.**
