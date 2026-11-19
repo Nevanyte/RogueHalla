@@ -63,7 +63,11 @@ pub(crate) const AM_FLAGS: u32 = 1 << 11;
 pub(crate) const AM_OFFHAND: u32 = 1 << 12;
 pub(crate) const AM_BUILD_MARKS: u32 = 1 << 13;
 pub(crate) const AM_MARK: u32 = 1 << 14;
+/// A remote player's walk hint (protocol 19): `walk_dir` u8, `walk_ticks` u8 after the mark plate. Set only while
+/// `walk_ticks != 0`; absent decodes to `(0, 0)`.
+pub(crate) const AM_WALK: u32 = 1 << 15;
 pub(crate) const AM_KNOWN: u32 = AM_ARCHETYPE
+    | AM_WALK
     | AM_FLAGS
     | AM_OFFHAND
     | AM_BUILD_MARKS
