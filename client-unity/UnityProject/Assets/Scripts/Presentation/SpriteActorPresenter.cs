@@ -452,6 +452,7 @@ namespace Roguehalla.Client
             if (a.Appearance == null && _catalog != null && !neutral) a.Appearance = _catalog.Find("knight");
             bool reduced = ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
             var appearance = a.Appearance;
+            float fallAngle = dead && (appearance == null || appearance.Death == null || appearance.Death.Length == 0) ? 75f : 0f;
             Sprite[] frames=appearance?.Idle;
             float fps=appearance!=null ? appearance.IdleFPS : 10;
             float elapsed=Time.unscaledTime;bool loop=true,walkPhase=false;
@@ -479,10 +480,15 @@ namespace Roguehalla.Client
                 int rawFrame=walkPhase ? 0 : Mathf.Max(0,Mathf.FloorToInt(elapsed*Mathf.Max(1,fps)));
                 int frame = dead && a.HoldDeathFrame ? count - 1 :
                     reduced ? (dead ? count-1 : 0) : walkPhase ? Gait.FrameIndex(a.Gait.Phase,count) : loop ? rawFrame%Mathf.Max(1,count) : Mathf.Min(count-1,rawFrame);
-                a.Body.sprite = frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
+                var painted = StormInkActors.Frame(kind, faction, mob, appearance, frames, direction, frame, count, out bool mirror);
+                a.Body.sprite = painted != null ? painted : frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
                 float height = appearance.WorldHeight;
-                a.Body.transform.localScale = Vector3.one * height;
-                a.Body.transform.localPosition = new Vector3(0, .08f, 0);
+                float fall = painted != null && dead && frames == appearance.Death
+                    ? (count > 1 ? frame / (float)(count - 1) : 1f) : 0f;
+                if (fall > 0f) fallAngle = (mirror ? -78f : 78f) * fall;
+                // Mirror the transform so the child contrast outline follows the same brush contour.
+                a.Body.transform.localScale = new Vector3(mirror ? -height : height, height, height);
+                a.Body.transform.localPosition = new Vector3(Mathf.Sin(fallAngle * Mathf.Deg2Rad) * height * fall * .45f, .08f, 0);
             }
             else
             {
@@ -501,7 +507,7 @@ namespace Roguehalla.Client
             a.Body.color = dead && !clipPlaying ? new Color(.4f, .43f, .48f, .65f) : Color.Lerp(Color.white, color, isMob ? .14f : .22f);
             if (!dead && a.WishTintAmount > 0f) a.Body.color = Color.Lerp(a.Body.color, a.WishTint, a.WishTintAmount);
             a.Body.sortingOrder = order;
-            a.Body.transform.localRotation = Quaternion.Euler(0, 0, dead && (appearance==null || appearance.Death==null || appearance.Death.Length==0) ? 75 : 0);
+            a.Body.transform.localRotation = Quaternion.Euler(0, 0, fallAngle);
             // CONTRAST: the dark rim and the pale halo are gone; the adaptive outline (SpriteOutline) is synced at the end of Present.
             int factionArt = faction.HasValue ? (int)faction.Value : -1;
             a.Identity.Present(factionArt,kind,mob,order,!dead,lift);
