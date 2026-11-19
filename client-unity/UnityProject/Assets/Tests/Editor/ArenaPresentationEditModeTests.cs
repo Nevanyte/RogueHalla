@@ -342,7 +342,7 @@ namespace Roguehalla.Client.Tests
                 footprints[faction] = FactionIndicators.GetFootprint(faction);
                 masks[faction] = footprints[faction].texture.GetPixels32();
                 Assert.That(footprints[faction], Is.Not.Null);
-                Assert.That(footprints[faction].name, Does.Contain(new[] { "Fire triangle", "Sentenced square", "Plague trefoil", "Frost hexagon", "Holy circle" }[faction]));
+                Assert.That(footprints[faction].name, Does.Contain(new[] { "Fire triangle", "Haunted square", "Plague trefoil", "Frost hexagon", "Holy circle" }[faction]));
                 Assert.That(CountOpaque(masks[faction]), Is.GreaterThan(150));
             }
             for (int a = 0; a < masks.Length; a++)

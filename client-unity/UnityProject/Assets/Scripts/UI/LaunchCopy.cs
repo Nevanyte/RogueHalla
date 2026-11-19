@@ -20,14 +20,14 @@ namespace Roguehalla.Client
     /// </summary>
     public static class LaunchCopy
     {
-        /// <summary>Fire, Sentenced, Plague, Frost, Holy: the wire order. Weapons and regions follow docs/VISUAL_DIRECTION.md and the region themes.</summary>
+        /// <summary>Fire, Haunted, Plague, Frost, Holy display order. Stable faction ids and wire order still call Haunted Sentenced.</summary>
         public static readonly HouseInfo[] Houses =
         {
-            new HouseInfo("Fire", "Volcanic wastes", "Axes", MythicGlyph.Axe, MapGlyph.Triangle),
-            new HouseInfo("Sentenced", "Gothic graveyard", "Swords", MythicGlyph.Sword, MapGlyph.Diamond),
-            new HouseInfo("Plague", "Forgotten city", "Bows", MythicGlyph.Bow, MapGlyph.Trefoil),
-            new HouseInfo("Frost", "Frozen plains", "Shields", MythicGlyph.Shield, MapGlyph.Asterisk),
-            new HouseInfo("Holy", "Desert oasis", "Wands", MythicGlyph.Wand, MapGlyph.Ring),
+            new HouseInfo(Roguehalla.Net.Ui.FactionPresentation.Name(0), "Volcanic wastes", "Axes", MythicGlyph.Axe, MapGlyph.Triangle),
+            new HouseInfo(Roguehalla.Net.Ui.FactionPresentation.Name(1), "Gothic graveyard", "Swords", MythicGlyph.Sword, MapGlyph.Diamond),
+            new HouseInfo(Roguehalla.Net.Ui.FactionPresentation.Name(2), "Forgotten city", "Bows", MythicGlyph.Bow, MapGlyph.Trefoil),
+            new HouseInfo(Roguehalla.Net.Ui.FactionPresentation.Name(3), "Frozen plains", "Shields", MythicGlyph.Shield, MapGlyph.Asterisk),
+            new HouseInfo(Roguehalla.Net.Ui.FactionPresentation.Name(4), "Desert oasis", "Wands", MythicGlyph.Wand, MapGlyph.Ring),
         };
 
         public const string Tagline = "Last one standing wins.";

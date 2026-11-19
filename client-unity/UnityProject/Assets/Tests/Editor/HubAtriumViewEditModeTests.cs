@@ -43,7 +43,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(names, Is.Unique);
             Assert.That(names.Count, Is.EqualTo(13), string.Join(", ", names));
             foreach (string id in new[] { "Counters", "Arena", "Training", "Shop", "Wardrobe", "Titles", "Achievements", "Leaderboard",
-                "Faction_Fire", "Faction_Sentenced", "Faction_Plague", "Faction_Frost", "Faction_Holy" })
+                "Faction_Fire", "Faction_Haunted", "Faction_Plague", "Faction_Frost", "Faction_Holy" })
                 Assert.That(names, Does.Contain("Station_" + id));
             Assert.That(_root.GetComponentsInChildren<Button>(true).Length, Is.EqualTo(13), "nothing outside the room is a station control");
         }

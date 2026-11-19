@@ -65,7 +65,7 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void ZoneNamesShapesAndFactionColoursFollowTheWireIds()
         {
-            string[] names = { "Fire", "Sentenced", "Plague", "Frost", "Holy", "Coliseum" };
+            string[] names = { "Fire", "Haunted", "Plague", "Frost", "Holy", "Coliseum" };
             for (int r = 1; r <= 6; r++) Assert.AreEqual(names[r - 1], MapZones.Name(r));
             for (int r = 1; r <= 5; r++) Assert.AreEqual(r - 1, MapZones.FactionIndex(r));
             Assert.AreEqual(-1, MapZones.FactionIndex(MapZones.Coliseum));

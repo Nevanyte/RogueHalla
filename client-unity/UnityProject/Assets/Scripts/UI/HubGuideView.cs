@@ -13,8 +13,7 @@ namespace Roguehalla.Client
     {
         public enum GuideTab { Champions, Weapons, Counters }
 
-        static readonly string[] Factions = { "Fire", "Sentenced", "Plague", "Frost", "Holy" };
-        static readonly string[] Roles = { "Glass-cannon duelist", "Patient executioner", "Attrition swarm", "Control bruiser", "Sustain juggernaut" };
+        static int FactionCount { get { return Roguehalla.Net.Ui.FactionPresentation.Count; } }
         static readonly string[] Passives = { "Dragonslayer", "Mark", "Rat King", "Wall of Ice", "Radiant" };
         static readonly string[] PassiveSummaries =
         {
@@ -124,7 +123,7 @@ namespace Roguehalla.Client
 
         public void SetFaction(int faction)
         {
-            _selectedFaction = Mathf.Clamp(faction, 0, Factions.Length - 1);
+            _selectedFaction = Mathf.Clamp(faction, 0, FactionCount - 1);
             UpdateFactionButtons();
         }
 
@@ -174,10 +173,19 @@ namespace Roguehalla.Client
             backdropButton.targetGraphic = shade;
             backdropButton.onClick.AddListener(() => SetVisible(false));
 
-            _panel = MythicUi.Panel(_overlay, "HubGuidePanel", new Vector2(.065f, .055f), new Vector2(.935f, .945f), ShowcasePalette.Panel, true);
+            Color panelFill = UiTheme.With(ShowcasePalette.Panel, .86f);
+            _panel = MythicUi.Panel(_overlay, "HubGuidePanel", new Vector2(.065f, .055f), new Vector2(.935f, .945f), panelFill, true);
             var panelSurface = _panel.GetComponent<Image>();
             var panelBlocker = _panel.gameObject.AddComponent<Button>();
             panelBlocker.targetGraphic = panelSurface;
+            var blockerColors = panelBlocker.colors;
+            blockerColors.normalColor = panelFill;
+            blockerColors.highlightedColor = panelFill;
+            blockerColors.selectedColor = panelFill;
+            blockerColors.pressedColor = panelFill;
+            blockerColors.disabledColor = panelFill;
+            panelBlocker.colors = blockerColors;
+            panelSurface.color = panelFill;
             panelBlocker.onClick.AddListener(() => { });
             _panel.localScale = Vector3.one;
             var head = MythicUi.Text(_panel, "Heading", "THE FIELD GUIDE", new Vector2(.035f, .91f), new Vector2(.72f, .99f), 27, ShowcasePalette.Gold, heading: true);
@@ -229,25 +237,30 @@ namespace Roguehalla.Client
         void BuildChampions()
         {
             AddIntro("Choose a faction before a run. Each has a passive signature and one active Wish.");
-            var row = CreateLayoutItem(_content, "FactionChoices", 58);
-            var fitter = row.GetComponent<LayoutElement>(); fitter.minHeight = 58;
+            var row = CreateLayoutItem(_content, "FactionChoices", 68);
+            var fitter = row.GetComponent<LayoutElement>(); fitter.minHeight = 68;
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = 8; layout.padding = new RectOffset(4, 4, 4, 4); layout.childControlWidth = true; layout.childForceExpandWidth = true; layout.childControlHeight = true; layout.childForceExpandHeight = true;
-            _factionButtons = new Button[Factions.Length];
-            for (int i = 0; i < Factions.Length; i++)
+            _factionButtons = new Button[FactionCount];
+            for (int i = 0; i < FactionCount; i++)
             {
                 int index = i;
-                _factionButtons[i] = MythicUi.Button(row, "Faction_" + Factions[i], "      " + Factions[i], Vector2.zero, Vector2.one, () => SelectFaction(index));
-                // The generated faction pictogram replaces the old bracket mark; it sits left of the name.
-                var icon = LaunchUi.FactionShape(_factionButtons[i].transform, "FactionIcon", i, 0f, 0f, 20f, UiTheme.Current.FactionColor(i));
+                string factionName = Roguehalla.Net.Ui.FactionPresentation.Name(i);
+                _factionButtons[i] = MythicUi.Button(row, "Faction_" + factionName, "      " + factionName, Vector2.zero, Vector2.one, () => SelectFaction(index));
+                var portrait = HubArtworkAssets.FactionPortrait(i);
+                var icon = LaunchUi.FactionShape(_factionButtons[i].transform, "FactionIcon", i, 0f, 0f, portrait == null ? 20f : 30f, UiTheme.Current.FactionColor(i));
                 icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = new Vector2(0f, .5f);
-                icon.rectTransform.pivot = new Vector2(.5f, .5f); icon.rectTransform.anchoredPosition = new Vector2(20f, 0f);
+                icon.rectTransform.pivot = new Vector2(.5f, .5f); icon.rectTransform.anchoredPosition = new Vector2(21f, 0f);
+                if (portrait != null) { icon.sprite = portrait; icon.color = Color.white; icon.preserveAspect = true; }
+                icon.raycastTarget = false;
             }
             UpdateFactionButtons();
-            for (int i = 0; i < Factions.Length; i++)
+            for (int i = 0; i < FactionCount; i++)
             {
-                string text = Roles[i] + "\nPassive · " + PassiveSummaries[i] + "\nWish · " + Wishes[i] + " — " + WishSummaries[i];
-                AddCard(Factions[i] + "   ·   " + Passives[i], text, 184, ShowcasePalette.Faction(i), i);
+                string factionName = Roguehalla.Net.Ui.FactionPresentation.Name(i);
+                string role = Roguehalla.Net.Ui.FactionPresentation.Role(i);
+                string text = role + "\nPassive · " + PassiveSummaries[i] + "\nWish · " + Wishes[i] + " — " + WishSummaries[i];
+                AddCard(factionName + "   ·   " + Passives[i], text, 212, ShowcasePalette.Faction(i), i);
             }
         }
 
@@ -307,20 +320,22 @@ namespace Roguehalla.Client
 
         void AddCardTo(Transform parent, string objectName, string title, string body, float height, Color titleColor, int factionIcon = -1)
         {
-            var card = MythicUi.Panel(parent, objectName, Vector2.zero, Vector2.one, ShowcasePalette.PanelRaised, true);
+            var card = MythicUi.Panel(parent, objectName, Vector2.zero, Vector2.one, UiTheme.With(ShowcasePalette.PanelRaised, .88f), true);
             ConfigureLayoutChild(card, height);
             var group = card.gameObject.AddComponent<VerticalLayoutGroup>();
             group.spacing = 4; group.padding = new RectOffset(12, 12, 9, 8); group.childControlWidth = true; group.childForceExpandWidth = true; group.childControlHeight = false; group.childForceExpandHeight = false;
             Transform headingParent = card;
             if (factionIcon >= 0)
             {
-                // Faction cards lead with the generated faction pictogram instead of a bracket mark.
-                var head = CreateLayoutItem(card, "Head", 28);
-                var icon = LaunchUi.FactionShape(head, "FactionIcon", factionIcon, 0f, 4f, 20f, titleColor);
+                var head = CreateLayoutItem(card, "Head", 64);
+                var icon = LaunchUi.FactionShape(head, "FactionIcon", factionIcon, 0f, 8f, 48f, titleColor);
                 icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = new Vector2(0f, .5f);
                 icon.rectTransform.pivot = new Vector2(0f, .5f); icon.rectTransform.anchoredPosition = new Vector2(0f, 0f);
+                var portrait = HubArtworkAssets.FactionPortrait(factionIcon);
+                if (portrait != null) { icon.sprite = portrait; icon.color = Color.white; icon.preserveAspect = true; }
+                icon.raycastTarget = false;
                 var named = MythicUi.Text(head, "Title", title, Vector2.zero, Vector2.one, 19, titleColor);
-                named.fontStyle = FontStyles.Bold; named.rectTransform.offsetMin = new Vector2(28f, 0f);
+                named.fontStyle = FontStyles.Bold; named.rectTransform.offsetMin = new Vector2(58f, 0f);
                 headingParent = null;
             }
             if (headingParent != null)
@@ -331,7 +346,7 @@ namespace Roguehalla.Client
             }
             var description = MythicUi.Text(card, "Description", body, Vector2.zero, Vector2.one, 15, ShowcasePalette.Text);
             description.enableWordWrapping = true;
-            ConfigureLayoutChild(description.GetComponent<RectTransform>(), height - 48);
+            ConfigureLayoutChild(description.GetComponent<RectTransform>(), height - (factionIcon >= 0 ? 84 : 48));
         }
 
         static RectTransform CreateLayoutItem(Transform parent, string name, float height)

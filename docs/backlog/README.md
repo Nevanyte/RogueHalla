@@ -326,7 +326,7 @@ is **not implemented**; the gain figures are **estimates**.
 | P-UI-5 | HUD: vitals, weapon bar, Wish slot, cards row, build strip, minimap, chest panel, quest log, toasts, potion cue | each mechanic; P-UNITY-1 | MVP vitals/inventory/build/chest choice/potion feedback verified; Wish/minimap/quest/full cards deferred | client/src/ui/hud.ts, cardsRow.ts, buildHud.ts, minimap.ts, chestPanel.ts, questLog.ts, weaponBar.ts, abilitySlot.ts |
 | P-UI-6 | Planning screen and hold-Tab map, route drawing | P-ARENA-1, P-MAP-2 | Coarse | client/src/ui/planning.ts, route.ts, mapHold.ts, mapPainter.ts |
 | P-UI-7 | Combat presentation: projectiles, telegraphs, status art, hit numbers, juice (reduced-motion safe) | P-COMBAT-2, P-STATUS-1 | Coarse | client/src/render/* |
-| P-UI-8 | Visual upgrade per [../VISUAL_DIRECTION.md](../VISUAL_DIRECTION.md) (exists: quality tiers, budgets to establish) | P-UNITY-1 | Coarse | client/src/render/zoneArt/*, hub/hubArt.ts |
+| P-UI-8 | Visual upgrade per [../VISUAL_DIRECTION.md](../VISUAL_DIRECTION.md) (exists: quality tiers, budgets to establish) | P-UNITY-1 | Ready packet ([spec](packets/P-STORM-HAUNTED-PRESENTATION-1.md), display-only identity pass) | client/src/render/zoneArt/*, hub/hubArt.ts |
 | P-UI-9 | Settings, accessibility, input rebinding, audio decision | P-UNITY-1 | Coarse | client/src/settings.ts, ui/settingsPanel.ts |
 | P-UI-10 | Unity batchmode tests + build in CI | P-UNITY-1, P-CI-1 | Coarse | none |
 
