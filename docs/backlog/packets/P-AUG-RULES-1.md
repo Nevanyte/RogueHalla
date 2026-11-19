@@ -154,15 +154,26 @@ Rust readers today (each must read the seam after this packet):
   the G1 cap reaching both the fold clamp (Boom 2.6) and the outgoing ceiling, Gambler's chances and factors read
   from the table, and the Rework ranged envelope covering eight fold cards (alone and together) at maximum boosts and
   farm, every faction, bow and wand, within 4x the legacy one.
-- `crates/rh-sim/tests/hash_coverage.rs` (`oracle-amend:`, for the owner): `the_serde_skips_are_exactly_the_documented_ones`
-  counts `statics.rs` 8 (was 7), the new skip being `MatchStatic::cards`, with its reason.
+- `crates/rh-sim/tests/hash_coverage.rs` (two `oracle-amend:` commits, for the owner):
+  `the_serde_skips_are_exactly_the_documented_ones` counts `statics.rs` 8 (was 7), the new skip being
+  `MatchStatic::cards`, with its reason; and two new scenarios in `scenarios()` for
+  `every_serialized_leaf_of_a_match_changes_the_state_hash` (`augment_elite_rework_state`: practice arena, both rules
+  `Rework`, config only; `elite_rework_mob_state`: the one-elite-camp PvE fixture under `Rework`), plus two `VALIDATED`
+  rows, `statics.config.elites` and `world.mob_runtime.elites` (the latter used only if the elite seam keeps the rule
+  on the mob runtime). Without a `Rework` scenario the campaign refuses the new optional leaves
+  (`statics.config.augments` / `.elites` are null in every legacy scenario).
+- `crates/rh-sim/tests/content.rs` (`oracle-amend:`, for the owner): `NON_GAMEPLAY` rows for `cards/tuning.rs`
+  `LEGACY` / `REWORK`, `cards/rework_overrides.rs` `REWORK_OVERRIDES` and `mob_runtime.rs` `LEGACY_ELITES` /
+  `REWORK_ELITES` (`every_const_in_the_source_tree_is_registered_or_explained` audits every `const`/`static` under
+  `src/`). The implementation keeps exactly these names; it declares no other `const`/`static` (numbers come from the
+  registered constants by name). P-AUG-CONTENT-1 moves `REWORK_OVERRIDES` to `TABLES_FOLDED_BY_HASH` when it fills it.
 - `crates/rh-server/tests/live_content.rs` (`oracle-amend:`, for the owner): the exhaustive expected source-arena and
   training configs state `augments: Rework, elites: Rework` (the stub commit wrote `Legacy` there to compile).
 
 Red on the stub, each on an assertion: all 7 tests of `augment_rules`, 6 of the 7 `tuning_tests` (the real-table guard
-is green: the table is empty), and `rh-server` `live_content`'s two table tests after its amend commit.
-`hash_coverage::the_serde_skips_are_exactly_the_documented_ones` is red on the stub commit alone and green after its
-amend commit (the stub already holds the field).
+is green: the table is empty), `rh-server` `live_content`'s three exhaustive-config tests, and
+`hash_coverage::every_serialized_leaf_of_a_match_changes_the_state_hash` (the stub writes `Rework` as null).
+`the_serde_skips_are_exactly_the_documented_ones` and the content const audit are green after their amend commits.
 
 ### The stub (implementer-editable; commit `stub:`)
 - `statics.rs`: `AugmentRule`, `EliteRule` (both variants serialize as unit, JSON reads only `null`), the two
@@ -176,7 +187,8 @@ amend commit (the stub already holds the field).
   unchecked table.
 - `cards/rework_overrides.rs`: `REWORK_OVERRIDES: &[CardDef] = &[]` (its layout header is the contract).
 - `mob_runtime.rs`: `EliteTuning { k, hp_mult, dmg_mult }`, `EliteTuning::of(EliteRule) -> &'static EliteTuning`
-  (stub NaN).
+  (stub NaN), statics `LEGACY_ELITES` / `REWORK_ELITES`. `cards/tuning.rs` statics `LEGACY` / `REWORK` (names fixed
+  by the content audit amendment).
 - Signatures: `outgoing_damage(tuning, ...)`, `execute_share(tuning, ...)`, `maximum_packet(tuning, weapon)`,
   `checkpoint::valid_ranged_packet(tuning, packet, weapon)` (callers pass `k.cards`; the stub ignores it);
   `checkpoint::check_world` is `pub(crate)`.
@@ -230,11 +242,14 @@ invisible while the tables are empty. Cross-crate (rh-sim, rh-server, rh-headles
 - The two tags: `Rework` must fold a word no other config field writes (`RegenInCombat` docs, `statics.rs:313-326`);
   `augments` and `elites` are adjacent and both `"rework"` in JSON, so their hasher tags must differ from each other
   (e.g. `"augments=rework"`, `"elites=rework"`); the 64-identity test checks it.
-- The elite seam must add no `#[serde(skip)]` (the amended skip list allows exactly `MatchStatic::cards`). Readers
-  without `k` (`World::faction_spec`, `point_damage`, `sentenced::npc_pulse`) can reach the rule through the world's
-  `MobRuntime` (installed in every world that has mobs, training included: `systems/mobs.rs:70, :157`), e.g. a stored
-  `EliteRule` copy that serializes as nothing under `Legacy` (the `CampBuffs` precedent, `mob_runtime.rs:449-470`,
-  `hash.rs:36-40`) with a `check_world` rule tying it to `k.config.elites` and one refusal test; or by threading `k`.
+- The elite seam must add no `#[serde(skip)]` (the amended skip list allows exactly `MatchStatic::cards`) and no new
+  serialized world leaf other than `world.mob_runtime.elites` (the only one the amended `hash_coverage` documents).
+  Readers without `k` (`World::faction_spec` and through it `defense`, `paced_faction_spec`, `signature_damage`;
+  `point_damage`; `sentenced::npc_pulse`) reach the rule either through the world's `MobRuntime` (installed in every
+  world that has mobs, training included: `systems/mobs.rs:70, :157`) as `MobRuntime::elites: EliteRule`, writing
+  nothing under `Legacy` (the `CampBuffs` precedent, `mob_runtime.rs:449-470`, `hash.rs:36-40`), set where the
+  runtime is built, tied to `k.config.elites` by a `check_world` rule with one refusal test; or by threading the
+  table from `k` into those readers (about 20 call sites). The first is the recommended one.
   `spawn_hp` and every `Mob::born` caller hold `k`. rh-policy reads `EliteTuning::of(config.elites)` through the
   start struct that already carries `frost_wish` (`rh-policy/src/lib.rs:78, :95`).
 - `Tuning::of` returns statics (no per-call build, no allocation per step).
