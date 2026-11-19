@@ -28,6 +28,9 @@ pub(crate) struct MatchStatic {
     pub(crate) terrain_source: crate::status_runtime::StatusSource,
     #[serde(skip)] // constant-derived environmental source, not stored gameplay state
     pub(crate) arena_source: crate::status_runtime::StatusSource,
+    #[serde(skip)]
+    // P-AUG-RULES-1: the card tuning table of `config.augments`, derived like `hazards`
+    pub(crate) cards: &'static crate::cards::Tuning,
 }
 
 /// The serialized shape of [`MatchStatic`]: exactly its stored fields.
@@ -74,7 +77,9 @@ impl MatchStatic {
         };
         let hazards = crate::terrain::Hazards::of(&arena.map, config.hazards);
         let digest = crate::hash::hash_of(0, &(&config, &*arena));
+        let cards = crate::cards::Tuning::of(&config);
         Self {
+            cards,
             config,
             arena,
             secrets,
@@ -270,6 +275,68 @@ pub struct SimConfig {
     /// world keeps `Freeze`.
     #[serde(default)]
     pub frost_wish: FrostWish,
+    /// P-AUG-RULES-1: which augment numbers the world plays (owner decision 2026-11-18, `backlog/AUGMENT_ELITE_REWORK.md`):
+    /// `Legacy` (the default) or `Rework` (the live world). `Legacy` adds nothing to any hash; `Rework` folds a tag of its
+    /// own (see [`AugmentRule`]).
+    #[serde(default)]
+    pub augments: AugmentRule,
+    /// P-AUG-RULES-1: which elite numbers the world plays: `Legacy` (the default) or `Rework` (the live world). `Legacy`
+    /// adds nothing to any hash; `Rework` folds a tag of its own (see [`EliteRule`]).
+    #[serde(default)]
+    pub elites: EliteRule,
+}
+
+/// `SimConfig::augments`. STUB (P-AUG-RULES-1): the implementer gives `Rework` its encoding (`"rework"` in a
+/// human-readable format, a tag of its own in the state hasher), as [`CampBuffRule`] does.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AugmentRule {
+    #[default]
+    Legacy,
+    Rework,
+}
+
+/// `SimConfig::elites`. STUB (P-AUG-RULES-1): as [`AugmentRule`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum EliteRule {
+    #[default]
+    Legacy,
+    Rework,
+}
+
+impl serde::Serialize for AugmentRule {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        // STUB: both variants write nothing.
+        s.serialize_unit()
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AugmentRule {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        match Option::<String>::deserialize(d)?.as_deref() {
+            None => Ok(Self::Legacy),
+            Some(other) => Err(serde::de::Error::custom(format!(
+                "augments must be null, not {other:?}"
+            ))),
+        }
+    }
+}
+
+impl serde::Serialize for EliteRule {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        // STUB: both variants write nothing.
+        s.serialize_unit()
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for EliteRule {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        match Option::<String>::deserialize(d)?.as_deref() {
+            None => Ok(Self::Legacy),
+            Some(other) => Err(serde::de::Error::custom(format!(
+                "elites must be null, not {other:?}"
+            ))),
+        }
+    }
 }
 
 /// `SimConfig::frost_wish`. `Freeze` serializes as nothing (JSON `null`; the hashing serializer folds no word for a
@@ -485,6 +552,8 @@ impl Default for SimConfig {
             regen_in_combat: RegenInCombat::Legacy,
             camp_buffs: CampBuffRule::Legacy,
             frost_wish: FrostWish::Freeze,
+            augments: AugmentRule::Legacy,
+            elites: EliteRule::Legacy,
         }
     }
 }

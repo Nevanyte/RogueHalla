@@ -497,6 +497,7 @@ fn apply_inner(
                     Default::default()
                 };
                 crate::modifiers::outgoing_damage(
+                    k.cards,
                     w.core(i),
                     &build,
                     frac,
@@ -767,6 +768,7 @@ fn apply_victim(
                             crate::modifiers::OutgoingKind::Other
                         };
                         crate::modifiers::execute_share(
+                            pass.k.cards,
                             pass.w.core(bix),
                             &build,
                             victim_frac,

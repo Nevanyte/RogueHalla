@@ -409,6 +409,31 @@ impl Mob {
         }
     }
 }
+
+/// P-AUG-RULES-1: the elite numbers a world plays (`SimConfig::elites`; legacy `mobs.ts:37-41`, `constants.ts:485,
+/// 513-514`), read wherever `ELITE_K` / `ELITE_HP_MULT` / `ELITE_DMG_MULT` are read today. Legacy values under both rules
+/// until P-ELITE-TUNE-1.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EliteTuning {
+    pub k: f64,
+    pub hp_mult: f64,
+    pub dmg_mult: f64,
+}
+
+// STUB (P-AUG-RULES-1): the implementer replaces this with the legacy constants and the rule's table.
+static STUB_ELITES: EliteTuning = EliteTuning {
+    k: f64::NAN,
+    hp_mult: f64::NAN,
+    dmg_mult: f64::NAN,
+};
+
+impl EliteTuning {
+    /// The elite numbers of a rule (a static: no allocation).
+    pub fn of(_rule: crate::EliteRule) -> &'static EliteTuning {
+        &STUB_ELITES
+    }
+}
+
 /// Source mobTypeFaction HP only. Full faction sheets remain the combat stage's responsibility.
 pub fn spawn_hp(region: FactionId, elite: bool, ty: MobTypeId) -> f64 {
     let scale = if elite {

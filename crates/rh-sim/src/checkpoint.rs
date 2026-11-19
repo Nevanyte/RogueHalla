@@ -270,8 +270,12 @@ fn content_mismatch(checkpoint: u64) -> Option<CheckpointError> {
 
 /// A projectile starts with its faction's weapon damage. Reflections, interceptions and arrow
 /// deletions only reduce it. Check pending ranged packets too, before they can become a flight.
-pub(crate) fn valid_ranged_packet(packet: crate::state::Packet, weapon: WeaponId) -> bool {
-    let maximum = crate::modifiers::maximum_packet(weapon);
+pub(crate) fn valid_ranged_packet(
+    tuning: &crate::cards::Tuning,
+    packet: crate::state::Packet,
+    weapon: WeaponId,
+) -> bool {
+    let maximum = crate::modifiers::maximum_packet(tuning, weapon);
     let shares = [packet.phys, packet.magic, packet.true_];
     (0.0..=maximum).contains(&packet.raw)
         && shares.iter().all(|v| (0.0..=1.0).contains(v))
@@ -343,7 +347,7 @@ fn check_camp_buffs(k: &MatchStatic, w: &World) -> Result<(), String> {
     }
 }
 
-fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
+pub(crate) fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
     // Validate actor classes before any player-only facade or faction/brain consumer can run.
     if w.players.iter().any(|p| p.core.faction_id().is_none()) {
         return Err("neutral player affiliation".into());
@@ -641,7 +645,7 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
             || pr.time != w.server_time
             || !velocity_ok(st.velocity)
             || !velocity_ok(pr.velocity)
-            || !valid_ranged_packet(pr.packet, weapon)
+            || !valid_ranged_packet(k.cards, pr.packet, weapon)
             // A Fire seat's armed attack can launch the flight; a departed owner's flag is unreachable for the burst
             // because the source consults only present players.
             || (pr.roam_armed
@@ -913,7 +917,7 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
             if a.kind != expected
                 || a.weapon != p.active_weapon()
                 || !finite
-                || (a.kind != ActionKind::Swing && !valid_ranged_packet(pk, a.weapon))
+                || (a.kind != ActionKind::Swing && !valid_ranged_packet(k.cards, pk, a.weapon))
                 || a.lands_at < a.started_at
                 || (a.roam_armed && p.faction() != crate::FactionId::Fire)
             {

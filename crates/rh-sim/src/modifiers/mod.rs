@@ -672,6 +672,7 @@ pub(crate) fn hp_race_mult(hp_frac: f64, cap: f64) -> f64 {
 /// Source `outgoingExecuteShare`: the share of an entry's outgoing multiplier that the attacker's `vs hpBelow` rows
 /// contribute (0 without them, never above 1) — what a tier-4 mark denies (R7).
 pub(crate) fn execute_share(
+    tuning: &crate::cards::Tuning,
     core: &crate::fighter::FighterCore,
     build: &crate::cards::Build,
     victim_frac: f64,
@@ -689,6 +690,7 @@ pub(crate) fn execute_share(
         return 0.;
     }
     let full = outgoing_damage(
+        tuning,
         core,
         build,
         victim_frac,
@@ -703,6 +705,7 @@ pub(crate) fn execute_share(
         return 0.;
     }
     let without = outgoing_damage(
+        tuning,
         core,
         build,
         victim_frac,
@@ -805,7 +808,7 @@ fn fold_build(
 /// Conservative supported-source envelope for snapshots fired before the present build/refold. It folds the all-cards build
 /// under both while assignments and keeps the largest packet: whichever way a build's conditional rows land, a real packet
 /// is at most this (the rows only add attack speed and damage when they hold).
-pub(crate) fn maximum_packet(weapon: crate::WeaponId) -> f64 {
+pub(crate) fn maximum_packet(_tuning: &crate::cards::Tuning, weapon: crate::WeaponId) -> f64 {
     let build = crate::cards::Build {
         counts: {
             let mut counts = crate::cards::Counts::default();
@@ -880,6 +883,7 @@ fn vs_holds(v: &crate::cards::VsRow, frac: f64, streak: u16, probe: VsProbe) -> 
 /// ledger freezes it before any victim/payout); mobs and unknown attackers pass 0. The camps scale reads only that value.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn outgoing_damage(
+    _tuning: &crate::cards::Tuning,
     p: &crate::fighter::FighterCore,
     build: &crate::cards::Build,
     victim_frac: f64,
@@ -1094,6 +1098,7 @@ mod guard_tests {
         let p = &sim.w.players[i];
         let row = |victim_frac: f64| {
             outgoing_damage(
+                sim.k.cards,
                 &p.core,
                 &p.build,
                 victim_frac,

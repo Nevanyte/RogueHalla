@@ -86,6 +86,8 @@ fn expected_source(
         camp_buffs: CampBuffRule::Themed,
         // P-FROST-WALL-3: the live profiles play Frost Wall (owner decision 2, 2026-11-10).
         frost_wish: FrostWish::Wall,
+        augments: rh_sim::AugmentRule::Legacy,
+        elites: rh_sim::EliteRule::Legacy,
     }
 }
 
@@ -116,6 +118,8 @@ fn expected_training(hitboxes: HitboxMode) -> SimConfig {
         camp_buffs: CampBuffRule::Themed,
         // P-FROST-WALL-3: the live profiles play Frost Wall (owner decision 2, 2026-11-10).
         frost_wish: FrostWish::Wall,
+        augments: rh_sim::AugmentRule::Legacy,
+        elites: rh_sim::EliteRule::Legacy,
     }
 }
 
