@@ -7,7 +7,8 @@
 //! the schedule tables (`schedule.rs`, checked against the legacy record by `rh-parity/tests/schedule.rs`) and are
 //! ported in place at their legacy position, never reordered.
 //!
-//! No I/O, no wall clock, no entropy: time advances only through [`Sim::step`] by exactly [`TICK_MS`], and every secret
+//! No I/O, no wall clock, no entropy: time advances only through [`Sim::step`] by exactly the match's own step
+//! ([`SimConfig::tick_ms`], 50 or 25 ms, ADR 0029), and every secret
 //! arrives through [`Secrets`].
 
 use crate::constants::*;
@@ -134,6 +135,7 @@ impl Sim {
             s: TickScratch::default(),
             pf: Pathfinder::default(),
         };
+        crate::statics::validate_tick_ms(&sim.k.config)?;
         crate::terrain::validate_config(&sim.k.config)?;
         crate::abilities::validate_config(&sim.k.config)?;
         crate::systems::arena_rules::validate_config(&sim.k)?;
@@ -284,9 +286,10 @@ impl Sim {
     pub fn tick(&self) -> u32 {
         self.w.tick
     }
-    /// The sim's step length in milliseconds (ADR 0029). STUB (P-TICK-1a): always the legacy 50 until implemented.
+    /// The sim's step length in milliseconds (`SimConfig::tick_ms`, ADR 0029): 50 (legacy) or 25. Each step adds it to
+    /// [`Sim::server_time`].
     pub fn tick_ms(&self) -> u32 {
-        50
+        self.k.config.tick_ms
     }
     pub fn server_time(&self) -> f64 {
         self.w.server_time
@@ -526,7 +529,9 @@ impl Sim {
         // left in a buffer its caller did not clear: a replay then steps exactly as the live room does.
         self.s.step_event_start = event_start;
         self.s.fx.ops.clear();
-        self.w.server_time += TICK_MS;
+        // Legacy `step(world, dtMs)`: `serverTime += dtMs; tick++` (packages/server/src/sim/step.ts:302-305), with the
+        // match's own step (ADR 0029). Both allowed steps are binary-exact, so the sum stays exactly `tick * tick_ms`.
+        self.w.server_time += self.k.tick_ms();
         // A restored checkpoint may legitimately sit one step below the maximum; the tick is the
         // simulation's one bounded counter, so a damaged or terminal state saturates instead of
         // panicking. A checkpoint at the maximum is refused by `check_world`.

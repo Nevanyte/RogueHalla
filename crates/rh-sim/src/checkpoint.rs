@@ -5,7 +5,7 @@
 //! (docs/CONTRACTS.md C-DET). A decoded [`Sim`] is complete (the map tables and the statics digest are built while
 //! decoding); malformed or truncated input is an `Err`, never a panic.
 
-use crate::constants::{TICK_MS, TILE};
+use crate::constants::TILE;
 use crate::content::WeaponId;
 use crate::pathfind::Pathfinder;
 use crate::scratch::TickScratch;
@@ -344,6 +344,9 @@ fn check_camp_buffs(k: &MatchStatic, w: &World) -> Result<(), String> {
 }
 
 fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
+    // ADR 0029: the match steps 50 or 25 ms. The deserializer already refuses any other `tick_ms`; this keeps the rule
+    // with the others the clock and rewind checks below rely on.
+    crate::statics::validate_tick_ms(&k.config)?;
     // Validate actor classes before any player-only facade or faction/brain consumer can run.
     if w.players.iter().any(|p| p.core.faction_id().is_none()) {
         return Err("neutral player affiliation".into());
@@ -483,13 +486,13 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
         return Err("next_id lacks headroom for camp births and the next join".into());
     }
     // Roster order is checked by its own decoder and player order by the store's.
-    // The clock must stay where `+= TICK_MS` and the rewind cutoff are exact (the most the tick counter can reach); far
-    // beyond it the additions are absorbed, no sample is ever trimmed and the history ring fills.
-    if !(0.0..=u32::MAX as f64 * TICK_MS).contains(&w.server_time) {
+    // The clock must stay where `+= tick_ms` and the rewind cutoff are exact (the most the tick counter can reach at the
+    // match's step); far beyond it the additions are absorbed, no sample is ever trimmed and the history ring fills.
+    let max_clock = u32::MAX as f64 * k.tick_ms();
+    if !(0.0..=max_clock).contains(&w.server_time) {
         return Err(format!(
-            "server_time {} is outside 0..={}",
-            w.server_time,
-            u32::MAX as f64 * TICK_MS
+            "server_time {} is outside 0..={max_clock}",
+            w.server_time
         ));
     }
     // The trusted Card report and any serialized server-only raw Card rows must be a coherent, canonically
@@ -812,13 +815,15 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
             ));
         }
         // Samples are appended one tick apart at least (a trim keeps the ring within its window only then); closer ones
-        // fill the ring within a few steps. The gap test also covers time order. The one source shape with equal times
+        // fill the ring within a few steps. The ring is sized for the shortest allowed step (ADR 0029, `state.rs`
+        // `history_cap`), so that is the gap required at either step: a 25 ms history restored as a 50 ms match (another
+        // match, with another hash) cannot fill it either. The gap test also covers time order. The one source shape with equal times
         // is a displacement during the actions phase (a Blaze charge, a travel-cannon blast) that resets the history and
         // is followed by the movement phase appending the same tick's final sample: the source keeps both and readers
         // clamp, so only the first pair may share its timestamp.
         let h = p.body.history.as_slice();
         if h.windows(2).enumerate().any(|(i, s)| {
-            !(s[1].t >= s[0].t + TICK_MS)
+            !(s[1].t >= s[0].t + crate::state::shortest_tick_ms())
                 && !(i == 0
                     && (h[0].t == h[1].t || crate::abilities::checkpoint::blaze_history(k, p)))
         }) {
@@ -1358,6 +1363,31 @@ mod tests {
     }
 
     #[test]
+    fn the_clock_bound_follows_the_match_step() {
+        // ADR 0029: at 25 ms the tick counter reaches half the clock it reaches at 50.
+        let mut a = sim();
+        a.k.config.tick_ms = 25;
+        a.w.server_time = u32::MAX as f64 * 25.0;
+        assert!(super::check_world(&a.k, &a.w).is_ok());
+        a.w.server_time = u32::MAX as f64 * TICK_MS;
+        assert!(super::check_world(&a.k, &a.w).is_err());
+    }
+
+    #[test]
+    fn an_unsupported_step_length_is_refused_by_check_world() {
+        // The deserializer refuses it first (`tests/tick_ms.rs`); the decoded state itself is checked here, the way
+        // another serde format or a future constructor would reach it.
+        for bad in [0, 1, 24, 33, 40, 75, 100, u32::MAX] {
+            let mut a = sim();
+            a.k.config.tick_ms = bad;
+            assert!(super::check_world(&a.k, &a.w).is_err(), "{bad} ms");
+        }
+        let mut a = sim();
+        a.k.config.tick_ms = 25;
+        assert!(super::check_world(&a.k, &a.w).is_ok());
+    }
+
+    #[test]
     fn pending_wish_times_require_finite_nonnegative_past_clock_for_all_variants() {
         use crate::{
             status_runtime::{AbilityId, CastEndReason},
@@ -1619,8 +1649,9 @@ mod tests {
 
     #[test]
     fn a_too_dense_rewind_history_is_refused() {
-        // Samples all at the clock, or a millisecond apart, would fill the 9-slot ring within three steps.
-        for gaps in [0.0, 1.0, 49.0] {
+        // Samples all at the clock, or a millisecond apart, would fill the ring within a few steps; it is sized for samples
+        // the shortest allowed step (25 ms, ADR 0029) apart.
+        for gaps in [0.0, 1.0, 24.0, 24.999] {
             let mut json = stepped(5);
             let now = json["world"]["server_time"].as_f64().unwrap();
             let h: Vec<_> = (0..9)
