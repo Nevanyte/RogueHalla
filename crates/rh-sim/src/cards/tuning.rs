@@ -389,3 +389,7 @@ fn map_numbers(row: &CardRow, f: &mut dyn FnMut(f64) -> f64) -> CardRow {
 #[cfg(test)]
 #[path = "tuning_tests.rs"]
 mod tuning_tests;
+
+#[cfg(test)]
+#[path = "rework_content_tests.rs"]
+mod rework_content_tests;
