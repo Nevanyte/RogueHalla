@@ -918,6 +918,65 @@ mod dot_crit_tests {
         spend_plant(&mut sim.w.players[i], now);
         assert!(!plant_armed(&sim.w.players[i], now));
     }
+
+    /// `check_world` admits a pending action's `range_mult` from 1 up to the table's planted factor, and refuses
+    /// anything outside it (P-AUG-PLANT-1; the oracle covers a planted flight and cast restoring).
+    #[test]
+    fn restore_bounds_a_pending_attacks_plant_factor() {
+        fn set_factor(v: &mut serde_json::Value, m: f64) -> bool {
+            match v {
+                serde_json::Value::Object(o) if o.contains_key("lands_at") => {
+                    o.insert("range_mult".into(), serde_json::json!(m));
+                    true
+                }
+                serde_json::Value::Object(o) => o.values_mut().any(|c| set_factor(c, m)),
+                serde_json::Value::Array(a) => a.iter_mut().any(|c| set_factor(c, m)),
+                _ => false,
+            }
+        }
+        let mut sim = setup();
+        let i = sim.w.idx(PlayerId(1)).unwrap();
+        let now = sim.w.server_time;
+        let weapon = sim.w.players[i].core.active_weapon();
+        sim.w.players[i].core.weapon.action = Some(crate::state::PendingAction {
+            kind: match weapon {
+                crate::WeaponId::Bow => crate::state::ActionKind::Draw,
+                crate::WeaponId::Wand => crate::state::ActionKind::Cast,
+                _ => crate::state::ActionKind::Swing,
+            },
+            weapon,
+            target: None,
+            started_at: now,
+            lands_at: now + 200.,
+            a: 0.,
+            packet: crate::state::Packet {
+                raw: 1.,
+                phys: 1.,
+                magic: 0.,
+                true_: 0.,
+            },
+            roam_armed: false,
+            range_mult: 1.,
+        });
+        let cp = serde_json::to_value(&sim).unwrap();
+        let top = 1. + crate::constants::PLANT_FEET_BONUS;
+        for (m, ok) in [
+            (1., true),
+            (top, true),
+            (1. - 1e-9, false),
+            (top + 1e-9, false),
+        ] {
+            let mut doctored = cp.clone();
+            assert!(
+                set_factor(&mut doctored["world"], m),
+                "the pending action is in the checkpoint"
+            );
+            assert_eq!(Sim::restore(&doctored).is_ok(), ok, "range_mult {m}");
+        }
+        let legacy = crate::cards::Tuning::legacy();
+        assert!(!super::valid_range_mult(legacy, f64::NAN));
+        assert!(!super::valid_range_mult(legacy, f64::INFINITY));
+    }
 }
 
 #[cfg(test)]

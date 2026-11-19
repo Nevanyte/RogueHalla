@@ -398,6 +398,25 @@ mod tests {
                 .collect::<Vec<_>>(),
         )
     }
+    /// An unplanted bow draw with a unit physical packet.
+    fn bow_draw(started_at: f64, lands_at: f64) -> crate::state::PendingAction {
+        crate::state::PendingAction {
+            kind: ActionKind::Draw,
+            weapon: WeaponId::Bow,
+            target: None,
+            started_at,
+            lands_at,
+            a: 0.,
+            packet: crate::state::Packet {
+                raw: 1.,
+                phys: 1.,
+                magic: 0.,
+                true_: 0.,
+            },
+            roam_armed: false,
+            range_mult: 1.0,
+        }
+    }
     fn numbers(v: &mut Value) {
         match v {
             Value::Number(n) => *v = json!(n.as_f64().unwrap()),
@@ -535,22 +554,7 @@ mod tests {
             p.weapon.ready_at = 10000. + c["readyLeft"].as_f64().unwrap_or(100.);
             p.weapon.buffered_until = 10000. + c["bufferLeft"].as_f64().unwrap_or(100.);
             if let Some(left) = c["drawLeft"].as_f64() {
-                p.weapon.action = Some(crate::state::PendingAction {
-                    kind: ActionKind::Draw,
-                    weapon: WeaponId::Bow,
-                    target: None,
-                    started_at: 9000.,
-                    lands_at: 10000. + left,
-                    a: 0.,
-                    packet: crate::state::Packet {
-                        raw: 1.,
-                        phys: 1.,
-                        magic: 0.,
-                        true_: 0.,
-                    },
-                    roam_armed: false,
-                    range_mult: 1.0,
-                });
+                p.weapon.action = Some(bow_draw(9000., 10000. + left));
                 p.weapon.draw_started_at = 9000.;
             }
             assert_eq!(
@@ -918,22 +922,7 @@ mod tests {
         // 100 ms left is above m*dt for m about 0.808: the kept time grows by (1-m)*dt each chilled tick.
         p.weapon.ready_at = 10_100.;
         p.weapon.buffered_until = 10_100.;
-        p.weapon.action = Some(crate::state::PendingAction {
-            kind: ActionKind::Draw,
-            weapon: WeaponId::Bow,
-            target: None,
-            started_at: 9_900.,
-            lands_at: 10_100.,
-            a: 0.,
-            packet: crate::state::Packet {
-                raw: 1.,
-                phys: 1.,
-                magic: 0.,
-                true_: 0.,
-            },
-            roam_armed: false,
-            range_mult: 1.0,
-        });
+        p.weapon.action = Some(bow_draw(9_900., 10_100.));
         p.weapon.draw_started_at = 9_900.;
         after_damage(&mut s.w);
         let p = &s.w.players[1];
