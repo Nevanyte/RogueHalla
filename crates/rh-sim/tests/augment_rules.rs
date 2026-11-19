@@ -200,8 +200,33 @@ fn base_build(cards: &[CardId]) -> rh_sim::cards::Build {
     rh_sim::cards::Build::from_counts(cards.iter().map(|c| (*c, 1)))
 }
 
+/// P-AUG-CONTENT-1 (oracle-amend): the 18 cards whose Rework rows differ from the catalog.
+const REWORKED: [CardId; 18] = [
+    CardId::HereComesTheBoom,
+    CardId::MachineGun,
+    CardId::GlassCannon,
+    CardId::VampiricPact,
+    CardId::ArcaneOverload,
+    CardId::Committed,
+    CardId::SlowBurn,
+    CardId::FistsOfFury,
+    CardId::Overkill,
+    CardId::TankEngine,
+    CardId::PocketSand,
+    CardId::Gambler,
+    CardId::ThirdTimesTheCharm,
+    CardId::PlantYourFeet,
+    CardId::Hemorrhage,
+    CardId::SpikedShell,
+    CardId::Siphon,
+    CardId::SecondWind,
+];
+
+/// Legacy is the legacy catalog and constants in every respect; under Rework (P-AUG-CONTENT-1 filled its table) only the
+/// 18 reworked cards and the named numbers the packet moves differ: every other card, Wishful Thinking's and Race to 0's
+/// numbers, the pool and its offers stay legacy. (The numbers themselves are `cards/rework_content_tests.rs`.)
 #[test]
-fn the_card_table_is_the_legacy_catalog_under_both_rules() {
+fn the_card_table_is_the_legacy_catalog_under_legacy_and_for_unchanged_cards_under_rework() {
     use rh_sim::constants as c;
     let configs = [
         SimConfig::default(),
@@ -223,26 +248,50 @@ fn the_card_table_is_the_legacy_catalog_under_both_rules() {
         let t = Tuning::of(config);
         let rule = config.augments;
         assert_eq!(t.rule(), rule, "the table knows its rule");
+        let legacy_rule = rule == AugmentRule::Legacy;
         for id in CardId::ALL {
-            assert_eq!(
-                t.def(id),
-                id.definition(),
-                "{rule:?} {id:?}: empty overrides are the catalog"
-            );
+            if legacy_rule || !REWORKED.contains(&id) {
+                assert_eq!(
+                    t.def(id),
+                    id.definition(),
+                    "{rule:?} {id:?}: the catalog row"
+                );
+            } else {
+                assert_ne!(
+                    t.def(id),
+                    id.definition(),
+                    "{rule:?} {id:?}: a reworked card has its own row"
+                );
+            }
         }
         let n = t.numbers();
-        assert_eq!(n.plant_feet_bonus, c::PLANT_FEET_BONUS, "{rule:?}");
-        assert_eq!(n.gambler_up_chance, c::GAMBLER_CHANCE, "{rule:?}");
-        assert_eq!(n.gambler_down_chance, c::GAMBLER_CHANCE, "{rule:?}");
+        if legacy_rule {
+            assert_eq!(n.plant_feet_bonus, c::PLANT_FEET_BONUS, "{rule:?}");
+            assert_eq!(n.gambler_up_chance, c::GAMBLER_CHANCE, "{rule:?}");
+            assert_eq!(n.gambler_down_chance, c::GAMBLER_CHANCE, "{rule:?}");
+            assert_eq!(n.third_time_extra, 1., "{rule:?}");
+        }
         assert_eq!(n.gambler_up, c::GAMBLER_UP, "{rule:?}");
         assert_eq!(n.gambler_down, c::GAMBLER_DOWN, "{rule:?}");
         assert_eq!(n.wishful_budget_ms, c::WISHFUL_BUDGET_MS, "{rule:?}");
         assert_eq!(n.wishful_window_ms, c::WISHFUL_WINDOW_MS, "{rule:?}");
         assert_eq!(n.wishful_floor_share, c::WISHFUL_FLOOR_SHARE, "{rule:?}");
-        assert_eq!(n.outgoing_row_cap, c::OUTGOING_ROW_CAP, "{rule:?}");
+        if legacy_rule {
+            assert_eq!(n.outgoing_row_cap, c::OUTGOING_ROW_CAP, "{rule:?}");
+        }
         assert_eq!(
-            n.outgoing_row_cap, fold.outgoing_row_cap,
+            n.outgoing_row_cap,
+            if legacy_rule {
+                fold.outgoing_row_cap
+            } else {
+                2.6
+            },
             "{rule:?}: the fold's G1 clamp"
+        );
+        assert_eq!(
+            t.numbers().outgoing_row_cap,
+            if legacy_rule { 2.5 } else { 2.6 },
+            "{rule:?}: decision 2, the Rework row cap"
         );
         assert_eq!(n.hp_race_cap, c::HP_RACE_CAP, "{rule:?}");
         assert_eq!(
@@ -250,7 +299,6 @@ fn the_card_table_is_the_legacy_catalog_under_both_rules() {
             "{rule:?}: the fold's G4 clamp"
         );
         assert_eq!(n.third_time_every, 3, "{rule:?}");
-        assert_eq!(n.third_time_extra, 1., "{rule:?}");
         assert_eq!(t.pool(), &INTERACTIVE[..], "{rule:?}");
         for p in &pickers {
             assert_eq!(t.augment_pool(p), augment_pool(p), "{rule:?} {p:?}");
@@ -414,24 +462,20 @@ const FOLD_CARDS: [CardId; 6] = [
     CardId::ThirdTimesTheCharm,
 ];
 
-/// Equivalence over a seed sweep: the same seed and the same inputs under `Legacy` and under `Rework` (both rules)
-/// give the same events on every tick and the same world, with the empty rework tables; only the config and therefore
-/// the digest (so every state hash) differ. The run grants fold cards (Committed, Machine Gun, Arcane Overload) and
-/// coin/streak/stillness cards (Gambler, Third Time, Plant Your Feet) to the bow holder and Here Comes the Boom to the
-/// sword holder, then fights the elite camp. Floors (not on every seed): the elite is hurt on at least one seed.
+/// Equivalence over a seed sweep (oracle-amend, P-AUG-CONTENT-1: the augment table is no longer empty under Rework, so the
+/// elite half is what stays): the same seed and the same inputs under `Legacy` elites and under `Rework` elites (augments
+/// `Legacy` in both) give the same events on every tick and the same world, with the elite table equal to legacy; only the
+/// config and therefore the digest (so every state hash) differ. The run grants fold cards (Committed, Machine Gun, Arcane
+/// Overload) and coin/streak/stillness cards (Gambler, Third Time, Plant Your Feet) to the bow holder and Here Comes the
+/// Boom to the sword holder, then fights the elite camp. Floors (not on every seed): the elite is hurt on at least one seed.
 #[test]
-fn legacy_and_empty_rework_play_the_same_match() {
+fn legacy_and_equal_elite_rework_play_the_same_match() {
     const TICKS: u32 = 240;
     let mut elite_hurt_seeds = 0;
     for seed in [11u64, 12, 13] {
-        let mut sims = [AugmentRule::Legacy, AugmentRule::Rework].map(|a| {
-            let rule = if a == AugmentRule::Legacy {
-                EliteRule::Legacy
-            } else {
-                EliteRule::Rework
-            };
+        let mut sims = [EliteRule::Legacy, EliteRule::Rework].map(|rule| {
             let sim = Sim::reset_active(
-                with_rules(pve_config(), a, rule),
+                with_rules(pve_config(), AugmentRule::Legacy, rule),
                 pve_arena(),
                 Secrets::from_seed(seed),
                 &placements(),
@@ -483,7 +527,7 @@ fn legacy_and_empty_rework_play_the_same_match() {
         }
         elite_hurt_seeds += u32::from(hurt);
         let rework_cp = serde_json::to_value(&sims[1].0).unwrap();
-        assert_eq!(rework_cp["statics"]["config"]["augments"], json!("rework"));
+        assert_eq!(rework_cp["statics"]["config"]["augments"], Value::Null);
         assert_eq!(rework_cp["statics"]["config"]["elites"], json!("rework"));
         assert_eq!(
             without_rules(&sims[0].0),
