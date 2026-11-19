@@ -9,13 +9,11 @@ namespace Roguehalla.Client
     {
         static bool PaintStormInk(Landmark lm, Grid grid, bool[] cover, List<MapTile> coverTiles)
         {
-            if (!lm.IsDeliveredAnchor || lm.Anchor.Zone != (byte)RegionId.Plague) return false;
+            if (!StormCypressGeometry.For(lm.SourceMap).Matches(lm.Anchor)) return false;
 
             var field = new Field(grid, 0);
             int rootWidth = field.MaxX - field.MinX + 1;
-            int rootDepth = field.MaxY - field.MinY + 1;
-            if (rootWidth < 7 || rootDepth < 7 || grid.W < 20 || grid.H < 20) return false;
-            var trunk = Resources.Load<Sprite>("StormInk/Plague/CypressTrunk");
+            var trunk = Resources.Load<Sprite>(StormCypressGeometry.TrunkResource);
             var crown = Resources.Load<Sprite>("StormInk/Plague/CypressCrown");
             if (trunk == null && crown == null) return false;
 

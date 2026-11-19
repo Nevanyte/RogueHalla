@@ -60,16 +60,12 @@ namespace Roguehalla.Client
 
         internal static bool BindStormInkGround(Material material, MapBlob map)
         {
-            foreach (var anchor in map.Anchors)
-            {
-                if (anchor.Kind != MapBlob.AnchorKindBogTree || anchor.Zone != (byte)RegionId.Plague) continue;
-                var wash = Resources.Load<Texture2D>("StormInk/Plague/MarshWash");
-                if (wash == null) return false;
-                material.SetTexture("_StormMarshWash", wash);
-                material.SetFloat("_StormMarshOn", 1f);
-                return true;
-            }
-            return false;
+            if (!StormCypressGeometry.For(map).Eligible) return false;
+            var wash = Resources.Load<Texture2D>("StormInk/Plague/MarshWash");
+            if (wash == null) return false;
+            material.SetTexture("_StormMarshWash", wash);
+            material.SetFloat("_StormMarshOn", 1f);
+            return true;
         }
 
         static bool NearBog(byte[] terrain, int w, int h, int x, int y)

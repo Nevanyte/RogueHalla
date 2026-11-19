@@ -23,8 +23,11 @@ float3 StormMarshFloor(float2 t, float4 plg)
     float3 silt = lerp(mud, sedge, grass);
     float wetBank = 4.0 * water * (1.0 - water);
     silt *= 1.0 - .22 * wetBank;
-    float3 shallows = lerp(float3(.102, .163, .159), float3(.278, .331, .295), ink);
-    return lerp(silt, shallows, water);
+    // A walkable shallow shows its earth through broken reflections. Only the bog hazard fills a channel
+    // with an unbroken wash, so the narrow dry crossing survives a decoration band passing over it.
+    float3 sky = lerp(float3(.095, .143, .137), float3(.251, .291, .256), ink);
+    float reflection = lerp(.25, .62, smoothstep(.26, .78, ink));
+    return lerp(silt, sky, water * reflection);
 }
 
 void StormMarshChannel(float2 t, float inner, inout float3 colour, inout float3 emission)

@@ -617,7 +617,7 @@ Shader "Roguehalla/RegionGround"
                         float3 sg = lerp(lerp(s00, s10, f.x), lerp(s01, s11, f.x), f.y) * (255.0 / 128.0);
                         col *= min(sg, (255.0 / 128.0) / lerp(1.0, vt.rgb * (255.0 / 128.0), vt.a));
                     }
-                    col = lerp(col, beforeVariants, .58 * paintedMarsh);
+                    col = lerp(col, beforeVariants, .78 * paintedMarsh);
                 }
 
                 float templeIn = 0.0;                                   // 1 inside the temple floor: holy-light terrain is then drawn as a translucent pool on the stone so the inlay stays readable

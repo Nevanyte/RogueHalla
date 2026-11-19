@@ -70,7 +70,7 @@ namespace Roguehalla.Client
         void Collect(MapBlob map, RegionField field)
         {
             var tiles = map.Tiles; var terrain = map.Terrain; int w = _w, h = _h;
-            var stormCypressWalls = RegionWalls.StormCypressWallMask(map, w, h, tiles);
+            var stormCypressWalls = StormCypressGeometry.For(map).ReplacementWalls();
             bool Solid(int x, int y) { return x < 0 || y < 0 || x >= w || y >= h || tiles[y * w + x] == MapBlob.Wall; }
             for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
             {

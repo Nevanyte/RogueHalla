@@ -58,7 +58,7 @@ namespace Roguehalla.Client
             int w = map.W, h = map.H; var tiles = map.Tiles; var terrain = map.Terrain; var regions = map.Regions;
             var contact = RegionWallAtlas.Contact;
             var temple = TempleLayout.For(map);
-            var stormCypressWalls = StormCypressWallMask(map, w, h, tiles);
+            var stormCypressWalls = StormCypressGeometry.For(map).ReplacementWalls();
 
             bool Solid(int x, int y)
             {
@@ -145,56 +145,6 @@ namespace Roguehalla.Client
                 mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
                 go.isStatic = true; _rows.Add(go); RowMeshCount++;
             }
-        }
-
-        /// <summary>Leaves delivered cypress walls to their replacement art only when its trunk sprite is present and
-        /// the largest 8-connected wall group has the same minimum usable extent as BogTreeLandmark's painted path.</summary>
-        internal static bool[] StormCypressWallMask(MapBlob map, int width, int height, byte[] tiles)
-        {
-            if (map.Anchors == null || Resources.Load<Sprite>("StormInk/Plague/CypressTrunk") == null) return null;
-            bool[] skip = null;
-            foreach (var anchor in map.Anchors)
-            {
-                if (anchor.Zone != (byte)RegionId.Plague || anchor.Kind != MapBlob.AnchorKindBogTree) continue;
-                var f = anchor.Footprint;
-                if (f.W < 20 || f.H < 20 || f.X + f.W > width || f.Y + f.H > height) continue;
-                int localCount = f.W * f.H;
-                var wall = new bool[localCount];
-                for (int y = 0; y < f.H; y++) for (int x = 0; x < f.W; x++)
-                    wall[y * f.W + x] = tiles[(f.Y + y) * width + f.X + x] == MapBlob.Wall;
-
-                var seen = new bool[localCount]; var stack = new Stack<int>();
-                int largest = 0, largestMinX = f.W, largestMinY = f.H, largestMaxX = -1, largestMaxY = -1;
-                for (int start = 0; start < localCount; start++)
-                {
-                    if (!wall[start] || seen[start]) continue;
-                    seen[start] = true; stack.Push(start);
-                    int count = 0, minX = f.W, minY = f.H, maxX = -1, maxY = -1;
-                    while (stack.Count > 0)
-                    {
-                        int at = stack.Pop(), x = at % f.W, y = at / f.W;
-                        count++; minX = Mathf.Min(minX, x); minY = Mathf.Min(minY, y); maxX = Mathf.Max(maxX, x); maxY = Mathf.Max(maxY, y);
-                        for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++)
-                        {
-                            int nx = x + dx, ny = y + dy;
-                            if ((uint)nx >= f.W || (uint)ny >= f.H) continue;
-                            int next = ny * f.W + nx;
-                            if (!wall[next] || seen[next]) continue;
-                            seen[next] = true; stack.Push(next);
-                        }
-                    }
-                    if (count > largest)
-                    {
-                        largest = count; largestMinX = minX; largestMinY = minY; largestMaxX = maxX; largestMaxY = maxY;
-                    }
-                }
-                if (largest == 0 || largestMaxX - largestMinX + 1 < 7 || largestMaxY - largestMinY + 1 < 7) continue;
-
-                if (skip == null) skip = new bool[width * height];
-                for (int y = 0; y < f.H; y++) for (int x = 0; x < f.W; x++)
-                    if (wall[y * f.W + x]) skip[(f.Y + y) * width + f.X + x] = true;
-            }
-            return skip;
         }
 
         public void Dispose()

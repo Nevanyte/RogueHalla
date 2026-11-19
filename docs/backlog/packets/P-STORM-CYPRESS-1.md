@@ -10,7 +10,7 @@ The church pilot, public BogTree anchor, R-AUTH, C-OBS, D9 and ADR 0008. The bas
 
 ## Exclusive write scope
 
-In client-unity/UnityProject/Assets the scope includes Resources/StormInk/Plague with importer metadata, Resources/Regions/{RegionGround.shader,RegionSpriteLit.shader,StormInkMarsh.hlsl}, Scripts/View/Atmosphere/RegionShadows.cs, Scripts/View/Regions/{RegionGround,RegionWalls,PlagueGround}.cs and Scripts/View/Regions/Landmarks/{Landmark,BogTreeLandmark,BogTreeLandmark.StormInk,StormInkLandmarkSprite}.cs. Include Unity metadata for new files, the oracle files below and this packet.
+In client-unity/UnityProject/Assets the scope includes Resources/StormInk/Plague with importer metadata, Resources/Regions/{RegionGround.shader,RegionSpriteLit.shader,StormInkMarsh.hlsl}, Scripts/View/Atmosphere/RegionShadows.cs, Scripts/View/Regions/{RegionGround,RegionWalls,PlagueGround,StormCypressGeometry}.cs and Scripts/View/Regions/Landmarks/{Landmark,BogTreeLandmark,BogTreeLandmark.StormInk,StormInkLandmarkSprite}.cs. Include Unity metadata for new files, the oracle files below and this packet.
 
 ## Behaviour to preserve
 
@@ -20,12 +20,13 @@ Read wall groups, hazard tiles, variants and actors from public data. Preserve w
 
 - client-unity/UnityProject/Assets/Tests/Editor/StormInkCypressEditModeTests.cs
 - client-unity/UnityProject/Assets/Tests/Editor/StormInkMarshPigmentTests.cs
+- client-unity/UnityProject/Assets/Tests/Editor/StormInkCypressMaterialFallbackTests.cs
 
 Against the pilot the eight positive landmark cases failed and the five fallback cases passed. Render all eight map orientations upright and preserve the actor row order. Check the water and mud pigments on a delivered dressed map without changing the surface used for footsteps.
 
 ## Verification
 
-Run Unity EditMode, including StormInkCypressEditModeTests, StormInkMarshPigmentTests, BogTreeLandmark, BogTreeCrown and RegionShadow. Run scripts/gate.sh. The normal-camera bog-close and bog-under views check scale and readability. The crossing regression uses a real actor at tile (31,24). In a 2560 by 1440 Web match on seed 52666345, use the west approach, gate at (4102.6,3511.8) and causeway at (4343.2,3511.8). Inspect the fork, contact wash, corner shadows and the player's silhouette at those positions.
+Run Unity EditMode, including StormInkCypressEditModeTests, StormInkMarshPigmentTests, StormInkCypressMaterialFallbackTests, BogTreeLandmark, BogTreeCrown and RegionShadow. Run scripts/gate.sh. The normal-camera bog-close and bog-under views check scale and readability. The crossing regression uses a real actor at tile (31,24). In a 2560 by 1440 Web match on seed 52666345, use the west approach, gate at (4102.6,3511.8) and causeway at (4343.2,3511.8). Inspect the fork, contact wash, corner shadows and the player's silhouette at those positions.
 
 ## Risk and implementation tier
 
