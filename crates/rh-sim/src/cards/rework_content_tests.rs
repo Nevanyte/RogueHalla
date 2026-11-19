@@ -485,8 +485,8 @@ fn gambler_doubles_about_eighteen_percent_and_halves_about_twelve() {
         const N: u32 = 20_000;
         for index in 0..N {
             match crate::cards::gambler_factor(&sim.k, &sim.w, PlayerId(1), PlayerId(2), index) {
-                f if f == 2.0 => ups += 1,
-                f if f == 0.5 => downs += 1,
+                2.0 => ups += 1,
+                0.5 => downs += 1,
                 f => assert_eq!(f, 1., "a Gambler factor is 2, 0.5 or 1"),
             }
         }
