@@ -460,7 +460,12 @@ namespace Roguehalla.Client
                     frame = phase == StormInkWeaponMotion.Phase.Ready ? 0 :
                         phase == StormInkWeaponMotion.Phase.Strike ? count / 2 : count - 1;
                 }
-                var painted = StormInkActors.Frame(kind, faction, mob, appearance, frames, direction, frame, count, out bool mirror);
+                // A two-frame catalog attack has no separate recovery drawing. Its duration
+                // still drives the action, while painted art uses all four authored pose slots.
+                int inkFrame = useWeaponPhase ? phase == StormInkWeaponMotion.Phase.Ready ? 0 :
+                    phase == StormInkWeaponMotion.Phase.Strike ? 2 : 3 : frame;
+                var painted = StormInkActors.Frame(kind, faction, mob, appearance, frames, direction,
+                    inkFrame, useWeaponPhase ? 4 : count, out bool mirror);
                 a.Body.sprite = painted != null ? painted : frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
                 float height = appearance.WorldHeight;
                 float fall = painted != null && dead && frames == appearance.Death
@@ -558,15 +563,11 @@ namespace Roguehalla.Client
             {
                 int poseRow = StormInkActors.PoseRowForFacing(poseFacing);
                 var pose = StormInkWeaponMotion.Sample(faction.Value, weapon.Value, phase, weaponProgress, poseRow, reduced);
-                if (kind == ActorKind.RegionalMob && mob == MobTypeId.AshDrake)
-                    pose = StormInkActors.DrakeCast(pose, phase, weaponProgress, poseRow, reduced);
+                pose = RegionalWeaponPose(a, pose, phase, weaponProgress, poseRow, reduced);
                 if (useWeaponPhase) a.Body.transform.localRotation = Quaternion.Euler(0, 0, pose.BodyLean);
                 var authored = StormInkWeaponArt.Get(weapon.Value, poseRow);
                 var sprite = authored != null ? authored : ShowcaseSprites.Get(StormInkWeaponMotion.KeyFor(weapon.Value));
-                // The drake is a low-slung quadruped. Keep its bite-mounted focus inside the
-                // same visual reach as the head and clear of the elite health bar.
-                float scale = StormInkWeaponMotion.Size / ActorVisualScale;
-                if (mob == MobTypeId.AshDrake && kind == ActorKind.RegionalMob) scale *= .53f;
+                float scale = EquipmentScale(a);
                 var signedScale = new Vector3(authored == null && pose.FlipFallback ? -scale : scale, scale, scale);
                 var offset = SpriteSocket(sprite, StormInkWeaponArt.Grip(weapon.Value, poseRow), signedScale);
 
