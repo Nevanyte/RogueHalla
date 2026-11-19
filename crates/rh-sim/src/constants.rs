@@ -581,4 +581,7 @@ content! {
     REWORK_ARCANE_OVERLOAD_WISH_COOLDOWN: f64 = 1.5, "x";
     /// Elite helper share: one camp's worth of stacks (read by P-ELITE-SHARE-1).
     REWORK_ELITE_SHARE_STACKS: u32 = 12, "stacks";
+    /// Eye for an Eye: how many times it counts in a Rework chest's draws when an eligible picker owns a returned-damage
+    /// source (P-AUG-POOL-1; a whole number of copies).
+    REWORK_EYE_FOR_AN_EYE_WEIGHT: f64 = 2., "weight";
 }

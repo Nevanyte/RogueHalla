@@ -11,7 +11,7 @@
 use rh_sim::arenas::practice_arena;
 use rh_sim::cards::{CardId, Tuning};
 use rh_sim::mob_runtime::{EliteTuning, MobMode};
-use rh_sim::reward_chests::{augment_pool, conditional_pool, INTERACTIVE};
+use rh_sim::reward_chests::{augment_pool, conditional_pool, INTERACTIVE, REWORK_POOL};
 use rh_sim::{
     validate, AugmentRule, Command, EliteRule, Event, FactionId, Placement, PlayerId, RawCommand,
     Secrets, Sim, SimConfig, Vec2, WeaponId,
@@ -299,9 +299,16 @@ fn the_card_table_is_the_legacy_catalog_under_legacy_and_for_unchanged_cards_und
             "{rule:?}: the fold's G4 clamp"
         );
         assert_eq!(n.third_time_every, 3, "{rule:?}");
-        assert_eq!(t.pool(), &INTERACTIVE[..], "{rule:?}");
+        // P-AUG-POOL-1 (oracle-amend): the Rework table offers its own pool (`REWORK_POOL`); Legacy keeps INTERACTIVE.
+        if rule == AugmentRule::Legacy {
+            assert_eq!(t.pool(), &INTERACTIVE[..], "{rule:?}");
+        } else {
+            assert_eq!(t.pool(), REWORK_POOL, "{rule:?}");
+        }
         for p in &pickers {
-            assert_eq!(t.augment_pool(p), augment_pool(p), "{rule:?} {p:?}");
+            if rule == AugmentRule::Legacy {
+                assert_eq!(t.augment_pool(p), augment_pool(p), "{rule:?} {p:?}");
+            }
             assert_eq!(t.conditional_pool(p), conditional_pool(p), "{rule:?} {p:?}");
         }
     }

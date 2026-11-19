@@ -112,8 +112,9 @@ pub(crate) fn drop_augment(
     )
 }
 
-/// Source chest drop: the interactive augment pool of the eligible pickers under the world's card table (`k.cards`),
-/// rolled with the reward RNG (exact draw order).
+/// Source chest drop: the interactive augment pool of the eligible pickers under the world's card table (`k.cards`,
+/// [`crate::cards::Tuning::offer_pool`]: the legacy `rewardAugmentPool` under `Legacy`), rolled with the reward RNG
+/// (exact draw order).
 pub(crate) fn drop_augment_in(
     tuning: &crate::cards::Tuning,
     w: &mut World,
@@ -123,11 +124,16 @@ pub(crate) fn drop_augment_in(
     elite: bool,
     eligible: &[PlayerId],
 ) -> u32 {
-    let pickers: Vec<crate::cards::Build> = eligible
+    let pickers: Vec<Picker> = eligible
         .iter()
-        .filter_map(|pid| w.player(*pid).map(|p| p.build))
+        .filter_map(|pid| {
+            w.player(*pid).map(|p| Picker {
+                build: p.build,
+                faction: p.faction(),
+            })
+        })
         .collect();
-    let pool = tuning.augment_pool(&pickers);
+    let pool = tuning.offer_pool(&pickers);
     let mut options = [None; 3];
     if !pool.is_empty() {
         let mut draw = || w.reward_rng.next_f64();
@@ -391,7 +397,13 @@ pub(crate) fn expire(cx: &mut crate::systems::Cx) {
 pub(crate) fn clear(hx: &mut crate::hooks::Hx, _: &crate::hooks::HookArgs) {
     hx.w.reward_chests.clear();
 }
-pub(crate) fn validate_world(w: &World, near: impl Fn(f64, f64) -> bool) -> Result<(), String> {
+/// `pool`: the world's chest pool (`k.cards.pool()`). A camp chest (`camp: Some`, rolled by [`drop_augment_in`]) offers
+/// only its cards; a camp-less chest (a campless elite's, the console's, or one a test declares) is not pool-checked.
+pub(crate) fn validate_world(
+    w: &World,
+    pool: &[crate::cards::CardId],
+    near: impl Fn(f64, f64) -> bool,
+) -> Result<(), String> {
     for (i, c) in w.reward_chests.iter().enumerate() {
         let n = c.options.iter().flatten().count();
         if c.id == 0
@@ -423,6 +435,11 @@ pub(crate) fn validate_world(w: &World, near: impl Fn(f64, f64) -> bool) -> Resu
                 .iter()
                 .flatten()
                 .any(|o| matches!(o, OptionId::Kill(a) if !(a.gain.is_finite() && a.gain > 0.)))
+            || (c.camp.is_some()
+                && c.options
+                    .iter()
+                    .flatten()
+                    .any(|o| matches!(o, OptionId::Card(id) if !pool.contains(id))))
             || c.options[..n].iter().any(Option::is_none)
             || c.options[n..].iter().any(Option::is_some)
             || c.options
@@ -450,5 +467,7 @@ pub(crate) fn validate_world(w: &World, near: impl Fn(f64, f64) -> bool) -> Resu
 
 #[cfg(test)]
 mod chest_runtime_tests;
+#[cfg(test)]
+mod pool_tests;
 #[cfg(test)]
 mod tests;
