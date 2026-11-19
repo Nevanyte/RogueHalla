@@ -439,11 +439,11 @@ Elite,Archon,Sword,N,To make,"Visible equipped weapon; directional idle/stride, 
 Elite,Archon,Sword,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
 Elite,Archon,Sword,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
 Elite,Archon,Sword,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
-Shared item,Sword,Sword,,Branch – awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",cf0b95f53,
-Shared item,Axe,Axe,,Branch – awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",cf0b95f53,
-Shared item,Bow,Bow,,Branch – awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",cf0b95f53,
-Shared item,Wand,Wand,,Branch – awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",cf0b95f53,
-Shared item,Shield,Shield,,Branch – awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",cf0b95f53,
+Shared item,Sword,Sword,,Implemented, awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",d4eddd741,
+Shared item,Axe,Axe,,Implemented, awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",d4eddd741,
+Shared item,Bow,Bow,,Implemented, awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",d4eddd741,
+Shared item,Wand,Wand,,Implemented, awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",d4eddd741,
+Shared item,Shield,Shield,,Implemented, awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",d4eddd741,
 Scene or effect,Church interior and floor,,,Reviewed sample,"Inspect two doors, roof, pews, pulpit, carved aisle, candelabrum and lancets at gameplay zoom",5f48ac74f,browser-proof.md
 Scene or effect,Church orientations,,,Integrated – awaiting visual check,Same architectural direction and clear doors in all eight orientations,5f48ac74f,P-STORM-CHURCH-ALIGN-1
 Scene or effect,Cypress and marsh ground,,,Reviewed sample,"Forked trunk, canopy, roots, crossing, grass, mud and bog blend with forest at normal zoom",5f48ac74f,cypress-unity/cypress-web-report.md
