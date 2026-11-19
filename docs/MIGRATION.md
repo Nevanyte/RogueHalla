@@ -71,6 +71,43 @@ decisions taken under the 2026-11-14 delegation, 23 packets in 9 waves, and Appe
 bumps and three content-hash moves the plan names, and Unity client edits. A push or a merge into `main` still waits for
 the owner.
 
+## Integrations 59 to 61 (2026-11-19): the rework's seams, Plant Your Feet, the Augment_Tuning numbers
+
+Plan: [backlog/AUGMENT_ELITE_REWORK.md](backlog/AUGMENT_ELITE_REWORK.md), waves 1 and 2. Nothing pushed; `main` untouched.
+
+**Integration 59.**
+- `dc8611325` P-CONTENT-REGOLDEN-1 (`scripts/regolden-content.sh`: one command moves every pinned copy of the content
+  hash). Sonnet oracle and implementer; coordinator oracle-amend `0bc7f7812` (the oracle carried a literal copy of the
+  hash it forbids); reviewer LAND. Full gate PASS.
+- `8aa2dbf59` P-AUG-RULES-1 (`SimConfig::augments` / `SimConfig::elites`, the card table `cards::Tuning`, the elite table
+  `EliteTuning`, guide [agent/AUGMENT_REWORK.md](agent/AUGMENT_REWORK.md)). Opus oracle and implementer; reviewer-opus
+  LAND WITH NOTES, the one note (rh-policy elite readers pinned to Legacy) folded into P-AUG-BOTS-1. Full gate PASS.
+- `ec6d2c2a9` P-SIM-BENCH-SEAM-1 (`rh_sim::trusted_build::apply` behind cargo feature `trusted-build-setup`). Opus;
+  reviewer-opus LAND WITH NOTES, the note (the feature guard missed `default` lists and dotted dependency tables) folded
+  into P-ELITE-BENCH-1's oracle. The first gate stopped on a full disk; the rerun failed one step, an `rh-server`
+  real-binary readiness timeout while three builds ran at once (3 of 3 passes on rerun; the step rerun green, the
+  Postgres suites with the throwaway database).
+
+**Integration 60.** `fae047f76` P-AUG-PLANT-1 (Plant Your Feet's +range for every weapon, every world: legacy behaviour
+never ported) and `8f330dd01` (CONTRACTS identity line). Opus; reviewer-opus LAND, no notes; the hash tape re-recorded on
+the packet's stub layout (15 folds take the `range_mult` word, no tick count moves). Full gate PASS. reviewer-opus
+integration review of `ec6d2c2a9` and `fae047f76`: LAND.
+- Legacy doubts for the owner (no packet): legacy rolls one crit per attack for every weapon, Rust per target and never
+  for flights (`packages/server/src/sim/weapons.ts:291-293`); legacy arms the plant only once card state exists
+  (`cardState.ts:88`), Rust may plant one attack after a reset.
+
+**Integration 61 (gate pending).** P-AUG-CONTENT-1 (23 `REWORK_*` registry rows plus the helper-share count, 18 override
+rows, the `REWORK` named numbers: Plant +35%, Gambler 18/12, outgoing cap 2.6, Third Time 2.5x) with P-AUG-UI-1 (the
+Unity text of the same cards). Sonnet; reviewer LAND and LAND. Content hash `10dfa3b399dc43a1` (move 1 of 3).
+- Coordinator oracle-amends: `b72081b47` (Gambler, Third Time and Plant keep their flag row; Boom checked as the landed
+  hit), `b18de2af9` (`frost_wall_content` anchors the wall rows on their predecessor, not the registry tail), and at the
+  merge `08bbb1405` (Wishful Thinking's Unity text stays legacy until P-AUG-TUNE-1 ports its rule).
+- The two fixtures moved only in `contentHash`; at the merge the tape was re-recorded by its documented command
+  (checkpoint 33 + the new hash).
+
+**Identities:** protocol 18, observation 30, policy contract 25, checkpoint 33 (was 32), replay 25, content hash
+`10dfa3b399dc43a1` (was `7a542a13187f034c`).
+
 ## Integration 58 (2026-11-18): the GitHub front page
 
 **Owner direction 2026-11-18:** "Please begin working on it all using sub agents", the answer to the coordinator's list of

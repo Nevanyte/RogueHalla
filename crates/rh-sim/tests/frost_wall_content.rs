@@ -70,21 +70,25 @@ fn every_frost_wall_number_is_a_named_registry_row() {
 }
 
 /// The registry's own rule (`constants.rs` module docs): "Declaration order is part of the hash: append new rows, do
-/// not shuffle." The eleven rows are the last eleven, in the order of `wall_numbers`, and no other row moved.
+/// not shuffle." The eleven rows follow CAMP_BUFF_REPAIR_STEPS directly, in the order of `wall_numbers`; later packets
+/// append after them (P-AUG-CONTENT-1's `REWORK_*` rows), so the wall is no longer the registry's tail.
 #[test]
 fn the_wall_rows_are_appended_at_the_end_of_the_registry_in_order() {
     let names: Vec<&str> = REGISTRY.iter().map(|e| e.name).collect();
     let want: Vec<&str> = wall_numbers().iter().map(|(n, _)| *n).collect();
-    let tail = &names[names.len().saturating_sub(want.len())..];
-    assert_eq!(
-        tail,
-        &want[..],
-        "the Frost Wall rows are appended after CAMP_BUFF_REPAIR_STEPS, in this order"
+    let before = names
+        .iter()
+        .position(|n| *n == "CAMP_BUFF_REPAIR_STEPS")
+        .expect("CAMP_BUFF_REPAIR_STEPS is registered");
+    let start = before + 1;
+    assert!(
+        names.len() >= start + want.len(),
+        "the registry ends before the eleven Frost Wall rows"
     );
     assert_eq!(
-        names[names.len() - want.len() - 1],
-        "CAMP_BUFF_REPAIR_STEPS",
-        "the rows before the wall's are today's, unshuffled"
+        &names[start..start + want.len()],
+        &want[..],
+        "the Frost Wall rows are appended after CAMP_BUFF_REPAIR_STEPS, in this order"
     );
 }
 

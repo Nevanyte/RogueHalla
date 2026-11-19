@@ -49,7 +49,7 @@ Readers still on the legacy numbers, and why (each is a later packet's to move i
 | `cards/fight_clock.rs` `watches` | reads only the `while` condition, a shape the guard keeps equal; its caller (`systems/items.rs`) has no `k` |
 | `kill_augments::build_marks` (observation marks) | display only; its callers (`fx_report.rs`, `observe.rs`) hold no `k` |
 | `quests/rules.rs` (card base and tier) | shape fields the guard keeps equal |
-| `content_hash` (`maximum_mark_rate()`) | the content identity is the legacy one until P-AUG-CONTENT-1 folds the rework rows |
+| `content_hash` (`maximum_mark_rate()`) | the legacy mark rate; the `REWORK_*` numbers are hashed through the registry (P-AUG-CONTENT-1) |
 
 ### Adding an override row (P-AUG-CONTENT-1 and later)
 
@@ -71,8 +71,10 @@ The override table is ONE hand-written file, `crates/rh-sim/src/cards/rework_ove
    `v: crate::constants::REWORK_COMMITTED_DAMAGE` in the override row. Unchanged numbers are copied as written in
    `catalog_data.rs`. Registering moves the content hash: regenerate its pinned copies with the documented command
    (`scripts/regolden-content.sh`, P-CONTENT-REGOLDEN-1).
-4. The packet that first fills the table moves `REWORK_OVERRIDES` from `NON_GAMEPLAY` to `TABLES_FOLDED_BY_HASH` in
-   `crates/rh-sim/tests/content.rs` and folds the table into the content hash.
+4. What the content hash folds: the registered `REWORK_*` numbers (the `content!` registry) and the tables as
+   `content.rs` folds them. The override table itself is NOT folded: `REWORK_OVERRIDES` stays in `NON_GAMEPLAY` in
+   `crates/rh-sim/tests/content.rs`, its numbers are hashed through their registry rows, and its other fields are
+   guarded equal to the catalog by `check_override`. Override `text` is display-only and is not in the hash (P-AUG-CONTENT-1).
 5. One override row reaches every reader at once (fold, cached-fold restore check, ledger, hooks, pools, the
    ranged-packet envelope, the training console). Nothing else is edited for a numbers-only change.
 
