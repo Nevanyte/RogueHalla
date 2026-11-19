@@ -8,6 +8,7 @@
 // Stub only: the bin does not call `sample_builds` until the implementer wires `--sample-builds`; remove this then.
 #![allow(dead_code)]
 use rh_sim::trusted_build::TrustedBuild;
+use rh_sim::Sim;
 use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
@@ -49,6 +50,24 @@ pub fn sample_builds(_map: &str, _seeds: Range<u64>, _tick: u32) -> Result<Sampl
     Err("elite_bench::sample_builds is not implemented".into())
 }
 
+/// Banked-camp model (coordinator 2026-11-19, revising plan decision 8): workbook `Augment_Value`, assumption `banked`
+/// = 12 camps already banked at minute 5, one camp = 12 stacks.
+pub const CAMP_STACKS: u64 = 12;
+/// The banked-camp columns of the report, in order; the bot sample is one more column after them.
+pub const BANKED_CAMPS: [u32; 4] = [0, 6, 12, 18];
+/// The column `per_camp` and `overall` report as their own rate.
+pub const REFERENCE_CAMPS: u32 = 12;
+/// Column name of the bot minute-5 sample (the banked ones are `banked_<N>`).
+pub const BOT_COLUMN: &str = "bot_sample";
+
+/// A build of `camps` normal camps banked: draw `camps` non-elite camps of `probe`'s world (with replacement, seeded by
+/// `seed`) and add `CAMP_STACKS` stacks of the stat each drawn camp's kills pay (`camp_buffs()[i]` when set, else the
+/// camp's own `mob_type`); stacks of one stat merge into one entry. No cards, no boosts. Pure in (`probe`, `seed`,
+/// `camps`).
+pub fn banked_camp_build(_probe: &Sim, _seed: u64, _camps: u32) -> TrustedBuild {
+    TrustedBuild::default()
+}
+
 /// What a run prints: the JSON report (stdout) and the readable table (stderr).
 pub struct Output {
     pub json: String,
@@ -56,7 +75,7 @@ pub struct Output {
 }
 
 /// The whole elite mode minus the process: `args` are the flags after the program name (`--quick`, `--seed N`,
-/// `--seeds N`, `--max-ticks N`, `--builds PATH`, `--control-bare`). `Ok` whenever it reported, even if every fighter
+/// `--seeds N`, `--max-ticks N`, `--builds PATH`; no `--control-bare`: column `banked_0` is the bare fighter). `Ok` whenever it reported, even if every fighter
 /// died or every fight was cut off; `Err` only for bad arguments or an unreadable sample.
 pub fn run(_args: &[String]) -> Result<Output, String> {
     Err("elite_bench::run is not implemented".into())
