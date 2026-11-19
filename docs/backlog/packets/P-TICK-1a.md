@@ -106,13 +106,16 @@ recorded. The step adds `tick_ms` before the tick counter moves, every step, in 
 - `crates/rh-headless/tests/tick_ms_digest_guard.rs`: the digest guard. `run_bot_match_with(seed1 map from
   parity/maps/seed1.map.json, 8 Brawlers, seed 1, 4000 ticks, digest on)` with `SimConfig::default()`: 4000 env steps
   (sim tick 4001, `server_time == tick * 50`), not terminated, state hash `0x2b20_ce9e_ab4e_809a`, outcome digest
-  `0x8c87_a634_c4ab_c2b3`. Pinned on this branch after the inert stub (the stub's field is `serde(skip)`, so it reaches no
-  serializer and no hash). Green now; must stay green.
+  `0x8c87_a634_c4ab_c2b3`. Pinned on this branch after the inert stub (its field is never written, so it reaches no
+  serializer and no hash; the same values come out with either stub form). Green now; must stay green.
 - `docs/backlog/packets/P-TICK-1a.md` (this file).
 
 ## Stub (implementer replaces)
-- `statics.rs`: `SimConfig::tick_ms: u32` with `#[serde(skip, default = "stub_tick_ms")]`, default 50, unvalidated,
-  unserialized, unhashed. `sim.rs`: `Sim::tick_ms()` returns 50.
+- `statics.rs`: `SimConfig::tick_ms: u32` with `#[serde(default = "stub_tick_ms", skip_serializing_if =
+  "stub_never_written")]`, default 50, unvalidated, never written, unhashed. Not `serde(skip)`: `tests/hash_coverage.rs`
+  `the_serde_skips_are_exactly_the_documented_ones` counts `skip`/`skip_serializing`/`skip_deserializing` per file
+  (`statics.rs`: 7) and would go red; `skip_serializing_if` (the natural "omit at 50") is not counted.
+- `sim.rs`: `Sim::tick_ms()` returns 50.
 - Compile-only `tick_ms: 50,` lines in every exhaustive `SimConfig { .. }` literal (22 files, mostly `rh-server` tests
   and binaries, `rh-headless/src/bin/determinism_sweep_support/mod.rs`, `rh-load/tests/smoke.rs`, two `rh-sim` test
   helpers). They are outside section 5's write scope; the implementer may switch them to the legacy constant but needs no
