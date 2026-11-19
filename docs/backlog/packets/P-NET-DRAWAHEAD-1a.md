@@ -229,13 +229,26 @@ Implementer-replaceable (stub commit): the two `WireActor` fields in `crates/rh-
 `client-unity/RoguehallaNet/Protocol/WireActor.cs` (declared, not yet decoded: 1b's oracle builds actors with them).
 
 The oracle, `walk_hint_wire.rs` (one test, `a_walking_player_s_hint_round_trips_full_and_delta_frames_and_no_mob_carries_one`):
-an open 64 x 40 room, `walk_hints: Some(true)`, a viewer, a walker and the practice dummies; the walker is ordered south
-(heading 64/256) along a clear lane, stopped, and ordered again. Every tick the viewer's frames go through the production
-path (`rh_server::wire::Publisher::frames` -> `SnapshotData` -> `ConnEncoder` -> `SnapshotTracker`), with a Full frame
-forced while walking. It asserts: the decoded walker carries `(64, 3)` on a Full frame and on delta frames while it walks
-a straight lane; the delta after the stop clears it to `(0, 0)`; the next walk sets it again by delta; every decoded
-non-player actor is `(0, 0)` over a floor of observed mob rows; and `PROTOCOL_VERSION == 19`. Red today on the first
-of these (no hint is ever decoded: the stub fields stay 0).
+an open 64 x 40 room, `walk_hints: Some(true)`, a training world (so four practice dummies, kind 3, stand by the
+spawns), a viewer and a walker. The walker is ordered due south from where it stands (heading 64/256), stopped, then
+ordered due east (heading 0). Every tick the viewer's frames go through the production path
+(`rh_server::wire::Publisher::frames` -> `SnapshotData` -> `ConnEncoder` -> `SnapshotTracker`), with a Full frame forced
+mid-walk. It asserts: a standing walker decodes `(0, 0)`; the walking walker decodes `(64, 3)` on the forced Full frame and
+on at least 20 delta frames; the delta of the stop tick clears it to `(0, 0)`; walking east, deltas set `(0, 3)`; every
+decoded non-player actor is `(0, 0)` over at least 50 such rows; and `PROTOCOL_VERSION == 19`.
+
+Measured on the stub tree with a scratch diagnostic that read the sim's own `Player.walk_dir`/`walk_ticks` from the
+serialized sim (removed, never committed): the sim's hint is `(64, 3)` from the tick of the order on every one of the 40
+walking ticks, `(64, 0)` on the stop tick (the public copy must be `(0, 0)`), `(0, 3)` on every east tick; the four
+dummies are delivered on every tick; the stop tick's frame is a delta.
+
+Red today at `walk_hint_wire.rs:200`:
+
+```
+assertion `left == right` failed: tick 2 (Delta frame): a player walking a clear lane south carries (64, 3)
+  left: (0, 0)
+ right: (64, 3)
+```
 
 ## 9. Validation commands
 
