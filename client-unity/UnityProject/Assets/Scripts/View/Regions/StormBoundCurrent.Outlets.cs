@@ -3,11 +3,11 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
-    /// <summary>Orients every molten reach away from the volcano that feeds it.</summary>
+    /// <summary>Projects connected liquid reaches away from their chosen source.</summary>
     internal sealed partial class StormBoundCurrent
     {
         // A single painted centreline can run upstream on one arm of a fork. Start each
-        // lava reach at the same vent and keep the coordinates of its closest wet spine.
+        // liquid reach at the same source and keep the coordinates of its closest wet spine.
         void ProjectOutlets(int component, int vent)
         {
             int source = component;

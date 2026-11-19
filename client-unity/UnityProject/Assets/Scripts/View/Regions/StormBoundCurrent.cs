@@ -144,16 +144,14 @@ namespace Roguehalla.Client
             }
 
             foreach (int i in _cells) _bestCross[i] = int.MaxValue;
-            if (upstream != Unvisited)
+            if (upstream == Unvisited)
             {
-                ProjectOutlets(first, upstream);
-                return;
+                // Unanchored water has no delivered source. Pick one stable tip, then trace
+                // every connected arm from it, including tributaries away from the longest path.
+                int a = Farthest(first, first), b = Farthest(first, a);
+                upstream = Mathf.Min(a, b);
             }
-            // Unanchored water has no delivered source. Pick a stable direction for each connected run.
-            int a = Farthest(first, first), b = Farthest(first, a);
-            if (b < a) (a, b) = (b, a);
-            CentrePath(first, a, b);
-            Project(first);
+            ProjectOutlets(first, upstream);
         }
 
         int Farthest(int component, int start)
