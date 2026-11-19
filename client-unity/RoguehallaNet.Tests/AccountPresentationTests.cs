@@ -34,6 +34,7 @@ namespace Roguehalla.Net.Tests
             var gildedHaunted = badges.Single(x => x.Id == "gild_sentenced");
             Assert.AreEqual("Gilded Haunted", gildedHaunted.Name);
             StringAssert.StartsWith("Win 3 runs as Haunted.", gildedHaunted.Description);
+            StringAssert.StartsWith("Win a run as Haunted.", badges.Single(x => x.Id == "win_sentenced").Description);
             Assert.IsFalse(achievements.Contains("\"goal\""));
             Assert.Throws<NotSupportedException>(() => ((System.Collections.Generic.IList<string>)badges[0].Rewards).Add("unearned"));
             Assert.IsFalse(AccountFullJson.TryAchievementCatalog("[{\"id\":\"a\",\"name\":\"A\",\"desc\":\"A\",\"reward\":[],\"goal\":{}}]", out _));

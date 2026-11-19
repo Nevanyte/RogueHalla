@@ -13,8 +13,7 @@ namespace Roguehalla.Client
     {
         public enum GuideTab { Champions, Weapons, Counters }
 
-        static readonly string[] Factions = { "Fire", "Sentenced", "Plague", "Frost", "Holy" };
-        static readonly string[] Roles = { "Glass-cannon duelist", "Patient executioner", "Attrition swarm", "Control bruiser", "Sustain juggernaut" };
+        static int FactionCount { get { return Roguehalla.Net.Ui.FactionPresentation.Count; } }
         static readonly string[] Passives = { "Dragonslayer", "Mark", "Rat King", "Wall of Ice", "Radiant" };
         static readonly string[] PassiveSummaries =
         {
@@ -124,7 +123,7 @@ namespace Roguehalla.Client
 
         public void SetFaction(int faction)
         {
-            _selectedFaction = Mathf.Clamp(faction, 0, Factions.Length - 1);
+            _selectedFaction = Mathf.Clamp(faction, 0, FactionCount - 1);
             UpdateFactionButtons();
         }
 
@@ -233,21 +232,24 @@ namespace Roguehalla.Client
             var fitter = row.GetComponent<LayoutElement>(); fitter.minHeight = 58;
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = 8; layout.padding = new RectOffset(4, 4, 4, 4); layout.childControlWidth = true; layout.childForceExpandWidth = true; layout.childControlHeight = true; layout.childForceExpandHeight = true;
-            _factionButtons = new Button[Factions.Length];
-            for (int i = 0; i < Factions.Length; i++)
+            _factionButtons = new Button[FactionCount];
+            for (int i = 0; i < FactionCount; i++)
             {
                 int index = i;
-                _factionButtons[i] = MythicUi.Button(row, "Faction_" + Factions[i], "      " + Factions[i], Vector2.zero, Vector2.one, () => SelectFaction(index));
+                string factionName = Roguehalla.Net.Ui.FactionPresentation.Name(i);
+                _factionButtons[i] = MythicUi.Button(row, "Faction_" + factionName, "      " + factionName, Vector2.zero, Vector2.one, () => SelectFaction(index));
                 // The generated faction pictogram replaces the old bracket mark; it sits left of the name.
                 var icon = LaunchUi.FactionShape(_factionButtons[i].transform, "FactionIcon", i, 0f, 0f, 20f, UiTheme.Current.FactionColor(i));
                 icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = new Vector2(0f, .5f);
                 icon.rectTransform.pivot = new Vector2(.5f, .5f); icon.rectTransform.anchoredPosition = new Vector2(20f, 0f);
             }
             UpdateFactionButtons();
-            for (int i = 0; i < Factions.Length; i++)
+            for (int i = 0; i < FactionCount; i++)
             {
-                string text = Roles[i] + "\nPassive · " + PassiveSummaries[i] + "\nWish · " + Wishes[i] + " — " + WishSummaries[i];
-                AddCard(Factions[i] + "   ·   " + Passives[i], text, 184, ShowcasePalette.Faction(i), i);
+                string factionName = Roguehalla.Net.Ui.FactionPresentation.Name(i);
+                string role = Roguehalla.Net.Ui.FactionPresentation.Role(i);
+                string text = role + "\nPassive · " + PassiveSummaries[i] + "\nWish · " + Wishes[i] + " — " + WishSummaries[i];
+                AddCard(factionName + "   ·   " + Passives[i], text, 184, ShowcasePalette.Faction(i), i);
             }
         }
 
