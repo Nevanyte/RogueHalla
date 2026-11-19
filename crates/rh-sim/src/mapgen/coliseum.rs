@@ -139,10 +139,43 @@ pub const DEFAULT_DEFINITION: FixedDefinition<'static> = FixedDefinition {
         },
     ],
 };
-/// P-COLISEUM-GRAND-1 STUB: the grand coliseum (owner request 2026-11-19), an octagon 36 tiles across with four L
-/// walls; the implementer replaces this copy of the legacy definition with the brief's numbers. Not folded into the
-/// content identity (packet brief, "Content identity").
-pub const GRAND_DEFINITION: FixedDefinition<'static> = DEFAULT_DEFINITION;
+/// The grand coliseum (P-COLISEUM-GRAND-1, owner request 2026-11-19): an octagon 36 tiles across (twice the legacy
+/// 18; chamfer 25 gives straight sides of 16 and chamfer sides of about 14), legacy gates and lanes, and one orbit of
+/// four L walls (the top-left L, rotated about the centre) leaving a 12-tile open cross and a 4-tile corridor to the
+/// wall ring. Eight inner spawns at radius 13 on the axes and diagonals (14 would put four in the gate lanes). Both
+/// pillar variants are the same mask (an L is symmetric about the diagonal), so the attempt's one variant draw stays.
+/// Not folded into the content identity (packet brief, "Content identity"; `tests/content.rs` `NON_GAMEPLAY`).
+/// Generator order is part of identity.
+pub const GRAND_DEFINITION: FixedDefinition<'static> = FixedDefinition {
+    half: 18.0,
+    chamfer: 25.0,
+    gate_width: 4,
+    lane_depth: 3,
+    lane_margin: 1,
+    ring_road: 3,
+    distance_cap: 6,
+    inner_spawn_radius: 13.0,
+    inner_spawn_phase: 0.0,
+    pillar_source_center: 32,
+    pillars: &[PillarOrbit {
+        turns: 4,
+        generators: &[
+            (25, 19),
+            (25, 20),
+            (25, 21),
+            (25, 22),
+            (25, 23),
+            (25, 24),
+            (25, 25),
+            (19, 25),
+            (20, 25),
+            (21, 25),
+            (22, 25),
+            (23, 25),
+            (24, 25),
+        ],
+    }],
+};
 /// The grand coliseum's layout, built by the same [`fixed_layout_from`]; [`fixed_layout`] stays the legacy one.
 pub fn grand_layout() -> FixedLayout {
     fixed_layout_from(&GRAND_DEFINITION)

@@ -80,9 +80,9 @@ pub struct MadeMap {
 pub struct StyledMaker {
     /// Generate every map with the signature landmarks (owner decision 6): the generator's `Options::signature`.
     pub signature: bool,
-    /// P-COLISEUM-GRAND-1 STUB: generate around the grand coliseum (`rh_sim::mapgen::coliseum::grand_layout`) instead
-    /// of the legacy one (`fixed_layout`). Off in `Default` (existing tests and tools keep their maps); the server's
-    /// pool sets it unless `--legacy-coliseum` (`crate::runtime::Settings::styled_maker`). Not read yet.
+    /// Generate around the grand coliseum (`rh_sim::mapgen::coliseum::grand_layout`, P-COLISEUM-GRAND-1) instead of the
+    /// legacy one (`fixed_layout`). Off in `Default` (existing tests and tools keep their maps); the server's pool sets
+    /// it unless `--legacy-coliseum` (`crate::runtime::Settings::styled_maker`).
     pub grand_coliseum: bool,
 }
 
@@ -101,7 +101,11 @@ impl StyledMaker {
     /// The certified generator map for `seed` (anchors still on it) and its export hash, `map_hash::map_hash`.
     fn generate(&self, seed: u32) -> Result<Option<rh_sim::mapdata::MapExport>, String> {
         use rh_sim::mapgen::{coliseum, map_hash, pipeline};
-        let fixed = coliseum::fixed_layout();
+        let fixed = if self.grand_coliseum {
+            coliseum::grand_layout()
+        } else {
+            coliseum::fixed_layout()
+        };
         let generator = pipeline::Pipeline::new(&fixed);
         let options = self.options();
         let Some(map) = generator

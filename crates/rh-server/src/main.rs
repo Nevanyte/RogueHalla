@@ -230,11 +230,16 @@ async fn main() {
             .as_ref()
             .map(rh_server::runtime::Settings::styled_maker)
             .unwrap_or_default();
+        let coliseum = if maker.grand_coliseum {
+            "grand"
+        } else {
+            "legacy"
+        };
         cfg.map_pool = Some(std::sync::Arc::new(rh_server::map_pool::MapPool::start(
             configured, maker,
         )));
         eprintln!(
-            "[server] map pool on: each room takes its own certified map (target {})",
+            "[server] map pool on: each room takes its own certified map (target {}, {coliseum} coliseum)",
             rh_server::map_pool::MAP_POOL_TARGET
         );
     }
