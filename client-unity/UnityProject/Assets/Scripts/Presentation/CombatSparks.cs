@@ -6,24 +6,27 @@ namespace Roguehalla.Client
 {
     /// <summary>
     /// Projectile trails, impact sparks and hit flashes (render pass, switch <c>fx.sparks</c>; the lights are <c>fx.fxlights</c>). Everything is derived
-    /// from facts the client already draws: the delivered projectile rows, and confirmed hit and block cues on actors it presents. Two pooled,
+    /// from facts the client already draws: the delivered projectile rows, and confirmed hit and block cues on actors it presents. Three pooled,
     /// capped particle systems (HDR colours, so the cores bloom); no allocation per frame.
     /// </summary>
     public sealed class CombatSparks
     {
         const int MaxShots = 64;
         struct Shot { public float X, Y; public ProjectileKind Kind; public uint Owner; public bool Matched; }
-        readonly ParticleSystem _spark, _trail;
+        readonly ParticleSystem _spark, _trail, _contact;
         readonly Shot[] _prev = new Shot[MaxShots], _cur = new Shot[MaxShots];
         int _prevN, _curN; uint _tick = uint.MaxValue;
 
         public CombatSparks(Transform parent)
         {
-            _spark = Make(parent, "Impact sparks", WishFxArt.Cross, 220, .55f);
-            _trail = Make(parent, "Projectile trails", WishFxArt.Soft, 260, 0f);
+            _spark = Make(parent, "Impact sparks", WishFxArt.ParticleMaterial(WishFxArt.Cross), 220, .55f);
+            _contact = Make(parent, "Contact ink", Resources.Load<Material>("StormInk/Combat/Contact"), 32, 0f);
+            var colour = _contact.colorOverLifetime; colour.enabled = false;
+            var size = _contact.sizeOverLifetime; size.enabled = false;
+            _trail = Make(parent, "Projectile trails", WishFxArt.ParticleMaterial(WishFxArt.Soft), 260, 0f);
         }
 
-        public int Live { get { return _spark.particleCount + _trail.particleCount; } }
+        public int Live { get { return _spark.particleCount + _trail.particleCount + _contact.particleCount; } }
         public static bool On { get { return AtmosphereQuality.Sparks && Quality.Particles > 0f; } }
 
         /// <summary>One trail puff behind a drawn projectile (call each frame per projectile).</summary>
@@ -86,18 +89,29 @@ namespace Roguehalla.Client
         }
 
         /// <summary>A confirmed hit or block on a presented actor: sparks and a flash that lights the ground and nearby surfaces.</summary>
-        public void Hit(Vector3 actorWorld, bool block, ref uint rng)
+        public void Hit(Vector3 actorWorld, bool block, ref uint rng, FactionId? attacker = null, float angle = 0f, bool passive = false)
         {
+            bool reduceMotion = ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
+            if (On && !block && !passive && !reduceMotion)
+            {
+                Color pigment = attacker.HasValue ? (Color)ShowcasePalette.Faction((int)attacker.Value) : new Color(1f, .83f, .48f);
+                var contact = new ParticleSystem.EmitParams
+                {
+                    position = actorWorld + new Vector3(0f, .6f, 0f),
+                    startColor = pigment, startSize = 1.6f, startLifetime = .065f, rotation = -angle
+                };
+                _contact.Emit(contact, 1);
+            }
             Color c = block ? new Color(1.1f, 1.8f, 2.8f) : new Color(2.6f, 1.6f, .7f);
             Burst(actorWorld + new Vector3(0, .65f, 0), c, block ? 8 : 6, 2.1f, .12f, ref rng);
             if (AtmosphereQuality.AnalyticLights && AtmosphereQuality.FxLights) LocalLightField.FlashWorld(actorWorld, .8f, 2.4f, block ? new Color(.5f, .8f, 1f) : new Color(1f, .8f, .45f), 1.3f, .2f);
         }
 
-        public void Clear() { _spark.Clear(false); _trail.Clear(false); _prevN = 0; _curN = 0; _tick = uint.MaxValue; }
+        public void Clear() { _spark.Clear(false); _trail.Clear(false); _contact.Clear(false); _prevN = 0; _curN = 0; _tick = uint.MaxValue; }
 
         static float Rand(ref uint s) { s = s * 1664525u + 1013904223u; return ((s >> 8) & 0xFFFF) / 65535f; }
 
-        static ParticleSystem Make(Transform parent, string name, string textureKey, int max, float gravity)
+        static ParticleSystem Make(Transform parent, string name, Material material, int max, float gravity)
         {
             var go = new GameObject(name); go.transform.SetParent(parent, false);
             var ps = go.AddComponent<ParticleSystem>();
@@ -116,7 +130,7 @@ namespace Roguehalla.Client
             var size = ps.sizeOverLifetime; size.enabled = true;
             size.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 1f), new Keyframe(1, .2f)));
             var r = go.GetComponent<ParticleSystemRenderer>();
-            r.renderMode = ParticleSystemRenderMode.Billboard; r.sortingOrder = 29985; r.sharedMaterial = WishFxArt.ParticleMaterial(textureKey);
+            r.renderMode = ParticleSystemRenderMode.Billboard; r.sortingOrder = 29985; r.sharedMaterial = material;
             ps.Play();
             return ps;
         }

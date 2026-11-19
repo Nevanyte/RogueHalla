@@ -105,7 +105,12 @@ namespace Roguehalla.Client
                 if (f.Kind == FxKind.Heal && Indicators.HealText(f.Amount) == null) return;      // heals under 1 are not shown
                 if (!_actors.TryPosition(f.Subject, out var p)) return;
                 _actors.ConfirmedCue(f.Subject,f.Kind);
-                if (f.Kind == FxKind.Hit || f.Kind == FxKind.Block) _sparks.Hit(p, f.Kind == FxKind.Block, ref _sparkRng);      // render pass: hit sparks and light
+                if (f.Kind == FxKind.Hit || f.Kind == FxKind.Block)
+                {
+                    FactionId? pigment = _actors.TrySoundContext(f.By, out _, out var faction, out _, out _) ? faction : (FactionId?)null;
+                    var delta = _actors.TryPosition(f.By, out var source) ? p - source : Vector3.right;
+                    _sparks.Hit(p, f.Kind == FxKind.Block, ref _sparkRng, pigment, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg, f.Passive);
+                }
                 if (f.Kind == FxKind.Swing && Time.unscaledTime - f.CreatedAt < .35f) _hitZones.Swing(f.Subject, f.Weapon, f.X, f.Y, f.A, Time.unscaledTime);
                 if (_flashes.Count >= 48) return;
                 var flash = _flashPool.Count > 0 ? _flashPool.Pop() : CreateFlash();
