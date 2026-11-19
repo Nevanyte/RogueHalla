@@ -5,13 +5,13 @@ using UnityEngine;
 namespace Roguehalla.Client
 {
     /// <summary>Builds map-space current coordinates from the public wet cells once per ground material.</summary>
-    internal sealed class StormBoundCurrent
+    internal sealed partial class StormBoundCurrent
     {
         const byte Lava = 1, Shallow = 2;
         const int Unvisited = -1;
         readonly int _width, _height;
         readonly byte[] _wet;
-        readonly int[] _component, _shore, _distance, _parent, _station;
+        readonly int[] _component, _shore, _distance, _parent, _station, _bestCross, _cross;
         readonly Color[] _field;
         readonly Vector2[] _tangent;
         readonly List<int> _cells = new List<int>(), _path = new List<int>();
@@ -31,6 +31,8 @@ namespace Roguehalla.Client
             _distance = new int[count];
             _parent = new int[count];
             _station = new int[count];
+            _bestCross = new int[count];
+            _cross = new int[count];
             _field = new Color[count];
             _tangent = new Vector2[count];
             for (int i = 0; i < count; i++) _component[i] = Unvisited;
@@ -141,11 +143,15 @@ namespace Roguehalla.Client
                 }
             }
 
-            // Two sweeps find opposing tips. Orient lava by volcano side; unrelated ponds use a stable map order.
+            foreach (int i in _cells) _bestCross[i] = int.MaxValue;
+            if (upstream != Unvisited)
+            {
+                ProjectOutlets(first, upstream);
+                return;
+            }
+            // Unanchored water has no delivered source. Pick a stable direction for each connected run.
             int a = Farthest(first, first), b = Farthest(first, a);
-            float da = upstream == Unvisited ? a : (Position(a) - Position(upstream)).sqrMagnitude;
-            float db = upstream == Unvisited ? b : (Position(b) - Position(upstream)).sqrMagnitude;
-            if (db < da || (da == db && b < a)) (a, b) = (b, a);
+            if (b < a) (a, b) = (b, a);
             CentrePath(first, a, b);
             Project(first);
         }
@@ -221,6 +227,7 @@ namespace Roguehalla.Client
             for (int s = 0; s < _path.Count; s++)
             {
                 _station[_path[s]] = s;
+                _cross[_path[s]] = 0;
                 _queue.Enqueue(_path[s]);
             }
             // Propagate from the spine through wet cells, never across an island or bank.
@@ -233,8 +240,11 @@ namespace Roguehalla.Client
                     int n = Neighbour(i, d);
                     if (n == Unvisited || _component[n] != component || _station[n] != Unvisited) continue;
                     _station[n] = s;
+                    _cross[n] = _cross[i] + 1;
                     _queue.Enqueue(n);
                 }
+                if (_cross[i] >= _bestCross[i]) continue;
+                _bestCross[i] = _cross[i];
                 Vector2 axis = _centres[Mathf.Min(s + 2, _path.Count - 1)] - _centres[Mathf.Max(s - 2, 0)];
                 Vector2 offset = Position(i) - _centres[s];
                 Vector2 tangent = axis.normalized;
