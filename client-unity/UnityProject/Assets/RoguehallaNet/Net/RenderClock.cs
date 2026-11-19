@@ -34,6 +34,23 @@ namespace Roguehalla.Net
         public double DelayMs { get { return _init ? (_lastLocal - _minD) - _render : StartDelayMs; } }
         public double RenderMs { get { return _render; } }
 
+        /// <summary>
+        /// Draw-ahead (P-NET-DRAWAHEAD-1b; legacy shared/src/interp.ts RenderClock <c>aheadMs</c>). Off on a bare clock; the
+        /// session turns it on. On: the delay floor, start and target drop by <see cref="AheadMs"/>, remote fighters are drawn
+        /// at <see cref="DrawMs"/>, and <see cref="RenderMs"/> stays the time stamped on attacks and casts (render time minus
+        /// <see cref="LeadMs"/>), so the server's rewind is unchanged.
+        /// </summary>
+        public bool DrawAhead;
+
+        /// <summary>How far past a fighter's newest sample the draw may run (ms): one tick while <see cref="DrawAhead"/> is on.</summary>
+        public double AheadMs { get { return DrawAhead ? TickMs : 0; } }
+
+        /// <summary>STUB (P-NET-DRAWAHEAD-1b replaces it): how far <see cref="DrawMs"/> runs ahead of <see cref="RenderMs"/> now.</summary>
+        public double LeadMs { get { return 0; } }
+
+        /// <summary>STUB (P-NET-DRAWAHEAD-1b replaces it): the server time remote fighters, projectiles and fx are drawn at.</summary>
+        public double DrawMs { get { return _render + LeadMs; } }
+
         public void Reset() { _n = 0; _head = 0; _init = false; _targetDelay = StartDelayMs; _sourceReady = false; }
 
         public void OnSnapshot(double localMs, double serverMs)
