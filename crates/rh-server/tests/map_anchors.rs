@@ -31,7 +31,14 @@ const SEED1_EXPORT: &[u8] = include_bytes!("../../rh-sim/src/mapdata/fixtures/se
 fn generated(signature: bool, seed: u32) -> GameMapData {
     let fixed = coliseum::fixed_layout();
     pipeline::Pipeline::new(&fixed)
-        .certified_styled(i64::from(seed), StyledMaker { signature }.options())
+        .certified_styled(
+            i64::from(seed),
+            StyledMaker {
+                signature,
+                grand_coliseum: false,
+            }
+            .options(),
+        )
         .expect("generator runs")
         .expect("the seed certifies")
 }
@@ -92,7 +99,10 @@ fn pooled(signature: bool, seed: u32) -> MapAssets {
     let configured = MapAssets::new(rh_sim::arenas::practice_arena()).unwrap();
     let pool = MapPool::with(
         configured,
-        Arc::new(StyledMaker { signature }),
+        Arc::new(StyledMaker {
+            signature,
+            grand_coliseum: false,
+        }),
         Box::new(move || seed),
         MapPoolOptions {
             target: 0,
