@@ -42,6 +42,9 @@ pub(crate) fn damage_with(
                     && st.ability == Some(f.ability)
                     && st.until > now
             });
+            let field = f.id;
+            let ends = f.ends_at;
+            let victim = w.core(i).id;
             let apply = StatusApply {
                 kind: StatusKind::Dot,
                 source: f.owner.clone(),
@@ -59,6 +62,10 @@ pub(crate) fn damage_with(
                     ..Default::default()
                 }),
             };
+            if !quiet && crate::quests::board::rewards::effects::block_trail(w, victim, field, ends)
+            {
+                continue;
+            }
             super::operations::apply_with(k, w, ev, w.core(i).id, apply, quiet, *stats);
         }
     }

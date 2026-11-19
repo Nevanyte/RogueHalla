@@ -15,14 +15,14 @@
 <body>
 <main>
   <h1>Roguehalla protocol probe</h1>
-  <p>A browser client for protocol v18 over the browser WebSocket API (the transport a Unity Web build uses). It is a test
+  <p>A browser client for protocol v19 over the browser WebSocket API (the transport a Unity Web build uses). It is a test
   harness for Stage 1, not the game client. Click to walk; hold Space to attack toward the cursor.</p>
   <canvas id="c" width="960" height="640"></canvas>
   <pre id="s">connecting…</pre>
 </main>
 <script>
 "use strict";
-// ---- protocol v18 (mirror of crates/rh-protocol; tools/protocol-js/check-vectors.mjs holds this block to protocol/fixtures/v18.json) ----
+// ---- protocol v19 (mirror of crates/rh-protocol; tools/protocol-js/check-vectors.mjs holds this block to protocol/fixtures/v19.json) ----
 class W {
   constructor() { this.b = new Uint8Array(256); this.n = 0; this.v = new DataView(this.b.buffer); }
   need(k) { if (this.n + k > this.b.length) { const nb = new Uint8Array(this.b.length * 2 + k); nb.set(this.b); this.b = nb; this.v = new DataView(nb.buffer); } }
@@ -259,7 +259,7 @@ function checkTerrainAgainstCollision(collisionBuf, collision, terrainBuf, terra
     const take = Math.min(an, bn); an -= take; bn -= take; left -= take;
   }
 }
-const PROTOCOL = 18;
+const PROTOCOL = 19;
 const MAX_TICKET = 448;
 const MAX_QUEST_VIEW_BYTES = 24 * 1024;
 const MAX_TRADE_VIEW_BYTES = 2213;
@@ -296,6 +296,7 @@ function input(seq, cmds) {
     else if(c.k === "huntTarget") { if(!Number.isInteger(c.actorRef)||c.actorRef<=0||c.actorRef>0xffffffff) throw new Error("bad hunt target");w.u8(12);w.u32(c.actorRef); }
     else if(c.k === "consumeCorpse") { if(!Number.isInteger(c.handle)||c.handle<=0||c.handle>0xffffffff) throw new Error("bad corpse handle");w.u8(13);w.u32(c.handle); }
     else if(c.k === "questAccept") { if(!Number.isInteger(c.handle)||c.handle<=0||c.handle>0xffffffff) throw new Error("bad quest handle");w.u8(17);w.varint(c.handle); }
+    else if(c.k === "questInteract") { if(!Number.isInteger(c.handle)||c.handle<=0||c.handle>0xffffffff||!Number.isInteger(c.action)||c.action<1||c.action>9||!Number.isInteger(c.target)||c.target<0||c.target>255||(c.action===1||c.action===4||c.action===6)&&c.target!==0||c.action===2&&c.target>1||c.action===5&&c.target>48||c.action===8&&c.target>2)throw new Error("bad quest interaction");w.u8(19);w.varint(c.handle);w.u8(c.action);w.u8(c.target); }
     else if(c.k === "trade") { if (!Number.isInteger(c.kind) || c.kind < 0 || c.kind > 1 || !Number.isInteger(c.pick) || c.pick < 0 || c.pick > 2) throw new Error("bad trade command"); w.u8(18); w.u8(c.kind); w.u8(c.pick); }
     else if(c.k === "cast") {
       if (!Number.isInteger(c.slot) || c.slot < 0 || c.slot > 2) throw new Error("bad cast slot");
@@ -343,6 +344,7 @@ function decodeClient(buf) {
       else if(k === 12) {const actorRef=r.u32();if(!actorRef)throw new Error("bad hunt target");c={k:"huntTarget",actorRef};}
       else if(k === 13) {const handle=r.u32();if(!handle)throw new Error("bad corpse handle");c={k:"consumeCorpse",handle};}
       else if(k === 17) {const handle=r.varint();if(!handle)throw new Error("bad quest handle");c={k:"questAccept",handle};}
+      else if(k === 19) {const handle=r.varint(),action=r.u8(),target=r.u8();if(!handle||action<1||action>9||(action===1||action===4||action===6)&&target!==0||action===2&&target>1||action===5&&target>48||action===8&&target>2)throw new Error("bad quest interaction");c={k:"questInteract",handle,action,target};}
       else if (k === 18) { const kind = r.u8(), pick = r.u8(); if (kind > 1 || pick > 2) throw new Error("bad trade command"); c = { k: "trade", kind, pick }; }
       else if (k === 16) {
         const slot = r.code(2, "cast slot"), x = finite(r.f32()), y = finite(r.f32());
@@ -980,7 +982,7 @@ function readBuildSummary(r) {
 }
 // Complete replacements. Decode the entire frame before a collection consumer changes retained state.
 function readState(r) {
-  const n = r.varint(); if (n > 13) throw new Error("too many state keys");
+  const n = r.varint(); if (n > 14) throw new Error("too many state keys");
   const flag = () => r.opt(() => true) !== null;
   const strictBool = (what) => { const v = r.u8(); if (v > 1) throw new Error("bad " + what); return v === 1; };
   const finite = (x) => { if (!Number.isFinite(x)) throw new Error("bad field"); return x; };
@@ -990,7 +992,7 @@ function readState(r) {
   const count = () => { const v = r.varint(); if (v > 512) throw new Error("too many state rows"); return v; };
   const items = []; let previous = 0;
   for (let i = 0; i < n; i++) {
-    const key = r.varint(); if (key <= previous || key > 13) throw new Error("bad state key"); previous = key;
+    const key = r.varint(); if (key <= previous || key > 14) throw new Error("bad state key"); previous = key;
     let value;
     // Key 1: the counts are read (and checked) before the owner's clocks (P-WIRE17-HUD-3: server ms, finite, >= 0).
     if (key === 1) {
@@ -1009,19 +1011,20 @@ function readState(r) {
         else if (kind === 5) prop = { kind };
         else if (kind === 6) prop = { kind, readyAt: r.varint() };
         else if (kind === 7) prop = { kind, quest: handle(), fetch: strictBool("quest fetch flag") };
+        else if (kind === 8) prop = { kind, hatching: strictBool("flag") };
         else throw new Error("bad prop kind");
         rows.push({ handle: h, x, y, ...prop });
       }
       const h = r.varint(); let focus = null;
       if (h) {
         const bodyHint = weapon(), row = rows.find(p => p.handle === h);
-        if (!row || (bodyHint !== null && row.kind !== 3)) throw new Error("bad prop focus");
+        if (!row || row.kind === 8 || (bodyHint !== null && row.kind !== 3)) throw new Error("bad prop focus");
         focus = { handle: h, bodyHint };
       }
       value = { rows, focus };
     } else if (key === 3) {
       value = [];
-      // P-FROST-WALL-2, in the Rust order: the common row is read whole; a kind >= 4 is refused before any tile list; a
+      // P-FROST-WALL-2, in the Rust order: the common row is read whole; a reserved kind is refused before any tile list; a
       // wall (kind 3) then carries `count u8` (1..=64, "wall tiles") and that many u32 tiles (the whole list against the
       // frame first: truncated), each below the map tile cap ("wall tile"), strictly ascending ("wall order"); then the
       // common checks ("field"). Rows of other kinds have no `tiles` key.
@@ -1029,7 +1032,8 @@ function readState(r) {
         const f = { kind: r.u8(), ability: r.u8(), owner: actor(), subject: actor() };
         for (const name of ["x", "y", "x2", "y2", "r", "vx", "vy"]) f[name] = r.f32();
         f.startedAt = r.f64(); f.endsAt = r.f64();
-        if (f.kind > 3) throw new Error("bad field");
+        const quest = f.kind >= 9 && f.kind <= 20;
+        if (f.kind > 3 && !quest) throw new Error("bad field");
         if (f.kind === 3) {
           const m = r.u8();
           if (m === 0 || m > MAX_WALL_TILES) throw new Error("bad wall tiles");
@@ -1039,7 +1043,7 @@ function readState(r) {
           if (f.tiles.some((t) => t >= MAX_MAP_TILES)) throw new Error("bad wall tile");
           for (let t = 1; t < m; t++) if (f.tiles[t] <= f.tiles[t - 1]) throw new Error("bad wall order");
         }
-        if (f.ability > 4) throw new Error("bad field");
+        if (f.ability > 4 || (quest && (f.ability !== 0 || f.owner !== null || f.subject !== null))) throw new Error("bad field");
         for (const name of ["x", "y", "x2", "y2", "r", "vx", "vy", "startedAt", "endsAt"]) finite(f[name]);
         if (f.r < 0 || f.endsAt < f.startedAt) throw new Error("bad field");
         value.push(f);
@@ -1104,6 +1108,19 @@ function readState(r) {
     else if (key === 11) value = readTrade(r, strictBool);
     else if (key === 12) value = readRoster(r);
     else if (key === 13) value = readBuildSummary(r);
+    else if (key === 14) {
+      const count = r.varint();
+      if (count > 9600) throw new Error("too many destroyed terrain cells");
+      r.need(count);
+      value = [];
+      let last = -1;
+      for (let j = 0; j < count; j++) {
+        const cell = r.varint();
+        if (cell <= last || cell >= MAX_MAP_TILES) throw new Error("bad destroyed terrain cells");
+        value.push(cell);
+        last = cell;
+      }
+    }
     else value = r.opt(() => ({ cards: Array.from(r.bytes(80)), boosts: Array.from(r.bytes(8)) }));
     items.push({ key, value });
   }
@@ -1129,8 +1146,9 @@ function readQuests(r, strictBool, finite, handle) {
     if ((!allowEmpty && bytes === 0) || bytes > max) throw new Error("bad " + what);
     return v;
   };
-  const unknownCount = r.varint(), displayUnknownCount = r.varint();
-  if (unknownCount > 20 || displayUnknownCount > unknownCount) throw new Error("bad quest unknown counts");
+  const counts = r.varint(), hasOwnerGroups = (counts & 0x40) !== 0;
+  const unknownCount = counts - (hasOwnerGroups ? 0x40 : 0), displayUnknownCount = r.varint();
+  if (unknownCount > 25 || displayUnknownCount > unknownCount) throw new Error("bad quest unknown counts");
   const ownerRosterRaw = r.varint(), ownerRoster = ownerRosterRaw || null;
   const roster = [], rosterIds = new Set();
   for (let i = 0, n = rowsCount("quest roster", 8); i < n; i++) {
@@ -1139,9 +1157,9 @@ function readQuests(r, strictBool, finite, handle) {
   }
   if (ownerRoster !== null && !rosterIds.has(ownerRoster)) throw new Error("unknown owner quest roster id");
   const rows = [], questHandles = new Set();
-  for (let i = 0, n = rowsCount("quest rows", 20); i < n; i++) {
+  for (let i = 0, n = rowsCount("quest rows", 25); i < n; i++) {
     const rowHandle = handle(); if (questHandles.has(rowHandle)) throw new Error("duplicate quest handle"); questHandles.add(rowHandle);
-    const def = boundedString(16, false, "quest definition");
+    const def = boundedString(32, false, "quest definition");
     const giver = { x: position("quest giver"), y: position("quest giver") };
     const state = r.code(3, "quest status"), expiresAt = finite(r.f64());
     if (expiresAt < 0) throw new Error("bad quest deadline");
@@ -1175,8 +1193,12 @@ function readQuests(r, strictBool, finite, handle) {
     if (count > 8) throw new Error("too many objectives per quest");
     objectivesPerQuest.set(quest, count); objectives.push({ quest, at });
   }
+  const spells=[]; for(let i=0,n=hasOwnerGroups?rowsCount("quest spells",2):0;i<n;i++){const slot=r.u8(),reward=r.u8(),charges=r.u8(),readyAt=finite(r.f64());if(slot>1||reward>48||charges===0||readyAt<0||spells.some(s=>s.slot===slot))throw new Error("bad quest spell");spells.push({slot,reward,charges,readyAt});}
+  const pending=[], pendingIds=new Set(); for(let i=0,n=hasOwnerGroups?rowsCount("pending quests",10):0;i<n;i++){const quest=handle();if(!questHandles.has(quest)||pendingIds.has(quest))throw new Error("bad pending quest reference");pendingIds.add(quest);pending.push(quest);}
+  const drops=[], dropIds=new Set(); for(let i=0,n=hasOwnerGroups?rowsCount("quest drops",256):0;i<n;i++){const index=r.u8(),reward=r.u8(),charges=r.u8(),readyAt=finite(r.f64()),at={x:position("quest drop"),y:position("quest drop")};if(reward>48||charges===0||readyAt<0||dropIds.has(index))throw new Error("bad quest drop");dropIds.add(index);drops.push({index,reward,charges,readyAt,at});}
+  const actions=[]; for(let i=0,n=hasOwnerGroups?rowsCount("quest actions",256):0;i<n;i++){const quest=handle(),action=r.u8(),target=r.u8(),pn=rowsCount("quest action points",8),at=[];if(!(action===9?dropIds.has(target):questHandles.has(quest))||action<1||action>9||(action===1||action===4||action===6)&&target!==0||action===2&&target>1||action===5&&target>48||action===8&&target>2)throw new Error("bad quest action");for(let j=0;j<pn;j++)at.push({x:position("quest action"),y:position("quest action")});actions.push({quest,action,target,at,label:boundedString(255,true,"quest action label")});}
   if (r.p - start > MAX_QUEST_VIEW_BYTES) throw new Error("quest payload too large");
-  const view = { unknownCount, displayUnknownCount, ownerRoster, roster, rows, objectives };
+  const view = { unknownCount, displayUnknownCount, ownerRoster, roster, rows, objectives, spells, pending, drops, actions };
   for (const row of rows) {
     for (const p of row.participants) if (!rosterIds.has(p.id)) throw new Error("unknown quest participant roster id");
     if (row.carrier !== null && !rosterIds.has(row.carrier)) throw new Error("unknown quest carrier roster id");

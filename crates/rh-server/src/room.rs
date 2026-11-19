@@ -398,7 +398,7 @@ pub struct RoomConfig {
     pub tick: Duration,
     /// Record a private replay of the match (every input, every step's state hash).
     pub record: bool,
-    /// Tests only: fixed match secrets and bot seeds (live rooms draw both from the OS CSPRNG).
+    /// Optional match secrets chosen before board admission and optional fixed bot seeds for tests.
     pub fixed_secrets: Option<Secrets>,
     pub fixed_bot_seed: Option<u64>,
     pub reconnect_grace: Duration,
@@ -545,6 +545,14 @@ fn random_u32() -> u32 {
     u32::from_le_bytes(b)
 }
 
+pub(crate) fn random_secrets() -> Secrets {
+    Secrets {
+        order_salt: random_u32(),
+        spawn_seed: random_u32(),
+        reward_salt: std::array::from_fn(|_| random_u32()),
+    }
+}
+
 impl Room {
     pub fn new(
         id: MatchId,
@@ -552,19 +560,26 @@ impl Room {
         reports: mpsc::UnboundedSender<RoomReport>,
         now: Instant,
     ) -> Self {
-        wire::profile_supported(&cfg.sim).expect("refusing to host unsupported simulation profile");
-        assert!(
-            crate::public_ground::matches_static_map(&cfg.welcome_map, &cfg.arena.map),
-            "refusing a Welcome cache that differs from the room's canonical public map"
-        );
+        Self::try_new(id, cfg, reports, now).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    pub(crate) fn try_new(
+        id: MatchId,
+        cfg: RoomConfig,
+        reports: mpsc::UnboundedSender<RoomReport>,
+        now: Instant,
+    ) -> Result<Self, String> {
+        wire::profile_supported(&cfg.sim)
+            .map_err(|e| format!("refusing to host unsupported simulation profile: {e:?}"))?;
         let training = cfg.sim.training;
         // Match secrets come from the OS CSPRNG and never leave this task (docs/CONTRACTS.md C-RNG).
-        let secrets = cfg.fixed_secrets.unwrap_or_else(|| Secrets {
-            order_salt: random_u32(),
-            spawn_seed: random_u32(),
-            reward_salt: std::array::from_fn(|_| random_u32()),
-        });
-        let sim = Sim::new(cfg.sim.clone(), cfg.arena, secrets);
+        let secrets = cfg.fixed_secrets.unwrap_or_else(random_secrets);
+        let sim = Sim::try_new(cfg.sim.clone(), cfg.arena, secrets).map_err(str::to_owned)?;
+        if !crate::public_ground::matches_static_map(&cfg.welcome_map, &sim.arena().map) {
+            return Err(
+                "refusing a Welcome cache that differs from the room's canonical public map".into(),
+            );
+        }
         let min_players = cfg.sim.min_players;
         let fill_seconds = cfg.sim.fill_seconds;
         // A training room has no run, result or replay to record: it never creates a recorder (no banking/telemetry of a
@@ -574,7 +589,7 @@ impl Room {
             r.replay.match_id = Some(match_id_string(id));
             r
         });
-        Self {
+        Ok(Self {
             id,
             sim,
             humans: Vec::new(),
@@ -636,7 +651,7 @@ impl Room {
             training,
             last_input_at: None,
             training_idle: Duration::from_secs(TRAINING_IDLE_SECONDS),
-        }
+        })
     }
 
     /// Reports to `metrics` instead of the process-wide counters (tests and benches that need isolated numbers).

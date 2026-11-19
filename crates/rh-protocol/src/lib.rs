@@ -67,6 +67,14 @@
 //! varint), SigHit (Fx 11: victim varint, source varint, kind u8, amount f32) and Heal (Fx 12: id varint, amount f32);
 //! CampCleared (Events 11: camp u16); State key 12, the roster.
 //!
+//! Protocol 19 adds `QuestInteract` (command 19: quest handle varint, action u8, target u8) and gates the owner-only quest
+//! payload with bit 6 of the quest header count (the lower bits remain the unknown count). When set, the payload follows
+//! State key 10 objectives: spell count and `(slot,reward,charges,ready_at f64)` rows; pending count and
+//! quest handles; drop count and `(index,reward,charges,ready_at f64,x f64,y f64)` rows; then offered action count and
+//! `(quest handle,action,target,point count,f64 x/y pairs,label)` rows. The owner view stays bounded by
+//! [`state::MAX_QUEST_VIEW_BYTES`]; its counts cover the Top 25 catalog, same-match offers, the room roster, spell slots and
+//! u8-indexed drops. Private owner facts are filtered before projection (C-OBS).
+//!
 //! # Field masks (protocol v4; docs/adr/0011-protocol-v4.md)
 //!
 //! Every presence mask (the Full head, the Full actor mask, the Delta head, the actor-delta mask) is a canonical LEB128
@@ -177,10 +185,10 @@ pub use state::{
     validate_quest_props, PickupHandle, QuestHandle, RewardChestHandle, RosterId, StateItem,
     TrophyStatKey, WireArena, WireBuild, WireCamp, WireField, WireFocus, WireInventory,
     WireMerchant, WirePlan, WirePlanOption, WireProjectile, WireProp, WirePropKind, WireProps,
-    WireQuestObjective, WireQuestParticipant, WireQuestPoint, WireQuestRow, WireQuestView,
-    WireRewardChest, WireRewardId, WireRewardOption, WireRosterEntry, WireRosterRow,
-    WireTradeDelta, WireTradeKind, WireTradeOffer, WireTradeStat, WireTradeView,
-    MAX_TRADE_MERCHANTS, MAX_TRADE_OFFERS, MAX_TRADE_STATS, MAX_TRADE_VIEW_BYTES,
+    WireQuestAction, WireQuestDrop, WireQuestObjective, WireQuestParticipant, WireQuestPoint,
+    WireQuestRow, WireQuestSpell, WireQuestView, WireRewardChest, WireRewardId, WireRewardOption,
+    WireRosterEntry, WireRosterRow, WireTradeDelta, WireTradeKind, WireTradeOffer, WireTradeStat,
+    WireTradeView, MAX_TRADE_MERCHANTS, MAX_TRADE_OFFERS, MAX_TRADE_STATS, MAX_TRADE_VIEW_BYTES,
 };
 
 pub use actor::*;
@@ -205,7 +213,7 @@ pub use weapon::{
 };
 
 /// Bump on any incompatible change (a new tag or field in an existing message). Both ends refuse another major version.
-pub const PROTOCOL_VERSION: u16 = 18;
+pub const PROTOCOL_VERSION: u16 = 19;
 /// Milliseconds per server tick (20 Hz). A Snapshot carries `tick` only: its server time is `tick * TICK_MS` exactly.
 pub const TICK_MS: u32 = 50;
 
@@ -253,6 +261,7 @@ const C_PLAN: u8 = 14;
 const C_CAST: u8 = 16;
 const C_QUEST_ACCEPT: u8 = 17;
 const C_TRADE: u8 = 18;
+const C_QUEST_INTERACT: u8 = 19;
 
 #[cfg(test)]
 mod tests;

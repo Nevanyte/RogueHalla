@@ -104,6 +104,7 @@ impl From<&SimSpec> for SimConfig {
             wish_lock_ms: 45_000.,
             lifecycle: rh_sim::ArenaMode::Off,
             quests: false,
+            top25_quests: false,
             training: false,
             dummies: false,
         }

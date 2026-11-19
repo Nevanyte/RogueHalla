@@ -6,7 +6,7 @@
 use super::catalog::{self, Kind};
 use super::objectives::{Advance, Credited, Objective};
 use super::rewards::{self, Plan};
-use super::{placement, roster, rules};
+use super::{board, placement, rules};
 use crate::constants::*;
 use crate::events::Event;
 use crate::input::ActionCmd;
@@ -65,6 +65,23 @@ pub struct Quests {
     pub carried: Vec<(PlayerId, u32)>,
     /// A camp was cleared this phase: the kill offers are re-checked after the pass (source `recheck`).
     pub recheck: bool,
+    #[serde(default, serialize_with = "serialize_board_option")]
+    pub(crate) board: Option<board::attempts::BoardState>,
+    /// Named Top25 rewards exist only when the ranked board is active.
+    #[serde(default, serialize_with = "serialize_board_option")]
+    pub(crate) rewards: Option<board::rewards::RewardState>,
+}
+
+/// Disabled Top 25 extensions are neutral in the canonical hash for legacy fixtures.
+fn serialize_board_option<T: serde::Serialize, S: serde::Serializer>(
+    value: &Option<T>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    if !serializer.is_human_readable() && value.is_none() {
+        serializer.serialize_unit()
+    } else {
+        serde::Serialize::serialize(value, serializer)
+    }
 }
 
 fn quests(w: &World) -> Option<&Quests> {
@@ -206,6 +223,10 @@ fn place_published(k: &MatchStatic, w: &mut World, oi: usize) {
     if offer.giver.is_some() {
         return;
     }
+    if board::quest(offer.def as usize).is_some() {
+        super::giver::birth(k, w, oi);
+        return;
+    }
     let def = &catalog::DEFINITION[offer.def as usize];
     let tokens = offer.tokens.clone();
     let parcel = offer.parcel;
@@ -279,16 +300,20 @@ pub(crate) fn spawn(k: &MatchStatic, w: &mut World) {
     if layers.data().camps.is_empty() {
         return;
     }
-    let salt = quest_salt(k.secrets.reward_salt);
-    let mut stream = crate::private_rng::Sfc32::from_words(salt);
-    let mut rng = || stream.next_f64();
-    let roster = roster::select_quests(&mut rng);
-    let placements = placement::place_quests(&k.arena.map, &roster, &mut rng);
+    let (placements, stream) = super::giver::placements(k);
     w.quests = Some(Quests {
         stream,
         offers: Vec::new(),
         carried: Vec::new(),
         recheck: false,
+        board: k
+            .quest_deal
+            .as_ref()
+            .map(|_| board::attempts::BoardState::default()),
+        rewards: k
+            .quest_deal
+            .as_ref()
+            .map(|_| board::rewards::RewardState::default()),
     });
     for placement in &placements {
         offer(k, w, placement);
@@ -367,7 +392,7 @@ fn close_all(w: &mut World, ev: &mut Vec<Event>, loud: bool) {
     while let Some(id) = ids.pop() {
         if let Some(oi) = quests(w).and_then(|q| q.offers.iter().position(|o| o.id == id)) {
             let def = w.quests.as_ref().unwrap().offers[oi].def;
-            if expire(w, oi) {
+            if expire(w, oi) && loud {
                 expired.add(def);
             }
         }
@@ -377,7 +402,10 @@ fn close_all(w: &mut World, ev: &mut Vec<Event>, loud: bool) {
     }
 }
 
-pub(crate) fn on_teleported(hx: &mut crate::hooks::Hx, _: &crate::hooks::HookArgs) {
+pub(crate) fn on_teleported(hx: &mut crate::hooks::Hx, args: &crate::hooks::HookArgs) {
+    if hx.k.quest_deal.is_some() {
+        return board::attempts::on_teleported(hx, args);
+    }
     close_all(hx.w, hx.ev, true);
 }
 
@@ -387,6 +415,9 @@ pub(crate) fn on_run_ended(hx: &mut crate::hooks::Hx, _: &crate::hooks::HookArgs
 
 /// Source `onMobKilled`: kill offers progress for standing humans that accepted them.
 pub(crate) fn on_mob_killed(hx: &mut crate::hooks::Hx, args: &crate::hooks::HookArgs) {
+    if hx.k.quest_deal.is_some() {
+        return board::attempts::on_mob_killed(hx, args);
+    }
     let crate::hooks::HookArgs::MobKilled {
         killer,
         zone,
@@ -449,6 +480,9 @@ pub(crate) fn on_mob_killed(hx: &mut crate::hooks::Hx, args: &crate::hooks::Hook
 
 /// Source `onPlayerKilled`: the player-kill offer progresses on a died credited kill.
 pub(crate) fn on_player_killed(hx: &mut crate::hooks::Hx, args: &crate::hooks::HookArgs) {
+    if hx.k.quest_deal.is_some() {
+        return board::attempts::on_player_killed(hx, args);
+    }
     let crate::hooks::HookArgs::PlayerKilled {
         by,
         victim,
@@ -491,7 +525,10 @@ pub(crate) fn on_player_killed(hx: &mut crate::hooks::Hx, args: &crate::hooks::H
 }
 
 /// Source `onCampCleared`: re-check the kill offers after the pass paid every kill.
-pub(crate) fn on_camp_cleared(hx: &mut crate::hooks::Hx, _: &crate::hooks::HookArgs) {
+pub(crate) fn on_camp_cleared(hx: &mut crate::hooks::Hx, args: &crate::hooks::HookArgs) {
+    if hx.k.quest_deal.is_some() {
+        return board::attempts::on_camp_cleared(hx, args);
+    }
     if let Some(q) = quests_mut(hx.w) {
         q.recheck = true;
     }
@@ -499,6 +536,9 @@ pub(crate) fn on_camp_cleared(hx: &mut crate::hooks::Hx, _: &crate::hooks::HookA
 
 /// Source `dropBody` wrap: a dying carrier drops the parcel where they fall.
 pub(crate) fn on_drop_body(hx: &mut crate::hooks::Hx, args: &crate::hooks::HookArgs) {
+    if hx.k.quest_deal.is_some() {
+        return board::attempts::on_drop_body(hx, args);
+    }
     let crate::hooks::HookArgs::DropBody { victim, .. } = args else {
         return;
     };
@@ -591,11 +631,16 @@ pub(crate) fn accept_eligibility(
     if crate::math::hypot(pos.x - offer.at.x, pos.y - offer.at.y) > QUEST_ACCEPT_RANGE {
         return Err(AcceptRefusal::Far);
     }
-    let map = k.collision_map(w.rt.gates_locked);
+    let map = crate::collision::map(k, w);
     if !crate::geometry::has_line_of_sight(map, pos, offer.at, crate::map::MASK_SIGHT) {
         return Err(AcceptRefusal::Blocked);
     }
-    if offer.accepted.contains(&id) {
+    if board::attempts::is_completed(w, id, offer.id)
+        || !board::attempts::visible_giver(w, id, offer.id)
+    {
+        return Err(AcceptRefusal::Over);
+    }
+    if offer.accepted.contains(&id) || board::attempts::is_accepted(w, id, offer.id) {
         return Err(AcceptRefusal::Already);
     }
     Ok(oi)
@@ -603,6 +648,22 @@ pub(crate) fn accept_eligibility(
 
 /// Source `handleQuestAccept`, called from the ACTION table with private source-ordered feedback.
 pub(crate) fn handle_accept(cx: &mut Cx, ix: crate::fighter::FighterIx, cmd: &ActionCmd) {
+    if let ActionCmd::QuestInteract {
+        quest_id: Some(offer),
+        action,
+        target,
+    } = *cmd
+    {
+        if cx.k.quest_deal.is_some() && cx.w.is_player(ix) {
+            let owner = cx.w.core(ix).id;
+            if matches!(action, 8 | 9) {
+                board::rewards::interact(cx, owner, offer, action, target);
+            } else {
+                board::attempts::interact(cx, owner, offer, action, target);
+            }
+        }
+        return;
+    }
     let ActionCmd::QuestAccept { quest_id } = *cmd else {
         return;
     };
@@ -627,6 +688,9 @@ pub(crate) fn handle_accept(cx: &mut Cx, ix: crate::fighter::FighterIx, cmd: &Ac
         }
     };
     let offer = &cx.w.quests.as_ref().unwrap().offers[oi];
+    if board::quest(offer.def as usize).is_some() {
+        return board::attempts::accept(cx, oi, id);
+    }
     let now = cx.w.server_time;
     let def = &catalog::DEFINITION[offer.def as usize];
     let expires = def.expires_at_sec;
@@ -744,6 +808,11 @@ pub(crate) fn pickup(cx: &mut Cx, ix: crate::fighter::FighterIx, container_ix: u
 /// Source `questSystem`: linger sweep, camp-clear recheck, expiry, hidden reveals with the head start, then automatic
 /// turn-ins.
 pub(crate) fn system(cx: &mut Cx) {
+    if cx.k.quest_deal.is_some() {
+        board::attempts::system(cx);
+        board::rewards::system(cx);
+        return;
+    }
     let Cx { k, w, ev, .. } = cx;
     if w.phase != crate::state::Phase::Active {
         return;
@@ -862,7 +931,7 @@ pub(crate) fn system(cx: &mut Cx) {
                 continue;
             }
             let allowed = quests(w).map(|q| q.offers[oi].clone()).unwrap();
-            let map = k.collision_map(w.rt.gates_locked);
+            let map = crate::collision::map(k, w);
             if !crate::geometry::has_line_of_sight(map, p.pos(), at, crate::map::MASK_SIGHT) {
                 continue;
             }
@@ -948,14 +1017,25 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
         }
         return Ok(());
     };
-    let _ = k;
+    if k.quest_deal.is_some() != q.board.is_some() {
+        return Err("quest board and configuration disagree".into());
+    }
+    if q.board.is_some() != q.rewards.is_some() {
+        return Err("quest reward runtime and board disagree".into());
+    }
+    board::attempts::validate(k, w)?;
+    board::rewards::validate(w)?;
+    board::rewards::effects::validate(k, w)?;
     let mut ids = Vec::new();
     for o in &q.offers {
         if o.id == 0 || o.id > w.entity_counter || ids.contains(&o.id) {
             return Err("invalid quest id".into());
         }
         ids.push(o.id);
-        if usize::from(o.def) >= catalog::DEFINITION.len() {
+        let ranked = board::quest(o.def as usize);
+        if k.quest_deal.is_some() != ranked.is_some()
+            || (ranked.is_none() && usize::from(o.def) >= catalog::DEFINITION.len())
+        {
             return Err("invalid quest definition".into());
         }
         if !o.at.x.is_finite() || !o.at.y.is_finite() {
@@ -965,10 +1045,11 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
             return Err("closed quest without a close time".into());
         }
         for (who, n) in &o.progress {
-            if usize::from(o.def) >= catalog::DEFINITION.len() {
-                return Err("invalid quest progress".into());
-            }
-            if *n > catalog::DEFINITION[o.def as usize].count {
+            let count = ranked.map_or_else(
+                || catalog::DEFINITION[o.def as usize].count,
+                |id| u32::from(id.definition().objective_count),
+            );
+            if *n > count {
                 return Err("quest progress beyond its objective".into());
             }
             if !o.accepted.contains(who) {

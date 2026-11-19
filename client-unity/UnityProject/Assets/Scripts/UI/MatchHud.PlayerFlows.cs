@@ -41,6 +41,7 @@ namespace Roguehalla.Client
             _journalButton = HudUi.Button(_stage, "Journal", "Quests · J", HudAnchor.BottomLeft, QuestLauncherLeft, QuestLauncherBottom, 84f, 22f,
                 () => ShowPlayerFlow(DefaultPlayerFlowPage), UiTheme.Current.SizeSmall, 5f);
             _journalButton.gameObject.SetActive(false);
+            InitializeQuestRewardHud();
         }
         void AddPlayerFlowTabs(Transform root)
         {
@@ -86,6 +87,7 @@ namespace Roguehalla.Client
         void BindPlayerFlows(Session session)
         {
             ClosePlayerFlows(); _returnToResults = false;
+            if (session == null) ResetQuestRewardHud();
             _questJournal?.Bind(session); _traderDialog?.Bind(session); _orderedNotices?.Clear();
             _playerFlowEpoch = session?.TimelineEpoch ?? 0;
             _map?.SetTrackedQuest(null);
@@ -97,6 +99,7 @@ namespace Roguehalla.Client
             _questJournal?.Refresh(); _traderDialog?.Refresh();
             _map?.SetTrackedQuest(_questJournal?.TrackedQuest);
             RefreshJournalLauncher();
+            RefreshQuestRewardHud();
         }
         void RefreshPlanningJournalAccess()
         {

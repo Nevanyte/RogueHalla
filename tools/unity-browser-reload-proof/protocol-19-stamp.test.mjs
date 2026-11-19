@@ -1,0 +1,49 @@
+// P-PROTOCOL-19-STAMP-1 oracle (JS): the probe codec and reload-proof metadata parser speak protocol 19 and read the
+// generated protocol/fixtures/v19.json Hello and Welcome as protocol 19. The codec marker is located generically because
+// the probe's v19 codec currently has a stale v18 comment; the codec constant and generated vectors identify its version.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { parseWireMetadata } from './wire-metadata.js';
+
+const html = readFileSync(new URL('../../crates/rh-server/web/probe.html', import.meta.url), 'utf8');
+const marker = html.match(/\/\/ ---- protocol v\d+ /);
+assert.ok(marker, 'probe codec block marker is present');
+const start = marker.index, end = html.indexOf('// ---- probe state', start);
+assert.ok(end > start, 'probe state follows the codec block');
+const probe = new Function(`${html.slice(start, end)}\nreturn { PROTOCOL, decode, decodeClient };`)();
+const v19 = new URL('../../protocol/fixtures/v19.json', import.meta.url);
+const fromHex = hex => Uint8Array.from(hex.match(/../g), b => Number.parseInt(b, 16));
+
+function vectors() {
+  assert.equal(existsSync(v19), true, 'protocol/fixtures/v19.json is missing (cargo run -p rh-protocol --bin protocol-fixtures)');
+  const value = JSON.parse(readFileSync(v19, 'utf8'));
+  assert.equal(value.protocol, 19);
+  return value;
+}
+
+test('probe codec constant speaks protocol 19 independent of its comment marker', () => {
+  assert.equal(probe.PROTOCOL, 19);
+});
+
+test('the probe decodes the v19 Hello and Welcome as protocol 19', () => {
+  const v = vectors();
+  const hello = fromHex(v.client.find(r => r.name === 'hello').hex);
+  const welcome = fromHex(v.server.find(r => r.name === 'welcome').hex);
+  assert.equal(probe.decodeClient(hello.buffer).protocol, 19);
+  assert.equal(probe.decode(welcome.buffer).protocol, 19);
+});
+
+test('the reload proof parses real v19 Hello and Welcome vectors and refuses v18 frames', () => {
+  const v = vectors();
+  const hello = parseWireMetadata('client', fromHex(v.client.find(r => r.name === 'hello').hex));
+  assert.equal(hello.status, 'metadata', JSON.stringify(hello));
+  assert.equal(hello.protocol, 19);
+  const welcome = parseWireMetadata('server', fromHex(v.server.find(r => r.name === 'welcome').hex));
+  assert.equal(welcome.status, 'public-prefix', JSON.stringify(welcome));
+  assert.equal(welcome.protocol, 19);
+
+  const old = JSON.parse(readFileSync(new URL('../../protocol/fixtures/v18.json', import.meta.url), 'utf8'));
+  assert.equal(parseWireMetadata('client', fromHex(old.client.find(r => r.name === 'hello').hex)).status, 'unavailable');
+  assert.equal(parseWireMetadata('server', fromHex(old.server.find(r => r.name === 'welcome').hex)).status, 'unavailable');
+});

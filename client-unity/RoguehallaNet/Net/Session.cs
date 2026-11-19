@@ -69,6 +69,7 @@ namespace Roguehalla.Net
         public string Error { get; private set; }
         public ServerMsg.Welcome Welcome { get; private set; }
         public byte[] SessionToken { get; private set; }
+        public MapBlob TerrainMap => Collections.TerrainMap ?? Map;
         public MapBlob Map { get { return Welcome == null ? null : Welcome.Map; } }
         /// <summary>The hitbox archetype table of this server (protocol 16, ADR0024), empty before the Welcome.</summary>
         /// <summary>The own footprint for walls and paths: the self archetype's foot (ADR0024), the 12 u disc with no table.</summary>
@@ -210,9 +211,14 @@ namespace Roguehalla.Net
         /// </summary>
         public byte CollectWishInput(bool pressed, bool uiOwnsInput, bool hasGroundPoint, float x, float y, uint? actorRef = null)
         {
-            if (!pressed || uiOwnsInput || !hasGroundPoint || State != SessionState.InMatch ||
+            return pressed ? CollectSpellInput(0, uiOwnsInput, hasGroundPoint, x, y, actorRef) : (byte)0;
+        }
+
+        public byte CollectSpellInput(byte slot, bool uiOwnsInput, bool hasGroundPoint, float x, float y, uint? actorRef = null)
+        {
+            if (uiOwnsInput || !hasGroundPoint || State != SessionState.InMatch ||
                 Latest == null || Latest.Phase != 1 || Me == null || Me.Status != ActorStatus.Alive) return 0;
-            return Cast(0, x, y, actorRef, Clock.RenderMs);
+            return Cast(slot, x, y, actorRef, Clock.RenderMs);
         }
 
         public void Leave()
@@ -450,6 +456,7 @@ namespace Roguehalla.Net
             var collections = msg as ServerMsg.State;
             if (collections != null)
             {
+                var previousTerrain = TerrainMap;
                 try { Collections.Apply(collections); }
                 catch (InvalidCollectionStateException e)
                 {
@@ -460,12 +467,12 @@ namespace Roguehalla.Net
                     return;
                 }
                 bool locked = Collections.Arena.HasValue && Collections.Arena.Value.GatesLocked;
-                if (Motion != null && locked != _predictionGatesLocked)
+                if (Motion != null && (locked != _predictionGatesLocked || !ReferenceEquals(previousTerrain, TerrainMap)))
                 {
                     // Welcome contains the open map, not gate geometry. A locked arena must draw authoritative self
                     // positions until the server says it is open again; never infer a second collision model.
                     if (locked) Motion.SuspendPrediction();
-                    else Motion.SetCollisionMap(Map);
+                    else Motion.SetCollisionMap(TerrainMap);
                 }
                 _predictionGatesLocked = locked;
                 if (Motion != null) Motion.SetWalls(Collections.Fields); // P-FROST-WALL-PREDICT-1: walls before this tick's snapshot

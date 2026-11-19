@@ -103,6 +103,7 @@ async fn rig_with_pause(cfg: ApiConfig, pause: Option<Arc<AcquirePause>>) -> Rig
             walk_hints: None,
             regen: false,
             quests: false,
+            top25_quests: false,
             training: false,
             dummies: false,
             consumables: true,

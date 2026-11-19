@@ -386,10 +386,15 @@ pub struct PendingAction {
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlagueCorpse {
-    /// The fallen player's stable id; each player falls once per raid.
+    /// The fallen player's stable id. A subsequent death replaces their prior marker.
     pub player: PlayerId,
     pub x: f64,
     pub y: f64,
+    #[serde(
+        default,
+        serialize_with = "crate::quests::board::special::egg::serialize_hatched"
+    )]
+    pub(crate) owner_hatched: bool,
 }
 
 /// A run-only item. Its identity is allocated by the world without consuming any RNG.
@@ -883,11 +888,19 @@ pub(crate) struct World {
     pub(crate) planning: Option<crate::systems::planning::Runtime>,
     pub(crate) plan_ends_at: f64,
     pub(crate) terrain: crate::terrain::Runtime,
+    #[serde(default)]
+    pub(crate) destroyed_terrain: crate::collision::Terrain,
     pub(crate) reward_chests: Vec<crate::reward_chests::Chest>,
     /// The quest runtime (source `world.quests`): absent until `spawnQuests`; serialized and hashed like every other
     /// lifecycle state.
     #[serde(default)]
     pub(crate) quests: Option<crate::quests::live::Quests>,
+    /// Planted shells and pending real deaths. The empty list contributes no hash words.
+    #[serde(
+        default,
+        serialize_with = "crate::quests::board::special::egg::serialize_shells"
+    )]
+    pub(crate) rebirth_eggs: Vec<crate::quests::board::special::egg::Egg>,
     /// The neutral traders (source world.traders): absent until the raid-start spawn; serialized and hashed.
     #[serde(default)]
     pub(crate) traders: Option<crate::traders::Traders>,
@@ -1035,6 +1048,13 @@ impl World {
             .or_else(|| match self.actor_origin(id) {
                 Some(crate::mob_runtime::ActorOrigin::Mob { mob_type, .. })
                 | Some(crate::mob_runtime::ActorOrigin::Practice { mob_type, .. }) => {
+                    if let Some(name) = self
+                        .mobs
+                        .get(id)
+                        .and_then(|mob| mob.display_name.as_deref())
+                    {
+                        return Some(std::sync::Arc::from(name));
+                    }
                     crate::mob_catalog::mob_type_by_id(mob_type.as_str())
                         .map(|t| std::sync::Arc::from(t.name))
                 }
@@ -1046,9 +1066,14 @@ impl World {
                     }))
                 }
                 Some(crate::mob_runtime::ActorOrigin::QuestGiver { def, .. }) => {
-                    crate::quests::catalog::DEFINITION
-                        .get(*def as usize)
-                        .map(|d| std::sync::Arc::from(d.giver))
+                    crate::quests::board::quest(*def as usize)
+                        .map(|id| id.definition().giver)
+                        .or_else(|| {
+                            crate::quests::catalog::DEFINITION
+                                .get(*def as usize)
+                                .map(|d| d.giver)
+                        })
+                        .map(std::sync::Arc::from)
                 }
                 Some(crate::mob_runtime::ActorOrigin::Zombie { .. }) => self
                     .mobs
@@ -1252,7 +1277,9 @@ impl World {
             planning: None,
             plan_ends_at: 0.,
             reward_chests: Vec::new(),
+            destroyed_terrain: Default::default(),
             quests: None,
+            rebirth_eggs: Vec::with_capacity(crate::constants::MAX_PLAYERS),
             traders: None,
             terrain: Default::default(),
             factions: Default::default(),

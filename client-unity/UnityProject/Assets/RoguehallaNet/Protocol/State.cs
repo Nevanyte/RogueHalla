@@ -55,7 +55,7 @@ namespace Roguehalla.Net.Protocol
         /// <summary>P-WIRE17-HUD-3: server ms the wind emblem's speed boost ends (legacy speedBoostUntil); null when none runs.</summary>
         public double? SpeedBoostUntil;
     }
-    public enum PropKind : byte { Ground = 1, Chest = 2, Body = 3, Corpse = 4, WindEmblem = 5, Cannon = 6, QuestItem = 7 }
+    public enum PropKind : byte { Ground = 1, Chest = 2, Body = 3, Corpse = 4, WindEmblem = 5, Cannon = 6, QuestItem = 7, RebirthEgg = 8 }
     public struct WireProp
     {
         public PickupHandle Handle;
@@ -67,7 +67,7 @@ namespace Roguehalla.Net.Protocol
         public string CorpseLabel;
         public uint ReadyAt;
         public QuestHandle QuestRef;
-        public bool QuestFetch;
+        public bool QuestFetch, Hatching;
     }
     public struct WireFocus { public PickupHandle Handle; public byte? BodyHint; }
     public struct WireField
@@ -211,6 +211,9 @@ namespace Roguehalla.Net.Protocol
         public string Name, GiverLabel, Brief, Objective, Reward;
     }
     public struct WireQuestObjective { public QuestHandle Quest; public double X, Y; }
+    public struct WireQuestSpell { public byte Slot, Reward, Charges; public double ReadyAt; }
+    public struct WireQuestDrop { public byte Index, Reward, Charges; public double ReadyAt, X, Y; }
+    public sealed class WireQuestAction { public QuestHandle Quest; public byte Action, Target; public double[] Points = Array.Empty<double>(); public string Label; }
     public sealed class WireQuestView
     {
         public uint UnknownCount, DisplayUnknownCount;
@@ -218,6 +221,10 @@ namespace Roguehalla.Net.Protocol
         public WireQuestRosterEntry[] Roster = Array.Empty<WireQuestRosterEntry>();
         public WireQuestRow[] Rows = Array.Empty<WireQuestRow>();
         public WireQuestObjective[] Objectives = Array.Empty<WireQuestObjective>();
+        public WireQuestSpell[] Spells = Array.Empty<WireQuestSpell>();
+        public QuestHandle[] Pending = Array.Empty<QuestHandle>();
+        public WireQuestDrop[] Drops = Array.Empty<WireQuestDrop>();
+        public WireQuestAction[] Actions = Array.Empty<WireQuestAction>();
     }
     public enum TradeKind : byte { Barter = 0, Stats = 1 }
     public enum TradeStat : byte { MaxHp = 0, Ad = 1, Ap = 2, AttackSpeed = 3, MoveSpeed = 4, Armor = 5, Shield = 6 }
@@ -233,5 +240,5 @@ namespace Roguehalla.Net.Protocol
         public WireMerchant[] Merchants = Array.Empty<WireMerchant>();
         public string[] BarterLabels = new[] { "", "", "" };
     }
-    public enum StateKey : byte { Inventory = 1, Props = 2, Fields = 3, RewardChests = 4, Build = 5, Camps = 6, Projectiles = 7, Plan = 8, Arena = 9, Quests = 10, Trade = 11, Roster = 12, BuildSummary = 13 }
+    public enum StateKey : byte { Inventory = 1, Props = 2, Fields = 3, RewardChests = 4, Build = 5, Camps = 6, Projectiles = 7, Plan = 8, Arena = 9, Quests = 10, Trade = 11, Roster = 12, BuildSummary = 13, DestroyedTerrain = 14 }
 }

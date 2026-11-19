@@ -94,11 +94,28 @@ const WALL_CONTENT_HASH: u64 = 0x7a54_2a13_187f_034c;
 
 #[test]
 fn the_content_hash_is_the_value_of_the_appended_rows() {
+    // The Top 25 is a separately delimited progression table. Isolate the original
+    // wall rules to retain their independent historical digest.
+    use rh_sim::content::{
+        content_hash_of_progression_words, visit_progression_content, STAGGER_WEAPONS,
+    };
+    let mut words = Vec::new();
+    visit_progression_content(|word| words.push(word));
+    let tag = "quests/top25/1";
+    let prefix: Vec<u64> = std::iter::once(tag.len() as u64)
+        .chain(tag.bytes().map(u64::from))
+        .collect();
+    let start = words
+        .windows(prefix.len())
+        .position(|window| window == prefix)
+        .expect("Top 25 progression table");
+    let count = start + prefix.len();
+    words.drain(start..count + 1 + words[count] as usize);
     assert_eq!(
-        hex(content_hash()),
-        hex(WALL_CONTENT_HASH),
-        "content_hash with the eleven wall rows appended (and nothing else in content changed)"
+        content_hash_of_progression_words(REGISTRY, STAGGER_WEAPONS, &words),
+        WALL_CONTENT_HASH
     );
+    assert_ne!(content_hash(), WALL_CONTENT_HASH);
 }
 
 #[test]

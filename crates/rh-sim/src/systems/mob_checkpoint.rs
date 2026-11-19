@@ -208,7 +208,10 @@ pub(crate) fn validate(
                         } else if spot != 0
                             || last_spot as usize + 1 != c.spots.len()
                             || f64::from(born_tick.saturating_sub(last_tick)) * TICK_MS
-                                < CAMP_RESPAWN_MS
+                                < crate::quests::board::attempts::targets::respawn_ms(
+                                    k,
+                                    camp as usize,
+                                )
                         {
                             return Err("invalid respawn cycle".into());
                         }
@@ -231,6 +234,16 @@ pub(crate) fn validate(
     }
     for (ci, (c, d)) in rt.camps.iter().zip(&map.camps).enumerate() {
         let zone = crate::FactionId::parse(d.zone.as_str()).unwrap();
+        let (mut expected_mob_type, mut expected_elite) = (c.mob_type, c.elite);
+        crate::quests::board::attempts::targets::roster(
+            k,
+            ci,
+            &mut expected_mob_type,
+            &mut expected_elite,
+        );
+        if expected_mob_type != c.mob_type || expected_elite != c.elite {
+            return Err("quest camp roster mismatch".into());
+        }
         if crate::mob_catalog::mob_type_in(zone, Some(c.mob_type.as_str())).is_none_or(|t| t.elite)
             || c.elite.is_some() != (d.elite_spot >= 0)
             || c.elite.is_some_and(|id| {
@@ -262,7 +275,8 @@ pub(crate) fn validate(
             if c.alive != 0
                 || c.cleared_at <= 0.
                 || c.cleared_at > w.server_time
-                || c.respawn_at != c.cleared_at + CAMP_RESPAWN_MS
+                || c.respawn_at
+                    != c.cleared_at + crate::quests::board::attempts::targets::respawn_ms(k, ci)
             {
                 return Err("invalid camp clear clock".into());
             }
@@ -335,15 +349,22 @@ pub(crate) fn validate(
         let d = &map.camps[*camp as usize];
         let at = d.spots[*spot as usize];
         let p = &m.core;
-        let expected = crate::mob_runtime::Mob::born(
+        let mut expected = crate::mob_runtime::Mob::born(
             w.actor_history.get(p.id).unwrap(),
             crate::Vec2::new(at.x, at.y),
             crate::math::atan2(d.y - at.y, d.x - at.x),
             f64::from(*born_tick) * TICK_MS,
             k.config.hitboxes,
         );
+        crate::quests::board::attempts::targets::configure(
+            k,
+            *camp as usize,
+            *spot as usize,
+            &mut expected,
+        );
         if m.camp != *camp
             || m.mob_type != Some(*mob_type)
+            || m.display_name != expected.display_name
             || m.elite != *elite
             || m.home != expected.home
             || m.home_facing != expected.home_facing
@@ -389,6 +410,8 @@ pub(crate) fn validate(
                     base_hp: p.vitals.max_hp,
                     faction: p.faction_id().ok_or("neutral regional actor")?,
                     frozen_guard: false,
+                    attack_rate_ceiling: 1.,
+                    quest_stat: None,
                 },
             )
         {

@@ -540,7 +540,7 @@
     },
     {
       "path": "tools/card-runtime-witness-fixtures/capture.mts",
-      "sha256": "5f1547d45f6a3854ff5fa6a98d5ec87efac69764a867d6fa103c4bdd957555f3"
+      "sha256": "ed38e5b41f23becfcc742e79209f6d517e0f5dd4e30957250aca79e3ee9d9524"
     },
     {
       "path": "tools/card-runtime-witness-fixtures/capture.sh",
@@ -662,26 +662,26 @@
     {
       "path": "parity/card-runtime/source.json",
       "originalSha256": "c2e5d1a071f3f7a05a6c3e8bf46fbdba8f0c7ae47d4de1aea8e62a1726ecd019",
-      "priorAcceptedEffectiveSha256": "e6c71914af6c07c80573181b53ec6466c65f605ff3982ce53c4e77ba20c4f827",
-      "effectiveSha256": "2b425b02b41163eb6725aab767fcc029f716677d47ba66ae778a42b21d87b340",
+      "priorAcceptedEffectiveSha256": "2b425b02b41163eb6725aab767fcc029f716677d47ba66ae778a42b21d87b340",
+      "effectiveSha256": "78864e722d864faed38a1bae6195fd2a3ff1bc9cb69e8e111fb91c7ee603e5bb",
       "scope": "metadata-only runtime provenance overlay: custom catalog immutable reference hash and runtime capture harness pin changed, plus the accepted overlay record; all 65 witness cases/cleanControls/comparison/privateOracleRecords/controlCorrection unchanged",
-      "evidence": "docs/evidence/ci-provenance-refresh-2026-11-17/README.md"
+      "evidence": "docs/evidence/quest25-provenance-2026-11-19/README.md"
     },
     {
       "path": "parity/card-runtime/INPUT_SHA256.json",
       "originalSha256": "2ea71ac15addc60e406aebbb7defedf8492c135d0a787a15808b69e4bc34d39a",
-      "priorAcceptedEffectiveSha256": "4c67e83e8997c615b71cd54f3d3ea8648c274a0df377f90b6294864024ec16cf",
-      "effectiveSha256": "6250fb9277f6f016527ddf256a85e2b004a1035b977105bd1f2ea112c773f557",
+      "priorAcceptedEffectiveSha256": "6250fb9277f6f016527ddf256a85e2b004a1035b977105bd1f2ea112c773f557",
+      "effectiveSha256": "7b43ad7c50c5abffe38dc8ea4c93565f605960bb9a93ed3a7d16f30ee2c05b57",
       "scope": "metadata-only runtime input inventory overlay: the same accepted catalog reference/harness/overlay metadata; sourceInputs and inventory semantics unchanged",
-      "evidence": "docs/evidence/ci-provenance-refresh-2026-11-17/README.md"
+      "evidence": "docs/evidence/quest25-provenance-2026-11-19/README.md"
     },
     {
       "path": "tools/card-runtime-fixtures/capture.mts",
       "originalSha256": "24df22055a3c77b75e01b478d04a477a57690d7f71220916d0816551102fff9e",
-      "priorAcceptedEffectiveSha256": "e1a7d65a6d234910b63b9efdf52eb6e5ce5efd646af19b00006fb28b0699482c",
-      "effectiveSha256": "03411d9440b1c7b799ee971d801638b2305f27598852f719e85c912e0ddce607",
+      "priorAcceptedEffectiveSha256": "03411d9440b1c7b799ee971d801638b2305f27598852f719e85c912e0ddce607",
+      "effectiveSha256": "a72e598eac84cb655677ba5d8e429b6d67928260b867b6c336ea2948656479d7",
       "scope": "narrow accepted-provenance overlay implementation in the pinned runtime capture tool only (catalog reference chain + overlay metadata record); executable engine/cases/inspection/controls unchanged",
-      "evidence": "docs/evidence/ci-provenance-refresh-2026-11-17/README.md"
+      "evidence": "docs/evidence/quest25-provenance-2026-11-19/README.md"
     }
   ],
   "actualPinnedInputs": [
@@ -694,15 +694,15 @@
     },
     {
       "path": "parity/card-runtime/INPUT_SHA256.json",
-      "bytes": 25360,
-      "sha256": "6250fb9277f6f016527ddf256a85e2b004a1035b977105bd1f2ea112c773f557",
+      "bytes": 25107,
+      "sha256": "7b43ad7c50c5abffe38dc8ea4c93565f605960bb9a93ed3a7d16f30ee2c05b57",
       "frozenOriginalSha256": "2ea71ac15addc60e406aebbb7defedf8492c135d0a787a15808b69e4bc34d39a",
       "docOverlayApplied": false,
       "acceptedProvenanceOverlayApplied": true,
       "acceptedProvenanceOverlay": {
         "originalSha256": "2ea71ac15addc60e406aebbb7defedf8492c135d0a787a15808b69e4bc34d39a",
-        "effectiveSha256": "6250fb9277f6f016527ddf256a85e2b004a1035b977105bd1f2ea112c773f557",
-        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-17/README.md"
+        "effectiveSha256": "7b43ad7c50c5abffe38dc8ea4c93565f605960bb9a93ed3a7d16f30ee2c05b57",
+        "evidence": "docs/evidence/quest25-provenance-2026-11-19/README.md"
       }
     },
     {
@@ -714,15 +714,15 @@
     },
     {
       "path": "parity/card-runtime/source.json",
-      "bytes": 53035290,
-      "sha256": "2b425b02b41163eb6725aab767fcc029f716677d47ba66ae778a42b21d87b340",
+      "bytes": 53035091,
+      "sha256": "78864e722d864faed38a1bae6195fd2a3ff1bc9cb69e8e111fb91c7ee603e5bb",
       "frozenOriginalSha256": "c2e5d1a071f3f7a05a6c3e8bf46fbdba8f0c7ae47d4de1aea8e62a1726ecd019",
       "docOverlayApplied": false,
       "acceptedProvenanceOverlayApplied": true,
       "acceptedProvenanceOverlay": {
         "originalSha256": "c2e5d1a071f3f7a05a6c3e8bf46fbdba8f0c7ae47d4de1aea8e62a1726ecd019",
-        "effectiveSha256": "2b425b02b41163eb6725aab767fcc029f716677d47ba66ae778a42b21d87b340",
-        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-17/README.md"
+        "effectiveSha256": "78864e722d864faed38a1bae6195fd2a3ff1bc9cb69e8e111fb91c7ee603e5bb",
+        "evidence": "docs/evidence/quest25-provenance-2026-11-19/README.md"
       }
     },
     {
@@ -741,15 +741,15 @@
     },
     {
       "path": "tools/card-runtime-fixtures/capture.mts",
-      "bytes": 7941,
-      "sha256": "03411d9440b1c7b799ee971d801638b2305f27598852f719e85c912e0ddce607",
+      "bytes": 7742,
+      "sha256": "a72e598eac84cb655677ba5d8e429b6d67928260b867b6c336ea2948656479d7",
       "frozenOriginalSha256": "24df22055a3c77b75e01b478d04a477a57690d7f71220916d0816551102fff9e",
       "docOverlayApplied": false,
       "acceptedProvenanceOverlayApplied": true,
       "acceptedProvenanceOverlay": {
         "originalSha256": "24df22055a3c77b75e01b478d04a477a57690d7f71220916d0816551102fff9e",
-        "effectiveSha256": "03411d9440b1c7b799ee971d801638b2305f27598852f719e85c912e0ddce607",
-        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-17/README.md"
+        "effectiveSha256": "a72e598eac84cb655677ba5d8e429b6d67928260b867b6c336ea2948656479d7",
+        "evidence": "docs/evidence/quest25-provenance-2026-11-19/README.md"
       }
     },
     {

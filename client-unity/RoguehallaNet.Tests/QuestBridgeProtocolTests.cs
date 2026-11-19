@@ -166,6 +166,18 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
+        public void InputQuestInteractUsesTagNineteenAndInputSenderQueuesIt()
+        {
+            var sender = new InputSender();
+            sender.QuestInteract(new WireQuestAction { Quest = new QuestHandle(300), Action = 5, Target = 48 });
+            var frame = sender.Flush(0)[0].Encode();
+            CollectionAssert.AreEqual(new byte[] { 2, 1, 0, 0, 0, 1, 0, 19, 0xac, 2, 5, 48 }, frame);
+            var decoded = ClientMsg.Decode(frame) as ClientMsg.Input;
+            Assert.AreEqual(CommandKind.QuestInteract, decoded.Commands[0].Kind);
+            Assert.AreEqual(300u, decoded.Commands[0].QuestRef.Value);
+        }
+
+        [Test]
         public void QuestDecoderRejectsStrictFlagsRangesAndBrokenInternalReferences()
         {
             Assert.Throws<DecodeException>(() => ServerMsg.Decode(RawQuestPayload(w => { w.U8(2); })));

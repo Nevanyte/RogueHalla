@@ -20,6 +20,9 @@ pub(crate) struct MatchStatic {
     pub(crate) locked_map: Option<TileMap>,
     #[serde(skip)] // immutable source spawnWalks cache, reconstructed from canonical map
     pub(crate) planning_walks: Vec<Option<f64>>,
+    /// Rebuilt from private match secrets and the admitted map on restore.
+    #[serde(skip)]
+    pub(crate) quest_deal: Option<Result<crate::quests::board::Deal, String>>,
     #[serde(skip)]
     pub(crate) blink_ring: crate::abilities::blink::Ring,
     #[serde(skip)]
@@ -73,6 +76,8 @@ impl MatchStatic {
             Vec::new()
         };
         let hazards = crate::terrain::Hazards::of(&arena.map, config.hazards);
+        let quest_deal = (config.top25_quests && config.quests && !config.training)
+            .then(|| crate::quests::board::deal(&arena.map, secrets));
         let digest = crate::hash::hash_of(0, &(&config, &*arena));
         Self {
             config,
@@ -83,6 +88,7 @@ impl MatchStatic {
             locked_map,
             blink_ring,
             planning_walks,
+            quest_deal,
             arena_source: crate::status_runtime::StatusSource {
                 id: None,
                 owner_id: None,
@@ -228,6 +234,9 @@ pub struct SimConfig {
     /// The K1 quest module (legacy config.quests): a config switch so a test/experiment can turn it off.
     #[serde(default)]
     pub quests: bool,
+    /// Private zoned draw. Old configs omit this field and retain the K1 digest.
+    #[serde(default, serialize_with = "serialize_quest_board")]
+    pub top25_quests: bool,
     /// A training world (legacy `SimConfig.training`, `sim/training.ts`): the run never ends and nothing is recorded —
     /// no patience timer, teleport, sudden death, results or GV, and a fighter who goes down is revived. It implies the
     /// practice setup (`dummies`) and a world with no planning and no arena lifecycle.
@@ -445,6 +454,7 @@ impl SimConfig {
             mob_mode: crate::mob_runtime::MobMode::Pve,
             regen: true,
             quests: true,
+            top25_quests: true,
             walk_hints: Some(true),
             hitboxes: Self::live_hitboxes(),
             // Owner decision 2026-11-10 (legacy f8cd956e): passive regeneration out of combat only (P-REGEN-COMBAT-1).
@@ -477,6 +487,7 @@ impl Default for SimConfig {
             mob_mode: crate::mob_runtime::MobMode::Off,
             regen: false,
             quests: false,
+            top25_quests: false,
             training: false,
             dummies: false,
             walk_hints: None,
@@ -486,6 +497,19 @@ impl Default for SimConfig {
             camp_buffs: CampBuffRule::Legacy,
             frost_wish: FrostWish::Freeze,
         }
+    }
+}
+
+fn serialize_quest_board<S: serde::Serializer>(
+    enabled: &bool,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    if serializer.is_human_readable() {
+        serializer.serialize_bool(*enabled)
+    } else if *enabled {
+        serializer.serialize_str("quests=top25")
+    } else {
+        serializer.serialize_unit()
     }
 }
 

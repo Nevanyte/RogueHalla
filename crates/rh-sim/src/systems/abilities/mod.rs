@@ -15,7 +15,7 @@ pub(crate) struct Landing {
     pub origin: Vec2,
     pub to: Option<Vec2>,
 }
-fn unit_valid(cx: &Cx, ix: FighterIx, target: PlayerId, range: f64) -> bool {
+pub(crate) fn unit_valid(cx: &Cx, ix: FighterIx, target: PlayerId, range: f64) -> bool {
     let Some(j) = cx.w.fighter_idx(target) else {
         return false;
     };
@@ -26,11 +26,12 @@ fn unit_valid(cx: &Cx, ix: FighterIx, target: PlayerId, range: f64) -> bool {
         || !cx.w.standing(j)
         || rt::untargetable(&t.statuses.instances, now)
         || (cx.w.is_player(j) && now < t.vitals.immune_until)
+        || crate::quests::board::rewards::effects::stasis(cx.w, target)
     {
         return false;
     }
     let viewer = &cx.w.players[ix.slot()];
-    let map = cx.k.collision_view(cx.w.rt.gates_locked);
+    let map = crate::collision::view(cx.k, cx.w);
     let wards = crate::vision::WardSight::of(cx.k, cx.w);
     let visible = if cx.w.is_player(j) {
         crate::vision::gameplay_actor_visible(
@@ -58,7 +59,7 @@ fn unit_valid(cx: &Cx, ix: FighterIx, target: PlayerId, range: f64) -> bool {
 fn blink(cx: &Cx, from: Vec2, point: Vec2) -> Option<Vec2> {
     let held = crate::barriers::held(cx.w);
     a::blink::landing(
-        &cx.k.arena.map,
+        crate::collision::open(cx.k, cx.w),
         crate::barriers::body_map(cx.k, &held, cx.w.rt.gates_locked),
         &cx.k.blink_ring,
         cx.w.rt.gates_locked,
@@ -92,11 +93,19 @@ pub(crate) fn handle(cx: &mut Cx, ix: FighterIx, cmd: &ActionCmd) {
     }
     let now = cx.w.server_time;
     let p = &cx.w.players[ix.slot()];
-    // One generic slot path: the table says what each slot casts (Q/E have no rows yet). No branch on an ability id.
-    let Some(ability) = a::ability_in_slot(slot, p.faction()) else {
+    if crate::quests::board::rewards::effects::stasis(cx.w, p.id) {
         return;
-    };
-    let def = a::definition_for(&cx.k.config, ability);
+    }
+    if cx.k.quest_deal.is_some() && slot != a::Slot::Wish {
+        let spell_slot = if slot == a::Slot::Q { 1 } else { 2 };
+        crate::quests::board::rewards::cast(cx, ix, spell_slot, x, y, id);
+        return;
+    }
+    if crate::quests::board::rewards::effects::taunt(cx.w, p.id).is_some()
+        || crate::quests::board::rewards::effects::pulled(cx.w, p.id)
+    {
+        return;
+    }
     if cx
         .w
         .abilities
@@ -109,6 +118,11 @@ pub(crate) fn handle(cx: &mut Cx, ix: FighterIx, cmd: &ActionCmd) {
     {
         return;
     }
+    // One generic slot path: the table says what each slot casts (Q/E have no rows yet). No branch on an ability id.
+    let Some(ability) = a::ability_in_slot(slot, p.faction()) else {
+        return;
+    };
+    let def = a::definition_for(&cx.k.config, ability);
     let mut point = Vec2::new(x, y);
     let target = match def.target {
         Target::Unit(range) => {

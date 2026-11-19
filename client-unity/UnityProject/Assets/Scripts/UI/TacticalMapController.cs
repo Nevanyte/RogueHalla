@@ -186,7 +186,7 @@ namespace Roguehalla.Client
 
         void BuildKey(UiTheme theme)
         {
-            _keyRoot = HudUi.At(_contactRail, "Key", 0, 34, 250, 218);
+            _keyRoot = HudUi.At(_contactRail, "Key", 0, 34, 250, 237);
             float y = 0f;
             Func<string, RectTransform> row = text =>
             {
@@ -215,6 +215,7 @@ namespace Roguehalla.Client
             var r3 = row("Quest giver"); GlyphImage(r3, "Icon", MapGlyph.Diamond, theme.TextPrimary, 12f, 14f, 3f);
             var r4 = row("Trader"); GlyphImage(r4, "Icon", MapGlyph.Ring, theme.TextPrimary, 12f, 14f, 3f);
             var r5 = row("Quest objective"); GlyphImage(r5, "Icon", MapGlyph.Cross, theme.TextPrimary, 12f, 14f, 3f);
+            var rq = row("Public quest mark"); GlyphImage(rq, "Icon", MapGlyph.Ring, theme.Accent, 12f, 14f, 3f);
             var r6 = row("Reward chest"); GlyphImage(r6, "Icon", MapGlyph.Plus, theme.Accent, 12f, 14f, 3f);
             var r7 = row("Route stop"); GlyphImage(r7, "Icon", MapGlyph.Disc, theme.Accent, 8f, 16f, 5f);
             var r8 = row("Walk target (right-click)"); GlyphImage(r8, "Icon", MapGlyph.Ring, theme.Success, 12f, 14f, 3f);
@@ -265,7 +266,7 @@ namespace Roguehalla.Client
                 Put((RectTransform)_contactRail, L.Left); Put((RectTransform)_counterRail, L.Right);
                 float lw = L.Left.W, lh = L.Left.H; bool compact = lh < 430f;
                 _keyRoot.gameObject.SetActive(!compact);
-                float viewY = compact ? 10f : 252f;
+                float viewY = compact ? 10f : 271f;
                 var vh = (RectTransform)_inViewHeading.transform; vh.anchorMin = vh.anchorMax = vh.pivot = new Vector2(.5f, 1f); vh.sizeDelta = new Vector2(lw - 24f, 20f); vh.anchoredPosition = new Vector2(0f, -viewY);
                 _contactScroll.anchorMin = Vector2.zero; _contactScroll.anchorMax = Vector2.one;
                 _contactScroll.offsetMin = new Vector2(8f, 112f); _contactScroll.offsetMax = new Vector2(-8f, -(viewY + 22f));
@@ -404,7 +405,7 @@ namespace Roguehalla.Client
         public void Tick()
         {
             if (_bound == null || _bound.Map == null) return;
-            _large.SetMap(_bound.Map); _mini.SetMap(_bound.Map);
+            _large.SetMap(_bound.TerrainMap); _mini.SetMap(_bound.TerrainMap);
             if ((_storageKey == null || _timelineEpoch != _bound.TimelineEpoch) && _bound.Welcome != null)
             {
                 _timelineEpoch = _bound.TimelineEpoch;
@@ -432,7 +433,7 @@ namespace Roguehalla.Client
             if (Time.realtimeSinceStartupAsDouble >= _nextPath)
             {
                 _nextPath = Time.realtimeSinceStartupAsDouble + .25;
-                _routePlan = _route.PlanAhead(_bound.Map, new RouteGeometry(Tile, _bound.OwnFoot, PreviewSpeed), plan == null && me != null ? new RoutePoint(me.X, me.Y) : _route.Start);
+                _routePlan = _route.PlanAhead(_bound.TerrainMap, new RouteGeometry(Tile, _bound.OwnFoot, PreviewSpeed), plan == null && me != null ? new RoutePoint(me.X, me.Y) : _route.Start);
                 _routePoints = _routePlan.Points;
                 _routeText.text = (_route.Waypoints.Count - _route.NextIndex) + "/12 stops · " + (_routePlan.Start.HasValue ? _routePlan.EtaSeconds.ToString("0") + "s base-speed walk" : "choose a spawn for ETA") +
                     (_routePlan.Unreachable.Count > 0 ? " · " + _routePlan.Unreachable.Count + " unreachable" : "") + "\nClick the map to add a stop.";
@@ -515,7 +516,8 @@ namespace Roguehalla.Client
             if (legendNow != null && legendNow.text != _laidLegend && _panel.gameObject.activeSelf) ApplyLayout(true);
             var quests = new StringBuilder();
             var qs = _bound.Collections.Quests;
-            if (qs != null && qs.Available) foreach (var row in qs.Rows) quests.Append(row.GiverLabel).Append(": ").Append(row.Name).Append("\n");
+            if (qs != null && qs.Available) foreach (var row in qs.Rows)
+                if (QuestPresentation.ShowsOffer(row)) quests.Append(row.GiverLabel).Append(": ").Append(row.Name).Append("\n");
             var trade = _bound.Collections.Trade;
             if (trade != null && trade.Available) foreach (var m in trade.Merchants) quests.Append(m.Name).Append(" · trader\n");
             if (quests.Length == 0) quests.Append("No quest givers or traders delivered.");
@@ -557,7 +559,7 @@ namespace Roguehalla.Client
         void PickSpawn(byte pick) { UpdateSelections(); if (_bound != null && _selections.TryPickSpawn(pick, _bound.Input, Time.realtimeSinceStartupAsDouble * 1000)) _nextPaint = 0; }
         void PickBoon(byte pick) { UpdateSelections(); if (_bound != null && _selections.TryPickBoon(pick, _bound.Input, Time.realtimeSinceStartupAsDouble * 1000)) _nextPaint = 0; }
         void Ready() { UpdateSelections(); if (_bound != null && _selections.TryReady(_bound.Input, Time.realtimeSinceStartupAsDouble * 1000)) _nextPaint = 0; }
-        void AddRoutePoint(Vector2 point) { if (_bound?.Map == null) return; _route.ToggleUpcoming(new RoutePoint(point.x, point.y), _bound.Map, Tile); _routeStorageDirty = true; _nextPath = _nextPaint = 0; }
+        void AddRoutePoint(Vector2 point) { if (_bound?.Map == null) return; _route.ToggleUpcoming(new RoutePoint(point.x, point.y), _bound.TerrainMap, Tile); _routeStorageDirty = true; _nextPath = _nextPaint = 0; }
         void ReconcileMinimapButtons()
         {
             Reconcile(_miniGesture, _mini);

@@ -34,12 +34,20 @@ pub(crate) fn leave_corpse(hx: &mut Hx, args: &HookArgs) {
     if p.status != Status::Dead {
         return;
     }
-    if hx.w.plague_corpses.iter().any(|c| c.player == id) {
-        return;
-    }
     let (x, y) = (p.body.x, p.body.y);
-    hx.w.plague_corpses
-        .push(crate::state::PlagueCorpse { player: id, x, y });
+    let corpse = crate::state::PlagueCorpse {
+        player: id,
+        x,
+        y,
+        owner_hatched: false,
+    };
+    if let Some(previous) = hx.w.plague_corpses.iter_mut().find(|c| c.player == id) {
+        if previous.owner_hatched {
+            *previous = corpse;
+        }
+    } else {
+        hx.w.plague_corpses.push(corpse);
+    }
 }
 
 pub(crate) fn run_ended(hx: &mut Hx, _args: &HookArgs) {
@@ -79,7 +87,7 @@ fn consume(
     let Some(ci) = w
         .plague_corpses
         .iter()
-        .position(|c| c.player == corpse_player)
+        .position(|c| c.player == corpse_player && c.player != owner_id)
     else {
         if !auto {
             toast(w, ev, owner_id, PlagueNotice::Gone);

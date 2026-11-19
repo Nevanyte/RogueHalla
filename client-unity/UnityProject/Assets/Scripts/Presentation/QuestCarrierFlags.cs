@@ -9,7 +9,7 @@ namespace Roguehalla.Client
     public delegate bool ActorPoint(uint actorId, out float simX, out float simY);
 
     /// <summary>The small gold flag over a quest's carrier (W7), as legacy QuestView.makeCarrier: 14 x 12 px, 56 px above the carrier's ground point.
-    /// One flag per row whose actor is drawn (the local player included) and whose giver is not fogged. Pooled; a steady frame allocates nothing.
+    /// One flag per row whose actor is drawn (the local player included) and whose giver is not fogged on the legacy board. Pooled; a steady frame allocates nothing.
     /// Presentation only.</summary>
     public sealed class QuestCarrierFlags
     {
@@ -23,7 +23,7 @@ namespace Roguehalla.Client
 
         public QuestCarrierFlags(Transform root) { _root = root; }
 
-        public void Update(IReadOnlyList<CarrierFlagRow> rows, ActorPoint actorAt, Func<float, float, bool> canSee)
+        public void Update(IReadOnlyList<CarrierFlagRow> rows, ActorPoint actorAt, Func<float, float, bool> canSee, bool requireVisibleGiver = true)
         {
             int used = 0;
             if (rows != null && actorAt != null)
@@ -32,7 +32,7 @@ namespace Roguehalla.Client
                 {
                     var row = rows[i];
                     // QuestView.ts:57: a fogged quest giver returns before the carrier block (legacy quirk, pinned).
-                    if (canSee != null && !canSee((float)row.GiverX, (float)row.GiverY)) continue;
+                    if (requireVisibleGiver && canSee != null && !canSee((float)row.GiverX, (float)row.GiverY)) continue;
                     float x, y;
                     if (!actorAt(row.Actor, out x, out y)) continue;
                     if (used == _pool.Count) _pool.Add(NewFlag());

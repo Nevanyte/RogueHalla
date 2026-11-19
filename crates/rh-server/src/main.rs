@@ -160,6 +160,7 @@ async fn main() {
             walk_hints: None,
             regen: false,
             quests: false,
+            top25_quests: false,
             training: false,
             dummies: false,
             hazards: rh_sim::terrain::Mode::Off,

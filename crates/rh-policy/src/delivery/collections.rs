@@ -11,6 +11,9 @@ use rh_protocol::{
 use rh_sim::observe::{HudStat, WardVerdict};
 use rh_sim::{Inventory, Observation, PropKind};
 
+mod field_projection;
+use field_projection::{fields, projectiles};
+
 #[cfg(test)]
 #[path = "trade_tests.rs"]
 mod trade_tests;
@@ -30,6 +33,7 @@ pub struct CollectionPublisher {
     trade: Option<rh_protocol::WireTradeView>,
     roster: Vec<rh_protocol::WireRosterRow>,
     summary: Option<WireBuildSummary>,
+    destroyed_terrain: Vec<u32>,
     last_forced: Option<u32>,
 }
 
@@ -83,6 +87,9 @@ fn props(observation: &Observation) -> Result<WireProps, EncodeError> {
                         label: label.to_string(),
                     },
                     PropKind::WindEmblem => WirePropKind::WindEmblem,
+                    PropKind::RebirthEgg { hatching } => WirePropKind::RebirthEgg {
+                        hatching: *hatching,
+                    },
                     PropKind::QuestItem { quest, fetch } => WirePropKind::QuestItem {
                         quest: rh_protocol::QuestHandle::new(quest.get())
                             .expect("native quest handle"),
@@ -98,8 +105,9 @@ fn props(observation: &Observation) -> Result<WireProps, EncodeError> {
 /// Copies only the admitted observer view. No world quest/container/player IDs are read here.
 fn quests(observation: &Observation) -> Result<Option<rh_protocol::WireQuestView>, EncodeError> {
     use rh_protocol::{
-        QuestHandle, RosterId, WireQuestObjective, WireQuestParticipant, WireQuestPoint,
-        WireQuestRow, WireQuestView, WireRosterEntry,
+        QuestHandle, RosterId, WireQuestAction, WireQuestDrop, WireQuestObjective,
+        WireQuestParticipant, WireQuestPoint, WireQuestRow, WireQuestSpell, WireQuestView,
+        WireRosterEntry,
     };
     let Some(source) = observation.quests.as_ref() else {
         return Ok(None);
@@ -107,6 +115,10 @@ fn quests(observation: &Observation) -> Result<Option<rh_protocol::WireQuestView
     if source.rows.len() > rh_protocol::state::MAX_QUEST_ROWS
         || source.roster.len() > rh_protocol::state::MAX_QUEST_ROSTER
         || source.objectives.len() > rh_protocol::state::MAX_QUEST_OBJECTIVES
+        || source.spells.len() > rh_protocol::state::MAX_QUEST_SPELLS
+        || source.pending.len() > rh_protocol::state::MAX_QUEST_PENDING
+        || source.drops.len() > rh_protocol::state::MAX_QUEST_DROPS
+        || source.actions.len() > rh_protocol::state::MAX_QUEST_ACTIONS
         || source.roster.iter().any(|row| row.label.len() > 255)
         || source.rows.iter().any(|row| {
             row.participants.len() > rh_protocol::state::MAX_QUEST_PARTICIPANTS
@@ -121,7 +133,7 @@ fn quests(observation: &Observation) -> Result<Option<rh_protocol::WireQuestView
                 .any(|text| text.len() > 255)
                 || row.done_by.as_ref().is_some_and(|text| text.len() > 255)
                 || row.def.is_empty()
-                || row.def.len() > 16
+                || row.def.len() > 32
         })
     {
         return Err(EncodeError::BadValue("quest view"));
@@ -191,6 +203,39 @@ fn quests(observation: &Observation) -> Result<Option<rh_protocol::WireQuestView
             .map(|row| WireQuestObjective {
                 quest: quest_id(row.quest),
                 at: point(row.at),
+            })
+            .collect(),
+        spells: source
+            .spells
+            .iter()
+            .map(|s| WireQuestSpell {
+                slot: s.slot,
+                reward: s.reward,
+                charges: s.charges,
+                ready_at: s.ready_at,
+            })
+            .collect(),
+        pending: source.pending.iter().copied().map(quest_id).collect(),
+        drops: source
+            .drops
+            .iter()
+            .map(|d| WireQuestDrop {
+                index: d.index,
+                reward: d.reward,
+                charges: d.charges,
+                ready_at: d.ready_at,
+                at: point(d.at),
+            })
+            .collect(),
+        actions: source
+            .actions
+            .iter()
+            .map(|a| WireQuestAction {
+                quest: quest_id(a.quest),
+                action: a.action,
+                target: a.target,
+                at: a.at.iter().copied().map(point).collect(),
+                label: a.label.clone(),
             })
             .collect(),
     };
@@ -329,30 +374,6 @@ fn trade_bits_equal(
         }
         _ => false,
     }
-}
-
-fn fields(observation: &Observation) -> Vec<WireField> {
-    observation
-        .fields
-        .iter()
-        .map(|f| WireField {
-            kind: f.kind as u8,
-            ability: f.ability as u8,
-            owner: f.owner.map(|id| id.0),
-            subject: f.subject.map(|id| id.0),
-            x: f.x as f32,
-            y: f.y as f32,
-            x2: f.x2 as f32,
-            y2: f.y2 as f32,
-            r: f.r as f32,
-            vx: f.vx as f32,
-            vy: f.vy as f32,
-            started_at: f.started_at,
-            ends_at: f.ends_at,
-            // P-FROST-WALL-2: a wall's tiles (the sim's barrier row); empty, so no allocation, for every other kind.
-            tiles: f.tiles.clone(),
-        })
-        .collect()
 }
 
 fn rewards(observation: &Observation) -> Result<Vec<WireRewardChest>, EncodeError> {
@@ -572,24 +593,6 @@ fn summary_stale(
         })
 }
 
-fn projectiles(observation: &Observation) -> Vec<WireProjectile> {
-    observation
-        .projectiles
-        .iter()
-        .map(|p| WireProjectile {
-            height: p.height,
-            kind: match p.kind {
-                rh_sim::ProjectileKind::Arrow => 0,
-                rh_sim::ProjectileKind::Ball => 1,
-            },
-            x: p.x,
-            y: p.y,
-            facing: p.facing,
-            owner: p.owner.map(|id| id.0),
-        })
-        .collect()
-}
-
 /// The viewer's own source planning deal. The observation already resolved every option fact against the admitted map;
 /// the wire only quantizes the two spawn positions like remote actors (never a private stream, index or path).
 fn plan(observation: &Observation) -> Result<Option<WirePlan>, EncodeError> {
@@ -750,6 +753,13 @@ impl CollectionPublisher {
         {
             items.push(StateItem::BuildSummary(next_summary));
         }
+        if observation.destroyed_terrain != self.destroyed_terrain
+            || (full && !observation.destroyed_terrain.is_empty())
+        {
+            items.push(StateItem::DestroyedTerrain(
+                observation.destroyed_terrain.clone(),
+            ));
+        }
         let (frame, items) = if items.is_empty() {
             (None, items)
         } else {
@@ -789,6 +799,7 @@ impl PendingState {
                 StateItem::Roster(v) => publisher.roster = v,
                 StateItem::RewardChests(_) => {}
                 StateItem::BuildSummary(v) => publisher.summary = v,
+                StateItem::DestroyedTerrain(v) => publisher.destroyed_terrain = v,
             }
         }
         publisher.sent = true;

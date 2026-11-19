@@ -50,6 +50,10 @@ pub trait MapMaker: Send + Sync + 'static {
     /// itself failed (a bug, not a refused attempt).
     fn make(&self, seed: u32) -> Result<Option<Arena>, String>;
 
+    fn prefers_signature(&self) -> bool {
+        false
+    }
+
     /// [`Self::make`] with the map's decoration (P-DRESS-BAKE-1), computed where the map is made (the worker thread, or
     /// the caller in inline mode). The default computes none here: [`admit_made`] then dresses the arena itself
     /// ([`MapAssets::new`]).
@@ -129,22 +133,60 @@ impl MapMaker for StyledMaker {
         self.generate(seed)?.map(into_arena).transpose()
     }
 
+    fn prefers_signature(&self) -> bool {
+        self.signature
+    }
+
     /// Dresses the generator's map with the shipped rules and its own hash BEFORE it becomes an arena: the arena drops
     /// the landmark anchors, and a landmark map dressed without them would get the fallback rings.
     fn make_dressed(&self, seed: u32) -> Result<Option<MadeMap>, String> {
         let Some(export) = self.generate(seed)? else {
             return Ok(None);
         };
-        let rules = crate::runtime::shipped_dress_rules().map_err(str::to_owned)?;
-        let dressing =
-            rh_mapdress::dress(&export.map, u64::from(export.legacy_map_hash_u32), rules);
-        let anchors = export.map.anchors.clone();
-        Ok(Some(MadeMap {
-            arena: into_arena(export)?,
-            dressing: Some(dressing),
-            anchors,
-        }))
+        Ok(Some(dress_export(export)?))
     }
+}
+
+fn dress_export(export: rh_sim::mapdata::MapExport) -> Result<MadeMap, String> {
+    let rules = crate::runtime::shipped_dress_rules().map_err(str::to_owned)?;
+    let dressing = rh_mapdress::dress(&export.map, u64::from(export.legacy_map_hash_u32), rules);
+    let anchors = export.map.anchors.clone();
+    Ok(MadeMap {
+        arena: into_arena(export)?,
+        dressing: Some(dressing),
+        anchors,
+    })
+}
+
+/// Admit the selected board on the selected map or regenerate a bounded
+/// sequence of styled candidates. These attempts use the same match secrets.
+pub(crate) fn for_quest_board(
+    base: MapAssets,
+    secrets: rh_sim::Secrets,
+    signature_requested: bool,
+) -> Result<MapAssets, String> {
+    use rh_sim::mapgen::{coliseum, pipeline};
+    use rh_sim::quests::board::map_admission;
+    if map_admission::needs_repair(&base.arena, secrets) == Ok(false) {
+        return Ok(base);
+    }
+    let data = base
+        .arena
+        .map
+        .layers()
+        .ok_or("quest board requires map layers")?
+        .data();
+    let signature = signature_requested
+        || data
+            .features
+            .iter()
+            .any(|f| f.kind == rh_sim::mapdata::FeatureKind::Volcano);
+    let seed = data.seed;
+    let options = StyledMaker { signature }.options();
+    let fixed = coliseum::fixed_layout();
+    let generator = pipeline::Pipeline::new(&fixed);
+    let export = map_admission::generate(&generator, seed, 0..24, options, secrets)?;
+    admit_made(dress_export(export)?)
 }
 
 /// The arrival check: a map is served only if it fits the wire position range, has a spawn for every seat and encodes as
@@ -392,6 +434,10 @@ impl MapPool {
                 .expect("spawn the map pool supervisor")
         });
         Self { shared, supervisor }
+    }
+
+    pub(crate) fn prefers_signature(&self) -> bool {
+        self.shared.maker.prefers_signature()
     }
 
     /// Maps ready to serve.

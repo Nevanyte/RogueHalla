@@ -46,7 +46,7 @@ namespace Roguehalla.Client
             EventSystem.current.currentSelectedGameObject.activeInHierarchy &&
             EventSystem.current.currentSelectedGameObject.GetComponent<KeyboardScrollPane>() != null;
         public bool BlocksKeyboardInput => BlocksKeyboardInputCore(true);
-        bool BlocksKeyboardInputCore(bool consoleFocus) => ResumeChooserVisible || consoleFocus && TrainingInputConsumed || TrainingOwnsKeyboardCore(consoleFocus) || (_client != null && _client.LaunchPending) || _menu != null && (_menu.gameObject.activeSelf || _results.gameObject.activeSelf ||
+        bool BlocksKeyboardInputCore(bool consoleFocus) => ResumeChooserVisible || QuestRewardModalVisible || consoleFocus && TrainingInputConsumed || TrainingOwnsKeyboardCore(consoleFocus) || (_client != null && _client.LaunchPending) || _menu != null && (_menu.gameObject.activeSelf || _results.gameObject.activeSelf ||
             _settings.gameObject.activeSelf || (_signIn != null && _signIn.gameObject.activeSelf) || AnyHubPanelVisible || PlayerFlowVisible || Typing || (_drawer != null && _drawer.IsVisible) || (_help != null && _help.gameObject.activeSelf) || (_map != null && _map.IsPlanning));
         public bool BlocksPointerInput => BlocksKeyboardInput || (_map != null && _map.PointerBlocked) ||
             PointerHitsUi();
@@ -63,6 +63,7 @@ namespace Roguehalla.Client
             get
             {
                 if (ResumeChooserVisible) return _resumeOverlay;
+                if (QuestRewardModalVisible) return QuestRewardFocus;
                 if (_recovery != null && _recovery.IsVisible) return _recovery.Root;
                 if (_signIn != null && _signIn.gameObject.activeSelf) return _signIn;
                 if (_settings.gameObject.activeSelf) return _settings;
@@ -235,6 +236,15 @@ namespace Roguehalla.Client
         {
             if (TrainingInputConsumed) return;
             if (ReadResumeChooserInput()) return;
+            if (QuestRewardModalVisible)
+            {
+                var keyboard = Keyboard.current;
+                if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) CloseQuestRewardModal();
+                else if (keyboard != null && keyboard.tabKey.wasPressedThisFrame)
+                    UiFocusNavigation.Cycle(QuestRewardFocus, keyboard.shiftKey.isPressed);
+                _map?.ReadUiInput(false, true);
+                return;
+            }
             // Text entry owns this whole read; generic navigation must not remove its
             // focus and reclassify the same keys as planning or world input.
             bool typing = Typing;

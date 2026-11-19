@@ -36,10 +36,12 @@ namespace Roguehalla.Client
             if (c != null)
             {
                 var theme = UiTheme.Current;
-                if (c.Quests != null && c.Quests.Available)
-                    foreach (var q in c.Quests.Rows)
+                var quests = c.Quests;
+                if (quests?.Available == true)
+                {
+                    foreach (var q in quests.Rows)
                     {
-                        if (q.State != QuestRowState.Open) continue;
+                        if (q.State != QuestRowState.Open || !QuestPresentation.ShowsOffer(q)) continue;
                         float x = (float)q.GiverX, y = (float)q.GiverY;
                         if (canSee != null && !canSee(x, y)) continue;
                         bool accepted = q.OwnerAccepted;
@@ -48,6 +50,17 @@ namespace Roguehalla.Client
                         bool turnIn = accepted && q.OwnerReady;
                         SetLabel(m, turnIn ? "Turn in here" : q.GiverLabel, turnIn ? theme.Accent : theme.TextPrimary, new Vector3(0, -.2f, 0), 2.3f, 1f);
                     }
+                    foreach (var objective in quests.Objectives)
+                    {
+                        var row = QuestPresentation.FindRow(quests, objective.Quest);
+                        if (row == null || !QuestPresentation.IsBoardRow(row) || row.State != QuestRowState.Open) continue;
+                        bool publicMark = row.Carrier.HasValue && (!row.OwnerAccepted || row.OwnerCompleted);
+                        if (!publicMark && (!row.OwnerAccepted || row.OwnerCompleted)) continue;
+                        ObjectivePoint((float)objective.X, (float)objective.Y, row.Name, publicMark ? "dashring" : "diamond", canSee);
+                    }
+                    foreach (var drop in quests.Drops)
+                        ObjectivePoint((float)drop.X, (float)drop.Y, QuestPresentation.RewardName(drop.Reward), "crate", canSee);
+                }
                 if (c.Trade != null && c.Trade.Available)
                     foreach (var t in c.Trade.Merchants)
                     {
@@ -62,6 +75,15 @@ namespace Roguehalla.Client
                     }
             }
             for (int i = _used; i < _marks.Count; i++) { HideFigure(_marks[i]); _marks[i].Glyph.enabled = false; _marks[i].GlyphPlate.enabled = false; _marks[i].LabelPlate.enabled = false; _marks[i].Label.gameObject.SetActive(false); }
+        }
+
+        void ObjectivePoint(float x, float y, string label, string glyph, System.Func<float, float, bool> canSee)
+        {
+            if (canSee != null && !canSee(x, y)) return;
+            var mark = Next(); HideFigure(mark);
+            var theme = UiTheme.Current;
+            Place(mark, ArenaView.WorldPoint(x, y) + new Vector3(0, .9f, 0), IndicatorArt.Get(glyph), theme.Accent, 1f, .42f);
+            SetLabel(mark, label, theme.TextPrimary, new Vector3(0, -.12f, 0), 2f, 1f);
         }
 
         Mark Next()
@@ -85,7 +107,7 @@ namespace Roguehalla.Client
                 m.Label = go.AddComponent<TextMeshPro>();
                 var font = Resources.Load<TMP_FontAsset>("Showcase/NunitoBold");
                 m.Label.font = font != null ? font : TMP_Settings.defaultFontAsset;
-                m.Label.alignment = TextAlignmentOptions.Center; m.Label.enableWordWrapping = false;
+                m.Label.richText = false; m.Label.alignment = TextAlignmentOptions.Center; m.Label.enableWordWrapping = false;
                 m.Label.fontSharedMaterial = OverheadIndicators.OutlinedMaterial(m.Label.font); m.Label.rectTransform.sizeDelta = new Vector2(5f, .5f);
                 m.Label.GetComponent<MeshRenderer>().sortingOrder = Order + 1; go.SetActive(false);
                 _marks.Add(m);

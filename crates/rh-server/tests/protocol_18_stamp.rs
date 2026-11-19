@@ -96,17 +96,17 @@ async fn answer_to_hello(url: &str, protocol: u16, profile: &str) -> Option<Serv
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_protocol_17_hello_is_refused_with_protocol_mismatch() {
+async fn a_protocol_18_hello_is_refused_with_protocol_mismatch() {
     let url = start().await;
-    let got = answer_to_hello(&url, 17, "old17").await;
+    let got = answer_to_hello(&url, 18, "old18").await;
     let refused = matches!(
         &got,
         Some(ServerMsg::Reject { code: RejectCode::ProtocolMismatch, reason })
-            if reason.contains("server speaks protocol 18, client 17")
+            if reason.contains("server speaks protocol 19, client 18")
     );
     assert!(
         refused,
-        "a protocol-17 Hello gets ProtocolMismatch naming 18 and 17, got {}",
+        "a protocol-18 Hello gets ProtocolMismatch naming 19 and 18, got {}",
         summary(&got)
     );
 }
@@ -121,17 +121,17 @@ fn summary(m: &Option<ServerMsg>) -> String {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_protocol_18_hello_is_welcomed_with_protocol_18() {
+async fn a_protocol_19_hello_is_welcomed_with_protocol_19() {
     let url = start().await;
-    let got = answer_to_hello(&url, 18, "new18").await;
+    let got = answer_to_hello(&url, 19, "new19").await;
     let protocol = match &got {
         Some(ServerMsg::Welcome { protocol, .. }) => Some(*protocol),
         _ => None,
     };
     assert_eq!(
         protocol,
-        Some(18),
-        "a protocol-18 Hello is welcomed with a protocol-18 Welcome, got {}",
+        Some(19),
+        "a protocol-19 Hello is welcomed with a protocol-19 Welcome, got {}",
         summary(&got)
     );
 }

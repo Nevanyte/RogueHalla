@@ -307,7 +307,7 @@ impl Sim {
             for (j, p) in self.w.players.iter().enumerate() {
                 if me.id == p.id
                     || crate::vision::actor_visible(
-                        self.k.collision_view(self.w.rt.gates_locked),
+                        crate::collision::view(&self.k, &self.w),
                         me,
                         p,
                         self.w.tick,
@@ -324,7 +324,7 @@ impl Sim {
             if !crate::status_runtime::hidden(&mob.core.statuses.instances, self.w.server_time) {
                 for (i, me) in self.w.players.iter().enumerate() {
                     if crate::vision::point_visible(
-                        self.k.collision_view(self.w.rt.gates_locked),
+                        crate::collision::view(&self.k, &self.w),
                         me,
                         mob.core.pos(),
                         self.w.tick,

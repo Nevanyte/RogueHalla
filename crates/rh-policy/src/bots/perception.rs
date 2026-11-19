@@ -285,7 +285,8 @@ impl Perception {
                 rh_protocol::WirePropKind::Cannon { .. } => ("cannon", "n".to_owned()),
                 rh_protocol::WirePropKind::Corpse { .. } => ("corpse", "x".to_owned()),
                 rh_protocol::WirePropKind::WindEmblem => ("consumable", "w".to_owned()),
-                rh_protocol::WirePropKind::QuestItem { .. } => continue,
+                rh_protocol::WirePropKind::QuestItem { .. }
+                | rh_protocol::WirePropKind::RebirthEgg { .. } => continue,
             };
             let key = format!("c{}_{}_{tag}", prop.x, prop.y);
             let at = rh_sim::Vec2::new(f64::from(prop.x) / 8., f64::from(prop.y) / 8.);

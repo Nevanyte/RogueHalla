@@ -91,6 +91,31 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
+        public void QuestWorldCuesDecodeAnonymouslyWithoutBorrowingWallTiles()
+        {
+            var bytes = Vector("server", "state_quest_world_cues");
+            var message = ServerMsg.Decode(bytes);
+            var rows = Fields(message).Rows;
+            Assert.AreEqual(12, rows.Length);
+            for (int i = 0; i < rows.Length; i++)
+            {
+                Assert.AreEqual(9 + i, rows[i].Kind);
+                Assert.AreEqual((9 + i) * 32, rows[i].X);
+                Assert.IsNull(rows[i].Owner);
+                Assert.IsNull(rows[i].Subject);
+                Assert.IsTrue(rows[i].Tiles == null || rows[i].Tiles.Length == 0);
+            }
+            Assert.AreEqual(620f, rows[2].X2);
+            Assert.AreEqual(15000, rows[5].EndsAt);
+            CollectionAssert.AreEqual(bytes, message.Encode());
+
+            var poisoned = rows[0];
+            poisoned.Owner = 27;
+            Assert.Throws<EncodeException>(() => State(poisoned).Encode());
+            Assert.Throws<DecodeException>(() => ServerMsg.Decode(Frame(poisoned, -1, null)));
+        }
+
+        [Test]
         public void OtherKindsCarryNoTileList()
         {
             byte[] bytes = Frame(Trail(), -1, null);

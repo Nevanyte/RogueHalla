@@ -30,6 +30,9 @@ pub(crate) fn apply(k: &MatchStatic, w: &mut World, pf: &mut Pathfinder, id: Pla
 /// Moves any fighter, a player or a mob (legacy `displace` takes a `Combatant`; a rising Frost Wall sets mobs down too,
 /// P-FROST-WALL-1b).
 fn execute(k: &MatchStatic, w: &mut World, pf: &mut Pathfinder, id: PlayerId, to: Vec2) {
+    if crate::quests::board::rewards::effects::stasis(w, id) {
+        return;
+    }
     let now = w.server_time;
     let held = crate::barriers::held(w);
     let gates_locked = w.rt.gates_locked;

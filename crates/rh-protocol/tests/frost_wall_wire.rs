@@ -128,7 +128,7 @@ fn constants_match_the_brief() {
 /// Guard: the protocol number is 18 (P-PROTOCOL-18-STAMP-1 stamped it; until then one number grew by serial packets).
 #[test]
 fn guard_the_protocol_is_18() {
-    assert_eq!(PROTOCOL_VERSION, 18);
+    assert_eq!(PROTOCOL_VERSION, 19);
 }
 
 // ---- layout --------------------------------------------------------------------------------------------------------

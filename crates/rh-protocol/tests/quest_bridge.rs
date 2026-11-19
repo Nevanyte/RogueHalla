@@ -47,6 +47,10 @@ fn view() -> WireQuestView {
             quest: quest(11),
             at: WireQuestPoint { x: 30.0, y: 40.0 },
         }],
+        spells: vec![],
+        pending: vec![],
+        drops: vec![],
+        actions: vec![],
     }
 }
 
@@ -81,7 +85,7 @@ fn quest_rows_and_explicit_unavailable_empty_views_round_trip() {
 fn quest_prop_validation_checks_any_supplied_view_and_cross_references() {
     let props = WireProps::default();
     let mut invalid = view();
-    invalid.unknown_count = 21;
+    invalid.unknown_count = 26;
     assert_eq!(
         validate_quest_props(&props, Some(&invalid)),
         Err(EncodeError::BadValue("quest counts"))

@@ -14,6 +14,7 @@ fn training_cfg(tick: Duration) -> RoomConfig {
             frost_wish: rh_sim::FrostWish::Freeze,
             regen: false,
             quests: false,
+            top25_quests: false,
             consumables: true,
             training: true,
             dummies: true,

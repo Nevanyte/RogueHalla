@@ -25,7 +25,8 @@ namespace Roguehalla.Net
             {
                 AreaView f = fields[i];
                 if (f.Kind != AreaKind.Wall || f.Tiles == null) continue;
-                if (count >= _wallCount || !_wallKeys[count].Equals(f.Key)) same = false;
+                if (count >= _wallCount || !_wallKeys[count].Equals(f.Key)
+                    || !SameWallCells(_wallTiles[count], f.Tiles)) same = false;
                 if (!added && !HoldsWall(f.Key)) added = true;
                 count++;
             }
@@ -62,6 +63,15 @@ namespace Roguehalla.Net
         /// LOW; the base map object itself when no wall stands). Keyboard steering reads it.
         /// </summary>
         public MapBlob WalkMap { get { return _walkMap; } }
+
+        static bool SameWallCells(MapTile[] held, MapTile[] cells)
+        {
+            if (ReferenceEquals(held, cells)) return true;
+            if (held.Length != cells.Length) return false;
+            for (int i = 0; i < cells.Length; i++)
+                if (held[i].X != cells[i].X || held[i].Y != cells[i].Y) return false;
+            return true;
+        }
 
         bool HoldsWall(AreaKey key)
         {

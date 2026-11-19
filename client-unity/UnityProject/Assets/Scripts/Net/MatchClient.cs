@@ -308,7 +308,7 @@ namespace Roguehalla.Client
             Hud?.ReadUiInput();
             if (!ReferenceEquals(Session, session) || !LaunchVerified) return;
             if (Session.State != SessionState.InMatch && Session.State != SessionState.Ended) return;
-            if (Arena != null && !Arena.HasMap && Session.Map != null) Arena.Build(Session.Map, Session.Vision);
+            if (Arena != null && Session.TerrainMap != null) Arena.Build(Session.TerrainMap, Session.Vision);
             Session.Snapshots.Sample(Session.Clock.RenderMs, _actors);
             // Camera first: the cursor ground point read by ReadInput must use this frame's camera, or aim is a frame stale.
             var pmCam = PerfMarks.Begin(); FollowCamera(); PerfMarks.End(PerfMarks.Sec.Camera, pmCam);
@@ -414,7 +414,9 @@ namespace Roguehalla.Client
                     // The wand locks the nearest candidate within the legacy snap radius (world units) and never fires an unlocked
                     // shot; a miss sends nothing. The server still decides the lock (range, sight, hostility).
                     var weapon = Session.Me != null ? (WeaponId?)Session.Me.Weapon : null;
-                    var click = TargetPick.Decide(weapon, weapon == WeaponId.Wand ? PickWorld(sx, sy) : 0);
+                    var click = weapon == WeaponId.Wand && TargetPick.OnRebirthEgg(Session.Collections.Props, sx, sy)
+                        ? new ClickOrder { Kind = ClickOrderKind.DirectionalAttack }
+                        : TargetPick.Decide(weapon, weapon == WeaponId.Wand ? PickWorld(sx, sy) : 0);
                     if (click.Kind == ClickOrderKind.Target)
                     {
                         Session.Input.Target(click.Target);
@@ -462,12 +464,12 @@ namespace Roguehalla.Client
             if (kb.shiftKey.wasPressedThisFrame)
             {
                 uint target = haveCursor && mouse != null ? VisibleActorAt(mouse.position.ReadValue()) : 0;
-                Session.Cast(1, sx, sy, target == 0 ? (uint?)null : target);
+                Session.CollectSpellInput(1, blocked, haveCursor, sx, sy, target == 0 ? (uint?)null : target);
             }
             if (kb.qKey.wasPressedThisFrame)
             {
                 uint target = haveCursor && mouse != null ? VisibleActorAt(mouse.position.ReadValue()) : 0;
-                Session.Cast(2, sx, sy, target == 0 ? (uint?)null : target);
+                Session.CollectSpellInput(2, blocked, haveCursor, sx, sy, target == 0 ? (uint?)null : target);
             }
             if (kb.eKey.wasPressedThisFrame) Session.Input.UseConsumable();
             if (kb.fKey.wasPressedThisFrame) PickupFocus();

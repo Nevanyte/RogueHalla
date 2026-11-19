@@ -302,7 +302,7 @@ namespace Roguehalla.Client.Tests
             var commands = _transport.TakeCommands();
             Assert.That(commands.Count, Is.EqualTo(1));
             Assert.That(commands[0].Kind, Is.EqualTo(CommandKind.Swap));
-            Assert.That(commands[0].Slot, Is.EqualTo((byte?)0));
+            Assert.That(commands[0].Slot, Is.Null, "An untargeted swap toggles the equipped weapon");
         }
 
         [TestCase(Key.LeftShift, (byte)1)]
@@ -310,12 +310,12 @@ namespace Roguehalla.Client.Tests
         [TestCase(Key.R, (byte)0)]
         public void QuestAndWishKeysQueueTheirSerializedCastSlot(Key key, byte slot)
         {
+            SetupCastCursor();
             Press(key);
             ReadBothAndFlush();
 
-            var commands = _transport.TakeCommands();
+            var commands = _transport.TakeCommands().FindAll(c => c.Kind == CommandKind.Cast);
             Assert.That(commands.Count, Is.EqualTo(1));
-            Assert.That(commands[0].Kind, Is.EqualTo(CommandKind.Cast));
             Assert.That(commands[0].Slot, Is.EqualTo((byte?)slot));
         }
 
@@ -327,8 +327,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(_transport.TakeCommands(), Is.Empty);
         }
 
-        [Test]
-        public void QuestCastUsesOnlyTheVisibleActorUnderThePointer()
+        void SetupCastCursor()
         {
             var cameraObject = new GameObject("Visible target input camera");
             cameraObject.transform.SetParent(_root.transform, false);
@@ -344,14 +343,19 @@ namespace Roguehalla.Client.Tests
 
             _mouse.MakeCurrent();
             InputSystem.QueueStateEvent(_mouse, new MouseState { position = new Vector2(100, 100) });
+        }
+
+        [Test]
+        public void QuestCastUsesOnlyTheVisibleActorUnderThePointer()
+        {
+            SetupCastCursor();
             InputSystem.QueueStateEvent(_keyboard, new KeyboardState(Key.LeftShift));
             InputSystem.Update();
             Invoke(_client, "ReadInput");
             _session.FlushInput();
 
-            var commands = _transport.TakeCommands();
+            var commands = _transport.TakeCommands().FindAll(c => c.Kind == CommandKind.Cast);
             Assert.That(commands.Count, Is.EqualTo(1));
-            Assert.That(commands[0].Kind, Is.EqualTo(CommandKind.Cast));
             Assert.That(commands[0].Slot, Is.EqualTo((byte?)1));
             Assert.That(commands[0].ActorRef, Is.EqualTo((uint)4), "only the delivered visible actor under the pointer may be selected");
         }
@@ -397,8 +401,8 @@ namespace Roguehalla.Client.Tests
             _session.FlushInput();
 
             var commands = _transport.TakeCommands();
-            Assert.That(commands.Count, Is.EqualTo(1));
-            Assert.That(commands[0].Kind, Is.EqualTo(CommandKind.Move));
+            Assert.That(commands.FindAll(c => c.Kind == CommandKind.Move).Count, Is.EqualTo(1));
+            Assert.That(commands.Exists(c => c.Kind == CommandKind.AttackMove), Is.False);
 
             ReleaseKeys();
             InputSystem.QueueStateEvent(_mouse, new MouseState());

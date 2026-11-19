@@ -36,35 +36,57 @@ impl Director {
             "ready" => {}
             _ => return Err(CtlError::conflict("draining", "the server is draining")),
         }
-        let mut inner = self.inner.lock_recover();
-        // Re-checked under the lock: `drain` flips the lifecycle first and only then reads the rooms under this same lock, so
-        // a create that still sees `ready` here has its room in place before drain looks (drain then waits for it), and a
-        // create that comes later is refused. Without this a session created during a drain could outlive `Terminated`.
-        match self.lifecycle.state_name() {
-            "ready" => {}
-            "starting" => return Err(CtlError::new(503, "not_ready", "the server is starting")),
-            _ => return Err(CtlError::conflict("draining", "the server is draining")),
-        }
-        inner.control.sweep(tokio::time::Instant::now());
-        match inner.control.check_create(gsid, max_players, fill)? {
-            crate::control::CreateCheck::Existing {
-                room,
-                phase,
-                max_players,
-            } => Ok(serde_json::json!({
-                "v": crate::control::API_VERSION, "created": false, "gameSessionId": gsid,
-                "roomId": crate::control::room_id_hex(room), "phase": phase.as_str(), "maxPlayers": max_players,
-            })),
-            crate::control::CreateCheck::New => {
-                if inner.rooms.len() >= self.cfg.max_rooms {
-                    return Err(CtlError::conflict("at_capacity", "no room capacity left"));
+        let mut prepared = None;
+        loop {
+            let mut inner = self.inner.lock_recover();
+            // Re-checked under the lock: `drain` flips the lifecycle first and only then reads the rooms under this same lock, so
+            // a create that still sees `ready` here has its room in place before drain looks (drain then waits for it), and a
+            // create that comes later is refused. Without this a session created during a drain could outlive `Terminated`.
+            match self.lifecycle.state_name() {
+                "ready" => {}
+                "starting" => {
+                    return Err(CtlError::new(503, "not_ready", "the server is starting"))
                 }
-                let (id, _tx) = self.spawn_room(&mut inner, fill);
-                inner.control.insert(gsid, id, max_players, fill);
-                Ok(serde_json::json!({
-                    "v": crate::control::API_VERSION, "created": true, "gameSessionId": gsid,
-                    "roomId": crate::control::room_id_hex(id), "phase": "lobby", "maxPlayers": max_players,
-                }))
+                _ => return Err(CtlError::conflict("draining", "the server is draining")),
+            }
+            inner.control.sweep(tokio::time::Instant::now());
+            match inner.control.check_create(gsid, max_players, fill)? {
+                crate::control::CreateCheck::Existing {
+                    room,
+                    phase,
+                    max_players,
+                } => {
+                    return Ok(serde_json::json!({
+                        "v": crate::control::API_VERSION, "created": false, "gameSessionId": gsid,
+                        "roomId": crate::control::room_id_hex(room), "phase": phase.as_str(), "maxPlayers": max_players,
+                    }))
+                }
+                crate::control::CreateCheck::New => {
+                    if inner.rooms.len() >= self.cfg.max_rooms {
+                        return Err(CtlError::conflict("at_capacity", "no room capacity left"));
+                    }
+                    let (id, _tx) = if let Some(room) = prepared.take() {
+                        self.activate_room(&mut inner, room)
+                    } else if self.needs_board_room() {
+                        drop(inner);
+                        prepared = Some(self.prepare_board_room(fill).map_err(|error| {
+                            crate::api::log_internal("quest map preparation", &error);
+                            CtlError::new(
+                                503,
+                                "quest_map_unavailable",
+                                "quest map unavailable; try again shortly",
+                            )
+                        })?);
+                        continue;
+                    } else {
+                        self.spawn_room(&mut inner, fill)
+                    };
+                    inner.control.insert(gsid, id, max_players, fill);
+                    return Ok(serde_json::json!({
+                        "v": crate::control::API_VERSION, "created": true, "gameSessionId": gsid,
+                        "roomId": crate::control::room_id_hex(id), "phase": "lobby", "maxPlayers": max_players,
+                    }));
+                }
             }
         }
     }

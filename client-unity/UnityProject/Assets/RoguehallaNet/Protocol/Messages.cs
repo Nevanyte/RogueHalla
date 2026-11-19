@@ -11,7 +11,7 @@ namespace Roguehalla.Net.Protocol
         Malformed = 7, TooSlow = 8, ServerDraining = 9, NoSuchSession = 10, Kicked = 11,
     }
 
-    public enum CommandKind : byte { Move = 1, Stop = 2, Aim = 3, Attack = 4, Release = 5, Swap = 6, Pickup = 7, Choose = 8, UseConsumable = 9, Target = 10, AttackMove = 11, HuntTarget = 12, ConsumeCorpse = 13, Plan = 14, Train = 15, Cast = 16, QuestAccept = 17, Trade = 18 }
+    public enum CommandKind : byte { Move = 1, Stop = 2, Aim = 3, Attack = 4, Release = 5, Swap = 6, Pickup = 7, Choose = 8, UseConsumable = 9, Target = 10, AttackMove = 11, HuntTarget = 12, ConsumeCorpse = 13, Plan = 14, Train = 15, Cast = 16, QuestAccept = 17, Trade = 18, QuestInteract = 19 }
 
     /// <summary>A client command. Only the fields of its Kind are meaningful.</summary>
     public sealed class WireCommand
@@ -26,6 +26,7 @@ namespace Roguehalla.Net.Protocol
         public PickupHandle PickupRef;
         public RewardChestHandle RewardRef;
         public QuestHandle QuestRef;
+        public byte QuestAction, QuestTarget;
         public sbyte Pick;
         public TradeKind TradeKind;
         public uint ActorRef;
@@ -61,6 +62,12 @@ namespace Roguehalla.Net.Protocol
         public static WireCommand Pickup(PickupHandle handle) { return new WireCommand { Kind = CommandKind.Pickup, PickupRef = handle }; }
         public static WireCommand Choose(RewardChestHandle handle, sbyte pick) { return new WireCommand { Kind = CommandKind.Choose, RewardRef = handle, Pick = pick }; }
         public static WireCommand QuestAccept(QuestHandle handle) { return new WireCommand { Kind = CommandKind.QuestAccept, QuestRef = handle }; }
+        public static WireCommand QuestInteract(QuestHandle handle, byte action, byte target)
+        {
+            if (!handle.IsValid || action < 1 || action > 9 || (action == 1 || action == 4 || action == 6) && target != 0 || action == 2 && target > 1 || action == 5 && target > 48 || action == 8 && target > 2)
+                throw new ArgumentOutOfRangeException(nameof(action));
+            return new WireCommand { Kind = CommandKind.QuestInteract, QuestRef = handle, QuestAction = action, QuestTarget = target };
+        }
         public static WireCommand Trade(TradeKind kind, byte pick)
         {
             if ((byte)kind > (byte)TradeKind.Stats) throw new ArgumentOutOfRangeException(nameof(kind));
@@ -163,6 +170,13 @@ namespace Roguehalla.Net.Protocol
                                 if (pick > 2) throw new DecodeException(DecodeError.BadField, "trade pick");
                                 inp.Commands.Add(WireCommand.Trade((TradeKind)kind, pick));
                                 break;
+                            }
+                            case 19:
+                            {
+                                var handle = StateItem.ReadQuestHandle(ref r); byte action = r.U8(), target = r.U8();
+                                if (action < 1 || action > 9 || (action == 1 || action == 4 || action == 6) && target != 0 || action == 2 && target > 1 || action == 5 && target > 48 || action == 8 && target > 2)
+                                    throw new DecodeException(DecodeError.BadField, "quest interaction");
+                                inp.Commands.Add(WireCommand.QuestInteract(handle, action, target)); break;
                             }
                             case 1: { float x = r.F32(), y = r.F32(); inp.Commands.Add(WireCommand.Move(x, y, r.Flag() ? r.U8() : (byte?)null)); break; }
                             case 2: inp.Commands.Add(WireCommand.Stop(r.Flag() ? r.U8() : (byte?)null)); break;
@@ -269,6 +283,10 @@ namespace Roguehalla.Net.Protocol
                             if (!c.QuestRef.IsValid) throw new ArgumentException("quest handle");
                             w.Varint(c.QuestRef.Value);
                             break;
+                        case CommandKind.QuestInteract:
+                            if (!c.QuestRef.IsValid || c.QuestAction < 1 || c.QuestAction > 9 || (c.QuestAction == 1 || c.QuestAction == 4 || c.QuestAction == 6) && c.QuestTarget != 0 || c.QuestAction == 2 && c.QuestTarget > 1 || c.QuestAction == 5 && c.QuestTarget > 48 || c.QuestAction == 8 && c.QuestTarget > 2) throw new ArgumentException("quest interaction");
+                            w.Varint(c.QuestRef.Value); w.U8(c.QuestAction); w.U8(c.QuestTarget);
+                            break;
                         case CommandKind.Trade:
                             if ((byte)c.TradeKind > (byte)TradeKind.Stats || c.Pick < 0 || c.Pick > 2) throw new ArgumentException("trade choice");
                             w.U8((byte)c.TradeKind); w.U8((byte)c.Pick);
@@ -302,6 +320,7 @@ namespace Roguehalla.Net.Protocol
                     case CommandKind.Cast: return 13 + (c.ActorRef != 0 ? 4 : 0) + (c.T.HasValue ? 8 : 0) + (c.Seq.HasValue ? 1 : 0);
                     case CommandKind.QuestAccept: return 1 + Writer.VarintLength(c.QuestRef.Value);
                     case CommandKind.Trade: return 3;
+                    case CommandKind.QuestInteract: return 3 + Writer.VarintLength(c.QuestRef.Value);
                     default: throw new ArgumentException("command kind");
                 }
             }

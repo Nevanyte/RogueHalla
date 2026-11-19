@@ -3,15 +3,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { connectNormalCompanion, companionContentHash, companionProtocol } from './normal-companion.mjs';
 
-const vectors = JSON.parse(readFileSync(new URL('../../protocol/fixtures/v18.json', import.meta.url), 'utf8'));
+const vectors = JSON.parse(readFileSync(new URL('../../protocol/fixtures/v19.json', import.meta.url), 'utf8'));
 const serverVector = name => vectors.server.find(row => row.name === name).hex;
 const clientVector = name => vectors.client.find(row => row.name === name).hex;
 const fromHex = hex => Uint8Array.from(hex.match(/../g), byte => Number.parseInt(byte, 16)).buffer;
 
 function codec() {
   const html = readFileSync(new URL('../../crates/rh-server/web/probe.html', import.meta.url), 'utf8');
-  const start = html.indexOf('// ---- protocol v18 '), end = html.indexOf('// ---- probe state', start);
-  return new Function(`${html.slice(start, end)}\nreturn { decodeClient };`)();
+  const start = html.search(/\/\/ ---- protocol v\d+ /), end = html.indexOf('// ---- probe state', start);
+  if (start < 0 || end <= start) throw new Error('probe codec block is unavailable');
+  const parsed = new Function(`${html.slice(start, end)}\nreturn { PROTOCOL, decodeClient };`)();
+  assert.equal(parsed.PROTOCOL, 19);
+  return parsed;
 }
 
 const protocol = codec();
@@ -55,7 +58,7 @@ class FakeWebSocket {
   deliver(data) { this.#emit('message', { data }); }
 }
 
-function fakeFetch({ info = { protocol: 18, contentHash: companionContentHash }, claim } = {}) {
+function fakeFetch({ info = { protocol: 19, contentHash: companionContentHash }, claim } = {}) {
   const calls = [];
   const fetchImpl = async (url, init) => {
     calls.push({ url: String(url), init });
@@ -73,11 +76,11 @@ test('claims a fresh profile and sends its credential only in the ordinary Hello
   const companion = await connectNormalCompanion({ endpoint: 'http://127.0.0.1:7777', profile: 'source14_test', faction: 4,
     fetchImpl, WebSocketImpl: FakeWebSocket, timeoutMs: 1000 });
   try {
-    assert.equal(companionProtocol, 18);
-    assert.equal(companion.view().welcome.protocol, 18);
+    assert.equal(companionProtocol, 19);
+    assert.equal(companion.view().welcome.protocol, 19);
     assert.equal(companion.view().welcome.contentHash, companionContentHash);
     assert.equal(FakeWebSocket.lastHello.t, 'hello');
-    assert.equal(FakeWebSocket.lastHello.protocol, 18);
+    assert.equal(FakeWebSocket.lastHello.protocol, 19);
     assert.equal(FakeWebSocket.lastHello.profile, 'source14_test');
     assert.equal(new TextDecoder().decode(FakeWebSocket.lastHello.ticket), issuedToken);
     assert.equal(FakeWebSocket.lastHello.faction, 4);
@@ -139,7 +142,7 @@ test('concurrent companions each consume their own retained prevalidated Respons
   const infoUrl = `${endpoint}/info`;
   const fetchImpl = async url => {
     const exact = String(url);
-    if (exact === infoUrl) return new Response(JSON.stringify({ protocol: 18, contentHash: companionContentHash }), { status: 200 });
+    if (exact === infoUrl) return new Response(JSON.stringify({ protocol: 19, contentHash: companionContentHash }), { status: 200 });
     const spec = specs.find(candidate => candidate.url === exact && !candidate.used);
     if (!spec) throw new Error('unmatched or duplicate fake profile URL');
     spec.used = true;
@@ -158,7 +161,7 @@ test('concurrent companions each consume their own retained prevalidated Respons
     const hellos = FakeWebSocket.instances.map(socket => protocol.decodeClient(socket.sent[0].buffer.slice(
       socket.sent[0].byteOffset, socket.sent[0].byteOffset + socket.sent[0].byteLength)));
     assert.deepEqual(hellos.map(hello => hello.profile).sort(), specs.map(spec => spec.profile).sort());
-    assert.equal(admitted.every(companion => companion.view().snapshot && companion.view().welcome.protocol === 18), true);
+    assert.equal(admitted.every(companion => companion.view().snapshot && companion.view().welcome.protocol === 19), true);
     const sanitized = JSON.stringify(admitted.map(companion => companion.sanitizedReport()));
     assert.equal(sanitized.includes('private-concurrent-token'), false);
   } finally {

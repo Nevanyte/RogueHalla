@@ -181,6 +181,9 @@ pub(crate) type LinkFn = fn(&mut Hx, &HookArgs);
 pub(crate) fn fire(hx: &mut Hx, args: HookArgs) {
     let g = Gates::of(hx.k);
     let hook = args.hook();
+    if hx.k.quest_deal.is_some() && matches!(args, HookArgs::HitLanded { .. }) {
+        crate::quests::board::attempts::on_hit_landed(hx, &args);
+    }
     let links = &schedule::hook_row(hook).links;
     for link in &links[schedule::chain_from(links.len(), |i| (links[i].gate, links[i].mode), &g)..]
     {

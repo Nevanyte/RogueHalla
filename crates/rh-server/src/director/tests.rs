@@ -59,6 +59,7 @@ fn director_with(store: MemoryStore) -> Arc<Director> {
         weapon_specials: true,
         faction_mode: rh_sim::FactionMode::Off,
         quests: false,
+        top25_quests: false,
     };
 
     let map = rh_sim::TileMap::from_rows(&["####", "#..#", "#..#", "####"]).unwrap();

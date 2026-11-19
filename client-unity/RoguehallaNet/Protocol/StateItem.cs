@@ -10,7 +10,7 @@ namespace Roguehalla.Net.Protocol
         public abstract uint Key { get; }
         internal abstract void Check();
         internal abstract void Write(Writer w);
-        internal const int MaxRows = 512, MaxKeys = (int)StateKey.BuildSummary;
+        internal const int MaxRows = 512, MaxKeys = (int)StateKey.DestroyedTerrain;
         internal static void Require(bool condition, string name) { if (!condition) throw new EncodeException(name); }
         internal static bool Finite(double v) { return !double.IsNaN(v) && !double.IsInfinity(v); }
         internal static bool QuestFlag(ref Reader r, string field)
@@ -59,9 +59,10 @@ namespace Roguehalla.Net.Protocol
         {
             int start = r.Position;
             var view = new WireQuestView();
-            view.UnknownCount = r.Varint();
+            uint header = r.Varint();
+            view.UnknownCount = header & ~0x40u;
             view.DisplayUnknownCount = r.Varint();
-            if (view.UnknownCount > 20 || view.DisplayUnknownCount > view.UnknownCount)
+            if (view.UnknownCount > 25 || view.DisplayUnknownCount > view.UnknownCount)
                 throw new DecodeException(DecodeError.BadField, "quest unknown count");
             uint owner = r.Varint();
             if (owner != 0) view.OwnerRoster = new RosterId(owner);
@@ -76,14 +77,14 @@ namespace Roguehalla.Net.Protocol
             if (view.OwnerRoster.HasValue && !rosterIds.Contains(view.OwnerRoster.Value))
                 throw new DecodeException(DecodeError.BadField, "owner roster reference");
 
-            view.Rows = new WireQuestRow[Count(ref r, 20)];
+            view.Rows = new WireQuestRow[Count(ref r, 25)];
             var questHandles = new HashSet<QuestHandle>();
             for (int i = 0; i < view.Rows.Length; i++)
             {
                 var row = new WireQuestRow { Handle = ReadQuestHandle(ref r) };
                 if (!questHandles.Add(row.Handle)) throw new DecodeException(DecodeError.BadField, "duplicate quest handle");
                 row.Def = r.Str();
-                if (row.Def.Length == 0 || Encoding.UTF8.GetByteCount(row.Def) > 16)
+                if (row.Def.Length == 0 || Encoding.UTF8.GetByteCount(row.Def) > 32)
                     throw new DecodeException(DecodeError.BadField, "quest definition");
                 row.GiverX = QuestPosition(ref r); row.GiverY = QuestPosition(ref r);
                 byte status = r.U8();
@@ -144,6 +145,32 @@ namespace Roguehalla.Net.Protocol
                 if (count == 8) throw new DecodeException(DecodeError.TooMany, "objectives per quest");
                 objectiveCounts[objective.Quest] = count + 1;
                 view.Objectives[i] = objective;
+            }
+            if ((header & 0x40u) == 0) return view;
+            view.Spells = new WireQuestSpell[Count(ref r, 2)];
+            var slots = new HashSet<byte>();
+            for (int i = 0; i < view.Spells.Length; i++)
+            {
+                var spell = new WireQuestSpell { Slot=r.U8(), Reward=r.U8(), Charges=r.U8(), ReadyAt=r.F64() };
+                if (spell.Slot > 1 || spell.Reward > 48 || spell.Charges == 0 || !Finite(spell.ReadyAt) || spell.ReadyAt < 0 || !slots.Add(spell.Slot)) throw new DecodeException(DecodeError.BadField, "quest spell");
+                view.Spells[i] = spell;
+            }
+            view.Pending = new QuestHandle[Count(ref r, 10)];
+            var pendingIds = new HashSet<QuestHandle>();
+            for (int i = 0; i < view.Pending.Length; i++) { view.Pending[i]=ReadQuestHandle(ref r); if (!questHandles.Contains(view.Pending[i]) || !pendingIds.Add(view.Pending[i])) throw new DecodeException(DecodeError.BadField, "pending quest reference"); }
+            view.Drops = new WireQuestDrop[Count(ref r, 256)]; var dropIds = new HashSet<byte>();
+            for (int i = 0; i < view.Drops.Length; i++)
+            {
+                var drop = new WireQuestDrop { Index=r.U8(), Reward=r.U8(), Charges=r.U8(), ReadyAt=r.F64(), X=QuestPosition(ref r), Y=QuestPosition(ref r) };
+                if (drop.Reward > 48 || drop.Charges == 0 || !Finite(drop.ReadyAt) || drop.ReadyAt < 0 || !dropIds.Add(drop.Index)) throw new DecodeException(DecodeError.BadField, "quest drop");
+                view.Drops[i]=drop;
+            }
+            view.Actions = new WireQuestAction[Count(ref r, 256)];
+            for (int i = 0; i < view.Actions.Length; i++)
+            {
+                var action = new WireQuestAction { Quest=ReadQuestHandle(ref r), Action=r.U8(), Target=r.U8() };
+                if (!(action.Action == 9 ? dropIds.Contains(action.Target) : questHandles.Contains(action.Quest)) || action.Action < 1 || action.Action > 9 || (action.Action == 1 || action.Action == 4 || action.Action == 6) && action.Target != 0 || action.Action == 2 && action.Target > 1 || action.Action == 5 && action.Target > 80 || action.Action == 8 && action.Target > 2) throw new DecodeException(DecodeError.BadField, "quest action");
+                int n=Count(ref r,8); action.Points=new double[n*2]; for(int j=0;j<n;j++){action.Points[j*2]=QuestPosition(ref r);action.Points[j*2+1]=QuestPosition(ref r);} action.Label=QuestLabel(ref r); view.Actions[i]=action;
             }
             if (r.Position - start > 24575) throw new DecodeException(DecodeError.TooLarge, "quest view bytes");
             return view;
@@ -274,6 +301,7 @@ namespace Roguehalla.Net.Protocol
                                 case PropKind.WindEmblem: break;
                                 case PropKind.Cannon: row.ReadyAt = r.Varint(); break;
                                 case PropKind.QuestItem: row.QuestRef = ReadQuestHandle(ref r); row.QuestFetch = QuestFlag(ref r, "flag"); break;
+                                case PropKind.RebirthEgg: row.Hatching = QuestFlag(ref r, "flag"); break;
                                 default: throw new DecodeException(DecodeError.BadField, "prop kind");
                             }
                             props.Rows[j] = row;
@@ -379,6 +407,8 @@ namespace Roguehalla.Net.Protocol
                         item = RosterState.Read(ref r); break;
                     case 13:
                         item = BuildSummaryState.Read(ref r); break;
+                    case 14:
+                        item = DestroyedTerrainState.Read(ref r); break;
                     default: throw new DecodeException(DecodeError.BadField, "state key");
                 }
                 try { item.Check(); } catch (EncodeException e) { throw new DecodeException(DecodeError.BadField, e.Message); }

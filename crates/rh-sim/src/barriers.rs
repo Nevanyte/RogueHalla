@@ -326,17 +326,34 @@ pub(crate) fn sync(k: &MatchStatic, w: &mut World) {
     if current {
         return;
     }
+    let (open, locked) = w
+        .destroyed_terrain
+        .derived
+        .as_ref()
+        .map_or((&k.arena.map, k.locked_map.as_ref()), |m| {
+            (&m.open, m.locked.as_ref())
+        });
     let cells = || a.barriers.0.iter().flat_map(|b| b.cells.iter().copied());
     a.overlay.0 = Some(Arc::new(OverlayMap {
         fields: a.barriers.0.iter().map(|b| b.field).collect(),
-        open: k.arena.map.with_low(cells()),
-        locked: k.locked_map.as_ref().map(|m| m.with_low(cells())),
+        open: open.with_low(cells()),
+        locked: locked.map(|m| m.with_low(cells())),
     }));
+}
+
+/// Installs the derived destruction maps before applying surviving barriers.
+pub(crate) fn restore(k: &MatchStatic, w: &mut World) {
+    w.destroyed_terrain.rebuild(k);
+    sync(k, w);
 }
 
 /// The overlay to read this step, held by an `Arc` clone so the caller may mutate the world while it reads the map.
 pub(crate) fn held(w: &World) -> Option<Arc<OverlayMap>> {
-    w.abilities.as_ref().and_then(|a| a.overlay.0.clone())
+    w.abilities
+        .as_ref()
+        .and_then(|a| a.overlay.0.as_ref())
+        .or(w.destroyed_terrain.derived.as_ref())
+        .cloned()
 }
 
 /// The map bodies, swings and paths read, gates as they are now: the overlay while a wall stands, else the arena's.
@@ -353,8 +370,9 @@ pub(crate) fn body_map<'a>(
     }
 }
 
-/// `check_world`'s barrier rules.
+/// `check_world`'s dynamic terrain and barrier rules.
 pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
+    crate::quests::board::special::wall::validate_terrain(k, w)?;
     let Some(a) = &w.abilities else {
         return Ok(());
     };
@@ -363,11 +381,14 @@ pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
         .iter()
         .filter(|f| f.kind == crate::status_runtime::FieldKind::Wall);
     if k.config.frost_wish != crate::FrostWish::Wall
-        && (walls.clone().next().is_some() || !a.barriers.0.is_empty())
+        && walls
+            .clone()
+            .any(|f| !crate::quests::board::rewards::effects::is_cage(w, f))
     {
-        return Err("a barrier stands only under frost_wish = Wall".into());
+        return Err("a Frost barrier stands only under frost_wish = Wall".into());
     }
     let map = &k.arena.map;
+    let opened = &w.destroyed_terrain.cells;
     let tiles = u64::from(map.w) * u64::from(map.h);
     for b in &a.barriers.0 {
         // One row per wall field, in field order.
@@ -376,9 +397,10 @@ pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
         }
         if b.cells.is_empty()
             || !b.cells.windows(2).all(|p| p[0] < p[1])
-            || b.cells
-                .iter()
-                .any(|&i| u64::from(i) >= tiles || map.tiles[i as usize] != TILE_FLOOR)
+            || b.cells.iter().any(|&i| {
+                u64::from(i) >= tiles
+                    || (map.tiles[i as usize] != TILE_FLOOR && opened.binary_search(&i).is_err())
+            })
         {
             return Err("a barrier's tiles are not ascending floor tiles".into());
         }

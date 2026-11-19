@@ -168,7 +168,7 @@ fn malformed_server_frames_are_rejected_for_the_documented_reason() {
                 BadField("quest counts")
             }
             "state_quest_def_empty"
-            | "state_quest_def_over_16"
+            | "state_quest_def_over_32"
             | "state_quest_giver_nonfinite"
             | "state_quest_giver_out_of_range"
             | "state_quest_expiry_negative"

@@ -533,10 +533,15 @@ fn frame14_requires_all_eleven_keys_including_explicit_trade_unavailable() {
     let f = Frame14::from_reconstructed(context(1, 1), snapshot(&original), state, vec![], vec![])
         .unwrap();
     assert!(matches!(f.trade(), Fact::Delivered(None)));
-    assert!(
-        ServerMsg::decode(&[0x88, 0x01, 0x01, 14, 0]).is_err(),
-        "State 14 is still unknown"
+    assert_eq!(
+        ServerMsg::decode(&[0x88, 0x01, 0x01, 14, 0]).unwrap(),
+        ServerMsg::State {
+            tick: 1,
+            items: vec![StateItem::DestroyedTerrain(vec![])]
+        },
+        "empty terrain is a valid v19 replacement"
     );
+    assert!(ServerMsg::decode(&[0x88, 0x01, 0x01, 15, 0]).is_err());
 }
 
 #[test]

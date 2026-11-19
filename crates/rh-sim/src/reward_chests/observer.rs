@@ -165,7 +165,7 @@ impl RewardChestObserver {
                             && c.owner.is_none_or(|id| id == self.viewer)
                             && super::birth_available(c.held_until_tick, tick)
                             && sim.server_time() < c.expires_at
-                            && super::reach(&sim.k, sim.w.rt.gates_locked, me.pos(), c.at).is_ok(),
+                            && super::reach(&sim.k, &sim.w, me.pos(), c.at).is_ok(),
                     },
                 });
             }

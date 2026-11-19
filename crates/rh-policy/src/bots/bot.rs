@@ -582,6 +582,7 @@ impl HumanBot {
         // The Wish module sees the same observation and the front end's chosen foe, and its cast is offered first: arming it is
         // part of deciding it, and the humanizer arbitrates by priority and channel as it does for every intent.
         if let Some(paths) = self.paths.as_mut() {
+            paths.apply_terrain(obs.collections().destroyed_terrain());
             paths.budget_mut().start_tick();
             paths.set_frame(p.now, p.hud.gates_locked);
         }

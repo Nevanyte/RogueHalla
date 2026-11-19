@@ -61,6 +61,14 @@ pub(crate) fn walk_one(
     let now = w.server_time;
     let dt = dt_ms / 1000.;
     let core = w.core(ix);
+    use crate::quests::board::rewards::effects;
+    if effects::stasis(w, core.id) || effects::pulled(w, core.id) {
+        return;
+    }
+    if let Some(source) = effects::taunt(w, core.id) {
+        effects::walk_taunted(k, w, ix, source, dt, mult);
+        return;
+    }
     let faction = (k.config.hazards != crate::terrain::Mode::All)
         .then(|| core.faction_id())
         .flatten();

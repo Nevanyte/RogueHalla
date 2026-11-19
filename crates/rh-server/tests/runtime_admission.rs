@@ -435,8 +435,25 @@ async fn source_endpoint_hello_planning_ready_and_live_quest_trade_state() {
         rh_protocol::GroundMode::Map
     );
     assert!(alice.map.as_ref().unwrap().terrain.is_some());
-    alice.until(|c| c.phase == 3 && c.plan.is_some()).await;
-    bob.until(|c| c.phase == 3 && c.plan.is_some()).await;
+    let planning_board = |c: &Client| {
+        c.phase == 3
+            && c.plan.is_some()
+            && c.quests
+                .as_ref()
+                .is_some_and(|board| board.unknown_count == 0 && board.rows.len() == 10)
+    };
+    alice.until(planning_board).await;
+    bob.until(planning_board).await;
+    let board_sites = |c: &Client| {
+        c.quests
+            .as_ref()
+            .unwrap()
+            .rows
+            .iter()
+            .map(|row| (row.def.clone(), row.giver))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(board_sites(&alice), board_sites(&bob));
     let rooms = http::get(rig.control, "/control/rooms", &[]).await.json();
     assert_eq!(rooms["rooms"][0]["phase"], "planning");
     assert_eq!(
@@ -476,10 +493,10 @@ async fn source_endpoint_hello_planning_ready_and_live_quest_trade_state() {
         .await;
     bob.until(|c| c.phase == 1 && c.plan.is_none()).await;
     assert!(!alice.training && !bob.training);
-    assert!(
-        alice.quests.as_ref().unwrap().unknown_count > 0
-            || !alice.quests.as_ref().unwrap().rows.is_empty()
-    );
+    let alice_board = alice.quests.as_ref().unwrap();
+    assert_eq!(alice_board.unknown_count, 0);
+    assert_eq!(alice_board.rows.len(), 10);
+    assert_eq!(board_sites(&alice), board_sites(&bob));
     assert!(!alice.trade.as_ref().unwrap().trade_used);
 
     // Navigate only to positions delivered in the public quest view. No private map/entity lookup or installed offer.

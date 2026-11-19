@@ -40,6 +40,15 @@ fn bog_read(
     ix: FighterIx,
     stats: crate::status_runtime::StatView,
 ) -> (f64, bool) {
+    if w.is_player(ix)
+        && crate::quests::board::rewards::has(
+            w,
+            w.core(ix).id,
+            crate::quests::board::rewards::Award::WarmCoat,
+        )
+    {
+        return (1., false);
+    }
     if !k.hazards.slow {
         return (1., false);
     }
