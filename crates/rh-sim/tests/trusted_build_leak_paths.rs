@@ -9,6 +9,7 @@
 //!   4. the resolved graph: `cargo tree -p rh-server -e normal,build,features` names no trusted feature. This runs
 //!      offline and `--locked` (it reads the lock file and the local registry the build already needs), so it holds in
 //!      the gate.
+//!
 //! Each text rule has a negative test on a doctored manifest string. Runs with or without the feature.
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
