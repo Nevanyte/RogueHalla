@@ -9,8 +9,8 @@
 //! Definitions (tile units; x to the right, y down, as the map's tile index `y * w + x`):
 //! * the drawing: the lines of `church.txt` that do not start with `;` and are not empty; grid tile (gx, gy) is character
 //!   gx of line gy. `#` church wall, `P` pillar, `G` headstone (all walls), `+` fence (a LOW tile), `.` plain floor, `D`
-//!   the church door (floor), `E` the elite camp's tile (plain floor), `*` a lantern post mark (plain floor to the
-//!   generator). Its front is the bottom, +gy.
+//!   the church's front door, `R` its opposite rear door (open floor), `E` the elite camp tile (plain floor), and `*` a
+//!   lantern post mark (plain floor to the generator). Its front is the bottom, +gy.
 //! * the building: the grid tiles of `#` and `P` (their box: columns 3-25, rows 3-16); the churchyard: `G` and `+`.
 //! * the main gate: the open tiles of the drawing's bottom row between columns 12 and 16 (five tiles).
 //! * an orientation: a front direction u (one of (1, 0), (-1, 0), (0, 1), (0, -1)) and a mirror flag. Unmirrored, the
@@ -434,8 +434,8 @@ fn fnv(bytes: &[u8]) -> u64 {
 // ---------------------------------------------------------------------------------------------------------------------
 
 /// The approved drawing is what the brief and the lanes rely on: 29 x 29, mirror-symmetric about column 14; `E` at
-/// (14, 7); the building (`#`, `P`) is the box of columns 3-25, rows 3-16, and its front wall line (row 16) is open only at
-/// the three `D` tiles (columns 13-15); headstones and plot fences lie in the graveyard rows 17-27; the churchyard
+/// (14, 7); the building (`#`, `P`) is the box of columns 3-25, rows 3-16, with centred `R` rear and `D` front doors
+/// on rows 3 and 16; headstones and plot fences lie in the graveyard rows 17-27; the churchyard
 /// fence holds rows 0 and 28 and columns 0 and 28, with the five-wide main gate at columns 12-16 of row 28 and eleven
 /// 3-wide gates, every fence run at most 5; the door line to the main gate line is 12 rows, one lane gate period
 /// (`style_gallows::LANES.period`). The generator's copy (`signature::DEFAULT_DEFINITION.church_grid`, read from
@@ -481,7 +481,11 @@ fn the_generators_church_blueprint_is_the_approved_drawing() {
     let door_line: Vec<i32> = (bx.0..=bx.2)
         .filter(|&gx| !matches!(ch((gx, bx.3)), b'#' | b'P'))
         .collect();
-    assert_eq!(door_line, vec![13, 14, 15], "the building's front wall line");
+    assert_eq!(
+        door_line,
+        vec![13, 14, 15],
+        "the building's front wall line"
+    );
     let rear_line: Vec<i32> = (bx.0..=bx.2)
         .filter(|&gx| !matches!(ch((gx, bx.1)), b'#' | b'P'))
         .collect();
@@ -610,6 +614,25 @@ fn the_church_box_is_the_building_and_the_boxes_fill_the_footprint() {
         assert_eq!(
             open, door,
             "seed {seed}: the open tiles of the church's door-side edge"
+        );
+        let rear_edge: Vec<Cell> = match u {
+            (1, 0) => (y0..=y1).map(|y| (x0, y)).collect(),
+            (-1, 0) => (y0..=y1).map(|y| (x1, y)).collect(),
+            (0, 1) => (x0..=x1).map(|x| (x, y0)).collect(),
+            _ => (x0..=x1).map(|x| (x, y1)).collect(),
+        };
+        let rear_open: Vec<Cell> = rear_edge
+            .into_iter()
+            .filter(|&p| {
+                let i = at(m, p).unwrap();
+                m.tiles[i] == TILE_FLOOR && m.feature_grid[i] == 0
+            })
+            .collect();
+        let mut rear_door: Vec<Cell> = tiles_of(b"R").into_iter().map(|g| place(t, o, g)).collect();
+        rear_door.sort();
+        assert_eq!(
+            rear_open, rear_door,
+            "seed {seed}: the open tiles of the church's rear wall edge"
         );
         let a = m
             .anchors
