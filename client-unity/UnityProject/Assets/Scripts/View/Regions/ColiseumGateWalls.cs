@@ -85,7 +85,8 @@ namespace Roguehalla.Client
                 foreach (var t in entry.Value)
                 {
                     int x = t.X;
-                    float tint = .80f + RegionNoise.Hash01(x, y, 5) * .06f;   // a shade darker than the ring wall: a shut gate, not masonry
+                    // sRGB tint, uploaded linear (SrgbMeshColors): about .79-.84 linear, a shade under the ring wall's raw .92-1 (a shut gate, not masonry).
+                    float tint = .90f + RegionNoise.Hash01(x, y, 5) * .03f;
                     var col = new Color32((byte)(255 * tint), (byte)(255 * tint), (byte)(255 * tint), 255);
                     float py = -(y + 1) * ArenaView.GroundSquash, px0 = x, px1 = x + 1;
                     int v = (int)(RegionNoise.Hash(x, y, 9) % 97u);
@@ -110,7 +111,8 @@ namespace Roguehalla.Client
                 }
                 if (_v.Count == 0) continue;
                 var mesh = new Mesh { name = "Coliseum gate row " + y, indexFormat = UnityEngine.Rendering.IndexFormat.UInt16 };
-                mesh.SetVertices(_v); mesh.SetUVs(0, _uv); mesh.SetColors(_c); mesh.SetUVs(2, _k); mesh.SetTriangles(_t, 0); mesh.RecalculateBounds();
+                var srgb = _c.ToArray();
+                mesh.SetVertices(_v); mesh.SetUVs(0, _uv); SrgbMeshColors.Upload(mesh, srgb, new Color[srgb.Length]); mesh.SetUVs(2, _k); mesh.SetTriangles(_t, 0); mesh.RecalculateBounds();
                 _owned.Add(mesh);
                 var go = new GameObject("Gate row " + y); go.transform.SetParent(_root.transform, false);
                 go.AddComponent<MeshFilter>().sharedMesh = mesh;
