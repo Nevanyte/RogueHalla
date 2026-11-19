@@ -1,4 +1,5 @@
-// Generated Holy temple (presentation only): ONE building seen from above with its roof removed. The footprint is a single hall:
+// Holy temple presentation. The delivered Hall anchor takes precedence over the option-off detection below.
+// The inferred option-off temple is one building seen from above with its roof removed:
 // the isolated 3 x 3 wall blocks are its great piers on a 6 tile structural grid, the open floor between them is a grid of 3 tile
 // aisles, an open colonnade with a stepped plinth runs round the edge (grand portals on the south, east and west axes, an apse with
 // a dais at the north end), and four towers mark the corners. Nothing here is a wall: the footprint edge crosses ordinary floor.
@@ -21,7 +22,7 @@ using Roguehalla.Net.Protocol;
 namespace Roguehalla.Client
 {
     /// <summary>Finds the Holy zone's temple footprint on the map and lays out its hall, pillars and decor; also a surface layer for the temple floor.</summary>
-    public sealed class TempleLayout : ISurfaceLayer
+    public sealed partial class TempleLayout : ISurfaceLayer
     {
         public const float MinCoverage = .35f, MaxCoverage = .70f, TargetCoverage = .52f;
         public const int MinSide = 24, MaxHallWindow = 44, PillarSize = 3;
@@ -130,6 +131,7 @@ namespace Roguehalla.Client
             t.MapW = w;
             for (int i = 0; i < regions.Length; i++) if (regions[i] == (byte)RegionId.Holy) t.HolyTotal++;
             if (t.HolyTotal == 0) { t.Reason = "no Holy region"; return t; }
+            if (t.TryBuildSignature(map)) return t;
 
             // 1. Isolated 3 x 3 pillar blocks wholly inside Holy.
             bool Wall(int x, int y) { return x >= 0 && y >= 0 && x < w && y < h && tiles[y * w + x] == MapBlob.Wall; }

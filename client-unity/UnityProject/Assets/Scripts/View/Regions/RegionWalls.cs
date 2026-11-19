@@ -58,6 +58,7 @@ namespace Roguehalla.Client
             int w = map.W, h = map.H; var tiles = map.Tiles; var terrain = map.Terrain; var regions = map.Regions;
             var contact = RegionWallAtlas.Contact;
             var temple = TempleLayout.For(map);
+            bool paintedPiers = temple.IsSignature && Resources.Load<Sprite>("StormInk/Holy/SunPier") != null;
             var stormCypressWalls = StormCypressGeometry.For(map).ReplacementWalls();
 
             bool Solid(int x, int y)
@@ -92,9 +93,15 @@ namespace Roguehalla.Client
                     int kind = terrain != null ? terrain[y * w + x] : 0;
                     if (kind == (int)TerrainKind.Lava || kind == (int)TerrainKind.Crevasse) continue;   // the ground shader draws the hazard
                     if (stormCypressWalls != null && stormCypressWalls[y * w + x]) { TileCount++; continue; }
+                    if (paintedPiers && temple.TryBlock(x, y, out _, out _)) { TileCount++; continue; }
                     var style = kind == (int)TerrainKind.Fence ? WallStyle.Timber : RegionThemes.Get(RegionOf(x, y)).Wall;
-                    bool inBlock = temple.TryBlock(x, y, out int bcol, out int brow);   // pillar block of the generated temple: columns, arches, gilded cap
-                    bool templeWall = !inBlock && tile == MapBlob.Wall && temple.Contains(x, y);   // a real wall inside the footprint: dressed as solid temple wall (blind arcade), never a pier
+                    int bcol = 0, brow = 0;
+                    bool inBlock = !temple.IsSignature && temple.TryBlock(x, y, out bcol, out brow);   // inferred temple: columns, arches, gilded cap
+                    // The signature sanctuary is the one connected enclosure around the healing floor.
+                    bool templeWall = !inBlock && tile == MapBlob.Wall && (temple.IsSignature
+                        ? x >= temple.ShrineWalls.MinX && x <= temple.ShrineWalls.MaxX &&
+                          y >= temple.ShrineWalls.MinY && y <= temple.ShrineWalls.MaxY
+                        : temple.Contains(x, y));
                     if (inBlock || templeWall) style = WallStyle.Temple;
                     var set = RegionWallAtlas.SetFor(style);
                     float hash = RegionNoise.Hash01(x, y, 5); float tint = .92f + hash * .08f;
