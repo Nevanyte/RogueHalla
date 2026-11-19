@@ -1,0 +1,513 @@
+group,asset,weapon,facing,status,required visual check,build reviewed,evidence
+Champion,Fire,Sword,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Sword,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Sword,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Sword,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Sword,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Sword,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Sword,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Sword,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Axe,S,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Axe,SE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Axe,E,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Axe,NE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Axe,N,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Axe,NW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Axe,W,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Axe,SW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Bow,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Bow,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Bow,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Bow,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Bow,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Bow,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Bow,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Bow,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Wand,S,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Wand,SE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Wand,E,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Wand,NE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Wand,N,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Wand,NW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Wand,W,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Wand,SW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Fire,Shield,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Shield,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Shield,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Shield,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Shield,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Shield,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Shield,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Fire,Shield,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Sword,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Sword,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Sword,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Sword,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Sword,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Sword,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Sword,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Sword,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Axe,S,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Axe,SE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Axe,E,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Axe,NE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Axe,N,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Axe,NW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Axe,W,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Axe,SW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Bow,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Bow,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Bow,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Bow,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Bow,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Bow,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Bow,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Bow,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Wand,S,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Wand,SE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Wand,E,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Wand,NE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Wand,N,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Wand,NW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Wand,W,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Wand,SW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Haunted,Shield,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Shield,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Shield,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Shield,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Shield,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Shield,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Shield,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Haunted,Shield,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Sword,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Sword,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Sword,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Sword,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Sword,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Sword,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Sword,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Sword,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Axe,S,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Axe,SE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Axe,E,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Axe,NE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Axe,N,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Axe,NW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Axe,W,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Axe,SW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Bow,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Bow,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Bow,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Bow,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Bow,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Bow,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Bow,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Bow,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Wand,S,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Wand,SE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Wand,E,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Wand,NE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Wand,N,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Wand,NW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Wand,W,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Wand,SW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Plague,Shield,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Shield,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Shield,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Shield,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Shield,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Shield,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Shield,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Plague,Shield,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Sword,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Sword,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Sword,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Sword,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Sword,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Sword,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Sword,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Sword,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Axe,S,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Axe,SE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Axe,E,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Axe,NE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Axe,N,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Axe,NW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Axe,W,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Axe,SW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Bow,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Bow,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Bow,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Bow,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Bow,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Bow,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Bow,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Bow,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Wand,S,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Wand,SE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Wand,E,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Wand,NE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Wand,N,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Wand,NW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Wand,W,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Wand,SW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Frost,Shield,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Shield,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Shield,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Shield,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Shield,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Shield,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Shield,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Frost,Shield,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Sword,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Sword,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Sword,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Sword,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Sword,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Sword,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Sword,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Sword,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Axe,S,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Axe,SE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Axe,E,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Axe,NE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Axe,N,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Axe,NW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Axe,W,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Axe,SW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Bow,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Bow,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Bow,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Bow,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Bow,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Bow,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Bow,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Bow,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Wand,S,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Wand,SE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Wand,E,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Wand,NE,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Wand,N,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Wand,NW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Wand,W,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Wand,SW,Branch – awaiting visual check,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,equipment-green.xml
+Champion,Holy,Shield,S,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Shield,SE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Shield,E,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Shield,NE,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Shield,N,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Shield,NW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Shield,W,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Champion,Holy,Shield,SW,Branch visual sample,"Distinct faction handling; anatomical grip; weapon silhouette and depth; ready, windup, strike and recovery on bright and dark ground",cf0b95f53,champion-capture-1440-final
+Enemy,Ember Imp,Axe,S,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ember Imp,Axe,SE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ember Imp,Axe,E,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ember Imp,Axe,NE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ember Imp,Axe,N,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ember Imp,Axe,NW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ember Imp,Axe,W,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ember Imp,Axe,SW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Cinder Hound,Axe,S,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Cinder Hound,Axe,SE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Cinder Hound,Axe,E,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Cinder Hound,Axe,NE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Cinder Hound,Axe,N,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Cinder Hound,Axe,NW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Cinder Hound,Axe,W,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Cinder Hound,Axe,SW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Magma Brute,Axe,S,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Magma Brute,Axe,SE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Magma Brute,Axe,E,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Magma Brute,Axe,NE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Magma Brute,Axe,N,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Magma Brute,Axe,NW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Magma Brute,Axe,W,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Magma Brute,Axe,SW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Flame Caller,Wand,S,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Flame Caller,Wand,SE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Flame Caller,Wand,E,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Flame Caller,Wand,NE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Flame Caller,Wand,N,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Flame Caller,Wand,NW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Flame Caller,Wand,W,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Flame Caller,Wand,SW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Elite,Wyrmling,Axe,S,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Wyrmling,Axe,SE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Wyrmling,Axe,E,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Wyrmling,Axe,NE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Wyrmling,Axe,N,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Wyrmling,Axe,NW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Wyrmling,Axe,W,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Wyrmling,Axe,SW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Ash Drake,Wand,S,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Ash Drake,Wand,SE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Ash Drake,Wand,E,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Ash Drake,Wand,NE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Ash Drake,Wand,N,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Ash Drake,Wand,NW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Ash Drake,Wand,W,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Ash Drake,Wand,SW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Enemy,Bailiff,Sword,S,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bailiff,Sword,SE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bailiff,Sword,E,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bailiff,Sword,NE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bailiff,Sword,N,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bailiff,Sword,NW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bailiff,Sword,W,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bailiff,Sword,SW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Chain Warden,Sword,S,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Chain Warden,Sword,SE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Chain Warden,Sword,E,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Chain Warden,Sword,NE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Chain Warden,Sword,N,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Chain Warden,Sword,NW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Chain Warden,Sword,W,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Chain Warden,Sword,SW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Inquisitor,Sword,S,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Inquisitor,Sword,SE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Inquisitor,Sword,E,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Inquisitor,Sword,NE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Inquisitor,Sword,N,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Inquisitor,Sword,NW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Inquisitor,Sword,W,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Inquisitor,Sword,SW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Pardoner,Bow,S,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Pardoner,Bow,SE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Pardoner,Bow,E,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Pardoner,Bow,NE,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Pardoner,Bow,N,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Pardoner,Bow,NW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Pardoner,Bow,W,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Pardoner,Bow,SW,Draft,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Elite,Executioner,Sword,S,Branch – awaiting visual check,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",cf0b95f53,
+Elite,Executioner,Sword,SE,Branch – awaiting visual check,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",cf0b95f53,
+Elite,Executioner,Sword,E,Branch – awaiting visual check,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",cf0b95f53,
+Elite,Executioner,Sword,NE,Branch – awaiting visual check,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",cf0b95f53,
+Elite,Executioner,Sword,N,Branch – awaiting visual check,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",cf0b95f53,
+Elite,Executioner,Sword,NW,Branch – awaiting visual check,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",cf0b95f53,
+Elite,Executioner,Sword,W,Branch – awaiting visual check,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",cf0b95f53,
+Elite,Executioner,Sword,SW,Branch – awaiting visual check,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",cf0b95f53,
+Elite,Gaoler,Shield,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Gaoler,Shield,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Gaoler,Shield,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Gaoler,Shield,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Gaoler,Shield,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Gaoler,Shield,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Gaoler,Shield,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Gaoler,Shield,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Enemy,Plague Rat,Bow,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Plague Rat,Bow,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Plague Rat,Bow,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Plague Rat,Bow,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Plague Rat,Bow,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Plague Rat,Bow,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Plague Rat,Bow,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Plague Rat,Bow,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bloatfly,Bow,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bloatfly,Bow,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bloatfly,Bow,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bloatfly,Bow,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bloatfly,Bow,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bloatfly,Bow,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bloatfly,Bow,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Bloatfly,Bow,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rot Monk,Bow,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rot Monk,Bow,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rot Monk,Bow,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rot Monk,Bow,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rot Monk,Bow,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rot Monk,Bow,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rot Monk,Bow,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rot Monk,Bow,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Miasma Witch,Wand,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Miasma Witch,Wand,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Miasma Witch,Wand,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Miasma Witch,Wand,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Miasma Witch,Wand,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Miasma Witch,Wand,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Miasma Witch,Wand,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Miasma Witch,Wand,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Elite,Rat Ogre,Bow,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Rat Ogre,Bow,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Rat Ogre,Bow,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Rat Ogre,Bow,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Rat Ogre,Bow,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Rat Ogre,Bow,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Rat Ogre,Bow,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Rat Ogre,Bow,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Pox Behemoth,Axe,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Pox Behemoth,Axe,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Pox Behemoth,Axe,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Pox Behemoth,Axe,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Pox Behemoth,Axe,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Pox Behemoth,Axe,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Pox Behemoth,Axe,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Pox Behemoth,Axe,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Enemy,Frost Wisp,Shield,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frost Wisp,Shield,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frost Wisp,Shield,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frost Wisp,Shield,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frost Wisp,Shield,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frost Wisp,Shield,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frost Wisp,Shield,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frost Wisp,Shield,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ice Golem,Shield,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ice Golem,Shield,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ice Golem,Shield,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ice Golem,Shield,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ice Golem,Shield,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ice Golem,Shield,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ice Golem,Shield,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Ice Golem,Shield,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rime Stalker,Shield,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rime Stalker,Shield,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rime Stalker,Shield,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rime Stalker,Shield,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rime Stalker,Shield,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rime Stalker,Shield,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rime Stalker,Shield,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Rime Stalker,Shield,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frostbow Sentry,Bow,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frostbow Sentry,Bow,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frostbow Sentry,Bow,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frostbow Sentry,Bow,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frostbow Sentry,Bow,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frostbow Sentry,Bow,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frostbow Sentry,Bow,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Frostbow Sentry,Bow,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Elite,Glacial Warden,Shield,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Glacial Warden,Shield,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Glacial Warden,Shield,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Glacial Warden,Shield,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Glacial Warden,Shield,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Glacial Warden,Shield,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Glacial Warden,Shield,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Glacial Warden,Shield,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Avalanche Troll,Axe,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Avalanche Troll,Axe,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Avalanche Troll,Axe,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Avalanche Troll,Axe,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Avalanche Troll,Axe,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Avalanche Troll,Axe,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Avalanche Troll,Axe,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Avalanche Troll,Axe,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Enemy,Acolyte,Wand,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Acolyte,Wand,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Acolyte,Wand,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Acolyte,Wand,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Acolyte,Wand,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Acolyte,Wand,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Acolyte,Wand,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Acolyte,Wand,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Seraph Shard,Wand,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Seraph Shard,Wand,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Seraph Shard,Wand,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Seraph Shard,Wand,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Seraph Shard,Wand,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Seraph Shard,Wand,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Seraph Shard,Wand,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Seraph Shard,Wand,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Penitent,Wand,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Penitent,Wand,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Penitent,Wand,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Penitent,Wand,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Penitent,Wand,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Penitent,Wand,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Penitent,Wand,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Penitent,Wand,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Zealot,Sword,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Zealot,Sword,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Zealot,Sword,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Zealot,Sword,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Zealot,Sword,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Zealot,Sword,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Zealot,Sword,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Enemy,Zealot,Sword,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing",,
+Elite,Blood Saint,Wand,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Blood Saint,Wand,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Blood Saint,Wand,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Blood Saint,Wand,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Blood Saint,Wand,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Blood Saint,Wand,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Blood Saint,Wand,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Blood Saint,Wand,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Archon,Sword,S,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Archon,Sword,SE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Archon,Sword,E,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Archon,Sword,NE,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Archon,Sword,N,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Archon,Sword,NW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Archon,Sword,W,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Elite,Archon,Sword,SW,To make,"Visible equipped weapon; directional idle/stride, preparation, contact and recovery at existing attack timing; distinctive elite attack or approved unique weapon",,
+Shared item,Sword,Sword,,Branch – awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",cf0b95f53,
+Shared item,Axe,Axe,,Branch – awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",cf0b95f53,
+Shared item,Bow,Bow,,Branch – awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",cf0b95f53,
+Shared item,Wand,Wand,,Branch – awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",cf0b95f53,
+Shared item,Shield,Shield,,Branch – awaiting visual check,"Hold, drop, pick up and re-equip the same item; facing and grip survive transfer across factions",cf0b95f53,
+Scene or effect,Church interior and floor,,,Reviewed sample,"Inspect two doors, roof, pews, pulpit, carved aisle, candelabrum and lancets at gameplay zoom",5f48ac74f,browser-proof.md
+Scene or effect,Church orientations,,,Integrated – awaiting visual check,Same architectural direction and clear doors in all eight orientations,5f48ac74f,P-STORM-CHURCH-ALIGN-1
+Scene or effect,Cypress and marsh ground,,,Reviewed sample,"Forked trunk, canopy, roots, crossing, grass, mud and bog blend with forest at normal zoom",5f48ac74f,cypress-unity/cypress-web-report.md
+Scene or effect,Cypress fern and rubble,,,Reviewed sample,"Match neighbouring pigment, scale, occlusion and shadow direction",5f48ac74f,plague-fern-v2; plague-rubble-v2
+Scene or effect,Holy hall and shrine,,,Reviewed sample,"Eight orientations; axis, sandstone piers, pavers, turquoise aisle and shrine hold together",5f48ac74f,holy-unity/eight-hall-orientations.jpg
+Scene or effect,Frost lake,,,Reviewed sample,Fixed mineral plates and subtle glints retain ice identity beside snow and under actors,5f48ac74f,elemental-pigments/combined-web/web-lake.jpg
+Scene or effect,Frost cave mouth and roof,,,Branch – awaiting visual check,"Review blue-black ice, wind-scoured snow, entry, roof fade, regional lighting and all orientations",,frost-ink-v2
+Scene or effect,"Fire basalt, ember and volcano",,,Draft,"Distinguish dry angular rock, ember ash and molten river; match scale and grounded light",,world-raw/Fire
+Scene or effect,Lava flow,,,Needs revision,Center visibly advects round narrow/curved reaches; bank stays still; no striped or stretched paint; check glowing spill,c3a3556d6 + shader study,flow-candidate-study
+Scene or effect,Shallow-water flow,,,Branch – awaiting visual check,Visible water follows connected channels; closed pools stay quiet; shore and bed remain in place,c3a3556d6 + shader study,flow-candidate-study
+Scene or effect,"Coliseum gates, limestone and standards",,,Draft,"Inspect actual arena gate silhouettes, ground wear, standards and torch spill in an arena encounter",,world-raw/Coliseum
+Scene or effect,Roadside and Holy lamps; church candles,,,Reviewed sample,"Verify emitter centre, cast shade, steady/flickering pool, nearby prop/actor response",5f48ac74f,elemental-light/index.html
+Scene or effect,Lava spill,,,Reviewed sample,Warm near rock and standing fighter; distant rock remains unaffected,5f48ac74f,elemental-light/index.html
+Scene or effect,"Water, bog, mud contacts",,,Reviewed sample,"Shallow wake; slow murky bog trough; mud contact, recovery and Reduced Motion",5f48ac74f,marsh-contact/index.html
+Scene or effect,Snow strokes and rising embers,,,Reviewed sample,"Observe motion, compositing, Reduced Motion and visibility against respective region",5f48ac74f,elemental-pigments/airborne/index.html
+Scene or effect,Ground/prop/actor shading,,,Reviewed sample,"Shared sun, footprint/contact shadow, no detached painted cast shadow or raised dark outlines",5f48ac74f,elemental-light/index.html
+Scene or effect,Elemental combat smears and contact,,,Integrated – awaiting visual check,"Per-faction readable windup, 1 brief impact, recovery, dry-brush travel and concentrated accent colour",5f48ac74f,browser-proof.md
+Scene or effect,Guild hall,,,Branch – awaiting visual check,"Walk routes, room scale, occupied stations and visual integration",8ace2a3b5,P-STORM-HUB-1
+Scene or effect,Faction portraits,,,Branch – awaiting visual check,"Five guide portraits at cell size, correct faction/name",8ace2a3b5,P-STORM-HUB-1
+Scene or effect,Shop previews,,,Branch – awaiting visual check,Ten catalog items and their proper illustration at card size,8ace2a3b5,P-STORM-HUB-1
+Scene or effect,HUD in final cast fights,,,Integrated – awaiting visual check,"Combat text, aim, minimap and cooldowns distinguishable on bright/dark ground with final roster",5f48ac74f,elemental-light/gameplay-performance.html
+Scene or effect,Summoned Plague zombie,,,To make,Independent from regional roster; check necromancer identity and 8 headings,,mob-briefs.json
+Regional dressing,Haunted / Tomb,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Haunted / Cross,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Haunted / Slab,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Haunted / Roadside lantern body,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Haunted / Urn,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Haunted / Gargoyle,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Haunted / Dead grass,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Haunted / Scarecrow,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Haunted / Dead tree,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Plague / Bush,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Plague / Ordinary tree,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Plague / Ruined column,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Plague / Mushroom,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Palm,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Shrub,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Flowers,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Field pillar,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Rock,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Grass,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Minaret,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Column,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Gateway,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Mihrab,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Secondary lamp,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Urn,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Bench,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Screen,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Holy / Brazier,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Frost / Pine A,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Frost / Pine B,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Frost / Rock A,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Frost / Rock B,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Frost / Snowdrift A,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Frost / Snowdrift B,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Frost / Shards,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Frost / Reeds,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Frost / Bush,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Fire / Spire,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Fire / Loose rocks,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Fire / Burnt stump,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Fire / Crystal,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Fire / Vent,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Coliseum / Banner,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Coliseum / Torch,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
+Regional dressing,Coliseum / Weapon rack,,,Earlier art – visual review due,"Compare silhouette, ground contact, scale, palette, shadow and any visible emission in the actual region. Keep or revise on evidence.",,
