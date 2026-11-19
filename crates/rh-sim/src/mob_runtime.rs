@@ -452,8 +452,8 @@ static LEGACY_ELITES: EliteTuning = EliteTuning {
 };
 static REWORK_ELITES: EliteTuning = EliteTuning {
     k: crate::constants::ELITE_K,
-    hp_mult: crate::constants::ELITE_HP_MULT,
-    dmg_mult: crate::constants::ELITE_DMG_MULT,
+    hp_mult: crate::constants::REWORK_ELITE_HP_MULT,
+    dmg_mult: crate::constants::REWORK_ELITE_DMG_MULT,
 };
 
 impl EliteTuning {

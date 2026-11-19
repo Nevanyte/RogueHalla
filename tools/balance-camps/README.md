@@ -132,3 +132,24 @@ still happens.
 * Bots misvalue the reworked cards until P-AUG-BOTS-1, so the `bot_sample` builds are "what bots pick today".
 * Survivorship in the bot sample: only about 3 in 8 matches reach minute 5, and builds are those of the players standing.
 * Before P-ELITE-TUNE-1 the elite numbers equal legacy: the table is a baseline, not a result.
+
+## Elite numbers: before and after P-ELITE-TUNE-1 (owner decision 2026-11-19, dmg 1.0, hp 1.5)
+
+`camp_bench --elite --fighter both --seed 1` (3 default seeds, 900 samples a cell), stderr tables saved as
+`elite_before.txt` (Rework elites at the legacy numbers, hp x2.0, dmg x1.5) and `elite_after.txt` (hp x1.5, dmg x1.0,
+`k` unchanged). Release build with `--features elite-bench`. The Duelist at banked_12 is the owner's reference column.
+
+| Duelist, banked_12 | before | after |
+|---|---|---|
+| overall (died / engaged) | 43.1% | **17.4%** (target 10-20%; the sweep predicted 18.3%) |
+| decided (died / (died + cleared)) | 43.8% | 17.7% |
+| Brawler (upper bound), overall | 46.2% | 20.6% |
+
+Per weapon (Duelist, banked_12, decided rate): sword 32.0% -> 8.7%, bow 74.8% -> 47.5%, wand 63.0% -> 25.2%, shield
+28.9% -> 6.7%, axe 23.3% -> 6.0%, fists 42.6% -> 14.3%. The ranged weapons (bow, wand) stay well above the target.
+
+Per camp (Duelist, banked_12, overall): wyrmling 67.8% -> 25.6%, ashDrake 46.7% -> 22.2%, executioner 23.3% -> 2.2%,
+gaoler 74.4% -> 23.3%, ratOgre 32.2% -> 8.9%, poxBehemoth 24.4% -> 14.4%, glacialWarden 53.3% -> 17.8%, avalancheTroll
+84.4% -> 46.7%, bloodSaint 10.0% -> 6.7%, archon 14.4% -> 6.7%. The spread is wide: avalancheTroll (46.7%), wyrmling,
+gaoler and ashDrake sit above the band, executioner, ratOgre, bloodSaint and archon below it. The numbers were not
+tuned toward the sweep's figure.

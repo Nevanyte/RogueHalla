@@ -588,4 +588,8 @@ content! {
     REWORK_WISHFUL_HIT_SHARE: f64 = 0.015, "share";
     /// Wishful Thinking: the most one rolling window may cut, as a share of the cast's full Wish cooldown (P-AUG-TUNE-1).
     REWORK_WISHFUL_BUDGET_SHARE: f64 = 0.20, "share";
+    /// Rework elites: damage multiplier (legacy `ELITE_DMG_MULT` 1.5; owner decision 2026-11-19, P-ELITE-TUNE-1).
+    REWORK_ELITE_DMG_MULT: f64 = 1.0, "multiplier";
+    /// Rework elites: HP multiplier (legacy `ELITE_HP_MULT` 2.0; owner decision 2026-11-19, P-ELITE-TUNE-1).
+    REWORK_ELITE_HP_MULT: f64 = 1.5, "multiplier";
 }
