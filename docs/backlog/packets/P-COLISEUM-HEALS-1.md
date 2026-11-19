@@ -140,8 +140,8 @@ green), C-INPUT (no command: walking is the input), C-OBS (nothing observed in t
 
 ## 7. Behaviour to preserve
 
-- Legacy worlds: no `Heal` container, the same state hash (the oracle pins a legacy run's hash measured on the base:
-  `0x…` in `legacy_worlds_are_unchanged`), the same entity ids.
+- Legacy worlds: no `Heal` container, the same state hash (the oracle pins a legacy run's hash measured on the stub:
+  `0xba40_e6d0_daec_05d9` in `legacy_worlds_are_unchanged`, a 200-step run with a player at 50% hp), the same entity ids.
 - `use_potion` behaviour and notices unchanged (`potions_tests.rs` stays green).
 - `content_hash()` unchanged (`GOLDEN_CONTENT_HASH`).
 
@@ -206,3 +206,13 @@ Risks:
 - Do not emit a `PotionNotice` (its wire byte is 1..=10; a new notice is a wire change, HEALS-2).
 
 ## Notes from previous attempts
+
+- Oracle (second author, after a container restart cut the first): every grand-map test fails at its first assertion
+  on the stub (`grand_sim` asserts four `Heal` containers; `pickups_stand_…` asserts `spots`); `legacy_worlds_are_unchanged`
+  and `the_rule_numbers_are_the_lane_defaults` pass and must stay green. Measured on the stub's grand (= legacy-layout)
+  world: no mobs under `SimConfig::default()`, two bodies on one spot are not pushed apart, nothing else heals or hurts
+  a parked player over 31 s, and a Large Hot from 50% lands exactly on 0.9. If the GRAND implementation adds mobs or
+  hazards near the centre and the exact 0.9 moves, that is a coordinator question, not an implementer edit.
+- Owner note relayed 2026-11-19 "8 sides sorry for confusion" concerns the coliseum's shape (GRAND); the four spots
+  are the centre tiles of any shape whose centre is (80,80), so this oracle does not depend on it unless the centre
+  tiles stop being floor.
