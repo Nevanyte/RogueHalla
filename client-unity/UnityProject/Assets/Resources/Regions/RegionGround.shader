@@ -19,6 +19,9 @@ Shader "Roguehalla/RegionGround"
         _PlgTex("Plague ground", 2D) = "black" {}
         [NoScaleOffset] _StormMarshWash("Storm Ink marsh wash", 2D) = "white" {}
         [HideInInspector] _StormMarshOn("Storm Ink marsh present", Float) = 0
+        [NoScaleOffset] _StormTempleStone("Storm Ink temple stone", 2D) = "white" {}
+        [HideInInspector] _StormHallPlan("Storm Ink Hall plan", Vector) = (0,0,0,0)
+        [HideInInspector] _StormHallAxis("Storm Ink Hall axis", Vector) = (0,0,0,0)
         _VariantTex("Ground variants (rgb tint, a strength, 1 texel per tile)", 2D) = "black" {}
         _VariantOn("Ground variants present", Float) = 0
         _VariantSoft("Soft band gains present", Float) = 0
@@ -519,6 +522,7 @@ Shader "Roguehalla/RegionGround"
             }
 
             #include "StormInkMarsh.hlsl"
+            #include "StormInkHall.hlsl"
 
             half4 Frag(Varyings i) : SV_Target
             {
@@ -626,7 +630,16 @@ Shader "Roguehalla/RegionGround"
                     float3 tcol, temis; float tin;
                     float tS = _Temple.z;
                     float dE = min(min(t.x - _Temple.x, _Temple.x + tS - t.x), min(t.y - _Temple.y, _Temple.y + tS - t.y));
-                    if (dE > -3.2)
+                    [branch] if (_StormHallPlan.x > 0.5)
+                    {
+                        if (dE > -0.1)
+                        {
+                            StormHallSurface(t, dE, tcol, temis, templeIn);
+                            col = lerp(col, tcol, templeIn);
+                            emis = lerp(emis, temis, templeIn);
+                        }
+                    }
+                    else if (dE > -3.2)
                     {
                         TempleSurface(t, tcol, temis, tin); templeIn = tin;
                         // cast shadow line of the plinth and arcade on the sand: the sun is north-west, so the shade falls to the south and east (a hint on the other sides)

@@ -21,17 +21,19 @@ namespace Roguehalla.Client
     ///  - threshold ("Hall threshold"): a paved band with a gold inlay across the entrance tiles and a low lamp post at each end.
     /// Colours are sRGB and follow the Holy zone (pale sandstone, gold accents; walls there are sandstone).
     /// </summary>
-    public static class HallLandmark
+    public static partial class HallLandmark
     {
         const float Sq = ArenaView.GroundSquash, Wall = RegionWalls.WallHeight;
         static readonly Color Sand = new Color(.84f, .73f, .52f), SandLit = new Color(.95f, .87f, .67f), SandDark = new Color(.60f, .50f, .36f),
             Ink = new Color(.20f, .13f, .08f), Gold = new Color(.96f, .76f, .26f), GoldDark = new Color(.70f, .50f, .14f), Warm = new Color(1f, .86f, .45f),
             RoofLit = new Color(.90f, .76f, .50f), RoofDark = new Color(.66f, .50f, .32f);
 
-        sealed class Group
+        internal sealed class Group
         {
             public int MinX = int.MaxValue, MinY = int.MaxValue, MaxX = -1, MaxY = -1;
             public readonly List<Vector2Int> Tiles = new List<Vector2Int>();
+            public bool IsPier { get { return Tiles.Count == 9 && MaxX - MinX == 2 && MaxY - MinY == 2; } }
+            public Vector2 Centre { get { return new Vector2((MinX + MaxX + 1) * .5f, (MinY + MaxY + 1) * .5f); } }
         }
 
         struct Box
@@ -48,25 +50,38 @@ namespace Roguehalla.Client
 
         public static void Build(Landmark lm)
         {
-            var groups = FindGroups(lm);
+            var temple = lm.IsDeliveredAnchor ? TempleLayout.For(lm.SourceMap) : null;
+            if (temple != null && temple.SignatureAnchor == lm.Anchor)
+            {
+                BuildStormInk(lm, temple);
+                return;
+            }
+            var groups = FindGroups(new RectInt(lm.FootX, lm.FootY, lm.FootW, lm.FootH), lm.IsWall);
             if (groups.Count == 0) return;
-            Group shrine = null;
-            foreach (var g in groups) if (g.Tiles.Count > 9 && (shrine == null || g.Tiles.Count > shrine.Tiles.Count)) shrine = g;
+            var shrine = ShrineGroup(groups);
             foreach (var g in groups)                                                  // a pier is exactly a full 3 x 3 box; any other fragment draws nothing
-                if (g != shrine && g.Tiles.Count == 9 && g.MaxX - g.MinX == 2 && g.MaxY - g.MinY == 2) BuildColumn(lm, g);
+                if (g.IsPier) BuildColumn(lm, g);
             if (shrine != null) BuildShrine(lm, shrine); else lm.SetCover(new List<Roguehalla.Net.Protocol.MapTile>());
             if (lm.ArchTiles.Length > 0) BuildThreshold(lm);
         }
 
         // ---- reading the tiles --------------------------------------------------------------------------------------------------
 
-        static List<Group> FindGroups(Landmark lm)
+        internal static Group ShrineGroup(List<Group> groups)
         {
-            var groups = new List<Group>(); var seen = new bool[lm.FootW * lm.FootH]; var stack = new Stack<Vector2Int>();
-            for (int y = lm.FootY; y < lm.FootY + lm.FootH; y++) for (int x = lm.FootX; x < lm.FootX + lm.FootW; x++)
+            Group shrine = null;
+            foreach (var g in groups) if (g.Tiles.Count > 9 && (shrine == null || g.Tiles.Count > shrine.Tiles.Count)) shrine = g;
+            return shrine;
+        }
+
+        internal static List<Group> FindGroups(RectInt footprint, Func<int, int, bool> isWall)
+        {
+            int w = footprint.width;
+            var groups = new List<Group>(); var seen = new bool[w * footprint.height]; var stack = new Stack<Vector2Int>();
+            for (int y = footprint.yMin; y < footprint.yMax; y++) for (int x = footprint.xMin; x < footprint.xMax; x++)
             {
-                int i = (y - lm.FootY) * lm.FootW + x - lm.FootX;
-                if (seen[i] || !lm.IsWall(x, y)) continue;
+                int i = (y - footprint.yMin) * w + x - footprint.xMin;
+                if (seen[i] || !isWall(x, y)) continue;
                 var g = new Group(); seen[i] = true; stack.Push(new Vector2Int(x, y));
                 while (stack.Count > 0)
                 {
@@ -75,8 +90,8 @@ namespace Roguehalla.Client
                     for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++)
                     {
                         int nx = t.x + dx, ny = t.y + dy;
-                        if (nx < lm.FootX || ny < lm.FootY || nx >= lm.FootX + lm.FootW || ny >= lm.FootY + lm.FootH || !lm.IsWall(nx, ny)) continue;
-                        int ni = (ny - lm.FootY) * lm.FootW + nx - lm.FootX;
+                        if (!footprint.Contains(new Vector2Int(nx, ny)) || !isWall(nx, ny)) continue;
+                        int ni = (ny - footprint.yMin) * w + nx - footprint.xMin;
                         if (seen[ni]) continue;
                         seen[ni] = true; stack.Push(new Vector2Int(nx, ny));
                     }
@@ -87,13 +102,13 @@ namespace Roguehalla.Client
         }
 
         /// <summary>The closed doorway of the shrine: the non-wall tiles on its box border (never a corner), one contiguous run of at most five.</summary>
-        static List<Vector2Int> DoorTiles(Landmark lm, Group b)
+        internal static List<Vector2Int> DoorTiles(Group b, Func<int, int, bool> isFloor)
         {
             var door = new List<Vector2Int>();
             for (int y = b.MinY; y <= b.MaxY; y++) for (int x = b.MinX; x <= b.MaxX; x++)
             {
                 bool edgeX = x == b.MinX || x == b.MaxX, edgeY = y == b.MinY || y == b.MaxY;
-                if ((edgeX || edgeY) && !(edgeX && edgeY) && !lm.IsWall(x, y)) door.Add(new Vector2Int(x, y));
+                if ((edgeX || edgeY) && !(edgeX && edgeY) && isFloor(x, y)) door.Add(new Vector2Int(x, y));
             }
             if (door.Count > 5) door.Clear();
             else if (door.Count > 0)
@@ -191,6 +206,7 @@ namespace Roguehalla.Client
                 }
                 c.a = 1f; return c;
             });
+            int order = 2000 + 16 * g.MaxY + 1;
             cv.Paint((wx, wy) =>                                                        // the column, over the base
             {
                 float lx = wx - cx, ly = wy - baseY, ax = Mathf.Abs(lx);
@@ -227,7 +243,7 @@ namespace Roguehalla.Client
                 if (ax > half - .03f || h < .01f || h > Foot + ShaftH + CapH - .03f || shaft && (h < Foot + .015f)) col = Ink;
                 col.a = 1f; return col;
             });
-            cv.ToSprite(lm, "Hall column", "Hall column", 2000 + 16 * g.MaxY + 1);
+            cv.ToSprite(lm, "Hall column", "Hall column", order);
         }
 
         // ---- the shrine ----------------------------------------------------------------------------------------------------------
@@ -235,7 +251,7 @@ namespace Roguehalla.Client
         static void BuildShrine(Landmark lm, Group b)
         {
             var cover = new List<Roguehalla.Net.Protocol.MapTile>();                   // the roof's cover: the shrine's interior and walls (not the door tiles, no pier)
-            var door = DoorTiles(lm, b);
+            var door = DoorTiles(b, (x, y) => !lm.IsWall(x, y));
             if (door.Count == 0)                                                       // no doorway found: no roof and no cover (nobody could be seen entering)
             {
                 lm.SetCover(cover); BuildLight(lm); return;
