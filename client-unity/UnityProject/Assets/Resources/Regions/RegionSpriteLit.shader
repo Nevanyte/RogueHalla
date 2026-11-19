@@ -6,6 +6,7 @@ Shader "Roguehalla/RegionSpriteLit"
     {
         [PerRendererData] _MainTex("Sprite Texture", 2D) = "white" {}
         [PerRendererData] _StormInkResponse("Ink response (original, matte, flame)", Float) = 0
+        [PerRendererData] _StormFlameUV("Atlas flame centre and inverse radius", Vector) = (0,0,0,0)
         _Ndl("Sun facing", Float) = 0.55
         [PerRendererData] _WetRootContact("Wet root pigment", Float) = 0
         [HideInInspector] _LayeredCanopy("Overlapping ink wash", Float) = 0
@@ -56,6 +57,7 @@ Shader "Roguehalla/RegionSpriteLit"
             CBUFFER_START(UnityPerMaterial)
                 half _Ndl;
                 half _StormInkResponse;
+                float4 _StormFlameUV;
                 half _LayeredCanopy;
                 half _WetRootContact;
             CBUFFER_END
@@ -129,7 +131,10 @@ Shader "Roguehalla/RegionSpriteLit"
                 {
                     // Only the upper flame and lit glass carry light. A gold stone border stays matte.
                     half hot = smoothstep(.30h, .72h, pigment.r - pigment.b) * smoothstep(.50h, .82h, pigment.r);
-                    lit.rgb += pigment * (.25h * hot * smoothstep(.62h, .80h, i.uv.y)) * main.a;
+                    half mask = smoothstep(.62h, .80h, i.uv.y);
+                    if (_StormFlameUV.z > 0)
+                        mask = 1.0h - smoothstep(.40, 1.25, length((i.uv - _StormFlameUV.xy) * _StormFlameUV.zw));
+                    lit.rgb += pigment * (.25h * hot * mask) * main.a;
                 }
                 else if (!painted && _RhLI.x > .5)
                 {

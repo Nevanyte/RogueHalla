@@ -3,7 +3,7 @@
 // LocalLightField.cs gathers every light in view (terrain accents, lanterns, temple lamps, Wish and impact flashes, fireflies, embers)
 // into two fixed arrays. Each surface evaluates them per pixel with a distance early-out, so a light shapes the surface it falls on:
 //   * relief   : a "delta Lambert" term. A flat surface keeps exactly the brightness a flat light would give; slopes facing the light get
-//                brighter, slopes facing away darker (normals come from the baked ground height, the wall face, or the painted luma).
+//                brighter, slopes facing away darker (normals come from the baked ground height, the wall face, or the receiver silhouette).
 //   * shadows  : soft penumbra from the wall grid, traced once per light on the CPU against a baked signed-distance field and stored in a small atlas (LightShadowAtlas.cs). Surfaces only; actors
 //                are never darkened by it, so darkness cannot hide a visible character.
 //   * cookies  : procedural light patterns (grated lantern, leaf dapple, stained glass).
@@ -55,7 +55,7 @@ void RhLocalLights(float2 pt, float3 n, float gloss, float shin, float shadowAmt
     diffuse = 0; spec = 0;
     int cnt = (int)_RhLI.x;
     float relief = _RhLI.y * 1.35;
-    float time = _Time.y;
+    float time = _RhInkClock.x;
     [loop] for (int i = 0; i < RH_MAX_LIGHTS; i++)
     {
         if (i >= cnt) break;

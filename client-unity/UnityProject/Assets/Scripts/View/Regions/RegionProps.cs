@@ -36,6 +36,19 @@ namespace Roguehalla.Client
         /// <summary>True when the map blob carries the server's decoration (shipped props): the client then rolls none of its own look.</summary>
         public static bool IsDressed(MapBlob map) { return map != null && map.Props != null && map.Props.Length > 0; }
 
+        // Flame centres in source pixels above/right of the painted foot. The same point
+        // drives the atlas emission mask and the world light after per-instance reflection.
+        internal static bool TryFlameSocket(string art, out Vector2 socket)
+        {
+            switch (art)
+            {
+                case "sent.lantern": socket = new Vector2(13f, 95f); return true;
+                case "col.torch": socket = new Vector2(0f, 82f); return true;
+                case "temple.brazier": socket = new Vector2(0f, 50f); return true;
+                default: socket = default; return false;
+            }
+        }
+
         /// <summary>The one test of "this placed prop is tall": the shipped row's flag for shipped props, the art's for client-rolled ones. Drawing, fading and shadows all use it.</summary>
         public static bool IsTall(Placement pl, RegionPropSprite art) { return pl.Shipped ? (pl.Flags & 1) != 0 : art.Tall; }
 
@@ -160,11 +173,13 @@ namespace Roguehalla.Client
             var placements = Scatter(map);
             int visualSeed = unchecked((int)(map.LayerHash ^ (map.SemanticHash * 2654435761u)));
             HashSet<byte> warned = null;
-            MaterialPropertyBlock mattePigment = null;
+            MaterialPropertyBlock mattePigment = null, flamePigment = null;
             if (_material.HasProperty("_StormInkResponse"))
             {
                 mattePigment = new MaterialPropertyBlock();
                 mattePigment.SetFloat("_StormInkResponse", 1f);
+                flamePigment = new MaterialPropertyBlock();
+                flamePigment.SetFloat("_StormInkResponse", 2f);
             }
             foreach (var pl in placements)
             {
@@ -202,7 +217,15 @@ namespace Roguehalla.Client
                 Vector3 foot = ArenaView.WorldPoint(pl.X * 32f, pl.Y * 32f);
                 go.transform.localPosition = foot; go.transform.localScale = new Vector3(flip ? -scaleX : scaleX, scaleY, 1f);
                 var sr = go.AddComponent<SpriteRenderer>(); sr.sprite = art.Sprite; sr.sharedMaterial = _material;
-                if (art.UsesAuthoredTexture && mattePigment != null) sr.SetPropertyBlock(mattePigment);
+                if (flamePigment != null && TryFlameSocket(pl.Art, out var flame))
+                {
+                    var sprite = art.Sprite;
+                    Vector2 centre = sprite.rect.position + sprite.pivot + flame;
+                    float w = sprite.texture.width, h = sprite.texture.height;
+                    flamePigment.SetVector("_StormFlameUV", new Vector4(centre.x / w, centre.y / h, w / 14f, h / 21f));
+                    sr.SetPropertyBlock(flamePigment);
+                }
+                else if (art.UsesAuthoredTexture && mattePigment != null) sr.SetPropertyBlock(mattePigment);
                 sr.color = tint;
                 sr.sortingOrder = 2000 + Mathf.RoundToInt(pl.Y * 32f * .5f) + pl.Bias;
                 bool tall = IsTall(pl, art);

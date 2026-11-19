@@ -1,9 +1,7 @@
 #ifndef RH_STORM_INK_LIGHT_MOTION_INCLUDED
 #define RH_STORM_INK_LIGHT_MOTION_INCLUDED
 
-// Tile-anchored brush marks share the atmosphere clock. x freezes with Reduced Motion,
-// y enables ornamental movement, z enables the quality-controlled glints.
-float4 _RhInkClock;
+// Tile-anchored brush marks use the same atmosphere clock as the sun and local lamps.
 
 float InkWaterReflection(float2 t, float wet)
 {
@@ -33,10 +31,72 @@ float InkIceGlint(float2 t, float fissure, float streak)
     return mark * max(fissure, streak * .46) * smoothstep(.36, .77, grain) * _RhInkClock.z;
 }
 
+// A chine of broken indigo and a small pale edge give a fracture its thickness.
+// Sweep patches, gaps in the veins and the mineral grain stay attached to the ice.
+void InkIceSurface(float2 t, float inner, float3 glow, out float3 colour, out float3 emission, out float height)
+{
+    float2 brush = float2(dot(t, float2(.54, .23)), dot(t, float2(-.36, 1.31)));
+    float paper = VNoise(t * .72 + 7.2);
+    float wash = Fbm(brush * float2(.48, 1.7));
+    float score = Worley(brush * float2(.86, .71) + paper * .34).y;
+    float vein = (1.0 - smoothstep(.016, .084, score)) * smoothstep(.27, .67, paper);
+    float edge = (1.0 - smoothstep(.012, .050, abs(score - .099))) * smoothstep(.42, .73, wash);
+    float shore = 1.0 - smoothstep(.08, .78, inner);
+    float rake = VNoise(brush * float2(.92, 8.5));
+    float streak = smoothstep(.55, .82, rake) * smoothstep(.43, .67, wash);
+    colour = lerp(float3(.050, .078, .10), float3(.30, .37, .39), smoothstep(.20, .80, wash));
+    colour = lerp(colour, float3(.48, .54, .53), shore * .51 + streak * .16);
+    colour *= 1.0 - vein * .47;
+    colour += float3(.13, .15, .15) * edge;
+    float glint = InkIceGlint(t, max(edge, vein * .34), streak);
+    emission = glow * glint * .53;
+    if (_RhSwitch.z > .5)
+    {
+        float depth = VNoise(brush * .74 + (t - _RhCam.xy) * .065);
+        colour *= lerp(1.0, .72 + depth * .31, inner);
+    }
+    height = .020 * edge - .030 * vein;
+}
+
 float InkLavaPulse(float2 t)
 {
     // A broad moving seam of heat below the dry basalt crust, visible without bloom.
     float pigment = VNoise(t * .47 + 14.1);
     return .89 + .11 * sin(dot(t, float2(.49, -.25)) + pigment * 3.0 - _RhInkClock.x * 1.06);
+}
+
+// A broad red current carries long gold strokes past dark rafts of crust. The bank
+// and the flowing interior are both bounded by the delivered molten terrain.
+void InkLavaSurface(float2 t, float inner, float3 glow, out float3 colour, out float3 emission, out float height)
+{
+    float2 flow = float2(.69*t.x + .30*t.y, -.23*t.x + .91*t.y);
+    float bend = VNoise(t * .43) * 1.35 + VNoise(t * 1.11) * .28;
+    float2 p = float2(flow.x * .50, flow.y * 2.1 + bend * 2.9);
+    float grain = Fbm(p + float2(-_RhInkClock.x * .105, 0));
+    float crust = smoothstep(.57, .68, grain + .089 * (1.0 - inner));
+    float brush = 1.0 - smoothstep(.018, .14, abs(frac(flow.y * .94 + bend - grain * .47) - .50));
+    float gold = brush * smoothstep(.27,.61,grain) * (1.0 - crust);
+    float strand = VNoise(p * float2(2.1, 3.7) + float2(-_RhInkClock.x * .21, 0));
+    float tip = smoothstep(.51, .82, strand) * gold;
+    float core = (1.0 - crust) * (.10 + .40 * inner) * (.67 + .60 * grain);
+    colour = lerp(float3(.22, .037, .015), float3(.55, .155, .027), smoothstep(.23, .68, grain));
+    colour = lerp(colour, float3(.063, .036, .031) * (.72 + .62 * grain), crust);
+    emission = (float3(.96, .13, .018) * core + float3(.8, .42, .08) * gold
+        + float3(.60, .48, .14) * tip + glow * (.030 * inner)) * InkLavaPulse(t);
+    height = .046 * crust - .012 * gold;
+}
+
+// Ember terrain is cooling cinder. Short, disconnected flecks sit inside the ash.
+void InkEmberSurface(float2 t, float3 glow, out float3 colour, out float3 emission, out float height)
+{
+    float2 brush = float2(dot(t, float2(.84, .33)), dot(t, float2(-.41, 1.1)));
+    float grain = Fbm(brush * 2.1);
+    float scratch = VNoise(brush * float2(2.3, 8.5) + grain);
+    float fleck = smoothstep(.72, .88, scratch) * smoothstep(.49, .69, grain);
+    float pulse = .80 + .20 * sin(_RhInkClock.x * 1.4 + floor(brush.x * 2.0));
+    colour = lerp(float3(.068, .034, .030), float3(.21, .103, .061), smoothstep(.20, .79, grain));
+    colour += fleck * float3(.40, .18, .045);
+    emission = glow * (.014 + fleck * .55 * pulse);
+    height = (grain - .5) * .035;
 }
 #endif
