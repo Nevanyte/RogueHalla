@@ -132,6 +132,7 @@ namespace Roguehalla.Client
 
         public static int EffectiveMaxLights { get { return DynamicLights ? Mathf.Clamp(MaxDynamicLights, 0, HardMaxLights) : 0; } }
         public static bool ParticlesEnabled { get { return ParticleDensity > .001f; } }
+        public static bool ReducedMotion { get; private set; }
 
         /// <summary>Replace every field at once, then re-apply query overrides and notify. The future Quality API calls this.</summary>
         public static void Apply(float particleDensity, bool dynamicLights, int maxLights, bool post, bool bloom, bool grading, bool vignette, bool haze = true, bool audio = true,
@@ -148,6 +149,7 @@ namespace Roguehalla.Client
         /// <summary>Preset values for the three existing quality levels. Reduced motion switches screen particles off.</summary>
         public static void ApplyPreset(ShowcaseQuality quality, bool reducedMotion)
         {
+            ReducedMotion = reducedMotion;
             SetSurfaceFx((int)quality, reducedMotion);
             switch (quality)
             {
@@ -167,6 +169,7 @@ namespace Roguehalla.Client
             var s = ShowcaseSettings.Current;
             bool reduced = s != null && s.ReducedMotion;
             if (_ovQuality.HasValue) { ApplyPreset(_ovQuality.Value, reduced); return; }
+            ReducedMotion = reduced;
             // The Quality row (QualityModel: Low / Medium / High / Ultra plus ?fx.* per-effect overrides) is the source of truth.
             var preset = Quality.Preset;
             SetSurfaceFx((int)preset, reduced);

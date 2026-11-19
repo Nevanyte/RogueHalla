@@ -27,7 +27,7 @@ namespace Roguehalla.Client
         }
 
         public int Live { get { return _spark.particleCount + _trail.particleCount + _contact.particleCount; } }
-        public static bool On { get { return AtmosphereQuality.Sparks && Quality.Particles > 0f; } }
+        public static bool On { get { return AtmosphereQuality.Sparks && AtmosphereQuality.ParticlesEnabled; } }
 
         /// <summary>One trail puff behind a drawn projectile (call each frame per projectile).</summary>
         public void Trail(Vector3 world, Vector3 backward, Color c, float size)
@@ -41,7 +41,7 @@ namespace Roguehalla.Client
         public void Burst(Vector3 world, Color c, int count, float speed, float size, ref uint rng)
         {
             if (!On) return;
-            count = Mathf.Max(1, Mathf.RoundToInt(count * Mathf.Min(1.5f, Quality.Particles)));
+            count = Mathf.Max(1, Mathf.RoundToInt(count * Mathf.Min(1.5f, AtmosphereQuality.ParticleDensity)));
             for (int i = 0; i < count; i++)
             {
                 float a = Rand(ref rng) * 6.2832f, s = speed * (.35f + .65f * Rand(ref rng));
@@ -91,8 +91,7 @@ namespace Roguehalla.Client
         /// <summary>A confirmed hit or block on a presented actor: sparks and a flash that lights the ground and nearby surfaces.</summary>
         public void Hit(Vector3 actorWorld, bool block, ref uint rng, FactionId? attacker = null, float angle = 0f, bool passive = false)
         {
-            bool reduceMotion = ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
-            if (On && !block && !passive && !reduceMotion)
+            if (On && !block && !passive && !AtmosphereQuality.ReducedMotion)
             {
                 Color pigment = attacker.HasValue ? (Color)ShowcasePalette.Faction((int)attacker.Value) : new Color(1f, .83f, .48f);
                 var contact = new ParticleSystem.EmitParams
