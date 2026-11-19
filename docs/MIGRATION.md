@@ -4,6 +4,30 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Elite and augment rework (2026-11-18): approved plan, in progress
+
+**Owner direction 2026-11-18:**
+- "please use majority sonnet sub agents and opus sub agents to implement the elite and augment reworks", from the
+  future-only workbook `docs/quests/FUTURE_ONLY_Quest_Design_Discussion.xlsx`.
+- Answers to the coordinator's questions:
+  - Augments: "Plus 13 new" (the 13 the current whitelist allows).
+  - Elites: all three: "Measure, then tune", "Killer first pick", "Helpers earn stacks".
+- After seeing the skip list: "Add 'marked man' to the list of augments and the plan is perfect" (plan approved).
+
+**Plan of record:** [backlog/AUGMENT_ELITE_REWORK.md](backlog/AUGMENT_ELITE_REWORK.md). It holds the scope, the
+decisions taken under the 2026-11-14 delegation, 23 packets in 9 waves, and Appendix A (the Augment_Tuning numbers).
+
+- Every change is live-only, behind `SimConfig::augments` and `SimConfig::elites`: `Legacy` by default, `Rework` in
+  `live_content`. The one exception is the Plant Your Feet range port, which is legacy behaviour.
+- Balance rows go to DEVIATIONS for the owner to sign at the end.
+- One planned stop: after wave 3, the elite bench table and the proposed elite numbers go to the owner before
+  P-ELITE-TUNE-1.
+- Not built: 6 stat conversions and 8 keystones ("needs ruling").
+
+**Approvals this covers:** packets and oracles for the 23 packet ids in the plan, protocol 19, the checkpoint-format
+bumps and three content-hash moves the plan names, and Unity client edits. A push or a merge into `main` still waits for
+the owner.
+
 ## Integration 58 (2026-11-18): the GitHub front page
 
 **Owner direction 2026-11-18:** "Please begin working on it all using sub agents", the answer to the coordinator's list of
