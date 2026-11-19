@@ -114,9 +114,11 @@ Rust today:
   `oracle-amend:` commit (for the owner/coordinator): the two pool assertions apply to `Legacy` only; under `Rework`,
   `t.pool() == REWORK_POOL`. Everything else in the test (defs, numbers) is unchanged.
 - `crates/rh-sim/tests/augment_rules.rs:432-505` `legacy_and_empty_rework_play_the_same_match`: equal events and worlds
-  under both rules over 240 ticks of an elite-camp fight. It stays valid only while no augment chest drops in those
-  ticks (an elite kill would roll from different pools). Not changed; if it fails after implementation because the
-  elite died, report it: it is a conflict for the coordinator, not a licence to edit it.
+  under both rules over 240 ticks of an elite-camp fight. **Conflict, confirmed** with a throwaway prototype of this
+  packet: on seed 11 the elite dies, and its camp chest rolls from the rule's own pool, so `world.reward_chests` differs
+  (events and every other world field stay equal, the reward RNG included). Amended in the same `oracle-amend:` commit:
+  each camp chest's card options are checked against its rule's pool (`INTERACTIVE` / `REWORK_POOL`) and then left out
+  of the world comparison. Nothing else in the test changes.
 - `crates/rh-sim/tests/reward_pools.rs:59, 93-98, 137` and `crates/rh-sim/src/reward_chests/tests.rs:235-279`
   (`source_restricted_pool_and_rng_continuation`): the legacy pool, its pickers filter, and the exact draws and RNG
   continuation against the legacy capture. Unchanged; must stay green.
@@ -131,7 +133,33 @@ Rust today:
 
 ## Oracle files (read-only for implementers)
 - `crates/rh-sim/src/reward_chests/pool_tests.rs`
-- `crates/rh-sim/tests/augment_rules.rs` (the `oracle-amend:` commit: Rework pool assertions)
+- `crates/rh-sim/tests/augment_rules.rs` (the `oracle-amend:` commit: the Rework pool assertions in
+  `the_card_table_is_the_legacy_catalog_under_both_rules` and the camp-chest options in
+  `legacy_and_empty_rework_play_the_same_match`; for the owner/coordinator to approve)
+
+What each oracle test pins (`pool_tests.rs`):
+- `the_rework_pool_is_interactive_plus_five_built_augments_and_legacy_is_unchanged`: `INTERACTIVE` exact; Legacy pool
+  = `INTERACTIVE`; `REWORK_POOL` = the 19 as a set; `Tuning::of(Rework | live_content()).pool() == REWORK_POOL`; 80 ids,
+  every pool id a live augment below 80; the five reach `offer_pool` under Rework only; real tables are all `Any`;
+  Glass Cannon outside.
+- `legacy_offers_and_draws_are_the_integration_heads`: 240 Legacy camp-chest drops (zones, elite and normal, 0-3
+  pickers, a Spiked Shell holder) fold to a golden captured at the integration head (green at the stub; must stay green).
+- `a_faction_card_is_offered_only_when_every_eligible_picker_is_that_faction`: test-only table (Glass Cannon as
+  Frost-only): `offer`, `offer_pool` over six picker sets (no picker: not offered), and 400 real drops each for a Fire,
+  a Frost and a mixed chest (Fire and mixed never; Frost at least 20 times).
+- `eye_for_an_eye_is_offered_more_often_to_a_returned_damage_source_owner_under_rework_only`: 6000 drops per arm, Spiked
+  Shell holder vs Siphon holder (same tier): Rework ratio in 1.2..=3.0; Legacy ratio in 0.85..=1.15.
+- `a_rework_chest_without_a_source_is_the_plain_roll_over_the_offer_pool`: 200 Rework drops with no source equal
+  `roll_with` over `offer_pool` with the same draws; all five new cards appear within 300 drops.
+- `the_training_console_grants_and_rolls_the_worlds_pool`: the console grants Committed under Rework only, Glass Cannon
+  never; 60 rolled Rework console chests offer only Rework pool cards, a new one among them.
+- `a_rework_camp_chest_with_new_pool_cards_restores_and_plays_on`: restore, equal hashes and steps, the pick grants.
+- `check_world_refuses_a_camp_chest_card_outside_the_rules_pool`: Legacy refuses Committed in a camp chest and accepts
+  INTERACTIVE cards; Rework refuses Glass Cannon; a `camp: None` chest is not pool-checked.
+
+A throwaway prototype (not committed) passed all eight and the amended `augment_rules.rs`, so the oracle is
+satisfiable; the faction rule, weighting by duplicating Eye for an Eye in the pool when a picker holds a `Return` row,
+and the camp-chest `check_world` rule were enough.
 
 ## 9. Validation commands
 - `cargo test -p rh-sim --lib reward_chests::pool_tests`
