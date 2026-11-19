@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Maps each champion pose to its two anatomical palms.</summary>
     public static partial class StormInkActors
     {
         readonly struct Hands

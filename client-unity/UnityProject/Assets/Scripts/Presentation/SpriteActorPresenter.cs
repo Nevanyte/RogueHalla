@@ -97,139 +97,6 @@ namespace Roguehalla.Client
             if (_active.TryGetValue(id, out var art)) { position = art.Root.transform.position; return true; }
             position = default; return false;
         }
-        static bool HasWeaponTrack(Art a) => StormInkWeaponMotion.Supports(a.Kind, a.Faction, a.WeaponId);
-
-        static void ClearWeaponMotion(Art a)
-        {
-            a.AttackAt = a.AttackUntil = a.WindupAt = a.WindupUntil = 0f;
-            a.HasAttackFacing = a.LocalCue = false;
-            a.DrawStartedAt = 0;
-            a.Bowstring?.Clear(a.Weapon, a.OutBody);
-        }
-
-        /// <summary>Local click feedback settles the champion into a guard until a delivered cue commits the motion.</summary>
-        public void LocalAttackCue(uint id)
-        {
-            if (!_active.TryGetValue(id, out var art) || art.Dead || !art.WeaponId.HasValue) return;
-            float now = Time.unscaledTime;
-            if (HasWeaponTrack(art))
-            {
-                if (art.AttackUntil > now || art.WindupUntil > now) return;
-                art.WindupAt = now;
-                art.WindupUntil = now + .16f;
-                art.HasAttackFacing = false;
-                art.LocalCue = true;
-                return;
-            }
-            if (art.AttackUntil > now && !art.LocalCue) return;
-            art.AttackAt = now; art.LocalCue = true;
-            art.AttackUntil = now + ClipDuration(AttackFrames(art.Appearance, art.WeaponId.Value, out float fps), fps, .32f);
-        }
-
-        const float LocalCueWindow = .6f;
-
-        public void ConfirmedCue(uint id, FxKind kind, WeaponId? cueWeapon = null, float? aim = null,
-            float windupMs = 0f)
-        {
-            if (!_active.TryGetValue(id, out var art) || art.Dead) return;
-            float now = Time.unscaledTime;
-            if (kind == FxKind.Cancel || kind == FxKind.Teleport)
-            {
-                ClearWeaponMotion(art);
-                return;
-            }
-            if (kind == FxKind.Windup)
-            {
-                if (!HasWeaponTrack(art) || !art.Root.activeSelf || cueWeapon != art.WeaponId) return;
-                ClearWeaponMotion(art);
-                art.WindupAt = now;
-                art.WindupUntil = now + windupMs * .001f;
-                art.AttackFacing = aim.GetValueOrDefault();
-                art.HasAttackFacing = aim.HasValue;
-                return;
-            }
-            if (kind == FxKind.Swing && art.WeaponId.HasValue)
-            {
-                bool tracked = HasWeaponTrack(art);
-                if (tracked && (!art.Root.activeSelf || (cueWeapon.HasValue && cueWeapon != art.WeaponId))) return;
-                if (!tracked && art.LocalCue && now - art.AttackAt < LocalCueWindow) { art.LocalCue = false; return; }
-                art.LocalCue = false;
-                art.WindupUntil = 0f;
-                art.AttackAt = now;
-                art.AttackFacing = aim.GetValueOrDefault();
-                art.HasAttackFacing = aim.HasValue;
-                var clip = AttackFrames(art.Appearance, art.WeaponId.Value, out float fps);
-                art.AttackUntil = now + ClipDuration(clip, fps, .32f);
-            }
-            else if (kind == FxKind.Hit || kind == FxKind.Stagger)
-            {
-                if (kind == FxKind.Stagger) ClearWeaponMotion(art);
-                art.HitAt = now;
-                art.HitUntil = now + ClipDuration(art.Appearance?.Hit, art.Appearance != null ? art.Appearance.HitFPS : 10, .2f);
-            }
-            else if (kind == FxKind.Block)
-            {
-                art.BlockAt = now;
-                art.BlockUntil = now + ClipDuration(art.Appearance?.Block, art.Appearance != null ? art.Appearance.BlockFPS : 10, .2f);
-            }
-        }
-
-        internal void ObservedProjectile(uint owner, ProjectileKind kind, float x, float y, float aim)
-        {
-            if (!_active.TryGetValue(owner, out var art) || !HasWeaponTrack(art) ||
-                (kind != ProjectileKind.Arrow && kind != ProjectileKind.Ball)) return;
-            // The projected collection has no launch id. A newly seen shot may be an old shot arriving from fog.
-            // Require it to be near the delivered owner, and require the delivered weapon to agree.
-            var origin = art.Root.transform.position;
-            float dx = x - origin.x / ArenaView.Scale;
-            float dy = y + origin.y / (ArenaView.Scale * ArenaView.GroundSquash);
-            if (dx * dx + dy * dy > 80f * 80f) return;
-            var weapon = kind == ProjectileKind.Arrow ? WeaponId.Bow : WeaponId.Wand;
-            ConfirmedCue(owner, FxKind.Swing, weapon, aim);
-        }
-
-        /// <summary>
-        /// Plays the character clip that fits a delivered Wish cue on an observed actor: Cast for Freeze, Swarm and Trial, Attack
-        /// for Blaze Step, Block for Last Stand (each falling back to another clip when the character lacks it).
-        /// Presentation only; the cue was confirmed by the server's Wish fx record.
-        /// </summary>
-        public bool WishCue(uint id, AbilityId ability)
-        {
-            if (!_active.TryGetValue(id, out var art) || art.Dead) return false;
-            byte clip = ability == AbilityId.Blaze ? (byte)1 : ability == AbilityId.LastStand ? (byte)2 : (byte)0;
-            Sprite[] frames; float fps; WishFrames(art.Appearance, clip, out frames, out fps);
-            float now = Time.unscaledTime;
-            art.WishClip = clip; art.WishAt = now; art.WishUntil = now + ClipDuration(frames, fps, .4f);
-            return true;
-        }
-        static void WishFrames(ShowcaseCatalog.Appearance a, byte clip, out Sprite[] frames, out float fps)
-        {
-            frames = null; fps = 10;
-            if (a == null) return;
-            if (clip == 2 && a.Block != null && a.Block.Length > 0) { frames = a.Block; fps = a.BlockFPS; return; }
-            if (clip == 1 && a.Attack != null && a.Attack.Length > 0) { frames = a.Attack; fps = a.AttackFPS; return; }
-            if (a.Cast != null && a.Cast.Length > 0) { frames = a.Cast; fps = a.CastFPS; return; }
-            if (a.Attack != null && a.Attack.Length > 0) { frames = a.Attack; fps = a.AttackFPS; return; }
-            if (a.Block != null && a.Block.Length > 0) { frames = a.Block; fps = a.BlockFPS; }
-        }
-        /// <summary>Tints an observed actor's body toward <paramref name="tint"/> for the status it shows. Cleared by <see cref="ClearWishTints"/>.</summary>
-        public void SetWishTint(uint id, Color tint, float amount)
-        {
-            if (_active.TryGetValue(id, out var art)) { art.WishTint = tint; art.WishTintAmount = Mathf.Clamp01(amount); }
-        }
-        public void ClearWishTints() { foreach (var pair in _active) pair.Value.WishTintAmount = 0f; }
-        static float ClipDuration(Sprite[] clip,float fps,float fallback)
-        { return clip!=null && clip.Length>0 ? clip.Length/8f/Mathf.Max(1,fps) : fallback; }
-        static bool WishClipFrames(ShowcaseCatalog.Appearance a, byte clip, out Sprite[] frames, out float fps)
-        { WishFrames(a, clip, out frames, out fps); return frames != null && frames.Length > 0; }
-        static Sprite[] AttackFrames(ShowcaseCatalog.Appearance a,WeaponId weapon,out float fps)
-        {
-            fps=a!=null ? a.AttackFPS : 10;
-            if(a==null) return null;
-            if(weapon==WeaponId.Bow && a.Shoot!=null && a.Shoot.Length>0) {fps=a.ShootFPS;return a.Shoot;}
-            if(weapon==WeaponId.Wand && a.Cast!=null && a.Cast.Length>0) {fps=a.CastFPS;return a.Cast;}
-            return a.Attack;
-        }
         public void Begin() { _stamp++; }
         NameMergeItem[] _mergeItems = new NameMergeItem[32]; bool[] _mergeShown = new bool[32]; uint[] _mergeIds = new uint[32]; int[] _mergeScratch = new int[32];
         public void End()
@@ -502,7 +369,7 @@ namespace Roguehalla.Client
             if(dead && !a.Dead) { a.DeadAt=Time.unscaledTime; a.HoldDeathFrame=false; }
             if(!dead) a.HoldDeathFrame=false;
             float hiddenAlpha = Indicators.HiddenAlpha(effects, local);
-            if (dead || hiddenAlpha <= 0f || a.WeaponId != weapon || a.Faction != faction)
+            if (dead || hiddenAlpha <= 0f || a.WeaponId != weapon || a.Faction != faction || a.MobType != mob || a.Kind != kind)
             {
                 ClearWeaponMotion(a);
                 a.BlockUntil = 0f;
@@ -699,7 +566,7 @@ namespace Roguehalla.Client
                 var offset = SpriteSocket(sprite, StormInkWeaponArt.Grip(weapon.Value, poseRow), signedScale);
 
                 bool leftHand = StormInkWeaponMotion.PrimaryHand(weapon.Value) == StormInkWeaponMotion.Hand.Left;
-                bool registered = StormInkActors.TryHand(faction, a.Body.sprite, leftHand, out var handUv);
+                bool registered = TryWeaponHand(a, leftHand, out var handUv);
                 Vector3 grip = registered ? BodySocket(a.Body, handUv) : (Vector3)pose.Grip;
                 float angle = pose.Angle;
                 Vector3 supportFromGrip = Vector3.zero;
@@ -707,7 +574,7 @@ namespace Roguehalla.Client
                 if (pose.HasSupport && useWeaponPhase)
                 {
                     supportFromGrip = SpriteSocket(sprite, StormInkWeaponArt.Support(weapon.Value, poseRow), signedScale) - offset;
-                    if (registered && StormInkActors.TryHand(faction, a.Body.sprite, !leftHand, out var supportUv))
+                    if (registered && TryWeaponHand(a, !leftHand, out var supportUv))
                     {
                         // Both palms can guide angle when close enough to the fixed weapon geometry.
                         // The painted primary palm remains the pivot and the sprite keeps its uniform size.
@@ -798,17 +665,7 @@ namespace Roguehalla.Client
             if (Fx != null && !hideAll) Fx.Note(id, x, y, kind, local, dead, appearance != null ? appearance.WorldHeight : 1.6f, a.Gait.Walking, a.Gait.Phase, appearance != null && appearance.Walk != null ? appearance.Walk.Length / 8 : 0);
         }
 
-        static Vector3 BodySocket(SpriteRenderer body, Vector2 socket)
-        {
-            var transform = body.transform; // Body and weapon share the grounded actor parent.
-            return transform.localPosition + transform.localRotation * SpriteSocket(body.sprite, socket, transform.localScale);
-        }
 
-        static Vector3 SpriteSocket(Sprite sprite, Vector2 socket, Vector3 signedScale)
-        {
-            Vector2 pixel = Vector2.Scale(socket, sprite.rect.size) - sprite.pivot;
-            return Vector3.Scale((Vector3)(pixel / sprite.pixelsPerUnit), signedScale);
-        }
 
         Art Create()
         {
