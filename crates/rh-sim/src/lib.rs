@@ -87,6 +87,8 @@ pub use state::{
 };
 pub mod terrain;
 pub mod traders;
+#[cfg(feature = "trusted-build-setup")]
+pub mod trusted_build;
 pub use statics::{CampBuffRule, FactionMode, FrostWish, RegenInCombat};
 pub use store::{EntityId, Store};
 
