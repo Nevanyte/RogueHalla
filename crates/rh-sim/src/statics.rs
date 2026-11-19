@@ -272,7 +272,11 @@ pub struct SimConfig {
     pub frost_wish: FrostWish,
     /// The step length in milliseconds (ADR 0029): 50 (the default: legacy, parity, every capture) or 25.
     /// STUB (P-TICK-1a): not yet read, validated, serialized or hashed; the implementer replaces this.
-    #[serde(default = "stub_tick_ms", skip_serializing_if = "stub_never_written")]
+    #[serde(
+        default = "stub_tick_ms",
+        serialize_with = "stub_write_unit",
+        deserialize_with = "stub_read_any"
+    )]
     pub tick_ms: u32,
 }
 
@@ -281,9 +285,16 @@ fn stub_tick_ms() -> u32 {
     50
 }
 
-/// STUB (P-TICK-1a): the field is never written (so it reaches no checkpoint and no hash); the implementer replaces this.
-fn stub_never_written(_: &u32) -> bool {
-    true
+/// STUB (P-TICK-1a): the field always writes a unit (JSON `null`; the state hasher folds no word for it), like
+/// `FrostWish::Freeze`; the implementer replaces this.
+fn stub_write_unit<S: serde::Serializer>(_: &u32, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_unit()
+}
+
+/// STUB (P-TICK-1a): reads whatever was written and keeps 50; the implementer replaces this.
+fn stub_read_any<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
+    <serde::de::IgnoredAny as serde::Deserialize>::deserialize(d)?;
+    Ok(stub_tick_ms())
 }
 
 /// `SimConfig::frost_wish`. `Freeze` serializes as nothing (JSON `null`; the hashing serializer folds no word for a
