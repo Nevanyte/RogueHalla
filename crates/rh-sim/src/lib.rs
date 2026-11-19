@@ -87,7 +87,7 @@ pub use state::{
 };
 pub mod terrain;
 pub mod traders;
-pub use statics::{CampBuffRule, FactionMode, FrostWish, RegenInCombat};
+pub use statics::{AugmentRule, CampBuffRule, EliteRule, FactionMode, FrostWish, RegenInCombat};
 pub use store::{EntityId, Store};
 
 pub use systems::signatures::LandedHit;

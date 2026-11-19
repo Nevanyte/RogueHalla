@@ -6,7 +6,7 @@ use super::mob_hunt::{
 use super::types::{AttackFn, LogFn, StrategyContext};
 use crate::bots::mob_hunt::MobHuntConfig;
 use crate::bots::types::PersonaParams;
-use rh_sim::constants::{ELITE_HP_MULT, ELITE_K, MOB_HP_MULT, MOB_K};
+use rh_sim::constants::{MOB_HP_MULT, MOB_K};
 use rh_sim::{math, mob_catalog, FactionId, Vec2};
 
 const PVE_RELIEF: f64 = 0.25;
@@ -283,12 +283,15 @@ fn mob_max_hp(zone: Option<FactionId>, elite: bool, name: Option<&str>) -> f64 {
     let typed = name.and_then(|name| {
         mob_catalog::mob_types_of(zone).find(|t| t.elite == elite && t.name == name)
     });
-    let k = if elite { ELITE_K } else { MOB_K };
+    // The sim's elite seam (P-AUG-RULES-1): the legacy rule's numbers, which every rule plays until P-ELITE-TUNE-1 (the
+    // remembered-mob estimate has no match context; that packet threads the room's rule here if its numbers move).
+    let elites = rh_sim::mob_runtime::EliteTuning::of(rh_sim::EliteRule::Legacy);
+    let k = if elite { elites.k } else { MOB_K };
     let base = crate::bots::build_route::reward_stat(None).map_or(0., |_| 0.)
         + rh_sim::content::faction(zone).hp
             * k
             * MOB_HP_MULT
-            * if elite { ELITE_HP_MULT } else { 1. };
+            * if elite { elites.hp_mult } else { 1. };
     let typed_mult = typed.map_or(1., |t| t.role_def().hp_mult);
     base * typed_mult
 }

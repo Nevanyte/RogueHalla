@@ -497,6 +497,7 @@ fn apply_inner(
                     Default::default()
                 };
                 crate::modifiers::outgoing_damage(
+                    k.cards,
                     w.core(i),
                     &build,
                     frac,
@@ -537,7 +538,11 @@ fn apply_inner(
             let core = w.core(i);
             let cap = crate::modifiers::hp_race_cap(core);
             if cap > 1. {
-                crate::modifiers::hp_race_mult(core.vitals.hp / core.vitals.max_hp.max(1e-9), cap)
+                crate::modifiers::hp_race_mult(
+                    k.cards,
+                    core.vitals.hp / core.vitals.max_hp.max(1e-9),
+                    cap,
+                )
             } else {
                 1.
             }
@@ -546,7 +551,11 @@ fn apply_inner(
             let core = w.core(v);
             let cap = crate::modifiers::hp_race_cap(core);
             if cap > 1. {
-                crate::modifiers::hp_race_mult(core.vitals.hp / core.vitals.max_hp.max(1e-9), cap)
+                crate::modifiers::hp_race_mult(
+                    k.cards,
+                    core.vitals.hp / core.vitals.max_hp.max(1e-9),
+                    cap,
+                )
             } else {
                 1.
             }
@@ -767,6 +776,7 @@ fn apply_victim(
                             crate::modifiers::OutgoingKind::Other
                         };
                         crate::modifiers::execute_share(
+                            pass.k.cards,
                             pass.w.core(bix),
                             &build,
                             victim_frac,

@@ -10,10 +10,9 @@
 use crate::bots::random::Rng;
 use crate::bots::types::{TierId, TierParams};
 use rh_sim::constants::{
-    ELITE_DMG_MULT, ELITE_HP_MULT, ELITE_K, FIRE_BACKLASH, FIRE_BURN_DPS, FROST_SLOW,
-    HOLY_LEECH_BASE, HOLY_LEECH_CAP, HOLY_LEECH_MISSING, MARK_BASE_PCT, MARK_KILL_PCT,
-    MARK_TIER_HITS, MARK_TOP_TIER, MOB_DMG_MULT, MOB_HP_MULT, MOB_K, PLAGUE_DPS,
-    PLAGUE_EXECUTE_DPS,
+    FIRE_BACKLASH, FIRE_BURN_DPS, FROST_SLOW, HOLY_LEECH_BASE, HOLY_LEECH_CAP, HOLY_LEECH_MISSING,
+    MARK_BASE_PCT, MARK_KILL_PCT, MARK_TIER_HITS, MARK_TOP_TIER, MOB_DMG_MULT, MOB_HP_MULT, MOB_K,
+    PLAGUE_DPS, PLAGUE_EXECUTE_DPS,
 };
 use rh_sim::mapdata::Zone;
 use rh_sim::{Arena, FactionId, WeaponId};
@@ -176,11 +175,16 @@ fn scaled(spec: &DuelSpec, k: f64) -> DuelSpec {
     out
 }
 /// shared/mobs.ts mobFaction: the region's faction as a regional mob fights it.
+///
+/// The elite numbers come from the sim's elite seam (`EliteTuning`, P-AUG-RULES-1). The planning maths has no match
+/// context (`matchup_share` is a pure shared function), so it reads the legacy rule's numbers, which every rule plays
+/// until P-ELITE-TUNE-1; that packet threads the room's rule (`MatchStart`) here if its numbers move.
 fn mob_faction(region: FactionId, elite: bool) -> DuelSpec {
-    let k = if elite { ELITE_K } else { MOB_K };
+    let elites = rh_sim::mob_runtime::EliteTuning::of(rh_sim::EliteRule::Legacy);
+    let k = if elite { elites.k } else { MOB_K };
     let base = scaled(&player_spec(region), k);
-    let hp_mult = MOB_HP_MULT * if elite { ELITE_HP_MULT } else { 1. };
-    let d = MOB_DMG_MULT * if elite { ELITE_DMG_MULT } else { 1. };
+    let hp_mult = MOB_HP_MULT * if elite { elites.hp_mult } else { 1. };
+    let d = MOB_DMG_MULT * if elite { elites.dmg_mult } else { 1. };
     let mut out = scaled(&base, d);
     out.hp = base.hp * hp_mult;
     // The mob owner's hand scaling on top (shared/mobs.ts mobFaction tail): an execute scales by k again, and the mark's
