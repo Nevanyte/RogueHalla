@@ -147,11 +147,20 @@ provenance) has the same code (`git show 64052f09:packages/server/src/sim/weapon
 | `parity/card-runtime/source.json` (53 MB; cases `plant-feet-wait-spend-move`, `interactive-choice-and-runtime-plantYourFeet`) | legacy timelines; its assertions (`tools/card-runtime-fixtures/assertions.mts:11, :24`) check only `stillSince > 50` | no Rust test replays it (only the provenance audit hashes it); it holds no `rangeMult` (0 occurrences). It does not move |
 | `parity/policy/bot-public-facts/source.json` | bot facts; mentions "catalog rangeMult=1" as an assumption | unchanged |
 | `crates/rh-sim/tests/stat_fold.rs:192, :1049, :1201`, `card_catalog.rs:130`, `reward_pools.rs:52, :182` | the card's flag name, fold key and pool membership | unchanged |
-| `crates/rh-sim/src/walk_hint/helper_tests.rs:248, :994`, `systems/frost.rs:538, :920, :1263`, `systems/projectiles.rs:909` (tests), `systems/tests.rs:715`, `systems/fire.rs:400, :458` | build `PendingAction` / `MeleeReq` literals | compile-only `range_mult: 1.0` lines in the stub commit |
+| `crates/rh-sim/src/systems/walk_hint/helper_tests.rs:248, :994`, `systems/frost.rs:538, :920, :1263`, `systems/projectiles.rs:909` (tests), `systems/tests.rs:715`, `systems/fire.rs:400, :408, :458` | build `PendingAction` / `MeleeReq` / `Spawn` literals | compile-only `range_mult: 1.0` lines in the stub commits |
+| `crates/rh-sim/tests/step_event_window.rs:229-231` `pinned_fold` (`a_caller_that_clears_its_buffer_sees_the_pinned_hashes`) | the fold of a scripted mob scenario's state hashes | moved by the layout word only: amended (`oracle-amend`) to `0x1f79_d826_12e3_db9d`, measured on the stub; the implementation must keep it |
+| `crates/rh-sim/src/systems/mob_spacing_tests.rs:384` `LEGACY_FOLD` (`the_legacy_circle_trajectory_is_the_pre_spacing_one`) | the fold of a training world's state hashes | moved by the layout word only: amended (`oracle-amend`) to `0x36a3_76d1_5e70_1f44` on the stub; must be kept |
+| `crates/rh-sim/src/systems/sentenced/npc_tests.rs:463, :501-506` | the checkpoint format literal and the refused older formats | amended (`oracle-amend`) to `rh-checkpoint/33`, with 32 refused |
+| `crates/rh-sim/tests/content.rs` `every_const_in_the_source_tree_is_registered_or_explained` | no unregistered `const` under `src/` | green: the oracle uses functions, not consts. An implementer's new `const` must be a registry row or a `NON_GAMEPLAY` row (prefer reading `PLANT_FEET_BONUS`) |
+
+The stub layout was run through the whole `rh-sim` suite (`cargo test -p rh-sim --features trusted-status-probes`):
+the only red tests were the oracle, the format pins (`tests/checkpoint.rs` twice, `npc_tests`), two hash folds
+(`step_event_window`, `mob_spacing_tests`), the hash tape (all amended), and `content.rs`'s const audit (the oracle's
+first draft used consts; fixed). `hash_coverage` stayed green unedited.
 
 No legacy capture already contains the range behaviour: the only `rangeMult` under `parity/` is the bot-facts
 assumption string. **No fixture is expected to move** besides the ability hash tape, which is re-recorded on this
-branch (layout only).
+branch (layout only: the `checkpoint` string and 15 of 63 folds; no tick count).
 
 ## 8. Acceptance checks
 
@@ -164,7 +173,39 @@ branch (layout only).
 
 ## Oracle files (read-only for implementers)
 
-Filled in when the oracle is committed (see the end of this file).
+- `crates/rh-sim/src/cards/plant_feet_tests.rs` (new, `oracle:`). Red on the stub, each on an assertion:
+  - `a_planted_swing_reaches_a_quarter_further`: sword, axe, shield, fists; a body at 0.95 / 1.05 / 1.20 / 1.30 x
+    reach (+ the 12 body radius): unplanted hits only 0.95, planted hits up to 1.20 and not 1.30. RED (1.05 missed).
+  - `a_planted_swing_hits_every_body_it_meets_a_quarter_harder`: two bodies in the arc, both x1.25 (2%). RED (the
+    second body gets x1.0 today).
+  - `a_planted_bow_or_wand_shot_flies_a_quarter_further_and_hits_a_quarter_harder`: launch range 650 / 800 (1e-9),
+    damage x1.25 (2%), a body at 1.15 x catalog range is hit only when planted. RED (range 520).
+  - `the_plant_is_decided_at_the_start_on_the_legacy_second`: started at 950 ms still: unplanted (sword misses at 1.05
+    x reach; wand range 640 although its cast lands after the mark); at 1000 ms: planted. RED (sword at 1000 ms).
+  - `the_plant_is_spent_when_the_attack_starts_even_on_a_miss`: a planted swing at empty air restarts the clock at its
+    start (`card_still_since`), and the next swing, under a second later, deals the unplanted amount (1%). RED.
+  - `a_planted_cast_and_its_flight_checkpoint_restore_and_play_on`: a planted pending wand cast (`range_mult` 1.25 in
+    the checkpoint), then its ball in flight (`range_mult` 1.25, range 800), each restore and play on with the same
+    events and state hash every step; setting `range_mult` back to 1 is refused or changes the hash; the restored ball
+    hits the far body. RED (no planted action in the checkpoint).
+  - `unplanted_the_card_changes_nothing` (GREEN guard): an unplanted attack by the holder equals the same attack by a
+    Siphon holder (sword, bow, wand), same flight range.
+  - `under_boom_a_planted_hit_is_capped_like_legacy` (GREEN guard): with Here Comes the Boom, planted = unplanted (2%)
+    for sword, bow and wand. Measured to have teeth: a trial that scales a flight's packet without passing its baked
+    multiplier to the ledger fails it (bow 1.25).
+- `crates/rh-sim/tests/checkpoint.rs` (`oracle-amend`, for the owner): format 33, predecessor 32 refused.
+- `crates/rh-sim/src/systems/sentenced/npc_tests.rs` (`oracle-amend`): format 33, 32 refused.
+- `crates/rh-sim/src/systems/mob_spacing_tests.rs` (`oracle-amend`): `LEGACY_FOLD` for the new layout word.
+- `crates/rh-sim/tests/step_event_window.rs` (`oracle-amend`): `pinned_fold` for the new layout word.
+- `parity/abilities/hash-tape.json` (`oracle-amend`, regenerated by its recorder
+  `cargo test --locked -p rh-sim --features trusted-status-probes --lib record_ability_hash_tape -- --ignored`).
+- `docs/backlog/packets/P-AUG-PLANT-1.md` (this brief).
+
+Stub files (the implementer's): `state.rs` (the two fields and `unit_range_mult`), `systems/melee.rs`
+(`MeleeReq::range_mult`), `systems/projectiles.rs` (`Spawn::range_mult`, the `launch` literal), `systems/weapons.rs`
+(`range_mult: 1.0` in `start_attack`, `land`), `checkpoint.rs` (`rh-checkpoint/33`), `cards/mod.rs` (the oracle's
+`mod` line), `fighter.rs` and `README.md` (the format in prose), and the compile-only test literals listed in the
+survey.
 
 ## 9. Validation commands
 
@@ -210,6 +251,23 @@ merge with P-AUG-RULES-1 in five shared files.
   recorded on this branch must not move. If it does, the implementation set a non-1 factor without the card.
 - **checkpoint.rs is at 1972 lines** (its allowlist cap): it may not grow.
 - **no_alloc.** No `Vec` or `String` in the new paths.
+- **The layout is fixed by the stub.** `range_mult: f64` on `PendingAction` and `Projectile`, appended last, serde
+  default 1.0. Changing a type, the order or adding another serialized field moves the re-recorded hash tape and the
+  two amended folds, which the gate then refuses. Remove the stub's `#[allow(dead_code)]` on `Spawn::range_mult`.
+- **Borrows.** `FighterCore` has no build: decide the plant in `step_weapon` from `cx.w.players[ix.slot()]` (players
+  only; `npc` is already computed there) before `core_mut`, scale `packet.raw` there (legacy scales the packet before
+  the action exists), then hand `range_mult` to `start_attack`. In `melee.rs` the crit still multiplies `raw`; only
+  the baked multiplier (`critical_mult`) takes `crit x range_mult`.
+
+### Trial implementation (discarded, not committed)
+
+About 40 lines over `weapons.rs` (the decision above), `melee.rs` (`reach * req.range_mult`; `raw *= crit`;
+`critical_mult = crit x range_mult` when above 1; the per-target plant removed), `projectiles.rs` (`Spawn` and
+`launch` carry `range_mult`; `range * range_mult`; reflection keeps it; `entry` sets `critical_mult`) and
+`checkpoint.rs` (flight bound `range * pr.range_mult`, `range_mult` in `[1, 1.25]`). With it all 8 oracle tests
+passed, and the whole `rh-sim` suite with `trusted-status-probes` was green (the re-recorded hash tape, both amended
+folds, `hash_coverage` unedited, `contact_controls`, `no_alloc`). The trial did not touch the pending-action restore
+rule or the ranged envelope (no oracle test reaches the envelope; the reviewer checks those two by reading).
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
