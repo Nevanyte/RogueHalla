@@ -31,10 +31,38 @@ float InkIceGlint(float2 t, float fissure, float streak)
     return mark * max(fissure, streak * .46) * smoothstep(.36, .77, grain) * _RhInkClock.z;
 }
 
+// The painterly borders are joined once when the repeating ground array is built.
+float4 ElementalPaint(float2 uv, int slice)
+{
+    return SAMPLE_TEXTURE2D_ARRAY(_GroundTex, sampler_GroundTex, uv, slice);
+}
+
 // A chine of broken indigo and a small pale edge give a fracture its thickness.
 // Sweep patches, gaps in the veins and the mineral grain stay attached to the ice.
 void InkIceSurface(float2 t, float inner, float3 glow, out float3 colour, out float3 emission, out float height)
 {
+    float2 uv = float2(t.x + t.y * .12, t.x * .10 - t.y) / 7.8;
+    uv += (VNoise(t * .23 + 32) - .5) * .045;
+    float4 ink = ElementalPaint(uv, 6);
+    if (ink.a > .5)
+    {
+        float blue = saturate(ink.b - ink.r);
+        float frost = smoothstep(.29, .62, ink.r);
+        float rim = smoothstep(.50, .79, ink.r) * smoothstep(.57, .82, ink.g);
+        float3 mineral = SRGBToLinear(ink.rgb);
+        float depth = .56 + .30 * frost;
+        if (_RhSwitch.z > .5)
+            depth += .19 * VNoise(t * .44 + (t - _RhCam.xy) * .065);
+        colour = mineral * depth + float3(.003, .010, .032);
+        colour = lerp(colour, float3(.69,.80,.83), .52 * rim);
+        colour = lerp(colour, float3(.41,.69,.76), (1.0 - inner) * .15);
+        // Cold light travels under translucent pigment; only a fractured lip catches white.
+        float glint = InkIceGlint(t, rim, blue * .22);
+        emission = blue * float3(.003,.025,.089) * inner + rim * float3(.10,.10,.083)
+            + float3(.33,.71,.94) * glint * .72;
+        height = rim * .018 - blue * .009;
+        return;
+    }
     float2 brush = float2(dot(t, float2(.54, .23)), dot(t, float2(-.36, 1.31)));
     float paper = VNoise(t * .72 + 7.2);
     float wash = Fbm(brush * float2(.48, 1.7));
@@ -67,8 +95,30 @@ float InkLavaPulse(float2 t)
 
 // A broad red current carries long gold strokes past dark rafts of crust. The bank
 // and the flowing interior are both bounded by the delivered molten terrain.
-void InkLavaSurface(float2 t, float inner, float3 glow, out float3 colour, out float3 emission, out float height)
+void InkLavaSurface(float2 t, float inner, float4 sides, float3 glow, out float3 colour, out float3 emission, out float height)
 {
+    float2 bank = float2(sides.x - sides.y, sides.z - sides.w);
+    float2 axis = float2(bank.y, -bank.x);
+    if (dot(axis, float2(.82,-.57)) < 0) axis = -axis;
+    float2 current = normalize(axis + float2(.60,-.43));
+    float2 uv = float2(t.x, -t.y) / 6.4 + (.034 * VNoise(t * .43));
+    float2 travel = float2(current.x, -current.y) * .16;
+    float phase = frac(_RhInkClock.x * .145);
+    float4 first = ElementalPaint(uv - travel * (phase - .5), 7);
+    float4 next = ElementalPaint(uv - travel * (frac(phase + .5) - .5), 7);
+    float4 ink = lerp(first, next, abs(phase * 2.0 - 1.0));
+    if (ink.a > .5)
+    {
+        float liquid = smoothstep(.34, .87, ink.r);
+        float gold = smoothstep(.22, .74, ink.g) * liquid;
+        float white = smoothstep(.39, .87, ink.b) * gold;
+        float3 pigment = SRGBToLinear(ink.rgb);
+        colour = pigment * (.58 + inner * .16) + float3(.016,.005,.006);
+        emission = (float3(.48,.070,.010) * liquid + float3(.72,.56,.10) * gold
+            + float3(.52,.53,.29) * white) * InkLavaPulse(t);
+        height = (1.0 - liquid) * .046;
+        return;
+    }
     float2 flow = float2(.69*t.x + .30*t.y, -.23*t.x + .91*t.y);
     float bend = VNoise(t * .43) * 1.35 + VNoise(t * 1.11) * .28;
     float2 p = float2(flow.x * .50, flow.y * 2.1 + bend * 2.9);
@@ -94,7 +144,7 @@ void InkEmberSurface(float2 t, float3 glow, out float3 colour, out float3 emissi
     float scratch = VNoise(brush * float2(2.3, 8.5) + grain);
     float fleck = smoothstep(.72, .88, scratch) * smoothstep(.49, .69, grain);
     float pulse = .80 + .20 * sin(_RhInkClock.x * 1.4 + floor(brush.x * 2.0));
-    colour = lerp(float3(.068, .034, .030), float3(.21, .103, .061), smoothstep(.20, .79, grain));
+    colour = lerp(float3(.045, .032, .039), float3(.158, .093, .078), smoothstep(.20, .79, grain));
     colour += fleck * float3(.40, .18, .045);
     emission = glow * (.014 + fleck * .55 * pulse);
     height = (grain - .5) * .035;

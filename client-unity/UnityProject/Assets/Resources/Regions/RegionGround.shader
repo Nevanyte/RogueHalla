@@ -157,6 +157,7 @@ Shader "Roguehalla/RegionGround"
                 return float2(d1, d2 - d1);
             }
 
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
             #include "StormInkLightMotion.hlsl"
 
             struct Ground { float3 col; float3 emis; float th; float thw; };   // th/thw: procedural surface height (tiles) and its weight, for derivative normals
@@ -661,6 +662,17 @@ Shader "Roguehalla/RegionGround"
                 float2 tuv = t / _Map.xy;
                 half4 ta = SAMPLE_TEXTURE2D(_TerA, sampler_RhRegA, tuv);
                 half4 tb = SAMPLE_TEXTURE2D(_TerB, sampler_RhRegA, tuv);
+                // These four bank samples set both the direction of the current and the
+                // reach of its reflected glow. They are shared with the existing spill pass.
+                float4 lavaSides = 0;
+                [branch] if (wgt[0] / tot > .05)
+                {
+                    float2 reach = 2.6 / _Map.xy;
+                    lavaSides.x = SAMPLE_TEXTURE2D_LOD(_TerA, sampler_RhRegA, tuv + float2(reach.x, 0), 0).r;
+                    lavaSides.y = SAMPLE_TEXTURE2D_LOD(_TerA, sampler_RhRegA, tuv - float2(reach.x, 0), 0).r;
+                    lavaSides.z = SAMPLE_TEXTURE2D_LOD(_TerA, sampler_RhRegA, tuv + float2(0, reach.y), 0).r;
+                    lavaSides.w = SAMPLE_TEXTURE2D_LOD(_TerA, sampler_RhRegA, tuv - float2(0, reach.y), 0).r;
+                }
                 float edgeNoise = (Fbm(t * 1.7 + 3.1) - 0.5) * 0.30;
                 float cov[8] = { 0, ta.r, 0, tb.g, ta.a, ta.b, ta.g, tb.r };   // kind id -> coverage (2 fence has no ground art)
                 float tmax = max(max(ta.r, ta.g), max(max(ta.b, ta.a), max(tb.r, tb.g)));
@@ -678,7 +690,7 @@ Shader "Roguehalla/RegionGround"
                             float time = _RhInkClock.x;
                             if (kd == 1)            // lava: dark crust over warped molten channels
                             {
-                                InkLavaSurface(t, inner, glow, tc, te, hh);
+                                InkLavaSurface(t, inner, lavaSides, glow, tc, te, hh);
                                 gl = .18;
                             }
                             else if (kd == 6)       // mineral wash beneath fixed, wind-swept ice facets
@@ -746,9 +758,7 @@ Shader "Roguehalla/RegionGround"
                 // Lava light on the nearby Fire ground (always on, 4 taps): warm falloff within about 3 tiles so lava is the light source even without point lights.
                 [branch] if (wgt[0] / tot > 0.05)
                 {
-                    float lp = 0;
-                    [unroll] for (int q = 0; q < 4; q++) lp += SAMPLE_TEXTURE2D_LOD(_TerA, sampler_RhRegA, tuv + float2(q < 2 ? (q == 0 ? 2.6 : -2.6) : 0.0, q >= 2 ? (q == 2 ? 2.6 : -2.6) : 0.0) / _Map.xy, 0).r;
-                    lp = lp * 0.25 + ta.r * 0.5;
+                    float lp = dot(lavaSides, float4(.25,.25,.25,.25)) + ta.r * .5;
                     float lg = smoothstep(0.03, 0.55, lp) * (1.0 - smoothstep(0.4, 0.5, ta.r));
                     emis += _TerGlow[1].rgb * lg * lg * 0.16 * InkLavaPulse(t);
                     col = lerp(col, col * float3(1.25, 0.95, 0.8), saturate(lg));
@@ -790,9 +800,6 @@ Shader "Roguehalla/RegionGround"
                 lit.rgb = RhFogGrade(i.world, lit.rgb);
                 float paper = dot(lit.rgb, float3(.22, .67, .11));
                 lit.rgb = lerp(lit.rgb, paper * float3(.95, 1.0, 1.02), .48 * marshWater);
-                // Keep the mineral wash visible under Frost's blue regional light.
-                float iceSheet = smoothstep(.34, .76, ta.g);
-                lit.rgb = lerp(lit.rgb, paper * float3(.90, .99, 1.06), .38 * iceSheet);
                 return lit;
             }
             ENDHLSL

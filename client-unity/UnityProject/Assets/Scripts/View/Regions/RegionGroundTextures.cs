@@ -1,5 +1,5 @@
-// Procedural, tileable ground detail for the five regions plus the coliseum, generated in code (no imported art, no ledger
-// entry). Layer order = wire region id minus one: 0 fire, 1 sentenced, 2 plague, 3 frost, 4 holy, 5 coliseum.
+// Procedural ground detail for the five regions and the coliseum, followed by two original elemental paintings. The region
+// masks keep their established indices. Layer order = wire region id minus one: 0 fire, 1 sentenced, 2 plague, 3 frost, 4 holy, 5 coliseum.
 // Channels are masks the region shader tints with the palette: r detail (relief already baked in), g secondary mask,
 // b accent mask, a height. One texture covers 4x4 tiles.
 using UnityEngine;
@@ -25,7 +25,7 @@ namespace Roguehalla.Client
             normals = new Texture2DArray(Size, Size, Layers, TextureFormat.RGBA32, true, true)
             { name = "Region ground normals", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 2 };
             var npx = new Color32[Size * Size];
-            var array = new Texture2DArray(Size, Size, Layers, TextureFormat.RGBA32, true, true)
+            var array = new Texture2DArray(Size, Size, Layers + 2, TextureFormat.RGBA32, true, true)
             { name = "Region ground detail", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 4 };
             var h = new float[Size * Size]; var r = new float[Size * Size]; var g = new float[Size * Size]; var b = new float[Size * Size];
             var px = new Color32[Size * Size];
@@ -35,9 +35,46 @@ namespace Roguehalla.Client
                 array.SetPixelData(px, 0, layer);
                 normals.SetPixelData(npx, 0, layer);
             }
+            // The shader reads the last two slices as sRGB pigments. Reuse the existing
+            // sampler, while the normal array only contains the six procedural regions.
+            WritePigment(array, Layers, "MineralIce", px);
+            WritePigment(array, Layers + 1, "MoltenInk", px);
             array.Apply(true, true);
             normals.Apply(true, true);
             return array;
+        }
+
+        static void WritePigment(Texture2DArray array, int layer, string name, Color32[] scratch)
+        {
+            var image = Resources.Load<Texture2D>("StormInk/Surfaces/" + name);
+            if (image != null && image.isReadable && image.width == Size && image.height == Size)
+            {
+                var pixels = image.GetPixels32();
+                // Let veins cross the join in their original direction. Feather only the
+                // outside five percent instead of reflecting a complete lake or molten pool.
+                for (int line = 0; line < Size; line++)
+                {
+                    JoinEdges(pixels, line * Size, 1);
+                    JoinEdges(pixels, line, Size);
+                }
+                array.SetPixelData(pixels, 0, layer);
+                return;
+            }
+            System.Array.Clear(scratch, 0, scratch.Length);
+            array.SetPixelData(scratch, 0, layer);
+        }
+
+        static void JoinEdges(Color32[] pixels, int start, int stride)
+        {
+            const int bleed = 12;
+            for (int i = 0; i < bleed; i++)
+            {
+                int left = start + i * stride, right = start + (Size - 1 - i) * stride;
+                var a = pixels[left]; var b = pixels[right];
+                float blend = .5f * (1f - Mathf.SmoothStep(0f, 1f, i / (float)bleed));
+                pixels[left] = Color32.Lerp(a, b, blend);
+                pixels[right] = Color32.Lerp(b, a, blend);
+            }
         }
 
         /// <summary>Fills one layer's detail pixels (<paramref name="px"/>) and normal pixels (<paramref name="npx"/>) from the generators; the scratch arrays are Size x Size.</summary>
