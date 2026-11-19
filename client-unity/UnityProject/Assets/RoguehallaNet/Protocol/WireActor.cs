@@ -34,6 +34,10 @@ namespace Roguehalla.Net.Protocol
         public byte BuildMarks;
         /// <summary>Sentenced mark plate: tier 0..4, brand 0..100, mark tax percent 0..100 (all zero when unmarked).</summary>
         public byte MarkTier, Brand, MarkTax;
+        /// <summary>A remote player's walk hint (protocol 19, P-NET-DRAWAHEAD-1a): the heading the server will keep walking, in
+        /// 256ths of a turn (0 whenever <see cref="WalkTicks"/> is 0), and the whole ticks it is committed to (a lower bound).
+        /// Never set on a mob. Declared by the stub; the codec reads and writes it in P-NET-DRAWAHEAD-1a.</summary>
+        public byte WalkDir, WalkTicks;
 
         // Full actor mask bits (append only): 0 kit, 1 hp, 2 status, 3 bounty, 4 kind ... 10 archetype, 11 flags, 12 off-hand,
         // 13 build marks, 14 mark plate. A varint (three bytes once bit 14 is set).

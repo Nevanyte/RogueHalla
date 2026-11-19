@@ -219,6 +219,11 @@ pub struct WireActor {
     pub mark_tier: u8,
     pub brand: u8,
     pub mark_tax: u8,
+    /// A remote player's walk hint (protocol 19, P-NET-DRAWAHEAD-1a): the heading of the walk the server will continue, in
+    /// 256ths of a turn; 0 whenever `walk_ticks` is 0. Never set on a mob.
+    pub walk_dir: u8,
+    /// Whole ticks the server is committed to keep walking along `walk_dir` (a lower bound; a plain count, not capped here).
+    pub walk_ticks: u8,
 }
 
 impl WireActor {

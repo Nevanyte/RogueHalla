@@ -170,6 +170,8 @@ pub fn wire_actor(a: &ActorView) -> Result<WireActor, &'static str> {
         kind,
         barrier_pct: hp_pct(a.barrier_frac),
         barrier_ring_step: a.barrier_ring_step,
+        walk_dir: 0,
+        walk_ticks: 0,
     })
 }
 
