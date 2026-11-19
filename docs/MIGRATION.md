@@ -13,37 +13,34 @@ day:
 
 Nothing is pushed and `main` is untouched.
 
-**Integration branch:** `feature/unity-rework` @ `5aaadea74`.
+**Integration branch:** `feature/unity-rework` @ `84b8c9be5`.
 - **Integration 61:** P-AUG-CONTENT-1 and P-AUG-UI-1.
-  - Full gate PASS. reviewer-opus: LAND WITH NOTES, one note, which became P-AUG-CONTENT-1-fix.
-- **Integration 62** (fast-forward):
-  - P-ELITE-BENCH-1: the elite camp bench, with banked-camp builds.
-  - P-AUG-CONTENT-1-fix: a test-only guard that every override number is a hashed `REWORK_*` row.
-  - P-AUG-POOL-1: the Rework chest pool, the faction offer rule, the Eye for an Eye weight and a camp-chest restore check.
-  - Full gate PASS: `--coordinator --keep-going --allow-artefacts --regen-fixtures --base 10001a404`, EditMode 1581/1581.
-  - The `rh-headless` Cargo.toml gains a feature flag (`elite-bench`) and no dependency; `Cargo.lock` is unchanged.
-  - The integration review is pending.
-- **Identities:** content hash `abed1bee9a62b4f8` (move 5), checkpoint `rh-checkpoint/33`.
-- **Coordinator oracle-amend `373b919fe`** (`rework_content_tests.rs`): CONTENT-1's REWORK rows must be one ordered run, no
-  longer the registry tail, and the pool line checks Legacy. reviewer-opus judged it honest.
+- **Integration 62:** P-ELITE-BENCH-1, P-AUG-CONTENT-1-fix and P-AUG-POOL-1. reviewer-opus: LAND WITH NOTES; the note
+  becomes P-AUG-POOL-1-fix.
+- **Integration 63:**
+  - P-NOALLOC-GATE-1, with the owner's OK for `scripts/gate.sh` and `.github/workflows/rust.yml`;
+  - P-ELITE-BENCH-2, the Duelist bench;
+  - P-ELITE-SHARE-1, the helper share, after a reviewer-opus REJECT and two oracle-amends;
+  - P-AUG-TUNE-1, Wishful Thinking plus three Wish restore fixes for reachable states.
+  - Full gate PASS on `289fb9424`: `--coordinator --keep-going --allow-artefacts --regen-fixtures --allow-protected --base
+    4194c9b14`, EditMode 1581/1581, and the new no-alloc step ran. The integration review is pending.
+- **Identities:** content hash `c890f52fd7ab4546` (move 6), checkpoint `rh-checkpoint/33`.
+- **Coordinator oracle-amends:**
+  - `373b919fe` for P-AUG-POOL-1: CONTENT-1's rows are one run, and the pool line checks Legacy.
+  - `7bfe42809` for P-AUG-TUNE-1: Wishful's Rework row is text-only in the card-table test.
+  - Both were judged honest by reviewer-opus.
 
 **In flight**
-- **P-AUG-TUNE-1:** Opus is implementing, from `packet/P-AUG-TUNE-1` @ `785dde23d`. Content-hash move 6.
-  - It also folds in a live restore defect found by its oracle, in both worlds. Granting a card that changes the Wish
-    cooldown (Arcane Overload) after a cast, then checkpointing before the next cast, makes the restore refuse with
-    `invalid card Wish spend` (`abilities/checkpoint.rs:75-89`).
-- **P-ELITE-SHARE-1:** attempt 2.
-  - reviewer-opus rejected attempt 1: an elite Award's `mob_type` is the elite's own type, which has no farm row, so
-    on-theme camps paid nobody. The brief was wrong, not the implementer.
-  - The oracle was amended (`3ad3d72d0`, real camps plus a wiring test through `hurt` and the payout queue).
-- **P-ELITE-BENCH-2:** a scripted Duelist fighter beside the Brawler, plus outcome books, `--jobs` and 3 seeds.
-  - The live fill bot was tried and dropped: it needs an Env seam and wandered away from the elite camp in 3 of 4
-    fights. That also explains why soak bots bank so few camps.
-  - The review found that the kiting Duelist triggers the 20 s give-up, so camps reset. The fix is folded in before
-    merge: ranged Duelists stand and shoot, and the table reports per-weapon decided rates and resets.
-- **P-NOALLOC-GATE-1** (side session, reviewer-opus LAND) joins integration 63.
-  - It fixes the `BuildMarkCache` clone/restore allocation, a regression since `948064758`.
-  - It runs the two no-allocation test files, which the gate's feature set compiles out.
+- **P-ELITE-TUNE-1:** Sonnet is implementing the owner's numbers (dmg 1.0, hp 1.5), from `packet/P-ELITE-TUNE-1` @
+  `09724256b`, with a content-hash move.
+  - Its oracle retargets `augment_rules::legacy_and_equal_elite_rework_play_the_same_match` to "differ only in elite
+    numbers until the first elite strike". The helper-share check moves wholly to `share_tests.rs`.
+  - Its stub rewrote `systems/mobs.rs` `elite_rule_tests`, outside the oracle-amend convention, because the gate admits
+    only `_tests.rs` files.
+- **P-AUG-POOL-1-fix (Opus):** after P-ELITE-TUNE-1, since both regold.
+- **Side session, P-FROST-RESTORE-1:** a live restore defect older than the rework. `abilities/checkpoint.rs` reads the
+  Freeze row, while live servers play Frost Wall (`Target::Placed`), so a checkpoint taken mid-cast is refused ("invalid
+  Wish target provenance"). It merges after review.
 
 **Elite measurement (owner checkpoint, 2026-11-19).** Bench: P-ELITE-BENCH-2's Duelist (`5a2b9c0c4`). It commits
 to the elite camp, ranged weapons stand and shoot, it casts Wish, and it never dodges or retreats. Reference build:
