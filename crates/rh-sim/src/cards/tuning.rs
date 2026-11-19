@@ -32,6 +32,11 @@ pub struct CardNumbers {
     pub wishful_window_ms: f64,
     /// Wishful Thinking: the share of a cast cooldown no cut goes below (legacy `WISHFUL_FLOOR_SHARE`).
     pub wishful_floor_share: f64,
+    /// Wishful Thinking (P-AUG-TUNE-1): each hit's cut as a share of the cast's full cooldown; 0 reads the card row's `ms`.
+    pub wishful_hit_share: f64,
+    /// Wishful Thinking (P-AUG-TUNE-1): the most a window may cut as a share of the cast's full cooldown; 0 reads
+    /// `wishful_budget_ms`.
+    pub wishful_budget_share: f64,
     /// G1: the outgoing row ceiling AND the stat fold's `hit` clamp (legacy `OUTGOING_ROW_CAP`, both places).
     pub outgoing_row_cap: f64,
     /// G4: the Race to 0 ceiling AND the stat fold's `hpRace` clamp (legacy `HP_RACE_CAP`, both places).
@@ -40,6 +45,30 @@ pub struct CardNumbers {
     pub third_time_every: u16,
     /// Third Time's the Charm: the on-hit applications that hit adds (legacy `n++`: one, so effects apply twice).
     pub third_time_extra: f64,
+}
+
+impl CardNumbers {
+    /// Wishful Thinking: what `n` hits may cut from a Wish cast with full cooldown `cooldown_ms`. The legacy rule
+    /// (`wishful_hit_share` 0) is `n` times the card row's `ms`; a share rule ignores `ms` (the flag row) and cuts
+    /// `n` times the share of the full cooldown.
+    pub fn wishful_hit_cut(&self, n: u32, ms: f64, cooldown_ms: f64) -> f64 {
+        if self.wishful_hit_share > 0. {
+            f64::from(n) * (self.wishful_hit_share * cooldown_ms)
+        } else {
+            f64::from(n) * ms
+        }
+    }
+
+    /// Wishful Thinking: the most one window may cut from a Wish cast with full cooldown `cooldown_ms` (legacy
+    /// `wishful_budget_ms` when `wishful_budget_share` is 0). The sim's cut and the restore bound
+    /// (`abilities/checkpoint.rs`) both read it, so they agree to the bit.
+    pub fn wishful_budget(&self, cooldown_ms: f64) -> f64 {
+        if self.wishful_budget_share > 0. {
+            self.wishful_budget_share * cooldown_ms
+        } else {
+            self.wishful_budget_ms
+        }
+    }
 }
 
 /// A world's card table. `MatchStatic::cards` holds the one for its config.
@@ -81,6 +110,8 @@ static LEGACY: Tuning = Tuning {
         wishful_budget_ms: crate::constants::WISHFUL_BUDGET_MS,
         wishful_window_ms: crate::constants::WISHFUL_WINDOW_MS,
         wishful_floor_share: crate::constants::WISHFUL_FLOOR_SHARE,
+        wishful_hit_share: 0.,
+        wishful_budget_share: 0.,
         outgoing_row_cap: crate::constants::OUTGOING_ROW_CAP,
         hp_race_cap: crate::constants::HP_RACE_CAP,
         third_time_every: 3,
@@ -102,6 +133,8 @@ static REWORK: Tuning = Tuning {
         wishful_budget_ms: crate::constants::WISHFUL_BUDGET_MS,
         wishful_window_ms: crate::constants::WISHFUL_WINDOW_MS,
         wishful_floor_share: crate::constants::WISHFUL_FLOOR_SHARE,
+        wishful_hit_share: crate::constants::REWORK_WISHFUL_HIT_SHARE,
+        wishful_budget_share: crate::constants::REWORK_WISHFUL_BUDGET_SHARE,
         outgoing_row_cap: crate::constants::REWORK_OUTGOING_ROW_CAP,
         hp_race_cap: crate::constants::HP_RACE_CAP,
         third_time_every: 3,

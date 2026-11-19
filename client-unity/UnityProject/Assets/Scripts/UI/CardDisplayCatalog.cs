@@ -77,7 +77,7 @@ namespace Roguehalla.Client
             new Entry("TunnelVision", "Tunnel Vision", "+4% damage per hit on the same target, up to 10 stacks; switching targets resets it.", "Ramping"), // 61
             new Entry("FirstImpressions", "First Impressions", "Your first hit on a new target deals +40% damage.", ""), // 62
             new Entry("PlantYourFeet", "Plant Your Feet", "After standing still for 1 s, your next attack has +35% range and damage.", ""), // 63
-            new Entry("WishfulThinking", "Wishful Thinking", "Each hit you land shortens your Wish's cooldown by 1 s (at most 30 s a minute).", "Wish"), // 64
+            new Entry("WishfulThinking", "Wishful Thinking", "Each hit you land shortens your Wish's cooldown by 1.5% of its full length (at most 20% a minute).", "Wish"), // 64
             new Entry("Hemorrhage", "Hemorrhage", "Your physical hits make the target bleed for 12% of the hit over 2 s.", "OnHit, Dot, Physical"), // 65
             new Entry("IronWill", "Iron Will", "Slows on you are 40% weaker.", "Slow"), // 66
             new Entry("SpikedShell", "Spiked Shell", "Melee attackers take 20% of the damage they deal to you back as physical damage.", "Returned, Physical"), // 67

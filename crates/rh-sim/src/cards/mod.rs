@@ -229,9 +229,10 @@ pub struct Trim {
 }
 
 /// Source `wishfulThinking`: `n` hits shorten a cast Wish's cooldown by the owned hit-trigger's `ms` each, capped by the
-/// window budget and never below the cast-cooldown floor. Mutates the stock clocks and records the trim. The window, budget
-/// and floor are the world's table's (`numbers`, from `k.cards`). The restore bound on the trims
-/// (`abilities/checkpoint.rs`) still reads the legacy constants: a table that changes them updates that bound too.
+/// window budget and never below the cast-cooldown floor. Mutates the stock clocks and records the trim. The cut, window,
+/// budget and floor are the world's table's (`numbers`, from `k.cards`): under a share rule (Rework) the cut and the
+/// budget are shares of the cast's full cooldown (`cast.cooldown_ms`) and `ms` only says the card is owned. The restore
+/// bound on the trims (`abilities/checkpoint.rs`) reads the same `CardNumbers` methods.
 pub fn wishful_thinking(
     numbers: &CardNumbers,
     n: u32,
@@ -257,8 +258,9 @@ pub fn wishful_thinking(
     trims.retain(|t| now - t.at < numbers.wishful_window_ms);
     let used: f64 = trims.iter().map(|t| t.ms).sum();
     let floor_at = (cast.at + numbers.wishful_floor_share * cast.cooldown_ms).max(now);
-    let cut = (f64::from(n) * ms)
-        .min(numbers.wishful_budget_ms - used)
+    let cut = numbers
+        .wishful_hit_cut(n, ms, cast.cooldown_ms)
+        .min(numbers.wishful_budget(cast.cooldown_ms) - used)
         .min(clock_end - floor_at);
     if !(cut > 0.) {
         return;
@@ -554,6 +556,9 @@ mod on_hit_salvage2_review_tests;
 
 #[cfg(test)]
 mod plant_feet_tests;
+
+#[cfg(test)]
+mod wishful_rework_tests;
 
 #[cfg(test)]
 mod wishful_tests {
