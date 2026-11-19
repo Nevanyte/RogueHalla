@@ -52,8 +52,29 @@ pub struct ShapeError {
     pub what: &'static str,
 }
 
-// STUB: numbers the implementer replaces with the legacy constants (and the rule's table).
-static STUB: Tuning = Tuning {
+// STUB: the implementer replaces these numbers with the legacy constants by name (`LEGACY`) and the Rework table
+// (`REWORK`: the legacy constants until P-AUG-CONTENT-1 registers `REWORK_*` rows, and `REWORK_OVERRIDES`). The names
+// `LEGACY` and `REWORK` are listed in `tests/content.rs` `NON_GAMEPLAY` (P-AUG-RULES-1 oracle-amend): keep them.
+static LEGACY: Tuning = Tuning {
+    rule: AugmentRule::Legacy,
+    numbers: CardNumbers {
+        plant_feet_bonus: f64::NAN,
+        gambler_up_chance: f64::NAN,
+        gambler_down_chance: f64::NAN,
+        gambler_up: f64::NAN,
+        gambler_down: f64::NAN,
+        wishful_budget_ms: f64::NAN,
+        wishful_window_ms: f64::NAN,
+        wishful_floor_share: f64::NAN,
+        outgoing_row_cap: f64::NAN,
+        hp_race_cap: f64::NAN,
+        third_time_every: 0,
+        third_time_extra: f64::NAN,
+    },
+    overrides: &[],
+};
+#[allow(dead_code)] // STUB: returned by `Tuning::of` for `Rework` once implemented.
+static REWORK: Tuning = Tuning {
     rule: AugmentRule::Legacy,
     numbers: CardNumbers {
         plant_feet_bonus: f64::NAN,
@@ -75,7 +96,7 @@ static STUB: Tuning = Tuning {
 impl Tuning {
     /// The table a config plays (a static: no allocation, no per-call build).
     pub fn of(_config: &crate::SimConfig) -> &'static Tuning {
-        &STUB
+        &LEGACY
     }
     pub fn rule(&self) -> AugmentRule {
         self.rule

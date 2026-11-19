@@ -420,8 +420,15 @@ pub struct EliteTuning {
     pub dmg_mult: f64,
 }
 
-// STUB (P-AUG-RULES-1): the implementer replaces this with the legacy constants and the rule's table.
-static STUB_ELITES: EliteTuning = EliteTuning {
+// STUB (P-AUG-RULES-1): the implementer replaces these with the legacy constants by name (both, until P-ELITE-TUNE-1
+// registers `REWORK_ELITE_*` rows). The names are listed in `tests/content.rs` `NON_GAMEPLAY`: keep them.
+static LEGACY_ELITES: EliteTuning = EliteTuning {
+    k: f64::NAN,
+    hp_mult: f64::NAN,
+    dmg_mult: f64::NAN,
+};
+#[allow(dead_code)] // STUB: returned for `EliteRule::Rework` once implemented.
+static REWORK_ELITES: EliteTuning = EliteTuning {
     k: f64::NAN,
     hp_mult: f64::NAN,
     dmg_mult: f64::NAN,
@@ -430,7 +437,7 @@ static STUB_ELITES: EliteTuning = EliteTuning {
 impl EliteTuning {
     /// The elite numbers of a rule (a static: no allocation).
     pub fn of(_rule: crate::EliteRule) -> &'static EliteTuning {
-        &STUB_ELITES
+        &LEGACY_ELITES
     }
 }
 
