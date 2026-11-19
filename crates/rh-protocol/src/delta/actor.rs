@@ -123,8 +123,6 @@ impl QActor {
             mark_tier: self.mark[0],
             brand: self.mark[1],
             mark_tax: self.mark[2],
-            walk_dir: 0,
-            walk_ticks: 0,
         }
     }
 

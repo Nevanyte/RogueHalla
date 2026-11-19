@@ -219,14 +219,16 @@ pub struct WireActor {
     pub mark_tier: u8,
     pub brand: u8,
     pub mark_tax: u8,
-    /// A remote player's walk hint (protocol 19, P-NET-DRAWAHEAD-1a): the heading of the walk the server will continue, in
-    /// 256ths of a turn; 0 whenever `walk_ticks` is 0. Never set on a mob.
-    pub walk_dir: u8,
-    /// Whole ticks the server is committed to keep walking along `walk_dir` (a lower bound; a plain count, not capped here).
-    pub walk_ticks: u8,
 }
 
 impl WireActor {
+    /// STUB (P-NET-DRAWAHEAD-1a replaces it with the fields `walk_dir`, `walk_ticks`): a remote player's walk hint (protocol
+    /// 19), the heading of the walk the server will continue in 256ths of a turn (0 whenever the ticks are 0) and the whole
+    /// ticks it is committed to. Never set on a mob.
+    pub fn walk_hint(&self) -> (u8, u8) {
+        (0, 0)
+    }
+
     /// What a client decodes after this actor went over the wire (positions to 1/8 u, facing to 2 pi / 65536).
     pub fn quantized(&self) -> WireActor {
         WireActor {

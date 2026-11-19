@@ -274,8 +274,6 @@ pub(super) fn read_actor(r: &mut Reader, prev: Option<u32>) -> Result<WireActor,
         return Err(DecodeError::BadField(why));
     }
     Ok(WireActor {
-        walk_dir: 0,
-        walk_ticks: 0,
         archetype,
         flags,
         offhand,

@@ -131,8 +131,6 @@ fn a_busy_match_with_every_indicator_fact_stays_within_the_frame_bounds() {
         mark_tier: MAX_MARK_TIER - flip as u8,
         brand: 100 - flip as u8,
         mark_tax: 100 - flip as u8,
-        walk_dir: 0,
-        walk_ticks: 0,
     };
     let me = |flip: bool| WireSelf {
         id: u32::MAX,
