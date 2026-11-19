@@ -484,6 +484,13 @@ fn award_weapon(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: &Award) 
         drop_weapon(w, a)
     }
 }
+/// The camp's buff row (`CampBuffRule::Themed` worlds only); `None` when the camp pays its own type's stat.
+fn camp_buff(w: &World, camp: u32) -> Option<crate::mob_catalog::MobTypeId> {
+    w.mob_runtime
+        .as_ref()
+        .and_then(|rt| rt.buffs.0.get(camp as usize).copied().flatten())
+}
+
 pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award) {
     // Legacy `payMobKill`: a training world's practice mobs pay nothing (no GV, feed, stat, weapon or drop).
     if k.config.training {
@@ -522,12 +529,14 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
     );
     if a.elite && k.config.elites == crate::EliteRule::Rework {
         // Rework helper share (owner 2026-11-18): every standing contributor, the killer included, is paid one camp's
-        // worth of the stat the camp's normal kills pay. `grant_mob_stat` refuses a player who is not standing.
-        let paid = w
+        // worth of the stat the camp's normal kills pay: its buff row, else its normal (non-elite) mob type, since the
+        // elite's own type has no farm row. `grant_mob_stat` refuses a player who is not standing.
+        let normal = w
             .mob_runtime
             .as_ref()
-            .and_then(|rt| rt.buffs.0.get(a.camp as usize).copied().flatten())
-            .unwrap_or(a.mob_type);
+            .and_then(|rt| rt.camps.get(a.camp as usize))
+            .map_or(a.mob_type, |c| c.mob_type);
+        let paid = camp_buff(w, a.camp).unwrap_or(normal);
         for &helper in &a.contributors {
             crate::modifiers::grant_mob_stat(
                 k,
@@ -541,10 +550,7 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
     if !a.elite {
         // a7b5c4ce mobLife.ts:265-270: the stat is the camp's buff (an off-theme camp under `CampBuffRule::Themed`, paying
         // another zone's type's stat), else the mob's own type's. A `Legacy` world has no buff row.
-        let buff = w
-            .mob_runtime
-            .as_ref()
-            .and_then(|rt| rt.buffs.0.get(a.camp as usize).copied().flatten());
+        let buff = camp_buff(w, a.camp);
         let paid = buff.unwrap_or(a.mob_type);
         let gained = crate::modifiers::grant_mob_stat(
             k,
