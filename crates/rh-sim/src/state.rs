@@ -380,6 +380,15 @@ pub struct PendingAction {
     /// The attacking Fire player was armed when this action started: the source's armed-packet mark.
     #[serde(default)]
     pub roam_armed: bool,
+    /// Plant Your Feet (legacy `PendingAction.rangeMult`, `weapons.ts:333-347`): the attack's reach or flight range and
+    /// its baked damage multiplier, decided when the attack starts; 1 for an unplanted attack and for every mob.
+    #[serde(default = "unit_range_mult")]
+    pub range_mult: f64,
+}
+
+/// The serde default of an unplanted attack's `range_mult`.
+pub(crate) fn unit_range_mult() -> f64 {
+    1.0
 }
 
 /// One real player death's harvestable remains. Ordinary loot/body containers are separate.
@@ -818,6 +827,10 @@ pub(crate) struct Projectile {
     /// The flight launched from an armed Fire attack: the source's armed-packet mark carried across ticks.
     #[serde(default)]
     pub(crate) roam_armed: bool,
+    /// Plant Your Feet: the launching attack's `range_mult` (legacy `SpawnRequest.rangeMult` and the packet's baked
+    /// `mult`); 1 when unplanted. A reflection keeps it for the damage but flies the catalog range.
+    #[serde(default = "unit_range_mult")]
+    pub(crate) range_mult: f64,
 }
 impl Projectile {
     pub(crate) fn weapon(&self) -> WeaponId {

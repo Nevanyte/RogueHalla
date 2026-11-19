@@ -462,6 +462,8 @@ pub(crate) fn validate(
                                 + (1. - p.signature.chill) * TICK_MS
                                 + TIE_EPS_MS.max(8. * f64::EPSILON * w.server_time.max(1.))))
                 || a.lands_at < a.started_at
+                // Plant Your Feet's factor (1 for every mob attack today) within the planted-attack bound.
+                || !crate::cards::valid_range_mult(k.cards, a.range_mult)
                 || pk.raw < 0.
                 || [pk.phys, pk.magic, pk.true_]
                     .iter()

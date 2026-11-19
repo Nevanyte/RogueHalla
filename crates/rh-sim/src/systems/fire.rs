@@ -403,6 +403,7 @@ mod privacy {
             a: 0.,
             rewind_t: 50.,
             packet,
+            range_mult: 1.0,
         });
         s.s.flight.spawns.push(Spawn {
             owner: PlayerId(2),
@@ -411,6 +412,7 @@ mod privacy {
             aim: 0.,
             packet,
             roam_armed: false,
+            range_mult: 1.0,
         });
         crate::systems::signatures::after_weapons(&mut Cx {
             stats: crate::status_runtime::stats::Inputs::default(),
@@ -461,6 +463,7 @@ mod privacy {
                 a: 0.,
                 rewind_t: 50.,
                 packet,
+                range_mult: 1.0,
             });
         }
         crate::systems::signatures::after_weapons(&mut Cx {

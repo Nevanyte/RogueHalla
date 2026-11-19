@@ -144,9 +144,18 @@ pub(crate) fn plant_armed(p: &crate::state::Player, now: f64) -> bool {
         && now - p.card_still_since >= crate::constants::PLANT_FEET_MS
 }
 
-/// Source `spendPlant`: the armed attack was spent; stand still for PLANT_FEET_MS again.
+/// Source `spendPlant`: the armed attack was spent; stand still for PLANT_FEET_MS again. Called once per attack, when
+/// it starts (`systems::weapons::step_weapon`, legacy `startAttack`), whether or not the attack later meets anyone.
 pub(crate) fn spend_plant(p: &mut crate::state::Player, now: f64) {
     p.card_still_since = now;
+}
+
+/// Plant Your Feet's restore rule for a pending action's or a flight's `range_mult`: 1 (unplanted) up to the table's
+/// planted factor `1 + plant_feet_bonus`, finite. A range, not the two exact values, so any factor the world's table
+/// can produce restores (a `Rework` table's larger bonus too). A factor above 1 on a fighter without the card (or a
+/// mob) is admitted: it is bounded like a planted attack's and changes the state hash.
+pub(crate) fn valid_range_mult(tuning: &Tuning, range_mult: f64) -> bool {
+    (1.0..=1. + tuning.numbers().plant_feet_bonus).contains(&range_mult)
 }
 
 /// Source `stillness`: a player that moved (or is not standing) was last seen moving now.
@@ -542,6 +551,9 @@ mod on_hit_salvage2_tests;
 mod on_hit_salvage2_review_tests;
 
 #[cfg(test)]
+mod plant_feet_tests;
+
+#[cfg(test)]
 mod wishful_tests {
     use super::{wishful_thinking, Trim};
     use crate::abilities::Stocks;
@@ -905,6 +917,65 @@ mod dot_crit_tests {
         assert!(plant_armed(&sim.w.players[i], now));
         spend_plant(&mut sim.w.players[i], now);
         assert!(!plant_armed(&sim.w.players[i], now));
+    }
+
+    /// `check_world` admits a pending action's `range_mult` from 1 up to the table's planted factor, and refuses
+    /// anything outside it (P-AUG-PLANT-1; the oracle covers a planted flight and cast restoring).
+    #[test]
+    fn restore_bounds_a_pending_attacks_plant_factor() {
+        fn set_factor(v: &mut serde_json::Value, m: f64) -> bool {
+            match v {
+                serde_json::Value::Object(o) if o.contains_key("lands_at") => {
+                    o.insert("range_mult".into(), serde_json::json!(m));
+                    true
+                }
+                serde_json::Value::Object(o) => o.values_mut().any(|c| set_factor(c, m)),
+                serde_json::Value::Array(a) => a.iter_mut().any(|c| set_factor(c, m)),
+                _ => false,
+            }
+        }
+        let mut sim = setup();
+        let i = sim.w.idx(PlayerId(1)).unwrap();
+        let now = sim.w.server_time;
+        let weapon = sim.w.players[i].core.active_weapon();
+        sim.w.players[i].core.weapon.action = Some(crate::state::PendingAction {
+            kind: match weapon {
+                crate::WeaponId::Bow => crate::state::ActionKind::Draw,
+                crate::WeaponId::Wand => crate::state::ActionKind::Cast,
+                _ => crate::state::ActionKind::Swing,
+            },
+            weapon,
+            target: None,
+            started_at: now,
+            lands_at: now + 200.,
+            a: 0.,
+            packet: crate::state::Packet {
+                raw: 1.,
+                phys: 1.,
+                magic: 0.,
+                true_: 0.,
+            },
+            roam_armed: false,
+            range_mult: 1.,
+        });
+        let cp = serde_json::to_value(&sim).unwrap();
+        let top = 1. + crate::constants::PLANT_FEET_BONUS;
+        for (m, ok) in [
+            (1., true),
+            (top, true),
+            (1. - 1e-9, false),
+            (top + 1e-9, false),
+        ] {
+            let mut doctored = cp.clone();
+            assert!(
+                set_factor(&mut doctored["world"], m),
+                "the pending action is in the checkpoint"
+            );
+            assert_eq!(Sim::restore(&doctored).is_ok(), ok, "range_mult {m}");
+        }
+        let legacy = crate::cards::Tuning::legacy();
+        assert!(!super::valid_range_mult(legacy, f64::NAN));
+        assert!(!super::valid_range_mult(legacy, f64::INFINITY));
     }
 }
 
