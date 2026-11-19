@@ -92,6 +92,25 @@ legacy ones. To retune one: register `REWORK_<NAME>` in `constants.rs` and point
 - Wishful's budget, window and floor also bound the trims at restore (`abilities/checkpoint.rs`, still legacy):
   whoever retunes them moves that bound too.
 
+### The chest pool (P-AUG-POOL-1)
+
+- `Tuning::pool()` is the world's chest pool: `reward_chests::INTERACTIVE` (the legacy 14) under `Legacy`,
+  `reward_chests::REWORK_POOL` (the 14 plus Committed, Fists of Fury, Machine Gun, Here Comes the Boom, A Race to 0)
+  under `Rework`. The training console grants from it; `check_world` refuses a camp chest (`camp: Some`) offering a
+  card outside it. Camp-less chests (a campless elite's, the console's, tests' declared ones) are not pool-checked.
+- Every chest rolls `roll_with` over `Tuning::offer_pool(&[Picker])` (the drop with the eligible pickers, the console
+  with the player alone): `augment_pool` (catalog order, not held by every picker), less the entries whose `Offer`
+  does not admit the pickers, plus the Eye for an Eye weighting. Under `Legacy` it is exactly `augment_pool`, with the
+  same reward draws (pinned by `reward_chests/pool_tests.rs`).
+- Offer rule (decision 5): a table's `faction_only` lists `(card, faction)` pairs (`Offer::Faction`); every other pool
+  card is `Offer::Any`. A faction card is offered only when there is at least one eligible picker and every one is that
+  faction. Both real tables list none yet; to add one (P-AUG-NATIVE-4), put the card in the pool and the pair in
+  `faction_only`.
+- Eye for an Eye weighting (`weight_eye_for_an_eye`, `Rework` only): when an eligible picker owns a card whose rows
+  (for its faction) hold a `TriggerAction::Return`, Eye for an Eye is repeated beside itself to count
+  `REWORK_EYE_FOR_AN_EYE_WEIGHT` (whole) times. It adds no draw: `roll_with`'s distinct-pick filter drops every copy
+  once picked, and a zone theme counts it once.
+
 ## The elite table: `mob_runtime::EliteTuning`
 
 `EliteTuning { k, hp_mult, dmg_mult }` (`crates/rh-sim/src/mob_runtime.rs`); `EliteTuning::of(rule)` returns the
