@@ -24,6 +24,8 @@ fn legacy_numbers() -> CardNumbers {
         wishful_budget_ms: c::WISHFUL_BUDGET_MS,
         wishful_window_ms: c::WISHFUL_WINDOW_MS,
         wishful_floor_share: c::WISHFUL_FLOOR_SHARE,
+        wishful_hit_share: 0.,
+        wishful_budget_share: 0.,
         outgoing_row_cap: c::OUTGOING_ROW_CAP,
         hp_race_cap: c::HP_RACE_CAP,
         third_time_every: 3,

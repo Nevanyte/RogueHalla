@@ -32,6 +32,11 @@ pub struct CardNumbers {
     pub wishful_window_ms: f64,
     /// Wishful Thinking: the share of a cast cooldown no cut goes below (legacy `WISHFUL_FLOOR_SHARE`).
     pub wishful_floor_share: f64,
+    /// Wishful Thinking (P-AUG-TUNE-1): each hit's cut as a share of the cast's full cooldown; 0 reads the card row's `ms`.
+    pub wishful_hit_share: f64,
+    /// Wishful Thinking (P-AUG-TUNE-1): the most a window may cut as a share of the cast's full cooldown; 0 reads
+    /// `wishful_budget_ms`.
+    pub wishful_budget_share: f64,
     /// G1: the outgoing row ceiling AND the stat fold's `hit` clamp (legacy `OUTGOING_ROW_CAP`, both places).
     pub outgoing_row_cap: f64,
     /// G4: the Race to 0 ceiling AND the stat fold's `hpRace` clamp (legacy `HP_RACE_CAP`, both places).
@@ -81,6 +86,8 @@ static LEGACY: Tuning = Tuning {
         wishful_budget_ms: crate::constants::WISHFUL_BUDGET_MS,
         wishful_window_ms: crate::constants::WISHFUL_WINDOW_MS,
         wishful_floor_share: crate::constants::WISHFUL_FLOOR_SHARE,
+        wishful_hit_share: 0.,
+        wishful_budget_share: 0.,
         outgoing_row_cap: crate::constants::OUTGOING_ROW_CAP,
         hp_race_cap: crate::constants::HP_RACE_CAP,
         third_time_every: 3,
@@ -102,6 +109,8 @@ static REWORK: Tuning = Tuning {
         wishful_budget_ms: crate::constants::WISHFUL_BUDGET_MS,
         wishful_window_ms: crate::constants::WISHFUL_WINDOW_MS,
         wishful_floor_share: crate::constants::WISHFUL_FLOOR_SHARE,
+        wishful_hit_share: 0.,
+        wishful_budget_share: 0.,
         outgoing_row_cap: crate::constants::REWORK_OUTGOING_ROW_CAP,
         hp_race_cap: crate::constants::HP_RACE_CAP,
         third_time_every: 3,
