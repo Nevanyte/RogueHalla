@@ -252,11 +252,18 @@ fn rework_overrides_carry_the_augment_tuning_rows_and_text() {
         let def = t.def(id);
         assert_eq!(def.rows, &rows[..], "{id:?}: Rework rows");
         assert_eq!(def.text, text, "{id:?}: Rework text");
-        assert_ne!(
-            def.rows,
-            id.definition().rows,
-            "{id:?}: the Rework rows are not the legacy ones"
-        );
+        // Gambler, Third Time and Plant keep their legacy flag row: their numbers are named numbers (`CardNumbers`,
+        // asserted below), so only their text changes.
+        if !matches!(
+            id,
+            CardId::Gambler | CardId::ThirdTimesTheCharm | CardId::PlantYourFeet
+        ) {
+            assert_ne!(
+                def.rows,
+                id.definition().rows,
+                "{id:?}: the Rework rows are not the legacy ones"
+            );
+        }
         assert_ne!(
             def.text,
             id.definition().text,
@@ -556,8 +563,18 @@ fn the_fold_reads_the_rework_numbers() {
         2.6,
         "Boom rework fold",
     );
-    near(row(&l), 2.5, "Boom legacy outgoing row");
-    near(row(&r), 2.6, "Boom rework outgoing row (cap 2.6)");
+    // The outgoing row is divided by Boom's own Hit mult (ceiling = cap / own), so a hit lands at own x row. Under a
+    // 2.5 cap Boom's 2.6 would land at 2.5; the Rework cap of 2.6 lets it land whole.
+    near(
+        p(&l).modifiers.mult_of(MultKey::Hit) * row(&l),
+        2.5,
+        "Boom legacy landed hit",
+    );
+    near(
+        p(&r).modifiers.mult_of(MultKey::Hit) * row(&r),
+        2.6,
+        "Boom rework landed hit (cap 2.6)",
+    );
 
     let (l, r) = (
         hold(AugmentRule::Legacy, CardId::MachineGun),
