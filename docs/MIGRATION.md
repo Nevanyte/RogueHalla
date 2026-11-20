@@ -9,7 +9,7 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 **Owner direction 2026-11-19:** "resume" (after the evening pause). Owner OK the same day for the side session's Frost
 Wall fix: "Yes, review it" (review it and merge it into the next integration). Nothing is pushed and `main` is untouched.
 
-**Integration branch:** `feature/unity-rework`, integrations 65 to 67 landed 2026-11-20.
+**Integration branch:** `feature/unity-rework`, integrations 65 to 71 landed 2026-11-20.
 - **Integration 65** (`coord/int-65` @ `35eceb4e0`): P-ELITE-TUNE-1-fix, P-AUG-POOL-1-fix, P-ELITE-PICK-1 and
   P-AUG-NATIVE-1a.
   - Full gate PASS on `35eceb4e0`: `--coordinator --keep-going --allow-artefacts --regen-fixtures --base 7a3436271`,
@@ -118,6 +118,30 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
   - **Wire:** protocol 20, observation 33, policy contract 28. The checkpoint goes to 36 unless shapes match.
   - **Oracle (coordinator decision):** the union of both lines' existing suites. No test is weakened or deleted; only
     version stamps move.
+
+- **Integration 71, the origin sync** (`coord/int-71` @ `c92129f48`, landed as `e054367e3`): P-SYNC-ORIGIN-1.
+  - **What it joins:** `origin/feature/unity-rework` @ `81866e9c4`, 92 commits (P-NET-DRAWAHEAD-1a/1b, the grand
+    coliseum and its heal pickups, P-TICK-1a's `tick_ms`, P-CI-GREEN-4/6, the Frost Wall preview).
+  - **Merge:** 31 conflicts, every one kept both sides; no behaviour conflict.
+  - **Identities:** protocol 20 (the walk hint plus P-WIRE19-A/B), observation 33, policy contract 28,
+    `rh-checkpoint/36` (origin added `tick_ms` and `ContainerKind::Heal`), content `f79973a86f714d7a` (unchanged).
+    Origin's `v19.json` is kept; `v20.json` is generated.
+  - **Review:** reviewer-opus LAND WITH NOTES. No hunk lost; no test weakened or deleted.
+  - **Full gate:** green except the waived pin, with pgtest, C# in the gate and EditMode 1581/1581.
+  - **Review notes, handled:**
+    1. Origin had promised protocol 20 to P-COLISEUM-HEALS-2. The records now give heal props 21 and P-TICK-3 the next
+       free number; the owner tells those threads.
+    2. Origin landed its own P-CI-GREEN-6, so the local `check-vectors.mjs` refresh is renamed P-CI-GREEN-7.
+    3. The silent-switch injectivity test (`tests/augment_rules.rs`) covers six switches, and `tick_ms` is a seventh.
+       It goes in a test packet, P-SYNC-ORIGIN-1-fix.
+  - **For P-TICK-1b:** the local sites that still read `constants::TICK_MS`. They are equal at 50 ms; at 25 ms the
+    Wish restore lattice would refuse valid checkpoints.
+    - `abilities/checkpoint.rs` :33, :44, :237;
+    - `cards/native/hooks.rs:171` (Glacier's chill ms);
+    - `systems/buffs.rs` :78, :80 (barrier decay);
+    - and the native and plant tests.
+- **Identities after integration 71:** protocol 20, observation 33, policy contract 28, checkpoint `rh-checkpoint/36`,
+  replay 25, content hash `f79973a86f714d7a`. Integration 72 (Wish Engine) moves the content hash again.
 
 **Coordinator decisions (2026-11-20):**
 - **Oracle-amends.** Three existing tests were left stale by the two new oracles, and the coordinator amended each in an
