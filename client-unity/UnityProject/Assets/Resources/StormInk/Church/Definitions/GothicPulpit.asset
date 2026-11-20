@@ -36,3 +36,6 @@ MonoBehaviour:
     Back: {fileID: 21300000, guid: 077502270c1bd56044de00eae997abab, type: 3}
   Mount: 1
   EmitsCandleLight: 0
+  AllowedTurns: 3
+  ReflectPainting: 1
+  PermittedBays: 255

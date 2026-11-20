@@ -28,6 +28,7 @@ namespace Roguehalla.Client
         Color _originalColor;
         int _baseSortingOrder;
         bool _configured;
+        bool _originalFlipX;
         public ChurchArtView ResolvedView { get; private set; }
 
         public ChurchArtResolved Resolve(MapAnchor anchor)
@@ -43,6 +44,7 @@ namespace Roguehalla.Client
             if (_renderer != null)
             {
                 _originalSprite = _renderer.sprite;
+                _originalFlipX = _renderer.flipX;
                 _originalColor = _renderer.color;
                 _baseSortingOrder = _renderer.sortingOrder;
             }
@@ -51,6 +53,7 @@ namespace Roguehalla.Client
         }
 
         public Vector3 ContactPoint { get { return PointAtUv(_resolved.Values.Contact); } }
+        public Vector3 FlameWickPoint => PointAtUv(_resolved.Values.FlameSocket);
         public Vector3 FlameWorldPoint { get { return PointAtUv(_resolved.Values.FlameSocket) + transform.up * (_resolved.Values.FlameLayerSize.y * .375f); } }
         public SpriteRenderer FlameRenderer { get { return _flameLayer != null ? _flameLayer.Renderer : null; } }
 
@@ -76,7 +79,9 @@ namespace Roguehalla.Client
             if (!_configured) return;
             _resolved = Resolve(_anchor);
             var value = _resolved.Values;
-            ChurchArtView resolvedView = ResolveSupportedView(View, _slotRotation + value.RotationDegrees, _resolved.Mount);
+            float localTurn = Definition != null ? Definition.LocalTurn(value.RotationDegrees) : value.RotationDegrees;
+            float angle = _slotRotation + localTurn;
+            ChurchArtView resolvedView = ResolveSupportedView(View, angle, _resolved.Mount);
             ResolvedView = resolvedView;
             Sprite selected = resolvedView == ChurchArtView.Side ? value.Side : resolvedView == ChurchArtView.Back ? value.Back : value.Front;
             if (_resolved.Mount == ChurchArtMount.Wall && value.PaneMode == ChurchWindowPaneMode.Jamb && value.Side != null)
@@ -84,11 +89,12 @@ namespace Roguehalla.Client
             Sprite sprite = selected != null ? selected : _originalSprite;
             if (_renderer == null || sprite == null) return;
             _renderer.sprite = sprite;
-            _renderer.enabled = _resolved.Mount != ChurchArtMount.Wall || value.PaneMode != ChurchWindowPaneMode.Concealed;
+            _renderer.flipX = _originalFlipX ^ (_resolved.Mirrored && (Definition == null || Definition.ReflectPainting));
+            _renderer.enabled = _resolved.Mount != ChurchArtMount.Wall ||
+                value.PaneMode != ChurchWindowPaneMode.Concealed && (Definition == null || Definition.AllowsWindow(SlotId));
             _renderer.color = Definition != null ? value.Tint : _originalColor;
             _renderer.sharedMaterial = value.Material != null ? value.Material : _landmark != null ? _landmark.PaintedMaterial(_resolved.EmitsCandleLight) : ShowcaseSprites.Lit;
             float width = Mathf.Max(.001f, value.Width);
-            float angle = _slotRotation + value.RotationDegrees;
             float screenRotation = 0f;
             float projectedWidth = width;
             float vertical = Mathf.Max(.001f, value.Height);
@@ -96,7 +102,7 @@ namespace Roguehalla.Client
             {
                 ProjectFloorSize(width, value.Depth, angle, ArenaView.GroundSquash, out projectedWidth, out vertical, out screenRotation);
             }
-            if (_resolved.Mount == ChurchArtMount.Wall && value.PaneMode == ChurchWindowPaneMode.Jamb) projectedWidth *= .34f;
+            if (_resolved.Mount == ChurchArtMount.Wall && value.PaneMode == ChurchWindowPaneMode.Jamb) projectedWidth = Mathf.Max(.001f, value.Depth);
             var bounds = sprite.bounds.size;
             transform.localScale = new Vector3(projectedWidth / Mathf.Max(.001f, bounds.x), vertical / Mathf.Max(.001f, bounds.y), 1f);
             Vector2 pivot = new Vector2(sprite.pivot.x / sprite.rect.width, sprite.pivot.y / sprite.rect.height);
@@ -134,6 +140,21 @@ namespace Roguehalla.Client
                     value.FlameIntensity, value.SpillRadius, value.SpillIntensity);
             }
             else if (_landmark != null) _landmark.RemoveCandleSocket(GetInstanceID());
+            if (Definition != null && Definition.EmitsWindowLight && _resolved.Mount == ChurchArtMount.Wall)
+                ChurchGarnetLight.Sync(_landmark, _renderer, value.PaneMode, tileContact, FlameWickPoint,
+                    value.FlameColor, value.SpillRadius, value.FlameIntensity, value.SpillIntensity);
+            else ChurchGarnetLight.Detach(_landmark, _renderer);
+        }
+
+        void OnEnable()
+        {
+            if (_configured) RefreshResolved();
+        }
+
+        void OnDisable()
+        {
+            if (_landmark != null) _landmark.RemoveCandleSocket(GetInstanceID());
+            ChurchGarnetLight.Detach(_landmark, _renderer);
         }
 
         Vector3 PointAtUv(Vector2 uv)

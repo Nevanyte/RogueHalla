@@ -64,6 +64,23 @@ namespace Roguehalla.Editor
             fields.Unbind();
             fields.Clear();
             var definition = placement.Definition;
+            if (!editSlot)
+            {
+                var mounts = new Foldout { text = "Permitted orientations", value = false };
+                void MountProperty(string name, string label)
+                {
+                    var property = defaults.FindProperty(name);
+                    var editor = new PropertyField(property, label);
+                    editor.BindProperty(property);
+                    if (name == nameof(definition.AllowedTurns))
+                        editor.RegisterCallback<SerializedPropertyChangeEvent>(_ => fields.schedule.Execute(RebindFields));
+                    mounts.Add(editor);
+                }
+                MountProperty(nameof(definition.AllowedTurns), "Local turns");
+                MountProperty(nameof(definition.ReflectPainting), "Reflect painting with layout");
+                if (definition.Mount == ChurchArtMount.Wall) MountProperty(nameof(definition.PermittedBays), "Permitted wall bays");
+                fields.Add(mounts);
+            }
             var defaultValues = defaults.FindProperty(nameof(ChurchArtDefinition.Defaults));
             int slotIndex = FindSlot(placement.Layout, placement.SlotId);
             var row = slotIndex < 0 ? null : layout.FindProperty(nameof(ChurchInteriorDefinition.SlotOverrides)).GetArrayElementAtIndex(slotIndex);
@@ -75,10 +92,13 @@ namespace Roguehalla.Editor
                 var source = editSlot && overridden ? row.FindPropertyRelative(nameof(ChurchArtSlotOverride.Values)) : defaultValues;
                 var property = source.FindPropertyRelative(field.ToString());
                 var line = new VisualElement { style = { flexDirection = FlexDirection.Row } };
-                var editor = new PropertyField(property, FieldLabel(field)) { style = { flexGrow = 1, flexBasis = 0 } };
+                var editor = FieldEditor(property, field, definition);
+                editor.style.flexGrow = 1;
+                editor.style.flexBasis = 0;
                 editor.SetEnabled(!editSlot || overridden);
-                editor.BindProperty(property);
                 line.Add(editor);
+                if (!editSlot && overridden)
+                    line.Add(new Label("Slot override") { tooltip = "This field has its own value in the selected layout slot." });
                 if (editSlot)
                 {
                     var action = new Button(() =>
@@ -92,26 +112,59 @@ namespace Roguehalla.Editor
             }
         }
 
+        static VisualElement FieldEditor(SerializedProperty property, ChurchArtOverrideFields field, ChurchArtDefinition definition)
+        {
+            if (field == ChurchArtOverrideFields.RotationDegrees && definition.AllowedTurns != ChurchArtTurns.AnyAngle)
+            {
+                int step = definition.AllowedTurns == ChurchArtTurns.ReverseOnly ? 180 : 90;
+                var choices = new System.Collections.Generic.List<string>();
+                for (int degrees = 0; degrees < 360; degrees += step) choices.Add(degrees + "°");
+                int index = Mathf.RoundToInt(Mathf.Repeat(definition.LocalTurn(property.floatValue), 360f) / step) % choices.Count;
+                var menu = new DropdownField("Local facing", choices, index);
+                menu.RegisterValueChangedCallback(change =>
+                {
+                    property.serializedObject.Update();
+                    property.floatValue = choices.IndexOf(change.newValue) * step;
+                    property.serializedObject.ApplyModifiedProperties();
+                    ChurchArtEditorRefresh.Schedule();
+                });
+                return menu;
+            }
+            var editor = new PropertyField(property, FieldLabel(field, definition));
+            editor.BindProperty(property);
+            return editor;
+        }
+
         static bool Visible(ChurchArtOverrideFields field, ChurchArtDefinition definition)
         {
             switch (field)
             {
                 case ChurchArtOverrideFields.None:
                 case ChurchArtOverrideFields.All: return false;
+                case ChurchArtOverrideFields.Depth: return definition.Mount != ChurchArtMount.Upright;
+                case ChurchArtOverrideFields.Height: return definition.Mount != ChurchArtMount.Floor;
+                case ChurchArtOverrideFields.RotationDegrees: return definition.AllowedTurns != ChurchArtTurns.FixedToSlot;
                 case ChurchArtOverrideFields.PaneMode: return definition.Mount == ChurchArtMount.Wall;
                 case ChurchArtOverrideFields.FlameLayer:
-                case ChurchArtOverrideFields.FlameLayerSize:
+                case ChurchArtOverrideFields.FlameLayerSize: return definition.EmitsCandleLight;
                 case ChurchArtOverrideFields.FlameSocket:
                 case ChurchArtOverrideFields.FlameIntensity:
                 case ChurchArtOverrideFields.FlameColor:
                 case ChurchArtOverrideFields.SpillRadius:
-                case ChurchArtOverrideFields.SpillIntensity: return definition.EmitsCandleLight;
+                case ChurchArtOverrideFields.SpillIntensity: return definition.EmitsCandleLight || definition.EmitsWindowLight;
                 default: return true;
             }
         }
 
-        static string FieldLabel(ChurchArtOverrideFields field)
+        static string FieldLabel(ChurchArtOverrideFields field, ChurchArtDefinition definition)
         {
+            if (definition.Mount == ChurchArtMount.Wall)
+            {
+                if (field == ChurchArtOverrideFields.Depth) return "Jamb thickness (world units)";
+                if (field == ChurchArtOverrideFields.FlameSocket) return "Pane light source (UV)";
+                if (field == ChurchArtOverrideFields.FlameColor) return "Pane light color";
+                if (field == ChurchArtOverrideFields.FlameIntensity) return "Pane light intensity";
+            }
             switch (field)
             {
                 case ChurchArtOverrideFields.PaneMode: return "Window reveal";
@@ -167,27 +220,37 @@ namespace Roguehalla.Editor
             if (part.Definition == null || part.Layout == null) return;
             var renderer = part.GetComponent<SpriteRenderer>();
             if (renderer == null) return;
+            bool editLocal = SessionState.GetBool(ScopePreference, false);
+            int index = FindSlot(part.Layout, part.SlotId);
+            var overrides = index < 0 ? ChurchArtOverrideFields.None : part.Layout.SlotOverrides[index].OverrideFields;
+            bool CanMove(ChurchArtOverrideFields field) => editLocal || (overrides & field) == 0;
+
+            void HandlePoint(Vector3 origin, ChurchArtOverrideFields field, string label, Handles.CapFunction cap,
+                Func<Vector3, Vector2> toValue)
+            {
+                bool active = CanMove(field);
+                Handles.Label(origin + Vector3.up * .13f, active ? label : label + " (overridden in This slot)");
+                if (!active) return;
+                EditorGUI.BeginChangeCheck();
+                var moved = Handles.Slider2D(origin, Vector3.forward, Vector3.right, Vector3.up,
+                    HandleUtility.GetHandleSize(origin) * .055f, cap, Vector2.zero);
+                if (EditorGUI.EndChangeCheck()) WritePoint(part, field, toValue(moved));
+            }
+
             using (new Handles.DrawingScope(Color.cyan))
             {
                 Handles.DrawWireCube(renderer.bounds.center, renderer.bounds.size);
-                var contact = part.ContactPoint;
-                Handles.Label(contact + Vector3.down * .13f, "Layout offset");
-                EditorGUI.BeginChangeCheck();
-                var moved = Handles.Slider2D(contact, Vector3.forward, Vector3.right, Vector3.up,
-                    HandleUtility.GetHandleSize(contact) * .06f, Handles.RectangleHandleCap, Vector2.zero);
-                if (EditorGUI.EndChangeCheck()) WritePoint(part, ChurchArtOverrideFields.LocalOffset, part.WorldToLocalOffset(moved));
+                HandlePoint(part.ContactPoint, ChurchArtOverrideFields.LocalOffset, "Layout offset",
+                    Handles.RectangleHandleCap, part.WorldToLocalOffset);
             }
-            if (part.Definition.EmitsCandleLight)
+            if (part.Definition.EmitsCandleLight || part.Definition.EmitsWindowLight)
             {
                 using (new Handles.DrawingScope(new Color(1f, .67f, .24f)))
                 {
-                    var flame = part.FlameWorldPoint;
-                    Handles.DrawDottedLine(part.ContactPoint, flame, 3f);
-                    Handles.Label(flame + Vector3.up * .13f, "Flame socket");
-                    EditorGUI.BeginChangeCheck();
-                    var moved = Handles.Slider2D(flame, Vector3.forward, Vector3.right, Vector3.up,
-                        HandleUtility.GetHandleSize(flame) * .055f, Handles.CircleHandleCap, Vector2.zero);
-                    if (EditorGUI.EndChangeCheck()) WritePoint(part, ChurchArtOverrideFields.FlameSocket, part.WorldToUv(moved));
+                    var wick = part.FlameWickPoint;
+                    Handles.DrawDottedLine(part.ContactPoint, wick, 3f);
+                    HandlePoint(wick, ChurchArtOverrideFields.FlameSocket, part.Definition.EmitsWindowLight ? "Pane light" : "Flame socket",
+                        Handles.CircleHandleCap, part.WorldToUv);
                 }
             }
         }

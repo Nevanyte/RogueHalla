@@ -9,6 +9,29 @@ namespace Roguehalla.Client.Tests
     public sealed class StormInkChurchInspectorTests
     {
         [Test]
+        public void AuthoredTurnPolicyAndPermittedBaysApplyInChurchCoordinates()
+        {
+            var art = ScriptableObject.CreateInstance<ChurchArtDefinition>();
+            try
+            {
+                art.AllowedTurns = ChurchArtTurns.AnyAngle;
+                Assert.That(art.LocalTurn(37f), Is.EqualTo(37f));
+                art.AllowedTurns = ChurchArtTurns.QuarterTurns;
+                Assert.That(art.LocalTurn(-76f), Is.EqualTo(-90f));
+                art.AllowedTurns = ChurchArtTurns.ReverseOnly;
+                Assert.That(art.LocalTurn(140f), Is.EqualTo(180f));
+                art.AllowedTurns = ChurchArtTurns.FixedToSlot;
+                Assert.That(art.LocalTurn(150f), Is.Zero);
+                art.Mount = ChurchArtMount.Wall;
+                art.PermittedBays = ChurchWindowBays.RearInnerLeft;
+                Assert.That(art.AllowsWindow("window.rear.bay1"), Is.True);
+                Assert.That(art.AllowsWindow("window.rear.bay2"), Is.False);
+                Assert.That(art.AllowsWindow("window.front.bay1"), Is.False);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(art); }
+        }
+
+        [Test]
         public void FieldOverridesSurviveSavingAndTextureReimportAndResetIndependently()
         {
             const string slot = "pew.row0.left";
