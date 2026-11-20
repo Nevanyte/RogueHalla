@@ -389,7 +389,7 @@ fn a_player_holding_a_native_card_is_observed_as_one_who_does_not() {
     let base = world(AugmentRule::Rework);
     let cp = checkpoint(&base);
     let mut plain = Sim::restore(&cp).unwrap();
-    let forged = Sim::restore(&with_native(&cp, 0, held_rows()));
+    let forged = Sim::restore(with_native(&cp, 0, held_rows()));
     assert!(
         forged.is_ok(),
         "the native world restores: {:?}",
@@ -424,7 +424,7 @@ fn check_world_refuses_native_state_outside_its_caps_and_shapes() {
     let hazard = cap(CardId::HazardWalker);
     let walker_cap = hazard.counter_cap;
     let meter = hazard.meter_caps[0];
-    let restores = |rows: Value| Sim::restore(&with_native(&cp, 0, rows)).is_ok();
+    let restores = |rows: Value| Sim::restore(with_native(&cp, 0, rows)).is_ok();
     // Positive controls: every value at its cap, every allowed mark.
     assert!(restores(json!([row(
         CardId::MarksmansTally,
@@ -609,12 +609,12 @@ fn no_pool_or_chest_holds_a_native_card() {
     }
     let sim = world(AugmentRule::Rework);
     assert!(
-        Sim::restore(&with_chest(&sim, CardId::TankEngine)).is_ok(),
+        Sim::restore(with_chest(&sim, CardId::TankEngine)).is_ok(),
         "positive control: a declared camp-less chest restores"
     );
     for (id, _, _) in NATIVE {
         assert!(
-            Sim::restore(&with_chest(&sim, id)).is_err(),
+            Sim::restore(with_chest(&sim, id)).is_err(),
             "a chest offering {id:?} would put a native id on the wire before P-WIRE19-A"
         );
     }
