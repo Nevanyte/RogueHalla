@@ -26,6 +26,7 @@ pub(crate) mod fire;
 pub(crate) mod fire_roam;
 pub(crate) mod frost;
 pub(crate) mod heal;
+pub(crate) mod heal_pickups;
 pub(crate) mod initial_loot;
 pub(crate) mod inputs;
 pub(crate) mod items;

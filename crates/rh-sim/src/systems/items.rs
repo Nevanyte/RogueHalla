@@ -218,6 +218,8 @@ impl Sim {
             || at.y >= self.k.arena.map.h as f64 * crate::constants::TILE
             || matches!(kind, ContainerKind::Body(id) if self.w.roster.name(id).is_none())
             || (kind == ContainerKind::Ground && weapons.len() != 1)
+            // A heal pickup is constructor state of a grand-coliseum map (P-COLISEUM-HEALS-1), never a scenario prop.
+            || kind == ContainerKind::Heal
         {
             return Err("invalid scenario weapon container");
         }

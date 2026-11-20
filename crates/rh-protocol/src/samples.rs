@@ -1798,6 +1798,31 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
             },
         ),
         (
+            // P-COLISEUM-HEALS-2 (protocol 20): the four grand-coliseum heal pickups, prop kind 8 with the cannon's layout,
+            // at the centres of tiles (79,79), (80,79), (79,80), (80,80) in 1/8 units; NE and SW wait, NW and SE are ready.
+            "state_heal_props",
+            ServerMsg::State {
+                tick: 202,
+                items: vec![StateItem::Props(WireProps {
+                    rows: [
+                        (1, 20352, 20352, 0),
+                        (2, 20608, 20352, 30_000),
+                        (3, 20352, 20608, u32::MAX),
+                        (4, 20608, 20608, 0),
+                    ]
+                    .into_iter()
+                    .map(|(handle, x, y, ready_at)| WireProp {
+                        handle: PickupHandle::new(handle).unwrap(),
+                        x,
+                        y,
+                        kind: WirePropKind::Heal { ready_at },
+                    })
+                    .collect(),
+                    focus: None,
+                })],
+            },
+        ),
+        (
             "events_union",
             ServerMsg::Events {
                 tick: 201,
@@ -7891,13 +7916,14 @@ fn decoded_quest_state_json(m: &ServerMsg) -> String {
                     WirePropKind::WindEmblem => 5,
                     WirePropKind::Cannon { .. } => 6,
                     WirePropKind::QuestItem { .. } => 7,
+                    WirePropKind::Heal { .. } => 8,
                 };
                 let specifics = match &row.kind {
                     WirePropKind::Ground(weapon) => format!("\"weapon\":{weapon}"),
                     WirePropKind::Chest { open } => format!("\"open\":{open}"),
                     WirePropKind::Body { label } | WirePropKind::Corpse { label } => format!("\"label\":\"{}\"", escape(label)),
                     WirePropKind::WindEmblem => String::new(),
-                    WirePropKind::Cannon { ready_at } => format!("\"readyAt\":{ready_at}"),
+                    WirePropKind::Cannon { ready_at } | WirePropKind::Heal { ready_at } => format!("\"readyAt\":{ready_at}"),
                     WirePropKind::QuestItem { quest, fetch } => format!("\"quest\":{},\"fetch\":{fetch}", quest.get()),
                 };
                 let base = format!("\"handle\":{},\"x\":{},\"y\":{},\"kind\":{kind}", row.handle.get(), row.x, row.y);

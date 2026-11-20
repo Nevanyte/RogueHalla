@@ -70,6 +70,11 @@ pub enum PropKind {
         quest: crate::quest_view::QuestHandle,
         fetch: bool,
     },
+    /// A grand-coliseum heal pickup (P-COLISEUM-HEALS-2), with the server time it is available again (0: now). Public:
+    /// position and readiness only; never the focus (it holds no item).
+    Heal {
+        ready_at: u32,
+    },
 }
 
 /// Position is already encoded on the public 1/8-unit grid. Field order is the canonical sort key.
@@ -366,6 +371,11 @@ impl ItemObserver {
                     ready_at: ready_ms(c.ready_at),
                 },
                 ContainerKind::WindEmblem => PropKind::WindEmblem,
+                // P-COLISEUM-HEALS-2: public position and clock (the cannon's clamp); it holds no item, so the focus rule
+                // below never picks it.
+                ContainerKind::Heal => PropKind::Heal {
+                    ready_at: ready_ms(c.ready_at),
+                },
             };
             let cue = PropCue {
                 x: position(c.at.x)?,

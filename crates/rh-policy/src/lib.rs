@@ -55,7 +55,8 @@ use std::time::{Duration, Instant};
 /// room-wide public value every human client reads from the Welcome's HUD block, term 23); bots aim Frost Wall by it.
 /// Version 26 (observation 31, protocol 19, P-NET-DRAWAHEAD-1a): each delivered player row and its projected actor carry
 /// the public walk hint (heading, committed ticks); bots do not decide on it.
-pub const POLICY_CONTRACT_VERSION: u16 = 26;
+/// Version 27 (protocol 20, P-COLISEUM-HEALS-2): heal props; bots ignore them.
+pub const POLICY_CONTRACT_VERSION: u16 = 27;
 
 /// Everything a policy may know about a match before its first observation, all of it public static data (the map
 /// and spawn points), never match state. Never a [`rh_sim::Secrets`] value and never the sim itself (C-OBS, C-RNG, C-POLICY).
