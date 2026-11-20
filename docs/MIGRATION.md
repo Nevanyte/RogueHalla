@@ -61,6 +61,22 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
 
 **Next:** the Opus implementers for both packets, then waves 6 to 9 as listed in the paused section below.
 
+**Origin has its own protocol 19 (found 2026-11-20).**
+- `origin/feature/unity-rework` is 60 commits ahead of the local integration branch, and the local branch is 233 ahead.
+  The merge base is `24a2ce99f` (2026-11-18). Origin's commits are other sessions' merged pull requests: Coliseum heals,
+  the Frost Wall preview and others.
+- Origin took protocol 19 for P-NET-DRAWAHEAD-1a (`cf21211bc`, a walk hint in actor records, with its own
+  `v19.json`). The local protocol 19 is P-WIRE19-A/B. These are two different wires under one number, so neither may
+  be pushed or deployed as is.
+- **Decision.** When the coordinator syncs with origin, an Opus integration packet (P-WIRE20-SYNC) merges both wire
+  changes into protocol 20:
+  - one `v20.json` from the fixture tool;
+  - the Rust, C# and JS decoders carrying both changes;
+  - the observation and policy versions reconciled;
+  - the content hash regolded;
+  - the card provenance pin refreshed once (P-CI-GREEN-6) after that.
+- P-WIRE19-B's "stay at 19" holds only for the local line until then.
+
 **Coordinator decisions (2026-11-20):**
 - **Oracle-amends.** Three existing tests were left stale by the two new oracles, and the coordinator amended each in an
   `oracle-amend:` commit on the packet branch, one file per commit:
