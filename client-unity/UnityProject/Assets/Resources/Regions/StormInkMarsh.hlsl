@@ -7,7 +7,11 @@ float _StormMarshOn;
 
 float3 StormMarshPaint(float2 t)
 {
-    return SAMPLE_TEXTURE2D(_StormMarshWash, sampler_GroundTex, float2(t.x, -t.y) / 17.0).rgb;
+    // Each pigment strip overlaps its opposite edge in the texture. The world-space bend
+    // varies the direction of the strokes without reflecting grass tufts into chevrons.
+    float2 uv = float2(t.x * .96 + t.y * .28, t.x * .28 - t.y * .96) / 8.5;
+    uv += float2(.16 * sin(t.y * .14 + t.x * .05), .19 * sin(t.x * .13 - t.y * .07));
+    return SAMPLE_TEXTURE2D(_StormMarshWash, sampler_GroundTex, uv).rgb;
 }
 
 // Class weights come from the existing terrain map. The wash supplies the paper and brush marks at every bank,
@@ -15,25 +19,23 @@ float3 StormMarshPaint(float2 t)
 float3 StormMarshFloor(float2 t, float4 plg)
 {
     float3 wash = StormMarshPaint(t);
-    float ink = saturate((dot(wash, float3(.24, .62, .14)) - .23) * 1.86);
+    // The three linear masks are actual strokes sampled from the approved peat, sedge and shallow
+    // water. A dry crossing keeps its peat grain even beside a bright, moving marsh channel.
     float grass = smoothstep(.18, .81, plg.g);
     float water = smoothstep(.20, .79, plg.r);
-    float3 mud = lerp(float3(.094, .065, .050), float3(.265, .200, .152), ink);
-    float3 sedge = lerp(float3(.081, .105, .079), float3(.241, .276, .190), ink);
+    float3 mud = lerp(float3(.110, .078, .058), float3(.250, .180, .135), wash.r);
+    float3 sedge = lerp(float3(.089, .107, .070), float3(.201, .226, .149), wash.g);
     float3 silt = lerp(mud, sedge, grass);
-    float wetBank = 4.0 * water * (1.0 - water);
-    silt *= 1.0 - .22 * wetBank;
-    // A walkable shallow shows its earth through broken reflections. Only the bog hazard fills a channel
-    // with an unbroken wash, so the narrow dry crossing survives a decoration band passing over it.
-    float3 sky = lerp(float3(.095, .143, .137), float3(.251, .291, .256), ink);
-    float reflection = lerp(.25, .62, smoothstep(.26, .78, ink));
+    silt *= 1.0 - .18 * 4.0 * water * (1.0 - water);
+    float3 sky = lerp(float3(.106, .153, .136), float3(.257, .290, .234), wash.b);
+    float reflection = lerp(.32, .62, wash.b);
     return lerp(silt, sky, water * reflection);
 }
 
 void StormMarshChannel(float2 t, float inner, inout float3 colour, inout float3 emission)
 {
     float3 wash = StormMarshPaint(t);
-    float pigment = saturate((dot(wash, float3(.24, .62, .14)) - .23) * 1.86);
+    float pigment = .17 + .66 * wash.b;
     float3 stillWater = lerp(float3(.075, .122, .123), float3(.235, .310, .283), pigment);
     float brokenRim = (1.0 - smoothstep(.10, .38, inner)) * smoothstep(.29, .72, pigment);
     colour = lerp(stillWater, float3(.33, .356, .276), brokenRim * .62);

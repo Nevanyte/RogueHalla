@@ -12,41 +12,35 @@ namespace Roguehalla.Client
             if (!StormCypressGeometry.For(lm.SourceMap).Matches(lm.Anchor)) return false;
 
             var field = new Field(grid, 0);
-            int rootWidth = field.MaxX - field.MinX + 1;
             var trunk = Resources.Load<Sprite>(StormCypressGeometry.TrunkResource);
             var crown = Resources.Load<Sprite>("StormInk/Plague/CypressCrown");
-            if (trunk == null && crown == null) return false;
+            if (trunk == null || crown == null) return false;
 
-            // Through the fork, bark and needles overlap the same fighter. Give that double layer a lighter wash.
-            if (trunk != null && crown != null && lm.Material.HasProperty("_LayeredCanopy"))
-                lm.Material.SetFloat("_LayeredCanopy", 1f);
+            // Both strips come from one upright painting. A single scale keeps the fork continuous
+            // through its join even when the delivered trunk is off-centre or reflected.
+            float sourceWidth = trunk.rect.width;
+            float sourceHeight = trunk.rect.height + crown.rect.height;
+            const float rootContact = .17f;
+            float availableWidth = Mathf.Min(grid.W * .75f, 2f * Mathf.Min(field.Cu, grid.W - field.Cu) - .5f);
+            float availableHeight = (field.Cv * Sq - .45f) / (1f - rootContact);
+            float unit = Mathf.Min(availableWidth / sourceWidth, availableHeight / sourceHeight);
+            float width = sourceWidth * unit;
+            float trunkHeight = trunk.rect.height * unit;
+            var lowerLeft = new Vector2(lm.FootX + field.Cu - .5f * width,
+                -(lm.FootY + field.Cv) * Sq - sourceHeight * unit * rootContact);
 
-            Vector2 trunkSpan;
-            if (trunk == null)
-            {
-                trunkSpan = PaintBark(lm, grid, field, TrunkName, false);
-            }
-            else
-            {
-                float width = Mathf.Min(rootWidth * .97f, 2f * Mathf.Min(field.Cu, grid.W - field.Cu) - .5f);
-                float height = Mathf.Min(11.5f, field.Cv * Sq * 1.22f);
-                var contact = new Vector2(lm.FootX + field.Cu, -(lm.FootY + field.Cv) * Sq);
-                const float RootContact = .27f;
-                var trunkRenderer = StormInkLandmarkSprite.Place(lm, trunk, TrunkName, contact, new Vector2(width, height),
-                    new Vector2(.49f, RootContact), StormInkLandmarkSprite.RowOrder(lm.FootY + field.Cv + 1.25f));
-                // The artwork is a full-rect upright cutout. Stain only its lower root skirt where it meets silt.
-                var barkProperties = new MaterialPropertyBlock();
-                trunkRenderer.GetPropertyBlock(barkProperties);
-                barkProperties.SetFloat("_WetRootContact", 1f);
-                trunkRenderer.SetPropertyBlock(barkProperties);
-                lm.AddFadeRenderer(trunkRenderer);
-
-                float bottom = -field.Cv * Sq - height * RootContact;
-                trunkSpan = new Vector2(bottom, bottom + height);
-            }
-
-            if (crown == null) PaintCanopy(lm, grid, cover, coverTiles, trunkSpan);
-            else PaintStormCrown(lm, grid, cover, field, trunkSpan, crown);
+            var bark = StormInkLandmarkSprite.Place(lm, trunk, TrunkName, lowerLeft,
+                new Vector2(width, trunkHeight), Vector2.zero, StormInkLandmarkSprite.RowOrder(lm.FootY + field.Cv + 1.25f));
+            var properties = new MaterialPropertyBlock();
+            bark.GetPropertyBlock(properties);
+            properties.SetFloat("_WetRootContact", 1f);
+            bark.SetPropertyBlock(properties);
+            lm.AddFadeRenderer(bark);
+            var crownBase = lowerLeft + Vector2.up * trunkHeight;
+            var crownSpan = new Vector2(width, crown.rect.height * unit);
+            lm.AddRoofRenderer(StormInkLandmarkSprite.Place(lm, crown, CrownName, crownBase, crownSpan, Vector2.zero, 0));
+            SetStormCrownFade(lm, crown, crownBase, crownSpan);
+            PaintStormGroundContact(lm, grid, cover, field);
             if (Resources.Load<Sprite>("StormInk/Plague/CypressKnees") is Sprite knees)
                 PaintStormKnees(lm, grid, knees);
             else
@@ -88,18 +82,8 @@ namespace Roguehalla.Client
             }
         }
 
-        static void PaintStormCrown(Landmark lm, Grid grid, bool[] cover, Field trunk, Vector2 trunkSpan, Sprite crown)
+        static void PaintStormGroundContact(Landmark lm, Grid grid, bool[] cover, Field trunk)
         {
-            // The fork and living branches show below a broad, open layer of needles and hanging moss.
-            float bottom = Mathf.Lerp(trunkSpan.x, trunkSpan.y, .63f);
-            float height = Mathf.Min(7f, -.35f - bottom);
-            float centre = trunk.Cu + .35f;
-            float width = Mathf.Min(grid.W * .75f, 2f * Mathf.Min(centre, grid.W - centre) - .75f);
-            var lowerLeft = new Vector2(lm.FootX + centre - width * .5f, -lm.FootY * Sq + bottom);
-            var span = new Vector2(width, height);
-            lm.AddRoofRenderer(StormInkLandmarkSprite.Place(lm, crown, CrownName, lowerLeft, span, Vector2.zero, 0));
-            SetStormCrownFade(lm, crown, lowerLeft, span);
-
             int x0 = grid.W, x1 = -1, y0 = grid.H, y1 = -1;
             for (int y = 0; y < grid.H; y++) for (int x = 0; x < grid.W; x++) if (cover[y * grid.W + x])
             {
