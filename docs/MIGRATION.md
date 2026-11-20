@@ -193,6 +193,18 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
   - The holder's own row is not drawn as a second mark (P-AUG-UI-3), and the marks also show on the Tab map.
 - **Left for the map lane:** `GAME_DESIGN.md` still says 8 camps a zone and 136 × 136. The code has 10 and 160 × 160.
 
+- **Integration 75** (`coord/int-75` @ `4871777f1`, landed as `607bf22da`): P-AUG-UI-3, Marked Man holders on the minimap
+  and the Tab map. A coordinator oracle-amend fixed a typo in the expected order. reviewer LAND; full gate green except
+  the waived pin.
+- **Proposed DEVIATIONS rows:** DEV-040 to DEV-054 are in `docs/coordination/REWORK_DEVIATIONS_PROPOSED.md`, unsigned,
+  for the owner.
+- **Left before a push:**
+  - P-CI-GREEN-7, the provenance refresh. It is blocked because Docker Desktop's API does not answer here.
+  - The final combined review (running).
+  - A look check of the new HUD (readout strip, first-pick countdown, Marked Man marks), which has not been seen in a
+    render.
+  - The owner's word to push. The local line is about 300 commits ahead of origin, which keeps moving.
+
 **Coordinator decisions (2026-11-20):**
 - **Oracle-amends.** Three existing tests were left stale by the two new oracles, and the coordinator amended each in an
   `oracle-amend:` commit on the packet branch, one file per commit:
