@@ -695,10 +695,12 @@ fn legacy_worlds_keep_their_state_hash_and_checkpoint_bytes() {
 
 // Recorded on `packet/P-AUG-NATIVE-1a` at the stub commit, whose serialized state equals the base's (the stub only
 // appends `CardId` variants no Legacy world holds). FNV-1a 64 over `serde_json` text of the checkpoint `Value` parts.
+// Coordinator oracle-amend 2026-11-19: re-recorded on coord/int-65 @ b6d6aea90 after P-ELITE-PICK-1 added the reward
+// chest's `first_pick` field (`null` in a Legacy world's chests); values measured on the base's own sources.
 const BASE_HASHES: [u64; 3] = [
-    18_281_978_131_152_541_233,
-    15_040_008_660_309_965_787,
-    14_844_370_552_070_824_266,
+    17_336_830_712_536_725_841,
+    7_894_769_073_158_783_840,
+    9_295_211_415_488_179_496,
 ];
-const BASE_WORLD: u64 = 7_759_005_433_630_789_129;
+const BASE_WORLD: u64 = 7_001_276_216_922_443_237;
 const BASE_STATICS: u64 = 2_263_326_562_367_864_595;
