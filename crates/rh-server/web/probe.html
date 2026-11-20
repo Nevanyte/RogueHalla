@@ -15,14 +15,14 @@
 <body>
 <main>
   <h1>Roguehalla protocol probe</h1>
-  <p>A browser client for protocol v18 over the browser WebSocket API (the transport a Unity Web build uses). It is a test
+  <p>A browser client for protocol v19 over the browser WebSocket API (the transport a Unity Web build uses). It is a test
   harness for Stage 1, not the game client. Click to walk; hold Space to attack toward the cursor.</p>
   <canvas id="c" width="960" height="640"></canvas>
   <pre id="s">connecting…</pre>
 </main>
 <script>
 "use strict";
-// ---- protocol v18 (mirror of crates/rh-protocol; tools/protocol-js/check-vectors.mjs holds this block to protocol/fixtures/v18.json) ----
+// ---- protocol v19 (mirror of crates/rh-protocol; tools/protocol-js/check-vectors.mjs holds this block to protocol/fixtures/v19.json) ----
 class W {
   constructor() { this.b = new Uint8Array(256); this.n = 0; this.v = new DataView(this.b.buffer); }
   need(k) { if (this.n + k > this.b.length) { const nb = new Uint8Array(this.b.length * 2 + k); nb.set(this.b); this.b = nb; this.v = new DataView(nb.buffer); } }
@@ -259,7 +259,7 @@ function checkTerrainAgainstCollision(collisionBuf, collision, terrainBuf, terra
     const take = Math.min(an, bn); an -= take; bn -= take; left -= take;
   }
 }
-const PROTOCOL = 18;
+const PROTOCOL = 19;
 const MAX_TICKET = 448;
 const MAX_QUEST_VIEW_BYTES = 24 * 1024;
 const MAX_TRADE_VIEW_BYTES = 2213;
@@ -1051,7 +1051,8 @@ function readState(r) {
         const x = r.u16(), y = r.u16(), expiresAt = finite(r.f64()), options = [], k = r.code(3, "reward options");
         for (let o = 0; o < k; o++) {
           const kind = r.u8(); let reward;
-          if (kind === 1) reward = { kind, id: r.code(79, "reward id") };
+          // Card ids: the 80 catalog cards, then the 14 native cards (80..=93, P-WIRE19-A).
+          if (kind === 1) reward = { kind, id: r.code(93, "reward id") };
           else if (kind === 2) reward = { kind, id: r.code(7, "reward id") };
           else if (kind === 3 && PROTOCOL >= 13) {
             const key = r.code(8, "Trophy key"), gain = r.f64();
@@ -1060,7 +1061,11 @@ function readState(r) {
           } else throw new Error("bad reward kind");
           options.push({ ...reward, taken: flag(), takenBy: actor() });
         }
-        value.push({ handle: h, x, y, expiresAt, options, picked: flag(), canChoose: flag() });
+        const picked = flag(), canChoose = flag();
+        // P-WIRE19-A: the killer first-pick window, finite and ending by the chest's expiry; never a player id.
+        const firstPick = r.opt(() => ({ until: finite(r.f64()), mine: flag() }));
+        if (firstPick && firstPick.until > expiresAt) throw new Error("bad first pick");
+        value.push({ handle: h, x, y, expiresAt, options, picked, canChoose, firstPick });
       }
     } else if(key===7) {
       value=[];for(let j=0,k=count();j<k;j++)value.push({kind:r.code(1,"projectile"),x:r.u16(),y:r.u16(),facing:r.u16(),owner:actor(),height:r.u8()});
