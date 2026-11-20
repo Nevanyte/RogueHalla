@@ -588,7 +588,12 @@ fn terrain_player_passes_match_actual_source() {
                     );
                     let p = &mut sim.w.players[0];
                     let at = p.pos();
-                    p.body.history.record(sim.w.server_time, at.x, at.y);
+                    p.body.history.record_at_step(
+                        sim.w.server_time,
+                        at.x,
+                        at.y,
+                        crate::constants::LEGACY_TICK_MS,
+                    );
                 }
                 x => panic!("unconsumed runtime action {x}"),
             }

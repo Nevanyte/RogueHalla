@@ -7,7 +7,11 @@ use crate::{
 };
 pub(crate) fn damage(cx: &mut Cx) {
     let stats = cx.stats;
-    damage_with(cx, crate::constants::TICK_MS, |p| stats.view(p));
+    // The sim's step: a burn deals `value` a second at every rate. The owner's crit roll (`roll_dot_crit`, no RNG draw: a
+    // deterministic accumulator) stays once per step, so the share of DoT damage that crits is `crit_chance` at both
+    // rates; at 25 ms the crits come twice as often, each on half the damage (P-TICK-1b).
+    let tick_ms = cx.k.tick_ms();
+    damage_with(cx, tick_ms, |p| stats.view(p));
 }
 pub(crate) fn damage_with(
     cx: &mut Cx,

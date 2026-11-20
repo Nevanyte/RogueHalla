@@ -11,7 +11,7 @@ use crate::{
 /// the default remaining payload, plus the retained player source snapshot (roster label, no owner). The producer tags
 /// the application `world.tick` and `status_runtime::apply` stores `world.server_time` plus the Hemorrhage row's
 /// duration with the ordinary binary64 addition (`until = started_at + ms`); the reader's accepted clock domain does
-/// not equate `server_time` with `tick * TICK_MS`, so no such equality is required here — only the canonical tag tick
+/// not equate `server_time` with `tick * tick_ms`, so no such equality is required here — only the canonical tag tick
 /// is bounded by the current tick. Immutable producer facts are compared; the source need not be present, alive or
 /// still own the card, and generic status/time validation plus known-actor provenance remain authoritative.
 fn earned_hemorrhage_bleed(w: &World, st: &crate::status_runtime::StatusInstance) -> bool {
@@ -190,7 +190,7 @@ pub(crate) fn validate(
                 if births < initial_count
                     && (initial_order[births] != (camp, spot)
                         || u64::from(birth_serial) != initial_serial_base + births as u64 + 1
-                        || f64::from(born_tick) * TICK_MS != w.raid_started_at)
+                        || f64::from(born_tick) * k.tick_ms() != w.raid_started_at)
                 {
                     return Err("invalid initial birth order".into());
                 }
@@ -207,7 +207,7 @@ pub(crate) fn validate(
                             }
                         } else if spot != 0
                             || last_spot as usize + 1 != c.spots.len()
-                            || f64::from(born_tick.saturating_sub(last_tick)) * TICK_MS
+                            || f64::from(born_tick.saturating_sub(last_tick)) * k.tick_ms()
                                 < CAMP_RESPAWN_MS
                         {
                             return Err("invalid respawn cycle".into());
@@ -339,7 +339,7 @@ pub(crate) fn validate(
             w.actor_history.get(p.id).unwrap(),
             crate::Vec2::new(at.x, at.y),
             crate::math::atan2(d.y - at.y, d.x - at.x),
-            f64::from(*born_tick) * TICK_MS,
+            f64::from(*born_tick) * k.tick_ms(),
             k.config.hitboxes,
         );
         if m.camp != *camp
@@ -446,7 +446,7 @@ pub(crate) fn validate(
                         // every admitted server-time magnitude; TIE_EPS_MS also covers weapon readiness.
                         && a.started_at
                             <= w.server_time
-                                + (1. - p.signature.chill) * TICK_MS
+                                + (1. - p.signature.chill) * k.tick_ms()
                                 + TIE_EPS_MS.max(8. * f64::EPSILON * w.server_time.max(1.))))
                 || a.lands_at < a.started_at
                 || pk.raw < 0.
@@ -515,7 +515,7 @@ pub(crate) fn validate(
         if h.is_empty()
             || h.iter()
                 .any(|s| !near(s.x, s.y) || !(0. ..=w.server_time).contains(&s.t))
-            || h.windows(2).any(|s| s[1].t - s[0].t < TICK_MS)
+            || h.windows(2).any(|s| s[1].t - s[0].t < k.tick_ms())
         {
             return Err("invalid mob rewind".into());
         }

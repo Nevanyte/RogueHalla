@@ -4,25 +4,31 @@
 //! A gate transition must preserve the old reveal geometry when dynamic gates are ported.
 use crate::collision::{Variant, View};
 use crate::constants::{
-    BUSH_REVEAL_MS, BUSH_REVEAL_RADIUS, MASK_SIGHT, TICK_MS, TILE, VISION_RADIUS, VISION_TRAIL_MS,
-    VISION_UPDATE_MS,
+    BUSH_REVEAL_MS, BUSH_REVEAL_RADIUS, LEGACY_TICK_MS, MASK_SIGHT, TILE, VISION_RADIUS,
+    VISION_TRAIL_MS, VISION_UPDATE_MS,
 };
 use crate::state::{Player, Status};
 use crate::{PlayerId, Sim, TileMap, Vec2};
 use std::collections::VecDeque;
+// Tests run the legacy 50 ms step.
+#[cfg(test)]
+use crate::constants::TICK_MS;
 
 #[cfg(test)]
 mod golden;
 
-const fn refresh_ticks() -> u32 {
-    (VISION_UPDATE_MS / TICK_MS) as u32
+// Vision counts in steps of the match (`tick_ms`: `SimConfig::tick_ms`); its refresh period and trail keep their
+// milliseconds at every rate (ADR 0029 decision 3).
+fn refresh_ticks(tick_ms: f64) -> u32 {
+    (VISION_UPDATE_MS / tick_ms) as u32
 }
-const fn trail_ticks() -> u32 {
-    (VISION_TRAIL_MS / TICK_MS) as u32
+fn trail_ticks(tick_ms: f64) -> u32 {
+    (VISION_TRAIL_MS / tick_ms) as u32
 }
 pub(crate) const fn max_samples() -> usize {
-    // At most two geometries can be sampled in a tick: before and after settle.
-    (2 * trail_ticks()) as usize
+    // At most two geometries can be sampled in a tick: before and after settle. Counted in legacy 50 ms ticks: a reveal
+    // is throttled to one per refresh period (100 ms) plus one at a gate change, so a 25 ms trail holds no more.
+    (2 * (VISION_TRAIL_MS / LEGACY_TICK_MS) as u32) as usize
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -109,13 +115,13 @@ impl VisionTrail {
     }
     #[cfg(test)]
     fn refresh(&mut self, origin: Vec2, tick: u32) {
-        self.refresh_on(origin, tick, Variant::Open);
+        self.refresh_on(origin, tick, LEGACY_TICK_MS, Variant::Open);
     }
-    fn refresh_on(&mut self, origin: Vec2, tick: u32, variant: Variant) {
+    fn refresh_on(&mut self, origin: Vec2, tick: u32, tick_ms: f64, variant: Variant) {
         if self
             .reveals
             .back()
-            .is_some_and(|r| r.variant == variant && tick - r.tick < refresh_ticks())
+            .is_some_and(|r| r.variant == variant && tick - r.tick < refresh_ticks(tick_ms))
         {
             return;
         }
@@ -131,7 +137,7 @@ impl VisionTrail {
         while self
             .reveals
             .front()
-            .is_some_and(|r| tick - r.tick >= trail_ticks())
+            .is_some_and(|r| tick - r.tick >= trail_ticks(tick_ms))
         {
             self.reveals.pop_front();
         }
@@ -156,6 +162,7 @@ impl VisionTrail {
         tx: i64,
         ty: i64,
         tick: u32,
+        tick_ms: f64,
         after: Option<(u32, u8)>,
     ) -> Option<u32> {
         if !in_map(&map, tx, ty) {
@@ -166,19 +173,21 @@ impl VisionTrail {
             .iter()
             .rev()
             .take_while(|r| {
-                tick - r.tick < trail_ticks() && after.is_none_or(|old| (r.tick, r.ordinal) > old)
+                tick - r.tick < trail_ticks(tick_ms)
+                    && after.is_none_or(|old| (r.tick, r.ordinal) > old)
             })
             .find_map(|r| {
                 reveals_tile(map.at(r.variant), r.origin, tx, ty, centre).then_some(r.tick)
             })
     }
-    fn remembers<'a>(&self, map: impl Into<View<'a>>, at: Vec2, tick: u32) -> bool {
+    fn remembers<'a>(&self, map: impl Into<View<'a>>, at: Vec2, tick: u32, tick_ms: f64) -> bool {
         let map = map.into();
         if !(at.x + at.y).is_finite() {
             return false;
         }
         let (tx, ty) = tile(at);
-        self.latest_reveal(map, tx, ty, tick, None).is_some()
+        self.latest_reveal(map, tx, ty, tick, tick_ms, None)
+            .is_some()
     }
 
     pub(crate) fn has_locked_reveals(&self) -> bool {
@@ -193,10 +202,12 @@ impl VisionTrail {
     pub(crate) fn check(
         &self,
         tick: u32,
+        tick_ms: f64,
         allow_locked: bool,
         near: impl Fn(f64, f64) -> bool,
     ) -> Result<(), String> {
-        if self.phase.is_some_and(|p| p >= refresh_ticks()) || self.reveals.len() > max_samples() {
+        let refresh = refresh_ticks(tick_ms);
+        if self.phase.is_some_and(|p| p >= refresh) || self.reveals.len() > max_samples() {
             return Err("invalid vision phase or reveal count".into());
         }
         let mut previous: Option<&Reveal> = None;
@@ -211,7 +222,7 @@ impl VisionTrail {
                         || (r.tick == p.tick
                             && (r.ordinal != p.ordinal + 1 || r.variant == p.variant))
                         || (r.tick > p.tick && r.ordinal != 0)
-                        || (r.variant == p.variant && r.tick - p.tick < refresh_ticks())
+                        || (r.variant == p.variant && r.tick - p.tick < refresh)
                 })
             {
                 return Err("invalid vision reveal time or origin".into());
@@ -264,22 +275,34 @@ fn in_radius(a: Vec2, b: Vec2) -> bool {
 pub(crate) struct WardSight<'a> {
     camps: &'a [crate::mapdata::CampDef],
     life: &'a [crate::mob_runtime::CampLife],
+    /// The match's step (`SimConfig::tick_ms`): every sight query carries its wards, so they carry the step that turns
+    /// its tick into sim time and its trail into steps. `None` reads the legacy 50 ms (tests without a match).
+    tick_ms: Option<f64>,
 }
 impl<'a> WardSight<'a> {
     pub(crate) const fn none() -> Self {
         Self {
             camps: &[],
             life: &[],
+            tick_ms: None,
         }
     }
     pub(crate) fn of(k: &'a crate::statics::MatchStatic, w: &'a crate::state::World) -> Self {
+        let tick_ms = Some(k.tick_ms());
         match (k.arena.map.layers(), w.mob_runtime.as_ref()) {
             (Some(layers), Some(rt)) => Self {
                 camps: &layers.data().camps,
                 life: &rt.life,
+                tick_ms,
             },
-            _ => Self::none(),
+            _ => Self {
+                tick_ms,
+                ..Self::none()
+            },
         }
+    }
+    fn tick_ms(self) -> f64 {
+        self.tick_ms.unwrap_or(LEGACY_TICK_MS)
     }
     pub(crate) fn of_sim(sim: &'a Sim) -> Self {
         Self::of(&sim.k, &sim.w)
@@ -288,7 +311,7 @@ impl<'a> WardSight<'a> {
     /// `isInVision(collisionMap, map.camps[i], point)`. An expired timestamp cannot leak sight, and a dead viewer never
     /// reaches here (the caller checks its status).
     fn sees(self, map: View<'_>, viewer: PlayerId, point: Vec2, tick: u32) -> bool {
-        let now = f64::from(tick) * TICK_MS;
+        let now = f64::from(tick) * self.tick_ms();
         self.camps.iter().zip(self.life).any(|(camp, life)| {
             life.ward_owner == Some(viewer)
                 && now < life.ward_expires_at
@@ -365,7 +388,7 @@ pub(crate) fn point_with<'a>(
     let map = map.into();
     viewer.status == Status::Alive
         && ((in_radius(viewer.pos(), point) && !line_blocked())
-            || viewer.vision.remembers(map, point, tick)
+            || viewer.vision.remembers(map, point, tick, wards.tick_ms())
             || wards.sees(map, viewer.id, point, tick))
 }
 /// Bush concealment applies only to living actors, after point visibility is established.
@@ -391,16 +414,16 @@ pub(crate) fn actor_with<'a>(
     {
         return false;
     }
-    bush_visible(&map, viewer, target, tick)
+    bush_visible(&map, viewer, target, tick, wards.tick_ms())
 }
 
-fn bush_visible(map: &TileMap, viewer: &Player, target: &Player, tick: u32) -> bool {
+fn bush_visible(map: &TileMap, viewer: &Player, target: &Player, tick: u32, tick_ms: f64) -> bool {
     if let Some(layers) = map.layers() {
         let at = target.pos();
         let bush = layers.bush_at_world(at.x, at.y);
         if bush != 0
             && target.status == Status::Alive
-            && target.bush.until <= f64::from(tick) * TICK_MS
+            && target.bush.until <= f64::from(tick) * tick_ms
         {
             let from = viewer.pos();
             let dx = at.x - from.x;
@@ -448,18 +471,16 @@ pub(crate) fn gameplay_actor_visible<'a>(
     // current status readers at its own phase, so terrain sight must not reuse that mirror.
     if target.status != Status::Lobby
         && point_visible(map, viewer, target.pos(), tick, wards)
-        && bush_visible(&map, viewer, target, tick)
+        && bush_visible(&map, viewer, target, tick, wards.tick_ms())
     {
         return true;
     }
     if viewer.status != Status::Alive
         || target.status == Status::Lobby
-        || !bush_visible(&map, viewer, target, tick)
-        || viewer
-            .vision
-            .reveals
-            .back()
-            .is_some_and(|r| r.variant == map.variant && tick - r.tick < refresh_ticks())
+        || !bush_visible(&map, viewer, target, tick, wards.tick_ms())
+        || viewer.vision.reveals.back().is_some_and(|r| {
+            r.variant == map.variant && tick - r.tick < refresh_ticks(wards.tick_ms())
+        })
     {
         return false;
     }
@@ -561,18 +582,18 @@ struct Cell {
 impl TileVisionCache {
     /// Confirm that every previous unexpired origin still contributes the same revealed tiles and
     /// that no earlier origin was inserted. A coalesced stationary tail can move to a newer tick.
-    fn extends(&self, trail: &VisionTrail, tick: u32) -> bool {
+    fn extends(&self, trail: &VisionTrail, tick: u32, tick_ms: f64) -> bool {
         let Some(_old_tick) = self.tick.filter(|&t| t <= tick) else {
             return false;
         };
         let mut prior = self
             .previous
             .iter()
-            .filter(|r| tick - r.tick < trail_ticks());
+            .filter(|r| tick - r.tick < trail_ticks(tick_ms));
         let mut now = trail
             .reveals
             .iter()
-            .filter(|r| tick - r.tick < trail_ticks())
+            .filter(|r| tick - r.tick < trail_ticks(tick_ms))
             .peekable();
         let old_stamp = self.previous.last().map(|r| (r.tick, r.ordinal));
         while now
@@ -610,7 +631,7 @@ impl TileVisionCache {
             .arena
             .as_ref()
             .is_none_or(|a| !std::sync::Arc::ptr_eq(a, sim.shared_arena()))
-            || !self.extends(trail, sim.tick())
+            || !self.extends(trail, sim.tick(), sim.k.tick_ms())
         {
             self.cells.fill(None);
         }
@@ -657,7 +678,14 @@ impl TileVisionCache {
         let old = pos.and_then(|i| bucket[i]);
         let last_seen = viewer
             .vision
-            .latest_reveal(map, tx, ty, tick, old.and_then(|c| c.through))
+            .latest_reveal(
+                map,
+                tx,
+                ty,
+                tick,
+                wards.tick_ms(),
+                old.and_then(|c| c.through),
+            )
             .or(old.and_then(|c| c.last_seen));
         let slot = pos.unwrap_or_else(|| {
             bucket
@@ -672,7 +700,7 @@ impl TileVisionCache {
             through: viewer.vision.reveals.back().map(|r| (r.tick, r.ordinal)),
             last_seen,
         });
-        last_seen.is_some_and(|t| tick - t < trail_ticks())
+        last_seen.is_some_and(|t| tick - t < trail_ticks(wards.tick_ms()))
             || wards.sees(map, viewer.id, point, tick)
     }
 }
@@ -688,10 +716,12 @@ impl Sim {
 
 /// Used by the installed module at raid start, its regular systems slot, and later authoritative
 /// targeting queries before movement. Publication never invokes this mutating operation.
-pub(crate) fn refresh_player(player: &mut Player, tick: u32, locked: bool) {
+pub(crate) fn refresh_player(player: &mut Player, tick: u32, tick_ms: f64, locked: bool) {
     if player.status == Status::Alive {
         let at = player.pos();
-        player.vision.refresh_on(at, tick, Variant::of(locked));
+        player
+            .vision
+            .refresh_on(at, tick, tick_ms, Variant::of(locked));
     }
 }
 pub(crate) fn fighter_out(hx: &mut crate::hooks::Hx, args: &crate::hooks::HookArgs) {
@@ -708,18 +738,18 @@ pub(crate) fn fighter_out(hx: &mut crate::hooks::Hx, args: &crate::hooks::HookAr
 pub(crate) fn raid_started(hx: &mut crate::hooks::Hx, _: &crate::hooks::HookArgs) {
     let tick = hx.w.tick;
     for p in &mut hx.w.players {
-        refresh_player(p, tick, hx.w.rt.gates_locked);
+        refresh_player(p, tick, hx.k.tick_ms(), hx.w.rt.gates_locked);
     }
 }
 pub(crate) fn refresh(cx: &mut crate::systems::Cx) {
     let tick = cx.w.tick;
+    let (tick_ms, every) = (cx.k.tick_ms(), refresh_ticks(cx.k.tick_ms()));
+    // The stagger keeps the legacy period's slots (two), valid at every step: a phase is any value below `every`.
+    let slots = refresh_ticks(LEGACY_TICK_MS);
     for (i, p) in cx.w.players.iter_mut().enumerate() {
-        let phase = *p
-            .vision
-            .phase
-            .get_or_insert_with(|| (i as u32) % refresh_ticks());
-        if (tick % refresh_ticks() + phase) % refresh_ticks() == 0 || p.vision.reveals.is_empty() {
-            refresh_player(p, tick, cx.w.rt.gates_locked);
+        let phase = *p.vision.phase.get_or_insert_with(|| (i as u32) % slots);
+        if (tick % every + phase) % every == 0 || p.vision.reveals.is_empty() {
+            refresh_player(p, tick, tick_ms, cx.w.rt.gates_locked);
         }
     }
 }
@@ -756,17 +786,17 @@ mod tests {
         let mut m = VisionTrail::default();
         m.refresh(origin, 1);
         assert!(in_radius(origin, tile));
-        assert!(!m.remembers(&map, Vec2::new(f64::NAN, 16.), 1));
-        assert!(!m.remembers(&map, tile, 1));
+        assert!(!m.remembers(&map, Vec2::new(f64::NAN, 16.), 1, TICK_MS));
+        assert!(!m.remembers(&map, tile, 1, TICK_MS));
         let recorded = Vec2::new(990., 16.); // x=976 cell centre
-        assert!(m.remembers(&map, recorded, 1));
+        assert!(m.remembers(&map, recorded, 1, TICK_MS));
         m.refresh(far, 2); // 50 ms is too soon
-        assert!(!m.remembers(&map, far, 2));
+        assert!(!m.remembers(&map, far, 2, TICK_MS));
         m.refresh(far, 3);
-        assert!(m.remembers(&map, recorded, 600));
-        assert!(!m.remembers(&map, recorded, 601));
-        assert!(m.remembers(&map, far, 602));
-        assert!(!m.remembers(&map, far, 603));
+        assert!(m.remembers(&map, recorded, 600, TICK_MS));
+        assert!(!m.remembers(&map, recorded, 601, TICK_MS));
+        assert!(m.remembers(&map, far, 602, TICK_MS));
+        assert!(!m.remembers(&map, far, 603, TICK_MS));
     }
 
     fn private_world() -> Sim {
@@ -875,7 +905,7 @@ mod tests {
         s.step();
         assert_eq!(s.w.players[0].vision.reveals.back().unwrap().tick, 1);
         assert_eq!(s.w.players[1].vision.reveals.back().unwrap().tick, 3);
-        refresh_player(&mut s.w.players[0], 3, false); // eligible gameplay query before phase-0 refresh
+        refresh_player(&mut s.w.players[0], 3, TICK_MS, false); // eligible gameplay query before phase-0 refresh
         s.step();
         assert_eq!(s.w.players[0].vision.reveals.back().unwrap().tick, 3);
         assert_eq!(s.w.players[1].vision.reveals.back().unwrap().tick, 3);
@@ -1017,11 +1047,11 @@ impl VisionTrail {
     }
     pub(crate) fn source_audit_fresh(view: View<'_>, origin: Vec2, point: Vec2, tick: u32) -> bool {
         let mut fresh = Self::default();
-        fresh.refresh_on(origin, tick, view.variant);
-        fresh.remembers(view, point, tick)
+        fresh.refresh_on(origin, tick, LEGACY_TICK_MS, view.variant);
+        fresh.remembers(view, point, tick, LEGACY_TICK_MS)
     }
     pub(crate) fn source_audit_remembers(&self, view: View<'_>, at: Vec2, tick: u32) -> bool {
-        self.remembers(view, at, tick)
+        self.remembers(view, at, tick, LEGACY_TICK_MS)
     }
     pub(crate) fn source_audit_memory(&self, view: View<'_>, tick: u32) -> serde_json::Value {
         use serde_json::json;
@@ -1031,12 +1061,17 @@ impl VisionTrail {
         let mut expires = Vec::new();
         for y in 0..view.h {
             for x in 0..view.w {
-                if let Some(seen) = self.latest_reveal(view, x.into(), y.into(), tick, None) {
-                    expires.push((y * view.w + x, f64::from(seen) * TICK_MS + VISION_TRAIL_MS));
+                if let Some(seen) =
+                    self.latest_reveal(view, x.into(), y.into(), tick, LEGACY_TICK_MS, None)
+                {
+                    expires.push((
+                        y * view.w + x,
+                        f64::from(seen) * LEGACY_TICK_MS + VISION_TRAIL_MS,
+                    ));
                 }
             }
         }
-        json!({"lastUpdate":f64::from(last.tick)*TICK_MS,"lastX":last.origin.x,"lastY":last.origin.y,"lastRadius":VISION_RADIUS,"lastTtl":VISION_TRAIL_MS,"lastMapVariant":if last.variant==Variant::Open{"open"}else if view.variant==last.variant{"active"}else{"other"},"expiresAt":expires})
+        json!({"lastUpdate":f64::from(last.tick)*LEGACY_TICK_MS,"lastX":last.origin.x,"lastY":last.origin.y,"lastRadius":VISION_RADIUS,"lastTtl":VISION_TRAIL_MS,"lastMapVariant":if last.variant==Variant::Open{"open"}else if view.variant==last.variant{"active"}else{"other"},"expiresAt":expires})
     }
 }
 

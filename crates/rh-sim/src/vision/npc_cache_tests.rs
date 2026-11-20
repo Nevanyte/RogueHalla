@@ -70,8 +70,10 @@ fn remembered_scene() -> Sim {
     sim.w.server_time = 5. * TICK_MS;
     let p = &mut sim.w.players[0];
     p.vision = VisionTrail::default();
-    p.vision.refresh_on(Vec2::new(80., 112.), 1, Variant::Open);
-    p.vision.refresh_on(Vec2::new(112., 112.), 3, Variant::Open);
+    p.vision
+        .refresh_on(Vec2::new(80., 112.), 1, TICK_MS, Variant::Open);
+    p.vision
+        .refresh_on(Vec2::new(112., 112.), 3, TICK_MS, Variant::Open);
     p.body.x = 624.;
     p.body.y = 624.;
     assert_eq!(p.vision.reveals.len(), 2);
@@ -116,7 +118,7 @@ fn npc_tile_memo_matches_raw_through_stationary_tail_and_exclusive_expiry() {
     );
     sim.w.players[0]
         .vision
-        .refresh_on(Vec2::new(112., 112.), 5, Variant::Open);
+        .refresh_on(Vec2::new(112., 112.), 5, TICK_MS, Variant::Open);
     assert_eq!(
         sim.w.players[0].vision.reveals.len(),
         2,
@@ -244,9 +246,9 @@ fn tile_memo_keeps_precise_same_tile_los_and_invalid_point_fallback() {
     let p = &mut sim.w.players[0];
     p.vision = VisionTrail::default();
     p.vision
-        .refresh_on(Vec2::new(1200., 800.), 1, Variant::Open);
+        .refresh_on(Vec2::new(1200., 800.), 1, TICK_MS, Variant::Open);
     p.vision
-        .refresh_on(Vec2::new(1240., 800.), 3, Variant::Open);
+        .refresh_on(Vec2::new(1240., 800.), 3, TICK_MS, Variant::Open);
     let viewer = sim.player(PlayerId(1)).unwrap();
     let map = sim.collision_view();
     let wards = WardSight::of_sim(&sim);
@@ -302,8 +304,10 @@ fn tile_memo_keeps_precise_same_tile_los_and_invalid_point_fallback() {
     sim.w.server_time = 5. * TICK_MS;
     let p = &mut sim.w.players[0];
     p.vision = VisionTrail::default();
-    p.vision.refresh_on(Vec2::new(16., 16.), 1, Variant::Open);
-    p.vision.refresh_on(Vec2::new(48., 16.), 3, Variant::Open);
+    p.vision
+        .refresh_on(Vec2::new(16., 16.), 1, TICK_MS, Variant::Open);
+    p.vision
+        .refresh_on(Vec2::new(48., 16.), 3, TICK_MS, Variant::Open);
     p.body.x = 1200.;
     p.body.y = 800.;
     let viewer = sim.player(PlayerId(1)).unwrap();

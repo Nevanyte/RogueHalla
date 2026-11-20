@@ -186,7 +186,7 @@ fn near(w: &World, p: &FighterCore, id: PlayerId) -> bool {
             && crate::math::hypot(f.body.x - p.body.x, f.body.y - p.body.y) <= CHILL_MOVE_RADIUS
     })
 }
-pub(crate) fn after_damage(w: &mut World) {
+pub(crate) fn after_damage(w: &mut World, tick_ms: f64) {
     let now = w.server_time;
     // Source updateChill walks standing combatants in actor order and inserts unique sources at their first edge.
     // Take/reuse this victim's already-reserved list; no temporary per-actor allocation.
@@ -273,10 +273,10 @@ pub(crate) fn after_damage(w: &mut World) {
         f.frost_move_mult = resisted_move_mult(near_mult.min(ranged_mult), resist);
         if f.chill < 1. {
             f.bits |= SIG_CHILLED;
-            p.weapon.ready_at = stretch_until(p.weapon.ready_at, now, TICK_MS, f.chill);
-            p.weapon.buffered_until = stretch_until(p.weapon.buffered_until, now, TICK_MS, f.chill);
+            p.weapon.ready_at = stretch_until(p.weapon.ready_at, now, tick_ms, f.chill);
+            p.weapon.buffered_until = stretch_until(p.weapon.buffered_until, now, tick_ms, f.chill);
             if let Some(mut a) = p.weapon.action.filter(|a| a.kind == ActionKind::Draw) {
-                let lands = stretch_until(a.lands_at, now, TICK_MS, f.chill);
+                let lands = stretch_until(a.lands_at, now, tick_ms, f.chill);
                 a.started_at += lands - a.lands_at;
                 a.lands_at = lands;
                 p.weapon.draw_started_at = a.started_at;
@@ -567,7 +567,7 @@ mod tests {
                 movement_modifier(&s.w, &s.w.players[i].core, TICK_MS, Default::default()),
                 case["liveMove"].as_f64().unwrap()
             );
-            after_damage(&mut s.w);
+            after_damage(&mut s.w, TICK_MS);
             let p = &s.w.players[i];
             let f = &p.signature;
             let mut actual = json!({"chill":f.chill,"chillers":f.chillers.iter().map(|id|format!("p{}",id.0-1)).collect::<Vec<_>>(),"exposureStartedAt":f.exposure_started_at,"lastNearAt":f.last_near_at,"rangedUntil":f.ranged_chill_until,"move":f.frost_move_mult,"readyAt":p.weapon.ready_at,"bufferedUntil":p.weapon.buffered_until,"drawStartedAt":p.weapon.draw_started_at,"action":p.weapon.action.map(|a|json!({"kind":"draw","startedAt":a.started_at,"landsAt":a.lands_at})),"bits":f.bits});
@@ -837,7 +837,7 @@ mod tests {
         let mut baseline = scene();
         baseline.w.server_time = 10_000.;
         engage(&mut baseline, 0, 1);
-        after_damage(&mut baseline.w);
+        after_damage(&mut baseline.w, TICK_MS);
         let f = &baseline.w.players[1].signature;
         assert_eq!(f.chill, 1. - FROST_SLOW);
         assert_eq!(f.frost_move_mult, CHILL_MOVE_MULT);
@@ -851,7 +851,7 @@ mod tests {
         );
         s.w.server_time = 10_000.;
         engage(&mut s, 0, 1);
-        after_damage(&mut s.w);
+        after_damage(&mut s.w, TICK_MS);
         let f = &s.w.players[1].signature;
         let expected = crate::status_runtime::resist_slow(1. - FROST_SLOW, 0.4);
         assert!((f.chill - expected).abs() < 1e-15);
@@ -873,7 +873,7 @@ mod tests {
         let mut baseline = scene();
         baseline.w.server_time = 10_000.;
         ranged_hits(&mut baseline.w, &[landed(2, 1)]);
-        after_damage(&mut baseline.w);
+        after_damage(&mut baseline.w, TICK_MS);
         assert_eq!(
             baseline.w.players[1].signature.frost_move_mult,
             FROST_RANGED_CHILL_MULT
@@ -883,7 +883,7 @@ mod tests {
         grant_iron_will(&mut s, 1);
         s.w.server_time = 10_000.;
         ranged_hits(&mut s.w, &[landed(2, 1)]);
-        after_damage(&mut s.w);
+        after_damage(&mut s.w, TICK_MS);
         assert!(
             (s.w.players[1].signature.frost_move_mult - 0.91).abs() < 1e-12,
             "source witness ranged 0.85->0.91: {}",
@@ -895,7 +895,7 @@ mod tests {
         o.w.server_time = 10_000.;
         engage(&mut o, 0, 1);
         ranged_hits(&mut o.w, &[landed(2, 1)]);
-        after_damage(&mut o.w);
+        after_damage(&mut o.w, TICK_MS);
         assert!((o.w.players[1].signature.frost_move_mult - 0.82).abs() < 1e-12);
 
         // Iron Will on the Frost source does not change the chill it produces.
@@ -903,7 +903,7 @@ mod tests {
         grant_iron_will(&mut source_card, 0);
         source_card.w.server_time = 10_000.;
         engage(&mut source_card, 0, 1);
-        after_damage(&mut source_card.w);
+        after_damage(&mut source_card.w, TICK_MS);
         assert_eq!(source_card.w.players[1].signature.chill, 1. - FROST_SLOW);
     }
     #[test]
@@ -933,7 +933,7 @@ mod tests {
             roam_armed: false,
         });
         p.weapon.draw_started_at = 9_900.;
-        after_damage(&mut s.w);
+        after_damage(&mut s.w, TICK_MS);
         let p = &s.w.players[1];
         assert!((p.signature.chill - m).abs() < 1e-15);
         let expected_ready = 10_100. + (1. - m) * TICK_MS;
@@ -950,7 +950,7 @@ mod tests {
         grant_iron_will(&mut s, 1);
         s.w.server_time = 10_000.;
         engage(&mut s, 0, 1);
-        after_damage(&mut s.w);
+        after_damage(&mut s.w, TICK_MS);
         let partial = s.w.players[1].signature.chill;
         assert!(partial > 1. - FROST_SLOW && partial < 1.);
         let checkpoint = serde_json::to_value(&s).unwrap();
@@ -962,7 +962,7 @@ mod tests {
             for sim in [&mut a, &mut b] {
                 sim.w.server_time += TICK_MS;
                 engage(sim, 0, 1);
-                after_damage(&mut sim.w);
+                after_damage(&mut sim.w, TICK_MS);
             }
             assert_eq!(a.state_hash(), b.state_hash(), "continue replay");
             a = Sim::restore(serde_json::to_value(&a).unwrap())
