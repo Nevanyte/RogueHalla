@@ -55,7 +55,7 @@ and the own-only readouts (State key 14). One number now names two different wir
    - A digest pin that hashes a whole observation moves only because of the version. Prove that by forcing the old
      version, as P-WIRE19-A did.
    - A behaviour conflict (both lines changing one rule differently) is not resolved here: stop and report it.
-8. **Card provenance pin:** the pin of `tools/protocol-js/check-vectors.mjs` stays red and waived until P-CI-GREEN-6. Any
+8. **Card provenance pin:** the pin of `tools/protocol-js/check-vectors.mjs` stays red and waived until P-CI-GREEN-7. Any
    other provenance failure is new: report it.
 
 ## Write scope

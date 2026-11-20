@@ -17,8 +17,8 @@ revision; [sweep/README.md](sweep/README.md) says which (H-sim and H-server-2 ha
 On `integration/backend-unity-union` (head `f6432ea9`, merge `1319260b`) the current identities are: protocol 16 (unchanged by
 the merges), observation 24 (25 since P-WIRE17-HUD-1, 2026-11-11), checkpoint `rh-checkpoint/31` (`rh-checkpoint/32` since P-TRAINING-CAMPS-1, 2026-11-13; `rh-checkpoint/33` since P-AUG-PLANT-1, 2026-11-19; `rh-checkpoint/35` since integration 65, 2026-11-20), replay `rh-replay/25`, policy contract 18 (19 since P-WIRE17-HUD-1), content hash
 `a2d1022ebe713382`. Gates and limits are in [MIGRATION.md](MIGRATION.md#backendunity-union-checkpoint-2026-11-10). The current
-identities on `feature/unity-rework` (protocol 19, observation 32, policy contract 27, checkpoint 35, replay 25, content hash
-`b482e30841717576`, as of integration 69, 2026-11-20) are in the MIGRATION checkpoint's top section.
+identities on `feature/unity-rework` (protocol 20, observation 33, policy contract 28, checkpoint 36, replay 25, content hash
+`f79973a86f714d7a`, as of integration 71 (the origin sync), 2026-11-20) are in the MIGRATION checkpoint's top section.
 The per-row validation cuts below name their own revisions and identities and are kept as history; they are not re-validated
 at the union head.
 

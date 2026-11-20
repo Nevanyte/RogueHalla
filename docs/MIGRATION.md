@@ -98,7 +98,7 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
   - the Rust, C# and JS decoders carrying both changes;
   - the observation and policy versions reconciled;
   - the content hash regolded;
-  - the card provenance pin refreshed once (P-CI-GREEN-6) after that.
+  - the card provenance pin refreshed once (P-CI-GREEN-7) after that.
 - P-WIRE19-B's "stay at 19" holds only for the local line until then.
 
 - **Integration 70** (`coord/int-70` @ `8f17aaff7`, landed as `89499458d`): P-AUG-NATIVE-4, the faction batch.
@@ -133,7 +133,7 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
     chain pins. So the gate step "card provenance chain (pins current)" is red from P-WIRE19-A on.
   - **Why one refresh, at the end.** The refresh is the Docker recapture route of P-CI-GREEN-1/5
     (`docs/evidence/ci-provenance-refresh-2026-11-14/README.md`; about four hours emulated). P-WIRE19-B, and possibly
-    P-AUG-NATIVE-5, edit the file again. So the refresh runs once, as P-CI-GREEN-6, after the rework's last wire packet
+    P-AUG-NATIVE-5, edit the file again. So the refresh runs once, as P-CI-GREEN-7, after the rework's last wire packet
     and before any push.
   - **Waiver until then.** The coordinator waives exactly that red. Each gate's chain output must show
     `check-vectors.mjs` as its only failing pin.

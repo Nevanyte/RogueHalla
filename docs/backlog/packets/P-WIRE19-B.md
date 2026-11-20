@@ -135,7 +135,7 @@ Malformed (server), each a patch of `state_readouts` (row `i` starts at byte `6 
 - Parallel (W7): P-AUG-NATIVE-4 and P-AUG-BOTS-1. Neither may touch `observe.rs`, the protocol, the decoders or the
   delivery projection; batch packets add readout rows only through their own tables (`readout_sources`), which this
   packet carries without change.
-- Next: P-AUG-NATIVE-5 (Marked Man, `observe.rs`), P-AUG-UI-2 (the HUD reads `Collections.Readouts`), P-CI-GREEN-6
+- Next: P-AUG-NATIVE-5 (Marked Man, `observe.rs`), P-AUG-UI-2 (the HUD reads `Collections.Readouts`), P-CI-GREEN-7
   (the card provenance pin of `tools/protocol-js/check-vectors.mjs`, waived until then; this packet edits that file
   again).
 
@@ -231,7 +231,7 @@ Out: `docs/CONTRACTS.md`, `docs/MIGRATION.md` (coordinator: observation 32, poli
 - `git diff packet/P-WIRE19-B -- protocol/fixtures/v18.json` is empty.
 - `git diff packet/P-WIRE19-B -- parity/abilities/hash-tape.json` changes only `observationVersion`.
 - `node tools/provenance/check-card-chain.mjs` stays red only on the `tools/protocol-js/check-vectors.mjs` pin (waived
-  until P-CI-GREEN-6).
+  until P-CI-GREEN-7).
 
 ## Oracle files (read-only for implementers)
 
@@ -272,7 +272,7 @@ Amended existing tests (`oracle-amend:` commits, one file each, for the owner):
 - `tools/protocol-js/check-vectors.mjs`: the nine reasons; the probe decodes the two vectors to exact items
   (`{key:14,value:[{card,kind,value,max}]}`), refuses the nine patches for their reasons, key 15 and 15 keys, accepts
   value = max; the fixture's `state_unknown_key` and `state_too_many_keys` name 15. (Card provenance pin waived until
-  P-CI-GREEN-6.)
+  P-CI-GREEN-7.)
 - `crates/rh-sim/src/cards/native/exemplars_tests.rs` (`readouts_show_each_owner_its_own_native_cards_only`): the
   observation carries the viewer's own rows and, apart from them, equals the native-free world's (was: equal).
 - `crates/rh-sim/src/barriers_reach_tests.rs` (`observation_digest`): `0x2a3b_dc86_9b6d_5f4d`, the switch-off
