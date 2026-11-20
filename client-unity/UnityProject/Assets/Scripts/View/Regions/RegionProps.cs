@@ -56,7 +56,8 @@ namespace Roguehalla.Client
         public static List<Placement> Scatter(MapBlob map)
         {
             var list = new List<Placement>(2048);
-            if (IsDressed(map)) { AddShipped(map, list); return list; }
+            var nave = ChurchLandmark.DeliveredNave(map);
+            if (IsDressed(map)) { AddShipped(map, list, nave); return list; }
             if (map.Regions == null) { AddRealBushes(map, list); return list; }
             int w = map.W, h = map.H; var tiles = map.Tiles; var regions = map.Regions; var terrain = map.Terrain;     // props avoid every terrain tile, drawn or not
             int seed = unchecked((int)(map.LayerHash ^ (map.SemanticHash * 2654435761u)));
@@ -67,6 +68,7 @@ namespace Roguehalla.Client
                 int i = y * w + x;
                 if (tiles[i] != MapBlob.Floor || (terrain != null && terrain[i] != 0)) continue;
                 int region = regions[i]; if (region < 1 || region > 5) continue;
+                if (nave.Contains(x, y)) continue;
                 if (temple.Contains(x, y)) continue;                              // the temple replaces the garden props inside its footprint
                 if (plague.KindAt(x, y) == PlagueGround.Water) continue;          // nothing stands in the shallow water
                 var theme = RegionThemes.Get(region); var rules = theme.Props; if (rules.Length == 0) continue;
@@ -106,12 +108,17 @@ namespace Roguehalla.Client
         }
 
         /// <summary>A map whose blob carries decoration: exactly the server's props (tile units), the fixed temple and coliseum furniture, and the real bushes. Nothing is rolled.</summary>
-        static void AddShipped(MapBlob map, List<Placement> list)
+        static void AddShipped(MapBlob map, List<Placement> list, ChurchLandmark.NaveFloor nave)
         {
             foreach (var p in map.Props)
             {
                 float x = p.X / 32f, y = p.Y / 32f;
-                list.Add(new Placement { Art = DecorationKinds.ArtKey(p.Kind, p.Variant, p.Flags), X = x, Y = y, Scale = 1f, Flip = false, Tx = Mathf.FloorToInt(x), Ty = Mathf.FloorToInt(y),
+                int tx = Mathf.FloorToInt(x), ty = Mathf.FloorToInt(y);
+                string art = DecorationKinds.ArtKey(p.Kind, p.Variant, p.Flags);
+                // Authored church furnishings are independent of the outdoor prop pass.
+                // Legacy placeholders and the separately appended real bush plane keep their existing cues.
+                if (nave.Contains(tx, ty) && art.StartsWith("sent.", System.StringComparison.Ordinal)) continue;
+                list.Add(new Placement { Art = art, X = x, Y = y, Scale = 1f, Flip = false, Tx = tx, Ty = ty,
                     Kind = p.Kind, Variant = p.Variant, Flags = p.Flags, Shipped = true });
             }
             if (map.Regions != null && map.Regions.Length == map.W * map.H)

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Roguehalla.Net.Protocol;
 using Roguehalla.Net.Ui;
 using UnityEngine;
 
@@ -46,11 +48,9 @@ namespace Roguehalla.Client
 
         public static void Build(Landmark lm)
         {
-            var groups = FindGroups(lm);
-            if (groups.Count == 0) return;
-            MergeOpposingWallHalves(groups);
-            var building = groups[0];
-            foreach (var g in groups) if (g.Tiles.Count > building.Tiles.Count) building = g;
+            var groups = FindGroups(lm.FootX, lm.FootY, lm.FootW, lm.FootH, lm.IsWall);
+            var building = MainBuilding(groups);
+            if (building == null) return;
             var cover = new List<Roguehalla.Net.Protocol.MapTile>();                                            // the roof's cover: the building's interior, walls and pillars (no headstone, gate or yard)
             for (int y = building.MinY; y <= building.MaxY; y++) for (int x = building.MinX; x <= building.MaxX; x++)
                 if (lm.IsWall(x, y) || lm.IsInterior(x, y)) cover.Add(new Roguehalla.Net.Protocol.MapTile((ushort)x, (ushort)y));
@@ -79,6 +79,56 @@ namespace Roguehalla.Client
             if (lm.ArchTiles.Length > 0) BuildGate(lm);
             foreach (var g in groups)                                                   // a plot lies outside the building's box; the pillar blocks inside it stay as RegionWalls draws them
                 if (g != building && !(g.MinX >= building.MinX && g.MaxX <= building.MaxX && g.MinY >= building.MinY && g.MaxY <= building.MaxY)) BuildGravestones(lm, g);
+        }
+
+        internal sealed class NaveFloor
+        {
+            readonly Roguehalla.Net.Protocol.MapRect _footprint;
+            readonly Group _building;
+            readonly bool[] _interior;
+
+            internal NaveFloor() { }
+
+            internal NaveFloor(MapBlob map, MapAnchor anchor)
+            {
+                _footprint = anchor.Footprint;
+                _building = MainBuilding(FindGroups(_footprint.X, _footprint.Y, _footprint.W, _footprint.H,
+                    (x, y) => map.Tiles[y * map.W + x] == MapBlob.Wall));
+                if (_building != null)
+                    _interior = LandmarkInterior.Find(map.Tiles, map.W, map.H, _footprint, anchor.Entrance);
+            }
+
+            internal bool Contains(int x, int y) =>
+                _interior != null && x >= _building.MinX && x <= _building.MaxX &&
+                y >= _building.MinY && y <= _building.MaxY &&
+                _interior[(y - _footprint.Y) * _footprint.W + x - _footprint.X];
+        }
+
+        static readonly NaveFloor NoNave = new NaveFloor();
+        static readonly ConditionalWeakTable<MapBlob, NaveFloor> NaveFloors = new ConditionalWeakTable<MapBlob, NaveFloor>();
+
+        /// <summary>Gets the delivered church's painted floor mask for ordinary prop placement and its light and shadow consumers.</summary>
+        internal static NaveFloor DeliveredNave(MapBlob map) => NaveFloors.GetValue(map, FindNaveFloor);
+
+        static NaveFloor FindNaveFloor(MapBlob map)
+        {
+            foreach (var anchor in map.Anchors)
+            {
+                if (anchor.Zone != (byte)RegionId.Sentenced || anchor.Kind != MapBlob.AnchorKindChurch) continue;
+                var f = anchor.Footprint;
+                if (f.W == 0 || f.H == 0 || f.X + f.W > map.W || f.Y + f.H > map.H) continue;
+                return new NaveFloor(map, anchor);
+            }
+            return NoNave;
+        }
+
+        static Group MainBuilding(List<Group> groups)
+        {
+            MergeOpposingWallHalves(groups);
+            Group building = null;
+            foreach (var group in groups)
+                if (building == null || group.Tiles.Count > building.Tiles.Count) building = group;
+            return building;
         }
 
         /// <summary>Two wall halves with identical long bounds are one building when the matching door gap is narrow.</summary>
@@ -118,13 +168,13 @@ namespace Roguehalla.Client
 
         // ---- reading the tiles --------------------------------------------------------------------------------------------------
 
-        static List<Group> FindGroups(Landmark lm)
+        static List<Group> FindGroups(int minX, int minY, int width, int height, Func<int, int, bool> isWall)
         {
-            var groups = new List<Group>(); var seen = new bool[lm.FootW * lm.FootH]; var stack = new Stack<Vector2Int>();
-            for (int y = lm.FootY; y < lm.FootY + lm.FootH; y++) for (int x = lm.FootX; x < lm.FootX + lm.FootW; x++)
+            var groups = new List<Group>(); var seen = new bool[width * height]; var stack = new Stack<Vector2Int>();
+            for (int y = minY; y < minY + height; y++) for (int x = minX; x < minX + width; x++)
             {
-                int i = (y - lm.FootY) * lm.FootW + x - lm.FootX;
-                if (seen[i] || !lm.IsWall(x, y)) continue;
+                int i = (y - minY) * width + x - minX;
+                if (seen[i] || !isWall(x, y)) continue;
                 var g = new Group(); seen[i] = true; stack.Push(new Vector2Int(x, y));
                 while (stack.Count > 0)
                 {
@@ -133,8 +183,8 @@ namespace Roguehalla.Client
                     for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++)
                     {
                         int nx = t.x + dx, ny = t.y + dy;
-                        if (nx < lm.FootX || ny < lm.FootY || nx >= lm.FootX + lm.FootW || ny >= lm.FootY + lm.FootH || !lm.IsWall(nx, ny)) continue;
-                        int ni = (ny - lm.FootY) * lm.FootW + nx - lm.FootX;
+                        if (nx < minX || ny < minY || nx >= minX + width || ny >= minY + height || !isWall(nx, ny)) continue;
+                        int ni = (ny - minY) * width + nx - minX;
                         if (seen[ni]) continue;
                         seen[ni] = true; stack.Push(new Vector2Int(nx, ny));
                     }
