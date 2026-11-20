@@ -98,12 +98,12 @@ namespace Roguehalla.Client.Tests
             finally { Object.DestroyImmediate(root); }
         }
 
-        [TestCase(1)] [TestCase(2)] [TestCase(4)]
+        [TestCase(0)] [TestCase(1)] [TestCase(2)] [TestCase(3)]
+        [TestCase(4)] [TestCase(5)] [TestCase(6)] [TestCase(7)]
         public void AuthoredGuardBearingsUseFourRegisteredDrawings(int row)
         {
             var config = StormInkFireAxeAuthoring.Load();
             Assert.That(config.GuardStagesFor(row), Is.EqualTo(4));
-            Assert.That(config.GuardStagesFor(0), Is.EqualTo(1));
             var poses = Enumerable.Range(0, 4)
                 .Select(stage => config.Frame(row, StormInkFireAxePose.Guard, stage)).ToArray();
             Assert.That(poses.Distinct().Count(), Is.EqualTo(4));
@@ -116,14 +116,14 @@ namespace Roguehalla.Client.Tests
             }
         }
 
-        [Test]
-        public void SoutheastWalkUsesEightRegisteredDrawingsThroughTheGaitCycle()
+        [TestCase(1)] [TestCase(4)]
+        public void AuthoredWalkBearingsUseEightRegisteredDrawingsThroughTheGaitCycle(int row)
         {
             var config = StormInkFireAxeAuthoring.Load();
-            Assert.That(config.StrideStagesFor(1), Is.EqualTo(8));
+            Assert.That(config.StrideStagesFor(row), Is.EqualTo(8));
             Assert.That(config.StrideStagesFor(2), Is.EqualTo(1));
-            var poses = Enumerable.Range(0, 8).Select(stage => config.Frame(1, StormInkFireAxePose.Stride,
-                Gait.FrameIndex(stage + .25f, config.StrideStagesFor(1)))).ToArray();
+            var poses = Enumerable.Range(0, 8).Select(stage => config.Frame(row, StormInkFireAxePose.Stride,
+                Gait.FrameIndex(stage + .25f, config.StrideStagesFor(row)))).ToArray();
             Assert.That(poses.Distinct().Count(), Is.EqualTo(8));
             foreach (var pose in poses)
             {

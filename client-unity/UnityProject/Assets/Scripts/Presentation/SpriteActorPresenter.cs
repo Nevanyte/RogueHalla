@@ -628,7 +628,8 @@ namespace Roguehalla.Client
                 bool leftHand = StormInkWeaponMotion.PrimaryHand(weapon.Value) == StormInkWeaponMotion.Hand.Left;
                 bool registered = TryWeaponHand(a, leftHand, out var handUv);
                 Vector3 grip = registered ? BodySocket(a.Body, handUv) : (Vector3)pose.Grip;
-                float angle = pose.Angle;
+                float angle = axeBody != null && fireAxeArt != null && phase == StormInkWeaponMotion.Phase.Guard
+                    ? fireAxeArt.GuardAxeAngle(pose.Angle, poseRow) : pose.Angle;
                 Vector3 supportFromGrip = Vector3.zero;
                 Vector3? drawPalm = null;
                 if (axeBody == null && pose.HasSupport && useWeaponPhase)

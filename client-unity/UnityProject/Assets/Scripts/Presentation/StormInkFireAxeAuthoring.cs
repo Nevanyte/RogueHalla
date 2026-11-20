@@ -19,6 +19,7 @@ namespace Roguehalla.Client
         {
             [Range(0, Rows - 1)] public int Row;
             public int[] GuardColumns, StrideColumns;
+            public float GuardAxeAngleDelta;
         }
 
         [SerializeField] Texture2D atlas;
@@ -50,6 +51,13 @@ namespace Roguehalla.Client
         {
             int stages = GuardStagesFor(row);
             return stages > 0 ? Mathf.FloorToInt(Mathf.Max(0f, elapsed) * idleFramesPerSecond) % stages : 0;
+        }
+
+        public float GuardAxeAngle(float angle, int row)
+        {
+            foreach (var cycle in directionalCycles)
+                if (cycle.Row == row) return angle + cycle.GuardAxeAngleDelta;
+            return angle;
         }
 
         int[] Cycle(int row, bool walking)
