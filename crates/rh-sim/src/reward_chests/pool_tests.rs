@@ -588,6 +588,7 @@ fn with_chest(rule: AugmentRule, camp: Option<u16>, options: [CardId; 3]) -> Sim
         pickers: Vec::new(),
         camp,
         owner: None,
+        first_pick: None,
     });
     s
 }

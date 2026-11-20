@@ -254,8 +254,8 @@
       "ticks": 59
     }
   },
-  "checkpoint": "rh-checkpoint/33",
-  "contentHash": "4d06723c84f986a9",
+  "checkpoint": "rh-checkpoint/34",
+  "contentHash": "0b45665f3d1e9d3c",
   "format": "rh-ability-hash-tape/2",
   "note": "63 admitted source cases executed without catch-and-drop; native digests rebound for the combined layout, not legacy expected gameplay",
   "observationVersion": 30
