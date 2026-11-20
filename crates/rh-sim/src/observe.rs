@@ -25,7 +25,7 @@ pub use public::*;
 
 use hud::{camp_hud_into, roster_into, summary_into};
 
-pub const OBSERVATION_VERSION: u16 = 30;
+pub const OBSERVATION_VERSION: u16 = 31;
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SelfView {

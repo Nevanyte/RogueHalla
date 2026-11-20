@@ -2,8 +2,8 @@
 //! (`table.rs`), the generic capped per-player state (`NativeCards`, the `native` field of `Build`) and the
 //! `check_world` rules for it. Live world only (`SimConfig::augments = Rework`): a `Legacy` world holds none.
 //!
-//! No behaviour yet: no hook reads or writes a slot (P-AUG-NATIVE-1b and the batch packets do), no pool or chest offers
-//! a native card, and no observation or wire byte names one (P-WIRE19-A).
+//! No behaviour yet: no hook reads or writes a slot (P-AUG-NATIVE-1b and the batch packets do) and no pool offers a
+//! native card. Since P-WIRE19-A (protocol 19) a reward option carries native ids 80..=93, so a Rework chest may hold one.
 //!
 //! Serialized form (brief section 1.5): only the held cards, in native order, as
 //! `[{"card","count","counter","meters","marks"}]`; `Build` writes it first and only when one is held, so a world holding
@@ -316,14 +316,17 @@ pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
             }
         }
     }
-    // Native ids are not on the wire until P-WIRE19-A (`WireRewardId::Card(index as u8)`; the protocol refuses 80+).
-    if w.reward_chests.iter().any(|c| {
-        c.options
-            .iter()
-            .flatten()
-            .any(|o| matches!(o, OptionId::Card(id) if is_native(*id)))
-    }) {
-        return Err("a reward chest offers a native card".into());
+    // P-WIRE19-A: native ids are on the wire (`WireRewardId::Card(80..=93)`), so only a Legacy world, whose card table
+    // holds no native card, refuses a chest offering one.
+    if !rework
+        && w.reward_chests.iter().any(|c| {
+            c.options
+                .iter()
+                .flatten()
+                .any(|o| matches!(o, OptionId::Card(id) if is_native(*id)))
+        })
+    {
+        return Err("a reward chest offers a native card outside the Rework card table".into());
     }
     Ok(())
 }

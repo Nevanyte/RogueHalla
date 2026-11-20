@@ -92,6 +92,8 @@ namespace Roguehalla.Net
         public bool Picked { get; internal set; }
         public bool CanChoose { get; internal set; }
         public IReadOnlyList<RewardOptionView> Options { get; internal set; }
+        /// <summary>P-WIRE19-A: the killer first-pick window while it is in force (its end, and whether it is mine).</summary>
+        public WireFirstPick? FirstPick { get; internal set; }
     }
 
     public readonly struct PlanOptionView
@@ -461,7 +463,7 @@ namespace Roguehalla.Net
                                 Taken = o.Taken, TakenBy = o.TakenBy
                             };
                         }
-                        rows[i] = new RewardChestView { Handle = c.Handle, X = Quant.DequantizePos(c.X), Y = Quant.DequantizePos(c.Y), ExpiresAt = c.ExpiresAt, Picked = c.Picked, CanChoose = c.CanChoose, Options = options };
+                        rows[i] = new RewardChestView { Handle = c.Handle, X = Quant.DequantizePos(c.X), Y = Quant.DequantizePos(c.Y), ExpiresAt = c.ExpiresAt, Picked = c.Picked, CanChoose = c.CanChoose, Options = options, FirstPick = c.FirstPick };
                     }
                     RewardChests = rows;
                 }

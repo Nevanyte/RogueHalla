@@ -365,7 +365,7 @@ fn guard_switch_off_the_observation_is_todays() {
 /// `hash_of(0, observe(taker))` in `guard_switch_off_the_observation_is_todays`, recorded on `85bfd025e` (a function, not a
 /// const: the content registry counts every const in `src`).
 fn observation_digest() -> u64 {
-    0x1087_87a4_c319_b356
+    0x99cf_4858_752c_234c
 }
 
 // ---- 2. Plague corpse consume (legacy plagueCorpses.ts:51 F, :86 auto; both `hasLineOfSight(collisionMap, p, corpse,

@@ -175,10 +175,10 @@ mod server_msg;
 mod snapshot_read;
 pub use state::{
     validate_quest_props, PickupHandle, QuestHandle, RewardChestHandle, RosterId, StateItem,
-    TrophyStatKey, WireArena, WireBuild, WireCamp, WireField, WireFocus, WireInventory,
-    WireMerchant, WirePlan, WirePlanOption, WireProjectile, WireProp, WirePropKind, WireProps,
-    WireQuestObjective, WireQuestParticipant, WireQuestPoint, WireQuestRow, WireQuestView,
-    WireRewardChest, WireRewardId, WireRewardOption, WireRosterEntry, WireRosterRow,
+    TrophyStatKey, WireArena, WireBuild, WireCamp, WireField, WireFirstPick, WireFocus,
+    WireInventory, WireMerchant, WirePlan, WirePlanOption, WireProjectile, WireProp, WirePropKind,
+    WireProps, WireQuestObjective, WireQuestParticipant, WireQuestPoint, WireQuestRow,
+    WireQuestView, WireRewardChest, WireRewardId, WireRewardOption, WireRosterEntry, WireRosterRow,
     WireTradeDelta, WireTradeKind, WireTradeOffer, WireTradeStat, WireTradeView,
     MAX_TRADE_MERCHANTS, MAX_TRADE_OFFERS, MAX_TRADE_STATS, MAX_TRADE_VIEW_BYTES,
 };
@@ -205,7 +205,7 @@ pub use weapon::{
 };
 
 /// Bump on any incompatible change (a new tag or field in an existing message). Both ends refuse another major version.
-pub const PROTOCOL_VERSION: u16 = 18;
+pub const PROTOCOL_VERSION: u16 = 19;
 /// Milliseconds per server tick (20 Hz). A Snapshot carries `tick` only: its server time is `tick * TICK_MS` exactly.
 pub const TICK_MS: u32 = 50;
 

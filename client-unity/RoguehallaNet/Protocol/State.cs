@@ -98,6 +98,15 @@ namespace Roguehalla.Net.Protocol
         public double ExpiresAt;
         public WireRewardOption[] Options = Array.Empty<WireRewardOption>();
         public bool Picked, CanChoose;
+        /// <summary>P-WIRE19-A (protocol 19): the killer first-pick window while it is in force; null without one.</summary>
+        public WireFirstPick? FirstPick;
+    }
+    /// <summary>P-WIRE19-A: a chest's first-pick window as this viewer sees it. Its end is public; Mine is the viewer's own
+    /// fact (true only for the killer). It names no player.</summary>
+    public struct WireFirstPick
+    {
+        public double Until;
+        public bool Mine;
     }
     public struct WireProjectile
     {
