@@ -143,6 +143,20 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
 - **Identities after integration 71:** protocol 20, observation 33, policy contract 28, checkpoint `rh-checkpoint/36`,
   replay 25, content hash `f79973a86f714d7a`. Integration 72 (Wish Engine) moves the content hash again.
 
+- **Integration 72** (`coord/int-72` @ `4f1a1884a`, landed as `53b0ef416`): P-AUG-NATIVE-3b (Wish Engine) with
+  P-AUG-NATIVE-3b-fix.
+  - **Wish Engine:** a landed Wish steps a per-faction share of the cooldown, up to 25%. The Wish restore check is now
+    an envelope over levers × lattice shares, with no new serialized field; `rh-checkpoint/36` stands.
+    reviewer-opus: LAND WITH NOTES. The one note became the fix.
+  - **The fix:** the owner view reads charges and the next charge off the stock clocks. reviewer-opus: LAND.
+  - **Merge and gate:** the content hash was regolded to `84fb785f2972e59a`, because Wish Engine joins the zone pool.
+    Full gate green except the waived pin.
+- **Rows for the owner to sign, added:**
+  - Wish Engine counts landed casts only. Its 50% floor is the combined multiplier, so Wish Engine with Wishful
+    Thinking can bring one cast to 0.375 of the row.
+  - The Wish slot shows the true charge count when Arcane Overload is granted mid-recharge (display only; legacy's
+    `abilitySlot.ts` shows a charge early).
+
 **Coordinator decisions (2026-11-20):**
 - **Oracle-amends.** Three existing tests were left stale by the two new oracles, and the coordinator amended each in an
   `oracle-amend:` commit on the packet branch, one file per commit:
