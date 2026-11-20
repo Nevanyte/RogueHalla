@@ -66,4 +66,8 @@ High: wire format across three languages. Opus.
   session's rate or every 40 Hz snapshot looks overridden.
 - A decoder that sees a snapshot before Welcome has no rate: keep refusing that order.
 
+## Carried from the P-TICK-1a review
+- `crates/rh-server/src/wire.rs` `profile_supported` does not refuse `tick_ms != 50`; refuse it there or pace the room
+  from the setting (with P-TICK-5).
+
 ## Notes from previous attempts

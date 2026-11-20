@@ -60,4 +60,13 @@ system family (movement and weapons; status and DoTs; abilities and cards) with 
 - `plague_zombies.rs` `now % PLAGUE_ZOMBIE_REGEN_STEP_MS >= TICK_MS` fires once per window only if the window is a
   multiple of the step: check it at 25.
 
+## Carried from the P-TICK-1a review (reviewer-opus LAND, 2026-11-20)
+- `History::record()` still trims with the legacy step; move `movement.rs` to `record_at_step` with the sim's step, and
+  consider `pub(crate)` for `record_at_step` (its `tick_ms` is checked only by a `debug_assert`).
+- No test refuses a too-dense 25 ms rewind history (the existing dense test runs at 50 only).
+- The `% TICK_MS` checks in `abilities/checkpoint.rs` and `cards/fight_clock.rs` must read the sim's step, or 25 ms
+  checkpoints at some ticks are refused.
+- Registry rows keep the names `TICK_RATE`/`TICK_MS` (content hash), `LEGACY_*` are aliases: confirmed by the
+  coordinator.
+
 ## Notes from previous attempts
