@@ -11,6 +11,15 @@ namespace Roguehalla.Client
             public Card(string kind, string title, string text, string tags) { Kind = kind; Title = title; Text = text; Tags = tags; }
         }
 
-        public static Card Describe(RewardOptionView option) { return new Card("", "", "", ""); } // stub
+        public static Card Describe(RewardOptionView option)
+        {
+            if (option.KillKey.HasValue) return new Card("TROPHY", "", TrophyText.Description(option.KillKey.Value, option.KillGain), "");
+            if (option.Card.HasValue)
+            {
+                var entry = CardDisplayCatalog.Get((byte)option.Card.Value);
+                return new Card("AUGMENT", entry.Title, entry.Description, entry.Tags);
+            }
+            return new Card("BOOST", "", "Permanent bonus for this run.", "");
+        }
     }
 }
