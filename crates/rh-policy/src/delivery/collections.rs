@@ -31,6 +31,9 @@ pub struct CollectionPublisher {
     roster: Vec<rh_protocol::WireRosterRow>,
     summary: Option<WireBuildSummary>,
     last_forced: Option<u32>,
+    /// P-TICK-3-fix: the connection's milliseconds per tick when it is not [`rh_protocol::TICK_MS`]
+    /// ([`CollectionPublisher::set_tick_ms`]); the forced-replacement throttle is 1000 ms at it.
+    tick_ms: Option<u32>,
 }
 
 pub struct PendingState {
@@ -656,15 +659,32 @@ fn arena(observation: &Observation) -> Option<WireArena> {
 }
 
 impl CollectionPublisher {
+    /// A new connection to the same room: every baseline is dropped, the rate is kept.
     pub fn reconnect(&mut self) {
+        let tick_ms = self.tick_ms;
         *self = Self::default();
+        self.tick_ms = tick_ms;
     }
 
-    /// The same throttle controls capability renewal and the matching forced replacement.
+    /// The connection's milliseconds per tick ([`rh_protocol::TICK_MS`] unless set).
+    pub fn tick_ms(&self) -> u32 {
+        self.tick_ms.unwrap_or(rh_protocol::TICK_MS)
+    }
+
+    /// Sets the connection's rate, where its Welcome is sent; a rate no decoder accepts is refused
+    /// ([`rh_protocol::checked_tick_ms`]) and changes nothing.
+    pub fn set_tick_ms(&mut self, tick_ms: u32) -> Result<(), EncodeError> {
+        self.tick_ms = Some(rh_protocol::checked_tick_ms(tick_ms)?);
+        Ok(())
+    }
+
+    /// The same throttle controls capability renewal and the matching forced replacement: one forced replacement per
+    /// 1000 ms at the connection's rate ([`rh_protocol::delta::min_forced_full_ticks`]: 20 ticks at 20 Hz, 40 at 40 Hz).
     pub fn resync_due(&self, tick: u32, requested: bool) -> bool {
         requested
             && self.last_forced.is_none_or(|last| {
-                tick.saturating_sub(last) >= rh_protocol::delta::MIN_FORCED_FULL_TICKS
+                tick.saturating_sub(last)
+                    >= rh_protocol::delta::min_forced_full_ticks(self.tick_ms())
             })
     }
 

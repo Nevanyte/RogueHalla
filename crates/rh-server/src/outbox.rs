@@ -209,8 +209,9 @@ impl Outbox {
     }
 
     /// A client asked for a Full snapshot (it refused a delta). The request is kept until answered: the writer encodes a Full
-    /// frame with the next snapshot, or, when it forced one less than `MIN_FORCED_FULL_TICKS` ago, with the first snapshot after
-    /// that interval. Requests never get lost, and a flood of them only keeps the flag set.
+    /// frame with the next snapshot, or, when it forced one less than 1000 ms ago (`min_forced_full_ticks` at the connection's
+    /// rate), with the first snapshot after that interval. Requests never get lost, and a flood of them only keeps the flag
+    /// set.
     pub fn request_resync(&self) {
         self.resync.store(true, Ordering::Relaxed);
         self.state_resync.store(true, Ordering::Relaxed);
@@ -221,6 +222,19 @@ impl Outbox {
     }
     pub fn state_resync_answered(&self) {
         self.state_resync.store(false, Ordering::Relaxed);
+    }
+
+    /// P-TICK-3-fix: sets the connection's milliseconds per tick, where its Welcome is sent (before its first snapshot): every
+    /// snapshot is written at it, and the delta limits are counted at it. A rate no decoder accepts is refused
+    /// ([`rh_protocol::checked_tick_ms`]) and changes nothing. [`rh_protocol::TICK_MS`] (20 Hz) unless set.
+    pub fn set_tick_ms(&self, tick_ms: u32) -> Result<(), rh_protocol::EncodeError> {
+        let mut w = self.writer.lock().expect("snapshot writer lock");
+        w.enc.set_tick_ms(tick_ms)
+    }
+
+    /// The connection's milliseconds per tick ([`Outbox::set_tick_ms`]).
+    pub fn tick_ms(&self) -> u32 {
+        self.writer.lock().expect("snapshot writer lock").enc.tick_ms()
     }
 
     /// Encodes `snap` for this connection: a Full frame or a delta against the last snapshot encoded here. Called by the
