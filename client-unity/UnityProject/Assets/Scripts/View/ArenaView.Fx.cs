@@ -127,7 +127,16 @@ namespace Roguehalla.Client
                 flash.Color = f.Kind == FxKind.Block ? new Color(.65f, .85f, 2) : new Color(2, 1.4f, .6f);
                 bool number = f.Kind == FxKind.Hit || f.Kind == FxKind.SigHit || f.Kind == FxKind.Heal;
                 string healText = f.Kind == FxKind.Heal ? Indicators.HealText(f.Amount) : null;
-                flash.Sprite.gameObject.SetActive(f.Kind != FxKind.SigHit && f.Kind != FxKind.Heal);
+                var mark = f.Kind == FxKind.SigHit ? StormInkHitMarks.ForSignature(f.SigKind) :
+                    f.Kind == FxKind.Heal ? StormInkHitMarks.Heal : null;
+                flash.InkMark = mark != null;
+                if (flash.InkMark)
+                {
+                    flash.InkOffset = StormInkHitMarks.Anchor(f.SigKind, f.Kind == FxKind.Heal);
+                    flash.Size = .59f;
+                }
+                flash.Sprite.sprite = mark != null ? mark : ShowcaseSprites.Get("ring");
+                flash.Sprite.gameObject.SetActive(mark != null || (f.Kind != FxKind.SigHit && f.Kind != FxKind.Heal));
                 flash.Text.gameObject.SetActive(number); flash.Plate.gameObject.SetActive(number);
                 if(number)
                 {
@@ -161,10 +170,15 @@ namespace Roguehalla.Client
                 var f = _flashes[i]; float t = (Time.unscaledTime - f.Start) / f.Duration;
                 if (t >= 1 || !_actors.Contains(f.Actor)) { f.Sprite.gameObject.SetActive(false); f.Text.gameObject.SetActive(false); f.Plate.gameObject.SetActive(false); _flashes.RemoveAt(i); _flashPool.Push(f); continue; }
                 f.Sprite.transform.position = f.Position;
+                if (f.InkMark && _actors.TryPosition(f.Actor, out var actorPosition))
+                    f.Sprite.transform.position = actorPosition + (Vector3)f.InkOffset;
                 f.Sprite.transform.localScale = Vector3.one * f.Size * (reduced ? 1 : 1 + t * .55f);
                 // Keep the silhouette readable even when confirmed hits overlap rapidly.
                 // Damage text retains its longer lifetime; the hollow impact rim fades quickly.
-                var c = f.Color; c.a = .55f * Mathf.Clamp01(1 - (Time.unscaledTime - f.Start) / .16f); f.Sprite.color = c;
+                float age = Time.unscaledTime - f.Start;
+                var c = f.InkMark ? Color.white : f.Color;
+                c.a = f.InkMark ? Mathf.Clamp01((.25f - age) / .15f) : .55f * Mathf.Clamp01(1 - age / .16f);
+                f.Sprite.color = c;
                 f.Text.transform.position=f.Position+new Vector3(f.LaneX,.7f+(reduced ? 0 : t*.35f),0); SetNumberAlpha(f, 1 - t);
                 // A dark plate under the number (lab finding: grey digits vanished on sand and snow); legacy used a black stroke.
                 if (f.Plate.gameObject.activeSelf) { var pc = (Color)UiTheme.Current.OutlineDark; pc.a = .88f * (1 - t); f.Plate.color = pc; f.Plate.transform.position = f.Text.transform.position; f.Plate.transform.localScale = new Vector3(f.Text.preferredWidth + .14f, f.Text.fontSize * .1f + .06f, 1); }

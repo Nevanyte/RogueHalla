@@ -122,7 +122,7 @@ namespace Roguehalla.Client
             if (_actors != null) return _actors.TrySoundContext(id,out weapon,out faction,out kind,out type);
             weapon=default; faction=default; kind=default; type=null; return false;
         }
-        sealed class Flash { public SpriteRenderer Sprite, Plate; public TMP_Text Text; public uint Actor; public float Start, Duration; public Vector3 Position; public Color Color; public float Size; public Color TextColor; public float LaneX; public int AlphaByte = 255; }
+        sealed class Flash { public SpriteRenderer Sprite, Plate; public TMP_Text Text; public uint Actor; public float Start, Duration; public bool InkMark; public Vector2 InkOffset; public Vector3 Position; public Color Color; public float Size; public Color TextColor; public float LaneX; public int AlphaByte = 255; }
         System.Action<uint, ProjectileKind, float, float, float> _observedProjectile;
         struct PendingFx { public ushort WindupMs; public FxKind Kind; public uint Subject; public float Amount; public double DueMs; public float QueuedAt; public float X, Y, A, CreatedAt; public byte Weapon; public uint By; public bool Passive, Crit; public byte SigKind; }
 
