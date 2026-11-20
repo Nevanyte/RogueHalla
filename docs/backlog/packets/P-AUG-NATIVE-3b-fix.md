@@ -89,10 +89,10 @@ Existing tests that pin what this changes (all must stay green, none is amended)
 
 ## Oracle files (read-only for implementers)
 - `crates/rh-sim/src/cards/native/wish_engine_view_tests.rs`
-- `crates/rh-sim/src/cards/native/mod.rs` (the `mod wish_engine_view_tests;` line)
 - `docs/backlog/packets/P-AUG-NATIVE-3b-fix.md`
 
-Stub commit (compile-only): `crates/rh-sim/src/cards/native/wish_engine_tests.rs` helpers `world_of`, `world`,
+Stub commit (compile-only): the `mod wish_engine_view_tests;` line in `crates/rh-sim/src/cards/native/mod.rs`, and
+`crates/rh-sim/src/cards/native/wish_engine_tests.rs` helpers `world_of`, `world`,
 `give`, `share`, `spend`, `in_flight`, `row_cooldown`, `step_of`, `wish_raw` widened from private to `pub(super)`
 (no expectation changed).
 
