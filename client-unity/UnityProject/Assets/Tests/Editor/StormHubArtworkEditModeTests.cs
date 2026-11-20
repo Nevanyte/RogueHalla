@@ -66,7 +66,9 @@ namespace Roguehalla.Client.Tests
                 Assert.IsFalse(cardIcon.raycastTarget);
                 Assert.IsFalse(choiceIcon.raycastTarget);
                 StringAssert.Contains(factions[i], title.text);
-                Assert.IsNotNull(choice.GetComponent<Button>());
+                choice.GetComponent<Button>().onClick.Invoke();
+                Assert.AreEqual("Card_" + i, guide.Content.GetChild(2).name, "Selected portrait should lead below faction choices");
+                Assert.GreaterOrEqual(cardIcon.rectTransform.rect.height, 80, "Readable portrait at the guide reference size");
             }
             Assert.That(guide.FocusRoot.GetComponent<Image>().color.a, Is.LessThan(1f));
         }
@@ -95,6 +97,11 @@ namespace Roguehalla.Client.Tests
                 Assert.AreSame(HubArtworkAssets.EquipmentPreview(id), preview.sprite, id + " catalog mapping");
                 Assert.IsFalse(preview.raycastTarget, "The image is decorative; catalog label and purchase control remain operable.");
                 Assert.IsNotNull(card.Find("ItemName").GetComponent<TMPro.TMP_Text>());
+                if (id == "gilded-sentenced")
+                {
+                    StringAssert.Contains("HAUNTED", card.Find("ItemCategory").GetComponent<TMPro.TMP_Text>().text);
+                    StringAssert.Contains("HAUNTED", card.Find("CatalogDetails").GetComponent<TMPro.TMP_Text>().text);
+                }
             }
             Assert.That(view.Root.GetComponent<Image>().color.a, Is.LessThan(1f));
         }

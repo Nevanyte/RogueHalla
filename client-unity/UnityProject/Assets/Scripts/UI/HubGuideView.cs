@@ -66,7 +66,7 @@ namespace Roguehalla.Client
         GuideTab _currentTab;
         int _selectedFaction = 4;
         string _selectedWeapon = "sword";
-        int _cardSequence;
+        RectTransform[] _factionCards;
         bool _initialized;
         float _scale = 1;
 
@@ -221,7 +221,7 @@ namespace Roguehalla.Client
             if (_content == null) return;
             if (_counterWheel != null) { _counterWheel.Destroy(); _counterWheel = null; }
             for (int i = _content.childCount - 1; i >= 0; i--) DestroyOwned(_content.GetChild(i).gameObject);
-            _cardSequence = 0;
+            _factionCards = null;
             _factionButtons = null;
             _weaponButtons = null;
             _scroll.verticalNormalizedPosition = 1;
@@ -254,14 +254,16 @@ namespace Roguehalla.Client
                 if (portrait != null) { icon.sprite = portrait; icon.color = Color.white; icon.preserveAspect = true; }
                 icon.raycastTarget = false;
             }
-            UpdateFactionButtons();
+            _factionCards = new RectTransform[FactionCount];
             for (int i = 0; i < FactionCount; i++)
             {
                 string factionName = Roguehalla.Net.Ui.FactionPresentation.Name(i);
                 string role = Roguehalla.Net.Ui.FactionPresentation.Role(i);
                 string text = role + "\nPassive · " + PassiveSummaries[i] + "\nWish · " + Wishes[i] + " — " + WishSummaries[i];
-                AddCard(factionName + "   ·   " + Passives[i], text, 212, ShowcasePalette.Faction(i), i);
+                _factionCards[i] = AddCardTo(_content, "Card_" + i, factionName + "   ·   " + Passives[i],
+                    text, 240, ShowcasePalette.Faction(i), i);
             }
+            UpdateFactionButtons();
         }
 
         void BuildWeapons()
@@ -293,12 +295,21 @@ namespace Roguehalla.Client
         {
             _selectedFaction = index;
             UpdateFactionButtons();
+            _scroll.StopMovement();
+            _scroll.verticalNormalizedPosition = 1f;
             _onFactionPick?.Invoke(index);
         }
 
         void UpdateFactionButtons()
         {
             if (_factionButtons == null) return;
+            // Leave the faction picker visible above the selected portrait and its full description.
+            if (_factionCards != null)
+            {
+                _factionCards[_selectedFaction].SetAsLastSibling();
+                for (int i = 0; i < _factionCards.Length; i++)
+                    if (i != _selectedFaction) _factionCards[i].SetAsLastSibling();
+            }
             for (int i = 0; i < _factionButtons.Length; i++)
             {
                 bool selected = i == _selectedFaction;
@@ -315,10 +326,7 @@ namespace Roguehalla.Client
             ConfigureLayoutChild(intro.GetComponent<RectTransform>(), 52);
         }
 
-        void AddCard(string title, string body, float height, Color titleColor, int factionIcon = -1)
-        { AddCardTo(_content, "Card_" + (_cardSequence++), title, body, height, titleColor, factionIcon); }
-
-        void AddCardTo(Transform parent, string objectName, string title, string body, float height, Color titleColor, int factionIcon = -1)
+        RectTransform AddCardTo(Transform parent, string objectName, string title, string body, float height, Color titleColor, int factionIcon = -1)
         {
             var card = MythicUi.Panel(parent, objectName, Vector2.zero, Vector2.one, UiTheme.With(ShowcasePalette.PanelRaised, .88f), true);
             ConfigureLayoutChild(card, height);
@@ -327,15 +335,15 @@ namespace Roguehalla.Client
             Transform headingParent = card;
             if (factionIcon >= 0)
             {
-                var head = CreateLayoutItem(card, "Head", 64);
-                var icon = LaunchUi.FactionShape(head, "FactionIcon", factionIcon, 0f, 8f, 48f, titleColor);
+                var head = CreateLayoutItem(card, "Head", 94);
+                var icon = LaunchUi.FactionShape(head, "FactionIcon", factionIcon, 0f, 8f, 86f, titleColor);
                 icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = new Vector2(0f, .5f);
                 icon.rectTransform.pivot = new Vector2(0f, .5f); icon.rectTransform.anchoredPosition = new Vector2(0f, 0f);
                 var portrait = HubArtworkAssets.FactionPortrait(factionIcon);
                 if (portrait != null) { icon.sprite = portrait; icon.color = Color.white; icon.preserveAspect = true; }
                 icon.raycastTarget = false;
                 var named = MythicUi.Text(head, "Title", title, Vector2.zero, Vector2.one, 19, titleColor);
-                named.fontStyle = FontStyles.Bold; named.rectTransform.offsetMin = new Vector2(58f, 0f);
+                named.fontStyle = FontStyles.Bold; named.rectTransform.offsetMin = new Vector2(100f, 0f);
                 headingParent = null;
             }
             if (headingParent != null)
@@ -346,7 +354,8 @@ namespace Roguehalla.Client
             }
             var description = MythicUi.Text(card, "Description", body, Vector2.zero, Vector2.one, 15, ShowcasePalette.Text);
             description.enableWordWrapping = true;
-            ConfigureLayoutChild(description.GetComponent<RectTransform>(), height - (factionIcon >= 0 ? 84 : 48));
+            ConfigureLayoutChild(description.GetComponent<RectTransform>(), height - (factionIcon >= 0 ? 114 : 48));
+            return card;
         }
 
         static RectTransform CreateLayoutItem(Transform parent, string name, float height)
