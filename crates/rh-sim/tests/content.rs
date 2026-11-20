@@ -60,6 +60,8 @@ const NON_GAMEPLAY: &[(&str, &str, &str)] = &[
     ("actor_refs.rs", "NPC_REFERENCE_BLOCK", "observer presentation block capacity, not a gameplay number"),
     ("actor_refs.rs", "NPC_REFERENCE_BASE", "disjoint non-reused presentation reference namespace, not a game rule"),
     ("cards/catalog.rs", "ALL", "the 80 source card ids in wire order (identifiers only); the definitions live in the catalog table"),
+    ("cards/catalog.rs", "NATIVE", "P-AUG-NATIVE-1a: the 14 native augment ids in index order (identifiers only); their names and table are folded by visit_progression_content"),
+    ("cards/native/mod.rs", "NATIVE_METERS", "P-AUG-NATIVE-1a: the fixed number of working meters per native card slot (a state shape bound, not a game rule; the caps are registered rows)"),
     ("cards/catalog_data.rs", "DEFINITIONS", "typed 80-card catalog table generated from the accepted source corpus; the gameplay numbers are the registered source constants"),
     ("cards/mod.rs", "SUPPORTED", "the three-card native subset selector (identifiers only), not a game rule"),
     ("cards/mod.rs", "MAX_FOLD_ROWS", "fixed scratch bound equal to the generated catalog's total fold rows, not a game rule"),
@@ -189,6 +191,8 @@ const NON_GAMEPLAY: &[(&str, &str, &str)] = &[
 /// Rules that are tables rather than scalar rows: they are folded by `content_hash` directly (see content.rs). As
 /// (file, name, reason).
 const TABLES_FOLDED_BY_HASH: &[(&str, &str, &str)] = &[
+    ("cards/native/table.rs", "NATIVE_DEFINITIONS", "P-AUG-NATIVE-1a: the native definitions (kind, tier, flags, rows by cards::map_numbers, selections), folded by cards::native::visit_content under mvp-progression/1; title and text are display"),
+    ("cards/native/table.rs", "NATIVE_RULES", "P-AUG-NATIVE-1a: the native caps (counter, meters, marks), registered constants by name, folded by cards::native::visit_content under mvp-progression/1"),
     ("cards/tuning.rs", "LEGACY", "P-AUG-POOL-1-fix: the Legacy card table as realized (each CardNumbers field, override rows, pool, faction-only pairs, weighting flag), folded by content::card_table_snapshots under mvp-progression/1"),
     ("cards/tuning.rs", "REWORK", "P-AUG-POOL-1-fix: the Rework card table as realized (each CardNumbers field, override rows, pool, faction-only pairs, weighting flag), folded by content::card_table_snapshots under mvp-progression/1"),
     ("cards/rework_overrides.rs", "REWORK_OVERRIDES", "P-AUG-POOL-1-fix: the Rework override rows, each row's id and numbers (cards::map_numbers, rows then selections) folded by content::card_table_snapshots under mvp-progression/1; text is display, shape is forced equal to the catalog by check_override"),
@@ -571,7 +575,7 @@ fn hash_golden() {
         content_hash()
     );
 }
-const GOLDEN_CONTENT_HASH: u64 = 0x0b45_665f_3d1e_9d3c;
+const GOLDEN_CONTENT_HASH: u64 = 0x8196_e898_724e_4218;
 
 #[test]
 fn every_registry_row_perturbs_the_hash() {

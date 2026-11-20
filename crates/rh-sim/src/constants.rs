@@ -594,4 +594,57 @@ content! {
     REWORK_ELITE_HP_MULT: f64 = 1.5, "multiplier";
     /// Rework elites: the credited killer's first-pick window at an elite camp chest (owner 2026-11-18, P-ELITE-PICK-1).
     REWORK_ELITE_FIRST_PICK_MS: f64 = 5000., "ms";
+    // ---- native augments (P-AUG-NATIVE-1a; workbook Augment_Tuning "Suggested change" unless noted) ----
+    /// Marksman's Tally: damage share per long-range hit.
+    REWORK_MARKSMANS_TALLY_PER: f64 = 0.003, "share";
+    /// Marksman's Tally: most damage share it holds.
+    REWORK_MARKSMANS_TALLY_CAP: f64 = 0.30, "share";
+    /// Marksman's Tally: a hit counts beyond this share of max range (sheet Augments "What it does").
+    REWORK_MARKSMANS_TALLY_RANGE_SHARE: f64 = 0.8, "share";
+    /// Bastion: share of stored blocks the next attack deals.
+    REWORK_BASTION_SHARE: f64 = 0.35, "share";
+    /// Calluses: armor per fist hit.
+    REWORK_CALLUSES_PER: f64 = 0.07, "armor";
+    /// Calluses: most armor it holds.
+    REWORK_CALLUSES_CAP: f64 = 30., "armor";
+    /// Executioner's Ledger: AD per player or elite kill.
+    REWORK_EXECUTIONERS_LEDGER_PER: f64 = 3., "ad";
+    /// Executioner's Ledger: most AD it holds.
+    REWORK_EXECUTIONERS_LEDGER_CAP: f64 = 30., "ad";
+    /// Eighth Strike: every this many hits doubles (decision 3).
+    REWORK_EIGHTH_STRIKE_EVERY: u32 = 8, "hits";
+    /// Eighth Strike: the doubled hit's multiplier.
+    REWORK_EIGHTH_STRIKE_MULT: f64 = 2., "x";
+    /// Pathfinder: move speed share per new mob type.
+    REWORK_PATHFINDER_PER: f64 = 0.012, "share";
+    /// Pathfinder: most move speed share it holds.
+    REWORK_PATHFINDER_CAP: f64 = 0.24, "share";
+    /// Hazard Walker: most stacks it holds.
+    REWORK_HAZARD_WALKER_CAP: f64 = 15., "stacks";
+    /// Hazard Walker: time on one hazard after which it is immune to that hazard.
+    REWORK_HAZARD_WALKER_IMMUNE_MS: f64 = 20000., "ms";
+    /// Wish Engine: most Wish cooldown share it cuts.
+    REWORK_WISH_ENGINE_CAP: f64 = 0.25, "share";
+    /// Wish Engine: time of use to reach the cap, every faction (sheet Augments, Wish Engine table "Minutes to cap 5").
+    REWORK_WISH_ENGINE_CAP_MS: f64 = 300000., "ms";
+    /// Overflow: the overheal shield fades over this long.
+    REWORK_OVERFLOW_FADE_MS: f64 = 8000., "ms";
+    /// Corpse Hoarder: max HP share per corpse.
+    REWORK_CORPSE_HOARDER_PER: f64 = 0.03, "share";
+    /// Corpse Hoarder: most max HP share it holds.
+    REWORK_CORPSE_HOARDER_CAP: f64 = 0.24, "share";
+    /// Stoked: AP per landed burst.
+    REWORK_STOKED_PER: f64 = 2., "ap";
+    /// Stoked: most AP it holds.
+    REWORK_STOKED_CAP: f64 = 30., "ap";
+    /// Glacier: armor per chill second.
+    REWORK_GLACIER_PER: f64 = 0.15, "armor";
+    /// Glacier: most armor it holds.
+    REWORK_GLACIER_CAP: f64 = 30., "armor";
+    /// Trophy Hunter: damage share per hunt stack.
+    REWORK_TROPHY_HUNTER_PER: f64 = 0.02, "share";
+    /// Trophy Hunter: most damage share it holds.
+    REWORK_TROPHY_HUNTER_CAP: f64 = 0.15, "share";
+    /// Marked Man: multiplier on stacks from kills (decision 9; legacy doubles).
+    REWORK_MARKED_MAN_STACK_MULT: f64 = 1.5, "x";
 }

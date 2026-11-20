@@ -147,6 +147,37 @@ To retune the Rework elites: change `REWORK_ELITE_HP_MULT` / `REWORK_ELITE_DMG_M
 `ELITE_K`), regolden the content hash with `scripts/regolden-content.sh`, and re-run the elite bench
 (`tools/balance-camps/README.md`). `tests/elite_tune.rs` pins the numbers.
 
+## Native cards (P-AUG-NATIVE-1a)
+
+The 14 new augments (the plan's "Plus 13 new" and Marked Man) are `CardId` variants 80..=93 after `FinalVerdict`,
+listed in `CardId::NATIVE` (index order). `CardId::ALL` stays the 80 catalog cards, `Counts` stays 80 bytes, and
+`emit_cards.py` / `catalog_data.rs` are untouched.
+
+- **Definitions:** `crates/rh-sim/src/cards/native/table.rs` `NATIVE_DEFINITIONS` (hand-written, native order):
+  augment, tier 1, unique, ready, no rows yet. `CardId::definition()` and `tier()` answer native ids from it;
+  `Tuning::def` falls back to it like any card with no override row.
+- **State:** `Build::native: NativeCards`, one `NativeSlot { count, counter, meters: [f64; NATIVE_METERS], marks }`
+  per native card (fixed size). `counter` is the card's stacks in its own units, `meters` its working meters, `marks`
+  a bit set. A slot whose `count` is 0 is all zero: `Build::set(id, 0)` zeroes the whole slot, and any new code that
+  clears a native card must too. `Build::owns`/`count`/`set`/`add`/`valid`/`cards`/`power` branch on native ids;
+  `Build::cards()` yields the 80 first, then the held native cards. `Build::counts()` and every observation, pool,
+  chest and wire byte carry no native id until P-WIRE19-A.
+- **Save, restore, hash:** `Build` serializes `native` first and only when a native card is held, as the held rows
+  only (`{"card","count","counter","meters","marks"}`, native order). A build holding none writes and hashes exactly as
+  before (`hash.rs`, fourth World exception). Restore refuses an empty list, a `count` 0 row, a catalog card, and a
+  card repeated or out of order. `CHECKPOINT_FORMAT` moved to `rh-checkpoint/35`.
+- **Caps:** `cards::native::rule(id)` (`NATIVE_RULES` in `table.rs`): `counter_cap`, `meter_caps` and `marks` per
+  card. `check_world` (`cards::native::check`) refuses a held native card outside a `Rework` table, a count over 1,
+  a counter or meter outside `0..=cap` (or non-finite), a mark outside the rule's bits, and any reward chest offering a
+  native card. It also bounds every player's `card_tank_hp` to `0..=` the world table's largest Tank Engine cap.
+- **Setting a cap (batch packets):** a slot 1a leaves at cap 0 is unused and must stay 0. To use one, register the
+  number in the `content!` registry (`constants.rs`, append), point the card's `NativeRule` field in `table.rs` at it
+  by name, and regold (`scripts/regolden-content.sh`). The native ids, definitions (rows walked by
+  `cards::map_numbers`) and rules are folded into the content hash (`cards::native::visit_content`, after the
+  `CardId::ALL` names in `visit_progression_content`), so adding rows or moving a cap is a regold too.
+- **Wish Engine:** its slot's `counter` is the earned cooldown share (cap `REWORK_WISH_ENGINE_CAP`); its three meters
+  are reserved for P-AUG-NATIVE-3's per-cast record (that packet sets their caps and redoes the Wish restore envelope).
+
 ## Checks that guard the seam
 
 - `crates/rh-sim/tests/augment_rules.rs`: the rules' encoding, the 64 statics identities of the silent switches, the

@@ -9,6 +9,7 @@ mod after_damage;
 mod catalog;
 mod catalog_data;
 pub(crate) mod fight_clock;
+pub mod native;
 pub(crate) use after_damage::after_damage;
 pub(crate) mod on_hit;
 pub(crate) mod on_hurt;
@@ -285,26 +286,60 @@ pub fn streak_before(
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Build {
+    /// P-AUG-NATIVE-1a: the native cards' counts and capped state (live world only). Absent in JSON = none held; see the
+    /// hand-written `Serialize` below.
+    #[serde(default)]
+    pub(crate) native: native::NativeCards,
     /// Source count map in wire order: base cards stack; unique cards have one.
     pub(crate) counts: Counts,
     pub(crate) boosts: [u8; 8],
+}
+
+/// `native` is written first and only when a native card is held, so a build holding none writes (and hashes) exactly
+/// as before the field existed: `{"counts":[80],"boosts":[8]}`. Sound for the state hash (`hash.rs`, fourth World
+/// exception): a sequence hashes its length first, so a held-native build starts with its row count (1..=14) and a
+/// native-free one with `Counts`' length 80. Not `skip_serializing_if`: `Sim::check_layout` refuses a skipped field.
+impl serde::Serialize for Build {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let held = !self.native.is_empty();
+        let mut st = s.serialize_struct("Build", if held { 3 } else { 2 })?;
+        if held {
+            st.serialize_field("native", &self.native)?;
+        }
+        st.serialize_field("counts", &self.counts)?;
+        st.serialize_field("boosts", &self.boosts)?;
+        st.end()
+    }
 }
 /// The generated catalog's total fold rows: a fixed scratch bound, not a game rule.
 pub(crate) const MAX_FOLD_ROWS: usize = 79;
 impl Build {
     pub fn owns(&self, id: CardId) -> bool {
-        self.counts.0[id.index()] > 0
+        self.count(id) > 0
     }
     pub fn count(&self, id: CardId) -> u8 {
-        self.counts.0[id.index()]
+        match self.native.slot(id) {
+            Some(slot) => slot.count,
+            None => self.counts.0[id.index()],
+        }
+    }
+    /// P-AUG-NATIVE-1a: every native card's slot (held or not).
+    pub fn native(&self) -> &native::NativeCards {
+        &self.native
     }
 
-    /// Sets a card's copy count (the practice console's build.set; production picks go through add).
+    /// Sets a card's copy count (the practice console's build.set; production picks go through add). Clearing a native
+    /// card zeroes its whole slot (a slot not held is all zero: it is not written).
     pub(crate) fn set(&mut self, id: CardId, count: u8) {
-        self.counts.0[id.index()] = count;
+        match self.native.slot_mut(id) {
+            Some(slot) if count == 0 => *slot = native::NativeSlot::default(),
+            Some(slot) => slot.count = count,
+            None => self.counts.0[id.index()] = count,
+        }
     }
     /// Any owned card's fold row carries this flag (source `hasFlag`).
     pub fn has_flag(&self, flag: crate::stat_fold::EffectFlag) -> bool {
@@ -322,16 +357,18 @@ impl Build {
             .map(|id| f64::from(id.tier()) * f64::from(self.count(id)))
             .sum()
     }
+    /// The held cards: the 80 catalog cards in catalog order, then the held native cards in native order.
     pub fn cards(&self) -> impl Iterator<Item = CardId> + '_ {
         CardId::ALL
             .into_iter()
             .filter(move |id| self.counts.0[id.index()] > 0)
+            .chain(self.native.held().map(|(id, _)| id))
     }
     /// Build a count map from (card, count) pairs (tests and trusted producers).
     pub fn from_counts(pairs: impl IntoIterator<Item = (CardId, u8)>) -> Self {
         let mut build = Self::default();
         for (id, count) in pairs {
-            build.counts.0[id.index()] = count;
+            build.set(id, count);
         }
         build
     }
@@ -345,17 +382,18 @@ impl Build {
         if id.definition().unique && self.owns(id) {
             return false;
         }
-        let c = &mut self.counts.0[id.index()];
-        if *c == u8::MAX {
+        let c = self.count(id);
+        if c == u8::MAX {
             return false;
         }
-        *c += 1;
+        self.set(id, c + 1);
         true
     }
     pub(crate) fn valid(&self) -> bool {
         CardId::ALL
             .into_iter()
-            .all(|id| !(id.definition().unique && self.counts.0[id.index()] > 1))
+            .chain(CardId::NATIVE)
+            .all(|id| !(id.definition().unique && self.count(id) > 1))
             && self.boosts.iter().all(|n| {
                 u32::from(*n) <= crate::stat_fold::default_definition().chest_boost_max_picks
             })

@@ -866,6 +866,7 @@ impl PacketParts {
 pub(crate) fn maximum_packet(tuning: &crate::cards::Tuning, weapon: crate::WeaponId) -> f64 {
     let max_boosts = [crate::stat_fold::default_definition().chest_boost_max_picks as u8; 8];
     let supported = crate::cards::Build {
+        native: Default::default(),
         counts: {
             let mut counts = crate::cards::Counts::default();
             for id in crate::cards::SUPPORTED {
@@ -903,6 +904,7 @@ pub(crate) fn maximum_packet(tuning: &crate::cards::Tuning, weapon: crate::Weapo
                 let mut keep = [supported; 5];
                 for c in candidates {
                     let alone = fold_of(&crate::cards::Build {
+                        native: Default::default(),
                         counts: {
                             let mut counts = supported.counts;
                             counts.0[c.index()] = 1;

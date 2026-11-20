@@ -149,9 +149,11 @@ fn the_format_tag_is_refused_before_the_payload_whatever_the_key_order() {
             .unwrap_or_else(|e| panic!("{order:?}: {e}"));
         assert_eq!(b.state_hash(), a.state_hash(), "{order:?}");
     }
-    // The current layout (P-ELITE-PICK-1: the chest's first-pick window, after 33's Plant Your Feet range_mult) must
-    // refuse its predecessors before decoding payload or accepting any defaults from an older canonical shape.
+    // The current layout (P-AUG-NATIVE-1a: a build's native card rows, after 34's chest first-pick window and 33's
+    // Plant Your Feet range_mult) must refuse its predecessors before decoding payload or accepting any defaults from an
+    // older canonical shape.
     for found in [
+        "rh-checkpoint/34",
         "rh-checkpoint/33",
         "rh-checkpoint/32",
         "rh-checkpoint/31",
@@ -190,7 +192,7 @@ fn the_format_tag_is_refused_before_the_payload_whatever_the_key_order() {
     // The immediate predecessor wins over malformed payload and mismatched content,
     // even when the format key follows those payload keys.
     let mut prior28 = good.clone();
-    prior28["format"] = "rh-checkpoint/33".into();
+    prior28["format"] = "rh-checkpoint/34".into();
     prior28["world"] = serde_json::json!({"tick": "not a checkpoint"});
     prior28["statics"] = serde_json::json!([1, 2, 3]);
     prior28["content_hash"] = (good["content_hash"].as_u64().unwrap() ^ 1).into();
@@ -207,7 +209,7 @@ fn the_format_tag_is_refused_before_the_payload_whatever_the_key_order() {
         assert_eq!(
             Sim::restore(&mut serde_json::Deserializer::from_str(&payload)).err(),
             Some(CheckpointError::UnsupportedFormat {
-                found: "rh-checkpoint/33".into()
+                found: "rh-checkpoint/34".into()
             })
         );
     }
