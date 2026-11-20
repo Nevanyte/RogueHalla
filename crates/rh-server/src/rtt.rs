@@ -13,6 +13,8 @@
 //!
 //! `allowed = clamp(smoothed_rtt_ms + RENDER_DELAY_ALLOWANCE_MS + TICK_MS + INTAKE_SLACK_MS, TICK_MS, MAX_REWIND_MS)`
 //!
+//! where `TICK_MS` is the room's own step (`Sim::tick_ms`, 50 or 25 ms, ADR 0029; [`allowed_rewind_ms_at`]).
+//!
 //! and a render time is clamped into `[now_apply - allowed, now_apply]`, where `now_apply` is the server time of the step
 //! that will apply the command (the current sim time plus one tick). A future `t` is clamped like an old one.
 //!
@@ -120,28 +122,29 @@ impl RttEstimator {
         allowed_rewind_ms(self.smoothed_ms)
     }
 
-    /// P-TICK-5 stub: the rewind window in a room stepping `tick_ms` (see [`allowed_rewind_ms_at`]).
+    /// The rewind window in a room stepping `tick_ms` (see [`allowed_rewind_ms_at`]).
     pub fn allowed_rewind_ms_at(&self, tick_ms: u32) -> f64 {
         allowed_rewind_ms_at(self.smoothed_ms, tick_ms)
     }
 }
 
-/// The window an honest client needs (module docs): the smoothed RTT, plus the client's largest render delay, plus one
-/// tick of phase, plus the intake slack, held inside `[TICK_MS, MAX_REWIND_MS]` (50..300 ms here).
+/// The window an honest client needs (module docs) in a room stepping the legacy 50 ms: the smoothed RTT, plus the
+/// client's largest render delay, plus one tick of phase, plus the intake slack, held inside `[TICK_MS, MAX_REWIND_MS]`
+/// (50..300 ms here). [`allowed_rewind_ms_at`] at 50 ms.
 pub fn allowed_rewind_ms(smoothed_rtt_ms: f64) -> f64 {
+    allowed_rewind_ms_at(smoothed_rtt_ms, TICK_MS as u32)
+}
+
+/// [`allowed_rewind_ms`] in a room stepping `tick_ms` (ADR 0029): the tick-phase term and the floor are one step of that
+/// room, `tick_ms` (25..300 ms at 25 ms).
+pub fn allowed_rewind_ms_at(smoothed_rtt_ms: f64, tick_ms: u32) -> f64 {
+    let step = f64::from(tick_ms);
     let rtt = if smoothed_rtt_ms.is_finite() {
         smoothed_rtt_ms
     } else {
         DEFAULT_RTT_MS
     };
-    (rtt + RENDER_DELAY_ALLOWANCE_MS + TICK_MS + INTAKE_SLACK_MS).clamp(TICK_MS, MAX_REWIND_MS)
-}
-
-/// P-TICK-5 stub: [`allowed_rewind_ms`] in a room stepping `tick_ms` (one step of phase, floored at one step). The stub
-/// ignores the rate.
-pub fn allowed_rewind_ms_at(smoothed_rtt_ms: f64, tick_ms: u32) -> f64 {
-    let _ = tick_ms;
-    allowed_rewind_ms(smoothed_rtt_ms)
+    (rtt + RENDER_DELAY_ALLOWANCE_MS + step + INTAKE_SLACK_MS).clamp(step, MAX_REWIND_MS)
 }
 
 /// Clamps a client render time into the window that ends at `now_apply` (the sim time the command will be applied at).
@@ -198,13 +201,26 @@ pub fn clamp_render_time(
 }
 
 /// [`clamp_render_time`] with this seat's window, recording any clamp in `stats` (which edge, by how much, at what RTT).
+/// The legacy 50 ms step; a room uses [`clamp_render_time_noted_at`] with its own.
+#[cfg(test)]
 pub fn clamp_render_time_noted(
     cmd: PublicCommand,
     now_apply: f64,
     rtt: &RttEstimator,
     stats: &mut RewindClampStats,
 ) -> (PublicCommand, bool) {
-    let allowed_ms = rtt.allowed_rewind_ms();
+    clamp_render_time_noted_at(cmd, now_apply, rtt, TICK_MS as u32, stats)
+}
+
+/// [`clamp_render_time_noted`] in a room stepping `tick_ms` (the window of [`RttEstimator::allowed_rewind_ms_at`]).
+pub fn clamp_render_time_noted_at(
+    cmd: PublicCommand,
+    now_apply: f64,
+    rtt: &RttEstimator,
+    tick_ms: u32,
+    stats: &mut RewindClampStats,
+) -> (PublicCommand, bool) {
+    let allowed_ms = rtt.allowed_rewind_ms_at(tick_ms);
     let (bounded, clamped) = clamp_render_time(cmd, now_apply, allowed_ms);
     if clamped {
         if let Some(t) = render_time(cmd) {

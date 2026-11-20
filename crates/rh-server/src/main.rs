@@ -150,7 +150,13 @@ async fn main() {
         eprintln!("[server] invalid hitbox settings: {e}");
         std::process::exit(2);
     });
-    let sim = runtime.as_ref().map_or_else(
+    // P-TICK-5: the room step (`--tick-ms 50|25`, else `RH_TICK_MS`, else 50) for every profile this process hosts.
+    let tick_ms = rh_server::runtime::tick_ms_setting(&args, |key| std::env::var(key).ok())
+        .unwrap_or_else(|e| {
+            eprintln!("[server] invalid tick settings: {e}");
+            std::process::exit(2);
+        });
+    let mut sim = runtime.as_ref().map_or_else(
         || rh_sim::SimConfig {
             hitboxes: core_hitboxes,
             mob_spacing: Default::default(),
@@ -193,10 +199,11 @@ async fn main() {
             } else {
                 rh_sim::FactionMode::Off
             },
-            tick_ms: 50,
+            tick_ms,
         },
         |runtime| runtime.sim(),
     );
+    sim.tick_ms = tick_ms;
     if let Err(e) = rh_server::wire::profile_supported(&sim) {
         eprintln!("[server] refusing to host this simulation profile: {e}");
         std::process::exit(2);

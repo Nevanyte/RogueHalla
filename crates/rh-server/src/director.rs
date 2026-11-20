@@ -112,7 +112,9 @@ pub struct DirectorConfig {
 }
 
 impl DirectorConfig {
+    /// Rooms are paced at the sim's own step (`SimConfig::tick_ms`, ADR 0029).
     pub fn new(sim: SimConfig, arena: impl Into<Arc<Arena>>) -> Self {
+        let tick = Duration::from_millis(u64::from(sim.tick_ms));
         Self {
             leases: LeasePolicy::default(),
             sim,
@@ -120,7 +122,7 @@ impl DirectorConfig {
             max_rooms: 16,
             fill_bots_to: 0,
             bot_fill: None,
-            tick: Duration::from_millis(rh_sim::constants::TICK_MS as u64),
+            tick,
             record: false,
             reconnect_grace: crate::room::RECONNECT_GRACE,
             linger: crate::room::LINGER,
@@ -524,6 +526,12 @@ impl Director {
         validate_runtime(&cfg).expect("invalid runtime admission configuration");
         crate::wire::profile_supported(&cfg.sim)
             .expect("refusing to host unsupported simulation profile");
+        // P-TICK-5: every room is paced at `tick` and steps its sim by `sim.tick_ms`: one fact, refused when they differ.
+        assert_eq!(
+            cfg.tick,
+            Duration::from_millis(u64::from(cfg.sim.tick_ms)),
+            "refusing to pace rooms off their sim's step"
+        );
         cfg.leases.validate().expect("invalid lease policy");
         if let Err(e) = crate::wire::arena_fits(&cfg.arena) {
             panic!("refusing to host this arena: {e}");

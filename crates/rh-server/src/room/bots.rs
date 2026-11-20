@@ -111,7 +111,7 @@ impl Room {
         if self.bot_lines.is_empty() {
             return;
         }
-        let step_t = self.sim.server_time() + rh_sim::constants::TICK_MS;
+        let step_t = self.sim.server_time() + self.step_ms();
         let mut due: Vec<(PlayerId, rh_sim::PublicCommand)> = Vec::new();
         for (player, line) in &mut self.bot_lines {
             let mut out = Vec::new();
