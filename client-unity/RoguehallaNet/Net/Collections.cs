@@ -335,6 +335,9 @@ namespace Roguehalla.Net
         /// <summary>The owner's own GAINED strip (State key 13), as delivered (quantized; WireBuildSummary.Gain scales);
         /// null when unseated or before the key arrives.</summary>
         public WireBuildSummary Summary { get; private set; }
+        /// <summary>P-WIRE19-B: the owner's own native readout rows (State key 14), in native order; empty until the key
+        /// arrives and after a Welcome. Each key-14 item replaces them. Not part of HasFullState.</summary>
+        public IReadOnlyList<WireReadout> Readouts { get { return Array.Empty<WireReadout>(); } }
         const uint KnownStateMask =
             (1u << ((int)StateKey.Inventory - 1)) | (1u << ((int)StateKey.Props - 1)) |
             (1u << ((int)StateKey.Fields - 1)) | (1u << ((int)StateKey.RewardChests - 1)) |

@@ -18,6 +18,7 @@ impl StateItem {
             Self::Trade(_) => 11,
             Self::Roster(_) => 12,
             Self::BuildSummary(_) => 13,
+            Self::Readouts(_) => 14,
         }
     }
     pub(crate) fn encoded_len(&self) -> usize {
@@ -58,6 +59,8 @@ impl StateItem {
                         .sum::<usize>()
                 }
                 Self::BuildSummary(value) => 1 + value.as_ref().map_or(0, WireBuildSummary::len),
+                // P-WIRE19-B stub: no bytes yet (the implementer writes `u8 n` and 18 bytes a row).
+                Self::Readouts(_) => 0,
             }
     }
     pub(crate) fn check(&self) -> Result<(), EncodeError> {
@@ -175,6 +178,8 @@ impl StateItem {
                     return Err(EncodeError::BadValue(why));
                 }
             }
+            // P-WIRE19-B stub: key 14 is not encoded yet; every readout item is refused.
+            Self::Readouts(_) => return Err(EncodeError::BadValue("readouts")),
         }
         Ok(())
     }
@@ -246,6 +251,8 @@ impl StateItem {
                 }
             }
             Self::BuildSummary(value) => w.opt(value.as_ref(), |w, v| v.write(w)),
+            // P-WIRE19-B stub: never reached (`check` refuses the item).
+            Self::Readouts(_) => {}
         }
     }
     pub(crate) fn read(r: &mut Reader<'_>, key: u32) -> Result<Self, DecodeError> {

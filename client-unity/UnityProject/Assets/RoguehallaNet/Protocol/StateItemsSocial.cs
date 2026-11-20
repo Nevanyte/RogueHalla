@@ -115,6 +115,22 @@ namespace Roguehalla.Net.Protocol
     }
 
     /// <summary>
+    /// Key 14 (P-WIRE19-B): the viewer's own native readout rows, in native order (brief docs/backlog/packets/P-WIRE19-B.md,
+    /// "Wire layout"): count u8 (at most 28), rows of card u8 (80..93), kind u8 (0..2), value f64, max f64.
+    /// Stub: not encoded or decoded yet.
+    /// </summary>
+    public sealed class ReadoutsState : StateItem
+    {
+        public const int MaxCount = 28;
+        public override uint Key { get { return 14; } }
+        public WireReadout[] Rows = Array.Empty<WireReadout>();
+
+        internal override void Check() { Require(false, "readouts"); }
+
+        internal override void Write(Writer w) { }
+    }
+
+    /// <summary>
     /// Key 13 (P-WIRE17-HUD-1): the owning seat's build summary, never another seat's; Value null when unseated. Wire:
     /// present u8 (0/1); when 1: 9 x i32 gains, count u8 (at most 20), rows of mob u8 (below 30, strictly ascending),
     /// stat u8 (below 9), stacks varint (at least 1), total i32; then (P-WIRE17-HUD-2) the champion panel: count u8 (at

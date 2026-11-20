@@ -794,6 +794,8 @@ impl PendingState {
                 StateItem::Roster(v) => publisher.roster = v,
                 StateItem::RewardChests(_) => {}
                 StateItem::BuildSummary(v) => publisher.summary = v,
+                // P-WIRE19-B stub: key 14 is never sent yet.
+                StateItem::Readouts(_) => {}
             }
         }
         publisher.sent = true;

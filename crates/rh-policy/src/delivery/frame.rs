@@ -106,6 +106,11 @@ impl CollectionView {
     pub fn summary(&self) -> Option<&rh_protocol::state::WireBuildSummary> {
         self.summary.as_ref()
     }
+    /// P-WIRE19-B: the owner's own native readout rows (State key 14) as delivered; empty until key 14 arrives.
+    pub fn readouts(&self) -> &[rh_protocol::WireReadout] {
+        // P-WIRE19-B stub: none kept yet.
+        &[]
+    }
     pub fn tick(&self) -> u32 {
         self.tick
     }
@@ -136,6 +141,8 @@ impl CollectionView {
                 StateItem::Trade(v) => next.trade = v.clone(),
                 StateItem::Roster(v) => next.roster = v.clone(),
                 StateItem::BuildSummary(v) => next.summary = v.clone(),
+                // P-WIRE19-B stub: the rows are not kept yet.
+                StateItem::Readouts(_) => {}
             }
         }
         rh_protocol::validate_quest_props(&next.props, next.quests.as_ref())?;

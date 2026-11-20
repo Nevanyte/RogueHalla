@@ -331,6 +331,11 @@ pub struct Observation {
     /// Every seated player by ascending id: the display name and bot flag (ADR0026, B3). The same for every viewer; it
     /// carries no position, faction, health or sight fact.
     pub roster: Vec<RosterRow>,
+    /// P-WIRE19-B: the viewer's own native readout rows ([`crate::cards::native::readouts`] of the viewer), in native
+    /// order; empty for a non-player, a non-holder and every Legacy world. Never another seat's (C-OBS). Skipped when
+    /// empty, so an observation without rows serializes and hashes as before the field.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub readouts: Vec<crate::cards::native::Readout>,
 }
 
 impl SeenEvent {
@@ -554,6 +559,7 @@ impl Default for Observation {
             panel: None,
             events: Vec::new(),
             roster: Vec::new(),
+            readouts: Vec::new(),
         }
     }
 }
@@ -804,6 +810,8 @@ pub(crate) fn observe_with_tiles(
     out.projectiles.clear();
     out.reward_chests.clear();
     out.build = me.map(|p| crate::reward_chests::BuildView::from(&p.build));
+    // P-WIRE19-B stub: the viewer's own readout rows are filled here (`cards::native::readouts`); none yet.
+    out.readouts.clear();
     out.version = OBSERVATION_VERSION;
     out.training = sim.config().training;
     out.tick = sim.tick();
@@ -1142,3 +1150,7 @@ mod panel_tooltip_tests;
 #[cfg(test)]
 #[path = "observe/hud_clock_tests.rs"]
 mod hud_clock_tests;
+
+#[cfg(test)]
+#[path = "observe/readouts_view_tests.rs"]
+mod readouts_view_tests;

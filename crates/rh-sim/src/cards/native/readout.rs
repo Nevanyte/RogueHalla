@@ -1,6 +1,7 @@
 //! P-AUG-NATIVE-1b: the own-only native readout producer (C-OBS). A viewer's rows come from the viewer's own native
 //! slots only, held cards in native order, each card's rows as its batch table declares them; fixed size, no
-//! allocation. Nothing observes them yet: P-WIRE19-B puts them on the wire beside `observe.rs` `out.me`.
+//! allocation. P-WIRE19-B observes them (`Observation::readouts`, beside the owner's card counts) and puts them on the
+//! wire (State key 14).
 use crate::cards::CardId;
 use crate::{PlayerId, Sim};
 
@@ -8,7 +9,7 @@ use crate::{PlayerId, Sim};
 pub const MAX_READOUTS: usize = 28;
 
 /// What a readout row shows.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ReadoutKind {
     /// The slot's `counter` (stacks in the card's own units).
     Counter,
@@ -19,7 +20,7 @@ pub enum ReadoutKind {
 }
 
 /// One readout row: a card, what it shows, its value and its maximum.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Readout {
     pub card: CardId,
     pub kind: ReadoutKind,
