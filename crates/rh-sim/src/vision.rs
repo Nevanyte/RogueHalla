@@ -18,11 +18,11 @@ use crate::constants::TICK_MS;
 mod golden;
 
 // Vision counts in steps of the match (`tick_ms`: `SimConfig::tick_ms`); its refresh period and trail keep their
-// milliseconds at every rate (ADR 0029 decision 3).
-fn refresh_ticks(tick_ms: f64) -> u32 {
+// milliseconds at every rate (ADR 0029 decision 3). Hot loops compute these once per call, outside the loop.
+const fn refresh_ticks(tick_ms: f64) -> u32 {
     (VISION_UPDATE_MS / tick_ms) as u32
 }
-fn trail_ticks(tick_ms: f64) -> u32 {
+const fn trail_ticks(tick_ms: f64) -> u32 {
     (VISION_TRAIL_MS / tick_ms) as u32
 }
 pub(crate) const fn max_samples() -> usize {
@@ -118,10 +118,11 @@ impl VisionTrail {
         self.refresh_on(origin, tick, LEGACY_TICK_MS, Variant::Open);
     }
     fn refresh_on(&mut self, origin: Vec2, tick: u32, tick_ms: f64, variant: Variant) {
+        let (refresh, trail) = (refresh_ticks(tick_ms), trail_ticks(tick_ms));
         if self
             .reveals
             .back()
-            .is_some_and(|r| r.variant == variant && tick - r.tick < refresh_ticks(tick_ms))
+            .is_some_and(|r| r.variant == variant && tick - r.tick < refresh)
         {
             return;
         }
@@ -134,11 +135,7 @@ impl VisionTrail {
             ordinal <= 1,
             "only settle changes gate geometry during a tick"
         );
-        while self
-            .reveals
-            .front()
-            .is_some_and(|r| tick - r.tick >= trail_ticks(tick_ms))
-        {
+        while self.reveals.front().is_some_and(|r| tick - r.tick >= trail) {
             self.reveals.pop_front();
         }
         if let Some(last) = self.reveals.back_mut() {
@@ -169,16 +166,18 @@ impl VisionTrail {
             return None;
         }
         let centre = Vec2::new((tx as f64 + 0.5) * TILE, (ty as f64 + 0.5) * TILE);
-        self.reveals
-            .iter()
-            .rev()
-            .take_while(|r| {
-                tick - r.tick < trail_ticks(tick_ms)
-                    && after.is_none_or(|old| (r.tick, r.ordinal) > old)
-            })
-            .find_map(|r| {
-                reveals_tile(map.at(r.variant), r.origin, tx, ty, centre).then_some(r.tick)
-            })
+        // Newest first, while inside the trail and newer than `after`. A plain loop: this runs per tile query, and the
+        // iterator chain it replaces no longer inlined once the trail length became a runtime value (P-TICK-1b-perf).
+        let trail = trail_ticks(tick_ms);
+        for r in self.reveals.iter().rev() {
+            if tick - r.tick >= trail || after.is_some_and(|old| (r.tick, r.ordinal) <= old) {
+                return None;
+            }
+            if reveals_tile(map.at(r.variant), r.origin, tx, ty, centre) {
+                return Some(r.tick);
+            }
+        }
+        None
     }
     fn remembers<'a>(&self, map: impl Into<View<'a>>, at: Vec2, tick: u32, tick_ms: f64) -> bool {
         let map = map.into();
@@ -586,14 +585,12 @@ impl TileVisionCache {
         let Some(_old_tick) = self.tick.filter(|&t| t <= tick) else {
             return false;
         };
-        let mut prior = self
-            .previous
-            .iter()
-            .filter(|r| tick - r.tick < trail_ticks(tick_ms));
+        let steps = trail_ticks(tick_ms);
+        let mut prior = self.previous.iter().filter(|r| tick - r.tick < steps);
         let mut now = trail
             .reveals
             .iter()
-            .filter(|r| tick - r.tick < trail_ticks(tick_ms))
+            .filter(|r| tick - r.tick < steps)
             .peekable();
         let old_stamp = self.previous.last().map(|r| (r.tick, r.ordinal));
         while now
