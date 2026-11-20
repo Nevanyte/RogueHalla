@@ -34,7 +34,7 @@ namespace Roguehalla.Net.Tests
             throw new KeyNotFoundException(name);
         }
 
-        [Test] public void FixtureIsProtocolV19() { Assert.AreEqual(19, Wire.ProtocolVersion); Assert.AreEqual(Wire.ProtocolVersion, Fixture().GetProperty("protocol").GetInt32()); }
+        [Test] public void FixtureIsProtocolV20() { Assert.AreEqual(20, Wire.ProtocolVersion); Assert.AreEqual(Wire.ProtocolVersion, Fixture().GetProperty("protocol").GetInt32()); }
 
         [TestCaseSource(nameof(ClientVectors))]
         public void ClientVectorRoundTripsByteForByte(string name, string hex)
@@ -1116,6 +1116,8 @@ namespace Roguehalla.Net.Tests
                 // P-FROST-WALL-2: the State key 3 wall row.
                 case "state_field_kind_unknown": case "state_wall_tiles_zero": case "state_wall_tiles_over":
                 case "state_wall_tile_off_map": case "state_wall_tile_order": want = DecodeError.BadField; break;
+                // P-COLISEUM-HEALS-2: a prop kind past 8 (the heal pickup).
+                case "state_prop_kind_unknown": want = DecodeError.BadField; break;
                 case "state_wall_tiles_truncated": want = DecodeError.Truncated; break;
                 default: throw new KeyNotFoundException("no expectation for " + name);
             }

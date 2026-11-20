@@ -77,8 +77,9 @@ namespace Roguehalla.Net.Ui
 
         // ---- coliseum heal pickups (P-COLISEUM-HEALS-2) -----------------------------------------------------------------------
         /// <summary>True when a heal pickup whose delivered clock is <paramref name="readyAt"/> (server ms) can be taken at
-        /// <paramref name="serverMs"/>: lit when ready, dim otherwise. Presentation only. Stub: never ready.</summary>
-        public static bool HealReady(uint readyAt, double serverMs) { return false; }
+        /// <paramref name="serverMs"/>: lit when ready, dim otherwise (the sim takes it when <c>now &gt;= ready_at</c>). Presentation
+        /// only.</summary>
+        public static bool HealReady(uint readyAt, double serverMs) { return serverMs >= readyAt; }
 
         // ---- champion HUD multipliers (OwnerCombat, in milli) ---------------------------------------------------------------
         /// <summary>"x1.25" for a multiplier delivered in milli (1000 = x1.00); "x1.00" for a value that is not a number.</summary>
