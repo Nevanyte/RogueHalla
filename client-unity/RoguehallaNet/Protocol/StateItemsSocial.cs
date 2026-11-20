@@ -116,18 +116,62 @@ namespace Roguehalla.Net.Protocol
 
     /// <summary>
     /// Key 14 (P-WIRE19-B): the viewer's own native readout rows, in native order (brief docs/backlog/packets/P-WIRE19-B.md,
-    /// "Wire layout"): count u8 (at most 28), rows of card u8 (80..93), kind u8 (0..2), value f64, max f64.
-    /// Stub: not encoded or decoded yet.
+    /// "Wire layout"): count u8 (at most 28, refused before the rows), rows of card u8 (80..93), kind u8 (0..2), value f64,
+    /// max f64. Checked per row in this order: card, kind, value and max (finite, 0 &lt;= value &lt;= max), then order (a card
+    /// never decreases). Sent only when the rows change, so it is never required for a full state.
     /// </summary>
     public sealed class ReadoutsState : StateItem
     {
         public const int MaxCount = 28;
+        public const byte FirstCard = 80, LastCard = 93, KindCount = 3;
         public override uint Key { get { return 14; } }
         public WireReadout[] Rows = Array.Empty<WireReadout>();
 
-        internal override void Check() { Require(false, "readouts"); }
+        static string Fault(WireReadout row, int previous)
+        {
+            if (row.Card < FirstCard || row.Card > LastCard) return "readout card";
+            if (row.Kind >= KindCount) return "readout kind";
+            if (!Finite(row.Value) || !Finite(row.Max) || !(row.Value >= 0) || !(row.Value <= row.Max)) return "readout value";
+            if (row.Card < previous) return "readout order";
+            return null;
+        }
 
-        internal override void Write(Writer w) { }
+        internal override void Check()
+        {
+            Require(Rows != null && Rows.Length <= MaxCount, "readout count");
+            int previous = 0;
+            foreach (var row in Rows)
+            {
+                string fault = Fault(row, previous);
+                Require(fault == null, fault);
+                previous = row.Card;
+            }
+        }
+
+        internal override void Write(Writer w)
+        {
+            w.U8((byte)Rows.Length);
+            foreach (var row in Rows) { w.U8(row.Card); w.U8(row.Kind); w.F64(row.Value); w.F64(row.Max); }
+        }
+
+        internal static ReadoutsState Read(ref Reader r)
+        {
+            int n = r.U8();
+            if (n > MaxCount) throw new DecodeException(DecodeError.BadField, "readout count");
+            var rows = n == 0 ? Array.Empty<WireReadout>() : new WireReadout[n];
+            int previous = 0;
+            for (int i = 0; i < n; i++)
+            {
+                var row = new WireReadout { Card = r.U8(), Kind = r.U8() };
+                row.Value = r.F64();
+                row.Max = r.F64();
+                string fault = Fault(row, previous);
+                if (fault != null) throw new DecodeException(DecodeError.BadField, fault);
+                previous = row.Card;
+                rows[i] = row;
+            }
+            return new ReadoutsState { Rows = rows };
+        }
     }
 
     /// <summary>

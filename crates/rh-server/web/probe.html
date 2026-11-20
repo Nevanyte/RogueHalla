@@ -917,6 +917,22 @@ function decodeBody(r) {
 // Protocol 16 (ADR0026) State key 12, the roster (names and bot flags of everyone seated): count u8 (at most 32), rows
 // strictly ascending by id: id varint (nonzero), flags u8 (0, or 1 bot), name (u8 length, 1..=24 UTF-8 bytes, no control
 // character).
+// P-WIRE19-B, State key 14: the viewer's own native readout rows. count u8 (<= 28, refused before the rows), then rows of
+// card u8 (80..93), kind u8 (0 counter, 1 meter, 2 marks), value f64, max f64; per row: card, kind, value, then order.
+function readReadouts(r) {
+  const n = r.u8(); if (n > 28) throw new Error("bad readout count");
+  const rows = []; let previous = 0;
+  for (let i = 0; i < n; i++) {
+    const card = r.u8(); if (card < 80 || card > 93) throw new Error("bad readout card");
+    const kind = r.u8(); if (kind > 2) throw new Error("bad readout kind");
+    const value = r.f64(), max = r.f64();
+    if (!Number.isFinite(value) || !Number.isFinite(max) || !(value >= 0) || !(value <= max)) throw new Error("bad readout value");
+    if (card < previous) throw new Error("bad readout order");
+    previous = card;
+    rows.push({ card, kind, value, max });
+  }
+  return rows;
+}
 function readRoster(r) {
   const n = r.u8();
   if (n > 32) throw new Error("bad roster count");
@@ -980,7 +996,7 @@ function readBuildSummary(r) {
 }
 // Complete replacements. Decode the entire frame before a collection consumer changes retained state.
 function readState(r) {
-  const n = r.varint(); if (n > 13) throw new Error("too many state keys");
+  const n = r.varint(); if (n > 14) throw new Error("too many state keys");
   const flag = () => r.opt(() => true) !== null;
   const strictBool = (what) => { const v = r.u8(); if (v > 1) throw new Error("bad " + what); return v === 1; };
   const finite = (x) => { if (!Number.isFinite(x)) throw new Error("bad field"); return x; };
@@ -990,7 +1006,7 @@ function readState(r) {
   const count = () => { const v = r.varint(); if (v > 512) throw new Error("too many state rows"); return v; };
   const items = []; let previous = 0;
   for (let i = 0; i < n; i++) {
-    const key = r.varint(); if (key <= previous || key > 13) throw new Error("bad state key"); previous = key;
+    const key = r.varint(); if (key <= previous || key > 14) throw new Error("bad state key"); previous = key;
     let value;
     // Key 1: the counts are read (and checked) before the owner's clocks (P-WIRE17-HUD-3: server ms, finite, >= 0).
     if (key === 1) {
@@ -1109,6 +1125,7 @@ function readState(r) {
     else if (key === 11) value = readTrade(r, strictBool);
     else if (key === 12) value = readRoster(r);
     else if (key === 13) value = readBuildSummary(r);
+    else if (key === 14) value = readReadouts(r);
     else value = r.opt(() => ({ cards: Array.from(r.bytes(80)), boosts: Array.from(r.bytes(8)) }));
     items.push({ key, value });
   }

@@ -25,7 +25,7 @@ pub use public::*;
 
 use hud::{camp_hud_into, roster_into, summary_into};
 
-pub const OBSERVATION_VERSION: u16 = 31;
+pub const OBSERVATION_VERSION: u16 = 32;
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SelfView {
@@ -810,8 +810,10 @@ pub(crate) fn observe_with_tiles(
     out.projectiles.clear();
     out.reward_chests.clear();
     out.build = me.map(|p| crate::reward_chests::BuildView::from(&p.build));
-    // P-WIRE19-B stub: the viewer's own readout rows are filled here (`cards::native::readouts`); none yet.
+    // P-WIRE19-B: the viewer's own native readout rows (C-OBS: only the viewer's slots); the buffer is reused.
     out.readouts.clear();
+    out.readouts
+        .extend_from_slice(crate::cards::native::readouts(sim, viewer).rows());
     out.version = OBSERVATION_VERSION;
     out.training = sim.config().training;
     out.tick = sim.tick();

@@ -30,6 +30,8 @@ pub struct CollectionPublisher {
     trade: Option<rh_protocol::WireTradeView>,
     roster: Vec<rh_protocol::WireRosterRow>,
     summary: Option<WireBuildSummary>,
+    /// P-WIRE19-B: the readout rows the client holds (empty from every Welcome).
+    readouts: Vec<rh_protocol::WireReadout>,
     last_forced: Option<u32>,
 }
 
@@ -51,6 +53,26 @@ fn inventory(value: Inventory) -> WireInventory {
         healing_until: value.healing_until,
         speed_boost_until: value.speed_boost_until,
     }
+}
+
+/// P-WIRE19-B: the viewer's own readout rows as State key 14 rows, value and max unchanged (the encoder refuses an
+/// invalid row, never clamps it).
+fn readouts(observation: &Observation) -> Vec<rh_protocol::WireReadout> {
+    use rh_sim::cards::native::ReadoutKind;
+    observation
+        .readouts
+        .iter()
+        .map(|row| rh_protocol::WireReadout {
+            card: u8::try_from(row.card.index()).expect("a card index fits u8"),
+            kind: match row.kind {
+                ReadoutKind::Counter => rh_protocol::state::READOUT_KIND_COUNTER,
+                ReadoutKind::Meter => rh_protocol::state::READOUT_KIND_METER,
+                ReadoutKind::Marks => rh_protocol::state::READOUT_KIND_MARKS,
+            },
+            value: row.value,
+            max: row.max,
+        })
+        .collect()
 }
 
 fn props(observation: &Observation) -> Result<WireProps, EncodeError> {
@@ -755,6 +777,12 @@ impl CollectionPublisher {
         {
             items.push(StateItem::BuildSummary(next_summary));
         }
+        // Key 14 is optional: sent only when the rows differ from what the client holds (empty from every Welcome),
+        // so a viewer without rows never receives it, not even in a full or forced State.
+        let next_readouts = readouts(observation);
+        if next_readouts != self.readouts || (full && !next_readouts.is_empty()) {
+            items.push(StateItem::Readouts(next_readouts));
+        }
         let (frame, items) = if items.is_empty() {
             (None, items)
         } else {
@@ -794,8 +822,7 @@ impl PendingState {
                 StateItem::Roster(v) => publisher.roster = v,
                 StateItem::RewardChests(_) => {}
                 StateItem::BuildSummary(v) => publisher.summary = v,
-                // P-WIRE19-B stub: key 14 is never sent yet.
-                StateItem::Readouts(_) => {}
+                StateItem::Readouts(v) => publisher.readouts = v,
             }
         }
         publisher.sent = true;
