@@ -23,7 +23,7 @@ MonoBehaviour:
   - Row: 0
     GuardAxeAngleDelta: 0
     GuardColumns: 0300000008000000090000000a000000
-    StrideColumns: 04000000
+    StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
   - Row: 1
     GuardAxeAngleDelta: 0
     GuardColumns: 0300000008000000090000000a000000
@@ -47,11 +47,11 @@ MonoBehaviour:
   - Row: 6
     GuardAxeAngleDelta: 0
     GuardColumns: 0300000008000000090000000a000000
-    StrideColumns: 04000000
+    StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
   - Row: 7
     GuardAxeAngleDelta: 0
     GuardColumns: 0300000008000000090000000a000000
-    StrideColumns: 04000000
+    StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
   palms:
   - Right: {x: 35, y: 18}
     Left: {x: 99, y: 72}
@@ -61,8 +61,8 @@ MonoBehaviour:
     Left: {x: 100, y: 62}
   - Right: {x: 42, y: 82}
     Left: {x: 100, y: 81}
-  - Right: {x: 42, y: 76}
-    Left: {x: 95, y: 80}
+  - Right: {x: 55, y: 67}
+    Left: {x: 90, y: 64}
   - Right: {x: 39, y: 84}
     Left: {x: 83, y: 22}
   - Right: {x: 33, y: 59}
@@ -75,20 +75,20 @@ MonoBehaviour:
     Left: {x: 101, y: 81}
   - Right: {x: 42, y: 82}
     Left: {x: 100, y: 81}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
+  - Right: {x: 53, y: 69}
+    Left: {x: 88, y: 64}
+  - Right: {x: 51, y: 67}
+    Left: {x: 88, y: 62}
+  - Right: {x: 51, y: 71}
+    Left: {x: 90, y: 65}
+  - Right: {x: 47, y: 83}
+    Left: {x: 100, y: 77}
+  - Right: {x: 45, y: 86}
+    Left: {x: 102, y: 80}
+  - Right: {x: 41, y: 91}
+    Left: {x: 106, y: 87}
+  - Right: {x: 44, y: 81}
+    Left: {x: 99, y: 73}
   - Right: {x: 34, y: 19}
     Left: {x: 99, y: 68}
   - Right: {x: 110, y: 95}
@@ -277,8 +277,8 @@ MonoBehaviour:
     Left: {x: 17, y: 72}
   - Right: {x: 31, y: 59}
     Left: {x: 64, y: 90}
-  - Right: {x: 100, y: 58}
-    Left: {x: 17, y: 72}
+  - Right: {x: 38, y: 72}
+    Left: {x: 70, y: 98}
   - Right: {x: 10, y: 48}
     Left: {x: 105, y: 55}
   - Right: {x: 20, y: 58}
@@ -291,20 +291,20 @@ MonoBehaviour:
     Left: {x: 58, y: 91}
   - Right: {x: 31, y: 59}
     Left: {x: 63, y: 90}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
+  - Right: {x: 30, y: 74}
+    Left: {x: 63, y: 98}
+  - Right: {x: 32, y: 70}
+    Left: {x: 61, y: 97}
+  - Right: {x: 30, y: 73}
+    Left: {x: 50, y: 99}
+  - Right: {x: 56, y: 66}
+    Left: {x: 78, y: 70}
+  - Right: {x: 51, y: 66}
+    Left: {x: 72, y: 73}
+  - Right: {x: 47, y: 65}
+    Left: {x: 69, y: 72}
+  - Right: {x: 50, y: 64}
+    Left: {x: 73, y: 72}
   - Right: {x: 40, y: 16}
     Left: {x: 80, y: 82}
   - Right: {x: 28, y: 99}
@@ -313,8 +313,8 @@ MonoBehaviour:
     Left: {x: 94, y: 59}
   - Right: {x: 26, y: 83}
     Left: {x: 101, y: 71}
-  - Right: {x: 94, y: 73}
-    Left: {x: 18, y: 73}
+  - Right: {x: 36, y: 85}
+    Left: {x: 105, y: 64}
   - Right: {x: 10, y: 54}
     Left: {x: 105, y: 46}
   - Right: {x: 94, y: 68}
@@ -327,17 +327,17 @@ MonoBehaviour:
     Left: {x: 101, y: 70}
   - Right: {x: 26, y: 82}
     Left: {x: 103, y: 71}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
+  - Right: {x: 34, y: 84}
+    Left: {x: 98, y: 71}
+  - Right: {x: 34, y: 82}
+    Left: {x: 101, y: 68}
+  - Right: {x: 35, y: 82}
+    Left: {x: 101, y: 70}
+  - Right: {x: 52, y: 68}
+    Left: {x: 99, y: 62}
+  - Right: {x: 55, y: 72}
+    Left: {x: 102, y: 67}
+  - Right: {x: 56, y: 71}
+    Left: {x: 102, y: 62}
+  - Right: {x: 58, y: 70}
+    Left: {x: 104, y: 54}
