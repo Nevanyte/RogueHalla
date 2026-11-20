@@ -66,7 +66,7 @@ State key 2, replaced whole). Bump `PROTOCOL_VERSION` to 20 and regenerate `prot
 - server `state_heal_props`: `ServerMsg::State { tick: 202, items: [Props { rows, focus: None }] }`, rows (handle, x, y,
   ready_at) = (1, 20352, 20352, 0), (2, 20608, 20352, 30_000), (3, 20352, 20608, u32::MAX), (4, 20608, 20608, 0): the
   four spots in 1/8 units (tile centres 2544 and 2576 times 8);
-- malformedServer `state_prop_kind_unknown`: one prop row with kind byte 9 (`BadField("prop kind")` in every decoder).
+- No shared malformed vector (tools/protocol-js/check-vectors.mjs is provenance-pinned by parity/card-catalog): each decoder's oracle refuses a hand-built row of kind byte 9 (`BadField("prop kind")`).
 The decoded-JSON helper at `samples.rs:7885` gains `Heal => 8` and `"readyAt"`.
 
 **Sim (`item_view.rs`).** Drop the HEALS-1 skip: a visible `Heal` container becomes `PropKind::Heal { ready_at:

@@ -85,13 +85,11 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void AnUnknownPropKindIsRefused()
         {
-            string hex = Hex("malformedServer", "state_prop_kind_unknown");
-            Assert.IsNotNull(hex, "protocol/fixtures/" + Util.FixtureName + " has the malformedServer vector state_prop_kind_unknown");
-            var e = Assert.Throws<DecodeException>(() => ServerMsg.Decode(Util.FromHex(hex)));
-            Assert.AreEqual(DecodeError.BadField, e.Error);
-            // Hand-built: kind 9 after the heal's place is refused like every unknown byte.
+            // Hand-built (not a shared malformed vector: tools/protocol-js/check-vectors.mjs is provenance-pinned):
+            // kind 9 after the heal's place is refused like every unknown byte.
             var nine = new byte[] { 0x88, 0xca, 0x01, 1, 2, 1, 1, 0x50, 0, 0xa0, 0, 9, 0, 0 };
-            Assert.Throws<DecodeException>(() => ServerMsg.Decode(nine), "prop kind 9");
+            var e = Assert.Throws<DecodeException>(() => ServerMsg.Decode(nine), "prop kind 9");
+            Assert.AreEqual(DecodeError.BadField, e.Error);
         }
 
         [Test]

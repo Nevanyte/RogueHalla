@@ -1,7 +1,7 @@
 // P-COLISEUM-HEALS-2 oracle (JS): the browser probe's decoder (crates/rh-server/web/probe.html, the JS decoder of
 // crates/rh-protocol/AGENTS.md) reads a coliseum heal pickup, State key 2 prop kind 8 with the cannon's layout
 // (`handle varint | x u16 | y u16 | 8 | readyAt varint`), as `{ kind: 8, readyAt }` at protocol 20, decodes the golden
-// vector state_heal_props and refuses state_prop_kind_unknown. Run by the gate's reload-proof step (node --test).
+// vector state_heal_props and refuses a hand-built kind 9. Run by the gate's reload-proof step (node --test).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -43,14 +43,14 @@ test('the probe still refuses an unknown prop kind', () => {
   assert.throws(() => probe.decode(stateFrame([{ ...ROWS[0], kind: 9 }])), /prop kind/);
 });
 
-test('the golden vectors: state_heal_props decodes to the four pickups, state_prop_kind_unknown is refused', () => {
+test('the golden vectors: state_heal_props decodes to the four pickups, kind 9 is refused', () => {
   assert.equal(existsSync(fixture), true, `protocol/fixtures/v${probe.PROTOCOL}.json is missing`);
   const fx = JSON.parse(readFileSync(fixture, 'utf8'));
   const good = fx.server.find(v => v.name === 'state_heal_props');
   assert.ok(good, 'the server vector state_heal_props');
   const msg = probe.decode(fromHex(good.hex).buffer);
   assert.deepEqual(propsOf(msg).rows, ROWS);
-  const bad = fx.malformedServer.find(v => v.name === 'state_prop_kind_unknown');
-  assert.ok(bad, 'the malformedServer vector state_prop_kind_unknown');
-  assert.throws(() => probe.decode(fromHex(bad.hex).buffer), /prop kind/);
+  // Hand-built (not a shared malformed vector: check-vectors.mjs is provenance-pinned): kind 9 after the heal's place.
+  const bad = Uint8Array.from([0x88, 0xca, 0x01, 1, 2, 1, 1, 0x50, 0, 0xa0, 0, 9, 0, 0]);
+  assert.throws(() => probe.decode(bad.buffer), /prop kind/);
 });
