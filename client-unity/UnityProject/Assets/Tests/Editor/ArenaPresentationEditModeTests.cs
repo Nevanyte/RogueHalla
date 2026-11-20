@@ -247,6 +247,7 @@ namespace Roguehalla.Client.Tests
             };
             typeof(CollectionsView).GetMethod("Apply", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 .Invoke(shots, new object[] { state });
+            arena.RetainObservedActors(new List<InterpActor>(), me, true);
             arena.PresentCollections(shots);
             arena.Present(new List<InterpActor>(),me,null,0);
             Assert.That(body.sprite.name, Is.EqualTo("FireBow/2/3"), "A delivered east arrow selects the authored Fire bow release frame.");

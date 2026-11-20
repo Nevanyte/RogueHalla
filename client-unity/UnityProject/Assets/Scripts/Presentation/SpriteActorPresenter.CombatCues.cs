@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
 using UnityEngine;
@@ -128,9 +129,28 @@ namespace Roguehalla.Client
             }
         }
 
+        // Collections arrive before the actor pass. A renewed or swapped owner needs its current
+        // position, equipment and appearance installed before the launch can select its release.
+        readonly List<NetProjectileView> _frameLaunches = new List<NetProjectileView>(8);
+
+        internal void QueueProjectile(uint owner, ProjectileKind kind, float x, float y, float aim) =>
+            _frameLaunches.Add(new NetProjectileView { Owner = owner, Kind = kind, X = x, Y = y, Facing = aim });
+
+        void ApplyFrameLaunches(uint owner)
+        {
+            for (int i = 0; i < _frameLaunches.Count; i++)
+            {
+                var shot = _frameLaunches[i];
+                if (shot.Owner != owner) continue;
+                ObservedProjectile(owner, shot.Kind, shot.X, shot.Y, shot.Facing);
+                _frameLaunches.RemoveAt(i);
+                i--;
+            }
+        }
+
         internal void ObservedProjectile(uint owner, ProjectileKind kind, float x, float y, float aim)
         {
-            if (!_active.TryGetValue(owner, out var art) || !HasWeaponTrack(art) ||
+            if (!_active.TryGetValue(owner, out var art) || !art.VisibleForCombatCue || !HasWeaponTrack(art) ||
                 (kind != ProjectileKind.Arrow && kind != ProjectileKind.Ball)) return;
             // The projected collection has no launch id. A newly seen shot may be an old shot arriving from fog.
             // Require it to be near the delivered owner, and require the delivered weapon to agree.
@@ -139,7 +159,7 @@ namespace Roguehalla.Client
             float dy = y + origin.y / (ArenaView.Scale * ArenaView.GroundSquash);
             if (dx * dx + dy * dy > 80f * 80f) return;
             var weapon = kind == ProjectileKind.Arrow ? WeaponId.Bow : WeaponId.Wand;
-            if (kind == ProjectileKind.Arrow && art.VisibleForCombatCue && art.Root.activeSelf && art.Fade.Opacity > 0f &&
+            if (kind == ProjectileKind.Arrow && art.Root.activeSelf && art.Fade.Opacity > 0f &&
                 art.Kind == ActorKind.Player && art.Faction == FactionId.Fire && art.WeaponId == WeaponId.Bow)
                 art.FireBowShotCount++;
             ConfirmedCue(owner, FxKind.Swing, weapon, aim);

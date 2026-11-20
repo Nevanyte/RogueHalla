@@ -140,7 +140,7 @@ namespace Roguehalla.Client
             public Rect NumberEnvelope;
             public int AlphaByte = 255;
         }
-        System.Action<uint, ProjectileKind, float, float, float> _observedProjectile;
+        System.Action<uint, ProjectileKind, float, float, float> _observedProjectile, _queueProjectile;
         struct PendingFx { public ushort WindupMs; public FxKind Kind; public uint Subject; public float Amount; public double DueMs; public float QueuedAt; public float X, Y, A, CreatedAt; public byte Weapon; public uint By; public bool Passive, Crit; public byte SigKind; }
 
         void Awake()
@@ -149,6 +149,7 @@ namespace Roguehalla.Client
             _catalog = Resources.Load<ShowcaseCatalog>("Showcase/Catalog");
             _actors = new SpriteActorPresenter(transform, _catalog);
             _observedProjectile = _actors.ObservedProjectile;
+            _queueProjectile = _actors.QueueProjectile;
             _actors.Surfaces = Surfaces;   // name colours follow the ground under a name (P-UNITY-NAME-LEGIBLE-1)
             _visionFog = new VisionFog(transform); _actors.Delivered = _membership; _actors.OnDeparted = _visionFog.AuditDeparture; _actors.OnArrived = _visionFog.AuditArrival;
             _visionFog.AuditLog = Application.absoluteURL != null && Application.absoluteURL.Contains("vision.audit=1");
@@ -216,6 +217,11 @@ namespace Roguehalla.Client
         public void Present(List<InterpActor> remote, SelfView me, LocalMotion motion, float aimAngle)
         {
             var pmActors = PerfMarks.Begin();
+            if (_shotsForPresentedActors != null)
+            {
+                ObserveShots(_shotsForPresentedActors, _queueProjectile);
+                _shotsForPresentedActors = null;
+            }
             _actors.Begin(); ActorField.Begin();      // render pass: presented actors for the surface shaders
             if (_visionSession != null && _visionSession.Map != null) _actors.SetCamps(_visionSession.Map.Camps, _visionSession.Collections.Camps);   // camp packs (P-UNITY-HUD-VISUAL-FIX-4)
             uint mine = me != null ? me.Id : 0; _localId = mine;
@@ -275,11 +281,6 @@ namespace Roguehalla.Client
             }
             _actors.End(); PerfMarks.End(PerfMarks.Sec.Actors, pmActors);
             if (_flushPendingInPresent) FlushPendingFx();      // cues that waited for their subject (RetainObservedActors with presentFollows)
-            if (_shotsForPresentedActors != null)
-            {
-                ObserveShots(_shotsForPresentedActors);
-                _shotsForPresentedActors = null;
-            }
             var pm = PerfMarks.Begin();
             if (_surfaceFx != null) _surfaceFx.Tick(Time.unscaledDeltaTime); // SURFACE-FX HOOK 3/3
             PerfMarks.End(PerfMarks.Sec.SurfaceFx, pm); pm = PerfMarks.Begin();
@@ -467,8 +468,8 @@ namespace Roguehalla.Client
 
         CollectionsView _shotsForPresentedActors;
 
-        void ObserveShots(CollectionsView collections) =>
-            _sparks.Observe(collections.Tick, collections.Projectiles, _camCenter, _camHalf.x, _camHalf.y, ref _sparkRng, _observedProjectile);
+        void ObserveShots(CollectionsView collections, System.Action<uint, ProjectileKind, float, float, float> onLaunch) =>
+            _sparks.Observe(collections.Tick, collections.Projectiles, _camCenter, _camHalf.x, _camHalf.y, ref _sparkRng, onLaunch);
 
         public void PresentCollections(CollectionsView collections)
         {
@@ -563,9 +564,9 @@ namespace Roguehalla.Client
                     ProjectileFx(p, shot.Facing, arrow, trailTick);      // render pass: trail puffs and a small travelling light
                 }
                 // The frame has already retired old NPC handles and will draw their replacements in Present.
-                // Resolve a release on that same frame, after the delivered owner's art exists.
+                // Each visible owner consumes its launch after its delivered equipment is known and before its pose is drawn.
                 if (_flushPendingInPresent) _shotsForPresentedActors = collections;
-                else ObserveShots(collections);
+                else ObserveShots(collections, _observedProjectile);
             }
             for (int i = _used; i < _props.Count; i++)
             {

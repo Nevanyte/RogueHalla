@@ -70,6 +70,7 @@ namespace Roguehalla.Client
         NameMergeItem[] _mergeItems = new NameMergeItem[32]; bool[] _mergeShown = new bool[32]; uint[] _mergeIds = new uint[32]; int[] _mergeScratch = new int[32];
         public void End()
         {
+            _frameLaunches.Clear();
             MergeMobNames();
             _remove.Clear(); foreach (var pair in _active) if (pair.Value.Stamp != _stamp) _remove.Add(pair.Key);
             foreach (uint id in _remove)
@@ -362,6 +363,14 @@ namespace Roguehalla.Client
                 a.BlockUntil = 0f;
             }
             a.Dead=dead;a.VisibleForCombatCue=!dead && hiddenAlpha > 0f;a.WeaponId=weapon; a.Faction=faction; a.Kind=kind; a.MobType=mob;
+            // The server's archetype key (catalog key) picks the look; a key the catalog lacks falls back to the faction/type mapping.
+            string key = ShowcaseActorLook.AppearanceKey(kind, faction, mob, archetypeKey);
+            a.Appearance = !neutral && _catalog != null ? _catalog.Find(key) : null;
+            if (a.Appearance == null && !neutral && _catalog != null && ShowcaseActorLook.IsArchetypeLook(archetypeKey))
+                a.Appearance = _catalog.Find(ShowcaseActorLook.AppearanceKey(kind, faction, mob));
+            if (a.Appearance == null && _catalog != null && kind == ActorKind.Player) a.Appearance = _catalog.Find("hero");
+            if (a.Appearance == null && _catalog != null && !neutral) a.Appearance = _catalog.Find("knight");
+            ApplyFrameLaunches(id);
             bool trackedWeapon = !dead && hiddenAlpha > 0f && HasWeaponTrack(a);
             bool hauntedFists = HasHauntedFists(a);
             bool saint = kind == ActorKind.RegionalMob && mob == MobTypeId.BloodSaint;
@@ -403,13 +412,6 @@ namespace Roguehalla.Client
                 }
             }
             bool isMob = kind != ActorKind.Player;
-            // The server's archetype key (catalog key) picks the look; a key the catalog lacks falls back to the faction/type mapping.
-            string key = ShowcaseActorLook.AppearanceKey(kind, faction, mob, archetypeKey);
-            a.Appearance = !neutral && _catalog != null ? _catalog.Find(key) : null;
-            if (a.Appearance == null && !neutral && _catalog != null && ShowcaseActorLook.IsArchetypeLook(archetypeKey))
-                a.Appearance = _catalog.Find(ShowcaseActorLook.AppearanceKey(kind, faction, mob));
-            if (a.Appearance == null && _catalog != null && kind == ActorKind.Player) a.Appearance = _catalog.Find("hero");
-            if (a.Appearance == null && _catalog != null && !neutral) a.Appearance = _catalog.Find("knight");
             bool reduced = ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
             var appearance = a.Appearance;
             var fireAxeArt = kind == ActorKind.Player && faction == FactionId.Fire &&

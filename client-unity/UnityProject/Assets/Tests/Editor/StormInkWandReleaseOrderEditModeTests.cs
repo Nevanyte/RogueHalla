@@ -39,7 +39,6 @@ namespace Roguehalla.Client.Tests
                 typeof(CollectionsView).GetMethod("Apply", Private).Invoke(shots, new object[] { state });
                 arena.PresentCollections(shots);
                 arena.Present(rows, null, null, 0f);
-                arena.Present(rows, null, null, 0f);
                 bool striking = root.GetComponentsInChildren<SpriteRenderer>().Any(s => s.gameObject.name == "Authored character"
                     && s.enabled && s.sprite && s.sprite.name.StartsWith("BloodSaint/") && s.sprite.name.EndsWith("/3"));
                 Assert.AreEqual(visibleOwner, striking);
