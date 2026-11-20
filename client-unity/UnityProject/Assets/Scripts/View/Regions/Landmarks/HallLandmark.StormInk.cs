@@ -31,35 +31,21 @@ namespace Roguehalla.Client
             }
         }
 
-        // The painting already includes its stepped footing. Seat its front edge on the
-        // blocked group and leave a low, chamfered socket visible around the back.
+        // The painting includes the stepped base that meets the floor.
         static void BuildStormInkPier(Landmark lm, Group group, Sprite pier)
         {
             float baseY = -(group.MaxY + 1) * Sq;
             float width = group.MaxX - group.MinX + 1;
-            float depth = (group.MaxY - group.MinY + 1) * Sq;
             float centreX = group.Centre.x;
-            const float skin = .07f;
-            var socket = new Canvas(centreX - width * .5f, baseY, width, depth + skin, 20);
-            socket.Paint((x, y) =>
-            {
-                float across = Mathf.Abs(x - centreX);
-                float along = y - baseY;
-                float rimX = width * .5f - across;
-                float rimY = Mathf.Min(along, depth + skin - along);
-                float rim = Mathf.Min(Mathf.Min(rimX, rimY), (rimX + rimY - .20f) * .71f);
-                if (rim < 0f) return default;
-                float brush = Noise(x * .95f, y * 2f, 17);
-                var pigment = Color.Lerp(new Color(.56f, .51f, .42f), new Color(.70f, .64f, .52f), brush);
-                return Shade(pigment, .77f + .23f * Mathf.Clamp01(rim / .12f));
-            });
-            int order = 2000 + 16 * group.MaxY + 1;
-            var foot = socket.ToSprite(lm, "Hall footing", "Hall column", order);
+            var column = new GameObject("Hall column");
+            column.transform.SetParent(lm.Root.transform, false);
+            column.transform.localPosition = new Vector3(centreX, baseY, 0f);
+            int order = 2000 + 16 * group.MaxY + 2;
             var painted = StormInkLandmarkSprite.Place(lm, pier, "Holy sun pier",
-                new Vector2(centreX, baseY + .18f), new Vector2(width, 4.38f), new Vector2(.5f, .06f), order + 1);
+                new Vector2(centreX, baseY + .18f), new Vector2(width, 4.38f), new Vector2(.5f, .06f), order);
             // Cool the bays. The altar and the furnishings on the nave retain their warmer pigment.
             painted.color = new Color(.79f, .81f, .80f);
-            painted.transform.SetParent(foot.transform, true);
+            painted.transform.SetParent(column.transform, true);
         }
 
         static void BuildStormInkShrine(Landmark lm, TempleLayout temple, Sprite altar)
