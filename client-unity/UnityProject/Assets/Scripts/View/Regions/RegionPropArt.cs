@@ -646,7 +646,7 @@ namespace Roguehalla.Client
                     for (int d = 0; d < 3; d++) c.Fill(Circle(x0 - r * .2f + d * r * .22f, gy + h * (.74f + (d % 2) * .06f), 1.7f), Flat(Alpha(Color.white, .85f)));
                     c.Glow(x0, gy + h * .72f, r * .55f, spore, .20f);
                 }
-            });
+            }, false, "StormInk/Props/PlagueMushroom");
         }
 
         // ---- holy (desert, oasis, garden) -------------------------------------------------------------------------------------------
