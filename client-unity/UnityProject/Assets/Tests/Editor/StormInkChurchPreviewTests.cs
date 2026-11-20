@@ -22,6 +22,9 @@ namespace Roguehalla.Client.Tests
                 EditorApplication.ExecuteMenuItem("Tools/RogueHalla/Storm Ink/Church Art Studio");
                 var stage = (StormInkChurchStage)StageUtility.GetCurrentStage();
                 var room = stage.scene.GetRootGameObjects().Single(o => o.name == "Storm Ink church");
+                var bailiff = room.GetComponentsInChildren<SpriteRenderer>()
+                    .Single(r => r.sprite != null && r.sprite.name.StartsWith("Bailiff/"));
+                Assert.That(bailiff.color.a, Is.GreaterThan(.99f), "the remote fighter is visible immediately in the static study");
                 var original = room.GetComponentsInChildren<ChurchArtPlacement>(true)
                     .Single(part => part.SlotId == "pew.row0.left");
                 Selection.activeGameObject = original.gameObject;

@@ -145,6 +145,8 @@ namespace Roguehalla.Editor
             opponents.Clear();
             opponents.Add(bailiff);
             RefreshCast();
+            // A newly opened stage is a settled snapshot. Its remote fighter must be visible on the first editor frame.
+            arena.ResetTransientPresentation();
 
             var cameraObject = new GameObject("Gameplay lighting reference");
             cameraObject.transform.SetParent(root.transform, false);
