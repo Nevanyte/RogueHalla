@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Identifies the painted actor or shared equipment that a designer selects in the gameplay scene.</summary>
     public enum StormInkArtistSourceKind { None, FireAxeBody, EquippedAxe, DroppedAxe, FireSwordBody, EquippedSword, DroppedSword }
 
     /// <summary>Identifies the editable asset and painted registration that produced an observed sprite.</summary>

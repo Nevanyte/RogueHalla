@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Selects the Fire champion’s sword and axe body drawings and the matching weapon presentation.</summary>
     public sealed partial class SpriteActorPresenter
     {
         static void SelectFireWeaponBody(Art actor, ActorKind kind, FactionId? faction, WeaponId? weapon,
