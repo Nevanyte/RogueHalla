@@ -463,7 +463,7 @@ namespace Roguehalla.Net
                                 Taken = o.Taken, TakenBy = o.TakenBy
                             };
                         }
-                        rows[i] = new RewardChestView { Handle = c.Handle, X = Quant.DequantizePos(c.X), Y = Quant.DequantizePos(c.Y), ExpiresAt = c.ExpiresAt, Picked = c.Picked, CanChoose = c.CanChoose, Options = options };
+                        rows[i] = new RewardChestView { Handle = c.Handle, X = Quant.DequantizePos(c.X), Y = Quant.DequantizePos(c.Y), ExpiresAt = c.ExpiresAt, Picked = c.Picked, CanChoose = c.CanChoose, Options = options, FirstPick = c.FirstPick };
                     }
                     RewardChests = rows;
                 }

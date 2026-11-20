@@ -316,7 +316,10 @@ namespace Roguehalla.Net.Protocol
                                 option.TakenBy = ReadActor(ref r);
                                 chest.Options[k] = option;
                             }
-                            chest.Picked = r.Flag(); chest.CanChoose = r.Flag(); chests.Rows[j] = chest;
+                            chest.Picked = r.Flag(); chest.CanChoose = r.Flag();
+                            // P-WIRE19-A: the first-pick window (tag 0|1, then until f64 and mine u8); Check() bounds it.
+                            if (r.Flag()) chest.FirstPick = new WireFirstPick { Until = r.F64(), Mine = r.Flag() };
+                            chests.Rows[j] = chest;
                         }
                         item = chests; break;
                     case 7:
