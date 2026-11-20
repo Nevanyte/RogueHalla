@@ -808,14 +808,14 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
                 p.id.0, p.credit.kills, p.credit.bot_kills
             ));
         }
-        // Samples are appended one tick apart at least (the ring holds its window only then; it is sized for the shortest
-        // step, ADR 0029, the gap required at either step). The gap test also covers time order. The one source shape with
-        // equal times is a displacement during the actions phase (a Blaze charge, a travel-cannon blast) that resets the history and
-        // is followed by the movement phase appending the same tick's final sample: the source keeps both and readers
-        // clamp, so only the first pair may share its timestamp.
+        // Samples are appended one tick (the match's step, ADR 0029) apart at least (a trim keeps the ring within its
+        // window only then); closer ones fill the ring within a few steps. The gap test also covers time order. The one
+        // source shape with equal times is a displacement during the actions phase (a Blaze charge, a travel-cannon
+        // blast) that resets the history and is followed by the movement phase appending the same tick's final sample:
+        // the source keeps both and readers clamp, so only the first pair may share its timestamp.
         let h = p.body.history.as_slice();
         if h.windows(2).enumerate().any(|(i, s)| {
-            !(s[1].t >= s[0].t + crate::state::shortest_tick_ms())
+            !(s[1].t >= s[0].t + k.tick_ms())
                 && !(i == 0
                     && (h[0].t == h[1].t || crate::abilities::checkpoint::blaze_history(k, p)))
         }) {
@@ -1616,8 +1616,8 @@ mod tests {
 
     #[test]
     fn a_too_dense_rewind_history_is_refused() {
-        // Samples all at the clock, or closer than the shortest step (25 ms, ADR 0029), would fill the ring in a few steps.
-        for gaps in [0.0, 1.0, 24.0, 24.999] {
+        // Samples all at the clock, or a millisecond apart, would fill the ring within a few steps.
+        for gaps in [0.0, 1.0, 49.0] {
             let mut json = stepped(5);
             let now = json["world"]["server_time"].as_f64().unwrap();
             let h: Vec<_> = (0..9)

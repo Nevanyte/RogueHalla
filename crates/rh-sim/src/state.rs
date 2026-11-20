@@ -45,7 +45,7 @@ pub struct Sample {
 
 /// The shortest step a sim may run at (`SimConfig::tick_ms`, ADR 0029: half the legacy step): the closest two rewind
 /// samples can be, so what sizes the ring.
-pub(crate) const fn shortest_tick_ms() -> f64 {
+const fn shortest_tick_ms() -> f64 {
     LEGACY_TICK_MS / 2.0
 }
 
