@@ -60,6 +60,7 @@ namespace Roguehalla.Client
             var temple = TempleLayout.For(map);
             bool paintedPiers = temple.IsSignature && Resources.Load<Sprite>("StormInk/Holy/SunPier") != null;
             var stormCypressWalls = StormCypressGeometry.For(map).ReplacementWalls();
+            var stormFrostWalls = StormFrostGeometry.For(map).ReplacementWalls();
 
             bool Solid(int x, int y)
             {
@@ -93,6 +94,7 @@ namespace Roguehalla.Client
                     int kind = terrain != null ? terrain[y * w + x] : 0;
                     if (kind == (int)TerrainKind.Lava || kind == (int)TerrainKind.Crevasse) continue;   // the ground shader draws the hazard
                     if (stormCypressWalls != null && stormCypressWalls[y * w + x]) { TileCount++; continue; }
+                    if (stormFrostWalls != null && stormFrostWalls[y * w + x]) { TileCount++; continue; }
                     if (paintedPiers && temple.TryBlock(x, y, out _, out _)) { TileCount++; continue; }
                     var style = kind == (int)TerrainKind.Fence ? WallStyle.Timber : RegionThemes.Get(RegionOf(x, y)).Wall;
                     int bcol = 0, brow = 0;

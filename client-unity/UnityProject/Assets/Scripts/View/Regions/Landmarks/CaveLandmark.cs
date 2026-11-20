@@ -11,7 +11,7 @@ namespace Roguehalla.Client
     ///  - mouth: a dark pool on the entrance tiles, an arch (front south) or jamb boulders (other fronts), and a cold glow in front.
     /// Colours are sRGB, as the region atlas.
     /// </summary>
-    public static class CaveLandmark
+    public static partial class CaveLandmark
     {
         const int Ppt = 12;                                   // texture pixels per tile for the rock layers
         static readonly Color RockDark = new Color(.20f, .23f, .32f), RockMid = new Color(.36f, .42f, .53f), RockLight = new Color(.64f, .73f, .83f),
@@ -19,9 +19,10 @@ namespace Roguehalla.Client
 
         public static void Build(Landmark lm)
         {
-            var walls = new RockField(lm, false); var hill = new RockField(lm, true);
-            BuildRockMass(lm, walls);
-            BuildRoof(lm, hill);
+            var painting = ReadIcePainting(lm);
+            BuildRockMass(lm, new RockField(lm, false), painting);
+            if (painting != null) BuildIceRoof(lm, painting);
+            else BuildRoof(lm, new RockField(lm, true));
             if (lm.ArchTiles.Length > 0) BuildMouth(lm);
         }
 
@@ -107,7 +108,7 @@ namespace Roguehalla.Client
 
         // ---- rock mass: one strip per wall row, sorted like the walls ------------------------------------------------------------
 
-        static void BuildRockMass(Landmark lm, RockField field)
+        static void BuildRockMass(Landmark lm, RockField field, IcePainting painting)
         {
             const float Sq = ArenaView.GroundSquash, Face = .67f, Over = .05f;
             int fw = lm.FootW, W = fw * Ppt + Ppt, H = Mathf.CeilToInt((Face + Sq + 2 * Over) * Ppt);
@@ -127,7 +128,11 @@ namespace Roguehalla.Client
                         if (v >= y - .15f && v <= y + 1.15f)
                         {
                             float c = field.Cover(wx, v);
-                            if (c > .35f) o = AntiAlias(field.Paint(wx, v, c, 11), c);
+                            if (c > .35f)
+                            {
+                                o = AntiAlias(painting == null ? field.Paint(wx, v, c, 11) : painting.WallPigment(wx, v, false), c);
+                                if (painting != null) o.a = (byte)Mathf.RoundToInt(o.a * painting.RoofAlpha(lm, wx, v));
+                            }
                         }
                     }
                     else if (wy >= py)                                             // the south face, only where nothing solid stands south
@@ -137,13 +142,22 @@ namespace Roguehalla.Client
                         {
                             float k = (wy - py) / Face, n = RegionNoise.Periodic(wx * 3f, k * 3f, 61, 23);
                             Color c = Color.Lerp(Outline, RockDark, Mathf.Clamp01(.35f + k * .9f + (n - .5f) * .3f));
-                            if (wx - tx < .06f || tx + 1 - wx < .06f) c = Color.Lerp(c, Outline, .5f);
+                            if (painting != null)
+                            {
+                                c = painting.WallPigment(wx, y + 1f - k * .45f, true) * (.74f + .26f * k);
+                                c.a = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((k - .08f) / .72f)) * .68f;
+                            }
+                            else
+                            {
+                                if (wx - tx < .06f || tx + 1 - wx < .06f) c = Color.Lerp(c, Outline, .5f);
+                                c.a = 1f;
+                            }
                             o = c;
                         }
                     }
                     px[j * W + i] = o;
                 }
-                var tex = NewTexture(lm, W, H, "Cave rock row " + y); tex.SetPixels32(px); tex.Apply(false, true);
+                var tex = NewTexture(lm, W, H, "Cave rock row " + y); tex.SetPixels32(px); tex.Apply(false, painting == null || !Application.isEditor);
                 NewSprite(lm, tex, "Cave rock row " + y, Vector2.zero, Ppt, new Vector3(lm.FootX - .5f, py - Over, 0), Vector3.one, 2000 + 16 * (lm.FootY + y) + 1);
             }
         }
