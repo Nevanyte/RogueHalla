@@ -157,6 +157,17 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
   - The Wish slot shows the true charge count when Arcane Overload is granted mid-recharge (display only; legacy's
     `abilitySlot.ts` shows a charge early).
 
+- **Integration 73** (`coord/int-73` @ `be990828c`):
+  - **What it holds:**
+    - P-AUG-BOTS-1: bots score native chest cards and read the elite rule, and `MatchStart` carries the rule (policy
+      contract 29, after nine coordinator oracle-amends moved the pins). Spawn-time camp scoring still uses the Legacy
+      elite numbers, which is cautious and was accepted.
+    - P-AUG-UI-2: native card text, native chest options, the owner's readout strip and the first-pick countdown.
+      The strip has not yet been looked at in a render.
+  - **Review and gate:** reviewer LAND on both. Full gate green except the waived pin.
+- **Identities after integration 73:** protocol 20, observation 33, policy contract 29, checkpoint `rh-checkpoint/36`,
+  replay 25, content hash `84fb785f2972e59a`.
+
 **Coordinator decisions (2026-11-20):**
 - **Oracle-amends.** Three existing tests were left stale by the two new oracles, and the coordinator amended each in an
   `oracle-amend:` commit on the packet branch, one file per commit:
