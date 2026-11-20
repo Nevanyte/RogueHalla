@@ -72,7 +72,9 @@ struct SpendPair {
 }
 
 /// The pair the equations read when a player has no spend (the clocks are then the opening lock).
-const NO_SPEND: SpendPair = SpendPair { lever: 1, n: 0 };
+fn no_spend() -> SpendPair {
+    SpendPair { lever: 1, n: 0 }
+}
 
 impl WishEnvelope {
     fn of(k: &crate::statics::MatchStatic, p: &crate::state::Player) -> Self {
@@ -259,11 +261,11 @@ pub(crate) fn validate(
                 let def = definition_for(&k.config, wish(p.faction()));
                 // The spend's own cooldown (checked above to be one a cast can have had); the multiplier now may be
                 // a later grant's. Without a spend the clocks are the opening lock and no equation reads it.
-                let pair = spend_pair.unwrap_or(NO_SPEND);
-                let recharge = p
-                    .card_runtime
-                    .and_then(|c| c.wish_cast)
-                    .map_or_else(|| envelope.cd(k, NO_SPEND.lever, 0), |spend| spend.cooldown_ms);
+                let pair = spend_pair.unwrap_or_else(no_spend);
+                let recharge = p.card_runtime.and_then(|c| c.wish_cast).map_or_else(
+                    || envelope.cd(k, no_spend().lever, 0),
+                    |spend| spend.cooldown_ms,
+                );
                 let earlier = envelope.earlier(k, pair);
                 let every = envelope.every(k, pair);
                 // The shortest cooldown the cast before this spend can have had, and the longest (a holder's earlier
@@ -279,7 +281,13 @@ pub(crate) fn validate(
                 let trimmed = has_spend && !p.card_trims.is_empty() && wishful;
                 if trimmed {
                     let window_budget = numbers.wishful_budget(prior_max);
-                    if !trim_trace_coherent(p, numbers, window_budget, w.server_time, w.raid_started_at) {
+                    if !trim_trace_coherent(
+                        p,
+                        numbers,
+                        window_budget,
+                        w.server_time,
+                        w.raid_started_at,
+                    ) {
                         return Err("incoherent card Wish trim trace".into());
                     }
                     if stocks.wish_ready_at > full_at
@@ -413,13 +421,18 @@ pub(crate) fn validate(
         let envelope = WishEnvelope::of(k, player);
         let spend = player.card_runtime.and_then(|c| c.wish_cast).and_then(|s| {
             if s.at == c.started_at {
-                envelope.pair_of(k, s.cooldown_ms, false).map(|pair| (s, pair))
+                envelope
+                    .pair_of(k, s.cooldown_ms, false)
+                    .map(|pair| (s, pair))
             } else {
                 None
             }
         });
-        let recharge = spend.map_or_else(|| envelope.cd(k, NO_SPEND.lever, 0), |(s, _)| s.cooldown_ms);
-        let earlier = envelope.earlier(k, spend.map_or(NO_SPEND, |(_, pair)| pair));
+        let recharge = spend.map_or_else(
+            || envelope.cd(k, no_spend().lever, 0),
+            |(s, _)| s.cooldown_ms,
+        );
+        let earlier = envelope.earlier(k, spend.map_or_else(no_spend, |(_, pair)| pair));
         // Wishful Thinking may have cut the clock this cast replaced, and may cut this cast's clocks while it is in
         // flight (a hit landing before it does).
         let numbers = k.cards.numbers();
