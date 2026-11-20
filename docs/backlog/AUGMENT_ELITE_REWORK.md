@@ -169,6 +169,8 @@ the death-rate table and the proposed elite numbers. P-ELITE-TUNE-1 waits for th
 | P-AUG-NATIVE-2 | Sonnet · Sonnet · reviewer | Calluses; Executioner's Ledger (+3 AD per player or elite kill, cap 30); Eighth Strike | 1b |
 | P-AUG-NATIVE-3 | Sonnet · Sonnet · reviewer-opus | Pathfinder (+1.2% move speed per new mob type, cap 24%); Hazard Walker; Wish Engine (percent table); Overflow (8 s fade). Opus if a hook is missing | 1b |
 | P-WIRE19-A | Opus · Opus · reviewer-opus | Protocol 19 part 1 (details below) | 1a, PICK-1 |
+| P-AUG-NATIVE-3b | Opus · Opus · reviewer-opus | Wish Engine (percent table), split from NATIVE-3 (coordinator 2026-11-20): it shortens the Wish cooldown, so the Wish restore envelope is redone (start from `cooldown_for` / `wish_cooldowns`) | NATIVE-3 (zone table) |
+| P-AUG-NATIVE-3c | Opus · Opus · reviewer-opus | Hazard Walker's ice effect (slip immunity or resistance: reads in `systems/movement.rs` and `walk_hint.rs`), and Pathfinder's speed in the walk-prediction mirror (today the client predicts up to 24% slow and the server corrects) | NATIVE-3 |
 | P-AUG-NATIVE-4 | Sonnet · Sonnet · reviewer | Corpse Hoarder, Stoked, Glacier, Trophy Hunter, with their faction offer rows | 1b |
 | P-AUG-BOTS-1 | Sonnet · Sonnet · reviewer | Bot chest scoring (details below) | NATIVE-2..4 |
 | P-WIRE19-B | Opus · Opus · reviewer-opus | Own-only readout rows (card, kind, value, max) beside `observe.rs:806`, in protocol 19 | 1b, WIRE19-A |
