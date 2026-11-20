@@ -365,6 +365,29 @@ namespace Roguehalla.Client.Tests
         }
 
         [TestCaseSource(nameof(Orientations))]
+        public void CandleBasesStandOnSlateClearOfThePewSeat(int k)
+        {
+            var site = Church(k);
+            using (var scene = new Scene(site.Map, site.Anchor))
+            {
+                var lm = Built(scene, "orientation " + k);
+                var candles = Named(lm, "Church candle flame").ToArray();
+                Assert.That(candles.Length, Is.GreaterThanOrEqualTo(4));
+                foreach (var pew in Named(lm, "Church pew"))
+                {
+                    var seat = pew.GetComponent<SpriteRenderer>().bounds;
+                    foreach (var candle in candles)
+                    {
+                        var contact = candle.position;
+                        bool touchesSeat = Mathf.Abs(contact.x - seat.center.x) < seat.extents.x + .16f
+                            && Mathf.Abs(contact.y - seat.center.y) < seat.extents.y + .16f * ArenaView.GroundSquash;
+                        Assert.That(touchesSeat, Is.False, "a standing candelabrum needs clear slate around its base");
+                    }
+                }
+            }
+        }
+
+        [TestCaseSource(nameof(Orientations))]
         public void PewRowsCrossTheAisleAndThePulpitStandsUpright(int k)
         {
             var site = Church(k);
