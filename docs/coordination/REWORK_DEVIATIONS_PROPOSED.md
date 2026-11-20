@@ -149,9 +149,11 @@ Reversal for every row: remove the Rework row or override and its hash fold; Leg
   **Reversibility:** reversible. **Owner:** unsigned.
 
 ### DEV-054 (balance, bots): bots' elite estimate
-- **Legacy:** bots read the legacy elite numbers.
-- **Port:** Rework bots score a camp's elite as 4/3 of its real hp and 1.5x its real damage (the Legacy numbers over the
-  Rework ones), which errs cautious. Spawn-time camp scoring still uses the Legacy elite numbers (accepted).
+- **Legacy:** bots read the one (legacy) set of elite numbers.
+- **Port:** in a Rework world, bots' in-match elite estimates (mob share, hunt hp) read the world's elite rule, so they
+  match the sim. Only the spawn-time camp score (`plan_spawn_score_raw`, which runs before the match exists) still uses
+  the Legacy elite numbers: it overstates a Rework elite (4/3 hp, 1.5x damage), which errs cautious (accepted in the
+  P-AUG-BOTS-1 review).
 - **Introduced by:** P-AUG-BOTS-1 (integration 73). **Reversibility:** reversible. **Owner:** unsigned.
 
 ## Not deviations
