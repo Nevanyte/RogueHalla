@@ -20,7 +20,7 @@ namespace Roguehalla.Client
     ///  - gravestones: each headstone group is a raised plot (covering its wall blocks) with a standing stone, cross or slab per tile.
     /// Colours are sRGB, as the region atlas; the palette follows the Sentenced zone (cool violet-grey masonry, muted ground).
     /// </summary>
-    public static class ChurchLandmark
+    public static partial class ChurchLandmark
     {
         const float Sq = ArenaView.GroundSquash, Wall = RegionWalls.WallHeight;
         static readonly Color SlateLit = new Color(.37f, .38f, .48f), SlateDark = new Color(.20f, .20f, .28f), Ridge = new Color(.58f, .58f, .68f),
@@ -76,8 +76,9 @@ namespace Roguehalla.Client
             for (int i = 0; i < doors.Count; i++) BuildDoor(lm, doors[i], directions[i]);
             BuildInteriorFurnishings(lm, building);
             BuildWindows(lm, building);
+            DeliveredNave(lm.SourceMap).PaintPiers(lm);
             if (lm.ArchTiles.Length > 0) BuildGate(lm);
-            foreach (var g in groups)                                                   // a plot lies outside the building's box; the pillar blocks inside it stay as RegionWalls draws them
+            foreach (var g in groups)                                                   // a plot lies outside the building's box
                 if (g != building && !(g.MinX >= building.MinX && g.MaxX <= building.MaxX && g.MinY >= building.MinY && g.MaxY <= building.MaxY)) BuildGravestones(lm, g);
         }
 
@@ -85,17 +86,37 @@ namespace Roguehalla.Client
         {
             readonly Roguehalla.Net.Protocol.MapRect _footprint;
             readonly Group _building;
-            readonly bool[] _interior;
+            readonly bool[] _interior, _pierTiles;
+            readonly Group[] _piers;
+            readonly MapAnchor _anchor;
 
             internal NaveFloor() { }
 
             internal NaveFloor(MapBlob map, MapAnchor anchor)
             {
+                _anchor = anchor;
                 _footprint = anchor.Footprint;
                 _building = MainBuilding(FindGroups(_footprint.X, _footprint.Y, _footprint.W, _footprint.H,
                     (x, y) => map.Tiles[y * map.W + x] == MapBlob.Wall));
-                if (_building != null)
-                    _interior = LandmarkInterior.Find(map.Tiles, map.W, map.H, _footprint, anchor.Entrance);
+                if (_building == null) return;
+                _interior = LandmarkInterior.Find(map.Tiles, map.W, map.H, _footprint, anchor.Entrance);
+                _piers = FindNavePiers(map, _building);
+                if (_piers.Length == 0) return;
+                _pierTiles = new bool[_footprint.W * _footprint.H];
+                foreach (var pier in _piers)
+                foreach (var tile in pier.Tiles)
+                    _pierTiles[(tile.y - _footprint.Y) * _footprint.W + tile.x - _footprint.X] = true;
+            }
+
+            internal bool ReplacesPier(int x, int y) =>
+                _pierTiles != null && x >= _footprint.X && x < _footprint.X + _footprint.W &&
+                y >= _footprint.Y && y < _footprint.Y + _footprint.H &&
+                _pierTiles[(y - _footprint.Y) * _footprint.W + x - _footprint.X];
+
+            internal void PaintPiers(Landmark landmark)
+            {
+                if (_piers == null || !_anchor.Equals(landmark.Anchor)) return;
+                foreach (var pier in _piers) BuildNavePier(landmark, pier);
             }
 
             internal bool Contains(int x, int y) =>

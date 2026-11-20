@@ -58,6 +58,7 @@ namespace Roguehalla.Client
             int w = map.W, h = map.H; var tiles = map.Tiles; var terrain = map.Terrain; var regions = map.Regions;
             var contact = RegionWallAtlas.Contact;
             var temple = TempleLayout.For(map);
+            var church = ChurchLandmark.DeliveredNave(map);
             bool paintedPiers = temple.IsSignature && Resources.Load<Sprite>("StormInk/Holy/SunPier") != null;
             var stormCypressWalls = StormCypressGeometry.For(map).ReplacementWalls();
             var stormFrostWalls = StormFrostGeometry.For(map).ReplacementWalls();
@@ -95,6 +96,7 @@ namespace Roguehalla.Client
                     if (kind == (int)TerrainKind.Lava || kind == (int)TerrainKind.Crevasse) continue;   // the ground shader draws the hazard
                     if (stormCypressWalls != null && stormCypressWalls[y * w + x]) { TileCount++; continue; }
                     if (stormFrostWalls != null && stormFrostWalls[y * w + x]) { TileCount++; continue; }
+                    if (church.ReplacesPier(x, y)) { TileCount++; continue; }
                     if (paintedPiers && temple.TryBlock(x, y, out _, out _)) { TileCount++; continue; }
                     var style = kind == (int)TerrainKind.Fence ? WallStyle.Timber : RegionThemes.Get(RegionOf(x, y)).Wall;
                     int bcol = 0, brow = 0;
