@@ -6,6 +6,7 @@
 //!   row removed;
 //! - the chest inputs: a pool card added or removed, a faction-only pair added, the Eye for an Eye weighting flag;
 //! - which rule holds which table.
+//!
 //! The seam over the real tables is `content_hash` itself. The digest moves with the fix; what is pinned for Legacy is
 //! the fold's inputs (the legacy numbers, no override, the 14-card pool, no pair, no weighting).
 
