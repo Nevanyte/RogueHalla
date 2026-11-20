@@ -24,6 +24,8 @@ namespace Roguehalla.Client
             if (kind != ActorKind.RegionalMob || !mob.HasValue || !weapon.HasValue) return false;
             if (mob == MobTypeId.Bailiff || mob == MobTypeId.Executioner)
                 return faction == FactionId.Sentenced && weapon == WeaponId.Sword;
+            if (mob == MobTypeId.BloodSaint)
+                return faction == FactionId.Holy && weapon == WeaponId.Wand && Get(kind, faction, mob)?.Poses[0] != null;
             if (mob == MobTypeId.AshDrake) return faction == FactionId.Fire && weapon == WeaponId.Wand;
             var sheet = Get(kind, faction, mob);
             return sheet?.Poses[0] != null && MobGrips(mob.Value)?.Weapon == weapon.Value;

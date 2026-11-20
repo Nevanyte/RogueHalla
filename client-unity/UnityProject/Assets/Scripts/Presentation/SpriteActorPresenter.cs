@@ -391,6 +391,8 @@ namespace Roguehalla.Client
             a.Dead=dead;a.WeaponId=weapon; a.Faction=faction; a.Kind=kind; a.MobType=mob;
             bool trackedWeapon = !dead && hiddenAlpha > 0f && HasWeaponTrack(a);
             bool hauntedFists = HasHauntedFists(a);
+            bool saint = kind == ActorKind.RegionalMob && mob == MobTypeId.BloodSaint;
+            bool paintedWand = false;
             var phase = StormInkWeaponMotion.Phase.Guard;
             float weaponProgress = 0f, poseFacing = facing;
             if (trackedWeapon)
@@ -482,18 +484,22 @@ namespace Roguehalla.Client
                     phase == StormInkWeaponMotion.Phase.Strike ? 2 : 3 : frame;
                 var painted = StormInkActors.Frame(kind, faction, mob, appearance, frames, direction,
                     inkFrame, useWeaponPhase ? 4 : count, out bool mirror);
+                // The Saint’s non-transferable wand belongs to the painted left hand in every frame.
+                if (saint && weapon != WeaponId.Wand) painted = null;
+                paintedWand = saint && painted != null;
                 Sprite unarmed = hauntedFists && !dead && hiddenAlpha > 0f
                     ? HauntedFistsFrame(a, facing, gaitNow, reduced) : null;
                 a.Body.sprite = unarmed ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
                 bool paintedPox = IsPox(a) && painted != null;
-                float height = paintedPox ? PoxHeight : appearance.WorldHeight;
+                float height = paintedWand ? 1.24f : paintedPox ? PoxHeight : appearance.WorldHeight;
+                if (paintedWand) measuredHeight = height + .15f;
                 if (paintedPox) measuredHeight = height + .41f;
                 float fall = painted != null && dead && frames == appearance.Death
                     ? (count > 1 ? frame / (float)(count - 1) : 1f) : 0f;
                 if (fall > 0f) fallAngle = (mirror ? -78f : 78f) * fall;
                 // Mirror the transform so the child contrast outline follows the same brush contour.
                 a.Body.transform.localScale = new Vector3(mirror ? -height : height, height, height);
-                a.Body.transform.localPosition = new Vector3(Mathf.Sin(fallAngle * Mathf.Deg2Rad) * height * fall * .45f, paintedPox ? -.04f : .08f, 0);
+                a.Body.transform.localPosition = new Vector3(Mathf.Sin(fallAngle * Mathf.Deg2Rad) * height * fall * .45f, paintedWand ? -.02f : paintedPox ? -.04f : .08f, 0);
             }
             else
             {
@@ -581,7 +587,7 @@ namespace Roguehalla.Client
             bool drawingString = false;
             if (a.PoxCenser != null) a.PoxCenser.enabled = false;
             bool bespokeCleaver = trackedWeapon && PresentPoxCleaver(a, StormInkActors.PoseRowForFacing(poseFacing), order, hiddenAlpha, dead);
-            if (trackedWeapon && !bespokeCleaver)
+            if (trackedWeapon && !bespokeCleaver && !paintedWand)
             {
                 int poseRow = StormInkActors.PoseRowForFacing(poseFacing);
                 var pose = StormInkWeaponMotion.Sample(faction.Value, weapon.Value, phase, weaponProgress, poseRow, reduced);
@@ -643,7 +649,7 @@ namespace Roguehalla.Client
                     support.color = wrap;
                 }
             }
-            else if (!bespokeCleaver)
+            else if (!bespokeCleaver && !paintedWand)
             {
                 a.Weapon.sortingOrder = order + 2;
                 a.Weapon.transform.localPosition = new Vector3(Mathf.Cos(facing) * .42f, .6f - Mathf.Sin(facing) * .12f, 0);
@@ -656,7 +662,7 @@ namespace Roguehalla.Client
             }
             if (!drawingString) a.Bowstring?.Clear(a.Weapon, a.OutBody);
             a.Weapon.color = weapon == WeaponId.Fists ? new Color(.9f, .86f, .72f, hiddenAlpha) : new Color(1f, 1f, 1f, hiddenAlpha);
-            a.Weapon.enabled = !hauntedFists && !dead && weapon.HasValue && hiddenAlpha > 0f;
+            a.Weapon.enabled = !paintedWand && !hauntedFists && !dead && weapon.HasValue && hiddenAlpha > 0f;
             a.Status.enabled = false; // the generic status cue is replaced by the per-status glyphs (OverheadIndicators)
             a.Status.sortingOrder = order + 6; a.Status.color = color;
             a.Status.transform.localPosition = new Vector3(.55f, 1.5f, 0);

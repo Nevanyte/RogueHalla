@@ -49,7 +49,7 @@ namespace Roguehalla.Client
             return null;
         }
 
-        static int MobColumns(MobTypeId mob) => mob == MobTypeId.PoxBehemoth ? 5 : Columns;
+        static int MobColumns(MobTypeId mob) => mob == MobTypeId.PoxBehemoth || mob == MobTypeId.BloodSaint ? 5 : Columns;
 
         static Sheet Load(string key, int columns = Columns) => new Sheet(Resources.Load<Texture2D>("StormInk/Actors/" + key), columns);
 
@@ -73,7 +73,8 @@ namespace Roguehalla.Client
             if (clip == appearance.Walk) pose = frame * 2 / count == 0 ? Idle : Stride;
             else if (clip == appearance.Attack || clip == appearance.Cast || clip == appearance.Shoot)
                 pose = frame * 4 < count ? Windup : frame * 4 < 3 * count ? Strike : sheet.ColumnCount == 5 ? 4 : Stride;
-            else if (clip == appearance.Hit || clip == appearance.Block || clip == appearance.Death) pose = Windup;
+            else if (clip == appearance.Hit || clip == appearance.Block || clip == appearance.Death)
+                pose = mob == MobTypeId.BloodSaint ? Idle : Windup;
             return sheet.Poses[row * sheet.ColumnCount + pose];
         }
     }
