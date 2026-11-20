@@ -48,9 +48,9 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
-        public void Key14IsTheNewestStateKeyInsideProtocol19()
+        public void Key14IsTheNewestStateKeyInsideProtocol20()
         {
-            Assert.AreEqual(19, Wire.ProtocolVersion);
+            Assert.AreEqual(20, Wire.ProtocolVersion); // P-SYNC-ORIGIN-1
             Assert.AreEqual(14, (int)StateKey.Readouts);
             Assert.AreEqual(14u, new ReadoutsState().Key);
             Assert.AreEqual(28, ReadoutsState.MaxCount);
@@ -156,10 +156,10 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void TheV19FixtureCarriesTheseVectors()
         {
-            string path = Path.Combine(Util.RepoRoot(), "protocol", "fixtures", "v19.json");
-            Assert.IsTrue(File.Exists(path), "protocol/fixtures/v19.json is missing (cargo run -p rh-protocol --bin protocol-fixtures)");
+            string path = Path.Combine(Util.RepoRoot(), "protocol", "fixtures", "v20.json");
+            Assert.IsTrue(File.Exists(path), "protocol/fixtures/v20.json is missing (cargo run -p rh-protocol --bin protocol-fixtures)");
             var root = JsonDocument.Parse(File.ReadAllText(path)).RootElement;
-            Assert.AreEqual(19, root.GetProperty("protocol").GetInt32());
+            Assert.AreEqual(20, root.GetProperty("protocol").GetInt32());
             string Named(string list, string name)
             {
                 foreach (var v in root.GetProperty(list).EnumerateArray())

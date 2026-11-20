@@ -236,8 +236,8 @@ test('A resumed mode label before Welcome cannot be reused as accepted gameplay 
   assert.equal(evaluate(b).status,'FAIL');
 });
 
-test('Real protocol 19 golden Hello and Welcome frames parse with the same metadata parsers',()=>{
-  const vectors=JSON.parse(readFileSync(new URL('../../protocol/fixtures/v19.json',import.meta.url),'utf8'));
+test('Real protocol 20 golden Hello and Welcome frames parse with the same metadata parsers',()=>{
+  const vectors=JSON.parse(readFileSync(new URL('../../protocol/fixtures/v20.json',import.meta.url),'utf8'));
   const bytes=hex=>Uint8Array.from(hex.match(/../g),b=>Number.parseInt(b,16));
   const server=vectors.server.filter(v=>v.name==='welcome'||v.name.startsWith('welcome_ground_'));
   assert(server.length>=6);

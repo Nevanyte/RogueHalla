@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { connectNormalCompanion, companionContentHash, companionProtocol } from './normal-companion.mjs';
 
-const vectors = JSON.parse(readFileSync(new URL('../../protocol/fixtures/v19.json', import.meta.url), 'utf8'));
+const vectors = JSON.parse(readFileSync(new URL('../../protocol/fixtures/v20.json', import.meta.url), 'utf8'));
 const serverVector = name => vectors.server.find(row => row.name === name).hex;
 const clientVector = name => vectors.client.find(row => row.name === name).hex;
 const fromHex = hex => Uint8Array.from(hex.match(/../g), byte => Number.parseInt(byte, 16)).buffer;

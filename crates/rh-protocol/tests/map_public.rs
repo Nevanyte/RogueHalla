@@ -326,8 +326,9 @@ fn decode(bytes: &[u8]) -> Result<MapBlob, DecodeError> {
 // ---- version ---------------------------------------------------------------------------------------------------------
 
 #[test]
-fn protocol_version_is_19() {
-    assert_eq!(PROTOCOL_VERSION, 19);
+fn protocol_version_is_20() {
+    // 19 -> 20: P-SYNC-ORIGIN-1 (both protocol-19 wires merged).
+    assert_eq!(PROTOCOL_VERSION, 20);
 }
 
 // ---- layout and round trip ------------------------------------------------------------------------------------------

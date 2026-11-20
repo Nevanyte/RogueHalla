@@ -128,8 +128,8 @@ fn constants_match_the_brief() {
 /// Guard: the protocol number is 20 (P-PROTOCOL-18-STAMP-1 stamped 18; P-WIRE19-A and, on origin, P-NET-DRAWAHEAD-1a each
 /// moved it to 19; P-SYNC-ORIGIN-1 merged both as 20).
 #[test]
-fn guard_the_protocol_is_19() {
-    assert_eq!(PROTOCOL_VERSION, 19);
+fn guard_the_protocol_is_20() {
+    assert_eq!(PROTOCOL_VERSION, 20);
 }
 
 // ---- layout --------------------------------------------------------------------------------------------------------

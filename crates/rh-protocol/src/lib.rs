@@ -207,7 +207,9 @@ pub use weapon::{
 };
 
 /// Bump on any incompatible change (a new tag or field in an existing message). Both ends refuse another major version.
-pub const PROTOCOL_VERSION: u16 = 19;
+/// 20 (P-SYNC-ORIGIN-1): the walk hint (P-NET-DRAWAHEAD-1a, origin's 19) and native card ids, the first-pick window
+/// and the own readouts, State key 14 (P-WIRE19-A/B, the local 19) together. Both 19s are refused.
+pub const PROTOCOL_VERSION: u16 = 20;
 /// Milliseconds per server tick (20 Hz). A Snapshot carries `tick` only: its server time is `tick * TICK_MS` exactly.
 pub const TICK_MS: u32 = 50;
 
