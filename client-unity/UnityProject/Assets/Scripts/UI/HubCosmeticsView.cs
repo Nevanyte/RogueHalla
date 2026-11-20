@@ -452,7 +452,14 @@ namespace Roguehalla.Client
 
         static Color32 ToColor(uint value) => new Color32((byte)(value >> 16), (byte)(value >> 8), (byte)value, 255);
         static string FormatGv(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
-        static string SlotLabel(string slot) => string.IsNullOrEmpty(slot) ? "UNKNOWN SLOT" : slot.Replace('-', ' ').Replace('_', ' ').ToUpperInvariant();
+        static string SlotLabel(string slot)
+        {
+            if (string.IsNullOrEmpty(slot)) return "UNKNOWN SLOT";
+            string label = slot.Replace('-', ' ').Replace('_', ' ').ToUpperInvariant();
+            string haunted = Roguehalla.Net.Ui.FactionPresentation.Name((int)Roguehalla.Net.FactionId.Sentenced).ToUpperInvariant();
+            if (label == "SENTENCED") return haunted;
+            return label == "GOLD SENTENCED" ? "GOLD " + haunted : label;
+        }
         static string SafeName(string value) => string.IsNullOrEmpty(value) ? "Empty" : value.Replace('/', '_').Replace(' ', '_');
 
         void OnDestroy()

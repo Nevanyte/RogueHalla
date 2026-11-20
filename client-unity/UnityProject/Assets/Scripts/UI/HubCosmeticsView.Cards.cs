@@ -43,7 +43,7 @@ namespace Roguehalla.Client
             if (submitting) state = "Waiting for confirmation…";
             if (_tab == HubCosmeticsTab.Wardrobe || _tab == HubCosmeticsTab.Titles)
             {
-                if (equipped) state = "Equipped · " + item.Slot + (op != null && op.Operation.State != AccountMutationState.Confirmed ? "  ·  " + MutationText(op.Operation) : "");
+                if (equipped) state = "Equipped · " + SlotLabel(item.Slot) + (op != null && op.Operation.State != AccountMutationState.Confirmed ? "  ·  " + MutationText(op.Operation) : "");
                 else if (owned && op == null) state = "Owned · ready to equip";
                 else if (!owned && op == null) state = "Not owned · wardrobe is read only for this item.";
             }
