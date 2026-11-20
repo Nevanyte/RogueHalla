@@ -20,7 +20,9 @@ use serde::ser::{SerializeStruct, Serializer};
 use std::fmt;
 
 /// The tag every checkpoint carries. Bump it when the layout of `statics` or `world` changes incompatibly.
-pub const CHECKPOINT_FORMAT: &str = "rh-checkpoint/35";
+/// 36 (P-SYNC-ORIGIN-1): the local 35 plus origin's `statics.config.tick_ms` (P-TICK-1a) and `ContainerKind::Heal`
+/// (P-COLISEUM-HEALS-1), which origin added under its own `rh-checkpoint/32`; every earlier tag of either line is refused.
+pub const CHECKPOINT_FORMAT: &str = "rh-checkpoint/36";
 
 /// How far past the map edge a fighter, waypoint or spawn may be and still restore (real states stay inside the map).
 const COORD_MARGIN: f64 = 1024.0;
