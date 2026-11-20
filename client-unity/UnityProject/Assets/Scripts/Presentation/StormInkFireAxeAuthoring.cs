@@ -127,14 +127,22 @@ namespace Roguehalla.Client
 #if UNITY_EDITOR
         void OnValidate()
         {
+            InvalidateFrames();
+            StormInkFireSwordAuthoring.SharedFireRigChanged();
+        }
+#endif
+
+        void InvalidateFrames()
+        {
             if (_frames == null) return;
             var old = _frames;
             _frames = null;
+#if UNITY_EDITOR
             UnityEditor.EditorApplication.delayCall += () =>
             {
                 foreach (var frame in old) if (frame != null) DestroyImmediate(frame);
             };
-        }
 #endif
+        }
     }
 }

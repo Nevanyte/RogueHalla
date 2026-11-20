@@ -15,8 +15,7 @@ namespace Roguehalla.Editor
             var view = (StormInkArtistSource)target;
             var root = new VisualElement();
             var body = view.FireBody;
-            var axe = view.SharedAxe;
-            var owner = body != null ? (Object)body : axe;
+            var owner = view.BodyPainting != null ? view.BodyPainting : view.WeaponSource;
             if (owner == null || view.Sprite == null) return root;
             var source = new SerializedObject(owner);
             void AddField(SerializedProperty prop, string label)
@@ -27,15 +26,16 @@ namespace Roguehalla.Editor
             }
             if (body != null)
             {
-                AddField(source.FindProperty("worldHeight"), "Fighter height (world units)");
-                AddField(source.FindProperty("footPivot"), "Foot anchor (UV)");
+                var sizing = view.SwordBody != null ? new SerializedObject(body) : source;
+                AddField(sizing.FindProperty("worldHeight"), "Fighter height (world units)");
+                AddField(sizing.FindProperty("footPivot"), "Foot anchor (UV)");
             }
             else
             {
                 var grips = source.FindProperty("grips");
                 if (view.PoseRow >= 0 && view.PoseRow < grips.arraySize)
                     AddField(grips.GetArrayElementAtIndex(view.PoseRow), "Shared grip (UV)");
-                if (view.Kind == StormInkArtistSourceKind.DroppedAxe)
+                if (view.IsDropped)
                     AddField(source.FindProperty("groundCentre"), "Pickup art offset (world units)");
             }
             root.Add(new Button(() => Selection.activeObject = owner) { text = "Select source asset" });
@@ -107,24 +107,24 @@ namespace Roguehalla.Editor
                             int index = source.PoseRow * columns + col;
                             var pixel = new Vector2Int(Mathf.RoundToInt(uv.x * size.x - .5f),
                                 Mathf.RoundToInt((1f - uv.y) * size.y - .5f));
-                            Edit(source.FireBody, $"palms.Array.data[{index}].{(left ? "Left" : "Right")}",
+                            Edit(source.BodyPainting, $"palms.Array.data[{index}].{(left ? "Left" : "Right")}",
                                 prop => prop.vector2IntValue = pixel);
                         }
                     }
                 }
             }
-            else if (source.SharedAxe != null)
+            else if (source.WeaponSource != null)
             {
                 Vector3 grip = World(source.HeldGripUv);
                 using (new Handles.DrawingScope(Color.yellow))
                 {
-                    Handles.Label(grip + Vector3.up * .09f, "Shared axe grip");
+                    Handles.Label(grip + Vector3.up * .09f, source.Weapon == Roguehalla.Net.WeaponId.Sword ? "Shared sword grip" : "Shared axe grip");
                     EditorGUI.BeginChangeCheck();
                     var moved = Handles.Slider2D(grip, Vector3.forward, Vector3.right, Vector3.up,
                         HandleUtility.GetHandleSize(grip) * .05f, Handles.CircleHandleCap, Vector2.zero);
                     if (EditorGUI.EndChangeCheck())
                     {
-                        Edit(source.SharedAxe, $"grips.Array.data[{source.PoseRow}]", prop => prop.vector2Value = Uv(moved));
+                        Edit(source.WeaponSource, $"grips.Array.data[{source.PoseRow}]", prop => prop.vector2Value = Uv(moved));
                     }
                 }
             }

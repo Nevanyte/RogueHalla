@@ -10,6 +10,17 @@ namespace Roguehalla.Client
         static bool HasWeaponTrack(Art a) => StormInkWeaponMotion.Supports(a.Kind, a.Faction, a.WeaponId) ||
             StormInkActors.HasMobWeaponTrack(a.Kind, a.Faction, a.MobType, a.WeaponId);
 
+        static void BindArtistSources(Art art, WeaponId? weapon, float facing, StormInkFireAxeAuthoring fire,
+            StormInkFireSwordAuthoring sword)
+        {
+            art.BodyArtistSource = StormInkArtistSource.BindBody(art.BodyArtistSource, art.Body, fire, sword);
+            if (art.Weapon.enabled && (weapon == WeaponId.Axe || weapon == WeaponId.Sword))
+                art.WeaponArtistSource = StormInkArtistSource.BindWeapon(art.WeaponArtistSource, art.Weapon, weapon,
+                    StormInkActors.PoseRowForFacing(facing), false);
+            else
+                art.WeaponArtistSource?.Clear();
+        }
+
         static bool TryWeaponHand(Art a, bool leftHand, out Vector2 uv) => a.Kind == ActorKind.RegionalMob
             ? StormInkActors.TryMobHand(a.MobType, a.Body.sprite, leftHand, out uv) ||
                 StormInkActors.TryCreatureFocus(a.MobType, a.Body.sprite, out uv)
@@ -95,6 +106,8 @@ namespace Roguehalla.Client
                 art.LocalCue = false;
                 if (art.Kind == ActorKind.Player && art.Faction == FactionId.Fire && art.WeaponId == WeaponId.Axe)
                     art.FireAxeReleaseCount++;
+                if (art.Kind == ActorKind.Player && art.Faction == FactionId.Fire && art.WeaponId == WeaponId.Sword)
+                    art.FireSwordReleaseCount++;
                 art.WindupUntil = 0f;
                 art.AttackAt = now;
                 art.AttackFacing = aim.GetValueOrDefault();

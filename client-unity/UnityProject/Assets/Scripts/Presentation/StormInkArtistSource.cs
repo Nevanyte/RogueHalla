@@ -3,8 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
-    /// <summary>Identifies whether the current painting is a Fire body, an equipped axe or a ground pickup.</summary>
-    public enum StormInkArtistSourceKind { None, FireAxeBody, EquippedAxe, DroppedAxe }
+    public enum StormInkArtistSourceKind { None, FireAxeBody, EquippedAxe, DroppedAxe, FireSwordBody, EquippedSword, DroppedSword }
 
     /// <summary>Identifies the editable asset and painted registration that produced an observed sprite.</summary>
     [DisallowMultipleComponent]
@@ -14,13 +13,19 @@ namespace Roguehalla.Client
         public SpriteRenderer Renderer { get; private set; }
         public Sprite Sprite => Renderer != null && Kind != StormInkArtistSourceKind.None ? Renderer.sprite : null;
         public StormInkFireAxeAuthoring FireBody { get; private set; }
-        public StormInkAxeArtAuthoring SharedAxe { get; private set; }
+        public StormInkFireSwordAuthoring SwordBody { get; private set; }
+        public ScriptableObject BodyPainting => SwordBody != null ? (ScriptableObject)SwordBody : FireBody;
+        public ScriptableObject WeaponSource { get; private set; }
+        public StormInkAxeArtAuthoring SharedAxe => WeaponSource as StormInkAxeArtAuthoring;
+        public WeaponId? Weapon { get; private set; }
         public int PoseRow { get; private set; } = -1;
-        public Vector2 HeldGripUv => SharedAxe != null ? StormInkWeaponArt.Grip(WeaponId.Axe, PoseRow) : default;
-        public Vector2 GroundCentre => Kind == StormInkArtistSourceKind.DroppedAxe ? SharedAxe.GroundCentre : default;
+        public Vector2 HeldGripUv => Weapon.HasValue ? StormInkWeaponArt.Grip(Weapon.Value, PoseRow) : default;
+        public bool IsDropped => Kind == StormInkArtistSourceKind.DroppedAxe || Kind == StormInkArtistSourceKind.DroppedSword;
+        public Vector2 GroundCentre => IsDropped ? StormInkWeaponArt.GroundCentre(Weapon.Value) : default;
 
         public bool TryBodyPalm(bool left, out Vector2 uv)
         {
+            if (SwordBody != null) return SwordBody.TryHand(Sprite, left, out uv);
             if (FireBody != null) return FireBody.TryHand(Sprite, left, out uv);
             uv = default;
             return false;
@@ -34,33 +39,43 @@ namespace Roguehalla.Client
         }
 
         internal static StormInkArtistSource BindBody(StormInkArtistSource source,
-            SpriteRenderer renderer, StormInkFireAxeAuthoring asset)
+            SpriteRenderer renderer, StormInkFireAxeAuthoring asset, StormInkFireSwordAuthoring sword = null)
         {
-            if (asset == null || !asset.TryHand(renderer.sprite, false, out _))
+            if (asset == null || !(sword != null ? sword.TryHand(renderer.sprite, false, out _) :
+                    asset.TryHand(renderer.sprite, false, out _)))
             {
                 source?.Clear();
                 return source;
             }
             source = Ensure(source, renderer);
             source.FireBody = asset;
-            source.Kind = StormInkArtistSourceKind.FireAxeBody;
+            source.SwordBody = sword;
+            source.Kind = sword != null ? StormInkArtistSourceKind.FireSwordBody : StormInkArtistSourceKind.FireAxeBody;
             var rect = renderer.sprite.rect;
             source.PoseRow = 7 - Mathf.RoundToInt(rect.y / rect.height);
             return source;
         }
 
-        internal static StormInkArtistSource BindAxe(StormInkArtistSource source,
-            SpriteRenderer renderer, int row, bool dropped)
+        internal static StormInkArtistSource BindWeapon(StormInkArtistSource source,
+            SpriteRenderer renderer, WeaponId? weapon, int row, bool dropped)
         {
-            var asset = StormInkAxeArtAuthoring.Load();
-            if (asset == null || renderer.sprite == null || renderer.sprite != StormInkWeaponArt.Get(WeaponId.Axe, row))
+            ScriptableObject asset = weapon switch
+            {
+                WeaponId.Axe => StormInkAxeArtAuthoring.Load(),
+                WeaponId.Sword => StormInkSwordArtAuthoring.Load(),
+                _ => null
+            };
+            if (asset == null || renderer.sprite == null || renderer.sprite != StormInkWeaponArt.Get(weapon.Value, row))
             {
                 source?.Clear();
                 return source;
             }
             source = Ensure(source, renderer);
-            source.SharedAxe = asset;
-            source.Kind = dropped ? StormInkArtistSourceKind.DroppedAxe : StormInkArtistSourceKind.EquippedAxe;
+            source.Weapon = weapon;
+            source.WeaponSource = asset;
+            source.Kind = weapon == WeaponId.Sword
+                ? dropped ? StormInkArtistSourceKind.DroppedSword : StormInkArtistSourceKind.EquippedSword
+                : dropped ? StormInkArtistSourceKind.DroppedAxe : StormInkArtistSourceKind.EquippedAxe;
             source.PoseRow = row;
             return source;
         }
@@ -68,7 +83,9 @@ namespace Roguehalla.Client
         internal void Clear()
         {
             FireBody = null;
-            SharedAxe = null;
+            SwordBody = null;
+            WeaponSource = null;
+            Weapon = null;
             Kind = StormInkArtistSourceKind.None;
             PoseRow = -1;
         }

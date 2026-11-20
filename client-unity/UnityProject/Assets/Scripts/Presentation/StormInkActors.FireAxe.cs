@@ -25,7 +25,8 @@ namespace Roguehalla.Client
         internal static Sprite FireAxeFrame(ActorKind kind, FactionId? faction, WeaponId? weapon,
             int direction, StormInkWeaponMotion.Phase phase, bool stride, int stage = 0, bool alternate = false)
         {
-            if (kind != ActorKind.Player || faction != FactionId.Fire || weapon != WeaponId.Axe) return null;
+            if (kind != ActorKind.Player || faction != FactionId.Fire ||
+                (weapon != WeaponId.Axe && weapon != WeaponId.Sword)) return null;
             var authoring = StormInkFireAxeAuthoring.Load();
             if (authoring != null)
             {

@@ -483,7 +483,7 @@ namespace Roguehalla.Client
                         Color tint = equipment ? Color.white : ShowcasePalette.MutedText;
                         float size = equipment ? StormInkWeaponMotion.Size : .48f;
                         Vector2 centre = equipment ? StormInkWeaponArt.GroundCentre((WeaponId)weapon) : new Vector2(0, .22f);
-                        Prop(glyph, position + (Vector3)centre, Vector2.one * size, tint, order, p.Weapon == WeaponId.Axe);
+                        Prop(glyph, position + (Vector3)centre, Vector2.one * size, tint, order, p.Weapon);
                     }
                     else if (p.Kind == PropAppearance.WindEmblem)
                     {
@@ -595,7 +595,7 @@ namespace Roguehalla.Client
         /// <summary>Screen rotation of a sprite that points along the ground heading (sim radians, +y south): the ground is drawn squashed.</summary>
         public static float ProjectileScreenAngleDeg(float facing) { return Mathf.Atan2(-Mathf.Sin(facing) * GroundSquash, Mathf.Cos(facing)) * Mathf.Rad2Deg; }
         void LateUpdate() { if (_overlay != null) _overlay.Draw(_archetypes); _vignette?.Tick(Time.unscaledTime, ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion); }
-        SpriteRenderer Prop(string sprite, Vector3 p, Vector2 scale, Color color, int order, bool droppedAxe = false)
+        SpriteRenderer Prop(string sprite, Vector3 p, Vector2 scale, Color color, int order, WeaponId? groundWeapon = null)
         {
             SpriteRenderer r;
             int slot = _used++;
@@ -607,8 +607,8 @@ namespace Roguehalla.Client
             }
             else r = _props[slot];
             r.gameObject.SetActive(true); r.sprite = ShowcaseSprites.Get(sprite); r.color = color; r.sortingOrder = order;
-            if (droppedAxe)
-                _propArtistSources[slot] = StormInkArtistSource.BindAxe(_propArtistSources[slot], r, 0, true);
+            if (groundWeapon == WeaponId.Axe || groundWeapon == WeaponId.Sword)
+                _propArtistSources[slot] = StormInkArtistSource.BindWeapon(_propArtistSources[slot], r, groundWeapon, 0, true);
             else
                 _propArtistSources[slot]?.Clear();
             r.sharedMaterial = ShowcaseSprites.Unlit;

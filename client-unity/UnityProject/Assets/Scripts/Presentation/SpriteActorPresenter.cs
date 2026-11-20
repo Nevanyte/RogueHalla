@@ -30,6 +30,7 @@ namespace Roguehalla.Client
             public float StampTime;
             public bool LocalCue;
             public int FireAxeReleaseCount;
+            public int FireSwordReleaseCount;
             public StormInkArtistSource BodyArtistSource, WeaponArtistSource;
             public float AttackAt, HitAt, BlockAt, DeadAt, HitUntil, BlockUntil;
             public float WishAt, WishUntil; public byte WishClip;
@@ -91,6 +92,7 @@ namespace Roguehalla.Client
                 a.HitUntil = a.BlockUntil = 0; a.WishUntil = 0;
                 a.Gait.Reset();
                 a.FireAxeReleaseCount = 0;
+                a.FireSwordReleaseCount = 0;
                 a.AttackAt = a.HitAt = a.BlockAt = a.DeadAt = 0;
                 a.HoldDeathFrame = a.Dead;
             }
@@ -362,6 +364,7 @@ namespace Roguehalla.Client
                     a = _pool.Count > 0 ? _pool.Pop() : Create(); _active.Add(id, a);
                     a.Root.SetActive(true); a.LastPosition = ArenaView.WorldPoint(x, y); ClearWeaponMotion(a);
                     a.FireAxeReleaseCount = 0;
+                    a.FireSwordReleaseCount = 0;
                     a.Gait.Reset(); a.StampTime = Time.unscaledTime;
                     a.HitUntil=a.BlockUntil=0;a.Dead=false;a.HoldDeathFrame=false;a.WishUntil=0;a.WishTintAmount=0;
                     if (IsCreature(kind)) MobArt.Created++;
@@ -431,7 +434,8 @@ namespace Roguehalla.Client
                     // Cosmetic bow pull saturates while the delivered draw remains open. Only a shown arrow starts its release.
                     weaponProgress = a.DrawStartedAt != 0 ? (gaitNow - a.WindupAt) * 4f :
                         (gaitNow - a.WindupAt) / Mathf.Max(.01f, a.WindupUntil - a.WindupAt);
-                    if (a.LocalCue) weaponProgress = Mathf.Min(.48f, weaponProgress);
+                    if (a.LocalCue) weaponProgress = weapon == WeaponId.Sword
+                        ? Mathf.Clamp01(weaponProgress) : Mathf.Min(.48f, weaponProgress);
                     if (a.HasAttackFacing) poseFacing = a.AttackFacing;
                 }
             }
@@ -445,8 +449,11 @@ namespace Roguehalla.Client
             if (a.Appearance == null && _catalog != null && !neutral) a.Appearance = _catalog.Find("knight");
             bool reduced = ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
             var appearance = a.Appearance;
-            var fireAxeArt = kind == ActorKind.Player && faction == FactionId.Fire && weapon == WeaponId.Axe
+            var fireAxeArt = kind == ActorKind.Player && faction == FactionId.Fire &&
+                (weapon == WeaponId.Axe || weapon == WeaponId.Sword)
                 ? StormInkFireAxeAuthoring.Load() : null;
+            var fireSwordArt = kind == ActorKind.Player && faction == FactionId.Fire && weapon == WeaponId.Sword
+                ? StormInkFireSwordAuthoring.Load() : null;
             float fallAngle = dead && (appearance == null || appearance.Death == null || appearance.Death.Length == 0) ? 75f : 0f;
             Sprite[] frames=appearance?.Idle;
             float fps=appearance!=null ? appearance.IdleFPS : 10;
@@ -472,7 +479,9 @@ namespace Roguehalla.Client
                 { frames=appearance.Walk;fps=appearance.WalkFPS;walkPhase=true; }
             }
             float? measuredHeight = null;
-            Sprite shieldBody = null, axeBody = null;
+            Sprite shieldBody = null, axeBody = null, swordBody = null;
+            float fireSwordAngleOffset = 0f;
+            int fireSwordDepthOffset = 0;
             if (frames != null && frames.Length > 0)
             {
                 // Catalog arrays are direction-major, with exactly eight source directions. Facing is artwork only.
@@ -507,17 +516,17 @@ namespace Roguehalla.Client
                     int stage = reduced || fireAxeArt == null ? 0 : walkPhase
                         ? Gait.FrameIndex(a.Gait.Phase, fireAxeArt.StrideStagesFor(row)) : fireAxeArt.IdleStage(row, elapsed);
                     bool stride = fireAxeArt != null ? walkPhase : walkPhase && frame * 2 >= count;
-                    bool alternate = phase == StormInkWeaponMotion.Phase.Ready
-                        ? (a.FireAxeReleaseCount & 1) != 0
-                        : a.FireAxeReleaseCount > 0 && (a.FireAxeReleaseCount & 1) == 0;
-                    axeBody = StormInkActors.FireAxeFrame(kind, faction, weapon, direction,
-                        useWeaponPhase ? phase : StormInkWeaponMotion.Phase.Guard, stride, stage, alternate);
+                    SelectFireWeaponBody(a, kind, faction, weapon, direction, phase, weaponProgress,
+                        useWeaponPhase, stride, stage, reduced, fireSwordArt, out axeBody, out swordBody,
+                        out fireSwordAngleOffset, out fireSwordDepthOffset);
                 }
-                a.Body.sprite = unarmed ?? shieldBody ?? axeBody ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
+                a.Body.sprite = unarmed ?? shieldBody ?? swordBody ?? axeBody ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
                 bool paintedPox = IsPox(a) && painted != null;
                 float height = paintedWand ? 1.24f : paintedPox ? PoxHeight : appearance.WorldHeight;
                 if (axeBody != null && fireAxeArt != null && fireAxeArt.TryHand(axeBody, false, out _))
                     measuredHeight = height = fireAxeArt.WorldHeight;
+                if (swordBody != null && fireSwordArt != null && fireSwordArt.TryHand(swordBody, false, out _))
+                    measuredHeight = height = fireSwordArt.WorldHeight;
                 if (paintedWand) measuredHeight = height + .15f;
                 if (paintedPox) measuredHeight = height + .41f;
                 float fall = painted != null && dead && frames == appearance.Death
@@ -618,7 +627,8 @@ namespace Roguehalla.Client
                 int poseRow = StormInkActors.PoseRowForFacing(poseFacing);
                 var pose = StormInkWeaponMotion.Sample(faction.Value, weapon.Value, phase, weaponProgress, poseRow, reduced);
                 pose = RegionalWeaponPose(a, pose, phase, weaponProgress, poseRow, reduced);
-                if (useWeaponPhase && shieldBody == null && axeBody == null) a.Body.transform.localRotation = Quaternion.Euler(0, 0, pose.BodyLean);
+                if (useWeaponPhase && shieldBody == null && axeBody == null && swordBody == null)
+                    a.Body.transform.localRotation = Quaternion.Euler(0, 0, pose.BodyLean);
                 var authored = StormInkWeaponArt.Get(weapon.Value, poseRow);
                 var sprite = authored != null ? authored : ShowcaseSprites.Get(StormInkWeaponMotion.KeyFor(weapon.Value));
                 float scale = EquipmentScale(a);
@@ -628,8 +638,9 @@ namespace Roguehalla.Client
                 bool leftHand = StormInkWeaponMotion.PrimaryHand(weapon.Value) == StormInkWeaponMotion.Hand.Left;
                 bool registered = TryWeaponHand(a, leftHand, out var handUv);
                 Vector3 grip = registered ? BodySocket(a.Body, handUv) : (Vector3)pose.Grip;
-                float angle = axeBody != null && fireAxeArt != null && phase == StormInkWeaponMotion.Phase.Guard
+                float angle = weapon == WeaponId.Axe && axeBody != null && fireAxeArt != null && phase == StormInkWeaponMotion.Phase.Guard
                     ? fireAxeArt.GuardAxeAngle(pose.Angle, poseRow) : pose.Angle;
+                if (swordBody != null) angle += fireSwordAngleOffset;
                 Vector3 supportFromGrip = Vector3.zero;
                 Vector3? drawPalm = null;
                 if (axeBody == null && pose.HasSupport && useWeaponPhase)
@@ -654,7 +665,8 @@ namespace Roguehalla.Client
 
                 var rotation = Quaternion.Euler(0, 0, angle);
                 a.Weapon.sprite = sprite;
-                a.Weapon.sortingOrder = order + (pose.Behind ? -2 : 2);
+                a.Weapon.sortingOrder = order + (pose.Behind ? -2 : 2) +
+                    fireSwordDepthOffset;
                 a.Weapon.transform.localScale = signedScale;
                 a.Weapon.transform.localRotation = rotation;
                 a.Weapon.transform.localPosition = grip - rotation * offset;
@@ -690,14 +702,8 @@ namespace Roguehalla.Client
             if (!drawingString) a.Bowstring?.Clear(a.Weapon, a.OutBody);
             a.Weapon.color = weapon == WeaponId.Fists ? new Color(.9f, .86f, .72f, hiddenAlpha) : new Color(1f, 1f, 1f, hiddenAlpha);
             a.Weapon.enabled = !paintedWand && !hauntedFists && !dead && weapon.HasValue && hiddenAlpha > 0f;
-            a.BodyArtistSource = StormInkArtistSource.BindBody(a.BodyArtistSource, a.Body, axeBody != null ? fireAxeArt : null);
-            if (weapon == WeaponId.Axe && a.Weapon.enabled)
-            {
-                int row = StormInkActors.PoseRowForFacing(trackedWeapon ? poseFacing : facing);
-                a.WeaponArtistSource = StormInkArtistSource.BindAxe(a.WeaponArtistSource, a.Weapon, row, false);
-            }
-            else
-                a.WeaponArtistSource?.Clear();
+            BindArtistSources(a, weapon, trackedWeapon ? poseFacing : facing,
+                axeBody != null || swordBody != null ? fireAxeArt : null, swordBody != null ? fireSwordArt : null);
             a.Status.enabled = false; // the generic status cue is replaced by the per-status glyphs (OverheadIndicators)
             a.Status.sortingOrder = order + 6; a.Status.color = color;
             a.Status.transform.localPosition = new Vector3(.55f, 1.5f, 0);
@@ -733,8 +739,6 @@ namespace Roguehalla.Client
             // A fighter that is hidden from this viewer (not drawn at all) leaves no prints, ripples or footsteps either.
             if (Fx != null && !hideAll) Fx.Note(id, x, y, kind, local, dead, appearance != null ? appearance.WorldHeight : 1.6f, a.Gait.Walking, a.Gait.Phase, appearance != null && appearance.Walk != null ? appearance.Walk.Length / 8 : 0);
         }
-
-
 
         Art Create()
         {
