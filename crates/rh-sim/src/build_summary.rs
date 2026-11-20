@@ -65,7 +65,7 @@ pub fn build_summary(sim: &Sim, id: PlayerId) -> Option<BuildSummary> {
         attack_speed: m.as_mult - 1.,
         defense: m.armor_bonus,
         soul_defense: m.shield_bonus,
-        move_speed: m.speed_mult - 1.,
+        move_speed: crate::modifiers::speed_mult(p) - 1.,
         ..Default::default()
     };
     if let Some(f) = faction {

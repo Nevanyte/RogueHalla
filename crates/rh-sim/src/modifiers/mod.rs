@@ -595,14 +595,25 @@ pub(crate) fn movement(
     _stats: crate::status_runtime::StatView,
 ) -> f64 {
     if let Some(i) = w.fighter_idx(p.id).filter(|i| w.is_player(*i)) {
-        let share = crate::cards::native::move_speed_share(&w.players[i.slot()].build);
-        if share > 0. {
-            p.modifiers.mirrors().speed_mult * (1. + share)
-        } else {
-            p.modifiers.mirrors().speed_mult
-        }
+        speed_mult_of(p, &w.players[i.slot()].build)
     } else {
         1.
+    }
+}
+
+/// P-AUG-NATIVE-3c: a player's walk speed multiplier, the one read every walk-speed reader shares (the walk, the owner
+/// block the client predicts with, the owner readout, a Plague zombie's pace): the folded mirror times `1 + share` of
+/// Pathfinder, and exactly the folded mirror when the share is 0. The share is not folded into the cached wire mirror.
+pub(crate) fn speed_mult(p: &crate::state::Player) -> f64 {
+    speed_mult_of(&p.core, &p.build)
+}
+
+fn speed_mult_of(p: &crate::fighter::FighterCore, build: &crate::cards::Build) -> f64 {
+    let share = crate::cards::native::move_speed_share(build);
+    if share > 0. {
+        p.modifiers.mirrors().speed_mult * (1. + share)
+    } else {
+        p.modifiers.mirrors().speed_mult
     }
 }
 pub(crate) fn bonus_defense(p: &crate::fighter::FighterCore) -> f64 {

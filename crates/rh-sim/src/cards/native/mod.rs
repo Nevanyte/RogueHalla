@@ -31,6 +31,8 @@ mod faction_tests;
 #[cfg(test)]
 mod hooks_tests;
 #[cfg(test)]
+mod walk_mirror_tests;
+#[cfg(test)]
 mod weapon_batch_tests;
 #[cfg(test)]
 mod wish_engine_tests;
@@ -117,6 +119,39 @@ pub(crate) fn hazard_guard(build: &super::Build, hazard: usize) -> (f64, bool) {
         return (0., false);
     }
     zone::hazard_guard(&build.native, hazard)
+}
+
+/// P-AUG-NATIVE-3c: how a fighter meets the ice's slip acceleration (`terrain::effect(..).accel`). `Copy`, so the walk
+/// reads it once and maps every substep's acceleration without borrowing the build.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum IceGrip {
+    /// Not a Hazard Walker holder (every mob, every build in a non-`Rework` world): the raw acceleration, untouched.
+    Raw,
+    /// A Hazard Walker holder not immune to the ice: the slip time is scaled by this `1 - resist` (>= 0.4: the stack
+    /// cap is 15), so the acceleration is divided by it.
+    Resisted(f64),
+    /// Ice-immune (mark bit 2): the ice is ground.
+    Immune,
+}
+
+impl IceGrip {
+    /// The acceleration this fighter meets where the raw slip acceleration is `accel` (0 stays 0).
+    pub(crate) fn accel(self, accel: f64) -> f64 {
+        match self {
+            IceGrip::Raw => accel,
+            _ if accel == 0. => accel,
+            IceGrip::Resisted(slip) => accel / slip,
+            IceGrip::Immune => 0.,
+        }
+    }
+}
+
+/// The [`IceGrip`] of a build: `Raw` for a build holding no native card (one guard).
+pub(crate) fn ice_grip(build: &super::Build) -> IceGrip {
+    if build.native.is_empty() {
+        return IceGrip::Raw;
+    }
+    zone::ice_grip(&build.native)
 }
 
 /// The native cards' flat max hp term over `base_hp` (`modifiers::sync_max_hp`): Hazard Walker's stacks and Corpse
