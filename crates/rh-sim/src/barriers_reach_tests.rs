@@ -367,7 +367,9 @@ fn guard_switch_off_the_observation_is_todays() {
 /// (P-NET-DRAWAHEAD-1a: the version field and each actor row's walk hint); was `0x1087_87a4_c319_b356`.
 fn observation_digest() -> u64 {
     // P-WIRE19-B (oracle-amend): observation 32; only the version moved (the empty `readouts` is not serialized).
-    0x2a3b_dc86_9b6d_5f4d
+    // P-SYNC-ORIGIN-1: observation 33 (local 32 was `0x2a3b_dc86_9b6d_5f4d`); only the version moved: with version 31
+    // forced, the merged observation hashes to origin's pin `0xe54a_e805_e3fe_02c8`.
+    0x4556_3005_627c_59fe
 }
 
 // ---- 2. Plague corpse consume (legacy plagueCorpses.ts:51 F, :86 auto; both `hasLineOfSight(collisionMap, p, corpse,
