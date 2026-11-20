@@ -93,7 +93,10 @@ Rework world without these cards play byte-identically to the base):
    never slips: `terrain.rs:61`); (c) the ember hook is skipped for Fire players (`terrain.rs:59`) and for dummies; (d)
    `Overheal` fires for every heal kind but `QuietRegen`, lifesteal included.
 6. **Pool and admission.** `zone::POOL` gains `(Pathfinder, Any)`, `(HazardWalker, Any)`, `(Overflow, Any)`; Wish Engine
-   joins in P-AUG-NATIVE-3b. (No pool reads `POOL` today; the existing zone-table test accepts a subset.)
+   joins in P-AUG-NATIVE-3b. (No pool reads `POOL` today; the existing zone-table test accepts a subset.) **Wiring
+   `cards::native::pool_members()` into the Rework chest pool is P-AUG-NATIVE-4's, for all three batch tables** (coordinator
+   note): `reward_chests/pools.rs` and the pool functions are outside this packet's write scope, and the oracle asserts
+   no chest offer of these cards.
 7. **No new serialized field, no format bump.** Slots are 1a's. The content hash moves once (three new rows, the batch
    table if folded) through `scripts/regolden-content.sh`.
 
