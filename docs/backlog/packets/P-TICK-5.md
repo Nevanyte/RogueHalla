@@ -63,3 +63,9 @@ Medium: one crate, clear oracle. Sonnet, Opus review for the rewind window.
   `TICK_RATE as u8`: send the room's rate.
 - Unity (outside the library): `UnityProject/Assets/Scripts/Net/MatchClient.cs:290` multiplies fx due time by
   `Wire.TickMs`; `RemoteDraw.cs:245` uses `Max(TickMs, Wire.TickMs)`. Both assume 50 (or hand to P-TICK-4).
+- From P-TICK-3-fix (implementer-opus, 2026-11-20): the encoder side is rate-aware, but nothing sets the rate yet. Where
+  the Welcome is built (`room/admission.rs`, `commands.rs`), call `outbox.set_tick_ms(sim.tick_ms())` and
+  `h.collections.set_tick_ms(..)`; `room.rs` `welcome()` sends the sim's rate; `conn.rs:370` comment is stale.
+- From the P-TICK-3-fix review: `SnapshotData::build`/`build_with` still default the time to `tick*50`; a 25 ms room
+  builds with `build_with_server_time` (or builds at the connection's rate) so frames carry no override and skip
+  `refresh_min_len`. The rate lives in two places (`Outbox::set_tick_ms`, `CollectionPublisher::set_tick_ms`): set both.
