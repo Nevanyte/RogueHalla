@@ -13,19 +13,22 @@ namespace Roguehalla.Client
 
         sealed class Sheet
         {
-            public readonly Sprite[] Poses = new Sprite[Rows * Columns];
-            public Sheet(Texture2D texture)
+            public readonly Sprite[] Poses;
+            public readonly int ColumnCount;
+            public Sheet(Texture2D texture, int columns)
             {
-                if (texture == null || texture.width * Rows != texture.height * Columns) return;
-                int width = texture.width / Columns, height = texture.height / Rows;
+                ColumnCount = columns;
+                Poses = new Sprite[Rows * columns];
+                if (texture == null || texture.width * Rows != texture.height * columns) return;
+                int width = texture.width / columns, height = texture.height / Rows;
                 for (int row = 0; row < Rows; row++)
-                for (int column = 0; column < Columns; column++)
+                for (int column = 0; column < columns; column++)
                 {
                     var rect = new Rect(column * width, (Rows - 1 - row) * height, width, height);
                     var sprite = Sprite.Create(texture, rect, new Vector2(.5f, 5f / 128f),
                         height * .89f, 0, SpriteMeshType.FullRect, Vector4.zero, false);
                     sprite.name = texture.name + "/" + row + "/" + column;
-                    Poses[row * Columns + column] = sprite;
+                    Poses[row * columns + column] = sprite;
                 }
             }
         }
@@ -41,12 +44,14 @@ namespace Roguehalla.Client
                 ShowcaseIdentityAssets.TryGetMobInfo(mob.Value, out var info) && info.Faction == faction)
             {
                 int i = (int)mob.Value;
-                return Creatures[i] ??= Load(mob.Value.ToString());
+                return Creatures[i] ??= Load(mob.Value.ToString(), MobColumns(mob.Value));
             }
             return null;
         }
 
-        static Sheet Load(string key) => new Sheet(Resources.Load<Texture2D>("StormInk/Actors/" + key));
+        static int MobColumns(MobTypeId mob) => mob == MobTypeId.PoxBehemoth ? 5 : Columns;
+
+        static Sheet Load(string key, int columns = Columns) => new Sheet(Resources.Load<Texture2D>("StormInk/Actors/" + key), columns);
 
         // Catalog order is SW, W, NW, N, NE, E, SE, S. The painted rows start at south and turn east.
         public static int PoseRow(int catalogDirection) => (7 - catalogDirection) & 7;
@@ -67,9 +72,9 @@ namespace Roguehalla.Client
             int pose = Idle;
             if (clip == appearance.Walk) pose = frame * 2 / count == 0 ? Idle : Stride;
             else if (clip == appearance.Attack || clip == appearance.Cast || clip == appearance.Shoot)
-                pose = frame * 4 < count ? Windup : frame * 4 < 3 * count ? Strike : Stride;
+                pose = frame * 4 < count ? Windup : frame * 4 < 3 * count ? Strike : sheet.ColumnCount == 5 ? 4 : Stride;
             else if (clip == appearance.Hit || clip == appearance.Block || clip == appearance.Death) pose = Windup;
-            return sheet.Poses[row * Columns + pose];
+            return sheet.Poses[row * sheet.ColumnCount + pose];
         }
     }
 }

@@ -48,7 +48,7 @@ namespace Roguehalla.Client
             Rect rect = body.rect;
             int row = Rows - 1 - Mathf.RoundToInt(rect.y / rect.height);
             int col = Mathf.RoundToInt(rect.x / rect.width);
-            index = row * Columns + col;
+            index = row * sheet.ColumnCount + col;
             return (uint)index < sheet.Poses.Length && sheet.Poses[index] == body;
         }
     }

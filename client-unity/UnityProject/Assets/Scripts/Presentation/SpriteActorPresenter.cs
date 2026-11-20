@@ -13,7 +13,7 @@ namespace Roguehalla.Client
         sealed class Art
         {
             public GameObject Root;
-            public SpriteRenderer Body, Shadow, Cast, Halo, Hp, HpBack, Barrier, Weapon, WeaponSupport, Status;
+            public SpriteRenderer PoxCenser, Body, Shadow, Cast, Halo, Hp, HpBack, Barrier, Weapon, WeaponSupport, Status;
             public ShowcaseIdentityOwner Identity;
             public SpriteOutline[] Plates; public SpriteOutline OutBody, OutHp, OutFoot; // CONTRAST: adaptive neutral outlines (SpriteOutline.cs)
             public StormInkBowstring Bowstring;
@@ -460,6 +460,7 @@ namespace Roguehalla.Client
                 else if(a.Gait.Walking && appearance.Walk.Length>0)
                 { frames=appearance.Walk;fps=appearance.WalkFPS;walkPhase=true; }
             }
+            float? measuredHeight = null;
             if (frames != null && frames.Length > 0)
             {
                 // Catalog arrays are direction-major, with exactly eight source directions. Facing is artwork only.
@@ -484,13 +485,15 @@ namespace Roguehalla.Client
                 Sprite unarmed = hauntedFists && !dead && hiddenAlpha > 0f
                     ? HauntedFistsFrame(a, facing, gaitNow, reduced) : null;
                 a.Body.sprite = unarmed ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
-                float height = appearance.WorldHeight;
+                bool paintedPox = IsPox(a) && painted != null;
+                float height = paintedPox ? PoxHeight : appearance.WorldHeight;
+                if (paintedPox) measuredHeight = height + .41f;
                 float fall = painted != null && dead && frames == appearance.Death
                     ? (count > 1 ? frame / (float)(count - 1) : 1f) : 0f;
                 if (fall > 0f) fallAngle = (mirror ? -78f : 78f) * fall;
                 // Mirror the transform so the child contrast outline follows the same brush contour.
                 a.Body.transform.localScale = new Vector3(mirror ? -height : height, height, height);
-                a.Body.transform.localPosition = new Vector3(Mathf.Sin(fallAngle * Mathf.Deg2Rad) * height * fall * .45f, .08f, 0);
+                a.Body.transform.localPosition = new Vector3(Mathf.Sin(fallAngle * Mathf.Deg2Rad) * height * fall * .45f, paintedPox ? -.04f : .08f, 0);
             }
             else
             {
@@ -499,7 +502,7 @@ namespace Roguehalla.Client
                 a.Body.transform.localPosition = new Vector3(0, .55f, 0);
             }
             // Overheads follow the look's body height (Appearance.WorldHeight), so a tall or short look keeps its cluster just above its head.
-            float headY = appearance != null && frames != null && frames.Length > 0 ? .08f + appearance.WorldHeight : 1.68f;
+            float headY = appearance != null && frames != null && frames.Length > 0 ? .08f + (measuredHeight ?? appearance.WorldHeight) : 1.68f;
             // CONTRAST: the overhead cluster clears the figure's real top (hat, horns, a raised bow), not only the catalog height, so a bar never cuts the head's contour.
             if (appearance != null && frames != null && frames.Length > 0) headY = Mathf.Max(headY, HeadTop(appearance) + ActorOutlineModel.Width * 1.2f);
             float lift = headY - 1.68f;
@@ -576,7 +579,9 @@ namespace Roguehalla.Client
             }
             a.WeaponSupport.enabled = false;
             bool drawingString = false;
-            if (trackedWeapon)
+            if (a.PoxCenser != null) a.PoxCenser.enabled = false;
+            bool bespokeCleaver = trackedWeapon && PresentPoxCleaver(a, StormInkActors.PoseRowForFacing(poseFacing), order, hiddenAlpha, dead);
+            if (trackedWeapon && !bespokeCleaver)
             {
                 int poseRow = StormInkActors.PoseRowForFacing(poseFacing);
                 var pose = StormInkWeaponMotion.Sample(faction.Value, weapon.Value, phase, weaponProgress, poseRow, reduced);
@@ -638,7 +643,7 @@ namespace Roguehalla.Client
                     support.color = wrap;
                 }
             }
-            else
+            else if (!bespokeCleaver)
             {
                 a.Weapon.sortingOrder = order + 2;
                 a.Weapon.transform.localPosition = new Vector3(Mathf.Cos(facing) * .42f, .6f - Mathf.Sin(facing) * .12f, 0);
@@ -757,7 +762,7 @@ namespace Roguehalla.Client
             if (!StrokeLayer.Exists) return;
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
             {
-                if (r == a.Body || r == a.Weapon || r == a.WeaponSupport || r == a.Halo || r == a.Shadow || r == a.Cast) continue;
+                if (r == a.Body || r == a.Weapon || r == a.WeaponSupport || r == a.PoxCenser || r == a.Halo || r == a.Shadow || r == a.Cast) continue;
                 string n = r.gameObject.name;
                 if (n.IndexOf("ring", System.StringComparison.OrdinalIgnoreCase) >= 0 || n.IndexOf("bubble", System.StringComparison.OrdinalIgnoreCase) >= 0 || n.Contains("shade")
                     || n == "Contact shadow" || n == "Cast shadow" || n == "Faction mantle") continue;
