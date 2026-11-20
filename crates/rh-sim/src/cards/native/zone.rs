@@ -52,8 +52,8 @@ pub(super) fn handle(w: &mut World, i: usize, card: CardId, event: &NativeEvent)
                     s.marks |= 1 << h;
                 }
                 let total: f64 = s.meters.iter().sum();
-                let stacks = REWORK_HAZARD_WALKER_CAP
-                    .min((total / REWORK_HAZARD_WALKER_STACK_MS).floor());
+                let stacks =
+                    REWORK_HAZARD_WALKER_CAP.min((total / REWORK_HAZARD_WALKER_STACK_MS).floor());
                 if stacks != s.counter {
                     s.counter = stacks;
                     changed = true;

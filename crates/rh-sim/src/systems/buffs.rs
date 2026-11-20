@@ -73,12 +73,12 @@ pub(crate) fn expire(cx: &mut crate::systems::Cx) {
             p.barrier_decays = false;
             p.vitals.barrier = 0.;
         } else if p.barrier_decays {
-            let rate = if crate::cards::native::holds_overflow(&p.build) {
-                BARRIER_MAX_SHARE / (crate::constants::REWORK_OVERFLOW_FADE_MS / 1000.)
+            p.vitals.barrier = if crate::cards::native::holds_overflow(&p.build) {
+                let rate = BARRIER_MAX_SHARE / (crate::constants::REWORK_OVERFLOW_FADE_MS / 1000.);
+                decay_at(p.vitals.barrier, p.vitals.max_hp, TICK_MS / 1000., rate)
             } else {
-                BARRIER_DECAY_SHARE_PER_SECOND
+                decay(p.vitals.barrier, p.vitals.max_hp, TICK_MS / 1000.)
             };
-            p.vitals.barrier = decay_at(p.vitals.barrier, p.vitals.max_hp, TICK_MS / 1000., rate);
         }
     }
 }
