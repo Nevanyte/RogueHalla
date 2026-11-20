@@ -132,6 +132,20 @@ namespace Roguehalla.Client
             into.AddRange(_nameRects);
         }
 
+        /// <summary>Presented head bands and health bars, used by the camp reward plaque.</summary>
+        public void FighterHeaderRects(List<Rect> into)
+        {
+            foreach (var art in _active.Values)
+            {
+                if (art.Stamp != _stamp || art.Dead || !art.Root.activeSelf || !art.Body.enabled) continue;
+                var body = art.Body.bounds;
+                float halfWidth = Mathf.Min(.52f, body.extents.x * .70f);
+                float height = Mathf.Min(.68f, body.extents.y * .75f);
+                into.Add(new Rect(body.center.x - halfWidth, body.max.y - height, halfWidth * 2f, height));
+                if (art.HpBack.enabled) into.Add(CombatHudPlacement.FromBounds(art.HpBack.bounds));
+            }
+        }
+
         // Luminance of what a player sees on each surface, for NamePalette.IsPale: the averages measured for P-UNITY-NAME-LEGIBLE-1 (ground texels through the
         // ground shader, scaled by the drawn-light ratio). Every SurfaceKind has an explicit entry; NameLegibleTableEditModeTests keeps the measured ones
         // in step with the texels. The kinds with no texel source are decisions, not measurements:
@@ -315,7 +329,7 @@ namespace Roguehalla.Client
         {
             var art=_active[id];
             if (TryParkBody(id, art)) return; // a dead creature waits for its renewed id (SpriteActorPresenter.Fade.cs)
-            if (HasWeaponTrack(art)) ClearWeaponMotion(art);
+            if (HasWeaponTrack(art) || HasHauntedFists(art)) ClearWeaponMotion(art);
             if (TryBeginExit(id, art)) return; // a living actor that left sight fades out (SpriteActorPresenter.Fade.cs)
             _active.Remove(id); Release(art);
         }
@@ -376,6 +390,7 @@ namespace Roguehalla.Client
             }
             a.Dead=dead;a.WeaponId=weapon; a.Faction=faction; a.Kind=kind; a.MobType=mob;
             bool trackedWeapon = !dead && hiddenAlpha > 0f && HasWeaponTrack(a);
+            bool hauntedFists = HasHauntedFists(a);
             var phase = StormInkWeaponMotion.Phase.Guard;
             float weaponProgress = 0f, poseFacing = facing;
             if (trackedWeapon)
@@ -436,7 +451,7 @@ namespace Roguehalla.Client
                 else if(phase != StormInkWeaponMotion.Phase.Strike && a.HitUntil>gaitNow && appearance.Hit!=null && appearance.Hit.Length>0)
                 { frames=appearance.Hit;fps=appearance.HitFPS;elapsed-=a.HitAt;loop=false; }
                 else if(trackedWeapon ? phase == StormInkWeaponMotion.Phase.Ready || phase == StormInkWeaponMotion.Phase.Strike ||
-                    phase == StormInkWeaponMotion.Phase.Follow && !reduced : a.AttackUntil > gaitNow && weapon.HasValue)
+                    phase == StormInkWeaponMotion.Phase.Follow && !reduced : !hauntedFists && a.AttackUntil > gaitNow && weapon.HasValue)
                 {
                     frames = AttackFrames(appearance, weapon.Value, out fps);
                     elapsed -= a.AttackAt; loop = false;
@@ -466,7 +481,9 @@ namespace Roguehalla.Client
                     phase == StormInkWeaponMotion.Phase.Strike ? 2 : 3 : frame;
                 var painted = StormInkActors.Frame(kind, faction, mob, appearance, frames, direction,
                     inkFrame, useWeaponPhase ? 4 : count, out bool mirror);
-                a.Body.sprite = painted != null ? painted : frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
+                Sprite unarmed = hauntedFists && !dead && hiddenAlpha > 0f
+                    ? HauntedFistsFrame(a, facing, gaitNow, reduced) : null;
+                a.Body.sprite = unarmed ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
                 float height = appearance.WorldHeight;
                 float fall = painted != null && dead && frames == appearance.Death
                     ? (count > 1 ? frame / (float)(count - 1) : 1f) : 0f;
@@ -634,7 +651,7 @@ namespace Roguehalla.Client
             }
             if (!drawingString) a.Bowstring?.Clear(a.Weapon, a.OutBody);
             a.Weapon.color = weapon == WeaponId.Fists ? new Color(.9f, .86f, .72f, hiddenAlpha) : new Color(1f, 1f, 1f, hiddenAlpha);
-            a.Weapon.enabled = !dead && weapon.HasValue && hiddenAlpha > 0f;
+            a.Weapon.enabled = !hauntedFists && !dead && weapon.HasValue && hiddenAlpha > 0f;
             a.Status.enabled = false; // the generic status cue is replaced by the per-status glyphs (OverheadIndicators)
             a.Status.sortingOrder = order + 6; a.Status.color = color;
             a.Status.transform.localPosition = new Vector3(.55f, 1.5f, 0);

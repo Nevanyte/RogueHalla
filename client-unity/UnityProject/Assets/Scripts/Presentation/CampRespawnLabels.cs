@@ -131,6 +131,8 @@ namespace Roguehalla.Client
         /// labels must not intersect any of them. ArenaView sets it to the presenter's name rects (one line there, owned by another packet).
         /// </summary>
         public System.Action<List<Rect>> NameRectSource;
+        /// <summary>Heads and health bars the camp reward plaque should yield to.</summary>
+        public System.Action<List<Rect>> HeaderRectSource;
 
         /// <summary>
         /// P-UNITY-NAME-GROUP-2 seam for tests: draws the respawn labels and the ward beacons with their labels from ready rows, without a
@@ -152,6 +154,7 @@ namespace Roguehalla.Client
         }
 
         readonly List<Rect> _names = new List<Rect>();
+        readonly List<Rect> _badgeObstacles = new List<Rect>();
         readonly Dictionary<TextMeshPro, SpriteRenderer> _plates = new Dictionary<TextMeshPro, SpriteRenderer>();
         void FetchNames() { _names.Clear(); if (NameRectSource != null) NameRectSource(_names); }
 
@@ -236,26 +239,16 @@ namespace Roguehalla.Client
             if (!r.gameObject.activeSelf) r.gameObject.SetActive(true);
         }
 
-        // Legacy CampBuffs.ts places the badge over the living mobs' centroid; actor rows carry no camp index, so it stays over the camp position.
-        // The badge steps up, a name's height at a time, until its plaque is clear of every drawn fighter, elite and pack name (the rule: the badge yields, the
-        // name stays; an elite's name sits where its camp's badge lands). Returns the lift in world units.
-        float BadgeLiftClearOfNames(Bounds plaque)
-        {
-            float total = 0f;
-            for (int pass = 0; pass < 6 && _names.Count > 0; pass++)
-            {
-                var rect = new Rect(plaque.min.x, plaque.min.y + total, plaque.size.x, plaque.size.y);
-                float lift = 0f;
-                for (int i = 0; i < _names.Count; i++)
-                    if (rect.Overlaps(_names[i])) lift = Mathf.Max(lift, _names[i].yMax - rect.yMin + .04f);
-                if (lift <= 0f) break;
-                total += lift;
-            }
-            return total;
-        }
-
+        // The camp position is the public anchor; keep the local shift with
+        // the plaque and its icons so the reward continues to identify the camp.
         void DrawBadges()
         {
+            _badgeObstacles.Clear();
+            if (_badges.Count > 0)
+            {
+                _badgeObstacles.AddRange(_names);
+                HeaderRectSource?.Invoke(_badgeObstacles);
+            }
             int used = 0, plaques = 0;
             for (int i = 0; i < _badges.Count; i++)
             {
@@ -272,8 +265,8 @@ namespace Roguehalla.Client
                     Place(Icon(_badgeIcons, used++, "Camp reward badge", Order), Art(b.IconKey), Rgb(b.IconRgb), centre + new Vector3((k++ - (n - 1) * .5f) * BadgeStep, 0f, 0f), BadgeScale);
                 if (b.EliteIconKey != null)
                     Place(Icon(_badgeIcons, used++, "Camp reward badge", Order), Art(b.EliteIconKey), Rgb(b.EliteIconRgb), centre + new Vector3((k++ - (n - 1) * .5f) * BadgeStep, 0f, 0f), BadgeScale);
-                // Step clear of the names (measured on the drawn plaque), moving the plaque and its icons together.
-                float lift = BadgeLiftClearOfNames(back.bounds);
+                Rect bounds = CombatHudPlacement.FromBounds(back.bounds);
+                float lift = CombatHudPlacement.Lift(bounds, _badgeObstacles).yMin - bounds.yMin;
                 if (lift > 0f)
                 {
                     back.transform.position += new Vector3(0f, lift, 0f);

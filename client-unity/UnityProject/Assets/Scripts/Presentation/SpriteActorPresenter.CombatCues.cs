@@ -47,7 +47,7 @@ namespace Roguehalla.Client
         {
             if (!_active.TryGetValue(id, out var art) || art.Dead || !art.WeaponId.HasValue) return;
             float now = Time.unscaledTime;
-            if (HasWeaponTrack(art))
+            if (HasWeaponTrack(art) || HasHauntedFists(art))
             {
                 if (art.AttackUntil > now || art.WindupUntil > now) return;
                 art.WindupAt = now;
@@ -75,7 +75,11 @@ namespace Roguehalla.Client
             }
             if (kind == FxKind.Windup)
             {
-                if (!HasWeaponTrack(art) || !art.Root.activeSelf || cueWeapon != art.WeaponId) return;
+                bool unarmed = HasHauntedFists(art);
+                if ((!HasWeaponTrack(art) && !unarmed) || !art.Root.activeSelf || cueWeapon != art.WeaponId) return;
+                // Player melee can deliver Windup and Swing for the same source
+                // tick. A zero-duration windup must not reset existing preparation.
+                if (unarmed && !(windupMs > 0f)) return;
                 ClearWeaponMotion(art);
                 art.WindupAt = now;
                 art.WindupUntil = now + windupMs * .001f;
@@ -85,7 +89,7 @@ namespace Roguehalla.Client
             }
             if (kind == FxKind.Swing && art.WeaponId.HasValue)
             {
-                bool tracked = HasWeaponTrack(art);
+                bool tracked = HasWeaponTrack(art) || HasHauntedFists(art);
                 if (tracked && (!art.Root.activeSelf || (cueWeapon.HasValue && cueWeapon != art.WeaponId))) return;
                 if (!tracked && art.LocalCue && now - art.AttackAt < LocalCueWindow) { art.LocalCue = false; return; }
                 art.LocalCue = false;
