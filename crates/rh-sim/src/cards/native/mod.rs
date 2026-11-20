@@ -31,6 +31,8 @@ mod faction_tests;
 #[cfg(test)]
 mod hooks_tests;
 #[cfg(test)]
+mod walk_mirror_tests;
+#[cfg(test)]
 mod weapon_batch_tests;
 #[cfg(test)]
 mod wish_engine_tests;
