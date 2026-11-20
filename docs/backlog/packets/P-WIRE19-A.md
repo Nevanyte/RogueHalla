@@ -237,7 +237,52 @@ Out: `docs/CONTRACTS.md`, `docs/MIGRATION.md` (coordinator: protocol 19, observa
 
 ## Oracle files (read-only for implementers)
 
-Filled in with the oracle commits (below).
+New oracle tests (`oracle:` commit):
+- `crates/rh-protocol/tests/wire19.rs`: the two vectors' exact bytes from values built in the test, `encoded_len`, round
+  trip, every prefix refused; cards 0, 79, 80, 93 round-trip, 94 refused atomically by the encoder and as
+  `BadField("reward id")` by the decoder; a window ending with the chest encodes, after it or non-finite is refused; the
+  decoder's reasons for tag 2 (`BadTag(2)`), mine 2 (`BadField("flag")`), NaN and after-expiry (`BadField("reward
+  chest")`); `PROTOCOL_VERSION == 19`; `v19.json` names protocol 19, its hello and welcome say 19, it carries the two
+  vectors with the brief's hex and the five malformed names, and no `state_reward_card_id_80`.
+- `crates/rh-server/tests/protocol_19_wire.rs`: over a real socket, an 18 Hello gets `ProtocolMismatch` naming "server
+  speaks protocol 19, client 18"; a 19 Hello gets a protocol-19 Welcome.
+- `crates/rh-policy/tests/wire19_rewards.rs`: `CollectionPublisher` projects Marked Man, Marksman's Tally and a boost as
+  `Card(93), Card(80), Boost(2)` and the observed window as `first_pick { until, mine }` per viewer (`None` without);
+  `reward_option_id` reads every native index 80..=93 as its `CardId::NATIVE` name, 94 as `""`;
+  `POLICY_CONTRACT_VERSION > 25`.
+- `crates/rh-sim/src/reward_chests/first_pick_view_tests.rs`: every viewer's row carries the same `until`, `mine` only in
+  the killer's; two non-killers see equal rows; no key names a killer; the field leaves every row when the window runs
+  out (open while `server_time < until`) and one step after the killer dies, is downed, resolves or leaves; the
+  killer's row is republished on the tick its window ends (`public_cmp`); a Legacy elite chest carries `None`;
+  `OBSERVATION_VERSION > 30`.
+- `client-unity/RoguehallaNet.Tests/Wire19Tests.cs`: `Wire.ProtocolVersion == 19`; the two vectors encode from values
+  and decode to their rows, every prefix refused; cards to 93, 94 refused (encode `EncodeException`, decode
+  `BadField`); window refusals (encode: after expiry, NaN, ±inf; decode: tag 2 and mine 2 `BadTag`, NaN and after
+  expiry `BadField`); the `Session` view copies `FirstPick` and keeps card 93; `v19.json` carries the vectors.
+
+Amended existing tests (`oracle-amend:` commits, one file each, for the owner):
+- `crates/rh-sim/src/reward_chests/first_pick_tests.rs`: `the_window_shows_only_in_can_choose_...` becomes
+  `the_window_shows_in_the_viewers_own_facts_...`: the rows differ in `can_choose` and `mine`; the row's keys gain
+  `first_pick` (P-ELITE-PICK-1 pinned "no new field until P-WIRE19-A").
+- `crates/rh-sim/tests/native_cards.rs`: `no_pool_or_chest_holds_a_native_card` becomes
+  `no_pool_holds_a_native_card_and_only_a_rework_chest_may_offer_one` (decision 4; pools unchanged).
+- `crates/rh-protocol/tests/v11_union.rs`: the first refused card position is 94 (was 80).
+- `crates/rh-protocol/tests/vectors.rs`: malformed reasons: `state_reward_card_id_80` → `_94`, and the four
+  first-pick vectors.
+- `client-unity/RoguehallaNet.Tests/ProtocolVectorTests.cs`: `FixtureIsProtocolV18` → `V19`; the same malformed names.
+- `tools/protocol-js/check-vectors.mjs`: the `state_all` key-4 row ends in `firstPick: null`; the same malformed names
+  (after-expiry must say "first pick"); the probe speaks 19 and decodes the brief's two hexes to exact rows (keys in
+  order, `firstPick` last), equal to the fixture's, and its refusals of card 94, tag 2, mine 2, NaN, after expiry; a
+  window ending with the chest is accepted. (Run by the gate's JS step.)
+
+The brief: `docs/backlog/packets/P-WIRE19-A.md`.
+
+Stub (`stub:` commit, the implementer's to edit): `WireFirstPick` and `WireRewardChest::first_pick` (read as `None`,
+never written), `FirstPickView` and `RewardChestView::first_pick` (always `None`), the projection's `first_pick: None`,
+C# `WireFirstPick`, `WireRewardChest.FirstPick`, `RewardChestView.FirstPick` (synced copies), the `mod
+first_pick_view_tests;` line, and compile-only `first_pick: None` lines in `crates/rh-protocol/tests/state.rs`,
+`samples.rs`, `crates/rh-policy/src/delivery/collections.rs` (its test module),
+`src/bots/bot/loot_seat_tests.rs`, `src/bots/temporal_percept/brain/compose14_review_tests.rs`.
 
 ## 9. Validation commands
 
@@ -246,7 +291,7 @@ Filled in with the oracle commits (below).
   `cargo test -p rh-policy --test wire19_rewards`,
   `cargo test -p rh-sim --features trusted-status-probes --lib reward_chests::first_pick_view_tests`,
   `cargo test -p rh-sim --features trusted-status-probes --test native_cards`
-- `dotnet test client-unity/RoguehallaNet.Tests --filter "Wire19Tests|ProtocolVectorTests"`
+- `dotnet test client-unity/RoguehallaNet.Tests --filter "FullyQualifiedName~Wire19Tests|FullyQualifiedName~ProtocolVectorTests"`
 - `node --test tools/unity-browser-reload-proof/*.test.mjs`, `node tools/protocol-js/check-vectors.mjs` (and the other
   four `check-*.mjs`)
 
@@ -272,6 +317,11 @@ decoder that drifts from the others by one byte, which the shared vectors catch.
 - **Bots** read the projected rows (`perception.rs`); a native option must read as its name (`markedMan`), never `""`.
 - **C# enum cast**: `(CardId?)o.Id` (`Collections.cs:459`) of 80..=93 is an undefined `CardId` value until P-AUG-UI-2
   adds display rows; the codec must not refuse it.
+- **The Trophy reference JSON**: `check-vectors.mjs` compares the probe's decoded `state_trophy_reward_keys` rows to the
+  Rust `decoded` JSON (`samples.rs` `decoded_trophy_state_json`, `:7684`): that row string must end in
+  `"firstPick":null` (or the window), or the JS step fails although the bytes agree.
+- **Other crates** only read `RewardChestView` (`rh-headless/tests/cards.rs:50`, `examples/first_playable.rs:41`); no
+  literal outside the four oracle crates needs the new field (checked at the stub).
 - **Content hash**: unchanged (no content row). The hash tape's `observationVersion` moves with the constant; re-record
   it by its command only.
 - Do not commit `BakedContent.cs`, Showcase fonts or `ShaderGraphSettings.asset` if a Unity run rewrites them.
