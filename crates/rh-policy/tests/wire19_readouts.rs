@@ -176,7 +176,7 @@ fn the_wire_bound_is_the_producers_and_the_contract_moves() {
     assert_eq!(rh_sim::OBSERVATION_VERSION, 33); // 32 -> 33: P-SYNC-ORIGIN-1
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        28,
-        "the projected State gains key 14 and the decoded view its rows (P-WIRE19-B); 28: P-SYNC-ORIGIN-1"
+        29,
+        "the projected State gains key 14 and the decoded view its rows (P-WIRE19-B); 28: P-SYNC-ORIGIN-1; 29: P-AUG-BOTS-1"
     );
 }

@@ -66,8 +66,8 @@ fn identities_move_for_the_carrier_actor() {
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        28,
-        "the projected quest row carries it (P-WIRE17-MAP-2); 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20)"
+        29,
+        "the projected quest row carries it (P-WIRE17-MAP-2); 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 29: P-AUG-BOTS-1"
     );
 }
 
