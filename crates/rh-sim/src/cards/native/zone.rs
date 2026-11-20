@@ -118,6 +118,18 @@ pub(super) fn hazard_guard(native: &NativeCards, hazard: usize) -> (f64, bool) {
     })
 }
 
+/// P-AUG-NATIVE-3c: Hazard Walker's grip on the ice (hazard 2): its slip time shrinks by the resistance (the ice
+/// acceleration it meets is the raw one over `1 - resist`), and the ice mark makes it ground (acceleration 0).
+pub(super) fn ice_grip(native: &NativeCards) -> super::IceGrip {
+    if held(native, CardId::HazardWalker).is_none() {
+        return super::IceGrip::Raw;
+    }
+    match hazard_guard(native, 2) {
+        (_, true) => super::IceGrip::Immune,
+        (resist, false) => super::IceGrip::Resisted(1. - resist),
+    }
+}
+
 /// Hazard Walker's flat max hp term over a base of `base_hp`.
 pub(super) fn flat_max_hp(native: &NativeCards, base_hp: f64) -> f64 {
     held(native, CardId::HazardWalker)
