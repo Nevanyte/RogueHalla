@@ -70,10 +70,13 @@ headless runner and tournament read the sim's rate and accept a `--tick-ms 50|25
 - `crates/rh-policy/tests/tick_ms_seat.rs` (public API; red by assertion):
   - `a_match_start_carries_the_sims_step`: red, `MatchStart::of` on a 25 ms sim says 50 (want 25); a 50 ms sim says 50.
   - `a_seat_decides_per_second_at_the_same_rate_at_both_steps`: red, a Brawler(2) seat on a 25 ms sim decides every 2
-    steps (40 per 2 s), twice the 50 ms seat (want within 1); also an `AsyncSeat` deadline of 2 legacy ticks.
+    steps (20 per second against 10 at 50 ms; want within 1). `AsyncSeat` deadline conversion has no oracle (its
+    clock-driven worker handshake is not a loose-proof fit): the implementer converts `deadline_ticks` the same way.
 - `crates/rh-headless/tests/tick_ms_bots.rs` (red by assertion):
   - `bots_decide_the_same_number_of_times_per_second_at_25_and_50_ms`: red, a 120 s seed-1 Brawler and HumanBot match
-    decides twice as often per bot per second at 25 ms (want within 1 per second, totals within 10%).
+    decides twice as often per bot per second at 25 ms (want within 1 per second; measured today Brawler 3.1 vs 7.5 per bot second). Caveat: the rate is over the whole
+    run, so a bot that dies earlier at one step lowers it; the floor is the spec's "within 1", with the runs not
+    tuned to pass (if the implementer's 25 ms match diverges by deaths, report it, do not loosen the test).
 - `crates/rh-headless/tests/tick_ms_cli.rs` (red by assertion; runs the built `rh-headless` binary):
   - `the_tick_ms_option_runs_a_25_ms_match_deterministically`: red, output has no `tickMs` key and a `--tick-ms 25`
     run equals the 50 ms run (want `"tickMs":25`, a different `stateHashFold`, identical over two runs).
