@@ -63,12 +63,23 @@ green; reviewer (Sonnet) LAND, no notes. Merged as `1f7935a5b`.
 template): PASS (full), every step, including both Postgres suites, the parity report, Unity EditMode 1581/1581 and the
 headless smoke.
 
-**Held for the owner: renaming the repository to `RogueHalla`.** "rougehalla" is also the Rust stack's practice domain
-(`play.rougehalla.com`; `play.roguehalla.com` is the live legacy game, `hosting/AGENTS.md`), the Cloudflare worker
-`rougehalla`, the R2 bucket `rougehalla-profiles` and the CloudFormation stacks `rougehalla-infra-*`. GitHub redirects
-the old URLs, but `hosting-fleet-deploy.yml` assumes an AWS role through GitHub OIDC, whose trust policy is not in the
-repository; the AWS CLI is not installed here, so whether it names `Nevanyte/RougeHalla` is not established. If it does,
-a rename stops that deploy until the policy is updated, which is an AWS change and the owner's.
+**`main` again.** Pull request #67 (this integration, head `fdfdf6f2b`) merged as `349ac091f` on the owner's "Merge
+after CI". CI read as on #65 and #66: 15 checks green; the `rust` job (push and pull-request runs) red only at "Admitted
+private, Card and Room source witnesses remain byte exact", where `bot-private-brain` and `bot-private-modules` differ
+(P-CI-GREEN-4 step 2), and the witness steps after it skipped.
+
+**The repository is renamed `Nevanyte/RogueHalla`** (it was `Nevanyte/RougeHalla`), on the owner's direction
+2026-11-18: "Please rename the repo to RogueHalla as well". The coordinator had held it over the AWS deploy:
+`hosting-fleet-deploy.yml` assumes `vars.AWS_DEPLOY_ROLE_ARN` through GitHub OIDC, and a trust policy naming the old
+repository would refuse the new one. Checked before renaming: the repository has no Actions variables (the role ARN is
+not set) and that workflow has never run, so no working deploy depended on the old name; no workflow, script or crate
+compares the repository name (`perfproof.yml` reads `github.repository`). When the deploy role is created, its trust
+policy names `repo:Nevanyte/RogueHalla:*`. GitHub redirects the old web and git URLs (checked with `git ls-remote`);
+the local `origin` now points at the new name. Links to the old name in this record, `CONTRACTS.md` and
+`docs/evidence/` are left as written: they are history, and they resolve. Unchanged on purpose: "rougehalla" as a
+service name (the practice domain `play.rougehalla.com`, the Cloudflare worker `rougehalla`, the R2 bucket
+`rougehalla-profiles`, the CloudFormation stacks `rougehalla-infra-*`, the wire-trace format name); renaming those is
+an infrastructure change, not this one.
 
 ## Integrations 56 and 57 (2026-11-18): `main` updated, then the readability sweep
 

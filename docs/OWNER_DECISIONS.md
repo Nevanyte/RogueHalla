@@ -7,6 +7,7 @@ This file is an **index, not the record**. The record is where each row points; 
 
 | Date | Subject | Decision | Scope or condition | Record |
 |---|---|---|---|---|
+| 2026-11-18 (chat) | The repository name | "Please rename the repo to RogueHalla as well"; "Merge after CI" (#67). | GitHub repository renamed `Nevanyte/RougeHalla` to `Nevanyte/RogueHalla`; #67 merged into `main`. Service names spelled "rougehalla" (practice domain, Cloudflare worker, R2 bucket, CloudFormation stacks) are unchanged; a future AWS deploy role trusts `repo:Nevanyte/RogueHalla:*`. | MIGRATION "Integration 58" |
 | 2026-11-18 (chat) | The GitHub front page | "Please begin working on it all using sub agents". | The coordinator's list: merge #66; About box and topics; delete the branches merged into `main`; root tidy, folder READMEs, language attributes and a PR template (P-GH-1, `.github/` included); a `v0.1.0` release. The repository rename is held for the owner (record). | MIGRATION "Integration 58" |
 | 2026-11-18 (chat) | Updating `main` | "Please continue to update main". | Push `feature/unity-rework` and merge #65 into `main` once CI reads as planned. | MIGRATION "Integration 55" |
 | 2026-11-18 (chat) | CI diagnostic for the Bot private Brain witness | "Approve the CI change". | `.github/workflows/rust.yml` only: all five witness checks run; a red run uploads CI's recapture. | MIGRATION "Integration 55"; P-CI-GREEN-4.md |

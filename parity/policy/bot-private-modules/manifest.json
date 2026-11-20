@@ -898,8 +898,8 @@
     "sha256": "2b6cc1ae153642667a27a0601d827f9699b9e007677c0480cf6154c222119090"
    },
    "tools/bot-private-modules-fixtures/capture.mts": {
-    "bytes": 6428,
-    "sha256": "76c86f9bd92209b4c847f6c7669b07f8ded0ed35b764dd53ed1407ed3f941011"
+    "bytes": 6506,
+    "sha256": "84df7ac1ae3b6b7b13a2732a8398a085184a105c8bb03589b9c8d63fdb0666e0"
    },
    "tools/bot-private-modules-fixtures/capture.sh": {
     "bytes": 1090,
@@ -928,6 +928,10 @@
    "tools/bot-private-modules-fixtures/manifest.mjs": {
     "bytes": 1988,
     "sha256": "9f4a7202f98e9e94061a14083e9181ceba02e01a430b304a6736f648e64bc5c0"
+   },
+   "tools/bot-private-modules-fixtures/reached.mts": {
+    "bytes": 1418,
+    "sha256": "a8b5a8ee326e5d1c371f6408e9676a4a90bb87430ee86bd2788a31bad2f679ac"
    },
    "tools/bot-private-modules-fixtures/runner.mts": {
     "bytes": 8340,
@@ -987,16 +991,16 @@
  ],
  "corpus": {
   "source.json": {
-   "bytes": 12755158,
-   "sha256": "645e85f16adbea001f8d0e06a70b6e5d311864ed9691622c06b789c95578b012"
+   "bytes": 12755298,
+   "sha256": "018a69e4ae4ddd5c4753453e63555d3acc17a836fd64393f4a161aca4647c92e"
   },
   "coverage.json": {
-   "bytes": 1832252,
-   "sha256": "50eaf16f47330f9a232b0cda066f9d3eae7fc413b7e0a7120c8557fd19dea0af"
+   "bytes": 999220,
+   "sha256": "03ef78345ac4d9038f61aa3d842de5fa4e87868594f90e398f211962c98fc19e"
   },
   "controls.json": {
    "bytes": 1403852,
-   "sha256": "dcc49cf88f2588715363c1077641efd5b5a9bcee5eb0882044c9e7dd4ad3980d"
+   "sha256": "d9a0ff0b14f399fcf52303d880d9ae18b64f0eb66dadba9bd0a4f37fc6508e2e"
   }
  },
  "cases": 255,

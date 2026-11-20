@@ -27,4 +27,6 @@ pub mod terrain_gate;
 pub mod zones;
 
 #[cfg(test)]
+mod coliseum_grand_tests;
+#[cfg(test)]
 mod tests;

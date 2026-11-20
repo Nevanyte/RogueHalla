@@ -1006,19 +1006,19 @@
    },
    "parity/policy/bot-private-modules/controls.json": {
     "bytes": 1403852,
-    "sha256": "dcc49cf88f2588715363c1077641efd5b5a9bcee5eb0882044c9e7dd4ad3980d"
+    "sha256": "d9a0ff0b14f399fcf52303d880d9ae18b64f0eb66dadba9bd0a4f37fc6508e2e"
    },
    "parity/policy/bot-private-modules/coverage.json": {
-    "bytes": 1832252,
-    "sha256": "50eaf16f47330f9a232b0cda066f9d3eae7fc413b7e0a7120c8557fd19dea0af"
+    "bytes": 999220,
+    "sha256": "03ef78345ac4d9038f61aa3d842de5fa4e87868594f90e398f211962c98fc19e"
    },
    "parity/policy/bot-private-modules/manifest.json": {
-    "bytes": 5566949,
-    "sha256": "fe8fe10f8b1123cb456b7b805ebc67efbd6538c76a769b74cc2cb3f8435ab016"
+    "bytes": 5567109,
+    "sha256": "3d278500e1ae09069bbbc8cf7ea136803d000c2793f192e2f91eedb82b2807f1"
    },
    "parity/policy/bot-private-modules/source.json": {
-    "bytes": 12755158,
-    "sha256": "645e85f16adbea001f8d0e06a70b6e5d311864ed9691622c06b789c95578b012"
+    "bytes": 12755298,
+    "sha256": "018a69e4ae4ddd5c4753453e63555d3acc17a836fd64393f4a161aca4647c92e"
    },
    "parity/policy/bot-private-strategy/controls.json": {
     "bytes": 8143,
@@ -1177,8 +1177,8 @@
     "sha256": "2b6cc1ae153642667a27a0601d827f9699b9e007677c0480cf6154c222119090"
    },
    "tools/bot-private-modules-fixtures/capture.mts": {
-    "bytes": 6428,
-    "sha256": "76c86f9bd92209b4c847f6c7669b07f8ded0ed35b764dd53ed1407ed3f941011"
+    "bytes": 6506,
+    "sha256": "84df7ac1ae3b6b7b13a2732a8398a085184a105c8bb03589b9c8d63fdb0666e0"
    },
    "tools/bot-private-modules-fixtures/capture.sh": {
     "bytes": 1090,
@@ -1207,6 +1207,10 @@
    "tools/bot-private-modules-fixtures/manifest.mjs": {
     "bytes": 1988,
     "sha256": "9f4a7202f98e9e94061a14083e9181ceba02e01a430b304a6736f648e64bc5c0"
+   },
+   "tools/bot-private-modules-fixtures/reached.mts": {
+    "bytes": 1418,
+    "sha256": "a8b5a8ee326e5d1c371f6408e9676a4a90bb87430ee86bd2788a31bad2f679ac"
    },
    "tools/bot-private-modules-fixtures/runner.mts": {
     "bytes": 8340,
@@ -1368,8 +1372,8 @@
     "sha256": "99d5cf45f0a9d7c997a39475564592fa81bec839b72160277083b98ebaf80769"
    },
    "tools/bot-private-brain-fixtures/capture.mts": {
-    "bytes": 8503,
-    "sha256": "478ea86f3573a71ad406fec34a70e79875fe812ccdeb89069aed7205243b99f1"
+    "bytes": 8581,
+    "sha256": "edc034b36bf4ba115dac6b91713f2336b489bf06ef97d4803a03d5d660658a0e"
    },
    "tools/bot-private-brain-fixtures/capture.sh": {
     "bytes": 1080,
@@ -1403,6 +1407,10 @@
     "bytes": 2529,
     "sha256": "4da6405519c7ad4bd5f365dcdcead10d1a153c7441f08c3686a491e4ed4eb23f"
    },
+   "tools/bot-private-brain-fixtures/reached.mts": {
+    "bytes": 1418,
+    "sha256": "a8b5a8ee326e5d1c371f6408e9676a4a90bb87430ee86bd2788a31bad2f679ac"
+   },
    "tools/bot-private-brain-fixtures/README.md": {
     "bytes": 6257,
     "sha256": "39f1c1005ae3934611158847cb9d2b536137bcd5df55c5855a14b171bd5f26fa"
@@ -1427,16 +1435,16 @@
  },
  "corpus": {
   "source.json": {
-   "bytes": 22020382,
-   "sha256": "ed054bfd2663f4aa64d08f517295d07459c4543b92cae99c0356fb0d14ae3943"
+   "bytes": 22020659,
+   "sha256": "03d4fe9bb036068ab444b788bd0fa7f59927873efdfe7a61c520d599fb04353f"
   },
   "coverage.json": {
-   "bytes": 2136299,
-   "sha256": "c4ea7643d5dd16432f8788a8bd22ebe0bb6bdee45fa89902588e7f39d51a4c21"
+   "bytes": 615177,
+   "sha256": "217d49733e09856851e684d707e46972ecf17ceb02568228b0dc67f543eb434d"
   },
   "controls.json": {
    "bytes": 20336,
-   "sha256": "13a366f62aef962352656817843a15d9ff222af3c93641d609e35a34b45b1307"
+   "sha256": "610378f3bf73eb26a6b828787de3afc06c73d78b816c2c32eb6b6eb240ff3a30"
   }
  },
  "maps": [
