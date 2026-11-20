@@ -130,6 +130,7 @@ fn container_frame(s: &Sim, c: &crate::state::Container) -> Value {
         ContainerKind::Quest => ("quest", String::new()),
         ContainerKind::WindEmblem => ("consumable", "Wind emblem · walk over it".to_string()),
         ContainerKind::Cannon => ("cannon", "Travel cannon · F to blast".to_string()),
+        ContainerKind::Heal => unreachable!("no heal pickup on a legacy capture map"),
     };
     let items: Vec<Value> = c
         .items
