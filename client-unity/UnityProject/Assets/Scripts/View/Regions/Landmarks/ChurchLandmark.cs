@@ -71,11 +71,12 @@ namespace Roguehalla.Client
                 directions.Add(normal);
             }
             lm.SetCover(cover);
-            BuildSlateFloor(lm, building);
+            var naveFront = NaveFront(lm, building);
+            BuildSlateFloor(lm, building, naveFront);
             BuildRoof(lm, building, notches);
             for (int i = 0; i < doors.Count; i++) BuildDoor(lm, doors[i], directions[i]);
-            BuildInteriorFurnishings(lm, building);
-            BuildWindows(lm, building);
+            BuildInteriorFurnishings(lm, building, naveFront);
+            BuildWindows(lm, building, naveFront);
             if (lm.ArchTiles.Length > 0) BuildGate(lm);
             foreach (var g in groups)                                                   // a plot lies outside the building's box; the pillar blocks inside it stay as RegionWalls draws them
                 if (g != building && !(g.MinX >= building.MinX && g.MaxX <= building.MaxX && g.MinY >= building.MinY && g.MaxY <= building.MaxY)) BuildGravestones(lm, g);
@@ -292,10 +293,24 @@ namespace Roguehalla.Client
 
         // ---- the nave: a painted slate grid with faint inlaid runes ----------------------------------------------------------
 
-        static void BuildSlateFloor(Landmark lm, Group room)
+        static Vector2Int NaveFront(Landmark lm, Group room)
+        {
+            var direction = lm.FrontVector;
+            if (lm.ArchTiles.Length > 0)
+            {
+                // The delivered graveyard gate sits on the church axis. The arena bearing can be oblique.
+                direction = new Vector2(lm.ArchCentre.x - (room.MinX + room.MaxX + 1) * .5f,
+                    -lm.ArchCentre.y / Sq - (room.MinY + room.MaxY + 1) * .5f);
+            }
+            if (Mathf.Abs(direction.x) > Mathf.Abs(direction.y))
+                return direction.x > 0f ? Vector2Int.right : Vector2Int.left;
+            return direction.y > 0f ? Vector2Int.up : Vector2Int.down;
+        }
+
+        static void BuildSlateFloor(Landmark lm, Group room, Vector2Int naveFront)
         {
             const int ppu = 24;
-            bool acrossX = Mathf.Abs(lm.FrontVector.y) > Mathf.Abs(lm.FrontVector.x);
+            bool acrossX = naveFront.y != 0;
             float centre = acrossX ? (room.MinX + room.MaxX + 1) * .5f : (room.MinY + room.MaxY + 1) * .5f;
             var wash = Resources.Load<Texture2D>("StormInk/Church/SlateWash");
             var pigment = wash != null ? wash.GetPixels32() : null;
@@ -330,14 +345,14 @@ namespace Roguehalla.Client
         }
 
         // Both banks have the same facing. Height on screen follows projection; upright props keep their painted vertical.
-        static void BuildInteriorFurnishings(Landmark lm, Group room)
+        static void BuildInteriorFurnishings(Landmark lm, Group room, Vector2Int naveFront)
         {
-            bool aisleOnX = Mathf.Abs(lm.FrontVector.x) > Mathf.Abs(lm.FrontVector.y);
+            bool aisleOnX = naveFront.x != 0;
             float alongMin = aisleOnX ? room.MinX : room.MinY, alongMax = aisleOnX ? room.MaxX : room.MaxY;
             float across = aisleOnX ? (room.MinY + room.MaxY + 1) * .5f : (room.MinX + room.MaxX + 1) * .5f;
             var pew = Resources.Load<Sprite>("StormInk/Church/OakPew");
             // The narrow back cap lies along the image's +Y edge. Point it toward the entrance.
-            var pewAngle = Mathf.Atan2(-lm.FrontVector.x, -lm.FrontVector.y) * Mathf.Rad2Deg;
+            var pewAngle = Mathf.Atan2(-naveFront.x, -naveFront.y) * Mathf.Rad2Deg;
             float[] rows = { alongMin + 1.55f, alongMin + 2.65f, alongMax - 1.55f, alongMax - .45f };
             foreach (float row in rows)
             for (int bank = -1; bank <= 1; bank += 2)
@@ -358,7 +373,7 @@ namespace Roguehalla.Client
                         aisleOnX ? depth : depth * Sq, pewAngle, 2);
             }
             var pulpit = Resources.Load<Sprite>("StormInk/Church/GothicPulpit");
-            float front = aisleOnX ? lm.FrontVector.x : lm.FrontVector.y;
+            float front = aisleOnX ? naveFront.x : naveFront.y;
             float nearRear = front > 0 ? alongMin + 2.2f : alongMax - 1.2f;
             float onSide = across + (front > 0 ? 8.8f : -8.8f);
             float px = aisleOnX ? nearRear : onSide, py = aisleOnX ? onSide : nearRear;
@@ -387,11 +402,11 @@ namespace Roguehalla.Client
             }
         }
 
-        static void BuildWindows(Landmark lm, Group room)
+        static void BuildWindows(Landmark lm, Group room, Vector2Int naveFront)
         {
             var glass = Resources.Load<Sprite>("StormInk/Church/GarnetLancet");
             var candles = Resources.Load<Sprite>("StormInk/Church/Candelabrum");
-            bool aisleOnX = Mathf.Abs(lm.FrontVector.x) > Mathf.Abs(lm.FrontVector.y);
+            bool aisleOnX = naveFront.x != 0;
             float across = aisleOnX ? (room.MinY + room.MaxY + 1) * .5f : (room.MinX + room.MaxX + 1) * .5f;
             int first = aisleOnX ? room.MinX : room.MinY, last = aisleOnX ? room.MaxX : room.MaxY;
             float[] bays = { -8.2f, -4.2f, 4.2f, 8.2f };
