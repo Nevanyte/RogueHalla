@@ -6,6 +6,7 @@ using UnityEngine;
 
 namespace Roguehalla.Editor
 {
+    /// <summary>Refreshes generated church art and the studio cast after an artist edits, undoes or reimports a source.</summary>
     sealed class ChurchArtReimport : AssetPostprocessor
     {
         static void OnPostprocessAllAssets(string[] imported, string[] deleted, string[] moved, string[] movedFrom)

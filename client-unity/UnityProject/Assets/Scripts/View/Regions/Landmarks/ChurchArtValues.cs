@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Serializable church painting parameters and the per-field inheritance rules shared by gameplay and the editor.</summary>
     [Flags]
     public enum ChurchArtOverrideFields
     {

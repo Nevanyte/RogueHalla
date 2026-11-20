@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Directional Fire axe performance columns, including the independent contact drawings for releases A and B.</summary>
     public enum StormInkFireAxePose { Windup, ReleaseA, Recovery, Guard, Stride, ReleaseB, WindupB, RecoveryB }
 
     /// <summary>Painted Fire animation registration. Rows are S, SE, E, NE, N, NW, W and SW.</summary>

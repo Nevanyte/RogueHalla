@@ -5,6 +5,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Owns reusable, named church slot overrides and resolves them against the furnishing’s shared defaults.</summary>
     [Serializable]
     public sealed class ChurchArtSlotOverride
     {

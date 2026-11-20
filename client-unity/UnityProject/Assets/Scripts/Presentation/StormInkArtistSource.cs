@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Identifies whether the current painting is a Fire body, an equipped axe or a ground pickup.</summary>
     public enum StormInkArtistSourceKind { None, FireAxeBody, EquippedAxe, DroppedAxe }
 
     /// <summary>Identifies the editable asset and painted registration that produced an observed sprite.</summary>

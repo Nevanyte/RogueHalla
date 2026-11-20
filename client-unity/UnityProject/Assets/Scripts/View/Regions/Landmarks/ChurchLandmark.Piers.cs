@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Groups the delivered interior pier tiles and paints fluted masonry over each existing collision footprint.</summary>
     public static partial class ChurchLandmark
     {
         static Group[] FindNavePiers(MapBlob map, Group building)

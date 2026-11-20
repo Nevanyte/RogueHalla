@@ -3,6 +3,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
+    /// <summary>The three painted views supported by a mounted church furnishing.</summary>
     public enum ChurchArtView { Front, Side, Back }
 
     /// <summary>Resolved, artist-editable placement on one generated church part.</summary>
