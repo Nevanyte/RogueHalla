@@ -575,7 +575,7 @@ fn hash_golden() {
         content_hash()
     );
 }
-const GOLDEN_CONTENT_HASH: u64 = 0x0b45_665f_3d1e_9d3c;
+const GOLDEN_CONTENT_HASH: u64 = 0x8196_e898_724e_4218;
 
 #[test]
 fn every_registry_row_perturbs_the_hash() {
