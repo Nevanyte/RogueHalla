@@ -461,6 +461,7 @@ namespace Roguehalla.Client
                 { frames=appearance.Walk;fps=appearance.WalkFPS;walkPhase=true; }
             }
             float? measuredHeight = null;
+            Sprite shieldBody = null;
             if (frames != null && frames.Length > 0)
             {
                 // Catalog arrays are direction-major, with exactly eight source directions. Facing is artwork only.
@@ -484,7 +485,9 @@ namespace Roguehalla.Client
                     inkFrame, useWeaponPhase ? 4 : count, out bool mirror);
                 Sprite unarmed = hauntedFists && !dead && hiddenAlpha > 0f
                     ? HauntedFistsFrame(a, facing, gaitNow, reduced) : null;
-                a.Body.sprite = unarmed ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
+                if (useWeaponPhase || phase == StormInkWeaponMotion.Phase.Block && frames == appearance.Block)
+                    shieldBody = StormInkActors.HolyShieldFrame(kind, faction, weapon, direction, phase);
+                a.Body.sprite = unarmed ?? shieldBody ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
                 bool paintedPox = IsPox(a) && painted != null;
                 float height = paintedPox ? PoxHeight : appearance.WorldHeight;
                 if (paintedPox) measuredHeight = height + .41f;
@@ -586,7 +589,7 @@ namespace Roguehalla.Client
                 int poseRow = StormInkActors.PoseRowForFacing(poseFacing);
                 var pose = StormInkWeaponMotion.Sample(faction.Value, weapon.Value, phase, weaponProgress, poseRow, reduced);
                 pose = RegionalWeaponPose(a, pose, phase, weaponProgress, poseRow, reduced);
-                if (useWeaponPhase) a.Body.transform.localRotation = Quaternion.Euler(0, 0, pose.BodyLean);
+                if (useWeaponPhase && shieldBody == null) a.Body.transform.localRotation = Quaternion.Euler(0, 0, pose.BodyLean);
                 var authored = StormInkWeaponArt.Get(weapon.Value, poseRow);
                 var sprite = authored != null ? authored : ShowcaseSprites.Get(StormInkWeaponMotion.KeyFor(weapon.Value));
                 float scale = EquipmentScale(a);

@@ -87,6 +87,7 @@ namespace Roguehalla.Client
             int row = Rows - 1 - Mathf.RoundToInt(rect.y / rect.height);
             if ((uint)column >= Columns || (uint)row >= Rows) return false;
             int index = row * Columns + column;
+            if (faction == FactionId.Holy && TryHolyShieldHand(body, index, leftHand, out uv)) return true;
             if (Champions[id].Poses[index] != body) return false;
             uv = PaintedHands[id][index].UV(leftHand);
             return true;
