@@ -191,13 +191,7 @@ fn grip_at(k: &MatchStatic, p: &crate::state::Player, at: Vec2) -> f64 {
     crate::cards::native::ice_grip(&p.build).accel(traction_at(k, p, at))
 }
 
-fn ice_along(
-    k: &MatchStatic,
-    p: &crate::state::Player,
-    ux: f64,
-    uy: f64,
-    distance: f64,
-) -> bool {
+fn ice_along(k: &MatchStatic, p: &crate::state::Player, ux: f64, uy: f64, distance: f64) -> bool {
     let n = (distance / WALK_HINT_ICE_PROBE_U).ceil().max(1.) as usize;
     for i in 1..=n {
         let d = distance * i as f64 / n as f64;
