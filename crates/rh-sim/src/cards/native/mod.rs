@@ -28,6 +28,8 @@ pub use readout::{readouts, Readout, ReadoutKind, Readouts, MAX_READOUTS};
 mod exemplars_tests;
 #[cfg(test)]
 mod hooks_tests;
+#[cfg(test)]
+mod weapon_batch_tests;
 
 /// P-AUG-NATIVE-1b: every native card's chest pool membership and offer rule, from the three batch tables (weapon,
 /// zone, faction). No pool reads it until native ids are on the wire (P-WIRE19-A).
