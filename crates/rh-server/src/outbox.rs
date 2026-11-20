@@ -584,6 +584,59 @@ mod tests {
         assert!(frames.iter().all(|f| f == &[9]));
     }
 
+    /// P-TICK-3-fix: a 40 Hz connection's writer writes a 25 ms snapshot with no time override (a 40 Hz decoder reads
+    /// `tick * 25`), and answers a second resync 40 ticks (1000 ms) after the first.
+    #[test]
+    fn a_40_hz_outbox_writes_at_its_rate() {
+        use rh_protocol::ServerMsg;
+        let o = Outbox::default();
+        assert_eq!(o.tick_ms(), rh_protocol::TICK_MS);
+        assert!(o.set_tick_ms(30).is_err());
+        o.set_tick_ms(25).unwrap();
+        assert_eq!(o.tick_ms(), 25);
+        let at25 = |tick: u32| {
+            let actors = (1..=12u32).map(|id| rh_protocol::WireActor {
+                id,
+                x: 16. * id as f32 + if id == 3 { (tick % 2) as f32 * 8. } else { 0. },
+                y: 16.,
+                hp_pct: 100,
+                status: 1,
+                ..rh_protocol::WireActor::default()
+            });
+            SnapshotData::build_with_server_time(tick, tick as f64 * 25.0, 1, 0, None, actors)
+                .unwrap()
+        };
+        let mut frames = Vec::new();
+        o.snapshot(at25(10));
+        o.drain_into(&mut frames);
+        let mut at50 = Vec::new();
+        at25(10).encode_full_into(&mut at50);
+        assert_eq!(frames[0].len() + 8, at50.len(), "no override on the wire");
+        match ServerMsg::decode_at(&frames[0], 40).unwrap() {
+            ServerMsg::Snapshot {
+                tick, server_time, ..
+            } => assert_eq!((tick, server_time), (10, 250.0)),
+            other => panic!("{other:?}"),
+        }
+        o.request_resync();
+        o.snapshot(at25(11));
+        o.drain_into(&mut frames);
+        let full = o.snapshots_full.load(Ordering::Relaxed);
+        o.request_resync();
+        for tick in 12..=50 {
+            o.snapshot(at25(tick));
+            o.drain_into(&mut frames);
+        }
+        assert_eq!(o.snapshots_full.load(Ordering::Relaxed), full, "held to tick 50");
+        o.snapshot(at25(51));
+        o.drain_into(&mut frames);
+        assert_eq!(
+            o.snapshots_full.load(Ordering::Relaxed),
+            full + 1,
+            "40 ticks after the forced Full of tick 11"
+        );
+    }
+
     #[test]
     fn a_slow_client_loses_fx_and_stale_snapshots_but_never_important_frames() {
         let o = Outbox::default();
