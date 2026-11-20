@@ -60,7 +60,9 @@ use std::time::{Duration, Instant};
 /// Origin's version 26 (observation 31, its protocol 19, P-NET-DRAWAHEAD-1a): each delivered player row and its
 /// projected actor carry the public walk hint (heading, committed ticks); bots do not decide on it.
 /// Version 28 (observation 33, protocol 20, P-SYNC-ORIGIN-1): both lines' version 26/27 changes together.
-pub const POLICY_CONTRACT_VERSION: u16 = 28;
+/// Version 29 (P-AUG-BOTS-1): `MatchStart` carries the room's elite rule (`SimConfig::elites`); the planning and hunt
+/// estimates of an elite read it.
+pub const POLICY_CONTRACT_VERSION: u16 = 29;
 
 /// Everything a policy may know about a match before its first observation, all of it public static data (the map
 /// and spawn points), never match state. Never a [`rh_sim::Secrets`] value and never the sim itself (C-OBS, C-RNG, C-POLICY).
@@ -103,8 +105,7 @@ impl MatchStart {
             observation_version: OBSERVATION_VERSION,
             tick_ms: rh_sim::constants::TICK_MS,
             frost_wish: sim.config().frost_wish,
-            // STUB (P-AUG-BOTS-1): the implementer reads `sim.config().elites`.
-            elites: rh_sim::EliteRule::Legacy,
+            elites: sim.config().elites,
         }
     }
 

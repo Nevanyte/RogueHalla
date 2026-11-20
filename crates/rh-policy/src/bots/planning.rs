@@ -176,13 +176,10 @@ fn scaled(spec: &DuelSpec, k: f64) -> DuelSpec {
 }
 /// shared/mobs.ts mobFaction: the region's faction as a regional mob fights it.
 ///
-/// The elite numbers come from the sim's elite seam (`EliteTuning`, P-AUG-RULES-1). The planning maths has no match
-/// context (`matchup_share` is a pure shared function), so it reads the legacy rule's numbers, which every rule plays
-/// until P-ELITE-TUNE-1; that packet threads the room's rule (`MatchStart`) here if its numbers move.
+/// The elite numbers come from the sim's elite seam (`EliteTuning`, P-AUG-RULES-1) under the room's `rule`
+/// (`MatchStart::elites`, carried by `Knowledge`, P-AUG-BOTS-1); the context-free callers read the legacy rule.
 fn mob_faction(region: FactionId, elite: bool, rule: rh_sim::EliteRule) -> DuelSpec {
-    // STUB (P-AUG-BOTS-1): `rule` is ignored until the implementer reads it.
-    let _ = rule;
-    let elites = rh_sim::mob_runtime::EliteTuning::of(rh_sim::EliteRule::Legacy);
+    let elites = rh_sim::mob_runtime::EliteTuning::of(rule);
     let k = if elite { elites.k } else { MOB_K };
     let base = scaled(&player_spec(region), k);
     let hp_mult = MOB_HP_MULT * if elite { elites.hp_mult } else { 1. };
@@ -431,8 +428,17 @@ fn duel(a: &DuelSpec, b: &DuelSpec, dt: f64, t_max: f64) -> DuelResult {
 /// shared/planning.ts matchupShare: the share of its own hp a player of me keeps after a straight duel with a regional
 /// mob (0 for a loss or a draw), over the reference duel at dt 0.01.
 pub fn matchup_share(me: FactionId, region: FactionId, elite: bool) -> f64 {
+    matchup_share_under(me, region, elite, rh_sim::EliteRule::Legacy)
+}
+/// `matchup_share` against an elite of the room's `rule` (P-AUG-BOTS-1).
+pub fn matchup_share_under(
+    me: FactionId,
+    region: FactionId,
+    elite: bool,
+    rule: rh_sim::EliteRule,
+) -> f64 {
     let a = player_spec(me);
-    let b = mob_faction(region, elite, rh_sim::EliteRule::Legacy);
+    let b = mob_faction(region, elite, rule);
     let d = duel(&a, &b, 0.01, 120.);
     if d.winner == Some(0) {
         d.hp_a / a.hp

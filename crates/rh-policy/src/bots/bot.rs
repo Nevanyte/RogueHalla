@@ -378,10 +378,13 @@ impl Policy for HumanBot {
         self.facts = LootFacts::default();
         // Source brain.ts 141-147: the Knowledge layer has its own stream, mulberry32(derive(cfg.seed, 3)); the
         // decision stream is untouched, so the first decision draw is the decision stream's first draw.
-        self.knowledge = Some(Knowledge::create(
-            TierParams::by_id(self.tier),
-            &mut Rng::new(derive(m.seed as u32, 3)),
-        ));
+        self.knowledge = Some(
+            Knowledge::create(
+                TierParams::by_id(self.tier),
+                &mut Rng::new(derive(m.seed as u32, 3)),
+            )
+            .with_elite_rule(m.elites),
+        );
     }
     fn decide(&mut self, obs: &Observation) -> Vec<PublicCommand> {
         let mut out = Vec::new();
