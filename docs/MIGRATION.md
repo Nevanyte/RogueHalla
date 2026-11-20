@@ -4,7 +4,7 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
-## 40 Hz tick, P-TICK-1a and 1b (2026-11-20, branch `claude/project-thread-baoxuk`)
+## 40 Hz tick, P-TICK-1a, 1b, 2 and 3 (2026-11-20, branch `claude/project-thread-baoxuk`)
 
 **Owner direction 2026-11-19:** "lets do 40" (live tick 40 Hz), then "okay for all 3" (accept ADR 0029, sign DEV-039,
 push). ADR 0029 Accepted; C-TICK amended; DEV-039 signed; packets P-TICK-0..6 (backlog section 1a). P-TICK-3 lands after
@@ -25,6 +25,17 @@ reviewer-opus LAND WITH NOTES (2): 25 ms scenario racks refused after the bootst
 steps. Merged as `7e0e35dc`; full gate **PASS** (skipped: dotnet, Postgres, Unity EditMode). **P-TICK-1b-fix**
 (coordinator widened its scope to `actor_refs.rs`): rack check on sim time, item/reward/actor handle grace
 `steps_of_legacy_ticks(20)` (1000 ms at both rates); reviewer-opus LAND; merged as `3b8c7677`.
+
+**P-TICK-3** (protocol **21**, after #74 took 19 and #76 took 20): snapshot server time is `tick * 1000/tick_rate`
+(Welcome rate 20 or 40 only, others refused by the Rust, C# and JS decoders); delta age bounds in milliseconds
+(3200 ms, forced full 1000 ms); `profile_supported` refuses `tick_ms != 50` until P-TICK-5; `v21.json` (v20 plus a
+`serverTickRate40` section). Coordinator amendments: protocol-20 pins and C# `TickRate = 0` Welcomes moved (version or
+rate value only, under ADR 0029's accepted bump); the JS oracle runs from `check-map-anchors.mjs` (gate.sh is
+owner-protected). reviewer-opus LAND WITH NOTES (encoder not rate-aware); merged `152fc4b9`; full gate **PASS**
+(skipped: dotnet, Postgres, Unity EditMode; C# not compiled here, CI runs it). **P-TICK-3-fix**: ConnEncoder,
+SnapshotData, the delta writer, Outbox and the policy forced-full rule take the connection's `tick_ms`; reviewer-opus
+LAND; merged `d9f21dfb`. **P-TICK-2**: bots and headless read the step (`--tick-ms 50|25`); reviewer-opus LAND;
+merged `f9273960`. Open: PR #77 perfproof Ir ratio 1.07-1.12 over the 1.03 limit (P-TICK-1b-perf in progress).
 
 ## Integration 58 (2026-11-18): the GitHub front page
 
