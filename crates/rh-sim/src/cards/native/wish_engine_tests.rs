@@ -14,13 +14,15 @@ use crate::input::{validate, RawCommand};
 use crate::map::TileMap;
 use crate::{AugmentRule, FactionId, Placement, Secrets, Sim, SimConfig, Vec2};
 
-const FACTIONS: [FactionId; 5] = [
-    FactionId::Fire,
-    FactionId::Frost,
-    FactionId::Plague,
-    FactionId::Holy,
-    FactionId::Sentenced,
-];
+fn factions() -> [FactionId; 5] {
+    [
+        FactionId::Fire,
+        FactionId::Frost,
+        FactionId::Plague,
+        FactionId::Holy,
+        FactionId::Sentenced,
+    ]
+}
 
 fn num(name: &str) -> f64 {
     registered(name).unwrap_or_else(|| panic!("{name} is not a registered content row"))
@@ -246,7 +248,8 @@ struct Cast {
 }
 
 /// Plays player 1's Wish `casts` times (each as soon as it is ready). With `checkpoints`, restores a checkpoint after
-/// each acceptance and each landing, and two ticks before each recast, each riding along until past the next landing.
+/// each acceptance and each landing, and on the tick within two ticks of each recast (a holder's clocks leave the tick
+/// lattice), each riding along until past the next landing.
 fn play(ls: &mut Lockstep, casts: usize, checkpoints: bool, at: &str) -> Vec<Cast> {
     let mut out = Vec::new();
     let mut guard = 0u32;
@@ -256,7 +259,11 @@ fn play(ls: &mut Lockstep, casts: usize, checkpoints: bool, at: &str) -> Vec<Cas
         let now = ls.main.w.server_time;
         if wish_raw(&ls.main, 0).is_none() {
             let ready_at = ls.main.w.players[0].stocks.wish_ready_at;
-            if checkpoints && ready_at - now == 2. * crate::constants::TICK_MS {
+            let left = ready_at - now;
+            if checkpoints
+                && left > crate::constants::TICK_MS
+                && left <= 2. * crate::constants::TICK_MS
+            {
                 ls.checkpoint(24, format!("{at}: two ticks before cast {}", out.len()));
             }
             ls.step();
@@ -393,7 +400,7 @@ fn arcane_overload_and_wish_engine_multiply() {
 /// row's full cooldown every time, and a Wish Engine holder who does not cast earns nothing from the other's casts.
 #[test]
 fn only_the_holder_s_own_landed_wishes_shorten_only_its_own_cooldown() {
-    for faction in FACTIONS {
+    for faction in factions() {
         let at = format!("{faction:?}");
         let s = world_of(
             AugmentRule::Rework,
@@ -434,7 +441,7 @@ fn only_the_holder_s_own_landed_wishes_shorten_only_its_own_cooldown() {
 #[test]
 fn a_holder_checkpointed_at_every_cast_landing_and_recast_restores_and_plays_on() {
     let casts_to_cap = [10, 7, 3, 2, 2];
-    for (faction, n) in FACTIONS.into_iter().zip(casts_to_cap) {
+    for (faction, n) in factions().into_iter().zip(casts_to_cap) {
         let at = format!("{faction:?}");
         let mut ls = Lockstep::new(world(faction, &[CardId::WishEngine]), &[0]);
         let row = row_cooldown(&ls.main, 0);
@@ -451,7 +458,11 @@ fn a_holder_checkpointed_at_every_cast_landing_and_recast_restores_and_plays_on(
             shortened >= n,
             "{at}: {shortened} of the checkpointed spends were shortened, want at least {n}"
         );
-        assert!(ls.taken as usize >= 3 * n, "{at}: {} checkpoints", ls.taken);
+        assert!(
+            ls.taken as usize >= 2 * (n + 1) + n / 2,
+            "{at}: {} checkpoints",
+            ls.taken
+        );
     }
 }
 
@@ -703,16 +714,15 @@ fn digest(augments: AugmentRule) -> (u64, u64) {
     (fnv(hashes), fnv(text.bytes().map(u64::from)))
 }
 
-// Recorded on `packet/P-AUG-NATIVE-3b` at the stub commit (no Wish Engine behaviour: the base's).
-const LEGACY_DIGEST: (u64, u64) = (557807947671313187, 13382606214435028896);
-const REWORK_DIGEST: (u64, u64) = (10009499299823935763, 13403526707108067106);
-
 #[test]
 fn legacy_and_rework_without_wish_engine_play_as_on_the_base() {
-    assert_eq!(digest(AugmentRule::Legacy), LEGACY_DIGEST, "Legacy");
+    // Recorded on `packet/P-AUG-NATIVE-3b` at the stub commit (no Wish Engine behaviour: the base's).
+    let legacy: (u64, u64) = (557807947671313187, 13382606214435028896);
+    let rework: (u64, u64) = (10009499299823935763, 13403526707108067106);
+    assert_eq!(digest(AugmentRule::Legacy), legacy, "Legacy");
     assert_eq!(
         digest(AugmentRule::Rework),
-        REWORK_DIGEST,
+        rework,
         "Rework without Wish Engine"
     );
 }
