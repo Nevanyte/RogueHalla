@@ -1,6 +1,7 @@
-//! When a room steps (docs/CONTRACTS.md C-TICK): a fixed grid of TICK_MS slots on the monotonic clock. Each wake runs the
-//! steps the grid owes: normally one; after a late wake up to MAX_CATCHUP steps; a longer backlog is DROPPED and the grid
-//! re-anchored (the server sheds load instead of spiralling). Simulation time itself is virtual: +TICK_MS per step, so a
+//! When a room steps (docs/CONTRACTS.md C-TICK): a fixed grid of slots one room step long (the sim's `tick_ms`, 50 or
+//! 25 ms, ADR 0029) on the monotonic clock. Each wake runs the steps the grid owes: normally one; after a late wake up to
+//! MAX_CATCHUP steps (counted in steps, so half the wall time at 25 ms); a longer backlog is DROPPED and the grid
+//! re-anchored (the server sheds load instead of spiralling). Simulation time itself is virtual: +tick_ms per step, so a
 //! dropped backlog only stretches wall time, it never changes an outcome. Uses `tokio::time::Instant`, so tests can run on
 //! a paused clock and the live and headless paths share the exact same step function.
 
