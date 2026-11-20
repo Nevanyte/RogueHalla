@@ -30,6 +30,7 @@ namespace Roguehalla.Client
             public float StampTime;
             public bool LocalCue;
             public int FireAxeReleaseCount;
+            public StormInkArtistSource BodyArtistSource, WeaponArtistSource;
             public float AttackAt, HitAt, BlockAt, DeadAt, HitUntil, BlockUntil;
             public float WishAt, WishUntil; public byte WishClip;
             public Color WishTint; public float WishTintAmount;
@@ -344,6 +345,8 @@ namespace Roguehalla.Client
             art.Ind.HideAll();
             foreach (var segment in art.BarrierRing) segment.enabled = false;
             art.Identity.Clear();
+            art.BodyArtistSource?.Clear();
+            art.WeaponArtistSource?.Clear();
             art.Root.SetActive(false);
             _pool.Push(art);
         }
@@ -686,6 +689,14 @@ namespace Roguehalla.Client
             if (!drawingString) a.Bowstring?.Clear(a.Weapon, a.OutBody);
             a.Weapon.color = weapon == WeaponId.Fists ? new Color(.9f, .86f, .72f, hiddenAlpha) : new Color(1f, 1f, 1f, hiddenAlpha);
             a.Weapon.enabled = !paintedWand && !hauntedFists && !dead && weapon.HasValue && hiddenAlpha > 0f;
+            a.BodyArtistSource = StormInkArtistSource.BindBody(a.BodyArtistSource, a.Body, axeBody != null ? fireAxeArt : null);
+            if (weapon == WeaponId.Axe && a.Weapon.enabled)
+            {
+                int row = StormInkActors.PoseRowForFacing(trackedWeapon ? poseFacing : facing);
+                a.WeaponArtistSource = StormInkArtistSource.BindAxe(a.WeaponArtistSource, a.Weapon, row, false);
+            }
+            else
+                a.WeaponArtistSource?.Clear();
             a.Status.enabled = false; // the generic status cue is replaced by the per-status glyphs (OverheadIndicators)
             a.Status.sortingOrder = order + 6; a.Status.color = color;
             a.Status.transform.localPosition = new Vector3(.55f, 1.5f, 0);

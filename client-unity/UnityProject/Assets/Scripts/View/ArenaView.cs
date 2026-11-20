@@ -79,6 +79,7 @@ namespace Roguehalla.Client
         ShowcaseCatalog _catalog;
         Transform _mapRoot, _propsRoot, _fxRoot;
         readonly List<SpriteRenderer> _props = new List<SpriteRenderer>();
+        readonly List<StormInkArtistSource> _propArtistSources = new List<StormInkArtistSource>();
         readonly List<ShowcasePointLight> _lamps = new List<ShowcasePointLight>();
         readonly List<SpriteRenderer> _lampGlows = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _motes = new List<SpriteRenderer>();
@@ -478,7 +479,7 @@ namespace Roguehalla.Client
                         Color tint = equipment ? Color.white : ShowcasePalette.MutedText;
                         float size = equipment ? StormInkWeaponMotion.Size : .48f;
                         Vector2 centre = equipment ? StormInkWeaponArt.GroundCentre((WeaponId)weapon) : new Vector2(0, .22f);
-                        Prop(glyph, position + (Vector3)centre, Vector2.one * size, tint, order);
+                        Prop(glyph, position + (Vector3)centre, Vector2.one * size, tint, order, p.Weapon == WeaponId.Axe);
                     }
                     else if (p.Kind == PropAppearance.WindEmblem)
                     {
@@ -549,7 +550,11 @@ namespace Roguehalla.Client
                 if (_flushPendingInPresent) _shotsForPresentedActors = collections;
                 else ObserveShots(collections);
             }
-            for (int i = _used; i < _props.Count; i++) _props[i].gameObject.SetActive(false);
+            for (int i = _used; i < _props.Count; i++)
+            {
+                _props[i].gameObject.SetActive(false);
+                _propArtistSources[i]?.Clear();
+            }
             _markVisible = _markVisible ?? MarkVisible;
             _worldMarks.Update(collections, _markVisible); _campLabels.Update(_visionSession, _markVisible);
             _worldIndicators.Update(collections, _sourceTimeMs, _haveLocal, _localX, _localY, Time.unscaledTime, MarkVisible);
@@ -586,12 +591,22 @@ namespace Roguehalla.Client
         /// <summary>Screen rotation of a sprite that points along the ground heading (sim radians, +y south): the ground is drawn squashed.</summary>
         public static float ProjectileScreenAngleDeg(float facing) { return Mathf.Atan2(-Mathf.Sin(facing) * GroundSquash, Mathf.Cos(facing)) * Mathf.Rad2Deg; }
         void LateUpdate() { if (_overlay != null) _overlay.Draw(_archetypes); _vignette?.Tick(Time.unscaledTime, ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion); }
-        SpriteRenderer Prop(string sprite, Vector3 p, Vector2 scale, Color color, int order)
+        SpriteRenderer Prop(string sprite, Vector3 p, Vector2 scale, Color color, int order, bool droppedAxe = false)
         {
             SpriteRenderer r;
-            if (_used == _props.Count) { r = ShowcaseSprites.Create(_propsRoot, "Observed artwork", sprite, order, color, scale, p, false); _props.Add(r); }
-            else r = _props[_used];
-            _used++; r.gameObject.SetActive(true); r.sprite = ShowcaseSprites.Get(sprite); r.color = color; r.sortingOrder = order;
+            int slot = _used++;
+            if (slot == _props.Count)
+            {
+                r = ShowcaseSprites.Create(_propsRoot, "Observed artwork", sprite, order, color, scale, p, false);
+                _props.Add(r);
+                _propArtistSources.Add(null);
+            }
+            else r = _props[slot];
+            r.gameObject.SetActive(true); r.sprite = ShowcaseSprites.Get(sprite); r.color = color; r.sortingOrder = order;
+            if (droppedAxe)
+                _propArtistSources[slot] = StormInkArtistSource.BindAxe(_propArtistSources[slot], r, 0, true);
+            else
+                _propArtistSources[slot]?.Clear();
             r.sharedMaterial = ShowcaseSprites.Unlit;
             r.transform.position = p; r.transform.localScale = new Vector3(scale.x, scale.y, 1); r.transform.rotation = Quaternion.identity;
             return r;
