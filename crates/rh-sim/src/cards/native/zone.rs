@@ -140,8 +140,8 @@ pub(super) fn holds_overflow(native: &NativeCards) -> bool {
 /// carry `e - floor(e)` (exact in f64: 0 or 0.5); `(kill_stacks, None)` for a non-holder.
 pub(super) fn marked_man_stacks(native: &NativeCards, kill_stacks: u64) -> (u64, Option<f64>) {
     held(native, CardId::MarkedMan).map_or((kill_stacks, None), |s| {
-        let e = kill_stacks as f64 * (crate::constants::REWORK_MARKED_MAN_STACK_MULT - 1.)
-            + s.counter;
+        let e =
+            kill_stacks as f64 * (crate::constants::REWORK_MARKED_MAN_STACK_MULT - 1.) + s.counter;
         let whole = e.floor();
         (kill_stacks + whole as u64, Some(e - whole))
     })

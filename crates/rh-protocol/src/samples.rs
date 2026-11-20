@@ -5766,7 +5766,10 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         ),
         ("state_readouts_order", readouts_patched(2, 0, &[80])),
         // P-AUG-NATIVE-5: State key 15 faults: the count, then patches of `state_marked` (row 0 id at byte 6, row 1 at 11).
-        ("state_marked_count_33", vec![0x88, 0xdc, 0x01, 0x01, 0x0f, 0x21]),
+        (
+            "state_marked_count_33",
+            vec![0x88, 0xdc, 0x01, 0x01, 0x0f, 0x21],
+        ),
         ("state_marked_id_0", marked_patched(6, 0)),
         ("state_marked_order", marked_patched(11, 2)),
         (
