@@ -598,3 +598,7 @@ async fn main() {
 #[cfg(test)]
 #[path = "startup/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "startup/tick_tests.rs"]
+mod tick_tests;

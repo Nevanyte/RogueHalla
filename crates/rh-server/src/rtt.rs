@@ -119,6 +119,11 @@ impl RttEstimator {
     pub fn allowed_rewind_ms(&self) -> f64 {
         allowed_rewind_ms(self.smoothed_ms)
     }
+
+    /// P-TICK-5 stub: the rewind window in a room stepping `tick_ms` (see [`allowed_rewind_ms_at`]).
+    pub fn allowed_rewind_ms_at(&self, tick_ms: u32) -> f64 {
+        allowed_rewind_ms_at(self.smoothed_ms, tick_ms)
+    }
 }
 
 /// The window an honest client needs (module docs): the smoothed RTT, plus the client's largest render delay, plus one
@@ -130,6 +135,13 @@ pub fn allowed_rewind_ms(smoothed_rtt_ms: f64) -> f64 {
         DEFAULT_RTT_MS
     };
     (rtt + RENDER_DELAY_ALLOWANCE_MS + TICK_MS + INTAKE_SLACK_MS).clamp(TICK_MS, MAX_REWIND_MS)
+}
+
+/// P-TICK-5 stub: [`allowed_rewind_ms`] in a room stepping `tick_ms` (one step of phase, floored at one step). The stub
+/// ignores the rate.
+pub fn allowed_rewind_ms_at(smoothed_rtt_ms: f64, tick_ms: u32) -> f64 {
+    let _ = tick_ms;
+    allowed_rewind_ms(smoothed_rtt_ms)
 }
 
 /// Clamps a client render time into the window that ends at `now_apply` (the sim time the command will be applied at).
@@ -296,6 +308,10 @@ pub fn last_estimate_ms(match_id: MatchId, player: PlayerId) -> Option<f64> {
         .find(|((m, p), _)| *m == match_id && *p == player)
         .map(|(_, v)| *v)
 }
+
+#[cfg(test)]
+#[path = "rtt_tick_tests.rs"]
+mod tick_tests;
 
 #[cfg(test)]
 mod tests {

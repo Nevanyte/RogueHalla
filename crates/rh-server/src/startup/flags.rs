@@ -39,3 +39,18 @@ pub(crate) fn wish_full_enabled(args: &[String]) -> Result<bool, String> {
     }
     Ok(count == 1)
 }
+
+/// P-TICK-5: the environment variable that sets a room's step when `--tick-ms` is absent.
+#[allow(dead_code)] // P-TICK-5 stub: main.rs applies it.
+pub(crate) const TICK_MS_ENV: &str = "RH_TICK_MS";
+
+/// P-TICK-5 stub: the room step in milliseconds from `--tick-ms 50|25`, else [`TICK_MS_ENV`], else 50; any other value is
+/// an error. The stub always answers 50.
+#[allow(dead_code)] // P-TICK-5 stub: main.rs applies it.
+pub(crate) fn tick_ms_setting(
+    args: &[String],
+    env: impl Fn(&str) -> Option<String>,
+) -> Result<u32, String> {
+    let _ = (args, env);
+    Ok(50)
+}
