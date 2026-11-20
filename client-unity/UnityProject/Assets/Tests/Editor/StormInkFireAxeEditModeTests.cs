@@ -70,7 +70,7 @@ namespace Roguehalla.Client.Tests
 
             _presenter.ConfirmedCue(1, FxKind.Cancel);
             Present(0f, WeaponId.Sword);
-            Assert.That(ActorSprite("Authored character").sprite.name, Does.StartWith("FireChampion/"));
+            Assert.That(ActorSprite("Authored character").sprite.name, Does.StartWith("FireAxe/"));
             Present(0f, WeaponId.Axe, FactionId.Frost);
             Assert.That(ActorSprite("Authored character").sprite.name, Does.StartWith("FrostChampion/"));
         }

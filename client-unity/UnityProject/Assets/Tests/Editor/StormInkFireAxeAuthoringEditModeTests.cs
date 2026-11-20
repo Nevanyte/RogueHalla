@@ -174,8 +174,9 @@ namespace Roguehalla.Client.Tests
                 foreach (var weapon in new[] { WeaponId.Fists, WeaponId.Sword, WeaponId.Bow, WeaponId.Shield, WeaponId.Wand })
                 {
                     Present(weapon);
-                    Assert.That(body.sprite.name, Does.StartWith("FireChampion/"));
-                    Assert.That(body.transform.localScale.y, Is.EqualTo(oldHeight));
+                    Assert.That(body.sprite.name, Does.StartWith(weapon == WeaponId.Sword ? "FireAxe/" : "FireChampion/"));
+                    Assert.That(body.transform.localScale.y,
+                        Is.EqualTo(weapon == WeaponId.Sword ? oldHeight * 1.20f : oldHeight));
                 }
             }
             finally
