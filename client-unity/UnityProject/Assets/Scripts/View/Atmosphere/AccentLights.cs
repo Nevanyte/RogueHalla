@@ -5,7 +5,7 @@ using Roguehalla.Net.Protocol;
 namespace Roguehalla.Client
 {
     /// <summary>A light site: a cluster of terrain tiles (lava, ice, bog, light) or a single lantern prop (Lantern = true, Kind None).</summary>
-    public struct TerrainCluster { public float X, Y; public int Count; public TerrainKind Kind; public bool Lantern; public float Lift; public bool TempleLamp, Candle, LandmarkCandle; public Color LightColor; public float LightIntensity, LightRadius, SpillIntensity; }
+    public struct TerrainCluster { public float X, Y; public int Count; public TerrainKind Kind; public bool Lantern; public float Lift; public bool TempleLamp, Candle, LandmarkCandle, SteadyGlass; public Color LightColor; public float LightIntensity, LightRadius, SpillIntensity; }
 
     /// <summary>
     /// Pure planner for terrain-generated accent lights. Clusters (one per 8x8-tile cell and terrain kind) are built once at map
@@ -63,10 +63,10 @@ namespace Roguehalla.Client
         /// <summary>Add a temple lamp stand as a light site (warm gold spec).</summary>
         public void AddTempleLamp(float tx, float ty, float lift) { _clusters.Add(new TerrainCluster { X = tx, Y = ty, Count = 1, Kind = TerrainKind.None, Lantern = true, Lift = lift, TempleLamp = true }); }
 
-        public void AddLandmarkCandle(float tx, float ty, float lift, Color color, float intensity, float radius, float spillIntensity)
+        public void AddLandmarkCandle(float tx, float ty, float lift, Color color, float intensity, float radius, float spillIntensity, bool steadyGlass = false)
         {
             _clusters.Add(new TerrainCluster { X = tx, Y = ty, Count = 1, Kind = TerrainKind.None, Lantern = true, Lift = lift, Candle = true, LandmarkCandle = true,
-                LightColor = color, LightIntensity = intensity, LightRadius = radius, SpillIntensity = spillIntensity });
+                LightColor = color, LightIntensity = intensity, LightRadius = radius, SpillIntensity = spillIntensity, SteadyGlass = steadyGlass });
         }
 
         public void RemoveLandmarkCandles()
@@ -175,7 +175,7 @@ namespace Roguehalla.Client
             if (_landmarks != null)
                 for (int i = 0; i < _landmarks.Count; i++)
                     foreach (var socket in _landmarks.Get(i).CandleSockets)
-                        _planner.AddLandmarkCandle(socket.Tile.x, socket.Tile.y, socket.Lift, socket.Color, socket.Intensity, socket.Radius, socket.SpillIntensity);
+                        _planner.AddLandmarkCandle(socket.Tile.x, socket.Tile.y, socket.Lift, socket.Color, socket.Intensity, socket.Radius, socket.SpillIntensity, socket.SteadyGlass);
             _dirty = true; _lastCellX = int.MinValue;
         }
 
@@ -193,6 +193,7 @@ namespace Roguehalla.Client
         /// <summary>Height of the light above the ground (tiles) and its cookie / shadow behaviour, by kind of site.</summary>
         public static void Shape(in TerrainCluster c, out float height, out int cookie, out bool shadow)
         {
+            if (c.SteadyGlass) { height = c.Lift; cookie = LocalLightField.CookieGlass; shadow = false; return; }
             if (c.Candle) { height = c.Lift; cookie = LocalLightField.CookieNone; shadow = true; return; }
             if (c.TempleLamp) { height = c.Lift > 0 ? c.Lift : .85f; cookie = LocalLightField.CookieGlass; shadow = true; return; }
             if (c.Lantern) { height = c.Lift > 0 ? c.Lift : 1.05f; cookie = LocalLightField.CookieGrate; shadow = true; return; }
@@ -225,10 +226,14 @@ namespace Roguehalla.Client
                 s.Alpha = Mathf.MoveTowards(s.Alpha, s.Wanted ? 1f : 0f, dt / FadeSeconds);
                 if (s.Alpha <= 0f && !s.Wanted) { FreeShadow(s); if (s.Cluster >= 0) { s.Cluster = -1; s.Rank = 99; } if (s.Light != null) s.Light.SetVisible(false); continue; }
                 // Layered flicker: slow breathing, mid-rate wobble, and a crackle from smooth noise (fire and lanterns).
-                float crackle = (Mathf.PerlinNoise(time * 3.3f + s.Phase, s.Phase * .37f) - .5f) * .32f;
-                float flick = 1f + s.Spec.Flicker * (.14f * Mathf.Sin(time * 5.3f + s.Phase) + .09f * Mathf.Sin(time * 11.7f + s.Phase * 2.1f) + .06f * Mathf.Sin(time * 2.1f + s.Phase * .7f) + crackle);
+                float flick = 1f;
+                if (!AtmosphereQuality.ReducedMotion && s.Spec.Flicker > 0f)
+                {
+                    float crackle = (Mathf.PerlinNoise(time * 3.3f + s.Phase, s.Phase * .37f) - .5f) * .32f;
+                    flick += s.Spec.Flicker * (.14f * Mathf.Sin(time * 5.3f + s.Phase) + .09f * Mathf.Sin(time * 11.7f + s.Phase * 2.1f) + .06f * Mathf.Sin(time * 2.1f + s.Phase * .7f) + crackle);
+                }
                 float radius = s.Spec.Radius * (s.C.Lantern ? 1f : 1f + .06f * Mathf.Sqrt(s.C.Count));
-                float intensity = s.Spec.Intensity * s.Alpha * (AtmosphereQuality.ReducedMotion ? 1f : flick);
+                float intensity = s.Spec.Intensity * s.Alpha * flick;
                 if (s.Rank < l2cap)
                 {
                     if (s.Light == null) { s.Light = NewLight(s.Pos, analytic); }
@@ -277,7 +282,7 @@ namespace Roguehalla.Client
             if (free == null) return null;           // every slot busy fading out: pick this cluster up next re-plan
             var c = _planner.Clusters[cluster];
             free.Cluster = cluster; free.C = c;
-            free.Spec = c.Candle ? new AccentLightSpec { Lantern = true, Color = c.LightColor, Intensity = c.LightIntensity, Radius = c.LightRadius, Flicker = .27f }
+            free.Spec = c.Candle ? new AccentLightSpec { Lantern = true, Color = c.LightColor, Intensity = c.LightIntensity, Radius = c.LightRadius, Flicker = c.SteadyGlass ? 0f : .27f }
                 : c.TempleLamp ? RegionAtmosphereTable.TempleLamp : RegionAtmosphereTable.AccentFor(c.Kind);
             free.Alpha = 0f; free.Phase = c.X * 1.7f + c.Y * 2.3f;
             free.Pos = ArenaView.WorldPoint(c.X * 32f, c.Y * 32f) + new Vector3(0, c.Lift, -1);

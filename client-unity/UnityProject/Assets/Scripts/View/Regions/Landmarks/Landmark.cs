@@ -49,13 +49,22 @@ namespace Roguehalla.Client
         {
             public int SourceId; public Vector2 Tile; public float Lift; public Color Color;
             public float Intensity, Radius, SpillIntensity;
+            public bool SteadyGlass;
         }
         internal readonly List<LandmarkCandleSocket> CandleSockets = new List<LandmarkCandleSocket>();
         internal System.Action<Landmark> CandleSocketsChanged;
-        internal void RegisterCandleSocket(int sourceId, Vector2 tile, float lift, Color color, float intensity, float radius, float spillIntensity)
+        internal void RegisterCandleSocket(int sourceId, Vector2 tile, float lift, Color color, float intensity, float radius, float spillIntensity, bool steadyGlass = false)
         {
+            if (steadyGlass)
+            {
+                foreach (var socket in CandleSockets)
+                    if (socket.SourceId == sourceId && socket.SteadyGlass && socket.Tile.Equals(tile)
+                        && socket.Lift == lift && socket.Color.Equals(color) && socket.Intensity == intensity
+                        && socket.Radius == radius && socket.SpillIntensity == spillIntensity)
+                        return;
+            }
             RemoveCandleSocket(sourceId, false);
-            CandleSockets.Add(new LandmarkCandleSocket { SourceId = sourceId, Tile = tile, Lift = lift, Color = color, Intensity = intensity, Radius = radius, SpillIntensity = spillIntensity });
+            CandleSockets.Add(new LandmarkCandleSocket { SourceId = sourceId, Tile = tile, Lift = lift, Color = color, Intensity = intensity, Radius = radius, SpillIntensity = spillIntensity, SteadyGlass = steadyGlass });
             if (CandleSocketsChanged != null) CandleSocketsChanged(this);
         }
         internal void RemoveCandleSocket(int sourceId)
