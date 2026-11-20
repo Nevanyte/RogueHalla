@@ -36,14 +36,15 @@ namespace Roguehalla.Net.Protocol
         public byte MarkTier, Brand, MarkTax;
         /// <summary>A remote player's walk hint (protocol 19, P-NET-DRAWAHEAD-1a): the heading the server will keep walking, in
         /// 256ths of a turn (0 whenever <see cref="WalkTicks"/> is 0), and the whole ticks it is committed to (a lower bound).
-        /// Never set on a mob. Declared by the stub; the codec reads and writes it in P-NET-DRAWAHEAD-1a.</summary>
+        /// Never set on a mob. A plain count: any pair decodes (an encoder refuses a heading without ticks).</summary>
         public byte WalkDir, WalkTicks;
 
         // Full actor mask bits (append only): 0 kit, 1 hp, 2 status, 3 bounty, 4 kind ... 10 archetype, 11 flags, 12 off-hand,
-        // 13 build marks, 14 mark plate. A varint (three bytes once bit 14 is set).
+        // 13 build marks, 14 mark plate, 15 walk hint (protocol 19: walk dir, walk ticks; set only while the ticks are not 0).
+        // A varint (three bytes once bit 14 is set).
         internal const uint MKit = 1 << 0, MHp = 1 << 1, MStatus = 1 << 2, MBounty = 1 << 3, MKind = 1 << 4, MEffects = 1 << 5, MDisplace = 1 << 6, MMobType = 1 << 7, MSig = 1 << 8, MBarrier = 1 << 9, MArchetype = 1 << 10,
-            MFlags = 1 << 11, MOffhand = 1 << 12, MBuildMarks = 1 << 13, MMark = 1 << 14,
-            MKnown = MKit | MHp | MStatus | MBounty | MKind | MEffects | MDisplace | MMobType | MSig | MBarrier | MArchetype | MFlags | MOffhand | MBuildMarks | MMark;
+            MFlags = 1 << 11, MOffhand = 1 << 12, MBuildMarks = 1 << 13, MMark = 1 << 14, MWalk = 1 << 15,
+            MKnown = MKit | MHp | MStatus | MBounty | MKind | MEffects | MDisplace | MMobType | MSig | MBarrier | MArchetype | MFlags | MOffhand | MBuildMarks | MMark | MWalk;
         internal const byte DefaultHpPct = 100;
 
         /// <summary>Only native quest givers use the reserved absent-identity kit and carry no regional type.</summary>
@@ -71,6 +72,7 @@ namespace Roguehalla.Net.Protocol
             if (Offhand != 0) m |= MOffhand;
             if (BuildMarks != 0) m |= MBuildMarks;
             if (MarkTier != 0 || Brand != 0 || MarkTax != 0) m |= MMark;
+            if (WalkTicks != 0) m |= MWalk;
             return m;
         }
 
@@ -81,7 +83,7 @@ namespace Roguehalla.Net.Protocol
             uint m = Mask();
             return Writer.VarintLength(IdField(Id, first, prev)) + Writer.VarintLength(m) + 6 + ((m & MKit) != 0 ? 1 : 0) + ((m & MHp) != 0 ? 1 : 0)
                 + ((m & MStatus) != 0 ? 1 : 0) + ((m & MBounty) != 0 ? Writer.VarintLength(Bounty) : 0) + ((m & MKind) != 0 ? 1 : 0) + ((m & MEffects) != 0 ? 2 : 0) + ((m & MDisplace) != 0 ? 1 : 0) + ((m & MMobType) != 0 ? 1 : 0) + ((m & MSig) != 0 ? 1 : 0) + ((m & MBarrier) != 0 ? 2 : 0) + ((m & MArchetype) != 0 ? 1 : 0)
-                + ((m & MFlags) != 0 ? 1 : 0) + ((m & MOffhand) != 0 ? 1 : 0) + ((m & MBuildMarks) != 0 ? 1 : 0) + ((m & MMark) != 0 ? 3 : 0);
+                + ((m & MFlags) != 0 ? 1 : 0) + ((m & MOffhand) != 0 ? 1 : 0) + ((m & MBuildMarks) != 0 ? 1 : 0) + ((m & MMark) != 0 ? 3 : 0) + ((m & MWalk) != 0 ? 2 : 0);
         }
 
         /// <summary>Reads one actor; the first has an absolute id, each later one the (non-zero) gap from <paramref name="prev"/>.</summary>
@@ -116,6 +118,7 @@ namespace Roguehalla.Net.Protocol
             a.Offhand = (mask & MOffhand) != 0 ? r.U8() : (byte)0;
             a.BuildMarks = (mask & MBuildMarks) != 0 ? r.U8() : (byte)0;
             if ((mask & MMark) != 0) { a.MarkTier = r.U8(); a.Brand = r.U8(); a.MarkTax = r.U8(); }
+            if ((mask & MWalk) != 0) { a.WalkDir = r.U8(); a.WalkTicks = r.U8(); }
             WireIndicators.CheckDecoded(a.Offhand, a.BuildMarks, a.MarkTier, a.Brand, a.MarkTax, a.Flags);
             if (!a.HasValidGiverIdentity) throw new DecodeException(DecodeError.BadField, "giver actor");
             return a;
@@ -141,6 +144,7 @@ namespace Roguehalla.Net.Protocol
             if ((m & MOffhand) != 0) w.U8(Offhand);
             if ((m & MBuildMarks) != 0) w.U8(BuildMarks);
             if ((m & MMark) != 0) { w.U8(MarkTier); w.U8(Brand); w.U8(MarkTax); }
+            if ((m & MWalk) != 0) { w.U8(WalkDir); w.U8(WalkTicks); }
         }
     }
 
@@ -241,7 +245,7 @@ namespace Roguehalla.Net.Protocol
     {
         public const uint MX = 1 << 0, MY = 1 << 1, MFacing = 1 << 2, MKit = 1 << 3, MHp = 1 << 4, MBounty = 1 << 5, MStatus = 1 << 6,
             MKind = 1 << 7, MEffects = 1 << 8, MDisplace = 1 << 9, MMobType = 1 << 10, MSig = 1 << 11, MBarrier = 1 << 12, MArchetype = 1 << 13,
-            MFlags = 1 << 14, MOffhand = 1 << 15, MBuildMarks = 1 << 16, MMark = 1 << 17, MAll = 0x3ffff, MNew = MX | MY | MFacing;
+            MFlags = 1 << 14, MOffhand = 1 << 15, MBuildMarks = 1 << 16, MMark = 1 << 17, MWalk = 1 << 18, MAll = 0x7ffff, MNew = MX | MY | MFacing;
         public uint Id;
         public uint Mask;
         public ushort X, Y, Facing;
@@ -249,6 +253,8 @@ namespace Roguehalla.Net.Protocol
         /// <summary>Indicator facts (protocol 16, ADR0026), as on <see cref="WireActor"/>: <see cref="MFlags"/>, <see cref="MOffhand"/>,
         /// <see cref="MBuildMarks"/> and <see cref="MMark"/> (tier, brand, tax) say which are carried.</summary>
         public byte Flags, Offhand, BuildMarks, MarkTier, Brand, MarkTax;
+        /// <summary>The walk hint (protocol 19) when <see cref="MWalk"/> is set; (0, 0) clears it.</summary>
+        public byte WalkDir, WalkTicks;
         public ushort Bounty, Effects;
 
         /// <summary>The carried indicator facts' first fault (fields outside the mask count as zero), or null.</summary>

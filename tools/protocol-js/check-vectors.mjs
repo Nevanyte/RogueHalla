@@ -370,6 +370,8 @@ function checkSnapshot(m, d, n) {
       eq(s.archetype, e.archetype, `${n} actor ${i}.archetype`);
       // Protocol 16 (ADR0026): the actor's indicator facts.
       for (const k of ["flags", "offhand", "buildMarks", "markTier", "brand", "markTax"]) eq(s[k], e[k], `${n} actor ${i}.${k}`);
+      // Protocol 19 (P-NET-DRAWAHEAD-1a): the walk hint.
+      if (Number(version) >= 19) for (const k of ["walkDir", "walkTicks"]) eq(s[k], e[k], `${n} actor ${i}.${k}`);
     });
 }
 
@@ -1048,6 +1050,17 @@ if (version >= 16) {
   for (const name of Object.keys(reason).filter(k => /^(self|actor|delta_self|delta_actor)_(flags|offhand|build_marks|mark)|^delta_head_flags|^hit_flags|^fx_(windup|sig_hit|heal)|^camp_cleared|^state_roster/.test(k))) {
     if (!fx.malformedServer.some(v => v.name === name)) throw new Error(`missing Rust-generated ${name} control`);
   }
+}
+
+if (Number(version) >= 19) {
+  // P-NET-DRAWAHEAD-1a: the walk hint vectors exist (compared field by field above) and carry a hint.
+  const walk = fx.server.find(v => v.name === "snapshot_walk_hint");
+  if (!walk) throw new Error("missing Rust-generated snapshot_walk_hint vector");
+  if (!decode(bytes(walk.hex)).actors.some(a => a.walkTicks > 3)) throw new Error("snapshot_walk_hint lacks a hint over 3 ticks");
+  const walkChain = fx.chains.find(c => c.name === "walk_hint_delta");
+  if (!walkChain) throw new Error("missing Rust-generated walk_hint_delta chain");
+  const hints = walkChain.steps.map(step => step.decoded?.actors?.find(a => a.id === 2));
+  if (!hints.some((a, i) => i > 0 && a && a.walkTicks === 0 && hints[i - 1]?.walkTicks > 0)) throw new Error("walk_hint_delta lacks a clearing delta");
 }
 
 console.log(`JS decoder agrees with protocol/fixtures/v${version}.json: ${fx.server.length} server vectors, ${fx.malformedServer.length} malformed, ${fx.chains.length} chains, ${checks} checks`);
