@@ -6,10 +6,10 @@ namespace Roguehalla.Client
     /// <summary>Reads painted fighter poses from the public actor identity. Clip clocks and body sizing come from the original archetype.</summary>
     public static partial class StormInkActors
     {
-        const int Columns = 4, Rows = 8;
+        const int Columns = 4, Rows = 8, CreaturesCapacity = 30;
         const int Idle = 0, Stride = 1, Windup = 2, Strike = 3;
         static readonly Sheet[] Champions = new Sheet[5];
-        static readonly Sheet[] Creatures = new Sheet[30];
+        static readonly Sheet[] Creatures = new Sheet[CreaturesCapacity];
 
         sealed class Sheet
         {
