@@ -33,6 +33,8 @@ mod weapon_batch_tests;
 #[cfg(test)]
 mod wish_engine_tests;
 #[cfg(test)]
+mod wish_engine_view_tests;
+#[cfg(test)]
 mod zone_tests;
 
 /// P-AUG-NATIVE-1b: every native card's chest pool membership and offer rule, from the three batch tables (weapon,

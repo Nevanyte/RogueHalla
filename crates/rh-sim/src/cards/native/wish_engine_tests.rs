@@ -62,7 +62,7 @@ fn room() -> crate::Arena {
 }
 
 /// Player 1 (`wisher`) at (300, 320) holding `cards`, player 2 (`other`) at (632, 320) holding `other_cards`.
-fn world_of(
+pub(super) fn world_of(
     augments: AugmentRule,
     wisher: FactionId,
     cards: &[CardId],
@@ -103,11 +103,11 @@ fn world_of(
     s
 }
 
-fn world(wisher: FactionId, cards: &[CardId]) -> Sim {
+pub(super) fn world(wisher: FactionId, cards: &[CardId]) -> Sim {
     world_of(AugmentRule::Rework, wisher, cards, FactionId::Fire, &[])
 }
 
-fn give(s: &mut Sim, i: usize, card: CardId) {
+pub(super) fn give(s: &mut Sim, i: usize, card: CardId) {
     let id = s.w.players[i].id;
     assert!(
         crate::cards::grant(&s.k, &mut s.w, id, card),
@@ -116,7 +116,7 @@ fn give(s: &mut Sim, i: usize, card: CardId) {
 }
 
 /// Wish Engine's share held by player `i` (0 when it does not hold the card).
-fn share(s: &Sim, i: usize) -> f64 {
+pub(super) fn share(s: &Sim, i: usize) -> f64 {
     s.w.players[i]
         .build
         .native()
@@ -125,21 +125,21 @@ fn share(s: &Sim, i: usize) -> f64 {
         .map_or(0., |x| x.counter)
 }
 
-fn spend(s: &Sim, i: usize) -> Option<WishSpend> {
+pub(super) fn spend(s: &Sim, i: usize) -> Option<WishSpend> {
     s.w.players[i].card_runtime.and_then(|r| r.wish_cast)
 }
 
-fn in_flight(s: &Sim, i: usize) -> bool {
+pub(super) fn in_flight(s: &Sim, i: usize) -> bool {
     s.w.players[i].core.statuses.cast.is_some()
 }
 
 /// The cooldown of the Wish row player `i`'s world casts, before any multiplier.
-fn row_cooldown(s: &Sim, i: usize) -> f64 {
+pub(super) fn row_cooldown(s: &Sim, i: usize) -> f64 {
     definition_for(&s.k.config, wish(s.w.players[i].faction())).cooldown_ms
 }
 
 /// The workbook's step for a row cooldown: `cap x cooldown / (minutes to cap x 60 s)`.
-fn step_of(row: f64) -> f64 {
+pub(super) fn step_of(row: f64) -> f64 {
     num("REWORK_WISH_ENGINE_CAP") * row / num("REWORK_WISH_ENGINE_CAP_MS")
 }
 
@@ -151,7 +151,7 @@ fn share_after(row: f64, n: usize) -> f64 {
 
 /// The Wish command player `i` sends when its Wish is ready and nothing is in flight (`None` otherwise). Unit Wishes
 /// target the other player; Blaze blinks 150 up or down; the rest are cast on the caster.
-fn wish_raw(s: &Sim, i: usize) -> Option<RawCommand> {
+pub(super) fn wish_raw(s: &Sim, i: usize) -> Option<RawCommand> {
     let p = &s.w.players[i];
     if in_flight(s, i) || p.stocks.wish_ready_at > s.w.server_time {
         return None;
