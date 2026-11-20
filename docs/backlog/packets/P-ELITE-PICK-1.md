@@ -139,8 +139,11 @@ Stub (commit `stub:`, the implementer's to replace or edit):
 
 - `Legacy`: every chest's options, spot, expiry, hold and the reward-RNG words after a drop are those of today
   (pinned by `legacy_has_no_window_and_the_rework_drop_differs_from_it_by_the_window_alone`); no window, no new refusal.
-- The `Option` tag changes the state hash of any world holding a reward chest (decision 7). Measured on the stub
-  (section "Existing tests" below): which pinned folds moved.
+- The `Option` tag changes the state hash of any world holding a reward chest (decision 7). Measured on the stub with
+  the whole `rh-sim` suite (`--features trusted-status-probes`): **no pinned fold moved** (the ability hash tape,
+  `step_event_window`, `mob_spacing_tests::LEGACY_FOLD`, `frost_wall_content`, the terrain and replay pins all stay
+  green); the only red tests were this oracle, the literal format pins and `hash_coverage`'s optional-leaf rule (all
+  handled below).
 - Wire and observation: `RewardChestView` keeps exactly `handle, at, expires_at, options, picked, can_choose`; no
   `PROTOCOL_VERSION`, `OBSERVATION_VERSION` or policy-contract bump.
 - Schedule: no new row (`crates/rh-parity/tests/schedule.rs`).
@@ -157,11 +160,66 @@ Stub (commit `stub:`, the implementer's to replace or edit):
 
 ## Existing tests that pin what this packet changes
 
-(Filled in after the stub run; see below.)
+| Test | What it asserts | After this packet |
+|---|---|---|
+| `crates/rh-sim/tests/checkpoint.rs:103, :152-176, :190-215, :339-341, :354-356` | the format string literal `rh-checkpoint/33` and the refused older formats (32 the immediate predecessor) | `oracle-amend`: the literals read `rh_sim::CHECKPOINT_FORMAT`; `rh-checkpoint/33` joins the refused list and is the immediate predecessor in the payload-order check. Red at the stub (33 is still current), green once the constant is bumped to any later number |
+| `crates/rh-sim/src/systems/sentenced/npc_tests.rs:463, :501-507` | the format literal and the refused older formats | `oracle-amend`: reads `crate::CHECKPOINT_FORMAT`; `rh-checkpoint/33` refused |
+| `crates/rh-sim/tests/hash_coverage.rs` `every_serialized_leaf_of_a_match_changes_the_state_hash` | every optional leaf of its (Legacy) corpora is perturbed or documented in `VALIDATED` | the stub's `first_pick` is a `null` leaf no corpus can fill (Legacy refuses a window), so it failed at the stub; `oracle-amend` adds the `VALIDATED` row `world.reward_chests.*.first_pick` (the rule this packet adds). The Some value's hashing is pinned by `first_pick_tests::the_window_is_hashed` |
+| `crates/rh-sim/src/abilities/source_tests/hash_tape.rs` with `parity/abilities/hash-tape.json` | the tape's `checkpoint` equals `CHECKPOINT_FORMAT`, its `contentHash` the build's, and 63 folds | green at the stub (no fold moved); the implementer's bump and the new content row move its `checkpoint` and `contentHash` lines, re-recorded by `scripts/regolden-content.sh` (the coordinator waives those lines at the oracle-capture stop) |
+| `crates/rh-sim/tests/content.rs` `hash_golden`, `every_const_in_the_source_tree_is_registered_or_explained` | the content hash golden; every `const` registered | the new row moves the golden (regold by the script); the oracle uses fns, not consts |
+| `crates/rh-sim/src/reward_chests/tests.rs:742-858` (observer `can_choose` vs `choose` at the birth hold and expiry) | the observer and the command agree | unchanged; the stub adds compile-only `first_pick: None` lines |
+| `crates/rh-sim/src/reward_chests/pool_tests.rs:577-592` `with_chest` (P-AUG-POOL-1 oracle) | declares a chest literal | compile-only `first_pick: None` line in the stub commit; nothing else |
+| `crates/rh-policy/src/bots/bot/loot_seat_tests.rs:158-205` | no `Choose` before the cards are readable (`can_choose`) | unchanged; it is why the live bot already waits |
+| `crates/rh-headless/tests/cards.rs:34`, `mob_dot.rs:69`, `crates/rh-server/tests/native_reward_transport_regression.rs`, `trophy_status_los_transport.rs`, `crates/rh-parity/src/combat.rs:65` | declare or read chest JSON without the new key | unchanged: `#[serde(default)]` reads `None` |
 
 ## Oracle files (read-only for implementers)
 
-(Filled in with the oracle commits.)
+- `crates/rh-sim/src/reward_chests/first_pick_tests.rs` (oracle)
+- `crates/rh-policy/tests/first_pick_bots.rs` (oracle)
+- `docs/backlog/packets/P-ELITE-PICK-1.md` (this brief)
+- `crates/rh-sim/tests/checkpoint.rs` (`oracle-amend`, for the owner: format literals read the constant; 33 refused)
+- `crates/rh-sim/src/systems/sentenced/npc_tests.rs` (`oracle-amend`, same)
+- `crates/rh-sim/tests/hash_coverage.rs` (`oracle-amend`, for the owner: one `VALIDATED` row)
+
+What each oracle test pins (`first_pick_tests.rs`; at the stub 11 of 14 fail on an assertion):
+- `the_window_is_the_owners_five_seconds_read_from_its_content_row`: `first_pick_window_ms() == 5000` and a registry row
+  `*FIRST_PICK*`, `"ms"`, 5000 (stub: 0).
+- `a_rework_elite_camp_chest_holds_the_killer_and_drop_plus_the_window`: the drop stores `Some(FirstPick { killer,
+  until: drop + 5000 })` (stub: `None`).
+- `the_window_goes_to_the_credited_killer_with_the_most_damage_not_the_last_hit`: a real elite death through `hurt`
+  and `pay_all`; 60% damage holds the window, the 40% last hitter does not (decision 6).
+- `inside_the_window_only_the_killer_can_pick_and_after_it_anyone_eligible_can`: observer and command; card pick and
+  skip refused `NotYours`, nothing recorded; the killer picks; still refused after the killer's pick; first-come from
+  `until`.
+- `the_window_is_open_while_server_time_is_before_its_end_for_the_command_and_the_observer_alike`: ahead −50, −1, 0, 1,
+  50 ms on a declared window; `choose` and `can_choose` agree; exclusive end.
+- `the_window_ends_early_when_the_killer_dies_or_leaves_and_a_fallen_killer_gets_none`: dead, downed, resolved, left
+  (`remove_player`), fallen before the drop; after one step another player picks inside the original 5 s, and the
+  checkpoint restores with an equal hash.
+- `a_killer_away_from_the_camp_still_holds_the_window`.
+- `legacy_has_no_window_and_the_rework_drop_differs_from_it_by_the_window_alone`: equal chest minus the field, equal
+  next reward draw; Legacy first-come at once (green at the stub; a guard).
+- `no_window_on_a_campless_elite_a_stat_crate_or_a_trophy_and_no_chest_from_a_normal_mob` (green at the stub; a guard).
+- `a_checkpoint_mid_window_restores_hashes_equal_and_plays_the_window_out`: format tag is the constant; equal hashes and
+  steps; the restored window refuses; after the window both pick.
+- `the_window_is_hashed`: none / other killer / `until` − 50 each move the hash (green at the stub; a guard).
+- `check_world_refuses_forged_windows`: a valid window restores; refused: a killer on a campless chest, `until` 1 ms
+  past `drop + 5 s`, killer `PlayerId(99)`, any window in a Legacy world.
+- `the_checkpoint_format_is_bumped_past_the_base`: the constant's number is above 33.
+- `the_window_shows_only_in_can_choose_and_the_chest_row_carries_no_new_field`: the killer's and another's rows are
+  equal but for `can_choose`; `RewardChestView` keys are exactly `at, can_choose, expires_at, handle, options, picked`.
+
+`first_pick_bots.rs` `a_bot_waits_out_another_players_first_pick_then_picks`: seeds 1-4, a `HumanBot` at a restored
+Rework chest holding player 1's window submits no `Choose` while `server_time < until`, draws no `ChestRefused`, and
+takes an option at or after `until`; player 1 stands throughout (stub: the bot picks at once, "seed 1: the bot asked
+for another player's first pick").
+
+A throwaway prototype (not committed: the window fn reading a new `REWORK_ELITE_FIRST_PICK_MS` row, the drop setting
+the window when `k.config.elites == Rework` and the killer stands, one `first_pick_blocks(w, chest, who)` predicate used
+by `choose` (beside the Trophy owner check) and by `can_choose`, a `validate_world` rule taking `k.config.elites`, and
+`rh-checkpoint/34`) passed all 14 oracle tests, the bot oracle, the amended `checkpoint.rs`, `npc_tests` and
+`hash_coverage`, and the existing `reward_chests::` tests. Only `content.rs` `hash_golden` stayed red (the regold). No
+`rh-policy` source change was needed.
 
 ## 9. Validation commands
 
