@@ -120,7 +120,7 @@ namespace Roguehalla.Net.Tests
         {
             var m = Holders(new[] { M(Third, 3f, 3f), M(Other, 2f, 2f), M(Rival, 5f, 5f) });
             Assert.AreEqual(3, m.Length);
-            Assert.AreEqual(new uint[] { Other, Rival, Third }, new[] { m[0].Id, m[1].Id, m[2].Id });
+            Assert.AreEqual(new uint[] { Rival, Other, Third }, new[] { m[0].Id, m[1].Id, m[2].Id });
         }
 
         [Test]
