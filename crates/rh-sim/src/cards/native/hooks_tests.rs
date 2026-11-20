@@ -426,7 +426,7 @@ fn base() -> (Vec<u64>, u64, u64) {
 /// Each batch table holds only its own batch's cards (no card in two tables, faction cards offered per faction); the
 /// weapon table holds the two exemplars; no pool, offer or chest pool reads the tables until P-WIRE19-A.
 #[test]
-fn the_batch_tables_hold_their_own_cards_and_no_pool_offers_them_yet() {
+fn the_batch_tables_hold_their_own_cards() {
     use CardId::*;
     type Batch = (&'static str, &'static [(CardId, Offer)], &'static [CardId]);
     let batches: [Batch; 3] = [
@@ -473,20 +473,7 @@ fn the_batch_tables_hold_their_own_cards_and_no_pool_offers_them_yet() {
         );
     }
     assert_eq!(super::pool_members().count(), seen.len());
-    // Nothing reads the membership yet.
-    let sim = world(AugmentRule::Rework, &[seat("a", lane(), None, None)]);
-    let t = sim.k.cards;
-    assert_eq!(t.rule(), AugmentRule::Rework);
-    let pickers = [crate::reward_chests::Picker {
-        build: crate::cards::Build::from_counts([(CardId::TankEngine, 1)]),
-        faction: FactionId::Holy,
-    }];
-    for id in CardId::NATIVE {
-        assert!(!t.pool().contains(&id), "{id:?} in the Rework pool");
-        assert!(t.offer(id).is_none(), "{id:?} has an offer rule");
-        assert!(!t.augment_pool(&[]).contains(&id));
-        assert!(!t.offer_pool(&pickers).contains(&id), "{id:?} offered");
-    }
+    // P-AUG-NATIVE-4 (oracle-amend): the membership is read now; `reward_chests::native_pool_tests` pins what it does.
 }
 
 /// The bench seam cannot put a native card in a Legacy world (it would fail `check_world`); in a Rework world it can.

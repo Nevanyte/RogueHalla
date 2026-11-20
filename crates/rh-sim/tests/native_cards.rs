@@ -605,7 +605,10 @@ fn no_pool_holds_a_native_card_and_only_a_rework_chest_may_offer_one() {
             .chain(t.augment_pool(&pickers).iter())
             .chain(t.conditional_pool(&pickers).iter())
         {
-            assert!(id.index() < 80, "{rule:?} offers {id:?}");
+            // P-AUG-NATIVE-4 (oracle-amend): a Rework chest pool holds the batch tables' native cards; Legacy none.
+            let listed = rule == AugmentRule::Rework
+                && rh_sim::cards::native::pool_members().any(|(c, _)| c == *id);
+            assert!(id.index() < 80 || listed, "{rule:?} offers {id:?}");
         }
     }
     // P-WIRE19-A (oracle-amend): native ids are on the wire (`WireRewardId::Card(80..=93)`), so the chest refusal narrows
