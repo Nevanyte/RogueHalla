@@ -8,7 +8,7 @@ Paint floors, paths, liquid channels and the pew seat in plan view. Long edges a
 
 Trees and bushes rise into an elevated 2.5D view. Give the viewer both a canopy top and enough trunk or stem to see where the plant meets the earth. Moving characters use the steeper, mostly top-down three-quarter framing seen in League of Legends. The crown, top of the shoulder armour and upper forearms should be visible at normal zoom. Keep the chest readable through foreshortening and the boots planted. An east-facing fighter still faces east while the viewer sees the upper planes of the shoulder and head. Keep the direction of the individual weapon, anatomical grip and action legible through each turn.
 
-Check the new camera on one Fire axe fighter in a matched normal-zoom Unity scene first. Compare east, southeast and north with the same shared axe, ground contact, world scale and attack phase. Existing equip, hand, timing and traversal evidence remains independently traceable in the checklist.
+The owner approved the restored Fire axe fighter in the east, southeast and north comparison at matched normal zoom. Carry the original clasp, tied hair, red wrap and ochre tails forward through the eight-way action. Use the same shared axe, ground contact, world scale and attack phase for each comparison. Existing equip, hand, timing and traversal evidence remains independently traceable in the checklist.
 
 ## Fantasy character design
 
