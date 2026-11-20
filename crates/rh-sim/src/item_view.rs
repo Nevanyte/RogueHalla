@@ -1294,3 +1294,7 @@ mod tests {
         assert_eq!(sample(&s, &mut a).inventory.unwrap().slots, [None, None]);
     }
 }
+
+#[cfg(test)]
+#[path = "item_view/tick_rate_tests.rs"]
+mod tick_rate_tests;
