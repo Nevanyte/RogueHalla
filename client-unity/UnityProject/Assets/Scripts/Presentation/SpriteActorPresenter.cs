@@ -586,6 +586,7 @@ namespace Roguehalla.Client
             }
             a.WeaponSupport.enabled = false;
             bool drawingString = false;
+            var fireBowBodyArt = FireBowBodySource(bowBody);
             if (a.PoxCenser != null) a.PoxCenser.enabled = false;
             bool bespokeCleaver = trackedWeapon && PresentPoxCleaver(a, StormInkActors.PoseRowForFacing(poseFacing), order, hiddenAlpha, dead);
             if (trackedWeapon && !bespokeCleaver && !paintedWand)
@@ -640,7 +641,9 @@ namespace Roguehalla.Client
                 {
                     a.Bowstring ??= StormInkBowstring.Create(a.Root.transform);
                     drawingString = a.Bowstring != null;
-                    a.Bowstring?.Draw(a.Weapon, a.OutBody, poseRow, drawPalm.Value, hiddenAlpha);
+                    int? stringOrder = fireBowBodyArt != null && fireBowBodyArt.StringBehindBody(bowBody)
+                        ? order - 1 : (int?)null;
+                    a.Bowstring?.Draw(a.Weapon, a.OutBody, poseRow, drawPalm.Value, hiddenAlpha, stringOrder);
                 }
                 if (axeBody == null && pose.HasSupport && useWeaponPhase && !registered)
                 {
@@ -670,7 +673,7 @@ namespace Roguehalla.Client
             a.Weapon.enabled = !paintedWand && !hauntedFists && !dead && weapon.HasValue && hiddenAlpha > 0f;
             BindArtistSources(a, weapon, trackedWeapon ? poseFacing : facing,
                 axeBody != null || swordBody != null || bowBody != null ? fireAxeArt : null, swordBody != null ? fireSwordArt : null,
-                FireBowBodySource(bowBody));
+                fireBowBodyArt);
             a.Status.enabled = false; // the generic status cue is replaced by the per-status glyphs (OverheadIndicators)
             a.Status.sortingOrder = order + 6; a.Status.color = color;
             a.Status.transform.localPosition = new Vector3(.55f, 1.5f, 0);

@@ -185,3 +185,12 @@ MonoBehaviour:
     Left: {x: 0, y: 0}
   midDrawAt: 0.22
   sustainedDrawAt: 0.68
+  stringBehindBodyRows:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 1
+  - 0
