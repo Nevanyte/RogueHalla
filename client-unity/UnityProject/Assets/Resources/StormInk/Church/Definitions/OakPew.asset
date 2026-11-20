@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   Defaults:
     Width: 4.55
-    Depth: 1.155
+    Depth: 0.76
     Height: 0.82
     RotationDegrees: 0
     MountHeight: 0

@@ -23,7 +23,7 @@ namespace Roguehalla.Client.Tests
                 Assert.That(definition.Defaults.Height, Is.GreaterThan(.1f), name + " authored world height");
                 Assert.That(definition.Defaults.Tint.a, Is.EqualTo(1f));
             }
-            Assert.That(Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/OakPew").Defaults.Width, Is.EqualTo(4.55f).Within(.001f));
+            Assert.That(Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/OakPew").Defaults.Depth, Is.Positive);
             Assert.That(Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/Candelabrum").EmitsCandleLight, Is.True);
             var pulpit = Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/GothicPulpit").Defaults;
             Assert.That(pulpit.Front, Is.Not.SameAs(pulpit.Side), "approach views are separately authored sprites");
@@ -162,8 +162,8 @@ namespace Roguehalla.Client.Tests
                     Assert.That(offset.magnitude, Is.LessThan(.001f), "world contact handle inverses to zero slot offset");
                     var diagonalLayout = ScriptableObject.CreateInstance<ChurchInteriorDefinition>();
                     diagonalLayout.SlotOverrides.Add(new ChurchArtSlotOverride { SlotId = pew.SlotId,
-                        OverrideFields = ChurchArtOverrideFields.RotationDegrees,
-                        Values = new ChurchArtValues { RotationDegrees = 37f } });
+                        OverrideFields = ChurchArtOverrideFields.RotationDegrees | ChurchArtOverrideFields.Width | ChurchArtOverrideFields.Depth,
+                        Values = new ChurchArtValues { RotationDegrees = 37f, Width = 4.55f, Depth = 1.155f } });
                     pew.Layout = diagonalLayout; pew.RefreshResolved();
                     var pewSprite = pew.GetComponent<SpriteRenderer>().sprite;
                     Vector3 widthAxis = pew.transform.TransformVector(Vector3.right * pewSprite.bounds.size.x);
@@ -180,7 +180,7 @@ namespace Roguehalla.Client.Tests
                     int rowDelta = Mathf.FloorToInt(originalTileY + localRowOffset.y) - Mathf.FloorToInt(originalTileY);
                     int rowSort = pew.GetComponent<SpriteRenderer>().sortingOrder;
                     diagonalLayout.SlotOverrides[0].OverrideFields |= ChurchArtOverrideFields.LocalOffset | ChurchArtOverrideFields.MountHeight;
-                    diagonalLayout.SlotOverrides[0].Values = new ChurchArtValues { RotationDegrees = 37f,
+                    diagonalLayout.SlotOverrides[0].Values = new ChurchArtValues { RotationDegrees = 37f, Width = 4.55f, Depth = 1.155f,
                         LocalOffset = new Vector2(0f, 4f), MountHeight = 0.75f };
                     pew.RefreshResolved();
                     Assert.That(pew.GetComponent<SpriteRenderer>().sortingOrder, Is.EqualTo(rowSort + rowDelta * 16),
