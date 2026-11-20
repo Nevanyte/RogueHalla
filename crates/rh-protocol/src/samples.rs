@@ -1770,6 +1770,14 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
             },
         ),
         (
+            "state_reward_first_pick_other",
+            first_pick_rewards(false),
+        ),
+        (
+            "state_reward_first_pick_killer",
+            first_pick_rewards(true),
+        ),
+        (
             "state_union_props",
             ServerMsg::State {
                 tick: 201,
@@ -4436,6 +4444,66 @@ fn camp_bytes(mob_type: u8, elite: u8, alive: u32, state: u8, clear: f64, respaw
     w.finish()
 }
 
+/// P-WIRE19-A: two reward chest rows as one viewer sees them. Row A offers Marked Man (93), Marksman's Tally (80) and a
+/// boost under a first-pick window ending at 11000 ms, `mine` (and `can_choose`) only for the killer; row B has no window.
+fn first_pick_rewards(killer: bool) -> ServerMsg {
+    let option = |id| WireRewardOption {
+        id,
+        taken: false,
+        taken_by: None,
+    };
+    ServerMsg::State {
+        tick: 220,
+        items: vec![StateItem::RewardChests(vec![
+            WireRewardChest {
+                handle: RewardChestHandle::new(5).unwrap(),
+                x: 800,
+                y: 960,
+                expires_at: 21000.,
+                options: vec![
+                    option(WireRewardId::Card(93)),
+                    option(WireRewardId::Card(80)),
+                    option(WireRewardId::Boost(2)),
+                ],
+                picked: false,
+                can_choose: killer,
+                first_pick: Some(WireFirstPick {
+                    until: 11000.,
+                    mine: killer,
+                }),
+            },
+            WireRewardChest {
+                handle: RewardChestHandle::new(6).unwrap(),
+                x: 100,
+                y: 200,
+                expires_at: 15000.,
+                options: vec![WireRewardOption {
+                    id: WireRewardId::Card(79),
+                    taken: true,
+                    taken_by: Some(4),
+                }],
+                picked: false,
+                can_choose: false,
+                first_pick: None,
+            },
+        ])],
+    }
+}
+
+/// P-WIRE19-A: `state_reward_first_pick_other` with the bytes at `offset` past its window's tag replaced by `with`.
+fn first_pick_patched(offset: usize, with: &[u8]) -> Vec<u8> {
+    let mut bytes = first_pick_rewards(false).encode();
+    let mut window = [0u8; 9];
+    window[0] = 1;
+    window[1..].copy_from_slice(&11000f64.to_le_bytes());
+    let at = bytes
+        .windows(9)
+        .position(|w| w == window)
+        .expect("the first-pick window");
+    bytes[at + offset..at + offset + with.len()].copy_from_slice(with);
+    bytes
+}
+
 pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
     let mut bad_card_id = server_samples()
         .into_iter()
@@ -4447,7 +4515,7 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         .windows(4)
         .rposition(|bytes| bytes == [1, 79, 0, 0])
         .unwrap();
-    bad_card_id[at + 1] = 80;
+    bad_card_id[at + 1] = 94;
     let mut negative_plan = server_samples()
         .into_iter()
         .find(|(name, _)| *name == "state_planning")
@@ -5519,7 +5587,23 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
             "chest_bad_reason_unknown",
             vec![0x84, 0, 0, 0, 0, 1, 0, 6, 10],
         ),
-        ("state_reward_card_id_80", bad_card_id),
+        ("state_reward_card_id_94", bad_card_id),
+        (
+            "state_reward_first_pick_tag_2",
+            first_pick_patched(0, &[2]),
+        ),
+        (
+            "state_reward_first_pick_mine_2",
+            first_pick_patched(9, &[2]),
+        ),
+        (
+            "state_reward_first_pick_nonfinite",
+            first_pick_patched(1, &f64::NAN.to_le_bytes()),
+        ),
+        (
+            "state_reward_first_pick_after_expiry",
+            first_pick_patched(1, &21001f64.to_le_bytes()),
+        ),
         ("state_reward_kind_unknown", reward_frame(1, &[4])),
         (
             "state_reward_kill_key_unknown",
@@ -7680,9 +7764,12 @@ fn decoded_trophy_state_json(m: &ServerMsg) -> String {
                 })
                 .collect::<Vec<_>>()
                 .join(",");
+            let first_pick = row.first_pick.map_or("null".to_string(), |f| {
+                format!("{{\"until\":{},\"mine\":{}}}", f.until, f.mine)
+            });
             format!(
-                "{{\"handle\":{},\"x\":{},\"y\":{},\"expiresAt\":{},\"options\":[{}],\"picked\":{},\"canChoose\":{}}}",
-                row.handle.get(), row.x, row.y, row.expires_at, options, row.picked, row.can_choose
+                "{{\"handle\":{},\"x\":{},\"y\":{},\"expiresAt\":{},\"options\":[{}],\"picked\":{},\"canChoose\":{},\"firstPick\":{}}}",
+                row.handle.get(), row.x, row.y, row.expires_at, options, row.picked, row.can_choose, first_pick
             )
         })
         .collect::<Vec<_>>()
