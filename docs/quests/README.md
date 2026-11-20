@@ -7,7 +7,7 @@ any of it needs owner approval and a packet in `docs/backlog/packets/`. The live
 
 **Implemented: the augment and elite rework from this workbook.** It is live-only: it applies when `SimConfig::augments`
 or `SimConfig::elites` is `Rework` (the live server, `SimConfig::live_content()`). Legacy and parity worlds keep the
-legacy numbers. Marked Man (an owner addition, 2026-11-18) is pending P-AUG-NATIVE-5. The plan of record and its packets
+legacy numbers. Marked Man (an owner addition, 2026-11-18) is built too (P-AUG-NATIVE-5). The plan of record and its packets
 are in [`../backlog/AUGMENT_ELITE_REWORK.md`](../backlog/AUGMENT_ELITE_REWORK.md).
 
 - `FUTURE_ONLY_Quest_Design_Discussion.xlsx`: the whole 2026-11-13 discussion. It covers pricing stats in farming time

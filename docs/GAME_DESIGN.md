@@ -909,10 +909,11 @@ and pool, and nothing below changes them. Under Rework:
 - **Helper share.** Every standing player in the elite camp's contributor snapshot, the killer included, gets **12
   stacks** (`REWORK_ELITE_SHARE_STACKS`) of the stat the camp's normal kills pay.
 - **Pool.** The chest draws from `REWORK_POOL` (`reward_chests/pools.rs`): 19 catalog augments, the legacy 14 plus
-  Committed, Fists of Fury, Machine Gun, Here Comes the Boom and A Race to 0. It also draws the 13 built native augments
+  Committed, Fists of Fury, Machine Gun, Here Comes the Boom and A Race to 0. It also draws the 14 native augments
   (`cards/native/`: Marksman's Tally, Bastion, Calluses, Executioner's Ledger, Eighth Strike, Pathfinder, Hazard Walker,
-  Wish Engine, Overflow, and the faction four, Corpse Hoarder, Stoked, Glacier and Trophy Hunter). The faction four are
-  offered only when every eligible picker is that faction. Marked Man is pending P-AUG-NATIVE-5.
+  Wish Engine, Overflow, Marked Man, and the faction four, Corpse Hoarder, Stoked, Glacier and Trophy Hunter). The
+  faction four are offered only when every eligible picker is that faction. Marked Man (owner addition, decision 9) pays
+  +50% normal-kill stacks (4, 5, 4, 5, the half carried) and shows its holder on every player's minimap.
 - **Numbers.** Many augments carry retuned numbers and texts from `cards/rework_overrides.rs`; section 12.2's tables are
   the legacy catalog. The chest timing, the 15% skip heal and the 3 GV skip are the same as above.
   The build notes are in [docs/agent/AUGMENT_REWORK.md](agent/AUGMENT_REWORK.md).

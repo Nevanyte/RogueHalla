@@ -63,7 +63,8 @@ numbers. Under Rework:
 - **Helper share.** Every standing player in the elite camp's contributor snapshot, the killer included, gets 12 stacks
   (`REWORK_ELITE_SHARE_STACKS`) of the stat the camp's normal kills pay (its buff row, else its normal type's stat).
 - **Chest pool.** The legacy 14 interactive augments, plus Committed, Fists of Fury, Machine Gun, Here Comes the Boom
-  and A Race to 0, plus the built native augments. Marked Man is pending P-AUG-NATIVE-5.
+  and A Race to 0, plus the 14 native augments. A Marked Man holder's normal kills pay 4, 5, 4, 5 stacks (+50%, the
+  half carried); elite helper shares, player kills and hunt stacks are not multiplied.
 
 Build notes and the number tables are in [docs/agent/AUGMENT_REWORK.md](agent/AUGMENT_REWORK.md).
 
