@@ -384,8 +384,8 @@ namespace Roguehalla.Client
             var orientation = ChurchArtOrientation.Resolve(lm.Anchor);
             int leftAcross = aisleOnX ? (naveFront.x > 0 ? 1 : -1) : (naveFront.y > 0 ? -1 : 1);
             float pewAngle = aisleOnX ? leftAcross * 90f : (leftAcross > 0 ? 0f : 180f);
-            float inset = seating != null ? seating.OuterRowInset : 2.75f;
-            float pitch = seating != null ? seating.RowSpacing : 1.95f;
+            float inset = seating != null ? seating.OuterRowInset : 2.90f;
+            float pitch = seating != null ? seating.RowSpacing : 1.45f;
             float offset = seating != null ? seating.BankOffset : 2.96f;
             float sign = naveFront.x + naveFront.y;
             float sanctuaryEnd = sign > 0f ? alongMin : alongMax + 1f;
@@ -401,7 +401,7 @@ namespace Roguehalla.Client
                 float row = rows[rowIndex];
                 float x = aisleOnX ? row : bankCentre, y = aisleOnX ? bankCentre : row;
                 if (!lm.IsInterior(Mathf.FloorToInt(x), Mathf.FloorToInt(y))) continue;
-                const float length = 3.04f, depth = .82f;
+                const float length = 3.04f, depth = .94f;
                 AddChurchAssetSprite(lm, pew, pewDefinition, layout, "pew.row" + rowIndex + (semanticSide > 0 ? ".left" : ".right"),
                     "Church pew", x, y, aisleOnX ? length * Sq : length, aisleOnX ? depth : depth * Sq, pewAngle, 2, ChurchArtView.Front);
             }

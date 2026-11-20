@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d4c49bee1754eb0bfa338408bd5a720, type: 3}
   m_Name: NaveSeating
   m_EditorClassIdentifier:
-  OuterRowInset: 2.75
-  RowSpacing: 1.95
+  OuterRowInset: 2.90
+  RowSpacing: 1.45
   BankOffset: 2.96
   AisleWidth: 3
   Wear: 0.72

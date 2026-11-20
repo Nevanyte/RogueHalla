@@ -14,14 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   Defaults:
     Width: 3.04
-    Depth: 0.82
+    Depth: 0.94
     Height: 0.82
     RotationDegrees: 0
     MountHeight: 0
     LocalOffset: {x: 0, y: 0}
     Contact: {x: 0.5, y: 0.5}
     FlameSocket: {x: 0.5, y: 0.7}
-    Tint: {r: 1, g: 1, b: 1, a: 1}
+    Tint: {r: 0.70, g: 0.83, b: 0.90, a: 1}
     FlameColor: {r: 1, g: 0.57, b: 0.24, a: 1}
     FlameIntensity: 0
     SpillRadius: 0

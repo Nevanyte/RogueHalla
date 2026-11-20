@@ -7,9 +7,9 @@ namespace Roguehalla.Client
     public sealed class ChurchNaveArt : ScriptableObject
     {
         [Min(0f), Tooltip("Distance from the outside edge of either end wall to the first pew centre, in world units.")]
-        public float OuterRowInset = 2.75f;
+        public float OuterRowInset = 2.90f;
         [Min(.1f), Tooltip("Centre-to-centre distance between adjacent pews in a bank, in world units.")]
-        public float RowSpacing = 1.95f;
+        public float RowSpacing = 1.45f;
         [Min(0f), Tooltip("Distance from the doorway axis to either bank centre, in world units.")]
         public float BankOffset = 2.96f;
         [Min(.1f), Tooltip("Full width of the worn slate path between the doors, in world units.")]
