@@ -7,7 +7,7 @@
 //! 3. a `Rework` checkpoint holding native cards restores hash-exact and plays on; `Legacy` refuses one; the state hash
 //!    sees the native state; observations do not;
 //! 4. `check_world` refuses each cap and shape violation, and a `card_tank_hp` over the world's Tank Engine cap;
-//! 5. no pool or chest holds a native card (P-WIRE19-A puts them on the wire);
+//! 5. no pool holds a native card; a Rework chest may offer one since P-WIRE19-A, a Legacy chest may not;
 //! 6. the checkpoint format moved past `rh-checkpoint/33`; a Legacy world keeps its state hash and checkpoint bytes.
 use rh_sim::arenas::practice_arena;
 use rh_sim::cards::native::{rule, NATIVE_METERS};
@@ -594,7 +594,7 @@ fn with_chest(sim: &Sim, card: CardId) -> Value {
 }
 
 #[test]
-fn no_pool_or_chest_holds_a_native_card() {
+fn no_pool_holds_a_native_card_and_only_a_rework_chest_may_offer_one() {
     for rule in [AugmentRule::Legacy, AugmentRule::Rework] {
         let t = Tuning::of(&config(rule));
         let pickers = [Build::default()];
@@ -607,15 +607,26 @@ fn no_pool_or_chest_holds_a_native_card() {
             assert!(id.index() < 80, "{rule:?} offers {id:?}");
         }
     }
-    let sim = world(AugmentRule::Rework);
-    assert!(
-        Sim::restore(with_chest(&sim, CardId::TankEngine)).is_ok(),
-        "positive control: a declared camp-less chest restores"
-    );
-    for (id, _, _) in NATIVE {
+    // P-WIRE19-A (oracle-amend): native ids are on the wire (`WireRewardId::Card(80..=93)`), so the chest refusal narrows
+    // to the Legacy card table, which holds no native card.
+    let rework = world(AugmentRule::Rework);
+    let legacy = world(AugmentRule::Legacy);
+    for sim in [&rework, &legacy] {
         assert!(
-            Sim::restore(with_chest(&sim, id)).is_err(),
-            "a chest offering {id:?} would put a native id on the wire before P-WIRE19-A"
+            Sim::restore(with_chest(sim, CardId::TankEngine)).is_ok(),
+            "positive control: a declared camp-less chest restores"
+        );
+    }
+    for (id, _, _) in NATIVE {
+        let restored = Sim::restore(with_chest(&rework, id));
+        assert!(
+            restored.is_ok(),
+            "a Rework chest may offer {id:?} now that native ids are on the wire: {:?}",
+            restored.err()
+        );
+        assert!(
+            Sim::restore(with_chest(&legacy, id)).is_err(),
+            "a Legacy chest offering {id:?} is outside the Legacy card table"
         );
     }
 }
