@@ -215,15 +215,16 @@ fn the_step_length_reaches_the_state_hash() {
         b.state_hash(),
         "the same world at 50 and 25 ms hashes differently from construction"
     );
-    drive(&mut a, 0, 1);
-    drive(&mut b, 0, 1);
-    assert_ne!(a.state_hash(), b.state_hash());
-    // A 25 ms sim restored as 50 ms is a different match.
+    // A 25 ms sim restored as 50 ms is a different match. Relabelled before any step: once a step has run, the rewind
+    // history holds samples 25 ms apart, which a 50 ms world refuses (pinned in cards/fight_clock_tests.rs).
     let mut cp = serde_json::to_value(&b).unwrap();
     assert!(set_tick_ms(&mut cp, 50) >= 1);
     let as_50 = Sim::restore(cp).expect("50 is an allowed step");
     assert_eq!(as_50.tick_ms(), 50);
     assert_ne!(as_50.state_hash(), b.state_hash());
+    drive(&mut a, 0, 1);
+    drive(&mut b, 0, 1);
+    assert_ne!(a.state_hash(), b.state_hash());
 }
 
 #[test]
