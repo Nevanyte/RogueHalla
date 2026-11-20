@@ -63,6 +63,10 @@ fn input(k: &MatchStatic) -> Input<'_> {
 }
 pub(crate) fn initialize(k: &mut MatchStatic, w: &mut World) -> Result<(), &'static str> {
     initialize_inner(k, w)?;
+    // The grand coliseum's heal pickups (P-COLISEUM-HEALS-1) close the initial window on every branch: later births,
+    // the replay recorder's scenario containers and the quest offer ids count from past them. No pickup, no change.
+    crate::systems::heal_pickups::place(k, w);
+    w.initial_birth_serial = w.entity_counter;
     // The consumables module's install runs after the order salt is final: seed its private stream from that value so a
     // replay (which re-derives the same salt) draws an identical emblem sequence.
     crate::systems::wind::seed_install(w, k.secrets.order_salt);
@@ -108,7 +112,6 @@ fn initialize_inner(k: &mut MatchStatic, w: &mut World) -> Result<(), &'static s
         )
         .map_err(|_| "invalid initial loot input")?;
         w.spawn_rng = main;
-        w.initial_birth_serial = w.entity_counter;
     }
     Ok(())
 }
@@ -149,7 +152,9 @@ pub(crate) fn replay(k: &MatchStatic) -> Result<Replay, String> {
 }
 pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
     let expected = replay(k)?;
-    if w.initial_birth_serial != expected.serial
+    // The heal pickups follow the initial loot inside the window: ids `(expected.serial, initial_birth_serial]`.
+    let heals = crate::systems::heal_pickups::spots(&k.arena).map_or(0, |s| s.len() as u32);
+    if w.initial_birth_serial != expected.serial + heals
         || w.entity_counter < w.initial_birth_serial
         || w.item_counter < expected.uid
     {
@@ -163,11 +168,12 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
     {
         return Err("initial crate cannot disappear".into());
     }
-    if w.reward_chests.iter().any(|c| c.id <= expected.serial)
-        || w.projectiles.iter().any(|p| p.launch.id <= expected.serial)
+    let window = w.initial_birth_serial;
+    if w.reward_chests.iter().any(|c| c.id <= window)
+        || w.projectiles.iter().any(|p| p.launch.id <= window)
         || w.abilities
             .as_ref()
-            .is_some_and(|a| a.fields.iter().any(|f| f.id <= expected.serial))
+            .is_some_and(|a| a.fields.iter().any(|f| f.id <= window))
     {
         return Err("later entity reuses initial allocation".into());
     }
@@ -197,9 +203,12 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
             {
                 return Err("initial object provenance mismatch".into());
             }
+        } else if (c.id <= window) != (c.kind == ContainerKind::Heal) {
+            return Err("heal pickup provenance mismatch".into());
         } else if c.stat_offer {
             return Err("unallocated stat crate".into());
         }
     }
-    Ok(())
+    // Their places, order and clocks (P-COLISEUM-HEALS-1).
+    crate::systems::heal_pickups::validate(k, w)
 }

@@ -586,7 +586,7 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
                     || c.target.is_none_or(|t| !near(t.x, t.y))
                     || !c.ready_at.is_finite()
                     || !(0.0..=u32::MAX as f64).contains(&c.ready_at)))
-            || (c.kind != crate::ContainerKind::Cannon && (c.target.is_some() || c.ready_at != 0.0))
+            || (c.kind != crate::ContainerKind::Cannon && (c.target.is_some() || !c.idle_clock()))
         {
             return Err(format!("invalid container {}", c.id));
         }
