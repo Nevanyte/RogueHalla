@@ -53,11 +53,11 @@ MonoBehaviour:
     GuardColumns: 0300000008000000090000000a000000
     StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
   palms:
-  - Right: {x: 35, y: 18}
+  - Right: {x: 38, y: 17}
     Left: {x: 99, y: 72}
   - Right: {x: 67, y: 103}
     Left: {x: 91, y: 35}
-  - Right: {x: 108, y: 52}
+  - Right: {x: 63, y: 107}
     Left: {x: 100, y: 62}
   - Right: {x: 42, y: 82}
     Left: {x: 100, y: 81}
@@ -65,9 +65,9 @@ MonoBehaviour:
     Left: {x: 90, y: 64}
   - Right: {x: 39, y: 84}
     Left: {x: 83, y: 22}
-  - Right: {x: 33, y: 59}
+  - Right: {x: 32, y: 58}
     Left: {x: 94, y: 75}
-  - Right: {x: 33, y: 57}
+  - Right: {x: 46, y: 66}
     Left: {x: 95, y: 80}
   - Right: {x: 43, y: 83}
     Left: {x: 102, y: 80}
@@ -89,11 +89,11 @@ MonoBehaviour:
     Left: {x: 106, y: 87}
   - Right: {x: 44, y: 81}
     Left: {x: 99, y: 73}
-  - Right: {x: 28, y: 42}
+  - Right: {x: 56, y: 26}
     Left: {x: 99, y: 68}
   - Right: {x: 110, y: 95}
     Left: {x: 38, y: 47}
-  - Right: {x: 107, y: 50}
+  - Right: {x: 89, y: 104}
     Left: {x: 40, y: 54}
   - Right: {x: 58, y: 71}
     Left: {x: 106, y: 80}
@@ -101,9 +101,9 @@ MonoBehaviour:
     Left: {x: 98, y: 58}
   - Right: {x: 105, y: 91}
     Left: {x: 22, y: 73}
-  - Right: {x: 28, y: 59}
+  - Right: {x: 34, y: 73}
     Left: {x: 93, y: 75}
-  - Right: {x: 10, y: 59}
+  - Right: {x: 35, y: 56}
     Left: {x: 100, y: 66}
   - Right: {x: 59, y: 71}
     Left: {x: 107, y: 80}
@@ -125,11 +125,11 @@ MonoBehaviour:
     Left: {x: 104, y: 67}
   - Right: {x: 50, y: 68}
     Left: {x: 103, y: 66}
-  - Right: {x: 72, y: 42}
+  - Right: {x: 82, y: 36}
     Left: {x: 100, y: 63}
   - Right: {x: 122, y: 71}
     Left: {x: 27, y: 59}
-  - Right: {x: 115, y: 49}
+  - Right: {x: 95, y: 105}
     Left: {x: 27, y: 62}
   - Right: {x: 57, y: 86}
     Left: {x: 102, y: 71}
@@ -137,9 +137,9 @@ MonoBehaviour:
     Left: {x: 96, y: 71}
   - Right: {x: 115, y: 72}
     Left: {x: 12, y: 58}
-  - Right: {x: 111, y: 48}
+  - Right: {x: 51, y: 78}
     Left: {x: 96, y: 57}
-  - Right: {x: 120, y: 46}
+  - Right: {x: 54, y: 74}
     Left: {x: 106, y: 54}
   - Right: {x: 57, y: 84}
     Left: {x: 102, y: 71}
@@ -161,11 +161,11 @@ MonoBehaviour:
     Left: {x: 96, y: 60}
   - Right: {x: 59, y: 74}
     Left: {x: 96, y: 61}
-  - Right: {x: 87, y: 18}
+  - Right: {x: 88, y: 21}
     Left: {x: 15, y: 77}
   - Right: {x: 105, y: 25}
     Left: {x: 25, y: 65}
-  - Right: {x: 13, y: 56}
+  - Right: {x: 95, y: 96}
     Left: {x: 31, y: 73}
   - Right: {x: 90, y: 77}
     Left: {x: 39, y: 66}
@@ -173,9 +173,9 @@ MonoBehaviour:
     Left: {x: 40, y: 67}
   - Right: {x: 106, y: 40}
     Left: {x: 15, y: 58}
-  - Right: {x: 109, y: 48}
+  - Right: {x: 76, y: 74}
     Left: {x: 27, y: 61}
-  - Right: {x: 119, y: 58}
+  - Right: {x: 72, y: 87}
     Left: {x: 30, y: 72}
   - Right: {x: 88, y: 77}
     Left: {x: 38, y: 65}
@@ -197,11 +197,11 @@ MonoBehaviour:
     Left: {x: 37, y: 74}
   - Right: {x: 96, y: 74}
     Left: {x: 35, y: 72}
-  - Right: {x: 99, y: 15}
+  - Right: {x: 90, y: 15}
     Left: {x: 19, y: 66}
   - Right: {x: 93, y: 27}
     Left: {x: 29, y: 76}
-  - Right: {x: 104, y: 68}
+  - Right: {x: 83, y: 70}
     Left: {x: 33, y: 72}
   - Right: {x: 89, y: 76}
     Left: {x: 41, y: 70}
@@ -209,9 +209,9 @@ MonoBehaviour:
     Left: {x: 40, y: 66}
   - Right: {x: 77, y: 24}
     Left: {x: 29, y: 70}
-  - Right: {x: 104, y: 67}
+  - Right: {x: 94, y: 69}
     Left: {x: 30, y: 78}
-  - Right: {x: 104, y: 68}
+  - Right: {x: 83, y: 70}
     Left: {x: 33, y: 72}
   - Right: {x: 88, y: 76}
     Left: {x: 40, y: 70}
@@ -237,7 +237,7 @@ MonoBehaviour:
     Left: {x: 14, y: 82}
   - Right: {x: 38, y: 24}
     Left: {x: 28, y: 87}
-  - Right: {x: 109, y: 65}
+  - Right: {x: 84, y: 69}
     Left: {x: 23, y: 68}
   - Right: {x: 84, y: 63}
     Left: {x: 25, y: 85}
@@ -245,9 +245,9 @@ MonoBehaviour:
     Left: {x: 29, y: 84}
   - Right: {x: 60, y: 69}
     Left: {x: 103, y: 54}
-  - Right: {x: 106, y: 64}
+  - Right: {x: 101, y: 64}
     Left: {x: 24, y: 57}
-  - Right: {x: 106, y: 64}
+  - Right: {x: 84, y: 69}
     Left: {x: 23, y: 68}
   - Right: {x: 83, y: 63}
     Left: {x: 25, y: 85}
@@ -269,11 +269,11 @@ MonoBehaviour:
     Left: {x: 29, y: 86}
   - Right: {x: 77, y: 62}
     Left: {x: 30, y: 80}
-  - Right: {x: 66, y: 5}
+  - Right: {x: 49, y: 13}
     Left: {x: 21, y: 80}
   - Right: {x: 20, y: 65}
     Left: {x: 103, y: 53}
-  - Right: {x: 20, y: 72}
+  - Right: {x: 78, y: 65}
     Left: {x: 17, y: 72}
   - Right: {x: 31, y: 59}
     Left: {x: 64, y: 90}
@@ -281,9 +281,9 @@ MonoBehaviour:
     Left: {x: 70, y: 98}
   - Right: {x: 17, y: 52}
     Left: {x: 105, y: 55}
-  - Right: {x: 20, y: 58}
+  - Right: {x: 84, y: 60}
     Left: {x: 95, y: 72}
-  - Right: {x: 19, y: 68}
+  - Right: {x: 78, y: 65}
     Left: {x: 17, y: 72}
   - Right: {x: 28, y: 58}
     Left: {x: 60, y: 90}
@@ -305,11 +305,11 @@ MonoBehaviour:
     Left: {x: 69, y: 72}
   - Right: {x: 50, y: 64}
     Left: {x: 73, y: 72}
-  - Right: {x: 40, y: 16}
+  - Right: {x: 38, y: 11}
     Left: {x: 80, y: 82}
   - Right: {x: 28, y: 99}
     Left: {x: 95, y: 49}
-  - Right: {x: 10, y: 75}
+  - Right: {x: 32, y: 104}
     Left: {x: 94, y: 59}
   - Right: {x: 26, y: 83}
     Left: {x: 101, y: 71}
@@ -317,9 +317,9 @@ MonoBehaviour:
     Left: {x: 105, y: 64}
   - Right: {x: 22, y: 66}
     Left: {x: 105, y: 46}
-  - Right: {x: 18, y: 61}
+  - Right: {x: 41, y: 61}
     Left: {x: 21, y: 61}
-  - Right: {x: 118, y: 64}
+  - Right: {x: 46, y: 77}
     Left: {x: 18, y: 73}
   - Right: {x: 25, y: 83}
     Left: {x: 102, y: 72}

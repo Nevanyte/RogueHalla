@@ -11,14 +11,14 @@ namespace Roguehalla.Client.Tests
     {
         static readonly Vector2Int[,] ReviewedHands =
         {
-            { new(35,18), new(108,52), new(33,59), new(33,57) },
-            { new(28,42), new(107,50), new(28,59), new(10,59) },
-            { new(72,42), new(115,49), new(111,48), new(120,46) },
-            { new(87,18), new(13,56), new(109,48), new(119,58) },
-            { new(99,15), new(104,68), new(104,67), new(104,68) },
-            { new(70,11), new(109,65), new(106,64), new(106,64) },
-            { new(66,5), new(20,72), new(20,58), new(19,68) },
-            { new(40,16), new(10,75), new(18,61), new(118,64) },
+            { new(38,17), new(63,107), new(32,58), new(46,66) },
+            { new(56,26), new(89,104), new(34,73), new(35,56) },
+            { new(82,36), new(95,105), new(51,78), new(54,74) },
+            { new(88,21), new(95,96), new(76,74), new(72,87) },
+            { new(90,15), new(83,70), new(94,69), new(83,70) },
+            { new(70,11), new(84,69), new(101,64), new(84,69) },
+            { new(49,13), new(78,65), new(84,60), new(78,65) },
+            { new(38,11), new(32,104), new(41,61), new(46,77) },
         };
 
         [TestCase(0, StormInkFireAxePose.ReleaseA, 67, 103)]
