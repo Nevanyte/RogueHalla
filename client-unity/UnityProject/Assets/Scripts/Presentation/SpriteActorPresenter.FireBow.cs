@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
-    /// <summary>Routes the completed Fire east-facing bow performance through normal player body rendering.</summary>
+    /// <summary>Routes restored Fire bow performances through normal player body rendering.</summary>
     public sealed partial class SpriteActorPresenter
     {
         static StormInkFireBowAuthoring FireBowBodySource(Sprite body)
