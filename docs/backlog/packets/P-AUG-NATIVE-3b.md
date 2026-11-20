@@ -32,7 +32,8 @@ the base). Workbook `docs/quests/FUTURE_ONLY_Quest_Design_Discussion.xlsx`:
 
 1. **What the table keys on.** On `NativeEvent::WishCast` (the holder's Wish *landed*: `systems/abilities/mod.rs:326-337`,
    after `cast_ended(.., Landed)`), Wish Engine's `counter` (the share) becomes
-   `min(CAP, counter + CAP × row_cooldown_ms / CAP_MS)`, where `row_cooldown_ms` is the cooldown of the Wish row the world
+   the next point of its grid (below), one step of `step = CAP × row_cooldown_ms / CAP_MS` further, where
+   `row_cooldown_ms` is the cooldown of the Wish row the world
    cast (`abilities::definition_for(&config, ability).cooldown_ms`: the catalog's, or Frost Wall's under
    `frost_wish = Wall`), before training, Arcane Overload and Wish Engine. That is the workbook's step with cap 0.25:
    Fire 0.025, Frost 0.0375, Plague 0.1, Holy 0.125, Sentenced 0.15; casts to the cap 10, 7, 3, 2, 2. Fire's two-charge
@@ -40,8 +41,10 @@ the base). Workbook `docs/quests/FUTURE_ONLY_Quest_Design_Discussion.xlsx`:
    row's cooldown: the stub changes the event to `NativeEvent::WishCast { row_cooldown_ms }` and the call site passes it.
    - A cancelled, fizzled or teleport-refunded cast earns nothing (it never lands; 1b's site). Same tick: the share a
      cast spends is the one before its own landing, so a cast never shortens itself.
-   - The share is a sequence of repeated additions from 0, capped: each faction has a finite lattice
-     `s0 = 0, s(n+1) = min(CAP, s(n) + step)`; a value off it is unreachable.
+   - The share lives on a grid, bit-exact: after `n` landed casts it is `min(CAP, n × step)` (the handler takes
+     `n = round(counter / step)` and writes `min(CAP, (n + 1) × step)`). Not repeated addition: ten additions of 0.025
+     give 0.24999999999999997, so Fire would reach the cap on its eleventh cast instead of the workbook's tenth (the
+     oracle pins the tenth). Each faction's grid is finite; a value off it is unreachable.
 2. **How the cooldown is shortened, and where.** The share multiplies the Wish multiplier: the next cast spends
    `cooldown_for(config, ability, Some(wish_cooldown_mult × (1 − share)))` (`abilities/mod.rs:437-455`). Reasons:
    `cooldown_for` is already the one function the producer (`systems/abilities/mod.rs:158-162`) and the restore
@@ -197,6 +200,20 @@ Nothing in `cards/native/hooks.rs` (stub done), `weapon.rs`, `faction.rs`, `rewa
 - `crates/rh-sim/src/abilities/wish_lever_tests.rs` (oracle-amend; the move itself is the stub)
 - `docs/backlog/packets/P-AUG-NATIVE-3b.md` (this brief)
 
+The tests, and why each is red on the stub (every one fails on an assertion):
+
+| Test (`cards::native::wish_engine_tests::` unless named) | Pins | Red on the stub because |
+|---|---|---|
+| `wish_engine_steps_by_the_workbook_table_per_landed_wish_and_shortens_the_next_cooldown` | per faction, played to the cap and one past: the step (0.025, 0.0375, 0.1, 0.125, 0.15), the share before and after each landed cast, the cap reached exactly on cast 10/7/3/2/2, each spend `row × (1 − share)` within 1 ms, the stock clock `at + cooldown` (single charge), the owner view's `recharge_ms` equal to the spend, `0.75 × row` at the cap | "Fire: cast 0 landed and stepped the share to 0" |
+| `arcane_overload_and_wish_engine_multiply` | Frost and Holy holding both: spend `row × 1.5 × (1 − share)` within 1 ms; owner view equal | "Frost: cast 1 spent 67500, want about 64968.75" |
+| `only_the_holder_s_own_landed_wishes_shorten_only_its_own_cooldown` | every faction: a caster holding Pathfinder (the hook fires) spends the full row and its view shows it; an idle Wish Engine holder earns nothing from another's casts; positive control: a casting holder steps | the control: "the casting holder steps" (the non-holder half passes, as it must) |
+| `a_holder_checkpointed_at_every_cast_landing_and_recast_restores_and_plays_on` | every faction to the cap and one past: a checkpoint after each acceptance, each landing and two ticks before each recast restores hash-exact and plays on equal (16-24 ticks, through the next cast); Fire's back-to-back charges | "Fire: 0 of the checkpointed spends were shortened, want at least 10" |
+| `a_recast_after_wishful_cuts_or_an_overload_grant_restores_across_the_step` | Frost: Wishful cuts the first spend by its full 20% budget, the recast (one step shorter) inside the same window, the window's cuts above the recast's own budget; or Arcane Overload granted between the casts; a checkpoint on each of 12 ticks from the recast, and around the next recast | "overload=false: the recast spent 45000, want about 43312.5" |
+| `forged_wish_engine_states_are_refused` | from a Frost holder two casts in: a counter off the grid, a counter two steps above the spend's share, a spend above the counter, a non-holder's shortened spend, clocks under the spend's own, and (in flight) a spend at a share not reached: each refused; controls restore | the precondition: "the second cast spent one step's cooldown, not 45000" |
+| `wish_engine_reads_out_its_share_and_joins_the_zone_pool` | readout `[(WishEngine, Counter, 0.125, 0.25)]` for a Holy holder after one cast, none for the other player; `zone::POOL` holds `(WishEngine, Any)` | rows `[]` |
+| `legacy_and_rework_without_wish_engine_play_as_on_the_base` | Fire (Wishful, Pathfinder in Rework) and Frost (Arcane Overload from tick 300) casting for 2400 ticks: state hashes every 50 ticks and the final world's JSON, digests recorded at the stub commit | green (a preservation guard) |
+| `abilities::wish_lever_tests::wish_engine_is_the_one_native_lever_and_a_spend_names_its_lever_and_share` (oracle-amend) | `wish_engine_share` is the counter for Wish Engine and 0 for every other native card at its caps; cap inside the G13 floor; Arcane Overload × (1 − cap) > 1; every (lever, share) cooldown distinct per faction and Frost row | "WishEngine at its caps: left 0.0, right 0.25" |
+
 Stub (`stub:` commit, behaviour-neutral): `NativeEvent::WishCast { row_cooldown_ms }` and its call site passing the
 row's cooldown; `cards::native::wish_engine_share` returning 0; the `mod wish_engine_tests;` line in
 `cards/native/mod.rs`; the lever guard moved to `abilities/wish_lever_tests.rs` with its `mod` line in `abilities/mod.rs`.
@@ -222,8 +239,8 @@ forged one (the oracle's refusals). The non-holder path must stay exactly today'
   every cooldown in the holder's set, not the spend's two.
 - `js_round(45000 × 0.9625) = 43313` (off the tick lattice): a holder's clocks leave the tick lattice even without
   Wishful.
-- Float: the lattice is built by the same repeated `min(CAP, s + step)` as the handler; compare bit-exactly, never by a
-  rounded `n × step`.
+- Float: the grid is `min(CAP, n × step)` with integer `n` in the handler, the check and the validator alike; compare
+  bit-exactly (`counter == CAP || counter == round(counter / step) × step`), never accumulate.
 - No allocation in the producer or the handler; the validator runs at restore only.
 
 ## Proposed DEVIATIONS (for the owner)
