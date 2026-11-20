@@ -107,7 +107,7 @@ namespace Roguehalla.Client
                           y >= temple.ShrineWalls.MinY && y <= temple.ShrineWalls.MaxY
                         : temple.Contains(x, y));
                     if (inBlock || templeWall) style = WallStyle.Temple;
-                    var set = RegionWallAtlas.SetFor(style);
+                    var set = tile == MapBlob.Wall && church.IsBoundary(x, y) ? RegionWallAtlas.Nave : RegionWallAtlas.SetFor(style);
                     float hash = RegionNoise.Hash01(x, y, 5); float tint = .92f + hash * .08f;
                     var col = new Color32((byte)(255 * tint), (byte)(255 * tint), (byte)(255 * tint), 255);
                     float py = -(y + 1) * ArenaView.GroundSquash;                   // tile bottom edge in world space

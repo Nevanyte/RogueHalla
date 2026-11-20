@@ -31,6 +31,8 @@ namespace Roguehalla.Client
         static Texture2D _atlas; static Set[] _sets; static Cell _contact, _fenceGround;
         public static Texture2D Atlas { get { Ensure(); return _atlas; } }
         public static Set SetFor(WallStyle style) { Ensure(); return _sets[(int)style]; }
+        static Set _nave;
+        public static Set Nave { get { Ensure(); return _nave; } }
         public static Cell Contact { get { Ensure(); return _contact; } }
         /// <summary>A flat decal cell (the fence's iron at alpha .3) drawn over the ground of a fence tile, as legacy drawFenceTile does.</summary>
         public static Cell FenceGround { get { Ensure(); return _fenceGround; } }
@@ -82,9 +84,39 @@ namespace Roguehalla.Client
             var tint = FenceTileGround(Color.black); var decal = new Color(tint.r / FenceGroundIron.a, tint.g / FenceGroundIron.a, tint.b / FenceGroundIron.a, FenceGroundIron.a);
             var fg = new RegionCanvas(4, 4); for (int i = 0; i < fg.Px.Length; i++) fg.Px[i] = decal;
             _fenceGround = Place(fg, ref x, ref y, ref rowH);
+            var finish = ChurchMasonryArt.Load();
+            _nave = _sets[(int)WallStyle.Limestone];
+            if (finish != null)
+            {
+                finish.ReadPigment();
+                _nave = new Set { Rim = _nave.Rim };
+                for (int v = 0; v < TopVariants; v++) _nave.Top[v] = Place(finish.Tile(true, v), ref x, ref y, ref rowH);
+                for (int v = 0; v < FaceVariants; v++) _nave.Face[v] = Place(finish.Tile(false, v), ref x, ref y, ref rowH);
+            }
             _atlas = new Texture2D(AtlasW, atlasH, TextureFormat.RGBA32, true, false) { name = "Region walls atlas", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, anisoLevel = 2 };
             _atlas.SetPixelData(px, 0); _atlas.Apply(true, !Application.isEditor);
         }
+
+#if UNITY_EDITOR
+        /// <summary>Updates only the six authored wall cells in the existing editor atlas.</summary>
+        public static void RefreshNaveFinish()
+        {
+            var finish = ChurchMasonryArt.Load();
+            if (finish == null || _atlas == null || _nave == _sets[(int)WallStyle.Limestone]) return;
+            finish.ReadPigment();
+            void Replace(Cell cell, RegionCanvas paint)
+            {
+                int w = paint.W + 4, h = paint.H + 4;
+                var pixels = new Color32[w * h];
+                paint.CopyTo(pixels, w, 2, 2);
+                _atlas.SetPixels32(Mathf.RoundToInt(cell.Min.x * _atlas.width) - 2,
+                    Mathf.RoundToInt(cell.Min.y * _atlas.height) - 2, w, h, pixels);
+            }
+            for (int v = 0; v < TopVariants; v++) Replace(_nave.Top[v], finish.Tile(true, v));
+            for (int v = 0; v < FaceVariants; v++) Replace(_nave.Face[v], finish.Tile(false, v));
+            _atlas.Apply(true, false);
+        }
+#endif
 
         static RegionTheme ThemeOf(WallStyle style)
         {

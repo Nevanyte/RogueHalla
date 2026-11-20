@@ -98,6 +98,9 @@ namespace Roguehalla.Editor
             {
                 case ChurchArtOverrideFields.None:
                 case ChurchArtOverrideFields.All: return false;
+                case ChurchArtOverrideFields.PaneMode: return definition.Mount == ChurchArtMount.Wall;
+                case ChurchArtOverrideFields.FlameLayer:
+                case ChurchArtOverrideFields.FlameLayerSize:
                 case ChurchArtOverrideFields.FlameSocket:
                 case ChurchArtOverrideFields.FlameIntensity:
                 case ChurchArtOverrideFields.FlameColor:
@@ -111,6 +114,9 @@ namespace Roguehalla.Editor
         {
             switch (field)
             {
+                case ChurchArtOverrideFields.PaneMode: return "Window reveal";
+                case ChurchArtOverrideFields.FlameLayer: return "Painted flame";
+                case ChurchArtOverrideFields.FlameLayerSize: return "Flame size (world units)";
                 case ChurchArtOverrideFields.Width: return "Width (world units)";
                 case ChurchArtOverrideFields.Height: return "Upright height (world units)";
                 case ChurchArtOverrideFields.Depth: return "Depth (world units)";

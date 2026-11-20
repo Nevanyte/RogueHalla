@@ -12,6 +12,11 @@ namespace Roguehalla.Editor
         static void OnPostprocessAllAssets(string[] imported, string[] deleted, string[] moved, string[] movedFrom)
         {
             if (!(StageUtility.GetCurrentStage() is StormInkChurchStage)) return;
+            var masonry = ChurchMasonryArt.Load();
+            var wash = masonry != null ? AssetDatabase.GetAssetPath(masonry.Wash) : null;
+            var carving = masonry != null ? AssetDatabase.GetAssetPath(masonry.CarvedFace) : null;
+            foreach (var path in imported)
+                if (path == wash || path == carving) { ChurchArtEditorRefresh.ScheduleMasonry(); break; }
             foreach (var path in imported)
                 if (path.IndexOf("/Resources/StormInk/", StringComparison.Ordinal) >= 0)
                 {
@@ -37,6 +42,7 @@ namespace Roguehalla.Editor
                 if (stream.GetEventType(i) != ObjectChangeKind.ChangeAssetObjectProperties) continue;
                 stream.GetChangeAssetObjectPropertiesEvent(i, out var change);
                 var asset = EditorUtility.InstanceIDToObject(change.instanceId);
+                if (asset is ChurchMasonryArt) ScheduleMasonry();
                 if (asset is ChurchArtDefinition || asset is ChurchInteriorDefinition ||
                     asset is StormInkFireAxeAuthoring || asset is StormInkAxeArtAuthoring)
                 {
@@ -44,6 +50,18 @@ namespace Roguehalla.Editor
                     return;
                 }
             }
+        }
+
+        internal static void ScheduleMasonry()
+        {
+            EditorApplication.delayCall -= RefreshMasonry;
+            EditorApplication.delayCall += RefreshMasonry;
+        }
+
+        static void RefreshMasonry()
+        {
+            if (StageUtility.GetCurrentStage() is StormInkChurchStage stage) stage.RefreshMasonry();
+            else RegionWallAtlas.RefreshNaveFinish();
         }
 
         internal static void Schedule()

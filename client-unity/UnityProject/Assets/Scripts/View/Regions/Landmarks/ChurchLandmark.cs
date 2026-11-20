@@ -102,6 +102,7 @@ namespace Roguehalla.Client
                     (x, y) => map.Tiles[y * map.W + x] == MapBlob.Wall));
                 if (_building == null) return;
                 _interior = LandmarkInterior.Find(map.Tiles, map.W, map.H, _footprint, anchor.Entrance);
+                if (ChurchMasonryArt.Load() == null) return;
                 _piers = FindNavePiers(map, _building);
                 if (_piers.Length == 0) return;
                 _pierTiles = new bool[_footprint.W * _footprint.H];
@@ -109,6 +110,11 @@ namespace Roguehalla.Client
                 foreach (var tile in pier.Tiles)
                     _pierTiles[(tile.y - _footprint.Y) * _footprint.W + tile.x - _footprint.X] = true;
             }
+
+            internal bool IsBoundary(int x, int y) =>
+                _building != null && x >= _building.MinX && x <= _building.MaxX &&
+                y >= _building.MinY && y <= _building.MaxY &&
+                (x == _building.MinX || x == _building.MaxX || y == _building.MinY || y == _building.MaxY);
 
             internal bool ReplacesPier(int x, int y) =>
                 _pierTiles != null && x >= _footprint.X && x < _footprint.X + _footprint.W &&
@@ -118,7 +124,10 @@ namespace Roguehalla.Client
             internal void PaintPiers(Landmark landmark)
             {
                 if (_piers == null || !_anchor.Equals(landmark.Anchor)) return;
-                foreach (var pier in _piers) BuildNavePier(landmark, pier);
+                var finish = ChurchMasonryArt.Load();
+                if (finish == null) return;
+                finish.ReadPigment();
+                foreach (var pier in _piers) BuildNavePier(landmark, pier, finish);
             }
 
             internal bool Contains(int x, int y) =>
@@ -537,13 +546,16 @@ namespace Roguehalla.Client
         /// <summary>A pointed stone arch on the door tiles with a dark opening (see-through at the floor), a keystone and a cross.</summary>
         static void BuildArchDoor(Landmark lm, int x0, int x1, int row, int outwardSign)
         {
-            const int P = 24; const float OutA = 1.5f, OutSpring = .8f, OutRise = .9f, InA = 1.0f, InSpring = .72f, InRise = .55f;
+            const int P = 48; const float OutA = 1.5f, OutSpring = .8f, OutRise = .9f, InA = 1.0f, InSpring = .72f, InRise = .55f;
             float half = (x1 - x0 + 1) / 2f, cx = (x0 + x1 + 1) / 2f, scale = half / OutA;
             float baseY = outwardSign > 0 ? -row * Sq : -(row + 1) * Sq;
+            var finish = ChurchMasonryArt.Load();
             var cv = new Canvas(cx - half - .1f, baseY - .02f, 2f * half + .2f, 2.1f, P);
             cv.Paint((wx, wy) =>
             {
-                float lx = (wx - cx) / scale, ly = (wy - baseY) * outwardSign, dx = Mathf.Abs(lx);
+                // Wall facing selects the sill. Both upright arches rise toward the top of the camera.
+                float lx = (wx - cx) / scale, ly = wy - baseY, dx = Mathf.Abs(lx);
+                if (ly < 0f) return default;
                 float apex = OutSpring + OutRise;
                 if (ly > apex - .03f)                                                  // the cross on the apex
                 {
@@ -560,13 +572,13 @@ namespace Roguehalla.Client
                 float inSd = Mathf.Min(inTop - ly, InA - dx);
                 if (inSd > 0f && ly > .1f)
                 {
-                    float a = Mathf.Lerp(.12f, .9f, Mathf.SmoothStep(0f, 1f, ly / 1.2f)) * Mathf.Lerp(1f, .8f, dx / InA);
+                    float a = Mathf.Lerp(.08f, .59f, Mathf.SmoothStep(0f, 1f, ly / 1.2f)) * Mathf.Lerp(1f, .8f, dx / InA);
                     var col = Color.Lerp(new Color(.04f, .03f, .06f), Warm * .5f, Mathf.Clamp01(.35f - ly) * .6f * (1f - dx / InA));
                     if (inSd < .05f) return Ink;
                     return new Color(col.r, col.g, col.b, a);
                 }
                 float t = Mathf.Clamp01(.55f + .35f * (-lx / OutA) - ly * .08f + (Noise(wx * 3f, wy * 3f, 17) - .5f) * .25f);
-                var c = Color.Lerp(StoneDark, StoneLit, t);
+                var c = finish != null ? Shade(finish.Masonry(wx, ly, false), .85f + .26f * t) : Color.Lerp(StoneDark, StoneLit, t);
                 if (ly <= OutSpring) { float cr = (ly + ((int)(dx / .5f) & 1) * .15f) / .3f; if (cr - Mathf.Floor(cr) < .07f) c = Shade(c, .72f); }   // jamb courses
                 else { float jc = Mathf.Atan2(ly - InSpring + .2f, lx) * Mathf.Rad2Deg / 14f; if (jc - Mathf.Floor(jc) < .08f) c = Shade(c, .7f); }          // arch ring joints
                 if (dx < .2f && ly > 1.28f && ly < 1.66f) c = Shade(Stone, 1.15f);                                                                                   // keystone

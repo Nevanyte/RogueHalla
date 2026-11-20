@@ -194,6 +194,12 @@ namespace Roguehalla.Editor
             ScheduleRebuild();
         }
 
+        internal void RefreshMasonry()
+        {
+            RegionWallAtlas.RefreshNaveFinish();
+            ScheduleRebuild();
+        }
+
         void ScheduleRebuild()
         {
             EditorApplication.delayCall -= Rebuild;
@@ -263,7 +269,7 @@ namespace Roguehalla.Editor
             if (StageUtility.GetCurrentStage() != this || arena == null) return;
             if (overlays && Event.current.type == EventType.Repaint) DrawMapOverlay();
             Handles.BeginGUI();
-            GUILayout.BeginArea(new Rect(10, 10, 295, 220), EditorStyles.helpBox);
+            GUILayout.BeginArea(new Rect(10, 10, 295, 245), EditorStyles.helpBox);
             EditorGUI.BeginChangeCheck();
             int nextFront = EditorGUILayout.Popup("Graveyard entrance", front, FrontLabels);
             bool nextMirror = EditorGUILayout.Toggle("Reflect layout", mirrored);
@@ -281,6 +287,7 @@ namespace Roguehalla.Editor
             if (GUILayout.Button("Fire body")) Selection.activeObject = StormInkFireAxeAuthoring.Load();
             if (GUILayout.Button("Shared axe")) Selection.activeObject = StormInkAxeArtAuthoring.Load();
             GUILayout.EndHorizontal();
+            if (GUILayout.Button("Nave wall finish")) Selection.activeObject = ChurchMasonryArt.Load();
             GUILayout.EndArea();
             Handles.EndGUI();
         }
