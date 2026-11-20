@@ -44,13 +44,21 @@ pub(super) static NATIVE_DEFINITIONS: [CardDef; 14] = [
         "Bastion",
         "Your next attack deals 35% of your stored blocks",
     ),
-    native(CardId::Calluses, "Calluses", "+0.07 armor per fist hit (cap 30)"),
+    native(
+        CardId::Calluses,
+        "Calluses",
+        "+0.07 armor per fist hit (cap 30)",
+    ),
     native(
         CardId::ExecutionersLedger,
         "Executioner's Ledger",
         "+3 AD per player or elite kill (cap 30)",
     ),
-    native(CardId::EighthStrike, "Eighth Strike", "Every 8th hit doubles"),
+    native(
+        CardId::EighthStrike,
+        "Eighth Strike",
+        "Every 8th hit doubles",
+    ),
     native(
         CardId::Pathfinder,
         "Pathfinder",

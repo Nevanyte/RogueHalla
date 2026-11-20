@@ -118,7 +118,10 @@ impl<'de> serde::Deserialize<'de> for NativeCards {
         let mut last: Option<usize> = None;
         for row in rows {
             let i = position(row.card).ok_or_else(|| {
-                D::Error::custom(format!("native rows: {} is not a native card", row.card.as_str()))
+                D::Error::custom(format!(
+                    "native rows: {} is not a native card",
+                    row.card.as_str()
+                ))
             })?;
             if last.is_some_and(|l| i <= l) {
                 return Err(D::Error::custom(
