@@ -1,13 +1,15 @@
 //! The consumables system (legacy `updateConsumables`) and the module's hook links: wind emblems first, then the
-//! potion Hots, then the boosts that ran out.
+//! potion Hots, then the grand coliseum's heal pickups (no legacy counterpart, P-COLISEUM-HEALS-1), then the boosts
+//! that ran out.
 use crate::hooks::{HookArgs, Hx};
 use crate::schedule::ModContribution;
 use crate::state::World;
-use crate::systems::{potions, wind, Cx};
+use crate::systems::{heal_pickups, potions, wind, Cx};
 
 pub(crate) fn update(cx: &mut Cx) {
     wind::update(cx);
     potions::update_hots(cx);
+    heal_pickups::update(cx);
     wind::expire(cx);
 }
 

@@ -314,6 +314,10 @@ impl ItemObserver {
         let wards = crate::vision::WardSight::of_sim(sim);
         let mut best: Option<(usize, f64, Option<WeaponId>)> = None;
         for c in sim.containers() {
+            // P-COLISEUM-HEALS-1: not on the wire yet (P-COLISEUM-HEALS-2): never offered, never counted.
+            if c.kind == ContainerKind::Heal {
+                continue;
+            }
             let quest = if c.kind == ContainerKind::Quest {
                 let Some((quest_id, fetch)) = eligible_quest_item(sim, me, c) else {
                     continue;
@@ -361,7 +365,7 @@ impl ItemObserver {
                     ready_at: ready_ms(c.ready_at),
                 },
                 ContainerKind::WindEmblem => PropKind::WindEmblem,
-                // P-COLISEUM-HEALS-1: not on the wire yet (P-COLISEUM-HEALS-2); the pickup is not offered.
+                // Skipped above, before the visible-prop count.
                 ContainerKind::Heal => continue,
             };
             let cue = PropCue {

@@ -412,8 +412,9 @@ pub enum ContainerKind {
     /// A walk-over wind emblem (legacy container kind "consumable" carrying `windEmblem`): it holds no inventory
     /// item and is consumed by the wind system, never by the pickup action.
     WindEmblem,
-    /// P-COLISEUM-HEALS-1 STUB: a walk-over heal pickup at the grand coliseum centre (`systems::heal_pickups`): no item;
-    /// `ready_at` is the server time it is next available. Never created yet.
+    /// P-COLISEUM-HEALS-1: a walk-over heal pickup at the grand coliseum centre (`systems::heal_pickups`): no item, never
+    /// opened, no target; `ready_at` is the server time it is next available (available iff `server_time >= ready_at`).
+    /// Created only at construction on a grand-coliseum map.
     Heal,
 }
 
@@ -429,11 +430,20 @@ pub struct Container {
     /// A travel cannon's landing point (legacy `ContainerState.targetX/targetY`); `None` on every other kind.
     #[serde(default)]
     pub target: Option<Vec2>,
-    /// Server time the cannon reloads (legacy `ContainerState.readyAt`, uint32 ms); zero on every other kind.
+    /// Server time the cannon reloads (legacy `ContainerState.readyAt`, uint32 ms), or the time a heal pickup is next
+    /// available; zero on every other kind.
     #[serde(default)]
     pub ready_at: f64,
     pub(crate) stat_offer: bool,
     pub(crate) born_tick: u32,
+}
+
+impl Container {
+    /// Whether a non-cannon container's `ready_at` is legal here: zero, or a heal pickup's clock (bounded by
+    /// `heal_pickups::validate`).
+    pub(crate) fn idle_clock(&self) -> bool {
+        self.ready_at == 0. || self.kind == ContainerKind::Heal
+    }
 }
 
 /// A fighter's weapon state: the carried items and the active slot, and the runtime of the swing in progress.

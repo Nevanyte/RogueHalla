@@ -75,27 +75,12 @@ pub(crate) fn use_potion(
     } else {
         DEFINITION.small_share
     };
-    let amount = p.vitals.max_hp * share / (DEFINITION.heal_ms / DEFINITION.step_ms);
     if large {
         cx.w.players[i].potion_large -= 1;
     } else {
         cx.w.players[i].potion_small -= 1;
     }
-    cx.w.players[i].healing_until = now + DEFINITION.heal_ms;
-    let at = active.unwrap_or_else(|| {
-        let j = cx.w.potion_healing.len();
-        cx.w.potion_healing.push(Healing {
-            id,
-            hots: Vec::with_capacity(usize::from(DEFINITION.concurrent)),
-        });
-        j
-    });
-    cx.w.potion_healing[at].hots.push(Hot {
-        next: now + DEFINITION.step_ms,
-        left: (DEFINITION.heal_ms / DEFINITION.step_ms) as u8,
-        amount,
-    });
-    cx.w.players[i].potions_healing = cx.w.potion_healing[at].hots.len() as u8;
+    start_hot(cx.w, i, share);
     notice(
         cx.ev,
         id,
@@ -105,6 +90,34 @@ pub(crate) fn use_potion(
             Notice::Used
         },
     );
+}
+/// Starts one potion heal over time of `share` of max hp on player slot `i` (legacy `handleUseConsumable`'s Hot,
+/// `consumables.ts:53-73`): `heal_ms / step_ms` equal steps, the first one `step_ms` from now; `healing_until` and the
+/// `potions_healing` mirror follow. Shared by [`use_potion`] and the grand coliseum's heal pickups; touches no stock and
+/// emits no notice.
+pub(crate) fn start_hot(w: &mut crate::state::World, i: usize, share: f64) {
+    let id = w.players[i].id;
+    let now = w.server_time;
+    let amount = w.players[i].vitals.max_hp * share / (DEFINITION.heal_ms / DEFINITION.step_ms);
+    w.players[i].healing_until = now + DEFINITION.heal_ms;
+    let at = w
+        .potion_healing
+        .iter()
+        .position(|e| e.id == id)
+        .unwrap_or_else(|| {
+            let j = w.potion_healing.len();
+            w.potion_healing.push(Healing {
+                id,
+                hots: Vec::with_capacity(usize::from(DEFINITION.concurrent)),
+            });
+            j
+        });
+    w.potion_healing[at].hots.push(Hot {
+        next: now + DEFINITION.step_ms,
+        left: (DEFINITION.heal_ms / DEFINITION.step_ms) as u8,
+        amount,
+    });
+    w.players[i].potions_healing = w.potion_healing[at].hots.len() as u8;
 }
 /// The potion Hot loop (legacy `updateConsumables`'s second half).
 pub(crate) fn update_hots(cx: &mut Cx) {
