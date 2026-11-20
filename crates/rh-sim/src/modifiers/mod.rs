@@ -488,7 +488,7 @@ fn while_bit_of(rows: &[fold::EffectRow<'_>]) -> ([u8; MAX_FOLD_INPUT], u8) {
 /// The fold's farm rows: the credited-kill stacks plus the kill-augment `killStats` (source `farmRowsOf`: both are farm
 /// rows, outside the card caps). A fixed scratch keeps the recompute allocation-free.
 struct CombinedFarm {
-    rows: [fold::EffectRow<'static>; 38],
+    rows: [fold::EffectRow<'static>; 39],
     len: usize,
 }
 impl CombinedFarm {
@@ -505,15 +505,20 @@ fn combined_farm_rows(
     let (farm_rows, farm_len) = farm.rows();
     let (trade_rows, trade_len) = crate::traders::trade_effects(trade_stats);
     let (kill_rows, kill_len) = kill_stats.rows();
-    let mut rows = [fold::EffectRow::new(EffectKind::Trigger); 38];
+    let mut rows = [fold::EffectRow::new(EffectKind::Trigger); 39];
     rows[..farm_len].copy_from_slice(&farm_rows[..farm_len]);
     rows[farm_len..farm_len + trade_len].copy_from_slice(&trade_rows[..trade_len]);
     let start = farm_len + trade_len;
     rows[start..start + kill_len].copy_from_slice(&kill_rows[..kill_len]);
-    // P-AUG-NATIVE-2: Calluses' armor and the Ledger's AD are farm rows too (outside the card caps).
+    // P-AUG-NATIVE-2/-4: the native counters' armor (Calluses, Glacier), AD (the Ledger) and AP (Stoked) are farm rows
+    // too (outside the card caps).
     let mut len = start + kill_len;
-    let (armor, ad) = crate::cards::native::fold_stats(build);
-    for (stat, v) in [(fold::FlatStat::Armor, armor), (fold::FlatStat::Ad, ad)] {
+    let native = crate::cards::native::fold_stats(build);
+    for (stat, v) in [
+        (fold::FlatStat::Armor, native.armor),
+        (fold::FlatStat::Ad, native.ad),
+        (fold::FlatStat::Ap, native.ap),
+    ] {
         if v != 0. {
             rows[len].kind = EffectKind::Flat { stat, v };
             len += 1;

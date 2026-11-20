@@ -223,9 +223,16 @@ A card that changes damage joins one of the two seams in `native/mod.rs`:
 - `landed_burst(k, w, by)`: added after mitigation, before the PvP hit cap, to the holder's first landed weapon hit on
   a victim, and spent by that hit's `HitCount { burst > 0 }` (Bastion). It is capped at one burst per seat per victim.
 
-**Admission waits for P-WIRE19-A.** No pool, offer or chest reads `POOL` yet, and `check_world` still refuses a chest
-that offers a native card. The wire refuses card ids ≥ 80 today. `trusted_build::apply` refuses a native card outside
-`Rework` (`BuildRefusal::NativeOutsideRework`).
+**Admission (P-AUG-NATIVE-4).** Under `Rework`, `Tuning::in_pool(id)` is a catalog card of `pool()` or a native that a
+batch table lists in its `POOL` (`native::pool_members()`); `pool()` and `REWORK_POOL` stay the catalog's 19.
+`augment_pool` appends the ready native augments not held by every picker after the catalog walk, in native order (the
+order is behaviour: `roll_with` draws by index); `offer` answers a native with its table's `Offer`; `offer_pool` always
+filters by `Offer::admits` under `Rework` (a faction card only when every eligible picker is that faction, none with no
+picker). `reward_chests::validate_world` takes the card table and checks camp chests with `in_pool`. Under `Legacy`
+nothing changes: no native is appended and `check_world` refuses a chest offering one. The membership is folded into
+the content hash (`native::visit_content`). The draw protocol is unchanged; the natives are tier 1. The practice
+console still grants catalog cards only. `trusted_build::apply` refuses a native card outside `Rework`
+(`BuildRefusal::NativeOutsideRework`).
 
 **Bounds and envelopes.**
 
@@ -286,3 +293,23 @@ later packet). Hazard Walker's stacks (one per hazard second, cap 15) resist emb
 0.5% of base max hp each in `sync_max_hp`, and 20 s on a hazard makes it immune (ice slip untouched: P-AUG-NATIVE-3c). Overflow turns
 the overheal into a G6-capped barrier; every barrier of an Overflow holder fades over 8 s. `check` ties Pathfinder's counter to its
 marks exactly and Hazard Walker's stacks to the meters as an upper bound. Wish Engine is P-AUG-NATIVE-3b.
+
+## Faction batch (P-AUG-NATIVE-4)
+
+Corpse Hoarder, Stoked, Glacier and Trophy Hunter live in `cards/native/faction.rs`, each `Offer::Faction` of its own faction.
+
+- One seam per stat. `native::fold_stats` returns `FoldStats { armor, ad, ap }`: armor is Calluses + Glacier, AD the Ledger,
+  AP Stoked, each a farm row of the fold (`CombinedFarm` holds 39 rows). Max hp is `native::flat_max_hp` (Hazard Walker's
+  stacks + Corpse Hoarder's `counter x base hp`), read by `sync_max_hp`. Damage is `outgoing_share` (Tally + Trophy Hunter).
+- Corpse Hoarder: `CorpseHarvest` adds 0.03 (cap 0.24); the handler syncs max hp and keeps the hp it had (no heal), as the
+  corpse's own row does.
+- Stoked: `BurstLanded` adds 2 AP (cap 30). The hook fires where `fire_roam` queues the burst (`defer_hit`), the tick before
+  the burst's own hit: a queued burst counts even if its victim then leaves. `hooks::fire` refolds after it.
+- Glacier: `ChillInflicted { ms }` adds `0.15 x ms / 1000` armor (cap 30), from every chill source: 1200 ms per ranged Frost
+  hit (`frost::ranged_hits`) and one tick (50 ms) per source per tick while the victim's chill is below 1
+  (`hooks::attack_chill`). Those come through `fire_held` (no `MatchStatic`), so no refold runs at the hook: the same
+  tick's `mods.updateMods` row folds the armor for every fighter, after the damage phase that chilled. The armor mirror
+  has the wire's 0.1 resolution.
+- Trophy Hunter: `HuntStack { stacks }` adds `0.02 x stacks` (cap 0.15), a damage share beside Marksman's Tally.
+- The four counters are non-integral shares: `check` adds no rule beyond the caps. A stored fold that disagrees with the
+  counters is refused on restore by the existing `invalid armor mirror` check (`Runtime::valid` refolds).
