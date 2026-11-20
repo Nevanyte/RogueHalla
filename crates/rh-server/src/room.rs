@@ -26,12 +26,11 @@ use rh_policy::bots::{BrainBot, HumanBot};
 use rh_policy::{drive_seats_queued, scripted, MatchStart, Policy, Seat};
 use rh_protocol::map::EncodedMap;
 use rh_protocol::{encode_welcome, RejectCode, ServerMsg, WelcomeHeader, WireEvent, WireResult};
-use rh_sim::constants::TICK_MS;
 use rh_sim::replay::{BotPolicy, Recorder, Replay, ReplayInput, ReplayStart};
 use rh_sim::{
     Arena, Event, FactionId, Phase, PlayerId, RunResult, Secrets, SeenEvent, Sim, SimConfig,
 };
-use rtt::{clamp_render_time_noted, RewindClampStats, RttEstimator};
+use rtt::{clamp_render_time_noted_at, RewindClampStats, RttEstimator};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -395,6 +394,9 @@ pub struct RoomConfig {
     pub welcome_map: Arc<EncodedMap>,
     /// Fill the match with scripted bots up to this many players (0: none).
     pub fill_bots_to: usize,
+    /// The pacer's period. Hosted rooms take it from `sim.tick_ms` (the director copies `DirectorConfig::tick`, which
+    /// `DirectorConfig::new` derives from the sim, P-TICK-5); a test may pace faster or slower than the sim steps. Sim time, the Welcome rate and every
+    /// "one step" the room adds follow `sim.tick_ms`, never this.
     pub tick: Duration,
     /// Record a private replay of the match (every input, every step's state hash).
     pub record: bool,
@@ -655,6 +657,32 @@ impl Room {
         &self.sim
     }
 
+    /// The room's step in milliseconds as sim time (`Sim::tick_ms`: 50, or 25 under ADR 0029): what the next step adds.
+    fn step_ms(&self) -> f64 {
+        f64::from(self.sim.tick_ms())
+    }
+
+    /// The rate the room's Welcome announces: 20 Hz at 50 ms, 40 Hz at 25 ms (`profile_supported` admits no other step).
+    fn tick_rate(&self) -> u8 {
+        (1000 / self.sim.tick_ms()) as u8
+    }
+
+    /// P-TICK-5: a connection that is about to get this room's Welcome writes its snapshots, and counts its delta and
+    /// capability limits, at the room's step. Called where the Welcome is built (join and resume), before any snapshot.
+    fn bind_rate(
+        tick_ms: u32,
+        outbox: &Outbox,
+        collections: &mut crate::wire_state::CollectionPublisher,
+    ) {
+        // `profile_supported` refused every step a decoder does not accept when the room was built.
+        outbox
+            .set_tick_ms(tick_ms)
+            .expect("the room's step is a hosted rate");
+        collections
+            .set_tick_ms(tick_ms)
+            .expect("the room's step is a hosted rate");
+    }
+
     fn welcome(&self, player: PlayerId, session: [u8; 16]) -> Vec<u8> {
         // The map is copied from its once-encoded blob, not run-length encoded per join and resume.
         encode_welcome(
@@ -664,7 +692,7 @@ impl Room {
                 match_id: self.id,
                 player_id: player.0,
                 session,
-                tick_rate: rh_sim::constants::TICK_RATE as u8,
+                tick_rate: self.tick_rate(),
                 tick: self.sim.tick(),
                 server_ms: self.sim.server_time(),
             },

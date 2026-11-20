@@ -117,8 +117,10 @@ fn quest_bridge_native_token_and_parcel_keep_the_existing_pickup_door() {
         let mut obs = rh_sim::Observation::default();
         observer.observe_into(&sim, &[], &mut obs, None).unwrap();
         if !offer.published {
-            let reveal_ticks =
-                (rh_sim::constants::QUEST_REVEAL_HEAD_START_MS / TICK_MS).ceil() as usize + 2;
+            let reveal_ticks = (rh_sim::constants::QUEST_REVEAL_HEAD_START_MS
+                / f64::from(sim.tick_ms()))
+            .ceil() as usize
+                + 2;
             for _ in 0..reveal_ticks {
                 sim.step();
             }
@@ -470,8 +472,9 @@ fn quest_bridge_preview_hidden_and_closed_refs_never_accept() {
         rh_protocol::QuestHandle::new(handle.get()).unwrap(),
     ));
     assert_eq!(observer.resolve(&sim, proposal).unwrap(), missing);
-    let reveal_ticks =
-        (rh_sim::constants::QUEST_REVEAL_HEAD_START_MS / TICK_MS).ceil() as usize + 1;
+    let reveal_ticks = (rh_sim::constants::QUEST_REVEAL_HEAD_START_MS / f64::from(sim.tick_ms()))
+        .ceil() as usize
+        + 1;
     for _ in 0..reveal_ticks {
         sim.step();
     }
@@ -1120,7 +1123,7 @@ async fn quest_room_earned_shards_completion(hitboxes: rh_sim::archetype::Hitbox
     let completion_ms = room.sim().server_time();
     assert_eq!(
         completion_ms,
-        f64::from(completion_tick) * TICK_MS,
+        f64::from(completion_tick) * f64::from(room.sim().tick_ms()),
         "the native completion time is the running room's own clock"
     );
     assert_ne!(

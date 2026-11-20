@@ -61,6 +61,7 @@ impl Room {
                         h.carry.clear();
                         h.items.reconnect();
                         h.collections.reconnect();
+                        Self::bind_rate(self.sim.tick_ms(), &outbox, &mut h.collections);
                         let (player, session) = (h.player, h.session);
                         let seat_profile = h.profile.clone();
                         let resolved = h.result.clone();
@@ -120,14 +121,16 @@ impl Room {
                     // `now_apply` as its `now`. P-NET-1 Phase 3: bound an attack render time by the RTT the server
                     // measured for this connection (never by the client's claim), before `Sim::submit`. Cast render-time
                     // metadata receives the same bound, but Wish effects are not rewound by it.
-                    let now_apply = self.sim.server_time() + TICK_MS;
+                    let now_apply = self.sim.server_time() + self.step_ms();
+                    let tick_ms = self.sim.tick_ms();
                     let mut accepted = 0u32;
                     let mut clamps = RewindClampStats::default();
                     for c in commands {
-                        let (proposal, clamped) = clamp_render_time_noted(
+                        let (proposal, clamped) = clamp_render_time_noted_at(
                             wire::command(c),
                             now_apply,
                             &self.humans[index].rtt,
+                            tick_ms,
                             &mut clamps,
                         );
                         if clamped {

@@ -85,6 +85,30 @@ pub fn core_hitboxes(args: &[String]) -> Result<rh_sim::archetype::HitboxMode, S
     )
 }
 
+/// P-TICK-5: the environment variable that sets the server's room step when `--tick-ms` is absent.
+pub const TICK_MS_ENV: &str = "RH_TICK_MS";
+
+/// P-TICK-5 (ADR 0029): the room step in milliseconds from `--tick-ms 50|25`, else [`TICK_MS_ENV`] (`env` is the
+/// environment lookup), else 50 (the legacy step, the live default until P-TICK-6). The flag wins over the environment.
+/// Any other value (another number, `25.0`, a missing or empty value) is a startup error: `main.rs` exits 2 on it.
+/// The chosen step becomes every hosted sim's `SimConfig::tick_ms`, core and `--runtime` profiles alike.
+pub fn tick_ms_setting(
+    args: &[String],
+    env: impl Fn(&str) -> Option<String>,
+) -> Result<u32, String> {
+    let step = |text: &str, source: &str| match text {
+        "50" => Ok(50),
+        "25" => Ok(25),
+        _ => Err(format!("{source} must be 50 or 25 (milliseconds per step)")),
+    };
+    match value(args, "--tick-ms")? {
+        Some(flag) => step(flag, "--tick-ms"),
+        None => env(TICK_MS_ENV).map_or(Ok(rh_sim::constants::LEGACY_TICK_MS as u32), |v| {
+            step(&v, TICK_MS_ENV)
+        }),
+    }
+}
+
 fn value<'a>(args: &'a [String], flag: &str) -> Result<Option<&'a str>, String> {
     if args.iter().any(|a| a.starts_with(&format!("{flag}="))) {
         return Err(format!("use {flag} with a separate value"));
@@ -339,6 +363,10 @@ pub fn source_map(bytes: &[u8]) -> Result<Arena, String> {
     crate::wire::arena_fits(&arena)?;
     Ok(arena)
 }
+
+#[cfg(test)]
+#[path = "runtime_tick_tests.rs"]
+mod tick_tests;
 
 #[cfg(test)]
 mod tests {

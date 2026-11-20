@@ -149,20 +149,24 @@ fn quest_hosting_is_supported_and_incompatible_training_is_refused() {
 }
 
 #[test]
-fn a_sim_stepping_other_than_50_ms_is_not_hosted() {
-    // P-TICK-3: the room paces and announces 20 Hz, so a 25 ms (40 Hz) sim would be read at the wrong rate.
+fn a_sim_stepping_other_than_50_or_25_ms_is_not_hosted() {
+    // P-TICK-5 (amending P-TICK-3): the room paces and announces its own step, so a 25 ms (40 Hz) sim is hosted; no
+    // other step is.
     let default = rh_sim::SimConfig::default();
     assert_eq!(default.tick_ms, rh_protocol::TICK_MS);
     assert!(profile_supported(&default).is_ok());
-    for tick_ms in [25u32, 0, 100] {
-        assert_eq!(
+    assert!(profile_supported(&rh_sim::SimConfig {
+        tick_ms: 25,
+        ..rh_sim::SimConfig::default()
+    })
+    .is_ok());
+    for tick_ms in [0u32, 20, 30, 40, 100] {
+        assert!(
             profile_supported(&rh_sim::SimConfig {
                 tick_ms,
                 ..rh_sim::SimConfig::default()
-            }),
-            Err(rh_protocol::EncodeError::BadValue(
-                "only a 50 ms (20 Hz) tick is hosted until the room announces its rate"
-            )),
+            })
+            .is_err(),
             "tick_ms {tick_ms} is refused"
         );
     }
