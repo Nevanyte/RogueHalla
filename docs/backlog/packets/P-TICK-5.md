@@ -60,7 +60,7 @@ Existing tests that pin what this packet changes:
 
 ## 5. Exclusive write scope
 - `crates/rh-server/src/director.rs`, `director/spawn.rs`, `pacer.rs` (doc comment only), `room.rs`, `room/**` (except
-  the oracle file below), `rtt.rs`, `main.rs` (the flags), `startup/flags.rs` (`tick_ms_setting`, stubbed by the oracle),
+  the oracle file below), `rtt.rs`, `main.rs` (the flags), `runtime.rs` (`tick_ms_setting`, stubbed by the oracle; applying it to `Settings::sim`),
   `src/bin/densitybench/**`,
   `quest_bridge_tests.rs` (reads the rate)
 - added by the coordinator 2026-11-20 (P-TICK-3/3-fix notes): `crates/rh-server/src/wire.rs` (`profile_supported`
@@ -91,15 +91,17 @@ Existing tests that pin what this packet changes:
 - `crates/rh-server/src/rtt_tick_tests.rs`: `the_rewind_window_adds_and_floors_at_one_step_of_the_room`.
   `allowed_rewind_ms_at(rtt, tick_ms)` and `RttEstimator::allowed_rewind_ms_at(tick_ms)`: negative RTT 25 at 25 ms and
   50 at 50 ms; RTT floor 20: 215 at 25 ms (20 + 150 + 25 + 20), 240 at 50 ms; cap 300 at both.
-- `crates/rh-server/src/startup/tick_tests.rs`: `the_tick_ms_setting_takes_50_or_25_from_the_flag_or_the_environment`.
-  `tick_ms_setting(args, env)`: default 50; `--tick-ms 25|50` and `RH_TICK_MS=25|50` accepted; the flag wins over the
+- `crates/rh-server/src/runtime_tick_tests.rs`: `the_tick_ms_setting_takes_50_or_25_from_the_flag_or_the_environment`.
+  `rh_server::runtime::tick_ms_setting(args, env)`: default 50; `--tick-ms 25|50` and `RH_TICK_MS=25|50` accepted; the flag wins over the
   environment; `--tick-ms 30` (and 0, 20, 40, 100, `abc`, `25.0`, a missing value) and `RH_TICK_MS=30` (and `abc`, empty)
   are errors (the binary exits 2 on them, like every other invalid setting).
 - `crates/rh-server/src/wire/tests/profiles.rs` (`oracle-amend:`): `a_sim_stepping_other_than_50_or_25_ms_is_not_hosted`.
 
 Stubs (the `stub:` commit, the implementer replaces them): `rtt.rs` `allowed_rewind_ms_at` and
-`RttEstimator::allowed_rewind_ms_at` (ignore the rate), `startup/flags.rs` `tick_ms_setting` (always 50) and
-`TICK_MS_ENV`, and the `mod` lines in `rtt.rs`, `main.rs`, `room/tests.rs`, `director/tests.rs`.
+`RttEstimator::allowed_rewind_ms_at` (ignore the rate), `runtime.rs` `tick_ms_setting` (always 50) and `TICK_MS_ENV`,
+and the `mod` lines in `rtt.rs`, `runtime.rs`, `room/tests.rs`, `director/tests.rs`. The setting lives in the library, beside
+`core_hitboxes`, because `scripts/gate.sh --oracle-check` reads only `--lib` and `--test` targets (a first try under
+`main.rs`'s `startup/` tests was moved; its file was removed on this branch).
 
 Not covered by an oracle (review it): `room/commands.rs` `now_apply` and `room/bots.rs` `step_t` adding the room's step;
 the room's rewind clamp using `allowed_rewind_ms_at(.., sim.tick_ms())`; `CollectionPublisher::set_tick_ms` on join and
@@ -113,7 +115,7 @@ Medium: one crate, clear oracle. Sonnet, Opus review for the rewind window.
 
 ## 11. Known traps
 - The environment variable is `RH_TICK_MS` (chosen by the oracle: the brief named none; `TICK_MS_ENV` in
-  `startup/flags.rs`). The flag wins over it, as `--fill-bots` wins over `BOTS_FILL_TO`.
+  `runtime.rs`). The flag wins over it, as `--fill-bots` wins over `BOTS_FILL_TO`.
 - `RoomConfig::tick` and `sim.tick_ms` are two sources of one fact. The director must derive the first from the second;
   whether `Room::new` also refuses or ignores a mismatch is the implementer's choice (the oracle builds both consistent).
 - Snapshots are coalesced per connection: a delta follows the first Full, so the oracle reads ticks through a
