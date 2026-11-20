@@ -1769,14 +1769,8 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
                 )],
             },
         ),
-        (
-            "state_reward_first_pick_other",
-            first_pick_rewards(false),
-        ),
-        (
-            "state_reward_first_pick_killer",
-            first_pick_rewards(true),
-        ),
+        ("state_reward_first_pick_other", first_pick_rewards(false)),
+        ("state_reward_first_pick_killer", first_pick_rewards(true)),
         (
             "state_union_props",
             ServerMsg::State {
@@ -5588,10 +5582,7 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
             vec![0x84, 0, 0, 0, 0, 1, 0, 6, 10],
         ),
         ("state_reward_card_id_94", bad_card_id),
-        (
-            "state_reward_first_pick_tag_2",
-            first_pick_patched(0, &[2]),
-        ),
+        ("state_reward_first_pick_tag_2", first_pick_patched(0, &[2])),
         (
             "state_reward_first_pick_mine_2",
             first_pick_patched(9, &[2]),
