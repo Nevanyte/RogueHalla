@@ -92,7 +92,7 @@ async fn a_director_room_runs_and_announces_its_configured_step() {
         );
         let d = Director::new(
             cfg,
-            Arc::new(Persistence::Memory(Box::new(MemoryStore::default()))),
+            Arc::new(Persistence::Memory(Box::default())),
             Arc::new(Auth::Dev),
             Arc::new(Lifecycle::default()),
         );
