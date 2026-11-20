@@ -336,6 +336,8 @@ namespace Roguehalla.Client
             float alongMin = aisleOnX ? room.MinX : room.MinY, alongMax = aisleOnX ? room.MaxX : room.MaxY;
             float across = aisleOnX ? (room.MinY + room.MaxY + 1) * .5f : (room.MinX + room.MaxX + 1) * .5f;
             var pew = Resources.Load<Sprite>("StormInk/Church/OakPew");
+            // The narrow back cap lies along the image's +Y edge. Point it toward the entrance.
+            var pewAngle = Mathf.Atan2(-lm.FrontVector.x, -lm.FrontVector.y) * Mathf.Rad2Deg;
             float[] rows = { alongMin + 1.55f, alongMin + 2.65f, alongMax - 1.55f, alongMax - .45f };
             foreach (float row in rows)
             for (int bank = -1; bank <= 1; bank += 2)
@@ -353,7 +355,7 @@ namespace Roguehalla.Client
                 }
                 if (fits)
                     AddAssetSprite(lm, pew, "Church pew", x, y, aisleOnX ? length * Sq : length,
-                        aisleOnX ? depth : depth * Sq, aisleOnX ? 90f : 0f, 2);
+                        aisleOnX ? depth : depth * Sq, pewAngle, 2);
             }
             var pulpit = Resources.Load<Sprite>("StormInk/Church/GothicPulpit");
             float front = aisleOnX ? lm.FrontVector.x : lm.FrontVector.y;
