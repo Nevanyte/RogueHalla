@@ -242,5 +242,28 @@ namespace Roguehalla.Net.Tests
             Assert.AreEqual(0.0, b);
             Assert.AreEqual(14, list.Count);
         }
-    }
+    
+        [Test]
+        public void RenewedMobHandlesWithWindupsDoNotAccumulateFighterState()
+        {
+            // The server renews NPC observer handles; each windup under a handle that is never drawn again must not pin
+            // that fighter's state for the rest of the match.
+            var buffer = new SnapshotBuffer();
+            var draw = new RemoteDraw(buffer) { Map = WallAt60() };
+            var list = new List<InterpActor>();
+            var count = typeof(RemoteDraw).GetField("_fighters", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            int most = 0;
+            for (uint k = 0; k < 2000; k++)
+            {
+                var mob = Player(100 + k % 50, 300, 0, 0);
+                mob.Id = 1000 + k;
+                mob.Kind = (byte)ActorKind.RegionalMob;
+                buffer.Add(new ServerMsg.Snapshot { Tick = k, Actors = new[] { mob } });
+                draw.NoteWindup(mob.Id, k * 50.0, 400, (byte)WeaponId.Sword);
+                draw.Sample(k * 50.0 - 60, list);
+                most = System.Math.Max(most, ((System.Collections.IDictionary)count.GetValue(draw)).Count);
+            }
+            Assert.Less(most, 700, "fighter state stays bounded (about ForgetFrames + one forget period) under renewed handles");
+        }
+}
 }

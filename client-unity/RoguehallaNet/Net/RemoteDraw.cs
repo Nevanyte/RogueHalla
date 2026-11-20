@@ -209,8 +209,15 @@ namespace Roguehalla.Net
         void Forget()
         {
             _drop.Clear();
+            // Windows are otherwise pruned only while a fighter is drawn ahead; a held or vanished fighter (a mob whose
+            // observer handle renewed) would keep its stale windows, and with them its state, for the whole match.
+            double stale = _snapshots.Count > 0 ? _snapshots.At(_snapshots.Count - 1).ServerMs - 1000 : double.NegativeInfinity;
             foreach (var kv in _fighters)
-                if (_frame - kv.Value.Frame > ForgetFrames && kv.Value.WinCount == 0) _drop.Add(kv.Key);
+            {
+                var f = kv.Value;
+                for (int i = f.WinCount - 1; i >= 0; i--) if (f.WinUntil[i] < stale) RemoveWindow(f, i);
+                if (_frame - f.Frame > ForgetFrames && f.WinCount == 0) _drop.Add(kv.Key);
+            }
             for (int i = 0; i < _drop.Count; i++)
             {
                 _pool.Push(_fighters[_drop[i]]);
