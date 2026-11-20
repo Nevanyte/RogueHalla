@@ -271,7 +271,15 @@ pub(super) fn write_snapshot_head(w: &mut Writer, header: SnapshotHeader<'_>) {
     f.u8(T_SNAPSHOT);
     f.varint(tick);
     f.varint(ack_input);
-    let head = head_word(phase, tick, tick_ms, server_time, me, training, owner_combat);
+    let head = head_word(
+        phase,
+        tick,
+        tick_ms,
+        server_time,
+        me,
+        training,
+        owner_combat,
+    );
     f.varint(head);
     if let Some(s) = me {
         write_self(&mut f, head, s);

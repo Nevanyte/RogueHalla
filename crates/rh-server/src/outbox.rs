@@ -234,7 +234,11 @@ impl Outbox {
 
     /// The connection's milliseconds per tick ([`Outbox::set_tick_ms`]).
     pub fn tick_ms(&self) -> u32 {
-        self.writer.lock().expect("snapshot writer lock").enc.tick_ms()
+        self.writer
+            .lock()
+            .expect("snapshot writer lock")
+            .enc
+            .tick_ms()
     }
 
     /// Encodes `snap` for this connection: a Full frame or a delta against the last snapshot encoded here. Called by the
@@ -641,7 +645,11 @@ mod tests {
             o.snapshot(at25(tick));
             o.drain_into(&mut frames);
         }
-        assert_eq!(o.snapshots_full.load(Ordering::Relaxed), full, "held to tick 50");
+        assert_eq!(
+            o.snapshots_full.load(Ordering::Relaxed),
+            full,
+            "held to tick 50"
+        );
         o.snapshot(at25(51));
         o.drain_into(&mut frames);
         assert_eq!(

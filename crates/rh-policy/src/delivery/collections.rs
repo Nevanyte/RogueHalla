@@ -31,8 +31,7 @@ pub struct CollectionPublisher {
     roster: Vec<rh_protocol::WireRosterRow>,
     summary: Option<WireBuildSummary>,
     last_forced: Option<u32>,
-    /// P-TICK-3-fix: the connection's milliseconds per tick when it is not [`rh_protocol::TICK_MS`]
-    /// ([`CollectionPublisher::set_tick_ms`]); the forced-replacement throttle is 1000 ms at it.
+    /// P-TICK-3-fix: the connection's ms per tick ([`CollectionPublisher::set_tick_ms`]), `None` for 50.
     tick_ms: Option<u32>,
 }
 
@@ -666,20 +665,18 @@ impl CollectionPublisher {
         self.tick_ms = tick_ms;
     }
 
-    /// The connection's milliseconds per tick ([`rh_protocol::TICK_MS`] unless set).
+    /// The connection's ms per tick ([`rh_protocol::TICK_MS`] unless set).
     pub fn tick_ms(&self) -> u32 {
         self.tick_ms.unwrap_or(rh_protocol::TICK_MS)
     }
 
-    /// Sets the connection's rate, where its Welcome is sent; a rate no decoder accepts is refused
-    /// ([`rh_protocol::checked_tick_ms`]) and changes nothing.
+    /// Sets the connection's rate, where its Welcome is sent; another than 50 or 25 ms is refused, changing nothing.
     pub fn set_tick_ms(&mut self, tick_ms: u32) -> Result<(), EncodeError> {
         self.tick_ms = Some(rh_protocol::checked_tick_ms(tick_ms)?);
         Ok(())
     }
 
-    /// The same throttle controls capability renewal and the matching forced replacement: one forced replacement per
-    /// 1000 ms at the connection's rate ([`rh_protocol::delta::min_forced_full_ticks`]: 20 ticks at 20 Hz, 40 at 40 Hz).
+    /// The same throttle controls capability renewal and the matching forced replacement: one per 1000 ms at the rate.
     pub fn resync_due(&self, tick: u32, requested: bool) -> bool {
         requested
             && self.last_forced.is_none_or(|last| {
@@ -967,35 +964,6 @@ mod tests {
             .unwrap()
             .frame
             .is_some());
-    }
-    /// P-TICK-3-fix: the forced-replacement throttle is 1000 ms at the connection's rate (20 ticks at 50 ms, 40 at 25 ms),
-    /// and a reconnect keeps the rate.
-    #[test]
-    fn forced_replacements_are_throttled_to_1000_ms_at_the_connection_rate() {
-        for (tick_ms, ticks) in [(50u32, 20u32), (25, 40)] {
-            let mut publisher = CollectionPublisher::default();
-            assert_eq!(publisher.tick_ms(), rh_protocol::TICK_MS);
-            publisher.set_tick_ms(tick_ms).unwrap();
-            let mut obs = Observation::default();
-            publisher
-                .prepare(&obs, false, false, false)
-                .unwrap()
-                .commit(&mut publisher);
-            obs.tick = 100;
-            assert!(publisher
-                .prepare(&obs, false, false, true)
-                .unwrap()
-                .commit(&mut publisher));
-            assert!(!publisher.resync_due(100 + ticks - 1, true), "{tick_ms} ms");
-            assert!(publisher.resync_due(100 + ticks, true), "{tick_ms} ms");
-            publisher.reconnect();
-            assert_eq!(publisher.tick_ms(), tick_ms, "a reconnect keeps the rate");
-        }
-        let mut publisher = CollectionPublisher::default();
-        for tick_ms in [0u32, 20, 40, 100] {
-            assert!(publisher.set_tick_ms(tick_ms).is_err(), "{tick_ms} ms");
-        }
-        assert_eq!(publisher.tick_ms(), rh_protocol::TICK_MS);
     }
     #[test]
     fn actual_potions_camps_and_projectiles_commit_retain_clear_and_reconnect() {

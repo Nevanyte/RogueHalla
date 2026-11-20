@@ -67,10 +67,17 @@ fn a_25_ms_snapshot_encodes_without_a_time_override_and_reads_tick_times_25_at_4
             crowd(tick, 0.0),
         )
         .unwrap();
-        assert_eq!(at50.tick_ms(), TICK_MS, "a snapshot stands at 20 Hz unless told");
+        assert_eq!(
+            at50.tick_ms(),
+            TICK_MS,
+            "a snapshot stands at 20 Hz unless told"
+        );
         let mut full50 = Vec::new();
         at50.encode_full_into(&mut full50);
-        assert!(full50.len() >= full.len() + 8, "tick {tick}: no override at 25 ms");
+        assert!(
+            full50.len() >= full.len() + 8,
+            "tick {tick}: no override at 25 ms"
+        );
         at50.set_tick_ms(25).unwrap();
         assert_eq!(at50, snap);
         let msg = ServerMsg::decode_at(&full, 40).expect("a 40 Hz decoder accepts it");
@@ -81,7 +88,10 @@ fn a_25_ms_snapshot_encodes_without_a_time_override_and_reads_tick_times_25_at_4
         let (mut a, mut b) = (Vec::new(), Vec::new());
         assert_eq!(enc.encode(snap_at(tick, 25, 0.0), &mut a), FrameKind::Full);
         assert_eq!(a, full);
-        assert_eq!(enc.encode(snap_at(tick + 1, 25, 8.0), &mut b), FrameKind::Delta);
+        assert_eq!(
+            enc.encode(snap_at(tick + 1, 25, 8.0), &mut b),
+            FrameKind::Delta
+        );
         let mut t = SnapshotTracker::awaiting_welcome();
         t.decode(&welcome_at(40)).unwrap();
         t.decode(&a).unwrap();
@@ -129,7 +139,10 @@ fn next_forced_full(tick_ms: u32, first: u32) -> u32 {
     enc.encode(snap_at(first - 1, tick_ms, 0.0), &mut out);
     enc.request_full();
     out.clear();
-    assert_eq!(enc.encode(snap_at(first, tick_ms, 8.0), &mut out), FrameKind::Full);
+    assert_eq!(
+        enc.encode(snap_at(first, tick_ms, 8.0), &mut out),
+        FrameKind::Full
+    );
     enc.request_full();
     for tick in first + 1..first + 200 {
         out.clear();
@@ -180,7 +193,9 @@ fn a_40_hz_encoder_accepts_a_delta_base_up_to_128_ticks_old_and_20_hz_up_to_64()
     assert_eq!(kind_after(50, 65).0, FrameKind::Full, "age 65 at 20 Hz");
     // The reference writer refuses a base age over its rate's limit.
     let d = delta::diff(&snap_at(500, 25, 0.0), &snap_at(600, 25, 8.0)).unwrap();
-    assert!(ServerMsg::SnapshotDelta(d.clone()).try_encode_at(40).is_ok());
+    assert!(ServerMsg::SnapshotDelta(d.clone())
+        .try_encode_at(40)
+        .is_ok());
     assert!(
         ServerMsg::SnapshotDelta(d).try_encode().is_err(),
         "100 ticks is over the 20 Hz limit"
@@ -202,8 +217,8 @@ fn welcome_at(rate: u8) -> Vec<u8> {
 fn a_snapshot_decoded_at_40_hz_re_encodes_at_40_hz_to_its_own_bytes() {
     let mut frames = Vec::new();
     for (tick, time) in [(7u32, 175.0), (101, 2525.0), (20, 888.75), (20, 1000.0)] {
-        let s = SnapshotData::build_with_server_time(tick, time, 1, 2, None, crowd(tick, 0.0))
-            .unwrap();
+        let s =
+            SnapshotData::build_with_server_time(tick, time, 1, 2, None, crowd(tick, 0.0)).unwrap();
         let mut f = Vec::new();
         let mut enc = ConnEncoder::at(25).unwrap();
         enc.encode(s, &mut f);
@@ -213,12 +228,19 @@ fn a_snapshot_decoded_at_40_hz_re_encodes_at_40_hz_to_its_own_bytes() {
     frames.push(delta);
     for frame in frames {
         let msg = ServerMsg::decode_at(&frame, 40).expect("decodes at 40");
-        assert_eq!(msg.try_encode_at(40).as_deref(), Ok(frame.as_slice()), "{msg:?}");
+        assert_eq!(
+            msg.try_encode_at(40).as_deref(),
+            Ok(frame.as_slice()),
+            "{msg:?}"
+        );
         assert_eq!(msg.encoded_len_at(40), Ok(frame.len()));
     }
     // At 20 Hz the rate-aware writer is the plain one.
     for (_, msg) in samples::server_samples() {
-        if matches!(msg, ServerMsg::Snapshot { .. } | ServerMsg::SnapshotDelta(_)) {
+        if matches!(
+            msg,
+            ServerMsg::Snapshot { .. } | ServerMsg::SnapshotDelta(_)
+        ) {
             assert_eq!(msg.try_encode_at(20), msg.try_encode());
         }
     }
