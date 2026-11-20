@@ -39,13 +39,15 @@ namespace Roguehalla.Client
             return t.localPosition + t.localRotation * Vector3.Scale((Vector3)(pixel / sprite.pixelsPerUnit), t.localScale);
         }
 
-        internal void Draw(SpriteRenderer bow, SpriteOutline outline, int view, Vector3 rightPalm, float opacity)
+        internal void Draw(SpriteRenderer bow, SpriteOutline outline, int view, Vector3 rightPalm, float opacity,
+            int? segmentOrder = null)
         {
             StormInkBowArtAuthoring.NockPositions(view, out var top, out var bottom);
             var color = DrawColor;
             color.a = opacity;
-            DrawSegment(_top, Socket(bow, top), rightPalm, bow.sortingOrder + 1, color);
-            DrawSegment(_bottom, Socket(bow, bottom), rightPalm, bow.sortingOrder + 1, color);
+            int order = segmentOrder ?? bow.sortingOrder + 1;
+            DrawSegment(_top, Socket(bow, top), rightPalm, order, color);
+            DrawSegment(_bottom, Socket(bow, bottom), rightPalm, order, color);
 
             var rect = bow.sprite.rect;
             var texture = bow.sprite.texture;

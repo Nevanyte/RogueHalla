@@ -18,6 +18,8 @@ namespace Roguehalla.Client
         [SerializeField] Texture2D atlas;
         [SerializeField] bool[] readyRows = new bool[Rows];
         [SerializeField] Palms[] palms = Array.Empty<Palms>();
+        [SerializeField, Tooltip("When true, the two drawn string segments render behind this registered Fire body bearing. Missing data keeps the legacy front order.")]
+        bool[] stringBehindBodyRows;
         [SerializeField, Range(.05f, .8f)] float midDrawAt = .22f;
         [SerializeField, Range(.2f, .95f)] float sustainedDrawAt = .68f;
 
@@ -31,6 +33,13 @@ namespace Roguehalla.Client
         public float WorldHeight => StormInkFireAxeAuthoring.Load()?.WorldHeight ?? 1.15f;
 
         public bool IsReady(int row) => (uint)row < Rows && readyRows != null && readyRows.Length == Rows && readyRows[row];
+
+        internal bool StringBehindBody(Sprite body)
+        {
+            if (body == null || stringBehindBodyRows == null || stringBehindBodyRows.Length != Rows ||
+                !TryHand(body, false, out _)) return false;
+            return stringBehindBodyRows[PoseRow(body)];
+        }
 
         internal static int PoseColumn(StormInkWeaponMotion.Phase phase, float progress, bool alternate,
             float middle = .22f, float sustained = .68f)

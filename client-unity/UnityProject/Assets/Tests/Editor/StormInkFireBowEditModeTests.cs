@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
 using UnityEditor;
@@ -108,6 +109,72 @@ namespace Roguehalla.Client.Tests
             ObserveArrow();
             Present(790, 1000);
             AssertBody(8);
+        }
+
+        [Test]
+        public void RegisteredFireBowStringCanPassBehindBodyWithoutChangingBowOrderOrGrip()
+        {
+            var production = Resources.Load<StormInkFireBowAuthoring>("StormInk/Actors/FireBowAuthoring");
+            var art = UnityEngine.Object.Instantiate(production);
+            try
+            {
+                _defaultField.SetValue(null, art);
+                var productionData = new SerializedObject(production);
+                var productionRows = productionData.FindProperty("stringBehindBodyRows");
+                Assert.That(productionRows.arraySize, Is.EqualTo(8));
+                Assert.That(productionRows.GetArrayElementAtIndex(6).boolValue, Is.True,
+                    "West is the production bearing configured to tuck the pulled string behind Fire's shoulder.");
+                Assert.That(productionRows.GetArrayElementAtIndex(2).boolValue, Is.False);
+
+                var previewData = new SerializedObject(art);
+                previewData.FindProperty("stringBehindBodyRows").GetArrayElementAtIndex(2).boolValue = true;
+                previewData.ApplyModifiedPropertiesWithoutUndo();
+
+                Present(800, 1000);
+                var actor = _root.transform.Find("Observed actor");
+                var body = actor.Find("Authored character").GetComponent<SpriteRenderer>();
+                var bow = actor.Find("Equipped weapon cue").GetComponent<SpriteRenderer>();
+                var upper = actor.Find("Bowstring upper").GetComponent<SpriteRenderer>();
+                var lower = actor.Find("Bowstring lower").GetComponent<SpriteRenderer>();
+                Assert.That(body.sprite.name, Is.EqualTo("FireBow/2/2"));
+                Assert.That(upper.enabled && lower.enabled, Is.True);
+                Assert.That(upper.sortingOrder, Is.LessThan(body.sortingOrder));
+                Assert.That(lower.sortingOrder, Is.LessThan(body.sortingOrder));
+
+                var canonicalBow = StormInkWeaponArt.Get(WeaponId.Bow, 2);
+                Assert.That(bow.sprite, Is.SameAs(canonicalBow));
+                int bowOrder = bow.sortingOrder;
+                Vector3 bowScale = bow.transform.localScale;
+                Assert.That(StormInkActors.TryHand(FactionId.Fire, body.sprite, true, out var leftHand), Is.True);
+                Vector3 Socket(SpriteRenderer renderer, Vector2 uv) => renderer.transform.TransformPoint(
+                    (Vector2.Scale(uv, renderer.sprite.rect.size) - renderer.sprite.pivot) / renderer.sprite.pixelsPerUnit);
+                Vector3 grip = Socket(bow, StormInkWeaponArt.Grip(WeaponId.Bow, 2));
+                Assert.That(Vector3.Distance(grip, Socket(body, leftHand)), Is.LessThan(.0001f));
+
+                // The old string order remains the default when the artist turns this row off.
+                previewData.FindProperty("stringBehindBodyRows").GetArrayElementAtIndex(2).boolValue = false;
+                previewData.ApplyModifiedPropertiesWithoutUndo();
+                Present(800, 1000);
+                Assert.That(bow.sprite, Is.SameAs(canonicalBow));
+                Assert.That(bow.sortingOrder, Is.EqualTo(bowOrder));
+                Assert.That(bow.transform.localScale, Is.EqualTo(bowScale));
+                Assert.That(upper.sortingOrder, Is.EqualTo(bowOrder + 1));
+                Assert.That(lower.sortingOrder, Is.EqualTo(bowOrder + 1));
+                Assert.That(Vector3.Distance(grip, Socket(body, leftHand)), Is.LessThan(.0001f));
+
+                // A different faction keeps its legacy front string ordering even with this Fire authoring loaded.
+                _presenter.Begin();
+                _presenter.Present(2, 100, 100, 0, 100, FactionId.Sentenced, ActorStatus.Alive, WeaponId.Bow,
+                    ActorKind.Player, null, 0, 0, true, drawStartedAt: 800, sampleTickMs: 1000);
+                _presenter.End();
+                var other = _root.transform.Find("Observed actor");
+                var otherBow = other.Find("Equipped weapon cue").GetComponent<SpriteRenderer>();
+                Assert.That(other.Find("Bowstring upper").GetComponent<SpriteRenderer>().sortingOrder,
+                    Is.EqualTo(otherBow.sortingOrder + 1));
+                Assert.That(other.Find("Bowstring lower").GetComponent<SpriteRenderer>().sortingOrder,
+                    Is.EqualTo(otherBow.sortingOrder + 1));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(art); }
         }
 
         void Present(uint drawStartedAt, double sampleTickMs, float x = 100f, float facing = 0f,
