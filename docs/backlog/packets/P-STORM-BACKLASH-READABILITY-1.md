@@ -28,6 +28,7 @@ Keep Backlash on the existing confirmed `SigHit` path and retain its two-part re
 - `client-unity/UnityProject/Assets/Scripts/Presentation/StormInkHitMarks.cs`
 - `client-unity/UnityProject/Assets/Scripts/View/ArenaView.Fx.cs`
 - `client-unity/UnityProject/Assets/Tests/Editor/StormInkHitMarkEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Resources/StormInk/Combat/SignatureBrushes.png` (Backlash cell only; other atlas cells must remain pixel-identical)
 - this packet brief
 
 ## 6. Contracts and references
@@ -40,7 +41,7 @@ Keep Backlash on the existing confirmed `SigHit` path and retain its two-part re
 
 - The mark is selected only for an already confirmed `SigHit`; no predicted or local attack cue is added.
 - Burn, Disease, Mark, Heal and ordinary hit rendering retain their positions, size, colors, timing and pooling.
-- Backlash retains the existing reverse-facing brush artwork and damage number.
+- Backlash retains its reverse-facing identity and damage number, with the reviewed connected reverse-hook brush in place of the split flecks.
 - All marks expire through the existing 0.55-second pooled flash path. Reduced motion freezes mark scale at its initial size. The mark remains attached to the delivered victim position.
 - Protocol bytes, game rules, hitboxes, source attribution and damage are unchanged.
 
@@ -49,7 +50,8 @@ Keep Backlash on the existing confirmed `SigHit` path and retain its two-part re
 - The new red oracle fails on the base assertion because Backlash is still anchored at the boot/inner ring and uses the common small mark size.
 - The oracle passes after the focused Backlash-only placement/size change and proves all other signature anchors and sizes stay unchanged.
 - Re-run the existing 18-case bright/dark native signature-mark comparison; other marks, contact expiry, number duration, reduced motion and reuse remain intact.
-- Capture matched before/after frames at the same gameplay-scale Fire warm-ground stage and camera. The reverse mark must sit outside the victim foot/target ring, read as its existing split outward shape, and leave the nearest damage number legible.
+- Capture matched before/after frames at the same gameplay-scale Fire warm-ground stage and camera. The hook must sit outside the victim foot/target ring and leave the label and nearest damage number legible.
+- Keep the existing displacement and scale. Replace only the Backlash atlas cell with a connected tapered dark-ink silhouette and narrow warm-ash highlight; confirm all other cells are unchanged.
 - No tracker row is marked passed by this packet; the Web gameplay readability check remains open for owner review.
 
 ## Oracle files
@@ -63,7 +65,7 @@ Keep Backlash on the existing confirmed `SigHit` path and retain its two-part re
 
 ## 10. Risk and suggested model tier
 
-A larger or shifted stamp can collide with floating numbers or look like another faction effect. Keep the existing Backlash silhouette and use the same placement function for event and native preview; compare at 1:1 render scale.
+A larger or shifted stamp can collide with floating numbers or look like another faction effect. Keep the effect restrained and use the same placement function for event and native preview; compare at 1:1 render scale.
 
 ## 11. Known traps
 
