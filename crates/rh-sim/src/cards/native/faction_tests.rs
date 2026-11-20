@@ -287,7 +287,8 @@ fn glacier_earns_armor_per_ranged_chill_second_and_the_armor_shows() {
     let got = slot(&sim, PlayerId(1), CardId::Glacier).counter;
     assert!((got - want).abs() < 1e-9, "counter {got}, want {want}");
     let gain = mirrors(&sim, PlayerId(1)).armor_bonus - mirrors(&sim, PlayerId(2)).armor_bonus;
-    assert!((gain - want).abs() < 1e-9, "armor gain {gain}, want {want}");
+    // The armor mirror is wire-rounded to 0.1 (as for Calluses in `weapon_batch_tests`).
+    assert!((gain - want).abs() <= 0.05 + 1e-9, "armor gain {gain}, want {want}");
 }
 
 /// Attack chill: a Frost holder beside a victim inflicts one tick (`TICK_MS`) of chill per tick while the victim's chill
@@ -467,6 +468,8 @@ fn a_checkpoint_mid_count_restores_hash_exact_and_plays_on() {
     give(&mut sim, PlayerId(2), CardId::Glacier);
     slot_mut(&mut sim, PlayerId(1), CardId::CorpseHoarder).counter = 0.06;
     slot_mut(&mut sim, PlayerId(2), CardId::Glacier).counter = 1.5;
+    // Glacier's counter feeds the validated armor fold: refold after the hand set, as a hook would.
+    crate::modifiers::recompute(&sim.k, &mut sim.w, crate::fighter::FighterIx::of_slot(1));
     // A real death leaves the corpse (a checkpoint refuses a corpse of a living player), moved to the holder's feet.
     sim.w.players[2].body.x = 300.;
     let mut ev = Vec::new();
