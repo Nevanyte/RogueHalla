@@ -152,3 +152,16 @@ High: wire format across three languages. Opus.
   from the setting (with P-TICK-5).
 
 ## Notes from previous attempts
+
+## Coordinator amendments (2026-11-20, after the oracle)
+- Version pins: the owner accepted ADR 0029 decision 5 (a protocol bump) and approved pushing and merging this work
+  (2026-11-19). The coordinator reads that as covering the mechanical edits that every bump needs: the protocol 20 pins
+  the oracle author listed (Rust, C#, JS, `probe.html` marker), and `TickRate = 20` in the C# tests that build a Welcome
+  with rate 0 (`ProtocolVectorTests.cs`, `HudContentProtocolTests.cs`, `OwnedSeatCheckpointTests.cs`). Change only the
+  version or rate value in each; list every one in the hand-off.
+- Write scope adds `crates/rh-server/src/wire.rs` for one change: `profile_supported` refuses a sim whose `tick_ms` is
+  not 50 (P-TICK-5 lifts it when the room paces and announces the rate). `room.rs` stays with P-TICK-5.
+- `scripts/gate.sh` is owner-protected: do not edit it. Make the gate run `check-tick-rate.mjs` by calling it from a JS
+  check the gate already runs under `tools/protocol-js/` (inside the write scope), and say which in the hand-off.
+- Snapshot-before-Welcome as an opt-in refusal in Rust and JS (correction 1) and the override leniency in C#/JS
+  (correction 2) are accepted.
