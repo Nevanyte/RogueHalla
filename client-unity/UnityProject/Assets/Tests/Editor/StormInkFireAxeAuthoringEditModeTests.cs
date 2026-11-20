@@ -98,14 +98,14 @@ namespace Roguehalla.Client.Tests
             finally { Object.DestroyImmediate(root); }
         }
 
-        [Test]
-        public void SoutheastGuardUsesFourRegisteredDrawingsWithoutReplacingOtherBearings()
+        [TestCase(1)] [TestCase(2)] [TestCase(4)]
+        public void AuthoredGuardBearingsUseFourRegisteredDrawings(int row)
         {
             var config = StormInkFireAxeAuthoring.Load();
-            Assert.That(config.GuardStagesFor(1), Is.EqualTo(4));
+            Assert.That(config.GuardStagesFor(row), Is.EqualTo(4));
             Assert.That(config.GuardStagesFor(0), Is.EqualTo(1));
             var poses = Enumerable.Range(0, 4)
-                .Select(stage => config.Frame(1, StormInkFireAxePose.Guard, stage)).ToArray();
+                .Select(stage => config.Frame(row, StormInkFireAxePose.Guard, stage)).ToArray();
             Assert.That(poses.Distinct().Count(), Is.EqualTo(4));
             foreach (var pose in poses)
             {

@@ -23,6 +23,12 @@ MonoBehaviour:
   - Row: 1
     GuardColumns: 0300000008000000090000000a000000
     StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
+  - Row: 2
+    GuardColumns: 0300000008000000090000000a000000
+    StrideColumns: 04000000
+  - Row: 4
+    GuardColumns: 0300000008000000090000000a000000
+    StrideColumns: 04000000
   palms:
   - Right: {x: 35, y: 18}
     Left: {x: 99, y: 72}
@@ -102,8 +108,8 @@ MonoBehaviour:
     Left: {x: 27, y: 59}
   - Right: {x: 97, y: 106}
     Left: {x: 27, y: 62}
-  - Right: {x: 27, y: 78}
-    Left: {x: 96, y: 57}
+  - Right: {x: 57, y: 86}
+    Left: {x: 102, y: 71}
   - Right: {x: 25, y: 74}
     Left: {x: 106, y: 54}
   - Right: {x: 113, y: 51}
@@ -112,12 +118,12 @@ MonoBehaviour:
     Left: {x: 96, y: 57}
   - Right: {x: 25, y: 74}
     Left: {x: 106, y: 54}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
+  - Right: {x: 57, y: 84}
+    Left: {x: 102, y: 71}
+  - Right: {x: 58, y: 84}
+    Left: {x: 103, y: 71}
+  - Right: {x: 56, y: 86}
+    Left: {x: 102, y: 70}
   - Right: {x: 0, y: 0}
     Left: {x: 0, y: 0}
   - Right: {x: 0, y: 0}
@@ -174,8 +180,8 @@ MonoBehaviour:
     Left: {x: 29, y: 76}
   - Right: {x: 94, y: 74}
     Left: {x: 33, y: 72}
-  - Right: {x: 98, y: 67}
-    Left: {x: 30, y: 78}
+  - Right: {x: 89, y: 76}
+    Left: {x: 41, y: 70}
   - Right: {x: 94, y: 74}
     Left: {x: 33, y: 72}
   - Right: {x: 92, y: 32}
@@ -184,12 +190,12 @@ MonoBehaviour:
     Left: {x: 30, y: 78}
   - Right: {x: 94, y: 74}
     Left: {x: 33, y: 72}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
+  - Right: {x: 88, y: 76}
+    Left: {x: 40, y: 70}
+  - Right: {x: 91, y: 76}
+    Left: {x: 40, y: 70}
+  - Right: {x: 89, y: 77}
+    Left: {x: 41, y: 68}
   - Right: {x: 0, y: 0}
     Left: {x: 0, y: 0}
   - Right: {x: 0, y: 0}
