@@ -1774,6 +1774,8 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
         ("state_reward_first_pick_killer", first_pick_rewards(true)),
         ("state_readouts", readouts_state(readout_rows())),
         ("state_readouts_empty", readouts_state(Vec::new())),
+        ("state_marked", marked_state(marked_rows())),
+        ("state_marked_empty", marked_state(Vec::new())),
         (
             "state_union_props",
             ServerMsg::State {
@@ -4607,6 +4609,37 @@ fn readouts_patched(row: usize, at: usize, with: &[u8]) -> Vec<u8> {
     bytes
 }
 
+/// P-AUG-NATIVE-5: two Marked Man holders, 2 at (100, 2000.5) and 7 at (0, 8191.875) (the position range's ends).
+fn marked_rows() -> Vec<WireMarked> {
+    vec![
+        WireMarked {
+            id: 2,
+            x: 100.,
+            y: 2000.5,
+        },
+        WireMarked {
+            id: 7,
+            x: 0.,
+            y: 8191.875,
+        },
+    ]
+}
+
+/// P-AUG-NATIVE-5: one State at tick 220 carrying only key 15.
+fn marked_state(rows: Vec<WireMarked>) -> ServerMsg {
+    ServerMsg::State {
+        tick: 220,
+        items: vec![StateItem::Marked(rows)],
+    }
+}
+
+/// P-AUG-NATIVE-5: `state_marked` with byte `at` replaced by `with`.
+fn marked_patched(at: usize, with: u8) -> Vec<u8> {
+    let mut bytes = marked_state(marked_rows()).encode();
+    bytes[at] = with;
+    bytes
+}
+
 /// P-WIRE19-A: `state_reward_first_pick_other` with the bytes at `offset` past its window's tag replaced by `with`.
 fn first_pick_patched(offset: usize, with: &[u8]) -> Vec<u8> {
     let mut bytes = first_pick_rewards(false).encode();
@@ -5732,6 +5765,10 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
             readouts_patched(1, 10, &f64::INFINITY.to_le_bytes()),
         ),
         ("state_readouts_order", readouts_patched(2, 0, &[80])),
+        // P-AUG-NATIVE-5: State key 15 faults: the count, then patches of `state_marked` (row 0 id at byte 6, row 1 at 11).
+        ("state_marked_count_33", vec![0x88, 0xdc, 0x01, 0x01, 0x0f, 0x21]),
+        ("state_marked_id_0", marked_patched(6, 0)),
+        ("state_marked_order", marked_patched(11, 2)),
         (
             "state_reward_first_pick_mine_2",
             first_pick_patched(9, &[2]),
@@ -5769,7 +5806,7 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         ("state_reward_kill_truncated_gain", reward_frame(1, &[3, 0])),
         ("state_reward_options_too_many", reward_frame(4, &[])),
         ("state_plan_negative_deadline", negative_plan),
-        ("state_unknown_key", vec![0x88, 0, 1, 15]),
+        ("state_unknown_key", vec![0x88, 0, 1, 16]),
         ("state_quest_status_unknown", quest_bad_status),
         ("state_quest_flags_unknown", quest_bad_flags),
         ("state_quest_visited_unknown", quest_bad_visited),
@@ -5879,7 +5916,7 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         ),
         ("state_duplicate_key", vec![0x88, 0, 2, 1, 0, 1, 0]),
         ("state_key_order", vec![0x88, 0, 2, 3, 0, 1, 0]),
-        ("state_too_many_keys", vec![0x88, 0, 15]),
+        ("state_too_many_keys", vec![0x88, 0, 16]),
         // Protocol 16, ADR0026: State key 12, the roster.
         ("state_roster_count_over_32", vec![0x88, 0, 1, 12, 33]),
         (

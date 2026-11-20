@@ -462,7 +462,8 @@ fn validate_body(meta: Meta, body: &[u8], limits: Limits) -> Result<()> {
             (1, ServerMsg::State { tick, items })
                 if *tick == meta.tick
                     // The experiment predates key 12 (ADR0026 roster): a complete scene is keys 1..=11, or 1..=13 (key 14,
-                    // the optional own readouts of P-WIRE19-B, is never part of one).
+                    // the optional own readouts of P-WIRE19-B, and key 15, the optional Marked Man rows of P-AUG-NATIVE-5, are
+                    // never part of one).
                     && (items.len() == 11 || items.len() == 13)
                     && items
                         .iter()
