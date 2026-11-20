@@ -85,6 +85,19 @@ pub fn core_hitboxes(args: &[String]) -> Result<rh_sim::archetype::HitboxMode, S
     )
 }
 
+/// P-TICK-5: the environment variable that sets the server's room step when `--tick-ms` is absent.
+pub const TICK_MS_ENV: &str = "RH_TICK_MS";
+
+/// P-TICK-5 stub: the room step in milliseconds from `--tick-ms 50|25`, else [`TICK_MS_ENV`] (`env` is the environment
+/// lookup), else 50; any other value is a startup error. The stub always answers 50.
+pub fn tick_ms_setting(
+    args: &[String],
+    env: impl Fn(&str) -> Option<String>,
+) -> Result<u32, String> {
+    let _ = (args, env);
+    Ok(50)
+}
+
 fn value<'a>(args: &'a [String], flag: &str) -> Result<Option<&'a str>, String> {
     if args.iter().any(|a| a.starts_with(&format!("{flag}="))) {
         return Err(format!("use {flag} with a separate value"));
@@ -339,6 +352,10 @@ pub fn source_map(bytes: &[u8]) -> Result<Arena, String> {
     crate::wire::arena_fits(&arena)?;
     Ok(arena)
 }
+
+#[cfg(test)]
+#[path = "runtime_tick_tests.rs"]
+mod tick_tests;
 
 #[cfg(test)]
 mod tests {
