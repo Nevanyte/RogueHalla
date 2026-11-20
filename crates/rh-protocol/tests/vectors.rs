@@ -208,6 +208,15 @@ fn malformed_server_frames_are_rejected_for_the_documented_reason() {
             "state_reward_first_pick_nonfinite" | "state_reward_first_pick_after_expiry" => {
                 BadField("reward chest")
             }
+            // P-WIRE19-B (oracle-amend): State key 14, the viewer's own readout rows (count, card, kind, value, order).
+            "state_readouts_count_29" => BadField("readout count"),
+            "state_readouts_card_79" | "state_readouts_card_94" => BadField("readout card"),
+            "state_readouts_kind_3" => BadField("readout kind"),
+            "state_readouts_value_nan"
+            | "state_readouts_value_negative"
+            | "state_readouts_value_over_max"
+            | "state_readouts_max_infinite" => BadField("readout value"),
+            "state_readouts_order" => BadField("readout order"),
             "state_roster_count_over_32" => BadField("roster count"),
             "state_roster_id_zero" | "state_roster_order" => BadField("roster order"),
             "state_roster_flags_unknown" => BadField("roster flags"),
