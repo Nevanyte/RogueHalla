@@ -172,6 +172,27 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
 - **Identities after integration 73:** protocol 20, observation 33, policy contract 29, checkpoint `rh-checkpoint/36`,
   replay 25, content hash `84fb785f2972e59a`.
 
+- **Integration 74** (`coord/int-74` @ `314261a56`, landed as `191935e79`):
+  - **What it holds:**
+    - **P-AUG-NATIVE-3c:** Hazard Walker's ice effect, and Pathfinder's speed in the owner speed mirror and the client's
+      walk prediction. New Rust vector `pathfinder_walk_v1.json`. reviewer-opus LAND.
+    - **P-AUG-NATIVE-5, Marked Man:**
+      - A holder's normal-kill stacks are +50%, with the half carried (4, 5, 4, 5).
+      - Every Alive holder is public on every minimap as State key 15. The C-OBS exception is recorded in CONTRACTS.
+      - Observation 34, policy contract 30, v20 regenerated in place.
+      - Three coordinator oracle-amends. reviewer-opus LAND.
+    - **P-SYNC-ORIGIN-1-fix:** the silent-switch injectivity test covers `tick_ms` (128 combinations). Test-only; the
+      coordinator read it.
+    - **P-AUG-DOCS-1:** the design docs. reviewer LAND, plus a coordinator fix of the quest numbers.
+  - **Full gate:** green except the waived pin.
+- **Identities after integration 74:** protocol 20, observation 34, policy contract 30, checkpoint `rh-checkpoint/36`,
+  replay 25, content hash `d43155e2ed7d1c68`.
+- **Rows for the owner to sign, added:**
+  - Marked Man does not multiply the elite helper share, player kills or hunt stacks. Decision 9 is ambiguous on the
+    share.
+  - The holder's own row is not drawn as a second mark (P-AUG-UI-3), and the marks also show on the Tab map.
+- **Left for the map lane:** `GAME_DESIGN.md` still says 8 camps a zone and 136 × 136. The code has 10 and 160 × 160.
+
 **Coordinator decisions (2026-11-20):**
 - **Oracle-amends.** Three existing tests were left stale by the two new oracles, and the coordinator amended each in an
   `oracle-amend:` commit on the packet branch, one file per commit:
