@@ -118,6 +118,7 @@ async fn rig_with_pause(cfg: ApiConfig, pause: Option<Arc<AcquirePause>>) -> Rig
             pvp_rules: true,
             weapon_specials: true,
             faction_mode: rh_sim::FactionMode::Off,
+            tick_ms: 50,
         },
         rh_sim::arenas::practice_arena(),
     );

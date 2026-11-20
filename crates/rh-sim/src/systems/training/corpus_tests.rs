@@ -73,6 +73,7 @@ fn config(kind: &str) -> SimConfig {
         regen_in_combat: crate::RegenInCombat::Legacy,
         camp_buffs: crate::CampBuffRule::Legacy,
         frost_wish: crate::FrostWish::Freeze,
+        tick_ms: 50,
     }
 }
 
