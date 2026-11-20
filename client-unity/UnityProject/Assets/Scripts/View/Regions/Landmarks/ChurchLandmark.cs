@@ -416,7 +416,7 @@ namespace Roguehalla.Client
             float pulpitFacingY = aisleOnX ? -leftAcross : 0f;
             float pulpitFacingDegrees = Mathf.Atan2(pulpitFacingY, pulpitFacingX) * Mathf.Rad2Deg;
             if (lm.IsInterior(Mathf.FloorToInt(px), Mathf.FloorToInt(py)))
-                AddChurchAssetSprite(lm, pulpit, pulpitDefinition, layout, "pulpit.left", "Church pulpit", px, py, 2.15f, 2.5f, pulpitFacingDegrees, 3, ChurchArtView.Side);
+                AddChurchAssetSprite(lm, pulpit, pulpitDefinition, layout, "pulpit.left", "Church pulpit", px, py, 2.15f, 2.5f, pulpitFacingDegrees, 3, ChurchArtView.Front);
         }
 
         static void AddChurchAssetSprite(Landmark lm, Sprite sprite, ChurchArtDefinition definition, ChurchInteriorDefinition layout, string slotId,
@@ -455,6 +455,7 @@ namespace Roguehalla.Client
             var candleDefinition = Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/Candelabrum");
             var glass = glassDefinition != null ? glassDefinition.Defaults.Front : Resources.Load<Sprite>("StormInk/Church/GarnetLancet");
             var candles = candleDefinition != null ? candleDefinition.Defaults.Front : Resources.Load<Sprite>("StormInk/Church/Candelabrum");
+            var orientation = ChurchArtOrientation.Resolve(lm.Anchor);
             bool aisleOnX = naveFront.x != 0;
             float across = aisleOnX ? (room.MinY + room.MaxY + 1) * .5f : (room.MinX + room.MaxX + 1) * .5f;
             int first = aisleOnX ? room.MinX : room.MinY, last = aisleOnX ? room.MaxX : room.MaxY;
@@ -464,15 +465,18 @@ namespace Roguehalla.Client
             foreach (int end in new[] { first, last })
             for (int bayIndex = 0; bayIndex < bays.Length; bayIndex++)
             {
-                float bay = bays[bayIndex], wall = end + .5f;
+                float bay = bays[bayIndex] * orientation.ReflectSide(1), wall = end + .5f;
                 float x = aisleOnX ? wall : across + bay, y = aisleOnX ? across + bay : wall;
                 if (!lm.IsWall(Mathf.FloorToInt(x), Mathf.FloorToInt(y))) continue;
                 bool isFrontWall = (end == last && alongFront > 0) || (end == first && alongFront < 0);
                 string wallSlot = isFrontWall ? "front" : "rear";
-                float wallFacingDegrees = Mathf.Atan2(isFrontWall ? naveFront.y : -naveFront.y,
-                    isFrontWall ? naveFront.x : -naveFront.x) * Mathf.Rad2Deg;
+                // View the physical wall by its absolute inward normal, independent of which
+                // end is called front. The fixed camera sees the min-Y wall broadside; the
+                // max-Y face is its reverse, while X-end walls resolve to narrow side jambs.
+                bool atMinimum = end == first;
+                float wallFacingDegrees = aisleOnX ? (atMinimum ? 90f : 270f) : (atMinimum ? 0f : 180f);
                 AddChurchAssetSprite(lm, glass, glassDefinition, layout, "window." + wallSlot + ".bay" + bayIndex,
-                    "Church stained glass", x, y, 1.13f, 1.92f, wallFacingDegrees, 4, isFrontWall ? ChurchArtView.Front : ChurchArtView.Back);
+                    "Church stained glass", x, y, 1.13f, 1.92f, wallFacingDegrees, 4, ChurchArtView.Front);
                 float inside = end == first ? 1.1f : -1.1f;
                 float candleBay = across + Mathf.Sign(bay) * (Mathf.Abs(bay) < 6f ? 1.95f : 9f);
                 float cx = aisleOnX ? x + inside : candleBay, cy = aisleOnX ? candleBay : y + inside;

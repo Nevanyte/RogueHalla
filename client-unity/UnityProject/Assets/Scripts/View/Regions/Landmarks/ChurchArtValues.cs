@@ -58,7 +58,7 @@ namespace Roguehalla.Client
     }
 
     public enum ChurchArtMount { Floor, Upright, Wall }
-    public enum ChurchWindowPaneMode { Full, Jamb, Concealed }
+    public enum ChurchWindowPaneMode { Auto, Full, Jamb, Concealed }
 
     public struct ChurchArtResolved
     {
