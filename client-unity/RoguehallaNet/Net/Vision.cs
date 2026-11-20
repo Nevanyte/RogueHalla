@@ -28,6 +28,12 @@ namespace Roguehalla.Net
         public const double DefaultUpdateMs = 100.0;
         /// <summary>TICK_MS (1000 / TICK_RATE).</summary>
         public const double TickMs = 50.0;
+        /// <summary>The session's step in ms (the Welcome's rate); the refresh and trail step counts follow it.</summary>
+        public double StepMs { get; set; } = 50.0;
+        /// <summary>Steps per vision refresh (<see cref="UpdateMs"/> / <see cref="StepMs"/>; rh-sim <c>refresh_ticks</c>).</summary>
+        public int RefreshSteps { get { return (int)(UpdateMs / StepMs); } }
+        /// <summary>Steps a revealed tile stays (<see cref="TrailMs"/> / <see cref="StepMs"/>; rh-sim <c>trail_ticks</c>).</summary>
+        public int TrailSteps { get { return (int)(TrailMs / StepMs); } }
         /// <summary>MASK_SIGHT: tile-class bits that block sight. Only the wall class (1) has bit 0; LOW cover (2) does not.</summary>
         public const byte DefaultSightMask = 0x01;
         /// <summary>BUSH_REVEAL_RADIUS (u) and BUSH_REVEAL_MS: bush concealment is per actor, not per tile (not mirrored in the fog).</summary>

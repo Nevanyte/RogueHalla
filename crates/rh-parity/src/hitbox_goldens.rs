@@ -8,6 +8,8 @@
 //!   with the waypoints `Pathfinder::find_path` gives for the foot box `Footprint::Box { hx: 10, hy: 6 }`.
 //! * `protocol/fixtures/server_walk_v2.json` (`rh-server-walk/2`): the v1 corner walks replayed with
 //!   `SimConfig::hitboxes = Archetypes` and a Fire (hero) walker, 241 per-tick rows each.
+//! * `protocol/fixtures/server_walk_v3.json` (`rh-server-walk/3`): the same walks as `runs` at 50 ms (v2's cases exactly) and
+//!   at 25 ms (481 rows: the same 12 s), P-TICK-4.
 //!
 //! The v1 files stay byte-identical as the `Disc(12)` oracle.
 
@@ -24,6 +26,9 @@ use std::path::{Path, PathBuf};
 pub const ARCHETYPES_FILE: &str = "protocol/fixtures/archetypes_v1.json";
 pub const PATHFINDING_V2_FILE: &str = "protocol/fixtures/pathfinding_v2.json";
 pub const SERVER_WALK_V2_FILE: &str = "protocol/fixtures/server_walk_v2.json";
+pub const SERVER_WALK_V3_FILE: &str = "protocol/fixtures/server_walk_v3.json";
+/// The two step lengths the prediction vectors are generated at (ADR 0029): 20 Hz and 40 Hz.
+pub const STEP_RATES_MS: [u32; 2] = [50, 25];
 /// The foot box every boxed archetype shares.
 pub const FOOT: Footprint = Footprint::Box { hx: 10.0, hy: 6.0 };
 
@@ -130,9 +135,9 @@ pub fn pathfinding_v2_json() -> String {
     }))
 }
 
-/// One corner walk of `server_walk_v2.json`: 241 rows (the reset state, then 240 steps) of a Fire (hero) walker under
-/// `Archetypes`, and the waypoints of the foot-box path.
-fn walk_case(map: &rh_sim::TileMap, spawns: &[Vec2], case: &Value) -> Value {
+/// One corner walk of `server_walk_v2.json`: the reset state, then 12 s of steps (240 at 50 ms, 480 at 25 ms) of a
+/// Fire (hero) walker under `Archetypes`, and the waypoints of the foot-box path.
+fn walk_case(map: &rh_sim::TileMap, spawns: &[Vec2], case: &Value, tick_ms: u32) -> Value {
     let start = Vec2::new(
         case["start"][0].as_f64().unwrap(),
         case["start"][1].as_f64().unwrap(),
@@ -144,6 +149,7 @@ fn walk_case(map: &rh_sim::TileMap, spawns: &[Vec2], case: &Value) -> Value {
     let mut sim = Sim::reset_active(
         SimConfig {
             hitboxes: HitboxMode::Archetypes,
+            tick_ms,
             ..SimConfig::default()
         },
         Arena {
@@ -175,7 +181,7 @@ fn walk_case(map: &rh_sim::TileMap, spawns: &[Vec2], case: &Value) -> Value {
         json!({"t": sim.server_time(), "tick": sim.tick(), "x": p.body.x, "y": p.body.y, "moveSeq": p.motion.move_seq})
     };
     let mut ticks = vec![row(&sim)];
-    for _ in 0..240 {
+    for _ in 0..(12_000 / tick_ms) {
         sim.step();
         ticks.push(row(&sim));
     }
@@ -194,8 +200,8 @@ fn walk_case(map: &rh_sim::TileMap, spawns: &[Vec2], case: &Value) -> Value {
     })
 }
 
-/// `protocol/fixtures/server_walk_v2.json`.
-pub fn server_walk_v2_json() -> String {
+/// The v1 corner walks' world: the v1 file, the map and the spawns.
+fn walk_world() -> (Value, rh_sim::TileMap, Vec<Vec2>) {
     let v1 = read_json("protocol/fixtures/server_walk_v1.json");
     let (_, map) = load_paths(&repo("parity/fixtures/pathfinding_seed1.json"));
     let seed = read_json(v1["map"].as_str().expect("v1 map"));
@@ -205,12 +211,23 @@ pub fn server_walk_v2_json() -> String {
         .iter()
         .map(|p| Vec2::new(p[0].as_f64().unwrap(), p[1].as_f64().unwrap()))
         .collect();
-    let cases: Vec<Value> = v1["cases"]
+    (v1, map, spawns)
+}
+
+fn walk_cases(tick_ms: u32) -> Vec<Value> {
+    let (v1, map, spawns) = walk_world();
+    v1["cases"]
         .as_array()
         .expect("cases")
         .iter()
-        .map(|c| walk_case(&map, &spawns, c))
-        .collect();
+        .map(|c| walk_case(&map, &spawns, c, tick_ms))
+        .collect()
+}
+
+/// `protocol/fixtures/server_walk_v2.json`.
+pub fn server_walk_v2_json() -> String {
+    let (v1, _, _) = walk_world();
+    let cases = walk_cases(50);
     pretty(&json!({
         "format": "rh-server-walk/2",
         "source": "crates/rh-sim Sim::reset_active with SimConfig::hitboxes = Archetypes, a Fire (hero, foot box 10 x 6) walker, seed-1 map, one Move order, 20 Hz",
@@ -223,12 +240,31 @@ pub fn server_walk_v2_json() -> String {
     }))
 }
 
+/// `protocol/fixtures/server_walk_v3.json`: the v2 header and a run per step length.
+pub fn server_walk_v3_json() -> String {
+    let (v1, _, _) = walk_world();
+    let runs: Vec<Value> = STEP_RATES_MS
+        .iter()
+        .map(|&ms| json!({"tickMs": ms, "cases": walk_cases(ms)}))
+        .collect();
+    pretty(&json!({
+        "format": "rh-server-walk/3",
+        "source": "crates/rh-sim Sim::reset_active with SimConfig::hitboxes = Archetypes and tick_ms 50 then 25, a Fire (hero, foot box 10 x 6) walker, seed-1 map, one Move order, 12 s per case",
+        "map": v1["map"],
+        "playerSpeed": v1["playerSpeed"],
+        "archetype": rh_sim::archetype::ArchetypeId::HERO.0,
+        "footprint": {"kind": "box", "hx": 10.0, "hy": 6.0},
+        "runs": runs,
+    }))
+}
+
 /// Every golden as (repository path, expected contents).
 pub fn all() -> Vec<(&'static str, String)> {
     vec![
         (ARCHETYPES_FILE, archetypes_json()),
         (PATHFINDING_V2_FILE, pathfinding_v2_json()),
         (SERVER_WALK_V2_FILE, server_walk_v2_json()),
+        (SERVER_WALK_V3_FILE, server_walk_v3_json()),
     ]
 }
 
