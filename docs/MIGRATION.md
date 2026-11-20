@@ -53,8 +53,24 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
 - **Identities after integration 67:** protocol 19, observation 31, policy contract 26, checkpoint `rh-checkpoint/35`,
   replay 25, content hash `a03745630efa1c12`.
 
+- **Integration 68** (`coord/int-68` @ `c5efcdb83`, landed as `7592e8f2c`):
+  - **What it holds:**
+    - P-AUG-NATIVE-2, the weapon batch: Calluses, Executioner's Ledger and Eighth Strike, plus the stat-fold seam and
+      the refold in `native::hooks::fire`. reviewer: LAND WITH NOTES. Its one note (Eighth Strike counted earlier hits
+      that dealt nothing) was fixed by the coordinator in `11d60cdae`.
+    - P-AUG-NATIVE-3, the zone batch: Pathfinder, Hazard Walker and Overflow. reviewer-opus: LAND.
+  - **Merge:** conflicts in `cards/native/mod.rs` and the guide, resolved by keeping both sides, as the reviewer
+    proved on the merged tree.
+  - **Full gate:** green except the waived pin, with pgtest and EditMode 1581/1581. Content hash `b482e30841717576`.
+- **Rows for the owner to sign at the end (DEVIATIONS):**
+  - Hazard Walker: one stack per second on a hazard, 4% resist and 0.5% base max hp per stack. Each stack also raises
+    hp with max hp, so up to 7.5% free healing.
+  - Overflow: the shield cap is the G6 cap, and every barrier the holder has, Second Skin included, fades over 8 s.
+  - An immune Hazard Walker stops the world's ember and bog seconds for itself. Nothing reads those counters.
+
 **In flight:**
-- Oracles from `coord/int-67`: P-AUG-NATIVE-2 and P-AUG-NATIVE-3 (Sonnet), and P-WIRE19-B (Opus).
+- Oracles from `coord/int-67`: P-AUG-NATIVE-2 and P-AUG-NATIVE-3 (Sonnet), and P-WIRE19-B (Opus); all three since landed
+  or in integration 69.
 - Wish Engine is split from P-AUG-NATIVE-3 as P-AUG-NATIVE-3b (Opus), because shortening the Wish cooldown means
   redesigning the restore envelope.
 - P-AUG-NATIVE-4 follows.
