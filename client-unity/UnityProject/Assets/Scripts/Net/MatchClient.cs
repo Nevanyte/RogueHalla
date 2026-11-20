@@ -358,7 +358,7 @@ namespace Roguehalla.Client
         WishAimFrame MakeWishFrame(float myX, float myY, bool blocked, bool haveCursor, float sx, float sy, uint? actor)
         {
             var hud = Session.Welcome != null ? Session.Welcome.Hud : null;
-            return new WishAimFrame { Wish = hud != null ? hud.FrostWish : FrostWishKind.Freeze, QuickCast = false, UiOwnsInput = blocked,
+            return new WishAimFrame { Wish = WishAim.KindFor(hud, Session.Me != null ? Session.Me.Faction : (FactionId?)null), QuickCast = false, UiOwnsInput = blocked,
                 HasGroundPoint = haveCursor, CursorX = sx, CursorY = sy, ActorRef = actor, CasterX = myX, CasterY = myY, Facing = _aimAngle,
                 Numbers = hud != null ? hud.FrostWall : null };
         }
