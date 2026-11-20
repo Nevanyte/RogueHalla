@@ -118,10 +118,12 @@ pub(crate) fn fire(k: &MatchStatic, w: &mut World, holder: PlayerId, event: Nati
         return;
     }
     fire_held(w, holder, event);
-    // P-AUG-NATIVE-2: a counter that is a fold input (Calluses' armor, the Ledger's AD) reaches the mirrors at once.
+    // P-AUG-NATIVE-2/-4: a counter that is a fold input (Calluses' armor, the Ledger's AD, Stoked's AP) reaches the
+    // mirrors at once. Glacier's chill hooks come through `fire_held` (no `MatchStatic`): the same tick's updateMods
+    // folds its armor (`faction.rs`).
     if matches!(
         event,
-        NativeEvent::FistHit | NativeEvent::CreditedKill { .. }
+        NativeEvent::FistHit | NativeEvent::CreditedKill { .. } | NativeEvent::BurstLanded
     ) {
         if let Some(i) = w.idx(holder) {
             if super::feeds_fold(&w.players[i].build) {

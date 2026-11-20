@@ -2,8 +2,8 @@
 //! (`table.rs`), the generic capped per-player state (`NativeCards`, the `native` field of `Build`) and the
 //! `check_world` rules for it. Live world only (`SimConfig::augments = Rework`): a `Legacy` world holds none.
 //!
-//! No behaviour yet: no hook reads or writes a slot (P-AUG-NATIVE-1b and the batch packets do) and no pool offers a
-//! native card. Since P-WIRE19-A (protocol 19) a reward option carries native ids 80..=93, so a Rework chest may hold one.
+//! The hooks (P-AUG-NATIVE-1b) and the batch tables read and write the slots. Since P-WIRE19-A (protocol 19) a reward
+//! option carries native ids 80..=93, and since P-AUG-NATIVE-4 a Rework chest pool offers the tables' `POOL` rows.
 //!
 //! Serialized form (brief section 1.5): only the held cards, in native order, as
 //! `[{"card","count","counter","meters","marks"}]`; `Build` writes it first and only when one is held, so a world holding
@@ -27,6 +27,8 @@ pub use readout::{readouts, Readout, ReadoutKind, Readouts, MAX_READOUTS};
 #[cfg(test)]
 mod exemplars_tests;
 #[cfg(test)]
+mod faction_tests;
+#[cfg(test)]
 mod hooks_tests;
 #[cfg(test)]
 mod weapon_batch_tests;
@@ -34,7 +36,7 @@ mod weapon_batch_tests;
 mod zone_tests;
 
 /// P-AUG-NATIVE-1b: every native card's chest pool membership and offer rule, from the three batch tables (weapon,
-/// zone, faction). No pool reads it until native ids are on the wire (P-WIRE19-A).
+/// zone, faction), in native order. P-AUG-NATIVE-4: a `Rework` world's chest pool reads it (`Tuning::in_pool`).
 pub fn pool_members() -> impl Iterator<Item = (CardId, crate::reward_chests::Offer)> {
     weapon::POOL
         .iter()
@@ -51,25 +53,41 @@ fn readout_sources(card: CardId) -> Option<&'static [readout::Source]> {
 }
 
 /// The native cards' share of a holder's outgoing damage sum (`modifiers::outgoing_damage`, under the same G1 ceiling as
-/// the card rows): Marksman's Tally's counter. 0 for a build holding none (every build in a non-`Rework` world).
+/// the card rows): Marksman's Tally's and Trophy Hunter's counters. 0 for a build holding none (every build in a
+/// non-`Rework` world).
 pub(crate) fn outgoing_share(build: &super::Build) -> f64 {
     if build.native.is_empty() {
         return 0.;
     }
-    weapon::outgoing_share(&build.native)
+    weapon::outgoing_share(&build.native) + faction::outgoing_share(&build.native)
 }
 
-/// The armor and AD the native counters add to a holder's stat fold (Calluses, Executioner's Ledger); `(0, 0)` for none.
-pub(crate) fn fold_stats(build: &super::Build) -> (f64, f64) {
+/// The flat stats the native counters add to a holder's stat fold, as farm rows (outside the card caps): armor
+/// (Calluses, Glacier), AD (Executioner's Ledger) and AP (Stoked). All 0 for a build holding none.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct FoldStats {
+    pub(crate) armor: f64,
+    pub(crate) ad: f64,
+    pub(crate) ap: f64,
+}
+
+/// The native counters' [`FoldStats`] of a build (the one seam per stat `modifiers::combined_farm_rows` reads).
+pub(crate) fn fold_stats(build: &super::Build) -> FoldStats {
     if build.native.is_empty() {
-        return (0., 0.);
+        return FoldStats::default();
     }
-    weapon::fold_stats(&build.native)
+    let (calluses, ad) = weapon::fold_stats(&build.native);
+    let (glacier, ap) = faction::fold_stats(&build.native);
+    FoldStats {
+        armor: calluses + glacier,
+        ad,
+        ap,
+    }
 }
 
-/// Does `card`'s state change the holder's stat fold (so a change to it needs a refold)?
+/// Does the build's native state change its stat fold (so a change to it needs a refold)?
 pub(crate) fn feeds_fold(build: &super::Build) -> bool {
-    fold_stats(build) != (0., 0.)
+    fold_stats(build) != FoldStats::default()
 }
 
 /// The multiplier Eighth Strike gives a landed weapon hit of `by` that has `earlier` landed weapon hits of `by` before it
@@ -97,12 +115,13 @@ pub(crate) fn hazard_guard(build: &super::Build, hazard: usize) -> (f64, bool) {
     zone::hazard_guard(&build.native, hazard)
 }
 
-/// The native cards' flat max hp term over `base_hp` (`modifiers::sync_max_hp`): Hazard Walker's stacks.
+/// The native cards' flat max hp term over `base_hp` (`modifiers::sync_max_hp`): Hazard Walker's stacks and Corpse
+/// Hoarder's share.
 pub(crate) fn flat_max_hp(build: &super::Build, base_hp: f64) -> f64 {
     if build.native.is_empty() {
         return 0.;
     }
-    zone::flat_max_hp(&build.native, base_hp)
+    zone::flat_max_hp(&build.native, base_hp) + faction::flat_max_hp(&build.native, base_hp)
 }
 
 /// Does the build hold Overflow (its barriers fade over `REWORK_OVERFLOW_FADE_MS`)?
@@ -441,7 +460,8 @@ pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
 
 /// The native ids, names, definitions and caps as content words (`content::visit_progression_content`, after the
 /// catalog's `CardId::ALL`): per card its index, name length and bytes, then kind, tier, flags, rows (each row's number
-/// count and numbers, `cards::map_numbers`), selections, and its rule's caps and marks.
+/// count and numbers, `cards::map_numbers`), selections, and its rule's caps and marks; then the chest pool membership
+/// (`pool_members`).
 pub(crate) fn visit_content(word: &mut impl FnMut(u64)) {
     fn rows(word: &mut impl FnMut(u64), rows: &[CardRow]) {
         word(rows.len() as u64);
@@ -485,6 +505,16 @@ pub(crate) fn visit_content(word: &mut impl FnMut(u64)) {
             word(cap.to_bits());
         }
         word(u64::from(r.marks));
+    }
+    // P-AUG-NATIVE-4: the chest pool membership (a Rework chest's draws read it): count, then per row its id and offer
+    // (0 for `Any`, else 1 + the faction code).
+    word(pool_members().count() as u64);
+    for (id, offer) in pool_members() {
+        word(id.index() as u64);
+        word(match offer {
+            crate::reward_chests::Offer::Any => 0,
+            crate::reward_chests::Offer::Faction(f) => 1 + u64::from(f.code()),
+        });
     }
 }
 

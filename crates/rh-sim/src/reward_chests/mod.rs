@@ -448,7 +448,8 @@ pub(crate) fn expire(cx: &mut crate::systems::Cx) {
 pub(crate) fn clear(hx: &mut crate::hooks::Hx, _: &crate::hooks::HookArgs) {
     hx.w.reward_chests.clear();
 }
-/// `pool`: the world's chest pool (`k.cards.pool()`). A camp chest (`camp: Some`, rolled by [`drop_augment_in`]) offers
+/// `cards`: the world's card table; its chest pool is [`crate::cards::Tuning::in_pool`] (the catalog pool and, under
+/// `Rework`, the native pool cards). A camp chest (`camp: Some`, rolled by [`drop_augment_in`]) offers
 /// only its cards; a camp-less chest (a campless elite's, the console's, or one a test declares) is not pool-checked.
 ///
 /// `elites`: the world's elite rule (`k.config.elites`). A first-pick window (P-ELITE-PICK-1) stands only on a shared
@@ -456,7 +457,7 @@ pub(crate) fn clear(hx: &mut crate::hooks::Hx, _: &crate::hooks::HookArgs) {
 /// (`expires_at - lifetime_ms`) plus the window. A past end is valid (the window closed while the chest stands).
 pub(crate) fn validate_world(
     w: &World,
-    pool: &[crate::cards::CardId],
+    cards: &crate::cards::Tuning,
     elites: crate::EliteRule,
     near: impl Fn(f64, f64) -> bool,
 ) -> Result<(), String> {
@@ -495,7 +496,7 @@ pub(crate) fn validate_world(
                 && c.options
                     .iter()
                     .flatten()
-                    .any(|o| matches!(o, OptionId::Card(id) if !pool.contains(id))))
+                    .any(|o| matches!(o, OptionId::Card(id) if !cards.in_pool(*id))))
             || c.options[..n].iter().any(Option::is_none)
             || c.options[n..].iter().any(Option::is_some)
             || c.options
@@ -535,6 +536,8 @@ mod chest_runtime_tests;
 mod first_pick_tests;
 #[cfg(test)]
 mod first_pick_view_tests;
+#[cfg(test)]
+mod native_pool_tests;
 #[cfg(test)]
 mod pool_tests;
 #[cfg(test)]
