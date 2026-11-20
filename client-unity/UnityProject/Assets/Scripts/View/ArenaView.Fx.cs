@@ -58,6 +58,8 @@ namespace Roguehalla.Client
                 {
                     cue.DueMs = dueMs; cue.QueuedAt = Time.unscaledTime;
                     _scheduledFx.Add(cue);
+                    if (f.Kind == FxKind.Swing && f.Weapon == (byte)WeaponId.Fists)
+                        _actors.PrepareHauntedFists(subject, f.A, (float)(dueMs - _renderMs) * .001f);
                     continue;
                 }
                 if (_actors.Contains(subject)) PresentFx(cue);
