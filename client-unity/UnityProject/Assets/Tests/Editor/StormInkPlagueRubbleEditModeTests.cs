@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using Roguehalla.Net.Protocol;
+using Roguehalla.Net.Ui;
 using UnityEngine;
 
 namespace Roguehalla.Client.Tests
@@ -36,7 +37,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(rubble.MinMargin, Is.GreaterThanOrEqualTo(RegionPropArt.RequiredMargin));
             Assert.That(RegionPropArt.Sways("plague.rubble"), Is.False, "the replacement remains in the rigid atlas band");
             Assert.That(rubble.UsesAuthoredTexture, Is.True);
-            Assert.That(RegionPropArt.TryGet("plague.mushroom", out var fallback), Is.True);
+            Assert.That(RegionPropArt.TryGet(DecorationKinds.Placeholder, out var fallback), Is.True);
             Assert.That(fallback.UsesAuthoredTexture, Is.False, "procedural props do not inherit authored-art variation");
         }
 
@@ -50,11 +51,13 @@ namespace Roguehalla.Client.Tests
                 ushort x = (ushort)((8 + i * 2) * 32);
                 props[i] = new MapProp((byte)(i % 2 == 0 ? 22 : 27), x, yTile * 32, (byte)(i % 3), 0);
             }
-            props[count] = new MapProp(26, 56 * 32, yTile * 32, 0, 0);
+            // Legacy-flagged decoration deliberately uses the procedural fallback.
+            props[count] = new MapProp(26, 56 * 32, yTile * 32, 0, MapBlob.PropFlagLegacy);
             var map = new MapBlob(64, 64, new byte[64 * 64]).WithPublic(null, null, null, props, null);
 
             var scattered = RegionProps.Scatter(map);
             Assert.That(scattered.Count, Is.EqualTo(props.Length));
+            Assert.That(scattered[count].Art, Is.EqualTo(DecorationKinds.Placeholder));
             for (int i = 0; i < count; i++)
             {
                 Assert.That(scattered[i].Art, Is.EqualTo("plague.rubble"));
@@ -96,6 +99,9 @@ namespace Roguehalla.Client.Tests
                 Assert.That(maxWidth - minWidth, Is.GreaterThan(.04f));
                 Assert.That(maxHeight - minHeight, Is.GreaterThan(.04f));
                 Assert.That(tints.Count, Is.GreaterThan(6));
+                Assert.That(RegionPropArt.TryGet(DecorationKinds.Placeholder, out var fallback), Is.True);
+                Assert.That(a[count].sprite, Is.SameAs(fallback.Sprite));
+                Assert.That(b[count].sprite, Is.SameAs(fallback.Sprite));
                 Assert.That(a[count].transform.localScale, Is.EqualTo(Vector3.one), "procedural fallback art stays untouched");
                 Assert.That(a[count].color, Is.EqualTo(Color.white));
             }
