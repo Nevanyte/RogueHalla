@@ -13,7 +13,7 @@ day:
 
 Nothing is pushed and `main` is untouched.
 
-**Integration branch:** `feature/unity-rework` @ `84b8c9be5`.
+**Integration branch:** `feature/unity-rework` @ `d646c0dfb`.
 - **Integration 61:** P-AUG-CONTENT-1 and P-AUG-UI-1.
 - **Integration 62:** P-ELITE-BENCH-1, P-AUG-CONTENT-1-fix and P-AUG-POOL-1. reviewer-opus: LAND WITH NOTES; the note
   becomes P-AUG-POOL-1-fix.
@@ -25,20 +25,26 @@ Nothing is pushed and `main` is untouched.
   - Full gate PASS on `289fb9424`: `--coordinator --keep-going --allow-artefacts --regen-fixtures --allow-protected --base
     4194c9b14`, EditMode 1581/1581, and the new no-alloc step ran. Postgres suites ran with pgtest.
   - reviewer-opus integration review: **LAND**.
-- **Identities:** content hash `c890f52fd7ab4546` (move 6), checkpoint `rh-checkpoint/33`.
+- **Integration 64:** P-ELITE-TUNE-1, the owner's elite numbers (dmg ×1.0, hp ×1.5, Rework only).
+  - Duelist banked_12 went from 43.1% to 17.4%. Tables are in `tools/balance-camps/elite_before.txt` and
+    `elite_after.txt`.
+  - Full gate PASS on `763ef71c3`, EditMode 1581/1581.
+  - reviewer-opus: LAND WITH NOTES. The note: the retargeted equivalence test covered only 6 ticks. The owner was told.
+    It becomes P-ELITE-TUNE-1-fix, test-only, now 50 to 161 ticks a run.
+- **Identities:** content hash `204532d861849785` (move 7), checkpoint `rh-checkpoint/33`.
 - **Coordinator oracle-amends:**
   - `373b919fe` for P-AUG-POOL-1: CONTENT-1's rows are one run, and the pool line checks Legacy.
   - `7bfe42809` for P-AUG-TUNE-1: Wishful's Rework row is text-only in the card-table test.
   - Both were judged honest by reviewer-opus.
 
 **In flight**
-- **P-ELITE-TUNE-1:** Sonnet is implementing the owner's numbers (dmg 1.0, hp 1.5), from `packet/P-ELITE-TUNE-1` @
-  `09724256b`, with a content-hash move.
-  - Its oracle retargets `augment_rules::legacy_and_equal_elite_rework_play_the_same_match` to "differ only in elite
-    numbers until the first elite strike". The helper-share check moves wholly to `share_tests.rs`.
-  - Its stub rewrote `systems/mobs.rs` `elite_rule_tests`, outside the oracle-amend convention, because the gate admits
-    only `_tests.rs` files.
-- **P-AUG-POOL-1-fix (Opus):** after P-ELITE-TUNE-1, since both regold.
+- **P-AUG-POOL-1-fix** (Opus implementing): fold the realized card tables into the content hash (widened 2026-11-19).
+- **P-ELITE-PICK-1** (Opus implementing): the killer's 5 s first pick, `rh-checkpoint/34`.
+- **P-AUG-NATIVE-1a** (oracle): native ids and state.
+- **Coordinator decision 2026-11-19 on scheduling:**
+  - The script-written content-hash lines and the `CHECKPOINT_FORMAT` line are merge-time work, not authored write scope.
+  - Content packets may be implemented in parallel. They merge one at a time, with a regold (and, where needed, one more
+    format bump) at each merge.
 - **Side session, P-FROST-RESTORE-1:** a live restore defect older than the rework. `abilities/checkpoint.rs` reads the
   Freeze row, while live servers play Frost Wall (`Target::Placed`), so a checkpoint taken mid-cast is refused ("invalid
   Wish target provenance"). It merges after review.
