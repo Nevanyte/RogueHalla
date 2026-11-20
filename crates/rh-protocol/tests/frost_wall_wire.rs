@@ -125,10 +125,11 @@ fn constants_match_the_brief() {
     assert_eq!((FROST_WISH_FREEZE, FROST_WISH_WALL), (0.0, 1.0));
 }
 
-/// Guard: the protocol number is 19 (P-PROTOCOL-18-STAMP-1 stamped 18; P-NET-DRAWAHEAD-1a moved it to 19 for the walk hint).
+/// Guard: the protocol number is 20 (P-PROTOCOL-18-STAMP-1 stamped 18; P-NET-DRAWAHEAD-1a moved it to 19 for the walk hint;
+/// P-COLISEUM-HEALS-2 to 20 for the heal prop).
 #[test]
-fn guard_the_protocol_is_19() {
-    assert_eq!(PROTOCOL_VERSION, 19);
+fn guard_the_protocol_is_20() {
+    assert_eq!(PROTOCOL_VERSION, 20);
 }
 
 // ---- layout --------------------------------------------------------------------------------------------------------

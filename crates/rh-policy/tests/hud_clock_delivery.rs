@@ -75,8 +75,8 @@ fn identities_move_for_the_clocks_and_the_minimum() {
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        26,
-        "the projected inventory and arena view carry them (P-WIRE17-HUD-3); 31/26: P-NET-DRAWAHEAD-1a"
+        27,
+        "the projected inventory and arena view carry them (P-WIRE17-HUD-3); 31/26: P-NET-DRAWAHEAD-1a; 27: P-COLISEUM-HEALS-2"
     );
 }
 
