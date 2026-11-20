@@ -98,6 +98,42 @@ namespace Roguehalla.Client.Tests
             finally { Object.DestroyImmediate(root); }
         }
 
+        [Test]
+        public void SoutheastGuardUsesFourRegisteredDrawingsWithoutReplacingOtherBearings()
+        {
+            var config = StormInkFireAxeAuthoring.Load();
+            Assert.That(config.GuardStagesFor(1), Is.EqualTo(4));
+            Assert.That(config.GuardStagesFor(0), Is.EqualTo(1));
+            var poses = Enumerable.Range(0, 4)
+                .Select(stage => config.Frame(1, StormInkFireAxePose.Guard, stage)).ToArray();
+            Assert.That(poses.Distinct().Count(), Is.EqualTo(4));
+            foreach (var pose in poses)
+            {
+                Assert.That(config.TryHand(pose, false, out var right), Is.True);
+                Assert.That(config.TryHand(pose, true, out var left), Is.True);
+                Assert.That(Vector2.Distance(right, left), Is.GreaterThan(.1f));
+                Assert.That(pose.pivot.y / pose.rect.height, Is.EqualTo(config.FootPivot.y));
+            }
+        }
+
+        [Test]
+        public void SoutheastWalkUsesEightRegisteredDrawingsThroughTheGaitCycle()
+        {
+            var config = StormInkFireAxeAuthoring.Load();
+            Assert.That(config.StrideStagesFor(1), Is.EqualTo(8));
+            Assert.That(config.StrideStagesFor(2), Is.EqualTo(1));
+            var poses = Enumerable.Range(0, 8).Select(stage => config.Frame(1, StormInkFireAxePose.Stride,
+                Gait.FrameIndex(stage + .25f, config.StrideStagesFor(1)))).ToArray();
+            Assert.That(poses.Distinct().Count(), Is.EqualTo(8));
+            foreach (var pose in poses)
+            {
+                Assert.That(config.TryHand(pose, false, out var right), Is.True);
+                Assert.That(config.TryHand(pose, true, out var left), Is.True);
+                Assert.That(Vector2.Distance(right, left), Is.GreaterThan(.1f));
+                Assert.That(pose.pivot.y / pose.rect.height, Is.EqualTo(config.FootPivot.y));
+            }
+        }
+
         static Vector3 Socket(SpriteRenderer renderer, Vector2 uv) =>
             renderer.transform.TransformPoint((Vector2.Scale(uv, renderer.sprite.rect.size) - renderer.sprite.pivot) / renderer.sprite.pixelsPerUnit);
     }

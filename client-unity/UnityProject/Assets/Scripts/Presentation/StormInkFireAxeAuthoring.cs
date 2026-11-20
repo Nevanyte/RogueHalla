@@ -15,6 +15,12 @@ namespace Roguehalla.Client
             public Vector2Int Right, Left;
         }
 
+        [Serializable] struct DirectionalCycle
+        {
+            [Range(0, Rows - 1)] public int Row;
+            public int[] GuardColumns, StrideColumns;
+        }
+
         [SerializeField] Texture2D atlas;
         [SerializeField, Min(6)] int columns = 6;
         [SerializeField, Min(.1f)] float worldHeight = 1.15f;
@@ -22,6 +28,7 @@ namespace Roguehalla.Client
         [SerializeField, Min(.1f)] float idleFramesPerSecond = 4f;
         [SerializeField] int[] guardColumns = { 3 };
         [SerializeField] int[] strideColumns = { 4 };
+        [SerializeField] DirectionalCycle[] directionalCycles = Array.Empty<DirectionalCycle>();
         [SerializeField] Palms[] palms = Array.Empty<Palms>();
 
         static StormInkFireAxeAuthoring _default;
@@ -34,8 +41,33 @@ namespace Roguehalla.Client
         public static StormInkFireAxeAuthoring Load() => _default != null ? _default :
             _default = Resources.Load<StormInkFireAxeAuthoring>("StormInk/Actors/FireAxeAuthoring");
 
-        public int IdleStage(float elapsed) => guardColumns.Length > 0
-            ? Mathf.FloorToInt(Mathf.Max(0f, elapsed) * idleFramesPerSecond) % guardColumns.Length : 0;
+        public int GuardStagesFor(int row) => Cycle(row, false).Length;
+        public int StrideStagesFor(int row) => Cycle(row, true).Length;
+
+        public int IdleStage(float elapsed) => IdleStage(-1, elapsed);
+
+        public int IdleStage(int row, float elapsed)
+        {
+            int stages = GuardStagesFor(row);
+            return stages > 0 ? Mathf.FloorToInt(Mathf.Max(0f, elapsed) * idleFramesPerSecond) % stages : 0;
+        }
+
+        int[] Cycle(int row, bool walking)
+        {
+            foreach (var cycle in directionalCycles)
+            {
+                if (cycle.Row != row) continue;
+                var sequence = walking ? cycle.StrideColumns : cycle.GuardColumns;
+                if (sequence != null && sequence.Length > 0) return sequence;
+            }
+            return walking ? strideColumns : guardColumns;
+        }
+
+        int CycleColumn(int row, int stage, bool walking, int fallback)
+        {
+            var sequence = Cycle(row, walking);
+            return sequence.Length == 0 ? fallback : sequence[Mathf.Clamp(stage, 0, sequence.Length - 1)];
+        }
 
         public Sprite Frame(int row, StormInkFireAxePose pose, int stage = 0)
         {
@@ -44,8 +76,8 @@ namespace Roguehalla.Client
             if (_frames == null) return null;
             int index = pose switch
             {
-                StormInkFireAxePose.Guard => guardColumns.Length > 0 ? guardColumns[Mathf.Clamp(stage, 0, guardColumns.Length - 1)] : 3,
-                StormInkFireAxePose.Stride => strideColumns.Length > 0 ? strideColumns[Mathf.Clamp(stage, 0, strideColumns.Length - 1)] : 4,
+                StormInkFireAxePose.Guard => CycleColumn(row, stage, false, 3),
+                StormInkFireAxePose.Stride => CycleColumn(row, stage, true, 4),
                 _ => (int)pose
             };
             return (uint)index < columns ? _frames[row * columns + index] : null;

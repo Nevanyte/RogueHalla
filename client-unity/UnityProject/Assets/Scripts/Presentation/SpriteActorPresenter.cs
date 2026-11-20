@@ -500,8 +500,9 @@ namespace Roguehalla.Client
                     shieldBody = StormInkActors.HolyShieldFrame(kind, faction, weapon, direction, phase);
                 if (!dead && hiddenAlpha > 0f && (useWeaponPhase || frames == appearance.Idle || frames == appearance.Walk))
                 {
+                    int row = StormInkActors.PoseRow(direction);
                     int stage = reduced || fireAxeArt == null ? 0 : walkPhase
-                        ? Gait.FrameIndex(a.Gait.Phase, fireAxeArt.StrideStages) : fireAxeArt.IdleStage(elapsed);
+                        ? Gait.FrameIndex(a.Gait.Phase, fireAxeArt.StrideStagesFor(row)) : fireAxeArt.IdleStage(row, elapsed);
                     bool stride = fireAxeArt != null ? walkPhase : walkPhase && frame * 2 >= count;
                     bool alternate = phase == StormInkWeaponMotion.Phase.Ready
                         ? (a.FireAxeReleaseCount & 1) != 0
