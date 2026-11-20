@@ -86,10 +86,15 @@ fn walk_v3_rows_sit_on_the_step_grid_for_twelve_seconds() {
         for c in list {
             let ticks = c["ticks"].as_array().unwrap();
             assert_eq!(ticks.len(), rows, "{} at {tick_ms} ms", c["name"]);
-            assert_eq!(ticks[0]["tick"], 1, "the reset state is tick 1");
+            // `Sim::reset_active` bootstraps one legacy tick (50 ms) at every rate (P-TICK-1b): tick 1 at 50 ms, tick 2 at 25.
+            let first = (50.0 / tick_ms) as u64;
+            assert_eq!(
+                ticks[0]["tick"], first,
+                "the reset state is 50 ms of sim time"
+            );
             for (k, row) in ticks.iter().enumerate() {
                 let tick = row["tick"].as_u64().unwrap();
-                assert_eq!(tick, 1 + k as u64);
+                assert_eq!(tick, first + k as u64);
                 assert_eq!(
                     row["t"].as_f64().unwrap(),
                     tick as f64 * tick_ms,
