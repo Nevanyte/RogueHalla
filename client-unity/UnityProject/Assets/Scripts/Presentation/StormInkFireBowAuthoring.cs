@@ -70,6 +70,7 @@ namespace Roguehalla.Client
             uv = default;
             if (body == null || atlas == null || body.texture != atlas || palms == null || palms.Length != Rows * Columns) return false;
             EnsureFrames();
+            if (_frames == null) return false;
             int row = PoseRow(body), column = Mathf.RoundToInt(body.rect.x / body.rect.width);
             if (!IsReady(row) || (uint)column >= Columns) return false;
             int index = row * Columns + column;

@@ -4,6 +4,7 @@ using System.Reflection;
 using NUnit.Framework;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
+using UnityEditor;
 using UnityEngine;
 
 namespace Roguehalla.Client.Tests
@@ -13,6 +14,7 @@ namespace Roguehalla.Client.Tests
         GameObject _root;
         SpriteActorPresenter _presenter;
         StormInkFireBowAuthoring _previousAuthoring;
+        StormInkFireBowAuthoring _fixture;
         FieldInfo _defaultField;
 
         [SetUp]
@@ -30,15 +32,23 @@ namespace Roguehalla.Client.Tests
         {
             UnityEngine.Object.DestroyImmediate(_root);
             _defaultField.SetValue(null, _previousAuthoring);
+            UnityEngine.Object.DestroyImmediate(_fixture);
         }
 
         [Test]
         public void EastBowDrawUsesAuthoredTimingAndAlternatesOnlyOnObservedArrowThenCancelsCleanly()
         {
-            var art = Resources.Load<StormInkFireBowAuthoring>("StormInk/Actors/FireBowAuthoring");
+            var source = Resources.Load<StormInkFireBowAuthoring>("StormInk/Actors/FireBowAuthoring");
             var rig = StormInkFireAxeAuthoring.Load();
-            Assert.That(art, Is.Not.Null);
+            Assert.That(source, Is.Not.Null);
             Assert.That(rig, Is.Not.Null);
+            var art = _fixture = UnityEngine.Object.Instantiate(source);
+            // Exercise an unfinished bearing and known timing on a private copy of the artist's asset.
+            var settings = new SerializedObject(art);
+            settings.FindProperty("readyRows").GetArrayElementAtIndex(0).boolValue = false;
+            settings.FindProperty("midDrawAt").floatValue = .22f;
+            settings.FindProperty("sustainedDrawAt").floatValue = .68f;
+            settings.ApplyModifiedPropertiesWithoutUndo();
             _defaultField.SetValue(null, art);
             Assert.That(art.Frame(0, 0), Is.Null, "Unpainted bearings must keep the current Fire art.");
             AssertColumn(1, .1f, false, 0);
