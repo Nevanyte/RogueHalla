@@ -242,6 +242,21 @@ Existing tests that pin what this packet changes (each amended above, or a versi
 the version stamps listed in section 5. Tests that hold and must stay green: `native_cards.rs` "observed as one who does
 not" (no Marked Man in `held_rows`), `native_pool_tests.rs` (generic over `pool_members`), `hooks_tests.rs:447`.
 
+### Conflict for the coordinator (before any implementer starts)
+
+Measured by the oracle author on `packet/P-AUG-NATIVE-5` with only the `POOL` row `(CardId::MarkedMan, Offer::Any)`
+added (then reverted): `crates/rh-sim/src/reward_chests/native_pool_tests.rs:168`
+(`a_faction_native_is_offered_only_to_an_all_that_faction_chest_and_legacy_offers_none`, P-AUG-NATIVE-4's floor
+`own[f] >= 10`, "Measured 15..=23 of 400") goes red: own-card counts over its one seeded 400-chest sweep become
+Plague 19, **Fire 8**, Frost 18, Sentenced 13 (the Any-native counts 26, 24, 25, 32 still clear their floor of 20).
+One more Any card in the pool reshuffles that seed's draws and dilutes each faction card; Fire's 8 is a tail of one
+seed, not a broken offer rule. The floor is a knife edge for any pool growth. This brief does **not** amend it (loosening
+an existing floor is the coordinator's and owner's call): options are an `oracle-amend` lowering the floor (e.g. to 5,
+still a positive control against "never offered"), or a sweep over several room seeds with a summed floor. Every other
+red of the probe run is the content-hash family that `scripts/regolden-content.sh` moves (`tests/content.rs`
+`hash_golden`, `frost_wall_content.rs`, `regolden_content.rs`, `barriers_reach_tests` / `barriers_readers_tests`
+golden guards, `hash_tape`) and this packet's own oracles.
+
 ## 9. Validation commands
 
 - `export PATH="$HOME/.cargo/bin:$PATH"; cargo test -p rh-sim --lib marked_man; cargo test -p rh-sim --test marked_man_observe`
