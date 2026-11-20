@@ -207,6 +207,10 @@ Packet details:
   - Wish Engine shortens the cooldown, so the envelope must be redone for it. That probably means a per-cast budget record
     and a checkpoint-format bump. At the least, the guard must be extended to its mechanism.
   - Route that part to Opus.
+  - Start from `cooldown_for` and `wish_cooldowns` (coordinator note 2026-11-20, from the P-FROST-RESTORE-1 review):
+    since that fix the restore validator and the producer share `cooldown_for`; `cooldown()` is the catalog-only form.
+    If Wish Engine changes what the HUD shows, `OwnerView::of` (`abilities/mod.rs`, read by `observe.rs`) and
+    `rh-policy` `temporal_percept/memory.rs` still read the catalog row and need `cooldown_for` too.
 - **P-AUG-POOL-1:**
   - `REWORK_POOL` is `INTERACTIVE` plus Committed, Fists of Fury, Machine Gun, Here Comes the Boom and A Race to 0.
     `INTERACTIVE` itself stays untouched.

@@ -4,6 +4,36 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Resumed (2026-11-20): the elite and augment rework, integration 65
+
+**Owner direction 2026-11-19:** "resume" (after the evening pause). Owner OK the same day for the side session's Frost
+Wall fix: "Yes, review it" (review it and merge it into the next integration). Nothing is pushed and `main` is untouched.
+
+**Integration branch:** `feature/unity-rework` @ `c560b46ae`.
+- **Integration 65** (`coord/int-65` @ `35eceb4e0`): P-ELITE-TUNE-1-fix, P-AUG-POOL-1-fix, P-ELITE-PICK-1 and
+  P-AUG-NATIVE-1a.
+  - Full gate PASS on `35eceb4e0`: `--coordinator --keep-going --allow-artefacts --regen-fixtures --base 7a3436271`,
+    with pgtest, EditMode 1581/1581. Log `.agent-runs/gate/20261119T232717-coord-int-65-full.log`.
+  - reviewer-opus integration review: **LAND**. No merge resolution lost or reverted a hunk; the six content-hash copies
+    agree; `rh-checkpoint/35` refuses /34 and /33.
+  - **Correction to the earlier wording:** Legacy behaviour and draws are unchanged, but the state hash and checkpoint
+    bytes move for every world holding a reward chest, Legacy included: P-ELITE-PICK-1's `Chest::first_pick` is an
+    `Option` whose tag is hashed (its brief's decision 7). No parity fixture moved beyond the `contentHash` and
+    `checkpoint` lines.
+- **Identities:** content hash `8196e898724e4218`, checkpoint `rh-checkpoint/35`. Protocol 18, observation 30, policy
+  contract 25 and replay 25 are unchanged.
+- **P-FROST-RESTORE-1** (side session, `agent/opus/P-FROST-RESTORE-1` @ `52aba986d`): reviewer-opus **LAND**. The Wish
+  restore validator judges the world's own rows (`definition_for`, `cooldown_for`), so a live Frost Wall cast
+  checkpointed in flight restores. No hash, format or Legacy change. It goes into integration 66.
+
+**In flight:**
+- Integration 66: P-FROST-RESTORE-1 plus the coordinator's prose fix (the README and `fighter.rs` lines that named
+  `rh-checkpoint/33` now point at `CHECKPOINT_FORMAT`).
+- Oracles, Opus: P-AUG-NATIVE-1b on `packet/P-AUG-NATIVE-1b-r` and P-WIRE19-A on `packet/P-WIRE19-A-resume`, each
+  resumed from its WIP commit in a new worktree (the paused branches stay as they were).
+
+**Next:** the Opus implementers for both packets, then waves 6 to 9 as listed in the paused section below.
+
 ## Paused (2026-11-19, evening): the elite and augment rework, after integration 64
 
 **Owner direction 2026-11-19:** "please save and pause all development". Every agent and gate this coordinator session
