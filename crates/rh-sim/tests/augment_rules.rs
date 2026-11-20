@@ -370,12 +370,16 @@ fn pve_config() -> SimConfig {
 }
 
 fn placements() -> Vec<Placement> {
+    placements_at(Vec2::new(200., 200.), Vec2::new(236., 176.))
+}
+
+fn placements_at(bow: Vec2, sword: Vec2) -> Vec<Placement> {
     vec![
         Placement {
             profile: "aug-rules-bow".into(),
             faction: FactionId::Fire,
             bot: false,
-            at: Vec2::new(200., 200.),
+            at: bow,
             hp: None,
             weapon0: Some(WeaponId::Bow),
             weapon1: None,
@@ -384,7 +388,7 @@ fn placements() -> Vec<Placement> {
             profile: "aug-rules-sword".into(),
             faction: FactionId::Holy,
             bot: false,
-            at: Vec2::new(236., 176.),
+            at: sword,
             hp: None,
             weapon0: Some(WeaponId::Sword),
             weapon1: None,
@@ -479,7 +483,8 @@ fn without_rules(sim: &Sim) -> Value {
 
 /// The checkpoint with what the Rework elite numbers write taken out (P-ELITE-TUNE-1): the runtime's stored elite rule
 /// (`world.mob_runtime.elites`: `null` under Legacy, `"rework"` once the numbers differ) and each elite mob's HP (hp and
-/// max hp, scaled by the elite hp multiplier). Everything else is compared exactly.
+/// max hp, scaled by the elite hp multiplier) and the raw damage of an elite's swing in progress (scaled by the elite
+/// damage multiplier). Everything else is compared exactly.
 fn mask_elite_numbers(mut v: Value) -> Value {
     v["world"]["mob_runtime"]["elites"] = Value::Null;
     fn walk(v: &mut Value) {
@@ -489,6 +494,16 @@ fn mask_elite_numbers(mut v: Value) -> Value {
                     if let Some(vitals) = o.get_mut("core").and_then(|c| c.get_mut("vitals")) {
                         vitals["hp"] = Value::Null;
                         vitals["max_hp"] = Value::Null;
+                    }
+                    // The damage an elite's swing in progress carries (its packet's raw damage, scaled by the elite
+                    // damage multiplier when the swing begins).
+                    if let Some(packet) = o
+                        .get_mut("core")
+                        .and_then(|c| c.get_mut("weapon"))
+                        .and_then(|w| w.get_mut("action"))
+                        .and_then(|a| a.get_mut("packet"))
+                    {
+                        packet["raw"] = Value::Null;
                     }
                 }
                 o.values_mut().for_each(walk);
@@ -501,6 +516,71 @@ fn mask_elite_numbers(mut v: Value) -> Value {
     v
 }
 
+/// One scripted tick of an approach: each player walks toward the nearest mob until it is within `reach`, and from then on
+/// plays `drive_tick`'s script (aim, attack every 7 ticks, release 3 later). Nothing hurts the camp before the first
+/// attack, so the camp sleeps through the approach and wakes when the first hit lands.
+fn approach_tick(sim: &mut Sim, t: u32, reach: f64) -> Vec<Event> {
+    for pid in [PlayerId(1), PlayerId(2)] {
+        let Some(me) = sim.player(pid).map(|p| p.pos()) else {
+            continue;
+        };
+        let nearest = sim
+            .mobs()
+            .iter()
+            .filter(|m| m.core.vitals.hp > 0.)
+            .map(|m| m.core.pos())
+            .map(|p| {
+                let (dx, dy) = (p.x - me.x, p.y - me.y);
+                (dx * dx + dy * dy, p)
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0));
+        let Some((d2, to)) = nearest else { continue };
+        if d2.sqrt() > reach {
+            let _ = sim.submit(
+                pid,
+                cmd(RawCommand::Move {
+                    x: to.x,
+                    y: to.y,
+                    seq: None,
+                }),
+            );
+            continue;
+        }
+        let a = rh_sim::math::atan2(to.y - me.y, to.x - me.x);
+        let _ = sim.submit(pid, cmd(RawCommand::Aim { a }));
+        if t % 7 == 0 {
+            let _ = sim.submit(pid, cmd(RawCommand::Attack { a, t: None }));
+        }
+        if t % 7 == 3 {
+            let _ = sim.submit(pid, cmd(RawCommand::Release { a, t: None }));
+        }
+    }
+    sim.step()
+}
+
+/// The JSON paths where two checkpoints differ (a readable failure for a whole-world comparison).
+fn json_diff(path: &str, a: &Value, b: &Value, out: &mut Vec<String>) {
+    match (a, b) {
+        (Value::Object(x), Value::Object(y)) => {
+            for k in x.keys().chain(y.keys().filter(|k| !x.contains_key(*k))) {
+                json_diff(
+                    &format!("{path}/{k}"),
+                    x.get(k).unwrap_or(&Value::Null),
+                    y.get(k).unwrap_or(&Value::Null),
+                    out,
+                );
+            }
+        }
+        (Value::Array(x), Value::Array(y)) if x.len() == y.len() => {
+            for (i, (p, q)) in x.iter().zip(y).enumerate() {
+                json_diff(&format!("{path}/{i}"), p, q, out);
+            }
+        }
+        _ if a != b => out.push(format!("{path}: {a} vs {b}")),
+        _ => {}
+    }
+}
+
 const FOLD_CARDS: [CardId; 6] = [
     CardId::Committed,
     CardId::MachineGun,
@@ -510,6 +590,27 @@ const FOLD_CARDS: [CardId; 6] = [
     CardId::ThirdTimesTheCharm,
 ];
 
+/// The events with the amount of every hit an elite deals zeroed (the elite damage multiplier is that number).
+fn without_elite_damage(events: &[Event], elites: &[PlayerId]) -> Vec<Event> {
+    events
+        .iter()
+        .cloned()
+        .map(|mut e| {
+            if let Event::Hit {
+                by: Some(b),
+                amount,
+                ..
+            } = &mut e
+            {
+                if elites.contains(b) {
+                    *amount = 0.;
+                }
+            }
+            e
+        })
+        .collect()
+}
+
 /// Whether an elite deals a hit (its damage multiplier is the first thing to differ between the worlds' events).
 fn elite_strikes(events: &[Event], elites: &[PlayerId]) -> bool {
     events
@@ -517,66 +618,76 @@ fn elite_strikes(events: &[Event], elites: &[PlayerId]) -> bool {
         .any(|e| matches!(e, Event::Hit { by: Some(b), .. } if elites.contains(b)))
 }
 
-/// Equivalence over a seed sweep. Oracle-amend, P-ELITE-TUNE-1. Before: the same match under `Legacy` elites and under
-/// `Rework` elites with the elite table equal to legacy played out identically (events every tick, the whole world). The
-/// Rework table now differs from legacy (hp x1.5 instead of x2.0, damage x1.0 instead of x1.5), and an elite's numbers reach
-/// every fight with it, so full-match equality cannot hold and the rule seam has no equal-table switch to rebuild it with
-/// (`EliteTuning::of` is a pair of statics; there is no `for_test`). The honest retarget keeps what the test proved about
-/// the seam (it adds nothing but the elite numbers and what they cause): the same seed and inputs under both rules, with
-/// fold cards and a camp in play, give the same events on every tick, and the same world apart from the config, the
-/// runtime's stored elite rule and the elite mobs' HP, up to the first hit an elite deals; until then the elite's max HP
-/// is exactly the legacy one times 1.5/2.0 and it has taken the same damage in both worlds. The fight itself (damage x1.0/1.5, hp, the helper share) is pinned by
-/// `tests/elite_tune.rs` and `systems/mob_life/share_tests.rs`. Floor: at least one seed reaches an elite's first hit.
+/// Equivalence over a seed sweep. Oracle-amend, P-ELITE-TUNE-1 and P-ELITE-TUNE-1-fix. Before P-ELITE-TUNE-1: the same
+/// match under `Legacy` elites and under `Rework` elites with the elite table equal to legacy played out identically
+/// (events every tick, the whole world). The Rework table now differs from legacy (hp x1.5 instead of x2.0, damage x1.0
+/// instead of x1.5), and an elite's numbers reach every fight with it, so full-match equality cannot hold and the rule
+/// seam has no equal-table switch to rebuild it with (`EliteTuning::of` is a pair of statics; there is no `for_test`).
+/// The retarget keeps what the test proves about the seam (it adds nothing but the elite numbers and what they cause):
+/// the same seed and inputs under both rules, with fold cards and a camp in play, give the same events on every tick (an elite's hit
+/// amount aside) and the same world on every tick, apart from the config, the runtime's stored elite rule, the elite's HP and the
+/// damage of its swing in progress (the elite numbers themselves), and, from the first hit an elite deals, the HP of the
+/// players it hits (a different damage number lands on them; `hp_frac_at_tick_start` is derived from it). The compared
+/// prefix ends at the tick an elite or a player dies in either world (0.75x the HP dies sooner, and a victim of the
+/// other damage number lives or dies differently: consequences of the numbers, after which loot, counts, timers and the
+/// match itself differ for good), or at the cap. Until then the elite's max HP is exactly
+/// the legacy one times 1.5/2.0 and it has taken the same damage in both worlds.
+///
+/// P-ELITE-TUNE-1-fix: the first retarget stopped at the first elite strike, which lands at tick 6 on every seed (a
+/// six-tick prefix, one whole-world comparison, three identical runs). Now the players start at the far corners of the
+/// camp's room and walk in (the approach, the wake on the first hit and the chase are inside the prefix), three starts
+/// by three seeds, and the comparison runs through the fight to the elite's death with the whole world compared on every
+/// tick. Floors: every run strikes, its prefix is at least `MIN_PREFIX` ticks, at least four of the nine runs differ in what the
+/// prefix looked like (length, strike tick), and the victims' HP is seen to differ after the strike (the mask hides
+/// something real). The fight itself (damage x1.0/1.5, hp, the helper share) is pinned by `tests/elite_tune.rs` and
+/// `systems/mob_life/share_tests.rs`.
 #[test]
 fn rework_elites_differ_from_legacy_only_in_elite_numbers_until_the_first_elite_strike() {
-    const TICKS: u32 = 240;
-    let mut reached_combat = 0;
-    for seed in [11u64, 12, 13] {
-        let mut sims = [EliteRule::Legacy, EliteRule::Rework].map(|rule| {
-            let sim = Sim::reset_active(
-                with_rules(pve_config(), AugmentRule::Legacy, rule),
-                pve_arena(),
-                Secrets::from_seed(seed),
-                &placements(),
+    const TICKS: u32 = 400;
+    const MIN_PREFIX: u32 = 40;
+    const REACH: f64 = 60.;
+    // (bow holder, sword holder): the far corners of the fire room, away from the camp at (112, 112).
+    const STARTS: [((f64, f64), (f64, f64)); 3] = [
+        ((200., 200.), (236., 176.)),
+        ((270., 270.), (250., 250.)),
+        ((100., 270.), (130., 250.)),
+    ];
+    let mut runs = std::collections::BTreeSet::new();
+    let mut compared = 0;
+    for (start, (bow, sword)) in STARTS.iter().enumerate() {
+        for seed in [11u64, 12, 13] {
+            let at = (Vec2::new(bow.0, bow.1), Vec2::new(sword.0, sword.1));
+            let mut sims = [EliteRule::Legacy, EliteRule::Rework].map(|rule| {
+                let sim = Sim::reset_active(
+                    with_rules(pve_config(), AugmentRule::Legacy, rule),
+                    pve_arena(),
+                    Secrets::from_seed(seed),
+                    &placements_at(at.0, at.1),
+                );
+                let (sim, e1) = grant_by_chests(sim, PlayerId(1), &FOLD_CARDS);
+                let (sim, e2) = grant_by_chests(sim, PlayerId(2), &[CardId::HereComesTheBoom]);
+                (sim, e1, e2)
+            });
+            let label = format!("start {start}, seed {seed}");
+            assert_eq!(
+                sims[0].1, sims[1].1,
+                "{label}: the bow holder's grant events"
             );
-            let (sim, e1) = grant_by_chests(sim, PlayerId(1), &FOLD_CARDS);
-            let (sim, e2) = grant_by_chests(sim, PlayerId(2), &[CardId::HereComesTheBoom]);
-            (sim, e1, e2)
-        });
-        assert_eq!(
-            sims[0].1, sims[1].1,
-            "seed {seed}: the bow holder's grant events"
-        );
-        assert_eq!(
-            sims[0].2, sims[1].2,
-            "seed {seed}: the sword holder's grant events"
-        );
-        assert!(
-            sims[0].0.mobs().iter().any(|m| m.elite),
-            "seed {seed}: the fixture's elite camp spawned"
-        );
-        let elites: Vec<PlayerId> = sims[0]
-            .0
-            .mobs()
-            .iter()
-            .filter(|m| m.elite)
-            .map(|m| m.core.id)
-            .collect();
-        for t in 0..TICKS {
-            let legacy = drive_tick(&mut sims[0].0, t);
-            let rework = drive_tick(&mut sims[1].0, t);
-            if elite_strikes(&legacy, &elites) || elite_strikes(&rework, &elites) {
-                reached_combat += 1;
-                break;
-            }
-            assert_eq!(legacy, rework, "seed {seed}, tick {t}: the events differ");
-            assert_ne!(
-                sims[0].0.state_hash(),
-                sims[1].0.state_hash(),
-                "seed {seed}, tick {t}: the Rework world folds no word of its own (same digest as Legacy)"
+            assert_eq!(
+                sims[0].2, sims[1].2,
+                "{label}: the sword holder's grant events"
             );
-            // The elite's sheet: its max HP is 0.75 x Legacy's (hp x1.5 against x2.0), and the damage it has taken is
-            // the same in both worlds (the players' hits do not read the elite's numbers).
+            assert!(
+                sims[0].0.mobs().iter().any(|m| m.elite),
+                "{label}: the fixture's elite camp spawned"
+            );
+            let elites: Vec<PlayerId> = sims[0]
+                .0
+                .mobs()
+                .iter()
+                .filter(|m| m.elite)
+                .map(|m| m.core.id)
+                .collect();
             let sheet = |s: &Sim| -> Vec<(f64, f64)> {
                 s.mobs()
                     .iter()
@@ -584,31 +695,114 @@ fn rework_elites_differ_from_legacy_only_in_elite_numbers_until_the_first_elite_
                     .map(|m| (m.core.vitals.hp, m.core.vitals.max_hp))
                     .collect()
             };
-            for ((lh, lm), (rh, rm)) in sheet(&sims[0].0).into_iter().zip(sheet(&sims[1].0)) {
-                assert!(
-                    (rm / lm - 0.75).abs() < 1e-9,
-                    "seed {seed}, tick {t}: Rework elite max hp {rm} is not 0.75 x Legacy {lm}"
-                );
-                assert!(
-                    ((lm - lh) - (rm - rh)).abs() < 1e-6,
-                    "seed {seed}, tick {t}: the damage taken differs: Legacy {lh}/{lm}, Rework {rh}/{rm}"
-                );
-            }
-            if t % 10 == 0 {
+            let elite_down = |s: &Sim| {
+                elites.iter().any(|id| {
+                    s.mobs()
+                        .iter()
+                        .find(|m| m.core.id == *id)
+                        .is_none_or(|m| m.core.vitals.hp <= 0.)
+                })
+            };
+            let mut prefix = 0;
+            let mut struck_at = None;
+            let mut victims_differ = false;
+            for t in 0..TICKS {
+                let legacy = approach_tick(&mut sims[0].0, t, REACH);
+                let rework = approach_tick(&mut sims[1].0, t, REACH);
+                let player_died = |events: &[Event]| {
+                    events.iter().any(|e| {
+                        matches!(e, Event::Death { id, .. } if *id == PlayerId(1) || *id == PlayerId(2))
+                    })
+                };
+                if elite_down(&sims[0].0)
+                    || elite_down(&sims[1].0)
+                    || player_died(&legacy)
+                    || player_died(&rework)
+                {
+                    break;
+                }
+                if struck_at.is_none()
+                    && (elite_strikes(&legacy, &elites) || elite_strikes(&rework, &elites))
+                {
+                    struck_at = Some(t);
+                }
                 assert_eq!(
-                    mask_elite_numbers(without_rules(&sims[0].0)),
-                    mask_elite_numbers(without_rules(&sims[1].0)),
-                    "seed {seed}, tick {t}: the worlds differ beyond the two rules and the elite numbers"
+                    without_elite_damage(&legacy, &elites),
+                    without_elite_damage(&rework, &elites),
+                    "{label}, tick {t}: the events differ"
                 );
+                assert_ne!(
+                    sims[0].0.state_hash(),
+                    sims[1].0.state_hash(),
+                    "{label}, tick {t}: the Rework world folds no word of its own (same digest as Legacy)"
+                );
+                // The elite's sheet: its max HP is 0.75 x Legacy's (hp x1.5 against x2.0), and the damage it has taken
+                // is the same in both worlds (the players' hits do not read the elite's numbers).
+                for ((lh, lm), (rh, rm)) in sheet(&sims[0].0).into_iter().zip(sheet(&sims[1].0)) {
+                    assert!(
+                        (rm / lm - 0.75).abs() < 1e-9,
+                        "{label}, tick {t}: Rework elite max hp {rm} is not 0.75 x Legacy {lm}"
+                    );
+                    assert!(
+                        ((lm - lh) - (rm - rh)).abs() < 1e-6,
+                        "{label}, tick {t}: the damage taken differs: Legacy {lh}/{lm}, Rework {rh}/{rm}"
+                    );
+                }
+                // The whole world, every tick. From the first elite strike the players' HP (what the elite's damage
+                // number lands on) is masked, and only it.
+                let masked = |s: &Sim| {
+                    let mut v = mask_elite_numbers(without_rules(s));
+                    if struck_at.is_some() {
+                        for p in v["world"]["players"].as_array_mut().unwrap() {
+                            p["core"]["vitals"]["hp"] = Value::Null;
+                            p["core"]["vitals"]["hp_frac_at_tick_start"] = Value::Null;
+                        }
+                    }
+                    v
+                };
+                let mut diffs = Vec::new();
+                json_diff("", &masked(&sims[0].0), &masked(&sims[1].0), &mut diffs);
+                assert!(
+                    diffs.is_empty(),
+                    "{label}, tick {t}: the worlds differ beyond the two rules and the elite numbers: {:?}",
+                    &diffs[..diffs.len().min(8)]
+                );
+                if struck_at.is_some() {
+                    victims_differ |= sims[0]
+                        .0
+                        .players()
+                        .iter()
+                        .zip(sims[1].0.players())
+                        .any(|(l, r)| l.core.vitals.hp != r.core.vitals.hp);
+                }
+                prefix += 1;
+                compared += 1;
             }
+            let strike = struck_at.unwrap_or(u32::MAX);
+            eprintln!("elite_prefix {label}: prefix {prefix}, first elite strike {strike}");
+            assert!(
+                strike < u32::MAX,
+                "{label}: no elite strike inside the prefix"
+            );
+            assert!(
+                prefix >= MIN_PREFIX,
+                "{label}: the compared prefix is {prefix} ticks (floor {MIN_PREFIX})"
+            );
+            assert!(
+                victims_differ,
+                "{label}: the victims' HP never differed after the strike: the mask hides nothing, or the damage is not 1.0/1.5"
+            );
+            runs.insert((prefix, strike));
+            let rework_cp = serde_json::to_value(&sims[1].0).unwrap();
+            assert_eq!(rework_cp["statics"]["config"]["augments"], Value::Null);
+            assert_eq!(rework_cp["statics"]["config"]["elites"], json!("rework"));
         }
-        let rework_cp = serde_json::to_value(&sims[1].0).unwrap();
-        assert_eq!(rework_cp["statics"]["config"]["augments"], Value::Null);
-        assert_eq!(rework_cp["statics"]["config"]["elites"], json!("rework"));
     }
+    eprintln!("elite_prefix whole-world comparisons: {compared}");
     assert!(
-        reached_combat >= 1,
-        "no seed reached an elite's first hit: the prefix was never closed by combat"
+        runs.len() >= 4,
+        "the sweep is {} distinct run(s) (prefix length, strike tick): it must differ in what matters",
+        runs.len()
     );
 }
 
