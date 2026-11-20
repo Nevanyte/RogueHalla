@@ -5620,7 +5620,10 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         ("state_reward_card_id_94", bad_card_id),
         ("state_reward_first_pick_tag_2", first_pick_patched(0, &[2])),
         // P-WIRE19-B: State key 14 faults, each a patch of `state_readouts` (row `i` starts at byte 6 + 18 i).
-        ("state_readouts_count_29", vec![0x88, 0xdc, 0x01, 0x01, 0x0e, 29]),
+        (
+            "state_readouts_count_29",
+            vec![0x88, 0xdc, 0x01, 0x01, 0x0e, 29],
+        ),
         ("state_readouts_card_79", readouts_patched(0, 0, &[79])),
         ("state_readouts_card_94", readouts_patched(4, 0, &[94])),
         ("state_readouts_kind_3", readouts_patched(1, 1, &[3])),
