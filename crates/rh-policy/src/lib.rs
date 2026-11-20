@@ -942,7 +942,9 @@ pub struct AsyncSeat {
 /// A cadence written in legacy 50 ms ticks, as steps of a sim stepping every `tick_ms` ms: it keeps its wall-clock time
 /// (ADR 0029). Equal to `ticks` at 50 ms.
 fn steps_of_legacy_ticks(ticks: u32, tick_ms: f64) -> u32 {
-    let per = (rh_sim::constants::LEGACY_TICK_MS / tick_ms).round().max(1.0) as u32;
+    let per = (rh_sim::constants::LEGACY_TICK_MS / tick_ms)
+        .round()
+        .max(1.0) as u32;
     ticks.saturating_mul(per)
 }
 
