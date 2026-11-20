@@ -32,7 +32,27 @@ pub(crate) fn bog(
     if counts {
         w.terrain.seconds[1] += dt / 1000.;
     }
+    native_hazards(k, w, ix, dt, counts);
     multiplier
+}
+/// P-AUG-NATIVE-1b: the native hazard hook for a holder's tick on bog (this move-modifier read, once per standing
+/// fighter and tick) and on ice (the slip surface the walk will meet from here: `terrain::at(..).accel`, read at the same
+/// position on the arena map). Ember is `burn_dt`'s.
+fn native_hazards(k: &MatchStatic, w: &mut World, ix: FighterIx, dt: f64, bog: bool) {
+    if !w.is_player(ix) {
+        return;
+    }
+    let id = w.core(ix).id;
+    if !crate::cards::native::hooks::holds_native(k, w, id) {
+        return;
+    }
+    use crate::cards::native::hooks::{fire, NativeEvent};
+    if bog {
+        fire(k, w, id, NativeEvent::HazardTick { hazard: 1, ms: dt });
+    }
+    if k.hazards.slip && effect(k, w, ix).accel > 0. {
+        fire(k, w, id, NativeEvent::HazardTick { hazard: 2, ms: dt });
+    }
 }
 fn bog_read(
     k: &MatchStatic,
@@ -110,6 +130,19 @@ fn burn_dt(cx: &mut Cx, dt_ms: f64) {
         };
         ledger::record_hit(w, &mut s.ledger, hit);
         w.terrain.seconds[0] += dt_ms / 1000.;
+        // P-AUG-NATIVE-1b: the native hazard hook for a holder's tick on ember.
+        if w.is_player(ix) {
+            let id = w.core(ix).id;
+            crate::cards::native::hooks::fire(
+                k,
+                w,
+                id,
+                crate::cards::native::hooks::NativeEvent::HazardTick {
+                    hazard: 0,
+                    ms: dt_ms,
+                },
+            );
+        }
     }
 }
 pub(crate) fn light(cx: &mut Cx) {

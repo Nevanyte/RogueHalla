@@ -645,6 +645,12 @@ fn apply_inner(
     camps_at_pass_start.clear();
 }
 
+/// P-AUG-NATIVE-1b: an entry that, once landed, is an `Event::Hit` with a weapon and `passive: false` (the native hit
+/// hooks' events and Bastion's burst carrier): not arena, not a damage-over-time, not a signature, not returned.
+fn weapon_hit(e: &Entry) -> bool {
+    !e.arena && !e.is_dot() && e.sig.is_none() && e.weapon.is_some() && !e.passive
+}
+
 #[allow(clippy::too_many_arguments)]
 fn apply_victim(
     pass: &mut Pass,
@@ -711,6 +717,26 @@ fn apply_victim(
         };
         mitigate_shares(raw_damage, &s, armor, shield)
     }));
+    // P-AUG-NATIVE-1b (Bastion): a holder's first landed weapon hit on this victim carries its stored-block burst, added
+    // after the victim's mitigation and the outgoing multipliers (stored blocks are already mitigated damage) and before
+    // the PvP hit cap. The hit that lands with it reports it in `NativeEvent::HitCount`, which spends the meter, so a
+    // later victim of the same pass gets none; a hit that does not land spends nothing.
+    let mut bursts = crate::cards::native::Bursts::default();
+    if pass.k.cards.rule() == crate::AugmentRule::Rework {
+        for (j, &index) in idxs.iter().enumerate() {
+            let e = &ledger[index];
+            let Some(by) = e.by.filter(|_| weapon_hit(e) && amounts[j] > 0.) else {
+                continue;
+            };
+            if bursts.has_holder(by) {
+                continue;
+            }
+            let extra = crate::cards::native::landed_burst(pass.k, pass.w, by);
+            if extra > 0. && bursts.push(by, j, extra) {
+                amounts[j] += extra;
+            }
+        }
+    }
     if player && pass.k.config.pvp_rules {
         let cap = PVP_HIT_CAP_SHARE * pass.w.core(ix).vitals.max_hp;
         let budget = PVP_DOT_CAP_SHARE * pass.w.core(ix).vitals.max_hp * (TICK_MS / 1000.0);
@@ -965,6 +991,29 @@ fn apply_victim(
                     amount: amounts[j],
                 },
             );
+            // P-AUG-NATIVE-1b: the native hit hooks, once per `Event::Hit` a holder's weapon landed (not passive), after
+            // the hit's amount: a stack this hit earns is not in it.
+            if let Some(by) = e.by.filter(|_| weapon_hit(e)) {
+                if crate::cards::native::hooks::holds_native(pass.k, pass.w, by) {
+                    use crate::cards::native::hooks::{fire, long_range, NativeEvent};
+                    if e.weapon == Some(WeaponId::Fists) {
+                        fire(pass.k, pass.w, by, NativeEvent::FistHit);
+                    }
+                    if !e.derived && e.projectile.is_some_and(|id| long_range(pass.w, id)) {
+                        fire(pass.k, pass.w, by, NativeEvent::LongRangeHit);
+                    }
+                    fire(
+                        pass.k,
+                        pass.w,
+                        by,
+                        NativeEvent::HitCount {
+                            victim: v,
+                            amount: amounts[j],
+                            burst: bursts.of(j),
+                        },
+                    );
+                }
+            }
         }
     }
     if pass.w.standing(ix)

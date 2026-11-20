@@ -98,10 +98,18 @@ pub(crate) fn ranged_hits(w: &mut World, hits: &[LandedHit]) {
         else {
             continue;
         };
-        let _ = by;
+        let by = by.id;
         if let Some(i) = w.fighter_idx(h.victim).filter(|&i| w.standing(i)) {
             w.core_mut(i).signature.ranged_chill_until =
                 Some(w.server_time + FROST_RANGED_CHILL_MS);
+            // P-AUG-NATIVE-1b: the native chill hook, for the archer's ranged chill.
+            crate::cards::native::hooks::fire_held(
+                w,
+                by,
+                crate::cards::native::hooks::NativeEvent::ChillInflicted {
+                    ms: FROST_RANGED_CHILL_MS,
+                },
+            );
         }
     }
 }
@@ -281,6 +289,17 @@ pub(crate) fn after_damage(w: &mut World) {
                 a.lands_at = lands;
                 p.weapon.draw_started_at = a.started_at;
                 p.weapon.action = Some(a);
+            }
+        }
+        // P-AUG-NATIVE-1b: the native chill hook, for each source of this tick's attack chill on this victim.
+        if w.core(ix).signature.chill < 1. {
+            for c in 0..w.core(ix).signature.chillers.len() {
+                let source = w.core(ix).signature.chillers[c];
+                crate::cards::native::hooks::fire_held(
+                    w,
+                    source,
+                    crate::cards::native::hooks::NativeEvent::ChillInflicted { ms: TICK_MS },
+                );
             }
         }
     }

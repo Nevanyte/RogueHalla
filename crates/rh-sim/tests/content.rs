@@ -70,7 +70,7 @@ const NON_GAMEPLAY: &[(&str, &str, &str)] = &[
     ("cards/native/faction.rs", "POOL", "P-AUG-NATIVE-1b: faction batch chest pool membership (identifiers and offer rules); read by no pool, so not folded into content_hash, until P-WIRE19-A admits native cards"),
     ("cards/catalog_data.rs", "DEFINITIONS", "typed 80-card catalog table generated from the accepted source corpus; the gameplay numbers are the registered source constants"),
     ("cards/mod.rs", "SUPPORTED", "the three-card native subset selector (identifiers only), not a game rule"),
-    ("cards/mod.rs", "MAX_FOLD_ROWS", "fixed scratch bound equal to the generated catalog's total fold rows, not a game rule"),
+    ("cards/mod.rs", "MAX_FOLD_ROWS", "fixed scratch bound: the most fold rows one copy of every card gives under either card table and any faction's row selection (80, a Plague player's; guarded by native::hooks_tests), not a game rule"),
     ("mob_runtime.rs", "LEGACY_ELITES", "P-AUG-RULES-1: the legacy elite numbers, ELITE_K / ELITE_HP_MULT / ELITE_DMG_MULT by name; no number of its own"),
     ("mob_runtime.rs", "REWORK_ELITES", "P-AUG-RULES-1: the Rework elite numbers, registered constants by name (the legacy ones until P-ELITE-TUNE-1 registers its rows); no number of its own"),
     ("modifiers/mod.rs", "MAX_FOLD_INPUT", "fixed fold scratch bound (the catalog rows plus the test-only diagnostic overlay), not a game rule"),

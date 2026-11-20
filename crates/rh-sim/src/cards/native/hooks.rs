@@ -2,6 +2,7 @@
 //! row, no hook-chain link, no RNG draw); it reaches the holder's native slots through the batch tables' handlers
 //! (`weapon.rs`, `zone.rs`, `faction.rs`), only under `AugmentRule::Rework` and only for a player holding a native card.
 //! The call sites and their events are listed in `docs/backlog/packets/P-AUG-NATIVE-1b.md` section 1.
+use crate::cards::CardId;
 use crate::state::{PlayerId, World};
 use crate::statics::MatchStatic;
 
@@ -43,8 +44,8 @@ impl NativeHook {
     ];
 }
 
-/// One native hook event with its payload (a proposal: the implementer may change the payloads, not the names).
-#[allow(dead_code)] // stub (P-AUG-NATIVE-1b): the call sites the implementer adds construct every variant
+/// One native hook event with its payload. A field no 1b handler reads is there for the batch packets (P-AUG-NATIVE-2..5).
+#[allow(dead_code)] // payload fields the batch packets' handlers read
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum NativeEvent {
     /// The holder's projectile landed a hit after flying at least the long-range share of its launch range.
@@ -73,8 +74,13 @@ pub(crate) enum NativeEvent {
     Block { prevented: crate::state::Packet },
     /// The holder was healed this much beyond its max hp.
     Overheal { amount: f64 },
-    /// The holder landed a weapon hit on `victim` for `amount`.
-    HitCount { victim: PlayerId, amount: f64 },
+    /// The holder landed a weapon hit on `victim` for `amount`; `burst` is the stored-block burst the ledger added to
+    /// that amount (Bastion; 0 for none).
+    HitCount {
+        victim: PlayerId,
+        amount: f64,
+        burst: f64,
+    },
 }
 
 impl NativeEvent {
@@ -98,22 +104,65 @@ impl NativeEvent {
     }
 }
 
+/// Is `id` a player holding a native card in a `Rework` world? The guard a call site takes before it computes anything
+/// for a hook (a long-range distance, a burst): a non-holder pays this check only.
+pub(crate) fn holds_native(k: &MatchStatic, w: &World, id: PlayerId) -> bool {
+    k.cards.rule() == crate::AugmentRule::Rework
+        && w.player(id).is_some_and(|p| !p.build.native.is_empty())
+}
+
 /// Fires one native hook event for `holder`: nothing unless the world plays the `Rework` card table and the holder
-/// holds a native card; then each held card's handler for this hook runs (the batch tables).
-#[allow(dead_code)] // stub (P-AUG-NATIVE-1b): the implementer's call sites use it
+/// holds a native card; then each held card's handler for this hook runs (the batch tables), in native order.
 pub(crate) fn fire(k: &MatchStatic, w: &mut World, holder: PlayerId, event: NativeEvent) {
     if k.cards.rule() != crate::AugmentRule::Rework {
         return;
     }
-    let Some(p) = w.player(holder) else { return };
-    if p.build.native.is_empty() {
+    fire_held(w, holder, event);
+}
+
+/// [`fire`] for the call sites that have no `MatchStatic` (`heal::apply_with`, the Frost chill passes): the holder guard
+/// alone. Sound because a world whose table is not `Rework` holds no native card: `check_world` refuses one
+/// (`native::check`), `trusted_build::apply` refuses to grant one, and no pool or chest offers one.
+pub(crate) fn fire_held(w: &mut World, holder: PlayerId, event: NativeEvent) {
+    let Some(i) = w.idx(holder) else { return };
+    if w.players[i].build.native.is_empty() {
         return;
     }
     let hook = event.hook();
     #[cfg(test)]
     trace::record(holder, hook);
     let _ = hook;
-    // Stub: the handlers of the held cards (weapon.rs, zone.rs, faction.rs) run here.
+    for card in CardId::NATIVE {
+        if w.players[i]
+            .build
+            .native
+            .slot(card)
+            .is_some_and(|s| s.count > 0)
+        {
+            // Each table answers only its own cards (no card is in two tables: `hooks_tests`).
+            super::weapon::handle(w, i, card, &event);
+            super::zone::handle(w, i, card, &event);
+            super::faction::handle(w, i, card, &event);
+        }
+    }
+}
+
+/// Did projectile `id` land its hit from far: after at least `REWORK_MARKSMANS_TALLY_RANGE_SHARE` of its launch range
+/// (Plant Your Feet's `range_mult` included)? Read in the ledger, where the flight that hit is still in
+/// `World::projectiles` (`settle` retires it) at its contact point (`projectiles::end`). The distance flown is
+/// `traveled` (the whole stretches before the hit) or the straight line from the origin to the contact, whichever is
+/// longer (a straight flight's last partial stretch is only in the second). A flight not found is not far.
+pub(crate) fn long_range(w: &World, projectile: u32) -> bool {
+    w.projectiles
+        .iter()
+        .find(|pr| pr.launch.id == projectile)
+        .is_some_and(|pr| {
+            let o = pr.launch.origin;
+            let flown = pr
+                .traveled
+                .max(crate::math::hypot(pr.pos.x - o.x, pr.pos.y - o.y));
+            flown >= crate::constants::REWORK_MARKSMANS_TALLY_RANGE_SHARE * pr.launch.range
+        })
 }
 
 /// Test-only record of every dispatch that passed the guard (thread-local: each test thread sees its own sims).
