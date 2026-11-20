@@ -306,6 +306,18 @@ pub enum StateItem {
     /// Key 14 (P-WIRE19-B): the viewer's own native readout rows, in native order; never another seat's. Sent only when
     /// the rows change (a client's rows start empty), so a viewer without native cards never receives it.
     Readouts(Vec<WireReadout>),
+    /// Key 15 (P-AUG-NATIVE-5, stub): every Marked Man holder's position, the same for every viewer (the minimap
+    /// marker). Sent only when the rows change (a client's rows start empty).
+    Marked(Vec<WireMarked>),
+}
+
+/// P-AUG-NATIVE-5 (stub): one Marked Man holder: its actor id and position (brief
+/// `docs/backlog/packets/P-AUG-NATIVE-5.md`, "Wire layout"): `varint id, u16 x, u16 y` (actor quantization).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WireMarked {
+    pub id: u32,
+    pub x: f32,
+    pub y: f32,
 }
 
 /// Public camp summary; no private actor identity is carried.

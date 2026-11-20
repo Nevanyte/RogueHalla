@@ -628,6 +628,8 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
         },
     );
 }
+#[cfg(test)]
+mod marked_man_tests;
 #[cfg(all(test, feature = "trusted-status-probes"))]
 mod mob_lifecycle_tests;
 #[cfg(test)]

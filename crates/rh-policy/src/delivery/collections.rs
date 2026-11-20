@@ -823,6 +823,8 @@ impl PendingState {
                 StateItem::RewardChests(_) => {}
                 StateItem::BuildSummary(v) => publisher.summary = v,
                 StateItem::Readouts(v) => publisher.readouts = v,
+                // P-AUG-NATIVE-5 stub: key 15 is not published yet.
+                StateItem::Marked(_) => {}
             }
         }
         publisher.sent = true;

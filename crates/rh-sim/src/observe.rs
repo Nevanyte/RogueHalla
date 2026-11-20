@@ -363,6 +363,19 @@ pub struct Observation {
     /// empty, so an observation without rows serializes and hashes as before the field.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub readouts: Vec<crate::cards::native::Readout>,
+    /// P-AUG-NATIVE-5 (stub): every `Alive` Marked Man holder's position, by ascending id, the same for every viewer and
+    /// regardless of vision (the minimap marker; owner decision 9, deliberately public). Skipped when empty, so an
+    /// observation without a holder serializes and hashes as before the field.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub marked: Vec<MarkedView>,
+}
+
+/// P-AUG-NATIVE-5 (stub): one Marked Man holder on every minimap: its id and body position, nothing else.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct MarkedView {
+    pub id: PlayerId,
+    pub x: f64,
+    pub y: f64,
 }
 
 impl SeenEvent {
@@ -587,6 +600,7 @@ impl Default for Observation {
             events: Vec::new(),
             roster: Vec::new(),
             readouts: Vec::new(),
+            marked: Vec::new(),
         }
     }
 }

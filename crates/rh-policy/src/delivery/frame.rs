@@ -115,6 +115,10 @@ impl CollectionView {
     pub fn readouts(&self) -> &[rh_protocol::WireReadout] {
         &self.readouts
     }
+    /// P-AUG-NATIVE-5 (stub): the Marked Man rows of State key 15 the client holds (empty until key 15 arrives).
+    pub fn marked(&self) -> &[rh_protocol::WireMarked] {
+        &[]
+    }
     pub fn tick(&self) -> u32 {
         self.tick
     }
@@ -146,6 +150,8 @@ impl CollectionView {
                 StateItem::Roster(v) => next.roster = v.clone(),
                 StateItem::BuildSummary(v) => next.summary = v.clone(),
                 StateItem::Readouts(v) => next.readouts = v.clone(),
+                // P-AUG-NATIVE-5 stub: key 15 is not kept yet.
+                StateItem::Marked(_) => {}
             }
         }
         rh_protocol::validate_quest_props(&next.props, next.quests.as_ref())?;

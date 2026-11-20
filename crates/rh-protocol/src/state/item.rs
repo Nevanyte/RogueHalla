@@ -19,6 +19,7 @@ impl StateItem {
             Self::Roster(_) => 12,
             Self::BuildSummary(_) => 13,
             Self::Readouts(_) => 14,
+            Self::Marked(_) => 15,
         }
     }
     pub(crate) fn encoded_len(&self) -> usize {
@@ -60,6 +61,8 @@ impl StateItem {
                 }
                 Self::BuildSummary(value) => 1 + value.as_ref().map_or(0, WireBuildSummary::len),
                 Self::Readouts(rows) => 1 + rows.len() * WireReadout::LEN,
+                // P-AUG-NATIVE-5 stub: refused by `check`.
+                Self::Marked(_) => 1,
             }
     }
     pub(crate) fn check(&self) -> Result<(), EncodeError> {
@@ -191,6 +194,8 @@ impl StateItem {
                     previous = Some(row.card);
                 }
             }
+            // P-AUG-NATIVE-5 stub: key 15 is not encoded yet.
+            Self::Marked(_) => return Err(EncodeError::BadValue("marked (P-AUG-NATIVE-5 stub)")),
         }
         Ok(())
     }
@@ -271,6 +276,8 @@ impl StateItem {
                     w.f64(row.max);
                 }
             }
+            // P-AUG-NATIVE-5 stub: never reached (`check` refuses it).
+            Self::Marked(_) => {}
         }
     }
     pub(crate) fn read(r: &mut Reader<'_>, key: u32) -> Result<Self, DecodeError> {
