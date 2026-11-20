@@ -71,10 +71,12 @@ The override table is ONE hand-written file, `crates/rh-sim/src/cards/rework_ove
    `v: crate::constants::REWORK_COMMITTED_DAMAGE` in the override row. Unchanged numbers are copied as written in
    `catalog_data.rs`. Registering moves the content hash: regenerate its pinned copies with the documented command
    (`scripts/regolden-content.sh`, P-CONTENT-REGOLDEN-1).
-4. What the content hash folds: the registered `REWORK_*` numbers (the `content!` registry) and the tables as
-   `content.rs` folds them. The override table itself is NOT folded: `REWORK_OVERRIDES` stays in `NON_GAMEPLAY` in
-   `crates/rh-sim/tests/content.rs`, its numbers are hashed through their registry rows, and its other fields are
-   guarded equal to the catalog by `check_override`. Override `text` is display-only and is not in the hash (P-AUG-CONTENT-1).
+4. What the content hash folds: the registered `REWORK_*` numbers (the `content!` registry) and, since
+   P-AUG-POOL-1-fix, the realized override rows themselves: `content::card_table_snapshots` folds each row's id and
+   its numbers (walked by `cards::map_numbers`, rows then selections) under `mvp-progression/1`, so `REWORK_OVERRIDES`
+   is in `TABLES_FOLDED_BY_HASH` in `crates/rh-sim/tests/content.rs`. Adding or removing a row, or pointing a row
+   number at another constant, is a regold (`scripts/regolden-content.sh`). The other fields are guarded equal to the
+   catalog by `check_override` and are not folded; override `text` is display-only and is not in the hash.
 5. One override row reaches every reader at once (fold, cached-fold restore check, ledger, hooks, pools, the
    ranged-packet envelope, the training console). Nothing else is edited for a numbers-only change.
 
@@ -91,6 +93,10 @@ legacy ones. To retune one: register `REWORK_<NAME>` in `constants.rs` and point
   when the rework moves them.
 - Wishful's budget, window and floor also bound the trims at restore (`abilities/checkpoint.rs`, still legacy):
   whoever retunes them moves that bound too.
+- The content hash folds every `CardNumbers` field of both tables by slot, in field order (P-AUG-POOL-1-fix,
+  `content::card_table_snapshots`). Repointing a field at another constant, swapping two fields or changing a literal
+  is a regold (`scripts/regolden-content.sh`). A new `CardNumbers` field fails to compile in `content/fold.rs`
+  (`visit_card_tables` destructures it without `..`) and in the oracle's `number_fields` until it is listed in both.
 
 ### The chest pool (P-AUG-POOL-1)
 
@@ -110,6 +116,9 @@ legacy ones. To retune one: register `REWORK_<NAME>` in `constants.rs` and point
   (for its faction) hold a `TriggerAction::Return`, Eye for an Eye is repeated beside itself to count
   `REWORK_EYE_FOR_AN_EYE_WEIGHT` (whole) times. It adds no draw: `roll_with`'s distinct-pick filter drops every copy
   once picked, and a zone theme counts it once.
+- The chest inputs are in the content hash (P-AUG-POOL-1-fix): `content::card_table_snapshots` folds each table's
+  pool ids, its `faction_only` pairs and its weighting flag under `mvp-progression/1`. Adding or removing a pool card,
+  adding a faction pair or flipping the flag is a regold (`scripts/regolden-content.sh`).
 
 ## The elite table: `mob_runtime::EliteTuning`
 
