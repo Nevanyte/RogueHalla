@@ -419,8 +419,10 @@ namespace Roguehalla.Client
                 if (!lm.IsWall(Mathf.FloorToInt(x), Mathf.FloorToInt(y))) continue;
                 AddAssetSprite(lm, glass, "Church stained glass", x, y, 1.13f, 1.92f, 0f, 4);
                 float inside = end == first ? 1.1f : -1.1f;
-                float cx = aisleOnX ? x + inside : x + Mathf.Sign(bay) * .8f;
-                float cy = aisleOnX ? y + Mathf.Sign(bay) * .8f : y + inside;
+                // The inner pair brackets the three-tile doorway. The outer pair stands beyond each pew end.
+                float candleBay = across + Mathf.Sign(bay) * (Mathf.Abs(bay) < 6f ? 1.95f : 9f);
+                float cx = aisleOnX ? x + inside : candleBay;
+                float cy = aisleOnX ? candleBay : y + inside;
                 if (lm.IsInterior(Mathf.FloorToInt(cx), Mathf.FloorToInt(cy)))
                     // The transparent headroom holds the smoke. Its lower pivot anchors the candle base.
                     AddAssetSprite(lm, candles, "Church candle flame", cx, cy, .68f, 1.295f, 0f, 5, flame: true);
