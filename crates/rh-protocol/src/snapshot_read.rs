@@ -270,10 +270,17 @@ pub(super) fn read_actor(r: &mut Reader, prev: Option<u32>) -> Result<WireActor,
     } else {
         [0; 3]
     };
+    let [walk_dir, walk_ticks] = if mask & AM_WALK != 0 {
+        [r.u8()?, r.u8()?]
+    } else {
+        [0; 2]
+    };
     if let Some(why) = indicator_fault(offhand, build_marks, mark, flags) {
         return Err(DecodeError::BadField(why));
     }
     Ok(WireActor {
+        walk_dir,
+        walk_ticks,
         archetype,
         flags,
         offhand,

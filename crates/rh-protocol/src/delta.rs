@@ -135,7 +135,10 @@ pub const AD_FLAGS: u32 = 1 << 14;
 pub const AD_OFFHAND: u32 = 1 << 15;
 pub const AD_BUILD_MARKS: u32 = 1 << 16;
 pub const AD_MARK: u32 = 1 << 17;
-pub const AD_ALL: u32 = 0x3_ffff;
+/// A remote player's walk hint (protocol 19): `walk_dir` u8, `walk_ticks` u8, sent when the pair differs from the base
+/// (`(0, 0)` clears it).
+pub const AD_WALK: u32 = 1 << 18;
+pub const AD_ALL: u32 = 0x7_ffff;
 /// What a new actor (one the base does not hold) must carry: its position. Every other field starts at its default.
 pub const AD_NEW: u32 = AD_X | AD_Y | AD_FACING;
 
@@ -152,9 +155,9 @@ const MAX_SELF_DELTA: usize =
 const MAX_DELTA_HEAD: usize =
     1 + 5 + 1 + 5 + 5 + MAX_SELF_DELTA + 8 + 3 + 1 + 1 + 5 + 8 + 8 + 8 + 8;
 /// Largest changed-actor record: id 5, mask 3, x/y/facing 6, kit/hp, bounty 3, status/kind, effects 2, displacement/mob type/sig,
-/// barrier pair, archetype, flags, off-hand, build marks, mark plate 3.
+/// barrier pair, archetype, flags, off-hand, build marks, mark plate 3, walk hint 2.
 const MAX_ACTOR_DELTA: usize =
-    5 + 3 + 6 + 1 + 1 + 3 + 1 + 1 + 2 + 1 + 1 + 1 + 2 + 1 + 1 + 1 + 1 + 3;
+    5 + 3 + 6 + 1 + 1 + 3 + 1 + 1 + 2 + 1 + 1 + 1 + 2 + 1 + 1 + 1 + 1 + 3 + 2;
 
 fn optional_f64_bits_equal(a: Option<f64>, b: Option<f64>) -> bool {
     match (a, b) {

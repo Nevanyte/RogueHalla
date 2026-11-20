@@ -175,6 +175,9 @@ pub(crate) fn write_message(w: &mut Writer, d: &SnapshotDelta) {
         if a.mask & AD_MARK != 0 {
             w.bytes(&a.q.mark);
         }
+        if a.mask & AD_WALK != 0 {
+            w.bytes(&a.q.walk);
+        }
     }
     if !d.departed.is_empty() {
         write_departed(w, &d.departed);
