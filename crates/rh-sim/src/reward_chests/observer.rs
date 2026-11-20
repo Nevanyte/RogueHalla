@@ -69,6 +69,7 @@ impl RewardChestObserver {
         Ok(PreparedRewardOffer {
             observer: self,
             tick: stage.tick,
+            grace: stage.grace,
             changed: stage.changed,
         })
     }
@@ -178,7 +179,7 @@ impl RewardChestObserver {
             .zip(&self.rows)
             .all(|(a, b)| public_cmp(a, b).is_eq())
             || self.scratch.len() != self.rows.len()
-            || (!self.scratch.is_empty() && tick - self.issued >= 20);
+            || (!self.scratch.is_empty() && tick - self.issued >= crate::item_view::grace(sim));
         if changed && self.next + self.scratch.len() as u64 > u64::from(u32::MAX) + 1 {
             return Err(OfferError::HandlesExhausted);
         }
@@ -193,7 +194,11 @@ impl RewardChestObserver {
             };
             out.push(row);
         }
-        Ok(RewardStage { tick, changed })
+        Ok(RewardStage {
+            tick,
+            grace: crate::item_view::grace(sim),
+            changed,
+        })
     }
     pub fn resolve(
         &self,
@@ -211,7 +216,12 @@ impl RewardChestObserver {
         let id = lookup(self.first, &self.ids).or_else(|| {
             self.retired
                 .iter()
-                .filter(|b| sim.tick().checked_sub(b.tick).is_some_and(|age| age < 20))
+                .filter(|b| {
+                    let grace = crate::item_view::grace(sim);
+                    sim.tick()
+                        .checked_sub(b.tick)
+                        .is_some_and(|age| age < grace)
+                })
                 .find_map(|b| lookup(b.first, &b.ids))
         });
         let chest_id = id.filter(|id| {
@@ -280,6 +290,7 @@ fn public_cmp(a: &RewardChestView, b: &RewardChestView) -> std::cmp::Ordering {
 pub struct PreparedRewardOffer<'a> {
     observer: &'a mut RewardChestObserver,
     tick: u32,
+    grace: u32,
     changed: bool,
 }
 impl PreparedRewardOffer<'_> {
@@ -289,6 +300,7 @@ impl PreparedRewardOffer<'_> {
     pub fn commit(self) {
         self.observer.commit_stage(RewardStage {
             tick: self.tick,
+            grace: self.grace,
             changed: self.changed,
         });
     }
@@ -296,6 +308,8 @@ impl PreparedRewardOffer<'_> {
 #[derive(Clone, Copy)]
 pub(crate) struct RewardStage {
     tick: u32,
+    /// The handle grace in steps of the match (`item_view::grace`, 1000 ms).
+    grace: u32,
     pub(crate) changed: bool,
 }
 impl RewardChestObserver {
@@ -321,7 +335,7 @@ impl RewardChestObserver {
             row.handle = RewardChestHandle::from_wire(s.first + i as u32).expect("committed range");
             s.rows.push(row);
         }
-        s.retired.retain(|r| stage.tick - r.tick < 20);
+        s.retired.retain(|r| stage.tick - r.tick < stage.grace);
         s.sampled = Some(stage.tick);
     }
 }
