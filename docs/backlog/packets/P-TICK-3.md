@@ -17,7 +17,9 @@ reads the room's rate. The server still sends 20 everywhere until P-TICK-5 and P
 
 ## 2. Dependencies
 - The "Cut delay on other players" thread's walk-hint wire change (protocol 19) merges first, agreed 2026-11-19: this
-  packet then becomes protocol **20** (`v20.json`) and rebases onto it.
+  packet then takes the next free protocol number and rebases onto it. Merged as PR #74 (protocol 19). The coliseum
+  thread's heal props (P-COLISEUM-HEALS-2) take protocol 20 first (agreed 2026-11-20); this packet then takes 21 or
+  the next free number.
 - P-TICK-1b merged; no other protocol or fixture packet in flight (shared-file rule)
 
 ## 3. Relevant legacy paths
