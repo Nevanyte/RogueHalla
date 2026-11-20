@@ -709,6 +709,7 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
         // Locked history becomes admissible with the complete Source arena lifecycle.
         p.vision.check(
             w.tick,
+            k.tick_ms(),
             k.config.lifecycle.rules().is_some() && w.raid_started_at > 0.,
             near,
         )?;

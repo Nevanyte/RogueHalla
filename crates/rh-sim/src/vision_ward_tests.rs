@@ -216,7 +216,7 @@ fn measure(sim: &mut Sim, probe: &Value) -> bool {
         "trail" => sim.player(viewer).is_some_and(|player| {
             player
                 .vision
-                .remembers(sim.collision_view(), at, sim.w.tick)
+                .remembers(sim.collision_view(), at, sim.w.tick, TICK_MS)
         }),
         other => panic!("unsupported captured probe kind {other}"),
     };

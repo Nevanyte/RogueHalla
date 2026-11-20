@@ -825,7 +825,7 @@ fn vision_check(sim: &mut Sim, action: &Value, e: &Value, ctx: &str) {
     let actor = id(&action["actor"]);
     let tick = sim.w.tick;
     let locked = sim.w.rt.gates_locked;
-    crate::vision::refresh_player(sim.w.players.get_mut(actor).unwrap(), tick, locked);
+    crate::vision::refresh_player(sim.w.players.get_mut(actor).unwrap(), tick, crate::constants::LEGACY_TICK_MS, locked);
     let viewer = sim.w.player(actor).unwrap();
     same(json!(viewer.pos()), &e["origin"], ctx);
     same(

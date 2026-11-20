@@ -144,6 +144,7 @@ pub(crate) fn handle(cx: &mut Cx, ix: FighterIx, cmd: &ActionCmd) {
         crate::vision::refresh_player(
             &mut cx.w.players[ix.slot()],
             cx.w.tick,
+            cx.k.tick_ms(),
             cx.w.rt.gates_locked,
         );
     }

@@ -4,7 +4,8 @@ use crate::{
     state::{Phase, PlayerId, World},
     systems::{self, Cx},
 };
-pub(crate) fn dropped(w: &mut World, id: PlayerId, dropped: bool) {
+/// `tick_ms`: the match's step (`SimConfig::tick_ms`), for the vision refresh of a returning seat.
+pub(crate) fn dropped(w: &mut World, tick_ms: f64, id: PlayerId, dropped: bool) {
     let now = w.server_time;
     let active = w.phase == Phase::Active;
     let held = active || w.phase == Phase::Planning;
@@ -19,7 +20,7 @@ pub(crate) fn dropped(w: &mut World, id: PlayerId, dropped: bool) {
         } else {
             p.seat.dropped_at = None;
             if active {
-                crate::vision::refresh_player(p, w.tick, locked);
+                crate::vision::refresh_player(p, w.tick, tick_ms, locked);
             }
         }
         systems::weapons::release_trigger(p, now);
