@@ -71,10 +71,12 @@ The override table is ONE hand-written file, `crates/rh-sim/src/cards/rework_ove
    `v: crate::constants::REWORK_COMMITTED_DAMAGE` in the override row. Unchanged numbers are copied as written in
    `catalog_data.rs`. Registering moves the content hash: regenerate its pinned copies with the documented command
    (`scripts/regolden-content.sh`, P-CONTENT-REGOLDEN-1).
-4. What the content hash folds: the registered `REWORK_*` numbers (the `content!` registry) and the tables as
-   `content.rs` folds them. The override table itself is NOT folded: `REWORK_OVERRIDES` stays in `NON_GAMEPLAY` in
-   `crates/rh-sim/tests/content.rs`, its numbers are hashed through their registry rows, and its other fields are
-   guarded equal to the catalog by `check_override`. Override `text` is display-only and is not in the hash (P-AUG-CONTENT-1).
+4. What the content hash folds: the registered `REWORK_*` numbers (the `content!` registry) and, since
+   P-AUG-POOL-1-fix, the realized override rows themselves: `content::card_table_snapshots` folds each row's id and
+   its numbers (walked by `cards::map_numbers`, rows then selections) under `mvp-progression/1`, so `REWORK_OVERRIDES`
+   is in `TABLES_FOLDED_BY_HASH` in `crates/rh-sim/tests/content.rs`. Adding or removing a row, or pointing a row
+   number at another constant, is a regold (`scripts/regolden-content.sh`). The other fields are guarded equal to the
+   catalog by `check_override` and are not folded; override `text` is display-only and is not in the hash.
 5. One override row reaches every reader at once (fold, cached-fold restore check, ledger, hooks, pools, the
    ranged-packet envelope, the training console). Nothing else is edited for a numbers-only change.
 
@@ -91,6 +93,10 @@ legacy ones. To retune one: register `REWORK_<NAME>` in `constants.rs` and point
   when the rework moves them.
 - Wishful's budget, window and floor also bound the trims at restore (`abilities/checkpoint.rs`, still legacy):
   whoever retunes them moves that bound too.
+- The content hash folds every `CardNumbers` field of both tables by slot, in field order (P-AUG-POOL-1-fix,
+  `content::card_table_snapshots`). Repointing a field at another constant, swapping two fields or changing a literal
+  is a regold (`scripts/regolden-content.sh`). A new `CardNumbers` field fails to compile in `content/fold.rs`
+  (`visit_card_tables` destructures it without `..`) and in the oracle's `number_fields` until it is listed in both.
 
 ### The chest pool (P-AUG-POOL-1)
 
@@ -110,6 +116,9 @@ legacy ones. To retune one: register `REWORK_<NAME>` in `constants.rs` and point
   (for its faction) hold a `TriggerAction::Return`, Eye for an Eye is repeated beside itself to count
   `REWORK_EYE_FOR_AN_EYE_WEIGHT` (whole) times. It adds no draw: `roll_with`'s distinct-pick filter drops every copy
   once picked, and a zone theme counts it once.
+- The chest inputs are in the content hash (P-AUG-POOL-1-fix): `content::card_table_snapshots` folds each table's
+  pool ids, its `faction_only` pairs and its weighting flag under `mvp-progression/1`. Adding or removing a pool card,
+  adding a faction pair or flipping the flag is a regold (`scripts/regolden-content.sh`).
 
 ## The elite table: `mob_runtime::EliteTuning`
 
@@ -137,6 +146,37 @@ static `LEGACY_ELITES` (the legacy `ELITE_K` / `ELITE_HP_MULT` 2.0 / `ELITE_DMG_
 To retune the Rework elites: change `REWORK_ELITE_HP_MULT` / `REWORK_ELITE_DMG_MULT` in `constants.rs` (`k` stays
 `ELITE_K`), regolden the content hash with `scripts/regolden-content.sh`, and re-run the elite bench
 (`tools/balance-camps/README.md`). `tests/elite_tune.rs` pins the numbers.
+
+## Native cards (P-AUG-NATIVE-1a)
+
+The 14 new augments (the plan's "Plus 13 new" and Marked Man) are `CardId` variants 80..=93 after `FinalVerdict`,
+listed in `CardId::NATIVE` (index order). `CardId::ALL` stays the 80 catalog cards, `Counts` stays 80 bytes, and
+`emit_cards.py` / `catalog_data.rs` are untouched.
+
+- **Definitions:** `crates/rh-sim/src/cards/native/table.rs` `NATIVE_DEFINITIONS` (hand-written, native order):
+  augment, tier 1, unique, ready, no rows yet. `CardId::definition()` and `tier()` answer native ids from it;
+  `Tuning::def` falls back to it like any card with no override row.
+- **State:** `Build::native: NativeCards`, one `NativeSlot { count, counter, meters: [f64; NATIVE_METERS], marks }`
+  per native card (fixed size). `counter` is the card's stacks in its own units, `meters` its working meters, `marks`
+  a bit set. A slot whose `count` is 0 is all zero: `Build::set(id, 0)` zeroes the whole slot, and any new code that
+  clears a native card must too. `Build::owns`/`count`/`set`/`add`/`valid`/`cards`/`power` branch on native ids;
+  `Build::cards()` yields the 80 first, then the held native cards. `Build::counts()` and every observation, pool,
+  chest and wire byte carry no native id until P-WIRE19-A.
+- **Save, restore, hash:** `Build` serializes `native` first and only when a native card is held, as the held rows
+  only (`{"card","count","counter","meters","marks"}`, native order). A build holding none writes and hashes exactly as
+  before (`hash.rs`, fourth World exception). Restore refuses an empty list, a `count` 0 row, a catalog card, and a
+  card repeated or out of order. `CHECKPOINT_FORMAT` moved to `rh-checkpoint/35`.
+- **Caps:** `cards::native::rule(id)` (`NATIVE_RULES` in `table.rs`): `counter_cap`, `meter_caps` and `marks` per
+  card. `check_world` (`cards::native::check`) refuses a held native card outside a `Rework` table, a count over 1,
+  a counter or meter outside `0..=cap` (or non-finite), a mark outside the rule's bits, and any reward chest offering a
+  native card. It also bounds every player's `card_tank_hp` to `0..=` the world table's largest Tank Engine cap.
+- **Setting a cap (batch packets):** a slot 1a leaves at cap 0 is unused and must stay 0. To use one, register the
+  number in the `content!` registry (`constants.rs`, append), point the card's `NativeRule` field in `table.rs` at it
+  by name, and regold (`scripts/regolden-content.sh`). The native ids, definitions (rows walked by
+  `cards::map_numbers`) and rules are folded into the content hash (`cards::native::visit_content`, after the
+  `CardId::ALL` names in `visit_progression_content`), so adding rows or moving a cap is a regold too.
+- **Wish Engine:** its slot's `counter` is the earned cooldown share (cap `REWORK_WISH_ENGINE_CAP`); its three meters
+  are reserved for P-AUG-NATIVE-3's per-cast record (that packet sets their caps and redoes the Wish restore envelope).
 
 ## Checks that guard the seam
 

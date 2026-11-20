@@ -100,7 +100,8 @@ fn a_checkpoint_contains_no_scratch_keys() {
             "a checkpoint must not carry the scratch key `{banned}`"
         );
     }
-    assert_eq!(json["format"], "rh-checkpoint/33");
+    // P-ELITE-PICK-1: the constant, not a literal (P-AUG-NATIVE-1a bumps it too; the merges are serial).
+    assert_eq!(json["format"], rh_sim::CHECKPOINT_FORMAT);
     let top: Vec<&String> = json.as_object().unwrap().keys().collect();
     assert_eq!(
         top.len(),
@@ -148,9 +149,12 @@ fn the_format_tag_is_refused_before_the_payload_whatever_the_key_order() {
             .unwrap_or_else(|e| panic!("{order:?}: {e}"));
         assert_eq!(b.state_hash(), a.state_hash(), "{order:?}");
     }
-    // The native33 layout (Plant Your Feet's range_mult) must refuse its immediate predecessor32 before
-    // decoding payload or accepting any defaults from an older canonical shape.
+    // The current layout (P-AUG-NATIVE-1a: a build's native card rows, after 34's chest first-pick window and 33's
+    // Plant Your Feet range_mult) must refuse its predecessors before decoding payload or accepting any defaults from an
+    // older canonical shape.
     for found in [
+        "rh-checkpoint/34",
+        "rh-checkpoint/33",
         "rh-checkpoint/32",
         "rh-checkpoint/31",
         "rh-checkpoint/30",
@@ -188,7 +192,7 @@ fn the_format_tag_is_refused_before_the_payload_whatever_the_key_order() {
     // The immediate predecessor wins over malformed payload and mismatched content,
     // even when the format key follows those payload keys.
     let mut prior28 = good.clone();
-    prior28["format"] = "rh-checkpoint/32".into();
+    prior28["format"] = "rh-checkpoint/34".into();
     prior28["world"] = serde_json::json!({"tick": "not a checkpoint"});
     prior28["statics"] = serde_json::json!([1, 2, 3]);
     prior28["content_hash"] = (good["content_hash"].as_u64().unwrap() ^ 1).into();
@@ -205,7 +209,7 @@ fn the_format_tag_is_refused_before_the_payload_whatever_the_key_order() {
         assert_eq!(
             Sim::restore(&mut serde_json::Deserializer::from_str(&payload)).err(),
             Some(CheckpointError::UnsupportedFormat {
-                found: "rh-checkpoint/32".into()
+                found: "rh-checkpoint/34".into()
             })
         );
     }
@@ -335,9 +339,10 @@ fn a_checkpoint_names_its_content_and_build_and_refuses_other_content() {
     let content = rh_sim::content::content_hash();
     assert_eq!(good["content_hash"], content);
     assert_eq!(good["build"], rh_sim::replay::BUILD_ID);
-    assert!(serde_json::to_string(&a)
-        .unwrap()
-        .starts_with("{\"format\":\"rh-checkpoint/33\",\"content_hash\":"));
+    assert!(serde_json::to_string(&a).unwrap().starts_with(&format!(
+        "{{\"format\":\"{}\",\"content_hash\":",
+        rh_sim::CHECKPOINT_FORMAT
+    )));
     assert!(Sim::restore(&good).is_ok());
 
     // Other content: refused with the typed error, whichever side of the tag it arrives on, and even when the payload
@@ -352,8 +357,9 @@ fn a_checkpoint_names_its_content_and_build_and_refuses_other_content() {
     other["world"] = Value::from("not a world");
     assert_eq!(Sim::restore(&other).err(), Some(expect.clone()));
     let text = format!(
-        "{{\"world\":1,\"content_hash\":{},\"format\":\"rh-checkpoint/33\"}}",
-        content ^ 1
+        "{{\"world\":1,\"content_hash\":{},\"format\":\"{}\"}}",
+        content ^ 1,
+        rh_sim::CHECKPOINT_FORMAT
     );
     assert_eq!(
         Sim::restore(&mut serde_json::Deserializer::from_str(&text)).err(),

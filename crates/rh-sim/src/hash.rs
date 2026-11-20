@@ -36,7 +36,7 @@
 //! their non-default values fold the tags `"frost_wish=wall"`, `"augments=rework"` and `"elites=rework"`, which no other
 //! field writes (`tests/augment_rules.rs` checks all 64 combinations of the six silent switches).
 //!
-//! Three World exceptions. `MobRuntime::elites` (P-AUG-RULES-1) writes `EliteRule::Legacy` as a unit (no word), so every
+//! Four World exceptions. `MobRuntime::elites` (P-AUG-RULES-1) writes `EliteRule::Legacy` as a unit (no word), so every
 //! world whose elite numbers are legacy keeps its hash and checkpoint; it is safe because `check_world` admits exactly
 //! the one value `EliteTuning::stored_rule(config.elites)` per statics digest. `MobRuntime::buffs` (P-CAMP-BUFF-THEMES-1, coordinator decision) writes its empty row as a unit
 //! (no word) so every `CampBuffRule::Legacy` world keeps its hash and checkpoint; it is safe only because `check_world`
@@ -46,6 +46,11 @@
 //! with no wall standing keeps its hash and checkpoint; it is safe because the row is non-empty exactly when the field
 //! list written before it holds a `Wall` field (`barriers::check`), so the untagged empty form cannot be confused with a
 //! written one.
+//! `cards::Build::native` (P-AUG-NATIVE-1a) is written by `Build`'s hand-written `Serialize`, first and only when a
+//! native card is held (no field at all otherwise; a struct writes no field count, so no word marks its absence). Every
+//! native-free build, so every `Legacy` world and every `Rework` world holding no native card, keeps its hash and
+//! checkpoint. It is safe because both forms start with a sequence length: a held-native build with its row count
+//! (1..=14, refused empty on restore), a native-free one with `Counts`' length 80, so the two cannot run into each other.
 //!
 //! Mixer: one `(h ^ word) * K` and a rotate per word (a bijection of the running state for every word, so a single changed
 //! word always changes the result), then a splitmix64 finalizer.
