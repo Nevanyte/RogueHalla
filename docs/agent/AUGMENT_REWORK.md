@@ -178,6 +178,77 @@ listed in `CardId::NATIVE` (index order). `CardId::ALL` stays the 80 catalog car
 - **Wish Engine:** its slot's `counter` is the earned cooldown share (cap `REWORK_WISH_ENGINE_CAP`); its three meters
   are reserved for P-AUG-NATIVE-3's per-cast record (that packet sets their caps and redoes the Wish restore envelope).
 
+## Native hooks and batch tables (P-AUG-NATIVE-1b)
+
+A native card acts through **hooks**: plain helper calls from inside existing systems. No hook adds a schedule row, a
+hook-chain link, an RNG draw or an event. `cards::native::hooks::fire(k, w, holder, NativeEvent)` returns at once
+unless the table is `Rework` and the holder holds a native card. It then runs each held card's handler, in native
+order. `fire_held(w, holder, event)` is the same without the `MatchStatic`, for the two sites that have none (`heal`,
+Frost). It is sound because a non-`Rework` world holds no native card. A site that must compute something for the hook
+asks `hooks::holds_native(k, w, id)` first, so a non-holder pays one check.
+
+| Hook | Fires for the holder | Site |
+|---|---|---|
+| `LongRangeHit` | its own projectile (not reflected, not a wand splash) landed a hit after flying ≥ `REWORK_MARKSMANS_TALLY_RANGE_SHARE` of its launch range (`hooks::long_range`) | `systems/ledger.rs`, landed-hit loop |
+| `CreditedKill { player, elite }` | it is the credited killer of a player, or of a mob | `systems/credit.rs` `credit_kill` (before `PlayerKilled`); `systems/mob_life.rs` (before `MobKilled`) |
+| `FistHit` | a `HitCount` hit with `Fists` | ledger |
+| `MobKill { mob_type }` | it is credited with a mob kill (whether it is the first of its type is the card's state) | `mob_life.rs` |
+| `HazardTick { hazard, ms }` | a tick on ember (0), bog (1) or ice (2) | `systems/terrain/mod.rs`: `burn_dt` (ember), `bog` (bog, and ice read at the same point) |
+| `WishCast` | its Wish landed | `systems/abilities/mod.rs`, after `cast_ended(.., Landed)` |
+| `CorpseHarvest` | it consumed a plague corpse (F or auto) | `systems/plague_corpses.rs` `consume` |
+| `BurstLanded` | its charged roaming Fire burst went off on a hit | `systems/fire_roam.rs` `hit_landed` |
+| `ChillInflicted { ms }` | its ranged chill (`FROST_RANGED_CHILL_MS`), or one tick of its attack chill on a victim | `systems/frost.rs` `ranged_hits`, `after_damage` |
+| `HuntStack { stacks }` | its hunt paid stacks (the number paid) | `systems/sentenced_hunt.rs` `fighter_out` |
+| `Block { prevented }` | once per `HookArgs::Blocked` (melee and projectile) | `cards::on_blocked`, after Tank Engine |
+| `Overheal { amount }` | a heal (not regen) went past its max hp by `amount` | `systems/heal.rs` `apply_with` |
+| `HitCount { victim, amount, burst }` | one `Event::Hit` its weapon landed (`passive: false`), with that hit's amount | ledger, after `HitLanded` |
+
+The ledger hooks fire after the hit's amount is dealt. A stack a hit earns is not in that hit: `outgoing_damage` is
+read at the start of the pass.
+
+**Batch tables.** Each card lives in exactly one table: `cards/native/weapon.rs`, `zone.rs` or `faction.rs`. A batch
+edits only its own table, which holds:
+
+- `handle(w, i, card, event)`: a `match (card, event)` arm per hook the card uses. Each arm changes player slot `i`'s
+  `build.native` slot. Caps come from `native::rule(card)`, never a literal.
+- `readouts(card)`: the card's readout rows, `Source::Counter`, `Meter(n)` or `Marks`. `cards::native::readouts(sim,
+  viewer)` turns them into fixed-size `Readout { card, kind, value, max }` rows, read only from the viewer's own slots
+  (C-OBS). The max is the rule's cap, or for marks the rule's bit count. Nothing observes them yet: P-WIRE19-B puts them
+  on the wire beside `observe.rs` `out.me`.
+- `POOL: &[(CardId, Offer)]`: membership (`Offer::Faction` for the faction table).
+
+A card that changes damage joins one of the two seams in `native/mod.rs`:
+
+- `outgoing_share(build)`: added to the `outgoing_damage` sum, under the G1 ceiling (Marksman's Tally).
+- `landed_burst(k, w, by)`: added after mitigation, before the PvP hit cap, to the holder's first landed weapon hit on
+  a victim, and spent by that hit's `HitCount { burst > 0 }` (Bastion). It is capped at one burst per seat per victim.
+
+**Admission waits for P-WIRE19-A.** No pool, offer or chest reads `POOL` yet, and `check_world` still refuses a chest
+that offers a native card. The wire refuses card ids ≥ 80 today. `trusted_build::apply` refuses a native card outside
+`Rework` (`BuildRefusal::NativeOutsideRework`).
+
+**Bounds and envelopes.**
+
+- `MAX_FOLD_ROWS` (80, `cards/mod.rs`) is the most fold rows one copy of every card gives, under either table and any
+  faction's selection. `Build::rows` stops silently when it is full. A batch that adds native `Fold` rows raises it;
+  `hooks_tests::max_fold_rows_covers_every_card_of_both_tables` guards it.
+- A batch card that bakes damage into a projectile packet must join the Rework `maximum_packet` envelope
+  (`modifiers/mod.rs`), or restore refuses its packets. Neither exemplar does: Tally is in `outgoing_damage` and Bastion
+  is added after mitigation.
+- Each batch adds its card's exact `native::check` rule, for example integral counters or Pathfinder's counter tied to
+  its marks.
+
+**No allocation.** Handlers, `readouts` and `Bursts` use fixed arrays and slot fields only. `tests/native_no_alloc.rs`
+counts a warmed Rework tick with both exemplars active.
+
+**Exemplars.**
+
+- **Marksman's Tally:** `counter = min(REWORK_MARKSMANS_TALLY_CAP, counter + REWORK_MARKSMANS_TALLY_PER)` per
+  `LongRangeHit`. The counter is a damage share.
+- **Bastion:** each `Block` adds what the block kept, measured as Tank Engine measures it, to `meters[0]`, capped at
+  `REWORK_BASTION_METER_CAP` (250). The next landed weapon hit deals `REWORK_BASTION_SHARE × meters[0]` more, and the
+  meter goes to 0.
+
 ## Checks that guard the seam
 
 - `crates/rh-sim/tests/augment_rules.rs`: the rules' encoding, the 64 statics identities of the silent switches, the
