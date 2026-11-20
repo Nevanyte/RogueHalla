@@ -62,6 +62,14 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
   - **Merge:** conflicts in `cards/native/mod.rs` and the guide, resolved by keeping both sides, as the reviewer
     proved on the merged tree.
   - **Full gate:** green except the waived pin, with pgtest and EditMode 1581/1581. Content hash `b482e30841717576`.
+- **Integration 69** (`coord/int-69` @ `76f314709`): P-WIRE19-B.
+  - **What it adds:** own-only native readout rows as an optional State key 14 in protocol 19. Observation 32, policy
+    contract 26 → 27.
+  - **Fixes before review:** two coordinator oracle-amends (`delivery_tests.rs`, `native_cards.rs`); the implementer
+    fixed rustfmt and moved `collections.rs`'s tests to `collections/tests.rs`.
+  - **Review and gate:** reviewer-opus LAND. Full gate green except the waived pin, EditMode 1581/1581.
+- **Identities after integration 69:** protocol 19 (local; see the origin note), observation 32, policy contract 27,
+  checkpoint `rh-checkpoint/35`, replay 25, content hash `b482e30841717576`.
 - **Rows for the owner to sign at the end (DEVIATIONS):**
   - Hazard Walker: one stack per second on a hazard, 4% resist and 0.5% base max hp per stack. Each stack also raises
     hp with max hp, so up to 7.5% free healing.
