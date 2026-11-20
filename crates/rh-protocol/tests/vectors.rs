@@ -341,7 +341,6 @@ fn malformed_server_frames_are_rejected_for_the_documented_reason() {
             "state_wall_tiles_truncated" => Truncated,
             "state_wall_tile_off_map" => BadField("wall tile"),
             "state_wall_tile_order" => BadField("wall order"),
-            // P-COLISEUM-HEALS-2: a prop kind past 8 (the heal pickup).
             other => panic!("no expectation for {other}"),
         }
     };
