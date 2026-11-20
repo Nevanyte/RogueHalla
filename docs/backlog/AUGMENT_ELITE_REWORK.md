@@ -175,6 +175,7 @@ the death-rate table and the proposed elite numbers. P-ELITE-TUNE-1 waits for th
 | P-AUG-NATIVE-5 | Opus · Opus · reviewer-opus | Marked Man (decision 9): +50% kill stacks, and the holder always on every minimap | 1b, WIRE19-B (`observe.rs`) |
 | P-AUG-UI-2 | Sonnet (C#) · Sonnet · reviewer | HUD and chest-panel work (details below) | WIRE19-B |
 | P-AUG-DOCS-1 | Haiku · — · reviewer | Docs (details below) | all |
+| P-CI-GREEN-6 | Sonnet · — · reviewer | Card provenance refresh for `tools/protocol-js/check-vectors.mjs` (route of P-CI-GREEN-5; Docker recapture in the pinned image); oracle: `node tools/provenance/check-card-chain.mjs` red on that one pin | last wire packet (WIRE19-B / NATIVE-5); before any push |
 
 Packet details:
 - **P-CONTENT-REGOLDEN-1** pinned copies:

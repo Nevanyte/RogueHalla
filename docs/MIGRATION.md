@@ -40,6 +40,25 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
 
 **Next:** the Opus implementers for both packets, then waves 6 to 9 as listed in the paused section below.
 
+**Coordinator decisions (2026-11-20):**
+- **Oracle-amends.** Three existing tests were left stale by the two new oracles, and the coordinator amended each in an
+  `oracle-amend:` commit on the packet branch, one file per commit:
+  - **P-AUG-NATIVE-1b:** `tests/native_cards.rs` pinned Bastion's meter cap at 0, but the brief decides 250
+    (`REWORK_BASTION_METER_CAP`); 1a had left the number to 1b. The implementer had used both gate attempts.
+  - **P-WIRE19-A:** `UnionProtocolTests.cs`, where the boundary option moves from 80 to 94, the C# twin of
+    `v11_union.rs`.
+  - **P-WIRE19-A:** the `barriers_reach_tests.rs` observation digest. Only the version moved: with version 30 forced, the
+    old pin matches.
+- **Card provenance pin.**
+  - **Why the step is red.** Any wire change edits `tools/protocol-js/check-vectors.mjs`, whose SHA the card provenance
+    chain pins. So the gate step "card provenance chain (pins current)" is red from P-WIRE19-A on.
+  - **Why one refresh, at the end.** The refresh is the Docker recapture route of P-CI-GREEN-1/5
+    (`docs/evidence/ci-provenance-refresh-2026-11-14/README.md`; about four hours emulated). P-WIRE19-B, and possibly
+    P-AUG-NATIVE-5, edit the file again. So the refresh runs once, as P-CI-GREEN-6, after the rework's last wire packet
+    and before any push.
+  - **Waiver until then.** The coordinator waives exactly that red. Each gate's chain output must show
+    `check-vectors.mjs` as its only failing pin.
+
 ## Paused (2026-11-19, evening): the elite and augment rework, after integration 64
 
 **Owner direction 2026-11-19:** "please save and pause all development". Every agent and gate this coordinator session
