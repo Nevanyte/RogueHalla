@@ -25,19 +25,19 @@ namespace Roguehalla.Client
             if (art == null) return null;
             int row = StormInkActors.PoseRow(direction);
             if (!art.IsReady(row)) return null;
-            if (weaponAction && deliveredDraw)
+            bool studioPreview = false;
+            bool alternate = false;
+#if UNITY_EDITOR
+            studioPreview = TryStudioFirePose(actorId, WeaponId.Bow, out _, out _, out alternate);
+#endif
+            if (studioPreview || (weaponAction && deliveredDraw))
             {
 #if UNITY_EDITOR
-                bool alternate = TryStudioFirePose(actorId, WeaponId.Bow, out _, out _, out var previewAlternate)
-                    ? previewAlternate
-                    : phase == StormInkWeaponMotion.Phase.Ready
+                if (!studioPreview)
+#endif
+                    alternate = phase == StormInkWeaponMotion.Phase.Ready
                         ? (actor.FireBowShotCount & 1) != 0
                         : actor.FireBowShotCount > 0 && (actor.FireBowShotCount & 1) == 0;
-#else
-                bool alternate = phase == StormInkWeaponMotion.Phase.Ready
-                    ? (actor.FireBowShotCount & 1) != 0
-                    : actor.FireBowShotCount > 0 && (actor.FireBowShotCount & 1) == 0;
-#endif
                 return art.Frame(row, phase, progress, alternate);
             }
             if (sharedRig == null) return null;

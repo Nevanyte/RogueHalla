@@ -52,6 +52,24 @@ namespace Roguehalla.Client
         internal int PoseColumn(StormInkWeaponMotion.Phase phase, float progress, bool alternate) =>
             PoseColumn(phase, progress, alternate, midDrawAt, sustainedDrawAt);
 
+#if UNITY_EDITOR
+        public void PreviewParameters(int column, out StormInkFireSwordMotionPhase phase, out float progress)
+        {
+            if ((uint)column >= Columns) throw new ArgumentOutOfRangeException(nameof(column));
+            int pose = column % 5;
+            float middle = Mathf.Clamp(midDrawAt, .05f, .8f);
+            float sustained = Mathf.Clamp(sustainedDrawAt, middle, .95f);
+            switch (pose)
+            {
+                case 0: phase = StormInkFireSwordMotionPhase.Windup; progress = middle * .5f; break;
+                case 1: phase = StormInkFireSwordMotionPhase.Windup; progress = (middle + sustained) * .5f; break;
+                case 2: phase = StormInkFireSwordMotionPhase.Windup; progress = (sustained + 1f) * .5f; break;
+                case 3: phase = StormInkFireSwordMotionPhase.Strike; progress = .5f; break;
+                default: phase = StormInkFireSwordMotionPhase.Follow; progress = .85f; break;
+            }
+        }
+#endif
+
         public Sprite Frame(int row, int column)
         {
             if (!IsReady(row) || (uint)column >= Columns) return null;

@@ -195,12 +195,8 @@ namespace Roguehalla.Editor
             }
             else if (weapon == WeaponId.Bow)
             {
-                int pose = swordPose % 5;
+                StormInkFireBowAuthoring.Load().PreviewParameters(swordPose, out firePosePhase, out firePoseProgress);
                 firePoseAlternate = swordPose >= 5;
-                firePosePhase = pose <= 2 ? StormInkFireSwordMotionPhase.Windup :
-                    pose == 3 ? StormInkFireSwordMotionPhase.Strike : StormInkFireSwordMotionPhase.Follow;
-                firePoseProgress = pose == 0 ? .1f : pose == 1 ? .5f : pose == 2 ? 1f :
-                    pose == 3 ? .5f : .85f;
             }
             if (fighter != null) fighter.Weapon = weapon;
             RefreshCast();

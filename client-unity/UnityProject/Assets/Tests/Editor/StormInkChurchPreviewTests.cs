@@ -204,11 +204,17 @@ namespace Roguehalla.Client.Tests
                 BindingFlags.Static | BindingFlags.NonPublic);
             var readyRowsField = typeof(StormInkFireBowAuthoring).GetField("readyRows",
                 BindingFlags.Instance | BindingFlags.NonPublic);
+            var middleThresholdField = typeof(StormInkFireBowAuthoring).GetField("midDrawAt",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            var sustainedThresholdField = typeof(StormInkFireBowAuthoring).GetField("sustainedDrawAt",
+                BindingFlags.Instance | BindingFlags.NonPublic);
             var productionArt = StormInkFireBowAuthoring.Load();
             var previewArt = UnityEngine.Object.Instantiate(productionArt);
             var readyRows = (bool[])readyRowsField.GetValue(previewArt);
             readyRows[0] = false;
             readyRowsField.SetValue(previewArt, readyRows);
+            middleThresholdField.SetValue(previewArt, .4f);
+            sustainedThresholdField.SetValue(previewArt, .45f);
             authoringField.SetValue(null, previewArt);
             try
             {
@@ -217,9 +223,12 @@ namespace Roguehalla.Client.Tests
                 var stage = (StormInkChurchStage)StageUtility.GetCurrentStage();
                 var room = stage.scene.GetRootGameObjects().Single(o => o.name == "Storm Ink church");
                 var art = StormInkFireBowAuthoring.Load();
-                stage.PreviewFireSampler(WeaponId.Bow, 2, StormInkFireSwordMotionPhase.Windup, .8f, true);
+                stage.PreviewFireLoadout(WeaponId.Bow, 2, 1);
                 var body = room.GetComponentsInChildren<StormInkArtistSource>(true)
                     .Single(source => source.Kind == StormInkArtistSourceKind.FireBowBody);
+                Assert.That(body.Sprite.name, Is.EqualTo("FireBow/2/1"),
+                    "the midpoint of custom mid/sustained thresholds must hold the authored middle drawing");
+                stage.PreviewFireSampler(WeaponId.Bow, 2, StormInkFireSwordMotionPhase.Windup, .8f, true);
                 var bow = body.Renderer.transform.parent.Find("Equipped weapon cue").GetComponent<StormInkArtistSource>();
                 Assert.That(body.Sprite.name, Is.EqualTo("FireBow/2/7"));
                 Assert.That(body.BodyPainting, Is.SameAs(art));

@@ -62,6 +62,11 @@ namespace Roguehalla.Client
         public void SetStudioFireSwordPose(uint actorId, int column)
         {
             var art = StormInkFireSwordAuthoring.Load();
+            if (column < 0 || art == null)
+            {
+                SetStudioFirePose(actorId, null, default, 0f, false);
+                return;
+            }
             art.PreviewParameters(column, out var phase, out var progress);
             SetStudioFirePose(actorId, WeaponId.Sword, phase, progress, column >= 5);
         }
@@ -107,10 +112,6 @@ namespace Roguehalla.Client
                 };
                 poseFacing = facing;
                 useWeaponPhase = true;
-#if UNITY_EDITOR
-                if (weapon == WeaponId.Bow && _active.TryGetValue(actorId, out var previewActor))
-                    previewActor.DrawStartedAt = 1;
-#endif
             }
 #endif
             return swordArt;
