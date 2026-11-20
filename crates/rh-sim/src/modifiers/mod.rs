@@ -562,7 +562,10 @@ pub(crate) fn refold_with_extra_rows(
     recompute_core(k, w, ix, Default::default(), extra, false);
 }
 pub(crate) fn sync_max_hp(p: &mut crate::state::Player) {
-    let max = crate::content::faction(p.faction()).hp * p.modifiers.max_hp_mult + p.card_tank_hp;
+    let base = crate::content::faction(p.faction()).hp;
+    let max = base * p.modifiers.max_hp_mult
+        + p.card_tank_hp
+        + crate::cards::native::flat_max_hp(&p.build, base);
     let delta = max - p.vitals.max_hp;
     if delta.abs() < 1e-9 {
         return;
@@ -579,8 +582,13 @@ pub(crate) fn movement(
     _dt: f64,
     _stats: crate::status_runtime::StatView,
 ) -> f64 {
-    if w.fighter_idx(p.id).is_some_and(|i| w.is_player(i)) {
-        p.modifiers.mirrors().speed_mult
+    if let Some(i) = w.fighter_idx(p.id).filter(|i| w.is_player(*i)) {
+        let share = crate::cards::native::move_speed_share(&w.players[i.slot()].build);
+        if share > 0. {
+            p.modifiers.mirrors().speed_mult * (1. + share)
+        } else {
+            p.modifiers.mirrors().speed_mult
+        }
     } else {
         1.
     }

@@ -64,10 +64,18 @@ fn bog_read(
         return (1., false);
     }
     let e = effect(k, w, ix);
-    (
-        crate::status_runtime::resist_slow(e.speed, stats.slow_resist),
-        e.speed != 1.,
-    )
+    let m = crate::status_runtime::resist_slow(e.speed, stats.slow_resist);
+    // P-AUG-NATIVE-3: Hazard Walker resists the bog slow, and is immune after 20 s on it.
+    if w.is_player(ix) {
+        let (resist, immune) = crate::cards::native::hazard_guard(&w.players[ix.slot()].build, 1);
+        if immune {
+            return (1., false);
+        }
+        if resist > 0. {
+            return (1. - (1. - m) * (1. - resist), e.speed != 1.);
+        }
+    }
+    (m, e.speed != 1.)
 }
 /// The same dt0 query without even writing +0 to the authoritative exposure counter.
 pub(crate) fn bog_value(
@@ -101,6 +109,16 @@ fn burn_dt(cx: &mut Cx, dt_ms: f64) {
         );
         if !(share > 0.) {
             continue;
+        }
+        // P-AUG-NATIVE-3: Hazard Walker's ember resistance, and immunity (the tick is skipped before the ledger hit).
+        let mut share = share;
+        if w.is_player(ix) {
+            let (resist, immune) =
+                crate::cards::native::hazard_guard(&w.players[ix.slot()].build, 0);
+            if immune {
+                continue;
+            }
+            share *= 1. - resist;
         }
         let p = w.core(ix);
         let hit = ledger::Entry {
