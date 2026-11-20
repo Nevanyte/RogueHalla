@@ -53,8 +53,8 @@ namespace Roguehalla.Net.Ui
             {
                 if (rows[i].Id == selfId) continue;
                 var m = new MarkedMark { Id = rows[i].Id, X = rows[i].X, Y = rows[i].Y };
-                int j = into.Count;
                 into.Add(m);
+                int j = into.Count - 1;
                 while (j > 0 && into[j - 1].Id > m.Id) { into[j] = into[j - 1]; j--; }
                 into[j] = m;
             }
