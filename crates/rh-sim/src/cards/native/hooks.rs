@@ -60,8 +60,9 @@ pub(crate) enum NativeEvent {
     },
     /// The holder spent this tick on a zone hazard (0 ember, 1 bog, 2 ice).
     HazardTick { hazard: u8, ms: f64 },
-    /// The holder's Wish cast landed.
-    WishCast,
+    /// The holder's Wish cast landed. `row_cooldown_ms` is the cooldown of the Wish row the world cast
+    /// (`abilities::definition_for`), before training, multipliers and Wish Engine (P-AUG-NATIVE-3b's step reads it).
+    WishCast { row_cooldown_ms: f64 },
     /// The holder consumed a plague corpse.
     CorpseHarvest,
     /// The holder's fully charged roaming burst landed.
@@ -92,7 +93,7 @@ impl NativeEvent {
             NativeEvent::FistHit => NativeHook::FistHit,
             NativeEvent::MobKill { .. } => NativeHook::MobKill,
             NativeEvent::HazardTick { .. } => NativeHook::HazardTick,
-            NativeEvent::WishCast => NativeHook::WishCast,
+            NativeEvent::WishCast { .. } => NativeHook::WishCast,
             NativeEvent::CorpseHarvest => NativeHook::CorpseHarvest,
             NativeEvent::BurstLanded => NativeHook::BurstLanded,
             NativeEvent::ChillInflicted { .. } => NativeHook::ChillInflicted,

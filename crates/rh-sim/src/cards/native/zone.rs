@@ -1,5 +1,5 @@
-//! P-AUG-NATIVE-1b / -3: the zone and generalist batch table: Pathfinder, Hazard Walker and Overflow (P-AUG-NATIVE-3;
-//! Wish Engine is P-AUG-NATIVE-3b), then Marked Man (P-AUG-NATIVE-5). Each card's hook handlers, readout rows, pool
+//! P-AUG-NATIVE-1b / -3: the zone and generalist batch table: Pathfinder, Hazard Walker and Overflow (P-AUG-NATIVE-3),
+//! Wish Engine (P-AUG-NATIVE-3b), then Marked Man (P-AUG-NATIVE-5). Each card's hook handlers, readout rows, pool
 //! membership and the pure reads the tick makes of its state live here. Membership is not read by any pool until
 //! P-AUG-NATIVE-4 wires `pool_members`.
 use super::hooks::NativeEvent;
@@ -19,6 +19,7 @@ pub(super) static POOL: &[(CardId, Offer)] = &[
     (CardId::Pathfinder, Offer::Any),
     (CardId::HazardWalker, Offer::Any),
     (CardId::Overflow, Offer::Any),
+    (CardId::WishEngine, Offer::Any),
 ];
 
 /// The hook handlers of this table's cards; see `weapon::handle`.
@@ -63,6 +64,17 @@ pub(super) fn handle(w: &mut World, i: usize, card: CardId, event: &NativeEvent)
                 crate::modifiers::sync_max_hp(&mut w.players[i]);
             }
         }
+        // Wish Engine: a landed Wish moves the share to the next point of its row's lattice (`WishEngineGrid`: the
+        // workbook's step `CAP x row cooldown / CAP_MS`, bit-exact, capped). The next cast spends `1 - share` of the
+        // cooldown (`abilities::wish_mult`); this cast already spent at the share before its landing.
+        (CardId::WishEngine, NativeEvent::WishCast { row_cooldown_ms }) => {
+            let Some(grid) = crate::abilities::WishEngineGrid::of(row_cooldown_ms) else {
+                return;
+            };
+            if let Some(s) = w.players[i].build.native.slot_mut(card) {
+                s.counter = grid.next(s.counter);
+            }
+        }
         // Overflow: the heal's excess beyond max hp becomes a barrier (clamped to the G6 cap by the grant).
         (CardId::Overflow, NativeEvent::Overheal { amount }) => {
             let now = w.server_time;
@@ -82,6 +94,7 @@ pub(super) fn readouts(card: CardId) -> Option<&'static [Source]> {
             Source::Meter(1),
             Source::Meter(2),
         ]),
+        CardId::WishEngine => Some(&[Source::Counter]),
         _ => None,
     }
 }
@@ -109,6 +122,11 @@ pub(super) fn hazard_guard(native: &NativeCards, hazard: usize) -> (f64, bool) {
 pub(super) fn flat_max_hp(native: &NativeCards, base_hp: f64) -> f64 {
     held(native, CardId::HazardWalker)
         .map_or(0., |s| base_hp * REWORK_HAZARD_WALKER_HP_PER * s.counter)
+}
+
+/// Wish Engine's earned share of the Wish cooldown (0 when not held).
+pub(super) fn wish_engine_share(native: &NativeCards) -> f64 {
+    held(native, CardId::WishEngine).map_or(0., |s| s.counter)
 }
 
 /// Overflow is held: the holder's barriers fade over `REWORK_OVERFLOW_FADE_MS`.
