@@ -313,3 +313,15 @@ Corpse Hoarder, Stoked, Glacier and Trophy Hunter live in `cards/native/faction.
 - Trophy Hunter: `HuntStack { stacks }` adds `0.02 x stacks` (cap 0.15), a damage share beside Marksman's Tally.
 - The four counters are non-integral shares: `check` adds no rule beyond the caps. A stored fold that disagrees with the
   counters is refused on restore by the existing `invalid armor mirror` check (`Runtime::valid` refolds).
+
+## Wish Engine (P-AUG-NATIVE-3b)
+
+A landed Wish (`NativeEvent::WishCast { row_cooldown_ms }`) moves Wish Engine's counter, the share, to the next point of
+its row's lattice `min(0.25, n x step)`, `step = 0.25 x row cooldown / 300 s` (`abilities::WishEngineGrid`, bit-exact from
+the integer `n`; Fire steps per charge). Every reader of the Wish cooldown goes through `abilities::wish_mult` (the
+folded Arcane Overload lever times `1 - share`): the cast producer, the owner view and the restore validator. The restore
+(`abilities/checkpoint.rs`, `WishEnvelope`) reads the (lever, share) pair off the stored spend, which is distinct per
+pair (`abilities/wish_lever_tests.rs`), so no per-cast field exists and `CHECKPOINT_FORMAT` did not move; earlier casts
+are judged under every lattice share no larger and every lever no longer. `check` holds the counter on its faction's
+lattice. A non-holder's envelope is the pre-packet one exactly. With Wishful Thinking at its floor a cast can reach
+0.375 of the row (the 50% floor is the combined multiplier's, `WISH_MULT_MIN`).

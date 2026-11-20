@@ -8,8 +8,8 @@ fn prior_clock(prior: f64, initial: f64, first_cast: f64, accepted: f64, cooldow
             || (prior >= first_cast + cooldown
                 && (prior - cooldown) % crate::constants::TICK_MS == 0.))
 }
-/// `prior_clock` for a clock an earlier cast may have produced under any of the Wish cooldowns `cooldowns` up to
-/// `upto` (the accepted cast's own): a grant between the casts can have lengthened it (`wish_cooldowns`). With
+/// `prior_clock` for a clock an earlier cast may have produced under any of the Wish cooldowns `earlier` (the accepted
+/// cast's `WishEnvelope::earlier`): a grant between the casts can have lengthened it, a Wish Engine step shortened it. With
 /// `trims` (the world's numbers, when the player owns Wishful Thinking) the earlier cast's clock may also have been
 /// cut, down to its floor `at + wishful_floor_share * cooldown`; millisecond cuts (the legacy rule) keep it on the tick
 /// lattice, a share rule's cuts do not.
@@ -18,31 +18,27 @@ fn prior_clock_any(
     initial: f64,
     first_cast: f64,
     accepted: f64,
-    cooldowns: [f64; 2],
-    upto: f64,
+    earlier: &[f64],
     trims: Option<&crate::cards::CardNumbers>,
 ) -> bool {
-    cooldowns.into_iter().any(|cd| {
-        cd <= upto
-            && match trims {
-                None => prior_clock(prior, initial, first_cast, accepted, cd),
-                Some(n) => {
-                    prior <= accepted
-                        && (prior == initial
-                            || (prior >= first_cast + n.wishful_floor_share * cd
-                                && (share_rule(n) || prior % crate::constants::TICK_MS == 0.)))
-                }
-            }
+    earlier.iter().any(|&cd| match trims {
+        None => prior_clock(prior, initial, first_cast, accepted, cd),
+        Some(n) => {
+            prior <= accepted
+                && (prior == initial
+                    || (prior >= first_cast + n.wishful_floor_share * cd
+                        && (share_rule(n) || prior % crate::constants::TICK_MS == 0.)))
+        }
     })
 }
 /// Wishful Thinking cuts shares of the cast's cooldown (Rework), not the card row's milliseconds (legacy).
 fn share_rule(n: &crate::cards::CardNumbers) -> bool {
     n.wishful_hit_share > 0. || n.wishful_budget_share > 0.
 }
-/// The lattice charge clocks stay on: the tick and every Wish cooldown a spend can have had (`wish_cooldowns`).
-fn charge_clock_lattice(cooldowns: [f64; 2]) -> f64 {
+/// The lattice charge clocks stay on: the tick and every Wish cooldown a spend can have had (`WishEnvelope::every`).
+fn charge_clock_lattice(cooldowns: &[f64]) -> f64 {
     let mut a = crate::constants::TICK_MS;
-    for cooldown in cooldowns {
+    for &cooldown in cooldowns {
         let mut b = cooldown;
         while b != 0. {
             (a, b) = (b, a % b);
@@ -51,25 +47,111 @@ fn charge_clock_lattice(cooldowns: [f64; 2]) -> f64 {
     a
 }
 
-/// The Wish cooldowns a spend of this player's Wish can carry: the world's Wish row's cooldown (`cooldown_for`, the one
-/// the producer spends) with no multiplier (a cast before the build held a `WishCooldown` card) and with the build's
-/// multiplier now. A build only grows, and exactly one
-/// card, unique, carries a `WishCooldown` row, a factor of at least 1 (`wish_cooldown_lever_tests`), so every cast's
-/// cooldown is one of the two and a later cast's is never shorter than an earlier one's. The stored spend keeps the
-/// cooldown it was cast with: a grant between two casts (a chest pick of Arcane Overload while the Wish cools down)
-/// changes the multiplier now, not the spend.
-fn wish_cooldowns(k: &crate::statics::MatchStatic, ability: AbilityId, wish_mult: f64) -> [f64; 2] {
-    [
-        cooldown_for(&k.config, ability, None),
-        cooldown_for(&k.config, ability, Some(wish_mult)),
-    ]
+/// The Wish cooldowns a spend of this player's Wish can carry (P-AUG-NATIVE-3b): the world's Wish row's cooldown
+/// (`cooldown_for`, the one the producer spends) under each lever, no multiplier (a cast before the build held a
+/// `WishCooldown` card) or the build's multiplier now, and, for a Wish Engine holder, each share of its row's lattice
+/// (`WishEngineGrid`): `cd(lever, n) = cooldown_for(.., Some(lever x (1 - share(n))))`, as `wish_mult` spends it. A build
+/// only grows, exactly one card, unique, carries a `WishCooldown` row, a factor of at least 1, and the share only grows,
+/// one lattice point per landed cast (`wish_lever_tests`): an earlier cast had a lever no longer and a share no larger
+/// than a later one's, so it may have had a longer or a shorter cooldown. The stored spend keeps the cooldown it was
+/// cast with (a grant between two casts changes the multiplier now, not the spend), and every (lever, share) pair spends
+/// a distinct cooldown (`wish_lever_tests`), so the pair is read off the spend: no per-cast record. A non-holder's only
+/// share is 0, and its envelope is the two cooldowns, `cd <= spend`, of the levers alone.
+struct WishEnvelope {
+    ability: AbilityId,
+    levers: [f64; 2],
+    grid: Option<WishEngineGrid>,
+    share: f64,
+}
+
+/// A spend's place in its `WishEnvelope`: the lever (0 none, 1 the multiplier now) and the share's lattice index.
+#[derive(Clone, Copy)]
+struct SpendPair {
+    lever: usize,
+    n: u32,
+}
+
+/// The pair the equations read when a player has no spend (the clocks are then the opening lock).
+fn no_spend() -> SpendPair {
+    SpendPair { lever: 1, n: 0 }
+}
+
+impl WishEnvelope {
+    fn of(k: &crate::statics::MatchStatic, p: &crate::state::Player) -> Self {
+        let ability = wish(p.faction());
+        let grid = if p.build.owns(crate::cards::CardId::WishEngine) {
+            WishEngineGrid::of(definition_for(&k.config, ability).cooldown_ms)
+        } else {
+            None
+        };
+        Self {
+            ability,
+            levers: [1., p.modifiers.wish_cooldown_mult()],
+            grid,
+            share: crate::cards::native::wish_engine_share(&p.build),
+        }
+    }
+    fn top(&self) -> u32 {
+        self.grid.map_or(0, WishEngineGrid::top)
+    }
+    fn share_at(&self, n: u32) -> f64 {
+        self.grid.map_or(0., |g| g.share(n))
+    }
+    /// The cooldown a cast spends under `lever` at lattice share `n` (for share 0 under no lever, the row's own).
+    fn cd(&self, k: &crate::statics::MatchStatic, lever: usize, n: u32) -> f64 {
+        cooldown_for(
+            &k.config,
+            self.ability,
+            Some(self.levers[lever] * (1. - self.share_at(n))),
+        )
+    }
+    /// The pair a spend of `cooldown_ms` was cast at. The share it spent is the share now (the cast has not landed: in
+    /// flight, cancelled, fizzled or refunded) or, with `landed`, the lattice point before it (the landing stepped it).
+    fn pair_of(
+        &self,
+        k: &crate::statics::MatchStatic,
+        cooldown_ms: f64,
+        landed: bool,
+    ) -> Option<SpendPair> {
+        let top = self.top();
+        (0..=top).find_map(|n| {
+            let at = self.share == self.share_at(n)
+                || (landed && self.share == self.share_at((n + 1).min(top)));
+            if !at {
+                return None;
+            }
+            (0..2)
+                .find(|&lever| self.cd(k, lever, n) == cooldown_ms)
+                .map(|lever| SpendPair { lever, n })
+        })
+    }
+    /// The cooldowns a cast before a spend at `pair` can have had: a share no larger, a lever no longer (its share-0
+    /// cooldown at most the spend's lever's). For a non-holder, the levers' cooldowns up to the spend's own.
+    fn earlier(&self, k: &crate::statics::MatchStatic, pair: SpendPair) -> Vec<f64> {
+        let ceiling = self.cd(k, pair.lever, 0);
+        let mut out = Vec::new();
+        for lever in 0..2 {
+            if self.cd(k, lever, 0) <= ceiling {
+                out.extend((0..=pair.n).map(|n| self.cd(k, lever, n)));
+            }
+        }
+        out
+    }
+    /// Every cooldown of a share no larger than the spend's, under either lever (the charge lattice, the shortest
+    /// interval a previous cast can have had). For a non-holder, the levers' two.
+    fn every(&self, k: &crate::statics::MatchStatic, pair: SpendPair) -> Vec<f64> {
+        (0..2)
+            .flat_map(|lever| (0..=pair.n).map(move |n| (lever, n)))
+            .map(|(lever, n)| self.cd(k, lever, n))
+            .collect()
+    }
 }
 
 /// The card producer's trace: Wishful Thinking records each cut (source cards.trims) in the source window. The
 /// clocks a cut leaves cannot be replayed from the last spend alone, so the necessary equations use this bounded trace.
-/// `budget` is the world table's window budget for the current spend (`CardNumbers::wishful_budget`): under a share
-/// rule it is a share of the spend's full cooldown, the longest any trim in the window was cut under (a cooldown only
-/// lengthens between casts, `wish_cooldowns`), so it bounds the earlier casts' trims too.
+/// `budget` is the world table's window budget for the longest cooldown a trim in the window can have been cut under
+/// (`CardNumbers::wishful_budget` of the spend's lever at share 0, `WishEnvelope::earlier`'s largest): under a share
+/// rule a share of it, so it bounds the earlier casts' trims too. For a non-holder that is the spend's own cooldown.
 fn trim_trace_coherent(
     p: &crate::state::Player,
     numbers: &crate::cards::CardNumbers,
@@ -126,7 +208,11 @@ pub(crate) fn validate(
     for p in &w.players {
         crate::cards::fight_clock::validate(k, w, p)?;
         let stocks = p.stocks;
-        let cooldowns = wish_cooldowns(k, wish(p.faction()), p.modifiers.wish_cooldown_mult());
+        let envelope = WishEnvelope::of(k, p);
+        let spend_pair = p
+            .card_runtime
+            .and_then(|cards| cards.wish_cast)
+            .and_then(|spend| envelope.pair_of(k, spend.cooldown_ms, true));
         if let Some(spend) = p.card_runtime.and_then(|cards| cards.wish_cast) {
             if !full {
                 return Err("card Wish memory in Off mode".into());
@@ -136,7 +222,7 @@ pub(crate) fn validate(
                 || !spend.cooldown_ms.is_finite()
                 || spend.cooldown_ms <= 0.
                 || spend.cooldown_ms.fract() != 0.
-                || !cooldowns.contains(&spend.cooldown_ms)
+                || spend_pair.is_none()
             {
                 return Err("invalid card Wish spend".into());
             }
@@ -175,13 +261,18 @@ pub(crate) fn validate(
                 let def = definition_for(&k.config, wish(p.faction()));
                 // The spend's own cooldown (checked above to be one a cast can have had); the multiplier now may be
                 // a later grant's. Without a spend the clocks are the opening lock and no equation reads it.
-                let recharge = p
-                    .card_runtime
-                    .and_then(|c| c.wish_cast)
-                    .map_or(cooldowns[1], |spend| spend.cooldown_ms);
-                // The shortest cooldown the cast before this spend can have had.
-                let prior_min = cooldowns[0].min(cooldowns[1]);
-                let lattice = charge_clock_lattice(cooldowns);
+                let pair = spend_pair.unwrap_or_else(no_spend);
+                let recharge = p.card_runtime.and_then(|c| c.wish_cast).map_or_else(
+                    || envelope.cd(k, no_spend().lever, 0),
+                    |spend| spend.cooldown_ms,
+                );
+                let earlier = envelope.earlier(k, pair);
+                let every = envelope.every(k, pair);
+                // The shortest cooldown the cast before this spend can have had, and the longest (a holder's earlier
+                // casts spent at a smaller share; for a non-holder it is the spend's own).
+                let prior_min = every.iter().copied().fold(f64::INFINITY, f64::min);
+                let prior_max = earlier.iter().copied().fold(recharge, f64::max);
+                let lattice = charge_clock_lattice(&every);
                 let numbers = k.cards.numbers();
                 let budget = numbers.wishful_budget(recharge);
                 // A card-owned Wishful Thinking trim is a second producer of the same clocks: the source stores only
@@ -189,7 +280,14 @@ pub(crate) fn validate(
                 let wishful = p.build.owns(crate::cards::CardId::WishfulThinking);
                 let trimmed = has_spend && !p.card_trims.is_empty() && wishful;
                 if trimmed {
-                    if !trim_trace_coherent(p, numbers, budget, w.server_time, w.raid_started_at) {
+                    let window_budget = numbers.wishful_budget(prior_max);
+                    if !trim_trace_coherent(
+                        p,
+                        numbers,
+                        window_budget,
+                        w.server_time,
+                        w.raid_started_at,
+                    ) {
                         return Err("incoherent card Wish trim trace".into());
                     }
                     if stocks.wish_ready_at > full_at
@@ -211,11 +309,11 @@ pub(crate) fn validate(
                     let spent = if def.charges == 1 {
                         full_at == spend.at + recharge && stocks.wish_ready_at == full_at
                     } else {
-                        // A charge was available at acceptance: the previous full clock lay
-                        // at most one recharge ahead. The new interval follows spendCharge.
+                        // A charge was available at acceptance: the previous full clock lay at most one recharge
+                        // ahead, the previous cast's, at most `prior_max`. The new interval follows spendCharge.
                         // The previous interval was the previous cast's cooldown, at least `prior_min`; the last
-                        // bound replays one earlier cast and holds only when every cast had this spend's cooldown.
-                        (spend.at + recharge..=spend.at + 2. * recharge).contains(&full_at)
+                        // bound replays one earlier cast and holds only when no cast had a shorter cooldown.
+                        (spend.at + recharge..=spend.at + (prior_max + recharge)).contains(&full_at)
                             && stocks.wish_ready_at == (full_at - recharge).max(0.)
                             && full_at % lattice == 0.
                             && (full_at == spend.at + recharge
@@ -225,7 +323,7 @@ pub(crate) fn validate(
                                         || spend.at >= first_cast + recharge
                                         || full_at
                                             <= spend.at - crate::constants::TICK_MS
-                                                + 2. * recharge)))
+                                                + (prior_max + recharge))))
                     };
                     // The card producer: a cut only lowers the untrimmed spend clock, never above it, and the
                     // per-window budget bounds how far (a necessary equation, not an exact replay of the cuts).
@@ -240,7 +338,7 @@ pub(crate) fn validate(
                             full_at <= spend.at + recharge
                                 && full_at >= spend.at + recharge - max_cut
                         } else {
-                            (spend.at + recharge - max_cut..=spend.at + 2. * recharge)
+                            (spend.at + recharge - max_cut..=spend.at + (prior_max + recharge))
                                 .contains(&full_at)
                                 && stocks.wish_ready_at + recharge >= full_at
                         })
@@ -253,8 +351,7 @@ pub(crate) fn validate(
                             initial,
                             first_cast,
                             spend.at,
-                            cooldowns,
-                            recharge,
+                            &earlier,
                             wishful.then_some(numbers),
                         )
                         && w.abilities
@@ -318,17 +415,27 @@ pub(crate) fn validate(
             return Err("invalid Wish target provenance".into());
         }
         // The cast's spend carries the cooldown it was accepted with; a grant while the cast is in flight changes
-        // only the multiplier now (`wish_cooldowns`).
-        let cooldowns = wish_cooldowns(k, c.ability, p.modifiers.wish_cooldown_mult());
-        let spend = w.players[ix.slot()]
-            .card_runtime
-            .and_then(|c| c.wish_cast)
-            .filter(|s| s.at == c.started_at && cooldowns.contains(&s.cooldown_ms));
-        let recharge = spend.map_or(cooldowns[1], |s| s.cooldown_ms);
+        // only the multiplier now, and the cast has not landed, so a holder's share is still the one it spent at
+        // (`WishEnvelope`).
+        let player = &w.players[ix.slot()];
+        let envelope = WishEnvelope::of(k, player);
+        let spend = player.card_runtime.and_then(|c| c.wish_cast).and_then(|s| {
+            if s.at == c.started_at {
+                envelope
+                    .pair_of(k, s.cooldown_ms, false)
+                    .map(|pair| (s, pair))
+            } else {
+                None
+            }
+        });
+        let recharge = spend.map_or_else(
+            || envelope.cd(k, no_spend().lever, 0),
+            |(s, _)| s.cooldown_ms,
+        );
+        let earlier = envelope.earlier(k, spend.map_or_else(no_spend, |(_, pair)| pair));
         // Wishful Thinking may have cut the clock this cast replaced, and may cut this cast's clocks while it is in
         // flight (a hit landing before it does).
         let numbers = k.cards.numbers();
-        let player = &w.players[ix.slot()];
         let wishful = player.build.owns(crate::cards::CardId::WishfulThinking);
         if !d.previous_ready_at.is_finite()
             || d.previous_ready_at < 0.
@@ -339,8 +446,7 @@ pub(crate) fn validate(
                 initial,
                 first_cast,
                 c.started_at,
-                cooldowns,
-                recharge,
+                &earlier,
                 wishful.then_some(numbers),
             )
         {
@@ -442,48 +548,6 @@ pub(crate) fn blaze_history(k: &crate::statics::MatchStatic, p: &crate::state::P
         && p.card_runtime
             .and_then(|c| c.wish_cast)
             .is_some_and(|c| c.at == h[0].t)
-}
-
-#[cfg(test)]
-mod wish_cooldown_lever_tests {
-    use crate::cards::{CardId, CardRow, Tuning};
-    use crate::stat_fold::{EffectKind, MultKey};
-
-    /// `wish_cooldowns` (the restore's envelope of a spend's cooldown) holds while exactly one card, unique, carries a
-    /// `WishCooldown` row and that row only lengthens, in both tables: a build that only grows then had either no
-    /// multiplier or today's at every cast. A second lever, or one that shortens, needs a new envelope here.
-    #[test]
-    fn one_unique_card_only_lengthens_the_wish_cooldown_in_both_tables() {
-        for augments in [crate::AugmentRule::Legacy, crate::AugmentRule::Rework] {
-            let t = Tuning::of(&crate::SimConfig {
-                augments,
-                ..crate::SimConfig::default()
-            });
-            let mut levers = Vec::new();
-            for id in CardId::ALL {
-                let def = t.def(id);
-                for row in def
-                    .rows
-                    .iter()
-                    .chain(def.selections.iter().flat_map(|s| s.rows.iter()))
-                {
-                    if let CardRow::Fold(EffectKind::Mult {
-                        key: MultKey::WishCooldown,
-                        v,
-                    }) = row
-                    {
-                        assert!(
-                            *v >= 1.,
-                            "{augments:?} {id:?}: a Wish cooldown factor below 1"
-                        );
-                        levers.push(id);
-                    }
-                }
-            }
-            assert_eq!(levers, [CardId::ArcaneOverload], "{augments:?}");
-            assert!(t.def(CardId::ArcaneOverload).unique);
-        }
-    }
 }
 
 #[cfg(test)]

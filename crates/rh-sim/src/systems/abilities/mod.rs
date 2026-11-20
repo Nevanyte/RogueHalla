@@ -155,11 +155,8 @@ pub(crate) fn handle(cx: &mut Cx, ix: FighterIx, cmd: &ActionCmd) {
     let previous_ready_at = p.stocks.ready_at(slot);
     let previous_full_at = p.stocks.wish_full_at;
     // The row this world casts (`def` above), as the Wish restore validator reads it (`abilities::cooldown_for`).
-    let cooldown = a::cooldown_for(
-        &cx.k.config,
-        ability,
-        Some(p.modifiers.wish_cooldown_mult()),
-    );
+    // Both levers (`a::wish_mult`): the share Wish Engine had before this cast lands, so a cast never shortens itself.
+    let cooldown = a::cooldown_for(&cx.k.config, ability, Some(a::wish_mult(p)));
     let (full, ready) = a::spend_charge(
         if def.charges > 1 {
             previous_full_at.unwrap_or(0.)
@@ -330,7 +327,9 @@ pub(crate) fn land(cx: &mut Cx) {
                 cx.k,
                 cx.w,
                 l.id,
-                crate::cards::native::hooks::NativeEvent::WishCast,
+                crate::cards::native::hooks::NativeEvent::WishCast {
+                    row_cooldown_ms: a::definition_for(&cx.k.config, l.cast.ability).cooldown_ms,
+                },
             );
         }
     }
