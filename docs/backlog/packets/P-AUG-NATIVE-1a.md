@@ -63,7 +63,7 @@ card's mechanic is its batch packet). When this lands:
    | Calluses | `REWORK_CALLUSES_CAP` (30) | 0, 0, 0 | 0 |
    | Executioner's Ledger | `REWORK_EXECUTIONERS_LEDGER_CAP` (30) | 0, 0, 0 | 0 |
    | Eighth Strike | `REWORK_EIGHTH_STRIKE_EVERY - 1` (7: hits since the last doubled hit) | 0, 0, 0 | 0 |
-   | Pathfinder | `REWORK_PATHFINDER_CAP` (0.24) | 0, 0, 0 | bit `1 << MobTypeId::index()` of each normal (non-elite) mob type |
+   | Pathfinder | `REWORK_PATHFINDER_CAP` (0.24) | 0, 0, 0 | bit `1 << i`, i the position in `MobTypeId::ALL` of each normal (non-elite) mob type (`mob_catalog::normal_types_of`, 20 bits) |
    | Hazard Walker | `REWORK_HAZARD_WALKER_CAP` (15) | `REWORK_HAZARD_WALKER_IMMUNE_MS` ×3 (ember, bog, ice) | `0b111` |
    | Wish Engine | `REWORK_WISH_ENGINE_CAP` (0.25) | 0, 0, 0 (NATIVE-3, see 6) | 0 |
    | Overflow | 0 | 0, 0, 0 (shield cap: NATIVE-3; the workbook says only "Shield cap") | 0 |
@@ -171,7 +171,7 @@ cap, floor 0.5).
   | `REWORK_HAZARD_WALKER_CAP` | 15. | stacks | cap 15 |
   | `REWORK_HAZARD_WALKER_IMMUNE_MS` | 20000. | ms | immunity after 20 s on each hazard |
   | `REWORK_WISH_ENGINE_CAP` | 0.25 | share | cap −25% |
-  | `REWORK_WISH_ENGINE_CAP_MS` | 300000. | ms | Augments row 68-69: every faction caps after 5 minutes of use |
+  | `REWORK_WISH_ENGINE_CAP_MS` | 300000. | ms | sheet Augments, Wish Engine table ("Minutes to cap 5"): every faction caps after 5 minutes of use |
   | `REWORK_OVERFLOW_FADE_MS` | 8000. | ms | fades over 8 s |
   | `REWORK_CORPSE_HOARDER_PER` | 0.03 | share | +3% max HP per corpse |
   | `REWORK_CORPSE_HOARDER_CAP` | 0.24 | share | cap 24% |
@@ -194,7 +194,7 @@ cap, floor 0.5).
   provenance audit (`parity/card-catalog/source.json` `protectedSha256`, checked by
   `tools/provenance/check-card-chain.mjs` in every gate), so it is NOT edited. See "Plan deviations".
 - `crates/rh-sim/src/cards/native/mod.rs` (stub), `crates/rh-sim/src/cards/native/table.rs` (new).
-- `crates/rh-sim/src/cards/mod.rs`: `mod native;` (stub), `Build` (field, serde, `owns`/`count`/`set`/`add`/`valid`/
+- `crates/rh-sim/src/cards/mod.rs`: `pub mod native;` (stub), `Build` (field, serde, `owns`/`count`/`set`/`add`/`valid`/
   `cards`/`power`/`from_counts` branch on native ids), re-exports.
 - `crates/rh-sim/src/checkpoint.rs`: `CHECKPOINT_FORMAT`, the call to `cards::native::check` in `check_world`.
 - `crates/rh-sim/src/hash.rs`: the module doc paragraph only.
@@ -233,6 +233,28 @@ Nothing in `rh-protocol`, `rh-server`, `rh-policy`, `observe.rs`, `reward_chests
 
 ## Oracle files (read-only for implementers)
 - `crates/rh-sim/tests/native_cards.rs`
+- `docs/backlog/packets/P-AUG-NATIVE-1a.md` (this brief)
+
+Stub (`stub:` commit, the implementer's to finish): `crates/rh-sim/src/cards/catalog.rs` (the 14 variants, `NATIVE`,
+`as_str` arms, `definition()`/`tier()` branch), `crates/rh-sim/src/cards/native/mod.rs` (`NATIVE_METERS`, `NativeRule`,
+`rule()` returning `None`, `definition()` returning a placeholder), `crates/rh-sim/src/cards/mod.rs` (`pub mod native;`).
+
+The oracle's 12 tests and why each fails at the stub:
+
+| Test | Pins | Fails at the stub on |
+|---|---|---|
+| `native_ids_are_80_to_93_outside_all_each_with_its_own_definition` | ids, names, serde, definitions (kind, tier 1, unique, title, no rows) | `def.id == id` (placeholder definition) |
+| `a_build_holds_a_native_card_beside_the_catalog_and_counts_its_tier` | `Build` owns/count/cards/power with a native card; `counts()` stays the 80 | index out of bounds in `Build::from_counts` (`counts.0[82]`): a panic, not an assertion, because the branch is the implementation |
+| `the_native_numbers_are_the_workbooks_registered_rows_and_the_caps_read_them` | the 26 registry rows = workbook numbers; each `NativeRule` | registry row missing |
+| `native_ids_and_names_reach_the_content_hash` | native ids folded into `visit_progression_content` | words not found |
+| `a_rework_checkpoint_with_native_cards_restores_hash_exact_and_plays_on` | restore, canonical JSON (native first), `check_layout`, hash sees every native leaf, 40 ticks equal | `rule()` is `None` |
+| `legacy_refuses_a_native_card_that_rework_admits` | the Rework-only rule (positive control first) | Rework restore refused (`native` is an unknown field) |
+| `a_player_holding_a_native_card_is_observed_as_one_who_does_not` | observations and events equal with and without native cards, 20 ticks | `rule()` is `None` |
+| `check_world_refuses_native_state_outside_its_caps_and_shapes` | 4 admitted, 14 refused forgeries | `rule()` is `None` |
+| `check_world_caps_card_tank_hp_at_the_worlds_tank_engine_cap` | `0..=250` Legacy, `0..=350` Rework, 5e-324 admitted | `next_up(250)` admitted |
+| `no_pool_or_chest_holds_a_native_card` | pools hold no native id; a chest offering one is refused | a chest offering Marksman's Tally restores |
+| `the_checkpoint_format_moved_past_33_and_a_33_checkpoint_is_refused` | the bump, read from the constant | format still `/33` |
+| `legacy_worlds_keep_their_state_hash_and_checkpoint_bytes` | a Legacy match with cards: 3 state hashes, FNV of checkpoint `world` and `statics` JSON | passes (a guard: recorded at the stub, which serializes as the base) |
 
 ## Existing tests that pin what this packet touches
 | Test | Asserts | Effect |
