@@ -21,6 +21,7 @@ namespace Roguehalla.Client
                 if (r == a.Body || r == a.Weapon || r == a.WeaponSupport || r == a.PoxCenser || r == a.Halo || r == a.Shadow || r == a.Cast) continue;
                 string n = r.gameObject.name;
                 if (n.IndexOf("ring", System.StringComparison.OrdinalIgnoreCase) >= 0 || n.IndexOf("bubble", System.StringComparison.OrdinalIgnoreCase) >= 0 || n.Contains("shade")
+                    || n.StartsWith(OverheadExtras.FireRoamPrefix, System.StringComparison.Ordinal)
                     || n == "Contact shadow" || n == "Cast shadow" || n == "Faction mantle") continue;
                 bool authored = false;
                 for (var tr = r.transform.parent; tr != null && tr != root; tr = tr.parent) if (tr.name == "Authored character") { authored = true; break; }

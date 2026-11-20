@@ -19,6 +19,7 @@ namespace Roguehalla.Client
         {
             public string Name;                   // display name (already "[BOT] name" for bots), null when unknown
             public bool Immune, Roam, Engaged;
+            public float RoamCharge;              // normalized from the owner panel, zero elsewhere
             public byte Top1, Top2;               // StatKey codes, 0 none
             public byte Tier, Brand, Tax;         // mark tier 0..4, brand 0..100, tax percent
         }
@@ -56,6 +57,8 @@ namespace Roguehalla.Client
         readonly SpriteRenderer _lockDark;
         readonly TextMeshPro _number, _name;
         readonly OverheadExtras _extras;      // barrier bubble, elite rings and star, signature text cues (OverheadExtras.cs)
+        internal void HideFireRoam() => _extras.HideFireRoam();
+
         readonly List<StatusAnchor> _anchors = new List<StatusAnchor>();   // this frame's status art spots (StatusAnchors.Build)
         readonly List<OverheadElement> _stack = new List<OverheadElement>();   // this frame's layout (OverheadStack.Build)
         int _bounty = -1; string _nameText;

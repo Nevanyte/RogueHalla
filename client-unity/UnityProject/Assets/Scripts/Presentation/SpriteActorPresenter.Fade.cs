@@ -172,6 +172,7 @@ namespace Roguehalla.Client
             if (OnDeparted != null && f.Kind == ActorKind.Player) { var p = art.Root.transform.position; OnDeparted(p.x, -p.y / ArenaView.GroundSquash); }
             _active.Remove(id);
             art.Light.SetVisible(false);
+            art.Ind.HideFireRoam();
             f.Entering = false; f.Exiting = true; f.ExitAt = Now(); f.ExitFrom = f.Opacity;
             _ghosts.Add(art);
             return true;
