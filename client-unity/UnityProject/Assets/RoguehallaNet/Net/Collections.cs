@@ -5,7 +5,7 @@ using Roguehalla.Net.Protocol;
 namespace Roguehalla.Net
 {
     /// <summary>Plain client-side views of what a snapshot or state record delivers (props, areas, camps, projectiles, reward chests, plans, quests, trades), with the small enums that name them.</summary>
-    public enum PropAppearance : byte { Ground = 1, Chest = 2, Body = 3, Corpse = 4, WindEmblem = 5, Cannon = 6, QuestItem = 7 }
+    public enum PropAppearance : byte { Ground = 1, Chest = 2, Body = 3, Corpse = 4, WindEmblem = 5, Cannon = 6, QuestItem = 7, Heal = 8 }
     public enum AreaKind : byte { Zone, Cloud, Trail, Wall }
     public enum AbilityId : byte { Freeze, Swarm, Trial, Blaze, LastStand }
     public enum CardId : byte { SlowBurn, PocketSand, Siphon }

@@ -46,6 +46,10 @@
 //! (reloading), the source's rounded-up remaining whole seconds as u16 1..=75. Both are owner-filtered where they name a
 //! player and never carry a world container id.
 //!
+//! Protocol 20 adds prop kind 8 (Heal): a grand-coliseum heal pickup with the cannon's layout, `handle varint | x u16 |
+//! y u16 | 8 u8 | ready_at varint` (server ms it is available again; 0 when available). It holds no item, so it is never
+//! the focus. No mask bit, key or delta change; every other prop kind keeps its bytes, and a kind byte past 8 is refused.
+//!
 //! Protocol 12 adds Cast (command 16: slot u8 0..=2, x/y f32, strict optional nonzero fixed-u32 actor, strict optional f64
 //! event time, strict optional sequence u8); WishStarted/Landed/Ended (Fx 6/7/8); owner Wish and barrier groups in self; and
 //! barrier share/ring fields on remote actors. Wish records are owner-only complete replacements. Every new optional flag
@@ -207,7 +211,7 @@ pub use weapon::{
 };
 
 /// Bump on any incompatible change (a new tag or field in an existing message). Both ends refuse another major version.
-pub const PROTOCOL_VERSION: u16 = 19;
+pub const PROTOCOL_VERSION: u16 = 20;
 /// Milliseconds per server tick (20 Hz). A Snapshot carries `tick` only: its server time is `tick * TICK_MS` exactly.
 pub const TICK_MS: u32 = 50;
 

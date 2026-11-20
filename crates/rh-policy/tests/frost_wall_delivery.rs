@@ -21,8 +21,8 @@ fn identities_move_for_the_wall() {
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        26,
-        "the projected State key 3 carries field kind 3 and its tile list (P-FROST-WALL-2); 31/26: P-NET-DRAWAHEAD-1a"
+        27,
+        "the projected State key 3 carries field kind 3 and its tile list (P-FROST-WALL-2); 31/26: P-NET-DRAWAHEAD-1a; 27: P-COLISEUM-HEALS-2"
     );
 }
 
