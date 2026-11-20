@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Net.Ui
 {
@@ -11,6 +12,13 @@ namespace Roguehalla.Net.Ui
         public uint Id;
         public ContactLabel Label;
         public string Text;
+    }
+
+    /// <summary>P-AUG-UI-3: one Marked Man holder's dot on a map (world position from the public State key 15 row).</summary>
+    public struct MarkedMark
+    {
+        public uint Id;
+        public float X, Y;
     }
 
     /// <summary>Pure map-contact labelling (presentation only). Legacy labels an enemy fighter's dot on the held-Tab map "ENEMY",
@@ -34,6 +42,12 @@ namespace Roguehalla.Net.Ui
                 bool hunt = hunting && a.Id == huntTarget.Value;
                 into.Add(new ContactMark { Id = a.Id, Label = hunt ? ContactLabel.Hunt : ContactLabel.Enemy, Text = hunt ? HuntText : EnemyText });
             }
+        }
+
+        /// <summary>P-AUG-UI-3 (stub): clears <paramref name="into"/> and fills one mark per Marked Man holder row, ascending id.</summary>
+        public static void MarkedHolders(IReadOnlyList<WireMarked> rows, uint selfId, List<MarkedMark> into)
+        {
+            into.Clear();
         }
     }
 }
