@@ -52,7 +52,10 @@ fn main() {
     o.seed = num("--seed", 1.0) as u64;
     // ADR 0029: `--tick-ms 25` measures 40 Hz rooms (P-TICK-6); the default is the legacy 50.
     o.tick_ms = num("--tick-ms", 50.0) as u32;
-    assert!(rh_protocol::checked_tick_ms(o.tick_ms).is_ok(), "--tick-ms must be 50 or 25");
+    assert!(
+        rh_protocol::checked_tick_ms(o.tick_ms).is_ok(),
+        "--tick-ms must be 50 or 25"
+    );
     o.profile = match arg(&args, "--profile").as_deref() {
         None | Some("active") => Profile::Active,
         Some("idle") => Profile::Idle,

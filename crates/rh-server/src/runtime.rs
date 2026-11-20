@@ -107,9 +107,7 @@ pub fn tick_ms_setting(
     };
     match value(args, "--tick-ms")? {
         Some(flag) => step(flag, "--tick-ms"),
-        None => env(TICK_MS_ENV).map_or(Ok(LIVE_TICK_MS), |v| {
-            step(&v, TICK_MS_ENV)
-        }),
+        None => env(TICK_MS_ENV).map_or(Ok(LIVE_TICK_MS), |v| step(&v, TICK_MS_ENV)),
     }
 }
 
