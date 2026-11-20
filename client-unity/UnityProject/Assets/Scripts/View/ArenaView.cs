@@ -463,6 +463,17 @@ namespace Roguehalla.Client
                         Prop("ring", position + new Vector3(-.22f, -.1f), new Vector2(.3f, .3f), ShowcasePalette.PanelStroke, order + 2);
                         Prop("ring", position + new Vector3(.22f, -.1f), new Vector2(.3f, .3f), ShowcasePalette.PanelStroke, order + 2);
                     }
+                    else if (p.Kind == PropAppearance.Heal)
+                    {
+                        // P-COLISEUM-HEALS-2: a coliseum heal pickup from existing art, a ring with a cross sigil. Lit with a glow under
+                        // it when its delivered clock has come (WorldIndicatorRules.HealReady); dimmed and unlit while it waits.
+                        bool ready = WorldIndicatorRules.HealReady(p.ReadyAt, _sourceTimeMs);
+                        Color lit = ShowcasePalette.Success;
+                        Color tint = ready ? lit : new Color(lit.r * .45f, lit.g * .45f, lit.b * .45f, .7f);
+                        if (ready) Prop("glow", position, new Vector2(1.1f, .6f), new Color(lit.r, lit.g, lit.b, .35f), order - 2);
+                        Prop("ring", position, new Vector2(.72f, .58f), tint, order);
+                        Prop("sigil1", position + new Vector3(0, .16f), new Vector2(.44f, .44f), ready ? Color.white : tint, order + 1);
+                    }
                     else
                     {
                         string sprite = p.Kind == PropAppearance.Chest ? "chest" : p.Kind == PropAppearance.Body || p.Kind == PropAppearance.Corpse ? "stone" : "rune";
