@@ -298,7 +298,7 @@ namespace Roguehalla.Client
             _sourceTimeMs = session != null ? session.ServerTimeMs : 0;
             BindVisionSession(session);
             _renderReady = session != null && session.Clock.Ready;
-            _renderMs = _renderReady ? session.Clock.RenderMs : 0;
+            _renderMs = _renderReady ? session.Clock.DrawMs : 0;
             _latestMembership.Clear();
             if(session!=null && session.Snapshots.Count>0)
             {

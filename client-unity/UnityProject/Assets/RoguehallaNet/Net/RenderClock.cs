@@ -7,6 +7,9 @@ namespace Roguehalla.Net
     /// The delay follows snapshot arrival jitter between 55 ms (one 50 ms tick plus 5 ms of margin) and 150 ms. Render time never runs backwards: when more delay is
     /// needed it slows to 80% speed; when less, it catches up at 1% for a gap of 20 ms or less, ramping smoothly to
     /// <see cref="MaxCatchUpShare"/> (4%) at 80 ms, so a spike's extra delay is gone in seconds, not ten; it only jumps forward (after a 250 ms gap).
+    /// With <see cref="DrawAhead"/> on, the clock runs the time remote fighters are drawn at (<see cref="DrawMs"/>) with the floor,
+    /// start and target delay lowered by <see cref="AheadMs"/> (the ceiling stays), and <see cref="RenderMs"/> is that minus
+    /// <see cref="LeadMs"/>: the render time the clock without draw-ahead keeps, stamped on attacks and casts.
     /// </summary>
     public sealed class RenderClock
     {
@@ -17,7 +20,7 @@ namespace Roguehalla.Net
         readonly double[] _d = new double[Window];
         readonly double[] _sorted = new double[Window];
         int _n, _head;
-        double _minD, _targetDelay = StartDelayMs, _lastLocal, _render;
+        double _minD, _targetDelay = StartDelayMs, _lastLocal, _render, _lead;
         bool _init;
         bool _sourceReady;
         double _lastSourceMs;
@@ -29,12 +32,38 @@ namespace Roguehalla.Net
         public double MaxCatchUpShare = 0.04;
 
         public bool Ready { get { return _init; } }
-        public double TargetDelayMs { get { return _targetDelay; } }
-        /// <summary>The delay actually in force right now (lags TargetDelayMs while it slews).</summary>
-        public double DelayMs { get { return _init ? (_lastLocal - _minD) - _render : StartDelayMs; } }
-        public double RenderMs { get { return _render; } }
+        /// <summary>The delay the draw time slews to (with <see cref="DrawAhead"/> on, lowered by <see cref="AheadMs"/>).</summary>
+        public double TargetDelayMs { get { return _init ? _targetDelay : StartDelayMs - AheadMs; } }
+        /// <summary>The delay of the draw time actually in force right now (lags TargetDelayMs while it slews).</summary>
+        public double DelayMs { get { return _init ? (_lastLocal - _minD) - _render : StartDelayMs - AheadMs; } }
+        /// <summary>
+        /// The render time stamped on attacks and casts: <see cref="DrawMs"/> minus <see cref="LeadMs"/>, which is what the clock
+        /// without draw-ahead gives (so the server's rewind is unchanged). Never runs backwards. Without draw-ahead it is DrawMs.
+        /// </summary>
+        public double RenderMs { get { return _render - _lead; } }
 
-        public void Reset() { _n = 0; _head = 0; _init = false; _targetDelay = StartDelayMs; _sourceReady = false; }
+        /// <summary>
+        /// Draw-ahead (P-NET-DRAWAHEAD-1b; legacy shared/src/interp.ts RenderClock <c>aheadMs</c>). Off on a bare clock; the
+        /// session turns it on. On: the delay floor, start and target drop by <see cref="AheadMs"/>, remote fighters are drawn
+        /// at <see cref="DrawMs"/>, and <see cref="RenderMs"/> stays the time stamped on attacks and casts (render time minus
+        /// <see cref="LeadMs"/>), so the server's rewind is unchanged.
+        /// </summary>
+        public bool DrawAhead;
+
+        /// <summary>How far past a fighter's newest sample the draw may run (ms): one tick while <see cref="DrawAhead"/> is on.</summary>
+        public double AheadMs { get { return DrawAhead ? TickMs : 0; } }
+
+        /// <summary>
+        /// How far <see cref="DrawMs"/> runs ahead of <see cref="RenderMs"/> now: min(<see cref="AheadMs"/>, max(0,
+        /// <see cref="MaxDelayMs"/> - <see cref="DelayMs"/>)) as of the last update (legacy client remoteDraw.ts <c>attackTime</c>), less
+        /// whatever keeps the stamp from running backwards. 0 without draw-ahead.
+        /// </summary>
+        public double LeadMs { get { return _lead; } }
+
+        /// <summary>The server time remote fighters, projectiles and fx are drawn at (equal to <see cref="RenderMs"/> without draw-ahead).</summary>
+        public double DrawMs { get { return _render; } }
+
+        public void Reset() { _n = 0; _head = 0; _init = false; _targetDelay = StartDelayMs; _lead = 0; _sourceReady = false; }
 
         public void OnSnapshot(double localMs, double serverMs)
         {
@@ -51,13 +80,22 @@ namespace Roguehalla.Net
             _minD = _sorted[0];
             // 98th percentile of how much later than the fastest arrival a snapshot came.
             double excess = _sorted[Math.Min(_n - 1, (int)Math.Ceiling(_n * 0.98) - 1)] - _minD;
-            _targetDelay = Math.Min(MaxDelayMs, Math.Max(MinDelayMs, TickMs + excess));
+            double ahead = AheadMs;
+            _targetDelay = Math.Min(MaxDelayMs, Math.Max(MinDelayMs - ahead, TickMs + excess - ahead));
             if (!_init)
             {
                 _init = true;
                 _lastLocal = localMs;
-                _render = serverMs - StartDelayMs;
+                _render = serverMs - (StartDelayMs - ahead);
+                _lead = WantedLead();
             }
+        }
+
+        /// <summary>The lead the stamp wants under the draw time at the current delay (0 without draw-ahead).</summary>
+        double WantedLead()
+        {
+            double ahead = AheadMs;
+            return ahead > 0 ? Math.Min(ahead, Math.Max(0, MaxDelayMs - DelayMs)) : 0;
         }
 
         /// <summary>Advances render time to local time <paramref name="localMs"/> (call once per frame) and returns it in server ms.</summary>
@@ -77,7 +115,11 @@ namespace Roguehalla.Net
                 double share = CatchUpShare + ramp * Math.Max(0, MaxCatchUpShare - CatchUpShare);
                 adv = dt + Math.Min(diff, share * dt);
             }
+            double stamp = _render - _lead;
             _render += adv;
+            // The stamp is the draw time less the lead, and never runs backwards (a lead that grows faster than the draw time
+            // advances, near the ceiling, is held back): 0 <= lead <= AheadMs always.
+            _lead = Math.Max(0, Math.Min(WantedLead(), _render - stamp));
             return _render;
         }
     }

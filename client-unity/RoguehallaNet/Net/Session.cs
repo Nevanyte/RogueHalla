@@ -120,7 +120,9 @@ namespace Roguehalla.Net
         public int ResyncsSent { get; private set; }
 
         public readonly SnapshotBuffer Snapshots = new SnapshotBuffer();
-        public readonly RenderClock Clock = new RenderClock();
+        /// <summary>The render clock, with draw-ahead on (legacy's default): remote fighters are drawn at <see cref="RenderClock.DrawMs"/>,
+        /// attacks and casts are stamped with <see cref="RenderClock.RenderMs"/>.</summary>
+        public readonly RenderClock Clock = new RenderClock { DrawAhead = true };
         public readonly ClockSync Sync = new ClockSync();
         public readonly InputSender Input = new InputSender();
         public readonly CollectionsView Collections = new CollectionsView();
@@ -130,6 +132,9 @@ namespace Roguehalla.Net
         /// <summary>The roster name of actor <paramref name="id"/>, or null when unknown (not seated, or the roster has not arrived).</summary>
         public string RosterName(uint id) { return Collections.RosterName(id); }
         public LocalMotion Motion { get; private set; }
+        /// <summary>Where remote fighters are drawn (P-NET-DRAWAHEAD-1b): <c>Remote.Sample(Clock.DrawMs, list)</c> once per frame.
+        /// Walls and tick interval from the Welcome; hold windows from every fighter's fx.</summary>
+        public readonly RemoteDraw Remote;
 
         public event Action<SessionState> StateChanged;
         public event Action<ServerMsg.Snapshot> SnapshotReceived;
@@ -145,6 +150,7 @@ namespace Roguehalla.Net
         {
             _t = transport;
             _o = options;
+            Remote = new RemoteDraw(Snapshots);
             _initialResume = options.InitialResume;
             _resuming = _initialResume != null;
             _t.Opened += OnOpened;
@@ -516,6 +522,7 @@ namespace Roguehalla.Net
                     }
                     if (sourceCut)
                     {
+                        Remote.Reset();
                         Sync.Reset();
                         _lastPing = double.NegativeInfinity;
                         TimelineEpoch++;
@@ -544,6 +551,7 @@ namespace Roguehalla.Net
             var fx = msg as ServerMsg.Fx;
             if (fx != null)
             {
+                NoteRemoteFx(fx);
                 if (Motion != null) NoteOwnAttackFx(fx);
                 if (FxReceived != null) FxReceived(fx);
             }
@@ -566,6 +574,27 @@ namespace Roguehalla.Net
                 if (f.Kind == FxKind.Windup && f.By == me) Motion.NoteOwnWindup(tickMs, f.Ms, f.Weapon);
                 else if (f.Kind == FxKind.Stagger && f.Id == me) Motion.NoteOwnStagger(tickMs);
                 else if (f.Kind == FxKind.Cancel && f.Id == me) Motion.NoteOwnCancel(tickMs);
+            }
+        }
+
+        /// <summary>
+        /// Every fighter's hold facts feed the draw-ahead (legacy remoteDraw.ts <c>noteFx</c>): a windup, a Wish cast and its end, a
+        /// cancel or stagger. Stun, root, casting and death need no fx here: the newest snapshot's effects and status hold them.
+        /// </summary>
+        void NoteRemoteFx(ServerMsg.Fx fx)
+        {
+            var latest = Latest;
+            double tickMs = latest != null ? latest.ServerMs + ((double)fx.Tick - latest.Tick) * Wire.TickMs : fx.Tick * (double)Wire.TickMs;
+            for (int i = 0; i < fx.List.Count; i++)
+            {
+                var f = fx.List[i];
+                switch (f.Kind)
+                {
+                    case FxKind.Windup: Remote.NoteWindup(f.By, tickMs, f.Ms, f.Weapon); break;
+                    case FxKind.Cancel: case FxKind.Stagger: Remote.NoteAttackEnd(f.Id); break;
+                    case FxKind.WishStarted: if (f.Caster.HasValue) Remote.NoteCast(f.Caster.Value, tickMs, f.Duration); break;
+                    case FxKind.WishEnded: if (f.Caster.HasValue) Remote.NoteCastEnd(f.Caster.Value); break;
+                }
             }
         }
 
@@ -628,6 +657,9 @@ namespace Roguehalla.Net
             Clock.Reset();
             Sync.Reset();
             Clock.TickMs = w.TickRate > 0 ? 1000.0 / w.TickRate : 50;
+            Remote.Reset();
+            Remote.Map = w.Map;
+            Remote.TickMs = Clock.TickMs;
             _predictionGatesLocked = false;
             Motion = new LocalMotion(w.Map);
             _lastPing = double.NegativeInfinity;
