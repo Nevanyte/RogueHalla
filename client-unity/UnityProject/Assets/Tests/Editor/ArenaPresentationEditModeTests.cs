@@ -249,12 +249,58 @@ namespace Roguehalla.Client.Tests
                 .Invoke(shots, new object[] { state });
             arena.PresentCollections(shots);
             arena.Present(new List<InterpActor>(),me,null,0);
-            Assert.That(body.sprite.name, Is.EqualTo("FireChampion/2/3"));
+            Assert.That(body.sprite.name, Is.EqualTo("FireBow/2/3"), "A delivered east arrow selects the authored Fire bow release frame.");
             me.Status=ActorStatus.Dead;
             arena.Present(new List<InterpActor>(),me,null,0);
             Assert.That(body.sprite.name, Is.EqualTo("FireChampion/2/2"));
             Assert.That(body.transform.localRotation,Is.EqualTo(Quaternion.identity));
             Assert.That(me.Hp,Is.EqualTo(100),"art playback never applies game outcomes");
+        }
+
+        [Test]
+        public void ConfirmedBowCueUsesLegacyCatalogFallbackWhenFireBearingIsUnready()
+        {
+            var defaultField = typeof(StormInkFireBowAuthoring).GetField("_default",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            var previousAuthoring = defaultField.GetValue(null);
+            var production = Resources.Load<StormInkFireBowAuthoring>("StormInk/Actors/FireBowAuthoring");
+            var fallback = Object.Instantiate(production);
+            _assets.Add(fallback);
+            try
+            {
+                var readyRows = typeof(StormInkFireBowAuthoring).GetField("readyRows",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                ((bool[])readyRows.GetValue(fallback))[2] = false;
+                defaultField.SetValue(null, fallback);
+
+                var arena=CreateArena();
+                var me=new SelfView{Id=92,X=200,Y=200,Hp=100,MaxHp=100,Status=ActorStatus.Alive,Faction=FactionId.Fire,Weapon=WeaponId.Bow};
+                arena.Present(new List<InterpActor>(),me,null,0);
+                var body=FindDirectChild(FindDirectChild(arena.transform,"Observed actor"),"Authored character").GetComponent<SpriteRenderer>();
+                var shots = new CollectionsView();
+                arena.PresentCollections(shots);
+                var state = new ServerMsg.State
+                {
+                    Tick = 8,
+                    Items = new StateItem[] { new ProjectilesState { Rows = new[]
+                    {
+                        new WireProjectile { Kind = (byte)ProjectileKind.Arrow, Owner = 92,
+                            X = Quant.QuantizePos(200), Y = Quant.QuantizePos(200), Facing = Quant.QuantizeFacing(0f) },
+                    } } },
+                };
+                typeof(CollectionsView).GetMethod("Apply", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(shots, new object[] { state });
+                arena.PresentCollections(shots);
+                arena.Present(new List<InterpActor>(),me,null,0);
+                Assert.That(body.sprite.name, Is.EqualTo("FireChampion/2/3"),
+                    "An unready bearing continues to use the current catalog attack art after a delivered arrow.");
+                me.Status=ActorStatus.Dead;
+                arena.Present(new List<InterpActor>(),me,null,0);
+                Assert.That(body.sprite.name, Is.EqualTo("FireChampion/2/2"), "Delivered death still selects the catalog death frame.");
+                Assert.That(body.transform.localRotation,Is.EqualTo(Quaternion.identity));
+                Assert.That(me.Hp,Is.EqualTo(100),"art playback never applies game outcomes");
+            }
+            finally { defaultField.SetValue(null, previousAuthoring); }
         }
 
         [Test]
