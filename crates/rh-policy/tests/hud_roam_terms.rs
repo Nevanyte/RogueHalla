@@ -49,7 +49,7 @@ fn identities_move_for_the_new_panel_codes() {
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        26,
-        "the projected owner summary gains codes 23-27 (21); 22: P-WIRE17-HUD-3; 31/26: P-NET-DRAWAHEAD-1a"
+        27,
+        "the projected owner summary gains codes 23-27 (21); 22: P-WIRE17-HUD-3; 31/26: P-NET-DRAWAHEAD-1a; 27: P-COLISEUM-HEALS-2"
     );
 }

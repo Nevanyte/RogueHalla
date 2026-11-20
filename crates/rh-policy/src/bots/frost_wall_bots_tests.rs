@@ -804,8 +804,8 @@ fn guard_frost_wall_a_humanbot_in_a_freeze_room_casts_freeze_as_today() {
 fn guard_frost_wall_match_start_carries_the_rooms_frost_wish() {
     assert_eq!(
         crate::POLICY_CONTRACT_VERSION,
-        26,
-        "MatchStart carries the room's Frost Wish (P-FROST-WALL-BOTS-1); 26: P-NET-DRAWAHEAD-1a"
+        27,
+        "MatchStart carries the room's Frost Wish (P-FROST-WALL-BOTS-1); 26: P-NET-DRAWAHEAD-1a; 27: P-COLISEUM-HEALS-2"
     );
     let arena = staged_arena();
     let placements = [rh_sim::Placement {
