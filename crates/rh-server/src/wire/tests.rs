@@ -94,5 +94,6 @@ fn view(id: u32) -> ActorView {
         weapon: Some(rh_sim::content::WeaponId::ALL[2]),
         bounty: 3,
         facts: Default::default(),
+        walk: Default::default(),
     }
 }

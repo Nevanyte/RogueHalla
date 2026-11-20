@@ -680,6 +680,7 @@ fn staged(now: f64, hp: f64, enemy: (f64, f64), hit: bool) -> Observation {
         weapon: Some(WeaponId::Sword),
         bounty: 0,
         facts: Default::default(),
+        walk: Default::default(),
     });
     if hit {
         o.events.push(SeenEvent::Hit {
