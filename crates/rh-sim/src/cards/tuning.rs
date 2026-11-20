@@ -201,11 +201,21 @@ impl Tuning {
     pub fn pool(&self) -> &'static [CardId] {
         self.pool
     }
-    /// P-AUG-NATIVE-4 (stub): may a chest of this world offer `id`: a catalog card of [`Tuning::pool`], or, under `Rework`,
-    /// a native card a batch table lists in its `POOL` (`cards::native::pool_members`). The implementer fills this in and
-    /// routes `augment_pool`, `offer`, `offer_pool` and `reward_chests::validate_world` through it.
+    /// P-AUG-NATIVE-4: may a chest of this world offer `id`: a catalog card of [`Tuning::pool`], or, under `Rework`,
+    /// a native card a batch table lists in its `POOL` (`cards::native::pool_members`). `augment_pool`, `offer`,
+    /// `offer_pool` and `reward_chests::validate_world` read it.
     pub fn in_pool(&self, id: CardId) -> bool {
-        self.pool.contains(&id)
+        self.pool.contains(&id) || self.native_offer(id).is_some()
+    }
+    /// P-AUG-NATIVE-4: the offer rule of a native pool card under this table (`None` under `Legacy`, and for an id no
+    /// batch table lists).
+    fn native_offer(&self, id: CardId) -> Option<crate::reward_chests::Offer> {
+        if self.rule != AugmentRule::Rework {
+            return None;
+        }
+        super::native::pool_members()
+            .find(|(c, _)| *c == id)
+            .map(|(_, o)| o)
     }
     /// P-AUG-POOL-1-fix: the override rows this table plays (empty under `Legacy`), as listed in the table.
     pub fn overrides(&self) -> &'static [CardDef] {
@@ -219,17 +229,22 @@ impl Tuning {
     pub fn weights_eye_for_an_eye(&self) -> bool {
         self.weight_eye_for_an_eye
     }
-    /// Source `rewardAugmentPool` under this table: live pool augments not held by every picker, in catalog order.
+    /// Source `rewardAugmentPool` under this table: live pool augments not held by every picker, in catalog order; then
+    /// (P-AUG-NATIVE-4, `Rework` only) the native pool cards under the same test, in native order. Under `Legacy` nothing
+    /// is appended, so its draws are unchanged.
     pub fn augment_pool(&self, pickers: &[Build]) -> Vec<CardId> {
+        let live = |id: &CardId| {
+            let def = self.def(*id);
+            def.kind == CardKind::Augment && def.ready && !held_by_all(pickers, *id)
+        };
         CardId::ALL
             .into_iter()
-            .filter(|id| {
-                let def = self.def(*id);
-                def.kind == CardKind::Augment
-                    && def.ready
-                    && self.pool.contains(id)
-                    && !held_by_all(pickers, *id)
-            })
+            .filter(|id| self.pool.contains(id) && live(id))
+            .chain(
+                CardId::NATIVE
+                    .into_iter()
+                    .filter(|id| self.native_offer(*id).is_some() && live(id)),
+            )
             .collect()
     }
     /// Source `conditionalPool` under this table: live conditionals a picker's base unlocks and not every picker holds,
@@ -248,11 +263,12 @@ impl Tuning {
             })
             .collect()
     }
-    /// P-AUG-POOL-1: the offer rule of a pool card in this world (`None`: not in the pool).
+    /// P-AUG-POOL-1: the offer rule of a pool card in this world (`None`: not in the pool). A native pool card's rule is
+    /// its batch table's (P-AUG-NATIVE-4).
     pub fn offer(&self, id: CardId) -> Option<crate::reward_chests::Offer> {
         use crate::reward_chests::Offer;
         if !self.pool.contains(&id) {
-            return None;
+            return self.native_offer(id);
         }
         Some(
             self.faction_only
@@ -270,7 +286,8 @@ impl Tuning {
     pub fn offer_pool(&self, pickers: &[crate::reward_chests::Picker]) -> Vec<CardId> {
         let builds: Vec<Build> = pickers.iter().map(|p| p.build).collect();
         let mut pool = self.augment_pool(&builds);
-        if !self.faction_only.is_empty() {
+        // P-AUG-NATIVE-4: a `Rework` pool holds the faction table's natives (`Offer::Faction`), so it always filters.
+        if !self.faction_only.is_empty() || self.rule == AugmentRule::Rework {
             pool.retain(|id| self.offer(*id).is_some_and(|o| o.admits(pickers)));
         }
         if self.weight_eye_for_an_eye && pickers.iter().any(|p| self.owns_returned_damage(p)) {
