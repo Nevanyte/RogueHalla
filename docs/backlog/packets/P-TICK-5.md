@@ -1,7 +1,7 @@
 # P-TICK-5: the server runs each room at its configured step
 
 - **Serves:** not in the plan: owner approval 2026-11-19 (ADR 0029); supports ORDER_OF_OPERATIONS phase 3, item 16a
-- **Implementer tier:** implementer-sonnet
+- **Implementer tier:** implementer-opus (coordinator 2026-11-20: now also lifts the wire refusal and wires the encoder rate)
 - **Reviewer:** reviewer-opus (the rewind window is lag compensation)
 - **Integration base:** feature/unity-rework
 - **D-rules touched:** D1 n/a (no sim rule) · D2 n/a · D5 none · D6 disconnect classification untouched · D9 unchanged
@@ -26,6 +26,9 @@ sim with it, paces the room on that period (`director.rs` builds the pacer from 
 - `crates/rh-server/src/director.rs`, `pacer.rs` (doc comment only), `room.rs`, `room/**`, `rtt.rs`, `main.rs` (the
   flags), `src/bin/densitybench/**`,
   `quest_bridge_tests.rs` (reads the rate)
+- added by the coordinator 2026-11-20 (P-TICK-3/3-fix notes): `crates/rh-server/src/wire.rs` (`profile_supported`
+  accepts 25), `crates/rh-server/src/outbox.rs`, `crates/rh-server/src/conn.rs` (comment), the Unity client lines named
+  below only if P-TICK-4 does not take them
 
 ## 6. Contracts and references
 - C-TICK as amended (pacer unit tests are its evidence), C-INPUT, ADR 0019, ADR 0029
