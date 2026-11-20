@@ -19,15 +19,22 @@ namespace Roguehalla.Client
             new Hands(47, 81, 91, 59), new Hands(37, 79, 92, 69), new Hands(41, 35, 78, 76), new Hands(17, 49, 109, 58), // SW
         };
 
-        internal static bool HasMobWeaponTrack(ActorKind kind, FactionId? faction, MobTypeId? mob, WeaponId? weapon) =>
-            kind == ActorKind.RegionalMob && (((mob == MobTypeId.Bailiff || mob == MobTypeId.Executioner) && faction == FactionId.Sentenced && weapon == WeaponId.Sword) ||
-                (mob == MobTypeId.AshDrake && faction == FactionId.Fire && weapon == WeaponId.Wand));
+        internal static bool HasMobWeaponTrack(ActorKind kind, FactionId? faction, MobTypeId? mob, WeaponId? weapon)
+        {
+            if (kind != ActorKind.RegionalMob || !mob.HasValue || !weapon.HasValue) return false;
+            if (mob == MobTypeId.Bailiff || mob == MobTypeId.Executioner)
+                return faction == FactionId.Sentenced && weapon == WeaponId.Sword;
+            if (mob == MobTypeId.AshDrake) return faction == FactionId.Fire && weapon == WeaponId.Wand;
+            var sheet = Get(kind, faction, mob);
+            return sheet?.Poses[0] != null && MobGrips(mob.Value)?.Weapon == weapon.Value;
+        }
 
         public static bool TryMobHand(MobTypeId? mob, Sprite body, bool leftHand, out Vector2 uv)
         {
             uv = default;
-            var palms = mob == MobTypeId.Bailiff ? BailiffPalms : mob == MobTypeId.Executioner ? ExecutionerPalms : null;
-            if (palms == null || !MobPoseIndex(mob, body, out int index)) return false;
+            if (!MobPoseIndex(mob, body, out int index)) return false;
+            var palms = mob == MobTypeId.Bailiff ? BailiffPalms : mob == MobTypeId.Executioner ? ExecutionerPalms : MobGrips(mob.Value)?.Palms;
+            if (palms == null) return false;
             uv = palms[index].UV(leftHand);
             return true;
         }
