@@ -244,7 +244,10 @@ fn v20_fixture_carries_the_readout_vectors_and_the_moved_malformed_ones() {
     let path = fixture_path(20);
     let v19 = std::fs::read_to_string(&path)
         .expect("protocol/fixtures/v20.json (cargo run -p rh-protocol --bin protocol-fixtures)");
-    assert!(v19.contains("\n  \"protocol\": 20,\n"), "protocol 20 (P-SYNC-ORIGIN-1)");
+    assert!(
+        v19.contains("\n  \"protocol\": 20,\n"),
+        "protocol 20 (P-SYNC-ORIGIN-1)"
+    );
     assert_eq!(named(&v19, "state_readouts"), Some(READOUTS_HEX));
     assert_eq!(named(&v19, "state_readouts_empty"), Some(EMPTY_HEX));
     for name in [
