@@ -730,9 +730,12 @@ fn apply_victim(
             let Some(by) = e.by.filter(|_| weapon_hit(e) && amounts[j] > 0.) else {
                 continue;
             };
-            let earlier = idxs[..j]
-                .iter()
-                .filter(|&&i2| weapon_hit(&ledger[i2]) && ledger[i2].by == Some(by))
+            // Only earlier hits that land count, as only they fire `HitCount` (which advances the counter).
+            let earlier = (0..j)
+                .filter(|&p| {
+                    let e2 = &ledger[idxs[p]];
+                    weapon_hit(e2) && e2.by == Some(by) && amounts[p] > 0.
+                })
                 .count() as u32;
             amounts[j] *= crate::cards::native::strike_mult(pass.k, pass.w, by, earlier);
         }
