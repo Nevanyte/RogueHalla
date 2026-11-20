@@ -268,7 +268,7 @@ namespace Roguehalla.Client
             grid.Add(Cell("G7", "brand60", "G7/B5 brand 60", "violet floor ring growing with the brand").A(Player(a => { a.Tier = 2; a.Brand = 60; })));
             grid.Add(Cell("G7", "brand100", "G7/B5 brand 100 (full)", "full brand pulses").A(Player(a => { a.Tier = 4; a.Brand = 100; })));
             grid.Add(Cell("P13", "immune", "P13/B7 teleport immunity ring", "4fc3f7 ring round the fighter").A(Player(a => a.Immune = true)));
-            grid.Add(Cell("P14", "roam", "P14/B8 Fire roam ready", "pulsing orange double ring").A(Player(a => { a.Faction = FactionId.Fire; a.Roam = true; })));
+            grid.Add(Cell("P14", "roam", "P14/B8 Fire roam ready", "armed ember glow behind the body").A(Player(a => { a.Faction = FactionId.Fire; a.Roam = true; })));
             grid.Add(Cell("M2", "engaged", "M2/B10 engaged mob: bar at full hp", "the bar of a fighting mob shows").A(Mob(MobTypeId.Zealot, a => a.Engaged = true)));
             grid.Add(Cell("M2", "calm100", "M2 calm mob, full hp: no bar", "no bar while calm").A(Mob(MobTypeId.Zealot)));
 
