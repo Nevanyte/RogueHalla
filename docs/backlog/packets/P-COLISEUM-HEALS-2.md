@@ -204,4 +204,25 @@ and the Unity drawing. Small logic; the risk is a missed pin or a vector byte mo
 - `probe.html`'s codec marker comment is read by `check-vectors.mjs`, `normal-companion*.mjs` and the stamp test.
 - Never encode a Heal as a Chest: bots would walk to it and press F for nothing.
 
+### What the oracle asserts, and how it fails on the stub
+
+- `heal_prop_wire.rs`: `the_protocol_is_20` (left 19); `a_heal_row_is_the_cannon_layout_with_kind_8` (the stub writes
+  kind 6); `the_golden_vectors_carry_the_heal_props_and_the_unknown_kind` (no `state_heal_props` sample: `None`);
+  green guards: `unknown_prop_kinds_are_still_refused` (0, 9, 255), `guard_the_union_props_vector_keeps_its_bytes`.
+- `heal_prop_bots_tests.rs`: `the_four_heals_reach_the_seat_as_heal_props_with_their_clocks_and_are_never_the_focus`
+  (grand map, seed 5, the viewer at 1 hp on the NW spot takes it; the item view offers `[]`, want the four with NW's
+  clock 30100 and the others 0; then the wire carries the same rows as kind 8, never the focus);
+  `the_humanbot_perception_ignores_heal_rows` (four Heal rows injected in the observation; the stub's wire turns them
+  into cannons, so "the seat's frame holds four Heal rows" fails; with kind 8 on the wire the stub's perception yields
+  four "cannon" containers and fails "a bot sees no container at a heal pickup").
+- `HealPropProtocolTests.cs` (6 red, 1 green guard): protocol 20; the Heal row encodes (stub throws "prop kind") as
+  the cannon's bytes with 6 → 8; `state_heal_props` / `state_prop_kind_unknown` in v20.json; the session's
+  collections carry `PropAppearance.Heal` with `ReadyAt`; `HealReady` is `serverMs >= readyAt`.
+- `heal-prop-probe.test.mjs` (3 red, 1 green guard): `PROTOCOL` 20 and the `v20` marker; a hand-built kind 8 row
+  decodes to `{ handle, x, y, kind: 8, readyAt }`; the two golden vectors.
+- `HealPropEditModeTests.cs`: ready (clock 0 and clock == now) draws a `glow`, waiting (30 s) does not; no `rune`, no
+  `bar`. Not run (no Editor here); it compiles against the stub's `PropKind.Heal`.
+Satisfiability: a throwaway patch (kind 8 in `props.rs`, the item-view arm, perception `continue`, the C# reader/writer
+arms and `HealReady`, kind 8 in `probe.html`) turned every non-version assertion green; it was discarded.
+
 ## Notes from previous attempts
