@@ -21,7 +21,7 @@ use crate::fighter::FighterIx;
 use crate::reward_chests::Offer;
 use crate::{AugmentRule, Event, PlayerId, RawCommand, Sim, Vec2, WeaponId};
 
-const PI: f64 = std::f64::consts::PI;
+use std::f64::consts::PI;
 
 fn refold(sim: &mut Sim, id: PlayerId) {
     let i = sim.w.idx(id).unwrap();
