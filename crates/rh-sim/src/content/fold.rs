@@ -339,3 +339,53 @@ pub fn content_hash_of_chest_pools(
     let _ = tables;
     content_hash_of_rules(registry, stagger_weapons)
 }
+
+/// P-AUG-POOL-1-fix: one card table as a world with its rule plays it, as the rules identity folds it: the named card
+/// numbers (each `CardNumbers` field), the override rows (each row's numbers by `cards::map_numbers`), and the chest
+/// inputs (the pool ids, the faction-only pairs, the Eye for an Eye weighting flag).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CardTableSnapshot<'a> {
+    pub rule: crate::AugmentRule,
+    pub numbers: crate::cards::CardNumbers,
+    pub overrides: &'a [crate::cards::CardDef],
+    pub pool: &'a [crate::cards::CardId],
+    pub faction_only: &'a [(crate::cards::CardId, FactionId)],
+    pub weight_eye_for_an_eye: bool,
+}
+
+impl CardTableSnapshot<'static> {
+    /// The snapshot of a real card table.
+    pub fn of(t: &'static crate::cards::Tuning) -> Self {
+        CardTableSnapshot {
+            rule: t.rule(),
+            numbers: *t.numbers(),
+            overrides: t.overrides(),
+            pool: t.pool(),
+            faction_only: t.faction_only(),
+            weight_eye_for_an_eye: t.weights_eye_for_an_eye(),
+        }
+    }
+}
+
+/// P-AUG-POOL-1-fix: both real card tables, `[Legacy, Rework]`, read from the `Tuning` statics. `content_hash` folds
+/// exactly these.
+pub fn card_table_snapshots() -> [CardTableSnapshot<'static>; 2] {
+    use crate::cards::Tuning;
+    use crate::AugmentRule;
+    [
+        CardTableSnapshot::of(Tuning::of_rule(AugmentRule::Legacy)),
+        CardTableSnapshot::of(Tuning::of_rule(AugmentRule::Rework)),
+    ]
+}
+
+/// P-AUG-POOL-1-fix sensitivity seam: [`content_hash`] with the card tables given by the caller in place of
+/// [`card_table_snapshots`] (everything else is the build's own). Equals `content_hash()` for the real tables.
+pub fn content_hash_of_card_tables(
+    registry: &[Entry],
+    stagger_weapons: &[WeaponId],
+    tables: &[CardTableSnapshot<'_>],
+) -> u64 {
+    // STUB (P-AUG-POOL-1-fix): the tables are not folded yet; the implementer folds them here and in `content_hash`.
+    let _ = tables;
+    content_hash_of_rules(registry, stagger_weapons)
+}

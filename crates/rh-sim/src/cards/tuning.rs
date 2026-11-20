@@ -201,6 +201,10 @@ impl Tuning {
     pub fn pool(&self) -> &'static [CardId] {
         self.pool
     }
+    /// P-AUG-POOL-1-fix: the override rows this table plays (empty under `Legacy`), as listed in the table.
+    pub fn overrides(&self) -> &'static [CardDef] {
+        self.overrides
+    }
     /// P-AUG-POOL-1-fix: the pool cards offered only to a one-faction chest (`Offer::Faction`), as listed in the table.
     pub fn faction_only(&self) -> &'static [(CardId, crate::FactionId)] {
         self.faction_only
@@ -425,7 +429,8 @@ fn same_rows(legacy: &[CardRow], rework: &[CardRow]) -> Result<(), &'static str>
 
 /// The row with every number (`f64`, and the value inside a present `Option<f64>`) replaced by `f(number)`. The match is
 /// exhaustive, so a new row variant or field must say here whether it is a number (tunable) or part of the shape.
-fn map_numbers(row: &CardRow, f: &mut dyn FnMut(f64) -> f64) -> CardRow {
+/// Public (P-AUG-POOL-1-fix) so the content-hash fold and its oracle walk a row's numbers in this one order.
+pub fn map_numbers(row: &CardRow, f: &mut dyn FnMut(f64) -> f64) -> CardRow {
     fn opt(x: Option<f64>, f: &mut dyn FnMut(f64) -> f64) -> Option<f64> {
         x.map(f)
     }

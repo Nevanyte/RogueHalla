@@ -18,7 +18,7 @@ pub use catalog::*;
 mod rework_guard_tests;
 mod rework_overrides;
 mod tuning;
-pub use tuning::{check_override, CardNumbers, ShapeError, Tuning};
+pub use tuning::{check_override, map_numbers, CardNumbers, ShapeError, Tuning};
 
 /// The source build's card count map (one byte per card in wire order). A newtype so the 80-byte array has Default and a
 /// strict 80-element serde form (serde arrays stop at 32).
