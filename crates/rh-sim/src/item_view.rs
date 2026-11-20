@@ -638,7 +638,7 @@ impl ItemObserver {
                 return Err(Reject::InvalidTarget);
             }
             let id = if u64::from(actor.0) >= crate::actor_refs::NPC_REFERENCE_BASE {
-                self.actor_refs.resolve(sim.tick(), actor)
+                self.actor_refs.resolve(sim, actor)
             } else {
                 self.actors.binary_search(&actor).is_ok().then_some(actor)
             };

@@ -1,5 +1,4 @@
 //! Observer-owned presentation projection. Private actor IDs never become NPC labels here.
-use crate::item_view::GRACE;
 use crate::{Observation, PlayerId, SeenEvent};
 
 /// Apply one observer's mapping to raw actor-bearing public fields, exactly once.
@@ -147,6 +146,8 @@ impl Batch {
 }
 pub(crate) struct ActorStage {
     tick: u32,
+    /// The handle grace in steps of the match (`item_view::grace`, 1000 ms).
+    grace: u32,
     renew: bool,
     batch: Batch,
 }
@@ -240,6 +241,7 @@ impl ActorRefs {
         };
         Ok(ActorStage {
             tick: sim.tick(),
+            grace: crate::item_view::grace(sim),
             renew,
             batch,
         })
@@ -261,22 +263,23 @@ impl ActorRefs {
                 self.retired
                     .iter()
                     .rev()
-                    .filter(|(t, _)| stage.tick.saturating_sub(*t) < GRACE)
+                    .filter(|(t, _)| stage.tick.saturating_sub(*t) < stage.grace)
                     .find_map(|(_, b)| b.presented(id))
             })
     }
-    pub(crate) fn resolve(&self, tick: u32, reference: PlayerId) -> Option<PlayerId> {
+    pub(crate) fn resolve(&self, sim: &crate::Sim, reference: PlayerId) -> Option<PlayerId> {
+        let (tick, grace) = (sim.tick(), crate::item_view::grace(sim));
         self.current.actor(reference).or_else(|| {
             self.retired
                 .iter()
                 .rev()
-                .filter(|(t, _)| tick.saturating_sub(*t) < GRACE)
+                .filter(|(t, _)| tick.saturating_sub(*t) < grace)
                 .find_map(|(_, b)| b.actor(reference))
         })
     }
     pub(crate) fn commit(&mut self, stage: ActorStage) {
         self.retired
-            .retain(|(t, _)| stage.tick.saturating_sub(*t) < GRACE);
+            .retain(|(t, _)| stage.tick.saturating_sub(*t) < stage.grace);
         if stage.renew {
             if !self.current.bindings.is_empty() {
                 self.retired
