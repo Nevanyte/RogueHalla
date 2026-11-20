@@ -222,6 +222,21 @@ pub const TICK_MS: u32 = 50;
 pub fn snapshot_server_ms(tick: u32) -> f64 {
     tick as f64 * TICK_MS as f64
 }
+
+/// P-TICK-3 (ADR 0029): the milliseconds of one server tick at `tick_rate` (`Welcome.tick_rate`): 20 Hz is 50 ms, 40 Hz is
+/// 25 ms, and every other rate is `None` (refused by every decoder).
+// STUB (P-TICK-3): the implementer replaces this body.
+pub fn tick_ms_for_rate(tick_rate: u8) -> Option<u32> {
+    let _ = tick_rate;
+    Some(TICK_MS)
+}
+
+/// P-TICK-3: the server time (ms) a Snapshot of `tick` stands for on a connection whose Welcome gave `tick_ms` per tick.
+// STUB (P-TICK-3): the implementer replaces this body.
+pub fn snapshot_server_ms_at(tick: u32, tick_ms: u32) -> f64 {
+    let _ = tick_ms;
+    snapshot_server_ms(tick)
+}
 /// Longest admission ticket a Hello may carry. With the other Hello fields at their maxima (two 255-byte strings, a faction and a
 /// resume token) the frame is 11 + 2*256 + 2 + 17 + 2 + 448 = 992 bytes, under [`MAX_CLIENT_FRAME`] (a test holds it).
 pub const MAX_TICKET: usize = 448;

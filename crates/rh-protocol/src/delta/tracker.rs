@@ -56,6 +56,9 @@ impl std::error::Error for DeltaError {}
 pub enum TrackError {
     Decode(DecodeError),
     Delta(DeltaError),
+    /// P-TICK-3: a Snapshot or SnapshotDelta reached a tracker made by [`SnapshotTracker::awaiting_welcome`] before any
+    /// Welcome: it has no tick rate to read the frame's time with.
+    NoWelcome,
 }
 
 impl std::fmt::Display for TrackError {
@@ -82,6 +85,13 @@ pub struct SnapshotTracker {
 
 impl SnapshotTracker {
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// P-TICK-3: a tracker that refuses every Snapshot and SnapshotDelta ([`TrackError::NoWelcome`]) until it has decoded a
+    /// Welcome, and then reads their time at that Welcome's tick rate.
+    // STUB (P-TICK-3): the implementer replaces this body.
+    pub fn awaiting_welcome() -> Self {
         Self::default()
     }
 

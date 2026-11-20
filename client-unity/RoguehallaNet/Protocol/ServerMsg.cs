@@ -21,6 +21,14 @@ namespace Roguehalla.Net.Protocol
         /// garbage. Pass only a snapshot nothing else still reads (SnapshotBuffer.TakeSpare hands out such one). Other frames
         /// ignore <paramref name="reuse"/>. If decoding throws, <paramref name="reuse"/> is left partly overwritten.
         /// </summary>
+        /// <summary>
+        /// P-TICK-3 (ADR 0029): as <see cref="Decode(byte[], int, Snapshot)"/> on a connection whose Welcome said
+        /// <paramref name="tickRate"/>: a Snapshot or SnapshotDelta without a source-time override stands for
+        /// Tick * (1000 / tickRate) ms. Only 20 and 40 are rates; any other is refused with a <see cref="DecodeException"/>.
+        /// </summary>
+        // STUB (P-TICK-3): the implementer replaces this body.
+        public static ServerMsg Decode(byte[] frame, int length, Snapshot reuse, byte tickRate) { return Decode(frame, length, reuse); }
+
         public static ServerMsg Decode(byte[] frame, int length, Snapshot reuse)
         {
             if (length > Wire.MaxServerFrame) throw new DecodeException(DecodeError.TooLarge, length.ToString());

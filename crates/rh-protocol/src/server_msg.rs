@@ -262,6 +262,14 @@ impl WireFx {
 }
 
 impl ServerMsg {
+    /// P-TICK-3: decodes `frame` on a connection whose Welcome said `tick_rate`: a Snapshot or SnapshotDelta without a
+    /// source-time override stands for `tick * (1000 / tick_rate)` ms. A rate other than 20 or 40 is refused.
+    // STUB (P-TICK-3): the implementer replaces this body.
+    pub fn decode_at(frame: &[u8], tick_rate: u8) -> Result<Self, DecodeError> {
+        let _ = tick_rate;
+        Self::decode(frame)
+    }
+
     pub fn decode(frame: &[u8]) -> Result<Self, DecodeError> {
         if frame.len() > MAX_SERVER_FRAME {
             return Err(DecodeError::TooLarge(frame.len()));
