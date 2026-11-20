@@ -167,7 +167,7 @@ fn the_versions_move() {
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        29,
-        "the projected State gains key 15 and the decoded view its rows (P-AUG-NATIVE-5)"
+        30,
+        "the projected State gains key 15 and the decoded view its rows (P-AUG-NATIVE-5; 29 was P-AUG-BOTS-1)"
     );
 }
