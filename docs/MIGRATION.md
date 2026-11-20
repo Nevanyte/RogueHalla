@@ -35,7 +35,7 @@ owner-protected). reviewer-opus LAND WITH NOTES (encoder not rate-aware); merged
 (skipped: dotnet, Postgres, Unity EditMode; C# not compiled here, CI runs it). **P-TICK-3-fix**: ConnEncoder,
 SnapshotData, the delta writer, Outbox and the policy forced-full rule take the connection's `tick_ms`; reviewer-opus
 LAND; merged `d9f21dfb`. **P-TICK-2**: bots and headless read the step (`--tick-ms 50|25`); reviewer-opus LAND;
-merged `f9273960`. Open: PR #77 perfproof Ir ratio 1.07-1.12 over the 1.03 limit (P-TICK-1b-perf in progress).
+merged `f9273960`. **P-TICK-1b-perf** (PR #77 perfproof Ir 1.07-1.12 over the 1.03 limit; cause: `vision.rs` `latest_reveal` computing the trail length per reveal): step counts hoisted, `const fn` again; local perfproof vs deaf125b 0.987-1.000 on every case, fingerprints identical; reviewer-opus LAND.
 
 ## Integration 58 (2026-11-18): the GitHub front page
 
