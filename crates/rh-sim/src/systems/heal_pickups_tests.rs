@@ -159,12 +159,18 @@ fn pickups_stand_at_the_grand_centre_and_nowhere_else() {
     let arena = grand_arena();
     let got = spots(&arena);
     assert_eq!(got, Some(want_spots()), "no heal spots on the grand map");
-    let centre = arena.map.layers().unwrap().coliseum().centre;
+    // The footprint's middle (rect x + w/2 tiles): the record's `centre` is the centre of tile (CX, CY), half a tile
+    // south-east of it (mapgen/records/mod.rs), so the 2x2 cluster is measured from the rect.
+    let rect = arena.map.layers().unwrap().coliseum().rect;
+    let (mx, my) = (
+        (f64::from(rect.x) + f64::from(rect.w) / 2.) * TILE,
+        (f64::from(rect.y) + f64::from(rect.h) / 2.) * TILE,
+    );
     for (k, p) in want_spots().iter().enumerate() {
         assert_eq!(
-            ((p.x - centre.x).abs(), (p.y - centre.y).abs()),
+            ((p.x - mx).abs(), (p.y - my).abs()),
             (TILE / 2., TILE / 2.),
-            "spot {k} is half a tile from the coliseum centre"
+            "spot {k} is half a tile from the middle of the coliseum footprint"
         );
         assert!(
             crate::geometry::circle_clear(&arena.map, *p, PLAYER_RADIUS, MASK_MOVE),
