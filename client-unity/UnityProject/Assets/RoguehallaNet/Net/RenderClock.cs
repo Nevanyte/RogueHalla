@@ -4,13 +4,13 @@ namespace Roguehalla.Net
 {
     /// <summary>
     /// Maps the local clock to the server time that remote actors are drawn at ("render time"), a delay behind the newest data.
-    /// The delay follows snapshot arrival jitter between 70 and 150 ms. Render time never runs backwards: when more delay is
+    /// The delay follows snapshot arrival jitter between 55 ms (one 50 ms tick plus 5 ms of margin) and 150 ms. Render time never runs backwards: when more delay is
     /// needed it slows to 80% speed; when less, it catches up at 1% for a gap of 20 ms or less, ramping smoothly to
     /// <see cref="MaxCatchUpShare"/> (4%) at 80 ms, so a spike's extra delay is gone in seconds, not ten; it only jumps forward (after a 250 ms gap).
     /// </summary>
     public sealed class RenderClock
     {
-        public const double MinDelayMs = 70, MaxDelayMs = 150, StartDelayMs = 100, SnapMs = 250;
+        public const double MinDelayMs = 55, MaxDelayMs = 150, StartDelayMs = 100, SnapMs = 250;
         const int Window = 80; // about 4 s of snapshots at 20 Hz
         const double SlowShare = 0.2, CatchUpShare = 0.01, RampFromMs = 20, RampSpanMs = 60;
 
