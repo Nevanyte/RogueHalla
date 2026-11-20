@@ -185,6 +185,7 @@ pub(super) fn write_actor(out: &mut Writer, a: &WireActor, prev: Option<u32>) {
 #[allow(clippy::too_many_arguments)] // Mirrors the complete snapshot wire header and body inputs.
 pub(super) fn snapshot_len(
     tick: u32,
+    tick_ms: u32,
     server_time: f64,
     phase: u8,
     ack_input: u32,
@@ -196,6 +197,7 @@ pub(super) fn snapshot_len(
     let head = head_word(
         phase,
         tick,
+        tick_ms,
         server_time,
         me,
         training,
@@ -241,6 +243,8 @@ pub(crate) fn write_owner_combat(w: &mut Writer, owner: &WireOwnerCombat) {
 
 pub(super) struct SnapshotHeader<'a> {
     pub(super) tick: u32,
+    /// The connection's milliseconds per tick: the time a decoder reads when no override is written.
+    pub(super) tick_ms: u32,
     pub(super) server_time: f64,
     pub(super) phase: u8,
     pub(super) ack_input: u32,
@@ -254,6 +258,7 @@ pub(super) struct SnapshotHeader<'a> {
 pub(super) fn write_snapshot_head(w: &mut Writer, header: SnapshotHeader<'_>) {
     let SnapshotHeader {
         tick,
+        tick_ms,
         server_time,
         phase,
         ack_input,
@@ -266,7 +271,7 @@ pub(super) fn write_snapshot_head(w: &mut Writer, header: SnapshotHeader<'_>) {
     f.u8(T_SNAPSHOT);
     f.varint(tick);
     f.varint(ack_input);
-    let head = head_word(phase, tick, server_time, me, training, owner_combat);
+    let head = head_word(phase, tick, tick_ms, server_time, me, training, owner_combat);
     f.varint(head);
     if let Some(s) = me {
         write_self(&mut f, head, s);

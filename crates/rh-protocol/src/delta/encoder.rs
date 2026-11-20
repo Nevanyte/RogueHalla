@@ -10,11 +10,15 @@ pub enum FrameKind {
 }
 
 /// A connection's writer state for snapshots (one per connection, owned by its writer task). See the module docs.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ConnEncoder {
+    /// P-TICK-3-fix: the connection's milliseconds per tick (its Welcome's rate; [`TICK_MS`] unless set). Every snapshot is
+    /// written at it ([`SnapshotData::set_tick_ms`]), and the delta limits are counted at it ([`max_delta_age`],
+    /// [`min_forced_full_ticks`]).
+    tick_ms: u32,
     base: Option<SnapshotData>,
-    /// A resync was requested and not yet answered: the next snapshot is Full once [`MIN_FORCED_FULL_TICKS`] have passed since
-    /// the last forced one (until then deltas continue and the request stays pending).
+    /// A resync was requested and not yet answered: the next snapshot is Full once [`min_forced_full_ticks`] have passed
+    /// since the last forced one (until then deltas continue and the request stays pending).
     force_full: bool,
     /// The tick of the last Full frame that answered a resync request.
     last_forced: Option<u32>,
@@ -29,13 +33,55 @@ pub struct ConnEncoder {
 /// been copied out, so a connection holds no more than this beyond its snapshots.
 pub(super) const SCRATCH_KEEP: usize = 2048;
 
+impl Default for ConnEncoder {
+    /// A 20 Hz connection's encoder ([`TICK_MS`]).
+    fn default() -> Self {
+        Self {
+            tick_ms: TICK_MS,
+            base: None,
+            force_full: false,
+            last_forced: None,
+            departed: Vec::new(),
+            spare: None,
+            scratch: Vec::new(),
+        }
+    }
+}
+
 impl ConnEncoder {
+    /// A 20 Hz connection's encoder ([`TICK_MS`]).
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// A client asked to resync: the next snapshot is a Full frame, or the first one at least [`MIN_FORCED_FULL_TICKS`] after the
-    /// last forced Full (the request is kept, never dropped). Asking again while it is pending changes nothing.
+    /// The encoder of a connection whose Welcome gave `tick_ms` per tick ([`tick_ms_for_rate`]); a rate no decoder accepts is
+    /// refused ([`checked_tick_ms`]).
+    pub fn at(tick_ms: u32) -> Result<Self, EncodeError> {
+        let mut enc = Self::default();
+        enc.set_tick_ms(tick_ms)?;
+        Ok(enc)
+    }
+
+    /// The connection's milliseconds per tick.
+    pub fn tick_ms(&self) -> u32 {
+        self.tick_ms
+    }
+
+    /// Sets the connection's rate, where its Welcome is sent (before its first snapshot). A rate no decoder accepts is
+    /// refused and changes nothing. A different rate drops the base, so the next frame is Full: a base written at the old
+    /// rate is not one the client reads at the new one.
+    pub fn set_tick_ms(&mut self, tick_ms: u32) -> Result<(), EncodeError> {
+        let tick_ms = checked_tick_ms(tick_ms)?;
+        if tick_ms != self.tick_ms {
+            self.tick_ms = tick_ms;
+            self.spare = self.base.take();
+            self.last_forced = None;
+        }
+        Ok(())
+    }
+
+    /// A client asked to resync: the next snapshot is a Full frame, or the first one at least [`min_forced_full_ticks`] (1000
+    /// ms at the connection's rate) after the last forced Full (the request is kept, never dropped). Asking again while it is pending changes nothing.
     pub fn request_full(&mut self) {
         self.force_full = true;
     }
@@ -67,13 +113,13 @@ impl ConnEncoder {
         self.force_full
             && self
                 .last_forced
-                .is_none_or(|t| cur.tick.wrapping_sub(t) >= MIN_FORCED_FULL_TICKS)
+                .is_none_or(|t| cur.tick.wrapping_sub(t) >= min_forced_full_ticks(self.tick_ms))
     }
 
     /// Whether `cur` may be sent as a delta against the base; `forced` is [`ConnEncoder::forced_full_due`].
     fn delta_possible(&self, cur: &SnapshotData, forced: bool) -> bool {
         let Some(b) = &self.base else { return false };
-        if forced || cur.tick <= b.tick || cur.tick - b.tick > MAX_DELTA_AGE {
+        if forced || cur.tick <= b.tick || cur.tick - b.tick > max_delta_age(self.tick_ms) {
             return false;
         }
         match (&b.me, &cur.me) {
@@ -100,8 +146,10 @@ impl ConnEncoder {
     }
 
     /// Appends the frame for `snap` to `out` and makes `snap` the base of the next one: a Delta when that is possible and
-    /// smaller than the Full frame, else a Full frame.
-    pub fn encode(&mut self, snap: SnapshotData, out: &mut Vec<u8>) -> FrameKind {
+    /// smaller than the Full frame, else a Full frame. `snap` is written at this connection's rate
+    /// ([`SnapshotData::set_tick_ms`]), whatever it was built at.
+    pub fn encode(&mut self, mut snap: SnapshotData, out: &mut Vec<u8>) -> FrameKind {
+        snap.stamp_tick_ms(self.tick_ms);
         let start = out.len();
         let mut kind = FrameKind::Full;
         let forced = self.forced_full_due(&snap);
@@ -203,7 +251,7 @@ pub(super) fn write_delta(
         head |= DH_PHASE;
         f.u8(cur.phase);
     }
-    if cur.server_time.to_bits() != snapshot_server_ms(cur.tick).to_bits() {
+    if cur.server_time.to_bits() != snapshot_server_ms_at(cur.tick, cur.tick_ms).to_bits() {
         head |= DH_SERVER_TIME;
         f.bytes(cur.server_time.to_le_bytes());
     }
