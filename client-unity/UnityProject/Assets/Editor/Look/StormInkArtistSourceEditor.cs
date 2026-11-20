@@ -73,15 +73,43 @@ namespace Roguehalla.Editor
             if (source.FireBody != null)
             {
                 Vector3 foot = World(source.FireBody.FootPivot);
-                Handles.Label(foot, "Feet");
+                using (new Handles.DrawingScope(Color.cyan))
+                {
+                    Handles.Label(foot + Vector3.down * .09f, "Foot anchor");
+                    EditorGUI.BeginChangeCheck();
+                    var movedFoot = Handles.Slider2D(foot, Vector3.forward, Vector3.right, Vector3.up,
+                        HandleUtility.GetHandleSize(foot) * .045f, Handles.RectangleHandleCap, Vector2.zero);
+                    if (EditorGUI.EndChangeCheck())
+                        Edit(source.FireBody, "footPivot", prop => prop.vector2Value = Uv(movedFoot));
+                    var crown = World(new Vector2(source.FireBody.FootPivot.x, 1f));
+                    EditorGUI.BeginChangeCheck();
+                    var movedCrown = Handles.Slider(crown, Vector3.up, HandleUtility.GetHandleSize(crown) * .055f,
+                        Handles.ConeHandleCap, 0f);
+                    if (EditorGUI.EndChangeCheck() && Mathf.Abs(crown.y - foot.y) > .001f)
+                        Edit(source.FireBody, "worldHeight", prop => prop.floatValue =
+                            Mathf.Max(.1f, source.FireBody.WorldHeight * (movedCrown.y - foot.y) / (crown.y - foot.y)));
+                }
                 foreach (bool left in new[] { false, true })
                 {
                     if (!source.TryBodyPalm(left, out var palm)) continue;
                     using (new Handles.DrawingScope(left ? Color.cyan : Color.yellow))
                     {
                         var at = World(palm);
-                        Handles.DrawSolidDisc(at, Vector3.forward, HandleUtility.GetHandleSize(at) * .018f);
                         Handles.Label(at + (left ? Vector3.left : Vector3.right) * .09f, left ? "L" : "R");
+                        EditorGUI.BeginChangeCheck();
+                        var moved = Handles.Slider2D(at, Vector3.forward, Vector3.right, Vector3.up,
+                            HandleUtility.GetHandleSize(at) * .03f, Handles.CircleHandleCap, Vector2.zero);
+                        if (EditorGUI.EndChangeCheck())
+                        {
+                            var uv = Uv(moved);
+                            int columns = Mathf.RoundToInt(sprite.texture.width / size.x);
+                            int col = Mathf.RoundToInt(sprite.rect.x / size.x);
+                            int index = source.PoseRow * columns + col;
+                            var pixel = new Vector2Int(Mathf.RoundToInt(uv.x * size.x - .5f),
+                                Mathf.RoundToInt((1f - uv.y) * size.y - .5f));
+                            Edit(source.FireBody, $"palms.Array.data[{index}].{(left ? "Left" : "Right")}",
+                                prop => prop.vector2IntValue = pixel);
+                        }
                     }
                 }
             }
@@ -96,15 +124,20 @@ namespace Roguehalla.Editor
                         HandleUtility.GetHandleSize(grip) * .05f, Handles.CircleHandleCap, Vector2.zero);
                     if (EditorGUI.EndChangeCheck())
                     {
-                        using (var owner = new SerializedObject(source.SharedAxe))
-                        {
-                            owner.FindProperty("grips").GetArrayElementAtIndex(source.PoseRow).vector2Value = Uv(moved);
-                            owner.ApplyModifiedProperties();
-                        }
-                        ChurchArtEditorRefresh.Schedule();
+                        Edit(source.SharedAxe, $"grips.Array.data[{source.PoseRow}]", prop => prop.vector2Value = Uv(moved));
                     }
                 }
             }
+        }
+
+        static void Edit(Object asset, string field, System.Action<SerializedProperty> change)
+        {
+            using (var owner = new SerializedObject(asset))
+            {
+                change(owner.FindProperty(field));
+                owner.ApplyModifiedProperties();
+            }
+            ChurchArtEditorRefresh.Schedule();
         }
     }
 }
