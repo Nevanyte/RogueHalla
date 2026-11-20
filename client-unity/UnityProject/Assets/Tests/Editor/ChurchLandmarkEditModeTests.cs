@@ -327,6 +327,24 @@ namespace Roguehalla.Client.Tests
         }
 
         [TestCaseSource(nameof(Orientations))]
+        public void OverheadPewBackCapFacesTheGraveyardEntrance(int k)
+        {
+            var site = Church(k);
+            using (var scene = new Scene(site.Map, site.Anchor))
+            {
+                var lm = Built(scene, "orientation " + k);
+                // The authored seat opens on sprite-local -Y. Use the two delivered door runs as the oracle.
+                Vector2 front = new Vector2(site.Door.Average(t => (float)t.x), -site.Door.Average(t => (float)t.y));
+                Vector2 rear = new Vector2(site.RearDoor.Average(t => (float)t.x), -site.RearDoor.Average(t => (float)t.y));
+                var pews = Named(lm, "Church pew").ToArray();
+                Assert.That(pews.Length, Is.GreaterThanOrEqualTo(6));
+                foreach (var pew in pews)
+                    Assert.That(Vector2.Dot(pew.up, (front - rear).normalized), Is.GreaterThan(.99f),
+                        "the thin back cap is on the entrance side of every seat in both banks");
+            }
+        }
+
+        [TestCaseSource(nameof(Orientations))]
         public void PewRowsCrossTheAisleAndThePulpitStandsUpright(int k)
         {
             var site = Church(k);
