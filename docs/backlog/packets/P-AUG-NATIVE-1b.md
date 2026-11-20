@@ -97,8 +97,14 @@ that use it end to end. When it lands:
 6. **Plan notes for 1b** (coordinator 2026-11-19):
    - `trusted_build::apply` refuses a native card unless the world's rule is Rework: new
      `BuildRefusal::NativeOutsideRework(CardId)` (stub adds the variant), nothing changed on refusal.
-   - `MAX_FOLD_ROWS` (`cards/mod.rs:319`, 79) silently truncates: 1b's exemplars add no fold rows, so it stays; the
-     oracle adds a guard that it covers every card of both tables (catalog plus native), which the batches must keep.
+   - `MAX_FOLD_ROWS` (`cards/mod.rs:319`, 79) silently truncates (`Build::rows`, `cards/mod.rs:421`). 1b's exemplars
+     add no fold rows, but the oracle's guard (one copy of every card of both tables, catalog plus native, under each
+     table and each faction's own row selection `Tuning::rows(id, faction)`) found the base already over it: a Plague
+     player's selection is 80 rows under both Legacy and Rework (79 is the catalog's total under `definition()`).
+     **Decision (oracle resume, 2026-11-19): the implementer raises `MAX_FOLD_ROWS` to cover it** (at least 80; a
+     const computed from the tables is better) and updates its `NON_GAMEPLAY` reason in `tests/content.rs`. It is a
+     scratch bound, not state: no hash, checkpoint or realistic build moves (only a Plague build holding every catalog
+     card once kept 79 of its 80 rows; legacy has no bound). The batches keep the guard green.
    - `power()` counts native tiers since 1a (legacy `cardPower`, `packages/shared/src/cards.ts:593-603`), which feeds
      `pvp_factor`. Kept: the oracle's damage comparisons hold the card in both arms.
    - Native damage rows and the Rework `maximum_packet` envelope (`modifiers/mod.rs:866`): neither exemplar changes a
@@ -149,7 +155,7 @@ The cards are new (no legacy implementation). Legacy the hooks sit beside, verif
 ## 5. Exclusive write scope
 - `crates/rh-sim/src/cards/native/mod.rs`, `table.rs`, and the stub files `hooks.rs`, `readout.rs`, `weapon.rs`,
   `zone.rs`, `faction.rs`.
-- `crates/rh-sim/src/cards/mod.rs` (`on_blocked`'s `Block` call; `MAX_FOLD_ROWS` if needed).
+- `crates/rh-sim/src/cards/mod.rs` (`on_blocked`'s `Block` call; `MAX_FOLD_ROWS` raised, section 1.6).
 - `crates/rh-sim/src/modifiers/mod.rs` (`outgoing_damage`: Tally's share; `maximum_packet` only if a native packet row
   is needed).
 - Call sites, the helper call only: `crates/rh-sim/src/systems/ledger.rs`, `systems/projectiles.rs`, `systems/credit.rs`,
@@ -159,7 +165,8 @@ The cards are new (no legacy implementation). Legacy the hooks sit beside, verif
 - `crates/rh-sim/src/trusted_build.rs` (the refusal).
 - `crates/rh-sim/src/constants.rs`: the appended row only.
 - `crates/rh-sim/tests/content.rs`: `NON_GAMEPLAY` / `TABLES_FOLDED_BY_HASH` entries for the new statics (the stub adds
-  `NON_GAMEPLAY` rows; the implementer may move a table to the folded list once it folds it), `GOLDEN_CONTENT_HASH`
+  `NON_GAMEPLAY` rows for `hooks.rs` `ALL`/`TRACE`, `readout.rs` `MAX_READOUTS` and the three `POOL`s; the implementer
+  may move a table to the folded list once it folds it), the `MAX_FOLD_ROWS` reason text, `GOLDEN_CONTENT_HASH`
   through the script only. `content/fold.rs` only if the batch tables are folded.
 - The content-hash copies, through `scripts/regolden-content.sh` only (`tools/unity-browser-reload-proof/check.mjs`,
   `normal-companion.mjs`, `client-unity/UnityProject/Assets/Scripts/BakedContent.cs` (`--allow-artefacts`),
@@ -196,7 +203,40 @@ Nothing in `rh-protocol`, `rh-server`, `rh-policy`, `observe.rs`, `wire.rs`, `re
 - `crates/rh-sim/tests/native_no_alloc.rs`
 - `docs/backlog/packets/P-AUG-NATIVE-1b.md` (this brief)
 
-(Filled in after the oracle runs: the stub signatures and why each test fails at the stub.)
+Stub (`stub:` commit; the implementer replaces or edits these): `cards/native/hooks.rs` (`NativeHook` + `ALL`,
+`NativeEvent` with proposed payloads, `NativeEvent::hook`, `fire` with the rule and holder guard and no handler, the
+`cfg(test)` `trace` module that `fire` records into after the guard: keep the `trace::record(holder, hook)` call for
+every dispatch that passes the guard), `cards/native/readout.rs` (`ReadoutKind`, `Readout`, `Readouts`,
+`MAX_READOUTS = 28`, `readouts` returning no rows), `cards/native/{weapon,zone,faction}.rs` (`POOL`, empty),
+`cards/native/mod.rs` (the module lines, `pool_members`, the `cfg(test)` oracle module lines), `trusted_build.rs`
+(`BuildRefusal::NativeOutsideRework(CardId)`, never returned), `tests/content.rs` (six `NON_GAMEPLAY` rows).
+Not stubbed: `REWORK_BASTION_METER_CAP` (the implementer appends the row; the oracle reads it through `REGISTRY`).
+
+Red at the stub, each on an assertion (`cargo test -p rh-sim --features trusted-status-probes`):
+
+| Test | Fails at the stub because |
+|---|---|
+| `hooks_tests::every_native_hook_point_has_a_call_site_outside_the_native_module` | no `NativeEvent::<Name>` outside `cards/native/` (all 13 missing) |
+| `hooks_tests::ranged_hooks_fire_once_per_landed_hit_for_holders_only` | trace empty; wants `{LongRangeHit: 3, HitCount: 3}` for 3 long bow hits (short: `{HitCount: 3}`) |
+| `hooks_tests::fist_hooks_fire_once_per_landed_punch_for_holders_only` | trace empty; wants `{FistHit: 3, HitCount: 3}` |
+| `hooks_tests::block_hook_fires_once_per_block_for_holders_only` | trace empty; wants `{Block: 3}` |
+| `hooks_tests::credited_kill_hook_fires_once_per_kill_for_holders_only` | trace empty; wants `{CreditedKill: 1, HitCount: 1}` |
+| `hooks_tests::the_batch_tables_hold_their_own_cards_and_no_pool_offers_them_yet` | `weapon::POOL` does not list Marksman's Tally and Bastion as `Offer::Any` |
+| `hooks_tests::trusted_build_refuses_a_native_card_outside_rework` | `apply` grants Marksman's Tally in a Legacy world (`Ok(())`) |
+| `hooks_tests::max_fold_rows_covers_every_card_of_both_tables` | `MAX_FOLD_ROWS` 79 < 80 fold rows of a Plague selection, Legacy and Rework (section 1.6) |
+| `exemplars_tests::marksmans_tally_earns_its_workbook_share_per_long_range_hit_only` | bow at 0.92 range: counter 0, wants 0.009 after 3 hits |
+| `exemplars_tests::marksmans_tally_stops_at_its_cap` | counter stays 0.2985, wants 0.30 |
+| `exemplars_tests::marksmans_tally_share_multiplies_the_holders_hits` | ratio 1.0 at the cap, wants 1.3 (within 2%) |
+| `exemplars_tests::bastion_meter_cap_is_its_registered_row` | `REWORK_BASTION_METER_CAP` not registered (None, wants 250) |
+| `exemplars_tests::bastion_fills_with_what_each_block_kept_up_to_its_cap` | meter 0, Tank Engine counted 10.198 for three blocks |
+| `exemplars_tests::bastion_spends_the_meter_on_the_next_landed_hit_at_35_percent` | the blocks left the meter at 0 |
+| `exemplars_tests::readouts_show_each_owner_its_own_native_cards_only` | `readouts` returns no rows |
+| `exemplars_tests::a_checkpoint_mid_count_restores_hash_exact_and_plays_on` | restores hash-exact every tick, but the Tally stays at 0.2925, wants the cap 0.30 |
+| `tests/native_no_alloc.rs` `native_hooks_and_readouts_allocate_nothing_in_a_warmed_tick` | 0 heap blocks at the stub, but the Tally earned no stack in the counted window |
+
+Green at the stub and kept green: `hooks_tests::a_rework_world_without_native_cards_plays_as_on_the_base` (three state
+hashes, event and checkpoint-world digests of a native-free Rework match with long bow hits, blocks under Tank
+Engine, fist hits and a kill, recorded at the stub), 1a's `tests/native_cards.rs`, `tests/content.rs`.
 
 ## 9. Validation commands
 - `cargo test -p rh-sim --features trusted-status-probes --lib cards::native`
