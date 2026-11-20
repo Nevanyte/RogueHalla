@@ -1000,6 +1000,12 @@ pub(crate) fn outgoing_damage(
     let farm = StatSums::from_source_values(p.modifiers.farm).damage;
     let mut sum = sums.damage;
     let mut any_rows = sums.damage != 0.;
+    // P-AUG-NATIVE-1b: the native cards' damage share (Marksman's Tally's counter), under the same ceiling as the rows.
+    let native = crate::cards::native::outgoing_share(build);
+    if native != 0. {
+        sum += native;
+        any_rows = true;
+    }
     for id in build.cards() {
         for row in tuning.def(id).rows {
             match row {

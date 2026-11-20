@@ -62,9 +62,15 @@ const NON_GAMEPLAY: &[(&str, &str, &str)] = &[
     ("cards/catalog.rs", "ALL", "the 80 source card ids in wire order (identifiers only); the definitions live in the catalog table"),
     ("cards/catalog.rs", "NATIVE", "P-AUG-NATIVE-1a: the 14 native augment ids in index order (identifiers only); their names and table are folded by visit_progression_content"),
     ("cards/native/mod.rs", "NATIVE_METERS", "P-AUG-NATIVE-1a: the fixed number of working meters per native card slot (a state shape bound, not a game rule; the caps are registered rows)"),
+    ("cards/native/hooks.rs", "ALL", "P-AUG-NATIVE-1b: the 13 native hook kinds in the brief's order (identifiers only)"),
+    ("cards/native/hooks.rs", "TRACE", "P-AUG-NATIVE-1b: cfg(test)-only record of native hook dispatches read by the oracle; never read by gameplay"),
+    ("cards/native/readout.rs", "MAX_READOUTS", "P-AUG-NATIVE-1b: fixed capacity of one viewer's native readout rows (a presentation bound, not a game rule)"),
+    ("cards/native/weapon.rs", "POOL", "P-AUG-NATIVE-1b: weapon batch chest pool membership (identifiers and offer rules); read by no pool, so not folded into content_hash, until P-WIRE19-A admits native cards"),
+    ("cards/native/zone.rs", "POOL", "P-AUG-NATIVE-1b: zone batch chest pool membership (identifiers and offer rules); read by no pool, so not folded into content_hash, until P-WIRE19-A admits native cards"),
+    ("cards/native/faction.rs", "POOL", "P-AUG-NATIVE-1b: faction batch chest pool membership (identifiers and offer rules); read by no pool, so not folded into content_hash, until P-WIRE19-A admits native cards"),
     ("cards/catalog_data.rs", "DEFINITIONS", "typed 80-card catalog table generated from the accepted source corpus; the gameplay numbers are the registered source constants"),
     ("cards/mod.rs", "SUPPORTED", "the three-card native subset selector (identifiers only), not a game rule"),
-    ("cards/mod.rs", "MAX_FOLD_ROWS", "fixed scratch bound equal to the generated catalog's total fold rows, not a game rule"),
+    ("cards/mod.rs", "MAX_FOLD_ROWS", "fixed scratch bound: the most fold rows one copy of every card gives under either card table and any faction's row selection (80, a Plague player's; guarded by native::hooks_tests), not a game rule"),
     ("mob_runtime.rs", "LEGACY_ELITES", "P-AUG-RULES-1: the legacy elite numbers, ELITE_K / ELITE_HP_MULT / ELITE_DMG_MULT by name; no number of its own"),
     ("mob_runtime.rs", "REWORK_ELITES", "P-AUG-RULES-1: the Rework elite numbers, registered constants by name (the legacy ones until P-ELITE-TUNE-1 registers its rows); no number of its own"),
     ("modifiers/mod.rs", "MAX_FOLD_INPUT", "fixed fold scratch bound (the catalog rows plus the test-only diagnostic overlay), not a game rule"),
@@ -575,7 +581,7 @@ fn hash_golden() {
         content_hash()
     );
 }
-const GOLDEN_CONTENT_HASH: u64 = 0x8196_e898_724e_4218;
+const GOLDEN_CONTENT_HASH: u64 = 0xa037_4563_0efa_1c12;
 
 #[test]
 fn every_registry_row_perturbs_the_hash() {

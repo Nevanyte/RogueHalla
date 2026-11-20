@@ -260,6 +260,7 @@ fn the_native_numbers_are_the_workbooks_registered_rows_and_the_caps_read_them()
         let (meters, marks) = match id {
             CardId::HazardWalker => ([immune; NATIVE_METERS], 0b111),
             CardId::Pathfinder => ([0.; NATIVE_METERS], normal_types),
+            CardId::Bastion => ([num("REWORK_BASTION_METER_CAP"), 0., 0.], 0),
             _ => ([0.; NATIVE_METERS], 0),
         };
         assert_eq!(r.meter_caps, meters, "{id:?} meter caps");

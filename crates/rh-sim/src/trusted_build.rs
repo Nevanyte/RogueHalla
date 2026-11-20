@@ -38,6 +38,8 @@ pub enum BuildRefusal {
     StacksOverMax(MobTypeId),
     /// A boost total past the chest's pick cap.
     BoostOverCap(BoostId),
+    /// P-AUG-NATIVE-1b: a native card (`CardId::NATIVE`) in a world whose card table is not `Rework`.
+    NativeOutsideRework(CardId),
 }
 
 /// Adds `build` to the seated fighter `id`, between steps only: all or nothing, then one re-fold and max hp following.
@@ -53,6 +55,11 @@ pub fn apply(sim: &mut Sim, id: PlayerId, build: &TrustedBuild) -> Result<(), Bu
     for &(card, add) in &build.cards {
         if add == 0 {
             continue;
+        }
+        // P-AUG-NATIVE-1b: a native card exists only under the Rework card table (`check_world` refuses it elsewhere).
+        if crate::cards::native::is_native(card) && sim.k.cards.rule() != crate::AugmentRule::Rework
+        {
+            return Err(BuildRefusal::NativeOutsideRework(card));
         }
         let def = card.definition();
         // Legacy `cardBlock`: a unique card already held (or asked twice), then a conditional without its base.
