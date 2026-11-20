@@ -42,6 +42,12 @@ namespace Roguehalla.Editor
                         AddField(pair.FindPropertyRelative("Left"), "Left palm (pixels from top left)");
                         AddField(pair.FindPropertyRelative("Right"), "Right palm (pixels from top left)");
                     }
+                    if (owner is StormInkFireBowAuthoring)
+                    {
+                        var depth = source.FindProperty("stringBehindBodyRows");
+                        if ((uint)view.PoseRow < depth.arraySize)
+                            AddField(depth.GetArrayElementAtIndex(view.PoseRow), "Draw string behind body for this facing");
+                    }
                 }
             }
             else

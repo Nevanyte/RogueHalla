@@ -289,6 +289,7 @@ namespace Roguehalla.Client.Tests
                     // East row 2, second full draw at column 7.
                     Assert.That(bodyFields, Does.Contain("palms.Array.data[27].Left"));
                     Assert.That(bodyFields, Does.Contain("palms.Array.data[27].Right"));
+                    Assert.That(bodyFields, Does.Contain("stringBehindBodyRows.Array.data[2]"));
                     var bowFields = bowEditor.CreateInspectorGUI().Query<PropertyField>().ToList()
                         .Select(field => field.bindingPath);
                     Assert.That(bowFields, Does.Contain("nocks.Array.data[2].Top"));
