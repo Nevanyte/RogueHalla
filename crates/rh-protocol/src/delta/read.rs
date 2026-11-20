@@ -224,6 +224,9 @@ pub(crate) fn read_snapshot_delta(r: &mut Reader) -> Result<SnapshotDelta, Decod
         if mask & AD_MARK != 0 {
             q.mark = [r.u8()?, r.u8()?, r.u8()?];
         }
+        if mask & AD_WALK != 0 {
+            q.walk = [r.u8()?, r.u8()?];
+        }
         if let Some(why) = crate::indicator_fault(q.offhand, q.build_marks, q.mark, q.flags) {
             return Err(DecodeError::BadField(why));
         }

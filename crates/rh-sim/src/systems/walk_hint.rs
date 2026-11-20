@@ -1,5 +1,6 @@
 //! Source walkHint.ts: readonly lower-bound preview, then only two player presentation bytes.
-//! No gameplay, input, observer or policy consumes this state.
+//! No gameplay, input or policy decision consumes this state: the public observation only carries the pair to the wire
+//! (`observe::WalkHint`, protocol 19) for remote players' presentation.
 mod queries;
 use super::Cx;
 use crate::{

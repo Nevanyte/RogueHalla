@@ -88,6 +88,7 @@ namespace Roguehalla.Net.Protocol
                     var a = Actors[i];
                     if (a.Faction > Wire.MaxKitCode || a.Weapon > Wire.MaxKitCode || a.Status > Wire.MaxStatusCode) throw new ArgumentException("actor faction/weapon/status");
                     WireIndicators.CheckEncoded(a.Offhand, a.BuildMarks, a.MarkTier, a.Brand, a.MarkTax, a.Flags);
+                    if (a.WalkTicks == 0 && a.WalkDir != 0) throw new ArgumentException("walk hint");
                     if (!a.HasValidGiverIdentity) throw new ArgumentException("giver actor");
                     if (a.HpPct > 100) throw new ArgumentException("hp_pct");
                     if (!Quant.PosInRange(a.X) || !Quant.PosInRange(a.Y)) throw new ArgumentException("position");
@@ -275,6 +276,7 @@ namespace Roguehalla.Net.Protocol
                     if ((a.Mask & ActorDelta.MOffhand) != 0) a.Offhand = r.U8();
                     if ((a.Mask & ActorDelta.MBuildMarks) != 0) a.BuildMarks = r.U8();
                     if ((a.Mask & ActorDelta.MMark) != 0) { a.MarkTier = r.U8(); a.Brand = r.U8(); a.MarkTax = r.U8(); }
+                    if ((a.Mask & ActorDelta.MWalk) != 0) { a.WalkDir = r.U8(); a.WalkTicks = r.U8(); }
                     string fault = a.IndicatorFault();
                     if (fault != null) throw new DecodeException(DecodeError.BadField, fault);
                     d.Changed[i] = a;
@@ -385,6 +387,7 @@ namespace Roguehalla.Net.Protocol
                     if ((a.Mask & ActorDelta.MOffhand) != 0) w.U8(a.Offhand);
                     if ((a.Mask & ActorDelta.MBuildMarks) != 0) w.U8(a.BuildMarks);
                     if ((a.Mask & ActorDelta.MMark) != 0) { w.U8(a.MarkTier); w.U8(a.Brand); w.U8(a.MarkTax); }
+                    if ((a.Mask & ActorDelta.MWalk) != 0) { w.U8(a.WalkDir); w.U8(a.WalkTicks); }
                 }
                 if (DepartedCount > 0)
                 {

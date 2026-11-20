@@ -550,12 +550,13 @@ fn a_map_without_dressing_keeps_today_s_bytes() {
     }
 }
 
-// Moved with the version field at protocol 18: v17/v18 Welcomes differ only in 811100 -> 811200 (protocol_18_stamp.rs).
+// Moved with the version field at protocol 18: v17/v18 Welcomes differ only in 811100 -> 811200 (protocol_18_stamp.rs);
+// and again at protocol 19 (P-NET-DRAWAHEAD-1a): 811200 -> 811300.
 const WELCOME_LEN: usize = 1832;
-const WELCOME_DIGEST: u64 = 0x8e41_80ea_69be_ae1e;
+const WELCOME_DIGEST: u64 = 0x42e4_7fdc_2353_6871;
 const SHIPPED_LEN: usize = 2324;
-const SHIPPED_DIGEST: u64 = 0xf246_bf47_6f05_5b28;
+const SHIPPED_DIGEST: u64 = 0x69c0_7ffc_0714_4307;
 const ALL_LEN: usize = 2424;
-const ALL_DIGEST: u64 = 0x6e5e_fdb3_841e_7401;
+const ALL_DIGEST: u64 = 0xc9bb_db7c_2a4f_8016;
 const GROUND_BOTH_LEN: usize = 1868;
-const GROUND_BOTH_DIGEST: u64 = 0xce78_20ad_a094_81cd;
+const GROUND_BOTH_DIGEST: u64 = 0x3a3f_7f90_c297_b2be;

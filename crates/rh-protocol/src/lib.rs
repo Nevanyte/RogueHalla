@@ -92,6 +92,7 @@
 //!     1 hp_pct u8 (default 100)  2 status u8 0..=3 (default 1)  3 bounty varint (0)  4 kind u8 (0 = player)  5 effects u16 (0)  6 displacement u8 (0)  7 mob_type_code u8 (0..=30)  8 sig u8 (0)  9 barrier_pct u8 + ring step u8
 //!     10 archetype u8  11 indicator flags u8  12 off-hand u8 (0 empty, weapon + 1)  13 build marks u8 (two 4-bit stat keys)
 //!     14 mark plate: tier u8, brand u8, tax u8 (protocol 16; ADR0024, ADR0026)
+//!     15 walk hint: walk_dir u8, walk_ticks u8, set only while walk_ticks != 0; absent is (0, 0) (protocol 19)
 //!   protocol 16 head bits: 20 owner combat (after the actors)  21 archetype u8  22 indicator flags u8  23 build marks u8
 //!     24 mark plate (tier, brand, tax), self fields in bit order after the barrier pair
 //! SnapshotDelta 0x87, tick varint, base_age varint (tick - base tick, 1..=MAX_DELTA_AGE), ack_input varint, head varint
@@ -107,6 +108,7 @@
 //!     7 kind u8  8 effects u16  9 displacement u8  10 mob_type_code u8 (0..=30)  11 sig u8. A NEW actor (not in the base) starts from the default actor and must carry bits 0..=2 (its position).
 //!     Protocol 16: delta head bits 24 owner combat, 25 archetype, 26 indicator flags, 27 build marks, 28 mark plate; actor delta
 //!     bits 12 barrier pair, 13 archetype, 14 indicator flags, 15 off-hand, 16 build marks, 17 mark plate (ADR0024, ADR0026).
+//!     Protocol 19: actor delta bit 18 walk hint (walk_dir u8, walk_ticks u8; (0, 0) clears it).
 //!   [departed_count varint (1..=MAX_ACTORS), then the ids: the first's id, then gaps]    only with head bit 7
 //! ```
 //!
@@ -205,7 +207,7 @@ pub use weapon::{
 };
 
 /// Bump on any incompatible change (a new tag or field in an existing message). Both ends refuse another major version.
-pub const PROTOCOL_VERSION: u16 = 18;
+pub const PROTOCOL_VERSION: u16 = 19;
 /// Milliseconds per server tick (20 Hz). A Snapshot carries `tick` only: its server time is `tick * TICK_MS` exactly.
 pub const TICK_MS: u32 = 50;
 
