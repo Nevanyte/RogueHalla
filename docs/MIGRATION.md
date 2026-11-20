@@ -45,6 +45,11 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
     EditMode 1581/1581. Log `.agent-runs/gate/20261120T013515-coord-int-67-full.log`.
   - **Deploy rule:** a build holding WIRE19-A without WIRE19-B is never deployed (P-WIRE19-A decision 6). WIRE19-B
     stays inside protocol 19.
+  - reviewer-opus integration review: **LAND**. Neither merge lost a hunk, and the hash tape reads content
+    `a03745630efa1c12` and observation 31.
+  - **Gap the review found:** no pool reads `cards::native::pool_members()` yet. P-AUG-NATIVE-4 owns wiring it into the
+    Rework chest pool for all three batch tables, with an end-to-end test from a pick to a hook.
+  - The gate logs of integrations 65 to 67 are in `.agent-runs/gate/`, which is local and not committed.
 - **Identities after integration 67:** protocol 19, observation 31, policy contract 26, checkpoint `rh-checkpoint/35`,
   replay 25, content hash `a03745630efa1c12`.
 
