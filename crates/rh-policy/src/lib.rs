@@ -53,6 +53,8 @@ use std::time::{Duration, Instant};
 /// Wall (field kind 3) with its tile list; bots do not decide on it.
 /// Version 25 (observation 30, P-FROST-WALL-BOTS-1): [`MatchStart`] carries `frost_wish`, the room's Frost Wish (the
 /// room-wide public value every human client reads from the Welcome's HUD block, term 23); bots aim Frost Wall by it.
+/// Version 26 (observation 31, P-WIRE19-A): a projected reward chest row (State key 4) carries `first_pick` (the killer
+/// first-pick window's end and the viewer's own `mine`), and a card option may be a native id 80..=93.
 pub const POLICY_CONTRACT_VERSION: u16 = 26;
 
 /// Everything a policy may know about a match before its first observation, all of it public static data (the map
