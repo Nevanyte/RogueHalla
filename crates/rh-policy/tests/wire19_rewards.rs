@@ -120,7 +120,7 @@ fn bots_read_a_native_option_by_its_name() {
 #[test]
 fn the_policy_contract_moved_past_25() {
     assert!(
-        rh_policy::POLICY_CONTRACT_VERSION > 25,
+        std::hint::black_box(rh_policy::POLICY_CONTRACT_VERSION) > 25,
         "the projected State key 4 gains native ids and the first-pick window (P-WIRE19-A): POLICY_CONTRACT_VERSION \
          moves past 25 (26, or the next number if P-AUG-NATIVE-1b took 26 first)"
     );

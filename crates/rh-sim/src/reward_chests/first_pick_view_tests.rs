@@ -306,7 +306,7 @@ fn a_legacy_elite_chest_carries_no_window() {
 #[test]
 fn the_observation_version_moved_past_30() {
     assert!(
-        crate::OBSERVATION_VERSION > 30,
+        std::hint::black_box(crate::OBSERVATION_VERSION) > 30,
         "RewardChestView gains first_pick (P-WIRE19-A): OBSERVATION_VERSION moves past 30 (31, or the next number if \
          P-AUG-NATIVE-1b took 31 first)"
     );
