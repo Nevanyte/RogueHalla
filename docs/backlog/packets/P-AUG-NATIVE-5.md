@@ -234,6 +234,8 @@ shared records.
 - oracle-amend `crates/rh-protocol/tests/hud_wire.rs` (`MAX_STATE_KEYS` 15)
 - oracle-amend `crates/rh-policy/src/delivery_tests.rs` (State key 16 is the unknown one)
 - oracle-amend `client-unity/RoguehallaNet.Tests/Wire19ReadoutTests.cs` (key 16 unknown; the two moved vectors)
+- oracle-amend `crates/rh-sim/src/reward_chests/native_pool_tests.rs` (the faction-offer sweep over four room seeds,
+  floors 32 and 65; coordinator decision below)
 
 Existing tests that pin what this packet changes (each amended above, or a version stamp in the write scope):
 `tests/native_cards.rs:248` (cap 0); `rh-protocol/tests/wire19_readouts.rs:76, :217-275` and `hud_wire.rs:236`
@@ -242,7 +244,7 @@ Existing tests that pin what this packet changes (each amended above, or a versi
 the version stamps listed in section 5. Tests that hold and must stay green: `native_cards.rs` "observed as one who does
 not" (no Marked Man in `held_rows`), `native_pool_tests.rs` (generic over `pool_members`), `hooks_tests.rs:447`.
 
-### Conflict for the coordinator (before any implementer starts)
+### Conflict for the coordinator (resolved 2026-11-20)
 
 Measured by the oracle author on `packet/P-AUG-NATIVE-5` with only the `POOL` row `(CardId::MarkedMan, Offer::Any)`
 added (then reverted): `crates/rh-sim/src/reward_chests/native_pool_tests.rs:168`
@@ -256,6 +258,14 @@ still a positive control against "never offered"), or a sweep over several room 
 red of the probe run is the content-hash family that `scripts/regolden-content.sh` moves (`tests/content.rs`
 `hash_golden`, `frost_wall_content.rs`, `regolden_content.rs`, `barriers_reach_tests` / `barriers_readers_tests`
 golden guards, `hash_tape`) and this packet's own oracles.
+
+**Coordinator decision (2026-11-20): do not lower the floor; make the sweep robust.** Amended in its own
+`oracle-amend:` commit: the sweep runs four room seeds (5, 6, 7, 8; 1600 chests per faction) and sums. Measured own-card
+counts Plague/Fire/Frost/Sentenced: 67/61/66/64 without Marked Man pooled, 70/53/60/54 with it; `OWN_FLOOR` 32 (about
+60% of 53). Any-native counts 125/128/113/132 and 109/108/115/127; `ANY_FLOOR` 65 (about 60% of 108). Every
+never-to-another-faction, never-to-a-mixed-chest and Legacy assertion is unchanged. The floor holds before and after
+the implementer adds the row. **Policy contract:** 30 for this packet (P-AUG-BOTS-1 takes 29 and merges first); the
+coordinator moves this oracle's 29 pins to 30 when rebasing.
 
 ## 9. Validation commands
 
