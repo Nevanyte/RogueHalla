@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.IO;
+using System.Reflection;
 using System.Linq;
 using System.Security.Cryptography;
 using NUnit.Framework;
@@ -67,15 +69,28 @@ namespace Roguehalla.Client.Tests
                 var weapon = renderers.Single(r => r.name == "Equipped weapon cue");
                 var halo = renderers.Single(r => r.name == "Faction footprint");
                 Vector3 foot = halo.transform.position;
-                foreach (var release in new[] { StormInkFireAxePose.ReleaseA, StormInkFireAxePose.ReleaseB })
+                var actors = (IDictionary)typeof(SpriteActorPresenter)
+                    .GetField("_active", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(presenter);
+                object actor = actors[1u];
+                var attackAt = actor.GetType().GetField("AttackAt");
+                foreach (bool alternate in new[] { false, true })
                 {
+                    presenter.ConfirmedCue(1, FxKind.Windup, WeaponId.Axe, aim, 250f);
+                    Present();
+                    Assert.That(bodyRenderer.sprite, Is.SameAs(config.Frame(row,
+                        alternate ? StormInkFireAxePose.WindupB : StormInkFireAxePose.Windup)));
                     presenter.ConfirmedCue(1, FxKind.Swing, WeaponId.Axe, aim);
                     Present();
-                    Assert.That(bodyRenderer.sprite, Is.SameAs(config.Frame(row, release)));
+                    Assert.That(bodyRenderer.sprite, Is.SameAs(config.Frame(row,
+                        alternate ? StormInkFireAxePose.ReleaseB : StormInkFireAxePose.ReleaseA)));
                     Assert.That(weapon.sprite, Is.SameAs(StormInkWeaponArt.Get(WeaponId.Axe, row)));
                     Assert.That(halo.transform.position, Is.EqualTo(foot));
                     Assert.That(config.TryHand(bodyRenderer.sprite, false, out var palm), Is.True);
                     Assert.That(Vector2.Distance(Socket(bodyRenderer, palm), Socket(weapon, StormInkWeaponArt.Grip(WeaponId.Axe, row))), Is.LessThan(.001f));
+                    attackAt.SetValue(actor, Time.unscaledTime - .2f);
+                    Present();
+                    Assert.That(bodyRenderer.sprite, Is.SameAs(config.Frame(row,
+                        alternate ? StormInkFireAxePose.RecoveryB : StormInkFireAxePose.Recovery)));
                 }
                 Assert.That(ShowcaseSprites.Get("weapon4"), Is.SameAs(StormInkWeaponArt.Get(WeaponId.Axe)));
                 Assert.That(StormInkWeaponArt.GroundCentre(WeaponId.Axe), Is.EqualTo(new Vector2(0, .39f)));

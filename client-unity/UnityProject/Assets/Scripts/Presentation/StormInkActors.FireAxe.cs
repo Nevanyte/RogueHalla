@@ -31,9 +31,9 @@ namespace Roguehalla.Client
             {
                 var authoredPose = phase switch
                 {
-                    StormInkWeaponMotion.Phase.Ready => StormInkFireAxePose.Windup,
+                    StormInkWeaponMotion.Phase.Ready => alternate ? StormInkFireAxePose.WindupB : StormInkFireAxePose.Windup,
                     StormInkWeaponMotion.Phase.Strike => alternate ? StormInkFireAxePose.ReleaseB : StormInkFireAxePose.ReleaseA,
-                    StormInkWeaponMotion.Phase.Follow => StormInkFireAxePose.Recovery,
+                    StormInkWeaponMotion.Phase.Follow => alternate ? StormInkFireAxePose.RecoveryB : StormInkFireAxePose.Recovery,
                     _ => stride ? StormInkFireAxePose.Stride : StormInkFireAxePose.Guard,
                 };
                 var authoredFrame = authoring.Frame(PoseRow(direction), authoredPose, stage);
