@@ -31,6 +31,8 @@ mod faction_tests;
 #[cfg(test)]
 mod hooks_tests;
 #[cfg(test)]
+mod walk_mirror_tests;
+#[cfg(test)]
 mod weapon_batch_tests;
 #[cfg(test)]
 mod wish_engine_tests;
@@ -119,6 +121,39 @@ pub(crate) fn hazard_guard(build: &super::Build, hazard: usize) -> (f64, bool) {
     zone::hazard_guard(&build.native, hazard)
 }
 
+/// P-AUG-NATIVE-3c: how a fighter meets the ice's slip acceleration (`terrain::effect(..).accel`). `Copy`, so the walk
+/// reads it once and maps every substep's acceleration without borrowing the build.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum IceGrip {
+    /// Not a Hazard Walker holder (every mob, every build in a non-`Rework` world): the raw acceleration, untouched.
+    Raw,
+    /// A Hazard Walker holder not immune to the ice: the slip time is scaled by this `1 - resist` (>= 0.4: the stack
+    /// cap is 15), so the acceleration is divided by it.
+    Resisted(f64),
+    /// Ice-immune (mark bit 2): the ice is ground.
+    Immune,
+}
+
+impl IceGrip {
+    /// The acceleration this fighter meets where the raw slip acceleration is `accel` (0 stays 0).
+    pub(crate) fn accel(self, accel: f64) -> f64 {
+        match self {
+            IceGrip::Raw => accel,
+            _ if accel == 0. => accel,
+            IceGrip::Resisted(slip) => accel / slip,
+            IceGrip::Immune => 0.,
+        }
+    }
+}
+
+/// The [`IceGrip`] of a build: `Raw` for a build holding no native card (one guard).
+pub(crate) fn ice_grip(build: &super::Build) -> IceGrip {
+    if build.native.is_empty() {
+        return IceGrip::Raw;
+    }
+    zone::ice_grip(&build.native)
+}
+
 /// The native cards' flat max hp term over `base_hp` (`modifiers::sync_max_hp`): Hazard Walker's stacks and Corpse
 /// Hoarder's share.
 pub(crate) fn flat_max_hp(build: &super::Build, base_hp: f64) -> f64 {
@@ -142,6 +177,22 @@ pub(crate) fn wish_engine_share(build: &super::Build) -> f64 {
 /// Does the build hold Overflow (its barriers fade over `REWORK_OVERFLOW_FADE_MS`)?
 pub(crate) fn holds_overflow(build: &super::Build) -> bool {
     !build.native.is_empty() && zone::holds_overflow(&build.native)
+}
+
+/// P-AUG-NATIVE-5: Marked Man's normal-kill stacks: `(kill_stacks x 1.5 with the carry, Some(next carry))` for a
+/// holder, `(kill_stacks, None)` for a build not holding it (no slot is read). The caller (`mob_life::pay`) writes the
+/// carry only when the grant pays.
+pub(crate) fn marked_man_stacks(build: &super::Build, kill_stacks: u64) -> (u64, Option<f64>) {
+    if build.native.is_empty() {
+        (kill_stacks, None)
+    } else {
+        zone::marked_man_stacks(&build.native, kill_stacks)
+    }
+}
+
+/// P-AUG-NATIVE-5: does the build hold Marked Man (its `Alive` holder is public on every minimap)?
+pub(crate) fn holds_marked_man(build: &super::Build) -> bool {
+    !build.native.is_empty() && zone::holds_marked_man(&build.native)
 }
 
 /// The bursts the ledger added to one victim's entries (`landed_burst`): at most one per holder, at most one holder per
@@ -457,6 +508,13 @@ pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
                             slot.counter
                         ));
                     }
+                }
+                // P-AUG-NATIVE-5: the carry is what whole kills at 1.5 leave over: exactly 0 or the half stack.
+                CardId::MarkedMan if slot.counter != 0. && slot.counter != r.counter_cap => {
+                    return Err(format!(
+                        "player {who}: marked man carry {} is neither 0 nor {}",
+                        slot.counter, r.counter_cap
+                    ));
                 }
                 _ => {}
             }

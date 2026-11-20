@@ -233,7 +233,8 @@ fn summary_frame(s: &WireBuildSummary) -> Vec<u8> {
 #[test]
 fn build_summary_round_trips_with_the_brief_layout() {
     // P-WIRE19-B (oracle-amend): key 14, the owner's readout rows, follows key 13.
-    assert_eq!(MAX_STATE_KEYS, 14, "key 14 is the newest state key");
+    // P-AUG-NATIVE-5 (oracle-amend): key 15, the Marked Man rows, follows key 14.
+    assert_eq!(MAX_STATE_KEYS, 15, "key 15 is the newest state key");
     assert_eq!(MAX_SUMMARY_MOB_ROWS, 20);
     assert_eq!(HUD_QUANTUM, 1e-4);
     let s = summary();

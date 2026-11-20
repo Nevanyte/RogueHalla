@@ -32,6 +32,8 @@ pub struct CollectionPublisher {
     summary: Option<WireBuildSummary>,
     /// P-WIRE19-B: the readout rows the client holds (empty from every Welcome).
     readouts: Vec<rh_protocol::WireReadout>,
+    /// P-AUG-NATIVE-5: the quantized Marked Man rows the client holds (empty from every Welcome).
+    marked: Vec<rh_protocol::WireMarked>,
     last_forced: Option<u32>,
 }
 
@@ -53,6 +55,30 @@ fn inventory(value: Inventory) -> WireInventory {
         healing_until: value.healing_until,
         speed_boost_until: value.speed_boost_until,
     }
+}
+
+/// P-AUG-NATIVE-5: the public Marked Man rows as State key 15 rows, each position as the client will decode it (the
+/// actor quantization), so a sub-quantum move compares equal and is not resent. A position the wire cannot carry is
+/// passed through unquantized, so the encoder refuses it (never clamped).
+fn marked(observation: &Observation) -> Vec<rh_protocol::WireMarked> {
+    use rh_protocol::quant::{dequantize_pos, pos_in_range, quantize_pos};
+    let on_wire = |v: f64| {
+        let v = v as f32;
+        if pos_in_range(v) {
+            dequantize_pos(quantize_pos(v))
+        } else {
+            v
+        }
+    };
+    observation
+        .marked
+        .iter()
+        .map(|row| rh_protocol::WireMarked {
+            id: row.id.0,
+            x: on_wire(row.x),
+            y: on_wire(row.y),
+        })
+        .collect()
 }
 
 /// P-WIRE19-B: the viewer's own readout rows as State key 14 rows, value and max unchanged (the encoder refuses an
@@ -783,6 +809,12 @@ impl CollectionPublisher {
         if next_readouts != self.readouts || (full && !next_readouts.is_empty()) {
             items.push(StateItem::Readouts(next_readouts));
         }
+        // Key 15 (P-AUG-NATIVE-5) follows key 14's rule: the public Marked Man rows, sent only when the quantized rows
+        // differ from what the client holds, so a world without a holder never sends it.
+        let next_marked = marked(observation);
+        if next_marked != self.marked || (full && !next_marked.is_empty()) {
+            items.push(StateItem::Marked(next_marked));
+        }
         let (frame, items) = if items.is_empty() {
             (None, items)
         } else {
@@ -823,6 +855,7 @@ impl PendingState {
                 StateItem::RewardChests(_) => {}
                 StateItem::BuildSummary(v) => publisher.summary = v,
                 StateItem::Readouts(v) => publisher.readouts = v,
+                StateItem::Marked(v) => publisher.marked = v,
             }
         }
         publisher.sent = true;

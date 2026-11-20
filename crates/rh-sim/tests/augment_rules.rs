@@ -100,9 +100,9 @@ fn rework_is_the_string_rework_in_json_and_legacy_writes_nothing() {
     }
 }
 
-/// The base of the identity test: a default world stepped once. Only its statics config changes below.
+/// The base of the identity test: a default world at tick 0 (on the 50 and the 25 ms grid alike). Only its statics config changes below.
 fn identity_base() -> Value {
-    let mut sim = Sim::reset_active(
+    let sim = Sim::reset_active(
         SimConfig::default(),
         practice_arena(),
         Secrets::from_seed(81),
@@ -116,19 +116,18 @@ fn identity_base() -> Value {
             weapon1: None,
         }],
     );
-    sim.step();
     serde_json::to_value(&sim).unwrap()
 }
 
-/// The hasher folds values, not field names (`statics.rs`, `RegenInCombat`): every one of the six config switches whose
+/// The hasher folds values, not field names (`statics.rs`, `RegenInCombat`): every one of the seven config switches whose
 /// default folds nothing must give its non-default value a word of its own, or two different worlds share a digest.
-/// All 64 combinations of the six, on one fixed world, are 64 different state hashes.
+/// All 128 combinations of the seven, on one fixed world, are 128 different state hashes.
 #[test]
 fn every_combination_of_the_silent_config_switches_is_its_own_statics_identity() {
     use rh_sim::archetype::MobSpacing;
     use rh_sim::{CampBuffRule, FrostWish, RegenInCombat};
     let base = identity_base();
-    let switches: [(&str, Value, Value); 6] = [
+    let switches: [(&str, Value, Value); 7] = [
         (
             "mob_spacing",
             serde_json::to_value(MobSpacing::Auto).unwrap(),
@@ -159,9 +158,11 @@ fn every_combination_of_the_silent_config_switches_is_its_own_statics_identity()
             serde_json::to_value(EliteRule::Legacy).unwrap(),
             serde_json::to_value(EliteRule::Rework).unwrap(),
         ),
+        // P-SYNC-ORIGIN-1-fix: P-TICK-1a's step length. The base world sits at tick 0, on both grids.
+        ("tick_ms", json!(null), json!(25)),
     ];
     let mut seen: BTreeMap<u64, String> = BTreeMap::new();
-    for mask in 0u32..64 {
+    for mask in 0u32..128 {
         let mut cp = base.clone();
         let mut name = Vec::new();
         for (bit, (field, off, on)) in switches.iter().enumerate() {
@@ -183,7 +184,7 @@ fn every_combination_of_the_silent_config_switches_is_its_own_statics_identity()
             panic!("`{other}` and `{name}` share the statics digest (state hash {h:#018x})");
         }
     }
-    assert_eq!(seen.len(), 64);
+    assert_eq!(seen.len(), 128);
     // The two defaults fold nothing: the all-default restore is the base world's own hash.
     let unchanged = Sim::restore(base.clone()).unwrap().state_hash();
     assert_eq!(

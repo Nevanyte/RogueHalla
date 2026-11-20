@@ -938,6 +938,21 @@ function readReadouts(r) {
   }
   return rows;
 }
+// P-AUG-NATIVE-5, State key 15: every Marked Man holder's public position (the minimap marker, the same for every viewer).
+// count u8 (<= 32, refused before the rows), then rows of id varint (nonzero, strictly ascending), x u16, y u16 (actor
+// quantization); per row: id, then order. Every u16 position decodes.
+function readMarked(r) {
+  const n = r.u8(); if (n > 32) throw new Error("bad marked count");
+  const rows = []; let previous = 0;
+  for (let i = 0; i < n; i++) {
+    const id = r.varint(); if (id === 0) throw new Error("bad marked id");
+    if (id <= previous) throw new Error("bad marked order");
+    previous = id;
+    const x = dqPos(r.u16()), y = dqPos(r.u16());
+    rows.push({ id, x, y });
+  }
+  return rows;
+}
 function readRoster(r) {
   const n = r.u8();
   if (n > 32) throw new Error("bad roster count");
@@ -1001,7 +1016,7 @@ function readBuildSummary(r) {
 }
 // Complete replacements. Decode the entire frame before a collection consumer changes retained state.
 function readState(r) {
-  const n = r.varint(); if (n > 14) throw new Error("too many state keys");
+  const n = r.varint(); if (n > 15) throw new Error("too many state keys");
   const flag = () => r.opt(() => true) !== null;
   const strictBool = (what) => { const v = r.u8(); if (v > 1) throw new Error("bad " + what); return v === 1; };
   const finite = (x) => { if (!Number.isFinite(x)) throw new Error("bad field"); return x; };
@@ -1011,7 +1026,7 @@ function readState(r) {
   const count = () => { const v = r.varint(); if (v > 512) throw new Error("too many state rows"); return v; };
   const items = []; let previous = 0;
   for (let i = 0; i < n; i++) {
-    const key = r.varint(); if (key <= previous || key > 14) throw new Error("bad state key"); previous = key;
+    const key = r.varint(); if (key <= previous || key > 15) throw new Error("bad state key"); previous = key;
     let value;
     // Key 1: the counts are read (and checked) before the owner's clocks (P-WIRE17-HUD-3: server ms, finite, >= 0).
     if (key === 1) {
@@ -1131,6 +1146,7 @@ function readState(r) {
     else if (key === 12) value = readRoster(r);
     else if (key === 13) value = readBuildSummary(r);
     else if (key === 14) value = readReadouts(r);
+    else if (key === 15) value = readMarked(r);
     else value = r.opt(() => ({ cards: Array.from(r.bytes(80)), boosts: Array.from(r.bytes(8)) }));
     items.push({ key, value });
   }

@@ -173,10 +173,10 @@ fn the_wire_bound_is_the_producers_and_the_contract_moves() {
         rh_sim::cards::native::MAX_READOUTS,
         "one bound on both sides"
     );
-    assert_eq!(rh_sim::OBSERVATION_VERSION, 33); // 32 -> 33: P-SYNC-ORIGIN-1
+    assert_eq!(rh_sim::OBSERVATION_VERSION, 34); // 32 -> 33: P-SYNC-ORIGIN-1; 34: P-AUG-NATIVE-5
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        29,
-        "the projected State gains key 14 and the decoded view its rows (P-WIRE19-B); 28: P-SYNC-ORIGIN-1; 29: P-AUG-BOTS-1"
+        30,
+        "the projected State gains key 14 and the decoded view its rows (P-WIRE19-B); 28: P-SYNC-ORIGIN-1; 29: P-AUG-BOTS-1; 30: P-AUG-NATIVE-5"
     );
 }

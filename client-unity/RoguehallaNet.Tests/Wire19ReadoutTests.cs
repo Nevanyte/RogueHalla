@@ -121,8 +121,9 @@ namespace Roguehalla.Net.Tests
             };
             foreach (var (what, bytes) in cases)
                 Assert.AreEqual(DecodeError.BadField, Refusal(bytes), what);
-            Assert.AreEqual(DecodeError.BadField, Refusal(new byte[] { 0x88, 0, 1, 15 }), "key 15 is unknown");
-            Assert.Throws<DecodeException>(() => ServerMsg.Decode(new byte[] { 0x88, 0, 15 }), "15 keys are too many");
+            // P-AUG-NATIVE-5 (oracle-amend): key 15 is the Marked Man rows; 16 is the first unknown key.
+            Assert.AreEqual(DecodeError.BadField, Refusal(new byte[] { 0x88, 0, 1, 16 }), "key 16 is unknown");
+            Assert.Throws<DecodeException>(() => ServerMsg.Decode(new byte[] { 0x88, 0, 16 }), "16 keys are too many");
         }
 
         static (Session, FakeTransport) Connected()
@@ -176,8 +177,9 @@ namespace Roguehalla.Net.Tests
                 Assert.IsNotNull(hex, "malformedServer has " + name);
                 Assert.AreEqual(DecodeError.BadField, Refusal(Util.FromHex(hex)), name);
             }
-            Assert.AreEqual("8800010f", Named("malformedServer", "state_unknown_key"), "the unknown key is 15");
-            Assert.AreEqual("88000f", Named("malformedServer", "state_too_many_keys"), "15 keys are too many");
+            // P-AUG-NATIVE-5 (oracle-amend): the two vectors name 16 now.
+            Assert.AreEqual("88000110", Named("malformedServer", "state_unknown_key"), "the unknown key is 16");
+            Assert.AreEqual("880010", Named("malformedServer", "state_too_many_keys"), "16 keys are too many");
         }
     }
 }

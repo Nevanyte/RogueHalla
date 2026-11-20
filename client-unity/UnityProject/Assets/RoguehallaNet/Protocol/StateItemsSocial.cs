@@ -174,6 +174,66 @@ namespace Roguehalla.Net.Protocol
         }
     }
 
+    /// <summary>P-AUG-NATIVE-5 (State key 15): one Marked Man holder on every minimap: its actor id and position (world
+    /// units at the actor quantization, 1/8 u). Public and the same for every viewer.</summary>
+    public struct WireMarked { public uint Id; public float X; public float Y; }
+
+    /// <summary>
+    /// Key 15 (P-AUG-NATIVE-5): every <c>Alive</c> Marked Man holder's position, by strictly ascending nonzero id. Wire: count
+    /// u8 (at most 32, refused before the rows), rows of id varint, x u16, y u16 (actor quantization). Checked per row: id
+    /// nonzero, then order; the encoder refuses a position outside 0..=8191.875 (NaN included). Sent only when the rows
+    /// change, so it is never required for a full state.
+    /// </summary>
+    public sealed class MarkedState : StateItem
+    {
+        public const int MaxCount = 32;
+        public override uint Key { get { return 15; } }
+        public WireMarked[] Rows = Array.Empty<WireMarked>();
+
+        static string IdFault(uint id, uint previous)
+        {
+            if (id == 0) return "marked id";
+            if (id <= previous) return "marked order";
+            return null;
+        }
+
+        internal override void Check()
+        {
+            Require(Rows != null && Rows.Length <= MaxCount, "marked count");
+            uint previous = 0;
+            foreach (var row in Rows)
+            {
+                string fault = IdFault(row.Id, previous);
+                Require(fault == null, fault);
+                previous = row.Id;
+                Require(Quant.PosInRange(row.X) && Quant.PosInRange(row.Y), "position");
+            }
+        }
+
+        internal override void Write(Writer w)
+        {
+            w.U8((byte)Rows.Length);
+            foreach (var row in Rows) { w.Varint(row.Id); w.U16(Quant.QuantizePos(row.X)); w.U16(Quant.QuantizePos(row.Y)); }
+        }
+
+        internal static MarkedState Read(ref Reader r)
+        {
+            int n = r.U8();
+            if (n > MaxCount) throw new DecodeException(DecodeError.BadField, "marked count");
+            var rows = n == 0 ? Array.Empty<WireMarked>() : new WireMarked[n];
+            uint previous = 0;
+            for (int i = 0; i < n; i++)
+            {
+                uint id = r.Varint();
+                string fault = IdFault(id, previous);
+                if (fault != null) throw new DecodeException(DecodeError.BadField, fault);
+                previous = id;
+                rows[i] = new WireMarked { Id = id, X = Quant.DequantizePos(r.U16()), Y = Quant.DequantizePos(r.U16()) };
+            }
+            return new MarkedState { Rows = rows };
+        }
+    }
+
     /// <summary>
     /// Key 13 (P-WIRE17-HUD-1): the owning seat's build summary, never another seat's; Value null when unseated. Wire:
     /// present u8 (0/1); when 1: 9 x i32 gains, count u8 (at most 20), rows of mob u8 (below 30, strictly ascending),

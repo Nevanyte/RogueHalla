@@ -288,9 +288,12 @@ the four text copies (`crates/rh-sim/tests/content.rs` `GOLDEN_CONTENT_HASH`, th
 ## Zone batch (P-AUG-NATIVE-3)
 
 Pathfinder, Hazard Walker and Overflow live in `cards/native/zone.rs`. Pathfinder's counter (`min(cap, 0.012 x marks)`) multiplies the
-holder's walk in `modifiers::movement` by `1 + counter` (the wire speed mirror does not include it: local prediction runs slow until a
-later packet). Hazard Walker's stacks (one per hazard second, cap 15) resist ember (`burn_dt`) and bog (`bog_read`) by 4% each, add
-0.5% of base max hp each in `sync_max_hp`, and 20 s on a hazard makes it immune (ice slip untouched: P-AUG-NATIVE-3c). Overflow turns
+holder's walk by `1 + counter` through one accessor, `modifiers::speed_mult` (P-AUG-NATIVE-3c: the walk, the owner block's
+`speed_milli` the client predicts with, the owner readout and a Plague zombie's pace read it; the cached wire mirror, build marks,
+trades and the haste bound stay on the folded mirror). Hazard Walker's stacks (one per hazard second, cap 15) resist ember
+(`burn_dt`), bog (`bog_read`) and the ice's slip time (`native::ice_grip`: acceleration over `1 - resist`, read by the walk and the
+walk hint) by 4% each, add 0.5% of base max hp each in `sync_max_hp`, and 20 s on a hazard makes it immune (on ice: no slip, a walk
+hint, no ice exposure counted). Overflow turns
 the overheal into a G6-capped barrier; every barrier of an Overflow holder fades over 8 s. `check` ties Pathfinder's counter to its
 marks exactly and Hazard Walker's stacks to the meters as an upper bound. Wish Engine is P-AUG-NATIVE-3b.
 

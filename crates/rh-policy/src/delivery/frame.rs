@@ -63,10 +63,12 @@ pub struct CollectionView {
     pub(crate) summary: Option<rh_protocol::state::WireBuildSummary>,
     /// State key 14 (P-WIRE19-B): the owner's own native readout rows; optional, never required for completeness.
     pub(crate) readouts: Vec<rh_protocol::WireReadout>,
+    /// State key 15 (P-AUG-NATIVE-5): the public Marked Man rows; optional, never required for completeness.
+    pub(crate) marked: Vec<rh_protocol::WireMarked>,
     pub(crate) tick: u32,
 }
-/// The keys a complete view must have received: 1..=13. Key 14 (P-WIRE19-B readouts) is sent only on change, so a
-/// viewer without native cards never receives it.
+/// The keys a complete view must have received: 1..=13. Keys 14 (P-WIRE19-B readouts) and 15 (P-AUG-NATIVE-5 Marked
+/// Man rows) are sent only on change, so a viewer without native cards or a holder never receives them.
 const REQUIRED_STATE_KEYS: usize = 13;
 impl CollectionView {
     pub fn inventory(&self) -> Option<&WireInventory> {
@@ -115,6 +117,11 @@ impl CollectionView {
     pub fn readouts(&self) -> &[rh_protocol::WireReadout] {
         &self.readouts
     }
+    /// P-AUG-NATIVE-5: the public Marked Man rows of State key 15 the client holds (empty until key 15 arrives; each
+    /// key 15 replaces them).
+    pub fn marked(&self) -> &[rh_protocol::WireMarked] {
+        &self.marked
+    }
     pub fn tick(&self) -> u32 {
         self.tick
     }
@@ -146,6 +153,7 @@ impl CollectionView {
                 StateItem::Roster(v) => next.roster = v.clone(),
                 StateItem::BuildSummary(v) => next.summary = v.clone(),
                 StateItem::Readouts(v) => next.readouts = v.clone(),
+                StateItem::Marked(v) => next.marked = v.clone(),
             }
         }
         rh_protocol::validate_quest_props(&next.props, next.quests.as_ref())?;

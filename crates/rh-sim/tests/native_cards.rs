@@ -245,7 +245,8 @@ fn the_native_numbers_are_the_workbooks_registered_rows_and_the_caps_read_them()
         (CardId::Stoked, num("REWORK_STOKED_CAP")),
         (CardId::Glacier, num("REWORK_GLACIER_CAP")),
         (CardId::TrophyHunter, num("REWORK_TROPHY_HUNTER_CAP")),
-        (CardId::MarkedMan, 0.),
+        // P-AUG-NATIVE-5 (oracle-amend): the carried half stack (brief decision 3).
+        (CardId::MarkedMan, num("REWORK_MARKED_MAN_CARRY_CAP")),
     ];
     let normal_types: u32 = FactionId::ALL
         .iter()
