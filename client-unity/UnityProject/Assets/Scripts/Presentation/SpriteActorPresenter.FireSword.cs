@@ -53,13 +53,37 @@ namespace Roguehalla.Client
         }
 
 #if UNITY_EDITOR
-        uint _studioSwordPreviewActor;
-        int _studioSwordPreviewColumn = -1;
+        uint _studioFirePreviewActor;
+        WeaponId? _studioFirePreviewWeapon;
+        StormInkFireSwordMotionPhase _studioFirePreviewPhase;
+        float _studioFirePreviewProgress;
+        bool _studioFirePreviewAlternate;
 
         public void SetStudioFireSwordPose(uint actorId, int column)
         {
-            _studioSwordPreviewActor = actorId;
-            _studioSwordPreviewColumn = column;
+            var art = StormInkFireSwordAuthoring.Load();
+            art.PreviewParameters(column, out var phase, out var progress);
+            SetStudioFirePose(actorId, WeaponId.Sword, phase, progress, column >= 5);
+        }
+
+        public void SetStudioFirePose(uint actorId, WeaponId? weapon, StormInkFireSwordMotionPhase phase,
+            float progress, bool alternate)
+        {
+            _studioFirePreviewActor = actorId;
+            _studioFirePreviewWeapon = weapon;
+            _studioFirePreviewPhase = phase;
+            _studioFirePreviewProgress = Mathf.Clamp01(progress);
+            _studioFirePreviewAlternate = alternate;
+        }
+
+        bool TryStudioFirePose(uint actorId, WeaponId weapon, out StormInkFireSwordMotionPhase phase,
+            out float progress, out bool alternate)
+        {
+            bool matches = actorId == _studioFirePreviewActor && _studioFirePreviewWeapon == weapon;
+            phase = _studioFirePreviewPhase;
+            progress = _studioFirePreviewProgress;
+            alternate = _studioFirePreviewAlternate;
+            return matches;
         }
 #endif
 
@@ -70,11 +94,11 @@ namespace Roguehalla.Client
             var swordArt = kind == ActorKind.Player && faction == FactionId.Fire && weapon == WeaponId.Sword
                 ? StormInkFireSwordAuthoring.Load() : null;
 #if UNITY_EDITOR
-            int column = StudioFireSwordPoseColumn(actorId);
-            if (column >= 0 && kind == ActorKind.Player && faction == FactionId.Fire &&
-                weapon == WeaponId.Sword && swordArt != null)
+            if (kind == ActorKind.Player && faction == FactionId.Fire && weapon.HasValue &&
+                TryStudioFirePose(actorId, weapon.Value, out var previewPhase, out var previewProgress, out _) &&
+                (weapon == WeaponId.Bow || swordArt != null))
             {
-                swordArt.PreviewParameters(column, out var previewPhase, out progress);
+                progress = previewProgress;
                 phase = previewPhase switch
                 {
                     StormInkFireSwordMotionPhase.Windup => StormInkWeaponMotion.Phase.Ready,
@@ -83,6 +107,10 @@ namespace Roguehalla.Client
                 };
                 poseFacing = facing;
                 useWeaponPhase = true;
+#if UNITY_EDITOR
+                if (weapon == WeaponId.Bow && _active.TryGetValue(actorId, out var previewActor))
+                    previewActor.DrawStartedAt = 1;
+#endif
             }
 #endif
             return swordArt;
@@ -91,7 +119,14 @@ namespace Roguehalla.Client
         int StudioFireSwordPoseColumn(uint actorId)
         {
 #if UNITY_EDITOR
-            return actorId == _studioSwordPreviewActor ? _studioSwordPreviewColumn : -1;
+            return TryStudioFirePose(actorId, WeaponId.Sword, out var phase, out var progress, out var alternate)
+                ? StormInkActors.FireSwordPoseColumn(phase switch
+                {
+                    StormInkFireSwordMotionPhase.Windup => StormInkWeaponMotion.Phase.Ready,
+                    StormInkFireSwordMotionPhase.Strike => StormInkWeaponMotion.Phase.Strike,
+                    _ => StormInkWeaponMotion.Phase.Follow
+                }, progress, alternate)
+                : -1;
 #else
             return -1;
 #endif

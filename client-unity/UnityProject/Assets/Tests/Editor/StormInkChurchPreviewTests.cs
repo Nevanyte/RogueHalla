@@ -197,6 +197,81 @@ namespace Roguehalla.Client.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator StudioSamplesReadyAndReleaseBowWithSharedGripAndGameplayParity()
+        {
+            var authoringField = typeof(StormInkFireBowAuthoring).GetField("_default",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            var readyRowsField = typeof(StormInkFireBowAuthoring).GetField("readyRows",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            var productionArt = StormInkFireBowAuthoring.Load();
+            var previewArt = UnityEngine.Object.Instantiate(productionArt);
+            var readyRows = (bool[])readyRowsField.GetValue(previewArt);
+            readyRows[0] = false;
+            readyRowsField.SetValue(previewArt, readyRows);
+            authoringField.SetValue(null, previewArt);
+            try
+            {
+                Assert.That(EditorApplication.ExecuteMenuItem("Tools/RogueHalla/Storm Ink/Church Art Studio"), Is.True);
+                yield return null;
+                var stage = (StormInkChurchStage)StageUtility.GetCurrentStage();
+                var room = stage.scene.GetRootGameObjects().Single(o => o.name == "Storm Ink church");
+                var art = StormInkFireBowAuthoring.Load();
+                stage.PreviewFireSampler(WeaponId.Bow, 2, StormInkFireSwordMotionPhase.Windup, .8f, true);
+                var body = room.GetComponentsInChildren<StormInkArtistSource>(true)
+                    .Single(source => source.Kind == StormInkArtistSourceKind.FireBowBody);
+                var bow = body.Renderer.transform.parent.Find("Equipped weapon cue").GetComponent<StormInkArtistSource>();
+                Assert.That(body.Sprite.name, Is.EqualTo("FireBow/2/7"));
+                Assert.That(body.BodyPainting, Is.SameAs(art));
+                Assert.That(body.TryBodyPalm(false, out var right), Is.True);
+                Assert.That(body.TryBodyPalm(true, out var left), Is.True);
+                Assert.That(Vector2.Distance(right, left), Is.GreaterThan(.03f));
+                Assert.That(bow.Sprite, Is.SameAs(StormInkWeaponArt.Get(WeaponId.Bow, 2)));
+                Assert.That(Vector3.Distance(Socket(body.Renderer, left), Socket(bow.Renderer, bow.HeldGripUv)),
+                    Is.LessThan(.001f), "shared bow grip must stay attached to the measured left hand");
+
+                stage.PreviewFireSampler(WeaponId.Bow, 2, StormInkFireSwordMotionPhase.Strike, .5f, true);
+                Assert.That(body.Sprite.name, Is.EqualTo("FireBow/2/8"));
+                Assert.That(body.TryBodyPalm(true, out var releaseLeft), Is.True);
+                Assert.That(Vector3.Distance(Socket(body.Renderer, releaseLeft), Socket(bow.Renderer, bow.HeldGripUv)),
+                    Is.LessThan(.001f));
+                var expectedRelease = body.Renderer.sprite;
+                stage.PreviewFireSampler(WeaponId.Bow, 0, StormInkFireSwordMotionPhase.Windup, .8f, true);
+                Assert.That(body.Renderer.sprite, Is.Not.Null);
+                Assert.That(body.Renderer.sprite.name, Does.Not.StartWith("FireBow/"),
+                    "unpainted facing must use the standard Fire fallback");
+                Assert.That(bow.Sprite, Is.SameAs(StormInkWeaponArt.Get(WeaponId.Bow, 0)));
+
+                var sample = new GameObject("Gameplay bow release parity");
+                try
+                {
+                    var presenter = new SpriteActorPresenter(sample.transform, Resources.Load<ShowcaseCatalog>("Showcase/Catalog"));
+                    presenter.Begin();
+                    presenter.Present(1, 100, 100, 0, 100, FactionId.Fire, ActorStatus.Alive,
+                        WeaponId.Bow, ActorKind.Player, null, 0, 0, true, drawStartedAt: 800, sampleTickMs: 1000);
+                    presenter.End();
+                    typeof(SpriteActorPresenter).GetMethod("ObservedProjectile", BindingFlags.NonPublic | BindingFlags.Instance)
+                        .Invoke(presenter, new object[] { 1u, ProjectileKind.Arrow, 100f, 100f, 0f });
+                    typeof(SpriteActorPresenter).GetMethod("ObservedProjectile", BindingFlags.NonPublic | BindingFlags.Instance)
+                        .Invoke(presenter, new object[] { 1u, ProjectileKind.Arrow, 100f, 100f, 0f });
+                    presenter.Begin();
+                    presenter.Present(1, 100, 100, 0, 100, FactionId.Fire, ActorStatus.Alive,
+                        WeaponId.Bow, ActorKind.Player, null, 0, 0, true, drawStartedAt: 800, sampleTickMs: 1000);
+                    presenter.End();
+                    var actual = sample.GetComponentsInChildren<StormInkArtistSource>()
+                        .Single(source => source.Kind == StormInkArtistSourceKind.FireBowBody);
+                    Assert.That(actual.Sprite, Is.SameAs(expectedRelease), "studio sampler must match owner draw + observed Arrow gameplay selection");
+                }
+                finally { UnityEngine.Object.DestroyImmediate(sample); }
+            }
+            finally
+            {
+                StageUtility.GoToMainStage();
+                authoringField.SetValue(null, productionArt);
+                UnityEngine.Object.DestroyImmediate(previewArt);
+            }
+        }
+
         static Vector3 Socket(SpriteRenderer renderer, Vector2 uv)
         {
             var sprite = renderer.sprite;

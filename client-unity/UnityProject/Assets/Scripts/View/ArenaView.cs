@@ -300,6 +300,12 @@ namespace Roguehalla.Client
         }
 
 #if UNITY_EDITOR
+        public void SetStudioFirePose(uint actorId, WeaponId? weapon, StormInkFireSwordMotionPhase phase,
+            float progress, bool alternate)
+        {
+            _actors?.SetStudioFirePose(actorId, weapon, phase, progress, alternate);
+        }
+
         public void SetStudioFireSwordPose(uint actorId, int column)
         {
             _actors?.SetStudioFireSwordPose(actorId, column);

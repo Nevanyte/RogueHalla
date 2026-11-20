@@ -13,7 +13,7 @@ namespace Roguehalla.Client
             return art != null && art.TryHand(body, false, out _) ? art : null;
         }
 
-        static Sprite SelectFireBowBody(Art actor, ActorKind kind, FactionId? faction, WeaponId? weapon,
+        Sprite SelectFireBowBody(Art actor, uint actorId, ActorKind kind, FactionId? faction, WeaponId? weapon,
             int direction, StormInkWeaponMotion.Phase phase, float progress, bool weaponAction, bool stride,
             int stage, StormInkFireAxeAuthoring sharedRig)
         {
@@ -27,9 +27,17 @@ namespace Roguehalla.Client
             if (!art.IsReady(row)) return null;
             if (weaponAction && deliveredDraw)
             {
+#if UNITY_EDITOR
+                bool alternate = TryStudioFirePose(actorId, WeaponId.Bow, out _, out _, out var previewAlternate)
+                    ? previewAlternate
+                    : phase == StormInkWeaponMotion.Phase.Ready
+                        ? (actor.FireBowShotCount & 1) != 0
+                        : actor.FireBowShotCount > 0 && (actor.FireBowShotCount & 1) == 0;
+#else
                 bool alternate = phase == StormInkWeaponMotion.Phase.Ready
                     ? (actor.FireBowShotCount & 1) != 0
                     : actor.FireBowShotCount > 0 && (actor.FireBowShotCount & 1) == 0;
+#endif
                 return art.Frame(row, phase, progress, alternate);
             }
             if (sharedRig == null) return null;

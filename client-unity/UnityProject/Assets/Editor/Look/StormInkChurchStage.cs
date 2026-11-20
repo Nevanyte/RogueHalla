@@ -18,15 +18,13 @@ namespace Roguehalla.Editor
         // Source blueprint faces south. LookCapture encodes swap axes, then reflect X and Y.
         static readonly int[] QuarterTurns = { 0, 3, 6, 5 };
         static readonly string[] FighterFacings = { "South", "Southeast", "East", "Northeast", "North", "Northwest", "West", "Southwest" };
-        static readonly string[] FireWeaponChoices = { "Axe", "Sword" };
-        static readonly string[] FireSwordPoseNames =
-        {
-            "A anticipation", "A passing", "A release", "A follow through", "A recovery",
-            "B anticipation", "B passing", "B release", "B follow through", "B recovery"
-        };
+        static readonly string[] FireWeaponChoices = { "Axe", "Sword", "Bow" };
+        static readonly string[] FireMotionPhases = { "Draw / windup", "Release", "Recovery" };
         [SerializeField] int fighterFacing = 1;
         [SerializeField] int fireWeaponChoice;
-        [SerializeField] int fireSwordPose;
+        [SerializeField] StormInkFireSwordMotionPhase firePosePhase;
+        [SerializeField, Range(0f, 1f)] float firePoseProgress = .5f;
+        [SerializeField] bool firePoseAlternate;
         static readonly string[] FrontLabels = { "South", "West", "North", "East" };
         [SerializeField] int front;
         [SerializeField] bool mirrored, solidRoof, overlays;
@@ -148,7 +146,7 @@ namespace Roguehalla.Editor
                 Faction = FactionId.Sentenced, Weapon = WeaponId.Sword, Status = ActorStatus.Alive, HpPct = 100,
                 Facing = Mathf.PI, X = (other.x + .5f) * 32f, Y = (other.y + .5f) * 32f };
             fighter = new SelfView { Id = 1, Faction = FactionId.Fire,
-                Weapon = fireWeaponChoice == 1 ? WeaponId.Sword : WeaponId.Axe,
+                Weapon = SelectedFireWeapon,
                 Status = ActorStatus.Alive, Hp = 100, MaxHp = 100, X = x, Y = y };
             bailiffFeet = ArenaView.WorldPoint(bailiff.X, bailiff.Y);
             opponents.Clear();
@@ -171,20 +169,54 @@ namespace Roguehalla.Editor
         internal void RefreshCast()
         {
             if (arena == null) return;
-            arena.SetStudioFireSwordPose(fighter.Id, fireWeaponChoice == 1 ? fireSwordPose : -1);
+            arena.SetStudioFirePose(fighter.Id,
+                fireWeaponChoice == 0 ? (WeaponId?)null : SelectedFireWeapon,
+                firePosePhase, firePoseProgress, firePoseAlternate);
             arena.Present(opponents, fighter, null, (2 - fighterFacing) * Mathf.PI / 4f);
             if (lightingCamera != null) ApplyAppearance();
         }
 
+        WeaponId SelectedFireWeapon => fireWeaponChoice == 1 ? WeaponId.Sword :
+            fireWeaponChoice == 2 ? WeaponId.Bow : WeaponId.Axe;
+
         public void PreviewFireLoadout(WeaponId weapon, int facingRow, int swordPose)
         {
             if ((uint)facingRow >= FighterFacings.Length) throw new ArgumentOutOfRangeException(nameof(facingRow));
-            if (weapon != WeaponId.Axe && weapon != WeaponId.Sword) throw new ArgumentOutOfRangeException(nameof(weapon));
-            if (weapon == WeaponId.Sword && (uint)swordPose >= FireSwordPoseNames.Length)
+            if (weapon != WeaponId.Axe && weapon != WeaponId.Sword && weapon != WeaponId.Bow)
+                throw new ArgumentOutOfRangeException(nameof(weapon));
+            if (weapon != WeaponId.Axe && (uint)swordPose >= 10)
                 throw new ArgumentOutOfRangeException(nameof(swordPose));
-            fireWeaponChoice = weapon == WeaponId.Sword ? 1 : 0;
+            fireWeaponChoice = weapon == WeaponId.Sword ? 1 : weapon == WeaponId.Bow ? 2 : 0;
             fighterFacing = facingRow;
-            fireSwordPose = swordPose;
+            if (weapon == WeaponId.Sword)
+            {
+                StormInkFireSwordAuthoring.Load().PreviewParameters(swordPose, out firePosePhase, out firePoseProgress);
+                firePoseAlternate = swordPose >= 5;
+            }
+            else if (weapon == WeaponId.Bow)
+            {
+                int pose = swordPose % 5;
+                firePoseAlternate = swordPose >= 5;
+                firePosePhase = pose <= 2 ? StormInkFireSwordMotionPhase.Windup :
+                    pose == 3 ? StormInkFireSwordMotionPhase.Strike : StormInkFireSwordMotionPhase.Follow;
+                firePoseProgress = pose == 0 ? .1f : pose == 1 ? .5f : pose == 2 ? 1f :
+                    pose == 3 ? .5f : .85f;
+            }
+            if (fighter != null) fighter.Weapon = weapon;
+            RefreshCast();
+        }
+
+        public void PreviewFireSampler(WeaponId weapon, int facingRow, StormInkFireSwordMotionPhase phase,
+            float progress, bool alternate)
+        {
+            if ((uint)facingRow >= FighterFacings.Length) throw new ArgumentOutOfRangeException(nameof(facingRow));
+            if (weapon != WeaponId.Sword && weapon != WeaponId.Bow)
+                throw new ArgumentOutOfRangeException(nameof(weapon));
+            fireWeaponChoice = weapon == WeaponId.Sword ? 1 : 2;
+            fighterFacing = facingRow;
+            firePosePhase = phase;
+            firePoseProgress = Mathf.Clamp01(progress);
+            firePoseAlternate = alternate;
             if (fighter != null) fighter.Weapon = weapon;
             RefreshCast();
         }
@@ -309,20 +341,39 @@ namespace Roguehalla.Editor
             if (nextWeapon != fireWeaponChoice)
             {
                 fireWeaponChoice = nextWeapon;
-                fighter.Weapon = fireWeaponChoice == 1 ? WeaponId.Sword : WeaponId.Axe;
+                fighter.Weapon = SelectedFireWeapon;
             }
-            if (fireWeaponChoice == 1)
-                fireSwordPose = EditorGUILayout.Popup("Sword body pose", fireSwordPose, FireSwordPoseNames);
+            if (fireWeaponChoice != 0)
+            {
+                firePosePhase = (StormInkFireSwordMotionPhase)EditorGUILayout.Popup(
+                    "Motion phase", (int)firePosePhase, FireMotionPhases);
+                firePoseProgress = EditorGUILayout.Slider(
+                    firePosePhase == StormInkFireSwordMotionPhase.Windup ? "Draw progress" :
+                    firePosePhase == StormInkFireSwordMotionPhase.Strike ? "Release progress" : "Recovery progress",
+                    firePoseProgress, 0f, 1f);
+                firePoseAlternate = EditorGUILayout.Toggle("Alternate performance", firePoseAlternate);
+                if (SelectedFireWeapon == WeaponId.Bow)
+                {
+                    var bowArt = StormInkFireBowAuthoring.Load();
+                    if (bowArt != null && !bowArt.IsReady(fighterFacing))
+                        EditorGUILayout.HelpBox("Bow performance art is not ready for this facing. The normal Fire body and shared bow fallback are shown.",
+                            MessageType.Info);
+                }
+            }
             if (EditorGUI.EndChangeCheck()) RefreshCast();
             overlays = EditorGUILayout.Toggle("Map and fighter footprints", overlays);
             if (GUILayout.Button("Frame at gameplay zoom")) FrameRoom();
             GUILayout.BeginHorizontal();
-            string bodyName = fireWeaponChoice == 1 ? "Fire sword body" : "Fire body";
-            string weaponName = fireWeaponChoice == 1 ? "Shared sword" : "Shared axe";
+            string bodyName = fireWeaponChoice == 1 ? "Fire sword body" :
+                fireWeaponChoice == 2 ? "Fire bow body" : "Fire body";
+            string weaponName = fireWeaponChoice == 1 ? "Shared sword" :
+                fireWeaponChoice == 2 ? "Shared bow" : "Shared axe";
             if (GUILayout.Button(bodyName)) Selection.activeObject = fireWeaponChoice == 1
-                ? StormInkFireSwordAuthoring.Load() : StormInkFireAxeAuthoring.Load();
+                ? StormInkFireSwordAuthoring.Load()
+                : fireWeaponChoice == 2 ? StormInkFireBowAuthoring.Load() : StormInkFireAxeAuthoring.Load();
             if (GUILayout.Button(weaponName)) Selection.activeObject = fireWeaponChoice == 1
-                ? StormInkSwordArtAuthoring.Load() : StormInkAxeArtAuthoring.Load();
+                ? StormInkSwordArtAuthoring.Load()
+                : fireWeaponChoice == 2 ? StormInkBowArtAuthoring.Load() : StormInkAxeArtAuthoring.Load();
             GUILayout.EndHorizontal();
             if (GUILayout.Button("Nave wall finish")) Selection.activeObject = ChurchMasonryArt.Load();
             GUILayout.EndArea();
