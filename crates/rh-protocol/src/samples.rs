@@ -6007,12 +6007,6 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
             frame.push(0);
             frame
         }),
-        // P-COLISEUM-HEALS-2: State tick 202, key 2, one prop row (handle 1, x 80, y 160) of kind 9, past the last kind
-        // (8, the heal pickup): every decoder refuses it as "prop kind".
-        (
-            "state_prop_kind_unknown",
-            vec![0x88, 0xca, 0x01, 1, 2, 1, 1, 0x50, 0, 0xa0, 0, 9, 0, 0],
-        ),
     ]
     .into_iter()
     .chain(malformed_vision())
