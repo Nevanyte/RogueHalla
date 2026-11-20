@@ -34,13 +34,24 @@ namespace Roguehalla.Client.Tests
                 var contact = new Vector2(anchor.Centre.X, anchor.Centre.Y);
                 var source = landmark.Root.transform.TransformPoint(new Vector3(contact.x + .28f, -contact.y * ArenaView.GroundSquash + 1.6f, 0f));
                 var garnet = new Color(.72f, .22f, .33f);
+                int originalCount = lights.Planner.Count;
+                Assert.That(lights.Planner.Clusters.Count(c => c.LandmarkCandle && c.SteadyGlass), Is.GreaterThan(0),
+                    "other exposed panes are registered before this socket is replaced");
+                int otherGlassCount = lights.Planner.Clusters.Count(c => c.LandmarkCandle && c.SteadyGlass) - 1;
+                int candleCount = lights.Planner.Clusters.Count(c => c.LandmarkCandle && c.Candle && !c.SteadyGlass);
+                detach.Invoke(null, new object[] { landmark, pane });
                 int unchanged = lights.Planner.Count;
+                Assert.That(unchanged, Is.EqualTo(originalCount - 1), "detaching the chosen pane preserves every other church light");
+                Assert.That(lights.Planner.Clusters.Count(c => c.LandmarkCandle && c.SteadyGlass), Is.EqualTo(otherGlassCount));
+                Assert.That(lights.Planner.Clusters.Count(c => c.LandmarkCandle && c.Candle && !c.SteadyGlass), Is.EqualTo(candleCount));
                 void Sync(ChurchWindowPaneMode mode) =>
                     sync.Invoke(null, new object[] { landmark, pane, mode, contact, source, garnet, 3.7f, .65f });
 
                 Sync(ChurchWindowPaneMode.Full);
                 Sync(ChurchWindowPaneMode.Full);
                 Assert.That(lights.Planner.Count, Is.EqualTo(unchanged + 1));
+                Assert.That(lights.Planner.Clusters.Count(c => c.LandmarkCandle && c.SteadyGlass), Is.EqualTo(otherGlassCount + 1),
+                    "the new full pane is registered once and other glass remains");
                 var full = lights.Planner.Clusters.Last();
                 Assert.That(full.X, Is.EqualTo(contact.x + .28f).Within(.001f));
                 Assert.That(full.Y, Is.EqualTo(contact.y));
@@ -76,6 +87,7 @@ namespace Roguehalla.Client.Tests
 
                 Sync(ChurchWindowPaneMode.Jamb);
                 Assert.That(lights.Planner.Count, Is.EqualTo(unchanged));
+                Assert.That(lights.Planner.Clusters.Count(c => c.LandmarkCandle && c.Candle && !c.SteadyGlass), Is.EqualTo(candleCount));
                 Sync(ChurchWindowPaneMode.Full);
                 Sync(ChurchWindowPaneMode.Concealed);
                 Assert.That(lights.Planner.Count, Is.EqualTo(unchanged));

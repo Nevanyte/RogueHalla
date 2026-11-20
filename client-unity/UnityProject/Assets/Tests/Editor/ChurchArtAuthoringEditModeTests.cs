@@ -106,12 +106,26 @@ namespace Roguehalla.Client.Tests
                     float nearestCandle = placements.Where(p => p.SlotId.StartsWith("candle."))
                         .Min(p => Vector2.Distance(pulpit.ContactPoint, p.ContactPoint));
                     Assert.That(nearestCandle, Is.GreaterThan(1.5f), "pulpit and closest candle feet have clear spacing in orientation " + k);
-                    Assert.That(pulpit.GetComponent<SpriteRenderer>().flipX, Is.EqualTo(ChurchArtOrientation.Resolve(rotatedAnchor).Mirrored),
-                        "pulpit stairs mirror with the resolved handed approach");
                     var pulpitValues = pulpit.Resolve(rotatedAnchor).Values;
-                    var pulpitViewSprite = pulpit.ResolvedView == ChurchArtView.Side ? pulpitValues.Side :
-                        pulpit.ResolvedView == ChurchArtView.Back ? pulpitValues.Back : pulpitValues.Front;
+                    var handedness = ChurchArtOrientation.Resolve(rotatedAnchor);
+                    Vector2 naveFront = view.Get(0).FrontVector;
+                    bool aisleOnX = Mathf.Abs(naveFront.x) > .001f;
+                    int leftAcross = aisleOnX ? (naveFront.x > 0f ? 1 : -1) : (naveFront.y > 0f ? -1 : 1);
+                    int inward = -leftAcross * handedness.ReflectSide(1);
+                    float facingDegrees = aisleOnX ? (inward > 0 ? 0f : 180f) : (inward > 0 ? 90f : -90f);
+                    facingDegrees += pulpit.Definition != null ? pulpit.Definition.LocalTurn(pulpitValues.RotationDegrees) : pulpitValues.RotationDegrees;
+                    var expectedPulpitView = ChurchArtPlacement.ResolveSupportedView(ChurchArtView.Front, facingDegrees, ChurchArtMount.Upright);
+                    Assert.That(pulpit.ResolvedView, Is.EqualTo(expectedPulpitView),
+                        "the pulpit selects the view facing the delivered nave direction in orientation " + k);
+                    var pulpitViewSprite = expectedPulpitView == ChurchArtView.Side ? pulpitValues.Side :
+                        expectedPulpitView == ChurchArtView.Back ? pulpitValues.Back : pulpitValues.Front;
                     Assert.That(pulpit.GetComponent<SpriteRenderer>().sprite, Is.SameAs(pulpitViewSprite), "pulpit uses its distinct approach painting");
+                    bool sidePainting = expectedPulpitView == ChurchArtView.Side && pulpitValues.Side != null;
+                    bool expectedFlip = sidePainting ? Mathf.Sin(facingDegrees * Mathf.Deg2Rad) < 0f : handedness.Mirrored;
+                    Assert.That(pulpit.GetComponent<SpriteRenderer>().flipX, Is.EqualTo(expectedFlip),
+                        sidePainting
+                            ? "the side stair faces the physical signed approach in orientation " + k
+                            : "the front/rear painting reflects with the resolved mirror in orientation " + k);
                     var candle = placements.First(p => p.SlotId == "candle.front.bay0");
                     var candleProbe = ScriptableObject.CreateInstance<ChurchInteriorDefinition>();
                     candleProbe.SlotOverrides.Add(new ChurchArtSlotOverride { SlotId = candle.SlotId,
