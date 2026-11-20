@@ -399,10 +399,18 @@ fn a_player_holding_a_native_card_is_observed_as_one_who_does_not() {
     let mut native = forged.unwrap();
     for t in 0..20u32 {
         for viewer in [PlayerId(1), PlayerId(2)] {
+            // P-WIRE19-B: the holder (player 1) sees its own readout rows; nothing else tells a native card apart.
+            let mut seen = observe(&native, viewer, &[]);
             assert_eq!(
-                observe(&native, viewer, &[]),
+                !seen.readouts.is_empty(),
+                viewer == PlayerId(1),
+                "tick {t}: viewer {viewer:?} sees readouts only for its own native cards"
+            );
+            seen.readouts.clear();
+            assert_eq!(
+                seen,
                 observe(&plain, viewer, &[]),
-                "tick {t}: viewer {viewer:?} sees no native card (the wire has none until P-WIRE19-A)"
+                "tick {t}: viewer {viewer:?} sees no native card beyond its own readouts"
             );
         }
         let e1 = native.step();
