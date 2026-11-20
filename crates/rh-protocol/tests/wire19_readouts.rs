@@ -73,7 +73,8 @@ fn key_14_is_the_newest_state_key_inside_protocol_20() {
         PROTOCOL_VERSION, 20,
         "decision 1: no bump, v19.json regenerated in place; P-SYNC-ORIGIN-1 carries it as protocol 20 (v20.json)"
     );
-    assert_eq!(MAX_STATE_KEYS, 14);
+    // P-AUG-NATIVE-5 (oracle-amend): key 15, the Marked Man rows, follows key 14.
+    assert_eq!(MAX_STATE_KEYS, 15);
     assert_eq!(MAX_READOUTS, 28);
     assert_eq!(
         (
@@ -214,12 +215,12 @@ fn the_decoder_refuses_each_check_for_its_reason() {
     for (what, bytes, want) in cases {
         assert_eq!(ServerMsg::decode(&bytes), Err(want), "{what}");
     }
-    // Key 15 is the first unknown key, and 15 items are too many.
+    // P-AUG-NATIVE-5 (oracle-amend): key 16 is the first unknown key, and 16 items are too many.
     assert_eq!(
-        ServerMsg::decode(&[0x88, 0, 1, 15]),
+        ServerMsg::decode(&[0x88, 0, 1, 16]),
         Err(BadField("state key"))
     );
-    assert!(ServerMsg::decode(&[0x88, 0, 15]).is_err());
+    assert!(ServerMsg::decode(&[0x88, 0, 16]).is_err());
 }
 
 fn fixture_path(version: u16) -> PathBuf {
@@ -267,12 +268,12 @@ fn v20_fixture_carries_the_readout_vectors_and_the_moved_malformed_ones() {
     }
     assert_eq!(
         named(&v19, "state_unknown_key"),
-        Some("8800010f"),
-        "key 14 is known now: the unknown key is 15"
+        Some("88000110"),
+        "P-AUG-NATIVE-5 (oracle-amend): keys 14 and 15 are known now: the unknown key is 16"
     );
     assert_eq!(
         named(&v19, "state_too_many_keys"),
-        Some("88000f"),
-        "14 keys are allowed now: 15 are too many"
+        Some("880010"),
+        "P-AUG-NATIVE-5 (oracle-amend): 15 keys are allowed now: 16 are too many"
     );
 }
