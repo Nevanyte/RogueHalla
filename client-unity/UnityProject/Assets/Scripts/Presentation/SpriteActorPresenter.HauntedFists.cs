@@ -4,6 +4,7 @@ using Pose = Roguehalla.Client.StormInkActors.HauntedFistsPose;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Times the Haunted bruiser’s painted unarmed poses against observed attack cues.</summary>
     public sealed partial class SpriteActorPresenter
     {
         const float HauntedKickHold = .066f;

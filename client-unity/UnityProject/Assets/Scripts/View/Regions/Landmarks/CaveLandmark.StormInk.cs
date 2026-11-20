@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Fits the painted ice roof and wall caps to the delivered cave opening.</summary>
     public static partial class CaveLandmark
     {
         sealed class IcePainting

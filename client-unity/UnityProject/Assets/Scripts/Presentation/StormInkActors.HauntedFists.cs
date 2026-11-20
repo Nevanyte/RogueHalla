@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Resolves each facing and pose in the shared Haunted unarmed sheet.</summary>
     public static partial class StormInkActors
     {
         internal enum HauntedFistsPose { Hook, Chamber, Kick, Retract }
