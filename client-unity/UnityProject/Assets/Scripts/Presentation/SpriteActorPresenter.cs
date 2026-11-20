@@ -503,9 +503,11 @@ namespace Roguehalla.Client
                     int stage = reduced || fireAxeArt == null ? 0 : walkPhase
                         ? Gait.FrameIndex(a.Gait.Phase, fireAxeArt.StrideStages) : fireAxeArt.IdleStage(elapsed);
                     bool stride = fireAxeArt != null ? walkPhase : walkPhase && frame * 2 >= count;
+                    bool alternate = phase == StormInkWeaponMotion.Phase.Ready
+                        ? (a.FireAxeReleaseCount & 1) != 0
+                        : a.FireAxeReleaseCount > 0 && (a.FireAxeReleaseCount & 1) == 0;
                     axeBody = StormInkActors.FireAxeFrame(kind, faction, weapon, direction,
-                        useWeaponPhase ? phase : StormInkWeaponMotion.Phase.Guard, stride, stage,
-                        a.FireAxeReleaseCount > 0 && (a.FireAxeReleaseCount & 1) == 0);
+                        useWeaponPhase ? phase : StormInkWeaponMotion.Phase.Guard, stride, stage, alternate);
                 }
                 a.Body.sprite = unarmed ?? shieldBody ?? axeBody ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
                 bool paintedPox = IsPox(a) && painted != null;

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
-    public enum StormInkFireAxePose { Windup, ReleaseA, Recovery, Guard, Stride, ReleaseB }
+    public enum StormInkFireAxePose { Windup, ReleaseA, Recovery, Guard, Stride, ReleaseB, WindupB, RecoveryB }
 
     /// <summary>Painted Fire animation registration. Rows are S, SE, E, NE, N, NW, W and SW.</summary>
     [CreateAssetMenu(menuName = "RogueHalla/Storm Ink/Fire axe authoring")]
