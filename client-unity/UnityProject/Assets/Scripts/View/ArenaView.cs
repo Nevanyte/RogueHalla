@@ -157,7 +157,7 @@ namespace Roguehalla.Client
             _worldMarks = new WorldMarks(Child("World markers"), _catalog); _campLabels = new CampRespawnLabels(Child("Camp respawn labels"));
             _campLabels.NameRectSource = _actors.FighterNameRects;
             _campLabels.HeaderRectSource = _actors.FighterHeaderRects;
-            _worldIndicators = new WorldIndicators(Child("World indicators")); _vignette = new HurtVignette();
+            _worldIndicators = new WorldIndicators(Child("World indicators")); _vignette = new HurtVignette(transform);
             _patience = new CampPatienceOutlines(Child("Camp patience outlines")); _carrierFlags = new QuestCarrierFlags(Child("Quest carrier flags"));
             // the drawn actors: the presenter that Present()s every observed fighter, the local player included
             _carrierActorPoint = (uint id, out float x, out float y) => { if (_actors.TryPosition(id, out var w)) { x = w.x / Scale; y = -w.y / (Scale * GroundSquash); return true; } x = y = 0; return false; };
@@ -616,8 +616,14 @@ namespace Roguehalla.Client
         {
             T component; if (profile.TryGet(out component)) component.active = active;
         }
-        void OnDestroy()
+        bool presentationReleased;
+        void OnDestroy() => ReleasePresentation();
+
+        /// <summary>Also called by edit stages which manually initialize this non-executing behaviour.</summary>
+        public void ReleasePresentation()
         {
+            if (presentationReleased) return;
+            presentationReleased = true;
             if (ShowcaseSettings.Current != null) ShowcaseSettings.Current.Changed -= ApplyQuality;
             if (_visionSession != null) _visionSession.EventsReceived -= OnVisionEvents;
             if (_frostWall != null) _frostWall.Dispose();
