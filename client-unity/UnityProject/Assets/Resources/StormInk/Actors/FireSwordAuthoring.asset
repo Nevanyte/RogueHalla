@@ -24,11 +24,11 @@ MonoBehaviour:
     WeaponDepthOffset: 0
   - Row: 0
     Column: 2
-    WeaponAngleOffset: 0
+    WeaponAngleOffset: 45
     WeaponDepthOffset: 0
   - Row: 0
     Column: 3
-    WeaponAngleOffset: 0
+    WeaponAngleOffset: 25
     WeaponDepthOffset: 0
   - Row: 0
     Column: 4
@@ -184,11 +184,11 @@ MonoBehaviour:
     WeaponDepthOffset: 0
   - Row: 4
     Column: 2
-    WeaponAngleOffset: 0
+    WeaponAngleOffset: 48
     WeaponDepthOffset: 0
   - Row: 4
     Column: 3
-    WeaponAngleOffset: 0
+    WeaponAngleOffset: 42
     WeaponDepthOffset: 0
   - Row: 4
     Column: 4
@@ -204,11 +204,11 @@ MonoBehaviour:
     WeaponDepthOffset: 0
   - Row: 4
     Column: 7
-    WeaponAngleOffset: -77
+    WeaponAngleOffset: 89
     WeaponDepthOffset: 0
   - Row: 4
     Column: 8
-    WeaponAngleOffset: -50
+    WeaponAngleOffset: 124
     WeaponDepthOffset: 0
   - Row: 4
     Column: 9
