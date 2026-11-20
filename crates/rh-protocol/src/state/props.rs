@@ -92,6 +92,7 @@ impl WireProps {
                 WirePropKind::WindEmblem => {}
                 WirePropKind::Cannon { .. } => {}
                 WirePropKind::QuestItem { .. } => {}
+                WirePropKind::Heal { .. } => {}
             }
         }
         if let Some(focus) = self.focus {
@@ -124,7 +125,9 @@ impl WireProps {
                             WirePropKind::Body { label } | WirePropKind::Corpse { label } => {
                                 str_len(label)
                             }
-                            WirePropKind::Cannon { ready_at } => varint_len(*ready_at),
+                            WirePropKind::Cannon { ready_at } | WirePropKind::Heal { ready_at } => {
+                                varint_len(*ready_at)
+                            }
                         }
                 })
                 .sum::<usize>()
@@ -157,7 +160,8 @@ impl WireProps {
                 WirePropKind::WindEmblem => {
                     w.u8(5);
                 }
-                WirePropKind::Cannon { ready_at } => {
+                // P-COLISEUM-HEALS-2 stub: a heal is written as a cannon (kind 6) until it gets kind 8.
+                WirePropKind::Cannon { ready_at } | WirePropKind::Heal { ready_at } => {
                     w.u8(6);
                     w.varint(*ready_at);
                 }

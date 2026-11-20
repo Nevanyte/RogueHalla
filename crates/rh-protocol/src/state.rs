@@ -127,6 +127,11 @@ pub enum WirePropKind {
         quest: QuestHandle,
         fetch: bool,
     },
+    /// A coliseum heal pickup with the server time it is available again (0: available now). P-COLISEUM-HEALS-2 stub:
+    /// encoded as a cannon until the implementer gives it prop kind 8.
+    Heal {
+        ready_at: u32,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

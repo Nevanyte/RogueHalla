@@ -65,6 +65,11 @@ pub enum PropKind {
         quest: crate::quest_view::QuestHandle,
         fetch: bool,
     },
+    /// A grand-coliseum heal pickup (P-COLISEUM-HEALS-2), with the server time it is available again (0: now). Public:
+    /// position and readiness only. Stub: never offered yet.
+    Heal {
+        ready_at: u32,
+    },
 }
 
 /// Position is already encoded on the public 1/8-unit grid. Field order is the canonical sort key.

@@ -7891,13 +7891,14 @@ fn decoded_quest_state_json(m: &ServerMsg) -> String {
                     WirePropKind::WindEmblem => 5,
                     WirePropKind::Cannon { .. } => 6,
                     WirePropKind::QuestItem { .. } => 7,
+                    WirePropKind::Heal { .. } => 6,
                 };
                 let specifics = match &row.kind {
                     WirePropKind::Ground(weapon) => format!("\"weapon\":{weapon}"),
                     WirePropKind::Chest { open } => format!("\"open\":{open}"),
                     WirePropKind::Body { label } | WirePropKind::Corpse { label } => format!("\"label\":\"{}\"", escape(label)),
                     WirePropKind::WindEmblem => String::new(),
-                    WirePropKind::Cannon { ready_at } => format!("\"readyAt\":{ready_at}"),
+                    WirePropKind::Cannon { ready_at } | WirePropKind::Heal { ready_at } => format!("\"readyAt\":{ready_at}"),
                     WirePropKind::QuestItem { quest, fetch } => format!("\"quest\":{},\"fetch\":{fetch}", quest.get()),
                 };
                 let base = format!("\"handle\":{},\"x\":{},\"y\":{},\"kind\":{kind}", row.handle.get(), row.x, row.y);

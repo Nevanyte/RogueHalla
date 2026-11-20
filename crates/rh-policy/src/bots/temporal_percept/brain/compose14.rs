@@ -746,6 +746,8 @@ impl Composer14 {
                 WirePropKind::Corpse { .. } => ("corpse", "x".to_owned()),
                 WirePropKind::WindEmblem => ("consumable", "w".to_owned()),
                 WirePropKind::QuestItem { .. } => continue,
+                // P-COLISEUM-HEALS-2 stub: read as a cannon until the bots are taught to skip it.
+                WirePropKind::Heal { .. } => ("cannon", "n".to_owned()),
             };
             let at = Vec2::new(f64::from(prop.x) / 8., f64::from(prop.y) / 8.);
             if !in_view(eye.x, eye.y, at.x, at.y, 0.) {

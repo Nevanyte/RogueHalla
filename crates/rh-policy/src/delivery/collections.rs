@@ -88,6 +88,9 @@ fn props(observation: &Observation) -> Result<WireProps, EncodeError> {
                             .expect("native quest handle"),
                         fetch: *fetch,
                     },
+                    PropKind::Heal { ready_at } => WirePropKind::Heal {
+                        ready_at: *ready_at,
+                    },
                 },
             })
         })
