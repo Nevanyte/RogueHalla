@@ -30,6 +30,14 @@ namespace Roguehalla.Net.Ui
         /// <summary>The preview is up.</summary>
         public bool Aiming { get; private set; }
 
+        /// <summary>The Wish kind the local fighter's Wish key follows: the room's Frost Wish (the Welcome's term 23) only when the
+        /// local fighter is Frost. Every other faction's Wish (and a fighter not seen yet) casts at once, as
+        /// <see cref="FrostWishKind.Freeze"/> does: the wall preview is Frost's alone.</summary>
+        public static FrostWishKind KindFor(WireHudContent hud, FactionId? self)
+        {
+            return hud != null && self == FactionId.Frost ? hud.FrostWish : FrostWishKind.Freeze;
+        }
+
         /// <summary>The Wish key. Returns the cast's order number, 0 when nothing was sent.</summary>
         public byte Key(Session session, in WishAimFrame f)
         {

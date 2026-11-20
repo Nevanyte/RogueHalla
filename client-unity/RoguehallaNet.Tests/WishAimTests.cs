@@ -168,5 +168,36 @@ namespace Roguehalla.Net.Tests
             var casts = t.Casts(); Assert.AreEqual(1, casts.Count);
             Assert.AreEqual(550, casts[0].X, 1e-3); Assert.AreEqual(100, casts[0].Y, 1e-3); Assert.AreEqual(0, casts[0].ActorRef);
         }
+
+        static WireHudContent WallRoom()
+        {
+            return new WireHudContent { Terms = new[] { new WireHudTerm { Code = (byte)HudTerm.FrostWish, Value = 1 } } };
+        }
+
+        [Test]
+        public void TheWallKindAppliesToTheFrostFighterOnly()
+        {
+            var wall = WallRoom();
+            Assert.AreEqual(FrostWishKind.Wall, WishAim.KindFor(wall, FactionId.Frost));
+            foreach (var f in new[] { FactionId.Fire, FactionId.Sentenced, FactionId.Plague, FactionId.Holy })
+                Assert.AreEqual(FrostWishKind.Freeze, WishAim.KindFor(wall, f), f.ToString());
+            Assert.AreEqual(FrostWishKind.Freeze, WishAim.KindFor(wall, null), "no fighter yet");
+            Assert.AreEqual(FrostWishKind.Freeze, WishAim.KindFor(null, FactionId.Frost), "no HUD block");
+            Assert.AreEqual(FrostWishKind.Freeze, WishAim.KindFor(new WireHudContent(), FactionId.Frost), "a Freeze room");
+        }
+
+        [Test]
+        public void InAWallRoomEveryOtherFactionsWishKeyCastsAtOnceWithNoPreview()
+        {
+            foreach (var f in new[] { FactionId.Fire, FactionId.Sentenced, FactionId.Plague, FactionId.Holy })
+            {
+                var t = new QueuedTransport(); var s = Start(t); var aim = new WishAim();
+                byte seq = aim.Key(s, Frame(WishAim.KindFor(WallRoom(), f), 1000, 200, false, 19));
+                Assert.AreNotEqual(0, seq, f.ToString()); Assert.IsFalse(aim.Aiming, f.ToString());
+                s.FlushInput();
+                var casts = t.Casts(); Assert.AreEqual(1, casts.Count, f.ToString());
+                Assert.AreEqual(1000, casts[0].X, f.ToString()); Assert.AreEqual(200, casts[0].Y, f.ToString());
+            }
+        }
     }
 }

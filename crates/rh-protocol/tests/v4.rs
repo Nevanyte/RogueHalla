@@ -291,14 +291,14 @@ fn an_empty_state_retains_the_snapshot_and_unknown_keys_are_refused() {
 /// A mask bit the version does not define is refused in every mask, never skipped, and a non-canonical varint head is too.
 #[test]
 fn undefined_mask_bits_are_refused_never_skipped() {
-    // A Full head with bit 25, a Full actor mask with bit 15, a delta head with bit 29, a delta actor mask with bit 18
-    // (protocol 16 with ADR0026: the first bits no field uses).
+    // A Full head with bit 25, a Full actor mask with bit 16, a delta head with bit 29, a delta actor mask with bit 19
+    // (protocol 19: the first bits no field uses).
     let full_head_bit = [0x83, 1, 0, 0x80, 0x80, 0x80, 0x10, 0];
     assert_eq!(
         ServerMsg::decode(&full_head_bit),
         Err(DecodeError::BadField("head"))
     );
-    let actor_bit = [0x83, 1, 0, 0, 1, 1, 0x80, 0x80, 0x02, 0, 0, 0, 0, 0, 0];
+    let actor_bit = [0x83, 1, 0, 0, 1, 1, 0x80, 0x80, 0x04, 0, 0, 0, 0, 0, 0];
     assert_eq!(
         ServerMsg::decode(&actor_bit),
         Err(DecodeError::BadField("actor mask"))
@@ -308,7 +308,7 @@ fn undefined_mask_bits_are_refused_never_skipped() {
         ServerMsg::decode(&delta_head_bit),
         Err(DecodeError::BadField("head"))
     );
-    let delta_actor_bit = [0x87, 10, 1, 0, 0, 1, 1, 0x80, 0x80, 0x10];
+    let delta_actor_bit = [0x87, 10, 1, 0, 0, 1, 1, 0x80, 0x80, 0x20];
     assert_eq!(
         ServerMsg::decode(&delta_actor_bit),
         Err(DecodeError::BadField("actor mask"))
@@ -376,9 +376,10 @@ fn delta_head_and_actor_delta_bit_numbers_are_pinned() {
         (AD_OFFHAND, 15),
         (AD_BUILD_MARKS, 16),
         (AD_MARK, 17),
+        (AD_WALK, 18),
     ];
     for (c, bit) in ad {
         assert_eq!(c, 1u32 << bit, "actor-delta bit {bit}");
     }
-    assert_eq!(AD_ALL, 0x3_ffff);
+    assert_eq!(AD_ALL, 0x7_ffff);
 }

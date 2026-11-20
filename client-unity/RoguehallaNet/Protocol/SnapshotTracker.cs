@@ -203,6 +203,7 @@ namespace Roguehalla.Net.Protocol
             if ((ch.Mask & ActorDelta.MOffhand) != 0) a.Offhand = ch.Offhand;
             if ((ch.Mask & ActorDelta.MBuildMarks) != 0) a.BuildMarks = ch.BuildMarks;
             if ((ch.Mask & ActorDelta.MMark) != 0) { a.MarkTier = ch.MarkTier; a.Brand = ch.Brand; a.MarkTax = ch.MarkTax; }
+            if ((ch.Mask & ActorDelta.MWalk) != 0) { a.WalkDir = ch.WalkDir; a.WalkTicks = ch.WalkTicks; }
             return a;
         }
 

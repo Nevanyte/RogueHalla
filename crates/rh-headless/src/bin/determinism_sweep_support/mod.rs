@@ -108,6 +108,7 @@ impl From<&SimSpec> for SimConfig {
             quests: false,
             training: false,
             dummies: false,
+            tick_ms: 50,
         }
     }
 }

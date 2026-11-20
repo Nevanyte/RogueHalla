@@ -75,6 +75,7 @@ fn config(kind: &str) -> SimConfig {
         frost_wish: crate::FrostWish::Freeze,
         augments: crate::AugmentRule::Legacy,
         elites: crate::EliteRule::Legacy,
+        tick_ms: 50,
     }
 }
 

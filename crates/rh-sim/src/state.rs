@@ -1,6 +1,6 @@
 //! The evolving match state: players and their runtime, and the arena's run bookkeeping.
 
-use crate::constants::{MAX_PLAYERS, MAX_REWIND_MS, TICK_MS};
+use crate::constants::{LEGACY_TICK_MS, MAX_PLAYERS, MAX_REWIND_MS, TICK_MS};
 use crate::content::{FactionId, WeaponId};
 use crate::events::Event;
 use crate::fighter::{
@@ -43,12 +43,21 @@ pub struct Sample {
     pub y: f64,
 }
 
-/// How many rewind samples a fighter keeps: the window [`MAX_REWIND_MS`] + one tick (see [`History::record`]) holds at
-/// most `window / TICK_MS + 1` samples one tick apart; one more is slack. Derived from the constants so a change to the
-/// rewind window or the tick rate resizes the ring instead of silently dropping samples (`History::push` and `History::record`
-/// refuse to drop one, in every build).
+/// The shortest step a sim may run at (`SimConfig::tick_ms`, ADR 0029: half the legacy step): the closest two rewind
+/// samples can be, so what sizes the ring.
+const fn shortest_tick_ms() -> f64 {
+    LEGACY_TICK_MS / 2.0
+}
+
+/// How many rewind samples a fighter keeps: the window [`MAX_REWIND_MS`] + one step (see [`History::record_at_step`])
+/// holds at most `window / step + 1` samples one step apart; one more is slack. Sized for every allowed step (ADR 0029):
+/// the widest window (`MAX_REWIND_MS` + the legacy 50 ms step, which [`History::record`] trims to) over the shortest
+/// spacing (25 ms). At 50 ms the ring simply has room to spare; the trim is by time, so which samples it keeps (and so
+/// every checkpoint and hash) does not depend on the capacity. Derived from the constants so a change to the rewind
+/// window or the allowed steps resizes the ring instead of silently dropping samples (`History::push` and
+/// `History::record_at_step` refuse to drop one, in every build).
 const fn history_cap() -> usize {
-    ((MAX_REWIND_MS + TICK_MS) / TICK_MS) as usize + 2
+    ((MAX_REWIND_MS + LEGACY_TICK_MS) / shortest_tick_ms()) as usize + 2
 }
 
 /// A fighter's rewind history: the last [`history_cap`] samples, oldest first, in a fixed inline ring (no heap, no shifting
@@ -65,7 +74,7 @@ pub struct History {
 impl Default for History {
     fn default() -> Self {
         const { assert!(history_cap() <= u8::MAX as usize) };
-        const { assert!(history_cap() as f64 * TICK_MS > MAX_REWIND_MS + TICK_MS) };
+        const { assert!(history_cap() as f64 * shortest_tick_ms() > MAX_REWIND_MS + LEGACY_TICK_MS) };
         Self {
             buf: [Sample {
                 t: 0.0,
@@ -129,11 +138,21 @@ impl History {
             self.len -= 1;
         }
     }
-    /// Records the fighter's position at `now` and drops what the rewind window no longer needs: the oldest samples older
-    /// than `now - MAX_REWIND_MS - TICK_MS`, always keeping two (legacy `recordHistory`: push, then trim while longer than
-    /// two). The trim runs first here, so the ring never holds more than the window; the resulting sequence is the same.
+    /// [`History::record_at_step`] with the legacy 50 ms step. P-TICK-1b moves its caller (`systems/movement.rs`) to the
+    /// match's own step; until then a 25 ms match keeps one older sample than it needs (the ring has room for it).
     pub fn record(&mut self, now: f64, x: f64, y: f64) {
-        let cutoff = now - MAX_REWIND_MS - TICK_MS;
+        self.record_at_step(now, x, y, TICK_MS);
+    }
+    /// Records the fighter's position at `now` and drops what the rewind window no longer needs: the oldest samples older
+    /// than `now - MAX_REWIND_MS - tick_ms` (`tick_ms`: the match's step, `SimConfig::tick_ms`), always keeping two (legacy
+    /// `recordHistory`, `packages/server/src/sim/movement.ts:101-105`: push, then trim while longer than two). The trim
+    /// runs first here, so the ring never holds more than the window; the resulting sequence is the same.
+    pub fn record_at_step(&mut self, now: f64, x: f64, y: f64, tick_ms: f64) {
+        debug_assert!(
+            tick_ms >= shortest_tick_ms() && tick_ms <= LEGACY_TICK_MS,
+            "a step the ring is not sized for"
+        );
+        let cutoff = now - MAX_REWIND_MS - tick_ms;
         let cap = history_cap();
         let (mut head, mut len) = (self.head as usize, self.len as usize);
         while len >= 2 && self.buf[head].t < cutoff {
@@ -421,6 +440,10 @@ pub enum ContainerKind {
     /// A walk-over wind emblem (legacy container kind "consumable" carrying `windEmblem`): it holds no inventory
     /// item and is consumed by the wind system, never by the pickup action.
     WindEmblem,
+    /// P-COLISEUM-HEALS-1: a walk-over heal pickup at the grand coliseum centre (`systems::heal_pickups`): no item, never
+    /// opened, no target; `ready_at` is the server time it is next available (available iff `server_time >= ready_at`).
+    /// Created only at construction on a grand-coliseum map.
+    Heal,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -435,11 +458,20 @@ pub struct Container {
     /// A travel cannon's landing point (legacy `ContainerState.targetX/targetY`); `None` on every other kind.
     #[serde(default)]
     pub target: Option<Vec2>,
-    /// Server time the cannon reloads (legacy `ContainerState.readyAt`, uint32 ms); zero on every other kind.
+    /// Server time the cannon reloads (legacy `ContainerState.readyAt`, uint32 ms), or the time a heal pickup is next
+    /// available; zero on every other kind.
     #[serde(default)]
     pub ready_at: f64,
     pub(crate) stat_offer: bool,
     pub(crate) born_tick: u32,
+}
+
+impl Container {
+    /// Whether a non-cannon container's `ready_at` is legal here: zero, or a heal pickup's clock (bounded by
+    /// `heal_pickups::validate`).
+    pub(crate) fn idle_clock(&self) -> bool {
+        self.ready_at == 0. || self.kind == ContainerKind::Heal
+    }
 }
 
 /// A fighter's weapon state: the carried items and the active slot, and the runtime of the swing in progress.
@@ -1375,6 +1407,42 @@ mod tests {
             .unwrap()
         )
         .is_err());
+    }
+
+    /// The legacy recorder at any step: push, then trim while longer than two and the oldest is before the cutoff.
+    fn reference_at(h: &mut Vec<Sample>, now: f64, step: f64) {
+        h.push(Sample {
+            t: now,
+            x: 0.0,
+            y: 0.0,
+        });
+        let cutoff = now - MAX_REWIND_MS - step;
+        while h.len() > 2 && h[0].t < cutoff {
+            h.remove(0);
+        }
+    }
+
+    #[test]
+    fn the_ring_holds_the_whole_rewind_window_at_every_allowed_step() {
+        // P-TICK-1a (ADR 0029): sized for 25 ms, the ring holds the window at 25 ms with the match's own cutoff and with
+        // the legacy one `record` still uses, and at 50 ms it keeps exactly the samples the legacy recorder keeps.
+        for (spacing, cutoff_step) in [(25.0, 25.0), (25.0, TICK_MS), (TICK_MS, TICK_MS)] {
+            let mut ring = History::default();
+            let mut vec = Vec::new();
+            for n in 0..400u32 {
+                let now = spacing * n as f64;
+                ring.record_at_step(now, 0.0, 0.0, cutoff_step);
+                reference_at(&mut vec, now, cutoff_step);
+                assert_eq!(ring.iter().collect::<Vec<_>>(), vec);
+                assert!(ring.len() < history_cap(), "{spacing} ms spacing");
+            }
+            let want = ((MAX_REWIND_MS + cutoff_step) / spacing) as usize + 1;
+            assert_eq!(
+                ring.len(),
+                want,
+                "{spacing} ms spacing, {cutoff_step} ms cutoff"
+            );
+        }
     }
 
     #[test]

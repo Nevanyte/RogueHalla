@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {reachedRanges} from './reached.mts';
 import {createHash} from 'node:crypto';
 import {readFileSync,readdirSync,writeFileSync,statSync} from 'node:fs';
 import {dirname,join} from 'node:path';
@@ -22,7 +23,7 @@ const results:any[]=[],coverage:any[]=[],transformed:any={};
 for(const spec of specs){const r=runCase(spec);assert.deepEqual(runCase(spec),r,spec.id+': recreate exact transcript');results.push(r);const taken=await inspector.post('Profiler.takePreciseCoverage');const scripts:any[]=[];
  for(const s of taken.result){if(!s.url.includes('/brain/modules/')&&!s.url.endsWith('/chestHunt.ts')&&!s.url.endsWith('/abilityPolicy.ts'))continue;const path=s.url.replace(/^file:\/\//,'').replace(ROOT+'/','');
   if(!transformed[path]){const fetched=await inspector.post('Debugger.getScriptSource',{scriptId:s.scriptId});transformed[path]={sha256:hash(fetched.scriptSource),text:fetched.scriptSource};}
-  scripts.push({path,functions:s.functions.map((f:any)=>({name:f.functionName,isBlockCoverage:f.isBlockCoverage,ranges:f.ranges}))});
+  scripts.push({path,reached:reachedRanges(s.functions)});
  }coverage.push({id:spec.id,suite:spec.suite,declaredIntent:spec.covers,scripts:scripts.sort((a,b)=>a.path.localeCompare(b.path))});}
 await inspector.post('Profiler.stopPreciseCoverage');inspector.disconnect();
 function walk(base:string,rel:string,accept:(p:string)=>boolean):string[]{return readdirSync(join(base,rel),{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name)).flatMap(e=>e.isDirectory()?walk(base,join(rel,e.name),accept):accept(join(rel,e.name))?[join(rel,e.name)]:[]);}
@@ -38,5 +39,5 @@ const profile={sourceBase:'bd40fa2a274184b8748b005af78e18e74802f7ae',boundary:'D
 const body={format:'rh-bot-private-modules-source/1',methodValue:'rh-method-value/1',profile,maps:Object.entries(MAPS).map(([id,map]:any)=>({id,mapHashU32:mapWire.mapHashU32(map),value:encode(map)})),catalog:encode({cards:shared.CARDS,cardIds:shared.CARD_IDS,abilities:shared.ABILITIES,abilityIds:shared.ABILITY_IDS,chestBoostStats:shared.CHEST_BOOST_STATS,killStatKeys:shared.KILL_STAT_KEYS,rules:{hunter:hunt.CHEST_HUNT,chests:chests.CHEST_RULES,planning:planning.PLAN_RULES,wishes:wishes.WISH_RULES,hazards:hazards.HAZARD_RULES}}),cases:results};
 validate(body);const negatives=readerControls(body);
 const reached=process.env.RH_BOT_MODULES_MUTANT?[]:reachedChecks(results);
-const ledger={reachedAssertions:reached,format:'rh-bot-private-modules-coverage/1',interpretation:'V8 block counts on unchanged tsx source, two recreations per case. Declared intent is not proof; reached semantic assertions and explicit gaps in evidence/ledger bind closure claims.',readerControls:negatives,transformedSources:transformed,cases:coverage};
+const ledger={reachedAssertions:reached,format:'rh-bot-private-modules-coverage/2',interpretation:'Reached source ranges on unchanged tsx source (V8 precise coverage projected to which ranges ran; counts dropped as nondeterministic, P-CI-GREEN-4), two recreations per case. Declared intent is not proof; reached semantic assertions and explicit gaps in evidence/ledger bind closure claims.',readerControls:negatives,transformedSources:transformed,cases:coverage};
 for(const[name,value]of [['source.json',body],['coverage.json',ledger]]as const){const bytes=JSON.stringify(value)+'\n',p=join(out,name);if(mode==='--write')writeFileSync(p,bytes);else assert.equal(hash(readFileSync(p)),hash(bytes),name+': exact bytes');console.log(JSON.stringify({mode,file:name,bytes:Buffer.byteLength(bytes),sha256:hash(bytes),cases:results.length,operations:results.reduce((n,c)=>n+c.operations.length,0)}));}

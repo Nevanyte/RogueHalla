@@ -31,6 +31,10 @@
 //! config. Do not copy this for a new field: a new World field must be tagged (an `Option`, or a variant index), and a
 //! new config field must say in its own doc whether its default adds a word to the digest; one whose default adds none
 //! needs a non-default encoding of its own, checked in `tests/hash_coverage.rs` against every other such field.
+//! `SimConfig.frost_wish = Freeze` follows the same rule ("frost_wish=wall", length 15), and so does
+//! `SimConfig.tick_ms = 50` (ADR 0029, P-TICK-1a): the legacy step writes a unit, the only other allowed step, 25, folds
+//! the string "tick_ms=25" (length 10) in the hasher while JSON keeps the number `25`, and every other value is refused
+//! at construction and restore (`statics.rs`).
 //!
 //! The config's later silent switches (`frost_wish`, and P-AUG-RULES-1's `augments` and `elites`) follow the same rule:
 //! their non-default values fold the tags `"frost_wish=wall"`, `"augments=rework"` and `"elites=rework"`, which no other

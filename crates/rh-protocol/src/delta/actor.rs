@@ -31,6 +31,8 @@ pub struct QActor {
     pub offhand: u8,
     pub build_marks: u8,
     pub mark: [u8; 3],
+    /// The walk hint (protocol 19): `[walk_dir, walk_ticks]`.
+    pub walk: [u8; 2],
 }
 
 impl QActor {
@@ -56,6 +58,7 @@ impl QActor {
         offhand: 0,
         build_marks: 0,
         mark: [0; 3],
+        walk: [0; 2],
     };
 
     /// `a` checked and quantized: the first reason a decoder would reject the actor on its own (a faction, weapon or status over
@@ -94,6 +97,7 @@ impl QActor {
             offhand: a.offhand,
             build_marks: a.build_marks,
             mark: [a.mark_tier, a.brand, a.mark_tax],
+            walk: [a.walk_dir, a.walk_ticks],
         }
     }
 
@@ -123,6 +127,8 @@ impl QActor {
             mark_tier: self.mark[0],
             brand: self.mark[1],
             mark_tax: self.mark[2],
+            walk_dir: self.walk[0],
+            walk_ticks: self.walk[1],
         }
     }
 
@@ -175,6 +181,9 @@ impl QActor {
         if self.mark != [0; 3] {
             m |= AM_MARK;
         }
+        if self.walk[1] != 0 {
+            m |= AM_WALK;
+        }
         m
     }
 
@@ -203,6 +212,7 @@ impl QActor {
             + (self.offhand != 0) as usize
             + (self.build_marks != 0) as usize
             + 3 * (self.mark != [0; 3]) as usize
+            + 2 * (self.walk[1] != 0) as usize
     }
 }
 
@@ -261,6 +271,9 @@ pub(super) fn write_full_actor(out: &mut Writer, q: &QActor, prev: Option<u32>) 
     }
     if m & AM_MARK != 0 {
         w.bytes(q.mark);
+    }
+    if m & AM_WALK != 0 {
+        w.bytes(q.walk);
     }
     w.put(out);
 }

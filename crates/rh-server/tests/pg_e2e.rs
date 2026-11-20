@@ -136,6 +136,7 @@ async fn a_match_over_websockets_banks_results_once_in_postgres() {
                 pvp_rules: true,
                 weapon_specials: true,
                 faction_mode: rh_sim::FactionMode::Off,
+                tick_ms: 50,
             },
             arena,
         )
@@ -407,6 +408,7 @@ async fn an_mia_leave_is_banked_under_its_fence() {
                 pvp_rules: true,
                 weapon_specials: true,
                 faction_mode: rh_sim::FactionMode::Off,
+                tick_ms: 50,
             },
             arena,
         )

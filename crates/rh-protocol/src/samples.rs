@@ -4,8 +4,9 @@
 //! held to the same quantization, not just to the same bytes.
 
 use crate::delta::{
-    AD_ALL, AD_BOUNTY, AD_HP, AD_KIND, AD_KIT, AD_NEW, AD_STATUS, AD_X, DH_DEPARTED, DH_GV, DH_HP,
-    DH_KILLS, DH_MOVE_SEQ, DH_OWNER_COMBAT, DH_PHASE, DH_PRESENT, DH_STATUS, DH_X, DH_Y,
+    AD_ALL, AD_BOUNTY, AD_HP, AD_KIND, AD_KIT, AD_NEW, AD_STATUS, AD_WALK, AD_X, DH_DEPARTED,
+    DH_GV, DH_HP, DH_KILLS, DH_MOVE_SEQ, DH_OWNER_COMBAT, DH_PHASE, DH_PRESENT, DH_STATUS, DH_X,
+    DH_Y,
 };
 use crate::map::{
     MapAnchor, MapBlob, MapCamp, MapColiseum, MapGate, MapProp, MapPublic, MapRect, MapTile,
@@ -2879,6 +2880,91 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
                 ],
             },
         ),
+        // Protocol 19: remote players' walk hints (Full actor bit 15, two bytes after the mark plate): due south for the
+        // 20 Hz maximum, a heading of 255 for six ticks (a plain count, no cap: 40 Hz reaches 6), the largest pair, a
+        // standing player (no bit, decodes to (0, 0)) and a mob (never carries one).
+        (
+            "snapshot_walk_hint",
+            ServerMsg::Snapshot {
+                training: false,
+                owner_combat: None,
+                tick: 91,
+                server_time: snapshot_server_ms(91),
+                phase: 1,
+                ack_input: 6,
+                me: Some(WireSelf {
+                    id: 5,
+                    faction: 1,
+                    x: 100.0,
+                    y: 200.0,
+                    hp: 800.0,
+                    max_hp: 1000.0,
+                    status: 1,
+                    ..WireSelf::default()
+                }),
+                actors: vec![
+                    WireActor {
+                        id: 6,
+                        faction: 4,
+                        x: 120.0,
+                        y: 210.0,
+                        facing: 1.5707964,
+                        hp_pct: 90,
+                        status: 1,
+                        walk_dir: 64,
+                        walk_ticks: 3,
+                        ..WireActor::default()
+                    },
+                    WireActor {
+                        id: 7,
+                        faction: 2,
+                        x: 130.0,
+                        y: 210.0,
+                        hp_pct: 100,
+                        status: 1,
+                        weapon: 3,
+                        mark_tier: 1,
+                        brand: 10,
+                        mark_tax: 5,
+                        walk_dir: 255,
+                        walk_ticks: 6,
+                        ..WireActor::default()
+                    },
+                    WireActor {
+                        id: 8,
+                        faction: 3,
+                        x: 140.0,
+                        y: 210.0,
+                        hp_pct: 100,
+                        status: 1,
+                        walk_dir: 255,
+                        walk_ticks: 255,
+                        ..WireActor::default()
+                    },
+                    WireActor {
+                        id: 9,
+                        faction: 0,
+                        x: 150.0,
+                        y: 210.0,
+                        hp_pct: 100,
+                        status: 1,
+                        ..WireActor::default()
+                    },
+                    WireActor {
+                        id: 40,
+                        faction: 3,
+                        x: 160.0,
+                        y: 220.0,
+                        hp_pct: 100,
+                        status: 1,
+                        weapon: 4,
+                        kind: 1,
+                        mob_type_code: 3,
+                        ..WireActor::default()
+                    },
+                ],
+            },
+        ),
         // A zero max_hp (a varint 0) and a hp of -0.0 (bits preserved: the hp bit is set, as the bit patterns differ).
         (
             "snapshot_zero_hp",
@@ -2965,8 +3051,9 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
                             ..QActor::default()
                         },
                     },
+                    // Every field through protocol 18 (the walk hint, bit 18, has its own chain): this vector's bytes predate it.
                     ActorDelta {
-                        mask: AD_ALL,
+                        mask: AD_ALL & !AD_WALK,
                         q: QActor {
                             sig: 0,
                             mob_type_code: 0,
@@ -5507,9 +5594,10 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
             snapshot_bytes(0, &[], MAX_ACTORS as u32 + 1, &[]),
         ),
         ("actor_count_without_actors", snapshot_bytes(0, &[], 1, &[])),
+        // Protocol 19 defines bit 15 (the walk hint); bit 16 is `actor_unknown_mask_bit_after_kind`, so this one is 17.
         (
             "actor_reserved_mask_bit",
-            snapshot_bytes(0, &[], 1, &actor_bytes(1 << 15, &[])),
+            snapshot_bytes(0, &[], 1, &actor_bytes(1 << 17, &[])),
         ),
         (
             "actor_id_gap_zero",
@@ -6435,6 +6523,72 @@ pub fn chain_samples() -> Vec<(&'static str, Vec<ChainStep>)> {
             prior = Some(data);
         }
         chains.push(("indicator_facts_delta", steps));
+    }
+    // Protocol 19: a remote player's walk hint arrives in a Full frame, is not resent while unchanged, is sent when only the
+    // heading changes (equal ticks), clears to (0, 0), is set again with six ticks (a plain count), and arrives with a
+    // player that returns as a NEW actor inside a delta. The mob never carries one.
+    {
+        let mut encoder = ConnEncoder::new();
+        let mut tracker = SnapshotTracker::new();
+        let mut steps = Vec::new();
+        let mut prior: Option<SnapshotData> = None;
+        // (tick, walk_dir, walk_ticks); tick 6 the walker departs.
+        let script: [(u32, u8, u8); 7] = [
+            (1, 64, 3),
+            (2, 64, 3),
+            (3, 0, 3),
+            (4, 0, 0),
+            (5, 192, 6),
+            (6, 0, 0),
+            (7, 128, 2),
+        ];
+        for (tick, walk_dir, walk_ticks) in script {
+            let walker = WireActor {
+                walk_dir,
+                walk_ticks,
+                ..wa(2, 10., 20., 100, 1)
+            };
+            let mob = WireActor {
+                kind: 1,
+                mob_type_code: 7,
+                ..wa(9, 50., 60., 100, 1)
+            };
+            let data = if tick == 6 {
+                snap(tick, 1, tick, Some(chain_self(400.0)), &[mob])
+            } else {
+                snap(tick, 1, tick, Some(chain_self(400.0)), &[walker, mob])
+            };
+            let (frame, kind) = encoder.encode_frame(data.clone());
+            if let Some(base) = prior.as_ref() {
+                assert_eq!(kind, FrameKind::Delta);
+                let d = delta::diff(base, &data).unwrap();
+                let walker_mask = d.changed.iter().find(|c| c.q.id == 2).map(|c| c.mask);
+                match tick {
+                    2 => assert_eq!(walker_mask, None, "an unchanged hint is not resent"),
+                    3..=5 => assert_eq!(walker_mask, Some(AD_WALK), "only the hint changed"),
+                    7 => assert!(
+                        walker_mask.is_some_and(|m| m & AD_NEW == AD_NEW && m & AD_WALK != 0),
+                        "the returning walker is a new actor with its hint"
+                    ),
+                    _ => {}
+                }
+                assert!(
+                    d.changed.iter().all(|c| c.q.id != 9),
+                    "the mob is unchanged"
+                );
+                assert_eq!(ServerMsg::SnapshotDelta(d).encode(), frame);
+            } else {
+                assert_eq!(kind, FrameKind::Full);
+            }
+            let got = tracker.decode(&frame).expect("walk hints apply");
+            assert_eq!(got, data.decoded());
+            steps.push(ChainStep {
+                frame,
+                outcome: ChainOutcome::Applied(got),
+            });
+            prior = Some(data);
+        }
+        chains.push(("walk_hint_delta", steps));
     }
     {
         let mut encoder = ConnEncoder::new();
@@ -7392,10 +7546,10 @@ pub fn malformed_deltas() -> Vec<(&'static str, Vec<u8>)> {
             delta_bytes(10, 1, DH_PRESENT | DH_STATUS, &[4, 0]),
         ),
         ("delta_phase_over_3", delta_bytes(10, 1, DH_PHASE, &[4, 0])),
-        // Actor delta bit 18 is not a field of this version.
+        // Actor delta bit 19 is not a field of this version (protocol 19: bit 18 is the walk hint).
         (
             "delta_actor_mask_unknown_bit",
-            delta_bytes(10, 1, 0, &[1, 1, 0x80, 0x80, 0x10]),
+            delta_bytes(10, 1, 0, &[1, 1, 0x80, 0x80, 0x20]),
         ),
         (
             "delta_actor_status_over_3",
@@ -7570,7 +7724,7 @@ fn decoded_snapshot_json(m: &ServerMsg) -> String {
         .iter()
         .map(|a| {
             format!(
-                "{{\"id\": {}, \"faction\": {}, \"xBits\": {}, \"yBits\": {}, \"facingBits\": {}, \"hpPct\": {}, \"status\": {}, \"weapon\": {}, \"bounty\": {}, \"kind\": {}, \"effects\": {}, \"displaceSeq\": {}, \"mobTypeCode\": {}, \"sig\": {}, \"barrierPct\": {}, \"barrierRingStep\": {}, \"archetype\": {}, \"flags\": {}, \"offhand\": {}, \"buildMarks\": {}, \"markTier\": {}, \"brand\": {}, \"markTax\": {}}}",
+                "{{\"id\": {}, \"faction\": {}, \"xBits\": {}, \"yBits\": {}, \"facingBits\": {}, \"hpPct\": {}, \"status\": {}, \"weapon\": {}, \"bounty\": {}, \"kind\": {}, \"effects\": {}, \"displaceSeq\": {}, \"mobTypeCode\": {}, \"sig\": {}, \"barrierPct\": {}, \"barrierRingStep\": {}, \"archetype\": {}, \"flags\": {}, \"offhand\": {}, \"buildMarks\": {}, \"markTier\": {}, \"brand\": {}, \"markTax\": {}, \"walkDir\": {}, \"walkTicks\": {}}}",
                 a.id,
                 a.faction,
                 bits(a.x),
@@ -7581,7 +7735,8 @@ fn decoded_snapshot_json(m: &ServerMsg) -> String {
                 a.weapon,
                 a.bounty,
                 a.kind, a.effects, a.displace_seq, a.mob_type_code, a.sig, a.barrier_pct, a.barrier_ring_step,
-                a.archetype, a.flags, a.offhand, a.build_marks, a.mark_tier, a.brand, a.mark_tax
+                a.archetype, a.flags, a.offhand, a.build_marks, a.mark_tier, a.brand, a.mark_tax,
+                a.walk_dir, a.walk_ticks
             )
         })
         .collect();

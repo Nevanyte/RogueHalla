@@ -125,6 +125,15 @@ fn the_actor_memo_is_always_a_fresh_conversion() {
             "weapon",
             Box::new(|a| a.weapon = Some(rh_sim::content::WeaponId::ALL[4])),
         ),
+        (
+            "walk",
+            Box::new(|a| a.walk = rh_sim::observe::WalkHint { dir: 64, ticks: 3 }),
+        ),
+        (
+            "walk heading",
+            Box::new(|a| a.walk = rh_sim::observe::WalkHint { dir: 0, ticks: 3 }),
+        ),
+        ("walk stops", Box::new(|a| a.walk = Default::default())),
         ("zero", Box::new(|a| a.x = 0.0)),
         ("negative zero", Box::new(|a| a.x = -0.0)),
         ("off the grid", Box::new(|a| a.x = 1.0e9)),

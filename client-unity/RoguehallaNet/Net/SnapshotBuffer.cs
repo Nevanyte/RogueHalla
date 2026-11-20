@@ -63,6 +63,9 @@ namespace Roguehalla.Net
 
         public void Clear() { _snaps.Clear(); }
 
+        /// <summary>The snapshot at <paramref name="i"/>, oldest first (<see cref="RemoteDraw"/> reads the newest few).</summary>
+        internal ServerMsg.Snapshot At(int i) { return _snaps[i]; }
+
         /// <summary>Adds a snapshot; one that is not newer than the newest (duplicate or reordered) is ignored.</summary>
         public bool Add(ServerMsg.Snapshot s)
         {

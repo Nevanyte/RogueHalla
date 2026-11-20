@@ -81,5 +81,5 @@ fn frost_policy_receives_public_chill_and_moves_through_normal_intake() {
     assert!(seen
         .iter()
         .all(|o| o.version == rh_sim::OBSERVATION_VERSION));
-    assert_eq!(POLICY_CONTRACT_VERSION, 27);
+    assert_eq!(POLICY_CONTRACT_VERSION, 28); // 26: P-NET-DRAWAHEAD-1a; 27: P-WIRE19-B; 28: P-SYNC-ORIGIN-1
 }

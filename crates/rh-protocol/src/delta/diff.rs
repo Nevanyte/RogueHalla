@@ -245,6 +245,9 @@ impl ActorDelta {
         if self.mask & AD_MARK != 0 {
             [a.mark_tier, a.brand, a.mark_tax] = self.q.mark;
         }
+        if self.mask & AD_WALK != 0 {
+            [a.walk_dir, a.walk_ticks] = self.q.walk;
+        }
         a
     }
 }
@@ -413,5 +416,6 @@ pub(super) fn mask_fields(q: &QActor, mask: u32) -> QActor {
             0
         },
         mark: if mask & AD_MARK != 0 { q.mark } else { [0; 3] },
+        walk: if mask & AD_WALK != 0 { q.walk } else { [0; 2] },
     }
 }

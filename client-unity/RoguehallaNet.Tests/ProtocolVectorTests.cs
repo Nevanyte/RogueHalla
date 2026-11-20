@@ -976,6 +976,8 @@ namespace Roguehalla.Net.Tests
                 Assert.AreEqual(e.GetProperty("flags").GetByte(), a.Flags); Assert.AreEqual(e.GetProperty("offhand").GetByte(), a.Offhand);
                 Assert.AreEqual(e.GetProperty("buildMarks").GetByte(), a.BuildMarks); Assert.AreEqual(e.GetProperty("markTier").GetByte(), a.MarkTier);
                 Assert.AreEqual(e.GetProperty("brand").GetByte(), a.Brand); Assert.AreEqual(e.GetProperty("markTax").GetByte(), a.MarkTax);
+                // Protocol 19 (P-NET-DRAWAHEAD-1a): the walk hint.
+                Assert.AreEqual(e.GetProperty("walkDir").GetByte(), a.WalkDir); Assert.AreEqual(e.GetProperty("walkTicks").GetByte(), a.WalkTicks);
             }
         }
 
@@ -1256,7 +1258,7 @@ namespace Roguehalla.Net.Tests
             var full = Server<ServerMsg.SnapshotDelta>("snapshot_delta");
             Assert.AreEqual(1000000u, full.Tick); Assert.AreEqual(999990u, full.BaseTick); Assert.IsTrue(full.HasPhase); Assert.AreEqual((byte)2, full.Phase);
             Assert.IsTrue(full.HasSelf); Assert.AreEqual(2, full.ChangedCount); Assert.AreEqual(2, full.DepartedCount);
-            Assert.AreEqual(70000u, full.Departed[1]); Assert.AreEqual(128u, full.Changed[1].Id); Assert.AreEqual(ActorDelta.MAll, full.Changed[1].Mask);
+            Assert.AreEqual(70000u, full.Departed[1]); Assert.AreEqual(128u, full.Changed[1].Id); Assert.AreEqual(ActorDelta.MAll & ~ActorDelta.MWalk, full.Changed[1].Mask); // every field through protocol 18
         }
 
         [Test]

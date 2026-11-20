@@ -229,6 +229,22 @@ Paths are relative to `packages/` unless they start with `crates/`, `docs/`, `de
 | P-AUG-UI-2 | Unity native card text, selectors, HUD readouts, first-pick countdown | P-WIRE19-B | Coarse ([plan](AUGMENT_ELITE_REWORK.md), wave 8) | client/src/ui/chestPanel.ts |
 | P-AUG-DOCS-1 | Docs: GAME_DESIGN §11/§12.5/GV table, MOB_PROGRESSION, quests README | all of the above | Coarse ([plan](AUGMENT_ELITE_REWORK.md), wave 9) | none |
 
+### 1a. Live tick rate (ADR 0029, owner direction 2026-11-19)
+
+The live server moves to a 40 Hz (25 ms) step; parity, captures and fixtures stay at 50 ms. Order and parallel groups:
+[P-TICK-0](packets/P-TICK-0.md).
+
+| ID | Outcome | Depends on | Status | Legacy owners |
+|---|---|---|---|---|
+| P-TICK-0 | ADR 0029, the C-TICK amendment and DEV-039 recorded | none | Done (owner accepted 2026-11-19; [spec](packets/P-TICK-0.md)) | shared/constants.ts |
+| P-TICK-1a | `SimConfig::tick_ms` 50 or 25 in the sim core, save, restore and hash | P-TICK-0 | Ready packet ([spec](packets/P-TICK-1a.md)) | shared/constants.ts |
+| P-TICK-1b | every `rh-sim` system reads the sim's step; tick-counted rules in milliseconds | P-TICK-1a | Ready packet ([spec](packets/P-TICK-1b.md)) | shared/walk.ts, constants.ts |
+| P-TICK-2 | bots and headless read the step | P-TICK-1b | Ready packet ([spec](packets/P-TICK-2.md)) | shared/constants.ts |
+| P-TICK-3 | protocol 19: snapshot time from the Welcome rate, delta limits scaled | P-TICK-1b | Ready packet ([spec](packets/P-TICK-3.md)) | shared/constants.ts |
+| P-TICK-4 | Unity library reads the step; walk and pause vectors at both rates | P-TICK-3 | Ready packet ([spec](packets/P-TICK-4.md)) | shared/walk.ts |
+| P-TICK-5 | server rooms run at their configured step; rewind window follows it | P-TICK-3 | Ready packet ([spec](packets/P-TICK-5.md)) | shared/constants.ts |
+| P-TICK-6 | measure 25 ms on full maps, then flip the live default | P-TICK-2, 4, 5 | Ready packet ([spec](packets/P-TICK-6.md)) | none |
+
 ### 2. Bots
 
 | ID | Outcome | Depends on | Status | Legacy owners |

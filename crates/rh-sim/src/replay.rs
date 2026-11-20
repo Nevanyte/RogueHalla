@@ -90,6 +90,8 @@ pub struct Replay {
     /// The match this replay belongs to, as the durable store knows it (a UUID string) when it was recorded by a live room.
     #[serde(default)]
     pub match_id: Option<String>,
+    /// The match's config, its step length included (`SimConfig::tick_ms`, ADR 0029): a 50 ms replay writes it as `null`
+    /// (the shape it had before the field), a 25 ms one as `25`; each replays only at its own step.
     pub config: SimConfig,
     pub arena: Arena,
     pub secrets: Secrets,

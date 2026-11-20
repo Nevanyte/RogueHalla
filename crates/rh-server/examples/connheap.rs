@@ -73,6 +73,7 @@ async fn server(args: &[String], conns: usize, secs: u64) {
         pvp_rules: true,
         weapon_specials: true,
         faction_mode: rh_sim::FactionMode::Off,
+        tick_ms: 50,
     };
     let cfg = DirectorConfig {
         max_rooms: 64,
