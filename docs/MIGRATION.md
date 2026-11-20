@@ -4,7 +4,7 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
-## 40 Hz tick, P-TICK-1a, 1b, 2 and 3 (2026-11-20, branch `claude/project-thread-baoxuk`)
+## 40 Hz tick, P-TICK-1a to 5 (2026-11-20, branch `claude/project-thread-baoxuk`)
 
 **Owner direction 2026-11-19:** "lets do 40" (live tick 40 Hz), then "okay for all 3" (accept ADR 0029, sign DEV-039,
 push). ADR 0029 Accepted; C-TICK amended; DEV-039 signed; packets P-TICK-0..6 (backlog section 1a). P-TICK-3 lands after
@@ -36,6 +36,19 @@ owner-protected). reviewer-opus LAND WITH NOTES (encoder not rate-aware); merged
 SnapshotData, the delta writer, Outbox and the policy forced-full rule take the connection's `tick_ms`; reviewer-opus
 LAND; merged `d9f21dfb`. **P-TICK-2**: bots and headless read the step (`--tick-ms 50|25`); reviewer-opus LAND;
 merged `f9273960`. **P-TICK-1b-perf** (PR #77 perfproof Ir 1.07-1.12 over the 1.03 limit; cause: `vision.rs` `latest_reveal` computing the trail length per reveal): step counts hoisted, `const fn` again; local perfproof vs deaf125b 0.987-1.000 on every case, fingerprints identical; reviewer-opus LAND.
+
+**P-TICK-5** (rooms run at the sim's step): `--tick-ms 50|25` / `RH_TICK_MS` (default 50; other values exit 2); the
+director paces from `sim.tick_ms`; Welcome sends 20 or 40; join and resume set the rate on the outbox and the
+collections publisher; `now_apply`, bot delivery and the rewind window (`allowed_rewind_ms_at`, floor one step) use the
+room's step; `profile_supported` hosts 50 and 25. Coordinator accepted the amendment of the P-TICK-3 transitional test
+(`a_sim_stepping_other_than_50_ms_is_not_hosted`). reviewer-opus LAND. Live default stays 50 until P-TICK-6.
+
+**P-TICK-4** (Unity library reads the step): `LocalMotion.StepMs` (per-session `DelayMinMs`, `CeilStep`),
+`VisionRule.StepMs`, `RenderClock.MinDelay = TickMs + 5` (30 ms at 40 Hz), `RemoteDraw` gap `2 * TickMs`,
+`MatchClient.cs:290` from the session clock; Rust-generated `server_walk_v3.json` and `ranged_pause_v3.json` (runs at 50
+and 25; the 50 ms run equals v2). Coordinator oracle-amend: the 25 ms walk starts at tick 2 (the 50 ms bootstrap of
+P-TICK-1b). reviewer LAND. C# compiled and tested only in CI (no dotnet here). `VisionFog.cs` leaves `StepMs` at 50
+(nothing reads it yet).
 
 ## Integration 58 (2026-11-18): the GitHub front page
 
