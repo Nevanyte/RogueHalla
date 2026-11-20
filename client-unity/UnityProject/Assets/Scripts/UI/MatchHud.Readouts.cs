@@ -6,6 +6,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>HUD part that shows the owner native readout strip (counters, meters and mark pips) from the delivered readout rows.</summary>
     public sealed partial class MatchHud
     {
         TMP_Text _readoutStrip;
