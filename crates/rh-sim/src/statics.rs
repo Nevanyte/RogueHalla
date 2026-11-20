@@ -62,6 +62,12 @@ impl MatchStatic {
     pub(crate) fn tick_ms(&self) -> f64 {
         f64::from(self.config.tick_ms)
     }
+    /// A rule counted in legacy 50 ms ticks (`WALK_HINT_MAX_TICKS`, `MOB_SPACING_LOOK_TICKS`), as steps of this match: it
+    /// keeps its wall-clock time (ADR 0029 decision 3). Exact: 50 is a multiple of every supported step.
+    #[inline]
+    pub(crate) fn steps_of_legacy_ticks(&self, ticks: u32) -> u32 {
+        ticks * (crate::constants::LEGACY_TICK_MS as u32 / self.config.tick_ms)
+    }
 
     pub(crate) fn new(config: SimConfig, arena: impl Into<Arc<Arena>>, secrets: Secrets) -> Self {
         let arena = arena.into();

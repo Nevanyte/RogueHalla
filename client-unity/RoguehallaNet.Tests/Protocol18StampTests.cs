@@ -8,10 +8,11 @@ namespace Roguehalla.Net.Tests
     /// <summary>P-PROTOCOL-18-STAMP-1 oracle (client): the codec speaks protocol 18 (owner approval 9, 2026-11-12), decodes the
     /// v18 golden vectors as protocol 18, and a session refuses a protocol-17 server's Welcome while accepting an 18 one.
     /// P-NET-DRAWAHEAD-1a moved the codec to protocol 19 (the walk hint): an 18 Welcome is now the refused one.
-    /// P-COLISEUM-HEALS-2 moved it to protocol 20 (the heal prop): a 19 Welcome is now the refused one.</summary>
+    /// P-COLISEUM-HEALS-2 moved it to protocol 20 (the heal prop): a 19 Welcome is now the refused one.
+    /// P-TICK-3 moved it to protocol 21 (snapshot time from the Welcome rate): a 20 Welcome is now the refused one.</summary>
     public class Protocol18StampTests
     {
-        [Test] public void CodecSpeaksProtocol20() { Assert.AreEqual(20, Wire.ProtocolVersion); }
+        [Test] public void CodecSpeaksProtocol21() { Assert.AreEqual(21, Wire.ProtocolVersion); }
 
         [Test]
         public void V18FixtureExistsAndItsHelloSays18()
@@ -40,19 +41,19 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
-        public void AProtocol19WelcomeIsRefusedAndA20WelcomeAccepted()
+        public void AProtocol20WelcomeIsRefusedAndA21WelcomeAccepted()
         {
-            var old = new FakeTransport(); var s19 = NewSession(old);
-            s19.Connect(); old.Open();
-            Assert.AreEqual(20, old.LastSent<ClientMsg.Hello>().Protocol, "the Hello says 20");
-            old.Deliver(Welcome(19));
-            Assert.AreEqual(SessionState.Failed, s19.State, "a protocol-19 Welcome is refused");
-            StringAssert.Contains("server protocol 19", s19.Error);
+            var old = new FakeTransport(); var s20 = NewSession(old);
+            s20.Connect(); old.Open();
+            Assert.AreEqual(21, old.LastSent<ClientMsg.Hello>().Protocol, "the Hello says 21");
+            old.Deliver(Welcome(20));
+            Assert.AreEqual(SessionState.Failed, s20.State, "a protocol-20 Welcome is refused");
+            StringAssert.Contains("server protocol 20", s20.Error);
 
-            var cur = new FakeTransport(); var s20 = NewSession(cur);
-            s20.Connect(); cur.Open();
-            cur.Deliver(Welcome(20));
-            Assert.AreEqual(SessionState.InMatch, s20.State, "a protocol-20 Welcome starts the match");
+            var cur = new FakeTransport(); var s21 = NewSession(cur);
+            s21.Connect(); cur.Open();
+            cur.Deliver(Welcome(21));
+            Assert.AreEqual(SessionState.InMatch, s21.State, "a protocol-21 Welcome starts the match");
         }
     }
 }

@@ -2,14 +2,21 @@
 use super::*;
 // Retained source clocks cannot prove the full history. These are necessary stock
 // equations: opening lock, or a prior accepted fixed-step cast plus its cooldown.
-fn prior_clock(prior: f64, initial: f64, first_cast: f64, accepted: f64, cooldown: f64) -> bool {
+// `tick_ms`: the match's step (`SimConfig::tick_ms`); every accepted cast and cut lies on its grid.
+fn prior_clock(
+    prior: f64,
+    initial: f64,
+    first_cast: f64,
+    accepted: f64,
+    cooldown: f64,
+    tick_ms: f64,
+) -> bool {
     prior <= accepted
         && (prior == initial
-            || (prior >= first_cast + cooldown
-                && (prior - cooldown) % crate::constants::TICK_MS == 0.))
+            || (prior >= first_cast + cooldown && (prior - cooldown) % tick_ms == 0.))
 }
-fn charge_clock_lattice(cooldown: f64) -> f64 {
-    let (mut a, mut b) = (crate::constants::TICK_MS, cooldown);
+fn charge_clock_lattice(cooldown: f64, tick_ms: f64) -> f64 {
+    let (mut a, mut b) = (tick_ms, cooldown);
     while b != 0. {
         (a, b) = (b, a % b);
     }
@@ -18,7 +25,12 @@ fn charge_clock_lattice(cooldown: f64) -> f64 {
 
 /// The card producer's trace: Wishful Thinking records each cut (source cards.trims) in the source window. The
 /// clocks a cut leaves cannot be replayed from the last spend alone, so the necessary equations use this bounded trace.
-fn trim_trace_coherent(p: &crate::state::Player, now: f64, raid_started_at: f64) -> bool {
+fn trim_trace_coherent(
+    p: &crate::state::Player,
+    now: f64,
+    raid_started_at: f64,
+    tick_ms: f64,
+) -> bool {
     let window = crate::constants::WISHFUL_WINDOW_MS;
     let mut in_window = 0.;
     for t in &p.card_trims {
@@ -26,7 +38,7 @@ fn trim_trace_coherent(p: &crate::state::Player, now: f64, raid_started_at: f64)
             || !t.ms.is_finite()
             || t.at < raid_started_at
             || t.at > now
-            || t.at % crate::constants::TICK_MS != 0.
+            || t.at % tick_ms != 0.
             || !(t.ms > 0. && t.ms <= crate::constants::WISHFUL_BUDGET_MS)
         {
             return false;
@@ -49,9 +61,10 @@ pub(crate) fn validate(
     k: &crate::statics::MatchStatic,
     w: &crate::state::World,
 ) -> Result<(), String> {
+    let tick_ms = k.tick_ms();
     if !k.config.wish_lock_ms.is_finite()
         || k.config.wish_lock_ms < 0.
-        || k.config.wish_lock_ms > f64::from(u32::MAX) * crate::constants::TICK_MS
+        || k.config.wish_lock_ms > f64::from(u32::MAX) * tick_ms
     {
         return Err("invalid Wish lock".into());
     }
@@ -60,7 +73,7 @@ pub(crate) fn validate(
     } else {
         w.raid_started_at + k.config.wish_lock_ms
     };
-    let first_cast = (w.raid_started_at + crate::constants::TICK_MS).max(initial);
+    let first_cast = (w.raid_started_at + tick_ms).max(initial);
     let full = k.config.abilities == Mode::Full;
     if full {
         super::effect_checkpoint::validate(w)?;
@@ -73,7 +86,7 @@ pub(crate) fn validate(
                 return Err("card Wish memory in Off mode".into());
             }
             if !(first_cast..=w.server_time).contains(&spend.at)
-                || spend.at % crate::constants::TICK_MS != 0.
+                || spend.at % tick_ms != 0.
                 || !spend.cooldown_ms.is_finite()
                 || spend.cooldown_ms <= 0.
                 || spend.cooldown_ms.fract() != 0.
@@ -98,7 +111,7 @@ pub(crate) fn validate(
         ]
         .into_iter()
         .flatten()
-        .all(|v| v.is_finite() && v >= 0. && v <= f64::from(u32::MAX) * crate::constants::TICK_MS)
+        .all(|v| v.is_finite() && v >= 0. && v <= f64::from(u32::MAX) * tick_ms)
         {
             return Err("invalid Wish stock clock".into());
         }
@@ -130,7 +143,7 @@ pub(crate) fn validate(
                     && !p.card_trims.is_empty()
                     && p.build.owns(crate::cards::CardId::WishfulThinking);
                 if trimmed {
-                    if !trim_trace_coherent(p, w.server_time, w.raid_started_at) {
+                    if !trim_trace_coherent(p, w.server_time, w.raid_started_at, tick_ms) {
                         return Err("incoherent card Wish trim trace".into());
                     }
                     if stocks.wish_ready_at > full_at
@@ -156,14 +169,12 @@ pub(crate) fn validate(
                         // at most one recharge ahead. The new interval follows spendCharge.
                         (spend.at + recharge..=spend.at + 2. * recharge).contains(&full_at)
                             && stocks.wish_ready_at == (full_at - recharge).max(0.)
-                            && full_at % charge_clock_lattice(recharge) == 0.
+                            && full_at % charge_clock_lattice(recharge, tick_ms) == 0.
                             && (full_at == spend.at + recharge
-                                || (spend.at >= first_cast + crate::constants::TICK_MS
+                                || (spend.at >= first_cast + tick_ms
                                     && full_at >= first_cast + 2. * recharge
                                     && (spend.at >= first_cast + recharge
-                                        || full_at
-                                            <= spend.at - crate::constants::TICK_MS
-                                                + 2. * recharge)))
+                                        || full_at <= spend.at - tick_ms + 2. * recharge)))
                     };
                     // The card producer: a cut only lowers the untrimmed spend clock, never above it, and the
                     // per-window budget bounds how far (a necessary equation, not an exact replay of the cuts).
@@ -178,12 +189,12 @@ pub(crate) fn validate(
                                 .contains(&full_at)
                                 && stocks.wish_ready_at + recharge >= full_at
                         })
-                        && full_at % charge_clock_lattice(recharge) == 0.
-                        && stocks.wish_ready_at % crate::constants::TICK_MS == 0.;
+                        && full_at % charge_clock_lattice(recharge, tick_ms) == 0.
+                        && stocks.wish_ready_at % tick_ms == 0.;
                     let refunded = def.cast_ms > 0.
                         && stocks.wish_ready_at == full_at
                         && full_at <= spend.at
-                        && prior_clock(full_at, initial, first_cast, spend.at, recharge)
+                        && prior_clock(full_at, initial, first_cast, spend.at, recharge, tick_ms)
                         && w.abilities
                             .as_ref()
                             .and_then(|a| a.teleported_at)
@@ -233,7 +244,7 @@ pub(crate) fn validate(
             .all(crate::status_runtime::geometry_scalar_is_safe)
             || !(0. ..=crate::constants::WORLD_W).contains(&d.point.x)
             || !(0. ..=crate::constants::WORLD_H).contains(&d.point.y)
-            || !(crate::constants::TICK_MS..=crate::constants::MAX_REWIND_MS).contains(&d.lag_ms)
+            || !(tick_ms..=crate::constants::MAX_REWIND_MS).contains(&d.lag_ms)
         {
             return Err("invalid Wish point or lag".into());
         }
@@ -256,6 +267,7 @@ pub(crate) fn validate(
                     k.config.training,
                     Some(p.modifiers.wish_cooldown_mult()),
                 ),
+                tick_ms,
             )
         {
             return Err("invalid Wish rollback clock".into());

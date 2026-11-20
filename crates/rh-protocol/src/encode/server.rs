@@ -6,6 +6,53 @@ impl Frame for ServerMsg {
     const MAX_FRAME: usize = MAX_SERVER_FRAME;
 
     fn encoded_len(&self) -> usize {
+        self.len_ms(TICK_MS)
+    }
+
+    fn check(&self, len: usize) -> Result<(), EncodeError> {
+        self.check_ms(len, TICK_MS)
+    }
+
+    /// A Snapshot is written once into a reused per-thread scratch buffer and copied to its exact size: every actor's mask
+    /// and field lengths are computed once (by the writer), not again by a sizing pass. The bytes are those of the sized
+    /// path (debug builds assert it). Every other message is sized first.
+    fn exact_vec(&self) -> Vec<u8> {
+        if !matches!(self, ServerMsg::Snapshot { .. }) {
+            return sized_then_written(self);
+        }
+        #[cfg(debug_assertions)]
+        if let Err(e) = self.check(self.encoded_len()) {
+            panic!("encoding a frame every decoder rejects: {e} (use try_encode or encode_into)");
+        }
+        thread_local! {
+            static SCRATCH: std::cell::RefCell<Vec<u8>> = const { std::cell::RefCell::new(Vec::new()) };
+        }
+        SCRATCH.with(|cell| {
+            let mut buf = std::mem::take(&mut *cell.borrow_mut());
+            buf.clear();
+            let mut w = Writer::from_vec(buf);
+            self.write(&mut w);
+            let buf = w.finish();
+            debug_assert_eq!(
+                buf.len(),
+                self.encoded_len(),
+                "encoded_len disagrees with the writer"
+            );
+            let out = buf.clone();
+            *cell.borrow_mut() = buf;
+            out
+        })
+    }
+
+    fn write(&self, w: &mut Writer) {
+        self.write_ms(w, TICK_MS)
+    }
+}
+
+/// The writers behind the [`Frame`] impl, with snapshot time and delta limits at `tick_ms` per tick (P-TICK-3-fix): the
+/// plain encoders pass [`TICK_MS`], [`ServerMsg::try_encode_at`] the connection's rate.
+impl ServerMsg {
+    fn len_ms(&self, tick_ms: u32) -> usize {
         match self {
             ServerMsg::Welcome {
                 archetypes,
@@ -34,6 +81,7 @@ impl Frame for ServerMsg {
                 owner_combat,
             } => snapshot_len(
                 *tick,
+                tick_ms,
                 *server_time,
                 *phase,
                 *ack_input,
@@ -42,7 +90,7 @@ impl Frame for ServerMsg {
                 actors,
                 owner_combat.as_ref(),
             ),
-            ServerMsg::SnapshotDelta(d) => delta::message_len(d),
+            ServerMsg::SnapshotDelta(d) => delta::message_len(d, tick_ms),
             ServerMsg::Events { events, .. } => {
                 1 + 4 + 2 + events.iter().map(event_len).sum::<usize>()
             }
@@ -60,7 +108,7 @@ impl Frame for ServerMsg {
         }
     }
 
-    fn check(&self, len: usize) -> Result<(), EncodeError> {
+    fn check_ms(&self, len: usize, tick_ms: u32) -> Result<(), EncodeError> {
         match self {
             ServerMsg::Welcome {
                 archetypes,
@@ -110,7 +158,7 @@ impl Frame for ServerMsg {
                     return Err(EncodeError::BadValue("owner combat"));
                 }
             }
-            ServerMsg::SnapshotDelta(d) => delta::message_check(d)?,
+            ServerMsg::SnapshotDelta(d) => delta::message_check(d, tick_ms)?,
             ServerMsg::Events { events, .. } => {
                 list("events", events.len(), u16::MAX as usize)?;
                 for e in events {
@@ -233,38 +281,7 @@ impl Frame for ServerMsg {
         frame_size(len, Self::MAX_FRAME)
     }
 
-    /// A Snapshot is written once into a reused per-thread scratch buffer and copied to its exact size: every actor's mask
-    /// and field lengths are computed once (by the writer), not again by a sizing pass. The bytes are those of the sized
-    /// path (debug builds assert it). Every other message is sized first.
-    fn exact_vec(&self) -> Vec<u8> {
-        if !matches!(self, ServerMsg::Snapshot { .. }) {
-            return sized_then_written(self);
-        }
-        #[cfg(debug_assertions)]
-        if let Err(e) = self.check(self.encoded_len()) {
-            panic!("encoding a frame every decoder rejects: {e} (use try_encode or encode_into)");
-        }
-        thread_local! {
-            static SCRATCH: std::cell::RefCell<Vec<u8>> = const { std::cell::RefCell::new(Vec::new()) };
-        }
-        SCRATCH.with(|cell| {
-            let mut buf = std::mem::take(&mut *cell.borrow_mut());
-            buf.clear();
-            let mut w = Writer::from_vec(buf);
-            self.write(&mut w);
-            let buf = w.finish();
-            debug_assert_eq!(
-                buf.len(),
-                self.encoded_len(),
-                "encoded_len disagrees with the writer"
-            );
-            let out = buf.clone();
-            *cell.borrow_mut() = buf;
-            out
-        })
-    }
-
-    fn write(&self, w: &mut Writer) {
+    fn write_ms(&self, w: &mut Writer, tick_ms: u32) {
         match self {
             ServerMsg::Welcome {
                 protocol,
@@ -318,6 +335,7 @@ impl Frame for ServerMsg {
                     SnapshotHeader {
                         tick: *tick,
                         server_time: *server_time,
+                        tick_ms,
                         phase: *phase,
                         ack_input: *ack_input,
                         me: me.as_ref(),
@@ -335,7 +353,7 @@ impl Frame for ServerMsg {
                     write_owner_combat(w, owner);
                 }
             }
-            ServerMsg::SnapshotDelta(d) => delta::write_message(w, d),
+            ServerMsg::SnapshotDelta(d) => delta::write_message(w, d, tick_ms),
             ServerMsg::Events { tick, events } => {
                 w.u8(T_EVENTS);
                 w.u32(*tick);
@@ -572,6 +590,26 @@ impl ServerMsg {
     /// Exact size of the frame [`ServerMsg::encode`] writes (a Welcome counts its map's runs: one pass, no allocation).
     pub fn encoded_len(&self) -> usize {
         Frame::encoded_len(self)
+    }
+
+    /// P-TICK-3-fix: [`ServerMsg::try_encode`] on a connection whose Welcome said `tick_rate`, the encoding side of
+    /// [`ServerMsg::decode_at`]: a Snapshot or SnapshotDelta writes a source-time override only when its time is not
+    /// `tick * (1000 / tick_rate)`, and a delta's base age is bounded by [`delta::max_delta_age`] at that rate. At 20 Hz it is
+    /// [`ServerMsg::try_encode`]; a rate other than 20 or 40 is refused (`BadValue("tick rate")`), whatever the message.
+    pub fn try_encode_at(&self, tick_rate: u8) -> Result<Vec<u8>, EncodeError> {
+        let tick_ms = tick_ms_for_rate(tick_rate).ok_or(EncodeError::BadValue("tick rate"))?;
+        let len = self.len_ms(tick_ms);
+        self.check_ms(len, tick_ms)?;
+        let mut w = Writer::with_capacity(len);
+        self.write_ms(&mut w, tick_ms);
+        debug_assert_eq!(w.len(), len, "encoded_len disagrees with the writer");
+        Ok(w.finish())
+    }
+
+    /// Exact size of the frame [`ServerMsg::try_encode_at`] writes at `tick_rate` (refused like it for another rate).
+    pub fn encoded_len_at(&self, tick_rate: u8) -> Result<usize, EncodeError> {
+        let tick_ms = tick_ms_for_rate(tick_rate).ok_or(EncodeError::BadValue("tick rate"))?;
+        Ok(self.len_ms(tick_ms))
     }
 }
 

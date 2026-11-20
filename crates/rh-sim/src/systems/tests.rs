@@ -683,7 +683,7 @@ fn shared_rewound_positions_give_the_ledger_of_the_per_pair_pass() {
             p.body.x += (rng.next_f64() - 0.5) * 9.0;
             p.body.y += (rng.next_f64() - 0.5) * 9.0;
             let (x, y) = (p.body.x, p.body.y);
-            p.body.history.record(now, x, y);
+            p.body.history.record_at_step(now, x, y, TICK_MS);
         }
     }
     sim.w.server_time = base + 40.0 * TICK_MS;

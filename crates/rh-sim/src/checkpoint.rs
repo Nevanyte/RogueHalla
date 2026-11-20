@@ -701,17 +701,14 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
             return Err("invalid private DoT bucket".into());
         }
     }
+    // Locked vision history becomes admissible with the complete Source arena lifecycle.
+    let locked_vision = k.config.lifecycle.rules().is_some() && w.raid_started_at > 0.;
     for p in w.players.iter() {
         // Shape only: zero hints and zeroAll retain the previous direction byte.
-        if p.walk_ticks > crate::constants::WALK_HINT_MAX_TICKS {
+        if p.walk_ticks > crate::systems::walk_hint::walk_hint_max_steps(k) {
             return Err(format!("player {}: invalid walk hint ticks", p.id.0));
         }
-        // Locked history becomes admissible with the complete Source arena lifecycle.
-        p.vision.check(
-            w.tick,
-            k.config.lifecycle.rules().is_some() && w.raid_started_at > 0.,
-            near,
-        )?;
+        p.vision.check(w.tick, k.tick_ms(), locked_vision, near)?;
         if p.hunt_target().is_some_and(|id| {
             id == p.id
                 || w.phase != crate::Phase::Active

@@ -3,7 +3,7 @@
 //! The source publishes `PlayerState.barrier` and keeps the timer in the private `PlayerRuntime.boost`; the port mirrors
 //! that split with two private `Player` scalars (`barrier_until`, `barrier_decays`). The grant is clamped ONLY when a
 //! grant happens (source helpers); a later max-hp decrease leaves a larger barrier standing until decay or the next grant.
-use crate::constants::{BARRIER_DECAY_SHARE_PER_SECOND, BARRIER_EPS, BARRIER_MAX_SHARE, TICK_MS};
+use crate::constants::{BARRIER_DECAY_SHARE_PER_SECOND, BARRIER_EPS, BARRIER_MAX_SHARE};
 use crate::state::Status;
 
 /// Legacy `barrierCap`: the most barrier a grant may leave at this max hp.
@@ -50,6 +50,7 @@ pub(crate) fn grant_heal_barrier(w: &mut crate::state::World, i: usize, hp: f64,
 /// `BARRIER_DECAY_SHARE_PER_SECOND` of max hp a second. A barrier seeded without a timer is left alone.
 pub(crate) fn expire(cx: &mut crate::systems::Cx) {
     let now = cx.w.server_time;
+    let tick_ms = cx.k.tick_ms();
     for p in cx.w.players.iter_mut() {
         if !(p.barrier_until > 0.) {
             continue;
@@ -62,7 +63,7 @@ pub(crate) fn expire(cx: &mut crate::systems::Cx) {
             p.barrier_decays = false;
             p.vitals.barrier = 0.;
         } else if p.barrier_decays {
-            p.vitals.barrier = decay(p.vitals.barrier, p.vitals.max_hp, TICK_MS / 1000.);
+            p.vitals.barrier = decay(p.vitals.barrier, p.vitals.max_hp, tick_ms / 1000.);
         }
     }
 }

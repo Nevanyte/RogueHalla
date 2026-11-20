@@ -8,7 +8,7 @@ pub(crate) use crate::constants::TERRAIN_STUCK_REPLANS as STUCK_REPLANS;
 pub(crate) use crate::constants::TERRAIN_STUCK_WINDOW_MS as STUCK_WINDOW_MS;
 pub(crate) use crate::constants::TERRAIN_V_EPS as V_EPS;
 use crate::{
-    constants::{TICK_MS, TILE},
+    constants::{LEGACY_TICK_MS, TILE},
     fighter::SlipState,
     geometry::Footprint,
     map::MASK_MOVE,
@@ -409,7 +409,8 @@ pub(crate) fn walk(
         if !(accel > 0.) {
             break;
         }
-        let h = left.min(TICK_MS);
+        // Legacy walk.ts integrates in substeps of at most its 50 ms tick; a step of the sim (50 or 25 ms) is one.
+        let h = left.min(LEGACY_TICK_MS);
         left -= h;
         if s.grip_until.is_some_and(|t| now < t) {
             grip_step(map, p, s, path, h / 1000., cap, r, &mut out, pf);

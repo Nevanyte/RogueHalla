@@ -704,7 +704,8 @@ fn apply_victim(
     }));
     if player && pass.k.config.pvp_rules {
         let cap = PVP_HIT_CAP_SHARE * pass.w.core(ix).vitals.max_hp;
-        let budget = PVP_DOT_CAP_SHARE * pass.w.core(ix).vitals.max_hp * (TICK_MS / 1000.0);
+        let budget =
+            PVP_DOT_CAP_SHARE * pass.w.core(ix).vitals.max_hp * (pass.k.tick_ms() / 1000.0);
         dot_sums.clear();
         for (j, &index) in idxs.iter().enumerate() {
             let e = &ledger[index];
