@@ -190,6 +190,16 @@ Packet details:
     - Coordinator 2026-11-19: routed to Opus. The bound must accept a Wish cooldown that changes between casts.
   - Wishful's Rust override text, the C# line and the `CardDisplayReworkTests` digest move together in this packet.
   - Third Time's 2.5× and Gambler's split chances already landed with P-AUG-CONTENT-1.
+- **P-AUG-NATIVE-1b and the batches** (coordinator note 2026-11-19, from the P-AUG-NATIVE-1a review):
+  - `MAX_FOLD_ROWS = 79` (`cards/mod.rs`) silently truncates when full. Raise it before native cards add fold rows.
+  - The Rework `maximum_packet` envelope iterates `CardId::ALL` only. Native damage rows must join it, or restore will
+    refuse native-boosted packets.
+  - `power()` now counts native tiers, which feeds `ledger.rs` `pvp_factor` and `higher_power`, as legacy `cardPower`
+    does. That is an outcome effect once natives can be held.
+  - `trusted_build::apply` (bench feature) can grant a native card in a Legacy world. Refuse native ids unless the rule
+    is Rework.
+  - Native `check` admits non-integral counters (Eighth Strike, Hazard Walker stacks) and does not tie Pathfinder's
+    counter to its marks. Each batch packet adds its card's exact rule.
 - **P-AUG-NATIVE-3, Wish Engine** (coordinator note 2026-11-19, from the P-AUG-TUNE-1 review):
   - Today's Wish restore check (`abilities/checkpoint.rs`: `wish_cooldowns`, `prior_min`, the Rework Wishful budget
     bound) assumes a Wish cooldown only lengthens between casts. Arcane Overload is the one Wish-cooldown lever, and a
