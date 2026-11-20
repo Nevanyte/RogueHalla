@@ -159,12 +159,43 @@ if (Number(version) < 19) throw new Error(`the probe speaks protocol ${version}:
   refused(patched((b, dv) => dv.setFloat64(at(1, 10), Infinity, true)), /readout value/, "max infinite");
   refused(patched((b) => { b[at(2, 0)] = 80; }), /readout order/, "order");
   refused(patched((b, dv) => dv.setFloat64(at(1, 2), 250, true)), /^accepted$/, "a value may equal its max");
-  refused(bytes("8800010f"), /state key/, "key 15 is unknown");
-  refused(bytes("88000f"), /too many/, "15 keys are too many");
-  for (const [name, hex] of [["state_unknown_key", "8800010f"], ["state_too_many_keys", "88000f"]]) {
+  // P-AUG-NATIVE-5: key 15 is the Marked Man rows; 16 is the first unknown key and 16 keys are too many.
+  refused(bytes("88000110"), /state key/, "key 16 is unknown");
+  refused(bytes("880010"), /too many/, "16 keys are too many");
+  for (const [name, hex] of [["state_unknown_key", "88000110"], ["state_too_many_keys", "880010"]]) {
     const v = fx.malformedServer.find(v => v.name === name);
-    eq(v?.hex, hex, name + " names key 15 now");
+    eq(v?.hex, hex, name + " names key 16 now");
   }
+}
+// P-AUG-NATIVE-5: State key 15 carries every Marked Man holder's public position: count u8 (<= 32, refused before the
+// rows), then rows of id varint (nonzero, strictly ascending), x u16, y u16 (actor quantization, 1/8 u). The probe's item
+// is `{ key: 15, value: [{ id, x, y }] }`. The bytes are the brief's (docs/backlog/packets/P-AUG-NATIVE-5.md), shared with
+// the Rust oracle (crates/rh-protocol/tests/marked_wire.rs).
+{
+  const markedHex = {
+    state_marked: "88dc01010f02022003843e070000ffff",
+    state_marked_empty: "88dc01010f00",
+  };
+  const markedRows = {
+    state_marked: [{id:2,x:100,y:2000.5},{id:7,x:0,y:8191.875}],
+    state_marked_empty: [],
+  };
+  for (const name of Object.keys(markedHex)) {
+    const v = fx.server.find(v => v.name === name);
+    if (!v) throw new Error(`missing Rust-generated ${name} vector (P-AUG-NATIVE-5)`);
+    eq(v.hex, markedHex[name], name + " bytes are the brief's");
+    let s; try { s = decode(bytes(markedHex[name])); } catch (e) { throw new Error(`${name} is refused: ${e.message}`); }
+    eq(s.tick, 220, name + " tick");
+    eq(JSON.stringify(s.items), JSON.stringify([{key:15,value:markedRows[name]}]), name + " rows");
+  }
+  const refusal = (buf) => { try { decode(buf); } catch (e) { return String(e.message); } return "accepted"; };
+  const refused = (buf, re, what) => { checks++; const m = refusal(buf); if (!re.test(m)) throw new Error(`${what}: got "${m}", want ${re}`); };
+  const patched = (at, value) => { const b = new Uint8Array(bytes(markedHex.state_marked)); b[at] = value; return b.buffer; };
+  refused(bytes("88dc01010f21"), /marked count/, "33 rows");
+  refused(patched(6, 0), /marked id/, "id 0");
+  refused(patched(11, 2), /marked order/, "equal ids");
+  refused(patched(11, 1), /marked order/, "descending ids");
+  refused(bytes("88dc01010f01010000ffff"), /^accepted$/, "every u16 position decodes");
 }
 if (version >= 13) {
   const trophyVector = fx.server.find(v => v.name === "state_trophy_reward_keys");
@@ -796,6 +827,8 @@ const reason = {
   state_readouts_count_29: /readout count/, state_readouts_card_79: /readout card/, state_readouts_card_94: /readout card/,
   state_readouts_kind_3: /readout kind/, state_readouts_value_nan: /readout value/, state_readouts_value_negative: /readout value/,
   state_readouts_value_over_max: /readout value/, state_readouts_max_infinite: /readout value/, state_readouts_order: /readout order/,
+  // P-AUG-NATIVE-5: State key 15, the Marked Man rows.
+  state_marked_count_33: /marked count/, state_marked_id_0: /marked id/, state_marked_order: /marked order/,
   state_reward_kind_unknown: /bad reward kind/,
   state_reward_kill_gain_zero: /Trophy gain/, state_reward_kill_gain_negative: /Trophy gain/,
   state_reward_kill_gain_nan: /Trophy gain/, state_reward_kill_gain_infinity: /Trophy gain/,
