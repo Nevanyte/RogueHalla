@@ -8,7 +8,8 @@
 //! tags and trailing bytes are malformed. Size limits are enforced before decoding ([`MAX_CLIENT_FRAME`], [`MAX_SERVER_FRAME`]).
 //!
 //! Counters are canonical unsigned LEB128 varints ([`Writer::varint`]); a decoder rejects a longer-than-necessary form. A
-//! Snapshot's source clock defaults to `tick * 50 ms` ([`snapshot_server_ms`]); protocol 12 carries an absolute f64 override
+//! Snapshot's source clock defaults to `tick * tick_ms` (protocol 21: `tick_ms = 1000 / Welcome.tick_rate`, 50 ms at 20 Hz
+//! and 25 ms at 40 Hz, the only rates a decoder accepts; [`snapshot_server_ms_at`]); protocol 12 carries an absolute f64 override
 //! only when that frame's clock differs, and an omitted delta override always resolves from that delta's tick. The SELF view keeps full precision
 //! (prediction and reconciliation need it); remote actors and swing effects are quantized ([`quant`]: positions 1/8 u, angles
 //! 2 pi / 65536, hp_pct exact). Factions and weapons are 4-bit codes, status and phase 2-bit codes: the encoders refuse a larger
@@ -99,7 +100,7 @@
 //!     15 walk hint: walk_dir u8, walk_ticks u8, set only while walk_ticks != 0; absent is (0, 0) (protocol 19)
 //!   protocol 16 head bits: 20 owner combat (after the actors)  21 archetype u8  22 indicator flags u8  23 build marks u8
 //!     24 mark plate (tier, brand, tax), self fields in bit order after the barrier pair
-//! SnapshotDelta 0x87, tick varint, base_age varint (tick - base tick, 1..=MAX_DELTA_AGE), ack_input varint, head varint
+//! SnapshotDelta 0x87, tick varint, base_age varint (tick - base tick, 1..=MAX_DELTA_AGE_MS / tick_ms: 64 at 20 Hz, 128 at 40 Hz), ack_input varint, head varint
 //!   head bits  0 a self follows (its id is the base's)   1 x   2 y   3 facing   4 move_seq   5 hp   6 ready_in_ms
 //!              7 a departed list follows   8 phase   9 max_hp   10 kit   11 kills   12 bounty   13 gv   14 status   15 effects u16   16 displacement u8   17 sig u8
 //!              18 hunt target varint   19 hunt stacks varint   20 training   21 Wish optional owner record   22 barrier f32 + ring step u8   23 source time f64 (global)
@@ -126,7 +127,7 @@
 //! one per second.
 //!
 //! The writer sends a Full snapshot for the first one after a Welcome (a resumed connection always starts so), after a
-//! `Resync`, when its base is older than [`MAX_DELTA_AGE`] ticks, when the self appears or changes id, and whenever the
+//! `Resync`, when its base is older than [`MAX_DELTA_AGE_MS`] (64 ticks at 20 Hz), when the self appears or changes id, and whenever the
 //! delta would not be smaller than the full frame. The room never encodes a snapshot: it hands each connection's writer the
 //! observation's wire data ([`SnapshotData`]), so a snapshot a slow client skips is never encoded at all.
 //!
@@ -195,7 +196,7 @@ pub use codec::{DecodeError, EncodeError, Reader, Writer};
 pub use command::*;
 pub use delta::{
     ActorDelta, ConnEncoder, DeltaError, FrameKind, QActor, SelfDelta, SnapshotData, SnapshotDelta,
-    SnapshotTracker, TrackError, MAX_DELTA_AGE,
+    SnapshotTracker, TrackError, MAX_DELTA_AGE, MAX_DELTA_AGE_MS,
 };
 pub use encode::{encode_welcome, encode_welcome_into, WelcomeHeader, WELCOME_HEADER_LEN};
 pub use ground::GroundMode;
@@ -211,31 +212,36 @@ pub use weapon::{
 };
 
 /// Bump on any incompatible change (a new tag or field in an existing message). Both ends refuse another major version.
-pub const PROTOCOL_VERSION: u16 = 20;
-/// Milliseconds per server tick (20 Hz). A Snapshot carries `tick` only: its server time is `tick * TICK_MS` exactly.
+pub const PROTOCOL_VERSION: u16 = 21;
+/// Milliseconds per server tick at the default 20 Hz. A Snapshot carries `tick` only: its server time is `tick * tick_ms`
+/// exactly, with `tick_ms` from the connection's Welcome ([`tick_ms_for_rate`]); this is the 20 Hz value, which every
+/// rate-less decode and encode uses.
 pub const TICK_MS: u32 = 50;
 
-/// The server time (ms) a Snapshot of `tick` stands for. The simulation advances its clock by exactly one tick step from 0
-/// (`rh_sim::Sim::step`), so the product is exact in `f64`; the server test `server_time_is_tick_times_50` holds the
-/// identity against the simulation.
+/// The server time (ms) a Snapshot of `tick` stands for at 20 Hz ([`snapshot_server_ms_at`] with [`TICK_MS`]). The simulation
+/// advances its clock by exactly one tick step from 0 (`rh_sim::Sim::step`), so the product is exact in `f64`; the server test
+/// `server_time_is_tick_times_50` holds the identity against the simulation.
 #[inline]
 pub fn snapshot_server_ms(tick: u32) -> f64 {
-    tick as f64 * TICK_MS as f64
+    snapshot_server_ms_at(tick, TICK_MS)
 }
 
 /// P-TICK-3 (ADR 0029): the milliseconds of one server tick at `tick_rate` (`Welcome.tick_rate`): 20 Hz is 50 ms, 40 Hz is
 /// 25 ms, and every other rate is `None` (refused by every decoder).
-// STUB (P-TICK-3): the implementer replaces this body.
+#[inline]
 pub fn tick_ms_for_rate(tick_rate: u8) -> Option<u32> {
-    let _ = tick_rate;
-    Some(TICK_MS)
+    match tick_rate {
+        20 => Some(50),
+        40 => Some(25),
+        _ => None,
+    }
 }
 
 /// P-TICK-3: the server time (ms) a Snapshot of `tick` stands for on a connection whose Welcome gave `tick_ms` per tick.
-// STUB (P-TICK-3): the implementer replaces this body.
+/// Both factors are exact in `f64` (a u32 and a small integer), and so is their product below 2^53.
+#[inline]
 pub fn snapshot_server_ms_at(tick: u32, tick_ms: u32) -> f64 {
-    let _ = tick_ms;
-    snapshot_server_ms(tick)
+    tick as f64 * tick_ms as f64
 }
 /// Longest admission ticket a Hello may carry. With the other Hello fields at their maxima (two 255-byte strings, a faction and a
 /// resume token) the frame is 11 + 2*256 + 2 + 17 + 2 + 448 = 992 bytes, under [`MAX_CLIENT_FRAME`] (a test holds it).

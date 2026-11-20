@@ -70,8 +70,16 @@ impl std::error::Error for TrackError {}
 
 /// A client's snapshot decoder: the last snapshot applied (the base of the next delta). One per connection; a Welcome resets
 /// it, so the first snapshot after one must be Full. A refused delta leaves it exactly as it was.
+///
+/// P-TICK-3: it reads snapshot times at the tick rate of the latest Welcome it accepted (a refused Welcome changes nothing),
+/// and at 20 Hz before any Welcome ([`SnapshotTracker::new`]; every `vNN.json` chain starts so) or not at all
+/// ([`SnapshotTracker::awaiting_welcome`]).
 #[derive(Clone, Debug, Default)]
 pub struct SnapshotTracker {
+    /// Milliseconds per tick from the latest accepted Welcome; `None` before one.
+    tick_ms: Option<u32>,
+    /// Refuse snapshots while `tick_ms` is `None` ([`TrackError::NoWelcome`]) instead of reading them at 20 Hz.
+    await_welcome: bool,
     tick: Option<u32>,
     server_time: f64,
     training: bool,
@@ -90,12 +98,24 @@ impl SnapshotTracker {
 
     /// P-TICK-3: a tracker that refuses every Snapshot and SnapshotDelta ([`TrackError::NoWelcome`]) until it has decoded a
     /// Welcome, and then reads their time at that Welcome's tick rate.
-    // STUB (P-TICK-3): the implementer replaces this body.
     pub fn awaiting_welcome() -> Self {
-        Self::default()
+        Self {
+            await_welcome: true,
+            ..Self::default()
+        }
     }
 
-    /// Forgets the held snapshot (a new connection or a Welcome).
+    /// The tick rate's milliseconds this tracker reads snapshot times at: the latest accepted Welcome's, else 50 (20 Hz), or
+    /// `None` for an [`SnapshotTracker::awaiting_welcome`] tracker that has accepted no Welcome yet.
+    pub fn tick_ms(&self) -> Option<u32> {
+        match self.tick_ms {
+            None if self.await_welcome => None,
+            ms => Some(ms.unwrap_or(TICK_MS)),
+        }
+    }
+
+    /// Forgets the held snapshot (a new connection or a Welcome). The tick rate is the connection's and stays until the next
+    /// accepted Welcome.
     pub fn reset(&mut self) {
         self.tick = None;
         self.server_time = 0.0;
@@ -135,16 +155,31 @@ impl SnapshotTracker {
 
     /// Decodes one server frame. A Snapshot is held and returned; a SnapshotDelta is applied and returned as the Snapshot it
     /// resolves to; a Welcome resets the tracker; everything else is returned as decoded.
+    ///
+    /// Snapshot and SnapshotDelta times are read at this tracker's rate ([`SnapshotTracker::tick_ms`]); before any Welcome an
+    /// [`SnapshotTracker::awaiting_welcome`] tracker refuses them with [`TrackError::NoWelcome`]. A Welcome whose rate is not
+    /// 20 or 40 is refused by the decoder and changes nothing.
     pub fn decode(&mut self, frame: &[u8]) -> Result<ServerMsg, TrackError> {
-        let msg = ServerMsg::decode(frame).map_err(TrackError::Decode)?;
+        let Some(tick_ms) = self.tick_ms() else {
+            if matches!(frame.first(), Some(&T_SNAPSHOT) | Some(&T_SNAPSHOT_DELTA)) {
+                return Err(TrackError::NoWelcome);
+            }
+            let msg = ServerMsg::decode(frame).map_err(TrackError::Decode)?;
+            return self.apply(msg).map_err(TrackError::Delta);
+        };
+        let msg = ServerMsg::decode_with_tick_ms(frame, tick_ms).map_err(TrackError::Decode)?;
         self.apply(msg).map_err(TrackError::Delta)
     }
 
-    /// [`SnapshotTracker::decode`] for a message already decoded.
+    /// [`SnapshotTracker::decode`] for a message already decoded. The message's times are taken as decoded (the caller read
+    /// them at this tracker's rate). A Welcome takes its rate; one whose rate no decoder accepts changes nothing.
     pub fn apply(&mut self, msg: ServerMsg) -> Result<ServerMsg, DeltaError> {
         match msg {
-            ServerMsg::Welcome { .. } => {
-                self.reset();
+            ServerMsg::Welcome { tick_rate, .. } => {
+                if let Some(ms) = tick_ms_for_rate(tick_rate) {
+                    self.reset();
+                    self.tick_ms = Some(ms);
+                }
                 Ok(msg)
             }
             ServerMsg::Snapshot {
