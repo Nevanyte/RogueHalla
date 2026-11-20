@@ -286,3 +286,15 @@ later packet). Hazard Walker's stacks (one per hazard second, cap 15) resist emb
 0.5% of base max hp each in `sync_max_hp`, and 20 s on a hazard makes it immune (ice slip untouched: P-AUG-NATIVE-3c). Overflow turns
 the overheal into a G6-capped barrier; every barrier of an Overflow holder fades over 8 s. `check` ties Pathfinder's counter to its
 marks exactly and Hazard Walker's stacks to the meters as an upper bound. Wish Engine is P-AUG-NATIVE-3b.
+
+## Wish Engine (P-AUG-NATIVE-3b)
+
+A landed Wish (`NativeEvent::WishCast { row_cooldown_ms }`) moves Wish Engine's counter, the share, to the next point of
+its row's lattice `min(0.25, n x step)`, `step = 0.25 x row cooldown / 300 s` (`abilities::WishEngineGrid`, bit-exact from
+the integer `n`; Fire steps per charge). Every reader of the Wish cooldown goes through `abilities::wish_mult` (the
+folded Arcane Overload lever times `1 - share`): the cast producer, the owner view and the restore validator. The restore
+(`abilities/checkpoint.rs`, `WishEnvelope`) reads the (lever, share) pair off the stored spend, which is distinct per
+pair (`abilities/wish_lever_tests.rs`), so no per-cast field exists and `CHECKPOINT_FORMAT` did not move; earlier casts
+are judged under every lattice share no larger and every lever no longer. `check` holds the counter on its faction's
+lattice. A non-holder's envelope is the pre-packet one exactly. With Wishful Thinking at its floor a cast can reach
+0.375 of the row (the 50% floor is the combined multiplier's, `WISH_MULT_MIN`).
