@@ -51,7 +51,8 @@ reconciles correctly against a 40 Hz server.
 Medium: C#, one area, vector-backed. Sonnet.
 
 ## 11. Known traps
-- `RenderClock.MinDelayMs` (70) was tuned for 50 ms ticks; leave it, the dial pass after P-TICK-6 tunes it.
+- `RenderClock.MinDelayMs`: after the draw-ahead change (PR #74) the floor is 55 ms at 50 ms ticks; at 25 ms it should be
+  `TickMs + 5` (30 ms), per the "Cut delay on other players" thread (2026-11-20). Derive it from the session's rate.
 - `LocalMotion.DelayMinMs = -TickMs` is a `const` today: it becomes per-session.
 
 ## Notes from previous attempts
