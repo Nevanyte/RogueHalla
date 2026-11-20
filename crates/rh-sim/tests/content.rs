@@ -63,15 +63,10 @@ const NON_GAMEPLAY: &[(&str, &str, &str)] = &[
     ("cards/catalog_data.rs", "DEFINITIONS", "typed 80-card catalog table generated from the accepted source corpus; the gameplay numbers are the registered source constants"),
     ("cards/mod.rs", "SUPPORTED", "the three-card native subset selector (identifiers only), not a game rule"),
     ("cards/mod.rs", "MAX_FOLD_ROWS", "fixed scratch bound equal to the generated catalog's total fold rows, not a game rule"),
-    ("cards/tuning.rs", "LEGACY", "P-AUG-RULES-1: the legacy card table, the generated catalog and the registered constants by name; no number of its own"),
-    ("cards/tuning.rs", "REWORK", "P-AUG-RULES-1: the Rework card table, REWORK_OVERRIDES and registered constants by name (the legacy ones until P-AUG-CONTENT-1 registers REWORK_* rows); no number of its own"),
-    ("cards/rework_overrides.rs", "REWORK_OVERRIDES", "P-AUG-RULES-1: the hand-written Rework override rows, EMPTY here (so no content hash move); P-AUG-CONTENT-1 fills it, folds it into the content hash and moves this entry to TABLES_FOLDED_BY_HASH"),
     ("mob_runtime.rs", "LEGACY_ELITES", "P-AUG-RULES-1: the legacy elite numbers, ELITE_K / ELITE_HP_MULT / ELITE_DMG_MULT by name; no number of its own"),
     ("mob_runtime.rs", "REWORK_ELITES", "P-AUG-RULES-1: the Rework elite numbers, registered constants by name (the legacy ones until P-ELITE-TUNE-1 registers its rows); no number of its own"),
     ("modifiers/mod.rs", "MAX_FOLD_INPUT", "fixed fold scratch bound (the catalog rows plus the test-only diagnostic overlay), not a game rule"),
     ("modifiers/mod.rs", "NO_BIT", "sentinel marking a row that owns no while bit, not a game rule"),
-    ("reward_chests/pools.rs", "INTERACTIVE", "the source interactive augment id list (identifiers only); tiers and rows are the registered catalog"),
-    ("reward_chests/pools.rs", "REWORK_POOL", "P-AUG-POOL-1: the Rework world's chest augment id list (identifiers only: INTERACTIVE plus five built augments); tiers and rows are the registered catalog"),
     ("kill_augments.rs", "ALL", "the nine readable investment keys in source order (identifiers only); the UNIT numbers are the registered kill-augments table"),
     ("quests/catalog.rs", "ALL", "the three quest verb kinds in source order (identifiers only); the rows are the registered quests table"),
     ("traders/mod.rs", "ALL", "the two trader kinds in source order (identifiers only); the visitors fold their kind/name/id rows"),
@@ -194,6 +189,11 @@ const NON_GAMEPLAY: &[(&str, &str, &str)] = &[
 /// Rules that are tables rather than scalar rows: they are folded by `content_hash` directly (see content.rs). As
 /// (file, name, reason).
 const TABLES_FOLDED_BY_HASH: &[(&str, &str, &str)] = &[
+    ("cards/tuning.rs", "LEGACY", "P-AUG-POOL-1-fix: the Legacy card table as realized (each CardNumbers field, override rows, pool, faction-only pairs, weighting flag), folded by content::card_table_snapshots under mvp-progression/1"),
+    ("cards/tuning.rs", "REWORK", "P-AUG-POOL-1-fix: the Rework card table as realized (each CardNumbers field, override rows, pool, faction-only pairs, weighting flag), folded by content::card_table_snapshots under mvp-progression/1"),
+    ("cards/rework_overrides.rs", "REWORK_OVERRIDES", "P-AUG-POOL-1-fix: the Rework override rows, each row's id and numbers (cards::map_numbers, rows then selections) folded by content::card_table_snapshots under mvp-progression/1; text is display, shape is forced equal to the catalog by check_override"),
+    ("reward_chests/pools.rs", "INTERACTIVE", "P-AUG-POOL-1-fix: the Legacy table's chest pool ids, folded by content::card_table_snapshots under mvp-progression/1; tiers and rows are the registered catalog"),
+    ("reward_chests/pools.rs", "REWORK_POOL", "P-AUG-POOL-1-fix: the Rework table's chest pool ids, folded by content::card_table_snapshots under mvp-progression/1; tiers and rows are the registered catalog"),
     ("archetype.rs", "ARCHETYPES", "ADR0024 hitbox archetype table (body/foot boxes, chest) folded by archetype::visit_content under hitbox-archetypes/1"),
     ("archetype.rs", "PLAYER_CHEST", "ADR0024 projectile height of every player look (C-OBS), folded row by row by archetype::visit_content (each row's chest)"),
     ("archetype.rs", "FOOT", "ADR0024 shared foot box of the archetype table, folded row by row by archetype::visit_content"),
@@ -571,7 +571,7 @@ fn hash_golden() {
         content_hash()
     );
 }
-const GOLDEN_CONTENT_HASH: u64 = 0x2045_32d8_6184_9785;
+const GOLDEN_CONTENT_HASH: u64 = 0x4d06_723c_84f9_86a9;
 
 #[test]
 fn every_registry_row_perturbs_the_hash() {
