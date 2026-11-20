@@ -160,7 +160,7 @@ impl Tuning {
         }
     }
     /// P-AUG-POOL-1-fix: the static table of a rule (what [`Tuning::of`] returns for a config with that rule), for the
-    /// content-hash fold of the chest inputs (`content::chest_pool_tables`).
+    /// content-hash fold of the realized tables (`content::card_table_snapshots`).
     pub fn of_rule(rule: AugmentRule) -> &'static Tuning {
         match rule {
             AugmentRule::Legacy => &LEGACY,
