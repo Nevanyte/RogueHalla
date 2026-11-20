@@ -81,7 +81,7 @@ namespace Roguehalla.Client
             // dark green leaves tumbling down the wind from the overgrown canopy (behind actors)
             new ParticleLayerSpec { Texture = "chaff", MaxParticles = 16, Rate = 1.6f, LifeMin = 7, LifeMax = 11, SizeMin = .16f, SizeMax = .28f, Wind = new Vector2(.7f, -.55f), Gust = .7f, Noise = .7f, NoiseFreq = .2f, Tint = new Color(.30f, .46f, .18f, .92f), Parallax = 0f, Spin = 70f, WindDriven = true },
             // green-gold light filtering through brush and canopy: broad soft shafts along the sun direction
-            new ParticleLayerSpec { Texture = "shaft", MaxParticles = 8, Rate = .8f, LifeMin = 10, LifeMax = 15, SizeMin = 1.8f, SizeMax = 3.6f, Wind = new Vector2(.08f, -.04f), Tint = new Color(.8f, 1f, .6f, .4f), Parallax = 0f, StretchY = 6f, Rotation = 62f },
+            new ParticleLayerSpec { Texture = "shaft", MaxParticles = 8, Rate = .8f, LifeMin = 10, LifeMax = 15, SizeMin = 1.8f, SizeMax = 3.6f, Wind = new Vector2(.08f, -.04f), Tint = new Color(.78f, .86f, .68f, .16f), Parallax = 0f, StretchY = 4.8f, Rotation = 62f },
         };
 
         public static ParticleLayerSpec[] Get(ParticlePresetId id)
