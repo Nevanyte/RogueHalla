@@ -342,6 +342,9 @@ pub(crate) fn choose_option(options: &[String], taken_by: &[String], self_: &Che
 pub(crate) const BOOST_CAP: f64 = CHEST_BOOST_MAX_PICKS;
 
 #[cfg(test)]
+mod native_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::bots::temporal_percept::modules::types::CardCounts;

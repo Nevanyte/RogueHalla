@@ -83,6 +83,9 @@ pub struct MatchStart {
     /// plays legacy's Frost Wall policy row (`bots::wish::wish_for`; the Brain's composed def); with `Freeze` every
     /// decision is today's. P-FROST-WALL-BOTS-1.
     pub frost_wish: rh_sim::FrostWish,
+    /// Which elite numbers the room plays (`SimConfig::elites`): the room-wide public rule (P-AUG-BOTS-1). The planning
+    /// and hunt estimates of an elite's hp and damage read it.
+    pub elites: rh_sim::EliteRule,
 }
 
 impl MatchStart {
@@ -100,6 +103,8 @@ impl MatchStart {
             observation_version: OBSERVATION_VERSION,
             tick_ms: rh_sim::constants::TICK_MS,
             frost_wish: sim.config().frost_wish,
+            // STUB (P-AUG-BOTS-1): the implementer reads `sim.config().elites`.
+            elites: rh_sim::EliteRule::Legacy,
         }
     }
 

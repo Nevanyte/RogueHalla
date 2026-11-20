@@ -582,6 +582,7 @@ fn staged_start(frost_wish: FrostWish) -> MatchStart {
         observation_version: rh_sim::OBSERVATION_VERSION,
         tick_ms: rh_sim::constants::TICK_MS,
         frost_wish,
+        elites: rh_sim::EliteRule::Legacy,
     }
 }
 
@@ -821,6 +822,7 @@ fn guard_frost_wall_match_start_carries_the_rooms_frost_wish() {
         let sim = Sim::reset_active(
             SimConfig {
                 frost_wish: wish,
+                elites: rh_sim::EliteRule::Legacy,
                 ..SimConfig::default()
             },
             arena.clone(),
@@ -884,6 +886,7 @@ fn seated(kind: &str, wish: FrostWish) -> Vec<SeenCast> {
         }),
         wish_lock_ms: 0.,
         frost_wish: wish,
+        elites: rh_sim::EliteRule::Legacy,
         ..SimConfig::default()
     };
     let placements: Vec<rh_sim::Placement> = [

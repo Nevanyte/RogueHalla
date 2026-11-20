@@ -276,7 +276,14 @@ fn is_regional_kind(kind: &str) -> bool {
 }
 
 /// The source max HP a remembered mob's type/name/faction gives (huntAdapter.ts mobMaxHp and mobTypeFaction's hp part).
-fn mob_max_hp(zone: Option<FactionId>, elite: bool, name: Option<&str>) -> f64 {
+fn mob_max_hp(
+    zone: Option<FactionId>,
+    elite: bool,
+    name: Option<&str>,
+    rule: rh_sim::EliteRule,
+) -> f64 {
+    // STUB (P-AUG-BOTS-1): `rule` is ignored until the implementer reads it.
+    let _ = rule;
     let Some(zone) = zone else {
         return f64::NAN;
     };
@@ -296,6 +303,9 @@ fn mob_max_hp(zone: Option<FactionId>, elite: bool, name: Option<&str>) -> f64 {
     base * typed_mult
 }
 
+#[cfg(test)]
+mod elite_tests;
+
 fn mob_like_of(
     m: &super::super::memory::MobMemory,
     reward: Option<crate::bots::build_route::FarmStat>,
@@ -303,7 +313,12 @@ fn mob_like_of(
     if !is_regional_kind(&m.kind) {
         return None;
     }
-    let max_hp = mob_max_hp(m.faction, m.kind == "elite", m.name.as_deref());
+    let max_hp = mob_max_hp(
+        m.faction,
+        m.kind == "elite",
+        m.name.as_deref(),
+        rh_sim::EliteRule::Legacy,
+    );
     Some(HuntMobLike {
         kind: m.kind.clone(),
         status: if m.alive {

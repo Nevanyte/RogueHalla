@@ -179,7 +179,9 @@ fn scaled(spec: &DuelSpec, k: f64) -> DuelSpec {
 /// The elite numbers come from the sim's elite seam (`EliteTuning`, P-AUG-RULES-1). The planning maths has no match
 /// context (`matchup_share` is a pure shared function), so it reads the legacy rule's numbers, which every rule plays
 /// until P-ELITE-TUNE-1; that packet threads the room's rule (`MatchStart`) here if its numbers move.
-fn mob_faction(region: FactionId, elite: bool) -> DuelSpec {
+fn mob_faction(region: FactionId, elite: bool, rule: rh_sim::EliteRule) -> DuelSpec {
+    // STUB (P-AUG-BOTS-1): `rule` is ignored until the implementer reads it.
+    let _ = rule;
     let elites = rh_sim::mob_runtime::EliteTuning::of(rh_sim::EliteRule::Legacy);
     let k = if elite { elites.k } else { MOB_K };
     let base = scaled(&player_spec(region), k);
@@ -195,6 +197,8 @@ fn mob_faction(region: FactionId, elite: bool) -> DuelSpec {
     out.params.mark_kill = base_spec.params.mark_kill * k * d;
     out
 }
+#[cfg(test)]
+mod elite_tests;
 fn mark_tier_of(progress: f64, swap_steps: f64, tier_hits: f64) -> u8 {
     if progress <= 0. && swap_steps <= 0. {
         return 0;
@@ -428,7 +432,7 @@ fn duel(a: &DuelSpec, b: &DuelSpec, dt: f64, t_max: f64) -> DuelResult {
 /// mob (0 for a loss or a draw), over the reference duel at dt 0.01.
 pub fn matchup_share(me: FactionId, region: FactionId, elite: bool) -> f64 {
     let a = player_spec(me);
-    let b = mob_faction(region, elite);
+    let b = mob_faction(region, elite, rh_sim::EliteRule::Legacy);
     let d = duel(&a, &b, 0.01, 120.);
     if d.winner == Some(0) {
         d.hp_a / a.hp
