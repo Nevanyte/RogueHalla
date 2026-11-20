@@ -265,6 +265,11 @@ namespace Roguehalla.Client
             }
             _actors.End(); PerfMarks.End(PerfMarks.Sec.Actors, pmActors);
             if (_flushPendingInPresent) FlushPendingFx();      // cues that waited for their subject (RetainObservedActors with presentFollows)
+            if (_shotsForPresentedActors != null)
+            {
+                ObserveShots(_shotsForPresentedActors);
+                _shotsForPresentedActors = null;
+            }
             var pm = PerfMarks.Begin();
             if (_surfaceFx != null) _surfaceFx.Tick(Time.unscaledDeltaTime); // SURFACE-FX HOOK 3/3
             PerfMarks.End(PerfMarks.Sec.SurfaceFx, pm); pm = PerfMarks.Begin();
@@ -437,8 +442,14 @@ namespace Roguehalla.Client
             }
         }
 
+        CollectionsView _shotsForPresentedActors;
+
+        void ObserveShots(CollectionsView collections) =>
+            _sparks.Observe(collections.Tick, collections.Projectiles, _camCenter, _camHalf.x, _camHalf.y, ref _sparkRng, _observedProjectile);
+
         public void PresentCollections(CollectionsView collections)
         {
+            _shotsForPresentedActors = null;
             var pmCollections = PerfMarks.Begin();
             _used = 0; _inventory = collections != null ? collections.Inventory : null;
             _frostWall.PresentWalls(collections != null ? collections.Fields : null, _sourceTimeMs);
@@ -527,7 +538,10 @@ namespace Roguehalla.Client
                     _overlay?.NoteShot(shot.X, shot.Y, shot.Height);
                     ProjectileFx(p, shot.Facing, arrow, trailTick);      // render pass: trail puffs and a small travelling light
                 }
-                _sparks.Observe(collections.Tick, collections.Projectiles, _camCenter, _camHalf.x, _camHalf.y, ref _sparkRng, _observedProjectile);
+                // The frame has already retired old NPC handles and will draw their replacements in Present.
+                // Resolve a release on that same frame, after the delivered owner's art exists.
+                if (_flushPendingInPresent) _shotsForPresentedActors = collections;
+                else ObserveShots(collections);
             }
             for (int i = _used; i < _props.Count; i++) _props[i].gameObject.SetActive(false);
             _markVisible = _markVisible ?? MarkVisible;

@@ -88,6 +88,7 @@ namespace Roguehalla.Client
         public void ResetTransientPresentation(double serverTimeMs = 0)
         {
             _sourceTimeMs = serverTimeMs;
+            _shotsForPresentedActors = null;
             _pendingFx.Clear();
             _scheduledFx.Clear();
             _wishes.Reset();
