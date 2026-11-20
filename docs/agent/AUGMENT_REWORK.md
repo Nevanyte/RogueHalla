@@ -270,3 +270,10 @@ the four text copies (`crates/rh-sim/tests/content.rs` `GOLDEN_CONTENT_HASH`, th
 - `--dry-run` prints `WOULD EDIT` / `WOULD RUN` lines; `--text-only` skips the protected commands.
 - `BakedContent.cs` is a build artefact by name: a diff that changes it needs `scripts/gate.sh --allow-artefacts`.
 - Copies of the hash exist only in those six files; a new value pin elsewhere fails `regolden_content`.
+
+## Weapon batch (P-AUG-NATIVE-2)
+
+- Calluses: `FistHit` adds 0.07 to `counter` (cap 30); the counter is armor, a farm row of the fold (`modifiers::combined_farm_rows`, via `native::fold_stats`).
+- Executioner's Ledger: `CreditedKill` with `player || elite` adds 3 (cap 30); the counter is AD, a farm row of the fold.
+- `native::hooks::fire` refolds the holder after a `FistHit` or `CreditedKill` when a fold-feeding counter is held, so the mirrors move at once (the slot handler has no `MatchStatic`).
+- Eighth Strike: the ledger doubles the 8th landed weapon hit (`native::strike_mult`, before Bastion's burst and the PvP cap); `HitCount` advances the counter mod 8.
