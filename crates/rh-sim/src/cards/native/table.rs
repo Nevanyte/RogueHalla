@@ -10,7 +10,8 @@ use crate::cards::{CardDef, CardId, CardKind};
 use crate::constants::{
     REWORK_BASTION_METER_CAP, REWORK_CALLUSES_CAP, REWORK_CORPSE_HOARDER_CAP,
     REWORK_EIGHTH_STRIKE_EVERY, REWORK_EXECUTIONERS_LEDGER_CAP, REWORK_GLACIER_CAP,
-    REWORK_HAZARD_WALKER_CAP, REWORK_HAZARD_WALKER_IMMUNE_MS, REWORK_MARKSMANS_TALLY_CAP,
+    REWORK_HAZARD_WALKER_CAP, REWORK_HAZARD_WALKER_IMMUNE_MS, REWORK_MARKED_MAN_CARRY_CAP,
+    REWORK_MARKSMANS_TALLY_CAP,
     REWORK_PATHFINDER_CAP, REWORK_STOKED_CAP, REWORK_TROPHY_HUNTER_CAP, REWORK_WISH_ENGINE_CAP,
 };
 
@@ -172,6 +173,6 @@ pub(super) static NATIVE_RULES: [NativeRule; 14] = [
     counter(REWORK_GLACIER_CAP),
     // Trophy Hunter: damage share.
     counter(REWORK_TROPHY_HUNTER_CAP),
-    // Marked Man: P-AUG-NATIVE-5 sets the carry's bound (decision 9).
-    counter(0.),
+    // Marked Man: the half stack a kill carries to the next (P-AUG-NATIVE-5 decision 3; exactly 0 or the cap).
+    counter(REWORK_MARKED_MAN_CARRY_CAP),
 ];

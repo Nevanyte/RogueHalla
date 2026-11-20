@@ -552,13 +552,22 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
         // another zone's type's stat), else the mob's own type's. A `Legacy` world has no buff row.
         let buff = camp_buff(w, a.camp);
         let paid = buff.unwrap_or(a.mob_type);
-        let gained = crate::modifiers::grant_mob_stat(
-            k,
-            w,
-            id,
-            paid,
+        // P-AUG-NATIVE-5: Marked Man's holder is paid 1.5 x the kill stacks, the half stack carried in its counter to
+        // the next kill; the carry moves only when the grant pays (a killer that is not standing keeps it).
+        let (amount, carry) = crate::cards::native::marked_man_stacks(
+            &w.players[i].build,
             crate::modifiers::farm::DEFINITION.kill_stacks,
         );
+        let gained = crate::modifiers::grant_mob_stat(k, w, id, paid, amount);
+        if let (true, Some(carry)) = (gained > 0, carry) {
+            if let Some(slot) = w.players[i]
+                .build
+                .native
+                .slot_mut(crate::cards::CardId::MarkedMan)
+            {
+                slot.counter = carry;
+            }
+        }
         if gained > 0 {
             let count = w.players[i].farm.count(paid);
             ev.push(Event::Toast {

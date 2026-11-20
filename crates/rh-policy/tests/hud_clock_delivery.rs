@@ -70,13 +70,13 @@ fn arena_of(items: &[StateItem]) -> Option<WireArena> {
 fn identities_move_for_the_clocks_and_the_minimum() {
     assert_eq!(
         rh_sim::OBSERVATION_VERSION,
-        33,
-        "Inventory gains the owner's end times, ArenaView the room minimum (P-WIRE17-HUD-3); 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20)"
+        34,
+        "Inventory gains the owner's end times, ArenaView the room minimum (P-WIRE17-HUD-3); 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 34: P-AUG-NATIVE-5"
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        29,
-        "the projected inventory and arena view carry them (P-WIRE17-HUD-3); 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 29: P-AUG-BOTS-1"
+        30,
+        "the projected inventory and arena view carry them (P-WIRE17-HUD-3); 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 29: P-AUG-BOTS-1; 30: P-AUG-NATIVE-5"
     );
 }
 

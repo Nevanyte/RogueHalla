@@ -20,6 +20,7 @@ pub(super) static POOL: &[(CardId, Offer)] = &[
     (CardId::HazardWalker, Offer::Any),
     (CardId::Overflow, Offer::Any),
     (CardId::WishEngine, Offer::Any),
+    (CardId::MarkedMan, Offer::Any),
 ];
 
 /// The hook handlers of this table's cards; see `weapon::handle`.
@@ -132,4 +133,21 @@ pub(super) fn wish_engine_share(native: &NativeCards) -> f64 {
 /// Overflow is held: the holder's barriers fade over `REWORK_OVERFLOW_FADE_MS`.
 pub(super) fn holds_overflow(native: &NativeCards) -> bool {
     held(native, CardId::Overflow).is_some()
+}
+
+/// Marked Man's normal-kill grant (P-AUG-NATIVE-5 decision 2): `(amount, Some(carry))` for a holder, where
+/// `e = kill_stacks x (MULT - 1) + counter` splits into the whole stacks paid now (`kill_stacks + floor(e)`) and the
+/// carry `e - floor(e)` (exact in f64: 0 or 0.5); `(kill_stacks, None)` for a non-holder.
+pub(super) fn marked_man_stacks(native: &NativeCards, kill_stacks: u64) -> (u64, Option<f64>) {
+    held(native, CardId::MarkedMan).map_or((kill_stacks, None), |s| {
+        let e = kill_stacks as f64 * (crate::constants::REWORK_MARKED_MAN_STACK_MULT - 1.)
+            + s.counter;
+        let whole = e.floor();
+        (kill_stacks + whole as u64, Some(e - whole))
+    })
+}
+
+/// Marked Man is held (its `Alive` holder is on every minimap).
+pub(super) fn holds_marked_man(native: &NativeCards) -> bool {
+    held(native, CardId::MarkedMan).is_some()
 }

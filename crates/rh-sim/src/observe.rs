@@ -23,11 +23,11 @@ mod public;
 pub use hud::*;
 pub use public::*;
 
-use hud::{camp_hud_into, roster_into, summary_into};
+use hud::{camp_hud_into, marked_into, roster_into, summary_into};
 
 /// 33 (P-SYNC-ORIGIN-1): origin's observation 31 (P-NET-DRAWAHEAD-1a, the walk hint) merged with the local 31/32
-/// (P-WIRE19-A/B).
-pub const OBSERVATION_VERSION: u16 = 33;
+/// (P-WIRE19-A/B). 34 (P-AUG-NATIVE-5): `marked`, the public Marked Man rows.
+pub const OBSERVATION_VERSION: u16 = 34;
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SelfView {
@@ -363,14 +363,14 @@ pub struct Observation {
     /// empty, so an observation without rows serializes and hashes as before the field.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub readouts: Vec<crate::cards::native::Readout>,
-    /// P-AUG-NATIVE-5 (stub): every `Alive` Marked Man holder's position, by ascending id, the same for every viewer and
+    /// P-AUG-NATIVE-5: every `Alive` Marked Man holder's position, by ascending id, the same for every viewer and
     /// regardless of vision (the minimap marker; owner decision 9, deliberately public). Skipped when empty, so an
     /// observation without a holder serializes and hashes as before the field.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub marked: Vec<MarkedView>,
 }
 
-/// P-AUG-NATIVE-5 (stub): one Marked Man holder on every minimap: its id and body position, nothing else.
+/// P-AUG-NATIVE-5: one Marked Man holder on every minimap: its id and body position, nothing else.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MarkedView {
     pub id: PlayerId,
@@ -919,6 +919,8 @@ pub(crate) fn observe_with_tiles(
     // P-WIRE17-HUD-2: the viewer's own panel (a stack array, Copy); None for an unseated viewer, like the summary.
     out.panel = crate::build_summary::champion_panel(sim, viewer);
     roster_into(sim, &mut out.roster);
+    // P-AUG-NATIVE-5: the public Marked Man rows (the same for every viewer; never read by `can_see` or any filter).
+    marked_into(sim, &mut out.marked);
     out.visible.clear();
     if let Some(m) = me {
         let map = sim.collision_view();
