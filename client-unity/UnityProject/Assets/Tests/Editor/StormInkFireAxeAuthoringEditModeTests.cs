@@ -116,12 +116,12 @@ namespace Roguehalla.Client.Tests
             }
         }
 
-        [TestCase(1)] [TestCase(2)] [TestCase(3)] [TestCase(4)] [TestCase(5)]
+        [TestCase(0)] [TestCase(1)] [TestCase(2)] [TestCase(3)]
+        [TestCase(4)] [TestCase(5)] [TestCase(6)] [TestCase(7)]
         public void AuthoredWalkBearingsUseEightRegisteredDrawingsThroughTheGaitCycle(int row)
         {
             var config = StormInkFireAxeAuthoring.Load();
             Assert.That(config.StrideStagesFor(row), Is.EqualTo(8));
-            Assert.That(config.StrideStagesFor(6), Is.EqualTo(1));
             var poses = Enumerable.Range(0, 8).Select(stage => config.Frame(row, StormInkFireAxePose.Stride,
                 Gait.FrameIndex(stage + .25f, config.StrideStagesFor(row)))).ToArray();
             Assert.That(poses.Distinct().Count(), Is.EqualTo(8));
