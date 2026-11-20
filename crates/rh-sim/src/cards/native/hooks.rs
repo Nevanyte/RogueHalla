@@ -147,6 +147,19 @@ pub(crate) fn fire_held(w: &mut World, holder: PlayerId, event: NativeEvent) {
     }
 }
 
+/// The native chill hook for one tick of attack chill on fighter `victim` (`frost::after_damage`, after it set this
+/// tick's chill): every source of a chill below 1 inflicted one tick of it.
+pub(crate) fn attack_chill(w: &mut World, victim: crate::fighter::FighterIx) {
+    if !(w.core(victim).signature.chill < 1.) {
+        return;
+    }
+    for c in 0..w.core(victim).signature.chillers.len() {
+        let source = w.core(victim).signature.chillers[c];
+        let ms = crate::constants::TICK_MS;
+        fire_held(w, source, NativeEvent::ChillInflicted { ms });
+    }
+}
+
 /// Did projectile `id` land its hit from far: after at least `REWORK_MARKSMANS_TALLY_RANGE_SHARE` of its launch range
 /// (Plant Your Feet's `range_mult` included)? Read in the ledger, where the flight that hit is still in
 /// `World::projectiles` (`settle` retires it) at its contact point (`projectiles::end`). The distance flown is
