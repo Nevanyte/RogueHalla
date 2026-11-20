@@ -108,6 +108,15 @@ namespace Roguehalla.Net.Protocol
         public double Until;
         public bool Mine;
     }
+    /// <summary>P-WIRE19-B (State key 14): one of the viewer's own native readout rows. Card is a native card id (80..93),
+    /// Kind 0 counter, 1 meter, 2 marks; Value and Max are finite with 0 &lt;= Value &lt;= Max.</summary>
+    public struct WireReadout
+    {
+        public byte Card;
+        public byte Kind;
+        public double Value;
+        public double Max;
+    }
     public struct WireProjectile
     {
         public byte Kind; public ushort X,Y,Facing; public uint? Owner;
@@ -242,5 +251,5 @@ namespace Roguehalla.Net.Protocol
         public WireMerchant[] Merchants = Array.Empty<WireMerchant>();
         public string[] BarterLabels = new[] { "", "", "" };
     }
-    public enum StateKey : byte { Inventory = 1, Props = 2, Fields = 3, RewardChests = 4, Build = 5, Camps = 6, Projectiles = 7, Plan = 8, Arena = 9, Quests = 10, Trade = 11, Roster = 12, BuildSummary = 13 }
+    public enum StateKey : byte { Inventory = 1, Props = 2, Fields = 3, RewardChests = 4, Build = 5, Camps = 6, Projectiles = 7, Plan = 8, Arena = 9, Quests = 10, Trade = 11, Roster = 12, BuildSummary = 13, Readouts = 14 }
 }

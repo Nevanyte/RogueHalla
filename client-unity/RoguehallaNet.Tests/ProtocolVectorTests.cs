@@ -1119,6 +1119,10 @@ namespace Roguehalla.Net.Tests
                 case "state_wall_tiles_truncated": want = DecodeError.Truncated; break;
                 // P-WIRE19-A (oracle-amend): a first-pick window that is not finite or ends after its chest.
                 case "state_reward_first_pick_nonfinite": case "state_reward_first_pick_after_expiry": want = DecodeError.BadField; break;
+                // P-WIRE19-B (oracle-amend): State key 14, the viewer's own readout rows; every refusal is BadField.
+                case "state_readouts_count_29": case "state_readouts_card_79": case "state_readouts_card_94": case "state_readouts_kind_3":
+                case "state_readouts_value_nan": case "state_readouts_value_negative": case "state_readouts_value_over_max":
+                case "state_readouts_max_infinite": case "state_readouts_order": want = DecodeError.BadField; break;
                 default: throw new KeyNotFoundException("no expectation for " + name);
             }
             Assert.AreEqual(want, Assert.Throws<DecodeException>(() => ServerMsg.Decode(Util.FromHex(hex)), name).Error, name);

@@ -461,8 +461,9 @@ fn validate_body(meta: Meta, body: &[u8], limits: Limits) -> Result<()> {
             ) if *tick == meta.tick && server_time.to_bits() == meta.source_time.to_bits() => {}
             (1, ServerMsg::State { tick, items })
                 if *tick == meta.tick
-                    // The experiment predates key 12 (ADR0026 roster): a complete scene is keys 1..=11, or 1..=12.
-                    && (items.len() == 11 || items.len() == crate::state::MAX_STATE_KEYS)
+                    // The experiment predates key 12 (ADR0026 roster): a complete scene is keys 1..=11, or 1..=13 (key 14,
+                    // the optional own readouts of P-WIRE19-B, is never part of one).
+                    && (items.len() == 11 || items.len() == 13)
                     && items
                         .iter()
                         .enumerate()

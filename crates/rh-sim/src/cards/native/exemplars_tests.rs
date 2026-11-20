@@ -454,7 +454,8 @@ fn bastion_spends_the_meter_on_the_next_landed_hit_at_35_percent() {
 // ---------------------------------------------------------------------------------------------------------------------
 
 /// The owner sees its own native cards' rows (card, kind, value, max) in native order; another player sees only its
-/// own; a non-player and a Legacy world see none. Observations stay as 1a left them.
+/// own; a non-player and a Legacy world see none. Observations carry exactly these rows and nothing else native
+/// (P-WIRE19-B).
 #[test]
 fn readouts_show_each_owner_its_own_native_cards_only() {
     let seats = [
@@ -513,9 +514,19 @@ fn readouts_show_each_owner_its_own_native_cards_only() {
         assert!(readouts(&legacy, v).rows().is_empty());
         assert!(readouts(&plain, v).rows().is_empty());
     }
-    // The observation carries no native state (P-WIRE19-B adds the rows): equal to the native-free world's.
+    // P-WIRE19-B (oracle-amend): the observation carries the viewer's own rows (`readouts`) and no other native state:
+    // apart from them it equals the native-free world's.
     for v in [PlayerId(1), PlayerId(2), PlayerId(3)] {
-        assert_eq!(observe(&sim, v, &[]), observe(&plain, v, &[]), "{v:?}");
+        let o = observe(&sim, v, &[]);
+        assert_eq!(o.readouts, readouts(&sim, v).rows(), "{v:?}: own rows");
+        assert_eq!(
+            crate::Observation {
+                readouts: Vec::new(),
+                ..o
+            },
+            observe(&plain, v, &[]),
+            "{v:?}"
+        );
     }
 }
 

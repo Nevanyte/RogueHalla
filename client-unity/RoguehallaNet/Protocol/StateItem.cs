@@ -10,7 +10,7 @@ namespace Roguehalla.Net.Protocol
         public abstract uint Key { get; }
         internal abstract void Check();
         internal abstract void Write(Writer w);
-        internal const int MaxRows = 512, MaxKeys = (int)StateKey.BuildSummary;
+        internal const int MaxRows = 512, MaxKeys = (int)StateKey.Readouts;
         internal static void Require(bool condition, string name) { if (!condition) throw new EncodeException(name); }
         internal static bool Finite(double v) { return !double.IsNaN(v) && !double.IsInfinity(v); }
         internal static bool QuestFlag(ref Reader r, string field)
@@ -382,6 +382,8 @@ namespace Roguehalla.Net.Protocol
                         item = RosterState.Read(ref r); break;
                     case 13:
                         item = BuildSummaryState.Read(ref r); break;
+                    case 14:
+                        item = ReadoutsState.Read(ref r); break;
                     default: throw new DecodeException(DecodeError.BadField, "state key");
                 }
                 try { item.Check(); } catch (EncodeException e) { throw new DecodeException(DecodeError.BadField, e.Message); }
