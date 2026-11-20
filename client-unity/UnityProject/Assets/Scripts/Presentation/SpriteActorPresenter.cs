@@ -463,7 +463,7 @@ namespace Roguehalla.Client
                 { frames=appearance.Walk;fps=appearance.WalkFPS;walkPhase=true; }
             }
             float? measuredHeight = null;
-            Sprite shieldBody = null;
+            Sprite shieldBody = null, axeBody = null;
             if (frames != null && frames.Length > 0)
             {
                 // Catalog arrays are direction-major, with exactly eight source directions. Facing is artwork only.
@@ -492,7 +492,10 @@ namespace Roguehalla.Client
                     ? HauntedFistsFrame(a, facing, gaitNow, reduced) : null;
                 if (useWeaponPhase || phase == StormInkWeaponMotion.Phase.Block && frames == appearance.Block)
                     shieldBody = StormInkActors.HolyShieldFrame(kind, faction, weapon, direction, phase);
-                a.Body.sprite = unarmed ?? shieldBody ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
+                if (!dead && hiddenAlpha > 0f && (useWeaponPhase || frames == appearance.Idle || frames == appearance.Walk))
+                    axeBody = StormInkActors.FireAxeFrame(kind, faction, weapon, direction,
+                        useWeaponPhase ? phase : StormInkWeaponMotion.Phase.Guard, walkPhase && frame * 2 >= count);
+                a.Body.sprite = unarmed ?? shieldBody ?? axeBody ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
                 bool paintedPox = IsPox(a) && painted != null;
                 float height = paintedWand ? 1.24f : paintedPox ? PoxHeight : appearance.WorldHeight;
                 if (paintedWand) measuredHeight = height + .15f;
@@ -595,7 +598,7 @@ namespace Roguehalla.Client
                 int poseRow = StormInkActors.PoseRowForFacing(poseFacing);
                 var pose = StormInkWeaponMotion.Sample(faction.Value, weapon.Value, phase, weaponProgress, poseRow, reduced);
                 pose = RegionalWeaponPose(a, pose, phase, weaponProgress, poseRow, reduced);
-                if (useWeaponPhase && shieldBody == null) a.Body.transform.localRotation = Quaternion.Euler(0, 0, pose.BodyLean);
+                if (useWeaponPhase && shieldBody == null && axeBody == null) a.Body.transform.localRotation = Quaternion.Euler(0, 0, pose.BodyLean);
                 var authored = StormInkWeaponArt.Get(weapon.Value, poseRow);
                 var sprite = authored != null ? authored : ShowcaseSprites.Get(StormInkWeaponMotion.KeyFor(weapon.Value));
                 float scale = EquipmentScale(a);
@@ -608,7 +611,7 @@ namespace Roguehalla.Client
                 float angle = pose.Angle;
                 Vector3 supportFromGrip = Vector3.zero;
                 Vector3? drawPalm = null;
-                if (pose.HasSupport && useWeaponPhase)
+                if (axeBody == null && pose.HasSupport && useWeaponPhase)
                 {
                     supportFromGrip = SpriteSocket(sprite, StormInkWeaponArt.Support(weapon.Value, poseRow), signedScale) - offset;
                     if (registered && TryWeaponHand(a, !leftHand, out var supportUv))
@@ -640,7 +643,7 @@ namespace Roguehalla.Client
                     drawingString = a.Bowstring != null;
                     a.Bowstring?.Draw(a.Weapon, a.OutBody, poseRow, drawPalm.Value, hiddenAlpha);
                 }
-                if (pose.HasSupport && useWeaponPhase && !registered)
+                if (axeBody == null && pose.HasSupport && useWeaponPhase && !registered)
                 {
                     var support = a.WeaponSupport;
                     support.enabled = true;
