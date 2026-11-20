@@ -738,8 +738,10 @@ pub(crate) fn raid_started(hx: &mut crate::hooks::Hx, _: &crate::hooks::HookArgs
 pub(crate) fn refresh(cx: &mut crate::systems::Cx) {
     let tick = cx.w.tick;
     let (tick_ms, every) = (cx.k.tick_ms(), refresh_ticks(cx.k.tick_ms()));
+    // The stagger keeps the legacy period's slots (two), valid at every step: a phase is any value below `every`.
+    let slots = refresh_ticks(LEGACY_TICK_MS);
     for (i, p) in cx.w.players.iter_mut().enumerate() {
-        let phase = *p.vision.phase.get_or_insert_with(|| (i as u32) % every);
+        let phase = *p.vision.phase.get_or_insert_with(|| (i as u32) % slots);
         if (tick % every + phase) % every == 0 || p.vision.reveals.is_empty() {
             refresh_player(p, tick, tick_ms, cx.w.rt.gates_locked);
         }
