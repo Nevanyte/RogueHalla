@@ -9,7 +9,7 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 **Owner direction 2026-11-19:** "resume" (after the evening pause). Owner OK the same day for the side session's Frost
 Wall fix: "Yes, review it" (review it and merge it into the next integration). Nothing is pushed and `main` is untouched.
 
-**Integration branch:** `feature/unity-rework` @ `5d1f2532b`.
+**Integration branch:** `feature/unity-rework`, integrations 65 to 67 landed 2026-11-20.
 - **Integration 65** (`coord/int-65` @ `35eceb4e0`): P-ELITE-TUNE-1-fix, P-AUG-POOL-1-fix, P-ELITE-PICK-1 and
   P-AUG-NATIVE-1a.
   - Full gate PASS on `35eceb4e0`: `--coordinator --keep-going --allow-artefacts --regen-fixtures --base 7a3436271`,
@@ -34,9 +34,25 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
   - Minor, not a note: `OwnerView::of` (`abilities/mod.rs:508`) still reads the catalog row. Frost Wall and Freeze rows
     hold the same cast, cooldown and charges today, so nothing shows; the P-AUG-NATIVE-3 plan note covers it.
 
+- **Integration 67** (`coord/int-67` @ `d837d7652`):
+  - **What it holds:**
+    - P-AUG-NATIVE-1b: the 13 native hook points, the batch tables, the own-only readouts, Marksman's Tally and Bastion,
+      and `MAX_FOLD_ROWS` 80. Implemented by Opus, after a coordinator oracle-amend. reviewer-opus: LAND.
+    - P-WIRE19-A: native card ids to 93 on the wire, and the first-pick window with the viewer's own `mine` flag.
+      Rust, C# and JS decoders and v19 fixtures. Two coordinator oracle-amends. reviewer-opus: LAND.
+  - **Merge:** one conflict, in `normal-companion.mjs`, resolved to protocol 19 plus the new content hash.
+  - **Full gate:** green except the waived provenance pin of `check-vectors.mjs` (`failureCount` 1). With pgtest,
+    EditMode 1581/1581. Log `.agent-runs/gate/20261120T013515-coord-int-67-full.log`.
+  - **Deploy rule:** a build holding WIRE19-A without WIRE19-B is never deployed (P-WIRE19-A decision 6). WIRE19-B
+    stays inside protocol 19.
+- **Identities after integration 67:** protocol 19, observation 31, policy contract 26, checkpoint `rh-checkpoint/35`,
+  replay 25, content hash `a03745630efa1c12`.
+
 **In flight:**
-- Oracles, Opus: P-AUG-NATIVE-1b on `packet/P-AUG-NATIVE-1b-r` and P-WIRE19-A on `packet/P-WIRE19-A-resume`, each
-  resumed from its WIP commit in a new worktree (the paused branches stay as they were).
+- Oracles from `coord/int-67`: P-AUG-NATIVE-2 and P-AUG-NATIVE-3 (Sonnet), and P-WIRE19-B (Opus).
+- Wish Engine is split from P-AUG-NATIVE-3 as P-AUG-NATIVE-3b (Opus), because shortening the Wish cooldown means
+  redesigning the restore envelope.
+- P-AUG-NATIVE-4 follows.
 
 **Next:** the Opus implementers for both packets, then waves 6 to 9 as listed in the paused section below.
 
