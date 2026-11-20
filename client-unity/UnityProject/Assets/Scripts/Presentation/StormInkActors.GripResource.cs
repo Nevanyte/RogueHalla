@@ -30,16 +30,17 @@ namespace Roguehalla.Client
             var file = JsonUtility.FromJson<GripFile>(asset.text);
             if (file?.rows?.Length != Rows || !Enum.TryParse(file.weapon, out WeaponId weapon) ||
                 weapon > WeaponId.Axe) return null;
-            var palms = new Hands[Rows * Columns];
+            int columns = MobColumns(type);
+            var palms = new Hands[Rows * columns];
             for (int row = 0; row < Rows; row++)
             {
                 var entry = file.rows[row];
-                if (entry?.facing != GripFacings[row] || entry.palms?.Length != Columns * 4) return null;
-                for (int col = 0; col < Columns; col++)
+                if (entry?.facing != GripFacings[row] || entry.palms?.Length != columns * 4) return null;
+                for (int col = 0; col < columns; col++)
                 {
                     int off = col * 4;
                     for (int k = 0; k < 4; k++) if ((uint)entry.palms[off + k] >= 128) return null;
-                    palms[row * Columns + col] = new Hands((byte)entry.palms[off], (byte)entry.palms[off + 1],
+                    palms[row * columns + col] = new Hands((byte)entry.palms[off], (byte)entry.palms[off + 1],
                         (byte)entry.palms[off + 2], (byte)entry.palms[off + 3]);
                 }
             }
