@@ -267,9 +267,9 @@ namespace Roguehalla.Editor
             return mid;
         }
 
-        static Site BuildSite(SceneSpec sc)
+        static Site BuildSite(SceneSpec sc, int? orientation = null)
         {
-            string kind = sc.Kind; int k = sc.K;
+            string kind = sc.Kind; int k = orientation ?? sc.K;
             string[] rows;
             switch (kind)
             {   // centre and entrance marks go in before orienting, as the art tests do
@@ -428,6 +428,19 @@ namespace Roguehalla.Editor
             var preset = q == "high" ? ShowcaseQuality.High : q == "medium" ? ShowcaseQuality.Medium : q == "low" ? ShowcaseQuality.Low : ShowcaseQuality.Ultra;
             AtmosphereQuality.ApplyPreset(preset, false);
         }
+
+        internal static MapBlob BuildChurchMap(int orientation) =>
+            BuildSite(Parse("church-inside"), orientation).Map;
+
+        internal static ArenaView BuildStudioArena(MapBlob map, GameObject root)
+        {
+            var arena = root.AddComponent<ArenaView>();
+            AwakeOf().Invoke(arena, null);
+            arena.Build(map);
+            return arena;
+        }
+
+        internal static LandmarkView StudioLandmarks(ArenaView arena) => (LandmarkView)LandmarksOf().GetValue(arena);
 
         static ArenaView NewArena(MapBlob map, out GameObject go)
         {
