@@ -41,6 +41,8 @@ namespace Roguehalla.Editor
         readonly List<Vector4> paletteProbe = new List<Vector4>(8);
         Material groundMaterial;
         bool inspectPalette;
+        ChurchNaveArt displayedNave;
+        int naveRevision;
         ScriptableObject displayedRig, displayedAction, displayedEquipment;
         (int rig, int action, int equipment) displayedRevisions;
 
@@ -121,6 +123,8 @@ namespace Roguehalla.Editor
 
         void Build()
         {
+            displayedNave = ChurchNaveArt.Load();
+            naveRevision = Revision(displayedNave);
             map = PreviewRoom(front, mirrored, out passages);
             var fixture = ArchetypeFixture.Read();
             fireFootprint = fixture.Foot(fixture.assign.player.Fire);
@@ -315,7 +319,7 @@ namespace Roguehalla.Editor
             if (root == null) return;
             // Inspector edits can dirty an asset before Unity posts its asset change event.
             if (displayedRevisions != CastRevisions()) RefreshCast();
-            if (!inspectPalette || HasGroundPalette()) return;
+            if (naveRevision == Revision(displayedNave) && (!inspectPalette || HasGroundPalette())) return;
             EditorApplication.delayCall -= Rebuild;
             Rebuild();
         }
@@ -388,7 +392,10 @@ namespace Roguehalla.Editor
                 ? StormInkSwordArtAuthoring.Load()
                 : fireWeaponChoice == 2 ? StormInkBowArtAuthoring.Load() : StormInkAxeArtAuthoring.Load();
             GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Pews and aisle")) Selection.activeObject = displayedNave;
             if (GUILayout.Button("Nave wall finish")) Selection.activeObject = ChurchMasonryArt.Load();
+            GUILayout.EndHorizontal();
             GUILayout.EndArea();
             Handles.EndGUI();
         }

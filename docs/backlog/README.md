@@ -329,6 +329,7 @@ is **not implemented**; the gain figures are **estimates**.
 | P-UI-8 | Visual upgrade per [../VISUAL_DIRECTION.md](../VISUAL_DIRECTION.md) (exists: quality tiers, budgets to establish) | P-UNITY-1 | Ready packet ([spec](packets/P-STORM-HAUNTED-PRESENTATION-1.md), display-only identity pass) | client/src/render/zoneArt/*, hub/hubArt.ts |
 | P-STORM-CHURCH-AUTHORING-1 | Artist-owned church family defaults, stable slot overrides, contact handles and candle spill | P-STORM-CHURCH-ART-1, P-STORM-CHURCH-PIERS-1 | Ready packet ([spec](packets/P-STORM-CHURCH-AUTHORING-1.md)) | Unity church presentation data |
 | P-STORM-CHURCH-WALL-FINISH-1 | Decorated nave walls on the delivered Rust solid cells | P-STORM-CHURCH-PIERS-1 | Ready packet | [spec](packets/P-STORM-CHURCH-WALL-FINISH-1.md) |
+| P-STORM-CHURCH-PEWS-AISLE-2 | Painted overhead oak banks and worn slate aisle | P-STORM-CHURCH-WALL-FINISH-1 | In review | [spec](packets/P-STORM-CHURCH-PEWS-AISLE-2.md) |
 | P-STORM-CHURCH-RENDER-VIEWS-1 | Project continuous floor axes, resolve upright directional art and separate the movable main candle flame | P-STORM-CHURCH-AUTHORING-1 | Ready packet ([spec](packets/P-STORM-CHURCH-RENDER-VIEWS-1.md)) | Unity church presentation rendering |
 | P-UI-9 | Settings, accessibility, input rebinding, audio decision | P-UNITY-1 | Coarse | client/src/settings.ts, ui/settingsPanel.ts |
 | P-UI-10 | Unity batchmode tests + build in CI | P-UNITY-1, P-CI-1 | Coarse | none |

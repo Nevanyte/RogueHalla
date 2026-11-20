@@ -327,6 +327,41 @@ namespace Roguehalla.Client.Tests
         }
 
         [TestCaseSource(nameof(Orientations))]
+        public void OakBanksFrameTheDoorwayWidthAndLeaveAnOpenCrossing(int k)
+        {
+            var site = Church(k);
+            using (var scene = new Scene(site.Map, site.Anchor))
+            {
+                var room = Built(scene, "pew bank " + k);
+                bool alongX = site.Door[0].x == site.Door[1].x;
+                Vector2 DoorCentre(List<(int x, int y)> run) => new Vector2(
+                    run.Average(t => (float)t.x) + .5f, run.Average(t => (float)t.y) + .5f);
+                Vector2 front = DoorCentre(site.Door), rear = DoorCentre(site.RearDoor);
+                Vector2 middle = (front + rear) * .5f;
+                var pews = Named(room, "Church pew").ToArray();
+                Assert.That(pews.Length, Is.EqualTo(8));
+                foreach (var pew in pews)
+                {
+                    var b = pew.GetComponent<SpriteRenderer>().bounds;
+                    var centre = new Vector2(b.center.x, -b.center.y / ArenaView.GroundSquash);
+                    var half = new Vector2(b.extents.x, b.extents.y / ArenaView.GroundSquash);
+                    var delta = centre - middle;
+                    float innerTip = alongX ? Mathf.Abs(delta.y) - half.y : Mathf.Abs(delta.x) - half.x;
+                    Assert.That(innerTip, Is.EqualTo(site.Door.Count * .5f).Within(.15f),
+                        "the seat ends establish the same aisle as the doorway");
+                    float along = alongX ? Mathf.Abs(delta.x) : Mathf.Abs(delta.y);
+                    Assert.That(along - (alongX ? half.x : half.y), Is.GreaterThan(1.35f),
+                        "the centre crossing is clear for two opponents");
+                    Assert.That(Vector2.Distance(front, rear) * .5f - along, Is.GreaterThan(1.9f),
+                        "the outer rows stand away from the windows");
+                    for (int y = Mathf.FloorToInt(centre.y - half.y); y <= Mathf.FloorToInt(centre.y + half.y); y++)
+                    for (int x = Mathf.FloorToInt(centre.x - half.x); x <= Mathf.FloorToInt(centre.x + half.x); x++)
+                        Assert.That(site.Map.At(x, y), Is.EqualTo(MapBlob.Floor), "a pew must clear every solid tile");
+                }
+            }
+        }
+
+        [TestCaseSource(nameof(Orientations))]
         public void OverheadPewBackCapFacesTheGraveyardEntrance(int k)
         {
             var site = Church(k);

@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: OakPew
   m_EditorClassIdentifier:
   Defaults:
-    Width: 4.55
-    Depth: 0.76
+    Width: 3.04
+    Depth: 0.82
     Height: 0.82
     RotationDegrees: 0
     MountHeight: 0

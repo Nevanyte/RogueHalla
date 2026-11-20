@@ -73,10 +73,11 @@ namespace Roguehalla.Client
             lm.SetCover(cover);
             var naveFront = NaveFront(lm, building);
             var churchLayout = Resources.Load<ChurchInteriorDefinition>("StormInk/Church/Definitions/SentencedChurch");
-            BuildSlateFloor(lm, building, naveFront);
+            var seating = ChurchNaveArt.Load();
+            BuildSlateFloor(lm, building, naveFront, seating);
             BuildRoof(lm, building, notches);
             for (int i = 0; i < doors.Count; i++) BuildDoor(lm, doors[i], directions[i]);
-            BuildInteriorFurnishings(lm, building, naveFront, churchLayout);
+            BuildInteriorFurnishings(lm, building, naveFront, churchLayout, seating);
             BuildWindows(lm, building, naveFront, churchLayout);
             DeliveredNave(lm.SourceMap).PaintPiers(lm);
             if (lm.ArchTiles.Length > 0) BuildGate(lm);
@@ -338,11 +339,14 @@ namespace Roguehalla.Client
             return direction.y > 0f ? Vector2Int.up : Vector2Int.down;
         }
 
-        static void BuildSlateFloor(Landmark lm, Group room, Vector2Int naveFront)
+        static void BuildSlateFloor(Landmark lm, Group room, Vector2Int naveFront, ChurchNaveArt seating)
         {
             const int ppu = 24;
             bool acrossX = naveFront.y != 0;
             float centre = acrossX ? (room.MinX + room.MaxX + 1) * .5f : (room.MinY + room.MaxY + 1) * .5f;
+            float centreAlong = acrossX ? (room.MinY + room.MaxY + 1) * .5f : (room.MinX + room.MaxX + 1) * .5f;
+            float width = seating != null ? seating.AisleWidth : 3f;
+            float wear = seating != null ? seating.Wear : .72f;
             var wash = Resources.Load<Texture2D>("StormInk/Church/SlateWash");
             var pigment = wash != null ? wash.GetPixels32() : null;
             float x0 = room.MinX, y0 = -(room.MaxY + 1) * Sq;
@@ -361,14 +365,8 @@ namespace Roguehalla.Client
                     stone = Color.Lerp(new Color(brush.grayscale, brush.grayscale, brush.grayscale * 1.05f), brush, .38f);
                 }
                 float across = (acrossX ? wx : mapY) - centre;
-                float along = acrossX ? mapY - room.MinY : wx - room.MinX;
-                float halfWidth = Mathf.Abs(across);
-                float wear = 1f - Mathf.SmoothStep(0f, 1f, halfWidth / 2.25f);
-                stone = Color.Lerp(stone * .91f, stone * 1.16f + new Color(.025f, .017f, .008f), wear);
-                // One quiet line of carved lozenges follows the two doors. The middle crossing stays clear.
-                float rhythm = Mathf.Abs(Mathf.Repeat(along + 1.25f, 4.5f) - 2.25f);
-                float cut = Mathf.Abs(halfWidth + rhythm * .76f - .38f);
-                if (halfWidth < .43f && rhythm < .58f && cut < .045f) stone = Shade(stone, .54f);
+                float along = (acrossX ? mapY : wx) - centreAlong;
+                stone = ChurchNaveArt.PaintAisle(stone, across, along, width, wear);
                 stone.a = 1f;
                 return stone;
             });
@@ -376,7 +374,7 @@ namespace Roguehalla.Client
         }
 
         // Pew, pulpit, window and candle placements are resolved from artist-owned family defaults plus field-level slot overrides.
-        static void BuildInteriorFurnishings(Landmark lm, Group room, Vector2Int naveFront, ChurchInteriorDefinition layout)
+        static void BuildInteriorFurnishings(Landmark lm, Group room, Vector2Int naveFront, ChurchInteriorDefinition layout, ChurchNaveArt seating)
         {
             bool aisleOnX = naveFront.x != 0;
             float alongMin = aisleOnX ? room.MinX : room.MinY, alongMax = aisleOnX ? room.MaxX : room.MaxY;
@@ -386,29 +384,26 @@ namespace Roguehalla.Client
             var orientation = ChurchArtOrientation.Resolve(lm.Anchor);
             int leftAcross = aisleOnX ? (naveFront.x > 0 ? 1 : -1) : (naveFront.y > 0 ? -1 : 1);
             float pewAngle = aisleOnX ? leftAcross * 90f : (leftAcross > 0 ? 0f : 180f);
-            float[] rows = naveFront.x + naveFront.y > 0
-                ? new[] { alongMin + 1.55f, alongMin + 2.65f, alongMax - 1.55f, alongMax - .45f }
-                : new[] { alongMax - .45f, alongMax - 1.55f, alongMin + 2.65f, alongMin + 1.55f };
+            float inset = seating != null ? seating.OuterRowInset : 2.75f;
+            float pitch = seating != null ? seating.RowSpacing : 1.95f;
+            float offset = seating != null ? seating.BankOffset : 2.96f;
+            float sign = naveFront.x + naveFront.y;
+            float sanctuaryEnd = sign > 0f ? alongMin : alongMax + 1f;
+            float entranceEnd = sign > 0f ? alongMax + 1f : alongMin;
+            float[] rows = { sanctuaryEnd + sign * inset, sanctuaryEnd + sign * (inset + pitch),
+                entranceEnd - sign * (inset + pitch), entranceEnd - sign * inset };
             for (int rowIndex = 0; rowIndex < rows.Length; rowIndex++)
             for (int bank = 0; bank < 2; bank++)
             {
                 int semanticSide = bank == 0 ? 1 : -1;
                 int acrossSign = leftAcross * orientation.ReflectSide(semanticSide);
-                float bankCentre = across + acrossSign * 4.85f;
+                float bankCentre = across + acrossSign * offset;
                 float row = rows[rowIndex];
                 float x = aisleOnX ? row : bankCentre, y = aisleOnX ? bankCentre : row;
-                const float length = 4.55f, depth = 1.155f;
-                int first = Mathf.FloorToInt(bankCentre - length * .5f), last = Mathf.FloorToInt(bankCentre + length * .5f);
-                bool fits = true;
-                for (int tile = first; tile <= last; tile++)
-                {
-                    if (lm.IsInterior(aisleOnX ? Mathf.FloorToInt(x) : tile, aisleOnX ? tile : Mathf.FloorToInt(y))) continue;
-                    fits = false;
-                    break;
-                }
-                if (fits)
-                    AddChurchAssetSprite(lm, pew, pewDefinition, layout, "pew.row" + rowIndex + (semanticSide > 0 ? ".left" : ".right"),
-                        "Church pew", x, y, aisleOnX ? length * Sq : length, aisleOnX ? depth * Sq : depth, pewAngle, 2, ChurchArtView.Front);
+                if (!lm.IsInterior(Mathf.FloorToInt(x), Mathf.FloorToInt(y))) continue;
+                const float length = 3.04f, depth = .82f;
+                AddChurchAssetSprite(lm, pew, pewDefinition, layout, "pew.row" + rowIndex + (semanticSide > 0 ? ".left" : ".right"),
+                    "Church pew", x, y, aisleOnX ? length * Sq : length, aisleOnX ? depth : depth * Sq, pewAngle, 2, ChurchArtView.Front);
             }
             var pulpitDefinition = Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/GothicPulpit");
             var pulpit = pulpitDefinition != null ? pulpitDefinition.Defaults.Front : Resources.Load<Sprite>("StormInk/Church/GothicPulpit");
