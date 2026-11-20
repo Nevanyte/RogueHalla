@@ -204,7 +204,7 @@ MonoBehaviour:
     WeaponDepthOffset: 0
   - Row: 4
     Column: 7
-    WeaponAngleOffset: 89
+    WeaponAngleOffset: 120
     WeaponDepthOffset: 0
   - Row: 4
     Column: 8
@@ -244,7 +244,7 @@ MonoBehaviour:
     WeaponDepthOffset: -4
   - Row: 5
     Column: 7
-    WeaponAngleOffset: -62
+    WeaponAngleOffset: -34
     WeaponDepthOffset: 0
   - Row: 5
     Column: 8
