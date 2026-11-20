@@ -288,7 +288,10 @@ fn glacier_earns_armor_per_ranged_chill_second_and_the_armor_shows() {
     assert!((got - want).abs() < 1e-9, "counter {got}, want {want}");
     let gain = mirrors(&sim, PlayerId(1)).armor_bonus - mirrors(&sim, PlayerId(2)).armor_bonus;
     // The armor mirror is wire-rounded to 0.1 (as for Calluses in `weapon_batch_tests`).
-    assert!((gain - want).abs() <= 0.05 + 1e-9, "armor gain {gain}, want {want}");
+    assert!(
+        (gain - want).abs() <= 0.05 + 1e-9,
+        "armor gain {gain}, want {want}"
+    );
 }
 
 /// Attack chill: a Frost holder beside a victim inflicts one tick (`TICK_MS`) of chill per tick while the victim's chill
