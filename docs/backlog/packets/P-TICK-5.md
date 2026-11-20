@@ -52,3 +52,14 @@ Medium: one crate, clear oracle. Sonnet, Opus review for the rewind window.
   otherwise.
 
 ## Notes from previous attempts
+
+## Carried from P-TICK-3 (implementer-opus hand-off, 2026-11-20)
+- The Rust encoder still writes 20 Hz: `ConnEncoder`, `SnapshotData::build` and `ServerMsg::encode` give default time
+  `tick * 50`, and at 40 Hz that becomes an override, which a 40 Hz decoder refuses when it equals `tick * 25`. Make
+  the encoder rate-aware (the connection's Welcome rate).
+- `ConnEncoder`, `rh-policy` `CollectionPublisher::resync_due` (`delivery/collections.rs`) and `outbox.rs` still use
+  `MAX_DELTA_AGE` 64 / `MIN_FORCED_FULL_TICKS` 20: switch to `max_delta_age(tick_ms)` / `min_forced_full_ticks(tick_ms)`.
+- `rh-server/src/wire.rs` `profile_supported` refuses `tick_ms != 50` (P-TICK-3): lift it here. `room.rs:667` sends
+  `TICK_RATE as u8`: send the room's rate.
+- Unity (outside the library): `UnityProject/Assets/Scripts/Net/MatchClient.cs:290` multiplies fx due time by
+  `Wire.TickMs`; `RemoteDraw.cs:245` uses `Max(TickMs, Wire.TickMs)`. Both assume 50 (or hand to P-TICK-4).
