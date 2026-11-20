@@ -18,7 +18,7 @@ use crate::{Agent, AgentSpec, Env, EnvConfig};
 use rh_policy::bots::types::{BrainTables, TierParams};
 use rh_policy::bots::{HumanBot, PersonaId, TierId};
 
-use rh_sim::constants::{MAX_PLAYERS, TICK_MS};
+use rh_sim::constants::MAX_PLAYERS;
 use rh_sim::content::FactionId;
 use rh_sim::rng::Mulberry32;
 use rh_sim::{
@@ -563,6 +563,7 @@ pub fn run_game_seats(
     let game = plan_game(plan, index);
     let damage_available = damage_telemetry_supported(sim);
     let delay = plan_delay(plan);
+    let tick_ms = f64::from(sim.tick_ms);
     let agents: Vec<AgentSpec> = game
         .lineup
         .iter()
@@ -580,7 +581,7 @@ pub fn run_game_seats(
         plan.max_sim_ms
     } else {
         MAX_GAME_MS
-    }) / TICK_MS)
+    }) / tick_ms)
         .ceil() as u32;
     let mut env = Env::new_delayed(
         EnvConfig {
@@ -639,7 +640,7 @@ pub fn run_game_seats(
                         continue;
                     };
                     tallies[by_index].damage += amount;
-                    let at = since_ms(raid_start_tick, progress.tick);
+                    let at = since_ms(raid_start_tick, progress.tick, tick_ms);
                     let a = by_index;
                     let v = victim_index;
                     let key = (a.min(v) * 16 + a.max(v)) as u32;
@@ -669,7 +670,7 @@ pub fn run_game_seats(
                     tallies[v].last_trade = Some((at, a));
                 }
                 Event::Death { id, by, .. } => {
-                    let at = since_ms(raid_start_tick, progress.tick);
+                    let at = since_ms(raid_start_tick, progress.tick, tick_ms);
                     let Some(victim) = ids.iter().position(|candidate| *candidate == id) else {
                         // A mob death: the player who dealt it killed a mob.
                         if let Some(killer_id) = by {
@@ -800,7 +801,7 @@ pub fn run_game_seats(
             behaviour: behaviour(telemetry[i].clone()),
         });
     }
-    let duration_ms = since_ms(raid_start_tick, end_tick);
+    let duration_ms = since_ms(raid_start_tick, end_tick, tick_ms);
     GameSummary {
         seed: game.seed,
         lineup: game.lineup,
@@ -813,15 +814,15 @@ pub fn run_game_seats(
         first_kill_ms,
         death_log,
         first_hits: damage_available.then_some(first_hits),
-        teleport_ms: teleport_tick.map(|tick| since_ms(raid_start_tick, tick)),
+        teleport_ms: teleport_tick.map(|tick| since_ms(raid_start_tick, tick, tick_ms)),
         sudden_death_ms: None,
         bots,
         manager: manager_counts(&env),
     }
 }
 
-fn since_ms(raid_start_tick: Option<u32>, tick: u32) -> f64 {
-    raid_start_tick.map_or(0., |start| f64::from(tick.saturating_sub(start)) * TICK_MS)
+fn since_ms(raid_start_tick: Option<u32>, tick: u32, tick_ms: f64) -> f64 {
+    raid_start_tick.map_or(0., |start| f64::from(tick.saturating_sub(start)) * tick_ms)
 }
 
 /// The Wilson score interval of k successes in n trials (z = 1.96 is 95%; source report.ts wilson).

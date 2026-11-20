@@ -94,7 +94,7 @@ impl MatchStart {
                 *HASH.get_or_init(content_hash)
             },
             observation_version: OBSERVATION_VERSION,
-            tick_ms: rh_sim::constants::TICK_MS,
+            tick_ms: f64::from(sim.tick_ms()),
             frost_wish: sim.config().frost_wish,
         }
     }
@@ -360,7 +360,7 @@ impl Seat {
     /// fallback plays the whole match.
     pub fn new(m: &MatchStart, mut policy: Box<dyn Policy>, mut fallback: Box<dyn Policy>) -> Self {
         let spec = policy.spec();
-        let interval = spec.decision_interval_ticks.max(1);
+        let interval = steps_of_legacy_ticks(spec.decision_interval_ticks.max(1), m.tick_ms);
         let fault = attach_fault(&spec, m);
         if fault.is_none() {
             policy.reset(m);
@@ -939,6 +939,13 @@ pub struct AsyncSeat {
     pub fault: Option<Fault>,
 }
 
+/// A cadence written in legacy 50 ms ticks, as steps of a sim stepping every `tick_ms` ms: it keeps its wall-clock time
+/// (ADR 0029). Equal to `ticks` at 50 ms.
+fn steps_of_legacy_ticks(ticks: u32, tick_ms: f64) -> u32 {
+    let per = (rh_sim::constants::LEGACY_TICK_MS / tick_ms).round().max(1.0) as u32;
+    ticks.saturating_mul(per)
+}
+
 impl AsyncSeat {
     pub fn spawn(
         m: &MatchStart,
@@ -947,7 +954,7 @@ impl AsyncSeat {
         deadline_ticks: u32,
     ) -> Self {
         let spec = policy.spec();
-        let interval = spec.decision_interval_ticks.max(1);
+        let interval = steps_of_legacy_ticks(spec.decision_interval_ticks.max(1), m.tick_ms);
         let fault = attach_fault(&spec, m);
         if fault.is_none() {
             policy.reset(m);
@@ -990,7 +997,7 @@ impl AsyncSeat {
             rx,
             fallback,
             pending: None,
-            deadline_ticks,
+            deadline_ticks: steps_of_legacy_ticks(deadline_ticks, m.tick_ms),
             interval,
             next_tick: 0,
             late: 0,
