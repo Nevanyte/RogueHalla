@@ -536,6 +536,8 @@ mod first_pick_tests;
 #[cfg(test)]
 mod first_pick_view_tests;
 #[cfg(test)]
+mod native_pool_tests;
+#[cfg(test)]
 mod pool_tests;
 #[cfg(test)]
 mod tests;

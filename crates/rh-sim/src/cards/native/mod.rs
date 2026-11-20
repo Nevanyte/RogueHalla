@@ -27,6 +27,8 @@ pub use readout::{readouts, Readout, ReadoutKind, Readouts, MAX_READOUTS};
 #[cfg(test)]
 mod exemplars_tests;
 #[cfg(test)]
+mod faction_tests;
+#[cfg(test)]
 mod hooks_tests;
 #[cfg(test)]
 mod weapon_batch_tests;

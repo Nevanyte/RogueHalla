@@ -201,6 +201,12 @@ impl Tuning {
     pub fn pool(&self) -> &'static [CardId] {
         self.pool
     }
+    /// P-AUG-NATIVE-4 (stub): may a chest of this world offer `id`: a catalog card of [`Tuning::pool`], or, under `Rework`,
+    /// a native card a batch table lists in its `POOL` (`cards::native::pool_members`). The implementer fills this in and
+    /// routes `augment_pool`, `offer`, `offer_pool` and `reward_chests::validate_world` through it.
+    pub fn in_pool(&self, id: CardId) -> bool {
+        self.pool.contains(&id)
+    }
     /// P-AUG-POOL-1-fix: the override rows this table plays (empty under `Legacy`), as listed in the table.
     pub fn overrides(&self) -> &'static [CardDef] {
         self.overrides
