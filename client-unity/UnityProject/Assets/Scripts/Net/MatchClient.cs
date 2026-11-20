@@ -309,7 +309,7 @@ namespace Roguehalla.Client
             if (!ReferenceEquals(Session, session) || !LaunchVerified) return;
             if (Session.State != SessionState.InMatch && Session.State != SessionState.Ended) return;
             if (Arena != null && !Arena.HasMap && Session.Map != null) Arena.Build(Session.Map, Session.Vision);
-            Session.Snapshots.Sample(Session.Clock.RenderMs, _actors);
+            Session.Remote.Sample(Session.Clock.DrawMs, _actors);
             // Camera first: the cursor ground point read by ReadInput must use this frame's camera, or aim is a frame stale.
             var pmCam = PerfMarks.Begin(); FollowCamera(); PerfMarks.End(PerfMarks.Sec.Camera, pmCam);
             if (_traceLatency && LatencyTrace.TakeTargetRequest()) TraceTargetScreens();
@@ -358,7 +358,7 @@ namespace Roguehalla.Client
         WishAimFrame MakeWishFrame(float myX, float myY, bool blocked, bool haveCursor, float sx, float sy, uint? actor)
         {
             var hud = Session.Welcome != null ? Session.Welcome.Hud : null;
-            return new WishAimFrame { Wish = hud != null ? hud.FrostWish : FrostWishKind.Freeze, QuickCast = false, UiOwnsInput = blocked,
+            return new WishAimFrame { Wish = WishAim.KindFor(hud, Session.Me != null ? Session.Me.Faction : (FactionId?)null), QuickCast = false, UiOwnsInput = blocked,
                 HasGroundPoint = haveCursor, CursorX = sx, CursorY = sy, ActorRef = actor, CasterX = myX, CasterY = myY, Facing = _aimAngle,
                 Numbers = hud != null ? hud.FrostWall : null };
         }

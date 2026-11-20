@@ -163,6 +163,7 @@ pub(super) fn actor_delta_mask(p: &QActor, q: &QActor) -> u32 {
         | ((p.offhand != q.offhand) as u32) << 15
         | ((p.build_marks != q.build_marks) as u32) << 16
         | ((p.mark != q.mark) as u32) << 17
+        | ((p.walk != q.walk) as u32) << 18
 }
 
 /// The mask of a NEW actor: its position, and every other field that is not the default.
@@ -288,6 +289,9 @@ pub(super) fn write_delta(
         }
         if mask & AD_MARK != 0 {
             w.bytes(q.mark);
+        }
+        if mask & AD_WALK != 0 {
+            w.bytes(q.walk);
         }
         put(out, &w);
         last = q.id;

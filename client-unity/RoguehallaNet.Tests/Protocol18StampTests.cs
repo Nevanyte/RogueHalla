@@ -6,10 +6,11 @@ using Roguehalla.Net.Protocol;
 namespace Roguehalla.Net.Tests
 {
     /// <summary>P-PROTOCOL-18-STAMP-1 oracle (client): the codec speaks protocol 18 (owner approval 9, 2026-11-12), decodes the
-    /// v18 golden vectors as protocol 18, and a session refuses a protocol-17 server's Welcome while accepting an 18 one.</summary>
+    /// v18 golden vectors as protocol 18, and a session refuses a protocol-17 server's Welcome while accepting an 18 one.
+    /// P-NET-DRAWAHEAD-1a moved the codec to protocol 19 (the walk hint): an 18 Welcome is now the refused one.</summary>
     public class Protocol18StampTests
     {
-        [Test] public void CodecSpeaksProtocol18() { Assert.AreEqual(18, Wire.ProtocolVersion); }
+        [Test] public void CodecSpeaksProtocol19() { Assert.AreEqual(19, Wire.ProtocolVersion); }
 
         [Test]
         public void V18FixtureExistsAndItsHelloSays18()
@@ -38,19 +39,19 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
-        public void AProtocol17WelcomeIsRefusedAndA18WelcomeAccepted()
+        public void AProtocol18WelcomeIsRefusedAndA19WelcomeAccepted()
         {
-            var old = new FakeTransport(); var s17 = NewSession(old);
-            s17.Connect(); old.Open();
-            Assert.AreEqual(18, old.LastSent<ClientMsg.Hello>().Protocol, "the Hello says 18");
-            old.Deliver(Welcome(17));
-            Assert.AreEqual(SessionState.Failed, s17.State, "a protocol-17 Welcome is refused");
-            StringAssert.Contains("server protocol 17", s17.Error);
+            var old = new FakeTransport(); var s18 = NewSession(old);
+            s18.Connect(); old.Open();
+            Assert.AreEqual(19, old.LastSent<ClientMsg.Hello>().Protocol, "the Hello says 19");
+            old.Deliver(Welcome(18));
+            Assert.AreEqual(SessionState.Failed, s18.State, "a protocol-18 Welcome is refused");
+            StringAssert.Contains("server protocol 18", s18.Error);
 
-            var cur = new FakeTransport(); var s18 = NewSession(cur);
-            s18.Connect(); cur.Open();
-            cur.Deliver(Welcome(18));
-            Assert.AreEqual(SessionState.InMatch, s18.State, "a protocol-18 Welcome starts the match");
+            var cur = new FakeTransport(); var s19 = NewSession(cur);
+            s19.Connect(); cur.Open();
+            cur.Deliver(Welcome(19));
+            Assert.AreEqual(SessionState.InMatch, s19.State, "a protocol-19 Welcome starts the match");
         }
     }
 }

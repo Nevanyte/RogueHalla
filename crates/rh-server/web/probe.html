@@ -15,14 +15,14 @@
 <body>
 <main>
   <h1>Roguehalla protocol probe</h1>
-  <p>A browser client for protocol v18 over the browser WebSocket API (the transport a Unity Web build uses). It is a test
+  <p>A browser client for protocol v19 over the browser WebSocket API (the transport a Unity Web build uses). It is a test
   harness for Stage 1, not the game client. Click to walk; hold Space to attack toward the cursor.</p>
   <canvas id="c" width="960" height="640"></canvas>
   <pre id="s">connecting…</pre>
 </main>
 <script>
 "use strict";
-// ---- protocol v18 (mirror of crates/rh-protocol; tools/protocol-js/check-vectors.mjs holds this block to protocol/fixtures/v18.json) ----
+// ---- protocol v19 (mirror of crates/rh-protocol; tools/protocol-js/check-vectors.mjs holds this block to protocol/fixtures/v19.json) ----
 class W {
   constructor() { this.b = new Uint8Array(256); this.n = 0; this.v = new DataView(this.b.buffer); }
   need(k) { if (this.n + k > this.b.length) { const nb = new Uint8Array(this.b.length * 2 + k); nb.set(this.b); this.b = nb; this.v = new DataView(nb.buffer); } }
@@ -259,7 +259,7 @@ function checkTerrainAgainstCollision(collisionBuf, collision, terrainBuf, terra
     const take = Math.min(an, bn); an -= take; bn -= take; left -= take;
   }
 }
-const PROTOCOL = 18;
+const PROTOCOL = 19;
 const MAX_TICKET = 448;
 const MAX_QUEST_VIEW_BYTES = 24 * 1024;
 const MAX_TRADE_VIEW_BYTES = 2213;
@@ -725,7 +725,7 @@ function decodeBody(r) {
       if (prev !== null) { id = prev + field; if (field === 0 || id > 0xffffffff) throw new Error("bad actor order"); }
       prev = id;
       const mask = r.varint();
-      if (mask & ~0x7fff) throw new Error("bad actor mask");
+      if (mask & ~0xffff) throw new Error("bad actor mask");
       const x = dqPos(r.u16()), y = dqPos(r.u16()), facing = dqAngle(r.u16());
       let faction = 0, weapon = 0;
       if (mask & 1) { const k = r.u8(); faction = k & 15; weapon = k >> 4; }
@@ -741,8 +741,11 @@ function decodeBody(r) {
       const flags = (mask & 0x800) ? r.u8() : 0, offhand = (mask & 0x1000) ? r.u8() : 0, buildMarks = (mask & 0x2000) ? r.u8() : 0;
       let markTier = 0, brand = 0, markTax = 0;
       if (mask & 0x4000) { markTier = r.u8(); brand = r.u8(); markTax = r.u8(); }
+      // Protocol 19: bit 15 the walk hint (walk dir, walk ticks; a plain count, any pair decodes).
+      let walkDir = 0, walkTicks = 0;
+      if (mask & 0x8000) { walkDir = r.u8(); walkTicks = r.u8(); }
       checkIndicators(offhand, buildMarks, markTier, brand, markTax, flags);
-      s.actors.push({ id, faction, x, y, facing, hpPct, status, weapon, bounty, kind, effects, displaceSeq, mobTypeCode, sig, barrierPct: barrier.pct, barrierRingStep: barrier.ring, archetype, flags, offhand, buildMarks, markTier, brand, markTax });
+      s.actors.push({ id, faction, x, y, facing, hpPct, status, weapon, bounty, kind, effects, displaceSeq, mobTypeCode, sig, barrierPct: barrier.pct, barrierRingStep: barrier.ring, archetype, flags, offhand, buildMarks, markTier, brand, markTax, walkDir, walkTicks });
     }
     if (head & 0x100000) s.ownerCombat = readOwnerCombat(r);
     return s;
@@ -795,7 +798,7 @@ function decodeBody(r) {
       if (prev !== null) { id = prev + field; if (field === 0 || id > 0xffffffff) throw new Error("bad actor order"); }
       prev = id;
       const mask = r.varint();
-      if (mask & ~0x3ffff) throw new Error("bad actor mask");
+      if (mask & ~0x7ffff) throw new Error("bad actor mask");
       const a = { id, mask };
       if (mask & 1) a.x = r.u16();
       if (mask & 2) a.y = r.u16();
@@ -816,6 +819,8 @@ function decodeBody(r) {
       if (mask & 0x8000) a.offhand = r.u8();
       if (mask & 0x10000) a.buildMarks = r.u8();
       if (mask & 0x20000) { a.markTier = r.u8(); a.brand = r.u8(); a.markTax = r.u8(); }
+      // Protocol 19: bit 18 the walk hint; (0, 0) clears it.
+      if (mask & 0x40000) { a.walkDir = r.u8(); a.walkTicks = r.u8(); }
       checkIndicators(a.offhand ?? 0, a.buildMarks ?? 0, a.markTier ?? 0, a.brand ?? 0, a.markTax ?? 0, a.flags ?? 0);
       d.changed.push(a);
     }
@@ -1360,6 +1365,7 @@ class Tracker {
       if (ch.mask & 0x8000) n.offhand = ch.offhand;
       if (ch.mask & 0x10000) n.buildMarks = ch.buildMarks;
       if (ch.mask & 0x20000) { n.markTier = ch.markTier; n.brand = ch.brand; n.markTax = ch.markTax; }
+      if (ch.mask & 0x40000) { n.walkDir = ch.walkDir; n.walkTicks = ch.walkTicks; }
       if (ch.mask & 1) n.x = dqPos(ch.x);
       if (ch.mask & 2) n.y = dqPos(ch.y);
       if (ch.mask & 4) n.facing = dqAngle(ch.facing);
@@ -1377,7 +1383,7 @@ class Tracker {
       } else {
         // A new actor starts from the default actor and must carry its position (bits 0..2).
         if ((ch.mask & 7) !== 7) throw refused("incomplete_new_actor");
-        out.push(upd({ faction: 0, weapon: 0, hpPct: 100, status: 1, bounty: 0, kind: 0, effects: 0, displaceSeq: 0, mobTypeCode:0,sig:0,barrierPct:0,barrierRingStep:0,archetype:0,flags:0,offhand:0,buildMarks:0,markTier:0,brand:0,markTax:0 }, ch));
+        out.push(upd({ faction: 0, weapon: 0, hpPct: 100, status: 1, bounty: 0, kind: 0, effects: 0, displaceSeq: 0, mobTypeCode:0,sig:0,barrierPct:0,barrierRingStep:0,archetype:0,flags:0,offhand:0,buildMarks:0,markTier:0,brand:0,markTax:0,walkDir:0,walkTicks:0 }, ch));
       }
     }
     flush(null);

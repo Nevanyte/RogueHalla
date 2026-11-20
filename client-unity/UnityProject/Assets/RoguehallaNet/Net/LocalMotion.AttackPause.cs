@@ -130,9 +130,10 @@ namespace Roguehalla.Net
         }
 
         /// <summary>
-        /// The render time to stamp on an attack or release. There is no draw-ahead in this packet, so it is the identity; the hook
-        /// exists so P-NET-2 can change one body instead of every call site. <c>MatchClient.cs</c> already sends
-        /// <c>Session.Clock.RenderMs</c>, which is what this returns.
+        /// The render time to stamp on an attack or release: the identity. With draw-ahead (P-NET-DRAWAHEAD-1b) remote fighters are
+        /// drawn at <see cref="RenderClock.DrawMs"/>, but <see cref="RenderClock.RenderMs"/> is already the draw time less the lead
+        /// (legacy remoteDraw.ts <c>attackTime</c>, owner decision 5), the time the clock without draw-ahead keeps, so the server's
+        /// rewind is unchanged. <c>MatchClient.cs</c> sends <c>Session.Clock.RenderMs</c>, which is what this returns.
         /// </summary>
         public static double AttackTime(double renderMs) { return renderMs; }
     }

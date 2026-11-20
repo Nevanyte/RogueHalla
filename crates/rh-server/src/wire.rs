@@ -175,6 +175,7 @@ fn same_view(a: &ActorView, b: &ActorView) -> bool {
         && a.displace_seq == b.displace_seq
         && a.kind == b.kind
         && a.mob_type == b.mob_type
+        && a.walk == b.walk
 }
 
 /// Highest actor id (exclusive) [`ActorMemo`] remembers; an actor with a higher id is converted every time.
