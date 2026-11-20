@@ -44,10 +44,20 @@ namespace Roguehalla.Net.Ui
             }
         }
 
-        /// <summary>P-AUG-UI-3 (stub): clears <paramref name="into"/> and fills one mark per Marked Man holder row, ascending id.</summary>
+        /// <summary>P-AUG-UI-3 clears <paramref name="into"/> and fills one mark per Marked Man holder row, ascending id.</summary>
         public static void MarkedHolders(IReadOnlyList<WireMarked> rows, uint selfId, List<MarkedMark> into)
         {
             into.Clear();
+            if (rows == null) return;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (rows[i].Id == selfId) continue;
+                var m = new MarkedMark { Id = rows[i].Id, X = rows[i].X, Y = rows[i].Y };
+                int j = into.Count;
+                into.Add(m);
+                while (j > 0 && into[j - 1].Id > m.Id) { into[j] = into[j - 1]; j--; }
+                into[j] = m;
+            }
         }
     }
 }
