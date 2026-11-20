@@ -394,6 +394,9 @@ pub struct RoomConfig {
     pub welcome_map: Arc<EncodedMap>,
     /// Fill the match with scripted bots up to this many players (0: none).
     pub fill_bots_to: usize,
+    /// The pacer's period. Hosted rooms take it from `sim.tick_ms` (the director builds both from one setting and refuses
+    /// a mismatch, P-TICK-5); a test may pace faster or slower than the sim steps. Sim time, the Welcome rate and every
+    /// "one step" the room adds follow `sim.tick_ms`, never this.
     pub tick: Duration,
     /// Record a private replay of the match (every input, every step's state hash).
     pub record: bool,
@@ -552,13 +555,6 @@ impl Room {
         now: Instant,
     ) -> Self {
         wire::profile_supported(&cfg.sim).expect("refusing to host unsupported simulation profile");
-        // P-TICK-5: the pacer's period and the sim's step are one fact (ADR 0029); a room paced off its step would run its
-        // sim time faster or slower than the wall clock.
-        assert_eq!(
-            cfg.tick,
-            Duration::from_millis(u64::from(cfg.sim.tick_ms)),
-            "refusing to pace a room off its sim's step"
-        );
         assert!(
             crate::public_ground::matches_static_map(&cfg.welcome_map, &cfg.arena.map),
             "refusing a Welcome cache that differs from the room's canonical public map"

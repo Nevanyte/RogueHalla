@@ -93,6 +93,8 @@ pub struct DirectorConfig {
     /// The legacy lobby fill (BotManager): arrivals over the countdown, closing top-up and the yield seat. None keeps
     /// the rooms' immediate placeholder fill (default for tests and benches; the server binary enables it).
     pub bot_fill: Option<crate::bot_fill::BotFillConfig>,
+    /// Every room's pacer period: [`DirectorConfig::new`] takes it from `sim.tick_ms` (P-TICK-5), as the server binary
+    /// does; tests may pace faster on a real clock. Sim time and the Welcome rate follow `sim.tick_ms`, never this.
     pub tick: Duration,
     /// Record a private replay of every match (kept in memory for the last few rooms; tests and diagnostics).
     pub record: bool,
@@ -526,12 +528,6 @@ impl Director {
         validate_runtime(&cfg).expect("invalid runtime admission configuration");
         crate::wire::profile_supported(&cfg.sim)
             .expect("refusing to host unsupported simulation profile");
-        // P-TICK-5: every room is paced at `tick` and steps its sim by `sim.tick_ms`: one fact, refused when they differ.
-        assert_eq!(
-            cfg.tick,
-            Duration::from_millis(u64::from(cfg.sim.tick_ms)),
-            "refusing to pace rooms off their sim's step"
-        );
         cfg.leases.validate().expect("invalid lease policy");
         if let Err(e) = crate::wire::arena_fits(&cfg.arena) {
             panic!("refusing to host this arena: {e}");
