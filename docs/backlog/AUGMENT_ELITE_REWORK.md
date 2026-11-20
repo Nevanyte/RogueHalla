@@ -201,6 +201,16 @@ Packet details:
     is Rework.
   - Native `check` admits non-integral counters (Eighth Strike, Hazard Walker stacks) and does not tie Pathfinder's
     counter to its marks. Each batch packet adds its card's exact rule.
+- **The batches, hook readings to confirm** (coordinator note 2026-11-20, from the P-AUG-NATIVE-1b review; each batch
+  decides and pins its own reading):
+  - NATIVE-3 Hazard Walker: the ice-hazard tick is read in `terrain::bog` (the per-tick move modifier), not in
+    `movement.rs`.
+  - NATIVE-4 Stoked: `BurstLanded` fires in `fire_roam.rs` when the burst is queued (`defer_hit`), not when it lands a
+    tick later; a teleport or run end can count a burst that never hits.
+  - NATIVE-4 Glacier: `ChillInflicted` fires once per ranged chill and once per tick for each attack-chill source while
+    the victim's chill is below 1 (every source counts).
+  - `HuntStack { stacks: 0 }` fires when hunt stacks are already at 255; a Bastion burst clipped by the PvP hit cap still
+    spends the whole meter (say so in the guide if a batch builds on it).
 - **P-AUG-NATIVE-3, Wish Engine** (coordinator note 2026-11-19, from the P-AUG-TUNE-1 review):
   - Today's Wish restore check (`abilities/checkpoint.rs`: `wish_cooldowns`, `prior_min`, the Rework Wishful budget
     bound) assumes a Wish cooldown only lengthens between casts. Arcane Overload is the one Wish-cooldown lever, and a
