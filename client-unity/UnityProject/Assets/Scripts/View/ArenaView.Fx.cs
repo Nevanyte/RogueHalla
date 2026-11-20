@@ -136,7 +136,7 @@ namespace Roguehalla.Client
                 if (flash.InkMark)
                 {
                     flash.InkOffset = StormInkHitMarks.Anchor(f.SigKind, f.Kind == FxKind.Heal);
-                    flash.Size = .59f;
+                    flash.Size = StormInkHitMarks.Scale(f.SigKind, f.Kind == FxKind.Heal);
                     if (flash.Brush == null)
                         flash.Brush = ShowcaseSprites.Create(_fxRoot, "Signature ink", "bar", 30000,
                             Color.white, Vector2.one, Vector3.zero, false);

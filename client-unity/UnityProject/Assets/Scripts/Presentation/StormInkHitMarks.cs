@@ -25,11 +25,14 @@ namespace Roguehalla.Client
             {
                 case WireFx.HitKindBurn: return new Vector2(-.46f, .90f);
                 case WireFx.HitKindDisease: return new Vector2(-.43f, .20f);
-                case WireFx.HitKindBacklash: return new Vector2(.47f, .24f);
+                case WireFx.HitKindBacklash: return new Vector2(.90f, .72f);
                 case WireFx.HitKindMark: return new Vector2(.43f, .84f);
                 default: return Vector2.zero;
             }
         }
+
+        public static float Scale(byte code, bool heal) =>
+            !heal && code == WireFx.HitKindBacklash ? .82f : .59f;
 
         static Sprite Get(int index)
         {
