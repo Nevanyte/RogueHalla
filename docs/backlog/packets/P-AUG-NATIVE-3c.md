@@ -139,7 +139,7 @@ Nothing in `observe.rs`, `rh-protocol`, `rh-server`, `rh-policy`, `client-unity/
 | Test | Asserts | Compatible because |
 |---|---|---|
 | `zone_tests::pathfinder_speeds_the_holders_walk_by_its_counter` | holder walks `1 + counter` x the baseline (0.02) | `movement` keeps its value |
-| `zone_tests::hazard_walker_counts_each_hazard_second_into_its_meter_and_whole_stacks` | 40 idle ticks on ice: meter == `terrain.seconds[2]`, 2 stacks, no mark | idle, not immune: the accel read is unchanged for a non-moving holder below 20 s; exposure still counted |
+| `zone_tests::hazard_walker_counts_each_hazard_second_into_its_meter_and_whole_stacks` | 40 idle ticks on ice: meter == `terrain.seconds[2]`, 2 stacks, no mark | not immune: a resisted accel is still `> 0`, so exposure and meter still count every tick |
 | `zone_tests::a_world_without_zone_cards_is_unchanged_by_the_new_reads` | Legacy == native-free Rework on ember | non-holders take the raw path |
 | `zone_tests::readouts_show_pathfinder_and_hazard_walker_to_their_owner_only` | readout rows | unaffected |
 | `owner_combat/tests.rs:340-347` | `[as, windup, speed]_milli` equal the legacy capture's mirrors | no holder in the capture: exact wire value |
@@ -172,6 +172,9 @@ non-holder's float changes parity); the owner block is what the client predicts 
 ## 11. Known traps
 - `x / 1.0` is exact in IEEE, but keep the non-holder on the untouched raw value anyway (branch, not arithmetic), and
   the owner block's non-holder lane on the cached wire value (no decode/encode round trip).
+- `walk_hint::traction_at(k, &FighterCore, at)` keeps its signature and raw value: `walk_hint/helper_tests.rs:507`
+  calls it with a core and compares to a legacy capture. Apply the holder mapping at its two callers (`:51`, `ice_along`
+  `:192`), e.g. through a small wrapper taking the `Player`.
 - `walk_one` is called for mobs too (`movement.rs:48`): guard by `w.is_player(ix)`.
 - The slip closure at `:102` runs per substep at the substep's position: the immune/resist mapping applies there too,
   not only to the first read at `:71` (otherwise a resisted holder slides at the raw accel after the first substep).
@@ -179,6 +182,12 @@ non-holder's float changes parity); the owner block is what the client predicts 
   the walk hint stays suppressed while `motion.slip` is `Some` (`walk_hint.rs:50`), which clears on that walk.
 - `encode_mult` floors at `mod_mult_min`; a share only raises the product.
 - Same tick: see 1.1; do not add scratch state to make the filling tick resisted.
+
+## Oracle calibration (author's check, not committed)
+The oracle was run against a throwaway implementation of exactly section 1 (then reverted): every Rust test passed, the
+lag ratios were 0.800 / 0.600 / 0.400 of a non-holder's 34 u (the tests allow 0.03), the immune lag 0, and the C# replay
+of the generated vector drew within 3.3e-4 u of the server (tolerance 0.01; a base-speed replay misses by more than 0.1).
+Red on the packet branch, each on an assertion: see the hand-off.
 
 ## Proposed DEVIATIONS (for the owner)
 None new: the ice resistance and immunity are the NATIVE-3 rows (4% per stack, 20 s) applied to the slip time.
