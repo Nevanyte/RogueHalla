@@ -73,12 +73,20 @@ pub(crate) struct FirstPick {
 }
 /// P-ELITE-PICK-1: the length of the killer's first-pick window, in ms (owner 2026-11-18: 5 s), read from its registered
 /// content row.
-///
-/// STUB (P-ELITE-PICK-1): returns 0; the implementer registers the row in `constants.rs` and returns it.
-// STUB: only the oracle reads it until the drop and `validate_world` do; the implementer removes this allow.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn first_pick_window_ms() -> f64 {
-    0.
+    crate::constants::REWORK_ELITE_FIRST_PICK_MS
+}
+/// P-ELITE-PICK-1: whether `chest`'s first-pick window keeps `who` from choosing there now. True while the window is
+/// open (`server_time < until`) for anyone but its killer, and only while the killer is still a standing player: a
+/// killer who dies, is downed, resolves or leaves ends the window at once (a player who stops standing never stands
+/// again inside a match), and one who was not standing at the drop never had it. The one predicate both `choose` and
+/// the observer's `can_choose` read (as [`birth_available`]), so the command and the observation never disagree.
+pub(crate) fn first_pick_blocks(w: &World, chest: &Chest, who: PlayerId) -> bool {
+    chest.first_pick.is_some_and(|f| {
+        f.killer != who
+            && w.server_time < f.until
+            && w.player(f.killer).is_some_and(|p| p.standing())
+    })
 }
 pub(crate) fn insert(
     w: &mut World,
@@ -202,6 +210,7 @@ pub(crate) fn drop_trophy(
 /// arrives on the hook arguments because a clear forgets its contributors before the pass pays.
 pub(crate) fn on_mob_killed(hx: &mut crate::hooks::Hx, args: &crate::hooks::HookArgs) {
     let crate::hooks::HookArgs::MobKilled {
+        killer,
         camp,
         elite,
         zone,
@@ -229,7 +238,7 @@ pub(crate) fn on_mob_killed(hx: &mut crate::hooks::Hx, args: &crate::hooks::Hook
                     .is_some_and(|p| p.standing() && near_camp(k, camp, p.pos()))
             })
             .collect();
-        drop_augment_in(
+        let id = drop_augment_in(
             k.cards,
             &mut *hx.w,
             spot,
@@ -238,6 +247,19 @@ pub(crate) fn on_mob_killed(hx: &mut crate::hooks::Hx, args: &crate::hooks::Hook
             true,
             &eligible,
         );
+        // P-ELITE-PICK-1 (Rework only, no draw): the credited killer, if standing, holds the first pick for the window,
+        // wherever they stand (eligibility near the camp shapes only the cards rolled).
+        if k.config.elites == crate::EliteRule::Rework
+            && hx.w.player(*killer).is_some_and(|p| p.standing())
+        {
+            let until = hx.w.server_time + first_pick_window_ms();
+            if let Some(c) = hx.w.reward_chests.iter_mut().rev().find(|c| c.id == id) {
+                c.first_pick = Some(FirstPick {
+                    killer: *killer,
+                    until,
+                });
+            }
+        }
     } else {
         // Source: an elite without a camp (a training/dummy death) drops at its body with no eligible pickers, so the
         // conditional pool is empty and no card is held by all.
@@ -321,7 +343,8 @@ pub(crate) fn choose(
     if !birth_available(c.held_until_tick, w.tick) || w.server_time >= c.expires_at {
         return Err(Refusal::Gone);
     }
-    if c.owner.is_some_and(|owner| owner != who) {
+    // P-ELITE-PICK-1: another player's first-pick window refuses like another player's Trophy (card and skip alike).
+    if c.owner.is_some_and(|owner| owner != who) || first_pick_blocks(w, c, who) {
         return Err(Refusal::NotYours);
     }
     reach(k, w.rt.gates_locked, w.players[pi].pos(), c.at)?;
@@ -423,9 +446,14 @@ pub(crate) fn clear(hx: &mut crate::hooks::Hx, _: &crate::hooks::HookArgs) {
 }
 /// `pool`: the world's chest pool (`k.cards.pool()`). A camp chest (`camp: Some`, rolled by [`drop_augment_in`]) offers
 /// only its cards; a camp-less chest (a campless elite's, the console's, or one a test declares) is not pool-checked.
+///
+/// `elites`: the world's elite rule (`k.config.elites`). A first-pick window (P-ELITE-PICK-1) stands only on a shared
+/// camp chest of a `Rework` world, held by a player who joined, and ends no later than its drop
+/// (`expires_at - lifetime_ms`) plus the window. A past end is valid (the window closed while the chest stands).
 pub(crate) fn validate_world(
     w: &World,
     pool: &[crate::cards::CardId],
+    elites: crate::EliteRule,
     near: impl Fn(f64, f64) -> bool,
 ) -> Result<(), String> {
     for (i, c) in w.reward_chests.iter().enumerate() {
@@ -481,6 +509,14 @@ pub(crate) fn validate_world(
                         || !c.pickers.contains(&id)
                         || c.taken[..j].contains(&Some(id))
                 })
+            })
+            || c.first_pick.is_some_and(|f| {
+                elites != crate::EliteRule::Rework
+                    || c.camp.is_none()
+                    || c.owner.is_some()
+                    || w.roster.name(f.killer).is_none()
+                    || !f.until.is_finite()
+                    || f.until > c.expires_at - DEFINITION.lifetime_ms + first_pick_window_ms()
             })
         {
             return Err("invalid reward chest".into());

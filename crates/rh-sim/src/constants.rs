@@ -592,4 +592,6 @@ content! {
     REWORK_ELITE_DMG_MULT: f64 = 1.0, "multiplier";
     /// Rework elites: HP multiplier (legacy `ELITE_HP_MULT` 2.0; owner decision 2026-11-19, P-ELITE-TUNE-1).
     REWORK_ELITE_HP_MULT: f64 = 1.5, "multiplier";
+    /// Rework elites: the credited killer's first-pick window at an elite camp chest (owner 2026-11-18, P-ELITE-PICK-1).
+    REWORK_ELITE_FIRST_PICK_MS: f64 = 5000., "ms";
 }
