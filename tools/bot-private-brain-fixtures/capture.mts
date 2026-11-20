@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {reachedRanges} from './reached.mts';
 import {createHash} from 'node:crypto';
 import {readFileSync,readdirSync,writeFileSync,statSync} from 'node:fs';
 import {dirname,join} from 'node:path';
@@ -29,7 +30,7 @@ for(const spec of specs){
  const taken=await inspector.post('Profiler.takePreciseCoverage');const scripts:any[]=[];
  for(const s of taken.result){if(!s.url.includes('/bots/'))continue;const path=s.url.replace(/^file:\/\//,'').replace(ROOT+'/','');
   if(!transformed[path]){const fetched=await inspector.post('Debugger.getScriptSource',{scriptId:s.scriptId});transformed[path]={sha256:hash(fetched.scriptSource),text:fetched.scriptSource};}
-  scripts.push({path,functions:s.functions.map((f:any)=>({name:f.functionName,isBlockCoverage:f.isBlockCoverage,ranges:f.ranges}))});
+  scripts.push({path,reached:reachedRanges(s.functions)});
  }coverage.push({id:spec.id,scripts:scripts.sort((a,b)=>a.path.localeCompare(b.path))});
 }
 const supplement=handSupplement();assert.deepEqual(handSupplement(),supplement);
@@ -53,5 +54,5 @@ const body={format:'rh-bot-private-brain-source/1',methodValue:'rh-method-value/
 validate(body);
 const negatives=process.env.RH_BOT_BRAIN_MUTANT?[]:readerControls(body,allSpecs);
 const reached=process.env.RH_BOT_BRAIN_MUTANT?{}:reachedChecks(results,supplement);
-const ledger={format:'rh-bot-private-brain-coverage/1',interpretation:'V8 block counts: two instrumented exact recreations plus one uninstrumented effects replay per normal case; declared labels are not coverage. Reached semantic assertions and explicit limits bind claims.',readerControls:negatives,reached,instrumentationChecks,transformedSources:transformed,cases:coverage};
+const ledger={format:'rh-bot-private-brain-coverage/2',interpretation:'Reached source ranges (V8 precise coverage projected to which ranges ran; counts dropped as nondeterministic, P-CI-GREEN-4): two instrumented exact recreations plus one uninstrumented effects replay per normal case; declared labels are not coverage. Reached semantic assertions and explicit limits bind claims.',readerControls:negatives,reached,instrumentationChecks,transformedSources:transformed,cases:coverage};
 for(const[name,value]of [['source.json',body],['coverage.json',ledger]]as const){const bytes=JSON.stringify(value)+'\n',p=join(out,name);if(mode==='--write')writeFileSync(p,bytes);else assert.equal(hash(readFileSync(p)),hash(bytes),name+': exact bytes');console.log(JSON.stringify({mode,file:name,bytes:Buffer.byteLength(bytes),sha256:hash(bytes),cases:results.length,operations:results.reduce((n,c)=>n+c.operations.length,0)}));}

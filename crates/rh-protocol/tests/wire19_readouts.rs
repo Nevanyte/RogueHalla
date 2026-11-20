@@ -68,10 +68,10 @@ fn patched(r: usize, at: usize, with: &[u8]) -> Vec<u8> {
 }
 
 #[test]
-fn key_14_is_the_newest_state_key_inside_protocol_19() {
+fn key_14_is_the_newest_state_key_inside_protocol_20() {
     assert_eq!(
-        PROTOCOL_VERSION, 19,
-        "decision 1: no bump, v19.json regenerated in place"
+        PROTOCOL_VERSION, 20,
+        "decision 1: no bump, v19.json regenerated in place; P-SYNC-ORIGIN-1 carries it as protocol 20 (v20.json)"
     );
     assert_eq!(MAX_STATE_KEYS, 14);
     assert_eq!(MAX_READOUTS, 28);
@@ -240,11 +240,14 @@ fn named<'a>(text: &'a str, name: &str) -> Option<&'a str> {
 }
 
 #[test]
-fn v19_fixture_carries_the_readout_vectors_and_the_moved_malformed_ones() {
-    let path = fixture_path(19);
+fn v20_fixture_carries_the_readout_vectors_and_the_moved_malformed_ones() {
+    let path = fixture_path(20);
     let v19 = std::fs::read_to_string(&path)
-        .expect("protocol/fixtures/v19.json (cargo run -p rh-protocol --bin protocol-fixtures)");
-    assert!(v19.contains("\n  \"protocol\": 19,\n"), "still protocol 19");
+        .expect("protocol/fixtures/v20.json (cargo run -p rh-protocol --bin protocol-fixtures)");
+    assert!(
+        v19.contains("\n  \"protocol\": 20,\n"),
+        "protocol 20 (P-SYNC-ORIGIN-1)"
+    );
     assert_eq!(named(&v19, "state_readouts"), Some(READOUTS_HEX));
     assert_eq!(named(&v19, "state_readouts_empty"), Some(EMPTY_HEX));
     for name in [

@@ -76,10 +76,14 @@ pub struct MadeMap {
 /// The generator as the server runs it: legacy `certifiedMap(seed, { decor: false })`, the complete styled pipeline. The
 /// generator builds no decor; the server dresses the finished map with `rh_mapdress` (P-DRESS-BAKE-1,
 /// [`MapMaker::make_dressed`]) before it becomes an arena, since the arena drops the landmark anchors the dressing reads.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct StyledMaker {
     /// Generate every map with the signature landmarks (owner decision 6): the generator's `Options::signature`.
     pub signature: bool,
+    /// Generate around the grand coliseum (`rh_sim::mapgen::coliseum::grand_layout`, P-COLISEUM-GRAND-1) instead of the
+    /// legacy one (`fixed_layout`). Off in `Default` (existing tests and tools keep their maps); the server's pool sets
+    /// it unless `--legacy-coliseum` (`crate::runtime::Settings::styled_maker`).
+    pub grand_coliseum: bool,
 }
 
 impl StyledMaker {
@@ -97,7 +101,11 @@ impl StyledMaker {
     /// The certified generator map for `seed` (anchors still on it) and its export hash, `map_hash::map_hash`.
     fn generate(&self, seed: u32) -> Result<Option<rh_sim::mapdata::MapExport>, String> {
         use rh_sim::mapgen::{coliseum, map_hash, pipeline};
-        let fixed = coliseum::fixed_layout();
+        let fixed = if self.grand_coliseum {
+            coliseum::grand_layout()
+        } else {
+            coliseum::fixed_layout()
+        };
         let generator = pipeline::Pipeline::new(&fixed);
         let options = self.options();
         let Some(map) = generator
@@ -347,11 +355,12 @@ pub struct MapPool {
 }
 
 impl MapPool {
-    /// Starts a pool over the real generator with the legacy sizes; `signature` generates with the signature landmarks.
-    pub fn start(configured: MapAssets, signature: bool) -> Self {
+    /// Starts a pool over the real generator `maker` (the server's: [`crate::runtime::Settings::styled_maker`]) with the
+    /// legacy sizes.
+    pub fn start(configured: MapAssets, maker: StyledMaker) -> Self {
         Self::with(
             configured,
-            Arc::new(StyledMaker { signature }),
+            Arc::new(maker),
             Box::new(fresh_seed),
             MapPoolOptions::default(),
         )

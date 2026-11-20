@@ -62,13 +62,13 @@ fn full_state(obs: &Observation) -> Vec<StateItem> {
 fn identities_move_for_the_panel() {
     assert_eq!(
         rh_sim::OBSERVATION_VERSION,
-        32,
-        "observation gains the owner's panel (26), then codes 23-27 (27, P-WIRE17-HUD-2c); 28: P-WIRE17-HUD-3"
+        33,
+        "observation gains the owner's panel (26), then codes 23-27 (27, P-WIRE17-HUD-2c); 28: P-WIRE17-HUD-3; 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20)"
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        27,
-        "policy projection gains the panel (20), then codes 23-27 (21, P-WIRE17-HUD-2c); 22: P-WIRE17-HUD-3"
+        28,
+        "policy projection gains the panel (20), then codes 23-27 (21, P-WIRE17-HUD-2c); 22: P-WIRE17-HUD-3; 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20)"
     );
 }
 

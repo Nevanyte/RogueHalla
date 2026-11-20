@@ -147,6 +147,7 @@ fn observation(
             weapon: Some(WeaponId::Sword),
             bounty: 0,
             facts: Default::default(),
+            walk: Default::default(),
         });
         if recent_hit {
             o.events.push(SeenEvent::Hit {

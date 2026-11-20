@@ -131,6 +131,9 @@ fn a_busy_match_with_every_indicator_fact_stays_within_the_frame_bounds() {
         mark_tier: MAX_MARK_TIER - flip as u8,
         brand: 100 - flip as u8,
         mark_tax: 100 - flip as u8,
+        // Protocol 19: a walk hint on every actor (any pair decodes), so `MAX_ACTOR_LEN`/`MAX_ACTOR_DELTA` hold it too.
+        walk_dir: 255 - flip as u8,
+        walk_ticks: 255 - flip as u8,
     };
     let me = |flip: bool| WireSelf {
         id: u32::MAX,

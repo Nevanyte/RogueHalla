@@ -6,11 +6,14 @@ using Roguehalla.Net.Protocol;
 namespace Roguehalla.Net.Tests
 {
     /// <summary>P-PROTOCOL-18-STAMP-1 oracle (client): the codec speaks protocol 18 (owner approval 9, 2026-11-12), decodes the
-    /// v18 golden vectors as protocol 18, and a session refuses a protocol-17 server's Welcome while accepting an 18 one.</summary>
+    /// v18 golden vectors as protocol 18, and a session refuses a protocol-17 server's Welcome while accepting an 18 one.
+    /// P-NET-DRAWAHEAD-1a moved the codec to protocol 19 (the walk hint): an 18 Welcome is now the refused one.</summary>
     public class Protocol18StampTests
     {
         /// <summary>P-WIRE19-A moved the codec to 19; the v18 history below stays.</summary>
         [Test] public void CodecSpeaksProtocol18OrLater() { Assert.GreaterOrEqual((int)Wire.ProtocolVersion, 18); }
+        /// <summary>P-NET-DRAWAHEAD-1a pinned 19; P-SYNC-ORIGIN-1 merged both protocol-19 wires as 20.</summary>
+        [Test] public void CodecSpeaksProtocol20() { Assert.AreEqual(20, Wire.ProtocolVersion); }
 
         [Test]
         public void V18FixtureExistsAndItsHelloSays18()
@@ -39,19 +42,23 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
-        public void AProtocol17WelcomeIsRefusedAndA18WelcomeAccepted()
+        public void AProtocol18WelcomeIsRefusedAndA19WelcomeAccepted()
         {
-            var old = new FakeTransport(); var s17 = NewSession(old);
-            s17.Connect(); old.Open();
-            Assert.AreEqual(Wire.ProtocolVersion, old.LastSent<ClientMsg.Hello>().Protocol, "the Hello says the codec's version");
-            old.Deliver(Welcome(17));
-            Assert.AreEqual(SessionState.Failed, s17.State, "a protocol-17 Welcome is refused");
-            StringAssert.Contains("server protocol 17", s17.Error);
+            // P-WIRE19-A refused 17, P-NET-DRAWAHEAD-1a refused 18; P-SYNC-ORIGIN-1 (protocol 20) refuses both and 19.
+            foreach (ushort oldProtocol in new ushort[] { 17, 18, 19 })
+            {
+                var old = new FakeTransport(); var sOld = NewSession(old);
+                sOld.Connect(); old.Open();
+                Assert.AreEqual(Wire.ProtocolVersion, old.LastSent<ClientMsg.Hello>().Protocol, "the Hello says the codec's version");
+                old.Deliver(Welcome(oldProtocol));
+                Assert.AreEqual(SessionState.Failed, sOld.State, $"a protocol-{oldProtocol} Welcome is refused");
+                StringAssert.Contains($"server protocol {oldProtocol}", sOld.Error);
+            }
 
-            var cur = new FakeTransport(); var s18 = NewSession(cur);
-            s18.Connect(); cur.Open();
+            var cur = new FakeTransport(); var sCur = NewSession(cur);
+            sCur.Connect(); cur.Open();
             cur.Deliver(Welcome(Wire.ProtocolVersion));
-            Assert.AreEqual(SessionState.InMatch, s18.State, "a Welcome of the codec's version starts the match");
+            Assert.AreEqual(SessionState.InMatch, sCur.State, "a Welcome of the codec's version starts the match");
         }
     }
 }

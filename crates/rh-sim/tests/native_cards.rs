@@ -726,4 +726,6 @@ const BASE_HASHES: [u64; 3] = [
     9_295_211_415_488_179_496,
 ];
 const BASE_WORLD: u64 = 7_001_276_216_922_443_237;
-const BASE_STATICS: u64 = 2_263_326_562_367_864_595;
+// P-SYNC-ORIGIN-1: origin's P-TICK-1a writes `"tick_ms": null` into every 50 ms config; with that one key removed the
+// merged statics text hashes to the pin before the merge, `2_263_326_562_367_864_595` (world and state hashes unchanged).
+const BASE_STATICS: u64 = 16_122_486_807_007_151_944;

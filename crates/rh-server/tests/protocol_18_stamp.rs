@@ -1,6 +1,8 @@
 //! P-PROTOCOL-18-STAMP-1 oracle (server): a server of this build speaks protocol 18 over a real socket. A protocol-17
 //! client (every client built before the stamp, including those before the Frost Wall batch that kept 17) is refused
 //! with ProtocolMismatch before admission, and a protocol-18 client is welcomed with a protocol-18 Welcome.
+//! P-NET-DRAWAHEAD-1a moved the server to protocol 19 (the walk hint): a protocol-18 client is now the refused one and a
+//! protocol-19 client is welcomed with a protocol-19 Welcome.
 use futures_util::{SinkExt, StreamExt};
 use rh_protocol::{ClientMsg, RejectCode, ServerMsg, SnapshotTracker, PROTOCOL_VERSION};
 use rh_server::director::{Director, DirectorConfig};
@@ -95,18 +97,55 @@ async fn answer_to_hello(url: &str, protocol: u16, profile: &str) -> Option<Serv
     }
 }
 
+// P-WIRE19-A refused 17 and P-NET-DRAWAHEAD-1a refused 18 at protocol 19; P-SYNC-ORIGIN-1 (protocol 20) keeps both
+// and refuses 19 as well (the two different protocol-19 wires).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_protocol_17_hello_is_refused_with_protocol_mismatch() {
     let url = start().await;
     let got = answer_to_hello(&url, 17, "old17").await;
+    let want = format!("server speaks protocol {PROTOCOL_VERSION}, client 17");
     let refused = matches!(
         &got,
         Some(ServerMsg::Reject { code: RejectCode::ProtocolMismatch, reason })
-            if reason.contains("server speaks protocol 19, client 17")
+            if reason.contains(&want)
     );
     assert!(
         refused,
-        "a protocol-17 Hello gets ProtocolMismatch naming 19 (P-WIRE19-A) and 17, got {}",
+        "a protocol-17 Hello gets ProtocolMismatch naming this build's protocol and 17, got {}",
+        summary(&got)
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_protocol_18_hello_is_refused_with_protocol_mismatch() {
+    let url = start().await;
+    let got = answer_to_hello(&url, 18, "old18").await;
+    let want = format!("server speaks protocol {PROTOCOL_VERSION}, client 18");
+    let refused = matches!(
+        &got,
+        Some(ServerMsg::Reject { code: RejectCode::ProtocolMismatch, reason })
+            if reason.contains(&want)
+    );
+    assert!(
+        refused,
+        "a protocol-18 Hello gets ProtocolMismatch naming this build's protocol and 18, got {}",
+        summary(&got)
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_protocol_19_hello_is_refused_with_protocol_mismatch() {
+    let url = start().await;
+    let got = answer_to_hello(&url, 19, "old19").await;
+    let want = format!("server speaks protocol {PROTOCOL_VERSION}, client 19");
+    let refused = matches!(
+        &got,
+        Some(ServerMsg::Reject { code: RejectCode::ProtocolMismatch, reason })
+            if reason.contains(&want)
+    );
+    assert!(
+        refused,
+        "a protocol-19 Hello gets ProtocolMismatch naming this build's protocol and 19, got {}",
         summary(&got)
     );
 }

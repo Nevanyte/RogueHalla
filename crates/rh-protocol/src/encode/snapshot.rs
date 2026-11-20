@@ -53,6 +53,9 @@ pub(super) fn snapshot_fault(
         if let Some(f) = actor_indicator_fault(a) {
             return Some(f);
         }
+        if walk_hint_fault(a) {
+            return Some("walk hint");
+        }
         if !quant::pos_in_range(a.x) || !quant::pos_in_range(a.y) {
             return Some("position");
         }
@@ -75,6 +78,7 @@ pub(super) fn actor_looks_bad(a: &WireActor, prev: Option<u32>) -> bool {
         || a.barrier_pct > 100
         || a.barrier_ring_step > 8
         || actor_indicator_fault(a).is_some()
+        || walk_hint_fault(a)
         || !(quant::pos_in_range(a.x) && quant::pos_in_range(a.y))
         || prev.is_some_and(|p| a.id <= p)
 }
@@ -88,6 +92,13 @@ pub(super) fn actor_indicator_fault(a: &WireActor) -> Option<&'static str> {
         [a.mark_tier, a.brand, a.mark_tax],
         a.flags,
     )
+}
+
+/// A walk heading without walk ticks is not canonical (legacy `walkDir` is meaningless at `walkTicks` 0): the encoder
+/// refuses it, so a decoded actor equals what was encoded. Decoders accept any pair.
+#[inline(always)]
+pub(crate) fn walk_hint_fault(a: &WireActor) -> bool {
+    a.walk_ticks == 0 && a.walk_dir != 0
 }
 
 /// A QuestGiver actor has one contextual sentinel tuple. Other actor kinds and Self retain the full four-bit domains.
@@ -163,6 +174,9 @@ pub(super) fn write_actor(out: &mut Writer, a: &WireActor, prev: Option<u32>) {
     }
     if m & AM_MARK != 0 {
         w.bytes([a.mark_tier, a.brand, a.mark_tax]);
+    }
+    if m & AM_WALK != 0 {
+        w.bytes([a.walk_dir, a.walk_ticks]);
     }
     w.put(out);
 }
