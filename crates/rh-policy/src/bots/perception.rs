@@ -286,8 +286,8 @@ impl Perception {
                 rh_protocol::WirePropKind::Corpse { .. } => ("corpse", "x".to_owned()),
                 rh_protocol::WirePropKind::WindEmblem => ("consumable", "w".to_owned()),
                 rh_protocol::WirePropKind::QuestItem { .. } => continue,
-                // P-COLISEUM-HEALS-2 stub: read as a cannon until the bots are taught to skip it.
-                rh_protocol::WirePropKind::Heal { .. } => ("cannon", "n".to_owned()),
+                // P-COLISEUM-HEALS-2: a heal pickup is taken by walking over it; no container, no loot target.
+                rh_protocol::WirePropKind::Heal { .. } => continue,
             };
             let key = format!("c{}_{}_{tag}", prop.x, prop.y);
             let at = rh_sim::Vec2::new(f64::from(prop.x) / 8., f64::from(prop.y) / 8.);

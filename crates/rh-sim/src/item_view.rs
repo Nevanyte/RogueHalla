@@ -66,7 +66,7 @@ pub enum PropKind {
         fetch: bool,
     },
     /// A grand-coliseum heal pickup (P-COLISEUM-HEALS-2), with the server time it is available again (0: now). Public:
-    /// position and readiness only. Stub: never offered yet.
+    /// position and readiness only; never the focus (it holds no item).
     Heal {
         ready_at: u32,
     },
@@ -319,10 +319,6 @@ impl ItemObserver {
         let wards = crate::vision::WardSight::of_sim(sim);
         let mut best: Option<(usize, f64, Option<WeaponId>)> = None;
         for c in sim.containers() {
-            // P-COLISEUM-HEALS-1: not on the wire yet (P-COLISEUM-HEALS-2): never offered, never counted.
-            if c.kind == ContainerKind::Heal {
-                continue;
-            }
             let quest = if c.kind == ContainerKind::Quest {
                 let Some((quest_id, fetch)) = eligible_quest_item(sim, me, c) else {
                     continue;
@@ -370,8 +366,11 @@ impl ItemObserver {
                     ready_at: ready_ms(c.ready_at),
                 },
                 ContainerKind::WindEmblem => PropKind::WindEmblem,
-                // Skipped above, before the visible-prop count.
-                ContainerKind::Heal => continue,
+                // P-COLISEUM-HEALS-2: public position and clock (the cannon's clamp); it holds no item, so the focus rule
+                // below never picks it.
+                ContainerKind::Heal => PropKind::Heal {
+                    ready_at: ready_ms(c.ready_at),
+                },
             };
             let cue = PropCue {
                 x: position(c.at.x)?,
