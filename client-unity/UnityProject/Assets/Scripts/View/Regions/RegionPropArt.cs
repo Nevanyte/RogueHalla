@@ -647,6 +647,9 @@ namespace Roguehalla.Client
                     c.Glow(x0, gy + h * .72f, r * .55f, spore, .20f);
                 }
             }, false, "StormInk/Props/PlagueMushroom");
+            // These atlas entries are selected only if the readable authored texture loaded.
+            Add(l, "plague.mushroom.umbrella", 70, 56, 8, (c, gy) => { }, false, "StormInk/Props/PlagueMushroomUmbrella");
+            Add(l, "plague.mushroom.pair", 56, 74, 8, (c, gy) => { }, false, "StormInk/Props/PlagueMushroomPair");
         }
 
         // ---- holy (desert, oasis, garden) -------------------------------------------------------------------------------------------

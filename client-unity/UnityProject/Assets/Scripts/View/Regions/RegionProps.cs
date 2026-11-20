@@ -25,6 +25,47 @@ namespace Roguehalla.Client
             public float Alpha; public int MarkFrame; public bool InActive; public Color Base;
         }
 
+        /// <summary>Chooses nearby visual silhouettes while retaining the placed mushroom's geometry and shader inputs.</summary>
+        sealed class MushroomPatch
+        {
+            const float Near = 45f / 32f;
+            readonly List<(Vector2 Foot, int Variant)> _placed = new List<(Vector2, int)>();
+            readonly Sprite[] _variants;
+            readonly int _seed;
+
+            internal MushroomPatch(Sprite original, int seed)
+            {
+                _variants = new[] { original, Authored("plague.mushroom.umbrella"), Authored("plague.mushroom.pair") };
+                _seed = seed;
+            }
+
+            static Sprite Authored(string key) =>
+                RegionPropArt.TryGet(key, out var art) && art.UsesAuthoredTexture ? art.Sprite : null;
+
+            internal Sprite At(float x, float y)
+            {
+                var foot = new Vector2(x, y);
+                int nearby = 0;
+                foreach (var item in _placed)
+                    if ((foot - item.Foot).sqrMagnitude <= Near * Near) nearby |= 1 << item.Variant;
+
+                int variant = 0;
+                if (nearby != 0)
+                {
+                    int first = RegionNoise.Hash01(Mathf.RoundToInt(x * 32f), Mathf.RoundToInt(y * 32f), _seed) < .5f ? 1 : 2;
+                    for (int n = 0; n < _variants.Length; n++)
+                    {
+                        int candidate = (first + n) % _variants.Length;
+                        if (_variants[candidate] == null || (nearby & (1 << candidate)) != 0) continue;
+                        variant = candidate;
+                        break;
+                    }
+                }
+                _placed.Add((foot, variant));
+                return _variants[variant];
+            }
+        }
+
         readonly List<Prop> _props = new List<Prop>(2048);
         readonly float[] _noteX = new float[1], _noteY = new float[1];
         readonly List<int> _active = new List<int>(64);
@@ -188,6 +229,7 @@ namespace Roguehalla.Client
                 flamePigment = new MaterialPropertyBlock();
                 flamePigment.SetFloat("_StormInkResponse", 2f);
             }
+            MushroomPatch mushrooms = null;
             foreach (var pl in placements)
             {
                 if (pl.Shipped && (pl.Flags & 2) == 0 && !DecorationKinds.TryGet(pl.Kind, out _))
@@ -224,6 +266,11 @@ namespace Roguehalla.Client
                 Vector3 foot = ArenaView.WorldPoint(pl.X * 32f, pl.Y * 32f);
                 go.transform.localPosition = foot; go.transform.localScale = new Vector3(flip ? -scaleX : scaleX, scaleY, 1f);
                 var sr = go.AddComponent<SpriteRenderer>(); sr.sprite = art.Sprite; sr.sharedMaterial = _material;
+                if (pl.Art == "plague.mushroom" && art.UsesAuthoredTexture)
+                {
+                    mushrooms ??= new MushroomPatch(art.Sprite, visualSeed + 131);
+                    sr.sprite = mushrooms.At(pl.X, pl.Y);
+                }
                 if (flamePigment != null && TryFlameSocket(pl.Art, out var flame))
                 {
                     var sprite = art.Sprite;
