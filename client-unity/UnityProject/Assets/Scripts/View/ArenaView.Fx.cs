@@ -96,7 +96,7 @@ namespace Roguehalla.Client
             for (int i = _flashes.Count - 1; i >= 0; i--)
             {
                 var flash = _flashes[i];
-                flash.Sprite.gameObject.SetActive(false); flash.Text.gameObject.SetActive(false); flash.Plate.gameObject.SetActive(false);
+                flash.Sprite.gameObject.SetActive(false); flash.Brush?.gameObject.SetActive(false); flash.Text.gameObject.SetActive(false); flash.Plate.gameObject.SetActive(false);
                 _flashes.RemoveAt(i); _flashPool.Push(flash);
             }
             _actors.ResetTransientTimers(); _sparks.Clear();
@@ -129,6 +129,19 @@ namespace Roguehalla.Client
                 flash.Color = f.Kind == FxKind.Block ? new Color(.65f, .85f, 2) : new Color(2, 1.4f, .6f);
                 bool number = f.Kind == FxKind.Hit || f.Kind == FxKind.SigHit || f.Kind == FxKind.Heal;
                 string healText = f.Kind == FxKind.Heal ? Indicators.HealText(f.Amount) : null;
+                var mark = f.Kind == FxKind.SigHit ? StormInkHitMarks.ForSignature(f.SigKind) :
+                    f.Kind == FxKind.Heal ? StormInkHitMarks.Heal : null;
+                flash.InkMark = mark != null;
+                if (flash.InkMark)
+                {
+                    flash.InkOffset = StormInkHitMarks.Anchor(f.SigKind, f.Kind == FxKind.Heal);
+                    flash.Size = .59f;
+                    if (flash.Brush == null)
+                        flash.Brush = ShowcaseSprites.Create(_fxRoot, "Signature ink", "bar", 30000,
+                            Color.white, Vector2.one, Vector3.zero, false);
+                    flash.Brush.sprite = mark;
+                }
+                flash.Brush?.gameObject.SetActive(flash.InkMark);
                 flash.Sprite.gameObject.SetActive(f.Kind != FxKind.SigHit && f.Kind != FxKind.Heal);
                 flash.Text.gameObject.SetActive(number); flash.Plate.gameObject.SetActive(number);
                 if(number)
@@ -177,12 +190,17 @@ namespace Roguehalla.Client
             for (int i = _flashes.Count - 1; i >= 0; i--)
             {
                 var f = _flashes[i]; float t = (Time.unscaledTime - f.Start) / f.Duration;
-                if (t >= 1 || !_actors.Contains(f.Actor)) { f.Sprite.gameObject.SetActive(false); f.Text.gameObject.SetActive(false); f.Plate.gameObject.SetActive(false); _flashes.RemoveAt(i); _flashPool.Push(f); continue; }
-                f.Sprite.transform.position = f.Position;
-                f.Sprite.transform.localScale = Vector3.one * f.Size * (reduced ? 1 : 1 + t * .55f);
+                if (t >= 1 || !_actors.Contains(f.Actor)) { f.Sprite.gameObject.SetActive(false); f.Brush?.gameObject.SetActive(false); f.Text.gameObject.SetActive(false); f.Plate.gameObject.SetActive(false); _flashes.RemoveAt(i); _flashPool.Push(f); continue; }
+                var ink = f.InkMark ? f.Brush : f.Sprite;
+                ink.transform.position = f.InkMark && _actors.TryPosition(f.Actor, out var actorPosition)
+                    ? actorPosition + (Vector3)f.InkOffset : f.Position;
+                ink.transform.localScale = Vector3.one * f.Size * (reduced ? 1 : 1 + t * .55f);
                 // Keep the silhouette readable even when confirmed hits overlap rapidly.
                 // Damage text retains its longer lifetime; the hollow impact rim fades quickly.
-                var c = f.Color; c.a = .55f * Mathf.Clamp01(1 - (Time.unscaledTime - f.Start) / .16f); f.Sprite.color = c;
+                float age = Time.unscaledTime - f.Start;
+                var c = f.InkMark ? Color.white : f.Color;
+                c.a = f.InkMark ? Mathf.Clamp01((.25f - age) / .15f) : .55f * Mathf.Clamp01(1 - age / .16f);
+                ink.color = c;
                 if (!f.Plate.gameObject.activeSelf) continue;
                 var rise = reduced ? 0f : t * NumberRise;
                 f.Text.transform.position = f.Position + new Vector3(f.NumberOffset.x, f.NumberOffset.y + rise, 0f);
