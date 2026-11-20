@@ -10,8 +10,8 @@ namespace Roguehalla.Client
     /// </summary>
     public sealed partial class WishFxPresenter
     {
-        static readonly float[] TrailFrom = { 0f, .355f, .705f }, TrailTo = { .305f, .655f, 1f },
-            TrailWidth = { .78f, .62f, .72f }, TrailSoot = { .25f, .18f, .3f }, TrailHeat = { .6f, .48f, .58f }, TrailLateral = { -.08f, .1f, -.035f };
+        static readonly float[] TrailFrom = { 0f, .27f, .68f }, TrailTo = { .46f, .81f, 1f },
+            TrailWidth = { .64f, .87f, .74f }, TrailSoot = { .42f, .33f, .45f }, TrailHeat = { .65f, .74f, .84f }, TrailLateral = { -.09f, .065f, -.025f };
 
         // ---------------------------------------------------------------- areas
         void DrawAreas(double now, float t, bool reduced, float dt)

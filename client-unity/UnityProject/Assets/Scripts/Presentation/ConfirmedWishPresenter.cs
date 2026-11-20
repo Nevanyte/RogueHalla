@@ -135,11 +135,17 @@ namespace Roguehalla.Client
             if (fact.Kind == FxKind.WishLanded && fact.Ability == (byte)AbilityId.Blaze)
             {
                 Vector3 destination = ArenaView.WorldPoint(fact.X2, fact.Y2), delta = destination - point;
-                Part(cue, 0, "spark", point, new Vector2(.55f, .55f), color);
-                Part(cue, 1, "spark", destination, new Vector2(.55f, .55f), color);
-                if (delta.sqrMagnitude > 0)
-                    Part(cue, 2, "bar", (point + destination) / 2, new Vector2(delta.magnitude, .065f), color,
-                        Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+                float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
+                float heat = 1f - progress;
+                var soot = new Color(.26f, .095f, .07f, .6f * heat);
+                var ember = new Color(1f, .36f, .07f, .87f * heat);
+                var core = new Color(1f, .77f, .26f, .92f * heat * heat);
+                // Both marks sit on the delivered ends. Broken bristles leave the persistent ground field visible.
+                Part(cue, 0, WishFxArt.Get(WishFxArt.FireFleck), point, new Vector2(.28f, .47f), soot, angle + 75f);
+                Part(cue, 1, WishFxArt.Get(WishFxArt.FireWash), destination, new Vector2(.7f, .46f), ember, angle - 12f);
+                if (delta.sqrMagnitude > 0f)
+                    Part(cue, 2, WishFxArt.Get(WishFxArt.FireTrail), (point + destination) / 2, new Vector2(delta.magnitude, .68f), ember, angle);
+                Part(cue, 3, WishFxArt.Get(WishFxArt.FireFleck), destination, new Vector2(.27f, .58f), core, angle - 61f);
                 return;
             }
             float growth = reduced ? 1 : fact.Kind == FxKind.WishStarted ? 1 + .08f * Mathf.Sin(progress * Mathf.PI) : 1 + progress * .3f;
@@ -166,9 +172,12 @@ namespace Roguehalla.Client
         }
 
         void Part(Cue cue, int index, string sprite, Vector3 point, Vector2 scale, Color color, float rotation = 0)
+            => Part(cue, index, ShowcaseSprites.Get(sprite), point, scale, color, rotation);
+
+        void Part(Cue cue, int index, Sprite sprite, Vector3 point, Vector2 scale, Color color, float rotation)
         {
             var part = cue.Parts[index];
-            part.enabled = true; part.sprite = ShowcaseSprites.Get(sprite); part.color = color;
+            part.enabled = true; part.sprite = sprite; part.color = color;
             part.sharedMaterial = ShowcaseSprites.Unlit;
             part.transform.position = point; part.transform.localScale = new Vector3(scale.x, scale.y, 1);
             part.transform.rotation = Quaternion.Euler(0, 0, rotation);
