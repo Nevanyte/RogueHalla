@@ -4,6 +4,20 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## 40 Hz tick, P-TICK-1a (2026-11-20, branch `claude/project-thread-baoxuk`)
+
+**Owner direction 2026-11-19:** "lets do 40" (live tick 40 Hz), then "okay for all 3" (accept ADR 0029, sign DEV-039,
+push). ADR 0029 Accepted; C-TICK amended; DEV-039 signed; packets P-TICK-0..6 (backlog section 1a). P-TICK-3 lands after
+the "Cut delay on other players" thread's protocol 19 and becomes protocol 20.
+
+**P-TICK-1a** (`SimConfig::tick_ms` 50 or 25 in the sim core, save, restore, hash). oracle-author (Opus); coordinator
+oracle amends: the hash census row for `statics.config.tick_ms`, and one test relabelled before the first step (the
+original contradicted `cards/fight_clock_tests.rs:534-550`). implementer-opus, quick gate PASS; reviewer-opus LAND, no
+notes (minor items carried into P-TICK-1b and P-TICK-3). Merged as `69c9e9a9`. Full gate on the merge: **PASS**
+(skipped: dotnet, Postgres, Unity EditMode). At 50 ms the seed-1 digest (`0x2b20_ce9e_ab4e_809a`), content hash, parity
+report and formats are unchanged (`CHECKPOINT_FORMAT`/`REPLAY_FORMAT` not bumped; new 50 ms files carry
+`"tick_ms": null`).
+
 ## Integration 58 (2026-11-18): the GitHub front page
 
 **Owner direction 2026-11-18:** "Please begin working on it all using sub agents", the answer to the coordinator's list of
