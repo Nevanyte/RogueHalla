@@ -270,3 +270,19 @@ the four text copies (`crates/rh-sim/tests/content.rs` `GOLDEN_CONTENT_HASH`, th
 - `--dry-run` prints `WOULD EDIT` / `WOULD RUN` lines; `--text-only` skips the protected commands.
 - `BakedContent.cs` is a build artefact by name: a diff that changes it needs `scripts/gate.sh --allow-artefacts`.
 - Copies of the hash exist only in those six files; a new value pin elsewhere fails `regolden_content`.
+
+## Weapon batch (P-AUG-NATIVE-2)
+
+- Calluses: `FistHit` adds 0.07 to `counter` (cap 30); the counter is armor, a farm row of the fold (`modifiers::combined_farm_rows`, via `native::fold_stats`).
+- Executioner's Ledger: `CreditedKill` with `player || elite` adds 3 (cap 30); the counter is AD, a farm row of the fold.
+- `native::hooks::fire` refolds the holder after a `FistHit` or `CreditedKill` when a fold-feeding counter is held, so the mirrors move at once (the slot handler has no `MatchStatic`).
+- Eighth Strike: the ledger doubles the 8th landed weapon hit (`native::strike_mult`, before Bastion's burst and the PvP cap); `HitCount` advances the counter mod 8.
+
+## Zone batch (P-AUG-NATIVE-3)
+
+Pathfinder, Hazard Walker and Overflow live in `cards/native/zone.rs`. Pathfinder's counter (`min(cap, 0.012 x marks)`) multiplies the
+holder's walk in `modifiers::movement` by `1 + counter` (the wire speed mirror does not include it: local prediction runs slow until a
+later packet). Hazard Walker's stacks (one per hazard second, cap 15) resist ember (`burn_dt`) and bog (`bog_read`) by 4% each, add
+0.5% of base max hp each in `sync_max_hp`, and 20 s on a hazard makes it immune (ice slip untouched: P-AUG-NATIVE-3c). Overflow turns
+the overheal into a G6-capped barrier; every barrier of an Overflow holder fades over 8 s. `check` ties Pathfinder's counter to its
+marks exactly and Hazard Walker's stacks to the meters as an upper bound. Wish Engine is P-AUG-NATIVE-3b.

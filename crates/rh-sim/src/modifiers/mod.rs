@@ -207,7 +207,7 @@ impl Runtime {
                 .get(loc.index)
                 .is_some_and(|bit| *bit != NO_BIT && (self.holds >> *bit) & 1 == 1)
         };
-        let combined_farm = combined_farm_rows(farm, kill_stats, trade_stats);
+        let combined_farm = combined_farm_rows(farm, kill_stats, trade_stats, build);
         let boosts = fold::BoostCounts::from_source_values(build.boosts().map(f64::from));
         let folded = fold::fold_rows_with_definition(
             &rows[..n],
@@ -380,7 +380,7 @@ fn recompute_core<'a>(
             .get(loc.index)
             .is_some_and(|bit| *bit != NO_BIT && (holds >> *bit) & 1 == 1)
     };
-    let combined_farm = combined_farm_rows(&farm, &kill_stats, &trade_stats);
+    let combined_farm = combined_farm_rows(&farm, &kill_stats, &trade_stats, &build);
     // The world's card table: its fold caps (G1 `hit`, G4 `hpRace`) clamp the fold; under `Legacy` the default ones.
     let folded = fold::fold_rows_with_definition(
         fold_rows,
@@ -488,7 +488,7 @@ fn while_bit_of(rows: &[fold::EffectRow<'_>]) -> ([u8; MAX_FOLD_INPUT], u8) {
 /// The fold's farm rows: the credited-kill stacks plus the kill-augment `killStats` (source `farmRowsOf`: both are farm
 /// rows, outside the card caps). A fixed scratch keeps the recompute allocation-free.
 struct CombinedFarm {
-    rows: [fold::EffectRow<'static>; 36],
+    rows: [fold::EffectRow<'static>; 38],
     len: usize,
 }
 impl CombinedFarm {
@@ -500,19 +500,26 @@ fn combined_farm_rows(
     farm: &Farm,
     kill_stats: &crate::kill_augments::KillStats,
     trade_stats: &[(crate::traders::Stat, f64)],
+    build: &crate::cards::Build,
 ) -> CombinedFarm {
     let (farm_rows, farm_len) = farm.rows();
     let (trade_rows, trade_len) = crate::traders::trade_effects(trade_stats);
     let (kill_rows, kill_len) = kill_stats.rows();
-    let mut rows = [fold::EffectRow::new(EffectKind::Trigger); 36];
+    let mut rows = [fold::EffectRow::new(EffectKind::Trigger); 38];
     rows[..farm_len].copy_from_slice(&farm_rows[..farm_len]);
     rows[farm_len..farm_len + trade_len].copy_from_slice(&trade_rows[..trade_len]);
     let start = farm_len + trade_len;
     rows[start..start + kill_len].copy_from_slice(&kill_rows[..kill_len]);
-    CombinedFarm {
-        rows,
-        len: start + kill_len,
+    // P-AUG-NATIVE-2: Calluses' armor and the Ledger's AD are farm rows too (outside the card caps).
+    let mut len = start + kill_len;
+    let (armor, ad) = crate::cards::native::fold_stats(build);
+    for (stat, v) in [(fold::FlatStat::Armor, armor), (fold::FlatStat::Ad, ad)] {
+        if v != 0. {
+            rows[len].kind = EffectKind::Flat { stat, v };
+            len += 1;
+        }
     }
+    CombinedFarm { rows, len }
 }
 
 /// Source `holdsNow`: does a `while` row's condition hold for this fighter now? `unarmed` needs a seated player's hands;
@@ -562,7 +569,10 @@ pub(crate) fn refold_with_extra_rows(
     recompute_core(k, w, ix, Default::default(), extra, false);
 }
 pub(crate) fn sync_max_hp(p: &mut crate::state::Player) {
-    let max = crate::content::faction(p.faction()).hp * p.modifiers.max_hp_mult + p.card_tank_hp;
+    let base = crate::content::faction(p.faction()).hp;
+    let max = base * p.modifiers.max_hp_mult
+        + p.card_tank_hp
+        + crate::cards::native::flat_max_hp(&p.build, base);
     let delta = max - p.vitals.max_hp;
     if delta.abs() < 1e-9 {
         return;
@@ -579,8 +589,13 @@ pub(crate) fn movement(
     _dt: f64,
     _stats: crate::status_runtime::StatView,
 ) -> f64 {
-    if w.fighter_idx(p.id).is_some_and(|i| w.is_player(i)) {
-        p.modifiers.mirrors().speed_mult
+    if let Some(i) = w.fighter_idx(p.id).filter(|i| w.is_player(*i)) {
+        let share = crate::cards::native::move_speed_share(&w.players[i.slot()].build);
+        if share > 0. {
+            p.modifiers.mirrors().speed_mult * (1. + share)
+        } else {
+            p.modifiers.mirrors().speed_mult
+        }
     } else {
         1.
     }

@@ -28,6 +28,10 @@ pub use readout::{readouts, Readout, ReadoutKind, Readouts, MAX_READOUTS};
 mod exemplars_tests;
 #[cfg(test)]
 mod hooks_tests;
+#[cfg(test)]
+mod weapon_batch_tests;
+#[cfg(test)]
+mod zone_tests;
 
 /// P-AUG-NATIVE-1b: every native card's chest pool membership and offer rule, from the three batch tables (weapon,
 /// zone, faction). No pool reads it until native ids are on the wire (P-WIRE19-A).
@@ -53,6 +57,57 @@ pub(crate) fn outgoing_share(build: &super::Build) -> f64 {
         return 0.;
     }
     weapon::outgoing_share(&build.native)
+}
+
+/// The armor and AD the native counters add to a holder's stat fold (Calluses, Executioner's Ledger); `(0, 0)` for none.
+pub(crate) fn fold_stats(build: &super::Build) -> (f64, f64) {
+    if build.native.is_empty() {
+        return (0., 0.);
+    }
+    weapon::fold_stats(&build.native)
+}
+
+/// Does `card`'s state change the holder's stat fold (so a change to it needs a refold)?
+pub(crate) fn feeds_fold(build: &super::Build) -> bool {
+    fold_stats(build) != (0., 0.)
+}
+
+/// The multiplier Eighth Strike gives a landed weapon hit of `by` that has `earlier` landed weapon hits of `by` before it
+/// in the same victim pass (1 for a non-holder; one guard).
+pub(crate) fn strike_mult(k: &MatchStatic, w: &World, by: crate::PlayerId, earlier: u32) -> f64 {
+    if !hooks::holds_native(k, w, by) {
+        return 1.;
+    }
+    w.player(by).map_or(1., |p| weapon::strike_mult(p, earlier))
+}
+
+/// Pathfinder's move speed share of a build (`modifiers::movement`); 0 for a build holding no native card.
+pub(crate) fn move_speed_share(build: &super::Build) -> f64 {
+    if build.native.is_empty() {
+        return 0.;
+    }
+    zone::move_speed_share(&build.native)
+}
+
+/// Hazard Walker's `(resistance, immune)` to a hazard (0 ember, 1 bog, 2 ice); `(0, false)` for a non-holder.
+pub(crate) fn hazard_guard(build: &super::Build, hazard: usize) -> (f64, bool) {
+    if build.native.is_empty() {
+        return (0., false);
+    }
+    zone::hazard_guard(&build.native, hazard)
+}
+
+/// The native cards' flat max hp term over `base_hp` (`modifiers::sync_max_hp`): Hazard Walker's stacks.
+pub(crate) fn flat_max_hp(build: &super::Build, base_hp: f64) -> f64 {
+    if build.native.is_empty() {
+        return 0.;
+    }
+    zone::flat_max_hp(&build.native, base_hp)
+}
+
+/// Does the build hold Overflow (its barriers fade over `REWORK_OVERFLOW_FADE_MS`)?
+pub(crate) fn holds_overflow(build: &super::Build) -> bool {
+    !build.native.is_empty() && zone::holds_overflow(&build.native)
 }
 
 /// The bursts the ledger added to one victim's entries (`landed_burst`): at most one per holder, at most one holder per
@@ -264,6 +319,23 @@ fn tank_hp_cap(tuning: &crate::cards::Tuning) -> f64 {
     cap
 }
 
+/// P-AUG-NATIVE-2: the exact counter rules of the weapon batch (after the cap test): Eighth Strike an integer, the
+/// Ledger a whole multiple of its per-kill AD, Calluses the cap or a multiple of its per-hit armor (within 1e-9, as
+/// repeated addition drifts). Other cards: no extra rule here. A non-finite counter passes to the cap test.
+fn exact_counter(id: CardId, c: f64, cap: f64) -> bool {
+    use crate::constants::{REWORK_CALLUSES_PER, REWORK_EXECUTIONERS_LEDGER_PER};
+    let on_grid = |per: f64| {
+        let n = c / per;
+        (n - n.round()).abs() * per <= 1e-9
+    };
+    match id {
+        CardId::EighthStrike => c.fract() == 0.,
+        CardId::ExecutionersLedger => on_grid(REWORK_EXECUTIONERS_LEDGER_PER),
+        CardId::Calluses => c == cap || on_grid(REWORK_CALLUSES_PER),
+        _ => true,
+    }
+}
+
 /// `check_world` rules for the native state (brief section 1.6), and the `card_tank_hp` bound.
 pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
     let rework = k.cards.rule() == crate::AugmentRule::Rework;
@@ -301,6 +373,42 @@ pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
                 ));
             }
             let r = &NATIVE_RULES[i];
+            if !exact_counter(id, slot.counter, r.counter_cap) {
+                return Err(format!(
+                    "player {who}: native card {} counter {} off its grid",
+                    id.as_str(),
+                    slot.counter
+                ));
+            }
+            // P-AUG-NATIVE-3: the zone cards tie their counter to what they hold.
+            match id {
+                CardId::Pathfinder => {
+                    let want = crate::constants::REWORK_PATHFINDER_CAP.min(
+                        crate::constants::REWORK_PATHFINDER_PER
+                            * f64::from(slot.marks.count_ones()),
+                    );
+                    if (slot.counter - want).abs() >= 1e-9 {
+                        return Err(format!(
+                            "player {who}: pathfinder counter {} is not its marks' {want}",
+                            slot.counter
+                        ));
+                    }
+                }
+                CardId::HazardWalker => {
+                    let most = crate::constants::REWORK_HAZARD_WALKER_CAP.min(
+                        (slot.meters.iter().sum::<f64>()
+                            / crate::constants::REWORK_HAZARD_WALKER_STACK_MS)
+                            .floor(),
+                    );
+                    if slot.counter.fract() != 0. || slot.counter > most {
+                        return Err(format!(
+                            "player {who}: hazard walker stacks {} outside whole 0..={most}",
+                            slot.counter
+                        ));
+                    }
+                }
+                _ => {}
+            }
             if !(0.0..=r.counter_cap).contains(&slot.counter)
                 || slot
                     .meters

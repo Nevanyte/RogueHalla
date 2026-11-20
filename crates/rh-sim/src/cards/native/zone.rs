@@ -1,22 +1,117 @@
-//! P-AUG-NATIVE-1b: the zone and generalist batch table: Pathfinder, Hazard Walker, Wish Engine and Overflow
-//! (P-AUG-NATIVE-3), then Marked Man (P-AUG-NATIVE-5). Each card's hook handlers, readout rows and pool membership live
-//! here. Membership is not read by any pool until native ids are on the wire (P-WIRE19-A).
+//! P-AUG-NATIVE-1b / -3: the zone and generalist batch table: Pathfinder, Hazard Walker and Overflow (P-AUG-NATIVE-3;
+//! Wish Engine is P-AUG-NATIVE-3b), then Marked Man (P-AUG-NATIVE-5). Each card's hook handlers, readout rows, pool
+//! membership and the pure reads the tick makes of its state live here. Membership is not read by any pool until
+//! P-AUG-NATIVE-4 wires `pool_members`.
 use super::hooks::NativeEvent;
 use super::readout::Source;
+use super::NativeCards;
 use crate::cards::CardId;
+use crate::constants::{
+    REWORK_HAZARD_WALKER_CAP, REWORK_HAZARD_WALKER_HP_PER, REWORK_HAZARD_WALKER_IMMUNE_MS,
+    REWORK_HAZARD_WALKER_RESIST_PER, REWORK_HAZARD_WALKER_STACK_MS, REWORK_PATHFINDER_CAP,
+    REWORK_PATHFINDER_PER,
+};
 use crate::reward_chests::Offer;
 use crate::state::World;
 
-/// The zone batch's chest pool membership and offer rule (empty until its batch packet; read by no pool yet).
-pub(super) static POOL: &[(CardId, Offer)] = &[];
+/// The zone batch's chest pool membership and offer rule (read by no pool yet).
+pub(super) static POOL: &[(CardId, Offer)] = &[
+    (CardId::Pathfinder, Offer::Any),
+    (CardId::HazardWalker, Offer::Any),
+    (CardId::Overflow, Offer::Any),
+];
 
-/// The hook handlers of this table's cards (none until P-AUG-NATIVE-3 / -5); see `weapon::handle`.
+/// The hook handlers of this table's cards; see `weapon::handle`.
 pub(super) fn handle(w: &mut World, i: usize, card: CardId, event: &NativeEvent) {
-    let _ = (w, i, card, event);
+    match (card, *event) {
+        // Pathfinder: the first kill of each normal mob type sets its mark; the counter follows the marks.
+        (CardId::Pathfinder, NativeEvent::MobKill { mob_type }) => {
+            let Some(bit) = crate::mob_catalog::MobTypeId::ALL
+                .iter()
+                .position(|t| *t == mob_type)
+            else {
+                return;
+            };
+            let allowed = super::rule(card).map_or(0, |r| r.marks);
+            if let Some(s) = w.players[i].build.native.slot_mut(card) {
+                let m = 1u32 << bit;
+                if allowed & m != 0 && s.marks & m == 0 {
+                    s.marks |= m;
+                    s.counter = REWORK_PATHFINDER_CAP
+                        .min(REWORK_PATHFINDER_PER * f64::from(s.marks.count_ones()));
+                }
+            }
+        }
+        // Hazard Walker: hazard time fills that hazard's meter (to the immunity cap); stacks follow the total.
+        (CardId::HazardWalker, NativeEvent::HazardTick { hazard, ms }) if hazard < 3 => {
+            let mut changed = false;
+            if let Some(s) = w.players[i].build.native.slot_mut(card) {
+                let h = usize::from(hazard);
+                s.meters[h] = REWORK_HAZARD_WALKER_IMMUNE_MS.min(s.meters[h] + ms);
+                if s.meters[h] >= REWORK_HAZARD_WALKER_IMMUNE_MS {
+                    s.marks |= 1 << h;
+                }
+                let total: f64 = s.meters.iter().sum();
+                let stacks =
+                    REWORK_HAZARD_WALKER_CAP.min((total / REWORK_HAZARD_WALKER_STACK_MS).floor());
+                if stacks != s.counter {
+                    s.counter = stacks;
+                    changed = true;
+                }
+            }
+            if changed {
+                crate::modifiers::sync_max_hp(&mut w.players[i]);
+            }
+        }
+        // Overflow: the heal's excess beyond max hp becomes a barrier (clamped to the G6 cap by the grant).
+        (CardId::Overflow, NativeEvent::Overheal { amount }) => {
+            let now = w.server_time;
+            crate::systems::buffs::grant_heal_barrier(w, i, amount, now);
+        }
+        _ => {}
+    }
 }
 
 /// The readout rows of this table's cards (`None` for a card of another table, or one not filled yet).
 pub(super) fn readouts(card: CardId) -> Option<&'static [Source]> {
-    let _ = card;
-    None
+    match card {
+        CardId::Pathfinder => Some(&[Source::Counter, Source::Marks]),
+        CardId::HazardWalker => Some(&[
+            Source::Counter,
+            Source::Meter(0),
+            Source::Meter(1),
+            Source::Meter(2),
+        ]),
+        _ => None,
+    }
+}
+
+fn held(native: &NativeCards, card: CardId) -> Option<&super::NativeSlot> {
+    native.slot(card).filter(|s| s.count > 0)
+}
+
+/// Pathfinder's move speed share (0 when not held).
+pub(super) fn move_speed_share(native: &NativeCards) -> f64 {
+    held(native, CardId::Pathfinder).map_or(0., |s| s.counter)
+}
+
+/// Hazard Walker's resistance to `hazard` (0 ember, 1 bog, 2 ice) and whether it is immune to it.
+pub(super) fn hazard_guard(native: &NativeCards, hazard: usize) -> (f64, bool) {
+    held(native, CardId::HazardWalker).map_or((0., false), |s| {
+        (
+            REWORK_HAZARD_WALKER_RESIST_PER * s.counter,
+            s.marks & (1 << hazard) != 0,
+        )
+    })
+}
+
+/// Hazard Walker's flat max hp term over a base of `base_hp`.
+pub(super) fn flat_max_hp(native: &NativeCards, base_hp: f64) -> f64 {
+    held(native, CardId::HazardWalker)
+        .map_or(0., |s| base_hp * REWORK_HAZARD_WALKER_HP_PER * s.counter)
+}
+
+/// Overflow is held: the holder's barriers fade over `REWORK_OVERFLOW_FADE_MS`.
+pub(super) fn holds_overflow(native: &NativeCards) -> bool {
+    held(native, CardId::Overflow).is_some()
 }

@@ -650,4 +650,10 @@ content! {
     /// Bastion: most stored blocked damage its meter holds (P-AUG-NATIVE-1b decision: the workbook says only "Meter cap";
     /// legacy Tank Engine's cap number, `TANK_ENGINE_CAP`, `constants.ts:292`, as Bastion "Pairs with Tank Engine").
     REWORK_BASTION_METER_CAP: f64 = 250., "dmg";
+    /// Hazard Walker: hazard time per stack (decision: one stack per second on a hazard).
+    REWORK_HAZARD_WALKER_STACK_MS: f64 = 1000., "ms";
+    /// Hazard Walker: share of a hazard each stack resists (decision).
+    REWORK_HAZARD_WALKER_RESIST_PER: f64 = 0.04, "share";
+    /// Hazard Walker: share of base max hp each stack adds (decision).
+    REWORK_HAZARD_WALKER_HP_PER: f64 = 0.005, "share";
 }

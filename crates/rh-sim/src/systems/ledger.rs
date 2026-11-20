@@ -723,6 +723,22 @@ fn apply_victim(
     // later victim of the same pass gets none; a hit that does not land spends nothing.
     let mut bursts = crate::cards::native::Bursts::default();
     if pass.k.cards.rule() == crate::AugmentRule::Rework {
+        // P-AUG-NATIVE-2 (Eighth Strike): the holder's 8th landed hit is doubled in the hit itself, before the burst and
+        // the PvP cap; the count advances in the `HitCount` hook after, so earlier hits of this pass are counted here.
+        for (j, &index) in idxs.iter().enumerate() {
+            let e = &ledger[index];
+            let Some(by) = e.by.filter(|_| weapon_hit(e) && amounts[j] > 0.) else {
+                continue;
+            };
+            // Only earlier hits that land count, as only they fire `HitCount` (which advances the counter).
+            let earlier = (0..j)
+                .filter(|&p| {
+                    let e2 = &ledger[idxs[p]];
+                    weapon_hit(e2) && e2.by == Some(by) && amounts[p] > 0.
+                })
+                .count() as u32;
+            amounts[j] *= crate::cards::native::strike_mult(pass.k, pass.w, by, earlier);
+        }
         for (j, &index) in idxs.iter().enumerate() {
             let e = &ledger[index];
             let Some(by) = e.by.filter(|_| weapon_hit(e) && amounts[j] > 0.) else {
