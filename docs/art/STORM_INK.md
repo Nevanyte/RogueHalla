@@ -2,6 +2,14 @@
 
 The owner selected Storm Ink on 2026-11-19. The church study sets the camera and value range. Broad dry-brush strokes carry the world. Figures use ink contours and flatter fills. Elemental pigment peaks at contact and falls away through recovery.
 
+## Gameplay camera
+
+Paint floors, paths, liquid channels and the pew seat in plan view. Long edges and grain follow the delivered floor plane. A backrest reads as a narrow cap from above. On a rotated church, both pew banks must still face the liturgical rear. Judge the furnished room against the approved overhead church study.
+
+Trees and bushes rise into an elevated 2.5D view. Give the viewer both a canopy top and enough trunk or stem to see where the plant meets the earth. Moving characters use the steeper, mostly top-down three-quarter framing seen in League of Legends. The crown, top of the shoulder armour and upper forearms should be visible at normal zoom. Keep the chest readable through foreshortening and the boots planted. An east-facing fighter still faces east while the viewer sees the upper planes of the shoulder and head. Keep the direction of the individual weapon, anatomical grip and action legible through each turn.
+
+Check the new camera on one Fire axe fighter in a matched normal-zoom Unity scene first. Compare east, southeast and north with the same shared axe, ground contact, world scale and attack phase. Existing equip, hand, timing and traversal evidence remains independently traceable in the checklist.
+
 ## Fantasy character design
 
 Watercolor supplies soft edges and granulation on terrain. Broken dark brush contours and flat local colour separate the cast from the painted world. Use each character’s job, anatomy, climate and equipment to design the shape of the head, shoulders, hands and feet. At gameplay size, a fighter should be identifiable with the colour turned off and the weapon put away.
