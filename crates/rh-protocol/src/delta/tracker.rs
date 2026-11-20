@@ -172,12 +172,13 @@ impl SnapshotTracker {
     }
 
     /// [`SnapshotTracker::decode`] for a message already decoded. The message's times are taken as decoded (the caller read
-    /// them at this tracker's rate). A Welcome takes its rate; one whose rate no decoder accepts changes nothing.
+    /// them at this tracker's rate). A Welcome resets it and takes its rate when
+    /// that is 20 or 40 (a Welcome at another rate never gets here from [`SnapshotTracker::decode`], which refuses it first).
     pub fn apply(&mut self, msg: ServerMsg) -> Result<ServerMsg, DeltaError> {
         match msg {
             ServerMsg::Welcome { tick_rate, .. } => {
+                self.reset();
                 if let Some(ms) = tick_ms_for_rate(tick_rate) {
-                    self.reset();
                     self.tick_ms = Some(ms);
                 }
                 Ok(msg)
