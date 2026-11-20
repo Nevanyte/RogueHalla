@@ -28,6 +28,9 @@ namespace Roguehalla.Net
         /// <summary>Server tick interval; the delay must cover one interval plus the arrival jitter to have a complete segment to draw.</summary>
         public double TickMs = 50;
 
+        /// <summary>P-TICK-4 STUB: the delay floor, <see cref="TickMs"/> + 5. Ignores the rate until implemented (still <see cref="MinDelayMs"/>).</summary>
+        public double MinDelay { get { return MinDelayMs; } }
+
         /// <summary>Catch-up speed-up reached for gaps of 80 ms or more (0.01 reproduces the old constant 1%).</summary>
         public double MaxCatchUpShare = 0.04;
 

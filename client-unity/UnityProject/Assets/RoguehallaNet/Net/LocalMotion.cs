@@ -58,6 +58,8 @@ namespace Roguehalla.Net
         public const double PlayerSpeed = 170.0;
         /// <summary>The server tick (<c>TICK_MS</c>): its walk is planned and sampled on this grid.</summary>
         public const double TickMs = 50.0;
+        /// <summary>P-TICK-4 STUB: the session's step in ms (the Welcome's rate). Ignored until implemented; the walk still assumes <see cref="TickMs"/>.</summary>
+        public double StepMs { get { return TickMs; } set { } }
         /// <summary>An error up to this many world units is absorbed smoothly; beyond it the presented walk snaps to the server.</summary>
         public const double SnapDistance = 96.0;
         /// <summary>The correction offset's exponential time constant, in milliseconds (<c>VISUAL_TAU_MS</c>).</summary>
