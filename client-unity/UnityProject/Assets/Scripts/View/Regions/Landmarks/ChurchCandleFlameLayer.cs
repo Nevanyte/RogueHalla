@@ -27,7 +27,8 @@ namespace Roguehalla.Client
             Vector2 pivot = new Vector2(baseRenderer.sprite.pivot.x / baseRenderer.sprite.rect.width,
                 baseRenderer.sprite.pivot.y / baseRenderer.sprite.rect.height);
             Vector2 sourceSize = baseRenderer.sprite.bounds.size;
-            transform.localPosition = new Vector3((flameSocket.x - pivot.x) * sourceSize.x,
+            float socketX = (flameSocket.x - pivot.x) * (baseRenderer.flipX ? -1f : 1f);
+            transform.localPosition = new Vector3(socketX * sourceSize.x,
                 (flameSocket.y - pivot.y) * sourceSize.y, -.01f);
             Vector2 flameSize = flame.bounds.size;
             Vector3 parentScale = parent.lossyScale;

@@ -17,6 +17,8 @@ None. This packet changes Unity presentation only; the delivered church map and 
 - `client-unity/UnityProject/Assets/Scripts/View/Regions/Landmarks/ChurchCandleFlameLayer.cs` and `.meta`
 - `client-unity/UnityProject/Assets/Resources/StormInk/Church/CandelabrumBase.png` and `.meta`
 - `client-unity/UnityProject/Assets/Resources/StormInk/Church/CandelabrumMainFlameTight.png` and `.meta`
+- `client-unity/UnityProject/Assets/Resources/StormInk/Church/GarnetLancetJamb.png` and `.meta`
+- `client-unity/UnityProject/Assets/Resources/StormInk/Church/GothicPulpitViews.png` and `.meta`
 - `client-unity/UnityProject/Assets/Tests/Editor/ChurchArtAuthoringEditModeTests.cs` (direction, view, pane and flame regression cases)
 - `docs/backlog/packets/P-STORM-CHURCH-RENDER-VIEWS-1.md`
 
@@ -25,8 +27,8 @@ None. This packet changes Unity presentation only; the delivered church map and 
 - `client-unity/UnityProject/Assets/Scripts/View/Regions/Landmarks/ChurchArtPlacement.cs` and `ChurchArtValues.cs`.
 - `client-unity/UnityProject/Assets/Scripts/View/Regions/Landmarks/ChurchCandleFlameLayer.cs` and metadata.
 - `client-unity/UnityProject/Assets/Scripts/View/Regions/Landmarks/ChurchLandmark.cs`.
-- The four church family definitions under `StormInk/Church/Definitions/` as needed for directional defaults; in this packet only `GothicPulpit.asset` and `Candelabrum.asset` change.
-- The two authored candle sprites above and their metadata.
+- The four church family definitions under `StormInk/Church/Definitions/` as needed for directional defaults; in this packet `GothicPulpit.asset`, `GarnetLancet.asset`, and `Candelabrum.asset` change.
+- The authored candle, jamb, and pulpit sprites above and their metadata.
 - `client-unity/UnityProject/Assets/Tests/Editor/ChurchArtAuthoringEditModeTests.cs`.
 - This packet and its row in `docs/backlog/README.md`.
 
@@ -40,16 +42,19 @@ Do not edit `Assets/Editor`, map data, collision, other zones, shared visual led
 
 ## Behaviour to preserve
 
-- Floor art follows both map-plane axes continuously. Authored pew width remains constant on quarter turns; depth foreshortens only when directed down-map.
+- Floor art follows both map-plane axes continuously through `diag(1, GroundSquash) * Rotation`; width and depth are physical map-plane lengths and intermediate rotations may shear in screen space.
 - Upright and wall art stays screen-flat. Cardinal facing chooses Front, Side or Back art instead of rotating an asymmetric painting.
-- Window pane Full uses the full painting, Jamb uses the side/jamb sprite at the narrow frame width, and Concealed suppresses the pane renderer.
+- Window Auto uses the absolute camera-facing wall normal: inward front face shows the pane, an edge-on wall uses the stone jamb, and the back face is concealed. Explicit Full/Jamb/Concealed modes remain available.
+- Pulpit uses distinct frontal, side, and rear paintings with stairs and follows the resolved reflected approach; mirrored bay offsets carry matching windows and candles together.
 - The candle's wick/base and two smaller side flames remain anchored. Its main flame is a separate transparent layer whose socket and pooled spill move together; reduced-motion mode keeps a stable flame shape.
+- Candle light sockets store the ground contact row separately from actual vertical lift, including authored mount height, so `AccentLights` reconstructs the emission point without applying squash or elevation twice.
+- Moving art across a tile updates its sorting row by the existing 16-order row step; height-only edits preserve the ground row and resetting remains idempotent.
 - The pulpit remains on its semantic side facing the aisle, has a ground contact, and clears adjacent candle footprints. No art adds collision or changes the eight delivered orientations.
 
 ## Acceptance checks
 
-- Focused EditMode tests verify continuous projection at 0°, 45° and 90°, full pew width at quarter turn, depth foreshortening, and nearest-cardinal upright view resolution.
-- Runtime tests verify Full/Jamb/Concealed pane resolution, all eight church orientations, pulpit-to-candle clearance, and that moving the flame socket moves both visible flame and spill handle.
+- Focused EditMode tests verify continuous affine projection at 0°, 37° and 90°, physical width/depth at quarter turns, and nearest-cardinal upright view resolution.
+- Runtime tests verify absolute wall-face pane resolution, all eight church orientations, pulpit-to-candle clearance, reflected off-centre wick placement, row sorting, and exact pooled-light reconstruction from ground row plus lift.
 - Full Unity EditMode suite passes; browser/native visual quality remains subject to owner review after integration.
 
 ## Validation commands

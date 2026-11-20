@@ -28,7 +28,7 @@ MonoBehaviour:
     SpillIntensity: 0
     SortingOffset: 4
     Front: {fileID: 21300000, guid: 58525dbe0fbfae08e0a2a914725d813e, type: 3}
-    Side: {fileID: 21300000, guid: 58525dbe0fbfae08e0a2a914725d813e, type: 3}
+    Side: {fileID: 21300000, guid: 5ab31dbc0b594c18a9ed51fe258c078b, type: 3}
     Material: {fileID: 0}
     PaneMode: 0
     FlameLayer: {fileID: 0}

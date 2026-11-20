@@ -27,13 +27,13 @@ MonoBehaviour:
     SpillRadius: 0
     SpillIntensity: 0
     SortingOffset: 3
-    Front: {fileID: 21300000, guid: 077502270c1bd56044de00eae997abab, type: 3}
-    Side: {fileID: 21300000, guid: 077502270c1bd56044de00eae997abab, type: 3}
+    Front: {fileID: 7711010374355213341, guid: a2a4eec803c54834a4fc86ce61cc64be, type: 3}
+    Side: {fileID: 7711010374355213342, guid: a2a4eec803c54834a4fc86ce61cc64be, type: 3}
     Material: {fileID: 0}
     PaneMode: 0
     FlameLayer: {fileID: 0}
     FlameLayerSize: {x: 0, y: 0}
-    Back: {fileID: 21300000, guid: 077502270c1bd56044de00eae997abab, type: 3}
+    Back: {fileID: 7711010374355213343, guid: a2a4eec803c54834a4fc86ce61cc64be, type: 3}
   Mount: 1
   EmitsCandleLight: 0
   AllowedTurns: 3
