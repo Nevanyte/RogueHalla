@@ -186,6 +186,7 @@ namespace Roguehalla.Client
         static Color RgbColour(uint rgb) { return new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 1f); }
         void UpdateEffects()
         {
+            _numberObstacles.Clear();
             bool reduced = ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
             for (int i = _flashes.Count - 1; i >= 0; i--)
             {
@@ -212,7 +213,9 @@ namespace Roguehalla.Client
                 f.Plate.color = pc;
                 f.Plate.transform.position = f.Text.transform.position;
                 f.Plate.transform.localScale = new Vector3(f.NumberSize.x, f.NumberSize.y, 1f);
+                _numberObstacles.Add(f.NumberEnvelope);
             }
+            _actors.PlaceSignatureCues(_numberObstacles);
         }
 
         Flash CreateFlash()
