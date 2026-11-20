@@ -345,6 +345,26 @@ namespace Roguehalla.Client.Tests
         }
 
         [TestCaseSource(nameof(Orientations))]
+        public void ObliqueMapBearingKeepsPewsSquareToTheDeliveredRoom(int k)
+        {
+            var site = Church(k);
+            var a = site.Anchor;
+            // Real maps report a 16-way bearing toward the arena centre even when doorways run due east/west.
+            var oblique = new MapAnchor(a.Zone, a.Kind, a.Centre, a.Footprint, (byte)((a.Front + 1) % 16), a.Entrance);
+            using (var scene = new Scene(site.Map, oblique))
+            {
+                var lm = Built(scene, "oblique front in orientation " + k);
+                var rear = site.RearDoor[1];
+                var front = site.Door[1];
+                var back = new Vector2(front.x - rear.x, rear.y - front.y).normalized;
+                var pews = Named(lm, "Church pew").ToArray();
+                Assert.That(pews.Length, Is.GreaterThanOrEqualTo(6));
+                foreach (var pew in pews)
+                    Assert.That(Vector2.Dot(pew.up, back), Is.GreaterThan(.999f));
+            }
+        }
+
+        [TestCaseSource(nameof(Orientations))]
         public void PewRowsCrossTheAisleAndThePulpitStandsUpright(int k)
         {
             var site = Church(k);
