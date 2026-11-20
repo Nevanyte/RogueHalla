@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const EXPECTED_PROTOCOL = 18;
-const EXPECTED_CONTENT_HASH = '8196e898724e4218';
+const EXPECTED_CONTENT_HASH = 'a03745630efa1c12';
 const MAX_COMMANDS = 16;
 const MAX_EVENT_ROWS = 512;
 const PROFILE_RE = /^[A-Za-z0-9_-]{2,16}$/;
