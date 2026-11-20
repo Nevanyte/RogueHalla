@@ -477,7 +477,8 @@ namespace Roguehalla.Client
                         string glyph = equipment ? StormInkWeaponMotion.KeyFor((WeaponId)weapon) : "stone";
                         Color tint = equipment ? Color.white : ShowcasePalette.MutedText;
                         float size = equipment ? StormInkWeaponMotion.Size : .48f;
-                        Prop(glyph, position + new Vector3(0, equipment ? .39f : .22f), Vector2.one * size, tint, order);
+                        Vector2 centre = equipment ? StormInkWeaponArt.GroundCentre((WeaponId)weapon) : new Vector2(0, .22f);
+                        Prop(glyph, position + (Vector3)centre, Vector2.one * size, tint, order);
                     }
                     else if (p.Kind == PropAppearance.WindEmblem)
                     {

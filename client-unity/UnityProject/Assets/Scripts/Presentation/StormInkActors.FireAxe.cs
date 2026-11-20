@@ -23,9 +23,23 @@ namespace Roguehalla.Client
         };
 
         internal static Sprite FireAxeFrame(ActorKind kind, FactionId? faction, WeaponId? weapon,
-            int direction, StormInkWeaponMotion.Phase phase, bool stride)
+            int direction, StormInkWeaponMotion.Phase phase, bool stride, int stage = 0, bool alternate = false)
         {
             if (kind != ActorKind.Player || faction != FactionId.Fire || weapon != WeaponId.Axe) return null;
+            var authoring = StormInkFireAxeAuthoring.Load();
+            if (authoring != null)
+            {
+                var authoredPose = phase switch
+                {
+                    StormInkWeaponMotion.Phase.Ready => StormInkFireAxePose.Windup,
+                    StormInkWeaponMotion.Phase.Strike => alternate ? StormInkFireAxePose.ReleaseB : StormInkFireAxePose.ReleaseA,
+                    StormInkWeaponMotion.Phase.Follow => StormInkFireAxePose.Recovery,
+                    _ => stride ? StormInkFireAxePose.Stride : StormInkFireAxePose.Guard,
+                };
+                var authoredFrame = authoring.Frame(PoseRow(direction), authoredPose, stage);
+                if (authoredFrame != null) return authoredFrame;
+            }
+
             int pose = phase switch
             {
                 StormInkWeaponMotion.Phase.Ready => 0,
@@ -39,6 +53,7 @@ namespace Roguehalla.Client
 
         static bool TryFireAxeHand(Sprite body, int row, int column, bool left, out Vector2 uv)
         {
+            if (StormInkFireAxeAuthoring.Load()?.TryHand(body, left, out uv) == true) return true;
             uv = default;
             if ((uint)column >= FireAxeColumns || (uint)row >= Rows) return false;
             int index = row * FireAxeColumns + column;

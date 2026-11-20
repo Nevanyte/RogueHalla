@@ -29,6 +29,7 @@ namespace Roguehalla.Client
             public GaitState Gait;
             public float StampTime;
             public bool LocalCue;
+            public int FireAxeReleaseCount;
             public float AttackAt, HitAt, BlockAt, DeadAt, HitUntil, BlockUntil;
             public float WishAt, WishUntil; public byte WishClip;
             public Color WishTint; public float WishTintAmount;
@@ -88,6 +89,7 @@ namespace Roguehalla.Client
                 ClearWeaponMotion(a);
                 a.HitUntil = a.BlockUntil = 0; a.WishUntil = 0;
                 a.Gait.Reset();
+                a.FireAxeReleaseCount = 0;
                 a.AttackAt = a.HitAt = a.BlockAt = a.DeadAt = 0;
                 a.HoldDeathFrame = a.Dead;
             }
@@ -356,6 +358,7 @@ namespace Roguehalla.Client
                 {
                     a = _pool.Count > 0 ? _pool.Pop() : Create(); _active.Add(id, a);
                     a.Root.SetActive(true); a.LastPosition = ArenaView.WorldPoint(x, y); ClearWeaponMotion(a);
+                    a.FireAxeReleaseCount = 0;
                     a.Gait.Reset(); a.StampTime = Time.unscaledTime;
                     a.HitUntil=a.BlockUntil=0;a.Dead=false;a.HoldDeathFrame=false;a.WishUntil=0;a.WishTintAmount=0;
                     if (IsCreature(kind)) MobArt.Created++;
@@ -439,6 +442,8 @@ namespace Roguehalla.Client
             if (a.Appearance == null && _catalog != null && !neutral) a.Appearance = _catalog.Find("knight");
             bool reduced = ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
             var appearance = a.Appearance;
+            var fireAxeArt = kind == ActorKind.Player && faction == FactionId.Fire && weapon == WeaponId.Axe
+                ? StormInkFireAxeAuthoring.Load() : null;
             float fallAngle = dead && (appearance == null || appearance.Death == null || appearance.Death.Length == 0) ? 75f : 0f;
             Sprite[] frames=appearance?.Idle;
             float fps=appearance!=null ? appearance.IdleFPS : 10;
@@ -494,11 +499,19 @@ namespace Roguehalla.Client
                 if (useWeaponPhase || phase == StormInkWeaponMotion.Phase.Block && frames == appearance.Block)
                     shieldBody = StormInkActors.HolyShieldFrame(kind, faction, weapon, direction, phase);
                 if (!dead && hiddenAlpha > 0f && (useWeaponPhase || frames == appearance.Idle || frames == appearance.Walk))
+                {
+                    int stage = reduced || fireAxeArt == null ? 0 : walkPhase
+                        ? Gait.FrameIndex(a.Gait.Phase, fireAxeArt.StrideStages) : fireAxeArt.IdleStage(elapsed);
+                    bool stride = fireAxeArt != null ? walkPhase : walkPhase && frame * 2 >= count;
                     axeBody = StormInkActors.FireAxeFrame(kind, faction, weapon, direction,
-                        useWeaponPhase ? phase : StormInkWeaponMotion.Phase.Guard, walkPhase && frame * 2 >= count);
+                        useWeaponPhase ? phase : StormInkWeaponMotion.Phase.Guard, stride, stage,
+                        a.FireAxeReleaseCount > 0 && (a.FireAxeReleaseCount & 1) == 0);
+                }
                 a.Body.sprite = unarmed ?? shieldBody ?? axeBody ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
                 bool paintedPox = IsPox(a) && painted != null;
                 float height = paintedWand ? 1.24f : paintedPox ? PoxHeight : appearance.WorldHeight;
+                if (axeBody != null && fireAxeArt != null && fireAxeArt.TryHand(axeBody, false, out _))
+                    measuredHeight = height = fireAxeArt.WorldHeight;
                 if (paintedWand) measuredHeight = height + .15f;
                 if (paintedPox) measuredHeight = height + .41f;
                 float fall = painted != null && dead && frames == appearance.Death

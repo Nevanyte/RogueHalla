@@ -93,6 +93,8 @@ namespace Roguehalla.Client
                 if (tracked && (!art.Root.activeSelf || (cueWeapon.HasValue && cueWeapon != art.WeaponId))) return;
                 if (!tracked && art.LocalCue && now - art.AttackAt < LocalCueWindow) { art.LocalCue = false; return; }
                 art.LocalCue = false;
+                if (art.Kind == ActorKind.Player && art.Faction == FactionId.Fire && art.WeaponId == WeaponId.Axe)
+                    art.FireAxeReleaseCount++;
                 art.WindupUntil = 0f;
                 art.AttackAt = now;
                 art.AttackFacing = aim.GetValueOrDefault();
