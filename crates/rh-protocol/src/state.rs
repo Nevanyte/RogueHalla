@@ -23,7 +23,8 @@ pub use self::reward::*;
 pub use self::roster::*;
 pub use self::trade::*;
 
-pub const MAX_STATE_KEYS: usize = 13;
+/// Keys 1..=14; key 14 (P-WIRE19-B, the own readout rows) is optional and sent only on change.
+pub const MAX_STATE_KEYS: usize = 14;
 /// Most roster rows a State key 12 carries (ADR0026); a match seats at most 8 players today.
 pub const MAX_ROSTER: usize = 32;
 /// Longest roster display name in UTF-8 bytes (ADR0026).
@@ -85,6 +86,55 @@ pub struct WireFirstPick {
     pub until: f64,
     /// Whether the window is this viewer's own.
     pub mine: bool,
+}
+/// P-WIRE19-B (protocol 19, State key 14): most readout rows one viewer receives (two per native card; equal to
+/// `rh_sim::cards::native::MAX_READOUTS`).
+pub const MAX_READOUTS: usize = 28;
+/// P-WIRE19-B: readout kind codes (`rh_sim::cards::native::ReadoutKind` order). A code at or above
+/// [`READOUT_KIND_COUNT`] is refused ("readout kind").
+pub const READOUT_KIND_COUNTER: u8 = 0;
+pub const READOUT_KIND_METER: u8 = 1;
+pub const READOUT_KIND_MARKS: u8 = 2;
+/// Number of readout kind codes: counter, meter, marks.
+pub const READOUT_KIND_COUNT: u8 = 3;
+/// P-WIRE19-B: one of the viewer's own native readout rows (C-OBS: never another player's). `card` is a native
+/// `CardId` index (80..=93), `kind` a `READOUT_KIND_*` code; `value` and `max` are finite with `0 <= value <= max`.
+/// On the wire (brief `docs/backlog/packets/P-WIRE19-B.md`): `u8 card, u8 kind, f64 value, f64 max`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WireReadout {
+    pub card: u8,
+    pub kind: u8,
+    pub value: f64,
+    pub max: f64,
+}
+impl WireReadout {
+    /// Bytes a row: card, kind, value, max.
+    pub(crate) const LEN: usize = 18;
+    /// The first native card index (`CardId::NATIVE`); a catalog card never has a readout.
+    const FIRST_CARD: u8 = 80;
+    /// The last native card index.
+    const LAST_CARD: u8 = 93;
+    /// Why this row is refused after a row of card `previous`, checked in the wire order: card, kind, value and max,
+    /// then native order (a card never decreases; two rows of one card are allowed).
+    pub(crate) fn fault(&self, previous: Option<u8>) -> Result<(), &'static str> {
+        if !(Self::FIRST_CARD..=Self::LAST_CARD).contains(&self.card) {
+            return Err("readout card");
+        }
+        if self.kind >= READOUT_KIND_COUNT {
+            return Err("readout kind");
+        }
+        if !(self.value.is_finite()
+            && self.max.is_finite()
+            && self.value >= 0.
+            && self.value <= self.max)
+        {
+            return Err("readout value");
+        }
+        if previous.is_some_and(|p| self.card < p) {
+            return Err("readout order");
+        }
+        Ok(())
+    }
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct WireBuild {
@@ -253,6 +303,9 @@ pub enum StateItem {
     Roster(Vec<WireRosterRow>),
     /// Key 13 (P-WIRE17-HUD-1): the viewer's own build summary; never another seat's. None when unseated.
     BuildSummary(Option<WireBuildSummary>),
+    /// Key 14 (P-WIRE19-B): the viewer's own native readout rows, in native order; never another seat's. Sent only when
+    /// the rows change (a client's rows start empty), so a viewer without native cards never receives it.
+    Readouts(Vec<WireReadout>),
 }
 
 /// Public camp summary; no private actor identity is carried.

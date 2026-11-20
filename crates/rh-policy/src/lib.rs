@@ -55,7 +55,9 @@ use std::time::{Duration, Instant};
 /// room-wide public value every human client reads from the Welcome's HUD block, term 23); bots aim Frost Wall by it.
 /// Version 26 (observation 31, P-WIRE19-A): a projected reward chest row (State key 4) carries `first_pick` (the killer
 /// first-pick window's end and the viewer's own `mine`), and a card option may be a native id 80..=93.
-pub const POLICY_CONTRACT_VERSION: u16 = 26;
+/// Version 27 (observation 32, P-WIRE19-B): the observation carries the viewer's own native readout rows, projected as
+/// the optional State key 14 (sent on change only) and kept by `CollectionView::readouts`; bots do not decide on them.
+pub const POLICY_CONTRACT_VERSION: u16 = 27;
 
 /// Everything a policy may know about a match before its first observation, all of it public static data (the map
 /// and spawn points), never match state. Never a [`rh_sim::Secrets`] value and never the sim itself (C-OBS, C-RNG, C-POLICY).

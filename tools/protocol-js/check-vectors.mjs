@@ -123,6 +123,49 @@ if (Number(version) < 19) throw new Error(`the probe speaks protocol ${version}:
   refused(patched((b, dv) => dv.setFloat64(at + 1, 21000.5, true)), /first pick/, "until after the chest's expiry");
   refused(patched((b, dv) => dv.setFloat64(at + 1, 21000, true)), /^accepted$/, "a window may end with the chest");
 }
+// P-WIRE19-B oracle-amend: State key 14 carries the viewer's own native readout rows: count u8 (<= 28), then rows of card u8
+// (80..=93), kind u8 (0..=2), value f64, max f64 (finite, 0 <= value <= max, cards in native order). The probe's item is
+// `{ key: 14, value: [{ card, kind, value, max }] }`. The bytes are the brief's (docs/backlog/packets/P-WIRE19-B.md),
+// shared with the Rust (crates/rh-protocol/tests/wire19_readouts.rs) and C# (Wire19ReadoutTests.cs) oracles.
+{
+  const readoutHex = {
+    state_readouts: "88dc01010e055000b81e85eb51b8be3f333333333333d33f510100000000000044400000000000406f405500cdcccccccccc0c4000000000000038405502000000000000084000000000000034405d000000000000000000000000000000f03f",
+    state_readouts_empty: "88dc01010e00",
+  };
+  const readoutRows = {
+    state_readouts: [{card:80,kind:0,value:0.12,max:0.3},{card:81,kind:1,value:40,max:250},{card:85,kind:0,value:3.6,max:24},{card:85,kind:2,value:3,max:20},{card:93,kind:0,value:0,max:1}],
+    state_readouts_empty: [],
+  };
+  for (const name of Object.keys(readoutHex)) {
+    const v = fx.server.find(v => v.name === name);
+    if (!v) throw new Error(`missing Rust-generated ${name} vector (P-WIRE19-B)`);
+    eq(v.hex, readoutHex[name], name + " bytes are the brief's");
+    let s; try { s = decode(bytes(readoutHex[name])); } catch (e) { throw new Error(`${name} is refused: ${e.message}`); }
+    eq(s.tick, 220, name + " tick");
+    eq(JSON.stringify(s.items), JSON.stringify([{key:14,value:readoutRows[name]}]), name + " rows (keys in order)");
+  }
+  // Row i starts at byte 6 + 18 i: card, kind, value, max.
+  const at = (row, field) => 6 + 18 * row + field;
+  const patched = (patch) => { const b = new Uint8Array(bytes(readoutHex.state_readouts)); patch(b, new DataView(b.buffer)); return b.buffer; };
+  const refusal = (buf) => { try { decode(buf); } catch (e) { return String(e.message); } return "accepted"; };
+  const refused = (buf, re, what) => { checks++; const m = refusal(buf); if (!re.test(m)) throw new Error(`${what}: got "${m}", want ${re}`); };
+  refused(bytes("88dc01010e1d"), /readout count/, "29 rows");
+  refused(patched((b) => { b[at(0, 0)] = 79; }), /readout card/, "catalog card 79");
+  refused(patched((b) => { b[at(4, 0)] = 94; }), /readout card/, "card 94");
+  refused(patched((b) => { b[at(1, 1)] = 3; }), /readout kind/, "kind 3");
+  refused(patched((b, dv) => dv.setFloat64(at(0, 2), NaN, true)), /readout value/, "value NaN");
+  refused(patched((b, dv) => dv.setFloat64(at(0, 2), -0.5, true)), /readout value/, "value negative");
+  refused(patched((b, dv) => dv.setFloat64(at(1, 2), 250.5, true)), /readout value/, "value over max");
+  refused(patched((b, dv) => dv.setFloat64(at(1, 10), Infinity, true)), /readout value/, "max infinite");
+  refused(patched((b) => { b[at(2, 0)] = 80; }), /readout order/, "order");
+  refused(patched((b, dv) => dv.setFloat64(at(1, 2), 250, true)), /^accepted$/, "a value may equal its max");
+  refused(bytes("8800010f"), /state key/, "key 15 is unknown");
+  refused(bytes("88000f"), /too many/, "15 keys are too many");
+  for (const [name, hex] of [["state_unknown_key", "8800010f"], ["state_too_many_keys", "88000f"]]) {
+    const v = fx.malformedServer.find(v => v.name === name);
+    eq(v?.hex, hex, name + " names key 15 now");
+  }
+}
 if (version >= 13) {
   const trophyVector = fx.server.find(v => v.name === "state_trophy_reward_keys");
   if (!trophyVector?.decoded) throw new Error("missing Rust-decoded state_trophy_reward_keys vector");
@@ -749,6 +792,10 @@ const reason = {
   state_reward_card_id_94: /reward id/, state_reward_kill_key_unknown: /Trophy key/,
   state_reward_first_pick_tag_2: /bad option/, state_reward_first_pick_mine_2: /bad option/,
   state_reward_first_pick_nonfinite: /first pick|bad field/, state_reward_first_pick_after_expiry: /first pick/,
+  // P-WIRE19-B (oracle-amend): State key 14, the viewer's own readout rows.
+  state_readouts_count_29: /readout count/, state_readouts_card_79: /readout card/, state_readouts_card_94: /readout card/,
+  state_readouts_kind_3: /readout kind/, state_readouts_value_nan: /readout value/, state_readouts_value_negative: /readout value/,
+  state_readouts_value_over_max: /readout value/, state_readouts_max_infinite: /readout value/, state_readouts_order: /readout order/,
   state_reward_kind_unknown: /bad reward kind/,
   state_reward_kill_gain_zero: /Trophy gain/, state_reward_kill_gain_negative: /Trophy gain/,
   state_reward_kill_gain_nan: /Trophy gain/, state_reward_kill_gain_infinity: /Trophy gain/,
