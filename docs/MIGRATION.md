@@ -136,8 +136,10 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
        It goes in a test packet, P-SYNC-ORIGIN-1-fix.
   - **For P-TICK-1b:** the local sites that still read `constants::TICK_MS`. They are equal at 50 ms; at 25 ms the
     Wish restore lattice would refuse valid checkpoints.
-    - `abilities/checkpoint.rs` :33, :44, :237;
-    - `cards/native/hooks.rs:171` (Glacier's chill ms);
+    - `abilities/checkpoint.rs` :9, :30, :40, :169, :194, :203, :221, :241, :320, :325, :335, :408 (line numbers as of
+      integration 73, Wish Engine included; P-TICK-1b's brief already covers the whole file);
+    - `abilities/mod.rs:708`;
+    - `cards/native/hooks.rs:172` (Glacier's chill ms);
     - `systems/buffs.rs` :78, :80 (barrier decay);
     - and the native and plant tests.
 - **Identities after integration 71:** protocol 20, observation 33, policy contract 28, checkpoint `rh-checkpoint/36`,
@@ -165,6 +167,8 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
     - P-AUG-UI-2: native card text, native chest options, the owner's readout strip and the first-pick countdown.
       The strip has not yet been looked at in a render.
   - **Review and gate:** reviewer LAND on both. Full gate green except the waived pin.
+  - reviewer-opus integration review of integrations 72 and 73: **LAND**. No hunk lost; a restored Rework chest
+    offering Wish Engine passes `validate_world`; BOTS-1 and UI-2 cover Wish Engine.
 - **Identities after integration 73:** protocol 20, observation 33, policy contract 29, checkpoint `rh-checkpoint/36`,
   replay 25, content hash `84fb785f2972e59a`.
 
