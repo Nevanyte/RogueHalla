@@ -2,13 +2,21 @@
 
 The owner selected Storm Ink on 2026-11-19. The church study sets the camera and value range. Broad dry-brush strokes carry the world. Figures use ink contours and flatter fills. Elemental pigment peaks at contact and falls away through recovery.
 
+## Fantasy character design
+
+Watercolor supplies soft edges and granulation on terrain. Broken dark brush contours and flat local colour separate the cast from the painted world. Use each character’s job, anatomy, climate and equipment to design the shape of the head, shoulders, hands and feet. At gameplay size, a fighter should be identifiable with the colour turned off and the weapon put away.
+
+The Fire runner wears a fitted scorched jerkin and an asymmetric heat guard. The Haunted champion keeps his approved loose, unbelted reaper cloak and black gloves. The Plague doctor hides beneath a sealed mask and carries his supplies on one side. Frost braces in fur and heavy ice boots. Holy has a broad plate cuirass and sun crown. Give the Haunted Inquisitor a rigid funerary mask and short crow-feather mantle. The Chain Warden carries actual manacles and reels in the weighted links after each lash.
+
+Headbands, topknots, tied waist cloths and ribbons recur in the first sheets. Review each character in the lineup, including bare hands and head shape, and replace repeated features where their role gives a stronger silhouette. Identify each elite by its signature weapon or action at normal camera distance. The acceptance list records which designs have passed that comparison.
+
 ## Champion cast and equipment
 
 All five champions and the Executioner use original 512 × 1024 transparent sheets under `Assets/Resources/StormInk/Actors`. The 128 × 128 cells share a foot baseline and carry no painted ground shadow. Rows from the top are S, SE, E, NE, N, NW, W and SW. Columns are ready, stride, anticipation and strike. The delivered actor archetype still sets world scale and clip timing.
 
 The Haunted fighter has a loose reaper cloak and black gloves. The Executioner keeps its broad masked silhouette, garnet mantle and black lamellar apron. Fire, Plague, Frost and Holy have their own painted posture and costume. The champions' palms are registered on each view and pose.
 
-Sword, Bow, Wand, Axe and Shield each use a single shared 1024 × 512 turntable with eight 256 × 256 views. Equipment keeps its shape through equip, attack and drop. Confirmed cues select a stance and direction without replacing the authoritative action. The bow draws from the painted right hand while the left holds its grip. Regional creatures beyond the Executioner remain on their existing appearance path.
+Sword, Bow, Wand, Axe and Shield each use a single shared 1024 × 512 turntable with eight 256 × 256 views. Equipment keeps its shape through equip, attack and drop. Confirmed cues select a stance and direction without replacing the authoritative action. The bow draws from the painted right hand while the left holds its grip. The named-enemy registrations and the status of each of the 30 regional creatures are tracked in STORM_INK_VISUAL_CHECKS.csv.
 
 ## Church furnishings and contact
 
