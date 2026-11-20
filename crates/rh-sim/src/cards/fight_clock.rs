@@ -71,7 +71,7 @@ pub(crate) fn validate(
         return Err("unproduced empty card runtime".into());
     }
     if let Some(f) = runtime.fight {
-        // Baseline/Off admits fractional epochs. Only Source lifecycle establishes an absolute 50ms grid.
+        // Baseline/Off admits fractional epochs. Only Source lifecycle establishes an absolute grid of the match's step.
         let source_grid = k.config.lifecycle.rules().is_some();
         if !watches(p)
             || !f.start.is_finite()
@@ -79,8 +79,7 @@ pub(crate) fn validate(
             || !(0. ..=w.server_time).contains(&f.start)
             || !(f.start..=w.server_time).contains(&f.last)
             || (source_grid
-                && (f.start % crate::constants::TICK_MS != 0.
-                    || f.last % crate::constants::TICK_MS != 0.))
+                && (f.start % k.tick_ms() != 0. || f.last % k.tick_ms() != 0.))
         {
             return Err("invalid watched card fight clock".into());
         }

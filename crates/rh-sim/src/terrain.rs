@@ -209,7 +209,7 @@ pub(crate) fn validate(
     // Each native movement step starts from positions admitted within this map margin,
     // then adds only bounded traction. This deliberately exceeds any one-tick history velocity.
     let span = (f64::from(k.arena.map.w.max(k.arena.map.h)) * crate::constants::TILE + 2048.) * 4.;
-    let velocity_limit = span / (crate::constants::TICK_MS / 1000.);
+    let velocity_limit = span / (k.tick_ms() / 1000.);
     for i in 0..w.fighter_count() {
         let p = w.core(crate::fighter::FighterIx::of_slot(i));
         if p.motion.path.generation > path_generation_limit(w.tick) {

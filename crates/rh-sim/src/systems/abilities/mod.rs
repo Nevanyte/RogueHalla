@@ -190,7 +190,7 @@ pub(crate) fn handle(cx: &mut Cx, ix: FighterIx, cmd: &ActionCmd) {
             previous_ready_at,
             previous_full_at,
             lag_ms: (now - t.unwrap_or(now))
-                .clamp(crate::constants::TICK_MS, crate::constants::MAX_REWIND_MS),
+                .clamp(cx.k.tick_ms(), crate::constants::MAX_REWIND_MS),
         }),
     };
     p.statuses.cast = Some(cast);
@@ -226,7 +226,7 @@ pub(crate) fn handle(cx: &mut Cx, ix: FighterIx, cmd: &ActionCmd) {
             y: at.y,
         });
     }
-    rt::reveal(&mut p.statuses, now, cast.lands_at + rt::HIDDEN_REVEAL_MS);
+    rt::reveal(&mut p.statuses, now, cast.lands_at + rt::HIDDEN_REVEAL_MS, cx.k.tick_ms());
     crate::vision::cast_exposure(cx.k, p, now, cast.lands_at);
     p.statuses.refresh_effects(now);
 }

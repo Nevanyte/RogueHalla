@@ -32,7 +32,7 @@ pub(crate) fn multipliers(cx: &mut Cx) {
         for (m, &i) in s.mults.iter_mut().zip(&s.standing) {
             for &(_, modifier) in modifiers {
                 let view = stats.view(w.core(i));
-                *m *= modifier(k, w, i, TICK_MS, view);
+                *m *= modifier(k, w, i, k.tick_ms(), view);
             }
         }
     }
@@ -45,7 +45,7 @@ pub(crate) fn multipliers(cx: &mut Cx) {
 pub(crate) fn walk(cx: &mut Cx) {
     let Cx { k, w, s, pf, .. } = cx;
     for (&ix, &mult) in s.standing.iter().zip(&s.mults) {
-        walk_one(k, w, ix, pf, TICK_MS, None, mult);
+        walk_one(k, w, ix, pf, k.tick_ms(), None, mult);
     }
 }
 #[allow(clippy::too_many_arguments)]
@@ -122,10 +122,10 @@ pub(crate) fn walk_one(
 /// System (legacy movement.recordHistory): recorded after everyone moved, so hit tests see one consistent tick. Ends
 /// the tick's movement: the standing list and the multipliers are spent.
 pub(crate) fn record_history(cx: &mut Cx) {
-    let Cx { w, s, .. } = cx;
+    let Cx { k, w, s, .. } = cx;
     let now = w.server_time;
     for &ix in &s.standing {
-        record_sample(w.core_mut(ix), now);
+        record_sample(w.core_mut(ix), now, k.tick_ms());
     }
     s.standing.clear();
     s.mults.clear();
@@ -157,9 +157,9 @@ fn advance_along_path(p: &mut FighterCore, dt: f64, keep_facing: bool, speed_mul
     }
 }
 
-fn record_sample(p: &mut FighterCore, now: f64) {
+fn record_sample(p: &mut FighterCore, now: f64, tick_ms: f64) {
     let (x, y) = (p.body.x, p.body.y);
-    p.body.history.record(now, x, y);
+    p.body.history.record_at_step(now, x, y, tick_ms);
 }
 
 pub(crate) fn floor_multiplier(m: f64) -> f64 {

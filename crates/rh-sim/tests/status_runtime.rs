@@ -75,14 +75,14 @@ fn effective_key_collision_keeps_metadata_and_stale_payload_but_replaces_source(
 fn hidden_reveal_starts_next_tick_and_open_windows_only_extend() {
     let mut rt = StatusRuntime::default();
     apply(&mut rt, 0., request(StatusKind::Hidden));
-    reveal(&mut rt, 100., 500.);
+    reveal(&mut rt, 100., 500., 50.);
     assert!(hidden(&rt.instances, 149.));
     assert!(!hidden(&rt.instances, 150.));
-    reveal(&mut rt, 200., 600.);
+    reveal(&mut rt, 200., 600., 50.);
     assert_eq!(rt.instances[0].reveal_from, Some(150.));
     assert!(!hidden(&rt.instances, 599.));
     assert!(hidden(&rt.instances, 600.));
-    reveal(&mut rt, 600., 800.);
+    reveal(&mut rt, 600., 800., 50.);
     assert_eq!(rt.instances[0].reveal_from, Some(650.));
 }
 #[test]

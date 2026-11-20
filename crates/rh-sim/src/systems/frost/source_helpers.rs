@@ -229,7 +229,7 @@ fn frost_sources_declared_helpers_order_return_bonus_and_lifecycle() {
             sim.s.reserve_actors(sim.w.fighter_count());
             // dt=0 source observations have no future cooldown/action work in these helpers. Native's fixed-50ms
             // kernel therefore has the same Frost tuples; no tick is advanced and no runtime/restore claim is made.
-            after_damage(&mut sim.w);
+            after_damage(&mut sim.w, crate::constants::LEGACY_TICK_MS);
             let output = &frame["output"];
             if name == "helper-eleven-ordered-sources-lifecycle" {
                 fr_npc_bind_missing_mobs(&sim, output, seats, &mut map).unwrap();

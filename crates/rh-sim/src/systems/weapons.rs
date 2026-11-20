@@ -19,15 +19,16 @@ pub(crate) fn set_aim(p: &mut FighterCore, now: f64, a: f64) {
     p.body.facing = a;
 }
 
-fn note_lag(p: &mut FighterCore, now: f64, t: Option<f64>) {
+/// The command's lag, floored at one step of the sim (`tick_ms`) and capped at the rewind window.
+fn note_lag(p: &mut FighterCore, now: f64, tick_ms: f64, t: Option<f64>) {
     let lag = match t {
-        None => TICK_MS,
+        None => tick_ms,
         Some(t) => now - t,
     };
-    p.weapon.lag_ms = MAX_REWIND_MS.min(TICK_MS.max(lag));
+    p.weapon.lag_ms = MAX_REWIND_MS.min(tick_ms.max(lag));
 }
 
-pub(crate) fn handle_press(p: &mut FighterCore, now: f64, a: f64, t: Option<f64>) {
+pub(crate) fn handle_press(p: &mut FighterCore, now: f64, tick_ms: f64, a: f64, t: Option<f64>) {
     super::targeting::drop_lock(p);
     p.weapon.targeting.attack_move = None;
     if !crate::status_runtime::has(
@@ -37,7 +38,7 @@ pub(crate) fn handle_press(p: &mut FighterCore, now: f64, a: f64, t: Option<f64>
     ) {
         set_aim(p, now, a);
     }
-    note_lag(p, now, t);
+    note_lag(p, now, tick_ms, t);
     let w = &mut p.weapon;
     if !w.held {
         w.pressed_at = now;
@@ -46,7 +47,7 @@ pub(crate) fn handle_press(p: &mut FighterCore, now: f64, a: f64, t: Option<f64>
     w.buffered_until = now + ATTACK_BUFFER_MS;
 }
 
-pub(crate) fn handle_release(p: &mut FighterCore, now: f64, a: f64, t: Option<f64>) {
+pub(crate) fn handle_release(p: &mut FighterCore, now: f64, tick_ms: f64, a: f64, t: Option<f64>) {
     if p.weapon.targeting.target.is_none()
         && !crate::status_runtime::has(
             &p.statuses.instances,
@@ -57,7 +58,7 @@ pub(crate) fn handle_release(p: &mut FighterCore, now: f64, a: f64, t: Option<f6
         set_aim(p, now, a);
     }
     if t.is_some() {
-        note_lag(p, now, t);
+        note_lag(p, now, tick_ms, t);
     }
     p.weapon.held = false;
 }
@@ -66,7 +67,7 @@ pub(crate) fn handle_release(p: &mut FighterCore, now: f64, a: f64, t: Option<f6
 pub(crate) fn on_attack(cx: &mut Cx, ix: FighterIx, cmd: &ActionCmd) {
     if let ActionCmd::Attack { a, t } = *cmd {
         let now = cx.w.server_time;
-        handle_press(cx.w.core_mut(ix), now, a, t);
+        handle_press(cx.w.core_mut(ix), now, cx.k.tick_ms(), a, t);
     }
 }
 
@@ -74,7 +75,7 @@ pub(crate) fn on_attack(cx: &mut Cx, ix: FighterIx, cmd: &ActionCmd) {
 pub(crate) fn on_release(cx: &mut Cx, ix: FighterIx, cmd: &ActionCmd) {
     if let ActionCmd::Release { a, t } = *cmd {
         let now = cx.w.server_time;
-        handle_release(cx.w.core_mut(ix), now, a, t);
+        handle_release(cx.w.core_mut(ix), now, cx.k.tick_ms(), a, t);
     }
 }
 
@@ -133,7 +134,7 @@ fn step_weapon(cx: &mut Cx, ix: FighterIx) {
             };
             (tm, packet)
         };
-        start_attack(p, now, cx.ev, weapon, tm, packet);
+        start_attack(p, now, cx.k.tick_ms(), cx.ev, weapon, tm, packet);
         let id = p.id;
         if cx.k.config.faction_mode.frost() {
             cx.s.attack_started[ix.slot()] = true;
@@ -160,13 +161,15 @@ fn step_weapon(cx: &mut Cx, ix: FighterIx) {
 fn start_attack(
     p: &mut FighterCore,
     now: f64,
+    tick_ms: f64,
     ev: &mut Vec<Event>,
     weapon: WeaponId,
     tm: Timings,
     packet: crate::state::Packet,
 ) {
     let start = if p.weapon.pressed_at <= p.weapon.ready_at {
-        p.weapon.ready_at.max(now - TICK_MS)
+        // A press buffered before `ready_at` starts then, or at most one step of the sim back.
+        p.weapon.ready_at.max(now - tick_ms)
     } else {
         now
     };
@@ -220,7 +223,7 @@ fn land(cx: &mut Cx, ix: FighterIx, act: PendingAction) {
     p.weapon.action = None;
     match act.kind {
         ActionKind::Swing => {
-            let rewind_t = now - MAX_REWIND_MS.min(TICK_MS.max(p.weapon.lag_ms));
+            let rewind_t = now - MAX_REWIND_MS.min(cx.k.tick_ms().max(p.weapon.lag_ms));
             let attacker = p.id;
             cx.s.melee.push(MeleeReq {
                 attacker,

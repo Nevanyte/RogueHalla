@@ -8,9 +8,7 @@
 //! Legacy keeps one combat clock for every fighter id and stamps the victim and the attacker of each landed row. Only a
 //! player is ever read, and ids are never reused, so the readable state is exactly each player's own last-hit time; the
 //! clock therefore lives on the player (hashed, checkpointed, no side table) instead of a map.
-use crate::constants::{
-    PLAYER_REGEN_QUIET_MS, PLAYER_REGEN_SHARE_IN, PLAYER_REGEN_SHARE_OUT, TICK_MS,
-};
+use crate::constants::{PLAYER_REGEN_QUIET_MS, PLAYER_REGEN_SHARE_IN, PLAYER_REGEN_SHARE_OUT};
 use crate::events::Event;
 use crate::hooks::{HookArgs, Hx};
 use crate::state::{PlayerId, World};
@@ -38,7 +36,7 @@ fn pass_inner(k: &MatchStatic, w: &mut World, landed: &[LandedHit], ev: &mut Vec
     if w.rt.gates_locked {
         return;
     }
-    let dt = TICK_MS / 1000.0;
+    let dt = k.tick_ms() / 1000.0;
     for i in 0..w.players.len() {
         let max_hp = {
             let p = &w.players[i];
@@ -89,6 +87,7 @@ fn clear(w: &mut World) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::TICK_MS;
     use crate::{arenas::practice_arena, FactionId, Placement, Secrets, Sim, SimConfig, Vec2};
 
     fn sim(regen: bool) -> Sim {

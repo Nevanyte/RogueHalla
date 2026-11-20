@@ -328,7 +328,7 @@ fn follow(cx: &mut Cx, i: usize, id: PlayerId) {
         p.weapon.pressed_at = now;
     }
     p.weapon.held = hold;
-    p.weapon.lag_ms = TICK_MS;
+    p.weapon.lag_ms = cx.k.tick_ms();
     p.weapon.aim = aim;
     p.weapon.aim_at = now;
     if wrap_angle(aim - p.body.facing).abs() >= MOB_AIM_DEADBAND {

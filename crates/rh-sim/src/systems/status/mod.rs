@@ -75,7 +75,7 @@ pub(crate) fn finish(cx: &mut Cx) {
             continue;
         }
         if let Some(a) = p.weapon.action {
-            rt::reveal(&mut p.statuses, now, a.lands_at + rt::HIDDEN_REVEAL_MS)
+            rt::reveal(&mut p.statuses, now, a.lands_at + rt::HIDDEN_REVEAL_MS, k.tick_ms())
         }
         p.statuses.refresh_effects(now);
     }
@@ -295,6 +295,7 @@ pub(crate) fn attack_started(hx: &mut Hx, args: &HookArgs) {
                 &mut hx.w.core_mut(i).statuses,
                 now,
                 a.lands_at + rt::HIDDEN_REVEAL_MS,
+                hx.k.tick_ms(),
             );
         }
     }
