@@ -56,7 +56,7 @@ namespace Roguehalla.Client
         uint _hoverId; uint? _huntTarget; float _selfMaxHp = 100f, _localX, _localY; bool _haveLocal; int _wishState; byte _wishAbility;
         /// <summary>Instant lock ring for a wand click (legacy LockDisplay); MatchClient notes orders, Present draws Shown.</summary>
         public readonly LockDisplay LockDisplay = new LockDisplay();
-        uint? _lockForNpc; InventoryView? _inventory; uint _localId; int _numberLane;
+        uint? _lockForNpc; InventoryView? _inventory; uint _localId;
         WireArchetype[] _archetypes = System.Array.Empty<WireArchetype>();
         /// <summary>True when the <c>?hitboxes=1</c> debug overlay exists (never otherwise).</summary>
         public bool HitboxOverlayActive { get { return _overlay != null; } }
@@ -122,7 +122,7 @@ namespace Roguehalla.Client
             if (_actors != null) return _actors.TrySoundContext(id,out weapon,out faction,out kind,out type);
             weapon=default; faction=default; kind=default; type=null; return false;
         }
-        sealed class Flash { public SpriteRenderer Sprite, Plate; public TMP_Text Text; public uint Actor; public float Start, Duration; public Vector3 Position; public Color Color; public float Size; public Color TextColor; public float LaneX; public int AlphaByte = 255; }
+        sealed class Flash { public SpriteRenderer Sprite, Plate; public TMP_Text Text; public uint Actor; public float Start, Duration; public Vector3 Position; public Color Color; public float Size; public Color TextColor; public Vector2 NumberOffset, NumberSize; public Rect NumberEnvelope; public int AlphaByte = 255; }
         System.Action<uint, ProjectileKind, float, float, float> _observedProjectile;
         struct PendingFx { public ushort WindupMs; public FxKind Kind; public uint Subject; public float Amount; public double DueMs; public float QueuedAt; public float X, Y, A, CreatedAt; public byte Weapon; public uint By; public bool Passive, Crit; public byte SigKind; }
 
@@ -143,7 +143,8 @@ namespace Roguehalla.Client
             _hitZones.Position = (uint id, out float x, out float y) => { if (_actors.TryPosition(id, out var w)) { x = w.x / Scale; y = -w.y / (Scale * GroundSquash); return true; } x = y = 0; return false; };
             _weaponRange = new WeaponRangePresenter(Child("Weapon range guide"));
             _worldMarks = new WorldMarks(Child("World markers"), _catalog); _campLabels = new CampRespawnLabels(Child("Camp respawn labels"));
-            _campLabels.NameRectSource = into => { if (_actors != null) _actors.FighterNameRects(into); };
+            _campLabels.NameRectSource = _actors.FighterNameRects;
+            _campLabels.HeaderRectSource = _actors.FighterHeaderRects;
             _worldIndicators = new WorldIndicators(Child("World indicators")); _vignette = new HurtVignette();
             _patience = new CampPatienceOutlines(Child("Camp patience outlines")); _carrierFlags = new QuestCarrierFlags(Child("Quest carrier flags"));
             // the drawn actors: the presenter that Present()s every observed fighter, the local player included

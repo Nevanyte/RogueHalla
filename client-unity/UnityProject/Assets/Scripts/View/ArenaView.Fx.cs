@@ -135,25 +135,41 @@ namespace Roguehalla.Client
                 {
                     var theme = UiTheme.Current;
                     flash.Text.text = f.Kind == FxKind.Heal ? healText : Indicators.DamageText(f.Amount, f.Crit);
-                    if (f.Kind == FxKind.Heal) { flash.TextColor = RgbColour(Indicators.HealColour); flash.Text.fontSize = 3f * 13f / 13f; flash.Duration = .8f; flash.Position += new Vector3(0, .1f, 0); flash.LaneX = NumberSide; }
-                    else if (f.Kind == FxKind.SigHit) { flash.TextColor = RgbColour(Indicators.SigColour(f.SigKind)); flash.Text.fontSize = 3f * 11f / 13f; flash.LaneX = NumberSide + Indicators.DamageLaneOffset(_numberLane++) * .026f; }
+                    if (f.Kind == FxKind.Heal) { flash.TextColor = RgbColour(Indicators.HealColour); flash.Text.fontSize = 3f * 13f / 13f; flash.Duration = .8f; flash.Position += new Vector3(0, .1f, 0); }
+                    else if (f.Kind == FxKind.SigHit) { flash.TextColor = RgbColour(Indicators.SigColour(f.SigKind)); flash.Text.fontSize = 3f * 11f / 13f; }
                     else
                     {
-                        // Legacy FxView: red on me, gold by me, grey otherwise; 13 px + 1 per 40 damage (max +7, +5 critical); simultaneous numbers fan over 5 lanes.
+                        // Legacy FxView: red on me, gold by me, grey otherwise; 13 px + 1 per 40 damage (max +7, +5 critical).
                         var tone = Indicators.DamageColour(f.Subject, f.By, _localId);
                         flash.TextColor = (Color)(tone == Indicators.DamageTone.OnMe ? theme.Danger : tone == Indicators.DamageTone.ByMe ? theme.Accent : theme.TextSecondary);
                         flash.Text.fontSize = 3f * (f.Passive ? 11f : Indicators.DamageSize(f.Amount, f.Crit)) / 13f;
-                        flash.LaneX = NumberSide + Indicators.DamageLaneOffset(_numberLane++) * .026f;
                     }
                     // The tone is set once, opaque; the fade then rewrites only the vertex alpha (SetNumberAlpha). Fading through TMP_Text.color
                     // marks the text dirty and TextMeshPro regenerates the whole mesh every frame (PERF_REPORT section 5).
                     var spawnTone = flash.TextColor; spawnTone.a = 1f; flash.Text.color = spawnTone; flash.AlphaByte = 255;
                     flash.Text.ForceMeshUpdate();
+                    PlaceDamageNumber(flash);
                 }
                 _flashes.Add(flash);
         }
-        /// <summary>Numbers rise beside the fighter, not over its overhead stack (wish, build row, bar): with the protocol 16 marks they sat on top of each other (UI lab).</summary>
-        const float NumberSide = .62f;
+        const float NumberRise = .35f;
+        readonly List<Rect> _numberObstacles = new List<Rect>(48);
+
+        void PlaceDamageNumber(Flash flash)
+        {
+            _numberObstacles.Clear();
+            foreach (var live in _flashes)
+                if (live.Plate.gameObject.activeSelf && flash.Start < live.Start + live.Duration)
+                    _numberObstacles.Add(live.NumberEnvelope);
+            float width = flash.Text.preferredWidth + .14f;
+            float height = flash.Text.fontSize * .1f + .06f;
+            var origin = new Vector2(flash.Position.x, flash.Position.y + .70f - height * .5f);
+            Rect placement = CombatHudPlacement.Damage(origin, width, height + NumberRise, _numberObstacles);
+            flash.NumberEnvelope = placement;
+            flash.NumberSize = new Vector2(width, height);
+            flash.NumberOffset = new Vector2(placement.center.x - flash.Position.x, placement.yMin + height * .5f - flash.Position.y);
+        }
+
         static Color RgbColour(uint rgb) { return new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 1f); }
         void UpdateEffects()
         {
@@ -167,9 +183,17 @@ namespace Roguehalla.Client
                 // Keep the silhouette readable even when confirmed hits overlap rapidly.
                 // Damage text retains its longer lifetime; the hollow impact rim fades quickly.
                 var c = f.Color; c.a = .55f * Mathf.Clamp01(1 - (Time.unscaledTime - f.Start) / .16f); f.Sprite.color = c;
-                f.Text.transform.position=f.Position+new Vector3(f.LaneX,.7f+(reduced ? 0 : t*.35f),0); SetNumberAlpha(f, 1 - t);
-                // A dark plate under the number (lab finding: grey digits vanished on sand and snow); legacy used a black stroke.
-                if (f.Plate.gameObject.activeSelf) { var pc = (Color)UiTheme.Current.OutlineDark; pc.a = .88f * (1 - t); f.Plate.color = pc; f.Plate.transform.position = f.Text.transform.position; f.Plate.transform.localScale = new Vector3(f.Text.preferredWidth + .14f, f.Text.fontSize * .1f + .06f, 1); }
+                if (!f.Plate.gameObject.activeSelf) continue;
+                var rise = reduced ? 0f : t * NumberRise;
+                f.Text.transform.position = f.Position + new Vector3(f.NumberOffset.x, f.NumberOffset.y + rise, 0f);
+                SetNumberAlpha(f, 1 - t);
+                // Keep the plate behind its text and reserve the whole path of
+                // the rise when each measured number first enters the scene.
+                var pc = (Color)UiTheme.Current.OutlineDark;
+                pc.a = .88f * (1 - t);
+                f.Plate.color = pc;
+                f.Plate.transform.position = f.Text.transform.position;
+                f.Plate.transform.localScale = new Vector3(f.NumberSize.x, f.NumberSize.y, 1f);
             }
         }
 

@@ -132,6 +132,20 @@ namespace Roguehalla.Client
             into.AddRange(_nameRects);
         }
 
+        /// <summary>Presented head bands and health bars, used by the camp reward plaque.</summary>
+        public void FighterHeaderRects(List<Rect> into)
+        {
+            foreach (var art in _active.Values)
+            {
+                if (art.Stamp != _stamp || art.Dead || !art.Root.activeSelf || !art.Body.enabled) continue;
+                var body = art.Body.bounds;
+                float halfWidth = Mathf.Min(.52f, body.extents.x * .70f);
+                float height = Mathf.Min(.68f, body.extents.y * .75f);
+                into.Add(new Rect(body.center.x - halfWidth, body.max.y - height, halfWidth * 2f, height));
+                if (art.HpBack.enabled) into.Add(CombatHudPlacement.FromBounds(art.HpBack.bounds));
+            }
+        }
+
         // Luminance of what a player sees on each surface, for NamePalette.IsPale: the averages measured for P-UNITY-NAME-LEGIBLE-1 (ground texels through the
         // ground shader, scaled by the drawn-light ratio). Every SurfaceKind has an explicit entry; NameLegibleTableEditModeTests keeps the measured ones
         // in step with the texels. The kinds with no texel source are decisions, not measurements:
