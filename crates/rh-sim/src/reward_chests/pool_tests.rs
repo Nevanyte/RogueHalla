@@ -551,8 +551,9 @@ fn the_training_console_grants_and_rolls_the_worlds_pool() {
             .pop()
             .expect("the console dropped a chest");
         for id in card_options(&c) {
+            // P-AUG-NATIVE-4: the world's offer pool also holds the native batch cards.
             assert!(
-                REWORK_POOL.contains(&id),
+                sim.k.cards.in_pool(id),
                 "{id:?} is not a Rework pool card"
             );
             if !seen.contains(&id) {
