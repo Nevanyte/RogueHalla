@@ -50,7 +50,7 @@ namespace Roguehalla.Net
             else if (_lastDraw != 0)
             {
                 _lastDraw = 0;
-                EndPauseAt(tickMs - TickMs, true);
+                EndPauseAt(tickMs - StepMs, true);
             }
         }
 
@@ -58,7 +58,7 @@ namespace Roguehalla.Net
         {
             double landStep = CeilStep(landsAt);            // the first step whose tick has the shot landed (weapons run before movement)
             double firstStep = release ? Math.Max(tickMs, CeilStep(landsAt - RangedReleasePauseMs)) : tickMs;
-            double from = firstStep - TickMs, until = landStep - TickMs;
+            double from = firstStep - StepMs, until = landStep - StepMs;
             if (!(until > from)) return;
             if (_pauseCount == PauseSlots) DropPauseSlot(0);
             _pauseFrom[_pauseCount] = from;
@@ -77,7 +77,7 @@ namespace Roguehalla.Net
         /// The owner's <c>Cancel</c> fx at server time <paramref name="tickMs"/>: the order that cancelled the attack ran in the
         /// input phase, before that tick's multiplier was read, so the step ending at the cancel's tick walks.
         /// </summary>
-        public void NoteOwnCancel(double tickMs) { if (PredictAttackPause) EndPauseAt(tickMs - TickMs, true); }
+        public void NoteOwnCancel(double tickMs) { if (PredictAttackPause) EndPauseAt(tickMs - StepMs, true); }
 
         void EndPauseAt(double untilMs, bool includeDraws)
         {
@@ -102,14 +102,14 @@ namespace Roguehalla.Net
         public bool AttackPauseStops(double tickMs)
         {
             for (int i = 0; i < _pauseCount; i++)
-                if (_pauseFrom[i] + TickMs <= tickMs + TieEpsMs && tickMs <= _pauseUntil[i] + TieEpsMs) return true;
+                if (_pauseFrom[i] + StepMs <= tickMs + TieEpsMs && tickMs <= _pauseUntil[i] + TieEpsMs) return true;
             return false;
         }
 
         /// <summary>Drops every held attack pause (death, a cut source clock, a new Welcome).</summary>
         public void ClearAttackPause() { _pauseCount = 0; _lastDraw = 0; }
 
-        static double CeilStep(double ms) { return Math.Ceiling((ms - TieEpsMs) / TickMs) * TickMs; }
+        double CeilStep(double ms) { return Math.Ceiling((ms - TieEpsMs) / StepMs) * StepMs; }
 
         /// <summary>The model-clock time of server time <paramref name="serverMs"/> (the sample stamp, minus the measured delay).</summary>
         double ModelClock(double serverMs) { return serverMs + _stampMs - _stampServerMs - _align; }

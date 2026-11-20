@@ -662,7 +662,7 @@ namespace Roguehalla.Net
             Remote.Map = w.Map;
             Remote.TickMs = Clock.TickMs;
             _predictionGatesLocked = false;
-            Motion = new LocalMotion(w.Map);
+            Motion = new LocalMotion(w.Map) { StepMs = Clock.TickMs };
             _lastPing = double.NegativeInfinity;
             TimelineEpoch++;
             if (TimelineReset != null) TimelineReset();
