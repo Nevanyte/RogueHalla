@@ -81,7 +81,8 @@ pub struct Tuning {
     /// The interactive augments a chest may offer (legacy `INTERACTIVE_AUGMENT_IDS`); P-AUG-POOL-1 gives `Rework` its own.
     pool: &'static [CardId],
     /// P-AUG-POOL-1 (decision 5): the pool cards offered only to a chest whose eligible pickers are all one faction;
-    /// every other pool card is `Offer::Any`. Empty in both real tables until P-AUG-NATIVE-4.
+    /// every other pool card is `Offer::Any`. Empty in both real tables: the faction-only natives carry their rule in
+    /// their batch table (`native::pool_members`, P-AUG-NATIVE-4).
     faction_only: &'static [(CardId, crate::FactionId)],
     /// P-AUG-POOL-1 (Appendix A "Eye for an Eye"): Eye for an Eye counts `REWORK_EYE_FOR_AN_EYE_WEIGHT` times in a
     /// chest's draws when an eligible picker owns a returned-damage source. Off under `Legacy` (no weighting).
