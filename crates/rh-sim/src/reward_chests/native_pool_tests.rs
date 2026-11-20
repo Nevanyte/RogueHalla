@@ -128,7 +128,7 @@ fn the_rework_chest_pool_holds_every_batch_table_row_with_its_offer_rule() {
     );
 }
 
-/// Over 400 chests per case: a faction card shows only to a chest whose pickers are all its faction; Any natives show to
+/// Over 400 chests per case and room seed: a faction card shows only to a chest whose pickers are all its faction; Any natives show to
 /// everyone; a mixed chest carries no faction card; Legacy chests carry no native.
 #[test]
 fn a_faction_native_is_offered_only_to_an_all_that_faction_chest_and_legacy_offers_none() {
@@ -138,42 +138,56 @@ fn a_faction_native_is_offered_only_to_an_all_that_faction_chest_and_legacy_offe
         FactionId::Frost,
         FactionId::Sentenced,
     ];
-    let mut s = room(AugmentRule::Rework, &factions, 5);
+    // P-AUG-NATIVE-5 (oracle-amend, coordinator decision 2026-11-20): the positive controls are summed over four room
+    // seeds (1600 chests per faction), so one seed's draws cannot sink a faction below its floor when the pool grows.
+    // The room seeds of the sweep: four rooms, 1600 chests per faction.
+    let seeds: [u64; 4] = [5, 6, 7, 8];
+    // Own-faction card offered alone, summed over the seeds: measured Plague 67, Fire 61, Frost 66, Sentenced 64 without
+    // Marked Man in the pool and 70, 53, 60, 54 with it; the floor is about 60% of the lowest (53).
+    let own_floor = 32;
+    // An Any native (Marksman's Tally or Bastion) in the same chests: measured 125, 128, 113, 132 without Marked Man and
+    // 109, 108, 115, 127 with it; about 60% of the lowest (108).
+    let any_floor = 65;
     let t = Tuning::of(&config(AugmentRule::Rework));
     let mut own = [0usize; 4];
     let mut any_seen = [0usize; 4];
-    for i in 0..400usize {
-        let elite = i % 2 == 0;
-        for (f, (card, faction)) in faction_cards().into_iter().enumerate() {
-            let pid = PlayerId(f as u32 + 1);
-            assert_eq!(factions[f], faction);
-            let alone = drop_once(t, &mut s, elite, &[pid]);
-            own[f] += usize::from(alone.contains(&card));
-            for (other, of) in faction_cards() {
-                assert!(
-                    other == card || !alone.contains(&other),
-                    "a {faction:?} chest offered {other:?} ({of:?}'s card)"
+    for seed in seeds {
+        let mut s = room(AugmentRule::Rework, &factions, seed);
+        for i in 0..400usize {
+            let elite = i % 2 == 0;
+            for (f, (card, faction)) in faction_cards().into_iter().enumerate() {
+                let pid = PlayerId(f as u32 + 1);
+                assert_eq!(factions[f], faction);
+                let alone = drop_once(t, &mut s, elite, &[pid]);
+                own[f] += usize::from(alone.contains(&card));
+                for (other, of) in faction_cards() {
+                    assert!(
+                        other == card || !alone.contains(&other),
+                        "seed {seed}: a {faction:?} chest offered {other:?} ({of:?}'s card)"
+                    );
+                }
+                any_seen[f] += usize::from(
+                    alone.contains(&CardId::MarksmansTally) || alone.contains(&CardId::Bastion),
                 );
-            }
-            any_seen[f] += usize::from(
-                alone.contains(&CardId::MarksmansTally) || alone.contains(&CardId::Bastion),
-            );
-            let mixed = drop_once(t, &mut s, elite, &[pid, PlayerId((f as u32 + 1) % 4 + 1)]);
-            for (other, _) in faction_cards() {
-                assert!(!mixed.contains(&other), "a mixed chest offered {other:?}");
+                let mixed = drop_once(t, &mut s, elite, &[pid, PlayerId((f as u32 + 1) % 4 + 1)]);
+                for (other, _) in faction_cards() {
+                    assert!(
+                        !mixed.contains(&other),
+                        "seed {seed}: a mixed chest offered {other:?}"
+                    );
+                }
             }
         }
     }
     for f in 0..4 {
         assert!(
-            // Measured 15..=23 of 400 (tier-1 odds and the zone theme taking the first pick); 10 is the positive control.
-            own[f] >= 10,
-            "faction {f}: own card in {} of 400 chests",
+            own[f] >= own_floor,
+            "faction {f}: own card in {} of 1600 chests",
             own[f]
         );
         assert!(
-            any_seen[f] >= 20,
-            "faction {f}: an Any native in {}",
+            any_seen[f] >= any_floor,
+            "faction {f}: an Any native in {} of 1600",
             any_seen[f]
         );
     }
