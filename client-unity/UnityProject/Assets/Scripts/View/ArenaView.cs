@@ -299,6 +299,13 @@ namespace Roguehalla.Client
             TickWeaponRange(me, motion, aimAngle);
         }
 
+#if UNITY_EDITOR
+        public void SetStudioFireSwordPose(uint actorId, int column)
+        {
+            _actors?.SetStudioFireSwordPose(actorId, column);
+        }
+#endif
+
         // Legacy WeaponRangeView/RaidScene: the local fighter's own guide, at its drawn (predicted) position; the aim is the cursor angle the caller passes.
         void TickWeaponRange(SelfView me, LocalMotion motion, float aimAngle)
         {

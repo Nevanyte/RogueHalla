@@ -86,6 +86,26 @@ namespace Roguehalla.Client
             };
         }
 
+#if UNITY_EDITOR
+        public void PreviewParameters(int column, out StormInkFireSwordMotionPhase phase, out float progress)
+        {
+            if ((uint)column >= Columns) throw new ArgumentOutOfRangeException(nameof(column));
+            int pose = column % 5;
+            bool alternate = column >= 5;
+            var timing = alternate ? releaseBTiming : releaseATiming;
+            float passingAt = Mathf.Clamp(timing.PassingAt, .1f, .9f);
+            float recoveryAt = Mathf.Clamp(timing.RecoveryAt, .1f, .9f);
+            switch (pose)
+            {
+                case 0: phase = StormInkFireSwordMotionPhase.Windup; progress = passingAt * .5f; break;
+                case 1: phase = StormInkFireSwordMotionPhase.Windup; progress = (passingAt + 1f) * .5f; break;
+                case 2: phase = StormInkFireSwordMotionPhase.Strike; progress = .5f; break;
+                case 3: phase = StormInkFireSwordMotionPhase.Follow; progress = recoveryAt * .5f; break;
+                default: phase = StormInkFireSwordMotionPhase.Follow; progress = (recoveryAt + 1f) * .5f; break;
+            }
+        }
+#endif
+
         public Sprite Frame(int row, int column)
         {
             if ((uint)row >= Rows || (uint)column >= Columns) return null;

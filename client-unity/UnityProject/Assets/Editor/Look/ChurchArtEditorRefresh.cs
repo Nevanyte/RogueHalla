@@ -44,7 +44,8 @@ namespace Roguehalla.Editor
                 var asset = EditorUtility.InstanceIDToObject(change.instanceId);
                 if (asset is ChurchMasonryArt) ScheduleMasonry();
                 if (asset is ChurchArtDefinition || asset is ChurchInteriorDefinition ||
-                    asset is StormInkFireAxeAuthoring || asset is StormInkAxeArtAuthoring)
+                    asset is StormInkFireAxeAuthoring || asset is StormInkAxeArtAuthoring ||
+                    asset is StormInkFireSwordAuthoring || asset is StormInkSwordArtAuthoring)
                 {
                     Schedule();
                     return;

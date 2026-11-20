@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using Roguehalla.Editor;
+using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -127,6 +128,80 @@ namespace Roguehalla.Client.Tests
                 Assert.That(map.Anchors[0].Entrance.Length, Is.EqualTo(5));
                 Assert.That(ChurchArtOrientation.Resolve(map.Anchors[0]).Mirrored, Is.EqualTo(reflected));
             }
+        }
+
+        [UnityTest]
+        public IEnumerator StudioCanHoldEveryFireSwordDrawingWithBothHandsAndTheSharedSwordConnected()
+        {
+            try
+            {
+                Assert.That(EditorApplication.ExecuteMenuItem("Tools/RogueHalla/Storm Ink/Church Art Studio"), Is.True);
+                yield return null;
+                var stage = (StormInkChurchStage)StageUtility.GetCurrentStage();
+                var room = stage.scene.GetRootGameObjects().Single(o => o.name == "Storm Ink church");
+                stage.PreviewFireLoadout(WeaponId.Sword, 0, 0);
+                var body = room.GetComponentsInChildren<StormInkArtistSource>(true)
+                    .Single(source => source.Kind == StormInkArtistSourceKind.FireSwordBody);
+                var sword = body.Renderer.transform.parent.Find("Equipped weapon cue")
+                    .GetComponent<StormInkArtistSource>();
+                Assert.That(sword.Kind, Is.EqualTo(StormInkArtistSourceKind.EquippedSword));
+
+                for (int row = 0; row < 8; row++)
+                for (int column = 0; column < 10; column++)
+                {
+                    stage.PreviewFireLoadout(WeaponId.Sword, row, column);
+                    Assert.That(body.Sprite.name, Is.EqualTo($"FireSword/{row}/{column}"));
+                    Assert.That(body.PoseRow, Is.EqualTo(row));
+                    Assert.That(body.TryBodyPalm(false, out var right), Is.True, $"right palm missing at {row}/{column}");
+                    Assert.That(body.TryBodyPalm(true, out var left), Is.True, $"left palm missing at {row}/{column}");
+                    Assert.That(Vector2.Distance(right, left), Is.GreaterThan(.03f), $"hands overlap at {row}/{column}");
+                    Assert.That(sword.Sprite, Is.SameAs(StormInkWeaponArt.Get(WeaponId.Sword, row)));
+                    Assert.That(sword.PoseRow, Is.EqualTo(row));
+                    Assert.That(Vector3.Distance(Socket(body.Renderer, right), Socket(sword.Renderer, sword.HeldGripUv)),
+                        Is.LessThan(.001f), $"shared sword grip misses the right hand at {row}/{column}");
+                }
+
+                stage.PreviewFireLoadout(WeaponId.Sword, 4, 7);
+                var sample = new GameObject("Gameplay sword release");
+                try
+                {
+                    var presenter = new SpriteActorPresenter(sample.transform, Resources.Load<ShowcaseCatalog>("Showcase/Catalog"));
+                    const float north = -Mathf.PI / 2f;
+                    void Present()
+                    {
+                        presenter.Begin();
+                        presenter.Present(1, 100, 100, north, 100, FactionId.Fire, ActorStatus.Alive,
+                            WeaponId.Sword, ActorKind.Player, null, 0, 0, true);
+                        presenter.End();
+                    }
+                    Present();
+                    for (int swing = 0; swing < 2; swing++)
+                    {
+                        presenter.ConfirmedCue(1, FxKind.Swing, WeaponId.Sword, north);
+                        Present();
+                    }
+                    var actual = sample.GetComponentsInChildren<StormInkArtistSource>()
+                        .Single(source => source.Kind == StormInkArtistSourceKind.EquippedSword).Renderer;
+                    var actualBody = actual.transform.parent.Find("Authored character").GetComponent<SpriteRenderer>();
+                    Assert.That(actualBody.sprite, Is.SameAs(body.Sprite));
+                    Assert.That(Quaternion.Angle(actual.transform.localRotation, sword.Renderer.transform.localRotation),
+                        Is.LessThan(.02f), "preview and gameplay must use the same base pose and authored blade angle");
+                    Assert.That(sword.Renderer.sortingOrder - body.Renderer.sortingOrder,
+                        Is.EqualTo(actual.sortingOrder - actualBody.sortingOrder));
+                }
+                finally { UnityEngine.Object.DestroyImmediate(sample); }
+            }
+            finally
+            {
+                StageUtility.GoToMainStage();
+            }
+        }
+
+        static Vector3 Socket(SpriteRenderer renderer, Vector2 uv)
+        {
+            var sprite = renderer.sprite;
+            Vector2 local = (Vector2.Scale(uv, sprite.rect.size) - sprite.pivot) / sprite.pixelsPerUnit;
+            return renderer.transform.TransformPoint(local);
         }
     }
 }

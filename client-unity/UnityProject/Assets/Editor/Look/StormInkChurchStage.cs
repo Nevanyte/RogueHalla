@@ -18,7 +18,15 @@ namespace Roguehalla.Editor
         // Source blueprint faces south. LookCapture encodes swap axes, then reflect X and Y.
         static readonly int[] QuarterTurns = { 0, 3, 6, 5 };
         static readonly string[] FighterFacings = { "South", "Southeast", "East", "Northeast", "North", "Northwest", "West", "Southwest" };
+        static readonly string[] FireWeaponChoices = { "Axe", "Sword" };
+        static readonly string[] FireSwordPoseNames =
+        {
+            "A anticipation", "A passing", "A release", "A follow through", "A recovery",
+            "B anticipation", "B passing", "B release", "B follow through", "B recovery"
+        };
         [SerializeField] int fighterFacing = 1;
+        [SerializeField] int fireWeaponChoice;
+        [SerializeField] int fireSwordPose;
         static readonly string[] FrontLabels = { "South", "West", "North", "East" };
         [SerializeField] int front;
         [SerializeField] bool mirrored, solidRoof, overlays;
@@ -139,7 +147,8 @@ namespace Roguehalla.Editor
             var bailiff = new InterpActor { Id = 2, Kind = ActorKind.RegionalMob, MobType = MobTypeId.Bailiff,
                 Faction = FactionId.Sentenced, Weapon = WeaponId.Sword, Status = ActorStatus.Alive, HpPct = 100,
                 Facing = Mathf.PI, X = (other.x + .5f) * 32f, Y = (other.y + .5f) * 32f };
-            fighter = new SelfView { Id = 1, Faction = FactionId.Fire, Weapon = WeaponId.Axe,
+            fighter = new SelfView { Id = 1, Faction = FactionId.Fire,
+                Weapon = fireWeaponChoice == 1 ? WeaponId.Sword : WeaponId.Axe,
                 Status = ActorStatus.Alive, Hp = 100, MaxHp = 100, X = x, Y = y };
             bailiffFeet = ArenaView.WorldPoint(bailiff.X, bailiff.Y);
             opponents.Clear();
@@ -162,8 +171,22 @@ namespace Roguehalla.Editor
         internal void RefreshCast()
         {
             if (arena == null) return;
+            arena.SetStudioFireSwordPose(fighter.Id, fireWeaponChoice == 1 ? fireSwordPose : -1);
             arena.Present(opponents, fighter, null, (2 - fighterFacing) * Mathf.PI / 4f);
             if (lightingCamera != null) ApplyAppearance();
+        }
+
+        public void PreviewFireLoadout(WeaponId weapon, int facingRow, int swordPose)
+        {
+            if ((uint)facingRow >= FighterFacings.Length) throw new ArgumentOutOfRangeException(nameof(facingRow));
+            if (weapon != WeaponId.Axe && weapon != WeaponId.Sword) throw new ArgumentOutOfRangeException(nameof(weapon));
+            if (weapon == WeaponId.Sword && (uint)swordPose >= FireSwordPoseNames.Length)
+                throw new ArgumentOutOfRangeException(nameof(swordPose));
+            fireWeaponChoice = weapon == WeaponId.Sword ? 1 : 0;
+            fighterFacing = facingRow;
+            fireSwordPose = swordPose;
+            if (fighter != null) fighter.Weapon = weapon;
+            RefreshCast();
         }
 
         void ApplyAppearance()
@@ -271,7 +294,7 @@ namespace Roguehalla.Editor
             if (StageUtility.GetCurrentStage() != this || arena == null) return;
             if (overlays && Event.current.type == EventType.Repaint) DrawMapOverlay();
             Handles.BeginGUI();
-            GUILayout.BeginArea(new Rect(10, 10, 295, 245), EditorStyles.helpBox);
+            GUILayout.BeginArea(new Rect(10, 10, 310, 310), EditorStyles.helpBox);
             EditorGUI.BeginChangeCheck();
             int nextFront = EditorGUILayout.Popup("Graveyard entrance", front, FrontLabels);
             bool nextMirror = EditorGUILayout.Toggle("Reflect layout", mirrored);
@@ -281,13 +304,25 @@ namespace Roguehalla.Editor
             ambient = EditorGUILayout.Slider("Ambient light", ambient, .15f, 1.25f);
             if (EditorGUI.EndChangeCheck()) ApplyAppearance();
             EditorGUI.BeginChangeCheck();
+            int nextWeapon = EditorGUILayout.Popup("Fire weapon", fireWeaponChoice, FireWeaponChoices);
             fighterFacing = EditorGUILayout.Popup("Fire facing", fighterFacing, FighterFacings);
+            if (nextWeapon != fireWeaponChoice)
+            {
+                fireWeaponChoice = nextWeapon;
+                fighter.Weapon = fireWeaponChoice == 1 ? WeaponId.Sword : WeaponId.Axe;
+            }
+            if (fireWeaponChoice == 1)
+                fireSwordPose = EditorGUILayout.Popup("Sword body pose", fireSwordPose, FireSwordPoseNames);
             if (EditorGUI.EndChangeCheck()) RefreshCast();
             overlays = EditorGUILayout.Toggle("Map and fighter footprints", overlays);
             if (GUILayout.Button("Frame at gameplay zoom")) FrameRoom();
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Fire body")) Selection.activeObject = StormInkFireAxeAuthoring.Load();
-            if (GUILayout.Button("Shared axe")) Selection.activeObject = StormInkAxeArtAuthoring.Load();
+            string bodyName = fireWeaponChoice == 1 ? "Fire sword body" : "Fire body";
+            string weaponName = fireWeaponChoice == 1 ? "Shared sword" : "Shared axe";
+            if (GUILayout.Button(bodyName)) Selection.activeObject = fireWeaponChoice == 1
+                ? StormInkFireSwordAuthoring.Load() : StormInkFireAxeAuthoring.Load();
+            if (GUILayout.Button(weaponName)) Selection.activeObject = fireWeaponChoice == 1
+                ? StormInkSwordArtAuthoring.Load() : StormInkAxeArtAuthoring.Load();
             GUILayout.EndHorizontal();
             if (GUILayout.Button("Nave wall finish")) Selection.activeObject = ChurchMasonryArt.Load();
             GUILayout.EndArea();

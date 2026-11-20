@@ -452,12 +452,12 @@ namespace Roguehalla.Client
             var fireAxeArt = kind == ActorKind.Player && faction == FactionId.Fire &&
                 (weapon == WeaponId.Axe || weapon == WeaponId.Sword)
                 ? StormInkFireAxeAuthoring.Load() : null;
-            var fireSwordArt = kind == ActorKind.Player && faction == FactionId.Fire && weapon == WeaponId.Sword
-                ? StormInkFireSwordAuthoring.Load() : null;
             float fallAngle = dead && (appearance == null || appearance.Death == null || appearance.Death.Length == 0) ? 75f : 0f;
             Sprite[] frames=appearance?.Idle;
             float fps=appearance!=null ? appearance.IdleFPS : 10;
             float elapsed=Time.unscaledTime;bool loop=true,walkPhase=false,useWeaponPhase=false;
+            var fireSwordArt = PrepareFireSwordPresentation(id, kind, faction, weapon, facing,
+                ref phase, ref weaponProgress, ref poseFacing, ref useWeaponPhase);
             if(appearance!=null)
             {
                 if(dead && appearance.Death!=null && appearance.Death.Length>0)
@@ -516,7 +516,7 @@ namespace Roguehalla.Client
                     int stage = reduced || fireAxeArt == null ? 0 : walkPhase
                         ? Gait.FrameIndex(a.Gait.Phase, fireAxeArt.StrideStagesFor(row)) : fireAxeArt.IdleStage(row, elapsed);
                     bool stride = fireAxeArt != null ? walkPhase : walkPhase && frame * 2 >= count;
-                    SelectFireWeaponBody(a, kind, faction, weapon, direction, phase, weaponProgress,
+                    SelectFireWeaponBody(a, id, kind, faction, weapon, direction, phase, weaponProgress,
                         useWeaponPhase, stride, stage, reduced, fireSwordArt, out axeBody, out swordBody,
                         out fireSwordAngleOffset, out fireSwordDepthOffset);
                 }
