@@ -147,7 +147,7 @@ fn a_faction_native_is_offered_only_to_an_all_that_faction_chest_and_legacy_offe
         for (f, (card, faction)) in faction_cards().into_iter().enumerate() {
             let pid = PlayerId(f as u32 + 1);
             assert_eq!(factions[f], faction);
-            let alone = drop_once(&t, &mut s, elite, &[pid]);
+            let alone = drop_once(t, &mut s, elite, &[pid]);
             own[f] += usize::from(alone.contains(&card));
             for (other, of) in faction_cards() {
                 assert!(
@@ -158,7 +158,7 @@ fn a_faction_native_is_offered_only_to_an_all_that_faction_chest_and_legacy_offe
             any_seen[f] += usize::from(
                 alone.contains(&CardId::MarksmansTally) || alone.contains(&CardId::Bastion),
             );
-            let mixed = drop_once(&t, &mut s, elite, &[pid, PlayerId((f as u32 + 1) % 4 + 1)]);
+            let mixed = drop_once(t, &mut s, elite, &[pid, PlayerId((f as u32 + 1) % 4 + 1)]);
             for (other, _) in faction_cards() {
                 assert!(!mixed.contains(&other), "a mixed chest offered {other:?}");
             }
@@ -179,7 +179,7 @@ fn a_faction_native_is_offered_only_to_an_all_that_faction_chest_and_legacy_offe
     let legacy = Tuning::of(&config(AugmentRule::Legacy));
     let mut s = room(AugmentRule::Legacy, &factions, 5);
     for i in 0..200usize {
-        for id in drop_once(&legacy, &mut s, i % 2 == 0, &[PlayerId(1 + (i % 4) as u32)]) {
+        for id in drop_once(legacy, &mut s, i % 2 == 0, &[PlayerId(1 + (i % 4) as u32)]) {
             assert!(id.index() < 80, "a Legacy chest offered {id:?}");
         }
     }
@@ -224,7 +224,7 @@ fn a_rework_camp_chest_with_native_cards_restores_and_a_legacy_one_is_refused() 
     }
     let legacy = with_chest(AugmentRule::Legacy, opts);
     assert!(
-        Sim::restore(&serde_json::to_value(&legacy).unwrap()).is_err(),
+        Sim::restore(serde_json::to_value(&legacy).unwrap()).is_err(),
         "a Legacy chest offering natives is refused"
     );
 }
