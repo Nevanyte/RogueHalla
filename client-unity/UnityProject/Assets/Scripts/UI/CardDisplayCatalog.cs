@@ -94,7 +94,24 @@ namespace Roguehalla.Client
             new Entry("NoCommutation", "No Commutation", "When a marked enemy swaps weapons, your mark climbs two tiers instead of one.", "Ramping"), // 78
             new Entry("FinalVerdict", "Final Verdict", "When your mark blocks an enemy's execute, the blocked damage is dealt back to it as true damage.", "True_, Execute, Returned"), // 79
         };
-        public static Entry Get(int index) => index >= 0 && index < Entries.Length ? Entries[index] : new Entry("unknown", "Unknown card", "No catalog entry is available.", "");
+        static readonly Entry[] Natives =
+        {
+            new Entry("MarksmansTally", "Marksman's Tally", "+0.3% damage per hit beyond 80% of max range (cap 30%)", ""), // 80
+            new Entry("Bastion", "Bastion", "Your next attack deals 35% of your stored blocks", ""), // 81
+            new Entry("Calluses", "Calluses", "+0.07 armor per fist hit (cap 30)", ""), // 82
+            new Entry("ExecutionersLedger", "Executioner's Ledger", "+3 AD per player or elite kill (cap 30)", ""), // 83
+            new Entry("EighthStrike", "Eighth Strike", "Every 8th hit doubles", ""), // 84
+            new Entry("Pathfinder", "Pathfinder", "+1.2% move speed per new mob type (cap 24%)", ""), // 85
+            new Entry("HazardWalker", "Hazard Walker", "Hazard seconds grow resistance and HP (cap 15); immunity after 20 s on each hazard", ""), // 86
+            new Entry("WishEngine", "Wish Engine", "Using your Wish shortens its cooldown, up to -25% (never below the 50% floor)", ""), // 87
+            new Entry("Overflow", "Overflow", "Overheal becomes a shield that fades over 8 s", ""), // 88
+            new Entry("CorpseHoarder", "Corpse Hoarder", "+3% max HP per corpse (cap 24%)", ""), // 89
+            new Entry("Stoked", "Stoked", "+2 AP per landed burst (cap 30)", ""), // 90
+            new Entry("Glacier", "Glacier", "+0.15 armor per chill second (cap 30)", ""), // 91
+            new Entry("TrophyHunter", "Trophy Hunter", "+2% damage per hunt stack (cap 15%)", ""), // 92
+            new Entry("MarkedMan", "Marked Man", "+50% stacks from kills; you are always shown on the minimap", ""), // 93
+        };
+        public static Entry Get(int index) => index >= 0 && index < Entries.Length ? Entries[index] : index >= Count && index < Count + Natives.Length ? Natives[index - Count] : new Entry("unknown", "Unknown card", "No catalog entry is available.", "");
         public static string Label(byte index) => Get(index).Title;
         public static string Title(byte index) => Get(index).Title;
         public static Entry[] Snapshot() => (Entry[])Entries.Clone();
