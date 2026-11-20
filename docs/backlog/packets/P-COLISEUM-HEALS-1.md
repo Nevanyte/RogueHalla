@@ -85,8 +85,18 @@ pickups. Writing it as `heal_pickups::spots(&Arena) -> Option<[Vec2; 4]>` (stub 
 **State: four `Container`s of a new kind `ContainerKind::Heal`** (appended last, so every existing variant index and
 serialized byte is unchanged), no new `World` field: `items` empty, `opened` false, `target` None, `born_tick` 0,
 `ready_at` the server time it is next available (0 at construction; available iff `server_time >= ready_at`). Created
-by the constructor after every other construction-time container (after `initial_loot::initialize` and the mob
-initializer), ids from `next_entity_id` in NW, NE, SW, SE order. No RNG draw. A legacy world's state hash is unchanged
+by the constructor **inside the initial window**: in `initial_loot::initialize`, after the initial loot, before the mob
+initializer, ids from `next_entity_id` in NW, NE, SW, SE order, and `initial_birth_serial` then moves past them
+(`initial_birth_serial = entity_counter`, on every config branch, including the one without initial loot or mobs).
+Why (reviewer-opus rejection of `agent/opus/P-COLISEUM-HEALS-1` @ `22c23147`, which placed them after
+`initial_birth_serial`): `replay.rs:128` `Recorder::new` records every container with `id > initial_birth_serial` as a
+scenario `WeaponRack`, and `run_replay` seeds them again (`systems/items.rs:204` `seed_weapon_container`): 8 pickups and
+a divergence on step 0 of every grand replay (the server replays, `rh-server` `room.rs` ~573); and the raid-start mob
+birth serials (`mob_checkpoint.rs:191`, `mobs.rs:335,385`) and quest offer ids (`quests/giver.rs:131`) are counted as
+`initial_birth_serial + n + 1`, so pickups after the window shift them and a live grand world's checkpoint is refused
+("quest immutable placement mismatch"). `initial_loot::validate` then expects `initial_birth_serial == expected.serial
++ number of spots` and accepts the `Heal` ids in `(expected.serial, initial_birth_serial]` (they are not in
+`expected.objects`). `seed_weapon_container` refuses `ContainerKind::Heal` (a scenario container is never a pickup). No RNG draw. A legacy world's state hash is unchanged
 because no field was added and no legacy world holds a `Heal` container (pinned).
 
 **Taking: `heal_pickups::update(cx)`, called from `consumables::update`** (no new schedule row: the rows mirror
@@ -126,7 +136,9 @@ variant, no new field, nothing observed); if the implementer finds one needed, b
 - `crates/rh-sim/src/systems/heal_pickups.rs` (stub: replace `spots`, add `update`, the constructor helper).
 - `crates/rh-sim/src/systems/consumables.rs` (call `heal_pickups::update`).
 - `crates/rh-sim/src/systems/potions.rs` (extract the Hot start shared with `use_potion`; behaviour unchanged).
-- `crates/rh-sim/src/sim.rs` (place the pickups at construction).
+- `crates/rh-sim/src/sim.rs` (construction; the pickups are placed from `initial_loot::initialize`).
+- `crates/rh-sim/src/systems/items.rs` (`seed_weapon_container` refuses `Heal`; added 2026-11-20, approved by the lane
+  coordinator).
 - `crates/rh-sim/src/checkpoint.rs`, `crates/rh-sim/src/systems/initial_loot.rs` (the `Heal` rules).
 - `crates/rh-sim/src/state.rs` (doc of `ContainerKind::Heal`, `Container.ready_at`), `crates/rh-sim/src/item_view.rs`
   (only the `Heal` arm), `crates/rh-sim/src/systems/mod.rs`.
@@ -196,8 +208,10 @@ Risks:
 
 - `ready_at` on a non-cannon container is refused today (`checkpoint.rs`, `initial_loot.rs`): relax it for `Heal`
   only, with its own bound.
-- Ids: the pickups are allocated after every construction-time container; ids of mobs/projectiles on grand maps shift,
-  legacy ids do not (no pickup there).
+- Ids: the pickups are allocated inside the initial window (after the initial loot, before `initial_birth_serial` is
+  fixed); every later id on a grand map moves by four, legacy ids do not (no pickup there). Allocating them after the
+  window breaks replay and checkpoint restore (§4; pinned by `a_grand_replay_reproduces_the_run_with_four_pickups` and
+  `a_live_grand_world_checkpoints_after_raid_start`).
 - A player standing between two pickups touches both: the first in container order is taken, the second is not (the
   player now has a heal running). A player at the exact cluster centre (22.6 u from each) touches none.
 - `server_time >= ready_at` (not `>`): the pickup is available again on the tick its clock reaches.
@@ -216,3 +230,13 @@ Risks:
 - Owner note relayed 2026-11-19 "8 sides sorry for confusion" concerns the coliseum's shape (GRAND); the four spots
   are the centre tiles of any shape whose centre is (80,80), so this oracle does not depend on it unless the centre
   tiles stop being floor.
+- Oracle amendment (third author, 2026-11-20, after reviewer-opus rejected `22c23147`): two tests added to
+  `heal_pickups_tests.rs`. `a_grand_replay_reproduces_the_run_with_four_pickups`: a `SimConfig::default()` grand run
+  (player 0 placed damaged on the NW pickup, 60 steps) through `Recorder` and JSON, `run_replay` gives the same final
+  hash and exactly the same four pickups; `seed_weapon_container(Heal, ..)` is refused. On 22c23147 it fails with
+  `Diverged { step: 0, .. }`. `a_live_grand_world_checkpoints_after_raid_start`: `SimConfig::live_content()` on the
+  grand map, seeds 5 and 31, two players, stepped until `raid_started_at > 0` plus 20 steps, mobs present, checkpoint
+  restores with the same hash. On 22c23147 it fails with `Malformed("quest immutable placement mismatch")`. Both are
+  red on the stub at their first heal-count assertion. A throwaway fix (place in `initial_loot::initialize`, the
+  validate offset, `seed_weapon_container` refusing `Heal`) on top of 22c23147 turned all nine tests green, so the
+  oracle is satisfiable; that code was discarded.
