@@ -245,5 +245,5 @@ fn a_walking_player_s_hint_round_trips_full_and_delta_frames_and_no_mob_carries_
         mob_rows >= 50,
         "non-player rows were checked (practice dummies): {mob_rows}"
     );
-    assert_eq!(PROTOCOL_VERSION, 19, "the walk hint is protocol 19");
+    assert!(PROTOCOL_VERSION >= 19, "the walk hint is protocol 19's");
 }

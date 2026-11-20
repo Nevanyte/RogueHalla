@@ -160,8 +160,7 @@ impl WireProps {
                 WirePropKind::WindEmblem => {
                     w.u8(5);
                 }
-                // P-COLISEUM-HEALS-2 stub: a heal is written as a cannon (kind 6) until it gets kind 8.
-                WirePropKind::Cannon { ready_at } | WirePropKind::Heal { ready_at } => {
+                WirePropKind::Cannon { ready_at } => {
                     w.u8(6);
                     w.varint(*ready_at);
                 }
@@ -169,6 +168,11 @@ impl WireProps {
                     w.u8(7);
                     w.varint(quest.get());
                     w.u8(u8::from(*fetch));
+                }
+                // Protocol 20 (P-COLISEUM-HEALS-2): the cannon's layout with kind byte 8.
+                WirePropKind::Heal { ready_at } => {
+                    w.u8(8);
+                    w.varint(*ready_at);
                 }
             }
         }
@@ -207,6 +211,9 @@ impl WireProps {
                     quest: QuestHandle::new(r.varint()?)
                         .ok_or(DecodeError::BadField("quest handle"))?,
                     fetch: bool_flag(r)?,
+                },
+                8 => WirePropKind::Heal {
+                    ready_at: r.varint()?,
                 },
                 _ => return Err(DecodeError::BadField("prop kind")),
             };

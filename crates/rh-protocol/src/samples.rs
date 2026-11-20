@@ -1798,6 +1798,31 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
             },
         ),
         (
+            // P-COLISEUM-HEALS-2 (protocol 20): the four grand-coliseum heal pickups, prop kind 8 with the cannon's layout,
+            // at the centres of tiles (79,79), (80,79), (79,80), (80,80) in 1/8 units; NE and SW wait, NW and SE are ready.
+            "state_heal_props",
+            ServerMsg::State {
+                tick: 202,
+                items: vec![StateItem::Props(WireProps {
+                    rows: [
+                        (1, 20352, 20352, 0),
+                        (2, 20608, 20352, 30_000),
+                        (3, 20352, 20608, u32::MAX),
+                        (4, 20608, 20608, 0),
+                    ]
+                    .into_iter()
+                    .map(|(handle, x, y, ready_at)| WireProp {
+                        handle: PickupHandle::new(handle).unwrap(),
+                        x,
+                        y,
+                        kind: WirePropKind::Heal { ready_at },
+                    })
+                    .collect(),
+                    focus: None,
+                })],
+            },
+        ),
+        (
             "events_union",
             ServerMsg::Events {
                 tick: 201,
@@ -5982,6 +6007,12 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
             frame.push(0);
             frame
         }),
+        // P-COLISEUM-HEALS-2: State tick 202, key 2, one prop row (handle 1, x 80, y 160) of kind 9, past the last kind
+        // (8, the heal pickup): every decoder refuses it as "prop kind".
+        (
+            "state_prop_kind_unknown",
+            vec![0x88, 0xca, 0x01, 1, 2, 1, 1, 0x50, 0, 0xa0, 0, 9, 0, 0],
+        ),
     ]
     .into_iter()
     .chain(malformed_vision())
@@ -7891,7 +7922,7 @@ fn decoded_quest_state_json(m: &ServerMsg) -> String {
                     WirePropKind::WindEmblem => 5,
                     WirePropKind::Cannon { .. } => 6,
                     WirePropKind::QuestItem { .. } => 7,
-                    WirePropKind::Heal { .. } => 6,
+                    WirePropKind::Heal { .. } => 8,
                 };
                 let specifics = match &row.kind {
                     WirePropKind::Ground(weapon) => format!("\"weapon\":{weapon}"),

@@ -3,6 +3,8 @@
 //! with ProtocolMismatch before admission, and a protocol-18 client is welcomed with a protocol-18 Welcome.
 //! P-NET-DRAWAHEAD-1a moved the server to protocol 19 (the walk hint): a protocol-18 client is now the refused one and a
 //! protocol-19 client is welcomed with a protocol-19 Welcome.
+//! P-COLISEUM-HEALS-2 moved the server to protocol 20 (the heal prop): a protocol-19 client is now the refused one and a
+//! protocol-20 client is welcomed with a protocol-20 Welcome.
 use futures_util::{SinkExt, StreamExt};
 use rh_protocol::{ClientMsg, RejectCode, ServerMsg, SnapshotTracker};
 use rh_server::director::{Director, DirectorConfig};
@@ -98,17 +100,17 @@ async fn answer_to_hello(url: &str, protocol: u16, profile: &str) -> Option<Serv
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_protocol_18_hello_is_refused_with_protocol_mismatch() {
+async fn a_protocol_19_hello_is_refused_with_protocol_mismatch() {
     let url = start().await;
-    let got = answer_to_hello(&url, 18, "old18").await;
+    let got = answer_to_hello(&url, 19, "old19").await;
     let refused = matches!(
         &got,
         Some(ServerMsg::Reject { code: RejectCode::ProtocolMismatch, reason })
-            if reason.contains("server speaks protocol 19, client 18")
+            if reason.contains("server speaks protocol 20, client 19")
     );
     assert!(
         refused,
-        "a protocol-18 Hello gets ProtocolMismatch naming 19 and 18, got {}",
+        "a protocol-19 Hello gets ProtocolMismatch naming 20 and 19, got {}",
         summary(&got)
     );
 }
@@ -123,17 +125,17 @@ fn summary(m: &Option<ServerMsg>) -> String {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_protocol_19_hello_is_welcomed_with_protocol_19() {
+async fn a_protocol_20_hello_is_welcomed_with_protocol_20() {
     let url = start().await;
-    let got = answer_to_hello(&url, 19, "new19").await;
+    let got = answer_to_hello(&url, 20, "new20").await;
     let protocol = match &got {
         Some(ServerMsg::Welcome { protocol, .. }) => Some(*protocol),
         _ => None,
     };
     assert_eq!(
         protocol,
-        Some(19),
-        "a protocol-19 Hello is welcomed with a protocol-19 Welcome, got {}",
+        Some(20),
+        "a protocol-20 Hello is welcomed with a protocol-20 Welcome, got {}",
         summary(&got)
     );
 }
