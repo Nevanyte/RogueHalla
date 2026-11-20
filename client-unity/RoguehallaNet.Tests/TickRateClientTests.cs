@@ -136,11 +136,20 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void ANewWelcomeAtAnotherRateReplacesTheLocalWalksStep()
         {
+            // A second Welcome arrives only on a resume: an InMatch session ignores a Welcome (Session.OnWelcome), so drop the
+            // link and reconnect between the two, as SessionTests does.
+            double now = 1000;
             var t = new FakeTransport();
-            var s = new Session(t, new SessionOptions { Url = "ws://x/ws", Profile = "p", Now = () => 1000 });
+            var s = new Session(t, new SessionOptions { Url = "ws://x/ws", Profile = "p", Now = () => now, ReconnectBaseMs = 500 });
             s.Connect(); t.Open();
             foreach (byte rate in new byte[] { 40, 20 })
             {
+                if (s.State == SessionState.InMatch)
+                {
+                    t.Drop();
+                    now += 500; s.Update(); t.Open();
+                    Assert.AreEqual(SessionState.HelloSent, s.State, "resuming");
+                }
                 t.Deliver(new ServerMsg.Welcome { Protocol = Wire.ProtocolVersion, MatchId = Token16(), PlayerId = 3, Session = Token16(), TickRate = rate, Tick = 1, ServerMs = 1000.0 / rate, Map = new MapBlob(4, 4, new byte[16]) });
                 Assert.AreEqual(1000.0 / rate, s.Motion.StepMs, "after a Welcome at " + rate + " Hz");
             }
