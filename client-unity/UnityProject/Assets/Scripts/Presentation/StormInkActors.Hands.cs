@@ -85,6 +85,7 @@ namespace Roguehalla.Client
             Rect rect = body.rect;
             int column = Mathf.RoundToInt(rect.x / rect.width);
             int row = Rows - 1 - Mathf.RoundToInt(rect.y / rect.height);
+            if (faction == FactionId.Fire && TryFireBowHand(body, leftHand, out uv)) return true;
             if (faction == FactionId.Fire && TryFireSwordHand(body, leftHand, out uv)) return true;
             if (faction == FactionId.Fire && TryFireAxeHand(body, row, column, leftHand, out uv)) return true;
             if ((uint)column >= Columns || (uint)row >= Rows) return false;

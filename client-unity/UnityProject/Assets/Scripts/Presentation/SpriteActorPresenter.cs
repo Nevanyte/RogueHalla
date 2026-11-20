@@ -10,42 +10,6 @@ namespace Roguehalla.Client
     /// <summary>Owned visual objects keyed only by currently supplied observer handles. Nothing here simulates a rule.</summary>
     public sealed partial class SpriteActorPresenter
     {
-        sealed class Art
-        {
-            public GameObject Root;
-            public SpriteRenderer PoxCenser, Body, Shadow, Cast, Halo, Hp, HpBack, Barrier, Weapon, WeaponSupport, Status;
-            public ShowcaseIdentityOwner Identity;
-            public SpriteOutline[] Plates; public SpriteOutline OutBody, OutHp, OutFoot; // CONTRAST: adaptive neutral outlines (SpriteOutline.cs)
-            public StormInkBowstring Bowstring;
-            public SpriteRenderer[] BarrierRing;
-            public SpriteRenderer[] StatusIcons;
-            public ShowcasePointLight Light;
-            public ShowcaseCatalog.Appearance Appearance;
-            public Vector3 LastPosition;
-            public float AttackUntil;
-            public float WindupAt, WindupUntil, AttackFacing;
-            public bool HasAttackFacing;
-            public uint DrawStartedAt, MotionSuccessor;
-            public GaitState Gait;
-            public float StampTime;
-            public bool LocalCue;
-            public int FireAxeReleaseCount;
-            public int FireSwordReleaseCount;
-            public StormInkArtistSource BodyArtistSource, WeaponArtistSource;
-            public float AttackAt, HitAt, BlockAt, DeadAt, HitUntil, BlockUntil;
-            public float WishAt, WishUntil; public byte WishClip;
-            public Color WishTint; public float WishTintAmount;
-            public bool Dead, HoldDeathFrame;
-            public WeaponId? WeaponId;
-            public FactionId? Faction;
-            public ActorKind Kind;
-            public MobTypeId? MobType;
-            public int Stamp;
-            public readonly ActorFadeSlot Fade = new ActorFadeSlot(); // vision fade state (SpriteActorPresenter.Fade.cs)
-            public OverheadIndicators Ind; // overhead cluster and body marks (OverheadIndicators.cs)
-            public OverheadIndicators.Facts IndFacts;
-            public MobLook Look; // what a creature looked like when last presented (MobContinuity)
-        }
         readonly Transform _parent;
         public SurfaceFx Fx; // SURFACE-FX HOOK: set by the owning ArenaView, so cues go to the arena that presents
         readonly Dictionary<uint, Art> _active = new Dictionary<uint, Art>();
@@ -92,7 +56,7 @@ namespace Roguehalla.Client
                 a.HitUntil = a.BlockUntil = 0; a.WishUntil = 0;
                 a.Gait.Reset();
                 a.FireAxeReleaseCount = 0;
-                a.FireSwordReleaseCount = 0;
+                a.FireSwordReleaseCount = a.FireBowShotCount = 0;
                 a.AttackAt = a.HitAt = a.BlockAt = a.DeadAt = 0;
                 a.HoldDeathFrame = a.Dead;
             }
@@ -363,8 +327,7 @@ namespace Roguehalla.Client
                 {
                     a = _pool.Count > 0 ? _pool.Pop() : Create(); _active.Add(id, a);
                     a.Root.SetActive(true); a.LastPosition = ArenaView.WorldPoint(x, y); ClearWeaponMotion(a);
-                    a.FireAxeReleaseCount = 0;
-                    a.FireSwordReleaseCount = 0;
+                    a.FireAxeReleaseCount = a.FireSwordReleaseCount = a.FireBowShotCount = 0;
                     a.Gait.Reset(); a.StampTime = Time.unscaledTime;
                     a.HitUntil=a.BlockUntil=0;a.Dead=false;a.HoldDeathFrame=false;a.WishUntil=0;a.WishTintAmount=0;
                     if (IsCreature(kind)) MobArt.Created++;
@@ -398,7 +361,7 @@ namespace Roguehalla.Client
                 ClearWeaponMotion(a);
                 a.BlockUntil = 0f;
             }
-            a.Dead=dead;a.WeaponId=weapon; a.Faction=faction; a.Kind=kind; a.MobType=mob;
+            a.Dead=dead;a.VisibleForCombatCue=!dead && hiddenAlpha > 0f;a.WeaponId=weapon; a.Faction=faction; a.Kind=kind; a.MobType=mob;
             bool trackedWeapon = !dead && hiddenAlpha > 0f && HasWeaponTrack(a);
             bool hauntedFists = HasHauntedFists(a);
             bool saint = kind == ActorKind.RegionalMob && mob == MobTypeId.BloodSaint;
@@ -450,7 +413,7 @@ namespace Roguehalla.Client
             bool reduced = ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
             var appearance = a.Appearance;
             var fireAxeArt = kind == ActorKind.Player && faction == FactionId.Fire &&
-                (weapon == WeaponId.Axe || weapon == WeaponId.Sword)
+                (weapon == WeaponId.Axe || weapon == WeaponId.Sword || weapon == WeaponId.Bow)
                 ? StormInkFireAxeAuthoring.Load() : null;
             var fireSwordArt = kind == ActorKind.Player && faction == FactionId.Fire && weapon == WeaponId.Sword
                 ? StormInkFireSwordAuthoring.Load() : null;
@@ -479,7 +442,7 @@ namespace Roguehalla.Client
                 { frames=appearance.Walk;fps=appearance.WalkFPS;walkPhase=true; }
             }
             float? measuredHeight = null;
-            Sprite shieldBody = null, axeBody = null, swordBody = null;
+            Sprite shieldBody = null, axeBody = null, swordBody = null, bowBody = null;
             float fireSwordAngleOffset = 0f;
             int fireSwordDepthOffset = 0;
             if (frames != null && frames.Length > 0)
@@ -519,14 +482,17 @@ namespace Roguehalla.Client
                     SelectFireWeaponBody(a, kind, faction, weapon, direction, phase, weaponProgress,
                         useWeaponPhase, stride, stage, reduced, fireSwordArt, out axeBody, out swordBody,
                         out fireSwordAngleOffset, out fireSwordDepthOffset);
+                    bowBody = SelectFireBowBody(a, kind, faction, weapon, direction, phase, weaponProgress,
+                        useWeaponPhase, stride, stage, fireAxeArt);
                 }
-                a.Body.sprite = unarmed ?? shieldBody ?? swordBody ?? axeBody ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
+                a.Body.sprite = unarmed ?? shieldBody ?? swordBody ?? bowBody ?? axeBody ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
                 bool paintedPox = IsPox(a) && painted != null;
                 float height = paintedWand ? 1.24f : paintedPox ? PoxHeight : appearance.WorldHeight;
                 if (axeBody != null && fireAxeArt != null && fireAxeArt.TryHand(axeBody, false, out _))
                     measuredHeight = height = fireAxeArt.WorldHeight;
                 if (swordBody != null && fireSwordArt != null && fireSwordArt.TryHand(swordBody, false, out _))
                     measuredHeight = height = fireSwordArt.WorldHeight;
+                if (bowBody != null) measuredHeight = height = StormInkFireBowAuthoring.Load().WorldHeight;
                 if (paintedWand) measuredHeight = height + .15f;
                 if (paintedPox) measuredHeight = height + .41f;
                 float fall = painted != null && dead && frames == appearance.Death
@@ -703,7 +669,8 @@ namespace Roguehalla.Client
             a.Weapon.color = weapon == WeaponId.Fists ? new Color(.9f, .86f, .72f, hiddenAlpha) : new Color(1f, 1f, 1f, hiddenAlpha);
             a.Weapon.enabled = !paintedWand && !hauntedFists && !dead && weapon.HasValue && hiddenAlpha > 0f;
             BindArtistSources(a, weapon, trackedWeapon ? poseFacing : facing,
-                axeBody != null || swordBody != null ? fireAxeArt : null, swordBody != null ? fireSwordArt : null);
+                axeBody != null || swordBody != null || bowBody != null ? fireAxeArt : null, swordBody != null ? fireSwordArt : null,
+                FireBowBodySource(bowBody));
             a.Status.enabled = false; // the generic status cue is replaced by the per-status glyphs (OverheadIndicators)
             a.Status.sortingOrder = order + 6; a.Status.color = color;
             a.Status.transform.localPosition = new Vector3(.55f, 1.5f, 0);

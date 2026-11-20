@@ -26,7 +26,7 @@ namespace Roguehalla.Editor
             }
             if (body != null)
             {
-                var sizing = view.SwordBody != null ? new SerializedObject(body) : source;
+                var sizing = owner != body ? new SerializedObject(body) : source;
                 AddField(sizing.FindProperty("worldHeight"), "Fighter height (world units)");
                 AddField(sizing.FindProperty("footPivot"), "Foot anchor (UV)");
             }
