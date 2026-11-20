@@ -116,7 +116,10 @@ pub(super) fn read_id(
 
 /// Reads the body of a delta frame (after the tag) on a connection of `tick_ms` per tick (its Welcome's rate): syntax and
 /// ranges only. The base age is bounded by [`max_delta_age`] and an absent source time is `tick * tick_ms`.
-pub(crate) fn read_snapshot_delta(r: &mut Reader, tick_ms: u32) -> Result<SnapshotDelta, DecodeError> {
+pub(crate) fn read_snapshot_delta(
+    r: &mut Reader,
+    tick_ms: u32,
+) -> Result<SnapshotDelta, DecodeError> {
     let tick = r.varint()?;
     let age = r.varint()?;
     if !(1..=max_delta_age(tick_ms)).contains(&age) || age > tick {

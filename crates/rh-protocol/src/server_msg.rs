@@ -402,7 +402,9 @@ impl ServerMsg {
                     owner_combat,
                 }
             }
-            T_SNAPSHOT_DELTA => ServerMsg::SnapshotDelta(delta::read_snapshot_delta(&mut r, tick_ms)?),
+            T_SNAPSHOT_DELTA => {
+                ServerMsg::SnapshotDelta(delta::read_snapshot_delta(&mut r, tick_ms)?)
+            }
             T_STATE => {
                 let tick = r.varint()?;
                 ServerMsg::State {
