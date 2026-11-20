@@ -205,10 +205,10 @@ fn legacy_and_native_free_observations_carry_no_rows_and_serialize_without_the_f
 }
 
 #[test]
-fn observation_version_is_32() {
+fn observation_version_is_33() {
     assert_eq!(
         crate::OBSERVATION_VERSION,
-        32,
-        "Observation gains readouts (P-WIRE19-B): CONTRACTS C-OBS, a new observation field bumps the version"
+        33,
+        "Observation gains readouts (P-WIRE19-B): CONTRACTS C-OBS, a new observation field bumps the version; 33: P-SYNC-ORIGIN-1"
     );
 }

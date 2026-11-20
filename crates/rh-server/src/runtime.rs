@@ -28,6 +28,9 @@ pub struct Settings {
     /// `--signature-landmarks` (owner decision 6; needs `--map-pool`): pooled maps are generated with the signature
     /// landmarks (`rh_sim::mapgen::pipeline::Options::signature`, set by [`crate::map_pool::StyledMaker`]).
     pub signature_landmarks: bool,
+    /// `--legacy-coliseum` (P-COLISEUM-GRAND-1; needs `--map-pool`): pooled maps are generated around the legacy
+    /// coliseum (`rh_sim::mapgen::coliseum::fixed_layout`) instead of the grand one, the pool's default.
+    pub legacy_coliseum: bool,
 }
 
 /// `--lobby-timing legacy|matchmaking`, default legacy. `matchmaking` is a 15 s lobby with bots at second 13.
@@ -112,6 +115,15 @@ fn switch_flag(args: &[String], flag: &str) -> Result<bool, String> {
 }
 
 impl Settings {
+    /// The map pool's generator, the one `main.rs` hands to [`crate::map_pool::MapPool::start`]:
+    /// `--signature-landmarks`, and the grand coliseum unless `--legacy-coliseum` (P-COLISEUM-GRAND-1).
+    pub fn styled_maker(&self) -> crate::map_pool::StyledMaker {
+        crate::map_pool::StyledMaker {
+            signature: self.signature_landmarks,
+            grand_coliseum: !self.legacy_coliseum,
+        }
+    }
+
     /// No flag (or explicit core) retains the existing binary configuration. Misspelled runtime flags fail closed.
     pub fn from_args(args: &[String]) -> Result<Option<Self>, String> {
         if args
@@ -192,9 +204,13 @@ impl Settings {
             lobby_timing: lobby_timing_flag(args)?,
             map_pool: switch_flag(args, "--map-pool")?,
             signature_landmarks: switch_flag(args, "--signature-landmarks")?,
+            legacy_coliseum: switch_flag(args, "--legacy-coliseum")?,
         };
         if settings.signature_landmarks && !settings.map_pool {
             return Err("--signature-landmarks needs --map-pool".into());
+        }
+        if settings.legacy_coliseum && !settings.map_pool {
+            return Err("--legacy-coliseum needs --map-pool".into());
         }
         if training && settings.map_pool {
             return Err("training uses the practice arena; --map-pool is not accepted".into());

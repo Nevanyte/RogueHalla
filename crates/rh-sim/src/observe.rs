@@ -25,7 +25,9 @@ pub use public::*;
 
 use hud::{camp_hud_into, roster_into, summary_into};
 
-pub const OBSERVATION_VERSION: u16 = 32;
+/// 33 (P-SYNC-ORIGIN-1): origin's observation 31 (P-NET-DRAWAHEAD-1a, the walk hint) merged with the local 31/32
+/// (P-WIRE19-A/B).
+pub const OBSERVATION_VERSION: u16 = 33;
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SelfView {
@@ -165,6 +167,31 @@ pub struct ActorView {
     pub archetype: crate::archetype::ArchetypeId,
     /// The overhead indicator facts (ADR0026), only ever on a delivered actor row.
     pub facts: IndicatorFacts,
+    /// A player's public walk hint (legacy `PlayerExtraState.walkDir`/`walkTicks`); `(0, 0)` on every non-player row.
+    pub walk: WalkHint,
+}
+
+/// The public copy of a player's walk hint ([`crate::systems::walk_hint`]): the heading of the walk the server will continue
+/// (256ths of a turn) and the whole ticks it is committed to (a lower bound). Presentation only: nothing in the sim or a
+/// policy decides on it. Canonical: `dir` is 0 whenever `ticks` is 0 (legacy `schema.ts`: `walkDir` is meaningful only
+/// while `walkTicks > 0`); the sim's own `Player.walk_dir` keeps its value for the hysteresis.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct WalkHint {
+    pub dir: u8,
+    pub ticks: u8,
+}
+
+impl WalkHint {
+    fn player(p: &Player) -> Self {
+        if p.walk_ticks == 0 {
+            Self::default()
+        } else {
+            Self {
+                dir: p.walk_dir,
+                ticks: p.walk_ticks,
+            }
+        }
+    }
 }
 
 /// An event the observer could perceive.
@@ -932,6 +959,7 @@ pub(crate) fn observe_with_tiles(
                         wish,
                         sim.projection.marks.of(o, sim.tick()),
                     ),
+                    walk: WalkHint::player(o),
                 });
             }
         }
@@ -1119,6 +1147,7 @@ fn mob_view(
                 ),
             now,
         ),
+        walk: WalkHint::default(),
     })
 }
 

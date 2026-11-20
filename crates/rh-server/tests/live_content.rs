@@ -90,6 +90,7 @@ fn expected_source(
         // P-AUG-RULES-1: the live profiles play the augment and elite rework (owner direction 2026-11-18).
         augments: rh_sim::AugmentRule::Rework,
         elites: rh_sim::EliteRule::Rework,
+        tick_ms: 50,
     }
 }
 
@@ -123,6 +124,7 @@ fn expected_training(hitboxes: HitboxMode) -> SimConfig {
         // P-AUG-RULES-1: the live profiles play the augment and elite rework (owner direction 2026-11-18).
         augments: rh_sim::AugmentRule::Rework,
         elites: rh_sim::EliteRule::Rework,
+        tick_ms: 50,
     }
 }
 

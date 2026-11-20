@@ -219,9 +219,20 @@ pub struct WireActor {
     pub mark_tier: u8,
     pub brand: u8,
     pub mark_tax: u8,
+    /// A remote player's walk hint (protocol 19, legacy `PlayerExtraState.walkDir`): the heading of the walk the server
+    /// will continue, in 256ths of a turn. Canonically 0 whenever `walk_ticks` is 0 (the encoder refuses otherwise).
+    pub walk_dir: u8,
+    /// Whole ticks the server is committed to keep walking along `walk_dir` (a lower bound; legacy `walkTicks`). A plain
+    /// count: decoders accept any value. Never set on a mob by the producer.
+    pub walk_ticks: u8,
 }
 
 impl WireActor {
+    /// The walk hint `(walk_dir, walk_ticks)` (protocol 19). `(0, 0)` is no hint.
+    pub fn walk_hint(&self) -> (u8, u8) {
+        (self.walk_dir, self.walk_ticks)
+    }
+
     /// What a client decodes after this actor went over the wire (positions to 1/8 u, facing to 2 pi / 65536).
     pub fn quantized(&self) -> WireActor {
         WireActor {

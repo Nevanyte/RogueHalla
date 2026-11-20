@@ -1,7 +1,8 @@
 // P-PROTOCOL-18-STAMP-1 oracle (JS): the browser probe's decoder (crates/rh-server/web/probe.html, held to the vectors by
 // tools/protocol-js/check-*.mjs) and the reload proof's metadata parser speak protocol 18, and both read the generated
 // protocol/fixtures/v18.json Hello and Welcome as protocol 18. Run by the gate's reload-proof step whenever
-// crates/rh-protocol/ or protocol/fixtures/ changes.
+// crates/rh-protocol/ or protocol/fixtures/ changes. P-NET-DRAWAHEAD-1a moved every pin to protocol 19 (v19.json);
+// P-SYNC-ORIGIN-1 reads the current v<PROTOCOL>.json (protocol 20).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';

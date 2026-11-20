@@ -47,7 +47,7 @@ fn result(c: &cases::Case) -> RunResult {
 #[test]
 fn metadata_has_no_effect_on_current_protocol_result_bytes() {
     use rh_protocol::{ServerMsg, WireEvent};
-    assert_eq!(rh_protocol::PROTOCOL_VERSION, 19);
+    assert_eq!(rh_protocol::PROTOCOL_VERSION, 20); // 19 -> 20: P-SYNC-ORIGIN-1
     for c in cases::capture().cases.iter().filter(|c| c.result.is_some()) {
         let mut r = result(c);
         let encode = |r: &RunResult| {

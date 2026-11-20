@@ -57,6 +57,13 @@ macro_rules! content {
     };
 }
 
+/// The legacy step rate and length (legacy `TICK_RATE`/`TICK_MS`, `packages/shared/src/constants.ts:11-12`): the default of
+/// `SimConfig::tick_ms` and what tools that speak about legacy read (ADR 0029). A sim's own step is
+/// `SimConfig::tick_ms` ([`crate::Sim::tick_ms`]). These are aliases, not registry rows: the rows keep their names
+/// `TICK_RATE`/`TICK_MS` because the content hash folds row names. Systems still read `TICK_MS` until P-TICK-1b moves
+/// them to the sim's value.
+pub use self::{TICK_MS as LEGACY_TICK_MS, TICK_RATE as LEGACY_TICK_RATE};
+
 content! {
     // ---- time base, world and seats ----
     TICK_RATE: u32 = 20, "Hz";

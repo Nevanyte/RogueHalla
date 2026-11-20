@@ -342,9 +342,9 @@ pub(super) const MAX_HEAD_LEN: usize = 1
     + 1
     + 3;
 /// Largest actor: id 5, mask 3, x/y/facing 6, kit/hp/status, bounty 3, kind, effects 2, displacement, mob type, sig, barrier pair,
-/// archetype, flags, off-hand, build marks, mark plate 3.
+/// archetype, flags, off-hand, build marks, mark plate 3, walk hint 2.
 pub(crate) const MAX_ACTOR_LEN: usize =
-    5 + 3 + 6 + 1 + 1 + 1 + 3 + 1 + 2 + 1 + 1 + 1 + 2 + 1 + 1 + 1 + 1 + 3;
+    5 + 3 + 6 + 1 + 1 + 1 + 3 + 1 + 2 + 1 + 1 + 1 + 2 + 1 + 1 + 1 + 1 + 3 + 2;
 
 /// Writes the self record for the head word `m` ([`head_word`] of `s`), fields in bit order.
 #[inline]
@@ -468,6 +468,9 @@ pub(super) fn actor_mask(a: &WireActor) -> u32 {
     if a.mark_tier != 0 || a.brand != 0 || a.mark_tax != 0 {
         m |= AM_MARK;
     }
+    if a.walk_ticks != 0 {
+        m |= AM_WALK;
+    }
     m
 }
 
@@ -497,6 +500,7 @@ pub(super) fn actor_len(a: &WireActor, prev: Option<u32>) -> usize {
         + (m & AM_OFFHAND != 0) as usize
         + (m & AM_BUILD_MARKS != 0) as usize
         + 3 * (m & AM_MARK != 0) as usize
+        + 2 * (m & AM_WALK != 0) as usize
 }
 
 /// The id as written: the first actor's absolute id, then the gap to the previous one (the observation sorts by id, so a

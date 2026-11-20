@@ -54,6 +54,7 @@ fn containers(sim: &Sim) -> Vec<Value> {
             ContainerKind::Body(id) => ("body",sim.player_name(id).unwrap().to_string()),
             // Quest containers never reach a public observation in this slice; the label is only for the closed kind.
             ContainerKind::Quest => ("quest", String::new()),
+            ContainerKind::Heal => unreachable!("no heal pickup on a legacy capture map"),
             ContainerKind::Cannon => ("cannon","Travel cannon · F to blast".to_string()),
             // Legacy container kind "consumable" carrying one windEmblem item.
             ContainerKind::WindEmblem => ("consumable","Wind emblem · walk over it".to_string()),
