@@ -52,6 +52,54 @@ namespace Roguehalla.Client
             top = .08f + m * a.WorldHeight; HeadTops[a] = top; return top;
         }
 
+        readonly List<KeyValuePair<uint, Art>> _signatureCues = new List<KeyValuePair<uint, Art>>();
+        readonly List<Rect> _signatureObstacles = new List<Rect>();
+
+        static readonly System.Comparison<KeyValuePair<uint, Art>> SignatureOrder = CompareSignatureCues;
+
+        internal void PlaceSignatureCues(List<Rect> numberEnvelopes)
+        {
+            _signatureCues.Clear();
+            foreach (var pair in _active)
+            {
+                var art = pair.Value;
+                if (art.Stamp == _stamp && !art.Dead && art.Ind.HasSignatureCue) _signatureCues.Add(pair);
+            }
+            if (_signatureCues.Count == 0) return;
+
+            _signatureObstacles.Clear();
+            _signatureObstacles.AddRange(numberEnvelopes);
+            FighterHeaderRects(_signatureObstacles);
+            foreach (var art in _active.Values)
+            {
+                if (art.Stamp != _stamp || art.Dead || !art.Root.activeSelf) continue;
+                if (art.IndFacts.Elite && art.Ind.NameActive) ClearOfBars(art);
+                art.Ind.AddIndicatorObstacles(_signatureObstacles);
+            }
+
+            _signatureCues.Sort(SignatureOrder);
+            foreach (var pair in _signatureCues)
+            {
+                var art = pair.Value;
+                var bounds = CombatHudPlacement.SignatureCue(art.Ind.SignatureCueBounds,
+                    art.Root.transform.position.x, _signatureObstacles);
+                art.Ind.PlaceSignatureCue(bounds.center);
+                _signatureObstacles.Add(bounds);
+            }
+        }
+
+        static int CompareSignatureCues(KeyValuePair<uint, Art> a, KeyValuePair<uint, Art> b)
+        {
+            int local = b.Value.IndFacts.Local.CompareTo(a.Value.IndFacts.Local);
+            if (local != 0) return local;
+            var first = a.Value.Root.transform.position;
+            var second = b.Value.Root.transform.position;
+            int row = first.y.CompareTo(second.y);
+            if (row != 0) return row;
+            int column = first.x.CompareTo(second.x);
+            return column != 0 ? column : a.Key.CompareTo(b.Key);
+        }
+
         /// <summary>
         /// The delivered facts only the caller has (bounty, the local player's off-hand weapon, whether this actor is the attack lock), then the
         /// overhead cluster is drawn. Called once per actor right after <see cref="Present"/>.

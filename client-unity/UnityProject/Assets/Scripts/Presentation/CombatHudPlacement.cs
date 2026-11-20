@@ -31,6 +31,16 @@ namespace Roguehalla.Client
             return placed;
         }
 
+        public static Rect SignatureCue(Rect right, float centreX, List<Rect> obstacles)
+        {
+            Rect preferred = Lift(right, obstacles);
+            if (preferred.y == right.y) return preferred;
+            var left = new Rect(2f * centreX - right.xMax, right.y, right.width, right.height);
+            Rect alternate = Lift(left, obstacles);
+            // Keep the conventional side when both positions raise the cue by about the same amount.
+            return alternate.y + .16f < preferred.y ? alternate : preferred;
+        }
+
         public static Rect Damage(Vector2 origin, float width, float height, List<Rect> obstacles)
         {
             const float side = .58f;

@@ -194,6 +194,27 @@ namespace Roguehalla.Client
         /// <summary>True while the name label is drawn (test-visible; P-UNITY-HUD-VISUAL-FIX-2).</summary>
         public bool NameActive { get { return _name.gameObject.activeSelf; } }
 
+        internal bool HasSignatureCue => _extras.HasSignatureCue;
+        internal Rect SignatureCueBounds => _extras.SignatureCueBounds;
+        internal void PlaceSignatureCue(Vector2 centre) => _extras.PlaceSignatureCue(centre);
+
+        internal void AddIndicatorObstacles(List<Rect> into)
+        {
+            if (NameActive) into.Add(CombatHudPlacement.FromBounds(NameDrawnBounds));
+            if (_number.gameObject.activeInHierarchy)
+                into.Add(CombatHudPlacement.FromBounds(_number.GetComponent<MeshRenderer>().bounds));
+            AddVisibleRect(_crown, into);
+            AddVisibleRect(_wishIcon, into);
+            AddVisibleRect(_badgeBack, into);
+            foreach (var glyph in _glyphs) AddVisibleRect(glyph, into);
+            _extras.AddMarkObstacles(into);
+        }
+
+        internal static void AddVisibleRect(SpriteRenderer sprite, List<Rect> into)
+        {
+            if (sprite.enabled && sprite.color.a > 0f) into.Add(CombatHudPlacement.FromBounds(sprite.bounds));
+        }
+
         public void HideAll()
         {
             _hover.enabled = _hunt.enabled = _wishIcon.enabled = _crown.enabled = _badgeBack.enabled = _badgeEdge.enabled = _badgeIcon.enabled = _lockOuter.enabled = _lockInner.enabled = _root.enabled = _zone.enabled = false;

@@ -6,6 +6,7 @@
 //   * the signature text cues (legacy MarkPlate.ts:39-44): TAXED, SUPPRESSED and EXEC BLOCKED, named instead of an unknown glyph (the tax
 //     percentage is not delivered, so no number is shown).
 // Owned by one OverheadIndicators (one actor); every renderer is a child of the actor root, so the vision fade reaches it.
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using Roguehalla.Net;
@@ -78,6 +79,23 @@ namespace Roguehalla.Client
         {
             _textFade = alpha;
             if (_cue.gameObject.activeSelf) { var c = _cueBase; c.a *= alpha; _cue.color = c; }
+        }
+
+        internal bool HasSignatureCue => _cueBack.enabled && _cue.gameObject.activeInHierarchy;
+        internal Rect SignatureCueBounds => CombatHudPlacement.FromBounds(_cueBack.bounds);
+
+        internal void PlaceSignatureCue(Vector2 centre)
+        {
+            var at = _cueBack.transform.position;
+            _cueBack.transform.position = _cue.transform.position = new Vector3(centre.x, centre.y, at.z);
+        }
+
+        internal void AddMarkObstacles(List<Rect> into)
+        {
+            OverheadIndicators.AddVisibleRect(_starBack, into);
+            OverheadIndicators.AddVisibleRect(_pipTop, into);
+            foreach (var pip in _pips) OverheadIndicators.AddVisibleRect(pip, into);
+            foreach (var stat in _statBack) OverheadIndicators.AddVisibleRect(stat, into);
         }
 
         /// <summary>The cue text a signature byte calls for (null when none).</summary>
