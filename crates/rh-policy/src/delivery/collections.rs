@@ -421,6 +421,8 @@ fn rewards(observation: &Observation) -> Result<Vec<WireRewardChest>, EncodeErro
                     .collect(),
                 picked: c.picked,
                 can_choose: c.can_choose,
+                // P-WIRE19-A stub: the implementer projects the observed window.
+                first_pick: None,
             })
         })
         .collect()
@@ -838,6 +840,7 @@ mod tests {
                 ],
                 picked: false,
                 can_choose: true,
+                first_pick: None,
             });
         let mut publisher = CollectionPublisher::default();
         for gain in [0.0, -0.0, -1.0, f64::NAN, f64::INFINITY] {

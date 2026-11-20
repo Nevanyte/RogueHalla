@@ -175,10 +175,10 @@ mod server_msg;
 mod snapshot_read;
 pub use state::{
     validate_quest_props, PickupHandle, QuestHandle, RewardChestHandle, RosterId, StateItem,
-    TrophyStatKey, WireArena, WireBuild, WireCamp, WireField, WireFocus, WireInventory,
-    WireMerchant, WirePlan, WirePlanOption, WireProjectile, WireProp, WirePropKind, WireProps,
-    WireQuestObjective, WireQuestParticipant, WireQuestPoint, WireQuestRow, WireQuestView,
-    WireRewardChest, WireRewardId, WireRewardOption, WireRosterEntry, WireRosterRow,
+    TrophyStatKey, WireArena, WireBuild, WireCamp, WireField, WireFirstPick, WireFocus,
+    WireInventory, WireMerchant, WirePlan, WirePlanOption, WireProjectile, WireProp, WirePropKind,
+    WireProps, WireQuestObjective, WireQuestParticipant, WireQuestPoint, WireQuestRow,
+    WireQuestView, WireRewardChest, WireRewardId, WireRewardOption, WireRosterEntry, WireRosterRow,
     WireTradeDelta, WireTradeKind, WireTradeOffer, WireTradeStat, WireTradeView,
     MAX_TRADE_MERCHANTS, MAX_TRADE_OFFERS, MAX_TRADE_STATS, MAX_TRADE_VIEW_BYTES,
 };

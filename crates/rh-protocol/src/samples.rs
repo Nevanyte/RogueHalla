@@ -382,6 +382,7 @@ fn state_sample() -> ServerMsg {
                 ],
                 picked: false,
                 can_choose: true,
+                first_pick: None,
             }]),
             StateItem::Build(Some(WireBuild {
                 cards: {
@@ -677,6 +678,7 @@ fn state_all_max_budget() -> ServerMsg {
                 .collect(),
             picked: true,
             can_choose: true,
+            first_pick: None,
         })
         .collect();
     let build = WireBuild {
@@ -1719,6 +1721,7 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
                     ],
                     picked: false,
                     can_choose: true,
+                    first_pick: None,
                 }])],
             },
         ),
@@ -1760,6 +1763,7 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
                                 .collect(),
                             picked: false,
                             can_choose: true,
+                            first_pick: None,
                         })
                         .collect(),
                 )],

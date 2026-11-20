@@ -151,6 +151,8 @@ impl WireRewardChest {
             options,
             picked: bool_flag(r)?,
             can_choose: bool_flag(r)?,
+            // P-WIRE19-A stub: the implementer writes and reads the trailing window.
+            first_pick: None,
         };
         if result.valid() {
             Ok(result)

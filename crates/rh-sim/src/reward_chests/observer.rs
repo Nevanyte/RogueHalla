@@ -167,6 +167,8 @@ impl RewardChestObserver {
                             && super::birth_available(c.held_until_tick, tick)
                             && sim.server_time() < c.expires_at
                             && super::reach(&sim.k, sim.w.rt.gates_locked, me.pos(), c.at).is_ok(),
+                        // P-WIRE19-A stub: the implementer publishes the window while it is in force.
+                        first_pick: None,
                     },
                 });
             }
