@@ -30,6 +30,11 @@ namespace Roguehalla.Editor
         Vector3 feet, bailiffFeet;
         Footprint fireFootprint, bailiffFootprint;
         Camera lightingCamera;
+        bool reframeAfterRebuild;
+        static readonly int GroundPalette = Shader.PropertyToID("_PalBase");
+        readonly List<Vector4> paletteProbe = new List<Vector4>(8);
+        Material groundMaterial;
+        bool inspectPalette;
         SelfView fighter;
         readonly List<InterpActor> opponents = new List<InterpActor>(1);
 
@@ -71,6 +76,8 @@ namespace Roguehalla.Editor
             try
             {
                 Build();
+                EditorApplication.update += RestoreSavedPreview;
+                SceneView.beforeSceneGui += RestoreBeforeSceneGui;
                 SceneView.duringSceneGui += DrawControls;
                 EditorApplication.playModeStateChanged += OnPlayMode;
                 EditorApplication.delayCall += FrameRoom;
@@ -85,6 +92,8 @@ namespace Roguehalla.Editor
 
         protected override void OnCloseStage()
         {
+            EditorApplication.update -= RestoreSavedPreview;
+            SceneView.beforeSceneGui -= RestoreBeforeSceneGui;
             SceneView.duringSceneGui -= DrawControls;
             EditorApplication.playModeStateChanged -= OnPlayMode;
             EditorApplication.delayCall -= FrameRoom;
@@ -108,6 +117,8 @@ namespace Roguehalla.Editor
             root = new GameObject("Storm Ink church");
             SceneManager.MoveGameObjectToScene(root, scene);
             arena = LookCapture.BuildStudioArena(map, root);
+            groundMaterial = arena.PreviewGroundMaterial;
+            inspectPalette = HasGroundPalette();
             var anchor = map.Anchors[0];
             int tx = anchor.Centre.X, ty = anchor.Centre.Y;
             // The signed camp centre is on the nave floor. Both fighters stand on delivered walkable cells.
@@ -179,6 +190,7 @@ namespace Roguehalla.Editor
             if (front == quarterTurn && mirrored == reflect) return;
             front = quarterTurn;
             mirrored = reflect;
+            reframeAfterRebuild = true;
             ScheduleRebuild();
         }
 
@@ -194,6 +206,8 @@ namespace Roguehalla.Editor
             var picked = Selection.activeGameObject;
             var oldPart = picked != null && picked.scene == scene ? picked.GetComponentInParent<ChurchArtPlacement>() : null;
             string slot = oldPart != null ? oldPart.SlotId : null;
+            var source = picked != null && picked.scene == scene ? picked.GetComponentInParent<StormInkArtistSource>() : null;
+            var sourceKind = source != null ? source.Kind : StormInkArtistSourceKind.None;
             ClearRoom();
             Build();
             if (slot != null)
@@ -201,8 +215,33 @@ namespace Roguehalla.Editor
                 foreach (var part in root.GetComponentsInChildren<ChurchArtPlacement>(true))
                     if (part.SlotId == slot) { Selection.activeGameObject = part.gameObject; break; }
             }
-            FrameRoom();
+            else if (sourceKind != StormInkArtistSourceKind.None)
+            {
+                foreach (var owner in root.GetComponentsInChildren<StormInkArtistSource>(true))
+                    if (owner.Kind == sourceKind) { Selection.activeGameObject = owner.gameObject; break; }
+            }
+            if (reframeAfterRebuild) FrameRoom();
+            reframeAfterRebuild = false;
             SceneView.RepaintAll();
+        }
+
+        // Unity clears nonserialized shader tables on transient materials when an asset is saved.
+        // The existing material is checked without allocating. Ordinary Inspector edits keep the room intact.
+        bool HasGroundPalette()
+        {
+            if (groundMaterial == null) return false;
+            paletteProbe.Clear();
+            groundMaterial.GetVectorArray(GroundPalette, paletteProbe);
+            return paletteProbe.Count > 0;
+        }
+
+        void RestoreBeforeSceneGui(SceneView _) => RestoreSavedPreview();
+
+        void RestoreSavedPreview()
+        {
+            if (!inspectPalette || root == null || HasGroundPalette()) return;
+            EditorApplication.delayCall -= Rebuild;
+            Rebuild();
         }
 
         void FrameRoom()

@@ -28,6 +28,10 @@ namespace Roguehalla.Client
         public RegionId LocalRegion { get { return Regions.LocalRegion; } }
         /// <summary>Raised (previous, current) when the local player enters another region.</summary>
         public event System.Action<RegionId, RegionId> LocalRegionChanged { add { Regions.LocalRegionChanged += value; } remove { Regions.LocalRegionChanged -= value; } }
+#if UNITY_EDITOR
+        /// <summary>The edit studio checks whether saving an asset has invalidated the live ground shader tables.</summary>
+        public Material PreviewGroundMaterial => _regionGround?.Material;
+#endif
         RegionGround _regionGround; RegionWalls _regionWalls; RegionProps _regionProps; LandmarkView _landmarks;
         /// <summary>Brightness multiplier for region ground and walls (they are lit by the same Light2D set as the actors).</summary>
         public const float RegionExposure = 1f;

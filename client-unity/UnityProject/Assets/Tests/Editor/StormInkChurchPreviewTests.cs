@@ -45,6 +45,40 @@ namespace Roguehalla.Client.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator SavingAChurchAssetPreservesTheGroundPaletteAndSelectedFighter()
+        {
+            string path = AssetDatabase.GenerateUniqueAssetPath("Assets/StormInkStudioSaveTest.asset");
+            try
+            {
+                var copy = Object.Instantiate(Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/OakPew"));
+                AssetDatabase.CreateAsset(copy, path);
+                EditorApplication.ExecuteMenuItem("Tools/RogueHalla/Storm Ink/Church Art Studio");
+                var stage = (StormInkChurchStage)StageUtility.GetCurrentStage();
+                var room = stage.scene.GetRootGameObjects().Single(o => o.GetComponent<ArenaView>() != null);
+                var body = room.GetComponentsInChildren<StormInkArtistSource>(true)
+                    .Single(s => s.Kind == StormInkArtistSourceKind.FireAxeBody);
+                Selection.activeGameObject = body.gameObject;
+                var palette = room.GetComponent<ArenaView>().PreviewGroundMaterial.GetVectorArray("_PalBase");
+                Assert.That(palette, Is.Not.Empty);
+                copy = AssetDatabase.LoadAssetAtPath<ChurchArtDefinition>(path);
+                copy.Defaults.Width += .25f;
+                EditorUtility.SetDirty(copy);
+                AssetDatabase.SaveAssetIfDirty(copy);
+                yield return null;
+                yield return null;
+                var restored = stage.scene.GetRootGameObjects().Single(o => o.GetComponent<ArenaView>() != null);
+                Assert.That(restored.GetComponent<ArenaView>().PreviewGroundMaterial.GetVectorArray("_PalBase"), Is.EqualTo(palette));
+                Assert.That(Selection.activeGameObject.GetComponent<StormInkArtistSource>().Kind,
+                    Is.EqualTo(StormInkArtistSourceKind.FireAxeBody));
+            }
+            finally
+            {
+                StageUtility.GoToMainStage();
+                AssetDatabase.DeleteAsset(path);
+            }
+        }
+
         [Test]
         public void StudioMenuOpensTheRenderedRoomAndLeavesTheAuthorSceneIntact()
         {
