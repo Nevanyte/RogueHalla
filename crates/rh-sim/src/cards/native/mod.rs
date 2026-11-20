@@ -30,6 +30,8 @@ mod exemplars_tests;
 mod hooks_tests;
 #[cfg(test)]
 mod weapon_batch_tests;
+#[cfg(test)]
+mod zone_tests;
 
 /// P-AUG-NATIVE-1b: every native card's chest pool membership and offer rule, from the three batch tables (weapon,
 /// zone, faction). No pool reads it until native ids are on the wire (P-WIRE19-A).
@@ -77,6 +79,35 @@ pub(crate) fn strike_mult(k: &MatchStatic, w: &World, by: crate::PlayerId, earli
         return 1.;
     }
     w.player(by).map_or(1., |p| weapon::strike_mult(p, earlier))
+}
+
+/// Pathfinder's move speed share of a build (`modifiers::movement`); 0 for a build holding no native card.
+pub(crate) fn move_speed_share(build: &super::Build) -> f64 {
+    if build.native.is_empty() {
+        return 0.;
+    }
+    zone::move_speed_share(&build.native)
+}
+
+/// Hazard Walker's `(resistance, immune)` to a hazard (0 ember, 1 bog, 2 ice); `(0, false)` for a non-holder.
+pub(crate) fn hazard_guard(build: &super::Build, hazard: usize) -> (f64, bool) {
+    if build.native.is_empty() {
+        return (0., false);
+    }
+    zone::hazard_guard(&build.native, hazard)
+}
+
+/// The native cards' flat max hp term over `base_hp` (`modifiers::sync_max_hp`): Hazard Walker's stacks.
+pub(crate) fn flat_max_hp(build: &super::Build, base_hp: f64) -> f64 {
+    if build.native.is_empty() {
+        return 0.;
+    }
+    zone::flat_max_hp(&build.native, base_hp)
+}
+
+/// Does the build hold Overflow (its barriers fade over `REWORK_OVERFLOW_FADE_MS`)?
+pub(crate) fn holds_overflow(build: &super::Build) -> bool {
+    !build.native.is_empty() && zone::holds_overflow(&build.native)
 }
 
 /// The bursts the ledger added to one victim's entries (`landed_burst`): at most one per holder, at most one holder per
@@ -348,6 +379,35 @@ pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
                     id.as_str(),
                     slot.counter
                 ));
+            }
+            // P-AUG-NATIVE-3: the zone cards tie their counter to what they hold.
+            match id {
+                CardId::Pathfinder => {
+                    let want = crate::constants::REWORK_PATHFINDER_CAP.min(
+                        crate::constants::REWORK_PATHFINDER_PER
+                            * f64::from(slot.marks.count_ones()),
+                    );
+                    if (slot.counter - want).abs() >= 1e-9 {
+                        return Err(format!(
+                            "player {who}: pathfinder counter {} is not its marks' {want}",
+                            slot.counter
+                        ));
+                    }
+                }
+                CardId::HazardWalker => {
+                    let most = crate::constants::REWORK_HAZARD_WALKER_CAP.min(
+                        (slot.meters.iter().sum::<f64>()
+                            / crate::constants::REWORK_HAZARD_WALKER_STACK_MS)
+                            .floor(),
+                    );
+                    if slot.counter.fract() != 0. || slot.counter > most {
+                        return Err(format!(
+                            "player {who}: hazard walker stacks {} outside whole 0..={most}",
+                            slot.counter
+                        ));
+                    }
+                }
+                _ => {}
             }
             if !(0.0..=r.counter_cap).contains(&slot.counter)
                 || slot
