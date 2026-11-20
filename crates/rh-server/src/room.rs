@@ -394,8 +394,8 @@ pub struct RoomConfig {
     pub welcome_map: Arc<EncodedMap>,
     /// Fill the match with scripted bots up to this many players (0: none).
     pub fill_bots_to: usize,
-    /// The pacer's period. Hosted rooms take it from `sim.tick_ms` (the director builds both from one setting and refuses
-    /// a mismatch, P-TICK-5); a test may pace faster or slower than the sim steps. Sim time, the Welcome rate and every
+    /// The pacer's period. Hosted rooms take it from `sim.tick_ms` (the director copies `DirectorConfig::tick`, which
+    /// `DirectorConfig::new` derives from the sim, P-TICK-5); a test may pace faster or slower than the sim steps. Sim time, the Welcome rate and every
     /// "one step" the room adds follow `sim.tick_ms`, never this.
     pub tick: Duration,
     /// Record a private replay of the match (every input, every step's state hash).
