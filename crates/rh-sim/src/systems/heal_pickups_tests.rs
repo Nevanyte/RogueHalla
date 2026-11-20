@@ -497,3 +497,100 @@ fn legacy_worlds_are_unchanged() {
     let legacy_hash: u64 = 0xba40_e6d0_daec_05d9;
     assert_eq!(s.state_hash(), legacy_hash, "{:#018x}", s.state_hash());
 }
+
+/// A grand-map run recorded by the live recorder replays to the same hash with exactly four pickups (the server replays
+/// every match, `rh-server` `room.rs`): the pickups are constructor state, not scenario containers, so the `Recorder`
+/// does not record them as `WeaponRack` inputs and `seed_weapon_container` refuses the `Heal` kind (reviewer-opus
+/// rejection of 22c23147: ids past `initial_birth_serial` were recorded and seeded again, 8 pickups, divergence).
+#[test]
+fn a_grand_replay_reproduces_the_run_with_four_pickups() {
+    use crate::replay::{run_replay, Recorder, ReplayStart};
+    let arena = grand_arena();
+    let config = SimConfig::default();
+    let mut at: Vec<Placement> = (0..2)
+        .map(|i| placement(i, arena.spawns[i * 3 % arena.spawns.len()]))
+        .collect();
+    // Player 0 starts damaged on the NW pickup: the run takes it, so the replay carries a taken pickup.
+    at[0].at = want_spots()[0];
+    at[0].hp = Some(10.);
+    let secrets = Secrets::from_seed(23);
+    let mut sim = Sim::reset_active(config.clone(), arena.clone(), secrets, &at);
+    assert_eq!(heals(&sim).len(), 4, "four heal pickups in a grand world");
+    let mut rec = Recorder::new(
+        &sim,
+        config.clone(),
+        ReplayStart::Active {
+            placements: at.clone(),
+        },
+    );
+    for _ in 0..60 {
+        sim.step_into(&mut Vec::new());
+        rec.stepped(&sim);
+    }
+    assert!(heals(&sim)[0].ready_at > 0., "player 0 took the NW pickup");
+    let text = serde_json::to_string(&rec.replay).unwrap();
+    let replay = serde_json::from_str(&text).unwrap();
+    let back = match run_replay(&replay) {
+        Ok((back, _)) => back,
+        Err(e) => panic!("a grand-map replay reproduces the run: {e:?}"),
+    };
+    assert_eq!(back.state_hash(), sim.state_hash(), "same final state hash");
+    assert_eq!(
+        heals(&back).len(),
+        4,
+        "exactly four heal pickups after replay"
+    );
+    assert_eq!(heals(&back), heals(&sim));
+
+    let mut fresh = Sim::reset_active(config, arena.clone(), secrets, &at);
+    assert!(
+        fresh
+            .seed_weapon_container(ContainerKind::Heal, want_spots()[0], &[])
+            .is_err(),
+        "a scenario container is never a heal pickup"
+    );
+    assert_eq!(heals(&fresh).len(), 4);
+}
+
+/// The live content world (PvE mobs, quests, initial loot) on a grand map, run past raid start, checkpoints and restores
+/// to the same hash: the pickups do not shift the raid-start mob birth serials (`mob_checkpoint.rs`, `mobs.rs`) or the
+/// quest offer ids (`quests/giver.rs`), which are counted from `initial_birth_serial` (reviewer-opus rejection of
+/// 22c23147: restore refused on every grand live room).
+#[test]
+fn a_live_grand_world_checkpoints_after_raid_start() {
+    let arena = grand_arena();
+    for seed in [5, 31] {
+        let mut s = Sim::new(
+            SimConfig::live_content(),
+            arena.clone(),
+            Secrets::from_seed(seed),
+        );
+        assert_eq!(
+            heals(&s).len(),
+            4,
+            "four heal pickups in a live grand world"
+        );
+        for (i, f) in [FactionId::Holy, FactionId::Plague].into_iter().enumerate() {
+            s.add_player(&format!("live{i}"), Some(f), false)
+                .expect("the lobby admits the player");
+        }
+        let mut steps = 0;
+        while s.raid_started_at() <= 0. {
+            s.step_into(&mut Vec::new());
+            steps += 1;
+            assert!(steps < 20 * 120, "the raid starts within two minutes");
+        }
+        for _ in 0..20 {
+            s.step_into(&mut Vec::new());
+        }
+        assert!(!s.mobs().is_empty(), "PvE mobs were born at raid start");
+        assert_eq!(heals(&s).len(), 4);
+        let cp = serde_json::to_value(&s).unwrap();
+        let back = match Sim::restore(&cp) {
+            Ok(back) => back,
+            Err(e) => panic!("seed {seed}: a live grand world restores after raid start: {e:?}"),
+        };
+        assert_eq!(back.state_hash(), s.state_hash(), "seed {seed}: same hash");
+        assert_eq!(heals(&back), heals(&s));
+    }
+}
