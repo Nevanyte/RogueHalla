@@ -74,6 +74,17 @@ pub struct WireRewardChest {
     pub options: Vec<WireRewardOption>,
     pub picked: bool,
     pub can_choose: bool,
+    /// P-WIRE19-A (protocol 19): the killer first-pick window while it is in force (P-ELITE-PICK-1). Its end is public;
+    /// `mine` is the viewer's own fact (true only in the killer's row). Never a player id (C-OBS).
+    pub first_pick: Option<WireFirstPick>,
+}
+/// P-WIRE19-A: a reward chest's first-pick window as one viewer sees it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WireFirstPick {
+    /// The window's end, server ms (open while `server_ms < until`).
+    pub until: f64,
+    /// Whether the window is this viewer's own.
+    pub mine: bool,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct WireBuild {

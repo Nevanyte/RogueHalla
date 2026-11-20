@@ -8,10 +8,10 @@
 use super::NativeRule;
 use crate::cards::{CardDef, CardId, CardKind};
 use crate::constants::{
-    REWORK_CALLUSES_CAP, REWORK_CORPSE_HOARDER_CAP, REWORK_EIGHTH_STRIKE_EVERY,
-    REWORK_EXECUTIONERS_LEDGER_CAP, REWORK_GLACIER_CAP, REWORK_HAZARD_WALKER_CAP,
-    REWORK_HAZARD_WALKER_IMMUNE_MS, REWORK_MARKSMANS_TALLY_CAP, REWORK_PATHFINDER_CAP,
-    REWORK_STOKED_CAP, REWORK_TROPHY_HUNTER_CAP, REWORK_WISH_ENGINE_CAP,
+    REWORK_BASTION_METER_CAP, REWORK_CALLUSES_CAP, REWORK_CORPSE_HOARDER_CAP,
+    REWORK_EIGHTH_STRIKE_EVERY, REWORK_EXECUTIONERS_LEDGER_CAP, REWORK_GLACIER_CAP,
+    REWORK_HAZARD_WALKER_CAP, REWORK_HAZARD_WALKER_IMMUNE_MS, REWORK_MARKSMANS_TALLY_CAP,
+    REWORK_PATHFINDER_CAP, REWORK_STOKED_CAP, REWORK_TROPHY_HUNTER_CAP, REWORK_WISH_ENGINE_CAP,
 };
 
 /// One native definition: an augment of tier 1, unique, ready, no base, no rows (its batch packet adds them).
@@ -136,8 +136,12 @@ const fn normal_mob_marks() -> u32 {
 pub(super) static NATIVE_RULES: [NativeRule; 14] = [
     // Marksman's Tally: the damage share earned.
     counter(REWORK_MARKSMANS_TALLY_CAP),
-    // Bastion: meter cap is P-AUG-NATIVE-1b's (the workbook says only "Meter cap").
-    counter(0.),
+    // Bastion: meters[0] is the stored blocked damage (P-AUG-NATIVE-1b; the workbook says only "Meter cap").
+    NativeRule {
+        counter_cap: 0.,
+        meter_caps: [REWORK_BASTION_METER_CAP, 0., 0.],
+        marks: 0,
+    },
     // Calluses: armor.
     counter(REWORK_CALLUSES_CAP),
     // Executioner's Ledger: AD.

@@ -1,6 +1,7 @@
 //! Player and typed regional/practice Frost sources. Prior chill belongs to weapons; post-ledger chill to the next tick.
 use super::{signatures::LandedHit, Cx};
 use crate::{
+    cards::native::hooks::{self as native, NativeEvent},
     constants::*,
     fighter::FighterCore,
     hooks::{HookArgs, Hx},
@@ -92,16 +93,22 @@ pub(crate) fn ranged_hits(w: &mut World, hits: &[LandedHit]) {
             continue;
         }
         // The source archer is a Frost PLAYER; the victim is any admitted actor.
-        let Some(by) =
-            h.by.and_then(|id| w.player(id))
-                .filter(|p| p.standing() && p.vitals.faction == FactionId::Frost)
-        else {
+        let Some(by) = h.by.filter(|&id| {
+            w.player(id)
+                .is_some_and(|p| p.standing() && p.vitals.faction == FactionId::Frost)
+        }) else {
             continue;
         };
-        let _ = by;
         if let Some(i) = w.fighter_idx(h.victim).filter(|&i| w.standing(i)) {
             w.core_mut(i).signature.ranged_chill_until =
                 Some(w.server_time + FROST_RANGED_CHILL_MS);
+            native::fire_held(
+                w,
+                by,
+                NativeEvent::ChillInflicted {
+                    ms: FROST_RANGED_CHILL_MS,
+                },
+            );
         }
     }
 }
@@ -283,6 +290,7 @@ pub(crate) fn after_damage(w: &mut World) {
                 p.weapon.action = Some(a);
             }
         }
+        native::attack_chill(w, ix);
     }
 }
 pub(crate) fn movement_modifier(

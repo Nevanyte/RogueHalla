@@ -586,6 +586,27 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
             award_weapon(k, w, ev, &a);
         }
     }
+    // P-AUG-NATIVE-1b: the native credited-kill and mob-kill hooks for the credited killer, before the `mobKilled` chain.
+    {
+        use crate::cards::native::hooks::{fire, NativeEvent};
+        fire(
+            k,
+            w,
+            id,
+            NativeEvent::CreditedKill {
+                player: false,
+                elite: a.elite,
+            },
+        );
+        fire(
+            k,
+            w,
+            id,
+            NativeEvent::MobKill {
+                mob_type: a.mob_type,
+            },
+        );
+    }
     // Source payMobKill: credit, stat, the settled weapon awards and the chainable `mobKilled` hook. The chests link
     // (P-CARDS-2) runs inside the hook at its recorded chain position; the quests link stays Pending.
     crate::hooks::fire(

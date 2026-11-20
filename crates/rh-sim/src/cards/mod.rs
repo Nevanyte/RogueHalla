@@ -315,8 +315,12 @@ impl serde::Serialize for Build {
         st.end()
     }
 }
-/// The generated catalog's total fold rows: a fixed scratch bound, not a game rule.
-pub(crate) const MAX_FOLD_ROWS: usize = 79;
+/// The most fold rows one copy of every card can give (catalog and native, under either card table and any faction's
+/// own row selection, `Tuning::rows`): a Plague player's selection, 80. A fixed scratch bound, not a game rule:
+/// `Build::rows` stops when it is full, so `native::hooks_tests::max_fold_rows_covers_every_card_of_both_tables`
+/// guards it, and a packet that adds fold rows raises it. (Not computed: the tables are statics, which a const cannot
+/// read.)
+pub(crate) const MAX_FOLD_ROWS: usize = 80;
 impl Build {
     pub fn owns(&self, id: CardId) -> bool {
         self.count(id) > 0
@@ -539,6 +543,14 @@ pub(crate) fn on_blocked(hx: &mut crate::hooks::Hx, args: &crate::hooks::HookArg
             _ => {}
         }
     }
+    // P-AUG-NATIVE-1b: the native block hook, once per `HookArgs::Blocked` (melee and projectile blocks both reach this
+    // link), after Tank Engine so Bastion fills with what Tank Engine counted.
+    native::hooks::fire(
+        hx.k,
+        hx.w,
+        holder,
+        native::hooks::NativeEvent::Block { prevented },
+    );
     // Source Best Offense (`cardHooks.ts:206-214`): `if (hasFlag(holder.s, "blockHits") && standing(holder))` and a weapon
     // in hand, the block is a hit: the on-hit effects apply to the blocked attacker now. (The streak / Wishful Thinking
     // note of the block is P-MECHANICS-SALVAGE-2.)

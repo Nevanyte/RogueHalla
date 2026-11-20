@@ -2,7 +2,7 @@
 //! client (every client built before the stamp, including those before the Frost Wall batch that kept 17) is refused
 //! with ProtocolMismatch before admission, and a protocol-18 client is welcomed with a protocol-18 Welcome.
 use futures_util::{SinkExt, StreamExt};
-use rh_protocol::{ClientMsg, RejectCode, ServerMsg, SnapshotTracker};
+use rh_protocol::{ClientMsg, RejectCode, ServerMsg, SnapshotTracker, PROTOCOL_VERSION};
 use rh_server::director::{Director, DirectorConfig};
 use rh_server::hosting::Lifecycle;
 use rh_server::persist::{Auth, Persistence};
@@ -102,11 +102,11 @@ async fn a_protocol_17_hello_is_refused_with_protocol_mismatch() {
     let refused = matches!(
         &got,
         Some(ServerMsg::Reject { code: RejectCode::ProtocolMismatch, reason })
-            if reason.contains("server speaks protocol 18, client 17")
+            if reason.contains("server speaks protocol 19, client 17")
     );
     assert!(
         refused,
-        "a protocol-17 Hello gets ProtocolMismatch naming 18 and 17, got {}",
+        "a protocol-17 Hello gets ProtocolMismatch naming 19 (P-WIRE19-A) and 17, got {}",
         summary(&got)
     );
 }
@@ -121,17 +121,17 @@ fn summary(m: &Option<ServerMsg>) -> String {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_protocol_18_hello_is_welcomed_with_protocol_18() {
+async fn a_current_hello_is_welcomed_with_the_current_protocol() {
     let url = start().await;
-    let got = answer_to_hello(&url, 18, "new18").await;
+    let got = answer_to_hello(&url, PROTOCOL_VERSION, "new18").await;
     let protocol = match &got {
         Some(ServerMsg::Welcome { protocol, .. }) => Some(*protocol),
         _ => None,
     };
     assert_eq!(
         protocol,
-        Some(18),
-        "a protocol-18 Hello is welcomed with a protocol-18 Welcome, got {}",
+        Some(PROTOCOL_VERSION),
+        "a Hello of this build's protocol is welcomed with a Welcome of it, got {}",
         summary(&got)
     );
 }

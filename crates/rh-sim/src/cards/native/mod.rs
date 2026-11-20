@@ -2,8 +2,8 @@
 //! (`table.rs`), the generic capped per-player state (`NativeCards`, the `native` field of `Build`) and the
 //! `check_world` rules for it. Live world only (`SimConfig::augments = Rework`): a `Legacy` world holds none.
 //!
-//! No behaviour yet: no hook reads or writes a slot (P-AUG-NATIVE-1b and the batch packets do), no pool or chest offers
-//! a native card, and no observation or wire byte names one (P-WIRE19-A).
+//! No behaviour yet: no hook reads or writes a slot (P-AUG-NATIVE-1b and the batch packets do) and no pool offers a
+//! native card. Since P-WIRE19-A (protocol 19) a reward option carries native ids 80..=93, so a Rework chest may hold one.
 //!
 //! Serialized form (brief section 1.5): only the held cards, in native order, as
 //! `[{"card","count","counter","meters","marks"}]`; `Build` writes it first and only when one is held, so a world holding
@@ -15,6 +15,95 @@ use crate::statics::MatchStatic;
 
 mod table;
 use table::{NATIVE_DEFINITIONS, NATIVE_RULES};
+
+// P-AUG-NATIVE-1b: the hook points, the own-only readouts and the three batch tables.
+mod faction;
+pub(crate) mod hooks;
+mod readout;
+mod weapon;
+mod zone;
+pub use readout::{readouts, Readout, ReadoutKind, Readouts, MAX_READOUTS};
+
+#[cfg(test)]
+mod exemplars_tests;
+#[cfg(test)]
+mod hooks_tests;
+
+/// P-AUG-NATIVE-1b: every native card's chest pool membership and offer rule, from the three batch tables (weapon,
+/// zone, faction). No pool reads it until native ids are on the wire (P-WIRE19-A).
+pub fn pool_members() -> impl Iterator<Item = (CardId, crate::reward_chests::Offer)> {
+    weapon::POOL
+        .iter()
+        .chain(zone::POOL)
+        .chain(faction::POOL)
+        .copied()
+}
+
+/// The readout sources of a native card, from the batch table that holds it (`None` when no table declares rows).
+fn readout_sources(card: CardId) -> Option<&'static [readout::Source]> {
+    weapon::readouts(card)
+        .or_else(|| zone::readouts(card))
+        .or_else(|| faction::readouts(card))
+}
+
+/// The native cards' share of a holder's outgoing damage sum (`modifiers::outgoing_damage`, under the same G1 ceiling as
+/// the card rows): Marksman's Tally's counter. 0 for a build holding none (every build in a non-`Rework` world).
+pub(crate) fn outgoing_share(build: &super::Build) -> f64 {
+    if build.native.is_empty() {
+        return 0.;
+    }
+    weapon::outgoing_share(&build.native)
+}
+
+/// The bursts the ledger added to one victim's entries (`landed_burst`): at most one per holder, at most one holder per
+/// seat. Fixed size, so the pass allocates nothing; a burst that does not fit is not added (and not spent).
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Bursts {
+    rows: [(crate::PlayerId, usize, f64); crate::constants::MAX_PLAYERS],
+    len: usize,
+}
+
+impl Default for Bursts {
+    fn default() -> Self {
+        Self {
+            rows: [(crate::PlayerId(0), 0, 0.); crate::constants::MAX_PLAYERS],
+            len: 0,
+        }
+    }
+}
+
+impl Bursts {
+    /// Has `by` already a burst on this victim?
+    pub(crate) fn has_holder(&self, by: crate::PlayerId) -> bool {
+        self.rows[..self.len].iter().any(|r| r.0 == by)
+    }
+    /// Records `by`'s burst on entry `j`; false when full (the burst is then not added).
+    pub(crate) fn push(&mut self, by: crate::PlayerId, j: usize, extra: f64) -> bool {
+        if self.len == self.rows.len() {
+            return false;
+        }
+        self.rows[self.len] = (by, j, extra);
+        self.len += 1;
+        true
+    }
+    /// The burst added to entry `j` (0 for none).
+    pub(crate) fn of(&self, j: usize) -> f64 {
+        self.rows[..self.len]
+            .iter()
+            .find(|r| r.1 == j)
+            .map_or(0., |r| r.2)
+    }
+}
+
+/// What the native cards of `by` add to its next landed weapon hit after the victim's mitigation (Bastion's burst), read
+/// by the ledger; the hit that carries it reports it in `NativeEvent::HitCount { burst }`, which spends it. 0 for a
+/// non-holder (one guard).
+pub(crate) fn landed_burst(k: &MatchStatic, w: &World, by: crate::PlayerId) -> f64 {
+    if !hooks::holds_native(k, w, by) {
+        return 0.;
+    }
+    w.player(by).map_or(0., weapon::landed_burst)
+}
 
 /// Working meters per native card (stored damage, per-hazard seconds, a shield, a per-cast record).
 pub const NATIVE_METERS: usize = 3;
@@ -227,14 +316,17 @@ pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
             }
         }
     }
-    // Native ids are not on the wire until P-WIRE19-A (`WireRewardId::Card(index as u8)`; the protocol refuses 80+).
-    if w.reward_chests.iter().any(|c| {
-        c.options
-            .iter()
-            .flatten()
-            .any(|o| matches!(o, OptionId::Card(id) if is_native(*id)))
-    }) {
-        return Err("a reward chest offers a native card".into());
+    // P-WIRE19-A: native ids are on the wire (`WireRewardId::Card(80..=93)`), so only a Legacy world, whose card table
+    // holds no native card, refuses a chest offering one.
+    if !rework
+        && w.reward_chests.iter().any(|c| {
+            c.options
+                .iter()
+                .flatten()
+                .any(|o| matches!(o, OptionId::Card(id) if is_native(*id)))
+        })
+    {
+        return Err("a reward chest offers a native card outside the Rework card table".into());
     }
     Ok(())
 }

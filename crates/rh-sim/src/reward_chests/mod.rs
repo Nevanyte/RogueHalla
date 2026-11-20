@@ -82,11 +82,15 @@ pub(crate) fn first_pick_window_ms() -> f64 {
 /// again inside a match), and one who was not standing at the drop never had it. The one predicate both `choose` and
 /// the observer's `can_choose` read (as [`birth_available`]), so the command and the observation never disagree.
 pub(crate) fn first_pick_blocks(w: &World, chest: &Chest, who: PlayerId) -> bool {
-    chest.first_pick.is_some_and(|f| {
-        f.killer != who
-            && w.server_time < f.until
-            && w.player(f.killer).is_some_and(|p| p.standing())
-    })
+    first_pick_open(w, chest).is_some_and(|f| f.killer != who)
+}
+/// P-WIRE19-A: `chest`'s first-pick window while it is in force (open, `server_time < until`, and its killer still a
+/// standing player), else `None`. The facts [`first_pick_blocks`] reads, so the observed window and the refusal of
+/// `choose` start and end on the same tick.
+pub(crate) fn first_pick_open(w: &World, chest: &Chest) -> Option<FirstPick> {
+    chest
+        .first_pick
+        .filter(|f| w.server_time < f.until && w.player(f.killer).is_some_and(|p| p.standing()))
 }
 pub(crate) fn insert(
     w: &mut World,
@@ -529,6 +533,8 @@ pub(crate) fn validate_world(
 mod chest_runtime_tests;
 #[cfg(test)]
 mod first_pick_tests;
+#[cfg(test)]
+mod first_pick_view_tests;
 #[cfg(test)]
 mod pool_tests;
 #[cfg(test)]

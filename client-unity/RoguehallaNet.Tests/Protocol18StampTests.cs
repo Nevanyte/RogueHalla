@@ -9,7 +9,8 @@ namespace Roguehalla.Net.Tests
     /// v18 golden vectors as protocol 18, and a session refuses a protocol-17 server's Welcome while accepting an 18 one.</summary>
     public class Protocol18StampTests
     {
-        [Test] public void CodecSpeaksProtocol18() { Assert.AreEqual(18, Wire.ProtocolVersion); }
+        /// <summary>P-WIRE19-A moved the codec to 19; the v18 history below stays.</summary>
+        [Test] public void CodecSpeaksProtocol18OrLater() { Assert.GreaterOrEqual((int)Wire.ProtocolVersion, 18); }
 
         [Test]
         public void V18FixtureExistsAndItsHelloSays18()
@@ -42,15 +43,15 @@ namespace Roguehalla.Net.Tests
         {
             var old = new FakeTransport(); var s17 = NewSession(old);
             s17.Connect(); old.Open();
-            Assert.AreEqual(18, old.LastSent<ClientMsg.Hello>().Protocol, "the Hello says 18");
+            Assert.AreEqual(Wire.ProtocolVersion, old.LastSent<ClientMsg.Hello>().Protocol, "the Hello says the codec's version");
             old.Deliver(Welcome(17));
             Assert.AreEqual(SessionState.Failed, s17.State, "a protocol-17 Welcome is refused");
             StringAssert.Contains("server protocol 17", s17.Error);
 
             var cur = new FakeTransport(); var s18 = NewSession(cur);
             s18.Connect(); cur.Open();
-            cur.Deliver(Welcome(18));
-            Assert.AreEqual(SessionState.InMatch, s18.State, "a protocol-18 Welcome starts the match");
+            cur.Deliver(Welcome(Wire.ProtocolVersion));
+            Assert.AreEqual(SessionState.InMatch, s18.State, "a Welcome of the codec's version starts the match");
         }
     }
 }

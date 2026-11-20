@@ -36,8 +36,9 @@ fn vector(text: &str, name: &str) -> Vec<u8> {
 }
 
 #[test]
-fn protocol_version_is_18() {
-    assert_eq!(PROTOCOL_VERSION, 18);
+fn protocol_version_is_at_least_18() {
+    // P-WIRE19-A moved the protocol to 19; the v17/v18 history below stays.
+    assert!(std::hint::black_box(PROTOCOL_VERSION) >= 18);
 }
 
 #[test]

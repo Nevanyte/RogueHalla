@@ -647,4 +647,7 @@ content! {
     REWORK_TROPHY_HUNTER_CAP: f64 = 0.15, "share";
     /// Marked Man: multiplier on stacks from kills (decision 9; legacy doubles).
     REWORK_MARKED_MAN_STACK_MULT: f64 = 1.5, "x";
+    /// Bastion: most stored blocked damage its meter holds (P-AUG-NATIVE-1b decision: the workbook says only "Meter cap";
+    /// legacy Tank Engine's cap number, `TANK_ENGINE_CAP`, `constants.ts:292`, as Bastion "Pairs with Tank Engine").
+    REWORK_BASTION_METER_CAP: f64 = 250., "dmg";
 }

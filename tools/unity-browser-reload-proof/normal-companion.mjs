@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const EXPECTED_PROTOCOL = 18;
-const EXPECTED_CONTENT_HASH = '8196e898724e4218';
+const EXPECTED_PROTOCOL = 19;
+const EXPECTED_CONTENT_HASH = 'a03745630efa1c12';
 const MAX_COMMANDS = 16;
 const MAX_EVENT_ROWS = 512;
 const PROFILE_RE = /^[A-Za-z0-9_-]{2,16}$/;
@@ -19,12 +19,12 @@ const probePath = path.join(repoRoot, 'crates/rh-server/web/probe.html');
 
 function loadCodec() {
   const html = readFileSync(probePath, 'utf8');
-  const start = html.indexOf('// ---- protocol v18 ');
+  const start = html.indexOf('// ---- protocol v19 ');
   const end = html.indexOf('// ---- probe state', start);
-  if (start < 0 || end <= start) throw new Error('protocol v18 codec block is unavailable');
+  if (start < 0 || end <= start) throw new Error('protocol v19 codec block is unavailable');
   const source = html.slice(start, end);
   const codec = new Function(`${source}\nreturn { PROTOCOL, hello, input, decode, decodeClient, Tracker, ping, leave };`)();
-  if (codec.PROTOCOL !== EXPECTED_PROTOCOL) throw new Error('protocol v18 codec block is unavailable');
+  if (codec.PROTOCOL !== EXPECTED_PROTOCOL) throw new Error('protocol v19 codec block is unavailable');
   return codec;
 }
 

@@ -12,7 +12,7 @@
 //! 4. No window under Legacy (the chest and the reward draws are the Rework drop's, minus the window), none on a campless
 //!    elite's chest, a stat crate or a Trophy.
 //! 5. A checkpoint mid-window and after it restores and hashes equal; the field is hashed; forged windows are refused.
-//! 6. Observations carry nothing new: the killer's and another player's rows differ in `can_choose` alone.
+//! 6. Observations: the killer's and another player's rows differ in `can_choose` and `mine` alone (P-WIRE19-A amend).
 use super::*;
 use crate::fighter::FighterIx;
 use crate::systems::ledger::Hit;
@@ -710,7 +710,7 @@ fn the_checkpoint_format_is_bumped_past_the_base() {
 // ---------------------------------------------------------------------------------------------------------------------
 
 #[test]
-fn the_window_shows_only_in_can_choose_and_the_chest_row_carries_no_new_field() {
+fn the_window_shows_in_the_viewers_own_facts_and_the_row_carries_its_public_end() {
     let mut s = world(EliteRule::Rework, false);
     let camp = elite_camp(&s);
     gather(&mut s, camp);
@@ -721,15 +721,18 @@ fn the_window_shows_only_in_can_choose_and_the_chest_row_carries_no_new_field() 
     past_hold(&mut s, id);
     let (mine, theirs) = (row(&s, killer), row(&s, second));
     assert!(mine.can_choose && !theirs.can_choose);
+    // P-WIRE19-A (oracle-amend): the row carries the window's public end and an own-only `mine` flag; the killer's row
+    // differs from another's in those own facts alone.
+    let until = chest(&s, id).first_pick.expect("the window").until;
     assert_eq!(
         RewardChestView {
             can_choose: true,
+            first_pick: Some(FirstPickView { until, mine: true }),
             ..theirs.clone()
         },
         mine,
-        "the rows differ in can_choose alone"
+        "the rows differ in can_choose and mine alone"
     );
-    // The public row is unchanged until P-WIRE19-A puts the window's end on the wire.
     let mut keys: Vec<String> = serde_json::to_value(&theirs)
         .unwrap()
         .as_object()
@@ -744,6 +747,7 @@ fn the_window_shows_only_in_can_choose_and_the_chest_row_carries_no_new_field() 
             "at",
             "can_choose",
             "expires_at",
+            "first_pick",
             "handle",
             "options",
             "picked"

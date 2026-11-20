@@ -322,6 +322,17 @@ pub(crate) fn land(cx: &mut Cx) {
             l.cast.ability,
             crate::hooks::CastOutcome::Landed,
         );
+        // P-AUG-NATIVE-1b: the native Wish hook, for a holder's landed Wish (a cancelled or refunded cast never lands).
+        if crate::cards::native::hooks::holds_native(cx.k, cx.w, l.id)
+            && a::definition_for(&cx.k.config, l.cast.ability).slot == a::Slot::Wish
+        {
+            crate::cards::native::hooks::fire(
+                cx.k,
+                cx.w,
+                l.id,
+                crate::cards::native::hooks::NativeEvent::WishCast,
+            );
+        }
     }
     cx.s.cast_landings.clear();
 }
