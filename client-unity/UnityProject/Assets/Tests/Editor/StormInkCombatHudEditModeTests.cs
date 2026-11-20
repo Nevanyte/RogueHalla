@@ -4,6 +4,7 @@ using System.Reflection;
 using NUnit.Framework;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
+using Roguehalla.Net.Ui;
 using TMPro;
 using UnityEngine;
 
@@ -37,23 +38,23 @@ namespace Roguehalla.Client.Tests
         static Rect BoundsRect(Bounds b) => Rect.MinMaxRect(b.min.x, b.min.y, b.max.x, b.max.y);
 
         [Test]
-        public void MarkPlateKeepsItsExactMeaningAndClearsTheNearbyHolyHelmet()
+        public void CampRewardPlaqueKeepsItsExactArtAndClearsTheNearbyHolyHelmet()
         {
-            var seen = new List<InterpActor> { new InterpActor
+            _arena.Present(new List<InterpActor>(), Holy(150, 216), null, 0);
+            var labels = (CampRespawnLabels)typeof(ArenaView)
+                .GetField("_campLabels", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_arena);
+            labels.Draw(new List<CampWorldLabel>(), new List<CampWardRow>(), new List<CampBadgeRow>
             {
-                Id = 2, X = 100, Y = 200, Faction = FactionId.Sentenced, Status = ActorStatus.Alive,
-                Kind = ActorKind.Player, Weapon = WeaponId.Axe, HpPct = 100, SourceSig = 64
-            } };
-            _arena.Present(seen, Holy(150, 216), null, 0);
-            var label = _root.GetComponentsInChildren<TextMeshPro>()
-                .Single(s => s.name == "Signature cue");
-            Assert.That(label.text, Is.EqualTo("EXEC BLOCKED"));
-            Rect plate = BoundsRect(Sprites("Signature cue plate").Single().bounds);
+                new CampBadgeRow { WorldX = 150, WorldY = 216, IconKey = "health", IconRgb = 0x8cf588 }
+            });
+            Assert.That(labels.BadgesUsed, Is.EqualTo(1));
+            Assert.That(Sprites("Camp reward badge").Single().sprite, Is.SameAs(CampRespawnLabels.Art("health")));
+            Rect plate = BoundsRect(Sprites("Camp reward plaque").Single().bounds);
 
             var local = Sprites("Authored character").Single(s => s.sprite.name.StartsWith("HolyChampion/"));
             Bounds body = local.bounds;
-            Rect helmet = Rect.MinMaxRect(body.center.x - .28f, body.max.y - .56f, body.center.x + .28f, body.max.y - .08f);
-            Assert.That(plate.Overlaps(helmet), Is.False, "A neighbor's opaque mark plate must not cover the Holy helmet.");
+            Rect helmet = Rect.MinMaxRect(body.center.x - .28f, body.max.y - .60f, body.center.x + .28f, body.max.y - .06f);
+            Assert.That(plate.Overlaps(helmet), Is.False, "The opaque camp reward plaque must not cover the Holy helmet.");
         }
 
         [Test]
