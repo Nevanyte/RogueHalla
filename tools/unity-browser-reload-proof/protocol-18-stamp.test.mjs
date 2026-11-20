@@ -2,7 +2,7 @@
 // tools/protocol-js/check-*.mjs) and the reload proof's metadata parser speak protocol 18, and both read the generated
 // protocol/fixtures/v18.json Hello and Welcome as protocol 18. Run by the gate's reload-proof step whenever
 // crates/rh-protocol/ or protocol/fixtures/ changes. P-NET-DRAWAHEAD-1a moved every pin to protocol 19 (v19.json);
-// P-COLISEUM-HEALS-2 to protocol 20 (v20.json).
+// P-COLISEUM-HEALS-2 to protocol 20 (v20.json); P-TICK-3 to protocol 21 (v21.json).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -11,34 +11,34 @@ import { parseWireMetadata } from './wire-metadata.js';
 const html = readFileSync(new URL('../../crates/rh-server/web/probe.html', import.meta.url), 'utf8');
 const start = html.search(/\/\/ ---- protocol v\d+ /), end = html.indexOf('// ---- probe state', start);
 const probe = new Function(`${html.slice(start, end)}\nreturn { PROTOCOL, decode, decodeClient };`)();
-const v20 = new URL('../../protocol/fixtures/v20.json', import.meta.url);
+const v21 = new URL('../../protocol/fixtures/v21.json', import.meta.url);
 const fromHex = hex => Uint8Array.from(hex.match(/../g), b => Number.parseInt(b, 16));
 
 function vectors() {
-  assert.equal(existsSync(v20), true, 'protocol/fixtures/v20.json is missing (cargo run -p rh-protocol --bin protocol-fixtures)');
-  return JSON.parse(readFileSync(v20, 'utf8'));
+  assert.equal(existsSync(v21), true, 'protocol/fixtures/v21.json is missing (cargo run -p rh-protocol --bin protocol-fixtures)');
+  return JSON.parse(readFileSync(v21, 'utf8'));
 }
 
-test('probe.html speaks protocol 20 and its codec block is marked v20', () => {
-  assert.equal(probe.PROTOCOL, 20);
-  assert.notEqual(html.indexOf('// ---- protocol v20 '), -1, 'the codec block marker names v20');
+test('probe.html speaks protocol 21 and its codec block is marked v21', () => {
+  assert.equal(probe.PROTOCOL, 21);
+  assert.notEqual(html.indexOf('// ---- protocol v21 '), -1, 'the codec block marker names v21');
 });
 
-test('the probe decodes the v20 Hello and Welcome as protocol 20', () => {
+test('the probe decodes the v21 Hello and Welcome as protocol 21', () => {
   const v = vectors();
-  assert.equal(v.protocol, 20);
+  assert.equal(v.protocol, 21);
   const hello = fromHex(v.client.find(r => r.name === 'hello').hex);
   const welcome = fromHex(v.server.find(r => r.name === 'welcome').hex);
-  assert.equal(probe.decodeClient(hello.buffer).protocol, 20);
-  assert.equal(probe.decode(welcome.buffer).protocol, 20);
+  assert.equal(probe.decodeClient(hello.buffer).protocol, 21);
+  assert.equal(probe.decode(welcome.buffer).protocol, 21);
 });
 
-test('the reload proof reads the v20 Hello and Welcome metadata as protocol 20', () => {
+test('the reload proof reads the v21 Hello and Welcome metadata as protocol 21', () => {
   const v = vectors();
   const hello = parseWireMetadata('client', fromHex(v.client.find(r => r.name === 'hello').hex));
   assert.equal(hello.status, 'metadata', JSON.stringify(hello));
-  assert.equal(hello.protocol, 20);
+  assert.equal(hello.protocol, 21);
   const welcome = parseWireMetadata('server', fromHex(v.server.find(r => r.name === 'welcome').hex));
   assert.equal(welcome.status, 'public-prefix', JSON.stringify(welcome));
-  assert.equal(welcome.protocol, 20);
+  assert.equal(welcome.protocol, 21);
 });

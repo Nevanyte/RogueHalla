@@ -80,3 +80,7 @@ for (const [name, reason] of Object.entries(refusals)) {
 }
 
 console.log(`map anchors: ${checks} checks passed`);
+
+// P-TICK-3: scripts/gate.sh runs this script (jsvectors) and is owner-protected, and check-vectors.mjs is provenance-pinned, so
+// the snapshot-time oracle (Welcome.tickRate, protocol 21) runs from here; it exits non-zero on a failure.
+await import("./check-tick-rate.mjs");

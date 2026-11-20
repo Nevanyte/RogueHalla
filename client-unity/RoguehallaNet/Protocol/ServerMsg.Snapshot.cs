@@ -36,20 +36,31 @@ namespace Roguehalla.Net.Protocol
             // so the new optional owner-combat reference does not increase every pooled Snapshot object's size.
             bool _hasServerTimeOverride;
             double _serverTimeOverrideMs;
+            /// <summary>The tick ms this snapshot is read at; 0 stands for <see cref="Wire.TickMs"/> (a new Snapshot is 20 Hz).</summary>
+            byte _tickMs;
 
-            /// <summary>Optional per-frame authoritative source time in ms. Null encodes the canonical Tick * 50 default.</summary>
+            /// <summary>Protocol 21: the milliseconds per tick of this snapshot's connection (its Welcome's rate: 50 at 20 Hz, 25 at
+            /// 40 Hz). The decoder sets it; the default time and the override test of <see cref="Encode"/> read it.</summary>
+            public int TickMs
+            {
+                get { return _tickMs == 0 ? Wire.TickMs : _tickMs; }
+                set { if (!Wire.IsTickMs(value)) throw new ArgumentException("tick ms"); _tickMs = (byte)value; }
+            }
+
+            /// <summary>Optional per-frame authoritative source time in ms. Null encodes the canonical Tick * TickMs default.</summary>
             public double? ServerTimeOverrideMs
             {
                 get { return _hasServerTimeOverride ? _serverTimeOverrideMs : (double?)null; }
                 set { _hasServerTimeOverride = value.HasValue; if (value.HasValue) _serverTimeOverrideMs = value.Value; }
             }
 
-            /// <summary>The accepted source time for this frame, using Tick * 50 only when the frame has no override.</summary>
-            public double ServerMs { get { return _hasServerTimeOverride ? _serverTimeOverrideMs : Tick * (double)Wire.TickMs; } }
+            /// <summary>The accepted source time for this frame, using Tick * TickMs only when the frame has no override.</summary>
+            public double ServerMs { get { return _hasServerTimeOverride ? _serverTimeOverrideMs : Tick * (double)TickMs; } }
 
+            // Compared at this snapshot's own rate: at 40 Hz an override equal to Tick * 25 is the default and is not written.
             bool HasNonDefaultTime
             {
-                get { return _hasServerTimeOverride && BitConverter.DoubleToInt64Bits(_serverTimeOverrideMs) != BitConverter.DoubleToInt64Bits(Tick * (double)Wire.TickMs); }
+                get { return _hasServerTimeOverride && BitConverter.DoubleToInt64Bits(_serverTimeOverrideMs) != BitConverter.DoubleToInt64Bits(Tick * (double)TickMs); }
             }
 
             /// <summary>Exact size of <see cref="Encode"/>'s frame.</summary>
@@ -117,9 +128,11 @@ namespace Roguehalla.Net.Protocol
                 return w.Finish();
             }
 
-            /// <summary>Reads the body of a Snapshot frame into <paramref name="s"/>, reusing its Me object and actor array.</summary>
-            internal static Snapshot Read(ref Reader r, Snapshot s)
+            /// <summary>Reads the body of a Snapshot frame into <paramref name="s"/>, reusing its Me object and actor array, at
+            /// <paramref name="tickMs"/> per tick.</summary>
+            internal static Snapshot Read(ref Reader r, Snapshot s, int tickMs)
             {
+                s.TickMs = tickMs;
                 s.Tick = r.Varint(); s.AckInput = r.Varint();
                 uint head = r.Varint();
                 if ((head & ~WireSelf.Known) != 0 || ((head & WireSelf.HPresent) == 0 && (head & WireSelf.SelfBits) != 0) ||
@@ -195,8 +208,16 @@ namespace Roguehalla.Net.Protocol
             /// <summary>Whether this delta carries owner-combat availability; null explicitly clears, omission retains.</summary>
             public bool HasOwnerCombat;
             public WireOwnerCombat OwnerCombat;
-            /// <summary>Optional absolute per-frame source time; absent means Tick * 50, never the base's time.</summary>
+            /// <summary>Optional absolute per-frame source time; absent means Tick * <see cref="TickMs"/>, never the base's time.</summary>
             public double? ServerTimeOverrideMs;
+            int _tickMs = Wire.TickMs;
+            /// <summary>Protocol 21: the milliseconds per tick of this delta's connection (50 at 20 Hz, 25 at 40 Hz): it bounds the
+            /// base age (<see cref="Wire.MaxDeltaAgeAt"/>) and is the default time's unit.</summary>
+            public int TickMs
+            {
+                get { return _tickMs; }
+                set { if (!Wire.IsTickMs(value)) throw new ArgumentException("tick ms"); _tickMs = value; }
+            }
 
             // Head bits (append only): 0 self fields, 7 departed, 8 phase, 20 training, 21 Wish, 22 barrier, 23 server time, 24 owner combat.
             const uint HPresent = 1 << 0, HDeparted = 1 << 7, HPhase = 1 << 8, HTraining = 1 << 20,
@@ -205,11 +226,12 @@ namespace Roguehalla.Net.Protocol
                 Known = HPresent | SelfDelta.Fields | HPhase | HDeparted | HTraining | HWish | HBarrier | HServerTime | HOwnerCombat | HArchetype | HFlags | HBuildMarks | HMark;
 
             /// <summary>Reads the body of a delta frame (after the tag): syntax and ranges only; whether it applies is the tracker's question.</summary>
-            internal static SnapshotDelta Read(ref Reader r, SnapshotDelta d)
+            internal static SnapshotDelta Read(ref Reader r, SnapshotDelta d, int tickMs)
             {
+                d.TickMs = tickMs;
                 d.Tick = r.Varint();
                 uint age = r.Varint();
-                if (age < 1 || age > Wire.MaxDeltaAge || age > d.Tick) throw new DecodeException(DecodeError.BadField, "base age");
+                if (age < 1 || age > Wire.MaxDeltaAgeAt(tickMs) || age > d.Tick) throw new DecodeException(DecodeError.BadField, "base age");
                 d.BaseTick = d.Tick - age;
                 d.AckInput = r.Varint();
                 uint head = r.Varint();
@@ -312,7 +334,7 @@ namespace Roguehalla.Net.Protocol
 
             public override byte[] Encode()
             {
-                if (Tick < BaseTick + 1 || Tick - BaseTick > Wire.MaxDeltaAge) throw new ArgumentException("base age");
+                if (Tick < BaseTick + 1 || Tick - BaseTick > Wire.MaxDeltaAgeAt(TickMs)) throw new ArgumentException("base age");
                 if (HasPhase && Phase > Wire.MaxPhaseCode) throw new ArgumentException("phase");
                 if (ChangedCount > Wire.MaxActors || DepartedCount > Wire.MaxActors) throw new ArgumentException("too many actors");
                 if (HasSelf && (Me.Mask & ~SelfDelta.Fields) != 0) throw new ArgumentException("head");
@@ -348,7 +370,7 @@ namespace Roguehalla.Net.Protocol
                 if (HasBuildMarks) head |= HBuildMarks;
                 if (HasMark) head |= HMark;
                 if (HasOwnerCombat) head |= HOwnerCombat;
-                bool hasTime = ServerTimeOverrideMs.HasValue && BitConverter.DoubleToInt64Bits(ServerTimeOverrideMs.Value) != BitConverter.DoubleToInt64Bits(Tick * (double)Wire.TickMs);
+                bool hasTime = ServerTimeOverrideMs.HasValue && BitConverter.DoubleToInt64Bits(ServerTimeOverrideMs.Value) != BitConverter.DoubleToInt64Bits(Tick * (double)TickMs);
                 if (hasTime) head |= HServerTime;
                 if (HasPhase) head |= HPhase;
                 if (DepartedCount > 0) head |= HDeparted;

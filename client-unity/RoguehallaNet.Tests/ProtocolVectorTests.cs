@@ -34,7 +34,7 @@ namespace Roguehalla.Net.Tests
             throw new KeyNotFoundException(name);
         }
 
-        [Test] public void FixtureIsProtocolV20() { Assert.AreEqual(20, Wire.ProtocolVersion); Assert.AreEqual(Wire.ProtocolVersion, Fixture().GetProperty("protocol").GetInt32()); }
+        [Test] public void FixtureIsProtocolV21() { Assert.AreEqual(21, Wire.ProtocolVersion); Assert.AreEqual(Wire.ProtocolVersion, Fixture().GetProperty("protocol").GetInt32()); }
 
         [TestCaseSource(nameof(ClientVectors))]
         public void ClientVectorRoundTripsByteForByte(string name, string hex)
@@ -383,7 +383,7 @@ namespace Roguehalla.Net.Tests
                 Assert.AreEqual(why, Assert.Throws<ArgumentException>(() => msg.Encode(), why).Message, why);
             }
             // The edges are valid.
-            var edge = new ServerMsg.Welcome { Protocol = good.Protocol, MatchId = good.MatchId, Session = good.Session, Map = good.Map,
+            var edge = new ServerMsg.Welcome { Protocol = good.Protocol, MatchId = good.MatchId, Session = good.Session, Map = good.Map, TickRate = 20,
                 Weapons = with(0, a => { a.HalfArc = Math.PI; return a; }) };
             var back = (ServerMsg.Welcome)ServerMsg.Decode(edge.Encode());
             Assert.AreEqual(Math.PI, back.Weapons[0].HalfArc);
@@ -1346,7 +1346,7 @@ namespace Roguehalla.Net.Tests
         {
             var tiles = new byte[70000];
             var m = new MapBlob(500, 140, tiles);
-            var w = new ServerMsg.Welcome { Protocol = Wire.ProtocolVersion, MatchId = new byte[16], Session = new byte[16], Map = m };
+            var w = new ServerMsg.Welcome { Protocol = Wire.ProtocolVersion, MatchId = new byte[16], Session = new byte[16], TickRate = 20, Map = m };
             var back = (ServerMsg.Welcome)ServerMsg.Decode(w.Encode());
             Assert.AreEqual(70000, back.Map.Tiles.Length);
         }

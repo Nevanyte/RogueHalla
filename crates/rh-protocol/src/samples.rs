@@ -7483,6 +7483,52 @@ pub fn malformed_deltas() -> Vec<(&'static str, Vec<u8>)> {
     ]
 }
 
+/// P-TICK-3: Full snapshot frames read on a 40 Hz connection (`ServerMsg::decode_at(frame, 40)`), written to the vectors as
+/// `serverTickRate40`. The frames are the 20 Hz encoder's bytes (the server sends 20 Hz until P-TICK-5): one without a
+/// source-time override is `tick * 25` at 40 Hz and `tick * 50` at 20 Hz; one with an override reads the same at both.
+pub fn tick_rate_40_samples() -> Vec<(&'static str, Vec<u8>)> {
+    let named = |name: &str| {
+        server_samples()
+            .into_iter()
+            .find(|(n, _)| *n == name)
+            .map(|(_, m)| m.encode())
+            .unwrap_or_else(|| panic!("server sample {name}"))
+    };
+    let crowd: Vec<WireActor> = (1..=12u32)
+        .map(|id| WireActor {
+            id,
+            x: 100.0 + id as f32 * 40.0,
+            y: 200.0 + id as f32 * 16.0,
+            hp_pct: 100,
+            status: 1,
+            ..Default::default()
+        })
+        .collect();
+    let mut crowd_full = Vec::new();
+    ConnEncoder::new().encode(
+        SnapshotData::build(10, 1, 10, None, crowd.into_iter()).expect("a crowd snapshot"),
+        &mut crowd_full,
+    );
+    let overridden = ServerMsg::Snapshot {
+        tick: 20,
+        server_time: 888.75,
+        phase: 1,
+        ack_input: 3,
+        me: None,
+        actors: Vec::new(),
+        training: false,
+        owner_combat: None,
+    }
+    .encode();
+    vec![
+        ("snapshot_at_40", named("snapshot")),
+        ("snapshot_full_at_40", named("snapshot_full")),
+        ("snapshot_walk_hint_at_40", named("snapshot_walk_hint")),
+        ("snapshot_crowd_at_40", crowd_full),
+        ("snapshot_override_at_40", overridden),
+    ]
+}
+
 pub fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
@@ -8048,6 +8094,18 @@ pub fn manifest() -> String {
         out.push_str(&format!(
             "    ]}}{}\n",
             if i + 1 < chains.len() { "," } else { "" }
+        ));
+    }
+    // Protocol 21: the same Full frames on a 40 Hz connection; every other section is read at 20 Hz.
+    out.push_str("  ],\n  \"serverTickRate40\": [\n");
+    let at40 = tick_rate_40_samples();
+    for (i, (name, bytes)) in at40.iter().enumerate() {
+        let decoded = ServerMsg::decode_at(bytes, 40).expect("a 40 Hz sample decodes at 40 Hz");
+        out.push_str(&format!(
+            "    {{\"name\": \"{name}\", \"hex\": \"{}\", \"decoded\": {}}}{}\n",
+            hex(bytes),
+            decoded_snapshot_json(&decoded),
+            if i + 1 < at40.len() { "," } else { "" }
         ));
     }
     out.push_str("  ]\n}\n");

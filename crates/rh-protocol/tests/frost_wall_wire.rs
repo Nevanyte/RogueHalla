@@ -129,7 +129,7 @@ fn constants_match_the_brief() {
 /// P-COLISEUM-HEALS-2 to 20 for the heal prop).
 #[test]
 fn guard_the_protocol_is_20() {
-    assert_eq!(PROTOCOL_VERSION, 20);
+    assert_eq!(PROTOCOL_VERSION, 21);
 }
 
 // ---- layout --------------------------------------------------------------------------------------------------------

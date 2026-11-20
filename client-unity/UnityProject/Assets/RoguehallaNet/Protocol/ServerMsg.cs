@@ -21,7 +21,22 @@ namespace Roguehalla.Net.Protocol
         /// garbage. Pass only a snapshot nothing else still reads (SnapshotBuffer.TakeSpare hands out such one). Other frames
         /// ignore <paramref name="reuse"/>. If decoding throws, <paramref name="reuse"/> is left partly overwritten.
         /// </summary>
-        public static ServerMsg Decode(byte[] frame, int length, Snapshot reuse)
+        /// <remarks>The rate-less overloads read snapshot times at 20 Hz (<see cref="Wire.TickMs"/>).</remarks>
+        public static ServerMsg Decode(byte[] frame, int length, Snapshot reuse) { return DecodeAt(frame, length, reuse, Wire.TickMs); }
+
+        /// <summary>
+        /// P-TICK-3 (ADR 0029): as <see cref="Decode(byte[], int, Snapshot)"/> on a connection whose Welcome said
+        /// <paramref name="tickRate"/>: a Snapshot or SnapshotDelta without a source-time override stands for
+        /// Tick * (1000 / tickRate) ms, and a delta's base age is bounded by <see cref="Wire.MaxDeltaAgeAt"/> at that rate. Only
+        /// 20 and 40 are rates; any other is refused with a <see cref="DecodeException"/>.
+        /// </summary>
+        public static ServerMsg Decode(byte[] frame, int length, Snapshot reuse, byte tickRate)
+        {
+            return DecodeAt(frame, length, reuse, Wire.TickMsOf(tickRate));
+        }
+
+        /// <summary>The decoder, with snapshot times at <paramref name="tickMs"/> per tick (50 or 25).</summary>
+        internal static ServerMsg DecodeAt(byte[] frame, int length, Snapshot reuse, int tickMs)
         {
             if (length > Wire.MaxServerFrame) throw new DecodeException(DecodeError.TooLarge, length.ToString());
             var r = new Reader(frame, length);
@@ -33,9 +48,13 @@ namespace Roguehalla.Net.Protocol
                     var welcome = new Welcome
                     {
                         Protocol = r.U16(), ContentHash = r.U64(), MatchId = r.Array16(), PlayerId = r.U32(), Session = r.Array16(),
-                        TickRate = r.U8(), Tick = r.U32(), ServerMs = r.F64(), Archetypes = WireArchetype.ReadTable(ref r), Vision = WireVision.Read(ref r),
-                        Weapons = WireWeapon.ReadTable(ref r), Hud = WireHudContent.Read(ref r), Map = MapBlob.Read(ref r),
+                        TickRate = r.U8(),
                     };
+                    // Protocol 21: only 20 and 40 Hz are rates (refused before the rest is read, as rh-protocol does).
+                    Wire.TickMsOf(welcome.TickRate);
+                    welcome.Tick = r.U32(); welcome.ServerMs = r.F64(); welcome.Archetypes = WireArchetype.ReadTable(ref r);
+                    welcome.Vision = WireVision.Read(ref r); welcome.Weapons = WireWeapon.ReadTable(ref r);
+                    welcome.Hud = WireHudContent.Read(ref r); welcome.Map = MapBlob.Read(ref r);
                     if (!welcome.Vision.Fits(welcome.Map.W, welcome.Map.H)) throw new DecodeException(DecodeError.BadField, "vision");
                     msg = welcome;
                     break;
@@ -48,10 +67,10 @@ namespace Roguehalla.Net.Protocol
                     break;
                 }
                 case TSnapshot:
-                    msg = Snapshot.Read(ref r, reuse ?? new Snapshot());
+                    msg = Snapshot.Read(ref r, reuse ?? new Snapshot(), tickMs);
                     break;
                 case TSnapshotDelta:
-                    msg = SnapshotDelta.Read(ref r, new SnapshotDelta());
+                    msg = SnapshotDelta.Read(ref r, new SnapshotDelta(), tickMs);
                     break;
                 case TEvents:
                 {

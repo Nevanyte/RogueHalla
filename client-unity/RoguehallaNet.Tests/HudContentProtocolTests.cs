@@ -55,7 +55,7 @@ namespace Roguehalla.Net.Tests
 
         static ServerMsg.Welcome Small(ServerMsg.Welcome good, WireHudContent hud)
         {
-            return new ServerMsg.Welcome { Protocol = good.Protocol, MatchId = good.MatchId, Session = good.Session, Map = good.Map, Hud = hud };
+            return new ServerMsg.Welcome { Protocol = good.Protocol, MatchId = good.MatchId, Session = good.Session, TickRate = 20, Map = good.Map, Hud = hud };
         }
 
         static byte[] Block((byte id, double[] v, byte dominant)[] scaling, (byte code, double value)[] terms)

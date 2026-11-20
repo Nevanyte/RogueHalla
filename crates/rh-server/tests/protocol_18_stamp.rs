@@ -106,11 +106,11 @@ async fn a_protocol_19_hello_is_refused_with_protocol_mismatch() {
     let refused = matches!(
         &got,
         Some(ServerMsg::Reject { code: RejectCode::ProtocolMismatch, reason })
-            if reason.contains("server speaks protocol 20, client 19")
+            if reason.contains("server speaks protocol 21, client 19")
     );
     assert!(
         refused,
-        "a protocol-19 Hello gets ProtocolMismatch naming 20 and 19, got {}",
+        "a protocol-19 Hello gets ProtocolMismatch naming 21 and 19, got {}",
         summary(&got)
     );
 }
@@ -125,17 +125,17 @@ fn summary(m: &Option<ServerMsg>) -> String {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_protocol_20_hello_is_welcomed_with_protocol_20() {
+async fn a_protocol_21_hello_is_welcomed_with_protocol_21() {
     let url = start().await;
-    let got = answer_to_hello(&url, 20, "new20").await;
+    let got = answer_to_hello(&url, 21, "new21").await;
     let protocol = match &got {
         Some(ServerMsg::Welcome { protocol, .. }) => Some(*protocol),
         _ => None,
     };
     assert_eq!(
         protocol,
-        Some(20),
-        "a protocol-20 Hello is welcomed with a protocol-20 Welcome, got {}",
+        Some(21),
+        "a protocol-21 Hello is welcomed with a protocol-21 Welcome, got {}",
         summary(&got)
     );
 }
