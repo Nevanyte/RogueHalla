@@ -7,9 +7,11 @@ using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UIElements;
 
 namespace Roguehalla.Client.Tests
 {
@@ -198,6 +200,54 @@ namespace Roguehalla.Client.Tests
         }
 
         [UnityTest]
+        public IEnumerator EditingABowNockRedrawsTheHeldStringWithoutReopeningTheStage()
+        {
+            var slot = typeof(StormInkBowArtAuthoring).GetField("_default", BindingFlags.Static | BindingFlags.NonPublic);
+            var original = StormInkBowArtAuthoring.Load();
+            string path = AssetDatabase.GenerateUniqueAssetPath("Assets/StormInkTestBowRegistration.asset");
+            var edited = Object.Instantiate(original);
+            AssetDatabase.CreateAsset(edited, path);
+            try
+            {
+                slot.SetValue(null, edited);
+                Assert.That(EditorApplication.ExecuteMenuItem("Tools/RogueHalla/Storm Ink/Church Art Studio"), Is.True);
+                yield return null;
+                var stage = (StormInkChurchStage)StageUtility.GetCurrentStage();
+                stage.PreviewFireLoadout(WeaponId.Bow, 2, 2);
+                var bow = stage.scene.GetRootGameObjects().SelectMany(root =>
+                    root.GetComponentsInChildren<StormInkArtistSource>(true)).Single(source =>
+                        source.Kind == StormInkArtistSourceKind.EquippedBow);
+                var line = bow.transform.parent.Find("Bowstring upper");
+                // Settle queued import/selection changes before testing the Inspector edit.
+                yield return null;
+                yield return null;
+                Assert.That(line.GetComponent<SpriteRenderer>().enabled, Is.True, "The full draw must show its string.");
+                Assert.That(bow.WeaponSource, Is.SameAs(edited), "The staged bow should use the edited registration.");
+                Vector3 before = line.localPosition;
+                using (var values = new SerializedObject(edited))
+                {
+                    var nock = values.FindProperty("nocks").GetArrayElementAtIndex(2).FindPropertyRelative("Top");
+                    nock.vector2Value += Vector2.right * .18f;
+                    values.ApplyModifiedProperties();
+                }
+                for (int i = 0; i < 15 && Vector3.Distance(line.localPosition, before) < .001f; i++)
+                    yield return null;
+                Assert.That(Vector3.Distance(line.localPosition, before), Is.GreaterThan(.001f),
+                    "The held string should follow the edited nock without changing the selected pose.");
+                Undo.PerformUndo();
+                for (int i = 0; i < 15 && Vector3.Distance(line.localPosition, before) > .001f; i++)
+                    yield return null;
+                Assert.That(Vector3.Distance(line.localPosition, before), Is.LessThan(.001f));
+            }
+            finally
+            {
+                StageUtility.GoToMainStage();
+                slot.SetValue(null, original);
+                AssetDatabase.DeleteAsset(path);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator StudioSamplesReadyAndReleaseBowWithSharedGripAndGameplayParity()
         {
             var authoringField = typeof(StormInkFireBowAuthoring).GetField("_default",
@@ -230,6 +280,25 @@ namespace Roguehalla.Client.Tests
                     "the midpoint of custom mid/sustained thresholds must hold the authored middle drawing");
                 stage.PreviewFireSampler(WeaponId.Bow, 2, StormInkFireSwordMotionPhase.Windup, .8f, true);
                 var bow = body.Renderer.transform.parent.Find("Equipped weapon cue").GetComponent<StormInkArtistSource>();
+                var bodyEditor = UnityEditor.Editor.CreateEditor(body);
+                var bowEditor = UnityEditor.Editor.CreateEditor(bow);
+                try
+                {
+                    var bodyFields = bodyEditor.CreateInspectorGUI().Query<PropertyField>().ToList()
+                        .Select(field => field.bindingPath);
+                    // East row 2, second full draw at column 7.
+                    Assert.That(bodyFields, Does.Contain("palms.Array.data[27].Left"));
+                    Assert.That(bodyFields, Does.Contain("palms.Array.data[27].Right"));
+                    var bowFields = bowEditor.CreateInspectorGUI().Query<PropertyField>().ToList()
+                        .Select(field => field.bindingPath);
+                    Assert.That(bowFields, Does.Contain("nocks.Array.data[2].Top"));
+                    Assert.That(bowFields, Does.Contain("nocks.Array.data[2].Bottom"));
+                }
+                finally
+                {
+                    Object.DestroyImmediate(bodyEditor);
+                    Object.DestroyImmediate(bowEditor);
+                }
                 Assert.That(body.Sprite.name, Is.EqualTo("FireBow/2/7"));
                 Assert.That(body.BodyPainting, Is.SameAs(art));
                 Assert.That(body.TryBodyPalm(false, out var right), Is.True);

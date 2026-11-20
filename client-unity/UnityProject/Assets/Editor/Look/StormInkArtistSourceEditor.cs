@@ -24,11 +24,25 @@ namespace Roguehalla.Editor
                 root.Add(field);
                 field.BindProperty(prop);
             }
-            if (body != null)
+            if (view.BodyPainting != null)
             {
-                var sizing = owner != body ? new SerializedObject(body) : source;
-                AddField(sizing.FindProperty("worldHeight"), "Fighter height (world units)");
-                AddField(sizing.FindProperty("footPivot"), "Foot anchor (UV)");
+                if (body != null)
+                {
+                    var sizing = owner != body ? new SerializedObject(body) : source;
+                    AddField(sizing.FindProperty("worldHeight"), "Fighter height (world units)");
+                    AddField(sizing.FindProperty("footPivot"), "Foot anchor (UV)");
+                }
+                if (!Application.isPlaying)
+                {
+                    int index = PalmIndex(view);
+                    var palms = source.FindProperty("palms");
+                    if (palms != null && (uint)index < palms.arraySize)
+                    {
+                        var pair = palms.GetArrayElementAtIndex(index);
+                        AddField(pair.FindPropertyRelative("Left"), "Left palm (pixels from top left)");
+                        AddField(pair.FindPropertyRelative("Right"), "Right palm (pixels from top left)");
+                    }
+                }
             }
             else
             {
@@ -52,9 +66,11 @@ namespace Roguehalla.Editor
             // Rebind to a new heading or pooled occupant without interrupting field editing every frame.
             var initialRow = view.PoseRow;
             var initialKind = view.Kind;
+            var initialSprite = view.Sprite;
             root.schedule.Execute(() =>
             {
-                if (view != null && (initialRow != view.PoseRow || initialKind != view.Kind))
+                if (view != null && (initialRow != view.PoseRow || initialKind != view.Kind ||
+                    (!Application.isPlaying && initialSprite != view.Sprite)))
                     ActiveEditorTracker.sharedTracker.ForceRebuild();
             }).Every(250);
             return root;
@@ -112,9 +128,7 @@ namespace Roguehalla.Editor
                         if (EditorGUI.EndChangeCheck())
                         {
                             var uv = Uv(moved);
-                            int columns = Mathf.RoundToInt(sprite.texture.width / size.x);
-                            int col = Mathf.RoundToInt(sprite.rect.x / size.x);
-                            int index = source.PoseRow * columns + col;
+                            int index = PalmIndex(source);
                             var pixel = new Vector2Int(Mathf.RoundToInt(uv.x * size.x - .5f),
                                 Mathf.RoundToInt((1f - uv.y) * size.y - .5f));
                             Edit(source.BodyPainting, $"palms.Array.data[{index}].{(left ? "Left" : "Right")}",
@@ -125,19 +139,41 @@ namespace Roguehalla.Editor
             }
             else if (source.WeaponSource != null)
             {
-                Vector3 grip = World(source.HeldGripUv);
-                using (new Handles.DrawingScope(Color.yellow))
+                using var settings = new SerializedObject(source.WeaponSource);
+                var grips = settings.FindProperty("grips");
+                if ((uint)source.PoseRow >= grips.arraySize) return;
+                void Socket(SerializedProperty point, string label, Color color, float radius)
                 {
-                    Handles.Label(grip + Vector3.up * .09f, $"Shared {source.Weapon.ToString().ToLowerInvariant()} grip");
+                    using var scope = new Handles.DrawingScope(color);
+                    var position = World(point.vector2Value);
+                    Handles.Label(position + Vector3.up * .09f, label);
                     EditorGUI.BeginChangeCheck();
-                    var moved = Handles.Slider2D(grip, Vector3.forward, Vector3.right, Vector3.up,
-                        HandleUtility.GetHandleSize(grip) * .05f, Handles.CircleHandleCap, Vector2.zero);
-                    if (EditorGUI.EndChangeCheck())
-                    {
-                        Edit(source.WeaponSource, $"grips.Array.data[{source.PoseRow}]", prop => prop.vector2Value = Uv(moved));
-                    }
+                    var moved = Handles.Slider2D(position, Vector3.forward, Vector3.right, Vector3.up,
+                        HandleUtility.GetHandleSize(position) * radius, Handles.CircleHandleCap, Vector2.zero);
+                    if (!EditorGUI.EndChangeCheck()) return;
+                    point.vector2Value = Uv(moved);
+                    settings.ApplyModifiedProperties();
+                    ChurchArtEditorRefresh.Schedule();
+                }
+
+                Socket(grips.GetArrayElementAtIndex(source.PoseRow),
+                    $"Shared {source.Weapon.ToString().ToLowerInvariant()} grip", Color.yellow, .05f);
+                if (source.WeaponSource is StormInkBowArtAuthoring)
+                {
+                    var nocks = settings.FindProperty("nocks");
+                    if ((uint)source.PoseRow >= nocks.arraySize) return;
+                    var pair = nocks.GetArrayElementAtIndex(source.PoseRow);
+                    Socket(pair.FindPropertyRelative("Top"), "Upper string nock", Color.cyan, .035f);
+                    Socket(pair.FindPropertyRelative("Bottom"), "Lower string nock", Color.cyan, .035f);
                 }
             }
+        }
+
+        static int PalmIndex(StormInkArtistSource source)
+        {
+            var sprite = source.Sprite;
+            int columns = Mathf.RoundToInt(sprite.texture.width / sprite.rect.width);
+            return source.PoseRow * columns + Mathf.RoundToInt(sprite.rect.x / sprite.rect.width);
         }
 
         static void Edit(Object asset, string field, System.Action<SerializedProperty> change)

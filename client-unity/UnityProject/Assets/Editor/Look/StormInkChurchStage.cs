@@ -41,6 +41,11 @@ namespace Roguehalla.Editor
         readonly List<Vector4> paletteProbe = new List<Vector4>(8);
         Material groundMaterial;
         bool inspectPalette;
+        ScriptableObject displayedRig, displayedAction, displayedEquipment;
+        (int rig, int action, int equipment) displayedRevisions;
+
+        static int Revision(ScriptableObject source) => source == null ? 0 : EditorUtility.GetDirtyCount(source);
+        (int, int, int) CastRevisions() => (Revision(displayedRig), Revision(displayedAction), Revision(displayedEquipment));
         SelfView fighter;
         readonly List<InterpActor> opponents = new List<InterpActor>(1);
 
@@ -169,6 +174,15 @@ namespace Roguehalla.Editor
         internal void RefreshCast()
         {
             if (arena == null) return;
+            displayedRig = StormInkFireAxeAuthoring.Load();
+            displayedAction = SelectedFireWeapon switch
+            {
+                WeaponId.Bow => StormInkFireBowAuthoring.Load(),
+                WeaponId.Sword => StormInkFireSwordAuthoring.Load(),
+                _ => null
+            };
+            displayedEquipment = StormInkWeaponArt.Definition(SelectedFireWeapon);
+            displayedRevisions = CastRevisions();
             arena.SetStudioFirePose(fighter.Id,
                 fireWeaponChoice == 0 ? (WeaponId?)null : SelectedFireWeapon,
                 firePosePhase, firePoseProgress, firePoseAlternate);
@@ -298,7 +312,10 @@ namespace Roguehalla.Editor
 
         void RestoreSavedPreview()
         {
-            if (!inspectPalette || root == null || HasGroundPalette()) return;
+            if (root == null) return;
+            // Inspector edits can dirty an asset before Unity posts its asset change event.
+            if (displayedRevisions != CastRevisions()) RefreshCast();
+            if (!inspectPalette || HasGroundPalette()) return;
             EditorApplication.delayCall -= Rebuild;
             Rebuild();
         }

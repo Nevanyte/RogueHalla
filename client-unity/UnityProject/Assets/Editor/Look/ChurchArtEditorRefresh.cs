@@ -35,6 +35,10 @@ namespace Roguehalla.Editor
             Undo.undoRedoPerformed += Schedule;
         }
 
+        static bool IsCastSource(UnityEngine.Object source) =>
+            source is StormInkEquipmentRegistration || source is StormInkFireAxeAuthoring ||
+            source is StormInkFireSwordAuthoring || source is StormInkFireBowAuthoring;
+
         static void OnChanges(ref ObjectChangeEventStream stream)
         {
             for (int i = 0; i < stream.length; i++)
@@ -44,8 +48,7 @@ namespace Roguehalla.Editor
                 var asset = EditorUtility.InstanceIDToObject(change.instanceId);
                 if (asset is ChurchMasonryArt) ScheduleMasonry();
                 if (asset is ChurchArtDefinition || asset is ChurchInteriorDefinition ||
-                    asset is StormInkFireAxeAuthoring || asset is StormInkAxeArtAuthoring ||
-                    asset is StormInkFireSwordAuthoring || asset is StormInkSwordArtAuthoring)
+                    IsCastSource(asset))
                 {
                     Schedule();
                     return;
