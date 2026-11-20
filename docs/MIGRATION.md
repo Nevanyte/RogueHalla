@@ -4,6 +4,51 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Paused (2026-11-19, evening): the elite and augment rework, after integration 64
+
+**Owner direction 2026-11-19:** "please save and pause all development". Every agent and gate this coordinator session
+started is stopped, and its throwaway Postgres is stopped. Nothing is pushed or deleted, and `main` is untouched.
+
+**On `feature/unity-rework` @ `02bdef002`, gated and reviewed:**
+- integrations 61 to 64;
+- the owner's elite numbers (P-ELITE-TUNE-1);
+- identities `rh-checkpoint/33`, content `204532d861849785`.
+
+**Saved, not yet on the integration branch:**
+- **`coord/int-65` @ `35eceb4e0`.** Each packet is reviewer-opus LAND.
+  - **What it holds:**
+    - P-ELITE-TUNE-1-fix (test-only);
+    - P-AUG-POOL-1-fix (the content hash folds the realized card tables);
+    - P-ELITE-PICK-1 (killer's first pick, `rh-checkpoint/34`, regolded on the merge);
+    - P-AUG-NATIVE-1a (native ids and state, `rh-checkpoint/35`).
+  - **Identities:** `rh-checkpoint/35`, content `8196e898724e4218`.
+  - **Its full gate was stopped mid-run.** To resume:
+    1. In a clean worktree at `35eceb4e0`, with pgtest, run
+       `scripts/gate.sh --coordinator --keep-going --allow-artefacts --regen-fixtures --base 7a3436271`.
+    2. On PASS, merge into `feature/unity-rework`.
+    3. Update the identities in this file and in CONTRACTS.
+    4. Refresh the stale `rh-checkpoint/33` prose in `crates/rh-sim/README.md` (~71) and `crates/rh-sim/src/fighter.rs`
+       (~7).
+    5. Run the reviewer-opus integration review.
+- **`packet/P-AUG-NATIVE-1b` @ `a66f51a8d`.** The oracle is unfinished, saved as one WIP commit on `coord/int-65`. To
+  resume: an oracle-author splits it into stub and oracle commits and passes `--oracle-check`.
+- **`packet/P-WIRE19-A` @ `35199d48d`.** The oracle is unfinished, saved as one WIP commit on `coord/int-65`. It touches
+  rh-protocol, the C# decoders and rh-policy tests. To resume: the same as NATIVE-1b.
+- **Side session, `agent/opus/P-FROST-RESTORE-1` @ `52aba986d`.** A live Frost Wall mid-cast restore fix, quick gate
+  PASS. It waits for the owner's OK to review and merge.
+
+**Worktrees kept:**
+- `agent-acb6b8b8c731079ba` (NATIVE-1b) and `agent-a5183b4104af51307` (WIRE19-A), both with rows in
+  `.agent-runs/worktrees.csv`;
+- the coordinator's scratchpad worktree, `coord` on `coord/int-65`.
+
+**Next after resume:**
+1. Land integration 65.
+2. Finish the NATIVE-1b and WIRE19-A oracles, then their Opus implementers.
+3. Waves 6 to 9: NATIVE-2/3/4, BOTS-1 (which also threads the elite rule into rh-policy's elite readers), WIRE19-B,
+   NATIVE-5, UI-2 and DOCS-1.
+4. The final combined review, and the DEVIATIONS rows for the owner to sign.
+
 ## Resumed (2026-11-19): the elite and augment rework, wave 3
 
 **Owner direction 2026-11-19:** "resume" (after "please pause and save all development" the same day). Owner OK the same
