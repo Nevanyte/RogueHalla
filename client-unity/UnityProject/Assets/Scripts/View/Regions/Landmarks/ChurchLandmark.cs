@@ -374,12 +374,12 @@ namespace Roguehalla.Client
             float across = aisleOnX ? (room.MinY + room.MaxY + 1) * .5f : (room.MinX + room.MaxX + 1) * .5f;
             var pewDefinition = Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/OakPew");
             var pew = pewDefinition != null ? pewDefinition.Defaults.Front : Resources.Load<Sprite>("StormInk/Church/OakPew");
-            var pewAngle = Mathf.Atan2(-naveFront.x, -naveFront.y) * Mathf.Rad2Deg;
+            var orientation = ChurchArtOrientation.Resolve(lm.Anchor);
+            int leftAcross = aisleOnX ? (naveFront.x > 0 ? 1 : -1) : (naveFront.y > 0 ? -1 : 1);
+            float pewAngle = aisleOnX ? leftAcross * 90f : (leftAcross > 0 ? 0f : 180f);
             float[] rows = naveFront.x + naveFront.y > 0
                 ? new[] { alongMin + 1.55f, alongMin + 2.65f, alongMax - 1.55f, alongMax - .45f }
                 : new[] { alongMax - .45f, alongMax - 1.55f, alongMin + 2.65f, alongMin + 1.55f };
-            var orientation = ChurchArtOrientation.Resolve(lm.Anchor);
-            int leftAcross = aisleOnX ? (naveFront.x > 0 ? 1 : -1) : (naveFront.y > 0 ? -1 : 1);
             for (int rowIndex = 0; rowIndex < rows.Length; rowIndex++)
             for (int bank = 0; bank < 2; bank++)
             {
@@ -404,11 +404,19 @@ namespace Roguehalla.Client
             var pulpitDefinition = Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/GothicPulpit");
             var pulpit = pulpitDefinition != null ? pulpitDefinition.Defaults.Front : Resources.Load<Sprite>("StormInk/Church/GothicPulpit");
             float front = aisleOnX ? naveFront.x : naveFront.y;
-            float nearRear = front > 0 ? alongMin + 2.2f : alongMax - 1.2f;
-            float onSide = across + leftAcross * orientation.ReflectSide(1) * 8.8f;
+            // Keep the pulpit's footprint clear of the two end-bank candle bases. Both are
+            // genuine furniture pieces, so preserve the side-facing aisle position and move
+            // the pulpit one bay deeper instead of hiding either asset in sorting.
+            float nearRear = front > 0 ? alongMin + 3.4f : alongMax - 3.4f;
+            float onSide = across + leftAcross * orientation.ReflectSide(1) * 7.2f;
             float px = aisleOnX ? nearRear : onSide, py = aisleOnX ? onSide : nearRear;
+            // The pulpit's painted side faces into the nave. Store that facing as a map-plane angle so
+            // the resolver selects a supported view instead of flattening/rotating the upright painting.
+            float pulpitFacingX = aisleOnX ? 0f : -leftAcross;
+            float pulpitFacingY = aisleOnX ? -leftAcross : 0f;
+            float pulpitFacingDegrees = Mathf.Atan2(pulpitFacingY, pulpitFacingX) * Mathf.Rad2Deg;
             if (lm.IsInterior(Mathf.FloorToInt(px), Mathf.FloorToInt(py)))
-                AddChurchAssetSprite(lm, pulpit, pulpitDefinition, layout, "pulpit.left", "Church pulpit", px, py, 2.15f, 2.5f, 0f, 3, ChurchArtView.Front);
+                AddChurchAssetSprite(lm, pulpit, pulpitDefinition, layout, "pulpit.left", "Church pulpit", px, py, 2.15f, 2.5f, pulpitFacingDegrees, 3, ChurchArtView.Side);
         }
 
         static void AddChurchAssetSprite(Landmark lm, Sprite sprite, ChurchArtDefinition definition, ChurchInteriorDefinition layout, string slotId,
@@ -461,8 +469,10 @@ namespace Roguehalla.Client
                 if (!lm.IsWall(Mathf.FloorToInt(x), Mathf.FloorToInt(y))) continue;
                 bool isFrontWall = (end == last && alongFront > 0) || (end == first && alongFront < 0);
                 string wallSlot = isFrontWall ? "front" : "rear";
+                float wallFacingDegrees = Mathf.Atan2(isFrontWall ? naveFront.y : -naveFront.y,
+                    isFrontWall ? naveFront.x : -naveFront.x) * Mathf.Rad2Deg;
                 AddChurchAssetSprite(lm, glass, glassDefinition, layout, "window." + wallSlot + ".bay" + bayIndex,
-                    "Church stained glass", x, y, 1.13f, 1.92f, 0f, 4, ChurchArtView.Front);
+                    "Church stained glass", x, y, 1.13f, 1.92f, wallFacingDegrees, 4, isFrontWall ? ChurchArtView.Front : ChurchArtView.Back);
                 float inside = end == first ? 1.1f : -1.1f;
                 float candleBay = across + Mathf.Sign(bay) * (Mathf.Abs(bay) < 6f ? 1.95f : 9f);
                 float cx = aisleOnX ? x + inside : candleBay, cy = aisleOnX ? candleBay : y + inside;

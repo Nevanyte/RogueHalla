@@ -96,7 +96,11 @@ namespace Roguehalla.Client.Tests
                     Assert.That(placements.Count(p => p.SlotId.StartsWith("pew.row")), Is.EqualTo(8), "eight stable pew slots, orientation " + k);
                     Assert.That(placements.Count(p => p.SlotId.StartsWith("window.")), Is.EqualTo(8), "eight stable window slots, orientation " + k);
                     Assert.That(placements.Count(p => p.SlotId.StartsWith("candle.")), Is.EqualTo(8), "eight matching candle slots, orientation " + k);
-                    Assert.That(placements.Any(p => p.SlotId == "pulpit.left"));
+                    Assert.That(placements.Any(p => p.SlotId == "pulpit.left"), "pulpit exists in orientation " + k);
+                    var pulpit = placements.First(p => p.SlotId == "pulpit.left");
+                    float nearestCandle = placements.Where(p => p.SlotId.StartsWith("candle."))
+                        .Min(p => Vector2.Distance(pulpit.ContactPoint, p.ContactPoint));
+                    Assert.That(nearestCandle, Is.GreaterThan(1.5f), "pulpit and closest candle feet have clear spacing in orientation " + k);
                     foreach (var placement in placements)
                     {
                         Assert.That(placement.Definition, Is.Not.Null, placement.SlotId);
@@ -154,6 +158,82 @@ namespace Roguehalla.Client.Tests
             Assert.That(candle.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(otherCandleMaterial), "resetting a material slot returns to shared flame material");
             Object.DestroyImmediate(customMaterial); Object.DestroyImmediate(previewLayout);
             view.Dispose(); Object.DestroyImmediate(root);
+        }
+
+        [Test]
+        public void DirectionalProjectionKeepsPewWidthAndUprightArtUsesSupportedViews()
+        {
+            ChurchArtPlacement.ProjectFloorSize(4.55f, 1.155f, 0f, ArenaView.GroundSquash,
+                out float width0, out float depth0, out float angle0);
+            ChurchArtPlacement.ProjectFloorSize(4.55f, 1.155f, 45f, ArenaView.GroundSquash,
+                out float width45, out float depth45, out float angle45);
+            ChurchArtPlacement.ProjectFloorSize(4.55f, 1.155f, 90f, ArenaView.GroundSquash,
+                out float width90, out float depth90, out float angle90);
+            Assert.That(width0, Is.EqualTo(4.55f).Within(.001f));
+            Assert.That(width45, Is.EqualTo(4.55f).Within(.001f));
+            Assert.That(width90, Is.EqualTo(4.55f).Within(.001f), "quarter-turn does not collapse the authored pew width");
+            Assert.That(depth0, Is.EqualTo(1.155f * ArenaView.GroundSquash).Within(.001f), "depth pointing down-map foreshortens");
+            Assert.That(depth90, Is.EqualTo(1.155f).Within(.001f), "cross-map depth stays full-size");
+            Assert.That(depth45, Is.GreaterThan(depth0).And.LessThan(depth90), "projection changes continuously between facings");
+            Assert.That(Mathf.Abs(angle45), Is.GreaterThan(1f));
+            Assert.That(Mathf.Abs(angle0), Is.LessThan(.001f));
+            Assert.That(Mathf.Abs(angle90 + 90f), Is.LessThan(.01f));
+
+            Assert.That(ChurchArtPlacement.ResolveSupportedView(ChurchArtView.Front, 0f, ChurchArtMount.Wall), Is.EqualTo(ChurchArtView.Front));
+            Assert.That(ChurchArtPlacement.ResolveSupportedView(ChurchArtView.Front, 90f, ChurchArtMount.Wall), Is.EqualTo(ChurchArtView.Side));
+            Assert.That(ChurchArtPlacement.ResolveSupportedView(ChurchArtView.Front, 180f, ChurchArtMount.Wall), Is.EqualTo(ChurchArtView.Back));
+            Assert.That(ChurchArtPlacement.ResolveSupportedView(ChurchArtView.Side, 90f, ChurchArtMount.Upright), Is.EqualTo(ChurchArtView.Side));
+            Assert.That(ChurchArtPlacement.ResolveSupportedView(ChurchArtView.Front, 37f, ChurchArtMount.Wall), Is.EqualTo(ChurchArtView.Front),
+                "supported upright paintings snap to the nearest authored cardinal view and remain screen-flat");
+            Assert.That(ChurchArtPlacement.ResolveSupportedView(ChurchArtView.Front, 90f, ChurchArtMount.Floor), Is.EqualTo(ChurchArtView.Front),
+                "floor geometry keeps continuous projection rather than switching sprites");
+        }
+
+        [Test]
+        public void WindowPaneModesAndCandleFlameLayerResolveAsSeparatePaintedParts()
+        {
+            object site = typeof(ChurchLandmarkEditModeTests).GetMethod("Church", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { 0 });
+            var siteType = site.GetType();
+            var map = (MapBlob)siteType.GetField("Map").GetValue(site);
+            var anchor = (MapAnchor)siteType.GetField("Anchor").GetValue(site);
+            var root = new GameObject("church directional art test");
+            var view = LandmarkView.Build(root.transform, map, new[] { anchor });
+            var layout = ScriptableObject.CreateInstance<ChurchInteriorDefinition>();
+            try
+            {
+                var window = view.Get(0).Root.GetComponentsInChildren<ChurchArtPlacement>(true).First(p => p.SlotId == "window.front.bay0");
+                var windowRenderer = window.GetComponent<SpriteRenderer>();
+                Sprite full = windowRenderer.sprite;
+                Vector3 fullScale = window.transform.localScale;
+                layout.SlotOverrides.Add(new ChurchArtSlotOverride { SlotId = window.SlotId,
+                    OverrideFields = ChurchArtOverrideFields.PaneMode,
+                    Values = new ChurchArtValues { PaneMode = ChurchWindowPaneMode.Jamb } });
+                window.Layout = layout; window.RefreshResolved();
+                Assert.That(windowRenderer.enabled, Is.True);
+                Assert.That(windowRenderer.sprite, Is.SameAs(window.Resolve(anchor).Values.Side));
+                Assert.That(Mathf.Abs(window.transform.localScale.x), Is.LessThan(Mathf.Abs(fullScale.x) * .35f));
+                layout.SlotOverrides[0].Values = new ChurchArtValues { PaneMode = ChurchWindowPaneMode.Concealed };
+                window.RefreshResolved();
+                Assert.That(windowRenderer.enabled, Is.False);
+                layout.SlotOverrides[0].Values = new ChurchArtValues { PaneMode = ChurchWindowPaneMode.Full };
+                window.RefreshResolved();
+                Assert.That(windowRenderer.enabled, Is.True);
+                Assert.That(windowRenderer.sprite, Is.SameAs(full));
+
+                var candle = view.Get(0).Root.GetComponentsInChildren<ChurchArtPlacement>(true).First(p => p.SlotId == "candle.front.bay0");
+                var flame = candle.FlameRenderer;
+                Assert.That(flame, Is.Not.Null, "the moving painted main flame is a separate child sprite");
+                Assert.That(flame.sprite, Is.SameAs(candle.Resolve(anchor).Values.FlameLayer));
+                Vector3 flamePoint = candle.FlameWorldPoint;
+                Vector3 spillBefore = flame.transform.position;
+                layout.SlotOverrides.Add(new ChurchArtSlotOverride { SlotId = candle.SlotId,
+                    OverrideFields = ChurchArtOverrideFields.FlameSocket,
+                    Values = new ChurchArtValues { FlameSocket = new Vector2(.72f, .76f) } });
+                candle.Layout = layout; candle.RefreshResolved();
+                Assert.That(Vector3.Distance(spillBefore, flame.transform.position), Is.GreaterThan(.05f), "visible flame follows the edited socket");
+                Assert.That(Vector3.Distance(flamePoint, candle.FlameWorldPoint), Is.GreaterThan(.05f), "spill handle follows the same edited socket");
+            }
+            finally { view.Dispose(); Object.DestroyImmediate(layout); Object.DestroyImmediate(root); }
         }
 
         static MapAnchor Anchor(byte front)
