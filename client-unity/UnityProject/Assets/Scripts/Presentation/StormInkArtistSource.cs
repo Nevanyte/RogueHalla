@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Roguehalla.Client
 {
     /// <summary>Identifies the painted actor or shared equipment that a designer selects in the gameplay scene.</summary>
-    public enum StormInkArtistSourceKind { None, FireAxeBody, EquippedAxe, DroppedAxe, FireSwordBody, EquippedSword, DroppedSword }
+    public enum StormInkArtistSourceKind { None, FireAxeBody, EquippedAxe, DroppedAxe, FireSwordBody, EquippedSword, DroppedSword, EquippedBow, DroppedBow }
 
     /// <summary>Identifies the editable asset and painted registration that produced an observed sprite.</summary>
     [DisallowMultipleComponent]
@@ -21,7 +21,7 @@ namespace Roguehalla.Client
         public WeaponId? Weapon { get; private set; }
         public int PoseRow { get; private set; } = -1;
         public Vector2 HeldGripUv => Weapon.HasValue ? StormInkWeaponArt.Grip(Weapon.Value, PoseRow) : default;
-        public bool IsDropped => Kind == StormInkArtistSourceKind.DroppedAxe || Kind == StormInkArtistSourceKind.DroppedSword;
+        public bool IsDropped { get; private set; }
         public Vector2 GroundCentre => IsDropped ? StormInkWeaponArt.GroundCentre(Weapon.Value) : default;
 
         public bool TryBodyPalm(bool left, out Vector2 uv)
@@ -60,12 +60,7 @@ namespace Roguehalla.Client
         internal static StormInkArtistSource BindWeapon(StormInkArtistSource source,
             SpriteRenderer renderer, WeaponId? weapon, int row, bool dropped)
         {
-            ScriptableObject asset = weapon switch
-            {
-                WeaponId.Axe => StormInkAxeArtAuthoring.Load(),
-                WeaponId.Sword => StormInkSwordArtAuthoring.Load(),
-                _ => null
-            };
+            var asset = StormInkWeaponArt.Definition(weapon);
             if (asset == null || renderer.sprite == null || renderer.sprite != StormInkWeaponArt.Get(weapon.Value, row))
             {
                 source?.Clear();
@@ -74,9 +69,13 @@ namespace Roguehalla.Client
             source = Ensure(source, renderer);
             source.Weapon = weapon;
             source.WeaponSource = asset;
-            source.Kind = weapon == WeaponId.Sword
-                ? dropped ? StormInkArtistSourceKind.DroppedSword : StormInkArtistSourceKind.EquippedSword
-                : dropped ? StormInkArtistSourceKind.DroppedAxe : StormInkArtistSourceKind.EquippedAxe;
+            source.IsDropped = dropped;
+            source.Kind = weapon switch
+            {
+                WeaponId.Axe => dropped ? StormInkArtistSourceKind.DroppedAxe : StormInkArtistSourceKind.EquippedAxe,
+                WeaponId.Bow => dropped ? StormInkArtistSourceKind.DroppedBow : StormInkArtistSourceKind.EquippedBow,
+                _ => dropped ? StormInkArtistSourceKind.DroppedSword : StormInkArtistSourceKind.EquippedSword
+            };
             source.PoseRow = row;
             return source;
         }
@@ -86,6 +85,7 @@ namespace Roguehalla.Client
             FireBody = null;
             SwordBody = null;
             WeaponSource = null;
+            IsDropped = false;
             Weapon = null;
             Kind = StormInkArtistSourceKind.None;
             PoseRow = -1;

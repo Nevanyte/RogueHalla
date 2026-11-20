@@ -55,20 +55,19 @@ namespace Roguehalla.Client
             int index = (int)weapon;
             if ((uint)index >= Textures.Length || (uint)poseRow >= Views) return new Vector2(.5f, .5f);
             var grip = new Vector2(GripX[index, poseRow], GripY[index]);
-            return weapon switch
-            {
-                WeaponId.Axe => StormInkAxeArtAuthoring.Load()?.Grip(poseRow, grip) ?? grip,
-                WeaponId.Sword => StormInkSwordArtAuthoring.Load()?.Grip(poseRow, grip) ?? grip,
-                _ => grip
-            };
+            return Definition(weapon)?.Grip(poseRow, grip) ?? grip;
         }
 
-        public static Vector2 GroundCentre(WeaponId weapon) => weapon switch
+        public static StormInkEquipmentRegistration Definition(WeaponId? weapon) => weapon switch
         {
-            WeaponId.Axe => StormInkAxeArtAuthoring.Load()?.GroundCentre ?? new Vector2(0, .39f),
-            WeaponId.Sword => StormInkSwordArtAuthoring.Load()?.GroundCentre ?? new Vector2(0, .39f),
-            _ => new Vector2(0, .39f)
+            WeaponId.Axe => StormInkAxeArtAuthoring.Load(),
+            WeaponId.Sword => StormInkSwordArtAuthoring.Load(),
+            WeaponId.Bow => StormInkBowArtAuthoring.Load(),
+            _ => null
         };
+
+        public static Vector2 GroundCentre(WeaponId weapon) =>
+            Definition(weapon)?.GroundCentre ?? new Vector2(0f, .39f);
 
         public static Vector2 Support(WeaponId weapon, int poseRow)
         {

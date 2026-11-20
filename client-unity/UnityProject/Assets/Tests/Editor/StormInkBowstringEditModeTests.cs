@@ -1,4 +1,6 @@
+using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
 using UnityEngine;
@@ -7,6 +9,51 @@ namespace Roguehalla.Client.Tests
 {
     public sealed class StormInkBowstringEditModeTests
     {
+        [Test]
+        public void EditingTheSharedGripAndUpperNockMovesTheHeldBowAndDrawnString()
+        {
+            var slot = typeof(StormInkBowArtAuthoring).GetField("_default", BindingFlags.Static | BindingFlags.NonPublic);
+            var original = StormInkBowArtAuthoring.Load();
+            Assert.That(original, Is.Not.Null);
+            var edited = Object.Instantiate(original);
+            var root = new GameObject("Shared bow registration");
+            try
+            {
+                slot.SetValue(null, edited);
+                var grip = new Vector2(.47f, .54f);
+                var top = new Vector2(.54f, .85f);
+                using (var values = new SerializedObject(edited))
+                {
+                    values.FindProperty("grips").GetArrayElementAtIndex(2).vector2Value = grip;
+                    values.FindProperty("nocks").GetArrayElementAtIndex(2).FindPropertyRelative("Top").vector2Value = top;
+                    values.ApplyModifiedPropertiesWithoutUndo();
+                }
+                var presenter = new SpriteActorPresenter(root.transform, Resources.Load<ShowcaseCatalog>("Showcase/Catalog"));
+                presenter.Begin();
+                presenter.Present(1, 100, 100, 0, 100, FactionId.Fire, ActorStatus.Alive, WeaponId.Bow,
+                    ActorKind.Player, null, 0, 0, true, drawStartedAt: 800, sampleTickMs: 1000);
+                presenter.End();
+                var actor = root.transform.Find("Observed actor");
+                var bow = actor.Find("Equipped weapon cue").GetComponent<SpriteRenderer>();
+                var source = bow.GetComponent<StormInkArtistSource>();
+                Assert.That(source.WeaponSource, Is.SameAs(edited));
+                Assert.That(source.HeldGripUv, Is.EqualTo(grip));
+                Vector3 Socket(SpriteRenderer art, Vector2 uv) => art.transform.TransformPoint(
+                    (Vector2.Scale(uv, art.sprite.rect.size) - art.sprite.pivot) / art.sprite.pixelsPerUnit);
+                var body = actor.Find("Authored character").GetComponent<SpriteRenderer>();
+                Assert.That(StormInkActors.TryHand(FactionId.Fire, body.sprite, true, out var left), Is.True);
+                Assert.That(Vector3.Distance(Socket(bow, grip), Socket(body, left)), Is.LessThan(.0001f));
+                Assert.That(Vector3.Distance(Socket(bow, top),
+                    actor.Find("Bowstring upper").TransformPoint(Vector3.left * .5f)), Is.LessThan(.0001f));
+            }
+            finally
+            {
+                slot.SetValue(null, original);
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(edited);
+            }
+        }
+
         [Test]
         public void PaintedRightPalmPullsTheCanonicalBowAndReleaseRestoresItsRestMaterial()
         {

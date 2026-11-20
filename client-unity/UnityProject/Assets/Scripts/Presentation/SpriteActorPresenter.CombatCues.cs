@@ -14,7 +14,7 @@ namespace Roguehalla.Client
             StormInkFireSwordAuthoring sword)
         {
             art.BodyArtistSource = StormInkArtistSource.BindBody(art.BodyArtistSource, art.Body, fire, sword);
-            if (art.Weapon.enabled && (weapon == WeaponId.Axe || weapon == WeaponId.Sword))
+            if (art.Weapon.enabled && weapon.HasValue)
                 art.WeaponArtistSource = StormInkArtistSource.BindWeapon(art.WeaponArtistSource, art.Weapon, weapon,
                     StormInkActors.PoseRowForFacing(facing), false);
             else

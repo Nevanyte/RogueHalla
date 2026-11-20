@@ -35,6 +35,16 @@ namespace Roguehalla.Editor
                 var grips = source.FindProperty("grips");
                 if (view.PoseRow >= 0 && view.PoseRow < grips.arraySize)
                     AddField(grips.GetArrayElementAtIndex(view.PoseRow), "Shared grip (UV)");
+                if (owner is StormInkBowArtAuthoring)
+                {
+                    var nocks = source.FindProperty("nocks");
+                    if ((uint)view.PoseRow < nocks.arraySize)
+                    {
+                        var pair = nocks.GetArrayElementAtIndex(view.PoseRow);
+                        AddField(pair.FindPropertyRelative("Top"), "Upper bow nock (UV)");
+                        AddField(pair.FindPropertyRelative("Bottom"), "Lower bow nock (UV)");
+                    }
+                }
                 if (view.IsDropped)
                     AddField(source.FindProperty("groundCentre"), "Pickup art offset (world units)");
             }
@@ -118,7 +128,7 @@ namespace Roguehalla.Editor
                 Vector3 grip = World(source.HeldGripUv);
                 using (new Handles.DrawingScope(Color.yellow))
                 {
-                    Handles.Label(grip + Vector3.up * .09f, source.Weapon == Roguehalla.Net.WeaponId.Sword ? "Shared sword grip" : "Shared axe grip");
+                    Handles.Label(grip + Vector3.up * .09f, $"Shared {source.Weapon.ToString().ToLowerInvariant()} grip");
                     EditorGUI.BeginChangeCheck();
                     var moved = Handles.Slider2D(grip, Vector3.forward, Vector3.right, Vector3.up,
                         HandleUtility.GetHandleSize(grip) * .05f, Handles.CircleHandleCap, Vector2.zero);

@@ -607,7 +607,7 @@ namespace Roguehalla.Client
             }
             else r = _props[slot];
             r.gameObject.SetActive(true); r.sprite = ShowcaseSprites.Get(sprite); r.color = color; r.sortingOrder = order;
-            if (groundWeapon == WeaponId.Axe || groundWeapon == WeaponId.Sword)
+            if (groundWeapon.HasValue)
                 _propArtistSources[slot] = StormInkArtistSource.BindWeapon(_propArtistSources[slot], r, groundWeapon, 0, true);
             else
                 _propArtistSources[slot]?.Clear();
