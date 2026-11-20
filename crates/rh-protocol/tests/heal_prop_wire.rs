@@ -148,12 +148,10 @@ fn the_golden_vectors_carry_the_heal_props_and_the_unknown_kind() {
         .join("../../protocol/fixtures")
         .join(format!("v{PROTOCOL_VERSION}.json"));
     let committed = std::fs::read_to_string(&path).expect("the committed fixture");
-    for name in ["state_heal_props"] {
-        assert!(
-            committed.contains(&format!("\"{name}\"")),
-            "{name} is in the committed v{PROTOCOL_VERSION}.json"
-        );
-    }
+    assert!(
+        committed.contains("\"state_heal_props\""),
+        "state_heal_props is in the committed v{PROTOCOL_VERSION}.json"
+    );
 }
 
 /// Guard (green today): the other kinds keep their bytes (the `state_union_props` vector).
