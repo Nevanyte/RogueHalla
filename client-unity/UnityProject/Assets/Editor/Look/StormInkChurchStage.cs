@@ -271,7 +271,7 @@ namespace Roguehalla.Editor
             ScheduleRebuild();
         }
 
-        void ScheduleRebuild()
+        internal void ScheduleRebuild()
         {
             EditorApplication.delayCall -= Rebuild;
             EditorApplication.delayCall += Rebuild;

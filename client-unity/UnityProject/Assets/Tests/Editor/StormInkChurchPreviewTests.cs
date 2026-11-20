@@ -18,6 +18,51 @@ namespace Roguehalla.Client.Tests
     public sealed class StormInkChurchPreviewTests
     {
         [UnityTest]
+        public IEnumerator LayoutInspectorEditAndUndoMoveTheSamePaintedBank()
+        {
+            var settings = ChurchNaveArt.Load();
+            float before = settings.BankOffset;
+            bool wasDirty = EditorUtility.IsDirty(settings);
+            Undo.IncrementCurrentGroup();
+            int group = Undo.GetCurrentGroup();
+            try
+            {
+                EditorApplication.ExecuteMenuItem("Tools/RogueHalla/Storm Ink/Church Art Studio");
+                var stage = (StormInkChurchStage)StageUtility.GetCurrentStage();
+                ChurchArtPlacement Row() => stage.scene.GetRootGameObjects().Single(o => o.name == "Storm Ink church")
+                    .GetComponentsInChildren<ChurchArtPlacement>(true).Single(p => p.SlotId == "pew.row0.left");
+                var row = Row();
+                Vector2 tile = row.GroundTile;
+                var artwork = row.GetComponent<SpriteRenderer>().sprite;
+                Selection.activeObject = settings;
+
+                Undo.RecordObject(settings, "Adjust pew bank spacing");
+                settings.BankOffset += .25f;
+                EditorUtility.SetDirty(settings);
+                Undo.FlushUndoRecordObjects();
+                yield return null;
+                yield return null;
+                var shifted = Row();
+                Assert.That(shifted.SlotId, Is.EqualTo("pew.row0.left"));
+                Assert.That(Vector2.Distance(shifted.GroundTile, tile), Is.EqualTo(.25f).Within(.001f));
+                Assert.That(shifted.GetComponent<SpriteRenderer>().sprite, Is.EqualTo(artwork));
+
+                Undo.RevertAllDownToGroup(group);
+                yield return null;
+                yield return null;
+                var restored = Row();
+                Assert.That(restored.GroundTile, Is.EqualTo(tile));
+            }
+            finally
+            {
+                Undo.RevertAllDownToGroup(group);
+                settings.BankOffset = before;
+                if (!wasDirty) EditorUtility.ClearDirty(settings);
+                StageUtility.GoToMainStage();
+            }
+        }
+
+        [UnityTest]
         public IEnumerator SelectedPewFollowsItsArchitecturalSlotThroughEveryLayout()
         {
             try

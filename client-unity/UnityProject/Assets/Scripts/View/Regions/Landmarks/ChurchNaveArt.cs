@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Artist-owned spacing for the oak banks and the worn slate processional aisle.</summary>
     [CreateAssetMenu(menuName = "RogueHalla/Church pew banks and aisle", fileName = "NaveSeating")]
     public sealed class ChurchNaveArt : ScriptableObject
     {

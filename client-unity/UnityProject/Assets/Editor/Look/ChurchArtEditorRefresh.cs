@@ -11,10 +11,18 @@ namespace Roguehalla.Editor
     {
         static void OnPostprocessAllAssets(string[] imported, string[] deleted, string[] moved, string[] movedFrom)
         {
-            if (!(StageUtility.GetCurrentStage() is StormInkChurchStage)) return;
+            if (!(StageUtility.GetCurrentStage() is StormInkChurchStage stage)) return;
             var masonry = ChurchMasonryArt.Load();
             var wash = masonry != null ? AssetDatabase.GetAssetPath(masonry.Wash) : null;
             var carving = masonry != null ? AssetDatabase.GetAssetPath(masonry.CarvedFace) : null;
+            var seating = AssetDatabase.GetAssetPath(ChurchNaveArt.Load());
+            foreach (var path in imported)
+                if (path.EndsWith("/StormInk/Church/SlateWash.png", StringComparison.Ordinal) ||
+                    path == seating)
+                {
+                    stage.ScheduleRebuild();
+                    break;
+                }
             foreach (var path in imported)
                 if (path == wash || path == carving) { ChurchArtEditorRefresh.ScheduleMasonry(); break; }
             foreach (var path in imported)
