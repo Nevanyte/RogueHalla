@@ -421,8 +421,11 @@ fn rewards(observation: &Observation) -> Result<Vec<WireRewardChest>, EncodeErro
                     .collect(),
                 picked: c.picked,
                 can_choose: c.can_choose,
-                // P-WIRE19-A stub: the implementer projects the observed window.
-                first_pick: None,
+                // P-WIRE19-A: the observed window as this viewer sees it (its end and its own `mine`).
+                first_pick: c.first_pick.map(|f| rh_protocol::WireFirstPick {
+                    until: f.until,
+                    mine: f.mine,
+                }),
             })
         })
         .collect()
