@@ -285,7 +285,12 @@ mod tests {
             ..crate::observe(s, PlayerId(1), &[])
         };
         assert_eq!(scene(&hidden), scene(&absent));
-        crate::status_runtime::reveal(&mut hidden.w.players[1].statuses, now, now + 500., hidden.k.tick_ms());
+        crate::status_runtime::reveal(
+            &mut hidden.w.players[1].statuses,
+            now,
+            now + 500.,
+            hidden.k.tick_ms(),
+        );
         hidden.w.server_time += hidden.k.tick_ms();
         hidden.w.tick += 1;
         let viewer = hidden.player(PlayerId(1)).unwrap();

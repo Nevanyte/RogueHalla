@@ -878,7 +878,12 @@ impl Harness {
             }
             Operation::Reveal { id, until } => {
                 let i = cx.w.idx(id).ok_or("missing actor")?;
-                reveal(&mut cx.w.players[i].statuses, cx.w.server_time, until, cx.k.tick_ms());
+                reveal(
+                    &mut cx.w.players[i].statuses,
+                    cx.w.server_time,
+                    until,
+                    cx.k.tick_ms(),
+                );
                 Returned::Undefined
             }
             Operation::Nested { id, source } => {

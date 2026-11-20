@@ -13,8 +13,7 @@ fn prior_clock(
 ) -> bool {
     prior <= accepted
         && (prior == initial
-            || (prior >= first_cast + cooldown
-                && (prior - cooldown) % tick_ms == 0.))
+            || (prior >= first_cast + cooldown && (prior - cooldown) % tick_ms == 0.))
 }
 fn charge_clock_lattice(cooldown: f64, tick_ms: f64) -> f64 {
     let (mut a, mut b) = (tick_ms, cooldown);
@@ -175,9 +174,7 @@ pub(crate) fn validate(
                                 || (spend.at >= first_cast + tick_ms
                                     && full_at >= first_cast + 2. * recharge
                                     && (spend.at >= first_cast + recharge
-                                        || full_at
-                                            <= spend.at - tick_ms
-                                                + 2. * recharge)))
+                                        || full_at <= spend.at - tick_ms + 2. * recharge)))
                     };
                     // The card producer: a cut only lowers the untrimmed spend clock, never above it, and the
                     // per-window budget bounds how far (a necessary equation, not an exact replay of the cuts).

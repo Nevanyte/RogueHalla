@@ -78,8 +78,7 @@ pub(crate) fn validate(
             || !f.last.is_finite()
             || !(0. ..=w.server_time).contains(&f.start)
             || !(f.start..=w.server_time).contains(&f.last)
-            || (source_grid
-                && (f.start % k.tick_ms() != 0. || f.last % k.tick_ms() != 0.))
+            || (source_grid && (f.start % k.tick_ms() != 0. || f.last % k.tick_ms() != 0.))
         {
             return Err("invalid watched card fight clock".into());
         }

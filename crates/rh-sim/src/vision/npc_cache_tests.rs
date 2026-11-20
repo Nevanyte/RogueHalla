@@ -70,8 +70,10 @@ fn remembered_scene() -> Sim {
     sim.w.server_time = 5. * TICK_MS;
     let p = &mut sim.w.players[0];
     p.vision = VisionTrail::default();
-    p.vision.refresh_on(Vec2::new(80., 112.), 1, TICK_MS, Variant::Open);
-    p.vision.refresh_on(Vec2::new(112., 112.), 3, TICK_MS, Variant::Open);
+    p.vision
+        .refresh_on(Vec2::new(80., 112.), 1, TICK_MS, Variant::Open);
+    p.vision
+        .refresh_on(Vec2::new(112., 112.), 3, TICK_MS, Variant::Open);
     p.body.x = 624.;
     p.body.y = 624.;
     assert_eq!(p.vision.reveals.len(), 2);
@@ -302,8 +304,10 @@ fn tile_memo_keeps_precise_same_tile_los_and_invalid_point_fallback() {
     sim.w.server_time = 5. * TICK_MS;
     let p = &mut sim.w.players[0];
     p.vision = VisionTrail::default();
-    p.vision.refresh_on(Vec2::new(16., 16.), 1, TICK_MS, Variant::Open);
-    p.vision.refresh_on(Vec2::new(48., 16.), 3, TICK_MS, Variant::Open);
+    p.vision
+        .refresh_on(Vec2::new(16., 16.), 1, TICK_MS, Variant::Open);
+    p.vision
+        .refresh_on(Vec2::new(48., 16.), 3, TICK_MS, Variant::Open);
     p.body.x = 1200.;
     p.body.y = 800.;
     let viewer = sim.player(PlayerId(1)).unwrap();

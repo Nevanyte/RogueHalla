@@ -75,7 +75,12 @@ pub(crate) fn finish(cx: &mut Cx) {
             continue;
         }
         if let Some(a) = p.weapon.action {
-            rt::reveal(&mut p.statuses, now, a.lands_at + rt::HIDDEN_REVEAL_MS, k.tick_ms())
+            rt::reveal(
+                &mut p.statuses,
+                now,
+                a.lands_at + rt::HIDDEN_REVEAL_MS,
+                k.tick_ms(),
+            )
         }
         p.statuses.refresh_effects(now);
     }

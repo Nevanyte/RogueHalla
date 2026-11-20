@@ -503,9 +503,7 @@ pub(crate) fn validate(
             || samples
                 .iter()
                 .any(|s| !near(s.x, s.y) || !(0. ..=w.server_time).contains(&s.t))
-            || samples
-                .windows(2)
-                .any(|s| s[1].t - s[0].t < k.tick_ms())
+            || samples.windows(2).any(|s| s[1].t - s[0].t < k.tick_ms())
         {
             return Err("invalid mob history".into());
         }

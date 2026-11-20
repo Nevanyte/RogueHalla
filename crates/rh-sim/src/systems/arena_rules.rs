@@ -178,8 +178,7 @@ pub(crate) fn sudden_death(cx: &mut crate::systems::Cx) {
     if start < cx.w.rt.sudden_death_at {
         return;
     }
-    let share =
-        sudden_death_share(start - cx.w.rt.sudden_death_at) * (tick_ms / 1000.);
+    let share = sudden_death_share(start - cx.w.rt.sudden_death_at) * (tick_ms / 1000.);
     for i in 0..cx.w.players.len() {
         let p = &cx.w.players[i];
         if !p.standing() {

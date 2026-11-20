@@ -186,7 +186,6 @@ fn near(w: &World, p: &FighterCore, id: PlayerId) -> bool {
             && crate::math::hypot(f.body.x - p.body.x, f.body.y - p.body.y) <= CHILL_MOVE_RADIUS
     })
 }
-/// `tick_ms`: the match's step (`SimConfig::tick_ms`); a chilled clock is stretched by `(1 - chill)` of it each step.
 pub(crate) fn after_damage(w: &mut World, tick_ms: f64) {
     let now = w.server_time;
     // Source updateChill walks standing combatants in actor order and inserts unique sources at their first edge.

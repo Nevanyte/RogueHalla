@@ -186,7 +186,8 @@ impl VisionTrail {
             return false;
         }
         let (tx, ty) = tile(at);
-        self.latest_reveal(map, tx, ty, tick, tick_ms, None).is_some()
+        self.latest_reveal(map, tx, ty, tick, tick_ms, None)
+            .is_some()
     }
 
     pub(crate) fn has_locked_reveals(&self) -> bool {
@@ -477,13 +478,9 @@ pub(crate) fn gameplay_actor_visible<'a>(
     if viewer.status != Status::Alive
         || target.status == Status::Lobby
         || !bush_visible(&map, viewer, target, tick, wards.tick_ms())
-        || viewer
-            .vision
-            .reveals
-            .back()
-            .is_some_and(|r| {
-                r.variant == map.variant && tick - r.tick < refresh_ticks(wards.tick_ms())
-            })
+        || viewer.vision.reveals.back().is_some_and(|r| {
+            r.variant == map.variant && tick - r.tick < refresh_ticks(wards.tick_ms())
+        })
     {
         return false;
     }
@@ -681,7 +678,14 @@ impl TileVisionCache {
         let old = pos.and_then(|i| bucket[i]);
         let last_seen = viewer
             .vision
-            .latest_reveal(map, tx, ty, tick, wards.tick_ms(), old.and_then(|c| c.through))
+            .latest_reveal(
+                map,
+                tx,
+                ty,
+                tick,
+                wards.tick_ms(),
+                old.and_then(|c| c.through),
+            )
             .or(old.and_then(|c| c.last_seen));
         let slot = pos.unwrap_or_else(|| {
             bucket
@@ -715,7 +719,9 @@ impl Sim {
 pub(crate) fn refresh_player(player: &mut Player, tick: u32, tick_ms: f64, locked: bool) {
     if player.status == Status::Alive {
         let at = player.pos();
-        player.vision.refresh_on(at, tick, tick_ms, Variant::of(locked));
+        player
+            .vision
+            .refresh_on(at, tick, tick_ms, Variant::of(locked));
     }
 }
 pub(crate) fn fighter_out(hx: &mut crate::hooks::Hx, args: &crate::hooks::HookArgs) {
@@ -1058,7 +1064,10 @@ impl VisionTrail {
                 if let Some(seen) =
                     self.latest_reveal(view, x.into(), y.into(), tick, LEGACY_TICK_MS, None)
                 {
-                    expires.push((y * view.w + x, f64::from(seen) * LEGACY_TICK_MS + VISION_TRAIL_MS));
+                    expires.push((
+                        y * view.w + x,
+                        f64::from(seen) * LEGACY_TICK_MS + VISION_TRAIL_MS,
+                    ));
                 }
             }
         }
