@@ -23,7 +23,8 @@ pub use self::reward::*;
 pub use self::roster::*;
 pub use self::trade::*;
 
-pub const MAX_STATE_KEYS: usize = 13;
+/// Keys 1..=14; key 14 (P-WIRE19-B, the own readout rows) is optional and sent only on change.
+pub const MAX_STATE_KEYS: usize = 14;
 /// Most roster rows a State key 12 carries (ADR0026); a match seats at most 8 players today.
 pub const MAX_ROSTER: usize = 32;
 /// Longest roster display name in UTF-8 bytes (ADR0026).
@@ -105,6 +106,35 @@ pub struct WireReadout {
     pub kind: u8,
     pub value: f64,
     pub max: f64,
+}
+impl WireReadout {
+    /// Bytes a row: card, kind, value, max.
+    pub(crate) const LEN: usize = 18;
+    /// The first native card index (`CardId::NATIVE`); a catalog card never has a readout.
+    const FIRST_CARD: u8 = 80;
+    /// The last native card index.
+    const LAST_CARD: u8 = 93;
+    /// Why this row is refused after a row of card `previous`, checked in the wire order: card, kind, value and max,
+    /// then native order (a card never decreases; two rows of one card are allowed).
+    pub(crate) fn fault(&self, previous: Option<u8>) -> Result<(), &'static str> {
+        if !(Self::FIRST_CARD..=Self::LAST_CARD).contains(&self.card) {
+            return Err("readout card");
+        }
+        if self.kind >= READOUT_KIND_COUNT {
+            return Err("readout kind");
+        }
+        if !(self.value.is_finite()
+            && self.max.is_finite()
+            && self.value >= 0.
+            && self.value <= self.max)
+        {
+            return Err("readout value");
+        }
+        if previous.is_some_and(|p| self.card < p) {
+            return Err("readout order");
+        }
+        Ok(())
+    }
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct WireBuild {

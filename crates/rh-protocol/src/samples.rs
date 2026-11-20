@@ -1771,6 +1771,8 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
         ),
         ("state_reward_first_pick_other", first_pick_rewards(false)),
         ("state_reward_first_pick_killer", first_pick_rewards(true)),
+        ("state_readouts", readouts_state(readout_rows())),
+        ("state_readouts_empty", readouts_state(Vec::new())),
         (
             "state_union_props",
             ServerMsg::State {
@@ -4484,6 +4486,40 @@ fn first_pick_rewards(killer: bool) -> ServerMsg {
     }
 }
 
+/// P-WIRE19-B: the viewer's own readout rows: Marksman's Tally (counter), Bastion (meter), Pathfinder (counter and
+/// marks), Marked Man (counter 0).
+fn readout_rows() -> Vec<WireReadout> {
+    let row = |card, kind, value, max| WireReadout {
+        card,
+        kind,
+        value,
+        max,
+    };
+    vec![
+        row(80, crate::state::READOUT_KIND_COUNTER, 0.12, 0.3),
+        row(81, crate::state::READOUT_KIND_METER, 40., 250.),
+        row(85, crate::state::READOUT_KIND_COUNTER, 3.6, 24.),
+        row(85, crate::state::READOUT_KIND_MARKS, 3., 20.),
+        row(93, crate::state::READOUT_KIND_COUNTER, 0., 1.),
+    ]
+}
+
+/// P-WIRE19-B: one State at tick 220 carrying only key 14.
+fn readouts_state(rows: Vec<WireReadout>) -> ServerMsg {
+    ServerMsg::State {
+        tick: 220,
+        items: vec![StateItem::Readouts(rows)],
+    }
+}
+
+/// P-WIRE19-B: `state_readouts` with `with` written at byte `at` of row `row` (rows start at byte 6, 18 bytes each).
+fn readouts_patched(row: usize, at: usize, with: &[u8]) -> Vec<u8> {
+    let mut bytes = readouts_state(readout_rows()).encode();
+    let start = 6 + 18 * row + at;
+    bytes[start..start + with.len()].copy_from_slice(with);
+    bytes
+}
+
 /// P-WIRE19-A: `state_reward_first_pick_other` with the bytes at `offset` past its window's tag replaced by `with`.
 fn first_pick_patched(offset: usize, with: &[u8]) -> Vec<u8> {
     let mut bytes = first_pick_rewards(false).encode();
@@ -5583,6 +5619,28 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         ),
         ("state_reward_card_id_94", bad_card_id),
         ("state_reward_first_pick_tag_2", first_pick_patched(0, &[2])),
+        // P-WIRE19-B: State key 14 faults, each a patch of `state_readouts` (row `i` starts at byte 6 + 18 i).
+        ("state_readouts_count_29", vec![0x88, 0xdc, 0x01, 0x01, 0x0e, 29]),
+        ("state_readouts_card_79", readouts_patched(0, 0, &[79])),
+        ("state_readouts_card_94", readouts_patched(4, 0, &[94])),
+        ("state_readouts_kind_3", readouts_patched(1, 1, &[3])),
+        (
+            "state_readouts_value_nan",
+            readouts_patched(0, 2, &f64::NAN.to_le_bytes()),
+        ),
+        (
+            "state_readouts_value_negative",
+            readouts_patched(0, 2, &(-0.5f64).to_le_bytes()),
+        ),
+        (
+            "state_readouts_value_over_max",
+            readouts_patched(1, 2, &250.5f64.to_le_bytes()),
+        ),
+        (
+            "state_readouts_max_infinite",
+            readouts_patched(1, 10, &f64::INFINITY.to_le_bytes()),
+        ),
+        ("state_readouts_order", readouts_patched(2, 0, &[80])),
         (
             "state_reward_first_pick_mine_2",
             first_pick_patched(9, &[2]),
@@ -5620,7 +5678,7 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         ("state_reward_kill_truncated_gain", reward_frame(1, &[3, 0])),
         ("state_reward_options_too_many", reward_frame(4, &[])),
         ("state_plan_negative_deadline", negative_plan),
-        ("state_unknown_key", vec![0x88, 0, 1, 14]),
+        ("state_unknown_key", vec![0x88, 0, 1, 15]),
         ("state_quest_status_unknown", quest_bad_status),
         ("state_quest_flags_unknown", quest_bad_flags),
         ("state_quest_visited_unknown", quest_bad_visited),
@@ -5730,7 +5788,7 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         ),
         ("state_duplicate_key", vec![0x88, 0, 2, 1, 0, 1, 0]),
         ("state_key_order", vec![0x88, 0, 2, 3, 0, 1, 0]),
-        ("state_too_many_keys", vec![0x88, 0, 14]),
+        ("state_too_many_keys", vec![0x88, 0, 15]),
         // Protocol 16, ADR0026: State key 12, the roster.
         ("state_roster_count_over_32", vec![0x88, 0, 1, 12, 33]),
         (

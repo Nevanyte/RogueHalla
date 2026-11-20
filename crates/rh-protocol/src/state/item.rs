@@ -59,8 +59,7 @@ impl StateItem {
                         .sum::<usize>()
                 }
                 Self::BuildSummary(value) => 1 + value.as_ref().map_or(0, WireBuildSummary::len),
-                // P-WIRE19-B stub: no bytes yet (the implementer writes `u8 n` and 18 bytes a row).
-                Self::Readouts(_) => 0,
+                Self::Readouts(rows) => 1 + rows.len() * WireReadout::LEN,
             }
     }
     pub(crate) fn check(&self) -> Result<(), EncodeError> {
@@ -178,8 +177,20 @@ impl StateItem {
                     return Err(EncodeError::BadValue(why));
                 }
             }
-            // P-WIRE19-B stub: key 14 is not encoded yet; every readout item is refused.
-            Self::Readouts(_) => return Err(EncodeError::BadValue("readouts")),
+            Self::Readouts(rows) => {
+                if rows.len() > MAX_READOUTS {
+                    return Err(EncodeError::TooMany {
+                        what: "readouts",
+                        n: rows.len(),
+                        max: MAX_READOUTS,
+                    });
+                }
+                let mut previous = None;
+                for row in rows {
+                    row.fault(previous).map_err(EncodeError::BadValue)?;
+                    previous = Some(row.card);
+                }
+            }
         }
         Ok(())
     }
@@ -251,8 +262,15 @@ impl StateItem {
                 }
             }
             Self::BuildSummary(value) => w.opt(value.as_ref(), |w, v| v.write(w)),
-            // P-WIRE19-B stub: never reached (`check` refuses the item).
-            Self::Readouts(_) => {}
+            Self::Readouts(rows) => {
+                w.u8(rows.len() as u8);
+                for row in rows {
+                    w.u8(row.card);
+                    w.u8(row.kind);
+                    w.f64(row.value);
+                    w.f64(row.max);
+                }
+            }
         }
     }
     pub(crate) fn read(r: &mut Reader<'_>, key: u32) -> Result<Self, DecodeError> {
@@ -387,6 +405,26 @@ impl StateItem {
                 Self::Roster(rows)
             }
             13 => Self::BuildSummary(r.opt(WireBuildSummary::read)?),
+            14 => {
+                let n = usize::from(r.u8()?);
+                if n > MAX_READOUTS {
+                    return Err(DecodeError::BadField("readout count"));
+                }
+                let mut rows = Vec::with_capacity(n);
+                let mut previous = None;
+                for _ in 0..n {
+                    let row = WireReadout {
+                        card: r.u8()?,
+                        kind: r.u8()?,
+                        value: r.f64()?,
+                        max: r.f64()?,
+                    };
+                    row.fault(previous).map_err(DecodeError::BadField)?;
+                    previous = Some(row.card);
+                    rows.push(row);
+                }
+                Self::Readouts(rows)
+            }
             _ => return Err(DecodeError::BadField("state key")),
         })
     }
