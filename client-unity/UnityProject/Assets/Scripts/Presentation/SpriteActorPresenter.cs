@@ -482,7 +482,7 @@ namespace Roguehalla.Client
                     SelectFireWeaponBody(a, id, kind, faction, weapon, direction, phase, weaponProgress,
                         useWeaponPhase, stride, stage, reduced, fireSwordArt, out axeBody, out swordBody,
                         out fireSwordAngleOffset, out fireSwordDepthOffset);
-                    bowBody = SelectFireBowBody(a, kind, faction, weapon, direction, phase, weaponProgress,
+                    bowBody = SelectFireBowBody(a, id, kind, faction, weapon, direction, phase, weaponProgress,
                         useWeaponPhase, stride, stage, fireAxeArt);
                 }
                 a.Body.sprite = unarmed ?? shieldBody ?? swordBody ?? bowBody ?? axeBody ?? painted ?? frames[Mathf.Min(frames.Length - 1, direction * count + frame)];
