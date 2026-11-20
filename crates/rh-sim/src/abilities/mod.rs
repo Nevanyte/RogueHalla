@@ -540,6 +540,8 @@ mod frost_restore_tests;
 mod owner_view_tests;
 #[cfg(test)]
 mod source_tests;
+#[cfg(test)]
+mod wish_lever_tests;
 
 /// The arena inventory delegates its genuine Wish prerequisite to the same source consumer.
 #[cfg(test)]

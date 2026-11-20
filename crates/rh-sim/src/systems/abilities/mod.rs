@@ -330,7 +330,9 @@ pub(crate) fn land(cx: &mut Cx) {
                 cx.k,
                 cx.w,
                 l.id,
-                crate::cards::native::hooks::NativeEvent::WishCast,
+                crate::cards::native::hooks::NativeEvent::WishCast {
+                    row_cooldown_ms: a::definition_for(&cx.k.config, l.cast.ability).cooldown_ms,
+                },
             );
         }
     }

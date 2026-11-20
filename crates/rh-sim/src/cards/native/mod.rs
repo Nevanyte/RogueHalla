@@ -31,6 +31,8 @@ mod hooks_tests;
 #[cfg(test)]
 mod weapon_batch_tests;
 #[cfg(test)]
+mod wish_engine_tests;
+#[cfg(test)]
 mod zone_tests;
 
 /// P-AUG-NATIVE-1b: every native card's chest pool membership and offer rule, from the three batch tables (weapon,
@@ -103,6 +105,15 @@ pub(crate) fn flat_max_hp(build: &super::Build, base_hp: f64) -> f64 {
         return 0.;
     }
     zone::flat_max_hp(&build.native, base_hp)
+}
+
+/// P-AUG-NATIVE-3b: Wish Engine's earned share of the Wish cooldown (its counter; 0 for a build not holding it). The
+/// Wish multiplier every reader uses (the cast producer, the restore validator, the owner view) is the folded
+/// `wish_cooldown_mult()` times `1 - share`.
+#[allow(dead_code)] // stub: P-AUG-NATIVE-3b's producer, validator and owner view read it
+pub(crate) fn wish_engine_share(build: &super::Build) -> f64 {
+    let _ = build;
+    0.
 }
 
 /// Does the build hold Overflow (its barriers fade over `REWORK_OVERFLOW_FADE_MS`)?
