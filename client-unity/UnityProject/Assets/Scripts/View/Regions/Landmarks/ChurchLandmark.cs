@@ -72,11 +72,12 @@ namespace Roguehalla.Client
             }
             lm.SetCover(cover);
             var naveFront = NaveFront(lm, building);
+            var churchLayout = Resources.Load<ChurchInteriorDefinition>("StormInk/Church/Definitions/SentencedChurch");
             BuildSlateFloor(lm, building, naveFront);
             BuildRoof(lm, building, notches);
             for (int i = 0; i < doors.Count; i++) BuildDoor(lm, doors[i], directions[i]);
-            BuildInteriorFurnishings(lm, building, naveFront);
-            BuildWindows(lm, building, naveFront);
+            BuildInteriorFurnishings(lm, building, naveFront, churchLayout);
+            BuildWindows(lm, building, naveFront, churchLayout);
             DeliveredNave(lm.SourceMap).PaintPiers(lm);
             if (lm.ArchTiles.Length > 0) BuildGate(lm);
             foreach (var g in groups)                                                   // a plot lies outside the building's box
@@ -365,22 +366,29 @@ namespace Roguehalla.Client
             cv.ToSprite(lm, "Church slate and runes", "Church slate floor", -88);
         }
 
-        // Both banks have the same facing. Height on screen follows projection; upright props keep their painted vertical.
-        static void BuildInteriorFurnishings(Landmark lm, Group room, Vector2Int naveFront)
+        // Pew, pulpit, window and candle placements are resolved from artist-owned family defaults plus field-level slot overrides.
+        static void BuildInteriorFurnishings(Landmark lm, Group room, Vector2Int naveFront, ChurchInteriorDefinition layout)
         {
             bool aisleOnX = naveFront.x != 0;
             float alongMin = aisleOnX ? room.MinX : room.MinY, alongMax = aisleOnX ? room.MaxX : room.MaxY;
             float across = aisleOnX ? (room.MinY + room.MaxY + 1) * .5f : (room.MinX + room.MaxX + 1) * .5f;
-            var pew = Resources.Load<Sprite>("StormInk/Church/OakPew");
-            // The narrow back cap lies along the image's +Y edge. Point it toward the entrance.
+            var pewDefinition = Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/OakPew");
+            var pew = pewDefinition != null ? pewDefinition.Defaults.Front : Resources.Load<Sprite>("StormInk/Church/OakPew");
             var pewAngle = Mathf.Atan2(-naveFront.x, -naveFront.y) * Mathf.Rad2Deg;
-            float[] rows = { alongMin + 1.55f, alongMin + 2.65f, alongMax - 1.55f, alongMax - .45f };
-            foreach (float row in rows)
-            for (int bank = -1; bank <= 1; bank += 2)
+            float[] rows = naveFront.x + naveFront.y > 0
+                ? new[] { alongMin + 1.55f, alongMin + 2.65f, alongMax - 1.55f, alongMax - .45f }
+                : new[] { alongMax - .45f, alongMax - 1.55f, alongMin + 2.65f, alongMin + 1.55f };
+            var orientation = ChurchArtOrientation.Resolve(lm.Anchor);
+            int leftAcross = aisleOnX ? (naveFront.x > 0 ? 1 : -1) : (naveFront.y > 0 ? -1 : 1);
+            for (int rowIndex = 0; rowIndex < rows.Length; rowIndex++)
+            for (int bank = 0; bank < 2; bank++)
             {
-                float bankCentre = across + bank * 4.85f;
+                int semanticSide = bank == 0 ? 1 : -1;
+                int acrossSign = leftAcross * orientation.ReflectSide(semanticSide);
+                float bankCentre = across + acrossSign * 4.85f;
+                float row = rows[rowIndex];
                 float x = aisleOnX ? row : bankCentre, y = aisleOnX ? bankCentre : row;
-                const float length = 4.55f, depth = .82f;
+                const float length = 4.55f, depth = 1.155f;
                 int first = Mathf.FloorToInt(bankCentre - length * .5f), last = Mathf.FloorToInt(bankCentre + length * .5f);
                 bool fits = true;
                 for (int tile = first; tile <= last; tile++)
@@ -390,20 +398,21 @@ namespace Roguehalla.Client
                     break;
                 }
                 if (fits)
-                    AddAssetSprite(lm, pew, "Church pew", x, y, aisleOnX ? length * Sq : length,
-                        aisleOnX ? depth : depth * Sq, pewAngle, 2);
+                    AddChurchAssetSprite(lm, pew, pewDefinition, layout, "pew.row" + rowIndex + (semanticSide > 0 ? ".left" : ".right"),
+                        "Church pew", x, y, aisleOnX ? length * Sq : length, aisleOnX ? depth * Sq : depth, pewAngle, 2, ChurchArtView.Front);
             }
-            var pulpit = Resources.Load<Sprite>("StormInk/Church/GothicPulpit");
+            var pulpitDefinition = Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/GothicPulpit");
+            var pulpit = pulpitDefinition != null ? pulpitDefinition.Defaults.Front : Resources.Load<Sprite>("StormInk/Church/GothicPulpit");
             float front = aisleOnX ? naveFront.x : naveFront.y;
             float nearRear = front > 0 ? alongMin + 2.2f : alongMax - 1.2f;
-            float onSide = across + (front > 0 ? 8.8f : -8.8f);
+            float onSide = across + leftAcross * orientation.ReflectSide(1) * 8.8f;
             float px = aisleOnX ? nearRear : onSide, py = aisleOnX ? onSide : nearRear;
             if (lm.IsInterior(Mathf.FloorToInt(px), Mathf.FloorToInt(py)))
-                AddAssetSprite(lm, pulpit, "Church pulpit", px, py, 2.15f, 2.5f, 0f, 3);
+                AddChurchAssetSprite(lm, pulpit, pulpitDefinition, layout, "pulpit.left", "Church pulpit", px, py, 2.15f, 2.5f, 0f, 3, ChurchArtView.Front);
         }
 
-        static void AddAssetSprite(Landmark lm, Sprite sprite, string objectName, float x, float row,
-            float width, float height, float rotation, int sortOffset, bool flame = false)
+        static void AddChurchAssetSprite(Landmark lm, Sprite sprite, ChurchArtDefinition definition, ChurchInteriorDefinition layout, string slotId,
+            string objectName, float x, float row, float fallbackWidth, float fallbackHeight, float rotation, int fallbackSortOffset, ChurchArtView view)
         {
             if (sprite == null) return;
             var go = new GameObject(objectName);
@@ -412,41 +421,54 @@ namespace Roguehalla.Client
             go.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
-            renderer.sharedMaterial = lm.PaintedMaterial(flame);
-            renderer.sortingOrder = 2000 + 16 * (Mathf.FloorToInt(row) + 1) + sortOffset;
-            Vector2 size = sprite.bounds.size;
-            go.transform.localScale = new Vector3(width / size.x, height / size.y, 1f);
-            if (flame)
+            bool emitsCandleLight = definition != null ? definition.EmitsCandleLight : slotId.StartsWith("candle.", StringComparison.Ordinal);
+            renderer.sharedMaterial = lm.PaintedMaterial(emitsCandleLight);
+            renderer.sortingOrder = 2000 + 16 * (Mathf.FloorToInt(row) + 1) + (definition == null ? fallbackSortOffset : 0);
+            if (definition == null)
             {
-                float pivot = sprite.pivot.y / sprite.rect.height;
-                lm.CandleSockets.Add(new Vector3(x, row, (.70f - pivot) * height));
+                Vector2 size = sprite.bounds.size;
+                go.transform.localScale = new Vector3(fallbackWidth / Mathf.Max(.001f, size.x), fallbackHeight / Mathf.Max(.001f, size.y), 1f);
+                if (emitsCandleLight)
+                {
+                    float pivot = sprite.pivot.y / Mathf.Max(1f, sprite.rect.height);
+                    lm.RegisterCandleSocket(go.GetInstanceID(), new Vector2(x, row), (.70f - pivot) * fallbackHeight,
+                        new Color(1f, .57f, .24f), .98f, 2.6f, .6f);
+                }
+                return;
             }
+            var placement = go.AddComponent<ChurchArtPlacement>();
+            placement.Definition = definition; placement.Layout = layout; placement.SlotId = slotId; placement.View = view;
+            placement.Configure(lm, lm.Anchor, new Vector2(x, row), rotation);
         }
 
-        static void BuildWindows(Landmark lm, Group room, Vector2Int naveFront)
+        static void BuildWindows(Landmark lm, Group room, Vector2Int naveFront, ChurchInteriorDefinition layout)
         {
-            var glass = Resources.Load<Sprite>("StormInk/Church/GarnetLancet");
-            var candles = Resources.Load<Sprite>("StormInk/Church/Candelabrum");
+            var glassDefinition = Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/GarnetLancet");
+            var candleDefinition = Resources.Load<ChurchArtDefinition>("StormInk/Church/Definitions/Candelabrum");
+            var glass = glassDefinition != null ? glassDefinition.Defaults.Front : Resources.Load<Sprite>("StormInk/Church/GarnetLancet");
+            var candles = candleDefinition != null ? candleDefinition.Defaults.Front : Resources.Load<Sprite>("StormInk/Church/Candelabrum");
             bool aisleOnX = naveFront.x != 0;
             float across = aisleOnX ? (room.MinY + room.MaxY + 1) * .5f : (room.MinX + room.MaxX + 1) * .5f;
             int first = aisleOnX ? room.MinX : room.MinY, last = aisleOnX ? room.MaxX : room.MaxY;
-            float[] bays = { -8.2f, -4.2f, 4.2f, 8.2f };
-            // Set the light in the reveals and plant its candelabrum on the floor inside it.
+            int leftAcross = aisleOnX ? (naveFront.x > 0 ? 1 : -1) : (naveFront.y > 0 ? -1 : 1);
+            float[] bays = { leftAcross * 8.2f, leftAcross * 4.2f, -leftAcross * 4.2f, -leftAcross * 8.2f };
+            int alongFront = aisleOnX ? naveFront.x : naveFront.y;
             foreach (int end in new[] { first, last })
-            foreach (float bay in bays)
+            for (int bayIndex = 0; bayIndex < bays.Length; bayIndex++)
             {
-                float wall = end + .5f;
+                float bay = bays[bayIndex], wall = end + .5f;
                 float x = aisleOnX ? wall : across + bay, y = aisleOnX ? across + bay : wall;
                 if (!lm.IsWall(Mathf.FloorToInt(x), Mathf.FloorToInt(y))) continue;
-                AddAssetSprite(lm, glass, "Church stained glass", x, y, 1.13f, 1.92f, 0f, 4);
+                bool isFrontWall = (end == last && alongFront > 0) || (end == first && alongFront < 0);
+                string wallSlot = isFrontWall ? "front" : "rear";
+                AddChurchAssetSprite(lm, glass, glassDefinition, layout, "window." + wallSlot + ".bay" + bayIndex,
+                    "Church stained glass", x, y, 1.13f, 1.92f, 0f, 4, ChurchArtView.Front);
                 float inside = end == first ? 1.1f : -1.1f;
-                // The inner pair brackets the three-tile doorway. The outer pair stands beyond each pew end.
                 float candleBay = across + Mathf.Sign(bay) * (Mathf.Abs(bay) < 6f ? 1.95f : 9f);
-                float cx = aisleOnX ? x + inside : candleBay;
-                float cy = aisleOnX ? candleBay : y + inside;
+                float cx = aisleOnX ? x + inside : candleBay, cy = aisleOnX ? candleBay : y + inside;
                 if (lm.IsInterior(Mathf.FloorToInt(cx), Mathf.FloorToInt(cy)))
-                    // The transparent headroom holds the smoke. Its lower pivot anchors the candle base.
-                    AddAssetSprite(lm, candles, "Church candle flame", cx, cy, .68f, 1.295f, 0f, 5, flame: true);
+                    AddChurchAssetSprite(lm, candles, candleDefinition, layout, "candle." + wallSlot + ".bay" + bayIndex,
+                        "Church candle flame", cx, cy, .68f, 1.295f, 0f, 5, ChurchArtView.Front);
             }
         }
 

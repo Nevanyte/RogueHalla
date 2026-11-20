@@ -327,6 +327,7 @@ is **not implemented**; the gain figures are **estimates**.
 | P-UI-6 | Planning screen and hold-Tab map, route drawing | P-ARENA-1, P-MAP-2 | Coarse | client/src/ui/planning.ts, route.ts, mapHold.ts, mapPainter.ts |
 | P-UI-7 | Combat presentation: projectiles, telegraphs, status art, hit numbers, juice (reduced-motion safe) | P-COMBAT-2, P-STATUS-1 | Coarse | client/src/render/* |
 | P-UI-8 | Visual upgrade per [../VISUAL_DIRECTION.md](../VISUAL_DIRECTION.md) (exists: quality tiers, budgets to establish) | P-UNITY-1 | Ready packet ([spec](packets/P-STORM-HAUNTED-PRESENTATION-1.md), display-only identity pass) | client/src/render/zoneArt/*, hub/hubArt.ts |
+| P-STORM-CHURCH-AUTHORING-1 | Artist-owned church family defaults, stable slot overrides, contact handles and candle spill | P-STORM-CHURCH-ART-1, P-STORM-CHURCH-PIERS-1 | Ready packet ([spec](packets/P-STORM-CHURCH-AUTHORING-1.md)) | Unity church presentation data |
 | P-UI-9 | Settings, accessibility, input rebinding, audio decision | P-UNITY-1 | Coarse | client/src/settings.ts, ui/settingsPanel.ts |
 | P-UI-10 | Unity batchmode tests + build in CI | P-UNITY-1, P-CI-1 | Coarse | none |
 
