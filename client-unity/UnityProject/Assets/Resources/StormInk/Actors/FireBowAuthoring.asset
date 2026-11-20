@@ -17,7 +17,7 @@ MonoBehaviour:
   - 0
   - 0
   - 1
-  - 0
+  - 1
   - 0
   - 0
   - 1
@@ -83,26 +83,26 @@ MonoBehaviour:
     Left: {x: 110, y: 75}
   - Right: {x: 53, y: 92}
     Left: {x: 102, y: 86}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
+  - Right: {x: 69, y: 79}
+    Left: {x: 109, y: 69}
+  - Right: {x: 78, y: 57}
+    Left: {x: 117, y: 28}
+  - Right: {x: 75, y: 37}
+    Left: {x: 121, y: 19}
+  - Right: {x: 70, y: 39}
+    Left: {x: 122, y: 19}
+  - Right: {x: 74, y: 71}
+    Left: {x: 115, y: 59}
+  - Right: {x: 58, y: 106}
+    Left: {x: 98, y: 93}
+  - Right: {x: 62, y: 87}
+    Left: {x: 102, y: 63}
+  - Right: {x: 60, y: 72}
+    Left: {x: 108, y: 56}
+  - Right: {x: 53, y: 73}
+    Left: {x: 107, y: 56}
+  - Right: {x: 54, y: 97}
+    Left: {x: 99, y: 81}
   - Right: {x: 0, y: 0}
     Left: {x: 0, y: 0}
   - Right: {x: 0, y: 0}
