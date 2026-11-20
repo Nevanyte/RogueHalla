@@ -59,6 +59,8 @@ REPLAY_SIM_KEYS = SIM_KEYS | {
     "abilities", "wish_lock_ms", "lifecycle", "hazards", "initial_loot", "mob_mode", "regen", "consumables", "quests", "training", "dummies",
     # Added after the list was written; each is compared for equality across the two targets like every replay byte.
     "walk_hints", "hitboxes", "mob_spacing", "regen_in_combat", "camp_buffs", "frost_wish",
+    # ADR 0029 (P-TICK-1a): null at the legacy 50 ms step, 25 for a 40 Hz match.
+    "tick_ms",
 }
 # Replay-config leaves whose serialized form is JSON null (the default) or one named string.
 REPLAY_NULLABLE_NAMES = {
@@ -278,6 +280,9 @@ def validate_sim(config, path, full=False):
             boolean(config["walk_hints"], path + ".walk_hints")
         if "hitboxes" in config:
             require(config["hitboxes"] in HITBOX_MODES, path + ".hitboxes", "unknown hitbox mode")
+        if "tick_ms" in config:
+            require(config["tick_ms"] is None or config["tick_ms"] == 25, path + ".tick_ms",
+                    "expected null (50 ms) or 25")
 
 
 def validate_inventory_scenario(spec, path):

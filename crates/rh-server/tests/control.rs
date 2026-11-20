@@ -167,6 +167,7 @@ async fn rig(o: Opts) -> Rig {
         pvp_rules: true,
         weapon_specials: true,
         faction_mode: rh_sim::FactionMode::Off,
+        tick_ms: 50,
     };
     let mut cfg = DirectorConfig {
         tick: TICK,
@@ -323,6 +324,7 @@ async fn session_properties_are_validated_and_a_starting_server_is_503() {
                     pvp_rules: true,
                     weapon_specials: true,
                     faction_mode: rh_sim::FactionMode::Off,
+                    tick_ms: 50,
                 },
                 rh_sim::arenas::practice_arena(),
             ),
@@ -1421,6 +1423,7 @@ async fn a_session_created_while_draining_is_refused_or_drained_never_left_live_
                     pvp_rules: true,
                     weapon_specials: true,
                     faction_mode: rh_sim::FactionMode::Off,
+                    tick_ms: 50,
                 },
                 rh_sim::arenas::practice_arena(),
             )

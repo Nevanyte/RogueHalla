@@ -193,6 +193,7 @@ async fn main() {
             } else {
                 rh_sim::FactionMode::Off
             },
+            tick_ms: 50,
         },
         |runtime| runtime.sim(),
     );

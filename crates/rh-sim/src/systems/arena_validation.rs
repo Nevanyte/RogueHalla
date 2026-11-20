@@ -42,7 +42,9 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
             "Source lifecycle has no admitted deferred card producer or reset hooks".into(),
         );
     }
-    if w.server_time != f64::from(w.tick) * crate::constants::TICK_MS
+    // ADR 0029: the clock is on the match's own grid (`server_time += tick_ms` per step).
+    let tick_ms = k.tick_ms();
+    if w.server_time != f64::from(w.tick) * tick_ms
         || w.rt.started_with as usize > w.roster.len()
         || w.rt.started_humans > w.rt.started_with as usize
     {
@@ -57,16 +59,15 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
     if matches!(w.phase, Phase::Lobby | Phase::Planning) && teleported.is_some() {
         return Err("source teleport clock cannot precede the raid".into());
     }
-    let earliest = earliest_teleport(r, w);
+    let earliest = earliest_teleport(r, w, tick_ms);
 
-    if teleported
-        .is_some_and(|at| at < earliest || at > now || at % crate::constants::TICK_MS != 0.)
+    if teleported.is_some_and(|at| at < earliest || at > now || at % tick_ms != 0.)
         || (teleported.is_none() && w.players.iter().any(|p| p.vision.has_locked_reveals()))
     {
         return fail();
     }
 
-    let first_locked_tick = (earliest / crate::constants::TICK_MS) as u32;
+    let first_locked_tick = (earliest / tick_ms) as u32;
     if w.players
         .iter()
         .any(|p| !p.vision.locked_reveals_since(first_locked_tick))
@@ -108,9 +109,7 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
             }
             if w.rt.gates_locked {
                 let duration = r.sudden_death_seconds * 1000.;
-                let teleport_at = ((w.rt.sudden_death_at - duration) / crate::constants::TICK_MS)
-                    .round()
-                    * crate::constants::TICK_MS;
+                let teleport_at = ((w.rt.sudden_death_at - duration) / tick_ms).round() * tick_ms;
                 if !w.rt.in_coliseum
                     || w.rt.patience_ends_at.is_some()
                     || teleport_at < earliest
@@ -160,10 +159,9 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
 /// A lower bound on every actual lock, including retained history from an earlier cycle.
 /// Timers are checked only in Active settlement. A death/reset returns from settlement,
 /// so even a zero-duration timer cannot teleport on the tick that produced it.
-fn earliest_teleport(r: &super::arena_rules::ArenaRules, w: &World) -> f64 {
-    use crate::constants::TICK_MS;
+fn earliest_teleport(r: &super::arena_rules::ArenaRules, w: &World, tick_ms: f64) -> f64 {
     let next_due = |produced: f64, duration: f64| {
-        (((produced + duration) / TICK_MS).ceil() * TICK_MS).max(produced + TICK_MS)
+        (((produced + duration) / tick_ms).ceil() * tick_ms).max(produced + tick_ms)
     };
     if let Some(schedule) = r.schedule() {
         // Outside scheduled deaths preserve the initial slot; rescheduling starts only
@@ -195,7 +193,7 @@ fn earliest_teleport(r: &super::arena_rules::ArenaRules, w: &World) -> f64 {
         let shortest = (minimum_survivors..initial)
             .map(patience)
             .fold(f64::INFINITY, f64::min);
-        earliest = earliest.min(next_due(w.raid_started_at + TICK_MS, shortest));
+        earliest = earliest.min(next_due(w.raid_started_at + tick_ms, shortest));
     }
     earliest
 }
