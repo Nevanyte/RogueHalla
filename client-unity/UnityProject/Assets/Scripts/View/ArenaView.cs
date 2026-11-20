@@ -341,7 +341,7 @@ namespace Roguehalla.Client
                 if(actor.Kind != ActorKind.Player) _latestNpcs.Add(actor);
             }
             if(me!=null) _membership.Add(me.Id);
-            _hasMembership=true; _actors.Retain(_membership);
+            _hasMembership=true; _actors.Retain(_membership, _latestNpcs);
             _wishes.Retain(_membership);
             _wishFx.Retain(_membership);
             if (presentFollows) { _flushPendingInPresent = true; return; }

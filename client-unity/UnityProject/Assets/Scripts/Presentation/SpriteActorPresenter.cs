@@ -25,7 +25,7 @@ namespace Roguehalla.Client
             public float AttackUntil;
             public float WindupAt, WindupUntil, AttackFacing;
             public bool HasAttackFacing;
-            public uint DrawStartedAt;
+            public uint DrawStartedAt, MotionSuccessor;
             public GaitState Gait;
             public float StampTime;
             public bool LocalCue;
@@ -320,16 +320,17 @@ namespace Roguehalla.Client
             }
         }
 
-        public void Retain(HashSet<uint> membership)
+        public void Retain(HashSet<uint> membership, List<InterpActor> observed = null)
         {
             _remove.Clear(); foreach(var pair in _active) if(!membership.Contains(pair.Key)) _remove.Add(pair.Key);
+            MarkImmediateMotionSuccessors(observed);
             foreach(uint id in _remove) Evict(id);
         }
         void Evict(uint id)
         {
             var art=_active[id];
             if (TryParkBody(id, art)) return; // a dead creature waits for its renewed id (SpriteActorPresenter.Fade.cs)
-            if (HasWeaponTrack(art) || HasHauntedFists(art)) ClearWeaponMotion(art);
+            if (art.MotionSuccessor == 0 && (HasWeaponTrack(art) || HasHauntedFists(art))) ClearWeaponMotion(art);
             if (TryBeginExit(id, art)) return; // a living actor that left sight fades out (SpriteActorPresenter.Fade.cs)
             _active.Remove(id); Release(art);
         }

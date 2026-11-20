@@ -38,7 +38,7 @@ namespace Roguehalla.Client
         {
             a.AttackAt = a.AttackUntil = a.WindupAt = a.WindupUntil = 0f;
             a.HasAttackFacing = a.LocalCue = false;
-            a.DrawStartedAt = 0;
+            a.DrawStartedAt = a.MotionSuccessor = 0;
             a.Bowstring?.Clear(a.Weapon, a.OutBody);
         }
 
