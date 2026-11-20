@@ -426,11 +426,25 @@ pub const fn ability_in_slot(slot: Slot, faction: FactionId) -> Option<AbilityId
         Slot::Q | Slot::E => None,
     }
 }
+/// The catalog row's cooldown ([`definition`]), for readers that know no world (bots, tools). A world's own spend, and
+/// the restore that judges it, read [`cooldown_for`].
 pub fn cooldown(id: AbilityId, training: bool, wish_mult: Option<f64>) -> f64 {
+    scaled_cooldown(definition(id).cooldown_ms, training, wish_mult)
+}
+/// The cooldown a world spends for `id`: the row it casts ([`definition_for`]: Frost Wall's under `frost_wish = Wall`)
+/// under its training rule and the Wish multiplier. The cast producer and the Wish restore validator both read this one
+/// function, so neither can judge a config-selected row by another row's numbers.
+pub fn cooldown_for(config: &crate::SimConfig, id: AbilityId, wish_mult: Option<f64>) -> f64 {
+    scaled_cooldown(
+        definition_for(config, id).cooldown_ms,
+        config.training,
+        wish_mult,
+    )
+}
+fn scaled_cooldown(base: f64, training: bool, wish_mult: Option<f64>) -> f64 {
     if training {
         return TRAINING_COOLDOWN_MS;
     }
-    let base = definition(id).cooldown_ms;
     let mult = wish_mult
         .filter(|v| *v > 0.)
         .map_or(1., |v| v.max(WISH_MULT_MIN));
@@ -520,6 +534,8 @@ impl OwnerView {
 
 pub(crate) mod checkpoint;
 mod effect_checkpoint;
+#[cfg(test)]
+mod frost_restore_tests;
 #[cfg(test)]
 mod owner_view_tests;
 #[cfg(test)]
