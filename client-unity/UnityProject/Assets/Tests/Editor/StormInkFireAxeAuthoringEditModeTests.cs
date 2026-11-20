@@ -116,7 +116,7 @@ namespace Roguehalla.Client.Tests
             }
         }
 
-        [TestCase(1)] [TestCase(4)]
+        [TestCase(1)] [TestCase(4)] [TestCase(5)]
         public void AuthoredWalkBearingsUseEightRegisteredDrawingsThroughTheGaitCycle(int row)
         {
             var config = StormInkFireAxeAuthoring.Load();
