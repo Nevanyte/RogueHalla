@@ -57,6 +57,26 @@ pub(crate) struct Chest {
     pub pickers: Vec<PlayerId>,
     pub camp: Option<u16>,
     pub owner: Option<PlayerId>,
+    /// P-ELITE-PICK-1 (owner 2026-11-18, "Killer first pick"): under `SimConfig::elites == Rework`, the credited killer
+    /// of an elite camp (the player with the most damage, `systems/mob_life.rs` `hurt`) and the end of their first-pick
+    /// window. `None` on every other chest, and on every chest of a `Legacy` world. `#[serde(default)]`: a declared
+    /// chest without the key (test JSON) reads `None`.
+    #[serde(default)]
+    pub first_pick: Option<FirstPick>,
+}
+/// P-ELITE-PICK-1: whose first pick a chest holds, and until when (server time, ms; open while `server_time < until`).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct FirstPick {
+    pub killer: PlayerId,
+    pub until: f64,
+}
+/// P-ELITE-PICK-1: the length of the killer's first-pick window, in ms (owner 2026-11-18: 5 s), read from its registered
+/// content row.
+///
+/// STUB (P-ELITE-PICK-1): returns 0; the implementer registers the row in `constants.rs` and returns it.
+pub(crate) fn first_pick_window_ms() -> f64 {
+    0.
 }
 pub(crate) fn insert(
     w: &mut World,
@@ -75,6 +95,7 @@ pub(crate) fn insert(
         pickers: Vec::with_capacity(crate::constants::MAX_PLAYERS),
         camp,
         owner: None,
+        first_pick: None,
     });
     id
 }
@@ -168,6 +189,7 @@ pub(crate) fn drop_trophy(
         pickers: Vec::with_capacity(crate::constants::MAX_PLAYERS),
         camp: None,
         owner: Some(owner),
+        first_pick: None,
     });
     id
 }
@@ -467,6 +489,8 @@ pub(crate) fn validate_world(
 
 #[cfg(test)]
 mod chest_runtime_tests;
+#[cfg(test)]
+mod first_pick_tests;
 #[cfg(test)]
 mod pool_tests;
 #[cfg(test)]
