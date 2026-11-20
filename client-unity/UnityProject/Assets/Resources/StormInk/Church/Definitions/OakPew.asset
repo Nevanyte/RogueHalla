@@ -30,6 +30,9 @@ MonoBehaviour:
     Front: {fileID: 21300000, guid: ef56974f71254a3f1860b5410725ac72, type: 3}
     Side: {fileID: 21300000, guid: ef56974f71254a3f1860b5410725ac72, type: 3}
     Material: {fileID: 0}
+    PaneMode: 0
+    FlameLayer: {fileID: 0}
+    FlameLayerSize: {x: 0, y: 0}
     Back: {fileID: 21300000, guid: ef56974f71254a3f1860b5410725ac72, type: 3}
   Mount: 0
   EmitsCandleLight: 0

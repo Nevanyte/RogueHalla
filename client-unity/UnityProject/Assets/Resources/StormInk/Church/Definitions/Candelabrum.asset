@@ -20,16 +20,19 @@ MonoBehaviour:
     MountHeight: 0
     LocalOffset: {x: 0, y: 0}
     Contact: {x: 0.5, y: 0.367}
-    FlameSocket: {x: 0.5, y: 0.7}
+    FlameSocket: {x: 0.5, y: 0.70}
     Tint: {r: 1, g: 1, b: 1, a: 1}
     FlameColor: {r: 1, g: 0.57, b: 0.24, a: 1}
     FlameIntensity: 0.98
     SpillRadius: 2.6
     SpillIntensity: 0.6
     SortingOffset: 5
-    Front: {fileID: 21300000, guid: 9a016fac76bc3d943455c0a932f578ae, type: 3}
-    Side: {fileID: 21300000, guid: 9a016fac76bc3d943455c0a932f578ae, type: 3}
+    Front: {fileID: 21300000, guid: fafcbe21a5794b1cbd143bdff46c5e0a, type: 3}
+    Side: {fileID: 21300000, guid: fafcbe21a5794b1cbd143bdff46c5e0a, type: 3}
     Material: {fileID: 0}
-    Back: {fileID: 21300000, guid: 9a016fac76bc3d943455c0a932f578ae, type: 3}
+    PaneMode: 0
+    FlameLayer: {fileID: 21300000, guid: 1a4424a77dd04e45b146c886e9ddc71f, type: 3}
+    FlameLayerSize: {x: 0.22, y: 0.40}
+    Back: {fileID: 21300000, guid: fafcbe21a5794b1cbd143bdff46c5e0a, type: 3}
   Mount: 1
   EmitsCandleLight: 1
