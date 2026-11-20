@@ -266,6 +266,8 @@ namespace Roguehalla.Client
                 Vector3 foot = ArenaView.WorldPoint(pl.X * 32f, pl.Y * 32f);
                 go.transform.localPosition = foot; go.transform.localScale = new Vector3(flip ? -scaleX : scaleX, scaleY, 1f);
                 var sr = go.AddComponent<SpriteRenderer>(); sr.sprite = art.Sprite; sr.sharedMaterial = _material;
+                if (pl.Art == "plague.tree" && RegionPropArt.TryGet("plague.tree.ink", out var treeInk) && treeInk.UsesAuthoredTexture)
+                    sr.sprite = treeInk.Sprite;
                 if (pl.Art == "plague.mushroom" && art.UsesAuthoredTexture)
                 {
                     mushrooms ??= new MushroomPatch(art.Sprite, visualSeed + 131);

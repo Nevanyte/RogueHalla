@@ -36,7 +36,7 @@ namespace Roguehalla.Client
         public static bool TryGet(string key, out RegionPropSprite sprite) { Ensure(); return _all.TryGetValue(key, out sprite); }
         public static IEnumerable<string> Keys { get { Ensure(); return _all.Keys; } }
 
-        struct Def { public string Key; public int W, H, Ground; public Action<RegionCanvas, int> Paint; public bool Tall; public string TexturePath; }
+        struct Def { public string Key; public int W, H, Ground; public Action<RegionCanvas, int> Paint; public bool Tall; public string TexturePath; public Vector2? TextureFoot; }
 
         static Color P(int region, int slot) { return RegionPaletteGenerated.Srgb[region][slot]; }
         static readonly Color Ink = new Color(.05f, .06f, .10f, .85f);
@@ -58,7 +58,7 @@ namespace Roguehalla.Client
         /// <summary>Art that bends in the wind (trees, grass, reeds, bushes, cloth). Packed first, with a shelf break after it, so the shader can tell it by atlas V alone (<see cref="SwayV"/>): no second material, no extra draw calls.</summary>
         public static bool Sways(string key)
         {
-            return key.EndsWith(".pine") || key.EndsWith(".pine2") || key.EndsWith(".tree") || key.EndsWith(".deadtree") || key.EndsWith(".palm") || key.EndsWith(".reeds") || key.EndsWith(".bush")
+            return key == "plague.tree.ink" || key.EndsWith(".pine") || key.EndsWith(".pine2") || key.EndsWith(".tree") || key.EndsWith(".deadtree") || key.EndsWith(".palm") || key.EndsWith(".reeds") || key.EndsWith(".bush")
                 || key.EndsWith(".shrub") || key.EndsWith(".fern") || key.EndsWith(".flowers") || key.EndsWith(".grass") || key.EndsWith(".deadgrass") || key.EndsWith(".banner") || key.EndsWith(".scarecrow");
         }
         /// <summary>Atlas V below which a vertex belongs to wind-capable art (the global <c>_RhSwayV</c>).</summary>
@@ -148,8 +148,8 @@ namespace Roguehalla.Client
             });
         }
 
-        static void Add(List<Def> l, string key, int w, int h, int ground, Action<RegionCanvas, int> paint, bool tall = false, string texturePath = null)
-        { l.Add(new Def { Key = key, W = w, H = h, Ground = ground, Paint = paint, Tall = tall, TexturePath = texturePath }); }
+        static void Add(List<Def> l, string key, int w, int h, int ground, Action<RegionCanvas, int> paint, bool tall = false, string texturePath = null, Vector2? textureFoot = null)
+        { l.Add(new Def { Key = key, W = w, H = h, Ground = ground, Paint = paint, Tall = tall, TexturePath = texturePath, TextureFoot = textureFoot }); }
 
         /// <summary>Copies a tightly cropped authored texture into its original design bounds, aligned at ground contact.
         /// Returns false for empty/unreadable inputs so the original procedural paint remains the fallback.</summary>
@@ -171,6 +171,11 @@ namespace Roguehalla.Client
             int padSide = DebugNoPadding ? 0 : PadSide, padBottom = DebugNoPadding ? 0 : PadBottom;
             float left = padSide + (def.W - drawW) * .5f;
             float bottom = padBottom + def.Ground;
+            if (def.TextureFoot is Vector2 foot)
+            {
+                left += (.5f - foot.x) * drawW;
+                bottom -= foot.y * drawH;
+            }
             int x0 = Mathf.Max(0, Mathf.FloorToInt(left)), x1 = Mathf.Min(canvas.W, Mathf.CeilToInt(left + drawW));
             int y0 = Mathf.Max(0, Mathf.FloorToInt(bottom)), y1 = Mathf.Min(canvas.H, Mathf.CeilToInt(bottom + drawH));
             for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++)
@@ -598,6 +603,9 @@ namespace Roguehalla.Client
                 Lumps(c, cx, gy + 108, 36, 40, 4, leafDark, leafMid, leafLight, 37, .95f);
                 foreach (float vx in new[] { -34f, 28f, 8f }) c.Fill(Capsule(new Vector2(cx + vx, gy + 96), new Vector2(cx + vx + 2, gy + 62), 1.5f, 1f), Flat(Alpha(leafDark, .9f)));
             }, true);
+            // The measured root flare is inside the painted mask, above the tapering root tips.
+            Add(l, "plague.tree.ink", 148, 204, 10, (c, gy) => { }, true, "StormInk/Props/PlagueTree",
+                new Vector2(.573f, .074f));
             Add(l, "plague.fern", 96, 84, 8, (c, gy) =>
             {
                 float cx = 48; c.SoftShadow(cx + 4, gy + 1, 30f, 5f, .3f, Alpha(shadow, 1f));
