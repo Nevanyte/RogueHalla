@@ -11,8 +11,6 @@ namespace Roguehalla.Client
         static Material _material;
         static readonly Color DrawColor = new Color32(151, 138, 112, 255);
         const float Thickness = .017f;
-        static readonly float[] TopX = { .395f, .422f, .496f, .590f, .607f, .570f, .502f, .419f };
-        static readonly float[] BottomX = { .395f, .422f, .499f, .590f, .607f, .570f, .502f, .413f };
 
         readonly SpriteRenderer _top, _bottom;
 
@@ -43,8 +41,7 @@ namespace Roguehalla.Client
 
         internal void Draw(SpriteRenderer bow, SpriteOutline outline, int view, Vector3 rightPalm, float opacity)
         {
-            var top = new Vector2(TopX[view], .910f);
-            var bottom = new Vector2(BottomX[view], .094f);
+            StormInkBowArtAuthoring.NockPositions(view, out var top, out var bottom);
             var color = DrawColor;
             color.a = opacity;
             DrawSegment(_top, Socket(bow, top), rightPalm, bow.sortingOrder + 1, color);

@@ -11,10 +11,10 @@ namespace Roguehalla.Client
             StormInkActors.HasMobWeaponTrack(a.Kind, a.Faction, a.MobType, a.WeaponId);
 
         static void BindArtistSources(Art art, WeaponId? weapon, float facing, StormInkFireAxeAuthoring fire,
-            StormInkFireSwordAuthoring sword)
+            StormInkFireSwordAuthoring sword, StormInkFireBowAuthoring bow = null)
         {
-            art.BodyArtistSource = StormInkArtistSource.BindBody(art.BodyArtistSource, art.Body, fire, sword);
-            if (art.Weapon.enabled && (weapon == WeaponId.Axe || weapon == WeaponId.Sword))
+            art.BodyArtistSource = StormInkArtistSource.BindBody(art.BodyArtistSource, art.Body, fire, sword, bow);
+            if (art.Weapon.enabled && weapon.HasValue)
                 art.WeaponArtistSource = StormInkArtistSource.BindWeapon(art.WeaponArtistSource, art.Weapon, weapon,
                     StormInkActors.PoseRowForFacing(facing), false);
             else
@@ -139,6 +139,9 @@ namespace Roguehalla.Client
             float dy = y + origin.y / (ArenaView.Scale * ArenaView.GroundSquash);
             if (dx * dx + dy * dy > 80f * 80f) return;
             var weapon = kind == ProjectileKind.Arrow ? WeaponId.Bow : WeaponId.Wand;
+            if (kind == ProjectileKind.Arrow && art.VisibleForCombatCue && art.Root.activeSelf && art.Fade.Opacity > 0f &&
+                art.Kind == ActorKind.Player && art.Faction == FactionId.Fire && art.WeaponId == WeaponId.Bow)
+                art.FireBowShotCount++;
             ConfirmedCue(owner, FxKind.Swing, weapon, aim);
         }
 

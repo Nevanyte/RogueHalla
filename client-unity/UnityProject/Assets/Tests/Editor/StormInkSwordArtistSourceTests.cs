@@ -45,10 +45,11 @@ namespace Roguehalla.Client.Tests
             finally { Object.DestroyImmediate(root); }
         }
 
-        [Test]
-        public void DroppedSwordNamesTheSameGripAssetAndFollowsPublicPickupPosition()
+        [TestCase(WeaponId.Sword, StormInkArtistSourceKind.DroppedSword)]
+        [TestCase(WeaponId.Bow, StormInkArtistSourceKind.DroppedBow)]
+        public void DroppedEquipmentNamesItsGripAssetAndFollowsPublicPickupPosition(WeaponId weapon, StormInkArtistSourceKind kind)
         {
-            var root = new GameObject("Ground sword source selection");
+            var root = new GameObject("Ground equipment source selection");
             const BindingFlags hidden = BindingFlags.Instance | BindingFlags.NonPublic;
             try
             {
@@ -58,16 +59,16 @@ namespace Roguehalla.Client.Tests
                 var state = new ServerMsg.State { Tick = 7, Items = new StateItem[] {
                     new PropsState { Rows = new[] {
                         new WireProp { Handle = new PickupHandle(2), Kind = PropKind.Ground, X = 400, Y = 200,
-                            GroundWeapon = (byte)WeaponId.Sword }
+                            GroundWeapon = (byte)weapon }
                     } }
                 } };
                 typeof(CollectionsView).GetMethod("Apply", hidden).Invoke(collection, new object[] { state });
                 arena.PresentCollections(collection);
                 var source = root.GetComponentsInChildren<StormInkArtistSource>().Single();
-                Assert.That(source.Kind, Is.EqualTo(StormInkArtistSourceKind.DroppedSword));
-                Assert.That(source.WeaponSource, Is.SameAs(StormInkSwordArtAuthoring.Load()));
+                Assert.That(source.Kind, Is.EqualTo(kind));
+                Assert.That(source.WeaponSource, Is.SameAs(StormInkWeaponArt.Definition(weapon)));
                 Assert.That(source.Renderer.transform.position, Is.EqualTo(ArenaView.WorldPoint(50, 25) + (Vector3)source.GroundCentre));
-                Assert.That(source.Sprite, Is.SameAs(StormInkWeaponArt.Get(WeaponId.Sword, 0)));
+                Assert.That(source.Sprite, Is.SameAs(StormInkWeaponArt.Get(weapon, 0)));
             }
             finally { Object.DestroyImmediate(root); }
         }

@@ -1,0 +1,187 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43b2b9092407410c941eddd0ccfecc9b, type: 3}
+  m_Name: FireBowAuthoring
+  m_EditorClassIdentifier:
+  atlas: {fileID: 2800000, guid: b5ca6cfb136045ffb6f7a143eb1c8301, type: 3}
+  readyRows:
+  - 0
+  - 0
+  - 1
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  palms:
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 59, y: 69}
+    Left: {x: 88, y: 61}
+  - Right: {x: 63, y: 54}
+    Left: {x: 99, y: 50}
+  - Right: {x: 62, y: 36}
+    Left: {x: 109, y: 39}
+  - Right: {x: 50, y: 35}
+    Left: {x: 107, y: 41}
+  - Right: {x: 63, y: 62}
+    Left: {x: 101, y: 50}
+  - Right: {x: 55, y: 100}
+    Left: {x: 100, y: 94}
+  - Right: {x: 65, y: 85}
+    Left: {x: 106, y: 77}
+  - Right: {x: 63, y: 73}
+    Left: {x: 112, y: 74}
+  - Right: {x: 51, y: 70}
+    Left: {x: 110, y: 75}
+  - Right: {x: 53, y: 92}
+    Left: {x: 102, y: 86}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  midDrawAt: 0.22
+  sustainedDrawAt: 0.68
