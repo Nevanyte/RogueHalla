@@ -69,7 +69,7 @@ fn varint(v: u32) -> Vec<u8> {
 }
 
 #[test]
-fn the_protocol_is_20() {
+fn the_protocol_is_21() {
     assert_eq!(
         PROTOCOL_VERSION, 21,
         "a new prop kind is an incompatible wire change: 19 -> 20"

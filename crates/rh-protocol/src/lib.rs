@@ -237,6 +237,19 @@ pub fn tick_ms_for_rate(tick_rate: u8) -> Option<u32> {
     }
 }
 
+/// P-TICK-3-fix: `tick_ms` when it is the step of a rate every decoder accepts ([`tick_ms_for_rate`]: 50 or 25 ms), else
+/// `BadValue("tick ms")`. An encoder is only ever set to such a rate, so it never writes a frame no client can read.
+pub fn checked_tick_ms(tick_ms: u32) -> Result<u32, EncodeError> {
+    if [20u8, 40]
+        .iter()
+        .any(|&rate| tick_ms_for_rate(rate) == Some(tick_ms))
+    {
+        Ok(tick_ms)
+    } else {
+        Err(EncodeError::BadValue("tick ms"))
+    }
+}
+
 /// P-TICK-3: the server time (ms) a Snapshot of `tick` stands for on a connection whose Welcome gave `tick_ms` per tick.
 /// Both factors are exact in `f64` (a u32 and a small integer), and so is their product below 2^53.
 #[inline]

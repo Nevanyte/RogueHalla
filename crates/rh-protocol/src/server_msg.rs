@@ -166,10 +166,12 @@ pub enum ServerMsg {
         reason: String,
     },
     /// The receiving player's own interest-managed view (only what it can see), once per tick.
-    /// Its source clock is absolute; the wire omits it only when it equals [`snapshot_server_ms`]`(tick)`.
+    /// Its source clock is absolute; the wire omits it only when it equals [`snapshot_server_ms_at`]`(tick, tick_ms)` at the
+    /// connection's rate (`tick_ms` from its Welcome, [`tick_ms_for_rate`]).
     Snapshot {
         tick: u32,
-        /// Logical source clock in milliseconds; absent wire overrides decode to `snapshot_server_ms(tick)`.
+        /// Logical source clock in milliseconds; an absent wire override decodes to `tick * tick_ms` at the connection's rate
+        /// ([`ServerMsg::decode_at`]).
         server_time: f64,
         phase: u8,
         ack_input: u32,

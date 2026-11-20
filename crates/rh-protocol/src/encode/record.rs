@@ -22,10 +22,12 @@ pub(super) fn kit(faction: u8, weapon: u8) -> u8 {
 }
 
 /// The head of a Snapshot: for a self its present bit and the bits of every field that differs from its default, and the phase
-/// bit when the phase is not the default.
+/// bit when the phase is not the default. The source-time bit is set when `server_time` is not `tick * tick_ms`, the time a
+/// decoder at the connection's rate reads without it.
 pub(super) fn head_word(
     phase: u8,
     tick: u32,
+    tick_ms: u32,
     server_time: f64,
     me: Option<&WireSelf>,
     training: bool,
@@ -38,7 +40,7 @@ pub(super) fn head_word(
     if owner_combat {
         m |= HM_OWNER_COMBAT;
     }
-    if server_time.to_bits() != snapshot_server_ms(tick).to_bits() {
+    if server_time.to_bits() != snapshot_server_ms_at(tick, tick_ms).to_bits() {
         m |= HM_SERVER_TIME;
     }
     let Some(s) = me else { return m };

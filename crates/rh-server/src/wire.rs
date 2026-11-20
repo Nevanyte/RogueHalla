@@ -108,8 +108,9 @@ pub fn command(c: WireCommand) -> rh_sim::PublicCommand {
 /// admission still refuses a training/arena combination: training has no quests, planning or arena lifecycle.
 ///
 /// P-TICK-3: a room is paced and its Welcome announced at 20 Hz (`room.rs`), so a sim stepping anything but
-/// [`rh_protocol::TICK_MS`] (`SimConfig::tick_ms` 25) is refused here: its snapshots would be read at the wrong rate. P-TICK-5
-/// lifts this when the room paces and announces the configured rate.
+/// [`rh_protocol::TICK_MS`] (`SimConfig::tick_ms` 25) is refused here. Since P-TICK-3-fix the encoder writes at the
+/// connection's rate (`Outbox::set_tick_ms`), but the room still paces at 50 ms and announces 20 Hz; P-TICK-5 lifts this when
+/// the room paces and announces the configured rate and sets it on each connection's outbox.
 pub fn profile_supported(config: &rh_sim::SimConfig) -> Result<(), rh_protocol::EncodeError> {
     if config.tick_ms != rh_protocol::TICK_MS {
         return Err(rh_protocol::EncodeError::BadValue(
