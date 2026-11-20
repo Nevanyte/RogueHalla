@@ -165,7 +165,7 @@ listed in `CardId::NATIVE` (index order). `CardId::ALL` stays the 80 catalog car
 - **Save, restore, hash:** `Build` serializes `native` first and only when a native card is held, as the held rows
   only (`{"card","count","counter","meters","marks"}`, native order). A build holding none writes and hashes exactly as
   before (`hash.rs`, fourth World exception). Restore refuses an empty list, a `count` 0 row, a catalog card, and a
-  card repeated or out of order. `CHECKPOINT_FORMAT` moved to `rh-checkpoint/34`.
+  card repeated or out of order. `CHECKPOINT_FORMAT` moved to `rh-checkpoint/35`.
 - **Caps:** `cards::native::rule(id)` (`NATIVE_RULES` in `table.rs`): `counter_cap`, `meter_caps` and `marks` per
   card. `check_world` (`cards::native::check`) refuses a held native card outside a `Rework` table, a count over 1,
   a counter or meter outside `0..=cap` (or non-finite), a mark outside the rule's bits, and any reward chest offering a
