@@ -28,6 +28,12 @@ Headbands, topknots, tied waist cloths and ribbons recur in the first sheets. Re
 
 The approved Fire–Frost study carries the body weight through the hip, bent knee and planted boot. The contour grows heavier where forms overlap and tapers away on lit edges. Group coat folds into a few washes and keep the hands and head in human proportion. Reserve the brightest pigment for the action. Compare one pose with the approved drawing and then with the figure on the church floor through the normal play camera. Judge the stance, silhouette, cloth and sword at that size before painting the other angles.
 
+## Solid walls across the map
+
+Each solid cell in the delivered Rust map keeps its position, footprint and blocked approaches. The Unity wall renderer can paint broad trunks, buttresses, ice or stone over those cells. Use the same footprint for an isolated block, a run, a corner and a junction. The darkest contact stroke belongs at the blocked base. Tall art can overlap the ground behind it with the same foreground ordering as other upright scenery. Keep narrow lanes, entrances and actors readable at gameplay zoom.
+
+Start with weathered graveyard masonry for Haunted. Candidate treatments for the other families are joined cypress trunks in Plague, sandstone screens in Holy, fractured ice in Frost, basalt in Fire and worn limestone in the Coliseum. Each family review compares the visible base with the delivered wall overlay, approaches from each accessible side, and walks a neighboring open passage in the Web player. Preserve the square footprint even when a trunk or buttress has an irregular crown. Use the prop catalog separately for walk-through dressing.
+
 ## Champion cast and equipment
 
 All five champions and the Executioner use original 512 × 1024 transparent sheets under `Assets/Resources/StormInk/Actors`. The 128 × 128 cells share a foot baseline and carry no painted ground shadow. Rows from the top are S, SE, E, NE, N, NW, W and SW. Columns are ready, stride, anticipation and strike. The delivered actor archetype still sets world scale and clip timing.
