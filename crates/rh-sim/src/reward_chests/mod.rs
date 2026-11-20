@@ -75,6 +75,8 @@ pub(crate) struct FirstPick {
 /// content row.
 ///
 /// STUB (P-ELITE-PICK-1): returns 0; the implementer registers the row in `constants.rs` and returns it.
+// STUB: only the oracle reads it until the drop and `validate_world` do; the implementer removes this allow.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn first_pick_window_ms() -> f64 {
     0.
 }
