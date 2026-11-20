@@ -475,13 +475,11 @@ pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
                     }
                 }
                 // P-AUG-NATIVE-5: the carry is what whole kills at 1.5 leave over: exactly 0 or the half stack.
-                CardId::MarkedMan => {
-                    if slot.counter != 0. && slot.counter != r.counter_cap {
-                        return Err(format!(
-                            "player {who}: marked man carry {} is neither 0 nor {}",
-                            slot.counter, r.counter_cap
-                        ));
-                    }
+                CardId::MarkedMan if slot.counter != 0. && slot.counter != r.counter_cap => {
+                    return Err(format!(
+                        "player {who}: marked man carry {} is neither 0 nor {}",
+                        slot.counter, r.counter_cap
+                    ));
                 }
                 _ => {}
             }
