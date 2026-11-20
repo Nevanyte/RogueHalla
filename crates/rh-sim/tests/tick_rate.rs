@@ -97,10 +97,8 @@ fn walk(tick_ms: u32, config: SimConfig, seconds: u32) -> (f64, Sim) {
         sim.step();
     }
     let after = pos(&sim);
-    (
-        ((after.x - before.x).powi(2) + (after.y - before.y).powi(2)).sqrt(),
-        sim,
-    )
+    let (dx, dy) = (after.x - before.x, after.y - before.y);
+    ((dx * dx + dy * dy).sqrt(), sim)
 }
 
 #[test]
