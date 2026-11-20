@@ -221,6 +221,10 @@ Packet details:
   - Score the 5 pool additions under Rework.
   - Native cards: `card_def` looks cards up by name in `CardId::ALL` (`choice.rs:41-46`), so it misses them.
   - Handle faction-only cards.
+  - Coordinator 2026-11-19 (from the P-ELITE-TUNE-1 review): thread the elite rule into rh-policy's elite readers,
+    `planning.rs` ~183 `mob_faction` and `hunt_adapter.rs` ~288 `mob_max_hp`. They still read the Legacy table, so under
+    Rework bots think elites have 4/3 their real HP and 1.5× their real damage, which errs cautious. Fix the two stale
+    comments that name P-ELITE-TUNE-1.
 - **P-AUG-NATIVE-5:**
   - Visibility goes through the existing public-marker channel if that is enough; otherwise this packet extends
     protocol 19 with its own fixture regeneration.
