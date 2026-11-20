@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4f8da829a99450db6bc0c1a6e2f8132, type: 3}
+  m_Name: GothicPulpit
+  m_EditorClassIdentifier:
+  Defaults:
+    Width: 2.15
+    Depth: 1.2
+    Height: 2.5
+    RotationDegrees: 0
+    MountHeight: 0
+    LocalOffset: {x: 0, y: 0}
+    Contact: {x: 0.5, y: 0.5}
+    FlameSocket: {x: 0.5, y: 0.7}
+    Tint: {r: 1, g: 1, b: 1, a: 1}
+    FlameColor: {r: 1, g: 0.57, b: 0.24, a: 1}
+    FlameIntensity: 0
+    SpillRadius: 0
+    SpillIntensity: 0
+    SortingOffset: 3
+    Front: {fileID: 21300000, guid: 077502270c1bd56044de00eae997abab, type: 3}
+    Side: {fileID: 21300000, guid: 077502270c1bd56044de00eae997abab, type: 3}
+    Material: {fileID: 0}
+    Back: {fileID: 21300000, guid: 077502270c1bd56044de00eae997abab, type: 3}
+  Mount: 1
+  EmitsCandleLight: 0

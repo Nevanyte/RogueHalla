@@ -45,8 +45,29 @@ namespace Roguehalla.Client
         public int FootH { get; private set; }
         /// <summary>The material sprites of this landmark share (sun-lit like the region props).</summary>
         public Material Material { get; private set; }
-        // Authored candle sockets: map tile X/Y and painted height above the contact.
-        internal readonly List<Vector3> CandleSockets = new List<Vector3>();
+        internal struct LandmarkCandleSocket
+        {
+            public int SourceId; public Vector2 Tile; public float Lift; public Color Color;
+            public float Intensity, Radius, SpillIntensity;
+        }
+        internal readonly List<LandmarkCandleSocket> CandleSockets = new List<LandmarkCandleSocket>();
+        internal System.Action<Landmark> CandleSocketsChanged;
+        internal void RegisterCandleSocket(int sourceId, Vector2 tile, float lift, Color color, float intensity, float radius, float spillIntensity)
+        {
+            RemoveCandleSocket(sourceId, false);
+            CandleSockets.Add(new LandmarkCandleSocket { SourceId = sourceId, Tile = tile, Lift = lift, Color = color, Intensity = intensity, Radius = radius, SpillIntensity = spillIntensity });
+            if (CandleSocketsChanged != null) CandleSocketsChanged(this);
+        }
+        internal void RemoveCandleSocket(int sourceId)
+        {
+            RemoveCandleSocket(sourceId, true);
+        }
+        void RemoveCandleSocket(int sourceId, bool notify)
+        {
+            bool changed = false;
+            for (int i = CandleSockets.Count - 1; i >= 0; i--) if (CandleSockets[i].SourceId == sourceId) { CandleSockets.RemoveAt(i); changed = true; }
+            if (notify && changed && CandleSocketsChanged != null) CandleSocketsChanged(this);
+        }
         Material _ink, _flame;
         internal Material PaintedMaterial(bool flame)
         {
@@ -210,6 +231,7 @@ namespace Roguehalla.Client
 
         internal void Dispose()
         {
+            CandleSocketsChanged = null;
             foreach (var o in _owned) RegionUtil.Kill(o);
             _owned.Clear(); _roof.Clear(); _roofArray = new SpriteRenderer[0]; _fadeRenderers.Clear(); _fadeRendererArray = new SpriteRenderer[0]; _ground.Clear(); _groundArray = new SpriteRenderer[0];
             if (Root != null) RegionUtil.Kill(Root);
