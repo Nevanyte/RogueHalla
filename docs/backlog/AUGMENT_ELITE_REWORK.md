@@ -178,6 +178,11 @@ the death-rate table and the proposed elite numbers. P-ELITE-TUNE-1 waits for th
 | P-AUG-UI-2 | Sonnet (C#) · Sonnet · reviewer | HUD and chest-panel work (details below) | WIRE19-B |
 | P-AUG-DOCS-1 | Haiku · — · reviewer | Docs (details below) | all |
 | P-CI-GREEN-7 | Sonnet · — · reviewer | Card provenance refresh for `tools/protocol-js/check-vectors.mjs` (route of P-CI-GREEN-5; Docker recapture in the pinned image); oracle: `node tools/provenance/check-card-chain.mjs` red on that one pin | last wire packet (WIRE19-B / NATIVE-5); before any push |
+| P-MOB-REWIND-RESTORE-1 | Opus · Opus · reviewer-opus | Live checkpoints refused with "invalid mob rewind": a mob's rewind history can open with two equal timestamps after a reset (found by the final review: live soak seed 3, tick 1200; predates the rework). Give the mob check (`systems/mob_checkpoint.rs` ~530) the player rule (only the first pair may share a timestamp); add the site to P-TICK-1b's list | — |
+| P-AUG-NATIVE-3-check | Sonnet · Sonnet · reviewer | `check_world` ties Hazard Walker's immunity bits to full meters and its counter to `min(15, floor(total/1000))` (today an upper bound only) | — |
+| P-AUG-NOALLOC-2 | Sonnet · Sonnet · reviewer | `tests/native_no_alloc.rs` seats holders of every batch card (refolds, `sync_max_hp`, Overflow grant, Glacier chill, Wish Engine, Marked Man pay, elite share) | — |
+| P-AUG-GUIDE-1 | Haiku · — · reviewer | Refresh `docs/agent/AUGMENT_REWORK.md` (stale lines on Wishful, faction cards, bots, Wish Engine meters, readouts, 128 identities; add Marked Man, WIRE19-B, UI sections) and the stale `live_content` comment in `statics.rs` | — |
+| P-AUG-UI-4 | owner decides | The Best Offense hit marker (needs a wire fact) and Pathfinder's collection on the map: planned, deferred by P-AUG-UI-2, not built | owner |
 
 Packet details:
 - **P-CONTENT-REGOLDEN-1** pinned copies:

@@ -133,6 +133,34 @@ Reversal for every row: remove the Rework row or override and its hash fold; Leg
 - **Introduced by:** P-AUG-NATIVE-5 (integration 74). **Reversibility:** reversible; the wire key is optional.
   **Owner:** unsigned.
 
+### DEV-055 (balance): Bastion's meter cap and a clipped burst
+- **Legacy:** no Bastion card. The workbook gives only "Meter cap".
+- **Port:** Bastion stores blocked damage up to `REWORK_BASTION_METER_CAP` 250 (the legacy Tank Engine cap number) and
+  adds 35% of it to the holder's next landed weapon hit. A burst that the PvP hit cap clips still spends the whole meter.
+- **Introduced by:** P-AUG-NATIVE-1b (integration 67). **Reversibility:** reversible (one row). **Owner:** unsigned.
+
+### DEV-056 (balance): Stoked counts a burst when it is queued
+- **Legacy:** no Stoked card.
+- **Port:** Stoked's `BurstLanded` hook fires in `fire_roam.rs` when the burst is queued (`defer_hit`), not when its
+  damage lands a tick later. A teleport or run end can count a burst that never hits.
+- **Introduced by:** P-AUG-NATIVE-1b / P-AUG-NATIVE-4 (integrations 67, 70). **Reversibility:** reversible.
+  **Owner:** unsigned.
+
+### DEV-057 (balance): Glacier counts every chill source
+- **Legacy:** no Glacier card.
+- **Port:** `ChillInflicted` fires once per ranged chill and once per tick for each attack-chill source while the
+  victim's chill is below 1. Every source counts, not only the strongest.
+- **Introduced by:** P-AUG-NATIVE-1b / P-AUG-NATIVE-4 (integrations 67, 70). **Reversibility:** reversible.
+  **Owner:** unsigned.
+
+### DEV-058 (balance): native stat counters fold outside the card caps
+- **Legacy:** card stats are bounded by the card caps and guards G1-G13.
+- **Port:** Calluses and Glacier (armor), Executioner's Ledger (AD) and Stoked (AP) fold as farm-class rows
+  (`modifiers::combined_farm_rows`, `native::fold_stats`), outside the card caps. Calluses and Glacier together can
+  reach 60 armor.
+- **Introduced by:** P-AUG-NATIVE-2 / P-AUG-NATIVE-4 (integrations 68, 70). **Reversibility:** reversible.
+  **Owner:** unsigned.
+
 ## Bots and display
 
 ### DEV-052 (presentation): the Wish slot's charge count with Arcane Overload granted mid-recharge

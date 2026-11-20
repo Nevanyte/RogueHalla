@@ -198,6 +198,17 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
   the waived pin.
 - **Proposed DEVIATIONS rows:** DEV-040 to DEV-054 are in `docs/coordination/REWORK_DEVIATIONS_PROPOSED.md`, unsigned,
   for the owner.
+- **Final combined review** (reviewer-opus, `93b253f1e`): **READY TO PUSH AFTER P-CI-GREEN-7**, with no rework defect
+  that blocks. Its findings, now tracked:
+  - **Live checkpoints refused (pre-existing).** A live soak (seed 3, tick 1200) is refused on restore with "invalid
+    mob rewind". The cause is the mob rewind-history check, which predates the rework. It goes in
+    P-MOB-REWIND-RESTORE-1.
+  - **Unbuilt.** The Best Offense marker and Pathfinder's on-map collection are planned but not built. They are
+    P-AUG-UI-4, for the owner to decide.
+  - **Missing rows.** Four DEVIATIONS rows were missing; they are added as DEV-055 to DEV-058.
+  - **Loose check.** Hazard Walker's `check_world` rule is an upper bound only. It goes in P-AUG-NATIVE-3-check.
+  - **Allocation coverage.** The no-alloc test covers only the exemplars. It goes in P-AUG-NOALLOC-2.
+  - **Stale guide.** It goes in P-AUG-GUIDE-1.
 - **Left before a push:**
   - P-CI-GREEN-7, the provenance refresh. It is blocked because Docker Desktop's API does not answer here.
   - The final combined review (running).
