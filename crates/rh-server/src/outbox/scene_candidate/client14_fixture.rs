@@ -189,6 +189,7 @@ fn state_group(item: &StateItem) -> Value {
             "rows":value.as_ref().map_or(0,|v|v.mob_rows.len())
         }),
         StateItem::Readouts(value) => json!({"key":key,"group":"readouts","rows":value.len()}),
+        StateItem::Marked(value) => json!({"key":key,"group":"marked","rows":value.len()}),
     }
 }
 

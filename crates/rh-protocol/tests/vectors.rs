@@ -217,6 +217,9 @@ fn malformed_server_frames_are_rejected_for_the_documented_reason() {
             | "state_readouts_value_over_max"
             | "state_readouts_max_infinite" => BadField("readout value"),
             "state_readouts_order" => BadField("readout order"),
+            "state_marked_count_33" => BadField("marked count"),
+            "state_marked_id_0" => BadField("marked id"),
+            "state_marked_order" => BadField("marked order"),
             "state_roster_count_over_32" => BadField("roster count"),
             "state_roster_id_zero" | "state_roster_order" => BadField("roster order"),
             "state_roster_flags_unknown" => BadField("roster flags"),

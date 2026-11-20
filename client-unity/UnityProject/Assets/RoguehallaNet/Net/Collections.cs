@@ -338,6 +338,10 @@ namespace Roguehalla.Net
         /// <summary>P-WIRE19-B: the owner's own native readout rows (State key 14), in native order; empty until the key
         /// arrives and after a Welcome. Each key-14 item replaces them. Not part of HasFullState.</summary>
         public IReadOnlyList<WireReadout> Readouts { get; private set; } = Array.Empty<WireReadout>();
+        /// <summary>P-AUG-NATIVE-5: every <c>Alive</c> Marked Man holder's public position (State key 15), by ascending id, the
+        /// same for every viewer; empty until the key arrives and after a Welcome. Each key-15 item replaces them. Not part of
+        /// HasFullState.</summary>
+        public IReadOnlyList<WireMarked> Marked { get; private set; } = Array.Empty<WireMarked>();
         const uint KnownStateMask =
             (1u << ((int)StateKey.Inventory - 1)) | (1u << ((int)StateKey.Props - 1)) |
             (1u << ((int)StateKey.Fields - 1)) | (1u << ((int)StateKey.RewardChests - 1)) |
@@ -366,7 +370,7 @@ namespace Roguehalla.Net
 
         internal void Reset()
         {
-            Plan = null; Arena = null; Quests = null; Trade = null; Roster = Array.Empty<RosterEntry>(); Summary = null; Readouts = Array.Empty<WireReadout>();
+            Plan = null; Arena = null; Quests = null; Trade = null; Roster = Array.Empty<RosterEntry>(); Summary = null; Readouts = Array.Empty<WireReadout>(); Marked = Array.Empty<WireMarked>();
             Tick = 0; _seen = 0; Camps=Array.Empty<CampView>(); Projectiles=Array.Empty<NetProjectileView>(); Inventory = null; Focus = null; HasBuild = false;
             Props = Array.Empty<PropView>(); Fields = Array.Empty<AreaView>();
             RewardChests = Array.Empty<RewardChestView>(); Cards = Array.Empty<byte>(); Boosts = Array.Empty<byte>();
@@ -376,7 +380,7 @@ namespace Roguehalla.Net
             // Decode validated the complete frame before this method can mutate the retained view.
             foreach (var item in state.Items)
             {
-                if (item.Key < (uint)StateKey.Inventory || item.Key > (uint)StateKey.Readouts)
+                if (item.Key < (uint)StateKey.Inventory || item.Key > (uint)StateKey.Marked)
                     throw new ArgumentException("unknown state key");
                 if (item is TradeState trade)
                 {
@@ -513,6 +517,10 @@ namespace Roguehalla.Net
                 else if (item is ReadoutsState readouts)
                 {
                     Readouts = readouts.Rows.Length == 0 ? Array.Empty<WireReadout>() : (WireReadout[])readouts.Rows.Clone();
+                }
+                else if (item is MarkedState marked)
+                {
+                    Marked = marked.Rows.Length == 0 ? Array.Empty<WireMarked>() : (WireMarked[])marked.Rows.Clone();
                 }
                 else if (item is RosterState roster)
                 {

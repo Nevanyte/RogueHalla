@@ -19,6 +19,7 @@ impl StateItem {
             Self::Roster(_) => 12,
             Self::BuildSummary(_) => 13,
             Self::Readouts(_) => 14,
+            Self::Marked(_) => 15,
         }
     }
     pub(crate) fn encoded_len(&self) -> usize {
@@ -60,6 +61,7 @@ impl StateItem {
                 }
                 Self::BuildSummary(value) => 1 + value.as_ref().map_or(0, WireBuildSummary::len),
                 Self::Readouts(rows) => 1 + rows.len() * WireReadout::LEN,
+                Self::Marked(rows) => 1 + rows.iter().map(WireMarked::len).sum::<usize>(),
             }
     }
     pub(crate) fn check(&self) -> Result<(), EncodeError> {
@@ -191,6 +193,25 @@ impl StateItem {
                     previous = Some(row.card);
                 }
             }
+            Self::Marked(rows) => {
+                if rows.len() > MAX_ROSTER {
+                    return Err(EncodeError::TooMany {
+                        what: "marked",
+                        n: rows.len(),
+                        max: MAX_ROSTER,
+                    });
+                }
+                let mut previous = 0;
+                for row in rows {
+                    if let Some(why) = WireMarked::id_fault(row.id, previous) {
+                        return Err(EncodeError::BadValue(why));
+                    }
+                    previous = row.id;
+                    if !crate::quant::pos_in_range(row.x) || !crate::quant::pos_in_range(row.y) {
+                        return Err(EncodeError::BadValue("position"));
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -269,6 +290,14 @@ impl StateItem {
                     w.u8(row.kind);
                     w.f64(row.value);
                     w.f64(row.max);
+                }
+            }
+            Self::Marked(rows) => {
+                w.u8(rows.len() as u8);
+                for row in rows {
+                    w.varint(row.id);
+                    w.u16(crate::quant::quantize_pos(row.x));
+                    w.u16(crate::quant::quantize_pos(row.y));
                 }
             }
         }
@@ -424,6 +453,25 @@ impl StateItem {
                     rows.push(row);
                 }
                 Self::Readouts(rows)
+            }
+            15 => {
+                let n = usize::from(r.u8()?);
+                if n > MAX_ROSTER {
+                    return Err(DecodeError::BadField("marked count"));
+                }
+                let mut rows = Vec::with_capacity(n);
+                let mut previous = 0;
+                for _ in 0..n {
+                    let id = r.varint()?;
+                    if let Some(why) = WireMarked::id_fault(id, previous) {
+                        return Err(DecodeError::BadField(why));
+                    }
+                    previous = id;
+                    let x = crate::quant::dequantize_pos(r.u16()?);
+                    let y = crate::quant::dequantize_pos(r.u16()?);
+                    rows.push(WireMarked { id, x, y });
+                }
+                Self::Marked(rows)
             }
             _ => return Err(DecodeError::BadField("state key")),
         })

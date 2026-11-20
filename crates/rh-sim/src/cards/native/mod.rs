@@ -179,6 +179,22 @@ pub(crate) fn holds_overflow(build: &super::Build) -> bool {
     !build.native.is_empty() && zone::holds_overflow(&build.native)
 }
 
+/// P-AUG-NATIVE-5: Marked Man's normal-kill stacks: `(kill_stacks x 1.5 with the carry, Some(next carry))` for a
+/// holder, `(kill_stacks, None)` for a build not holding it (no slot is read). The caller (`mob_life::pay`) writes the
+/// carry only when the grant pays.
+pub(crate) fn marked_man_stacks(build: &super::Build, kill_stacks: u64) -> (u64, Option<f64>) {
+    if build.native.is_empty() {
+        (kill_stacks, None)
+    } else {
+        zone::marked_man_stacks(&build.native, kill_stacks)
+    }
+}
+
+/// P-AUG-NATIVE-5: does the build hold Marked Man (its `Alive` holder is public on every minimap)?
+pub(crate) fn holds_marked_man(build: &super::Build) -> bool {
+    !build.native.is_empty() && zone::holds_marked_man(&build.native)
+}
+
 /// The bursts the ledger added to one victim's entries (`landed_burst`): at most one per holder, at most one holder per
 /// seat. Fixed size, so the pass allocates nothing; a burst that does not fit is not added (and not spent).
 #[derive(Clone, Copy, Debug)]
@@ -492,6 +508,13 @@ pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
                             slot.counter
                         ));
                     }
+                }
+                // P-AUG-NATIVE-5: the carry is what whole kills at 1.5 leave over: exactly 0 or the half stack.
+                CardId::MarkedMan if slot.counter != 0. && slot.counter != r.counter_cap => {
+                    return Err(format!(
+                        "player {who}: marked man carry {} is neither 0 nor {}",
+                        slot.counter, r.counter_cap
+                    ));
                 }
                 _ => {}
             }

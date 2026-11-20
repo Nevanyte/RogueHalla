@@ -62,7 +62,10 @@ use std::time::{Duration, Instant};
 /// Version 28 (observation 33, protocol 20, P-SYNC-ORIGIN-1): both lines' version 26/27 changes together.
 /// Version 29 (P-AUG-BOTS-1): `MatchStart` carries the room's elite rule (`SimConfig::elites`); the planning and hunt
 /// estimates of an elite read it.
-pub const POLICY_CONTRACT_VERSION: u16 = 29;
+/// Version 30 (observation 34, P-AUG-NATIVE-5): the observation carries every `Alive` Marked Man holder's public
+/// position, projected as the optional State key 15 (sent on change only) and kept by `CollectionView::marked`; bots do
+/// not decide on it.
+pub const POLICY_CONTRACT_VERSION: u16 = 30;
 
 /// Everything a policy may know about a match before its first observation, all of it public static data (the map
 /// and spawn points), never match state. Never a [`rh_sim::Secrets`] value and never the sim itself (C-OBS, C-RNG, C-POLICY).

@@ -663,4 +663,7 @@ content! {
     REWORK_HAZARD_WALKER_RESIST_PER: f64 = 0.04, "share";
     /// Hazard Walker: share of base max hp each stack adds (decision).
     REWORK_HAZARD_WALKER_HP_PER: f64 = 0.005, "share";
+    /// Marked Man: the most stacks its counter carries to the next kill (P-AUG-NATIVE-5 decision 3): the half stack
+    /// `MOB_KILL_STACKS x (REWORK_MARKED_MAN_STACK_MULT - 1)` leaves over; the counter is exactly 0 or this.
+    REWORK_MARKED_MAN_CARRY_CAP: f64 = 0.5, "stacks";
 }

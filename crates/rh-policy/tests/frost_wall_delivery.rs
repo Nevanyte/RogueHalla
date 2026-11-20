@@ -16,13 +16,13 @@ use rh_sim::{
 fn identities_move_for_the_wall() {
     assert_eq!(
         rh_sim::OBSERVATION_VERSION,
-        33,
-        "the observation carries standing walls with their tiles (P-FROST-WALL-2); 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20)"
+        34,
+        "the observation carries standing walls with their tiles (P-FROST-WALL-2); 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 34: P-AUG-NATIVE-5"
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        29,
-        "the projected State key 3 carries field kind 3 and its tile list (P-FROST-WALL-2); 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 29: P-AUG-BOTS-1"
+        30,
+        "the projected State key 3 carries field kind 3 and its tile list (P-FROST-WALL-2); 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 29: P-AUG-BOTS-1; 30: P-AUG-NATIVE-5"
     );
 }
 

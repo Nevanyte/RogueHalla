@@ -23,8 +23,9 @@ pub use self::reward::*;
 pub use self::roster::*;
 pub use self::trade::*;
 
-/// Keys 1..=14; key 14 (P-WIRE19-B, the own readout rows) is optional and sent only on change.
-pub const MAX_STATE_KEYS: usize = 14;
+/// Keys 1..=15; key 14 (P-WIRE19-B, the own readout rows) and key 15 (P-AUG-NATIVE-5, the public Marked Man rows) are
+/// optional and sent only on change.
+pub const MAX_STATE_KEYS: usize = 15;
 /// Most roster rows a State key 12 carries (ADR0026); a match seats at most 8 players today.
 pub const MAX_ROSTER: usize = 32;
 /// Longest roster display name in UTF-8 bytes (ADR0026).
@@ -306,6 +307,34 @@ pub enum StateItem {
     /// Key 14 (P-WIRE19-B): the viewer's own native readout rows, in native order; never another seat's. Sent only when
     /// the rows change (a client's rows start empty), so a viewer without native cards never receives it.
     Readouts(Vec<WireReadout>),
+    /// Key 15 (P-AUG-NATIVE-5): every `Alive` Marked Man holder's position, the same for every viewer (the minimap
+    /// marker). Sent only when the rows change (a client's rows start empty).
+    Marked(Vec<WireMarked>),
+}
+
+/// P-AUG-NATIVE-5: one Marked Man holder: its actor id and position (brief
+/// `docs/backlog/packets/P-AUG-NATIVE-5.md`, "Wire layout"): `varint id, u16 x, u16 y` (actor quantization).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WireMarked {
+    pub id: u32,
+    pub x: f32,
+    pub y: f32,
+}
+
+impl WireMarked {
+    /// The reason a row after one with id `previous` (0 for the first) is refused: id 0, then the order.
+    pub(crate) fn id_fault(id: u32, previous: u32) -> Option<&'static str> {
+        if id == 0 {
+            Some("marked id")
+        } else if id <= previous {
+            Some("marked order")
+        } else {
+            None
+        }
+    }
+    pub(crate) fn len(&self) -> usize {
+        varint_len(self.id) + 4
+    }
 }
 
 /// Public camp summary; no private actor identity is carried.
