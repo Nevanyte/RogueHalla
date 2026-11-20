@@ -191,6 +191,8 @@ const NON_GAMEPLAY: &[(&str, &str, &str)] = &[
 /// Rules that are tables rather than scalar rows: they are folded by `content_hash` directly (see content.rs). As
 /// (file, name, reason).
 const TABLES_FOLDED_BY_HASH: &[(&str, &str, &str)] = &[
+    ("cards/native/table.rs", "NATIVE_DEFINITIONS", "P-AUG-NATIVE-1a: the native definitions (kind, tier, flags, rows by cards::map_numbers, selections), folded by cards::native::visit_content under mvp-progression/1; title and text are display"),
+    ("cards/native/table.rs", "NATIVE_RULES", "P-AUG-NATIVE-1a: the native caps (counter, meters, marks), registered constants by name, folded by cards::native::visit_content under mvp-progression/1"),
     ("cards/tuning.rs", "LEGACY", "P-AUG-POOL-1-fix: the Legacy card table as realized (each CardNumbers field, override rows, pool, faction-only pairs, weighting flag), folded by content::card_table_snapshots under mvp-progression/1"),
     ("cards/tuning.rs", "REWORK", "P-AUG-POOL-1-fix: the Rework card table as realized (each CardNumbers field, override rows, pool, faction-only pairs, weighting flag), folded by content::card_table_snapshots under mvp-progression/1"),
     ("cards/rework_overrides.rs", "REWORK_OVERRIDES", "P-AUG-POOL-1-fix: the Rework override rows, each row's id and numbers (cards::map_numbers, rows then selections) folded by content::card_table_snapshots under mvp-progression/1; text is display, shape is forced equal to the catalog by check_override"),

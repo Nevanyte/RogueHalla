@@ -20,7 +20,7 @@ use serde::ser::{SerializeStruct, Serializer};
 use std::fmt;
 
 /// The tag every checkpoint carries. Bump it when the layout of `statics` or `world` changes incompatibly.
-pub const CHECKPOINT_FORMAT: &str = "rh-checkpoint/34";
+pub const CHECKPOINT_FORMAT: &str = "rh-checkpoint/35";
 
 /// How far past the map edge a fighter, waypoint or spawn may be and still restore (real states stay inside the map).
 const COORD_MARGIN: f64 = 1024.0;
@@ -661,6 +661,7 @@ pub(crate) fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
     crate::systems::initial_loot::validate(k, w)?;
     crate::systems::potions::validate(w)?;
     crate::reward_chests::validate_world(w, k.cards.pool(), k.config.elites, near)?;
+    crate::cards::native::check(k, w)?;
     crate::terrain::validate(k, w, near)?;
     for e in &w.deferred.hits {
         if (e.execute && e.sig != Some(crate::factions::SignatureKind::Disease))

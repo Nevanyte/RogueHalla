@@ -168,6 +168,8 @@ fn visit_progression_content_with(tables: &[CardTableSnapshot<'_>], mut word: im
             word(u64::from(b));
         }
     }
+    // P-AUG-NATIVE-1a: the native ids the same way, then their definitions and caps.
+    crate::cards::native::visit_content(&mut word);
     visit_card_tables(tables, &mut word);
     word(crate::reward_chests::BoostId::ALL.len() as u64);
     for id in crate::reward_chests::BoostId::ALL {
