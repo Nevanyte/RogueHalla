@@ -146,12 +146,12 @@ namespace Roguehalla.Editor
                 case ChurchArtOverrideFields.RotationDegrees: return definition.AllowedTurns != ChurchArtTurns.FixedToSlot;
                 case ChurchArtOverrideFields.PaneMode: return definition.Mount == ChurchArtMount.Wall;
                 case ChurchArtOverrideFields.FlameLayer:
-                case ChurchArtOverrideFields.FlameLayerSize: return definition.EmitsCandleLight;
+                case ChurchArtOverrideFields.FlameLayerSize:
+                case ChurchArtOverrideFields.SpillIntensity: return definition.EmitsCandleLight;
                 case ChurchArtOverrideFields.FlameSocket:
                 case ChurchArtOverrideFields.FlameIntensity:
                 case ChurchArtOverrideFields.FlameColor:
-                case ChurchArtOverrideFields.SpillRadius:
-                case ChurchArtOverrideFields.SpillIntensity: return definition.EmitsCandleLight || definition.EmitsWindowLight;
+                case ChurchArtOverrideFields.SpillRadius: return definition.EmitsCandleLight || definition.EmitsWindowLight;
                 default: return true;
             }
         }

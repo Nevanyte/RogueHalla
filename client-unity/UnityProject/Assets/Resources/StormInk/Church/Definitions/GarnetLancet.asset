@@ -25,7 +25,7 @@ MonoBehaviour:
     FlameColor: {r: 0.72, g: 0.22, b: 0.33, a: 1}
     FlameIntensity: 0.45
     SpillRadius: 3.7
-    SpillIntensity: 0.58
+    SpillIntensity: 0
     SortingOffset: 4
     Front: {fileID: 21300000, guid: 58525dbe0fbfae08e0a2a914725d813e, type: 3}
     Side: {fileID: 21300000, guid: 58525dbe0fbfae08e0a2a914725d813e, type: 3}

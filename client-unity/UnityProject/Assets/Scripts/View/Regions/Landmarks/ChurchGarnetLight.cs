@@ -6,7 +6,7 @@ namespace Roguehalla.Client
     public static class ChurchGarnetLight
     {
         public static void Sync(Landmark landmark, SpriteRenderer pane, ChurchWindowPaneMode mode,
-            Vector2 contactTile, Vector3 socketWorld, Color color, float radius, float intensity, float spillIntensity = .58f)
+            Vector2 contactTile, Vector3 socketWorld, Color color, float radius, float intensity)
         {
             if (landmark == null || pane == null) return;
             if (mode != ChurchWindowPaneMode.Full || !pane.enabled || pane.sprite == null
@@ -19,7 +19,7 @@ namespace Roguehalla.Client
             var socket = landmark.Root.transform.InverseTransformPoint(socketWorld);
             float lift = Mathf.Max(.05f, socket.y + contactTile.y * ArenaView.GroundSquash);
             var tile = new Vector2(socket.x, contactTile.y);
-            landmark.RegisterCandleSocket(pane.GetInstanceID(), tile, lift, color, intensity, radius, spillIntensity, steadyGlass: true);
+            landmark.RegisterCandleSocket(pane.GetInstanceID(), tile, lift, color, intensity, radius, .58f, steadyGlass: true);
         }
 
         public static void Detach(Landmark landmark, SpriteRenderer pane)

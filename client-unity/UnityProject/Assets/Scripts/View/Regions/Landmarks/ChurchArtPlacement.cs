@@ -142,7 +142,7 @@ namespace Roguehalla.Client
             else if (_landmark != null) _landmark.RemoveCandleSocket(GetInstanceID());
             if (Definition != null && Definition.EmitsWindowLight && _resolved.Mount == ChurchArtMount.Wall)
                 ChurchGarnetLight.Sync(_landmark, _renderer, value.PaneMode, tileContact, FlameWickPoint,
-                    value.FlameColor, value.SpillRadius, value.FlameIntensity, value.SpillIntensity);
+                    value.FlameColor, value.SpillRadius, value.FlameIntensity);
             else ChurchGarnetLight.Detach(_landmark, _renderer);
         }
 
