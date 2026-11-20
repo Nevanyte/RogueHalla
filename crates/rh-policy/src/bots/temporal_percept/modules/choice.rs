@@ -11,8 +11,8 @@ use rh_sim::cards::native::pool_members;
 use rh_sim::cards::{BaseStatId, CardDef, CardId, CardKind, CardRow, MechanicTag};
 use rh_sim::kill_augments::{self, KillStatKey};
 use rh_sim::reward_chests::{BoostId, Offer};
-use rh_sim::FactionId;
 use rh_sim::stat_fold::{EffectFlag, EffectKind, EffectStat, MultKey};
+use rh_sim::FactionId;
 use rh_sim::WeaponId;
 
 /// The three catalog-tier card ids of a base stat (source `baseCardId`), in tier order.

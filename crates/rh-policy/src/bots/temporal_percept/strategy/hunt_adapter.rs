@@ -313,12 +313,7 @@ fn mob_like_of(
     if !is_regional_kind(&m.kind) {
         return None;
     }
-    let max_hp = mob_max_hp(
-        m.faction,
-        m.kind == "elite",
-        m.name.as_deref(),
-        rule,
-    );
+    let max_hp = mob_max_hp(m.faction, m.kind == "elite", m.name.as_deref(), rule);
     Some(HuntMobLike {
         kind: m.kind.clone(),
         status: if m.alive {

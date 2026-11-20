@@ -161,7 +161,8 @@ impl Knowledge {
     /// Source mobShare: the shared planning matchupShare plus this bot's fixed error, clamped into 0..1.
     pub fn mob_share(&self, me: FactionId, region: FactionId, elite: bool) -> f64 {
         clamp(
-            matchup_share_under(me, region, elite, self.elite_rule) + self.share_error[share_key(me, region, elite)],
+            matchup_share_under(me, region, elite, self.elite_rule)
+                + self.share_error[share_key(me, region, elite)],
             0.,
             1.,
         )
