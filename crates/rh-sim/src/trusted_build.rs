@@ -38,6 +38,8 @@ pub enum BuildRefusal {
     StacksOverMax(MobTypeId),
     /// A boost total past the chest's pick cap.
     BoostOverCap(BoostId),
+    /// P-AUG-NATIVE-1b: a native card (`CardId::NATIVE`) in a world whose card table is not `Rework`.
+    NativeOutsideRework(CardId),
 }
 
 /// Adds `build` to the seated fighter `id`, between steps only: all or nothing, then one re-fold and max hp following.

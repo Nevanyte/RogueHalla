@@ -16,6 +16,29 @@ use crate::statics::MatchStatic;
 mod table;
 use table::{NATIVE_DEFINITIONS, NATIVE_RULES};
 
+// P-AUG-NATIVE-1b: the hook points, the own-only readouts and the three batch tables.
+mod faction;
+pub(crate) mod hooks;
+mod readout;
+mod weapon;
+mod zone;
+pub use readout::{readouts, Readout, ReadoutKind, Readouts, MAX_READOUTS};
+
+#[cfg(test)]
+mod exemplars_tests;
+#[cfg(test)]
+mod hooks_tests;
+
+/// P-AUG-NATIVE-1b: every native card's chest pool membership and offer rule, from the three batch tables (weapon,
+/// zone, faction). No pool reads it until native ids are on the wire (P-WIRE19-A).
+pub fn pool_members() -> impl Iterator<Item = (CardId, crate::reward_chests::Offer)> {
+    weapon::POOL
+        .iter()
+        .chain(zone::POOL)
+        .chain(faction::POOL)
+        .copied()
+}
+
 /// Working meters per native card (stored damage, per-hazard seconds, a shield, a per-cast record).
 pub const NATIVE_METERS: usize = 3;
 
