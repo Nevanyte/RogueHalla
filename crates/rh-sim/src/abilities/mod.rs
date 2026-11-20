@@ -576,7 +576,14 @@ impl OwnerView {
         // Legacy abilitySlot reads `fullAt ?? 0`; preserve that fallback during the pre-raid interval.
         let full_at = p.stocks.wish_full_at.unwrap_or(0.);
         let max_charges = definition(ability).charges;
-        let charges = charges_at(full_at, now, max_charges, recharge_ms);
+        // The stock clocks were built by the last spend's cooldown (`card_runtime.wish_cast`), which differs from
+        // `recharge_ms` once a lever moved after that spend (Wish Engine's landing step, an Arcane Overload grant).
+        // Count and time the charges by the clocks' own cooldown; with no recorded spend the two agree.
+        let clock_ms = p
+            .card_runtime
+            .and_then(|r| r.wish_cast)
+            .map_or(recharge_ms, |spend| spend.cooldown_ms);
+        let charges = charges_at(full_at, now, max_charges, clock_ms);
         Self {
             ability,
             ready_at: p.stocks.wish_ready_at,
@@ -584,8 +591,16 @@ impl OwnerView {
             max_charges,
             recharge_ms,
             charges,
-            next_charge_at: (charges < max_charges)
-                .then(|| next_charge_at(full_at, now, recharge_ms)),
+            // Fire's two spends can carry two cooldowns (a mixed full clock), so the missing count can exceed
+            // `max_charges`: clamped, no charge up returns at `wish_ready_at` and one of two up at `wish_full_at`.
+            next_charge_at: (charges < max_charges).then(|| {
+                let missing = ((full_at - now) / clock_ms.max(1.)).ceil();
+                if missing > f64::from(max_charges) {
+                    full_at - f64::from(max_charges - 1) * clock_ms
+                } else {
+                    next_charge_at(full_at, now, clock_ms)
+                }
+            }),
             cast: p
                 .statuses
                 .cast
