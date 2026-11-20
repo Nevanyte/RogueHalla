@@ -19,6 +19,7 @@
 
 ## 5. Exclusive write scope
 - `crates/rh-sim/src/systems/items.rs`, `crates/rh-sim/src/item_view.rs`, `crates/rh-sim/src/reward_chests/observer.rs`,
+  `crates/rh-sim/src/actor_refs.rs` (added by the coordinator 2026-11-20: it shares `item_view::GRACE`),
   tests beside them
 
 ## 7. Behaviour to preserve
