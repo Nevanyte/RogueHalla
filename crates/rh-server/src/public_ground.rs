@@ -309,7 +309,7 @@ mod tests {
             match_id: [3; 16],
             player_id: 1,
             session: [7; 16],
-            tick_rate: 20,
+            tick_rate: rh_sim::constants::TICK_RATE as u8,
             tick: 0,
             server_ms: 0.,
         };
