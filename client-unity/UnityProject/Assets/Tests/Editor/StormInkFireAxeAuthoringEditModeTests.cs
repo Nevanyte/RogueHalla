@@ -134,6 +134,58 @@ namespace Roguehalla.Client.Tests
             }
         }
 
+        [Test]
+        public void EditedHeightAndAxeSocketMoveTheArtAroundTheSameDeliveredFoot()
+        {
+            var root = new GameObject("Fire artist controls");
+            var fighter = StormInkFireAxeAuthoring.Load();
+            var axe = StormInkAxeArtAuthoring.Load();
+            const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
+            var height = fighter.GetType().GetField("worldHeight", PrivateInstance);
+            var grips = (Vector2[])axe.GetType().GetField("grips", PrivateInstance).GetValue(axe);
+            const int row = 1;
+            var oldGrip = grips[row];
+            float oldHeight = fighter.WorldHeight;
+            try
+            {
+                var presenter = new SpriteActorPresenter(root.transform, Resources.Load<ShowcaseCatalog>("Showcase/Catalog"));
+                void Present(WeaponId weapon)
+                {
+                    presenter.Begin();
+                    presenter.Present(1, 100, 100, Mathf.PI / 4f, 100, FactionId.Fire, ActorStatus.Alive,
+                        weapon, ActorKind.Player, null, 0, 0, true);
+                    presenter.End();
+                }
+                Present(WeaponId.Axe);
+                var actor = root.transform.Find("Observed actor");
+                var body = actor.Find("Authored character").GetComponent<SpriteRenderer>();
+                var held = actor.Find("Equipped weapon cue").GetComponent<SpriteRenderer>();
+                var footprint = actor.Find("Faction footprint").position;
+
+                height.SetValue(fighter, oldHeight * 1.20f);
+                grips[row] = oldGrip + new Vector2(.025f, -.035f);
+                Present(WeaponId.Axe);
+                Assert.That(actor.Find("Faction footprint").position, Is.EqualTo(footprint));
+                Assert.That(body.transform.localScale.y, Is.EqualTo(oldHeight * 1.20f));
+                Assert.That(held.sprite, Is.SameAs(StormInkWeaponArt.Get(WeaponId.Axe, row)));
+                Assert.That(fighter.TryHand(body.sprite, false, out var right), Is.True);
+                Assert.That(Vector2.Distance(Socket(body, right), Socket(held, grips[row])), Is.LessThan(.001f));
+
+                foreach (var weapon in new[] { WeaponId.Fists, WeaponId.Sword, WeaponId.Bow, WeaponId.Shield, WeaponId.Wand })
+                {
+                    Present(weapon);
+                    Assert.That(body.sprite.name, Does.StartWith("FireChampion/"));
+                    Assert.That(body.transform.localScale.y, Is.EqualTo(oldHeight));
+                }
+            }
+            finally
+            {
+                height.SetValue(fighter, oldHeight);
+                grips[row] = oldGrip;
+                Object.DestroyImmediate(root);
+            }
+        }
+
         static Vector3 Socket(SpriteRenderer renderer, Vector2 uv) =>
             renderer.transform.TransformPoint((Vector2.Scale(uv, renderer.sprite.rect.size) - renderer.sprite.pivot) / renderer.sprite.pixelsPerUnit);
     }
