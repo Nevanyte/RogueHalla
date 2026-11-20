@@ -237,7 +237,9 @@ Nothing in `rh-protocol`, `rh-server`, `rh-policy`, `observe.rs`, `reward_chests
 
 Stub (`stub:` commit, the implementer's to finish): `crates/rh-sim/src/cards/catalog.rs` (the 14 variants, `NATIVE`,
 `as_str` arms, `definition()`/`tier()` branch), `crates/rh-sim/src/cards/native/mod.rs` (`NATIVE_METERS`, `NativeRule`,
-`rule()` returning `None`, `definition()` returning a placeholder), `crates/rh-sim/src/cards/mod.rs` (`pub mod native;`).
+`rule()` returning `None`, `definition()` returning a placeholder), `crates/rh-sim/src/cards/mod.rs` (`pub mod native;`),
+`crates/rh-sim/tests/content.rs` (`NON_GAMEPLAY` rows for `NATIVE` and `NATIVE_METERS`; the implementer may move
+`NATIVE` to `TABLES_FOLDED_BY_HASH` once it folds it).
 
 The oracle's 12 tests and why each fails at the stub:
 
