@@ -124,7 +124,7 @@ namespace Roguehalla.Client
         }
         sealed class Flash
         {
-            public SpriteRenderer Sprite, Plate;
+            public SpriteRenderer Sprite, Plate, Brush;
             public TMP_Text Text;
             public uint Actor;
             public float Start, Duration, Size;
