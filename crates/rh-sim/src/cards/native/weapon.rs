@@ -5,7 +5,10 @@ use super::hooks::NativeEvent;
 use super::readout::Source;
 use super::NativeCards;
 use crate::cards::CardId;
-use crate::constants::{REWORK_BASTION_SHARE, REWORK_MARKSMANS_TALLY_PER};
+use crate::constants::{
+    REWORK_BASTION_SHARE, REWORK_CALLUSES_PER, REWORK_EIGHTH_STRIKE_EVERY,
+    REWORK_EIGHTH_STRIKE_MULT, REWORK_EXECUTIONERS_LEDGER_PER, REWORK_MARKSMANS_TALLY_PER,
+};
 use crate::reward_chests::Offer;
 use crate::state::{Player, World};
 
@@ -13,6 +16,9 @@ use crate::state::{Player, World};
 pub(super) static POOL: &[(CardId, Offer)] = &[
     (CardId::MarksmansTally, Offer::Any),
     (CardId::Bastion, Offer::Any),
+    (CardId::Calluses, Offer::Any),
+    (CardId::ExecutionersLedger, Offer::Any),
+    (CardId::EighthStrike, Offer::Any),
 ];
 
 /// The hook handlers of this table's cards: player slot `i` holds `card` (the dispatcher checked it); a card of another
@@ -52,6 +58,28 @@ pub(super) fn handle(w: &mut World, i: usize, card: CardId, event: &NativeEvent)
                 s.meters[0] = 0.;
             }
         }
+        // Calluses (Augment_Tuning: 0.07 armor per fist hit, cap 30): the counter is armor, folded by `fold_stats`.
+        (CardId::Calluses, NativeEvent::FistHit) => {
+            let cap = super::rule(card).map_or(0., |r| r.counter_cap);
+            if let Some(s) = w.players[i].build.native.slot_mut(card) {
+                s.counter = cap.min(s.counter + REWORK_CALLUSES_PER);
+            }
+        }
+        // Executioner's Ledger (+3 AD per player or elite kill only, cap 30): the counter is AD, folded by `fold_stats`.
+        (CardId::ExecutionersLedger, NativeEvent::CreditedKill { player, elite })
+            if player || elite =>
+        {
+            let cap = super::rule(card).map_or(0., |r| r.counter_cap);
+            if let Some(s) = w.players[i].build.native.slot_mut(card) {
+                s.counter = cap.min(s.counter + REWORK_EXECUTIONERS_LEDGER_PER);
+            }
+        }
+        // Eighth Strike: hits since the last doubled one; the doubling itself is `strike_mult` in the hit's amount.
+        (CardId::EighthStrike, NativeEvent::HitCount { .. }) => {
+            if let Some(s) = w.players[i].build.native.slot_mut(card) {
+                s.counter = (s.counter + 1.) % f64::from(REWORK_EIGHTH_STRIKE_EVERY);
+            }
+        }
         _ => {}
     }
 }
@@ -61,6 +89,9 @@ pub(super) fn readouts(card: CardId) -> Option<&'static [Source]> {
     match card {
         CardId::MarksmansTally => Some(&[Source::Counter]),
         CardId::Bastion => Some(&[Source::Meter(0)]),
+        CardId::Calluses | CardId::ExecutionersLedger | CardId::EighthStrike => {
+            Some(&[Source::Counter])
+        }
         _ => None,
     }
 }
@@ -81,4 +112,32 @@ pub(super) fn landed_burst(p: &Player) -> f64 {
         .slot(CardId::Bastion)
         .filter(|s| s.count > 0 && s.meters[0] > 0.)
         .map_or(0., |s| REWORK_BASTION_SHARE * s.meters[0])
+}
+
+/// The armor and AD this table's counters add to the holder's stat fold (as farm rows: outside the card caps):
+/// Calluses' armor and Executioner's Ledger's AD.
+pub(super) fn fold_stats(native: &NativeCards) -> (f64, f64) {
+    let held = |card| {
+        native
+            .slot(card)
+            .filter(|s| s.count > 0)
+            .map_or(0., |s| s.counter)
+    };
+    (held(CardId::Calluses), held(CardId::ExecutionersLedger))
+}
+
+/// The multiplier of the holder's landed weapon hit that has `earlier` landed weapon hits of the same holder before it
+/// in the same victim pass: `REWORK_EIGHTH_STRIKE_MULT` when it is the 8th since the last doubled hit, else 1.
+pub(super) fn strike_mult(p: &Player, earlier: u32) -> f64 {
+    match p.build.native.slot(CardId::EighthStrike) {
+        Some(s) if s.count > 0 => {
+            let n = s.counter as u32 + earlier;
+            if n % REWORK_EIGHTH_STRIKE_EVERY == REWORK_EIGHTH_STRIKE_EVERY - 1 {
+                REWORK_EIGHTH_STRIKE_MULT
+            } else {
+                1.
+            }
+        }
+        _ => 1.,
+    }
 }

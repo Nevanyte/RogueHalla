@@ -28,6 +28,8 @@ pub use readout::{readouts, Readout, ReadoutKind, Readouts, MAX_READOUTS};
 mod exemplars_tests;
 #[cfg(test)]
 mod hooks_tests;
+#[cfg(test)]
+mod weapon_batch_tests;
 
 /// P-AUG-NATIVE-1b: every native card's chest pool membership and offer rule, from the three batch tables (weapon,
 /// zone, faction). No pool reads it until native ids are on the wire (P-WIRE19-A).
@@ -53,6 +55,28 @@ pub(crate) fn outgoing_share(build: &super::Build) -> f64 {
         return 0.;
     }
     weapon::outgoing_share(&build.native)
+}
+
+/// The armor and AD the native counters add to a holder's stat fold (Calluses, Executioner's Ledger); `(0, 0)` for none.
+pub(crate) fn fold_stats(build: &super::Build) -> (f64, f64) {
+    if build.native.is_empty() {
+        return (0., 0.);
+    }
+    weapon::fold_stats(&build.native)
+}
+
+/// Does `card`'s state change the holder's stat fold (so a change to it needs a refold)?
+pub(crate) fn feeds_fold(build: &super::Build) -> bool {
+    fold_stats(build) != (0., 0.)
+}
+
+/// The multiplier Eighth Strike gives a landed weapon hit of `by` that has `earlier` landed weapon hits of `by` before it
+/// in the same victim pass (1 for a non-holder; one guard).
+pub(crate) fn strike_mult(k: &MatchStatic, w: &World, by: crate::PlayerId, earlier: u32) -> f64 {
+    if !hooks::holds_native(k, w, by) {
+        return 1.;
+    }
+    w.player(by).map_or(1., |p| weapon::strike_mult(p, earlier))
 }
 
 /// The bursts the ledger added to one victim's entries (`landed_burst`): at most one per holder, at most one holder per
@@ -264,6 +288,23 @@ fn tank_hp_cap(tuning: &crate::cards::Tuning) -> f64 {
     cap
 }
 
+/// P-AUG-NATIVE-2: the exact counter rules of the weapon batch (after the cap test): Eighth Strike an integer, the
+/// Ledger a whole multiple of its per-kill AD, Calluses the cap or a multiple of its per-hit armor (within 1e-9, as
+/// repeated addition drifts). Other cards: no extra rule here. A non-finite counter passes to the cap test.
+fn exact_counter(id: CardId, c: f64, cap: f64) -> bool {
+    use crate::constants::{REWORK_CALLUSES_PER, REWORK_EXECUTIONERS_LEDGER_PER};
+    let on_grid = |per: f64| {
+        let n = c / per;
+        (n - n.round()).abs() * per <= 1e-9
+    };
+    match id {
+        CardId::EighthStrike => c.fract() == 0.,
+        CardId::ExecutionersLedger => on_grid(REWORK_EXECUTIONERS_LEDGER_PER),
+        CardId::Calluses => c == cap || on_grid(REWORK_CALLUSES_PER),
+        _ => true,
+    }
+}
+
 /// `check_world` rules for the native state (brief section 1.6), and the `card_tank_hp` bound.
 pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
     let rework = k.cards.rule() == crate::AugmentRule::Rework;
@@ -301,6 +342,13 @@ pub(crate) fn check(k: &MatchStatic, w: &World) -> Result<(), String> {
                 ));
             }
             let r = &NATIVE_RULES[i];
+            if !exact_counter(id, slot.counter, r.counter_cap) {
+                return Err(format!(
+                    "player {who}: native card {} counter {} off its grid",
+                    id.as_str(),
+                    slot.counter
+                ));
+            }
             if !(0.0..=r.counter_cap).contains(&slot.counter)
                 || slot
                     .meters

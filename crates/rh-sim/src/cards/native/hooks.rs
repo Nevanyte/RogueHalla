@@ -118,6 +118,17 @@ pub(crate) fn fire(k: &MatchStatic, w: &mut World, holder: PlayerId, event: Nati
         return;
     }
     fire_held(w, holder, event);
+    // P-AUG-NATIVE-2: a counter that is a fold input (Calluses' armor, the Ledger's AD) reaches the mirrors at once.
+    if matches!(
+        event,
+        NativeEvent::FistHit | NativeEvent::CreditedKill { .. }
+    ) {
+        if let Some(i) = w.idx(holder) {
+            if super::feeds_fold(&w.players[i].build) {
+                crate::modifiers::recompute(k, w, crate::fighter::FighterIx::of_slot(i));
+            }
+        }
+    }
 }
 
 /// [`fire`] for the call sites that have no `MatchStatic` (`heal::apply_with`, the Frost chill passes): the holder guard
