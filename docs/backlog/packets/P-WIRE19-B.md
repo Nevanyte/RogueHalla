@@ -235,7 +235,65 @@ Out: `docs/CONTRACTS.md`, `docs/MIGRATION.md` (coordinator: observation 32, poli
 
 ## Oracle files (read-only for implementers)
 
-(Filled in at the oracle commits.)
+New oracle tests (`oracle:` commit):
+- `crates/rh-protocol/tests/wire19_readouts.rs`: `PROTOCOL_VERSION == 19`, `MAX_STATE_KEYS == 14`, `MAX_READOUTS ==
+  28`, kind codes 0/1/2 (count 3), key 14; the two vectors' exact bytes from values, `encoded_len`, round trip, every
+  prefix refused; key 14 after key 13 with 28 maximal rows; `state_all_max_budget` plus 28 maximal rows still fits
+  `MAX_SERVER_FRAME`; the encoder refuses (atomically) 29 rows, cards 0/79/94, kind 3, NaN/±inf value or max, a
+  negative value, value over max and a card decrease, and accepts value = max, value 0 = max 0, two rows of one card;
+  the decoder's reasons for the nine patches (section 1 table) and key 15 unknown, 15 keys refused; `v19.json` is
+  protocol 19, carries both vectors with the brief's hex, the nine malformed names (each refused), and the moved
+  `state_unknown_key` (`8800010f`) and `state_too_many_keys` (`88000f`).
+- `crates/rh-sim/src/observe/readouts_view_tests.rs`: each viewer's `Observation::readouts` is exactly
+  `readouts(sim, viewer).rows()` (holder 1: Tally counter 0.12 and Bastion meter 40 with their caps; holder 2: its own
+  Bastion 7; a non-holder and a non-player: none); two worlds that differ only in player 1's native numbers give
+  players 2, 3 and a non-player byte-equal observations, and player 1 observations that differ only in `readouts`;
+  `observe_into` on a reused buffer replaces the rows each tick and clears them for another viewer; Legacy and
+  native-free observations have no rows and serialize without a `readouts` key, a holder's serializes and round-trips;
+  `OBSERVATION_VERSION == 32`.
+- `crates/rh-policy/tests/wire19_readouts.rs`: the publisher projects Tally, Bastion and Pathfinder rows as
+  `(80, 0, 0.12, 0.3), (81, 1, 40, 250), (85, 2, 3, 20)`, key 14 last; a viewer without rows never gets key 14 over 39
+  ticks including the first and a forced State; a holder gets it on the first State, not when unchanged, again on a
+  changed value and on a forced State, an empty list once when the rows go, nothing after, and again after
+  `reconnect`; `CollectionView` is complete without key 14 and keeps the rows it receives; `rh_protocol` and `rh_sim`
+  `MAX_READOUTS` are equal; observation 32, policy contract 27.
+- `client-unity/RoguehallaNet.Tests/Wire19ReadoutTests.cs`: protocol 19, `StateKey.Readouts == 14`, `MaxCount == 28`;
+  the vectors encode from values and decode to their rows, re-encode byte for byte, every prefix refused; the encoder
+  refuses the invalid rows (`EncodeException`) and accepts the boundary ones; the decoder refuses the nine patches as
+  `BadField`, key 15 as `BadField`, 15 keys; `Session.Collections.Readouts` is empty before key 14, holds the five
+  rows in order after it, and is cleared by the empty vector; `v19.json` carries the vectors, the nine malformed names
+  (each `BadField`) and the two moved ones.
+
+Amended existing tests (`oracle-amend:` commits, one file each, for the owner):
+- `crates/rh-protocol/tests/hud_wire.rs:235`: `MAX_STATE_KEYS` 13 → 14 ("key 14 is the newest state key").
+- `crates/rh-protocol/tests/v4.rs:278`: the undefined key is 15 (was 14).
+- `crates/rh-protocol/tests/vectors.rs`: the nine `state_readouts_*` malformed reasons.
+- `client-unity/RoguehallaNet.Tests/ProtocolVectorTests.cs`: the same nine names, `BadField`.
+- `tools/protocol-js/check-vectors.mjs`: the nine reasons; the probe decodes the two vectors to exact items
+  (`{key:14,value:[{card,kind,value,max}]}`), refuses the nine patches for their reasons, key 15 and 15 keys, accepts
+  value = max; the fixture's `state_unknown_key` and `state_too_many_keys` name 15. (Card provenance pin waived until
+  P-CI-GREEN-6.)
+- `crates/rh-sim/src/cards/native/exemplars_tests.rs` (`readouts_show_each_owner_its_own_native_cards_only`): the
+  observation carries the viewer's own rows and, apart from them, equals the native-free world's (was: equal).
+- `crates/rh-sim/src/barriers_reach_tests.rs` (`observation_digest`): `0x2a3b_dc86_9b6d_5f4d`, the switch-off
+  observation's digest at observation 32 (measured on the stub with the version forced to 32; only the version moved).
+
+The brief: `docs/backlog/packets/P-WIRE19-B.md`.
+
+Stub (`stub:` commit, the implementer's to edit): `crates/rh-protocol/src/{state.rs, state/item.rs, lib.rs}`
+(`WireReadout`, `MAX_READOUTS`, `READOUT_KIND_*`, `StateItem::Readouts` refused by `check`), `crates/rh-sim/src/observe.rs`
+(`Observation::readouts`, always empty; the `mod readouts_view_tests` line), `crates/rh-sim/src/cards/native/readout.rs`
+(serde derives), `crates/rh-policy/src/delivery/{collections.rs, frame.rs}` (no-op arms, `CollectionView::readouts`
+empty), `crates/rh-server/src/outbox/scene_candidate/client14_fixture.rs` (the arm), C# `Protocol/{State.cs,
+StateItemsSocial.cs}`, `Net/Collections.cs` (`WireReadout`, `StateKey.Readouts`, `ReadoutsState` refusing, `Readouts`
+empty) and their Unity copies.
+
+Red at the oracle commits (stub in place), each on an assertion or a stub refusal: every Rust test of
+`wire19_readouts.rs` (13 vs 14; the stub encoder refuses key 14; `BadField("state key")` vs the readout reasons; no
+vector in `v19.json`), five of five `readouts_view_tests` (no rows observed; observation 31), the policy tests that need
+key 14 sent or kept and the version pins, five of seven `Wire19ReadoutTests` (the two green ones pin constants and the
+`BadField` refusals the stub already gives), `check-vectors.mjs` (no `state_readouts` vector), `hud_wire.rs`
+(13 vs 14), `exemplars_tests` (no rows), `barriers_reach_tests` (observation 31's digest).
 
 ## 9. Validation commands
 
