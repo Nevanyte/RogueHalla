@@ -100,7 +100,7 @@ namespace Roguehalla.Net.Tests
             var wire = new FakeTransport(); var client = new Session(wire, new SessionOptions { Url = target, InitialResume = read.Record.CreateSeed(), Now = () => 0 });
             client.Connect(); wire.Open();
             Assert.That(wire.LastSent<ClientMsg.Hello>().Resume.SequenceEqual(Capability()), Is.True);
-            wire.Deliver(new ServerMsg.Welcome { Protocol = Wire.ProtocolVersion, MatchId = Match(), PlayerId = 3, Session = Capability(), Map = new MapBlob(4,4,new byte[16]) });
+            wire.Deliver(new ServerMsg.Welcome { Protocol = Wire.ProtocolVersion, MatchId = Match(), PlayerId = 3, Session = Capability(), TickRate = 20, Map = new MapBlob(4,4,new byte[16]) });
             Assert.That(client.State, Is.EqualTo(SessionState.InMatch)); Assert.That(wire.Url, Is.EqualTo(target));
             Assert.That(_storage.Raw.Contains("synthetic-account-proof"), Is.False, "account bearer is never serialized");
         }
@@ -115,7 +115,7 @@ namespace Roguehalla.Net.Tests
             Assert.That(saved.CopyMatchId().SequenceEqual(Match()), Is.True); Assert.That(_storage.Raw == raw, Is.True);
             var wire = new FakeTransport(); var client = new Session(wire, new SessionOptions { InitialResume = saved.CreateSeed(), Now = () => 0 });
             client.Connect(); wire.Open(); Assert.That(wire.LastSent<ClientMsg.Hello>().Resume.SequenceEqual(Capability()), Is.True);
-            wire.Deliver(new ServerMsg.Welcome { Protocol = Wire.ProtocolVersion, MatchId = Match(), PlayerId = 3, Session = Capability(), Map = new MapBlob(4,4,new byte[16]) });
+            wire.Deliver(new ServerMsg.Welcome { Protocol = Wire.ProtocolVersion, MatchId = Match(), PlayerId = 3, Session = Capability(), TickRate = 20, Map = new MapBlob(4,4,new byte[16]) });
             Assert.That(client.State, Is.EqualTo(SessionState.InMatch));
         }
 
