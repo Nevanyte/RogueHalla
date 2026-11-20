@@ -23,3 +23,5 @@ Register the existing eastern SwordViews sprite to the closed lead hand. Use the
 ## Validation and risks
 
 Inspect the native 2560 × 1440 frames and a 1:1 crop. Confirm that writing the inventory preserves 200 champion and 240 named-enemy facing rows. A still establishes the value grouping and stance. Animation and player approval require separate evidence.
+
+The owner rejected the first single-pose repaint. Its head-to-boot height was roughly 64 px beside the 100 px Haunted champion. The separate scale capture reruns the same public church map at the same camera with a 1.55× body multiplier. It preserves the shared sword’s world size. The next drawing has a reviewable prompt and the two original reference attachments.
