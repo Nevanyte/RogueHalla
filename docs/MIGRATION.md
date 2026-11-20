@@ -9,7 +9,7 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 **Owner direction 2026-11-19:** "resume" (after the evening pause). Owner OK the same day for the side session's Frost
 Wall fix: "Yes, review it" (review it and merge it into the next integration). Nothing is pushed and `main` is untouched.
 
-**Integration branch:** `feature/unity-rework` @ `c560b46ae`.
+**Integration branch:** `feature/unity-rework` @ `5d1f2532b`.
 - **Integration 65** (`coord/int-65` @ `35eceb4e0`): P-ELITE-TUNE-1-fix, P-AUG-POOL-1-fix, P-ELITE-PICK-1 and
   P-AUG-NATIVE-1a.
   - Full gate PASS on `35eceb4e0`: `--coordinator --keep-going --allow-artefacts --regen-fixtures --base 7a3436271`,
@@ -26,9 +26,15 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
   restore validator judges the world's own rows (`definition_for`, `cooldown_for`), so a live Frost Wall cast
   checkpointed in flight restores. No hash, format or Legacy change. It goes into integration 66.
 
+- **Integration 66** (`coord/int-66` @ `6083165a1`, landed as `5d1f2532b`): P-FROST-RESTORE-1 plus the coordinator's
+  prose fix (the README and `fighter.rs` lines that named `rh-checkpoint/33` now name `CHECKPOINT_FORMAT`). Full gate
+  PASS with pgtest, EditMode 1581/1581 (`.agent-runs/gate/20261120T000448-coord-int-66-full.log`). reviewer-opus
+  integration review: **LAND** (the merge equals the branch's own diff; no restore path from integrations 64–65 reads
+  the catalog row). Identities unchanged.
+  - Minor, not a note: `OwnerView::of` (`abilities/mod.rs:508`) still reads the catalog row. Frost Wall and Freeze rows
+    hold the same cast, cooldown and charges today, so nothing shows; the P-AUG-NATIVE-3 plan note covers it.
+
 **In flight:**
-- Integration 66: P-FROST-RESTORE-1 plus the coordinator's prose fix (the README and `fighter.rs` lines that named
-  `rh-checkpoint/33` now point at `CHECKPOINT_FORMAT`).
 - Oracles, Opus: P-AUG-NATIVE-1b on `packet/P-AUG-NATIVE-1b-r` and P-WIRE19-A on `packet/P-WIRE19-A-resume`, each
   resumed from its WIP commit in a new worktree (the paused branches stay as they were).
 
