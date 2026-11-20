@@ -661,8 +661,9 @@ mod elite_rule_tests {
     use crate::EliteRule;
 
     /// `check_elite_rule`'s refusal: a training world (it always installs a mob runtime) whose runtime claims an elite
-    /// rule its config does not store is refused, under either config rule (both store `Legacy` while the Rework elite
-    /// numbers equal the legacy ones).
+    /// rule its config does not store is refused, under either config rule. What the config stores is
+    /// `EliteTuning::stored_rule`: `Legacy` (a unit) while the elite numbers equal legacy's, `Rework` (written as
+    /// `"rework"`) once they differ (P-ELITE-TUNE-1); the test reads it rather than assuming either.
     #[test]
     fn a_mob_runtime_elite_rule_the_config_does_not_store_is_refused() {
         for elites in [EliteRule::Legacy, EliteRule::Rework] {
@@ -686,12 +687,19 @@ mod elite_rule_tests {
             );
             let mut cp = serde_json::to_value(&sim).unwrap();
             assert!(cp["world"]["mob_runtime"].is_object(), "{elites:?}");
+            let stored = crate::mob_runtime::EliteTuning::stored_rule(elites);
+            let other = if stored == EliteRule::Legacy {
+                EliteRule::Rework
+            } else {
+                EliteRule::Legacy
+            };
             assert_eq!(
                 cp["world"]["mob_runtime"]["elites"],
-                serde_json::Value::Null
+                serde_json::to_value(stored).unwrap(),
+                "{elites:?}: the runtime stores the config's stored rule"
             );
             assert!(Sim::restore(&cp).is_ok(), "{elites:?}: the produced world");
-            cp["world"]["mob_runtime"]["elites"] = serde_json::json!("rework");
+            cp["world"]["mob_runtime"]["elites"] = serde_json::to_value(other).unwrap();
             let err = Sim::restore(&cp).expect_err("a runtime rule the config does not store");
             assert!(
                 format!("{err:?}").contains("elite rule"),

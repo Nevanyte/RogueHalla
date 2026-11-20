@@ -114,16 +114,17 @@ legacy ones. To retune one: register `REWORK_<NAME>` in `constants.rs` and point
 ## The elite table: `mob_runtime::EliteTuning`
 
 `EliteTuning { k, hp_mult, dmg_mult }` (`crates/rh-sim/src/mob_runtime.rs`); `EliteTuning::of(rule)` returns the
-static `LEGACY_ELITES` or `REWORK_ELITES` (both the legacy `ELITE_K` / `ELITE_HP_MULT` / `ELITE_DMG_MULT` here).
+static `LEGACY_ELITES` (the legacy `ELITE_K` / `ELITE_HP_MULT` 2.0 / `ELITE_DMG_MULT` 1.5) or `REWORK_ELITES` (`ELITE_K`,
+`REWORK_ELITE_HP_MULT` 1.5, `REWORK_ELITE_DMG_MULT` 1.0; owner decision 2026-11-19, P-ELITE-TUNE-1).
 
 - Readers with `k` read `EliteTuning::of(k.config.elites)` (camp spawn, the mob restore checks).
 - Readers without `k` (`World::faction_spec` and through it `defense`, `paced_faction_spec`, `signature_damage`;
   `point_damage`; `sentenced::npc_pulse`; the practice-mob birth) read `EliteTuning::of_world(w)`: the rule the world's
   mob runtime stores, `MobRuntime::elites`.
 - `MobRuntime::elites` is set where the runtime is built to `EliteTuning::stored_rule(config.elites)`: the config's
-  rule, except that a rule whose numbers equal the legacy ones is stored as `Legacy` (it writes nothing). So today a
-  `Rework` world's world bytes equal the `Legacy` world's; once `REWORK_ELITES` differs, a `Rework` world's runtime
-  writes `"rework"` and the state hash folds it. `check_world` (`systems/mobs.rs` `check_elite_rule`, run by `mobs::validate`) admits exactly
+  rule, except that a rule whose numbers equal the legacy ones is stored as `Legacy` (it writes nothing). Since
+  `REWORK_ELITES` differs from legacy, a `Rework` world's runtime writes `"rework"` and the state hash folds it; a
+  `Legacy` world writes nothing. `check_world` (`systems/mobs.rs` `check_elite_rule`, run by `mobs::validate`) admits exactly
   that one value per statics digest.
 - `Mob::born_with(elites, ...)` takes the table for an elite's spawn hp; `Mob::born` is the legacy form for births that
   are never elite and for tests.
@@ -133,15 +134,14 @@ static `LEGACY_ELITES` or `REWORK_ELITES` (both the legacy `ELITE_K` / `ELITE_HP
   `matchup_share` / `mob_faction` / `mob_max_hp` (callers `knowledge.rs`, `planning.rs`, `mob_hunt.rs`). Until it lands,
   a retune does not reach the bots (coordinator decision on the P-AUG-RULES-1 review note, 2026-11-19).
 
-To retune (P-ELITE-TUNE-1): register `REWORK_ELITE_K` / `_HP_MULT` / `_DMG_MULT` and point `REWORK_ELITES` at them.
-The `Legacy`/`Rework` equivalence test (`tests/augment_rules.rs`) then fails by design for the elite numbers, and
-`systems/mobs.rs` `elite_rule_tests` (which expects the stored rule to be null under both rules) changes too: amend both
-as that packet's oracle.
+To retune the Rework elites: change `REWORK_ELITE_HP_MULT` / `REWORK_ELITE_DMG_MULT` in `constants.rs` (`k` stays
+`ELITE_K`), regolden the content hash with `scripts/regolden-content.sh`, and re-run the elite bench
+(`tools/balance-camps/README.md`). `tests/elite_tune.rs` pins the numbers.
 
 ## Checks that guard the seam
 
 - `crates/rh-sim/tests/augment_rules.rs`: the rules' encoding, the 64 statics identities of the silent switches, the
-  tables equal legacy, `Legacy` and empty `Rework` play the same match, a `Rework` checkpoint with fold cards and a
+  Legacy elite table equals the legacy constants and Rework has the owner numbers, `Legacy` and `Rework` agree until the first elite strike, a `Rework` checkpoint with fold cards and a
   packet in flight restores.
 - `crates/rh-sim/src/cards/tuning_tests.rs`: the shape guard, the real table through it, readers through a doctored
   table (fold and restore check, G1 in both places, Gambler), and the `Rework` ranged envelope over the fold cards.

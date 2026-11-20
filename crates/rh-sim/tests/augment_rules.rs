@@ -10,7 +10,6 @@
 //! 4. a `Rework` checkpoint holding fold cards with a ranged packet in flight restores and plays on identically.
 use rh_sim::arenas::practice_arena;
 use rh_sim::cards::{CardId, Tuning};
-use rh_sim::mob_catalog::MobTypeId;
 use rh_sim::mob_runtime::{EliteTuning, MobMode};
 use rh_sim::reward_chests::{augment_pool, conditional_pool, INTERACTIVE, REWORK_POOL};
 use rh_sim::{
@@ -328,15 +327,19 @@ fn the_card_table_is_the_legacy_catalog_under_legacy_and_for_unchanged_cards_und
     }
 }
 
+/// Oracle-amend, P-ELITE-TUNE-1: `Legacy` is the legacy constants; `Rework` keeps `k` and moves the two multipliers to
+/// the owner's numbers (hp 1.5, damage 1.0; `tests/elite_tune.rs` pins them through the sim). Was: both rules equal legacy.
 #[test]
-fn the_elite_table_is_the_legacy_constants_under_both_rules() {
+fn the_elite_table_is_the_legacy_constants_under_legacy_and_the_owners_numbers_under_rework() {
     use rh_sim::constants as c;
-    for rule in [EliteRule::Legacy, EliteRule::Rework] {
-        let e = EliteTuning::of(rule);
-        assert_eq!(e.k, c::ELITE_K, "{rule:?}");
-        assert_eq!(e.hp_mult, c::ELITE_HP_MULT, "{rule:?}");
-        assert_eq!(e.dmg_mult, c::ELITE_DMG_MULT, "{rule:?}");
-    }
+    let legacy = EliteTuning::of(EliteRule::Legacy);
+    assert_eq!(legacy.k, c::ELITE_K);
+    assert_eq!(legacy.hp_mult, c::ELITE_HP_MULT);
+    assert_eq!(legacy.dmg_mult, c::ELITE_DMG_MULT);
+    let rework = EliteTuning::of(EliteRule::Rework);
+    assert_eq!(rework.k, c::ELITE_K, "k does not move");
+    assert_eq!(rework.hp_mult, 1.5);
+    assert_eq!(rework.dmg_mult, 1.0);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -474,17 +477,27 @@ fn without_rules(sim: &Sim) -> Value {
     v
 }
 
-/// The checkpoint with the fields the elite helper share writes taken out. The share is stat stacks through the ordinary
-/// farm path, so exactly these differ and nothing else (the equality of everything else stays exact):
-/// - `world.players[*].farm.counts`: the stacks themselves (the share is asserted on them separately, by `Farm::count`);
-/// - `world.players[*].core.modifiers.farm`: the folded farm sums the recompute derives from those counts. A stat the
-///   share pays that also moves max hp or a mirrored stat would change more fields; the fixture's camp stat does not,
-///   and if it ever does the equality fails here, naming the field, rather than being masked wider.
-fn mask_share(mut v: Value) -> Value {
-    for p in v["world"]["players"].as_array_mut().unwrap() {
-        p["farm"]["counts"] = Value::Null;
-        p["core"]["modifiers"]["farm"] = Value::Null;
+/// The checkpoint with what the Rework elite numbers write taken out (P-ELITE-TUNE-1): the runtime's stored elite rule
+/// (`world.mob_runtime.elites`: `null` under Legacy, `"rework"` once the numbers differ) and each elite mob's HP (hp and
+/// max hp, scaled by the elite hp multiplier). Everything else is compared exactly.
+fn mask_elite_numbers(mut v: Value) -> Value {
+    v["world"]["mob_runtime"]["elites"] = Value::Null;
+    fn walk(v: &mut Value) {
+        match v {
+            Value::Object(o) => {
+                if o.get("elite") == Some(&Value::Bool(true)) {
+                    if let Some(vitals) = o.get_mut("core").and_then(|c| c.get_mut("vitals")) {
+                        vitals["hp"] = Value::Null;
+                        vitals["max_hp"] = Value::Null;
+                    }
+                }
+                o.values_mut().for_each(walk);
+            }
+            Value::Array(a) => a.iter_mut().for_each(walk),
+            _ => {}
+        }
     }
+    walk(&mut v["world"]["mobs"]);
     v
 }
 
@@ -497,23 +510,27 @@ const FOLD_CARDS: [CardId; 6] = [
     CardId::ThirdTimesTheCharm,
 ];
 
-/// Equivalence over a seed sweep (oracle-amend, P-AUG-CONTENT-1: the augment table is no longer empty under Rework, so the
-/// elite half is what stays): the same seed and the same inputs under `Legacy` elites and under `Rework` elites (augments
-/// `Legacy` in both) give the same events on every tick and the same world, with the elite table equal to legacy; only the
-/// config and therefore the digest (so every state hash) differ. The run grants fold cards (Committed, Machine Gun, Arcane
-/// Overload) and coin/streak/stillness cards (Gambler, Third Time, Plant Your Feet) to the bow holder and Here Comes the
-/// Boom to the sword holder, then fights the elite camp. Floors (not on every seed): the elite is hurt on at least one seed.
-///
-/// Oracle-amend, P-ELITE-SHARE-1: under `Rework` elites an elite kill pays each standing contributor the helper share
-/// (`REWORK_ELITE_SHARE_STACKS` stacks of the camp's normal stat), so a seed on which an elite dies legitimately differs
-/// in exactly that. On such a seed the test asserts the share (every contributor holds exactly that many more stacks of
-/// that stat than in the Legacy world, nothing else in the farm differs) and compares the worlds with only the fields
-/// the share writes masked (`mask_share`); a seed on which no elite dies keeps the exact comparison.
+/// Whether an elite deals a hit (its damage multiplier is the first thing to differ between the worlds' events).
+fn elite_strikes(events: &[Event], elites: &[PlayerId]) -> bool {
+    events
+        .iter()
+        .any(|e| matches!(e, Event::Hit { by: Some(b), .. } if elites.contains(b)))
+}
+
+/// Equivalence over a seed sweep. Oracle-amend, P-ELITE-TUNE-1. Before: the same match under `Legacy` elites and under
+/// `Rework` elites with the elite table equal to legacy played out identically (events every tick, the whole world). The
+/// Rework table now differs from legacy (hp x1.5 instead of x2.0, damage x1.0 instead of x1.5), and an elite's numbers reach
+/// every fight with it, so full-match equality cannot hold and the rule seam has no equal-table switch to rebuild it with
+/// (`EliteTuning::of` is a pair of statics; there is no `for_test`). The honest retarget keeps what the test proved about
+/// the seam (it adds nothing but the elite numbers and what they cause): the same seed and inputs under both rules, with
+/// fold cards and a camp in play, give the same events on every tick, and the same world apart from the config, the
+/// runtime's stored elite rule and the elite mobs' HP, up to the first hit an elite deals; until then the elite's max HP
+/// is exactly the legacy one times 1.5/2.0 and it has taken the same damage in both worlds. The fight itself (damage x1.0/1.5, hp, the helper share) is pinned by
+/// `tests/elite_tune.rs` and `systems/mob_life/share_tests.rs`. Floor: at least one seed reaches an elite's first hit.
 #[test]
-fn legacy_and_equal_elite_rework_play_the_same_match() {
+fn rework_elites_differ_from_legacy_only_in_elite_numbers_until_the_first_elite_strike() {
     const TICKS: u32 = 240;
-    let mut elite_hurt_seeds = 0;
-    let mut elite_kill_seeds = 0;
+    let mut reached_combat = 0;
     for seed in [11u64, 12, 13] {
         let mut sims = [EliteRule::Legacy, EliteRule::Rework].map(|rule| {
             let sim = Sim::reset_active(
@@ -538,117 +555,60 @@ fn legacy_and_equal_elite_rework_play_the_same_match() {
             sims[0].0.mobs().iter().any(|m| m.elite),
             "seed {seed}: the fixture's elite camp spawned"
         );
-        let mut hurt = false;
-        // The elite mobs, each with the stat its camp's normal kills pay (the camp's buff, else the camp's normal type),
-        // the players who damaged it, and the players owed the share when it dies.
-        let elite_ids: Vec<(PlayerId, MobTypeId)> = sims[0]
+        let elites: Vec<PlayerId> = sims[0]
             .0
             .mobs()
             .iter()
             .filter(|m| m.elite)
-            .map(|m| {
-                let camp = m.camp as usize;
-                let stat = sims[0].0.camp_buffs().get(camp).copied().flatten();
-                let normal = sims[0].0.camp_rosters()[camp].mob_type;
-                (m.core.id, stat.unwrap_or(normal))
-            })
+            .map(|m| m.core.id)
             .collect();
-        let mut wounded: Vec<(PlayerId, PlayerId)> = Vec::new(); // (elite, player who hit it)
-        let mut paid: Vec<(MobTypeId, PlayerId)> = Vec::new(); // (stat, player owed the share)
         for t in 0..TICKS {
             let legacy = drive_tick(&mut sims[0].0, t);
             let rework = drive_tick(&mut sims[1].0, t);
-            assert_eq!(legacy, rework, "seed {seed}, tick {t}: the events differ");
-            for e in &rework {
-                match e {
-                    Event::Hit {
-                        victim,
-                        by: Some(by),
-                        amount,
-                        ..
-                    } if *amount > 0.
-                        && elite_ids.iter().any(|(id, _)| id == victim)
-                        && !wounded.contains(&(*victim, *by)) =>
-                    {
-                        wounded.push((*victim, *by));
-                    }
-                    Event::Death { id, .. } => {
-                        if let Some((_, stat)) = elite_ids.iter().find(|(eid, _)| eid == id) {
-                            // The share reaches each contributor still standing when the kill pays.
-                            for (_, by) in wounded.iter().filter(|(v, _)| v == id) {
-                                if sims[1].0.player(*by).is_some_and(|p| p.standing()) {
-                                    paid.push((*stat, *by));
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
-                }
+            if elite_strikes(&legacy, &elites) || elite_strikes(&rework, &elites) {
+                reached_combat += 1;
+                break;
             }
+            assert_eq!(legacy, rework, "seed {seed}, tick {t}: the events differ");
             assert_ne!(
                 sims[0].0.state_hash(),
                 sims[1].0.state_hash(),
                 "seed {seed}, tick {t}: the Rework world folds no word of its own (same digest as Legacy)"
             );
-            hurt |= sims[0]
-                .0
-                .mobs()
-                .iter()
-                .any(|m| m.elite && m.core.vitals.hp < m.core.vitals.max_hp);
-            // The elite's sheet (hp, max hp) is the same in both worlds on every tick.
-            let elites = |s: &Sim| -> Vec<(f64, f64)> {
+            // The elite's sheet: its max HP is 0.75 x Legacy's (hp x1.5 against x2.0), and the damage it has taken is
+            // the same in both worlds (the players' hits do not read the elite's numbers).
+            let sheet = |s: &Sim| -> Vec<(f64, f64)> {
                 s.mobs()
                     .iter()
                     .filter(|m| m.elite)
                     .map(|m| (m.core.vitals.hp, m.core.vitals.max_hp))
                     .collect()
             };
-            assert_eq!(
-                elites(&sims[0].0),
-                elites(&sims[1].0),
-                "seed {seed}, tick {t}: elite hp"
-            );
+            for ((lh, lm), (rh, rm)) in sheet(&sims[0].0).into_iter().zip(sheet(&sims[1].0)) {
+                assert!(
+                    (rm / lm - 0.75).abs() < 1e-9,
+                    "seed {seed}, tick {t}: Rework elite max hp {rm} is not 0.75 x Legacy {lm}"
+                );
+                assert!(
+                    ((lm - lh) - (rm - rh)).abs() < 1e-6,
+                    "seed {seed}, tick {t}: the damage taken differs: Legacy {lh}/{lm}, Rework {rh}/{rm}"
+                );
+            }
+            if t % 10 == 0 {
+                assert_eq!(
+                    mask_elite_numbers(without_rules(&sims[0].0)),
+                    mask_elite_numbers(without_rules(&sims[1].0)),
+                    "seed {seed}, tick {t}: the worlds differ beyond the two rules and the elite numbers"
+                );
+            }
         }
-        elite_hurt_seeds += u32::from(hurt);
         let rework_cp = serde_json::to_value(&sims[1].0).unwrap();
         assert_eq!(rework_cp["statics"]["config"]["augments"], Value::Null);
         assert_eq!(rework_cp["statics"]["config"]["elites"], json!("rework"));
-        if paid.is_empty() {
-            assert_eq!(
-                without_rules(&sims[0].0),
-                without_rules(&sims[1].0),
-                "seed {seed}: the worlds differ beyond the two rules"
-            );
-        } else {
-            elite_kill_seeds += 1;
-            // The share, exactly: each seated player holds `share x (deaths they were owed)` more stacks of each stat.
-            let share = u64::from(rh_sim::constants::REWORK_ELITE_SHARE_STACKS);
-            for pid in [PlayerId(1), PlayerId(2)] {
-                for ty in MobTypeId::ALL {
-                    let owed = paid.iter().filter(|(t, by)| *t == ty && *by == pid).count() as u64;
-                    let had = sims[0].0.player(pid).unwrap().farm.count(ty);
-                    let has = sims[1].0.player(pid).unwrap().farm.count(ty);
-                    assert_eq!(
-                        has,
-                        had + share * owed,
-                        "seed {seed}: player {pid:?}, {ty:?}: Rework holds the share on top of Legacy's stacks"
-                    );
-                }
-            }
-            assert_eq!(
-                mask_share(without_rules(&sims[0].0)),
-                mask_share(without_rules(&sims[1].0)),
-                "seed {seed}: the worlds differ beyond the two rules and the helper share"
-            );
-        }
     }
     assert!(
-        elite_kill_seeds >= 1,
-        "the sweep never killed an elite: the share half of the equivalence was not exercised"
-    );
-    assert!(
-        elite_hurt_seeds >= 1,
-        "the sweep never hurt the elite: the equivalence did not exercise elite combat"
+        reached_combat >= 1,
+        "no seed reached an elite's first hit: the prefix was never closed by combat"
     );
 }
 
