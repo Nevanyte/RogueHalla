@@ -118,6 +118,10 @@ mod tests;
 #[cfg(test)]
 mod fighter_churn_tests;
 
+/// P-TICK-1b oracle: a burn and the PvP DoT cap per second at 25 ms and 50 ms.
+#[cfg(test)]
+mod tick_rate_tests;
+
 /// P-HOLY-DEMON-BLOOD-1 oracle: the captured Holy camp-lifesteal corpus.
 #[cfg(test)]
 mod holy_demon_blood_tests;
