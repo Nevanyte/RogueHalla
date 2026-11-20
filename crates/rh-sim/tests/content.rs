@@ -60,6 +60,8 @@ const NON_GAMEPLAY: &[(&str, &str, &str)] = &[
     ("actor_refs.rs", "NPC_REFERENCE_BLOCK", "observer presentation block capacity, not a gameplay number"),
     ("actor_refs.rs", "NPC_REFERENCE_BASE", "disjoint non-reused presentation reference namespace, not a game rule"),
     ("cards/catalog.rs", "ALL", "the 80 source card ids in wire order (identifiers only); the definitions live in the catalog table"),
+    ("cards/catalog.rs", "NATIVE", "P-AUG-NATIVE-1a: the 14 native augment ids in index order (identifiers only); their names and table are folded by visit_progression_content"),
+    ("cards/native/mod.rs", "NATIVE_METERS", "P-AUG-NATIVE-1a: the fixed number of working meters per native card slot (a state shape bound, not a game rule; the caps are registered rows)"),
     ("cards/catalog_data.rs", "DEFINITIONS", "typed 80-card catalog table generated from the accepted source corpus; the gameplay numbers are the registered source constants"),
     ("cards/mod.rs", "SUPPORTED", "the three-card native subset selector (identifiers only), not a game rule"),
     ("cards/mod.rs", "MAX_FOLD_ROWS", "fixed scratch bound equal to the generated catalog's total fold rows, not a game rule"),
