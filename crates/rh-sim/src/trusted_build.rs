@@ -57,7 +57,8 @@ pub fn apply(sim: &mut Sim, id: PlayerId, build: &TrustedBuild) -> Result<(), Bu
             continue;
         }
         // P-AUG-NATIVE-1b: a native card exists only under the Rework card table (`check_world` refuses it elsewhere).
-        if crate::cards::native::is_native(card) && sim.k.cards.rule() != crate::AugmentRule::Rework {
+        if crate::cards::native::is_native(card) && sim.k.cards.rule() != crate::AugmentRule::Rework
+        {
             return Err(BuildRefusal::NativeOutsideRework(card));
         }
         let def = card.definition();
