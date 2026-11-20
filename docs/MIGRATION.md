@@ -101,6 +101,24 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
   - the card provenance pin refreshed once (P-CI-GREEN-6) after that.
 - P-WIRE19-B's "stay at 19" holds only for the local line until then.
 
+- **Integration 70** (`coord/int-70` @ `8f17aaff7`, landed as `89499458d`): P-AUG-NATIVE-4, the faction batch.
+  - **What it holds:**
+    - Corpse Hoarder, Stoked, Glacier and Trophy Hunter.
+    - Native cards in the Rework chest pool, with their offer rules. Legacy draws are byte-identical; Rework chest
+      outcomes move by design.
+    - Content hash `f79973a86f714d7a`, which now folds pool membership.
+  - **Review:** reviewer-opus LAND, after four coordinator oracle-amends:
+    - Glacier's 0.1 mirror rounding;
+    - a refold after a hand-set counter;
+    - an own-faction floor of 10 (measured 15 to 23);
+    - the console pool assertion.
+  - **Full gate:** green except the waived pin.
+- **Sync with origin, P-SYNC-ORIGIN-1** (brief `d3e4b3fb1`, Opus implementing):
+  - It merges `origin/feature/unity-rework` @ `81866e9c4`, which is now 92 commits ahead.
+  - **Wire:** protocol 20, observation 33, policy contract 28. The checkpoint goes to 36 unless shapes match.
+  - **Oracle (coordinator decision):** the union of both lines' existing suites. No test is weakened or deleted; only
+    version stamps move.
+
 **Coordinator decisions (2026-11-20):**
 - **Oracle-amends.** Three existing tests were left stale by the two new oracles, and the coordinator amended each in an
   `oracle-amend:` commit on the packet branch, one file per commit:
