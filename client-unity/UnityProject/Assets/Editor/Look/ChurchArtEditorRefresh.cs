@@ -1,0 +1,64 @@
+using System;
+using Roguehalla.Client;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+
+namespace Roguehalla.Editor
+{
+    sealed class ChurchArtReimport : AssetPostprocessor
+    {
+        static void OnPostprocessAllAssets(string[] imported, string[] deleted, string[] moved, string[] movedFrom)
+        {
+            if (!(StageUtility.GetCurrentStage() is StormInkChurchStage)) return;
+            foreach (var path in imported)
+                if (path.IndexOf("/Resources/StormInk/", StringComparison.Ordinal) >= 0)
+                {
+                    ChurchArtEditorRefresh.Schedule();
+                    return;
+                }
+        }
+    }
+
+    [InitializeOnLoad]
+    static class ChurchArtEditorRefresh
+    {
+        static ChurchArtEditorRefresh()
+        {
+            ObjectChangeEvents.changesPublished += OnChanges;
+            Undo.undoRedoPerformed += Schedule;
+        }
+
+        static void OnChanges(ref ObjectChangeEventStream stream)
+        {
+            for (int i = 0; i < stream.length; i++)
+            {
+                if (stream.GetEventType(i) != ObjectChangeKind.ChangeAssetObjectProperties) continue;
+                stream.GetChangeAssetObjectPropertiesEvent(i, out var change);
+                var asset = EditorUtility.InstanceIDToObject(change.instanceId);
+                if (asset is ChurchArtDefinition || asset is ChurchInteriorDefinition ||
+                    asset is StormInkFireAxeAuthoring || asset is StormInkAxeArtAuthoring)
+                {
+                    Schedule();
+                    return;
+                }
+            }
+        }
+
+        internal static void Schedule()
+        {
+            EditorApplication.delayCall -= Refresh;
+            EditorApplication.delayCall += Refresh;
+        }
+
+        static void Refresh()
+        {
+            // Includes isolated preview scenes, which Object.FindObjectsByType omits.
+            foreach (var part in Resources.FindObjectsOfTypeAll<ChurchArtPlacement>())
+                if (part.gameObject.scene.IsValid() && part.Definition != null && part.Layout != null)
+                    part.RefreshResolved();
+            if (StageUtility.GetCurrentStage() is StormInkChurchStage stage) stage.RefreshCast();
+            SceneView.RepaintAll();
+        }
+    }
+}

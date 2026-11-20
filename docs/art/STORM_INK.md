@@ -2,6 +2,14 @@
 
 The owner selected Storm Ink on 2026-11-19. The church study sets the camera and value range. Broad dry-brush strokes carry the world. Figures use ink contours and flatter fills. Elemental pigment peaks at contact and falls away through recovery.
 
+## Editing the church in Unity
+
+Open **Tools → RogueHalla → Storm Ink → Church Art Studio**. Select a painted pew in the Scene or Hierarchy. In **Asset defaults**, change **Width (world units)** to shorten every pew that inherits its width. In **This slot**, choose **Override** beside Width to shorten just the selected row and bank. **Reset** restores inheritance for that field. The slot name follows the architecture through rotations and reflections. Unity Undo, Redo and Save Project apply to the selected save target.
+
+Select the garnet window to adjust mounting height. Select the candle to move its flame socket with the amber Scene handle. The cyan handle adjusts the part’s offset in church coordinates. Use **Map and fighter footprints** to compare visual placement with wall tiles, door openings and the footprint dimensions from the Rust archetype fixture. **Opaque roof**, **Ambient light** and **Frame at gameplay zoom** use the arena presentation. The reflection control chooses a symmetric public church whose cosmetic layout resolves to the requested hand.
+
+Use **Fire facing** to inspect the equipped axe from each bearing. Select the body painting for its visual height and foot anchor. Select the axe painting to adjust its grip for the displayed bearing. These changes save to the shared Fire or axe art definition. The same axe registration follows the item across carriers.
+
 ## Gameplay camera
 
 Paint floors, paths, liquid channels and the pew seat in plan view. Long edges and grain follow the delivered floor plane. A backrest reads as a narrow cap from above. On a rotated church, both pew banks must still face the liturgical rear. Judge the furnished room against the approved overhead church study.

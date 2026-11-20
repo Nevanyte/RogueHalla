@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
@@ -5,11 +6,71 @@ using Roguehalla.Editor;
 using Roguehalla.Net.Protocol;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
 
 namespace Roguehalla.Client.Tests
 {
     public sealed class StormInkChurchPreviewTests
     {
+        [UnityTest]
+        public IEnumerator SelectedPewFollowsItsArchitecturalSlotThroughEveryLayout()
+        {
+            try
+            {
+                EditorApplication.ExecuteMenuItem("Tools/RogueHalla/Storm Ink/Church Art Studio");
+                var stage = (StormInkChurchStage)StageUtility.GetCurrentStage();
+                var room = stage.scene.GetRootGameObjects().Single(o => o.name == "Storm Ink church");
+                var original = room.GetComponentsInChildren<ChurchArtPlacement>(true)
+                    .Single(part => part.SlotId == "pew.row0.left");
+                Selection.activeGameObject = original.gameObject;
+                for (int turn = 0; turn < 4; turn++)
+                foreach (bool reflected in new[] { false, true })
+                {
+                    stage.ShowLayout(turn, reflected);
+                    yield return null;
+                    yield return null;
+                    var current = Selection.activeGameObject;
+                    Assert.That(current, Is.Not.Null);
+                    Assert.That(current.scene, Is.EqualTo(stage.scene));
+                    var part = current.GetComponent<ChurchArtPlacement>();
+                    Assert.That(part.SlotId, Is.EqualTo("pew.row0.left"));
+                    Assert.That(AssetDatabase.Contains(part.Definition) && AssetDatabase.Contains(part.Layout), Is.True);
+                }
+            }
+            finally
+            {
+                StageUtility.GoToMainStage();
+            }
+        }
+
+        [Test]
+        public void StudioMenuOpensTheRenderedRoomAndLeavesTheAuthorSceneIntact()
+        {
+            var previous = SceneManager.GetActiveScene();
+            var originalRoots = previous.GetRootGameObjects();
+            try
+            {
+                Assert.That(EditorApplication.ExecuteMenuItem("Tools/RogueHalla/Storm Ink/Church Art Studio"), Is.True);
+                var stage = StageUtility.GetCurrentStage() as StormInkChurchStage;
+                Assert.That(stage, Is.Not.Null);
+                Assert.That(EditorSceneManager.IsPreviewScene(stage.scene), Is.True);
+                var room = stage.scene.GetRootGameObjects().Single(o => o.name == "Storm Ink church");
+                var paintings = room.GetComponentsInChildren<SpriteRenderer>(true);
+                Assert.That(paintings.Any(r => r.sprite != null && r.sprite.texture.name == "FireAxe"), "preview uses the equipped Fire body");
+                Assert.That(paintings.Any(r => r.sprite != null && r.sprite.texture.name.Contains("Bailiff")), "preview uses the opposing Bailiff");
+                Assert.That(room.GetComponentsInChildren<Collider>(true), Is.Empty, "walk-through presentation");
+            }
+            finally
+            {
+                StageUtility.GoToMainStage();
+            }
+            Assert.That(SceneManager.GetActiveScene(), Is.EqualTo(previous));
+            Assert.That(previous.GetRootGameObjects().Except(originalRoots).Select(o => o.name), Is.Empty);
+            Assert.That(originalRoots.Except(previous.GetRootGameObjects()), Is.Empty);
+        }
+
         [Test]
         public void DesignerCanOpenAnIsolatedStageForEveryChurchFacing()
         {
@@ -27,6 +88,7 @@ namespace Roguehalla.Client.Tests
                 Assert.That(map.Anchors.Length, Is.EqualTo(1));
                 Assert.That(map.Anchors[0].Front, Is.EqualTo(new[] { 4, 8, 12, 0 }[turn]));
                 Assert.That(map.Anchors[0].Entrance.Length, Is.EqualTo(5));
+                Assert.That(ChurchArtOrientation.Resolve(map.Anchors[0]).Mirrored, Is.EqualTo(reflected));
             }
         }
     }

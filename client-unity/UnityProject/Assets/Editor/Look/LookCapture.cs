@@ -238,6 +238,7 @@ namespace Roguehalla.Editor
         sealed class Site
         {
             public MapBlob Map; public MapAnchor Anchor; public string Under;   // Under: "inside" | "under" | null
+            public readonly List<MapTile> Passages = new List<MapTile>();
             public double EntX, EntY, MidX, MidY; public byte Front; public int FootX, FootY, Size;
         }
 
@@ -267,7 +268,7 @@ namespace Roguehalla.Editor
             return mid;
         }
 
-        static Site BuildSite(SceneSpec sc, int? orientation = null)
+        static Site BuildSite(SceneSpec sc, int? orientation = null, int shiftX = 0)
         {
             string kind = sc.Kind; int k = orientation ?? sc.K;
             string[] rows;
@@ -278,7 +279,7 @@ namespace Roguehalla.Editor
                 case "hall": rows = Orient(Marked("hall", r => { for (int x = 15; x <= 21; x++) r[36][x] = 'M'; }), k); break;
                 default: rows = Orient(Rows(kind), k); break;
             }
-            int size = rows.Length, fx0 = (N - size) / 2, fy0 = (N - size) / 2;
+            int size = rows.Length, fx0 = (N - size) / 2 + shiftX, fy0 = (N - size) / 2;
             if (sc.Edge) { if (k == 0) fy0 = 2; else fx0 = 2; }
             var tiles = new byte[N * N]; var terrain = new byte[N * N]; var regions = new byte[N * N];
             byte zone = ZoneOf(sc.Name);
@@ -299,6 +300,7 @@ namespace Roguehalla.Editor
                     case "church":
                         if (c == '#' || c == 'P' || c == 'G') tiles[i] = MapBlob.Wall;
                         if (c == '+') { tiles[i] = MapBlob.Low; terrain[i] = (byte)TerrainKind.Fence; }
+                        if (c == 'D' || c == 'R') s.Passages.Add(new MapTile((ushort)t.Item1, (ushort)t.Item2));
                         if (c == 'M') ent.Add(t); if (c == 'E') centre = t; break;
                     case "bog":
                         if (c == 'e') { ent.Add(t); c = ':'; }
@@ -429,8 +431,12 @@ namespace Roguehalla.Editor
             AtmosphereQuality.ApplyPreset(preset, false);
         }
 
-        internal static MapBlob BuildChurchMap(int orientation) =>
-            BuildSite(Parse("church-inside"), orientation).Map;
+        internal static MapBlob BuildChurchMap(int orientation, int shiftX, out List<MapTile> passages)
+        {
+            var site = BuildSite(Parse("church-inside"), orientation, shiftX);
+            passages = site.Passages;
+            return site.Map;
+        }
 
         internal static ArenaView BuildStudioArena(MapBlob map, GameObject root)
         {

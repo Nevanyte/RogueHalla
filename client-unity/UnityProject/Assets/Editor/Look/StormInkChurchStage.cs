@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Roguehalla.Client;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
@@ -16,6 +17,8 @@ namespace Roguehalla.Editor
     {
         // Source blueprint faces south. LookCapture encodes swap axes, then reflect X and Y.
         static readonly int[] QuarterTurns = { 0, 3, 6, 5 };
+        static readonly string[] FighterFacings = { "South", "Southeast", "East", "Northeast", "North", "Northwest", "West", "Southwest" };
+        [SerializeField] int fighterFacing = 1;
         static readonly string[] FrontLabels = { "South", "West", "North", "East" };
         [SerializeField] int front;
         [SerializeField] bool mirrored, solidRoof, overlays;
@@ -23,27 +26,41 @@ namespace Roguehalla.Editor
         GameObject root;
         ArenaView arena;
         MapBlob map;
-        Vector3 feet;
+        List<MapTile> passages;
+        Vector3 feet, bailiffFeet;
+        Footprint fireFootprint, bailiffFootprint;
         Camera lightingCamera;
+        SelfView fighter;
+        readonly List<InterpActor> opponents = new List<InterpActor>(1);
 
         [MenuItem("Tools/RogueHalla/Storm Ink/Church Art Studio")]
         static void Open()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) return;
             if (StageUtility.GetCurrentStage() is StormInkChurchStage) return;
-            EditorWindow.GetWindow<SceneView>();
+            if (!Application.isBatchMode) EditorWindow.GetWindow<SceneView>();
             StageUtility.GoToStage(CreateInstance<StormInkChurchStage>(), true);
         }
 
         [MenuItem("Tools/RogueHalla/Storm Ink/Church Art Studio", true)]
         static bool CanOpen() => !EditorApplication.isPlayingOrWillChangePlaymode;
 
-        public static MapBlob PreviewMap(int quarterTurn, bool reflect)
+        public static MapBlob PreviewMap(int quarterTurn, bool reflect) =>
+            PreviewRoom(quarterTurn, reflect, out _);
+
+        static MapBlob PreviewRoom(int quarterTurn, bool reflect, out List<MapTile> doorTiles)
         {
             if ((uint)quarterTurn >= QuarterTurns.Length) throw new ArgumentOutOfRangeException(nameof(quarterTurn));
             int orientation = QuarterTurns[quarterTurn];
             if (reflect) orientation ^= (orientation & 1) == 0 ? 2 : 4;
-            return LookCapture.BuildChurchMap(orientation);
+            // The symmetric public blueprint carries no mirror flag. Choose a legitimate translated
+            // fixture that the ordinary runtime resolves to the requested cosmetic reflection.
+            for (int shift = -8; shift <= 8; shift++)
+            {
+                var candidate = LookCapture.BuildChurchMap(orientation, shift, out doorTiles);
+                if (ChurchArtOrientation.Resolve(candidate.Anchors[0]).Mirrored == reflect) return candidate;
+            }
+            throw new InvalidOperationException("Unable to construct the requested church reflection.");
         }
 
         protected override GUIContent CreateHeaderContent() => new GUIContent("Church Art Studio");
@@ -84,7 +101,10 @@ namespace Roguehalla.Editor
 
         void Build()
         {
-            map = PreviewMap(front, mirrored);
+            map = PreviewRoom(front, mirrored, out passages);
+            var fixture = ArchetypeFixture.Read();
+            fireFootprint = fixture.Foot(fixture.assign.player.Fire);
+            bailiffFootprint = fixture.Foot(fixture.assign.mob.bailiff);
             root = new GameObject("Storm Ink church");
             SceneManager.MoveGameObjectToScene(root, scene);
             arena = LookCapture.BuildStudioArena(map, root);
@@ -108,9 +128,12 @@ namespace Roguehalla.Editor
             var bailiff = new InterpActor { Id = 2, Kind = ActorKind.RegionalMob, MobType = MobTypeId.Bailiff,
                 Faction = FactionId.Sentenced, Weapon = WeaponId.Sword, Status = ActorStatus.Alive, HpPct = 100,
                 Facing = Mathf.PI, X = (other.x + .5f) * 32f, Y = (other.y + .5f) * 32f };
-            var fire = new SelfView { Id = 1, Faction = FactionId.Fire, Weapon = WeaponId.Axe,
+            fighter = new SelfView { Id = 1, Faction = FactionId.Fire, Weapon = WeaponId.Axe,
                 Status = ActorStatus.Alive, Hp = 100, MaxHp = 100, X = x, Y = y };
-            arena.Present(new List<InterpActor> { bailiff }, fire, null, .6f);
+            bailiffFeet = ArenaView.WorldPoint(bailiff.X, bailiff.Y);
+            opponents.Clear();
+            opponents.Add(bailiff);
+            RefreshCast();
 
             var cameraObject = new GameObject("Gameplay lighting reference");
             cameraObject.transform.SetParent(root.transform, false);
@@ -121,6 +144,13 @@ namespace Roguehalla.Editor
             lightingCamera.aspect = 16f / 9f;
             arena.Follow(lightingCamera, x, y);
             ApplyAppearance();
+        }
+
+        internal void RefreshCast()
+        {
+            if (arena == null) return;
+            arena.Present(opponents, fighter, null, (2 - fighterFacing) * Mathf.PI / 4f);
+            if (lightingCamera != null) ApplyAppearance();
         }
 
         void ApplyAppearance()
@@ -136,12 +166,23 @@ namespace Roguehalla.Editor
 
         void ClearRoom()
         {
+            if (arena != null) arena.ReleasePresentation();
             if (root != null) DestroyImmediate(root);
             root = null;
             arena = null;
+            lightingCamera = null;
         }
 
-        internal void ScheduleRebuild()
+        public void ShowLayout(int quarterTurn, bool reflect)
+        {
+            if ((uint)quarterTurn >= QuarterTurns.Length) throw new ArgumentOutOfRangeException(nameof(quarterTurn));
+            if (front == quarterTurn && mirrored == reflect) return;
+            front = quarterTurn;
+            mirrored = reflect;
+            ScheduleRebuild();
+        }
+
+        void ScheduleRebuild()
         {
             EditorApplication.delayCall -= Rebuild;
             EditorApplication.delayCall += Rebuild;
@@ -150,8 +191,17 @@ namespace Roguehalla.Editor
         void Rebuild()
         {
             if (this == null || !scene.IsValid()) return;
+            var picked = Selection.activeGameObject;
+            var oldPart = picked != null && picked.scene == scene ? picked.GetComponentInParent<ChurchArtPlacement>() : null;
+            string slot = oldPart != null ? oldPart.SlotId : null;
             ClearRoom();
             Build();
+            if (slot != null)
+            {
+                foreach (var part in root.GetComponentsInChildren<ChurchArtPlacement>(true))
+                    if (part.SlotId == slot) { Selection.activeGameObject = part.gameObject; break; }
+            }
+            FrameRoom();
             SceneView.RepaintAll();
         }
 
@@ -174,17 +224,24 @@ namespace Roguehalla.Editor
             if (StageUtility.GetCurrentStage() != this || arena == null) return;
             if (overlays && Event.current.type == EventType.Repaint) DrawMapOverlay();
             Handles.BeginGUI();
-            GUILayout.BeginArea(new Rect(10, 10, 295, 178), EditorStyles.helpBox);
+            GUILayout.BeginArea(new Rect(10, 10, 295, 220), EditorStyles.helpBox);
             EditorGUI.BeginChangeCheck();
-            front = EditorGUILayout.Popup("Graveyard entrance", front, FrontLabels);
-            mirrored = EditorGUILayout.Toggle("Reflect layout", mirrored);
-            if (EditorGUI.EndChangeCheck()) ScheduleRebuild();
+            int nextFront = EditorGUILayout.Popup("Graveyard entrance", front, FrontLabels);
+            bool nextMirror = EditorGUILayout.Toggle("Reflect layout", mirrored);
+            if (EditorGUI.EndChangeCheck()) ShowLayout(nextFront, nextMirror);
             EditorGUI.BeginChangeCheck();
             solidRoof = EditorGUILayout.Toggle("Opaque roof", solidRoof);
             ambient = EditorGUILayout.Slider("Ambient light", ambient, .15f, 1.25f);
             if (EditorGUI.EndChangeCheck()) ApplyAppearance();
+            EditorGUI.BeginChangeCheck();
+            fighterFacing = EditorGUILayout.Popup("Fire facing", fighterFacing, FighterFacings);
+            if (EditorGUI.EndChangeCheck()) RefreshCast();
             overlays = EditorGUILayout.Toggle("Map and fighter footprints", overlays);
             if (GUILayout.Button("Frame at gameplay zoom")) FrameRoom();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Fire body")) Selection.activeObject = StormInkFireAxeAuthoring.Load();
+            if (GUILayout.Button("Shared axe")) Selection.activeObject = StormInkAxeArtAuthoring.Load();
+            GUILayout.EndHorizontal();
             GUILayout.EndArea();
             Handles.EndGUI();
         }
@@ -205,9 +262,49 @@ namespace Roguehalla.Editor
             using (new Handles.DrawingScope(Color.cyan))
             {
                 foreach (var tile in anchor.Entrance) DrawTile(tile.X, tile.Y);
-                foreach (var r in root.GetComponentsInChildren<SpriteRenderer>())
-                    if (r.enabled && r.name == "Faction footprint") Handles.DrawWireCube(r.bounds.center, r.bounds.size);
+                foreach (var tile in passages) DrawTile(tile.X, tile.Y);
             }
+            using (new Handles.DrawingScope(Color.yellow))
+            {
+                DrawFootprint(feet, fireFootprint);
+                DrawFootprint(bailiffFeet, bailiffFootprint);
+            }
+        }
+
+        // Read the same Rust fixture as the client hitbox tests. Resizing the painting cannot move these bounds.
+        #pragma warning disable CS0649
+        [Serializable] sealed class ArchetypeFixture
+        {
+            [Serializable] public class Player { public int Fire; }
+            [Serializable] public class Mob { public int bailiff; }
+            [Serializable] public class Assign { public Player player; public Mob mob; }
+            [Serializable] public class Hull { public string kind; public float r; public float[] foot; }
+            [Serializable] public class Row { public int id; public Hull hull; }
+            public Assign assign;
+            public Row[] archetypes;
+            public static ArchetypeFixture Read()
+            {
+                string file = Path.Combine(Application.dataPath, "../../../protocol/fixtures/archetypes_v1.json");
+                return JsonUtility.FromJson<ArchetypeFixture>(File.ReadAllText(file));
+            }
+            public Footprint Foot(int id)
+            {
+                var hull = Array.Find(archetypes, row => row.id == id).hull;
+                return hull.kind == "circle" ? Footprint.Disc(hull.r) : Footprint.Box(hull.foot[0], hull.foot[1]);
+            }
+        }
+        #pragma warning restore CS0649
+
+        static void DrawFootprint(Vector3 at, Footprint foot)
+        {
+            var half = new Vector3((float)foot.Hx * ArenaView.Scale, (float)foot.Hy * ArenaView.Scale * ArenaView.GroundSquash, 1);
+            if (foot.IsBox)
+            {
+                Handles.DrawWireCube(at, new Vector3(half.x * 2f, half.y * 2f, 0f));
+                return;
+            }
+            using (new Handles.DrawingScope(Matrix4x4.TRS(at, Quaternion.identity, half)))
+                Handles.DrawWireDisc(Vector3.zero, Vector3.forward, 1f);
         }
 
         static void DrawTile(int x, int y)
