@@ -7,7 +7,7 @@
     `capture.mts` overlays, `check-card-chain.mjs`) and merged the pinned files by content.
   - Three pinned files now differ from origin's pins, because each carries both lines' changes.
 - **Tier:** `implementer-sonnet`. Reviewer: `reviewer` (Sonnet).
-- **Base:** `BASE_SHA` on `feature/unity-rework` (the merged tree plus this brief).
+- **Base:** `packet/P-CI-GREEN-11` (P-SYNC-ORIGIN-3's merged tree `4fa0e59de` plus this brief).
 - **Route:** exactly P-CI-GREEN-10's (`docs/backlog/packets/P-CI-GREEN-10.md`; evidence
   `docs/evidence/ci-provenance-refresh-2026-11-21-determinism/README.md`, the latest worked example).
   1. Genuine recaptures in the pinned `node:22.23.4-bookworm-slim@sha256:aaa4b5ba...` linux/amd64 image, with the repo
@@ -56,5 +56,5 @@
 - `node tools/provenance/check-card-chain.mjs` exits 0 (`failureCount: 0`).
 - `bash tools/card-catalog-fixtures/capture.sh --check`, `tools/card-runtime-fixtures/capture.sh --check` and
   `tools/card-runtime-witness-fixtures/capture.sh --check` pass, each with its exit status recorded.
-- `scripts/gate.sh --quick --allow-protected --regen-fixtures --base BASE_SHA` passes.
+- `scripts/gate.sh --quick --allow-protected --regen-fixtures --base e180967ac` passes.
 - The evidence README is written, and the AGENTS.md hand-off report is in this file.
