@@ -94,6 +94,9 @@ namespace Roguehalla.Client
         // Resolve the entire art entry so its sprite, lighting, draw order, fade and overlap bounds stay together.
         static string RenderArtKey(Placement placement)
         {
+            if (placement.Art == "fire.bush")
+                return RegionPropArt.TryGet("fire.bush", out var fireBush) && fireBush.UsesAuthoredTexture
+                    ? "fire.bush" : "plague.bush";
             if (placement.Shipped && placement.Art == "frost.pine2" &&
                 DecorationKinds.TryGet(placement.Kind, out var kind) && kind.Name == "frost.spire")
                 return RegionPropArt.TryGet("frost.spire", out var spire) && spire.UsesAuthoredTexture
@@ -241,7 +244,7 @@ namespace Roguehalla.Client
             {
                 int i = y * map.W + x; if (bushes[i] == 0) continue;
                 int region = map.Regions != null && map.Regions.Length == map.W * map.H ? map.Regions[i] : 0;
-                string art = region == 4 ? "frost.bush" : region == 5 ? "holy.shrub" : "plague.bush";
+                string art = region == 1 ? "fire.bush" : region == 4 ? "frost.bush" : region == 5 ? "holy.shrub" : "plague.bush";
                 list.Add(new Placement { Art = art, X = x + .5f, Y = y + .5f, Scale = 1f, Flip = ((x * 7 + y * 13) & 1) == 1, Tx = x, Ty = y });
             }
         }
@@ -303,6 +306,12 @@ namespace Roguehalla.Client
                 float scaleX = pl.Scale, scaleY = pl.Scale;
                 bool flip = pl.Flip;
                 Color tint = Color.white;
+                if (renderArtKey == "fire.bush" && art.UsesAuthoredTexture)
+                {
+                    float size = Mathf.Lerp(.94f, 1.06f, RegionNoise.Hash01(pl.Tx, pl.Ty, 397));
+                    scaleX *= size;
+                    scaleY *= size;
+                }
                 bool fern = pl.Art == "plague.fern";
                 if (art.UsesAuthoredTexture && (fern || pl.Art == "plague.rubble"))
                 {

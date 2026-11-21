@@ -18,7 +18,7 @@ P-STORM-FIRE-ROCK-FIELD-1 supplies the accepted volcanic field. Use the existing
 
 ## Exclusive write scope
 
-The painting, importer, editable definition and metadata above, the Fire cover lookup in RegionProps and RegionPropArt, focused editor tests, this brief, its backlog row and the Fire concealment scrub visual check.
+The painting, importer, editable definition and metadata above, the Fire cover lookup in RegionProps and the Fire section of RegionPropArt (extracted to RegionPropArt.Fire.cs with Unity metadata), focused editor tests, this brief, its backlog row and the Fire concealment scrub visual check.
 
 ## Contracts and references
 
