@@ -64,7 +64,7 @@ namespace Roguehalla.Client
                 float value = wash.grayscale;
                 Color stone = Color.Lerp(new Color(value, value, value * 1.035f), wash, .40f);
                 float footsteps = Mathf.Clamp01(1f - 2f * Mathf.Abs(u - .5f));
-                stone *= .94f + wear * (.035f + .135f * footsteps);
+                stone *= 1f + wear * (.14f + .10f * footsteps);
 
                 // Let the outer stones meet the approved slate field through a broken, feathered joint.
                 float join = Mathf.Min(width * .24f, .32f) * (.78f + .42f * value);
