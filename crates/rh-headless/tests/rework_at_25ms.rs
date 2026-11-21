@@ -201,7 +201,11 @@ fn a_rework_world_at_25_ms_restores_every_checkpoint() {
     // carry the Wish restore lattice; a Wish lattice left at the legacy 50 ms refuses seed 4's checkpoint at step 2613
     // (measured on this branch).
     let (mut wishes, mut odd) = (0, 0);
-    for seed in 1u64..=8 {
+    // P-SYNC-ORIGIN-3-fix: seed 5 is replaced by 9. With origin's Top 25 quests on, seed 5's match ends at step 1670
+    // (every bot but one dies to mobs about 30 s into the raid), and it ends early under origin's own live config too
+    // (augments and elites Legacy, quests on: step 1599), so the short match is the quest trajectory, not the rework.
+    // Seed 9 is the next seed after the set that reaches the floor with `live_content()` (step 3117).
+    for seed in [1u64, 2, 3, 4, 6, 7, 8, 9] {
         let r = run(seed);
         wishes += r.wishes;
         odd += r.odd_step_wishes;
