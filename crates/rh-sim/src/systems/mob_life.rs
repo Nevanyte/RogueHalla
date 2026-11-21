@@ -578,6 +578,11 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
             .map_or(a.mob_type, |c| c.mob_type);
         let paid = camp_buff(w, a.camp).unwrap_or(normal);
         for &helper in &a.contributors {
+            // P-SYNC-ORIGIN-3-fix: the share follows the quest turret rule. A credited killer whose kill would skip the
+            // normal kill's stat (`skip_stat`: only remote-turret hits) gets no share; every other contributor does.
+            if a.skip_stat && helper == id {
+                continue;
+            }
             crate::modifiers::grant_mob_stat(
                 k,
                 w,
@@ -685,6 +690,8 @@ mod mob_lifecycle_tests;
 mod pay_tests;
 #[cfg(test)]
 mod share_tests;
+#[cfg(test)]
+mod turret_share_tests;
 
 pub(crate) fn reap(cx: &mut Cx) {
     if !mob_ai::enabled(cx.w) {

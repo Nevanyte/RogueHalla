@@ -199,7 +199,8 @@ pub(crate) fn resolve_splashes(w: &mut crate::state::World) {
         for i in 0..w.mobs.len() {
             let m = &w.mobs[i];
             let id = m.core.id;
-            if id == req.victim {
+            // Legacy splashOverkill skips quest givers (cardHooks.ts:252, `isQuestGiver(c)`); P-SYNC-ORIGIN-3-fix.
+            if id == req.victim || m.kind == crate::mob_runtime::MobKind::QuestGiver {
                 continue;
             }
             if crate::status_runtime::untargetable(&m.core.statuses.instances, w.server_time) {
@@ -243,3 +244,7 @@ pub(crate) fn resolve_splashes(w: &mut crate::state::World) {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "splash_giver_tests.rs"]
+mod splash_giver_tests;
