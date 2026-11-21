@@ -335,7 +335,7 @@ is **not implemented**; the gain figures are **estimates**.
 | P-STORM-HOLY-OASIS-SHRUB-1 | Painted Holy shrubs in oasis groves and concealment patches | P-STORM-HOLY-OASIS-SAND-1 | Art approved | [spec](packets/P-STORM-HOLY-OASIS-SHRUB-1.md) |
 | P-STORM-FROST-PINES-1 | Snow-loaded spruce and wind-trained pine at the Frost lakeshore | P-STORM-HOLY-OASIS-SHRUB-1 | Art approved | [spec](packets/P-STORM-FROST-PINES-1.md) |
 | P-STORM-FIRE-ROCK-FIELD-1 | Loose scree and fractured bedrock at the volcano | P-STORM-FROST-PINES-1 | Art approved | [spec](packets/P-STORM-FIRE-ROCK-FIELD-1.md) |
-| P-STORM-FIRE-THORN-COVER-1 | Charcoal thorn scrub on volcanic concealment tiles | P-STORM-FIRE-ROCK-FIELD-1 | In progress | [spec](packets/P-STORM-FIRE-THORN-COVER-1.md) |
+| P-STORM-FIRE-THORN-COVER-1 | Charcoal thorn scrub on volcanic concealment tiles | P-STORM-FIRE-ROCK-FIELD-1 | Web reviewed, awaiting owner feedback | [spec](packets/P-STORM-FIRE-THORN-COVER-1.md) |
 | P-UI-9 | Settings, accessibility, input rebinding, audio decision | P-UNITY-1 | Coarse | client/src/settings.ts, ui/settingsPanel.ts |
 | P-UI-10 | Unity batchmode tests + build in CI | P-UNITY-1, P-CI-1 | Coarse | none |
 
