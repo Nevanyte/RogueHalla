@@ -333,9 +333,7 @@ pub(crate) fn validate(
                                     && full_at >= first_cast + prior_min + recharge
                                     && (prior_min < recharge
                                         || spend.at >= first_cast + recharge
-                                        || full_at
-                                            <= spend.at - tick_ms
-                                                + (prior_max + recharge))))
+                                        || full_at <= spend.at - tick_ms + (prior_max + recharge))))
                     };
                     // The card producer: a cut only lowers the untrimmed spend clock, never above it, and the
                     // per-window budget bounds how far (a necessary equation, not an exact replay of the cuts).
@@ -343,8 +341,7 @@ pub(crate) fn validate(
                     // shares of the cooldown, off it.
                     let max_cut = max_trim_cut(numbers, budget, w.server_time - spend.at);
                     let on_lattice = share_rule(numbers)
-                        || (full_at % lattice == 0.
-                            && stocks.wish_ready_at % tick_ms == 0.);
+                        || (full_at % lattice == 0. && stocks.wish_ready_at % tick_ms == 0.);
                     let trimmed_spend = trimmed
                         && (if def.charges == 1 {
                             full_at <= spend.at + recharge

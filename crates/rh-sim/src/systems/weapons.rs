@@ -145,7 +145,16 @@ fn step_weapon(cx: &mut Cx, ix: FighterIx) {
             packet.raw *= bonus;
             range_mult = bonus;
         }
-        start_attack(p, now, cx.k.tick_ms(), cx.ev, weapon, tm, packet, range_mult);
+        start_attack(
+            p,
+            now,
+            cx.k.tick_ms(),
+            cx.ev,
+            weapon,
+            tm,
+            packet,
+            range_mult,
+        );
         let id = p.id;
         if planted {
             crate::cards::spend_plant(&mut cx.w.players[ix.slot()], now);
