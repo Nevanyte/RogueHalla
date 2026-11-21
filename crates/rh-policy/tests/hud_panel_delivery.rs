@@ -67,8 +67,8 @@ fn identities_move_for_the_panel() {
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        30,
-        "policy projection gains the panel (20), then codes 23-27 (21, P-WIRE17-HUD-2c); 22: P-WIRE17-HUD-3; 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 29: P-AUG-BOTS-1; 30: P-AUG-NATIVE-5"
+        31,
+        "policy projection gains the panel (20), then codes 23-27 (21, P-WIRE17-HUD-2c); 22: P-WIRE17-HUD-3; 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 29: P-AUG-BOTS-1; 30: P-AUG-NATIVE-5; 27 on origin: P-COLISEUM-HEALS-2; 31: P-SYNC-ORIGIN-2 (protocol 22)"
     );
 }
 

@@ -6,6 +6,7 @@ mod frames;
 mod giver;
 mod profiles;
 mod snapshot;
+mod tick_rate;
 
 use super::*;
 use rh_headless::{Agent, AgentSpec, Env, EnvConfig};

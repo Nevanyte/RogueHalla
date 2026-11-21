@@ -3,6 +3,10 @@
 //! with ProtocolMismatch before admission, and a protocol-18 client is welcomed with a protocol-18 Welcome.
 //! P-NET-DRAWAHEAD-1a moved the server to protocol 19 (the walk hint): a protocol-18 client is now the refused one and a
 //! protocol-19 client is welcomed with a protocol-19 Welcome.
+//! P-COLISEUM-HEALS-2 moved the server to protocol 20 (the heal prop): a protocol-19 client is now the refused one and a
+//! protocol-20 client is welcomed with a protocol-20 Welcome (origin's numbering; P-TICK-3 then took 21).
+//! P-SYNC-ORIGIN-2 merged both lines as protocol 22: every client of 17 to 21 is refused, and a client of this build's
+//! protocol is welcomed with a Welcome of it.
 use futures_util::{SinkExt, StreamExt};
 use rh_protocol::{ClientMsg, RejectCode, ServerMsg, SnapshotTracker, PROTOCOL_VERSION};
 use rh_server::director::{Director, DirectorConfig};
@@ -131,6 +135,27 @@ async fn a_protocol_18_hello_is_refused_with_protocol_mismatch() {
         "a protocol-18 Hello gets ProtocolMismatch naming this build's protocol and 18, got {}",
         summary(&got)
     );
+}
+
+/// P-SYNC-ORIGIN-2: protocol 20 (the local P-SYNC-ORIGIN-1 wire, and origin's heal props) and 21 (origin's tick rate)
+/// are both refused by a protocol-22 server.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn protocol_20_and_21_hellos_are_refused_with_protocol_mismatch() {
+    let url = start().await;
+    for old in [20u16, 21] {
+        let got = answer_to_hello(&url, old, &format!("old{old}")).await;
+        let want = format!("server speaks protocol {PROTOCOL_VERSION}, client {old}");
+        let refused = matches!(
+            &got,
+            Some(ServerMsg::Reject { code: RejectCode::ProtocolMismatch, reason })
+                if reason.contains(&want)
+        );
+        assert!(
+            refused,
+            "a protocol-{old} Hello gets ProtocolMismatch naming this build's protocol and {old}, got {}",
+            summary(&got)
+        );
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

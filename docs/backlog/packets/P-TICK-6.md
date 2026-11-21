@@ -49,3 +49,10 @@ Low in code, high in consequence: a staging deploy needs the owner's approval pe
 - Measure on a quiet machine; earlier runs on a loaded host read several times slower.
 
 ## Notes from previous attempts
+
+## Carried from the P-TICK-5 review (reviewer-opus LAND, 2026-11-20)
+- `src/bin/densitybench.rs` has no `--tick-ms` flag (`Opts::tick_ms` fixed at 50): add it to measure 25 ms.
+- `bot_fill.rs:22` `BOT_PATH_BUDGET_PER_TICK` (8) is per step: twice the bot path calls per second at 25 ms. Measure.
+- `MAX_CATCHUP` stays 3 steps (75 ms at 25 ms): watch `dropped_steps` in the measurement.
+- Unity client lines still assuming 50 ms (`MatchClient.cs:290`, `RemoteDraw.cs:245`) must be fixed (P-TICK-4)
+  before the flip; check the 40 Hz render delay stays within `RENDER_DELAY_ALLOWANCE_MS` (150 ms).

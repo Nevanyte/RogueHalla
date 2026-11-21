@@ -35,6 +35,8 @@ pub struct CollectionPublisher {
     /// P-AUG-NATIVE-5: the quantized Marked Man rows the client holds (empty from every Welcome).
     marked: Vec<rh_protocol::WireMarked>,
     last_forced: Option<u32>,
+    /// P-TICK-3-fix: the connection's ms per tick ([`CollectionPublisher::set_tick_ms`]), `None` for 50.
+    tick_ms: Option<u32>,
 }
 
 pub struct PendingState {
@@ -135,6 +137,9 @@ fn props(observation: &Observation) -> Result<WireProps, EncodeError> {
                         quest: rh_protocol::QuestHandle::new(quest.get())
                             .expect("native quest handle"),
                         fetch: *fetch,
+                    },
+                    PropKind::Heal { ready_at } => WirePropKind::Heal {
+                        ready_at: *ready_at,
                     },
                 },
             })
@@ -706,15 +711,30 @@ fn arena(observation: &Observation) -> Option<WireArena> {
 }
 
 impl CollectionPublisher {
+    /// A new connection to the same room: every baseline is dropped, the rate is kept.
     pub fn reconnect(&mut self) {
+        let tick_ms = self.tick_ms;
         *self = Self::default();
+        self.tick_ms = tick_ms;
     }
 
-    /// The same throttle controls capability renewal and the matching forced replacement.
+    /// The connection's ms per tick ([`rh_protocol::TICK_MS`] unless set).
+    pub fn tick_ms(&self) -> u32 {
+        self.tick_ms.unwrap_or(rh_protocol::TICK_MS)
+    }
+
+    /// Sets the connection's rate, where its Welcome is sent; another than 50 or 25 ms is refused, changing nothing.
+    pub fn set_tick_ms(&mut self, tick_ms: u32) -> Result<(), EncodeError> {
+        self.tick_ms = Some(rh_protocol::checked_tick_ms(tick_ms)?);
+        Ok(())
+    }
+
+    /// The same throttle controls capability renewal and the matching forced replacement: one per 1000 ms at the rate.
     pub fn resync_due(&self, tick: u32, requested: bool) -> bool {
         requested
             && self.last_forced.is_none_or(|last| {
-                tick.saturating_sub(last) >= rh_protocol::delta::MIN_FORCED_FULL_TICKS
+                tick.saturating_sub(last)
+                    >= rh_protocol::delta::min_forced_full_ticks(self.tick_ms())
             })
     }
 

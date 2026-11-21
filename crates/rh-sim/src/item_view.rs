@@ -10,7 +10,12 @@ use crate::{
 use std::{num::NonZeroU32, sync::Arc};
 
 pub const MAX_VISIBLE_PROPS: usize = 512;
+/// How long a retired handle still resolves, in legacy 50 ms ticks (1000 ms); [`grace`] counts it in the match's steps.
 pub(crate) const GRACE: u32 = 20;
+/// [`GRACE`] in steps of the match: it keeps 1000 ms at every step (ADR 0029 decision 3).
+pub(crate) fn grace(sim: &Sim) -> u32 {
+    sim.k.steps_of_legacy_ticks(GRACE)
+}
 
 /// Zero is malformed on every public intake.
 #[derive(
@@ -64,6 +69,11 @@ pub enum PropKind {
     QuestItem {
         quest: crate::quest_view::QuestHandle,
         fetch: bool,
+    },
+    /// A grand-coliseum heal pickup (P-COLISEUM-HEALS-2), with the server time it is available again (0: now). Public:
+    /// position and readiness only; never the focus (it holds no item).
+    Heal {
+        ready_at: u32,
     },
 }
 
@@ -314,10 +324,6 @@ impl ItemObserver {
         let wards = crate::vision::WardSight::of_sim(sim);
         let mut best: Option<(usize, f64, Option<WeaponId>)> = None;
         for c in sim.containers() {
-            // P-COLISEUM-HEALS-1: not on the wire yet (P-COLISEUM-HEALS-2): never offered, never counted.
-            if c.kind == ContainerKind::Heal {
-                continue;
-            }
             let quest = if c.kind == ContainerKind::Quest {
                 let Some((quest_id, fetch)) = eligible_quest_item(sim, me, c) else {
                     continue;
@@ -365,8 +371,11 @@ impl ItemObserver {
                     ready_at: ready_ms(c.ready_at),
                 },
                 ContainerKind::WindEmblem => PropKind::WindEmblem,
-                // Skipped above, before the visible-prop count.
-                ContainerKind::Heal => continue,
+                // P-COLISEUM-HEALS-2: public position and clock (the cannon's clamp); it holds no item, so the focus rule
+                // below never picks it.
+                ContainerKind::Heal => PropKind::Heal {
+                    ready_at: ready_ms(c.ready_at),
+                },
             };
             let cue = PropCue {
                 x: position(c.at.x)?,
@@ -498,7 +507,7 @@ impl ItemObserver {
                 .iter()
                 .map(|c| &c.cue)
                 .eq(self.rows.iter().map(|r| &r.cue))
-                || (!self.scratch.is_empty() && tick - self.issued >= GRACE);
+                || (!self.scratch.is_empty() && tick - self.issued >= grace(sim));
         }
         if changed && self.next + self.scratch.len() as u64 > u32::MAX as u64 + 1 {
             return Err(OfferError::HandlesExhausted);
@@ -585,6 +594,7 @@ impl ItemObserver {
             quests,
             observer: self,
             tick,
+            grace: grace(sim),
             changed,
             absent,
         })
@@ -638,7 +648,7 @@ impl ItemObserver {
                 return Err(Reject::InvalidTarget);
             }
             let id = if u64::from(actor.0) >= crate::actor_refs::NPC_REFERENCE_BASE {
-                self.actor_refs.resolve(sim.tick(), actor)
+                self.actor_refs.resolve(sim, actor)
             } else {
                 self.actors.binary_search(&actor).is_ok().then_some(actor)
             };
@@ -688,7 +698,7 @@ impl ItemObserver {
                         .filter(|b| {
                             sim.tick()
                                 .checked_sub(b.tick)
-                                .is_some_and(|age| age < GRACE)
+                                .is_some_and(|age| age < grace(sim))
                         })
                         .find_map(|b| b.bindings.lookup(handle))
                 })?;
@@ -759,6 +769,7 @@ pub struct PreparedOffer<'a> {
     quests: crate::quest_view::QuestStage,
     observer: &'a mut ItemObserver,
     tick: u32,
+    grace: u32,
     changed: bool,
     absent: bool,
 }
@@ -788,7 +799,7 @@ impl PreparedOffer<'_> {
         }
         if s.sampled != Some(self.tick) {
             for old in &mut s.retired {
-                if self.tick - old.tick >= GRACE {
+                if self.tick - old.tick >= self.grace {
                     old.bindings.ids.clear();
                 }
             }
@@ -1300,3 +1311,7 @@ mod tests {
         assert_eq!(sample(&s, &mut a).inventory.unwrap().slots, [None, None]);
     }
 }
+
+#[cfg(test)]
+#[path = "item_view/tick_rate_tests.rs"]
+mod tick_rate_tests;

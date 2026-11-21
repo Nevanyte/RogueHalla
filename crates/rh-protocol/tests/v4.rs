@@ -293,7 +293,7 @@ fn an_empty_state_retains_the_snapshot_and_unknown_keys_are_refused() {
 #[test]
 fn undefined_mask_bits_are_refused_never_skipped() {
     // A Full head with bit 25, a Full actor mask with bit 16, a delta head with bit 29, a delta actor mask with bit 19
-    // (protocol 19: the first bits no field uses).
+    // (protocol 19, unchanged in 20: the first bits no field uses).
     let full_head_bit = [0x83, 1, 0, 0x80, 0x80, 0x80, 0x10, 0];
     assert_eq!(
         ServerMsg::decode(&full_head_bit),

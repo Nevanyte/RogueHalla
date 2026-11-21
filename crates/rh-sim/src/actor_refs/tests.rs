@@ -4,6 +4,9 @@ use crate::{
     TileMap, Vec2, WeaponId,
 };
 fn world() -> Sim {
+    world_at(50)
+}
+fn world_at(tick_ms: u32) -> Sim {
     let map = serde_json::from_str(include_str!("../../tests/fixtures/mob-pve-map.json")).unwrap();
     let (w, h, tiles, layers) = crate::mapdata::MapExport {
         format: "rh-map/2".into(),
@@ -52,6 +55,7 @@ fn world() -> Sim {
             quests: false,
             consumables: true,
             mob_mode: crate::mob_runtime::MobMode::Pve,
+            tick_ms,
             ..Default::default()
         },
         arena,
@@ -359,4 +363,43 @@ fn all_actor_fields_use_one_projection_and_reference_bounds_fail_closed() {
         ActorRefs::default().stage(&s, &Observation::default()),
         Err(crate::OfferError::ActorReferenceCollision)
     ));
+}
+
+/// P-TICK-1b-fix (ADR 0029 decision 3): a retired actor reference resolves for 1000 ms at every step, so 750 ms after its
+/// retirement it still resolves at 25 ms (30 steps) as at 50 ms (15 steps), and at 1000 ms it does not.
+#[test]
+fn a_retired_actor_reference_resolves_for_1000_ms_at_both_rates() {
+    for tick_ms in [50u32, 25] {
+        let mut s = world_at(tick_ms);
+        assert_eq!(s.tick_ms(), tick_ms);
+        let mut o = ItemObserver::new(PlayerId(1));
+        let first = observe(&s, &mut o);
+        let reference = first
+            .visible
+            .iter()
+            .find(|a| a.kind == crate::observe::ActorKind::Regional)
+            .unwrap()
+            .id;
+        let target = |s: &Sim, o: &ItemObserver| {
+            o.resolve(s, PublicCommand::Target { actor: reference })
+                .unwrap()
+        };
+        let command = target(&s, &o);
+        // The next tick's sample issues a new block and retires the one that holds `reference`.
+        s.step();
+        observe(&s, &mut o);
+        let steps = |ms: u32| ms / tick_ms;
+        for _ in 0..steps(750) {
+            s.step();
+        }
+        assert_eq!(target(&s, &o), command, "{tick_ms} ms: retired 750 ms ago");
+        for _ in steps(750)..steps(1000) {
+            s.step();
+        }
+        assert_eq!(
+            target(&s, &o),
+            crate::validate(RawCommand::MissingTarget).unwrap(),
+            "{tick_ms} ms: retired 1000 ms ago"
+        );
+    }
 }

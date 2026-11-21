@@ -1,6 +1,6 @@
 //! The evolving match state: players and their runtime, and the arena's run bookkeeping.
 
-use crate::constants::{LEGACY_TICK_MS, MAX_PLAYERS, MAX_REWIND_MS, TICK_MS};
+use crate::constants::{LEGACY_TICK_MS, MAX_PLAYERS, MAX_REWIND_MS};
 use crate::content::{FactionId, WeaponId};
 use crate::events::Event;
 use crate::fighter::{
@@ -51,7 +51,7 @@ const fn shortest_tick_ms() -> f64 {
 
 /// How many rewind samples a fighter keeps: the window [`MAX_REWIND_MS`] + one step (see [`History::record_at_step`])
 /// holds at most `window / step + 1` samples one step apart; one more is slack. Sized for every allowed step (ADR 0029):
-/// the widest window (`MAX_REWIND_MS` + the legacy 50 ms step, which [`History::record`] trims to) over the shortest
+/// the widest window (`MAX_REWIND_MS` + the legacy 50 ms step, a 50 ms match's cutoff) over the shortest
 /// spacing (25 ms). At 50 ms the ring simply has room to spare; the trim is by time, so which samples it keeps (and so
 /// every checkpoint and hash) does not depend on the capacity. Derived from the constants so a change to the rewind
 /// window or the allowed steps resizes the ring instead of silently dropping samples (`History::push` and
@@ -138,16 +138,11 @@ impl History {
             self.len -= 1;
         }
     }
-    /// [`History::record_at_step`] with the legacy 50 ms step. P-TICK-1b moves its caller (`systems/movement.rs`) to the
-    /// match's own step; until then a 25 ms match keeps one older sample than it needs (the ring has room for it).
-    pub fn record(&mut self, now: f64, x: f64, y: f64) {
-        self.record_at_step(now, x, y, TICK_MS);
-    }
     /// Records the fighter's position at `now` and drops what the rewind window no longer needs: the oldest samples older
     /// than `now - MAX_REWIND_MS - tick_ms` (`tick_ms`: the match's step, `SimConfig::tick_ms`), always keeping two (legacy
     /// `recordHistory`, `packages/server/src/sim/movement.ts:101-105`: push, then trim while longer than two). The trim
     /// runs first here, so the ring never holds more than the window; the resulting sequence is the same.
-    pub fn record_at_step(&mut self, now: f64, x: f64, y: f64, tick_ms: f64) {
+    pub(crate) fn record_at_step(&mut self, now: f64, x: f64, y: f64, tick_ms: f64) {
         debug_assert!(
             tick_ms >= shortest_tick_ms() && tick_ms <= LEGACY_TICK_MS,
             "a step the ring is not sized for"
@@ -1337,6 +1332,7 @@ impl World {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::TICK_MS;
 
     /// The recorder as it was: push, then trim from the front while longer than two and the oldest is out of the window.
     fn reference(h: &mut Vec<Sample>, now: f64, x: f64, y: f64) {
@@ -1361,7 +1357,7 @@ mod tests {
                     1.0
                 };
             let (x, y) = (n as f64 * 0.37, 1000.0 - n as f64 * 0.11);
-            ring.record(now, x, y);
+            ring.record_at_step(now, x, y, TICK_MS);
             reference(&mut vec, now, x, y);
             assert_eq!(ring.iter().collect::<Vec<_>>(), vec, "tick {n}");
             assert_eq!(
@@ -1388,7 +1384,7 @@ mod tests {
         // ask for is dropped.
         let mut ring = History::default();
         for n in 0..100u32 {
-            ring.record(TICK_MS * n as f64, 0.0, 0.0);
+            ring.record_at_step(TICK_MS * n as f64, 0.0, 0.0, TICK_MS);
         }
         let want = ((MAX_REWIND_MS + TICK_MS) / TICK_MS) as usize + 1;
         assert_eq!(ring.len(), want);

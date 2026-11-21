@@ -551,7 +551,8 @@ fn a_map_without_dressing_keeps_today_s_bytes() {
 }
 
 // Moved with the version field at protocol 18: v17/v18 Welcomes differ only in 811100 -> 811200 (protocol_18_stamp.rs);
-// at protocol 19 (P-WIRE19-A; P-NET-DRAWAHEAD-1a on origin): 811200 -> 811300; at 20 (P-SYNC-ORIGIN-1): 811300 -> 811400.
+// at protocol 19 (P-WIRE19-A; P-NET-DRAWAHEAD-1a on origin): 811200 -> 811300; at 20 (P-SYNC-ORIGIN-1; P-COLISEUM-HEALS-2
+// on origin): 811300 -> 811400; at 21 on origin (P-TICK-3): 811400 -> 811500; at 22 (P-SYNC-ORIGIN-2): -> 811600.
 const WELCOME_LEN: usize = 1832;
 const WELCOME_DIGEST: u64 = 0xcdba_df5a_d8af_48e4;
 const SHIPPED_LEN: usize = 2324;

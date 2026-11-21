@@ -7,13 +7,17 @@ namespace Roguehalla.Net.Tests
 {
     /// <summary>P-PROTOCOL-18-STAMP-1 oracle (client): the codec speaks protocol 18 (owner approval 9, 2026-11-12), decodes the
     /// v18 golden vectors as protocol 18, and a session refuses a protocol-17 server's Welcome while accepting an 18 one.
-    /// P-NET-DRAWAHEAD-1a moved the codec to protocol 19 (the walk hint): an 18 Welcome is now the refused one.</summary>
+    /// P-NET-DRAWAHEAD-1a moved the codec to protocol 19 (the walk hint): an 18 Welcome is now the refused one.
+    /// P-COLISEUM-HEALS-2 moved it to protocol 20 (the heal prop): a 19 Welcome is now the refused one.
+    /// P-TICK-3 moved it to protocol 21 (snapshot time from the Welcome rate): a 20 Welcome is now the refused one.
+    /// P-SYNC-ORIGIN-2 merged both lines as protocol 22: every Welcome of 17 to 21 is refused.</summary>
     public class Protocol18StampTests
     {
         /// <summary>P-WIRE19-A moved the codec to 19; the v18 history below stays.</summary>
         [Test] public void CodecSpeaksProtocol18OrLater() { Assert.GreaterOrEqual((int)Wire.ProtocolVersion, 18); }
-        /// <summary>P-NET-DRAWAHEAD-1a pinned 19; P-SYNC-ORIGIN-1 merged both protocol-19 wires as 20.</summary>
-        [Test] public void CodecSpeaksProtocol20() { Assert.AreEqual(20, Wire.ProtocolVersion); }
+        /// <summary>P-NET-DRAWAHEAD-1a pinned 19; P-SYNC-ORIGIN-1 merged both protocol-19 wires as 20; origin took 20 and 21
+        /// (heal props, tick rate); P-SYNC-ORIGIN-2 merged both lines as 22.</summary>
+        [Test] public void CodecSpeaksProtocol22() { Assert.AreEqual(22, Wire.ProtocolVersion); }
 
         [Test]
         public void V18FixtureExistsAndItsHelloSays18()
@@ -42,10 +46,11 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
-        public void AProtocol18WelcomeIsRefusedAndA19WelcomeAccepted()
+        public void AProtocol21WelcomeIsRefusedAndA22WelcomeAccepted()
         {
-            // P-WIRE19-A refused 17, P-NET-DRAWAHEAD-1a refused 18; P-SYNC-ORIGIN-1 (protocol 20) refuses both and 19.
-            foreach (ushort oldProtocol in new ushort[] { 17, 18, 19 })
+            // P-WIRE19-A refused 17, P-NET-DRAWAHEAD-1a refused 18; P-SYNC-ORIGIN-1 (protocol 20) refuses both and 19;
+            // P-SYNC-ORIGIN-2 (protocol 22) refuses 20 (both lines' 20s) and origin's 21 as well.
+            foreach (ushort oldProtocol in new ushort[] { 17, 18, 19, 20, 21 })
             {
                 var old = new FakeTransport(); var sOld = NewSession(old);
                 sOld.Connect(); old.Open();

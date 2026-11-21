@@ -274,6 +274,7 @@ namespace Roguehalla.Net.Protocol
                                 case PropKind.WindEmblem: break;
                                 case PropKind.Cannon: row.ReadyAt = r.Varint(); break;
                                 case PropKind.QuestItem: row.QuestRef = ReadQuestHandle(ref r); row.QuestFetch = QuestFlag(ref r, "flag"); break;
+                                case PropKind.Heal: row.ReadyAt = r.Varint(); break; // protocol 20: the cannon's layout, kind 8
                                 default: throw new DecodeException(DecodeError.BadField, "prop kind");
                             }
                             props.Rows[j] = row;

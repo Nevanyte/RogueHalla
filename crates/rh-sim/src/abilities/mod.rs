@@ -705,7 +705,7 @@ pub fn visit_content(mut word: impl FnMut(u64)) {
 pub(crate) fn validate_config(config: &crate::SimConfig) -> Result<(), &'static str> {
     if !config.wish_lock_ms.is_finite()
         || config.wish_lock_ms < 0.
-        || config.wish_lock_ms > f64::from(u32::MAX) * crate::constants::TICK_MS
+        || config.wish_lock_ms > f64::from(u32::MAX) * f64::from(config.tick_ms)
     {
         return Err("invalid Wish lock");
     }

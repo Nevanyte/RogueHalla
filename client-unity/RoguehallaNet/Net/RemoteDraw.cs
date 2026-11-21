@@ -242,7 +242,7 @@ namespace Roguehalla.Net
                 nT = sN.ServerMs; nX = N.X; nY = N.Y;
                 walkDir = N.WalkDir; walkTicks = N.WalkTicks;
                 int iP = sP != null ? Find(sP.Actors, sortP, a.Id) : -1;
-                double maxGap = 2 * Math.Max(TickMs, Wire.TickMs);
+                double maxGap = 2 * TickMs;
                 if (iP >= 0)
                 {
                     ref readonly WireActor P = ref sP.Actors[iP];

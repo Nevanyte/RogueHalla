@@ -12,6 +12,7 @@ pub(crate) fn damage(
     ix: FighterIx,
     ti: FighterIx,
     now: f64,
+    tick_ms: f64,
     performed: &[PerformedAttack],
     ledger: &mut Vec<Entry>,
 ) {
@@ -21,8 +22,8 @@ pub(crate) fn damage(
     let id = p.id;
     let victim = t.id;
     let mult = content::weapon(weapon).dps_mult;
-    let paused = TICK_MS.min((p.signature.dot_paused_until - (now - TICK_MS)).max(0.));
-    let secs = (TICK_MS - paused) / 1000.;
+    let paused = tick_ms.min((p.signature.dot_paused_until - (now - tick_ms)).max(0.));
+    let secs = (tick_ms - paused) / 1000.;
     let chill = p.signature.chill;
     let dot_mult = p.modifiers.dot_mult();
     let burn = w.signature_damage(ix, FIRE_BURN_DPS, false) * (mult * secs * chill);

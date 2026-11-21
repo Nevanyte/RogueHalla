@@ -47,13 +47,33 @@ pub use self::tracker::{DeltaError, SnapshotTracker, TrackError};
 pub(crate) use self::write::{message_check, message_len, write_message};
 use self::{actor::*, diff::*, encoder::*, read::*};
 
-/// Most ticks a delta's base may be behind it (a writer that skipped more sends a Full frame instead).
-pub const MAX_DELTA_AGE: u32 = 64;
+/// Longest time (ms) a delta's base may be behind it: [`max_delta_age`] ticks at the connection's rate (a writer that skipped
+/// more sends a Full frame instead). P-TICK-3 keeps the wall-clock bound, so 40 Hz allows twice the ticks of 20 Hz.
+pub const MAX_DELTA_AGE_MS: u32 = 3200;
 
-/// Fewest ticks between two Full frames that a resync request forced (20 ticks = 1 s at 20 Hz). A request that arrives sooner
-/// is not dropped: it stays pending and the Full frame goes out when the interval ends, so a client that asks once per burst
-/// of refusals always gets its Full frame, and a client that asks in a flood costs the writer one Full per interval.
-pub const MIN_FORCED_FULL_TICKS: u32 = 20;
+/// Most ticks a delta's base may be behind it at 20 Hz ([`max_delta_age`] of [`TICK_MS`]): 64.
+pub const MAX_DELTA_AGE: u32 = max_delta_age(TICK_MS);
+
+/// Most ticks a delta's base may be behind it on a connection of `tick_ms` per tick ([`tick_ms_for_rate`]): 64 at 50 ms, 128 at
+/// 25 ms. Every decoder bounds a delta's `base_age` the same way.
+#[inline]
+pub const fn max_delta_age(tick_ms: u32) -> u32 {
+    MAX_DELTA_AGE_MS / tick_ms
+}
+
+/// Least time (ms) between two Full frames that a resync request forced (1 s). A request that arrives sooner is not dropped: it
+/// stays pending and the Full frame goes out when the interval ends, so a client that asks once per burst of refusals always
+/// gets its Full frame, and a client that asks in a flood costs the writer one Full per interval.
+pub const MIN_FORCED_FULL_MS: u32 = 1000;
+
+/// [`MIN_FORCED_FULL_MS`] in ticks at 20 Hz ([`min_forced_full_ticks`] of [`TICK_MS`]): 20.
+pub const MIN_FORCED_FULL_TICKS: u32 = min_forced_full_ticks(TICK_MS);
+
+/// [`MIN_FORCED_FULL_MS`] in ticks on a connection of `tick_ms` per tick: 20 at 50 ms, 40 at 25 ms.
+#[inline]
+pub const fn min_forced_full_ticks(tick_ms: u32) -> u32 {
+    MIN_FORCED_FULL_MS / tick_ms
+}
 
 /// Delta head bits (protocol v4, append only). A varint: bits below 7 take one byte, so the fields that change nearly every
 /// tick of a moving player sit there. Bit 0: a self follows (its fields are bits 1..=6 and 9..=14, data in bit order); bit 7: a

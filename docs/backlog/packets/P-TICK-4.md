@@ -28,6 +28,9 @@ reconciles correctly against a 40 Hz server.
 ## 5. Exclusive write scope
 - `client-unity/RoguehallaNet/Net/LocalMotion*.cs`, `Vision.cs`, `RenderClock.cs`, `Session.cs` (passing the rate
   only), `client-unity/RoguehallaNet.Tests/**`, then `bash client-unity/sync-net.sh`
+- `client-unity/RoguehallaNet/Net/RemoteDraw.cs` (line 245: `maxGap = 2 * Math.Max(TickMs, Wire.TickMs)` must be `2 * TickMs`; at 25 ms the
+  fixed 50 lets a 60 ms gap count as a step) and `client-unity/UnityProject/Assets/Scripts/Net/MatchClient.cs` (line 290: the fx due time
+  multiplies by `Wire.TickMs`; it must use the session's step, `s.Clock.TickMs`) (coordinator additions)
 - the vector generators `crates/rh-parity/src/hitbox_goldens.rs` and `crates/rh-parity/src/bin/hitbox_fixtures.rs` (walk vectors), `crates/rh-parity/tests/ranged_pause_golden.rs` (pause vectors),
   `crates/rh-parity/tests/pnet2_goldens.rs`, and the two new fixture files
 
@@ -41,8 +44,53 @@ reconciles correctly against a 40 Hz server.
 - `scripts/gate.sh --oracle packet/P-TICK-4` passes (full).
 - The C# prediction tests pass on the v3 vectors at 25 ms and 50 ms; `sync-net.sh --check` is clean.
 
+## Existing tests that pin what this packet changes (all must stay green, none edited)
+- `RoguehallaNet.Tests/HitboxPredictionTests.cs` `CornerWalksWithTheBoxFootMatchTheServerPerTickFixture`: walk vs `server_walk_v2.json` at 50 ms, `now = 50*k`, tolerance 0.01.
+- `RangedPausePredictionTests.cs`: `TheRuleConstantsAreTheRustValues` asserts `LocalMotion.TickMs == 50` (so the `const TickMs` STAYS, as the
+  legacy 50 default), and the 16 `Place` cases plus the `Replay` tests against `ranged_pause_v2.json` (Session at `TickRate = 20`).
+- `SightGoldenTests.cs` `Mirrored_constants_equal_the_Rust_values`: `VisionRule.TickMs == 50` (the const STAYS).
+- `NetTests.cs:84-147,179`: `RenderClock.MinDelayMs == 55` and delay ranges at the default clock (the const STAYS; 55 is the 50 ms floor).
+- `RemoteDrawTests.cs` `AFortyHertzWelcomeConvertsWalkTicksWithItsOwnTick` (25 ms draw budget) and the 50 ms draw-ahead tests.
+- `TickRateProtocolTests.cs` (P-TICK-3): Welcome rate 20/40, decoder at the snapshot's rate.
+- Rust: `crates/rh-parity/tests/pnet2_goldens.rs` `committed_hitbox_goldens_are_the_current_core` (byte equality of every `all()` entry; v3 joins `all()`),
+  `ranged_pause_golden.rs` `ranged_pause_v2_is_the_current_server` (v2 bytes unchanged).
+No conflict: every constant keeps its 50 ms value; the new per-session values are new members beside them.
+
+## 6a. The API the C# oracle compiles against (stubbed on the branch; the implementer makes it real)
+Names are fixed by the oracle. Each `const` stays; the stub members below ignore the rate until implemented.
+- `LocalMotion.StepMs` (instance, get/set, default 50): replaces every internal use of the const `TickMs`, including `DelayMinMs` (becomes `-StepMs`).
+  `Session` sets it to `Clock.TickMs` on Welcome (`Motion = new LocalMotion(...) { StepMs = Clock.TickMs }`).
+- `VisionRule.StepMs` (instance, get/set, default 50), `VisionRule.RefreshSteps` (= `UpdateMs / StepMs`: 2 at 50, 4 at 25) and `VisionRule.TrailSteps`
+  (= `TrailMs / StepMs`: 600 at 50, 1200 at 25), the step counts Rust's `refresh_ticks` / `trail_ticks` (`crates/rh-sim/src/vision.rs:22-26`) use.
+  `VisionField` reads nothing step-shaped today (sampling is by `UpdateMs` milliseconds), so this is the one place the rate is carried.
+- `RenderClock.MinDelay` (instance, `TickMs + 5`) used where `MinDelayMs` is used in `OnSnapshot`; `MinDelayMs` const stays 55.
+
+## Vectors: who generates them
+The IMPLEMENTER generates `server_walk_v3.json` and `ranged_pause_v3.json` (the generators are in its write scope and the oracle cannot
+carry a generator without doing the implementer's work). The oracle is a Rust test, `crates/rh-parity/tests/tick_vectors_v3.rs`, that is red while
+the files are missing and, once they exist, checks them against the sim independently (the 25 ms walk is re-simulated in the test, not read back
+from the generator) and by invariant. The C# tests read the same files.
+
+Shape (the contract between the generators, the Rust test and the C# tests):
+- `server_walk_v3.json`: `format "rh-server-walk/3"`, `map`, `playerSpeed`, `archetype`, `footprint` as v2, and `runs`: `[ {tickMs: 50, cases}, {tickMs: 25, cases} ]`.
+  A case is the v2 case; it has 241 rows at 50 and 481 at 25 (the same 12 s), every row with `t == tick * tickMs`. `runs[0].cases` equals v2's `cases` exactly.
+  The 25 ms run is `SimConfig { hitboxes: Archetypes, tick_ms: 25 }`.
+- `ranged_pause_v3.json`: `format "rh-ranged-pause/3"`, `map`, `walkFixture "server_walk_v3.json"`, `constants` (v2 constants without `tickMs`) and `runs`
+  `[ {tickMs: 50, cases}, {tickMs: 25, cases} ]`, same 16 case names. `runs[0].cases` equals v2's `cases` exactly. In the 25 run every row index of the script,
+  the foe row and `rows` is doubled (same wall time), so `afterRow` doubles; rows keep v2's fields; the walk comes from the 25 ms run of `server_walk_v3`.
+- Both generators are called by `hitbox-fixtures` / the `RH_WRITE_FIXTURES=1` path, `all()` gains the v3 walk entry, `--check` covers it.
+
+## Brief corrections found while writing the oracle
+- `Vision.cs` `TickMs` is a mirrored constant only read by `SightGoldenTests`; no vision behaviour uses it. The rate-following member is `VisionRule.StepMs` above.
+- The packet said `Session.cs` sets `Clock.TickMs` only; it also sets `Remote.TickMs` and must now set `Motion.StepMs`.
+- `MatchClient.cs` is Unity-side with no test project: the oracle guards it by a source check (no `Wire.TickMs` in it) beside the behaviour tests.
+- Red-check: dotnet is absent where the oracle was written; the C# tests were reasoned red (see the hand-off), CI confirms.
+
 ## Oracle files (read-only for implementers)
-- To be written by oracle-author on `packet/P-TICK-4` (the v3 vectors and the C# tests that read them).
+- `crates/rh-parity/tests/tick_vectors_v3.rs`
+- `client-unity/RoguehallaNet.Tests/TickRateVectorTests.cs`
+- `client-unity/RoguehallaNet.Tests/TickRateClientTests.cs`
+- (the v3 JSON files are NOT oracle files: the implementer generates them, and the Rust test judges them)
 
 ## 9. Validation commands
 - `dotnet test client-unity/RoguehallaNet.Tests`, `bash client-unity/sync-net.sh --check`

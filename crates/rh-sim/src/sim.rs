@@ -242,7 +242,11 @@ impl Sim {
         for p in placements {
             sim.join(&p.profile, Some(p.faction), p.bot, cap);
         }
-        sim.step();
+        // The bootstrap lasts one legacy tick at every rate (one step at 50 ms, two at 25: ADR 0029 decision 3), so runs
+        // at both rates place their fighters at the same sim time.
+        while sim.w.server_time < crate::constants::LEGACY_TICK_MS {
+            sim.step();
+        }
         let t = sim.w.server_time;
         for (pl, spec) in sim.w.players.iter_mut().zip(placements) {
             pl.weapon.weapon0 = spec.weapon0.filter(|w| *w != crate::WeaponId::Fists);
@@ -467,7 +471,7 @@ impl Sim {
     /// queued inputs are dropped (a press that arrived just before the socket closed must not hold the trigger for the whole
     /// grace) and the trigger is released, since the release the client sends will never arrive.
     pub fn mark_dropped(&mut self, id: PlayerId, dropped: bool) {
-        crate::lifecycle::dropped(&mut self.w, id, dropped);
+        crate::lifecycle::dropped(&mut self.w, self.k.tick_ms(), id, dropped);
     }
     /// Permanent departure, including source planning MIA.
     pub fn remove_player(&mut self, id: PlayerId) {

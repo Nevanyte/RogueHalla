@@ -65,7 +65,9 @@ use std::time::{Duration, Instant};
 /// Version 30 (observation 34, P-AUG-NATIVE-5): the observation carries every `Alive` Marked Man holder's public
 /// position, projected as the optional State key 15 (sent on change only) and kept by `CollectionView::marked`; bots do
 /// not decide on it.
-pub const POLICY_CONTRACT_VERSION: u16 = 30;
+/// Origin's version 27 (its protocol 20, P-COLISEUM-HEALS-2): heal props; bots ignore them.
+/// Version 31 (observation 35, protocol 22, P-SYNC-ORIGIN-2): the local version 30 and origin's version 27 together.
+pub const POLICY_CONTRACT_VERSION: u16 = 31;
 
 /// Everything a policy may know about a match before its first observation, all of it public static data (the map
 /// and spawn points), never match state. Never a [`rh_sim::Secrets`] value and never the sim itself (C-OBS, C-RNG, C-POLICY).
@@ -106,7 +108,7 @@ impl MatchStart {
                 *HASH.get_or_init(content_hash)
             },
             observation_version: OBSERVATION_VERSION,
-            tick_ms: rh_sim::constants::TICK_MS,
+            tick_ms: f64::from(sim.tick_ms()),
             frost_wish: sim.config().frost_wish,
             elites: sim.config().elites,
         }
@@ -373,7 +375,7 @@ impl Seat {
     /// fallback plays the whole match.
     pub fn new(m: &MatchStart, mut policy: Box<dyn Policy>, mut fallback: Box<dyn Policy>) -> Self {
         let spec = policy.spec();
-        let interval = spec.decision_interval_ticks.max(1);
+        let interval = steps_of_legacy_ticks(spec.decision_interval_ticks.max(1), m.tick_ms);
         let fault = attach_fault(&spec, m);
         if fault.is_none() {
             policy.reset(m);
@@ -952,6 +954,15 @@ pub struct AsyncSeat {
     pub fault: Option<Fault>,
 }
 
+/// A cadence written in legacy 50 ms ticks, as steps of a sim stepping every `tick_ms` ms: it keeps its wall-clock time
+/// (ADR 0029). Equal to `ticks` at 50 ms.
+fn steps_of_legacy_ticks(ticks: u32, tick_ms: f64) -> u32 {
+    let per = (rh_sim::constants::LEGACY_TICK_MS / tick_ms)
+        .round()
+        .max(1.0) as u32;
+    ticks.saturating_mul(per)
+}
+
 impl AsyncSeat {
     pub fn spawn(
         m: &MatchStart,
@@ -960,7 +971,7 @@ impl AsyncSeat {
         deadline_ticks: u32,
     ) -> Self {
         let spec = policy.spec();
-        let interval = spec.decision_interval_ticks.max(1);
+        let interval = steps_of_legacy_ticks(spec.decision_interval_ticks.max(1), m.tick_ms);
         let fault = attach_fault(&spec, m);
         if fault.is_none() {
             policy.reset(m);
@@ -1003,7 +1014,7 @@ impl AsyncSeat {
             rx,
             fallback,
             pending: None,
-            deadline_ticks,
+            deadline_ticks: steps_of_legacy_ticks(deadline_ticks, m.tick_ms),
             interval,
             next_tick: 0,
             late: 0,

@@ -287,7 +287,7 @@ namespace Roguehalla.Client
                 }
             if (s == null) { Arena.ConfirmedFx(fx); return; }
             var latest = s.Latest;
-            double dueMs = latest != null ? latest.ServerMs + ((double)fx.Tick - latest.Tick) * Wire.TickMs : double.NaN;
+            double dueMs = latest != null ? latest.ServerMs + ((double)fx.Tick - latest.Tick) * s.Clock.TickMs : double.NaN;
             var pmFx = PerfMarks.Begin();
             Arena.ConfirmedFx(fx, s.PlayerId, dueMs);
             PerfMarks.End(PerfMarks.Sec.FxCues, pmFx);

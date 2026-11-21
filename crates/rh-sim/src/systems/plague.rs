@@ -38,7 +38,7 @@ pub(crate) fn damage(
             continue;
         };
         if p.vitals.faction == FactionId::Fire && k.config.faction_mode.fire() {
-            super::fire::damage(w, ix, ti, now, performed, ledger);
+            super::fire::damage(w, ix, ti, now, k.tick_ms(), performed, ledger);
         }
         let p = w.core(ix);
         if p.vitals.faction != FactionId::Plague {
@@ -52,8 +52,9 @@ pub(crate) fn damage(
         let weapon = p.active_weapon();
         let id = p.id;
         let victim = t.id;
-        let paused = TICK_MS.min((p.signature.dot_paused_until - (now - TICK_MS)).max(0.));
-        let secs = (TICK_MS - paused) / 1000.;
+        let tick_ms = k.tick_ms();
+        let paused = tick_ms.min((p.signature.dot_paused_until - (now - tick_ms)).max(0.));
+        let secs = (tick_ms - paused) / 1000.;
         let dot = content::weapon(weapon).dps_mult * secs * p.signature.chill;
         let basic = w.signature_damage(ix, PLAGUE_DPS, false) * dot;
         let ap = if w.is_player(ix) {
@@ -187,7 +188,7 @@ pub(crate) fn after_damage(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, 
         }
     }
     if k.config.faction_mode.frost() {
-        super::frost::after_damage(w);
+        super::frost::after_damage(w, k.tick_ms());
     }
     if k.config.faction_mode.sentenced() {
         super::sentenced::after_damage(w);

@@ -423,7 +423,8 @@ pub(crate) fn update(cx: &mut Cx) {
 
 pub(crate) fn regen(cx: &mut Cx) {
     let now = cx.w.server_time;
-    if now % PLAGUE_ZOMBIE_REGEN_STEP_MS >= TICK_MS {
+    // Once per 500 ms window: on the one step of the match that starts it (500 is a multiple of 50 and 25).
+    if now % PLAGUE_ZOMBIE_REGEN_STEP_MS >= cx.k.tick_ms() {
         return;
     }
     let gains: Vec<_> =

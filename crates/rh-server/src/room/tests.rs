@@ -4,6 +4,7 @@ use super::*;
 
 mod bot_fill;
 mod pickups;
+mod tick_rate;
 mod training;
 mod transport;
 mod trophy;

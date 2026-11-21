@@ -155,14 +155,15 @@ pub fn effects_of(list: &[StatusInstance], cast: Option<CastFact>, now: f64) -> 
     }
     bits
 }
-pub fn reveal(rt: &mut StatusRuntime, now: f64, until: f64) {
+/// Reveals a hidden fighter until `until`, from the next step (`tick_ms`: the match's step, `SimConfig::tick_ms`).
+pub fn reveal(rt: &mut StatusRuntime, now: f64, until: f64, tick_ms: f64) {
     let mut changed = false;
     for st in &mut rt.instances {
         if st.kind != StatusKind::Hidden || until <= st.data.reveal_until.unwrap_or(0.) {
             continue;
         }
         if st.data.reveal_until.unwrap_or(0.) <= now {
-            st.reveal_from = Some(now + crate::constants::TICK_MS)
+            st.reveal_from = Some(now + tick_ms)
         }
         st.data.reveal_until = Some(until);
         st.data.undefined_fields &= !1;

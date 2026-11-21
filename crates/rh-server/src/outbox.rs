@@ -209,8 +209,9 @@ impl Outbox {
     }
 
     /// A client asked for a Full snapshot (it refused a delta). The request is kept until answered: the writer encodes a Full
-    /// frame with the next snapshot, or, when it forced one less than `MIN_FORCED_FULL_TICKS` ago, with the first snapshot after
-    /// that interval. Requests never get lost, and a flood of them only keeps the flag set.
+    /// frame with the next snapshot, or, when it forced one less than 1000 ms ago (`min_forced_full_ticks` at the connection's
+    /// rate), with the first snapshot after that interval. Requests never get lost, and a flood of them only keeps the flag
+    /// set.
     pub fn request_resync(&self) {
         self.resync.store(true, Ordering::Relaxed);
         self.state_resync.store(true, Ordering::Relaxed);
@@ -221,6 +222,23 @@ impl Outbox {
     }
     pub fn state_resync_answered(&self) {
         self.state_resync.store(false, Ordering::Relaxed);
+    }
+
+    /// P-TICK-3-fix: sets the connection's milliseconds per tick, where its Welcome is sent (before its first snapshot): every
+    /// snapshot is written at it, and the delta limits are counted at it. A rate no decoder accepts is refused
+    /// ([`rh_protocol::checked_tick_ms`]) and changes nothing. [`rh_protocol::TICK_MS`] (20 Hz) unless set.
+    pub fn set_tick_ms(&self, tick_ms: u32) -> Result<(), rh_protocol::EncodeError> {
+        let mut w = self.writer.lock().expect("snapshot writer lock");
+        w.enc.set_tick_ms(tick_ms)
+    }
+
+    /// The connection's milliseconds per tick ([`Outbox::set_tick_ms`]).
+    pub fn tick_ms(&self) -> u32 {
+        self.writer
+            .lock()
+            .expect("snapshot writer lock")
+            .enc
+            .tick_ms()
     }
 
     /// Encodes `snap` for this connection: a Full frame or a delta against the last snapshot encoded here. Called by the
@@ -582,6 +600,63 @@ mod tests {
         assert_eq!(drained.close, Some(RejectCode::TooSlow));
         assert_eq!(frames.len(), IMPORTANT_CAP - 1);
         assert!(frames.iter().all(|f| f == &[9]));
+    }
+
+    /// P-TICK-3-fix: a 40 Hz connection's writer writes a 25 ms snapshot with no time override (a 40 Hz decoder reads
+    /// `tick * 25`), and answers a second resync 40 ticks (1000 ms) after the first.
+    #[test]
+    fn a_40_hz_outbox_writes_at_its_rate() {
+        use rh_protocol::ServerMsg;
+        let o = Outbox::default();
+        assert_eq!(o.tick_ms(), rh_protocol::TICK_MS);
+        assert!(o.set_tick_ms(30).is_err());
+        o.set_tick_ms(25).unwrap();
+        assert_eq!(o.tick_ms(), 25);
+        let at25 = |tick: u32| {
+            let actors = (1..13u32).map(|id| rh_protocol::WireActor {
+                id,
+                x: 16. * id as f32 + if id == 3 { (tick % 2) as f32 * 8. } else { 0. },
+                y: 16.,
+                hp_pct: 100,
+                status: 1,
+                ..rh_protocol::WireActor::default()
+            });
+            SnapshotData::build_with_server_time(tick, tick as f64 * 25.0, 1, 0, None, actors)
+                .unwrap()
+        };
+        let mut frames = Vec::new();
+        o.snapshot(at25(10));
+        o.drain_into(&mut frames);
+        let mut at50 = Vec::new();
+        at25(10).encode_full_into(&mut at50);
+        assert!(frames[0].len() + 8 <= at50.len(), "no override on the wire");
+        match ServerMsg::decode_at(&frames[0], 40).unwrap() {
+            ServerMsg::Snapshot {
+                tick, server_time, ..
+            } => assert_eq!((tick, server_time), (10, 250.0)),
+            other => panic!("{other:?}"),
+        }
+        o.request_resync();
+        o.snapshot(at25(11));
+        o.drain_into(&mut frames);
+        let full = o.snapshots_full.load(Ordering::Relaxed);
+        o.request_resync();
+        for tick in 12..=50 {
+            o.snapshot(at25(tick));
+            o.drain_into(&mut frames);
+        }
+        assert_eq!(
+            o.snapshots_full.load(Ordering::Relaxed),
+            full,
+            "held to tick 50"
+        );
+        o.snapshot(at25(51));
+        o.drain_into(&mut frames);
+        assert_eq!(
+            o.snapshots_full.load(Ordering::Relaxed),
+            full + 1,
+            "40 ticks after the forced Full of tick 11"
+        );
     }
 
     #[test]

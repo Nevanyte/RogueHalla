@@ -407,7 +407,7 @@ namespace Roguehalla.Net
                 }
                 if (stale)
                 {
-                    try { ServerMsg.Decode(frame, frame.Length, spare); }
+                    try { ServerMsg.DecodeAt(frame, frame.Length, spare, _track.TickMs); }
                     catch (DecodeException e)
                     {
                         Snapshots.Recycle(spare);
@@ -515,7 +515,7 @@ namespace Roguehalla.Net
                         // A bow draw has no fx: its start and interval are in the owner block (clock shift: an epoch cut overrides the tick time).
                         if (_hasMe && snap.OwnerCombat != null)
                         {
-                            double shift = snap.ServerMs - snap.Tick * (double)Wire.TickMs;
+                            double shift = snap.ServerMs - snap.Tick * (double)snap.TickMs;
                             Motion.NoteOwnerDraw(snap.ServerMs, snap.OwnerCombat.DrawStartedAt == 0 ? 0 : snap.OwnerCombat.DrawStartedAt + shift,
                                 snap.OwnerCombat.ReadyAt + shift, snap.OwnerCombat.WindupMilli);
                         }
@@ -567,7 +567,7 @@ namespace Roguehalla.Net
             if (me == 0) return;
             // The same source clock the snapshot stamps use (an epoch cut overrides the tick-derived time).
             var latest = Latest;
-            double tickMs = latest != null ? latest.ServerMs + ((double)fx.Tick - latest.Tick) * Wire.TickMs : fx.Tick * (double)Wire.TickMs;
+            double tickMs = latest != null ? latest.ServerMs + ((double)fx.Tick - latest.Tick) * _track.TickMs : fx.Tick * (double)_track.TickMs;
             for (int i = 0; i < fx.List.Count; i++)
             {
                 var f = fx.List[i];
@@ -584,7 +584,7 @@ namespace Roguehalla.Net
         void NoteRemoteFx(ServerMsg.Fx fx)
         {
             var latest = Latest;
-            double tickMs = latest != null ? latest.ServerMs + ((double)fx.Tick - latest.Tick) * Wire.TickMs : fx.Tick * (double)Wire.TickMs;
+            double tickMs = latest != null ? latest.ServerMs + ((double)fx.Tick - latest.Tick) * _track.TickMs : fx.Tick * (double)_track.TickMs;
             for (int i = 0; i < fx.List.Count; i++)
             {
                 var f = fx.List[i];
@@ -656,12 +656,13 @@ namespace Roguehalla.Net
             _needFull = false;
             Clock.Reset();
             Sync.Reset();
-            Clock.TickMs = w.TickRate > 0 ? 1000.0 / w.TickRate : 50;
+            // Protocol 21: the decoder accepts only 20 and 40 Hz, and the tracker reads snapshots at this rate.
+            Clock.TickMs = Wire.TickMsOf(w.TickRate);
             Remote.Reset();
             Remote.Map = w.Map;
             Remote.TickMs = Clock.TickMs;
             _predictionGatesLocked = false;
-            Motion = new LocalMotion(w.Map);
+            Motion = new LocalMotion(w.Map) { StepMs = Clock.TickMs };
             _lastPing = double.NegativeInfinity;
             TimelineEpoch++;
             if (TimelineReset != null) TimelineReset();

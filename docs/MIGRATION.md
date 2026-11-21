@@ -254,9 +254,9 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
   - **Waiver until then.** The coordinator waives exactly that red. Each gate's chain output must show
     `check-vectors.mjs` as its only failing pin.
 
-## From origin (merged by P-SYNC-ORIGIN-1, 2026-11-20)
+## From origin (merged by P-SYNC-ORIGIN-1 and P-SYNC-ORIGIN-2, 2026-11-20)
 
-### 40 Hz tick, P-TICK-1a (2026-11-20, branch `claude/project-thread-baoxuk`)
+### 40 Hz tick, P-TICK-1a to 5 (2026-11-20, branch `claude/project-thread-baoxuk`)
 
 **Owner direction 2026-11-19:** "lets do 40" (live tick 40 Hz), then "okay for all 3" (accept ADR 0029, sign DEV-039,
 push). ADR 0029 Accepted; C-TICK amended; DEV-039 signed; packets P-TICK-0..6 (backlog section 1a). P-TICK-3 lands after
@@ -269,6 +269,38 @@ notes (minor items carried into P-TICK-1b and P-TICK-3). Merged as `69c9e9a9`. F
 (skipped: dotnet, Postgres, Unity EditMode). At 50 ms the seed-1 digest (`0x2b20_ce9e_ab4e_809a`), content hash, parity
 report and formats are unchanged (`CHECKPOINT_FORMAT`/`REPLAY_FORMAT` not bumped; new 50 ms files carry
 `"tick_ms": null`).
+
+**P-TICK-1b** (every sim system reads the sim's step; tick-counted rules keep their milliseconds). oracle-author (Opus),
+implementer-opus (49 files in `rh-sim`, incl. `statics.rs` `steps_of_legacy_ticks`, `sim.rs` `reset_active` bootstrap to
+50 ms of sim time at every rate, `vision.rs` legacy two-slot stagger, `status_runtime::reveal` takes `tick_ms`).
+reviewer-opus LAND WITH NOTES (2): 25 ms scenario racks refused after the bootstrap; handle grace windows counted in
+steps. Merged as `7e0e35dc`; full gate **PASS** (skipped: dotnet, Postgres, Unity EditMode). **P-TICK-1b-fix**
+(coordinator widened its scope to `actor_refs.rs`): rack check on sim time, item/reward/actor handle grace
+`steps_of_legacy_ticks(20)` (1000 ms at both rates); reviewer-opus LAND; merged as `3b8c7677`.
+
+**P-TICK-3** (protocol **21**, after #74 took 19 and #76 took 20): snapshot server time is `tick * 1000/tick_rate`
+(Welcome rate 20 or 40 only, others refused by the Rust, C# and JS decoders); delta age bounds in milliseconds
+(3200 ms, forced full 1000 ms); `profile_supported` refuses `tick_ms != 50` until P-TICK-5; `v21.json` (v20 plus a
+`serverTickRate40` section). Coordinator amendments: protocol-20 pins and C# `TickRate = 0` Welcomes moved (version or
+rate value only, under ADR 0029's accepted bump); the JS oracle runs from `check-map-anchors.mjs` (gate.sh is
+owner-protected). reviewer-opus LAND WITH NOTES (encoder not rate-aware); merged `152fc4b9`; full gate **PASS**
+(skipped: dotnet, Postgres, Unity EditMode; C# not compiled here, CI runs it). **P-TICK-3-fix**: ConnEncoder,
+SnapshotData, the delta writer, Outbox and the policy forced-full rule take the connection's `tick_ms`; reviewer-opus
+LAND; merged `d9f21dfb`. **P-TICK-2**: bots and headless read the step (`--tick-ms 50|25`); reviewer-opus LAND;
+merged `f9273960`. **P-TICK-1b-perf** (PR #77 perfproof Ir 1.07-1.12 over the 1.03 limit; cause: `vision.rs` `latest_reveal` computing the trail length per reveal): step counts hoisted, `const fn` again; local perfproof vs deaf125b 0.987-1.000 on every case, fingerprints identical; reviewer-opus LAND.
+
+**P-TICK-5** (rooms run at the sim's step): `--tick-ms 50|25` / `RH_TICK_MS` (default 50; other values exit 2); the
+director paces from `sim.tick_ms`; Welcome sends 20 or 40; join and resume set the rate on the outbox and the
+collections publisher; `now_apply`, bot delivery and the rewind window (`allowed_rewind_ms_at`, floor one step) use the
+room's step; `profile_supported` hosts 50 and 25. Coordinator accepted the amendment of the P-TICK-3 transitional test
+(`a_sim_stepping_other_than_50_ms_is_not_hosted`). reviewer-opus LAND. Live default stays 50 until P-TICK-6.
+
+**P-TICK-4** (Unity library reads the step): `LocalMotion.StepMs` (per-session `DelayMinMs`, `CeilStep`),
+`VisionRule.StepMs`, `RenderClock.MinDelay = TickMs + 5` (30 ms at 40 Hz), `RemoteDraw` gap `2 * TickMs`,
+`MatchClient.cs:290` from the session clock; Rust-generated `server_walk_v3.json` and `ranged_pause_v3.json` (runs at 50
+and 25; the 50 ms run equals v2). Coordinator oracle-amend: the 25 ms walk starts at tick 2 (the 50 ms bootstrap of
+P-TICK-1b). reviewer LAND. C# compiled and tested only in CI (no dotnet here). `VisionFog.cs` leaves `StepMs` at 50
+(nothing reads it yet).
 
 ## Paused (2026-11-19, evening): the elite and augment rework, after integration 64
 

@@ -149,6 +149,30 @@ fn quest_hosting_is_supported_and_incompatible_training_is_refused() {
 }
 
 #[test]
+fn a_sim_stepping_other_than_50_or_25_ms_is_not_hosted() {
+    // P-TICK-5 (amending P-TICK-3): the room paces and announces its own step, so a 25 ms (40 Hz) sim is hosted; no
+    // other step is.
+    let default = rh_sim::SimConfig::default();
+    assert_eq!(default.tick_ms, rh_protocol::TICK_MS);
+    assert!(profile_supported(&default).is_ok());
+    assert!(profile_supported(&rh_sim::SimConfig {
+        tick_ms: 25,
+        ..rh_sim::SimConfig::default()
+    })
+    .is_ok());
+    for tick_ms in [0u32, 20, 30, 40, 100] {
+        assert!(
+            profile_supported(&rh_sim::SimConfig {
+                tick_ms,
+                ..rh_sim::SimConfig::default()
+            })
+            .is_err(),
+            "tick_ms {tick_ms} is refused"
+        );
+    }
+}
+
+#[test]
 fn mob_spacing_off_is_never_hosted() {
     let live = rh_sim::SimConfig {
         hitboxes: rh_sim::archetype::HitboxMode::Archetypes,

@@ -62,7 +62,7 @@ namespace Roguehalla.Net
                 if (ackInput.HasValue && (!_ordSent[i] ||
                     unchecked((int)(ackInput.Value - _ordFrame[i])) < 0)) return;
                 if (_ordTiming[i])
-                    _align = Math.Max(DelayMinMs, Math.Min(DelayMaxMs, stamp - TickMs - _ordAt[i]));
+                    _align = Math.Max(DelayMinMs, Math.Min(DelayMaxMs, stamp - StepMs - _ordAt[i]));
                 _ordStart = (i + 1) % OrderRingSize;
                 _ordCount -= n + 1;
                 return;

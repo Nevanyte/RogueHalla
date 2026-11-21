@@ -20,7 +20,7 @@ fn reference_at(h: &mut Vec<Sample>, now: f64, step: f64) {
 #[test]
 fn the_ring_holds_the_whole_rewind_window_at_every_allowed_step() {
     // P-TICK-1a (ADR 0029): sized for 25 ms, the ring holds the window at 25 ms with the match's own cutoff and with
-    // the legacy one `record` still uses, and at 50 ms it keeps exactly the samples the legacy recorder keeps.
+    // the legacy one, and at 50 ms it keeps exactly the samples the legacy recorder keeps.
     for (spacing, cutoff_step) in [(25.0, 25.0), (25.0, TICK_MS), (TICK_MS, TICK_MS)] {
         let mut ring = History::default();
         let mut vec = Vec::new();

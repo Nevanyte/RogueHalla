@@ -1808,6 +1808,31 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
             },
         ),
         (
+            // P-COLISEUM-HEALS-2 (protocol 20): the four grand-coliseum heal pickups, prop kind 8 with the cannon's layout,
+            // at the centres of tiles (79,79), (80,79), (79,80), (80,80) in 1/8 units; NE and SW wait, NW and SE are ready.
+            "state_heal_props",
+            ServerMsg::State {
+                tick: 202,
+                items: vec![StateItem::Props(WireProps {
+                    rows: [
+                        (1, 20352, 20352, 0),
+                        (2, 20608, 20352, 30_000),
+                        (3, 20352, 20608, u32::MAX),
+                        (4, 20608, 20608, 0),
+                    ]
+                    .into_iter()
+                    .map(|(handle, x, y, ready_at)| WireProp {
+                        handle: PickupHandle::new(handle).unwrap(),
+                        x,
+                        y,
+                        kind: WirePropKind::Heal { ready_at },
+                    })
+                    .collect(),
+                    focus: None,
+                })],
+            },
+        ),
+        (
             "events_union",
             ServerMsg::Events {
                 tick: 201,
@@ -7638,6 +7663,52 @@ pub fn malformed_deltas() -> Vec<(&'static str, Vec<u8>)> {
     ]
 }
 
+/// P-TICK-3: Full snapshot frames read on a 40 Hz connection (`ServerMsg::decode_at(frame, 40)`), written to the vectors as
+/// `serverTickRate40`. The frames are the 20 Hz encoder's bytes (the server sends 20 Hz until P-TICK-5): one without a
+/// source-time override is `tick * 25` at 40 Hz and `tick * 50` at 20 Hz; one with an override reads the same at both.
+pub fn tick_rate_40_samples() -> Vec<(&'static str, Vec<u8>)> {
+    let named = |name: &str| {
+        server_samples()
+            .into_iter()
+            .find(|(n, _)| *n == name)
+            .map(|(_, m)| m.encode())
+            .unwrap_or_else(|| panic!("server sample {name}"))
+    };
+    let crowd: Vec<WireActor> = (1..=12u32)
+        .map(|id| WireActor {
+            id,
+            x: 100.0 + id as f32 * 40.0,
+            y: 200.0 + id as f32 * 16.0,
+            hp_pct: 100,
+            status: 1,
+            ..Default::default()
+        })
+        .collect();
+    let mut crowd_full = Vec::new();
+    ConnEncoder::new().encode(
+        SnapshotData::build(10, 1, 10, None, crowd.into_iter()).expect("a crowd snapshot"),
+        &mut crowd_full,
+    );
+    let overridden = ServerMsg::Snapshot {
+        tick: 20,
+        server_time: 888.75,
+        phase: 1,
+        ack_input: 3,
+        me: None,
+        actors: Vec::new(),
+        training: false,
+        owner_combat: None,
+    }
+    .encode();
+    vec![
+        ("snapshot_at_40", named("snapshot")),
+        ("snapshot_full_at_40", named("snapshot_full")),
+        ("snapshot_walk_hint_at_40", named("snapshot_walk_hint")),
+        ("snapshot_crowd_at_40", crowd_full),
+        ("snapshot_override_at_40", overridden),
+    ]
+}
+
 pub fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
@@ -8074,13 +8145,14 @@ fn decoded_quest_state_json(m: &ServerMsg) -> String {
                     WirePropKind::WindEmblem => 5,
                     WirePropKind::Cannon { .. } => 6,
                     WirePropKind::QuestItem { .. } => 7,
+                    WirePropKind::Heal { .. } => 8,
                 };
                 let specifics = match &row.kind {
                     WirePropKind::Ground(weapon) => format!("\"weapon\":{weapon}"),
                     WirePropKind::Chest { open } => format!("\"open\":{open}"),
                     WirePropKind::Body { label } | WirePropKind::Corpse { label } => format!("\"label\":\"{}\"", escape(label)),
                     WirePropKind::WindEmblem => String::new(),
-                    WirePropKind::Cannon { ready_at } => format!("\"readyAt\":{ready_at}"),
+                    WirePropKind::Cannon { ready_at } | WirePropKind::Heal { ready_at } => format!("\"readyAt\":{ready_at}"),
                     WirePropKind::QuestItem { quest, fetch } => format!("\"quest\":{},\"fetch\":{fetch}", quest.get()),
                 };
                 let base = format!("\"handle\":{},\"x\":{},\"y\":{},\"kind\":{kind}", row.handle.get(), row.x, row.y);
@@ -8205,6 +8277,18 @@ pub fn manifest() -> String {
         out.push_str(&format!(
             "    ]}}{}\n",
             if i + 1 < chains.len() { "," } else { "" }
+        ));
+    }
+    // Protocol 21: the same Full frames on a 40 Hz connection; every other section is read at 20 Hz.
+    out.push_str("  ],\n  \"serverTickRate40\": [\n");
+    let at40 = tick_rate_40_samples();
+    for (i, (name, bytes)) in at40.iter().enumerate() {
+        let decoded = ServerMsg::decode_at(bytes, 40).expect("a 40 Hz sample decodes at 40 Hz");
+        out.push_str(&format!(
+            "    {{\"name\": \"{name}\", \"hex\": \"{}\", \"decoded\": {}}}{}\n",
+            hex(bytes),
+            decoded_snapshot_json(&decoded),
+            if i + 1 < at40.len() { "," } else { "" }
         ));
     }
     out.push_str("  ]\n}\n");

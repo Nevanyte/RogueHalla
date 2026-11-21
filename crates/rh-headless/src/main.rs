@@ -1,7 +1,7 @@
 //! rh-headless: bot-vs-bot matches with no waiting, on the same core and seats as the live server.
 //!
 //!   cargo run --release -p rh-headless -- --matches 20 --players 8 --seed 1 [--map parity/maps/seed1.map.json]
-//!                                       [--max-ticks 12000] [--replay-out run.json] [--digest]
+//!                                       [--max-ticks 12000] [--tick-ms 50|25] [--replay-out run.json] [--digest]
 //!                                       [--hitboxes legacy|archetypes]
 //!   cargo run --release -p rh-headless -- --verify-replay run.json [--ignore-content-hash]
 //!
@@ -128,8 +128,18 @@ fn main() {
         Some("archetypes") => rh_sim::archetype::HitboxMode::Archetypes,
         Some(other) => panic!("--hitboxes must be legacy or archetypes, not {other:?}"),
     };
+    let tick_ms: u32 = arg(&args, "--tick-ms").map_or(50, |v| {
+        v.parse()
+            .ok()
+            .filter(|ms| rh_sim::statics::tick_ms_supported(*ms))
+            .unwrap_or_else(|| {
+                eprintln!("--tick-ms must be 50 or 25, not {v:?}");
+                std::process::exit(2)
+            })
+    });
     let sim = rh_sim::SimConfig {
         hitboxes,
+        tick_ms,
         ..rh_sim::SimConfig::default()
     };
     let mut hits = 0u64;
@@ -177,7 +187,7 @@ fn main() {
         String::new()
     };
     println!(
-        "{{\"hitboxes\":\"{}\",\"hits\":{hits},\"matches\":{matches},\"players\":{players},\"ticks\":{ticks},\"terminated\":{ended},\"truncated\":{truncated},\"stateHashFold\":\"{:016x}\"{digest_keys},\"wallSec\":{wall:.3},\"ticksPerSec\":{:.0},\"meanTickUsPerMatchP50\":{:.2},\"realTimeFactor\":{:.0}}}",
+        "{{\"tickMs\":{tick_ms},\"hitboxes\":\"{}\",\"hits\":{hits},\"matches\":{matches},\"players\":{players},\"ticks\":{ticks},\"terminated\":{ended},\"truncated\":{truncated},\"stateHashFold\":\"{:016x}\"{digest_keys},\"wallSec\":{wall:.3},\"ticksPerSec\":{:.0},\"meanTickUsPerMatchP50\":{:.2},\"realTimeFactor\":{:.0}}}",
         if hitboxes == rh_sim::archetype::HitboxMode::Archetypes {
             "archetypes"
         } else {
@@ -186,6 +196,6 @@ fn main() {
         fold_all(hashes.iter().copied()),
         ticks as f64 / wall,
         tick_ns[tick_ns.len() / 2] as f64 / 1000.0,
-        ticks as f64 * 0.05 / wall
+        ticks as f64 * f64::from(tick_ms) / 1000.0 / wall
     );
 }

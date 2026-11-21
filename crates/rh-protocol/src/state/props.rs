@@ -92,6 +92,7 @@ impl WireProps {
                 WirePropKind::WindEmblem => {}
                 WirePropKind::Cannon { .. } => {}
                 WirePropKind::QuestItem { .. } => {}
+                WirePropKind::Heal { .. } => {}
             }
         }
         if let Some(focus) = self.focus {
@@ -124,7 +125,9 @@ impl WireProps {
                             WirePropKind::Body { label } | WirePropKind::Corpse { label } => {
                                 str_len(label)
                             }
-                            WirePropKind::Cannon { ready_at } => varint_len(*ready_at),
+                            WirePropKind::Cannon { ready_at } | WirePropKind::Heal { ready_at } => {
+                                varint_len(*ready_at)
+                            }
                         }
                 })
                 .sum::<usize>()
@@ -166,6 +169,11 @@ impl WireProps {
                     w.varint(quest.get());
                     w.u8(u8::from(*fetch));
                 }
+                // Protocol 20 (P-COLISEUM-HEALS-2): the cannon's layout with kind byte 8.
+                WirePropKind::Heal { ready_at } => {
+                    w.u8(8);
+                    w.varint(*ready_at);
+                }
             }
         }
         w.varint(self.focus.map_or(0, |f| f.handle.get()));
@@ -203,6 +211,9 @@ impl WireProps {
                     quest: QuestHandle::new(r.varint()?)
                         .ok_or(DecodeError::BadField("quest handle"))?,
                     fetch: bool_flag(r)?,
+                },
+                8 => WirePropKind::Heal {
+                    ready_at: r.varint()?,
                 },
                 _ => return Err(DecodeError::BadField("prop kind")),
             };

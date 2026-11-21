@@ -28,6 +28,9 @@ namespace Roguehalla.Net
         /// <summary>Server tick interval; the delay must cover one interval plus the arrival jitter to have a complete segment to draw.</summary>
         public double TickMs = 50;
 
+        /// <summary>The delay floor, <see cref="TickMs"/> + 5 (55 at 50 ms, 30 at 25 ms); <see cref="MinDelayMs"/> is the 50 ms value.</summary>
+        public double MinDelay { get { return TickMs + 5; } }
+
         /// <summary>Catch-up speed-up reached for gaps of 80 ms or more (0.01 reproduces the old constant 1%).</summary>
         public double MaxCatchUpShare = 0.04;
 
@@ -81,7 +84,7 @@ namespace Roguehalla.Net
             // 98th percentile of how much later than the fastest arrival a snapshot came.
             double excess = _sorted[Math.Min(_n - 1, (int)Math.Ceiling(_n * 0.98) - 1)] - _minD;
             double ahead = AheadMs;
-            _targetDelay = Math.Min(MaxDelayMs, Math.Max(MinDelayMs - ahead, TickMs + excess - ahead));
+            _targetDelay = Math.Min(MaxDelayMs, Math.Max(MinDelay - ahead, TickMs + excess - ahead));
             if (!_init)
             {
                 _init = true;

@@ -2,11 +2,18 @@
 use super::*;
 // Retained source clocks cannot prove the full history. These are necessary stock
 // equations: opening lock, or a prior accepted fixed-step cast plus its cooldown.
-fn prior_clock(prior: f64, initial: f64, first_cast: f64, accepted: f64, cooldown: f64) -> bool {
+// `tick_ms`: the match's step (`SimConfig::tick_ms`); every accepted cast and cut lies on its grid.
+fn prior_clock(
+    prior: f64,
+    initial: f64,
+    first_cast: f64,
+    accepted: f64,
+    cooldown: f64,
+    tick_ms: f64,
+) -> bool {
     prior <= accepted
         && (prior == initial
-            || (prior >= first_cast + cooldown
-                && (prior - cooldown) % crate::constants::TICK_MS == 0.))
+            || (prior >= first_cast + cooldown && (prior - cooldown) % tick_ms == 0.))
 }
 /// `prior_clock` for a clock an earlier cast may have produced under any of the Wish cooldowns `earlier` (the accepted
 /// cast's `WishEnvelope::earlier`): a grant between the casts can have lengthened it, a Wish Engine step shortened it. With
@@ -20,14 +27,15 @@ fn prior_clock_any(
     accepted: f64,
     earlier: &[f64],
     trims: Option<&crate::cards::CardNumbers>,
+    tick_ms: f64,
 ) -> bool {
     earlier.iter().any(|&cd| match trims {
-        None => prior_clock(prior, initial, first_cast, accepted, cd),
+        None => prior_clock(prior, initial, first_cast, accepted, cd, tick_ms),
         Some(n) => {
             prior <= accepted
                 && (prior == initial
                     || (prior >= first_cast + n.wishful_floor_share * cd
-                        && (share_rule(n) || prior % crate::constants::TICK_MS == 0.)))
+                        && (share_rule(n) || prior % tick_ms == 0.)))
         }
     })
 }
@@ -35,9 +43,10 @@ fn prior_clock_any(
 fn share_rule(n: &crate::cards::CardNumbers) -> bool {
     n.wishful_hit_share > 0. || n.wishful_budget_share > 0.
 }
-/// The lattice charge clocks stay on: the tick and every Wish cooldown a spend can have had (`WishEnvelope::every`).
-fn charge_clock_lattice(cooldowns: &[f64]) -> f64 {
-    let mut a = crate::constants::TICK_MS;
+/// The lattice charge clocks stay on: the match's step (`tick_ms`) and every Wish cooldown a spend can have had
+/// (`WishEnvelope::every`).
+fn charge_clock_lattice(cooldowns: &[f64], tick_ms: f64) -> f64 {
+    let mut a = tick_ms;
     for &cooldown in cooldowns {
         let mut b = cooldown;
         while b != 0. {
@@ -158,6 +167,7 @@ fn trim_trace_coherent(
     budget: f64,
     now: f64,
     raid_started_at: f64,
+    tick_ms: f64,
 ) -> bool {
     let window = numbers.wishful_window_ms;
     let mut in_window = 0.;
@@ -166,7 +176,7 @@ fn trim_trace_coherent(
             || !t.ms.is_finite()
             || t.at < raid_started_at
             || t.at > now
-            || t.at % crate::constants::TICK_MS != 0.
+            || t.at % tick_ms != 0.
             || !(t.ms > 0. && t.ms <= budget)
         {
             return false;
@@ -189,9 +199,10 @@ pub(crate) fn validate(
     k: &crate::statics::MatchStatic,
     w: &crate::state::World,
 ) -> Result<(), String> {
+    let tick_ms = k.tick_ms();
     if !k.config.wish_lock_ms.is_finite()
         || k.config.wish_lock_ms < 0.
-        || k.config.wish_lock_ms > f64::from(u32::MAX) * crate::constants::TICK_MS
+        || k.config.wish_lock_ms > f64::from(u32::MAX) * tick_ms
     {
         return Err("invalid Wish lock".into());
     }
@@ -200,7 +211,7 @@ pub(crate) fn validate(
     } else {
         w.raid_started_at + k.config.wish_lock_ms
     };
-    let first_cast = (w.raid_started_at + crate::constants::TICK_MS).max(initial);
+    let first_cast = (w.raid_started_at + tick_ms).max(initial);
     let full = k.config.abilities == Mode::Full;
     if full {
         super::effect_checkpoint::validate(w)?;
@@ -218,7 +229,7 @@ pub(crate) fn validate(
                 return Err("card Wish memory in Off mode".into());
             }
             if !(first_cast..=w.server_time).contains(&spend.at)
-                || spend.at % crate::constants::TICK_MS != 0.
+                || spend.at % tick_ms != 0.
                 || !spend.cooldown_ms.is_finite()
                 || spend.cooldown_ms <= 0.
                 || spend.cooldown_ms.fract() != 0.
@@ -238,7 +249,7 @@ pub(crate) fn validate(
         ]
         .into_iter()
         .flatten()
-        .all(|v| v.is_finite() && v >= 0. && v <= f64::from(u32::MAX) * crate::constants::TICK_MS)
+        .all(|v| v.is_finite() && v >= 0. && v <= f64::from(u32::MAX) * tick_ms)
         {
             return Err("invalid Wish stock clock".into());
         }
@@ -272,7 +283,7 @@ pub(crate) fn validate(
                 // casts spent at a smaller share; for a non-holder it is the spend's own).
                 let prior_min = every.iter().copied().fold(f64::INFINITY, f64::min);
                 let prior_max = earlier.iter().copied().fold(recharge, f64::max);
-                let lattice = charge_clock_lattice(&every);
+                let lattice = charge_clock_lattice(&every, tick_ms);
                 let numbers = k.cards.numbers();
                 let budget = numbers.wishful_budget(recharge);
                 // A card-owned Wishful Thinking trim is a second producer of the same clocks: the source stores only
@@ -287,6 +298,7 @@ pub(crate) fn validate(
                         window_budget,
                         w.server_time,
                         w.raid_started_at,
+                        tick_ms,
                     ) {
                         return Err("incoherent card Wish trim trace".into());
                     }
@@ -317,12 +329,12 @@ pub(crate) fn validate(
                             && stocks.wish_ready_at == (full_at - recharge).max(0.)
                             && full_at % lattice == 0.
                             && (full_at == spend.at + recharge
-                                || (spend.at >= first_cast + crate::constants::TICK_MS
+                                || (spend.at >= first_cast + tick_ms
                                     && full_at >= first_cast + prior_min + recharge
                                     && (prior_min < recharge
                                         || spend.at >= first_cast + recharge
                                         || full_at
-                                            <= spend.at - crate::constants::TICK_MS
+                                            <= spend.at - tick_ms
                                                 + (prior_max + recharge))))
                     };
                     // The card producer: a cut only lowers the untrimmed spend clock, never above it, and the
@@ -332,7 +344,7 @@ pub(crate) fn validate(
                     let max_cut = max_trim_cut(numbers, budget, w.server_time - spend.at);
                     let on_lattice = share_rule(numbers)
                         || (full_at % lattice == 0.
-                            && stocks.wish_ready_at % crate::constants::TICK_MS == 0.);
+                            && stocks.wish_ready_at % tick_ms == 0.);
                     let trimmed_spend = trimmed
                         && (if def.charges == 1 {
                             full_at <= spend.at + recharge
@@ -353,6 +365,7 @@ pub(crate) fn validate(
                             spend.at,
                             &earlier,
                             wishful.then_some(numbers),
+                            tick_ms,
                         )
                         && w.abilities
                             .as_ref()
@@ -405,7 +418,7 @@ pub(crate) fn validate(
             .all(crate::status_runtime::geometry_scalar_is_safe)
             || !(0. ..=crate::constants::WORLD_W).contains(&d.point.x)
             || !(0. ..=crate::constants::WORLD_H).contains(&d.point.y)
-            || !(crate::constants::TICK_MS..=crate::constants::MAX_REWIND_MS).contains(&d.lag_ms)
+            || !(tick_ms..=crate::constants::MAX_REWIND_MS).contains(&d.lag_ms)
         {
             return Err("invalid Wish point or lag".into());
         }
@@ -448,6 +461,7 @@ pub(crate) fn validate(
                 c.started_at,
                 &earlier,
                 wishful.then_some(numbers),
+                tick_ms,
             )
         {
             return Err("invalid Wish rollback clock".into());

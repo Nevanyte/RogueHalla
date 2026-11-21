@@ -26,6 +26,10 @@ pub struct SnapshotInner {
     pub(super) owner_combat: Option<WireOwnerCombat>,
     /// [`SnapshotData::min_len`], worked out once.
     pub(super) min_len: u32,
+    /// P-TICK-3-fix: the milliseconds per tick of the connection this snapshot is written for ([`SnapshotData::set_tick_ms`];
+    /// [`TICK_MS`] from every builder): a frame carries a source-time override only when `server_time` is not
+    /// `tick * tick_ms`.
+    pub(super) tick_ms: u32,
 }
 
 impl std::ops::Deref for SnapshotData {
@@ -178,6 +182,7 @@ impl SnapshotData {
             + head_len(head_word(
                 phase,
                 tick,
+                TICK_MS,
                 server_time,
                 me.as_ref(),
                 false,
@@ -194,6 +199,7 @@ impl SnapshotData {
         b.me = me;
         b.training = false;
         b.owner_combat = None;
+        b.tick_ms = TICK_MS;
         Ok(SnapshotData(b))
     }
 
@@ -218,6 +224,7 @@ impl SnapshotData {
         let head = head_word(
             self.phase,
             self.tick,
+            self.tick_ms,
             self.server_time,
             self.me.as_ref(),
             self.training,
@@ -240,6 +247,26 @@ impl SnapshotData {
 
     pub fn tick(&self) -> u32 {
         self.tick
+    }
+    /// The milliseconds per tick this snapshot is written at ([`SnapshotData::set_tick_ms`]).
+    pub fn tick_ms(&self) -> u32 {
+        self.tick_ms
+    }
+    /// P-TICK-3-fix: writes this snapshot for a connection of `tick_ms` per tick (its Welcome's rate, [`tick_ms_for_rate`]): a
+    /// Full or Delta frame then carries a source-time override only when `server_time` is not `tick * tick_ms`. Every builder
+    /// stands at [`TICK_MS`]; the time is not changed, only how it is written. A rate no decoder accepts is refused
+    /// ([`checked_tick_ms`]) and changes nothing. A [`ConnEncoder`] sets its own rate on every snapshot it writes.
+    pub fn set_tick_ms(&mut self, tick_ms: u32) -> Result<(), EncodeError> {
+        self.stamp_tick_ms(checked_tick_ms(tick_ms)?);
+        Ok(())
+    }
+
+    /// [`SnapshotData::set_tick_ms`] with a rate already checked (a [`ConnEncoder`]'s own).
+    pub(super) fn stamp_tick_ms(&mut self, tick_ms: u32) {
+        if self.tick_ms != tick_ms {
+            self.0.tick_ms = tick_ms;
+            self.refresh_min_len();
+        }
     }
     pub fn server_time(&self) -> f64 {
         self.server_time
@@ -276,6 +303,7 @@ impl SnapshotData {
         let head = head_word(
             self.phase,
             self.tick,
+            self.tick_ms,
             self.server_time,
             self.me.as_ref(),
             self.training,
@@ -319,6 +347,7 @@ impl SnapshotData {
             &mut w,
             SnapshotHeader {
                 tick: self.tick,
+                tick_ms: self.tick_ms,
                 server_time: self.server_time,
                 phase: self.phase,
                 ack_input: self.ack_input,

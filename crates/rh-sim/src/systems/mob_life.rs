@@ -667,7 +667,7 @@ pub(crate) fn reap(cx: &mut Cx) {
                 || (m.regional_brain().mode == BrainMode::Idle
                     && now - m.last_hit_at >= MOB_REGEN_LOCK_MS))
         {
-            let amount = m.core.vitals.max_hp * TICK_MS
+            let amount = m.core.vitals.max_hp * cx.k.tick_ms()
                 / (if m.regional_brain().mode == BrainMode::Return {
                     MOB_RETURN_REGEN_SECONDS
                 } else {

@@ -575,7 +575,14 @@ fn source_restore_refuses_early_lock_clocks_and_retained_history() {
     reveals[0]["variant"] = json!("Locked");
     let history: crate::vision::VisionTrail =
         serde_json::from_value(cp["world"]["players"][0]["vision"].clone()).unwrap();
-    history.check(later.tick(), true, |_, _| true).unwrap();
+    history
+        .check(
+            later.tick(),
+            crate::constants::LEGACY_TICK_MS,
+            true,
+            |_, _| true,
+        )
+        .unwrap();
     assert!(
         restore(cp).is_err(),
         "retained locked reveal before first configured slot"

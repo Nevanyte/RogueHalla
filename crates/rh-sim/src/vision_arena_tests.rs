@@ -51,9 +51,9 @@ fn source_vision_helper_retains_expiries_across_same_tick_geometry_changes() {
                 variant,
             };
             let origin = anchor(&open, &action["origin"]);
-            trail.refresh_on(origin, tick, variant);
+            trail.refresh_on(origin, tick, TICK_MS, variant);
             trail
-                .check(tick, true, |x, y| x.is_finite() && y.is_finite())
+                .check(tick, TICK_MS, true, |x, y| x.is_finite() && y.is_finite())
                 .unwrap();
             let last = trail.reveals.back().unwrap();
             let memory = &expected["memory"];
@@ -74,7 +74,9 @@ fn source_vision_helper_retains_expiries_across_same_tick_geometry_changes() {
             let mut expires = Vec::new();
             for y in 0..open.h {
                 for x in 0..open.w {
-                    if let Some(seen) = trail.latest_reveal(view, x.into(), y.into(), tick, None) {
+                    if let Some(seen) =
+                        trail.latest_reveal(view, x.into(), y.into(), tick, TICK_MS, None)
+                    {
                         expires.push((
                             u64::from(y) * u64::from(open.w) + u64::from(x),
                             f64::from(seen) * TICK_MS + VISION_TRAIL_MS,
@@ -101,7 +103,7 @@ fn source_vision_helper_retains_expiries_across_same_tick_geometry_changes() {
                 let at = anchor(&open, query);
                 assert_eq!(at, point(&expected_query["point"]));
                 assert_eq!(
-                    trail.remembers(view, at, tick),
+                    trail.remembers(view, at, tick, TICK_MS),
                     expected_query["trailCanSee"]
                 );
                 let current = !scene_line_blocked(&view, origin.x, origin.y, at.x, at.y);
@@ -120,37 +122,40 @@ fn tile_cache_consumes_same_tick_new_reveal_and_checks_tail_geometry() {
         TileMap::from_rows(&["................................................................."])
             .unwrap();
     let mut trail = VisionTrail::default();
-    trail.refresh_on(Vec2::new(16., 16.), 5, Variant::Locked);
+    trail.refresh_on(Vec2::new(16., 16.), 5, TICK_MS, Variant::Locked);
     let prior = trail.reveals.iter().copied().collect::<Vec<_>>();
     let cache = TileVisionCache {
         tick: Some(5),
         previous: prior,
         ..Default::default()
     };
-    trail.refresh_on(Vec2::new(1800., 16.), 5, Variant::Open);
-    assert!(cache.extends(&trail, 5));
+    trail.refresh_on(Vec2::new(1800., 16.), 5, TICK_MS, Variant::Open);
+    assert!(cache.extends(&trail, 5, TICK_MS));
     let view = View {
         open: &map,
         locked: &map,
         variant: Variant::Open,
     };
-    assert_eq!(trail.latest_reveal(view, 56, 0, 5, Some((5, 0))), Some(5));
+    assert_eq!(
+        trail.latest_reveal(view, 56, 0, 5, TICK_MS, Some((5, 0))),
+        Some(5)
+    );
     // Replacement, not extension: equal origin alone cannot justify reusing old cells.
     let mut replaced = VisionTrail::default();
-    replaced.refresh_on(Vec2::new(16., 16.), 7, Variant::Open);
-    assert!(!cache.extends(&replaced, 7));
+    replaced.refresh_on(Vec2::new(16., 16.), 7, TICK_MS, Variant::Open);
+    assert!(!cache.extends(&replaced, 7, TICK_MS));
 }
 #[test]
 fn reveal_validation_rejects_impossible_same_tick_sequences() {
     let mut trail = VisionTrail::default();
-    trail.refresh_on(Vec2::new(16., 16.), 5, Variant::Open);
-    trail.refresh_on(Vec2::new(16., 16.), 5, Variant::Locked);
-    assert!(trail.check(5, true, |_, _| true).is_ok());
+    trail.refresh_on(Vec2::new(16., 16.), 5, TICK_MS, Variant::Open);
+    trail.refresh_on(Vec2::new(16., 16.), 5, TICK_MS, Variant::Locked);
+    assert!(trail.check(5, TICK_MS, true, |_, _| true).is_ok());
     trail.reveals[1].ordinal = 0;
-    assert!(trail.check(5, true, |_, _| true).is_err());
+    assert!(trail.check(5, TICK_MS, true, |_, _| true).is_err());
     trail.reveals[1].ordinal = 1;
     trail.reveals[1].variant = Variant::Open;
-    assert!(trail.check(5, true, |_, _| true).is_err());
+    assert!(trail.check(5, TICK_MS, true, |_, _| true).is_err());
 }
 
 #[test]
@@ -197,7 +202,12 @@ fn persistent_tile_cache_reuses_source_helper_queries_without_changing_the_leaf_
             let origin = anchor(&map, &action["origin"]);
             sim.w.players[0].body.x = origin.x;
             sim.w.players[0].body.y = origin.y;
-            refresh_player(&mut sim.w.players[0], sim.w.tick, sim.w.rt.gates_locked);
+            refresh_player(
+                &mut sim.w.players[0],
+                sim.w.tick,
+                TICK_MS,
+                sim.w.rt.gates_locked,
+            );
             let player = &sim.w.players[0];
             cache.begin(&sim, player, true);
             for (query, want) in case["input"]["queries"]
@@ -258,7 +268,9 @@ fn a_cached_negative_cell_sees_the_second_reveal_of_its_tick() {
     );
     let player = &mut sim.w.players[0];
     player.vision = VisionTrail::default();
-    player.vision.refresh_on(player.pos(), 5, Variant::Locked);
+    player
+        .vision
+        .refresh_on(player.pos(), 5, TICK_MS, Variant::Locked);
     let view = View {
         open: &map,
         locked: &map,
@@ -271,15 +283,15 @@ fn a_cached_negative_cell_sees_the_second_reveal_of_its_tick() {
     };
     let point = Vec2::new(16., 16.);
     assert!(!cache.sees(view, player, point, 5, WardSight::none()));
-    player.vision.refresh_on(point, 5, Variant::Open);
+    player.vision.refresh_on(point, 5, TICK_MS, Variant::Open);
     assert!(cache.sees(view, player, point, 5, WardSight::none()));
     assert!(point_visible(view, player, point, 5, WardSight::none()));
 }
 #[test]
 fn every_new_persisted_reveal_fact_changes_identity() {
     let mut trail = VisionTrail::default();
-    trail.refresh_on(Vec2::new(16., 16.), 5, Variant::Open);
-    trail.refresh_on(Vec2::new(16., 16.), 5, Variant::Locked);
+    trail.refresh_on(Vec2::new(16., 16.), 5, TICK_MS, Variant::Open);
+    trail.refresh_on(Vec2::new(16., 16.), 5, TICK_MS, Variant::Locked);
     let base = crate::hash::hash_of(0, &trail);
     let mut changed = trail.clone();
     changed.reveals[1].variant = Variant::Open;
@@ -288,7 +300,7 @@ fn every_new_persisted_reveal_fact_changes_identity() {
     changed.reveals[1].ordinal = 0;
     assert_ne!(base, crate::hash::hash_of(0, &changed));
     assert!(
-        trail.check(5, false, |_, _| true).is_err(),
+        trail.check(5, TICK_MS, false, |_, _| true).is_err(),
         "locked history has no admitted producer in prerequisite-only stage"
     );
 }

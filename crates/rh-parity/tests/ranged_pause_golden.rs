@@ -278,8 +278,17 @@ fn fx_json(ev: &SeenEvent) -> Option<Value> {
     }
 }
 
-fn run_case(case: &Case, walks: &Value, paths_map: &rh_sim::TileMap, spawns: &[Vec2]) -> Value {
-    let walk = walks["cases"]
+/// One case at one step length. `walk_cases` is the corner-walk case list the foe's position is read from; `k` is the
+/// row multiplier (1 at 50 ms, 2 at 25 ms: the script, the foe's row and the row count double, the same wall time).
+fn run_case(
+    case: &Case,
+    walk_cases: &Value,
+    paths_map: &rh_sim::TileMap,
+    spawns: &[Vec2],
+    tick_ms: u32,
+) -> Value {
+    let k = (50 / tick_ms) as usize;
+    let walk = walk_cases
         .as_array()
         .unwrap()
         .iter()
@@ -309,7 +318,7 @@ fn run_case(case: &Case, walks: &Value, paths_map: &rh_sim::TileMap, spawns: &[V
         weapon1: case.other,
     }];
     if let Some((row, dx, dy)) = case.foe {
-        let at = &walk["ticks"][row];
+        let at = &walk["ticks"][row * k];
         placements.push(Placement {
             profile: "foe".into(),
             faction: FactionId::Frost,
@@ -324,7 +333,10 @@ fn run_case(case: &Case, walks: &Value, paths_map: &rh_sim::TileMap, spawns: &[V
         });
     }
     let mut sim = Sim::reset_active(
-        SimConfig::default(),
+        SimConfig {
+            tick_ms,
+            ..SimConfig::default()
+        },
         arena,
         Secrets::from_seed(11),
         &placements,
@@ -340,13 +352,13 @@ fn run_case(case: &Case, walks: &Value, paths_map: &rh_sim::TileMap, spawns: &[V
     )
     .expect("the walk order");
 
-    let mut rows: Vec<Value> = Vec::with_capacity(case.rows + 1);
+    let mut rows: Vec<Value> = Vec::with_capacity(case.rows * k + 1);
     let mut prev = {
         let p = sim.player(ME).unwrap().pos();
         (p.x, p.y)
     };
     let mut commands: Vec<Value> = Vec::new();
-    for row in 0..=case.rows {
+    for row in 0..=(case.rows * k) {
         let mut fx: Vec<Value> = Vec::new();
         let mut events: Vec<Event> = Vec::new();
         if row > 0 {
@@ -410,7 +422,7 @@ fn run_case(case: &Case, walks: &Value, paths_map: &rh_sim::TileMap, spawns: &[V
             "truthStaggerImmuneUntil": p.weapon.stagger_immune_until,
         }));
         // Commands scripted after this row.
-        for &(at, cmd) in case.script.iter().filter(|(at, _)| *at == row) {
+        for &(at, cmd) in case.script.iter().filter(|(at, _)| at * k == row) {
             let (raw, name) = match cmd {
                 Cmd::Attack => (RawCommand::Attack { a: 0.0, t: None }, "attack"),
                 Cmd::Release => (RawCommand::Release { a: 0.0, t: None }, "release"),
@@ -418,10 +430,10 @@ fn run_case(case: &Case, walks: &Value, paths_map: &rh_sim::TileMap, spawns: &[V
             };
             sim.submit(ME, validate(raw).unwrap())
                 .expect("scripted command accepted");
-            commands.push(json!({ "afterRow": at, "kind": name }));
+            commands.push(json!({ "afterRow": at * k, "kind": name }));
         }
         if let Some((frow, _, _)) = case.foe {
-            if frow == row {
+            if frow * k == row {
                 // Aim at the walker from where the foe stands.
                 let foe = sim.player(FOE).unwrap().pos();
                 let me_pos = sim.player(ME).unwrap().pos();
@@ -447,7 +459,7 @@ fn run_case(case: &Case, walks: &Value, paths_map: &rh_sim::TileMap, spawns: &[V
     })
 }
 
-fn build() -> Value {
+fn world() -> (Value, rh_sim::TileMap, Vec<Vec2>) {
     let walks: Value = serde_json::from_str(
         &std::fs::read_to_string(repo_path("protocol/fixtures/server_walk_v1.json")).unwrap(),
     )
@@ -463,9 +475,14 @@ fn build() -> Value {
         .iter()
         .map(|p| Vec2::new(p[0].as_f64().unwrap(), p[1].as_f64().unwrap()))
         .collect();
+    (walks, map, spawns)
+}
+
+fn build() -> Value {
+    let (walks, map, spawns) = world();
     let cases: Vec<Value> = CASES
         .iter()
-        .map(|c| run_case(c, &walks, &map, &spawns))
+        .map(|c| run_case(c, &walks["cases"], &map, &spawns, 50))
         .collect();
     json!({
         "format": FORMAT,
@@ -503,6 +520,68 @@ fn ranged_pause_v2_is_the_current_server() {
     assert_eq!(
         got, want,
         "ranged_pause_v2.json is not what the current core produces (RH_WRITE_FIXTURES=1 rewrites it)"
+    );
+}
+
+/// `ranged_pause_v3.json`: the v2 header without `tickMs`, and a run per step length. The 50 ms run is v2's cases
+/// (read from the v1 walk, as v2 does); the 25 ms run reads the foe's position from the 25 ms run of `server_walk_v3`.
+fn build_v3() -> Value {
+    let (walks, map, spawns) = world();
+    let walk_v3: Value = serde_json::from_str(
+        &std::fs::read_to_string(repo_path("protocol/fixtures/server_walk_v3.json")).unwrap_or_else(
+            |e| panic!("server_walk_v3.json: {e} (cargo run -p rh-parity --bin hitbox-fixtures writes it)"),
+        ),
+    )
+    .unwrap();
+    let walk25 = walk_v3["runs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["tickMs"] == 25)
+        .expect("the 25 ms walk run")["cases"]
+        .clone();
+    let run = |tick_ms: u32, walk_cases: &Value| -> Value {
+        let cases: Vec<Value> = CASES
+            .iter()
+            .map(|c| run_case(c, walk_cases, &map, &spawns, tick_ms))
+            .collect();
+        json!({ "tickMs": tick_ms, "cases": cases })
+    };
+    json!({
+        "format": "rh-ranged-pause/3",
+        "source": "crates/rh-sim Sim::reset_active, seed-1 map, one Move order then scripted attacks, at 50 ms and 25 ms steps (the same wall time: the 25 ms run has twice the rows); rows are what the owner's observation delivers",
+        "map": walks["map"],
+        "walkFixture": "server_walk_v3.json",
+        "constants": {
+            "playerSpeed": PLAYER_SPEED,
+            "rangedReleasePauseMs": RANGED_RELEASE_PAUSE_MS,
+            "bowWindupMaxS": BOW_WINDUP_MAX_S,
+            "bowWindupIntervalShare": BOW_WINDUP_INTERVAL_SHARE,
+            "tieEpsMs": TIE_EPS_MS,
+        },
+        "runs": [run(50, &walks["cases"]), run(25, &walk25)],
+    })
+}
+
+#[test]
+fn ranged_pause_v3_is_the_current_server() {
+    let got = build_v3();
+    let path = repo_path("protocol/fixtures/ranged_pause_v3.json");
+    if std::env::var_os("RH_WRITE_FIXTURES").is_some() {
+        let mut text = serde_json::to_string_pretty(&got).unwrap();
+        text.push('\n');
+        std::fs::write(&path, text).unwrap();
+        println!("wrote {}", path.display());
+        return;
+    }
+    let want: Value = serde_json::from_str(
+        &std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("{}: {e} (RH_WRITE_FIXTURES=1 writes it)", path.display())),
+    )
+    .unwrap();
+    assert_eq!(
+        got, want,
+        "ranged_pause_v3.json is not what the current core produces (RH_WRITE_FIXTURES=1 rewrites it)"
     );
 }
 
