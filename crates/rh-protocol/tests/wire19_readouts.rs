@@ -187,7 +187,7 @@ fn the_encoder_refuses_every_invalid_row_atomically() {
 fn the_decoder_refuses_each_check_for_its_reason() {
     use DecodeError::BadField;
     let cases: [(&str, Vec<u8>, DecodeError); 9] = [
-        ("count 29", unhex("88dc01010e1d"), BadField("readout count")),
+        ("count 29", unhex("88dc0101101d"), BadField("readout count")),
         ("card 79", patched(0, 0, &[79]), BadField("readout card")),
         ("card 94", patched(4, 0, &[94]), BadField("readout card")),
         ("kind 3", patched(1, 1, &[3]), BadField("readout kind")),
