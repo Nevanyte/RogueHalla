@@ -19,3 +19,7 @@ R-AUTH and D9. Follow delivered positions and flags. Ash, crust, boulders and as
 ## Oracle and verification
 
 The previous scene uses one procedural sprite for authoritative rock group 3 and basalt 7. Require different painted sprites on the existing material, a procedural fallback and preserved non-target decoration kinds. Review matched native and 2560×1440 Web routes, including a shot where the player stands clear of the rock. Run the full project gate on the integrated environment revision.
+
+## Review evidence
+
+At playable revision `5e126272c`, all three Web comparisons matched the original player coordinates. The first paint repeated one pale cluster on the flank. A second loose-rock painting breaks up those groups, with 18 angular and 23 rounded placements on this map. The 38 basalt ledges use a separate matte painting. Three close fights per build confirmed hits, with six to eight actors in the revised view. Median 95th-percentile frame intervals were 8.1 ms before and 8.0 ms after. The fights lasted 3.2–4.3 seconds. The four procedural mound aliases and the volcanic cover that borrows the marsh shrub have individual follow-up checks. The six new art definitions passed Inspector edits, Undo/Redo, save/reload and texture reimport. The regional dressing rows in the visual tracker reference the matched gallery at `world/frost-and-fire/index.html`.

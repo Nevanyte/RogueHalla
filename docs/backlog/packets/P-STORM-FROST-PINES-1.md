@@ -21,3 +21,7 @@ R-AUTH and D9. Preserve Rust placement, tall flags, the existing actor-dependent
 The previous regional atlas returns procedural sprites for both pine keys. Require actual paintings on the shared atlas and verify their intended prop assignments. Run the margin and tall-prop checks. Compare matched native and 2560×1440 Web frames at three waypoints, including trunk overlap. Run the full project gate on the integrated environment revision.
 
 The subsequent spire check compares the tree and the ice slab at the cave fringe. Only the trees should sway.
+
+## Review evidence
+
+At playable revision `5e126272c`, the 2560 × 1440 Web player reached the same three positions as the original player. The cave review exposed two neighboring ice spires that had inherited the pine silhouette. A second pass distinguished their height and facing. The 14 snow pines, 11 wind pines and 8 spires keep their delivered positions. In three runs per build at the grove, the median 95th-percentile frame interval was 8.6 ms before and 8.2 ms after. The six new art definitions passed Inspector edits, Undo/Redo, save/reload and texture reimport. The regional dressing rows in the visual tracker reference the matched gallery at `world/frost-and-fire/index.html`.
