@@ -76,7 +76,7 @@ namespace Roguehalla.Client
         /// <summary>Art that bends in the wind (trees, grass, reeds, bushes, cloth). Packed first, with a shelf break after it, so the shader can tell it by atlas V alone (<see cref="SwayV"/>): no second material, no extra draw calls.</summary>
         public static bool Sways(string key)
         {
-            return key == "plague.tree.ink" || key.EndsWith(".pine") || key.EndsWith(".pine2") || key.EndsWith(".tree") || key.EndsWith(".deadtree") || key.EndsWith(".palm") || key.EndsWith(".reeds") || key.EndsWith(".bush")
+            return key == "plague.tree.ink" || key == "frost.spire.fallback" || key.EndsWith(".pine") || key.EndsWith(".pine2") || key.EndsWith(".tree") || key.EndsWith(".deadtree") || key.EndsWith(".palm") || key.EndsWith(".reeds") || key.EndsWith(".bush")
                 || key.EndsWith(".shrub") || key.EndsWith(".fern") || key.EndsWith(".flowers") || key.EndsWith(".grass") || key.EndsWith(".deadgrass") || key.EndsWith(".banner") || key.EndsWith(".scarecrow");
         }
         /// <summary>Atlas V below which a vertex belongs to wind-capable art (the global <c>_RhSwayV</c>).</summary>
@@ -278,6 +278,8 @@ namespace Roguehalla.Client
 
         static void AddFrost(List<Def> l)
         {
+            var pineA = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostPineArt");
+            var pineB = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostWindPineArt");
             Color baseC = P(4, 0), sec = P(4, 1), acc = P(4, 2), shadow = P(4, 5);
             Color snow = Mix(baseC, Color.white, .35f), snowLight = Mix(baseC, Color.white, .85f), snowShade = Mix(shadow, baseC, .62f), snowDeep = Mix(shadow, baseC, .38f);
             Color spruceDark = Shade(Mix(sec, P(3, 1), .45f), .46f), spruceMid = Shade(Mix(sec, P(3, 1), .45f), .78f), spruceLight = Mix(sec, P(3, 1), .55f);
@@ -329,8 +331,21 @@ namespace Roguehalla.Client
                     c.Glow(cx - 4f, gy + treeH * .55f, 7f, snowLight, .20f);
                 };
             }
-            Add(l, "frost.pine", 112, 184, 12, pine[0], true);
-            Add(l, "frost.pine2", 120, 150, 12, pine[1], true);
+            int pineAW = pineA != null ? pineA.WidthPixels(112) : 112;
+            int pineAH = pineA != null ? pineA.HeightPixels(184) : 184;
+            int pineAGround = pineA != null ? pineA.GroundPixels(12, pineAH) : 12;
+            int pineBW = pineB != null ? pineB.WidthPixels(120) : 120;
+            int pineBH = pineB != null ? pineB.HeightPixels(150) : 150;
+            int pineBGround = pineB != null ? pineB.GroundPixels(12, pineBH) : 12;
+            Add(l, "frost.pine", pineAW, pineAH, pineAGround, pine[0], true,
+                textureFoot: pineA != null ? pineA.ClampedTextureFoot(new Vector2(.5f, .055f)) : null,
+                textureSource: pineA != null ? pineA.Pigment : null);
+            Add(l, "frost.pine2", pineBW, pineBH, pineBGround, pine[1], true,
+                textureFoot: pineB != null ? pineB.ClampedTextureFoot(new Vector2(.5f, .055f)) : null,
+                textureSource: pineB != null ? pineB.Pigment : null);
+            // Kind 81 (frost.spire) historically renders as pine2. Keep that procedural fallback available
+            // when the ordinary pine2 receives its new authored painting.
+            Add(l, "frost.spire.fallback", 120, 150, 12, pine[1], true);
 
             Add(l, "frost.rock", 112, 84, 10, (c, gy) =>
             {

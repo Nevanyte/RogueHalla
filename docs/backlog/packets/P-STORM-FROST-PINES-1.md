@@ -14,7 +14,7 @@ The two Frost pine paintings and importers, their Unity art definitions, shared 
 
 ## Contracts and acceptance
 
-R-AUTH and D9. Preserve Rust placement, tall flags, the existing actor-dependent fade, wind and arena lighting. The upright and swept tree each have editable dimensions and a foot anchor. Keep the non-pine fallback for missing art and preserve independent decoration kinds. Check the painterly edges against both bright snow and the icy channel.
+R-AUTH and D9. Preserve Rust placement, tall flags, the existing actor-dependent fade, wind and arena lighting. The upright and swept tree each have editable dimensions and a foot anchor. Use the previous procedural tree when a painting is missing. Keep the delivered spire’s existing silhouette and overlap bounds. Check the painterly edges against both bright snow and the icy channel.
 
 ## Oracle and verification
 

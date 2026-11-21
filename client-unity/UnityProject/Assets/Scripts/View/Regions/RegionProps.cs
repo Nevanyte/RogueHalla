@@ -90,6 +90,16 @@ namespace Roguehalla.Client
             }
         }
 
+        // A delivered spire used the procedural pine silhouette before the ordinary trees were painted.
+        // Resolve the entire art entry so its lighting and overlap bounds follow the same sprite.
+        static string RenderArtKey(Placement placement)
+        {
+            if (placement.Shipped && placement.Art == "frost.pine2" &&
+                DecorationKinds.TryGet(placement.Kind, out var kind) && kind.Name == "frost.spire")
+                return "frost.spire.fallback";
+            return placement.Art;
+        }
+
         /// <summary>The one test of "this placed prop is tall": the shipped row's flag for shipped props, the art's for client-rolled ones. Drawing, fading and shadows all use it.</summary>
         public static bool IsTall(Placement pl, RegionPropSprite art) { return pl.Shipped ? (pl.Flags & 1) != 0 : art.Tall; }
 
@@ -237,7 +247,7 @@ namespace Roguehalla.Client
                     if (warned == null) warned = new HashSet<byte>();
                     if (warned.Add(pl.Kind)) Debug.LogWarning("RegionProps: unknown decoration kind " + pl.Kind + " drawn as the placeholder");
                 }
-                if (!RegionPropArt.TryGet(pl.Art, out var art)) continue;
+                if (!RegionPropArt.TryGet(RenderArtKey(pl), out var art)) continue;
                 float scaleX = pl.Scale, scaleY = pl.Scale;
                 bool flip = pl.Flip;
                 Color tint = Color.white;
