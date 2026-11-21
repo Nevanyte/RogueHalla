@@ -3,6 +3,7 @@
 // licence-ledger entry. Sprites pivot at their ground contact point. 64 pixels per world unit (one tile is 64 px wide).
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 using static Roguehalla.Client.RegionCanvas;
 
@@ -32,17 +33,34 @@ namespace Roguehalla.Client
         public const int RequiredMargin = 2;
         static Dictionary<string, RegionPropSprite> _all;
         static Texture2D _atlas;
+        static int _authoredDefinitionsDirty;
         public static Texture2D Atlas { get { Ensure(); return _atlas; } }
         public static bool TryGet(string key, out RegionPropSprite sprite) { Ensure(); return _all.TryGetValue(key, out sprite); }
         public static IEnumerable<string> Keys { get { Ensure(); return _all.Keys; } }
 
-        struct Def { public string Key; public int W, H, Ground; public Action<RegionCanvas, int> Paint; public bool Tall; public string TexturePath; public Vector2? TextureFoot; }
+        // OnValidate can run off the main thread. Only flag here; the next preview/arena lookup rebuilds lazily.
+        internal static void MarkAuthoredDefinitionsDirty() { Interlocked.Exchange(ref _authoredDefinitionsDirty, 1); }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStaticsForPlay()
+        {
+            _all = null;
+            _atlas = null;
+            Interlocked.Exchange(ref _authoredDefinitionsDirty, 0);
+        }
+
+        struct Def { public string Key; public int W, H, Ground; public Action<RegionCanvas, int> Paint; public bool Tall; public string TexturePath; public Texture2D TextureSource; public Vector2? TextureFoot; }
 
         static Color P(int region, int slot) { return RegionPaletteGenerated.Srgb[region][slot]; }
         static readonly Color Ink = new Color(.05f, .06f, .10f, .85f);
 
         static void Ensure()
         {
+            if (Interlocked.Exchange(ref _authoredDefinitionsDirty, 0) != 0)
+            {
+                _all = null;
+                _atlas = null;
+            }
             if (_all != null) return;
             var defs = new List<Def>();
             AddFrost(defs); AddFire(defs); AddSentenced(defs); AddPlague(defs); AddHoly(defs); AddTemple(defs); AddColiseum(defs); AddPlaceholder(defs);
@@ -83,7 +101,7 @@ namespace Roguehalla.Client
         {
             int padS = DebugNoPadding ? 0 : PadSide, padT = DebugNoPadding ? 0 : PadTop, padB = DebugNoPadding ? 0 : PadBottom;
             var full = new RegionCanvas(d.W + 2 * padS, d.H + padB + padT) { OriginX = padS, OriginY = padB, DesignW = d.W, DesignH = d.H };
-            var source = string.IsNullOrEmpty(d.TexturePath) ? null : Resources.Load<Texture2D>(d.TexturePath);
+            var source = d.TextureSource != null ? d.TextureSource : string.IsNullOrEmpty(d.TexturePath) ? null : Resources.Load<Texture2D>(d.TexturePath);
             usedTexture = source != null && source.isReadable && PaintTextureOverride(full, d, source);
             if (!usedTexture) d.Paint(full, d.Ground);
             int x0 = full.W, x1 = -1, y0 = full.H, y1 = -1;
@@ -148,8 +166,8 @@ namespace Roguehalla.Client
             });
         }
 
-        static void Add(List<Def> l, string key, int w, int h, int ground, Action<RegionCanvas, int> paint, bool tall = false, string texturePath = null, Vector2? textureFoot = null)
-        { l.Add(new Def { Key = key, W = w, H = h, Ground = ground, Paint = paint, Tall = tall, TexturePath = texturePath, TextureFoot = textureFoot }); }
+        static void Add(List<Def> l, string key, int w, int h, int ground, Action<RegionCanvas, int> paint, bool tall = false, string texturePath = null, Vector2? textureFoot = null, Texture2D textureSource = null)
+        { l.Add(new Def { Key = key, W = w, H = h, Ground = ground, Paint = paint, Tall = tall, TexturePath = texturePath, TextureSource = textureSource, TextureFoot = textureFoot }); }
 
         /// <summary>Copies a tightly cropped authored texture into its original design bounds, aligned at ground contact.
         /// Returns false for empty/unreadable inputs so the original procedural paint remains the fallback.</summary>
@@ -664,6 +682,7 @@ namespace Roguehalla.Client
 
         static void AddHoly(List<Def> l)
         {
+            var shrubArt = HolyShrubArt.Load();
             Color sand = P(5, 0), green = P(5, 1), gold = P(5, 2), shadow = P(5, 5);
             Color leafDark = Shade(green, .62f), leafMid = green, leafLight = Mix(green, Color.white, .30f);
             Color stoneD = Shade(Mix(sand, shadow, .3f), .8f), stoneM = Mix(sand, Color.white, .02f), stoneL = Mix(sand, Color.white, .45f);
@@ -689,12 +708,16 @@ namespace Roguehalla.Client
                 }
                 var nut = Circle(crown.x + 3, crown.y - 4, 5); c.Fill(nut, Toon(nut, Shade(bark, .4f), Shade(bark, .7f), bark, 4f), Ink, 1.1f);
             }, true);
-            Add(l, "holy.shrub", 96, 68, 8, (c, gy) =>
+            int shrubW = shrubArt != null ? Mathf.RoundToInt(Mathf.Clamp(shrubArt.WidthWorldUnits, .5f, 3f) * PixelsPerUnit) : 96;
+            int shrubH = shrubArt != null ? Mathf.RoundToInt(Mathf.Clamp(shrubArt.HeightWorldUnits, .35f, 2f) * PixelsPerUnit) : 68;
+            int shrubGround = shrubArt != null ? Mathf.Min(Mathf.RoundToInt(Mathf.Clamp(shrubArt.GroundWorldUnits, 0f, .5f) * PixelsPerUnit), shrubH - 1) : 8;
+            Vector2 shrubFoot = shrubArt != null ? new Vector2(Mathf.Clamp01(shrubArt.TextureFoot.x), Mathf.Clamp01(shrubArt.TextureFoot.y)) : new Vector2(.5f, .055f);
+            Add(l, "holy.shrub", shrubW, shrubH, shrubGround, (c, gy) =>
             {
                 c.SoftShadow(52, gy + 1, 34f, 6f, .3f, Alpha(shadow, 1f));
                 Lumps(c, 48, gy, 34, 24, 5, leafDark, leafMid, leafLight, 31);
                 for (int k = 0; k < 6; k++) { float x = 26 + RegionNoise.Hash01(k, 2, 5) * 44, y = gy + 12 + RegionNoise.Hash01(k, 3, 5) * 20; c.Fill(Circle(x, y, 2.4f), Flat(Mix(gold, Color.white, .35f))); c.Fill(Circle(x, y, 1f), Flat(Mix(gold, Color.white, .8f))); }
-            });
+            }, false, textureFoot: shrubFoot, textureSource: shrubArt != null ? shrubArt.Pigment : null);
             Add(l, "holy.flowers", 88, 60, 6, (c, gy) =>
             {
                 c.SoftShadow(44, gy + 1, 30f, 5f, .25f, Alpha(shadow, 1f));
