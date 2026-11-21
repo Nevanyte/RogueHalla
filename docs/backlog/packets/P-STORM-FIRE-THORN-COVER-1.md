@@ -34,6 +34,8 @@ The former Fire cell selects `plague.bush` and fails a check requiring a volcani
 
 The owner requested a more open canopy after reviewing the dense thicket at `26ea690ae`. The revision at `5babbe104` breaks the paint into leaf sprays and reduces the Inspector width from 1.609375 to 1.40625 world units. At the same camera position, the terrain, Fire’s boot and the lower edge of the targeting fan show through. Native and Web checks use true tile positions (24,149), (24,151) and (26,149), with bush IDs 0, 23 and 0. Both Web revisions received identical map bytes. All 20 focused editor checks passed. Resizing and moving the foot survived Undo, Redo, save, reopen and source reimport. A native render isolated one thicket and confirmed that the existing region wind moves the leaves and Low with Reduced Motion stops the movement. The comparison and normal-speed traversal are in the visual review gallery under `world/fire-thorn-cover/open-canopy/`.
 
+Three paired Chrome runs on the M5 Pro compared `5e126272c` with `5babbe104` at 2560 × 1440. Inside cover, median p95 frame time across runs was 8.4 ms before and 8.1 ms after. At the volcanic mob pack it was 8.5 and 8.0 ms. Every combat sample contained a confirmed hit. Raw browser samples, actor counts, load times and heap measurements accompany the comparison. The full gate ran concurrently and actor counts varied. The final Web distribution adds 345,199 bytes at Brotli quality 5 against the original green shrub build.
+
 ## Validation commands
 
 Run the targeted Unity EditMode checks, `python3 scripts/readability_check.py`, `scripts/gate.sh --quick` and `scripts/gate.sh`. Capture normal gameplay against the fixed pilot with its protocol-18 content identity.
