@@ -19,6 +19,15 @@ test('Fixed source and training routes preserve query and never cross upstreams'
   assert.equal(isWebSocketRoute(classifyRoute('GET','/api/state')),false);
 });
 
+test('Reload companion identity, fresh-profile claim, and game socket use public source routes',()=>{
+  assert.deepEqual(classifyRoute('GET','/info'),{kind:'proxy',upstream:7777,path:'/info'});
+  assert.deepEqual(classifyRoute('GET','/api/profile/reload19_probe'),
+    {kind:'proxy',upstream:7777,path:'/api/profile/reload19_probe'});
+  const game=classifyRoute('GET','/ws');
+  assert.deepEqual(game,{kind:'proxy',upstream:7777,path:'/ws'});
+  assert.equal(isWebSocketRoute(game),true);
+});
+
 test('Only the fixed local Host is admitted and forwarded peer replaces incoming XFF',()=>{
   assert.equal(acceptsLocalHost('localhost:8888'),true);
   for(const host of ['127.0.0.1:8888','[::1]:8888','localhost:8889',undefined]) assert.equal(acceptsLocalHost(host),false);

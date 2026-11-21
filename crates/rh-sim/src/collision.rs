@@ -61,3 +61,6 @@ pub(crate) fn visit_content(mut word: impl FnMut(u64)) {
     word(Variant::Locked as u64);
     word(crate::vision::max_samples() as u64);
 }
+
+mod terrain;
+pub(crate) use terrain::{map, open, view, Terrain};

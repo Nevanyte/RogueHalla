@@ -49,7 +49,7 @@
 //!
 //! Protocol 20 adds prop kind 8 (Heal): a grand-coliseum heal pickup with the cannon's layout, `handle varint | x u16 |
 //! y u16 | 8 u8 | ready_at varint` (server ms it is available again; 0 when available). It holds no item, so it is never
-//! the focus. No mask bit, key or delta change; every other prop kind keeps its bytes, and a kind byte past 8 is refused.
+//! the focus. No mask bit, key or delta change; other prop kinds keep their bytes. Protocol 23 reserves kind 9 for the Rebirth Egg.
 //!
 //! Protocol 12 adds Cast (command 16: slot u8 0..=2, x/y f32, strict optional nonzero fixed-u32 actor, strict optional f64
 //! event time, strict optional sequence u8); WishStarted/Landed/Ended (Fx 6/7/8); owner Wish and barrier groups in self; and
@@ -71,6 +71,14 @@
 //! into flags (bit 0 passive, bit 1 critical); Windup (Fx 9: by varint, weapon u8, angle u16, ms u16), Cancel (Fx 10: id
 //! varint), SigHit (Fx 11: victim varint, source varint, kind u8, amount f32) and Heal (Fx 12: id varint, amount f32);
 //! CampCleared (Events 11: camp u16); State key 12, the roster.
+//!
+//! Protocol 23 adds `QuestInteract` (command 19: quest handle varint, action u8, target u8) and gates the owner-only quest
+//! payload with bit 6 of the quest header count (the lower bits remain the unknown count). When set, the payload follows
+//! State key 10 objectives: spell count and `(slot,reward,charges,ready_at f64)` rows; pending count and
+//! quest handles; drop count and `(index,reward,charges,ready_at f64,x f64,y f64)` rows; then offered action count and
+//! `(quest handle,action,target,point count,f64 x/y pairs,label)` rows. The owner view stays bounded by
+//! [`state::MAX_QUEST_VIEW_BYTES`]; its counts cover the Top 25 catalog, same-match offers, the room roster, spell slots and
+//! u8-indexed drops. Private owner facts are filtered before projection (C-OBS).
 //!
 //! # Field masks (protocol v4; docs/adr/0011-protocol-v4.md)
 //!
@@ -184,10 +192,10 @@ pub use state::{
     validate_quest_props, PickupHandle, QuestHandle, RewardChestHandle, RosterId, StateItem,
     TrophyStatKey, WireArena, WireBuild, WireCamp, WireField, WireFocus, WireInventory,
     WireMerchant, WirePlan, WirePlanOption, WireProjectile, WireProp, WirePropKind, WireProps,
-    WireQuestObjective, WireQuestParticipant, WireQuestPoint, WireQuestRow, WireQuestView,
-    WireRewardChest, WireRewardId, WireRewardOption, WireRosterEntry, WireRosterRow,
-    WireTradeDelta, WireTradeKind, WireTradeOffer, WireTradeStat, WireTradeView,
-    MAX_TRADE_MERCHANTS, MAX_TRADE_OFFERS, MAX_TRADE_STATS, MAX_TRADE_VIEW_BYTES,
+    WireQuestAction, WireQuestDrop, WireQuestObjective, WireQuestParticipant, WireQuestPoint,
+    WireQuestRow, WireQuestSpell, WireQuestView, WireRewardChest, WireRewardId, WireRewardOption,
+    WireRosterEntry, WireRosterRow, WireTradeDelta, WireTradeKind, WireTradeOffer, WireTradeStat,
+    WireTradeView, MAX_TRADE_MERCHANTS, MAX_TRADE_OFFERS, MAX_TRADE_STATS, MAX_TRADE_VIEW_BYTES,
 };
 
 pub use actor::*;
@@ -212,7 +220,8 @@ pub use weapon::{
 };
 
 /// Bump on any incompatible change (a new tag or field in an existing message). Both ends refuse another major version.
-pub const PROTOCOL_VERSION: u16 = 21;
+/// Protocol 23 unifies the ranked quests with the per-session tick rate and coliseum heal pickups.
+pub const PROTOCOL_VERSION: u16 = 23;
 /// Milliseconds per server tick at the default 20 Hz. A Snapshot carries `tick` only: its server time is `tick * tick_ms`
 /// exactly, with `tick_ms` from the connection's Welcome ([`tick_ms_for_rate`]); this is the 20 Hz value, which every
 /// rate-less decode and encode uses.
@@ -293,6 +302,7 @@ const C_PLAN: u8 = 14;
 const C_CAST: u8 = 16;
 const C_QUEST_ACCEPT: u8 = 17;
 const C_TRADE: u8 = 18;
+const C_QUEST_INTERACT: u8 = 19;
 
 #[cfg(test)]
 mod tests;

@@ -4,9 +4,10 @@
 //! downed list; reads the ledger, the action-order ranks and the tick-start bounties from the tick scratch.
 
 use crate::constants::*;
-use crate::content::{mitigate_shares, pvp_factor, DamageShares, WeaponId};
+use crate::content::{mitigate_shares, pvp_factor, WeaponId};
 use crate::events::Event;
 use crate::fighter::FighterIx;
+use crate::quests::board::rewards::permanent;
 use crate::results::Outcome;
 use crate::scratch::{TickScratch, NONE};
 use crate::state::{Packet, PlayerId, World};
@@ -496,7 +497,7 @@ fn apply_inner(
                 } else {
                     Default::default()
                 };
-                crate::modifiers::outgoing_damage(
+                let outgoing = crate::modifiers::outgoing_damage(
                     w.core(i),
                     &build,
                     frac,
@@ -510,11 +511,15 @@ fn apply_inner(
                     streak,
                     probe,
                     false,
-                )
+                );
+                outgoing + permanent::crown_damage(w, w.core(i).id)
             })
         } else {
             1.
         };
+        let warhorn = e.credit_id().map_or(1., |id| {
+            crate::quests::board::rewards::effects::damage_factor(w, id)
+        });
         let gambler = if !e.arena && e.ability.is_none() {
             bix.filter(|i| {
                 w.is_player(*i)
@@ -558,6 +563,7 @@ fn apply_inner(
         mults.push(
             farm_mult
                 * gambler
+                * warhorn
                 * (if final_entry { taken } else { dealt * taken })
                 * (if k.config.pvp_rules
                     && !e.arena
@@ -650,7 +656,7 @@ fn apply_victim(
     let ix = FighterIx::of_slot(vi);
     let player = pass.w.is_player(ix);
     let v = pass.w.core(ix).id;
-    if !pass.w.standing(ix) {
+    if !pass.w.standing(ix) || crate::quests::board::rewards::effects::stasis(pass.w, v) {
         return;
     }
     let defense = pass.w.defense(ix);
@@ -695,11 +701,7 @@ fn apply_victim(
         };
         raws.push(raw_source);
         let raw_damage = if friendly_mobs { 0. } else { raw_source };
-        let s = DamageShares {
-            phys: e.packet.phys,
-            magic: e.packet.magic,
-            true_: e.packet.true_,
-        };
+        let s = permanent::damage_shares(pass.w, e);
         mitigate_shares(raw_damage, &s, armor, shield)
     }));
     if player && pass.k.config.pvp_rules {
@@ -834,7 +836,11 @@ fn apply_victim(
             terrain: e.terrain,
             amount: amounts[j],
             by: e.credit_id(),
-            name: e.source.as_ref().map(|s| s.name.clone()),
+            name: if player {
+                e.source.as_ref().map(|s| s.name.clone())
+            } else {
+                crate::quests::board::rewards::effects::mob_impact_label(e)
+            },
         }
     }));
     let hp_before = pass.w.core(ix).vitals.hp;
@@ -1053,7 +1059,7 @@ fn apply_hits(pass: &mut Pass, vi: usize, hits: &[Hit]) -> f64 {
         }
         // A source still in the run (not resolved) is an attacker; anyone else is a name only.
         if let Some((si, by)) = by.and_then(|b| w.idx(b).map(|si| (si, b))) {
-            if !w.players[si].resolved && by != victim_id {
+            if credit::eligible(w, si) && by != victim_id {
                 let src = &mut w.players[si];
                 if !src.credit.damaged.contains(&victim_id) {
                     src.credit.damaged.push(victim_id);
@@ -1098,7 +1104,7 @@ fn apply_hits(pass: &mut Pass, vi: usize, hits: &[Hit]) -> f64 {
     let kid = hits[killer].by;
     let killer_idx = kid
         .and_then(|k| w.idx(k))
-        .filter(|&k| !w.players[k].resolved);
+        .filter(|&k| credit::eligible(w, k));
     let killer_bot = killer_idx.map(|k| w.players[k].seat.bot).unwrap_or(false);
     let killer_label = kid.and_then(|id| w.actor_label(id));
     // A death fx names its killer only when a PLAYER landed the fatal damage (legacy: by is the combatant object id;

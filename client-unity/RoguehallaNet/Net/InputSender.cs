@@ -122,6 +122,14 @@ namespace Roguehalla.Net
             _queue.Add(WireCommand.QuestAccept(handle));
         }
 
+        /// <summary>Queues an interaction advertised in the owner's latest QuestView.actions.</summary>
+        public void QuestInteract(WireQuestAction offeredAction)
+        {
+            if (offeredAction == null || !offeredAction.Quest.IsValid) { Dropped++; return; }
+            try { _queue.Add(WireCommand.QuestInteract(offeredAction.Quest, offeredAction.Action, offeredAction.Target)); }
+            catch (ArgumentOutOfRangeException) { Dropped++; }
+        }
+
         /// <summary>Queues the Sentenced hunt target (a delivered actor id); whether the hunt is allowed stays a server decision.</summary>
         public void HuntTarget(uint actorId)
         {

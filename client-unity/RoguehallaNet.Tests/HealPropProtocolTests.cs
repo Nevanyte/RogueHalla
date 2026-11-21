@@ -35,7 +35,7 @@ namespace Roguehalla.Net.Tests
             return new WireProp { Handle = new PickupHandle((uint)(i + 1)), X = Xs[i], Y = Ys[i], Kind = PropKind.Heal, ReadyAt = Ready[i] };
         }
 
-        [Test] public void CodecSpeaksProtocol21() { Assert.AreEqual(21, Wire.ProtocolVersion, "a new prop kind is an incompatible wire change: 19 -> 20"); }
+        [Test] public void CodecSpeaksProtocol23() { Assert.AreEqual(23, Wire.ProtocolVersion, "a new prop kind is an incompatible wire change: 22 -> 23"); }
 
         [Test]
         public void TheHealKindIsByte8InBothEnums()
@@ -86,9 +86,9 @@ namespace Roguehalla.Net.Tests
         public void AnUnknownPropKindIsRefused()
         {
             // Hand-built (not a shared malformed vector: tools/protocol-js/check-vectors.mjs is provenance-pinned):
-            // kind 9 after the heal's place is refused like every unknown byte.
-            var nine = new byte[] { 0x88, 0xca, 0x01, 1, 2, 1, 1, 0x50, 0, 0xa0, 0, 9, 0, 0 };
-            var e = Assert.Throws<DecodeException>(() => ServerMsg.Decode(nine), "prop kind 9");
+            // kind 9 after the heal's place is refused only above the assigned kind range.
+            var ten = new byte[] { 0x88, 0xca, 0x01, 1, 2, 1, 1, 0x50, 0, 0xa0, 0, 10, 0, 0 };
+            var e = Assert.Throws<DecodeException>(() => ServerMsg.Decode(ten), "prop kind 10");
             Assert.AreEqual(DecodeError.BadField, e.Error);
         }
 

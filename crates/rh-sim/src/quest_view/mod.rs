@@ -2,6 +2,7 @@
 //! Preparation never grants authority; callers commit only after all related output has been accepted for delivery.
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU32;
+pub(crate) mod board;
 mod presentation;
 
 use crate::quests::{catalog, live::Status};
@@ -87,6 +88,29 @@ pub struct Objective {
     pub quest: QuestHandle,
     pub at: Vec2,
 }
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct QuestSpell {
+    pub slot: u8,
+    pub reward: u8,
+    pub charges: u8,
+    pub ready_at: f64,
+}
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct QuestDrop {
+    pub index: u8,
+    pub reward: u8,
+    pub charges: u8,
+    pub ready_at: f64,
+    pub at: Vec2,
+}
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct QuestAction {
+    pub quest: QuestHandle,
+    pub action: u8,
+    pub target: u8,
+    pub at: Vec<Vec2>,
+    pub label: String,
+}
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct QuestView {
     pub unknown_count: u32,
@@ -97,6 +121,14 @@ pub struct QuestView {
     pub roster: Vec<RosterEntry>,
     pub rows: Vec<QuestRow>,
     pub objectives: Vec<Objective>,
+    #[serde(default)]
+    pub spells: Vec<QuestSpell>,
+    #[serde(default)]
+    pub pending: Vec<QuestHandle>,
+    #[serde(default)]
+    pub drops: Vec<QuestDrop>,
+    #[serde(default)]
+    pub actions: Vec<QuestAction>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Error {
@@ -113,6 +145,7 @@ struct Committed {
     next_quest: u64,
     roster: BTreeMap<PlayerId, RosterId>,
     quests: BTreeMap<u32, QuestHandle>,
+    drops: BTreeMap<u32, (QuestHandle, u8)>,
     actionable: BTreeSet<u32>,
 }
 /// One per viewer and match. Only a successfully committed view can authorize an accept request.
@@ -169,14 +202,19 @@ impl QuestObserver {
         let mut view = QuestView::default();
         let Some(me) = sim.player(self.viewer).filter(|p| !p.seat.bot) else {
             next.quests.clear();
+            next.drops.clear();
             next.actionable.clear();
             return Ok((QuestStage(next), view));
         };
         let Some(quests) = &sim.w.quests else {
             next.quests.clear();
+            next.drops.clear();
             next.actionable.clear();
             return Ok((QuestStage(next), view));
         };
+        if sim.k.quest_deal.is_some() {
+            return board::stage(sim, me, quests, next);
+        }
         view.unknown_count = quests
             .offers
             .iter()
@@ -400,21 +438,50 @@ impl QuestObserver {
     }
     /// Resolve a previously committed published row. Missing, stale, preview and foreign handles become normal misses.
     pub fn resolve_accept(&self, sim: &Sim, handle: QuestHandle) -> Command {
+        validate(RawCommand::QuestAccept {
+            quest_id: self.offer_id(sim, handle),
+        })
+        .expect("valid quest capability")
+    }
+
+    pub(crate) fn resolve_interact(
+        &self,
+        sim: &Sim,
+        handle: QuestHandle,
+        action: u8,
+        target: u8,
+    ) -> Result<Command, crate::Reject> {
+        let quest_id = if action == 9 {
+            self.state
+                .drops
+                .iter()
+                .find_map(|(id, binding)| (*binding == (handle, target)).then_some(*id))
+        } else {
+            self.offer_id(sim, handle)
+        };
+        validate(RawCommand::QuestInteract {
+            quest_id,
+            action,
+            target,
+        })
+    }
+
+    fn offer_id(&self, sim: &Sim, handle: QuestHandle) -> Option<u32> {
         let id = self
             .state
             .quests
             .iter()
             .find_map(|(id, h)| (*h == handle).then_some(*id));
-        let id = id.filter(|id| {
-            self.state.actionable.contains(id)
+        id.filter(|id| {
+            !crate::quests::board::attempts::is_completed(&sim.w, self.viewer, *id)
+                && self.state.actionable.contains(id)
                 && sim.player(self.viewer).is_some_and(|p| !p.seat.bot)
                 && sim.w.quests.as_ref().is_some_and(|q| {
                     q.offers
                         .iter()
                         .any(|o| o.id == *id && o.published && o.status == Status::Open)
                 })
-        });
-        validate(RawCommand::QuestAccept { quest_id: id }).expect("nonzero quest id or normal miss")
+        })
     }
 }
 fn take_id(next: &mut u64) -> Result<NonZeroU32, Error> {

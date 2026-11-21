@@ -191,6 +191,7 @@ fn config_with_hitboxes(input: &V, hitboxes: crate::archetype::HitboxMode) -> Si
         mob_spacing: Default::default(),
         regen_in_combat: crate::RegenInCombat::Legacy,
         camp_buffs: crate::CampBuffRule::Legacy,
+        top25_quests: false,
         frost_wish: crate::FrostWish::Freeze,
         tick_ms: 50,
     }

@@ -5,14 +5,10 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Net.Tests
 {
-    /// <summary>P-PROTOCOL-18-STAMP-1 oracle (client): the codec speaks protocol 18 (owner approval 9, 2026-11-12), decodes the
-    /// v18 golden vectors as protocol 18, and a session refuses a protocol-17 server's Welcome while accepting an 18 one.
-    /// P-NET-DRAWAHEAD-1a moved the codec to protocol 19 (the walk hint): an 18 Welcome is now the refused one.
-    /// P-COLISEUM-HEALS-2 moved it to protocol 20 (the heal prop): a 19 Welcome is now the refused one.
-    /// P-TICK-3 moved it to protocol 21 (snapshot time from the Welcome rate): a 20 Welcome is now the refused one.</summary>
+    /// <summary>Historical protocol-18 fixtures remain covered while the active client speaks protocol 23.</summary>
     public class Protocol18StampTests
     {
-        [Test] public void CodecSpeaksProtocol21() { Assert.AreEqual(21, Wire.ProtocolVersion); }
+        [Test] public void CodecSpeaksProtocol23() { Assert.AreEqual(23, Wire.ProtocolVersion); }
 
         [Test]
         public void V18FixtureExistsAndItsHelloSays18()
@@ -21,13 +17,15 @@ namespace Roguehalla.Net.Tests
             Assert.IsTrue(File.Exists(path), "protocol/fixtures/v18.json is missing (cargo run -p rh-protocol --bin protocol-fixtures)");
             var root = JsonDocument.Parse(File.ReadAllText(path)).RootElement;
             Assert.AreEqual(18, root.GetProperty("protocol").GetInt32());
-            ClientMsg.Hello hello = null; ServerMsg.Welcome welcome = null;
+            string helloHex = null, welcomeHex = null;
             foreach (var v in root.GetProperty("client").EnumerateArray())
-                if (v.GetProperty("name").GetString() == "hello") hello = (ClientMsg.Hello)ClientMsg.Decode(Util.FromHex(v.GetProperty("hex").GetString()));
+                if (v.GetProperty("name").GetString() == "hello") helloHex = v.GetProperty("hex").GetString();
             foreach (var v in root.GetProperty("server").EnumerateArray())
-                if (v.GetProperty("name").GetString() == "welcome") welcome = (ServerMsg.Welcome)ServerMsg.Decode(Util.FromHex(v.GetProperty("hex").GetString()));
-            Assert.IsNotNull(hello, "v18.json has a hello vector"); Assert.IsNotNull(welcome, "v18.json has a welcome vector");
-            Assert.AreEqual(18, hello.Protocol); Assert.AreEqual(18, welcome.Protocol);
+                if (v.GetProperty("name").GetString() == "welcome") welcomeHex = v.GetProperty("hex").GetString();
+            Assert.IsNotNull(helloHex, "v18.json has a hello vector"); Assert.IsNotNull(welcomeHex, "v18.json has a welcome vector");
+            // These are preserved as historical bytes. The active decoder correctly refuses obsolete versions.
+            Assert.AreEqual(18, (ushort)(Util.FromHex(helloHex)[1] | Util.FromHex(helloHex)[2] << 8));
+            Assert.AreEqual(18, (ushort)(Util.FromHex(welcomeHex)[1] | Util.FromHex(welcomeHex)[2] << 8));
         }
 
         static Session NewSession(FakeTransport t)
@@ -41,19 +39,19 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
-        public void AProtocol20WelcomeIsRefusedAndA21WelcomeAccepted()
+        public void AProtocol22WelcomeIsRefusedAndA23WelcomeAccepted()
         {
-            var old = new FakeTransport(); var s20 = NewSession(old);
-            s20.Connect(); old.Open();
-            Assert.AreEqual(21, old.LastSent<ClientMsg.Hello>().Protocol, "the Hello says 21");
-            old.Deliver(Welcome(20));
-            Assert.AreEqual(SessionState.Failed, s20.State, "a protocol-20 Welcome is refused");
-            StringAssert.Contains("server protocol 20", s20.Error);
+            var old = new FakeTransport(); var s22 = NewSession(old);
+            s22.Connect(); old.Open();
+            Assert.AreEqual(23, old.LastSent<ClientMsg.Hello>().Protocol, "the Hello says 23");
+            old.Deliver(Welcome(22));
+            Assert.AreEqual(SessionState.Failed, s22.State, "a protocol-22 Welcome is refused");
+            StringAssert.Contains("server protocol 22", s22.Error);
 
-            var cur = new FakeTransport(); var s21 = NewSession(cur);
-            s21.Connect(); cur.Open();
-            cur.Deliver(Welcome(21));
-            Assert.AreEqual(SessionState.InMatch, s21.State, "a protocol-21 Welcome starts the match");
+            var cur = new FakeTransport(); var s23 = NewSession(cur);
+            s23.Connect(); cur.Open();
+            cur.Deliver(Welcome(23));
+            Assert.AreEqual(SessionState.InMatch, s23.State, "a protocol-23 Welcome starts the match");
         }
     }
 }

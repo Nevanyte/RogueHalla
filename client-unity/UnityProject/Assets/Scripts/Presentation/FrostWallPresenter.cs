@@ -142,11 +142,24 @@ namespace Roguehalla.Client
                     for (int k = 0; k < _walls.Count; k++) if (_walls[k].Key.Equals(f.Key)) { w = _walls[k]; break; }
                     if (w == null) { w = new Wall { Key = f.Key }; _walls.Add(w); BuildWall(w, f.Tiles); }
                     else if (_ordered.Contains(w)) continue; // a duplicate key in one list: drawn once
+                    else if (!SameTiles(w, f.Tiles))
+                    {
+                        ReleaseWall(w);
+                        BuildWall(w, f.Tiles);
+                    }
                     w.Seen = true; w.StartedAt = f.StartedAt; w.EndsAt = f.EndsAt; _ordered.Add(w);
                 }
             for (int i = _walls.Count - 1; i >= 0; i--)
                 if (!_walls[i].Seen) { ReleaseWall(_walls[i]); _walls.RemoveAt(i); }
             ApplyWalls();
+        }
+
+        static bool SameTiles(Wall wall, MapTile[] tiles)
+        {
+            if (wall.Blocks.Count != tiles.Length) return false;
+            for (int i = 0; i < tiles.Length; i++)
+                if (wall.Blocks[i].Tile.X != tiles[i].X || wall.Blocks[i].Tile.Y != tiles[i].Y) return false;
+            return true;
         }
 
         void BuildWall(Wall w, MapTile[] tiles)
@@ -385,7 +398,7 @@ namespace Roguehalla.Client
         /// (<see cref="FrostWallAim.PlanMap"/>). Display only; the cast still goes through WishAim.</summary>
         public void Aim(Session session, bool aiming, in WishAimFrame f, Color32 tint)
         {
-            var map = session != null ? session.Map : null;
+            var map = session != null ? session.TerrainMap : null;
             if (!aiming || map == null || !f.Numbers.HasValue || f.Wish != FrostWishKind.Wall) { HidePreview(); return; }
             var n = f.Numbers.Value;
             var seg = FrostWallAim.SegmentFor(f.CasterX, f.CasterY, f.CursorX, f.CursorY, n.Range, n.MinRange, n.Length, f.Facing);

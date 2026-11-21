@@ -702,6 +702,8 @@ fn mob_lifecycle_camp_clear_is_the_only_loose_weapon() {
         mob_type: crate::mob_catalog::MobTypeId::EmberImp,
         zone: FactionId::Fire,
         mult: 1.,
+        skip_stat: false,
+        smite_bonus: false,
         contributors: Vec::new(),
     };
     let first = award(&sim, ids[0]);

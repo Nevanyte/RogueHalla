@@ -59,7 +59,7 @@ pub(crate) fn spawn(hx: &mut crate::hooks::Hx, _: &crate::hooks::HookArgs) {
     if !enabled(k) || hx.w.traders.is_some() || hx.w.phase == Phase::Lobby {
         return;
     }
-    let dests = destinations(k.collision_map(hx.w.rt.gates_locked));
+    let dests = destinations(crate::collision::map(k, hx.w));
     let mut rng = hx.w.reward_rng.clone();
     let mut random = || rng.next_f64();
     let sites = shuffled(&dests, &mut random);
@@ -227,6 +227,9 @@ pub(crate) fn handle_trade(cx: &mut Cx, ix: crate::fighter::FighterIx, cmd: &Act
     let Some(kind) = Kind::from_code(trader) else {
         return;
     };
+    if kind != Kind::Stats && crate::quests::board::rewards::effects::locked_gear(cx.w, id) {
+        return;
+    }
     let Some(rt) = cx.w.traders.as_ref() else {
         return;
     };

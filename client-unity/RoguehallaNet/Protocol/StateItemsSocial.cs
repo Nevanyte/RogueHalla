@@ -120,6 +120,36 @@ namespace Roguehalla.Net.Protocol
     /// stat u8 (below 9), stacks varint (at least 1), total i32; then (P-WIRE17-HUD-2) the champion panel: count u8 (at
     /// most 23, refused before the rows), rows of code u8 (below 23, strictly ascending) and value i32.
     /// </summary>
+    /// <summary>Complete public overlay of opened base-map tiles.</summary>
+    public sealed class DestroyedTerrainState : StateItem
+    {
+        const int MaxCells = 9600;
+        public override uint Key => (uint)StateKey.DestroyedTerrain;
+        public uint[] Cells = Array.Empty<uint>();
+
+        internal override void Check()
+        {
+            Require(Cells != null && Cells.Length <= MaxCells, "destroyed terrain count");
+            for (int i = 0; i < Cells.Length; i++)
+                Require(Cells[i] < Wire.MaxMapTiles && (i == 0 || Cells[i - 1] < Cells[i]), "destroyed terrain cells");
+        }
+
+        internal override void Write(Writer w)
+        {
+            w.Varint((uint)Cells.Length);
+            foreach (uint cell in Cells) w.Varint(cell);
+        }
+
+        internal static DestroyedTerrainState Read(ref Reader r)
+        {
+            int count = Count(ref r, MaxCells);
+            if (count > r.Remaining) throw new DecodeException(DecodeError.Truncated, "destroyed terrain cells");
+            var cells = new uint[count];
+            for (int i = 0; i < count; i++) cells[i] = r.Varint();
+            return new DestroyedTerrainState { Cells = cells };
+        }
+    }
+
     public sealed class BuildSummaryState : StateItem
     {
         public override uint Key { get { return 13; } }
@@ -233,10 +263,11 @@ namespace Roguehalla.Net.Protocol
     {
     internal static void CheckQuestView(WireQuestView view)
     {
-        StateItem.Require(view.UnknownCount <= 20 && view.DisplayUnknownCount <= view.UnknownCount, "quest unknown count");
+        StateItem.Require(view.UnknownCount <= 25 && view.DisplayUnknownCount <= view.UnknownCount, "quest unknown count");
         StateItem.Require(view.Roster != null && view.Roster.Length <= 8, "quest roster");
-        StateItem.Require(view.Rows != null && view.Rows.Length <= 20, "quest rows");
+        StateItem.Require(view.Rows != null && view.Rows.Length <= 25, "quest rows");
         StateItem.Require(view.Objectives != null && view.Objectives.Length <= 160, "quest objectives");
+        StateItem.Require(view.Spells != null && view.Spells.Length <= 2 && view.Pending != null && view.Pending.Length <= 10 && view.Drops != null && view.Drops.Length <= 256 && view.Actions != null && view.Actions.Length <= 256, "quest owner data count");
         var rosterIds = new HashSet<RosterId>();
         foreach (var entry in view.Roster)
         {
@@ -248,7 +279,7 @@ namespace Roguehalla.Net.Protocol
         foreach (var row in view.Rows)
         {
             StateItem.Require(row != null && row.Handle.IsValid && handles.Add(row.Handle), "quest handle");
-            StateItem.Require(row.Def != null && row.Def.Length != 0 && Encoding.UTF8.GetByteCount(row.Def) <= 16, "quest definition");
+            StateItem.Require(row.Def != null && row.Def.Length != 0 && Encoding.UTF8.GetByteCount(row.Def) <= 32, "quest definition");
             StateItem.Require(Label(row.Name) && Label(row.GiverLabel) && Label(row.Brief)
                 && Label(row.Objective) && Label(row.Reward), "quest presentation string");
             StateItem.Require(QuestPositionValid(row.GiverX) && QuestPositionValid(row.GiverY), "quest giver position");
@@ -274,6 +305,12 @@ namespace Roguehalla.Net.Protocol
             StateItem.Require(count < 8, "quest objectives per row");
             objectiveCounts[objective.Quest] = count + 1;
         }
+        foreach (var spell in view.Spells) StateItem.Require(spell.Slot <= 1 && spell.Reward <= 48 && StateItem.ValidQuestSpellClock(spell.Charges, spell.ReadyAt), "quest spell");
+        var pendingIds = new HashSet<QuestHandle>();
+        foreach (var pending in view.Pending) StateItem.Require(pending.IsValid && handles.Contains(pending) && pendingIds.Add(pending), "pending quest reference");
+        var dropIds = new HashSet<byte>();
+        foreach (var drop in view.Drops) StateItem.Require(drop.Reward <= 48 && StateItem.ValidQuestSpellClock(drop.Charges, drop.ReadyAt) && QuestPositionValid(drop.X) && QuestPositionValid(drop.Y) && dropIds.Add(drop.Index), "quest drop");
+        foreach (var action in view.Actions) StateItem.Require(action != null && (action.Action == 9 ? dropIds.Contains(action.Target) : handles.Contains(action.Quest)) && action.Action >= 1 && action.Action <= 9 && !((action.Action == 1 || action.Action == 4 || action.Action == 6) && action.Target != 0) && !(action.Action == 2 && action.Target > 1) && !(action.Action == 5 && action.Target > 80) && !(action.Action == 8 && action.Target > 2) && action.Points != null && action.Points.Length <= 16 && (action.Points.Length % 2) == 0 && Array.TrueForAll(action.Points, QuestPositionValid) && Label(action.Label), "quest action");
     }
 
     static bool QuestPositionValid(double value) => StateItem.Finite(value) && value >= 0 && value <= 8191.875;
@@ -281,7 +318,8 @@ namespace Roguehalla.Net.Protocol
 
     internal static void WriteQuestView(Writer w, WireQuestView view)
     {
-        w.Varint(view.UnknownCount); w.Varint(view.DisplayUnknownCount); w.Varint(view.OwnerRoster.HasValue ? view.OwnerRoster.Value.Value : 0);
+        bool hasOwnerGroups = view.Spells.Length != 0 || view.Pending.Length != 0 || view.Drops.Length != 0 || view.Actions.Length != 0;
+        w.Varint(view.UnknownCount | (hasOwnerGroups ? 0x40u : 0u)); w.Varint(view.DisplayUnknownCount); w.Varint(view.OwnerRoster.HasValue ? view.OwnerRoster.Value.Value : 0);
         w.Varint((uint)view.Roster.Length);
         foreach (var entry in view.Roster) { w.Varint(entry.Id.Value); w.Str(entry.Label); }
         w.Varint((uint)view.Rows.Length);
@@ -304,6 +342,11 @@ namespace Roguehalla.Net.Protocol
         }
         w.Varint((uint)view.Objectives.Length);
         foreach (var objective in view.Objectives) { w.Varint(objective.Quest.Value); w.F64(objective.X); w.F64(objective.Y); }
+        if (!hasOwnerGroups) return;
+        w.Varint((uint)view.Spells.Length); foreach(var s in view.Spells){w.U8(s.Slot);w.U8(s.Reward);w.U8(s.Charges);w.F64(s.ReadyAt);}
+        w.Varint((uint)view.Pending.Length); foreach(var h in view.Pending) w.Varint(h.Value);
+        w.Varint((uint)view.Drops.Length); foreach(var d in view.Drops){w.U8(d.Index);w.U8(d.Reward);w.U8(d.Charges);w.F64(d.ReadyAt);w.F64(d.X);w.F64(d.Y);}
+        w.Varint((uint)view.Actions.Length); foreach(var a in view.Actions){w.Varint(a.Quest.Value);w.U8(a.Action);w.U8(a.Target);w.Varint((uint)(a.Points.Length/2));for(int i=0;i<a.Points.Length;i++)w.F64(a.Points[i]);w.Str(a.Label);}
     }
     }
 }

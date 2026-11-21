@@ -100,7 +100,7 @@ fn a_checkpoint_contains_no_scratch_keys() {
             "a checkpoint must not carry the scratch key `{banned}`"
         );
     }
-    assert_eq!(json["format"], "rh-checkpoint/32");
+    assert_eq!(json["format"], "rh-checkpoint/38");
     let top: Vec<&String> = json.as_object().unwrap().keys().collect();
     assert_eq!(
         top.len(),
@@ -148,10 +148,13 @@ fn the_format_tag_is_refused_before_the_payload_whatever_the_key_order() {
             .unwrap_or_else(|e| panic!("{order:?}: {e}"));
         assert_eq!(b.state_hash(), a.state_hash(), "{order:?}");
     }
-    // The native32 layout (practice camp contributors) must refuse its immediate predecessor31 before
+    // The checkpoint38 layout (quest state and identities) must refuse its immediate predecessor37 before
     // decoding payload or accepting any defaults from an older canonical shape.
     for found in [
+        "rh-checkpoint/37",
         "rh-checkpoint/31",
+        "rh-checkpoint/33",
+        "rh-checkpoint/32",
         "rh-checkpoint/30",
         "rh-checkpoint/29",
         "rh-checkpoint/28",
@@ -186,11 +189,11 @@ fn the_format_tag_is_refused_before_the_payload_whatever_the_key_order() {
     );
     // The immediate predecessor wins over malformed payload and mismatched content,
     // even when the format key follows those payload keys.
-    let mut prior28 = good.clone();
-    prior28["format"] = "rh-checkpoint/31".into();
-    prior28["world"] = serde_json::json!({"tick": "not a checkpoint"});
-    prior28["statics"] = serde_json::json!([1, 2, 3]);
-    prior28["content_hash"] = (good["content_hash"].as_u64().unwrap() ^ 1).into();
+    let mut predecessor = good.clone();
+    predecessor["format"] = "rh-checkpoint/37".into();
+    predecessor["world"] = serde_json::json!({"tick": "not a checkpoint"});
+    predecessor["statics"] = serde_json::json!([1, 2, 3]);
+    predecessor["content_hash"] = (good["content_hash"].as_u64().unwrap() ^ 1).into();
     for order in [
         ["format", "statics", "world"],
         ["world", "statics", "format"],
@@ -198,13 +201,13 @@ fn the_format_tag_is_refused_before_the_payload_whatever_the_key_order() {
         // Include content_hash explicitly; reordered() otherwise lists only its supplied keys.
         let payload = format!(
             "{{\"content_hash\":{},{}",
-            prior28["content_hash"],
-            &reordered(&prior28, order)[1..]
+            predecessor["content_hash"],
+            &reordered(&predecessor, order)[1..]
         );
         assert_eq!(
             Sim::restore(&mut serde_json::Deserializer::from_str(&payload)).err(),
             Some(CheckpointError::UnsupportedFormat {
-                found: "rh-checkpoint/31".into()
+                found: "rh-checkpoint/37".into()
             })
         );
     }
@@ -270,7 +273,7 @@ fn a_truncated_or_garbled_checkpoint_is_an_error_never_a_panic() {
         "null",
         "[]",
         "42",
-        "\"rh-checkpoint/32\"",
+        "\"rh-checkpoint/38\"",
         "{}",
         "{\"format\":3}",
     ] {
@@ -336,7 +339,7 @@ fn a_checkpoint_names_its_content_and_build_and_refuses_other_content() {
     assert_eq!(good["build"], rh_sim::replay::BUILD_ID);
     assert!(serde_json::to_string(&a)
         .unwrap()
-        .starts_with("{\"format\":\"rh-checkpoint/32\",\"content_hash\":"));
+        .starts_with("{\"format\":\"rh-checkpoint/38\",\"content_hash\":"));
     assert!(Sim::restore(&good).is_ok());
 
     // Other content: refused with the typed error, whichever side of the tag it arrives on, and even when the payload
@@ -351,7 +354,7 @@ fn a_checkpoint_names_its_content_and_build_and_refuses_other_content() {
     other["world"] = Value::from("not a world");
     assert_eq!(Sim::restore(&other).err(), Some(expect.clone()));
     let text = format!(
-        "{{\"world\":1,\"content_hash\":{},\"format\":\"rh-checkpoint/32\"}}",
+        "{{\"world\":1,\"content_hash\":{},\"format\":\"rh-checkpoint/38\"}}",
         content ^ 1
     );
     assert_eq!(

@@ -98,6 +98,8 @@ pub struct DirectorConfig {
     pub tick: Duration,
     /// Record a private replay of every match (kept in memory for the last few rooms; tests and diagnostics).
     pub record: bool,
+    /// Private quest-board match secrets for deterministic in-process test rigs. The server binary leaves this unset.
+    pub fixed_board_secrets: Option<rh_sim::Secrets>,
     pub reconnect_grace: Duration,
     pub linger: Duration,
     /// A connection that sends nothing for this long is treated as dropped (clients ping at least every second).
@@ -126,6 +128,7 @@ impl DirectorConfig {
             bot_fill: None,
             tick,
             record: false,
+            fixed_board_secrets: None,
             reconnect_grace: crate::room::RECONNECT_GRACE,
             linger: crate::room::LINGER,
             idle_timeout: crate::conn::IDLE_TIMEOUT,

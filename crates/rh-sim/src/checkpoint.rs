@@ -20,7 +20,7 @@ use serde::ser::{SerializeStruct, Serializer};
 use std::fmt;
 
 /// The tag every checkpoint carries. Bump it when the layout of `statics` or `world` changes incompatibly.
-pub const CHECKPOINT_FORMAT: &str = "rh-checkpoint/32";
+pub const CHECKPOINT_FORMAT: &str = "rh-checkpoint/38";
 
 /// How far past the map edge a fighter, waypoint or spawn may be and still restore (real states stay inside the map).
 const COORD_MARGIN: f64 = 1024.0;
@@ -229,10 +229,19 @@ impl<'de> Visitor<'de> for CheckpointVisitor<'_> {
         if let Err(why) = check_world(&k, &w) {
             return Err(self.refuse(CheckpointError::Malformed(why)));
         }
-        // The barrier overlay is derived from the restored walls alone: it holds both gate states (P-FROST-WALL-1, -fix).
-        crate::barriers::sync(&k, &mut w);
+        // Rebuild both gate variants with all terrain changes and standing barriers.
+        crate::barriers::restore(&k, &mut w);
+        if let Err(why) =
+            crate::quests::board::special::egg::check_ground(crate::collision::open(&k, &w), &w)
+        {
+            return Err(self.refuse(CheckpointError::Malformed(why)));
+        }
         if let Err(why) = crate::systems::frost::prepare(&k, &mut w) {
             return Err(self.refuse(CheckpointError::Malformed(why.into())));
+        }
+        if w.quests.as_ref().is_some_and(|q| q.board.is_some()) {
+            w.rebirth_eggs
+                .reserve(crate::constants::MAX_PLAYERS.saturating_sub(w.rebirth_eggs.len()));
         }
         let seated = w.players.len();
         if let Some(run) = w.practice.as_mut() {
@@ -296,55 +305,18 @@ fn archetype_ok(
     Ok(())
 }
 
-/// P-CAMP-BUFF-THEMES-1: the camp buff row's shape is tied to the hashed config (`MobRuntime::buffs` folds no word
-/// when empty, see `hash.rs`): empty under `CampBuffRule::Legacy`, exactly one entry per camp under `Themed`. A buff,
-/// where set, is another zone's normal type paying a stat off the camp's zone's theme (legacy a7b5c4ce `spillType`).
-fn check_camp_buffs(k: &MatchStatic, w: &World) -> Result<(), String> {
-    use crate::mob_catalog::camp_buffs::{stat_index, zone_stat_types};
-    let Some(rt) = w.mob_runtime.as_ref() else {
-        return Ok(());
-    };
-    let buffs = &rt.buffs.0;
-    match k.config.camp_buffs {
-        crate::CampBuffRule::Legacy if buffs.is_empty() => Ok(()),
-        crate::CampBuffRule::Legacy => Err("a Legacy camp buff rule carries no buff row".into()),
-        crate::CampBuffRule::Themed => {
-            if buffs.len() != rt.camps.len() {
-                return Err(format!(
-                    "{} camp buffs for {} camps: one per camp under Themed",
-                    buffs.len(),
-                    rt.camps.len()
-                ));
-            }
-            for (i, buff) in buffs.iter().enumerate() {
-                let Some(t) = *buff else { continue };
-                let zone = k
-                    .arena
-                    .map
-                    .layers()
-                    .and_then(|l| l.data().camps.get(i))
-                    .and_then(|c| crate::FactionId::parse(c.zone.as_str()));
-                let def = crate::mob_catalog::mob_type_by_id(t.as_str());
-                let off_theme = match (zone, def, stat_index(t)) {
-                    (Some(zone), Some(def), Some(b)) => {
-                        def.zone != zone && zone_stat_types(zone)[b].is_none()
-                    }
-                    _ => false,
-                };
-                if !off_theme {
-                    return Err(format!(
-                        "camp {i}: buff {} is not another zone's normal type paying a stat off the camp's theme",
-                        t.as_str()
-                    ));
-                }
-            }
-            Ok(())
-        }
-    }
-}
+mod camp_buffs;
+use camp_buffs::check_camp_buffs;
 
 fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
     crate::statics::validate_tick_ms(&k.config)?;
+    if let Some(deal) = &k.quest_deal {
+        deal.as_ref()
+            .map_err(|why| format!("invalid quest map: {why}"))?;
+        if crate::quests::board::map_admission::needs_repair(&k.arena, k.secrets)? {
+            return Err("checkpoint quest map is missing its required encounter or terrain".into());
+        }
+    }
     // Validate actor classes before any player-only facade or faction/brain consumer can run.
     if w.players.iter().any(|p| p.core.faction_id().is_none()) {
         return Err("neutral player affiliation".into());
@@ -390,6 +362,7 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
     crate::systems::arena_validation::validate(k, w)?;
     crate::systems::planning::validate(k, w)?;
     crate::quests::live::validate(k, w)?;
+    crate::quests::board::special::egg::check_world(k, w)?;
     crate::traders::runtime::validate(k, w)?;
     // Every coordinate the kernel will read must be a real place near the arena: a huge or non-finite one overflows the
     // tile arithmetic of the next path request (debug panic, release wrap), and two huge opposite ones cancel in a
@@ -423,8 +396,9 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
     for c in &w.plague_corpses {
         if !corpse_players.insert(c.player)
             || w.roster.name(c.player).is_none()
-            || w.player(c.player)
-                .is_some_and(|p| p.status != crate::Status::Dead)
+            || (!c.owner_hatched
+                && w.player(c.player)
+                    .is_some_and(|p| p.status != crate::Status::Dead))
             || !near(c.x, c.y)
         {
             return Err("invalid Plague corpse state".into());
@@ -865,6 +839,13 @@ fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
                 base_hp: crate::content::faction(p.faction()).hp,
                 faction: p.faction(),
                 frozen_guard: passive_seat && guard.active,
+                attack_rate_ceiling: crate::quests::board::rewards::effects::attack_rate(w, p.id)
+                    * if w.server_time < p.card_boost.until {
+                        p.card_boost.as_mult
+                    } else {
+                        1.
+                    },
+                quest_stat: crate::quests::board::rewards::permanent::chef_row(w, p.id),
             },
         ) {
             return Err(format!("player {}: invalid armor mirror", p.id.0));

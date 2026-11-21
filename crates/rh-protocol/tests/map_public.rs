@@ -326,8 +326,8 @@ fn decode(bytes: &[u8]) -> Result<MapBlob, DecodeError> {
 // ---- version ---------------------------------------------------------------------------------------------------------
 
 #[test]
-fn protocol_version_is_21() {
-    assert_eq!(PROTOCOL_VERSION, 21);
+fn protocol_version_is_23() {
+    assert_eq!(PROTOCOL_VERSION, 23);
 }
 
 // ---- layout and round trip ------------------------------------------------------------------------------------------

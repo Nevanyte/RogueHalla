@@ -38,6 +38,7 @@ fn room_cfg() -> RoomConfig {
             walk_hints: None,
             regen: false,
             quests: false,
+            top25_quests: false,
             training: false,
             dummies: false,
             consumables: true,

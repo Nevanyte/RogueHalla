@@ -78,7 +78,7 @@ pub(super) fn lock_next(k: &MatchStatic, w: &World, i: usize, at: f64) -> Option
         return None;
     }
     let seen = has_line_of_sight(
-        k.collision_map(w.rt.gates_locked),
+        crate::collision::map(k, w),
         p.pos(),
         other.pos(),
         MASK_SIGHT,
@@ -140,7 +140,7 @@ pub(super) fn acquire_next(k: &MatchStatic, w: &World, i: usize, at: f64) -> boo
                 && super::super::plague_zombies::hostile(w, p.id, candidate.id));
         if now
             && has_line_of_sight(
-                k.collision_map(w.rt.gates_locked),
+                crate::collision::map(k, w),
                 p.pos(),
                 candidate.pos(),
                 MASK_SIGHT,

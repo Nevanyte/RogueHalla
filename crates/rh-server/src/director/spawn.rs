@@ -2,6 +2,15 @@
 
 use super::*;
 
+/// CPU-heavy map preparation is bounded across simultaneous new rooms.
+static QUEST_MAP_WORKERS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(2);
+
+pub(super) struct PreparedRoom {
+    id: MatchId,
+    room: Room,
+    public: PublicRoom,
+}
+
 impl Director {
     /// Installs the P-BOTS-5 record caller (the live learning store). The server calls it once at startup; tests install
     /// a probe sink. Learning stays off (the NO_BIAS zeros) when nothing is installed.
@@ -76,15 +85,51 @@ impl Director {
         })
     }
 
-    /// Spawns a room task and registers it (the lock is held). Used by admission (a lobby opened on demand) and by the
-    /// control API (a room per game session); never blocks.
+    pub(crate) fn needs_board_room(&self) -> bool {
+        self.cfg.sim.top25_quests && self.cfg.sim.quests && !self.cfg.sim.training
+    }
+
+    /// New board room preparation may regenerate geography and must run
+    /// outside the director lock, before a seat or session is reserved.
+    pub(super) fn prepare_board_room(&self, fill_bots_to: usize) -> Result<PreparedRoom, String> {
+        let _permit = QUEST_MAP_WORKERS
+            .try_acquire()
+            .map_err(|_| "quest map workers are busy")?;
+        let secrets = self
+            .cfg
+            .fixed_board_secrets
+            .unwrap_or_else(crate::room::random_secrets);
+        self.build_room(fill_bots_to, Some(secrets))
+    }
+
+    pub(super) async fn prepare_board_room_async(
+        &self,
+        fill_bots_to: usize,
+    ) -> Result<PreparedRoom, String> {
+        let director = self.me.upgrade().ok_or("director is closed")?;
+        tokio::task::spawn_blocking(move || director.prepare_board_room(fill_bots_to))
+            .await
+            .map_err(|_| "quest map worker failed".to_owned())?
+    }
+
+    /// Legacy rooms retain the existing shared-map fast path.
     pub(super) fn spawn_room(
         &self,
         inner: &mut Inner,
         fill_bots_to: usize,
     ) -> (MatchId, mpsc::Sender<RoomCmd>) {
+        let room = self
+            .build_room(fill_bots_to, None)
+            .expect("configured legacy room");
+        self.activate_room(inner, room)
+    }
+
+    fn build_room(
+        &self,
+        fill_bots_to: usize,
+        board_secrets: Option<rh_sim::Secrets>,
+    ) -> Result<PreparedRoom, String> {
         let id = random16();
-        let (tx, rx) = mpsc::channel(INBOUND_CAP);
         let fill = self.fill_policy(fill_bots_to);
         let mut sim = self.cfg.sim.clone();
         if let Some(fill) = &fill {
@@ -95,17 +140,33 @@ impl Director {
             fill_target: fill_bots_to,
             ..PublicRoom::default()
         };
-        // A training room never draws from the pool (runtime.rs refuses the combination; this keeps library configs safe).
+        // A training room never draws from the pool (runtime.rs refuses the combination).
         let map = match &self.cfg.map_pool {
             Some(pool) if !sim.training => {
                 let (map, served) = pool.take_served();
                 eprintln!(
-                    "[maps] match start: match={} {served}",
+                    "[maps] {}: match={} {served}",
+                    if board_secrets.is_some() {
+                        "selected candidate"
+                    } else {
+                        "match start"
+                    },
                     crate::control::room_id_hex(id)
                 );
                 map
             }
             _ => self.map.clone(),
+        };
+        let map = if let Some(secrets) = board_secrets {
+            let style = self
+                .cfg
+                .map_pool
+                .as_ref()
+                .map(|pool| pool.quest_map_style())
+                .unwrap_or_default();
+            crate::map_pool::for_quest_board(map, secrets, style)?
+        } else {
+            map
         };
         let rc = RoomConfig {
             sim,
@@ -114,18 +175,28 @@ impl Director {
             fill_bots_to,
             tick: self.cfg.tick,
             record: self.cfg.record,
-            fixed_secrets: None,
+            fixed_secrets: board_secrets,
             fixed_bot_seed: None,
             reconnect_grace: self.cfg.reconnect_grace,
             linger: self.cfg.linger,
         };
-        let mut room = Room::new(id, rc, self.reports.clone(), tokio::time::Instant::now());
+        let mut room = Room::try_new(id, rc, self.reports.clone(), tokio::time::Instant::now())?;
         if let Some(fill) = fill {
             room = room.with_bot_fill(fill).with_bot_names(self.bot_names());
             if let Some(sink) = self.learning.lock_recover().clone() {
                 room = room.with_learning(sink);
             }
         }
+        Ok(PreparedRoom { id, room, public })
+    }
+
+    pub(super) fn activate_room(
+        &self,
+        inner: &mut Inner,
+        prepared: PreparedRoom,
+    ) -> (MatchId, mpsc::Sender<RoomCmd>) {
+        let PreparedRoom { id, room, public } = prepared;
+        let (tx, rx) = mpsc::channel(INBOUND_CAP);
         // A panic in the room still reports `Closed` (room.rs `run_room`), so its seats are freed.
         tokio::spawn(run_room(room, rx));
         inner.rooms.insert(

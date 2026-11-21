@@ -23,7 +23,11 @@ pub use self::reward::*;
 pub use self::roster::*;
 pub use self::trade::*;
 
-pub const MAX_STATE_KEYS: usize = 13;
+/// Keys delivered on every baseline, even when they carry an empty collection.
+pub const REQUIRED_STATE_KEYS: usize = 13;
+pub const MAX_STATE_KEYS: usize = 14;
+/// One radius-300 cast opens fewer than 300 cells. Bound even 32 seats' changes.
+pub const MAX_DESTROYED_TERRAIN: usize = 9_600;
 /// Most roster rows a State key 12 carries (ADR0026); a match seats at most 8 players today.
 pub const MAX_ROSTER: usize = 32;
 /// Longest roster display name in UTF-8 bytes (ADR0026).
@@ -34,25 +38,42 @@ pub const ROSTER_FLAG_BOT: u8 = 1;
 pub const MAX_MIN_PLAYERS: u8 = MAX_ROSTER as u8;
 pub const MAX_VISIBLE_PROPS: usize = 512;
 pub const MAX_VISIBLE_FIELDS: usize = 512;
-/// P-FROST-WALL-2: State key 3 field kind codes (`rh_sim::status_runtime::FieldKind` order). A code at or above
-/// [`FIELD_KIND_COUNT`] is refused ("field").
+/// State key 3 legacy field kinds retain the status-runtime order.
 pub const FIELD_KIND_ZONE: u8 = 0;
 pub const FIELD_KIND_CLOUD: u8 = 1;
 pub const FIELD_KIND_TRAIL: u8 = 2;
 /// A standing Frost Wall: the only kind whose row carries a tile list.
 pub const FIELD_KIND_WALL: u8 = 3;
-/// Number of field kind codes: zone, cloud, trail, wall.
+/// First reserved legacy field code. Codes 4–8 remain invalid.
 pub const FIELD_KIND_COUNT: u8 = 4;
+pub const FIELD_KIND_QUEST_TURRET: u8 = 9;
+pub const FIELD_KIND_QUEST_WARD: u8 = 10;
+pub const FIELD_KIND_QUEST_FALCON: u8 = 11;
+pub const FIELD_KIND_QUEST_HOOK: u8 = 12;
+pub const FIELD_KIND_QUEST_BOLAS: u8 = 13;
+pub const FIELD_KIND_QUEST_TORNADO: u8 = 14;
+pub const FIELD_KIND_QUEST_SEED: u8 = 15;
+pub const FIELD_KIND_QUEST_CROWN: u8 = 16;
+pub const FIELD_KIND_QUEST_SMUGGLER: u8 = 17;
+pub const FIELD_KIND_QUEST_FORT: u8 = 18;
+pub const FIELD_KIND_QUEST_MEDITATION: u8 = 19;
+pub const FIELD_KIND_QUEST_BOUNTY: u8 = 20;
+
 /// Most tiles one wall row may carry (P-FROST-WALL-2): a wall takes at most 17 tiles with the legacy numbers (length
 /// 224, reach 24, end slack 8, any angle); 64 leaves room for a retune. A count of 0 or above this is "wall tiles".
 pub const MAX_WALL_TILES: usize = 64;
 pub const MAX_REWARD_CHESTS: usize = 512;
-pub const MAX_QUEST_ROWS: usize = 20;
+pub const MAX_QUEST_ROWS: usize = 25;
 pub const MAX_QUEST_ROSTER: usize = 8;
 pub const MAX_QUEST_PARTICIPANTS: usize = 8;
 pub const MAX_QUEST_OBJECTIVES: usize = 160;
 pub const MAX_QUEST_OBJECTIVES_PER_ROW: usize = 8;
 pub const MAX_QUEST_VIEW_BYTES: usize = 24_576;
+pub const MAX_QUEST_SPELLS: usize = 2;
+pub const MAX_QUEST_PENDING: usize = 10;
+pub const MAX_QUEST_DROPS: usize = 256;
+pub const MAX_QUEST_ACTIONS: usize = 256;
+pub const MAX_QUEST_ACTION_POINTS: usize = 8;
 pub const MAX_TRADE_OFFERS: usize = 3;
 pub const MAX_TRADE_STATS: usize = 7;
 pub const MAX_TRADE_MERCHANTS: usize = 2;
@@ -131,6 +152,10 @@ pub enum WirePropKind {
     /// layout (protocol 20, P-COLISEUM-HEALS-2). Never the focus: it holds no item.
     Heal {
         ready_at: u32,
+    },
+    /// Public shell and hatch cue. The prop handle grants no action.
+    RebirthEgg {
+        hatching: bool,
     },
 }
 
@@ -247,6 +272,8 @@ pub enum StateItem {
     Roster(Vec<WireRosterRow>),
     /// Key 13 (P-WIRE17-HUD-1): the viewer's own build summary; never another seat's. None when unseated.
     BuildSummary(Option<WireBuildSummary>),
+    /// Key 14: complete sorted indices of permanently opened base-map tiles.
+    DestroyedTerrain(Vec<u32>),
 }
 
 /// Public camp summary; no private actor identity is carried.

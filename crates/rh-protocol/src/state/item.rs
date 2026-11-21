@@ -18,6 +18,7 @@ impl StateItem {
             Self::Trade(_) => 11,
             Self::Roster(_) => 12,
             Self::BuildSummary(_) => 13,
+            Self::DestroyedTerrain(_) => 14,
         }
     }
     pub(crate) fn encoded_len(&self) -> usize {
@@ -58,6 +59,10 @@ impl StateItem {
                         .sum::<usize>()
                 }
                 Self::BuildSummary(value) => 1 + value.as_ref().map_or(0, WireBuildSummary::len),
+                Self::DestroyedTerrain(cells) => {
+                    varint_len(cells.len() as u32)
+                        + cells.iter().copied().map(varint_len).sum::<usize>()
+                }
             }
     }
     pub(crate) fn check(&self) -> Result<(), EncodeError> {
@@ -155,6 +160,18 @@ impl StateItem {
                     return Err(EncodeError::BadValue(why));
                 }
             }
+            Self::DestroyedTerrain(cells) => {
+                if cells.len() > MAX_DESTROYED_TERRAIN {
+                    return Err(EncodeError::TooMany {
+                        what: "destroyed terrain",
+                        n: cells.len(),
+                        max: MAX_DESTROYED_TERRAIN,
+                    });
+                }
+                if !valid_destroyed_cells(cells) {
+                    return Err(EncodeError::BadValue("destroyed terrain cells"));
+                }
+            }
             Self::BuildSummary(None) => {}
             Self::BuildSummary(Some(value)) => {
                 if value.mob_rows.len() > MAX_SUMMARY_MOB_ROWS {
@@ -246,6 +263,12 @@ impl StateItem {
                 }
             }
             Self::BuildSummary(value) => w.opt(value.as_ref(), |w, v| v.write(w)),
+            Self::DestroyedTerrain(cells) => {
+                w.varint(cells.len() as u32);
+                for &cell in cells {
+                    w.varint(cell);
+                }
+            }
         }
     }
     pub(crate) fn read(r: &mut Reader<'_>, key: u32) -> Result<Self, DecodeError> {
@@ -380,9 +403,30 @@ impl StateItem {
                 Self::Roster(rows)
             }
             13 => Self::BuildSummary(r.opt(WireBuildSummary::read)?),
+            14 => {
+                let n = r.varint()? as usize;
+                if n > MAX_DESTROYED_TERRAIN {
+                    return Err(DecodeError::TooMany(n));
+                }
+                if n > r.remaining() {
+                    return Err(DecodeError::Truncated);
+                }
+                let cells = (0..n).map(|_| r.varint()).collect::<Result<Vec<_>, _>>()?;
+                if !valid_destroyed_cells(&cells) {
+                    return Err(DecodeError::BadField("destroyed terrain cells"));
+                }
+                Self::DestroyedTerrain(cells)
+            }
             _ => return Err(DecodeError::BadField("state key")),
         })
     }
+}
+
+fn valid_destroyed_cells(cells: &[u32]) -> bool {
+    cells.windows(2).all(|p| p[0] < p[1])
+        && cells
+            .last()
+            .is_none_or(|&i| (i as usize) < crate::map::MAX_MAP_TILES)
 }
 
 pub(crate) fn check_items(items: &[StateItem]) -> Result<(), EncodeError> {

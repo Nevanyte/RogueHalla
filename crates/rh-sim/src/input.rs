@@ -120,6 +120,11 @@ pub enum PublicCommand {
     QuestAccept {
         handle: crate::quest_view::QuestHandle,
     },
+    QuestInteract {
+        handle: crate::quest_view::QuestHandle,
+        action: u8,
+        target: u8,
+    },
     Choose {
         handle: crate::reward_chests::RewardChestHandle,
         pick: i8,
@@ -249,6 +254,11 @@ pub enum RawCommand {
     Train(TrainRaw),
     /// A nonzero public handle did not resolve at intake. Still spends the normal budget.
     MissingPickup,
+    QuestInteract {
+        quest_id: Option<u32>,
+        action: u8,
+        target: u8,
+    },
 }
 
 /// A validated command: points finite and clamped to the world, angles finite and wrapped. Opaque on purpose: the only
@@ -343,6 +353,11 @@ enum Kind {
     },
     MissingPickup,
     Train(TrainCommand),
+    QuestInteract {
+        quest_id: Option<u32>,
+        action: u8,
+        target: u8,
+    },
 }
 
 impl PublicCommand {
@@ -378,6 +393,11 @@ impl PublicCommand {
             Self::Trade { merchant, pick } => RawCommand::Trade {
                 trader: Some(merchant.index() as u8),
                 pick,
+            },
+            Self::QuestInteract { action, target, .. } => RawCommand::QuestInteract {
+                quest_id: None,
+                action,
+                target,
             },
             Self::QuestAccept { .. } => RawCommand::QuestAccept { quest_id: None },
             Self::Choose { pick, .. } => RawCommand::Choose {
@@ -437,6 +457,15 @@ impl Kind {
             Kind::Plan { spawn, boon, ready } => RawCommand::Plan { spawn, boon, ready },
             Kind::UseConsumable => RawCommand::UseConsumable,
             Kind::Choose { chest_id, pick } => RawCommand::Choose { chest_id, pick },
+            Kind::QuestInteract {
+                quest_id,
+                action,
+                target,
+            } => RawCommand::QuestInteract {
+                quest_id,
+                action,
+                target,
+            },
             Kind::QuestAccept { quest_id } => RawCommand::QuestAccept { quest_id },
             Kind::Trade { trader, pick } => RawCommand::Trade {
                 trader: Some(trader),
@@ -617,6 +646,32 @@ pub fn validate(raw: RawCommand) -> Result<Command, Reject> {
             return Err(Reject::InvalidContainer)
         }
         RawCommand::Choose { chest_id, pick } => Kind::Choose { chest_id, pick },
+        RawCommand::QuestInteract {
+            quest_id,
+            action,
+            target,
+        } => {
+            use crate::quests::board::attempts::BARGAIN_STAT_COUNT;
+            let valid = match action {
+                1 | 4 | 6 => target == 0,
+                2 => target <= 1,
+                3 => target < 8,
+                7 => target < BARGAIN_STAT_COUNT,
+                // The Bargain encodes the give/receive pair as give * 9 + receive.
+                5 => target < BARGAIN_STAT_COUNT * BARGAIN_STAT_COUNT,
+                8 => target <= 2,
+                9 => true,
+                _ => false,
+            };
+            if !valid || quest_id == Some(0) {
+                return Err(Reject::InvalidContainer);
+            }
+            Kind::QuestInteract {
+                quest_id,
+                action,
+                target,
+            }
+        }
         RawCommand::QuestAccept { quest_id: Some(0) } => return Err(Reject::InvalidContainer),
         RawCommand::QuestAccept { quest_id } => Kind::QuestAccept { quest_id },
         RawCommand::Trade { trader, pick } => match trader {
@@ -719,6 +774,11 @@ pub(crate) enum ActionCmd {
     },
     MissingPickup,
     Train(TrainCommand),
+    QuestInteract {
+        quest_id: Option<u32>,
+        action: u8,
+        target: u8,
+    },
 }
 
 /// The actions queued for one tick: the first `len` of `MAX_ACTIONS_PER_TICK` inline slots (the cap is a constant, so the
@@ -833,6 +893,22 @@ impl InputQueue {
                 ActionCmd::Choose { chest_id, pick } => same(
                     RawCommand::Choose { chest_id, pick },
                     Kind::Choose { chest_id, pick },
+                )?,
+                ActionCmd::QuestInteract {
+                    quest_id,
+                    action,
+                    target,
+                } => same(
+                    RawCommand::QuestInteract {
+                        quest_id,
+                        action,
+                        target,
+                    },
+                    Kind::QuestInteract {
+                        quest_id,
+                        action,
+                        target,
+                    },
                 )?,
                 ActionCmd::QuestAccept { quest_id } => same(
                     RawCommand::QuestAccept { quest_id },
@@ -973,6 +1049,17 @@ impl InputQueue {
             }
             Kind::Choose { chest_id, pick } => {
                 return self.push_action(ActionCmd::Choose { chest_id, pick })
+            }
+            Kind::QuestInteract {
+                quest_id,
+                action,
+                target,
+            } => {
+                return self.push_action(ActionCmd::QuestInteract {
+                    quest_id,
+                    action,
+                    target,
+                })
             }
             Kind::QuestAccept { quest_id } => {
                 return self.push_action(ActionCmd::QuestAccept { quest_id })

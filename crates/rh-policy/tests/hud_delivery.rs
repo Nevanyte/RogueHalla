@@ -77,13 +77,13 @@ fn summary_of(items: &[StateItem]) -> Option<Option<rh_protocol::state::WireBuil
 fn identities_move_for_the_new_observation_fields() {
     assert_eq!(
         rh_sim::OBSERVATION_VERSION,
-        31,
-        "observation gains camp_hud and summary (25), the champion panel (26, P-WIRE17-HUD-2), its codes 23-27 (27, P-WIRE17-HUD-2c), the owner's clocks and the room minimum (28, P-WIRE17-HUD-3); 31/26: P-NET-DRAWAHEAD-1a"
+        36,
+        "observation gains camp_hud and summary (25), the champion panel (26, P-WIRE17-HUD-2), its codes 23-27 (27, P-WIRE17-HUD-2c), the owner's clocks and the room minimum (28, P-WIRE17-HUD-3)"
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        27,
-        "policy projection gains the HUD facts; 31/26: P-NET-DRAWAHEAD-1a; 27: P-COLISEUM-HEALS-2"
+        32,
+        "policy projection gains the HUD facts"
     );
 }
 

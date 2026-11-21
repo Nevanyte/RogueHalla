@@ -104,6 +104,8 @@ pub(crate) struct ValidationOwner {
     pub base_hp: f64,
     pub faction: crate::FactionId,
     pub frozen_guard: bool,
+    pub attack_rate_ceiling: f64,
+    pub quest_stat: Option<fold::EffectRow<'static>>,
 }
 impl Runtime {
     #[cfg(test)]
@@ -116,6 +118,20 @@ impl Runtime {
     }
     pub fn mirrors(&self) -> fold::StatMirrors {
         fold::decode_mirrors(&WireMirrors::from_source_values(self.wire))
+    }
+    /// Chef's Kiss compares earned growth with temporary modifier sources removed.
+    pub(crate) fn permanent_growth_inputs(&self) -> (f64, fold::StatMirrors) {
+        let sums = StatSums::from_source_values(self.sums);
+        let farm_sums = StatSums::from_source_values(self.farm);
+        let mirrors = fold::mirrors_from_fold(&fold::Folded {
+            plain: fold::zero_sums(),
+            sums,
+            farm_sums,
+            mults: MultSums::from_source_values(self.mults),
+            flags: Default::default(),
+            max_hp: 0.,
+        });
+        (sums.damage + farm_sums.damage, mirrors)
     }
     pub(crate) fn own_as_rows(&self) -> crate::systems::sentenced::mark_tax::OwnAsRows {
         crate::systems::sentenced::mark_tax::OwnAsRows {
@@ -175,6 +191,8 @@ impl Runtime {
             base_hp,
             faction,
             frozen_guard,
+            attack_rate_ceiling,
+            quest_stat,
         } = owner;
         if !build.valid()
             || !farm.valid()
@@ -199,7 +217,7 @@ impl Runtime {
                 .get(loc.index)
                 .is_some_and(|bit| *bit != NO_BIT && (self.holds >> *bit) & 1 == 1)
         };
-        let combined_farm = combined_farm_rows(farm, kill_stats, trade_stats);
+        let combined_farm = combined_farm_rows(farm, kill_stats, trade_stats, quest_stat);
         let boosts = fold::BoostCounts::from_source_values(build.boosts().map(f64::from));
         let folded = fold::fold_rows(
             &rows[..n],
@@ -225,7 +243,16 @@ impl Runtime {
         // Validate the supported range, not equality with today's status table. The speed mirror also carries the folded
         // source speed (the source applies it before the wire encoding), so reproduce that exact product here.
         // `mirrors_from_fold` already adds the farm move speed; only the folded source product is still missing.
-        let mut mirrors = fold::mirrors_from_fold(&folded);
+        // BlindRage and Adrenaline can both raise attack rate. Apply their trusted
+        // upper bound before the attack speed cap, just as the live fold does.
+        let mut mirrors = fold::mirrors_from_fold_with_sources(
+            &folded,
+            &fold::SourceMods {
+                as_mult: attack_rate_ceiling,
+                ..Default::default()
+            },
+            1.,
+        );
         mirrors.speed_mult *= self.source_speed;
         let base = fold::encode_mirrors(&mirrors).source_values();
         // Frost's Frozen Justice is the one positive source contribution: its capped 25 armor/shield may raise the
@@ -371,7 +398,8 @@ fn recompute_core<'a>(
             .get(loc.index)
             .is_some_and(|bit| *bit != NO_BIT && (holds >> *bit) & 1 == 1)
     };
-    let combined_farm = combined_farm_rows(&farm, &kill_stats, &trade_stats);
+    let quest_stat = crate::quests::board::rewards::permanent::chef_row(w, w.core(ix).id);
+    let combined_farm = combined_farm_rows(&farm, &kill_stats, &trade_stats, quest_stat);
     let folded = fold::fold_rows(
         fold_rows,
         &FoldContext {
@@ -404,6 +432,7 @@ fn recompute_core<'a>(
             src.shield += m.shield.unwrap_or(0.);
         }
     }
+    src.as_mult *= crate::quests::board::rewards::effects::attack_rate(w, w.core(ix).id);
     // A running card boost (Adrenaline) multiplies the final mirrors; lapsed boosts contribute nothing.
     if w.is_player(ix) {
         let boost = w.players[ix.slot()].card_boost;
@@ -475,9 +504,9 @@ fn while_bit_of(rows: &[fold::EffectRow<'_>]) -> ([u8; MAX_FOLD_INPUT], u8) {
 }
 
 /// The fold's farm rows: the credited-kill stacks plus the kill-augment `killStats` (source `farmRowsOf`: both are farm
-/// rows, outside the card caps). A fixed scratch keeps the recompute allocation-free.
+/// rows, outside the card caps), with trader and permanent quest stats. A fixed scratch keeps recompute allocation-free.
 struct CombinedFarm {
-    rows: [fold::EffectRow<'static>; 36],
+    rows: [fold::EffectRow<'static>; 37],
     len: usize,
 }
 impl CombinedFarm {
@@ -489,19 +518,22 @@ fn combined_farm_rows(
     farm: &Farm,
     kill_stats: &crate::kill_augments::KillStats,
     trade_stats: &[(crate::traders::Stat, f64)],
+    quest_stat: Option<fold::EffectRow<'static>>,
 ) -> CombinedFarm {
     let (farm_rows, farm_len) = farm.rows();
     let (trade_rows, trade_len) = crate::traders::trade_effects(trade_stats);
     let (kill_rows, kill_len) = kill_stats.rows();
-    let mut rows = [fold::EffectRow::new(EffectKind::Trigger); 36];
+    let mut rows = [fold::EffectRow::new(EffectKind::Trigger); 37];
     rows[..farm_len].copy_from_slice(&farm_rows[..farm_len]);
     rows[farm_len..farm_len + trade_len].copy_from_slice(&trade_rows[..trade_len]);
     let start = farm_len + trade_len;
     rows[start..start + kill_len].copy_from_slice(&kill_rows[..kill_len]);
-    CombinedFarm {
-        rows,
-        len: start + kill_len,
+    let mut len = start + kill_len;
+    if let Some(row) = quest_stat {
+        rows[len] = row;
+        len += 1;
     }
+    CombinedFarm { rows, len }
 }
 
 /// Source `holdsNow`: does a `while` row's condition hold for this fighter now? `unarmed` needs a seated player's hands;
@@ -1139,6 +1171,8 @@ mod guard_tests {
                     base_hp: crate::content::faction(p.faction()).hp,
                     faction: p.faction(),
                     frozen_guard: false,
+                    attack_rate_ceiling: 1.,
+                    quest_stat: None,
                 },
             )
         };

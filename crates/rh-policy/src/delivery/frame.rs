@@ -61,6 +61,7 @@ pub struct CollectionView {
     pub(crate) roster: Vec<rh_protocol::WireRosterRow>,
     /// State key 13: the owner's own build summary (None when unseated).
     pub(crate) summary: Option<rh_protocol::state::WireBuildSummary>,
+    pub(crate) destroyed_terrain: Vec<u32>,
     pub(crate) tick: u32,
 }
 impl CollectionView {
@@ -109,8 +110,13 @@ impl CollectionView {
     pub fn tick(&self) -> u32 {
         self.tick
     }
+    pub fn destroyed_terrain(&self) -> &[u32] {
+        &self.destroyed_terrain
+    }
     pub fn complete(&self) -> bool {
-        self.seen.iter().all(|v| *v)
+        self.seen[..rh_protocol::state::REQUIRED_STATE_KEYS]
+            .iter()
+            .all(|v| *v)
     }
     /// Atomic same-view replacement, including retained props/quests. Domain/budget checks apply
     /// to this actual update, not to an invented oversized re-encoding of all retained collections.
@@ -136,6 +142,7 @@ impl CollectionView {
                 StateItem::Trade(v) => next.trade = v.clone(),
                 StateItem::Roster(v) => next.roster = v.clone(),
                 StateItem::BuildSummary(v) => next.summary = v.clone(),
+                StateItem::DestroyedTerrain(v) => next.destroyed_terrain = v.clone(),
             }
         }
         rh_protocol::validate_quest_props(&next.props, next.quests.as_ref())?;

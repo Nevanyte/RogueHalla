@@ -91,7 +91,7 @@ impl WireProps {
                 }
                 WirePropKind::WindEmblem => {}
                 WirePropKind::Cannon { .. } => {}
-                WirePropKind::QuestItem { .. } => {}
+                WirePropKind::QuestItem { .. } | WirePropKind::RebirthEgg { .. } => {}
                 WirePropKind::Heal { .. } => {}
             }
         }
@@ -102,6 +102,9 @@ impl WireProps {
                 .ok()
                 .map(|i| &self.rows[i])
                 .ok_or(EncodeError::BadValue("prop focus"))?;
+            if matches!(row.kind, WirePropKind::RebirthEgg { .. }) {
+                return Err(EncodeError::BadValue("prop focus"));
+            }
             check_weapon(focus.body_hint)?;
             if focus.body_hint.is_some() && !matches!(row.kind, WirePropKind::Body { .. }) {
                 return Err(EncodeError::BadValue("body hint"));
@@ -119,7 +122,9 @@ impl WireProps {
                     varint_len(row.handle.get())
                         + 5
                         + match &row.kind {
-                            WirePropKind::Ground(_) | WirePropKind::Chest { .. } => 1,
+                            WirePropKind::Ground(_)
+                            | WirePropKind::Chest { .. }
+                            | WirePropKind::RebirthEgg { .. } => 1,
                             WirePropKind::WindEmblem => 0,
                             WirePropKind::QuestItem { quest, .. } => varint_len(quest.get()) + 1,
                             WirePropKind::Body { label } | WirePropKind::Corpse { label } => {
@@ -163,6 +168,10 @@ impl WireProps {
                 WirePropKind::Cannon { ready_at } => {
                     w.u8(6);
                     w.varint(*ready_at);
+                }
+                WirePropKind::RebirthEgg { hatching } => {
+                    w.u8(9);
+                    w.u8(u8::from(*hatching));
                 }
                 WirePropKind::QuestItem { quest, fetch } => {
                     w.u8(7);
@@ -215,6 +224,9 @@ impl WireProps {
                 8 => WirePropKind::Heal {
                     ready_at: r.varint()?,
                 },
+                9 => WirePropKind::RebirthEgg {
+                    hatching: bool_flag(r)?,
+                },
                 _ => return Err(DecodeError::BadField("prop kind")),
             };
             rows.push(WireProp { handle, x, y, kind });
@@ -234,13 +246,20 @@ impl WireProps {
     }
 }
 
+fn quest_field(kind: u8) -> bool {
+    (FIELD_KIND_QUEST_TURRET..=FIELD_KIND_QUEST_BOUNTY).contains(&kind)
+}
+
+fn known_field(kind: u8) -> bool {
+    kind < FIELD_KIND_COUNT || quest_field(kind)
+}
+
 impl WireField {
     /// The row's checks in the decoders' order (docs/backlog/packets/P-FROST-WALL-2.md F4), as the refusal reason: an
     /// unknown kind or tiles on a row that is not a wall "field"; a wall's tile count "wall tiles", a tile off every map
     /// "wall tile", tiles not strictly ascending "wall order"; then the common checks "field".
     pub(super) fn check(&self) -> Result<(), &'static str> {
-        if self.kind >= FIELD_KIND_COUNT || (self.kind != FIELD_KIND_WALL && !self.tiles.is_empty())
-        {
+        if !known_field(self.kind) || (self.kind != FIELD_KIND_WALL && !self.tiles.is_empty()) {
             return Err("field");
         }
         if self.kind == FIELD_KIND_WALL {
@@ -265,7 +284,9 @@ impl WireField {
         }
     }
     pub(super) fn valid(&self) -> bool {
-        self.kind < FIELD_KIND_COUNT
+        known_field(self.kind)
+            && (!quest_field(self.kind)
+                || (self.ability == 0 && self.owner.is_none() && self.subject.is_none()))
             && self.ability < 5
             && self.owner != Some(0)
             && self.subject != Some(0)
@@ -322,7 +343,7 @@ impl WireField {
             tiles: Vec::new(),
         };
         // The row is read whole first: an unknown kind is refused before any tile list would be read.
-        if result.kind >= FIELD_KIND_COUNT {
+        if !known_field(result.kind) {
             return Err(DecodeError::BadField("field"));
         }
         if result.kind == FIELD_KIND_WALL {

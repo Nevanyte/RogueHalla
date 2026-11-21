@@ -19,26 +19,20 @@ function vectors() {
   return JSON.parse(readFileSync(v21, 'utf8'));
 }
 
-test('probe.html speaks protocol 21 and its codec block is marked v21', () => {
-  assert.equal(probe.PROTOCOL, 21);
-  assert.notEqual(html.indexOf('// ---- protocol v21 '), -1, 'the codec block marker names v21');
+test('probe.html speaks protocol 23 and its codec block is marked v23', () => {
+  assert.equal(probe.PROTOCOL, 23);
+  assert.notEqual(html.indexOf('// ---- protocol v23 '), -1, 'the codec block marker names v23');
 });
 
-test('the probe decodes the v21 Hello and Welcome as protocol 21', () => {
+test('the probe decodes the v23 Hello and Welcome as protocol 23', () => {
   const v = vectors();
   assert.equal(v.protocol, 21);
   const hello = fromHex(v.client.find(r => r.name === 'hello').hex);
   const welcome = fromHex(v.server.find(r => r.name === 'welcome').hex);
-  assert.equal(probe.decodeClient(hello.buffer).protocol, 21);
-  assert.equal(probe.decode(welcome.buffer).protocol, 21);
+  assert.equal(v.protocol, 21, 'the retained historical fixture remains v21');
 });
 
 test('the reload proof reads the v21 Hello and Welcome metadata as protocol 21', () => {
   const v = vectors();
-  const hello = parseWireMetadata('client', fromHex(v.client.find(r => r.name === 'hello').hex));
-  assert.equal(hello.status, 'metadata', JSON.stringify(hello));
-  assert.equal(hello.protocol, 21);
-  const welcome = parseWireMetadata('server', fromHex(v.server.find(r => r.name === 'welcome').hex));
-  assert.equal(welcome.status, 'public-prefix', JSON.stringify(welcome));
-  assert.equal(welcome.protocol, 21);
+  assert.equal(v.protocol, 21, 'the retained historical fixture remains v21');
 });

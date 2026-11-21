@@ -54,6 +54,7 @@ async fn a_live_match_replays_and_its_bots_decide_identically_headless() {
         walk_hints: None,
         regen: false,
         quests: false,
+        top25_quests: false,
         training: false,
         dummies: false,
         consumables: true,

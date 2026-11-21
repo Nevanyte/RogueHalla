@@ -370,7 +370,7 @@ fn guard_with_freeze_no_observation_contains_a_wall() {
 fn the_observation_identity_moves_for_the_wall() {
     assert_eq!(
         rh_sim::OBSERVATION_VERSION,
-        31,
-        "Observation.fields carries standing walls (FieldKind::Wall) and FieldView gains their tiles (P-FROST-WALL-2); 31: P-NET-DRAWAHEAD-1a"
+        36,
+        "Observation.fields carries standing walls (FieldKind::Wall) and FieldView gains their tiles (P-FROST-WALL-2)"
     );
 }

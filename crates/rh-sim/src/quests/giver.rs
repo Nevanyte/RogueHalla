@@ -60,7 +60,12 @@ pub(crate) fn is_giver(w: &World, id: PlayerId) -> bool {
 }
 
 /// Reconstruct only immutable source birth data during restore. This never runs in the tick or advances world RNG.
-fn placements(k: &MatchStatic) -> (Vec<super::placement::Placement>, crate::private_rng::Sfc32) {
+pub(super) fn placements(
+    k: &MatchStatic,
+) -> (Vec<super::placement::Placement>, crate::private_rng::Sfc32) {
+    if let Some(Ok(board)) = &k.quest_deal {
+        return (board.placements.clone(), board.stream.clone());
+    }
     let mut stream =
         crate::private_rng::Sfc32::from_words(super::live::quest_salt(k.secrets.reward_salt));
     let mut random = || stream.next_f64();
@@ -109,7 +114,13 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
     if !profile {
         return Err("quest giver runtime outside quest profile".into());
     }
+    if k.quest_deal.as_ref().is_some_and(Result::is_err) {
+        return Err("map cannot host the selected quest board".into());
+    }
     let (placements, stream) = placements(k);
+    if k.quest_deal.is_some() && q.offers.len() != placements.len() {
+        return Err("incomplete quest board".into());
+    }
     if q.stream != stream || q.offers.len() > placements.len() || origins.len() > placements.len() {
         return Err("quest birth plan/stream mismatch".into());
     }
@@ -131,10 +142,16 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
         u64::from(w.initial_birth_serial) + if planned { 0 } else { u64::from(camp_count) };
     let mut quest_ids = Vec::with_capacity(placements.len());
     let mut giver_ids = vec![None; placements.len()];
-    let resources = |p: &super::placement::Placement| match super::catalog::DEFINITION[p.def].kind {
-        super::catalog::Kind::Collect => p.tokens.len() as u64,
-        super::catalog::Kind::Fetch => u64::from(p.parcel.is_some()),
-        super::catalog::Kind::Kill => 0,
+    let resources = |p: &super::placement::Placement| {
+        if super::board::quest(p.def).is_some() {
+            0
+        } else {
+            match super::catalog::DEFINITION[p.def].kind {
+                super::catalog::Kind::Collect => p.tokens.len() as u64,
+                super::catalog::Kind::Fetch => u64::from(p.parcel.is_some()),
+                super::catalog::Kind::Kill => 0,
+            }
+        }
     };
     for (i, p) in placements.iter().enumerate() {
         next += 1;

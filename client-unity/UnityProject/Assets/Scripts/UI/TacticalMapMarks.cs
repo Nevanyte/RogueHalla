@@ -22,13 +22,17 @@ namespace Roguehalla.Client
         readonly List<DeliveredPoint> _delivered = new List<DeliveredPoint>();
         readonly List<TMP_Text> _zoneLabels = new List<TMP_Text>();
         RectTransform _zoneLabelHost;
-        struct DeliveredPoint { public Vector2 At; public string Label; public byte Kind; }
+        enum PointKind { Merchant, Giver, Objective, TrackedObjective, PublicObjective, QuestReward, RebirthEgg, HatchingEgg, Crown, Smuggler, Fort, Meditation, Bounty }
+        struct DeliveredPoint { public Vector2 At; public PointKind Kind; }
+        readonly List<Vector2> _questCarriers = new List<Vector2>();
         public QuestHandle? TrackedQuest { get; set; }
         /// <summary>True on the Tab map: bigger markers and a name beside each zone icon. The minimap draws small icons only.</summary>
         public bool Large { get; set; }
         public int MerchantCount { get; private set; }
+        public int RebirthEggCount { get; private set; }
         public int QuestGiverCount { get; private set; }
         public int QuestObjectiveCount { get; private set; }
+        public int PublicQuestMarkCount { get; private set; }
         readonly List<CampGlyphRow> _camps = new List<CampGlyphRow>();
         int _realIcons;
         readonly List<TMP_Text> _campClocks = new List<TMP_Text>();
@@ -149,27 +153,72 @@ namespace Roguehalla.Client
                 foreach (var chest in session.Collections.RewardChests) _chests.Add(new Vector2(chest.X, chest.Y));
                 ChestBadges.Rows(_map?.Camps, session.Collections.RewardChests, session.ServerTimeMs, Large ? CampSurface.TabMap : CampSurface.Minimap, null, _chestRows);
                 if (route != null) foreach (var point in route) _route.Add(new Vector2((float)point.X, (float)point.Y));
+                foreach (var prop in session.Collections.Props)
+                {
+                    if (prop.Kind != PropAppearance.RebirthEgg) continue;
+                    _delivered.Add(new DeliveredPoint
+                    {
+                        At = new Vector2(prop.X, prop.Y),
+                        Kind = prop.Hatching ? PointKind.HatchingEgg : PointKind.RebirthEgg,
+                    });
+                    RebirthEggCount++;
+                }
+                foreach (var field in session.Collections.Fields)
+                {
+                    PointKind kind;
+                    switch (field.Kind)
+                    {
+                        case AreaKind.QuestCrown: kind = PointKind.Crown; break;
+                        case AreaKind.QuestSmuggler: kind = PointKind.Smuggler; break;
+                        case AreaKind.QuestFort: kind = PointKind.Fort; break;
+                        case AreaKind.QuestMeditation: kind = PointKind.Meditation; break;
+                        case AreaKind.QuestBounty: kind = PointKind.Bounty; break;
+                        default: continue;
+                    }
+                    _delivered.Add(new DeliveredPoint { At = new Vector2(field.X, field.Y), Kind = kind });
+                    PublicQuestMarkCount++;
+                }
                 var trade = session.Collections.Trade;
                 if (trade != null && trade.Available) foreach (var row in trade.Merchants)
                 {
-                    _delivered.Add(new DeliveredPoint { At = new Vector2((float)row.X, (float)row.Y), Label = row.Name, Kind = 0 });
+                    _delivered.Add(new DeliveredPoint { At = new Vector2((float)row.X, (float)row.Y), Kind = PointKind.Merchant });
                     MerchantCount++;
                 }
                 var quests = session.Collections.Quests;
                 if (quests != null && quests.Available)
                 {
-                    QuestRowView tracked = null;
                     foreach (var row in quests.Rows)
                     {
-                        _delivered.Add(new DeliveredPoint { At = new Vector2((float)row.GiverX, (float)row.GiverY), Label = row.GiverLabel, Kind = 1 });
-                        QuestGiverCount++;
-                        if (TrackedQuest.HasValue && row.Handle.Equals(TrackedQuest.Value)) tracked = row;
+                        if (QuestPresentation.ShowsOffer(row))
+                        {
+                            _delivered.Add(new DeliveredPoint { At = new Vector2((float)row.GiverX, (float)row.GiverY), Kind = PointKind.Giver });
+                            QuestGiverCount++;
+                        }
+                        if (QuestPresentation.IsBoardRow(row) && row.CarrierActor.HasValue &&
+                            TryQuestActorPoint(row.CarrierActor.Value, out Vector2 at) && !_questCarriers.Contains(at))
+                        {
+                            _questCarriers.Add(at);
+                            PublicQuestMarkCount++;
+                        }
                     }
-                    if (tracked != null) foreach (var objective in quests.Objectives) if (objective.Quest.Equals(tracked.Handle))
+                    foreach (var objective in quests.Objectives)
                     {
-                        _delivered.Add(new DeliveredPoint { At = new Vector2((float)objective.X, (float)objective.Y), Label = tracked.Name, Kind = 2 });
-                        QuestObjectiveCount++;
+                        var row = QuestPresentation.FindRow(quests, objective.Quest);
+                        if (row == null) continue;
+                        bool tracked = TrackedQuest.HasValue && row.Handle.Equals(TrackedQuest.Value);
+                        bool board = QuestPresentation.IsBoardRow(row);
+                        bool publicMark = board && row.Carrier.HasValue && (!row.OwnerAccepted || row.OwnerCompleted);
+                        if (!publicMark && (!QuestPresentation.ShowsOffer(row) || !tracked && !(board && row.OwnerAccepted))) continue;
+                        _delivered.Add(new DeliveredPoint
+                        {
+                            At = new Vector2((float)objective.X, (float)objective.Y),
+                            Kind = publicMark ? PointKind.PublicObjective : board && tracked ? PointKind.TrackedObjective : PointKind.Objective,
+                        });
+                        if (publicMark) PublicQuestMarkCount++;
+                        else QuestObjectiveCount++;
                     }
+                    foreach (var drop in quests.Drops)
+                        _delivered.Add(new DeliveredPoint { At = new Vector2((float)drop.X, (float)drop.Y), Kind = PointKind.QuestReward });
                 }
             }
             RefreshCampClocks();
@@ -180,7 +229,21 @@ namespace Roguehalla.Client
             SetVerticesDirty();
         }
 
-        void ClearDelivered() { _delivered.Clear(); MerchantCount = QuestGiverCount = QuestObjectiveCount = 0; }
+        bool TryQuestActorPoint(uint id, out Vector2 at)
+        {
+            if (id == _selfId && _self.HasValue) { at = _self.Value; return true; }
+            foreach (var actor in _actors)
+                if (actor.Id == id && actor.Kind == ActorKind.Player)
+                { at = new Vector2(actor.X, actor.Y); return true; }
+            at = default;
+            return false;
+        }
+
+        void ClearDelivered()
+        {
+            _delivered.Clear(); _questCarriers.Clear(); RebirthEggCount = 0;
+            MerchantCount = QuestGiverCount = QuestObjectiveCount = PublicQuestMarkCount = 0;
+        }
 
         Vector2 At(Vector2 world)
         {
@@ -502,9 +565,28 @@ namespace Roguehalla.Client
             {
                 var p = At(point.At);
                 if (!rectTransform.rect.Contains(p)) continue;
-                if (point.Kind == 2) Marker(vh, p, 11f * s, MapGlyph.Cross, theme.TextPrimary, ink);
-                else if (point.Kind == 1) { Marker(vh, p, 13f * s, MapGlyph.Diamond, theme.TextPrimary, ink); Glyph(vh, p, 5f * s, MapGlyph.Disc, ink); }
-                else { Marker(vh, p, 13f * s, MapGlyph.Ring, theme.TextPrimary, ink); Glyph(vh, p, 5f * s, MapGlyph.Disc, theme.TextPrimary); }
+                switch (point.Kind)
+                {
+                    case PointKind.Objective: Marker(vh, p, 11f * s, MapGlyph.Cross, theme.TextPrimary, ink); break;
+                    case PointKind.TrackedObjective: Marker(vh, p, 13f * s, MapGlyph.Cross, theme.Accent, ink); break;
+                    case PointKind.PublicObjective: Marker(vh, p, 14f * s, MapGlyph.Ring, theme.Accent, ink); break;
+                    case PointKind.QuestReward: Marker(vh, p, 9f * s, MapGlyph.Square, theme.Accent, ink); break;
+                    case PointKind.RebirthEgg: Marker(vh, p, 10f * s, MapGlyph.DiamondRing, theme.TextPrimary, ink); break;
+                    case PointKind.HatchingEgg: Marker(vh, p, 14f * s, MapGlyph.DiamondRing, theme.Accent, ink); break;
+                    case PointKind.Crown: Marker(vh, p, 16f * s, MapGlyph.Diamond, theme.Accent, ink); break;
+                    case PointKind.Smuggler: Marker(vh, p, 14f * s, MapGlyph.Square, theme.Accent, ink); break;
+                    case PointKind.Fort: Marker(vh, p, 16f * s, MapGlyph.Plus, theme.Info, ink); break;
+                    case PointKind.Meditation: Marker(vh, p, 15f * s, MapGlyph.DiamondRing, theme.TextPrimary, ink); break;
+                    case PointKind.Bounty: Marker(vh, p, 16f * s, MapGlyph.Cross, theme.Accent, ink); break;
+                    case PointKind.Giver:
+                        Marker(vh, p, 13f * s, MapGlyph.Diamond, theme.TextPrimary, ink);
+                        Glyph(vh, p, 5f * s, MapGlyph.Disc, ink);
+                        break;
+                    case PointKind.Merchant:
+                        Marker(vh, p, 13f * s, MapGlyph.Ring, theme.TextPrimary, ink);
+                        Glyph(vh, p, 5f * s, MapGlyph.Disc, theme.TextPrimary);
+                        break;
+                }
             }
             // Creatures under players, so a player marker is never hidden by a crowd of mobs.
             for (int pass = 0; pass < 2; pass++)
@@ -522,6 +604,8 @@ namespace Roguehalla.Client
                 Glyph(vh, p, 17f * s, MapGlyph.Disc, ink);
                 Glyph(vh, p, 12f * s, MapGlyph.Disc, theme.Info);
             }
+            foreach (var at in _questCarriers)
+                Marker(vh, At(at), 21f * s, MapGlyph.Ring, theme.Accent, ink);
             double progress = _ping.Active ? _ping.Progress(NowMs) : -1d;
             if (progress >= 0d)
             {

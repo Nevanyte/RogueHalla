@@ -253,7 +253,7 @@ fn delete_arrows(cx: &mut Cx) {
             );
             if distance(ra, rb) <= BALL_ARROW_RADIUS
                 && !ray_blocked(
-                    cx.k.collision_map(cx.w.rt.gates_locked),
+                    crate::collision::map(cx.k, cx.w),
                     a.x,
                     a.y,
                     b.x,
@@ -296,7 +296,7 @@ fn contact(s: Stretch, at: Vec2, reach: f64) -> Option<f64> {
     (0. ..=1.).contains(&u).then_some(u)
 }
 
-fn first_body(cx: &Cx, s: Stretch, t: f64) -> Option<(usize, Vec2)> {
+fn first_body(cx: &Cx, s: Stretch, t: f64) -> Option<(usize, f64)> {
     let pr = &cx.w.projectiles[s.index];
     let slack = if pr.launch.kind == ProjectileKind::Arrow {
         ARROW_RADIUS
@@ -349,7 +349,31 @@ fn first_body(cx: &Cx, s: Stretch, t: f64) -> Option<(usize, Vec2)> {
             }
         }
     }
-    best.map(|(u, _, _, i)| (i, between(s.a, s.b, u)))
+    best.map(|(u, _, _, i)| (i, u))
+}
+
+fn first_egg(cx: &Cx, s: Stretch, pr: Projectile) -> Option<(usize, f64)> {
+    use crate::quests::board::special::egg;
+    if cx.w.rebirth_eggs.is_empty() {
+        return None;
+    }
+    let attacker = cx.w.player(pr.launch.owner)?;
+    let slack = if pr.launch.kind == ProjectileKind::Arrow {
+        ARROW_RADIUS
+    } else {
+        RANGED_SLACK
+    };
+    let mut best = None::<(usize, f64)>;
+    for (i, &shell) in cx.w.rebirth_eggs.iter().enumerate() {
+        if egg::strikeable(cx.k, cx.w, attacker, shell) {
+            if let Some(u) = contact(s, shell.at, egg::RADIUS + slack) {
+                if best.is_none_or(|(_, first)| u < first) {
+                    best = Some((i, u));
+                }
+            }
+        }
+    }
+    best
 }
 
 fn entry(pr: Projectile, victim: PlayerId, scale: f64, derived: bool) -> Entry {
@@ -394,7 +418,7 @@ fn splash(cx: &mut Cx, pr: Projectile, primary: usize, t: f64) {
         let at = p.position_at(t);
         if distance(centre, at) <= WAND_SPLASH_RADIUS
             && !ray_blocked(
-                cx.k.collision_map(cx.w.rt.gates_locked),
+                crate::collision::map(cx.k, cx.w),
                 centre.x,
                 centre.y,
                 at.x,
@@ -509,10 +533,55 @@ fn advance(cx: &mut Cx, s: Stretch, t: f64) {
         return;
     }
     let pr = cx.w.projectiles[s.index];
-    if let Some((i, at)) = first_body(cx, s, t) {
+    let body = first_body(cx, s, t);
+    let egg = first_egg(cx, s, pr);
+    use crate::quests::board::rewards::effects;
+    let mut deployment = None;
+    let slack = if pr.launch.kind == ProjectileKind::Arrow {
+        ARROW_RADIUS
+    } else {
+        RANGED_SLACK
+    };
+    for (i, &prop) in effects::deployments(cx.w).iter().enumerate() {
+        if !prop.strikeable(cx.w, pr.launch.owner) {
+            continue;
+        }
+        if let Some(u) = contact(s, prop.at, effects::DEPLOYMENT_RADIUS + slack) {
+            if deployment.is_none_or(|(_, first)| u < first) {
+                deployment = Some((i, u));
+            }
+        }
+    }
+    if let Some((i, u)) = deployment.filter(|&(_, u)| {
+        body.is_none_or(|(_, first)| u < first) && egg.is_none_or(|(_, first)| u < first)
+    }) {
+        effects::damage_deployment(cx.w, i, pr.packet.raw);
+        end(
+            &mut cx.w.projectiles[s.index],
+            &mut cx.s.flight.swept[s.index],
+            cx.ev,
+            between(s.a, s.b, u),
+            ProjectileEnd::Hit,
+        );
+        return;
+    }
+    if let Some((i, u)) = egg.filter(|&(_, u)| body.is_none_or(|(_, first)| u < first)) {
+        crate::quests::board::special::egg::break_shell(cx.w, i);
+        end(
+            &mut cx.w.projectiles[s.index],
+            &mut cx.s.flight.swept[s.index],
+            cx.ev,
+            between(s.a, s.b, u),
+            ProjectileEnd::Hit,
+        );
+        return;
+    }
+    if let Some((i, u)) = body {
+        let at = between(s.a, s.b, u);
         let holder = cx.w.core(crate::fighter::FighterIx::of_slot(i));
         if pr.launch.kind == ProjectileKind::Arrow
             && holder.active_weapon() == WeaponId::Shield
+            && !effects::stasis(cx.w, holder.id)
             && (pr.velocity.x != 0. || pr.velocity.y != 0.)
             && angle_between(atan2(-pr.velocity.y, -pr.velocity.x), holder.body.facing)
                 <= SHIELD_HALF_ARC + ARC_EPS
@@ -560,7 +629,7 @@ pub(crate) fn sweep(cx: &mut Cx) {
             if cx.s.flight.swept[i].ended || cx.w.projectiles[i].time >= t {
                 continue;
             }
-            match stretch(cx.w, i, t, cx.k.collision_map(cx.w.rt.gates_locked)) {
+            match stretch(cx.w, i, t, crate::collision::map(cx.k, cx.w)) {
                 Ok((s, v)) => {
                     cx.w.projectiles[i].velocity = v;
                     cx.s.flight.stretches.push(s);

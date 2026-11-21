@@ -70,13 +70,13 @@ fn arena_of(items: &[StateItem]) -> Option<WireArena> {
 fn identities_move_for_the_clocks_and_the_minimum() {
     assert_eq!(
         rh_sim::OBSERVATION_VERSION,
-        31,
-        "Inventory gains the owner's end times, ArenaView the room minimum (P-WIRE17-HUD-3); 31/26: P-NET-DRAWAHEAD-1a"
+        36,
+        "Inventory gains the owner's end times, ArenaView the room minimum (P-WIRE17-HUD-3)"
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        27,
-        "the projected inventory and arena view carry them (P-WIRE17-HUD-3); 31/26: P-NET-DRAWAHEAD-1a; 27: P-COLISEUM-HEALS-2"
+        32,
+        "the projected inventory and arena view carry them (P-WIRE17-HUD-3)"
     );
 }
 

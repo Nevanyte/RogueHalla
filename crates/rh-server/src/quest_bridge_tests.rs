@@ -6,7 +6,10 @@ fn quest_bridge_wire_bounds_cover_the_native_domain() {
     use rh_protocol::state::{
         MAX_QUEST_OBJECTIVES, MAX_QUEST_OBJECTIVES_PER_ROW, MAX_QUEST_ROSTER, MAX_QUEST_ROWS,
     };
-    assert_eq!(MAX_QUEST_ROWS, rh_sim::constants::QUEST_COUNT as usize);
+    let current_pool = rh_sim::quests::board::catalog::QuestId::ALL.len();
+    let legacy_board = rh_sim::constants::QUEST_COUNT as usize;
+    let normal_board = 2 * rh_sim::FactionId::ALL.len();
+    assert_eq!(MAX_QUEST_ROWS, current_pool.max(legacy_board));
     assert_eq!(MAX_QUEST_ROSTER, rh_sim::constants::MAX_PLAYERS);
     let catalog = rh_sim::quests::catalog::DEFINITION;
     assert_eq!(catalog.iter().map(|row| row.id.len()).max(), Some(16));
@@ -16,7 +19,7 @@ fn quest_bridge_wire_bounds_cover_the_native_domain() {
     );
     assert_eq!(
         MAX_QUEST_OBJECTIVES,
-        MAX_QUEST_ROWS * MAX_QUEST_OBJECTIVES_PER_ROW
+        legacy_board.max(normal_board) * MAX_QUEST_OBJECTIVES_PER_ROW
     );
     assert_eq!(rh_sim::FactionId::ALL.len(), 5);
 }

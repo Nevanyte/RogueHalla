@@ -101,6 +101,30 @@ namespace Roguehalla.Client.Tests
                 "open-only bars cannot linger when the dynamic prop pool is reused");
         }
 
+        [Test]
+        public void WorldQuestRewardUsesDeliveredGroundPointAndClearsOnPickup()
+        {
+            var arena = CreateArena();
+            var root = FindDirectChild(arena.transform, "Observed collections");
+            var view = new CollectionsView();
+            var apply = typeof(CollectionsView).GetMethod("Apply", BindingFlags.Instance | BindingFlags.NonPublic);
+            var state = new QuestsState { Available = true, View = new WireQuestView() };
+            state.View.Drops = new[] { new WireQuestDrop { Index = 37, Reward = 20, X = 350, Y = 410 } };
+            apply.Invoke(view, new object[] { new ServerMsg.State { Tick = 7, Items = new StateItem[] { state } } });
+            arena.PresentCollections(view);
+
+            var expected = ClientArenaView.WorldPoint(350, 410);
+            var ring = FindAtX(root, expected.x, ShowcaseSprites.Get("ring"));
+            Assert.That(ring, Is.Not.Null);
+            Assert.That(ring.transform.position, Is.EqualTo(expected));
+            Assert.That(FindAtX(root, expected.x, ShowcaseSprites.Get("rune")), Is.Not.Null);
+
+            state.View.Drops = Array.Empty<WireQuestDrop>();
+            apply.Invoke(view, new object[] { new ServerMsg.State { Tick = 8, Items = new StateItem[] { state } } });
+            arena.PresentCollections(view);
+            Assert.That(ActiveRendererCount(root), Is.Zero);
+        }
+
         ClientArenaView CreateArena()
         {
             var arenaObject = new GameObject("prop cue test arena");

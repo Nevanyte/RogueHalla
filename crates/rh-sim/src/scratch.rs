@@ -30,6 +30,7 @@ pub(crate) const NONE: u32 = u32::MAX;
 
 #[derive(Debug)]
 pub(crate) struct TickScratch {
+    pub(crate) quest_spell_aim: Option<Vec2>,
     pub(crate) cast_landings: Vec<crate::systems::abilities::Landing>,
     pub(crate) status_active: Vec<PlayerId>,
     pub(crate) status_removed: Vec<crate::status_runtime::StatusInstance>,
@@ -124,6 +125,7 @@ impl Default for TickScratch {
     fn default() -> Self {
         let (p, hits) = (MAX_PLAYERS, 2 * MAX_PLAYERS * MAX_PLAYERS);
         Self {
+            quest_spell_aim: None,
             cast_landings: Vec::with_capacity(p),
             status_active: Vec::with_capacity(p),
             status_removed: Vec::with_capacity(p),

@@ -4,6 +4,12 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Top 25 quests on the 40 Hz integration branch (2026-11-21)
+
+[P-QUEST25-INTEGRATE](backlog/packets/P-QUEST25-INTEGRATE.md) combines the November 19 quest branch with the target through `5567458fb`. Each normal raid draws two of the five eligible quests in each zone. Each player can finish each offer once per match. Completing it retires that player's row and preserves the offer for other players.
+
+The combined wire version is 23 and the content hash is `7639672bbb0933c9`. Heal pickups use prop kind 8, Rebirth Eggs use kind 9, and destroyed terrain uses State key 14. The quest data uses observation 36, policy 32, checkpoint 38 and replay 27. The 40 Hz live default and 20 Hz compatibility both apply. See the [integration checks](evidence/quest25-integration-2026-11-21/README.md) and [PR #81](https://github.com/Nevanyte/RogueHalla/pull/81).
+
 ## 40 Hz tick, P-TICK-1a to 6 (2026-11-20, branch `claude/project-thread-baoxuk`)
 
 **Owner direction 2026-11-19:** "lets do 40" (live tick 40 Hz), then "okay for all 3" (accept ADR 0029, sign DEV-039,
@@ -55,6 +61,20 @@ per core 9-19 (was 15-28), bandwidth 2.5 KB/s per player in the density bench (h
 20 KB/s); `docs/evidence/forty-hertz/README.md`. The server's default step is now 25 ms (`runtime::LIVE_TICK_MS`);
 `--tick-ms 50` or `RH_TICK_MS=50` rolls back. Browser click-to-confirmed latency not measured here (no browser build).
 Nothing deployed: a staging deploy needs the owner's OK.
+
+## Local Top 25 quest playtest (2026-11-19)
+
+The owner approved activating the workbook’s Top 25 in normal Rust and Unity raids. The local implementation is on `codex/top25-quests`, based on `feature/unity-rework` at `24a2ce99f`. The ten-offer board is shared during planning. Each player completes the selected offers once per match and receives their own named rewards. Training and the K1 parity path retain their separate configurations. [Quest rules](quests.md) · [DEV-040](DEVIATIONS.md#entries)
+
+The candidate uses protocol 20, observation 31, policy contract 26, checkpoint `rh-checkpoint/33`, replay `rh-replay/26` and content `7639672bbb0933c9`. Returning players resume server-held quest and reward state. Unity presents the delivered offers, objective actions, spell slots and public cues. [Board packet](backlog/packets/P-QUEST25-BOARD-1.md) · [Two-seat release check](backlog/packets/P-QUEST25-PLAYTHROUGH.md)
+
+Two human seats completed every catalog quest and exercised their named rewards in deterministic generated matches. Two independently rendered WebGL players received the same ten physical offers and took one into the raid through the journal. [Two-browser playtest and screenshot](evidence/quest25-playtest-2026-11-19/README.md) · [Protocol provenance](evidence/quest25-provenance-2026-11-19/README.md)
+
+The deeper local playtest completed all 25 quests in authoritative rooms using 2,928 recorded player input frames. The completing player kept the reward after reconnecting. A second player retained the original offer. Chrome accepted all 25 in rendered Unity WebGL. The test also covers both banner deliveries, single-word map markers, reusable spell recharge and all 81 broker choices. [Quest-by-quest results](evidence/quest25-deep-playtest-2026-11-19/README.md)
+
+The full protocol 20 gate passed at `ba5b0c696` with PostgreSQL, legacy parity, 2,186 C# tests, 1,601 Unity EditMode tests and the release-mode bot checks. [Full playtest and replay](evidence/quest25-deep-playtest-2026-11-19/README.md)
+
+The earlier protocol 19 full gate passed at `1beb7e7cd` with PostgreSQL and the pinned Unity Editor. It included both release-mode bot checks and the legacy parity report. [Packet hand-off and verification results](coordination/HANDOFF_P-QUEST25_2026-11-19.md)
 
 ## Integration 58 (2026-11-18): the GitHub front page
 

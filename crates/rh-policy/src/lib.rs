@@ -53,10 +53,11 @@ use std::time::{Duration, Instant};
 /// Wall (field kind 3) with its tile list; bots do not decide on it.
 /// Version 25 (observation 30, P-FROST-WALL-BOTS-1): [`MatchStart`] carries `frost_wish`, the room's Frost Wish (the
 /// room-wide public value every human client reads from the Welcome's HUD block, term 23); bots aim Frost Wall by it.
-/// Version 26 (observation 31, protocol 19, P-NET-DRAWAHEAD-1a): each delivered player row and its projected actor carry
-/// the public walk hint (heading, committed ticks); bots do not decide on it.
-/// Version 27 (protocol 20, P-COLISEUM-HEALS-2): heal props; bots ignore them.
-pub const POLICY_CONTRACT_VERSION: u16 = 27;
+/// Version 26 (protocol 19, observation 31) delivers personal quest slots and actions, public quest
+/// markers, and destroyed terrain. Fill bots receive their own view and cannot accept quests.
+/// Versions 27–31 carry public walk hints, heal props, 40 Hz projection, and merged observation extensions.
+/// Version 32 adds the quest carrier and rebirth egg projections while retaining heal and walk hints.
+pub const POLICY_CONTRACT_VERSION: u16 = 32;
 
 /// Everything a policy may know about a match before its first observation, all of it public static data (the map
 /// and spawn points), never match state. Never a [`rh_sim::Secrets`] value and never the sim itself (C-OBS, C-RNG, C-POLICY).

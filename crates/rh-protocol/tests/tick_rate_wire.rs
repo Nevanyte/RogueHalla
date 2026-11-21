@@ -75,9 +75,9 @@ fn full_and_delta() -> (Vec<u8>, Vec<u8>) {
 }
 
 #[test]
-fn the_wire_speaks_protocol_21() {
+fn the_wire_speaks_protocol_23() {
     assert_eq!(
-        PROTOCOL_VERSION, 21,
+        PROTOCOL_VERSION, 23,
         "snapshot time read from Welcome.tick_rate is an incompatible wire change: 20 -> 21"
     );
 }

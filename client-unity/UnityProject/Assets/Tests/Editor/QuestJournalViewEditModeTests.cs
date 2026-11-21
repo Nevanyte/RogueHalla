@@ -58,6 +58,58 @@ namespace Roguehalla.Client.Tests
         }
 
         [Test]
+        public void UntimedAcceptedQuestShowsProgressWithoutWaitingForADeadline()
+        {
+            var row = Row(_first, "The Warden", "brief", "objective", "reward", false, true);
+            row.ExpiresAt = 0;
+            DeliverQuestState(_session, _transport, Available(row));
+            _view.Refresh();
+            _view.SelectQuest(_first);
+
+            StringAssert.Contains("Accepted · 2 progress", Status());
+            StringAssert.DoesNotContain("deadline", Status());
+        }
+
+        [Test]
+        public void JournalUsesExactProjectedChoicesAndRevokesThemBeforeRefresh()
+        {
+            var row = Row(_first, "Two Banners", "brief", "objective", "reward", false, true);
+            row.Def = "two_banners";
+            DeliverQuestState(_session, _transport, new QuestsState { Available = true, View = new WireQuestView
+            {
+                Rows = new[] { row },
+                Actions = new[]
+                {
+                    new WireQuestAction { Quest = _first, Action = 2, Target = 0, Label = "Carry the Gallows banner", Points = new[] { 1.0, 2.0 } },
+                    new WireQuestAction { Quest = _first, Action = 2, Target = 1, Label = "Bring back the rival banner", Points = new[] { 1.0, 2.0 } },
+                },
+            } });
+            _view.Refresh();
+            _view.SelectQuest(_first);
+            var actionList = _view.Root.Find("QuestDetail/QuestTextScroll/Viewport/Content/QuestActions");
+            var first = actionList.Find("Action0").GetComponent<UnityEngine.UI.Button>();
+            var second = actionList.Find("Action1").GetComponent<UnityEngine.UI.Button>();
+            Assert.AreEqual("Carry the Gallows banner", first.GetComponentInChildren<TMP_Text>().text);
+            Assert.AreEqual("Bring back the rival banner", second.GetComponentInChildren<TMP_Text>().text);
+            second.onClick.Invoke();
+
+            row.OwnerCompleted = true;
+            DeliverQuestState(_session, _transport, Available(row));
+            first.onClick.Invoke();
+            _session.FlushInput();
+            var commands = InputFrames(_transport)[0].Commands;
+            Assert.AreEqual(1, commands.Count);
+            Assert.AreEqual(CommandKind.QuestInteract, commands[0].Kind);
+            Assert.AreEqual(_first, commands[0].QuestRef);
+            Assert.AreEqual(2, commands[0].QuestAction);
+            Assert.AreEqual(1, commands[0].QuestTarget);
+
+            _view.Refresh();
+            Assert.AreEqual("No quests are currently available.", Text("JournalState"));
+            Assert.IsFalse(first.gameObject.activeSelf);
+        }
+
+        [Test]
         public void UnseenUnavailableAndAvailableEmptyAreDistinctAndRowsPreserveExactServerText()
         {
             Assert.IsNull(_session.Collections.Quests);

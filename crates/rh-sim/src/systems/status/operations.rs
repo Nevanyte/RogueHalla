@@ -32,17 +32,19 @@ pub(crate) fn apply_with(
     stats: Inputs,
 ) -> Option<Applied> {
     let i = w.fighter_idx(id)?;
-    if !rt::admits(
-        &a,
-        if w.is_player(i) {
-            Recipient::Player
-        } else if crate::quests::giver::is_giver(w, id) {
-            Recipient::QuestGiver
-        } else {
-            Recipient::Mob
-        },
-        w.standing(i),
-    ) {
+    if crate::quests::board::rewards::effects::blocks_status(w, id, a.kind)
+        || !rt::admits(
+            &a,
+            if w.is_player(i) {
+                Recipient::Player
+            } else if crate::quests::giver::is_giver(w, id) {
+                Recipient::QuestGiver
+            } else {
+                Recipient::Mob
+            },
+            w.standing(i),
+        )
+    {
         return None;
     }
     if w.pay.collecting {

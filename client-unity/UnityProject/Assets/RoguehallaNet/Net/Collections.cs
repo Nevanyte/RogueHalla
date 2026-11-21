@@ -5,8 +5,18 @@ using Roguehalla.Net.Protocol;
 namespace Roguehalla.Net
 {
     /// <summary>Plain client-side views of what a snapshot or state record delivers (props, areas, camps, projectiles, reward chests, plans, quests, trades), with the small enums that name them.</summary>
-    public enum PropAppearance : byte { Ground = 1, Chest = 2, Body = 3, Corpse = 4, WindEmblem = 5, Cannon = 6, QuestItem = 7, Heal = 8 }
-    public enum AreaKind : byte { Zone, Cloud, Trail, Wall }
+    public enum PropAppearance : byte { Ground = 1, Chest = 2, Body = 3, Corpse = 4, WindEmblem = 5, Cannon = 6, QuestItem = 7, Heal = 8, RebirthEgg = 9 }
+    public enum AreaKind : byte
+    {
+        Zone, Cloud, Trail, Wall,
+        QuestTurret = FieldsState.KindQuestTurret, QuestWard = FieldsState.KindQuestWard,
+        QuestFalcon = FieldsState.KindQuestFalcon, QuestHook = FieldsState.KindQuestHook,
+        QuestBolas = FieldsState.KindQuestBolas, QuestTornado = FieldsState.KindQuestTornado,
+        QuestSeed = FieldsState.KindQuestSeed,
+        QuestCrown = FieldsState.KindQuestCrown, QuestSmuggler = FieldsState.KindQuestSmuggler,
+        QuestFort = FieldsState.KindQuestFort, QuestMeditation = FieldsState.KindQuestMeditation,
+        QuestBounty = FieldsState.KindQuestBounty
+    }
     public enum AbilityId : byte { Freeze, Swarm, Trial, Blaze, LastStand }
     public enum CardId : byte { SlowBurn, PocketSand, Siphon }
     public enum BoostId : byte { Ad, Ap, Armor, Shield, MaxHp, AttackSpeed, MoveSpeed, Lifesteal }
@@ -45,7 +55,7 @@ namespace Roguehalla.Net
         public PropAppearance Kind;
         public WeaponId? Weapon, BodyHint;
         public QuestHandle QuestRef;
-        public bool QuestFetch;
+        public bool QuestFetch, Hatching;
         public bool Open, Focused;
         public string BodyLabel, CorpseLabel;
         /// <summary>Server-time reload deadline, in milliseconds; presentation only.</summary>
@@ -254,6 +264,44 @@ namespace Roguehalla.Net
         public double Y { get; }
         internal QuestObjectiveView(WireQuestObjective source) { Quest = source.Quest; X = source.X; Y = source.Y; }
     }
+    public readonly struct QuestSpellView
+    {
+        public byte Slot { get; }
+        public byte Reward { get; }
+        public byte Charges { get; }
+        public double ReadyAt { get; }
+        internal QuestSpellView(WireQuestSpell source)
+        {
+            Slot = source.Slot; Reward = source.Reward; Charges = source.Charges; ReadyAt = source.ReadyAt;
+        }
+    }
+    public readonly struct QuestDropView
+    {
+        public byte Index { get; }
+        public byte Reward { get; }
+        public byte Charges { get; }
+        public double ReadyAt { get; }
+        public double X { get; }
+        public double Y { get; }
+        internal QuestDropView(WireQuestDrop source)
+        {
+            Index = source.Index; Reward = source.Reward; Charges = source.Charges;
+            ReadyAt = source.ReadyAt; X = source.X; Y = source.Y;
+        }
+    }
+    public readonly struct QuestActionView
+    {
+        public QuestHandle Quest { get; }
+        public byte Action { get; }
+        public byte Target { get; }
+        public IReadOnlyList<double> Points { get; }
+        public string Label { get; }
+        internal QuestActionView(WireQuestAction source)
+        {
+            Quest = source.Quest; Action = source.Action; Target = source.Target; Label = source.Label;
+            Points = Array.AsReadOnly((double[])source.Points.Clone());
+        }
+    }
     /// <summary>Owned, presentation-only copy of one reliable quest replacement. Unavailable differs from no replacement yet.</summary>
     public sealed class QuestView
     {
@@ -264,6 +312,10 @@ namespace Roguehalla.Net
         public IReadOnlyList<QuestRosterEntryView> Roster { get; }
         public IReadOnlyList<QuestRowView> Rows { get; }
         public IReadOnlyList<QuestObjectiveView> Objectives { get; }
+        public IReadOnlyList<QuestSpellView> Spells { get; }
+        public IReadOnlyList<QuestHandle> Pending { get; }
+        public IReadOnlyList<QuestDropView> Drops { get; }
+        public IReadOnlyList<QuestActionView> Actions { get; }
         internal QuestView(QuestsState source)
         {
             Available = source.Available;
@@ -271,6 +323,8 @@ namespace Roguehalla.Net
             {
                 UnknownCount = 0; DisplayUnknownCount = 0; OwnerRoster = null;
                 Roster = Array.Empty<QuestRosterEntryView>(); Rows = Array.Empty<QuestRowView>(); Objectives = Array.Empty<QuestObjectiveView>();
+                Spells = Array.Empty<QuestSpellView>(); Pending = Array.Empty<QuestHandle>();
+                Drops = Array.Empty<QuestDropView>(); Actions = Array.Empty<QuestActionView>();
                 return;
             }
             var view = source.View;
@@ -282,6 +336,14 @@ namespace Roguehalla.Net
             var objectives = new QuestObjectiveView[view.Objectives.Length];
             for (int i = 0; i < objectives.Length; i++) objectives[i] = new QuestObjectiveView(view.Objectives[i]);
             Roster = Array.AsReadOnly(roster); Rows = Array.AsReadOnly(rows); Objectives = Array.AsReadOnly(objectives);
+            var spells = new QuestSpellView[view.Spells.Length];
+            for (int i = 0; i < spells.Length; i++) spells[i] = new QuestSpellView(view.Spells[i]);
+            var drops = new QuestDropView[view.Drops.Length];
+            for (int i = 0; i < drops.Length; i++) drops[i] = new QuestDropView(view.Drops[i]);
+            var actions = new QuestActionView[view.Actions.Length];
+            for (int i = 0; i < actions.Length; i++) actions[i] = new QuestActionView(view.Actions[i]);
+            Spells = Array.AsReadOnly(spells); Pending = Array.AsReadOnly((QuestHandle[])view.Pending.Clone());
+            Drops = Array.AsReadOnly(drops); Actions = Array.AsReadOnly(actions);
         }
     }
     internal sealed class InvalidCollectionStateException : Exception
@@ -310,7 +372,17 @@ namespace Roguehalla.Net
         public uint Tick { get; private set; }
         /// <summary>P-FROST-WALL-2b: gives the view the Welcome map, the size wall tile indices decode against (Session calls it
         /// on every Welcome).</summary>
-        public void BindMap(MapBlob map) { _mapW = map == null ? 0u : map.W; _mapH = map == null ? 0u : map.H; }
+        public void BindMap(MapBlob map)
+        {
+            _baseMap = TerrainMap = map;
+            _destroyedCells = Array.Empty<uint>();
+            _mapW = map == null ? 0u : map.W;
+            _mapH = map == null ? 0u : map.H;
+        }
+        MapBlob _baseMap;
+        uint[] _destroyedCells = Array.Empty<uint>();
+        /// <summary>Current public base terrain, before temporary walls and closed gates.</summary>
+        public MapBlob TerrainMap { get; private set; }
         uint _mapW, _mapH;
         public InventoryView? Inventory { get; private set; }
         public IReadOnlyList<PropView> Props { get; private set; } = Array.Empty<PropView>();
@@ -362,17 +434,34 @@ namespace Roguehalla.Net
         internal void Reset()
         {
             Plan = null; Arena = null; Quests = null; Trade = null; Roster = Array.Empty<RosterEntry>(); Summary = null;
+            TerrainMap = _baseMap; _destroyedCells = Array.Empty<uint>();
             Tick = 0; _seen = 0; Camps=Array.Empty<CampView>(); Projectiles=Array.Empty<NetProjectileView>(); Inventory = null; Focus = null; HasBuild = false;
             Props = Array.Empty<PropView>(); Fields = Array.Empty<AreaView>();
             RewardChests = Array.Empty<RewardChestView>(); Cards = Array.Empty<byte>(); Boosts = Array.Empty<byte>();
         }
+        static bool SameCells(uint[] a, uint[] b)
+        {
+            if (a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+            return true;
+        }
+
         internal void Apply(ServerMsg.State state)
         {
             // Decode validated the complete frame before this method can mutate the retained view.
+            var terrainMap = TerrainMap;
+            var destroyedCells = _destroyedCells;
             foreach (var item in state.Items)
             {
-                if (item.Key < (uint)StateKey.Inventory || item.Key > (uint)StateKey.BuildSummary)
+                if (item.Key < (uint)StateKey.Inventory || item.Key > (uint)StateKey.DestroyedTerrain)
                     throw new ArgumentException("unknown state key");
+                if (item is DestroyedTerrainState terrain && !SameCells(destroyedCells, terrain.Cells))
+                {
+                    if (_baseMap == null) throw new InvalidCollectionStateException("terrain update before Welcome map");
+                    try { terrainMap = _baseMap.WithDestroyedTerrain(terrain.Cells); }
+                    catch (ArgumentException e) { throw new InvalidCollectionStateException(e.Message); }
+                    destroyedCells = (uint[])terrain.Cells.Clone();
+                }
                 if (item is TradeState trade)
                 {
                     try { trade.Check(); }
@@ -392,6 +481,8 @@ namespace Roguehalla.Net
                 }
             }
             ValidateQuestPropReferences(state);
+            TerrainMap = terrainMap;
+            _destroyedCells = destroyedCells;
             foreach (var item in state.Items)
             {
                 _seen |= 1u << ((int)item.Key - 1);
@@ -420,6 +511,7 @@ namespace Roguehalla.Net
                             Weapon = source.Kind == Protocol.PropKind.Ground ? (WeaponId?)source.GroundWeapon : null,
                             QuestRef = source.Kind == Protocol.PropKind.QuestItem ? source.QuestRef : default,
                             QuestFetch = source.Kind == Protocol.PropKind.QuestItem && source.QuestFetch,
+                            Hatching = source.Kind == Protocol.PropKind.RebirthEgg && source.Hatching,
                             Focused = focused, BodyHint = focused && props.Focus.Value.BodyHint.HasValue ? (WeaponId?)props.Focus.Value.BodyHint.Value : null
                         };
                         if (focused) Focus = rows[i];

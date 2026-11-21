@@ -241,6 +241,7 @@ pub(crate) fn drop_body(hx: &mut Hx, args: &HookArgs) {
     else {
         return;
     };
+    crate::quests::board::rewards::effects::restore_gear(hx.w, victim);
     if hx.k.config.lifecycle.rules().is_some() && !hx.k.config.initial_loot {
         super::loot::clear_player_slots(hx.w, victim);
         return;
@@ -302,7 +303,7 @@ fn pickup_check(
         c.at,
     )?;
     if !point_visible(
-        cx.k.collision_view(cx.w.rt.gates_locked),
+        crate::collision::view(cx.k, cx.w),
         &cx.w.players[ix.slot()],
         c.at,
         cx.w.tick,
@@ -345,7 +346,7 @@ pub(crate) fn pickup(cx: &mut Cx, ix: FighterIx, cmd: &ActionCmd) {
                 let viewer = &cx.w.players[ix.slot()];
                 let at = cx.w.containers[i].at;
                 point_visible(
-                    cx.k.collision_view(cx.w.rt.gates_locked),
+                    crate::collision::view(cx.k, cx.w),
                     viewer,
                     at,
                     cx.w.tick,
@@ -407,6 +408,9 @@ fn take(cx: &mut Cx, ix: FighterIx, i: usize) -> Result<(), PickupRefusal> {
     };
     if weapon == WeaponId::Fists {
         return Err(PickupRefusal::NothingToTake);
+    }
+    if crate::quests::board::rewards::effects::locked_gear(cx.w, cx.w.core(ix).id) {
+        return Err(PickupRefusal::Blocked);
     }
     cx.w.containers[i].items.remove(0);
     let vanished =

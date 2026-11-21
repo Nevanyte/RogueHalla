@@ -1,8 +1,6 @@
-# Quest design discussion (FUTURE ONLY)
+# Quest design workbook
 
-**Status: future design only.** Nothing in this folder is implemented, scheduled or approved. It is not in
-`docs/ORDER_OF_OPERATIONS.md` and has no packet. Building any of it needs owner approval and a packet in
-`docs/backlog/packets/`. The live quest system is documented in [`docs/quests.md`](../quests.md).
+The owner approved the workbook’s `Top_25` objectives and `Spell_Reworks` rewards for normal Rust and Unity raids on November 18, 2026. The workbook retains its original filename. Other sheets record design discussions and balance estimates. [Normal raid rules and legacy K1 reference](../quests.md) · [Implementation packets](../backlog/README.md)
 
 - `FUTURE_ONLY_Quest_Design_Discussion.xlsx`: the whole 2026-11-13 discussion. It covers pricing stats in farming time
   (camp-equivalents), the quest math and a reward pricer, calibration data, quest methodology, reward feel, quests built on

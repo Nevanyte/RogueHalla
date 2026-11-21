@@ -86,10 +86,10 @@ pub struct Placement {
 impl Sim {
     /// Current authoritative collision geometry; public static metadata stays on `arena()`.
     pub fn collision_map(&self) -> &crate::TileMap {
-        self.k.collision_map(self.w.rt.gates_locked)
+        crate::collision::map(&self.k, &self.w)
     }
     pub(crate) fn collision_view(&self) -> crate::collision::View<'_> {
-        self.k.collision_view(self.w.rt.gates_locked)
+        crate::collision::view(&self.k, &self.w)
     }
 
     pub fn new(config: SimConfig, arena: impl Into<Arc<Arena>>, secrets: Secrets) -> Self {
@@ -128,6 +128,12 @@ impl Sim {
         secrets: Secrets,
         initialize: fn(&mut MatchStatic, &mut World) -> Result<(), &'static str>,
     ) -> Result<Self, &'static str> {
+        let arena = if config.top25_quests && config.quests && !config.training {
+            crate::quests::board::map_admission::ensure(arena, secrets)
+                .map_err(|_| "map cannot host the selected quest board")?
+        } else {
+            arena
+        };
         let mut sim = Self {
             projection: Default::default(),
             k: MatchStatic::new(config, arena, secrets),
@@ -136,6 +142,9 @@ impl Sim {
             pf: Pathfinder::default(),
         };
         crate::statics::validate_tick_ms(&sim.k.config)?;
+        if sim.k.quest_deal.as_ref().is_some_and(Result::is_err) {
+            return Err("map cannot host the selected quest board");
+        }
         crate::terrain::validate_config(&sim.k.config)?;
         crate::abilities::validate_config(&sim.k.config)?;
         crate::systems::arena_rules::validate_config(&sim.k)?;

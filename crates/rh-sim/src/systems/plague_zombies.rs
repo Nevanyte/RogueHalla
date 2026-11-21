@@ -273,7 +273,7 @@ fn eligible(w: &World, k: &MatchStatic, owner: &Player, zid: PlayerId, id: Playe
     }
     if let Some(target) = w.player(id) {
         crate::vision::gameplay_actor_visible(
-            k.collision_view(w.rt.gates_locked),
+            crate::collision::view(k, w),
             owner,
             target,
             w.tick,
@@ -282,7 +282,7 @@ fn eligible(w: &World, k: &MatchStatic, owner: &Player, zid: PlayerId, id: Playe
     } else {
         !crate::status_runtime::untargetable(&t.statuses.instances, w.server_time)
             && crate::vision::point_visible(
-                k.collision_view(w.rt.gates_locked),
+                crate::collision::view(k, w),
                 owner,
                 t.pos(),
                 w.tick,

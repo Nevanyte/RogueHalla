@@ -45,6 +45,14 @@ impl Rig {
         Self::start_arena(mode, hosted, None).await
     }
     async fn start_arena(mode: &str, hosted: bool, arena: Option<rh_sim::Arena>) -> Self {
+        Self::start_seeded(mode, hosted, arena, None).await
+    }
+    async fn start_seeded(
+        mode: &str,
+        hosted: bool,
+        arena: Option<rh_sim::Arena>,
+        seed: Option<u64>,
+    ) -> Self {
         let mut args = vec!["--runtime".into(), mode.into()];
         if mode == "source-arena" {
             args.extend([
@@ -62,6 +70,7 @@ impl Rig {
         let cfg = DirectorConfig {
             max_rooms: 2,
             require_admit: hosted,
+            fixed_board_secrets: seed.map(rh_sim::Secrets::from_seed),
             tick: Duration::from_millis(3),
             ..DirectorConfig::new(
                 settings.sim(),
@@ -223,13 +232,25 @@ impl Client {
     }
     async fn recv(&mut self) -> ServerMsg {
         loop {
-            let frame = tokio::time::timeout(Duration::from_secs(4), self.sock.next())
-                .await
-                .expect("live public frame")
-                .expect("socket open")
-                .expect("valid websocket");
-            let Message::Binary(bytes) = frame else {
-                continue;
+            let frame = match tokio::time::timeout(Duration::from_secs(4), self.sock.next()).await {
+                Ok(Some(Ok(frame))) => frame,
+                result => panic!(
+                    "public socket receive {result:?}: {}",
+                    self.public_summary()
+                ),
+            };
+            let bytes = match frame {
+                Message::Binary(bytes) => bytes,
+                Message::Ping(_) => {
+                    // Tungstenite queues the automatic Pong. Flush it even when the
+                    // test has no gameplay input to send during a long walk.
+                    self.sock.flush().await.expect("send websocket Pong");
+                    continue;
+                }
+                Message::Close(reason) => {
+                    panic!("public socket closed {reason:?}: {}", self.public_summary())
+                }
+                _ => continue,
             };
             let msg = self
                 .decoder
@@ -302,6 +323,109 @@ impl Client {
             );
         }
     }
+    async fn find_broker(&mut self) -> bool {
+        let map = self.map.as_ref().unwrap();
+        let w = usize::from(map.w);
+        // Search from the public coliseum first, then sample the walkable map.
+        // Brokers wander across regions and may never visit the coliseum.
+        let sample = |index| {
+            let tile = rh_sim::constants::TILE as f32;
+            (
+                (index % w) as f32 * tile + tile / 2.,
+                (index / w) as f32 * tile + tile / 2.,
+            )
+        };
+        let centre: Vec<_> = map
+            .regions
+            .as_ref()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .filter(|&(i, region)| *region == 6 && map.tiles[i] == 0)
+            .map(|(i, _)| sample(i))
+            .collect();
+        let (cx, cy) = centre[centre.len() / 2];
+        let mut sites = broker_search_sites(map);
+        self.walk(cx, cy).await;
+        let mut next_search = self.tick + 120;
+        let mut next_retarget = self.tick;
+        let mut broker_move = None;
+        let mut last_target: Option<(f32, f32)> = None;
+        let mut followed_moving_broker = false;
+        let result = tokio::time::timeout(wait_deadline(), async {
+            loop {
+                assert_eq!(
+                    self.phase,
+                    1,
+                    "raid ended searching for broker: {}",
+                    self.public_summary()
+                );
+                if let Some(seq) = broker_move {
+                    if broker_ready(self.ack_input, seq, self.me, self.trade.as_ref()) {
+                        break;
+                    }
+                }
+                let sighting = self.trade.as_ref().and_then(|trade| {
+                    trade
+                        .merchants
+                        .iter()
+                        .find(|m| m.kind == rh_protocol::WireTradeKind::Stats)
+                });
+                let target = sighting
+                    .map(|m| (m.x as f32, m.y as f32))
+                    .filter(|&(x, y)| {
+                        self.tick >= next_retarget
+                            && last_target
+                                .is_none_or(|(old_x, old_y)| (x - old_x).hypot(y - old_y) >= 16.)
+                    });
+                if let Some((x, y)) = target {
+                    followed_moving_broker |= last_target.is_some();
+                    self.walk(x, y).await;
+                    broker_move = Some(self.seq);
+                    last_target = Some((x, y));
+                    next_retarget = self.tick + 12;
+                    next_search = self.tick + 80;
+                } else if self.tick >= next_search && !sites.is_empty() {
+                    // A still-visible broker may be on the other side of an obstacle.
+                    // Try another approach if the last walk did not get us in range.
+                    let me = self.me.unwrap();
+                    let nearest = sites
+                        .iter()
+                        .enumerate()
+                        .min_by(|(_, a), (_, b)| {
+                            let distance = |&(x, y): &(f32, f32)| (me.x - x).hypot(me.y - y);
+                            distance(a).total_cmp(&distance(b))
+                        })
+                        .unwrap()
+                        .0;
+                    let (x, y) = sites.remove(nearest);
+                    self.walk(x, y).await;
+                    next_search = self.tick + 100;
+                    next_retarget = self.tick + 30;
+                    broker_move = None;
+                    last_target = None;
+                }
+                self.recv().await;
+            }
+        })
+        .await;
+        assert!(
+            result.is_ok(),
+            "public broker walk to {last_target:?}: {}",
+            self.public_summary()
+        );
+        followed_moving_broker
+    }
+
+    async fn walk(&mut self, x: f32, y: f32) {
+        self.input(WireCommand::Move {
+            x,
+            y,
+            seq: Some((self.seq + 1) as u8),
+        })
+        .await;
+    }
+
     async fn input(&mut self, command: WireCommand) {
         self.seq += 1;
         self.sock
@@ -316,6 +440,17 @@ impl Client {
             .await
             .unwrap();
     }
+}
+
+fn broker_search_sites(map: &rh_protocol::map::MapBlob) -> Vec<(f32, f32)> {
+    let w = usize::from(map.w);
+    let tile = rh_sim::constants::TILE as f32;
+    (6..usize::from(map.h))
+        .step_by(12)
+        .flat_map(|row| (6..w).step_by(12).map(move |col| (col, row)))
+        .filter(|&(col, row)| map.tiles[row * w + col] == 0)
+        .map(|(col, row)| ((col as f32 + 0.5) * tile, (row as f32 + 0.5) * tile))
+        .collect()
 }
 
 /// Test navigation gate, not trade authority: only the subsequent encoded Trade and trade_used update prove success.
@@ -410,7 +545,17 @@ fn saved_broker_quotes_require_move_ack_and_current_arrival() {
 
 #[tokio::test]
 async fn source_endpoint_hello_planning_ready_and_live_quest_trade_state() {
-    let rig = Rig::start("source-arena", true).await;
+    // Run the seeded rooms serially so they do not compete for the arena map admission workers.
+    source_endpoint_playthrough(2).await;
+    assert!(
+        source_endpoint_playthrough(5).await,
+        "the moving broker on seed 5 requires an updated walk destination"
+    );
+    source_endpoint_playthrough(8).await;
+}
+
+async fn source_endpoint_playthrough(seed: u64) -> bool {
+    let rig = Rig::start_seeded("source-arena", true, None, Some(seed)).await;
     assert_eq!(
         rig.create("arena", json!({"maxPlayers":2,"fillBotsTo":0}))
             .await
@@ -435,8 +580,25 @@ async fn source_endpoint_hello_planning_ready_and_live_quest_trade_state() {
         rh_protocol::GroundMode::Map
     );
     assert!(alice.map.as_ref().unwrap().terrain.is_some());
-    alice.until(|c| c.phase == 3 && c.plan.is_some()).await;
-    bob.until(|c| c.phase == 3 && c.plan.is_some()).await;
+    let planning_board = |c: &Client| {
+        c.phase == 3
+            && c.plan.is_some()
+            && c.quests
+                .as_ref()
+                .is_some_and(|board| board.unknown_count == 0 && board.rows.len() == 10)
+    };
+    alice.until(planning_board).await;
+    bob.until(planning_board).await;
+    let board_sites = |c: &Client| {
+        c.quests
+            .as_ref()
+            .unwrap()
+            .rows
+            .iter()
+            .map(|row| (row.def.clone(), row.giver))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(board_sites(&alice), board_sites(&bob));
     let rooms = http::get(rig.control, "/control/rooms", &[]).await.json();
     assert_eq!(rooms["rooms"][0]["phase"], "planning");
     assert_eq!(
@@ -476,10 +638,10 @@ async fn source_endpoint_hello_planning_ready_and_live_quest_trade_state() {
         .await;
     bob.until(|c| c.phase == 1 && c.plan.is_none()).await;
     assert!(!alice.training && !bob.training);
-    assert!(
-        alice.quests.as_ref().unwrap().unknown_count > 0
-            || !alice.quests.as_ref().unwrap().rows.is_empty()
-    );
+    let alice_board = alice.quests.as_ref().unwrap();
+    assert_eq!(alice_board.unknown_count, 0);
+    assert_eq!(alice_board.rows.len(), 10);
+    assert_eq!(board_sites(&alice), board_sites(&bob));
     assert!(!alice.trade.as_ref().unwrap().trade_used);
 
     // Navigate only to positions delivered in the public quest view. No private map/entity lookup or installed offer.
@@ -543,62 +705,7 @@ async fn source_endpoint_hello_planning_ready_and_live_quest_trade_state() {
             .any(|q| q.owner_accepted),
         "quest acceptance belongs to its authenticated owner"
     );
-    // Broker navigation uses only the Welcome's public region plane and visible merchant positions.
-    let map = alice.map.as_ref().unwrap();
-    let centre = map
-        .regions
-        .as_ref()
-        .unwrap()
-        .iter()
-        .enumerate()
-        .filter(|(_, v)| **v == 6)
-        .map(|(i, _)| {
-            (
-                (i % usize::from(map.w)) as f32 * 32. + 16.,
-                (i / usize::from(map.w)) as f32 * 32. + 16.,
-            )
-        })
-        .collect::<Vec<_>>();
-    let (cx, cy) = centre[centre.len() / 2];
-    alice
-        .input(WireCommand::Move {
-            x: cx,
-            y: cy,
-            seq: Some(2),
-        })
-        .await;
-    alice
-        .until(|c| {
-            c.trade
-                .as_ref()
-                .unwrap()
-                .merchants
-                .iter()
-                .any(|m| m.kind == rh_protocol::WireTradeKind::Stats)
-        })
-        .await;
-    let merchant = alice
-        .trade
-        .as_ref()
-        .unwrap()
-        .merchants
-        .iter()
-        .find(|m| m.kind == rh_protocol::WireTradeKind::Stats)
-        .unwrap()
-        .clone();
-    alice
-        .input(WireCommand::Move {
-            x: merchant.x as f32,
-            y: merchant.y as f32,
-            seq: Some(3),
-        })
-        .await;
-    // Quotes persist after leaving a broker. Their presence may predate BOTH movement frames above and cannot
-    // witness this move's receipt or the owner's current arrival. Use only current delivered owner/merchant facts.
-    let broker_move = alice.seq;
-    alice
-        .until(|c| broker_ready(c.ack_input, broker_move, c.me, c.trade.as_ref()))
-        .await;
+    let followed_moving_broker = alice.find_broker().await;
     let offers = alice.trade.as_ref().unwrap().offers.clone();
     assert_eq!(offers.len(), 3, "nearby broker rolls genuine owner offers");
     alice
@@ -632,6 +739,7 @@ async fn source_endpoint_hello_planning_ready_and_live_quest_trade_state() {
         0,
         "arena rejects training grants"
     );
+    followed_moving_broker
 }
 
 #[tokio::test]

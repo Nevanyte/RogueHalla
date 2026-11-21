@@ -25,7 +25,7 @@ pub use public::*;
 
 use hud::{camp_hud_into, roster_into, summary_into};
 
-pub const OBSERVATION_VERSION: u16 = 31;
+pub const OBSERVATION_VERSION: u16 = 36;
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SelfView {
@@ -318,8 +318,27 @@ pub enum SeenEvent {
     },
 }
 
+/// Public quest activity remains visible after a viewer has turned in their own offer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum QuestPublicMarkKind {
+    Crown,
+    Smuggler,
+    Fort,
+    Meditation,
+    Bounty,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct QuestPublicMark {
+    pub kind: QuestPublicMarkKind,
+    pub at: crate::Vec2,
+}
+
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Observation {
+    /// Public row-major indices of base-map obstructions permanently removed during this run.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub destroyed_terrain: Vec<u32>,
     /// Seat-local quest facts; None when quests are disabled or viewer is ineligible.
     pub quests: Option<crate::quest_view::QuestView>,
     /// Own saved trade state plus the merchants this viewer can actually see.
@@ -341,6 +360,12 @@ pub struct Observation {
     pub owner_combat: Option<crate::OwnerCombatView>,
     pub props: Vec<crate::VisibleProp>,
     pub fields: Vec<crate::status_runtime::FieldView>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub quest_deployments: Vec<crate::quests::board::rewards::effects::DeploymentView>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub quest_spell_cues: Vec<crate::quests::board::rewards::effects::SpellCue>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub quest_public_marks: Vec<QuestPublicMark>,
     pub visible: Vec<ActorView>,
     pub camps: Vec<crate::mob_runtime::CampRoster>,
     /// P-WIRE17-HUD-1: one row per `camps` row, same order and length: the camp's reward and its ward as this viewer
@@ -555,6 +580,7 @@ impl Default for Observation {
     /// An empty observation, for a buffer that [`observe_into`] fills.
     fn default() -> Self {
         Self {
+            destroyed_terrain: Vec::new(),
             quests: None,
             trade: None,
             arena: None,
@@ -572,6 +598,9 @@ impl Default for Observation {
             build: None,
             props: Vec::new(),
             fields: Vec::new(),
+            quest_deployments: Vec::new(),
+            quest_spell_cues: Vec::new(),
+            quest_public_marks: Vec::new(),
             visible: Vec::new(),
             camps: Vec::new(),
             camp_hud: Vec::new(),
@@ -629,13 +658,7 @@ pub(crate) fn wish_point_permissions(
     };
     let wards = crate::vision::WardSight::of(k, w);
     let visible = |point| {
-        crate::vision::point_visible(
-            k.collision_view(w.rt.gates_locked),
-            me,
-            point,
-            w.tick,
-            wards,
-        )
+        crate::vision::point_visible(crate::collision::view(k, w), me, point, w.tick, wards)
     };
     [visible(at), to.is_some_and(visible)]
 }
@@ -823,6 +846,8 @@ pub(crate) fn observe_with_tiles(
     begin(sim, &mut cache);
     let me = sim.player(viewer);
     let now = sim.server_time();
+    out.destroyed_terrain
+        .clone_from(&sim.w.destroyed_terrain.cells);
     out.quests = None;
     crate::traders::trade_view_into(sim, viewer, &mut out.trade)
         .map_err(crate::OfferError::Trades)?;
@@ -875,6 +900,8 @@ pub(crate) fn observe_with_tiles(
             archetype: p.archetype,
             facts: IndicatorFacts {
                 offhand: None,
+                teleport_immune: teleport_ring(p.vitals.immune_until, now)
+                    || crate::quests::board::rewards::effects::stasis(&sim.w, p.id),
                 ..IndicatorFacts::player(
                     p,
                     now,
@@ -941,12 +968,16 @@ pub(crate) fn observe_with_tiles(
                     weapon: Some(o.active_weapon()),
                     bounty: o.credit.bounty,
                     archetype: o.archetype,
-                    facts: IndicatorFacts::player(
-                        o,
-                        now,
-                        wish,
-                        sim.projection.marks.of(o, sim.tick()),
-                    ),
+                    facts: IndicatorFacts {
+                        teleport_immune: teleport_ring(o.vitals.immune_until, now)
+                            || crate::quests::board::rewards::effects::stasis(&sim.w, o.id),
+                        ..IndicatorFacts::player(
+                            o,
+                            now,
+                            wish,
+                            sim.projection.marks.of(o, sim.tick()),
+                        )
+                    },
                     walk: WalkHint::player(o),
                 });
             }
@@ -957,6 +988,17 @@ pub(crate) fn observe_with_tiles(
     if let Some(me) = me {
         let wards = crate::vision::WardSight::of_sim(sim);
         for mob in sim.mobs() {
+            if mob.kind == crate::mob_runtime::MobKind::QuestGiver && sim.k.quest_deal.is_some() {
+                if let Some(crate::mob_runtime::ActorOrigin::QuestGiver { quest_id, .. }) =
+                    sim.w.actor_origin(mob.core.id)
+                {
+                    if crate::quests::board::attempts::is_completed(&sim.w, viewer, *quest_id)
+                        || !crate::quests::board::attempts::visible_giver(&sim.w, viewer, *quest_id)
+                    {
+                        continue;
+                    }
+                }
+            }
             let visible = match tiles.as_deref_mut() {
                 Some(tiles) => {
                     tiles.sees(sim.collision_view(), me, mob.core.pos(), sim.tick(), wards)
@@ -978,6 +1020,13 @@ pub(crate) fn observe_with_tiles(
         out.visible.sort_unstable_by_key(|a| a.id);
     }
     crate::status_runtime::observe::project(sim, viewer, &out.visible, &mut out.fields);
+    crate::quests::board::rewards::effects::visible_deployments(
+        sim,
+        viewer,
+        &mut out.quest_deployments,
+    );
+    crate::quests::board::rewards::effects::visible_cues(sim, viewer, &mut out.quest_spell_cues);
+    crate::quest_view::board::public_marks(sim, me.is_some(), &mut out.quest_public_marks);
     if let (Some(p), Some(view)) = (me, &mut out.me) {
         view.attack_target = p
             .weapon
