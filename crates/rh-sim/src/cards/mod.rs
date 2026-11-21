@@ -331,20 +331,25 @@ struct HeldCards<'a> {
     at: usize,
 }
 
-// The cursor's position is a card's index: `ALL` and `NATIVE` list the ids in index order (checked at compile time).
-const _: () = {
+/// The cursor's position is a card's index: `ALL` and `NATIVE` list the ids in index order, and the catalog is whole
+/// 8-byte words ([`Build::cards`] checks this at compile time).
+const fn cursor_is_index() -> bool {
     let mut i = 0;
     while i < CardId::ALL.len() {
-        assert!(CardId::ALL[i].index() == i);
+        if CardId::ALL[i].index() != i {
+            return false;
+        }
         i += 1;
     }
     let mut j = 0;
     while j < CardId::NATIVE.len() {
-        assert!(CardId::NATIVE[j].index() == CardId::ALL.len() + j);
+        if CardId::NATIVE[j].index() != CardId::ALL.len() + j {
+            return false;
+        }
         j += 1;
     }
-    assert!(CardId::ALL.len() % 8 == 0);
-};
+    CardId::ALL.len() % 8 == 0
+}
 
 impl Iterator for HeldCards<'_> {
     type Item = CardId;
@@ -418,6 +423,7 @@ impl Build {
     }
     /// The held cards: the 80 catalog cards in catalog order, then the held native cards in native order.
     pub fn cards(&self) -> impl Iterator<Item = CardId> + '_ {
+        const { assert!(cursor_is_index()) };
         HeldCards { build: self, at: 0 }
     }
     /// Build a count map from (card, count) pairs (tests and trusted producers).
