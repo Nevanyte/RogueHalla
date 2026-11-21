@@ -53,6 +53,7 @@ impl Terrain {
     }
 }
 
+#[inline]
 pub(crate) fn view<'a>(k: &'a MatchStatic, w: &'a World) -> View<'a> {
     if let Some(m) = w.destroyed_terrain.derived.as_deref() {
         return View {
@@ -64,10 +65,15 @@ pub(crate) fn view<'a>(k: &'a MatchStatic, w: &'a World) -> View<'a> {
     k.collision_view(w.rt.gates_locked)
 }
 
+#[inline]
 pub(crate) fn map<'a>(k: &'a MatchStatic, w: &'a World) -> &'a TileMap {
     view(k, w).current()
 }
 
+#[inline]
 pub(crate) fn open<'a>(k: &'a MatchStatic, w: &'a World) -> &'a TileMap {
-    view(k, w).open
+    w.destroyed_terrain
+        .derived
+        .as_ref()
+        .map_or(&k.arena.map, |terrain| &terrain.open)
 }

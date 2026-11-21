@@ -121,7 +121,9 @@ pub(crate) fn settle(cx: &mut Cx) {
     super::projectiles::retire(cx);
     // Use the count after this tick's lethal hits. A pending hatch cannot raise the count used to enable itself.
     let standing = cx.w.players.iter().filter(|p| p.standing()).count();
-    egg::tick(cx, standing);
+    if !cx.w.rebirth_eggs.is_empty() {
+        egg::tick(cx, standing);
+    }
     let Cx {
         k, w, s, ev, stats, ..
     } = cx;

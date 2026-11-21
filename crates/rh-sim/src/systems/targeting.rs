@@ -328,8 +328,11 @@ fn follow(cx: &mut Cx, i: usize, id: PlayerId) {
 }
 
 pub(crate) fn update(cx: &mut Cx) {
+    let has_quests = cx.w.quests.is_some();
     for i in 0..cx.w.players.len() {
-        if crate::quests::board::rewards::effects::forced_motion(cx.w, cx.w.players[i].id) {
+        if has_quests
+            && crate::quests::board::rewards::effects::forced_motion(cx.w, cx.w.players[i].id)
+        {
             continue;
         }
         let lock = cx.w.players[i].weapon.targeting;

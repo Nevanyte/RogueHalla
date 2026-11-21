@@ -300,6 +300,9 @@ pub(crate) fn spawn(k: &MatchStatic, w: &mut World) {
     if layers.data().camps.is_empty() {
         return;
     }
+    if k.quest_deal.is_some() {
+        w.rebirth_eggs.reserve(crate::constants::MAX_PLAYERS);
+    }
     let (placements, stream) = super::giver::placements(k);
     w.quests = Some(Quests {
         stream,

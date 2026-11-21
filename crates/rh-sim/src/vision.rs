@@ -270,12 +270,17 @@ fn in_radius(a: Vec2, b: Vec2) -> bool {
 /// Live camp-ward sight sources. The source's `canPlayerSee` scans the published camps for an unexpired ward owned by
 /// the viewer and treats each owned camp's centre as a transient sight origin (`isInVision`): current only, never
 /// remembered. The camp state is the authority, so no copy is stored on the viewer.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub(crate) struct WardSight<'a> {
     camps: &'a [crate::mapdata::CampDef],
     life: &'a [crate::mob_runtime::CampLife],
     quest_world: Option<&'a crate::state::World>,
-    tick_ms: Option<f64>,
+    tick_ms: f64,
+}
+impl Default for WardSight<'_> {
+    fn default() -> Self {
+        Self::none()
+    }
 }
 impl<'a> WardSight<'a> {
     pub(crate) const fn none() -> Self {
@@ -283,20 +288,23 @@ impl<'a> WardSight<'a> {
             camps: &[],
             life: &[],
             quest_world: None,
-            tick_ms: None,
+            tick_ms: LEGACY_TICK_MS,
         }
     }
     pub(crate) fn of(k: &'a crate::statics::MatchStatic, w: &'a crate::state::World) -> Self {
-        let tick_ms = Some(k.tick_ms());
+        let tick_ms = k.tick_ms();
+        let quest_world = (w.quests.is_some()
+            && !crate::quests::board::rewards::effects::deployments(w).is_empty())
+        .then_some(w);
         match (k.arena.map.layers(), w.mob_runtime.as_ref()) {
             (Some(layers), Some(rt)) => Self {
                 camps: &layers.data().camps,
                 life: &rt.life,
-                quest_world: Some(w),
+                quest_world,
                 tick_ms,
             },
             _ => Self {
-                quest_world: Some(w),
+                quest_world,
                 tick_ms,
                 ..Self::none()
             },
@@ -318,7 +326,7 @@ impl<'a> WardSight<'a> {
         Self::of(&sim.k, &sim.w)
     }
     fn tick_ms(self) -> f64 {
-        self.tick_ms.unwrap_or(LEGACY_TICK_MS)
+        self.tick_ms
     }
     /// Legacy `canPlayerSee`'s ward clause: `camp.wardOwner === viewer && now < wardExpiresAt` and
     /// `isInVision(collisionMap, map.camps[i], point)`. An expired timestamp cannot leak sight, and a dead viewer never

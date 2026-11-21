@@ -1306,7 +1306,7 @@ impl World {
             reward_chests: Vec::new(),
             destroyed_terrain: Default::default(),
             quests: None,
-            rebirth_eggs: Vec::with_capacity(crate::constants::MAX_PLAYERS),
+            rebirth_eggs: Vec::new(),
             traders: None,
             terrain: Default::default(),
             factions: Default::default(),

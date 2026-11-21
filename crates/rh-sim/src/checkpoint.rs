@@ -239,8 +239,10 @@ impl<'de> Visitor<'de> for CheckpointVisitor<'_> {
         if let Err(why) = crate::systems::frost::prepare(&k, &mut w) {
             return Err(self.refuse(CheckpointError::Malformed(why.into())));
         }
-        w.rebirth_eggs
-            .reserve(crate::constants::MAX_PLAYERS.saturating_sub(w.rebirth_eggs.len()));
+        if w.quests.as_ref().is_some_and(|q| q.board.is_some()) {
+            w.rebirth_eggs
+                .reserve(crate::constants::MAX_PLAYERS.saturating_sub(w.rebirth_eggs.len()));
+        }
         let seated = w.players.len();
         if let Some(run) = w.practice.as_mut() {
             run.prepare(seated);
