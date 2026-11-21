@@ -73,14 +73,8 @@ namespace Roguehalla.Client.Tests
         }
 
         [Test]
-        public void MissingPineSourceRetainsProceduralArtAndFrostSpireDelivery()
+        public void MissingPineSourceRetainsProceduralPineArt()
         {
-            Assert.That(DecorationKinds.ArtKey(81, 0, 0), Is.EqualTo("frost.pine2"));
-            Assert.That(RegionPropArt.TryGet("frost.spire.fallback", out var fallback), Is.True);
-            Assert.That(fallback.UsesAuthoredTexture, Is.False);
-            Assert.That(fallback.Tall, Is.True);
-            Assert.That(RegionPropArt.Sways("frost.spire.fallback"), Is.True);
-
             var pine = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostPineArt");
             var source = pine.Pigment;
             var onValidate = typeof(StormInkPropArtDefinition).GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -98,24 +92,63 @@ namespace Roguehalla.Client.Tests
                 onValidate.Invoke(pine, null);
                 RegionPropArt.TryGet("frost.pine", out _);
             }
-            Assert.That(RegionPropArt.TryGet("frost.spire.fallback", out fallback), Is.True);
+        }
 
+        [Test]
+        public void FrostSpireUsesItsOwnArtAndFallsBackToTheOldSwayPineWhenMissing()
+        {
+            Assert.That(DecorationKinds.ArtKey(81, 0, 0), Is.EqualTo("frost.pine2"));
+            var spireDefinition = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostIceSpireArt");
+            Assert.That(spireDefinition, Is.Not.Null);
+            var source = spireDefinition.Pigment;
+            Assert.That(source, Is.Not.Null);
+            Assert.That(source.isReadable, Is.True);
+            Assert.That(RegionPropArt.TryGet("frost.spire", out var paintedSpire), Is.True);
+            Assert.That(paintedSpire.UsesAuthoredTexture, Is.True);
+            Assert.That(RegionPropArt.Sways("frost.spire"), Is.False);
+            Assert.That(RegionPropArt.TryGet("frost.spire.fallback", out var fallback), Is.True);
+            Assert.That(fallback.UsesAuthoredTexture, Is.False);
+            Assert.That(RegionPropArt.Sways("frost.spire.fallback"), Is.True);
             var props = new[] { new MapProp(81, 320, 320, 0, 1) };
             var map = new MapBlob(20, 20, new byte[400]).WithPublic(null, null, null, props, null);
-            var root = new GameObject("Frost spire compatibility fixture");
+            var onValidate = typeof(StormInkPropArtDefinition).GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            var root = new GameObject("Frost spire authored fixture");
             RegionProps scene = null;
             try
             {
                 scene = RegionProps.Build(root.transform, map);
                 var renderers = root.GetComponentsInChildren<SpriteRenderer>();
                 Assert.That(renderers.Length, Is.EqualTo(1));
-                Assert.That(renderers[0].sprite, Is.SameAs(fallback.Sprite));
+                Assert.That(renderers[0].sprite, Is.SameAs(paintedSpire.Sprite));
                 Assert.That(RegionProps.Scatter(map)[0].Art, Is.EqualTo("frost.pine2"));
             }
             finally
             {
                 scene?.Dispose();
                 Object.DestroyImmediate(root);
+            }
+
+            spireDefinition.Pigment = null;
+            onValidate.Invoke(spireDefinition, null);
+            try
+            {
+                Assert.That(RegionPropArt.TryGet("frost.spire", out var proceduralSpire), Is.True);
+                Assert.That(proceduralSpire.UsesAuthoredTexture, Is.False);
+                Assert.That(RegionPropArt.TryGet("frost.spire.fallback", out fallback), Is.True);
+                root = new GameObject("Frost spire missing-source fixture");
+                scene = RegionProps.Build(root.transform, map);
+                var renderers = root.GetComponentsInChildren<SpriteRenderer>();
+                Assert.That(renderers.Length, Is.EqualTo(1));
+                Assert.That(renderers[0].sprite, Is.SameAs(fallback.Sprite));
+            }
+            finally
+            {
+                scene?.Dispose();
+                Object.DestroyImmediate(root);
+                spireDefinition.Pigment = source;
+                onValidate.Invoke(spireDefinition, null);
+                RegionPropArt.TryGet("frost.spire", out _);
             }
         }
     }

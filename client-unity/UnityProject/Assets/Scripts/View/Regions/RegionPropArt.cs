@@ -1,6 +1,5 @@
-// Procedural decorative prop sprites for the five regions, painted once at load with RegionCanvas into ONE atlas (one
-// texture, one material, so they batch). Colours are taken from the generated palette table. No imported art, so no
-// licence-ledger entry. Sprites pivot at their ground contact point. 64 pixels per world unit (one tile is 64 px wide).
+// Region props for all five zones: procedural fallbacks and editable authored overlays are baked once into ONE atlas
+// (one texture, one material, so they batch). Sprites pivot at their ground contact point. 64 pixels per world unit.
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -280,6 +279,7 @@ namespace Roguehalla.Client
         {
             var pineA = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostPineArt");
             var pineB = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostWindPineArt");
+            var iceSpire = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostIceSpireArt");
             Color baseC = P(4, 0), sec = P(4, 1), acc = P(4, 2), shadow = P(4, 5);
             Color snow = Mix(baseC, Color.white, .35f), snowLight = Mix(baseC, Color.white, .85f), snowShade = Mix(shadow, baseC, .62f), snowDeep = Mix(shadow, baseC, .38f);
             Color spruceDark = Shade(Mix(sec, P(3, 1), .45f), .46f), spruceMid = Shade(Mix(sec, P(3, 1), .45f), .78f), spruceLight = Mix(sec, P(3, 1), .55f);
@@ -346,6 +346,12 @@ namespace Roguehalla.Client
             // Kind 81 (frost.spire) historically renders as pine2. Keep that procedural fallback available
             // when the ordinary pine2 receives its new authored painting.
             Add(l, "frost.spire.fallback", 120, 150, 12, pine[1], true);
+            int spireW = iceSpire != null ? iceSpire.WidthPixels(120) : 120;
+            int spireH = iceSpire != null ? iceSpire.HeightPixels(150) : 150;
+            int spireGround = iceSpire != null ? iceSpire.GroundPixels(12, spireH) : 12;
+            Add(l, "frost.spire", spireW, spireH, spireGround, pine[1], true,
+                textureFoot: iceSpire != null ? iceSpire.ClampedTextureFoot(new Vector2(.5f, .055f)) : null,
+                textureSource: iceSpire != null ? iceSpire.Pigment : null);
 
             Add(l, "frost.rock", 112, 84, 10, (c, gy) =>
             {
@@ -457,6 +463,8 @@ namespace Roguehalla.Client
 
         static void AddFire(List<Def> l)
         {
+            var screeArt = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FireScreeArt");
+            var basaltLedgeArt = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FireBasaltLedgeArt");
             Color baseC = P(1, 0), obs = P(1, 1), lava = P(1, 2), shadow = P(1, 5);
             Color rockDark = Shade(Mix(obs, shadow, .5f), .75f), rockMid = Mix(obs, baseC, .4f), rockLight = Mix(Mix(obs, baseC, .6f), lava, .12f);
             Add(l, "fire.spire", 80, 164, 10, (c, gy) =>
@@ -472,13 +480,26 @@ namespace Roguehalla.Client
                 c.Glow(46, gy + 30, 14f, lava, .35f);
                 c.Fill(Capsule(new Vector2(30, gy + 60), new Vector2(26, gy + 22), .9f, .5f), Flat(Alpha(Shade(rockDark, .5f), .8f)));
             }, true);
-            Add(l, "fire.rocks", 104, 70, 8, (c, gy) =>
+            Action<RegionCanvas, int> rockFallback = (c, gy) =>
             {
                 c.SoftShadow(56, gy + 2, 40f, 7f, .45f, Alpha(shadow, 1f)); c.Glow(52, gy + 6, 34f, lava, .22f);
                 Rock(c, 40, gy, 24, 22, 4, rockDark, rockMid, rockLight, null, 0, Mix(lava, Color.white, .15f), .2f);
                 Rock(c, 70, gy, 20, 17, 9, rockDark, rockMid, rockLight, null, 0, Mix(lava, Color.white, .15f), .2f);
                 Rock(c, 56, gy + 1, 14, 11, 13, rockDark, rockMid, rockLight);
-            });
+            };
+            Add(l, "fire.rocks", 104, 70, 8, rockFallback);
+            int screeW = screeArt != null ? screeArt.WidthPixels(104) : 104;
+            int screeH = screeArt != null ? screeArt.HeightPixels(70) : 70;
+            int screeGround = screeArt != null ? screeArt.GroundPixels(8, screeH) : 8;
+            Add(l, "fire.scree", screeW, screeH, screeGround, rockFallback,
+                textureFoot: screeArt != null ? screeArt.ClampedTextureFoot(new Vector2(.5f, .12f)) : null,
+                textureSource: screeArt != null ? screeArt.Pigment : null);
+            int ledgeW = basaltLedgeArt != null ? basaltLedgeArt.WidthPixels(104) : 104;
+            int ledgeH = basaltLedgeArt != null ? basaltLedgeArt.HeightPixels(70) : 70;
+            int ledgeGround = basaltLedgeArt != null ? basaltLedgeArt.GroundPixels(8, ledgeH) : 8;
+            Add(l, "fire.basalt.ledge", ledgeW, ledgeH, ledgeGround, rockFallback,
+                textureFoot: basaltLedgeArt != null ? basaltLedgeArt.ClampedTextureFoot(new Vector2(.51f, .16f)) : null,
+                textureSource: basaltLedgeArt != null ? basaltLedgeArt.Pigment : null);
             Add(l, "fire.stump", 96, 124, 10, (c, gy) =>
             {
                 float cx = 48; c.SoftShadow(cx + 6, gy + 2, 30f, 6f, .45f, Alpha(shadow, 1f)); c.Glow(cx, gy + 5, 26f, lava, .30f);

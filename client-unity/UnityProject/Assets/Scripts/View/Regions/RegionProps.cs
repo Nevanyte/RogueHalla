@@ -90,13 +90,23 @@ namespace Roguehalla.Client
             }
         }
 
-        // A delivered spire used the procedural pine silhouette before the ordinary trees were painted.
-        // Resolve the entire art entry so its lighting and overlap bounds follow the same sprite.
+        // A delivered Frost spire has its own ice painting. If it is unavailable, keep the old procedural pine silhouette.
+        // Resolve the entire art entry so its sprite, lighting, draw order, fade and overlap bounds stay together.
         static string RenderArtKey(Placement placement)
         {
             if (placement.Shipped && placement.Art == "frost.pine2" &&
                 DecorationKinds.TryGet(placement.Kind, out var kind) && kind.Name == "frost.spire")
-                return "frost.spire.fallback";
+                return RegionPropArt.TryGet("frost.spire", out var spire) && spire.UsesAuthoredTexture
+                    ? "frost.spire" : "frost.spire.fallback";
+            if (placement.Art == "fire.rocks")
+            {
+                if (!placement.Shipped) return "fire.scree";
+                if (DecorationKinds.TryGet(placement.Kind, out var fireKind))
+                {
+                    if (fireKind.Name == "fire.rocks") return "fire.scree";
+                    if (fireKind.Name == "fire.basalt") return "fire.basalt.ledge";
+                }
+            }
             return placement.Art;
         }
 
