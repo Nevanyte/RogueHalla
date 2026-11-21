@@ -542,7 +542,7 @@
     },
     {
       "path": "tools/card-runtime-fixtures/capture.mts",
-      "sha256": "a85ce3109ef4be5d22d1289ea23b2f0293be20c47296d78dc41254bd3edcfa63"
+      "sha256": "120f19dc4c845e4ae43964a6b089df567cc45c1b8cabd6867fa9bb6a692f6b21"
     },
     {
       "path": "tools/card-runtime-fixtures/capture.sh",
@@ -580,7 +580,7 @@
   "immutableReferences": [
     {
       "path": "parity/card-catalog/source.json",
-      "sha256": "8e444cf1eed6d2c0b0e1f73faec4f330221f819fe6f6991227a9b3ae3b044b9f",
+      "sha256": "f2a83fe59291310817c3d0d37965e79c25e2c7148afe09c177df1019fb7f1cf6",
       "reuse": [
         "catalog/*",
         "eligibility/*",
@@ -635,29 +635,29 @@
   "acceptedProvenanceOverlay": {
     "path": "parity/card-catalog/source.json",
     "originalSha256": "d50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e",
-    "priorAcceptedEffectiveSha256": "ab40ad59065713589f94c7f33dbbac3ea6cd9cc028463d90d6c6fe7fe1856214",
-    "effectiveSha256": "8e444cf1eed6d2c0b0e1f73faec4f330221f819fe6f6991227a9b3ae3b044b9f",
+    "priorAcceptedEffectiveSha256": "8e444cf1eed6d2c0b0e1f73faec4f330221f819fe6f6991227a9b3ae3b044b9f",
+    "effectiveSha256": "f2a83fe59291310817c3d0d37965e79c25e2c7148afe09c177df1019fb7f1cf6",
     "acceptedChanges": [
       {
         "leaf": "/protectedSha256/tools/protocol-js/check-vectors.mjs",
-        "from": "aebbcc177fb42dc39676c26b5bf64ec21b142c6230805f7eaf0328b82d547b2b",
-        "to": "e06942914a5a156f37936b1fea6e15057b2578385bafdbf000d1f16db392f139",
-        "evidence": "docs/evidence/quest25-integration-2026-11-21/README.md"
+        "from": "e06942914a5a156f37936b1fea6e15057b2578385bafdbf000d1f16db392f139",
+        "to": "0b1c5b05c1ec3d1ea079296a5d8ce2c8872af07b108fb4214fc4c63296422958",
+        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-21-merge-quests/README.md"
       },
       {
         "leaf": "/protectedSha256/tools/determinism/compare.py",
-        "from": "e3fe6a69c7591e825411714218b97b4b63803a986bb0b58ef0b0152d60a01d84",
-        "to": "1434f2e87a14c683f1346ba78c1dd3dcbe56be254da5883793b8d5cf13ab5cdf",
-        "evidence": "docs/evidence/quest25-integration-2026-11-21/README.md"
+        "from": "1434f2e87a14c683f1346ba78c1dd3dcbe56be254da5883793b8d5cf13ab5cdf",
+        "to": "509bed93f76de495ce0718fbcf5919b62904b51054a50e7f162c59b01f7c3185",
+        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-21-merge-quests/README.md"
       },
       {
         "leaf": "/protectedSha256/tools/determinism/test_compare.py",
-        "from": "85aa88b08e1a29fb96e31b25f379af4e91a89a53a4296875713991f56d996501",
-        "to": "894e3804e909463235f642569c1521d8b160285ac55d7c8ac5c61bd412ebc1d5",
-        "evidence": "docs/evidence/quest25-integration-2026-11-21/README.md"
+        "from": "894e3804e909463235f642569c1521d8b160285ac55d7c8ac5c61bd412ebc1d5",
+        "to": "7d5f96ba61339bacc598c56bd9b1050c4143c83622ab6b7d6597af7ef525583e",
+        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-21-merge-quests/README.md"
       }
     ],
-    "preservedPriorLineage": "catalog original d50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e -> accepted 9e76292b7ae74d305da2729a2ceba63965e64aa9fd670ab85568ae7909270507 -> accepted 2ddb8f85114ff6e8e70c2d70b8207ed3f32c71431845f3cce1007be494e39792 -> accepted e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3 -> accepted 9e194b56fa5e435c6546440d3f22ba40d671dc79d259936f3db90d26ad1e96ca -> accepted 04c2c8d0bf4547e2e1db0050179c92e9d1458d80cb908e5ade5b049f8819c9f2 -> accepted ab40ad59065713589f94c7f33dbbac3ea6cd9cc028463d90d6c6fe7fe1856214 -> this effectiveSha256; earlier exact leaf transitions/receipts remain in docs/evidence/ci-card-catalog-protocol13, docs/evidence/ci-browser-provenance-chain, docs/evidence/browser-provenance14, docs/evidence/ci-provenance-refresh-2026-11-14, docs/evidence/ci-provenance-refresh-2026-11-17, docs/evidence/ci-provenance-refresh-2026-11-20 and docs/evidence/quest25-integration-2026-11-21; this hop admits only the three listed current-to-final protected leaves",
+    "preservedPriorLineage": "catalog original d50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e -> accepted 9e76292b7ae74d305da2729a2ceba63965e64aa9fd670ab85568ae7909270507 -> accepted 2ddb8f85114ff6e8e70c2d70b8207ed3f32c71431845f3cce1007be494e39792 -> accepted e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3 -> accepted 9e194b56fa5e435c6546440d3f22ba40d671dc79d259936f3db90d26ad1e96ca -> accepted 04c2c8d0bf4547e2e1db0050179c92e9d1458d80cb908e5ade5b049f8819c9f2 -> accepted ab40ad59065713589f94c7f33dbbac3ea6cd9cc028463d90d6c6fe7fe1856214 -> accepted 8e444cf1eed6d2c0b0e1f73faec4f330221f819fe6f6991227a9b3ae3b044b9f -> this effectiveSha256; earlier exact leaf transitions/receipts remain in docs/evidence/ci-card-catalog-protocol13, docs/evidence/ci-browser-provenance-chain, docs/evidence/browser-provenance14, docs/evidence/ci-provenance-refresh-2026-11-14, docs/evidence/ci-provenance-refresh-2026-11-17, docs/evidence/ci-provenance-refresh-2026-11-20, docs/evidence/quest25-integration-2026-11-21 and docs/evidence/ci-provenance-refresh-2026-11-21-merge-quests; this hop admits only the three listed current-to-final protected leaves",
     "rejects": "any catalog hash other than effectiveSha256"
   }
 }
