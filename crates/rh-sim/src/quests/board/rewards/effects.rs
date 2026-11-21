@@ -19,6 +19,8 @@ mod checkpoint;
 mod terrain;
 pub(crate) use checkpoint::validate;
 #[cfg(test)]
+mod departure_and_rate_tests;
+#[cfg(test)]
 mod tests;
 
 use super::{inventory, Award};
@@ -44,6 +46,12 @@ const WARHORN_MS: f64 = 2500.;
 const TORNADO_WINDUP: f64 = 600.;
 const TORNADO_RADIUS: f64 = 240.;
 const PULL_TICK_DISTANCE: f64 = 80.;
+
+/// A distance tuned per legacy 50 ms tick, as this match's step: shots and pulls keep their speed in units per second
+/// at 40 Hz (exactly the tuned value at 20 Hz).
+fn per_step(cx: &Cx, per_legacy_tick: f64) -> f64 {
+    per_legacy_tick * cx.k.tick_ms() / crate::constants::LEGACY_TICK_MS
+}
 const SMITE_RANGE: f64 = 450.;
 const SWAP_RANGE: f64 = 400.;
 
@@ -724,7 +732,7 @@ fn shots(cx: &mut Cx) {
     while i < state(cx.w).unwrap().shots.len() {
         let shot = state(cx.w).unwrap().shots[i];
         let (_, width, mask) = shot.kind.parameters();
-        let goal = towards(shot.at, shot.end, 175.);
+        let goal = towards(shot.at, shot.end, per_step(cx, 175.));
         let map = terrain::body_map(cx.k, cx.w);
         let end = clip(shot.at, goal, |at| {
             has_line_of_sight(map, shot.at, at, mask)
@@ -904,7 +912,11 @@ pub(crate) fn update(cx: &mut Cx) {
             let ix = cx.w.fighter_idx(row.id).unwrap();
             let from = cx.w.core(ix).pos();
             if !stasis(cx.w, row.id) {
-                push(cx, row.id, towards(from, to, PULL_TICK_DISTANCE));
+                push(
+                    cx,
+                    row.id,
+                    towards(from, to, per_step(cx, PULL_TICK_DISTANCE)),
+                );
             }
             let after = cx.w.core(ix).pos();
             if distance(after, to) < 1. || distance(from, after) < 0.5 {
@@ -957,6 +969,10 @@ pub(crate) fn departed(w: &mut World, id: PlayerId) {
     s.tornadoes.retain(|r| r.owner != id);
     s.shots.retain(|r| r.owner != id);
     s.deployments.retain(|r| r.owner != id);
+    // The leaver's spell slots and permanent rewards go with them; spells they dropped stay on the ground.
+    if let Some(rewards) = inventory::state_mut(w) {
+        rewards.owners.retain(|o| o.id != id);
+    }
 }
 
 pub(crate) fn walk_taunted(

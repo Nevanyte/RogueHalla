@@ -57,7 +57,8 @@ pub(crate) fn validate(k: &crate::statics::MatchStatic, w: &World) -> Result<(),
     }) || s.swaps.iter().enumerate().any(|(i, r)| {
         r.a == r.b
             || !player(r.a)
-            || !player(r.b)
+            // Swap-Stick may target any seat, fill bots included.
+            || w.player(r.b).is_none()
             || r.slot_a > 1
             || r.slot_b > 1
             || !deadline(r.until, 10_000.)

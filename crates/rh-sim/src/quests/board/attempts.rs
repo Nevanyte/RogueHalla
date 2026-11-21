@@ -396,6 +396,22 @@ fn endpoint(w: &World, o: &Offer, id: QuestId, a: &Attempt) -> Vec2 {
     }
 }
 
+/// Does this attempt turn in at its own giver? Remote contacts, the hag, the rival outpost and a Trade Up trader are
+/// separate people, so a giver scared off by A Cruel Joke does not hide them.
+fn ends_at_giver(w: &World, o: &Offer, id: QuestId, a: &Attempt) -> bool {
+    use QuestId::*;
+    match id {
+        Letters | TuberEats | EvenSkeletonsGetCold | TheBargain => false,
+        TwoBanners => a.branch != Some(0),
+        TradeUp => a
+            .progress
+            .checked_sub(1)
+            .and_then(|stage| interactions::trader_at(w, o, stage))
+            .is_none(),
+        _ => true,
+    }
+}
+
 pub(crate) fn public_markers(
     w: &World,
     offer_id: u32,
@@ -477,6 +493,22 @@ pub(crate) fn system(cx: &mut Cx) {
     }
 }
 
+/// A player leaves the match (`lifecycle::remove` or `abandon`): their open and pending attempts end, a carried crown
+/// falls where they stood, and a bounty mark on them clears. Completed records stay, named through the roster.
+pub(crate) fn departed(w: &mut World, id: PlayerId) {
+    let at = w.player(id).map(|p| p.pos());
+    let Some(state) = board_mut(w) else { return };
+    if state.crown.carrier == Some(id) {
+        state.crown.carrier = None;
+        state.crown.ground = at;
+    }
+    if state.bounty == Some(id) {
+        state.bounty = None;
+    }
+    state.attempts.retain(|a| a.owner != id || a.completed);
+    state.fled_givers.retain(|g| g.owner != id);
+}
+
 fn valid_reward_payload(id: QuestId, a: &Attempt) -> bool {
     if a.pending.is_some_and(|pending| pending != a.reward) {
         return false;
@@ -532,7 +564,9 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
         let Some(id) = offer(w, a.offer).and_then(kind) else {
             return Err("quest attempt names an unknown board offer".into());
         };
-        if w.player(a.owner).is_none_or(|p| p.seat.bot)
+        // A leaver keeps their completed record (the roster keeps their name); only a live seat can be a bot.
+        if w.roster.name(a.owner).is_none()
+            || w.player(a.owner).is_some_and(|p| p.seat.bot)
             || state.attempts[..i]
                 .iter()
                 .any(|prev| prev.owner == a.owner && prev.offer == a.offer)
@@ -551,7 +585,7 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
                 id != QuestId::StayAWhile || !at.x.is_finite() || !at.y.is_finite()
             })
             || a.damaged.iter().flatten().any(|&target| {
-                id != QuestId::Gatecrasher || target == a.owner || w.player(target).is_none()
+                id != QuestId::Gatecrasher || target == a.owner || w.roster.name(target).is_none()
             })
             || (a.damaged[0] == a.damaged[1] && a.damaged[0].is_some())
             || !valid_reward_payload(id, a)

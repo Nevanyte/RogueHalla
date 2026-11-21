@@ -58,6 +58,7 @@ pub(crate) fn remove(cx: &mut Cx, id: PlayerId) {
     }
     removed_hook(cx, id);
     crate::quests::board::rewards::effects::departed(cx.w, id);
+    crate::quests::board::attempts::departed(cx.w, id);
     cx.w.players.remove(id);
     systems::planning::leave(cx.w, cx.ev, id);
     let standing = cx.w.players.iter().filter(|p| p.standing()).count();
@@ -89,6 +90,7 @@ pub(crate) fn abandon(cx: &mut Cx, id: PlayerId) -> u32 {
     cx.w.rebirth_eggs.clear();
     removed_hook(cx, id);
     crate::quests::board::rewards::effects::departed(cx.w, id);
+    crate::quests::board::attempts::departed(cx.w, id);
     cx.w.players.remove(id);
     systems::planning::leave(cx.w, cx.ev, id);
     gv
