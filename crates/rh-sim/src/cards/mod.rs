@@ -418,10 +418,7 @@ impl Build {
     }
     /// The held cards: the 80 catalog cards in catalog order, then the held native cards in native order.
     pub fn cards(&self) -> impl Iterator<Item = CardId> + '_ {
-        HeldCards {
-            build: self,
-            at: 0,
-        }
+        HeldCards { build: self, at: 0 }
     }
     /// Build a count map from (card, count) pairs (tests and trusted producers).
     pub fn from_counts(pairs: impl IntoIterator<Item = (CardId, u8)>) -> Self {
