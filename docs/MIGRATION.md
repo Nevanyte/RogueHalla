@@ -23,6 +23,33 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
 - **Docker:** Desktop's backend is still hung (no engine VM; `docker version` never answers). The coordinator's restart
   was refused by the permission check; the owner restarts it.
 
+- **Integration 76, the second origin sync** (fast-forward to `1180da226`): P-SYNC-ORIGIN-2.
+  - **What it joins:** origin @ `1dd79a938` (PRs 75 to 78). Merge commit `fce203e07`, 42 conflicts, every one kept
+    both sides; no behaviour conflict.
+  - **Identities:** protocol 22, observation 35, policy contract 31, `rh-checkpoint/37`, replay 25, content
+    `d43155e2ed7d1c68` (unchanged). `v20.json` and `v21.json` are origin's; `v22.json` is generated. The server refuses
+    17 to 21.
+  - **Checkpoint 37:** origin added no serialized field, so 36 could have stood. 37 is the brief's default, because
+    P-TICK-1b changed what a 25 ms world stores in those fields.
+  - **Step conversions:** the Wish restore lattice and every other local `TICK_MS` read in `abilities/checkpoint.rs`,
+    Overflow decay (`systems/buffs.rs`), Glacier's chill (`cards/native/hooks.rs`, `systems/frost.rs`), and
+    `start_attack` (`tick_ms` beside `range_mult`).
+  - **New test:** `crates/rh-headless/tests/rework_at_25ms.rs`.
+    - Setup: a Rework world at 25 ms, 8 bots, 8 seeds, 23 natives granted per seed.
+    - It restores every 200 steps and on every Wish step.
+    - Result: 13 Wishes landed, all off the 50 ms grid; no `invalid mob rewind` on these seeds.
+    - It is release-only.
+  - **Full gate:** the implementer's run on `1180da226`, the same commit the integration branch now points at. It is
+    green except the waived `check-vectors.mjs` pin, with pgtest; EditMode 1582/1582, C# 2313/2313. Log
+    `.agent-runs/gate/20261120T205710-agent-opus-P-SYNC-ORIGIN-2-full.log`.
+  - **Review:** reviewer-opus LAND WITH NOTES. Its one note: `rework_at_25ms` is not in `scripts/gate.sh`'s release-only
+    list (line 162), so nothing automated runs it. That file is owner-approved; the coordinator asked for the one-line
+    edit.
+  - **Minor, not notes:**
+    - `elite_bench.rs` `MINUTE5_TICK = 6000` counts steps as time, which matters if P-TICK-6 moves `live_content`'s step.
+    - Three stale test names.
+    - The checkpoint comment overstates the reason for 37.
+
 ## Resumed (2026-11-20): the elite and augment rework, integration 65
 
 **Owner direction 2026-11-19:** "resume" (after the evening pause). Owner OK the same day for the side session's Frost
