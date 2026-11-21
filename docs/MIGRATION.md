@@ -8,7 +8,7 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 
 [P-QUEST25-INTEGRATE](backlog/packets/P-QUEST25-INTEGRATE.md) combines the November 19 quest branch with the target through `5567458fb`. Each normal raid draws two of the five eligible quests in each zone. Each player can finish each offer once per match. Completing it retires that player's row and preserves the offer for other players.
 
-The combined wire version is 23. Heal pickups use prop kind 8, Rebirth Eggs use kind 9, and destroyed terrain uses State key 14. The quest data uses observation 36, policy 32, checkpoint 38 and replay 27. The 40 Hz live default and 20 Hz compatibility both apply. See the [integration checks](evidence/quest25-integration-2026-11-21/README.md) and [PR #81](https://github.com/Nevanyte/RogueHalla/pull/81).
+The combined wire version is 23 and the content hash is `7639672bbb0933c9`. Heal pickups use prop kind 8, Rebirth Eggs use kind 9, and destroyed terrain uses State key 14. The quest data uses observation 36, policy 32, checkpoint 38 and replay 27. The 40 Hz live default and 20 Hz compatibility both apply. See the [integration checks](evidence/quest25-integration-2026-11-21/README.md) and [PR #81](https://github.com/Nevanyte/RogueHalla/pull/81).
 
 ## 40 Hz tick, P-TICK-1a to 6 (2026-11-20, branch `claude/project-thread-baoxuk`)
 

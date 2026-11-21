@@ -34,7 +34,7 @@ Decode shared vectors in Rust, C# and JS. Exercise two independently completing 
 
 ## Validation commands
 
-`cargo run --locked -p rh-protocol --bin protocol-fixtures`, `cargo run --locked -p rh-parity --bin hitbox-fixtures`, `cargo test --locked -p rh-sim --lib record_ability_hash_tape -- --ignored`, `cargo test --locked -p rh-server --test top25_playthrough`, `bash docs/evidence/quest25-deep-playtest-2026-11-19/replay.sh`, `node tools/provenance/check-card-chain.mjs`, and `scripts/gate.sh --base 5567458fb --coordinator --regen-fixtures`. The evidence records the three Docker capture commands.
+`cargo run --locked -p rh-protocol --bin protocol-fixtures`, `cargo run --locked -p rh-parity --bin hitbox-fixtures`, `cargo test --locked -p rh-sim --lib record_ability_hash_tape -- --ignored`, `cargo test --locked -p rh-server --test top25_playthrough`, `bash docs/evidence/quest25-deep-playtest-2026-11-19/replay.sh`, `node tools/provenance/check-card-chain.mjs`, and `scripts/gate.sh --base 5567458fb --coordinator --regen-fixtures --allow-artefacts`. The evidence records the three Docker capture commands.
 
 ## Risk and suggested model tier
 

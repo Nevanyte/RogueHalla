@@ -17,13 +17,15 @@ namespace Roguehalla.Net.Tests
             Assert.IsTrue(File.Exists(path), "protocol/fixtures/v18.json is missing (cargo run -p rh-protocol --bin protocol-fixtures)");
             var root = JsonDocument.Parse(File.ReadAllText(path)).RootElement;
             Assert.AreEqual(18, root.GetProperty("protocol").GetInt32());
-            ClientMsg.Hello hello = null; ServerMsg.Welcome welcome = null;
+            string helloHex = null, welcomeHex = null;
             foreach (var v in root.GetProperty("client").EnumerateArray())
-                if (v.GetProperty("name").GetString() == "hello") hello = (ClientMsg.Hello)ClientMsg.Decode(Util.FromHex(v.GetProperty("hex").GetString()));
+                if (v.GetProperty("name").GetString() == "hello") helloHex = v.GetProperty("hex").GetString();
             foreach (var v in root.GetProperty("server").EnumerateArray())
-                if (v.GetProperty("name").GetString() == "welcome") welcome = (ServerMsg.Welcome)ServerMsg.Decode(Util.FromHex(v.GetProperty("hex").GetString()));
-            Assert.IsNotNull(hello, "v18.json has a hello vector"); Assert.IsNotNull(welcome, "v18.json has a welcome vector");
-            Assert.AreEqual(18, hello.Protocol); Assert.AreEqual(18, welcome.Protocol);
+                if (v.GetProperty("name").GetString() == "welcome") welcomeHex = v.GetProperty("hex").GetString();
+            Assert.IsNotNull(helloHex, "v18.json has a hello vector"); Assert.IsNotNull(welcomeHex, "v18.json has a welcome vector");
+            // These are preserved as historical bytes. The active decoder correctly refuses obsolete versions.
+            Assert.AreEqual(18, (ushort)(Util.FromHex(helloHex)[1] | Util.FromHex(helloHex)[2] << 8));
+            Assert.AreEqual(18, (ushort)(Util.FromHex(welcomeHex)[1] | Util.FromHex(welcomeHex)[2] << 8));
         }
 
         static Session NewSession(FakeTransport t)

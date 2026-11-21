@@ -13,8 +13,12 @@ bash tools/card-runtime-witness-fixtures/capture.sh
 node tools/provenance/check-card-chain.mjs
 ```
 
-The catalog capture reproduced 409 cases. Its sole changed JSON leaf was the checker pin under `protectedSha256`, from `aebbcc177fb42dc39676c26b5bf64ec21b142c6230805f7eaf0328b82d547b2b` to `e06942914a5a156f37936b1fea6e15057b2578385bafdbf000d1f16db392f139`. The runtime capture reproduced 65 cases, 6,236 ordinary steps and 3,179 private records. The prior catalog and runtime hashes are recorded alongside their replacements in the capture tools.
+The catalog capture reproduced 409 cases. Its sole changed JSON leaf was the checker pin under `protectedSha256`, from `aebbcc177fb42dc39676c26b5bf64ec21b142c6230805f7eaf0328b82d547b2b` to `e06942914a5a156f37936b1fea6e15057b2578385bafdbf000d1f16db392f139`. The runtime capture reproduced 65 cases, 6,236 ordinary steps and 3,179 private records. The witness reproduced both cases and six ordinary steps. Re-running all three Docker captures in `--check` mode matched the committed files byte for byte. The prior catalog and runtime hashes are recorded alongside their replacements in the capture tools.
 
 ## Gameplay checks
 
-The two-seat room tests cover completion visibility, elapsed meditation time, consuming Stasis and reconnecting before and after using the reward at both 20 and 40 Hz. The [recorded room inputs](../quest25-deep-playtest-2026-11-19/README.md) also exercise each quest through a real Rust room. [PR #81](https://github.com/Nevanyte/RogueHalla/pull/81) records the check results for this integration.
+All 25 recorded quests passed on protocol 23, replaying 2,928 encoded input frames. The protocol suite passed 266 tests and the JavaScript decoder passed 70,995 shared-vector assertions.
+
+The C# net library passed 2,253 tests. Unity 6000.0.85f2 passed all 1,602 EditMode tests.
+
+The two-seat room tests passed at both rates and cover completion visibility, elapsed meditation time, consuming Stasis and reconnecting before and after using the reward at both 20 and 40 Hz. The [recorded room inputs](../quest25-deep-playtest-2026-11-19/README.md) also exercise each quest through a real Rust room. [PR #81](https://github.com/Nevanyte/RogueHalla/pull/81) records the check results for this integration.

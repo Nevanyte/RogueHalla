@@ -1,11 +1,9 @@
-// P-PROTOCOL-18-STAMP-1 oracle (JS): the browser probe's decoder (crates/rh-server/web/probe.html, held to the vectors by
-// tools/protocol-js/check-*.mjs) and the reload proof's metadata parser speak protocol 18, and both read the generated
-// protocol/fixtures/v18.json Hello and Welcome as protocol 18. Run by the gate's reload-proof step whenever
-// crates/rh-protocol/ or protocol/fixtures/ changes. P-NET-DRAWAHEAD-1a moved every pin to protocol 19 (v19.json);
-// P-COLISEUM-HEALS-2 to protocol 20 (v20.json); P-TICK-3 to protocol 21; merged active protocol 23 adds quests (v23.json).
+// Active merged wire oracle (JS): protocol 23 combines the 40 Hz snapshot clock, Coliseum heal prop and quest payloads.
+// Older v18-v22 fixtures remain covered by their historical fixture checks.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { companionContentHash } from './normal-companion.mjs';
 import { parseWireMetadata } from './wire-metadata.js';
 
 const html = readFileSync(new URL('../../crates/rh-server/web/probe.html', import.meta.url), 'utf8');
@@ -41,4 +39,9 @@ test('the reload proof reads the v23 Hello and Welcome metadata as protocol 23',
   const welcome = parseWireMetadata('server', fromHex(v.server.find(r => r.name === 'welcome').hex));
   assert.equal(welcome.status, 'public-prefix', JSON.stringify(welcome));
   assert.equal(welcome.protocol, 23);
+});
+
+test('the browser companion uses the generated game content identity', () => {
+  const archetypes = new URL('../../protocol/fixtures/archetypes_v1.json', import.meta.url);
+  assert.equal(companionContentHash, JSON.parse(readFileSync(archetypes, 'utf8')).contentHash);
 });

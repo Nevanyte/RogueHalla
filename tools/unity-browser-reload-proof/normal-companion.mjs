@@ -2,9 +2,9 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { CONTENT as EXPECTED_CONTENT_HASH } from './check.mjs';
 
 const EXPECTED_PROTOCOL = 23;
-const EXPECTED_CONTENT_HASH = '7a542a13187f034c';
 const MAX_COMMANDS = 16;
 const MAX_EVENT_ROWS = 512;
 const PROFILE_RE = /^[A-Za-z0-9_-]{2,16}$/;
