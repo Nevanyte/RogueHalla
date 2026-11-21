@@ -48,9 +48,9 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
-        public void Key14IsTheNewestStateKeyInsideProtocol20()
+        public void Key14IsTheNewestStateKeyInsideProtocol22()
         {
-            Assert.AreEqual(20, Wire.ProtocolVersion); // P-SYNC-ORIGIN-1
+            Assert.AreEqual(22, Wire.ProtocolVersion); // P-SYNC-ORIGIN-1 (20); P-SYNC-ORIGIN-2 (22)
             Assert.AreEqual(14, (int)StateKey.Readouts);
             Assert.AreEqual(14u, new ReadoutsState().Key);
             Assert.AreEqual(28, ReadoutsState.MaxCount);

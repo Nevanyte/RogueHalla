@@ -22,10 +22,9 @@ use std::fmt;
 /// The tag every checkpoint carries. Bump it when the layout of `statics` or `world` changes incompatibly.
 /// 36 (P-SYNC-ORIGIN-1): the local 35 plus origin's `statics.config.tick_ms` (P-TICK-1a) and `ContainerKind::Heal`
 /// (P-COLISEUM-HEALS-1), which origin added under its own `rh-checkpoint/32`; every earlier tag of either line is refused.
-/// 37 (P-SYNC-ORIGIN-2): the same fields as 36, but origin's P-TICK-1b changed what a 25 ms world holds in them (walk
-/// hints of up to 150 ms in steps, rewind history trimmed at the match's step, vision counted in the match's steps,
-/// Wish clocks on the match's lattice); a local 36 written at 25 ms by systems that still stepped 50 ms is not a state
-/// this sim produces, so 36 is refused with every earlier tag.
+/// 37 (P-SYNC-ORIGIN-2): 36's fields, but origin's P-TICK-1b changed what a 25 ms world holds in them (walk hints,
+/// rewind history, vision steps, Wish clocks on the match's step); a local 36 written at 25 ms by systems that still
+/// stepped 50 ms is not a state this sim produces, so 36 is refused with every earlier tag.
 pub const CHECKPOINT_FORMAT: &str = "rh-checkpoint/37";
 
 /// How far past the map edge a fighter, waypoint or spawn may be and still restore (real states stay inside the map).
