@@ -3,7 +3,7 @@
 //!   cargo run --release -p rh-server -- --bind 127.0.0.1:7777 [--self-signed | --tls-cert cert.pem --tls-key key.pem]
 //!       [--runtime core|source-arena|training] (one configured profile per endpoint; source-arena requires --map)
 //!       [--hitboxes legacy|archetypes] (ADR0024; default legacy on every path; archetypes opts in to the measured boxes)
-//!       [--tick-ms 50|25] (ADR 0029; else RH_TICK_MS, else 50: every room's step, its Welcome rate and its pacer)
+//!       [--tick-ms 50|25] (ADR 0029; else RH_TICK_MS, else 25 since P-TICK-6: every room's step, its Welcome rate and its pacer)
 //!       [--first-playable] (embedded small PvE/loot map; drain at4h, forced process stop by4h+180s)
 //!       [--control 127.0.0.1:7778] [--map parity/maps/seed1.map.json] [--max-rooms 16] [--fill-bots 8]
 //!       [--min-players 1] [--lobby-seconds 10] [--fill-seconds 3] [--lobby-timing legacy|matchmaking] [--auth dev|static:<file>]
@@ -151,7 +151,7 @@ async fn main() {
         eprintln!("[server] invalid hitbox settings: {e}");
         std::process::exit(2);
     });
-    // P-TICK-5: the room step (`--tick-ms 50|25`, else `RH_TICK_MS`, else 50) for every profile this process hosts.
+    // P-TICK-5: the room step (`--tick-ms 50|25`, else `RH_TICK_MS`, else 25 since P-TICK-6) for every profile this process hosts.
     let tick_ms = rh_server::runtime::tick_ms_setting(&args, |key| std::env::var(key).ok())
         .unwrap_or_else(|e| {
             eprintln!("[server] invalid tick settings: {e}");
