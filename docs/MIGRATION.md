@@ -87,6 +87,12 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
 - **Perf declaration:** PR 80's description carries `Perf-Allow-Fingerprint: verify_replay.contentHash`, the
   CONTRIBUTING.md route for an intentional change. It waives that one key only: `verified`, `steps` and `finalHash` are
   still compared.
+- **CI on `fa064ce24`** (run 44939899271): perfproof, provenance, rust, simulation, csharp and both cross-architecture
+  replay checks passed. "Compare native CI artifacts" failed: `tools/determinism/compare.py` did not list the replay
+  config leaves `augments` and `elites`. P-CI-GREEN-9 (coordinator) adds them; on that run's two artifacts the comparator
+  now prints `ok: ci 6 scenarios match; replay bytes are identical`.
+- **Merge route:** the owner said yes to auto-merge and Auto-fix (2026-11-21). Auto-fix is on. GitHub refused auto-merge,
+  because the repository does not allow it, so the coordinator merges PR 80 by hand once CI is green.
 
 ## Resumed (2026-11-20): the elite and augment rework, integration 65
 
