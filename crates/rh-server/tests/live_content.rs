@@ -87,6 +87,7 @@ fn expected_source(
         // P-FROST-WALL-3: the live profiles play Frost Wall (owner decision 2, 2026-11-10).
         top25_quests: true,
         frost_wish: FrostWish::Wall,
+        tick_ms: 50,
     }
 }
 
@@ -118,6 +119,7 @@ fn expected_training(hitboxes: HitboxMode) -> SimConfig {
         // P-FROST-WALL-3: the live profiles play Frost Wall (owner decision 2, 2026-11-10).
         top25_quests: true,
         frost_wish: FrostWish::Wall,
+        tick_ms: 50,
     }
 }
 

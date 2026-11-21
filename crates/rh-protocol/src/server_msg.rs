@@ -166,10 +166,12 @@ pub enum ServerMsg {
         reason: String,
     },
     /// The receiving player's own interest-managed view (only what it can see), once per tick.
-    /// Its source clock is absolute; the wire omits it only when it equals [`snapshot_server_ms`]`(tick)`.
+    /// Its source clock is absolute; the wire omits it only when it equals [`snapshot_server_ms_at`]`(tick, tick_ms)` at the
+    /// connection's rate (`tick_ms` from its Welcome, [`tick_ms_for_rate`]).
     Snapshot {
         tick: u32,
-        /// Logical source clock in milliseconds; absent wire overrides decode to `snapshot_server_ms(tick)`.
+        /// Logical source clock in milliseconds; an absent wire override decodes to `tick * tick_ms` at the connection's rate
+        /// ([`ServerMsg::decode_at`]).
         server_time: f64,
         phase: u8,
         ack_input: u32,
@@ -262,7 +264,23 @@ impl WireFx {
 }
 
 impl ServerMsg {
+    /// P-TICK-3: decodes `frame` on a connection whose Welcome said `tick_rate`: a Snapshot or SnapshotDelta without a
+    /// source-time override stands for `tick * (1000 / tick_rate)` ms, an override equal to that is refused (the encoder
+    /// omits it), and a delta's base age is bounded by [`delta::max_delta_age`] at that rate. A rate other than 20 or 40 is
+    /// refused (`BadField("tick rate")`), whatever the frame.
+    pub fn decode_at(frame: &[u8], tick_rate: u8) -> Result<Self, DecodeError> {
+        let tick_ms = tick_ms_for_rate(tick_rate).ok_or(DecodeError::BadField("tick rate"))?;
+        Self::decode_with_tick_ms(frame, tick_ms)
+    }
+
+    /// Decodes `frame` at 20 Hz ([`ServerMsg::decode_at`] with rate 20): a Welcome carries its own rate, which is checked
+    /// here (20 or 40, else `BadField("tick rate")`); a snapshot without its Welcome's rate is read at [`TICK_MS`].
     pub fn decode(frame: &[u8]) -> Result<Self, DecodeError> {
+        Self::decode_with_tick_ms(frame, TICK_MS)
+    }
+
+    /// The decoder, with snapshot times at `tick_ms` per tick (one of [`tick_ms_for_rate`]'s values).
+    pub(crate) fn decode_with_tick_ms(frame: &[u8], tick_ms: u32) -> Result<Self, DecodeError> {
         if frame.len() > MAX_SERVER_FRAME {
             return Err(DecodeError::TooLarge(frame.len()));
         }
@@ -275,6 +293,9 @@ impl ServerMsg {
                 let player_id = r.u32()?;
                 let session = r.array16()?;
                 let tick_rate = r.u8()?;
+                if tick_ms_for_rate(tick_rate).is_none() {
+                    return Err(DecodeError::BadField("tick rate"));
+                }
                 let tick = r.u32()?;
                 let server_ms = r.f64()?;
                 let archetypes = archetype::read_table(&mut r)?;
@@ -333,13 +354,13 @@ impl ServerMsg {
                     let time = r.f64()?;
                     if !time.is_finite()
                         || time < 0.0
-                        || time.to_bits() == snapshot_server_ms(tick).to_bits()
+                        || time.to_bits() == snapshot_server_ms_at(tick, tick_ms).to_bits()
                     {
                         return Err(DecodeError::BadField("server time"));
                     }
                     time
                 } else {
-                    snapshot_server_ms(tick)
+                    snapshot_server_ms_at(tick, tick_ms)
                 };
                 let training = head & HM_TRAINING != 0;
                 let n = r.varint()? as usize;
@@ -383,7 +404,9 @@ impl ServerMsg {
                     owner_combat,
                 }
             }
-            T_SNAPSHOT_DELTA => ServerMsg::SnapshotDelta(delta::read_snapshot_delta(&mut r)?),
+            T_SNAPSHOT_DELTA => {
+                ServerMsg::SnapshotDelta(delta::read_snapshot_delta(&mut r, tick_ms)?)
+            }
             T_STATE => {
                 let tick = r.varint()?;
                 ServerMsg::State {

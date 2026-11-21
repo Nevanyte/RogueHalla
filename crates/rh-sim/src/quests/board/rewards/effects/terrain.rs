@@ -305,7 +305,7 @@ pub(crate) fn damage_deployment(w: &mut World, i: usize, amount: f64) {
     }
 }
 
-pub(crate) fn reveals(w: &World, map: &TileMap, viewer: PlayerId, at: Vec2) -> bool {
+pub(crate) fn reveals(w: &World, map: &TileMap, viewer: PlayerId, at: Vec2, tick_ms: f64) -> bool {
     deployments(w).iter().any(|d| {
         if d.owner != viewer || d.until <= w.server_time {
             return false;
@@ -314,7 +314,7 @@ pub(crate) fn reveals(w: &World, map: &TileMap, viewer: PlayerId, at: Vec2) -> b
             DeploymentKind::Turret => (d.at, 220.),
             DeploymentKind::LanternWard => (d.at, 365.),
             DeploymentKind::ScoutFalcon => {
-                let reached = falcon_head(*d, w.server_time);
+                let reached = falcon_head(*d, w.server_time, tick_ms);
                 (nearest(d.at, reached, at), 165.)
             }
         };
@@ -323,8 +323,8 @@ pub(crate) fn reveals(w: &World, map: &TileMap, viewer: PlayerId, at: Vec2) -> b
     })
 }
 
-fn falcon_head(d: Deployment, now: f64) -> Vec2 {
-    let elapsed = (FALCON_MS + now - d.until).max(0.) + crate::constants::TICK_MS;
+fn falcon_head(d: Deployment, now: f64, tick_ms: f64) -> Vec2 {
+    let elapsed = (FALCON_MS + now - d.until).max(0.) + tick_ms;
     towards(
         d.at,
         d.end.expect("falcon has a flight segment"),
@@ -357,7 +357,9 @@ pub(crate) fn visible_deployments(
                 owner: owner.then_some(d.owner),
                 kind: d.kind,
                 at: d.at,
-                end: d.end.map(|_| falcon_head(*d, sim.w.server_time)),
+                end: d
+                    .end
+                    .map(|_| falcon_head(*d, sim.w.server_time, sim.k.tick_ms())),
                 hp: d.hp,
                 until: d.until,
             });

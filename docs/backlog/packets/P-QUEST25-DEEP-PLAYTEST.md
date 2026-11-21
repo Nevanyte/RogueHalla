@@ -10,7 +10,7 @@ P-QUEST25-ATTEMPTS, P-QUEST25-JOURNAL and P-QUEST25-PLAYTHROUGH.
 
 ## Relevant legacy paths
 
-`packages/server/src/sim/quests.ts` handles the original giver and turn-in loop. `packages/client/src/ui/questMap.ts` presents the legacy map. DEV-039 documents the owner-approved Top 25 design. Two Banners uses the two opposing deliveries specified in that design.
+`packages/server/src/sim/quests.ts` handles the original giver and turn-in loop. `packages/client/src/ui/questMap.ts` presents the legacy map. DEV-040 documents the owner-approved Top 25 design. Two Banners uses the two opposing deliveries specified in that design.
 
 ## New paths and exclusive write scope
 

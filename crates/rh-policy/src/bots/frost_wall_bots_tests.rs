@@ -680,6 +680,7 @@ fn staged(now: f64, hp: f64, enemy: (f64, f64), hit: bool) -> Observation {
         weapon: Some(WeaponId::Sword),
         bounty: 0,
         facts: Default::default(),
+        walk: Default::default(),
     });
     if hit {
         o.events.push(SeenEvent::Hit {
@@ -803,7 +804,7 @@ fn guard_frost_wall_a_humanbot_in_a_freeze_room_casts_freeze_as_today() {
 fn guard_frost_wall_match_start_carries_the_rooms_frost_wish() {
     assert_eq!(
         crate::POLICY_CONTRACT_VERSION,
-        26,
+        32,
         "MatchStart carries the room's Frost Wish (P-FROST-WALL-BOTS-1)"
     );
     let arena = staged_arena();

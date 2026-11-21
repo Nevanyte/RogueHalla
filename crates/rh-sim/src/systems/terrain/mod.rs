@@ -68,7 +68,8 @@ pub(crate) fn bog_value(
     bog_read(k, w, ix, stats).0
 }
 pub(crate) fn burn(cx: &mut Cx) {
-    burn_dt(cx, TICK_MS);
+    let tick_ms = cx.k.tick_ms();
+    burn_dt(cx, tick_ms);
 }
 fn burn_dt(cx: &mut Cx, dt_ms: f64) {
     let Cx { k, w, s, .. } = cx;
@@ -122,7 +123,8 @@ fn burn_dt(cx: &mut Cx, dt_ms: f64) {
     }
 }
 pub(crate) fn light(cx: &mut Cx) {
-    light_dt(cx, TICK_MS);
+    let tick_ms = cx.k.tick_ms();
+    light_dt(cx, tick_ms);
 }
 fn light_dt(cx: &mut Cx, dt_ms: f64) {
     let Cx {

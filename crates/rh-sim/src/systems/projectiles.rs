@@ -620,9 +620,10 @@ pub(crate) fn sweep(cx: &mut Cx) {
     if cx.w.projectiles.is_empty() {
         return;
     }
-    let steps = (TICK_MS / PROJECTILE_SUBSTEP_MS).round().max(1.) as u32;
+    let tick_ms = cx.k.tick_ms();
+    let steps = (tick_ms / PROJECTILE_SUBSTEP_MS).round().max(1.) as u32;
     for k in 1..=steps {
-        let t = cx.w.server_time - TICK_MS + TICK_MS * f64::from(k) / f64::from(steps);
+        let t = cx.w.server_time - tick_ms + tick_ms * f64::from(k) / f64::from(steps);
         cx.s.flight.stretches.clear();
         for i in 0..cx.w.projectiles.len() {
             if cx.s.flight.swept[i].ended || cx.w.projectiles[i].time >= t {

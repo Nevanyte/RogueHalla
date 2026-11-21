@@ -542,10 +542,10 @@ fn a_map_without_dressing_keeps_today_s_bytes() {
     for (name, len, want) in pinned {
         let line = entry(&f, name).unwrap_or_else(|| panic!("{name} is still a vector"));
         let hex = field(line, "hex").unwrap();
-        // These are v18 byte pins. Only normalize the protocol stamp; the entire map
+        // These are v21 byte pins. Only normalize the protocol stamp; the entire map
         // and the rest of each Welcome must still match the original digest.
         assert!(hex.starts_with(&format!("81{PROTOCOL_VERSION:02x}00")));
-        let baseline = format!("811200{}", &hex[6..]);
+        let baseline = format!("811500{}", &hex[6..]);
         assert_eq!(
             (hex.len(), digest(&baseline)),
             (len, want),
@@ -554,12 +554,14 @@ fn a_map_without_dressing_keeps_today_s_bytes() {
     }
 }
 
-// Moved with the version field at protocol 18: v17/v18 Welcomes differ only in 811100 -> 811200 (protocol_18_stamp.rs).
+// Moved with the version field at protocol 18: v17/v18 Welcomes differ only in 811100 -> 811200 (protocol_18_stamp.rs);
+// again at protocol 19 (P-NET-DRAWAHEAD-1a): 811200 -> 811300; at protocol 20 (P-COLISEUM-HEALS-2): 811300 -> 811400;
+// and at protocol 21 (P-TICK-3): 811400 -> 811500.
 const WELCOME_LEN: usize = 1832;
-const WELCOME_DIGEST: u64 = 0x8e41_80ea_69be_ae1e;
+const WELCOME_DIGEST: u64 = 0x5a5b_0e96_9a7e_e9cf;
 const SHIPPED_LEN: usize = 2324;
-const SHIPPED_DIGEST: u64 = 0xf246_bf47_6f05_5b28;
+const SHIPPED_DIGEST: u64 = 0xaa87_04ae_2a1f_5c39;
 const ALL_LEN: usize = 2424;
-const ALL_DIGEST: u64 = 0x6e5e_fdb3_841e_7401;
+const ALL_DIGEST: u64 = 0x4a66_9ae1_19cd_f054;
 const GROUND_BOTH_LEN: usize = 1868;
-const GROUND_BOTH_DIGEST: u64 = 0xce78_20ad_a094_81cd;
+const GROUND_BOTH_DIGEST: u64 = 0x3698_29fa_b938_d094;

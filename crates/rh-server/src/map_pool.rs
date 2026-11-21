@@ -50,8 +50,8 @@ pub trait MapMaker: Send + Sync + 'static {
     /// itself failed (a bug, not a refused attempt).
     fn make(&self, seed: u32) -> Result<Option<Arena>, String>;
 
-    fn prefers_signature(&self) -> bool {
-        false
+    fn quest_map_style(&self) -> StyledMaker {
+        StyledMaker::default()
     }
 
     /// [`Self::make`] with the map's decoration (P-DRESS-BAKE-1), computed where the map is made (the worker thread, or
@@ -80,10 +80,14 @@ pub struct MadeMap {
 /// The generator as the server runs it: legacy `certifiedMap(seed, { decor: false })`, the complete styled pipeline. The
 /// generator builds no decor; the server dresses the finished map with `rh_mapdress` (P-DRESS-BAKE-1,
 /// [`MapMaker::make_dressed`]) before it becomes an arena, since the arena drops the landmark anchors the dressing reads.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct StyledMaker {
     /// Generate every map with the signature landmarks (owner decision 6): the generator's `Options::signature`.
     pub signature: bool,
+    /// Generate around the grand coliseum (`rh_sim::mapgen::coliseum::grand_layout`, P-COLISEUM-GRAND-1) instead of the
+    /// legacy one (`fixed_layout`). Off in `Default` (existing tests and tools keep their maps); the server's pool sets
+    /// it unless `--legacy-coliseum` (`crate::runtime::Settings::styled_maker`).
+    pub grand_coliseum: bool,
 }
 
 impl StyledMaker {
@@ -98,10 +102,19 @@ impl StyledMaker {
         }
     }
 
+    fn layout(&self) -> rh_sim::mapgen::coliseum::FixedLayout {
+        use rh_sim::mapgen::coliseum;
+        if self.grand_coliseum {
+            coliseum::grand_layout()
+        } else {
+            coliseum::fixed_layout()
+        }
+    }
+
     /// The certified generator map for `seed` (anchors still on it) and its export hash, `map_hash::map_hash`.
     fn generate(&self, seed: u32) -> Result<Option<rh_sim::mapdata::MapExport>, String> {
-        use rh_sim::mapgen::{coliseum, map_hash, pipeline};
-        let fixed = coliseum::fixed_layout();
+        use rh_sim::mapgen::{map_hash, pipeline};
+        let fixed = self.layout();
         let generator = pipeline::Pipeline::new(&fixed);
         let options = self.options();
         let Some(map) = generator
@@ -133,8 +146,8 @@ impl MapMaker for StyledMaker {
         self.generate(seed)?.map(into_arena).transpose()
     }
 
-    fn prefers_signature(&self) -> bool {
-        self.signature
+    fn quest_map_style(&self) -> StyledMaker {
+        *self
     }
 
     /// Dresses the generator's map with the shipped rules and its own hash BEFORE it becomes an arena: the arena drops
@@ -163,7 +176,7 @@ fn dress_export(export: rh_sim::mapdata::MapExport) -> Result<MadeMap, String> {
 pub(crate) fn for_quest_board(
     base: MapAssets,
     secrets: rh_sim::Secrets,
-    signature_requested: bool,
+    mut style: StyledMaker,
 ) -> Result<MapAssets, String> {
     use rh_sim::mapgen::{coliseum, pipeline};
     use rh_sim::quests::board::map_admission;
@@ -176,14 +189,17 @@ pub(crate) fn for_quest_board(
         .layers()
         .ok_or("quest board requires map layers")?
         .data();
-    let signature = signature_requested
-        || data
-            .features
-            .iter()
-            .any(|f| f.kind == rh_sim::mapdata::FeatureKind::Volcano);
+    style.signature |= data
+        .features
+        .iter()
+        .any(|f| f.kind == rh_sim::mapdata::FeatureKind::Volcano);
     let seed = data.seed;
-    let options = StyledMaker { signature }.options();
-    let fixed = coliseum::fixed_layout();
+    // An explicitly configured map can provide its own grand coliseum without a pool.
+    let grand_width = (2. * coliseum::GRAND_DEFINITION.half) as u32;
+    style.grand_coliseum |=
+        data.coliseum.rect.w == grand_width && data.coliseum.rect.h == grand_width;
+    let options = style.options();
+    let fixed = style.layout();
     let generator = pipeline::Pipeline::new(&fixed);
     let export = map_admission::generate(&generator, seed, 0..24, options, secrets)?;
     admit_made(dress_export(export)?)
@@ -389,11 +405,12 @@ pub struct MapPool {
 }
 
 impl MapPool {
-    /// Starts a pool over the real generator with the legacy sizes; `signature` generates with the signature landmarks.
-    pub fn start(configured: MapAssets, signature: bool) -> Self {
+    /// Starts a pool over the real generator `maker` (the server's: [`crate::runtime::Settings::styled_maker`]) with the
+    /// legacy sizes.
+    pub fn start(configured: MapAssets, maker: StyledMaker) -> Self {
         Self::with(
             configured,
-            Arc::new(StyledMaker { signature }),
+            Arc::new(maker),
             Box::new(fresh_seed),
             MapPoolOptions::default(),
         )
@@ -436,8 +453,8 @@ impl MapPool {
         Self { shared, supervisor }
     }
 
-    pub(crate) fn prefers_signature(&self) -> bool {
-        self.shared.maker.prefers_signature()
+    pub(crate) fn quest_map_style(&self) -> StyledMaker {
+        self.shared.maker.quest_map_style()
     }
 
     /// Maps ready to serve.

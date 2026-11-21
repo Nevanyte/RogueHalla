@@ -32,7 +32,7 @@ P-QUEST25-ATTEMPTS (`attempts::pending` and exactly-once `attempts::finish`), th
 
 ## Contracts and references
 
-DEV-039, C-DET, C-INPUT, C-OBS, C-RNG and C-PARITY. The normal-raid design uses the November 18 owner-approved Top 25 plan and the workbook’s Top_25 and Spell_Reworks sheets.
+DEV-040, C-DET, C-INPUT, C-OBS, C-RNG and C-PARITY. The normal-raid design uses the November 18 owner-approved Top 25 plan and the workbook’s Top_25 and Spell_Reworks sheets.
 
 ## Behaviour to preserve
 

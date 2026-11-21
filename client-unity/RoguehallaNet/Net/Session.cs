@@ -87,6 +87,8 @@ namespace Roguehalla.Net
         readonly SelfView _me = new SelfView();
         bool _hasMe;
         bool _predictionGatesLocked;
+        // P-COLISEUM-GATES-1: the locked body map, built once per Welcome map (null until first needed).
+        MapBlob _closedGateMap, _closedGateMapOf;
         /// <summary>
         /// The local player as of the newest applied snapshot, or null before the first one and while spectating (no self). Gameplay
         /// code reads this, not <see cref="Latest"/>: it is one owned object overwritten in place per snapshot (so it makes no garbage
@@ -119,7 +121,9 @@ namespace Roguehalla.Net
         public int ResyncsSent { get; private set; }
 
         public readonly SnapshotBuffer Snapshots = new SnapshotBuffer();
-        public readonly RenderClock Clock = new RenderClock();
+        /// <summary>The render clock, with draw-ahead on (legacy's default): remote fighters are drawn at <see cref="RenderClock.DrawMs"/>,
+        /// attacks and casts are stamped with <see cref="RenderClock.RenderMs"/>.</summary>
+        public readonly RenderClock Clock = new RenderClock { DrawAhead = true };
         public readonly ClockSync Sync = new ClockSync();
         public readonly InputSender Input = new InputSender();
         public readonly CollectionsView Collections = new CollectionsView();
@@ -129,6 +133,9 @@ namespace Roguehalla.Net
         /// <summary>The roster name of actor <paramref name="id"/>, or null when unknown (not seated, or the roster has not arrived).</summary>
         public string RosterName(uint id) { return Collections.RosterName(id); }
         public LocalMotion Motion { get; private set; }
+        /// <summary>Where remote fighters are drawn (P-NET-DRAWAHEAD-1b): <c>Remote.Sample(Clock.DrawMs, list)</c> once per frame.
+        /// Walls and tick interval from the Welcome; hold windows from every fighter's fx.</summary>
+        public readonly RemoteDraw Remote;
 
         public event Action<SessionState> StateChanged;
         public event Action<ServerMsg.Snapshot> SnapshotReceived;
@@ -144,6 +151,7 @@ namespace Roguehalla.Net
         {
             _t = transport;
             _o = options;
+            Remote = new RemoteDraw(Snapshots);
             _initialResume = options.InitialResume;
             _resuming = _initialResume != null;
             _t.Opened += OnOpened;
@@ -405,7 +413,7 @@ namespace Roguehalla.Net
                 }
                 if (stale)
                 {
-                    try { ServerMsg.Decode(frame, frame.Length, spare); }
+                    try { ServerMsg.DecodeAt(frame, frame.Length, spare, _track.TickMs); }
                     catch (DecodeException e)
                     {
                         Snapshots.Recycle(spare);
@@ -469,10 +477,14 @@ namespace Roguehalla.Net
                 bool locked = Collections.Arena.HasValue && Collections.Arena.Value.GatesLocked;
                 if (Motion != null && (locked != _predictionGatesLocked || !ReferenceEquals(previousTerrain, TerrainMap)))
                 {
-                    // Welcome contains the open map, not gate geometry. A locked arena must draw authoritative self
-                    // positions until the server says it is open again; never infer a second collision model.
-                    if (locked) Motion.SuspendPrediction();
-                    else Motion.SetCollisionMap(TerrainMap);
+                    // Use the closed gate geometry when supplied by the server; otherwise suspend local prediction.
+                    if (!locked) Motion.SetCollisionMap(Map);
+                    else
+                    {
+                        MapBlob closed = ClosedGateMap();
+                        if (closed != null) Motion.SetCollisionMap(closed);
+                        else Motion.SuspendPrediction();
+                    }
                 }
                 _predictionGatesLocked = locked;
                 if (Motion != null) Motion.SetWalls(Collections.Fields); // P-FROST-WALL-PREDICT-1: walls before this tick's snapshot
@@ -508,13 +520,14 @@ namespace Roguehalla.Net
                         // A bow draw has no fx: its start and interval are in the owner block (clock shift: an epoch cut overrides the tick time).
                         if (_hasMe && snap.OwnerCombat != null)
                         {
-                            double shift = snap.ServerMs - snap.Tick * (double)Wire.TickMs;
+                            double shift = snap.ServerMs - snap.Tick * (double)snap.TickMs;
                             Motion.NoteOwnerDraw(snap.ServerMs, snap.OwnerCombat.DrawStartedAt == 0 ? 0 : snap.OwnerCombat.DrawStartedAt + shift,
                                 snap.OwnerCombat.ReadyAt + shift, snap.OwnerCombat.WindupMilli);
                         }
                     }
                     if (sourceCut)
                     {
+                        Remote.Reset();
                         Sync.Reset();
                         _lastPing = double.NegativeInfinity;
                         TimelineEpoch++;
@@ -543,6 +556,7 @@ namespace Roguehalla.Net
             var fx = msg as ServerMsg.Fx;
             if (fx != null)
             {
+                NoteRemoteFx(fx);
                 if (Motion != null) NoteOwnAttackFx(fx);
                 if (FxReceived != null) FxReceived(fx);
             }
@@ -558,13 +572,34 @@ namespace Roguehalla.Net
             if (me == 0) return;
             // The same source clock the snapshot stamps use (an epoch cut overrides the tick-derived time).
             var latest = Latest;
-            double tickMs = latest != null ? latest.ServerMs + ((double)fx.Tick - latest.Tick) * Wire.TickMs : fx.Tick * (double)Wire.TickMs;
+            double tickMs = latest != null ? latest.ServerMs + ((double)fx.Tick - latest.Tick) * _track.TickMs : fx.Tick * (double)_track.TickMs;
             for (int i = 0; i < fx.List.Count; i++)
             {
                 var f = fx.List[i];
                 if (f.Kind == FxKind.Windup && f.By == me) Motion.NoteOwnWindup(tickMs, f.Ms, f.Weapon);
                 else if (f.Kind == FxKind.Stagger && f.Id == me) Motion.NoteOwnStagger(tickMs);
                 else if (f.Kind == FxKind.Cancel && f.Id == me) Motion.NoteOwnCancel(tickMs);
+            }
+        }
+
+        /// <summary>
+        /// Every fighter's hold facts feed the draw-ahead (legacy remoteDraw.ts <c>noteFx</c>): a windup, a Wish cast and its end, a
+        /// cancel or stagger. Stun, root, casting and death need no fx here: the newest snapshot's effects and status hold them.
+        /// </summary>
+        void NoteRemoteFx(ServerMsg.Fx fx)
+        {
+            var latest = Latest;
+            double tickMs = latest != null ? latest.ServerMs + ((double)fx.Tick - latest.Tick) * _track.TickMs : fx.Tick * (double)_track.TickMs;
+            for (int i = 0; i < fx.List.Count; i++)
+            {
+                var f = fx.List[i];
+                switch (f.Kind)
+                {
+                    case FxKind.Windup: Remote.NoteWindup(f.By, tickMs, f.Ms, f.Weapon); break;
+                    case FxKind.Cancel: case FxKind.Stagger: Remote.NoteAttackEnd(f.Id); break;
+                    case FxKind.WishStarted: if (f.Caster.HasValue) Remote.NoteCast(f.Caster.Value, tickMs, f.Duration); break;
+                    case FxKind.WishEnded: if (f.Caster.HasValue) Remote.NoteCastEnd(f.Caster.Value); break;
+                }
             }
         }
 
@@ -583,6 +618,19 @@ namespace Roguehalla.Net
             _lastResyncAt = now;
             ResyncsSent++;
             Send(new ClientMsg.Resync());
+        }
+
+        /// <summary>rh-sim <c>closed_gates</c> of the current Welcome map (cached per map object), or null when it has no
+        /// gate tile.</summary>
+        MapBlob ClosedGateMap()
+        {
+            MapBlob open = Map;
+            if (!ReferenceEquals(open, _closedGateMapOf))
+            {
+                _closedGateMap = Ui.ColiseumGates.ClosedMap(open);
+                _closedGateMapOf = open;
+            }
+            return _closedGateMap;
         }
 
         void OnWelcome(ServerMsg.Welcome w)
@@ -613,9 +661,13 @@ namespace Roguehalla.Net
             _needFull = false;
             Clock.Reset();
             Sync.Reset();
-            Clock.TickMs = w.TickRate > 0 ? 1000.0 / w.TickRate : 50;
+            // Protocol 21: the decoder accepts only 20 and 40 Hz, and the tracker reads snapshots at this rate.
+            Clock.TickMs = Wire.TickMsOf(w.TickRate);
+            Remote.Reset();
+            Remote.Map = w.Map;
+            Remote.TickMs = Clock.TickMs;
             _predictionGatesLocked = false;
-            Motion = new LocalMotion(w.Map);
+            Motion = new LocalMotion(w.Map) { StepMs = Clock.TickMs };
             _lastPing = double.NegativeInfinity;
             TimelineEpoch++;
             if (TimelineReset != null) TimelineReset();

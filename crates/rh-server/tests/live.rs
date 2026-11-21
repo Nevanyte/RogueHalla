@@ -121,6 +121,7 @@ async fn start(arena: Arena, tweak: impl FnOnce(&mut DirectorConfig)) -> Server 
         pvp_rules: true,
         weapon_specials: true,
         faction_mode: rh_sim::FactionMode::Off,
+        tick_ms: 50,
     };
     let mut cfg = DirectorConfig {
         tick: TEST_TICK,

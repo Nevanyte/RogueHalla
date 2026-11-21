@@ -26,6 +26,7 @@ pub(crate) mod fire;
 pub(crate) mod fire_roam;
 pub(crate) mod frost;
 pub(crate) mod heal;
+pub(crate) mod heal_pickups;
 pub(crate) mod initial_loot;
 pub(crate) mod inputs;
 pub(crate) mod items;
@@ -117,6 +118,10 @@ mod tests;
 
 #[cfg(test)]
 mod fighter_churn_tests;
+
+/// P-TICK-1b oracle: a burn and the PvP DoT cap per second at 25 ms and 50 ms.
+#[cfg(test)]
+mod tick_rate_tests;
 
 /// P-HOLY-DEMON-BLOOD-1 oracle: the captured Holy camp-lifesteal corpus.
 #[cfg(test)]

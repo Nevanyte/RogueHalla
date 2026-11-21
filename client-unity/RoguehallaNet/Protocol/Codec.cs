@@ -3,14 +3,35 @@ using System.Text;
 
 namespace Roguehalla.Net.Protocol
 {
-    /// <summary>Wire constants of rh-protocol v20 (crates/rh-protocol/src/lib.rs).</summary>
+    /// <summary>Wire constants of rh-protocol v22 (crates/rh-protocol/src/lib.rs).</summary>
     public static class Wire
     {
-        public const ushort ProtocolVersion = 20;
-        /// <summary>Most ticks a snapshot delta's base may be behind it (a writer that skipped more sends a Full snapshot).</summary>
-        public const uint MaxDeltaAge = 64;
-        /// <summary>Milliseconds per server tick: a snapshot without a source-time override defaults to Tick * TickMs.</summary>
+        public const ushort ProtocolVersion = 23;
+        /// <summary>Milliseconds per server tick at the default 20 Hz. Protocol 21 (ADR 0029): a snapshot without a source-time
+        /// override stands for Tick * the connection's tick ms (<see cref="TickMsOf"/> of Welcome.TickRate); this is the 20 Hz
+        /// value every rate-less decode uses.</summary>
         public const int TickMs = 50;
+        /// <summary>Longest time a snapshot delta's base may be behind it (a writer that skipped more sends a Full snapshot):
+        /// <see cref="MaxDeltaAgeAt"/> ticks at the connection's rate.</summary>
+        public const uint MaxDeltaAgeMs = 3200;
+        /// <summary>Most ticks a snapshot delta's base may be behind it at 20 Hz: 64.</summary>
+        public const uint MaxDeltaAge = MaxDeltaAgeMs / (uint)TickMs;
+
+        /// <summary>The milliseconds of one tick at <paramref name="tickRate"/> (Welcome.TickRate): 20 Hz is 50, 40 Hz is 25;
+        /// every other rate is refused with a <see cref="DecodeException"/> ("tick rate").</summary>
+        public static int TickMsOf(byte tickRate)
+        {
+            if (tickRate == 20) return 50;
+            if (tickRate == 40) return 25;
+            throw new DecodeException(DecodeError.BadField, "tick rate");
+        }
+
+        /// <summary>Whether <paramref name="tickMs"/> is the tick of an accepted rate (50 or 25).</summary>
+        public static bool IsTickMs(int tickMs) { return tickMs == 50 || tickMs == 25; }
+
+        /// <summary>Most ticks a delta's base may be behind it on a connection of <paramref name="tickMs"/> per tick: 64 at 50,
+        /// 128 at 25 (the same <see cref="MaxDeltaAgeMs"/> of wall-clock time).</summary>
+        public static uint MaxDeltaAgeAt(int tickMs) { return MaxDeltaAgeMs / (uint)tickMs; }
         /// <summary>Largest faction and weapon (4 bits each in the kit byte), status and phase (2 bits each) a frame can carry.</summary>
         public const int MaxKitCode = 15, MaxStatusCode = 3, MaxPhaseCode = 3;
         /// <summary>The status and phase a clear mask bit stands for: alive, active (0 lobby, 1 alive, 2 dead, 3 mia / 0 lobby, 1 active, 2 ended).</summary>

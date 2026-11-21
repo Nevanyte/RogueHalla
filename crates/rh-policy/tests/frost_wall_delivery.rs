@@ -16,12 +16,12 @@ use rh_sim::{
 fn identities_move_for_the_wall() {
     assert_eq!(
         rh_sim::OBSERVATION_VERSION,
-        31,
+        36,
         "the observation carries standing walls with their tiles (P-FROST-WALL-2)"
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        26,
+        32,
         "the projected State key 3 carries field kind 3 and its tile list (P-FROST-WALL-2)"
     );
 }

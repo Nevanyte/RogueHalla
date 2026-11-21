@@ -6,6 +6,7 @@ mod frames;
 mod giver;
 mod profiles;
 mod snapshot;
+mod tick_rate;
 
 use super::*;
 use rh_headless::{Agent, AgentSpec, Env, EnvConfig};
@@ -94,5 +95,6 @@ fn view(id: u32) -> ActorView {
         weapon: Some(rh_sim::content::WeaponId::ALL[2]),
         bounty: 3,
         facts: Default::default(),
+        walk: Default::default(),
     }
 }

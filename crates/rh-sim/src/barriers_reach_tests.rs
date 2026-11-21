@@ -373,9 +373,10 @@ fn guard_switch_off_the_observation_is_todays() {
 }
 
 /// `hash_of(0, observe(taker))` in `guard_switch_off_the_observation_is_todays`, recorded on `85bfd025e` (a function, not a
-/// const: the content registry counts every const in `src`).
+/// const: the content registry counts every const in `src`). Moved with the observation layout at observation 31
+/// (P-NET-DRAWAHEAD-1a: the version field and each actor row's walk hint); was `0x1087_87a4_c319_b356`.
 fn observation_digest() -> u64 {
-    0x1087_87a4_c319_b356
+    0xe54a_e805_e3fe_02c8
 }
 
 // ---- 2. Plague corpse consume (legacy plagueCorpses.ts:51 F, :86 auto; both `hasLineOfSight(collisionMap, p, corpse,

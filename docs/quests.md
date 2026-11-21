@@ -14,7 +14,7 @@ The server deals ten quests during planning. Each zone contributes two randomly 
 
 Accept an offer at its starting giver. You can pursue several at once, retry a failed attempt, and complete each offer once per match. A completed offer disappears from your journal, giver interactions and map. Other players retain their own progress. The physical crown, marked smugglers and contested objectives can still draw attention on everyone’s map. Fill bots can be opponents or bounty targets. Only human players accept quests.
 
-The journal lists each quest’s objective and named reward. Permanent rewards last for the match. Cast your two equipped quest spells with **Shift** and **Q**, swap weapons with **Space**, and use your faction Wish with **R**. With both slots occupied, choose which spell to drop at turn-in, or leave the new reward on the ground. A reconnect preserves personal progress and any outstanding choice. [Design workbook](quests/FUTURE_ONLY_Quest_Design_Discussion.xlsx) · [Approved change DEV-039](DEVIATIONS.md#entries)
+The journal lists each quest’s objective and named reward. Permanent rewards last for the match. Cast your two equipped quest spells with **Shift** and **Q**, swap weapons with **Space**, and use your faction Wish with **R**. With both slots occupied, choose which spell to drop at turn-in, or leave the new reward on the ground. A reconnect preserves personal progress and any outstanding choice. [Design workbook](quests/FUTURE_ONLY_Quest_Design_Discussion.xlsx) · [Approved change DEV-040](DEVIATIONS.md#entries)
 
 ## Legacy K1 reference
 

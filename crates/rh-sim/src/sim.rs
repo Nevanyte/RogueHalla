@@ -7,7 +7,8 @@
 //! the schedule tables (`schedule.rs`, checked against the legacy record by `rh-parity/tests/schedule.rs`) and are
 //! ported in place at their legacy position, never reordered.
 //!
-//! No I/O, no wall clock, no entropy: time advances only through [`Sim::step`] by exactly [`TICK_MS`], and every secret
+//! No I/O, no wall clock, no entropy: time advances only through [`Sim::step`] by exactly the match's own step
+//! ([`SimConfig::tick_ms`], 50 or 25 ms, ADR 0029), and every secret
 //! arrives through [`Secrets`].
 
 use crate::constants::*;
@@ -140,6 +141,7 @@ impl Sim {
             s: TickScratch::default(),
             pf: Pathfinder::default(),
         };
+        crate::statics::validate_tick_ms(&sim.k.config)?;
         if sim.k.quest_deal.as_ref().is_some_and(Result::is_err) {
             return Err("map cannot host the selected quest board");
         }
@@ -249,7 +251,11 @@ impl Sim {
         for p in placements {
             sim.join(&p.profile, Some(p.faction), p.bot, cap);
         }
-        sim.step();
+        // The bootstrap lasts one legacy tick at every rate (one step at 50 ms, two at 25: ADR 0029 decision 3), so runs
+        // at both rates place their fighters at the same sim time.
+        while sim.w.server_time < crate::constants::LEGACY_TICK_MS {
+            sim.step();
+        }
         let t = sim.w.server_time;
         for (pl, spec) in sim.w.players.iter_mut().zip(placements) {
             pl.weapon.weapon0 = spec.weapon0.filter(|w| *w != crate::WeaponId::Fists);
@@ -292,6 +298,11 @@ impl Sim {
     }
     pub fn tick(&self) -> u32 {
         self.w.tick
+    }
+    /// The sim's step length in milliseconds (`SimConfig::tick_ms`, ADR 0029): 50 (legacy) or 25. Each step adds it to
+    /// [`Sim::server_time`].
+    pub fn tick_ms(&self) -> u32 {
+        self.k.config.tick_ms
     }
     pub fn server_time(&self) -> f64 {
         self.w.server_time
@@ -469,7 +480,7 @@ impl Sim {
     /// queued inputs are dropped (a press that arrived just before the socket closed must not hold the trigger for the whole
     /// grace) and the trigger is released, since the release the client sends will never arrive.
     pub fn mark_dropped(&mut self, id: PlayerId, dropped: bool) {
-        crate::lifecycle::dropped(&mut self.w, id, dropped);
+        crate::lifecycle::dropped(&mut self.w, self.k.tick_ms(), id, dropped);
     }
     /// Permanent departure, including source planning MIA.
     pub fn remove_player(&mut self, id: PlayerId) {
@@ -531,7 +542,9 @@ impl Sim {
         // left in a buffer its caller did not clear: a replay then steps exactly as the live room does.
         self.s.step_event_start = event_start;
         self.s.fx.ops.clear();
-        self.w.server_time += TICK_MS;
+        // Legacy `step(world, dtMs)`: `serverTime += dtMs; tick++` (packages/server/src/sim/step.ts:302-305), with the
+        // match's own step (ADR 0029). Both allowed steps are binary-exact, so the sum stays exactly `tick * tick_ms`.
+        self.w.server_time += self.k.tick_ms();
         // A restored checkpoint may legitimately sit one step below the maximum; the tick is the
         // simulation's one bounded counter, so a damaged or terminal state saturates instead of
         // panicking. A checkpoint at the maximum is refused by `check_world`.

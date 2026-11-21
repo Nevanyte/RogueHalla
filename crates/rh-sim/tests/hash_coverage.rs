@@ -1507,6 +1507,7 @@ const VALIDATED: &[(&str, &str)] = &[
     ("world.mob_runtime.buffs", "check_world ties the camp buff row to statics.config.camp_buffs: Legacy carries none (null), Themed one entry per camp"),
     ("world.mob_runtime.buffs.#len", "check_world ties the camp buff row to statics.config.camp_buffs: Themed carries one entry per camp, no fewer"),
     ("statics.config.frost_wish", "a closed null/\"wall\" domain that must be Wall while a wall stands (barriers::check via check_world): flipping it on a world with a wall is refused; other scenarios hold it null"),
+    ("statics.config.tick_ms", "ADR 0029 / P-TICK-1a: the 50 ms default writes null (no hash word, so every pinned digest holds); 25 writes a number that the hash folds; any other value is refused at restore. The census holds it null in 50 ms scenarios, so it is restore-validated here; the 25 ms hash change is pinned by tests/tick_ms.rs"),
     ("world.abilities.barriers", "barriers::check ties the barrier row to the Wall fields: no wall carries none (null), a standing wall one row; a row added to a world with no wall is refused"),
     ("world.abilities.barriers.#len", "barriers::check ties the barrier row to the Wall fields one to one, in field order: one row more or fewer is refused"),
     ("world.abilities.barriers.*.field", "barriers::check: each barrier row names the id of the Wall field at its position; any other id is refused"),

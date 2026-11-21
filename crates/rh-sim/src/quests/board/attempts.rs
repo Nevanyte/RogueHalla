@@ -18,7 +18,7 @@ pub(crate) use signals::{
 
 use self::signals::BARGAIN_STAT_NAMES;
 use super::{catalog::QuestId, quest};
-use crate::constants::{PLAYER_SPEED, QUEST_TURN_IN_RANGE, TICK_MS};
+use crate::constants::{PLAYER_SPEED, QUEST_TURN_IN_RANGE};
 use crate::hooks::Hx;
 use crate::state::{Phase, PlayerId, World};
 use crate::statics::MatchStatic;
@@ -468,7 +468,7 @@ pub(crate) fn system(cx: &mut Cx) {
         if locked {
             let a = &mut board_mut(cx.w).unwrap().attempts[i];
             if a.deadline > 0. {
-                a.deadline += TICK_MS;
+                a.deadline += cx.k.tick_ms();
             }
         } else {
             interactions::tick(cx, i, id);

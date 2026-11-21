@@ -13,7 +13,7 @@ fn quest_interaction_command_is_strict_and_round_trips() {
     };
     let bytes = msg.try_encode().unwrap();
     assert_eq!(ClientMsg::decode(&bytes).unwrap(), msg);
-    assert_eq!(PROTOCOL_VERSION, 20);
+    assert_eq!(PROTOCOL_VERSION, 23);
     let bad_fixed_target = ClientMsg::Input {
         seq: 10,
         commands: vec![WireCommand::QuestInteract {

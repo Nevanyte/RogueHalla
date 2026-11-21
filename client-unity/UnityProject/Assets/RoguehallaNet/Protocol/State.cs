@@ -55,7 +55,7 @@ namespace Roguehalla.Net.Protocol
         /// <summary>P-WIRE17-HUD-3: server ms the wind emblem's speed boost ends (legacy speedBoostUntil); null when none runs.</summary>
         public double? SpeedBoostUntil;
     }
-    public enum PropKind : byte { Ground = 1, Chest = 2, Body = 3, Corpse = 4, WindEmblem = 5, Cannon = 6, QuestItem = 7, RebirthEgg = 8 }
+    public enum PropKind : byte { Ground = 1, Chest = 2, Body = 3, Corpse = 4, WindEmblem = 5, Cannon = 6, QuestItem = 7, Heal = 8, RebirthEgg = 9 }
     public struct WireProp
     {
         public PickupHandle Handle;

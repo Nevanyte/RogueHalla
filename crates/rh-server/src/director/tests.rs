@@ -10,6 +10,7 @@ mod drain;
 mod leases;
 mod lobby;
 mod results;
+mod tick_rate;
 
 fn entry(phase: Phase, seated: usize, reserved: usize) -> RoomEntry {
     RoomEntry {
@@ -60,6 +61,7 @@ fn director_with(store: MemoryStore) -> Arc<Director> {
         faction_mode: rh_sim::FactionMode::Off,
         quests: false,
         top25_quests: false,
+        tick_ms: 50,
     };
 
     let map = rh_sim::TileMap::from_rows(&["####", "#..#", "#..#", "####"]).unwrap();

@@ -92,6 +92,7 @@ impl WireProps {
                 WirePropKind::WindEmblem => {}
                 WirePropKind::Cannon { .. } => {}
                 WirePropKind::QuestItem { .. } | WirePropKind::RebirthEgg { .. } => {}
+                WirePropKind::Heal { .. } => {}
             }
         }
         if let Some(focus) = self.focus {
@@ -129,7 +130,9 @@ impl WireProps {
                             WirePropKind::Body { label } | WirePropKind::Corpse { label } => {
                                 str_len(label)
                             }
-                            WirePropKind::Cannon { ready_at } => varint_len(*ready_at),
+                            WirePropKind::Cannon { ready_at } | WirePropKind::Heal { ready_at } => {
+                                varint_len(*ready_at)
+                            }
                         }
                 })
                 .sum::<usize>()
@@ -167,13 +170,18 @@ impl WireProps {
                     w.varint(*ready_at);
                 }
                 WirePropKind::RebirthEgg { hatching } => {
-                    w.u8(8);
+                    w.u8(9);
                     w.u8(u8::from(*hatching));
                 }
                 WirePropKind::QuestItem { quest, fetch } => {
                     w.u8(7);
                     w.varint(quest.get());
                     w.u8(u8::from(*fetch));
+                }
+                // Protocol 20 (P-COLISEUM-HEALS-2): the cannon's layout with kind byte 8.
+                WirePropKind::Heal { ready_at } => {
+                    w.u8(8);
+                    w.varint(*ready_at);
                 }
             }
         }
@@ -213,7 +221,10 @@ impl WireProps {
                         .ok_or(DecodeError::BadField("quest handle"))?,
                     fetch: bool_flag(r)?,
                 },
-                8 => WirePropKind::RebirthEgg {
+                8 => WirePropKind::Heal {
+                    ready_at: r.varint()?,
+                },
+                9 => WirePropKind::RebirthEgg {
                     hatching: bool_flag(r)?,
                 },
                 _ => return Err(DecodeError::BadField("prop kind")),

@@ -125,11 +125,12 @@ pub(crate) fn wake_mates(w: &mut World, camp: u32, target: PlayerId) {
         }
     }
 }
-fn due(b: &Brain, phase: u32, now: f64) -> bool {
+/// Is the brain due to re-path: no goal, or a phase boundary crossed during the step that just ended (`tick_ms` long).
+fn due(b: &Brain, phase: u32, now: f64, tick_ms: f64) -> bool {
     b.goal.is_none()
         || (now - b.last_move_at >= MOB_REPATH_PHASE_PERIOD as f64
             && ((now + f64::from(phase)) / f64::from(MOB_REPATH_PHASE_PERIOD)).floor()
-                != ((now - TICK_MS + f64::from(phase)) / f64::from(MOB_REPATH_PHASE_PERIOD))
+                != ((now - tick_ms + f64::from(phase)) / f64::from(MOB_REPATH_PHASE_PERIOD))
                     .floor())
 }
 fn send(cx: &mut Cx, id: PlayerId, b: &mut Brain, to: Vec2) {
@@ -162,7 +163,7 @@ fn home(cx: &mut Cx, id: PlayerId, b: &mut Brain) {
     let phase = m.repath_phase;
     let facing = m.home_facing;
     if distance(at, home) > MOB_HOME_RADIUS {
-        if due(b, phase, cx.w.server_time) {
+        if due(b, phase, cx.w.server_time, cx.k.tick_ms()) {
             send(cx, id, b, home)
         }
         return;
@@ -303,7 +304,7 @@ fn fight(cx: &mut Cx, id: PlayerId, b: &mut Brain) {
             weapon,
             windup: tm.windup,
             lock: false,
-            delay: TICK_MS / 1000.,
+            delay: cx.k.tick_ms() / 1000.,
         },
         |a, to| {
             leash(cx.k, camp, home, to, MOB_LEASH_MARGIN)
@@ -369,7 +370,7 @@ fn fight(cx: &mut Cx, id: PlayerId, b: &mut Brain) {
             }
         },
         crate::combat_policy::Move::Point(to) => {
-            if due(b, phase, now) {
+            if due(b, phase, now, cx.k.tick_ms()) {
                 // A chase's goal fans out by the spacing push (same order, same repath clock); a retreat is the
                 // policy's own.
                 let goal = if out.chase {
@@ -423,9 +424,10 @@ fn spacing_step(
     {
         return Spaced::No;
     }
-    // One look in MOB_SPACING_LOOK_TICKS ticks, staggered by id: a packed crowd with no room left would otherwise re-weigh
-    // every candidate every tick.
-    if (u64::from(cx.w.tick) + u64::from(id.0)) % u64::from(MOB_SPACING_LOOK_TICKS) != 0 {
+    // One look in MOB_SPACING_LOOK_TICKS legacy ticks (200 ms, in steps of the match: ADR 0029 decision 3), staggered by
+    // id: a packed crowd with no room left would otherwise re-weigh every candidate every tick.
+    let look = cx.k.steps_of_legacy_ticks(MOB_SPACING_LOOK_TICKS);
+    if (u64::from(cx.w.tick) + u64::from(id.0)) % u64::from(look) != 0 {
         return Spaced::No;
     }
     let (camp, home, foot, room) = (m.camp, m.home, m.core.foot(), super::mob_spacing::room(m));

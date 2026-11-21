@@ -74,6 +74,7 @@ fn config(kind: &str) -> SimConfig {
         camp_buffs: crate::CampBuffRule::Legacy,
         top25_quests: false,
         frost_wish: crate::FrostWish::Freeze,
+        tick_ms: 50,
     }
 }
 

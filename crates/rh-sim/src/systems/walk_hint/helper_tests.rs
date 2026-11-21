@@ -915,7 +915,12 @@ mod boundary24 {
         if let Some(rf) = inst.get("revealFrom") {
             let reveal_until = btext(&inst["revealUntil"]);
             let now = sim.server_time();
-            rt::reveal(&mut sim.w.players[slot].statuses, now, reveal_until);
+            rt::reveal(
+                &mut sim.w.players[slot].statuses,
+                now,
+                reveal_until,
+                sim.k.tick_ms(),
+            );
             let st = sim.w.players[slot]
                 .statuses
                 .instances

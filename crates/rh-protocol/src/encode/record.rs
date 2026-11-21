@@ -22,10 +22,12 @@ pub(super) fn kit(faction: u8, weapon: u8) -> u8 {
 }
 
 /// The head of a Snapshot: for a self its present bit and the bits of every field that differs from its default, and the phase
-/// bit when the phase is not the default.
+/// bit when the phase is not the default. The source-time bit is set when `server_time` is not `tick * tick_ms`, the time a
+/// decoder at the connection's rate reads without it.
 pub(super) fn head_word(
     phase: u8,
     tick: u32,
+    tick_ms: u32,
     server_time: f64,
     me: Option<&WireSelf>,
     training: bool,
@@ -38,7 +40,7 @@ pub(super) fn head_word(
     if owner_combat {
         m |= HM_OWNER_COMBAT;
     }
-    if server_time.to_bits() != snapshot_server_ms(tick).to_bits() {
+    if server_time.to_bits() != snapshot_server_ms_at(tick, tick_ms).to_bits() {
         m |= HM_SERVER_TIME;
     }
     let Some(s) = me else { return m };
@@ -342,9 +344,9 @@ pub(super) const MAX_HEAD_LEN: usize = 1
     + 1
     + 3;
 /// Largest actor: id 5, mask 3, x/y/facing 6, kit/hp/status, bounty 3, kind, effects 2, displacement, mob type, sig, barrier pair,
-/// archetype, flags, off-hand, build marks, mark plate 3.
+/// archetype, flags, off-hand, build marks, mark plate 3, walk hint 2.
 pub(crate) const MAX_ACTOR_LEN: usize =
-    5 + 3 + 6 + 1 + 1 + 1 + 3 + 1 + 2 + 1 + 1 + 1 + 2 + 1 + 1 + 1 + 1 + 3;
+    5 + 3 + 6 + 1 + 1 + 1 + 3 + 1 + 2 + 1 + 1 + 1 + 2 + 1 + 1 + 1 + 1 + 3 + 2;
 
 /// Writes the self record for the head word `m` ([`head_word`] of `s`), fields in bit order.
 #[inline]
@@ -468,6 +470,9 @@ pub(super) fn actor_mask(a: &WireActor) -> u32 {
     if a.mark_tier != 0 || a.brand != 0 || a.mark_tax != 0 {
         m |= AM_MARK;
     }
+    if a.walk_ticks != 0 {
+        m |= AM_WALK;
+    }
     m
 }
 
@@ -497,6 +502,7 @@ pub(super) fn actor_len(a: &WireActor, prev: Option<u32>) -> usize {
         + (m & AM_OFFHAND != 0) as usize
         + (m & AM_BUILD_MARKS != 0) as usize
         + 3 * (m & AM_MARK != 0) as usize
+        + 2 * (m & AM_WALK != 0) as usize
 }
 
 /// The id as written: the first actor's absolute id, then the gap to the previous one (the observation sorts by id, so a

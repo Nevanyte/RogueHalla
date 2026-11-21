@@ -15,14 +15,14 @@
 <body>
 <main>
   <h1>Roguehalla protocol probe</h1>
-  <p>A browser client for protocol v20 over the browser WebSocket API (the transport a Unity Web build uses). It is a test
+  <p>A browser client for protocol v23 over the browser WebSocket API (the transport a Unity Web build uses). It is a test
   harness for Stage 1, not the game client. Click to walk; hold Space to attack toward the cursor.</p>
   <canvas id="c" width="960" height="640"></canvas>
   <pre id="s">connecting…</pre>
 </main>
 <script>
 "use strict";
-// ---- protocol v20 (mirror of crates/rh-protocol; tools/protocol-js/check-vectors.mjs holds this block to protocol/fixtures/v20.json) ----
+// ---- protocol v23 (mirror of crates/rh-protocol; tools/protocol-js/check-vectors.mjs holds this block to protocol/fixtures/v23.json) ----
 class W {
   constructor() { this.b = new Uint8Array(256); this.n = 0; this.v = new DataView(this.b.buffer); }
   need(k) { if (this.n + k > this.b.length) { const nb = new Uint8Array(this.b.length * 2 + k); nb.set(this.b); this.b = nb; this.v = new DataView(nb.buffer); } }
@@ -259,7 +259,15 @@ function checkTerrainAgainstCollision(collisionBuf, collision, terrainBuf, terra
     const take = Math.min(an, bn); an -= take; bn -= take; left -= take;
   }
 }
-const PROTOCOL = 20;
+const PROTOCOL = 23;
+// Protocol 21 (ADR 0029): a snapshot's server time is tick * tickMs with tickMs = 1000 / Welcome.tickRate; only 20 and 40 Hz
+// are rates. The delta limits keep their wall-clock time: a base at most 3200 ms behind (64 ticks at 20 Hz, 128 at 40 Hz).
+const MAX_DELTA_AGE_MS = 3200;
+function tickMsOf(rate) {
+  if (rate === 20) return 50;
+  if (rate === 40) return 25;
+  throw new Error("bad tick rate " + rate);
+}
 const MAX_TICKET = 448;
 const MAX_QUEST_VIEW_BYTES = 24 * 1024;
 const MAX_TRADE_VIEW_BYTES = 2213;
@@ -386,7 +394,9 @@ function ping(nonce) { const w = new W(); w.u8(3); w.u32(nonce); w.f64(performan
 function leave() { return new Uint8Array([4]); }
 // "Send me a full snapshot" (a delta was refused).
 function resync() { return new Uint8Array([5]); }
-function decode(buf) {
+// tickRate: the connection's Welcome rate (20 when omitted: the rate-less decode is the 20 Hz decode).
+function decode(buf, tickRate = 20) {
+  const tickMs = tickMsOf(tickRate);
   if (buf.byteLength > 256 * 1024) throw new Error("frame too large");
   // Refuse a mismatched Welcome before its map is decoded or the tracker changes its baseline.
   const prefix = new DataView(buf);
@@ -394,7 +404,7 @@ function decode(buf) {
     const e = new Error("protocol mismatch"); e.protocolMismatch = true; throw e;
   }
   const r = new R(buf);
-  const m = decodeBody(r);
+  const m = decodeBody(r, tickMs);
   if (r.p !== buf.byteLength) throw new Error("trailing bytes");
   if (m.t === "snapshot") {
     validateGiverActors(m.actors, false);
@@ -583,10 +593,12 @@ function checkIndicators(offhand, buildMarks, markTier, brand, markTax, flags) {
   if (markTier > 4 || brand > 100 || markTax > 100) throw new Error("bad mark");
   if (flags & ~15) throw new Error("bad flags");
 }
-function decodeBody(r) {
+function decodeBody(r, tickMs) {
   const tag = r.u8();
   if (tag === 0x81) {
-    const m = { t: "welcome", protocol: r.u16(), content: r.u64(), match: r.bytes(16), player: r.u32(), session: r.bytes(16), tickRate: r.u8(), tick: r.u32(), serverMs: r.f64() };
+    const m = { t: "welcome", protocol: r.u16(), content: r.u64(), match: r.bytes(16), player: r.u32(), session: r.bytes(16), tickRate: r.u8() };
+    tickMsOf(m.tickRate);
+    m.tick = r.u32(); m.serverMs = r.f64();
     // Protocol 16 (ADR0024): the hitbox archetype table sits between the header and the map.
     m.archetypes = readArchetypes(r);
     m.vision = readVision(r);
@@ -688,10 +700,10 @@ function decodeBody(r) {
   }
   if (tag === 0x83) {
     const tick = r.varint(), ack = r.varint(), head = r.varint();
-    // Append-only varint head: bits 17/18 are Wish/barrier, bit 19 overrides tick*50, bit 20 is owner combat, bit 21 the
+    // Append-only varint head: bits 17/18 are Wish/barrier, bit 19 overrides tick*tickMs, bit 20 is owner combat, bit 21 the
     // self's hitbox archetype, bits 22..=24 the self's indicator flags, build marks and mark plate (protocol 16).
     if ((head & ~0x1ffffff) !== 0 || ((head & 1) === 0 && (head & (0xfbff | 0x60000 | 0x200000 | 0x1c00000)) !== 0)) throw new Error("bad head");
-    const s = { t: "snapshot", tick, serverMs: tick * 50, phase: 1, ack, training: (head & 0x10000) !== 0, me: null, actors: [], ownerCombat: null };
+    const s = { t: "snapshot", tick, serverMs: tick * tickMs, phase: 1, ack, training: (head & 0x10000) !== 0, me: null, actors: [], ownerCombat: null };
     if (head & 1) {
       const id = r.varint(), x = r.f32(), y = r.f32(), facing = r.f32();
       const maxHp = (head & 0x100) ? r.f32() : r.varintU16("max_hp");
@@ -727,7 +739,7 @@ function decodeBody(r) {
       if (prev !== null) { id = prev + field; if (field === 0 || id > 0xffffffff) throw new Error("bad actor order"); }
       prev = id;
       const mask = r.varint();
-      if (mask & ~0x7fff) throw new Error("bad actor mask");
+      if (mask & ~0xffff) throw new Error("bad actor mask");
       const x = dqPos(r.u16()), y = dqPos(r.u16()), facing = dqAngle(r.u16());
       let faction = 0, weapon = 0;
       if (mask & 1) { const k = r.u8(); faction = k & 15; weapon = k >> 4; }
@@ -743,8 +755,11 @@ function decodeBody(r) {
       const flags = (mask & 0x800) ? r.u8() : 0, offhand = (mask & 0x1000) ? r.u8() : 0, buildMarks = (mask & 0x2000) ? r.u8() : 0;
       let markTier = 0, brand = 0, markTax = 0;
       if (mask & 0x4000) { markTier = r.u8(); brand = r.u8(); markTax = r.u8(); }
+      // Protocol 19: bit 15 the walk hint (walk dir, walk ticks; a plain count, any pair decodes).
+      let walkDir = 0, walkTicks = 0;
+      if (mask & 0x8000) { walkDir = r.u8(); walkTicks = r.u8(); }
       checkIndicators(offhand, buildMarks, markTier, brand, markTax, flags);
-      s.actors.push({ id, faction, x, y, facing, hpPct, status, weapon, bounty, kind, effects, displaceSeq, mobTypeCode, sig, barrierPct: barrier.pct, barrierRingStep: barrier.ring, archetype, flags, offhand, buildMarks, markTier, brand, markTax });
+      s.actors.push({ id, faction, x, y, facing, hpPct, status, weapon, bounty, kind, effects, displaceSeq, mobTypeCode, sig, barrierPct: barrier.pct, barrierRingStep: barrier.ring, archetype, flags, offhand, buildMarks, markTier, brand, markTax, walkDir, walkTicks });
     }
     if (head & 0x100000) s.ownerCombat = readOwnerCombat(r);
     return s;
@@ -752,12 +767,12 @@ function decodeBody(r) {
   if (tag === 0x87) {
     // A snapshot delta: syntax and ranges only (Tracker decides whether it applies).
     const tick = r.varint(), age = r.varint();
-    if (age < 1 || age > 64 || age > tick) throw new Error("bad base age");
+    if (age < 1 || age > MAX_DELTA_AGE_MS / tickMs || age > tick) throw new Error("bad base age");
     const ack = r.varint(), head = r.varint();
     // Append-only varint head: bits 21/22 are self Wish/barrier, bit 23 overrides time, bit 24 replaces owner combat, bit 25
     // is the self's hitbox archetype, bits 26..=28 the self's indicator flags, build marks and mark plate (protocol 16).
     if ((head & ~0x1fffffff) !== 0 || ((head & 1) === 0 && (head & (0xffe7e | 0x600000 | 0x2000000 | 0x1c000000)) !== 0)) throw new Error("bad head");
-    const d = { t: "delta", tick, baseTick: tick - age, serverMs: tick * 50, phase: null, ack, training: (head & 0x100000) !== 0, me: null, changed: [], departed: [] };
+    const d = { t: "delta", tick, baseTick: tick - age, serverMs: tick * tickMs, phase: null, ack, training: (head & 0x100000) !== 0, me: null, changed: [], departed: [] };
     if (head & 1) {
       const m = head & 0xffe7e, s = { mask: m };
       if (m & 0x0002) s.x = r.f32();
@@ -797,7 +812,7 @@ function decodeBody(r) {
       if (prev !== null) { id = prev + field; if (field === 0 || id > 0xffffffff) throw new Error("bad actor order"); }
       prev = id;
       const mask = r.varint();
-      if (mask & ~0x3ffff) throw new Error("bad actor mask");
+      if (mask & ~0x7ffff) throw new Error("bad actor mask");
       const a = { id, mask };
       if (mask & 1) a.x = r.u16();
       if (mask & 2) a.y = r.u16();
@@ -818,6 +833,8 @@ function decodeBody(r) {
       if (mask & 0x8000) a.offhand = r.u8();
       if (mask & 0x10000) a.buildMarks = r.u8();
       if (mask & 0x20000) { a.markTier = r.u8(); a.brand = r.u8(); a.markTax = r.u8(); }
+      // Protocol 19: bit 18 the walk hint; (0, 0) clears it.
+      if (mask & 0x40000) { a.walkDir = r.u8(); a.walkTicks = r.u8(); }
       checkIndicators(a.offhand ?? 0, a.buildMarks ?? 0, a.markTier ?? 0, a.brand ?? 0, a.markTax ?? 0, a.flags ?? 0);
       d.changed.push(a);
     }
@@ -1011,14 +1028,15 @@ function readState(r) {
         else if (kind === 5) prop = { kind };
         else if (kind === 6) prop = { kind, readyAt: r.varint() };
         else if (kind === 7) prop = { kind, quest: handle(), fetch: strictBool("quest fetch flag") };
-        else if (kind === 8) prop = { kind, hatching: strictBool("flag") };
+        else if (kind === 8) prop = { kind, readyAt: r.varint() }; // protocol 20: a coliseum heal pickup, the cannon's layout
+        else if (kind === 9) prop = { kind, hatching: strictBool("flag") };
         else throw new Error("bad prop kind");
         rows.push({ handle: h, x, y, ...prop });
       }
       const h = r.varint(); let focus = null;
       if (h) {
         const bodyHint = weapon(), row = rows.find(p => p.handle === h);
-        if (!row || row.kind === 8 || (bodyHint !== null && row.kind !== 3)) throw new Error("bad prop focus");
+        if (!row || row.kind === 9 || (bodyHint !== null && row.kind !== 3)) throw new Error("bad prop focus");
         focus = { handle: h, bodyHint };
       }
       value = { rows, focus };
@@ -1332,12 +1350,20 @@ function remoteActorPresentation(a) {
   return a.kind === 4 ? { faction: null, weapon: null, neutral: true }
     : { faction: a.faction, weapon: a.weapon, neutral: false };
 }
+// Reads snapshots at the tick rate of the latest Welcome it accepted (a refused Welcome changes nothing): at 20 Hz before any,
+// as every vNN.json chain starts, or, made with { awaitWelcome: true }, not at all (a snapshot before the Welcome is refused).
 class Tracker {
-  constructor() { this.reset(); }
+  constructor({ awaitWelcome = false } = {}) { this.awaitWelcome = awaitWelcome; this.tickRate = null; this.reset(); }
   reset() { this.base = null; this.collections = new Map(); }
-  decode(buf) { return this.apply(decode(buf)); }
+  decode(buf) {
+    if (this.tickRate === null && this.awaitWelcome) {
+      const tag = buf.byteLength > 0 ? new Uint8Array(buf, 0, 1)[0] : -1;
+      if (tag === 0x83 || tag === 0x87) throw new Error("snapshot before its Welcome: no tick rate");
+    }
+    return this.apply(decode(buf, this.tickRate ?? 20));
+  }
   apply(m) {
-    if (m.t === "welcome") { this.reset(); return m; }
+    if (m.t === "welcome") { this.reset(); if (m.tickRate === 20 || m.tickRate === 40) this.tickRate = m.tickRate; return m; }
     if (m.t === "state") {
       const candidate = new Map(this.collections);
       for (const item of m.items) candidate.set(item.key, item.key === 11 ? validateAndCopyTradeValue(item.value) : item.value);
@@ -1382,6 +1408,7 @@ class Tracker {
       if (ch.mask & 0x8000) n.offhand = ch.offhand;
       if (ch.mask & 0x10000) n.buildMarks = ch.buildMarks;
       if (ch.mask & 0x20000) { n.markTier = ch.markTier; n.brand = ch.brand; n.markTax = ch.markTax; }
+      if (ch.mask & 0x40000) { n.walkDir = ch.walkDir; n.walkTicks = ch.walkTicks; }
       if (ch.mask & 1) n.x = dqPos(ch.x);
       if (ch.mask & 2) n.y = dqPos(ch.y);
       if (ch.mask & 4) n.facing = dqAngle(ch.facing);
@@ -1399,7 +1426,7 @@ class Tracker {
       } else {
         // A new actor starts from the default actor and must carry its position (bits 0..2).
         if ((ch.mask & 7) !== 7) throw refused("incomplete_new_actor");
-        out.push(upd({ faction: 0, weapon: 0, hpPct: 100, status: 1, bounty: 0, kind: 0, effects: 0, displaceSeq: 0, mobTypeCode:0,sig:0,barrierPct:0,barrierRingStep:0,archetype:0,flags:0,offhand:0,buildMarks:0,markTier:0,brand:0,markTax:0 }, ch));
+        out.push(upd({ faction: 0, weapon: 0, hpPct: 100, status: 1, bounty: 0, kind: 0, effects: 0, displaceSeq: 0, mobTypeCode:0,sig:0,barrierPct:0,barrierRingStep:0,archetype:0,flags:0,offhand:0,buildMarks:0,markTier:0,brand:0,markTax:0,walkDir:0,walkTicks:0 }, ch));
       }
     }
     flush(null);
@@ -1457,7 +1484,7 @@ const profile = qs.get("profile") || ("web" + Math.floor(Math.random() * 1e6));
 const ticket = qs.get("ticket") || qs.get("token") || "dev";
 const faction = qs.has("faction") ? Number(qs.get("faction")) : null;
 const P = window.__probe = { welcome: null, stateFrames: 0, firstStateAfterWelcome: [], collections: {}, snapshots: 0, lastTick: 0, me: null, actors: [], events: [], results: [], rejects: [], rtts: [], fx: 0, errors: [], refused: [], fullSnapshots: 0, deltaSnapshots: 0, resyncs: 0, firstSnapshotAfterWelcome: [], resumes: 0, inputSeq: 0, moveSeq: 0, open: false };
-const tracker = new Tracker();
+const tracker = new Tracker({ awaitWelcome: true });
 let needFull = false, awaitingFirst = false, awaitingState = false, resyncAt = 0;
 const RESYNC_RETRY_MS = 2000;
 function askFull() { needFull = true; resyncAt = performance.now(); P.resyncs++; send(resync()); }

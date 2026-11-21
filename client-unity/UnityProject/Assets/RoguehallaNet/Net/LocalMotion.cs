@@ -56,8 +56,10 @@ namespace Roguehalla.Net
     {
         /// <summary>The server's base walk speed (<c>PLAYER_SPEED</c>), world units per second.</summary>
         public const double PlayerSpeed = 170.0;
-        /// <summary>The server tick (<c>TICK_MS</c>): its walk is planned and sampled on this grid.</summary>
+        /// <summary>The legacy server tick (<c>TICK_MS</c>, 50 ms): the default step. The walk itself reads <see cref="StepMs"/>.</summary>
         public const double TickMs = 50.0;
+        /// <summary>The session's step in ms (the Welcome's rate): the grid the server's walk is planned and sampled on. Defaults to the 50 ms legacy step.</summary>
+        public double StepMs { get; set; } = 50.0;
         /// <summary>An error up to this many world units is absorbed smoothly; beyond it the presented walk snaps to the server.</summary>
         public const double SnapDistance = 96.0;
         /// <summary>The correction offset's exponential time constant, in milliseconds (<c>VISUAL_TAU_MS</c>).</summary>
@@ -68,7 +70,7 @@ namespace Roguehalla.Net
         public const double DivergeErr = 6.0;
 
         /// <summary>The measured order delay is clamped to this range, in milliseconds (legacy <c>DELAY_MIN_MS</c>/<c>DELAY_MAX_MS</c>).</summary>
-        public const double DelayMinMs = -TickMs;
+        public double DelayMinMs { get { return -StepMs; } }
         public const double DelayMaxMs = 400.0;
         /// <summary>While walking, the correction offset runs down at most this fast: 70 u/s, plus 2 per unit past 20, at most 120.</summary>
         public const double CorrectSpeedMoving = 70.0;
@@ -464,7 +466,7 @@ namespace Roguehalla.Net
             bool stunned = (me.Effects & 1) != 0;
             bool changed = _lastWeapon >= 0 && _lastWeapon != me.Weapon;
             _lastWeapon = me.Weapon;
-            if ((stunned || changed) && _pauseCount > 0 && serverMs.HasValue && PredictAttackPause) EndPauseAt(serverMs.Value - TickMs, true);
+            if ((stunned || changed) && _pauseCount > 0 && serverMs.HasValue && PredictAttackPause) EndPauseAt(serverMs.Value - StepMs, true);
         }
 
         /// <summary>Clears the presented self, any pending order and the walk (a snapshot without this player, or a fresh Welcome).</summary>

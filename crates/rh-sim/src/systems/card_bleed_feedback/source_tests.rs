@@ -193,6 +193,7 @@ fn config_with_hitboxes(input: &V, hitboxes: crate::archetype::HitboxMode) -> Si
         camp_buffs: crate::CampBuffRule::Legacy,
         top25_quests: false,
         frost_wish: crate::FrostWish::Freeze,
+        tick_ms: 50,
     }
 }
 

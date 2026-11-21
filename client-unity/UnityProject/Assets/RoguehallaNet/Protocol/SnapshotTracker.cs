@@ -36,14 +36,19 @@ namespace Roguehalla.Net.Protocol
         WireActor[] _next = new WireActor[16];
         int _count;
         readonly ServerMsg.SnapshotDelta _delta = new ServerMsg.SnapshotDelta();
+        /// <summary>Protocol 21: the tick ms of the latest Welcome decoded (50 before any: 20 Hz).</summary>
+        int _tickMs = Wire.TickMs;
 
         /// <summary>Whether a snapshot is held (a delta can be applied).</summary>
         public bool HasBase { get { return _has; } }
         /// <summary>The tick of the snapshot held.</summary>
         public uint HeldTick { get { return _tick; } }
         public int HeldActors { get { return _count; } }
+        /// <summary>The milliseconds per tick snapshots are read at: the latest accepted Welcome's rate (50 at 20 Hz, 25 at
+        /// 40 Hz), 50 before any. A refused Welcome changes nothing.</summary>
+        public int TickMs { get { return _tickMs; } }
 
-        /// <summary>Forgets the held snapshot (a new connection or a Welcome).</summary>
+        /// <summary>Forgets the held snapshot (a new connection or a Welcome). The tick rate stays until the next Welcome.</summary>
         public void Reset() { _has = false; _hasMe = false; _ownerCombat = null; _nextOwnerCombat = null; _count = 0; }
 
         /// <summary>
@@ -60,14 +65,19 @@ namespace Roguehalla.Net.Protocol
                 if (length > Wire.MaxServerFrame) throw new DecodeException(DecodeError.TooLarge, length.ToString());
                 var r = new Reader(frame, length);
                 r.U8();
-                ServerMsg.SnapshotDelta.Read(ref r, _delta);
+                ServerMsg.SnapshotDelta.Read(ref r, _delta, _tickMs);
                 r.End();
                 return Apply(_delta, reuse ?? new ServerMsg.Snapshot());
             }
-            ServerMsg msg = ServerMsg.Decode(frame, length, reuse);
+            ServerMsg msg = ServerMsg.DecodeAt(frame, length, reuse, _tickMs);
             var snap = msg as ServerMsg.Snapshot;
             if (snap != null) Hold(snap);
-            else if (msg is ServerMsg.Welcome) Reset();
+            else
+            {
+                var welcome = msg as ServerMsg.Welcome;
+                // The decoder refused any rate but 20 and 40, so a Welcome that gets here has one.
+                if (welcome != null) { Reset(); _tickMs = Wire.TickMsOf(welcome.TickRate); }
+            }
             return msg;
         }
 
@@ -142,6 +152,7 @@ namespace Roguehalla.Net.Protocol
             _tick = d.Tick;
             if (d.HasPhase) _phase = d.Phase;
             s.Tick = d.Tick; s.Phase = _phase; s.AckInput = d.AckInput; s.Training = d.Training; _training = d.Training;
+            s.TickMs = d.TickMs;
             // Source time is per-frame: an absent override means this delta's tick clock, never the base snapshot's value.
             s.ServerTimeOverrideMs = d.ServerTimeOverrideMs;
             if (_ownerCombat == null) s.OwnerCombat = null;
@@ -203,6 +214,7 @@ namespace Roguehalla.Net.Protocol
             if ((ch.Mask & ActorDelta.MOffhand) != 0) a.Offhand = ch.Offhand;
             if ((ch.Mask & ActorDelta.MBuildMarks) != 0) a.BuildMarks = ch.BuildMarks;
             if ((ch.Mask & ActorDelta.MMark) != 0) { a.MarkTier = ch.MarkTier; a.Brand = ch.Brand; a.MarkTax = ch.MarkTax; }
+            if ((ch.Mask & ActorDelta.MWalk) != 0) { a.WalkDir = ch.WalkDir; a.WalkTicks = ch.WalkTicks; }
             return a;
         }
 

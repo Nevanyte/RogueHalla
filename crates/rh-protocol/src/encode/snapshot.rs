@@ -53,6 +53,9 @@ pub(super) fn snapshot_fault(
         if let Some(f) = actor_indicator_fault(a) {
             return Some(f);
         }
+        if walk_hint_fault(a) {
+            return Some("walk hint");
+        }
         if !quant::pos_in_range(a.x) || !quant::pos_in_range(a.y) {
             return Some("position");
         }
@@ -75,6 +78,7 @@ pub(super) fn actor_looks_bad(a: &WireActor, prev: Option<u32>) -> bool {
         || a.barrier_pct > 100
         || a.barrier_ring_step > 8
         || actor_indicator_fault(a).is_some()
+        || walk_hint_fault(a)
         || !(quant::pos_in_range(a.x) && quant::pos_in_range(a.y))
         || prev.is_some_and(|p| a.id <= p)
 }
@@ -88,6 +92,13 @@ pub(super) fn actor_indicator_fault(a: &WireActor) -> Option<&'static str> {
         [a.mark_tier, a.brand, a.mark_tax],
         a.flags,
     )
+}
+
+/// A walk heading without walk ticks is not canonical (legacy `walkDir` is meaningless at `walkTicks` 0): the encoder
+/// refuses it, so a decoded actor equals what was encoded. Decoders accept any pair.
+#[inline(always)]
+pub(crate) fn walk_hint_fault(a: &WireActor) -> bool {
+    a.walk_ticks == 0 && a.walk_dir != 0
 }
 
 /// A QuestGiver actor has one contextual sentinel tuple. Other actor kinds and Self retain the full four-bit domains.
@@ -164,6 +175,9 @@ pub(super) fn write_actor(out: &mut Writer, a: &WireActor, prev: Option<u32>) {
     if m & AM_MARK != 0 {
         w.bytes([a.mark_tier, a.brand, a.mark_tax]);
     }
+    if m & AM_WALK != 0 {
+        w.bytes([a.walk_dir, a.walk_ticks]);
+    }
     w.put(out);
 }
 
@@ -171,6 +185,7 @@ pub(super) fn write_actor(out: &mut Writer, a: &WireActor, prev: Option<u32>) {
 #[allow(clippy::too_many_arguments)] // Mirrors the complete snapshot wire header and body inputs.
 pub(super) fn snapshot_len(
     tick: u32,
+    tick_ms: u32,
     server_time: f64,
     phase: u8,
     ack_input: u32,
@@ -182,6 +197,7 @@ pub(super) fn snapshot_len(
     let head = head_word(
         phase,
         tick,
+        tick_ms,
         server_time,
         me,
         training,
@@ -227,6 +243,8 @@ pub(crate) fn write_owner_combat(w: &mut Writer, owner: &WireOwnerCombat) {
 
 pub(super) struct SnapshotHeader<'a> {
     pub(super) tick: u32,
+    /// The connection's milliseconds per tick: the time a decoder reads when no override is written.
+    pub(super) tick_ms: u32,
     pub(super) server_time: f64,
     pub(super) phase: u8,
     pub(super) ack_input: u32,
@@ -240,6 +258,7 @@ pub(super) struct SnapshotHeader<'a> {
 pub(super) fn write_snapshot_head(w: &mut Writer, header: SnapshotHeader<'_>) {
     let SnapshotHeader {
         tick,
+        tick_ms,
         server_time,
         phase,
         ack_input,
@@ -252,7 +271,15 @@ pub(super) fn write_snapshot_head(w: &mut Writer, header: SnapshotHeader<'_>) {
     f.u8(T_SNAPSHOT);
     f.varint(tick);
     f.varint(ack_input);
-    let head = head_word(phase, tick, server_time, me, training, owner_combat);
+    let head = head_word(
+        phase,
+        tick,
+        tick_ms,
+        server_time,
+        me,
+        training,
+        owner_combat,
+    );
     f.varint(head);
     if let Some(s) = me {
         write_self(&mut f, head, s);

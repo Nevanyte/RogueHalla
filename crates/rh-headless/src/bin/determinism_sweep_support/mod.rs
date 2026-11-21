@@ -107,6 +107,7 @@ impl From<&SimSpec> for SimConfig {
             top25_quests: false,
             training: false,
             dummies: false,
+            tick_ms: 50,
         }
     }
 }

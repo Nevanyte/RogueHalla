@@ -1,6 +1,10 @@
 //! P-PROTOCOL-18-STAMP-1 oracle (server): a server of this build speaks protocol 18 over a real socket. A protocol-17
 //! client (every client built before the stamp, including those before the Frost Wall batch that kept 17) is refused
-//! with ProtocolMismatch before admission, and a protocol-20 client is welcomed with a protocol-20 Welcome.
+//! with ProtocolMismatch before admission, and a protocol-18 client is welcomed with a protocol-18 Welcome.
+//! P-NET-DRAWAHEAD-1a moved the server to protocol 19 (the walk hint): a protocol-18 client is now the refused one and a
+//! protocol-19 client is welcomed with a protocol-19 Welcome.
+//! P-COLISEUM-HEALS-2 moved the server to protocol 20 (the heal prop): a protocol-19 client is now the refused one and a
+//! protocol-20 client is welcomed with a protocol-20 Welcome. Protocol 23 is the integrated quest and 40 Hz version.
 use futures_util::{SinkExt, StreamExt};
 use rh_protocol::{ClientMsg, RejectCode, ServerMsg, SnapshotTracker};
 use rh_server::director::{Director, DirectorConfig};
@@ -96,19 +100,17 @@ async fn answer_to_hello(url: &str, protocol: u16, profile: &str) -> Option<Serv
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_protocol_19_hello_is_refused_with_protocol_mismatch() {
+async fn earlier_protocols_are_refused_with_protocol_mismatch() {
     let url = start().await;
-    let got = answer_to_hello(&url, 19, "old19").await;
-    let refused = matches!(
-        &got,
-        Some(ServerMsg::Reject { code: RejectCode::ProtocolMismatch, reason })
-            if reason.contains("server speaks protocol 20, client 19")
-    );
-    assert!(
-        refused,
-        "a protocol-19 Hello gets ProtocolMismatch naming 20 and 19, got {}",
-        summary(&got)
-    );
+    for old in [19, 20, 21, 22] {
+        let got = answer_to_hello(&url, old, &format!("old{old}")).await;
+        assert!(
+            matches!(&got, Some(ServerMsg::Reject { code: RejectCode::ProtocolMismatch, reason })
+                if reason.contains(&format!("server speaks protocol 23, client {old}"))),
+            "protocol {old} must be rejected, got {}",
+            summary(&got)
+        );
+    }
 }
 
 fn summary(m: &Option<ServerMsg>) -> String {
@@ -121,17 +123,17 @@ fn summary(m: &Option<ServerMsg>) -> String {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_protocol_20_hello_is_welcomed_with_protocol_20() {
+async fn a_protocol_23_hello_is_welcomed_with_protocol_23() {
     let url = start().await;
-    let got = answer_to_hello(&url, 20, "new20").await;
+    let got = answer_to_hello(&url, 23, "new23").await;
     let protocol = match &got {
         Some(ServerMsg::Welcome { protocol, .. }) => Some(*protocol),
         _ => None,
     };
     assert_eq!(
         protocol,
-        Some(20),
-        "a protocol-20 Hello is welcomed with a protocol-20 Welcome, got {}",
+        Some(23),
+        "a protocol-23 Hello is welcomed with a protocol-23 Welcome, got {}",
         summary(&got)
     );
 }

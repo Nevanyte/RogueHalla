@@ -148,6 +148,11 @@ pub enum WirePropKind {
         quest: QuestHandle,
         fetch: bool,
     },
+    /// A coliseum heal pickup with the server time it is available again (0: available now). Prop kind 8, the cannon's
+    /// layout (protocol 20, P-COLISEUM-HEALS-2). Never the focus: it holds no item.
+    Heal {
+        ready_at: u32,
+    },
     /// Public shell and hatch cue. The prop handle grants no action.
     RebirthEgg {
         hatching: bool,

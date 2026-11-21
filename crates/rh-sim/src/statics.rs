@@ -59,6 +59,18 @@ impl MatchStatic {
     pub(crate) fn collision_map(&self, locked: bool) -> &TileMap {
         self.collision_view(locked).current()
     }
+    /// The match's step length in milliseconds as sim time (`SimConfig::tick_ms`, ADR 0029): what each step adds to
+    /// `server_time`. Systems that count time in steps read this, never a constant (P-TICK-1b moves them).
+    #[inline]
+    pub(crate) fn tick_ms(&self) -> f64 {
+        f64::from(self.config.tick_ms)
+    }
+    /// A rule counted in legacy 50 ms ticks (`WALK_HINT_MAX_TICKS`, `MOB_SPACING_LOOK_TICKS`), as steps of this match: it
+    /// keeps its wall-clock time (ADR 0029 decision 3). Exact: 50 is a multiple of every supported step.
+    #[inline]
+    pub(crate) fn steps_of_legacy_ticks(&self, ticks: u32) -> u32 {
+        ticks * (crate::constants::LEGACY_TICK_MS as u32 / self.config.tick_ms)
+    }
 
     pub(crate) fn new(config: SimConfig, arena: impl Into<Arc<Arena>>, secrets: Secrets) -> Self {
         let arena = arena.into();
@@ -279,6 +291,86 @@ pub struct SimConfig {
     /// world keeps `Freeze`.
     #[serde(default)]
     pub frost_wish: FrostWish,
+    /// The step length in milliseconds (ADR 0029, C-TICK): 50 (the default and serde default: legacy, parity, every
+    /// capture) or 25 (40 Hz). Any other value is refused wherever a config enters: [`crate::Sim::try_new`], and the
+    /// deserializer (so a checkpoint or a replay that names one does not parse). Sim time advances by this value each
+    /// step ([`crate::Sim::step`]).
+    ///
+    /// Its default adds no word to the statics digest: 50 serializes as a unit (JSON `null`, like `frost_wish = Freeze`),
+    /// so every state hash, checkpoint and replay from before the field keeps its value. 25 is the number `25` in a
+    /// human-readable format (the JSON config, checkpoint and replay) and the string `"tick_ms=25"` (length 10) in any
+    /// other (the state hasher): a value no neighbouring config field whose default also folds nothing can write in its
+    /// place (see [`RegenInCombat`]).
+    #[serde(
+        default = "legacy_tick_ms",
+        serialize_with = "write_tick_ms",
+        deserialize_with = "read_tick_ms"
+    )]
+    pub tick_ms: u32,
+}
+
+/// The legacy step, `SimConfig::tick_ms`'s default (legacy `TICK_MS = 1000 / TICK_RATE`,
+/// `packages/shared/src/constants.ts:11-12`).
+fn legacy_tick_ms() -> u32 {
+    crate::constants::LEGACY_TICK_MS as u32
+}
+
+/// Is `ms` a step length a sim may run at (ADR 0029)? The legacy 50 ms, or half of it (25 ms, 40 Hz). Both are whole,
+/// binary-exact milliseconds, so `server_time` stays exactly `tick * tick_ms`, and every legacy timer that is a multiple
+/// of 50 ms lands on both grids.
+pub const fn tick_ms_supported(ms: u32) -> bool {
+    let legacy = crate::constants::LEGACY_TICK_MS as u32;
+    ms == legacy || ms == legacy / 2
+}
+
+/// `SimConfig::tick_ms` as a construction and restore check.
+pub(crate) fn validate_tick_ms(config: &SimConfig) -> Result<(), &'static str> {
+    if tick_ms_supported(config.tick_ms) {
+        Ok(())
+    } else {
+        Err("unsupported tick_ms: a sim steps 50 or 25 ms (ADR 0029)")
+    }
+}
+
+/// What `SimConfig::tick_ms = 25` writes to a serializer that is not human-readable (the state hasher). JSON keeps `25`.
+const TICK_MS_25_TAG: &str = "tick_ms=25";
+
+fn write_tick_ms<S: serde::Serializer>(ms: &u32, s: S) -> Result<S::Ok, S::Error> {
+    if *ms == legacy_tick_ms() {
+        s.serialize_unit()
+    } else if s.is_human_readable() {
+        s.serialize_u32(*ms)
+    } else if *ms == legacy_tick_ms() / 2 {
+        s.serialize_str(TICK_MS_25_TAG)
+    } else {
+        // Unsupported: `Sim::try_new` refuses the config right after this digest is folded, so no sim runs under it.
+        s.serialize_u32(*ms)
+    }
+}
+
+fn read_tick_ms<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
+    // Each format reads back exactly what it writes, and only a supported step. A JSON `50` (an edited or hand-written
+    // file) reads as the default it is, and writes back as `null`.
+    let ms = if d.is_human_readable() {
+        <Option<u32> as serde::Deserialize>::deserialize(d)?
+    } else {
+        match <Option<String> as serde::Deserialize>::deserialize(d)?.as_deref() {
+            None => None,
+            Some(TICK_MS_25_TAG) => Some(legacy_tick_ms() / 2),
+            Some(other) => {
+                return Err(serde::de::Error::custom(format!(
+                    "tick_ms must be null or {TICK_MS_25_TAG:?}, not {other:?}"
+                )))
+            }
+        }
+    };
+    match ms {
+        None => Ok(legacy_tick_ms()),
+        Some(ms) if tick_ms_supported(ms) => Ok(ms),
+        Some(ms) => Err(serde::de::Error::custom(format!(
+            "tick_ms must be 50 or 25 (ADR 0029), not {ms}"
+        ))),
+    }
 }
 
 /// `SimConfig::frost_wish`. `Freeze` serializes as nothing (JSON `null`; the hashing serializer folds no word for a
@@ -496,6 +588,7 @@ impl Default for SimConfig {
             regen_in_combat: RegenInCombat::Legacy,
             camp_buffs: CampBuffRule::Legacy,
             frost_wish: FrostWish::Freeze,
+            tick_ms: legacy_tick_ms(),
         }
     }
 }

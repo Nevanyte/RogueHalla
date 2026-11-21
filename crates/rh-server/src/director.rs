@@ -93,6 +93,8 @@ pub struct DirectorConfig {
     /// The legacy lobby fill (BotManager): arrivals over the countdown, closing top-up and the yield seat. None keeps
     /// the rooms' immediate placeholder fill (default for tests and benches; the server binary enables it).
     pub bot_fill: Option<crate::bot_fill::BotFillConfig>,
+    /// Every room's pacer period: [`DirectorConfig::new`] takes it from `sim.tick_ms` (P-TICK-5), as the server binary
+    /// does; tests may pace faster on a real clock. Sim time and the Welcome rate follow `sim.tick_ms`, never this.
     pub tick: Duration,
     /// Record a private replay of every match (kept in memory for the last few rooms; tests and diagnostics).
     pub record: bool,
@@ -114,7 +116,9 @@ pub struct DirectorConfig {
 }
 
 impl DirectorConfig {
+    /// Rooms are paced at the sim's own step (`SimConfig::tick_ms`, ADR 0029).
     pub fn new(sim: SimConfig, arena: impl Into<Arc<Arena>>) -> Self {
+        let tick = Duration::from_millis(u64::from(sim.tick_ms));
         Self {
             leases: LeasePolicy::default(),
             sim,
@@ -122,7 +126,7 @@ impl DirectorConfig {
             max_rooms: 16,
             fill_bots_to: 0,
             bot_fill: None,
-            tick: Duration::from_millis(rh_sim::constants::TICK_MS as u64),
+            tick,
             record: false,
             fixed_board_secrets: None,
             reconnect_grace: crate::room::RECONNECT_GRACE,

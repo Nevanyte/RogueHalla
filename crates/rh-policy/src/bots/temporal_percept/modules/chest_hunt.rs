@@ -7,7 +7,7 @@
 
 use super::types::CHEST_SECONDS;
 pub(crate) use super::types::{HuntChest as ChestLike, HuntSelf};
-use rh_sim::constants::{PLAYER_SPEED, TICK_MS, TILE};
+use rh_sim::constants::{PLAYER_SPEED, TILE};
 use rh_sim::Vec2;
 
 /// Source `ChestHuntConfig` (the eleven fields `CHEST_HUNT` declares).
@@ -35,7 +35,7 @@ impl Default for ChestHuntConfig {
 pub(crate) const CHEST_HUNT: ChestHuntConfig = ChestHuntConfig {
     pick_range: super::types::CHEST_RANGE - super::types::CHEST_PANEL_SLACK,
     pick_margin_ms: 350.,
-    hold_ms: 3. * TICK_MS,
+    hold_ms: 150.,
     arrive_slack_ms: 1000.,
     pace_share: 0.85,
     fight_walk: 12. * TILE,

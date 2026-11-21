@@ -64,6 +64,7 @@ async fn start(tls: bool) -> Started {
         pvp_rules: true,
         weapon_specials: true,
         faction_mode: rh_sim::FactionMode::Off,
+        tick_ms: 50,
     };
     let cfg = DirectorConfig {
         tick: TEST_TICK,

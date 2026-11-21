@@ -158,12 +158,13 @@ impl Director {
             _ => self.map.clone(),
         };
         let map = if let Some(secrets) = board_secrets {
-            let signature = self
+            let style = self
                 .cfg
                 .map_pool
                 .as_ref()
-                .is_some_and(|pool| pool.prefers_signature());
-            crate::map_pool::for_quest_board(map, secrets, signature)?
+                .map(|pool| pool.quest_map_style())
+                .unwrap_or_default();
+            crate::map_pool::for_quest_board(map, secrets, style)?
         } else {
             map
         };

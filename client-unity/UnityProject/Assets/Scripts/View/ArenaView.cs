@@ -29,6 +29,7 @@ namespace Roguehalla.Client
         /// <summary>Raised (previous, current) when the local player enters another region.</summary>
         public event System.Action<RegionId, RegionId> LocalRegionChanged { add { Regions.LocalRegionChanged += value; } remove { Regions.LocalRegionChanged -= value; } }
         RegionGround _regionGround; RegionWalls _regionWalls; RegionProps _regionProps; LandmarkView _landmarks;
+        ColiseumGateWalls _coliseumGates;   // P-COLISEUM-GATES-1: the gates drawn closed while the arena is locked
         /// <summary>Brightness multiplier for region ground and walls (they are lit by the same Light2D set as the actors).</summary>
         public const float RegionExposure = 1f;
         SpriteActorPresenter _actors;
@@ -297,7 +298,7 @@ namespace Roguehalla.Client
             _sourceTimeMs = session != null ? session.ServerTimeMs : 0;
             BindVisionSession(session);
             _renderReady = session != null && session.Clock.Ready;
-            _renderMs = _renderReady ? session.Clock.RenderMs : 0;
+            _renderMs = _renderReady ? session.Clock.DrawMs : 0;
             _latestMembership.Clear();
             if(session!=null && session.Snapshots.Count>0)
             {
@@ -425,6 +426,7 @@ namespace Roguehalla.Client
             var pmCollections = PerfMarks.Begin();
             _used = 0; _inventory = collections != null ? collections.Inventory : null;
             _frostWall.PresentWalls(collections != null ? collections.Fields : null, _sourceTimeMs);
+            if (_coliseumGates != null) _coliseumGates.SetLocked(collections != null && collections.Arena.HasValue && collections.Arena.Value.GatesLocked);
             if (collections == null) _wishFx.PresentAreas(null);
             if (collections != null)
             {
@@ -477,6 +479,17 @@ namespace Roguehalla.Client
                         barrel.transform.rotation = Quaternion.Euler(0f, 0f, 25f);
                         Prop("ring", position + new Vector3(-.22f, -.1f), new Vector2(.3f, .3f), ShowcasePalette.PanelStroke, order + 2);
                         Prop("ring", position + new Vector3(.22f, -.1f), new Vector2(.3f, .3f), ShowcasePalette.PanelStroke, order + 2);
+                    }
+                    else if (p.Kind == PropAppearance.Heal)
+                    {
+                        // P-COLISEUM-HEALS-2: a coliseum heal pickup from existing art, a ring with a cross sigil. Lit with a glow under
+                        // it when its delivered clock has come (WorldIndicatorRules.HealReady); dimmed and unlit while it waits.
+                        bool ready = WorldIndicatorRules.HealReady(p.ReadyAt, _sourceTimeMs);
+                        Color lit = ShowcasePalette.Success;
+                        Color tint = ready ? lit : new Color(lit.r * .45f, lit.g * .45f, lit.b * .45f, .7f);
+                        if (ready) Prop("glow", position, new Vector2(1.1f, .6f), new Color(lit.r, lit.g, lit.b, .35f), order - 2);
+                        Prop("ring", position, new Vector2(.72f, .58f), tint, order);
+                        Prop("sigil1", position + new Vector3(0, .16f), new Vector2(.44f, .44f), ready ? Color.white : tint, order + 1);
                     }
                     else
                     {
@@ -697,6 +710,7 @@ namespace Roguehalla.Client
             if (_visionFog != null) _visionFog.Dispose();
             if (_regionGround != null) _regionGround.Dispose();
             if (_regionWalls != null) _regionWalls.Dispose();
+            if (_coliseumGates != null) _coliseumGates.Dispose();
             if (_regionProps != null) _regionProps.Dispose();
             if (_landmarks != null) _landmarks.Dispose();
         }

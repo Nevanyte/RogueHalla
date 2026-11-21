@@ -3,6 +3,7 @@
 //!   cargo run --release -p rh-server -- --bind 127.0.0.1:7777 [--self-signed | --tls-cert cert.pem --tls-key key.pem]
 //!       [--runtime core|source-arena|training] (one configured profile per endpoint; source-arena requires --map)
 //!       [--hitboxes legacy|archetypes] (ADR0024; default legacy on every path; archetypes opts in to the measured boxes)
+//!       [--tick-ms 50|25] (ADR 0029; else RH_TICK_MS, else 25 since P-TICK-6: every room's step, its Welcome rate and its pacer)
 //!       [--first-playable] (embedded small PvE/loot map; drain at4h, forced process stop by4h+180s)
 //!       [--control 127.0.0.1:7778] [--map parity/maps/seed1.map.json] [--max-rooms 16] [--fill-bots 8]
 //!       [--min-players 1] [--lobby-seconds 10] [--fill-seconds 3] [--lobby-timing legacy|matchmaking] [--auth dev|static:<file>]
@@ -150,7 +151,13 @@ async fn main() {
         eprintln!("[server] invalid hitbox settings: {e}");
         std::process::exit(2);
     });
-    let sim = runtime.as_ref().map_or_else(
+    // P-TICK-5: the room step (`--tick-ms 50|25`, else `RH_TICK_MS`, else 25 since P-TICK-6) for every profile this process hosts.
+    let tick_ms = rh_server::runtime::tick_ms_setting(&args, |key| std::env::var(key).ok())
+        .unwrap_or_else(|e| {
+            eprintln!("[server] invalid tick settings: {e}");
+            std::process::exit(2);
+        });
+    let mut sim = runtime.as_ref().map_or_else(
         || rh_sim::SimConfig {
             hitboxes: core_hitboxes,
             mob_spacing: Default::default(),
@@ -194,9 +201,11 @@ async fn main() {
             } else {
                 rh_sim::FactionMode::Off
             },
+            tick_ms,
         },
         |runtime| runtime.sim(),
     );
+    sim.tick_ms = tick_ms;
     if let Err(e) = rh_server::wire::profile_supported(&sim) {
         eprintln!("[server] refusing to host this simulation profile: {e}");
         std::process::exit(2);
@@ -227,12 +236,20 @@ async fn main() {
         // P-MAP-3: certified maps made ahead on a worker thread; the configured --map is the last resort.
         let configured = rh_server::room::MapAssets::new(cfg.arena.clone())
             .unwrap_or_else(|e| panic!("the configured map encodes as a Welcome: {e:?}"));
-        let signature = runtime.as_ref().is_some_and(|r| r.signature_landmarks);
+        let maker = runtime
+            .as_ref()
+            .map(rh_server::runtime::Settings::styled_maker)
+            .unwrap_or_default();
+        let coliseum = if maker.grand_coliseum {
+            "grand"
+        } else {
+            "legacy"
+        };
         cfg.map_pool = Some(std::sync::Arc::new(rh_server::map_pool::MapPool::start(
-            configured, signature,
+            configured, maker,
         )));
         eprintln!(
-            "[server] map pool on: each room takes its own certified map (target {})",
+            "[server] map pool on: each room takes its own certified map (target {}, {coliseum} coliseum)",
             rh_server::map_pool::MAP_POOL_TARGET
         );
     }

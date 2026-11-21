@@ -288,7 +288,7 @@ pub(super) fn tick(cx: &mut Cx, i: usize, id: QuestId) {
                     })
                 });
                 if inside && !contested {
-                    next.dwell_ms = (next.dwell_ms + TICK_MS).min(FORT_MS);
+                    next.dwell_ms = (next.dwell_ms + cx.k.tick_ms()).min(FORT_MS);
                     if next.dwell_ms >= FORT_MS {
                         next.achieve(1);
                     }
@@ -305,7 +305,7 @@ pub(super) fn tick(cx: &mut Cx, i: usize, id: QuestId) {
                     next.meditation = None;
                     next.dwell_ms = 0.;
                 } else {
-                    next.dwell_ms = (next.dwell_ms + TICK_MS).min(MEDITATE_MS);
+                    next.dwell_ms = (next.dwell_ms + cx.k.tick_ms()).min(MEDITATE_MS);
                     if next.dwell_ms >= MEDITATE_MS {
                         next.achieve(1);
                     }

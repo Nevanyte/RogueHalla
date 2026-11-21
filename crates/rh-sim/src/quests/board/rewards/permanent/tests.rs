@@ -389,7 +389,7 @@ fn warm_coat_stops_bog_movement_slow_and_both_kinds_of_frost_chill() {
         |sim: &Sim| frost::movement_modifier(&sim.w, sim.w.core(ix), TICK_MS, Default::default());
     sim.w.players[0].weapon.ready_at = now + 250.;
     frost::ranged_hits(&mut sim.w, std::slice::from_ref(&arrow));
-    frost::after_damage(&mut sim.w);
+    frost::after_damage(&mut sim.w, sim.k.tick_ms());
     assert!(bog(&sim) < 1.);
     assert!(chill(&sim) < 1.);
     assert!(sim.w.players[0].weapon.ready_at > now + 250.);
@@ -402,7 +402,7 @@ fn warm_coat_stops_bog_movement_slow_and_both_kinds_of_frost_chill() {
     claim(&mut sim, id);
     let ready = sim.w.players[0].weapon.ready_at;
     frost::ranged_hits(&mut sim.w, &[arrow]);
-    frost::after_damage(&mut sim.w);
+    frost::after_damage(&mut sim.w, sim.k.tick_ms());
     assert_eq!(bog(&sim), 1.);
     assert_eq!(chill(&sim), 1.);
     assert_eq!(sim.w.players[0].signature.chill, 1.);

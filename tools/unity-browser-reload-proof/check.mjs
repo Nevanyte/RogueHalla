@@ -63,8 +63,8 @@ function documentRow(row) {
     requireValue(Number.isInteger(e.connection) && e.connection > 0 && e.connection <= 16);
     clocks(e); requireValue(e.timeOriginMs === o.page.timeOriginMs);
     requireValue(e.performanceNowMs <= o.capturedAt.performanceNowMs);
-    if (e.event === 'hello-send-returned') requireValue(e.protocol === 20 && typeof e.resumePresent === 'boolean' && e.wholeFrameValidated === false);
-    if (e.event === 'welcome-public-prefix') requireValue(e.protocol === 20 && /^[a-f0-9]{16}$/.test(e.contentHash) &&
+    if (e.event === 'hello-send-returned') requireValue(e.protocol === 23 && typeof e.resumePresent === 'boolean' && e.wholeFrameValidated === false);
+    if (e.event === 'welcome-public-prefix') requireValue(e.protocol === 23 && /^[a-f0-9]{16}$/.test(e.contentHash) &&
       /^[a-f0-9]{32}$/.test(e.matchId) && Number.isInteger(e.playerId) && e.playerId > 0 && e.playerId <= 0xffffffff && e.wholeFrameValidated === false);
   }
 }
@@ -99,9 +99,9 @@ export function evaluate(bundle) {
       object(a, [...hashes, 'protocol', 'contentHash', 'arenaInfoContentHash', 'trainingInfoContentHash',
         'tickHz', 'graceMs', 'clockMode', 'cacheCondition']);
       if (!hashes.every(k => HEX64.test(a[k] ?? ''))) open.push('one or more prerequisite receipts absent');
-      if (a.protocol !== 20 || a.contentHash !== CONTENT || a.arenaInfoContentHash !== CONTENT ||
+      if (a.protocol !== 23 || a.contentHash !== CONTENT || a.arenaInfoContentHash !== CONTENT ||
           a.trainingInfoContentHash !== CONTENT) failures.push('artifact/server/public identity mismatch');
-      if (a.tickHz !== 20 || a.graceMs !== 10000 || a.clockMode !== 'real-wall-clock') failures.push('runtime timing changed');
+      if (a.tickHz !== 40 || a.graceMs !== 10000 || a.clockMode !== 'real-wall-clock') failures.push('runtime timing changed');
       if (a.cacheCondition !== 'ordinary-warm-reload') open.push('reload cache condition is outside the bounded plan');
     }
     const seen = new Set();

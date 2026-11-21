@@ -245,6 +245,9 @@ impl ActorDelta {
         if self.mask & AD_MARK != 0 {
             [a.mark_tier, a.brand, a.mark_tax] = self.q.mark;
         }
+        if self.mask & AD_WALK != 0 {
+            [a.walk_dir, a.walk_ticks] = self.q.walk;
+        }
         a
     }
 }
@@ -253,11 +256,13 @@ impl ActorDelta {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SnapshotDelta {
     pub tick: u32,
-    /// This frame's absolute source clock; absent wire override decodes to `tick * 50`, never the base clock.
+    /// This frame's absolute source clock; an absent wire override decodes to `tick * tick_ms` at the connection's rate, never
+    /// the base clock.
     pub server_time: f64,
     /// Protocol 11: the source's public training fact (delta head bit 20; static per connection).
     pub training: bool,
-    /// The tick of the snapshot this one is relative to (`tick - base_age`, 1..=[`MAX_DELTA_AGE`] behind).
+    /// The tick of the snapshot this one is relative to (`tick - base_age`, 1..=[`max_delta_age`] at the connection's rate
+    /// behind: 64 at 20 Hz, 128 at 40 Hz).
     pub base_tick: u32,
     /// `Some` when the phase differs from the base's.
     pub phase: Option<u8>,
@@ -274,14 +279,14 @@ pub struct SnapshotDelta {
 
 /// The delta that turns `base` into `cur`, as a message (a reference implementation: [`ConnEncoder`] writes the same bytes
 /// without building it). `None` when `cur` cannot be a delta of `base` (the same conditions [`ConnEncoder`] sends a Full
-/// frame for, except that it may be larger than the Full frame).
+/// frame for at `cur`'s rate ([`SnapshotData::tick_ms`]), except that it may be larger than the Full frame).
 pub fn diff(base: &SnapshotData, cur: &SnapshotData) -> Option<SnapshotDelta> {
     let me = match (&base.me, &cur.me) {
         (_, None) => None,
         (Some(b), Some(c)) if b.id == c.id => Some(SelfDelta::between(b, c)),
         _ => return None,
     };
-    if cur.tick <= base.tick || cur.tick - base.tick > MAX_DELTA_AGE {
+    if cur.tick <= base.tick || cur.tick - base.tick > max_delta_age(cur.tick_ms) {
         return None;
     }
     let (b, c) = (&base.actors, &cur.actors);
@@ -413,5 +418,6 @@ pub(super) fn mask_fields(q: &QActor, mask: u32) -> QActor {
             0
         },
         mark: if mask & AD_MARK != 0 { q.mark } else { [0; 3] },
+        walk: if mask & AD_WALK != 0 { q.walk } else { [0; 2] },
     }
 }

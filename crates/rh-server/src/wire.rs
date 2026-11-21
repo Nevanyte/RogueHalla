@@ -116,7 +116,12 @@ pub fn command(c: WireCommand) -> rh_sim::PublicCommand {
 
 /// Protocol 14 carries neutral quest givers, private quest/trade/plan state and the training bit. Configuration
 /// admission still refuses a training/arena combination: training has no quests, planning or arena lifecycle.
+///
+/// P-TICK-5 (ADR 0029): a room paces at its sim's step, announces it in every Welcome and sets it on each connection's
+/// outbox, so a sim stepping 50 ms (20 Hz) or 25 ms (40 Hz) is hosted; any other step is refused here
+/// ([`rh_protocol::checked_tick_ms`]).
 pub fn profile_supported(config: &rh_sim::SimConfig) -> Result<(), rh_protocol::EncodeError> {
+    rh_protocol::checked_tick_ms(config.tick_ms)?;
     // Measurement only (rh-headless hitbox_compare's A/B): a hosted match never turns mob spacing off.
     if config.mob_spacing != rh_sim::archetype::MobSpacing::Auto {
         return Err(rh_protocol::EncodeError::BadValue(
@@ -185,6 +190,7 @@ fn same_view(a: &ActorView, b: &ActorView) -> bool {
         && a.displace_seq == b.displace_seq
         && a.kind == b.kind
         && a.mob_type == b.mob_type
+        && a.walk == b.walk
 }
 
 /// Highest actor id (exclusive) [`ActorMemo`] remembers; an actor with a higher id is converted every time.

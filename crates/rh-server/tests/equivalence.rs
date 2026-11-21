@@ -70,6 +70,7 @@ async fn a_live_match_replays_and_its_bots_decide_identically_headless() {
         pvp_rules: true,
         weapon_specials: true,
         faction_mode: rh_sim::FactionMode::Off,
+        tick_ms: 50,
     };
     let cfg = DirectorConfig {
         tick: Duration::from_millis(3),

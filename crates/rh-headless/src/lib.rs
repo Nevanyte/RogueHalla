@@ -426,6 +426,7 @@ impl Env {
         let rec = &mut self.recorder;
         if let Some(delay) = &mut self.command_delay {
             let now = self.sim.server_time();
+            let tick_ms = f64::from(self.sim.tick_ms());
             let mut refused = Vec::new();
             rh_policy::drive_seats_queued(
                 &mut self.sim,
@@ -447,7 +448,7 @@ impl Env {
             }
             // Source BotManager.beforeStep(stepT): delivery runs at EVERY upcoming fixed step,
             // including steps where the policy is not due. The observation remains at `now`.
-            for (player, proposal) in delay.drain(now + rh_sim::constants::TICK_MS) {
+            for (player, proposal) in delay.drain(now + tick_ms) {
                 let seat = self
                     .seats
                     .iter_mut()

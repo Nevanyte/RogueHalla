@@ -449,8 +449,20 @@ fn lantern_ward_has_two_independent_spends_and_private_sight() {
     cast(&mut sim, owner, Award::LanternWard, at, None);
     let first = inventory::owned_spells(&sim.w, owner)[0].unwrap();
     assert_eq!(first.charges, 1);
-    assert!(reveals(&sim.w, sim.collision_map(), owner, reveal));
-    assert!(!reveals(&sim.w, sim.collision_map(), rival, reveal));
+    assert!(reveals(
+        &sim.w,
+        sim.collision_map(),
+        owner,
+        reveal,
+        sim.k.tick_ms()
+    ));
+    assert!(!reveals(
+        &sim.w,
+        sim.collision_map(),
+        rival,
+        reveal,
+        sim.k.tick_ms()
+    ));
     use_slot(
         &mut sim,
         owner,

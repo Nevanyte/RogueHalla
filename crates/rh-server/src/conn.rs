@@ -367,8 +367,8 @@ pub async fn serve_guarded(
             }
             Ok(ClientMsg::Resync) => {
                 // The client refused a delta: it gets a Full frame. The request is never dropped; the writer spaces forced Full
-                // frames by MIN_FORCED_FULL_TICKS and keeps a request that arrives sooner pending (the frame bucket above
-                // bounds a flood).
+                // frames by `min_forced_full_ticks` at the connection's rate (1000 ms) and keeps a request that arrives
+                // sooner pending (the frame bucket above bounds a flood).
                 outbox.request_resync();
             }
             Ok(ClientMsg::Leave) => {

@@ -476,7 +476,12 @@ fn terrain_born_kernel_all_cases_fully_compared() {
                     if a["recordHistory"] == true {
                         let t = sim.w.server_time;
                         let c = sim.w.core_mut(ix);
-                        c.body.history.record(t, c.body.x, c.body.y);
+                        c.body.history.record_at_step(
+                            t,
+                            c.body.x,
+                            c.body.y,
+                            crate::constants::LEGACY_TICK_MS,
+                        );
                     }
                 }
                 "bog" => {

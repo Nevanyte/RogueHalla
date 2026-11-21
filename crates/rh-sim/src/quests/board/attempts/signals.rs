@@ -310,7 +310,7 @@ pub(super) fn burn_crown(cx: &mut Cx) {
     let amount = p.vitals.max_hp * CROWN_BURN_RATE;
     let b = board_mut(cx.w).unwrap();
     let before = b.crown.elapsed_ms;
-    b.crown.elapsed_ms += TICK_MS;
+    b.crown.elapsed_ms += cx.k.tick_ms();
     if (before / 1000.) as u32 == (b.crown.elapsed_ms / 1000.) as u32 {
         return;
     }

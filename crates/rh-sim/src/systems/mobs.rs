@@ -319,7 +319,7 @@ pub(crate) fn validate(
                     || birth_serial > w.entity_counter
                     || born_tick > w.tick
                     || born_tick == 0
-                    || f64::from(born_tick) * crate::constants::TICK_MS != w.raid_started_at
+                    || f64::from(born_tick) * k.tick_ms() != w.raid_started_at
                     || spot as usize >= definition.spots.len()
                     || elite != (definition.elite_spot == spot as i32)
                     || crate::mob_catalog::mob_type_in(
@@ -465,7 +465,7 @@ pub(crate) fn validate(
             w.actor_history.get(m.core.id).expect("provenance checked"),
             Vec2::new(p.x, p.y),
             facing,
-            f64::from(*born_tick) * crate::constants::TICK_MS,
+            f64::from(*born_tick) * k.tick_ms(),
             k.config.hitboxes,
         );
         let c = &m.core;
@@ -508,9 +508,7 @@ pub(crate) fn validate(
             || samples
                 .iter()
                 .any(|s| !near(s.x, s.y) || !(0. ..=w.server_time).contains(&s.t))
-            || samples
-                .windows(2)
-                .any(|s| s[1].t - s[0].t < crate::constants::TICK_MS)
+            || samples.windows(2).any(|s| s[1].t - s[0].t < k.tick_ms())
         {
             return Err("invalid mob history".into());
         }

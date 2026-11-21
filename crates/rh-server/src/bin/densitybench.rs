@@ -9,7 +9,7 @@
 //!   cargo build --release -p rh-server --features bench --bin densitybench
 //!   target/release/densitybench --rooms 4 --humans 8 --secs 20 [--fill-to 8] [--profile active|idle]
 //!       [--map parity/maps/seed1.map.json] [--lobby-secs 2] [--seed 1] [--check]
-//!       [--ir-per-match-sec N --ips N] [--headroom 0.5]
+//!       [--ir-per-match-sec N --ips N] [--headroom 0.5] [--tick-ms 50|25]
 //!
 //! Reproducible instruction counts (the reproducibility proof, and the way to get Ir per match-second):
 //!
@@ -50,6 +50,12 @@ fn main() {
     o.secs = num("--secs", 20.0) as u64;
     o.lobby_secs = num("--lobby-secs", 2.0);
     o.seed = num("--seed", 1.0) as u64;
+    // ADR 0029: `--tick-ms 25` measures 40 Hz rooms (P-TICK-6); the default is the legacy 50.
+    o.tick_ms = num("--tick-ms", 50.0) as u32;
+    assert!(
+        rh_protocol::checked_tick_ms(o.tick_ms).is_ok(),
+        "--tick-ms must be 50 or 25"
+    );
     o.profile = match arg(&args, "--profile").as_deref() {
         None | Some("active") => Profile::Active,
         Some("idle") => Profile::Idle,

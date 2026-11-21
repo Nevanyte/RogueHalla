@@ -28,6 +28,9 @@ pub struct Settings {
     /// `--signature-landmarks` (owner decision 6; needs `--map-pool`): pooled maps are generated with the signature
     /// landmarks (`rh_sim::mapgen::pipeline::Options::signature`, set by [`crate::map_pool::StyledMaker`]).
     pub signature_landmarks: bool,
+    /// `--legacy-coliseum` (P-COLISEUM-GRAND-1; needs `--map-pool`): pooled maps are generated around the legacy
+    /// coliseum (`rh_sim::mapgen::coliseum::fixed_layout`) instead of the grand one, the pool's default.
+    pub legacy_coliseum: bool,
 }
 
 /// `--lobby-timing legacy|matchmaking`, default legacy. `matchmaking` is a 15 s lobby with bots at second 13.
@@ -82,6 +85,32 @@ pub fn core_hitboxes(args: &[String]) -> Result<rh_sim::archetype::HitboxMode, S
     )
 }
 
+/// P-TICK-5: the environment variable that sets the server's room step when `--tick-ms` is absent.
+pub const TICK_MS_ENV: &str = "RH_TICK_MS";
+
+/// The live room step (ADR 0029, P-TICK-6, `docs/evidence/forty-hertz/`): 25 ms, 40 Hz. Roll back with `--tick-ms 50`.
+pub const LIVE_TICK_MS: u32 = 25;
+
+/// P-TICK-5 (ADR 0029): the room step in milliseconds from `--tick-ms 50|25`, else [`TICK_MS_ENV`] (`env` is the
+/// environment lookup), else 25 (40 Hz, the live default since P-TICK-6; 50 is the legacy step and the rollback). The flag wins over
+/// the environment.
+/// Any other value (another number, `25.0`, a missing or empty value) is a startup error: `main.rs` exits 2 on it.
+/// The chosen step becomes every hosted sim's `SimConfig::tick_ms`, core and `--runtime` profiles alike.
+pub fn tick_ms_setting(
+    args: &[String],
+    env: impl Fn(&str) -> Option<String>,
+) -> Result<u32, String> {
+    let step = |text: &str, source: &str| match text {
+        "50" => Ok(50),
+        "25" => Ok(25),
+        _ => Err(format!("{source} must be 50 or 25 (milliseconds per step)")),
+    };
+    match value(args, "--tick-ms")? {
+        Some(flag) => step(flag, "--tick-ms"),
+        None => env(TICK_MS_ENV).map_or(Ok(LIVE_TICK_MS), |v| step(&v, TICK_MS_ENV)),
+    }
+}
+
 fn value<'a>(args: &'a [String], flag: &str) -> Result<Option<&'a str>, String> {
     if args.iter().any(|a| a.starts_with(&format!("{flag}="))) {
         return Err(format!("use {flag} with a separate value"));
@@ -112,6 +141,15 @@ fn switch_flag(args: &[String], flag: &str) -> Result<bool, String> {
 }
 
 impl Settings {
+    /// The map pool's generator, the one `main.rs` hands to [`crate::map_pool::MapPool::start`]:
+    /// `--signature-landmarks`, and the grand coliseum unless `--legacy-coliseum` (P-COLISEUM-GRAND-1).
+    pub fn styled_maker(&self) -> crate::map_pool::StyledMaker {
+        crate::map_pool::StyledMaker {
+            signature: self.signature_landmarks,
+            grand_coliseum: !self.legacy_coliseum,
+        }
+    }
+
     /// No flag (or explicit core) retains the existing binary configuration. Misspelled runtime flags fail closed.
     pub fn from_args(args: &[String]) -> Result<Option<Self>, String> {
         if args
@@ -192,9 +230,13 @@ impl Settings {
             lobby_timing: lobby_timing_flag(args)?,
             map_pool: switch_flag(args, "--map-pool")?,
             signature_landmarks: switch_flag(args, "--signature-landmarks")?,
+            legacy_coliseum: switch_flag(args, "--legacy-coliseum")?,
         };
         if settings.signature_landmarks && !settings.map_pool {
             return Err("--signature-landmarks needs --map-pool".into());
+        }
+        if settings.legacy_coliseum && !settings.map_pool {
+            return Err("--legacy-coliseum needs --map-pool".into());
         }
         if training && settings.map_pool {
             return Err("training uses the practice arena; --map-pool is not accepted".into());
@@ -323,6 +365,10 @@ pub fn source_map(bytes: &[u8]) -> Result<Arena, String> {
     crate::wire::arena_fits(&arena)?;
     Ok(arena)
 }
+
+#[cfg(test)]
+#[path = "runtime_tick_tests.rs"]
+mod tick_tests;
 
 #[cfg(test)]
 mod tests {

@@ -250,7 +250,8 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
         // Counter ticks have no clock epoch. Reconstruct elapsed time relative to the current
         // finite source clock; use the same magnitude-aware allowance as the NPC clock checks.
         let clock_epsilon = TIE_EPS_MS.max(8. * f64::EPSILON * w.server_time.max(1.));
-        let born = w.server_time - f64::from(w.tick.saturating_sub(born_tick)) * TICK_MS;
+        let tick_ms = k.tick_ms();
+        let born = w.server_time - f64::from(w.tick.saturating_sub(born_tick)) * tick_ms;
         if def as usize != p.def
             || !quests.insert(quest_id)
             || w.roster.name(row.id).is_some()
@@ -287,7 +288,7 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
                     || !o.publish_at.is_finite()
                     || o.publish_at < w.raid_started_at + QUEST_REVEAL_HEAD_START_MS - clock_epsilon
                     || born + clock_epsilon < o.publish_at
-                    || born >= o.publish_at + TICK_MS + clock_epsilon
+                    || born >= o.publish_at + tick_ms + clock_epsilon
             })
         {
             return Err("hidden giver lacks its retained discovery/publication clock".into());
@@ -307,14 +308,14 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
         let c = &m.core;
         let h = c.body.history.as_slice();
         let count = ((w.tick - born_tick) as usize + 1)
-            .min(((MAX_REWIND_MS + TICK_MS) / TICK_MS) as usize + 1);
+            .min(((MAX_REWIND_MS + tick_ms) / tick_ms) as usize + 1);
         // The source trim compares actual f64 timestamps against now - window. At a
         // binade/rounding boundary it may trim the boundary sample one step earlier.
         let len_ok = h.len() == count
-            || (count == ((MAX_REWIND_MS + TICK_MS) / TICK_MS) as usize + 1
+            || (count == ((MAX_REWIND_MS + tick_ms) / tick_ms) as usize + 1
                 && h.len() + 1 == count
                 && h.first().is_some_and(|s| {
-                    ((s.t - TICK_MS) - (w.server_time - MAX_REWIND_MS - TICK_MS)).abs()
+                    ((s.t - tick_ms) - (w.server_time - MAX_REWIND_MS - tick_ms)).abs()
                         <= clock_epsilon
                 }));
         if m.kind != MobKind::QuestGiver
@@ -349,7 +350,7 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
             || h.iter().enumerate().any(|(i, s)| {
                 s.x != p.at.x
                     || s.y != p.at.y
-                    || (s.t - (w.server_time - (h.len() - i - 1) as f64 * TICK_MS)).abs()
+                    || (s.t - (w.server_time - (h.len() - i - 1) as f64 * tick_ms)).abs()
                         > clock_epsilon
             })
         {

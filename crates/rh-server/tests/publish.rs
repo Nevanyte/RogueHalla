@@ -386,6 +386,7 @@ impl Hand {
                 pvp_rules: true,
                 weapon_specials: true,
                 faction_mode: rh_sim::FactionMode::Off,
+                tick_ms: 50,
             },
             arena: assets.arena.clone(),
             welcome_map: assets.welcome_map.clone(),

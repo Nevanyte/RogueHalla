@@ -1,5 +1,6 @@
 //! Source walkHint.ts: readonly lower-bound preview, then only two player presentation bytes.
-//! No gameplay, input, observer or policy consumes this state.
+//! No gameplay, input or policy decision consumes this state: the public observation only carries the pair to the wire
+//! (`observe::WalkHint`, protocol 19) for remote players' presentation.
 mod queries;
 use super::Cx;
 use crate::{
@@ -28,6 +29,13 @@ pub(crate) fn walk_hint_of(
     ix: FighterIx,
 ) -> WalkHint {
     compute(k, w, ix, |_| move_factor(k, w, ix, stats))
+}
+
+/// The longest hint, in steps of this match: `WALK_HINT_MAX_TICKS` legacy ticks (150 ms), so 3 at 50 ms and 6 at 25 ms
+/// (ADR 0029 decision 3). The wire carries the count as a `u8` step count; the client converts it with the Welcome rate.
+pub(crate) fn walk_hint_max_steps(k: &MatchStatic) -> u8 {
+    let steps = k.steps_of_legacy_ticks(u32::from(WALK_HINT_MAX_TICKS));
+    u8::try_from(steps).expect("the walk hint cap fits its wire byte")
 }
 
 // The readonly fold is supplied once, after the same early guards as source. Production
@@ -90,7 +98,8 @@ fn compute(
         )
         .max(1.)
         * WALK_HINT_SPEED_SLACK;
-    let step = PLAYER_SPEED * upper * TICK_MS / 1000.;
+    let tick_ms = k.tick_ms();
+    let step = PLAYER_SPEED * upper * tick_ms / 1000.;
     let weapon = p.active_weapon();
     let tm = queries::timings(p);
     let locked = p.weapon.targeting.target.is_some();
@@ -98,22 +107,22 @@ fn compute(
         !locked && p.weapon.targeting.attack_move.is_some() && weapon == crate::WeaponId::Wand;
     let mut held_next = None;
     if locked {
-        let Some(hold) = queries::lock_next(k, w, ix.slot(), now + TICK_MS) else {
+        let Some(hold) = queries::lock_next(k, w, ix.slot(), now + tick_ms) else {
             return WalkHint::default();
         };
         held_next = Some(hold);
     }
-    if amove && queries::acquire_next(k, w, ix.slot(), now + TICK_MS) {
+    if amove && queries::acquire_next(k, w, ix.slot(), now + tick_ms) {
         return WalkHint::default();
     }
     let cap = if locked || amove {
         1
     } else {
-        WALK_HINT_MAX_TICKS
+        walk_hint_max_steps(k)
     };
     let mut ticks = 0;
     for j in 1..=cap {
-        let at = now + f64::from(j) * TICK_MS;
+        let at = now + f64::from(j) * tick_ms;
         let distance = f64::from(j) * step;
         if distance > segment + WALK_HINT_WAYPOINT_SLACK_U
             || queries::held_at(p, now, at, tm, if j == 1 { held_next } else { None })

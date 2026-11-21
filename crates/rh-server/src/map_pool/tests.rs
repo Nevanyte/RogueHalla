@@ -445,7 +445,10 @@ fn signature_landmarks_only_set_the_generator_option() {
             ..pipeline::Options::default()
         }
     );
-    let maker = StyledMaker { signature: true };
+    let maker = StyledMaker {
+        signature: true,
+        grand_coliseum: false,
+    };
     assert_eq!(
         maker.options(),
         pipeline::Options {
@@ -514,7 +517,14 @@ fn board_uses_a_new_welcome_for_regenerated_signature_geometry() {
     };
     use rh_sim::quests::board::{catalog::QuestId, map_admission, placement};
     assert!(map_admission::needs_repair(&base.arena, secrets).is_err());
-    let admitted = for_quest_board(base.clone(), secrets, true).unwrap();
+    let style = StyledMaker {
+        signature: true,
+        grand_coliseum: true,
+    };
+    let admitted = for_quest_board(base.clone(), secrets, style).unwrap();
+    let rect = admitted.arena.map.layers().unwrap().coliseum().rect;
+    let grand_width = (2. * rh_sim::mapgen::coliseum::GRAND_DEFINITION.half) as u32;
+    assert_eq!((rect.w, rect.h), (grand_width, grand_width));
     assert_eq!(
         map_admission::needs_repair(&admitted.arena, secrets),
         Ok(false)

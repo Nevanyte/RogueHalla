@@ -30,8 +30,14 @@ fn rss_kib(field: &str) -> u64 {
 
 /// The live source-arena rules (`SimConfig::live_content()`, as `rh-server` `runtime.rs` `Settings::sim` builds them,
 /// archetype hitboxes included), with eight seats filled by bots at once.
+/// The sim's step: `TICK_MS=25` measures a 40 Hz room (ADR 0029); the default is 50.
+fn tick_ms() -> u32 {
+    std::env::var("TICK_MS").map_or(50, |v| v.parse().expect("TICK_MS is 50 or 25"))
+}
+
 fn live_rules() -> SimConfig {
     SimConfig {
+        tick_ms: tick_ms(),
         min_players: 1,
         lobby_seconds: 5.,
         fill_seconds: 3.,
@@ -108,7 +114,7 @@ fn run(label: &str, arena: rh_sim::Arena, seed: u64, max_ticks: u32, gen_ms: f64
     let mut sorted = us.clone();
     sorted.sort_by(f64::total_cmp);
     let pct = |p: f64| sorted[((ticks as f64 - 1.) * p).round() as usize];
-    let budget = rh_sim::constants::TICK_MS * 1000.;
+    let budget = f64::from(tick_ms()) * 1000.;
     println!(
         "{{\"map\":\"{label}\",\"size\":\"{w}x{h}\",\"camps\":{camps},\"seed\":{seed},\"genMs\":{gen_ms:.1},\
 \"ticks\":{ticks},\"terminated\":{},\"maxMobs\":{max_mobs},\"maxActors\":{max_actors},\

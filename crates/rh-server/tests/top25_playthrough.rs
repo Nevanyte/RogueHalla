@@ -12,7 +12,6 @@ use tokio::{
 };
 
 const QUEST: &str = "stay_a_while";
-const TICK: Duration = Duration::from_millis(50);
 
 #[path = "top25_playthrough/spell_cooldowns.rs"]
 mod spell_cooldowns;
@@ -193,10 +192,11 @@ fn until(
     room: &mut Room,
     a: &mut Client,
     b: &mut Client,
-    steps: usize,
+    legacy_steps: usize,
     why: &str,
     condition: impl Fn(&Room, &Client, &Client) -> bool,
 ) {
+    let steps = legacy_steps * 50 / room.sim().tick_ms() as usize;
     for _ in 0..steps {
         if condition(room, a, b) {
             return;
@@ -211,6 +211,7 @@ fn test_room(
     placement_attempts: Range<u64>,
     room_id: [u8; 16],
     rules: ArenaRules,
+    tick_ms: u32,
 ) -> Room {
     let fixed = coliseum::fixed_layout();
     let generator = pipeline::Pipeline::new(&fixed);
@@ -231,6 +232,7 @@ fn test_room(
         room_id,
         RoomConfig {
             sim: SimConfig {
+                tick_ms,
                 min_players: 2,
                 lobby_seconds: 0.05,
                 fill_seconds: 0.05,
@@ -240,7 +242,7 @@ fn test_room(
             arena: assets.arena,
             welcome_map: assets.welcome_map,
             fill_bots_to: 0,
-            tick: TICK,
+            tick: Duration::from_millis(u64::from(tick_ms)),
             record: false,
             fixed_secrets: Some(secrets),
             fixed_bot_seed: None,
@@ -253,7 +255,16 @@ fn test_room(
 }
 
 #[tokio::test(start_paused = true)]
-async fn two_seated_clients_finish_the_same_quest_and_resume_independent_stasis_state() {
+async fn two_players_independently_complete_and_resume_at_20_hz() {
+    check_independent_completion(50);
+}
+
+#[tokio::test(start_paused = true)]
+async fn two_players_independently_complete_and_resume_at_40_hz() {
+    check_independent_completion(25);
+}
+
+fn check_independent_completion(tick_ms: u32) {
     let secrets = Secrets::from_seed(14);
     let mut room = test_room(
         secrets,
@@ -265,6 +276,7 @@ async fn two_seated_clients_finish_the_same_quest_and_resume_independent_stasis_
             coliseum_schedule: None,
             ..Default::default()
         },
+        tick_ms,
     );
     let mut a = Client::join(&mut room, "alice", 1);
     let mut b = Client::join(&mut room, "bob", 2);
@@ -345,7 +357,7 @@ async fn two_seated_clients_finish_the_same_quest_and_resume_independent_stasis_
     );
     let a_channel_began = room.sim().server_time();
     a.meditate(&mut room);
-    for _ in 0..20 {
+    for _ in 0..1000 / tick_ms {
         wake(&mut room, &mut a, &mut b);
     }
     let b_channel_began = room.sim().server_time();
@@ -383,7 +395,7 @@ async fn two_seated_clients_finish_the_same_quest_and_resume_independent_stasis_
     );
     let a_frozen = a.pos(&room);
     a.move_to(&mut room, a_start);
-    for _ in 0..6 {
+    for _ in 0..300 / tick_ms {
         wake(&mut room, &mut a, &mut b);
     }
     assert_eq!(
@@ -430,11 +442,11 @@ async fn two_seated_clients_finish_the_same_quest_and_resume_independent_stasis_
     );
     let b_frozen = b.pos(&room);
     b.move_to(&mut room, b_start);
-    for _ in 0..6 {
+    for _ in 0..300 / tick_ms {
         wake(&mut room, &mut a, &mut b);
     }
     assert_eq!(b.pos(&room), b_frozen);
-    for _ in 0..50 {
+    for _ in 0..2500 / tick_ms {
         wake(&mut room, &mut a, &mut b);
     }
     b.move_to(&mut room, b_start);

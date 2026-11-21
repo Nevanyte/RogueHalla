@@ -2,6 +2,7 @@
 mod full_slots;
 mod spells;
 use super::*;
+use crate::constants::TICK_MS;
 use crate::input::{validate as validate_input, RawCommand};
 use crate::mapgen::{coliseum, pipeline};
 use crate::quest_view::{QuestHandle, QuestObserver, QuestView};

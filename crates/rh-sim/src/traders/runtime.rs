@@ -121,7 +121,7 @@ pub(crate) fn update(cx: &mut Cx) {
     let held = crate::barriers::held(w);
     let map = crate::barriers::body_map(k, &held, w.rt.gates_locked);
     let now = w.server_time;
-    let dt = TICK_MS;
+    let dt = k.tick_ms();
     let mut rng = w.reward_rng.clone();
     let mut random = || rng.next_f64();
     for ti in 0..rt.traders.len() {

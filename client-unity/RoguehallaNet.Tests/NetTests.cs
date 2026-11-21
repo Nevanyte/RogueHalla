@@ -91,7 +91,7 @@ namespace Roguehalla.Net.Tests
         {
             var calm = new RenderClock();
             Drive(calm, i => 0, double.MaxValue, double.MaxValue, 15, (t, r) => { });
-            Assert.That(calm.DelayMs, Is.InRange(70, 73), "delay " + calm.DelayMs);
+            Assert.That(calm.DelayMs, Is.InRange(RenderClock.MinDelayMs, RenderClock.MinDelayMs + 3), "delay " + calm.DelayMs);
 
             var rnd = new Random(3);
             var noisy = new RenderClock();
@@ -149,6 +149,44 @@ namespace Roguehalla.Net.Tests
             });
             // Arrival-phase noise moves the measured delay by a few ms either way, but never in slews of tens of ms.
             Assert.Less(flips, frames / 20, "flips " + flips + " of " + frames);
+        }
+
+        // A frame-driven client stamps each snapshot at the frame that polls it, so arrival jitter includes frame quantization.
+        // Plays a link with base latency 30 ms plus `jitterMs` of uniform jitter, polled at `fps`, and reports the settled delay,
+        // the most render time ever ran past the newest received sample (ms; > 0 is a stall: remote fighters freeze), and the
+        // number of frames that ran past it.
+        static void FramePolled(double fps, double jitterMs, int seed, out double settled, out double worstStarveMs, out int starvedFrames)
+        {
+            var rnd = new Random(seed);
+            var c = new RenderClock();
+            double frame = 1000.0 / fps, newest = double.NegativeInfinity, worst = 0; int starved = 0, next = 0;
+            var arrivals = new List<(double local, double server)>();
+            for (int i = 0; i < 20 * 30; i++) { double s = 1000 + i * 50.0; arrivals.Add((s + 30 + rnd.NextDouble() * jitterMs, s)); }
+            arrivals.Sort((a, b) => a.local.CompareTo(b.local));
+            for (double t = 1000; t < 1000 + 30000; t += frame)
+            {
+                while (next < arrivals.Count && arrivals[next].local <= t) { c.OnSnapshot(t, arrivals[next].server); newest = Math.Max(newest, arrivals[next].server); next++; }
+                if (!c.Ready) continue;
+                double r = c.Update(t);
+                if (t > 6000 && r > newest) { starved++; worst = Math.Max(worst, r - newest); }
+            }
+            settled = c.DelayMs; worstStarveMs = worst; starvedFrames = starved;
+        }
+
+        [Test]
+        public void CalmLinksDrawRemoteFightersCloserToNowWithoutStalling()
+        {
+            Assert.AreEqual(55, RenderClock.MinDelayMs, "the floor: one 50 ms tick plus 5 ms of margin");
+            foreach (var fps in new[] { 60.0, 144.0 })
+                foreach (var jitter in new[] { 0.0, 5.0, 15.0, 30.0 })
+                {
+                    double settled, worst; int starved;
+                    FramePolled(fps, jitter, 5, out settled, out worst, out starved);
+                    Console.WriteLine("fps " + fps + " jitter " + jitter + ": delay " + settled.ToString("F1") + " ms, worst stall " + worst.ToString("F1") + " ms over " + starved + " frames");
+                    Assert.LessOrEqual(starved, 2, "fps " + fps + " jitter " + jitter + ": frames past the newest sample");
+                    Assert.Less(worst, 5, "fps " + fps + " jitter " + jitter + ": stall length");
+                    if (fps >= 144 && jitter <= 5) Assert.Less(settled, 66, "a calm link at 144 fps should sit near the floor, not at the old 70");
+                }
         }
 
         [Test]

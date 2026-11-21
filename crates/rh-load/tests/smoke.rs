@@ -46,6 +46,7 @@ async fn start(creds: &Creds, max_rooms: usize) -> InProc {
         pvp_rules: true,
         weapon_specials: true,
         faction_mode: rh_sim::FactionMode::Off,
+        tick_ms: 50,
     };
     let cfg = DirectorConfig {
         max_rooms,

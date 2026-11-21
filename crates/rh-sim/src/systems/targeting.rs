@@ -84,7 +84,12 @@ fn lockable(cx: &mut Cx, i: usize, j: usize) -> bool {
     let other = cx.w.core(FighterIx::of_slot(j));
     let within = distance(viewer.pos(), other.pos()) <= TARGET_RANGE;
     // Preserve the original refresh for a visible candidate even when it is out of range.
-    crate::vision::refresh_player(&mut cx.w.players[i], cx.w.tick, cx.w.rt.gates_locked);
+    crate::vision::refresh_player(
+        &mut cx.w.players[i],
+        cx.w.tick,
+        cx.k.tick_ms(),
+        cx.w.rt.gates_locked,
+    );
     within
 }
 
@@ -314,7 +319,7 @@ fn follow(cx: &mut Cx, i: usize, id: PlayerId) {
         p.weapon.pressed_at = now;
     }
     p.weapon.held = hold;
-    p.weapon.lag_ms = TICK_MS;
+    p.weapon.lag_ms = cx.k.tick_ms();
     p.weapon.aim = aim;
     p.weapon.aim_at = now;
     if wrap_angle(aim - p.body.facing).abs() >= MOB_AIM_DEADBAND {

@@ -45,6 +45,9 @@ mod parity_tests;
 // P-FROST-WALL-BOTS-1 oracle: bots aim Frost Wall as legacy's bots do.
 #[cfg(test)]
 mod frost_wall_bots_tests;
+// P-COLISEUM-HEALS-2 oracle: heal pickups reach a seat as Heal props; bots ignore them.
+#[cfg(test)]
+mod heal_prop_bots_tests;
 #[cfg(test)]
 mod paths_parity_tests;
 #[cfg(test)]

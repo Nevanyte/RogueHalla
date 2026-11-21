@@ -60,6 +60,9 @@ pub struct Opts {
     pub profile: Profile,
     pub seed: u64,
     pub arena: Arc<Arena>,
+    /// The rooms' step in milliseconds (`SimConfig::tick_ms`, ADR 0029): 50 (the default, legacy) or 25. The pacer runs
+    /// on it and match seconds are counted at it.
+    pub tick_ms: u32,
 }
 
 impl Opts {
@@ -73,6 +76,7 @@ impl Opts {
             profile: Profile::Active,
             seed: 1,
             arena: Arc::new(arena),
+            tick_ms: 50,
         }
     }
 }
@@ -229,6 +233,7 @@ pub async fn run(o: &Opts, check_frames: bool) -> Report {
         pvp_rules: true,
         weapon_specials: true,
         faction_mode: rh_sim::FactionMode::Off,
+        tick_ms: o.tick_ms,
     };
     let (rep_tx, mut rep_rx) = mpsc::unbounded_channel();
     let rss0 = rh_server::metrics::rss_bytes();
@@ -246,7 +251,7 @@ pub async fn run(o: &Opts, check_frames: bool) -> Report {
             arena: assets.arena.clone(),
             welcome_map: assets.welcome_map.clone(),
             fill_bots_to: o.fill_to,
-            tick: Duration::from_millis(rh_sim::constants::TICK_MS as u64),
+            tick: Duration::from_millis(u64::from(o.tick_ms)),
             record: false,
             fixed_secrets: Some(Secrets::from_seed(o.seed.wrapping_add(r as u64))),
             fixed_bot_seed: Some(o.seed.wrapping_mul(1_000_003).wrapping_add(r as u64)),
@@ -323,7 +328,7 @@ pub async fn run(o: &Opts, check_frames: bool) -> Report {
         rooms: o.rooms,
         humans: o.humans,
         rooms_closed: stats.len(),
-        match_seconds: ticks as f64 / rh_sim::constants::TICK_RATE as f64,
+        match_seconds: ticks as f64 * f64::from(o.tick_ms) / 1000.0,
         human_ticks: ticks * o.humans as u64,
         steps: ticks,
         dropped_steps: dropped,

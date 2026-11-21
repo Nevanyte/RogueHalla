@@ -206,8 +206,11 @@ fn hatch(cx: &mut Cx, egg: Egg) {
         corpse.owner_hatched = true;
     }
     crate::systems::displace::apply(cx.k, cx.w, cx.pf, egg.owner, egg.at);
+    let tick_ms = cx.k.tick_ms();
+    let tick = cx.w.tick;
+    let locked = cx.w.rt.gates_locked;
     let p = cx.w.players.get_mut(egg.owner).expect("hatching player");
-    crate::vision::refresh_player(p, cx.w.tick, cx.w.rt.gates_locked);
+    crate::vision::refresh_player(p, tick, tick_ms, locked);
 }
 
 /// No owner or private reference is disclosed. During the hatch every observer can see the shell.
@@ -224,7 +227,13 @@ pub(crate) fn visible(k: &MatchStatic, w: &World, viewer: &Player, egg: Egg) -> 
         return false;
     }
     let map = crate::collision::view(k, w);
-    if crate::quests::board::rewards::effects::reveals(w, map.current(), viewer.id, egg.at) {
+    if crate::quests::board::rewards::effects::reveals(
+        w,
+        map.current(),
+        viewer.id,
+        egg.at,
+        k.tick_ms(),
+    ) {
         return true;
     }
     if crate::vision::WardSight::of(k, w).sees(map, viewer.id, egg.at, w.tick) {

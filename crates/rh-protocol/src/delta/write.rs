@@ -2,8 +2,9 @@
 
 use super::*;
 
-/// The delta message as bytes (the reference writer behind `ServerMsg::SnapshotDelta`).
-pub(crate) fn write_message(w: &mut Writer, d: &SnapshotDelta) {
+/// The delta message as bytes (the reference writer behind `ServerMsg::SnapshotDelta`) on a connection of `tick_ms` per tick:
+/// the source-time override is written only when `server_time` is not `tick * tick_ms`.
+pub(crate) fn write_message(w: &mut Writer, d: &SnapshotDelta, tick_ms: u32) {
     w.u8(T_SNAPSHOT_DELTA);
     w.varint(d.tick);
     w.varint(d.tick.wrapping_sub(d.base_tick));
@@ -24,7 +25,7 @@ pub(crate) fn write_message(w: &mut Writer, d: &SnapshotDelta) {
     if d.owner_combat.is_some() {
         head |= DH_OWNER_COMBAT;
     }
-    if d.server_time.to_bits() != snapshot_server_ms(d.tick).to_bits() {
+    if d.server_time.to_bits() != snapshot_server_ms_at(d.tick, tick_ms).to_bits() {
         head |= DH_SERVER_TIME;
     }
     w.varint(head);
@@ -175,6 +176,9 @@ pub(crate) fn write_message(w: &mut Writer, d: &SnapshotDelta) {
         if a.mask & AD_MARK != 0 {
             w.bytes(&a.q.mark);
         }
+        if a.mask & AD_WALK != 0 {
+            w.bytes(&a.q.walk);
+        }
     }
     if !d.departed.is_empty() {
         write_departed(w, &d.departed);
@@ -190,14 +194,14 @@ pub(crate) fn write_message(w: &mut Writer, d: &SnapshotDelta) {
     }
 }
 
-pub(crate) fn message_len(d: &SnapshotDelta) -> usize {
+pub(crate) fn message_len(d: &SnapshotDelta, tick_ms: u32) -> usize {
     let mut w = Writer::default();
-    write_message(&mut w, d);
+    write_message(&mut w, d, tick_ms);
     w.len()
 }
 
-/// Why a decoder would reject this delta message (the encoder refuses it too: [`EncodeError`]).
-pub(crate) fn message_check(d: &SnapshotDelta) -> Result<(), EncodeError> {
+/// Why a decoder at `tick_ms` per tick would reject this delta message (the encoder refuses it too: [`EncodeError`]).
+pub(crate) fn message_check(d: &SnapshotDelta, tick_ms: u32) -> Result<(), EncodeError> {
     list("actors", d.changed.len(), MAX_ACTORS)?;
     list("departed", d.departed.len(), MAX_ACTORS)?;
     let bad = |why| Err(EncodeError::BadValue(why));
@@ -208,7 +212,7 @@ pub(crate) fn message_check(d: &SnapshotDelta) -> Result<(), EncodeError> {
         return bad("phase");
     }
     match d.tick.checked_sub(d.base_tick) {
-        Some(age) if (1..=MAX_DELTA_AGE).contains(&age) => {}
+        Some(age) if (1..=max_delta_age(tick_ms)).contains(&age) => {}
         _ => return bad("base age"),
     }
     if let Some(s) = &d.me {

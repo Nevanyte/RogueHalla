@@ -9,7 +9,7 @@ use crate::sim::{Arena, Event, Placement, PlayerId, Secrets, Sim, SimConfig};
 
 /// Version 25 is the union of the Card feedback trusted report leaf (backend) and the protocol 16 / observation 24 projection
 /// (Unity), over the composed typed actor, giver, Frost and Sentenced state. Other formats are refused.
-pub const REPLAY_FORMAT: &str = "rh-replay/26";
+pub const REPLAY_FORMAT: &str = "rh-replay/27";
 
 /// Identity of the code this binary was built from: the `RH_BUILD` environment variable at compile time (a release build is meant to set
 /// it to the commit id; nothing in the repo does yet, so every dev build reads the same), else `dev-<crate version>`. It is a compile-time constant, so reading it keeps
@@ -90,6 +90,8 @@ pub struct Replay {
     /// The match this replay belongs to, as the durable store knows it (a UUID string) when it was recorded by a live room.
     #[serde(default)]
     pub match_id: Option<String>,
+    /// The match's config, its step length included (`SimConfig::tick_ms`, ADR 0029): a 50 ms replay writes it as `null`
+    /// (the shape it had before the field), a 25 ms one as `25`; each replays only at its own step.
     pub config: SimConfig,
     pub arena: Arena,
     pub secrets: Secrets,

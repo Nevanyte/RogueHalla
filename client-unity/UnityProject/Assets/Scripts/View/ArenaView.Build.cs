@@ -105,6 +105,7 @@ namespace Roguehalla.Client
             _regionGround = RegionGround.Create(_mapRoot, map, RegionExposure, temple, plague);
             if (temple.Found) AddTempleEmblem(temple);
             _regionWalls = RegionWalls.Build(_mapRoot, map, RegionExposure);
+            _coliseumGates = ColiseumGateWalls.Build(_mapRoot, map, _regionWalls.Material);
             _regionProps = RegionProps.Build(_mapRoot, map);
             _landmarks = LandmarkView.Build(_mapRoot, map);
             HasMap = true;

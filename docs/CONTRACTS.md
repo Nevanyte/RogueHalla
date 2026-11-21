@@ -338,7 +338,7 @@ Rust/C#/WSS and source checks. Full-game, AWS, browser-matrix and release gates 
 
 | ID | Contract | Decision | Validation | Tests |
 |---|---|---|---|---|
-| C-TICK | Fixed 20 Hz step; sim time +50 ms per step; fixed system order, held as an executable schedule checked against the legacy record | Accepted, FROZEN | Passed | parity suite; `rh-parity/tests/schedule.rs`; `rh-sim/src/systems/tests.rs`; `rh-server` pacer unit tests; `rh-server/tests/density.rs` |
+| C-TICK | Fixed step of `SimConfig::tick_ms` (50 or 25 ms; 50 for legacy, parity and every capture); sim time +`tick_ms` per step ([ADR 0029](adr/0029-forty-hertz-tick.md), accepted 2026-11-19; until P-TICK-1a/1b land every sim steps 50 ms); fixed system order, held as an executable schedule checked against the legacy record | Accepted, FROZEN | Passed | parity suite; `rh-parity/tests/schedule.rs`; `rh-sim/src/systems/tests.rs`; `rh-server` pacer unit tests; `rh-server/tests/density.rs` |
 | C-RNG | No entropy in the core; injected secrets; one stream per purpose; the state hash is server-private (it depends on `spawn_seed`) | Accepted, FROZEN | Passed (with the known tie-outcome observability and the state-hash oracle limit below) | `rh-sim/tests/observe.rs`; `tie_kill_credit_*` parity fixtures; determinism tests; `rh-sim/tests/hash_coverage.rs` (statics secrets held out and asserted) |
 | C-NUM | f64, legacy order, no FMA, `libm` transcendentals; the kernel fast paths (E-sim) equal the plain formulations bit for bit | Accepted, FROZEN | Passed (x86_64) / Not run (aarch64) | parity suite; `rh-sim/tests/kernel.rs` (`ray_blocked`, `circle_clear` and `wrap_angle` against the plain forms) |
 | C-DET | Replays (`rh-replay/2`) and checkpoints (`rh-checkpoint/3`) reproduce every step hash and carry the `build` and `content_hash` that recorded them (a stored file is verified by that build only; another content is refused with `ContentMismatch`); the state hash is derived from the serialized `World` (0 unhashed leaves); live = headless; the tick allocates nothing in steady state | Accepted, FROZEN | Passed (P8; H-sim tests ran on the H-sim branch head `fec4572`, no merge-time gate run is recorded for `2e8682c`) | `rh-headless/tests/{env,restore_real}.rs`, `rh-server/tests/equivalence.rs`, `rh-sim/tests/{checkpoint,hash_coverage,replay,no_alloc}.rs`, `rh-sim/src/hash.rs` unit tests, `rh-sim/clippy.toml` |
@@ -353,7 +353,9 @@ Rust/C#/WSS and source checks. Full-game, AWS, browser-matrix and release gates 
 | C-PERF | Pull requests touching the Rust core are A/B-measured against their merge-base with deterministic counts (Ir per unit <= 1.03x, no allocation increase, equal behaviour fingerprints unless declared) | Accepted | Not run in CI yet: the workflow passed `actionlint` and a local dry run of its exact command line; its first real pull-request run is still to be observed | `.github/workflows/perfproof.yml`, `tools/perfproof/perfproof.py`, [CONTRIBUTING.md](../CONTRIBUTING.md) |
 
 ## C-TICK: time and order
-- `rh_sim::Sim::step` advances exactly `TICK_MS` (50 ms) of simulation time; nothing else advances time
+- `rh_sim::Sim::step` advances exactly `TICK_MS` (50 ms) of simulation time; nothing else advances time. Amended by
+  [ADR 0029](adr/0029-forty-hertz-tick.md) (owner, 2026-11-19): after P-TICK-1a/1b a step advances the sim's own
+  `SimConfig::tick_ms`, 50 or 25 ms, 50 for legacy, parity and every capture; the order below does not change
   (`crates/rh-sim/src/sim.rs`). `Sim::step_into(&mut Vec<Event>)` is the allocation-free entry (`step` wraps it).
 - Active tick order (legacy `packages/server/src/sim/step.ts`): mark tick start → inputs in the secret action order →
   [abilities] → target locks → weapons → [afterWeapons] → movement (all multipliers read before anyone moves) → history

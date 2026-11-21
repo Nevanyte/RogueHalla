@@ -48,12 +48,13 @@ namespace Roguehalla.Net.Protocol
                     case PropKind.WindEmblem: break;
                     case PropKind.Cannon: break;
                     case PropKind.QuestItem: Require(row.QuestRef.IsValid, "quest prop handle"); break;
+                    case PropKind.Heal: break;
                     case PropKind.RebirthEgg: break;
                     default: throw new EncodeException("prop kind");
                 }
                 if (Focus.HasValue && row.Handle.Equals(Focus.Value.Handle))
                 {
-                    Require(row.Kind != PropKind.RebirthEgg, "prop focus");
+                    Require(row.Kind != PropKind.RebirthEgg && row.Kind != PropKind.Heal, "prop focus");
                     focused = true; CheckWeapon(Focus.Value.BodyHint);
                     Require(!Focus.Value.BodyHint.HasValue || row.Kind == PropKind.Body, "body hint");
                 }
@@ -66,7 +67,7 @@ namespace Roguehalla.Net.Protocol
             foreach (var row in Rows)
             {
                 w.Varint(row.Handle.Value); w.U16(row.X); w.U16(row.Y); w.U8((byte)row.Kind);
-                switch (row.Kind) { case PropKind.Ground: w.U8(row.GroundWeapon); break; case PropKind.Chest: w.U8(row.Open ? (byte)1 : (byte)0); break; case PropKind.Body: w.Str(row.BodyLabel); break; case PropKind.Corpse: w.Str(row.CorpseLabel); break; case PropKind.WindEmblem: break; case PropKind.Cannon: w.Varint(row.ReadyAt); break; case PropKind.QuestItem: w.Varint(row.QuestRef.Value); w.U8(row.QuestFetch ? (byte)1 : (byte)0); break; case PropKind.RebirthEgg: w.U8(row.Hatching ? (byte)1 : (byte)0); break; }
+                switch (row.Kind) { case PropKind.Ground: w.U8(row.GroundWeapon); break; case PropKind.Chest: w.U8(row.Open ? (byte)1 : (byte)0); break; case PropKind.Body: w.Str(row.BodyLabel); break; case PropKind.Corpse: w.Str(row.CorpseLabel); break; case PropKind.WindEmblem: break; case PropKind.Cannon: w.Varint(row.ReadyAt); break; case PropKind.QuestItem: w.Varint(row.QuestRef.Value); w.U8(row.QuestFetch ? (byte)1 : (byte)0); break; case PropKind.Heal: w.Varint(row.ReadyAt); break; case PropKind.RebirthEgg: w.U8(row.Hatching ? (byte)1 : (byte)0); break; }
             }
             w.Varint(Focus.HasValue ? Focus.Value.Handle.Value : 0); if (Focus.HasValue) WriteWeapon(w, Focus.Value.BodyHint);
         }

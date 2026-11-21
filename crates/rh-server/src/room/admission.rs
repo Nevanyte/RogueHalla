@@ -38,6 +38,8 @@ impl Room {
         });
         let session = random16();
         let admission = lease.as_ref().map(|(identity, _)| *identity);
+        let mut collections = crate::wire_state::CollectionPublisher::default();
+        Self::bind_rate(self.sim.tick_ms(), &outbox, &mut collections);
         self.fences.push(SeatRecord {
             player,
             fence: Some(fence),
@@ -61,7 +63,7 @@ impl Room {
             rtt: RttEstimator::new(),
             carry: Vec::new(),
             items: rh_sim::ItemObserver::new(player),
-            collections: Default::default(),
+            collections,
             spare: None,
             result: None,
         });

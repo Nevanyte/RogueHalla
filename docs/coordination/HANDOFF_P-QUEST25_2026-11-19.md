@@ -9,7 +9,7 @@ Normal raids deal ten distinct offers. Each of the five zones contributes two of
 | GATE | PASS (full) on the gameplay commit. PostgreSQL server and placement, parity, Unity EditMode, headless smoke and release-only bot checks passed. Local log `.agent-runs/gate/20261119T012938-codex-top25-quests-full.log`. |
 | CHANGED | Rust simulation, room and map admission, protocol fixtures and decoders, human and bot views, Unity controls, journal, maps and world presenters, test harnesses, design and verification records. Use `git diff --name-only 24a2ce99f 1beb7e7cd` for the complete file list. |
 | D-RULES | D1 uses native scenario proofs for the approved design and the historical K1 witnesses for legacy behavior. D2 quest reward balance is playtest tuning. D5 and D10 use the owner-approved quest exception. D6 retains the existing disconnect reporting. The room tests cover independent session resume. D9 keeps game decisions and movement correction on the server. |
-| DEVIATIONS | [DEV-039](../DEVIATIONS.md#entries) records personal completion, zoned selection and named rewards. |
+| DEVIATIONS | [DEV-040](../DEVIATIONS.md#entries) records personal completion, zoned selection and named rewards. |
 | SHARED RECORDS | The coordinator updated [MIGRATION](../MIGRATION.md) for this local candidate. |
 | LEGACY DOUBTS | None. The owner selected the workbook’s player-facing Rime Hunt objective, the Feed or Hunt feed branch, and personal completion in place of the lobby-wide winner. |
 | NOT ESTABLISHED | Human balance, remote hosting performance, cross-architecture determinism, and Valgrind performance proof. This branch has been tested locally. |

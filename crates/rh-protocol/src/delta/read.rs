@@ -114,11 +114,15 @@ pub(super) fn read_id(
     }
 }
 
-/// Reads the body of a delta frame (after the tag): syntax and ranges only.
-pub(crate) fn read_snapshot_delta(r: &mut Reader) -> Result<SnapshotDelta, DecodeError> {
+/// Reads the body of a delta frame (after the tag) on a connection of `tick_ms` per tick (its Welcome's rate): syntax and
+/// ranges only. The base age is bounded by [`max_delta_age`] and an absent source time is `tick * tick_ms`.
+pub(crate) fn read_snapshot_delta(
+    r: &mut Reader,
+    tick_ms: u32,
+) -> Result<SnapshotDelta, DecodeError> {
     let tick = r.varint()?;
     let age = r.varint()?;
-    if !(1..=MAX_DELTA_AGE).contains(&age) || age > tick {
+    if !(1..=max_delta_age(tick_ms)).contains(&age) || age > tick {
         return Err(DecodeError::BadField("base age"));
     }
     let ack_input = r.varint()?;
@@ -139,12 +143,15 @@ pub(crate) fn read_snapshot_delta(r: &mut Reader) -> Result<SnapshotDelta, Decod
     };
     let server_time = if head & DH_SERVER_TIME != 0 {
         let time = r.f64()?;
-        if !time.is_finite() || time < 0.0 || time.to_bits() == snapshot_server_ms(tick).to_bits() {
+        if !time.is_finite()
+            || time < 0.0
+            || time.to_bits() == snapshot_server_ms_at(tick, tick_ms).to_bits()
+        {
             return Err(DecodeError::BadField("server time"));
         }
         time
     } else {
-        snapshot_server_ms(tick)
+        snapshot_server_ms_at(tick, tick_ms)
     };
     let n = r.varint()? as usize;
     if n > MAX_ACTORS {
@@ -223,6 +230,9 @@ pub(crate) fn read_snapshot_delta(r: &mut Reader) -> Result<SnapshotDelta, Decod
         }
         if mask & AD_MARK != 0 {
             q.mark = [r.u8()?, r.u8()?, r.u8()?];
+        }
+        if mask & AD_WALK != 0 {
+            q.walk = [r.u8()?, r.u8()?];
         }
         if let Some(why) = crate::indicator_fault(q.offhand, q.build_marks, q.mark, q.flags) {
             return Err(DecodeError::BadField(why));

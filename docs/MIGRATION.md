@@ -4,9 +4,67 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Top 25 quests on the 40 Hz integration branch (2026-11-21)
+
+[P-QUEST25-INTEGRATE](backlog/packets/P-QUEST25-INTEGRATE.md) combines the November 19 quest branch with the target through `5567458fb`. Each normal raid draws two of the five eligible quests in each zone. Each player can finish each offer once per match. Completing it retires that player's row and preserves the offer for other players.
+
+The combined wire version is 23. Heal pickups use prop kind 8, Rebirth Eggs use kind 9, and destroyed terrain uses State key 14. The quest data uses observation 36, policy 32, checkpoint 38 and replay 27. The 40 Hz live default and 20 Hz compatibility both apply. See the [integration checks](evidence/quest25-integration-2026-11-21/README.md) and [PR #81](https://github.com/Nevanyte/RogueHalla/pull/81).
+
+## 40 Hz tick, P-TICK-1a to 6 (2026-11-20, branch `claude/project-thread-baoxuk`)
+
+**Owner direction 2026-11-19:** "lets do 40" (live tick 40 Hz), then "okay for all 3" (accept ADR 0029, sign DEV-039,
+push). ADR 0029 Accepted; C-TICK amended; DEV-039 signed; packets P-TICK-0..6 (backlog section 1a). P-TICK-3 lands after
+the "Cut delay on other players" thread's protocol 19 and becomes protocol 20.
+
+**P-TICK-1a** (`SimConfig::tick_ms` 50 or 25 in the sim core, save, restore, hash). oracle-author (Opus); coordinator
+oracle amends: the hash census row for `statics.config.tick_ms`, and one test relabelled before the first step (the
+original contradicted `cards/fight_clock_tests.rs:534-550`). implementer-opus, quick gate PASS; reviewer-opus LAND, no
+notes (minor items carried into P-TICK-1b and P-TICK-3). Merged as `69c9e9a9`. Full gate on the merge: **PASS**
+(skipped: dotnet, Postgres, Unity EditMode). At 50 ms the seed-1 digest (`0x2b20_ce9e_ab4e_809a`), content hash, parity
+report and formats are unchanged (`CHECKPOINT_FORMAT`/`REPLAY_FORMAT` not bumped; new 50 ms files carry
+`"tick_ms": null`).
+
+**P-TICK-1b** (every sim system reads the sim's step; tick-counted rules keep their milliseconds). oracle-author (Opus),
+implementer-opus (49 files in `rh-sim`, incl. `statics.rs` `steps_of_legacy_ticks`, `sim.rs` `reset_active` bootstrap to
+50 ms of sim time at every rate, `vision.rs` legacy two-slot stagger, `status_runtime::reveal` takes `tick_ms`).
+reviewer-opus LAND WITH NOTES (2): 25 ms scenario racks refused after the bootstrap; handle grace windows counted in
+steps. Merged as `7e0e35dc`; full gate **PASS** (skipped: dotnet, Postgres, Unity EditMode). **P-TICK-1b-fix**
+(coordinator widened its scope to `actor_refs.rs`): rack check on sim time, item/reward/actor handle grace
+`steps_of_legacy_ticks(20)` (1000 ms at both rates); reviewer-opus LAND; merged as `3b8c7677`.
+
+**P-TICK-3** (protocol **21**, after #74 took 19 and #76 took 20): snapshot server time is `tick * 1000/tick_rate`
+(Welcome rate 20 or 40 only, others refused by the Rust, C# and JS decoders); delta age bounds in milliseconds
+(3200 ms, forced full 1000 ms); `profile_supported` refuses `tick_ms != 50` until P-TICK-5; `v21.json` (v20 plus a
+`serverTickRate40` section). Coordinator amendments: protocol-20 pins and C# `TickRate = 0` Welcomes moved (version or
+rate value only, under ADR 0029's accepted bump); the JS oracle runs from `check-map-anchors.mjs` (gate.sh is
+owner-protected). reviewer-opus LAND WITH NOTES (encoder not rate-aware); merged `152fc4b9`; full gate **PASS**
+(skipped: dotnet, Postgres, Unity EditMode; C# not compiled here, CI runs it). **P-TICK-3-fix**: ConnEncoder,
+SnapshotData, the delta writer, Outbox and the policy forced-full rule take the connection's `tick_ms`; reviewer-opus
+LAND; merged `d9f21dfb`. **P-TICK-2**: bots and headless read the step (`--tick-ms 50|25`); reviewer-opus LAND;
+merged `f9273960`. **P-TICK-1b-perf** (PR #77 perfproof Ir 1.07-1.12 over the 1.03 limit; cause: `vision.rs` `latest_reveal` computing the trail length per reveal): step counts hoisted, `const fn` again; local perfproof vs deaf125b 0.987-1.000 on every case, fingerprints identical; reviewer-opus LAND.
+
+**P-TICK-5** (rooms run at the sim's step): `--tick-ms 50|25` / `RH_TICK_MS` (default 50; other values exit 2); the
+director paces from `sim.tick_ms`; Welcome sends 20 or 40; join and resume set the rate on the outbox and the
+collections publisher; `now_apply`, bot delivery and the rewind window (`allowed_rewind_ms_at`, floor one step) use the
+room's step; `profile_supported` hosts 50 and 25. Coordinator accepted the amendment of the P-TICK-3 transitional test
+(`a_sim_stepping_other_than_50_ms_is_not_hosted`). reviewer-opus LAND. Live default stays 50 until P-TICK-6.
+
+**P-TICK-4** (Unity library reads the step): `LocalMotion.StepMs` (per-session `DelayMinMs`, `CeilStep`),
+`VisionRule.StepMs`, `RenderClock.MinDelay = TickMs + 5` (30 ms at 40 Hz), `RemoteDraw` gap `2 * TickMs`,
+`MatchClient.cs:290` from the session clock; Rust-generated `server_walk_v3.json` and `ranged_pause_v3.json` (runs at 50
+and 25; the 50 ms run equals v2). Coordinator oracle-amend: the 25 ms walk starts at tick 2 (the 50 ms bootstrap of
+P-TICK-1b). reviewer LAND. C# compiled and tested only in CI (no dotnet here). `VisionFog.cs` leaves `StepMs` at 50
+(nothing reads it yet).
+
+**P-TICK-6** (measure, then flip): full-map step p99 at 25 ms is at most 7.7 ms (budget 25 ms), CPU about 1.6x, rooms
+per core 9-19 (was 15-28), bandwidth 2.5 KB/s per player in the density bench (heavy case about 3.1 KB/s, budget
+20 KB/s); `docs/evidence/forty-hertz/README.md`. The server's default step is now 25 ms (`runtime::LIVE_TICK_MS`);
+`--tick-ms 50` or `RH_TICK_MS=50` rolls back. Browser click-to-confirmed latency not measured here (no browser build).
+Nothing deployed: a staging deploy needs the owner's OK.
+
 ## Local Top 25 quest playtest (2026-11-19)
 
-The owner approved activating the workbook’s Top 25 in normal Rust and Unity raids. The local implementation is on `codex/top25-quests`, based on `feature/unity-rework` at `24a2ce99f`. The ten-offer board is shared during planning. Each player completes the selected offers once per match and receives their own named rewards. Training and the K1 parity path retain their separate configurations. [Quest rules](quests.md) · [DEV-039](DEVIATIONS.md#entries)
+The owner approved activating the workbook’s Top 25 in normal Rust and Unity raids. The local implementation is on `codex/top25-quests`, based on `feature/unity-rework` at `24a2ce99f`. The ten-offer board is shared during planning. Each player completes the selected offers once per match and receives their own named rewards. Training and the K1 parity path retain their separate configurations. [Quest rules](quests.md) · [DEV-040](DEVIATIONS.md#entries)
 
 The candidate uses protocol 20, observation 31, policy contract 26, checkpoint `rh-checkpoint/33`, replay `rh-replay/26` and content `7639672bbb0933c9`. Returning players resume server-held quest and reward state. Unity presents the delivered offers, objective actions, spell slots and public cues. [Board packet](backlog/packets/P-QUEST25-BOARD-1.md) · [Two-seat release check](backlog/packets/P-QUEST25-PLAYTHROUGH.md)
 

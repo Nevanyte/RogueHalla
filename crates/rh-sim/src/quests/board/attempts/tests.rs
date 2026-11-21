@@ -1,4 +1,5 @@
 use super::*;
+use crate::constants::TICK_MS;
 
 #[test]
 fn each_owner_can_claim_the_same_offer_once() {

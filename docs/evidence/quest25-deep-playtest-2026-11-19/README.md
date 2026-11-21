@@ -80,7 +80,7 @@ A Luna subagent independently replayed all 2,928 recorded player inputs. Its 25 
 | Gate | PASS (full) on protocol 20. The gate ran Rust, PostgreSQL, legacy parity, 2,186 C# tests, 1,601 Unity EditMode tests, the JS vectors, the eight-bot smoke match and the release-mode bot checks. No gate step was skipped. Separate CI and hardware checks include Linux source recaptures, Valgrind and cross-architecture determinism. Browser and WebGL evidence appears above. |
 | Changes | Personal banner destination, Unity quest markers, spell cooldown and broker validators, protocol 20 fixture and decoder version selectors, and the matching simulation, room, C#, Unity and JS regressions. |
 | D-rules | D1 uses the approved workbook and preserves the legacy K1 oracle. D2 balance is outside this pass. The existing D5/D10 quest exception applies. D9 keeps quest decisions on the Rust server. D6 behavior is unchanged. |
-| Deviations and shared records | Existing DEV-039 covers the new board and personal completion. The coordinator updated the local migration checkpoint. [Deviation record](../../DEVIATIONS.md#entries) · [Checkpoint](../../MIGRATION.md) |
+| Deviations and shared records | Existing DEV-040 covers the new board and personal completion. The coordinator updated the local migration checkpoint. [Deviation record](../../DEVIATIONS.md#entries) · [Checkpoint](../../MIGRATION.md) |
 | Legacy doubts | None raised by this playtest. |
 | Limits and risks | Local browser and deterministic room playtests establish the recorded paths. Solo difficulty, organic PvP frequency, remote network latency and hosted deployment remain unmeasured. The matching client and server must use protocol 20. |
 

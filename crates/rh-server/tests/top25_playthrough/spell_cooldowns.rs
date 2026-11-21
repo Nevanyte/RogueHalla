@@ -69,6 +69,7 @@ async fn public_quest_frame_keeps_zero_charge_spell_and_drop_reacquire_valid() {
             coliseum_schedule: None,
             ..Default::default()
         },
+        50,
     );
     let mut a = Client::join(&mut room, "spell-owner", 1);
     let mut b = Client::join(&mut room, "other-seat", 2);

@@ -303,6 +303,7 @@ namespace Roguehalla.Net.Protocol
                                 case PropKind.WindEmblem: break;
                                 case PropKind.Cannon: row.ReadyAt = r.Varint(); break;
                                 case PropKind.QuestItem: row.QuestRef = ReadQuestHandle(ref r); row.QuestFetch = QuestFlag(ref r, "flag"); break;
+                                case PropKind.Heal: row.ReadyAt = r.Varint(); break;
                                 case PropKind.RebirthEgg: row.Hatching = QuestFlag(ref r, "flag"); break;
                                 default: throw new DecodeException(DecodeError.BadField, "prop kind");
                             }
