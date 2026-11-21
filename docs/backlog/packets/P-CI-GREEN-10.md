@@ -55,3 +55,23 @@
   `tools/card-runtime-witness-fixtures/capture.sh --check` pass, each with its exit status recorded.
 - `scripts/gate.sh --quick --allow-protected --regen-fixtures --base <this brief's commit>` passes.
 - The evidence README is written, and the AGENTS.md hand-off report is in this file.
+
+## Hand-off
+
+```
+PACKET:          P-CI-GREEN-10 — serves CI green for PR 80 (owner, 2026-11-20: push and merge the new augments)
+BRANCH:          agent/sonnet/P-CI-GREEN-10 @ HANDOFF_SHA
+GATE:            PASS (quick) `scripts/gate.sh --quick --allow-protected --regen-fixtures --base 520207538`; check-card-chain failureCount 0; capture.sh --check exit 0 for card-catalog, card-runtime, card-runtime-witness (explicit exit statuses)
+CHANGED:         parity/card-catalog/source.json; parity/card-runtime/{source,INPUT_SHA256}.json; parity/card-runtime-witness/{source,INPUT_SHA256}.json (all by capture.sh output); tools/card-runtime-fixtures/capture.mts and tools/card-runtime-witness-fixtures/capture.mts (overlay entries); tools/provenance/check-card-chain.mjs (EXPECTED, lineage, leaf count 1->2, leaf table, evidence path); docs/evidence/ci-provenance-refresh-2026-11-21-determinism/README.md; this file
+D-RULES:         n/a (provenance only; no parity capture content changed)
+DEVIATIONS:      none
+SHARED RECORDS:  none
+LEGACY DOUBTS:   none
+NOT ESTABLISHED: nothing beyond the pins being correct for 520207538
+RISKS:           any later edit to a pinned file needs another refresh
+```
+
+Pins: catalog `1f3de8f3...`, runtime source `453060bb...`, runtime input `296ca6a9...`, witness source `cda93ede...`,
+witness input `5d9a7553...`, runtime tool `84238f11...`, witness tool `77188ce0...`. Only differing catalog leaves were
+the two determinism pins; runtime 10 and witness 22 differing leaves, all provenance. Corpora captured once each,
+outside the repo.
