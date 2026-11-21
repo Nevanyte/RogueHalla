@@ -162,12 +162,12 @@ fn the_decoded_view_keeps_the_rows_and_is_complete_without_key_15() {
 fn the_versions_move() {
     assert_eq!(
         rh_sim::OBSERVATION_VERSION,
-        35,
-        "Observation gains `marked` (P-AUG-NATIVE-5); 35: P-SYNC-ORIGIN-2"
+        37,
+        "Observation gains `marked` (P-AUG-NATIVE-5); 35: P-SYNC-ORIGIN-2; 36: origin's Top 25 quests; 37: P-SYNC-ORIGIN-3"
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        31,
-        "the projected State gains key 15 and the decoded view its rows (P-AUG-NATIVE-5; 29 was P-AUG-BOTS-1); 31: P-SYNC-ORIGIN-2"
+        33,
+        "the projected State gains key 15 and the decoded view its rows (P-AUG-NATIVE-5; 29 was P-AUG-BOTS-1); 31: P-SYNC-ORIGIN-2; 33: P-SYNC-ORIGIN-3"
     );
 }

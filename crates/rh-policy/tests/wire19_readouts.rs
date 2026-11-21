@@ -93,8 +93,9 @@ fn the_owners_readouts_reach_key_14_as_card_kind_value_max() {
     );
     assert_eq!(
         items.last().map(StateItem::key),
-        Some(14),
-        "key 14 is the last item"
+        // P-SYNC-ORIGIN-3: the readout rows moved from key 14 to key 16, still the last item.
+        Some(16),
+        "key 16 is the last item"
     );
 }
 
@@ -173,10 +174,10 @@ fn the_wire_bound_is_the_producers_and_the_contract_moves() {
         rh_sim::cards::native::MAX_READOUTS,
         "one bound on both sides"
     );
-    assert_eq!(rh_sim::OBSERVATION_VERSION, 35); // 32 -> 33: P-SYNC-ORIGIN-1; 34: P-AUG-NATIVE-5; 35: P-SYNC-ORIGIN-2
+    assert_eq!(rh_sim::OBSERVATION_VERSION, 37); // 32 -> 33: P-SYNC-ORIGIN-1; 34: P-AUG-NATIVE-5; 35: P-SYNC-ORIGIN-2; 36: origin quests; 37: P-SYNC-ORIGIN-3
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        31,
-        "the projected State gains key 14 and the decoded view its rows (P-WIRE19-B); 28: P-SYNC-ORIGIN-1; 29: P-AUG-BOTS-1; 30: P-AUG-NATIVE-5; 27 on origin: P-COLISEUM-HEALS-2; 31: P-SYNC-ORIGIN-2 (protocol 22)"
+        33,
+        "the projected State gains key 14 and the decoded view its rows (P-WIRE19-B); 28: P-SYNC-ORIGIN-1; 29: P-AUG-BOTS-1; 30: P-AUG-NATIVE-5; 27 on origin: P-COLISEUM-HEALS-2; 31: P-SYNC-ORIGIN-2 (protocol 22); 32 on origin: Top 25 quests; 33: P-SYNC-ORIGIN-3 (protocol 24, the rows on key 16)"
     );
 }
