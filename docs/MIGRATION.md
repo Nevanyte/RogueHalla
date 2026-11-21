@@ -20,8 +20,9 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
 - **P-CI-GREEN-7** runs in parallel on the same base. Of the catalog's 325 pinned files, only `check-vectors.mjs`
   differs between the two lines, and origin has not touched the card chain since `81866e9c4`. The sync may change no
   pinned file.
-- **Docker:** Desktop's backend is still hung (no engine VM; `docker version` never answers). The coordinator's restart
-  was refused by the permission check; the owner restarts it.
+- **Docker:** Desktop's backend hung (no engine VM; `docker version` never answered). **Owner, 2026-11-21:** "You
+  restart it". The coordinator quit Desktop, stopped the backend processes left behind and reopened it; it answered
+  (server 29.2.1).
 
 - **Integration 76, the second origin sync** (fast-forward to `1180da226`): P-SYNC-ORIGIN-2.
   - **What it joins:** origin @ `1dd79a938` (PRs 75 to 78). Merge commit `fce203e07`, 42 conflicts, every one kept
@@ -49,6 +50,43 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
     - `elite_bench.rs` `MINUTE5_TICK = 6000` counts steps as time, which matters if P-TICK-6 moves `live_content`'s step.
     - Three stale test names.
     - The checkpoint comment overstates the reason for 37.
+- **PR 80** (`claude/augment-elite-rework` @ `52bd52065`, draft, into origin's `feature/unity-rework`), pushed
+  2026-11-20 under the owner's request. Its first CI run found three reds beyond the waived pin:
+  - `provenance`: the waived `check-vectors.mjs` pin, as expected.
+  - "Produce CI artifacts" (x86_64 and aarch64): `trusted_build_leak_paths` ran `cargo tree --offline`, and the
+    determinism job never fetched rh-server's graph.
+  - `perfproof`: Ir ratios 1.04 to 1.17 against the merge-base on legacy-rule workloads, with behaviour identical.
+    Also `verify_replay.contentHash` changed from "same" to "ignored", because the rework moves the content hash on
+    purpose.
+- **Integration 77** (`efdd9af7d`):
+  - P-CI-GREEN-8 (`24ae84007`, coordinator): the leak-path test runs `cargo tree --locked` without `--offline`. Its
+    assertions are unchanged.
+  - Merge of origin @ `5567458fb` (PR 79, P-TICK-6: `runtime::LIVE_TICK_MS` = 25, so the server's default step is
+    25 ms). Only this file conflicted; both sides were kept.
+  - Full gate with pgtest, run in a clean detached worktree, because the main checkout's uncommitted
+    `.claude/settings.json` trips the protected-path check. Result: green except the waived pin. Log
+    `.agent-runs/gate/20261121T112722-coord-int-77-clean-full.log`. `rework_at_25ms` (release) PASS.
+  - reviewer-opus **LAND**. No rework code assumes a 50 ms default; the rework's timers are in milliseconds.
+  - Minor, not notes:
+    - the `live_content.rs` tables still state `tick_ms: 50`;
+    - the bench defaults stay at 50;
+    - the staging and demo service files pass no `--tick-ms`, so the next deploy runs at 25 ms (origin's intent;
+      deploys need the owner).
+- **Integration 78** (`bd6c7c8dc`): P-CI-GREEN-7 (implementer-sonnet; reviewer LAND).
+  - Genuine recapture in the pinned amd64 image. The only catalog leaf that changed is the `check-vectors.mjs` pin; the
+    runtime and witness corpora changed in provenance only.
+  - The coordinator reran the three `capture.sh --check`: exit 0, hashes `08eedc97`, `eb66dd5e`, `03e174c3`.
+  - `check-card-chain.mjs`: `failureCount: 0`. The waiver ends here.
+- **Integration 79** (`427909940`): P-AUG-PERF-1 (implementer-opus; reviewer-opus LAND).
+  - Callgrind on both builds put the cost in `Build::cards()`. Chaining the 14 native slots onto the catalog walk
+    stopped it inlining. It is now one hand-written iterator that skips 8 empty catalog slots at a time, with the same
+    cards in the same order.
+  - `step_weapon` reads Plant Your Feet only when an attack starts.
+  - perfproof in a native arm64 container against `1dd79a938`: every workload 0.91 to 1.00, fingerprints and
+    allocations equal. Evidence `docs/evidence/rework-perf-2026-11-21/README.md`.
+- **Perf declaration:** PR 80's description carries `Perf-Allow-Fingerprint: verify_replay.contentHash`, the
+  CONTRIBUTING.md route for an intentional change. It waives that one key only: `verified`, `steps` and `finalHash` are
+  still compared.
 
 ## Resumed (2026-11-20): the elite and augment rework, integration 65
 
