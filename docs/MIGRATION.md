@@ -4,6 +4,25 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Push requested (2026-11-20): the second origin sync and the provenance refresh
+
+**Owner direction 2026-11-20:** "Please push and merge the new augments". The route on this repository is a pull
+request into origin's `feature/unity-rework` (every other lane's work lands that way; the branch is not protected).
+`main` is not part of this request.
+
+- **Origin moved again:** `origin/feature/unity-rework` @ `1dd79a938`, 95 commits after `81866e9c4` (PRs 75 to 78).
+  - Protocol 20 went to the coliseum heal props and 21 to the 40 Hz tick's snapshot time.
+  - P-TICK-1b made every `rh-sim` system read the sim's step.
+  - PR 79 (P-TICK-6, server default 25 ms) is open, not merged.
+- **P-SYNC-ORIGIN-2** (`implementer-opus`, `reviewer-opus`; brief `docs/backlog/packets/P-SYNC-ORIGIN-2.md`): merge as
+  protocol 22, observation 35, policy contract 31, checkpoint 37 by default. It converts the rework's 50 ms sites to
+  the sim's step, and adds one new test: a Rework world at 25 ms restores every checkpoint.
+- **P-CI-GREEN-7** runs in parallel on the same base. Of the catalog's 325 pinned files, only `check-vectors.mjs`
+  differs between the two lines, and origin has not touched the card chain since `81866e9c4`. The sync may change no
+  pinned file.
+- **Docker:** Desktop's backend is still hung (no engine VM; `docker version` never answers). The coordinator's restart
+  was refused by the permission check; the owner restarts it.
+
 ## Resumed (2026-11-20): the elite and augment rework, integration 65
 
 **Owner direction 2026-11-19:** "resume" (after the evening pause). Owner OK the same day for the side session's Frost

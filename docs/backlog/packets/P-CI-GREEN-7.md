@@ -8,7 +8,11 @@
   - The coordinator waived that one red until this single refresh. It runs after the last wire packet of the rework
     (P-AUG-NATIVE-5, integration 74).
 - **Tier:** `implementer-sonnet`. Reviewer: `reviewer` (Sonnet).
-- **Base:** `feature/unity-rework` after integration 74 lands (the coordinator names the commit in the dispatch).
+- **Base:** `feature/unity-rework` at the commit that adds `docs/backlog/packets/P-SYNC-ORIGIN-2.md` (the coordinator
+  names it in the dispatch).
+  - This packet runs in parallel with P-SYNC-ORIGIN-2, which may change no pinned file (its decision 7).
+  - On 2026-11-20 the two lines differed in exactly one of the catalog's 325 pinned files, `check-vectors.mjs`, and
+    origin had not touched the card chain since `81866e9c4`. So a capture on this base gives the merged tree's pins.
 - **Route:** exactly P-CI-GREEN-5's (`docs/backlog/packets/P-CI-GREEN-5.md`, commit `551814bc`, evidence
   `docs/evidence/ci-provenance-refresh-2026-11-17/README.md`). Origin's P-CI-GREEN-6 (`a16f3c59d`, evidence
   `docs/evidence/ci-provenance-refresh-2026-11-20/README.md`) is the latest worked example.
