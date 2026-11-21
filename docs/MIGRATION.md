@@ -281,9 +281,9 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
   - **Waiver until then.** The coordinator waives exactly that red. Each gate's chain output must show
     `check-vectors.mjs` as its only failing pin.
 
-## From origin (merged by P-SYNC-ORIGIN-1 and P-SYNC-ORIGIN-2, 2026-11-20)
+## From origin (merged by P-SYNC-ORIGIN-1, P-SYNC-ORIGIN-2 and integration 77, 2026-11-20 to 21)
 
-### 40 Hz tick, P-TICK-1a to 5 (2026-11-20, branch `claude/project-thread-baoxuk`)
+### 40 Hz tick, P-TICK-1a to 6 (2026-11-20, branch `claude/project-thread-baoxuk`)
 
 **Owner direction 2026-11-19:** "lets do 40" (live tick 40 Hz), then "okay for all 3" (accept ADR 0029, sign DEV-039,
 push). ADR 0029 Accepted; C-TICK amended; DEV-039 signed; packets P-TICK-0..6 (backlog section 1a). P-TICK-3 lands after
@@ -328,6 +328,12 @@ room's step; `profile_supported` hosts 50 and 25. Coordinator accepted the amend
 and 25; the 50 ms run equals v2). Coordinator oracle-amend: the 25 ms walk starts at tick 2 (the 50 ms bootstrap of
 P-TICK-1b). reviewer LAND. C# compiled and tested only in CI (no dotnet here). `VisionFog.cs` leaves `StepMs` at 50
 (nothing reads it yet).
+
+**P-TICK-6** (measure, then flip): full-map step p99 at 25 ms is at most 7.7 ms (budget 25 ms), CPU about 1.6x, rooms
+per core 9-19 (was 15-28), bandwidth 2.5 KB/s per player in the density bench (heavy case about 3.1 KB/s, budget
+20 KB/s); `docs/evidence/forty-hertz/README.md`. The server's default step is now 25 ms (`runtime::LIVE_TICK_MS`);
+`--tick-ms 50` or `RH_TICK_MS=50` rolls back. Browser click-to-confirmed latency not measured here (no browser build).
+Nothing deployed: a staging deploy needs the owner's OK.
 
 ## Paused (2026-11-19, evening): the elite and augment rework, after integration 64
 

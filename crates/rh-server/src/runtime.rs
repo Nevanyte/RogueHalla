@@ -88,8 +88,12 @@ pub fn core_hitboxes(args: &[String]) -> Result<rh_sim::archetype::HitboxMode, S
 /// P-TICK-5: the environment variable that sets the server's room step when `--tick-ms` is absent.
 pub const TICK_MS_ENV: &str = "RH_TICK_MS";
 
+/// The live room step (ADR 0029, P-TICK-6, `docs/evidence/forty-hertz/`): 25 ms, 40 Hz. Roll back with `--tick-ms 50`.
+pub const LIVE_TICK_MS: u32 = 25;
+
 /// P-TICK-5 (ADR 0029): the room step in milliseconds from `--tick-ms 50|25`, else [`TICK_MS_ENV`] (`env` is the
-/// environment lookup), else 50 (the legacy step, the live default until P-TICK-6). The flag wins over the environment.
+/// environment lookup), else 25 (40 Hz, the live default since P-TICK-6; 50 is the legacy step and the rollback). The flag wins over
+/// the environment.
 /// Any other value (another number, `25.0`, a missing or empty value) is a startup error: `main.rs` exits 2 on it.
 /// The chosen step becomes every hosted sim's `SimConfig::tick_ms`, core and `--runtime` profiles alike.
 pub fn tick_ms_setting(
@@ -103,9 +107,7 @@ pub fn tick_ms_setting(
     };
     match value(args, "--tick-ms")? {
         Some(flag) => step(flag, "--tick-ms"),
-        None => env(TICK_MS_ENV).map_or(Ok(rh_sim::constants::LEGACY_TICK_MS as u32), |v| {
-            step(&v, TICK_MS_ENV)
-        }),
+        None => env(TICK_MS_ENV).map_or(Ok(LIVE_TICK_MS), |v| step(&v, TICK_MS_ENV)),
     }
 }
 

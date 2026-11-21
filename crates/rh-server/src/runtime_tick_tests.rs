@@ -1,4 +1,4 @@
-//! P-TICK-5: the server's step setting (`--tick-ms 50|25`, else `RH_TICK_MS`, else 50); anything else stops the start
+//! P-TICK-5: the server's step setting (`--tick-ms 50|25`, else `RH_TICK_MS`, else 25 since P-TICK-6); anything else stops the start
 //! (the binary exits 2 on it, like every other invalid setting).
 
 use super::{tick_ms_setting, TICK_MS_ENV};
@@ -24,11 +24,11 @@ fn env(value: Option<&'static str>) -> impl Fn(&str) -> Option<String> {
 #[test]
 fn the_tick_ms_setting_takes_50_or_25_from_the_flag_or_the_environment() {
     assert_eq!(TICK_MS_ENV, "RH_TICK_MS");
-    // Default: the legacy step.
-    assert_eq!(tick_ms_setting(&args(&[]), env(None)), Ok(50));
+    // Default: the live 40 Hz step since P-TICK-6 (ADR 0029).
+    assert_eq!(tick_ms_setting(&args(&[]), env(None)), Ok(25));
     assert_eq!(
         tick_ms_setting(&args(&["--fill-bots", "8"]), env(None)),
-        Ok(50)
+        Ok(25)
     );
     // The flag.
     assert_eq!(
