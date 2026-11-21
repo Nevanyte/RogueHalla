@@ -28,6 +28,7 @@ namespace Roguehalla.Client
             var shader = Resources.Load<Shader>("Regions/RegionGround");
             Material = new Material(shader) { name = "Roguehalla / region ground" };
             _owned.Add(Material);
+            HolyDrySandArt.Load()?.Bind(Material);
             if (temple != null) temple.BindSignatureGround(Material);
             bool paintedMarsh = PlagueGround.BindStormInkGround(Material, map);
 

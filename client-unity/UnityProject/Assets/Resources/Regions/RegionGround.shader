@@ -28,6 +28,9 @@ Shader "Roguehalla/RegionGround"
         _VariantOn("Ground variants present", Float) = 0
         _VariantSoft("Soft band gains present", Float) = 0
         _Exposure("Exposure", Float) = 1
+        [NoScaleOffset] _HolyDrySandTex("Holy dry sand pigment", 2D) = "white" {}
+        _HolyDrySandRepeatSpan("Holy dry sand repeat span", Float) = 12
+        _HolyDrySandWash("Holy dry sand wash", Range(0, 1)) = 0
         _Debug("Debug", Float) = 0
     }
 
@@ -98,6 +101,8 @@ Shader "Roguehalla/RegionGround"
                 half _Debug;
                 half _VariantOn;
                 half _VariantSoft;
+                half _HolyDrySandRepeatSpan;
+                half _HolyDrySandWash;
             CBUFFER_END
             #include "RhSun.hlsl"
             #include "RhLocalLights.hlsl"
@@ -162,6 +167,7 @@ Shader "Roguehalla/RegionGround"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
             TEXTURE2D(_StormFlowMap);
             float _StormFlowOn;
+            TEXTURE2D(_HolyDrySandTex); SAMPLER(sampler_HolyDrySandTex);
             #include "StormInkLightMotion.hlsl"
 
             struct Ground { float3 col; float3 emis; float th; float thw; };   // th/thw: procedural surface height (tiles) and its weight, for derivative normals
@@ -177,15 +183,25 @@ Shader "Roguehalla/RegionGround"
                 float4 par = _PalPar[id], par2 = _PalPar2[id];
                 float3 baseC = _PalBase[id].rgb, secC = _PalSec[id].rgb, accC = _PalAcc[id].rgb, keyC = _PalKey[id].rgb;
 
-                float lum = 1.0 + (g.r - 0.5) * par.x * 2.0;
+                // Fade the old procedural ripples out as the hand-painted dry-sand plate takes over.
+                // The garden mask remains independent and is applied below.
+                float holyWash = id == 5 ? saturate(_HolyDrySandWash) : 0.0;
+                float detail = lerp(g.r, 0.5, holyWash);
+                float lum = 1.0 + (detail - 0.5) * par.x * 2.0;
                 float3 c = baseC * lum;
                 // Large scale variation (breaks the 4-tile repeat): brightness and a drift toward the secondary colour.
                 c *= 1.0 + (macro - 0.5) * par2.x;
-                c = lerp(c, keyC, saturate((g.r - 0.42 + (macro - 0.5) * 0.3) * par2.z));
+                c = lerp(c, keyC, saturate((detail - 0.42 + (macro - 0.5) * 0.3) * par2.z) * (1.0 - holyWash));
+                if (holyWash > 0.0)
+                {
+                    float span = max(_HolyDrySandRepeatSpan, 0.25);
+                    float3 pigment = SAMPLE_TEXTURE2D(_HolyDrySandTex, sampler_HolyDrySandTex, t / span).rgb;
+                    c = lerp(c, pigment, holyWash);
+                }
                 float pocketTerm = par.w > 0.01 ? smoothstep(par.w, par.w + 0.10, pocketN + (Fbm(t * 1.3 + 17.0) - 0.5) * 0.10) * (0.55 + 0.45 * g.g) : 0.0;
                 float patchTerm = saturate(g.g * par.y + (macro - 0.55) * par2.x * 0.6);
                 float secMask = max(pocketTerm, patchTerm);
-                c = lerp(c, lerp(secC, accC, 0.20) * (1.0 + 0.9 * g.r), saturate(secMask));
+                c = lerp(c, lerp(secC, accC, 0.20) * (1.0 + 0.9 * detail), saturate(secMask));
                 float3 e = 0;
                 float acc = saturate(g.b * par.z);
                 c = lerp(c, accC, acc);
@@ -607,6 +623,7 @@ Shader "Roguehalla/RegionGround"
                         {
                             float4 nr = SAMPLE_TEXTURE2D_ARRAY_GRAD(_GroundNrm, sampler_GroundNrm, tSun * 0.25, k2, gdx, gdy);
                             float relief = k2 == 2 ? 1.0 - .80 * _StormMarshOn : 1.0;
+                            if (k2 == 4) relief *= 1.0 - saturate(_HolyDrySandWash);
                             gTilt += (nr.rg * 2.0 - 1.0) * wk * relief;
                             gGloss += nr.b * wk * relief;
                         }
