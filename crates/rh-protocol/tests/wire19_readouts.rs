@@ -14,9 +14,9 @@ use rh_protocol::{
 use std::path::PathBuf;
 
 /// `state_readouts`: Marksman's Tally (counter), Bastion (meter), Pathfinder (counter and marks), Marked Man (counter 0).
-const READOUTS_HEX: &str = "88dc01010e055000b81e85eb51b8be3f333333333333d33f510100000000000044400000000000406f405500cdcccccccccc0c4000000000000038405502000000000000084000000000000034405d000000000000000000000000000000f03f";
-/// `state_readouts_empty`: key 14 with no rows (it clears the client's rows).
-const EMPTY_HEX: &str = "88dc01010e00";
+const READOUTS_HEX: &str = "88dc010110055000b81e85eb51b8be3f333333333333d33f510100000000000044400000000000406f405500cdcccccccccc0c4000000000000038405502000000000000084000000000000034405d000000000000000000000000000000f03f";
+/// `state_readouts_empty`: key 16 (key 14 before protocol 24) with no rows (it clears the client's rows).
+const EMPTY_HEX: &str = "88dc01011000";
 /// Header: tag, tick (2), item count, key, row count.
 const HEADER: usize = 6;
 /// Bytes a row: card, kind, value f64, max f64.
@@ -68,13 +68,14 @@ fn patched(r: usize, at: usize, with: &[u8]) -> Vec<u8> {
 }
 
 #[test]
-fn key_14_is_the_newest_state_key_inside_protocol_22() {
+fn key_16_is_the_readout_key_inside_protocol_24() {
     assert_eq!(
-        PROTOCOL_VERSION, 22,
-        "decision 1: no bump, v19.json regenerated in place; P-SYNC-ORIGIN-1 carries it as protocol 20, P-SYNC-ORIGIN-2 as 22 (v22.json)"
+        PROTOCOL_VERSION, 24,
+        "decision 1: no bump, v19.json regenerated in place; P-SYNC-ORIGIN-1 carries it as protocol 20, P-SYNC-ORIGIN-2 as 22 (v22.json), P-SYNC-ORIGIN-3 as 24 (v24.json)"
     );
-    // P-AUG-NATIVE-5 (oracle-amend): key 15, the Marked Man rows, follows key 14.
-    assert_eq!(MAX_STATE_KEYS, 15);
+    // P-AUG-NATIVE-5 (oracle-amend): key 15, the Marked Man rows. P-SYNC-ORIGIN-3: origin's opened terrain keeps key 14,
+    // so the readouts move from 14 to 16, the newest key.
+    assert_eq!(MAX_STATE_KEYS, 16);
     assert_eq!(MAX_READOUTS, 28);
     assert_eq!(
         (
@@ -85,7 +86,7 @@ fn key_14_is_the_newest_state_key_inside_protocol_22() {
         ),
         (0, 1, 2, 3)
     );
-    assert_eq!(StateItem::Readouts(vec![]).key(), 14);
+    assert_eq!(StateItem::Readouts(vec![]).key(), 16);
 }
 
 #[test]
@@ -215,12 +216,12 @@ fn the_decoder_refuses_each_check_for_its_reason() {
     for (what, bytes, want) in cases {
         assert_eq!(ServerMsg::decode(&bytes), Err(want), "{what}");
     }
-    // P-AUG-NATIVE-5 (oracle-amend): key 16 is the first unknown key, and 16 items are too many.
+    // P-AUG-NATIVE-5 (oracle-amend), P-SYNC-ORIGIN-3: key 17 is the first unknown key, and 17 items are too many.
     assert_eq!(
-        ServerMsg::decode(&[0x88, 0, 1, 16]),
+        ServerMsg::decode(&[0x88, 0, 1, 17]),
         Err(BadField("state key"))
     );
-    assert!(ServerMsg::decode(&[0x88, 0, 16]).is_err());
+    assert!(ServerMsg::decode(&[0x88, 0, 17]).is_err());
 }
 
 fn fixture_path(version: u16) -> PathBuf {
@@ -241,13 +242,13 @@ fn named<'a>(text: &'a str, name: &str) -> Option<&'a str> {
 }
 
 #[test]
-fn v22_fixture_carries_the_readout_vectors_and_the_moved_malformed_ones() {
-    let path = fixture_path(22);
+fn v24_fixture_carries_the_readout_vectors_and_the_moved_malformed_ones() {
+    let path = fixture_path(24);
     let v19 = std::fs::read_to_string(&path)
-        .expect("protocol/fixtures/v22.json (cargo run -p rh-protocol --bin protocol-fixtures)");
+        .expect("protocol/fixtures/v24.json (cargo run -p rh-protocol --bin protocol-fixtures)");
     assert!(
-        v19.contains("\n  \"protocol\": 22,\n"),
-        "protocol 20 (P-SYNC-ORIGIN-1), 22 (P-SYNC-ORIGIN-2)"
+        v19.contains("\n  \"protocol\": 24,\n"),
+        "protocol 20 (P-SYNC-ORIGIN-1), 22 (P-SYNC-ORIGIN-2), 24 (P-SYNC-ORIGIN-3)"
     );
     assert_eq!(named(&v19, "state_readouts"), Some(READOUTS_HEX));
     assert_eq!(named(&v19, "state_readouts_empty"), Some(EMPTY_HEX));
@@ -268,12 +269,12 @@ fn v22_fixture_carries_the_readout_vectors_and_the_moved_malformed_ones() {
     }
     assert_eq!(
         named(&v19, "state_unknown_key"),
-        Some("88000110"),
-        "P-AUG-NATIVE-5 (oracle-amend): keys 14 and 15 are known now: the unknown key is 16"
+        Some("88000111"),
+        "P-AUG-NATIVE-5 (oracle-amend), P-SYNC-ORIGIN-3: keys 14 to 16 are known now: the unknown key is 17"
     );
     assert_eq!(
         named(&v19, "state_too_many_keys"),
-        Some("880010"),
-        "P-AUG-NATIVE-5 (oracle-amend): 15 keys are allowed now: 16 are too many"
+        Some("880011"),
+        "P-AUG-NATIVE-5 (oracle-amend), P-SYNC-ORIGIN-3: 16 keys are allowed now: 17 are too many"
     );
 }

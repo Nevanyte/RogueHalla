@@ -194,9 +194,9 @@ pub use state::{
     WireInventory, WireMarked, WireMerchant, WirePlan, WirePlanOption, WireProjectile, WireProp,
     WirePropKind, WireProps, WireQuestAction, WireQuestDrop, WireQuestObjective,
     WireQuestParticipant, WireQuestPoint, WireQuestRow, WireQuestSpell, WireQuestView, WireReadout,
-    WireRewardChest, WireRewardId, WireRewardOption,
-    WireRosterEntry, WireRosterRow, WireTradeDelta, WireTradeKind, WireTradeOffer, WireTradeStat,
-    WireTradeView, MAX_TRADE_MERCHANTS, MAX_TRADE_OFFERS, MAX_TRADE_STATS, MAX_TRADE_VIEW_BYTES,
+    WireRewardChest, WireRewardId, WireRewardOption, WireRosterEntry, WireRosterRow,
+    WireTradeDelta, WireTradeKind, WireTradeOffer, WireTradeStat, WireTradeView,
+    MAX_TRADE_MERCHANTS, MAX_TRADE_OFFERS, MAX_TRADE_STATS, MAX_TRADE_VIEW_BYTES,
 };
 
 pub use actor::*;

@@ -48,12 +48,13 @@ fn patched(at: usize, with: u8) -> Vec<u8> {
 }
 
 #[test]
-fn key_15_is_the_newest_state_key_inside_protocol_22() {
+fn key_15_is_the_marked_key_inside_protocol_24() {
     assert_eq!(
-        PROTOCOL_VERSION, 22,
-        "brief decision 6: no bump (21 and the next free number are promised); v20.json regenerated in place; P-SYNC-ORIGIN-2 carries it as 22"
+        PROTOCOL_VERSION, 24,
+        "brief decision 6: no bump (21 and the next free number are promised); v20.json regenerated in place; P-SYNC-ORIGIN-2 carries it as 22, P-SYNC-ORIGIN-3 as 24"
     );
-    assert_eq!(MAX_STATE_KEYS, 15);
+    // P-SYNC-ORIGIN-3: the readouts moved from key 14 to 16, after this key.
+    assert_eq!(MAX_STATE_KEYS, 16);
     assert_eq!(MAX_ROSTER, 32, "the row bound is the roster's");
     assert_eq!(StateItem::Marked(vec![]).key(), 15);
 }
@@ -89,15 +90,16 @@ fn marked_rows_encode_to_the_specified_bytes_and_round_trip() {
 }
 
 #[test]
-fn key_15_follows_key_14_in_one_state_and_32_rows_fit() {
+fn key_15_precedes_key_16_in_one_state_and_32_rows_fit() {
     let full: Vec<WireMarked> = (1..=MAX_ROSTER as u32)
         .map(|id| marked(id * 1000, 8191.875, 8191.875))
         .collect();
     let msg = ServerMsg::State {
         tick: 1,
-        items: vec![StateItem::Readouts(vec![]), StateItem::Marked(full.clone())],
+        // P-SYNC-ORIGIN-3: the readouts are key 16 now, so they follow the Marked Man rows.
+        items: vec![StateItem::Marked(full.clone()), StateItem::Readouts(vec![])],
     };
-    let bytes = msg.try_encode().expect("32 rows after key 14 encode");
+    let bytes = msg.try_encode().expect("32 rows before key 16 encode");
     assert_eq!(bytes.len(), msg.encoded_len());
     assert_eq!(ServerMsg::decode(&bytes).as_ref(), Ok(&msg));
     // The largest State today plus 32 maximal rows still fits a server frame.
@@ -151,12 +153,12 @@ fn the_decoder_refuses_each_check_for_its_reason() {
     for (what, bytes, want) in cases {
         assert_eq!(ServerMsg::decode(&bytes), Err(want), "{what}");
     }
-    // Key 16 is the first unknown key, and 16 items are too many.
+    // Key 17 is the first unknown key, and 17 items are too many (P-SYNC-ORIGIN-3).
     assert_eq!(
-        ServerMsg::decode(&[0x88, 0, 1, 16]),
+        ServerMsg::decode(&[0x88, 0, 1, 17]),
         Err(BadField("state key"))
     );
-    assert!(ServerMsg::decode(&[0x88, 0, 16]).is_err());
+    assert!(ServerMsg::decode(&[0x88, 0, 17]).is_err());
 }
 
 fn fixture_path(version: u16) -> PathBuf {
@@ -177,10 +179,11 @@ fn named<'a>(text: &'a str, name: &str) -> Option<&'a str> {
 }
 
 #[test]
-fn v22_fixture_carries_the_marked_vectors_and_the_moved_malformed_ones() {
+fn v24_fixture_carries_the_marked_vectors_and_the_moved_malformed_ones() {
     // P-SYNC-ORIGIN-2: the local v20 vectors were never deployed; they live in v22.json (v20.json is origin's).
-    let text = std::fs::read_to_string(fixture_path(22))
-        .expect("protocol/fixtures/v22.json (cargo run -p rh-protocol --bin protocol-fixtures)");
+    // P-SYNC-ORIGIN-3: they read v24.json (v23.json is origin's).
+    let text = std::fs::read_to_string(fixture_path(24))
+        .expect("protocol/fixtures/v24.json (cargo run -p rh-protocol --bin protocol-fixtures)");
     assert_eq!(named(&text, "state_marked"), Some(MARKED_HEX));
     assert_eq!(named(&text, "state_marked_empty"), Some(EMPTY_HEX));
     for (name, want) in [
@@ -196,12 +199,12 @@ fn v22_fixture_carries_the_marked_vectors_and_the_moved_malformed_ones() {
     }
     assert_eq!(
         named(&text, "state_unknown_key"),
-        Some("88000110"),
-        "key 15 is known now: the unknown key is 16"
+        Some("88000111"),
+        "keys 15 and 16 are known now: the unknown key is 17"
     );
     assert_eq!(
         named(&text, "state_too_many_keys"),
-        Some("880010"),
-        "15 keys are allowed now: 16 are too many"
+        Some("880011"),
+        "16 keys are allowed now: 17 are too many"
     );
 }

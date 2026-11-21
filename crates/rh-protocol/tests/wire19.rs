@@ -80,9 +80,10 @@ fn unhex(h: &str) -> Vec<u8> {
 }
 
 #[test]
-fn protocol_version_is_22() {
-    // P-SYNC-ORIGIN-1 carries these bytes as protocol 20 (the local 19 was never deployed); P-SYNC-ORIGIN-2 as 22.
-    assert_eq!(PROTOCOL_VERSION, 22);
+fn protocol_version_is_24() {
+    // P-SYNC-ORIGIN-1 carries these bytes as protocol 20 (the local 19 was never deployed); P-SYNC-ORIGIN-2 as 22;
+    // P-SYNC-ORIGIN-3 as 24.
+    assert_eq!(PROTOCOL_VERSION, 24);
 }
 
 #[test]
@@ -207,18 +208,18 @@ fn named<'a>(text: &'a str, name: &str) -> Option<&'a str> {
 }
 
 #[test]
-fn v22_fixture_carries_the_new_vectors_and_its_hello_and_welcome_say_22() {
+fn v24_fixture_carries_the_new_vectors_and_its_hello_and_welcome_say_24() {
     // P-SYNC-ORIGIN-1: these vectors live in v20.json (v19.json is origin's protocol 19); P-SYNC-ORIGIN-2: in v22.json
-    // (v20.json and v21.json are origin's).
-    let v19 = fixture(22);
+    // (v20.json and v21.json are origin's); P-SYNC-ORIGIN-3: in v24.json (v23.json is origin's).
+    let v19 = fixture(24);
     assert!(
-        v19.contains("\n  \"protocol\": 22,\n"),
-        "the v22 header names protocol 22"
+        v19.contains("\n  \"protocol\": 24,\n"),
+        "the v24 header names protocol 24"
     );
     let hello = unhex(named(&v19, "hello").expect("a hello vector"));
-    assert_eq!(rh_protocol::ClientMsg::hello_protocol(&hello), Some(22));
+    assert_eq!(rh_protocol::ClientMsg::hello_protocol(&hello), Some(24));
     match ServerMsg::decode(&unhex(named(&v19, "welcome").expect("a welcome vector"))) {
-        Ok(ServerMsg::Welcome { protocol, .. }) => assert_eq!(protocol, 22),
+        Ok(ServerMsg::Welcome { protocol, .. }) => assert_eq!(protocol, 24),
         other => panic!("the welcome vector decodes to a Welcome: {other:?}"),
     }
     assert_eq!(
