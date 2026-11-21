@@ -298,6 +298,11 @@ impl NativeCards {
             .filter(|(_, s)| s.count > 0)
             .map(|(id, s)| (*id, s))
     }
+    /// Is the `j`th native card (`CardId::NATIVE[j]`) held? (`Build::cards`' cursor.)
+    #[inline]
+    pub(crate) fn held_at(&self, j: usize) -> bool {
+        self.0[j].count > 0
+    }
     /// Holds no native card (the serialized `Build` then has no `native` field).
     pub fn is_empty(&self) -> bool {
         self.0.iter().all(|s| s.count == 0)

@@ -102,19 +102,23 @@ fn step_weapon(cx: &mut Cx, ix: FighterIx) {
         }
     }
     let npc = !cx.w.is_player(ix);
+    // Does an attack start this step? Only reads of the fighter, which nothing below changes before the test.
+    let starts = {
+        let p = cx.w.core(ix);
+        let wants = p.weapon.held || now <= p.weapon.buffered_until;
+        p.weapon.action.is_none()
+            && wants
+            && now + TIE_EPS_MS >= p.weapon.ready_at
+            && !crate::status_runtime::action_blocked(&p.statuses, now)
+    };
     // Plant Your Feet (legacy `startAttack`, `plantArmed` at the server time, players only): decided here, before the
-    // attack exists, and spent below only if one starts.
-    let planted = !npc && crate::cards::plant_armed(&cx.w.players[ix.slot()], now);
+    // attack exists, and spent below only if one starts (so it is read only then: P-AUG-PERF-1).
+    let planted = starts && !npc && crate::cards::plant_armed(&cx.w.players[ix.slot()], now);
     let zombie_profile = super::plague_zombies::attack_profile(cx.k, cx.w, cx.w.core(ix).id);
     let sheet = cx.w.paced_faction_spec(ix);
     let base_hp = cx.w.faction_spec(ix).map(|f| f.hp);
     let p = cx.w.core_mut(ix);
-    let wants = p.weapon.held || now <= p.weapon.buffered_until;
-    if p.weapon.action.is_none()
-        && wants
-        && now + TIE_EPS_MS >= p.weapon.ready_at
-        && !crate::status_runtime::action_blocked(&p.statuses, now)
-    {
+    if starts {
         let (tm, packet) = if let Some((tm, packet)) = zombie_profile {
             (tm, packet)
         } else {

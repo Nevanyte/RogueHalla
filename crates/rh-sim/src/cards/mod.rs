@@ -321,6 +321,66 @@ impl serde::Serialize for Build {
 /// guards it, and a packet that adds fold rows raises it. (Not computed: the tables are statics, which a const cannot
 /// read.)
 pub(crate) const MAX_FOLD_ROWS: usize = 80;
+
+/// [`Build::cards`]: one cursor over the 80 catalog slots, then the 14 native ones (the same cards in the same order as
+/// a filtered catalog walk chained to `NativeCards::held`). Hand-written because it runs every step for every player
+/// (`after_damage`, the stat fold's rows, `invested_scores`): the chained adapter cost ~6.7k instructions per step in
+/// the legacy-rule benches (P-AUG-PERF-1).
+struct HeldCards<'a> {
+    build: &'a Build,
+    at: usize,
+}
+
+/// The cursor's position is a card's index: `ALL` and `NATIVE` list the ids in index order, and the catalog is whole
+/// 8-byte words ([`Build::cards`] checks this at compile time).
+const fn cursor_is_index() -> bool {
+    let mut i = 0;
+    while i < CardId::ALL.len() {
+        if CardId::ALL[i].index() != i {
+            return false;
+        }
+        i += 1;
+    }
+    let mut j = 0;
+    while j < CardId::NATIVE.len() {
+        if CardId::NATIVE[j].index() != CardId::ALL.len() + j {
+            return false;
+        }
+        j += 1;
+    }
+    CardId::ALL.len() % 8 == 0
+}
+
+impl Iterator for HeldCards<'_> {
+    type Item = CardId;
+    #[inline]
+    fn next(&mut self) -> Option<CardId> {
+        let counts = &self.build.counts.0;
+        while let Some(&id) = CardId::ALL.get(self.at) {
+            // Eight unheld catalog cards at once (a build holds few of the 80): an all-zero word is skipped.
+            if self.at % 8 == 0 {
+                let mut word = [0u8; 8];
+                word.copy_from_slice(&counts[self.at..self.at + 8]);
+                if u64::from_ne_bytes(word) == 0 {
+                    self.at += 8;
+                    continue;
+                }
+            }
+            self.at += 1;
+            if counts[self.at - 1] > 0 {
+                return Some(id);
+            }
+        }
+        while let Some(&id) = CardId::NATIVE.get(self.at - CardId::ALL.len()) {
+            self.at += 1;
+            if self.build.native.held_at(self.at - 1 - CardId::ALL.len()) {
+                return Some(id);
+            }
+        }
+        None
+    }
+}
+
 impl Build {
     pub fn owns(&self, id: CardId) -> bool {
         self.count(id) > 0
@@ -363,10 +423,8 @@ impl Build {
     }
     /// The held cards: the 80 catalog cards in catalog order, then the held native cards in native order.
     pub fn cards(&self) -> impl Iterator<Item = CardId> + '_ {
-        CardId::ALL
-            .into_iter()
-            .filter(move |id| self.counts.0[id.index()] > 0)
-            .chain(self.native.held().map(|(id, _)| id))
+        const { assert!(cursor_is_index()) };
+        HeldCards { build: self, at: 0 }
     }
     /// Build a count map from (card, count) pairs (tests and trusted producers).
     pub fn from_counts(pairs: impl IntoIterator<Item = (CardId, u8)>) -> Self {
