@@ -15,8 +15,10 @@ namespace Roguehalla.Client.Tests
             var b = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostWindPineArt");
             Assert.That(a, Is.Not.Null);
             Assert.That(b, Is.Not.Null);
-            Assert.That(a.HasReadablePigment, Is.True);
-            Assert.That(b.HasReadablePigment, Is.True);
+            Assert.That(a.Pigment, Is.Not.Null);
+            Assert.That(a.Pigment.isReadable, Is.True);
+            Assert.That(b.Pigment, Is.Not.Null);
+            Assert.That(b.Pigment.isReadable, Is.True);
 
             Assert.That(RegionPropArt.TryGet("frost.pine", out var pineA), Is.True);
             Assert.That(RegionPropArt.TryGet("frost.pine2", out var pineB), Is.True);
