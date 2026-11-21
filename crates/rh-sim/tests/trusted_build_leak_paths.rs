@@ -6,9 +6,10 @@
 //!   2. a dotted dependency table (`[dependencies.rh-sim]` with its own `features = [...]`), including a list that
 //!      spans lines;
 //!   3. the workspace root manifest naming a trusted feature (`[workspace.dependencies]`);
-//!   4. the resolved graph: `cargo tree -p rh-server -e normal,build,features` names no trusted feature. This runs
-//!      offline and `--locked` (it reads the lock file and the local registry the build already needs), so it holds in
-//!      the gate.
+//!   4. the resolved graph: `cargo tree -p rh-server -e normal,build,features --target all` names no trusted feature.
+//!      It runs `--locked` (exactly the lock file's versions) but not `--offline`: a CI job that built only the sim
+//!      crates has not downloaded rh-server's graph for every target (P-CI-GREEN-8), so cargo may fetch it. Where the
+//!      registry already holds it (the gate), nothing is fetched.
 //!
 //! Each text rule has a negative test on a doctored manifest string. Runs with or without the feature.
 use std::collections::BTreeSet;
@@ -304,7 +305,6 @@ fn the_resolved_server_graph_names_no_trusted_feature() {
         .args([
             "tree",
             "--locked",
-            "--offline",
             "-p",
             "rh-server",
             "-e",
@@ -317,7 +317,7 @@ fn the_resolved_server_graph_names_no_trusted_feature() {
         .expect("cargo tree starts");
     assert!(
         out.status.success(),
-        "cargo tree runs offline and locked: {}",
+        "cargo tree runs locked: {}",
         String::from_utf8_lossy(&out.stderr)
     );
     let tree = String::from_utf8(out.stdout).unwrap();
