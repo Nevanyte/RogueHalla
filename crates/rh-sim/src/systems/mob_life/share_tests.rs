@@ -116,6 +116,8 @@ fn award_at(
         mob_type: m.mob_type.unwrap(),
         zone: m.core.faction_id().unwrap(),
         mult: 1.,
+        skip_stat: false,
+        smite_bonus: false,
         contributors: contributors.to_vec(),
     }
 }

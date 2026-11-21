@@ -289,6 +289,7 @@ fn a_native_card_picked_from_a_rework_chest_feeds_its_hook() {
             player: PlayerId(9),
             x: p.body.x,
             y: p.body.y,
+            owner_hatched: false,
         });
         s.step();
         let got =

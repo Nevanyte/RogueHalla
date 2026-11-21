@@ -90,6 +90,7 @@ fn corpse_world(counter: f64) -> Sim {
             player: PlayerId(corpse),
             x: at.0,
             y: at.1,
+            owner_hatched: false,
         });
     }
     sim
