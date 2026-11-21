@@ -26,8 +26,9 @@ pub use public::*;
 use hud::{camp_hud_into, marked_into, roster_into, summary_into};
 
 /// 33 (P-SYNC-ORIGIN-1): origin's observation 31 (P-NET-DRAWAHEAD-1a, the walk hint) merged with the local 31/32
-/// (P-WIRE19-A/B). 34 (P-AUG-NATIVE-5): `marked`, the public Marked Man rows.
-pub const OBSERVATION_VERSION: u16 = 34;
+/// (P-WIRE19-A/B). 34 (P-AUG-NATIVE-5): `marked`, the public Marked Man rows. 35 (P-SYNC-ORIGIN-2): the local 34 with
+/// origin's heal props (P-COLISEUM-HEALS-2) and tick-rate work (P-TICK-1b to 5), whose observation stayed 31 on origin.
+pub const OBSERVATION_VERSION: u16 = 35;
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SelfView {

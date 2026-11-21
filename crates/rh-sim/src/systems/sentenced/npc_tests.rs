@@ -507,6 +507,7 @@ fn real_npc_mark_has_required_typed_group_and_checked_restore_controls() {
         "rh-checkpoint/33",
         "rh-checkpoint/34",
         "rh-checkpoint/35",
+        "rh-checkpoint/36",
     ] {
         let mut old = value.clone();
         old["format"] = serde_json::json!(format);

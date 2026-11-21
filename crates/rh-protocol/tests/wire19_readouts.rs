@@ -68,10 +68,10 @@ fn patched(r: usize, at: usize, with: &[u8]) -> Vec<u8> {
 }
 
 #[test]
-fn key_14_is_the_newest_state_key_inside_protocol_20() {
+fn key_14_is_the_newest_state_key_inside_protocol_22() {
     assert_eq!(
-        PROTOCOL_VERSION, 20,
-        "decision 1: no bump, v19.json regenerated in place; P-SYNC-ORIGIN-1 carries it as protocol 20 (v20.json)"
+        PROTOCOL_VERSION, 22,
+        "decision 1: no bump, v19.json regenerated in place; P-SYNC-ORIGIN-1 carries it as protocol 20, P-SYNC-ORIGIN-2 as 22 (v22.json)"
     );
     // P-AUG-NATIVE-5 (oracle-amend): key 15, the Marked Man rows, follows key 14.
     assert_eq!(MAX_STATE_KEYS, 15);
@@ -241,13 +241,13 @@ fn named<'a>(text: &'a str, name: &str) -> Option<&'a str> {
 }
 
 #[test]
-fn v20_fixture_carries_the_readout_vectors_and_the_moved_malformed_ones() {
-    let path = fixture_path(20);
+fn v22_fixture_carries_the_readout_vectors_and_the_moved_malformed_ones() {
+    let path = fixture_path(22);
     let v19 = std::fs::read_to_string(&path)
-        .expect("protocol/fixtures/v20.json (cargo run -p rh-protocol --bin protocol-fixtures)");
+        .expect("protocol/fixtures/v22.json (cargo run -p rh-protocol --bin protocol-fixtures)");
     assert!(
-        v19.contains("\n  \"protocol\": 20,\n"),
-        "protocol 20 (P-SYNC-ORIGIN-1)"
+        v19.contains("\n  \"protocol\": 22,\n"),
+        "protocol 20 (P-SYNC-ORIGIN-1), 22 (P-SYNC-ORIGIN-2)"
     );
     assert_eq!(named(&v19, "state_readouts"), Some(READOUTS_HEX));
     assert_eq!(named(&v19, "state_readouts_empty"), Some(EMPTY_HEX));

@@ -48,10 +48,10 @@ fn patched(at: usize, with: u8) -> Vec<u8> {
 }
 
 #[test]
-fn key_15_is_the_newest_state_key_inside_protocol_20() {
+fn key_15_is_the_newest_state_key_inside_protocol_22() {
     assert_eq!(
-        PROTOCOL_VERSION, 20,
-        "brief decision 6: no bump (21 and the next free number are promised); v20.json regenerated in place"
+        PROTOCOL_VERSION, 22,
+        "brief decision 6: no bump (21 and the next free number are promised); v20.json regenerated in place; P-SYNC-ORIGIN-2 carries it as 22"
     );
     assert_eq!(MAX_STATE_KEYS, 15);
     assert_eq!(MAX_ROSTER, 32, "the row bound is the roster's");
@@ -177,9 +177,10 @@ fn named<'a>(text: &'a str, name: &str) -> Option<&'a str> {
 }
 
 #[test]
-fn v20_fixture_carries_the_marked_vectors_and_the_moved_malformed_ones() {
-    let text = std::fs::read_to_string(fixture_path(20))
-        .expect("protocol/fixtures/v20.json (cargo run -p rh-protocol --bin protocol-fixtures)");
+fn v22_fixture_carries_the_marked_vectors_and_the_moved_malformed_ones() {
+    // P-SYNC-ORIGIN-2: the local v20 vectors were never deployed; they live in v22.json (v20.json is origin's).
+    let text = std::fs::read_to_string(fixture_path(22))
+        .expect("protocol/fixtures/v22.json (cargo run -p rh-protocol --bin protocol-fixtures)");
     assert_eq!(named(&text, "state_marked"), Some(MARKED_HEX));
     assert_eq!(named(&text, "state_marked_empty"), Some(EMPTY_HEX));
     for (name, want) in [

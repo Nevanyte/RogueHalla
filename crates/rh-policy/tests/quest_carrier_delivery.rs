@@ -61,8 +61,8 @@ fn items(frame: &[u8]) -> Vec<StateItem> {
 fn identities_move_for_the_carrier_actor() {
     assert_eq!(
         rh_sim::OBSERVATION_VERSION,
-        34,
-        "the observed quest row gains the carrier's actor id (P-WIRE17-MAP-2); 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 34: P-AUG-NATIVE-5"
+        35,
+        "the observed quest row gains the carrier's actor id (P-WIRE17-MAP-2); 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 34: P-AUG-NATIVE-5; 35: P-SYNC-ORIGIN-2"
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
