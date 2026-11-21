@@ -9,7 +9,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a2da7d21d7864c1db4c7e177812a6f37, type: 3}
+  m_Script: {fileID: 11500000, guid: 8d46812c48d743ff8ebe9891cce3c72e, type: 3}
   m_Name: ColiseumGatePierArt
   m_EditorClassIdentifier:
   Pigment: {fileID: 2800000, guid: 632189790e48494cac1135b8bf29478f, type: 3}
@@ -17,3 +17,8 @@ MonoBehaviour:
   HeightWorldUnits: 2.625
   GroundWorldUnits: 0.25
   TextureFoot: {x: 0.5, y: 0.09}
+  GateBarWidthWorldUnits: 0.066
+  GateBarHeightWorldUnits: 1.18
+  GateIron: {r: 0.13, g: 0.15, b: 0.16, a: 1}
+  GateIronHighlight: {r: 0.56, g: 0.55, b: 0.48, a: 1}
+  FrameDepthWorldUnits: 0.31
