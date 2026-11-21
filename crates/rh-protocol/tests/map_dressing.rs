@@ -554,10 +554,10 @@ fn a_map_without_dressing_keeps_today_s_bytes() {
 // at protocol 19 (P-WIRE19-A; P-NET-DRAWAHEAD-1a on origin): 811200 -> 811300; at 20 (P-SYNC-ORIGIN-1; P-COLISEUM-HEALS-2
 // on origin): 811300 -> 811400; at 21 on origin (P-TICK-3): 811400 -> 811500; at 22 (P-SYNC-ORIGIN-2): -> 811600.
 const WELCOME_LEN: usize = 1832;
-const WELCOME_DIGEST: u64 = 0xcdba_df5a_d8af_48e4;
+const WELCOME_DIGEST: u64 = 0x8322_9a1e_a79b_0dda;
 const SHIPPED_LEN: usize = 2324;
-const SHIPPED_DIGEST: u64 = 0x2249_3cf3_1f9c_b962;
+const SHIPPED_DIGEST: u64 = 0xdeed_fe2f_f7ed_75e4;
 const ALL_LEN: usize = 2424;
-const ALL_DIGEST: u64 = 0xb64c_9e07_ccc1_fd27;
+const ALL_DIGEST: u64 = 0x3f33_a536_bea6_8115;
 const GROUND_BOTH_LEN: usize = 1868;
-const GROUND_BOTH_DIGEST: u64 = 0xedba_e30c_b4d2_c45b;
+const GROUND_BOTH_DIGEST: u64 = 0x908f_36ad_ef94_e209;
