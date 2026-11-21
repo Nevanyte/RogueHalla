@@ -331,13 +331,38 @@ struct HeldCards<'a> {
     at: usize,
 }
 
+// The cursor's position is a card's index: `ALL` and `NATIVE` list the ids in index order (checked at compile time).
+const _: () = {
+    let mut i = 0;
+    while i < CardId::ALL.len() {
+        assert!(CardId::ALL[i].index() == i);
+        i += 1;
+    }
+    let mut j = 0;
+    while j < CardId::NATIVE.len() {
+        assert!(CardId::NATIVE[j].index() == CardId::ALL.len() + j);
+        j += 1;
+    }
+    assert!(CardId::ALL.len() % 8 == 0);
+};
+
 impl Iterator for HeldCards<'_> {
     type Item = CardId;
     #[inline]
     fn next(&mut self) -> Option<CardId> {
+        let counts = &self.build.counts.0;
         while let Some(&id) = CardId::ALL.get(self.at) {
+            // Eight unheld catalog cards at once (a build holds few of the 80): an all-zero word is skipped.
+            if self.at % 8 == 0 {
+                let mut word = [0u8; 8];
+                word.copy_from_slice(&counts[self.at..self.at + 8]);
+                if u64::from_ne_bytes(word) == 0 {
+                    self.at += 8;
+                    continue;
+                }
+            }
             self.at += 1;
-            if self.build.counts.0[id.index()] > 0 {
+            if counts[self.at - 1] > 0 {
                 return Some(id);
             }
         }
