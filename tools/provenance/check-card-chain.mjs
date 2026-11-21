@@ -18,15 +18,15 @@ const eq = (kind, path, expected, actual, detail) => { if (expected !== actual) 
 const need = (p) => { if (!existsSync(join(root, p))) { fail('missing-file', p, 'exists', 'missing'); return false; } return true; };
 
 const EXPECTED = {
-  catalogSource: 'f557e73cda7ca4fdd01fca5b3d17a97fc550945347b0b038b22b3cdf80789420',
+  catalogSource: '8e444cf1eed6d2c0b0e1f73faec4f330221f819fe6f6991227a9b3ae3b044b9f',
   protocolVectors: 'e06942914a5a156f37936b1fea6e15057b2578385bafdbf000d1f16db392f139',
   browserProof: '1ddd14104f861e2afcdf2b9d95379d0927719ca5d87bf3b648c9694f5869459a',
-  runtimeSource: 'a5d3bbdcce2e7cfeb9d85618a6cd4cacc83f6d939935bc05da8f1beeca4a42c2',
-  runtimeInput: '72a4d2585019483c02e39cb7c52b092e0b4931f90b39a01234450d7aadfd707c',
-  runtimeCaptureTool: '89210bd56718f0459e3d9f68f640bad710618a3523ef9c66ea16f2b6baea132f',
-  witnessSource: '7a6c47065003c30028995f1bbd8048224a276893b0aeb468e85a9aaebc35dc31',
-  witnessInput: 'c4df37a9be34ae28c08ffaba18897c377e21895a1783d0bc2f7db1b1ebaf280c',
-  witnessCaptureTool: 'ebfa9156fb2457feda2a89edb933092ba5b777502d7a65a1d9752ac158eb16ba',
+  runtimeSource: '1242c3ca67f3c8c141192e136862ffd654d02ae20c0726dcecf5fb071ce47571',
+  runtimeInput: 'bd64eedec0a64f03eeb3d1f41d5497b4b2ed478c9a2f51fa9ea456b8c15f74ad',
+  runtimeCaptureTool: 'a85ce3109ef4be5d22d1289ea23b2f0293be20c47296d78dc41254bd3edcfa63',
+  witnessSource: 'deb05ebce31339f377caddb7e5c19c997071fb4123605a0efe824a2ca02ac183',
+  witnessInput: 'dab3bf721f5d8fc8da03f1d843e2d502b72bae2a32653485741f537993bbaecb',
+  witnessCaptureTool: 'df1a859a9689a96a9859f079fe59d3abc78c7564a44bf05a823acf81d8f08972',
   frozenPins: '7ed1086915fafd5fa129669270d6d53090f4b81052660a18318df60cab8b3023',
   frozenSource: 'c2e5d1a071f3f7a05a6c3e8bf46fbdba8f0c7ae47d4de1aea8e62a1726ecd019',
   runtimeSourceOriginal: 'c2e5d1a071f3f7a05a6c3e8bf46fbdba8f0c7ae47d4de1aea8e62a1726ecd019',
@@ -94,10 +94,12 @@ if (need('parity/card-runtime/source.json')) {
     eq('runtime-overlay-original', 'provenance.acceptedProvenanceOverlay.originalSha256', EXPECTED.catalogOriginal, ov.originalSha256);
     eq('runtime-overlay-prior', 'provenance.acceptedProvenanceOverlay.priorAcceptedEffectiveSha256', EXPECTED.catalogPrior, ov.priorAcceptedEffectiveSha256);
     eq('runtime-overlay-effective', 'provenance.acceptedProvenanceOverlay.effectiveSha256', EXPECTED.catalogSource, ov.effectiveSha256);
-    eq('runtime-overlay-preserved-prior-lineage', 'provenance.acceptedProvenanceOverlay.preservedPriorLineage', 'catalog original d50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e -> accepted 9e76292b7ae74d305da2729a2ceba63965e64aa9fd670ab85568ae7909270507 -> accepted 2ddb8f85114ff6e8e70c2d70b8207ed3f32c71431845f3cce1007be494e39792 -> accepted e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3 -> accepted 9e194b56fa5e435c6546440d3f22ba40d671dc79d259936f3db90d26ad1e96ca -> accepted 04c2c8d0bf4547e2e1db0050179c92e9d1458d80cb908e5ade5b049f8819c9f2 -> accepted ab40ad59065713589f94c7f33dbbac3ea6cd9cc028463d90d6c6fe7fe1856214 -> this effectiveSha256; earlier exact leaf transitions/receipts remain in docs/evidence/ci-card-catalog-protocol13, docs/evidence/ci-browser-provenance-chain, docs/evidence/browser-provenance14, docs/evidence/ci-provenance-refresh-2026-11-14, docs/evidence/ci-provenance-refresh-2026-11-17, docs/evidence/ci-provenance-refresh-2026-11-20 and docs/evidence/quest25-integration-2026-11-21; this hop admits only the one listed current-to-final protected leaf', ov.preservedPriorLineage);
-    eq('runtime-overlay-leaf-count', 'provenance.acceptedProvenanceOverlay.acceptedChanges', 1, (ov.acceptedChanges ?? []).length);
+    eq('runtime-overlay-preserved-prior-lineage', 'provenance.acceptedProvenanceOverlay.preservedPriorLineage', 'catalog original d50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e -> accepted 9e76292b7ae74d305da2729a2ceba63965e64aa9fd670ab85568ae7909270507 -> accepted 2ddb8f85114ff6e8e70c2d70b8207ed3f32c71431845f3cce1007be494e39792 -> accepted e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3 -> accepted 9e194b56fa5e435c6546440d3f22ba40d671dc79d259936f3db90d26ad1e96ca -> accepted 04c2c8d0bf4547e2e1db0050179c92e9d1458d80cb908e5ade5b049f8819c9f2 -> accepted ab40ad59065713589f94c7f33dbbac3ea6cd9cc028463d90d6c6fe7fe1856214 -> this effectiveSha256; earlier exact leaf transitions/receipts remain in docs/evidence/ci-card-catalog-protocol13, docs/evidence/ci-browser-provenance-chain, docs/evidence/browser-provenance14, docs/evidence/ci-provenance-refresh-2026-11-14, docs/evidence/ci-provenance-refresh-2026-11-17, docs/evidence/ci-provenance-refresh-2026-11-20 and docs/evidence/quest25-integration-2026-11-21; this hop admits only the three listed current-to-final protected leaves', ov.preservedPriorLineage);
+    eq('runtime-overlay-leaf-count', 'provenance.acceptedProvenanceOverlay.acceptedChanges', 3, (ov.acceptedChanges ?? []).length);
     const expectedLeaves = {
       '/protectedSha256/tools/protocol-js/check-vectors.mjs': ['aebbcc177fb42dc39676c26b5bf64ec21b142c6230805f7eaf0328b82d547b2b', 'e06942914a5a156f37936b1fea6e15057b2578385bafdbf000d1f16db392f139'],
+      '/protectedSha256/tools/determinism/compare.py': ['e3fe6a69c7591e825411714218b97b4b63803a986bb0b58ef0b0152d60a01d84', '1434f2e87a14c683f1346ba78c1dd3dcbe56be254da5883793b8d5cf13ab5cdf'],
+      '/protectedSha256/tools/determinism/test_compare.py': ['85aa88b08e1a29fb96e31b25f379af4e91a89a53a4296875713991f56d996501', '894e3804e909463235f642569c1521d8b160285ac55d7c8ac5c61bd412ebc1d5'],
     };
     for (const change of ov.acceptedChanges ?? []) {
       const want = expectedLeaves[change.leaf];

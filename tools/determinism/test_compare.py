@@ -202,18 +202,26 @@ class ComparatorTests(unittest.TestCase):
     NEW_LEAVES = {
         "consumables": True, "walk_hints": None, "hitboxes": "Archetypes", "mob_spacing": None,
         "regen_in_combat": None, "camp_buffs": None, "frost_wish": "wall", "tick_ms": 25,
+        "top25_quests": True,
     }
 
     def test_new_replay_config_leaves_pass_when_equal_and_fail_when_targets_differ(self):
         self.mutate_both_replays(lambda r: r["config"].update(self.NEW_LEAVES))
         self.assertEqual(self.run_compare(), 6)
+        self.mutate_both_replays(lambda r: r["config"].update(top25_quests=False))
+        self.assertEqual(self.run_compare(), 6)
+        self.mutate_both_replays(lambda r: r["config"].update(top25_quests=True))
+        self.mutate_replay(self.right, lambda r: r["config"].update(top25_quests=False))
+        self.assert_rejected()
+        self.mutate_both_replays(lambda r: r["config"].update(top25_quests=True))
         self.mutate_replay(self.right, lambda r: r["config"].update(frost_wish=None))
         self.assert_rejected()
 
     def test_unknown_replay_config_key_and_bad_new_leaf_values_fail(self):
         self.mutate_both_replays(lambda r: r["config"].update(invented_leaf=True))
         self.assert_rejected()
-        for key, bad in (("frost_wish", "freeze"), ("hitboxes", "Round"), ("consumables", 1), ("tick_ms", 33)):
+        for key, bad in (("frost_wish", "freeze"), ("hitboxes", "Round"), ("consumables", 1),
+                         ("tick_ms", 33), ("top25_quests", "yes"), ("top25_quests", None)):
             self.reset()
             self.mutate_both_replays(lambda r: r["config"].update({key: bad}))
             self.assert_rejected()

@@ -18,7 +18,7 @@ P-QUEST25-WIRE, P-QUEST25-PLAYTHROUGH, P-TICK-6, P-COLISEUM-HEALS-2 and the acce
 
 ## Exclusive write scope
 
-Integrate the existing quest and target changes in the sim, policy, headless and parity adapters, wire codec and probe, room tests, Unity client and mirrored net library, browser proof, and their packet and checkpoint records. Regenerate the protocol, archetype and native ability identity fixtures and the three dependent card provenance corpora with their official tools.
+Integrate the existing quest and target changes in the sim, policy, headless and parity adapters, wire codec and probe, room tests, Unity client and mirrored net library, browser proof, determinism comparator and its schema tests, and their packet and checkpoint records. Regenerate the protocol, archetype and native ability identity fixtures and the three dependent card provenance corpora with their official tools.
 
 ## Contracts and references
 
@@ -31,6 +31,8 @@ Ten offers per raid, two per zone. Completion, rewards and reconnection are per 
 ## Acceptance checks
 
 Decode shared vectors in Rust, C# and JS. Exercise two independently completing and reconnecting seats at 20 and 40 Hz, replay all 25 quest completions, verify the capture chain, run the repository gate and the GitHub pull request checks.
+
+The determinism comparator must accept an omitted or Boolean `top25_quests` in a replay config, reject invalid types and unknown fields, and compare the complete replay across native architectures.
 
 ## Validation commands
 
