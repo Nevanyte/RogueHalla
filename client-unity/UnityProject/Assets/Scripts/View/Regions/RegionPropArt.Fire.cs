@@ -1,4 +1,5 @@
 // Fire zone props and authored Fire concealment scrub.
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using static Roguehalla.Client.RegionCanvas;
