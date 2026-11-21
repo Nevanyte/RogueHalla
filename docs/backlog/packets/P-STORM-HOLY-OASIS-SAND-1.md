@@ -10,11 +10,11 @@ The regional ground renderer, P-STORM-HOLY-HALL-1 and the delivered Holy Hall ma
 
 ## Exclusive write scope
 
-The Holy sand texture and importer, its editable HolyDrySandArt definition, script and metadata, regional ground material binding and shader, the Holy sand EditMode oracle and metadata, this brief, the backlog row, and one dedicated Holy oasis sand row in the visual tracker.
+The Holy sand texture and importer, its editable HolyDrySandArt definition, script and metadata, regional ground texture array, material binding and shader, the Holy sand EditMode oracle and metadata, this brief, the backlog row, and one dedicated Holy oasis sand row in the visual tracker.
 
 ## Contracts and acceptance
 
-R-AUTH and D9. The Rust map supplies region weights, terrain, walkability and the landmark. Preserve the existing Hall floor and other regions. Paint dry Holy sand in map space, soften the old ripple lighting there, retain the oasis transition, and apply arena light, shadows and exposure to the result. Expose wash strength and world repeat span on the artist definition. A missing source or zero wash uses the original sand.
+R-AUTH and D9. The Rust map supplies region weights, terrain, walkability and the landmark. Preserve the existing Hall floor and other regions. Paint dry Holy sand in map space, soften the old ripple lighting there, retain the oasis transition, and apply arena light, shadows and exposure to the result. Expose wash strength and world repeat span on the artist definition. A missing source or zero wash uses the original sand. Pack the paint into the existing ground texture array to respect the Web sampler budget.
 
 ## Oracle and verification
 

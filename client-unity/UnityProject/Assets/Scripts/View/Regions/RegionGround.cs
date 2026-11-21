@@ -28,12 +28,13 @@ namespace Roguehalla.Client
             var shader = Resources.Load<Shader>("Regions/RegionGround");
             Material = new Material(shader) { name = "Roguehalla / region ground" };
             _owned.Add(Material);
-            HolyDrySandArt.Load()?.Bind(Material);
+            var holySand = HolyDrySandArt.Load();
             if (temple != null) temple.BindSignatureGround(Material);
             bool paintedMarsh = PlagueGround.BindStormInkGround(Material, map);
 
-            var ground = RegionGroundTextures.Build(out var groundNormals); _owned.Add(ground); _owned.Add(groundNormals);
+            var ground = RegionGroundTextures.Build(holySand, out var groundNormals, out bool holySandPacked); _owned.Add(ground); _owned.Add(groundNormals);
             Material.SetTexture("_GroundTex", ground); Material.SetTexture("_GroundNrm", groundNormals);
+            holySand?.Bind(Material, holySandPacked);
 
             int w = map.W, h = map.H;
             var regionA = new Color32[w * RegionTexelsPerTile * h * RegionTexelsPerTile];

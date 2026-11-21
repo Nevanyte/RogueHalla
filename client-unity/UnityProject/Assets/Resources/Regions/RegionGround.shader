@@ -28,9 +28,9 @@ Shader "Roguehalla/RegionGround"
         _VariantOn("Ground variants present", Float) = 0
         _VariantSoft("Soft band gains present", Float) = 0
         _Exposure("Exposure", Float) = 1
-        [NoScaleOffset] _HolyDrySandTex("Holy dry sand pigment", 2D) = "white" {}
         _HolyDrySandRepeatSpan("Holy dry sand repeat span", Float) = 12
         _HolyDrySandWash("Holy dry sand wash", Range(0, 1)) = 0
+        [HideInInspector] _HolyDrySandSlice("Holy dry sand slice", Float) = -1
         _Debug("Debug", Float) = 0
     }
 
@@ -103,6 +103,7 @@ Shader "Roguehalla/RegionGround"
                 half _VariantSoft;
                 half _HolyDrySandRepeatSpan;
                 half _HolyDrySandWash;
+                half _HolyDrySandSlice;
             CBUFFER_END
             #include "RhSun.hlsl"
             #include "RhLocalLights.hlsl"
@@ -167,10 +168,9 @@ Shader "Roguehalla/RegionGround"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
             TEXTURE2D(_StormFlowMap);
             float _StormFlowOn;
-            TEXTURE2D(_HolyDrySandTex); SAMPLER(sampler_HolyDrySandTex);
             #include "StormInkLightMotion.hlsl"
 
-            struct Ground { float3 col; float3 emis; float th; float thw; };   // th/thw: procedural surface height (tiles) and its weight, for derivative normals
+            struct Ground { float3 col; float3 emis; float th; float thw; float dryGround; };   // th/thw: procedural height; dryGround excludes the secondary greenery mask
 
             Ground ShadeRegion(int id, int layer, float2 t, float macro, float pocketN)
             {
@@ -195,20 +195,32 @@ Shader "Roguehalla/RegionGround"
                 if (holyWash > 0.0)
                 {
                     float span = max(_HolyDrySandRepeatSpan, 0.25);
-                    float3 pigment = SAMPLE_TEXTURE2D(_HolyDrySandTex, sampler_HolyDrySandTex, t / span).rgb;
-                    c = lerp(c, pigment, holyWash);
+                    if (_HolyDrySandSlice >= 0.0)
+                    {
+                        // Map-anchored, low-amplitude distortion breaks obvious mirrored repeats.
+                        float2 dabs = (float2(VNoise(t * 0.17 + 23.4), VNoise(t * 0.17 + 61.2)) - 0.5) * 0.35;
+                        float2 repeatUv = (t + dabs) / span;
+                        float2 cell = floor(repeatUv), localUv = frac(repeatUv);
+                        float2 odd = fmod(abs(cell), 2.0);
+                        localUv = lerp(localUv, 1.0 - localUv, step(1.0, odd));
+                        // The array sampler repeats; pull mirrored endpoints to texel centers so
+                        // the join does not wrap from the last pixel back to the first.
+                        localUv = lerp(0.5 / 256.0, 1.0 - 0.5 / 256.0, localUv);
+                        float3 pigment = SAMPLE_TEXTURE2D_ARRAY(_GroundTex, sampler_GroundTex, localUv, (int)_HolyDrySandSlice).rgb;
+                        c = lerp(c, pigment, holyWash);
+                    }
                 }
                 float pocketTerm = par.w > 0.01 ? smoothstep(par.w, par.w + 0.10, pocketN + (Fbm(t * 1.3 + 17.0) - 0.5) * 0.10) * (0.55 + 0.45 * g.g) : 0.0;
                 float patchTerm = saturate(g.g * par.y + (macro - 0.55) * par2.x * 0.6);
                 float secMask = max(pocketTerm, patchTerm);
-                c = lerp(c, lerp(secC, accC, 0.20) * (1.0 + 0.9 * detail), saturate(secMask));
+                c = lerp(c, lerp(secC, accC, 0.20) * (1.0 + 0.9 * g.r), saturate(secMask));
                 float3 e = 0;
                 float acc = saturate(g.b * par.z);
                 c = lerp(c, accC, acc);
                 e += accC * g.b * par2.y * (0.75 + 0.25 * sin(_RhInkClock.x * 1.4 + t.x * 0.4 + t.y * 0.3));
                 // B-channel glints twinkle white (frost glitter, sand shimmer).
                 c += g.b * par2.w * (0.5 + 0.5 * sin(_RhInkClock.x * 2.3 + t.x * 7.0 + t.y * 5.0)) * float3(0.9, 0.97, 1.0);
-                Ground r; r.col = c; r.emis = e; r.th = 0; r.thw = 0; return r;
+                Ground r; r.col = c; r.emis = e; r.th = 0; r.thw = 0; r.dryGround = 1.0 - saturate(secMask); return r;
             }
 
 
@@ -279,7 +291,7 @@ Shader "Roguehalla/RegionGround"
                     c = lerp(c, water, w);
                     emis += we * w;
                 }
-                Ground r; r.col = c; r.emis = emis; r.th = thv; r.thw = w; return r;
+                Ground r; r.col = c; r.emis = emis; r.th = thv; r.thw = w; r.dryGround = 0; return r;
             }
 
             // ---- Holy temple: ONE hall seen from above with its roof removed -------------------------------------------------------------
@@ -555,7 +567,7 @@ Shader "Roguehalla/RegionGround"
                 float2 tSun = t;
                 float2 gdx = ddx(tSun * 0.25), gdy = ddy(tSun * 0.25);
                 bool locLit = _RhLI.x > 0.5 && RhAnyLight(tSun);          // any analytic local light reaches this pixel
-                float2 gTilt = 0; float gGloss = 0, thH = 0, thW = 0;
+                float2 gTilt = 0, gHolyTilt = 0; float gGloss = 0, gHolyGloss = 0, thH = 0, thW = 0;
                 // Heat shimmer: ground near lava wobbles slowly (cheap UV warp, only while the switch is on).
                 [branch] if (_RhSwitch.w > 0.5)
                 {
@@ -623,9 +635,11 @@ Shader "Roguehalla/RegionGround"
                         {
                             float4 nr = SAMPLE_TEXTURE2D_ARRAY_GRAD(_GroundNrm, sampler_GroundNrm, tSun * 0.25, k2, gdx, gdy);
                             float relief = k2 == 2 ? 1.0 - .80 * _StormMarshOn : 1.0;
-                            if (k2 == 4) relief *= 1.0 - saturate(_HolyDrySandWash);
-                            gTilt += (nr.rg * 2.0 - 1.0) * wk * relief;
-                            gGloss += nr.b * wk * relief;
+                            float2 tilt = (nr.rg * 2.0 - 1.0) * wk * relief;
+                            float gloss = nr.b * wk * relief;
+                            gTilt += tilt;
+                            gGloss += gloss;
+                            if (k2 == 4) { gHolyTilt += tilt * g.dryGround; gHolyGloss += gloss * g.dryGround; }
                         }
                     }
                 }
@@ -683,6 +697,12 @@ Shader "Roguehalla/RegionGround"
                         emis = lerp(emis * (1.0 - cast * (1.0 - tin)), temis, tin);
                     }
                 }
+
+                // Only authored dry ground sheds the old sand relief. Temple floor normals
+                // keep their existing response because templeIn is removed from this weight.
+                float dryHolyRelief = (1.0 - saturate(templeIn)) * saturate(_HolyDrySandWash);
+                gTilt -= gHolyTilt * dryHolyRelief;
+                gGloss -= gHolyGloss * dryHolyRelief;
 
                 // Terrain surfaces on top: organic edges from a noise-offset coverage threshold.
                 // Heat shimmer bends detail above the ground. The physical bank stays on the map.
