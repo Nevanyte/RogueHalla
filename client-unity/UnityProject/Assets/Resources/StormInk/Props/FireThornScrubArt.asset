@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: FireThornScrubArt
   m_EditorClassIdentifier:
   Pigment: {fileID: 2800000, guid: d913608961334192a3fe7b989ec54c36, type: 3}
-  WidthWorldUnits: 1.609375
+  WidthWorldUnits: 1.40625
   HeightWorldUnits: 1.609375
   GroundWorldUnits: 0.1875
   TextureFoot: {x: 0.5, y: 0.28}
