@@ -358,9 +358,10 @@ fn guard_switch_off_the_observation_is_todays() {
             && obs.quest_deployments.is_empty()
             && obs.destroyed_terrain.is_empty()
     );
-    // The original digest includes its observation stamp. Keep it as a check on every
-    // legacy gameplay field while v31 adds only empty Top 25 projections to this room.
-    obs.version = 30;
+    // The pinned digest was captured at observation version 31 (the 5567458 target).
+    // Reuse that stamp to compare legacy fields while the merged version adds only empty
+    // quest projections to this quest-disabled room.
+    obs.version = 31;
     assert!(
         obs.props.iter().any(|p| p.cue.focused),
         "premise: a focused row"
