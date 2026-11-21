@@ -191,11 +191,11 @@ test('Readiness template and synthetic consistency never grant browser acceptanc
   assert.equal(evaluate(template()).status,'OPEN');const r=evaluate(bundle());assert.equal(r.status,'OPEN');
   assert.equal(r.cases[0].status,'CONSISTENT_FOR_REVIEW');assert.equal(r.browserAcceptance,'NOT_GRANTED_BY_COLLECTOR');
 });
-test('Artifact and observed public identity must use protocol 23',()=>{
+test('Artifact and observed public identity must use protocol 24',()=>{
   const b=bundle(),sha='a'.repeat(64);
   b.artifacts={webResourceManifestSha256:sha,webSourceManifestSha256:sha,serverBinarySha256:sha,
     serverSourceManifestSha256:sha,sourceMapSha256:sha,native98ReceiptSha256:sha,layoutReceiptSha256:sha,
-    runtimeCommandReceiptSha256:sha,versionSourcePinsSha256:sha,protocol:23,contentHash:CONTENT,
+    runtimeCommandReceiptSha256:sha,versionSourcePinsSha256:sha,protocol:24,contentHash:CONTENT,
     arenaInfoContentHash:CONTENT,trainingInfoContentHash:CONTENT,tickHz:40,graceMs:10000,
     clockMode:'real-wall-clock',cacheCondition:'ordinary-warm-reload'};
   const current=evaluate(b);
@@ -203,8 +203,8 @@ test('Artifact and observed public identity must use protocol 23',()=>{
   assert.equal(current.cases[0].status,'CONSISTENT_FOR_REVIEW');
   b.artifacts.protocol=18;
   assert(evaluate(b).failures.includes('artifact/server/public identity mismatch'));
-  b.artifacts.protocol=22; // The previous active wire version must fail the current v23 identity check.
-  b.cases[0].documents[1].wire.records[1].protocol=22;
+  b.artifacts.protocol=23; // The previous active wire version must fail the current v24 identity check.
+  b.cases[0].documents[1].wire.records[1].protocol=23;
   assert.equal(evaluate(b).status,'REFUSED');
 });
 test('Checker requires the exact reviewed native source',()=>{

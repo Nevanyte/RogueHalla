@@ -8,15 +8,15 @@ using Roguehalla.Net.Protocol;
 namespace Roguehalla.Net.Tests
 {
     /// <summary>P-WIRE19-B oracle (C# codec and client view): protocol 19 carries the viewer's own native readout rows as State
-    /// key 14: count u8 (at most 28), then rows of card u8 (80..93), kind u8 (0..2), value f64, max f64, with 0 &lt;= value &lt;=
+    /// key 14 (key 16 since protocol 24): count u8 (at most 28), then rows of card u8 (80..93), kind u8 (0..2), value f64, max f64, with 0 &lt;= value &lt;=
     /// max, both finite, cards in native order. The bytes are the brief's (docs/backlog/packets/P-WIRE19-B.md, "Wire layout"),
     /// shared with the Rust and JS oracles.</summary>
     public class Wire19ReadoutTests
     {
         // state_readouts: Marksman's Tally counter, Bastion meter, Pathfinder counter and marks, Marked Man counter 0.
-        const string ReadoutsHex = "88dc01010e055000b81e85eb51b8be3f333333333333d33f510100000000000044400000000000406f405500cdcccccccccc0c4000000000000038405502000000000000084000000000000034405d000000000000000000000000000000f03f";
-        // state_readouts_empty: key 14 with no rows.
-        const string EmptyHex = "88dc01010e00";
+        const string ReadoutsHex = "88dc010110055000b81e85eb51b8be3f333333333333d33f510100000000000044400000000000406f405500cdcccccccccc0c4000000000000038405502000000000000084000000000000034405d000000000000000000000000000000f03f";
+        // state_readouts_empty: key 16 (key 14 before protocol 24) with no rows.
+        const string EmptyHex = "88dc01011000";
         // Header (tag, tick 2, item count, key, row count); 18 bytes a row (card, kind, value, max).
         const int Header = 6, Row = 18;
 
@@ -48,11 +48,12 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
-        public void Key14IsTheNewestStateKeyInsideProtocol22()
+        public void Key16IsTheReadoutKeyInsideProtocol24()
         {
-            Assert.AreEqual(22, Wire.ProtocolVersion); // P-SYNC-ORIGIN-1 (20); P-SYNC-ORIGIN-2 (22)
-            Assert.AreEqual(14, (int)StateKey.Readouts);
-            Assert.AreEqual(14u, new ReadoutsState().Key);
+            Assert.AreEqual(24, Wire.ProtocolVersion); // P-SYNC-ORIGIN-1 (20); P-SYNC-ORIGIN-2 (22); P-SYNC-ORIGIN-3 (24)
+            // P-SYNC-ORIGIN-3: origin's opened terrain keeps key 14, so the readouts move to 16 (after Marked Man's 15).
+            Assert.AreEqual(16, (int)StateKey.Readouts);
+            Assert.AreEqual(16u, new ReadoutsState().Key);
             Assert.AreEqual(28, ReadoutsState.MaxCount);
         }
 
@@ -109,7 +110,7 @@ namespace Roguehalla.Net.Tests
         {
             var cases = new (string, byte[])[]
             {
-                ("count 29", Util.FromHex("88dc01010e1d")),
+                ("count 29", Util.FromHex("88dc0101101d")),
                 ("card 79", Patched(0, 0, new byte[] { 79 })),
                 ("card 94", Patched(4, 0, new byte[] { 94 })),
                 ("kind 3", Patched(1, 1, new byte[] { 3 })),
@@ -121,9 +122,10 @@ namespace Roguehalla.Net.Tests
             };
             foreach (var (what, bytes) in cases)
                 Assert.AreEqual(DecodeError.BadField, Refusal(bytes), what);
-            // P-AUG-NATIVE-5 (oracle-amend): key 15 is the Marked Man rows; 16 is the first unknown key.
-            Assert.AreEqual(DecodeError.BadField, Refusal(new byte[] { 0x88, 0, 1, 16 }), "key 16 is unknown");
-            Assert.Throws<DecodeException>(() => ServerMsg.Decode(new byte[] { 0x88, 0, 16 }), "16 keys are too many");
+            // P-AUG-NATIVE-5 (oracle-amend): key 15 is the Marked Man rows; P-SYNC-ORIGIN-3: key 16 is the readouts, so 17
+            // is the first unknown key.
+            Assert.AreEqual(DecodeError.BadField, Refusal(new byte[] { 0x88, 0, 1, 17 }), "key 17 is unknown");
+            Assert.Throws<DecodeException>(() => ServerMsg.Decode(new byte[] { 0x88, 0, 17 }), "17 keys are too many");
         }
 
         static (Session, FakeTransport) Connected()
@@ -143,7 +145,7 @@ namespace Roguehalla.Net.Tests
         public void TheClientViewHoldsTheOwnersRowsUntilReplaced()
         {
             var (session, transport) = Connected();
-            Assert.AreEqual(0, session.Collections.Readouts.Count, "empty before key 14 arrives");
+            Assert.AreEqual(0, session.Collections.Readouts.Count, "empty before key 16 arrives");
             Assert.IsFalse(session.Collections.HasFullState, "premise: no full state yet");
             transport.DeliverRaw(Util.FromHex(ReadoutsHex));
             var rows = session.Collections.Readouts;
@@ -151,17 +153,18 @@ namespace Roguehalla.Net.Tests
             CollectionAssert.AreEqual(Rows(), rows.ToArray(), "in wire order");
             Assert.AreEqual(93, rows[4].Card, "a native id is kept");
             transport.DeliverRaw(Util.FromHex(EmptyHex));
-            Assert.AreEqual(0, session.Collections.Readouts.Count, "key 14 with no rows clears them");
+            Assert.AreEqual(0, session.Collections.Readouts.Count, "key 16 with no rows clears them");
         }
 
         [Test]
         public void TheV19FixtureCarriesTheseVectors()
         {
-            // P-SYNC-ORIGIN-2: the local v20 vectors live in v22.json (v20.json is origin's protocol 20).
-            string path = Path.Combine(Util.RepoRoot(), "protocol", "fixtures", "v22.json");
-            Assert.IsTrue(File.Exists(path), "protocol/fixtures/v22.json is missing (cargo run -p rh-protocol --bin protocol-fixtures)");
+            // P-SYNC-ORIGIN-2: the local v20 vectors live in v22.json (v20.json is origin's protocol 20); P-SYNC-ORIGIN-3: they
+            // read v24.json (v23.json is origin's protocol 23; the local v22.json stays as history).
+            string path = Path.Combine(Util.RepoRoot(), "protocol", "fixtures", "v24.json");
+            Assert.IsTrue(File.Exists(path), "protocol/fixtures/v24.json is missing (cargo run -p rh-protocol --bin protocol-fixtures)");
             var root = JsonDocument.Parse(File.ReadAllText(path)).RootElement;
-            Assert.AreEqual(22, root.GetProperty("protocol").GetInt32());
+            Assert.AreEqual(24, root.GetProperty("protocol").GetInt32());
             string Named(string list, string name)
             {
                 foreach (var v in root.GetProperty(list).EnumerateArray())
@@ -178,9 +181,9 @@ namespace Roguehalla.Net.Tests
                 Assert.IsNotNull(hex, "malformedServer has " + name);
                 Assert.AreEqual(DecodeError.BadField, Refusal(Util.FromHex(hex)), name);
             }
-            // P-AUG-NATIVE-5 (oracle-amend): the two vectors name 16 now.
-            Assert.AreEqual("88000110", Named("malformedServer", "state_unknown_key"), "the unknown key is 16");
-            Assert.AreEqual("880010", Named("malformedServer", "state_too_many_keys"), "16 keys are too many");
+            // P-AUG-NATIVE-5 (oracle-amend): the two vectors named 16; P-SYNC-ORIGIN-3: they name 17 now.
+            Assert.AreEqual("88000111", Named("malformedServer", "state_unknown_key"), "the unknown key is 17");
+            Assert.AreEqual("880011", Named("malformedServer", "state_too_many_keys"), "17 keys are too many");
         }
     }
 }

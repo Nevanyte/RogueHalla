@@ -123,14 +123,14 @@ if (Number(version) < 19) throw new Error(`the probe speaks protocol ${version}:
   refused(patched((b, dv) => dv.setFloat64(at + 1, 21000.5, true)), /first pick/, "until after the chest's expiry");
   refused(patched((b, dv) => dv.setFloat64(at + 1, 21000, true)), /^accepted$/, "a window may end with the chest");
 }
-// P-WIRE19-B oracle-amend: State key 14 carries the viewer's own native readout rows: count u8 (<= 28), then rows of card u8
+// P-WIRE19-B oracle-amend: State key 16 (key 14 before protocol 24, P-SYNC-ORIGIN-3) carries the viewer's own native readout rows: count u8 (<= 28), then rows of card u8
 // (80..=93), kind u8 (0..=2), value f64, max f64 (finite, 0 <= value <= max, cards in native order). The probe's item is
-// `{ key: 14, value: [{ card, kind, value, max }] }`. The bytes are the brief's (docs/backlog/packets/P-WIRE19-B.md),
+// `{ key: 16, value: [{ card, kind, value, max }] }`. The bytes are the brief's (docs/backlog/packets/P-WIRE19-B.md),
 // shared with the Rust (crates/rh-protocol/tests/wire19_readouts.rs) and C# (Wire19ReadoutTests.cs) oracles.
 {
   const readoutHex = {
-    state_readouts: "88dc01010e055000b81e85eb51b8be3f333333333333d33f510100000000000044400000000000406f405500cdcccccccccc0c4000000000000038405502000000000000084000000000000034405d000000000000000000000000000000f03f",
-    state_readouts_empty: "88dc01010e00",
+    state_readouts: "88dc010110055000b81e85eb51b8be3f333333333333d33f510100000000000044400000000000406f405500cdcccccccccc0c4000000000000038405502000000000000084000000000000034405d000000000000000000000000000000f03f",
+    state_readouts_empty: "88dc01011000",
   };
   const readoutRows = {
     state_readouts: [{card:80,kind:0,value:0.12,max:0.3},{card:81,kind:1,value:40,max:250},{card:85,kind:0,value:3.6,max:24},{card:85,kind:2,value:3,max:20},{card:93,kind:0,value:0,max:1}],
@@ -142,14 +142,14 @@ if (Number(version) < 19) throw new Error(`the probe speaks protocol ${version}:
     eq(v.hex, readoutHex[name], name + " bytes are the brief's");
     let s; try { s = decode(bytes(readoutHex[name])); } catch (e) { throw new Error(`${name} is refused: ${e.message}`); }
     eq(s.tick, 220, name + " tick");
-    eq(JSON.stringify(s.items), JSON.stringify([{key:14,value:readoutRows[name]}]), name + " rows (keys in order)");
+    eq(JSON.stringify(s.items), JSON.stringify([{key:16,value:readoutRows[name]}]), name + " rows (keys in order)");
   }
   // Row i starts at byte 6 + 18 i: card, kind, value, max.
   const at = (row, field) => 6 + 18 * row + field;
   const patched = (patch) => { const b = new Uint8Array(bytes(readoutHex.state_readouts)); patch(b, new DataView(b.buffer)); return b.buffer; };
   const refusal = (buf) => { try { decode(buf); } catch (e) { return String(e.message); } return "accepted"; };
   const refused = (buf, re, what) => { checks++; const m = refusal(buf); if (!re.test(m)) throw new Error(`${what}: got "${m}", want ${re}`); };
-  refused(bytes("88dc01010e1d"), /readout count/, "29 rows");
+  refused(bytes("88dc0101101d"), /readout count/, "29 rows");
   refused(patched((b) => { b[at(0, 0)] = 79; }), /readout card/, "catalog card 79");
   refused(patched((b) => { b[at(4, 0)] = 94; }), /readout card/, "card 94");
   refused(patched((b) => { b[at(1, 1)] = 3; }), /readout kind/, "kind 3");
@@ -159,12 +159,13 @@ if (Number(version) < 19) throw new Error(`the probe speaks protocol ${version}:
   refused(patched((b, dv) => dv.setFloat64(at(1, 10), Infinity, true)), /readout value/, "max infinite");
   refused(patched((b) => { b[at(2, 0)] = 80; }), /readout order/, "order");
   refused(patched((b, dv) => dv.setFloat64(at(1, 2), 250, true)), /^accepted$/, "a value may equal its max");
-  // P-AUG-NATIVE-5: key 15 is the Marked Man rows; 16 is the first unknown key and 16 keys are too many.
-  refused(bytes("88000110"), /state key/, "key 16 is unknown");
-  refused(bytes("880010"), /too many/, "16 keys are too many");
-  for (const [name, hex] of [["state_unknown_key", "88000110"], ["state_too_many_keys", "880010"]]) {
+  // P-AUG-NATIVE-5: key 15 is the Marked Man rows; P-SYNC-ORIGIN-3: key 16 is the readout rows, so 17 is the first
+  // unknown key and 17 keys are too many.
+  refused(bytes("88000111"), /state key/, "key 17 is unknown");
+  refused(bytes("880011"), /too many/, "17 keys are too many");
+  for (const [name, hex] of [["state_unknown_key", "88000111"], ["state_too_many_keys", "880011"]]) {
     const v = fx.malformedServer.find(v => v.name === name);
-    eq(v?.hex, hex, name + " names key 16 now");
+    eq(v?.hex, hex, name + " names key 17 now");
   }
 }
 // P-AUG-NATIVE-5: State key 15 carries every Marked Man holder's public position: count u8 (<= 32, refused before the

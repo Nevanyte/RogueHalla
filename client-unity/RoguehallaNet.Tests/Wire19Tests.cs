@@ -51,7 +51,7 @@ namespace Roguehalla.Net.Tests
             return Assert.Throws<DecodeException>(() => ServerMsg.Decode(bytes)).Error;
         }
 
-        [Test] public void CodecSpeaksProtocol22() { Assert.AreEqual(22, Wire.ProtocolVersion); } // P-SYNC-ORIGIN-1 (20); P-SYNC-ORIGIN-2 (22)
+        [Test] public void CodecSpeaksProtocol24() { Assert.AreEqual(24, Wire.ProtocolVersion); } // P-SYNC-ORIGIN-1 (20); P-SYNC-ORIGIN-2 (22); P-SYNC-ORIGIN-3 (24)
 
         [Test]
         public void TheWindowAndANativeCardEncodeToTheSpecifiedBytes()
@@ -151,11 +151,12 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void TheV19FixtureCarriesTheseVectors()
         {
-            // P-SYNC-ORIGIN-2: the local v20 vectors live in v22.json (v20.json is origin's protocol 20).
-            string path = Path.Combine(Util.RepoRoot(), "protocol", "fixtures", "v22.json");
-            Assert.IsTrue(File.Exists(path), "protocol/fixtures/v22.json is missing (cargo run -p rh-protocol --bin protocol-fixtures)");
+            // P-SYNC-ORIGIN-2: the local v20 vectors live in v22.json (v20.json is origin's protocol 20); P-SYNC-ORIGIN-3: they
+            // read v24.json (v23.json is origin's protocol 23; the local v22.json stays as history).
+            string path = Path.Combine(Util.RepoRoot(), "protocol", "fixtures", "v24.json");
+            Assert.IsTrue(File.Exists(path), "protocol/fixtures/v24.json is missing (cargo run -p rh-protocol --bin protocol-fixtures)");
             var root = JsonDocument.Parse(File.ReadAllText(path)).RootElement;
-            Assert.AreEqual(22, root.GetProperty("protocol").GetInt32());
+            Assert.AreEqual(24, root.GetProperty("protocol").GetInt32());
             string Server(string name)
             {
                 foreach (var v in root.GetProperty("server").EnumerateArray())
