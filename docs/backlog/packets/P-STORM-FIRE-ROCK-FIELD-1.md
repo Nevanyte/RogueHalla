@@ -10,7 +10,7 @@ Use the editable regional prop definition from the Frost pines packet and the ex
 
 ## Exclusive write scope
 
-Two loose-rock paintings (angular scree and rounded cobbles), a basalt-ledged bedrock painting, their importers and Unity art definitions, the Fire rock entries and presentation resolution in the existing regional atlas and renderer, focused editor tests and metadata, two dressing tracker rows, this brief and the backlog row.
+Two loose-rock paintings (angular scree and rounded cobbles), a fractured basalt painting, their importers and Unity art definitions, the Fire rock entries and presentation resolution in the existing regional atlas and renderer, focused editor tests and metadata, the dressing tracker rows for the three paintings and follow-up notes for the four observed mound aliases, this brief and the backlog row.
 
 ## Contracts and acceptance
 
