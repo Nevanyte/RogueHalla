@@ -32,7 +32,7 @@ namespace Roguehalla.Client
         /// <summary>The edit studio checks whether saving an asset has invalidated the live ground shader tables.</summary>
         public Material PreviewGroundMaterial => _regionGround?.Material;
 #endif
-        RegionGround _regionGround; RegionWalls _regionWalls; RegionProps _regionProps; LandmarkView _landmarks;
+        RegionGround _regionGround; RegionWalls _regionWalls; RegionProps _regionProps; LandmarkView _landmarks; ColiseumGatePresenter _coliseumGates;
         /// <summary>Brightness multiplier for region ground and walls (they are lit by the same Light2D set as the actors).</summary>
         public const float RegionExposure = 1f;
         SpriteActorPresenter _actors;
@@ -473,6 +473,7 @@ namespace Roguehalla.Client
 
         public void PresentCollections(CollectionsView collections)
         {
+            _coliseumGates?.SetLocked(collections != null && collections.Arena.HasValue && collections.Arena.Value.GatesLocked);
             _shotsForPresentedActors = null;
             var pmCollections = PerfMarks.Begin();
             _used = 0; _inventory = collections != null ? collections.Inventory : null;
@@ -665,6 +666,7 @@ namespace Roguehalla.Client
             if (_regionGround != null) _regionGround.Dispose();
             if (_regionWalls != null) _regionWalls.Dispose();
             if (_regionProps != null) _regionProps.Dispose();
+            if (_coliseumGates != null) _coliseumGates.Dispose();
             if (_landmarks != null) _landmarks.Dispose();
         }
     }

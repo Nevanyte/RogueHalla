@@ -162,7 +162,7 @@ namespace Roguehalla.Client
         {
             var list = new List<Placement>(2048);
             var nave = ChurchLandmark.DeliveredNave(map);
-            if (IsDressed(map)) { AddShipped(map, list, nave); return list; }
+            if (IsDressed(map)) { AddShipped(map, list, nave); ColiseumProps.AddGatePiers(map, list); return list; }
             if (map.Regions == null) { AddRealBushes(map, list); return list; }
             int w = map.W, h = map.H; var tiles = map.Tiles; var regions = map.Regions; var terrain = map.Terrain;     // props avoid every terrain tile, drawn or not
             int seed = unchecked((int)(map.LayerHash ^ (map.SemanticHash * 2654435761u)));
@@ -208,6 +208,7 @@ namespace Roguehalla.Client
             foreach (var d in temple.Props)
                 list.Add(new Placement { Art = d.Art, X = d.X, Y = d.Y, Scale = d.Scale, Flip = d.Flip, Tx = Mathf.FloorToInt(d.X), Ty = Mathf.FloorToInt(d.Y + (d.Bias > 0 ? 1.5f : 0f)), Bias = d.Bias });
             ColiseumProps.Add(map, list, seed);
+            ColiseumProps.AddGatePiers(map, list);
             AddRealBushes(map, list);
             return list;
         }

@@ -21,6 +21,16 @@ namespace Roguehalla.Client
         [Tooltip("Normalized source-art foot point, with (0,0) at bottom left. It is aligned to the delivered map position.")]
         public Vector2 TextureFoot = new Vector2(.5f, .055f);
 
+        [Header("Coliseum portcullis (read by ColiseumGatePierArt)")]
+        [Min(.02f), Tooltip("Screen-space width of each painted iron upright, in world units.")]
+        public float GateBarWidthWorldUnits = .055f;
+        [Min(.3f), Tooltip("Height of the closed gate bars above the walkable tile, in world units.")]
+        public float GateBarHeightWorldUnits = 1.18f;
+        [ColorUsage(false, false), Tooltip("Ink-dark iron used by the closed gate bars.")]
+        public Color GateIron = new Color(.10f, .12f, .15f, 1f);
+        [ColorUsage(false, false), Tooltip("Cool edge pigment on the closed gate bars.")]
+        public Color GateIronHighlight = new Color(.48f, .52f, .55f, 1f);
+
         internal bool HasReadablePigment => Pigment != null && Pigment.isReadable;
         internal int WidthPixels(int fallback) => !HasReadablePigment ? fallback : Mathf.RoundToInt(Mathf.Clamp(WidthWorldUnits, .5f, 3f) * RegionPropArt.PixelsPerUnit);
         internal int HeightPixels(int fallback) => !HasReadablePigment ? fallback : Mathf.RoundToInt(Mathf.Clamp(HeightWorldUnits, .35f, 4f) * RegionPropArt.PixelsPerUnit);
