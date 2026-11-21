@@ -59,3 +59,22 @@
 - `scripts/gate.sh --quick --allow-protected --regen-fixtures` passes. Use the flags P-CI-GREEN-5's hand-off says the
   path check needs.
 - The evidence README is written, and the AGENTS.md hand-off report is in this file.
+
+## Hand-off
+
+```
+PACKET:          P-CI-GREEN-7 — serves CI green before the rework branch is pushed (coordinator, 2026-11-20)
+BRANCH:          agent/sonnet/P-CI-GREEN-7 @ HANDOFF_SHA (worktree .claude/worktrees/agent-afbcb21ea50c4150c)
+GATE:            PASS (quick) `scripts/gate.sh --quick --allow-protected --regen-fixtures --base 52bd52065`; check-card-chain failureCount 0; three capture.sh --check pass
+CHANGED:         parity/card-catalog/source.json; parity/card-runtime/{source,INPUT_SHA256}.json; parity/card-runtime-witness/{source,INPUT_SHA256}.json (all by capture.sh output); tools/card-runtime-fixtures/capture.mts and tools/card-runtime-witness-fixtures/capture.mts (overlay entries); tools/provenance/check-card-chain.mjs (EXPECTED, lineage, leaf count 2->1, leaf table); docs/evidence/ci-provenance-refresh-2026-11-20-check-vectors/README.md; this file
+D-RULES:         n/a (provenance only; no parity capture content changed)
+DEVIATIONS:      none
+SHARED RECORDS:  none
+LEGACY DOUBTS:   none
+NOT ESTABLISHED: capture.sh --check exit codes were read from their printed matching hashes (set -e scripts), not an explicit exit status
+RISKS:           pins are correct for 52bd52065; any later edit to a pinned file needs another refresh
+```
+
+Pins: catalog `08eedc97...`, runtime source `eb66dd5e...`, runtime input `0e81c141...`, witness source `03e174c3...`,
+witness input `0a9b428d...`, runtime tool `558741bb...`, witness tool `cc6e87a6...`. Only differing catalog leaf was the
+check-vectors pin; runtime 10 and witness 22 differing leaves, all provenance. Corpora captured once each, outside the repo.
