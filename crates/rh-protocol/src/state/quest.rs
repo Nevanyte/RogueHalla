@@ -56,6 +56,30 @@ pub struct WireQuestObjective {
     pub at: WireQuestPoint,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WireQuestSpell {
+    pub slot: u8,
+    pub reward: u8,
+    pub charges: u8,
+    pub ready_at: f64,
+}
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WireQuestDrop {
+    pub index: u8,
+    pub reward: u8,
+    pub charges: u8,
+    pub ready_at: f64,
+    pub at: WireQuestPoint,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct WireQuestAction {
+    pub quest: QuestHandle,
+    pub action: u8,
+    pub target: u8,
+    pub at: Vec<WireQuestPoint>,
+    pub label: String,
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct WireQuestView {
     pub unknown_count: u32,
@@ -64,6 +88,10 @@ pub struct WireQuestView {
     pub roster: Vec<WireRosterEntry>,
     pub rows: Vec<WireQuestRow>,
     pub objectives: Vec<WireQuestObjective>,
+    pub spells: Vec<WireQuestSpell>,
+    pub pending: Vec<QuestHandle>,
+    pub drops: Vec<WireQuestDrop>,
+    pub actions: Vec<WireQuestAction>,
 }
 
 pub(super) fn valid_quest_point(point: WireQuestPoint) -> bool {
@@ -73,9 +101,14 @@ pub(super) fn valid_quest_point(point: WireQuestPoint) -> bool {
         && (0.0..=8191.875).contains(&point.y)
 }
 
+// A reusable spell can be equipped or dropped while its last charge is recharging.
+fn valid_spell_clock(charges: u8, ready_at: f64) -> bool {
+    ready_at.is_finite() && ready_at >= 0. && (charges > 0 || ready_at > 0.)
+}
+
 impl WireQuestView {
     pub fn check(&self) -> Result<(), EncodeError> {
-        if self.unknown_count > 20 || self.display_unknown_count > self.unknown_count {
+        if self.unknown_count > 25 || self.display_unknown_count > self.unknown_count {
             return Err(EncodeError::BadValue("quest counts"));
         }
         if self.roster.len() > MAX_QUEST_ROSTER {
@@ -99,6 +132,58 @@ impl WireQuestView {
                 max: MAX_QUEST_OBJECTIVES,
             });
         }
+        if self.spells.len() > MAX_QUEST_SPELLS
+            || self.pending.len() > MAX_QUEST_PENDING
+            || self.drops.len() > MAX_QUEST_DROPS
+            || self.actions.len() > MAX_QUEST_ACTIONS
+        {
+            return Err(EncodeError::BadValue("quest owner data count"));
+        }
+        if self
+            .spells
+            .iter()
+            .any(|s| s.slot > 1 || s.reward > 48 || !valid_spell_clock(s.charges, s.ready_at))
+            || self.spells.windows(2).any(|w| w[0].slot >= w[1].slot)
+            || self
+                .pending
+                .iter()
+                .any(|h| !self.rows.iter().any(|r| r.handle == *h))
+            || has_duplicates(&self.pending.iter().map(|h| h.get()).collect::<Vec<_>>())
+        {
+            return Err(EncodeError::BadValue("quest owner spells/pending"));
+        }
+        let mut drop_ids = Vec::with_capacity(self.drops.len());
+        for d in &self.drops {
+            if d.reward > 48
+                || !valid_spell_clock(d.charges, d.ready_at)
+                || !valid_quest_point(d.at)
+            {
+                return Err(EncodeError::BadValue("quest drop"));
+            }
+            drop_ids.push(u32::from(d.index));
+        }
+        if has_duplicates(&drop_ids) {
+            return Err(EncodeError::BadValue("quest drop indexes"));
+        }
+        for a in &self.actions {
+            let reference_ok = if a.action == 9 {
+                self.drops.iter().any(|d| d.index == a.target)
+            } else {
+                self.rows.iter().any(|r| r.handle == a.quest)
+            };
+            if !reference_ok
+                || !(1..=9).contains(&a.action)
+                || (matches!(a.action, 1 | 4 | 6) && a.target != 0)
+                || (a.action == 2 && a.target > 1)
+                || (a.action == 5 && a.target > 80)
+                || (a.action == 8 && a.target > 2)
+                || a.at.len() > MAX_QUEST_ACTION_POINTS
+                || a.at.iter().any(|p| !valid_quest_point(*p))
+            {
+                return Err(EncodeError::BadValue("quest action"));
+            }
+            str_fits("quest action label", &a.label)?;
+        }
         let roster_ids: Vec<u32> = self.roster.iter().map(|entry| entry.id.get()).collect();
         for entry in &self.roster {
             str_fits("quest roster label", &entry.label)?;
@@ -115,7 +200,7 @@ impl WireQuestView {
         let mut quest_ids = Vec::with_capacity(self.rows.len());
         for row in &self.rows {
             if row.def.is_empty()
-                || row.def.len() > 16
+                || row.def.len() > 32
                 || row.state > 3
                 || !valid_quest_point(row.giver)
                 || !row.expires_at.is_finite()
@@ -193,8 +278,18 @@ impl WireQuestView {
         Ok(())
     }
 
+    // The historical unknown count occupies bits 0..4. Bit 6 introduces the optional v19 owner groups.
+    // A legacy or empty board retains its original bytes, including the local v14 scene experiments.
+    const OWNER_GROUPS: u32 = 0x40;
+    fn has_owner_groups(&self) -> bool {
+        !(self.spells.is_empty()
+            && self.pending.is_empty()
+            && self.drops.is_empty()
+            && self.actions.is_empty())
+    }
+
     pub(super) fn encoded_len(&self) -> usize {
-        varint_len(self.unknown_count)
+        let base = varint_len(self.unknown_count)
             + varint_len(self.display_unknown_count)
             + varint_len(self.owner_roster.map_or(0, RosterId::get))
             + varint_len(self.roster.len() as u32)
@@ -214,11 +309,43 @@ impl WireQuestView {
                 .objectives
                 .iter()
                 .map(WireQuestObjective::encoded_len)
+                .sum::<usize>();
+        if !self.has_owner_groups() {
+            return base;
+        }
+        base + varint_len(self.spells.len() as u32)
+            + self.spells.len() * 11
+            + varint_len(self.pending.len() as u32)
+            + self
+                .pending
+                .iter()
+                .map(|h| varint_len(h.get()))
+                .sum::<usize>()
+            + varint_len(self.drops.len() as u32)
+            + self.drops.len() * 27
+            + varint_len(self.actions.len() as u32)
+            + self
+                .actions
+                .iter()
+                .map(|a| {
+                    varint_len(a.quest.get())
+                        + 2
+                        + varint_len(a.at.len() as u32)
+                        + a.at.len() * 16
+                        + str_len(&a.label)
+                })
                 .sum::<usize>()
     }
 
     pub(super) fn write(&self, w: &mut Writer) {
-        w.varint(self.unknown_count);
+        w.varint(
+            self.unknown_count
+                | if self.has_owner_groups() {
+                    Self::OWNER_GROUPS
+                } else {
+                    0
+                },
+        );
         w.varint(self.display_unknown_count);
         w.varint(self.owner_roster.map_or(0, RosterId::get));
         w.varint(self.roster.len() as u32);
@@ -234,10 +361,46 @@ impl WireQuestView {
         for objective in &self.objectives {
             objective.write(w);
         }
+        if !self.has_owner_groups() {
+            return;
+        }
+        w.varint(self.spells.len() as u32);
+        for s in &self.spells {
+            w.u8(s.slot);
+            w.u8(s.reward);
+            w.u8(s.charges);
+            w.f64(s.ready_at);
+        }
+        w.varint(self.pending.len() as u32);
+        for h in &self.pending {
+            w.varint(h.get());
+        }
+        w.varint(self.drops.len() as u32);
+        for d in &self.drops {
+            w.u8(d.index);
+            w.u8(d.reward);
+            w.u8(d.charges);
+            w.f64(d.ready_at);
+            w.f64(d.at.x);
+            w.f64(d.at.y);
+        }
+        w.varint(self.actions.len() as u32);
+        for a in &self.actions {
+            w.varint(a.quest.get());
+            w.u8(a.action);
+            w.u8(a.target);
+            w.varint(a.at.len() as u32);
+            for p in &a.at {
+                w.f64(p.x);
+                w.f64(p.y);
+            }
+            w.str(&a.label);
+        }
     }
 
     pub(super) fn read(r: &mut Reader<'_>) -> Result<Self, DecodeError> {
-        let unknown_count = r.varint()?;
+        let header = r.varint()?;
+        let unknown_count = header & !Self::OWNER_GROUPS;
         let display_unknown_count = r.varint()?;
         let owner_roster = roster_id_or_none(r.varint()?)?;
         let roster_len = r.varint()? as usize;
@@ -267,6 +430,85 @@ impl WireQuestView {
         for _ in 0..objectives_len {
             objectives.push(WireQuestObjective::read(r)?);
         }
+        if header & Self::OWNER_GROUPS == 0 {
+            let view = Self {
+                unknown_count,
+                display_unknown_count,
+                owner_roster,
+                roster,
+                rows,
+                objectives,
+                ..Default::default()
+            };
+            view.check().map_err(quest_decode_error)?;
+            return Ok(view);
+        }
+        let spells_len = r.varint()? as usize;
+        if spells_len > MAX_QUEST_SPELLS {
+            return Err(DecodeError::TooMany(spells_len));
+        }
+        let mut spells = Vec::with_capacity(spells_len);
+        for _ in 0..spells_len {
+            spells.push(WireQuestSpell {
+                slot: r.u8()?,
+                reward: r.u8()?,
+                charges: r.u8()?,
+                ready_at: r.f64()?,
+            });
+        }
+        let pending_len = r.varint()? as usize;
+        if pending_len > MAX_QUEST_PENDING {
+            return Err(DecodeError::TooMany(pending_len));
+        }
+        let mut pending = Vec::with_capacity(pending_len);
+        for _ in 0..pending_len {
+            pending.push(quest_handle(r.varint()?)?);
+        }
+        let drops_len = r.varint()? as usize;
+        if drops_len > MAX_QUEST_DROPS {
+            return Err(DecodeError::TooMany(drops_len));
+        }
+        let mut drops = Vec::with_capacity(drops_len);
+        for _ in 0..drops_len {
+            drops.push(WireQuestDrop {
+                index: r.u8()?,
+                reward: r.u8()?,
+                charges: r.u8()?,
+                ready_at: r.f64()?,
+                at: WireQuestPoint {
+                    x: r.f64()?,
+                    y: r.f64()?,
+                },
+            });
+        }
+        let actions_len = r.varint()? as usize;
+        if actions_len > MAX_QUEST_ACTIONS {
+            return Err(DecodeError::TooMany(actions_len));
+        }
+        let mut actions = Vec::with_capacity(actions_len);
+        for _ in 0..actions_len {
+            let quest = quest_handle(r.varint()?)?;
+            let action = r.u8()?;
+            let target = r.u8()?;
+            let n = r.varint()? as usize;
+            if n > MAX_QUEST_ACTION_POINTS {
+                return Err(DecodeError::TooMany(n));
+            }
+            let mut at = Vec::with_capacity(n);
+            for _ in 0..n {
+                at.push(WireQuestPoint {
+                    x: r.f64()?,
+                    y: r.f64()?,
+                });
+            }
+            actions.push(WireQuestAction {
+                quest,
+                action,
+                target,
+                at,
+                label: r.str()?,
+            });
+        }
         let view = Self {
             unknown_count,
             display_unknown_count,
@@ -274,6 +516,10 @@ impl WireQuestView {
             roster,
             rows,
             objectives,
+            spells,
+            pending,
+            drops,
+            actions,
         };
         view.check().map_err(quest_decode_error)?;
         Ok(view)

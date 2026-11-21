@@ -3,7 +3,8 @@
 // protocol/fixtures/v18.json Hello and Welcome as protocol 18. Run by the gate's reload-proof step whenever
 // crates/rh-protocol/ or protocol/fixtures/ changes. P-NET-DRAWAHEAD-1a moved every pin to protocol 19 (v19.json);
 // P-SYNC-ORIGIN-1 reads the current v<PROTOCOL>.json (protocol 20). On origin, P-COLISEUM-HEALS-2 took protocol 20
-// (v20.json) and P-TICK-3 21 (v21.json); P-SYNC-ORIGIN-2 merged both lines as 22, read the same way.
+// (v20.json) and P-TICK-3 21 (v21.json); P-SYNC-ORIGIN-2 merged both lines as 22, read the same way;
+// origin's 23 (v23.json, Top 25 quests) and the local 22 merged as 24 (P-SYNC-ORIGIN-3).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -24,6 +25,17 @@ function vectors() {
 test('probe.html speaks protocol 18 or later and its codec block is marked with its version', () => {
   assert.ok(probe.PROTOCOL >= 18);
   assert.notEqual(html.indexOf(`// ---- protocol v${probe.PROTOCOL} `), -1, 'the codec block marker names the version');
+});
+
+test('probe.html speaks protocol 24 and its codec block is marked v24', () => {
+  assert.equal(probe.PROTOCOL, 24);
+  assert.notEqual(html.indexOf('// ---- protocol v24 '), -1, 'the codec block marker names v24');
+});
+
+test('the retained historical fixture v21.json remains v21', () => {
+  const v21 = new URL('../../protocol/fixtures/v21.json', import.meta.url);
+  assert.equal(existsSync(v21), true, 'protocol/fixtures/v21.json is missing');
+  assert.equal(JSON.parse(readFileSync(v21, 'utf8')).protocol, 21, 'the retained historical fixture remains v21');
 });
 
 test('the probe decodes the current Hello and Welcome as its protocol', () => {

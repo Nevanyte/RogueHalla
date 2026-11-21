@@ -27,7 +27,7 @@ pub(crate) fn recent_rival(w: &World, vi: usize, at: f64) -> Option<PlayerId> {
     }
     let by = w.credited_player(by)?;
     let si = w.idx(by)?;
-    (!w.players[si].resolved).then_some(by)
+    eligible(w, si).then_some(by)
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -35,6 +35,13 @@ pub(crate) struct KillVictim {
     pub id: PlayerId,
     pub outcome: crate::results::Outcome,
     pub bot: bool,
+}
+
+pub(super) fn eligible(w: &World, index: usize) -> bool {
+    let p = &w.players[index];
+    !p.resolved
+        && (p.status != crate::Status::Dead
+            || !crate::quests::board::special::egg::awaiting_hatch(w, p.id))
 }
 
 pub(crate) fn credit_kill(
@@ -47,7 +54,7 @@ pub(crate) fn credit_kill(
 ) {
     let by = w.credited_player(by).unwrap_or(by);
     let Some(bi) = w.idx(by) else { return };
-    if w.players[bi].resolved {
+    if !eligible(w, bi) {
         return;
     }
     w.players[bi].credit.kills = w.players[bi].credit.kills.saturating_add(1);
@@ -69,6 +76,9 @@ pub(crate) fn credit_kill(
             elite: false,
         },
     );
+    if k.quest_deal.is_some() && victim.outcome == crate::Outcome::Died {
+        crate::quests::board::attempts::on_bounty_kill(w, by, victim.id, bounty);
+    }
     crate::hooks::fire(
         &mut crate::hooks::Hx {
             stats: crate::status_runtime::stats::Inputs::default(),
@@ -87,10 +97,10 @@ pub(crate) fn credit_kill(
 }
 
 pub(super) fn credit(w: &mut World, ev: &mut Vec<Event>, i: usize, reason: GvReason, amount: u32) {
-    let p = &mut w.players[i];
-    if p.resolved || amount == 0 {
+    if amount == 0 || !eligible(w, i) {
         return;
     }
+    let p = &mut w.players[i];
     match reason {
         GvReason::Kill => p.credit.gv_parts.kills = p.credit.gv_parts.kills.saturating_add(amount),
         GvReason::Bounty => {

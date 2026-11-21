@@ -350,7 +350,18 @@ fn guard_switch_off_the_observation_is_todays() {
     // moving the reach read to the body map changes no byte of what a Freeze world sends.
     let mut s = rig(FrostWish::Freeze, FactionId::Fire, taker());
     drop_axe(&mut s, loot_across());
-    let obs = crate::observe(&s, id(&s, 1), &[]);
+    let mut obs = crate::observe(&s, id(&s, 1), &[]);
+    assert_eq!(obs.version, crate::OBSERVATION_VERSION);
+    assert!(
+        obs.quest_public_marks.is_empty()
+            && obs.quest_spell_cues.is_empty()
+            && obs.quest_deployments.is_empty()
+            && obs.destroyed_terrain.is_empty()
+    );
+    // The pinned digest was captured at observation version 31 (the 5567458 target).
+    // Reuse that stamp to compare legacy fields while the merged version adds only empty
+    // quest projections to this quest-disabled room.
+    obs.version = 31;
     assert!(
         obs.props.iter().any(|p| p.cue.focused),
         "premise: a focused row"
@@ -401,6 +412,7 @@ fn lay_corpse(s: &mut Sim, at: Vec2) -> PlayerId {
         player,
         x: at.x,
         y: at.y,
+        owner_hatched: false,
     });
     player
 }

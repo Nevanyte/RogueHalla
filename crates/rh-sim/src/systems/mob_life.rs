@@ -1,5 +1,6 @@
 //! Regional damage, whole-fight attribution, and deferred progression on the shared ledger.
 use super::{
+    credit,
     ledger::{Hit, PayLater},
     mob_ai, Cx,
 };
@@ -24,6 +25,8 @@ pub(crate) struct Award {
     pub mob_type: crate::mob_catalog::MobTypeId,
     pub zone: crate::FactionId,
     pub mult: f64,
+    pub skip_stat: bool,
+    pub smite_bonus: bool,
     pub contributors: Vec<PlayerId>,
 }
 fn feed(p: &crate::state::Player) -> f64 {
@@ -237,11 +240,13 @@ pub(crate) fn hurt(
     }
     let m = w.mobs.get(id).unwrap();
     let mut dealt = m.regional_brain().threat.clone();
-    dealt.retain(|(id, _)| w.player(*id).is_some_and(|p| !p.resolved));
+    dealt.retain(|(id, _)| w.idx(*id).is_some_and(|i| credit::eligible(w, i)));
     let share = if total > before { before / total } else { 1. };
     for h in hits {
         if h.amount > 0. {
-            if let Some(by) = h.by.filter(|id| w.player(*id).is_some_and(|p| !p.resolved)) {
+            if let Some(by) =
+                h.by.filter(|id| w.idx(*id).is_some_and(|i| credit::eligible(w, i)))
+            {
                 if let Some((_, sum)) = dealt.iter_mut().find(|(id, _)| *id == by) {
                     *sum += h.amount * share
                 } else {
@@ -258,6 +263,22 @@ pub(crate) fn hurt(
             best = sum;
             killer = Some(id);
         }
+    }
+    if let Some(smite) = hits
+        .iter()
+        .filter(|h| {
+            h.amount >= before
+                && crate::quests::board::rewards::effects::smite_hit(h)
+                && h.by
+                    .is_some_and(|id| w.idx(id).is_some_and(|i| credit::eligible(w, i)))
+        })
+        .min_by(|a, b| {
+            b.amount
+                .total_cmp(&a.amount)
+                .then_with(|| tie(k, w, a.by.unwrap()).cmp(&tie(k, w, b.by.unwrap())))
+        })
+    {
+        killer = smite.by;
     }
     // A practice-console mob can die, but a training kill pays nothing and drops nothing (legacy `payMobKill` and the
     // `queueWeapon` training guard): the death fx, the fighter-out hook and the camp wake remain.
@@ -281,6 +302,19 @@ pub(crate) fn hurt(
         mob_type: m.mob_type.expect("map mob has a catalog type"),
         zone: m.core.faction_id().expect("regional faction"),
         mult: killer.map_or(1., |p| reward(w, p)),
+        skip_stat: killer.is_some_and(|id| {
+            hits.iter()
+                .filter(|h| h.amount > 0. && h.by == Some(id))
+                .all(crate::quests::board::rewards::effects::remote_turret_hit)
+                && hits.iter().any(|h| h.amount > 0. && h.by == Some(id))
+        }),
+        smite_bonus: killer.is_some_and(|id| {
+            hits.iter().any(|h| {
+                h.by == Some(id)
+                    && h.amount > 0.
+                    && crate::quests::board::rewards::effects::smite_hit(h)
+            })
+        }),
         contributors: if m.elite {
             w.mob_runtime.as_ref().unwrap().life[camp as usize]
                 .contributors
@@ -289,6 +323,9 @@ pub(crate) fn hurt(
             Vec::new()
         },
     };
+    if k.quest_deal.is_some() {
+        crate::quests::board::attempts::on_target_killed(w, award.killer, id);
+    }
     {
         let r = w.mob_runtime.as_mut().unwrap();
         let c = &mut r.camps[camp as usize];
@@ -296,7 +333,8 @@ pub(crate) fn hurt(
         if c.alive == 0 && c.state != 2 {
             c.state = 2;
             c.cleared_at = now;
-            c.respawn_at = now + CAMP_RESPAWN_MS;
+            c.respawn_at =
+                now + crate::quests::board::attempts::targets::respawn_ms(k, camp as usize);
             let life = &mut r.life[camp as usize];
             life.ward_owner = killer;
             life.ward_expires_at = if killer.is_some() {
@@ -447,13 +485,14 @@ fn award_weapon(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: &Award) 
         }
         return;
     };
+    let leased = crate::quests::board::rewards::effects::locked_gear(w, w.players[i].id);
     let p = &mut w.players[i];
     let empty = if p.weapon.slot == 0 {
         p.weapon.weapon0.is_none()
     } else {
         p.weapon.weapon1.is_none()
     };
-    if p.standing() && empty {
+    if p.standing() && empty && !leased {
         if p.weapon.slot == 0 {
             p.weapon.weapon0 = Some(a.weapon)
         } else {
@@ -502,7 +541,7 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
         }
         return;
     };
-    let Some(i) = w.idx(id).filter(|&i| !w.players[i].resolved) else {
+    let Some(i) = w.idx(id).filter(|&i| credit::eligible(w, i)) else {
         if dropper(w, &a) {
             drop_weapon(w, &a)
         }
@@ -511,6 +550,7 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
     w.players[i].credit.mob_kills = w.players[i].credit.mob_kills.saturating_add(1);
     let amount =
         ((if a.elite { MOB_GV_ELITE } else { MOB_GV_NORMAL }) as f64 * a.mult).round() as u32;
+    let amount = amount.saturating_add(if a.smite_bonus { 15 } else { 0 });
     let amount = amount.min(
         crate::reward_chests::DEFINITION
             .mob_gv_cap
@@ -547,7 +587,7 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
             );
         }
     }
-    if !a.elite {
+    if !a.elite && !a.skip_stat {
         // a7b5c4ce mobLife.ts:265-270: the stat is the camp's buff (an off-theme camp under `CampBuffRule::Themed`, paying
         // another zone's type's stat), else the mob's own type's. A `Legacy` world has no buff row.
         let buff = camp_buff(w, a.camp);

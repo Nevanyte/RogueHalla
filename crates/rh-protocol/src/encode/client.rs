@@ -35,6 +35,7 @@ pub(super) fn command_len(c: &WireCommand) -> usize {
                 + opt_len(seq.is_some(), 1)
         }
         WireCommand::QuestAccept { handle } => 1 + varint_len(handle.get()),
+        WireCommand::QuestInteract { handle, .. } => 1 + varint_len(handle.get()) + 2,
         WireCommand::Trade { .. } => 3,
     }
 }
@@ -54,7 +55,7 @@ pub(super) fn command_finite(c: &WireCommand) -> bool {
         | WireCommand::ConsumeCorpse { .. }
         | WireCommand::Train { .. }
         | WireCommand::UseConsumable => true,
-        WireCommand::QuestAccept { .. } => true,
+        WireCommand::QuestAccept { .. } | WireCommand::QuestInteract { .. } => true,
         WireCommand::Trade { pick, .. } => pick <= 2,
         WireCommand::Aim { a } => a.is_finite(),
         WireCommand::Attack { a, t } | WireCommand::Release { a, t } => {
@@ -124,6 +125,7 @@ impl Frame for ClientMsg {
                         || matches!(c, WireCommand::Cast { slot, actor, .. }
                             if *slot > 2 || actor.is_some_and(|id| id == 0))
                         || matches!(c, WireCommand::Trade { pick, .. } if *pick > 2)
+                        || matches!(c, WireCommand::QuestInteract { action, target, .. } if !(1..=9).contains(action) || (matches!(*action, 1 | 4 | 6) && *target != 0) || (*action == 2 && *target > 1) || (*action == 5 && *target > 80) || (*action == 8 && *target > 2))
                 }) {
                     return Err(EncodeError::BadValue("command"));
                 }
@@ -271,6 +273,16 @@ impl Frame for ClientMsg {
                         WireCommand::QuestAccept { handle } => {
                             w.u8(C_QUEST_ACCEPT);
                             w.varint(handle.get());
+                        }
+                        WireCommand::QuestInteract {
+                            handle,
+                            action,
+                            target,
+                        } => {
+                            w.u8(C_QUEST_INTERACT);
+                            w.varint(handle.get());
+                            w.u8(action);
+                            w.u8(target);
                         }
                         WireCommand::Trade { kind, pick } => {
                             w.u8(C_TRADE);

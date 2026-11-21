@@ -263,6 +263,28 @@ pub fn client_samples() -> Vec<(&'static str, ClientMsg)> {
             },
         ),
         (
+            "input_quest_interact",
+            ClientMsg::Input {
+                seq: 80,
+                commands: vec![WireCommand::QuestInteract {
+                    handle: QuestHandle::new(u32::MAX).unwrap(),
+                    action: 5,
+                    target: 48,
+                }],
+            },
+        ),
+        (
+            "input_bargain_lifesteal_for_attack_speed",
+            ClientMsg::Input {
+                seq: 81,
+                commands: vec![WireCommand::QuestInteract {
+                    handle: QuestHandle::new(2).unwrap(),
+                    action: 5,
+                    target: 79,
+                }],
+            },
+        ),
+        (
             "input_trade",
             ClientMsg::Input {
                 seq: 79,
@@ -465,7 +487,45 @@ fn quest_view_sample() -> WireQuestView {
             quest,
             at: WireQuestPoint { x: 125.0, y: 250.0 },
         }],
+        spells: vec![],
+        pending: vec![],
+        drops: vec![],
+        actions: vec![],
     }
+}
+
+fn quest_view_owner_payload() -> WireQuestView {
+    let mut view = quest_view_sample();
+    let quest = view.rows[0].handle;
+    view.spells.push(WireQuestSpell {
+        slot: 0,
+        reward: 1,
+        charges: 2,
+        ready_at: 25.0,
+    });
+    view.pending.push(quest);
+    view.drops.push(WireQuestDrop {
+        index: 3,
+        reward: 48,
+        charges: 1,
+        ready_at: 30.0,
+        at: WireQuestPoint { x: 4.0, y: 5.0 },
+    });
+    view.actions.push(WireQuestAction {
+        quest,
+        action: 2,
+        target: 1,
+        at: vec![WireQuestPoint { x: 6.0, y: 7.0 }],
+        label: "Choose branch".into(),
+    });
+    view.actions.push(WireQuestAction {
+        quest,
+        action: 9,
+        target: 3,
+        at: vec![],
+        label: "Claim dropped spell".into(),
+    });
+    view
 }
 
 /// [`quest_view_sample`] whose row is carried by roster 7, with the carrier's public actor id when the viewer is
@@ -508,6 +568,10 @@ fn quest_view_at_max_bytes() -> WireQuestView {
             })
             .collect(),
         objectives: vec![],
+        spells: vec![],
+        pending: vec![],
+        drops: vec![],
+        actions: vec![],
     };
     view.rows.last_mut().unwrap().reward = "QUEST_MAX_SENTINEL".into();
     let encoded_size = |view: &WireQuestView| {
@@ -1409,6 +1473,39 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
             },
         ),
         (
+            "state_quests_owner_payload",
+            ServerMsg::State {
+                tick: 209,
+                items: vec![StateItem::Quests(Some(quest_view_owner_payload()))],
+            },
+        ),
+        (
+            "state_quests_recharging_and_bargain",
+            ServerMsg::State {
+                tick: 210,
+                items: vec![StateItem::Quests(Some({
+                    let mut view = quest_view_owner_payload();
+                    view.spells[0] = WireQuestSpell {
+                        slot: 0,
+                        reward: 9,
+                        charges: 0,
+                        ready_at: 25_350.,
+                    };
+                    view.drops[0].reward = 15;
+                    view.drops[0].charges = 0;
+                    view.drops[0].ready_at = 53_900.;
+                    view.actions.push(WireQuestAction {
+                        quest: view.rows[0].handle,
+                        action: 5,
+                        target: 79,
+                        at: vec![],
+                        label: "Trade lifesteal for attack speed".into(),
+                    });
+                    view
+                }))],
+            },
+        ),
+        (
             "state_quests_empty",
             ServerMsg::State {
                 tick: 205,
@@ -1464,6 +1561,44 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
                     StateItem::Quests(Some(WireQuestView::default())),
                     StateItem::Trade(None),
                 ],
+            },
+        ),
+        (
+            "state_quest_world_cues",
+            frost_wall_state(
+                (crate::state::FIELD_KIND_QUEST_TURRET..=crate::state::FIELD_KIND_QUEST_BOUNTY)
+                    .map(|kind| WireField {
+                        kind,
+                        ability: 0,
+                        owner: None,
+                        subject: None,
+                        x: f32::from(kind) * 32.,
+                        y: 96.,
+                        x2: if kind == crate::state::FIELD_KIND_QUEST_FALCON {
+                            620.
+                        } else {
+                            f32::from(kind) * 32.
+                        },
+                        y2: 96.,
+                        r: 0.,
+                        vx: 0.,
+                        vy: 0.,
+                        started_at: 0.,
+                        ends_at: if kind == crate::state::FIELD_KIND_QUEST_TORNADO {
+                            15_000.
+                        } else {
+                            0.
+                        },
+                        tiles: Vec::new(),
+                    })
+                    .collect(),
+            ),
+        ),
+        (
+            "state_destroyed_terrain",
+            ServerMsg::State {
+                tick: 209,
+                items: vec![StateItem::DestroyedTerrain(vec![52, 1057, 90_003])],
             },
         ),
         // P-WIRE17-HUD-1: camp rows with every reward/ward shape, and the owner's build summary (State key 13).
@@ -1847,6 +1982,25 @@ pub fn server_samples() -> Vec<(&'static str, ServerMsg)> {
                     },
                     WireEvent::PotionNotice { notice: 10 },
                 ],
+            },
+        ),
+        (
+            "props_rebirth_egg",
+            ServerMsg::State {
+                tick: 201,
+                items: vec![StateItem::Props(WireProps {
+                    rows: [false, true]
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, hatching)| WireProp {
+                            handle: PickupHandle::new(i as u32 + 1).unwrap(),
+                            x: 800 + i as u16 * 160,
+                            y: 900,
+                            kind: WirePropKind::RebirthEgg { hatching },
+                        })
+                        .collect(),
+                    focus: None,
+                })],
             },
         ),
         (
@@ -4618,7 +4772,7 @@ fn readout_rows() -> Vec<WireReadout> {
     ]
 }
 
-/// P-WIRE19-B: one State at tick 220 carrying only key 14.
+/// P-WIRE19-B: one State at tick 220 carrying only key 16 (the own readouts; key 14 before protocol 24).
 fn readouts_state(rows: Vec<WireReadout>) -> ServerMsg {
     ServerMsg::State {
         tick: 220,
@@ -5148,7 +5302,7 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         )],
         &[],
     ));
-    let quest_unknown_count = quest_state_raw(&quest_view_raw(21, 0, 0, &[], &[], &[]));
+    let quest_unknown_count = quest_state_raw(&quest_view_raw(26, 0, 0, &[], &[], &[]));
     let quest_display_count = quest_state_raw(&quest_view_raw(0, 1, 0, &[], &[], &[]));
     let quest_def_empty = quest_state_raw(&quest_view_raw(
         0,
@@ -5165,7 +5319,7 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         &[],
         &[quest_row(
             1,
-            "12345678901234567",
+            "123456789012345678901234567890123",
             0.0,
             0.0,
             1,
@@ -5292,7 +5446,7 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
     rows_over.varint(0);
     rows_over.varint(0);
     rows_over.varint(0);
-    rows_over.varint(21);
+    rows_over.varint((MAX_QUEST_ROWS + 1) as u32);
     let quest_rows_over = quest_state_raw(&rows_over.finish());
     let mut parts_over_row = Writer::default();
     parts_over_row.varint(1);
@@ -5765,10 +5919,10 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         ),
         ("state_reward_card_id_94", bad_card_id),
         ("state_reward_first_pick_tag_2", first_pick_patched(0, &[2])),
-        // P-WIRE19-B: State key 14 faults, each a patch of `state_readouts` (row `i` starts at byte 6 + 18 i).
+        // P-WIRE19-B: State key 16 faults, each a patch of `state_readouts` (row `i` starts at byte 6 + 18 i).
         (
             "state_readouts_count_29",
-            vec![0x88, 0xdc, 0x01, 0x01, 0x0e, 29],
+            vec![0x88, 0xdc, 0x01, 0x01, 0x10, 29],
         ),
         ("state_readouts_card_79", readouts_patched(0, 0, &[79])),
         ("state_readouts_card_94", readouts_patched(4, 0, &[94])),
@@ -5834,7 +5988,7 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         ("state_reward_kill_truncated_gain", reward_frame(1, &[3, 0])),
         ("state_reward_options_too_many", reward_frame(4, &[])),
         ("state_plan_negative_deadline", negative_plan),
-        ("state_unknown_key", vec![0x88, 0, 1, 16]),
+        ("state_unknown_key", vec![0x88, 0, 1, 17]),
         ("state_quest_status_unknown", quest_bad_status),
         ("state_quest_flags_unknown", quest_bad_flags),
         ("state_quest_visited_unknown", quest_bad_visited),
@@ -5870,7 +6024,7 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
             quest_display_count,
         ),
         ("state_quest_def_empty", quest_def_empty),
-        ("state_quest_def_over_16", quest_def_long),
+        ("state_quest_def_over_32", quest_def_long),
         ("state_quest_giver_nonfinite", quest_giver_nonfinite),
         ("state_quest_giver_out_of_range", quest_giver_out_of_range),
         ("state_quest_objective_nonfinite", quest_objective_nonfinite),
@@ -5944,7 +6098,7 @@ pub fn malformed_server() -> Vec<(&'static str, Vec<u8>)> {
         ),
         ("state_duplicate_key", vec![0x88, 0, 2, 1, 0, 1, 0]),
         ("state_key_order", vec![0x88, 0, 2, 3, 0, 1, 0]),
-        ("state_too_many_keys", vec![0x88, 0, 16]),
+        ("state_too_many_keys", vec![0x88, 0, 17]),
         // Protocol 16, ADR0026: State key 12, the roster.
         ("state_roster_count_over_32", vec![0x88, 0, 1, 12, 33]),
         (
@@ -7760,10 +7914,14 @@ fn decoded_client_json(m: &ClientMsg) -> Option<String> {
     let ClientMsg::Input { commands, .. } = m else {
         return None;
     };
-    if !commands
-        .iter()
-        .any(|c| matches!(c, WireCommand::Cast { .. } | WireCommand::Trade { .. }))
-    {
+    if !commands.iter().any(|c| {
+        matches!(
+            c,
+            WireCommand::Cast { .. }
+                | WireCommand::Trade { .. }
+                | WireCommand::QuestInteract { .. }
+        )
+    }) {
         return None;
     }
     let items: Vec<String> = commands.iter().filter_map(|c| match *c {
@@ -7774,6 +7932,9 @@ fn decoded_client_json(m: &ClientMsg) -> Option<String> {
         WireCommand::Trade { kind, pick } => {
             Some(format!("{{\"k\":\"trade\",\"kind\":{},\"pick\":{pick}}}", kind.code()))
         }
+        WireCommand::QuestInteract { handle, action, target } => Some(format!(
+            "{{\"k\":\"questInteract\",\"handle\":{},\"action\":{action},\"target\":{target}}}", handle.get()
+        )),
         _ => None,
     }).collect();
     Some(format!(
@@ -8146,6 +8307,7 @@ fn decoded_quest_state_json(m: &ServerMsg) -> String {
                     WirePropKind::Cannon { .. } => 6,
                     WirePropKind::QuestItem { .. } => 7,
                     WirePropKind::Heal { .. } => 8,
+                    WirePropKind::RebirthEgg { .. } => 9,
                 };
                 let specifics = match &row.kind {
                     WirePropKind::Ground(weapon) => format!("\"weapon\":{weapon}"),
@@ -8153,6 +8315,7 @@ fn decoded_quest_state_json(m: &ServerMsg) -> String {
                     WirePropKind::Body { label } | WirePropKind::Corpse { label } => format!("\"label\":\"{}\"", escape(label)),
                     WirePropKind::WindEmblem => String::new(),
                     WirePropKind::Cannon { ready_at } | WirePropKind::Heal { ready_at } => format!("\"readyAt\":{ready_at}"),
+                    WirePropKind::RebirthEgg { hatching } => format!("\"hatching\":{hatching}"),
                     WirePropKind::QuestItem { quest, fetch } => format!("\"quest\":{},\"fetch\":{fetch}", quest.get()),
                 };
                 let base = format!("\"handle\":{},\"x\":{},\"y\":{},\"kind\":{kind}", row.handle.get(), row.x, row.y);
@@ -8160,6 +8323,13 @@ fn decoded_quest_state_json(m: &ServerMsg) -> String {
             }).collect::<Vec<_>>().join(",");
             let focus = props.focus.map_or("null".to_owned(), |focus| format!("{{\"handle\":{},\"bodyHint\":{}}}", focus.handle.get(), focus.body_hint.map_or("null".to_owned(), |hint| hint.to_string())));
             Some(format!("{{\"key\":2,\"value\":{{\"rows\":[{}],\"focus\":{}}}}}", rows, focus))
+        }
+        StateItem::Fields(fields) => {
+            let rows = fields.iter().map(|f| format!(
+                "{{\"kind\":{},\"ability\":{},\"owner\":null,\"subject\":null,\"x\":{},\"y\":{},\"x2\":{},\"y2\":{},\"r\":{},\"vx\":{},\"vy\":{},\"startedAt\":{},\"endsAt\":{}}}",
+                f.kind, f.ability, f.x, f.y, f.x2, f.y2, f.r, f.vx, f.vy, f.started_at, f.ends_at
+            )).collect::<Vec<_>>().join(",");
+            Some(format!("{{\"key\":3,\"value\":[{rows}]}}"))
         }
         StateItem::Quests(view) => {
             let value = view.as_ref().map_or_else(|| "null".to_owned(), |view| {
@@ -8176,8 +8346,15 @@ fn decoded_quest_state_json(m: &ServerMsg) -> String {
                         row.owner_completed, row.owner_ready)
                 }).collect::<Vec<_>>().join(",");
                 let objectives = view.objectives.iter().map(|objective| format!("{{\"quest\":{},\"at\":{{\"x\":{},\"y\":{}}}}}", objective.quest.get(), objective.at.x, objective.at.y)).collect::<Vec<_>>().join(",");
-                format!("{{\"unknownCount\":{},\"displayUnknownCount\":{},\"ownerRoster\":{},\"roster\":[{}],\"rows\":[{}],\"objectives\":[{}]}}",
-                    view.unknown_count, view.display_unknown_count, view.owner_roster.map_or("null".to_owned(), |id| id.get().to_string()), roster, rows, objectives)
+                let spells = view.spells.iter().map(|s| format!("{{\"slot\":{},\"reward\":{},\"charges\":{},\"readyAt\":{}}}",s.slot,s.reward,s.charges,s.ready_at)).collect::<Vec<_>>().join(",");
+                let pending = view.pending.iter().map(|h| h.get().to_string()).collect::<Vec<_>>().join(",");
+                let drops = view.drops.iter().map(|d| format!("{{\"index\":{},\"reward\":{},\"charges\":{},\"readyAt\":{},\"at\":{{\"x\":{},\"y\":{}}}}}",d.index,d.reward,d.charges,d.ready_at,d.at.x,d.at.y)).collect::<Vec<_>>().join(",");
+                let actions = view.actions.iter().map(|a| {
+                    let points = a.at.iter().map(|p| format!("{{\"x\":{},\"y\":{}}}",p.x,p.y)).collect::<Vec<_>>().join(",");
+                    format!("{{\"quest\":{},\"action\":{},\"target\":{},\"at\":[{}],\"label\":\"{}\"}}",a.quest.get(),a.action,a.target,points,escape(&a.label))
+                }).collect::<Vec<_>>().join(",");
+                format!("{{\"unknownCount\":{},\"displayUnknownCount\":{},\"ownerRoster\":{},\"roster\":[{}],\"rows\":[{}],\"objectives\":[{}],\"spells\":[{}],\"pending\":[{}],\"drops\":[{}],\"actions\":[{}]}}",
+                    view.unknown_count, view.display_unknown_count, view.owner_roster.map_or("null".to_owned(), |id| id.get().to_string()), roster, rows, objectives,spells,pending,drops,actions)
             });
             Some(format!("{{\"key\":10,\"value\":{value}}}"))
         }
@@ -8220,7 +8397,9 @@ pub fn manifest() -> String {
             ServerMsg::State { .. } if name.starts_with("state_trade_") => {
                 format!(", \"decoded\": {}", decoded_trade_state_json(&decoded))
             }
-            ServerMsg::State { .. } if name.starts_with("state_quests_") => {
+            ServerMsg::State { .. }
+                if name.starts_with("state_quests_") || *name == "state_quest_world_cues" =>
+            {
                 format!(", \"decoded\": {}", decoded_quest_state_json(&decoded))
             }
             _ => String::new(),

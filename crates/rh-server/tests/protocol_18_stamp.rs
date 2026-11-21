@@ -6,7 +6,8 @@
 //! P-COLISEUM-HEALS-2 moved the server to protocol 20 (the heal prop): a protocol-19 client is now the refused one and a
 //! protocol-20 client is welcomed with a protocol-20 Welcome (origin's numbering; P-TICK-3 then took 21).
 //! P-SYNC-ORIGIN-2 merged both lines as protocol 22: every client of 17 to 21 is refused, and a client of this build's
-//! protocol is welcomed with a Welcome of it.
+//! protocol is welcomed with a Welcome of it. Protocol 23 is origin's integrated quest and 40 Hz version; P-SYNC-ORIGIN-3
+//! merged it with the local 22 as protocol 24, and every client of 23 and below is refused.
 use futures_util::{SinkExt, StreamExt};
 use rh_protocol::{ClientMsg, RejectCode, ServerMsg, SnapshotTracker, PROTOCOL_VERSION};
 use rh_server::director::{Director, DirectorConfig};
@@ -159,20 +160,19 @@ async fn protocol_20_and_21_hellos_are_refused_with_protocol_mismatch() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_protocol_19_hello_is_refused_with_protocol_mismatch() {
+async fn earlier_protocols_are_refused_with_protocol_mismatch() {
     let url = start().await;
-    let got = answer_to_hello(&url, 19, "old19").await;
-    let want = format!("server speaks protocol {PROTOCOL_VERSION}, client 19");
-    let refused = matches!(
-        &got,
-        Some(ServerMsg::Reject { code: RejectCode::ProtocolMismatch, reason })
-            if reason.contains(&want)
-    );
-    assert!(
-        refused,
-        "a protocol-19 Hello gets ProtocolMismatch naming this build's protocol and 19, got {}",
-        summary(&got)
-    );
+    for old in [19, 20, 21, 22, 23] {
+        let got = answer_to_hello(&url, old, &format!("old{old}")).await;
+        let want = format!("server speaks protocol {PROTOCOL_VERSION}, client {old}");
+        assert!(
+            matches!(&got, Some(ServerMsg::Reject { code: RejectCode::ProtocolMismatch, reason })
+                if reason.contains(&want)),
+            "a protocol-{old} Hello gets ProtocolMismatch naming this build's protocol and {old}, got {}",
+            summary(&got)
+        );
+    }
+    assert_eq!(PROTOCOL_VERSION, 24, "this build speaks protocol 24");
 }
 
 fn summary(m: &Option<ServerMsg>) -> String {
@@ -187,7 +187,7 @@ fn summary(m: &Option<ServerMsg>) -> String {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_current_hello_is_welcomed_with_the_current_protocol() {
     let url = start().await;
-    let got = answer_to_hello(&url, PROTOCOL_VERSION, "new18").await;
+    let got = answer_to_hello(&url, PROTOCOL_VERSION, "new24").await;
     let protocol = match &got {
         Some(ServerMsg::Welcome { protocol, .. }) => Some(*protocol),
         _ => None,
@@ -195,7 +195,7 @@ async fn a_current_hello_is_welcomed_with_the_current_protocol() {
     assert_eq!(
         protocol,
         Some(PROTOCOL_VERSION),
-        "a Hello of this build's protocol is welcomed with a Welcome of it, got {}",
+        "a Hello of this build's protocol (24) is welcomed with a Welcome of it, got {}",
         summary(&got)
     );
 }

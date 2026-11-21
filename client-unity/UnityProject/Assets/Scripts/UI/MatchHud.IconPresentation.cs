@@ -110,7 +110,7 @@ namespace Roguehalla.Client
                 string scaling = weapon.HasValue ? HudContentText.SlotScaling(block, weapon.Value) : "";
                 if (_slotScaling[i] != null) Set(_slotScaling[i], scaling);
                 string title = !weapon.HasValue ? "Empty weapon slot" : scaling.Length > 0 ? HudContentText.SlotTip(block, weapon.Value) : weapon.ToString();
-                if (_weaponHints[i] != null) _weaponHints[i].Text = (i + 1) + " \u00b7 " + title + (equipped ? " \u00b7 equipped" : "\nSelect weapon slot");
+                if (_weaponHints[i] != null) _weaponHints[i].Text = "Slot " + (i + 1) + " \u00b7 " + title + (equipped ? " \u00b7 equipped" : "\nSelect weapon slot");
             }
             // Cache on the values shown: the texts rebuild only when delivery, a count, the healing count or a shown second changes (the per-frame owner refresh re-runs this).
             var key = new PotionKey { Delivered = inventory.HasValue, Large = inventory.HasValue ? inventory.Value.PotionLarge : 0, Small = inventory.HasValue ? inventory.Value.PotionSmall : 0, Healing = inventory.HasValue ? inventory.Value.PotionsHealing : 0,

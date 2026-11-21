@@ -258,15 +258,53 @@ impl StatSums {
     }
 
     pub fn source_values(&self) -> [f64; 20] {
-        StatKey::source_order().map(|key| self.get(key))
+        [
+            self.max_hp,
+            self.attack_speed,
+            self.move_speed,
+            self.damage,
+            self.windup,
+            self.lifesteal,
+            self.mark_rate,
+            self.heal_taken,
+            self.damage_taken,
+            self.cooldown,
+            self.execute_band,
+            self.slow_resist,
+            self.lifesteal_mult,
+            self.lifesteal_dot,
+            self.crit_chance,
+            self.heal_barrier,
+            self.armor,
+            self.shield,
+            self.ad,
+            self.ap,
+        ]
     }
 
     pub fn from_source_values(values: [f64; 20]) -> Self {
-        let mut sums = Self::default();
-        for (key, value) in StatKey::source_order().into_iter().zip(values) {
-            sums.set(key, value);
+        Self {
+            max_hp: values[0],
+            attack_speed: values[1],
+            move_speed: values[2],
+            damage: values[3],
+            windup: values[4],
+            lifesteal: values[5],
+            mark_rate: values[6],
+            heal_taken: values[7],
+            damage_taken: values[8],
+            cooldown: values[9],
+            execute_band: values[10],
+            slow_resist: values[11],
+            lifesteal_mult: values[12],
+            lifesteal_dot: values[13],
+            crit_chance: values[14],
+            heal_barrier: values[15],
+            armor: values[16],
+            shield: values[17],
+            ad: values[18],
+            ap: values[19],
         }
-        sums
     }
 }
 
@@ -377,15 +415,29 @@ impl MultSums {
     }
 
     pub fn source_values(&self) -> [f64; 8] {
-        MultKey::source_order().map(|key| self.get(key))
+        [
+            self.as_post,
+            self.hit,
+            self.dot,
+            self.returned,
+            self.ap,
+            self.wish_cooldown,
+            self.hp_race,
+            self.linger,
+        ]
     }
 
     pub fn from_source_values(values: [f64; 8]) -> Self {
-        let mut sums = Self::default();
-        for (key, value) in MultKey::source_order().into_iter().zip(values) {
-            sums.set(key, value);
+        Self {
+            as_post: values[0],
+            hit: values[1],
+            dot: values[2],
+            returned: values[3],
+            ap: values[4],
+            wish_cooldown: values[5],
+            hp_race: values[6],
+            linger: values[7],
         }
-        sums
     }
 }
 

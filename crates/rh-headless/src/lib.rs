@@ -18,6 +18,7 @@ use rh_sim::{
     Placement, PlayerId, PublicCommand, RunResult, Secrets, SightCache, Sim, SimConfig, Vec2,
     WeaponId,
 };
+use std::sync::Arc;
 
 pub enum Agent {
     /// Driven by a built-in policy seat (cadence, fallback and faults handled by rh-policy).
@@ -97,7 +98,18 @@ impl Env {
         let mut command_delay =
             delay.map(|(latency, jitter)| command_delay::CommandDelay::new(latency, jitter));
         let secrets = Secrets::from_seed(seed);
-        let spawns = &cfg.arena.spawns;
+        let mut arena = Arc::new(cfg.arena);
+        // Source runs seat through Sim's ordinary lobby construction. Immediate
+        // scenarios also need the final arena before deriving explicit spawns.
+        if cfg.sim.top25_quests
+            && cfg.sim.quests
+            && !cfg.sim.training
+            && !matches!(cfg.sim.lifecycle, rh_sim::ArenaMode::Source(_))
+        {
+            arena = rh_sim::quests::board::map_admission::ensure(arena, secrets)
+                .expect("admitted headless Top 25 map");
+        }
+        let spawns = &arena.spawns;
         let placements: Vec<Placement> = agents
             .iter()
             .enumerate()
@@ -106,7 +118,7 @@ impl Env {
                 faction: a.faction,
                 bot: a.bot,
                 at: if spawns.is_empty() {
-                    cfg.arena.centre()
+                    arena.centre()
                 } else {
                     spawns[(i * 7 + seed as usize) % spawns.len()]
                 },
@@ -116,7 +128,7 @@ impl Env {
             })
             .collect();
         let (sim, recorder) = if matches!(cfg.sim.lifecycle, rh_sim::ArenaMode::Source(_)) {
-            let mut sim = Sim::new(cfg.sim.clone(), cfg.arena.clone(), secrets);
+            let mut sim = Sim::new(cfg.sim.clone(), arena, secrets);
             let mut recorder = cfg
                 .record
                 .then(|| Recorder::new(&sim, cfg.sim.clone(), ReplayStart::Lobby));
@@ -134,7 +146,7 @@ impl Env {
             }
             (sim, recorder)
         } else {
-            let sim = Sim::reset_active(cfg.sim.clone(), cfg.arena.clone(), secrets, &placements);
+            let sim = Sim::reset_active(cfg.sim.clone(), arena, secrets, &placements);
             let recorder = cfg.record.then(|| {
                 Recorder::new(
                     &sim,

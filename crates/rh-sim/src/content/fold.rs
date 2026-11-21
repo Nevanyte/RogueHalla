@@ -121,7 +121,7 @@ pub fn visit_progression_content(word: impl FnMut(u64)) {
 /// [`content_hash_of_card_tables`] seam and `content_hash` share.
 fn visit_progression_content_with(tables: &[CardTableSnapshot<'_>], mut word: impl FnMut(u64)) {
     type Visit = fn(&mut dyn FnMut(u64));
-    let visitors: [(&str, Visit); 10] = [
+    let visitors: [(&str, Visit); 11] = [
         ("cards/1", |f| {
             crate::cards::visit_content(&crate::cards::DEFINITION, f)
         }),
@@ -140,6 +140,9 @@ fn visit_progression_content_with(tables: &[CardTableSnapshot<'_>], mut word: im
             crate::kill_augments::visit_content(&crate::kill_augments::DEFINITION, f)
         }),
         ("quests/1", |f| crate::quests::catalog::visit_content(f)),
+        ("quests/top25/1", |f| {
+            crate::quests::board::catalog::visit_content(f)
+        }),
         ("traders/1", |f| crate::traders::visit_content(f)),
         ("hitbox-archetypes/1", |f| {
             crate::archetype::visit_content(f)

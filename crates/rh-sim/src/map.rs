@@ -164,6 +164,20 @@ impl TileMap {
         map
     }
 
+    /// Runtime-only collision map with the listed tiles opened. Ignores indices outside the map.
+    pub fn without_obstructions(&self, cells: &[u32]) -> Self {
+        let mut tiles = self.tiles.clone();
+        for &i in cells {
+            if let Some(tile) = tiles.get_mut(i as usize) {
+                *tile = TILE_FLOOR;
+            }
+        }
+        let mut map =
+            Self::new(self.w, self.h, tiles).expect("derived geometry has unchanged dimensions");
+        map.layers = self.layers.clone();
+        map
+    }
+
     /// Runtime-only derived geometry. Canonical layer admission remains against the open map.
     pub(crate) fn closed_gates(&self) -> Option<Self> {
         let layers = self.layers.as_ref()?;

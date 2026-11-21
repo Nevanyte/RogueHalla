@@ -1050,8 +1050,17 @@ async fn session(State(c): State<Ctl>, body: Body) -> Response {
                 _ => return Err(CtlError::bad_request("unknown property")),
             }
         }
-        c.director
-            .control_create(&req.game_session_id, max_players, fill)
+        if c.director.needs_board_room() {
+            tokio::task::spawn_blocking(move || {
+                c.director
+                    .control_create(&req.game_session_id, max_players, fill)
+            })
+            .await
+            .map_err(|_| CtlError::new(503, "quest_map_unavailable", "quest map worker failed"))?
+        } else {
+            c.director
+                .control_create(&req.game_session_id, max_players, fill)
+        }
     };
     done(run.await)
 }

@@ -18,8 +18,9 @@ impl StateItem {
             Self::Trade(_) => 11,
             Self::Roster(_) => 12,
             Self::BuildSummary(_) => 13,
-            Self::Readouts(_) => 14,
+            Self::DestroyedTerrain(_) => 14,
             Self::Marked(_) => 15,
+            Self::Readouts(_) => 16,
         }
     }
     pub(crate) fn encoded_len(&self) -> usize {
@@ -60,6 +61,10 @@ impl StateItem {
                         .sum::<usize>()
                 }
                 Self::BuildSummary(value) => 1 + value.as_ref().map_or(0, WireBuildSummary::len),
+                Self::DestroyedTerrain(cells) => {
+                    varint_len(cells.len() as u32)
+                        + cells.iter().copied().map(varint_len).sum::<usize>()
+                }
                 Self::Readouts(rows) => 1 + rows.len() * WireReadout::LEN,
                 Self::Marked(rows) => 1 + rows.iter().map(WireMarked::len).sum::<usize>(),
             }
@@ -157,6 +162,18 @@ impl StateItem {
             Self::Roster(rows) => {
                 if let Some(why) = roster_fault(rows) {
                     return Err(EncodeError::BadValue(why));
+                }
+            }
+            Self::DestroyedTerrain(cells) => {
+                if cells.len() > MAX_DESTROYED_TERRAIN {
+                    return Err(EncodeError::TooMany {
+                        what: "destroyed terrain",
+                        n: cells.len(),
+                        max: MAX_DESTROYED_TERRAIN,
+                    });
+                }
+                if !valid_destroyed_cells(cells) {
+                    return Err(EncodeError::BadValue("destroyed terrain cells"));
                 }
             }
             Self::BuildSummary(None) => {}
@@ -283,13 +300,10 @@ impl StateItem {
                 }
             }
             Self::BuildSummary(value) => w.opt(value.as_ref(), |w, v| v.write(w)),
-            Self::Readouts(rows) => {
-                w.u8(rows.len() as u8);
-                for row in rows {
-                    w.u8(row.card);
-                    w.u8(row.kind);
-                    w.f64(row.value);
-                    w.f64(row.max);
+            Self::DestroyedTerrain(cells) => {
+                w.varint(cells.len() as u32);
+                for &cell in cells {
+                    w.varint(cell);
                 }
             }
             Self::Marked(rows) => {
@@ -298,6 +312,15 @@ impl StateItem {
                     w.varint(row.id);
                     w.u16(crate::quant::quantize_pos(row.x));
                     w.u16(crate::quant::quantize_pos(row.y));
+                }
+            }
+            Self::Readouts(rows) => {
+                w.u8(rows.len() as u8);
+                for row in rows {
+                    w.u8(row.card);
+                    w.u8(row.kind);
+                    w.f64(row.value);
+                    w.f64(row.max);
                 }
             }
         }
@@ -435,24 +458,18 @@ impl StateItem {
             }
             13 => Self::BuildSummary(r.opt(WireBuildSummary::read)?),
             14 => {
-                let n = usize::from(r.u8()?);
-                if n > MAX_READOUTS {
-                    return Err(DecodeError::BadField("readout count"));
+                let n = r.varint()? as usize;
+                if n > MAX_DESTROYED_TERRAIN {
+                    return Err(DecodeError::TooMany(n));
                 }
-                let mut rows = Vec::with_capacity(n);
-                let mut previous = None;
-                for _ in 0..n {
-                    let row = WireReadout {
-                        card: r.u8()?,
-                        kind: r.u8()?,
-                        value: r.f64()?,
-                        max: r.f64()?,
-                    };
-                    row.fault(previous).map_err(DecodeError::BadField)?;
-                    previous = Some(row.card);
-                    rows.push(row);
+                if n > r.remaining() {
+                    return Err(DecodeError::Truncated);
                 }
-                Self::Readouts(rows)
+                let cells = (0..n).map(|_| r.varint()).collect::<Result<Vec<_>, _>>()?;
+                if !valid_destroyed_cells(&cells) {
+                    return Err(DecodeError::BadField("destroyed terrain cells"));
+                }
+                Self::DestroyedTerrain(cells)
             }
             15 => {
                 let n = usize::from(r.u8()?);
@@ -473,9 +490,36 @@ impl StateItem {
                 }
                 Self::Marked(rows)
             }
+            16 => {
+                let n = usize::from(r.u8()?);
+                if n > MAX_READOUTS {
+                    return Err(DecodeError::BadField("readout count"));
+                }
+                let mut rows = Vec::with_capacity(n);
+                let mut previous = None;
+                for _ in 0..n {
+                    let row = WireReadout {
+                        card: r.u8()?,
+                        kind: r.u8()?,
+                        value: r.f64()?,
+                        max: r.f64()?,
+                    };
+                    row.fault(previous).map_err(DecodeError::BadField)?;
+                    previous = Some(row.card);
+                    rows.push(row);
+                }
+                Self::Readouts(rows)
+            }
             _ => return Err(DecodeError::BadField("state key")),
         })
     }
+}
+
+fn valid_destroyed_cells(cells: &[u32]) -> bool {
+    cells.windows(2).all(|p| p[0] < p[1])
+        && cells
+            .last()
+            .is_none_or(|&i| (i as usize) < crate::map::MAX_MAP_TILES)
 }
 
 pub(crate) fn check_items(items: &[StateItem]) -> Result<(), EncodeError> {

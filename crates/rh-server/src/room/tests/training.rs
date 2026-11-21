@@ -16,6 +16,7 @@ fn training_cfg(tick: Duration) -> RoomConfig {
             elites: rh_sim::EliteRule::Legacy,
             regen: false,
             quests: false,
+            top25_quests: false,
             consumables: true,
             training: true,
             dummies: true,

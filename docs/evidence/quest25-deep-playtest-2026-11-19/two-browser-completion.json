@@ -1,0 +1,121 @@
+{
+  "protocol": 20,
+  "quest": "tuber_eats",
+  "shared_board": [
+    [
+      "the_warden",
+      {
+        "x": 4176,
+        "y": 2000
+      }
+    ],
+    [
+      "two_banners",
+      {
+        "x": 4208,
+        "y": 2096
+      }
+    ],
+    [
+      "let_him_cook",
+      {
+        "x": 1040,
+        "y": 1840
+      }
+    ],
+    [
+      "tuber_eats",
+      {
+        "x": 1072,
+        "y": 1744
+      }
+    ],
+    [
+      "a_bone_to_pick",
+      {
+        "x": 1360,
+        "y": 3952
+      }
+    ],
+    [
+      "feed_or_hunt",
+      {
+        "x": 1360,
+        "y": 4048
+      }
+    ],
+    [
+      "even_skeletons_get_cold",
+      {
+        "x": 3280,
+        "y": 4048
+      }
+    ],
+    [
+      "lost_brother",
+      {
+        "x": 3376,
+        "y": 4048
+      }
+    ],
+    [
+      "stay_a_while",
+      {
+        "x": 2832,
+        "y": 1232
+      }
+    ],
+    [
+      "trade_up",
+      {
+        "x": 2864,
+        "y": 1136
+      }
+    ]
+  ],
+  "first_finisher": {
+    "player": 1,
+    "received_frames": 2145,
+    "sent_frames": 1485,
+    "accepted": true,
+    "actions": [
+      "Deliver the rancid potato"
+    ],
+    "remaining_offers_after_completion": [
+      "the_warden",
+      "two_banners",
+      "let_him_cook",
+      "a_bone_to_pick",
+      "feed_or_hunt",
+      "even_skeletons_get_cold",
+      "lost_brother",
+      "stay_a_while",
+      "trade_up"
+    ]
+  },
+  "second_player_after_first_completion": {
+    "row": "tuber_eats",
+    "accepted": false,
+    "remaining": 10
+  },
+  "second_finisher": {
+    "player": 2,
+    "received_frames": 1653,
+    "sent_frames": 1202,
+    "accepted": true,
+    "actions": [
+      "Deliver the rancid potato"
+    ],
+    "remaining_offers_after_completion": [
+      "the_warden",
+      "two_banners",
+      "let_him_cook",
+      "a_bone_to_pick",
+      "feed_or_hunt",
+      "even_skeletons_get_cold",
+      "lost_brother",
+      "stay_a_while",
+      "trade_up"
+    ]
+  }
+}

@@ -7,6 +7,7 @@ use crate::constants::*;
 use crate::events::Event;
 use crate::hooks::{self, HookArgs, Hx, OutCause};
 use crate::math::js_round;
+use crate::quests::board::special::egg;
 use crate::results::{GvBreakdown, Outcome, RunResult, WinBonusWhy};
 use crate::scratch::TickScratch;
 use crate::state::{Phase, PlayerId, Status, World};
@@ -99,19 +100,30 @@ pub(crate) fn down_player(
             between_ticks: in_step.is_none(),
         },
     );
+    if outcome != Outcome::Died {
+        egg::remove(w, id);
+    }
     if let Some(downed) = in_step {
         downed.push(id);
         return;
     }
     w.rt.downs_between_ticks = w.rt.downs_between_ticks.saturating_add(1);
-    let alive = w.players.iter().filter(|p| p.standing()).count() as u32;
+    let alive = w.players.iter().filter(|p| p.standing()).count();
+    if outcome == Outcome::Died && egg::delay(w, id, alive) {
+        return;
+    }
     let vi = w.idx(id).expect("still present");
-    resolve(w, ev, vi, outcome, alive + 1, 0, None);
+    resolve(w, ev, vi, outcome, (alive as u32 + 1, now), 0, None);
 }
 
 /// System (legacy arena.settle): resolve the tick's downs, or end the run when at most one fighter stands.
 pub(crate) fn settle(cx: &mut Cx) {
     super::projectiles::retire(cx);
+    // Use the count after this tick's lethal hits. A pending hatch cannot raise the count used to enable itself.
+    let standing = cx.w.players.iter().filter(|p| p.standing()).count();
+    if !cx.w.rebirth_eggs.is_empty() {
+        egg::tick(cx, standing);
+    }
     let Cx {
         k, w, s, ev, stats, ..
     } = cx;
@@ -123,8 +135,6 @@ pub(crate) fn settle(cx: &mut Cx) {
     } = &mut **s;
     let deaths = downed.len() + w.rt.downs_between_ticks as usize;
     w.rt.downs_between_ticks = 0;
-    // Only the count decides a step that is not the end; the ids are collected when the run ends.
-    let standing = w.players.iter().filter(|p| p.standing()).count();
     let contested = w.rt.started_with >= 2;
     if standing == 0 || (contested && standing == 1) {
         alive.clear();
@@ -136,7 +146,18 @@ pub(crate) fn settle(cx: &mut Cx) {
     for &id in downed.iter() {
         if let Some(i) = w.idx(id) {
             let outcome = w.players[i].down.expect("downed");
-            resolve(w, ev, i, outcome, standing as u32 + 1, 0, None);
+            if outcome == Outcome::Died && egg::delay(w, id, standing) {
+                continue;
+            }
+            resolve(
+                w,
+                ev,
+                i,
+                outcome,
+                (standing as u32 + 1, w.server_time),
+                0,
+                None,
+            );
         }
     }
     downed.clear();
@@ -176,14 +197,22 @@ fn end_run(
         if !winners.contains(id) {
             if let Some(i) = w.idx(*id) {
                 let outcome = w.players[i].down.expect("downed");
-                resolve(w, ev, i, outcome, winners.len() as u32 + 1, 0, None);
+                resolve(
+                    w,
+                    ev,
+                    i,
+                    outcome,
+                    (winners.len() as u32 + 1, w.server_time),
+                    0,
+                    None,
+                );
             }
         }
     }
     for id in &winners {
         let Some(i) = w.idx(*id) else { continue };
         if draw {
-            resolve(w, ev, i, Outcome::Draw, 1, 0, None);
+            resolve(w, ev, i, Outcome::Draw, (1, w.server_time), 0, None);
             continue;
         }
         let why = if contested {
@@ -196,7 +225,7 @@ fn end_run(
             ev,
             i,
             Outcome::Won,
-            1,
+            (1, w.server_time),
             if why.is_some() { 0 } else { GV_WIN },
             why,
         );
@@ -244,7 +273,26 @@ pub(crate) fn miss_in_planning(w: &mut World, ev: &mut Vec<Event>, i: usize) {
     }
     w.players[i].down = Some(Outcome::Mia);
     w.players[i].motion.path.clear();
-    resolve(w, ev, i, Outcome::Mia, w.players.len() as u32, 0, None);
+    resolve(
+        w,
+        ev,
+        i,
+        Outcome::Mia,
+        (w.players.len() as u32, w.server_time),
+        0,
+        None,
+    );
+}
+
+pub(crate) fn resolve_egg_death(
+    w: &mut World,
+    ev: &mut Vec<Event>,
+    id: PlayerId,
+    death: egg::PendingDeath,
+) {
+    if let Some(i) = w.idx(id) {
+        resolve(w, ev, i, Outcome::Died, (death.place, death.at), 0, None);
+    }
 }
 
 /// Banks player `i`'s run once (legacy `resolvePlayer`): the result event persistence consumes.
@@ -253,11 +301,10 @@ fn resolve(
     ev: &mut Vec<Event>,
     i: usize,
     outcome: Outcome,
-    place: u32,
+    (place, now): (u32, f64),
     win: u32,
     why: Option<WinBonusWhy>,
 ) {
-    let now = w.server_time;
     let started = w.raid_started_at;
     let players = w.rt.started_with;
     let roster = &w.roster;

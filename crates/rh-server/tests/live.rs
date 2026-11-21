@@ -107,6 +107,7 @@ async fn start(arena: Arena, tweak: impl FnOnce(&mut DirectorConfig)) -> Server 
         walk_hints: None,
         regen: false,
         quests: false,
+        top25_quests: false,
         training: false,
         dummies: false,
         consumables: true,

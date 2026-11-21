@@ -78,6 +78,23 @@ fn identities_and_source_order_arrays_are_complete() {
 }
 
 #[test]
+fn stat_and_multiplier_source_arrays_follow_the_declared_order() {
+    let stats = std::array::from_fn(|i| i as f64 + 0.25);
+    let sums = StatSums::from_source_values(stats);
+    assert_eq!(sums.source_values(), stats);
+    for (i, key) in StatKey::source_order().into_iter().enumerate() {
+        assert_eq!(sums.get(key), stats[i]);
+    }
+
+    let mults = std::array::from_fn(|i| i as f64 + 1.25);
+    let sums = MultSums::from_source_values(mults);
+    assert_eq!(sums.source_values(), mults);
+    for (i, key) in MultKey::source_order().into_iter().enumerate() {
+        assert_eq!(sums.get(key), mults[i]);
+    }
+}
+
+#[test]
 fn every_stat_uses_its_source_accumulation_rule() {
     for key in EffectStat::source_order() {
         let folded = fold_stat_rows(&[stat(key, 0.25), stat(key, 0.5)], &FoldContext::default());

@@ -10,14 +10,17 @@ namespace Roguehalla.Net.Tests
     /// P-NET-DRAWAHEAD-1a moved the codec to protocol 19 (the walk hint): an 18 Welcome is now the refused one.
     /// P-COLISEUM-HEALS-2 moved it to protocol 20 (the heal prop): a 19 Welcome is now the refused one.
     /// P-TICK-3 moved it to protocol 21 (snapshot time from the Welcome rate): a 20 Welcome is now the refused one.
-    /// P-SYNC-ORIGIN-2 merged both lines as protocol 22: every Welcome of 17 to 21 is refused.</summary>
+    /// P-SYNC-ORIGIN-2 merged both lines as protocol 22: every Welcome of 17 to 21 is refused.
+    /// Origin's protocol 23 (the Top 25 quests) and the local 22 merged as protocol 24 (P-SYNC-ORIGIN-3): every Welcome of
+    /// 17 to 23 is refused. Historical protocol-18 fixtures remain covered.</summary>
     public class Protocol18StampTests
     {
         /// <summary>P-WIRE19-A moved the codec to 19; the v18 history below stays.</summary>
         [Test] public void CodecSpeaksProtocol18OrLater() { Assert.GreaterOrEqual((int)Wire.ProtocolVersion, 18); }
         /// <summary>P-NET-DRAWAHEAD-1a pinned 19; P-SYNC-ORIGIN-1 merged both protocol-19 wires as 20; origin took 20 and 21
-        /// (heal props, tick rate); P-SYNC-ORIGIN-2 merged both lines as 22.</summary>
-        [Test] public void CodecSpeaksProtocol22() { Assert.AreEqual(22, Wire.ProtocolVersion); }
+        /// (heal props, tick rate); P-SYNC-ORIGIN-2 merged both lines as 22; origin took 23 (quests); P-SYNC-ORIGIN-3 merged
+        /// both lines as 24.</summary>
+        [Test] public void CodecSpeaksProtocol24() { Assert.AreEqual(24, Wire.ProtocolVersion); }
 
         [Test]
         public void V18FixtureExistsAndItsHelloSays18()
@@ -26,13 +29,15 @@ namespace Roguehalla.Net.Tests
             Assert.IsTrue(File.Exists(path), "protocol/fixtures/v18.json is missing (cargo run -p rh-protocol --bin protocol-fixtures)");
             var root = JsonDocument.Parse(File.ReadAllText(path)).RootElement;
             Assert.AreEqual(18, root.GetProperty("protocol").GetInt32());
-            ClientMsg.Hello hello = null; ServerMsg.Welcome welcome = null;
+            string helloHex = null, welcomeHex = null;
             foreach (var v in root.GetProperty("client").EnumerateArray())
-                if (v.GetProperty("name").GetString() == "hello") hello = (ClientMsg.Hello)ClientMsg.Decode(Util.FromHex(v.GetProperty("hex").GetString()));
+                if (v.GetProperty("name").GetString() == "hello") helloHex = v.GetProperty("hex").GetString();
             foreach (var v in root.GetProperty("server").EnumerateArray())
-                if (v.GetProperty("name").GetString() == "welcome") welcome = (ServerMsg.Welcome)ServerMsg.Decode(Util.FromHex(v.GetProperty("hex").GetString()));
-            Assert.IsNotNull(hello, "v18.json has a hello vector"); Assert.IsNotNull(welcome, "v18.json has a welcome vector");
-            Assert.AreEqual(18, hello.Protocol); Assert.AreEqual(18, welcome.Protocol);
+                if (v.GetProperty("name").GetString() == "welcome") welcomeHex = v.GetProperty("hex").GetString();
+            Assert.IsNotNull(helloHex, "v18.json has a hello vector"); Assert.IsNotNull(welcomeHex, "v18.json has a welcome vector");
+            // These are preserved as historical bytes. The active decoder correctly refuses obsolete versions.
+            Assert.AreEqual(18, (ushort)(Util.FromHex(helloHex)[1] | Util.FromHex(helloHex)[2] << 8));
+            Assert.AreEqual(18, (ushort)(Util.FromHex(welcomeHex)[1] | Util.FromHex(welcomeHex)[2] << 8));
         }
 
         static Session NewSession(FakeTransport t)
@@ -46,11 +51,12 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
-        public void AProtocol21WelcomeIsRefusedAndA22WelcomeAccepted()
+        public void AProtocol23WelcomeIsRefusedAndA24WelcomeAccepted()
         {
             // P-WIRE19-A refused 17, P-NET-DRAWAHEAD-1a refused 18; P-SYNC-ORIGIN-1 (protocol 20) refuses both and 19;
-            // P-SYNC-ORIGIN-2 (protocol 22) refuses 20 (both lines' 20s) and origin's 21 as well.
-            foreach (ushort oldProtocol in new ushort[] { 17, 18, 19, 20, 21 })
+            // P-SYNC-ORIGIN-2 (protocol 22) refuses 20 (both lines' 20s) and origin's 21 as well; P-SYNC-ORIGIN-3
+            // (protocol 24) refuses the local 22 and origin's 23.
+            foreach (ushort oldProtocol in new ushort[] { 17, 18, 19, 20, 21, 22, 23 })
             {
                 var old = new FakeTransport(); var sOld = NewSession(old);
                 sOld.Connect(); old.Open();
@@ -62,8 +68,9 @@ namespace Roguehalla.Net.Tests
 
             var cur = new FakeTransport(); var sCur = NewSession(cur);
             sCur.Connect(); cur.Open();
-            cur.Deliver(Welcome(Wire.ProtocolVersion));
-            Assert.AreEqual(SessionState.InMatch, sCur.State, "a Welcome of the codec's version starts the match");
+            Assert.AreEqual(24, cur.LastSent<ClientMsg.Hello>().Protocol, "the Hello says 24");
+            cur.Deliver(Welcome(24));
+            Assert.AreEqual(SessionState.InMatch, sCur.State, "a protocol-24 Welcome starts the match");
         }
     }
 }

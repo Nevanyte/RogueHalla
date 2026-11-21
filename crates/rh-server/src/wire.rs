@@ -33,6 +33,16 @@ pub fn command(c: WireCommand) -> rh_sim::PublicCommand {
             handle: rh_sim::quest_view::QuestHandle::new(handle.get())
                 .expect("nonzero wire quest handle"),
         },
+        WireCommand::QuestInteract {
+            handle,
+            action,
+            target,
+        } => Public::QuestInteract {
+            handle: rh_sim::quest_view::QuestHandle::new(handle.get())
+                .expect("nonzero wire quest handle"),
+            action,
+            target,
+        },
         WireCommand::UseConsumable => Public::UseConsumable,
         // This remains a public reference: Room intake resolves it through the seat ItemObserver.
         WireCommand::HuntTarget { actor } => Public::HuntTarget {

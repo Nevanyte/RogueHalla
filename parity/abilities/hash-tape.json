@@ -46,27 +46,27 @@
       "ticks": 5
     },
     "blaze-resets-slip-history-and-real-chaser-lock": {
-      "fold": "d383be6e99de7100",
+      "fold": "3df8b10da6501000",
       "ticks": 8
     },
     "blaze-source-born-fire-return-and-credit": {
-      "fold": "703924b30af1d4fe",
+      "fold": "ff7400bc86e2ce49",
       "ticks": 9
     },
     "blaze-source-born-frost-return-and-credit": {
-      "fold": "29b091fecd7ac6a8",
+      "fold": "32e4fb657d615397",
       "ticks": 9
     },
     "blaze-source-born-npc-return-and-credit": {
-      "fold": "26f52edaf133640b",
+      "fold": "cbfc4a7ce5add4ac",
       "ticks": 9
     },
     "blaze-source-born-plague-return-and-credit": {
-      "fold": "8a28eb69cc411b22",
+      "fold": "c03612b4705c3c5e",
       "ticks": 9
     },
     "blaze-source-born-sentenced-return-and-credit": {
-      "fold": "9492b4134b2222e7",
+      "fold": "ed0662ba765a69e4",
       "ticks": 9
     },
     "blaze-through-connected-interior-wall": {
@@ -82,7 +82,7 @@
       "ticks": 5
     },
     "cast-cancels-directional-windup-keeps-walk-held-trigger": {
-      "fold": "61ea059acde23c6a",
+      "fold": "9456bcd0f3b2599a",
       "ticks": 15
     },
     "cast-parser-empty-slots-sequence-lag": {
@@ -134,23 +134,23 @@
       "ticks": 8
     },
     "full-signature-source-born-fire-wish-recipients": {
-      "fold": "1542ac020b3a902f",
+      "fold": "2860936a2af16cc5",
       "ticks": 41
     },
     "full-signature-source-born-frost-wish-recipients": {
-      "fold": "07c3fa3f5217af76",
+      "fold": "36b75f788a729e88",
       "ticks": 41
     },
     "full-signature-source-born-holy-wish-recipients": {
-      "fold": "7fe5280cb5cbdb8b",
+      "fold": "e5364d537059aaec",
       "ticks": 41
     },
     "full-signature-source-born-plague-wish-recipients": {
-      "fold": "ee0f2ea0acc014d1",
+      "fold": "96b66dab7d8052ad",
       "ticks": 41
     },
     "full-signature-source-born-sentenced-wish-recipients": {
-      "fold": "193e6052586664c5",
+      "fold": "0b35f7259b52d960",
       "ticks": 41
     },
     "laststand-antiheal-common-healing": {
@@ -202,15 +202,15 @@
       "ticks": 12
     },
     "swarm-drops-lock-and-chase": {
-      "fold": "b43eaabee4b79b0d",
+      "fold": "906653f19141cd3e",
       "ticks": 14
     },
     "swarm-independent-walk-reveal-and-expiry": {
-      "fold": "bcf21be9aa33a415",
+      "fold": "94b84fe6d1371929",
       "ticks": 171
     },
     "swarm-unknown-hidden-target-and-next-tick-reveal": {
-      "fold": "4b57f1a4abea9540",
+      "fold": "d6ff2a42eb7f37a2",
       "ticks": 17
     },
     "teleport-grace-and-immunity-boundaries": {
@@ -254,9 +254,9 @@
       "ticks": 59
     }
   },
-  "checkpoint": "rh-checkpoint/37",
-  "contentHash": "d43155e2ed7d1c68",
+  "checkpoint": "rh-checkpoint/38",
+  "contentHash": "7639672bbb0933c9",
   "format": "rh-ability-hash-tape/2",
   "note": "63 admitted source cases executed without catch-and-drop; native digests rebound for the combined layout, not legacy expected gameplay",
-  "observationVersion": 35
+  "observationVersion": 36
 }

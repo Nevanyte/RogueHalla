@@ -164,6 +164,15 @@ Paths are relative to `packages/` unless they start with `crates/`, `docs/`, `de
 
 | ID | Outcome | Depends on | Status | Legacy owners |
 |---|---|---|---|---|
+| P-QUEST25-BOARD-1 | [Ten shared offers, two in each starting zone](packets/P-QUEST25-BOARD-1.md) | K1 and styled maps | In progress, owner-approved Top 25 program (2026-11-18) | quests.ts and the Top_25 workbook |
+| P-QUEST25-ATTEMPTS | [Personal objectives, retries and completion](packets/P-QUEST25-ATTEMPTS.md) | BOARD-1 | Implemented on the Top 25 playtest branch | quest objective and credit hooks |
+| P-QUEST25-REWARDS | [Named spells, permanent rewards and loot choices](packets/P-QUEST25-REWARDS.md) | ATTEMPTS | Implemented on the Top 25 playtest branch | Top_25 and Spell_Reworks |
+| P-QUEST25-SPECIAL | [WallBuster and planted Rebirth Egg](packets/P-QUEST25-SPECIAL.md) | REWARDS | Implemented on the Top 25 playtest branch | Spell_Reworks |
+| P-QUEST25-WIRE | [Owner quest state and validated actions in protocol v19](packets/P-QUEST25-WIRE.md) | ATTEMPTS, REWARDS | Implemented on the Top 25 playtest branch | quest bridge and v18 codec |
+| P-QUEST25-CONTROLS | [Two quest cast bindings, weapon swap and Wish](packets/P-QUEST25-CONTROLS.md) | WIRE | Implemented on the Top 25 playtest branch | Unity game controls |
+| P-QUEST25-JOURNAL | [Journal, map markers, nearby interactions and spell slots](packets/P-QUEST25-JOURNAL.md) | CONTROLS, WIRE | Implemented on the Top 25 playtest branch | Unity HUD and quest bridge |
+| P-QUEST25-WORLD-CUES | [Visible spell effects and public activity markers](packets/P-QUEST25-WORLD-CUES.md) | REWARDS, WIRE | Implemented on the Top 25 playtest branch | Spell_Reworks and Unity world presentation |
+| P-QUEST25-PLAYTHROUGH | [Two-seat server playthrough and reconnect](packets/P-QUEST25-PLAYTHROUGH.md) | JOURNAL, SPECIAL | Implemented on the Top 25 playtest branch | Rust room and Unity observation |
 | P-COMBAT-1 | Items and the other melee weapons: pickup/swap/drop, sword stagger, shield block/riposte, axe shred, weapon specials flag, weapon racks for tests | P-CAPTURE-1 (soft) | Core and selected MVP live discovery implemented/reviewed; broader loot content remains | server/src/sim/loot.ts, weapons.ts, melee.ts; shared/weapons.ts, interactions.ts |
 | P-COMBAT-2 | Projectiles: bow/wand, lead aim, wand splash, ball vs arrow, swing vs ball | P-COMBAT-1 (merge first for sword/shield cases) | Authoritative phase, lock creation and current-point projectile projection/transport implemented; stable flight presentation and remaining one-shot cues deferred | server/src/sim/projectiles.ts, weapons.ts; shared/weapons.ts, interactions.ts, policies.ts |
 | P-COMBAT-3 | Target lock (wand click), committed-cast/cancel behavior and attack-move | P-COMBAT-2 | Core/policy/headless and live protocol/client target integration implemented/reviewed | server/src/sim/targeting.ts, weapons.ts; shared/constants.ts |

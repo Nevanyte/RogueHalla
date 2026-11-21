@@ -123,6 +123,26 @@ namespace Roguehalla.Net.Protocol
             return map;
         }
 
+        /// <summary>Applies the server's terrain overlay to the Welcome map without mutating it.</summary>
+        public MapBlob WithDestroyedTerrain(uint[] cells)
+        {
+            if (cells.Length == 0) return this;
+            var tiles = (byte[])Tiles.Clone();
+            var terrain = Terrain == null ? null : (byte[])Terrain.Clone();
+            foreach (uint cell in cells)
+            {
+                if (cell >= tiles.Length) throw new ArgumentException("destroyed terrain is off the Welcome map");
+                var surface = terrain == null ? 0 : terrain[cell];
+                bool ordinary = tiles[cell] == Wall && surface == 0
+                    || tiles[cell] == Low && (surface == 0 || surface == 2);
+                if (!ordinary) throw new ArgumentException("destroyed terrain is not an ordinary obstruction");
+                tiles[cell] = Floor;
+                if (terrain != null) terrain[cell] = 0;
+            }
+            return new MapBlob(W, H, tiles, terrain, Regions, TerrainMode)
+                .WithPublic(Camps, Coliseum, Bushes, Props, GroundVariants, Patience, Anchors);
+        }
+
         uint PublicSemanticHash() => ComputeSemanticHash(W, H, Terrain, Regions, Camps, Coliseum, Bushes, Props, GroundVariants, Patience, Anchors);
     }
 }

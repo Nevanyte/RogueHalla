@@ -1,7 +1,9 @@
-# Quest design discussion (FUTURE ONLY)
+# Quest design workbook
 
-**Status: future design only, except the augment and elite rework below.** Apart from that rework, nothing in this
-folder is implemented, scheduled or approved. It is not in `docs/ORDER_OF_OPERATIONS.md` and has no packet. Building
+The owner approved the workbook’s `Top_25` objectives and `Spell_Reworks` rewards for normal Rust and Unity raids on November 18, 2026. The workbook retains its original filename. Other sheets record design discussions and balance estimates. [Normal raid rules and legacy K1 reference](../quests.md) · [Implementation packets](../backlog/README.md)
+
+**Status: future design only, except the Top 25 quests above and the augment and elite rework below.** Apart from
+those, nothing in this folder is implemented, scheduled or approved. It is not in `docs/ORDER_OF_OPERATIONS.md` and has no packet. Building
 any of it needs owner approval and a packet in `docs/backlog/packets/`. The live quest system is documented in
 [`docs/quests.md`](../quests.md).
 

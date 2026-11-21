@@ -84,6 +84,9 @@ pub(crate) fn finish(cx: &mut Cx) {
         }
         p.statuses.refresh_effects(now);
     }
+    if cx.w.quests.is_some() {
+        crate::quests::board::rewards::effects::update(cx);
+    }
 }
 fn pay_floor(w: &mut World, ev: &mut Vec<Event>, id: PlayerId, st: &StatusInstance, stats: Inputs) {
     let amount = st.taken.unwrap_or(0.) * st.data.heal_share.unwrap_or(0.);

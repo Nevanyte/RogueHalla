@@ -53,9 +53,15 @@ pub(crate) fn remove(cx: &mut Cx, id: PlayerId) {
             systems::settle::miss_in_planning(cx.w, cx.ev, i);
         }
     }
+    if let Some(death) = crate::quests::board::special::egg::remove(cx.w, id) {
+        systems::settle::resolve_egg_death(cx.w, cx.ev, id, death);
+    }
     removed_hook(cx, id);
+    crate::quests::board::rewards::effects::departed(cx.w, id);
     cx.w.players.remove(id);
     systems::planning::leave(cx.w, cx.ev, id);
+    let standing = cx.w.players.iter().filter(|p| p.standing()).count();
+    crate::quests::board::special::egg::tick(cx, standing);
 }
 pub(crate) fn abandon(cx: &mut Cx, id: PlayerId) -> u32 {
     let index = cx.w.idx(id);
@@ -79,7 +85,10 @@ pub(crate) fn abandon(cx: &mut Cx, id: PlayerId) -> u32 {
     if matches!(cx.w.phase, Phase::Active | Phase::Planning) {
         cx.w.rt.voided = true;
     }
+    // A void run is frozen. This administrative path returns GV without emitting a RunResult.
+    cx.w.rebirth_eggs.clear();
     removed_hook(cx, id);
+    crate::quests::board::rewards::effects::departed(cx.w, id);
     cx.w.players.remove(id);
     systems::planning::leave(cx.w, cx.ev, id);
     gv

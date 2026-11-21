@@ -54,6 +54,7 @@ fn compute(
         || !p.standing()
         || status::hidden(&p.statuses.instances, now)
         || status::cannot_move(&p.statuses, now)
+        || crate::quests::board::rewards::effects::forced_motion(w, p.id)
         || p.motion.slip.is_some()
         || grip_at(k, p, p.pos()) != 0.
     {

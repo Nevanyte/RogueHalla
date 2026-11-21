@@ -60,6 +60,14 @@ namespace Roguehalla.Client
                         if (Mathf.Abs(u) < .024f && Mathf.Abs(v) < .8f) a = 1;
                         break;
                     case "spark": a = Mathf.Clamp01((1 - Mathf.Abs(u) * 1.5f - Mathf.Abs(v)) * 8); break;
+                    case "egg":
+                        float eggX = u / (.72f - .17f * v);
+                        float shellEdge = 1f - new Vector2(eggX, v / .9f).magnitude;
+                        float shellLight = Mathf.Clamp01(.48f + .25f * v - .15f * u + 1.6f * shellEdge);
+                        c = shellEdge < .075f ? new Color(.16f, .09f, .15f)
+                            : Color.Lerp(new Color(.55f, .27f, .47f), new Color(1f, .94f, .72f), shellLight);
+                        a = Mathf.Clamp01(shellEdge * 80f);
+                        break;
                     case "stone":
                         float edge = Mathf.Min(1 - Mathf.Abs(u), 1 - Mathf.Abs(v));
                         float light = .55f + grain + Mathf.Clamp(edge * 5, 0, .2f) + v * .08f;

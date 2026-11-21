@@ -141,6 +141,12 @@ pub enum WireCommand {
     QuestAccept {
         handle: QuestHandle,
     },
+    /// Execute one server-offered quest interaction. The simulation validates handle/action/target again.
+    QuestInteract {
+        handle: QuestHandle,
+        action: u8,
+        target: u8,
+    },
     /// Trade with one of the two catalog merchants; pick is the 0..=2 offer index.
     Trade {
         kind: WireTradeKind,
@@ -297,6 +303,25 @@ impl ClientMsg {
                             handle: QuestHandle::new(r.varint()?)
                                 .ok_or(DecodeError::BadField("quest handle"))?,
                         },
+                        C_QUEST_INTERACT => {
+                            let handle = QuestHandle::new(r.varint()?)
+                                .ok_or(DecodeError::BadField("quest handle"))?;
+                            let action = r.u8()?;
+                            let target = r.u8()?;
+                            if !(1..=9).contains(&action)
+                                || (matches!(action, 1 | 4 | 6) && target != 0)
+                                || (action == 2 && target > 1)
+                                || (action == 5 && target > 80)
+                                || (action == 8 && target > 2)
+                            {
+                                return Err(DecodeError::BadField("quest interaction"));
+                            }
+                            WireCommand::QuestInteract {
+                                handle,
+                                action,
+                                target,
+                            }
+                        }
                         C_TRADE => {
                             let kind = WireTradeKind::from_code(r.u8()?)
                                 .ok_or(DecodeError::BadField("trade command"))?;

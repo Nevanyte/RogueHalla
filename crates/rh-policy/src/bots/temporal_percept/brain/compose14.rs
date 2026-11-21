@@ -745,9 +745,9 @@ impl Composer14 {
                 WirePropKind::Cannon { .. } => ("cannon", "n".to_owned()),
                 WirePropKind::Corpse { .. } => ("corpse", "x".to_owned()),
                 WirePropKind::WindEmblem => ("consumable", "w".to_owned()),
-                WirePropKind::QuestItem { .. } => continue,
-                // P-COLISEUM-HEALS-2: a heal pickup is taken by walking over it; the Brain never plans for it.
-                WirePropKind::Heal { .. } => continue,
+                WirePropKind::QuestItem { .. }
+                | rh_protocol::WirePropKind::RebirthEgg { .. }
+                | WirePropKind::Heal { .. } => continue,
             };
             let at = Vec2::new(f64::from(prop.x) / 8., f64::from(prop.y) / 8.);
             if !in_view(eye.x, eye.y, at.x, at.y, 0.) {

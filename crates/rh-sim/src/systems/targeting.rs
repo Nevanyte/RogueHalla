@@ -50,7 +50,7 @@ fn lockable_visible(
     let wards = crate::vision::WardSight::of(k, w);
     if w.is_player(other_ix) {
         crate::vision::gameplay_actor_visible(
-            k.collision_view(w.rt.gates_locked),
+            crate::collision::view(k, w),
             viewer,
             &w.players[j],
             w.tick,
@@ -58,7 +58,7 @@ fn lockable_visible(
         )
     } else {
         crate::vision::point_visible(
-            k.collision_view(w.rt.gates_locked),
+            crate::collision::view(k, w),
             viewer,
             other.pos(),
             w.tick,
@@ -122,18 +122,14 @@ pub(crate) fn target(cx: &mut Cx, ix: FighterIx, cmd: &ActionCmd) {
     }
     let now = cx.w.server_time;
     let goal = cx.w.core(FighterIx::of_slot(j)).pos();
-    let p = &mut cx.w.players[i];
+    let p = &cx.w.players[i];
     if p.weapon.targeting.target == Some(id) {
-        p.weapon.targeting.attack_move = None;
+        cx.w.players[i].weapon.targeting.attack_move = None;
         return;
     }
     let due = fresh(p.weapon.targeting.search_at, now);
-    let behind = !has_line_of_sight(
-        cx.k.collision_map(cx.w.rt.gates_locked),
-        p.pos(),
-        goal,
-        MASK_SIGHT,
-    );
+    let behind = !has_line_of_sight(crate::collision::map(cx.k, cx.w), p.pos(), goal, MASK_SIGHT);
+    let p = &mut cx.w.players[i];
     if behind {
         if !due {
             return;
@@ -179,12 +175,7 @@ fn acquire(cx: &mut Cx, i: usize, goal: Vec2) {
         let d = distance(from, at);
         if d > range
             || !lockable(cx, i, j)
-            || !has_line_of_sight(
-                cx.k.collision_map(cx.w.rt.gates_locked),
-                from,
-                at,
-                MASK_SIGHT,
-            )
+            || !has_line_of_sight(crate::collision::map(cx.k, cx.w), from, at, MASK_SIGHT)
         {
             continue;
         }
@@ -281,12 +272,7 @@ fn follow(cx: &mut Cx, i: usize, id: PlayerId) {
     let now = cx.w.server_time;
     let to = cx.w.core(FighterIx::of_slot(j)).pos();
     let from = cx.w.players[i].pos();
-    let seen = has_line_of_sight(
-        cx.k.collision_map(cx.w.rt.gates_locked),
-        from,
-        to,
-        MASK_SIGHT,
-    );
+    let seen = has_line_of_sight(crate::collision::map(cx.k, cx.w), from, to, MASK_SIGHT);
     let p = &mut cx.w.players[i];
     let lock = &mut p.weapon.targeting;
     if seen {
@@ -342,7 +328,13 @@ fn follow(cx: &mut Cx, i: usize, id: PlayerId) {
 }
 
 pub(crate) fn update(cx: &mut Cx) {
+    let has_quests = cx.w.quests.is_some();
     for i in 0..cx.w.players.len() {
+        if has_quests
+            && crate::quests::board::rewards::effects::forced_motion(cx.w, cx.w.players[i].id)
+        {
+            continue;
+        }
         let lock = cx.w.players[i].weapon.targeting;
         if let Some(goal) = lock.attack_move.filter(|_| lock.target.is_none()) {
             acquire(cx, i, goal);

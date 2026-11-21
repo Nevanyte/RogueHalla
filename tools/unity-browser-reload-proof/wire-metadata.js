@@ -12,7 +12,7 @@ const SERVER_MAX = 256 * 1024;
 const MAX_TICKET = 448;
 const MAX_MAP_TILES = 1024 * 1024;
 const MAX_MAP_RUNS = 5 * MAX_MAP_TILES;
-const PROTOCOL = 22;
+const PROTOCOL = 24;
 const MAX_ARCHETYPES = 32, MAX_ARCHETYPE_KEY = 24, MAX_WEAPONS = 32, WEAPON_ROW_LEN = 34;
 // P-WIRE17-HUD-2b HUD content block (crates/rh-protocol/src/hud_content.rs).
 const MAX_SCALING_ROWS = 32, SCALING_ROW_LEN = 34, MAX_HUD_TERMS = 30, HUD_TERM_ROW_LEN = 9;

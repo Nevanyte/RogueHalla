@@ -4,6 +4,7 @@
 //! This slice is the quest **data layer**: catalog, roster, placement and rewards, certified against a pinned-container
 //! source corpus. The accept action, lifecycle systems (reveal, turn-in, expiry, carriers), quest items/NPC bodies and the
 //! public transport are not part of it and are listed in `docs/evidence/stage2-quest-1/README.md`.
+pub mod board;
 pub mod catalog;
 pub(crate) mod giver;
 #[cfg(test)]

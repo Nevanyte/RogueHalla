@@ -60,7 +60,7 @@ REPLAY_SIM_KEYS = SIM_KEYS | {
     # Added after the list was written; each is compared for equality across the two targets like every replay byte.
     "walk_hints", "hitboxes", "mob_spacing", "regen_in_combat", "camp_buffs", "frost_wish",
     # ADR 0029 (P-TICK-1a): null at the legacy 50 ms step, 25 for a 40 Hz match.
-    "tick_ms",
+    "tick_ms", "top25_quests",
     # P-AUG-RULES-1: the augment and elite rules, null (Legacy) or "rework" (live content).
     "augments", "elites",
 }
@@ -279,6 +279,8 @@ def validate_sim(config, path, full=False):
                         "expected null or one of {}".format(sorted(names)))
         if "consumables" in config:
             boolean(config["consumables"], path + ".consumables")
+        if "top25_quests" in config:
+            boolean(config["top25_quests"], path + ".top25_quests")
         if config.get("walk_hints") is not None:
             boolean(config["walk_hints"], path + ".walk_hints")
         if "hitboxes" in config:

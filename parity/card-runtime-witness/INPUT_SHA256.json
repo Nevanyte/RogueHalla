@@ -540,7 +540,7 @@
     },
     {
       "path": "tools/card-runtime-witness-fixtures/capture.mts",
-      "sha256": "77188ce0242d6635218bc3850f5521d676c71b056833b81073ccb37391aa710f"
+      "sha256": "df1a859a9689a96a9859f079fe59d3abc78c7564a44bf05a823acf81d8f08972"
     },
     {
       "path": "tools/card-runtime-witness-fixtures/capture.sh",
@@ -662,26 +662,26 @@
     {
       "path": "parity/card-runtime/source.json",
       "originalSha256": "c2e5d1a071f3f7a05a6c3e8bf46fbdba8f0c7ae47d4de1aea8e62a1726ecd019",
-      "priorAcceptedEffectiveSha256": "eb66dd5e9bb79ec43f2e5f92cc6243dac7910719a555a281e1b4d1c8753b9f07",
-      "effectiveSha256": "453060bb6cc390f18c2a924bad01951500f7c59bc260601f75dcdc2b514cb652",
-      "scope": "metadata-only runtime provenance overlay: custom catalog immutable reference hash and runtime capture harness pin changed, plus the accepted overlay record; all 65 witness cases/cleanControls/comparison/privateOracleRecords/controlCorrection unchanged",
-      "evidence": "docs/evidence/ci-provenance-refresh-2026-11-21-determinism/README.md"
+      "priorAcceptedEffectiveSha256": "7cb8040b16176c526b131e7445b22b5fa5bc751009a70fd6ae8389d8dc574031",
+      "effectiveSha256": "1242c3ca67f3c8c141192e136862ffd654d02ae20c0726dcecf5fb071ce47571",
+      "scope": "metadata-only runtime provenance overlay: accepted catalog protected-script leaves and runtime capture harness provenance updated; all 65 witness cases/cleanControls/comparison/privateOracleRecords/controlCorrection unchanged",
+      "evidence": "docs/evidence/quest25-integration-2026-11-21/README.md"
     },
     {
       "path": "parity/card-runtime/INPUT_SHA256.json",
       "originalSha256": "2ea71ac15addc60e406aebbb7defedf8492c135d0a787a15808b69e4bc34d39a",
-      "priorAcceptedEffectiveSha256": "0e81c141aab6cc99819c1f192fc775e1353d4498f65f3bf3df09a3d4b4278f5e",
-      "effectiveSha256": "296ca6a93f6849c19ea146c4704f1b12f29b4da991fbad53ce920cf5b2b68a36",
+      "priorAcceptedEffectiveSha256": "bdc4a742b07f91edf10a402bec26754811d4e00df81206905c55d763911103b4",
+      "effectiveSha256": "bd64eedec0a64f03eeb3d1f41d5497b4b2ed478c9a2f51fa9ea456b8c15f74ad",
       "scope": "metadata-only runtime input inventory overlay: the same accepted catalog reference/harness/overlay metadata; sourceInputs and inventory semantics unchanged",
-      "evidence": "docs/evidence/ci-provenance-refresh-2026-11-21-determinism/README.md"
+      "evidence": "docs/evidence/quest25-integration-2026-11-21/README.md"
     },
     {
       "path": "tools/card-runtime-fixtures/capture.mts",
       "originalSha256": "24df22055a3c77b75e01b478d04a477a57690d7f71220916d0816551102fff9e",
-      "priorAcceptedEffectiveSha256": "558741bb356ad1634457ac60aa5fe43064e6e26027e78acbd92284895b6b3d67",
-      "effectiveSha256": "84238f11e83c21704c1877ed8b07681ae591423d10467cb5ab16fb99c12e4736",
+      "priorAcceptedEffectiveSha256": "8e22485fe88ba0d34f7c9df0c3b83ef3b20f5f3431a8ff9685a6c23f7b089807",
+      "effectiveSha256": "a85ce3109ef4be5d22d1289ea23b2f0293be20c47296d78dc41254bd3edcfa63",
       "scope": "narrow accepted-provenance overlay implementation in the pinned runtime capture tool only (catalog reference chain + overlay metadata record); executable engine/cases/inspection/controls unchanged",
-      "evidence": "docs/evidence/ci-provenance-refresh-2026-11-21-determinism/README.md"
+      "evidence": "docs/evidence/quest25-integration-2026-11-21/README.md"
     }
   ],
   "actualPinnedInputs": [
@@ -694,15 +694,15 @@
     },
     {
       "path": "parity/card-runtime/INPUT_SHA256.json",
-      "bytes": 25833,
-      "sha256": "296ca6a93f6849c19ea146c4704f1b12f29b4da991fbad53ce920cf5b2b68a36",
+      "bytes": 25986,
+      "sha256": "bd64eedec0a64f03eeb3d1f41d5497b4b2ed478c9a2f51fa9ea456b8c15f74ad",
       "frozenOriginalSha256": "2ea71ac15addc60e406aebbb7defedf8492c135d0a787a15808b69e4bc34d39a",
       "docOverlayApplied": false,
       "acceptedProvenanceOverlayApplied": true,
       "acceptedProvenanceOverlay": {
         "originalSha256": "2ea71ac15addc60e406aebbb7defedf8492c135d0a787a15808b69e4bc34d39a",
-        "effectiveSha256": "296ca6a93f6849c19ea146c4704f1b12f29b4da991fbad53ce920cf5b2b68a36",
-        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-21-determinism/README.md"
+        "effectiveSha256": "bd64eedec0a64f03eeb3d1f41d5497b4b2ed478c9a2f51fa9ea456b8c15f74ad",
+        "evidence": "docs/evidence/quest25-integration-2026-11-21/README.md"
       }
     },
     {
@@ -714,15 +714,15 @@
     },
     {
       "path": "parity/card-runtime/source.json",
-      "bytes": 53035763,
-      "sha256": "453060bb6cc390f18c2a924bad01951500f7c59bc260601f75dcdc2b514cb652",
+      "bytes": 53035862,
+      "sha256": "1242c3ca67f3c8c141192e136862ffd654d02ae20c0726dcecf5fb071ce47571",
       "frozenOriginalSha256": "c2e5d1a071f3f7a05a6c3e8bf46fbdba8f0c7ae47d4de1aea8e62a1726ecd019",
       "docOverlayApplied": false,
       "acceptedProvenanceOverlayApplied": true,
       "acceptedProvenanceOverlay": {
         "originalSha256": "c2e5d1a071f3f7a05a6c3e8bf46fbdba8f0c7ae47d4de1aea8e62a1726ecd019",
-        "effectiveSha256": "453060bb6cc390f18c2a924bad01951500f7c59bc260601f75dcdc2b514cb652",
-        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-21-determinism/README.md"
+        "effectiveSha256": "1242c3ca67f3c8c141192e136862ffd654d02ae20c0726dcecf5fb071ce47571",
+        "evidence": "docs/evidence/quest25-integration-2026-11-21/README.md"
       }
     },
     {
@@ -741,15 +741,15 @@
     },
     {
       "path": "tools/card-runtime-fixtures/capture.mts",
-      "bytes": 8414,
-      "sha256": "84238f11e83c21704c1877ed8b07681ae591423d10467cb5ab16fb99c12e4736",
+      "bytes": 8513,
+      "sha256": "a85ce3109ef4be5d22d1289ea23b2f0293be20c47296d78dc41254bd3edcfa63",
       "frozenOriginalSha256": "24df22055a3c77b75e01b478d04a477a57690d7f71220916d0816551102fff9e",
       "docOverlayApplied": false,
       "acceptedProvenanceOverlayApplied": true,
       "acceptedProvenanceOverlay": {
         "originalSha256": "24df22055a3c77b75e01b478d04a477a57690d7f71220916d0816551102fff9e",
-        "effectiveSha256": "84238f11e83c21704c1877ed8b07681ae591423d10467cb5ab16fb99c12e4736",
-        "evidence": "docs/evidence/ci-provenance-refresh-2026-11-21-determinism/README.md"
+        "effectiveSha256": "a85ce3109ef4be5d22d1289ea23b2f0293be20c47296d78dc41254bd3edcfa63",
+        "evidence": "docs/evidence/quest25-integration-2026-11-21/README.md"
       }
     },
     {

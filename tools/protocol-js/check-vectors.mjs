@@ -311,7 +311,10 @@ const stateFrameBytes = (tick, items) => qcat(
 ).buffer;
 const questCommand = decodeClient(input(31, [{k:"questAccept",handle:300}]).buffer);
 eqJson(questCommand.cmds, [{k:"questAccept",handle:300}], "QuestAccept command handle round trip");
+const questInteract = decodeClient(input(32, [{k:"questInteract",handle:300,action:5,target:48}]).buffer);
+eqJson(questInteract.cmds, [{k:"questInteract",handle:300,action:5,target:48}], "QuestInteract command handle/action/target round trip");
 if (version >= 14 && !fx.client.some(v => v.name === "input_quest_accept")) throw new Error("missing Rust-generated input_quest_accept vector");
+if (version >= 19 && !fx.client.some(v => v.name === "input_quest_interact")) throw new Error("missing Rust-generated input_quest_interact vector");
 for (const name of ["quest_accept_zero", "quest_accept_truncated", "quest_accept_overlong"]) {
   if (!fx.malformedClient.some(v => v.name === name)) throw new Error(`missing Rust-generated ${name} control`);
 }
@@ -622,6 +625,7 @@ for (const v of fx.server) {
       if (!decodedItem) throw new Error(`${n} decoded State references absent key ${item.key}`);
       return decodedItem;
     });
+    for (const item of d.items) if (item.key === 10 && item.value !== null) for (const key of ["spells","pending","drops","actions"]) item.value[key] ??= [];
     eqJson({...fields, items:expectedItems, kind:t}, d, `${n} exact decoded State items`);
     for (const item of d.items) if (item.key === 11 && item.value !== null) {
       const actual = fields.items.find(candidate => candidate.key === 11)?.value;
@@ -630,7 +634,7 @@ for (const v of fx.server) {
   }
 }
 
-for (const name of ["state_quests_available", "state_quests_empty", "state_quests_unavailable", "state_quests_max_24576", "state_eleven_keys"]) {
+for (const name of ["state_quests_available", "state_quests_owner_payload", "state_quests_empty", "state_quests_unavailable", "state_quests_max_24576", "state_eleven_keys"]) {
   if (!fx.server.some(v => v.name === name)) throw new Error(`missing Rust-generated ${name} vector`);
 }
 const questEmptyVector = decode(bytes(fx.server.find(v => v.name === "state_quests_empty").hex));
@@ -642,6 +646,10 @@ eq(maxQuestFrame.byteLength, 1 + qVarintLen(maxQuestVector.decoded.tick) + 1 + 1
 const maxQuestDecoded = decode(maxQuestFrame).items.find(item => item.key === 10)?.value;
 for (const row of maxQuestDecoded.rows) for (const field of ["name","giverLabel","brief","objective","reward"]) {
   eq(new TextEncoder().encode(row[field]).length <= 255, true, `Quest ${field} remains within the u8 UTF-8 string bound`);
+}
+{
+  const terrain = fx.server.find(v => v.name === "state_destroyed_terrain");
+  eqJson(decode(bytes(terrain.hex)).items, [{ key: 14, value: [52, 1057, 90003] }], "WallBuster terrain overlay");
 }
 for (const name of ["state_trade_available", "state_trade_empty", "state_trade_unavailable", "state_trade_max_2213", "state_trade_duplicate_delta_stats", "state_eleven_keys"]) {
   if (!fx.server.some(v => v.name === name)) throw new Error(`missing Rust-generated ${name} vector`);
@@ -846,7 +854,7 @@ const reason = {
   state_quest_owner_roster_missing: /unknown owner quest roster id/, state_quest_carrier_missing: /unknown quest carrier roster id/,
   state_quest_participant_missing: /unknown quest participant roster id/,
   state_quest_unknown_count: /bad quest unknown counts/, state_quest_display_count_over_unknown: /bad quest unknown counts/,
-  state_quest_def_empty: /bad quest definition/, state_quest_def_over_16: /bad quest definition/,
+  state_quest_def_empty: /bad quest definition/, state_quest_def_over_32: /bad quest definition/,
   state_quest_giver_nonfinite: /bad field/, state_quest_giver_out_of_range: /bad quest giver position/,
   state_quest_objective_nonfinite: /bad field/, state_quest_objective_out_of_range: /bad quest objective position/,
   state_quest_expiry_negative: /bad quest deadline/, state_quest_expiry_nonfinite: /bad field/,
@@ -986,7 +994,7 @@ for (const name of [
   "state_quest_availability_flag", "state_quest_participant_accepted_flag", "state_quest_done_by_flag", "state_quest_prop_fetch_flag",
   "state_quest_duplicate_row_handle", "state_quest_duplicate_roster_id", "state_quest_duplicate_participant_id",
   "state_quest_owner_roster_missing", "state_quest_carrier_missing", "state_quest_participant_missing",
-  "state_quest_unknown_count", "state_quest_display_count_over_unknown", "state_quest_def_empty", "state_quest_def_over_16",
+  "state_quest_unknown_count", "state_quest_display_count_over_unknown", "state_quest_def_empty", "state_quest_def_over_32",
   "state_quest_giver_nonfinite", "state_quest_giver_out_of_range", "state_quest_objective_nonfinite", "state_quest_objective_out_of_range",
   "state_quest_expiry_negative", "state_quest_expiry_nonfinite", "state_quest_owner_visited_unknown",
   "state_quest_roster_over_limit", "state_quest_rows_over_limit", "state_quest_participants_over_limit",

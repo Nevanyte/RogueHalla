@@ -14,9 +14,18 @@ namespace Roguehalla.Client
     /// </summary>
     public sealed partial class ArenaView
     {
+        MapBlob _terrainMap;
+        Transform _plainWalls;
+
         public void Build(MapBlob map, WireVision vision = null)
         {
-            if (HasMap) return;
+            if (ReferenceEquals(map, _terrainMap)) return;
+            if (HasMap)
+            {
+                UpdateTerrain(map, vision);
+                return;
+            }
+            _terrainMap = map;
             Regions.Load(map);
             if (_atmos != null) _atmos.OnMapBuilt(map);
             _visionFog.Configure(map, vision);
@@ -31,6 +40,40 @@ namespace Roguehalla.Client
                 // lava, ice, healing and zone treatments wait for public static-map facts.
                 ground.sprite = ShowcaseBiomeArt.Floor(ShowcaseBiome.Neutral, (x/4 + y/4) % 3);
             }
+            BuildPlainWalls(map);
+            HasMap = true;
+            ApplyQuality();
+        }
+
+        void UpdateTerrain(MapBlob map, WireVision vision)
+        {
+            _terrainMap = map;
+            Regions.Load(map);
+            _visionFog.Configure(map, vision);
+            _atmos?.OnMapBuilt(map);
+            if (_regionWalls != null)
+            {
+                _regionWalls.Dispose();
+                _regionWalls = RegionWalls.Build(_mapRoot, map, RegionExposure);
+            }
+            else
+            {
+                if (_plainWalls != null)
+                {
+                    _plainWalls.gameObject.SetActive(false);
+                    RegionUtil.Kill(_plainWalls.gameObject);
+                }
+                _lamps.Clear();
+                _lampGlows.Clear();
+                BuildPlainWalls(map);
+            }
+            ApplyQuality();
+        }
+
+        void BuildPlainWalls(MapBlob map)
+        {
+            _plainWalls = new GameObject("Collision walls").transform;
+            _plainWalls.SetParent(_mapRoot, false);
             for (int y = 0; y < map.H; y++) for (int x = 0; x < map.W; x++)
             {
                 byte tile = map.At(x, y); if (tile == MapBlob.Floor) continue;
@@ -39,21 +82,19 @@ namespace Roguehalla.Client
                 int order = 2000 + y * 16;
                 float height = wall ? .67f : .25f;
                 var tint = wall ? new Color(.88f, .80f, .65f) : new Color(.48f, .56f, .60f);
-                ShowcaseSprites.Create(_mapRoot, "Wall contact", "shadow", order - 5, Color.white, new Vector2(1.5f, .65f), p + new Vector3(.16f, -.26f), false);
-                ShowcaseSprites.Create(_mapRoot, "Painted wall face", "stone", order, tint * .58f, new Vector2(1.02f, height + .32f), p + new Vector3(0, height / 2));
-                var crown = ShowcaseSprites.Create(_mapRoot, "Beveled stone crown", "stone", order + 1, tint, new Vector2(1.02f, .7f), p + new Vector3(0, height));
+                ShowcaseSprites.Create(_plainWalls, "Wall contact", "shadow", order - 5, Color.white, new Vector2(1.5f, .65f), p + new Vector3(.16f, -.26f), false);
+                ShowcaseSprites.Create(_plainWalls, "Painted wall face", "stone", order, tint * .58f, new Vector2(1.02f, height + .32f), p + new Vector3(0, height / 2));
+                var crown = ShowcaseSprites.Create(_plainWalls, "Beveled stone crown", "stone", order + 1, tint, new Vector2(1.02f, .7f), p + new Vector3(0, height));
                 if (wall && (x+y)%4==0) { var caster = crown.gameObject.AddComponent<ShadowCaster2D>(); caster.selfShadows = false; caster.useRendererSilhouette = true; }
                 bool edge = y + 1 < map.H && map.At(x, y + 1) == MapBlob.Floor || x > 0 && map.At(x - 1, y) == MapBlob.Floor || x + 1 < map.W && map.At(x + 1, y) == MapBlob.Floor;
                 if (wall && edge && ((x + y * 3) % 7 == 0))
                     AddLantern(p + new Vector3(0, .32f, -1), order + 2, _lamps.Count);
                 if (wall && edge && (x*7+y*3)%29==0 && _catalog!=null && _catalog.Statue!=null)
                 {
-                    var ornament=ShowcaseSprites.Create(_mapRoot,"Authored wall statue","bar",order+2,Color.white,Vector2.one,p);
+                    var ornament=ShowcaseSprites.Create(_plainWalls,"Authored wall statue","bar",order+2,Color.white,Vector2.one,p);
                     ornament.sprite=_catalog.Statue; ornament.transform.localScale=Vector3.one*.85f;
                 }
             }
-            HasMap = true;
-            ApplyQuality();
         }
         /// <summary>Region-aware map: one ground quad, row-batched walls and deterministic props. Used when the map carries the region plane.</summary>
         void BuildRegionMap(MapBlob map)
@@ -86,11 +127,11 @@ namespace Roguehalla.Client
         void AddLantern(Vector3 p, int order, int index)
         {
             var color = new Color(1, .57f, .22f);
-            ShowcaseSprites.Create(_mapRoot, "Iron brazier", "stone", order, new Color(.28f, .22f, .17f), new Vector2(.3f, .38f), p);
-            ShowcaseSprites.Create(_mapRoot, "Flame", "spark", order + 1, new Color(2, 1.1f, .4f), new Vector2(.22f, .4f), p + new Vector3(0, .17f), false);
-            var glow = ShowcaseSprites.Create(_mapRoot, "Ember haze", "glow", order + 2, new Color(1, .4f, .1f, .35f), new Vector2(1.8f, 1.8f), p, false);
+            ShowcaseSprites.Create(_plainWalls, "Iron brazier", "stone", order, new Color(.28f, .22f, .17f), new Vector2(.3f, .38f), p);
+            ShowcaseSprites.Create(_plainWalls, "Flame", "spark", order + 1, new Color(2, 1.1f, .4f), new Vector2(.22f, .4f), p + new Vector3(0, .17f), false);
+            var glow = ShowcaseSprites.Create(_plainWalls, "Ember haze", "glow", order + 2, new Color(1, .4f, .1f, .35f), new Vector2(1.8f, 1.8f), p, false);
             _lampGlows.Add(glow);
-            var light = ShowcaseSprites.CreateLight(_mapRoot, "Static torch light", p);
+            var light = ShowcaseSprites.CreateLight(_plainWalls, "Static torch light", p);
             light.Configure(color, 2.3f, .3f, 4.8f, .6f, true);
             _lamps.Add(light);
         }

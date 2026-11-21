@@ -23,9 +23,13 @@ pub use self::reward::*;
 pub use self::roster::*;
 pub use self::trade::*;
 
-/// Keys 1..=15; key 14 (P-WIRE19-B, the own readout rows) and key 15 (P-AUG-NATIVE-5, the public Marked Man rows) are
-/// optional and sent only on change.
-pub const MAX_STATE_KEYS: usize = 15;
+/// Keys delivered on every baseline, even when they carry an empty collection.
+pub const REQUIRED_STATE_KEYS: usize = 13;
+/// Keys 1..=16; key 14 (opened base-map tiles), key 15 (P-AUG-NATIVE-5, the public Marked Man rows) and key 16
+/// (P-WIRE19-B, the own readout rows; key 14 before protocol 24) are optional and sent only on change.
+pub const MAX_STATE_KEYS: usize = 16;
+/// One radius-300 cast opens fewer than 300 cells. Bound even 32 seats' changes.
+pub const MAX_DESTROYED_TERRAIN: usize = 9_600;
 /// Most roster rows a State key 12 carries (ADR0026); a match seats at most 8 players today.
 pub const MAX_ROSTER: usize = 32;
 /// Longest roster display name in UTF-8 bytes (ADR0026).
@@ -36,25 +40,42 @@ pub const ROSTER_FLAG_BOT: u8 = 1;
 pub const MAX_MIN_PLAYERS: u8 = MAX_ROSTER as u8;
 pub const MAX_VISIBLE_PROPS: usize = 512;
 pub const MAX_VISIBLE_FIELDS: usize = 512;
-/// P-FROST-WALL-2: State key 3 field kind codes (`rh_sim::status_runtime::FieldKind` order). A code at or above
-/// [`FIELD_KIND_COUNT`] is refused ("field").
+/// State key 3 legacy field kinds retain the status-runtime order.
 pub const FIELD_KIND_ZONE: u8 = 0;
 pub const FIELD_KIND_CLOUD: u8 = 1;
 pub const FIELD_KIND_TRAIL: u8 = 2;
 /// A standing Frost Wall: the only kind whose row carries a tile list.
 pub const FIELD_KIND_WALL: u8 = 3;
-/// Number of field kind codes: zone, cloud, trail, wall.
+/// First reserved legacy field code. Codes 4–8 remain invalid.
 pub const FIELD_KIND_COUNT: u8 = 4;
+pub const FIELD_KIND_QUEST_TURRET: u8 = 9;
+pub const FIELD_KIND_QUEST_WARD: u8 = 10;
+pub const FIELD_KIND_QUEST_FALCON: u8 = 11;
+pub const FIELD_KIND_QUEST_HOOK: u8 = 12;
+pub const FIELD_KIND_QUEST_BOLAS: u8 = 13;
+pub const FIELD_KIND_QUEST_TORNADO: u8 = 14;
+pub const FIELD_KIND_QUEST_SEED: u8 = 15;
+pub const FIELD_KIND_QUEST_CROWN: u8 = 16;
+pub const FIELD_KIND_QUEST_SMUGGLER: u8 = 17;
+pub const FIELD_KIND_QUEST_FORT: u8 = 18;
+pub const FIELD_KIND_QUEST_MEDITATION: u8 = 19;
+pub const FIELD_KIND_QUEST_BOUNTY: u8 = 20;
+
 /// Most tiles one wall row may carry (P-FROST-WALL-2): a wall takes at most 17 tiles with the legacy numbers (length
 /// 224, reach 24, end slack 8, any angle); 64 leaves room for a retune. A count of 0 or above this is "wall tiles".
 pub const MAX_WALL_TILES: usize = 64;
 pub const MAX_REWARD_CHESTS: usize = 512;
-pub const MAX_QUEST_ROWS: usize = 20;
+pub const MAX_QUEST_ROWS: usize = 25;
 pub const MAX_QUEST_ROSTER: usize = 8;
 pub const MAX_QUEST_PARTICIPANTS: usize = 8;
 pub const MAX_QUEST_OBJECTIVES: usize = 160;
 pub const MAX_QUEST_OBJECTIVES_PER_ROW: usize = 8;
 pub const MAX_QUEST_VIEW_BYTES: usize = 24_576;
+pub const MAX_QUEST_SPELLS: usize = 2;
+pub const MAX_QUEST_PENDING: usize = 10;
+pub const MAX_QUEST_DROPS: usize = 256;
+pub const MAX_QUEST_ACTIONS: usize = 256;
+pub const MAX_QUEST_ACTION_POINTS: usize = 8;
 pub const MAX_TRADE_OFFERS: usize = 3;
 pub const MAX_TRADE_STATS: usize = 7;
 pub const MAX_TRADE_MERCHANTS: usize = 2;
@@ -194,6 +215,10 @@ pub enum WirePropKind {
     Heal {
         ready_at: u32,
     },
+    /// Public shell and hatch cue. The prop handle grants no action.
+    RebirthEgg {
+        hatching: bool,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -309,12 +334,15 @@ pub enum StateItem {
     Roster(Vec<WireRosterRow>),
     /// Key 13 (P-WIRE17-HUD-1): the viewer's own build summary; never another seat's. None when unseated.
     BuildSummary(Option<WireBuildSummary>),
-    /// Key 14 (P-WIRE19-B): the viewer's own native readout rows, in native order; never another seat's. Sent only when
-    /// the rows change (a client's rows start empty), so a viewer without native cards never receives it.
-    Readouts(Vec<WireReadout>),
+    /// Key 14: complete sorted indices of permanently opened base-map tiles.
+    DestroyedTerrain(Vec<u32>),
     /// Key 15 (P-AUG-NATIVE-5): every `Alive` Marked Man holder's position, the same for every viewer (the minimap
     /// marker). Sent only when the rows change (a client's rows start empty).
     Marked(Vec<WireMarked>),
+    /// Key 16 (P-WIRE19-B; key 14 before protocol 24): the viewer's own native readout rows, in native order; never
+    /// another seat's. Sent only when the rows change (a client's rows start empty), so a viewer without native cards
+    /// never receives it.
+    Readouts(Vec<WireReadout>),
 }
 
 /// P-AUG-NATIVE-5: one Marked Man holder: its actor id and position (brief

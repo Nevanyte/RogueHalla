@@ -2,7 +2,7 @@
 //!
 //! Row layout (docs/backlog/packets/P-WIRE17-MAP-2.md "Wire layout"): unchanged up to the flags byte; flag `0x10` means
 //! "carrier actor present" and a varint actor id (non-zero) follows the flags byte, before `owner_progress`. A row
-//! without it is byte-identical to the row before this packet. Refusals: flag 0x10 on a row whose carrier is 0 is
+//! without it keeps its row bytes. Refusals: flag 0x10 on a row whose carrier is 0 is
 //! `BadField("quest flags")` (the existing `state_quest_flags_unknown` vector is that case and keeps its reason); an actor id
 //! of 0 is `BadField("quest carrier actor")`; bits 0x20..0x80 stay `"quest flags"`. The encoder refuses a carrier actor
 //! without a carrier, and an actor id of 0, with `BadValue("quest carrier actor")`.
@@ -60,6 +60,10 @@ fn view(carrier: Option<RosterId>, carrier_actor: Option<u32>) -> WireQuestView 
             owner_ready: false,
         }],
         objectives: vec![],
+        spells: vec![],
+        pending: vec![],
+        drops: vec![],
+        actions: vec![],
     }
 }
 

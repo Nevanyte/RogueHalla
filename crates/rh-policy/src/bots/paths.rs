@@ -80,6 +80,7 @@ pub struct RoomPathService {
     pruned_at: f64,
     trips: Vec<(TripKey, Trip)>,
     stats: PathStats,
+    opened_terrain: usize,
 }
 impl RoomPathService {
     pub fn new(map: &TileMap, budget: PathBudget) -> Self {
@@ -92,8 +93,22 @@ impl RoomPathService {
             pruned_at: 0.,
             trips: Vec::new(),
             stats: PathStats::default(),
+            opened_terrain: 0,
         }
     }
+    /// Installs permanent openings from the public match collection. Each replacement
+    /// carries the whole, monotonically growing set.
+    pub(crate) fn apply_terrain(&mut self, cells: &[u32]) {
+        if cells.len() <= self.opened_terrain
+            || cells.iter().any(|&i| i as usize >= self.map.tiles.len())
+        {
+            return;
+        }
+        self.map = self.map.without_obstructions(cells);
+        self.opened_terrain = cells.len();
+        self.trips.clear();
+    }
+
     pub fn budget(&self) -> &PathBudget {
         &self.budget
     }

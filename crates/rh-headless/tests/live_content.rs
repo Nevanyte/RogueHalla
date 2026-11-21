@@ -205,3 +205,89 @@ let live = RegenInCombat::Off;
         "only the code line outside the test module counts"
     );
 }
+
+#[test]
+fn brain_tournament_seats_start_on_the_admitted_map_for_their_game_seed() {
+    use rh_headless::tournament::plan_game;
+    use rh_headless::{Agent, AgentSpec, Env, EnvConfig};
+    use rh_policy::bots::BrainBot;
+    use rh_sim::{quests::board::map_admission, Secrets};
+
+    let plan = plan();
+    let game = plan_game(&plan, 0);
+    let (arena, sim) = tournament_world(&plan, SeatPolicy::Brain);
+    let features = rh_policy::bots::brain_features(&sim, &arena);
+    let agents = game
+        .lineup
+        .iter()
+        .enumerate()
+        .map(|(i, seat)| AgentSpec {
+            profile: format!("bot{i}"),
+            faction: seat.faction,
+            bot: true,
+            agent: Agent::Policy {
+                policy: Box::new(BrainBot::new(seat.tier, seat.persona, features.clone())),
+            },
+        })
+        .collect();
+    let seed = u64::from(game.seed);
+    let mut env = Env::new(
+        EnvConfig {
+            arena,
+            sim,
+            max_ticks: 8,
+            record: false,
+        },
+        agents,
+        seed,
+    );
+    assert_eq!(env.sim.players().len(), game.lineup.len());
+    assert_eq!(
+        map_admission::needs_repair(env.sim.arena(), Secrets::from_seed(seed)),
+        Ok(false)
+    );
+    assert_eq!(
+        rh_policy::bots::brain_features(env.sim.config(), env.sim.arena()),
+        features
+    );
+    assert!(env.advance(&[]).tick > 0);
+}
+
+#[test]
+fn immediate_live_scenario_places_seats_on_the_admitted_replacement_map() {
+    use rh_headless::{Agent, AgentSpec, Env, EnvConfig};
+    use rh_sim::{quests::board::map_admission, ArenaMode, FactionId, Secrets};
+
+    let source = rh_headless::arena_from_text(
+        include_str!("../../../maps/first-playable.json"),
+        "first-playable.json",
+    )
+    .unwrap();
+    let seed = 14;
+    let secrets = Secrets::from_seed(seed);
+    assert!(map_admission::needs_repair(&source, secrets).is_err());
+    let env = Env::new(
+        EnvConfig {
+            arena: source,
+            sim: SimConfig {
+                lifecycle: ArenaMode::Off,
+                ..SimConfig::live_content()
+            },
+            max_ticks: 8,
+            record: false,
+        },
+        vec![AgentSpec {
+            profile: "external".into(),
+            faction: FactionId::Holy,
+            bot: false,
+            agent: Agent::External,
+        }],
+        seed,
+    );
+    let arena = env.sim.arena();
+    assert_eq!(map_admission::needs_repair(arena, secrets), Ok(false));
+    assert_eq!(
+        env.sim.players()[0].pos(),
+        arena.spawns[seed as usize % arena.spawns.len()]
+    );
+}

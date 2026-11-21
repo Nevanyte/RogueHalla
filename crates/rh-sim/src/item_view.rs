@@ -70,8 +70,11 @@ pub enum PropKind {
         quest: crate::quest_view::QuestHandle,
         fetch: bool,
     },
-    /// A grand-coliseum heal pickup (P-COLISEUM-HEALS-2), with the server time it is available again (0: now). Public:
-    /// position and readiness only; never the focus (it holds no item).
+    /// A visible shell. The hatch makes its position public until resolution.
+    RebirthEgg {
+        hatching: bool,
+    },
+    /// Heal pickup availability; position and readiness are public.
     Heal {
         ready_at: u32,
     },
@@ -163,7 +166,7 @@ fn eligible_quest_item(
             && (o.expires_at == 0. || sim.server_time() < o.expires_at)
             && o.accepted.contains(&me.id)
     })?;
-    let def = &crate::quests::catalog::DEFINITION[o.def as usize];
+    let def = crate::quests::catalog::DEFINITION.get(o.def as usize)?;
     let eligible = match def.kind {
         crate::quests::catalog::Kind::Collect => {
             o.progress
@@ -203,12 +206,13 @@ struct Bindings {
     first: u32,
     ids: Vec<Bound>,
 }
-/// What one issued prop handle names. Container ids and corpse (player) ids come from separate counters, so the
-/// binding keeps its namespace: a corpse handle never resolves as a container and vice versa.
+/// What an issued prop handle names. Containers, corpses, and shells have distinct bindings.
+/// A shell is a display-only prop, with no pickup or consume capability.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Bound {
     Container(u32),
     Corpse(PlayerId),
+    Egg(PlayerId),
 }
 impl Bindings {
     fn lookup(&self, h: PickupHandle) -> Option<Bound> {
@@ -438,6 +442,26 @@ impl ItemObserver {
                 });
             }
         }
+        for &egg in &sim.w.rebirth_eggs {
+            if !crate::quests::board::special::egg::visible(&sim.k, &sim.w, me, egg) {
+                continue;
+            }
+            if self.scratch.len() == MAX_VISIBLE_PROPS {
+                return Err(OfferError::TooManyProps);
+            }
+            self.scratch.push(Candidate {
+                cue: PropCue {
+                    x: position(egg.at.x)?,
+                    y: position(egg.at.y)?,
+                    kind: PropKind::RebirthEgg {
+                        hatching: egg.death.is_some(),
+                    },
+                    focused: false,
+                    body_hint: None,
+                },
+                id: Bound::Egg(egg.owner),
+            });
+        }
         if let Some((i, _, hint)) = best {
             self.scratch[i].cue.focused = true;
             self.scratch[i].cue.body_hint = hint;
@@ -619,6 +643,14 @@ impl ItemObserver {
         if matches!(proposal, PublicCommand::Trade { .. }) {
             return proposal.resolve(|_| None, |_| false);
         }
+        if let PublicCommand::QuestInteract {
+            handle,
+            action,
+            target,
+        } = proposal
+        {
+            return self.quests.resolve_interact(sim, handle, action, target);
+        }
         if let PublicCommand::QuestAccept { handle } = proposal {
             return Ok(self.quests.resolve_accept(sim, handle));
         }
@@ -708,9 +740,11 @@ impl ItemObserver {
                     // that still exists.
                     Bound::Corpse(player) => {
                         return (wants_corpse
+                            && player != self.viewer
                             && sim.plague_corpses().iter().any(|c| c.player == player))
                         .then_some(player.0);
                     }
+                    Bound::Egg(_) => return None,
                     Bound::Container(_) if wants_corpse => return None,
                     Bound::Container(id) => id,
                 };

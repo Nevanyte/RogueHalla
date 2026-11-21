@@ -86,6 +86,7 @@ fn expected_source(
         regen_in_combat: RegenInCombat::Off,
         camp_buffs: CampBuffRule::Themed,
         // P-FROST-WALL-3: the live profiles play Frost Wall (owner decision 2, 2026-11-10).
+        top25_quests: true,
         frost_wish: FrostWish::Wall,
         // P-AUG-RULES-1: the live profiles play the augment and elite rework (owner direction 2026-11-18).
         augments: rh_sim::AugmentRule::Rework,
@@ -120,6 +121,7 @@ fn expected_training(hitboxes: HitboxMode) -> SimConfig {
         regen_in_combat: RegenInCombat::Off,
         camp_buffs: CampBuffRule::Themed,
         // P-FROST-WALL-3: the live profiles play Frost Wall (owner decision 2, 2026-11-10).
+        top25_quests: true,
         frost_wish: FrostWish::Wall,
         // P-AUG-RULES-1: the live profiles play the augment and elite rework (owner direction 2026-11-18).
         augments: rh_sim::AugmentRule::Rework,

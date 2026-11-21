@@ -149,7 +149,12 @@ namespace Roguehalla.Client
         {
             foreach (var o in _owned) if (o != null) RegionUtil.Kill(o);
             _owned.Clear();
-            foreach (var g in _rows) if (g != null) RegionUtil.Kill(g);
+            foreach (var g in _rows)
+            {
+                if (g == null) continue;
+                g.SetActive(false);
+                RegionUtil.Kill(g);
+            }
             _rows.Clear();
         }
     }

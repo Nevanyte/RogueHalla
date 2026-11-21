@@ -103,9 +103,6 @@ pub(crate) fn drain_all(cx: &mut Cx) {
 
 fn apply_inputs(cx: &mut Cx, ix: FighterIx) {
     let now = cx.w.server_time;
-    // Walks are planned round standing barriers (P-FROST-WALL-1).
-    let held = crate::barriers::held(cx.w);
-    let map = crate::barriers::body_map(cx.k, &held, cx.w.rt.gates_locked);
     cx.w.core_mut(ix).inputs.drain_into(&mut cx.s.drained);
     if !cx.w.is_player(ix)
         && crate::status_runtime::has(
@@ -120,11 +117,21 @@ fn apply_inputs(cx: &mut Cx, ix: FighterIx) {
     let (move_before, aim_before) = (cx.s.drained.move_before, cx.s.drained.aim_before);
     let n = cx.s.drained.actions.len();
     for k in 0..=n {
-        if !cx.w.alive(ix) {
+        let id = cx.w.core(ix).id;
+        if !cx.w.alive(ix) || crate::quests::board::rewards::effects::stasis(cx.w, id) {
             return;
+        }
+        if crate::quests::board::rewards::effects::taunt(cx.w, id).is_some() {
+            if let Some(cmd @ ActionCmd::Cast { .. }) = cx.s.drained.actions.get(k).copied() {
+                schedule::run_action(cx, ActionId::Cast, ix, &cmd);
+            }
+            continue;
         }
         if k == move_before.min(n) {
             if let Some(mv) = mv {
+                // An earlier action in this queue may have changed the terrain.
+                let held = crate::barriers::held(cx.w);
+                let map = crate::barriers::body_map(cx.k, &held, cx.w.rt.gates_locked);
                 apply_move(cx.w.core_mut(ix), map, cx.pf, &mut cx.s.path, mv);
             }
         }
@@ -154,7 +161,7 @@ fn action_id(cmd: &ActionCmd) -> Option<ActionId> {
         ActionCmd::Cast { .. } => ActionId::Cast,
         ActionCmd::UseConsumable => ActionId::UseConsumable,
         ActionCmd::Choose { .. } => ActionId::Choose,
-        ActionCmd::QuestAccept { .. } => ActionId::QuestAccept,
+        ActionCmd::QuestAccept { .. } | ActionCmd::QuestInteract { .. } => ActionId::QuestAccept,
         ActionCmd::Trade { .. } => ActionId::Trade,
         ActionCmd::Target { .. } | ActionCmd::MissingTarget => ActionId::Target,
         ActionCmd::HuntTarget { .. } => ActionId::HuntTarget,

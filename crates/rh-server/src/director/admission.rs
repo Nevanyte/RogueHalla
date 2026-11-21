@@ -121,81 +121,107 @@ impl Director {
         // seat, or with another admission in flight, is refused below as before.
         self.wait_while_leaving(&key, deadline).await;
         // Pick (or open) a lobby, reserving the profile in the same critical section so two connections cannot both pass.
-        let (match_id, tx, gen) = {
-            let mut inner = self.inner.lock_recover();
-            if inner.profiles.contains_key(&key) {
-                return Err((
-                    RejectCode::ProfileInUse,
-                    "callsign already in a match".into(),
-                ));
-            }
-            let next_gen = inner.gens + 1;
-            let (match_id, tx) = if self.cfg.require_admit {
-                // Hosted mode: the room is the one the admit names (no automatic lobby placement, no room opened here).
-                // The admit is consumed here, in the critical section that reserves the seat; any later failure of this
-                // admission restores it (`unwind`).
-                let Some(taken) =
-                    inner
-                        .control
-                        .take_admit(&h.profile, tokio::time::Instant::now(), next_gen)
-                else {
-                    return Err((RejectCode::BadCredentials, "not admitted".into()));
-                };
-                let target = inner
-                    .rooms
-                    .get(&taken.room)
-                    .map(|r| (r.phase == Phase::Lobby, r.tx.clone()));
-                match target {
-                    Some((true, tx)) => (taken.room, tx),
-                    other => {
-                        inner.control.restore_gen(next_gen);
-                        let why = if other.is_none() {
-                            "match closed"
-                        } else {
-                            "match in progress"
-                        };
-                        return Err((RejectCode::MatchFull, why.into()));
-                    }
+        let mut prepared = None;
+        let (match_id, tx, gen) = loop {
+            let reserved = 'reserve: {
+                let mut inner = self.inner.lock_recover();
+                if self.lifecycle.draining() {
+                    return Err((RejectCode::ServerDraining, "server draining".into()));
                 }
-            } else {
-                let open = open_lobby(
-                    &inner.rooms,
-                    if self.cfg.sim.training {
-                        1
-                    } else {
-                        rh_sim::constants::MAX_PLAYERS
-                    },
-                )
-                .and_then(|id| inner.rooms.get(&id).map(|r| (id, r.tx.clone())));
-                match open {
-                    Some(x) => x,
-                    None => {
-                        if inner.rooms.len() >= self.cfg.max_rooms {
-                            return Err((RejectCode::MatchFull, "no capacity".into()));
+                if inner.profiles.contains_key(&key) {
+                    return Err((
+                        RejectCode::ProfileInUse,
+                        "callsign already in a match".into(),
+                    ));
+                }
+                let next_gen = inner.gens + 1;
+                let (match_id, tx) = if self.cfg.require_admit {
+                    // Hosted mode: the room is the one the admit names (no automatic lobby placement, no room opened here).
+                    // The admit is consumed here, in the critical section that reserves the seat; any later failure of this
+                    // admission restores it (`unwind`).
+                    let Some(taken) =
+                        inner
+                            .control
+                            .take_admit(&h.profile, tokio::time::Instant::now(), next_gen)
+                    else {
+                        return Err((RejectCode::BadCredentials, "not admitted".into()));
+                    };
+                    let target = inner
+                        .rooms
+                        .get(&taken.room)
+                        .map(|r| (r.phase == Phase::Lobby, r.tx.clone()));
+                    match target {
+                        Some((true, tx)) => (taken.room, tx),
+                        other => {
+                            inner.control.restore_gen(next_gen);
+                            let why = if other.is_none() {
+                                "match closed"
+                            } else {
+                                "match in progress"
+                            };
+                            return Err((RejectCode::MatchFull, why.into()));
                         }
-                        self.spawn_room(&mut inner, self.cfg.fill_bots_to)
                     }
+                } else {
+                    let open = open_lobby(
+                        &inner.rooms,
+                        if self.cfg.sim.training {
+                            1
+                        } else {
+                            rh_sim::constants::MAX_PLAYERS
+                        },
+                    )
+                    .and_then(|id| inner.rooms.get(&id).map(|r| (id, r.tx.clone())));
+                    match open {
+                        Some(x) => x,
+                        None => {
+                            if inner.rooms.len() >= self.cfg.max_rooms {
+                                return Err((RejectCode::MatchFull, "no capacity".into()));
+                            }
+                            if let Some(room) = prepared.take() {
+                                self.activate_room(&mut inner, room)
+                            } else if self.needs_board_room() {
+                                break 'reserve None;
+                            } else {
+                                self.spawn_room(&mut inner, self.cfg.fill_bots_to)
+                            }
+                        }
+                    }
+                };
+                inner.gens += 1;
+                let gen = inner.gens;
+                inner.profiles.insert(
+                    key.clone(),
+                    ProfileSeat {
+                        renewal: None,
+                        gen,
+                        match_id,
+                        fence: 0,
+                        state: SeatState::Reserved,
+                        result_due: false,
+                        writes: 0,
+                        lease: LeaseState::Held,
+                    },
+                );
+                if let Some(r) = inner.rooms.get_mut(&match_id) {
+                    r.reserved += 1;
                 }
+                Some((match_id, tx, gen))
             };
-            inner.gens += 1;
-            let gen = inner.gens;
-            inner.profiles.insert(
-                key.clone(),
-                ProfileSeat {
-                    renewal: None,
-                    gen,
-                    match_id,
-                    fence: 0,
-                    state: SeatState::Reserved,
-                    result_due: false,
-                    writes: 0,
-                    lease: LeaseState::Held,
-                },
-            );
-            if let Some(r) = inner.rooms.get_mut(&match_id) {
-                r.reserved += 1;
+            if let Some(reserved) = reserved {
+                break reserved;
             }
-            (match_id, tx, gen)
+            prepared = Some(
+                self.prepare_board_room_async(self.cfg.fill_bots_to)
+                    .await
+                    .map_err(|error| {
+                        crate::api::log_internal("quest map preparation", &error);
+                        (
+                            RejectCode::RateLimited,
+                            "quest map unavailable; try again shortly".into(),
+                        )
+                    })?,
+            );
         };
         // Cross-host session ownership: a fenced lease in durable storage (off the tick; before the seat is taken).
         let mut pending = PendingAdmission {

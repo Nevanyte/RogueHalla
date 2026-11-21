@@ -34,7 +34,7 @@ namespace Roguehalla.Net.Tests
             throw new KeyNotFoundException(name);
         }
 
-        [Test] public void FixtureIsProtocolV22() { Assert.AreEqual(22, Wire.ProtocolVersion); Assert.AreEqual(Wire.ProtocolVersion, Fixture().GetProperty("protocol").GetInt32()); }
+        [Test] public void FixtureIsActiveProtocol() { Assert.AreEqual(24, Wire.ProtocolVersion); Assert.AreEqual(Wire.ProtocolVersion, Fixture().GetProperty("protocol").GetInt32()); }
 
         [TestCaseSource(nameof(ClientVectors))]
         public void ClientVectorRoundTripsByteForByte(string name, string hex)
@@ -698,6 +698,8 @@ namespace Roguehalla.Net.Tests
                                 Assert.AreEqual(expectedRow.GetProperty("quest").GetUInt32(), row.QuestRef.Value);
                                 Assert.AreEqual(expectedRow.GetProperty("fetch").GetBoolean(), row.QuestFetch);
                             }
+                            else if (row.Kind == PropKind.RebirthEgg)
+                                Assert.AreEqual(expectedRow.GetProperty("hatching").GetBoolean(), row.Hatching);
                         }
                         var focus = expectedValue.GetProperty("focus");
                         Assert.AreEqual(focus.ValueKind == JsonValueKind.Null, !props.Focus.HasValue);
@@ -1045,7 +1047,7 @@ namespace Roguehalla.Net.Tests
                 case "state_quest_availability_flag": case "state_quest_participant_accepted_flag": case "state_quest_done_by_flag": case "state_quest_prop_fetch_flag":
                 case "state_quest_duplicate_row_handle": case "state_quest_duplicate_roster_id": case "state_quest_duplicate_participant_id":
                 case "state_quest_owner_roster_missing": case "state_quest_carrier_missing": case "state_quest_participant_missing":
-                case "state_quest_unknown_count": case "state_quest_display_count_over_unknown": case "state_quest_def_empty": case "state_quest_def_over_16":
+                case "state_quest_unknown_count": case "state_quest_display_count_over_unknown": case "state_quest_def_empty": case "state_quest_def_over_32":
                 case "state_quest_giver_nonfinite": case "state_quest_giver_out_of_range": case "state_quest_objective_nonfinite": case "state_quest_objective_out_of_range":
                 case "state_quest_expiry_negative": case "state_quest_expiry_nonfinite": case "state_quest_owner_visited_unknown":
                 case "state_trade_availability_flag": case "state_trade_used_flag": case "state_trade_deadline_option_unknown":

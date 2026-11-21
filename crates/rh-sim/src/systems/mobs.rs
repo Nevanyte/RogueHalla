@@ -146,13 +146,17 @@ fn initialize_body(
         .into_iter()
         .zip(elites)
         .zip(&specs)
-        .map(|((mob_type, elite), s)| CampRoster {
-            mob_type,
-            elite,
-            alive: s.spot_count as u32,
-            state: 0,
-            cleared_at: 0.,
-            respawn_at: 0.,
+        .enumerate()
+        .map(|(ci, ((mut mob_type, mut elite), s))| {
+            crate::quests::board::attempts::targets::roster(k, ci, &mut mob_type, &mut elite);
+            CampRoster {
+                mob_type,
+                elite,
+                alive: s.spot_count as u32,
+                state: 0,
+                cleared_at: 0.,
+                respawn_at: 0.,
+            }
         })
         .collect();
     w.mob_runtime = Some(MobRuntime {
@@ -205,7 +209,7 @@ pub(super) fn spawn_camp(k: &MatchStatic, w: &mut World, ci: usize) {
                 elite: member.elite,
             },
         };
-        let mob = Mob::born_with(
+        let mut mob = Mob::born_with(
             crate::mob_runtime::EliteTuning::of(k.config.elites),
             &provenance,
             at,
@@ -213,6 +217,7 @@ pub(super) fn spawn_camp(k: &MatchStatic, w: &mut World, ci: usize) {
             w.server_time,
             k.config.hitboxes,
         );
+        crate::quests::board::attempts::targets::configure(k, ci, si, &mut mob);
         w.actor_history.push(provenance);
         w.mobs.push(mob);
     }

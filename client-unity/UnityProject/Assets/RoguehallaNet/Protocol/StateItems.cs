@@ -49,10 +49,12 @@ namespace Roguehalla.Net.Protocol
                     case PropKind.Cannon: break;
                     case PropKind.QuestItem: Require(row.QuestRef.IsValid, "quest prop handle"); break;
                     case PropKind.Heal: break;
+                    case PropKind.RebirthEgg: break;
                     default: throw new EncodeException("prop kind");
                 }
                 if (Focus.HasValue && row.Handle.Equals(Focus.Value.Handle))
                 {
+                    Require(row.Kind != PropKind.RebirthEgg && row.Kind != PropKind.Heal, "prop focus");
                     focused = true; CheckWeapon(Focus.Value.BodyHint);
                     Require(!Focus.Value.BodyHint.HasValue || row.Kind == PropKind.Body, "body hint");
                 }
@@ -65,7 +67,7 @@ namespace Roguehalla.Net.Protocol
             foreach (var row in Rows)
             {
                 w.Varint(row.Handle.Value); w.U16(row.X); w.U16(row.Y); w.U8((byte)row.Kind);
-                switch (row.Kind) { case PropKind.Ground: w.U8(row.GroundWeapon); break; case PropKind.Chest: w.U8(row.Open ? (byte)1 : (byte)0); break; case PropKind.Body: w.Str(row.BodyLabel); break; case PropKind.Corpse: w.Str(row.CorpseLabel); break; case PropKind.WindEmblem: break; case PropKind.Cannon: w.Varint(row.ReadyAt); break; case PropKind.QuestItem: w.Varint(row.QuestRef.Value); w.U8(row.QuestFetch ? (byte)1 : (byte)0); break; case PropKind.Heal: w.Varint(row.ReadyAt); break; }
+                switch (row.Kind) { case PropKind.Ground: w.U8(row.GroundWeapon); break; case PropKind.Chest: w.U8(row.Open ? (byte)1 : (byte)0); break; case PropKind.Body: w.Str(row.BodyLabel); break; case PropKind.Corpse: w.Str(row.CorpseLabel); break; case PropKind.WindEmblem: break; case PropKind.Cannon: w.Varint(row.ReadyAt); break; case PropKind.QuestItem: w.Varint(row.QuestRef.Value); w.U8(row.QuestFetch ? (byte)1 : (byte)0); break; case PropKind.Heal: w.Varint(row.ReadyAt); break; case PropKind.RebirthEgg: w.U8(row.Hatching ? (byte)1 : (byte)0); break; }
             }
             w.Varint(Focus.HasValue ? Focus.Value.Handle.Value : 0); if (Focus.HasValue) WriteWeapon(w, Focus.Value.BodyHint);
         }
@@ -75,8 +77,14 @@ namespace Roguehalla.Net.Protocol
         public override uint Key { get { return 3; } }
         /// <summary>P-FROST-WALL-2: field kind codes (rh-protocol <c>FIELD_KIND_*</c>); a wall row carries a tile list.</summary>
         public const byte KindZone = 0, KindCloud = 1, KindTrail = 2, KindWall = 3;
-        /// <summary>Kinds at or above this are refused ("field").</summary>
+        /// <summary>First reserved legacy kind. Codes 4 through 8 stay reserved.</summary>
         public const byte KindCount = 4;
+        public const byte KindQuestTurret = 9, KindQuestWard = 10, KindQuestFalcon = 11,
+            KindQuestHook = 12, KindQuestBolas = 13, KindQuestTornado = 14, KindQuestSeed = 15,
+            KindQuestCrown = 16, KindQuestSmuggler = 17, KindQuestFort = 18,
+            KindQuestMeditation = 19, KindQuestBounty = 20;
+        static bool QuestKind(byte kind) => kind >= KindQuestTurret && kind <= KindQuestBounty;
+        static bool KnownKind(byte kind) => kind < KindCount || QuestKind(kind);
         /// <summary>Most tiles one wall row may carry (rh-protocol <c>MAX_WALL_TILES</c>).</summary>
         public const int MaxWallTiles = 64;
         public WireField[] Rows = Array.Empty<WireField>();
@@ -87,7 +95,7 @@ namespace Roguehalla.Net.Protocol
         static string RowFault(WireField f)
         {
             int n = f.Tiles == null ? 0 : f.Tiles.Length;
-            if (f.Kind >= KindCount || (f.Kind != KindWall && n != 0)) return "field";
+            if (!KnownKind(f.Kind) || (f.Kind != KindWall && n != 0)) return "field";
             if (f.Kind == KindWall)
             {
                 if (n == 0 || n > MaxWallTiles) return "wall tiles";
@@ -95,6 +103,7 @@ namespace Roguehalla.Net.Protocol
                 for (int i = 1; i < n; i++) if (f.Tiles[i - 1] >= f.Tiles[i]) return "wall order";
             }
             bool valid = f.Ability < 5 && f.Owner != 0 && f.Subject != 0
+                && (!QuestKind(f.Kind) || (f.Ability == 0 && !f.Owner.HasValue && !f.Subject.HasValue))
                 && Finite(f.X) && Finite(f.Y) && Finite(f.X2) && Finite(f.Y2) && Finite(f.Radius) && Finite(f.Vx) && Finite(f.Vy)
                 && f.Radius >= 0 && Finite(f.StartedAt) && Finite(f.EndsAt) && f.EndsAt >= f.StartedAt;
             return valid ? null : "field";
@@ -111,7 +120,7 @@ namespace Roguehalla.Net.Protocol
                 X = r.F32(), Y = r.F32(), X2 = r.F32(), Y2 = r.F32(), Radius = r.F32(), Vx = r.F32(), Vy = r.F32(),
                 StartedAt = r.F64(), EndsAt = r.F64()
             };
-            if (f.Kind >= KindCount) throw new DecodeException(DecodeError.BadField, "field");
+            if (!KnownKind(f.Kind)) throw new DecodeException(DecodeError.BadField, "field");
             if (f.Kind == KindWall)
             {
                 int count = r.U8();

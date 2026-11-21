@@ -62,13 +62,13 @@ fn full_state(obs: &Observation) -> Vec<StateItem> {
 fn identities_move_for_the_panel() {
     assert_eq!(
         rh_sim::OBSERVATION_VERSION,
-        35,
-        "observation gains the owner's panel (26), then codes 23-27 (27, P-WIRE17-HUD-2c); 28: P-WIRE17-HUD-3; 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 34: P-AUG-NATIVE-5; 35: P-SYNC-ORIGIN-2"
+        37,
+        "observation gains the owner's panel (26), then codes 23-27 (27, P-WIRE17-HUD-2c); 28: P-WIRE17-HUD-3; 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 34: P-AUG-NATIVE-5; 35: P-SYNC-ORIGIN-2; 36: origin's Top 25 quests; 37: P-SYNC-ORIGIN-3"
     );
     assert_eq!(
         rh_policy::POLICY_CONTRACT_VERSION,
-        31,
-        "policy projection gains the panel (20), then codes 23-27 (21, P-WIRE17-HUD-2c); 22: P-WIRE17-HUD-3; 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 29: P-AUG-BOTS-1; 30: P-AUG-NATIVE-5; 27 on origin: P-COLISEUM-HEALS-2; 31: P-SYNC-ORIGIN-2 (protocol 22)"
+        33,
+        "policy projection gains the panel (20), then codes 23-27 (21, P-WIRE17-HUD-2c); 22: P-WIRE17-HUD-3; 31/26: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33/28: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 29: P-AUG-BOTS-1; 30: P-AUG-NATIVE-5; 27 on origin: P-COLISEUM-HEALS-2; 31: P-SYNC-ORIGIN-2 (protocol 22); 32 on origin: its Top 25 quests; 33: P-SYNC-ORIGIN-3"
     );
 }
 

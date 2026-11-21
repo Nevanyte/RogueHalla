@@ -1,5 +1,25 @@
 # Quests
 
+## Normal Rust and Unity raids
+
+The server deals ten quests during planning. Each zone contributes two randomly selected quests from its pool of five, so each individual quest has a 40% chance of appearing in a match. Everyone sees the same offers. The server checks that the starting givers and required sites are reachable before admitting the map.
+
+| Starting zone | Quest pool |
+| --- | --- |
+| Gallows | The Warden, Hold the Fort, Bounty Hunter, Smuggler’s Run, Two Banners |
+| Scorch | Ember Walk, The Burning Crown, Let Him Cook, Elite Slayer, Tuber Eats |
+| Warren | Barrow Run, The Bargain, A Cruel Joke, A Bone to Pick, Feed or Hunt |
+| Rime | Rime Hunt, Watchtowers, Whispers in the Brush, Even Skeletons Get Cold, Lost Brother |
+| Sanctum | Pilgrim’s Path, Gatecrasher, Letters, Stay A While, Trade Up |
+
+Accept an offer at its starting giver. You can pursue several at once, retry a failed attempt, and complete each offer once per match. A completed offer disappears from your journal, giver interactions and map. Other players retain their own progress. The physical crown, marked smugglers and contested objectives can still draw attention on everyone’s map. Fill bots can be opponents or bounty targets. Only human players accept quests.
+
+The journal lists each quest’s objective and named reward. Permanent rewards last for the match. Cast your two equipped quest spells with **Shift** and **Q**, swap weapons with **Space**, and use your faction Wish with **R**. With both slots occupied, choose which spell to drop at turn-in, or leave the new reward on the ground. A reconnect preserves personal progress and any outstanding choice. [Design workbook](quests/FUTURE_ONLY_Quest_Design_Discussion.xlsx) · [Approved change DEV-040](DEVIATIONS.md#entries)
+
+## Legacy K1 reference
+
+The following sections document the TypeScript reference game and the K1 path used by the Rust parity fixtures.
+
 > Reward update: a quest grants 10–20 whole normal-mob stat stacks from its destination zone, plus GV from the existing per-run pot. Quantity is derived from objective and travel estimates, independent of feed; earned stacks remain uncapped. Accepted collect/fetch objectives are shown to their accepter on the held map and minimap, even outside current vision. The card-tier/copy tables below are historical tuning metadata.
 
 *K1 quest play on the current roguelike architecture. The shared catalog and placement live in `packages/shared/src/quests.ts`, the authoritative runtime in `packages/server/src/sim/quests.ts`, and the bot-facing contract in [quests-bot-hook.md](quests-bot-hook.md).*

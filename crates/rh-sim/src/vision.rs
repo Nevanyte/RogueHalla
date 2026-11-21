@@ -270,53 +270,76 @@ fn in_radius(a: Vec2, b: Vec2) -> bool {
 /// Live camp-ward sight sources. The source's `canPlayerSee` scans the published camps for an unexpired ward owned by
 /// the viewer and treats each owned camp's centre as a transient sight origin (`isInVision`): current only, never
 /// remembered. The camp state is the authority, so no copy is stored on the viewer.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub(crate) struct WardSight<'a> {
     camps: &'a [crate::mapdata::CampDef],
     life: &'a [crate::mob_runtime::CampLife],
-    /// The match's step (`SimConfig::tick_ms`): every sight query carries its wards, so they carry the step that turns
-    /// its tick into sim time and its trail into steps. `None` reads the legacy 50 ms (tests without a match).
-    tick_ms: Option<f64>,
+    quest_world: Option<&'a crate::state::World>,
+    tick_ms: f64,
+}
+impl Default for WardSight<'_> {
+    fn default() -> Self {
+        Self::none()
+    }
 }
 impl<'a> WardSight<'a> {
     pub(crate) const fn none() -> Self {
         Self {
             camps: &[],
             life: &[],
-            tick_ms: None,
+            quest_world: None,
+            tick_ms: LEGACY_TICK_MS,
         }
     }
     pub(crate) fn of(k: &'a crate::statics::MatchStatic, w: &'a crate::state::World) -> Self {
-        let tick_ms = Some(k.tick_ms());
+        let tick_ms = k.tick_ms();
+        let quest_world = (w.quests.is_some()
+            && !crate::quests::board::rewards::effects::deployments(w).is_empty())
+        .then_some(w);
         match (k.arena.map.layers(), w.mob_runtime.as_ref()) {
             (Some(layers), Some(rt)) => Self {
                 camps: &layers.data().camps,
                 life: &rt.life,
+                quest_world,
                 tick_ms,
             },
             _ => Self {
+                quest_world,
                 tick_ms,
                 ..Self::none()
             },
         }
     }
-    fn tick_ms(self) -> f64 {
-        self.tick_ms.unwrap_or(LEGACY_TICK_MS)
+    fn reveals_bush(self, map: View<'_>, viewer: PlayerId, point: Vec2) -> bool {
+        self.quest_world.is_some_and(|w| {
+            crate::quests::board::rewards::effects::reveals(
+                w,
+                map.current(),
+                viewer,
+                point,
+                self.tick_ms(),
+            )
+        })
     }
+
     pub(crate) fn of_sim(sim: &'a Sim) -> Self {
         Self::of(&sim.k, &sim.w)
+    }
+    fn tick_ms(self) -> f64 {
+        self.tick_ms
     }
     /// Legacy `canPlayerSee`'s ward clause: `camp.wardOwner === viewer && now < wardExpiresAt` and
     /// `isInVision(collisionMap, map.camps[i], point)`. An expired timestamp cannot leak sight, and a dead viewer never
     /// reaches here (the caller checks its status).
-    fn sees(self, map: View<'_>, viewer: PlayerId, point: Vec2, tick: u32) -> bool {
+    pub(crate) fn sees(self, map: View<'_>, viewer: PlayerId, point: Vec2, tick: u32) -> bool {
         let now = f64::from(tick) * self.tick_ms();
-        self.camps.iter().zip(self.life).any(|(camp, life)| {
-            life.ward_owner == Some(viewer)
-                && now < life.ward_expires_at
-                && in_radius(Vec2::new(camp.x, camp.y), point)
-                && !scene_line_blocked(map.current(), camp.x, camp.y, point.x, point.y)
-        })
+        self.reveals_bush(map, viewer, point)
+            || self.camps.iter().zip(self.life).any(|(camp, life)| {
+                life.ward_owner == Some(viewer)
+                    && now < life.ward_expires_at
+                    && in_radius(Vec2::new(camp.x, camp.y), point)
+                    && !scene_line_blocked(map.current(), camp.x, camp.y, point.x, point.y)
+            })
     }
 }
 
@@ -414,6 +437,7 @@ pub(crate) fn actor_with<'a>(
         return false;
     }
     bush_visible(&map, viewer, target, tick, wards.tick_ms())
+        || wards.reveals_bush(map, viewer.id, target.pos())
 }
 
 fn bush_visible(map: &TileMap, viewer: &Player, target: &Player, tick: u32, tick_ms: f64) -> bool {
@@ -470,7 +494,8 @@ pub(crate) fn gameplay_actor_visible<'a>(
     // current status readers at its own phase, so terrain sight must not reuse that mirror.
     if target.status != Status::Lobby
         && point_visible(map, viewer, target.pos(), tick, wards)
-        && bush_visible(&map, viewer, target, tick, wards.tick_ms())
+        && (bush_visible(&map, viewer, target, tick, wards.tick_ms())
+            || wards.reveals_bush(map, viewer.id, target.pos()))
     {
         return true;
     }
@@ -568,6 +593,7 @@ pub(crate) fn apply_exposures(cx: &mut crate::systems::Cx) {
 #[derive(Default)]
 pub(crate) struct TileVisionCache {
     arena: Option<std::sync::Arc<crate::Arena>>,
+    terrain: Option<std::sync::Arc<crate::barriers::OverlayMap>>,
     tick: Option<u32>,
     previous: Vec<Reveal>,
     cells: Vec<Option<Cell>>,
@@ -624,15 +650,23 @@ impl TileVisionCache {
             self.cells.resize(size, None);
             self.tick = None;
         }
-        if self
-            .arena
-            .as_ref()
-            .is_none_or(|a| !std::sync::Arc::ptr_eq(a, sim.shared_arena()))
+        let terrain = &sim.w.destroyed_terrain.derived;
+        let same_terrain = match (&self.terrain, terrain) {
+            (None, None) => true,
+            (Some(old), Some(new)) => std::sync::Arc::ptr_eq(old, new),
+            _ => false,
+        };
+        if !same_terrain
+            || self
+                .arena
+                .as_ref()
+                .is_none_or(|a| !std::sync::Arc::ptr_eq(a, sim.shared_arena()))
             || !self.extends(trail, sim.tick(), sim.k.tick_ms())
         {
             self.cells.fill(None);
         }
         self.arena = Some(std::sync::Arc::clone(sim.shared_arena()));
+        self.terrain.clone_from(terrain);
         self.previous.clear();
         self.previous.reserve(max_samples());
         self.previous.extend(trail.reveals.iter().copied());

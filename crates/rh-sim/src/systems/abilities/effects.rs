@@ -94,6 +94,9 @@ fn self_pass(cx: &mut Cx, l: Landing, def: a::Definition) {
 }
 
 fn target_pass(cx: &mut Cx, l: Landing, def: a::Definition, target: Option<PlayerId>) {
+    if target.is_some_and(|id| crate::quests::board::rewards::effects::block_spell(cx.w, id)) {
+        return;
+    }
     for e in def.effects.iter().copied() {
         if a::effect_side(e) == a::Side::Target {
             run(cx, l, target, e);

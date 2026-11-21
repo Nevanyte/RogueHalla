@@ -542,8 +542,12 @@ fn a_map_without_dressing_keeps_today_s_bytes() {
     for (name, len, want) in pinned {
         let line = entry(&f, name).unwrap_or_else(|| panic!("{name} is still a vector"));
         let hex = field(line, "hex").unwrap();
+        // These are v21 byte pins. Only normalize the protocol stamp; the entire map
+        // and the rest of each Welcome must still match the original digest.
+        assert!(hex.starts_with(&format!("81{PROTOCOL_VERSION:02x}00")));
+        let baseline = format!("811500{}", &hex[6..]);
         assert_eq!(
-            (hex.len(), digest(hex)),
+            (hex.len(), digest(&baseline)),
             (len, want),
             "{name} keeps its bytes"
         );

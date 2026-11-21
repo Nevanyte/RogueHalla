@@ -1,5 +1,6 @@
 //! Player and typed regional/practice Frost sources. Prior chill belongs to weapons; post-ledger chill to the next tick.
 use super::{signatures::LandedHit, Cx};
+use crate::quests::board::rewards::{self, Award};
 use crate::{
     cards::native::hooks::{self as native, NativeEvent},
     constants::*,
@@ -89,7 +90,10 @@ pub(crate) fn after_weapons(cx: &mut Cx) {
 }
 pub(crate) fn ranged_hits(w: &mut World, hits: &[LandedHit]) {
     for h in hits {
-        if h.sig.is_some() || !matches!(h.weapon, Some(WeaponId::Bow | WeaponId::Wand)) {
+        if h.sig.is_some()
+            || !matches!(h.weapon, Some(WeaponId::Bow | WeaponId::Wand))
+            || rewards::has(w, h.victim, Award::WarmCoat)
+        {
             continue;
         }
         // The source archer is a Frost PLAYER; the victim is any admitted actor.
@@ -163,29 +167,8 @@ fn add(chillers: &mut Vec<PlayerId>, source: PlayerId) {
         chillers.push(source);
     }
 }
-fn returning(w: &World, id: PlayerId) -> bool {
-    w.mobs.get(id).is_some_and(|m| m.returning())
-}
-fn structural_source(w: &World, ix: crate::fighter::FighterIx) -> bool {
-    let core = w.core(ix);
-    core.vitals.faction == FactionId::Frost
-        && !returning(w, core.id)
-        && (w.is_player(ix)
-            || w.mobs.get(core.id).is_some_and(|m| {
-                m.kind != crate::mob_runtime::MobKind::Dummy
-                    && m.zombie.is_none()
-                    && m.mob_type
-                        .and_then(|t| crate::mob_catalog::mob_type_by_id(t.as_str()))
-                        .is_some_and(|t| t.zone == FactionId::Frost)
-            }))
-}
-fn source_chill(w: &World, ix: crate::fighter::FighterIx) -> f64 {
-    if w.is_player(ix) {
-        crate::modifiers::frost_chill(w.core(ix))
-    } else {
-        1. - FROST_SLOW
-    }
-}
+mod sources;
+use sources::{source_chill, structural_source};
 fn near(w: &World, p: &FighterCore, id: PlayerId) -> bool {
     w.fighter_idx(id).is_some_and(|ix| {
         let f = w.core(ix);
@@ -204,6 +187,10 @@ pub(crate) fn after_damage(w: &mut World, tick_ms: f64) {
             continue;
         }
         let victim_id = w.core(ix).id;
+        if rewards::has(w, victim_id, Award::WarmCoat) {
+            rewards::permanent::clear_chill(&mut w.core_mut(ix).signature);
+            continue;
+        }
         // Rebuild this victim's chiller list in source order without a per-tick allocation: source updateChill adds the
         // forward edge while walking actors in fighter order, and the reverse edge when that walk reaches the victim.
         let mut chillers = std::mem::take(&mut w.core_mut(ix).signature.chillers);
@@ -527,7 +514,10 @@ mod tests {
         keys(&v, &["format", "modules", "kind", "cases"]);
         assert_eq!(v["format"], "rh-frost-runtime-matrix/1");
         check_modules(&v["modules"]);
-        assert_eq!(v["kind"],"trusted private setup; actual installed afterDamage and movement modifier; not gameplay intake");
+        assert_eq!(
+            v["kind"],
+            "trusted private setup; actual installed afterDamage and movement modifier; not gameplay intake"
+        );
         assert_eq!(v["cases"].as_array().unwrap().len(), 21);
         for case in v["cases"].as_array().unwrap() {
             keys(case, &["setup", "beforeMove", "liveMove", "result"]);
@@ -716,7 +706,10 @@ mod tests {
         keys(&v, &["format", "modules", "kind", "cases"]);
         assert_eq!(v["format"], "rh-frost-ranged-ledger/1");
         check_modules(&v["modules"]);
-        assert_eq!(v["kind"],"trusted direct ledger setup; actual recordHit/applyLedger/installed afterDamage; not gameplay intake");
+        assert_eq!(
+            v["kind"],
+            "trusted direct ledger setup; actual recordHit/applyLedger/installed afterDamage; not gameplay intake"
+        );
         assert_eq!(v["cases"].as_array().unwrap().len(), 15);
         for case in v["cases"].as_array().unwrap() {
             keys(case, &["setup", "landed", "until"]);

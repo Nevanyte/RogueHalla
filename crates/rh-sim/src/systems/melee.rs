@@ -96,6 +96,30 @@ fn resolve_swings(cx: &mut Cx) {
             y: origin.y,
             a: req.a,
         });
+        use crate::quests::board::rewards::effects;
+        if !effects::deployments(w).is_empty() {
+            let held = crate::barriers::held(w);
+            let map = crate::barriers::body_map(k, &held, w.rt.gates_locked);
+            for i in (0..effects::deployments(w).len()).rev() {
+                let prop = effects::deployments(w)[i];
+                if prop.strikeable(w, req.attacker)
+                    && in_arc(
+                        origin,
+                        req.a,
+                        reach,
+                        half_arc,
+                        prop.at,
+                        effects::DEPLOYMENT_RADIUS,
+                    )
+                    && crate::geometry::has_line_of_sight(map, origin, prop.at, MASK_MELEE)
+                {
+                    effects::damage_deployment(w, i, req.packet.raw);
+                }
+            }
+        }
+        if !w.rebirth_eggs.is_empty() {
+            strike_eggs(k, w, req, origin, reach, half_arc);
+        }
         for (bi, &ti) in bodies.iter().enumerate() {
             if ti == ai {
                 continue;
@@ -150,6 +174,7 @@ fn resolve_swings(cx: &mut Cx) {
             let dy = origin.y - at.y;
             let blocked = matches!(req.weapon, WeaponId::Sword | WeaponId::Shield)
                 && target.active_weapon() == WeaponId::Shield
+                && !effects::stasis(w, target.id)
                 && ((dx == 0.0 && dy == 0.0)
                     || angle_between(atan2(dy, dx), target.body.facing)
                         <= SHIELD_HALF_ARC + ARC_EPS);
@@ -299,6 +324,29 @@ pub fn reaches(
             } else {
                 arc_hits_box(o, a, reach, half_arc, body)
             }
+        }
+    }
+}
+
+fn strike_eggs(
+    k: &crate::statics::MatchStatic,
+    w: &mut World,
+    req: &MeleeReq,
+    origin: Vec2,
+    reach: f64,
+    half_arc: f64,
+) {
+    use crate::quests::board::special::egg;
+    let walls = crate::barriers::held(w);
+    let map = crate::barriers::body_map(k, &walls, w.rt.gates_locked);
+    for i in (0..w.rebirth_eggs.len()).rev() {
+        let shell = w.rebirth_eggs[i];
+        if w.player(req.attacker)
+            .is_some_and(|p| egg::strikeable(k, w, p, shell))
+            && in_arc(origin, req.a, reach, half_arc, shell.at, egg::RADIUS)
+            && !ray_blocked(map, origin.x, origin.y, shell.at.x, shell.at.y, MASK_MELEE)
+        {
+            egg::break_shell(w, i);
         }
     }
 }

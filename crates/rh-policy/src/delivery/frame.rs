@@ -61,15 +61,17 @@ pub struct CollectionView {
     pub(crate) roster: Vec<rh_protocol::WireRosterRow>,
     /// State key 13: the owner's own build summary (None when unseated).
     pub(crate) summary: Option<rh_protocol::state::WireBuildSummary>,
-    /// State key 14 (P-WIRE19-B): the owner's own native readout rows; optional, never required for completeness.
-    pub(crate) readouts: Vec<rh_protocol::WireReadout>,
+    pub(crate) destroyed_terrain: Vec<u32>,
     /// State key 15 (P-AUG-NATIVE-5): the public Marked Man rows; optional, never required for completeness.
     pub(crate) marked: Vec<rh_protocol::WireMarked>,
+    /// State key 16 (P-WIRE19-B; key 14 before protocol 24): the owner's own native readout rows; optional, never
+    /// required for completeness.
+    pub(crate) readouts: Vec<rh_protocol::WireReadout>,
     pub(crate) tick: u32,
 }
-/// The keys a complete view must have received: 1..=13. Keys 14 (P-WIRE19-B readouts) and 15 (P-AUG-NATIVE-5 Marked
-/// Man rows) are sent only on change, so a viewer without native cards or a holder never receives them.
-const REQUIRED_STATE_KEYS: usize = 13;
+/// The keys a complete view must have received: 1..=13. Keys 14 (opened terrain), 15 (P-AUG-NATIVE-5 Marked Man rows)
+/// and 16 (P-WIRE19-B readouts) are sent only on change, so a viewer without them never receives them.
+const REQUIRED_STATE_KEYS: usize = rh_protocol::state::REQUIRED_STATE_KEYS;
 impl CollectionView {
     pub fn inventory(&self) -> Option<&WireInventory> {
         self.inventory.as_ref()
@@ -125,6 +127,9 @@ impl CollectionView {
     pub fn tick(&self) -> u32 {
         self.tick
     }
+    pub fn destroyed_terrain(&self) -> &[u32] {
+        &self.destroyed_terrain
+    }
     pub fn complete(&self) -> bool {
         self.seen[..REQUIRED_STATE_KEYS].iter().all(|v| *v)
     }
@@ -152,8 +157,9 @@ impl CollectionView {
                 StateItem::Trade(v) => next.trade = v.clone(),
                 StateItem::Roster(v) => next.roster = v.clone(),
                 StateItem::BuildSummary(v) => next.summary = v.clone(),
-                StateItem::Readouts(v) => next.readouts = v.clone(),
+                StateItem::DestroyedTerrain(v) => next.destroyed_terrain = v.clone(),
                 StateItem::Marked(v) => next.marked = v.clone(),
+                StateItem::Readouts(v) => next.readouts = v.clone(),
             }
         }
         rh_protocol::validate_quest_props(&next.props, next.quests.as_ref())?;

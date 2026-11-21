@@ -58,6 +58,19 @@ namespace Roguehalla.Net.Ui
             return best;
         }
 
+        // A click on a delivered shell uses the ordinary directional attack input even with a wand.
+        public static bool OnRebirthEgg(System.Collections.Generic.IReadOnlyList<PropView> props, float x, float y)
+        {
+            const float radius = 14f;
+            foreach (var prop in props)
+            {
+                if (prop.Kind != PropAppearance.RebirthEgg) continue;
+                float dx = x - prop.X, dy = y - prop.Y;
+                if (dx * dx + dy * dy <= radius * radius) return true;
+            }
+            return false;
+        }
+
         /// <summary>The order a left click sends: a wand locks the pick or sends nothing; every other weapon attacks in the aim direction.</summary>
         public static ClickOrder Decide(WeaponId? weapon, uint picked)
         {

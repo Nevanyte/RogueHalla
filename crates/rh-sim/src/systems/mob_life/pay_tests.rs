@@ -50,6 +50,8 @@ fn award() -> Award {
         mob_type: crate::mob_catalog::MobTypeId::EmberImp,
         zone: FactionId::Fire,
         mult: 1.,
+        skip_stat: false,
+        smite_bonus: false,
         contributors: vec![PlayerId(1)],
     }
 }

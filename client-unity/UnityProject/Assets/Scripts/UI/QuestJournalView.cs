@@ -25,6 +25,11 @@ namespace Roguehalla.Client
         TMP_Text _state, _detailName, _giver, _brief, _objective, _reward, _participants, _status;
         UnityEngine.UI.Button _close, _accept, _track;
         readonly List<Row> _rows = new List<Row>();
+        readonly List<UnityEngine.UI.Button> _actions = new List<UnityEngine.UI.Button>();
+        QuestView _actionView;
+        QuestRowView _actionRow;
+        RectTransform _actionList;
+        int _visibleRowCount;
         Session _session;
         Action _onClose;
         Action<QuestHandle?> _onTracked;
@@ -63,6 +68,7 @@ namespace Roguehalla.Client
             _giver = CreateQuestField(_detailContent, "QuestGiver", "GIVER", 16, ShowcasePalette.Gold);
             _brief = CreateQuestField(_detailContent, "QuestBrief", "BRIEF", 17, ShowcasePalette.Text);
             _objective = CreateQuestField(_detailContent, "QuestObjective", "OBJECTIVE", 17, ShowcasePalette.MutedText);
+            _actionList = CreateActionList(_detailContent, "QuestActions");
             _reward = CreateQuestField(_detailContent, "QuestReward", "REWARD", 16, ShowcasePalette.Text);
             _participants = CreateQuestField(_detailContent, "QuestParticipants", "PARTICIPANTS", 15, ShowcasePalette.Text);
             _status = MythicUi.Text(detail, "QuestStatus", "", new Vector2(.025f, .115f), new Vector2(.975f, .20f), 13, ShowcasePalette.MutedText);
@@ -72,9 +78,10 @@ namespace Roguehalla.Client
             RenderSelection();
         }
 
-        static UnityEngine.UI.ScrollRect CreateScroll(Transform parent, Vector2 min, Vector2 max, out RectTransform content)
+        internal static UnityEngine.UI.ScrollRect CreateScroll(Transform parent, Vector2 min, Vector2 max,
+            out RectTransform content, string name = "QuestRows")
         {
-            var frame = MythicUi.Rect(parent, "QuestRows", min, max);
+            var frame = MythicUi.Rect(parent, name, min, max);
             var scroll = frame.gameObject.AddComponent<UnityEngine.UI.ScrollRect>();
             scroll.horizontal = false; scroll.vertical = true; scroll.movementType = UnityEngine.UI.ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 36; scroll.inertia = true;
@@ -135,6 +142,26 @@ namespace Roguehalla.Client
             return value;
         }
 
+        internal static RectTransform CreateActionList(Transform parent, string name)
+        {
+            var list = MythicUi.Rect(parent, name, new Vector2(0, 1), Vector2.one, Vector2.zero, Vector2.zero);
+            list.pivot = new Vector2(.5f, 1f);
+            var layout = list.gameObject.AddComponent<UnityEngine.UI.VerticalLayoutGroup>();
+            layout.spacing = 5; layout.childControlWidth = true; layout.childControlHeight = true;
+            layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
+            return list;
+        }
+
+        internal static UnityEngine.UI.Button ActionButton(List<UnityEngine.UI.Button> buttons, RectTransform parent, int index)
+        {
+            if (index < buttons.Count) return buttons[index];
+            var button = MythicUi.Button(parent, "Action" + index, "", Vector2.zero, Vector2.one, () => { }, fontSize: 14);
+            var layout = button.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+            layout.minHeight = 38;
+            buttons.Add(button);
+            return button;
+        }
+
         public void Bind(Session session)
         {
             if (ReferenceEquals(_session, session)) { Refresh(); return; }
@@ -183,18 +210,20 @@ namespace Roguehalla.Client
                 if (selected.HasValue && Find(selected.Value) == null) selected = null;
                 _selected = selected;
                 if (_tracked.HasValue && Find(_tracked.Value) == null) ClearTracked();
-                for (int i = 0; i < next.Rows.Count; i++)
+                _visibleRowCount = 0;
+                foreach (var quest in next.Rows)
                 {
-                    QuestRowView quest = next.Rows[i]; Row row = GetRow(i); row.Handle = quest.Handle;
+                    if (!QuestPresentation.ShowsOffer(quest)) continue;
+                    Row row = GetRow(_visibleRowCount++); row.Handle = quest.Handle;
                     row.Label.text = QuestRowLabel(quest);
                     QuestHandle capturedHandle = quest.Handle; Session capturedSession = _session; uint capturedEpoch = _boundEpoch;
                     row.Button.onClick.RemoveAllListeners(); row.Button.onClick.AddListener(() => SelectCurrent(capturedSession, capturedEpoch, next, capturedHandle));
                     row.Root.gameObject.SetActive(true);
                 }
-                SetRows(next.Rows.Count);
+                SetRows(_visibleRowCount);
                 _scroll.verticalNormalizedPosition = scrollPosition;
             }
-            _state.text = next.Rows.Count == 0 ? "No quests are currently available." : next.Rows.Count + " quest" + (next.Rows.Count == 1 ? "" : "s");
+            _state.text = _visibleRowCount == 0 ? "No quests are currently available." : _visibleRowCount + " quest" + (_visibleRowCount == 1 ? "" : "s");
             RenderSelection();
         }
 
@@ -231,8 +260,8 @@ namespace Roguehalla.Client
         QuestRowView Find(QuestHandle handle)
         {
             if (_view == null || !_view.Available) return null;
-            for (int i = 0; i < _view.Rows.Count; i++) if (_view.Rows[i].Handle.Equals(handle)) return _view.Rows[i];
-            return null;
+            var row = QuestPresentation.FindRow(_view, handle);
+            return row != null && QuestPresentation.ShowsOffer(row) ? row : null;
         }
 
         public void SelectQuest(QuestHandle handle)
@@ -270,15 +299,17 @@ namespace Roguehalla.Client
             }
             if (has)
             {
-                string deadline = DeadlineCopy(q);
+                string deadline = q.ExpiresAt > 0 ? " · " + DeadlineCopy(q) : "";
                 string readiness = q.OwnerReady ? " · Ready" : "";
                 _status.text = _acceptPendingFor.HasValue && _acceptPendingFor.Value.Equals(q.Handle)
-                    ? "Acceptance queued · waiting for server update · " + deadline
-                    : q.OwnerCompleted ? "Completed" + readiness + " · " + deadline
-                    : q.OwnerAccepted ? "Accepted · " + q.OwnerProgress + " progress" + readiness + " · " + deadline
-                    : q.CanAccept ? "Available · " + deadline : q.State.ToString() + readiness + " · " + deadline;
+                    ? "Acceptance queued · waiting for server update" + deadline
+                    : QuestPresentation.IsPending(_view, q.Handle) ? "Reward choice pending"
+                    : q.OwnerCompleted ? "Completed" + readiness + deadline
+                    : q.OwnerAccepted ? "Accepted · " + QuestProgressText(q) + readiness + deadline
+                    : q.CanAccept ? "Available" + deadline : q.State.ToString() + readiness + deadline;
             }
             else _status.text = "";
+            RenderActions(q);
             _track.interactable = has && IsCurrentView(_session, _boundEpoch, _view);
             _track.GetComponentInChildren<TMP_Text>().text = _tracked.HasValue && has && _tracked.Value.Equals(q.Handle) ? "STOP TRACKING" : "TRACK OBJECTIVE";
             _accept.gameObject.SetActive(has && q.CanAccept);
@@ -296,6 +327,45 @@ namespace Roguehalla.Client
                 _accept.onClick.AddListener(() => TryAcceptFrom(capturedSession, capturedEpoch, capturedView, capturedHandle));
                 _acceptBoundSession = capturedSession; _acceptBoundEpoch = capturedEpoch; _acceptBoundView = capturedView;
                 _acceptBoundHandle = capturedHandle; _acceptBindingValid = true;
+            }
+        }
+
+        static string QuestProgressText(QuestRowView q)
+        {
+            if (q.Def == "hold_the_fort") return q.OwnerProgress + " / 45 s";
+            if (q.Def == "stay_a_while") return q.OwnerProgress + " / 30 s";
+            return q.OwnerProgress + " progress";
+        }
+
+        void RenderActions(QuestRowView row)
+        {
+            if (ReferenceEquals(_actionView, _view) && ReferenceEquals(_actionRow, row)) return;
+            _actionView = _view; _actionRow = row;
+            int used = 0;
+            if (row != null)
+            {
+                var session = _session;
+                uint epoch = _boundEpoch;
+                QuestView view = _view;
+                foreach (var action in view.Actions)
+                {
+                    if (!action.Quest.Equals(row.Handle) || action.Action == QuestPresentation.RewardChoice ||
+                        action.Action == QuestPresentation.PickupReward) continue;
+                    var button = ActionButton(_actions, _actionList, used++);
+                    button.GetComponentInChildren<TMP_Text>(true).text = action.Label;
+                    button.onClick.RemoveAllListeners();
+                    button.onClick.AddListener(() =>
+                    {
+                        if (_selected.HasValue && _selected.Value.Equals(action.Quest) && IsCurrentView(session, epoch, view))
+                            QuestPresentation.TrySend(session, epoch, view, action.Quest, action.Action, action.Target);
+                    });
+                    button.gameObject.SetActive(true);
+                }
+            }
+            for (int i = used; i < _actions.Count; i++)
+            {
+                _actions[i].onClick.RemoveAllListeners();
+                _actions[i].gameObject.SetActive(false);
             }
         }
 

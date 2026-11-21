@@ -333,7 +333,7 @@ fn camp(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, ix: FighterIx, id: 
         );
         return;
     }
-    let map = k.collision_map(w.rt.gates_locked);
+    let map = crate::collision::map(k, w);
     let mut taken = occupied_tiles(w);
     let spots = camp_spots(map, from, &mut taken, size as usize);
     if spots.is_empty() {
@@ -386,7 +386,7 @@ fn chest(
         );
         return;
     }
-    let map = k.collision_map(w.rt.gates_locked);
+    let map = crate::collision::map(k, w);
     let taken = occupied_tiles(w);
     let at = floor_tiles_around(
         map,

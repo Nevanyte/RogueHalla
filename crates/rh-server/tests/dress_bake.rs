@@ -210,10 +210,13 @@ fn sim_config() -> rh_sim::SimConfig {
         .split_whitespace()
         .map(str::to_owned)
         .collect();
-    rh_server::runtime::Settings::from_args(&args)
+    let mut config = rh_server::runtime::Settings::from_args(&args)
         .unwrap()
         .unwrap()
-        .sim()
+        .sim();
+    // These paired cached maps isolate historical presentation data.
+    config.top25_quests = false;
+    config
 }
 
 const TICK: Duration = Duration::from_millis(50);

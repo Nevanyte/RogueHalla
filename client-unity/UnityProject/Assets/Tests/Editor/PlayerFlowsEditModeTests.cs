@@ -67,6 +67,137 @@ namespace Roguehalla.Client.Tests
         void Welcome() => _transport.Deliver(new ServerMsg.Welcome { Protocol = Wire.ProtocolVersion, MatchId = new byte[16],
             Session = new byte[16], PlayerId = 1, TickRate = 20, ServerMs = 50, Map = new MapBlob(32, 32, new byte[1024]) });
 
+        [TestCase(1)]
+        [TestCase(2)]
+        public void FullQuestSlotsPresentServerChoiceAgainAfterReconnectAndSendTheChosenTuple(int choice)
+        {
+            var handle = new QuestHandle(71);
+            var state = QuestState(handle);
+            state.View.Rows[0].State = QuestRowState.Open;
+            state.View.Rows[0].Def = "barrow_run";
+            state.View.Rows[0].OwnerAccepted = true;
+            state.View.Rows[0].OwnerReady = true;
+            state.View.Rows[0].CanAccept = false;
+            state.View.Rows[0].Reward = "WallBuster";
+            state.View.Spells = new[] { new WireQuestSpell { Slot = 0, Reward = 2, Charges = 2, ReadyAt = 2500 },
+                new WireQuestSpell { Slot = 1, Reward = 4, Charges = 1, ReadyAt = 0 } };
+            state.View.Pending = new[] { handle };
+            state.View.Actions = new[] {
+                new WireQuestAction { Quest = handle, Action = 8, Target = 0, Label = "Replace Shift spell" },
+                new WireQuestAction { Quest = handle, Action = 8, Target = 1, Label = "Replace Q spell" },
+                new WireQuestAction { Quest = handle, Action = 8, Target = 2, Label = "Leave new spell on the ground" },
+            };
+            _transport.Deliver(new ServerMsg.State { Tick = 2, Items = new StateItem[] { state } });
+            var overlay = HudTestPaths.Find(_hud.transform, "MatchUI/QuestRewardChoiceOverlay");
+            var card = overlay.Find("QuestRewardChoice");
+            var button = card.Find("RewardChoice" + choice).GetComponent<UnityEngine.UI.Button>();
+            Assert.IsTrue(overlay.gameObject.activeSelf);
+            Assert.IsTrue(_hud.BlocksWorldInput);
+            string equipped = card.Find("Equipped").GetComponent<TMP_Text>().text;
+            StringAssert.Contains("SHIFT · Hook 2 charges · 3s", equipped);
+            StringAssert.Contains("Q · Tornado 1 charge · Ready", equipped);
+            _transport.Drop();
+            button.onClick.Invoke();
+            Assert.IsFalse(overlay.gameObject.activeSelf);
+
+            _transport.Open();
+            Welcome();
+            _transport.Deliver(new ServerMsg.Snapshot { Tick = 2, ServerTimeOverrideMs = 100, Phase = (byte)MatchPhase.Active,
+                Me = new WireSelf { Id = 1, X = 64, Y = 64, Hp = 100, MaxHp = 100, Status = 1, Weapon = 0 } });
+            _transport.Deliver(new ServerMsg.State { Tick = 2, Items = new StateItem[] { state } });
+            Assert.IsTrue(overlay.gameObject.activeSelf);
+            button.onClick.Invoke();
+            button.onClick.Invoke();
+            _session.FlushInput();
+            var sent = _transport.Inputs().SelectMany(frame => frame.Commands).Single();
+            Assert.AreEqual(CommandKind.QuestInteract, sent.Kind);
+            Assert.AreEqual(handle, sent.QuestRef);
+            Assert.AreEqual(8, sent.QuestAction);
+            Assert.AreEqual(choice, sent.QuestTarget);
+            Assert.IsTrue(overlay.gameObject.activeSelf, "only the server replacement resolves the choice");
+
+            state.View.Pending = Array.Empty<QuestHandle>();
+            state.View.Actions = Array.Empty<WireQuestAction>();
+            _transport.Deliver(new ServerMsg.State { Tick = 3, Items = new StateItem[] { state } });
+            Assert.IsFalse(overlay.gameObject.activeSelf);
+        }
+
+        [Test]
+        public void NearbyRewardPickupUsesTheOfferedHandleAndDropIndex()
+        {
+            var handle = new QuestHandle(71);
+            var state = new QuestsState { Available = true, View = new WireQuestView() };
+            state.View.Drops = new[] { new WireQuestDrop { Index = 37, Reward = 20, Charges = 1, X = 64, Y = 64 } };
+            state.View.Actions = new[] {
+                new WireQuestAction { Quest = handle, Action = 9, Target = 37, Label = "Pick up WallBuster", Points = new[] { 64.0, 64.0 } },
+            };
+            _transport.Deliver(new ServerMsg.State { Tick = 2, Items = new StateItem[] { state } });
+
+            var launch = HudTestPaths.Find(_hud.transform, "MatchUI/HudStage/PlayerHUD/QuestRewards/QuestActionLauncher");
+            Assert.IsTrue(launch.gameObject.activeInHierarchy);
+            launch.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            var overlay = HudTestPaths.Find(_hud.transform, "MatchUI/NearbyQuestActionsOverlay");
+            Assert.IsTrue(overlay.gameObject.activeSelf);
+            var action = overlay.Find("NearbyQuestActions/Actions/Viewport/Content/Action0");
+            Assert.AreEqual("Pick up WallBuster", action.GetComponentInChildren<TMP_Text>().text);
+            action.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            _session.FlushInput();
+            var sent = _transport.Inputs().SelectMany(frame => frame.Commands).Single();
+            Assert.AreEqual(CommandKind.QuestInteract, sent.Kind);
+            Assert.AreEqual(handle, sent.QuestRef);
+            Assert.AreEqual(9, sent.QuestAction);
+            Assert.AreEqual(37, sent.QuestTarget);
+        }
+
+        [TestCase("barrow_run")]
+        [TestCase("letters")]
+        [TestCase("watchtowers")]
+        [TestCase("gatecrasher")]
+        public void MapsAndWorldUseDeliveredPersonalAndPublicPointsAndRemoveCompletedGivers(string definition)
+        {
+            var personal = new QuestHandle(71);
+            var marked = new QuestHandle(72);
+            var state = QuestState(personal);
+            state.View.Rows[0].Def = definition;
+            state.View.Rows[0].State = QuestRowState.Open;
+            state.View.Rows[0].OwnerAccepted = true;
+            var carrier = new RosterId(1);
+            state.View.Roster = new[] { new WireQuestRosterEntry { Id = carrier, Label = "Marked player" } };
+            var publicRow = QuestState(marked).View.Rows[0];
+            publicRow.Def = "smugglers_run";
+            publicRow.State = QuestRowState.Open;
+            publicRow.OwnerCompleted = true;
+            publicRow.Carrier = carrier;
+            publicRow.CarrierActor = 1;
+            state.View.Rows = new[] { state.View.Rows[0], publicRow };
+            state.View.Objectives = new[] { state.View.Objectives[0], new WireQuestObjective { Quest = marked, X = 500, Y = 520 } };
+            _transport.Deliver(new ServerMsg.State { Tick = 2, Items = new StateItem[] { state } });
+            var maps = _hud.GetComponentsInChildren<TacticalMapMarks>(true);
+            Assert.IsNotEmpty(maps);
+            foreach (var map in maps)
+            {
+                map.Present(_session, null);
+                Assert.AreEqual(1, map.QuestGiverCount);
+                Assert.AreEqual(1, map.QuestObjectiveCount, "an accepted Top 25 objective appears without tracking");
+                Assert.AreEqual(2, map.PublicQuestMarkCount, "a completed owner sees the public point and delivered carrier");
+            }
+            var world = new WorldMarks(_root.transform);
+            world.Update(_session.Collections, (x, y) => x != 500);
+            Assert.AreEqual(2, world.Used, "the visible giver and personal objective are in the world");
+            world.Update(_session.Collections, (x, y) => true);
+            Assert.AreEqual(3, world.Used, "the public mark also appears when its point is visible");
+
+            state.View.Rows[0].OwnerCompleted = true;
+            _transport.Deliver(new ServerMsg.State { Tick = 3, Items = new StateItem[] { state } });
+            foreach (var map in maps)
+            {
+                map.Present(_session, null);
+                Assert.AreEqual(0, map.QuestGiverCount);
+                Assert.AreEqual(0, map.QuestObjectiveCount);
+                Assert.AreEqual(2, map.PublicQuestMarkCount);
+            }
+        }
+
         [Test]
         public void ReceivedNoticeOrderIncludesDuplicatesAndResumeClearsBeforeNewBatch()
         {

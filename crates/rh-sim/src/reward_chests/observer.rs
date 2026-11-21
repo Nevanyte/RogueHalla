@@ -167,7 +167,7 @@ impl RewardChestObserver {
                             && !super::first_pick_blocks(&sim.w, c, self.viewer)
                             && super::birth_available(c.held_until_tick, tick)
                             && sim.server_time() < c.expires_at
-                            && super::reach(&sim.k, sim.w.rt.gates_locked, me.pos(), c.at).is_ok(),
+                            && super::reach(&sim.k, &sim.w, me.pos(), c.at).is_ok(),
                         // P-WIRE19-A: the window's public end while it is in force, and whether it is this viewer's
                         // own; never the killer's id (C-OBS).
                         first_pick: super::first_pick_open(&sim.w, c).map(|f| FirstPickView {

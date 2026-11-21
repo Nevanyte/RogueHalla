@@ -33,6 +33,7 @@ fn director_config_at(tick_ms: u32) -> DirectorConfig {
         weapon_specials: true,
         faction_mode: rh_sim::FactionMode::Off,
         quests: false,
+        top25_quests: false,
         tick_ms,
     };
     let map = rh_sim::TileMap::from_rows(&["####", "#..#", "#..#", "####"]).unwrap();

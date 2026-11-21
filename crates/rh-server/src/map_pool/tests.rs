@@ -506,3 +506,73 @@ fn signature_landmarks_only_set_the_generator_option() {
         "lib.rs still declares the signature module"
     );
 }
+
+#[test]
+fn board_uses_a_new_welcome_for_regenerated_signature_geometry() {
+    let base = configured();
+    let secrets = rh_sim::Secrets {
+        order_salt: 7,
+        spawn_seed: 0,
+        reward_salt: [1, 2, 3, 4],
+    };
+    use rh_sim::quests::board::{catalog::QuestId, map_admission, placement};
+    assert!(map_admission::needs_repair(&base.arena, secrets).is_err());
+    let style = StyledMaker {
+        signature: true,
+        grand_coliseum: true,
+    };
+    let admitted = for_quest_board(base.clone(), secrets, style).unwrap();
+    let rect = admitted.arena.map.layers().unwrap().coliseum().rect;
+    let grand_width = (2. * rh_sim::mapgen::coliseum::GRAND_DEFINITION.half) as u32;
+    assert_eq!((rect.w, rect.h), (grand_width, grand_width));
+    assert_eq!(
+        map_admission::needs_repair(&admitted.arena, secrets),
+        Ok(false)
+    );
+    assert!(crate::public_ground::matches_static_map(
+        &admitted.welcome_map,
+        &admitted.arena.map
+    ));
+    assert!(!crate::public_ground::matches_static_map(
+        &base.welcome_map,
+        &admitted.arena.map
+    ));
+    let mut writer = rh_protocol::Writer::default();
+    admitted
+        .welcome_map
+        .write_with_mode(&mut writer, rh_protocol::GroundMode::Map);
+    let bytes = writer.finish();
+    let blob = rh_protocol::map::MapBlob::read(&mut rh_protocol::Reader::new(&bytes)).unwrap();
+    assert_eq!(blob.public.anchors.len(), 5);
+    assert_eq!(
+        blob.terrain.as_deref(),
+        Some(
+            admitted
+                .arena
+                .map
+                .layers()
+                .unwrap()
+                .data()
+                .terrain
+                .as_slice()
+        )
+    );
+    let mut random = rh_sim::private_rng::Sfc32::from_words(rh_sim::quests::live::quest_salt(
+        secrets.reward_salt,
+    ));
+    let board = placement::plan(&admitted.arena.map, &mut || random.next_f64()).unwrap();
+    let pilgrim = board
+        .iter()
+        .find(|entry| entry.quest == QuestId::PilgrimsPath)
+        .unwrap();
+    let layers = admitted.arena.map.layers().unwrap().data();
+    for at in &pilgrim.objectives[2..] {
+        let x = rh_sim::map::world_to_tile(at.x) as usize;
+        let y = rh_sim::map::world_to_tile(at.y) as usize;
+        assert_eq!(layers.terrain[y * layers.w as usize + x], 7);
+    }
+    assert!(layers
+        .features
+        .iter()
+        .any(|f| f.kind == rh_sim::mapdata::FeatureKind::Volcano));
+}

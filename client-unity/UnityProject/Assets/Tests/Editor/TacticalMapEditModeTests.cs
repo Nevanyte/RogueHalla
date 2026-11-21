@@ -252,6 +252,53 @@ namespace Roguehalla.Client.Tests
         }
 
         [Test]
+        public void PublicQuestMarksOutliveThePersonalJournalAndClearOnReplacement()
+        {
+            var marks = _root.AddComponent<TacticalMapMarks>();
+            marks.SetMap(_session.Map);
+            _transport.Deliver(Snapshot(1));
+            var rows = new WireField[5];
+            for (int i = 0; i < rows.Length; i++)
+            {
+                rows[i] = new WireField { Kind = (byte)((int)AreaKind.QuestCrown + i), X = 32 + i * 8, Y = 48, EndsAt = 1000 };
+            }
+            _transport.Deliver(new ServerMsg.State { Tick = 1, Items = new StateItem[] { new FieldsState { Rows = rows } } });
+            marks.Present(_session, null);
+            Assert.AreEqual(5, marks.PublicQuestMarkCount);
+            Assert.AreEqual(0, marks.QuestGiverCount);
+            Assert.AreEqual(0, marks.ContactCount);
+            _transport.Deliver(new ServerMsg.State { Tick = 2, Items = new StateItem[] { new FieldsState() } });
+            marks.Present(_session, null);
+            Assert.AreEqual(0, marks.PublicQuestMarkCount);
+        }
+
+        [Test]
+        public void RebirthEggIsClickableAndDisappearsFromMapOnPropReplacement()
+        {
+            var marks = _root.AddComponent<TacticalMapMarks>();
+            marks.SetMap(_session.Map);
+            _transport.Deliver(Snapshot(1));
+            _transport.Deliver(new ServerMsg.State
+            {
+                Tick = 1,
+                Items = new StateItem[] { new PropsState { Rows = new[]
+                {
+                    new WireProp { Handle = new PickupHandle(1), X = 64, Y = 80, Kind = PropKind.RebirthEgg, Hatching = true },
+                } } },
+            });
+            marks.Present(_session, null);
+            Assert.AreEqual(1, marks.RebirthEggCount);
+            Assert.IsTrue(_session.Collections.Props[0].Hatching);
+            Assert.IsTrue(TargetPick.OnRebirthEgg(_session.Collections.Props, 8, 10));
+            Assert.IsFalse(TargetPick.OnRebirthEgg(_session.Collections.Props, 24, 10));
+
+            _transport.Deliver(new ServerMsg.State { Tick = 2, Items = new StateItem[] { new PropsState() } });
+            marks.Present(_session, null);
+            Assert.AreEqual(0, marks.RebirthEggCount);
+            Assert.IsFalse(TargetPick.OnRebirthEgg(_session.Collections.Props, 8, 10));
+        }
+
+        [Test]
         public void DisconnectClearsMapContactsAndCannotRetainAHiddenGhost()
         {
             var marks = _root.AddComponent<TacticalMapMarks>(); marks.SetMap(_session.Map);
