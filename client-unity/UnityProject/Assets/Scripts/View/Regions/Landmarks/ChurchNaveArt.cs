@@ -14,43 +14,71 @@ namespace Roguehalla.Client
         public float BankOffset = 2.96f;
         [Min(.1f), Tooltip("Full width of the worn slate path between the doors, in world units.")]
         public float AisleWidth = 3f;
-        [Range(0f, 1f), Tooltip("Amount of pale wear on the aisle flagstones and their carved border.")]
+        [Range(0f, 1f), Tooltip("Strength of the worn path across the aisle flagstones.")]
         public float Wear = .72f;
+
+        [Tooltip("Top-down flagstones for the complete aisle, with the sanctuary at the top. Enable Read/Write on replacement textures.")]
+        public Texture2D Flagstones;
+        [Range(0f, 1f), Tooltip("Pigment in the central stone engraving.")] public float CarvingStrength = .62f;
 
         public static ChurchNaveArt Load() => Resources.Load<ChurchNaveArt>("StormInk/Church/Definitions/NaveSeating");
 
-        // Map-space distances keep the flagstone courses, border and central carving on the doorway axis.
-        internal static Color PaintAisle(Color slate, float across, float along, float width, float wear)
+        internal AislePainting CreatePainting(Vector2Int front, bool mirrored, float length) =>
+            new AislePainting(this, front, mirrored, length);
+
+        // The floor builder reads the plate once per nave. Shading and light spill come from the arena.
+        internal readonly struct AislePainting
         {
-            float x = Mathf.Abs(across);
-            float half = width * .5f;
-            Color field = slate * .91f;
-            float edge = half - x;
-            if (edge < -.06f) return field;
-            float tooth = Mathf.Clamp01(slate.grayscale);
-            float dry = Mathf.Clamp01((tooth - .12f) * 1.8f);
-            float patch = Mathf.SmoothStep(0f, 1f, (edge + .06f) / .14f);
-            Color worn = slate * (1.05f + .15f * dry) + new Color(.045f, .034f, .021f);
-            Color stone = Color.Lerp(field, worn, wear * patch);
+            readonly Color32[] pixels;
+            readonly int columns, rows;
+            readonly Vector2Int front, transverse;
+            readonly float width, length, wear, carving;
 
-            // Recessed border and offset flagstone joints. A thin lip catches the slate pigment.
-            float border = Mathf.Abs(edge - .08f + (tooth - .4f) * .035f);
-            float rowPhase = along / 1.55f;
-            int row = Mathf.FloorToInt(rowPhase);
-            float rowJoint = Mathf.Abs(rowPhase - Mathf.Round(rowPhase)) * 1.55f;
-            float colPhase = across / 1.48f + .5f * (row & 1);
-            float colJoint = Mathf.Abs(colPhase - Mathf.Round(colPhase)) * 1.48f;
-            float mortar = Mathf.Clamp01(1f - Mathf.Min(rowJoint, colJoint) / .029f);
-            float carving = Mathf.Clamp01(1f - border / .033f);
-            stone *= 1f - wear * (.36f * carving + .21f * mortar * patch);
-            stone += new Color(.11f, .092f, .073f) * (wear * dry * Mathf.Clamp01(1f - Mathf.Abs(border - .049f) / .027f));
+            internal AislePainting(ChurchNaveArt art, Vector2Int front, bool mirrored, float length)
+            {
+                var plate = art.Flagstones;
+                pixels = plate != null && plate.isReadable ? plate.GetPixels32() : null;
+                columns = pixels != null ? plate.width : 0;
+                rows = pixels != null ? plate.height : 0;
+                this.front = front;
+                transverse = new Vector2Int(front.y, -front.x) * (mirrored ? -1 : 1);
+                width = Mathf.Max(.1f, art.AisleWidth);
+                this.length = Mathf.Max(.1f, length);
+                wear = Mathf.Clamp01(art.Wear);
+                carving = Mathf.Clamp01(art.CarvingStrength);
+            }
 
-            // A single group of three engraved lozenges marks the open crossing.
-            float middle = Mathf.Abs(along);
-            float diamond = Mathf.Abs(x + middle * .82f - .30f);
-            float pendant = Mathf.Abs(x + Mathf.Abs(middle - .55f) * .82f - .13f);
-            float etch = Mathf.Clamp01(1f - Mathf.Min(diamond, pendant) / .036f);
-            return stone * (1f - .56f * etch * (.64f + .36f * dry));
+            internal Color Paint(Color slate, float dx, float dy)
+            {
+                Color field = slate * .91f;
+                float across = dx * transverse.x + dy * transverse.y;
+                float edge = width * .5f - Mathf.Abs(across);
+                if (pixels == null || edge <= 0f) return field;
+
+                float along = dx * front.x + dy * front.y;
+                float u = .5f + across / width, v = .5f - along / length;
+                // Crop the outermost cut edges of the source. Each course is painted once from sill to sill.
+                int x = Mathf.RoundToInt(Mathf.Lerp(.025f, .975f, u) * (columns - 1));
+                int y = Mathf.RoundToInt(Mathf.Lerp(.015f, .985f, v) * (rows - 1));
+                Color wash = pixels[y * columns + x];
+                float value = wash.grayscale;
+                Color stone = Color.Lerp(new Color(value, value, value * 1.035f), wash, .40f);
+                float footsteps = Mathf.Clamp01(1f - 2f * Mathf.Abs(u - .5f));
+                stone *= .94f + wear * (.035f + .135f * footsteps);
+
+                // Let the outer stones meet the approved slate field through a broken, feathered joint.
+                float join = Mathf.Min(width * .24f, .32f) * (.78f + .42f * value);
+                float blend = Mathf.SmoothStep(0f, 1f, edge / join);
+                stone = Color.Lerp(field, stone, blend);
+
+                // Three recessed lozenges mark the open crossing.
+                float a = Mathf.Abs(across), b = Mathf.Abs(along);
+                float centreCut = Mathf.Abs(a + b * .78f - .33f);
+                float pendant = Mathf.Abs(a + Mathf.Abs(b - .61f) * .78f - .14f);
+                float cut = Mathf.Min(centreCut, pendant);
+                float ink = Mathf.Clamp01(1f - cut / .050f) * carving;
+                return stone * (1f - ink * (.66f + .25f * value) * blend);
+            }
         }
     }
 }

@@ -14,15 +14,15 @@ The delivered church uses the geometry in docs/landmarks/blueprints/church.txt.
 
 ## New paths
 
-ChurchNaveArt.cs and NaveSeating.asset with their Unity metadata. The source painting replaces OakPew.png in place.
+ChurchNaveArt.cs, NaveSeating.asset, ProcessionalSlate.png and ChurchAislePaintingEditModeTests.cs with their Unity metadata. The source painting replaces OakPew.png in place.
 
 ## Exclusive write scope
 
-The new paths, OakPew.png and its existing furnishing definition, seating and floor assembly in ChurchLandmark.cs, the Church Art Studio layout control, church editor tests, this packet, the backlog row and the ten reopened entries in the visual tracker.
+The new paths, OakPew.png and its existing furnishing definition, seating and floor assembly in ChurchLandmark.cs, the Church Art Studio layout control and ChurchArtEditorRefresh.cs, church editor tests, this packet, the backlog row and the ten reopened entries in the visual tracker.
 
 ## Contracts and references
 
-R-AUTH, C-OBS and D9. Owner decisions of 2026-11-20 approve the carved limestone and reopen the pew and aisle composition. The approved overhead church study is the art reference.
+R-AUTH, C-OBS and D9. Owner decisions of 2026-11-20 approve the carved limestone and reopen the pew and aisle composition. The subsequent owner review reopens the aisle on its own. Use the approved overhead church study for the paving and compare against the paired-pew revision at 9fb7029e4.
 
 ## Behaviour to preserve
 
@@ -30,7 +30,7 @@ All delivered walls, two open doors, roof masking, the carved limestone, side pu
 
 ## Acceptance checks
 
-In all four orientations and their reflections, verify the inner seat ends frame the three-tile doorway width, every seat clears solid cells, the end banks stand away from the glass, and the central crossing stays clear. Inspect the seat, end cheeks and back rail at gameplay scale. Verify the roof states and a joined 1440p Web traversal through both doors and the new pew positions. Check a shared layout edit in the ordinary preview.
+In all four orientations and their reflections, verify the inner seat ends frame the three-tile doorway width, every seat clears solid cells, the end banks stand away from the glass, and the central crossing stays clear. Inspect the seat, end cheeks and back rail at gameplay scale. Verify the roof states and a joined 1440p Web traversal through both doors and the new pew positions. Check a shared layout edit in the ordinary preview. Follow the staggered stone courses from both doors, including the quiet carving at the crossing. Confirm the paving turns and reflects with the building and that it preserves the slate beyond the aisle.
 
 ## Validation commands
 

@@ -17,3 +17,5 @@ MonoBehaviour:
   BankOffset: 2.96
   AisleWidth: 3
   Wear: 0.72
+  Flagstones: {fileID: 2800000, guid: c21713a2dd5f4963b74d7b84e53397c3, type: 3}
+  CarvingStrength: 0.62

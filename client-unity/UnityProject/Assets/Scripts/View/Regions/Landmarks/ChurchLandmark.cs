@@ -342,11 +342,11 @@ namespace Roguehalla.Client
         static void BuildSlateFloor(Landmark lm, Group room, Vector2Int naveFront, ChurchNaveArt seating)
         {
             const int ppu = 24;
-            bool acrossX = naveFront.y != 0;
-            float centre = acrossX ? (room.MinX + room.MaxX + 1) * .5f : (room.MinY + room.MaxY + 1) * .5f;
-            float centreAlong = acrossX ? (room.MinY + room.MaxY + 1) * .5f : (room.MinX + room.MaxX + 1) * .5f;
-            float width = seating != null ? seating.AisleWidth : 3f;
-            float wear = seating != null ? seating.Wear : .72f;
+            float centreX = (room.MinX + room.MaxX + 1) * .5f;
+            float centreY = (room.MinY + room.MaxY + 1) * .5f;
+            float length = naveFront.y != 0 ? room.MaxY - room.MinY - 1 : room.MaxX - room.MinX - 1;
+            var painting = seating != null ? seating.CreatePainting(naveFront,
+                ChurchArtOrientation.Resolve(lm.Anchor).Mirrored, length) : default;
             var wash = Resources.Load<Texture2D>("StormInk/Church/SlateWash");
             var pigment = wash != null ? wash.GetPixels32() : null;
             float x0 = room.MinX, y0 = -(room.MaxY + 1) * Sq;
@@ -364,9 +364,7 @@ namespace Roguehalla.Client
                     Color brush = pigment[py * wash.width + px];
                     stone = Color.Lerp(new Color(brush.grayscale, brush.grayscale, brush.grayscale * 1.05f), brush, .38f);
                 }
-                float across = (acrossX ? wx : mapY) - centre;
-                float along = (acrossX ? mapY : wx) - centreAlong;
-                stone = ChurchNaveArt.PaintAisle(stone, across, along, width, wear);
+                stone = painting.Paint(stone, wx - centreX, mapY - centreY);
                 stone.a = 1f;
                 return stone;
             });

@@ -15,10 +15,12 @@ namespace Roguehalla.Editor
             var masonry = ChurchMasonryArt.Load();
             var wash = masonry != null ? AssetDatabase.GetAssetPath(masonry.Wash) : null;
             var carving = masonry != null ? AssetDatabase.GetAssetPath(masonry.CarvedFace) : null;
-            var seating = AssetDatabase.GetAssetPath(ChurchNaveArt.Load());
+            var nave = ChurchNaveArt.Load();
+            var seating = AssetDatabase.GetAssetPath(nave);
+            var paving = nave != null ? AssetDatabase.GetAssetPath(nave.Flagstones) : null;
             foreach (var path in imported)
                 if (path.EndsWith("/StormInk/Church/SlateWash.png", StringComparison.Ordinal) ||
-                    path == seating)
+                    path == seating || path == paving)
                 {
                     stage.ScheduleRebuild();
                     break;
