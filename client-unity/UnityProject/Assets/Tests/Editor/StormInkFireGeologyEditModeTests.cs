@@ -38,6 +38,7 @@ namespace Roguehalla.Client.Tests
                 new MapProp(9, 96, 224, 0, 0),  // Boulder alias.
                 new MapProp(10, 96, 256, 0, 0), // Ashheap alias.
                 new MapProp(3, 96, 288, 0, MapBlob.PropFlagLegacy),
+                new MapProp(3, 128, 288, 1, 0), // Rounded cobbles in the same loose-rock family.
             };
             var map = new MapBlob(20, 20, new byte[400]).WithPublic(null, null, null, rows, null);
             var placements = RegionProps.Scatter(map);
@@ -69,7 +70,10 @@ namespace Roguehalla.Client.Tests
             Assert.That(basalt.Height, Is.EqualTo(oldPile.Height).Within(.02f));
             Assert.That(RegionPropArt.TryGet(DecorationKinds.Placeholder, out var placeholder), Is.True);
 
-            var expectedSprites = new[] { scree.Sprite, basalt.Sprite, oldPile.Sprite, oldPile.Sprite, oldPile.Sprite, oldPile.Sprite, placeholder.Sprite };
+            Assert.That(RegionPropArt.TryGet("fire.scree.cobbles", out var cobbles), Is.True);
+            Assert.That(cobbles.UsesAuthoredTexture, Is.True);
+            Assert.That(cobbles.Sprite, Is.Not.SameAs(scree.Sprite));
+            var expectedSprites = new[] { scree.Sprite, basalt.Sprite, oldPile.Sprite, oldPile.Sprite, oldPile.Sprite, oldPile.Sprite, placeholder.Sprite, cobbles.Sprite };
             var root = new GameObject("Delivered Fire geology fixture");
             RegionProps scene = null;
             try

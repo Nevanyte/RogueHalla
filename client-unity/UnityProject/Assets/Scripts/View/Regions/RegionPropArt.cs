@@ -463,8 +463,6 @@ namespace Roguehalla.Client
 
         static void AddFire(List<Def> l)
         {
-            var screeArt = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FireScreeArt");
-            var basaltLedgeArt = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FireBasaltLedgeArt");
             Color baseC = P(1, 0), obs = P(1, 1), lava = P(1, 2), shadow = P(1, 5);
             Color rockDark = Shade(Mix(obs, shadow, .5f), .75f), rockMid = Mix(obs, baseC, .4f), rockLight = Mix(Mix(obs, baseC, .6f), lava, .12f);
             Add(l, "fire.spire", 80, 164, 10, (c, gy) =>
@@ -488,18 +486,20 @@ namespace Roguehalla.Client
                 Rock(c, 56, gy + 1, 14, 11, 13, rockDark, rockMid, rockLight);
             };
             Add(l, "fire.rocks", 104, 70, 8, rockFallback);
-            int screeW = screeArt != null ? screeArt.WidthPixels(104) : 104;
-            int screeH = screeArt != null ? screeArt.HeightPixels(70) : 70;
-            int screeGround = screeArt != null ? screeArt.GroundPixels(8, screeH) : 8;
-            Add(l, "fire.scree", screeW, screeH, screeGround, rockFallback,
-                textureFoot: screeArt != null ? screeArt.ClampedTextureFoot(new Vector2(.5f, .12f)) : null,
-                textureSource: screeArt != null ? screeArt.Pigment : null);
-            int ledgeW = basaltLedgeArt != null ? basaltLedgeArt.WidthPixels(104) : 104;
-            int ledgeH = basaltLedgeArt != null ? basaltLedgeArt.HeightPixels(70) : 70;
-            int ledgeGround = basaltLedgeArt != null ? basaltLedgeArt.GroundPixels(8, ledgeH) : 8;
-            Add(l, "fire.basalt.ledge", ledgeW, ledgeH, ledgeGround, rockFallback,
-                textureFoot: basaltLedgeArt != null ? basaltLedgeArt.ClampedTextureFoot(new Vector2(.51f, .16f)) : null,
-                textureSource: basaltLedgeArt != null ? basaltLedgeArt.Pigment : null);
+            AddPaintedRock("fire.scree", "FireScreeArt", new Vector2(.5f, .12f));
+            AddPaintedRock("fire.scree.cobbles", "FireScreeCobblesArt", new Vector2(.5f, .12f));
+            AddPaintedRock("fire.basalt.ledge", "FireBasaltLedgeArt", new Vector2(.51f, .16f));
+
+            void AddPaintedRock(string key, string resource, Vector2 fallbackFoot)
+            {
+                var art = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/" + resource);
+                int width = art != null ? art.WidthPixels(104) : 104;
+                int height = art != null ? art.HeightPixels(70) : 70;
+                int ground = art != null ? art.GroundPixels(8, height) : 8;
+                Add(l, key, width, height, ground, rockFallback,
+                    textureFoot: art != null ? art.ClampedTextureFoot(fallbackFoot) : null,
+                    textureSource: art != null ? art.Pigment : null);
+            }
             Add(l, "fire.stump", 96, 124, 10, (c, gy) =>
             {
                 float cx = 48; c.SoftShadow(cx + 6, gy + 2, 30f, 6f, .45f, Alpha(shadow, 1f)); c.Glow(cx, gy + 5, 26f, lava, .30f);

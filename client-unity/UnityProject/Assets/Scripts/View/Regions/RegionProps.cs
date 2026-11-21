@@ -103,7 +103,12 @@ namespace Roguehalla.Client
                 if (!placement.Shipped) return "fire.scree";
                 if (DecorationKinds.TryGet(placement.Kind, out var fireKind))
                 {
-                    if (fireKind.Name == "fire.rocks") return "fire.scree";
+                    if (fireKind.Name == "fire.rocks")
+                    {
+                        if ((placement.Variant & 1) != 0 && RegionPropArt.TryGet("fire.scree.cobbles", out var cobbles) && cobbles.UsesAuthoredTexture)
+                            return "fire.scree.cobbles";
+                        return "fire.scree";
+                    }
                     if (fireKind.Name == "fire.basalt") return "fire.basalt.ledge";
                 }
             }
@@ -118,9 +123,16 @@ namespace Roguehalla.Client
             int salt;
             switch (artKey)
             {
+                case "fire.scree.cobbles":
                 case "fire.scree": minScale = .79f; maxScale = 1.03f; salt = 157; break;
                 case "fire.basalt.ledge": minScale = .79f; maxScale = 1.03f; salt = 163; break;
-                case "frost.spire": minScale = .76f; maxScale = 1.00f; salt = 173; break;
+                case "frost.spire":
+                    // The delivered tall and short variants can stand side by side at the cave.
+                    bool shortSpire = (placement.Variant & 2) != 0;
+                    minScale = shortSpire ? .76f : .93f;
+                    maxScale = shortSpire ? .84f : 1f;
+                    salt = 173;
+                    break;
                 default: return;
             }
 
@@ -129,7 +141,8 @@ namespace Roguehalla.Client
             float size = Mathf.Lerp(minScale, maxScale, RegionNoise.Hash01(x, y, visualSeed + salt));
             scaleX *= size;
             scaleY *= size;
-            flip = RegionNoise.Hash01(x, y, visualSeed + salt + 2) < .5f;
+            flip = artKey == "frost.spire" ? (placement.Variant & 2) != 0
+                : RegionNoise.Hash01(x, y, visualSeed + salt + 2) < .5f;
 
             if (artKey == "fire.basalt.ledge")
             {
