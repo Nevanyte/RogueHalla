@@ -9,6 +9,23 @@ namespace Roguehalla.Client.Tests
 {
     public sealed class StormInkFireGeologyEditModeTests
     {
+        static List<(Vector3 scale, Color tint, Vector3 foot, int order)> Capture(MapBlob map)
+        {
+            var root = new GameObject("Painted geology variation fixture");
+            RegionProps scene = null;
+            try
+            {
+                scene = RegionProps.Build(root.transform, map);
+                return root.GetComponentsInChildren<SpriteRenderer>()
+                    .Select(r => (r.transform.localScale, r.color, r.transform.localPosition, r.sortingOrder)).ToList();
+            }
+            finally
+            {
+                scene?.Dispose();
+                Object.DestroyImmediate(root);
+            }
+        }
+
         [Test]
         public void DeliveredFireMaterialsResolveSeparatelyAndKeepLegacyAliasesAndDrawOrder()
         {
@@ -101,6 +118,51 @@ namespace Roguehalla.Client.Tests
                 scene?.Dispose();
                 Object.DestroyImmediate(root);
             }
+        }
+
+        [Test]
+        public void PaintedGeologyVariationIsRepeatableAndLeavesLegacyAliasesAlone()
+        {
+            var rows = new[]
+            {
+                new MapProp(3, 96, 96, 1, 0),
+                new MapProp(7, 96, 128, 2, 0),
+                new MapProp(81, 96, 160, 0, MapBlob.PropFlagTall),
+                new MapProp(5, 96, 192, 0, 0),
+            };
+            var map = new MapBlob(20, 20, new byte[400]).WithPublic(null, null, null, rows, null);
+            var placements = RegionProps.Scatter(map);
+            var first = Capture(map);
+            var second = Capture(map);
+            Assert.That(first.Count, Is.EqualTo(rows.Length));
+            Assert.That(second.Count, Is.EqualTo(rows.Length));
+
+            Assert.That(Mathf.Abs(first[0].scale.x), Is.InRange(.79f, 1.03f));
+            Assert.That(first[0].scale.y, Is.InRange(.79f, 1.03f));
+            Assert.That(Mathf.Abs(first[1].scale.x), Is.InRange(.79f, 1.03f));
+            Assert.That(first[1].scale.y, Is.InRange(.79f, 1.03f));
+            Assert.That(Mathf.Abs(first[2].scale.x), Is.InRange(.76f, 1f));
+            Assert.That(first[2].scale.y, Is.InRange(.76f, 1f));
+            Assert.That(first[1].tint.r, Is.InRange(.78f, .90f));
+            Assert.That(first[1].tint.g, Is.InRange(.78f, .90f));
+            Assert.That(first[1].tint.b, Is.InRange(.78f, .90f));
+            Assert.That(first[0].tint, Is.EqualTo(Color.white));
+            Assert.That(first[2].tint, Is.EqualTo(Color.white));
+
+            Assert.That(first[3].scale, Is.EqualTo(Vector3.one), "unmigrated ash alias keeps its original sizing and facing");
+            Assert.That(first[3].tint, Is.EqualTo(Color.white));
+            for (int i = 0; i < first.Count; i++)
+            {
+                Assert.That(first[i].scale, Is.EqualTo(second[i].scale));
+                Assert.That(first[i].tint, Is.EqualTo(second[i].tint));
+                Assert.That(first[i].foot, Is.EqualTo(ArenaView.WorldPoint(rows[i].X, rows[i].Y)), "variation is anchored at the delivered foot");
+                Assert.That(first[i].foot, Is.EqualTo(second[i].foot));
+                Assert.That(first[i].order, Is.EqualTo(2000 + rows[i].Y / 2));
+                Assert.That(first[i].order, Is.EqualTo(second[i].order));
+            }
+
+            Assert.That(RegionPropArt.TryGet("frost.spire", out var spire), Is.True);
+            Assert.That(RegionProps.IsTall(placements[2], spire), Is.True, "the delivered tall flag still controls the spire's fade footprint");
         }
     }
 }

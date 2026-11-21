@@ -110,6 +110,34 @@ namespace Roguehalla.Client
             return placement.Art;
         }
 
+        /// <summary>Small deterministic variation only for migrated, readable Storm Ink ground paintings. Uniform scaling keeps the foot planted.</summary>
+        static void ApplyPaintedGeologyVariation(string artKey, Placement placement, int visualSeed,
+            ref float scaleX, ref float scaleY, ref bool flip, ref Color tint)
+        {
+            float minScale, maxScale;
+            int salt;
+            switch (artKey)
+            {
+                case "fire.scree": minScale = .79f; maxScale = 1.03f; salt = 157; break;
+                case "fire.basalt.ledge": minScale = .79f; maxScale = 1.03f; salt = 163; break;
+                case "frost.spire": minScale = .76f; maxScale = 1.00f; salt = 173; break;
+                default: return;
+            }
+
+            int x = placement.Tx + placement.Kind * 97;
+            int y = placement.Ty + placement.Variant * 151;
+            float size = Mathf.Lerp(minScale, maxScale, RegionNoise.Hash01(x, y, visualSeed + salt));
+            scaleX *= size;
+            scaleY *= size;
+            flip = RegionNoise.Hash01(x, y, visualSeed + salt + 2) < .5f;
+
+            if (artKey == "fire.basalt.ledge")
+            {
+                float value = RegionNoise.Hash01(x, y, visualSeed + salt + 3);
+                tint = Color.Lerp(new Color(.78f, .78f, .78f, 1f), new Color(.90f, .90f, .90f, 1f), value);
+            }
+        }
+
         /// <summary>The one test of "this placed prop is tall": the shipped row's flag for shipped props, the art's for client-rolled ones. Drawing, fading and shadows all use it.</summary>
         public static bool IsTall(Placement pl, RegionPropSprite art) { return pl.Shipped ? (pl.Flags & 1) != 0 : art.Tall; }
 
@@ -257,7 +285,8 @@ namespace Roguehalla.Client
                     if (warned == null) warned = new HashSet<byte>();
                     if (warned.Add(pl.Kind)) Debug.LogWarning("RegionProps: unknown decoration kind " + pl.Kind + " drawn as the placeholder");
                 }
-                if (!RegionPropArt.TryGet(RenderArtKey(pl), out var art)) continue;
+                string renderArtKey = RenderArtKey(pl);
+                if (!RegionPropArt.TryGet(renderArtKey, out var art)) continue;
                 float scaleX = pl.Scale, scaleY = pl.Scale;
                 bool flip = pl.Flip;
                 Color tint = Color.white;
@@ -282,6 +311,8 @@ namespace Roguehalla.Client
                     flip = RegionNoise.Hash01(pl.Tx, pl.Ty, visualSeed + 125) < .5f;
                     tint.a = Mathf.Lerp(.49f, .73f, wear);
                 }
+                if (art.UsesAuthoredTexture)
+                    ApplyPaintedGeologyVariation(renderArtKey, pl, visualSeed, ref scaleX, ref scaleY, ref flip, ref tint);
                 var go = new GameObject(pl.Art); go.transform.SetParent(_root.transform, false);
                 Vector3 foot = ArenaView.WorldPoint(pl.X * 32f, pl.Y * 32f);
                 go.transform.localPosition = foot; go.transform.localScale = new Vector3(flip ? -scaleX : scaleX, scaleY, 1f);
