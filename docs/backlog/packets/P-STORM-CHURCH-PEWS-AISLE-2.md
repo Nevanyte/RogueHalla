@@ -24,6 +24,10 @@ The new paths, OakPew.png and its existing furnishing definition, seating and fl
 
 R-AUTH, C-OBS and D9. Owner decisions of 2026-11-20 approve the carved limestone and reopen the pew and aisle composition. The subsequent owner review reopens the aisle on its own. Use the approved overhead church study for the paving and compare against the paired-pew revision at 9fb7029e4.
 
+## Owner review
+
+The owner accepted the matte slate aisle at playable revision `69bb16a1e` after comparing it with `9fb7029e4`. The review covered four fronts and their reflections in Unity, both roof states, and a joined 2560×1440 traversal of both doors and all eight pew positions on the east-facing map. The full gate passed with 1,911 Unity tests.
+
 ## Behaviour to preserve
 
 All delivered walls, two open doors, roof masking, the carved limestone, side pulpit, lamps and windows. Retain the shared pew definition, eight named slot overrides, planted projection and the underlying slate wash. All seating is walk-through.
