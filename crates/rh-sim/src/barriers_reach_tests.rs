@@ -384,7 +384,10 @@ fn observation_digest() -> u64 {
     // the observation hashes to the 33 pin (the empty `marked` is not serialized).
     // P-SYNC-ORIGIN-2: observation 35 (34 was `0x71cd_508c_894d_ea73`); only the version moved: with version 34 forced,
     // the merged observation hashes to the 34 pin.
-    0xa5f4_5d3f_295b_9981
+    // P-SYNC-ORIGIN-3: origin's test body forces version 31 (its empty quest projections are not serialized), so the pin
+    // is origin's version-31 value again; the 35 pin was `0xa5f4_5d3f_295b_9981`. The merged observation, version 31
+    // forced, hashes to it exactly (the empty local `readouts` and `marked` are not serialized either).
+    0xe54a_e805_e3fe_02c8
 }
 
 // ---- 2. Plague corpse consume (legacy plagueCorpses.ts:51 F, :86 auto; both `hasLineOfSight(collisionMap, p, corpse,

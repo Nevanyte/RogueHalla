@@ -415,7 +415,10 @@ fn base() -> (Vec<u64>, u64, u64) {
             2_551_249_949_394_736_277,
         ],
         18_120_522_559_088_589_803,
-        15_830_096_635_171_906_358,
+        // P-SYNC-ORIGIN-3: origin's checkpoint 38 writes `"destroyed_terrain":[]` and `"rebirth_eggs":[]` into every
+        // world; with those two keys removed the merged world text hashes to the pin before the merge,
+        // `15_830_096_635_171_906_358` (state hashes and events unchanged).
+        10_111_101_118_072_524_134,
     )
 }
 

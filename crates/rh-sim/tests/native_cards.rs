@@ -726,7 +726,10 @@ const BASE_HASHES: [u64; 3] = [
     7_894_769_073_158_783_840,
     9_295_211_415_488_179_496,
 ];
-const BASE_WORLD: u64 = 7_001_276_216_922_443_237;
+// P-SYNC-ORIGIN-3: origin's checkpoint 38 writes `"destroyed_terrain":[]` and `"rebirth_eggs":[]` into every world and
+// `"top25_quests":false` into every config; with those three keys removed the merged texts hash to the pins before the
+// merge, world `7_001_276_216_922_443_237` and statics `16_122_486_807_007_151_944` (state hashes unchanged).
+const BASE_WORLD: u64 = 13_356_146_488_716_644_601;
 // P-SYNC-ORIGIN-1: origin's P-TICK-1a writes `"tick_ms": null` into every 50 ms config; with that one key removed the
 // merged statics text hashes to the pin before the merge, `2_263_326_562_367_864_595` (world and state hashes unchanged).
-const BASE_STATICS: u64 = 16_122_486_807_007_151_944;
+const BASE_STATICS: u64 = 13_090_836_069_673_475_593;

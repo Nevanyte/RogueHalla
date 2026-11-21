@@ -717,8 +717,11 @@ fn digest(augments: AugmentRule) -> (u64, u64) {
 #[test]
 fn legacy_and_rework_without_wish_engine_play_as_on_the_base() {
     // Recorded on `packet/P-AUG-NATIVE-3b` at the stub commit (no Wish Engine behaviour: the base's).
-    let legacy: (u64, u64) = (557807947671313187, 13382606214435028896);
-    let rework: (u64, u64) = (10009499299823935763, 13403526707108067106);
+    // P-SYNC-ORIGIN-3: origin's checkpoint 38 writes `"destroyed_terrain":[]` and `"rebirth_eggs":[]` into every world;
+    // with those two keys removed the merged world texts hash to the pins before the merge, Legacy
+    // `13382606214435028896` and Rework `13403526707108067106` (the state-hash digests are unchanged).
+    let legacy: (u64, u64) = (557807947671313187, 13181794901391656016);
+    let rework: (u64, u64) = (10009499299823935763, 12785217860944453074);
     assert_eq!(digest(AugmentRule::Legacy), legacy, "Legacy");
     assert_eq!(
         digest(AugmentRule::Rework),
