@@ -107,3 +107,29 @@ Never: any test file, `Cargo.toml`, `Cargo.lock`, `parity/**`, `protocol/fixture
   allocation increase.
 - The quick gate is green except the waived pin.
 - The evidence README is written, and the AGENTS.md hand-off report is in this file.
+
+## Hand-off (implementer-opus, 2026-11-21)
+
+```
+PACKET:          P-AUG-PERF-1 — serves CI green (perfproof) for PR 80, the augment and elite rework (owner, 2026-11-20)
+BRANCH:          agent/opus/P-AUG-PERF-1 @ 05d7c357a (code; this hand-off and the evidence README are the next commit)
+GATE:            quick: PASS except the waived card provenance pin (tools/protocol-js/check-vectors.mjs, P-CI-GREEN-7);
+                 release rework_at_25ms, frost_wall_bots, frost_wall_live, brain_choices: PASS;
+                 oracle (perfproof vs 1dd79a938, arm64 container): every Ir ratio 0.91-1.00, fingerprints equal,
+                 allocations equal; passes with --allow-fingerprint-change verify_replay.contentHash (see RISKS)
+CHANGED:         crates/rh-sim/src/cards/mod.rs, crates/rh-sim/src/cards/native/mod.rs,
+                 crates/rh-sim/src/systems/weapons.rs, docs/evidence/rework-perf-2026-11-21/README.md, this file
+D-RULES:         D1 n/a (no mechanic ported; every perfproof fingerprint, parity report and the hash-bearing suites
+                 unchanged); D2 n/a; D5/D6/D9 untouched
+DEVIATIONS:      none
+SHARED RECORDS:  none
+LEGACY DOUBTS:   none
+NOT ESTABLISHED: x86 ratios (CI is the final word; arm64 measured 0.91-0.99 on the workloads that were 1.04-1.17 on
+                 CI's x86); rh-policy and rh-headless suites beyond the four release tests were not run (no file there
+                 changed)
+RISKS:           verify_replay.contentHash (same -> ignored) still fails perfproof without a declaration: the rework
+                 changed the content hash on purpose and CI run 44862423148 reports it too (the brief missed it); PR 80's
+                 description needs the line `Perf-Allow-Fingerprint: verify_replay.contentHash`
+```
+
+What each fix bought, and where the delta was: [docs/evidence/rework-perf-2026-11-21/README.md](../../evidence/rework-perf-2026-11-21/README.md).
