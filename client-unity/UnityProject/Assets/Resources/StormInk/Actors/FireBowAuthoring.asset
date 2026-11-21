@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   atlas: {fileID: 2800000, guid: b5ca6cfb136045ffb6f7a143eb1c8301, type: 3}
   readyRows:
-  - 0
+  - 1
   - 0
   - 1
   - 1
@@ -23,26 +23,26 @@ MonoBehaviour:
   - 1
   - 0
   palms:
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
-  - Right: {x: 0, y: 0}
-    Left: {x: 0, y: 0}
+  - Right: {x: 55, y: 63}
+    Left: {x: 80, y: 66}
+  - Right: {x: 52, y: 38}
+    Left: {x: 82, y: 59}
+  - Right: {x: 54, y: 34}
+    Left: {x: 78, y: 52}
+  - Right: {x: 47, y: 35}
+    Left: {x: 81, y: 56}
+  - Right: {x: 53, y: 67}
+    Left: {x: 82, y: 67}
+  - Right: {x: 49, y: 97}
+    Left: {x: 81, y: 103}
+  - Right: {x: 53, y: 78}
+    Left: {x: 84, y: 96}
+  - Right: {x: 53, y: 76}
+    Left: {x: 83, y: 90}
+  - Right: {x: 47, y: 76}
+    Left: {x: 88, y: 92}
+  - Right: {x: 48, y: 96}
+    Left: {x: 83, y: 98}
   - Right: {x: 0, y: 0}
     Left: {x: 0, y: 0}
   - Right: {x: 0, y: 0}

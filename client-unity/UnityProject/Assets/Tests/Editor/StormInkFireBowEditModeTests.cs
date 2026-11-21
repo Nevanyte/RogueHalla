@@ -5,7 +5,6 @@ using NUnit.Framework;
 using UnityEditor;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
-using UnityEditor;
 using UnityEngine;
 
 namespace Roguehalla.Client.Tests
@@ -111,6 +110,48 @@ namespace Roguehalla.Client.Tests
             AssertBody(8);
         }
 
+        [TestCase(0)]
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(4)]
+        [TestCase(5)]
+        [TestCase(6)]
+        public void BothFireReleasesKeepTheSharedBowInTheRegisteredHand(int row)
+        {
+            var art = StormInkFireBowAuthoring.Load();
+            var sharedBow = StormInkWeaponArt.Get(WeaponId.Bow, row);
+            float heading = (2 - row) * Mathf.PI / 4f;
+            for (int release = 0; release < 2; release++)
+            {
+                uint started = (uint)(800 + release * 1000);
+                double sample = started + 200;
+                Present(started, sample, facing: heading);
+                CheckPose(release * 5 + 2);
+                ObserveArrow(heading);
+                Present(started, sample, facing: heading);
+                CheckPose(release * 5 + 3);
+                _presenter.ConfirmedCue(1, FxKind.Cancel);
+                Present(0, sample, facing: heading);
+            }
+
+            void CheckPose(int column)
+            {
+                var body = Body();
+                var expected = art.Frame(row, column);
+                Assert.That(expected, Is.Not.Null, $"Missing Fire bow drawing {row}/{column}");
+                Assert.That(body.sprite, Is.SameAs(expected));
+                var bow = body.transform.parent.Find("Equipped weapon cue").GetComponent<SpriteRenderer>();
+                Assert.That(bow.sprite, Is.SameAs(sharedBow));
+                Assert.That(art.TryHand(expected, true, out var left), Is.True);
+                Assert.That(art.TryHand(expected, false, out var right), Is.True);
+                Assert.That(left, Is.Not.EqualTo(right), "The grip and draw hand must have separate registrations.");
+                Vector3 Socket(SpriteRenderer renderer, Vector2 uv) => renderer.transform.TransformPoint(
+                    (Vector2.Scale(uv, renderer.sprite.rect.size) - renderer.sprite.pivot) / renderer.sprite.pixelsPerUnit);
+                Assert.That(Vector3.Distance(Socket(body, left), Socket(bow, StormInkWeaponArt.Grip(WeaponId.Bow, row))),
+                    Is.LessThan(.0001f), $"Bow grip drifted from the left palm on {row}/{column}");
+            }
+        }
+
         [Test]
         public void RegisteredFireBowStringCanPassBehindBodyWithoutChangingBowOrderOrGrip()
         {
@@ -208,8 +249,8 @@ namespace Roguehalla.Client.Tests
             Assert.That((int)result, Is.EqualTo(expected));
         }
 
-        void ObserveArrow() => typeof(SpriteActorPresenter).GetMethod("ObservedProjectile", BindingFlags.NonPublic | BindingFlags.Instance)
-            .Invoke(_presenter, new object[] { 1u, ProjectileKind.Arrow, 100f, 100f, 0f });
+        void ObserveArrow(float heading = 0f) => typeof(SpriteActorPresenter).GetMethod("ObservedProjectile", BindingFlags.NonPublic | BindingFlags.Instance)
+            .Invoke(_presenter, new object[] { 1u, ProjectileKind.Arrow, 100f, 100f, heading });
 
         SpriteRenderer Body() => _root.transform.Find("Observed actor/Authored character").GetComponent<SpriteRenderer>();
     }
