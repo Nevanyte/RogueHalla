@@ -162,14 +162,14 @@ pub(crate) fn fire_held(w: &mut World, holder: PlayerId, event: NativeEvent) {
 }
 
 /// The native chill hook for one tick of attack chill on fighter `victim` (`frost::after_damage`, after it set this
-/// tick's chill): every source of a chill below 1 inflicted one tick of it.
-pub(crate) fn attack_chill(w: &mut World, victim: crate::fighter::FighterIx) {
+/// tick's chill): every source of a chill below 1 inflicted one tick of it, `tick_ms` (the match's step) of chill.
+pub(crate) fn attack_chill(w: &mut World, victim: crate::fighter::FighterIx, tick_ms: f64) {
     if !(w.core(victim).signature.chill < 1.) {
         return;
     }
     for c in 0..w.core(victim).signature.chillers.len() {
         let source = w.core(victim).signature.chillers[c];
-        let ms = crate::constants::TICK_MS;
+        let ms = tick_ms;
         fire_held(w, source, NativeEvent::ChillInflicted { ms });
     }
 }

@@ -290,7 +290,7 @@ pub(crate) fn after_damage(w: &mut World, tick_ms: f64) {
                 p.weapon.action = Some(a);
             }
         }
-        native::attack_chill(w, ix);
+        native::attack_chill(w, ix, tick_ms);
     }
 }
 pub(crate) fn movement_modifier(
