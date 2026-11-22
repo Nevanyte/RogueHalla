@@ -50,7 +50,9 @@ impl Store {
             .collect())
     }
 
-    /// 1-based place and GV of `profile_id` in `month`; `None` when it banked nothing that month.
+    /// 1-based place and GV of `profile_id` in `month`; `None` when it banked nothing that month. The place is one
+    /// plus the rows with more GV plus the rows with equal GV whose callsign sorts first in byte order: two counts the
+    /// `gv_by_month (month, gv DESC)` index answers, in the order of `leaderboard_rows`.
     pub async fn leaderboard_rank(
         &self,
         month: &str,
@@ -60,12 +62,13 @@ impl Store {
             return Ok(None);
         }
         Ok(sqlx::query_as(
-            "SELECT rn, gv FROM (
-               SELECT m.profile_id, m.gv,
-                      row_number() OVER (ORDER BY m.gv DESC, p.callsign COLLATE \"C\") AS rn
-               FROM gv_by_month m JOIN profiles p USING (profile_id)
-               WHERE m.month = $1 AND m.gv > 0) ranked
-             WHERE profile_id = $2",
+            "SELECT 1 + (SELECT count(*) FROM gv_by_month a WHERE a.month = $1 AND a.gv > me.gv)
+                      + (SELECT count(*) FROM gv_by_month t JOIN profiles q USING (profile_id)
+                         WHERE t.month = $1 AND t.gv = me.gv
+                           AND q.callsign COLLATE \"C\" < me.callsign COLLATE \"C\"),
+                    me.gv
+             FROM (SELECT m.gv, p.callsign FROM gv_by_month m JOIN profiles p USING (profile_id)
+                   WHERE m.month = $1 AND m.profile_id = $2 AND m.gv > 0) me",
         )
         .bind(month)
         .bind(profile_id)
