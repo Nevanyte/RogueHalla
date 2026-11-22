@@ -178,7 +178,13 @@ its start):
 - **Only accepted commands:** on every seed, the seat proposed something, `SeatStats.rejected == 0` (a proposal that
   does not resolve to a handle of the frame, or that `Sim::submit` refuses, including `OverBudget`, counts as
   rejected: `lib.rs:871-890`), no fallback decision and no seat fault.
-- **Deterministic:** on seed 1, two runs give the same clear tick and the same `Sim::state_hash()` at the end.
+- **Deterministic:** on seed 1, the run proposes something, and two runs give the same clear tick, the same seat stats
+  and the same `Sim::state_hash()` at the end.
+
+Tests in the file: `raid_bot_scene_is_a_human_seat_on_a_board_world_a_human_bot_can_clear` (precondition and control:
+green on the stub), `raid_bot_clears_a_nearby_normal_camp_within_90_s`, `raid_bot_sends_only_commands_the_sim_accepts`,
+`raid_bot_replays_a_seed_exactly` (red on the stub, each on an assertion: no camp cleared, nothing proposed). Debug
+build: about 25 s for the file on an M-series laptop.
 
 The 7-of-8 floor, not 8 of 8: a three-mob camp can kill a fresh fighter without sustain (P-RAID-C adds retreat and
 potions); measured with HumanBot on the first 12 normal camps of each of seeds 1-8 (all sizes), 32 of 96 ended in
