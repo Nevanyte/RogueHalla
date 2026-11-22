@@ -60,3 +60,49 @@ Prefix every command with `export PATH="$HOME/.cargo/bin:$HOME/.dotnet:$PATH"`. 
 - `cargo test --release -p rh-headless --test rework_at_25ms`: every seed must pass.
 
 The coordinator runs the full gate on the merged tree.
+
+## Hand-off (implementer-opus, 2026-11-21)
+
+```
+PACKET:          P-SYNC-ORIGIN-3-fix — serves PR 80 (the augment and elite rework); settles P-SYNC-ORIGIN-3's stops
+BRANCH:          agent/opus/P-SYNC-ORIGIN-3 @ <final sha in the reply>
+GATE:            see "Gate" below
+CHANGED:         crates/rh-sim/src/cards/after_damage.rs, crates/rh-sim/src/cards/splash_giver_tests.rs (new),
+                 crates/rh-sim/src/systems/mob_life.rs, crates/rh-sim/src/systems/mob_life/turret_share_tests.rs (new),
+                 crates/rh-headless/tests/rework_at_25ms.rs (seed list and its comment),
+                 docs/backlog/packets/P-SYNC-ORIGIN-3.md (hand-off), this file
+D-RULES:         D1: the splash skip matches legacy cardHooks.ts:252 (`isQuestGiver(c)`). No D5/D6/D9 change.
+DEVIATIONS:      none
+SHARED RECORDS:  none
+LEGACY DOUBTS:   none
+NOT ESTABLISHED: the full gate on the merged tree (the coordinator's).
+RISKS:           seed 8 was replaced as well as seed 5 (see decision 2 below); two latent restore defects outside the
+                 seed set are reported below, not fixed.
+```
+
+**Decision 1, pickers changed.** One: `resolve_splashes` (`crates/rh-sim/src/cards/after_damage.rs`), its mob loop,
+which now skips `MobKind::QuestGiver`. Its player loop needs no skip (a quest giver is never a player). I searched every
+other card path that writes a hit or a status: `on_hit.rs` returns damage to the attacker (aimed), `on_hurt.rs`,
+`on_overkilled.rs` (it only records the request), the `TriggerAction` rows (`Return`, `Status`, `Heal`, `Fortify`,
+`Boost`, `Cooldown`; `Splash` is the only area action) and the native cards (`cards/native/*`: no area picker). No other
+card picker chooses a mob the hit did not aim at. Legacy's non-hostile and evading filters and its tie rank are not
+added. Test: `cards::after_damage::splash_giver_tests::an_overkill_kill_beside_a_quest_giver_leaves_the_giver_untouched`
+(K1 quest world; red without the fix: the splash picks the giver).
+
+**Decision 2, seeds.** Under origin's own live config (augments and elites Legacy, `top25_quests` on) seed 5 ends at step
+1599, so it is the quest trajectory: replaced by 9 (step 3117 with `live_content()`). With seed 7 fixed, seed 8 then
+failed the same floor (step 2042); under origin's config it ends at 2145, the same case, so I applied the decision's rule
+to it too and replaced it with 12 (step 4800): 10 ends at 2351, 11 is refused as `invalid mob rewind` at step 3191 (the
+known P-MOB-REWIND-RESTORE-1). The list is now `[1, 2, 3, 4, 6, 7, 9, 12]`, the reason beside it; the floor and every
+check are unchanged.
+
+**Decision 3.** `mob_life.rs` `pay`: in the Rework elite share loop, `if a.skip_stat && helper == id { continue; }`
+(`id` is the credited killer). Test: `systems::mob_life::turret_share_tests::a_turret_only_elite_killer_gets_no_helper_share_and_the_other_contributors_do`
+(red without the fix: `[12, 12, 12]`).
+
+**Decision 4.** No change.
+
+**Found, not fixed (outside the seed set and the write scope).** A probe of seeds 12 to 16 found seed 14 refused at step
+2400 as `invalid container 565`: a body container holding a bow, three large and five small potions (9 items). The check
+in `checkpoint.rs` caps a container at `2 + potions cap` (7), but a body can carry two weapons and up to five of each
+potion kind (12). This is a base defect on both lines, not a merge or rework × quest interaction.
