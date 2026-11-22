@@ -11,3 +11,5 @@ The full project gate on `f078d499d` reported 1,944 of 1,945 Unity tests passing
 ## Implementation and check
 
 Keep the artist definitions referenced for the life of the Editor atlas. Resolve them before reading art values for a fresh bake so validation on initial load cannot invalidate a finished atlas. Inspector edits continue to invalidate it. Built players keep their normal lazy loading. Exercise the original Fire geology test, the deterministic Editor-cleanup reproducer, real authored-prop editing and the full gate.
+
+The controlled cleanup failed before the fix and passed afterwards. On the former torch player source with the cache fix applied, the full Unity suite passed all 1,949 tests, including the tests for editing a definition and rebuilding its sprite. `world/concealment-canopies/final/atlas-cleanup-tests.json` records the counts and original failure. The integrated project gate also covers the later rack changes.
