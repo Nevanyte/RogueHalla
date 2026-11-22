@@ -263,6 +263,8 @@ pub(super) fn tick(cx: &mut Cx, i: usize, id: QuestId) {
     let pos = p.pos();
     let destination = endpoint(cx.w, o, id, a);
     let at_end = near(cx.k, cx.w, pos, destination, CONTACT_RANGE);
+    // A scared giver hides only itself: a turn-in at a remote contact, trader or rival outpost still lands.
+    let at_giver = ends_at_giver(cx.w, o, id, a);
     let mut next = a.clone();
     if !next.ready {
         match id {
@@ -314,7 +316,7 @@ pub(super) fn tick(cx: &mut Cx, i: usize, id: QuestId) {
             _ => {}
         }
     }
-    if at_end && visible_giver(cx.w, owner, next.offer) {
+    if at_end && (!at_giver || visible_giver(cx.w, owner, next.offer)) {
         if id == TheBurningCrown {
             if let Some(power) = crown_power(cx.w, owner) {
                 next.reward.points = power;

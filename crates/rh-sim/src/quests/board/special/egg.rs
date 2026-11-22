@@ -146,11 +146,30 @@ pub(crate) fn delay(w: &mut World, owner: PlayerId, standing: usize) -> bool {
     true
 }
 
+/// Does this death keep its weapons for a hatch? Asked at `dropBody`, before `delay` records the death, with the same
+/// rule `delay` applies: a planted, unbroken egg, a real death, and enough fighters standing.
+pub(crate) fn keeps_gear(w: &World, owner: PlayerId) -> bool {
+    let planted = w
+        .rebirth_eggs
+        .binary_search_by_key(&owner, |egg| egg.owner)
+        .is_ok_and(|i| !w.rebirth_eggs[i].broken && w.rebirth_eggs[i].death.is_none());
+    planted
+        && w.player(owner)
+            .is_some_and(|p| p.down == Some(Outcome::Died))
+        && standing(w) >= MIN_STANDING
+}
+
 /// A held result is already a death for credit and contact bookkeeping.
 pub(crate) fn awaiting_hatch(w: &World, owner: PlayerId) -> bool {
     w.rebirth_eggs
         .binary_search_by_key(&owner, |egg| egg.owner)
         .is_ok_and(|i| w.rebirth_eggs[i].death.is_some())
+}
+
+pub(crate) fn has_egg(w: &World, owner: PlayerId) -> bool {
+    w.rebirth_eggs
+        .binary_search_by_key(&owner, |egg| egg.owner)
+        .is_ok()
 }
 
 pub(crate) fn remove(w: &mut World, owner: PlayerId) -> Option<PendingDeath> {
@@ -174,8 +193,12 @@ pub(crate) fn tick(cx: &mut Cx, standing: usize) {
             continue;
         }
         cx.w.rebirth_eggs.remove(index);
+        let hatching = enabled && !egg.broken && egg.death.is_some();
+        if !hatching {
+            crate::systems::items::drop_kept_weapons(cx.k, cx.w, egg.owner);
+        }
         let Some(death) = egg.death else { continue };
-        if enabled && !egg.broken {
+        if hatching {
             hatch(cx, egg);
         } else {
             crate::systems::settle::resolve_egg_death(cx.w, cx.ev, egg.owner, death);

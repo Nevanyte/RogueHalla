@@ -1,8 +1,8 @@
-// Procedural decorative prop sprites for the five regions, painted once at load with RegionCanvas into ONE atlas (one
-// texture, one material, so they batch). Colours are taken from the generated palette table. No imported art, so no
-// licence-ledger entry. Sprites pivot at their ground contact point. 64 pixels per world unit (one tile is 64 px wide).
+// Region props for all five zones: procedural fallbacks and editable authored overlays are baked once into ONE atlas
+// (one texture, one material, so they batch). Sprites pivot at their ground contact point. 64 pixels per world unit.
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 using static Roguehalla.Client.RegionCanvas;
 
@@ -18,6 +18,8 @@ namespace Roguehalla.Client
         public int MarginLeft, MarginRight, MarginBottom, MarginTop;
         /// <summary>Size of the cropped sprite in pixels. ExceededCell: the art reaches past its nominal cell (it used to be cut off there).</summary>
         public int PixelWidth, PixelHeight; public bool ExceededCell;
+        /// <summary>True only when a readable authored texture supplied this sprite; procedural fallbacks do not opt into authored-art presentation variation.</summary>
+        public bool UsesAuthoredTexture;
         public int MinMargin { get { return Mathf.Min(Mathf.Min(MarginLeft, MarginRight), Mathf.Min(MarginBottom, MarginTop)); } }
     }
 
@@ -30,20 +32,59 @@ namespace Roguehalla.Client
         public const int RequiredMargin = 2;
         static Dictionary<string, RegionPropSprite> _all;
         static Texture2D _atlas;
+        static int _authoredDefinitionsDirty;
+#if UNITY_EDITOR
+        // Keep the authoring sources alive as long as their preview atlas. Otherwise editor cleanup
+        // can unload an unchanged source and its next load calls OnValidate in the middle of placement.
+        static StormInkPropArtDefinition[] _previewSources;
+#endif
         public static Texture2D Atlas { get { Ensure(); return _atlas; } }
         public static bool TryGet(string key, out RegionPropSprite sprite) { Ensure(); return _all.TryGetValue(key, out sprite); }
         public static IEnumerable<string> Keys { get { Ensure(); return _all.Keys; } }
 
-        struct Def { public string Key; public int W, H, Ground; public Action<RegionCanvas, int> Paint; public bool Tall; }
+        // OnValidate can run off the main thread. Only flag here; the next preview/arena lookup rebuilds lazily.
+        internal static void MarkAuthoredDefinitionsDirty() { Interlocked.Exchange(ref _authoredDefinitionsDirty, 1); }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStaticsForPlay()
+        {
+            _all = null;
+            _atlas = null;
+#if UNITY_EDITOR
+            _previewSources = null;
+#endif
+            Interlocked.Exchange(ref _authoredDefinitionsDirty, 0);
+        }
+
+        struct Def { public string Key; public int W, H, Ground; public Action<RegionCanvas, int> Paint; public bool Tall; public string TexturePath; public Texture2D TextureSource; public Vector2? TextureFoot; }
 
         static Color P(int region, int slot) { return RegionPaletteGenerated.Srgb[region][slot]; }
         static readonly Color Ink = new Color(.05f, .06f, .10f, .85f);
 
         static void Ensure()
         {
-            if (_all != null) return;
+            bool dirty = Interlocked.Exchange(ref _authoredDefinitionsDirty, 0) != 0;
+            if (_all != null && !dirty) return;
+            _all = null;
+            _atlas = null;
+#if UNITY_EDITOR
+            if (_previewSources == null || dirty)
+            {
+                _previewSources = Resources.LoadAll<StormInkPropArtDefinition>("StormInk/Props");
+                // Validation during this load is covered by the fresh definition reads below.
+                Interlocked.Exchange(ref _authoredDefinitionsDirty, 0);
+            }
+#endif
             var defs = new List<Def>();
             AddFrost(defs); AddFire(defs); AddSentenced(defs); AddPlague(defs); AddHoly(defs); AddTemple(defs); AddColiseum(defs); AddPlaceholder(defs);
+            var transitions = RegionTransitionArt.Load();
+            if (transitions != null && transitions.WinterSedge != null && transitions.WinterSedge.isReadable)
+            {
+                int w = Mathf.Clamp(Mathf.RoundToInt(transitions.SedgeSize.x * PixelsPerUnit), 4, 256);
+                int h = Mathf.Clamp(Mathf.RoundToInt(transitions.SedgeSize.y * PixelsPerUnit), 4, 256);
+                Add(defs, RegionTransitionArt.SedgeKey, w, h, Mathf.RoundToInt(h * Mathf.Clamp01(transitions.SedgeFoot.y)),
+                    (canvas, ground) => { }, textureFoot: transitions.SedgeFoot, textureSource: transitions.WinterSedge);
+            }
             // Shelf-pack into an atlas, growing the height if needed.
             Build(defs, 1024, 1024);
         }
@@ -56,8 +97,8 @@ namespace Roguehalla.Client
         /// <summary>Art that bends in the wind (trees, grass, reeds, bushes, cloth). Packed first, with a shelf break after it, so the shader can tell it by atlas V alone (<see cref="SwayV"/>): no second material, no extra draw calls.</summary>
         public static bool Sways(string key)
         {
-            return key.EndsWith(".pine") || key.EndsWith(".pine2") || key.EndsWith(".tree") || key.EndsWith(".deadtree") || key.EndsWith(".palm") || key.EndsWith(".reeds") || key.EndsWith(".bush")
-                || key.EndsWith(".shrub") || key.EndsWith(".fern") || key.EndsWith(".flowers") || key.EndsWith(".grass") || key.EndsWith(".deadgrass") || key.EndsWith(".banner") || key.EndsWith(".scarecrow");
+            return key == "plague.tree.ink" || key == "frost.spire.fallback" || key.EndsWith(".pine") || key.EndsWith(".pine2") || key.EndsWith(".tree") || key.EndsWith(".deadtree") || key.EndsWith(".palm") || key.EndsWith(".reeds") || key.EndsWith(".bush")
+                || key.EndsWith(".shrub") || key.EndsWith(".fern") || key.EndsWith(".flowers") || key.EndsWith(".grass") || key.EndsWith(".deadgrass") || key.EndsWith(".banner") || key.EndsWith(".scarecrow") || key == "col.standard";
         }
         /// <summary>Atlas V below which a vertex belongs to wind-capable art (the global <c>_RhSwayV</c>).</summary>
         public static float SwayV { get; private set; }
@@ -77,11 +118,13 @@ namespace Roguehalla.Client
         }
 
         /// <summary>Paints one def on its padded canvas and returns the crop. <paramref name="pivot"/> is the foot in the cropped canvas (pixels).</summary>
-        static RegionCanvas PaintCropped(Def d, out Vector2 pivot, out int[] margins)
+        static RegionCanvas PaintCropped(Def d, out Vector2 pivot, out int[] margins, out bool usedTexture)
         {
             int padS = DebugNoPadding ? 0 : PadSide, padT = DebugNoPadding ? 0 : PadTop, padB = DebugNoPadding ? 0 : PadBottom;
             var full = new RegionCanvas(d.W + 2 * padS, d.H + padB + padT) { OriginX = padS, OriginY = padB, DesignW = d.W, DesignH = d.H };
-            d.Paint(full, d.Ground);
+            var source = d.TextureSource != null ? d.TextureSource : string.IsNullOrEmpty(d.TexturePath) ? null : Resources.Load<Texture2D>(d.TexturePath);
+            usedTexture = source != null && source.isReadable && PaintTextureOverride(full, d, source);
+            if (!usedTexture) d.Paint(full, d.Ground);
             int x0 = full.W, x1 = -1, y0 = full.H, y1 = -1;
             for (int y = 0; y < full.H; y++) for (int x = 0; x < full.W; x++)
             {
@@ -109,8 +152,8 @@ namespace Roguehalla.Client
             int swayCount = ordered.Count;
             foreach (var d in defs) if (!Sways(d.Key)) ordered.Add(d);
             defs = ordered;
-            var cvs = new RegionCanvas[defs.Count]; var pivots = new Vector2[defs.Count]; var margins = new int[defs.Count][];
-            for (int i = 0; i < defs.Count; i++) cvs[i] = PaintCropped(defs[i], out pivots[i], out margins[i]);
+            var cvs = new RegionCanvas[defs.Count]; var pivots = new Vector2[defs.Count]; var margins = new int[defs.Count][]; var authored = new bool[defs.Count];
+            for (int i = 0; i < defs.Count; i++) cvs[i] = PaintCropped(defs[i], out pivots[i], out margins[i], out authored[i]);
             int aw = aw0, ah = ah0; RectInt[] rects;
             while (!TryPack(cvs, aw, ah, out rects, swayCount)) ah *= 2;
             SwayV = swayCount <= 0 ? 0f : swayCount >= defs.Count ? 2f : (rects[swayCount].y - 1f) / ah;
@@ -126,7 +169,8 @@ namespace Roguehalla.Client
                 var rect = new Rect(rects[i].x, rects[i].y, cvs[i].W, cvs[i].H);
                 var sprite = Sprite.Create(_atlas, rect, new Vector2(pivots[i].x / cvs[i].W, pivots[i].y / cvs[i].H), PixelsPerUnit, 0, SpriteMeshType.FullRect);
                 sprite.name = d.Key;
-                _all[d.Key] = new RegionPropSprite { Key = d.Key, Sprite = sprite, Width = Mathf.Max(d.W, 2f * Mathf.Max(pivots[i].x, cvs[i].W - pivots[i].x)) / PixelsPerUnit, Height = (d.H - d.Ground) / (float)PixelsPerUnit, Tall = d.Tall,
+                float width = authored[i] ? d.W / (float)PixelsPerUnit : Mathf.Max(d.W, 2f * Mathf.Max(pivots[i].x, cvs[i].W - pivots[i].x)) / PixelsPerUnit;
+                _all[d.Key] = new RegionPropSprite { Key = d.Key, Sprite = sprite, Width = width, Height = (d.H - d.Ground) / (float)PixelsPerUnit, Tall = d.Tall, UsesAuthoredTexture = authored[i],
                     MarginLeft = margins[i][0], MarginRight = margins[i][1], MarginBottom = margins[i][2], MarginTop = margins[i][3], PixelWidth = cvs[i].W, PixelHeight = cvs[i].H, ExceededCell = margins[i][4] == 1 };
             }
         }
@@ -143,8 +187,45 @@ namespace Roguehalla.Client
             });
         }
 
-        static void Add(List<Def> l, string key, int w, int h, int ground, Action<RegionCanvas, int> paint, bool tall = false)
-        { l.Add(new Def { Key = key, W = w, H = h, Ground = ground, Paint = paint, Tall = tall }); }
+        static void Add(List<Def> l, string key, int w, int h, int ground, Action<RegionCanvas, int> paint, bool tall = false, string texturePath = null, Vector2? textureFoot = null, Texture2D textureSource = null)
+        { l.Add(new Def { Key = key, W = w, H = h, Ground = ground, Paint = paint, Tall = tall, TexturePath = texturePath, TextureSource = textureSource, TextureFoot = textureFoot }); }
+
+        /// <summary>Copies a tightly cropped authored texture into its original design bounds, aligned at ground contact.
+        /// Returns false for empty/unreadable inputs so the original procedural paint remains the fallback.</summary>
+        static bool PaintTextureOverride(RegionCanvas canvas, Def def, Texture2D source)
+        {
+            var pixels = source.GetPixels32();
+            int minX = source.width, minY = source.height, maxX = -1, maxY = -1;
+            for (int y = 0; y < source.height; y++) for (int x = 0; x < source.width; x++)
+            {
+                if (pixels[y * source.width + x].a / 255f <= EdgeAlpha) continue;
+                minX = Mathf.Min(minX, x); minY = Mathf.Min(minY, y);
+                maxX = Mathf.Max(maxX, x); maxY = Mathf.Max(maxY, y);
+            }
+            if (maxX < minX || maxY < minY) return false;
+
+            float sourceW = maxX - minX + 1, sourceH = maxY - minY + 1;
+            float scale = Mathf.Min(def.W / sourceW, (def.H - def.Ground) / sourceH);
+            float drawW = sourceW * scale, drawH = sourceH * scale;
+            int padSide = DebugNoPadding ? 0 : PadSide, padBottom = DebugNoPadding ? 0 : PadBottom;
+            float left = padSide + (def.W - drawW) * .5f;
+            float bottom = padBottom + def.Ground;
+            if (def.TextureFoot is Vector2 foot)
+            {
+                left += (.5f - foot.x) * drawW;
+                bottom -= foot.y * drawH;
+            }
+            int x0 = Mathf.Max(0, Mathf.FloorToInt(left)), x1 = Mathf.Min(canvas.W, Mathf.CeilToInt(left + drawW));
+            int y0 = Mathf.Max(0, Mathf.FloorToInt(bottom)), y1 = Mathf.Min(canvas.H, Mathf.CeilToInt(bottom + drawH));
+            for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++)
+            {
+                float u = Mathf.Clamp01((x + .5f - left) / drawW), v = Mathf.Clamp01((y + .5f - bottom) / drawH);
+                int sx = Mathf.Min(maxX, minX + Mathf.FloorToInt(u * sourceW));
+                int sy = Mathf.Min(maxY, minY + Mathf.FloorToInt(v * sourceH));
+                canvas.Px[y * canvas.W + x] = pixels[sy * source.width + sx];
+            }
+            return true;
+        }
 
         // ---- shared pieces ------------------------------------------------------------------------------------------------
 
@@ -218,6 +299,9 @@ namespace Roguehalla.Client
 
         static void AddFrost(List<Def> l)
         {
+            var pineA = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostPineArt");
+            var pineB = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostWindPineArt");
+            var iceSpire = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostIceSpireArt");
             Color baseC = P(4, 0), sec = P(4, 1), acc = P(4, 2), shadow = P(4, 5);
             Color snow = Mix(baseC, Color.white, .35f), snowLight = Mix(baseC, Color.white, .85f), snowShade = Mix(shadow, baseC, .62f), snowDeep = Mix(shadow, baseC, .38f);
             Color spruceDark = Shade(Mix(sec, P(3, 1), .45f), .46f), spruceMid = Shade(Mix(sec, P(3, 1), .45f), .78f), spruceLight = Mix(sec, P(3, 1), .55f);
@@ -269,8 +353,27 @@ namespace Roguehalla.Client
                     c.Glow(cx - 4f, gy + treeH * .55f, 7f, snowLight, .20f);
                 };
             }
-            Add(l, "frost.pine", 112, 184, 12, pine[0], true);
-            Add(l, "frost.pine2", 120, 150, 12, pine[1], true);
+            int pineAW = pineA != null ? pineA.WidthPixels(112) : 112;
+            int pineAH = pineA != null ? pineA.HeightPixels(184) : 184;
+            int pineAGround = pineA != null ? pineA.GroundPixels(12, pineAH) : 12;
+            int pineBW = pineB != null ? pineB.WidthPixels(120) : 120;
+            int pineBH = pineB != null ? pineB.HeightPixels(150) : 150;
+            int pineBGround = pineB != null ? pineB.GroundPixels(12, pineBH) : 12;
+            Add(l, "frost.pine", pineAW, pineAH, pineAGround, pine[0], true,
+                textureFoot: pineA != null ? pineA.ClampedTextureFoot(new Vector2(.5f, .055f)) : null,
+                textureSource: pineA != null ? pineA.Pigment : null);
+            Add(l, "frost.pine2", pineBW, pineBH, pineBGround, pine[1], true,
+                textureFoot: pineB != null ? pineB.ClampedTextureFoot(new Vector2(.5f, .055f)) : null,
+                textureSource: pineB != null ? pineB.Pigment : null);
+            // Kind 81 (frost.spire) historically renders as pine2. Keep that procedural fallback available
+            // when the ordinary pine2 receives its new authored painting.
+            Add(l, "frost.spire.fallback", 120, 150, 12, pine[1], true);
+            int spireW = iceSpire != null ? iceSpire.WidthPixels(120) : 120;
+            int spireH = iceSpire != null ? iceSpire.HeightPixels(150) : 150;
+            int spireGround = iceSpire != null ? iceSpire.GroundPixels(12, spireH) : 12;
+            Add(l, "frost.spire", spireW, spireH, spireGround, pine[1], true,
+                textureFoot: iceSpire != null ? iceSpire.ClampedTextureFoot(new Vector2(.5f, .055f)) : null,
+                textureSource: iceSpire != null ? iceSpire.Pigment : null);
 
             Add(l, "frost.rock", 112, 84, 10, (c, gy) =>
             {
@@ -355,7 +458,10 @@ namespace Roguehalla.Client
                 c.Fill(mound, Toon(mound, snowShade, snow, snowLight, 5f), null);
             });
 
-            Add(l, "frost.bush", 104, 80, 8, (c, gy) =>
+            var juniper = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostJuniperArt");
+            int bushHeight = juniper != null ? juniper.HeightPixels(80) : 80;
+            Add(l, "frost.bush", juniper != null ? juniper.WidthPixels(104) : 104, bushHeight,
+                juniper != null ? juniper.GroundPixels(8, bushHeight) : 8, (c, gy) =>
             {
                 float cx = c.DesignW / 2f;
                 c.SoftShadow(cx + 5, gy + 1, 38f, 7f, .35f, Alpha(snowDeep, 1f));
@@ -373,69 +479,17 @@ namespace Roguehalla.Client
                 edge.Add(new Vector2(cx + 50f, gy + 90f)); edge.Add(new Vector2(cx - 50f, gy + 90f));
                 var cover = Intersect(Grow(u, -.6f), Poly(edge.ToArray()));
                 c.Fill(cover, Toon(cover, snowShade, snow, snowLight, 12f, .03f, 6, .0f, .15f), Alpha(snowDeep, .35f), 1f);
-            });
+            }, textureFoot: juniper != null ? juniper.ClampedTextureFoot(new Vector2(.5f, .055f)) : null,
+                textureSource: juniper != null ? juniper.Pigment : null);
         }
 
         static float SmoothU(float v, float a, float b) { float t = Mathf.Clamp01((v - a) / (b - a)); return t * t * (3f - 2f * t); }
 
         // ---- fire -----------------------------------------------------------------------------------------------------------
 
-        static void AddFire(List<Def> l)
-        {
-            Color baseC = P(1, 0), obs = P(1, 1), lava = P(1, 2), shadow = P(1, 5);
-            Color rockDark = Shade(Mix(obs, shadow, .5f), .75f), rockMid = Mix(obs, baseC, .4f), rockLight = Mix(Mix(obs, baseC, .6f), lava, .12f);
-            Add(l, "fire.spire", 80, 164, 10, (c, gy) =>
-            {
-                float cx = 40; c.SoftShadow(cx + 6, gy + 2, 32f, 7f, .5f, Alpha(shadow, 1f));
-                c.Glow(cx, gy + 8, 30f, lava, .35f);
-                var body = Poly(new Vector2(18, gy), new Vector2(24, gy + 52), new Vector2(30, gy + 98), new Vector2(40, gy + 142), new Vector2(50, gy + 96), new Vector2(60, gy + 50), new Vector2(64, gy));
-                c.Fill(body, Split(41, Mix(rockMid, rockLight, .55f), rockDark, 10f), Ink, 1.6f);
-                c.Fill(Intersect(body, Poly(new Vector2(41, gy + 130), new Vector2(46, gy + 60), new Vector2(40, gy + 4), new Vector2(34, gy + 60))), Flat(Alpha(rockLight, .45f)));
-                // glowing seam
-                var seam = Capsule(new Vector2(47, gy + 12), new Vector2(43, gy + 70), 1.4f, .6f);
-                c.Fill(Intersect(body, seam), Flat(Mix(lava, Color.white, .25f)));
-                c.Glow(46, gy + 30, 14f, lava, .35f);
-                c.Fill(Capsule(new Vector2(30, gy + 60), new Vector2(26, gy + 22), .9f, .5f), Flat(Alpha(Shade(rockDark, .5f), .8f)));
-            }, true);
-            Add(l, "fire.rocks", 104, 70, 8, (c, gy) =>
-            {
-                c.SoftShadow(56, gy + 2, 40f, 7f, .45f, Alpha(shadow, 1f)); c.Glow(52, gy + 6, 34f, lava, .22f);
-                Rock(c, 40, gy, 24, 22, 4, rockDark, rockMid, rockLight, null, 0, Mix(lava, Color.white, .15f), .2f);
-                Rock(c, 70, gy, 20, 17, 9, rockDark, rockMid, rockLight, null, 0, Mix(lava, Color.white, .15f), .2f);
-                Rock(c, 56, gy + 1, 14, 11, 13, rockDark, rockMid, rockLight);
-            });
-            Add(l, "fire.stump", 96, 124, 10, (c, gy) =>
-            {
-                float cx = 48; c.SoftShadow(cx + 6, gy + 2, 30f, 6f, .45f, Alpha(shadow, 1f)); c.Glow(cx, gy + 5, 26f, lava, .30f);
-                Color wood = Shade(Mix(obs, baseC, .5f), .55f), woodLight = Mix(wood, lava, .20f);
-                var trunk = Union(Capsule(new Vector2(cx, gy), new Vector2(cx - 4, gy + 52), 10, 6), Capsule(new Vector2(cx - 4, gy + 48), new Vector2(cx - 22, gy + 84), 5, 2.5f),
-                                  Capsule(new Vector2(cx - 3, gy + 50), new Vector2(cx + 20, gy + 92), 4.5f, 2f), Capsule(new Vector2(cx + 8, gy + 70), new Vector2(cx + 30, gy + 80), 2.5f, 1.2f), Capsule(new Vector2(cx - 12, gy + 66), new Vector2(cx - 30, gy + 66), 2.6f, 1f));
-                c.Fill(trunk, Toon(trunk, Shade(wood, .55f), wood, woodLight, 6f, .12f, 3, .2f), Ink, 1.5f);
-                c.Fill(Intersect(trunk, Capsule(new Vector2(cx - 1, gy + 4), new Vector2(cx - 5, gy + 50), 1f, .6f)), Flat(Mix(lava, Color.white, .1f)));
-                c.Glow(cx - 2, gy + 24, 12f, lava, .30f);
-            }, true);
-            Add(l, "fire.crystal", 80, 108, 8, (c, gy) =>
-            {
-                float cx = 40; c.SoftShadow(cx + 4, gy + 1, 28f, 6f, .4f, Alpha(shadow, 1f)); c.Glow(cx, gy + 28, 36f, lava, .38f);
-                float[,] sp = { { -14, 0, 14, 52, -.15f }, { 14, 0, 12, 44, .20f }, { 0, 2, 17, 84, 0f } };
-                foreach (int k in new[] { 0, 1, 2 })
-                {
-                    float x0 = cx + sp[k, 0], y0 = gy + sp[k, 1], w = sp[k, 2], h = sp[k, 3], lean = sp[k, 4] * h; var tip = new Vector2(x0 + lean, y0 + h);
-                    var whole = Poly(new Vector2(x0 - w * .5f, y0), new Vector2(x0 - w * .45f + lean * .4f, y0 + h * .7f), tip, new Vector2(x0 + w * .45f + lean * .4f, y0 + h * .7f), new Vector2(x0 + w * .5f, y0));
-                    c.Fill(whole, Split(x0 + lean * .3f, Mix(lava, Color.white, .38f), Mix(lava, Shade(obs, .6f), .45f), 3f), Alpha(Shade(obs, .5f), .95f), 1.5f);
-                    c.Fill(Intersect(whole, Capsule(new Vector2(x0 - w * .2f, y0 + 4), new Vector2(x0 - w * .12f + lean * .4f, y0 + h * .6f), .9f, .5f)), Flat(Alpha(Color.white, .7f)));
-                }
-            });
-            Add(l, "fire.vent", 104, 52, 8, (c, gy) =>
-            {
-                float cx = 52; c.SoftShadow(cx + 4, gy + 1, 40f, 6f, .45f, Alpha(shadow, 1f)); c.Glow(cx, gy + 10, 40f, lava, .35f);
-                var mound = Ellipse(cx, gy + 8, 36, 16);
-                c.Fill(mound, Toon(mound, rockDark, rockMid, rockLight, 12f, .1f, 6), Ink, 1.4f);
-                var slit = Ellipse(cx, gy + 15, 17, 4.5f);
-                c.Fill(slit, (x, y, d) => Color.Lerp(Shade(lava, .8f), Mix(lava, Color.white, .55f), Mathf.Clamp01(d / 3f)), Alpha(Shade(obs, .5f), .9f), 1.2f);
-                for (int k = 0; k < 5; k++) c.Glow(cx - 12 + k * 6, gy + 24 + (k % 2) * 7, 3.4f, Mix(lava, Color.white, .35f), .8f);
-            });
-        }
+
+
+
 
         // ---- sentenced (gothic crypt-yard, muted dusk) ----------------------------------------------------------------------------
 
@@ -545,12 +599,24 @@ namespace Roguehalla.Client
             Color moss = P(3, 0), fern = P(3, 1), spore = P(3, 2), shadow = P(3, 5);
             Color leafDark = Shade(Mix(fern, shadow, .35f), .85f), leafMid = Mix(fern, moss, .28f), leafLight = Mix(Mix(moss, spore, .26f), Color.white, .08f);
             Color stoneM = Mix(fern, new Color(.62f, .63f, .58f), .55f), stoneD = Shade(Mix(fern, shadow, .5f), .75f), stoneL = Mix(stoneM, Color.white, .35f);
-            Add(l, "plague.bush", 128, 88, 8, (c, gy) =>
+            Action<RegionCanvas, int> bushFallback = (c, gy) =>
             {
                 float cx = 64; c.SoftShadow(cx + 6, gy + 1, 46f, 8f, .4f, Alpha(shadow, 1f));
                 Lumps(c, cx, gy, 48, 34, 6, leafDark, leafMid, leafLight, 11);
                 for (int k = 0; k < 6; k++) { float x = 30 + RegionNoise.Hash01(k, 2, 21) * 68, y = gy + 14 + RegionNoise.Hash01(k, 3, 21) * 30; c.Fill(Circle(x, y, 1.8f), Flat(Mix(spore, Color.white, .5f))); }
-            });
+            };
+            Add(l, "plague.bush", 128, 88, 8, bushFallback);
+            void PaintedBush(string key, string resource)
+            {
+                var definition = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/" + resource);
+                int height = definition != null ? definition.HeightPixels(88) : 88;
+                Add(l, key, definition != null ? definition.WidthPixels(128) : 128, height,
+                    definition != null ? definition.GroundPixels(8, height) : 8, bushFallback,
+                    textureFoot: definition != null ? definition.ClampedTextureFoot(new Vector2(.5f, .055f)) : null,
+                    textureSource: definition != null ? definition.Pigment : null);
+            }
+            PaintedBush("plague.willow.bush", "PlagueBogWillowArt");
+            PaintedBush("sent.blackthorn.bush", "HauntedBlackthornArt");
             Add(l, "plague.tree", 148, 204, 10, (c, gy) =>
             {
                 float cx = 74; c.SoftShadow(cx + 8, gy + 1, 40f, 8f, .42f, Alpha(shadow, 1f));
@@ -561,6 +627,9 @@ namespace Roguehalla.Client
                 Lumps(c, cx, gy + 108, 36, 40, 4, leafDark, leafMid, leafLight, 37, .95f);
                 foreach (float vx in new[] { -34f, 28f, 8f }) c.Fill(Capsule(new Vector2(cx + vx, gy + 96), new Vector2(cx + vx + 2, gy + 62), 1.5f, 1f), Flat(Alpha(leafDark, .9f)));
             }, true);
+            // The measured root flare is inside the painted mask, above the tapering root tips.
+            Add(l, "plague.tree.ink", 148, 204, 10, (c, gy) => { }, true, "StormInk/Props/PlagueTree",
+                new Vector2(.573f, .074f));
             Add(l, "plague.fern", 96, 84, 8, (c, gy) =>
             {
                 float cx = 48; c.SoftShadow(cx + 4, gy + 1, 30f, 5f, .3f, Alpha(shadow, 1f));
@@ -572,7 +641,7 @@ namespace Roguehalla.Client
                     var frond = Union(Capsule(new Vector2(cx, gy + 2), mid, 3.2f, 3.4f), Capsule(mid, tip, 3.4f, .6f));
                     c.Fill(frond, Vertical(Mix(leafLight, spore, .08f), leafDark, gy + len, gy), Alpha(Shade(leafDark, .4f), .8f), 1.2f);
                 }
-            });
+            }, false, "StormInk/Props/PlagueFern");
             Add(l, "plague.column", 80, 148, 8, (c, gy) =>
             {
                 float cx = 40; c.SoftShadow(cx + 6, gy + 1, 26f, 6f, .4f, Alpha(shadow, 1f));
@@ -586,7 +655,7 @@ namespace Roguehalla.Client
                 c.Fill(Capsule(new Vector2(cx + 7, gy + 60), new Vector2(cx + 6, gy + 18), 1.8f, 1f), Flat(leafMid), Alpha(leafDark, .8f), 1f);
                 Lumps(c, cx, gy, 18, 12, 3, leafDark, leafMid, leafLight, 7);
             }, true);
-            Add(l, "plague.rubble", 112, 60, 8, (c, gy) =>
+            void RubbleFallback(RegionCanvas c, int gy)
             {
                 c.SoftShadow(56, gy + 1, 44f, 7f, .4f, Alpha(shadow, 1f));
                 Rock(c, 38, gy, 24, 18, 2, stoneD, stoneM, stoneL, null, 0, Shade(stoneD, .6f), .22f, 7);
@@ -594,7 +663,22 @@ namespace Roguehalla.Client
                 Rock(c, 56, gy + 1, 15, 11, 8, stoneD, stoneM, stoneL);
                 Lumps(c, 44, gy + 4, 28, 14, 3, leafDark, leafMid, leafLight, 15);
                 Blades(c, 80, gy + 3, 5, 20, 12, 1.3f, leafMid, leafLight, 3, .4f);
-            });
+            }
+            void AddBankRoot(string key, string definition, string legacyTexture = null)
+            {
+                var source = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/" + definition);
+                int width = source != null ? source.WidthPixels(112) : 112;
+                int height = source != null ? source.HeightPixels(60) : 60;
+                int ground = source != null ? source.GroundPixels(8, height) : 8;
+                Add(l, key, width, height, ground, RubbleFallback,
+                    texturePath: source == null ? legacyTexture : null,
+                    textureFoot: source != null ? source.ClampedTextureFoot(new Vector2(.5f, 0f)) : null,
+                    textureSource: source != null ? source.Pigment : null);
+            }
+            AddBankRoot("plague.rubble", "PlagueRubbleArt", "StormInk/Props/PlagueRubble");
+            AddBankRoot("plague.root.ribbon", "PlagueRootRibbonArt");
+            AddBankRoot("plague.root.fan", "PlagueRootFanArt");
+
             Add(l, "plague.mushroom", 96, 84, 8, (c, gy) =>
             {
                 c.SoftShadow(48, gy + 1, 30f, 5f, .35f, Alpha(shadow, 1f)); c.Glow(48, gy + 20, 36f, spore, .22f);
@@ -609,13 +693,17 @@ namespace Roguehalla.Client
                     for (int d = 0; d < 3; d++) c.Fill(Circle(x0 - r * .2f + d * r * .22f, gy + h * (.74f + (d % 2) * .06f), 1.7f), Flat(Alpha(Color.white, .85f)));
                     c.Glow(x0, gy + h * .72f, r * .55f, spore, .20f);
                 }
-            });
+            }, false, "StormInk/Props/PlagueMushroom");
+            // These atlas entries are selected only if the readable authored texture loaded.
+            Add(l, "plague.mushroom.umbrella", 70, 56, 8, (c, gy) => { }, false, "StormInk/Props/PlagueMushroomUmbrella");
+            Add(l, "plague.mushroom.pair", 56, 74, 8, (c, gy) => { }, false, "StormInk/Props/PlagueMushroomPair");
         }
 
         // ---- holy (desert, oasis, garden) -------------------------------------------------------------------------------------------
 
         static void AddHoly(List<Def> l)
         {
+            var shrubArt = HolyShrubArt.Load();
             Color sand = P(5, 0), green = P(5, 1), gold = P(5, 2), shadow = P(5, 5);
             Color leafDark = Shade(green, .62f), leafMid = green, leafLight = Mix(green, Color.white, .30f);
             Color stoneD = Shade(Mix(sand, shadow, .3f), .8f), stoneM = Mix(sand, Color.white, .02f), stoneL = Mix(sand, Color.white, .45f);
@@ -641,12 +729,16 @@ namespace Roguehalla.Client
                 }
                 var nut = Circle(crown.x + 3, crown.y - 4, 5); c.Fill(nut, Toon(nut, Shade(bark, .4f), Shade(bark, .7f), bark, 4f), Ink, 1.1f);
             }, true);
-            Add(l, "holy.shrub", 96, 68, 8, (c, gy) =>
+            int shrubW = shrubArt != null ? Mathf.RoundToInt(Mathf.Clamp(shrubArt.WidthWorldUnits, .5f, 3f) * PixelsPerUnit) : 96;
+            int shrubH = shrubArt != null ? Mathf.RoundToInt(Mathf.Clamp(shrubArt.HeightWorldUnits, .35f, 2f) * PixelsPerUnit) : 68;
+            int shrubGround = shrubArt != null ? Mathf.Min(Mathf.RoundToInt(Mathf.Clamp(shrubArt.GroundWorldUnits, 0f, .5f) * PixelsPerUnit), shrubH - 1) : 8;
+            Vector2 shrubFoot = shrubArt != null ? new Vector2(Mathf.Clamp01(shrubArt.TextureFoot.x), Mathf.Clamp01(shrubArt.TextureFoot.y)) : new Vector2(.5f, .055f);
+            Add(l, "holy.shrub", shrubW, shrubH, shrubGround, (c, gy) =>
             {
                 c.SoftShadow(52, gy + 1, 34f, 6f, .3f, Alpha(shadow, 1f));
                 Lumps(c, 48, gy, 34, 24, 5, leafDark, leafMid, leafLight, 31);
                 for (int k = 0; k < 6; k++) { float x = 26 + RegionNoise.Hash01(k, 2, 5) * 44, y = gy + 12 + RegionNoise.Hash01(k, 3, 5) * 20; c.Fill(Circle(x, y, 2.4f), Flat(Mix(gold, Color.white, .35f))); c.Fill(Circle(x, y, 1f), Flat(Mix(gold, Color.white, .8f))); }
-            });
+            }, false, textureFoot: shrubFoot, textureSource: shrubArt != null ? shrubArt.Pigment : null);
             Add(l, "holy.flowers", 88, 60, 6, (c, gy) =>
             {
                 c.SoftShadow(44, gy + 1, 30f, 5f, .25f, Alpha(shadow, 1f));
@@ -670,6 +762,13 @@ namespace Roguehalla.Client
                 for (int k = 0; k < 3; k++) c.Fill(Intersect(shaft, Capsule(new Vector2(cx - 6 + k * 6, gy + 26), new Vector2(cx - 6 + k * 6, gy + 70), .5f, .5f)), Flat(Alpha(stoneD, .45f)));
                 c.Glow(cx, gy + 72, 10f, gold, .18f);
             }, true);
+            Add(l, "holy.paver", 84, 30, 5, (c, gy) =>
+            {
+                var stone = Poly(new Vector2(5, gy + 6), new Vector2(10, gy + 18),
+                    new Vector2(71, gy + 19), new Vector2(79, gy + 13),
+                    new Vector2(74, gy + 4), new Vector2(12, gy + 3));
+                c.Fill(stone, Flat(stoneM), Alpha(stoneD, .65f), .9f);
+            }, false, "StormInk/Props/HolyPaver");
             Add(l, "holy.rock", 96, 60, 8, (c, gy) =>
             {
                 c.SoftShadow(50, gy + 1, 34f, 6f, .3f, Alpha(shadow, 1f));

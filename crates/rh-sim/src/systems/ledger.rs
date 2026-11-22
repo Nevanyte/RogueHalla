@@ -520,7 +520,7 @@ fn apply_inner(
         };
         let warhorn = e.credit_id().map_or(1., |id| {
             crate::quests::board::rewards::effects::damage_factor(w, id)
-        });
+        }) * crate::quests::board::rewards::effects::damage_taken_factor(w, e.victim);
         let gambler = if !e.arena && e.ability.is_none() {
             bix.filter(|i| {
                 w.is_player(*i)

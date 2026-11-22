@@ -92,7 +92,7 @@ impl Raid {
             }
             Hook => {
                 self.use_spell(award, to, None);
-                self.steps(4);
+                self.legacy_steps(4);
                 assert!(
                     distance(self.sim.w.player(rival).unwrap().pos(), from)
                         < distance(to, from) - 1.,
@@ -116,7 +116,7 @@ impl Raid {
                 victim.vitals.max_hp = max;
                 victim.vitals.hp = max;
                 self.use_spell(award, from, None);
-                self.steps(14);
+                self.legacy_steps(14);
                 assert!(
                     distance(self.sim.w.player(rival).unwrap().pos(), from)
                         < distance(to, from) - 1.
@@ -148,7 +148,7 @@ impl Raid {
                 let (id, at, hp) = (target.core.id, target.core.pos(), target.core.vitals.hp);
                 self.arrange(self.seat, at);
                 self.use_spell(award, at, Some(id));
-                self.steps(2);
+                self.legacy_steps(2);
                 assert!(self.sim.w.actor(id).is_none_or(|a| a.vitals.hp < hp));
             }
             SpellShield => {
@@ -200,7 +200,7 @@ impl Raid {
             }
             Bolas => {
                 self.use_spell(award, to, None);
-                self.steps(4);
+                self.legacy_steps(4);
                 let target = self.sim.w.player(rival).unwrap();
                 assert!(status_runtime::has(
                     &target.statuses.instances,

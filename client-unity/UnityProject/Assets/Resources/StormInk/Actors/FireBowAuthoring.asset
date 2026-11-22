@@ -1,0 +1,196 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43b2b9092407410c941eddd0ccfecc9b, type: 3}
+  m_Name: FireBowAuthoring
+  m_EditorClassIdentifier:
+  atlas: {fileID: 2800000, guid: b5ca6cfb136045ffb6f7a143eb1c8301, type: 3}
+  readyRows:
+  - 1
+  - 0
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 0
+  palms:
+  - Right: {x: 55, y: 63}
+    Left: {x: 80, y: 66}
+  - Right: {x: 52, y: 38}
+    Left: {x: 82, y: 59}
+  - Right: {x: 54, y: 34}
+    Left: {x: 78, y: 52}
+  - Right: {x: 47, y: 35}
+    Left: {x: 81, y: 56}
+  - Right: {x: 53, y: 67}
+    Left: {x: 82, y: 67}
+  - Right: {x: 49, y: 97}
+    Left: {x: 81, y: 103}
+  - Right: {x: 53, y: 78}
+    Left: {x: 84, y: 96}
+  - Right: {x: 53, y: 76}
+    Left: {x: 83, y: 90}
+  - Right: {x: 47, y: 76}
+    Left: {x: 88, y: 92}
+  - Right: {x: 48, y: 96}
+    Left: {x: 83, y: 98}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 59, y: 69}
+    Left: {x: 88, y: 61}
+  - Right: {x: 63, y: 54}
+    Left: {x: 99, y: 50}
+  - Right: {x: 62, y: 36}
+    Left: {x: 109, y: 39}
+  - Right: {x: 50, y: 35}
+    Left: {x: 107, y: 41}
+  - Right: {x: 63, y: 62}
+    Left: {x: 101, y: 50}
+  - Right: {x: 55, y: 100}
+    Left: {x: 100, y: 94}
+  - Right: {x: 65, y: 85}
+    Left: {x: 106, y: 77}
+  - Right: {x: 63, y: 73}
+    Left: {x: 112, y: 74}
+  - Right: {x: 51, y: 70}
+    Left: {x: 110, y: 75}
+  - Right: {x: 53, y: 92}
+    Left: {x: 102, y: 86}
+  - Right: {x: 69, y: 79}
+    Left: {x: 109, y: 69}
+  - Right: {x: 78, y: 57}
+    Left: {x: 117, y: 28}
+  - Right: {x: 75, y: 37}
+    Left: {x: 121, y: 19}
+  - Right: {x: 70, y: 39}
+    Left: {x: 122, y: 19}
+  - Right: {x: 74, y: 71}
+    Left: {x: 115, y: 59}
+  - Right: {x: 58, y: 106}
+    Left: {x: 98, y: 93}
+  - Right: {x: 62, y: 87}
+    Left: {x: 102, y: 63}
+  - Right: {x: 60, y: 72}
+    Left: {x: 108, y: 56}
+  - Right: {x: 53, y: 73}
+    Left: {x: 107, y: 56}
+  - Right: {x: 54, y: 97}
+    Left: {x: 99, y: 81}
+  - Right: {x: 85, y: 75}
+    Left: {x: 38, y: 74}
+  - Right: {x: 89, y: 34}
+    Left: {x: 51, y: 48}
+  - Right: {x: 76, y: 34}
+    Left: {x: 53, y: 10}
+  - Right: {x: 84, y: 35}
+    Left: {x: 52, y: 10}
+  - Right: {x: 86, y: 74}
+    Left: {x: 39, y: 74}
+  - Right: {x: 91, y: 96}
+    Left: {x: 37, y: 94}
+  - Right: {x: 92, y: 63}
+    Left: {x: 53, y: 75}
+  - Right: {x: 78, y: 63}
+    Left: {x: 55, y: 39}
+  - Right: {x: 86, y: 63}
+    Left: {x: 54, y: 40}
+  - Right: {x: 93, y: 97}
+    Left: {x: 38, y: 96}
+  - Right: {x: 79, y: 61}
+    Left: {x: 35, y: 73}
+  - Right: {x: 79, y: 40}
+    Left: {x: 24, y: 31}
+  - Right: {x: 69, y: 32}
+    Left: {x: 15, y: 17}
+  - Right: {x: 79, y: 33}
+    Left: {x: 19, y: 20}
+  - Right: {x: 78, y: 52}
+    Left: {x: 22, y: 55}
+  - Right: {x: 58, y: 73}
+    Left: {x: 6, y: 93}
+  - Right: {x: 65, y: 61}
+    Left: {x: 6, y: 53}
+  - Right: {x: 61, y: 55}
+    Left: {x: 8, y: 42}
+  - Right: {x: 71, y: 61}
+    Left: {x: 7, y: 45}
+  - Right: {x: 62, y: 73}
+    Left: {x: 7, y: 80}
+  - Right: {x: 81, y: 68}
+    Left: {x: 40, y: 74}
+  - Right: {x: 54, y: 36}
+    Left: {x: 24, y: 44}
+  - Right: {x: 75, y: 33}
+    Left: {x: 20, y: 39}
+  - Right: {x: 82, y: 38}
+    Left: {x: 18, y: 41}
+  - Right: {x: 80, y: 68}
+    Left: {x: 34, y: 66}
+  - Right: {x: 74, y: 94}
+    Left: {x: 31, y: 103}
+  - Right: {x: 47, y: 75}
+    Left: {x: 19, y: 81}
+  - Right: {x: 49, y: 72}
+    Left: {x: 15, y: 79}
+  - Right: {x: 80, y: 78}
+    Left: {x: 14, y: 81}
+  - Right: {x: 74, y: 94}
+    Left: {x: 24, y: 99}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  - Right: {x: 0, y: 0}
+    Left: {x: 0, y: 0}
+  midDrawAt: 0.22
+  sustainedDrawAt: 0.68
+  stringBehindBodyRows:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 1
+  - 1
+  - 1
+  - 0

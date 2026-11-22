@@ -34,7 +34,26 @@ namespace Roguehalla.Client
             var again = LaunchUi.Button(card, "Rejoin", 16f, 324f, 238f, 42f, LaunchUi.Look.Primary, JoinAgain);
             LaunchUi.Text(again.transform, "Label", 0, 0, 238f, 42f, "PLAY AGAIN", 14f, theme.OutlineDark, TextAlignmentOptions.Center, true);
             var menu = LaunchUi.Button(card, "Menu", 266f, 324f, 238f, 42f, LaunchUi.Look.Raised, () => _client.Leave());
-            LaunchUi.Text(menu.transform, "Label", 0, 0, 238f, 42f, "RETURN TO MENU", 14f, theme.TextPrimary, TextAlignmentOptions.Center, true);
+            LaunchUi.Text(menu.transform, "Label", 0, 0, 238f, 42f, "RETURN TO LOBBY", 14f, theme.TextPrimary, TextAlignmentOptions.Center, true);
+            // After a final death while the match is still being played, a second row of three replaces these two (MatchHud.Spectate).
+            _spectateButton = LaunchUi.Button(card, "Spectate", 16f, 324f, 152f, 42f, LaunchUi.Look.Primary, StartSpectating);
+            LaunchUi.Text(_spectateButton.transform, "Label", 0, 0, 152f, 42f, "SPECTATE", 14f, theme.OutlineDark, TextAlignmentOptions.Center, true);
+            var again3 = LaunchUi.Button(card, "Rejoin3", 184f, 324f, 152f, 42f, LaunchUi.Look.Raised, JoinAgain);
+            LaunchUi.Text(again3.transform, "Label", 0, 0, 152f, 42f, "PLAY AGAIN", 14f, theme.TextPrimary, TextAlignmentOptions.Center, true);
+            var menu3 = LaunchUi.Button(card, "Menu3", 352f, 324f, 152f, 42f, LaunchUi.Look.Raised, () => _client.Leave());
+            LaunchUi.Text(menu3.transform, "Label", 0, 0, 152f, 42f, "RETURN TO LOBBY", 13f, theme.TextPrimary, TextAlignmentOptions.Center, true);
+            _resultsTwo = new[] { again.gameObject, menu.gameObject };
+            _resultsThree = new[] { _spectateButton.gameObject, again3.gameObject, menu3.gameObject };
+            LayoutResultsButtons(false);
+        }
+
+        GameObject[] _resultsTwo, _resultsThree;
+
+        /// <summary>Two buttons (Play again, Return to lobby), or three with Spectate first after a death in a running match.</summary>
+        void LayoutResultsButtons(bool spectate)
+        {
+            foreach (var go in _resultsTwo) go.SetActive(!spectate);
+            foreach (var go in _resultsThree) go.SetActive(spectate);
         }
 
         void ShowResultFacts(Roguehalla.Net.Protocol.WireResult r)
@@ -42,7 +61,7 @@ namespace Roguehalla.Client
             var theme = UiTheme.Current;
             _resultOutcome.text = r.Outcome < Outcomes.Length ? Outcomes[r.Outcome] : "Outcome " + r.Outcome;
             _resultOutcome.color = r.Outcome == 0 ? (Color)theme.Accent : r.Outcome == 2 ? (Color)theme.Warning : (Color)theme.TextPrimary;
-            string[] values = { r.Place + " of " + r.Players, r.Kills.ToString(), r.GvTotal + "  (win " + r.GvWin + ")", r.DurationSec + " s", r.KilledBy };
+            string[] values = { r.Place + " of " + r.Players, r.Kills.ToString(), r.GvTotal + "  (" + r.GvWin + " from the win)", (r.DurationSec / 60) + ":" + (r.DurationSec % 60).ToString("00"), r.KilledBy };
             for (int i = 0; i < values.Length; i++)
             {
                 bool show = i != 4 || !string.IsNullOrEmpty(r.KilledBy);

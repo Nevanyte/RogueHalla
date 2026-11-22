@@ -225,7 +225,8 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
             params: FeatureParams::None,
         },
         // The church (`#` walls, `P` pillars) and its graveyard (`G` headstones, `+` the LOW fence), `E` on the camp;
-        // the entrance is the main gate, the open front row through `E`'s column.
+        // `D` is the lane-facing door and `R` is the opposite rear door; the entrance remains the churchyard's main
+        // gate, the open front row through `E`'s column.
         Spec {
             zone: Zone::Sentenced,
             kind: Church,
@@ -239,6 +240,7 @@ pub fn specs(d: &Definition) -> Vec<Spec> {
                 plain(b'*'),
                 mark(b'E'),
                 mark(b'D'),
+                mark(b'R'),
             ]),
             features: vec![
                 landmark(Church),

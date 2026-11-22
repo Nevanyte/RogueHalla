@@ -201,6 +201,103 @@ namespace Roguehalla.Net.Ui
             return h;
         }
 
+        // ---- the compact hub list (open-alpha clean-up) -----------------------------------------------------------------------
+        // One short status line per room, then its humans on one comma-separated line with bots folded into a count, so a busy
+        // server (10+ people) still fits the hub card instead of one line per person.
+
+        public const string OnlineTitle = "Players online", HubTitle = "In the hub", NobodyOnline = "Nobody online yet. Start a run and bots fill the empty seats.";
+        /// <summary>Humans named per group before the rest fold into "+N more".</summary>
+        public const int MaxNamesShown = 8;
+
+        /// <summary>"1 bot", "3 bots".</summary>
+        public static string Count(int n, string one, string many)
+        {
+            return n.ToString(CultureInfo.InvariantCulture) + " " + (n == 1 ? one : many);
+        }
+
+        /// <summary>Rooms in the order a player cares about: ones still gathering (joinable) first, then planning, running, finished; stable inside a phase.</summary>
+        public static List<LobbyRoom> DisplayOrder(IReadOnlyList<LobbyRoom> rooms)
+        {
+            var list = new List<LobbyRoom>(rooms.Count);
+            foreach (var phase in new[] { LobbyPhase.Lobby, LobbyPhase.Planning, LobbyPhase.Active, LobbyPhase.Finished })
+                foreach (var r in rooms) if (r.Phase == phase) list.Add(r);
+            return list;
+        }
+
+        /// <summary>The room's status line: "Gathering players · 2/3" while it fills, otherwise "Run in progress · 5 players".</summary>
+        public static string RoomStatus(LobbyRoom room)
+        {
+            int humans = 0;
+            foreach (var p in room.Players) if (!p.Bot) humans++;
+            if (room.Phase == LobbyPhase.Lobby) return PhaseLabel(room.Phase) + " · " + LobbyCount(humans, room.HumanMin, room.FillTarget);
+            return PhaseLabel(room.Phase) + " · " + Count(humans, "player", "players");
+        }
+
+        /// <summary>The room's people on one line: humans by name (at most <paramref name="max"/>, then "+N more"), bots as a count.</summary>
+        public static string RoomNames(LobbyRoom room, int max = MaxNamesShown)
+        {
+            var humans = new List<string>();
+            int bots = 0;
+            foreach (var p in room.Players) { if (p.Bot) bots++; else humans.Add(p.Name); }
+            if (humans.Count == 0 && bots == 0) return NoPlayers;
+            return NameList(humans, max, bots);
+        }
+
+        /// <summary>"Alpha, Bravo +3 more · 2 bots". Names are already plain and bounded (<see cref="CleanName"/>).</summary>
+        public static string NameList(IReadOnlyList<string> names, int max, int bots = 0)
+        {
+            var sb = new StringBuilder();
+            int shown = Math.Min(names.Count, Math.Max(1, max));
+            for (int i = 0; i < shown; i++) { if (i > 0) sb.Append(", "); sb.Append(names[i]); }
+            if (names.Count > shown) sb.Append(" +").Append((names.Count - shown).ToString(CultureInfo.InvariantCulture)).Append(" more");
+            if (bots > 0) { if (sb.Length > 0) sb.Append(" · "); sb.Append(Count(bots, "bot", "bots")); }
+            return sb.ToString();
+        }
+
+        /// <summary>Names of the people waiting in the hub, in the server's (sorted) order.</summary>
+        public static List<string> WaitingNames(LobbyActivityModel model)
+        {
+            var list = new List<string>(model.Waiting.Count);
+            foreach (var p in model.Waiting) list.Add(p.Name);
+            return list;
+        }
+
+        /// <summary>
+        /// The match lobby's seated list: a "Players · 3 humans · 2 bots" header, the humans one per line with "(you)" on the local
+        /// player, then the bots folded onto one line. Seat order is kept inside each group.
+        /// </summary>
+        public static string SeatedList(IReadOnlyList<RosterEntry> roster, uint me)
+        {
+            var humans = new List<string>();
+            var bots = new List<string>();
+            foreach (var e in roster) Seat(humans, bots, e.Id, e.Name, e.Bot, me);
+            return SeatedText(humans, bots);
+        }
+
+        public static string SeatedList(IReadOnlyList<WireRosterRow> rows, uint me)
+        {
+            var humans = new List<string>();
+            var bots = new List<string>();
+            foreach (var r in rows) Seat(humans, bots, r.Id, r.Name, r.Bot, me);
+            return SeatedText(humans, bots);
+        }
+
+        static void Seat(List<string> humans, List<string> bots, uint id, string name, bool bot, uint me)
+        {
+            string n = CleanName(name) ?? "?";
+            if (bot) bots.Add(n);
+            else humans.Add(me != 0 && id == me ? n + " (you)" : n);
+        }
+
+        static string SeatedText(List<string> humans, List<string> bots)
+        {
+            var sb = new StringBuilder("Players · ").Append(Count(humans.Count, "human", "humans"));
+            if (bots.Count > 0) sb.Append(" · ").Append(Count(bots.Count, "bot", "bots"));
+            foreach (var h in humans) sb.Append('\n').Append(h);
+            if (bots.Count > 0) sb.Append('\n').Append("Bots: ").Append(string.Join(", ", bots));
+            return sb.ToString();
+        }
+
         // Bounded recursive-descent JSON reader. Values: Dictionary<string,object>, List<object>, string, double, bool, null.
         sealed class Reader
         {

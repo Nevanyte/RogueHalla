@@ -6,7 +6,7 @@
 //!       [--tick-ms 50|25] (ADR 0029; else RH_TICK_MS, else 25 since P-TICK-6: every room's step, its Welcome rate and its pacer)
 //!       [--first-playable] (embedded small PvE/loot map; drain at4h, forced process stop by4h+180s)
 //!       [--control 127.0.0.1:7778] [--map parity/maps/seed1.map.json] [--max-rooms 16] [--fill-bots 8]
-//!       [--min-players 1] [--lobby-seconds 10] [--fill-seconds 3] [--lobby-timing legacy|matchmaking] [--auth dev|static:<file>]
+//!       [--min-players 1] [--lobby-seconds 10] [--fill-seconds 3] [--lobby-timing legacy|matchmaking] [--bot-wait-seconds 13] [--auth dev|static:<file>]
 //!       [--database-url postgres://... [--instance-id id]]   (build with --features postgres)
 //!       [--bot-learning off|single-writer]   (default off; single-writer needs PostgreSQL and its exclusive lease)
 //!       [--bot-brain off|full]   (default off: fill bots play HumanBot; full seats the ported Brain, HumanBot as its fallback)

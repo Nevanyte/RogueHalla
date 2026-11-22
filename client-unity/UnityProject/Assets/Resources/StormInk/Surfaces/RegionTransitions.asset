@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 678a4296eae9436ba7e89eed2ce55b07, type: 3}
+  m_Name: RegionTransitions
+  m_EditorClassIdentifier:
+  GrassWeathering: 1
+  RockBreakup: 1
+  PavingBreakup: 1
+  SnowEdge: 1
+  FootWash: 0.78
+  GroundedProps:
+  - fire.basalt.ledge
+  - fire.scree
+  - fire.scree.cobbles
+  - fire.rocks
+  - fire.stump
+  - fire.spire
+  - sent.deadtree
+  - sent.deadgrass
+  - plague.fern
+  - plague.mushroom
+  - plague.root.fan
+  - plague.root.ribbon
+  - plague.tree
+  - plague.rubble
+  - frost.drift
+  - frost.drift2
+  - frost.pine
+  - frost.pine2
+  - frost.reeds
+  - frost.rock
+  - frost.rock2
+  - frost.shards
+  - holy.palm
+  - holy.grass
+  - holy.flowers
+  - holy.rock
+  - holy.shrub
+  - edge.grass
+  WinterSedge: {fileID: 2800000, guid: 2d86b9f0f1b04014aa929bea00acc8c2, type: 3}
+  SedgeSize: {x: 0.94, y: 0.47}
+  SedgeFoot: {x: 0.37, y: 0.14}

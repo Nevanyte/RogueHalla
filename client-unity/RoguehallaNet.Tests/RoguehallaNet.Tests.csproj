@@ -33,6 +33,7 @@
     <Compile Include="..\UnityProject\Assets\Scripts\Presentation\ActorOutlineModel.cs" Link="ActorOutlineModel.cs" />
     <Compile Include="..\UnityProject\Assets\Scripts\Presentation\ActorShadowStrip.cs" Link="ActorShadowStrip.cs" />
     <Compile Include="..\UnityProject\Assets\Scripts\Presentation\WishFxModel.cs" Link="WishFxModel.cs" />
+    <Compile Include="..\UnityProject\Assets\Scripts\UI\HubArtworkContract.cs" Link="HubArtworkContract.cs" />
     <EmbeddedResource Include="..\..\crates\rh-persist\data\cosmetics.json" LogicalName="Account.Cosmetics.json" />
     <EmbeddedResource Include="..\UnityProject\Assets\Resources\Account\cosmetics.json" LogicalName="Account.PresentationCosmetics.json" />
     <EmbeddedResource Include="..\UnityProject\Assets\Resources\Account\achievements.json" LogicalName="Account.PresentationAchievements.json" />

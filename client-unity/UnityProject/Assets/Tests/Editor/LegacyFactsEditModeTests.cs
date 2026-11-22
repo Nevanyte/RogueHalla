@@ -88,11 +88,11 @@ namespace Roguehalla.Client.Tests
             f.M.Tier = 0; f.M.Brand = 60; _ind.Update(f); Assert.IsFalse(Find("Mark pip 1").enabled); Assert.IsTrue(Find("Mark brand ring").enabled);
         }
 
-        [Test] public void Immunity_and_roam_ready_draw_their_rings()
+        [Test] public void Immunity_and_roam_ready_draw_their_marks()
         {
             var f = Facts(); f.M.Immune = true; f.M.Roam = true; _ind.Update(f);
-            Assert.IsTrue(Find("Teleport immunity ring").enabled); Assert.IsTrue(Find("Roam ready ring outer").enabled);
-            f.M.Immune = false; f.M.Roam = false; _ind.Update(f); Assert.IsFalse(Find("Teleport immunity ring").enabled); Assert.IsFalse(Find("Roam ready ring inner").enabled);
+            Assert.IsTrue(Find("Teleport immunity ring").enabled); Assert.IsTrue(Find("Fire Roam wash").enabled);
+            f.M.Immune = false; f.M.Roam = false; _ind.Update(f); Assert.IsFalse(Find("Teleport immunity ring").enabled); Assert.IsFalse(Find("Fire Roam ember").enabled);
         }
 
         // ---- numbers through the arena ----------------------------------------------------------------------------------------------------------

@@ -5,6 +5,7 @@
 //! served in time is closed with `TooSlow`, never allowed to stall the match).
 
 use crate::director::{Director, Hello};
+use crate::lifecycle_log::{self, DropReason};
 use crate::outbox::Outbox;
 use crate::room::RoomCmd;
 use axum::extract::ws::{Message, WebSocket};
@@ -17,8 +18,8 @@ use std::time::Duration;
 
 pub const HELLO_TIMEOUT: Duration = Duration::from_secs(5);
 /// Liveness: a client that sends nothing (clients ping at least every second) for this long is treated as dropped; its
-/// seat is held for the reconnect grace (legacy: a 4.5 s beat timeout). Catches half-open sockets.
-pub const IDLE_TIMEOUT: Duration = Duration::from_secs(10);
+/// seat is held for the reconnect grace (legacy: a 4.5 s beat timeout; 30 s here so a throttled background tab survives). Catches half-open sockets.
+pub const IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 /// A socket write that cannot complete in this long ends the connection (a client that stopped reading).
 pub const SEND_TIMEOUT: Duration = Duration::from_secs(5);
 /// After the server closes a connection it keeps reading (and discarding) for up to this long, until the peer's close
@@ -92,7 +93,8 @@ fn clip_reason(reason: &str) -> &str {
     &reason[..end]
 }
 
-async fn reject(sock: &mut WebSocket, code: RejectCode, reason: &str) {
+async fn reject(sock: &mut WebSocket, peer: std::net::IpAddr, code: RejectCode, reason: &str) {
+    eprintln!("{}", lifecycle_log::reject(code, clip_reason(reason), peer));
     let frame = ServerMsg::Reject {
         code,
         reason: clip_reason(reason).into(),
@@ -114,10 +116,16 @@ pub async fn serve_guarded(
     director: Arc<Director>,
     mut edge: Option<crate::edge::WsTicket>,
 ) {
+    // Only the public edge knows the client address (a bare `serve` socket logs the unspecified address).
+    let peer = edge
+        .as_ref()
+        .map_or(std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED), |t| {
+            t.client_ip()
+        });
     let first = match tokio::time::timeout(HELLO_TIMEOUT, sock.recv()).await {
         Ok(Some(Ok(Message::Binary(b)))) => b,
         Ok(_) | Err(_) => {
-            reject(&mut sock, RejectCode::Malformed, "expected Hello").await;
+            reject(&mut sock, peer, RejectCode::Malformed, "expected Hello").await;
             return;
         }
     };
@@ -127,6 +135,7 @@ pub async fn serve_guarded(
         if theirs != PROTOCOL_VERSION {
             reject(
                 &mut sock,
+                peer,
                 RejectCode::ProtocolMismatch,
                 &format!("server speaks protocol {PROTOCOL_VERSION}, client {theirs}"),
             )
@@ -152,7 +161,7 @@ pub async fn serve_guarded(
             resume,
         },
         _ => {
-            reject(&mut sock, RejectCode::Malformed, "expected Hello").await;
+            reject(&mut sock, peer, RejectCode::Malformed, "expected Hello").await;
             return;
         }
     };
@@ -165,6 +174,7 @@ pub async fn serve_guarded(
         Some(Err(wait)) => {
             reject(
                 &mut sock,
+                peer,
                 RejectCode::RateLimited,
                 &format!(
                     "too many failed sign-ins from this address; retry in {} s",
@@ -185,7 +195,7 @@ pub async fn serve_guarded(
     let (room, ok) = match admitted {
         Ok(x) => x,
         Err((code, reason)) => {
-            reject(&mut sock, code, &reason).await;
+            reject(&mut sock, peer, code, &reason).await;
             return;
         }
     };
@@ -277,6 +287,7 @@ pub async fn serve_guarded(
     let mut streak = 0u32;
     let mut left = false;
     let mut writer_done = false;
+    let mut reason = DropReason::Closed;
     loop {
         // Stop reading as soon as the writer is done (a TooSlow/RateLimited close, or a dead socket), or on idleness.
         let msg = match next_wake(
@@ -290,7 +301,11 @@ pub async fn serve_guarded(
         .await
         {
             Wake::Frame(m) => m,
-            Wake::Closed | Wake::Idle => break,
+            Wake::Closed => break,
+            Wake::Idle => {
+                reason = DropReason::IdleTimeout;
+                break;
+            }
             Wake::WriterDone => {
                 writer_done = true;
                 break;
@@ -384,7 +399,13 @@ pub async fn serve_guarded(
     }
     if !left {
         // A dropped connection keeps the seat for the reconnect grace (room.rs).
-        let _ = room.send(RoomCmd::Disconnected { player, conn }).await;
+        let _ = room
+            .send(RoomCmd::Lost {
+                player,
+                conn,
+                reason,
+            })
+            .await;
     }
     outbox.close(RejectCode::Kicked);
     if !writer_done

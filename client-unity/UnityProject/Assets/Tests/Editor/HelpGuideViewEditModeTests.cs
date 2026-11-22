@@ -25,11 +25,11 @@ public sealed class HelpGuideViewEditModeTests
     {
         string terms = string.Join("\n", HelpGuideContent.Mechanics.SelectMany(x => x.Entries).Select(x => x.Term + " " + x.Description));
         foreach (string term in new[] { "Offense", "SO · Soul Offence", "Physical", "Magic", "True", "Damage over time", "On-hit", "Returned",
-            "Slow", "Heal", "Block", "Ramping", "Execute", "Critical strike", "Area", "Wish", "Fire · Burn", "Sentenced · Mark",
+            "Slow", "Heal", "Block", "Ramping", "Execute", "Critical strike", "Area", "Wish", "Fire · Burn", "Haunted · Mark",
             "Plague · Disease and execute", "Frost · Chill", "Holy · Lifesteal", "Sword", "Axe", "Bow", "Wand", "Shield", "Fists" })
             StringAssert.Contains(term, terms);
         Assert.IsFalse(Regex.IsMatch(terms, @"\d"), "Mechanics descriptions and terms avoid numeric formulas and balance values.");
-        Assert.AreEqual(4, HelpGuideContent.Mechanics.Count);
+        Assert.AreEqual(5, HelpGuideContent.Mechanics.Count);
     }
 
     [Test]

@@ -10,17 +10,35 @@ public sealed class LobbyRosterEditModeTests
         "\"waiting\":[{\"name\":\"bravo\"}],\"onlineCount\":2,\"arenaLimit\":16,\"arenaRoomCount\":1,\"arenaAvailable\":true}";
 
     [Test]
-    public void HubPanelShowsTheGameThenTheWaitingGroupWithLegacyHeadings()
+    public void HubPanelShowsGatheringRoomsThenRunningOnesThenTheHub()
     {
-        string text = HubLobbyActivityView.Compose(LobbyActivity.Parse(Sample), 1000, true);
-        int game = text.IndexOf("Active game · 1 humans · 1 bots", System.StringComparison.Ordinal);
-        int waiting = text.IndexOf("Waiting in the hub · 1", System.StringComparison.Ordinal);
-        Assert.Greater(game, -1);
-        Assert.Greater(waiting, game);
-        StringAssert.Contains("Gathering players", text);
-        StringAssert.Contains("bot1 · Bot", text);
-        StringAssert.Contains("bravo · Human", text);
-        StringAssert.Contains("Lobby activity · 2 online", text);
+        const string busy =
+            "{\"serverNow\":1,\"rooms\":[" +
+            "{\"phase\":\"active\",\"startedAt\":5,\"humanMin\":2,\"fillTarget\":6,\"humans\":2,\"players\":[{\"name\":\"Cy\",\"kind\":\"human\"},{\"name\":\"Dee\",\"kind\":\"human\"},{\"name\":\"b1\",\"kind\":\"bot\"}]}," +
+            "{\"phase\":\"lobby\",\"startedAt\":null,\"humanMin\":3,\"fillTarget\":0,\"humans\":1,\"players\":[{\"name\":\"Alpha\",\"kind\":\"human\"}]}]," +
+            "\"waiting\":[{\"name\":\"bravo\"},{\"name\":\"echo\"}],\"onlineCount\":5,\"arenaLimit\":16,\"arenaRoomCount\":2,\"arenaAvailable\":true}";
+        string text = HubLobbyActivityView.Compose(LobbyActivity.Parse(busy), 1000, true);
+        Assert.AreEqual(
+            "Players online · 5\n" +
+            "Gathering players · 1/3\nAlpha\n" +
+            "Run in progress · 2 players\nCy, Dee · 1 bot\n" +
+            "In the hub · 2\nbravo, echo", text);
+    }
+
+    [Test]
+    public void HubPanelColoursOnlyItsOwnLinesWhenStyled()
+    {
+        var style = new HubLobbyActivityView.Style("#111111", "#222222", "#333333");
+        string text = HubLobbyActivityView.Compose(LobbyActivity.Parse(Sample), 1000, true, style);
+        StringAssert.StartsWith("<b>Players online · 2</b>\n<color=#222222>Gathering players · 1/3</color>\nAlpha · 1 bot\n", text);
+        StringAssert.EndsWith("<color=#111111>In the hub · 1</color>\nbravo", text);
+    }
+
+    [Test]
+    public void EmptyServerSaysSoInOneLine()
+    {
+        string quiet = "{\"serverNow\":1,\"rooms\":[],\"waiting\":[],\"onlineCount\":0,\"arenaLimit\":16,\"arenaRoomCount\":0,\"arenaAvailable\":true}";
+        Assert.AreEqual("Players online · 0\n" + LobbyActivity.NobodyOnline, HubLobbyActivityView.Compose(LobbyActivity.Parse(quiet), 0, true));
     }
 
     [Test]

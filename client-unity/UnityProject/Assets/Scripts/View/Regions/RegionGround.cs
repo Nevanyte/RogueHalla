@@ -28,9 +28,24 @@ namespace Roguehalla.Client
             var shader = Resources.Load<Shader>("Regions/RegionGround");
             Material = new Material(shader) { name = "Roguehalla / region ground" };
             _owned.Add(Material);
+            var edgeArt = RegionTransitionArt.Load();
+            if (edgeArt != null) Material.SetVector("_RegionEdgeArt", edgeArt.MaterialControls);
+            var holySand = HolyDrySandArt.Load();
+            var arenaBounds = ColiseumBounds(map.Regions, map.W, map.H);
+            var paving = arenaBounds.w > 0f ? Resources.Load<ColiseumFloorArt>("StormInk/Coliseum/ColiseumFloorArt") : null;
+            var limestone = paving != null ? paving.ActivePigment : null;
+            if (temple != null) temple.BindSignatureGround(Material);
+            bool paintedMarsh = PlagueGround.BindStormInkGround(Material, map);
 
-            var ground = RegionGroundTextures.Build(out var groundNormals); _owned.Add(ground); _owned.Add(groundNormals);
+            var dryFloors = new RegionalFloorArt[RegionGroundTextures.Layers];
+            LoadFloor(dryFloors, map.Regions, RegionId.Fire, "FireAshFloor");
+            LoadFloor(dryFloors, map.Regions, RegionId.Sentenced, "HauntedFlagstoneFloor");
+            LoadFloor(dryFloors, map.Regions, RegionId.Frost, "FrostSnowFloor");
+            var ground = RegionGroundTextures.Build(holySand, out var groundNormals, out bool holySandPacked,
+                limestone, dryFloors, Material); _owned.Add(ground); _owned.Add(groundNormals);
             Material.SetTexture("_GroundTex", ground); Material.SetTexture("_GroundNrm", groundNormals);
+            holySand?.Bind(Material, holySandPacked);
+            if (limestone != null) paving.Bind(Material, ground.depth - 1);
 
             int w = map.W, h = map.H;
             var regionA = new Color32[w * RegionTexelsPerTile * h * RegionTexelsPerTile];
@@ -46,13 +61,24 @@ namespace Roguehalla.Client
 
             int tw = w * TerrainTexelsPerTile, th = h * TerrainTexelsPerTile;
             var terA = new Color32[tw * th]; var terB = new Color32[tw * th];
-            BakeTerrain(RegionMap.EffectiveTerrain(map), w, h, terA, terB);
+            byte[] effectiveTerrain = RegionMap.EffectiveTerrain(map);
+            BakeTerrain(effectiveTerrain, w, h, terA, terB);
             Material.SetTexture("_TerA", Tex("Terrain A", tw, th, terA));
             Material.SetTexture("_TerB", Tex("Terrain B", tw, th, terB));
+            if (Material.HasProperty("_StormFlowMap") && SystemInfo.SupportsTextureFormat(TextureFormat.RGBAHalf))
+            {
+                var flow = StormBoundCurrent.CreateTexture(map, plague, effectiveTerrain);
+                if (flow != null)
+                {
+                    _owned.Add(flow);
+                    Material.SetTexture("_StormFlowMap", flow);
+                    Material.SetFloat("_StormFlowOn", 1f);
+                }
+            }
 
             // Plague mud, grass and shallow water (r water, g grass, b depth), 2 texels per tile.
             const int plgTexels = 2;
-            Material.SetTexture("_PlgTex", Tex("Plague ground", w * plgTexels, h * plgTexels, plague.Bake(plgTexels)));
+            Material.SetTexture("_PlgTex", Tex("Plague ground", w * plgTexels, h * plgTexels, plague.Bake(plgTexels, paintedMarsh ? map.GroundVariants : null)));
             // Temple: footprint (x0, y0, size, found); great crossing, light count and apse radius; portals and apse edge; the stone; lamp and brazier pools; pier presence per tile.
             bool hasTemple = temple != null && temple.Found;
             Material.SetVector("_Temple", hasTemple ? new Vector4(temple.X0, temple.Y0, temple.Size, 1f) : Vector4.zero);
@@ -83,7 +109,7 @@ namespace Roguehalla.Client
             bool anyVariant = vin.SoftActive; for (int i = 0; i < vin.Tile.Length && !anyVariant; i++) if (vin.Tile[i].a != 0) anyVariant = true;
             Material.SetFloat("_VariantOn", anyVariant ? 1f : 0f);
             Material.SetFloat("_VariantSoft", vin.SoftActive ? 1f : 0f);
-            Material.SetVector("_Coliseum", ColiseumBounds(map.Regions, w, h));
+            Material.SetVector("_Coliseum", arenaBounds);
 
             Material.SetVector("_Map", new Vector4(w, h, ArenaView.GroundSquash, 0));
             Material.SetFloat("_Exposure", exposure);
@@ -103,6 +129,12 @@ namespace Roguehalla.Client
             mr.sharedMaterial = Material; mr.sortingOrder = GroundSortingOrder;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
             mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+        }
+
+        static void LoadFloor(RegionalFloorArt[] floors, byte[] regions, RegionId id, string name)
+        {
+            if (System.Array.IndexOf(regions, (byte)id) >= 0)
+                floors[(int)id - 1] = Resources.Load<RegionalFloorArt>("StormInk/Surfaces/" + name);
         }
 
         /// <summary>One texel per tile (row-major, w * h), the ground-variant look the shader applies to the base ground: rgb the tint, a its strength (0 = base ground), as decided by <see cref="Roguehalla.Net.Ui.GroundTint.Bake"/> (the server's variant, plus the Sentenced scatter family). Variant 0 on a tile without a scatter family and an unknown variant bake 0; an unknown variant logs once per call.</summary>

@@ -314,7 +314,7 @@ fn warhorn_forces_walk_and_buffs_then_draughts_apply_and_expire() {
     let from = position(&sim, rival);
     cast(&mut sim, owner, Award::Warhorn, at, None);
     assert!(position(&sim, rival).x < from.x);
-    assert_eq!(damage_factor(&sim.w, owner), 1.05);
+    assert_eq!(damage_factor(&sim.w, owner), 1.2);
     assert_eq!(damage_factor(&sim.w, rival), 1.);
     step(&mut sim, 50);
     assert_eq!(damage_factor(&sim.w, owner), 1.);

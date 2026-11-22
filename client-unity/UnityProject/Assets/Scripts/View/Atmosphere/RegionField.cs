@@ -51,11 +51,13 @@ namespace Roguehalla.Client
         public void Sample(float tx, float ty, float[] outW)
         {
             if (_w == null) { for (int k = 0; k < Regions; k++) outW[k] = k == 5 ? 1f : 0f; return; }
-            float fx = Mathf.Clamp(tx - .5f, 0, _width - 1.001f), fy = Mathf.Clamp(ty - .5f, 0, _height - 1.001f);
+            float fx = Mathf.Clamp(tx - .5f, 0, _width - 1), fy = Mathf.Clamp(ty - .5f, 0, _height - 1);
             int x0 = (int)fx, y0 = (int)fy; float ax = fx - x0, ay = fy - y0;
-            int i00 = (y0 * _width + x0) * Regions, i10 = i00 + Regions, i01 = i00 + _width * Regions, i11 = i01 + Regions;
+            int left = x0 * Regions, right = Mathf.Min(x0 + 1, _width - 1) * Regions;
+            int top = y0 * _width * Regions, bottom = Mathf.Min(y0 + 1, _height - 1) * _width * Regions;
             for (int k = 0; k < Regions; k++)
-                outW[k] = Mathf.Lerp(Mathf.Lerp(_w[i00 + k], _w[i10 + k], ax), Mathf.Lerp(_w[i01 + k], _w[i11 + k], ax), ay);
+                outW[k] = Mathf.Lerp(Mathf.Lerp(_w[top + left + k], _w[top + right + k], ax),
+                    Mathf.Lerp(_w[bottom + left + k], _w[bottom + right + k], ax), ay);
         }
 
         /// <summary>Row-weighted blend of every atmosphere value for weights from <see cref="Sample"/>.</summary>

@@ -37,13 +37,14 @@ namespace Roguehalla.Client
             _launch.Build(_menu);
             _backdrop = gameObject.AddComponent<LaunchBackdrop>();
             _backdrop.Initialize(_client.Cam, _client);
-            _launch.SetRecordEmpty(_client.IsDiagnostic ? "Diagnostic session: accounts are off for this loopback test." : "Load a callsign to see its record, or just play to claim it.");
+            _launch.SetRecordEmpty(_client.IsDiagnostic ? "Diagnostic session: accounts are off for this loopback test." : "New here? Type a name and press START RUN. Your record is saved under that name.");
             _nickname = _launch.Callsign; _nickname.text = _client.Profile;
             _loadProfile = _launch.Load; _joinMatch = _launch.Play; _joinTraining = _launch.Training;
             _profileSummary = _launch.RecordText; _launchInfo = _launch.Reason; _accountStatus = _launch.Status;
             _launch.LoadRequested = () => _client.OpenProfile(_nickname.text, OwnershipKey, PlaytestPasscode);
             _launch.ProfileRequested = () => OpenProgress(HubProgressTab.Profile);
             _launch.SignInRequested = () => SetSignInVisible(true);
+            _launch.HelpRequested = ToggleHelp;
             _launch.GuideRequested = () => { CloseHubPanels(); _hubGuide.ShowTab(HubGuideView.GuideTab.Champions); };
             _launch.PlayRequested = StartRun;
             _launch.TrainingRequested = () => StartTraining();
@@ -216,7 +217,7 @@ namespace Roguehalla.Client
                     var p = state.Profile;
                     _launch.SetRecord(p.Gv.ToString("N0"), "Lifetime " + p.GvLifetime.ToString("N0") + "\nRuns " + p.Runs + " · Wins " + p.Wins + " · Kills " + p.Kills);
                 }
-                else _launch.SetRecordEmpty("Load a callsign to see its record, or just play to claim it.");
+                else _launch.SetRecordEmpty("New here? Type a name and press START RUN. Your record is saved under that name.");
             }
             bool busy = (state != null && state.Busy) || _client.ResumeBusy;
             bool pending = _client.LaunchPending;
@@ -246,7 +247,7 @@ namespace Roguehalla.Client
             if (!string.IsNullOrEmpty(resumeStatus)) status = resumeStatus;
             if (string.IsNullOrEmpty(status) && pending) status = LaunchCopy.PendingText(_client.SelectedLaunchMode);
             if (string.IsNullOrEmpty(status) && _session != null && !pending)
-                status = LaunchCopy.SessionFailureText(_session.State, _session.RejectReason);
+                status = LaunchCopy.SessionFailureText(_session.State, _session.RejectCode, _session.RejectReason, _session.FailureKind);
             if (string.IsNullOrEmpty(status) && state != null)
             {
                 if (busy) status = state.State == AccountHubState.PreparingJoin ? "Checking your profile and joining…" : state.State == AccountHubState.Refreshing ? "Refreshing your profile…" : "Loading your profile…";

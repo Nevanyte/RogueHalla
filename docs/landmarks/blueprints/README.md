@@ -8,7 +8,7 @@ is a fixed blueprint, placed in one of eight orientations inside its reserved si
 | Landmark | File | Box | Packet that builds it |
 |---|---|---|---|
 | Frost cave | `cave.txt` | 29 x 29 | P-MAPGEN-SIG-SCALE-1 |
-| Sentenced church with its graveyard and churchyard | `church.txt` (approved 2026-11-13, the redraw with the churchyard: building 23 x 14 with its three-tile door on row 16; graveyard rows 17-27; a fence round both with the 5-wide main gate on row 28 and eleven 3-wide gates; door line to main gate line 12 rows) | 29 x 29 | P-MAPGEN-SIG-SCALE-2 |
+| Sentenced church with its graveyard and churchyard | `church.txt` (approved 2026-11-13, the redraw with the churchyard: building 23 x 14 with three-tile front door on row 16 and rear door on row 3; graveyard rows 17-27; a fence round both with the 5-wide main gate on row 28 and eleven 3-wide gates; door line to main gate line 12 rows) | 29 x 29 | P-MAPGEN-SIG-SCALE-2 |
 | Plague bog tree | `bog.txt` | 29 x 29 | P-MAPGEN-SIG-SCALE-3 |
 | Fire volcano | `volcano.txt` | 30 x 30 | P-MAPGEN-SIG-SCALE-4 |
 | Holy hall | `hall.txt` (two Holy camps on the nave at rows 15 and 27 from the back; 32 piers; a 7-wide nave) | 37 x 37 | P-MAPGEN-SIG-HOLY-1 |
@@ -20,7 +20,7 @@ three stream outlets are the marked tiles on its front row; the streams themselv
 per map.
 
 The church's features (agreed with the land-generation session, whose lanes read them): the `Church` feature covers
-the building only, its door exactly three open tiles in one run on the building's door-side wall line; the graveyard
+the building only, with exactly three open tiles in one run on each of its front and rear wall lines; the graveyard
 plots and the churchyard fence are `Graveyard` features (fence tiles are LOW); the anchor's footprint is the whole
 29 x 29 box and its entrance the main gate's five tiles on the front row.
 

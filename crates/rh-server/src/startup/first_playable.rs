@@ -38,6 +38,7 @@ pub(crate) fn first_playable_settings(args: &[String]) -> Result<Option<FirstPla
         "--lobby-seconds",
         "--fill-seconds",
         "--lobby-timing",
+        "--bot-wait-seconds",
     ] {
         if args.iter().any(|a| a.starts_with(&format!("{flag}="))) {
             return Err(format!("use {flag} with a separate value"));

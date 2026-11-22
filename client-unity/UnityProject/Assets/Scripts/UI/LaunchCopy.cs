@@ -1,4 +1,5 @@
 using Roguehalla.Net;
+using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
@@ -20,14 +21,14 @@ namespace Roguehalla.Client
     /// </summary>
     public static class LaunchCopy
     {
-        /// <summary>Fire, Sentenced, Plague, Frost, Holy: the wire order. Weapons and regions follow docs/VISUAL_DIRECTION.md and the region themes.</summary>
+        /// <summary>Fire, Haunted, Plague, Frost, Holy display order. Stable faction ids and wire order still call Haunted Sentenced.</summary>
         public static readonly HouseInfo[] Houses =
         {
-            new HouseInfo("Fire", "Volcanic wastes", "Axes", MythicGlyph.Axe, MapGlyph.Triangle),
-            new HouseInfo("Sentenced", "Gothic graveyard", "Swords", MythicGlyph.Sword, MapGlyph.Diamond),
-            new HouseInfo("Plague", "Forgotten city", "Bows", MythicGlyph.Bow, MapGlyph.Trefoil),
-            new HouseInfo("Frost", "Frozen plains", "Shields", MythicGlyph.Shield, MapGlyph.Asterisk),
-            new HouseInfo("Holy", "Desert oasis", "Wands", MythicGlyph.Wand, MapGlyph.Ring),
+            new HouseInfo(Roguehalla.Net.Ui.FactionPresentation.Name(0), "Volcanic wastes", "Axes", MythicGlyph.Axe, MapGlyph.Triangle),
+            new HouseInfo(Roguehalla.Net.Ui.FactionPresentation.Name(1), "Gothic graveyard", "Swords", MythicGlyph.Sword, MapGlyph.Diamond),
+            new HouseInfo(Roguehalla.Net.Ui.FactionPresentation.Name(2), "Forgotten city", "Bows", MythicGlyph.Bow, MapGlyph.Trefoil),
+            new HouseInfo(Roguehalla.Net.Ui.FactionPresentation.Name(3), "Frozen plains", "Shields", MythicGlyph.Shield, MapGlyph.Asterisk),
+            new HouseInfo(Roguehalla.Net.Ui.FactionPresentation.Name(4), "Desert oasis", "Wands", MythicGlyph.Wand, MapGlyph.Ring),
         };
 
         public const string Tagline = "Last one standing wins.";
@@ -63,11 +64,13 @@ namespace Roguehalla.Client
         /// <summary>A launch that never reached a confirmed match, phrased for the player instead of the transport's own error text.</summary>
         public static string SessionFailureText(SessionState state, string rejectReason)
         {
-            if (state == SessionState.Rejected)
-                return string.IsNullOrWhiteSpace(rejectReason) ? "The server didn't accept that join. Try again in a moment." : "The server didn't accept that join: " + rejectReason.Trim();
-            if (state == SessionState.Failed || state == SessionState.Ended)
-                return "Couldn't reach the game server. Check your connection and try again.";
-            return "";
+            return SessionFailureText(state, null, rejectReason, FailureKind.Other);
+        }
+
+        /// <summary>Same, with the reject code and failure kind when the caller has them; the raw reason is never shown.</summary>
+        public static string SessionFailureText(SessionState state, RejectCode? code, string rejectReason, FailureKind kind)
+        {
+            return ConnectionCopy.ForState(state, code, rejectReason, kind);
         }
 
         public static string PendingText(MatchLaunchMode mode)

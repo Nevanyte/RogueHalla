@@ -14,7 +14,7 @@ namespace Roguehalla.Client
     /// </summary>
     public sealed partial class ArenaView
     {
-        /// <summary>Presentation-only swing at the owner's click; see <see cref="SpriteActorPresenter.LocalAttackCue"/>.</summary>
+        /// <summary>Presentation-only feedback at the owner's click; see <see cref="SpriteActorPresenter.LocalAttackCue"/>.</summary>
         public void LocalAttackCue(uint id) { _actors.LocalAttackCue(id); }
         float _frostLength = 224;
         /// <summary>Draws or puts away the Frost Wall aim preview (display only; WishAim sends the cast).</summary>
@@ -44,20 +44,22 @@ namespace Roguehalla.Client
                     continue;
                 }
                 // Protocol 16 fx (ADR0026): the wind-up telegraph and its end; the rest are numbers drawn by PresentFx.
-                if (f.Kind == FxKind.Windup) { DiagWindupFx++; _hitZones?.Windup(f.By, f.Weapon, f.A, f.Ms, Time.unscaledTime); DiagWindupDrawn = HitZonePresenter.DiagWindupsStarted; continue; }
-                if (f.Kind == FxKind.Cancel) { _hitZones?.CancelWindup(f.Id); continue; }
+                if (f.Kind == FxKind.Windup) { DiagWindupFx++; _hitZones?.Windup(f.By, f.Weapon, f.A, f.Ms, Time.unscaledTime); DiagWindupDrawn = HitZonePresenter.DiagWindupsStarted; }
+                if (f.Kind == FxKind.Cancel) _hitZones?.CancelWindup(f.Id);
                 if (f.Kind == FxKind.Stagger) _hitZones?.CancelWindup(f.Id);
                 if (f.Kind == FxKind.Hit && f.Critical) DiagCritFx++;
                 if (f.Kind == FxKind.Hit) { DiagHitFx++; if (f.Victim == _localId) { DiagHitFxOnMe++; DiagLastAmountOnMe = f.Amount; DiagLastPassiveOnMe = f.Passive; } } // scenario probe counters
                 if (f.Kind == FxKind.Hit && f.Victim == _localId && _localId != 0 && !f.Passive) _vignette.Hit(f.Amount, _selfMaxHp, Time.unscaledTime); // legacy screenFeedback: real hits only
-                uint subject = f.Kind == FxKind.Hit || f.Kind == FxKind.SigHit ? f.Victim : f.Kind == FxKind.Stagger || f.Kind == FxKind.Block || f.Kind == FxKind.Heal ? f.Id : f.By;
-                var cue=new PendingFx{Kind=f.Kind,Subject=subject,Amount=f.Amount,X=f.X,Y=f.Y,A=f.A,Weapon=f.Weapon,By=f.By,Passive=f.Passive,Crit=f.Critical,SigKind=f.HitKind,CreatedAt=Time.unscaledTime};
+                uint subject = f.Kind == FxKind.Hit || f.Kind == FxKind.SigHit ? f.Victim : f.Kind == FxKind.Stagger || f.Kind == FxKind.Block || f.Kind == FxKind.Heal || f.Kind == FxKind.Cancel ? f.Id : f.By;
+                var cue=new PendingFx{Kind=f.Kind,Subject=subject,Amount=f.Amount,X=f.X,Y=f.Y,A=f.A,Weapon=f.Weapon,WindupMs=f.Ms,By=f.By,Passive=f.Passive,Crit=f.Critical,SigKind=f.HitKind,CreatedAt=Time.unscaledTime};
                 bool own = owner != 0 && (subject == owner || f.By == owner || f.Victim == owner);
                 if (!own && _renderReady && dueMs > _renderMs && dueMs - _renderMs <= MaxFxLeadMs &&
                     _scheduledFx.Count < MaxScheduledFx && _actors.Contains(subject) && !IsLatestNpc(subject))
                 {
                     cue.DueMs = dueMs; cue.QueuedAt = Time.unscaledTime;
                     _scheduledFx.Add(cue);
+                    if (f.Kind == FxKind.Swing && f.Weapon == (byte)WeaponId.Fists)
+                        _actors.PrepareHauntedFists(subject, f.A, (float)(dueMs - _renderMs) * .001f);
                     continue;
                 }
                 if (_actors.Contains(subject)) PresentFx(cue);
@@ -86,6 +88,7 @@ namespace Roguehalla.Client
         public void ResetTransientPresentation(double serverTimeMs = 0)
         {
             _sourceTimeMs = serverTimeMs;
+            _shotsForPresentedActors = null;
             _pendingFx.Clear();
             _scheduledFx.Clear();
             _wishes.Reset();
@@ -94,7 +97,7 @@ namespace Roguehalla.Client
             for (int i = _flashes.Count - 1; i >= 0; i--)
             {
                 var flash = _flashes[i];
-                flash.Sprite.gameObject.SetActive(false); flash.Text.gameObject.SetActive(false); flash.Plate.gameObject.SetActive(false);
+                flash.Sprite.gameObject.SetActive(false); flash.Brush?.gameObject.SetActive(false); flash.Text.gameObject.SetActive(false); flash.Plate.gameObject.SetActive(false);
                 _flashes.RemoveAt(i); _flashPool.Push(flash);
             }
             _actors.ResetTransientTimers(); _sparks.Clear();
@@ -104,9 +107,22 @@ namespace Roguehalla.Client
         {
                 if (f.Kind == FxKind.Heal && Indicators.HealText(f.Amount) == null) return;      // heals under 1 are not shown
                 if (!_actors.TryPosition(f.Subject, out var p)) return;
-                _actors.ConfirmedCue(f.Subject,f.Kind);
-                if (f.Kind == FxKind.Hit || f.Kind == FxKind.Block) _sparks.Hit(p, f.Kind == FxKind.Block, ref _sparkRng);      // render pass: hit sparks and light
-                if (f.Kind == FxKind.Swing && Time.unscaledTime - f.CreatedAt < .35f) _hitZones.Swing(f.Subject, f.Weapon, f.X, f.Y, f.A, Time.unscaledTime);
+                _actors.ConfirmedCue(f.Subject, f.Kind, (WeaponId)f.Weapon, f.A, f.WindupMs);
+                if (f.Kind == FxKind.Windup || f.Kind == FxKind.Cancel) return;
+                if (f.Kind == FxKind.Hit || f.Kind == FxKind.Block)
+                {
+                    FactionId? pigment = _actors.TrySoundContext(f.By, out _, out var faction, out _, out _) ? faction : (FactionId?)null;
+                    var delta = _actors.TryPosition(f.By, out var source) ? p - source : Vector3.right;
+                    _sparks.Hit(p, f.Kind == FxKind.Block, ref _sparkRng, pigment, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg, f.Passive);
+                }
+                if (f.Kind == FxKind.Swing)
+                {
+                    if (Time.unscaledTime - f.CreatedAt < .35f)
+                        _hitZones.Swing(f.Subject, f.Weapon, f.X, f.Y, f.A, Time.unscaledTime);
+                    // Melee has the ground stroke and the attack animation. The
+                    // above-actor impact rim belongs to a delivered contact.
+                    if (WeaponShapes.TryGet(f.Weapon, out _)) return;
+                }
                 if (_flashes.Count >= 48) return;
                 var flash = _flashPool.Count > 0 ? _flashPool.Pop() : CreateFlash();
                 flash.Actor = f.Subject; flash.Position = p + new Vector3(0, .65f); flash.Start = Time.unscaledTime; flash.Duration = f.Kind==FxKind.Hit || f.Kind==FxKind.SigHit ? .55f : .2f;
@@ -114,48 +130,93 @@ namespace Roguehalla.Client
                 flash.Color = f.Kind == FxKind.Block ? new Color(.65f, .85f, 2) : new Color(2, 1.4f, .6f);
                 bool number = f.Kind == FxKind.Hit || f.Kind == FxKind.SigHit || f.Kind == FxKind.Heal;
                 string healText = f.Kind == FxKind.Heal ? Indicators.HealText(f.Amount) : null;
+                var mark = f.Kind == FxKind.SigHit ? StormInkHitMarks.ForSignature(f.SigKind) :
+                    f.Kind == FxKind.Heal ? StormInkHitMarks.Heal : null;
+                flash.InkMark = mark != null;
+                if (flash.InkMark)
+                {
+                    flash.InkOffset = StormInkHitMarks.Anchor(f.SigKind, f.Kind == FxKind.Heal);
+                    flash.Size = StormInkHitMarks.Scale(f.SigKind, f.Kind == FxKind.Heal);
+                    if (flash.Brush == null)
+                        flash.Brush = ShowcaseSprites.Create(_fxRoot, "Signature ink", "bar", 30000,
+                            Color.white, Vector2.one, Vector3.zero, false);
+                    flash.Brush.sprite = mark;
+                }
+                flash.Brush?.gameObject.SetActive(flash.InkMark);
                 flash.Sprite.gameObject.SetActive(f.Kind != FxKind.SigHit && f.Kind != FxKind.Heal);
                 flash.Text.gameObject.SetActive(number); flash.Plate.gameObject.SetActive(number);
                 if(number)
                 {
                     var theme = UiTheme.Current;
                     flash.Text.text = f.Kind == FxKind.Heal ? healText : Indicators.DamageText(f.Amount, f.Crit);
-                    if (f.Kind == FxKind.Heal) { flash.TextColor = RgbColour(Indicators.HealColour); flash.Text.fontSize = 3f * 13f / 13f; flash.Duration = .8f; flash.Position += new Vector3(0, .1f, 0); flash.LaneX = NumberSide; }
-                    else if (f.Kind == FxKind.SigHit) { flash.TextColor = RgbColour(Indicators.SigColour(f.SigKind)); flash.Text.fontSize = 3f * 11f / 13f; flash.LaneX = NumberSide + Indicators.DamageLaneOffset(_numberLane++) * .026f; }
+                    if (f.Kind == FxKind.Heal) { flash.TextColor = RgbColour(Indicators.HealColour); flash.Text.fontSize = 3f * 13f / 13f; flash.Duration = .8f; flash.Position += new Vector3(0, .1f, 0); }
+                    else if (f.Kind == FxKind.SigHit) { flash.TextColor = RgbColour(Indicators.SigColour(f.SigKind)); flash.Text.fontSize = 3f * 11f / 13f; }
                     else
                     {
-                        // Legacy FxView: red on me, gold by me, grey otherwise; 13 px + 1 per 40 damage (max +7, +5 critical); simultaneous numbers fan over 5 lanes.
+                        // Legacy FxView: red on me, gold by me, grey otherwise; 13 px + 1 per 40 damage (max +7, +5 critical).
                         var tone = Indicators.DamageColour(f.Subject, f.By, _localId);
                         flash.TextColor = (Color)(tone == Indicators.DamageTone.OnMe ? theme.Danger : tone == Indicators.DamageTone.ByMe ? theme.Accent : theme.TextSecondary);
                         flash.Text.fontSize = 3f * (f.Passive ? 11f : Indicators.DamageSize(f.Amount, f.Crit)) / 13f;
-                        flash.LaneX = NumberSide + Indicators.DamageLaneOffset(_numberLane++) * .026f;
                     }
                     // The tone is set once, opaque; the fade then rewrites only the vertex alpha (SetNumberAlpha). Fading through TMP_Text.color
                     // marks the text dirty and TextMeshPro regenerates the whole mesh every frame (PERF_REPORT section 5).
                     var spawnTone = flash.TextColor; spawnTone.a = 1f; flash.Text.color = spawnTone; flash.AlphaByte = 255;
                     flash.Text.ForceMeshUpdate();
+                    PlaceDamageNumber(flash);
                 }
                 _flashes.Add(flash);
         }
-        /// <summary>Numbers rise beside the fighter, not over its overhead stack (wish, build row, bar): with the protocol 16 marks they sat on top of each other (UI lab).</summary>
-        const float NumberSide = .62f;
+        const float NumberRise = .35f;
+        readonly List<Rect> _numberObstacles = new List<Rect>(48);
+
+        void PlaceDamageNumber(Flash flash)
+        {
+            _numberObstacles.Clear();
+            foreach (var live in _flashes)
+                if (live.Plate.gameObject.activeSelf && flash.Start < live.Start + live.Duration)
+                    _numberObstacles.Add(live.NumberEnvelope);
+            float width = flash.Text.preferredWidth + .14f;
+            float height = flash.Text.fontSize * .1f + .06f;
+            var origin = new Vector2(flash.Position.x, flash.Position.y + .70f - height * .5f);
+            Rect placement = CombatHudPlacement.Damage(origin, width, height + NumberRise, _numberObstacles);
+            flash.NumberEnvelope = placement;
+            flash.NumberSize = new Vector2(width, height);
+            flash.NumberOffset = new Vector2(placement.center.x - flash.Position.x, placement.yMin + height * .5f - flash.Position.y);
+        }
+
         static Color RgbColour(uint rgb) { return new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 1f); }
         void UpdateEffects()
         {
+            _numberObstacles.Clear();
             bool reduced = ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
             for (int i = _flashes.Count - 1; i >= 0; i--)
             {
                 var f = _flashes[i]; float t = (Time.unscaledTime - f.Start) / f.Duration;
-                if (t >= 1 || !_actors.Contains(f.Actor)) { f.Sprite.gameObject.SetActive(false); f.Text.gameObject.SetActive(false); f.Plate.gameObject.SetActive(false); _flashes.RemoveAt(i); _flashPool.Push(f); continue; }
-                f.Sprite.transform.position = f.Position;
-                f.Sprite.transform.localScale = Vector3.one * f.Size * (reduced ? 1 : 1 + t * .55f);
+                if (t >= 1 || !_actors.Contains(f.Actor)) { f.Sprite.gameObject.SetActive(false); f.Brush?.gameObject.SetActive(false); f.Text.gameObject.SetActive(false); f.Plate.gameObject.SetActive(false); _flashes.RemoveAt(i); _flashPool.Push(f); continue; }
+                var ink = f.InkMark ? f.Brush : f.Sprite;
+                ink.transform.position = f.InkMark && _actors.TryPosition(f.Actor, out var actorPosition)
+                    ? actorPosition + (Vector3)f.InkOffset : f.Position;
+                ink.transform.localScale = Vector3.one * f.Size * (reduced ? 1 : 1 + t * .55f);
                 // Keep the silhouette readable even when confirmed hits overlap rapidly.
                 // Damage text retains its longer lifetime; the hollow impact rim fades quickly.
-                var c = f.Color; c.a = .55f * Mathf.Clamp01(1 - (Time.unscaledTime - f.Start) / .16f); f.Sprite.color = c;
-                f.Text.transform.position=f.Position+new Vector3(f.LaneX,.7f+(reduced ? 0 : t*.35f),0); SetNumberAlpha(f, 1 - t);
-                // A dark plate under the number (lab finding: grey digits vanished on sand and snow); legacy used a black stroke.
-                if (f.Plate.gameObject.activeSelf) { var pc = (Color)UiTheme.Current.OutlineDark; pc.a = .88f * (1 - t); f.Plate.color = pc; f.Plate.transform.position = f.Text.transform.position; f.Plate.transform.localScale = new Vector3(f.Text.preferredWidth + .14f, f.Text.fontSize * .1f + .06f, 1); }
+                float age = Time.unscaledTime - f.Start;
+                var c = f.InkMark ? Color.white : f.Color;
+                c.a = f.InkMark ? Mathf.Clamp01((.25f - age) / .15f) : .55f * Mathf.Clamp01(1 - age / .16f);
+                ink.color = c;
+                if (!f.Plate.gameObject.activeSelf) continue;
+                var rise = reduced ? 0f : t * NumberRise;
+                f.Text.transform.position = f.Position + new Vector3(f.NumberOffset.x, f.NumberOffset.y + rise, 0f);
+                SetNumberAlpha(f, 1 - t);
+                // Keep the plate behind its text and reserve the whole path of
+                // the rise when each measured number first enters the scene.
+                var pc = (Color)UiTheme.Current.OutlineDark;
+                pc.a = .88f * (1 - t);
+                f.Plate.color = pc;
+                f.Plate.transform.position = f.Text.transform.position;
+                f.Plate.transform.localScale = new Vector3(f.NumberSize.x, f.NumberSize.y, 1f);
+                _numberObstacles.Add(f.NumberEnvelope);
             }
+            _actors.PlaceSignatureCues(_numberObstacles);
         }
 
         Flash CreateFlash()

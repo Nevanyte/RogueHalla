@@ -90,7 +90,8 @@ fn compare(sim: &Sim, memo: &mut TileVisionCache) -> Observation {
     memo.begin(sim, sim.player(PlayerId(1)).unwrap(), true);
     let before = sim.state_hash();
     let mut out = Observation::default();
-    crate::observe::observe_with_tiles(sim, PlayerId(1), &[], &mut out, None, Some(memo)).unwrap();
+    crate::observe::observe_with_tiles(sim, PlayerId(1), None, &[], &mut out, None, Some(memo))
+        .unwrap();
     assert_eq!(
         out,
         raw(sim),

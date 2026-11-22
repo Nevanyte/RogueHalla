@@ -33,15 +33,38 @@ pub struct Settings {
     pub legacy_coliseum: bool,
 }
 
-/// `--lobby-timing legacy|matchmaking`, default legacy. `matchmaking` is a 15 s lobby with bots at second 13.
+/// How long a matchmaking lobby runs on after its bots are seated (the 15 s lobby with bots at second 13).
+pub const MATCHMAKING_START_AFTER_BOTS_SECONDS: f64 = 2.;
+/// The longest `--bot-wait-seconds` accepted (ten minutes).
+pub const MAX_BOT_WAIT_SECONDS: f64 = 600.;
+
+/// `--lobby-timing legacy|matchmaking`, default legacy. `matchmaking` waits `--bot-wait-seconds` (default 13) from the
+/// first human's arrival before seating bots, and starts the match [`MATCHMAKING_START_AFTER_BOTS_SECONDS`] later; a
+/// lobby full of humans still starts at once. `--bot-wait-seconds` is refused without matchmaking.
 pub fn lobby_timing_flag(args: &[String]) -> Result<crate::bot_fill::LobbyTiming, String> {
     use crate::bot_fill::LobbyTiming;
+    let wait = value(args, "--bot-wait-seconds")?;
     match value(args, "--lobby-timing")? {
-        None | Some("legacy") => Ok(LobbyTiming::Legacy),
-        Some("matchmaking") => Ok(LobbyTiming::Matchmaking {
-            lobby_seconds: 15.,
-            bots_at_seconds: 13.,
-        }),
+        None | Some("legacy") => match wait {
+            Some(_) => Err("--bot-wait-seconds needs --lobby-timing matchmaking".into()),
+            None => Ok(LobbyTiming::Legacy),
+        },
+        Some("matchmaking") => {
+            let bots_at_seconds = match wait {
+                None => 13.,
+                Some(v) => v
+                    .parse::<f64>()
+                    .ok()
+                    .filter(|s| s.is_finite() && (0. ..=MAX_BOT_WAIT_SECONDS).contains(s))
+                    .ok_or_else(|| {
+                        format!("--bot-wait-seconds requires seconds, 0..={MAX_BOT_WAIT_SECONDS}")
+                    })?,
+            };
+            Ok(LobbyTiming::Matchmaking {
+                lobby_seconds: bots_at_seconds + MATCHMAKING_START_AFTER_BOTS_SECONDS,
+                bots_at_seconds,
+            })
+        }
         Some(_) => Err("--lobby-timing must be legacy or matchmaking".into()),
     }
 }

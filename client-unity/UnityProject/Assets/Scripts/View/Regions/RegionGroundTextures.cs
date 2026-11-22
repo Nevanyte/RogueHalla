@@ -1,7 +1,6 @@
-// Procedural, tileable ground detail for the five regions plus the coliseum, generated in code (no imported art, no ledger
-// entry). Layer order = wire region id minus one: 0 fire, 1 sentenced, 2 plague, 3 frost, 4 holy, 5 coliseum.
-// Channels are masks the region shader tints with the palette: r detail (relief already baked in), g secondary mask,
-// b accent mask, a height. One texture covers 4x4 tiles.
+// Procedural ground detail for the five regions and the coliseum, followed by elemental pigments and optional regional albedo.
+// Region layer order remains wire region id minus one: 0 fire, 1 sentenced, 2 plague, 3 frost, 4 holy, 5 coliseum.
+// Procedural channels are r detail (relief baked in), g secondary mask, b accent mask, a height; each detail layer covers 4x4 tiles.
 using UnityEngine;
 using static Roguehalla.Client.RegionNoise;
 
@@ -11,6 +10,7 @@ namespace Roguehalla.Client
     public static class RegionGroundTextures
     {
         public const int Size = 256, Layers = 6;
+        public const int HolyDrySandSlice = Layers + 2;
 
         /// <summary>Surface relief strength per layer (fire, sentenced, plague, frost, holy, coliseum): how steeply the baked height tilts the normal.</summary>
         static readonly float[] NormalStrength = { 3.2f, 2.8f, 2.6f, 2.2f, 2.4f, 3.0f };
@@ -20,12 +20,24 @@ namespace Roguehalla.Client
         public static Texture2DArray Build() { return Build(out _); }
 
         /// <summary>Ground detail array plus a matching normal array (rg = surface tilt in tile space from the same height channel, b = gloss) for the local lights.</summary>
-        public static Texture2DArray Build(out Texture2DArray normals)
+        public static Texture2DArray Build(out Texture2DArray normals) => Build(null, out normals, out _);
+
+        /// <summary>Like <see cref="Build(out Texture2DArray)"/>, and reports whether the optional art was packed.</summary>
+        public static Texture2DArray Build(HolyDrySandArt holySand, out Texture2DArray normals, out bool holySandPacked, Texture2D limestone = null)
+            => Build(holySand, out normals, out holySandPacked, limestone, null, null);
+
+        internal static Texture2DArray Build(HolyDrySandArt holySand, out Texture2DArray normals, out bool holySandPacked,
+            Texture2D limestone, RegionalFloorArt[] dryFloors, Material material)
         {
+            holySandPacked = holySand != null && holySand.CanPackPigment;
             normals = new Texture2DArray(Size, Size, Layers, TextureFormat.RGBA32, true, true)
             { name = "Region ground normals", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 2 };
             var npx = new Color32[Size * Size];
-            var array = new Texture2DArray(Size, Size, Layers, TextureFormat.RGBA32, true, true)
+            int pigmentSlices = 2 + (holySandPacked ? 1 : 0) + (limestone != null ? 1 : 0);
+            if (dryFloors != null)
+                foreach (var floor in dryFloors)
+                    if (floor != null && floor.ActivePigment != null) pigmentSlices++;
+            var array = new Texture2DArray(Size, Size, Layers + pigmentSlices, TextureFormat.RGBA32, true, true)
             { name = "Region ground detail", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 4 };
             var h = new float[Size * Size]; var r = new float[Size * Size]; var g = new float[Size * Size]; var b = new float[Size * Size];
             var px = new Color32[Size * Size];
@@ -35,9 +47,139 @@ namespace Roguehalla.Client
                 array.SetPixelData(px, 0, layer);
                 normals.SetPixelData(npx, 0, layer);
             }
+            // The shader reads the last two slices as sRGB pigments. Reuse the existing
+            // sampler, while the normal array only contains the six procedural regions.
+            WritePigment(array, Layers, "MineralIce", px);
+            WritePigment(array, Layers + 1, "MoltenInk", px);
+            if (holySandPacked)
+                array.SetPixelData(ReadLinearPigment(holySand.Pigment), 0, HolyDrySandSlice);
+            if (dryFloors != null)
+            {
+                int slice = Layers + 2 + (holySandPacked ? 1 : 0);
+                var paramsByLayer = new Vector4[Layers];
+                var uvByLayer = new Vector4[Layers];
+                for (int layer = 0; layer < Layers; layer++)
+                {
+                    var floor = dryFloors[layer];
+                    if (floor == null || floor.ActivePigment == null) continue;
+                    var pixels = ReadLinearPigment(floor.ActivePigment);
+                    int courses = floor is FlagstoneFloorArt flags ? Mathf.Clamp(flags.StonesPerSide, 2, 8) : 0;
+                    if (courses == 0)
+                    {
+                        for (int line = 0; line < Size; line++)
+                        {
+                            JoinEdges(pixels, line * Size, 1);
+                            JoinEdges(pixels, line, Size);
+                        }
+                    }
+                    array.SetPixelData(pixels, 0, slice);
+                    paramsByLayer[layer] = new Vector4(slice++, Mathf.Clamp01(floor.WashStrength), courses, 0f);
+                    uvByLayer[layer] = floor.MapToPaint;
+                }
+                material.SetVectorArray("_DryPaint", paramsByLayer);
+                material.SetVectorArray("_DryPaintUV", uvByLayer);
+            }
+            if (limestone != null) array.SetPixelData(ReadLinearPigment(limestone), 0, array.depth - 1);
             array.Apply(true, true);
             normals.Apply(true, true);
             return array;
+        }
+
+        static Color32[] ReadLinearPigment(Texture2D source)
+        {
+            // Read one mip near the destination size, then resample in CPU memory. The array
+            // is linear, so source sRGB is converted once here and is not decoded in HLSL.
+            int mip = ClosestMip(source);
+            Color32[] input = source.GetPixels32(mip);
+            int sw = Mathf.Max(1, source.width >> mip), sh = Mathf.Max(1, source.height >> mip);
+            bool srgb = source.isDataSRGB;
+            if (sw == Size && sh == Size)
+            {
+                if (!srgb) return input;
+                var exact = new Color32[Size * Size];
+                for (int i = 0; i < exact.Length; i++) exact[i] = ToColor32(Linear(input[i], true));
+                return exact;
+            }
+
+            var output = new Color32[Size * Size];
+            for (int y = 0; y < Size; y++)
+            {
+                float sy = (y + 0.5f) * sh / Size - 0.5f;
+                int yFloor = Mathf.FloorToInt(sy);
+                int y0 = Mathf.Clamp(yFloor, 0, sh - 1), y1 = Mathf.Clamp(yFloor + 1, 0, sh - 1);
+                float fy = Mathf.Clamp01(sy - yFloor);
+                for (int x = 0; x < Size; x++)
+                {
+                    float sx = (x + 0.5f) * sw / Size - 0.5f;
+                    int xFloor = Mathf.FloorToInt(sx);
+                    int x0 = Mathf.Clamp(xFloor, 0, sw - 1), x1 = Mathf.Clamp(xFloor + 1, 0, sw - 1);
+                    float fx = Mathf.Clamp01(sx - xFloor);
+                    Color a = Linear(input[y0 * sw + x0], srgb), b = Linear(input[y0 * sw + x1], srgb);
+                    Color c = Linear(input[y1 * sw + x0], srgb), d = Linear(input[y1 * sw + x1], srgb);
+                    Color top = Color.LerpUnclamped(a, b, fx), bottom = Color.LerpUnclamped(c, d, fx);
+                    output[y * Size + x] = ToColor32(Color.LerpUnclamped(top, bottom, fy));
+                }
+            }
+            return output;
+        }
+
+        static int ClosestMip(Texture2D source)
+        {
+            int best = 0;
+            float bestError = float.MaxValue;
+            for (int mip = 0; mip < source.mipmapCount; mip++)
+            {
+                int w = Mathf.Max(1, source.width >> mip), h = Mathf.Max(1, source.height >> mip);
+                float error = Mathf.Abs(Mathf.Log(w / (float)Size, 2f)) + Mathf.Abs(Mathf.Log(h / (float)Size, 2f));
+                if (error < bestError) { best = mip; bestError = error; }
+            }
+            return best;
+        }
+
+        static Color Linear(Color32 color, bool srgb)
+        {
+            float r = color.r / 255f, g = color.g / 255f, b = color.b / 255f;
+            if (srgb) { r = Mathf.GammaToLinearSpace(r); g = Mathf.GammaToLinearSpace(g); b = Mathf.GammaToLinearSpace(b); }
+            return new Color(r, g, b, color.a / 255f);
+        }
+
+        static Color32 ToColor32(Color color) => new Color32(
+            (byte)Mathf.RoundToInt(Mathf.Clamp01(color.r) * 255f),
+            (byte)Mathf.RoundToInt(Mathf.Clamp01(color.g) * 255f),
+            (byte)Mathf.RoundToInt(Mathf.Clamp01(color.b) * 255f),
+            (byte)Mathf.RoundToInt(Mathf.Clamp01(color.a) * 255f));
+
+        static void WritePigment(Texture2DArray array, int layer, string name, Color32[] scratch)
+        {
+            var image = Resources.Load<Texture2D>("StormInk/Surfaces/" + name);
+            if (image != null && image.isReadable && image.width == Size && image.height == Size)
+            {
+                var pixels = image.GetPixels32();
+                // Let veins cross the join in their original direction. Feather only the
+                // outside five percent instead of reflecting a complete lake or molten pool.
+                for (int line = 0; line < Size; line++)
+                {
+                    JoinEdges(pixels, line * Size, 1);
+                    JoinEdges(pixels, line, Size);
+                }
+                array.SetPixelData(pixels, 0, layer);
+                return;
+            }
+            System.Array.Clear(scratch, 0, scratch.Length);
+            array.SetPixelData(scratch, 0, layer);
+        }
+
+        static void JoinEdges(Color32[] pixels, int start, int stride)
+        {
+            const int bleed = 12;
+            for (int i = 0; i < bleed; i++)
+            {
+                int left = start + i * stride, right = start + (Size - 1 - i) * stride;
+                var a = pixels[left]; var b = pixels[right];
+                float blend = .5f * (1f - Mathf.SmoothStep(0f, 1f, i / (float)bleed));
+                pixels[left] = Color32.Lerp(a, b, blend);
+                pixels[right] = Color32.Lerp(b, a, blend);
+            }
         }
 
         /// <summary>Fills one layer's detail pixels (<paramref name="px"/>) and normal pixels (<paramref name="npx"/>) from the generators; the scratch arrays are Size x Size.</summary>

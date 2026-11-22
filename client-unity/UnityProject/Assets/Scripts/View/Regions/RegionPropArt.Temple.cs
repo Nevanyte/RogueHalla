@@ -1,6 +1,7 @@
-// Props for the generated Holy temple and the coliseum, painted in code like the other region props (no imported art, so no ledger entry).
+// Procedural Holy temple and Coliseum props, with editable authored art for the paired Coliseum gate piers.
 // Mosque and cathedral architecture only (minaret towers, colonnade columns, portal jambs, a mihrab niche, lamps, screens); no religious symbols.
 // No domes, roofs or finials: nothing is drawn over the floor between the piers (the vaulting is light and shade on the floor).
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using static Roguehalla.Client.RegionCanvas;
@@ -164,8 +165,33 @@ namespace Roguehalla.Client
             Color cloth = P(6, RegionPaletteGenerated.Accent), clothL = Mix(cloth, Color.white, .3f), clothD = Shade(cloth, .6f);
             Color iron = new Color(.16f, .17f, .2f), ironL = Mix(iron, Color.white, .3f), shadow = P(6, RegionPaletteGenerated.Shadow);
             Color flame = Mix(P(1, RegionPaletteGenerated.Accent), P(5, RegionPaletteGenerated.Key), .35f);
-            // Banner on a pole: burgundy cloth with a gold band and a swallow-tail, standing against the arena wall.
-            Add(l, "col.banner", 72, 150, 6, (c, gy) =>
+            // The gate piers are a paired authored landmark prop. Keep a structural fallback in
+            // the atlas, but only the readable editable source opts the wall renderer into replacing
+            // its ordinary box tiles (ColiseumGateLayout.IsArtReady).
+            var gatePier = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/ColiseumGatePierArt");
+            Action<RegionCanvas, int> gatePierFallback = (c, gy) =>
+            {
+                float cx = gatePier != null ? gatePier.WidthPixels(72) * .5f : 36f;
+                c.SoftShadow(cx + 5, gy + 2, 25f, 6f, .38f, Alpha(shadow, 1f));
+                var foot = Box(cx, gy + 9, 42, 16, 3);
+                c.Fill(foot, Toon(foot, stoneD, stone, stoneL, 5f), Ink, 1.3f);
+                var shaft = Poly(new Vector2(cx - 16, gy + 12), new Vector2(cx - 12, gy + 150), new Vector2(cx - 8, gy + 166),
+                    new Vector2(cx + 8, gy + 166), new Vector2(cx + 12, gy + 150), new Vector2(cx + 16, gy + 12));
+                c.Fill(shaft, Toon(shaft, stoneD, stone, stoneL, 10f, .08f, 23), Ink, 1.6f);
+                c.Fill(Box(cx, gy + 24, 40, 8, 2), Toon(Box(cx, gy + 24, 40, 8, 2), stoneD, stoneL, Color.white, 4f), Ink, 1.1f);
+                var cap = Poly(new Vector2(cx - 25, gy + 162), new Vector2(cx - 20, gy + 176), new Vector2(cx + 20, gy + 176), new Vector2(cx + 25, gy + 162));
+                c.Fill(cap, Toon(cap, stoneD, stone, stoneL, 5f), Ink, 1.4f);
+                c.Fill(Box(cx, gy + 125, 6, 31, 1.5f), Flat(Alpha(ironL, .9f)), Ink, .8f);
+            };
+            int pierW = gatePier != null ? gatePier.WidthPixels(72) : 72;
+            int pierH = gatePier != null ? gatePier.HeightPixels(180) : 180;
+            int pierGround = gatePier != null ? gatePier.GroundPixels(16, pierH) : 16;
+            Add(l, "col.gate.pier", pierW, pierH, pierGround, gatePierFallback, true,
+                textureFoot: gatePier != null ? gatePier.ClampedTextureFoot(new Vector2(.5f, .09f)) : null,
+                textureSource: gatePier != null ? gatePier.Pigment : null);
+            // Legacy banner fallback stays available for Holy's shipped banner kind. Coliseum standards use
+            // the separately editable Storm Ink asset below, with this painter retained as its safe fallback.
+            Action<RegionCanvas, int> bannerFallback = (c, gy) =>
             {
                 float cx = 36; c.SoftShadow(cx + 3, gy + 1, 12f, 3.5f, .3f, Alpha(shadow, 1f));
                 c.Fill(Capsule(new Vector2(cx, gy + 2), new Vector2(cx, gy + 128), 1.8f, 1.5f), Flat(wood), Ink, 1f);
@@ -174,9 +200,23 @@ namespace Roguehalla.Client
                 c.Fill(cl, Split(cx - 4, clothL, clothD, 18f), Ink, 1.3f);
                 c.Fill(Intersect(cl, Box(cx, gy + 108, 18, 3)), Flat(Mix(P(5, RegionPaletteGenerated.Accent), P(5, RegionPaletteGenerated.Key), .6f)));
                 c.Fill(Circle(cx, gy + 92, 6), Flat(Alpha(Mix(P(5, RegionPaletteGenerated.Accent), P(5, RegionPaletteGenerated.Key), .6f), .95f)), Ink, .8f);
-            }, true);
-            // Torch stand: iron tripod with a bowl of fire.
-            Add(l, "col.torch", 56, 110, 6, (c, gy) =>
+            };
+            Add(l, "col.banner", 72, 150, 6, bannerFallback, true);
+            var standard = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/ColiseumStandardArt");
+            int standardW = standard != null ? standard.WidthPixels(72) : 72;
+            int standardH = standard != null ? standard.HeightPixels(150) : 150;
+            int standardGround = standard != null ? standard.GroundPixels(6, standardH) : 6;
+            Add(l, "col.standard", standardW, standardH, standardGround, bannerFallback, true,
+                textureFoot: standard != null ? standard.ClampedTextureFoot(new Vector2(.478f, .014f)) : null,
+                textureSource: standard != null ? standard.Pigment : null);
+            // Coliseum torch: the old bowl-and-flame painting stays intact as fallback. The authored body has an
+            // unlit bowl and receives exactly one separately animated flame layer at its editable socket.
+            var torchArt = ColiseumTorchArt.Load();
+            bool authoredTorch = torchArt != null && torchArt.IsReady;
+            int torchW = authoredTorch ? torchArt.WidthPixels(56) : 56;
+            int torchH = authoredTorch ? torchArt.HeightPixels(110) : 110;
+            int torchGround = authoredTorch ? torchArt.GroundPixels(6, torchH) : 6;
+            Add(l, "col.torch", torchW, torchH, torchGround, (c, gy) =>
             {
                 float cx = 28; c.SoftShadow(cx + 3, gy + 1, 12f, 3.5f, .32f, Alpha(shadow, 1f));
                 c.Fill(Capsule(new Vector2(cx, gy + 2), new Vector2(cx, gy + 62), 2.2f, 1.6f), Flat(iron), Ink, 1f);
@@ -186,9 +226,16 @@ namespace Roguehalla.Client
                 c.Glow(cx, gy + 82, 22f, flame, .5f);
                 var fl = Poly(new Vector2(cx - 7, gy + 70), new Vector2(cx - 3, gy + 82), new Vector2(cx, gy + 96), new Vector2(cx + 3, gy + 82), new Vector2(cx + 7, gy + 70));
                 c.Fill(fl, (x, y, d) => Mix(Mix(flame, Color.white, .6f), flame, Mathf.Clamp01((y - gy - 70) / 26f)), Alpha(Shade(flame, .5f), .7f), .8f);
-            });
-            // Weapon rack: timber frame holding spears and swords.
-            Add(l, "col.rack", 104, 84, 6, (c, gy) =>
+            }, true,
+                textureFoot: authoredTorch ? torchArt.ClampedTextureFoot(new Vector2(.5f, .06f)) : null,
+                textureSource: authoredTorch ? torchArt.Pigment : null);
+            // Weapon rack body. The authored frame is kept weapon-free; separate renderers use the shared,
+            // transferable sword, bow and axe sprites. This original painter remains the whole fallback.
+            var rackArt = ColiseumWeaponRackArtDefinition.Load();
+            int rackW = rackArt != null ? rackArt.WidthPixels(104) : 104;
+            int rackH = rackArt != null ? rackArt.HeightPixels(84) : 84;
+            int rackGround = rackArt != null ? rackArt.GroundPixels(6, rackH) : 6;
+            Add(l, "col.rack", rackW, rackH, rackGround, (c, gy) =>
             {
                 float cx = 52; c.SoftShadow(cx + 4, gy + 1, 32f, 4f, .3f, Alpha(shadow, 1f));
                 c.Fill(Box(cx - 38, gy + 28, 3, 28), Flat(wood), Ink, 1f); c.Fill(Box(cx + 38, gy + 28, 3, 28), Flat(wood), Ink, 1f);
@@ -200,7 +247,8 @@ namespace Roguehalla.Client
                     var tip = Poly(new Vector2(x - 2.5f + (k - 2.5f) * .8f, top), new Vector2(x + 2.5f + (k - 2.5f) * .8f, top), new Vector2(x + (k - 2.5f) * .8f, top + 9));
                     c.Fill(tip, Toon(tip, Shade(ironL, .6f), ironL, Color.white, 3f), Ink, .8f);
                 }
-            });
+            }, textureFoot: rackArt != null ? rackArt.ClampedTextureFoot(new Vector2(.502f, .038f)) : null,
+                textureSource: rackArt != null ? rackArt.Pigment : null);
         }
     }
 }

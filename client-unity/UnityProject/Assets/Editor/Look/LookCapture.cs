@@ -238,6 +238,7 @@ namespace Roguehalla.Editor
         sealed class Site
         {
             public MapBlob Map; public MapAnchor Anchor; public string Under;   // Under: "inside" | "under" | null
+            public readonly List<MapTile> Passages = new List<MapTile>();
             public double EntX, EntY, MidX, MidY; public byte Front; public int FootX, FootY, Size;
         }
 
@@ -267,9 +268,9 @@ namespace Roguehalla.Editor
             return mid;
         }
 
-        static Site BuildSite(SceneSpec sc)
+        static Site BuildSite(SceneSpec sc, int? orientation = null, int shiftX = 0)
         {
-            string kind = sc.Kind; int k = sc.K;
+            string kind = sc.Kind; int k = orientation ?? sc.K;
             string[] rows;
             switch (kind)
             {   // centre and entrance marks go in before orienting, as the art tests do
@@ -278,7 +279,7 @@ namespace Roguehalla.Editor
                 case "hall": rows = Orient(Marked("hall", r => { for (int x = 15; x <= 21; x++) r[36][x] = 'M'; }), k); break;
                 default: rows = Orient(Rows(kind), k); break;
             }
-            int size = rows.Length, fx0 = (N - size) / 2, fy0 = (N - size) / 2;
+            int size = rows.Length, fx0 = (N - size) / 2 + shiftX, fy0 = (N - size) / 2;
             if (sc.Edge) { if (k == 0) fy0 = 2; else fx0 = 2; }
             var tiles = new byte[N * N]; var terrain = new byte[N * N]; var regions = new byte[N * N];
             byte zone = ZoneOf(sc.Name);
@@ -299,6 +300,7 @@ namespace Roguehalla.Editor
                     case "church":
                         if (c == '#' || c == 'P' || c == 'G') tiles[i] = MapBlob.Wall;
                         if (c == '+') { tiles[i] = MapBlob.Low; terrain[i] = (byte)TerrainKind.Fence; }
+                        if (c == 'D' || c == 'R') s.Passages.Add(new MapTile((ushort)t.Item1, (ushort)t.Item2));
                         if (c == 'M') ent.Add(t); if (c == 'E') centre = t; break;
                     case "bog":
                         if (c == 'e') { ent.Add(t); c = ':'; }
@@ -429,6 +431,23 @@ namespace Roguehalla.Editor
             AtmosphereQuality.ApplyPreset(preset, false);
         }
 
+        internal static MapBlob BuildChurchMap(int orientation, int shiftX, out List<MapTile> passages)
+        {
+            var site = BuildSite(Parse("church-inside"), orientation, shiftX);
+            passages = site.Passages;
+            return site.Map;
+        }
+
+        internal static ArenaView BuildStudioArena(MapBlob map, GameObject root)
+        {
+            var arena = root.AddComponent<ArenaView>();
+            AwakeOf().Invoke(arena, null);
+            arena.Build(map);
+            return arena;
+        }
+
+        internal static LandmarkView StudioLandmarks(ArenaView arena) => (LandmarkView)LandmarksOf().GetValue(arena);
+
         static ArenaView NewArena(MapBlob map, out GameObject go)
         {
             go = new GameObject("Arena"); var arena = go.AddComponent<ArenaView>();
@@ -442,6 +461,8 @@ namespace Roguehalla.Editor
             if (sc.IsWall)
             {
                 var ws = BuildWallScene(name);
+                // The red stand-in remains in BuildWallScene for the editor diagnostics, but is not part of the owner-facing wall art plate.
+                var marker = ws.Arena.transform.Find("stand-in actor"); if (marker != null) marker.gameObject.SetActive(false);
                 bool pv = name.StartsWith("frost-wall-preview");
                 float ty = pv ? (name.EndsWith("invalid") ? 31f : 32f) : (name == "frost-wall-vertical" ? 30.5f : 30.5f);
                 Shot(ws.View, path, 30.5f, ty, 9f, ws.Actors[0].x, ws.Actors[0].y);

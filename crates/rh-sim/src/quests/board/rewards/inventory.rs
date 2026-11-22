@@ -356,7 +356,7 @@ pub(super) fn validate(w: &World) -> Result<(), String> {
         if !l.spell.valid()
             || l.id == 0
             || l.id > s.next_loot
-            || w.player(l.owner).is_none()
+            || w.roster.name(l.owner).is_none()
             || !l.at.x.is_finite()
             || !l.at.y.is_finite()
             || s.loot[..i].iter().any(|p| p.id == l.id)

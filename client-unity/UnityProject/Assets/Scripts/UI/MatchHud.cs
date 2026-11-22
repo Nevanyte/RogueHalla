@@ -53,7 +53,6 @@ namespace Roguehalla.Client
         readonly byte[] _boostsShown = new byte[8];
         bool _buildShown, _hasBuildShown;
         ulong _rewardSignature = ulong.MaxValue;
-        static readonly string[] Factions = { "Fire", "Sentenced", "Plague", "Frost", "Holy" };
         static readonly string[] Phases = { "Lobby — waiting for players", "Match active", "Match ended", "Planning — choose your spawn" };
         static readonly string[] Outcomes = { "Victory", "Draw", "Defeated", "Missing in action" };
 
@@ -61,7 +60,7 @@ namespace Roguehalla.Client
 
         public void Initialize(MatchClient client)
         {
-            _client = client; _faction = client.Faction >= 0 && client.Faction < Factions.Length ? client.Faction : 4;
+            _client = client; _faction = client.Faction >= 0 && client.Faction < Roguehalla.Net.Ui.FactionPresentation.Count ? client.Faction : 4;
             if (EventSystem.current == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
             else if (EventSystem.current.GetComponent<InputSystemUIInputModule>() == null)
@@ -87,6 +86,7 @@ namespace Roguehalla.Client
             CreateCombatHud();
             CreateChestPanel();
             CreateResultsCard();
+            CreateSpectateBar();
             InitializeFeatures();
             InitializeTrainingConsole();
             _chromeStage.SetAsLastSibling();
@@ -159,6 +159,7 @@ namespace Roguehalla.Client
             _inventoryShown = null; _focusShown = null; _buildShown = false; _rewardSignature = ulong.MaxValue;
             _dirty = _rewardsDirty = true; _bannerState = (SessionState)(-1); _bannerPhase = -1;
             ClearOwnerPresentation("Awaiting server");
+            ArmFirstRunHint();
             // Menu/modal visibility can keep these controls inactive until the next HUD tick.
             _pickup.interactable = false; _pickup.GetComponentInChildren<TMP_Text>(true).text = "F"; _pickup.gameObject.SetActive(false);
             _slots[0].GetComponentInChildren<TMP_Text>(true).text = "1";
@@ -206,7 +207,7 @@ namespace Roguehalla.Client
             if (_launchMenuInput != null) _launchMenuInput.interactable = true;
             _rewards.gameObject.SetActive(false); _results.gameObject.SetActive(false); _settings.gameObject.SetActive(false);
             ClearOwnerPresentation("Awaiting server");
-            _banner.text = "Choose a faction and join"; _notice.text = ""; Set(_plateStatus, "");
+            _banner.text = "Choose a faction, then START RUN"; _notice.text = ""; Set(_plateStatus, "");
             _map?.Bind(null); _drawer?.SetVisible(false); RefreshHeaderActionsVisibility(); ReleaseChestFocus();
         }
 
@@ -248,6 +249,7 @@ namespace Roguehalla.Client
         {
             TickFeatures();
             RefreshReadouts();
+            TickSpectate();
             TickTutorial();
             TickWishTileMotion();
             RefreshSettlementRow();
@@ -268,9 +270,9 @@ namespace Roguehalla.Client
                 if (_session.Me == null && latest != null) banner += " · Spectating";
             }
             else if (_session.State == SessionState.Reconnecting || _session.State == SessionState.HelloSent && _session.ReconnectAttempt > 0)
-                banner = "Connection interrupted · resuming seat (attempt " + _session.ReconnectAttempt + ")";
-            else if (_session.State == SessionState.Rejected) banner = "Join rejected: " + _session.RejectReason;
-            else if (_session.State == SessionState.Failed) banner = "Connection failed: " + _session.Error;
+                banner = "Reconnecting… (" + _session.ReconnectAttempt + "/" + _session.ReconnectAttemptMax + ")";
+            else if (_session.State == SessionState.Rejected) banner = ConnectionCopy.ForState(_session.State, _session.RejectCode, _session.RejectReason, _session.FailureKind);
+            else if (_session.State == SessionState.Failed) banner = ConnectionCopy.ForState(_session.State, _session.RejectCode, _session.RejectReason, _session.FailureKind);
             else banner = _session.State.ToString();
             Set(_banner, banner); Set(_plateStatus, practiceBanner ? TrainingBanner : banner); _bannerPractice = practiceBanner; _bannerState = _session.State; _bannerPhase = phase; _bannerAttempt = _session.ReconnectAttempt;
             }
@@ -281,6 +283,7 @@ namespace Roguehalla.Client
         }
         void HudOwnerRefresh(string banner)
         {
+            TickFirstRunHint();
             Set(_notice, _feedback);
             var me = _session.Me;
             if (me == null)

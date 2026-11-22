@@ -30,6 +30,34 @@ namespace Roguehalla.Client
 
         AccountFullProfile TutorialProfile { get { return _client?.AccountFlow?.Snapshot?.FullProfile; } }
 
+        // First real runs (open alpha): a one-line controls reminder in the bottom toast, shown through the lobby and for the
+        // first seconds of the match, never in Training (the tutorial card covers it). Presentation only.
+        internal const string FirstRunHint = "Right-click move · Left-click attack · E potion · R Wish · H help";
+        const float FirstRunHintSeconds = 20f;
+        bool _firstRunHint;
+        float _firstRunHintUntil = -1f;
+
+        void ArmFirstRunHint()
+        {
+            var profile = TutorialProfile;
+            _firstRunHint = profile == null || profile.Stats == null || profile.Stats.Runs < 2;
+            _firstRunHintUntil = -1f;
+            if (_firstRunHint) _feedback = FirstRunHint;
+        }
+
+        void TickFirstRunHint()
+        {
+            if (!_firstRunHint || _session == null) return;
+            bool practice = _client != null && _client.ConfirmedPractice;
+            if (_firstRunHintUntil < 0f && _session.State == SessionState.InMatch && !practice)
+                _firstRunHintUntil = UnityEngine.Time.unscaledTime + FirstRunHintSeconds;
+            if (practice || _firstRunHintUntil >= 0f && UnityEngine.Time.unscaledTime > _firstRunHintUntil)
+            {
+                _firstRunHint = false;
+                if (_feedback == FirstRunHint) _feedback = "";
+            }
+        }
+
         bool TutorialMenuVisible =>
             _menu != null && _menu.gameObject.activeSelf && !_signIn.gameObject.activeSelf && !_settings.gameObject.activeSelf &&
             !_modernSettings.IsVisible && !AnyHubPanelVisible && !ResumeChooserVisible;
@@ -114,7 +142,7 @@ namespace Roguehalla.Client
                 string action = welcome ? TutorialMarkerRules.WelcomeAction(profile.Tutorial, TutorialFlow.Version) : "Start";
                 _tutView.SetWelcome(welcome, action == "Resume" ? "Resume" : "Start",
                     (action == "Resume" ? "Pick up the tutorial where you left off." : "A short guided walk through Training: move, grab a weapon, hit a dummy, swap and cast your Wish.") +
-                    "\nNothing in Training is recorded.");
+                    "\nNothing in Training is recorded. Press H anytime for controls; replay it from Settings.");
             }
 
             bool practice = _client != null && _client.ConfirmedPractice;

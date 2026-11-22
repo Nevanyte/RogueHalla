@@ -330,3 +330,25 @@ fn the_practice_room_is_live_content_plus_the_named_practice_overrides() {
     expected.initial_loot = training.initial_loot;
     assert_eq!(training, expected);
 }
+
+#[test]
+fn bot_wait_seconds_sets_the_matchmaking_wait_and_is_refused_elsewhere() {
+    let timing =
+        |extra: &str| rh_server::runtime::lobby_timing_flag(&args(&format!("{SOURCE} {extra}")));
+    assert_eq!(
+        timing("--lobby-timing matchmaking --bot-wait-seconds 60").unwrap(),
+        LobbyTiming::Matchmaking {
+            lobby_seconds: 62.,
+            bots_at_seconds: 60.,
+        }
+    );
+    assert!(
+        timing("--bot-wait-seconds 60").is_err(),
+        "needs matchmaking"
+    );
+    assert!(timing("--lobby-timing legacy --bot-wait-seconds 60").is_err());
+    assert!(timing("--lobby-timing matchmaking --bot-wait-seconds -1").is_err());
+    assert!(timing("--lobby-timing matchmaking --bot-wait-seconds 601").is_err());
+    assert!(timing("--lobby-timing matchmaking --bot-wait-seconds nan").is_err());
+    assert!(timing("--lobby-timing matchmaking --bot-wait-seconds").is_err());
+}

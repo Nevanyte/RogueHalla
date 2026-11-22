@@ -34,12 +34,24 @@ namespace Roguehalla.Client.Tests
             arena.PresentCollections(BuildPublicCollections(rows));
 
             var root = FindDirectChild(arena.transform, "Observed collections");
+            var presenter = new SpriteActorPresenter(arena.transform, null);
             for (int weapon = 0; weapon < 5; weapon++)
             {
                 var glyph = FindAtX(root, WorldPointFromRaw((ushort)(100 + weapon * 80), 200).x, ShowcaseSprites.Get("weapon" + weapon));
-                Assert.That(glyph, Is.Not.Null, "ground weapon " + weapon + " must use its matching generated glyph");
+                Assert.That(glyph, Is.Not.Null, "ground weapon " + weapon + " has its matching equipment sprite");
                 Assert.That(glyph.gameObject.activeSelf, Is.True);
                 Assert.That(glyph.sharedMaterial, Is.SameAs(ShowcaseSprites.Unlit));
+                var authored = StormInkWeaponArt.Get((WeaponId)weapon);
+                Assert.That(authored, Is.Not.Null);
+                Assert.That(glyph.sprite, Is.SameAs(authored));
+                presenter.Present(1, 0, 0, Mathf.PI / 2f, 100, FactionId.Holy, ActorStatus.Alive, (WeaponId)weapon,
+                    ActorKind.Player, null, 0, 0, true);
+                var held = arena.transform.Find("Observed actor/Equipped weapon cue").GetComponent<SpriteRenderer>();
+                Assert.That(held.sprite, Is.SameAs(glyph.sprite));
+                Assert.That(held.sharedMaterial, Is.SameAs(glyph.sharedMaterial));
+                Assert.That(held.color, Is.EqualTo(glyph.color));
+                Assert.That(held.transform.lossyScale.x, Is.EqualTo(glyph.transform.lossyScale.x).Within(.0001f));
+                Assert.That(held.transform.lossyScale.y, Is.EqualTo(glyph.transform.lossyScale.y).Within(.0001f));
             }
             var unknown = FindAtX(root, WorldPointFromRaw(580, 200).x, ShowcaseSprites.Get("stone"));
             Assert.That(unknown, Is.Not.Null, "unsupported values use a neutral cue rather than a known weapon glyph");

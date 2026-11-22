@@ -48,11 +48,11 @@ namespace Roguehalla.Client
         {
             new HelpGuideSection("In a run and in practice", new[]
             {
+                E("Right click", "Walk to a point on the ground; hold to keep steering."),
                 E("W · A · S · D / Arrows", "Move."),
                 E("Left click", "Attack toward the cursor; hold to repeat. The wand can lock onto an enemy."),
                 E("Melee", "Swing while moving without an attack windup."),
                 E("Range guide", "Soft outlines show your equipped weapon’s reach."),
-                E("Right click", "Move to a point on the ground; hold to keep steering."),
                 E("Space", "Swap weapons."),
                 E("Shift · Q", "Cast quest ability slots 1 and 2."),
                 E("E", "Drink a potion. Small potions restore less health."),
@@ -61,6 +61,7 @@ namespace Roguehalla.Client
                 E("F", "Pick up a nearby weapon or speak to a giver."),
                 E("R", "Cast your faction’s Wish. Cooldowns vary by faction."),
                 E("J", "Show or hide the quest log."),
+                E("B", "Show or hide your build: cards and stats."),
                 E("Enter", "Accept the quest offer opened with F."),
                 E("C", "Give the chest panel keyboard focus, or give focus back."),
                 E("1 · 2 · 3 (after C)", "Choose a chest card."),
@@ -108,6 +109,16 @@ namespace Roguehalla.Client
 
         static readonly IReadOnlyList<HelpMechanicSection> MechanicsData = Array.AsReadOnly(new[]
         {
+            new HelpMechanicSection("How a run works", new[]
+            {
+                M("Goal", "Last one standing wins. Grow stronger first, then outlast the other players."),
+                M("Camps", "Clear mob camps for stat rewards and a stored potion. Cleared camps respawn on a timer."),
+                M("Quests", "Walk up to a quest giver, press F, then Enter to accept. Quests grant stats and GV. Press J to track them."),
+                M("Elites and chests", "Elite mobs can leave an augment chest. Press C, then pick a card with the number keys."),
+                M("Weapons", "Press F to pick up weapons. You carry two; Space swaps between them."),
+                M("Map", "Hold Tab for the tactical map. The minimap shows nearby enemies and camps."),
+                M("GV · Glorious Victory", "Your score: earned from kills, quests and wins. It is shown on your record and the leaderboard."),
+            }),
             new HelpMechanicSection("Damage and terms", new[]
             {
                 M("Offense", "Adds physical damage to weapon hits when listed as a scaling stat. It does not change the base damage type or automatically scale champion abilities. Some mob kills and quests grant it."),
@@ -139,7 +150,7 @@ namespace Roguehalla.Client
             {
                 M("Fire · Burn", "Magic damage over time."),
                 M("Fire · Backlash", "Physical damage returned to an attacker."),
-                M("Sentenced · Mark", "Combines physical and magic damage."),
+                M("Haunted · Mark", "Combines physical and magic damage."),
                 M("Plague · Disease and execute", "Disease deals magic damage over time; the signature also threatens weakened targets."),
                 M("Frost · Chill", "Slows the target."),
                 M("Holy · Lifesteal", "Restores health from damage dealt."),

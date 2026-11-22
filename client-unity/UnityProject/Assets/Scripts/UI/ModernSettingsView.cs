@@ -22,6 +22,7 @@ namespace Roguehalla.Client
         RectTransform _root, _content;
         ScrollRect _scroll;
         Button _quality, _closeButton, _reset, _leaveButton;
+        float _leaveArmedUntil = -1f; // Leave match asks for a second click within a few seconds, so a misclick never ends a run
         Switch _fullscreen, _motion, _fps, _ping, _route, _mapMode, _quickCast;
         Slider _textScale, _music, _ambience, _sfx;
         TMP_Text _textScaleValue, _musicValue, _ambienceValue, _sfxValue, _qualityValue;
@@ -49,8 +50,8 @@ namespace Roguehalla.Client
 
             _root = HudUi.Box(root, "ModernSettings", HudAnchor.TopRight, CardRight, CardTop, 320f, 400f);
             HudUi.Surface(_root, theme.Surface, theme.CornerRadiusLarge, theme.AccentDim, true, true);
-            HudUi.Label(HudUi.At(_root, "HeadingRow", CardPadSide, CardPadTop, 220, 20), "SettingsHeading", "SETTINGS", theme.SizeBody, theme.TextPrimary, bold: true).characterSpacing = 2f;
-            _closeButton = HudUi.Button(_root, "CloseSettings", "x", HudAnchor.TopRight, 10f, 10f, 20f, 20f, CloseByUser, theme.SizeBody, theme.CornerRadiusSmall);
+            HudUi.Label(HudUi.At(_root, "HeadingRow", CardPadSide, CardPadTop, 180, 20), "SettingsHeading", "SETTINGS", theme.SizeBody, theme.TextPrimary, bold: true).characterSpacing = 2f;
+            _closeButton = HudUi.Button(_root, "CloseSettings", "Close · Esc", HudAnchor.TopRight, 10f, 10f, 84f, 20f, CloseByUser, theme.SizeSmall, theme.CornerRadiusSmall);
 
             var scrollRect = HudUi.Inset(_root, "SettingsScroll", 0, HeaderHeight, 0, 10);
             _scroll = scrollRect.gameObject.AddComponent<ScrollRect>();
@@ -118,6 +119,7 @@ namespace Roguehalla.Client
         {
             if (_root == null) return;
             if (_root.gameObject.activeSelf == visible) return;
+            DisarmLeave();
             if (visible)
             {
                 var current = EventSystem.current;
@@ -257,12 +259,12 @@ namespace Roguehalla.Client
         {
             var theme = UiTheme.Current;
             var row = ControlRow(label, RowHeight);
-            float step = 28f, width = step * UiDisplayPreferences.MinimapScales.Length;
+            float step = 30f, width = step * UiDisplayPreferences.MinimapScales.Length;
             var group = HudUi.Box(row, "Segments", HudAnchor.MiddleRight, 0, 0, width, 22f);
             for (int i = 0; i < UiDisplayPreferences.MinimapScales.Length; i++)
             {
                 float scale = UiDisplayPreferences.MinimapScales[i];
-                var button = HudUi.Button(group, "Size" + Mathf.RoundToInt(scale * 100), Mathf.RoundToInt(scale * 100).ToString(), HudAnchor.TopLeft, i * step, 0, step, 22f,
+                var button = HudUi.Button(group, "Size" + Mathf.RoundToInt(scale * 100), Mathf.RoundToInt(scale * 100) + "%", HudAnchor.TopLeft, i * step, 0, step, 22f,
                     () => _prefs.SetMinimapScale(scale), 9f, theme.CornerRadiusSmall);
                 _minimapSizes.Add(button);
             }
@@ -275,10 +277,24 @@ namespace Roguehalla.Client
             HudUi.Label(HudUi.At(row, "Saved", 0, 8, 150, 14), "Label", "Saved in this browser.", theme.SizeSmall, theme.TextSecondary);
             _reset = HudUi.Button(row, "Reset", "Reset to defaults", HudAnchor.TopRight, 0, 4, 120f, 22f, ResetDisplayOptions, theme.SizeSmall, theme.CornerRadiusSmall);
             if (_leave != null)
-                _leaveButton = HudUi.Button(row, "Leave", "Leave match", HudAnchor.TopLeft, 0, 34, 120f, 22f, () => { SetVisible(false); _leave(); }, theme.SizeSmall, theme.CornerRadiusSmall);
+                _leaveButton = HudUi.Button(row, "Leave", "Leave match", HudAnchor.TopLeft, 0, 34, 140f, 22f, LeaveClicked, theme.SizeSmall, theme.CornerRadiusSmall);
         }
 
         // ---- behaviour
+
+        void LeaveClicked()
+        {
+            if (Time.unscaledTime > _leaveArmedUntil) { _leaveArmedUntil = Time.unscaledTime + 3f; SetLeaveLabel("Click again to leave"); return; }
+            DisarmLeave(); SetVisible(false); _leave();
+        }
+
+        void DisarmLeave() { _leaveArmedUntil = -1f; SetLeaveLabel("Leave match"); }
+
+        void SetLeaveLabel(string text)
+        {
+            var label = _leaveButton != null ? _leaveButton.GetComponentInChildren<TMP_Text>() : null;
+            if (label != null) label.text = text;
+        }
 
         void ToggleMapMode()
         {

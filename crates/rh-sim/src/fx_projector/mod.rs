@@ -77,6 +77,9 @@ pub struct FxProjector {
     /// Cold preparation of the owned output/event buffers was refused or unrepresentable: fail closed.
     bounds_unsupported: bool,
     events: Vec<SeenEvent>,
+    /// Spectating: the player whose sight filters this viewer's effects (see [`Sim::spectate_eye`]); `None` is the
+    /// viewer's own sight. Ownership (the viewer's own hits and Card entitlement) stays the viewer's.
+    eye: Option<PlayerId>,
 }
 impl FxProjector {
     pub fn attach(sim: &Sim, viewer: PlayerId) -> Self {
@@ -98,7 +101,12 @@ impl FxProjector {
             #[cfg(test)]
             card_outputs,
             events,
+            eye: None,
         }
+    }
+    /// Sets the spectated eye for the next feeds: the caller passes [`Sim::spectate_eye`] of the completed tick.
+    pub fn set_eye(&mut self, eye: Option<PlayerId>) {
+        self.eye = eye;
     }
     pub fn rebind(&mut self, sim: &Sim, viewer: PlayerId) {
         self.identity = sim.projection.identity.clone();
@@ -242,6 +250,11 @@ impl FxProjector {
                 FeedStatus::Advanced
             });
         };
+        // Sight index: the spectated eye's row of the report when there is one, the viewer's otherwise.
+        let viewer = self
+            .eye
+            .and_then(|eye| r.viewers.iter().position(|&id| id == eye))
+            .unwrap_or(viewer);
         self.instant.clear();
         let markers = r
             .ops

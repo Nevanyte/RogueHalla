@@ -106,7 +106,7 @@ namespace Roguehalla.Client.Tests
         {
             Layout(Windows[0]);
             string[] weapons = { "Axes", "Swords", "Bows", "Shields", "Wands" }, regions = { "Volcanic wastes", "Gothic graveyard", "Forgotten city", "Frozen plains", "Desert oasis" };
-            string[] names = { "Fire", "Sentenced", "Plague", "Frost", "Holy" };
+            string[] names = { "Fire", "Haunted", "Plague", "Frost", "Holy" };
             var shapes = new HashSet<Sprite>();
             for (int i = 0; i < 5; i++)
             {
@@ -276,7 +276,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(LaunchCopy.CallsignProblem("bad name!"), Does.Contain("2 to 16"));
             Assert.That(LaunchCopy.CallsignProblem("Valid_name-1"), Is.Null);
             Assert.That(LaunchCopy.SessionFailureText(SessionState.Failed, null), Does.StartWith("Couldn't reach the game server"));
-            Assert.That(LaunchCopy.SessionFailureText(SessionState.Rejected, "room full"), Does.Contain("room full"));
+            Assert.That(LaunchCopy.SessionFailureText(SessionState.Rejected, "room full"), Does.Not.Contain("room full"));
             Assert.That(LaunchCopy.SessionFailureText(SessionState.InMatch, null), Is.Empty);
         }
 

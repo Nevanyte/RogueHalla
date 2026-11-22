@@ -14,7 +14,7 @@ namespace Roguehalla.Client
     /// </summary>
     public sealed class TutorialView : MonoBehaviour
     {
-        const float EdgeMargin = 56f, CardWidth = 300f, WelcomeWidth = 340f;
+        const float EdgeMargin = 56f, CardWidth = 340f, WelcomeWidth = 340f;
         static readonly Color Gold = new Color(1f, .82f, .3f, .95f);
         static Sprite _triangle;
         RectTransform _stage, _welcome, _card, _edge;
@@ -28,19 +28,19 @@ namespace Roguehalla.Client
         {
             _stage = stage;
             var theme = UiTheme.Current;
-            _welcome = HudUi.Box(chrome, "TutorialWelcome", HudAnchor.Center, 0, 0, WelcomeWidth, 150f);
+            _welcome = HudUi.Box(chrome, "TutorialWelcome", HudAnchor.Center, 0, 0, WelcomeWidth, 170f);
             HudUi.Surface(_welcome, theme.Surface, theme.CornerRadiusLarge, theme.AccentDim, true, true);
             HudUi.Label(HudUi.At(_welcome, "Title", 16f, 10f, WelcomeWidth - 32f, 24f), "Label", "NEW HERE?", 16f, theme.Accent, TextAlignmentOptions.MidlineLeft, true).characterSpacing = 2f;
-            _welcomeBody = HudUi.Label(HudUi.At(_welcome, "Body", 16f, 40f, WelcomeWidth - 32f, 54f), "Label", "", theme.SizeBody, theme.TextPrimary, TextAlignmentOptions.TopLeft, false, UiFontRole.Body, true);
+            _welcomeBody = HudUi.Label(HudUi.At(_welcome, "Body", 16f, 40f, WelcomeWidth - 32f, 74f), "Label", "", theme.SizeBody, theme.TextPrimary, TextAlignmentOptions.TopLeft, false, UiFontRole.Body, true);
             _startLabel = HudUi.Button(_welcome, "Start", "Start", HudAnchor.BottomLeft, 16f, 14f, 120f, 28f, () => start(), theme.SizeBody).GetComponentInChildren<TMP_Text>();
             HudUi.Button(_welcome, "Skip", "Skip", HudAnchor.BottomRight, 16f, 14f, 80f, 28f, () => skipWelcome(), theme.SizeBody);
             _welcome.gameObject.SetActive(false);
 
             // Legacy training-bar spot (bottom-left); above the quest launcher so the two do not overlap. Only its Skip button takes pointer input.
-            _card = HudUi.Box(stage, "TutorialCard", HudAnchor.BottomLeft, 12f, 44f, CardWidth, 58f);
+            _card = HudUi.Box(stage, "TutorialCard", HudAnchor.BottomLeft, 12f, 44f, CardWidth, 72f);
             HudUi.Surface(_card, theme.Surface, theme.CornerRadius, theme.AccentDim, false, true);
-            _cardText = HudUi.Label(HudUi.At(_card, "Copy", 10f, 6f, CardWidth - 76f, 46f), "Label", "", theme.SizeBody, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, false, UiFontRole.Body, true);
-            _cardButtonLabel = HudUi.Button(_card, "Skip", "Skip", HudAnchor.MiddleRight, 8f, 0, 56f, 24f, () => { if (_cardDone) closeDone(); else skipStep(); }, theme.SizeSmall, theme.CornerRadiusSmall).GetComponentInChildren<TMP_Text>();
+            _cardText = HudUi.Label(HudUi.At(_card, "Copy", 10f, 6f, CardWidth - 104f, 60f), "Label", "", theme.SizeBody, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, false, UiFontRole.Body, true);
+            _cardButtonLabel = HudUi.Button(_card, "Skip", "Skip tutorial", HudAnchor.MiddleRight, 8f, 0, 84f, 24f, () => { if (_cardDone) closeDone(); else skipStep(); }, theme.SizeSmall, theme.CornerRadiusSmall).GetComponentInChildren<TMP_Text>();
             _card.gameObject.SetActive(false);
 
             var ring = new GameObject("TutorialRing");
@@ -69,7 +69,7 @@ namespace Roguehalla.Client
         public void SetCard(bool visible, string label, bool done = false)
         {
             _cardDone = done;
-            if (visible) { _cardText.text = label; _cardButtonLabel.text = done ? "Close" : "Skip"; }
+            if (visible) { _cardText.text = label; _cardButtonLabel.text = done ? "Close" : "Skip tutorial"; }
             _card.gameObject.SetActive(visible);
             if (!visible) HideMarker();
         }

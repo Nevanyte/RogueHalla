@@ -14,7 +14,6 @@ namespace Roguehalla.Client
         void DrawStatuses(double now, float t, bool reduced, float dt)
         {
             _statusTracker.BeginFrame();
-            bool blazeRecent = now - _lastBlazeMs < TrailScorchMs;
             for (int i = 0; i < _noteCount; i++)
             {
                 var n = _notes[i];
@@ -25,7 +24,6 @@ namespace Roguehalla.Client
                 if ((n.Effects & WishEffectBits.Zoned) != 0) DrawJudged(P, order, seed, t, reduced, n.Id);
                 if ((n.Effects & WishEffectBits.LastStand) != 0) DrawHoly(P, order, seed, t, reduced, dt, n);
                 if ((n.Effects & WishEffectBits.Hidden) != 0 && n.Id == _owner) DrawHiddenSelf(P, order, seed, t, reduced, dt, n.Id);
-                if ((n.Effects & WishEffectBits.Dot) != 0 && blazeRecent) DrawBurning(P, order, seed, t, reduced, dt);
             }
             _statusTracker.EndFrame();
         }
@@ -157,17 +155,5 @@ namespace Roguehalla.Client
             if (!reduced) for (int q = EmitCount(ref _acc[4], dt, 6f * Mathf.Min(1.5f, Quality.Particles)); q > 0; q--) _particles.Float(P + new Vector3((Random01(ref _rng) - .5f) * .9f, .3f + Random01(ref _rng), 0), new Vector3(0, .25f), .1f, 1.0f, A(Mix(g, Color.white, .2f), .75f));
         }
 
-        void DrawBurning(Vector3 P, int order, uint seed, float t, bool reduced, float dt)
-        {
-            Color f = Fac(0);
-            for (int k = 0; k < 3; k++)
-            {
-                float h = WishFxModel.Hash01(seed + (uint)k * 3);
-                float flick = reduced ? .85f : .7f + .3f * Mathf.Sin(t * (10f + h * 4f) + h * 9f);
-                Vector3 p = P + new Vector3((k - 1) * .32f, .15f, 0);
-                _pen.Draw(WishFxArt.Flame, p + new Vector3(0, .3f * flick, 0), new Vector2(.42f, .6f * flick), 0, A(Mix(f, new Color(1f, .85f, .4f), .3f), .9f), order + 2 + k);
-            }
-            if (!reduced) for (int q = EmitCount(ref _acc[5], dt, 6f * Mathf.Min(1.5f, Quality.Particles)); q > 0; q--) _particles.Rise(P + new Vector3((Random01(ref _rng) - .5f) * .7f, .6f, 0), new Vector3(0, .6f), .09f, .8f, A(new Color(1f, .75f, .3f), .9f));
-        }
     }
 }

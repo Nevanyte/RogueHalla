@@ -158,11 +158,11 @@ namespace Roguehalla.Client
 
         void Build()
         {
-            _panel = MythicUi.Panel(_root, "HubCosmeticsPanel", new Vector2(.37f, .17f), new Vector2(.98f, .87f), ShowcasePalette.Panel, true);
+            _panel = MythicUi.Panel(_root, "HubCosmeticsPanel", new Vector2(.37f, .17f), new Vector2(.98f, .87f), UiTheme.With(ShowcasePalette.Panel, .86f), true);
             _heading = MythicUi.Text(_panel, "CosmeticsHeading", "ACCOUNT COSMETICS", new Vector2(.03f, .91f), new Vector2(.72f, .99f), 27, ShowcasePalette.Gold, heading: true);
             MythicUi.Rule(_panel, "HeadingRule", new Vector2(.035f, .905f), new Vector2(.40f, .908f));
             _wallet = MythicUi.Text(_panel, "Wallet", "PROFILE · refreshing", new Vector2(.035f, .84f), new Vector2(.69f, .91f), 18, ShowcasePalette.Text);
-            _close = MythicUi.Button(_panel, "CloseCosmetics", "CLOSE  ×", new Vector2(.84f, .92f), new Vector2(.975f, .99f), () => SetVisible(false), MythicUi.ButtonStyle.Secondary);
+            _close = MythicUi.Button(_panel, "CloseCosmetics", "CLOSE · ESC", new Vector2(.84f, .92f), new Vector2(.975f, .99f), () => SetVisible(false), MythicUi.ButtonStyle.Secondary);
             _refresh = MythicUi.Button(_panel, "RefreshProfile", "REFRESH PROFILE", new Vector2(.70f, .84f), new Vector2(.975f, .91f), RefreshProfile, MythicUi.ButtonStyle.Secondary);
             _tabButtons = new Button[3];
             string[] labels = { "SHOP", "WARDROBE", "TITLES" };
@@ -452,7 +452,14 @@ namespace Roguehalla.Client
 
         static Color32 ToColor(uint value) => new Color32((byte)(value >> 16), (byte)(value >> 8), (byte)value, 255);
         static string FormatGv(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
-        static string SlotLabel(string slot) => string.IsNullOrEmpty(slot) ? "UNKNOWN SLOT" : slot.Replace('-', ' ').Replace('_', ' ').ToUpperInvariant();
+        static string SlotLabel(string slot)
+        {
+            if (string.IsNullOrEmpty(slot)) return "UNKNOWN SLOT";
+            string label = slot.Replace('-', ' ').Replace('_', ' ').ToUpperInvariant();
+            string haunted = Roguehalla.Net.Ui.FactionPresentation.Name((int)Roguehalla.Net.FactionId.Sentenced).ToUpperInvariant();
+            if (label == "SENTENCED") return haunted;
+            return label == "GOLD SENTENCED" ? "GOLD " + haunted : label;
+        }
         static string SafeName(string value) => string.IsNullOrEmpty(value) ? "Empty" : value.Replace('/', '_').Replace(' ', '_');
 
         void OnDestroy()

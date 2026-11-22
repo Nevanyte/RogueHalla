@@ -94,7 +94,7 @@
   {
     "id": "win_sentenced",
     "name": "Verdict",
-    "desc": "Win a run as Sentenced. Counts only in runs of 3+ players where you damaged 2+ of them.",
+    "desc": "Win a run as Haunted. Counts only in runs of 3+ players where you damaged 2+ of them.",
     "reward": [
       "title-the-judge"
     ]
@@ -141,8 +141,8 @@
   },
   {
     "id": "gild_sentenced",
-    "name": "Gilded Sentenced",
-    "desc": "Win 3 runs as Sentenced. Counts only in runs of 3+ players where you damaged 2+ of them.",
+    "name": "Gilded Haunted",
+    "desc": "Win 3 runs as Haunted. Counts only in runs of 3+ players where you damaged 2+ of them.",
     "reward": [
       "gilded-sentenced"
     ]

@@ -2,7 +2,6 @@
 mod full_slots;
 mod spells;
 use super::*;
-use crate::constants::TICK_MS;
 use crate::input::{validate as validate_input, RawCommand};
 use crate::mapgen::{coliseum, pipeline};
 use crate::quest_view::{QuestHandle, QuestObserver, QuestView};
@@ -30,6 +29,21 @@ fn new_raid_with_patience(
     gen: &pipeline::Pipeline<'_>,
     secrets: Secrets,
     first_patience: f64,
+) -> Sim {
+    new_raid_at(
+        gen,
+        secrets,
+        first_patience,
+        crate::constants::LEGACY_TICK_MS as u32,
+    )
+}
+
+/// A generated raid at a chosen step: 50 ms (the legacy rate) or 25 ms (the live server's 40 Hz default).
+fn new_raid_at(
+    gen: &pipeline::Pipeline<'_>,
+    secrets: Secrets,
+    first_patience: f64,
+    tick_ms: u32,
 ) -> Sim {
     let arena = map_admission::generate(
         gen,
@@ -65,6 +79,7 @@ fn new_raid_with_patience(
                 patience_min_seconds: if first_patience > 0. { 6. } else { 120. },
                 ..Default::default()
             }),
+            tick_ms,
             ..SimConfig::live_content()
         },
         arena,
@@ -192,6 +207,12 @@ impl Raid {
         self.sim.step();
     }
 
+    /// Steps covering `ticks` legacy 50 ms ticks of wall-clock time at this raid's step.
+    fn legacy_steps(&mut self, ticks: u32) {
+        let steps = self.sim.k.steps_of_legacy_ticks(ticks);
+        self.steps(steps as usize);
+    }
+
     fn steps(&mut self, ticks: usize) {
         for _ in 0..ticks {
             self.sim.step();
@@ -230,7 +251,8 @@ impl Raid {
 
     fn strike(&mut self, victim: PlayerId, lethal: bool) {
         let ready = self.sim.w.player(self.seat).unwrap().weapon.ready_at;
-        let wait = ((ready - self.sim.w.server_time).max(0.) / TICK_MS).ceil() as usize;
+        let wait =
+            ((ready - self.sim.w.server_time).max(0.) / self.sim.k.tick_ms()).ceil() as usize;
         self.steps(wait);
         if self.sim.w.mobs.contains(victim) {
             // Trusted opponent setup freezes kiting, but the normal weapon
@@ -270,9 +292,9 @@ impl Raid {
         }
         let aim = crate::math::atan2(point.y - at.y, point.x - at.x);
         self.raw(RawCommand::Attack { a: aim, t: None });
-        self.steps(12);
+        self.legacy_steps(12);
         self.raw(RawCommand::Release { a: aim, t: None });
-        self.steps(10);
+        self.legacy_steps(10);
         if lethal {
             assert!(
                 !self.sim.w.standing(idx),
@@ -318,8 +340,8 @@ impl Raid {
             });
         }
         let p = self.sim.w.player(self.seat).unwrap();
-        let delay =
-            ((p.weapon.ready_at - self.sim.w.server_time).max(0.) / TICK_MS).ceil() as usize;
+        let delay = ((p.weapon.ready_at - self.sim.w.server_time).max(0.) / self.sim.k.tick_ms())
+            .ceil() as usize;
         self.steps(delay);
         self.arrange(self.seat, from);
         self.root_fixture_target(victim, self.seat);
@@ -338,9 +360,9 @@ impl Raid {
         mob.core.vitals.hp = 0.1;
         mob.regional_brain_mut().mode = crate::mob_runtime::BrainMode::Idle;
         self.raw(RawCommand::Attack { a: aim, t: None });
-        self.steps(13);
+        self.legacy_steps(13);
         self.raw(RawCommand::Release { a: aim, t: None });
-        self.steps(15);
+        self.legacy_steps(15);
         assert!(
             self.sim
                 .w
@@ -395,7 +417,7 @@ impl Raid {
         }
         let deadline = self.sim.w.mob_runtime.as_ref().unwrap().camps[camp as usize].respawn_at;
         assert!(deadline > self.sim.w.server_time);
-        let wait = ((deadline - self.sim.w.server_time) / TICK_MS).ceil() as usize;
+        let wait = ((deadline - self.sim.w.server_time) / self.sim.k.tick_ms()).ceil() as usize;
         self.steps(wait + 1);
         assert!(
             self.bound_target().is_some_and(|next| next != actor),
@@ -408,7 +430,7 @@ impl Raid {
         // A short fixture timer still uses the normal arena teleport producer.
         // The lock reopens through settlement when the second opponent dies.
         let next = self.sim.w.rt.patience_ends_at.expect("first arena lock");
-        let wait = ((next - self.sim.w.server_time) / TICK_MS).ceil() as usize;
+        let wait = ((next - self.sim.w.server_time) / self.sim.k.tick_ms()).ceil() as usize;
         self.steps(wait);
         assert!(self.sim.w.rt.gates_locked);
         self.strike(self.opponent, false);
@@ -445,11 +467,11 @@ impl Raid {
             }
             HoldTheFort => {
                 self.arrange(self.seat, self.objective(0));
-                self.steps((FORT_MS / TICK_MS) as usize + 1);
+                self.steps((FORT_MS / self.sim.k.tick_ms()) as usize + 1);
             }
             StayAWhile => {
                 self.action(6, 0);
-                self.steps((MEDITATE_MS / TICK_MS) as usize + 1);
+                self.steps((MEDITATE_MS / self.sim.k.tick_ms()) as usize + 1);
             }
             BountyHunter => {
                 self.sim
@@ -467,7 +489,7 @@ impl Raid {
             | EvenSkeletonsGetCold => {
                 self.action_near(3, 0, 0);
                 if self.quest == TheBurningCrown {
-                    self.steps(21);
+                    self.legacy_steps(21);
                 }
             }
             TwoBanners => {
@@ -637,7 +659,7 @@ impl Raid {
     fn finish_as_second_owner(&mut self) {
         self.wait_for_next_encounter();
         if self.quest == ACruelJoke {
-            self.steps((10_000. / TICK_MS) as usize + 1);
+            self.steps((10_000. / self.sim.k.tick_ms()) as usize + 1);
         }
         self.confirm_independent_restore();
         let first = self.seat;
@@ -733,6 +755,17 @@ impl Raid {
 
 #[test]
 fn all_twenty_five_quests_accept_exercise_their_objective_and_turn_in() {
+    sweep_every_quest(crate::constants::LEGACY_TICK_MS as u32);
+}
+
+/// The same sweep at the live server's default step (40 Hz): every quest's timers, channels, attacks and turn-ins hold
+/// when each step is 25 ms.
+#[test]
+fn all_twenty_five_quests_complete_at_the_live_40_hz_step() {
+    sweep_every_quest(25);
+}
+
+fn sweep_every_quest(tick_ms: u32) {
     let fixed = coliseum::fixed_layout();
     let generator = pipeline::Pipeline::new(&fixed);
     let mut uncovered = [true; 25];
@@ -746,12 +779,12 @@ fn all_twenty_five_quests_accept_exercise_their_objective_and_turn_in() {
         if !assignment.iter().any(|id| uncovered[*id as usize]) {
             continue;
         }
-        let sim = new_raid(&generator, secrets);
+        let sim = new_raid_at(&generator, secrets, 0., tick_ms);
         for quest in assignment {
             if uncovered[quest as usize] {
                 let result = std::panic::catch_unwind(|| {
                     let world = if quest == Gatecrasher {
-                        new_raid_with_patience(&generator, secrets, 1.)
+                        new_raid_at(&generator, secrets, 1., tick_ms)
                     } else {
                         sim.clone()
                     };

@@ -29,6 +29,7 @@ Shader "Roguehalla/ActorOutline"
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/Shaders/2D/Include/Core2D.hlsl"
+        #include "RhBowChord.hlsl"
 
         struct Attributes { float3 positionOS : POSITION; float4 color : COLOR; float2 uv : TEXCOORD0; };
         struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float2 uv : TEXCOORD0; float4 screen : TEXCOORD1; nointerpolation float figure : TEXCOORD2; float3 posWS : TEXCOORD3; };
@@ -45,6 +46,8 @@ Shader "Roguehalla/ActorOutline"
         float4 _Src2Rect;  // the companion sprite's rectangle in its atlas
         float4 _Src2Texel;
         float4x4 _ToSrc2;  // source sprite-normalised uv -> companion sprite-normalised uv
+        float4 _RhBowChord;
+        float _RhBowChordWidth;
         float _Src2Mode;   // 0 none; 1 union (the companion is part of the silhouette: one stroke around both); 2 cut (no stroke where the companion is drawn)
         float4 _Tone;      // x: target contrast ratio of this stroke against the ground just outside it
         float4 _SrcTexel;  // x,y: one source texel in sprite-normalised units
@@ -74,7 +77,9 @@ Shader "Roguehalla/ActorOutline"
             float2 q = mul(_ToSrc2, float4(sp, 0.0, 1.0)).xy;
             float2 inside = step(0.0, q) * step(q, 1.0);
             float2 c = clamp(q, 0.5 * _Src2Texel.xy, 1.0 - 0.5 * _Src2Texel.xy);
-            return SAMPLE_TEXTURE2D(_Src2Tex, sampler_Src2Tex, _Src2Rect.xy + c * _Src2Rect.zw).a * inside.x * inside.y;
+            float2 atlasUv = _Src2Rect.xy + c * _Src2Rect.zw;
+            return SAMPLE_TEXTURE2D(_Src2Tex, sampler_Src2Tex, atlasUv).a * inside.x * inside.y
+                * RhStraightBowStringCoverage(atlasUv, _RhBowChord, _RhBowChordWidth);
         }
         // The figure's silhouette: the source, and its companion (the held weapon) when the stroke is one for both.
         float FigAlpha(float2 sp)

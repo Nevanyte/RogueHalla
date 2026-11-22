@@ -564,3 +564,164 @@ fn bargain_spends_equivalent_stat_stacks_in_roster_order() {
     assert!(bargain_take(p, 0, 20));
     assert_eq!(p.farm.count(crate::mob_catalog::MobTypeId::Inquisitor), 2);
 }
+
+#[test]
+fn a_leaver_keeps_their_completed_record_and_the_checkpoint_stays_valid() {
+    let mut sim = scenario(&[QuestId::TuberEats], [false; 2]);
+    let [a, _b] = owners(&sim.w);
+    run(&mut sim, |cx| {
+        accept(cx, 0, a);
+        interact(cx, a, 900, 3, 0);
+        system(cx);
+    });
+    assert!(finish(&mut sim.w, a, 900));
+    sim.remove_player(a);
+    run(&mut sim, system);
+    assert!(is_completed(&sim.w, a, 900));
+    // The checkpoint rule a restore runs.
+    assert_eq!(validate(&sim.k, &sim.w), Ok(()));
+}
+
+#[test]
+fn an_abandoning_crown_carrier_drops_the_crown_for_the_others() {
+    let mut sim = scenario(&[QuestId::TheBurningCrown], [false; 2]);
+    let [a, b] = owners(&sim.w);
+    run(&mut sim, |cx| {
+        accept(cx, 0, a);
+        accept(cx, 0, b);
+        interact(cx, a, 900, 3, 0);
+    });
+    assert_eq!(board(&sim.w).unwrap().crown.carrier, Some(a));
+    let at = sim.w.player(a).unwrap().pos();
+    sim.abandon_player(a);
+    let crown = board(&sim.w).unwrap().crown;
+    assert_eq!((crown.carrier, crown.ground), (None, Some(at)));
+    assert!(attempt(&sim.w, a, 900).is_none());
+    assert_eq!(validate(&sim.k, &sim.w), Ok(()));
+    let _ = b;
+}
+
+#[test]
+fn a_gatecrasher_victim_leaving_mid_lock_keeps_the_match_valid() {
+    let mut sim = scenario(&[QuestId::Gatecrasher], [false, false]);
+    let [a, b] = owners(&sim.w);
+    run(&mut sim, |cx| {
+        accept(cx, 0, a);
+        cx.w.rt.gates_locked = true;
+        on_hit_landed(
+            &mut Hx {
+                stats: Default::default(),
+                fx: None,
+                k: cx.k,
+                w: cx.w,
+                ev: cx.ev,
+            },
+            &crate::hooks::HookArgs::HitLanded {
+                entry: crate::systems::ledger::Entry {
+                    terrain: false,
+                    dot: false,
+                    ability: None,
+                    arena: false,
+                    source: None,
+                    critical: false,
+                    critical_mult: None,
+                    sig: None,
+                    execute: false,
+                    victim: b,
+                    by: Some(a),
+                    packet: crate::state::Packet {
+                        raw: 1.,
+                        phys: 0.,
+                        magic: 0.,
+                        true_: 1.,
+                    },
+                    weapon: None,
+                    stagger: false,
+                    projectile: None,
+                    scale: 1.,
+                    derived: false,
+                    passive: false,
+                },
+                amount: 1.,
+            },
+        );
+    });
+    assert_eq!(progress(&sim.w, a, 900), 1);
+    sim.remove_player(b);
+    run(&mut sim, system);
+    assert_eq!(
+        progress(&sim.w, a, 900),
+        1,
+        "the damage already dealt still counts"
+    );
+    assert_eq!(validate(&sim.k, &sim.w), Ok(()));
+}
+
+#[test]
+fn scaring_your_own_giver_does_not_block_a_remote_delivery() {
+    let mut sim = scenario(&[QuestId::TuberEats], [false; 2]);
+    let [a, _b] = owners(&sim.w);
+    run(&mut sim, |cx| {
+        accept(cx, 0, a);
+        let until = cx.w.server_time + 60_000.;
+        board_mut(cx.w).unwrap().fled_givers.push(FledGiver {
+            owner: a,
+            giver_offer: 900,
+            until,
+        });
+        interact(cx, a, 900, 3, 0);
+        system(cx);
+        assert!(
+            pending(cx.w, a, 900).is_some(),
+            "the potato's contact is not the scared giver"
+        );
+    });
+    assert!(finish(&mut sim.w, a, 900));
+}
+
+#[test]
+fn a_turned_in_crown_stops_growing_until_it_is_claimed() {
+    let mut sim = scenario(&[QuestId::TheBurningCrown], [false; 2]);
+    let [a, _b] = owners(&sim.w);
+    run(&mut sim, |cx| {
+        accept(cx, 0, a);
+        interact(cx, a, 900, 3, 0);
+    });
+    board_mut(&mut sim.w).unwrap().crown.elapsed_ms = 7000.;
+    run(&mut sim, system);
+    assert_eq!(pending(&sim.w, a, 900).unwrap().points, 7);
+    for _ in 0..200 {
+        run(&mut sim, system);
+    }
+    assert_eq!(
+        crown_power(&sim.w, a),
+        Some(7),
+        "power holds while the claim waits"
+    );
+    assert!(finish(&mut sim.w, a, 900));
+}
+
+#[test]
+fn bounty_hunter_marks_humans_and_bots_alike() {
+    let mut sim = scenario(&[QuestId::BountyHunter], [false, false, true]);
+    let [a, b] = owners(&sim.w);
+    let bot = sim.w.players[2].id;
+    // The human b leads on player kills, without a real bounty yet.
+    sim.w.players[1].credit.kills = 2;
+    run(&mut sim, |cx| {
+        accept(cx, 0, a);
+        system(cx);
+    });
+    assert_eq!(
+        board(&sim.w).unwrap().bounty,
+        Some(b),
+        "two humans: the leader is marked"
+    );
+    // Once b hunts too, the mark moves to the fighter who is not hunting: the bot.
+    run(&mut sim, |cx| {
+        accept(cx, 0, b);
+        system(cx);
+    });
+    assert_eq!(board(&sim.w).unwrap().bounty, Some(bot));
+    assert_eq!(validate(&sim.k, &sim.w), Ok(()));
+}

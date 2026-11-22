@@ -27,6 +27,9 @@ namespace Roguehalla.Client
         Session _presentationSession;
         Func<ITransport> _transportFactory = TransportFactory.Create;
         readonly List<InterpActor> _actors = new List<InterpActor>();
+        /// <summary>Watching the rest of the match after a final death (the results card's Spectate). Presentation only: the server
+        /// decides what a spectator sees.</summary>
+        public readonly Spectator Spectator = new Spectator();
         /// <summary>The remote actors drawn this frame (the render-time sample); read-only for HUD overlays such as the edge threat glows.</summary>
         public IReadOnlyList<InterpActor> Actors { get { return _actors; } }
         readonly List<InterpActor> _targetActors = new List<InterpActor>();
@@ -95,7 +98,7 @@ namespace Roguehalla.Client
             if (_destroying || generation != _joinGeneration) return;
             Profile = string.IsNullOrWhiteSpace(nickname) ? Profile : nickname.Trim();
             Faction = faction;
-            _actors.Clear(); _steering = false; _attackHeld = false;
+            _actors.Clear(); _steering = false; _attackHeld = false; Spectator.Stop();
             var arena = new GameObject("Arena").AddComponent<ArenaView>();
             Arena = arena;
             var transport = _transportFactory();
@@ -189,7 +192,7 @@ namespace Roguehalla.Client
             _boundLaunchState = null; _boundLaunchSnapshot = null; _boundLaunchTimeline = null;
             UnbindPresentationSession(); ResetPresentationTimeline();
             Arena = null;
-            _actors.Clear(); _steering = false; _attackHeld = false;
+            _actors.Clear(); _steering = false; _attackHeld = false; Spectator.Stop();
             if (oldArena != null) DestroyOwnedArena(oldArena.gameObject);
             if (!_destroying) Hud?.ShowMenu();
             // Retired-session callbacks may synchronously start another launch. All old
@@ -225,6 +228,8 @@ namespace Roguehalla.Client
         {
             if (!focused) Hud?.ReleaseUiFocusForWindowLoss();
             else Hud?.RestoreUiFocusAfterWindowGain();
+            // Back in the foreground after a drop: do not wait out the backoff.
+            if (focused && Session != null) Session.RetryNow();
             if (focused || Session == null || Session.State != SessionState.InMatch) return;
             if (_attackHeld) Session.Input.Release(_aimAngle, Session.Clock.RenderMs);
             if (_steering) Session.OrderStop();
@@ -310,13 +315,19 @@ namespace Roguehalla.Client
             if (Session.State != SessionState.InMatch && Session.State != SessionState.Ended) return;
             if (Arena != null && !Arena.HasMap && Session.Map != null) Arena.Build(Session.Map, Session.Vision);
             Session.Remote.Sample(Session.Clock.DrawMs, _actors);
+            Spectator.Update(Session);
             // Camera first: the cursor ground point read by ReadInput must use this frame's camera, or aim is a frame stale.
             var pmCam = PerfMarks.Begin(); FollowCamera(); PerfMarks.End(PerfMarks.Sec.Camera, pmCam);
             if (_traceLatency && LatencyTrace.TakeTargetRequest()) TraceTargetScreens();
             bool probe = InputLatencyProbe.Enabled && Session.Motion != null && Session.Motion.Initialized && Session.Me != null;
             if (probe && Session.State == SessionState.InMatch && (Hud == null || !Hud.BlocksKeyboardInput))
                 InputLatencyProbe.BeginFrame(Keyboard.current, NowMs(), Session.Motion.DrawnX, Session.Motion.DrawnY, Session.Me.X, Session.Me.Y);
-            if (Session.State == SessionState.InMatch)
+            if (Session.State == SessionState.InMatch && Spectator.Active)
+            {
+                // A spectator plays nothing: only the spectate bar's choices (queued Target commands) leave.
+                Session.FlushInput();
+            }
+            else if (Session.State == SessionState.InMatch)
             {
                 ReadInput();
                 _wishAim.Frame(Session, _wishFrame);
@@ -331,10 +342,12 @@ namespace Roguehalla.Client
                 if (Time.unscaledTime >= _nextReconLog && motion.ReconSamples > 0)
                 {
                     _nextReconLog = Time.unscaledTime + 1f;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
                     Debug.Log(string.Format(System.Globalization.CultureInfo.InvariantCulture,
                         "[recon] samples={0} corrections(>{1}u)={2} big(>{3}u)={4} maxErr={5:F3} meanErr={6:F4} snaps={7} foot={8} swings={9} hits={10}",
                         motion.ReconSamples, LocalMotion.ReconCorrectionU, motion.ReconCorrections, LocalMotion.ReconBigU, motion.ReconBig,
                         motion.ReconMaxErr, motion.ReconErrSum / motion.ReconSamples, motion.Snaps, motion.Foot, _fxSwings, _fxHits));
+#endif
                 }
             }
             if (probe) InputLatencyProbe.EndFrame(NowMs(), Session.Motion.DrawnX, Session.Motion.DrawnY, Session.Me.X, Session.Me.Y);
@@ -399,9 +412,11 @@ namespace Roguehalla.Client
                 // Projectiles are simulated on the ground and drawn raised by the shooter's chest: aim at the cursor's ground point
                 // shifted that far toward screen-down so the drawn shot leaves the chest and passes through the cursor (ChestAim).
                 _aimAngle = (float)ChestAim.Angle(myX, myY, sx, sy, Session.OwnChest);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
                 if (HitboxOverlay.Enabled && mouse.leftButton.wasPressedThisFrame)
                     Debug.Log(string.Format(System.Globalization.CultureInfo.InvariantCulture, "[aim] t={0:F1} from={1:F2},{2:F2} cursor={3:F2},{4:F2} chest={5} angle={6:F5}",
                         Time.realtimeSinceStartup * 1000f, myX, myY, sx, sy, Session.OwnChest, _aimAngle));
+#endif
                 Session.Input.Aim(_aimAngle);
                 bool aimClick = false;
                 if (mouse.leftButton.wasPressedThisFrame)
@@ -609,11 +624,25 @@ namespace Roguehalla.Client
                 if (drawn.Id == newest.Id) { x = drawn.X; y = drawn.Y; return; }
         }
 
+        /// <summary>The watched player's drawn position this frame, when spectating someone the server delivered.</summary>
+        bool SpectatedPosition(out float x, out float y)
+        {
+            x = y = 0f;
+            if (!Spectator.Active || Spectator.Watching == 0) return false;
+            foreach (var a in _actors)
+                if (a.Id == Spectator.Watching && a.Kind == ActorKind.Player) { x = a.X; y = a.Y; return true; }
+            return false;
+        }
+
         void FollowCamera()
         {
             if (Cam == null || Arena == null) return;
+            bool watching = SpectatedPosition(out float wx, out float wy);
+            Arena.SpectateFog = watching; Arena.SpectateX = wx; Arena.SpectateY = wy;
             if (Hud != null && Hud.TacticalMap != null && Hud.TacticalMap.IsPeeking)
             { var at = Hud.TacticalMap.PeekAt; Arena.FollowExact(Cam, at.x, at.y); }
+            else if (watching) Arena.FollowSmoothed(Cam, wx, wy, Time.unscaledDeltaTime, false);
+            else if (Spectator.Active) { }   // between players: hold the camera where it is
             else if (Session.Motion != null && Session.Motion.Initialized)
                 Arena.FollowSmoothed(Cam, Session.Motion.DrawnX, Session.Motion.DrawnY, Time.unscaledDeltaTime, false);
         }

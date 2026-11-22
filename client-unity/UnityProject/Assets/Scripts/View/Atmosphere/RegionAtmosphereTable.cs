@@ -143,7 +143,7 @@ namespace Roguehalla.Client
                     row.Accent = new AccentLightSpec { Terrain = TerrainKind.Lava, Color = Tint(accent, .85f), Intensity = 2.2f, Radius = 6.5f, Flicker = 1f };
                     break;
                 case RegionId.Sentenced: // the one muted zone: hazy harvest dusk
-                    row.Name = "Sentenced";
+                    row.Name = Roguehalla.Net.Ui.FactionPresentation.Name(1);
                     p.SunColor = Tint(key, .22f); p.LightScale = 1.0f; p.SunStrength = .24f; p.ShadowLength = .5f; p.AmbientColor = Tint(amb, .5f) * .45f;
                     p.LightColor = Tint(Mix(amb, key, .55f), .15f);
                     p.PostExposure = .55f; p.Contrast = 4f; p.Saturation = -22f; p.ColorFilter = Color.white;
