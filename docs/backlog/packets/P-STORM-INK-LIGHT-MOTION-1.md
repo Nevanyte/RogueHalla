@@ -27,3 +27,14 @@ In graphics Unity compare the same receiver and camera on consecutive renders wi
 ## Risk and implementation tier
 
 Presentation only. Clipping, a baked shadow doubled by the renderer, a flame lighting empty space, or a sharpening pass that erases ink are visible regressions. Reuse the existing quality budgets and measure presentation changes in gameplay.
+
+## Regional emitter review — 21 November 2026
+
+The five non-Coliseum regional emitters were checked against recorded public Rust states with the Unity renderer at 2560×1440. Matched captures retain the source, map, camera, pigment and shader inputs while changing only the selected emitter; a second frame bypasses only its baked wall-shadow slot. Repeat renders had zero RGB8 drift. The durable comparison and raw receipts are linked from `world/environment-light/index.html` under “Regional shadow and motion review.” The unchanged public map hash is `f38bffe743bfaea721905ba8898df5166279478bafa638c49342348e662d66fd`.
+
+- Roadside lantern and Holy shrine lamps: clear nearby floor is lit, distant floor remains unchanged, and map-wall-blocked samples become darker than the matched shadow-bypass frame. The measured wall cells lie between the source and receiver.
+- Holy aisle lamps: nearby floor receives spill and far ground stays unchanged. The actual aisle station has no blocking wall cell inside the lamps' 3.6-unit radius, so wall-shadow direction/cutoff remain unverified.
+- Church candle: two actual public player positions were captured against the same registered candle. Near floor spill is present; a blocked receiver stays dark, but the matched shadow-bypass change is only 1 RGB level. Treat shadow direction as marginal, not passed.
+- Lava: the stable registered bank light is re-identified by map position `(27.79412, 123.3824)` on every temporal sample. Its slot changes during normal updates, so slot-index-only motion checks are invalid. Across 48 samples, normal flicker varies; Reduced Motion holds the registered light and rendered frame static. The captured radius has no clear floor control, so its shadow direction/cutoff remain open.
+
+Do not treat the open aisle, candle-contrast, or lava-control cases as complete shadow validation. These findings do not validate actor casts or alternate occluder layouts.
