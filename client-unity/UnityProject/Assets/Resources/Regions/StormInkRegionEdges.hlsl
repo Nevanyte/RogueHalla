@@ -50,10 +50,14 @@ void EdgeMaterials(float2 p, float4 wa, float4 wb, float aa, inout float w[6], i
     {
         float ratio = w[3] / snowSand;
         float2 wind = float2(p.x + .34 * p.y, p.y - .23 * p.x);
-        float cut = .18 + .46 * EdgeDryBrush(wind * float2(.54, 1.06))
-                         + .18 * EdgeDryBrush(wind * float2(2.0, 3.7) + 13.4);
-        float crest = smoothstep(cut - .105, cut + .105, ratio);
-        float snow = lerp(ratio, crest, _RegionEdgeArt.w * outsideArena);
+        float cut = .15 + .46 * EdgeDryBrush(wind * float2(.54, 1.06))
+                         + .22 * EdgeDryBrush(wind * float2(1.27, 4.6) + 13.4);
+        // Narrow wind streaks carry powder away from the main drift. A feathered
+        // pigment wash still shows both ground textures through the receding edge.
+        float streak = EdgeDryBrush(wind * float2(.92, 6.3) + 5.7);
+        cut -= .19 * smoothstep(.62, .86, streak);
+        float crest = smoothstep(cut - .13, cut + .14, ratio);
+        float snow = lerp(ratio, crest, .79 * _RegionEdgeArt.w * outsideArena);
         w[3] = snowSand * snow;
         w[4] = snowSand - w[3];
     }

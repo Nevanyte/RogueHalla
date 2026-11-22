@@ -9,6 +9,7 @@ Shader "Roguehalla/RegionSpriteLit"
         [PerRendererData] _StormFlameUV("Atlas flame centre and inverse radius", Vector) = (0,0,0,0)
         _Ndl("Sun facing", Float) = 0.55
         [PerRendererData] _WetRootContact("Wet root pigment", Float) = 0
+        [PerRendererData] _RegionFootWash("Foot Y, inverse wash height and strength", Vector) = (0,0,0,0)
         [HideInInspector] _LayeredCanopy("Overlapping ink wash", Float) = 0
     }
     SubShader
@@ -60,6 +61,7 @@ Shader "Roguehalla/RegionSpriteLit"
                 float4 _StormFlameUV;
                 half _LayeredCanopy;
                 half _WetRootContact;
+                float4 _RegionFootWash;
             CBUFFER_END
 
             float _RhSwayV;   // atlas V below which the art is wind-capable (RegionPropArt packs it first); 0 = no sway
@@ -100,6 +102,16 @@ Shader "Roguehalla/RegionSpriteLit"
             half4 Frag(Varyings i) : SV_Target
             {
                 half4 main = i.color * SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv);
+                if (_RegionFootWash.z > 0.0)
+                {
+                    float height = (i.world.y - _RegionFootWash.x) * _RegionFootWash.y;
+                    if (height < 1.0)
+                    {
+                        float tooth = RhLNoise(i.world * float2(17.0, 29.0));
+                        float pigment = 1.0 - smoothstep(-.35, .40 + .59 * tooth, height);
+                        main.a *= 1.0 - pigment * _RegionFootWash.z * (.33 + .35 * tooth);
+                    }
+                }
                 [branch] if (_WetRootContact > 0.5h)
                 {
                     half silt = 1.0h - smoothstep(.035h, .34h, i.uv.y);

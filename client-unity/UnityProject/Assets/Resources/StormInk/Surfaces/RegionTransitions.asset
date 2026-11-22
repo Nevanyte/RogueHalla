@@ -16,3 +16,32 @@ MonoBehaviour:
   RockBreakup: 1
   PavingBreakup: 1
   SnowEdge: 1
+  FootWash: 0.78
+  GroundedProps:
+  - fire.basalt.ledge
+  - fire.scree
+  - fire.scree.cobbles
+  - fire.rocks
+  - fire.stump
+  - fire.spire
+  - sent.deadtree
+  - sent.deadgrass
+  - plague.fern
+  - plague.mushroom
+  - plague.root.fan
+  - plague.root.ribbon
+  - plague.tree
+  - plague.rubble
+  - frost.drift
+  - frost.drift2
+  - frost.pine
+  - frost.pine2
+  - frost.reeds
+  - frost.rock
+  - frost.rock2
+  - frost.shards
+  - holy.palm
+  - holy.grass
+  - holy.flowers
+  - holy.rock
+  - holy.shrub
