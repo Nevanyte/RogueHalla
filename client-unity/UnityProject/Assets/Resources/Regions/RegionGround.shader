@@ -125,7 +125,7 @@ Shader "Roguehalla/RegionGround"
             float4 _PalPar[8];
             // x macro variation, y accent emission, z highlight toward the key colour (brightest detail), w glint intensity
             float4 _PalPar2[8];
-            // Region id minus one. xy = atlas slice and authored wash strength.
+            // Region id minus one. xyz = atlas slice, authored wash strength, stone swatches per side (0 for continuous washes).
             float4 _DryPaint[6];
             float4 _DryPaintUV[6];
             // Looks-only dials of the decoration bands (docs/unity/DIALS.md): warp = how far the band's outline wanders (tiles), noise scale = wobbles per tile, width = how much of the
@@ -584,14 +584,29 @@ Shader "Roguehalla/RegionGround"
                 if (strength > 0.0)
                 {
                     float4 axes = _DryPaintUV[layer];
-                    // Bend the washes very gently in map space. Baked edge bleeds allow the brush
-                    // to cross a repeat without the bilateral symmetry of reflected dry-brush marks.
-                    float2 drift = float2(sin(mapPoint.y * .16 + mapPoint.x * .06),
-                                          sin(mapPoint.x * .13 - mapPoint.y * .08));
-                    float2 p = mapPoint + drift * 1.15;
-                    float2 uv = float2(dot(p, axes.xy), dot(p, axes.zw));
+                    float2 uv = float2(dot(mapPoint, axes.xy), dot(mapPoint, axes.zw));
                     float2 dx = float2(dot(mapDx, axes.xy), dot(mapDx, axes.zw));
                     float2 dy = float2(dot(mapDy, axes.xy), dot(mapDy, axes.zw));
+                    float courses = _DryPaint[layer].z;
+                    if (courses > 1.0)
+                    {
+                        // The joints sit on the tile grid. Pick an individual painted face and
+                        // reverse strokes on selected stones to break up repeats down long paths.
+                        float2 stone = uv * courses, cell = floor(stone);
+                        float2 variant = floor(H22(cell + 21.0) * courses);
+                        float2 flip = step(.5, H22(cell + 76.0));
+                        float2 direction = 1.0 - 2.0 * flip;
+                        uv = (variant + flip + direction * frac(stone)) / courses;
+                        dx *= direction;
+                        dy *= direction;
+                    }
+                    else
+                    {
+                        // The continuous washes bend very gently and cross their baked edge bleeds.
+                        float2 drift = float2(sin(mapPoint.y * .16 + mapPoint.x * .06),
+                                              sin(mapPoint.x * .13 - mapPoint.y * .08)) * 1.15;
+                        uv += float2(dot(drift, axes.xy), dot(drift, axes.zw));
+                    }
                     float3 pigment = SAMPLE_TEXTURE2D_ARRAY_GRAD(_GroundTex, sampler_GroundTex, uv,
                         (int)_DryPaint[layer].x, dx, dy).rgb;
                     // A broad change in paper value under the groves also breaks neighbouring repeats.

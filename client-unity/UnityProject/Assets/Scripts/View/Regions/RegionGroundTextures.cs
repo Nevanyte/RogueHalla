@@ -63,13 +63,17 @@ namespace Roguehalla.Client
                     var floor = dryFloors[layer];
                     if (floor == null || floor.ActivePigment == null) continue;
                     var pixels = ReadLinearPigment(floor.ActivePigment);
-                    for (int line = 0; line < Size; line++)
+                    int courses = floor is FlagstoneFloorArt flags ? Mathf.Clamp(flags.StonesPerSide, 2, 8) : 0;
+                    if (courses == 0)
                     {
-                        JoinEdges(pixels, line * Size, 1);
-                        JoinEdges(pixels, line, Size);
+                        for (int line = 0; line < Size; line++)
+                        {
+                            JoinEdges(pixels, line * Size, 1);
+                            JoinEdges(pixels, line, Size);
+                        }
                     }
                     array.SetPixelData(pixels, 0, slice);
-                    paramsByLayer[layer] = new Vector4(slice++, Mathf.Clamp01(floor.WashStrength), 0f, 0f);
+                    paramsByLayer[layer] = new Vector4(slice++, Mathf.Clamp01(floor.WashStrength), courses, 0f);
                     uvByLayer[layer] = floor.MapToPaint;
                 }
                 material.SetVectorArray("_DryPaint", paramsByLayer);

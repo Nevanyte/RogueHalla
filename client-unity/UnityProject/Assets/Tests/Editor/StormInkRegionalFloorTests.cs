@@ -10,15 +10,15 @@ namespace Roguehalla.Client.Tests
         public void EditedFootprintAndOptionalPigmentSurviveAdjacentLayers()
         {
             var fire = Resources.Load<RegionalFloorArt>("StormInk/Surfaces/FireAshFloor");
-            var heath = Resources.Load<RegionalFloorArt>("StormInk/Surfaces/HauntedHeathFloor");
-            var original = (fire.Pigment, heath.RotationDegrees, heath.RepeatSpan, heath.WashStrength);
+            var paving = Resources.Load<RegionalFloorArt>("StormInk/Surfaces/HauntedFlagstoneFloor");
+            var original = (fire.Pigment, paving.RotationDegrees, paving.RepeatSpan, paving.WashStrength);
             var root = new GameObject("Edited regional floor");
             try
             {
                 fire.Pigment = null;
-                heath.RotationDegrees = 90f;
-                heath.RepeatSpan = new Vector2(5, 10);
-                heath.WashStrength = .65f;
+                paving.RotationDegrees = 90f;
+                paving.RepeatSpan = new Vector2(5, 10);
+                paving.WashStrength = .65f;
                 var cells = new byte[] { 1, 2, 4, 6 };
                 var map = new MapBlob(2, 2, new byte[4], new byte[4], cells, MapBlob.GroundTerrainAll);
                 using var ground = RegionGround.Create(root.transform, map, 1f);
@@ -33,7 +33,7 @@ namespace Roguehalla.Client.Tests
             }
             finally
             {
-                (fire.Pigment, heath.RotationDegrees, heath.RepeatSpan, heath.WashStrength) = original;
+                (fire.Pigment, paving.RotationDegrees, paving.RepeatSpan, paving.WashStrength) = original;
                 Object.DestroyImmediate(root);
             }
         }

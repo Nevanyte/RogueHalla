@@ -37,7 +37,7 @@ namespace Roguehalla.Client
 
             var dryFloors = new RegionalFloorArt[RegionGroundTextures.Layers];
             LoadFloor(dryFloors, map.Regions, RegionId.Fire, "FireAshFloor");
-            LoadFloor(dryFloors, map.Regions, RegionId.Sentenced, "HauntedHeathFloor");
+            LoadFloor(dryFloors, map.Regions, RegionId.Sentenced, "HauntedFlagstoneFloor");
             LoadFloor(dryFloors, map.Regions, RegionId.Frost, "FrostSnowFloor");
             var ground = RegionGroundTextures.Build(holySand, out var groundNormals, out bool holySandPacked,
                 limestone, dryFloors, Material); _owned.Add(ground); _owned.Add(groundNormals);
