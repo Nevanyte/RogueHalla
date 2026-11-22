@@ -159,7 +159,22 @@ weapons; the farm's `propose` and `act` are called on a hand-built `Cx`):
    Sustain that does not rank first: the incumbent stays (green on the base, pins today's behaviour).
 4. `prices_answer_for_quest_rewards_and_augments_from_their_table`: `reward_value` and `augment_value` are finite and
    non-negative on `LOCAL`, and a doctored `reward_default`/`augment_default` is returned for any key. Red on the stub.
-5. Death-model, pick and lock-target tests: see "Added with the oracle" below.
+5. `local_prices_reproduce_the_death_model_the_bot_played_with` (green on the stub, pins today's numbers): the farm
+   candidate on camp 0 for 5 members at full hp has death 0.3621675388783048, value 1.25, minutes 0.8529411764705883;
+   for 3 members at half hp death 0.23773403110264382, value 0.75; 3 members at full hp death 0.02 (the floor); and
+   `Prices::LOCAL.death` is (3, 0.4, 0.65, 4), pick (3 s, 0.9). Measured on the base before any change.
+6. `the_farm_candidate_reads_the_death_model_from_prices` (red): `safe_ratio` 0.95 lowers death by exactly 0.4 x 0.3;
+   `death_per_ratio` 0.2 halves it; `fight_weight` 6 gives 2 x base + 0.26; `typical_members` 8 halves the value;
+   `death_loss` 9 is the loss. All chosen unclamped.
+7. `the_chest_candidate_reads_the_pick_from_prices` (red): an open chest in reach is proposed with success 0.9 on LOCAL;
+   doctored `pick_success` 0.5 and `pick_seconds` +30 give success 0.5 and exactly half a minute more.
+8. `the_farm_keeps_the_mob_the_owner_has_locked` (red): the farm fights the nearer member first; next frame the keys are
+   new and `base.self_view.owner_lock` is `Held { target: Some(key of the farther member) }`: it locks that one. With no
+   held lock, position tracking follows the member it was fighting (green behaviour, pinned).
+9. `the_farm_does_not_follow_a_lock_or_a_position_into_another_camp` (red): a camp-1 mob stands where the last target
+   was and holds the owner's lock; the farm locks its own camp's member in reach instead.
+Not established by the oracle: the clear ticks of `tests/raid_bot.rs` (it stays the guard), the doc fixes, `Prices` living
+only in `values.rs`, and that the chest executor's `ride_along` is unaffected (reviewer reads them).
 
 ## 9. Validation commands
 
