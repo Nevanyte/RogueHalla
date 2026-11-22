@@ -15,3 +15,9 @@ On joined Web revision cb11c36e5 the north threshold and east inner approach sho
 ## Authority and risks
 
 D1 compares against the public region and gate footprint. D2 is n/a. R-AUTH, C-OBS and D9 apply. No map cells, outcomes, traversal, hitboxes or server visibility are changed. Repeated large slabs could appear mirrored or become too bright near the ring. Confirm at entrances and around moving actors in both Unity and Web.
+
+## Visual result
+
+Revision `a7ae7cbe2` passed 21 focused Unity checks. In the native replay, a quarter turn rotated the courses and zero wash restored the original floor pattern. The joined 2560 × 1440 Web route crossed all four gate thresholds on the same public map as the earlier build. The stone picks up the neighbouring marsh, Fire and Frost colours at the entrances. Its narrower joints leave the aim arc and foot marker visible against both stone and sand.
+
+Two joined players repeated the centre fight at the same server positions in both builds. On the painted floor Fire struck Frost at tick 851, 43.8 game units apart. Both actors were inside the delivered Coliseum. The public hit event reported 14.58 damage and Frost's own health fell from 985 to 969.82. The gallery at `world/coliseum-limestone/index.html` has the original and painted Web frames, full-resolution thresholds, the centre fight, inspector-control comparisons and the focused test report. Standards, torch spill and the mandatory wall blocks have separate outstanding visual work. The integrated gate is tracked separately.
