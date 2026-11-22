@@ -35,3 +35,10 @@ A second Web player watched Fire approach, enter and leave thicket 23 on revisio
 ## 1440p performance sample
 
 Three interleaved runs per revision compared `9f0d8f982` with `1dc224c41` on an M5 Pro. The 95th-percentile frame interval in Fire cover was 8.2 ms on the earlier build and 8.3 ms on the larger canopy. In nearby combat it was 8.0 ms and 8.3 ms. Both builds measured a median frame interval of 6.9 ms. The final build transferred 376,349 additional bytes. Four runs overlapped a separate workspace test job, mob counts varied, and each browser graphics audit recorded 0x500. Use these as descriptive measurements. The six-run details, timestamps, inputs and outliers are in `world/concealment-canopies/final/performance-three-pairs.json`.
+
+## Integrated gate hand-off
+
+- Packet `P-STORM-CONCEALMENT-CANOPY-1` on `codex/storm-ink`. The integrated playable revision is `ed680e11d`. The larger canopies, arena torches, north gate weapon rack and Editor prop-atlas lifetime fix are all present.
+- The full project gate passed against base `0eaf8bd6f`, including PostgreSQL, protocol vectors, parity, headless smoke, release bot checks and 1,952 Unity EditMode tests (1,950 headless and two graphics). The saved gate output is `world/concealment-canopies/final/full-gate-ed680e11d.txt` beside the five Web routes.
+- Changes are confined to Unity presentation, regional art, tests and review records. The existing Rust bush plane and viewer visibility rules remain authoritative under D9. D1 and D2 use the unchanged parity suite and public two-player observations. No deviations, shared-record changes or legacy doubts.
+- The gate lists Linux source-witness checks, Valgrind perfproof, cross-architecture determinism and the browser/Web build as separate jobs. The joined Web routes, opponent views and timing samples above document the browser evidence. Sampled frame times apply to the recorded hardware and routes.
