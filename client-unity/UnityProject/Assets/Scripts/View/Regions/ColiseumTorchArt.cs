@@ -32,7 +32,9 @@ namespace Roguehalla.Client
 
         bool _cropCached;
         Texture2D _cachedPigment;
+#if UNITY_EDITOR
         Hash128 _cachedPigmentHash;
+#endif
         Vector2Int _cachedCropSize;
 
         public static ColiseumTorchArt Load() => Resources.Load<ColiseumTorchArt>("StormInk/Props/ColiseumTorchArt");
@@ -67,10 +69,16 @@ namespace Roguehalla.Client
 
         bool EnsureCropSize()
         {
-            if (_cropCached && _cachedPigment == Pigment && Pigment != null && _cachedPigmentHash == Pigment.imageContentsHash)
+            bool cacheMatches = _cropCached && _cachedPigment == Pigment;
+#if UNITY_EDITOR
+            // A texture reimport can replace its pixels without replacing the asset reference.
+            var importedHash = Pigment != null ? Pigment.imageContentsHash : default;
+            cacheMatches &= _cachedPigmentHash == importedHash;
+            _cachedPigmentHash = importedHash;
+#endif
+            if (cacheMatches)
                 return _cachedCropSize.x > 0 && _cachedCropSize.y > 0;
             _cachedPigment = Pigment;
-            _cachedPigmentHash = Pigment != null ? Pigment.imageContentsHash : default;
             _cachedCropSize = default;
             _cropCached = true;
             if (Pigment == null || !Pigment.isReadable) return false;
