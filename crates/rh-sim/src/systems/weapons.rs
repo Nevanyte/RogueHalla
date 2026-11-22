@@ -97,7 +97,7 @@ fn step_weapon(cx: &mut Cx, ix: FighterIx) {
     let now = cx.w.server_time;
     let id = cx.w.core(ix).id;
     use crate::quests::board::rewards::effects;
-    if effects::forced_motion(cx.w, id) {
+    if effects::weapon_stopped(cx.w, id) {
         return;
     }
     let weapon = cx.w.core(ix).active_weapon();

@@ -175,6 +175,37 @@ pub(crate) fn add_container(
         .collect();
     add_items(w, kind, at, items, tick, between_ticks)
 }
+/// A Rebirth Egg held this dead player's weapons for a hatch that is not coming: they fall (or clear) now, as at death.
+pub(crate) fn drop_kept_weapons(
+    k: &crate::statics::MatchStatic,
+    w: &mut World,
+    victim: crate::PlayerId,
+) {
+    let Some(i) = w.idx(victim) else { return };
+    if w.players[i].status != crate::Status::Dead {
+        return;
+    }
+    if k.config.lifecycle.rules().is_some() && !k.config.initial_loot {
+        super::loot::clear_player_slots(w, victim);
+        return;
+    }
+    let p = &mut w.players[i];
+    let at = p.pos();
+    let gear = [p.weapon.weapon0.take(), p.weapon.weapon1.take()];
+    let mut items = Vec::new();
+    for def in gear.into_iter().flatten() {
+        w.item_counter += 1;
+        items.push(crate::initial_world::Item {
+            uid: w.item_counter,
+            def: crate::initial_world::ItemDef::Weapon(def),
+        });
+    }
+    if !items.is_empty() {
+        let tick = w.tick;
+        add_items(w, ContainerKind::Body(victim), at, items, tick, true);
+    }
+}
+
 fn add_items(
     w: &mut World,
     kind: ContainerKind,
@@ -242,14 +273,23 @@ pub(crate) fn drop_body(hx: &mut Hx, args: &HookArgs) {
         return;
     };
     crate::quests::board::rewards::effects::restore_gear(hx.w, victim);
+    // A death that a planted Rebirth Egg will hatch keeps both weapons for the return; an egg that never hatches drops
+    // them then (`drop_kept_weapons`).
+    let keep = crate::quests::board::special::egg::keeps_gear(hx.w, victim);
     if hx.k.config.lifecycle.rules().is_some() && !hx.k.config.initial_loot {
-        super::loot::clear_player_slots(hx.w, victim);
+        if !keep {
+            super::loot::clear_player_slots(hx.w, victim);
+        }
         return;
     }
     let Some(i) = hx.w.idx(victim) else { return };
     let p = &mut hx.w.players[i];
     let at = p.pos();
-    let gear = [p.weapon.weapon0.take(), p.weapon.weapon1.take()];
+    let gear = if keep {
+        [None, None]
+    } else {
+        [p.weapon.weapon0.take(), p.weapon.weapon1.take()]
+    };
     // Legacy `dropBody`: weapons first, then every camp potion, then every small potion; both stocks end at zero.
     let large = std::mem::take(&mut p.potion_large);
     let small = std::mem::take(&mut p.potion_small);

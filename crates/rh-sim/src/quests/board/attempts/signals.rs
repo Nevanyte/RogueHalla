@@ -147,28 +147,35 @@ pub(crate) fn on_player_killed(hx: &mut Hx, args: &HookArgs) {
     }
 }
 
+/// Bounty Hunter's stand-in mark. Humans and fill bots are treated alike: while nobody standing carries a real bounty,
+/// the standing fighter with the most player kills who is not hunting it is marked (the current mark keeps it while it
+/// still qualifies). A real bounty anywhere clears the stand-in.
 pub(super) fn update_bounty(w: &mut World) {
-    if offer_for(w, BountyHunter).is_none() {
+    let Some(offer) = offer_for(w, BountyHunter) else {
         return;
-    }
-    let mut humans = w.players.iter().filter(|p| p.standing() && !p.seat.bot);
-    let primary = humans.next().map(|p| p.id);
-    let solo = primary.is_some() && humans.next().is_none();
-    let active_bounty = w
+    };
+    let hunting = |id: PlayerId| {
+        board(w)
+            .and_then(|b| b.get(id, offer))
+            .is_some_and(|a| !a.completed)
+    };
+    let real_bounty = w
         .players
         .iter()
-        .any(|p| p.standing() && Some(p.id) != primary && p.credit.bounty > 0);
+        .any(|p| p.standing() && p.credit.bounty > 0);
     let mut target = None;
-    if solo && !active_bounty {
-        target = board(w)
-            .and_then(|b| b.bounty)
-            .filter(|&id| w.player(id).is_some_and(|p| p.standing() && p.seat.bot));
+    if !real_bounty {
+        let qualifies = |id: PlayerId| w.player(id).is_some_and(|p| p.standing()) && !hunting(id);
+        target = board(w).and_then(|b| b.bounty).filter(|&id| qualifies(id));
         if target.is_none() {
-            target = w
-                .players
-                .iter()
-                .find(|p| p.standing() && p.seat.bot)
-                .map(|p| p.id);
+            let mut best: Option<(u32, PlayerId)> = None;
+            for p in w.players.iter().filter(|p| qualifies(p.id)) {
+                let kills = p.credit.kills.saturating_sub(p.credit.bot_kills);
+                if best.is_none_or(|(most, _)| kills > most) {
+                    best = Some((kills, p.id));
+                }
+            }
+            target = best.map(|(_, id)| id);
         }
     }
     board_mut(w).unwrap().bounty = target;
@@ -307,6 +314,13 @@ pub(super) fn burn_crown(cx: &mut Cx) {
     let Some(p) = cx.w.player(carrier).filter(|p| p.standing()) else {
         return;
     };
+    // Turned in and waiting for its claim: the crown's power and its burn hold at the turn-in value.
+    let turned_in = offer_for(cx.w, TheBurningCrown)
+        .and_then(|offer| board(cx.w)?.get(carrier, offer))
+        .is_some_and(|a| a.pending.is_some());
+    if turned_in {
+        return;
+    }
     let amount = p.vitals.max_hp * CROWN_BURN_RATE;
     let b = board_mut(cx.w).unwrap();
     let before = b.crown.elapsed_ms;

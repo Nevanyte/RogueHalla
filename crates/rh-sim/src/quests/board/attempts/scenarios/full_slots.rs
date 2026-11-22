@@ -36,7 +36,7 @@ fn full_inventory() -> Raid {
     ward.ready_at = 90_000.;
     equipment.slots = [Some(ward), Some(Owned::new(Award::Hook, 0.))];
     raid.action(6, 0);
-    raid.steps(601);
+    raid.legacy_steps(601);
     assert_eq!(raid.view().pending.len(), 1);
     raid
 }
