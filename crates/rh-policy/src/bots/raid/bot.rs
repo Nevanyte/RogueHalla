@@ -35,7 +35,8 @@ pub const ARBITER_TAG: u32 = 16;
 pub const ACTS_TAG: u32 = 17;
 
 /// The balance lab's test player on one seat. One frame, in order: memory scene -> (planning screen: `PlanModule`,
-/// done) -> shared hand percept -> `RaidPercept` -> `Refs` -> path service tick -> every executor's `observe` -> on a
+/// done) -> shared hand percept -> `RaidPercept` -> `Refs` -> path service tick -> every executor's `observe` -> every
+/// executor's `urgent` (any `true` forces both ticks) -> on a
 /// strategy tick every executor's `propose` and the arbiter's choice -> on a think tick (every frame while committed)
 /// the goal's executor `act` plus every executor's `ride_along` -> Humanizer -> commands resolved through `Refs` and
 /// admitted by the budget mirror -> the act queue.
@@ -445,6 +446,9 @@ impl RaidBot {
         if !p.active {
             return (Vec::new(), Vec::new());
         }
+        let urgent =
+            super::goal::any_urgent(&mut self.executors, &mut parts.cx(p, &held, self.status))
+                | urgent;
         let mut changed = false;
         if self.arbiter.due(now, self.status, urgent) {
             let mut candidates: Vec<Candidate> = Vec::new();

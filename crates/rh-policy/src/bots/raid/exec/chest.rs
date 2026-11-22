@@ -8,11 +8,6 @@ use crate::bots::loot::Loot;
 use crate::bots::raid::exec::travel::straight_minutes;
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 
-/// Seconds a pick takes once at the chest (the panel's birth hold and a click).
-const PICK_SECONDS: f64 = 3.;
-/// The chance a walk to a chest ends in a pick (it may expire or be taken).
-const PICK_SUCCESS: f64 = 0.9;
-
 /// The chests module, owned by this executor.
 pub struct Chest {
     loot: Loot,
@@ -84,10 +79,10 @@ impl Executor for Chest {
         out.push(Candidate {
             goal: RaidGoal::new(GoalKind::Chest, Target::Key(chest)),
             value: cx.prices.chest,
-            success: PICK_SUCCESS,
+            success: cx.prices.pick_success,
             death: 0.,
             loss: cx.prices.death_loss,
-            minutes: straight_minutes(cx.p.me.at, at) + PICK_SECONDS / 60.,
+            minutes: straight_minutes(cx.p.me.at, at) + cx.prices.pick_seconds / 60.,
         });
     }
     fn act(&mut self, goal: &RaidGoal, cx: &mut Cx<'_>) -> Step {

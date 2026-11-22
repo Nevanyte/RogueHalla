@@ -2,8 +2,8 @@
 //! `Executor` trait every goal kind implements, and what one think returns (`Step`: a status, intents for the Humanizer,
 //! acts for the paced queue). The rules for an executor are on the trait.
 use super::acts::Act;
-use super::arbiter::Prices;
 use super::percept::RaidPercept;
+use super::values::Prices;
 use crate::bots::knowledge::Knowledge;
 use crate::bots::paths::RoomPathService;
 use crate::bots::planning::PlanMap;
@@ -48,6 +48,18 @@ pub enum GoalKind {
 }
 
 impl GoalKind {
+    /// This kind, when it ranks first, takes over from a committed, running incumbent (`Step::committed`, a fight under
+    /// way); any other top-ranked kind leaves a committed incumbent in place while its own score stays positive.
+    ///
+    /// The rule (rh-policy `AGENTS.md`): priorities compete every decision tick, and a commitment is the exception. A kind
+    /// may claim this only if its job is to leave or end the fight the commitment protects (Sustain: a potion, a retreat;
+    /// later a flee). A kind that starts new work (another camp, a chest, a quest, a roam) never claims it, or the bot
+    /// walks away from members that follow it and takes their hits for nothing. That includes `Fight` against a player
+    /// who attacks mid-farm: it starts a second fight, so it waits for the strategy tick after the farm's commitment
+    /// ends or turns negative; a flee from that player may claim it.
+    pub fn preempts_commitment(self) -> bool {
+        matches!(self, Self::Sustain)
+    }
     /// The persona's appetite for this kind of goal: a multiplier on the candidate's score. Read from the legacy persona
     /// table (`bots/types.rs` PERSONAS), so a Farmer and a Hunter rank the same candidates differently.
     pub fn persona_mult(self, p: &PersonaParams) -> f64 {
@@ -161,7 +173,8 @@ pub struct Step {
     pub acts: Vec<Act>,
     pub why: &'static str,
     /// The goal is mid-action (a fight on, a channel under way): leaving it does not escape its risk, so the arbiter
-    /// keeps it while its own score stays positive (a losing fight still yields).
+    /// keeps it while its own score stays positive (a losing fight still yields), unless the top-ranked candidate is a
+    /// kind that pre-empts (`GoalKind::preempts_commitment`: Sustain).
     pub committed: bool,
 }
 
@@ -256,6 +269,14 @@ pub trait Executor: Send {
     fn reset(&mut self) {}
     /// Read one active frame (bookkeeping only), every frame, before any proposal or think.
     fn observe(&mut self, _cx: &mut Cx<'_>) {}
+    /// Something this module watches needs a decision now (hp falling fast, a fight turning): asked every active frame
+    /// after `observe`; any executor's `true` makes this frame a strategy tick and a think tick, so a candidate it then
+    /// proposes (a Sustain that pre-empts a fight) can win within the frame instead of waiting for the cadence. Every
+    /// executor is asked, in registry order (`any_urgent`). Draw nothing from `cx.rng` here unless the packet says so:
+    /// a draw moves every later draw of the frame.
+    fn urgent(&mut self, _cx: &mut Cx<'_>) -> bool {
+        false
+    }
     /// Add this module's candidates for the arbiter (called on strategy ticks only).
     fn propose(&mut self, _cx: &mut Cx<'_>, _out: &mut Vec<Candidate>) {}
     /// The goal was just adopted (it was not the incumbent).
@@ -266,4 +287,12 @@ pub trait Executor: Send {
     fn ride_along(&mut self, _goal: &RaidGoal, _cx: &mut Cx<'_>) -> Step {
         Step::none()
     }
+}
+
+/// Every executor's `Executor::urgent`, OR-ed, in registry order. Each one is asked (no short-circuit), so an executor's
+/// answer, and any state it keeps while answering, does not depend on the executors before it.
+pub fn any_urgent(executors: &mut [Box<dyn Executor>], cx: &mut Cx<'_>) -> bool {
+    executors
+        .iter_mut()
+        .fold(false, |any, e| e.urgent(cx) | any)
 }

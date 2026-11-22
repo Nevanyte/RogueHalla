@@ -1,5 +1,6 @@
-//! The arbiter (P-RAID-0): candidate goals scored in camp-equivalents per minute, with hysteresis, and the `Prices` the
-//! candidates are valued with (local constants until P-RAID-V's table; a caller swaps them with `RaidBot::with_prices`).
+//! The arbiter (P-RAID-0): candidate goals scored in camp-equivalents per minute, with hysteresis and the commitment
+//! rule. It holds no price: `Prices` lives in `values.rs` and is re-exported here for callers that import it from this
+//! module (`bot.rs`).
 use super::goal::{Candidate, RaidGoal, Status};
 use crate::bots::random::{uniform, Rng};
 use crate::bots::types::{PersonaParams, TierParams};
@@ -11,39 +12,7 @@ pub const HYSTERESIS_FLOOR: f64 = 0.05;
 /// A goal underfoot still takes this long (minutes): no candidate divides by zero.
 pub const MIN_MINUTES: f64 = 0.05;
 
-/// The value inputs, in camp-equivalents (ce). Local constants until P-RAID-V (`data/raid_values.json`).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Prices {
-    /// One normal camp cleared.
-    pub camp: f64,
-    /// Stat stacks one camp-equivalent stands for (the workbook's unit).
-    pub stacks_per_camp: f64,
-    /// One reward chest's pick.
-    pub chest: f64,
-    /// What roaming finds per minute on average (the floor every other goal must beat).
-    pub roam_per_minute: f64,
-    /// What dying loses: the run's progress and the time to get back to farming.
-    pub death_loss: f64,
-    /// Seconds to kill one normal camp member, fighting it alone.
-    pub kill_seconds: f64,
-}
-
-impl Prices {
-    pub const LOCAL: Self = Self {
-        camp: 1.,
-        stacks_per_camp: 12.,
-        chest: 1.5,
-        roam_per_minute: 0.1,
-        death_loss: 6.,
-        kill_seconds: 10.,
-    };
-}
-
-impl Default for Prices {
-    fn default() -> Self {
-        Self::LOCAL
-    }
-}
+pub use super::values::{DeathModel, Prices};
 
 /// One candidate with its score (ce per minute, multipliers applied).
 #[derive(Clone, Debug, PartialEq)]
@@ -82,7 +51,8 @@ fn better(a: &Scored, b: &Scored) -> std::cmp::Ordering {
 /// (`goal::Executor::propose`); each is scored `(value x success - death x loss) / minutes` (the workbook's currency:
 /// one normal camp = 12 stat stacks = one camp-equivalent), times its kind's tier and persona multipliers
 /// (`goal::GoalKind`). The running incumbent gets a hysteresis margin; a committed incumbent (a fight under way,
-/// `Step::committed`) is kept outright while its own score stays positive. Ties fall to the kind's declaration order,
+/// `Step::committed`) is kept outright while its own score stays positive, unless the top-ranked candidate is a kind
+/// that pre-empts a commitment (`GoalKind::preempts_commitment`: Sustain). Ties fall to the kind's declaration order,
 /// then the target's key: the choice depends on the candidates alone, not on the order they were proposed in.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Arbiter {
@@ -103,8 +73,9 @@ impl Arbiter {
     }
 
     /// Rank `candidates` and return the winner. The incumbent, while it runs, keeps a hysteresis margin, and while it is
-    /// also committed it wins outright as long as its score is positive. Draws the next strategy time from `rng` (the
-    /// arbiter stream, tag 16) once per call.
+    /// also committed it wins outright as long as its score is positive, unless the top-ranked candidate pre-empts
+    /// (`GoalKind::preempts_commitment`), which then wins. Draws the next strategy time from `rng` (the arbiter stream,
+    /// tag 16) once per call.
     pub fn choose(
         &mut self,
         now: f64,
@@ -139,7 +110,10 @@ impl Arbiter {
             })
             .collect();
         ranked.sort_by(better);
-        let kept = (status == Status::Running && committed)
+        let top_preempts = ranked
+            .first()
+            .is_some_and(|s| s.candidate.goal.kind.preempts_commitment());
+        let kept = (status == Status::Running && committed && !top_preempts)
             .then(|| {
                 ranked
                     .iter()
