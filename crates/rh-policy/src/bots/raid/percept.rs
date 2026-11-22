@@ -82,7 +82,9 @@ pub enum MobClass {
 /// One delivered non-player combat actor.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MobSeen {
-    /// The rendered key (`n<id>`), stable across frames; `refs.rs` resolves it to this frame's actor.
+    /// The rendered key (`n<id>`) of this frame only: the wire id is a per-frame reference, so the same mob has a new key
+    /// next frame. It names the mob within one think (it equals the owner's `OwnerLock::Held` target in the same frame);
+    /// `refs.rs` resolves it to this frame's actor. Follow a mob across frames by position.
     pub key: String,
     pub at: Vec2,
     pub hp_share: f64,

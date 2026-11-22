@@ -1,5 +1,6 @@
-//! The arbiter (P-RAID-0): candidate goals scored in camp-equivalents per minute, with hysteresis, and the `Prices` the
-//! candidates are valued with (local constants until P-RAID-V's table; a caller swaps them with `RaidBot::with_prices`).
+//! The arbiter (P-RAID-0): candidate goals scored in camp-equivalents per minute, with hysteresis and the commitment
+//! rule. It holds no price: `Prices` lives in `values.rs` and is re-exported here for callers that import it from this
+//! module (`bot.rs`).
 use super::goal::{Candidate, RaidGoal, Status};
 use crate::bots::random::{uniform, Rng};
 use crate::bots::types::{PersonaParams, TierParams};
@@ -50,7 +51,8 @@ fn better(a: &Scored, b: &Scored) -> std::cmp::Ordering {
 /// (`goal::Executor::propose`); each is scored `(value x success - death x loss) / minutes` (the workbook's currency:
 /// one normal camp = 12 stat stacks = one camp-equivalent), times its kind's tier and persona multipliers
 /// (`goal::GoalKind`). The running incumbent gets a hysteresis margin; a committed incumbent (a fight under way,
-/// `Step::committed`) is kept outright while its own score stays positive. Ties fall to the kind's declaration order,
+/// `Step::committed`) is kept outright while its own score stays positive, unless the top-ranked candidate is a kind
+/// that pre-empts a commitment (`GoalKind::preempts_commitment`: Sustain). Ties fall to the kind's declaration order,
 /// then the target's key: the choice depends on the candidates alone, not on the order they were proposed in.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Arbiter {
@@ -71,8 +73,9 @@ impl Arbiter {
     }
 
     /// Rank `candidates` and return the winner. The incumbent, while it runs, keeps a hysteresis margin, and while it is
-    /// also committed it wins outright as long as its score is positive. Draws the next strategy time from `rng` (the
-    /// arbiter stream, tag 16) once per call.
+    /// also committed it wins outright as long as its score is positive, unless the top-ranked candidate pre-empts
+    /// (`GoalKind::preempts_commitment`), which then wins. Draws the next strategy time from `rng` (the arbiter stream,
+    /// tag 16) once per call.
     pub fn choose(
         &mut self,
         now: f64,
@@ -107,7 +110,10 @@ impl Arbiter {
             })
             .collect();
         ranked.sort_by(better);
-        let kept = (status == Status::Running && committed)
+        let top_preempts = ranked
+            .first()
+            .is_some_and(|s| s.candidate.goal.kind.preempts_commitment());
+        let kept = (status == Status::Running && committed && !top_preempts)
             .then(|| {
                 ranked
                     .iter()

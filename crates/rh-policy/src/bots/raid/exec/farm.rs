@@ -9,11 +9,10 @@ use crate::bots::raid::exec::travel::{
 };
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 use crate::bots::raid::percept::{CampSeen, MobClass, MobSeen};
+use crate::bots::raid::values::DeathModel;
 use crate::bots::types::{Intent, IntentBody, IntentTiming, PRIORITY_COMBAT};
 use rh_sim::{FactionId, Vec2, WeaponId};
 
-/// The member count one `Prices::camp` stands for (camps hold three to five).
-pub const TYPICAL_MEMBERS: f64 = 4.;
 /// A melee lock is clicked inside this (HumanBot's compatibility front end).
 pub const MELEE_LOCK_U: f64 = 40.;
 /// A mob of another camp this close that is fighting is fought first: it is on us.
@@ -24,29 +23,21 @@ pub const FIGHT_U: f64 = 240.;
 const EMPTY_MS: f64 = 3_000.;
 /// ...and the camp is not proposed again for this long.
 const FAILED_BAN_MS: f64 = 20_000.;
-/// An aggroed camp fights together: while the bot kills member k of n, the n - k + 1 still standing all hit it, so the hp
-/// a clear costs is the duel's loss times n(n+1)/2, times this weight (the reference duel is kinder than a real fight).
-/// Set so a fresh fighter's three-member camp is a small risk, as HumanBot clears those 8 of 8 (P-RAID-0 oracle), and a
-/// five-member camp a likely death without sustain (32 of 96 HumanBot camps of all sizes ended in death or no clear).
-pub const FIGHT_WEIGHT: f64 = 3.;
-/// The death chance rises by this per unit of (hp needed / hp held) past `SAFE_RATIO`.
-const DEATH_PER_RATIO: f64 = 0.4;
-const SAFE_RATIO: f64 = 0.65;
 /// A member is the same one next think when it stands within this of where the last one was (npc keys live one frame).
 const TRACK_U: f64 = 80.;
 
 /// The share of max hp clearing `members` members costs, each a duel the bot keeps `share` of its hp in. `members` is
-/// in whole members' worth of hp (a member at half hp counts one half).
-pub fn hp_needed(share: f64, members: f64) -> f64 {
+/// in whole members' worth of hp (a member at half hp counts one half). Priced by `model` (`Prices::death`).
+pub fn hp_needed(share: f64, members: f64, model: &DeathModel) -> f64 {
     let n = members.max(0.);
-    (1. - share.clamp(0., 1.)) * n * (n + 1.) / 2. * FIGHT_WEIGHT
+    (1. - share.clamp(0., 1.)) * n * (n + 1.) / 2. * model.fight_weight
 }
 
-/// The chance to die clearing `members` members' worth of hp from `hp` share of max hp. Local constants until P-RAID-C
-/// and P-RAID-V price sustain and the real fight.
-pub fn death_chance(hp: f64, share: f64, members: f64) -> f64 {
-    let ratio = hp_needed(share, members) / hp.max(0.05);
-    (DEATH_PER_RATIO * (ratio - SAFE_RATIO)).clamp(0.02, 0.98)
+/// The chance to die clearing `members` members' worth of hp from `hp` share of max hp, by `model` (`Prices::death`,
+/// until P-RAID-C and P-RAID-V price sustain and the real fight). Clamped to 0.02..=0.98.
+pub fn death_chance(hp: f64, share: f64, members: f64, model: &DeathModel) -> f64 {
+    let ratio = hp_needed(share, members, model) / hp.max(0.05);
+    (model.death_per_ratio * (ratio - model.safe_ratio)).clamp(0.02, 0.98)
 }
 
 /// The camp's members in whole members' worth of hp: those alive, less what the visible ones have lost.
@@ -157,10 +148,10 @@ impl Executor for Farm {
                 straight_minutes(at, camp_at)
             };
             let share = self.share(me, zone_faction(zone));
-            let death = death_chance(hp, share, left);
+            let death = death_chance(hp, share, left, &cx.prices.death);
             out.push(Candidate {
                 goal: RaidGoal::new(GoalKind::Farm, Target::Camp(index)),
-                value: cx.prices.camp * f64::from(alive) / TYPICAL_MEMBERS,
+                value: cx.prices.camp * f64::from(alive) / cx.prices.death.typical_members,
                 success: 1. - death,
                 death,
                 loss: cx.prices.death_loss,
@@ -256,17 +247,30 @@ impl Executor for Farm {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bots::raid::values::Prices;
 
     #[test]
     fn death_chance_grows_with_the_fight_and_falls_with_hp() {
-        assert!(death_chance(1., 0.965, 1.) < death_chance(1., 0.965, 4.));
-        assert!(death_chance(1., 0.9, 3.) > death_chance(1., 0.965, 3.));
-        assert!(death_chance(0.3, 0.965, 2.) > death_chance(1., 0.965, 2.));
-        assert_eq!(death_chance(1., 1., 0.), 0.02);
+        assert!(
+            death_chance(1., 0.965, 1., &Prices::LOCAL.death)
+                < death_chance(1., 0.965, 4., &Prices::LOCAL.death)
+        );
+        assert!(
+            death_chance(1., 0.9, 3., &Prices::LOCAL.death)
+                > death_chance(1., 0.965, 3., &Prices::LOCAL.death)
+        );
+        assert!(
+            death_chance(0.3, 0.965, 2., &Prices::LOCAL.death)
+                > death_chance(1., 0.965, 2., &Prices::LOCAL.death)
+        );
+        assert_eq!(death_chance(1., 1., 0., &Prices::LOCAL.death), 0.02);
         // A fresh fighter: a three-member camp is a small risk, a five-member camp a likely death (Holy vs Fire share).
-        assert!(death_chance(1., 0.965, 3.) < 0.1);
-        assert!(death_chance(1., 0.965, 5.) > 0.3);
+        assert!(death_chance(1., 0.965, 3., &Prices::LOCAL.death) < 0.1);
+        assert!(death_chance(1., 0.965, 5., &Prices::LOCAL.death) > 0.3);
         // A camp worn down is cheaper to finish than a fresh one.
-        assert!(death_chance(0.6, 0.965, 1.6) < death_chance(0.6, 0.965, 3.));
+        assert!(
+            death_chance(0.6, 0.965, 1.6, &Prices::LOCAL.death)
+                < death_chance(0.6, 0.965, 3., &Prices::LOCAL.death)
+        );
     }
 }

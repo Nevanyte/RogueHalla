@@ -48,10 +48,15 @@ pub enum GoalKind {
 }
 
 impl GoalKind {
-    /// This kind may take over from a committed, running incumbent (the arbiter keeps a fight under way unless the
-    /// top-ranked candidate pre-empts). Stub: no kind does yet.
+    /// This kind, when it ranks first, takes over from a committed, running incumbent (`Step::committed`, a fight under
+    /// way); any other top-ranked kind leaves a committed incumbent in place while its own score stays positive.
+    ///
+    /// The rule (rh-policy `AGENTS.md`): priorities compete every decision tick, and a commitment is the exception. A kind
+    /// may claim this only if its job is to leave or end the fight the commitment protects (Sustain: a potion, a retreat;
+    /// later a flee). A kind that starts new work (another camp, a chest, a quest, a roam) never claims it, or the bot
+    /// walks away from members that follow it and takes their hits for nothing.
     pub fn preempts_commitment(self) -> bool {
-        false
+        matches!(self, Self::Sustain)
     }
     /// The persona's appetite for this kind of goal: a multiplier on the candidate's score. Read from the legacy persona
     /// table (`bots/types.rs` PERSONAS), so a Farmer and a Hunter rank the same candidates differently.
@@ -166,7 +171,8 @@ pub struct Step {
     pub acts: Vec<Act>,
     pub why: &'static str,
     /// The goal is mid-action (a fight on, a channel under way): leaving it does not escape its risk, so the arbiter
-    /// keeps it while its own score stays positive (a losing fight still yields).
+    /// keeps it while its own score stays positive (a losing fight still yields), unless the top-ranked candidate is a
+    /// kind that pre-empts (`GoalKind::preempts_commitment`: Sustain).
     pub committed: bool,
 }
 
