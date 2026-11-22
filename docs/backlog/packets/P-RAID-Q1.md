@@ -279,3 +279,26 @@ and action triple every frame), the act queue's pacing (a send every 180-420 ms 
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
+
+## Coordinator amendment (2026-11-22): the conflict of F5 is settled, and the base moved
+
+This section overrides the lines above where they differ.
+
+- **Base.** The packet is rebased onto `agent/opus/P-RAID-0-fix` @ `d31aa19a1` (reviewed LAND by reviewer-opus, waiting
+  for integration 83). The gate takes `--base agent/opus/P-RAID-0-fix` until that branch is merged.
+- **The F5 conflict (option taken: none of a, b, c as written).** P-RAID-0-fix put the quest reward's worth in the price
+  table: `Prices::reward_value(def)` (`crates/rh-policy/src/bots/raid/values.rs`), which every quest executor multiplies
+  by and reads from nowhere else. The P-RAID-0 farm oracle (`crates/rh-policy/tests/raid_bot.rs`) now builds its bot
+  with `Prices::farm_only()`, which prices quest rewards at zero, so a registered walker proposes nothing worth taking
+  there and that oracle stays green. Nothing in `raid_bot.rs` is this packet's to change.
+- **So the walker has no local value function.** Where the brief says "a local `fn reward_value(def: &str) -> f64`
+  returning a flat 2.0", read: the candidate's value is `cx.prices.reward_value(def)`. `Prices::LOCAL` returns a flat
+  placeholder of 1.0 for every def until P-RAID-V adds per-quest rows; a candidate whose value is zero is not proposed.
+  The arithmetic of F5 (2-9 per minute) becomes 1-4.5 per minute with the placeholder: still above roaming, and the
+  oracle's scenes have no camp near the start by construction.
+- **New hooks the walker may use, from the same fix:** `Executor::urgent` (make the arbiter decide on this think; fire
+  it on a change, never every frame of a state, and keep it cheap) and the rule that only a kind whose job is to leave
+  or end a fight may pre-empt a commitment (a quest walk may not). The extension guide in
+  `crates/rh-policy/src/bots/raid/mod.rs` is the reference.
+- **Mob and giver identity.** Wire ids change every frame (`percept.rs`): name a quest by its def id and a giver or an
+  objective by position, never by a key kept across frames.
