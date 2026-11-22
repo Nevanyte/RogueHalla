@@ -19,7 +19,11 @@ namespace Roguehalla.Client
             /// <summary>True for a row of the server's decoration: its tall flag (not the art's) decides the fade.</summary>
             public bool Shipped;
             /// <summary>True only for a shrub placed by the public bush grid, including a single-cell patch.</summary>
-            public bool ConcealmentCell; }
+            public bool ConcealmentCell;
+            /// <summary>Small, cosmetic plant/pebble placed at an open regional edge; never server-authored gameplay state.</summary>
+            public bool TransitionDetail;
+            public Color TransitionTint;
+            public float TransitionWidth, TransitionHeight; }
 
         struct Prop
         {
@@ -302,18 +306,28 @@ namespace Roguehalla.Client
             return false;
         }
 
-        public static RegionProps Build(Transform parent, MapBlob map)
+        public static RegionProps Build(Transform parent, MapBlob map, RegionField field = null)
         {
-            var p = new RegionProps(); p.Create(parent, map); return p;
+            var p = new RegionProps(); p.Create(parent, map, field); return p;
         }
 
-        void Create(Transform parent, MapBlob map)
+        void Create(Transform parent, MapBlob map, RegionField field)
         {
             _root = new GameObject("Region props (deterministic, decorative)"); _root.transform.SetParent(parent, false);
             var litShader = Resources.Load<Shader>("Regions/RegionSpriteLit");
             _material = litShader != null ? new Material(litShader) { name = "Roguehalla / region props (sun lit)" } : ShowcaseSprites.Lit;
             if (litShader != null) _owned.Add(_material);
             var placements = Scatter(map);
+            var transitions = RegionTransitionArt.Load();
+            if (transitions != null)
+            {
+                if (field == null || !field.Ready)
+                {
+                    field = new RegionField();
+                    field.Build(map != null ? map.Regions : null, map != null ? map.W : 0, map != null ? map.H : 0);
+                }
+                placements.AddRange(RegionEdgeProps.Generate(map, field, transitions, placements));
+            }
             int visualSeed = unchecked((int)(map.LayerHash ^ (map.SemanticHash * 2654435761u)));
             HashSet<byte> warned = null;
             MaterialPropertyBlock mattePigment = null, flamePigment = null;
@@ -329,6 +343,7 @@ namespace Roguehalla.Client
             var coliseumRackArt = ColiseumWeaponRackArtDefinition.Load();
             var coliseumTorch = ColiseumTorchArt.Load();
             bool authoredTorch = coliseumTorch != null && coliseumTorch.IsReady;
+            var transitionWeights = new float[RegionField.Regions];
             MushroomPatch mushrooms = null;
             bool hasMountedWeapons = false;
             foreach (var pl in placements)
@@ -343,6 +358,11 @@ namespace Roguehalla.Client
                 float scaleX = pl.Scale, scaleY = pl.Scale;
                 bool flip = pl.Flip;
                 Color tint = Color.white;
+                if (pl.TransitionDetail)
+                {
+                    scaleX *= Mathf.Max(0f, pl.TransitionWidth);
+                    scaleY *= Mathf.Max(0f, pl.TransitionHeight);
+                }
                 if (renderArtKey == "fire.bush" && art.UsesAuthoredTexture)
                 {
                     float size = Mathf.Lerp(.94f, 1.06f, RegionNoise.Hash01(pl.Tx, pl.Ty, 397));
@@ -379,8 +399,12 @@ namespace Roguehalla.Client
                     flip = RegionNoise.Hash01(pl.Tx, pl.Ty, visualSeed + 125) < .5f;
                     tint.a = Mathf.Lerp(.49f, .73f, wear);
                 }
-                if (art.UsesAuthoredTexture)
+                if (art.UsesAuthoredTexture && !pl.TransitionDetail)
                     ApplyPaintedGeologyVariation(renderArtKey, pl, visualSeed, ref scaleX, ref scaleY, ref flip, ref tint);
+                if (pl.TransitionDetail) tint *= pl.TransitionTint;
+                else if (transitions != null && field != null && field.Ready)
+                    RegionEdgeProps.WeatherExisting(map, field, transitions, pl, renderArtKey, transitionWeights,
+                        ref scaleX, ref scaleY, ref tint);
                 var go = new GameObject(pl.Art); go.transform.SetParent(_root.transform, false);
                 Vector3 foot = ArenaView.WorldPoint(pl.X * 32f, pl.Y * 32f);
                 go.transform.localPosition = foot; go.transform.localScale = new Vector3(flip ? -scaleX : scaleX, scaleY, 1f);
