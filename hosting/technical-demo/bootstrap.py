@@ -224,8 +224,12 @@ def guard():
 
 
 # Open alpha (owner 2026-11-22): 10+ testers need more than one 8-seat room on Source. P-TICK-6 measured 9-19 rooms per
-# core at 40 Hz, so three rooms fit a t3.small. Training stays one room.
+# core at 40 Hz, so three rooms fit a t3.small. Training rooms are solo (tutorial/practice): one room meant one tester at a
+# time, so it takes sixteen.
 SOURCE_MAX_ROOMS = 3
+TRAINING_MAX_ROOMS = 16
+# Testers often share one network (NAT): the defaults are 16 sockets and 10 new profiles per IP per hour.
+PER_IP_LIMITS = '--ws-max-per-ip 64 --new-profiles-per-ip-per-hour 40'
 # rh-server's own lifecycle lines (join/leave/drop/reject/match end) go to journald, capped so the root disk cannot fill.
 # PG stays suppressed (SQL). Restart=on-failure brings a crashed room server back; the guard still refuses past expiry and
 # OnFailure poweroff fires only once the start limit is hit.
@@ -236,7 +240,7 @@ def app_unit(c, training):
     mode = 'training' if training else 'source-arena'
     port = 7779 if training else 7777
     if training:
-        options = '--min-players 1 --fill-bots 0 --max-rooms 1 --lobby-seconds 0 --fill-seconds 0'
+        options = f'--min-players 1 --fill-bots 0 --max-rooms {TRAINING_MAX_ROOMS} --lobby-seconds 0 --fill-seconds 0'
     else:
         # The training room refuses the pool and the timing switch, so these apply to Source only. With matchmaking the
         # server sets the 15 s lobby, bots at second 13 itself (it overrides --lobby-seconds/--fill-seconds), so the pair is dropped.
@@ -260,7 +264,7 @@ StartLimitBurst=5
 User=rougehalla
 Group=rougehalla
 ExecStartPre=+/usr/bin/python3 -I /usr/local/lib/rh-demo/bootstrap.py guard
-ExecStart={ROOT}/rh-server --runtime {mode} --bind 127.0.0.1:{port} --instance-id {c['run_id']}-{mode} {options} --database-url postgresql://rougehalla@localhost/roguehalla?host=/run/rh-demo-pg --bot-learning {learning} --api-cors-origins https://play.rougehalla.com --client-ip-header x-forwarded-for --trusted-proxies 127.0.0.1
+ExecStart={ROOT}/rh-server --runtime {mode} --bind 127.0.0.1:{port} --instance-id {c['run_id']}-{mode} {options} --database-url postgresql://rougehalla@localhost/roguehalla?host=/run/rh-demo-pg --bot-learning {learning} --api-cors-origins https://play.rougehalla.com --client-ip-header x-forwarded-for --trusted-proxies 127.0.0.1 {PER_IP_LIMITS}
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=90
