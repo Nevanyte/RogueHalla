@@ -293,7 +293,7 @@ fn the_command_line_parses_and_refuses() {
         &["--seeds", "5..2"],
         &["--seeds", "3"],
         &["--seat", "8=human"],
-        &["--seat", "1=raid"],
+        &["--seat", "1=nope"],
         &["--max-ticks", "x"],
         &["--nonsense"],
     ] {
