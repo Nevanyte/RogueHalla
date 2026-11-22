@@ -3,6 +3,7 @@
 //! bot-vs-bot runs, determinism tests and benches. Built-in policies sit in seats; external agents (a test, later a
 //! trainer) act for their own players through [`Env::step`]. Both go through the same input path.
 
+pub mod balance_lab;
 mod command_delay;
 pub mod digest;
 pub mod telemetry_record;
