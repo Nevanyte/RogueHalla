@@ -13,7 +13,7 @@ cargo test -p rh-headless --test balance_lab
 ## Flags
 
 `--seeds A..B` (half-open, default `1..2`), `--jobs N` (speed only: the bytes do not depend on it), `--max-ticks N`
-(default 24000), `--map generate|PATH` (default: one generated map per seed), `--seat I=human|brawler` (repeatable;
+(default 24000), `--map generate|PATH` (default: one generated map per seed), `--seat I=human|brawler|raid` (repeatable;
 unlisted seats play `human`), `--human-seats` (seat everyone `bot:false`). A usage error exits 2.
 
 ## Reading the report

@@ -24,6 +24,7 @@ pub const SEATS: usize = 8;
 pub enum SeatPolicy {
     Brawler,
     Human,
+    Raid,
 }
 
 /// Where a seed's map comes from (`--map`).
@@ -115,7 +116,10 @@ pub fn parse_args(args: &[String]) -> Result<Options, String> {
                 let policy = match policy {
                     "human" => SeatPolicy::Human,
                     "brawler" => SeatPolicy::Brawler,
-                    other => return Err(format!("unknown seat policy {other} (human|brawler)")),
+                    "raid" => SeatPolicy::Raid,
+                    other => {
+                        return Err(format!("unknown seat policy {other} (human|brawler|raid)"))
+                    }
                 };
                 o.seats.push((i, policy));
             }
@@ -148,6 +152,7 @@ pub fn match_setup(opts: &Options, seed: u64) -> Result<(EnvConfig, Vec<AgentSpe
             let kind = match policy {
                 SeatPolicy::Brawler => BotKind::Brawler,
                 SeatPolicy::Human => BotKind::Human,
+                SeatPolicy::Raid => BotKind::Raid,
             };
             AgentSpec {
                 profile: format!("bot{i}"),
@@ -337,6 +342,7 @@ pub fn run(opts: &Options) -> Result<Output, String> {
                 policy: match seat_policy(opts, i) {
                     SeatPolicy::Brawler => "brawler",
                     SeatPolicy::Human => "human",
+                    SeatPolicy::Raid => "raid",
                 },
                 bot: !opts.human_seats,
             })

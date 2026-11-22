@@ -556,6 +556,9 @@ pub enum BotKind {
     /// The ported legacy Brain on the degraded fair profile, with the same tier/persona draw. It needs the source
     /// lifecycle (`ArenaMode::Source`); elsewhere it refuses and the seat's fallback plays.
     Brain,
+    /// The balance lab's test player (`rh_policy::bots::RaidBot`) with the same tier/persona draw as `Human`. It
+    /// quests, so it is meant for human seats ([`run_bot_match_seated`] with `bot_seats: false`).
+    Raid,
 }
 
 impl BotKind {
@@ -564,6 +567,7 @@ impl BotKind {
             "brawler" => Some(Self::Brawler),
             "human" => Some(Self::Human),
             "brain" => Some(Self::Brain),
+            "raid" => Some(Self::Raid),
             _ => None,
         }
     }
@@ -579,16 +583,16 @@ impl BotKind {
     ) -> Box<dyn Policy> {
         match self {
             Self::Brawler => Box::new(scripted::Brawler::new(2 + (i as u32 % 3))),
-            Self::Human | Self::Brain => {
+            Self::Human | Self::Brain | Self::Raid => {
                 let (tier, persona) = rh_policy::bots::assign_seats(seed, players)[i];
-                if self == Self::Human {
-                    Box::new(rh_policy::bots::HumanBot::new(tier, persona))
-                } else {
-                    Box::new(rh_policy::bots::BrainBot::new(
+                match self {
+                    Self::Human => Box::new(rh_policy::bots::HumanBot::new(tier, persona)),
+                    Self::Raid => Box::new(rh_policy::bots::RaidBot::new(tier, persona)),
+                    _ => Box::new(rh_policy::bots::BrainBot::new(
                         tier,
                         persona,
                         rh_policy::bots::brain_features(sim, arena),
-                    ))
+                    )),
                 }
             }
         }
@@ -629,11 +633,31 @@ pub fn run_bot_match_kind(
     digest: bool,
     kind: BotKind,
 ) -> (Env, MatchSummary) {
+    run_bot_match_seated(
+        arena, sim, players, seed, max_ticks, record, digest, kind, true,
+    )
+}
+
+/// [`run_bot_match_kind`] with the seats' kind chosen: `bot_seats: true` seats fill bots (`bot: true`, what
+/// `run_bot_match_kind` does), `false` seats human players driven by the policy (they can take quests, and count
+/// toward the lobby's `min_players`).
+#[allow(clippy::too_many_arguments)]
+pub fn run_bot_match_seated(
+    arena: &Arena,
+    sim: SimConfig,
+    players: usize,
+    seed: u64,
+    max_ticks: u32,
+    record: bool,
+    digest: bool,
+    kind: BotKind,
+    bot_seats: bool,
+) -> (Env, MatchSummary) {
     let agents = (0..players)
         .map(|i| AgentSpec {
             profile: format!("bot{i}"),
             faction: FactionId::ALL[(i + seed as usize) % 5],
-            bot: true,
+            bot: bot_seats,
             agent: Agent::Policy {
                 policy: kind.policy(arena, &sim, players, seed, i),
             },
