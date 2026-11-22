@@ -116,7 +116,10 @@ pub fn parse_args(args: &[String]) -> Result<Options, String> {
                 let policy = match policy {
                     "human" => SeatPolicy::Human,
                     "brawler" => SeatPolicy::Brawler,
-                    other => return Err(format!("unknown seat policy {other} (human|brawler)")),
+                    "raid" => SeatPolicy::Raid,
+                    other => {
+                        return Err(format!("unknown seat policy {other} (human|brawler|raid)"))
+                    }
                 };
                 o.seats.push((i, policy));
             }
@@ -338,8 +341,8 @@ pub fn run(opts: &Options) -> Result<Output, String> {
                 seat: i,
                 policy: match seat_policy(opts, i) {
                     SeatPolicy::Brawler => "brawler",
-                    // STUB (P-RAID-H1): reports "human" until the implementer names it.
-                    SeatPolicy::Human | SeatPolicy::Raid => "human",
+                    SeatPolicy::Human => "human",
+                    SeatPolicy::Raid => "raid",
                 },
                 bot: !opts.human_seats,
             })

@@ -582,18 +582,17 @@ impl BotKind {
         i: usize,
     ) -> Box<dyn Policy> {
         match self {
-            // STUB (P-RAID-H1): seats the Brawler until the implementer builds `RaidBot::new(tier, persona)`.
-            Self::Brawler | Self::Raid => Box::new(scripted::Brawler::new(2 + (i as u32 % 3))),
-            Self::Human | Self::Brain => {
+            Self::Brawler => Box::new(scripted::Brawler::new(2 + (i as u32 % 3))),
+            Self::Human | Self::Brain | Self::Raid => {
                 let (tier, persona) = rh_policy::bots::assign_seats(seed, players)[i];
-                if self == Self::Human {
-                    Box::new(rh_policy::bots::HumanBot::new(tier, persona))
-                } else {
-                    Box::new(rh_policy::bots::BrainBot::new(
+                match self {
+                    Self::Human => Box::new(rh_policy::bots::HumanBot::new(tier, persona)),
+                    Self::Raid => Box::new(rh_policy::bots::RaidBot::new(tier, persona)),
+                    _ => Box::new(rh_policy::bots::BrainBot::new(
                         tier,
                         persona,
                         rh_policy::bots::brain_features(sim, arena),
-                    ))
+                    )),
                 }
             }
         }
@@ -654,13 +653,11 @@ pub fn run_bot_match_seated(
     kind: BotKind,
     bot_seats: bool,
 ) -> (Env, MatchSummary) {
-    // STUB (P-RAID-H1): `bot_seats` is ignored, every seat is `bot: true`.
-    let _ = bot_seats;
     let agents = (0..players)
         .map(|i| AgentSpec {
             profile: format!("bot{i}"),
             faction: FactionId::ALL[(i + seed as usize) % 5],
-            bot: true,
+            bot: bot_seats,
             agent: Agent::Policy {
                 policy: kind.policy(arena, &sim, players, seed, i),
             },
