@@ -170,7 +170,12 @@ fn run(s: &Scene, policy: Box<dyn Policy>) -> Run {
 }
 
 fn raid() -> Box<dyn Policy> {
-    Box::new(RaidBot::new(TierId::Normal, PersonaId::Farmer))
+    // This test isolates the farm executor: a farm-only price table (quest rewards and augments worth nothing) keeps
+    // executors registered later from changing what it measures.
+    Box::new(
+        RaidBot::new(TierId::Normal, PersonaId::Farmer)
+            .with_prices(rh_policy::bots::raid::values::Prices::farm_only()),
+    )
 }
 
 fn human() -> Box<dyn Policy> {
