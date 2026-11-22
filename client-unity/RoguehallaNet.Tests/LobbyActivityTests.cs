@@ -119,6 +119,43 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
+        public void Seated_list_puts_humans_first_marks_you_and_folds_bots()
+        {
+            var rows = new[]
+            {
+                new WireRosterRow { Id = 3, Bot = false, Name = "Alpha" },
+                new WireRosterRow { Id = 5, Bot = true, Name = "bot1" },
+                new WireRosterRow { Id = 9, Bot = false, Name = "Cy" },
+                new WireRosterRow { Id = 11, Bot = true, Name = "bot2" },
+            };
+            Assert.AreEqual("Players · 2 humans · 2 bots\nAlpha\nCy (you)\nBots: bot1, bot2", LobbyActivity.SeatedList(rows, 9));
+            Assert.AreEqual("Players · 1 human\nAlpha", LobbyActivity.SeatedList(new[] { rows[0] }, 0));
+        }
+
+        [Test]
+        public void Name_list_caps_the_names_and_counts_bots()
+        {
+            var names = new[] { "a", "b", "c", "d" };
+            Assert.AreEqual("a, b +2 more · 3 bots", LobbyActivity.NameList(names, 2, 3));
+            Assert.AreEqual("a, b, c, d", LobbyActivity.NameList(names, 8));
+            Assert.AreEqual("1 bot", LobbyActivity.NameList(new string[0], 8, 1));
+        }
+
+        [Test]
+        public void Rooms_show_gathering_first_with_a_status_line()
+        {
+            const string json =
+                "{\"rooms\":[{\"phase\":\"finished\",\"players\":[]},{\"phase\":\"active\",\"players\":[{\"name\":\"Cy\",\"kind\":\"human\"}]}," +
+                "{\"phase\":\"lobby\",\"humanMin\":3,\"players\":[{\"name\":\"Al\",\"kind\":\"human\"},{\"name\":\"b\",\"kind\":\"bot\"}]}],\"waiting\":[]}";
+            var ordered = LobbyActivity.DisplayOrder(LobbyActivity.Parse(json).Rooms);
+            CollectionAssert.AreEqual(new[] { LobbyPhase.Lobby, LobbyPhase.Active, LobbyPhase.Finished }, ordered.Select(r => r.Phase).ToArray());
+            Assert.AreEqual("Gathering players · 1/3", LobbyActivity.RoomStatus(ordered[0]));
+            Assert.AreEqual("Al · 1 bot", LobbyActivity.RoomNames(ordered[0]));
+            Assert.AreEqual("Run in progress · 1 player", LobbyActivity.RoomStatus(ordered[1]));
+            Assert.AreEqual(LobbyActivity.NoPlayers, LobbyActivity.RoomNames(ordered[2]));
+        }
+
+        [Test]
         public void Lobby_count_is_humans_over_the_minimum_then_the_fill_target()
         {
             Assert.AreEqual("1/3", LobbyActivity.LobbyCount(1, 3, 0));
