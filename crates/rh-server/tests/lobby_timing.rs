@@ -520,3 +520,55 @@ const LEGACY_TWO_HUMANS: LegacyTwoHumans = LegacyTwoHumans {
     active_slot: Some(161),
     at_start: (4, 6),
 };
+
+// ---------------------------------------------------------------------------------------------------------------------
+// `--bot-wait-seconds 60` (owner direction 2026-11-22, open alpha): wait a minute for humans before bots fill.
+// ---------------------------------------------------------------------------------------------------------------------
+
+/// The open-alpha lobby: no bot for the first minute (a second human at second 30 changes nothing), the lobby filled at
+/// second 60, the raid started two seconds later.
+#[test]
+fn matchmaking_a_one_minute_wait_seats_bots_at_second_60_and_starts_at_62() {
+    let args: Vec<String> = [
+        "rh-server",
+        "--lobby-timing",
+        "matchmaking",
+        "--bot-wait-seconds",
+        "60",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let timing = rh_server::runtime::lobby_timing_flag(&args).unwrap();
+    assert_eq!(
+        timing,
+        LobbyTiming::Matchmaking {
+            lobby_seconds: 62.,
+            bots_at_seconds: 60.,
+        }
+    );
+    for flags in FLAG_SETS {
+        let mut lobby = Lobby::new(timing, flags, 6);
+        lobby.join("alpha");
+        lobby.run_to(slot(30.), |_| {});
+        lobby.join("bravo");
+        let t = lobby.timeline(63.);
+        for s in slot(30.1)..=slot(59.95) {
+            assert_eq!(
+                t.after(s),
+                (0, 2),
+                "flags {flags:?}: no bot before second 60 (slot {s})"
+            );
+        }
+        assert_eq!(
+            t.after(slot(60.1)),
+            (4, 6),
+            "flags {flags:?}: filled to 6 at second 60"
+        );
+        let started = t.active_slot.unwrap_or(usize::MAX);
+        assert!(
+            started >= slot(61.95) && started <= slot(62.1),
+            "flags {flags:?}: the raid starts at second 62, started at slot {started}"
+        );
+    }
+}
