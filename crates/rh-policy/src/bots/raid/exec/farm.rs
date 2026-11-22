@@ -10,7 +10,7 @@ use crate::bots::raid::exec::travel::{
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 use crate::bots::raid::percept::{CampSeen, MobClass, MobSeen};
 use crate::bots::raid::values::DeathModel;
-use crate::bots::types::{Intent, IntentBody, IntentTiming, PRIORITY_COMBAT};
+use crate::bots::types::{Intent, IntentBody, IntentTiming, OwnerLock, PRIORITY_COMBAT};
 use rh_sim::{FactionId, Vec2, WeaponId};
 
 /// A melee lock is clicked inside this (HumanBot's compatibility front end).
@@ -23,7 +23,8 @@ pub const FIGHT_U: f64 = 240.;
 const EMPTY_MS: f64 = 3_000.;
 /// ...and the camp is not proposed again for this long.
 const FAILED_BAN_MS: f64 = 20_000.;
-/// A member is the same one next think when it stands within this of where the last one was (npc keys live one frame).
+/// With no held lock on a camp member, a member is the same one next think when it stands within this of where the
+/// last one was (npc keys live one frame).
 const TRACK_U: f64 = 80.;
 
 /// The share of max hp clearing `members` members costs, each a duel the bot keeps `share` of its hp in. `members` is
@@ -51,9 +52,10 @@ pub fn members_left(p: &crate::bots::raid::percept::RaidPercept, camp: &CampSeen
     (f64::from(camp.alive) - lost).max(0.)
 }
 
-/// The Farm goal: walk to the camp, take the nearest living regional member (or one fighting at our side), lock it
-/// inside weapon reach, else walk to it, holding the better weapon slot (`mob_hunt::best_slot_vs_mob`). Its state: the
-/// duel shares it computed, where the member it fights stood, the camps it gave up on.
+/// The Farm goal: walk to the camp, keep the camp member it fights (the owner's held lock, else by position), else take
+/// the nearest living regional member (or one fighting at our side), lock it inside weapon reach, else walk to it,
+/// holding the better weapon slot (`mob_hunt::best_slot_vs_mob`). Its state: the duel shares it computed, where the
+/// member it fights stood, the camps it gave up on.
 #[derive(Default)]
 pub struct Farm {
     shares: Vec<((FactionId, FactionId), f64)>,
@@ -82,6 +84,25 @@ impl Farm {
                 .banned
                 .iter()
                 .any(|(c, until)| *c == camp.index && *until > now)
+    }
+
+    /// A living regional member of camp `camp`.
+    fn member(m: &MobSeen, camp: u32) -> bool {
+        m.alive && m.class == MobClass::Regional && m.camp == Some(camp)
+    }
+
+    /// The member of camp `camp` the owner holds a lock on in this frame. A held lock whose actor is not in the frame
+    /// (`target: None`), or that names a mob of another camp, is none.
+    fn locked<'a>(cx: &'a Cx<'_>, camp: u32) -> Option<&'a MobSeen> {
+        let Some(OwnerLock::Held {
+            target: Some(key), ..
+        }) = &cx.p.base.self_view.owner_lock
+        else {
+            return None;
+        };
+        cx.p.mobs
+            .iter()
+            .find(|m| m.key == *key && Self::member(m, camp))
     }
 
     /// The member to fight: a living regional mob of the camp, or a fighting one on top of us; the nearest.
@@ -175,16 +196,20 @@ impl Executor for Farm {
         }
         let camp_at = camp.at;
         let now = cx.p.now;
-        // Keep the member we fight while it lives (found where it stood: npc keys live one frame); else the nearest.
-        let kept = self.target.and_then(|was| {
-            cx.p.mobs
-                .iter()
-                .filter(|m| m.alive && m.class == MobClass::Regional && dist(m.at, was) <= TRACK_U)
-                .min_by(|a, b| {
-                    dist(a.at, was)
-                        .total_cmp(&dist(b.at, was))
-                        .then_with(|| a.key.cmp(&b.key))
-                })
+        // Keep the member we fight while it lives: the one the owner holds a lock on (its key names it in this frame),
+        // else the one standing nearest where the last one stood (npc keys live one frame); never a mob of another
+        // camp. Nothing kept: the nearest (`pick`).
+        let kept = Self::locked(cx, index).or_else(|| {
+            self.target.and_then(|was| {
+                cx.p.mobs
+                    .iter()
+                    .filter(|m| Self::member(m, index) && dist(m.at, was) <= TRACK_U)
+                    .min_by(|a, b| {
+                        dist(a.at, was)
+                            .total_cmp(&dist(b.at, was))
+                            .then_with(|| a.key.cmp(&b.key))
+                    })
+            })
         });
         let Some(mob) = kept.or_else(|| Self::pick(cx, index)).cloned() else {
             self.target = None;
