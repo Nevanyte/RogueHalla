@@ -134,3 +134,67 @@ Diagnosis and fix were done in the side session that wrote this brief (the fix i
   grid. Compute the expected seam details from the blob under test; never pin a number.
 - Loading a `ScriptableObject` that Editor cleanup unloaded runs its `OnValidate`. Any new atlas source whose
   `OnValidate` dirties the atlas must be retained in `RegionPropArt.Ensure` and loaded before the dirty flag is cleared.
+
+## Evidence
+
+`client-unity/UnityProject/Tools/editmode.sh` at each point (Unity 6000.0.85f2, this Mac, 2026-11-22):
+
+| Commit | What | EditMode | The three tests |
+|---|---|---|---|
+| `38e18aa8e` | PR 82 merge, before Storm Ink | 1602/1602 | 1 and 2 pass; 3 does not exist yet |
+| `37a2200d4` | PR 83 merge (Storm Ink squash `3c47f0bff`) | 1988/1991 | all three fail, same messages as the tip |
+| `64ca1230c` | origin's tip, PR 89 | 1997/2000 | all three fail (the reported baseline) |
+| `82bb9514c` | `packet/P-EDITMODE-STORMINK-1` (amended oracle, no code change) | 1999/2000 | 1 and 2 pass; only 3 fails |
+| `0d3463bc4` | `agent/opus/P-EDITMODE-STORMINK-1` (the fix) | 2000/2000 | all pass |
+
+The boundary was checked directly, not found by a `git bisect run` search: the good parent (PR 82) and the first bad merge
+(PR 83) were both run. PR 84 to 88 were not run one by one; `git diff --name-only <merge>^1 <merge>` shows none of them
+touches `Scripts/View/Regions/`, `Resources/StormInk/Props` or `Surfaces`, or the two test files. Inside the squash, the
+causing commits come from reading `codex/storm-ink` (`git log -S`), not from Unity runs.
+
+## Hand-off
+
+```
+PACKET:          P-EDITMODE-STORMINK-1 — serves ORDER_OF_OPERATIONS phase 3 item 16a (client presentation; repair of
+                 P-STORM-BIOME-EDGES-1 and P-STORM-PROP-ATLAS-LIFETIME-1 as squashed into PR 83)
+BRANCH:          agent/opus/P-EDITMODE-STORMINK-1 @ (this commit; fix 0d3463bc4), oracle packet/P-EDITMODE-STORMINK-1 @
+                 82bb9514c, base origin/feature/unity-rework @ 64ca1230c. Local only, nothing pushed.
+GATE:            PASS (quick) on 0d3463bc4 with --base origin/feature/unity-rework --oracle packet/P-EDITMODE-STORMINK-1
+                 (path checks, rustfmt, card provenance, staging/NPC/determinism pins, readability, Unity EditMode
+                 2000/2000); PASS (quick) on this commit without --oracle (this commit appends this report to the
+                 brief, which is an oracle file). [skipped: the full gate, the coordinator's on the merged tree; Rust
+                 suites, since no crate changed]
+CHANGED:         client-unity/UnityProject/Assets/Scripts/View/Regions/RegionPropArt.cs (Editor keep-alive),
+                 client-unity/UnityProject/Assets/Scripts/View/Regions/RegionProps.cs (one comment),
+                 client-unity/UnityProject/Assets/Tests/Editor/DressedMapEditModeTests.cs (oracle amendment),
+                 docs/backlog/packets/P-EDITMODE-STORMINK-1.md
+D-RULES:         D1 n/a (presentation, no legacy counterpart, DEV-021); D2 n/a; D5, D6, D9 untouched (no sim, wire,
+                 prediction or observation change)
+DEVIATIONS:      none. Owner flag (see "Code or premise"): Storm Ink's client-generated seam details draw on dressed
+                 maps, against the OWNER_DECISIONS gloss of decision 5 ("no client-rolled decoration look on a dressed
+                 map"); kept, with a one-line reversal named in the brief.
+SHARED RECORDS:  proposed edits:
+                 docs/backlog/README.md, after the P-STORM-PROP-ATLAS-LIFETIME-1 row: `| P-EDITMODE-STORMINK-1 | Unity
+                 EditMode green again after the Storm Ink integration (atlas keeps the region transitions through Editor
+                 cleanup; dressed-map drawing tests account for seam details) | P-STORM-BIOME-EDGES-1,
+                 P-STORM-PROP-ATLAS-LIFETIME-1 | Ready packet (oracle + fix on agent/opus; EditMode 2000/2000)
+                 ([spec](packets/P-EDITMODE-STORMINK-1.md)) | none (Unity only) |`;
+                 docs/coordination/OWNER_QUEUE.md: "Seam details on dressed maps: Storm Ink's client-side grass tufts and
+                 scree pebbles at region seams draw on served (dressed) maps. Default in force: keep them. Alternative:
+                 `if (!IsDressed(map))` around RegionEdgeProps.Generate in RegionProps.Create, and revert the
+                 DressedMapEditModeTests amendment (P-EDITMODE-STORMINK-1).";
+                 .agent-runs/log.csv: `2026-11-22,P-EDITMODE-STORMINK-1,side session (diagnosis + fix),opus,1,PASS (quick),110,oracle by the same session; 5 EditMode runs`
+LEGACY DOUBTS:   none
+NOT ESTABLISHED: no Web build or live look check (the fix is Editor-only and the amendment changes no behaviour, so the
+                 player draws as it did on 64ca1230c); the keep-alive is proven by the Editor cleanup test on this
+                 Unity version only; the owner has not ruled on seam details on dressed maps.
+RISKS:           the owner may reverse the seam-detail decision (one line plus the test revert); any future atlas source
+                 whose OnValidate dirties the atlas needs the same keep-alive (recorded under Known traps).
+```
+
+Follow-ups seen, not done here:
+- `editmode.sh` leaves `Resources/StormInk/Props/ColiseumTorchArt.asset` and `ColiseumWeaponRackArt.asset` modified after
+  every run: Unity rewrites `m_EditorClassIdentifier:` with a trailing space, and the files were committed without it.
+  Either commit the rewritten form or add them to the script's restore list (`Tools/editmode.sh`, beside the Showcase
+  fonts).
+- CI runs no Unity EditMode, which is how these three reached `feature/unity-rework`; `.github/` needs owner approval.
