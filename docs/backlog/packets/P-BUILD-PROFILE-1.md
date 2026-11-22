@@ -15,12 +15,15 @@ system allocator. The audit proposed `lto = "fat"`, `codegen-units = 1` and mima
 This packet measured all three against the current build (section "Measured") and **adopts none of them**:
 
 - **Server CPU under load did not move.** At 16 matches x 8 humans in the staging configuration the server used 0.219
-  cores (baseline), 0.221 (LTO) and 0.218 (LTO + mimalloc), inside a run-to-run spread of 0.206-0.231.
+  cores (baseline), 0.221 (LTO) and 0.218 (LTO + mimalloc), inside a run-to-run spread of 0.206-0.231. With two runs per
+  variant on a loaded host, that rules out a gain above about 5%, not one of 1-2%.
 - **LTO and one codegen unit** retire 1.8-2.7% fewer instructions on the sim and the replication benchmarks and cut
-  the stripped server binary by 24%. Every release build becomes several times slower: 7 min 40 s against 1 min 20 s
-  for the same three packages here. The gate builds release binaries (`scripts/gate.sh:156-162`), and so does CI
-  (`determinism.yml:76` builds every release test binary of three crates). R-OPT-2: complexity without demonstrated
-  value is removed.
+  the stripped server binary by 24%. They also cost every release build: a fresh build of the same three packages took
+  about 50% more CPU time (634 s against 418 s). Every binary then gets its own single-threaded whole-program link. The
+  wall times measured here (7 min 40 s against 1 min 20 s) ran at different host loads (about 90 against about 20) and
+  overstate the gap; this was not re-timed on a quiet host. The gate builds release binaries (`scripts/gate.sh:156-162`),
+  and so does CI (`determinism.yml:76` builds every release test binary of three crates). With no measurable gain in
+  server CPU, R-OPT-2 applies: complexity without demonstrated value is removed.
 - **mimalloc** shows no gain beyond LTO's: 0.7 points of instructions on the replication benchmark, nothing on server
   CPU. Peak RSS under load rose from 46 to 63 MB. It would add a C dependency and a `Cargo.lock` change.
 - **Determinism held** in every variant: `determinism_sweep ci` wrote byte-identical `manifest.json` and `replay.json`,
@@ -92,7 +95,8 @@ None: nothing changes.
 
 ## 11. Known traps
 
-- On a shared host, wall time cannot resolve a few percent. At load average about 95, six interleaved wall-time
+- On a shared host, wall time cannot resolve a few percent, and it cannot compare two builds made at different loads
+  (the build-time row below uses CPU time for that reason). At load average about 95, six interleaved wall-time
   rounds gave overlapping ranges, so cycles and instructions were used instead. The cycle noise floor shows in the table:
   the `rh-headless` of "LTO + mimalloc" is the same binary as "LTO" (mimalloc was linked into `rh-server` and `wirebench`
   only) and read -1.6% against -4.6%.
@@ -108,12 +112,20 @@ The host was shared throughout with another session's full gate, implementers an
 | `rh-headless` 20 matches x 8 bots, seed1: instructions (median of 6) | 38.10 G | 37.07 G (-2.7%) | 37.07 G (same binary) |
 | same: cycles (median of 6) | 8.16 G | 7.78 G (-4.6%) | 8.03 G (-1.6%; same binary: noise) |
 | `wirebench --scenario heavy --ticks 12000`: instructions | 35.22 G | 34.60 G (-1.8%) | 34.34 G (-2.5%) |
-| same: cycles | 6.15 G | 5.87 G (-4.6%) | 5.94 G (-3.4%) |
+| same: cycles | 6.15 G | 5.87 G (-4.6%) | 5.94 G (-3.4%; within the cycle noise shown above) |
 | server CPU, `rh-load` 16 x 8 first-playable, 30 s steady (2 runs) | 0.214, 0.224 cores | 0.214, 0.227 | 0.206, 0.231 |
 | server peak RSS under that load (median) | 46.0 MB | 44.8 MB | 62.8 MB |
 | `rh-server` binary, stripped (the Dockerfile strips) | 11.5 MB | 8.8 MB (-24%) | 9.0 MB |
-| release build, fresh: `-p rh-server -p rh-headless -p rh-load --bins` | 1 min 20 s wall, 418 s CPU | 7 min 40 s wall, 634 s CPU | (+4 min for `rh-server` and `wirebench` alone) |
+| release build, fresh: `-p rh-server -p rh-headless -p rh-load --bins` (zsh's `time` line shows the command cut after `-p rh-server`) | 418 s CPU (1 min 20 s wall at load about 20) | 634 s CPU, +52% (7 min 40 s wall at load about 90: not comparable) | incremental on the LTO target: 164 s CPU for `rh-server` and `wirebench` |
 | `determinism_sweep ci` `manifest.json`, `replay.json` | reference | byte-identical | (same `determinism_sweep` binary as LTO) |
 | headless state-hash fold, 20 matches | `2d27e224062d1176` | identical | identical |
+
+## Not established
+
+- A quiet host, and the deployed target: aarch64 Linux on a 2-vCPU instance, built by `hosting/Dockerfile` with
+  `--features postgres` and `CARGO_BUILD_JOBS=2`. Allocator behaviour and the LTO gain may differ there.
+- A server-CPU difference below about 5% (two runs per variant).
+- mimalloc's memory over runs longer than 30 s.
+- Thin LTO, and the `[profile.dist]` option (not built).
 
 ## Notes from previous attempts
