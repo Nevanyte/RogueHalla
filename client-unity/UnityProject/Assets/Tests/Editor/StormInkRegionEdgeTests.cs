@@ -7,6 +7,21 @@ namespace Roguehalla.Client.Tests
     public sealed class StormInkRegionEdgeTests
     {
         [Test]
+        public void DrySedgeUsesTheSharedAtlasAtTheColdEdgeOnly()
+        {
+            var art = RegionTransitionArt.Load();
+            var plant = new RegionProps.Placement { Art = "holy.grass", X = 1f, Y = .5f, Tx = 1 };
+            var field = new RegionField();
+            var weights = new float[RegionField.Regions];
+            field.Build(new byte[] { 5, 4 }, 2, 1);
+            Assert.That(art.GrassView(plant.Art, field, weights, plant), Is.EqualTo(RegionTransitionArt.SedgeKey));
+            Assert.That(RegionPropArt.TryGet(RegionTransitionArt.SedgeKey, out var sedge) && sedge.UsesAuthoredTexture, Is.True);
+            Assert.That(RegionPropArt.Sways(sedge.Key), Is.True);
+            field.Build(new byte[] { 5, 5 }, 2, 1);
+            Assert.That(art.GrassView(plant.Art, field, weights, plant), Is.EqualTo(plant.Art));
+        }
+
+        [Test]
         public void VergePigmentFollowsTheSelectedPropFoot()
         {
             var art = RegionTransitionArt.Load();

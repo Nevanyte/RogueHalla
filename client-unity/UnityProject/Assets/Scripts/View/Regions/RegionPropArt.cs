@@ -77,6 +77,14 @@ namespace Roguehalla.Client
 #endif
             var defs = new List<Def>();
             AddFrost(defs); AddFire(defs); AddSentenced(defs); AddPlague(defs); AddHoly(defs); AddTemple(defs); AddColiseum(defs); AddPlaceholder(defs);
+            var transitions = RegionTransitionArt.Load();
+            if (transitions != null && transitions.WinterSedge != null && transitions.WinterSedge.isReadable)
+            {
+                int w = Mathf.Clamp(Mathf.RoundToInt(transitions.SedgeSize.x * PixelsPerUnit), 4, 256);
+                int h = Mathf.Clamp(Mathf.RoundToInt(transitions.SedgeSize.y * PixelsPerUnit), 4, 256);
+                Add(defs, RegionTransitionArt.SedgeKey, w, h, Mathf.RoundToInt(h * Mathf.Clamp01(transitions.SedgeFoot.y)),
+                    (canvas, ground) => { }, textureFoot: transitions.SedgeFoot, textureSource: transitions.WinterSedge);
+            }
             // Shelf-pack into an atlas, growing the height if needed.
             Build(defs, 1024, 1024);
         }

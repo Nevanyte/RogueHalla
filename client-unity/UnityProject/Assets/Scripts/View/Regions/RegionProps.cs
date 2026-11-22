@@ -357,6 +357,9 @@ namespace Roguehalla.Client
                     if (warned.Add(pl.Kind)) Debug.LogWarning("RegionProps: unknown decoration kind " + pl.Kind + " drawn as the placeholder");
                 }
                 string renderArtKey = RenderArtKey(pl, map);
+                string ordinaryArtKey = renderArtKey;
+                if (transitions != null && !pl.ConcealmentCell)
+                    renderArtKey = transitions.GrassView(renderArtKey, field, transitionWeights, pl);
                 if (!RegionPropArt.TryGet(renderArtKey, out var art)) continue;
                 float scaleX = pl.Scale, scaleY = pl.Scale;
                 bool flip = pl.Flip;
@@ -381,7 +384,7 @@ namespace Roguehalla.Client
                     scaleY *= canopy.HeightScale;
                     sortY += canopy.ForegroundDepth;
                 }
-                bool fern = pl.Art == "plague.fern";
+                bool fern = renderArtKey == "plague.fern";
                 if (art.UsesAuthoredTexture && (fern || pl.Art == "plague.rubble"))
                 {
                     int vx = pl.Tx + pl.Kind * 97, vy = pl.Ty + pl.Variant * 151;
@@ -406,7 +409,7 @@ namespace Roguehalla.Client
                     ApplyPaintedGeologyVariation(renderArtKey, pl, visualSeed, ref scaleX, ref scaleY, ref flip, ref tint);
                 if (pl.TransitionDetail) tint *= pl.TransitionTint;
                 else if (transitions != null && field != null && field.Ready)
-                    RegionEdgeProps.WeatherExisting(map, field, transitions, pl, renderArtKey, transitionWeights,
+                    RegionEdgeProps.WeatherExisting(map, field, transitions, pl, ordinaryArtKey, transitionWeights,
                         ref scaleX, ref scaleY, ref tint);
                 var go = new GameObject(pl.Art); go.transform.SetParent(_root.transform, false);
                 Vector3 foot = ArenaView.WorldPoint(pl.X * 32f, pl.Y * 32f);

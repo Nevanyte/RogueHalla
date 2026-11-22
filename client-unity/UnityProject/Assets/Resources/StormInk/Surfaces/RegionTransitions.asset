@@ -45,3 +45,7 @@ MonoBehaviour:
   - holy.flowers
   - holy.rock
   - holy.shrub
+  - edge.grass
+  WinterSedge: {fileID: 2800000, guid: 2d86b9f0f1b04014aa929bea00acc8c2, type: 3}
+  SedgeSize: {x: 0.94, y: 0.47}
+  SedgeFoot: {x: 0.37, y: 0.14}

@@ -18,8 +18,28 @@ namespace Roguehalla.Client
         public float FootWash = .78f;
         [Tooltip("Regional prop art keys whose feet can pick up the ground wash.")]
         public string[] GroundedProps;
+        [Tooltip("Optional dry sedge painting for the cold side of a grassy verge.")]
+        public Texture2D WinterSedge;
+        [Tooltip("Painted sedge width and height in world units.")]
+        public Vector2 SedgeSize = new Vector2(.94f, .47f);
+        [Tooltip("Ground contact in the cropped sedge painting, measured from the lower left.")]
+        public Vector2 SedgeFoot = new Vector2(.37f, .14f);
+        public const string SedgeKey = "edge.grass";
 
+#if UNITY_EDITOR
+        void OnValidate() => RegionPropArt.MarkAuthoredDefinitionsDirty();
+#endif
         public static RegionTransitionArt Load() => Resources.Load<RegionTransitionArt>("StormInk/Surfaces/RegionTransitions");
+
+        public string GrassView(string key, RegionField field, float[] weights, RegionProps.Placement plant)
+        {
+            if (WinterSedge == null || !WinterSedge.isReadable || GrassWeathering <= 0f || field == null || !field.Ready ||
+                (key != "holy.grass" && key != "plague.fern" && key != "sent.deadgrass")) return key;
+            field.Sample(plant.X, plant.Y, weights);
+            if (weights[5] > .1f || weights[3] < .035f || weights[1] + weights[2] + weights[4] < .025f) return key;
+            float cold = Mathf.InverseLerp(.035f, .36f, weights[3]) * Mathf.Clamp01(GrassWeathering);
+            return RegionNoise.Hash01(plant.Tx, plant.Ty, 139) < cold ? SedgeKey : key;
+        }
 
         internal Vector4 MaterialControls => new Vector4(Mathf.Clamp01(GrassWeathering), Mathf.Clamp01(RockBreakup),
             Mathf.Clamp01(PavingBreakup), Mathf.Clamp01(SnowEdge));
