@@ -4,6 +4,45 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Balance patch and test bot (2026-11-22)
+
+**Owner direction 2026-11-22 (chat):** "As Fable you have the horsepower to make drastic improvements. I want you to do
+a balancing patch of quests and new augments + bot redesign in order to test. Please also launch a sonnet sub agents to
+search project library for other system improvements such as rust backend efficiency, security, or input delay
+reduction on server side or front end."
+
+**Owner answers the same day (question dialog), then plan approval:**
+- Bots: "Lab now, live later". A new bot plays quests, elites and augments in headless matches, seated as a human; it
+  can be a live fill bot behind a flag that stays off; live bots take no quests until he says so.
+- Numbers: "Apply, then report". The measured retune lands; he gets the before/after table and the DEVIATIONS rows.
+- Elites: "Yes, per-elite numbers". Each elite, and ranged weapons against them, toward the 10-20% band.
+- Depth: "Numbers and offer rules". Where numbers cannot fix something, a redesign is proposed, not built.
+
+**Plan of record:** [backlog/BALANCE_LAB_PATCH.md](backlog/BALANCE_LAB_PATCH.md) (about 26 packets, `P-RAID-*` and
+`P-BAL-*`, in eight waves). Nothing is pushed; `main` is untouched.
+
+- **Coordinator seat.** The session that ran PR 80 finished with its merge (`d0712ab82`, local equals origin). This
+  programme is coordinated from a new main session (worktree claims under session `bd7b1c5a`). Fable was named by the
+  owner for it: it writes the seam briefs and the value table, runs the lab and derives the numbers; Opus and Sonnet
+  implement.
+- **Base:** `feature/unity-rework` @ `d0712ab82`. Coordinator full gate with pgtest on that head, in a clean detached
+  worktree: started 2026-11-22; the result is recorded with wave 1.
+- **Decisions the coordinator took (his to reverse):**
+  - `RaidBot` is a third policy in new files (`crates/rh-policy/src/bots/raid/`). `HumanBot`, `BrainBot`, the bot
+    `Command` enum and every pinned bot capture are untouched.
+  - The lab bot sits in non-bot seats, because the sim gives a bot seat no quest view. That also changes kill
+    accounting for those seats, so lab results describe "bots allowed to quest".
+  - The Top 25 quest numbers move into one table, not into `content!` registry rows: the registry hashes names, so
+    registry rows would move the content hash with no number changed.
+  - The lab writes a report and a person edits the bot's value table in a reviewed packet. A tool that rewrites it from
+    measurements is not built: it sits close to what REQUIREMENTS R-ML excludes.
+  - If bow stays outside the band after per-elite numbers, the weapon factor it needs is a mechanic change: reported
+    as a proposal, not built.
+- **Sonnet audit (read-only, 2026-11-22):** ten findings on efficiency, security and input delay are listed in the plan
+  of record. None is started. The two that matter most: the server order budget is tight against keyboard steering
+  plus clicking (`MatchClient.cs:36`, `input.rs:1146-1151`; a client-only fix), and the staging recipe runs dev auth
+  behind a proxy without the client-IP header (`hosting/staging-mvp/bootstrap.sh.in:114`; `hosting/` needs the owner).
+
 ## Push requested (2026-11-20): the origin syncs and the provenance refreshes
 
 **Owner direction 2026-11-20:** "Please push and merge the new augments". The route on this repository is a pull

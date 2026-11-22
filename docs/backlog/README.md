@@ -589,6 +589,29 @@ commits; the brief is the authority for scope and legacy references. Current sta
 | P-UNITY-GROUND-TINT-1 | ground tints modulate the ground art (they do not replace it): the server's decoration bands in every zone, and the Sentenced floor's scattered tiles | P-UNITY-DRESS-1 | Done (533279d1b; [spec](packets/P-UNITY-GROUND-TINT-1.md); DEV-033 proposed; to be seen in the Web client) | none |
 | P-UNITY-LOOK-TOOLS-1 | a look check any agent can run (editor capture and compare) and the Web round written down, for the tuning lane | none | Done (fcb5affc5; [spec](packets/P-UNITY-LOOK-TOOLS-1.md); the Web recipe was written from two rounds and not re-run) | none |
 
+### 15. Balance lab, RaidBot and the balance patch (owner request 2026-11-22)
+
+Plan of record: [BALANCE_LAB_PATCH.md](BALANCE_LAB_PATCH.md) (the packet table, waves, routing and oracles). Not in
+ORDER_OF_OPERATIONS: owner approval 2026-11-22. A row moves to "Ready packet" when its brief is in `packets/`, and to
+"Done (`<sha>`)" when merged.
+
+| ID | Outcome | Depends on | Status |
+|---|---|---|---|
+| P-RAID-0 | `RaidBot` skeleton in `crates/rh-policy/src/bots/raid/`: policy, percept, act queue, executor trait, arbiter with farm, roam and chest | none | Coarse |
+| P-RAID-H1, -V, -Q1 | Headless seat (`BotKind::Raid`, human seats); the value table; the quest walker | P-RAID-0 | Coarse |
+| P-RAID-C, -Q2, -Q3 | Combat and sustain; dwell quests; decision quests | P-RAID-0, -Q1, -V | Coarse |
+| P-RAID-E, -S | Elite pricing and fights; quest spell cast rules | P-RAID-C, -V, -Q1 | Coarse |
+| P-RAID-Q4, -P, -W | Kill quests; PvP, event and coliseum goals; the Whispers search | P-RAID-E, -Q1 | Coarse |
+| P-RAID-LIVE | `BotBrain::Raid` behind a server flag, off by default | all `P-RAID-*` | Coarse |
+| P-BAL-Q25-SEAM-1 | Every Top 25 quest number in one table; content hash unchanged | none | Coarse |
+| P-BAL-ELITE-SEAM-1 | Per-elite-kind hp and damage multipliers under Rework, empty table; content hash unchanged | none | Coarse |
+| P-BAL-LAB-1, -2 | `balance_lab`: observation-based metrics; then paired mode, lock metrics, cast windows | none; P-BAL-PROBE-1, P-BAL-EVAL-1 | Coarse |
+| P-BAL-PROBE-1 | Read-only sim probes and a quest-reward grant in `trusted_build` | P-BAL-Q25-SEAM-1 | Coarse |
+| P-BAL-EVAL-1 | `balance_model` and `balance_eval`: lab report to the value model's verdicts | P-BAL-LAB-1 | Coarse |
+| P-BAL-ELITE-BOTS-1 | Bots read per-kind elite numbers | P-BAL-ELITE-SEAM-1 | Coarse |
+| P-BAL-NATIVE-TEXT-GUARD-1, P-BAL-DOC-1 | EditMode guard on native card text; `docs/agent/BALANCE_LAB.md` | none; P-BAL-LAB-2 | Coarse |
+| P-BAL-NUM-ELITE-1, -Q25-1, -AUG-1, P-BAL-DEV-1 | The measured numbers (per-elite, quests, augments) and their proposed DEVIATIONS rows | the baseline measurement | Coarse |
+
 ## Requirement coverage ([../REQUIREMENTS.md](../REQUIREMENTS.md))
 
 | Requirement | Items |
