@@ -44,6 +44,10 @@ None: the legacy server keeps profiles in a JSON store.
 ## 5. Exclusive write scope
 
 - the migration file only. Merged migrations (`0001`, `0002`) are never edited.
+- `crates/rh-persist/build.rs` (new, added by the lane after the implementer's report): `cargo:rerun-if-changed=migrations`.
+  sqlx 0.8's `migrate!` tracks the migration files it found (`include_str!`), not the folder, on stable Rust, so a
+  cached build never sees a new file: measured on this branch, adding a file to `migrations/` left `rh-persist` "Fresh"
+  and its binary would have kept two migrations. sqlx's own advice (`sqlx migrate build-script`) is this line.
 
 ## 6. Contracts and references
 
