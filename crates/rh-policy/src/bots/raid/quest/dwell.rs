@@ -7,14 +7,26 @@
 //!   a button for 30 s; any damage breaks it, and the frame offering action 6 again is the signal to send it again. The
 //!   quest turns itself in at the monk when the time is full.
 //!
-//! **The leave rule (Hold the Fort).** A fair seat cannot see a contestant it has no line to; the one reliable sign is the
-//! row's progress staying flat while the seat stands inside. A contest only *pauses* the clock, so a passer-by costs a few
-//! seconds and nothing else, and leaving costs everything (up to 40 s). The rule: progress flat for 3 s with another player
-//! in sight inside the fort, or flat for 6 s regardless (the house may be held by someone out of sight, or the seat may
-//! stand outside its walls: after 3 s flat the seat steps onto the token once), releases the goal and bans the quest for
-//! 60 s. Neither shorter (a passer-by would cost a whole hold) nor unbounded (a held fort would pin the bot for ever, and
-//! the lab would count a stuck seat as a quest holder). Meditation: two breaks (progress falls from 3 s or more, or damage)
-//! ban it for 60 s. Low hp under fire (below a third, hit this frame) also releases either quest.
+//! **The hold is waited out (Hold the Fort).** The server only *pauses* the clock while another player stands inside and
+//! resets it to zero when the holder leaves, so staying never costs progress and leaving costs all of it. A fair seat
+//! cannot see a contestant it has no line to, and cannot know how long a contest lasts; the one sign is the row's progress
+//! staying flat while the seat stands inside. The rule is rent-or-buy: with progress flat, wait `HOLD_PATIENCE_BASE_S` plus
+//! the seconds of progress held, then leave. The seat never waits longer than it would take to redo what it has (plus the
+//! base), which is within a factor of two of the best a seat can do without knowing the contest's length. A passer-by
+//! costs a pause, a long contest at 40 s is waited out for up to 46 s, and a contest from the first second (progress 0) is
+//! left after the base. Seeing the contestant does not shorten the wait. `owner_progress` is whole seconds, so the flat time
+//! is this module's own frame clock since the reading last changed. After 3 s flat the seat steps onto the token once (it
+//! may stand just outside the walls). A released hold is a lost attempt: the quest is banned 60 s after the first, 180 s
+//! after the second and for the rest of the match after the third, so a hopeless fort is not re-entered for ever.
+//! Meditation: two breaks (progress falls from 3 s or more, or damage) ban it for 60 s. Low hp under fire (below a third,
+//! hit this frame) releases either quest; for a hold it throws away the progress held and counts as a lost attempt.
+//!
+//! **No endless step.** Every failure bans the quest for a short while (20 s) so the arbiter, which keeps no failure
+//! memory, does not re-pick it at once: no way to the token or the monk, no fort in the view, a meditation that does not
+//! start (no progress 8 s after reaching the monk, whether or not action 6 is offered: a hidden giver or a status block),
+//! and a ready hold whose turn-in does not land within 10 s of reaching the giver. A turn-in lands only when the seat is
+//! within 64 u of the giver with a line (`near`) and the giver is not hidden from the seat (an `a_cruel_joke` scare
+//! hides it for 60 s); the coliseum lock freezes everything.
 //!
 //! **Commitment.** An accepted dwell is `Step::committed` while it runs: only a `Sustain` goal pre-empts it (a drink is not
 //! a weapon action and does not break a meditation: the sim breaks it on movement, damage, a status block, or
@@ -27,7 +39,7 @@ use crate::bots::planning::{matchup_share, zone_faction};
 use crate::bots::raid::acts::Act;
 use crate::bots::raid::exec::farm::{death_chance, members_left};
 use crate::bots::raid::exec::travel::{eta_minutes, move_intent, step_toward, straight_minutes};
-use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Step, Target};
+use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 use crate::bots::raid::percept::CAMP_JOIN_RADIUS;
 use crate::bots::raid::quest::{spell_slots_taken, SPELL_SLOTS};
 use rh_protocol::state::{WireQuestRow, FIELD_KIND_QUEST_FORT};
@@ -49,14 +61,23 @@ const STAND_U: f64 = 32.;
 const INSIDE_U: f64 = 48.;
 /// The fort's range, the proxy for "in the fort" for other players.
 const FORT_RANGE: f64 = 72.;
-/// Where the fort lies from the giver before accepting (measured on every seed that deals it), for the price only.
+/// Where the fort lies from the giver before accepting: an estimate from one map (the Gallows fort on `seed1.map.json`),
+/// used for the price only.
 const FORT_WALK_U: f64 = 500.;
-/// Flat progress inside the fort for this long, with a player in sight inside it, releases the hold...
-const FLAT_SEEN_MS: f64 = 3_000.;
-/// ...flat for this long regardless; at `FLAT_SEEN_MS` the seat first steps onto the token.
-const FLAT_LEAVE_MS: f64 = 6_000.;
-/// A quest left for these reasons is not taken again for this long.
+/// With progress flat, the hold waits this many seconds plus the seconds of progress held before leaving.
+const HOLD_PATIENCE_BASE_S: f64 = 6.;
+/// After this long flat the seat steps onto the token once.
+const NUDGE_MS: f64 = 3_000.;
+/// Ban after the first and second lost hold (the third lasts the match).
+const BAN_FIRST_MS: f64 = 60_000.;
+const BAN_SECOND_MS: f64 = 180_000.;
+/// Two meditation breaks: not taken again for this long.
 const BAN_MS: f64 = 60_000.;
+/// A dead end (no way, no fort in view, a stall) is not retried for this long.
+const DEAD_END_BAN_MS: f64 = 20_000.;
+/// No meditation progress this long after reaching the monk, or a ready hold unturned this long at the giver, is a stall.
+const MEDITATE_STALL_MS: f64 = 8_000.;
+const TURN_IN_STALL_MS: f64 = 10_000.;
 /// A send is not repeated before this long (the act queue pauses and the frame's lag).
 const RESEND_MS: f64 = 2_500.;
 /// The seat must have stood still this long before action 6 is sent.
@@ -94,6 +115,10 @@ pub struct Dwell {
     /// Since when the owner has stood at this quest's giver unable to accept: (def, ms).
     refused: Option<(String, f64)>,
     track: Option<Track>,
+    /// Since when the seat has waited at a monk with no progress, or at a giver with a ready hold: (def, ms).
+    stall: Option<(String, f64)>,
+    /// Holds released per quest (the ban grows with it): (def, count).
+    lost: Vec<(String, u8)>,
     /// Meditation breaks seen on the quest in hand.
     breaks: u8,
 }
@@ -165,7 +190,40 @@ impl Dwell {
     fn ban(&mut self, def: &str, now: f64, ms: f64) {
         self.banned.push((def.to_string(), now + ms));
         self.track = None;
+        self.stall = None;
         self.breaks = 0;
+    }
+
+    /// A hold released with its progress lost: banned 60 s, then 180 s, then for the rest of the match.
+    fn lose_hold(&mut self, def: &str, now: f64) {
+        let count = match self.lost.iter_mut().find(|(d, _)| d == def) {
+            Some((_, n)) => {
+                *n = n.saturating_add(1);
+                *n
+            }
+            None => {
+                self.lost.push((def.to_string(), 1));
+                1
+            }
+        };
+        let ms = match count {
+            1 => BAN_FIRST_MS,
+            2 => BAN_SECOND_MS,
+            _ => f64::INFINITY,
+        };
+        self.ban(def, now, ms);
+    }
+
+    /// True once the stall clock of `def` has run `limit` ms; starts it when it is not running for `def`.
+    fn stalled(&mut self, def: &str, now: f64, limit: f64) -> bool {
+        let since = match &self.stall {
+            Some((d, t)) if d == def => *t,
+            _ => {
+                self.stall = Some((def.to_string(), now));
+                now
+            }
+        };
+        now - since >= limit
     }
 
     /// True when (def, action) was queued within `RESEND_MS`; otherwise records it as queued now.
@@ -243,14 +301,18 @@ impl Dwell {
                 to_fort + back + left_s / 60.
             };
             let seen = fort.map_or(0, |f| others_near(cx, f, FORT_RANGE * 4.)) + fort_marks(cx);
-            (minutes, fort.unwrap_or(giver), 0.8_f64.powi(seen as i32))
+            (
+                minutes,
+                fort.unwrap_or(giver),
+                0.8_f64.powi(seen as i32), // 0.8 per contestant or fort mark: a design guess, not measured
+            )
         } else {
             let seen = others_near(cx, giver, MONK_DANGER_U);
-            let broken = 0.7_f64.powi(i32::from(self.breaks));
+            let broken = 0.7_f64.powi(i32::from(self.breaks)); // per break: a design guess, not measured
             (
                 straight_minutes(me, giver) + left_s / 60.,
                 giver,
-                0.85_f64.powi(seen as i32) * broken,
+                0.85_f64.powi(seen as i32) * broken, // per player near the monk: a design guess, not measured
             )
         };
         let time_left_s =
@@ -288,9 +350,15 @@ impl Dwell {
         let giver = at(row.giver);
         if row.owner_ready {
             self.track = None;
+            if cx.p.dist(giver) <= STAND_U && self.stalled(&row.def, now, TURN_IN_STALL_MS) {
+                self.ban(&row.def, now, DEAD_END_BAN_MS);
+                return Step::failed("the turn-in does not land");
+            }
             return go(cx, giver, "back to the giver", true);
         }
+        self.stall = None;
         let Some(fort) = token(cx, row) else {
+            self.ban(&row.def, now, DEAD_END_BAN_MS);
             return Step::failed("no fort in the view");
         };
         let d = cx.p.dist(fort);
@@ -315,12 +383,12 @@ impl Dwell {
             },
         };
         let flat = now - track.flat_since;
-        let seen = others_near(cx, fort, FORT_RANGE) > 0;
-        if flat >= FLAT_LEAVE_MS || (flat >= FLAT_SEEN_MS && seen) {
-            self.ban(&row.def, now, BAN_MS);
-            return Step::failed("the fort is held by someone else");
+        let patience_ms = (HOLD_PATIENCE_BASE_S + f64::from(track.progress)) * 1_000.;
+        if flat >= patience_ms {
+            self.lose_hold(&row.def, now);
+            return Step::failed("the fort stayed held too long");
         }
-        let nudge = flat >= FLAT_SEEN_MS && !track.nudged && d > 8.;
+        let nudge = flat >= NUDGE_MS && !track.nudged && d > 8.;
         self.track = Some(Track {
             nudged: track.nudged || nudge,
             ..track
@@ -337,7 +405,14 @@ impl Dwell {
         let now = cx.p.now;
         let giver = at(row.giver);
         if cx.p.dist(giver) > STAND_U {
+            self.stall = None;
             return go(cx, giver, "to the monk", true);
+        }
+        if row.owner_progress > 0 {
+            self.stall = None;
+        } else if self.stalled(&row.def, now, MEDITATE_STALL_MS) {
+            self.ban(&row.def, now, DEAD_END_BAN_MS);
+            return Step::failed("the meditation does not start");
         }
         // A break: progress fell from three seconds or more, or damage landed while it ran.
         if let Some(t) = &self.track {
@@ -420,6 +495,7 @@ impl Executor for Dwell {
         }
         let Some(row) = q.rows.iter().find(|r| r.def == *def).cloned() else {
             self.track = None;
+            self.stall = None;
             self.breaks = 0;
             return Step::done("quest turned in");
         };
@@ -456,13 +532,22 @@ impl Executor for Dwell {
             return Step::running(Vec::new(), "waiting at the giver");
         }
         if cx.p.me.hp_share() < LOW_HP && cx.p.hit_at.is_some() {
-            self.ban(def, now, BAN_MS);
+            if *def == HOLD {
+                self.lose_hold(def, now);
+            } else {
+                self.ban(def, now, BAN_MS);
+            }
             return Step::failed("hurt under fire");
         }
-        if *def == HOLD {
+        let step = if *def == HOLD {
             self.hold(cx, &row)
         } else {
             self.meditate(cx, &row)
+        };
+        // The arbiter keeps no failure memory: a failure that banned nothing (no way there) would be picked again at once.
+        if step.status == Status::Failed && !self.banned(def, now) {
+            self.ban(def, now, DEAD_END_BAN_MS);
         }
+        step
     }
 }

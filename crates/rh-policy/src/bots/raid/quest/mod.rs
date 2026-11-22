@@ -1,6 +1,8 @@
 //! Quest goals (P-RAID-Q1..Q4, -P, -W): the executors that walk, dwell, decide, hunt, fight and search for quests.
 pub mod decide;
 pub mod dwell;
+#[cfg(test)]
+mod dwell_tests;
 pub mod hunt;
 pub mod pvp;
 pub mod search;
@@ -15,7 +17,8 @@ use rh_sim::quests::board::catalog::{RewardKind, DEFINITIONS};
 pub(crate) const SPELL_SLOTS: usize = 2;
 
 /// Spell slots spoken for: quest spells held, plus every accepted, unfinished quest on the board whose reward is a spell,
-/// whichever executor owns it (the same count as the walker's private `slots_taken`).
+/// whichever executor owns it (the same count as the walker's private `slots_taken`). A later packet points the walker at
+/// this function and deletes the walker's private copy.
 pub(crate) fn spell_slots_taken(cx: &Cx<'_>) -> usize {
     cx.p.quests.as_ref().map_or(0, |q| {
         q.spells.len()
