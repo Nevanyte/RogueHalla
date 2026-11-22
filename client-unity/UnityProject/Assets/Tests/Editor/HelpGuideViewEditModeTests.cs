@@ -29,7 +29,7 @@ public sealed class HelpGuideViewEditModeTests
             "Plague · Disease and execute", "Frost · Chill", "Holy · Lifesteal", "Sword", "Axe", "Bow", "Wand", "Shield", "Fists" })
             StringAssert.Contains(term, terms);
         Assert.IsFalse(Regex.IsMatch(terms, @"\d"), "Mechanics descriptions and terms avoid numeric formulas and balance values.");
-        Assert.AreEqual(4, HelpGuideContent.Mechanics.Count);
+        Assert.AreEqual(5, HelpGuideContent.Mechanics.Count);
     }
 
     [Test]

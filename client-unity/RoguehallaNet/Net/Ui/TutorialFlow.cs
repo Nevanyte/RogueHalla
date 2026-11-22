@@ -52,10 +52,10 @@ namespace Roguehalla.Net
             "Welcome to the Training grounds. Nothing here is recorded.",
             "Right-click to walk into the glowing ring.",
             "Walk to the weapon rack and press F to pick up a weapon.",
-            "Left-click the dummy to lock on and attack. S stops.",
+            "Left-click the dummy to attack. With a wand, one click locks on.",
             "Take a second weapon, then swap with Space.",
             "Press {wish} to cast your Wish (click to place it if it aims)",
-            "Tutorial complete. Enter the Arena when ready.",
+            "Done! Press Esc to leave Training, then START RUN. H shows controls anytime.",
         };
 
         int _index;

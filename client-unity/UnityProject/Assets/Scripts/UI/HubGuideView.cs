@@ -40,7 +40,7 @@ namespace Roguehalla.Client
         };
         static readonly string[] WeaponBuilds =
         {
-            "Offense + on-hit effects", "Offense + attack speed", "SO first · Offense secondary", "Defense/SD first · SO secondary", "Offense first · bonus health secondary", "Offense or SO · find a weapon"
+            "Offense + on-hit effects", "Offense + attack speed", "Soul Offence first · Offense secondary", "Defense/Soul Defense first · Soul Offence secondary", "Offense first · bonus health secondary", "Offense or Soul Offence · find a weapon"
         };
         static readonly string[] WeaponPlay =
         {
@@ -192,7 +192,7 @@ namespace Roguehalla.Client
             head.fontStyle = FontStyles.Bold;
             MythicUi.Text(_panel, "Subheading", "Champions, weapons, and the intended weapon matchups", new Vector2(.035f, .865f), new Vector2(.8f, .92f), 15, ShowcasePalette.MutedText);
 
-            var close = MythicUi.Button(_panel, "CloseGuide", "CLOSE  ×", new Vector2(.84f, .91f), new Vector2(.97f, .99f), () => SetVisible(false), MythicUi.ButtonStyle.Secondary);
+            var close = MythicUi.Button(_panel, "CloseGuide", "CLOSE · ESC", new Vector2(.84f, .91f), new Vector2(.97f, .99f), () => SetVisible(false), MythicUi.ButtonStyle.Secondary);
             close.navigation = Navigation.defaultNavigation;
 
             string[] names = { "CHAMPIONS", "WEAPONS", "COUNTERS" };
