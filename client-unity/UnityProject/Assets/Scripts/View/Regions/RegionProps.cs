@@ -322,6 +322,8 @@ namespace Roguehalla.Client
             var transitions = RegionTransitionArt.Load();
             var footWash = transitions != null && transitions.FootWash > 0 && _material.HasProperty("_RegionFootWash")
                 ? new MaterialPropertyBlock() : null;
+            // Seam details (P-STORM-BIOME-EDGES-1) are drawn on dressed maps too, by design: every served map is dressed, they are
+            // cosmetic and deterministic from public map data, and they keep clear of the placements above (P-EDITMODE-STORMINK-1).
             if (transitions != null)
             {
                 if (field == null || !field.Ready)

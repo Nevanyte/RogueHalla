@@ -12,10 +12,14 @@ namespace Roguehalla.Client.Tests
 {
     /// <summary>
     /// P-UNITY-DRESS-1 oracle, Unity half: a map blob that carries the server's decoration (MapBlob.Props, GroundVariants) is drawn
-    /// as sent and the client rolls none of its own; a blob without keeps today's scatter. Props are found the way the existing tests
+    /// as sent and the client rolls no scatter of its own; a blob without keeps today's scatter. Props are found the way the existing tests
     /// find them (RegionProps.Build under a parent: one SpriteRenderer per drawn prop, named by its sprite key, at
     /// ArenaView.WorldPoint of the prop's world position). The kind and variant tables are checked in
     /// RoguehallaNet.Tests/DecorationKindsTests.cs.
+    /// The one client addition on a dressed map is the Storm Ink seam detail (P-STORM-BIOME-EDGES-1: RegionEdgeProps, small tufts
+    /// and pebbles within two tiles of a region boundary, deterministic from public map data). It is drawn on dressed maps by design,
+    /// since every served map is dressed, so the drawing tests compute it with SeamDetails and account for it
+    /// (P-EDITMODE-STORMINK-1).
     /// </summary>
     public sealed class DressedMapEditModeTests
     {
@@ -54,6 +58,21 @@ namespace Roguehalla.Client.Tests
 
         static MapBlob WithProps(MapBlob map, params MapProp[] props) { return map.WithPublic(null, null, null, props, null); }
 
+        /// <summary>
+        /// The seam details RegionProps.Build draws beside the placement list, computed the way RegionProps.Create computes them
+        /// (the shipped transition settings, a region field of the blob, the placement list as what they keep clear of). Never a
+        /// pinned number: the roll is seeded from the blob's hashes, and those cover its prop list.
+        /// </summary>
+        static List<RegionProps.Placement> SeamDetails(MapBlob map)
+        {
+            var art = RegionTransitionArt.Load();
+            if (art == null) return new List<RegionProps.Placement>();
+            var field = new RegionField(); field.Build(map.Regions, map.W, map.H);
+            var seams = RegionEdgeProps.Generate(map, field, art, RegionProps.Scatter(map));
+            Assert.That(seams.All(p => p.TransitionDetail), Is.True, "guard: every seam detail is flagged as one");
+            return seams;
+        }
+
         // ---- scene helpers -------------------------------------------------------------------------------------------------------
 
         sealed class Scene : IDisposable
@@ -61,9 +80,12 @@ namespace Roguehalla.Client.Tests
             public readonly GameObject Root = new GameObject("dress test root"); public RegionProps Props;
             public Scene(MapBlob map) { Props = RegionProps.Build(Root.transform, map); }
             public List<SpriteRenderer> Renderers() { return Root.GetComponentsInChildren<SpriteRenderer>().ToList(); }
-            public SpriteRenderer At(MapProp p, string art)
+            public SpriteRenderer At(MapProp p, string art) { return At(art, p.X, p.Y); }
+            /// <summary>A client placement (tile units) drawn under its own art key.</summary>
+            public SpriteRenderer At(RegionProps.Placement pl) { return At(pl.Art, pl.X * 32f, pl.Y * 32f); }
+            SpriteRenderer At(string art, float worldX, float worldY)
             {
-                var want = ArenaView.WorldPoint(p.X, p.Y);
+                var want = ArenaView.WorldPoint(worldX, worldY);
                 return Renderers().Find(r => r.name == art && Mathf.Abs(r.transform.localPosition.x - want.x) < .001f && Mathf.Abs(r.transform.localPosition.y - want.y) < .001f);
             }
             public void Dispose() { if (Props != null) Props.Dispose(); UnityEngine.Object.DestroyImmediate(Root); }
@@ -86,16 +108,19 @@ namespace Roguehalla.Client.Tests
             var open = Open();
             Assert.That(RegionProps.Scatter(open).Count, Is.GreaterThan(20), "guard: this map scatters props today, so zero scatter below proves something");
             var map = WithProps(open, Known);
+            var seams = SeamDetails(map);
             using (var scene = new Scene(map))
             {
-                Assert.That(scene.Props.Count, Is.EqualTo(Known.Length), "RegionProps.Count is the number of props drawn");
-                Assert.That(scene.Renderers().Count, Is.EqualTo(Known.Length), "exactly the blob's props are drawn, and no scatter prop");
+                Assert.That(scene.Props.Count, Is.EqualTo(Known.Length + seams.Count), "RegionProps.Count is the number of props drawn: the blob's props and the seam details");
+                Assert.That(scene.Renderers().Count, Is.EqualTo(Known.Length + seams.Count), "exactly the blob's props and the seam details are drawn, and no scatter prop");
                 foreach (var p in Known)
                 {
                     string art = DecorationKinds.ArtKey(p.Kind, p.Variant, p.Flags);
                     Assert.That(art, Is.Not.Null.And.Not.EqualTo(DecorationKinds.Placeholder), "kind " + p.Kind + " has art");
                     Assert.That(scene.At(p, art), Is.Not.Null, "kind " + p.Kind + " variant " + p.Variant + " is drawn as '" + art + "' at world (" + p.X + ", " + p.Y + ")");
                 }
+                foreach (var s in seams)
+                    Assert.That(scene.At(s), Is.Not.Null, "seam detail '" + s.Art + "' is drawn at tile (" + s.X + ", " + s.Y + ")");
             }
         }
 
@@ -204,9 +229,10 @@ namespace Roguehalla.Client.Tests
             // does not know the catalogue and draws the placeholder. Whether it also logs is not pinned.
             var legacy = new MapProp(5, 160, 160, 200, 2);
             var map = WithProps(Open(), legacy);
+            var seams = SeamDetails(map);
             using (var scene = new Scene(map))
             {
-                Assert.That(scene.Renderers().Count, Is.EqualTo(1));
+                Assert.That(scene.Renderers().Count, Is.EqualTo(1 + seams.Count), "the legacy prop and the seam details, nothing else");
                 Assert.That(scene.At(legacy, DecorationKinds.Placeholder), Is.Not.Null);
             }
         }
