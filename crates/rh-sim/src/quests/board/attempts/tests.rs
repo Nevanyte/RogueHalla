@@ -678,3 +678,50 @@ fn scaring_your_own_giver_does_not_block_a_remote_delivery() {
     });
     assert!(finish(&mut sim.w, a, 900));
 }
+
+#[test]
+fn a_turned_in_crown_stops_growing_until_it_is_claimed() {
+    let mut sim = scenario(&[QuestId::TheBurningCrown], [false; 2]);
+    let [a, _b] = owners(&sim.w);
+    run(&mut sim, |cx| {
+        accept(cx, 0, a);
+        interact(cx, a, 900, 3, 0);
+    });
+    board_mut(&mut sim.w).unwrap().crown.elapsed_ms = 7000.;
+    run(&mut sim, system);
+    assert_eq!(pending(&sim.w, a, 900).unwrap().points, 7);
+    for _ in 0..200 {
+        run(&mut sim, system);
+    }
+    assert_eq!(
+        crown_power(&sim.w, a),
+        Some(7),
+        "power holds while the claim waits"
+    );
+    assert!(finish(&mut sim.w, a, 900));
+}
+
+#[test]
+fn bounty_hunter_marks_humans_and_bots_alike() {
+    let mut sim = scenario(&[QuestId::BountyHunter], [false, false, true]);
+    let [a, b] = owners(&sim.w);
+    let bot = sim.w.players[2].id;
+    // The human b leads on player kills, without a real bounty yet.
+    sim.w.players[1].credit.kills = 2;
+    run(&mut sim, |cx| {
+        accept(cx, 0, a);
+        system(cx);
+    });
+    assert_eq!(
+        board(&sim.w).unwrap().bounty,
+        Some(b),
+        "two humans: the leader is marked"
+    );
+    // Once b hunts too, the mark moves to the fighter who is not hunting: the bot.
+    run(&mut sim, |cx| {
+        accept(cx, 0, b);
+        system(cx);
+    });
+    assert_eq!(board(&sim.w).unwrap().bounty, Some(bot));
+    assert_eq!(validate(&sim.k, &sim.w), Ok(()));
+}

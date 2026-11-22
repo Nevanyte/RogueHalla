@@ -549,9 +549,7 @@ fn valid_reward_payload(id: QuestId, a: &Attempt) -> bool {
 pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
     let Some(state) = board(w) else { return Ok(()) };
     if state.seen_actor > w.next_id
-        || state
-            .bounty
-            .is_some_and(|id| w.player(id).is_none_or(|p| !p.seat.bot))
+        || state.bounty.is_some_and(|id| w.player(id).is_none())
         || state
             .traders
             .iter()

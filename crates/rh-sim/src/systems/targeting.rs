@@ -327,13 +327,66 @@ fn follow(cx: &mut Cx, i: usize, id: PlayerId) {
     }
 }
 
+/// Warhorn: a taunted player aims at and attacks the taunter with whatever weapon they hold, as a locked wand would.
+/// The walk toward the taunter is `movement`'s (`effects::walk_taunted`).
+fn attack_taunter(cx: &mut Cx, i: usize, source: PlayerId) {
+    let Some(j) = cx.w.fighter_idx(source) else {
+        return;
+    };
+    let now = cx.w.server_time;
+    let to = cx.w.core(j).pos();
+    let from = cx.w.players[i].pos();
+    let seen = has_line_of_sight(crate::collision::map(cx.k, cx.w), from, to, MASK_SIGHT);
+    let p = &cx.w.players[i];
+    let weapon = p.active_weapon();
+    let mirrors = p.modifiers.mirrors();
+    let tm = mirror_timings(
+        &paced(p.faction()),
+        weapon,
+        mirrors.as_mult,
+        mirrors.windup_mult,
+        false,
+    );
+    let vel = velocity(cx.w.core(j), now);
+    let out = crate::combat_policy::decide(
+        crate::combat_policy::Input {
+            from,
+            to,
+            vel,
+            los: seen,
+            weapon,
+            windup: tm.windup,
+            lock: true,
+            delay: 0.,
+        },
+        |_, _| true,
+    );
+    let p = &mut cx.w.players[i];
+    p.motion.path.clear();
+    if out.hold && !p.weapon.held {
+        p.weapon.pressed_at = now;
+    }
+    p.weapon.held = out.hold;
+    p.weapon.lag_ms = cx.k.tick_ms();
+    p.weapon.aim = out.aim;
+    p.weapon.aim_at = now;
+    if wrap_angle(out.aim - p.body.facing).abs() >= MOB_AIM_DEADBAND {
+        p.body.facing = out.aim;
+    }
+}
+
 pub(crate) fn update(cx: &mut Cx) {
     let has_quests = cx.w.quests.is_some();
     for i in 0..cx.w.players.len() {
-        if has_quests
-            && crate::quests::board::rewards::effects::forced_motion(cx.w, cx.w.players[i].id)
-        {
-            continue;
+        if has_quests {
+            let id = cx.w.players[i].id;
+            if let Some(source) = crate::quests::board::rewards::effects::taunt(cx.w, id) {
+                attack_taunter(cx, i, source);
+                continue;
+            }
+            if crate::quests::board::rewards::effects::forced_motion(cx.w, id) {
+                continue;
+            }
         }
         let lock = cx.w.players[i].weapon.targeting;
         if let Some(goal) = lock.attack_move.filter(|_| lock.target.is_none()) {

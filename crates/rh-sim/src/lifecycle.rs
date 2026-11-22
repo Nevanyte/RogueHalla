@@ -53,6 +53,9 @@ pub(crate) fn remove(cx: &mut Cx, id: PlayerId) {
             systems::settle::miss_in_planning(cx.w, cx.ev, i);
         }
     }
+    if crate::quests::board::special::egg::has_egg(cx.w, id) {
+        crate::systems::items::drop_kept_weapons(cx.k, cx.w, id);
+    }
     if let Some(death) = crate::quests::board::special::egg::remove(cx.w, id) {
         systems::settle::resolve_egg_death(cx.w, cx.ev, id, death);
     }

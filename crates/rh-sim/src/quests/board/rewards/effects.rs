@@ -219,7 +219,19 @@ pub(crate) fn damage_factor(w: &World, id: PlayerId) -> f64 {
                 _ => None,
             })
         })
-        .map_or(1., |n| 1. + 0.05 * f64::from(n))
+        .map_or(1., |n| 1. + 0.2 * f64::from(n))
+}
+
+/// Warhorn's guard: while its buff lasts the caster takes 15% less damage per enemy taunted, at most 60% less.
+pub(crate) fn damage_taken_factor(w: &World, id: PlayerId) -> f64 {
+    state(w)
+        .and_then(|s| {
+            s.buffs.iter().find_map(|r| match r.effect {
+                Buff::Warhorn { count } if r.id == id && r.until > w.server_time => Some(count),
+                _ => None,
+            })
+        })
+        .map_or(1., |n| (1. - 0.15 * f64::from(n)).max(0.4))
 }
 
 pub(crate) fn shielding(w: &World, id: PlayerId) -> bool {
@@ -358,6 +370,7 @@ pub(super) fn cast(
                     if !defended(cx.w, victim) {
                         stop_attacking(cx, victim);
                         control(cx.w, victim, WARHORN_MS, Control::Taunt { source: id });
+                        provoke_mob(cx.w, victim, id);
                         count = count.saturating_add(1);
                     }
                 }
@@ -468,6 +481,21 @@ fn cleanse(cx: &mut Cx, id: PlayerId) {
     }
     state_mut(cx.w).control.retain(|r| r.id != id);
     set_buff(cx.w, id, TORNADO_WINDUP, Buff::Cleansed);
+}
+
+/// A taunted camp mob fights the Warhorn caster: it wakes onto them with threat no ordinary hit outweighs.
+fn provoke_mob(w: &mut World, victim: PlayerId, caster: PlayerId) {
+    let now = w.server_time;
+    let Some(mob) = w.mobs.get_mut(victim) else {
+        return;
+    };
+    if let Some(brain) = mob.brain.as_mut() {
+        crate::systems::mob_ai::wake(brain, caster, now);
+        crate::systems::mob_ai::add_threat(brain, caster, 1e6);
+    }
+    if let Some(zombie) = mob.zombie.as_mut() {
+        zombie.target = Some(caster);
+    }
 }
 
 fn stop_attacking(cx: &mut Cx, id: PlayerId) {
@@ -905,6 +933,12 @@ pub(crate) fn update(cx: &mut Cx) {
         let row = state(cx.w).unwrap().control[i];
         let standing = cx.w.fighter_idx(row.id).is_some_and(|j| cx.w.standing(j));
         if row.until <= now || !standing {
+            if matches!(row.effect, Control::Taunt { .. }) {
+                // The forced attack ends with the taunt; the player's own trigger takes over again.
+                if let Some(p) = cx.w.players.get_mut(row.id) {
+                    p.weapon.held = false;
+                }
+            }
             state_mut(cx.w).control.remove(i);
             continue;
         }
@@ -1007,4 +1041,9 @@ pub(crate) fn walk_taunted(
 
 pub(crate) fn forced_motion(w: &World, id: PlayerId) -> bool {
     stasis(w, id) || pulled(w, id) || taunt(w, id).is_some()
+}
+
+/// Stasis and pulls stop a weapon; a taunted fighter still attacks (its taunter).
+pub(crate) fn weapon_stopped(w: &World, id: PlayerId) -> bool {
+    stasis(w, id) || pulled(w, id)
 }

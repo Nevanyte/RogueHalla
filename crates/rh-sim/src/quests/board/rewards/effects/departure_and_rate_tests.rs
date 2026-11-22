@@ -132,3 +132,33 @@ fn hook_and_bolas_keep_their_speed_at_40_hz() {
         "hook 20 Hz {slow} ms vs 40 Hz {fast} ms"
     );
 }
+
+#[test]
+fn warhorn_taunted_enemies_walk_to_and_attack_the_caster_who_gets_a_large_buff() {
+    let mut sim = room_with([false; 3], 50);
+    let (a, b) = (sim.players()[0].id, sim.players()[1].id);
+    let hp = sim.player(a).unwrap().vitals.hp;
+    let at = sim.player(b).unwrap().pos();
+    cast(&mut sim, a, Award::Warhorn, at, None);
+    assert_eq!(taunt(&sim.w, b), Some(a));
+    assert_eq!(
+        damage_factor(&sim.w, a),
+        1.2,
+        "+20% damage per enemy taunted"
+    );
+    assert_eq!(
+        damage_taken_factor(&sim.w, a),
+        0.85,
+        "15% less damage taken per enemy"
+    );
+    for _ in 0..60 {
+        sim.step();
+    }
+    assert!(
+        sim.player(a).unwrap().vitals.hp < hp,
+        "the taunted axe wielder struck the caster"
+    );
+    // The taunt is over: the forced attack lets go of the trigger.
+    assert!(taunt(&sim.w, b).is_none());
+    assert!(!sim.player(b).unwrap().weapon.held);
+}

@@ -16,7 +16,8 @@ None. The Top 25 board is new design ([quest rules](../../quests.md), DEV-040).
 
 `crates/rh-sim/src/lifecycle.rs`, `crates/rh-sim/src/quests/board/attempts.rs` and `attempts/{interactions,tests}.rs`,
 `attempts/scenarios.rs` and `scenarios/{spells,full_slots}.rs`, `rewards/inventory.rs`, `rewards/effects.rs`,
-`rewards/effects/checkpoint.rs` and the new `rewards/effects/departure_and_rate_tests.rs`.
+`rewards/effects/checkpoint.rs`, `rewards/effects/tests.rs`, the new `rewards/effects/departure_and_rate_tests.rs`,
+`attempts/signals.rs`, `special/egg.rs` and `egg_tests.rs`, `systems/{items,weapons,targeting,ledger}.rs`.
 
 ## Defects
 
@@ -36,8 +37,16 @@ Seven regression tests in `attempts/tests.rs` and `effects/departure_and_rate_te
 runs at 25 ms (`all_twenty_five_quests_complete_at_the_live_40_hz_step`), with its waits read from the match's step.
 `scripts/gate.sh --quick` passes.
 
-## Not changed (owner questions)
+## Owner changes (Nevin, 2026-11-21 chat)
 
-Warhorn-taunted targets cannot attack at all; a Warhorn cast with no enemy in range spends the charge; a Rebirth Egg
-hatches without weapons; Bounty Hunter marks a fill bot only with one human standing; a pending crown keeps growing
-until claimed (cap 48).
+5. Rebirth Egg: "should bring you back with weapons". A death the egg will hatch keeps both weapons; an egg that never
+   hatches drops (or clears) them then (`items::drop_kept_weapons`).
+6. Bounty Hunter: "should count bots as humans". While no standing fighter has a real bounty, the standing fighter with
+   the most player kills who is not hunting is marked, human or bot.
+7. The Burning Crown: "should not grow unless it is claimed". Once turned in, its power and burn hold until the claim.
+8. Warhorn: "all enemies within the radius attack you ... you should get a large buff per player taunted". Taunted
+   players aim and attack the caster with their own weapon (`targeting::attack_taunter`), camp mobs wake onto the
+   caster, and the caster gets +20% damage and 15% less damage taken per enemy (at most 60% less) for 2.5 s. The
+   journal wording is unchanged (it is part of the content hash).
+
+Still open: a Warhorn cast with no enemy in range spends the charge.

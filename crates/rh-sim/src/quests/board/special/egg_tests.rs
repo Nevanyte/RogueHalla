@@ -385,3 +385,42 @@ fn rebirth_egg_cast_and_real_death_drop_the_burning_crown_at_the_body() {
     );
     assert_eq!(sim.w.rebirth_eggs[0].at, PLANTED);
 }
+
+#[test]
+fn rebirth_egg_hatches_with_the_weapons_held_at_death() {
+    let mut sim = raid(5);
+    sim.w.players.get_mut(OWNER).unwrap().weapon.weapon1 = Some(WeaponId::Bow);
+    assert!(sim.with_cx(|cx| plant_egg(cx, OWNER, PLANTED)));
+    place(&mut sim, OWNER, FALLEN);
+    kill(&mut sim);
+    assert_eq!(sim.player(OWNER).unwrap().status, Status::Dead);
+    for _ in 0..60 {
+        sim.step();
+    }
+    let owner = sim.player(OWNER).unwrap();
+    assert!(owner.standing());
+    assert_eq!(
+        (owner.weapon.weapon0, owner.weapon.weapon1),
+        (Some(WeaponId::Sword), Some(WeaponId::Bow))
+    );
+}
+
+#[test]
+fn an_egg_that_never_hatches_gives_up_the_kept_weapons() {
+    // The fifth fighter leaves during the hatch, so the egg cannot hatch and the owner's death is banked.
+    let mut sim = raid(5);
+    assert!(sim.with_cx(|cx| plant_egg(cx, OWNER, PLANTED)));
+    place(&mut sim, OWNER, FALLEN);
+    kill(&mut sim);
+    assert_eq!(
+        sim.player(OWNER).unwrap().weapon.weapon0,
+        Some(WeaponId::Sword),
+        "held for the hatch"
+    );
+    sim.remove_player(PlayerId(3));
+    for _ in 0..61 {
+        sim.step();
+    }
+    assert!(sim.w.rebirth_eggs.is_empty());
+    assert_eq!(sim.player(OWNER).unwrap().weapon.weapon0, None);
+}
