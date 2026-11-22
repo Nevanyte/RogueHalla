@@ -253,11 +253,10 @@ impl Dwell {
                 0.85_f64.powi(seen as i32) * broken,
             )
         };
-        let time_left_s = cx
-            .p
-            .arena
-            .and_then(|a| a.patience_ends_at)
-            .map_or(f64::INFINITY, |t| (t - cx.p.now) / 1000.);
+        let time_left_s =
+            cx.p.arena
+                .and_then(|a| a.patience_ends_at)
+                .map_or(f64::INFINITY, |t| (t - cx.p.now) / 1000.);
         let success = if time_left_s.is_finite() {
             let slack = time_left_s / (minutes * 60.).max(1.);
             success * ((slack - 1.) / (SAFE_SLACK - 1.)).clamp(0., 1.)
