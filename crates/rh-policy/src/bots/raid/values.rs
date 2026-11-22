@@ -34,6 +34,30 @@ pub struct SustainPrices {
     pub disengage_death: f64,
     /// The hp share the heal-up candidate brings the bot back to before it goes for a camp.
     pub ready_hp: f64,
+    /// Share of max hp a large potion gives back (the sim's `potions::DEFINITION.large_share`): the farm prices a camp
+    /// with the potions held counted as hp.
+    pub large_share: f64,
+    /// Share of max hp a small potion gives back (`potions::DEFINITION.small_share`).
+    pub small_share: f64,
+    /// What leaving a lost fight is worth (ce): the death it avoids, priced so a leave outranks any camp.
+    pub leave_value: f64,
+    /// Seconds a leave takes to price (s): short, so the leave's rate is high.
+    pub leave_seconds: f64,
+    /// Worth of one share of max hp healed on purpose (ce per share): with `regen_per_second` this fixes the heal-up's
+    /// rate in ce per minute, which a camp worth taking beats and standing still does not.
+    pub rest_value: f64,
+    /// Share of max hp the sim regenerates a second after the quiet spell (`PLAYER_REGEN_SHARE_OUT`).
+    pub regen_per_second: f64,
+}
+
+impl SustainPrices {
+    /// Hp share the potions held will give back (0 when sustain is off, so the farm prices as before).
+    pub fn potion_hp(&self, large: u8, small: u8) -> f64 {
+        if !self.on {
+            return 0.;
+        }
+        f64::from(large) * self.large_share + f64::from(small) * self.small_share
+    }
 }
 
 impl SustainPrices {
@@ -42,12 +66,24 @@ impl SustainPrices {
         drink_below: 0.,
         disengage_death: 2.,
         ready_hp: 0.,
+        large_share: 0.,
+        small_share: 0.,
+        leave_value: 0.,
+        leave_seconds: 1.,
+        rest_value: 0.,
+        regen_per_second: 0.008,
     };
     pub const LOCAL: Self = Self {
         on: true,
         drink_below: 0.65,
         disengage_death: 0.5,
         ready_hp: 0.85,
+        large_share: 0.4,
+        small_share: 0.25,
+        leave_value: 3.,
+        leave_seconds: 6.,
+        rest_value: 0.6,
+        regen_per_second: 0.008,
     };
 }
 
