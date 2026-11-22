@@ -146,6 +146,11 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
 - **PR 80 pushed again** (2026-11-21): `feature/unity-rework` to `claude/augment-elite-rework`, a fast-forward from
   `a4abce7ea`. Origin's base was still `ef8d5e9ce`, so the PR no longer conflicts. Its description now gives the
   protocol 24 identities.
+- **CI on `e220c95ca`** (perfproof run 44971955306): every workload's Ir ratio was 0.88 to 1.00 with identical
+  fingerprints, but `verify_replay` failed (`verified` false, 0 steps). Replay format 28 refuses the base's format-27
+  recordings. PR 81 met the same case and took perfproof's route; PR 80's description now declares
+  `headless_seed1_recorded.stateHashFold` too, which makes the gate record on both builds and require identical recorded
+  inputs (`--rerecord`). The description edit started perfproof run 44973634910.
 
 ## Resumed (2026-11-20): the elite and augment rework, integration 65
 
