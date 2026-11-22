@@ -105,7 +105,10 @@ impl Executor for Chest {
         }
         let v = cx.p.loot_view(cx.tier, cx.persona, cx.still_since);
         Step::running(
-            self.loot.intents(&loot_goal(goal), &v).into_iter().collect(),
+            self.loot
+                .intents(&loot_goal(goal), &v)
+                .into_iter()
+                .collect(),
             "chest pick rides along",
         )
     }

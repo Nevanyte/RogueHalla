@@ -52,9 +52,7 @@ pub fn move_intent(to: Vec2, why: &str) -> Intent {
 /// Minutes to walk from `from` to `to`: the path length when the service has one, else the straight line x 1.3
 /// (`paths::STRAIGHT_FACTOR`); `None` when there is no way.
 pub fn eta_minutes(paths: &mut RoomPathService, from: Vec2, to: Vec2) -> Option<f64> {
-    paths
-        .walk(from, to)
-        .map(|a| a.dist / PLAYER_SPEED / 60.)
+    paths.walk(from, to).map(|a| a.dist / PLAYER_SPEED / 60.)
 }
 
 /// Straight-line minutes, for candidates beyond the path horizon (no search spent).
@@ -111,7 +109,8 @@ impl Executor for Roam {
         self.to = None;
     }
     fn propose(&mut self, cx: &mut Cx<'_>, out: &mut Vec<Candidate>) {
-        let held = cx.goal.kind == GoalKind::Roam && cx.status == crate::bots::raid::goal::Status::Running;
+        let held =
+            cx.goal.kind == GoalKind::Roam && cx.status == crate::bots::raid::goal::Status::Running;
         if !held || self.to.is_none() {
             self.to = self.draw(cx);
         }

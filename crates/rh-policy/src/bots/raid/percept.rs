@@ -46,7 +46,9 @@ impl Me {
         }
     }
     pub fn potions(&self) -> u32 {
-        u32::from(self.potion_small) + u32::from(self.potion_large) + u32::from(self.potions_healing)
+        u32::from(self.potion_small)
+            + u32::from(self.potion_large)
+            + u32::from(self.potions_healing)
     }
 }
 
@@ -196,7 +198,10 @@ impl RaidPercept {
             }),
             slot: inventory.map_or(0, |i| i.active_slot),
             effects: owner.effects,
-            ready_at: obs.owner_combat.as_ref().map_or(0., |c| f64::from(c.ready_at)),
+            ready_at: obs
+                .owner_combat
+                .as_ref()
+                .map_or(0., |c| f64::from(c.ready_at)),
             potion_small: inventory.map_or(0, |i| i.potion_small),
             potion_large: inventory.map_or(0, |i| i.potion_large),
             potions_healing: inventory.map_or(0, |i| i.potions_healing),
@@ -263,7 +268,9 @@ impl RaidPercept {
                 zone: c.zone,
                 elite_spot: c.elite_spot,
                 mob_type: w.mob_type,
-                elite: w.elite.and_then(|e| MobTypeId::ALL.get(usize::from(e)).copied()),
+                elite: w
+                    .elite
+                    .and_then(|e| MobTypeId::ALL.get(usize::from(e)).copied()),
                 alive: w.alive,
                 state: w.state,
                 cleared_at: w.cleared_at,

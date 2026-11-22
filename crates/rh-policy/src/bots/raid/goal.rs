@@ -96,7 +96,10 @@ pub enum Target {
     /// every frame; an executor follows a mob by position (as `exec/farm.rs` does) and names it only inside one think.
     Actor(String),
     /// A quest row by its definition id (`WireQuestRow::def`), with the stage-specific index the executor wants.
-    Quest { def: String, stage: u8 },
+    Quest {
+        def: String,
+        stage: u8,
+    },
 }
 
 impl Target {

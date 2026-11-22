@@ -195,11 +195,8 @@ impl Policy for RaidBot {
         self.plan_map = PlanMap::from_arena(&m.arena);
         self.plan_learned = PlanLearned::default();
         self.knowledge = Some(
-            Knowledge::create(
-                TierParams::by_id(self.tier),
-                &mut Rng::new(derive(seed, 3)),
-            )
-            .with_elite_rule(m.elites),
+            Knowledge::create(TierParams::by_id(self.tier), &mut Rng::new(derive(seed, 3)))
+                .with_elite_rule(m.elites),
         );
         self.arbiter.reset();
         for e in &mut self.executors {
@@ -509,7 +506,12 @@ impl RaidBot {
         }
         let think = &TierParams::by_id(self.tier).think_ms;
         self.next_think_at = now
-            + uniform(parts.rng, think.mean - think.jitter, think.mean + think.jitter).min(2000.);
+            + uniform(
+                parts.rng,
+                think.mean - think.jitter,
+                think.mean + think.jitter,
+            )
+            .min(2000.);
         (intents, acts)
     }
 

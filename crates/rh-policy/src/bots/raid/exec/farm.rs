@@ -4,7 +4,9 @@
 //! givers are not in `RaidPercept::mobs`, and players are never farmed.
 use crate::bots::mob_hunt::best_slot_vs_mob;
 use crate::bots::planning::{matchup_share, zone_faction};
-use crate::bots::raid::exec::travel::{self, eta_minutes, move_intent, step_toward, straight_minutes};
+use crate::bots::raid::exec::travel::{
+    self, eta_minutes, move_intent, step_toward, straight_minutes,
+};
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 use crate::bots::raid::percept::{CampSeen, MobClass, MobSeen};
 use crate::bots::types::{Intent, IntentBody, IntentTiming, PRIORITY_COMBAT};
@@ -85,14 +87,16 @@ impl Farm {
     fn eligible(&self, camp: &CampSeen, now: f64) -> bool {
         camp.alive > 0
             && camp.elite.is_none()
-            && !self.banned.iter().any(|(c, until)| *c == camp.index && *until > now)
+            && !self
+                .banned
+                .iter()
+                .any(|(c, until)| *c == camp.index && *until > now)
     }
 
     /// The member to fight: a living regional mob of the camp, or a fighting one on top of us; the nearest.
     fn pick<'a>(cx: &'a Cx<'_>, camp: u32) -> Option<&'a MobSeen> {
         let at = cx.p.me.at;
-        cx.p
-            .mobs
+        cx.p.mobs
             .iter()
             .filter(|m| m.alive && m.class == MobClass::Regional)
             .filter(|m| m.camp == Some(camp) || (m.engaged && cx.p.dist(m.at) <= DEFEND_U))
@@ -131,13 +135,12 @@ impl Executor for Farm {
         let at = cx.p.me.at;
         let hp = cx.p.me.hp_share();
         // Path searches for the nearest few (the tier's route horizon); straight estimates beyond it.
-        let mut order: Vec<(f64, &CampSeen)> = cx
-            .p
-            .camps
-            .iter()
-            .filter(|c| self.eligible(c, now))
-            .map(|c| (dist(at, c.at), c))
-            .collect();
+        let mut order: Vec<(f64, &CampSeen)> =
+            cx.p.camps
+                .iter()
+                .filter(|c| self.eligible(c, now))
+                .map(|c| (dist(at, c.at), c))
+                .collect();
         order.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.index.cmp(&b.1.index)));
         let horizon = cx.tier_params().route.horizon as usize;
         let camps: Vec<(usize, u32, Vec2, rh_sim::mapdata::Zone, u32, f64)> = order
@@ -183,11 +186,14 @@ impl Executor for Farm {
         let now = cx.p.now;
         // Keep the member we fight while it lives (found where it stood: npc keys live one frame); else the nearest.
         let kept = self.target.and_then(|was| {
-            cx.p
-                .mobs
+            cx.p.mobs
                 .iter()
                 .filter(|m| m.alive && m.class == MobClass::Regional && dist(m.at, was) <= TRACK_U)
-                .min_by(|a, b| dist(a.at, was).total_cmp(&dist(b.at, was)).then_with(|| a.key.cmp(&b.key)))
+                .min_by(|a, b| {
+                    dist(a.at, was)
+                        .total_cmp(&dist(b.at, was))
+                        .then_with(|| a.key.cmp(&b.key))
+                })
         });
         let Some(mob) = kept.or_else(|| Self::pick(cx, index)).cloned() else {
             self.target = None;

@@ -54,7 +54,8 @@ pub struct Scored {
 
 /// The raw rate: `(value x success - death x loss) / minutes`.
 pub fn rate(c: &Candidate) -> f64 {
-    (c.value * c.success.clamp(0., 1.) - c.death.clamp(0., 1.) * c.loss) / c.minutes.max(MIN_MINUTES)
+    (c.value * c.success.clamp(0., 1.) - c.death.clamp(0., 1.) * c.loss)
+        / c.minutes.max(MIN_MINUTES)
 }
 
 /// The candidate's score: its rate times its kind's tier and persona multipliers.
@@ -139,7 +140,11 @@ impl Arbiter {
             .collect();
         ranked.sort_by(better);
         let kept = (status == Status::Running && committed)
-            .then(|| ranked.iter().find(|s| s.candidate.goal.same(held) && s.score > 0.))
+            .then(|| {
+                ranked
+                    .iter()
+                    .find(|s| s.candidate.goal.same(held) && s.score > 0.)
+            })
             .flatten();
         let winner = kept.or(ranked.first()).map(|s| s.candidate.goal.clone());
         self.last = ranked;
@@ -188,24 +193,52 @@ mod tests {
             cand(GoalKind::Farm, Target::Camp(3), 1.1, 1.),
             cand(GoalKind::Farm, Target::Camp(7), 1., 1.),
         ];
-        let got = arb.choose(0., b, (&held, Status::Running, false), tier, persona, &mut rng);
+        let got = arb.choose(
+            0.,
+            b,
+            (&held, Status::Running, false),
+            tier,
+            persona,
+            &mut rng,
+        );
         assert_eq!(got, Some(held.clone()));
         // ...but not a much worse one.
         let c = vec![
             cand(GoalKind::Farm, Target::Camp(3), 2., 1.),
             cand(GoalKind::Farm, Target::Camp(7), 1., 1.),
         ];
-        let got = arb.choose(0., c.clone(), (&held, Status::Running, false), tier, persona, &mut rng);
+        let got = arb.choose(
+            0.,
+            c.clone(),
+            (&held, Status::Running, false),
+            tier,
+            persona,
+            &mut rng,
+        );
         assert_eq!(got, Some(RaidGoal::new(GoalKind::Farm, Target::Camp(3))));
         // A committed incumbent (a fight under way) stays while its score is positive...
-        let got = arb.choose(0., c, (&held, Status::Running, true), tier, persona, &mut rng);
+        let got = arb.choose(
+            0.,
+            c,
+            (&held, Status::Running, true),
+            tier,
+            persona,
+            &mut rng,
+        );
         assert_eq!(got, Some(held.clone()));
         // ...and yields once the fight is a losing one.
         let mut losing = cand(GoalKind::Farm, Target::Camp(7), 1., 1.);
         losing.death = 0.5;
         losing.loss = 6.;
         let d = vec![losing, cand(GoalKind::Roam, Target::None, 0.1, 1.)];
-        let got = arb.choose(0., d, (&held, Status::Running, true), tier, persona, &mut rng);
+        let got = arb.choose(
+            0.,
+            d,
+            (&held, Status::Running, true),
+            tier,
+            persona,
+            &mut rng,
+        );
         assert_eq!(got, Some(RaidGoal::new(GoalKind::Roam, Target::None)));
     }
 }

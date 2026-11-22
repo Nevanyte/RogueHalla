@@ -109,11 +109,12 @@ impl Refs {
                     })
             }
             Act::UseConsumable => self.potions.then_some(PublicCommand::UseConsumable),
-            Act::Trade { merchant, pick } => (!self.trade_used && self.merchants.contains(merchant))
-                .then_some(PublicCommand::Trade {
-                    merchant: *merchant,
-                    pick: *pick,
-                }),
+            Act::Trade { merchant, pick } => (!self.trade_used
+                && self.merchants.contains(merchant))
+            .then_some(PublicCommand::Trade {
+                merchant: *merchant,
+                pick: *pick,
+            }),
         }
     }
 }
