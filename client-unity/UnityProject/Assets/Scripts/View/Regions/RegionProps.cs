@@ -314,6 +314,7 @@ namespace Roguehalla.Client
             }
             var willowArt = Resources.Load<PlagueWillowArt>("StormInk/Props/PlagueBogWillowArt");
             var canopy = Resources.Load<ConcealmentCanopyArt>("StormInk/Props/ConcealmentCanopyArt");
+            var coliseumRackArt = ColiseumWeaponRackArtDefinition.Load();
             var coliseumTorch = ColiseumTorchArt.Load();
             bool authoredTorch = coliseumTorch != null && coliseumTorch.IsReady;
             MushroomPatch mushrooms = null;
@@ -389,6 +390,9 @@ namespace Roguehalla.Client
                 else if (art.UsesAuthoredTexture && mattePigment != null) sr.SetPropertyBlock(mattePigment);
                 sr.color = tint;
                 sr.sortingOrder = 2000 + Mathf.RoundToInt(sortY * 16f) + pl.Bias;
+                if (pl.Art == "col.rack")
+                    ColiseumWeaponRackPresenter.AddMountedWeapons(go.transform, sr, coliseumRackArt,
+                        art.UsesAuthoredTexture, _material);
                 if (pl.Art == "col.torch" && authoredTorch && coliseumTorch.TryGetFittedSocketOffset(out var flameOffset))
                 {
                     ShowcaseSprites.Initialize();

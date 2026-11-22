@@ -229,8 +229,13 @@ namespace Roguehalla.Client
             }, true,
                 textureFoot: authoredTorch ? torchArt.ClampedTextureFoot(new Vector2(.5f, .06f)) : null,
                 textureSource: authoredTorch ? torchArt.Pigment : null);
-            // Weapon rack: timber frame holding spears and swords.
-            Add(l, "col.rack", 104, 84, 6, (c, gy) =>
+            // Weapon rack body. The authored frame is kept weapon-free; separate renderers use the shared,
+            // transferable sword, bow and axe sprites. This original painter remains the whole fallback.
+            var rackArt = ColiseumWeaponRackArtDefinition.Load();
+            int rackW = rackArt != null ? rackArt.WidthPixels(104) : 104;
+            int rackH = rackArt != null ? rackArt.HeightPixels(84) : 84;
+            int rackGround = rackArt != null ? rackArt.GroundPixels(6, rackH) : 6;
+            Add(l, "col.rack", rackW, rackH, rackGround, (c, gy) =>
             {
                 float cx = 52; c.SoftShadow(cx + 4, gy + 1, 32f, 4f, .3f, Alpha(shadow, 1f));
                 c.Fill(Box(cx - 38, gy + 28, 3, 28), Flat(wood), Ink, 1f); c.Fill(Box(cx + 38, gy + 28, 3, 28), Flat(wood), Ink, 1f);
@@ -242,7 +247,8 @@ namespace Roguehalla.Client
                     var tip = Poly(new Vector2(x - 2.5f + (k - 2.5f) * .8f, top), new Vector2(x + 2.5f + (k - 2.5f) * .8f, top), new Vector2(x + (k - 2.5f) * .8f, top + 9));
                     c.Fill(tip, Toon(tip, Shade(ironL, .6f), ironL, Color.white, 3f), Ink, .8f);
                 }
-            });
+            }, textureFoot: rackArt != null ? rackArt.ClampedTextureFoot(new Vector2(.502f, .038f)) : null,
+                textureSource: rackArt != null ? rackArt.Pigment : null);
         }
     }
 }
