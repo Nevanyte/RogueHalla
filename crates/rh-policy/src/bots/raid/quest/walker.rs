@@ -5,7 +5,16 @@
 //! The goal is `Target::Quest { def, stage: 0 }`: the quest's def id names it, and what to do next (accept, walk, send,
 //! stand) is read from the board each think, because a quest's progress lives in the server's rows, not in the goal.
 //! Everything frame-local (quest handles, the offered action list) is read from this frame and resolved by `refs.rs` at
-//! send time. The walker never abandons (an expired attempt resets for free), never attacks and never targets a player.
+//! send time.
+//!
+//! **A walk holds the bot.** Once a quest is accepted, its walk and stand steps are `Step::committed`: the arbiter keeps
+//! the goal while its own score is positive and only a `Sustain` goal may pre-empt it (`GoalKind::preempts_commitment`).
+//! So a chest that shows up on the route waits for the quest, and a camp on the route is not farmed (the death term
+//! prices a living camp near an objective, and the walker proposes nothing once it can no longer finish in time, which
+//! ends the commitment and lets the attempt expire for free). A quest with no route timer (`letters`) is held the same
+//! way, bounded by the coliseum lock. Only the walk after accepting is held; going to a giver is not.
+//!
+//! The walker never abandons (an expired attempt resets for free), never attacks and never targets a player.
 use crate::bots::planning::{matchup_share, zone_faction};
 use crate::bots::raid::acts::Act;
 use crate::bots::raid::exec::farm::{death_chance, members_left};
@@ -110,6 +119,21 @@ fn drop_near(cx: &Cx<'_>) -> bool {
         q.drops
             .iter()
             .any(|d| dist(point(d.at), cx.p.me.at) <= DROP_NEAR_U)
+    })
+}
+
+/// Spell slots spoken for: quest spells held, plus accepted quests whose reward is a spell and that are not finished (their
+/// reward will take a slot, and a third one sticks in `pending`).
+fn slots_taken(cx: &Cx<'_>) -> usize {
+    cx.p.quests.as_ref().map_or(0, |q| {
+        q.spells.len()
+            + q.rows
+                .iter()
+                .filter(|r| r.owner_accepted && r.state == 1)
+                .filter(|r| {
+                    definition(&r.def).is_some_and(|d| d.reward.kind() != RewardKind::Permanent)
+                })
+                .count()
     })
 }
 
@@ -218,16 +242,12 @@ impl Walker {
         } else {
             // Before accepting, the objectives are not in the view: the timer the server will set is at least 1.5 times
             // its own path walk plus 15 s, which says how far the route goes.
+            // An upper bound on the walk: the route timer is a floor under the server's `1.5 x walk + 15 s`, so this
+            // overstates short routes and biases the bot against short quests before it accepts.
             let spend = book.route_timer_ms.map_or(UNTIMED_WALK_MIN, |ms| {
                 ((ms as f64 / 1000. - TIMER_BASE_S) / 1.5 / 60.).max(0.1)
             });
-            if book.reward.kind() != RewardKind::Permanent
-                && cx
-                    .p
-                    .quests
-                    .as_ref()
-                    .is_some_and(|q| q.spells.len() >= SPELL_SLOTS)
-            {
+            if book.reward.kind() != RewardKind::Permanent && slots_taken(cx) >= SPELL_SLOTS {
                 return None;
             }
             let walk = straight_minutes(cx.p.me.at, giver) + spend;
@@ -253,11 +273,7 @@ impl Walker {
         if success <= 0. {
             return None;
         }
-        let death = if def == "let_him_cook" {
-            self.death_near(cx, &danger_points)
-        } else {
-            DEATH_FLOOR
-        };
+        let death = self.death_near(cx, &danger_points);
         Some(Candidate {
             goal: RaidGoal::new(
                 GoalKind::QuestWalk,
@@ -334,9 +350,12 @@ impl Executor for Walker {
             return Step::failed("quest refused or waiting for a choice");
         }
         let giver = point(row.giver);
+        if row.owner_accepted || row.can_accept || cx.p.dist(giver) > STAND_U {
+            // Not waiting at a refusing giver: the refusal clock starts over next time.
+            self.refused = None;
+        }
         if !row.owner_accepted {
             if row.can_accept {
-                self.refused = None;
                 let mut step = Step::running(Vec::new(), "accepting");
                 if !self.throttled(def, ACCEPT_KEY, 0, now) {
                     step.acts.push(Act::QuestAccept { def: def.clone() });
@@ -370,6 +389,9 @@ impl Executor for Walker {
             return Step::failed("no objective in the view");
         };
         let mut step = Self::go(cx, first, "to the objective");
+        // An accepted attempt is kept: its timer (or the coliseum lock, for a quest with none) is running, so a fresh,
+        // shorter quest must not take the bot away and let it expire. It ends when the walker proposes nothing for it.
+        step.committed = step.status == Status::Running;
         if step.status == Status::Failed || row.owner_ready {
             // Ready: the single objective is the end point; standing there turns the quest in (no command).
             return step;
