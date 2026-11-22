@@ -61,9 +61,7 @@ impl SustainPrices {
         }
         f64::from(large) * self.large_share + f64::from(small) * self.small_share
     }
-}
 
-impl SustainPrices {
     pub const OFF: Self = Self {
         on: false,
         drink_below: 0.,
