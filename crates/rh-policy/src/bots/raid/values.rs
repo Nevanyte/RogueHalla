@@ -60,7 +60,18 @@ impl Prices {
         augment_default: 1.,
     };
 
-    /// Camp-equivalents a quest's reward is worth, by the quest row's def id. (Stub: the fields are not read yet.)
+    /// `LOCAL` with quest rewards and augments worth nothing: a seat that farms, roams and opens chests only, so a test
+    /// of the farm executor is not changed by quest executors registered later.
+    pub const fn farm_only() -> Self {
+        Self {
+            reward_default: 0.,
+            augment_default: 0.,
+            ..Self::LOCAL
+        }
+    }
+
+    /// Camp-equivalents a quest's reward is worth, by the quest row's def id. Every quest executor multiplies its
+    /// candidate's value by this, and a table can set it to zero (`farm_only`). (Stub: the fields are not read yet.)
     pub fn reward_value(&self, _def: &str) -> f64 {
         1.
     }
