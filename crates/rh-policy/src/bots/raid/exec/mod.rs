@@ -17,7 +17,7 @@ pub fn registry() -> Vec<Box<dyn Executor>> {
     vec![
         Box::new(farm::Farm::default()),
         Box::new(chest::Chest::default()),
-        Box::new(super::quest::walker::Walker),
+        Box::new(super::quest::walker::Walker::default()),
         Box::new(travel::Roam::default()),
     ]
 }
