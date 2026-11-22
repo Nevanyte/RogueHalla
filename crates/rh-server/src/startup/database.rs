@@ -30,6 +30,13 @@ pub(crate) fn db_connect_budget(args: &[String]) -> Result<Duration, String> {
     }
 }
 
+/// `--db-pool N` (default 16; 1..=1024): the durable store's connection pool size.
+#[cfg(any(feature = "postgres", test))]
+pub(crate) fn db_pool_size(_args: &[String]) -> Result<u32, String> {
+    // stub: P-DB-POOL-1
+    Ok(16)
+}
+
 /// Retries `op` with exponential backoff (`first_delay`, doubling, capped at `max_delay`) until it succeeds, `fatal` says the
 /// error cannot be cured by waiting, or `budget` is spent (one attempt when it is zero). The last error is returned.
 #[cfg(any(feature = "postgres", test))]
