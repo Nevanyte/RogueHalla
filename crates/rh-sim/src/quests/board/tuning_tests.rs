@@ -351,7 +351,12 @@ fn every_field_sits_in_its_range() {
     range!(ward_hp, 10, 120, "a ward has 10-120 hp");
     range!(turret_cap, 1, 2, "1-2 turrets per owner");
     range!(ward_cap, 1, 4, "1-4 wards per owner");
-    range!(falcon_cap, 1, 2, "1-2 falcons per owner");
+    range!(
+        falcon_cap,
+        1,
+        1,
+        "a restore bound only: the cast path drops the owner's previous falcon (effects/terrain.rs:266), so play makes one"
+    );
     range!(
         falcon_range,
         600,
