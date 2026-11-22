@@ -264,9 +264,25 @@ part of this oracle.
 
 ## Oracle files (read-only for implementers)
 
-- `crates/rh-sim/tests/top25_tuning.rs`
-- `crates/rh-sim/src/quests/board/tuning_tests.rs`
+- `crates/rh-sim/tests/top25_tuning.rs`: red today. `no_numeric_const_outside_the_tuning_table` (42 consts listed
+  today; allow-list = F1c, each must stay declared), `no_tuning_float_literal_outside_the_tuning_table` (86 literals
+  today; allow-list = F1d; skips `catalog.rs`, `placement.rs`, `map_admission.rs`), `the_table_carries_no_dead_code_allowance`
+  (the stub's `#[allow(dead_code)]` must go, so rustc proves every field, the integer ones included, is read by the
+  game), and `the_scanner_sees_what_it_should` (green; the scanner's self-check).
+- `crates/rh-sim/src/quests/board/tuning_tests.rs`: green on the stub and must stay green. `every_field_sits_in_its_range`
+  (one range per field, the reason in the message), `couplings_the_restore_validators_assume` (meditate <= fort; hook
+  and tornado pulls <= warhorn; Trade Up escalates; Bargain pays >= cost), `reward_text_numbers_match_tuning` (the 13
+  pairs of F3).
 - `docs/backlog/packets/P-BAL-Q25-SEAM-1.md`
+
+The stub (`stub:` commit, the implementer's to edit): `tuning.rs` (struct, `static TOP25` with today's values, the
+`#[allow(dead_code)]` to remove, the `#[path = "tuning_tests.rs"] mod tests;` line), `board/mod.rs` (`pub(crate) mod
+tuning;`), the `TOP25` row in `tests/content.rs`, and six test lines that now read `TOP25` instead of the consts
+(`attempts/tests.rs:542,548`, `attempts/scenarios.rs:470,474,822`, `rewards/effects/tests.rs:110,512`). Field names are
+fixed by the oracle; adding a field is allowed, renaming or removing one is not.
+
+A later number packet that moves a value outside its range or changes a quest text amends `tuning_tests.rs` in an
+`oracle-amend:` commit (the ranges are reasoned bounds, not owner-signed numbers).
 
 ## 9. Validation commands
 
