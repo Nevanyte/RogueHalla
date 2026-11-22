@@ -21,15 +21,15 @@ MonoBehaviour:
   - weapon: 0
     viewRow: 0
     normalizedAnchor: {x: 0.285, y: 0.76}
-    scale: 0.68
-    angleDegrees: -12
+    scale: 0.91
+    angleDegrees: -19
   - weapon: 1
     viewRow: 0
-    normalizedAnchor: {x: 0.51, y: 0.76}
-    scale: 0.73
-    angleDegrees: 8
+    normalizedAnchor: {x: 0.51, y: 0.62}
+    scale: 0.7
+    angleDegrees: 12
   - weapon: 4
     viewRow: 0
     normalizedAnchor: {x: 0.72, y: 0.76}
-    scale: 0.68
-    angleDegrees: -6
+    scale: 0.96
+    angleDegrees: -17
