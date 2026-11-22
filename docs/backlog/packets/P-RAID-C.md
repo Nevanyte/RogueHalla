@@ -310,3 +310,28 @@ the disengage), and not starve itself on the order budget. reviewer-opus reads t
   own death term must share the hp the bot holds.
 
 ## Notes from previous attempts
+
+## Coordinator amendment (2026-11-22): the farm change is approved, and the base moved
+
+This section overrides the lines above where they differ.
+
+- **`exec/farm.rs` is in the write scope for the ONE change section 5 names**: in `Farm::propose`, when
+  `cx.prices.sustain.on`, the camp is priced with the hp held plus what the potions held will give back (0.4 of max hp
+  a large potion, 0.25 a small one, the sim's numbers). Nothing else in that file. With sustain off (`farm_only`) the
+  farm prices exactly as before, so `tests/raid_bot.rs` replays unchanged. The potion shares are read from the price
+  table, not written as literals in `farm.rs`: add them to `SustainPrices`.
+- **Base.** The packet is rebased onto `coord/int-84` @ `52ec36ccd` (integration 83 plus the reviewed quest walker and
+  value table). The gate takes `--base coord/int-84` until it is merged. The rebase conflicted in `values.rs` (the
+  value table added `reward_rows` and `augment_rows`; this packet's stub added `sustain`): the coordinator kept both,
+  and `farm_only()` now clears both row tables and turns sustain off. Build first (`cargo test -p rh-policy --no-run`);
+  if the rebased stub does not compile, fix the stub files (they are the implementer's), and stop only if an oracle
+  file itself does not compile.
+- **`crates/rh-policy/tests/raid_quests.rs` and `quest/walker_tests.rs` are in this base** (the quest walker). They must
+  stay green. Sustain is on in `Prices::LOCAL`, which those tests use: their scenes have no camp near the route, so a
+  drink or a disengage should not occur, but run them and report. The walker commits an accepted quest; `Sustain` is
+  the one kind that may pre-empt that commitment, so a bot walking a quest at low hp with a potion drinks, and leaves a
+  fight it is losing, exactly as on a farm.
+- **Registry order** stays as the stub has it: `Sustain` first, then `Farm`, `Chest`, `Walker`, `Roam`.
+- **For the next packet (P-RAID-C2), from fact 4:** most player-attributed deaths are friendly fire at a camp another
+  bot is already fighting (232 player-on-player hits on the traced seed, 193 by wand), credited by the sim's 5 s kill
+  credit. This packet does not address it: do not add avoidance of players here.
