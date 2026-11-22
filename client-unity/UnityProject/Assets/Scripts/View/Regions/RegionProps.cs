@@ -92,8 +92,11 @@ namespace Roguehalla.Client
 
         // A delivered Frost spire has its own ice painting. If it is unavailable, keep the old procedural pine silhouette.
         // Resolve the entire art entry so its sprite, lighting, draw order, fade and overlap bounds stay together.
-        static string RenderArtKey(Placement placement)
+        static string RenderArtKey(Placement placement, MapBlob map)
         {
+            if (placement.Art == "plague.bush" && IsPlagueTile(map, placement) &&
+                RegionPropArt.TryGet("plague.willow.bush", out var willow) && willow.UsesAuthoredTexture)
+                return "plague.willow.bush";
             if (placement.Art == "fire.bush")
                 return RegionPropArt.TryGet("fire.bush", out var fireBush) && fireBush.UsesAuthoredTexture
                     ? "fire.bush" : "plague.bush";
@@ -116,6 +119,15 @@ namespace Roguehalla.Client
                 }
             }
             return placement.Art;
+        }
+
+        static bool IsPlagueTile(MapBlob map, Placement placement)
+        {
+            if (map == null || map.Regions == null || map.W <= 0 || map.H <= 0 || map.Regions.Length != map.W * map.H)
+                return false;
+            if ((uint)placement.Tx >= (uint)map.W || (uint)placement.Ty >= (uint)map.H)
+                return false;
+            return map.Regions[placement.Ty * map.W + placement.Tx] == (byte)RegionId.Plague;
         }
 
         /// <summary>Small deterministic variation only for migrated, readable Storm Ink ground paintings. Uniform scaling keeps the foot planted.</summary>
@@ -301,7 +313,7 @@ namespace Roguehalla.Client
                     if (warned == null) warned = new HashSet<byte>();
                     if (warned.Add(pl.Kind)) Debug.LogWarning("RegionProps: unknown decoration kind " + pl.Kind + " drawn as the placeholder");
                 }
-                string renderArtKey = RenderArtKey(pl);
+                string renderArtKey = RenderArtKey(pl, map);
                 if (!RegionPropArt.TryGet(renderArtKey, out var art)) continue;
                 float scaleX = pl.Scale, scaleY = pl.Scale;
                 bool flip = pl.Flip;

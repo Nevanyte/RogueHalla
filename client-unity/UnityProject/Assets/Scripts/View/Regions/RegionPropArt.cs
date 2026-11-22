@@ -573,12 +573,20 @@ namespace Roguehalla.Client
             Color moss = P(3, 0), fern = P(3, 1), spore = P(3, 2), shadow = P(3, 5);
             Color leafDark = Shade(Mix(fern, shadow, .35f), .85f), leafMid = Mix(fern, moss, .28f), leafLight = Mix(Mix(moss, spore, .26f), Color.white, .08f);
             Color stoneM = Mix(fern, new Color(.62f, .63f, .58f), .55f), stoneD = Shade(Mix(fern, shadow, .5f), .75f), stoneL = Mix(stoneM, Color.white, .35f);
-            Add(l, "plague.bush", 128, 88, 8, (c, gy) =>
+            Action<RegionCanvas, int> bushFallback = (c, gy) =>
             {
                 float cx = 64; c.SoftShadow(cx + 6, gy + 1, 46f, 8f, .4f, Alpha(shadow, 1f));
                 Lumps(c, cx, gy, 48, 34, 6, leafDark, leafMid, leafLight, 11);
                 for (int k = 0; k < 6; k++) { float x = 30 + RegionNoise.Hash01(k, 2, 21) * 68, y = gy + 14 + RegionNoise.Hash01(k, 3, 21) * 30; c.Fill(Circle(x, y, 1.8f), Flat(Mix(spore, Color.white, .5f))); }
-            });
+            };
+            Add(l, "plague.bush", 128, 88, 8, bushFallback);
+            var willow = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/PlagueBogWillowArt");
+            int willowW = willow != null ? willow.WidthPixels(128) : 128;
+            int willowH = willow != null ? willow.HeightPixels(88) : 88;
+            int willowGround = willow != null ? willow.GroundPixels(8, willowH) : 8;
+            Add(l, "plague.willow.bush", willowW, willowH, willowGround, bushFallback,
+                textureFoot: willow != null ? willow.ClampedTextureFoot(new Vector2(.5f, .055f)) : null,
+                textureSource: willow != null ? willow.Pigment : null);
             Add(l, "plague.tree", 148, 204, 10, (c, gy) =>
             {
                 float cx = 74; c.SoftShadow(cx + 8, gy + 1, 40f, 8f, .42f, Alpha(shadow, 1f));
