@@ -10,6 +10,7 @@
   "content_hash": "ROOT-REPLACE-EXACT-16-LOWERCASE-HEX",
   "map_pool": false,
   "signature_landmarks": false,
-  "lobby_timing": "legacy",
+  "lobby_timing": "matchmaking",
+  "bot_wait_seconds": 60,
   "bot_brain": "off"
 }

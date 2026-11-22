@@ -262,7 +262,7 @@ class Offline(unittest.TestCase):
 # Today's rendered Source and training units for C (captured before P-HOST-FLAGS-1). The default render must match.
 GOLDEN_SOURCE_UNIT = '[Unit]\nRequires=rh-demo-pg.service rh-demo-expiry.timer\nAfter=rh-demo-pg.service rh-demo-expiry.timer\nOnFailure=rh-demo-poweroff.service\nStartLimitIntervalSec=300\nStartLimitBurst=5\n[Service]\nUser=rougehalla\nGroup=rougehalla\nExecStartPre=+/usr/bin/python3 -I /usr/local/lib/rh-demo/bootstrap.py guard\nExecStart=/opt/rougehalla-demo/rh-server --runtime source-arena --bind 127.0.0.1:7777 --instance-id demo-1-source-arena --map /opt/rougehalla-demo/source-map.json --result-spool /var/lib/rougehalla-demo/spool --min-players 1 --fill-bots 8 --max-rooms 4 --lobby-seconds 10 --fill-seconds 3 --database-url postgresql://rougehalla@localhost/roguehalla?host=/run/rh-demo-pg --bot-learning single-writer --api-cors-origins https://play.rougehalla.com --client-ip-header x-forwarded-for --trusted-proxies 127.0.0.1 --ws-max-per-ip 64 --new-profiles-per-ip-per-hour 40\nRestart=on-failure\nRestartSec=3\nTimeoutStopSec=90\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=strict\nProtectHome=yes\nReadWritePaths=/var/lib/rougehalla-demo /run/rh-demo-pg\nUMask=0077\nStandardOutput=journal\nStandardError=journal\n[Install]\nWantedBy=multi-user.target\n'
 GOLDEN_TRAINING_UNIT = '[Unit]\nRequires=rh-demo-pg.service rh-demo-expiry.timer\nAfter=rh-demo-pg.service rh-demo-expiry.timer\nOnFailure=rh-demo-poweroff.service\nStartLimitIntervalSec=300\nStartLimitBurst=5\n[Service]\nUser=rougehalla\nGroup=rougehalla\nExecStartPre=+/usr/bin/python3 -I /usr/local/lib/rh-demo/bootstrap.py guard\nExecStart=/opt/rougehalla-demo/rh-server --runtime training --bind 127.0.0.1:7779 --instance-id demo-1-training --min-players 1 --fill-bots 0 --max-rooms 16 --lobby-seconds 0 --fill-seconds 0 --database-url postgresql://rougehalla@localhost/roguehalla?host=/run/rh-demo-pg --bot-learning off --api-cors-origins https://play.rougehalla.com --client-ip-header x-forwarded-for --trusted-proxies 127.0.0.1 --ws-max-per-ip 64 --new-profiles-per-ip-per-hour 40\nRestart=on-failure\nRestartSec=3\nTimeoutStopSec=90\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=strict\nProtectHome=yes\nReadWritePaths=/var/lib/rougehalla-demo /run/rh-demo-pg\nUMask=0077\nStandardOutput=journal\nStandardError=journal\n[Install]\nWantedBy=multi-user.target\n'
-ON = dict(map_pool=True, signature_landmarks=True, lobby_timing='matchmaking')
+ON = dict(map_pool=True, signature_landmarks=True, lobby_timing='matchmaking', bot_wait_seconds=60)
 
 
 def exec_line(c, training):
@@ -331,7 +331,8 @@ class LaunchFlags(unittest.TestCase):
                     '--api-cors-origins', '--client-ip-header', '--trusted-proxies', '--map-pool',
                     '--signature-landmarks', '--lobby-timing',
                     # startup/settings.rs edge_config and api_config (open alpha per-IP limits).
-                    '--ws-max-per-ip', '--new-profiles-per-ip-per-hour'}
+                    '--ws-max-per-ip', '--new-profiles-per-ip-per-hour',
+                    '--bot-wait-seconds'}  # runtime.rs lobby_timing_flag
         for c in (C, dict(C, **ON)):
             for training in (False, True):
                 flags = set(re.findall(r'(?<= )--[a-z-]+', exec_line(c, training)))
@@ -352,7 +353,8 @@ class LaunchFlags(unittest.TestCase):
 
     def test_config_example_documents_the_settings(self):
         example = json.loads(Path(__file__).with_name('config.example.json').read_text())
-        self.assertEqual((example.get('map_pool'), example.get('signature_landmarks'), example.get('lobby_timing')), (False, False, 'legacy'))
+        # Open alpha (owner 2026-11-22): the example deploy config waits 60 s for humans before bots fill.
+        self.assertEqual((example.get('map_pool'), example.get('signature_landmarks'), example.get('lobby_timing'), example.get('bot_wait_seconds')), (False, False, 'matchmaking', 60))
         readme = Path(__file__).with_name('README.md').read_text()
         for word in ('map_pool', 'signature_landmarks', 'lobby_timing'):
             self.assertIn(word, readme)

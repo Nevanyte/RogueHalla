@@ -208,7 +208,7 @@ byte-identical to the earlier ones. The owner chooses the values at deploy time.
   the learner off and no database, not in the host's exact configuration).
 - `bot_wait_seconds` (integer 0 to 600, absent by default): adds `--bot-wait-seconds N`, so the matchmaking lobby waits
   N seconds for humans before bots fill. Refused unless `lobby_timing` is `"matchmaking"`, and it needs an `rh-server`
-  built with that flag (an older server exits on it). Open alpha (owner 2026-11-22): `"lobby_timing": "matchmaking",
+  built with that flag (merged in PR #86; an older server exits on it). `config.example.json` sets the open alpha values (owner 2026-11-22): `"lobby_timing": "matchmaking",
   "bot_wait_seconds": 60`.
 
 Any other key or value is refused. Offline check of the rendered flags: `test_offline.py` (`LaunchFlags`). Local proof
