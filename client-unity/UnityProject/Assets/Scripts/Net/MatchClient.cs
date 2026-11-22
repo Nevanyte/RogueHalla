@@ -33,8 +33,8 @@ namespace Roguehalla.Client
         /// <summary>The remote actors drawn this frame (the render-time sample); read-only for HUD overlays such as the edge threat glows.</summary>
         public IReadOnlyList<InterpActor> Actors { get { return _actors; } }
         readonly List<InterpActor> _targetActors = new List<InterpActor>();
-        const double SteerRepeatMs = 100;
-        Vector2 _lastDir;
+        readonly SteerPacer _steerPacer = new SteerPacer();
+        Vector2 _lastDir; // last sent key direction; the pacer decides the cadence, PresentationTimelineEditModeTests sets it by reflection
         readonly Pathfinder _steerPathfinder = new Pathfinder();
         double _steerGoalX, _steerGoalY;
         const double HoldRepeatMs = 100;
@@ -44,7 +44,6 @@ namespace Roguehalla.Client
         bool _rightHeld;
         float _holdX, _holdY;
         double _lastHold;
-        double _lastSteer;
         bool _steering;
         float _aimAngle;
         float _nextReconLog;
@@ -98,7 +97,7 @@ namespace Roguehalla.Client
             if (_destroying || generation != _joinGeneration) return;
             Profile = string.IsNullOrWhiteSpace(nickname) ? Profile : nickname.Trim();
             Faction = faction;
-            _actors.Clear(); _steering = false; _attackHeld = false; Spectator.Stop();
+            _actors.Clear(); _steering = false; _steerPacer.Reset(); _attackHeld = false; Spectator.Stop();
             var arena = new GameObject("Arena").AddComponent<ArenaView>();
             Arena = arena;
             var transport = _transportFactory();
@@ -119,7 +118,7 @@ namespace Roguehalla.Client
             _boundLaunchState = state =>
             {
                 if (!CurrentLaunchSession(session, generation)) return;
-                if (state != SessionState.InMatch) { Hud?.UnbindTrainingSession(); _steering = false; _attackHeld = false; }
+                if (state != SessionState.InMatch) { Hud?.UnbindTrainingSession(); _steering = false; _steerPacer.Reset(); _attackHeld = false; }
                 if (state == SessionState.Failed || state == SessionState.Rejected || state == SessionState.Ended) Hud?.RefreshLaunchConfirmation(session);
                 SeatSessionStateChanged(session, generation, state);
                 Debug.Log("[net] " + state + (session.RejectCode.HasValue ? " " + session.RejectCode + ": " + session.RejectReason : "") + (session.Error != null ? " " + session.Error : ""));
@@ -192,7 +191,7 @@ namespace Roguehalla.Client
             _boundLaunchState = null; _boundLaunchSnapshot = null; _boundLaunchTimeline = null;
             UnbindPresentationSession(); ResetPresentationTimeline();
             Arena = null;
-            _actors.Clear(); _steering = false; _attackHeld = false; Spectator.Stop();
+            _actors.Clear(); _steering = false; _steerPacer.Reset(); _attackHeld = false; Spectator.Stop();
             if (oldArena != null) DestroyOwnedArena(oldArena.gameObject);
             if (!_destroying) Hud?.ShowMenu();
             // Retired-session callbacks may synchronously start another launch. All old
@@ -234,7 +233,7 @@ namespace Roguehalla.Client
             if (_attackHeld) Session.Input.Release(_aimAngle, Session.Clock.RenderMs);
             if (_steering) Session.OrderStop();
             bool queued = _attackHeld || _steering;
-            _attackHeld = _steering = false;
+            _attackHeld = _steering = false; _steerPacer.Reset();
             // A hidden tab may not run Update again for a long time: send the Release/Stop now, not on the next frame.
             if (queued) Session.FlushInput();
             Hud?.TacticalMap?.ReleaseTransient();
@@ -401,7 +400,7 @@ namespace Roguehalla.Client
             }
             if (keyboardBlocked)
             {
-                if (_steering) { OrderStop(); _steering = false; }
+                if (_steering) { OrderStop(); _steering = false; _steerPacer.Reset(); }
                 return;
             }
             float sx = myX, sy = myY;
@@ -496,19 +495,21 @@ namespace Roguehalla.Client
             int keyY = (kb.sKey.isPressed || arrows && kb.downArrowKey.isPressed ? 1 : 0) - (kb.wKey.isPressed || arrows && kb.upArrowKey.isPressed ? 1 : 0);
             if (keyX != 0 || keyY != 0)
             {
-                var dir = new Vector2(keyX, keyY);
                 bool have = Session.Map != null && KeyboardSteer.TryGoal(_steerPathfinder, Session.Motion != null ? Session.Motion.WalkMap : Session.Map, myX, myY, keyX, keyY, Session.OwnFoot, out _steerGoalX, out _steerGoalY);
                 if (have)
                 {
-                    if (!_steering || dir != _lastDir || now - _lastSteer >= SteerRepeatMs)
+                    // A press, key change or turn is an order and always goes; a refresh is optional and waits for the client budget.
+                    var decision = _steerPacer.Decide(now, keyX, keyY, myX, myY, _steerGoalX, _steerGoalY);
+                    if (decision == SteerDecision.Turn || decision == SteerDecision.Refresh && _orderBudget.TryTake(now))
                     {
-                        OrderMove((float)_steerGoalX, (float)_steerGoalY);
-                        _lastDir = dir; _lastSteer = now; _steering = true;
+                        OrderMove((float)_steerGoalX, (float)_steerGoalY, decision == SteerDecision.Refresh);
+                        _steerPacer.Sent(now, keyX, keyY, _steerGoalX, _steerGoalY);
+                        _lastDir = new Vector2(keyX, keyY); _steering = true;
                     }
                 }
-                else if (_steering) { OrderStop(); _steering = false; }
+                else if (_steering) { OrderStop(); _steering = false; _steerPacer.Reset(); }
             }
-            else if (_steering) { OrderStop(); _steering = false; }
+            else if (_steering) { OrderStop(); _steering = false; _steerPacer.Reset(); }
         }
 
         void OrderMove(float x, float y, bool budgeted = false)
