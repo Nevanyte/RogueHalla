@@ -75,27 +75,41 @@ namespace Roguehalla.Net
     public enum SteerDecision { None, Turn, Refresh }
 
     /// <summary>
-    /// Decides when a held keyboard direction sends a Move. STUB: today's rule (Turn when not steering or the keys changed,
-    /// Refresh every <see cref="MinRepeatMs"/>); the packet replaces it with goal-consumption pacing.
+    /// Decides when a held keyboard direction sends a Move. A Turn (first press, key change, or a clear-goal heading change
+    /// of more than <see cref="TurnDegrees"/> after <see cref="MinRepeatMs"/>) is an order and always goes. A Refresh is
+    /// optional: after <see cref="MinRepeatMs"/> when the last sent goal is nearly walked (within <see cref="NearlyConsumedU"/>
+    /// of the drawn position) and the new goal differs, or after <see cref="SafetyRepeatMs"/> to heal a dropped order.
     /// </summary>
     public sealed class SteerPacer
     {
         public const double MinRepeatMs = 100, NearlyConsumedU = 24, SafetyRepeatMs = 500, SameGoalU = 2, TurnDegrees = 20;
         bool _steering;
         int _keyX, _keyY;
-        double _lastMs;
+        double _lastMs, _goalX, _goalY;
 
         public bool Steering { get { return _steering; } }
 
         public SteerDecision Decide(double nowMs, int keyX, int keyY, double posX, double posY, double goalX, double goalY)
         {
             if (!_steering || keyX != _keyX || keyY != _keyY) return SteerDecision.Turn;
-            return nowMs - _lastMs >= MinRepeatMs ? SteerDecision.Refresh : SteerDecision.None;
+            double since = nowMs - _lastMs;
+            if (since < MinRepeatMs) return SteerDecision.None;
+            double ox = _goalX - posX, oy = _goalY - posY, nx = goalX - posX, ny = goalY - posY;
+            if (ox * ox + oy * oy > 1e-6 && nx * nx + ny * ny > 1e-6)
+            {
+                double d = Math.Abs(Math.Atan2(ny, nx) - Math.Atan2(oy, ox));
+                if (d > Math.PI) d = 2 * Math.PI - d;
+                if (d * 180.0 / Math.PI > TurnDegrees) return SteerDecision.Turn;
+            }
+            double gx = goalX - _goalX, gy = goalY - _goalY;
+            bool newGoal = gx * gx + gy * gy > SameGoalU * SameGoalU;
+            if (newGoal && ox * ox + oy * oy <= NearlyConsumedU * NearlyConsumedU) return SteerDecision.Refresh;
+            return since >= SafetyRepeatMs ? SteerDecision.Refresh : SteerDecision.None;
         }
 
         public void Sent(double nowMs, int keyX, int keyY, double goalX, double goalY)
         {
-            _steering = true; _keyX = keyX; _keyY = keyY; _lastMs = nowMs;
+            _steering = true; _keyX = keyX; _keyY = keyY; _lastMs = nowMs; _goalX = goalX; _goalY = goalY;
         }
 
         public void Reset() { _steering = false; }

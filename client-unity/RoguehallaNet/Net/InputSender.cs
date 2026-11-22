@@ -19,6 +19,8 @@ namespace Roguehalla.Net
         float _aim, _lastSentAim;
         bool _hasAim, _sentAim;
         double _lastAimMs = double.NegativeInfinity;
+        readonly double[] _frameTimes = new double[64]; // times of the last frames Flush returned (the frame meter)
+        int _frameHead, _frameCount;
         uint _frameSeq;
         byte _orderSeq;
         internal event Action<WireCommand> CastQueued;
@@ -154,7 +156,11 @@ namespace Roguehalla.Net
 
         public List<ClientMsg.Input> Flush(double nowMs)
         {
-            if (_hasAim && nowMs - _lastAimMs >= AimMinIntervalMs)
+            // Aim alone in a frame stands back to AimSoloSlowMs once many frames left in the last second; aim riding with
+            // other commands keeps AimMinIntervalMs.
+            double aimGap = AimMinIntervalMs;
+            if (_hasAim && _queue.Count == 0 && FramesInWindow(nowMs) >= AimStandBackFrames) aimGap = AimSoloSlowMs;
+            if (_hasAim && nowMs - _lastAimMs >= aimGap)
             {
                 _hasAim = false;
                 if (!_sentAim || _aim != _lastSentAim || nowMs - _lastAimMs >= AimRepeatMs)
@@ -174,7 +180,23 @@ namespace Roguehalla.Net
                 frames.Add(f);
             }
             _queue.Clear();
+            for (int i = 0; i < frames.Count; i++) NoteFrame(nowMs);
             return frames;
+        }
+
+        void NoteFrame(double nowMs)
+        {
+            _frameTimes[_frameHead] = nowMs;
+            _frameHead = (_frameHead + 1) % _frameTimes.Length;
+            if (_frameCount < _frameTimes.Length) _frameCount++;
+        }
+
+        int FramesInWindow(double nowMs)
+        {
+            int n = 0;
+            for (int i = 0; i < _frameCount; i++)
+                if (nowMs - _frameTimes[i] < FrameMeterWindowMs) n++;
+            return n;
         }
     }
 }
