@@ -209,8 +209,14 @@ namespace Roguehalla.Client
             Add(l, "col.standard", standardW, standardH, standardGround, bannerFallback, true,
                 textureFoot: standard != null ? standard.ClampedTextureFoot(new Vector2(.478f, .014f)) : null,
                 textureSource: standard != null ? standard.Pigment : null);
-            // Torch stand: iron tripod with a bowl of fire.
-            Add(l, "col.torch", 56, 110, 6, (c, gy) =>
+            // Coliseum torch: the old bowl-and-flame painting stays intact as fallback. The authored body has an
+            // unlit bowl and receives exactly one separately animated flame layer at its editable socket.
+            var torchArt = ColiseumTorchArt.Load();
+            bool authoredTorch = torchArt != null && torchArt.IsReady;
+            int torchW = authoredTorch ? torchArt.WidthPixels(56) : 56;
+            int torchH = authoredTorch ? torchArt.HeightPixels(110) : 110;
+            int torchGround = authoredTorch ? torchArt.GroundPixels(6, torchH) : 6;
+            Add(l, "col.torch", torchW, torchH, torchGround, (c, gy) =>
             {
                 float cx = 28; c.SoftShadow(cx + 3, gy + 1, 12f, 3.5f, .32f, Alpha(shadow, 1f));
                 c.Fill(Capsule(new Vector2(cx, gy + 2), new Vector2(cx, gy + 62), 2.2f, 1.6f), Flat(iron), Ink, 1f);
@@ -220,7 +226,9 @@ namespace Roguehalla.Client
                 c.Glow(cx, gy + 82, 22f, flame, .5f);
                 var fl = Poly(new Vector2(cx - 7, gy + 70), new Vector2(cx - 3, gy + 82), new Vector2(cx, gy + 96), new Vector2(cx + 3, gy + 82), new Vector2(cx + 7, gy + 70));
                 c.Fill(fl, (x, y, d) => Mix(Mix(flame, Color.white, .6f), flame, Mathf.Clamp01((y - gy - 70) / 26f)), Alpha(Shade(flame, .5f), .7f), .8f);
-            });
+            }, true,
+                textureFoot: authoredTorch ? torchArt.ClampedTextureFoot(new Vector2(.5f, .06f)) : null,
+                textureSource: authoredTorch ? torchArt.Pigment : null);
             // Weapon rack: timber frame holding spears and swords.
             Add(l, "col.rack", 104, 84, 6, (c, gy) =>
             {

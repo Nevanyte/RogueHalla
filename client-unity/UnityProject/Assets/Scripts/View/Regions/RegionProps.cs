@@ -314,6 +314,8 @@ namespace Roguehalla.Client
             }
             var willowArt = Resources.Load<PlagueWillowArt>("StormInk/Props/PlagueBogWillowArt");
             var canopy = Resources.Load<ConcealmentCanopyArt>("StormInk/Props/ConcealmentCanopyArt");
+            var coliseumTorch = ColiseumTorchArt.Load();
+            bool authoredTorch = coliseumTorch != null && coliseumTorch.IsReady;
             MushroomPatch mushrooms = null;
             foreach (var pl in placements)
             {
@@ -376,7 +378,7 @@ namespace Roguehalla.Client
                     mushrooms ??= new MushroomPatch(art.Sprite, visualSeed + 131);
                     sr.sprite = mushrooms.At(pl.X, pl.Y);
                 }
-                if (flamePigment != null && TryFlameSocket(pl.Art, out var flame))
+                if (flamePigment != null && !(pl.Art == "col.torch" && authoredTorch) && TryFlameSocket(pl.Art, out var flame))
                 {
                     var sprite = art.Sprite;
                     Vector2 centre = sprite.rect.position + sprite.pivot + flame;
@@ -387,6 +389,17 @@ namespace Roguehalla.Client
                 else if (art.UsesAuthoredTexture && mattePigment != null) sr.SetPropertyBlock(mattePigment);
                 sr.color = tint;
                 sr.sortingOrder = 2000 + Mathf.RoundToInt(sortY * 16f) + pl.Bias;
+                if (pl.Art == "col.torch" && authoredTorch && coliseumTorch.TryGetFittedSocketOffset(out var flameOffset))
+                {
+                    ShowcaseSprites.Initialize();
+                    var flameObject = new GameObject("Coliseum torch flame");
+                    flameObject.transform.SetParent(go.transform, false);
+                    var flameLayer = flameObject.AddComponent<ChurchCandleFlameLayer>();
+                    flameLayer.ConfigureAtLocalOffset(sr, coliseumTorch.Flame, flameOffset,
+                        new Vector2(coliseumTorch.FlameWidthWorldUnits, coliseumTorch.FlameHeightWorldUnits),
+                        coliseumTorch.FlameTint, ShowcaseSprites.Unlit,
+                        pl.Tx * .31f + pl.Ty * .73f, sr.sortingOrder + 1);
+                }
                 bool tall = IsTall(pl, art);
                 var prop = new Prop { Renderer = sr, FootX = foot.x, FootY = foot.y, HalfW = art.Width * .5f * scaleX * .8f, Height = art.Height * scaleY, Tall = tall, Alpha = 1f, MarkFrame = -10, Base = tint };
                 int index = _props.Count; _props.Add(prop);

@@ -28,8 +28,30 @@ namespace Roguehalla.Client
                 baseRenderer.sprite.pivot.y / baseRenderer.sprite.rect.height);
             Vector2 sourceSize = baseRenderer.sprite.bounds.size;
             float socketX = (flameSocket.x - pivot.x) * (baseRenderer.flipX ? -1f : 1f);
-            transform.localPosition = new Vector3(socketX * sourceSize.x,
-                (flameSocket.y - pivot.y) * sourceSize.y, -.01f);
+            ConfigureSizeAndMotion(parent, flame, layerSize, tint, material, phase, sortingOrder,
+                new Vector3(socketX * sourceSize.x, (flameSocket.y - pivot.y) * sourceSize.y, -.01f));
+        }
+
+        /// <summary>Configures a flame using an already resolved body-local foot offset from its source painting.</summary>
+        public void ConfigureAtLocalOffset(SpriteRenderer baseRenderer, Sprite flame, Vector2 localOffset, Vector2 layerSize,
+            Color tint, Material material, float phase, int sortingOrder)
+        {
+            if (baseRenderer == null || baseRenderer.sprite == null || flame == null || layerSize.x <= 0f || layerSize.y <= 0f)
+            { gameObject.SetActive(false); return; }
+            gameObject.SetActive(true);
+            _renderer = GetComponent<SpriteRenderer>();
+            var parent = baseRenderer.transform;
+            if (transform.parent != parent) transform.SetParent(parent, false);
+            ConfigureSizeAndMotion(parent, flame, layerSize, tint, material, phase, sortingOrder,
+                new Vector3(localOffset.x, localOffset.y, -.01f));
+        }
+
+        void ConfigureSizeAndMotion(Transform parent, Sprite flame, Vector2 layerSize, Color tint,
+            Material material, float phase, int sortingOrder, Vector3 localPosition)
+        {
+            _renderer.sprite = flame; _renderer.color = tint; _renderer.sharedMaterial = material;
+            _renderer.sortingOrder = sortingOrder;
+            transform.localPosition = localPosition;
             Vector2 flameSize = flame.bounds.size;
             Vector3 parentScale = parent.lossyScale;
             transform.localScale = new Vector3(layerSize.x / Mathf.Max(.001f, flameSize.x * Mathf.Abs(parentScale.x)),
