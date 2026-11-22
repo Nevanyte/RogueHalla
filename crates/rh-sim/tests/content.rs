@@ -81,6 +81,7 @@ const NON_GAMEPLAY: &[(&str, &str, &str)] = &[
     ("cards/mod.rs", "MAX_FOLD_ROWS", "fixed scratch bound: the most fold rows one copy of every card gives under either card table and any faction's row selection (80, a Plague player's; guarded by native::hooks_tests), not a game rule"),
     ("mob_runtime.rs", "LEGACY_ELITES", "P-AUG-RULES-1: the legacy elite numbers, ELITE_K / ELITE_HP_MULT / ELITE_DMG_MULT by name; no number of its own"),
     ("mob_runtime.rs", "REWORK_ELITES", "P-AUG-RULES-1: the Rework elite numbers, registered constants by name (the legacy ones until P-ELITE-TUNE-1 registers its rows); no number of its own"),
+    ("mob_runtime.rs", "TEST_REWORK_ELITES", "P-BAL-ELITE-SEAM-1: cfg(test)-only thread-local stand-in for the Rework elite table (with_rework_table), read by the oracle's doctored worlds; never read by gameplay"),
     ("modifiers/mod.rs", "MAX_FOLD_INPUT", "fixed fold scratch bound (the catalog rows plus the test-only diagnostic overlay), not a game rule"),
     ("modifiers/mod.rs", "NO_BIT", "sentinel marking a row that owns no while bit, not a game rule"),
     ("kill_augments.rs", "ALL", "the nine readable investment keys in source order (identifiers only); the UNIT numbers are the registered kill-augments table"),

@@ -535,12 +535,17 @@ fn npc_pulse(
 ) -> f64 {
     let c = w.core(ix);
     let mob = w.mobs.get(c.id).expect("typed NPC source");
-    let ty = crate::mob_catalog::mob_type_by_id(mob.mob_type.expect("typed NPC").as_str())
-        .expect("known catalog type");
-    // The world's elite numbers (P-AUG-RULES-1: the rule its mob runtime stores).
+    let ty_id = mob.mob_type.expect("typed NPC");
+    let ty = crate::mob_catalog::mob_type_by_id(ty_id.as_str()).expect("known catalog type");
+    // The world's elite numbers (P-AUG-RULES-1: the rule its mob runtime stores), per kind (P-BAL-ELITE-SEAM-1).
     let elites = crate::mob_runtime::EliteTuning::of_world(w);
     let k = if mob.elite { elites.k } else { MOB_K };
-    let d = MOB_DMG_MULT * if mob.elite { elites.dmg_mult } else { 1. };
+    let d = MOB_DMG_MULT
+        * if mob.elite {
+            elites.dmg_mult_of(ty_id)
+        } else {
+            1.
+        };
     // Source mobFaction scales this percentage by k*d in one multiplication, mobTypeFaction applies role/reach
     // (Sentenced has no zone correction), then pacedFaction applies DUEL_PACE. HP multipliers never enter MarkPct.
     let role = ty.role_def().dmg_mult * crate::mob_catalog::mob_reach_damage(ty);

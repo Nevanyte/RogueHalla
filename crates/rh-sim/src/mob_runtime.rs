@@ -439,8 +439,22 @@ impl Mob {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EliteTuning {
     pub k: f64,
+    /// The global elite hp multiplier. Readers in rh-sim read [`EliteTuning::hp_mult_of`] (P-BAL-ELITE-SEAM-1).
     pub hp_mult: f64,
+    /// The global elite damage multiplier. Readers in rh-sim read [`EliteTuning::dmg_mult_of`] (P-BAL-ELITE-SEAM-1).
     pub dmg_mult: f64,
+    /// P-BAL-ELITE-SEAM-1: per-elite-kind factors on top of the global pair, at most one row per kind. Empty in both
+    /// tables until a number packet fills the Rework one (`docs/backlog/packets/P-BAL-ELITE-SEAM-1.md`, content-hash
+    /// rule); `Legacy` stays empty (legacy has one global pair).
+    pub per_kind: &'static [EliteKindRow],
+}
+
+/// One per-kind row of [`EliteTuning::per_kind`]: the kind's hp and damage factors, multiplied onto the global pair.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EliteKindRow {
+    pub ty: MobTypeId,
+    pub hp: f64,
+    pub dmg: f64,
 }
 
 // The two tables, registered constants by name (`tests/content.rs` lists both in NON_GAMEPLAY). P-ELITE-TUNE-1 points
@@ -449,19 +463,73 @@ static LEGACY_ELITES: EliteTuning = EliteTuning {
     k: crate::constants::ELITE_K,
     hp_mult: crate::constants::ELITE_HP_MULT,
     dmg_mult: crate::constants::ELITE_DMG_MULT,
+    per_kind: &[],
 };
 static REWORK_ELITES: EliteTuning = EliteTuning {
     k: crate::constants::ELITE_K,
     hp_mult: crate::constants::REWORK_ELITE_HP_MULT,
     dmg_mult: crate::constants::REWORK_ELITE_DMG_MULT,
+    per_kind: &[],
 };
+
+// Test-only stand-in for the Rework table (P-BAL-ELITE-SEAM-1, `with_rework_table`): thread-local, so each test thread
+// sees only its own; compiled out of every non-test build.
+#[cfg(test)]
+thread_local! {
+    static TEST_REWORK_ELITES: std::cell::Cell<Option<&'static EliteTuning>> = const { std::cell::Cell::new(None) };
+}
+
+/// Test-only: runs `f` with `table` standing in for the Rework elite table on this thread. Every reader resolves its
+/// table through [`EliteTuning::of`] (spawn, the restore checks, `faction_spec`, `point_damage`, `npc_pulse`,
+/// `stored_rule`), so a whole world plays the doctored table, including `Sim::restore`.
+#[cfg(test)]
+pub(crate) fn with_rework_table<R>(table: &'static EliteTuning, f: impl FnOnce() -> R) -> R {
+    struct Reset(Option<&'static EliteTuning>);
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            TEST_REWORK_ELITES.with(|c| c.set(self.0));
+        }
+    }
+    let _reset = Reset(TEST_REWORK_ELITES.with(|c| c.replace(Some(table))));
+    f()
+}
+
+#[cfg(test)]
+mod elite_kind_tests;
 
 impl EliteTuning {
     /// The elite numbers of a rule (a static: no allocation).
     pub fn of(rule: crate::EliteRule) -> &'static EliteTuning {
         match rule {
             crate::EliteRule::Legacy => &LEGACY_ELITES,
-            crate::EliteRule::Rework => &REWORK_ELITES,
+            crate::EliteRule::Rework => {
+                #[cfg(test)]
+                if let Some(t) = TEST_REWORK_ELITES.with(std::cell::Cell::get) {
+                    return t;
+                }
+                &REWORK_ELITES
+            }
+        }
+    }
+    /// The row of kind `ty` in [`EliteTuning::per_kind`], if any: a linear scan of a `&'static` slice (ordered, no
+    /// allocation; C-DET). At most one row per kind, so the first match is the only one.
+    fn row_of(&self, ty: MobTypeId) -> Option<&'static EliteKindRow> {
+        self.per_kind.iter().find(|r| r.ty == ty)
+    }
+    /// The elite hp multiplier of kind `ty`: the global field itself when the kind has no row (bit-identical: no
+    /// floating-point operation runs), else `global * row.hp` (one multiply, global first; C-NUM).
+    pub fn hp_mult_of(&self, ty: MobTypeId) -> f64 {
+        match self.row_of(ty) {
+            None => self.hp_mult,
+            Some(r) => self.hp_mult * r.hp,
+        }
+    }
+    /// The elite damage multiplier of kind `ty`: the global field itself when the kind has no row (bit-identical: no
+    /// floating-point operation runs), else `global * row.dmg` (one multiply, global first; C-NUM).
+    pub fn dmg_mult_of(&self, ty: MobTypeId) -> f64 {
+        match self.row_of(ty) {
+            None => self.dmg_mult,
+            Some(r) => self.dmg_mult * r.dmg,
         }
     }
     /// The rule a world's mob runtime stores for a config rule (`MobRuntime::elites`): the rule itself, except that a
@@ -494,7 +562,7 @@ pub fn spawn_hp(elites: &EliteTuning, region: FactionId, elite: bool, ty: MobTyp
     } else {
         crate::constants::MOB_K
     };
-    let hp_mult = crate::constants::MOB_HP_MULT * if elite { elites.hp_mult } else { 1. };
+    let hp_mult = crate::constants::MOB_HP_MULT * if elite { elites.hp_mult_of(ty) } else { 1. };
     let role = crate::mob_catalog::mob_type_in(region, Some(ty.as_str()))
         .map_or(1., |t| t.role_def().hp_mult);
     (crate::content::faction(region).hp * scale) * hp_mult * role
