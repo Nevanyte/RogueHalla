@@ -16,3 +16,7 @@ workspace = true
 
 [dev-dependencies]
 serde_json = { version = "1", features = ["float_roundtrip"] }
+# Trusted build setup (`rh_sim::trusted_build`) for the quest-decision oracle (P-RAID-Q3): it gives a seated fighter stat
+# stacks the way a camp would, so a test reaches The Bargain without clearing two camps. Dev only; never a server build
+# (rh-sim tests/trusted_build_feature_guard.rs reads this manifest).
+rh-sim = { path = "../rh-sim", features = ["trusted-build-setup"] }
