@@ -16,6 +16,8 @@ namespace Roguehalla.Client
     {
         /// <summary>Presentation-only feedback at the owner's click; see <see cref="SpriteActorPresenter.LocalAttackCue"/>.</summary>
         public void LocalAttackCue(uint id) { _actors.LocalAttackCue(id); }
+        /// <summary>Presentation-only own-actor cast clip at a cast key; the server's cast fact replaces it.</summary>
+        public void LocalCastCue(uint id) { _actors.LocalCastCue(id); }
         float _frostLength = 224;
         /// <summary>Draws or puts away the Frost Wall aim preview (display only; WishAim sends the cast).</summary>
         public void TickFrostWallAim(Session session, bool aiming, in WishAimFrame f)

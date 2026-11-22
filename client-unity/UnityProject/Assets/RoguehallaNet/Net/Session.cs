@@ -186,9 +186,7 @@ namespace Roguehalla.Net
         /// <summary>Presentation cue (P-UI-INPUT-CUES-1): raised in <see cref="FlushInput"/> once per Cast, Swap, Pickup or
         /// UseConsumable command that leaves in a sent frame, in frame order, after that frame is sent. Never for a dropped
         /// command or an unsent frame; it carries no outcome.</summary>
-#pragma warning disable CS0067 // stub: raised by the implementation
         public event Action<WireCommand> CueSent;
-#pragma warning restore CS0067
 
         public Session(ITransport transport, SessionOptions options)
         {
@@ -369,6 +367,15 @@ namespace Roguehalla.Net
             {
                 Send(f);
                 if (_detached) return;
+                foreach (var command in f.Commands)
+                {
+                    var k = command.Kind;
+                    if (k == CommandKind.Cast || k == CommandKind.Swap || k == CommandKind.Pickup || k == CommandKind.UseConsumable)
+                    {
+                        CueSent?.Invoke(command);
+                        if (_detached) return;
+                    }
+                }
                 if (Motion != null) foreach (var command in f.Commands)
                 {
                     Motion.MovementOrderSent(command, f.Seq);

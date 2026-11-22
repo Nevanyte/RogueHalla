@@ -99,6 +99,20 @@ namespace Roguehalla.Client
 
         const float LocalCueWindow = .6f;
 
+        /// <summary>
+        /// Click-time feedback for a cast key: the character's own Cast clip (the one a delivered Wish cue plays), capped at
+        /// <see cref="LocalCueWindow"/>. It shows no outcome; the server's cast fact (<see cref="WishCue"/>) restarts the clip
+        /// from the real start, replacing this one. A cast already playing is left alone.
+        /// </summary>
+        public void LocalCastCue(uint id)
+        {
+            if (!_active.TryGetValue(id, out var art) || art.Dead || art.WishUntil > Time.unscaledTime) return;
+            Sprite[] frames; float fps; WishFrames(art.Appearance, 0, out frames, out fps);
+            if (frames == null) return;
+            float now = Time.unscaledTime;
+            art.WishClip = 0; art.WishAt = now; art.WishUntil = now + Mathf.Min(LocalCueWindow, ClipDuration(frames, fps, .4f));
+        }
+
         public void ConfirmedCue(uint id, FxKind kind, WeaponId? cueWeapon = null, float? aim = null,
             float windupMs = 0f)
         {
