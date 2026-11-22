@@ -341,6 +341,11 @@ impl RaidBot {
             &mut self.lapse,
         );
         if let Some(intent) = intent {
+            // A plan click spends an order token like any command.
+            if !self.budget.allow(now) {
+                self.held_back += 1;
+                return;
+            }
             out.push(PublicCommand::Plan {
                 spawn: intent.spawn,
                 boon: intent.boon,
