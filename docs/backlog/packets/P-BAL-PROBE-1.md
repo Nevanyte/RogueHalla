@@ -199,7 +199,7 @@ current Rust code at the base. Lines below are at `5694f17de`, under `crates/rh-
 
 ## 4. New paths
 
-- `crates/rh-sim/src/quests/board/attempts/scenarios/probes.rs` (oracle, in-crate: it uses the `Raid` scenario helpers)
+- `crates/rh-sim/src/quests/board/attempts/scenarios/probe_tests.rs` (oracle, in-crate: it uses the `Raid` scenario helpers)
 - `crates/rh-sim/tests/quest_probes.rs` (oracle, public API)
 - `crates/rh-sim/tests/top25_review_notes.rs` (oracle, source reads)
 
@@ -236,12 +236,48 @@ current Rust code at the base. Lines below are at `5694f17de`, under `crates/rh-
 
 - `scripts/gate.sh --quick --oracle packet/P-BAL-PROBE-1` passes (with `--base agent/opus/P-BAL-Q25-SEAM-1` until that
   merges).
-- `cargo test -p rh-sim --features trusted-status-probes probes` and `--test quest_probes --test top25_review_notes`
+- `cargo test -p rh-sim --features trusted-status-probes --lib probe_tests` and `--test quest_probes --test top25_review_notes`
   green; `cargo test -p rh-sim --test content` green (hash unmoved).
+
+### What the oracle pins, and its premises (measured at the stub)
+
+- `scenarios/probe_tests.rs` (in-crate, the `Raid` helpers of `attempts/scenarios.rs`; the stub added `mod probe_tests;`):
+  - accept -> ready -> completed through validated inputs on the first seed of 1..=64 that deals Barrow Run, Watchtowers
+    or Pilgrim's Path (seed 1, Barrow Run: deadline 45 300 ms at accept = 100 + 45 200, ready after the 3 anchors with
+    the journal's `expires_at` and `owner_progress` equal to the probe's, completed one step after standing at the giver,
+    deadline then 0, the journal no longer lists it while the probe does); bot and unknown seats give no rows;
+  - the timer runs out in the open (904 steps, gates never locked, the seat still standing) -> no row, not completed; an
+    abandon (action 1) -> no row;
+  - `gates_locked()` equals `w.rt.gates_locked` every step and sees both states (first-patience raid, lock after 20
+    steps);
+  - (feature) Spell Shield + Lantern Ward granted: the seat's own `QuestView.spells` shows `(0, SpellShield, 1)` and
+    `(1, LanternWard, TOP25.lantern_ward_charges)`, ready now; `check_world` passes; checkpoint restores to the same
+    hash; a third spell is `SlotsFull` and changes nothing; Spell Shield is then cast by a validated input
+    (`verify_spell`). No event added (`w.pending_events` length);
+  - (feature) Feed or Hunt + Breaker's Helm: EmberImp stacks + `TOP25.feed_damage_stacks`, the fold's damage rows grow,
+    both held, Axe bypass = `TOP25.helm_bypass`, no slot used, restores; Breaker's Helm again is `RewardHeld`;
+  - (feature) refusals with unchanged hash and events: `BotSeat`, `RewardNeedsQuest` x3, a permanent twice in one request,
+    stacks + a valid spell + a refused reward (all or nothing), the Blind Rage bundle with one free slot; a bot seat still
+    takes a rewardless build.
+- `tests/quest_probes.rs` (public API, board-less seed-1 world): probes empty, gates open; (feature) `NoBoard` with
+  nothing changed, the same build without rewards applies; `rewards` optional in JSON both ways and omitted when empty.
+- `tests/top25_review_notes.rs`: `at_turn_in`'s body reads `TOP25.contact_range` and not `QUEST_TURN_IN_RANGE`; the
+  `tuning.rs` module doc names 39 of 91 and the content hash; the nine fields (the seven of the brief, plus
+  `tornado_windup_ms` and `falcon_cap`) each carry a doc of at least four words, `tornado_windup_ms`'s names Cleansed,
+  `falcon_cap`'s says restore. (`route_pace` already has its doc.)
+- On the stub: the six board tests, the `NoBoard` test and both scans fail on assertions; `a_world_without_the_board...`
+  and the JSON test pass on the stub (guards).
+
+### Stub contents (the implementer's to edit)
+
+`sim.rs` (`QuestAttemptProbe`, the two accessors returning empty/false), `lib.rs` (re-export), `trusted_build.rs` (the
+`rewards` field with `skip_serializing_if = "Vec::is_empty"` so bench JSON keeps its bytes, ignored by `apply`; the five
+new `BuildRefusal` variants), compile-only `rewards: Vec::new()` lines in `tests/trusted_build.rs:109` and
+`crates/rh-headless/src/elite_bench.rs` (two literals), `mod probe_tests;` in `attempts/scenarios.rs`.
 
 ## Oracle files (read-only for implementers)
 
-- `crates/rh-sim/src/quests/board/attempts/scenarios/probes.rs`
+- `crates/rh-sim/src/quests/board/attempts/scenarios/probe_tests.rs`
 - `crates/rh-sim/tests/quest_probes.rs`
 - `crates/rh-sim/tests/top25_review_notes.rs`
 - `crates/rh-sim/src/quests/board/tuning_tests.rs` (`oracle-amend:` falcon_cap range 1..=1, for the owner)
@@ -249,9 +285,9 @@ current Rust code at the base. Lines below are at `5694f17de`, under `crates/rh-
 
 ## 9. Validation commands
 
-- `cargo test -p rh-sim --features trusted-status-probes --lib probes`
+- `cargo test -p rh-sim --features trusted-status-probes --lib probe_tests`
 - `cargo test -p rh-sim --features trusted-status-probes --test quest_probes --test top25_review_notes`
-- `cargo test -p rh-sim --lib probes` (without the feature: the grant tests compile out, the probe tests still run)
+- `cargo test -p rh-sim --lib probe_tests` (without the feature: the grant tests compile out, the probe tests still run)
 - `scripts/gate.sh --oracle-check --base agent/opus/P-BAL-Q25-SEAM-1` (oracle author),
   `scripts/gate.sh --quick --oracle packet/P-BAL-PROBE-1 --base agent/opus/P-BAL-Q25-SEAM-1` (implementer)
 
