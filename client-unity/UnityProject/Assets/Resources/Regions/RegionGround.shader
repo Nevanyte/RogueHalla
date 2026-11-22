@@ -12,6 +12,7 @@ Shader "Roguehalla/RegionGround"
     {
         _MainTex("Unused (sprite pipeline needs one)", 2D) = "white" {}
         _GroundTex("Ground detail array", 2DArray) = "" {}
+        [HideInInspector][NoScaleOffset] _GroundNrm("Regional ground relief", 2DArray) = "" {}
         _RegA("Region weights A", 2D) = "black" {}
         _RegB("Region weights B", 2D) = "black" {}
         _TerA("Terrain A", 2D) = "black" {}
@@ -572,14 +573,14 @@ Shader "Roguehalla/RegionGround"
                 return float2(dot(p, _ColiseumPavingUV.xy), dot(p, _ColiseumPavingUV.zw));
             }
 
-            Ground ShadeColiseum(float2 t, float macro, float pocketN, float2 mapDx, float2 mapDy)
+            Ground ShadeColiseum(float2 t, float2 mapPoint, float macro, float pocketN, float2 mapDx, float2 mapDy)
             {
                 float wash = _ColiseumPavingWash;
                 Ground g = (Ground)0;
                 if (wash < 1.0) g = ShadeRegion(6, 5, t, macro, pocketN);
                 if (wash > 0.0)
                 {
-                    float2 uv = ColiseumUv(t - _Coliseum.xy);
+                    float2 uv = ColiseumUv(mapPoint - _Coliseum.xy);
                     float2 mirror = 1.0 - 2.0 * fmod(abs(floor(uv)), 2.0);
                     float2 localUv = (frac(uv) - 0.5) * mirror + 0.5;
                     localUv = (0.5 + 255.0 * localUv) / 256.0;
@@ -657,7 +658,7 @@ Shader "Roguehalla/RegionGround"
                             }
                             else g = ShadePlague(t, macro, plg.rgb, waterChannel);
                         }
-                        else if (k2 == 5) g = ShadeColiseum(tSun, macro, pocketN, gdx * 4.0, gdy * 4.0);
+                        else if (k2 == 5) g = ShadeColiseum(t, tSun, macro, pocketN, gdx * 4.0, gdy * 4.0);
                         else g = ShadeRegion(k2 + 1, k2, t, macro, pocketN);
                         float wk = wgt[k2] / tot;
                         col += g.col * wk; emis += g.emis * wk;
