@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,13 +13,16 @@ using Roguehalla.Net;
 namespace Roguehalla.Client
 {
     /// <summary>WebSocket transport for the Editor and standalone players, built on <c>ClientWebSocket</c>; its events are queued for the main thread.</summary>
-    public sealed class NativeTransport : ITransport
+    public sealed class NativeTransport : ITransport, IArrivalTimedTransport
     {
         readonly ConcurrentQueue<Action> _events = new ConcurrentQueue<Action>();
         ClientWebSocket _ws;
         CancellationTokenSource _cts;
         Task _sendChain = Task.CompletedTask;
         int _generation;
+
+        /// <summary>Age in ms of the frame being raised, from the receive-thread stamp; 0 outside <c>Received</c>.</summary>
+        public double ReceivedAgeMs { get; private set; }
 
         public event Action Opened;
         public event Action<byte[]> Received;
@@ -50,6 +54,7 @@ namespace Roguehalla.Client
                     if (r.MessageType != WebSocketMessageType.Binary) { reason = "text frame received"; break; }
                     ms.Write(buf, 0, r.Count);
                     if (!r.EndOfMessage) continue;
+                    long stamp = Stopwatch.GetTimestamp();
                     byte[] frame = ms.ToArray();
                     ms.SetLength(0);
                     _events.Enqueue(() =>
@@ -57,7 +62,9 @@ namespace Roguehalla.Client
                         if (gen != _generation || Received == null) return;
                         // Capture the FX receive boundary before Session and presentation subscribers run.
                         LatencyTrace.NativeFxReceived(frame);
-                        Received(frame);
+                        ReceivedAgeMs = (Stopwatch.GetTimestamp() - stamp) * 1000.0 / Stopwatch.Frequency;
+                        try { Received(frame); }
+                        finally { ReceivedAgeMs = 0; }
                     });
                 }
             }

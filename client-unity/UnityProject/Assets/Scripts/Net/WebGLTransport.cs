@@ -8,11 +8,14 @@ using System.Runtime.InteropServices;
 namespace Roguehalla.Client
 {
     /// <summary>WebSocket transport for the WebGL player, calling the page's JavaScript bridge (<c>RhWs_*</c>); outside WebGL its connect throws.</summary>
-    public sealed class WebGLTransport : ITransport
+    public sealed class WebGLTransport : ITransport, IArrivalTimedTransport
     {
         public event Action Opened;
         public event Action<byte[]> Received;
         public event Action<string> Closed;
+
+        /// <summary>Age in ms of the frame being raised (read from the JS queue before the frame is popped); 0 outside <c>Received</c>.</summary>
+        public double ReceivedAgeMs { get; private set; }
 
         const int MaxFrame = 256 * 1024; // Wire.MaxServerFrame
         int _id;
@@ -25,6 +28,7 @@ namespace Roguehalla.Client
         [DllImport("__Internal")] static extern int RhWs_CloseCode(int id);
         [DllImport("__Internal")] static extern int RhWs_Send(int id, byte[] data, int len);
         [DllImport("__Internal")] static extern int RhWs_NextLength(int id);
+        [DllImport("__Internal")] static extern double RhWs_NextAge(int id);
         [DllImport("__Internal")] static extern int RhWs_Receive(int id, byte[] buf, int cap);
         [DllImport("__Internal")] static extern void RhWs_Close(int id);
         [DllImport("__Internal")] static extern void RhWs_Release(int id);
@@ -34,6 +38,7 @@ namespace Roguehalla.Client
         static int RhWs_CloseCode(int id) { return 0; }
         static int RhWs_Send(int id, byte[] data, int len) { return 0; }
         static int RhWs_NextLength(int id) { return -1; }
+        static double RhWs_NextAge(int id) { return 0; }
         static int RhWs_Receive(int id, byte[] buf, int cap) { return -1; }
         static void RhWs_Close(int id) { }
         static void RhWs_Release(int id) { }
@@ -67,11 +72,14 @@ namespace Roguehalla.Client
             {
                 if (n > MaxFrame) { Close(); if (Closed != null) Closed("frame too large"); return; }
                 if (n > _rx.Length) _rx = new byte[Math.Max(n, _rx.Length * 2)];
+                double age = RhWs_NextAge(id); // before Receive pops the frame
                 int got = RhWs_Receive(id, _rx, _rx.Length);
                 if (got < 0) break;
                 var frame = new byte[got];
                 Buffer.BlockCopy(_rx, 0, frame, 0, got);
-                if (Received != null) Received(frame);
+                ReceivedAgeMs = age;
+                try { if (Received != null) Received(frame); }
+                finally { ReceivedAgeMs = 0; }
             }
             if (_id == id && state == 2 && _lastState != 2)
             {

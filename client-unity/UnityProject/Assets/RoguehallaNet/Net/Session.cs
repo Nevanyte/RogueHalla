@@ -563,6 +563,10 @@ namespace Roguehalla.Net
             }
             double now = Now;
             if (_detached) return;
+            // The render clock is timed at the socket arrival, not the frame drain (Motion keeps the drain-time now).
+            double arrived = now;
+            var timed = _t as IArrivalTimedTransport;
+            if (timed != null) arrived = now - Math.Min(1000, Math.Max(0, timed.ReceivedAgeMs));
             var snap = msg as ServerMsg.Snapshot;
             if (snap != null)
             {
@@ -574,7 +578,7 @@ namespace Roguehalla.Net
                         replaceCurrentTick && snap.ServerMs < Latest.ServerMs);
                     Latest = snap;
                     Training = snap.Training;
-                    if (!replaceCurrentTick || sourceChanged) Clock.OnSnapshot(now, snap.ServerMs);
+                    if (!replaceCurrentTick || sourceChanged) Clock.OnSnapshot(arrived, snap.ServerMs);
                     _hasMe = snap.Me != null;
                     if (_hasMe) _me.CopyFrom(snap.Me, snap.OwnerCombat);
                     else _me.OwnerCombat = null;

@@ -14,11 +14,12 @@ namespace Roguehalla.Net
     public sealed class RenderClock
     {
         public const double MinDelayMs = 55, MaxDelayMs = 150, StartDelayMs = 100, SnapMs = 250;
-        const int Window = 80; // about 4 s of snapshots at 20 Hz
+        /// <summary>How much arrival history the jitter percentile covers, whatever the tick (80 samples at 20 Hz, 160 at 40 Hz).</summary>
+        public const double WindowMs = 4000;
         const double SlowShare = 0.2, CatchUpShare = 0.01, RampFromMs = 20, RampSpanMs = 60;
 
-        readonly double[] _d = new double[Window];
-        readonly double[] _sorted = new double[Window];
+        double[] _d = new double[80];
+        double[] _sorted = new double[80];
         int _n, _head;
         double _minD, _targetDelay = StartDelayMs, _lastLocal, _render, _lead;
         bool _init;
@@ -75,9 +76,17 @@ namespace Roguehalla.Net
             if (_sourceReady && serverMs <= _lastSourceMs) Reset();
             _lastSourceMs = serverMs;
             _sourceReady = true;
+            int window = Math.Max(8, (int)Math.Round(WindowMs / TickMs));
+            if (_d.Length != window)
+            {
+                // Only when the tick changed (first snapshot after Reset sets TickMs): never per snapshot in steady play.
+                _d = new double[window];
+                _sorted = new double[window];
+                _n = 0; _head = 0;
+            }
             _d[_head] = localMs - serverMs;
-            _head = (_head + 1) % Window;
-            if (_n < Window) _n++;
+            _head = (_head + 1) % window;
+            if (_n < window) _n++;
             Array.Copy(_d, _sorted, _n);
             Array.Sort(_sorted, 0, _n);
             _minD = _sorted[0];

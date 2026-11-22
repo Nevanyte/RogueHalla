@@ -20,7 +20,7 @@ mergeInto(LibraryManager.library, {
       var ws = new WebSocket(url);
       ws.binaryType = "arraybuffer";
       ws.onopen = function () { s.state = 1; };
-      ws.onmessage = function (e) { if (e.data instanceof ArrayBuffer) s.queue.push(new Uint8Array(e.data)); };
+      ws.onmessage = function (e) { if (e.data instanceof ArrayBuffer) s.queue.push({ d: new Uint8Array(e.data), t: performance.now() }); };
       ws.onerror = function () { /* onclose follows with the code */ };
       ws.onclose = function (e) { s.state = 2; s.code = e.code || 1006; };
       s.ws = ws;
@@ -36,14 +36,16 @@ mergeInto(LibraryManager.library, {
     return 1;
   },
   // Length of the next queued frame, or -1 when none.
-  RhWs_NextLength: function (id) { var s = Module.rhSockets && Module.rhSockets.map[id]; return s && s.queue.length ? s.queue[0].length : -1; },
+  RhWs_NextLength: function (id) { var s = Module.rhSockets && Module.rhSockets.map[id]; return s && s.queue.length ? s.queue[0].d.length : -1; },
+  // Milliseconds since the socket delivered the next queued frame (an age, never a JS timestamp), or 0 when none.
+  RhWs_NextAge: function (id) { var s = Module.rhSockets && Module.rhSockets.map[id]; return s && s.queue.length ? performance.now() - s.queue[0].t : 0; },
   // Copies the next frame to ptr (capacity cap) and pops it. Returns its length, or -1 when none / does not fit.
   RhWs_Receive: function (id, ptr, cap) {
     var s = Module.rhSockets && Module.rhSockets.map[id];
-    if (!s || !s.queue.length || s.queue[0].length > cap) return -1;
+    if (!s || !s.queue.length || s.queue[0].d.length > cap) return -1;
     var f = s.queue.shift();
-    HEAPU8.set(f, ptr);
-    return f.length;
+    HEAPU8.set(f.d, ptr);
+    return f.d.length;
   },
   RhWs_Close: function (id) { var s = Module.rhSockets && Module.rhSockets.map[id]; if (s && s.ws && s.state < 2) { try { s.ws.close(1000); } catch (e) {} } },
   RhWs_Release: function (id) {
