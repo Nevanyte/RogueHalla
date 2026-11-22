@@ -71,9 +71,7 @@ pub fn parse_args(args: &[String]) -> Result<Options, String> {
             o.human_seats = true;
             continue;
         }
-        let value = it
-            .next()
-            .ok_or_else(|| format!("{flag} needs a value"))?;
+        let value = it.next().ok_or_else(|| format!("{flag} needs a value"))?;
         match flag.as_str() {
             "--seeds" => {
                 let (a, b) = value
@@ -380,4 +378,3 @@ pub fn run(opts: &Options) -> Result<Output, String> {
         table: table::render(&report),
     })
 }
-

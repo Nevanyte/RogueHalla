@@ -202,25 +202,26 @@ impl Observer {
             .or_default()
             .entry(seat_id)
             .or_insert(0.) += amount;
-        self.camp_first_hit.entry((info.camp, seat_id)).or_insert(tick);
+        self.camp_first_hit
+            .entry((info.camp, seat_id))
+            .or_insert(tick);
         if let Some(p) = self.pending.remove(&seat_id) {
             let healed = p.healed.unwrap_or(tick);
             self.acc
                 .world
                 .heal_secs
                 .add(f64::from(healed - p.cleared) / 20.);
-            self.acc
-                .world
-                .walk_secs
-                .add(f64::from(tick - healed) / 20.);
+            self.acc.world.walk_secs.add(f64::from(tick - healed) / 20.);
         }
         if info.elite && !self.elite_open.contains_key(&(seat_id, victim)) {
             let weapon = weapon.unwrap_or_else(|| {
                 sim.player(seat_id)
                     .map_or(rh_sim::WeaponId::Fists, |p| p.active_weapon())
             });
-            self.elite_open
-                .insert((seat_id, victim), (info.kind.clone(), weapon.as_str().into()));
+            self.elite_open.insert(
+                (seat_id, victim),
+                (info.kind.clone(), weapon.as_str().into()),
+            );
             self.elite(&info.kind, weapon.as_str()).attempts += 1;
         }
     }
@@ -229,7 +230,9 @@ impl Observer {
         let w = &mut self.acc.world;
         w.camps_cleared += 1;
         if let Some(r) = sim.camp_rosters().get(camp as usize) {
-            *w.camps_by_type.entry(format!("{:?}", r.mob_type)).or_default() += 1;
+            *w.camps_by_type
+                .entry(format!("{:?}", r.mob_type))
+                .or_default() += 1;
         }
         let dmg = self.camp_damage.remove(&camp).unwrap_or_default();
         let mut best: Option<(PlayerId, f64)> = None;
@@ -453,7 +456,12 @@ impl Observer {
                 }
                 for (i, (name, _)) in names.iter().enumerate() {
                     if sc.offered.insert((h, i)) {
-                        self.acc.augments.by_card.entry(name.clone()).or_default().offered += 1;
+                        self.acc
+                            .augments
+                            .by_card
+                            .entry(name.clone())
+                            .or_default()
+                            .offered += 1;
                     }
                 }
             }

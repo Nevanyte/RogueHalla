@@ -20,6 +20,7 @@ uses `Env` in tests), and `rh-parity` compiles `src/digest.rs` into its `parity-
 - `src/bin/determinism_sweep.rs`: the cross-platform determinism check CI runs on x86-64 and arm64.
 - `src/tournament.rs`, `src/tournament_cli.rs`, `src/bin/tournament.rs`: the bot tournament.
 - `src/tune.rs`, `src/bin/tune.rs`: the port of legacy `tune.ts` and the offline seeded search over Brain numbers.
+- `src/balance_lab.rs`, `src/balance_lab/`, `src/bin/balance_lab.rs`: the balance measurement tool (`tools/balance-lab/README.md`).
 - `src/bin/scalebench.rs`: N fighters past the normal player cap (needs `--features bench`).
 - `examples/`: `first_playable.rs`, `full_map_cost.rs`, `hitbox_compare.rs`, `source_soak.rs`.
 
