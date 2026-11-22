@@ -24,6 +24,7 @@ pub const SEATS: usize = 8;
 pub enum SeatPolicy {
     Brawler,
     Human,
+    Raid,
 }
 
 /// Where a seed's map comes from (`--map`).
@@ -148,6 +149,7 @@ pub fn match_setup(opts: &Options, seed: u64) -> Result<(EnvConfig, Vec<AgentSpe
             let kind = match policy {
                 SeatPolicy::Brawler => BotKind::Brawler,
                 SeatPolicy::Human => BotKind::Human,
+                SeatPolicy::Raid => BotKind::Raid,
             };
             AgentSpec {
                 profile: format!("bot{i}"),
@@ -336,7 +338,8 @@ pub fn run(opts: &Options) -> Result<Output, String> {
                 seat: i,
                 policy: match seat_policy(opts, i) {
                     SeatPolicy::Brawler => "brawler",
-                    SeatPolicy::Human => "human",
+                    // STUB (P-RAID-H1): reports "human" until the implementer names it.
+                    SeatPolicy::Human | SeatPolicy::Raid => "human",
                 },
                 bot: !opts.human_seats,
             })
