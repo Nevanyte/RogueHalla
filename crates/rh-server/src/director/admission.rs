@@ -86,22 +86,38 @@ impl Director {
         if self.lifecycle.draining() {
             return Err((RejectCode::ServerDraining, "server draining".into()));
         }
-        let key = match self
-            .persistence
-            .authenticate(&self.auth, &h.profile, &h.ticket)
-            .await
-        {
-            Ok(Some(key)) => key,
-            Ok(None) => return Err((RejectCode::BadCredentials, "bad credentials".into())),
-            // The credential store could not answer: that says nothing about the ticket, so it is neither reported nor
-            // counted (the edge throttle counts only `BadCredentials`) as a bad credential. The wire has no "unavailable"
-            // code; "try again shortly" is the honest existing one. The store's error stays in the (rate-limited) log.
-            Err(e) => {
+        // Bounded like the lease acquisition below: a saturated pool would otherwise hold this Hello (and its socket) for the
+        // pool's whole acquire timeout plus the query. The check only reads, so abandoning it at the bound is safe.
+        let checked = tokio::time::timeout(
+            self.cfg.leases.db_timeout,
+            self.persistence
+                .authenticate(&self.auth, &h.profile, &h.ticket),
+        )
+        .await;
+        // The credential store could not answer, or not within the bound: that says nothing about the ticket, so it is
+        // neither reported nor counted (the edge throttle counts only `BadCredentials`) as a bad credential. The wire has no
+        // "unavailable" code; "try again shortly" is the honest existing one.
+        let unavailable = || {
+            (
+                RejectCode::RateLimited,
+                "server busy, storage unavailable; try again shortly".to_string(),
+            )
+        };
+        let key = match checked {
+            Ok(Ok(Some(key))) => key,
+            Ok(Ok(None)) => return Err((RejectCode::BadCredentials, "bad credentials".into())),
+            // The store's error stays in the (rate-limited) log.
+            Ok(Err(e)) => {
                 crate::api::log_internal("hello credential check", &e);
-                return Err((
-                    RejectCode::RateLimited,
-                    "server busy, storage unavailable; try again shortly".into(),
-                ));
+                return Err(unavailable());
+            }
+            // The log line carries the bound alone: no profile, no ticket.
+            Err(_elapsed) => {
+                eprintln!(
+                    "[server] WARN event=credential_check_timed_out budget_ms={}",
+                    self.cfg.leases.db_timeout.as_millis()
+                );
+                return Err(unavailable());
             }
         };
         // Hosted mode: an additional precondition after the credential check and before profile ownership and the fenced
