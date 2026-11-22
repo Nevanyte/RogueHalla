@@ -57,7 +57,12 @@ of USD0.09/GB egress and USD0.0232/hour compute. For one 12-hour guest, the
 8mbit shaper yields at most 43.2 decimal GB before the per-start 512kb burst:
 USD3.888 egress plus USD0.2784 compute and USD1 other allowance. The planning
 conversion is 1.50 CAD/USD with a 25% buffer, or CAD9.687. The reserve is CAD10
-new plus CAD9 historical = CAD19 within the CAD20 owner limit. These are planning
+new plus CAD9 historical = CAD19 within the CAD20 owner limit.
+**Open alpha profile (owner 2026-11-22):** t3.medium with unlimited CPU credits and a 20mbit shaper, so the
+40 Hz rooms are never throttled and ten players can load the Web build together. Rate bound per 12-hour guest:
+108 decimal GB (USD9.72) egress plus about USD0.56 compute and at most about USD1 CPU surplus, roughly CAD16 worst
+case; the figures below describe the earlier t3.small/8mbit plan. The owner chose this knowing a week of sessions
+needs a budget above CAD20. These are planning
 figures and a reserve, not a billing hard cap, live FX quote, credit/balance
 measurement or actual bill. Root must confirm termination
 behavior and DNS before release. This source does not validate live account/
@@ -143,7 +148,7 @@ and Caddy validation remain host execution gates.
 
 Source and Training use the existing public runtimes/flags, loopback 7777/7779,
 and durable Source result spool on the ephemeral root. Source uses
-`--min-players 1 --fill-bots 8 --max-rooms 3 --lobby-seconds 10 --fill-seconds 3`:
+`--min-players 1 --fill-bots 8 --max-rooms 4 --lobby-seconds 10 --fill-seconds 3`:
 the fill target is eight total players, normally one human plus seven bots.
 The first seat sets the 10-second lobby deadline; reaching the one-human minimum
 shortens it to at most three remaining seconds, with missing bots filled before
@@ -173,7 +178,7 @@ access log is enabled and PG stdout/stderr is suppressed, so SQL is not copied
 into a proof receipt. Since the open alpha (owner 2026-11-22) rh-server
 stdout/stderr go to journald, capped at 200 MB by
 `/etc/systemd/journald.conf.d/rh-demo.conf`; read them over SSM with
-`journalctl -u rh-demo-source`. Source runs three rooms (24 seats), and both
+`journalctl -u rh-demo-source`. Source runs four rooms (32 seats), Training sixteen, and both
 app units restart on failure (3 s delay, at most 5 starts in 5 minutes before
 the OnFailure poweroff); the expiry guard still refuses a start past the
 deadline.
@@ -221,7 +226,7 @@ default routes with fixed `ip -json` argv, refuses malformed/absent IPv4 default
 or multiple/unsafe NICs, then applies one root TBF on the unique default ENI:
 
 ```
-/usr/sbin/tc qdisc replace dev <validated-default-NIC> root handle 1: tbf rate 8mbit burst 512kb latency 500ms
+/usr/sbin/tc qdisc replace dev <validated-default-NIC> root handle 1: tbf rate 20mbit burst 512kb latency 500ms
 ```
 
 This shapes the entire interface's outgoing IPv4/IPv6 traffic, including public
@@ -233,7 +238,7 @@ queue-delay bound with that child. There is no hard50ms claim or byte quota/coun
 and **no 2GiB promise**. The earlier 2GiB quota request was superseded by Root's
 8mbit instruction before any quota implementation.
 
-At 8mbit for the new maximum 12-hour lifetime, nominal sustained egress is about
+At 8mbit (the pre-alpha rate; 20mbit now) for the new maximum 12-hour lifetime, nominal sustained egress is about
 43.2 decimal GB plus the 512kb burst allowance per shaper initialization. This
 is a rate-duration planning bound, not a measured transfer or durable byte
 ceiling; reboot does not renew TTL. Actual kernel/ENI shaping remains unrun.

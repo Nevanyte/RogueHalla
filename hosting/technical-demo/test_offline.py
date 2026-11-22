@@ -143,7 +143,7 @@ class Offline(unittest.TestCase):
         v4 = [{'dst': 'default', 'gateway': '10.0.0.1', 'dev': 'ens5'}]
         v6 = [{'dst': 'default', 'gateway': 'fe80::1', 'dev': 'ens5'}]
         expected = ('/usr/sbin/tc', 'qdisc', 'replace', 'dev', 'ens5', 'root', 'handle', '1:',
-                    'tbf', 'rate', '8mbit', 'burst', '512kb', 'latency', '500ms')
+                    'tbf', 'rate', '20mbit', 'burst', '512kb', 'latency', '500ms')
         self.assertEqual(shaper_command(v4, v6), expected)
         self.assertEqual(shaper_command(v4, []), expected)
         for bad4, bad6 in [([], []), ({}, []), (v4, {}), (v4, [{'dst': 'default', 'dev': 'ens6'}]),
@@ -259,7 +259,7 @@ class Offline(unittest.TestCase):
 
 
 # Today's rendered Source and training units for C (captured before P-HOST-FLAGS-1). The default render must match.
-GOLDEN_SOURCE_UNIT = '[Unit]\nRequires=rh-demo-pg.service rh-demo-expiry.timer\nAfter=rh-demo-pg.service rh-demo-expiry.timer\nOnFailure=rh-demo-poweroff.service\nStartLimitIntervalSec=300\nStartLimitBurst=5\n[Service]\nUser=rougehalla\nGroup=rougehalla\nExecStartPre=+/usr/bin/python3 -I /usr/local/lib/rh-demo/bootstrap.py guard\nExecStart=/opt/rougehalla-demo/rh-server --runtime source-arena --bind 127.0.0.1:7777 --instance-id demo-1-source-arena --map /opt/rougehalla-demo/source-map.json --result-spool /var/lib/rougehalla-demo/spool --min-players 1 --fill-bots 8 --max-rooms 3 --lobby-seconds 10 --fill-seconds 3 --database-url postgresql://rougehalla@localhost/roguehalla?host=/run/rh-demo-pg --bot-learning single-writer --api-cors-origins https://play.rougehalla.com --client-ip-header x-forwarded-for --trusted-proxies 127.0.0.1 --ws-max-per-ip 64 --new-profiles-per-ip-per-hour 40\nRestart=on-failure\nRestartSec=3\nTimeoutStopSec=90\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=strict\nProtectHome=yes\nReadWritePaths=/var/lib/rougehalla-demo /run/rh-demo-pg\nUMask=0077\nStandardOutput=journal\nStandardError=journal\n[Install]\nWantedBy=multi-user.target\n'
+GOLDEN_SOURCE_UNIT = '[Unit]\nRequires=rh-demo-pg.service rh-demo-expiry.timer\nAfter=rh-demo-pg.service rh-demo-expiry.timer\nOnFailure=rh-demo-poweroff.service\nStartLimitIntervalSec=300\nStartLimitBurst=5\n[Service]\nUser=rougehalla\nGroup=rougehalla\nExecStartPre=+/usr/bin/python3 -I /usr/local/lib/rh-demo/bootstrap.py guard\nExecStart=/opt/rougehalla-demo/rh-server --runtime source-arena --bind 127.0.0.1:7777 --instance-id demo-1-source-arena --map /opt/rougehalla-demo/source-map.json --result-spool /var/lib/rougehalla-demo/spool --min-players 1 --fill-bots 8 --max-rooms 4 --lobby-seconds 10 --fill-seconds 3 --database-url postgresql://rougehalla@localhost/roguehalla?host=/run/rh-demo-pg --bot-learning single-writer --api-cors-origins https://play.rougehalla.com --client-ip-header x-forwarded-for --trusted-proxies 127.0.0.1 --ws-max-per-ip 64 --new-profiles-per-ip-per-hour 40\nRestart=on-failure\nRestartSec=3\nTimeoutStopSec=90\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=strict\nProtectHome=yes\nReadWritePaths=/var/lib/rougehalla-demo /run/rh-demo-pg\nUMask=0077\nStandardOutput=journal\nStandardError=journal\n[Install]\nWantedBy=multi-user.target\n'
 GOLDEN_TRAINING_UNIT = '[Unit]\nRequires=rh-demo-pg.service rh-demo-expiry.timer\nAfter=rh-demo-pg.service rh-demo-expiry.timer\nOnFailure=rh-demo-poweroff.service\nStartLimitIntervalSec=300\nStartLimitBurst=5\n[Service]\nUser=rougehalla\nGroup=rougehalla\nExecStartPre=+/usr/bin/python3 -I /usr/local/lib/rh-demo/bootstrap.py guard\nExecStart=/opt/rougehalla-demo/rh-server --runtime training --bind 127.0.0.1:7779 --instance-id demo-1-training --min-players 1 --fill-bots 0 --max-rooms 16 --lobby-seconds 0 --fill-seconds 0 --database-url postgresql://rougehalla@localhost/roguehalla?host=/run/rh-demo-pg --bot-learning off --api-cors-origins https://play.rougehalla.com --client-ip-header x-forwarded-for --trusted-proxies 127.0.0.1 --ws-max-per-ip 64 --new-profiles-per-ip-per-hour 40\nRestart=on-failure\nRestartSec=3\nTimeoutStopSec=90\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=strict\nProtectHome=yes\nReadWritePaths=/var/lib/rougehalla-demo /run/rh-demo-pg\nUMask=0077\nStandardOutput=journal\nStandardError=journal\n[Install]\nWantedBy=multi-user.target\n'
 ON = dict(map_pool=True, signature_landmarks=True, lobby_timing='matchmaking')
 
@@ -296,7 +296,7 @@ class LaunchFlags(unittest.TestCase):
         self.assertNotIn('--lobby-seconds', line)
         self.assertNotIn('--fill-seconds', line)
         self.assertNotIn('--map-pool', line)
-        self.assertIn('--min-players 1 --fill-bots 8 --max-rooms 3', line)
+        self.assertIn('--min-players 1 --fill-bots 8 --max-rooms 4', line)
 
     def test_bot_wait_with_matchmaking(self):
         c = dict(C, lobby_timing='matchmaking', bot_wait_seconds=60)

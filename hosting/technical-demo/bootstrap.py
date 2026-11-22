@@ -117,7 +117,7 @@ def shaper_command(ipv4, ipv6):
         devices.add(dev)
     require(len(devices) == 1, 'multiple default NICs refused')
     return ('/usr/sbin/tc', 'qdisc', 'replace', 'dev', devices.pop(), 'root', 'handle', '1:',
-            'tbf', 'rate', '8mbit', 'burst', '512kb', 'latency', '500ms')
+            'tbf', 'rate', '20mbit', 'burst', '512kb', 'latency', '500ms')
 
 
 ISOLATION_STAGES = frozenset(('nft-load', 'guard', 'route-v4', 'route-v6', 'tbf', 'fq_codel'))
@@ -224,9 +224,9 @@ def guard():
 
 
 # Open alpha (owner 2026-11-22): 10+ testers need more than one 8-seat room on Source. P-TICK-6 measured 9-19 rooms per
-# core at 40 Hz, so three rooms fit a t3.small. Training rooms are solo (tutorial/practice): one room meant one tester at a
+# core at 40 Hz, so four rooms fit the t3.medium (unlimited CPU credits). Training rooms are solo (tutorial/practice): one room meant one tester at a
 # time, so it takes sixteen.
-SOURCE_MAX_ROOMS = 3
+SOURCE_MAX_ROOMS = 4
 TRAINING_MAX_ROOMS = 16
 # Testers often share one network (NAT): the defaults are 16 sockets and 10 new profiles per IP per hour.
 PER_IP_LIMITS = '--ws-max-per-ip 64 --new-profiles-per-ip-per-hour 40'
