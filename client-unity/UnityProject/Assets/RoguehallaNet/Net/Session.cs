@@ -16,6 +16,16 @@ namespace Roguehalla.Net
         void Poll();
     }
 
+    /// <summary>
+    /// Optional on an <see cref="ITransport"/>: how long ago (ms) the socket delivered the frame that the current
+    /// <c>Received</c> event carries; valid only inside that handler. The session times snapshots for the render clock at
+    /// <c>now - ReceivedAgeMs</c>, so the delay between the socket and the frame drain is not counted as network jitter.
+    /// </summary>
+    public interface IArrivalTimedTransport
+    {
+        double ReceivedAgeMs { get; }
+    }
+
     /// <summary>Why a session ended as Failed; <see cref="ConnectionCopy.ForFailure"/> words it for the player. <c>Session.Error</c> keeps the raw text for logs.</summary>
     public enum FailureKind { None, ConnectTimeout, ClosedBeforeWelcome, LostConnection, Other }
 
