@@ -86,6 +86,7 @@ namespace Roguehalla.Client
             CreateCombatHud();
             CreateChestPanel();
             CreateResultsCard();
+            CreateSpectateBar();
             InitializeFeatures();
             InitializeTrainingConsole();
             _chromeStage.SetAsLastSibling();
@@ -247,6 +248,7 @@ namespace Roguehalla.Client
         void HudLateUpdate()
         {
             TickFeatures();
+            TickSpectate();
             TickTutorial();
             TickWishTileMotion();
             RefreshSettlementRow();

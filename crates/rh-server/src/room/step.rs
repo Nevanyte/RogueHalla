@@ -118,6 +118,7 @@ impl Room {
                     h.carry.clear();
                     continue;
                 }
+                h.fx.set_eye(self.sim.spectate_eye(h.player, h.items.spectate()));
                 match h.fx.feed(self.sim.fx_report()).and_then(|status| {
                     if status != rh_sim::FeedStatus::Duplicate {
                         h.fx.append_into(&self.sim, h.player, &mut h.carry)?;

@@ -249,6 +249,8 @@ pub struct ItemObserver {
     actors: Vec<PlayerId>,
     staged_actors: Vec<PlayerId>,
     vision: crate::vision::TileVisionCache,
+    /// The player this seat asked to spectate (resolved each preparation by [`Sim::spectate_eye`]).
+    spectate: Option<PlayerId>,
 }
 
 impl ItemObserver {
@@ -268,7 +270,17 @@ impl ItemObserver {
             actors: Vec::new(),
             staged_actors: Vec::new(),
             vision: Default::default(),
+            spectate: None,
         }
+    }
+
+    /// The player this seat asks to watch once its run is over (see [`Sim::spectate_eye`]); `None` stops.
+    pub fn set_spectate(&mut self, target: Option<PlayerId>) {
+        self.spectate = target;
+    }
+
+    pub fn spectate(&self) -> Option<PlayerId> {
+        self.spectate
     }
 
     pub fn viewer(&self) -> PlayerId {
@@ -285,6 +297,7 @@ impl ItemObserver {
             actor_refs: self.actor_refs.renewed(),
             rewards: self.rewards.renewed(),
             quests: self.quests.renewed(),
+            spectate: self.spectate,
             ..Self::new(self.viewer)
         }
     }
@@ -304,8 +317,10 @@ impl ItemObserver {
         );
         quests.reconnect();
         let next = self.next;
+        let spectate = self.spectate;
         *self = Self::new(self.viewer);
         self.next = next;
+        self.spectate = spectate;
         self.rewards = rewards;
         self.quests = quests;
         self.actor_refs = actor_refs;
@@ -516,8 +531,11 @@ impl ItemObserver {
         }
         // NPC observation also uses this memo when candidates are unchanged in this tick.
         // Revalidate the actual arena and trail on every preparation, including discarded offers.
+        // A spectating seat sees through another player's trail: the memo (the viewer's own) is not used then.
+        let eye = sim.spectate_eye(self.viewer, self.spectate);
         if let Some(me) = sim.player(self.viewer) {
-            self.vision.begin(sim, me, self.sampled.is_some());
+            self.vision
+                .begin(sim, me, self.sampled.is_some() && eye.is_none());
         }
         let mut changed = false;
         let absent = sim.player(self.viewer).is_none();
@@ -539,10 +557,15 @@ impl ItemObserver {
         crate::observe::observe_with_tiles(
             sim,
             self.viewer,
+            eye,
             events,
             out,
             cache,
-            Some(&mut self.vision),
+            if eye.is_none() {
+                Some(&mut self.vision)
+            } else {
+                None
+            },
         )?;
         if sim.w.quests.is_some() && sim.player(self.viewer).is_some_and(|p| !p.seat.bot) {
             out.quests = Some(quest_view);
@@ -582,7 +605,7 @@ impl ItemObserver {
         if !earlier.is_empty() {
             out.events.splice(0..0, earlier.iter().cloned());
         }
-        crate::projectile_view::project(sim, self.viewer, out)?;
+        crate::projectile_view::project(sim, eye.unwrap_or(self.viewer), out)?;
         let raw_combat = crate::owner_combat::public_bridge::prepare(sim, self.viewer, out)?;
         let actors = self.actor_refs.stage(sim, out)?;
         out.owner_combat = raw_combat.map(|group| {

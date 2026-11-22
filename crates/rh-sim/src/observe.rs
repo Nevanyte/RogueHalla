@@ -830,12 +830,16 @@ pub(crate) fn observe_with(
     out: &mut Observation,
     cache: Option<&mut SightCache>,
 ) -> Result<(), crate::OfferError> {
-    observe_with_tiles(sim, viewer, events, out, cache, None)
+    observe_with_tiles(sim, viewer, None, events, out, cache, None)
 }
 
+/// `eye`: the spectated player whose sight replaces the viewer's for the world view (actors, mobs, fields, events); see
+/// [`Sim::spectate_eye`]. `None` is the ordinary observation. The viewer's own facts (self, plan, summary, inventory)
+/// stay the viewer's.
 pub(crate) fn observe_with_tiles(
     sim: &Sim,
     viewer: PlayerId,
+    eye: Option<PlayerId>,
     events: &[Event],
     out: &mut Observation,
     mut cache: Option<&mut SightCache>,
@@ -845,6 +849,9 @@ pub(crate) fn observe_with_tiles(
     out.owner_combat = None;
     begin(sim, &mut cache);
     let me = sim.player(viewer);
+    // Spectating: the world is seen through the eye's sight; with no eye this is the viewer itself.
+    let sight = eye.and_then(|id| sim.player(id)).or(me);
+    let sight_id = sight.map_or(viewer, |p| p.id);
     let now = sim.server_time();
     out.destroyed_terrain
         .clone_from(&sim.w.destroyed_terrain.cells);
@@ -921,7 +928,7 @@ pub(crate) fn observe_with_tiles(
     out.panel = crate::build_summary::champion_panel(sim, viewer);
     roster_into(sim, &mut out.roster);
     out.visible.clear();
-    if let Some(m) = me {
+    if let Some(m) = sight {
         let map = sim.collision_view();
         let wards = crate::vision::WardSight::of_sim(sim);
         let (ax, ay) = (m.body.x, m.body.y);
@@ -934,7 +941,8 @@ pub(crate) fn observe_with_tiles(
             None => false,
         };
         for o in sim.players() {
-            if o.id == m.id || o.status == Status::Lobby {
+            // The viewer is never its own actor row; a spectated eye is (it is who the spectator follows).
+            if o.id == viewer || o.status == Status::Lobby {
                 continue;
             }
             if actor_with(map, m, o, sim.tick(), wards, || match &mut cache {
@@ -985,7 +993,7 @@ pub(crate) fn observe_with_tiles(
     }
     // Public id order, never join order (a no-op scan when the store already iterates in id order).
     // Ids are unique, so any sort gives this order; the unstable one never allocates (the stable one does from ~85 entries).
-    if let Some(me) = me {
+    if let Some(me) = sight {
         let wards = crate::vision::WardSight::of_sim(sim);
         for mob in sim.mobs() {
             if mob.kind == crate::mob_runtime::MobKind::QuestGiver && sim.k.quest_deal.is_some() {
@@ -1019,7 +1027,7 @@ pub(crate) fn observe_with_tiles(
     if !out.visible.is_sorted_by_key(|a| a.id) {
         out.visible.sort_unstable_by_key(|a| a.id);
     }
-    crate::status_runtime::observe::project(sim, viewer, &out.visible, &mut out.fields);
+    crate::status_runtime::observe::project(sim, sight_id, &out.visible, &mut out.fields);
     crate::quests::board::rewards::effects::visible_deployments(
         sim,
         viewer,
@@ -1057,7 +1065,7 @@ pub(crate) fn observe_with_tiles(
         events,
         me_id,
         |id| Some(id) == me_id || out.visible.binary_search_by_key(&id, |a| a.id).is_ok(),
-        |i| wish_point_permissions(&sim.k, &sim.w, viewer, &events[i]),
+        |i| wish_point_permissions(&sim.k, &sim.w, sight_id, &events[i]),
         &mut out.events,
     );
     Ok(())
