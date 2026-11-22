@@ -7,6 +7,30 @@ namespace Roguehalla.Client.Tests
 {
     public sealed class ColiseumParapetEditModeTests
     {
+        [TestCase(true)]
+        [TestCase(false)]
+        public void ImportedStripContainsPaintAcrossEverySection(bool coping)
+        {
+            var atlas = RegionWallAtlas.Atlas;
+            var set = RegionWallAtlas.Parapet;
+            var sections = coping ? set.Top : set.Face;
+            for (int i = 0; i < 3; i++)
+            {
+                var cell = sections[i];
+                float darkest = 1f, palest = 0f;
+                for (int y = 1; y < 16; y++)
+                for (int x = 1; x < 16; x++)
+                {
+                    var uv = new Vector2(Mathf.Lerp(cell.Min.x, cell.Max.x, x / 16f),
+                        Mathf.Lerp(cell.Min.y, cell.Max.y, y / 16f));
+                    float pigment = atlas.GetPixel((int)(uv.x * atlas.width), (int)(uv.y * atlas.height)).grayscale;
+                    darkest = Mathf.Min(darkest, pigment);
+                    palest = Mathf.Max(palest, pigment);
+                }
+                Assert.That(palest - darkest, Is.GreaterThan(.07f), $"No visible stone washes in section {i}");
+            }
+        }
+
         [Test]
         public void PaintedCapsFollowActualArenaWallsAndTurnWithTheRun()
         {
