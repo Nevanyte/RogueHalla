@@ -31,3 +31,7 @@ At gameplay revision `1dc224c41`, all five joined 2560 × 1440 routes entered a 
 ## Opponent view
 
 A second Web player watched Fire approach, enter and leave thicket 23 on revision `a7ae7cbe2`. Frost held the same position throughout. Fire was visible to Frost in the open, disappeared in the thicket and reappeared on exit. Fire’s own clothing remained visible between the branches and her health bar stayed readable. Matching the public snapshots by server tick confirmed that both players were alive and that Frost received Fire’s actor only on approach and exit. The paired Web frames, full-resolution captures and public observations are in `world/concealment-canopies/opponent-view/index.html`.
+
+## 1440p performance sample
+
+Three interleaved runs per revision compared `9f0d8f982` with `1dc224c41` on an M5 Pro. The 95th-percentile frame interval in Fire cover was 8.2 ms on the earlier build and 8.3 ms on the larger canopy. In nearby combat it was 8.0 ms and 8.3 ms. Both builds measured a median frame interval of 6.9 ms. The final build transferred 376,349 additional bytes. Four runs overlapped a separate workspace test job, mob counts varied, and each browser graphics audit recorded 0x500. Use these as descriptive measurements. The six-run details, timestamps, inputs and outliers are in `world/concealment-canopies/final/performance-three-pairs.json`.
