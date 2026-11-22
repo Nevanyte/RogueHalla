@@ -71,7 +71,9 @@ namespace Roguehalla.Client.Tests
                 Assert.That(renderers.Length, Is.EqualTo(1));
                 Assert.That(renderers[0].sprite, Is.SameAs(scrub.Sprite));
                 Assert.That(renderers[0].transform.localPosition, Is.EqualTo(ArenaView.WorldPoint((bushX + .5f) * 32f, (bushY + .5f) * 32f)));
-                Assert.That(Mathf.Abs(renderers[0].transform.localScale.x), Is.InRange(.94f, 1.06f));
+                var canopy = Resources.Load<ConcealmentCanopyArt>("StormInk/Props/ConcealmentCanopyArt");
+                Assert.That(Mathf.Abs(renderers[0].transform.localScale.x) / canopy.WidthScale, Is.InRange(.94f, 1.06f));
+                Assert.That(renderers[0].transform.localScale.y / canopy.HeightScale, Is.InRange(.94f, 1.06f));
             }
             finally
             {

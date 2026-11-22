@@ -16,7 +16,7 @@ namespace Roguehalla.Client
         internal void FitThicket(MapBlob map, RegionProps.Placement placement, int seed,
             ref float width, ref float height, ref bool flip)
         {
-            if (placement.Shipped || map.Bushes == null || map.Bushes.Length != map.W * map.H) return;
+            if (!placement.ConcealmentCell) return;
             int x = placement.Tx, y = placement.Ty, index = y * map.W + x;
             byte cover = map.Bushes[index];
             if (cover == 0) return;

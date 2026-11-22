@@ -57,8 +57,18 @@ namespace Roguehalla.Client.Tests
 
                 Vector3 plagueFoot = ArenaView.WorldPoint((plagueCover.X) * 32f, (plagueCover.Y) * 32f);
                 Assert.That(plagueCoverSprite.transform.localPosition, Is.EqualTo(plagueFoot));
-                Assert.That(plagueCoverSprite.transform.localScale, Is.EqualTo(Vector3.one));
-                Assert.That(plagueCoverSprite.sortingOrder, Is.EqualTo(2000 + Mathf.RoundToInt(plagueCover.Y * 16f)));
+                var canopy = Resources.Load<ConcealmentCanopyArt>("StormInk/Props/ConcealmentCanopyArt");
+                Assert.That(canopy.HeightScale, Is.GreaterThan(1f));
+                Assert.That(canopy.WidthScale, Is.GreaterThan(1f));
+                foreach (var cover in new[] { plagueCoverSprite, hauntedCoverSprite, neutralSprite })
+                {
+                    Assert.That(Mathf.Abs(cover.transform.localScale.x), Is.EqualTo(canopy.WidthScale));
+                    Assert.That(cover.transform.localScale.y, Is.EqualTo(canopy.HeightScale));
+                }
+                Assert.That(plagueDecorSprite.transform.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(hauntedDecorSprite.transform.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(plagueCoverSprite.sortingOrder, Is.EqualTo(2000 + Mathf.RoundToInt((plagueCover.Y + canopy.ForegroundDepth) * 16f)));
+                Assert.That(plagueDecorSprite.sortingOrder, Is.EqualTo(2000 + Mathf.RoundToInt(plagueDecor.Y * 16f)));
                 Assert.That(plagueCoverSprite.color.a, Is.EqualTo(1f), "cover art remains a low shrub, not a tall actor-fading prop");
                 Assert.That(sprites.Length, Is.EqualTo(placements.Count), "the new art adds no separate ground-shadow sprites");
                 Assert.That(sprites.Select(s => s.sharedMaterial).Distinct().Count(), Is.EqualTo(1), "all foliage stays on the existing shared lit material");

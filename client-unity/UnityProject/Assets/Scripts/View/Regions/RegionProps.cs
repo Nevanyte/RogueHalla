@@ -17,7 +17,9 @@ namespace Roguehalla.Client
             /// <summary>Set only for a prop the server sent (MapBlob.Props): its kind code, variant and flags (tall 1, legacy 2). Kind 0 means a client-rolled placement.</summary>
             public byte Kind, Variant, Flags;
             /// <summary>True for a row of the server's decoration: its tall flag (not the art's) decides the fade.</summary>
-            public bool Shipped; }
+            public bool Shipped;
+            /// <summary>True only for a shrub placed by the public bush grid, including a single-cell patch.</summary>
+            public bool ConcealmentCell; }
 
         struct Prop
         {
@@ -258,7 +260,7 @@ namespace Roguehalla.Client
                 int i = y * map.W + x; if (bushes[i] == 0) continue;
                 int region = map.Regions != null && map.Regions.Length == map.W * map.H ? map.Regions[i] : 0;
                 string art = region == 1 ? "fire.bush" : region == 4 ? "frost.bush" : region == 5 ? "holy.shrub" : "plague.bush";
-                list.Add(new Placement { Art = art, X = x + .5f, Y = y + .5f, Scale = 1f, Flip = ((x * 7 + y * 13) & 1) == 1, Tx = x, Ty = y });
+                list.Add(new Placement { Art = art, X = x + .5f, Y = y + .5f, Scale = 1f, Flip = ((x * 7 + y * 13) & 1) == 1, Tx = x, Ty = y, ConcealmentCell = true });
             }
         }
 
@@ -307,6 +309,7 @@ namespace Roguehalla.Client
                 flamePigment.SetFloat("_StormInkResponse", 2f);
             }
             var willowArt = Resources.Load<PlagueWillowArt>("StormInk/Props/PlagueBogWillowArt");
+            var canopy = Resources.Load<ConcealmentCanopyArt>("StormInk/Props/ConcealmentCanopyArt");
             MushroomPatch mushrooms = null;
             foreach (var pl in placements)
             {
@@ -328,6 +331,13 @@ namespace Roguehalla.Client
                 }
                 if (renderArtKey == "plague.willow.bush" && willowArt != null)
                     willowArt.FitThicket(map, pl, visualSeed, ref scaleX, ref scaleY, ref flip);
+                float sortY = pl.Y;
+                if (pl.ConcealmentCell && canopy != null)
+                {
+                    scaleX *= canopy.WidthScale;
+                    scaleY *= canopy.HeightScale;
+                    sortY += canopy.ForegroundDepth;
+                }
                 bool fern = pl.Art == "plague.fern";
                 if (art.UsesAuthoredTexture && (fern || pl.Art == "plague.rubble"))
                 {
@@ -372,7 +382,7 @@ namespace Roguehalla.Client
                 }
                 else if (art.UsesAuthoredTexture && mattePigment != null) sr.SetPropertyBlock(mattePigment);
                 sr.color = tint;
-                sr.sortingOrder = 2000 + Mathf.RoundToInt(pl.Y * 32f * .5f) + pl.Bias;
+                sr.sortingOrder = 2000 + Mathf.RoundToInt(sortY * 16f) + pl.Bias;
                 bool tall = IsTall(pl, art);
                 var prop = new Prop { Renderer = sr, FootX = foot.x, FootY = foot.y, HalfW = art.Width * .5f * scaleX * .8f, Height = art.Height * scaleY, Tall = tall, Alpha = 1f, MarkFrame = -10, Base = tint };
                 int index = _props.Count; _props.Add(prop);
