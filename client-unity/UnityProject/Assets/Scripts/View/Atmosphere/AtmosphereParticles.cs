@@ -9,7 +9,7 @@ namespace Roguehalla.Client
         static readonly Dictionary<string, Texture2D> Cache = new Dictionary<string, Texture2D>();
         /// <summary>GLSL-style smoothstep (edge0 may be above edge1 for a falling ramp).</summary>
         static float SS(float e0, float e1, float x) { float t = Mathf.Clamp01((x - e0) / (e1 - e0)); return t * t * (3f - 2f * t); }
-        public static float Gain(string key) { return key == "ember" ? 1.9f : key == "spore" ? 1.5f : 1f; }
+        public static float Gain(string key) { return key == "ember" ? 2.4f : key == "flake" ? 1.55f : key == "spore" ? 1.5f : 1f; }
 
         public static Texture2D Get(string key)
         {
@@ -22,11 +22,34 @@ namespace Roguehalla.Client
                 float u = (x + .5f) / w * 2 - 1, v = (y + .5f) / h * 2 - 1, r = Mathf.Sqrt(u * u + v * v), a; Color rgb = Color.white;
                 switch (key)
                 {
-                    case "flake":   // bright core with a cool blue-grey rim so a flake still reads on pale snow
-                        a = SS(1f, .45f, r) * .95f;
-                        rgb = Color.Lerp(new Color(.55f, .72f, .93f), Color.white, SS(.62f, .3f, r)); break;
+                    case "flake":   // cool, wind-bent dry-brush stroke with a few broken bristles
+                    {
+                        float centre = -.22f + .19f * v + .045f * Mathf.Sin(v * 6.1f);
+                        float body = Mathf.Pow(Mathf.Clamp01(1f - v * v), .72f);
+                        float width = .018f + .285f * body;
+                        float edge = Mathf.Abs(u - centre) / width;
+                        float grain = Mathf.Sin(u * 49f + v * 13f) * Mathf.Sin(u * 17f - v * 31f);
+                        float tooth = edge + .07f * grain;
+                        a = SS(1.12f, .66f, tooth) * SS(1.08f, .88f, Mathf.Abs(v)) * .92f;
+                        if (grain < -.91f && edge < .82f) a *= .28f; // fine translucent gaps through the brush
+                        rgb = Color.Lerp(new Color(.36f, .53f, .69f), new Color(.98f, 1f, 1f), SS(1.12f, .64f, edge));
+                        break;
+                    }
                     case "mote": a = Mathf.Pow(Mathf.Clamp01(1f - r), 1.8f); break;
-                    case "ember": a = Mathf.Exp(-r * r * 5.5f) * .7f + Mathf.Exp(-r * r * 40f) * .6f; break;
+                    case "ember": // upright, flame-tapered loft mark, carried by the existing pooled ember layers
+                    {
+                        float centre = .18f + .13f * v + .045f * Mathf.Sin(v * 5.3f);
+                        float body = Mathf.Pow(Mathf.Clamp01(1f - v * v), .7f);
+                        float width = .025f + .235f * body;
+                        float edge = Mathf.Abs(u - centre) / width;
+                        float grain = Mathf.Sin(u * 39f + v * 11f) * Mathf.Sin(u * 21f - v * 27f);
+                        float top = SS(1.08f, .66f, v), foot = SS(-.97f, -.73f, v);
+                        a = SS(1.1f, .67f, edge + .055f * grain) * top * foot;
+                        if (grain < -.88f && edge < .75f) a *= .22f;
+                        float core = SS(1.05f, .48f, edge);
+                        rgb = Color.Lerp(new Color(.58f, .18f, .08f), new Color(1f, .88f, .36f), core);
+                        break;
+                    }
                     case "spore": a = Mathf.Exp(-r * r * 4f) * .45f + Mathf.Clamp01(1f - Mathf.Abs(r - .5f) * 7f) * .35f + Mathf.Exp(-r * r * 60f) * .6f; break;
                     case "chaff": { float e = Mathf.Sqrt(u * u + v * v * 9f); a = SS(1f, .55f, e); break; }
                     case "shaft": a = Mathf.Pow(Mathf.Clamp01(1f - Mathf.Abs(u)), 1.7f) * SS(1f, .5f, Mathf.Abs(v)); break;
@@ -63,12 +86,13 @@ namespace Roguehalla.Client
         {
             public readonly Layer[] Layers = new Layer[ParticlePresets.MaxLayers];
             public readonly Dictionary<string, Material> Materials = new Dictionary<string, Material>();
-            public ParticlePresetId Preset; public float Alpha, Target; public bool Active; public float AppliedAlpha = -1f;
+            public ParticlePresetId Preset; public float Alpha, Target; public bool Active, NeedsPrewarm; public Vector3 PrewarmPosition; public float AppliedAlpha = -1f;
         }
 
         readonly Bank[] _banks = { new Bank(), new Bank() };
         readonly List<Object> _owned = new List<Object>();
         Transform _root; int _active = -1; ParticlePresetId _desired = ParticlePresetId.None;
+        bool _hasCameraPose; Vector3 _cameraPosition;
         bool _raysApplied = true, _windApplied = true;
         float _density = 1f, _gustClock, _camHalfW = 13f, _camHalfH = 9f;
 
@@ -80,9 +104,9 @@ namespace Roguehalla.Client
         /// <summary>One line per live layer (diagnostics for the capture harness).</summary>
         public string Describe()
         {
-            var sb = new System.Text.StringBuilder();
+            var sb = new System.Text.StringBuilder(); sb.Append("cam=").Append(_cameraPosition.ToString("0.0"));
             foreach (var b in _banks) if (b.Active) foreach (var l in b.Layers) if (l.InUse)
-                sb.Append(l.Spec.Texture).Append(':').Append(l.Ps.particleCount).Append(" a=").Append(b.AppliedAlpha.ToString("0.00")).Append(" ord=").Append(l.Renderer.sortingOrder).Append(" b=").Append(l.Renderer.bounds.size.ToString("0")).Append(" | ");
+                sb.Append(l.Spec.Texture).Append(':').Append(l.Ps.particleCount).Append(" a=").Append(b.AppliedAlpha.ToString("0.00")).Append(" ord=").Append(l.Renderer.sortingOrder).Append(" prewarm=").Append(b.PrewarmPosition.ToString("0.0")).Append(" pos=").Append(l.Go.transform.position.ToString("0.0")).Append(" bounds=").Append(l.Renderer.bounds.ToString()).Append(" shader=").Append(l.Renderer.sharedMaterial.shader.name).Append(" | ");
             return sb.ToString();
         }
 
@@ -110,7 +134,8 @@ namespace Roguehalla.Client
         Material BankMaterial(Bank bank, string key)
         {
             if (bank.Materials.TryGetValue(key, out var m)) return m;
-            m = new Material(ShowcaseSprites.Unlit) { name = "Atmosphere particles / " + key, mainTexture = AtmosphereTextures.Get(key) };
+            var shader = Shader.Find("Roguehalla/Atmosphere/Particles2D");
+            m = new Material(shader != null ? shader : ShowcaseSprites.Unlit.shader) { name = "Atmosphere particles / " + key, mainTexture = AtmosphereTextures.Get(key) };
             bank.Materials[key] = m; _owned.Add(m); return m;
         }
 
@@ -147,7 +172,7 @@ namespace Roguehalla.Client
                 main.startSizeZ = 1f;
             }
             else { main.startSize3D = false; main.startSize = new ParticleSystem.MinMaxCurve(s.SizeMin, s.SizeMax); }
-            if (Mathf.Abs(s.Rotation) > .01f) { main.startRotation3D = false; main.startRotation = s.Rotation * Mathf.Deg2Rad; }
+            if (s.FixedRotation || Mathf.Abs(s.Rotation) > .01f) { main.startRotation3D = false; main.startRotation = s.Rotation * Mathf.Deg2Rad; }
             else main.startRotation = new ParticleSystem.MinMaxCurve(0f, 6.2832f);
             main.startColor = new Color(s.Tint.r, s.Tint.g, s.Tint.b, s.Tint.a);
             main.maxParticles = Mathf.Max(1, ParticlePresets.LayerBudget(s, _density));
@@ -213,21 +238,33 @@ namespace Roguehalla.Client
             var nb = _banks[idle];
             for (int i = 0; i < ParticlePresets.MaxLayers; i++) ReleaseLayer(nb.Layers[i]);
             var layers = ParticlePresets.Get(target);
-            float longest = 0f;
-            for (int i = 0; i < layers.Length; i++) { if ((layers[i].Texture == "shaft" && !AtmosphereQuality.Rays) || (layers[i].WindDriven && !AtmosphereQuality.Wind)) continue; Configure(nb, nb.Layers[i], layers[i], i); longest = Mathf.Max(longest, layers[i].LifeMax); }
-            for (int i = 0; i < layers.Length; i++)
-            {
-                if (!nb.Layers[i].InUse) continue;   // prewarm so the layer is already full as it fades in
-                nb.Layers[i].Ps.Simulate(longest * .9f, false, true, true); nb.Layers[i].Ps.Play(false);
-            }
+            for (int i = 0; i < layers.Length; i++) { if ((layers[i].Texture == "shaft" && !AtmosphereQuality.Rays) || (layers[i].WindDriven && !AtmosphereQuality.Wind)) continue; Configure(nb, nb.Layers[i], layers[i], i); }
             _raysApplied = AtmosphereQuality.Rays; _windApplied = AtmosphereQuality.Wind; nb.Preset = target; nb.Active = true; nb.Target = 1f; nb.Alpha = instant ? 1f : 0f; nb.AppliedAlpha = -1f; SetBankAlpha(nb, nb.Alpha);
             _active = idle;
+            nb.PrewarmPosition = _hasCameraPose ? _cameraPosition : Vector3.zero;
+            Prewarm(nb, nb.PrewarmPosition);
+            nb.NeedsPrewarm = true;
+        }
+
+        static void Prewarm(Bank bank, Vector3 cameraPosition)
+        {
+            float longest = 0f;
+            foreach (var l in bank.Layers) if (l != null && l.InUse) longest = Mathf.Max(longest, l.Spec.LifeMax);
+            foreach (var l in bank.Layers) if (l != null && l.InUse)
+            {
+                l.Go.transform.position = cameraPosition; l.Anchor.position = cameraPosition * l.Spec.Parallax;
+                l.Ps.Simulate(longest * .9f, false, true, true); l.Ps.Play(false);
+            }
+            bank.PrewarmPosition = cameraPosition;
+            bank.NeedsPrewarm = false;
         }
 
         /// <summary>Per frame: follow the camera, advance fades, modulate wind gusts. No allocation.</summary>
         public void Tick(Camera cam, float dt)
         {
             if (_root == null || cam == null) return;
+            Vector3 c = cam.transform.position; var cp = new Vector3(c.x, c.y, 0f);
+            _cameraPosition = cp; _hasCameraPose = true;
             if (cam.orthographic)
             {
                 float hh = cam.orthographicSize, hw = hh * cam.aspect;
@@ -237,7 +274,16 @@ namespace Roguehalla.Client
                     foreach (var b in _banks) foreach (var l in b.Layers) if (l != null && l.InUse) { var sh = l.Ps.shape; sh.scale = new Vector3(hw * 2f + 4f, hh * 2f + 4f, .1f); }
                 }
             }
-            Vector3 c = cam.transform.position; var cp = new Vector3(c.x, c.y, 0f);
+            var view = new Bounds(cp, new Vector3(_camHalfW * 2f, _camHalfH * 2f, 100f));
+            foreach (var bank in _banks) if (bank.Active && bank.NeedsPrewarm)
+            {
+                float teleportThreshold = Mathf.Max(4f, _camHalfH * .5f);
+                bool needsReset = (cp - bank.PrewarmPosition).sqrMagnitude > teleportThreshold * teleportThreshold;
+                if (!needsReset)
+                    foreach (var l in bank.Layers) if (l != null && l.InUse && !l.Renderer.bounds.Intersects(view)) { needsReset = true; break; }
+                if (needsReset) Prewarm(bank, cp);
+                else bank.NeedsPrewarm = false;
+            }
             _gustClock += dt; bool gust = true;
             for (int bi = 0; bi < 2; bi++)
             {

@@ -26,8 +26,11 @@ namespace Roguehalla.Net.Ui
                 if (mx < 0 || my < 0 || mx >= w || my >= h) continue;
                 wall[y * fw + x] = tiles[my * w + mx] == Protocol.MapBlob.Wall;
             }
-            // 8-connected wall groups, each with its bounding box.
+            // 8-connected wall groups, each with its bounding box. Some larger landmarks have two opposing doorways,
+            // which split a rectangular wall ring into matching left/right or north/south halves. Join that shape before
+            // flood fill so its interior still fades as one room.
             var group = new int[fw * fh]; var stack = new System.Collections.Generic.Stack<int>();
+            var bounds = new System.Collections.Generic.List<Bounds>();
             int groups = 0;
             for (int start = 0; start < wall.Length; start++)
             {
@@ -46,9 +49,49 @@ namespace Roguehalla.Net.Ui
                         group[j] = groups; stack.Push(j);
                     }
                 }
-                MarkInterior(tiles, w, h, fx, fy, fw, wall, x0, y0, x1, y1, entrance, result, stack);
+                bounds.Add(new Bounds(x0, y0, x1, y1));
             }
+
+            var paired = new bool[bounds.Count];
+            for (int i = 0; i < bounds.Count; i++)
+            {
+                if (paired[i]) continue;
+                for (int j = i + 1; j < bounds.Count; j++)
+                {
+                    if (paired[j] || !OpposingDoorHalves(bounds[i], bounds[j])) continue;
+                    var combined = Bounds.Combine(bounds[i], bounds[j]);
+                    MarkInterior(tiles, w, h, fx, fy, fw, wall, combined.X0, combined.Y0, combined.X1, combined.Y1, entrance, result, stack);
+                    paired[i] = paired[j] = true;
+                    break;
+                }
+            }
+            for (int i = 0; i < bounds.Count; i++)
+                if (!paired[i]) MarkInterior(tiles, w, h, fx, fy, fw, wall, bounds[i].X0, bounds[i].Y0, bounds[i].X1, bounds[i].Y1, entrance, result, stack);
             return result;
+        }
+
+        readonly struct Bounds
+        {
+            public readonly int X0, Y0, X1, Y1;
+            public Bounds(int x0, int y0, int x1, int y1) { X0 = x0; Y0 = y0; X1 = x1; Y1 = y1; }
+            public static Bounds Combine(Bounds a, Bounds b) { return new Bounds(System.Math.Min(a.X0, b.X0), System.Math.Min(a.Y0, b.Y0), System.Math.Max(a.X1, b.X1), System.Math.Max(a.Y1, b.Y1)); }
+        }
+
+        static bool OpposingDoorHalves(Bounds a, Bounds b)
+        {
+            bool horizontal = a.Y0 == b.Y0 && a.Y1 == b.Y1 && (a.X1 < b.X0 || b.X1 < a.X0);
+            if (horizontal)
+            {
+                int gap = a.X1 < b.X0 ? b.X0 - a.X1 - 1 : a.X0 - b.X1 - 1;
+                return a.Y1 - a.Y0 >= 7 && gap > 0 && gap <= MaxOpening;
+            }
+            bool vertical = a.X0 == b.X0 && a.X1 == b.X1 && (a.Y1 < b.Y0 || b.Y1 < a.Y0);
+            if (vertical)
+            {
+                int gap = a.Y1 < b.Y0 ? b.Y0 - a.Y1 - 1 : a.Y0 - b.Y1 - 1;
+                return a.X1 - a.X0 >= 7 && gap > 0 && gap <= MaxOpening;
+            }
+            return false;
         }
 
         static void MarkInterior(byte[] tiles, int w, int h, int fx, int fy, int fw, bool[] wall, int x0, int y0, int x1, int y1, MapTile[] entrance, bool[] result, System.Collections.Generic.Stack<int> stack)

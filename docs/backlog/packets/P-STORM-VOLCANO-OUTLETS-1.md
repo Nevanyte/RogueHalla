@@ -1,0 +1,3 @@
+# P-STORM-VOLCANO-OUTLETS-1 — Orient all lava outlets from the vent
+
+Phase 3 item 16a. The measured native-camera capture at certified tile (30,119) moves upstream on the first bank-following implementation. Register every major lava branch from its actual vent or nearest connected wet cell. A three-armed fixture with a central anchor requires positive outward movement along all three outlets, a continued lateral coordinate in a dry apron and zero dry depth. This packet owns the current-field implementation and its partial file, the new volcano outlet oracle, Unity metadata and this brief. The game camera, terrain, hazard and hitboxes stay authoritative. Validate channel travel in the same filmed bend and preserve the still-bank and Reduced Motion checks.

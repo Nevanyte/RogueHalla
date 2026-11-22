@@ -20,11 +20,17 @@ namespace Roguehalla.Client
         void AddCosmeticCard(AccountCosmeticDefinition item, AccountFullProfile profile, bool allowMutation)
         {
             var card = NewCard("Cosmetic_" + SafeName(item.Id));
-            AddAccent(card, item);
-            // Rows top to bottom (no overlap): accent or colour sample, name, category, details, then state and the action below.
-            MythicUi.Text(card, "ItemName", item.Name, new Vector2(.045f, .66f), new Vector2(.96f, .84f), 21, ShowcasePalette.Text).fontStyle = FontStyles.Bold;
+            var equipmentPreview = HubArtworkAssets.EquipmentPreview(item.Id);
+            if (equipmentPreview != null) AddEquipmentPreview(card, equipmentPreview);
+            else AddAccent(card, item);
+            // Rows top to bottom (no overlap): preview/accent, name, category, details, then state and the action below.
+            Vector2 nameMin = equipmentPreview != null ? new Vector2(.27f, .70f) : new Vector2(.045f, .66f);
+            Vector2 nameMax = equipmentPreview != null ? new Vector2(.96f, .94f) : new Vector2(.96f, .84f);
+            MythicUi.Text(card, "ItemName", item.Name, nameMin, nameMax, 21, ShowcasePalette.Text).fontStyle = FontStyles.Bold;
             string category = SlotLabel(item.Slot);
-            MythicUi.Text(card, "ItemCategory", category, new Vector2(.045f, .55f), new Vector2(.96f, .66f), 13, ShowcasePalette.MutedText);
+            Vector2 categoryMin = equipmentPreview != null ? new Vector2(.27f, .57f) : new Vector2(.045f, .55f);
+            Vector2 categoryMax = equipmentPreview != null ? new Vector2(.96f, .70f) : new Vector2(.96f, .66f);
+            MythicUi.Text(card, "ItemCategory", category, categoryMin, categoryMax, 13, ShowcasePalette.MutedText);
             var info = CatalogDetails(item);
             MythicUi.Text(card, "CatalogDetails", info, new Vector2(.045f, .29f), new Vector2(.96f, .55f), 15, ShowcasePalette.Text);
 
@@ -37,7 +43,7 @@ namespace Roguehalla.Client
             if (submitting) state = "Waiting for confirmation…";
             if (_tab == HubCosmeticsTab.Wardrobe || _tab == HubCosmeticsTab.Titles)
             {
-                if (equipped) state = "Equipped · " + item.Slot + (op != null && op.Operation.State != AccountMutationState.Confirmed ? "  ·  " + MutationText(op.Operation) : "");
+                if (equipped) state = "Equipped · " + SlotLabel(item.Slot) + (op != null && op.Operation.State != AccountMutationState.Confirmed ? "  ·  " + MutationText(op.Operation) : "");
                 else if (owned && op == null) state = "Owned · ready to equip";
                 else if (!owned && op == null) state = "Not owned · wardrobe is read only for this item.";
             }
@@ -95,12 +101,22 @@ namespace Roguehalla.Client
 
         RectTransform NewCard(string name)
         {
-            var card = MythicUi.Panel(_content, name, Vector2.zero, Vector2.one, ShowcasePalette.PanelRaised, false);
+            var card = MythicUi.Panel(_content, name, Vector2.zero, Vector2.one, UiTheme.With(ShowcasePalette.PanelRaised, .88f), false);
             card.gameObject.AddComponent<LayoutElement>().minHeight = 180;
             var outline = card.gameObject.AddComponent<Outline>();
             outline.effectColor = ShowcasePalette.PanelStroke; outline.effectDistance = new Vector2(1, -1); outline.useGraphicAlpha = true;
             _cards.Add(card.gameObject);
             return card;
+        }
+
+        static void AddEquipmentPreview(RectTransform card, Sprite preview)
+        {
+            var rect = MythicUi.Rect(card, "EquipmentPreview", new Vector2(.045f, .68f), new Vector2(.235f, .96f));
+            var image = rect.gameObject.AddComponent<Image>();
+            image.sprite = preview;
+            image.color = Color.white;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
         }
 
         void AddAccent(RectTransform card, AccountCosmeticDefinition item)

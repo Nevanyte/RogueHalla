@@ -1,0 +1,3 @@
+# P-STORM-EXECUTIONER-CAST-1 — Haunted Executioner sword
+
+Phase 3 item 16a. Finish the integrated eight-direction Executioner by binding the existing sword to the delivered actor’s painted right hand and animating a distinct raised guard, heavy descending stroke and low recovery. Keep attack events and the existing hitbox. Own the Executioner-specific grip table, elite pose adjustment in the existing presenter, the corresponding narrow regional dispatch, this brief and the focused hand registration oracle. The current equipped sword uses the static NPC offset and the 32 independently painted poses lack registered palms. Review all eight angles through four phases on bright and dark ground and then in a real Haunted encounter.

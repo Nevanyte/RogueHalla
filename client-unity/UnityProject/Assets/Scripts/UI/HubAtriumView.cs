@@ -223,17 +223,24 @@ namespace Roguehalla.Client
         void BuildShell(UiTheme theme)
         {
             var shell = HudUi.Inset(_room, "Walls", 0, 0, 0, 0);
-            HudUi.Surface(shell, UiTheme.With(theme.SurfaceRaised, .97f), 16f, theme.Border, false, true);
+            HudUi.Surface(shell, UiTheme.With(theme.SurfaceRaised, .88f), 16f, theme.Border, false, true);
             var floor = HudUi.At(_room, "Floor", Wall, Wall, RoomW - 2 * Wall, RoomH - 2 * Wall);
-            HudUi.Surface(floor, UiTheme.With(theme.Surface, .90f), 8f, theme.Border, true, false);
+            var floorSurface = HudUi.Surface(floor, UiTheme.With(theme.Surface, .90f), 8f, theme.Border, true, false);
+            var painting = HubArtworkAssets.GuildHall;
+            if (painting != null)
+            {
+                floorSurface.sprite = painting;
+                floorSurface.type = Image.Type.Simple;
+                floorSurface.color = Color.white;
+            }
             floor.gameObject.AddComponent<HubFloorPointer>().Owner = this;
             var tint = HudUi.Inset(floor, "FloorTint", 0, 0, 0, 0);
             var tintImage = tint.gameObject.AddComponent<Image>();
             tintImage.sprite = UiSprites.Panel(theme, 8f); tintImage.type = Image.Type.Sliced; tintImage.raycastTarget = false;
             _floorTint = tint;
             // Flagstone rules: faint seams so the floor reads as a floor rather than a flat panel.
-            for (int i = 1; i < 8; i++) LaunchUi.Bar(floor, "SeamH" + i, 8f, i * (RoomH - 2 * Wall) / 8f, RoomW - 2 * Wall - 16f, 1f, UiTheme.With(theme.Border, .10f));
-            for (int i = 1; i < 13; i++) LaunchUi.Bar(floor, "SeamV" + i, i * (RoomW - 2 * Wall) / 13f, 8f, 1f, RoomH - 2 * Wall - 16f, UiTheme.With(theme.Border, .08f));
+            for (int i = 1; i < 8; i++) LaunchUi.Bar(floor, "SeamH" + i, 8f, i * (RoomH - 2 * Wall) / 8f, RoomW - 2 * Wall - 16f, 1f, UiTheme.With(theme.Border, .035f));
+            for (int i = 1; i < 13; i++) LaunchUi.Bar(floor, "SeamV" + i, i * (RoomW - 2 * Wall) / 13f, 8f, 1f, RoomH - 2 * Wall - 16f, UiTheme.With(theme.Border, .03f));
         }
 
         void BuildStations(UiTheme theme)
@@ -300,6 +307,26 @@ namespace Roguehalla.Client
                 s.HintText = LaunchUi.Text(b.transform, "Hint", iconBox + 14f, s.H * .5f + 1f, s.W - iconBox - 20f, s.H * .5f - 8f, s.Hint, 11.5f, theme.TextSecondary);
             }
             RefreshStation(s);
+            SoftenStationBackground(s.Button);
+        }
+
+        static void SoftenStationBackground(Button button)
+        {
+            if (button == null) return;
+            var colors = button.colors;
+            colors.normalColor = CapAlpha(colors.normalColor, .70f);
+            colors.highlightedColor = CapAlpha(colors.highlightedColor, .88f);
+            colors.selectedColor = CapAlpha(colors.selectedColor, .88f);
+            colors.pressedColor = CapAlpha(colors.pressedColor, .94f);
+            colors.disabledColor = CapAlpha(colors.disabledColor, .48f);
+            button.colors = colors;
+            if (button.targetGraphic != null) button.targetGraphic.color = colors.normalColor;
+        }
+
+        static Color CapAlpha(Color color, float maxAlpha)
+        {
+            color.a = Mathf.Min(color.a, maxAlpha);
+            return color;
         }
 
         void BuildAvatar(UiTheme theme)
@@ -386,6 +413,7 @@ namespace Roguehalla.Client
             {
                 bool selected = s.Faction == _faction;
                 var colors = s.Button.colors; colors.normalColor = selected ? theme.SurfaceSelected : theme.SurfaceRaised; s.Button.colors = colors;
+                SoftenStationBackground(s.Button);
                 HudUi.SetFrame((RectTransform)s.Button.transform, selected ? theme.BorderStrong : theme.Border);
                 if (s.SelectedMark != null) s.SelectedMark.enabled = selected;
                 return;
@@ -402,6 +430,7 @@ namespace Roguehalla.Client
                 var colors = s.Button.colors;
                 colors.normalColor = s.Available ? theme.SurfaceRaised : theme.SurfaceDisabled; s.Button.colors = colors;
             }
+            SoftenStationBackground(s.Button);
         }
 
         void Settle()

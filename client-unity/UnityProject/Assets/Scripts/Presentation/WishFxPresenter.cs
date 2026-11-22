@@ -56,7 +56,7 @@ namespace Roguehalla.Client
         readonly Dictionary<uint, Vector3> _lastPos = new Dictionary<uint, Vector3>(16);
         IReadOnlyList<AreaView> _areas = System.Array.Empty<AreaView>();
         uint _owner;
-        double _sourceMs, _smoothMs, _lastBlazeMs = double.NegativeInfinity;
+        double _sourceMs, _smoothMs;
         float _sourceWall;
         // The latest Freeze landing, so a stun that appears at that spot is styled as ice. Nothing else is inferred from it.
         double _freezeAt = double.NegativeInfinity; float _freezeX, _freezeY;
@@ -152,7 +152,7 @@ namespace Roguehalla.Client
         public void Reset()
         {
             _cueCount = 0; _ghostCount = 0; _noteCount = 0; _areaTracker.Clear(); _statusTracker.Clear(); _drawn.Clear(); _lastPos.Clear();
-            _areas = System.Array.Empty<AreaView>(); _freezeAt = _lastBlazeMs = double.NegativeInfinity; _sourceMs = 0;
+            _areas = System.Array.Empty<AreaView>(); _freezeAt = double.NegativeInfinity; _sourceMs = 0;
             for (int i = 0; i < _acc.Length; i++) _acc[i] = 0;
             _pen.Begin(); _pen.End(); _particles.Clear(); _actors.ClearWishTints();
         }

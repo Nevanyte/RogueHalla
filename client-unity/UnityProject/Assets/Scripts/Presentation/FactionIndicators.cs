@@ -20,7 +20,7 @@ namespace Roguehalla.Client
 
         static Sprite CreateFootprint(int faction)
         {
-            string[] names = { "Fire triangle", "Sentenced square", "Plague trefoil", "Frost hexagon", "Holy circle", "Unknown diamond" };
+            string[] names = { "Fire triangle", "Haunted square", "Plague trefoil", "Frost hexagon", "Holy circle", "Unknown diamond" };
             var points = faction == 0 ? new[] { new Vector2(0, .72f), new Vector2(.72f, -.62f), new Vector2(-.72f, -.62f) }
                 : faction == 1 ? new[] { new Vector2(-.68f, -.68f), new Vector2(.68f, -.68f), new Vector2(.68f, .68f), new Vector2(-.68f, .68f) }
                 : faction == 3 ? new[] { new Vector2(0, .72f), new Vector2(.62f, .36f), new Vector2(.62f, -.36f), new Vector2(0, -.72f), new Vector2(-.62f, -.36f), new Vector2(-.62f, .36f) }

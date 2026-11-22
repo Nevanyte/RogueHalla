@@ -21,7 +21,7 @@ namespace Roguehalla.Client
     ///  - the stumps are cypress knees (rounded cones of bark with a pale tip).
     /// Nothing opaque is drawn on bog tiles away from the bark. Colours are sRGB from the Plague theme, as the region atlas.
     /// </summary>
-    public static class BogTreeLandmark
+    public static partial class BogTreeLandmark
     {
         public const string TrunkName = "Bog tree trunk", StumpName = "Bog tree stump";
         /// <summary>P-UNITY-BOG-TREE-2: the crown's sprite object (one SpriteRenderer, also a roof renderer). The oracle finds the crown by this name; a
@@ -58,6 +58,7 @@ namespace Roguehalla.Client
             var tiles = new List<MapTile>();
             for (int y = 0; y < g.H; y++) for (int x = 0; x < g.W; x++) if (cover[y * g.W + x]) tiles.Add(new MapTile((ushort)(lm.FootX + x), (ushort)(lm.FootY + y)));
             lm.SetCover(tiles);
+            if (PaintStormInk(lm, g, cover, tiles)) return;
             var trunk = Vector2.zero;
             for (int k = 0; k < g.Groups; k++)
             {

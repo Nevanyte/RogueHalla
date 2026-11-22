@@ -6,6 +6,7 @@
 //   * the signature text cues (legacy MarkPlate.ts:39-44): TAXED, SUPPRESSED and EXEC BLOCKED, named instead of an unknown glyph (the tax
 //     percentage is not delivered, so no number is shown).
 // Owned by one OverheadIndicators (one actor); every renderer is a child of the actor root, so the vision fade reaches it.
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using Roguehalla.Net;
@@ -17,11 +18,12 @@ namespace Roguehalla.Client
     public sealed class OverheadExtras
     {
         public const byte TaxedBit = 16, SuppressedBit = 32, ExecBlockedBit = 64;
+        internal const string FireRoamPrefix = "Fire Roam ";
         const float RingK = .86f / .80f;
         readonly SpriteRenderer _fill, _ring, _edge, _elite1, _elite2, _star, _starBack, _cueBack;
         readonly TextMeshPro _cue;
         readonly SpriteRenderer[] _pips = new SpriteRenderer[4], _statEdge = new SpriteRenderer[2], _statBack = new SpriteRenderer[2], _statIcon = new SpriteRenderer[2];
-        readonly SpriteRenderer _pipTop, _brand, _immune, _roam1, _roam2;
+        readonly SpriteRenderer _pipTop, _brand, _immune, _roamWash, _roamEmber;
         static readonly string[] StatGlyphs = { "", "ad", "cast", "star", "antiheal", "haste", "armor", "dashring", "up", "droplet" };
         string _cueText; float _textFade = 1f; Color _cueBase;
         static Sprite _disc, _band;
@@ -47,8 +49,14 @@ namespace Roguehalla.Client
             var violet = theme.FactionColor((int)FactionId.Sentenced);
             _brand = Make(root, "Mark brand ring", GroundMarkArt.Ring(violet, true), -1);
             _immune = Make(root, "Teleport immunity ring", GroundMarkArt.Ring(new Color32(0x4f, 0xc3, 0xf7, 255), false, .03f), -1);
-            _roam1 = Make(root, "Roam ready ring outer", GroundMarkArt.Ring(new Color32(0xff, 0x8a, 0x3d, 255), false, .025f), -1);
-            _roam2 = Make(root, "Roam ready ring inner", GroundMarkArt.Ring(new Color32(0xff, 0xb7, 0x4d, 255), false, .025f), -1);
+            _roamWash = Make(root, FireRoamPrefix + "wash", WishFxArt.Get(WishFxArt.FireWash), -3);
+            _roamWash.transform.localPosition = new Vector3(-.23f, .38f, 0);
+            _roamWash.transform.localScale = new Vector3(1.31f, .72f, 1);
+            _roamWash.transform.localRotation = Quaternion.Euler(0, 0, 17f);
+            _roamEmber = Make(root, FireRoamPrefix + "ember", WishFxArt.Get(WishFxArt.FireFleck), -2);
+            _roamEmber.transform.localPosition = new Vector3(-.36f, .42f, 0);
+            _roamEmber.transform.localScale = new Vector3(.41f, .89f, 1);
+            _roamEmber.transform.localRotation = Quaternion.Euler(0, 0, -31f);
             var go = new GameObject("Signature cue"); go.transform.SetParent(root, false);
             _cue = go.AddComponent<TextMeshPro>();
             var font = Resources.Load<TMP_FontAsset>("Showcase/NunitoBold");
@@ -69,15 +77,35 @@ namespace Roguehalla.Client
         {
             _fill.enabled = _ring.enabled = _edge.enabled = _elite1.enabled = _elite2.enabled = _star.enabled = _starBack.enabled = _cueBack.enabled = false;
             foreach (var r in _pips) r.enabled = false;
-            _pipTop.enabled = _brand.enabled = _immune.enabled = _roam1.enabled = _roam2.enabled = false;
+            _pipTop.enabled = _brand.enabled = _immune.enabled = false;
+            HideFireRoam();
             for (int i = 0; i < 2; i++) _statEdge[i].enabled = _statBack[i].enabled = _statIcon[i].enabled = false;
             _cue.gameObject.SetActive(false); _cueText = null; _textFade = 1f;
         }
+
+        internal void HideFireRoam() => _roamWash.enabled = _roamEmber.enabled = false;
 
         public void ApplyOpacity(float alpha)
         {
             _textFade = alpha;
             if (_cue.gameObject.activeSelf) { var c = _cueBase; c.a *= alpha; _cue.color = c; }
+        }
+
+        internal bool HasSignatureCue => _cueBack.enabled && _cue.gameObject.activeInHierarchy;
+        internal Rect SignatureCueBounds => CombatHudPlacement.FromBounds(_cueBack.bounds);
+
+        internal void PlaceSignatureCue(Vector2 centre)
+        {
+            var at = _cueBack.transform.position;
+            _cueBack.transform.position = _cue.transform.position = new Vector3(centre.x, centre.y, at.z);
+        }
+
+        internal void AddMarkObstacles(List<Rect> into)
+        {
+            OverheadIndicators.AddVisibleRect(_starBack, into);
+            OverheadIndicators.AddVisibleRect(_pipTop, into);
+            foreach (var pip in _pips) OverheadIndicators.AddVisibleRect(pip, into);
+            foreach (var stat in _statBack) OverheadIndicators.AddVisibleRect(stat, into);
         }
 
         /// <summary>The cue text a signature byte calls for (null when none).</summary>
@@ -154,17 +182,15 @@ namespace Roguehalla.Client
                 float a = f.Reduced ? .9f : .7f + .3f * Mathf.Sin(Time.unscaledTime * 5f);
                 _immune.color = new Color(1, 1, 1, a); _immune.transform.localPosition = new Vector3(0, f.HeadY * .45f, 0); _immune.transform.localScale = new Vector3(1.5f, 1.5f * ArenaView.GroundSquash + .5f, 1); _immune.sortingOrder = f.Order + 1;
             }
-            // Fire roam ready (PlayerView.ts:309): a pulsing orange double ring.
-            bool roam = alive && m.Roam;
-            _roam1.enabled = _roam2.enabled = roam;
-            if (roam)
-            {
-                float p = f.Reduced ? 0f : .5f + .5f * Mathf.Sin(Time.unscaledTime * 7f);
-                _roam1.color = new Color(1, 1, 1, .55f + .4f * p); _roam2.color = new Color(1, 1, 1, .9f - .4f * p);
-                _roam1.transform.localPosition = _roam2.transform.localPosition = new Vector3(0, f.HeadY * .45f, 0);
-                _roam1.transform.localScale = Vector3.one * (1.15f + .1f * p) * 1.2f; _roam2.transform.localScale = Vector3.one * (.95f + .1f * p) * 1.2f;
-                _roam1.sortingOrder = _roam2.sortingOrder = f.Order + 1;
-            }
+            float charge = m.Roam ? 1f : f.Local ? Mathf.Clamp01(m.RoamCharge) : 0f;
+            _roamWash.enabled = _roamEmber.enabled = alive && charge > 0f;
+            if (!_roamWash.enabled) return;
+
+            float flicker = f.Reduced ? 1f : .92f + .08f * Mathf.Sin(Time.unscaledTime * 5f);
+            _roamWash.color = new Color(1f, .37f, .1f, .70f * charge);
+            _roamEmber.color = new Color(1f, .78f, .28f, .92f * charge * flicker);
+            _roamWash.sortingOrder = f.Order - 3;
+            _roamEmber.sortingOrder = f.Order - 2;
         }
 
         /// <summary>Hides the pips and stat marks; the layout's elements switch them on again (<see cref="Pips"/>, <see cref="StatMark"/>).</summary>

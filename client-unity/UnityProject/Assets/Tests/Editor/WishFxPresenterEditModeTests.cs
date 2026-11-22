@@ -133,6 +133,63 @@ namespace Roguehalla.Client.Tests
         }
 
         [Test]
+        public void BlazeLandingUsesTheDeliveredBlinkEndpointsAndItsServerCueLifetime()
+        {
+            var landed = Landed(3, 2000, 1, null, true, 10, 12, 18, 16);
+            _fx.Accept(landed); Frame(2000);
+            Assert.That(_fx.ActiveCueCount, Is.EqualTo(1), "the confirmed Blink is still in its landing phase at t=0");
+            var renderers = WishRenderers();
+            var trails = renderers.FindAll(r => r.sprite != null && r.sprite.name == WishFxArt.FireTrail);
+            Assert.That(trails.Count, Is.GreaterThanOrEqualTo(6), "three separated dry-brush spans replace the geometric beam");
+            Vector3 from = ArenaView.WorldPoint(10, 12), to = ArenaView.WorldPoint(18, 16);
+            Vector3 direction = (to - from).normalized; float length = (to - from).magnitude;
+            float visualStart = float.PositiveInfinity, visualEnd = float.NegativeInfinity;
+            foreach (var stroke in trails)
+            {
+                float along = Vector3.Dot(stroke.transform.position - from, direction);
+                float half = stroke.transform.localScale.x * .5f;
+                visualStart = Mathf.Min(visualStart, along - half); visualEnd = Mathf.Max(visualEnd, along + half);
+                Assert.That(along, Is.InRange(0f, length), "each ink span follows the delivered segment");
+            }
+            Assert.That(visualStart, Is.EqualTo(0f).Within(.08f), "first taper begins at the delivered origin");
+            Assert.That(visualEnd, Is.EqualTo(length).Within(.08f), "last taper reaches the delivered destination");
+            Assert.That(renderers.Exists(r => r.sprite != null && r.sprite.name == WishFxArt.FireWash), Is.True, "the landing leaves a soft pigment contact");
+            Frame(2699); Assert.That(_fx.ActiveCueCount, Is.EqualTo(1));
+            Frame(2700); Assert.That(_fx.ActiveCueCount, Is.Zero, "Blaze cue ends at its existing 700 ms presentation duration");
+        }
+
+        [Test]
+        public void GenericDotNeverBorrowsFireAttributionFromARecentBlaze()
+        {
+            _fx.SetOwner(2);
+            _rows.Add(Row(AreaKind.Trail, AbilityId.Blaze, 10, 10, 10, 14, 20, 1000, 3500, 2));
+            Frame(1500, WishEffectBits.Dot);
+            var renderers = WishRenderers();
+            Assert.That(renderers.Exists(r => r.sprite != null && r.sprite.name == WishFxArt.FireTrail), Is.True, "the delivered field is still painted");
+            Assert.That(renderers.Exists(r => r.sprite != null && r.sprite.name == WishFxArt.Flame), Is.False,
+                "the public Dot bit has no source identity and cannot authorize actor fire art");
+
+            _rows.Clear(); _fx.Reset(); Frame(1600, WishEffectBits.Dot);
+            Assert.That(_fx.SpritesDrawn, Is.Zero, "a generic DoT without a delivered Blaze field gets no fire overlay");
+        }
+
+        [Test]
+        public void FireBrushTexturesHavePigmentVariationAndTransparentMargins()
+        {
+            foreach (string key in new[] { WishFxArt.FireTrail, WishFxArt.FireWash, WishFxArt.FireFleck })
+            {
+                var texture = WishFxArt.Get(key).texture;
+                var pixels = texture.GetPixels32();
+                int visible = 0, translucent = 0;
+                foreach (var pixel in pixels) { if (pixel.a > 0) visible++; if (pixel.a > 0 && pixel.a < 240) translucent++; }
+                Assert.That(visible, Is.GreaterThan(100), key + " has painted pixels");
+                Assert.That(translucent, Is.GreaterThan(30), key + " has a dry, pigment-rich alpha profile");
+                Assert.That(pixels[0].a, Is.Zero, key + " keeps transparent edge padding");
+                Assert.That(pixels[pixels.Length - 1].a, Is.Zero, key + " keeps transparent edge padding");
+            }
+        }
+
+        [Test]
         public void EndedAndLandedClearTheirCastersTelegraphButNotALaterOne()
         {
             _fx.Accept(Started(2, 10, 1000, 1, null, 0, 0)); _fx.Accept(new WireFx { Kind = FxKind.WishEnded, Ability = 2, EventTime = 11, Caster = 1 });
@@ -288,6 +345,13 @@ namespace Roguehalla.Client.Tests
             _fx.NoteActor(1, ActorKind.Player, effects, alive);
             _fx.PresentAreas(_rows);
             _fx.Tick(ms, .016f);
+        }
+
+        List<SpriteRenderer> WishRenderers()
+        {
+            var pen = typeof(WishFxPresenter).GetField("_pen", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_fx);
+            var list = (List<SpriteRenderer>)pen.GetType().GetField("_list", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(pen);
+            return new List<SpriteRenderer>(list);
         }
 
         static AreaView Row(AreaKind kind, AbilityId ability, float x, float y, float x2, float y2, float r, double start, double end, uint? owner = null)

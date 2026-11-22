@@ -85,15 +85,17 @@ namespace Roguehalla.Client.Tests
             guide.Initialize((RectTransform)canvas.transform, faction => selected = faction);
             guide.ShowTab(HubGuideView.GuideTab.Champions);
 
-            string[] expected = { "Fire", "Sentenced", "Plague", "Frost", "Holy" };
+            string[] expected = { "Fire", "Haunted", "Plague", "Frost", "Holy" };
+            string[] roles = { "Burst duelist · woman", "Reaper bruiser · man", "Hooded infection necromancer", "Burly guardian · man", "Armored paladin · woman" };
             for (int i = 0; i < expected.Length; i++)
             {
                 var card = guide.Content.Find("Card_" + i);
                 Assert.IsNotNull(card, "Expected the guide card for " + expected[i]);
-                // A faction card leads with its generated pictogram (no bracket mark): the title sits in the Head row beside the icon.
+                // A faction card leads with its decorative portrait; the existing title and choice labels remain visible.
                 var title = card.Find("Head/Title") ?? card.Find("Title");
                 StringAssert.Contains(expected[i], title.GetComponent<TMPro.TMP_Text>().text);
                 StringAssert.DoesNotContain("[", title.GetComponent<TMPro.TMP_Text>().text);
+                StringAssert.Contains(roles[i], card.Find("Description").GetComponent<TMPro.TMP_Text>().text);
                 Assert.IsNotNull(card.Find("Head/FactionIcon"), "faction pictogram on the card for " + expected[i]);
                 Assert.IsNotNull(guide.Content.Find("FactionChoices/Faction_" + expected[i] + "/FactionIcon"), "faction pictogram on the button for " + expected[i]);
             }

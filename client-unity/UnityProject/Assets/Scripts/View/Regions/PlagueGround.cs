@@ -15,6 +15,7 @@ namespace Roguehalla.Client
         public readonly int W, H;
         /// <summary>Per tile: 0 not Plague floor, 1 mud, 2 grass, 3 shallow water.</summary>
         public readonly byte[] Kind;
+        byte[] _paintedVariants;
         public int MudTiles, GrassTiles, WaterTiles;
         public int FloorTiles { get { return MudTiles + GrassTiles + WaterTiles; } }
 
@@ -43,6 +44,7 @@ namespace Roguehalla.Client
             var g = new PlagueGround(map != null ? map.W : 0, map != null ? map.H : 0);
             if (map == null || map.Regions == null || map.Tiles == null) return g;
             int w = map.W, h = map.H; var tiles = map.Tiles; var regions = map.Regions; var terrain = RegionMap.EffectiveTerrain(map);
+            if (map.GroundVariants != null && StormInkWash(map) != null) g._paintedVariants = map.GroundVariants;
             bool dressed = RegionProps.IsDressed(map);   // the server dresses the ground: no noise water or mud of our own
             for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
             {
@@ -56,6 +58,26 @@ namespace Roguehalla.Client
                 if (k == Mud) g.MudTiles++; else if (k == Grass) g.GrassTiles++; else g.WaterTiles++;
             }
             return g;
+        }
+
+        internal static bool BindStormInkGround(Material material, MapBlob map)
+        {
+            var wash = StormInkWash(map);
+            if (wash == null) return false;
+            material.SetTexture("_StormMarshWash", wash);
+            material.SetFloat("_StormMarshOn", 1f);
+            return true;
+        }
+
+        static Texture2D StormInkWash(MapBlob map) => StormCypressGeometry.For(map).Eligible
+            ? Resources.Load<Texture2D>("StormInk/Plague/MarshWash") : null;
+
+        static byte PaintedKind(byte fallback, byte variant)
+        {
+            if (fallback == None) return None; // walls, non-Plague floor and effective terrain are ineligible
+            if (variant == 7) return Water;
+            if (variant == 8) return Mud;
+            return fallback;
         }
 
         static bool NearBog(byte[] terrain, int w, int h, int x, int y)
@@ -75,6 +97,7 @@ namespace Roguehalla.Client
         {
             byte k = KindAt(tx, ty); kind = SurfaceKind.None;
             if (k == None || region != RegionId.Plague) return false;
+            if (_paintedVariants != null) k = PaintedKind(k, _paintedVariants[ty * W + tx]);
             kind = k == Water ? SurfaceKind.ShallowWater : k == Grass ? SurfaceKind.Grass : SurfaceKind.Mud;
             return true;
         }
@@ -84,15 +107,21 @@ namespace Roguehalla.Client
         /// (0 at the shore, 1 well inside). Soft edges come from a box blur, then every texel over a tile that is not Plague floor is
         /// cleared, so water never reaches a wall, a low obstacle, a terrain surface or another region.
         /// </summary>
-        public Color32[] Bake(int texelsPerTile)
+        public Color32[] Bake(int texelsPerTile) => Bake(texelsPerTile, null);
+
+        public Color32[] Bake(int texelsPerTile, byte[] pigmentVariants)
         {
+            if (pigmentVariants != null && pigmentVariants.Length != W * H) pigmentVariants = null;
             int ow = W * texelsPerTile, oh = H * texelsPerTile;
             var px = new Color32[ow * oh];
             if (FloorTiles == 0) return px;
             var water = new float[ow * oh]; var grass = new float[ow * oh]; var depth = new float[ow * oh]; var tmp = new float[ow * oh];
             for (int y = 0; y < oh; y++) for (int x = 0; x < ow; x++)
             {
-                byte k = Kind[(y / texelsPerTile) * W + x / texelsPerTile];
+                int tile = (y / texelsPerTile) * W + x / texelsPerTile;
+                byte k = Kind[tile];
+                // Shipped variants opt into the same pigment and surface classification.
+                if (pigmentVariants != null) k = PaintedKind(k, pigmentVariants[tile]);
                 int i = y * ow + x; water[i] = k == Water ? 1f : 0f; grass[i] = k == Grass ? 1f : 0f;
             }
             System.Array.Copy(water, depth, water.Length);

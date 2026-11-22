@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2dfc6ebf3ff44954b620a9465c8d0ff3, type: 3}
+  m_Name: NaveMasonry
+  m_EditorClassIdentifier:
+  Wash: {fileID: 2800000, guid: 0da23dc052d244b6be8e2c2b3e46650d, type: 3}
+  CarvedFace: {fileID: 2800000, guid: 2ed12e75b48542508fc42f44ec4ff6c9, type: 3}
+  FaceBayUv: {x: 0.343, y: 0.657}
+  Stone: {r: 0.46, g: 0.44, b: 0.455, a: 1}
+  Ink: {r: 0.145, g: 0.14, b: 0.17, a: 1}
+  CutEdge: {r: 0.69, g: 0.64, b: 0.60, a: 1}
+  StonesPerUnit: 2
+  CourseHeight: 0.24
+  InteriorHeight: 0.82
+  CarvingStrength: 0.90
+  WashScale: 2.6

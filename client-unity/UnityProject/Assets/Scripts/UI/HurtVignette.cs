@@ -17,9 +17,11 @@ namespace Roguehalla.Client
         Texture2D _texture;
         public float Strength { get; private set; }
 
-        public HurtVignette()
+        public HurtVignette(Transform owner = null)
         {
             _go = new GameObject("Hurt vignette", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            if (!Application.isPlaying && owner != null)
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(_go, owner.gameObject.scene);
             var canvas = _go.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.sortingOrder = -10;
             var imgGo = new GameObject("Vignette", typeof(RectTransform), typeof(RawImage)); imgGo.transform.SetParent(_go.transform, false);
             var rt = (RectTransform)imgGo.transform; rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = rt.offsetMax = Vector2.zero;

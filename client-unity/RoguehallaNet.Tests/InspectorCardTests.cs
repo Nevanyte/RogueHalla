@@ -27,29 +27,29 @@ namespace Roguehalla.Net.Tests
 
         [Test] public void APlayerRowGivesTheKitLineThenTheHealthLine()
             => Assert.That(Lines(Row(FactionId.Fire, WeaponId.Sword, 63)),
-                Is.EqualTo(new[] { "Fire · Sword · Glass-cannon duelist", "Health 63%" }), "opponentInspector.ts:57-58; hp is a whole percent on the wire");
+                Is.EqualTo(new[] { "Fire · Sword · Burst duelist · woman", "Health 63%" }), "opponentInspector.ts:57-58; hp is a whole percent on the wire");
 
-        [TestCase(FactionId.Fire, "Fire · Bow · Glass-cannon duelist")]
-        [TestCase(FactionId.Sentenced, "Sentenced · Bow · Patient executioner")]
-        [TestCase(FactionId.Plague, "Plague · Bow · Attrition swarm")]
-        [TestCase(FactionId.Frost, "Frost · Bow · Control bruiser")]
-        [TestCase(FactionId.Holy, "Holy · Bow · Sustain juggernaut")]
+        [TestCase(FactionId.Fire, "Fire · Bow · Burst duelist · woman")]
+        [TestCase(FactionId.Sentenced, "Haunted · Bow · Reaper bruiser · man")]
+        [TestCase(FactionId.Plague, "Plague · Bow · Hooded infection necromancer")]
+        [TestCase(FactionId.Frost, "Frost · Bow · Burly guardian · man")]
+        [TestCase(FactionId.Holy, "Holy · Bow · Armored paladin · woman")]
         public void EveryFactionNamesItselfAndItsRole(FactionId f, string kit)
             => Assert.That(Lines(Row(f, WeaponId.Bow))[0], Is.EqualTo(kit));
 
         [TestCase(0, "Sword")] [TestCase(1, "Bow")] [TestCase(2, "Wand")] [TestCase(3, "Shield")] [TestCase(4, "Axe")] [TestCase(5, "Fists")]
         [TestCase(99, "Fists")]   // opponentInspector.ts:57 falls back to Fists for a code it does not know
         public void TheHeldWeaponIsNamedAndAnUnknownOneReadsAsFists(int code, string name)
-            => Assert.That(Lines(Row(FactionId.Frost, (WeaponId)code))[0], Is.EqualTo("Frost · " + name + " · Control bruiser"));
+            => Assert.That(Lines(Row(FactionId.Frost, (WeaponId)code))[0], Is.EqualTo("Frost · " + name + " · Burly guardian · man"));
 
         [Test] public void NoWeaponReadsAsFists()
-            => Assert.That(Lines(Row(FactionId.Holy, null))[0], Is.EqualTo("Holy · Fists · Sustain juggernaut"));
+            => Assert.That(Lines(Row(FactionId.Holy, null))[0], Is.EqualTo("Holy · Fists · Armored paladin · woman"));
 
         [Test] public void DeliveredInvestedStatsFollowAsChipsMostInvestedFirst()
         {
             var r = Row(FactionId.Plague, WeaponId.Axe, 40);
             r.TopStat1 = StatKey.Ad; r.TopStat2 = StatKey.Ap;
-            Assert.That(Lines(r), Is.EqualTo(new[] { "Plague · Axe · Attrition swarm", "Health 40%", "Offense", "Soul Offence" }),
+            Assert.That(Lines(r), Is.EqualTo(new[] { "Plague · Axe · Hooded infection necromancer", "Health 40%", "Offense", "Soul Offence" }),
                 "opponentInspector.ts:63-69 chips, combatReadability.ts:44-54 labels; topStats are investedStats.slice(0, 2)");
         }
 
@@ -59,7 +59,7 @@ namespace Roguehalla.Net.Tests
         public void EveryStatKeyHasItsLegacyLabelAndAMissingSecondIsOmitted(StatKey key, string label)
         {
             var r = Row(); r.TopStat1 = key;
-            Assert.That(Lines(r), Is.EqualTo(new[] { "Fire · Sword · Glass-cannon duelist", "Health 100%", label }));
+            Assert.That(Lines(r), Is.EqualTo(new[] { "Fire · Sword · Burst duelist · woman", "Health 100%", label }));
         }
 
         [Test] public void OnlyWhatTheWireCarriesAppearsNeverAPlaceholder()

@@ -1,0 +1,343 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 368862e204534de8b021d7a6c2f642a8, type: 3}
+  m_Name: FireAxeAuthoring
+  m_EditorClassIdentifier:
+  atlas: {fileID: 2800000, guid: b6015e7830af94d7db3e70f35110b883, type: 3}
+  columns: 18
+  worldHeight: 1.15
+  footPivot: {x: 0.5, y: 0.0390625}
+  idleFramesPerSecond: 4
+  guardColumns: 03000000
+  strideColumns: 04000000
+  directionalCycles:
+  - Row: 0
+    GuardAxeAngleDelta: 0
+    GuardColumns: 0300000008000000090000000a000000
+    StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
+  - Row: 1
+    GuardAxeAngleDelta: 0
+    GuardColumns: 0300000008000000090000000a000000
+    StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
+  - Row: 2
+    GuardAxeAngleDelta: 0
+    GuardColumns: 0300000008000000090000000a000000
+    StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
+  - Row: 3
+    GuardAxeAngleDelta: 0
+    GuardColumns: 0300000008000000090000000a000000
+    StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
+  - Row: 4
+    GuardAxeAngleDelta: 0
+    GuardColumns: 0300000008000000090000000a000000
+    StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
+  - Row: 5
+    GuardAxeAngleDelta: -88
+    GuardColumns: 0300000008000000090000000a000000
+    StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
+  - Row: 6
+    GuardAxeAngleDelta: 0
+    GuardColumns: 0300000008000000090000000a000000
+    StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
+  - Row: 7
+    GuardAxeAngleDelta: 0
+    GuardColumns: 0300000008000000090000000a000000
+    StrideColumns: 040000000b0000000c0000000d0000000e0000000f0000001000000011000000
+  palms:
+  - Right: {x: 38, y: 17}
+    Left: {x: 99, y: 72}
+  - Right: {x: 67, y: 103}
+    Left: {x: 91, y: 35}
+  - Right: {x: 63, y: 107}
+    Left: {x: 100, y: 62}
+  - Right: {x: 42, y: 82}
+    Left: {x: 100, y: 81}
+  - Right: {x: 55, y: 67}
+    Left: {x: 90, y: 64}
+  - Right: {x: 39, y: 84}
+    Left: {x: 83, y: 22}
+  - Right: {x: 32, y: 58}
+    Left: {x: 94, y: 75}
+  - Right: {x: 46, y: 66}
+    Left: {x: 95, y: 80}
+  - Right: {x: 43, y: 83}
+    Left: {x: 102, y: 80}
+  - Right: {x: 42, y: 82}
+    Left: {x: 101, y: 81}
+  - Right: {x: 42, y: 82}
+    Left: {x: 100, y: 81}
+  - Right: {x: 53, y: 69}
+    Left: {x: 88, y: 64}
+  - Right: {x: 51, y: 67}
+    Left: {x: 88, y: 62}
+  - Right: {x: 51, y: 71}
+    Left: {x: 90, y: 65}
+  - Right: {x: 47, y: 83}
+    Left: {x: 100, y: 77}
+  - Right: {x: 45, y: 86}
+    Left: {x: 102, y: 80}
+  - Right: {x: 41, y: 91}
+    Left: {x: 106, y: 87}
+  - Right: {x: 44, y: 81}
+    Left: {x: 99, y: 73}
+  - Right: {x: 56, y: 26}
+    Left: {x: 99, y: 68}
+  - Right: {x: 110, y: 95}
+    Left: {x: 38, y: 47}
+  - Right: {x: 89, y: 104}
+    Left: {x: 40, y: 54}
+  - Right: {x: 58, y: 71}
+    Left: {x: 106, y: 80}
+  - Right: {x: 44, y: 67}
+    Left: {x: 98, y: 58}
+  - Right: {x: 105, y: 91}
+    Left: {x: 22, y: 73}
+  - Right: {x: 34, y: 73}
+    Left: {x: 93, y: 75}
+  - Right: {x: 35, y: 56}
+    Left: {x: 100, y: 66}
+  - Right: {x: 59, y: 71}
+    Left: {x: 107, y: 80}
+  - Right: {x: 61, y: 71}
+    Left: {x: 110, y: 80}
+  - Right: {x: 58, y: 71}
+    Left: {x: 107, y: 80}
+  - Right: {x: 39, y: 66}
+    Left: {x: 96, y: 62}
+  - Right: {x: 36, y: 68}
+    Left: {x: 97, y: 61}
+  - Right: {x: 38, y: 69}
+    Left: {x: 99, y: 57}
+  - Right: {x: 52, y: 68}
+    Left: {x: 100, y: 66}
+  - Right: {x: 49, y: 69}
+    Left: {x: 105, y: 69}
+  - Right: {x: 50, y: 69}
+    Left: {x: 104, y: 67}
+  - Right: {x: 50, y: 68}
+    Left: {x: 103, y: 66}
+  - Right: {x: 82, y: 36}
+    Left: {x: 100, y: 63}
+  - Right: {x: 122, y: 71}
+    Left: {x: 27, y: 59}
+  - Right: {x: 95, y: 105}
+    Left: {x: 27, y: 62}
+  - Right: {x: 57, y: 86}
+    Left: {x: 102, y: 71}
+  - Right: {x: 60, y: 78}
+    Left: {x: 96, y: 71}
+  - Right: {x: 115, y: 72}
+    Left: {x: 12, y: 58}
+  - Right: {x: 51, y: 78}
+    Left: {x: 96, y: 57}
+  - Right: {x: 54, y: 74}
+    Left: {x: 106, y: 54}
+  - Right: {x: 57, y: 84}
+    Left: {x: 102, y: 71}
+  - Right: {x: 58, y: 84}
+    Left: {x: 103, y: 71}
+  - Right: {x: 56, y: 86}
+    Left: {x: 102, y: 70}
+  - Right: {x: 62, y: 77}
+    Left: {x: 99, y: 68}
+  - Right: {x: 63, y: 74}
+    Left: {x: 100, y: 69}
+  - Right: {x: 58, y: 75}
+    Left: {x: 95, y: 68}
+  - Right: {x: 64, y: 72}
+    Left: {x: 103, y: 62}
+  - Right: {x: 61, y: 72}
+    Left: {x: 100, y: 63}
+  - Right: {x: 56, y: 72}
+    Left: {x: 96, y: 60}
+  - Right: {x: 59, y: 74}
+    Left: {x: 96, y: 61}
+  - Right: {x: 88, y: 21}
+    Left: {x: 15, y: 77}
+  - Right: {x: 105, y: 25}
+    Left: {x: 25, y: 65}
+  - Right: {x: 95, y: 96}
+    Left: {x: 31, y: 73}
+  - Right: {x: 90, y: 77}
+    Left: {x: 39, y: 66}
+  - Right: {x: 93, y: 72}
+    Left: {x: 40, y: 67}
+  - Right: {x: 106, y: 40}
+    Left: {x: 15, y: 58}
+  - Right: {x: 76, y: 74}
+    Left: {x: 27, y: 61}
+  - Right: {x: 72, y: 87}
+    Left: {x: 30, y: 72}
+  - Right: {x: 88, y: 77}
+    Left: {x: 38, y: 65}
+  - Right: {x: 90, y: 75}
+    Left: {x: 38, y: 64}
+  - Right: {x: 91, y: 76}
+    Left: {x: 38, y: 66}
+  - Right: {x: 92, y: 74}
+    Left: {x: 37, y: 70}
+  - Right: {x: 93, y: 75}
+    Left: {x: 38, y: 71}
+  - Right: {x: 90, y: 68}
+    Left: {x: 41, y: 62}
+  - Right: {x: 90, y: 78}
+    Left: {x: 39, y: 68}
+  - Right: {x: 91, y: 75}
+    Left: {x: 39, y: 69}
+  - Right: {x: 96, y: 76}
+    Left: {x: 37, y: 74}
+  - Right: {x: 96, y: 74}
+    Left: {x: 35, y: 72}
+  - Right: {x: 90, y: 15}
+    Left: {x: 19, y: 66}
+  - Right: {x: 93, y: 27}
+    Left: {x: 29, y: 76}
+  - Right: {x: 83, y: 70}
+    Left: {x: 33, y: 72}
+  - Right: {x: 89, y: 76}
+    Left: {x: 41, y: 70}
+  - Right: {x: 90, y: 73}
+    Left: {x: 40, y: 66}
+  - Right: {x: 77, y: 24}
+    Left: {x: 29, y: 70}
+  - Right: {x: 94, y: 69}
+    Left: {x: 30, y: 78}
+  - Right: {x: 83, y: 70}
+    Left: {x: 33, y: 72}
+  - Right: {x: 88, y: 76}
+    Left: {x: 40, y: 70}
+  - Right: {x: 91, y: 76}
+    Left: {x: 40, y: 70}
+  - Right: {x: 89, y: 77}
+    Left: {x: 41, y: 68}
+  - Right: {x: 92, y: 75}
+    Left: {x: 36, y: 68}
+  - Right: {x: 95, y: 80}
+    Left: {x: 35, y: 74}
+  - Right: {x: 90, y: 71}
+    Left: {x: 40, y: 68}
+  - Right: {x: 90, y: 74}
+    Left: {x: 38, y: 67}
+  - Right: {x: 93, y: 80}
+    Left: {x: 36, y: 72}
+  - Right: {x: 92, y: 77}
+    Left: {x: 37, y: 70}
+  - Right: {x: 90, y: 73}
+    Left: {x: 38, y: 70}
+  - Right: {x: 70, y: 11}
+    Left: {x: 14, y: 82}
+  - Right: {x: 38, y: 24}
+    Left: {x: 28, y: 87}
+  - Right: {x: 84, y: 69}
+    Left: {x: 23, y: 68}
+  - Right: {x: 84, y: 63}
+    Left: {x: 25, y: 85}
+  - Right: {x: 86, y: 65}
+    Left: {x: 29, y: 84}
+  - Right: {x: 60, y: 69}
+    Left: {x: 103, y: 54}
+  - Right: {x: 101, y: 64}
+    Left: {x: 24, y: 57}
+  - Right: {x: 84, y: 69}
+    Left: {x: 23, y: 68}
+  - Right: {x: 83, y: 63}
+    Left: {x: 25, y: 85}
+  - Right: {x: 85, y: 63}
+    Left: {x: 25, y: 84}
+  - Right: {x: 85, y: 62}
+    Left: {x: 26, y: 83}
+  - Right: {x: 85, y: 64}
+    Left: {x: 30, y: 84}
+  - Right: {x: 82, y: 63}
+    Left: {x: 28, y: 84}
+  - Right: {x: 75, y: 61}
+    Left: {x: 31, y: 82}
+  - Right: {x: 86, y: 64}
+    Left: {x: 30, y: 86}
+  - Right: {x: 86, y: 65}
+    Left: {x: 30, y: 85}
+  - Right: {x: 85, y: 68}
+    Left: {x: 29, y: 86}
+  - Right: {x: 77, y: 62}
+    Left: {x: 30, y: 80}
+  - Right: {x: 49, y: 13}
+    Left: {x: 21, y: 80}
+  - Right: {x: 20, y: 65}
+    Left: {x: 103, y: 53}
+  - Right: {x: 78, y: 65}
+    Left: {x: 17, y: 72}
+  - Right: {x: 31, y: 59}
+    Left: {x: 64, y: 90}
+  - Right: {x: 38, y: 72}
+    Left: {x: 70, y: 98}
+  - Right: {x: 17, y: 52}
+    Left: {x: 105, y: 55}
+  - Right: {x: 84, y: 60}
+    Left: {x: 95, y: 72}
+  - Right: {x: 78, y: 65}
+    Left: {x: 17, y: 72}
+  - Right: {x: 28, y: 58}
+    Left: {x: 60, y: 90}
+  - Right: {x: 28, y: 59}
+    Left: {x: 58, y: 91}
+  - Right: {x: 31, y: 59}
+    Left: {x: 63, y: 90}
+  - Right: {x: 30, y: 74}
+    Left: {x: 63, y: 98}
+  - Right: {x: 32, y: 70}
+    Left: {x: 61, y: 97}
+  - Right: {x: 30, y: 73}
+    Left: {x: 50, y: 99}
+  - Right: {x: 56, y: 66}
+    Left: {x: 78, y: 70}
+  - Right: {x: 51, y: 66}
+    Left: {x: 72, y: 73}
+  - Right: {x: 47, y: 65}
+    Left: {x: 69, y: 72}
+  - Right: {x: 50, y: 64}
+    Left: {x: 73, y: 72}
+  - Right: {x: 38, y: 11}
+    Left: {x: 80, y: 82}
+  - Right: {x: 28, y: 99}
+    Left: {x: 95, y: 49}
+  - Right: {x: 32, y: 104}
+    Left: {x: 94, y: 59}
+  - Right: {x: 26, y: 83}
+    Left: {x: 101, y: 71}
+  - Right: {x: 36, y: 85}
+    Left: {x: 105, y: 64}
+  - Right: {x: 22, y: 66}
+    Left: {x: 105, y: 46}
+  - Right: {x: 41, y: 61}
+    Left: {x: 21, y: 61}
+  - Right: {x: 46, y: 77}
+    Left: {x: 18, y: 73}
+  - Right: {x: 25, y: 83}
+    Left: {x: 102, y: 72}
+  - Right: {x: 26, y: 82}
+    Left: {x: 101, y: 70}
+  - Right: {x: 26, y: 82}
+    Left: {x: 103, y: 71}
+  - Right: {x: 34, y: 84}
+    Left: {x: 98, y: 71}
+  - Right: {x: 34, y: 82}
+    Left: {x: 101, y: 68}
+  - Right: {x: 35, y: 82}
+    Left: {x: 101, y: 70}
+  - Right: {x: 52, y: 68}
+    Left: {x: 99, y: 62}
+  - Right: {x: 55, y: 72}
+    Left: {x: 102, y: 67}
+  - Right: {x: 56, y: 71}
+    Left: {x: 102, y: 62}
+  - Right: {x: 58, y: 70}
+    Left: {x: 104, y: 54}

@@ -1,7 +1,8 @@
 //! Oracle of P-MAPGEN-SIG-BLUEPRINT-1 (architecture review 2026-11-13, finding 2): one blueprint type
 //! (`signature::blueprint`), one per-landmark table (`signature::spec`), and the Frost cave, the Sentenced church and the
-//! Plague bog tree placed through one generic stamp, with no generated map changed. No legacy counterpart (DEV-020).
-//! Brief: `docs/backlog/packets/P-MAPGEN-SIG-BLUEPRINT-1.md`.
+//! Plague bog tree placed through one generic stamp. P-STORM-CHURCH-MAP-1 adds the approved rear opening; these tests
+//! pin the two-door drawing and its signature-on maps while option-off stays fixed. No legacy counterpart (DEV-020).
+//! Brief: `docs/backlog/packets/P-MAPGEN-SIG-BLUEPRINT-1.md` and `P-STORM-CHURCH-MAP-2.md`.
 //!
 //! Definitions (tile units; x to the right, y down):
 //! * a drawing: the lines of a `docs/landmarks/blueprints/*.txt` file that neither start with `;` nor are empty; grid
@@ -110,8 +111,8 @@ fn cave_legend() -> Legend {
 }
 
 /// The Sentenced church's legend as `church::blueprint` reads `church.txt` today: `#` and `P` the `Church` feature's
-/// walls; `G` (wall) and `+` (LOW, the fence terrain) the `Graveyard`; all four `Site::wall`; `.` and `*` plain; `E` and
-/// `D` (the church door) named marks.
+/// walls; `G` (wall) and `+` (LOW, the fence terrain) the `Graveyard`; all four `Site::wall`; `.` and `*` plain; `E`,
+/// `D` (front door) and `R` (rear door) named marks.
 fn church_legend() -> Legend {
     let church = |ch| {
         glyph(
@@ -143,6 +144,7 @@ fn church_legend() -> Legend {
         plain(b'*'),
         mark(b'E'),
         mark(b'D'),
+        mark(b'R'),
     ])
 }
 
@@ -364,8 +366,8 @@ fn every_drawing_parses_and_malformed_grids_do_not() {
 }
 
 /// The marks and the entrances the drawings hold (verified on the drawings by this oracle): the cave's `E` (14, 7) and
-/// mouth `D` (13-15, 28); the church's `E` (14, 7), door `D` (13-15, 16) and main gate, the open run of the front row
-/// through `E`'s column (12-16, 28); the tree's six causeway tiles on the box edge; the volcano's six outlet tiles on
+/// mouth `D` (13-15, 28); the church's `E` (14, 7), front door `D` (13-15, 16), rear door `R` (13-15, 3), and main
+/// yard gate, the open run of the front row through `E`'s column (12-16, 28); the tree's six causeway tiles on the box edge; the volcano's six outlet tiles on
 /// row 21 (columns 3, 4, 10, 11, 17, 18; the 22 x 22 drawing of P-MAPGEN-SIG-SCALE-4, was row 29 of the 30 x 30); the hall's two `E` on column 18 (rows 15 and 27), its shrine door `D`
 /// (17-19, 7) and its nave on the front row (15-21, 36). The front run counts only open tiles (a glyph writing nothing
 /// or floor): a wall beside the run on the front row is not gate (review note on `church::Blueprint::parse`, which
@@ -386,13 +388,22 @@ fn the_marks_and_the_entrances_are_found() {
     let church = parsed("church", church_text(), &church_legend());
     assert_eq!(
         church.marks(),
-        vec![(b'D', run(13, 15, 16)), (b'E', vec![(14, 7)])],
+        vec![
+            (b'D', run(13, 15, 16)),
+            (b'E', vec![(14, 7)]),
+            (b'R', run(13, 15, 3)),
+        ],
         "the church's marks"
+    );
+    assert_eq!(
+        church.entrance(EntranceRule::Mark(b'R')),
+        run(13, 15, 3),
+        "the church's rear door"
     );
     assert_eq!(
         church.entrance(EntranceRule::FrontRun(b'E')),
         run(12, 16, 28),
-        "the church's main gate"
+        "the church's main yard gate"
     );
     let tree = parsed("bog tree", bog_text(), &bog_legend());
     assert_eq!(tree.marks(), vec![], "the tree has no named mark");
@@ -1064,10 +1075,10 @@ fn placed_landed_rederives_every_written_cell() {
 // Guards: green on the stub, must stay green (digest neutrality). Pins: `tests/support/signature_pins.rs`.
 // ---------------------------------------------------------------------------------------------------------------------
 
-/// Guard. Seeds 1-32, option on: the same accepted attempt, the same `map_hash`, and the same map JSON once each
-/// anchor's entrance is sorted row-major. Every option-on map is byte-identical but for the entrance order.
+/// Seeds 1-32, option on: current approved-blueprint baseline after P-STORM-CHURCH-MAP-1. The church's rear `R` door
+/// intentionally changes signature-on map hashes/digests; all other results are held by the exact current pin table.
 #[test]
-fn option_on_maps_are_unchanged() {
+fn option_on_maps_match_current_blueprint_pins() {
     let pinned = pins::pinned_on_maps();
     for ((seed, m), (ps, attempt, hash, json)) in on_maps().iter().zip(pinned) {
         assert_eq!(*seed, ps, "pin order");
@@ -1079,11 +1090,11 @@ fn option_on_maps_are_unchanged() {
     }
 }
 
-/// Guard. Seeds 1-16, attempts 0-1, option on: the Landmarks phase leaves the same result (`pins::landmarks_digest`:
-/// anchors with sorted entrances, the stage's layers and masks, the step's terrain), refusals included. Same draws in
-/// the same order, the same tiles, owners and features.
+/// Seeds 1-16, attempts 0-1, option on: current Landmarks-phase baseline (`pins::landmarks_digest`: anchors with
+/// sorted entrances, the stage's layers and masks, the step's terrain), including refused attempts. The approved rear
+/// door changes successful church placements; the option-off pin remains independent and unchanged.
 #[test]
-fn the_landmarks_phase_is_unchanged() {
+fn the_landmarks_phase_matches_current_blueprint_pins() {
     let mut got = Vec::new();
     for seed in 1..=16 {
         for n in 0..2 {
@@ -1093,8 +1104,8 @@ fn the_landmarks_phase_is_unchanged() {
     assert_eq!(got, pins::pinned_landmarks().to_vec());
 }
 
-/// The pins' values on the current tree (not a gate check; run with `--ignored --nocapture` to re-pin
-/// `tests/support/signature_pins.rs`).
+/// The pins' values on the current tree (not a gate check; run with `--ignored --nocapture` to re-pin only the two
+/// signature-on arrays in `tests/support/signature_pins.rs`; `pinned_off` is not printed here).
 #[test]
 #[ignore]
 fn print_signature_pins() {

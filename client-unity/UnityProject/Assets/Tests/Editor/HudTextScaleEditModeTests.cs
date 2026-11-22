@@ -149,7 +149,7 @@ namespace Roguehalla.Client.Tests
 
             // Plate.
             Add("PlateStatus", (TMP_Text)GetField("_plateStatus"), banner);
-            Add("PlateVitals", (TMP_Text)GetField("_vitals"), "Sentenced · HP 1234.5 / 1234.5 · Barrier 123.4", "Waiting / spectating");
+            Add("PlateVitals", (TMP_Text)GetField("_vitals"), "Haunted · HP 1234.5 / 1234.5 · Barrier 123.4", "Waiting / spectating");
             Add("PlateCombatStats", (TMP_Text)GetField("_combatStats"), "Kills 123 · GV 12345 · Alive", "Awaiting player stats");
             Add("HpLabel", Find((RectTransform)GetField("_healthRow"), "HpLabel/Label"), "HP");
             Add("HpValue", (TMP_Text)GetField("_hpValue"), "1234/1234 +123<color=#E8B84A> · Bounty 12</color>");
@@ -165,7 +165,7 @@ namespace Roguehalla.Client.Tests
             Add("MobBonusRow", (TMP_Text)GetField("_mobText"), "Wolf ×12 +12.5% attack speed · Boar ×8 +1.5 armor");
 
             // Champion panel.
-            Add("ChampionName", (TMP_Text)GetField("_championName"), "Sentenced");
+            Add("ChampionName", (TMP_Text)GetField("_championName"), "Haunted");
             Add("ChampionWeapon", (TMP_Text)GetField("_damageWeapon"), "Shield");
             Add("ChampionRowName Attack", champLabel[0], "Shield hit");
             Add("ChampionRowName Passive", champLabel[1], "Dragonslayer");

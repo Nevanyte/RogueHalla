@@ -75,7 +75,7 @@ Shader "Roguehalla/ActorLit"
                 bool analytic = _RhLG.y > 0.5 && _RhLI.x > 0.5;      // actors are lit by the field (and the Light2D twins are masked off)
                 // Pseudo normal taps are computed here, outside any branch, so the derivatives are well defined.
                 float2 px = abs(float2(ddx(i.uv.x), ddy(i.uv.y))) + 1e-5;
-                float2 oa = px * 6.0, ol = px * 1.2, oi = px * 3.0;
+                float2 oa = px * 6.0, oi = px * 3.0;
                 float aR = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv + float2(oa.x, 0)).a, aL = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv - float2(oa.x, 0)).a;
                 float aU = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv + float2(0, oa.y)).a, aD = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv - float2(0, oa.y)).a;
                 // Interior mask: the outermost 3 px of the drawn silhouette are never touched by this shader (the character outline and its contrast belong to
@@ -84,8 +84,6 @@ Shader "Roguehalla/ActorLit"
                 float iU = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv + float2(0, oi.y)).a, iD = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv - float2(0, oi.y)).a;
                 float inner = smoothstep(0.6, 0.98, min(min(iR, iL), min(iU, iD)));
                 float3 lw = float3(0.2126, 0.7152, 0.0722);
-                float lR = dot(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv + float2(ol.x, 0)).rgb, lw), lL = dot(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv - float2(ol.x, 0)).rgb, lw);
-                float lU = dot(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv + float2(0, ol.y)).rgb, lw), lD = dot(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv - float2(0, ol.y)).rgb, lw);
                 SurfaceData2D surfaceData;
                 InputData2D inputData;
                 InitializeSurfaceData(main.rgb, main.a, analytic ? half4(0, 0, 0, 0) : mask, half3(0, 0, 1), surfaceData);
@@ -96,10 +94,11 @@ Shader "Roguehalla/ActorLit"
                     float2 pt = float2(i.world.x, -i.world.y / _RhMapInfo.z);
                     [branch] if (RhAnyLight(pt))
                     {
-                        float2 tilt = float2(-(aR - aL) * 1.1 - (lR - lL) * 0.9, (aU - aD) * 1.1 + (lU - lD) * 0.9);   // tile space: y is down
+                        // Fold and muscle shadows are already drawn. Only the broad silhouette turns toward a light.
+                        float2 tilt = float2(aL - aR, aU - aD) * .86;
                         float3 n = normalize(float3(tilt, 1.0));
                         float3 dif, spc;
-                        RhLocalLights(pt, n, 0.0, 12.0, 0.0, 0.0, 0.30, dif, spc);
+                        RhLocalLights(pt, n, 0.0, 12.0, 0.0, 0.0, 0.22, dif, spc);
                         float hr = RhHeadroom(lit.rgb);
                         lit.rgb += (main.rgb * dif * 0.8 * hr + spc * saturate(hr + 0.05)) * main.a * inner;
                     }

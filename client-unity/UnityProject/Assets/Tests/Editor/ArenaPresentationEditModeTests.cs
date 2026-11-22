@@ -234,15 +234,110 @@ namespace Roguehalla.Client.Tests
             var me=new SelfView{Id=91,X=200,Y=200,Hp=100,MaxHp=100,Status=ActorStatus.Alive,Faction=FactionId.Fire,Weapon=WeaponId.Bow};
             arena.Present(new List<InterpActor>(),me,null,0);
             var body=FindDirectChild(FindDirectChild(arena.transform,"Observed actor"),"Authored character").GetComponent<SpriteRenderer>();
-            var art=Resources.Load<ShowcaseCatalog>("Showcase/Catalog").Find("hero");
-            arena.ConfirmedFx(new ServerMsg.Fx{List=new List<WireFx>{new WireFx{Kind=FxKind.Swing,By=91}}});
+            var shots = new CollectionsView();
+            arena.PresentCollections(shots); // Establish the preceding empty projectile sample.
+            var state = new ServerMsg.State
+            {
+                Tick = 8,
+                Items = new StateItem[] { new ProjectilesState { Rows = new[]
+                {
+                    new WireProjectile { Kind = (byte)ProjectileKind.Arrow, Owner = 91,
+                        X = Quant.QuantizePos(200), Y = Quant.QuantizePos(200), Facing = Quant.QuantizeFacing(0f) },
+                } } },
+            };
+            typeof(CollectionsView).GetMethod("Apply", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Invoke(shots, new object[] { state });
+            arena.RetainObservedActors(new List<InterpActor>(), me, true);
+            arena.PresentCollections(shots);
             arena.Present(new List<InterpActor>(),me,null,0);
-            CollectionAssert.Contains(art.Shoot,body.sprite);
+            Assert.That(body.sprite.name, Is.EqualTo("FireBow/2/3"), "A delivered east arrow selects the authored Fire bow release frame.");
             me.Status=ActorStatus.Dead;
             arena.Present(new List<InterpActor>(),me,null,0);
-            CollectionAssert.Contains(art.Death,body.sprite);
+            Assert.That(body.sprite.name, Is.EqualTo("FireChampion/2/2"));
             Assert.That(body.transform.localRotation,Is.EqualTo(Quaternion.identity));
             Assert.That(me.Hp,Is.EqualTo(100),"art playback never applies game outcomes");
+        }
+
+        [Test]
+        public void ConfirmedBowCueUsesLegacyCatalogFallbackWhenFireBearingIsUnready()
+        {
+            var defaultField = typeof(StormInkFireBowAuthoring).GetField("_default",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            var previousAuthoring = defaultField.GetValue(null);
+            var production = Resources.Load<StormInkFireBowAuthoring>("StormInk/Actors/FireBowAuthoring");
+            var fallback = Object.Instantiate(production);
+            _assets.Add(fallback);
+            try
+            {
+                var readyRows = typeof(StormInkFireBowAuthoring).GetField("readyRows",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                ((bool[])readyRows.GetValue(fallback))[2] = false;
+                defaultField.SetValue(null, fallback);
+
+                var arena=CreateArena();
+                var me=new SelfView{Id=92,X=200,Y=200,Hp=100,MaxHp=100,Status=ActorStatus.Alive,Faction=FactionId.Fire,Weapon=WeaponId.Bow};
+                arena.Present(new List<InterpActor>(),me,null,0);
+                var body=FindDirectChild(FindDirectChild(arena.transform,"Observed actor"),"Authored character").GetComponent<SpriteRenderer>();
+                var shots = new CollectionsView();
+                arena.PresentCollections(shots);
+                var state = new ServerMsg.State
+                {
+                    Tick = 8,
+                    Items = new StateItem[] { new ProjectilesState { Rows = new[]
+                    {
+                        new WireProjectile { Kind = (byte)ProjectileKind.Arrow, Owner = 92,
+                            X = Quant.QuantizePos(200), Y = Quant.QuantizePos(200), Facing = Quant.QuantizeFacing(0f) },
+                    } } },
+                };
+                typeof(CollectionsView).GetMethod("Apply", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(shots, new object[] { state });
+                arena.PresentCollections(shots);
+                arena.Present(new List<InterpActor>(),me,null,0);
+                Assert.That(body.sprite.name, Is.EqualTo("FireChampion/2/3"),
+                    "An unready bearing continues to use the current catalog attack art after a delivered arrow.");
+                me.Status=ActorStatus.Dead;
+                arena.Present(new List<InterpActor>(),me,null,0);
+                Assert.That(body.sprite.name, Is.EqualTo("FireChampion/2/2"), "Delivered death still selects the catalog death frame.");
+                Assert.That(body.transform.localRotation,Is.EqualTo(Quaternion.identity));
+                Assert.That(me.Hp,Is.EqualTo(100),"art playback never applies game outcomes");
+            }
+            finally { defaultField.SetValue(null, previousAuthoring); }
+        }
+
+        [Test]
+        public void EquipmentPresentsAllEightFacingsWithoutSwappingTheHoldingHand()
+        {
+            var root = CreateObject("directional equipment test");
+            var presenter = new SpriteActorPresenter(root.transform, null);
+            for (int weapon = 0; weapon < 5; weapon++)
+            {
+                bool leftHand = weapon == (int)WeaponId.Bow || weapon == (int)WeaponId.Shield;
+                var facings = new HashSet<(Vector3, Quaternion, int)>();
+                var views = new HashSet<Sprite>();
+                for (int row = 0; row < 8; row++)
+                {
+                    float angle = (2 - row) * Mathf.PI / 4f; // S, SE, E, NE, N, NW, W, SW
+                    Assert.That(StormInkActors.PoseRowForFacing(angle), Is.EqualTo(row));
+                    presenter.Present(1, 0, 0, angle, 100, FactionId.Holy, ActorStatus.Alive, (WeaponId)weapon,
+                        ActorKind.Player, null, 0, 0, true);
+                    var actor = root.transform.Find("Observed actor");
+                    var body = actor.Find("Authored character").GetComponent<SpriteRenderer>();
+                    var held = actor.Find("Equipped weapon cue").GetComponent<SpriteRenderer>();
+                    Assert.That(held.sprite, Is.SameAs(StormInkWeaponArt.Get((WeaponId)weapon, row)));
+                    Assert.That(views.Add(held.sprite), Is.True, "each octant uses its own authored view");
+                    Assert.That(held.transform.localScale.x, Is.EqualTo(held.transform.localScale.y),
+                        "the directional sprite uses uniform scale");
+                    Vector2 uv = StormInkWeaponArt.Grip((WeaponId)weapon, row);
+                    var socket = (Vector2.Scale(uv, held.sprite.rect.size) - held.sprite.pivot) / held.sprite.pixelsPerUnit;
+                    var grip = held.transform.localPosition + held.transform.localRotation *
+                        Vector3.Scale(held.transform.localScale, socket);
+                    Assert.That(facings.Add((grip, held.transform.localRotation, held.sortingOrder)), Is.True);
+                    if (row == 0) Assert.That(grip.x < 0f, Is.EqualTo(!leftHand), "right hand appears on the viewer's left");
+                    if (row == 4) Assert.That(grip.x < 0f, Is.EqualTo(leftHand), "right hand stays on the actor's right from behind");
+                    if (row == 2) Assert.That(held.sortingOrder < body.sortingOrder, Is.EqualTo(leftHand));
+                    if (row == 6) Assert.That(held.sortingOrder < body.sortingOrder, Is.EqualTo(!leftHand));
+                }
+            }
         }
 
         [Test]
@@ -294,7 +389,7 @@ namespace Roguehalla.Client.Tests
                 footprints[faction] = FactionIndicators.GetFootprint(faction);
                 masks[faction] = footprints[faction].texture.GetPixels32();
                 Assert.That(footprints[faction], Is.Not.Null);
-                Assert.That(footprints[faction].name, Does.Contain(new[] { "Fire triangle", "Sentenced square", "Plague trefoil", "Frost hexagon", "Holy circle" }[faction]));
+                Assert.That(footprints[faction].name, Does.Contain(new[] { "Fire triangle", "Haunted square", "Plague trefoil", "Frost hexagon", "Holy circle" }[faction]));
                 Assert.That(CountOpaque(masks[faction]), Is.GreaterThan(150));
             }
             for (int a = 0; a < masks.Length; a++)

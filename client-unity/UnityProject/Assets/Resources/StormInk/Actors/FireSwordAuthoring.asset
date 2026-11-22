@@ -1,0 +1,499 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: adb05230e70c437b8804325a66927732, type: 3}
+  m_Name: FireSwordAuthoring
+  m_EditorClassIdentifier:
+  atlas: {fileID: 2800000, guid: a1d4c6990ad24503832553cde659d2fa, type: 3}
+  poses:
+  - Row: 0
+    Column: 0
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 0
+    Column: 1
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 0
+    Column: 2
+    WeaponAngleOffset: 45
+    WeaponDepthOffset: 0
+  - Row: 0
+    Column: 3
+    WeaponAngleOffset: 25
+    WeaponDepthOffset: 0
+  - Row: 0
+    Column: 4
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 0
+    Column: 5
+    WeaponAngleOffset: -60
+    WeaponDepthOffset: 0
+  - Row: 0
+    Column: 6
+    WeaponAngleOffset: -20
+    WeaponDepthOffset: 0
+  - Row: 0
+    Column: 7
+    WeaponAngleOffset: 170
+    WeaponDepthOffset: 0
+  - Row: 0
+    Column: 8
+    WeaponAngleOffset: 110
+    WeaponDepthOffset: 0
+  - Row: 0
+    Column: 9
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 1
+    Column: 0
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 1
+    Column: 1
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 1
+    Column: 2
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 1
+    Column: 3
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 1
+    Column: 4
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 1
+    Column: 5
+    WeaponAngleOffset: -60
+    WeaponDepthOffset: 0
+  - Row: 1
+    Column: 6
+    WeaponAngleOffset: -20
+    WeaponDepthOffset: 0
+  - Row: 1
+    Column: 7
+    WeaponAngleOffset: 55
+    WeaponDepthOffset: 0
+  - Row: 1
+    Column: 8
+    WeaponAngleOffset: 36
+    WeaponDepthOffset: 0
+  - Row: 1
+    Column: 9
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 2
+    Column: 0
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 2
+    Column: 1
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 2
+    Column: 2
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 2
+    Column: 3
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 2
+    Column: 4
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 2
+    Column: 5
+    WeaponAngleOffset: -60
+    WeaponDepthOffset: 0
+  - Row: 2
+    Column: 6
+    WeaponAngleOffset: -20
+    WeaponDepthOffset: 0
+  - Row: 2
+    Column: 7
+    WeaponAngleOffset: 47
+    WeaponDepthOffset: 0
+  - Row: 2
+    Column: 8
+    WeaponAngleOffset: 31
+    WeaponDepthOffset: 0
+  - Row: 2
+    Column: 9
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 3
+    Column: 0
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 3
+    Column: 1
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 3
+    Column: 2
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 3
+    Column: 3
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 3
+    Column: 4
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 3
+    Column: 5
+    WeaponAngleOffset: -60
+    WeaponDepthOffset: 0
+  - Row: 3
+    Column: 6
+    WeaponAngleOffset: -20
+    WeaponDepthOffset: 0
+  - Row: 3
+    Column: 7
+    WeaponAngleOffset: 39
+    WeaponDepthOffset: 0
+  - Row: 3
+    Column: 8
+    WeaponAngleOffset: 25
+    WeaponDepthOffset: 0
+  - Row: 3
+    Column: 9
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 4
+    Column: 0
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 4
+    Column: 1
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 4
+    Column: 2
+    WeaponAngleOffset: 48
+    WeaponDepthOffset: 0
+  - Row: 4
+    Column: 3
+    WeaponAngleOffset: 42
+    WeaponDepthOffset: 0
+  - Row: 4
+    Column: 4
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 4
+    Column: 5
+    WeaponAngleOffset: -60
+    WeaponDepthOffset: 0
+  - Row: 4
+    Column: 6
+    WeaponAngleOffset: -20
+    WeaponDepthOffset: 0
+  - Row: 4
+    Column: 7
+    WeaponAngleOffset: 120
+    WeaponDepthOffset: 0
+  - Row: 4
+    Column: 8
+    WeaponAngleOffset: 124
+    WeaponDepthOffset: 0
+  - Row: 4
+    Column: 9
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 5
+    Column: 0
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: -4
+  - Row: 5
+    Column: 1
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: -4
+  - Row: 5
+    Column: 2
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 5
+    Column: 3
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 5
+    Column: 4
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: -4
+  - Row: 5
+    Column: 5
+    WeaponAngleOffset: -60
+    WeaponDepthOffset: -4
+  - Row: 5
+    Column: 6
+    WeaponAngleOffset: -20
+    WeaponDepthOffset: -4
+  - Row: 5
+    Column: 7
+    WeaponAngleOffset: -34
+    WeaponDepthOffset: 0
+  - Row: 5
+    Column: 8
+    WeaponAngleOffset: -40
+    WeaponDepthOffset: 0
+  - Row: 5
+    Column: 9
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 6
+    Column: 0
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 6
+    Column: 1
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 6
+    Column: 2
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 6
+    Column: 3
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 6
+    Column: 4
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 6
+    Column: 5
+    WeaponAngleOffset: -60
+    WeaponDepthOffset: 0
+  - Row: 6
+    Column: 6
+    WeaponAngleOffset: -20
+    WeaponDepthOffset: 0
+  - Row: 6
+    Column: 7
+    WeaponAngleOffset: -45
+    WeaponDepthOffset: 0
+  - Row: 6
+    Column: 8
+    WeaponAngleOffset: -29
+    WeaponDepthOffset: 0
+  - Row: 6
+    Column: 9
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 7
+    Column: 0
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 7
+    Column: 1
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 7
+    Column: 2
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 7
+    Column: 3
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 7
+    Column: 4
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  - Row: 7
+    Column: 5
+    WeaponAngleOffset: -60
+    WeaponDepthOffset: 0
+  - Row: 7
+    Column: 6
+    WeaponAngleOffset: -20
+    WeaponDepthOffset: 0
+  - Row: 7
+    Column: 7
+    WeaponAngleOffset: -74
+    WeaponDepthOffset: 0
+  - Row: 7
+    Column: 8
+    WeaponAngleOffset: -48
+    WeaponDepthOffset: 0
+  - Row: 7
+    Column: 9
+    WeaponAngleOffset: 0
+    WeaponDepthOffset: 0
+  palms:
+  - Right: {x: 52, y: 76}
+    Left: {x: 92, y: 73}
+  - Right: {x: 53, y: 73}
+    Left: {x: 92, y: 62}
+  - Right: {x: 74, y: 90}
+    Left: {x: 116, y: 59}
+  - Right: {x: 64, y: 73}
+    Left: {x: 110, y: 70}
+  - Right: {x: 53, y: 75}
+    Left: {x: 90, y: 72}
+  - Right: {x: 39, y: 103}
+    Left: {x: 97, y: 83}
+  - Right: {x: 55, y: 66}
+    Left: {x: 97, y: 76}
+  - Right: {x: 37, y: 20}
+    Left: {x: 94, y: 76}
+  - Right: {x: 48, y: 33}
+    Left: {x: 93, y: 77}
+  - Right: {x: 49, y: 40}
+    Left: {x: 92, y: 76}
+  - Right: {x: 56, y: 71}
+    Left: {x: 95, y: 66}
+  - Right: {x: 56, y: 67}
+    Left: {x: 88, y: 58}
+  - Right: {x: 117, y: 65}
+    Left: {x: 51, y: 62}
+  - Right: {x: 63, y: 68}
+    Left: {x: 97, y: 64}
+  - Right: {x: 60, y: 71}
+    Left: {x: 91, y: 66}
+  - Right: {x: 49, y: 105}
+    Left: {x: 101, y: 78}
+  - Right: {x: 64, y: 70}
+    Left: {x: 96, y: 71}
+  - Right: {x: 90, y: 18}
+    Left: {x: 33, y: 73}
+  - Right: {x: 57, y: 33}
+    Left: {x: 93, y: 69}
+  - Right: {x: 54, y: 37}
+    Left: {x: 94, y: 68}
+  - Right: {x: 57, y: 71}
+    Left: {x: 96, y: 62}
+  - Right: {x: 82, y: 64}
+    Left: {x: 101, y: 61}
+  - Right: {x: 121, y: 55}
+    Left: {x: 41, y: 68}
+  - Right: {x: 67, y: 60}
+    Left: {x: 92, y: 61}
+  - Right: {x: 56, y: 63}
+    Left: {x: 86, y: 57}
+  - Right: {x: 45, y: 102}
+    Left: {x: 101, y: 79}
+  - Right: {x: 67, y: 61}
+    Left: {x: 94, y: 70}
+  - Right: {x: 94, y: 13}
+    Left: {x: 34, y: 69}
+  - Right: {x: 55, y: 28}
+    Left: {x: 90, y: 63}
+  - Right: {x: 52, y: 32}
+    Left: {x: 89, y: 60}
+  - Right: {x: 100, y: 69}
+    Left: {x: 111, y: 48}
+  - Right: {x: 122, y: 57}
+    Left: {x: 62, y: 63}
+  - Right: {x: 122, y: 42}
+    Left: {x: 38, y: 68}
+  - Right: {x: 105, y: 61}
+    Left: {x: 112, y: 53}
+  - Right: {x: 98, y: 64}
+    Left: {x: 105, y: 53}
+  - Right: {x: 73, y: 108}
+    Left: {x: 108, y: 68}
+  - Right: {x: 81, y: 64}
+    Left: {x: 100, y: 61}
+  - Right: {x: 94, y: 15}
+    Left: {x: 35, y: 70}
+  - Right: {x: 67, y: 26}
+    Left: {x: 88, y: 60}
+  - Right: {x: 60, y: 38}
+    Left: {x: 88, y: 59}
+  - Right: {x: 81, y: 61}
+    Left: {x: 36, y: 71}
+  - Right: {x: 111, y: 42}
+    Left: {x: 51, y: 64}
+  - Right: {x: 92, y: 38}
+    Left: {x: 37, y: 75}
+  - Right: {x: 91, y: 41}
+    Left: {x: 35, y: 66}
+  - Right: {x: 84, y: 48}
+    Left: {x: 34, y: 70}
+  - Right: {x: 94, y: 103}
+    Left: {x: 35, y: 72}
+  - Right: {x: 95, y: 62}
+    Left: {x: 35, y: 73}
+  - Right: {x: 94, y: 10}
+    Left: {x: 35, y: 70}
+  - Right: {x: 78, y: 23}
+    Left: {x: 31, y: 73}
+  - Right: {x: 82, y: 30}
+    Left: {x: 32, y: 68}
+  - Right: {x: 53, y: 49}
+    Left: {x: 9, y: 74}
+  - Right: {x: 55, y: 48}
+    Left: {x: 8, y: 71}
+  - Right: {x: 5, y: 37}
+    Left: {x: 79, y: 70}
+  - Right: {x: 25, y: 56}
+    Left: {x: 31, y: 74}
+  - Right: {x: 70, y: 52}
+    Left: {x: 30, y: 70}
+  - Right: {x: 47, y: 66}
+    Left: {x: 9, y: 80}
+  - Right: {x: 50, y: 52}
+    Left: {x: 9, y: 78}
+  - Right: {x: 78, y: 10}
+    Left: {x: 29, y: 75}
+  - Right: {x: 66, y: 19}
+    Left: {x: 30, y: 74}
+  - Right: {x: 65, y: 32}
+    Left: {x: 31, y: 78}
+  - Right: {x: 23, y: 65}
+    Left: {x: 49, y: 93}
+  - Right: {x: 33, y: 66}
+    Left: {x: 68, y: 85}
+  - Right: {x: 7, y: 57}
+    Left: {x: 107, y: 74}
+  - Right: {x: 26, y: 64}
+    Left: {x: 97, y: 84}
+  - Right: {x: 47, y: 65}
+    Left: {x: 75, y: 93}
+  - Right: {x: 28, y: 99}
+    Left: {x: 97, y: 85}
+  - Right: {x: 41, y: 72}
+    Left: {x: 97, y: 87}
+  - Right: {x: 31, y: 24}
+    Left: {x: 94, y: 75}
+  - Right: {x: 49, y: 29}
+    Left: {x: 92, y: 81}
+  - Right: {x: 44, y: 45}
+    Left: {x: 95, y: 85}
+  - Right: {x: 47, y: 65}
+    Left: {x: 84, y: 86}
+  - Right: {x: 29, y: 70}
+    Left: {x: 103, y: 77}
+  - Right: {x: 7, y: 66}
+    Left: {x: 108, y: 66}
+  - Right: {x: 28, y: 64}
+    Left: {x: 105, y: 78}
+  - Right: {x: 46, y: 66}
+    Left: {x: 82, y: 88}
+  - Right: {x: 22, y: 101}
+    Left: {x: 98, y: 79}
+  - Right: {x: 35, y: 73}
+    Left: {x: 100, y: 82}
+  - Right: {x: 23, y: 23}
+    Left: {x: 104, y: 70}
+  - Right: {x: 40, y: 30}
+    Left: {x: 101, y: 79}
+  - Right: {x: 31, y: 44}
+    Left: {x: 100, y: 81}
+  releaseATiming: {PassingAt: 0.2, RecoveryAt: 0.72}
+  releaseBTiming: {PassingAt: 0.2, RecoveryAt: 0.72}

@@ -12,7 +12,7 @@
     "crates/rh-persist/tests/fixtures/achievements.json": "4cba6907bc6d0e28f5429610928922e846d203f055849f4f2b37e0d589e0be4d"
   },
   "outputs": {
-    "cosmetics.json": "bb136e1aec5e3d7744a84068c4935ad0dbd0aa17d395ab00bce0e049c7b398ce",
-    "achievements.json": "5ecb6c9cba3c52f6c5bb8c282c67abda40bb29ae6245818a4ca495b20c258f47"
+    "cosmetics.json": "dd37b82f4df85c0cf7320df60d7e0e872801bce06c3cea18332e8538155c0b73",
+    "achievements.json": "7c60f60bc093517d13df863141df2025d4a31811b38ea7c53be619151dc5d7c1"
   }
 }

@@ -27,9 +27,9 @@ namespace Roguehalla.Client
 
         /// <summary>Builds the closed-gate rows of <paramref name="map"/> (none without coliseum gates) with the wall
         /// <paramref name="material"/> (owned by <see cref="RegionWalls"/>), hidden until <see cref="SetLocked"/>.</summary>
-        public static ColiseumGateWalls Build(Transform parent, MapBlob map, Material material)
+        public static ColiseumGateWalls Build(Transform parent, MapBlob map, Material material, HashSet<int> painted = null)
         {
-            var g = new ColiseumGateWalls(); g.Create(parent, map, material); return g;
+            var g = new ColiseumGateWalls(); g.Create(parent, map, material, painted); return g;
         }
 
         /// <summary>Shows the closed gates while <paramref name="locked"/>; hides them when open.</summary>
@@ -55,12 +55,14 @@ namespace Roguehalla.Client
                 new Vector2(cell.Min.x, cell.Min.y), new Vector2(cell.Max.x, cell.Min.y), new Vector2(cell.Max.x, cell.Max.y), new Vector2(cell.Min.x, cell.Max.y), col);
         }
 
-        void Create(Transform parent, MapBlob map, Material material)
+        void Create(Transform parent, MapBlob map, Material material, HashSet<int> painted)
         {
             var gateTiles = new List<MapTile>();
             ColiseumGates.ClosedTiles(map, true, gateTiles);
+            if (painted != null && map != null) gateTiles.RemoveAll(tile => painted.Contains(tile.Y * map.W + tile.X));
+            if (gateTiles.Count == 0 || material == null) return;
             MapBlob closed = ColiseumGates.ClosedMap(map);
-            if (gateTiles.Count == 0 || closed == null || material == null) return;
+            if (closed == null) return;
             _root = new GameObject("Coliseum gates (closed)"); _root.transform.SetParent(parent, false);
             _owned.Add(_root);
             int w = closed.W, h = closed.H; var tiles = closed.Tiles;
