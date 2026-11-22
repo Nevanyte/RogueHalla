@@ -16,6 +16,9 @@ namespace Roguehalla.Net
         void Poll();
     }
 
+    /// <summary>Why a session ended as Failed; <see cref="ConnectionCopy.ForFailure"/> words it for the player. <c>Session.Error</c> keeps the raw text for logs.</summary>
+    public enum FailureKind { None, ConnectTimeout, ClosedBeforeWelcome, LostConnection, Other }
+
     public enum SessionState { Idle, Connecting, HelloSent, InMatch, Reconnecting, Ended, Rejected, Failed, Detached }
 
     public sealed class SessionOptions
@@ -29,8 +32,13 @@ namespace Roguehalla.Net
         /// <summary>0 means "unknown": the server answers ContentMismatch and its reason names the hash.</summary>
         public ulong ContentHash;
         public byte? Faction;
-        public int MaxReconnectAttempts = 5;
-        public double ReconnectBaseMs = 500, ReconnectMaxMs = 8000, PingIntervalMs = 1000;
+        /// <summary>Hard cap on reconnect attempts; by default only <see cref="ReconnectBudgetMs"/> limits them.</summary>
+        public int MaxReconnectAttempts = int.MaxValue;
+        public double ReconnectBaseMs = 500, ReconnectMaxMs = 5000, PingIntervalMs = 1000;
+        /// <summary>P-ALPHA-CLIENT-1 a connect, Hello or reconnect attempt not answered by a Welcome within this long becomes Failed (ConnectTimeout), or counts as a failed attempt when resuming.</summary>
+        public double ConnectTimeoutMs = 10000;
+        /// <summary>P-ALPHA-CLIENT-1 a dropped seat keeps retrying until this long after the drop.</summary>
+        public double ReconnectBudgetMs = 55000;
         /// <summary>
         /// A Resync still unanswered after this long is sent again with the next refused delta. The server never drops a Resync
         /// and answers within one second (it spaces forced Full frames by 20 ticks), so this only matters if a request or its
@@ -55,6 +63,7 @@ namespace Roguehalla.Net
         int _attempt;
         double _nextAttemptAt, _lastPing = double.NegativeInfinity;
         bool _attemptInFlight;
+        double _connectDeadline = double.PositiveInfinity, _dropAt;
         bool _leaveSent;
         // Snapshots arrive as Full frames and deltas (protocol v3): the tracker holds the last one applied. After a refused delta
         // the session asks for a Full snapshot once and ignores deltas (they all name a base it does not hold) until one arrives;
@@ -112,6 +121,24 @@ namespace Roguehalla.Net
         public double ServerTimeMs { get { return Latest == null ? 0 : Latest.ServerMs; } }
         public WireResult LastResult { get; private set; }
         public int ReconnectAttempt { get { return _attempt; } }
+        /// <summary>How many reconnect attempts fit the budget (and the explicit cap), for a banner "(3/12)".</summary>
+        public int ReconnectAttemptMax
+        {
+            get
+            {
+                int n = 0;
+                double at = 0;
+                while (n < _o.MaxReconnectAttempts && n < 1000)
+                {
+                    at += Backoff(n + 1);
+                    if (at > _o.ReconnectBudgetMs) break;
+                    n++;
+                }
+                return n;
+            }
+        }
+        /// <summary>The kind of the last Failed state.</summary>
+        public FailureKind FailureKind { get; private set; }
         public int SnapshotsReceived { get; private set; }
         public int DecodeErrors { get; private set; }
         public int Ignored { get; private set; }
@@ -181,6 +208,8 @@ namespace Roguehalla.Net
             // An imported capability can only restore its expected seat, never become a fresh admission.
             if (_initialResume != null && State != SessionState.Idle) return;
             _leaveSent = false;
+            FailureKind = FailureKind.None;
+            _connectDeadline = _o.Now == null ? double.PositiveInfinity : Now + _o.ConnectTimeoutMs;
             Set(SessionState.Connecting);
             if (!_detached) _t.Connect(_o.Url);
         }
@@ -229,6 +258,13 @@ namespace Roguehalla.Net
             return Cast(slot, x, y, actorRef, Clock.RenderMs);
         }
 
+        /// <summary>Skips the wait before the next reconnect attempt (the tab came back to the foreground); no-op unless Reconnecting with no attempt in flight.</summary>
+        public void RetryNow()
+        {
+            if (_detached || State != SessionState.Reconnecting || _attemptInFlight) return;
+            _nextAttemptAt = 0;
+        }
+
         public void Leave()
         {
             if (_detached) return;
@@ -238,6 +274,7 @@ namespace Roguehalla.Net
                 Send(new ClientMsg.Leave());
                 _leaveSent = true;
             }
+            _connectDeadline = double.PositiveInfinity;
             Set(SessionState.Ended);
             if (!_detached) _t.Close();
         }
@@ -252,7 +289,7 @@ namespace Roguehalla.Net
             if (_detached) return;
             _detached = true; // Terminal before any subscriber or transport callback can reenter.
             _resuming = _attemptInFlight = false;
-            _attempt = 0; _nextAttemptAt = 0;
+            _attempt = 0; _nextAttemptAt = 0; _connectDeadline = double.PositiveInfinity;
             Input.ClearPending();
             _t.Opened -= OnOpened;
             _t.Received -= OnReceived;
@@ -282,7 +319,20 @@ namespace Roguehalla.Net
             if (State == SessionState.Reconnecting && !_attemptInFlight && now >= _nextAttemptAt)
             {
                 _attemptInFlight = true;
+                _connectDeadline = now + _o.ConnectTimeoutMs;
                 _t.Connect(_o.Url);
+                if (_detached) return;
+            }
+            if (now >= _connectDeadline && (State == SessionState.Connecting || State == SessionState.HelloSent || State == SessionState.Reconnecting && _attemptInFlight))
+            {
+                _connectDeadline = double.PositiveInfinity;
+                _attemptInFlight = false;
+                // Close first: a late Opened of the abandoned socket must not be taken for a new one.
+                _t.Close();
+                if (_detached) return;
+                if (_resuming) ScheduleRetry("attempt timed out");
+                else Fail("no welcome within " + _o.ConnectTimeoutMs + " ms", FailureKind.ConnectTimeout);
+                if (_detached) return;
             }
             if (State != SessionState.InMatch) return;
             if (now - _lastPing >= _o.PingIntervalMs) { _lastPing = now; Send(Sync.MakePing(now)); }
@@ -347,7 +397,7 @@ namespace Roguehalla.Net
                 case SessionState.InMatch:
                     _resuming = SessionToken != null;
                     if (_resuming) { _attempt = 0; ScheduleRetry(reason); }
-                    else Fail("connection closed: " + reason);
+                    else Fail("connection closed: " + reason, FailureKind.LostConnection);
                     break;
                 case SessionState.Reconnecting:
                 case SessionState.HelloSent when _resuming:
@@ -356,7 +406,7 @@ namespace Roguehalla.Net
                     break;
                 case SessionState.Connecting:
                 case SessionState.HelloSent:
-                    Fail("closed before welcome: " + reason);
+                    Fail("closed before welcome: " + reason, FailureKind.ClosedBeforeWelcome);
                     break;
             }
         }
@@ -364,13 +414,21 @@ namespace Roguehalla.Net
         void ScheduleRetry(string reason)
         {
             if (_detached) return;
-            if (++_attempt > _o.MaxReconnectAttempts) { Fail("reconnect failed after " + _o.MaxReconnectAttempts + " attempts: " + reason); return; }
-            double backoff = Math.Min(_o.ReconnectMaxMs, _o.ReconnectBaseMs * Math.Pow(2, _attempt - 1));
+            _connectDeadline = double.PositiveInfinity;
+            if (++_attempt == 1) _dropAt = Now;
+            double backoff = Backoff(_attempt);
+            if (_attempt > _o.MaxReconnectAttempts || Now + backoff - _dropAt > _o.ReconnectBudgetMs)
+            {
+                Fail("reconnect failed after " + (_attempt - 1) + " attempts: " + reason, FailureKind.LostConnection);
+                return;
+            }
             _nextAttemptAt = Now + backoff;
             Set(SessionState.Reconnecting);
         }
 
-        void Fail(string why) { Error = why; Set(SessionState.Failed); }
+        double Backoff(int attempt) { return Math.Min(_o.ReconnectMaxMs, _o.ReconnectBaseMs * Math.Pow(2, Math.Min(attempt, 60) - 1)); }
+
+        void Fail(string why, FailureKind kind = FailureKind.Other) { Error = why; FailureKind = kind; _connectDeadline = double.PositiveInfinity; Set(SessionState.Failed); }
 
         void OnReceived(byte[] frame)
         {
@@ -453,6 +511,7 @@ namespace Roguehalla.Net
                     return;
                 }
                 _resumeTerminated = _initialResume != null;
+                _connectDeadline = double.PositiveInfinity;
                 Set(SessionState.Rejected);
                 if (!_detached) _t.Close();
                 return;
@@ -470,6 +529,7 @@ namespace Roguehalla.Net
                 {
                     DecodeErrors++;
                     Error = "bad server collection state: " + e.Message;
+                    FailureKind = FailureKind.Other;
                     Set(SessionState.Failed);
                     if (!_detached) _t.Close();
                     return;
@@ -645,6 +705,7 @@ namespace Roguehalla.Net
                 if (!_detached) _t.Close();
                 return;
             }
+            _connectDeadline = double.PositiveInfinity;
             Welcome = w;
             SessionToken = w.Session;
             _resuming = false;
