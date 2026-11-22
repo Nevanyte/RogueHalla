@@ -37,6 +37,8 @@ namespace Roguehalla.Client
         // Keep the authoring sources alive as long as their preview atlas. Otherwise editor cleanup
         // can unload an unchanged source and its next load calls OnValidate in the middle of placement.
         static StormInkPropArtDefinition[] _previewSources;
+        // The region transitions are an atlas source too (the winter sedge) and dirty the atlas from OnValidate, so they are kept the same way.
+        static RegionTransitionArt _previewTransitions;
 #endif
         public static Texture2D Atlas { get { Ensure(); return _atlas; } }
         public static bool TryGet(string key, out RegionPropSprite sprite) { Ensure(); return _all.TryGetValue(key, out sprite); }
@@ -52,6 +54,7 @@ namespace Roguehalla.Client
             _atlas = null;
 #if UNITY_EDITOR
             _previewSources = null;
+            _previewTransitions = null;
 #endif
             Interlocked.Exchange(ref _authoredDefinitionsDirty, 0);
         }
@@ -71,7 +74,8 @@ namespace Roguehalla.Client
             if (_previewSources == null || dirty)
             {
                 _previewSources = Resources.LoadAll<StormInkPropArtDefinition>("StormInk/Props");
-                // Validation during this load is covered by the fresh definition reads below.
+                _previewTransitions = RegionTransitionArt.Load();
+                // Validation during these loads is covered by the fresh definition reads below.
                 Interlocked.Exchange(ref _authoredDefinitionsDirty, 0);
             }
 #endif
