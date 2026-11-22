@@ -67,7 +67,8 @@ namespace Roguehalla.Client
                 !definition.HasAuthoredRackAndSlots)
                 return 0;
 
-            var group = rack.GetComponent<SortingGroup>() ?? rack.gameObject.AddComponent<SortingGroup>();
+            if (!rack.TryGetComponent<SortingGroup>(out var group))
+                group = rack.gameObject.AddComponent<SortingGroup>();
             group.sortingLayerID = bodyRenderer.sortingLayerID;
             group.sortingOrder = bodyRenderer.sortingOrder;
             bodyRenderer.sortingOrder = 0;
