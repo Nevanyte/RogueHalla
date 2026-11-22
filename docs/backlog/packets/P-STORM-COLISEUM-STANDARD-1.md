@@ -15,3 +15,7 @@ Compare the Web view of the banner at tile position (85.5, 74.62) beside the sam
 ## Authority and risks
 
 D1 uses the existing presentation placement and a joined public map. D2 is n/a. C-OBS and D9 apply. The art occupies an existing walk-through placement on a floor cell beside a delivered solid wall. Small fabric folds can disappear at gameplay scale. The full sprite may lean if cloth sway moves the staff, so inspect the foot and silhouette in motion.
+
+## Visual result
+
+At `8a38edfc1`, the frayed red hem and folded ochre sun are legible against the grey wall at normal zoom. Frost approached and crossed the same northeastern placement on both Web builds. The pole and iron foot stayed planted, the cloth yielded to the fighter on overlap, and the full standard reappeared as he stepped away. A three-second Web recording follows a still camera alongside the pole. A separate replay checked the same art in native Unity at Ultra and Low with Reduced Motion. Thirteen focused checks passed, including the procedural arena source, Holy banner isolation, missing art and an editable foot anchor. The Web comparisons, clips, native views, map identity and test report are at `world/coliseum-standard/index.html`.
