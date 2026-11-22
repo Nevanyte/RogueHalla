@@ -129,14 +129,11 @@ executor, expect 10-20 s. Not release-only: `scripts/gate.sh` needs no edit.
 ### F6. Existing tests that pin what this packet touches
 
 - `crates/rh-policy/tests/raid_quests.rs` (P-RAID-Q1 oracle): `raid_bot_accepts_and_completes_walker_quests_before_their_timers`
-  asserts **every quest RaidBot accepts is on the walker list** (`iter().all(WALKER.contains)`, "it does not touch dwell...")
-  on seeds 1-6 with `Prices::LOCAL` default prices, and floors of at least 6 completions with one on 5 of 6 seeds.
-  **CONFLICT FOR THE COORDINATOR (by arithmetic, not run): seeds 2, 3, 4, 5 of that sweep deal `hold_the_fort` or
-  `stay_a_while`, and the 180 s window leaves the bot 100-150 s after its first walker quest; the dwell rows (3.6, 2.0)
-  can win then, and an accepted dwell quest turns that assertion red. The floors may also move (the bot's time goes to the
-  dwell).** Handled by an `oracle-amend:` commit that adds the dwell list to the accepted-quests assertion only (owner to
-  approve; see "Oracle files"). It does not touch the floors: if they fall after the executor lands, the implementer stops
-  and reports; the coordinator decides.
+  asserts every quest RaidBot accepts is on the walker list and floors of at least 6 completions, one on 5 of 6 seeds (seeds 1-6,
+  default prices). Seeds 2-5 deal a dwell quest, so dwell candidates could compete there. **Resolved by the coordinator's
+  amendment:** that file's bot now uses a walker-only price table (`walker_prices()`: the eleven walker defs at 1.0, everything
+  else 0), which reproduces the conditions the floors were measured under, so no later quest executor can move that oracle.
+  On the stub: `cargo test -p rh-policy --test raid_quests` 6 of 6 green (about 28 s on a loaded machine).
 - `tests/raid_bot.rs`: bot built with `Prices::farm_only()`: dwell proposes nothing worth taking there: stays green.
 - `raid/fix_tests.rs`, `review_tests.rs` (`exec::registry()` with an `Alarm`), `values_tests.rs`, `quest/walker_tests.rs`: unit
   tests with `Prices::LOCAL` and scenes without a quest view: green iff the dwell executor proposes nothing when
@@ -167,7 +164,9 @@ guide in `raid/mod.rs`.
 
 ## 7. Behaviour to preserve
 
-- The tests of F6 (the one amendment named there).
+- The tests of F6. The walker oracle is isolated by its price table (`walker_prices()`), so the dwell executor cannot move it;
+  the implementer still compares seed 1's final state hash and `raid_bot_replays_a_quest_run_exactly` before and after, and
+  **stops and reports if `raid_quests` goes red for any reason**.
 - No draw from `cx.rng`; no intent or act unless the goal is a `QuestDwell`; `urgent` stays false.
 - `Target::Quest { def, stage }` names the quest by def id; positions never by a key kept across frames.
 
@@ -209,15 +208,15 @@ guide in `raid/mod.rs`.
 - `scripts/gate.sh --quick --oracle packet/P-RAID-Q2 --base coord/int-84` passes.
 - `cargo test -p rh-policy --test raid_dwell` passes in a debug build (it is red on the stub: four tests, each on an assertion
   "accepted nothing").
-- `raid_bot`, `raid_quests` (with the amendment), the unit tests of F6 stay green.
+- `raid_bot`, `raid_quests` (with the price-table amendment), the unit tests of F6 stay green.
 
 ## Oracle files (read-only for implementers)
 
 - `crates/rh-policy/tests/raid_dwell.rs` (new).
 - `docs/backlog/packets/P-RAID-Q2.md`.
-- **oracle-amend (for the owner):** `crates/rh-policy/tests/raid_quests.rs`: the accepted-quests assertion in
-  `raid_bot_accepts_and_completes_walker_quests_before_their_timers` also allows `hold_the_fort` and `stay_a_while`. Nothing
-  else in that file changes.
+- **Oracle amendments for the owner:** `crates/rh-policy/tests/raid_quests.rs`: adds `walker_prices()` (walker defs at 1.0, all else 0)
+  and builds its `RaidBot` with it, plus a test that the table lists the walker list. Reason: the walker's floors were measured under
+  flat 1.0 pricing with no other executor; this keeps every later quest executor out of that file. Same seeds, floors and assertions.
 
 ## The oracle (loose proof)
 
