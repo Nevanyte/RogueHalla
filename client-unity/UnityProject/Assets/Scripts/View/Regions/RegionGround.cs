@@ -28,6 +28,8 @@ namespace Roguehalla.Client
             var shader = Resources.Load<Shader>("Regions/RegionGround");
             Material = new Material(shader) { name = "Roguehalla / region ground" };
             _owned.Add(Material);
+            var edgeArt = RegionTransitionArt.Load();
+            if (edgeArt != null) Material.SetVector("_RegionEdgeArt", edgeArt.MaterialControls);
             var holySand = HolyDrySandArt.Load();
             var arenaBounds = ColiseumBounds(map.Regions, map.W, map.H);
             var paving = arenaBounds.w > 0f ? Resources.Load<ColiseumFloorArt>("StormInk/Coliseum/ColiseumFloorArt") : null;

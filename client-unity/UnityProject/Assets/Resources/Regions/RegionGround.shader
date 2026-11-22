@@ -35,6 +35,7 @@ Shader "Roguehalla/RegionGround"
         _HolyDrySandRepeatSpan("Holy dry sand repeat span", Float) = 12
         _HolyDrySandWash("Holy dry sand wash", Range(0, 1)) = 0
         [HideInInspector] _HolyDrySandSlice("Holy dry sand slice", Float) = -1
+        [HideInInspector] _RegionEdgeArt("Regional edge treatments", Vector) = (0,0,0,0)
         _Debug("Debug", Float) = 0
     }
 
@@ -111,6 +112,7 @@ Shader "Roguehalla/RegionGround"
                 half _HolyDrySandRepeatSpan;
                 half _HolyDrySandWash;
                 half _HolyDrySandSlice;
+                float4 _RegionEdgeArt;
             CBUFFER_END
             #include "RhSun.hlsl"
             #include "RhLocalLights.hlsl"
@@ -568,6 +570,7 @@ Shader "Roguehalla/RegionGround"
                 return lerp(c, s, inSand * 0.85 * _Coliseum.w);
             }
 
+            #include "StormInkRegionEdges.hlsl"
             #include "StormInkMarsh.hlsl"
             #include "StormInkHall.hlsl"
 
@@ -686,11 +689,12 @@ Shader "Roguehalla/RegionGround"
                     tot += wgt[k];
                 }
                 tot = max(tot, 1e-3);
+                EdgeMaterials(tSun, wa, wb, max(.012, length(gdx + gdy) * 3.0), wgt, tot);
 
                 float paintedMarsh = _StormMarshOn * saturate(wgt[2] / tot);
                 float macro = Fbm(t * 0.06);
                 float pocketN = wb.b;                                   // baked on the CPU (RegionPocket) so props can use the same mask
-                float3 col = 0, emis = 0;
+                float3 col = 0, emis = 0, ashPigment = 0;
                 [unroll] for (int k2 = 0; k2 < 6; k2++)
                 {
                     [branch] if (wgt[k2] > 0.004)
@@ -718,6 +722,7 @@ Shader "Roguehalla/RegionGround"
                                     g.emis *= .10;
                                 }
                                 g.col = StormMarshFloor(t, plg);
+                                g.col = EdgeWinterGrass(g.col, smoothstep(.18, .81, plg.g) * (1.0 - smoothstep(.12, .65, plg.r)), wa.a, tSun);
                                 float reflection = InkWaterReflection(tSun, smoothstep(.35, .8, plg.r), waterChannel);
                                 g.col += float3(.085, .117, .107) * reflection;
                             }
@@ -726,6 +731,8 @@ Shader "Roguehalla/RegionGround"
                         else if (k2 == 5) g = ShadeColiseum(t, tSun, macro, pocketN, gdx * 4.0, gdy * 4.0);
                         else if (_DryPaint[k2].y > 0.0) g = ShadeDryFloor(k2, tSun, macro, pocketN, gdx * 4.0, gdy * 4.0);
                         else g = ShadeRegion(k2 + 1, k2, t, macro, pocketN);
+                        if (k2 == 0) ashPigment = g.col;
+                        if (k2 == 4) g.col = EdgeWinterGrass(g.col, 1.0 - g.dryGround, wa.a, tSun);
                         float wk = wgt[k2] / tot;
                         col += g.col * wk; emis += g.emis * wk;
                         thH += g.th * wk; thW += g.thw * wk;
@@ -742,6 +749,8 @@ Shader "Roguehalla/RegionGround"
                         }
                     }
                 }
+
+                col = EdgeBasaltChips(col, ashPigment, tSun, wa.r, wb.g, max(.012, length(gdx + gdy) * 3.0));
 
                 // Server ground variants: a gain over the blended base ground. _VariantTex is the crisp plane, one texel per tile (rgb gain, a strength: the Sentenced scatter and every Tile-edge
                 // variant, whole tiles as ever). The decoration bands' SOFT gain rides in the g, b, a channels of _TempleTex (one texel per tile, 128 = neutral; r is the pier flag). It is blended by
