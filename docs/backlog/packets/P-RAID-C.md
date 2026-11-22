@@ -190,7 +190,17 @@ Of the lab's 29 deaths 24 read "player", although `RaidBot` proposes no player f
 - `crates/rh-policy/src/bots/raid/values.rs`: appended only: the `SustainPrices` struct and its `LOCAL`/`OFF`, the one
   `sustain` field of `Prices`, and `farm_only()` setting it `OFF`. **Merges after P-RAID-V** (shared file: it adds row
   slices to `Prices`); append the field last, touch nothing else.
-- If the executor needs something the seam lacks (a percept field, an `Act`, `bot.rs`, `arbiter.rs`): **stop and report**
+- `crates/rh-policy/src/bots/raid/exec/farm.rs`: **ONE change, in `Farm::propose`**: when `cx.prices.sustain.on`, the hp
+  the death model prices with is the hp share held plus the potions held (`potion_large` x `Size::Large.share()` 0.4,
+  `potion_small` x 0.25: `rh_sim::potions::DEFINITION`), not the bare hp share. **This file is outside the coordinator's
+  outline and needs their yes before the implementer starts.** Without it the farm's model has no term for a potion and
+  refuses every 4- and 5-member camp however many potions are held (F3: 73 % of the normal camps on seed 1), so oracle
+  test 3 cannot pass. The alternative if the coordinator refuses: `Sustain::propose` pushes its own `GoalKind::Farm`
+  candidates for such camps (the arbiter ranks them against `Farm`'s; `Farm` still executes the goal), duplicating
+  `Farm::propose`'s pricing. A prototype of the one-line change plus a bare ride-along drink at `drink_below` (scratch,
+  not committed) measured on the oracle's scenes: 5-member camp cleared on 6 of 8 seeds and 4-member on 6 of 8, no death
+  among the 5-member runs and one among the 4-member (seed 6), against 0 of 8 for the control.
+- If the executor needs something else the seam lacks (a percept field, an `Act`, `bot.rs`, `arbiter.rs`): **stop and report**
   to the coordinator; do not edit them.
 
 ## 6. Contracts and references
@@ -224,9 +234,51 @@ Owner decisions kept to: DEV-017 (regen in combat Off, `OWNER_DECISIONS.md` L115
 - `crates/rh-policy/tests/raid_sustain.rs` passes in a debug build in about a minute or two; `raid_bot.rs`,
   `raid_seats.rs` stay green.
 
+## The oracle (loose proof) and its choices
+
+`crates/rh-policy/tests/raid_sustain.rs`, the harness of `raid_bot.rs` (a non-bot seat, `Sim::reset_active`, the seat API)
+with the potion stock set as declared setup (a checkpoint with `potion_large` set, accepted by `Sim::restore`, as
+`potion_fact_tests.rs` does). Scenes: a normal camp of 4 or 5 regional members, the fighter 100 u from the camp
+centroid, Holy with a Sword. Controls use `Prices::farm_only()` (sustain off); the treatment is `Prices { sustain:
+SustainPrices::LOCAL, ..base }`. Debug build, 43 s on this machine for the four tests (run in parallel threads).
+
+1. `a_potion_is_drunk_within_a_second_of_hp_crossing_the_drink_threshold`: `reckless()` (`death_loss` 0, so the farm
+   takes the fight), 4-member camp, 3 large potions, seeds 1..=8. Control: crosses below `drink_below` holding a potion on
+   at least 7 of 8 seeds and never drinks (measured: 8 of 8, 0 drinks). Treatment: on at least 7 seeds that cross, a
+   `PotionNotice::Used/LargeUsed` within 20 ticks (1 s) of the crossing tick (the first tick below the threshold with
+   stock and no heal running); no drink at hp above `drink_below + 0.05`; at most 3 drinks.
+2. `a_fight_the_death_model_says_is_lost_is_left_within_a_second`: `reckless()`, 4-member camp, no potion, seeds 1..=14.
+   Control dies on seeds 4, 6, 12 (measured), each about 100 to 220 ticks after the death model (`farm::death_chance` on
+   the sim's own hp and member hp, at `SustainPrices::LOCAL.disengage_death`) said the fight was lost, and moving toward
+   the nearest member (-36, -117, -46 u in the second after). Treatment: on every seed where the fight turns, the fighter
+   is at least 30 u farther from the nearest member one second later; it survives on at least 2 of the control's death
+   seeds; it dies on fewer seeds than the control.
+3. `four_and_five_member_camps_the_base_bot_refuses_are_cleared_with_potions`: default prices, 3 potions, seeds 1..=8.
+   Control clears at most 1 of 8 (measured 0 of 14 for both sizes: it walks away) and the treatment clears at least 5 of 8
+   (prototype: 6 of 8) with at most `max(control deaths, 1)` deaths. **Needs the `farm.rs` change above.**
+4. `sustain_sends_only_accepted_commands_and_replays_a_seed_exactly`: no fault, `rejected == 0`, `accepted == proposed`,
+   no fallback decisions, at least one drink, and one seed run twice gives the same drinks, clear tick, stats and hash.
+
+State of the oracle on the stub (all four red on assertions, not compile errors): 1 "no potion use by tick 164" (seed 1
+crossed at tick 144), 2 "moved -36 u away" on seed 4, 3 "cleared on 0 of 8 seeds", 4 "the seat drank".
+
+**Choices to read, not guesses:** the floors (7/8, 2 survivals of 3, 5/8, 30 u) sit below what a prototype or the control
+shows; floor 2 of 3 on test 2 is the thinnest (the sustain-on trajectory is unmeasured: the prototype had no disengage),
+and test 2's turn is judged by the death model at `SustainPrices::LOCAL.disengage_death`, so changing that field's
+value in `values.rs` moves the scene (it is read at test time, not hard-coded). `reckless()` zeroes `death_loss`: the
+disengage candidate must therefore not take its rank from `death_loss` (a leave is worth its `disengage_death`, not a loss
+price). The oracle does not pin `LOCAL` numbers: `drink_below 0.65` is legacy `shouldUsePotion` (a large potion adds 0.4,
+so a drink at 0.65 lands at 1.0 with no waste), `disengage_death 0.5` is where the farm's own score turns negative for a
+4-member camp at share 0.95 (`0.5 * 6` against a value of 1), `ready_hp 0.85` is a starting point the implementer may
+change inside the oracle.
+
 ## Oracle files (read-only for implementers)
 
-(filled when the oracle is committed)
+- `crates/rh-policy/tests/raid_sustain.rs`
+- (`docs/backlog/packets/P-RAID-C.md`, this brief)
+
+The `stub:` commit (implementer's to replace: `exec/sustain.rs`, `exec/mod.rs`, `values.rs`) is not an oracle file. No
+existing test or capture is amended: `raid_bot.rs`, `fix_tests.rs`, `review_tests.rs` stay as they are (section 7).
 
 ## 9. Validation commands
 
