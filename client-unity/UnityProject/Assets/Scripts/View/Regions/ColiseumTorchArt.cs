@@ -41,7 +41,7 @@ namespace Roguehalla.Client
         /// </summary>
         public bool TryGetFittedSocketOffset(out Vector2 offset)
         {
-            return HasReadablePigment && TryGetFittedSourceOffset(FlameSocketUv, out offset);
+            return TryGetFittedSourceOffset(FlameSocketUv, out offset);
         }
 
         /// <summary>Map-space tile offset for a placed torch, reflecting the source socket with the painting.</summary>

@@ -52,7 +52,7 @@ namespace Roguehalla.Client
         /// </summary>
         public bool TryGetFittedOffset(Vector2 normalizedAnchor, out Vector2 offset)
         {
-            return HasReadablePigment && TryGetFittedSourceOffset(
+            return TryGetFittedSourceOffset(
                 new Vector2(Mathf.Clamp01(normalizedAnchor.x), Mathf.Clamp01(normalizedAnchor.y)), out offset);
         }
     }

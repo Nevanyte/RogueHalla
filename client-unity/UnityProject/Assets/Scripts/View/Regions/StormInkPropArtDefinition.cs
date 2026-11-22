@@ -38,7 +38,7 @@ namespace Roguehalla.Client
         protected bool TryGetFittedSourceOffset(Vector2 sourceAnchor, out Vector2 offset)
         {
             offset = default;
-            if (!EnsureCropSize()) return false;
+            if (!HasReadablePigment || !EnsureCropSize()) return false;
             float usableHeight = Mathf.Max(.001f, HeightWorldUnits - GroundWorldUnits);
             float fit = Mathf.Min(Mathf.Max(.001f, WidthWorldUnits) / _cachedCropSize.x,
                 usableHeight / _cachedCropSize.y);
