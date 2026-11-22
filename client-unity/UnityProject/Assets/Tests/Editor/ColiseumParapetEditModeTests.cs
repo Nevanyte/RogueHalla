@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Roguehalla.Net.Protocol;
@@ -49,7 +50,8 @@ namespace Roguehalla.Client.Tests
             var root = new GameObject("Arena wall mesh oracle");
             try
             {
-                int count = 0;
+                var paintedCells = new HashSet<Vector2Int>();
+                var isolated = new HashSet<Vector2>();
                 bool across = false, receding = false;
                 using (var walls = RegionWalls.Build(root.transform, map, 1f))
                 {
@@ -63,17 +65,23 @@ namespace Roguehalla.Client.Tests
                             Vector2 center = (uv[i] + uv[i + 2]) * .5f;
                             if (!set.Top.Take(RegionWallAtlas.TopVariants).Any(c =>
                                 center.x > c.Min.x && center.x < c.Max.x && center.y > c.Min.y && center.y < c.Max.y)) continue;
-                            int x = Mathf.RoundToInt(points[i].x);
-                            int y = Mathf.RoundToInt((RegionWalls.WallHeight - points[i].y) / ArenaView.GroundSquash) - 1;
+                            Vector3 middle = (points[i] + points[i + 2]) * .5f;
+                            int x = Mathf.FloorToInt(middle.x);
+                            int y = Mathf.FloorToInt((RegionWalls.WallHeight - middle.y) / ArenaView.GroundSquash);
                             Assert.That(tiles[y * w + x], Is.EqualTo(MapBlob.Wall));
                             Assert.That(x, Is.GreaterThan(0), "The arena finish must stop at the delivered footprint");
-                            if (x == 3 && y == 3) across = Mathf.Abs(uv[i + 1].x - uv[i].x) > .001f;
-                            if (x == 4 && y == 4) receding = Mathf.Abs(uv[i + 1].y - uv[i].y) > .001f;
+                            if (x == 3 && y == 3) across |= Mathf.Abs(uv[i + 1].x - uv[i].x) > .001f;
+                            if (x == 4 && y == 4) receding |= Mathf.Abs(uv[i + 1].y - uv[i].y) > .001f;
                             Assert.That(filter.GetComponent<MeshRenderer>().sortingOrder, Is.EqualTo(2000 + y * 16));
-                            count++;
+                            paintedCells.Add(new Vector2Int(x, y));
+                            if (x == 8 && y == 7)
+                                for (int j = 0; j < 4; j++) isolated.Add(points[i + j]);
                         }
                     }
-                    Assert.That(count, Is.EqualTo(6));
+                    Assert.That(paintedCells.Count, Is.EqualTo(6));
+                    Assert.That(isolated.Count, Is.GreaterThan(4), "An exposed block needs a chipped silhouette");
+                    Assert.That(isolated.Min(v => v.x), Is.EqualTo(8f).Within(.01f));
+                    Assert.That(isolated.Max(v => v.x), Is.EqualTo(9f).Within(.01f));
                     Assert.That(across && receding, Is.True, "Coping must rotate on receding runs");
                     Assert.That(root.GetComponentsInChildren<Collider2D>(), Is.Empty);
                 }
