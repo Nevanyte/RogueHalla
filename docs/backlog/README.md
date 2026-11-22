@@ -344,7 +344,7 @@ is **not implemented**; the gain figures are **estimates**.
 | P-STORM-PROP-ATLAS-LIFETIME-1 | Stable registration of painted props across Editor asset cleanup | P-STORM-CONCEALMENT-CANOPY-1 | In progress | [spec](packets/P-STORM-PROP-ATLAS-LIFETIME-1.md) |
 | P-STORM-MARSH-DRESSING-REVIEW-1 | Ordinary tree, crowded mushrooms, ferns and repeat defects on the marsh route | P-STORM-PLAGUE-TREE-1, P-STORM-PLAGUE-MUSHROOM-VARIATION-1, P-STORM-PLAGUE-FERN-1, P-STORM-PLAGUE-RUBBLE-1 | Joined visual review recorded | [spec](packets/P-STORM-MARSH-DRESSING-REVIEW-1.md) |
 | P-STORM-PLAGUE-BOG-WILLOW-1 | Low painted willow for Plague decoration and marsh cover | P-STORM-MARSH-DRESSING-REVIEW-1 | In progress | [spec](packets/P-STORM-PLAGUE-BOG-WILLOW-1.md) |
-| P-STORM-CONCEALMENT-CANOPY-1 | Taller regional hiding places at fighter scale | P-STORM-PLAGUE-BOG-WILLOW-1 | In progress | [spec](packets/P-STORM-CONCEALMENT-CANOPY-1.md) |
+| P-STORM-CONCEALMENT-CANOPY-1 | Taller regional hiding places at fighter scale | P-STORM-PLAGUE-BOG-WILLOW-1 | Five-region visual checks, opponent view and Web timing complete. Integrated gate rerun pending | [spec](packets/P-STORM-CONCEALMENT-CANOPY-1.md) |
 | P-STORM-SURFACE-LIGHT-REVIEW-1 | Verify ice registration and local light on ground and actors | existing regional surface and lighting art | In progress | [spec](packets/P-STORM-SURFACE-LIGHT-REVIEW-1.md) |
 | P-UI-9 | Settings, accessibility, input rebinding, audio decision | P-UNITY-1 | Coarse | client/src/settings.ts, ui/settingsPanel.ts |
 | P-UI-10 | Unity batchmode tests + build in CI | P-UNITY-1, P-CI-1 | Coarse | none |
