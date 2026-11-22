@@ -40,7 +40,7 @@ namespace Roguehalla.Client
         public TMP_Text TrainingLabel { get; private set; }
         public RectTransform HeroBlock { get; private set; }
 
-        public Action LoadRequested, ProfileRequested, ResumeRequested, GuideRequested, SignInRequested, PlayRequested, TrainingRequested, CancelRequested;
+        public Action LoadRequested, HelpRequested, ProfileRequested, ResumeRequested, GuideRequested, SignInRequested, PlayRequested, TrainingRequested, CancelRequested;
         public Action<int> FactionChosen;
 
         Image _veil, _scrim, _playIcon;
@@ -127,7 +127,7 @@ namespace Roguehalla.Client
             float y = 14f;
             LaunchUi.Text(Panel, "CallsignLabel", Pad, y, Inner, 14f, "CALLSIGN", 11f, theme.TextSecondary, TextAlignmentOptions.MidlineLeft, true).characterSpacing = 1.5f;
             y += 18f;
-            Callsign = LaunchUi.Input(Panel, "Nickname", "", "your callsign", Pad, y, 232f, 36f, 16);
+            Callsign = LaunchUi.Input(Panel, "Nickname", "", "type a name to play as", Pad, y, 232f, 36f, 16);
             Load = LaunchUi.Button(Panel, "LoadProfile", Pad + 240f, y, Inner - 240f, 36f, LaunchUi.Look.Raised, () => LoadRequested?.Invoke());
             LaunchUi.Text(Load.transform, "Label", 0, 0, Inner - 240f, 36f, "LOAD", 13f, theme.TextPrimary, TextAlignmentOptions.Center, true);
             y += 46f;
@@ -161,12 +161,17 @@ namespace Roguehalla.Client
             Guide = Pill(Panel, "OpenGuide", Pad, y, 196f, "CHAMPIONS & WEAPONS", LaunchIcon.Guide, () => GuideRequested?.Invoke(), 11.5f);
             SignIn = Pill(Panel, "SignInOptions", Pad + 204f, y, Inner - 204f, "SIGN-IN", LaunchIcon.Key, () => SignInRequested?.Invoke(), 11.5f);
             // Attribution (CC BY and licence notices ship under Licenses/ in the build): a quiet link under the last row.
-            Credits = LaunchUi.Button(Panel, "CreditsAndLicences", Pad, 600f, Inner, 28f, LaunchUi.Look.Quiet, () => OpenCredits());
-            LaunchUi.Text(Credits.transform, "Label", 0f, 0f, Inner, 28f, "Credits and licences", 11f, theme.TextSecondary, TextAlignmentOptions.Center, false, UiFontRole.Body, true);
+            // New players: the controls and run basics (the H guide) sit beside the credits link on the last row.
+            float half = (Inner - 8f) * .5f;
+            HowToPlay = LaunchUi.Button(Panel, "HowToPlay", Pad, 600f, half, 28f, LaunchUi.Look.Quiet, () => HelpRequested?.Invoke());
+            LaunchUi.Text(HowToPlay.transform, "Label", 0f, 0f, half, 28f, "How to play · H", 11.5f, theme.Accent, TextAlignmentOptions.Center, true, UiFontRole.Body, true);
+            Credits = LaunchUi.Button(Panel, "CreditsAndLicences", Pad + half + 8f, 600f, half, 28f, LaunchUi.Look.Quiet, () => OpenCredits());
+            LaunchUi.Text(Credits.transform, "Label", 0f, 0f, half, 28f, "Credits and licences", 11f, theme.TextSecondary, TextAlignmentOptions.Center, false, UiFontRole.Body, true);
             SetFaction(_house);
         }
 
         public Button Credits { get; private set; }
+        public Button HowToPlay { get; private set; }
         public const string CreditsPath = "Licenses/index.html";
         /// <summary>The credits file next to the page (relative to the page address); the plain relative path when there is no page (Editor).</summary>
         public static string CreditsUrl(string pageUrl)

@@ -162,7 +162,7 @@ namespace Roguehalla.Client
             _heading = MythicUi.Text(_panel, "CosmeticsHeading", "ACCOUNT COSMETICS", new Vector2(.03f, .91f), new Vector2(.72f, .99f), 27, ShowcasePalette.Gold, heading: true);
             MythicUi.Rule(_panel, "HeadingRule", new Vector2(.035f, .905f), new Vector2(.40f, .908f));
             _wallet = MythicUi.Text(_panel, "Wallet", "PROFILE · refreshing", new Vector2(.035f, .84f), new Vector2(.69f, .91f), 18, ShowcasePalette.Text);
-            _close = MythicUi.Button(_panel, "CloseCosmetics", "CLOSE  ×", new Vector2(.84f, .92f), new Vector2(.975f, .99f), () => SetVisible(false), MythicUi.ButtonStyle.Secondary);
+            _close = MythicUi.Button(_panel, "CloseCosmetics", "CLOSE · ESC", new Vector2(.84f, .92f), new Vector2(.975f, .99f), () => SetVisible(false), MythicUi.ButtonStyle.Secondary);
             _refresh = MythicUi.Button(_panel, "RefreshProfile", "REFRESH PROFILE", new Vector2(.70f, .84f), new Vector2(.975f, .91f), RefreshProfile, MythicUi.ButtonStyle.Secondary);
             _tabButtons = new Button[3];
             string[] labels = { "SHOP", "WARDROBE", "TITLES" };
