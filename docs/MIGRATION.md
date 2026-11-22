@@ -26,7 +26,72 @@ reduction on server side or front end."
   owner for it: it writes the seam briefs and the value table, runs the lab and derives the numbers; Opus and Sonnet
   implement.
 - **Base:** `feature/unity-rework` @ `d0712ab82`. Coordinator full gate with pgtest on that head, in a clean detached
-  worktree: started 2026-11-22; the result is recorded with wave 1.
+  worktree: **GATE PASS (full)**, EditMode 2000/2000. Log `.agent-runs/gate/20261122T130116-coord-base-d0712ab82-full.log`.
+- **Three lanes run beside this programme**, started by the owner from the audit's findings: client input
+  (`P-NET-*`, `P-UI-INPUT-CUES-1`), backend efficiency (`P-DB-*`, `P-BUILD-PROFILE-1`) and staging security. They hand
+  packets over as `docs/agent/LANES.md` says; the coordinator merges and gates them with its own.
+
+- **Integration 82** (`coord/int-82` @ `81c42a70a`, six `--no-ff` merges onto `83edb687f`; the integration branch
+  fast-forwarded to it):
+  - **What it holds:**
+    - P-BAL-LAB-1 (`implementer-sonnet`; reviewer LAND WITH NOTES): `balance_lab`, the headless measurement tool
+      (`crates/rh-headless/src/balance_lab.rs`, `tools/balance-lab/README.md`).
+    - P-RAID-0 (`implementer-opus`; reviewer-opus LAND WITH NOTES): the `RaidBot` skeleton
+      (`crates/rh-policy/src/bots/raid/`). It is seated nowhere yet.
+    - P-NET-ARRIVAL-CLOCK-1 and P-NET-STEER-1 (client-input lane; reviewer LAND): snapshots timed at socket arrival
+      and a 4 s jitter window at any tick; keyboard steering re-sends on goal consumption. DEV-061 proposed
+      (`docs/coordination/DEVIATIONS_PROPOSED_2026-11-22.md`).
+    - P-DB-LEADERBOARD-1 (backend-efficiency lane; reviewer LAND): the leaderboard rank by two counts, one tie order.
+    - P-BUILD-PROFILE-1 (backend-efficiency lane; documents only): fat LTO with one codegen unit and mimalloc
+      measured, none adopted (1.8-2.7% fewer instructions, server CPU flat, about 50% more release-build CPU; mimalloc
+      no gain); rooms used 0.28 of 18 cores at 22 rooms, so no dedicated runtime is proposed. Evidence
+      `docs/evidence/backend-efficiency-2026-11-22/README.md`.
+  - **Full gate** with pgtest on `81c42a70a`, clean detached worktree: **GATE PASS (full)**, EditMode 2000/2000; the
+    ICU leaderboard tests ran. Log `.agent-runs/gate/20261122T140430-coord-int-82-clean-full.log`.
+  - **reviewer-opus on the merge: LAND.** Each merge's patch equals its branch's; no file is shared by two of the
+    six; nothing in `rh-sim`, no identity, lock file or protected path moved. Its second read of the lane packets found
+    no defect: the new rank equals the old `row_number()` rank, ties included; a held direction cannot stop for good.
+  - **Review notes, each in a fix packet:**
+    - P-BAL-LAB-1-fix: the live board never sets `owner_completed` and a completed offer leaves the seat's view
+      (`quest_view/board.rs:17-21`, `:118`), so the lab would book a completion as abandoned. The coordinator's brief
+      named that field: the brief was wrong. The fix reads the attempt state through a read-only sim probe
+      (P-BAL-PROBE-1, moved earlier) and adds scripted-view tests; until then only `dealt` is measured.
+    - P-RAID-0-fix: a committed fight could not be pre-empted (`arbiter.rs`), and the death model was hard-wired
+      outside the price table. The coordinator added: `Prices` in `values.rs` with `reward_value` and `augment_value`,
+      and mob tracking by the held lock.
+  - **Oracle amendments for the owner** (each its own commit, no expectation loosened):
+    - `crates/rh-policy/tests/raid_bot.rs` (P-RAID-0-fix): the farm scene builds its bot with `Prices::farm_only()`,
+      so later quest and elite executors cannot change what the farm test measures. Same seeds, floors and assertions.
+    - `crates/rh-sim/tests/content.rs` (P-BAL-ELITE-SEAM-1): one `NON_GAMEPLAY` row for the test-only stand-in elite
+      table (the `hooks.rs` `TRACE` precedent).
+  - **Not established by this gate:** the WebGL path of the arrival clock (`RhWebSocket.jslib`, `WebGLTransport`) has
+    never run in a browser; steering feel against a live server; `NativeTransport`'s receive thread; every timing in
+    the lane evidence was taken on a loaded machine (ratios, not absolute times).
+  - **Minor, not notes:** `MatchClient._lastDir` is kept only for a reflection test; `InputSender.FramesInWindow` counts
+    a negative age as inside the window; the lab does not sample the step that ends a match (a last-step pick is
+    missed; `chest_taken_events` shows the gap); `RaidBot`'s `PolicyStats` leaves out act-queue sends.
+- **First lab run, today's fill bots** (8 seeds, 8 `HumanBot` seats as humans, release): 47 of 56 deaths in minute 0
+  (35 to mobs, 21 to players), 4 of 64 players alive to be sampled at minute 5, 24 camps cleared (25 s to kill, 10 s to
+  heal up, 10 s to walk), no quest accepted of about 640 dealt, 5 chests offered. This is the baseline `RaidBot` is
+  measured against.
+- **Found, for the owner:**
+  - **39 of the 91 Top 25 quest numbers are not in the content hash** (P-BAL-Q25-SEAM-1's brief: 25 spell-effect
+    numbers in `rewards/effects.rs`, among them Smite's 220 damage; 12 deployment numbers; the route-deadline floor).
+    It predates this programme (it came with PR 81). The seam packet may not move the hash, so they stay unfolded
+    there; they are folded with the quest number packet, so the hash moves once.
+  - **A quest's route timer is a floor:** the deadline is the larger of the `def!` timer and 1.5 times the walk plus
+    15 s (`quests/board/attempts.rs` ~304). The patch's timer rule tunes that slack rule as well.
+  - **`scripts/gate.sh --oracle-check`** refuses a red `--bin` target even when its only red test is the packet's
+    oracle in the binary's unit tests, and runs the rh-server tests without `--features postgres` (backend-efficiency
+    lane, `HANDOFF_P-DB-POOL-1`). The file is owner-approved: asked, not edited.
+  - **The hourly disk cleanup** removed a build cache under an oracle author's test run (14:13, "No such file"; the
+    re-run passed). It deletes a worktree's `target` when nothing has it open and its top two levels are 30 minutes
+    old, which an agent reading between builds can meet. Not touched.
+  - `[profile.dist]` for the shipped binary only (the measured LTO gain without the build cost elsewhere) is an
+    owner option under `hosting/`; not built.
+- **In flight after integration 82:** P-BAL-Q25-SEAM-1, P-BAL-ELITE-SEAM-1 and P-RAID-0-fix (three Opus implementers);
+  P-RAID-Q1's oracle is ready and waits for P-RAID-0-fix. Handed over for integration 83: P-DB-POOL-1,
+  P-UI-INPUT-CUES-1.
 - **Decisions the coordinator took (his to reverse):**
   - `RaidBot` is a third policy in new files (`crates/rh-policy/src/bots/raid/`). `HumanBot`, `BrainBot`, the bot
     `Command` enum and every pinned bot capture are untouched.

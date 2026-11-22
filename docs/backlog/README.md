@@ -597,20 +597,35 @@ ORDER_OF_OPERATIONS: owner approval 2026-11-22. A row moves to "Ready packet" wh
 
 | ID | Outcome | Depends on | Status |
 |---|---|---|---|
-| P-RAID-0 | `RaidBot` skeleton in `crates/rh-policy/src/bots/raid/`: policy, percept, act queue, executor trait, arbiter with farm, roam and chest | none | Coarse |
-| P-RAID-H1, -V, -Q1 | Headless seat (`BotKind::Raid`, human seats); the value table; the quest walker | P-RAID-0 | Coarse |
+| P-RAID-0 | [`RaidBot` skeleton](packets/P-RAID-0.md) in `crates/rh-policy/src/bots/raid/`: policy, percept, act queue, executor trait, arbiter with farm, roam and chest | none | Done (4c22ec3e9, integration 82; notes in P-RAID-0-fix) |
+| P-RAID-0-fix | [Review notes](packets/P-RAID-0-fix.md): a committed fight can be pre-empted; the death model, `reward_value` and `augment_value` live in `Prices` (`values.rs`); mob tracking by the held lock | P-RAID-0 | Ready packet (implementing) |
+| P-RAID-Q1 | [The quest walker](packets/P-RAID-Q1.md): accept, walk, contact, turn-in for 11 quests | P-RAID-0-fix | Ready packet (oracle on `packet/P-RAID-Q1`) |
+| P-RAID-H1, -V | Headless seat (`BotKind::Raid`, human seats); the value table | P-RAID-0-fix | Coarse |
 | P-RAID-C, -Q2, -Q3 | Combat and sustain; dwell quests; decision quests | P-RAID-0, -Q1, -V | Coarse |
 | P-RAID-E, -S | Elite pricing and fights; quest spell cast rules | P-RAID-C, -V, -Q1 | Coarse |
 | P-RAID-Q4, -P, -W | Kill quests; PvP, event and coliseum goals; the Whispers search | P-RAID-E, -Q1 | Coarse |
 | P-RAID-LIVE | `BotBrain::Raid` behind a server flag, off by default | all `P-RAID-*` | Coarse |
-| P-BAL-Q25-SEAM-1 | Every Top 25 quest number in one table; content hash unchanged | none | Coarse |
-| P-BAL-ELITE-SEAM-1 | Per-elite-kind hp and damage multipliers under Rework, empty table; content hash unchanged | none | Coarse |
-| P-BAL-LAB-1, -2 | `balance_lab`: observation-based metrics; then paired mode, lock metrics, cast windows | none; P-BAL-PROBE-1, P-BAL-EVAL-1 | Coarse |
-| P-BAL-PROBE-1 | Read-only sim probes and a quest-reward grant in `trusted_build` | P-BAL-Q25-SEAM-1 | Coarse |
+| P-BAL-Q25-SEAM-1 | [Every Top 25 quest number (91) in one table](packets/P-BAL-Q25-SEAM-1.md); content hash unchanged | none | Ready packet (implementing) |
+| P-BAL-ELITE-SEAM-1 | [Per-elite-kind hp and damage multipliers](packets/P-BAL-ELITE-SEAM-1.md) under Rework, empty table; content hash unchanged | none | Ready packet (implementing) |
+| P-BAL-LAB-1 | [`balance_lab`](packets/P-BAL-LAB-1.md): observation-based metrics | none | Done (2fe5634f4, integration 82; notes in P-BAL-LAB-1-fix) |
+| P-BAL-LAB-1-fix | Quest completions read from the sim's attempt state (the board never sets `owner_completed`); scripted-view tests; the report says what is unmeasured | P-BAL-PROBE-1 | Coarse |
+| P-BAL-LAB-2 | Paired mode, lock metrics, cast windows, encounters while questing | P-BAL-PROBE-1, P-BAL-EVAL-1 | Coarse |
+| P-BAL-PROBE-1 | Read-only sim probes (a seat's quest attempts, the coliseum lock, farm stacks) and a quest-reward grant in `trusted_build` | P-BAL-Q25-SEAM-1 | Coarse |
 | P-BAL-EVAL-1 | `balance_model` and `balance_eval`: lab report to the value model's verdicts | P-BAL-LAB-1 | Coarse |
 | P-BAL-ELITE-BOTS-1 | Bots read per-kind elite numbers | P-BAL-ELITE-SEAM-1 | Coarse |
 | P-BAL-NATIVE-TEXT-GUARD-1, P-BAL-DOC-1 | EditMode guard on native card text; `docs/agent/BALANCE_LAB.md` | none; P-BAL-LAB-2 | Coarse |
-| P-BAL-NUM-ELITE-1, -Q25-1, -AUG-1, P-BAL-DEV-1 | The measured numbers (per-elite, quests, augments) and their proposed DEVIATIONS rows | the baseline measurement | Coarse |
+| P-BAL-NUM-ELITE-1, -Q25-1, -AUG-1, P-BAL-DEV-1 | The measured numbers (per-elite, quests, augments) and their proposed DEVIATIONS rows; the quest packet also folds the 39 quest numbers the content hash misses today | the baseline measurement | Coarse |
+
+Lane packets merged by the coordinator (owner-started lanes from the 2026-11-22 audit; R-OPT for the backend ones):
+
+| ID | Outcome | Lane | Status |
+|---|---|---|---|
+| P-NET-ARRIVAL-CLOCK-1 | [Snapshots timed at socket arrival; a 4 s jitter window at any tick](packets/P-NET-ARRIVAL-CLOCK-1.md) | client input | Done (3c30f3dd2, integration 82; the WebGL path not yet run in a browser) |
+| P-NET-STEER-1 | [Keyboard steering re-sends on goal consumption; an aim frame meter](packets/P-NET-STEER-1.md) | client input | Done (d8b6687b0, integration 82; DEV-061 proposed; feel not yet played) |
+| P-UI-INPUT-CUES-1 | Immediate presentation-only cues for casts, potion, swap and pickup | client input | Handed over, for integration 83 |
+| P-DB-LEADERBOARD-1 | [Leaderboard rank by two counts; one tie order](packets/P-DB-LEADERBOARD-1.md) | backend efficiency | Done (77fb24563, integration 82) |
+| P-BUILD-PROFILE-1 | [LTO, one codegen unit and mimalloc measured; none adopted](packets/P-BUILD-PROFILE-1.md) | backend efficiency | Done (81c42a70a, integration 82; documents only) |
+| P-DB-POOL-1 | `--db-pool N`; admission's credential check bounded at 5 s | backend efficiency | Handed over, for integration 83 |
 
 ## Requirement coverage ([../REQUIREMENTS.md](../REQUIREMENTS.md))
 
