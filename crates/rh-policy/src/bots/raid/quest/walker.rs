@@ -273,7 +273,14 @@ impl Walker {
         if success <= 0. {
             return None;
         }
-        let death = self.death_near(cx, &danger_points);
+        // Only `let_him_cook`'s third contact stands inside a camp that fights. Counting a camp near every quest's
+        // tokens priced a quick touch as a camp fight and dropped accepted `ember_walk`s (measured on the oracle seeds:
+        // four of six lost their first quest), so the other quests keep the floor.
+        let death = if def == "let_him_cook" {
+            self.death_near(cx, &danger_points)
+        } else {
+            DEATH_FLOOR
+        };
         Some(Candidate {
             goal: RaidGoal::new(
                 GoalKind::QuestWalk,
