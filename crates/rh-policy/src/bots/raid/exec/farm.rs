@@ -23,7 +23,7 @@ pub const FIGHT_U: f64 = 240.;
 const EMPTY_MS: f64 = 3_000.;
 /// ...and the camp is not proposed again for this long.
 const FAILED_BAN_MS: f64 = 20_000.;
-/// With no held lock on a camp member, a member is the same one next think when it stands within this of where the
+/// With no held lock on a mob it may keep, a member is the same one next think when it stands within this of where the
 /// last one was (npc keys live one frame).
 const TRACK_U: f64 = 80.;
 
@@ -86,23 +86,28 @@ impl Farm {
                 .any(|(c, until)| *c == camp.index && *until > now)
     }
 
-    /// A living regional member of camp `camp`.
-    fn member(m: &MobSeen, camp: u32) -> bool {
-        m.alive && m.class == MobClass::Regional && m.camp == Some(camp)
+    /// A living regional mob the farm on camp `camp` may keep fighting. `MobSeen::camp` labels a mob by where it stands
+    /// (the nearest camp within `CAMP_JOIN_RADIUS`), not by the camp it belongs to, so a member chasing us away from home
+    /// is relabelled: it is kept while it reads as this camp, as no camp, or as any camp while it fights within
+    /// `DEFEND_U` of us. Only a resting mob labelled with another camp is refused. The gap left: a member that chases
+    /// without being engaged (cooldown idle, bow not drawn) and stands nearer a neighbour camp is still dropped.
+    fn keepable(cx: &Cx<'_>, m: &MobSeen, camp: u32) -> bool {
+        m.alive
+            && m.class == MobClass::Regional
+            && (m.camp == Some(camp)
+                || m.camp.is_none()
+                || (m.engaged && cx.p.dist(m.at) <= DEFEND_U))
     }
 
-    /// The member of camp `camp` the owner holds a lock on in this frame. A held lock whose actor is not in the frame
-    /// (`target: None`), or that names a mob of another camp, is none.
+    /// The mob the owner holds a lock on in this frame, if the farm on camp `camp` may keep it (`keepable`). A held
+    /// lock whose actor is not in the frame (`target: None`) is none.
     fn locked<'a>(cx: &'a Cx<'_>, camp: u32) -> Option<&'a MobSeen> {
-        let Some(OwnerLock::Held {
-            target: Some(key), ..
-        }) = &cx.p.base.self_view.owner_lock
-        else {
+        let Some(OwnerLock::Held { target: Some(key) }) = &cx.p.base.self_view.owner_lock else {
             return None;
         };
         cx.p.mobs
             .iter()
-            .find(|m| m.key == *key && Self::member(m, camp))
+            .find(|m| m.key == *key && Self::keepable(cx, m, camp))
     }
 
     /// The member to fight: a living regional mob of the camp, or a fighting one on top of us; the nearest.
@@ -197,13 +202,13 @@ impl Executor for Farm {
         let camp_at = camp.at;
         let now = cx.p.now;
         // Keep the member we fight while it lives: the one the owner holds a lock on (its key names it in this frame),
-        // else the one standing nearest where the last one stood (npc keys live one frame); never a mob of another
-        // camp. Nothing kept: the nearest (`pick`).
+        // else the one standing nearest where the last one stood (npc keys live one frame); never a resting mob of
+        // another camp (`keepable`). Nothing kept: the nearest (`pick`).
         let kept = Self::locked(cx, index).or_else(|| {
             self.target.and_then(|was| {
                 cx.p.mobs
                     .iter()
-                    .filter(|m| Self::member(m, index) && dist(m.at, was) <= TRACK_U)
+                    .filter(|m| Self::keepable(cx, m, index) && dist(m.at, was) <= TRACK_U)
                     .min_by(|a, b| {
                         dist(a.at, was)
                             .total_cmp(&dist(b.at, was))

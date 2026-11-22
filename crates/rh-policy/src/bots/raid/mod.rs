@@ -7,12 +7,13 @@ pub mod arbiter;
 pub mod bot;
 /// The goal modules. A later packet touches exactly these shared places, and nothing else outside its own file:
 /// 1. **Its own file**, already declared: `exec/{combat,elite,sustain}.rs` or `quest/{walker,dwell,decide,hunt,pvp,
-///    search}.rs`. A goal file the plan did not name adds its `pub mod` line to `exec/mod.rs` or `quest/mod.rs`.
+///    search}.rs`, implementing `goal::Executor` (`kinds()`, `act`, and the hooks below it needs). A goal file the plan
+///    did not name adds its `pub mod` line to `exec/mod.rs` or `quest/mod.rs`.
 /// 2. **One line in `exec::registry`** (`exec/mod.rs`) boxing its executor. The registry order is behaviour.
 /// 3. **A `GoalKind` variant in `goal.rs`** only for a kind the plan did not name: every kind it names already exists.
 ///
-/// `Executor`, the arbiter and `Cx` need no edit; prices are fields of `values::Prices` (P-RAID-V fills them there).
-/// - **A goal kind**: implement `goal::Executor` for it (`kinds()`, `act`) and register it.
+/// `Executor`, the arbiter, `Cx` and `bot.rs` need no edit; prices are fields of `values::Prices` (P-RAID-V fills them
+/// there). The hooks:
 /// - **A candidate source**: `Executor::propose` pushes `goal::Candidate`s priced in camp-equivalents (one normal camp
 ///   = 12 stat stacks = 1): `value`, `success`, `death`, `loss` (what dying costs), `minutes`, every number read from
 ///   `cx.prices`. A quest candidate's value is `cx.prices.reward_value(def)` times what the stage costs or adds, an
@@ -24,6 +25,9 @@ pub mod bot;
 ///   and drops it when the frame no longer offers it.
 /// - **A fight**: return `Step::committed` while it is on, so the arbiter does not walk away from members that follow.
 ///   Only a kind whose job is to leave or end the fight pre-empts that (`GoalKind::preempts_commitment`: Sustain).
+/// - **A decision that cannot wait for the cadence** (hp falling fast, a fight turning): `Executor::urgent` returns
+///   true, and the arbiter decides and the goal thinks on this frame (otherwise strategy ticks come on the tier's
+///   cadence, 1.2 to 2 s apart on average).
 pub mod exec;
 #[cfg(test)]
 mod fix_tests;
@@ -34,6 +38,8 @@ pub mod percept;
 /// handle) and sends accept and interact as `acts::Act`s.
 pub mod quest;
 pub mod refs;
+#[cfg(test)]
+mod review_tests;
 pub mod spells;
 pub mod values;
 

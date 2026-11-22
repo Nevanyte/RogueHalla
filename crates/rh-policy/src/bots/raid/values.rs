@@ -69,7 +69,9 @@ impl Prices {
     };
 
     /// `LOCAL` with quest rewards and augments worth nothing: a seat that farms, roams and opens chests only, so a test
-    /// of the farm executor is not changed by quest executors registered later.
+    /// of the farm executor is not changed by quest executors registered later. It zeroes `reward_default` and
+    /// `augment_default` only (camps, chests, roaming and the death model keep `LOCAL`); a later packet that adds
+    /// per-def or per-card rows must clear those rows here too, or `farm_only` stops turning the families off.
     pub const fn farm_only() -> Self {
         Self {
             reward_default: 0.,

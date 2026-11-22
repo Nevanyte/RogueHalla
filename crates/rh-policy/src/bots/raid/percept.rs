@@ -93,7 +93,8 @@ pub struct MobSeen {
     pub mob_type: Option<MobTypeId>,
     pub weapon: Option<WeaponId>,
     pub faction: Option<FactionId>,
-    /// The nearest camp within `CAMP_JOIN_RADIUS`.
+    /// The nearest camp within `CAMP_JOIN_RADIUS`: a label by where the mob stands this frame, not the camp it belongs
+    /// to (a member chasing away from home reads as no camp or as a neighbour).
     pub camp: Option<u32>,
     /// Its attack cooldown runs or its bow is drawn (`ACTOR_FLAG_ENGAGED`).
     pub engaged: bool,

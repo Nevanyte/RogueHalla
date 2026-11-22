@@ -54,7 +54,9 @@ impl GoalKind {
     /// The rule (rh-policy `AGENTS.md`): priorities compete every decision tick, and a commitment is the exception. A kind
     /// may claim this only if its job is to leave or end the fight the commitment protects (Sustain: a potion, a retreat;
     /// later a flee). A kind that starts new work (another camp, a chest, a quest, a roam) never claims it, or the bot
-    /// walks away from members that follow it and takes their hits for nothing.
+    /// walks away from members that follow it and takes their hits for nothing. That includes `Fight` against a player
+    /// who attacks mid-farm: it starts a second fight, so it waits for the strategy tick after the farm's commitment
+    /// ends or turns negative; a flee from that player may claim it.
     pub fn preempts_commitment(self) -> bool {
         matches!(self, Self::Sustain)
     }
@@ -267,6 +269,14 @@ pub trait Executor: Send {
     fn reset(&mut self) {}
     /// Read one active frame (bookkeeping only), every frame, before any proposal or think.
     fn observe(&mut self, _cx: &mut Cx<'_>) {}
+    /// Something this module watches needs a decision now (hp falling fast, a fight turning): asked every active frame
+    /// after `observe`; any executor's `true` makes this frame a strategy tick and a think tick, so a candidate it then
+    /// proposes (a Sustain that pre-empts a fight) can win within the frame instead of waiting for the cadence. Every
+    /// executor is asked, in registry order (`any_urgent`). Draw nothing from `cx.rng` here unless the packet says so:
+    /// a draw moves every later draw of the frame.
+    fn urgent(&mut self, _cx: &mut Cx<'_>) -> bool {
+        false
+    }
     /// Add this module's candidates for the arbiter (called on strategy ticks only).
     fn propose(&mut self, _cx: &mut Cx<'_>, _out: &mut Vec<Candidate>) {}
     /// The goal was just adopted (it was not the incumbent).
@@ -277,4 +287,12 @@ pub trait Executor: Send {
     fn ride_along(&mut self, _goal: &RaidGoal, _cx: &mut Cx<'_>) -> Step {
         Step::none()
     }
+}
+
+/// Every executor's `Executor::urgent`, OR-ed, in registry order. Each one is asked (no short-circuit), so an executor's
+/// answer, and any state it keeps while answering, does not depend on the executors before it.
+pub fn any_urgent(executors: &mut [Box<dyn Executor>], cx: &mut Cx<'_>) -> bool {
+    executors
+        .iter_mut()
+        .fold(false, |any, e| e.urgent(cx) | any)
 }
