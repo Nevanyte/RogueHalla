@@ -34,6 +34,7 @@ namespace Roguehalla.Client
         public IReadOnlyList<InterpActor> Actors { get { return _actors; } }
         readonly List<InterpActor> _targetActors = new List<InterpActor>();
         readonly SteerPacer _steerPacer = new SteerPacer();
+        Vector2 _lastDir; // last sent key direction; the pacer decides the cadence, PresentationTimelineEditModeTests sets it by reflection
         readonly Pathfinder _steerPathfinder = new Pathfinder();
         double _steerGoalX, _steerGoalY;
         const double HoldRepeatMs = 100;
@@ -503,7 +504,7 @@ namespace Roguehalla.Client
                     {
                         OrderMove((float)_steerGoalX, (float)_steerGoalY, decision == SteerDecision.Refresh);
                         _steerPacer.Sent(now, keyX, keyY, _steerGoalX, _steerGoalY);
-                        _steering = true;
+                        _lastDir = new Vector2(keyX, keyY); _steering = true;
                     }
                 }
                 else if (_steering) { OrderStop(); _steering = false; _steerPacer.Reset(); }
