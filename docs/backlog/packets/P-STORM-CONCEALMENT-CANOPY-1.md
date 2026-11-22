@@ -19,3 +19,7 @@ Expose canopy width, height and near-branch sort depth in a version-controlled S
 ## Haunted correction from the first joined loop
 
 On public bush #39, sizing the procedural cluster made glossy green domes obscure the entire Haunted body. Replace that regional paint with an editable blackthorn cutout. Its branches have open gaps and purple and sage washes suited to the graveyard. The public placement name, roots and cell IDs stay the same. Use the same shrub at ordinary scale on delivered Haunted decorative rows. Retain the original neutral fallback and keep each region independent if a source is missing. This correction also owns the blackthorn pigment and import, art definition, atlas registration, regional paint lookup and mixed-region tests. Review the same Haunted approach, inside and exit in both players.
+
+## Frost correction from the second joined loop
+
+Two real Frost patches, at the east border of seed 52666345 and by the inland lake on certified seed 185, exposed the same silhouette. The enlarged circles with scalloped white caps looked like stacked stones. Fit an editable, original snow-dusted juniper to the existing Frost bush entry, including the shipped decorative shrub and concealment cells. The old procedural drawing remains available when the new pigment is unavailable. Review both locations at the same normal-zoom gameplay camera, including the return to open ice, atlas margins, root registration, Low and Reduced Motion.
