@@ -46,6 +46,10 @@ pub struct Prices {
     pub reward_default: f64,
     /// An augment's worth when the table has no row for the card (ce; 1 is a placeholder until P-RAID-V).
     pub augment_default: f64,
+    /// Quest reward rows: (board def id, ce). A def with no row takes `reward_default`.
+    pub reward_rows: &'static [(&'static str, f64)],
+    /// Augment rows: (`CardId::as_str`, ce). A card with no row takes `augment_default`.
+    pub augment_rows: &'static [(&'static str, f64)],
 }
 
 impl Prices {
@@ -66,6 +70,8 @@ impl Prices {
         pick_success: 0.9,
         reward_default: 1.,
         augment_default: 1.,
+        reward_rows: &[],
+        augment_rows: &[],
     };
 
     /// `LOCAL` with quest rewards and augments worth nothing: a seat that farms, roams and opens chests only, so a test

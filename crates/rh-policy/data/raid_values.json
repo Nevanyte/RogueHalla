@@ -1,0 +1,6 @@
+{
+  "schema": "raid-values/1",
+  "_comment": "Hand-edited together with crates/rh-policy/src/bots/raid/values.rs in one reviewed packet. No tool rewrites this file: tuning is not a collection pipeline (REQUIREMENTS R-ML).",
+  "rewards": { "source": "", "rows": {} },
+  "augments": { "source": "", "rows": {} }
+}
