@@ -172,7 +172,10 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
     does not run EditMode.
   - The proposed rework DEVIATIONS rows are renumbered DEV-042 to DEV-060, since origin now holds DEV-040 (quests) and
     DEV-041 (open alpha idle and reconnect).
-  - Pushed to PR 80 while the second full gate (on `051f67240`) was still running, so CI and the local gate run together.
+  - Pushed to PR 80 as `dd8912812` while the second full gate (on `051f67240`) was still running, so CI and the local
+    gate ran together. That gate: every step green (clippy, workspace and rh-sim suites, Postgres, parity report,
+    headless smoke, release-only checks, C#, JS, card chain) except Unity EditMode, 1997/2000, the three origin failures
+    above. Log `.agent-runs/gate/20261122T022801-coord-int-81-clean-full.log`.
 
 ## Resumed (2026-11-20): the elite and augment rework, integration 65
 
