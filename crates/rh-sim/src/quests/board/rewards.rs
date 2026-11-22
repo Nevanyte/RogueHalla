@@ -92,8 +92,7 @@ pub(crate) fn check_grant(
     owner: PlayerId,
     rewards: &[super::catalog::RewardId],
 ) -> Result<(), GrantRefusal> {
-    if w
-        .quests
+    if w.quests
         .as_ref()
         .is_none_or(|q| q.board.is_none() || q.rewards.is_none())
     {
@@ -132,16 +131,14 @@ pub(crate) fn pay_checked(cx: &mut Cx, owner: PlayerId, rewards: &[super::catalo
     for &reward in rewards {
         for award in awards::bundle(Award::from(reward)) {
             let paid = if award.is_permanent() {
-                permanent::apply(
-                    cx,
-                    owner,
-                    award,
-                    super::attempts::PendingReward::default(),
-                )
+                permanent::apply(cx, owner, award, super::attempts::PendingReward::default())
             } else {
                 inventory::grant(cx.w, owner, award)
             };
-            assert!(paid, "check_grant passed {reward:?}, yet {award:?} was not paid");
+            assert!(
+                paid,
+                "check_grant passed {reward:?}, yet {award:?} was not paid"
+            );
         }
     }
     cx.ev.truncate(events);
