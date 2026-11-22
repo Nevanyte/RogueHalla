@@ -15,7 +15,7 @@ namespace Roguehalla.Client.Tests
                 new MapProp(27, 4106, 3734, 2, 0), new MapProp(27, 4113, 3691, 3, 0),
                 new MapProp(27, 4115, 3758, 0, 0), new MapProp(27, 4140, 3696, 0, 0),
                 new MapProp(27, 4176, 3755, 1, 0), new MapProp(22, 4208, 3755, 1, 0)
-            };
+            }.OrderBy(p => p.Y).ThenBy(p => p.X).ThenBy(p => p.Kind).ToArray();
             var map = new MapBlob(160, 160, new byte[160 * 160]).WithPublic(null, null, null, props, null);
             var root = new GameObject("Plague bank with delivered public feet");
             try
@@ -24,9 +24,9 @@ namespace Roguehalla.Client.Tests
                 {
                     var sprites = root.GetComponentsInChildren<SpriteRenderer>();
                     Assert.That(sprites.Length, Is.EqualTo(props.Length));
-                    Assert.That(sprites.Take(5).Select(s => s.sprite).Distinct().Count(), Is.GreaterThanOrEqualTo(3),
+                    Assert.That(sprites.Where((s, i) => props[i].Kind == 27).Select(s => s.sprite).Distinct().Count(), Is.GreaterThanOrEqualTo(3),
                         "Tinted and flipped copies still repeat the same arch");
-                    Assert.That(sprites[5].sprite.name, Is.EqualTo("plague.rubble"), "Ordinary rubble retains its artwork");
+                    Assert.That(sprites.Single((s) => s.transform.localPosition == ArenaView.WorldPoint(4208, 3755)).sprite.name, Is.EqualTo("plague.rubble"), "Ordinary rubble retains its artwork");
                     for (int i = 0; i < props.Length; i++)
                     {
                         Assert.That(sprites[i].transform.localPosition, Is.EqualTo(ArenaView.WorldPoint(props[i].X, props[i].Y)));
