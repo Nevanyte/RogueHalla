@@ -61,11 +61,12 @@ branch's history:
   amended tests compute the seam details with the same public call `Create` makes, then assert that what is drawn is
   exactly the blob's props plus those seam details, each at its own position, and nothing else.
 
-  **Owner flag (a decision the owner may want back):** owner decision 5 (2026-11-10) and DEV-021 say decoration is baked
-  server-side; the `docs/OWNER_DECISIONS.md` row glosses this as "no client-rolled decoration look on a dressed map".
-  Storm Ink's seam tufts and pebbles are client-generated, deterministic, and drawn on dressed maps. This packet keeps them
-  because the art lane built and reviewed them for live maps. To reverse it, wrap the `RegionEdgeProps.Generate` call in
-  `RegionProps.Create` in `if (!IsDressed(map))` and revert the two test amendments.
+  **Owner flag (resolved 2026-11-22):** owner decision 5 (2026-11-10) and DEV-021 say decoration is baked server-side;
+  the `docs/OWNER_DECISIONS.md` row glosses this as "no client-rolled decoration look on a dressed map". Storm Ink's seam
+  tufts and pebbles are client-generated, deterministic, and drawn on dressed maps. Asked whether to keep them, the owner
+  answered "Keep them" (2026-11-22, in the coordinator's chat). The coordinator recorded it as its own row in
+  `docs/OWNER_DECISIONS.md`. If it is ever reversed: wrap the `RegionEdgeProps.Generate` call in `RegionProps.Create` in
+  `if (!IsDressed(map))` and revert the two test amendments.
 
 ## Dependencies
 
@@ -170,25 +171,23 @@ CHANGED:         client-unity/UnityProject/Assets/Scripts/View/Regions/RegionPro
                  docs/backlog/packets/P-EDITMODE-STORMINK-1.md
 D-RULES:         D1 n/a (presentation, no legacy counterpart, DEV-021); D2 n/a; D5, D6, D9 untouched (no sim, wire,
                  prediction or observation change)
-DEVIATIONS:      none. Owner flag (see "Code or premise"): Storm Ink's client-generated seam details draw on dressed
-                 maps, against the OWNER_DECISIONS gloss of decision 5 ("no client-rolled decoration look on a dressed
-                 map"); kept, with a one-line reversal named in the brief.
+DEVIATIONS:      none. Owner flag resolved (see "Code or premise"): Storm Ink's client-generated seam details draw on
+                 dressed maps, against the OWNER_DECISIONS gloss of decision 5; the owner said "Keep them" (2026-11-22,
+                 coordinator's chat). The one-line reversal stays named in the brief.
 SHARED RECORDS:  proposed edits:
                  docs/backlog/README.md, after the P-STORM-PROP-ATLAS-LIFETIME-1 row: `| P-EDITMODE-STORMINK-1 | Unity
                  EditMode green again after the Storm Ink integration (atlas keeps the region transitions through Editor
                  cleanup; dressed-map drawing tests account for seam details) | P-STORM-BIOME-EDGES-1,
                  P-STORM-PROP-ATLAS-LIFETIME-1 | Ready packet (oracle + fix on agent/opus; EditMode 2000/2000)
                  ([spec](packets/P-EDITMODE-STORMINK-1.md)) | none (Unity only) |`;
-                 docs/coordination/OWNER_QUEUE.md: "Seam details on dressed maps: Storm Ink's client-side grass tufts and
-                 scree pebbles at region seams draw on served (dressed) maps. Default in force: keep them. Alternative:
-                 `if (!IsDressed(map))` around RegionEdgeProps.Generate in RegionProps.Create, and revert the
-                 DressedMapEditModeTests amendment (P-EDITMODE-STORMINK-1).";
+                 (the OWNER_QUEUE entry proposed earlier is no longer needed: the owner ruled, and the coordinator added
+                 the docs/OWNER_DECISIONS.md row);
                  .agent-runs/log.csv: `2026-11-22,P-EDITMODE-STORMINK-1,side session (diagnosis + fix),opus,1,PASS (quick),110,oracle by the same session; 5 EditMode runs`
 LEGACY DOUBTS:   none
 NOT ESTABLISHED: no Web build or live look check (the fix is Editor-only and the amendment changes no behaviour, so the
                  player draws as it did on 64ca1230c); the keep-alive is proven by the Editor cleanup test on this
-                 Unity version only; the owner has not ruled on seam details on dressed maps.
-RISKS:           the owner may reverse the seam-detail decision (one line plus the test revert); any future atlas source
+                 Unity version only.
+RISKS:           any future atlas source
                  whose OnValidate dirties the atlas needs the same keep-alive (recorded under Known traps).
 ```
 
