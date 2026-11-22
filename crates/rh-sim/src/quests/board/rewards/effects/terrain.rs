@@ -8,34 +8,24 @@ use crate::{
     TileMap,
 };
 
-pub(super) const CAGE_RADIUS: f64 = 160.;
-const CAGE_MS: f64 = 6000.;
-const GAP_HALF_ANGLE: f64 = 0.48;
 pub(super) fn visit_rules(word: &mut dyn FnMut(u64)) {
     for v in [
-        CAGE_RADIUS,
-        CAGE_MS,
-        FALCON_SPEED_PER_MS,
+        TOP25.cage_radius,
+        TOP25.cage_ms,
+        TOP25.falcon_speed_per_ms,
         RADIUS,
-        GAP_HALF_ANGLE,
-        TURRET_MS,
-        TURRET_INTERVAL,
-        TURRET_RANGE,
-        TURRET_REWARD_RANGE,
-        WARD_MS,
-        FALCON_MS,
+        TOP25.cage_gap_half_angle,
+        TOP25.turret_ms,
+        TOP25.turret_interval_ms,
+        TOP25.turret_range,
+        TOP25.turret_reward_range,
+        TOP25.ward_ms,
+        TOP25.falcon_ms,
     ] {
         word(v.to_bits());
     }
 }
 
-const TURRET_MS: f64 = 25_000.;
-const TURRET_INTERVAL: f64 = 850.;
-const TURRET_RANGE: f64 = 340.;
-const TURRET_REWARD_RANGE: f64 = 400.;
-const WARD_MS: f64 = 75_000.;
-const FALCON_MS: f64 = 4000.;
-const FALCON_SPEED_PER_MS: f64 = 6.;
 pub(crate) const RADIUS: f64 = 16.;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -88,12 +78,12 @@ pub(super) fn body_map<'a>(k: &'a MatchStatic, w: &'a World) -> &'a TileMap {
 pub(super) fn cage(cx: &mut Cx, ix: FighterIx, at: Vec2) -> bool {
     let p = cx.w.core(ix);
     let (from, owner) = (p.pos(), p.id);
-    if !placement(cx, from, at, 400., 0.) || cx.w.entity_counter == u32::MAX {
+    if !placement(cx, from, at, TOP25.cage_cast_range, 0.) || cx.w.entity_counter == u32::MAX {
         return false;
     }
     let direction = p.body.facing;
     let map = body_map(cx.k, cx.w);
-    let reach = CAGE_RADIUS + TILE;
+    let reach = TOP25.cage_radius + TILE;
     let min_x = world_to_tile(at.x - reach).max(1);
     let min_y = world_to_tile(at.y - reach).max(1);
     let max_x = world_to_tile(at.x + reach).min(i64::from(map.w) - 2);
@@ -105,8 +95,8 @@ pub(super) fn cage(cx: &mut Cx, ix: FighterIx, at: Vec2) -> bool {
             let gap =
                 crate::math::wrap_angle(crate::math::atan2(pt.y - at.y, pt.x - at.x) - direction)
                     .abs();
-            if (distance(pt, at) - CAGE_RADIUS).abs() <= TILE * 0.65
-                && gap >= GAP_HALF_ANGLE
+            if (distance(pt, at) - TOP25.cage_radius).abs() <= TILE * 0.65
+                && gap >= TOP25.cage_gap_half_angle
                 && map.tile(tx, ty) == Some(TILE_FLOOR)
                 && cx.k.locked_map.as_ref().is_none_or(|m| {
                     m.tile(tx, ty) == Some(TILE_FLOOR)
@@ -146,7 +136,7 @@ pub(super) fn cage(cx: &mut Cx, ix: FighterIx, at: Vec2) -> bool {
             return false;
         }
         let d = distance(at, from);
-        let sign = if d < CAGE_RADIUS { -1. } else { 1. };
+        let sign = if d < TOP25.cage_radius { -1. } else { 1. };
         let candidate = [sign, -sign].into_iter().find_map(|side| {
             (1..=24)
                 .map(|step| between(at, from, (d + side * f64::from(step) * 4.) / d))
@@ -172,11 +162,11 @@ pub(super) fn cage(cx: &mut Cx, ix: FighterIx, at: Vec2) -> bool {
             y: at.y,
             x2: at.x,
             y2: at.y,
-            r: CAGE_RADIUS,
+            r: TOP25.cage_radius,
             vx: 0.,
             vy: 0.,
             started_at: now,
-            ends_at: now + CAGE_MS,
+            ends_at: now + TOP25.cage_ms,
             exit_stun_ms: None,
         },
     );
@@ -210,11 +200,11 @@ pub(crate) fn is_cage(w: &World, f: &rt::Field) -> bool {
     state(w).is_some()
         && f.kind == rt::FieldKind::Wall
         && f.ability == rt::AbilityId::Freeze
-        && f.r == CAGE_RADIUS
+        && f.r == TOP25.cage_radius
         && f.x == f.x2
         && f.y == f.y2
         && f.subject.is_none()
-        && f.ends_at == f.started_at + CAGE_MS
+        && f.ends_at == f.started_at + TOP25.cage_ms
 }
 
 pub(super) fn deploy(
@@ -224,18 +214,22 @@ pub(super) fn deploy(
     at: Vec2,
     kind: DeploymentKind,
 ) -> bool {
-    if !placement(cx, from, at, 400., RADIUS) || cx.w.entity_counter == u32::MAX {
+    if !placement(cx, from, at, TOP25.deploy_range, RADIUS) || cx.w.entity_counter == u32::MAX {
         return false;
     }
     let (hp, life) = if kind == DeploymentKind::Turret {
-        (100., TURRET_MS)
+        (TOP25.turret_hp, TOP25.turret_ms)
     } else {
-        (35., WARD_MS)
+        (TOP25.ward_hp, TOP25.ward_ms)
     };
     let id = cx.w.next_entity_id();
     let now = cx.w.server_time;
     let rows = &mut state_mut(cx.w).deployments;
-    let cap = if kind == DeploymentKind::Turret { 1 } else { 2 };
+    let cap = if kind == DeploymentKind::Turret {
+        TOP25.turret_cap
+    } else {
+        TOP25.ward_cap
+    };
     let same = |r: &&Deployment| r.owner == owner && r.kind == kind;
     if rows.iter().filter(same).count() >= cap {
         let first = rows.iter().position(|r| same(&r)).unwrap();
@@ -249,7 +243,7 @@ pub(super) fn deploy(
         kind,
         hp,
         until: now + life,
-        next_shot: now + TURRET_INTERVAL,
+        next_shot: now + TOP25.turret_interval_ms,
     });
     true
 }
@@ -260,14 +254,14 @@ pub(super) fn falcon(cx: &mut Cx, ix: FighterIx, aim: Vec2) -> bool {
     }
     let p = cx.w.core(ix);
     let (owner, at) = (p.id, p.pos());
-    let end = aim_end(cx, ix, aim, 1200.);
+    let end = aim_end(cx, ix, aim, TOP25.falcon_range);
     let map = crate::collision::map(cx.k, cx.w);
     let end = clip(at, end, |p| has_line_of_sight(map, at, p, MASK_SIGHT));
     if distance(at, end) < 1. {
         return false;
     }
     let id = cx.w.next_entity_id();
-    let until = cx.w.server_time + FALCON_MS;
+    let until = cx.w.server_time + TOP25.falcon_ms;
     let rows = &mut state_mut(cx.w).deployments;
     rows.retain(|d| d.owner != owner || d.kind != DeploymentKind::ScoutFalcon);
     rows.push(Deployment {
@@ -311,11 +305,11 @@ pub(crate) fn reveals(w: &World, map: &TileMap, viewer: PlayerId, at: Vec2, tick
             return false;
         }
         let (origin, range) = match d.kind {
-            DeploymentKind::Turret => (d.at, 220.),
-            DeploymentKind::LanternWard => (d.at, 365.),
+            DeploymentKind::Turret => (d.at, TOP25.turret_reveal),
+            DeploymentKind::LanternWard => (d.at, TOP25.ward_reveal),
             DeploymentKind::ScoutFalcon => {
                 let reached = falcon_head(*d, w.server_time, tick_ms);
-                (nearest(d.at, reached, at), 165.)
+                (nearest(d.at, reached, at), TOP25.falcon_reveal)
             }
         };
         distance(origin, at) <= range
@@ -324,11 +318,11 @@ pub(crate) fn reveals(w: &World, map: &TileMap, viewer: PlayerId, at: Vec2, tick
 }
 
 fn falcon_head(d: Deployment, now: f64, tick_ms: f64) -> Vec2 {
-    let elapsed = (FALCON_MS + now - d.until).max(0.) + tick_ms;
+    let elapsed = (TOP25.falcon_ms + now - d.until).max(0.) + tick_ms;
     towards(
         d.at,
         d.end.expect("falcon has a flight segment"),
-        FALCON_SPEED_PER_MS * elapsed,
+        TOP25.falcon_speed_per_ms * elapsed,
     )
 }
 
@@ -375,7 +369,7 @@ pub(super) fn update(cx: &mut Cx) {
         if d.kind != DeploymentKind::Turret || now < d.next_shot {
             continue;
         }
-        state_mut(cx.w).deployments[i].next_shot = now + TURRET_INTERVAL;
+        state_mut(cx.w).deployments[i].next_shot = now + TOP25.turret_interval_ms;
         let Some(owner) = cx.w.player(d.owner).filter(|p| p.standing()) else {
             continue;
         };
@@ -385,7 +379,7 @@ pub(super) fn update(cx: &mut Cx) {
             let j = FighterIx::of_slot(j);
             let t = cx.w.core(j);
             let range = distance(d.at, t.pos());
-            if range <= TURRET_RANGE
+            if range <= TOP25.turret_range
                 && enemy(cx.w, d.owner, j)
                 && !stasis(cx.w, t.id)
                 && !rt::untargetable(&t.statuses.instances, now)
@@ -396,13 +390,15 @@ pub(super) fn update(cx: &mut Cx) {
             }
         }
         if let Some((_, target)) = target {
-            let remote =
-                distance(owner.pos(), d.at) > TURRET_REWARD_RANGE && cx.w.mobs.contains(target);
+            let remote = distance(owner.pos(), d.at) > TOP25.turret_reward_range
+                && cx.w.mobs.contains(target);
             let weapon = owner.active_weapon();
             let sheet = crate::content::paced(owner.faction());
             let interval =
                 crate::content::attack_interval(&sheet, weapon, owner.modifiers.mirrors().as_mult);
-            let raw = 0.3 * crate::modifiers::packet(owner, weapon).raw * TURRET_INTERVAL
+            let raw = TOP25.turret_damage_share
+                * crate::modifiers::packet(owner, weapon).raw
+                * TOP25.turret_interval_ms
                 / (interval * 1000.);
             hit(
                 cx,
@@ -421,7 +417,7 @@ pub(super) fn pull_turrets(cx: &mut Cx, tornado: Tornado) {
         let d = deployments(cx.w)[i];
         if d.kind == DeploymentKind::Turret
             && d.until > cx.w.server_time
-            && distance(d.at, tornado.at) <= TORNADO_RADIUS
+            && distance(d.at, tornado.at) <= TOP25.tornado_radius
         {
             let map = body_map(cx.k, cx.w);
             let at = clip(
@@ -429,7 +425,7 @@ pub(super) fn pull_turrets(cx: &mut Cx, tornado: Tornado) {
                 towards(
                     d.at,
                     tornado.at,
-                    180. * (tornado.max_hp / 100. - 1.).clamp(0., 1.),
+                    TOP25.tornado_pull * (tornado.max_hp / TOP25.turret_hp - 1.).clamp(0., 1.),
                 ),
                 |p| Footprint::Disc(RADIUS).segment_clear(map, d.at, p, MASK_MOVE),
             );
@@ -445,9 +441,9 @@ pub(super) fn validate(k: &MatchStatic, w: &World, rows: &[Deployment]) -> Resul
     };
     for (i, d) in rows.iter().enumerate() {
         let (cap, life, max_hp) = match d.kind {
-            DeploymentKind::Turret => (1, TURRET_MS, 100.),
-            DeploymentKind::LanternWard => (2, WARD_MS, 35.),
-            DeploymentKind::ScoutFalcon => (1, FALCON_MS, 0.),
+            DeploymentKind::Turret => (TOP25.turret_cap, TOP25.turret_ms, TOP25.turret_hp),
+            DeploymentKind::LanternWard => (TOP25.ward_cap, TOP25.ward_ms, TOP25.ward_hp),
+            DeploymentKind::ScoutFalcon => (TOP25.falcon_cap, TOP25.falcon_ms, 0.),
         };
         if d.id == 0
             || d.id > w.entity_counter
@@ -458,7 +454,7 @@ pub(super) fn validate(k: &MatchStatic, w: &World, rows: &[Deployment]) -> Resul
             || d.until > w.server_time + life
             || !d.next_shot.is_finite()
             || d.next_shot < 0.
-            || d.next_shot > w.server_time + TURRET_INTERVAL
+            || d.next_shot > w.server_time + TOP25.turret_interval_ms
             || !d.hp.is_finite()
             || d.hp > max_hp
             || (max_hp > 0. && d.hp <= 0.)
@@ -480,7 +476,7 @@ pub(super) fn validate(k: &MatchStatic, w: &World, rows: &[Deployment]) -> Resul
                 Some(end) => {
                     d.kind != DeploymentKind::ScoutFalcon
                         || !inside(end)
-                        || !(1. ..=1200. + 1e-6).contains(&distance(d.at, end))
+                        || !(1. ..=TOP25.falcon_range + 1e-6).contains(&distance(d.at, end))
                         || d.hp != 0.
                         || d.next_shot != 0.
                 }

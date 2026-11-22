@@ -9,12 +9,10 @@ use crate::quests::board::placement::BoardSite;
 
 const WARDEN_CAMP: &str = "quest-target-the-warden";
 const RIME_CAMP: &str = "quest-target-rime-hunt";
-const QUEST_RESPAWN_MS: f64 = 25_000.;
-const WARDEN_HP_MULTIPLIER: f64 = 3.;
 
 pub(super) fn visit_rules(word: &mut dyn FnMut(u64)) {
-    word(QUEST_RESPAWN_MS.to_bits());
-    word(WARDEN_HP_MULTIPLIER.to_bits());
+    word(TOP25.quest_respawn_ms.to_bits());
+    word(TOP25.warden_hp_multiplier.to_bits());
 }
 
 pub(crate) fn tagged(id: &str) -> Option<QuestId> {
@@ -235,7 +233,7 @@ pub(crate) fn respawn_ms(k: &MatchStatic, ci: usize) -> f64 {
             tagged(&c.id).is_some() || (0..c.spots.len()).any(|s| camp_target(k, ci, s).is_some())
         })
     {
-        QUEST_RESPAWN_MS
+        TOP25.quest_respawn_ms
     } else {
         CAMP_RESPAWN_MS
     }
@@ -245,7 +243,7 @@ pub(crate) fn configure(k: &MatchStatic, ci: usize, si: usize, mob: &mut Mob) {
     match camp_target(k, ci, si) {
         Some(QuestId::TheWarden) => {
             mob.display_name = Some("The Warden".into());
-            mob.core.vitals.max_hp *= WARDEN_HP_MULTIPLIER;
+            mob.core.vitals.max_hp *= TOP25.warden_hp_multiplier;
             mob.core.vitals.hp = mob.core.vitals.max_hp;
         }
         Some(QuestId::ABoneToPick) => mob.display_name = Some("The Barrow Archer".into()),

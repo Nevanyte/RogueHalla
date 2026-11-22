@@ -539,13 +539,13 @@ fn contested_fort_and_interrupted_meditation_do_not_pay() {
         cx.w.players[b_slot].body.x += 500.;
         system(cx);
         assert_eq!(board(cx.w).unwrap().get(a, 901).unwrap().dwell_ms, 0.);
-        for _ in 1..(FORT_MS / TICK_MS) as usize {
+        for _ in 1..(crate::quests::board::tuning::TOP25.fort_ms / TICK_MS) as usize {
             system(cx);
         }
         assert!(ready(cx.w, a, 900));
         assert!(!ready(cx.w, a, 901));
         interact(cx, a, 901, 6, 0);
-        for _ in 0..(MEDITATE_MS / TICK_MS) as usize {
+        for _ in 0..(crate::quests::board::tuning::TOP25.meditate_ms / TICK_MS) as usize {
             system(cx);
         }
         assert!(ready(cx.w, a, 901));

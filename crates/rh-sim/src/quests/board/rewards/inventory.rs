@@ -1,4 +1,5 @@
 //! Serialized per-player quest inventory, held turn-ins and world reward loot.
+use super::super::tuning::TOP25;
 use super::awards::Award;
 use crate::math::Vec2;
 use crate::state::{Phase, PlayerId, World};
@@ -16,7 +17,11 @@ pub(crate) struct Owned {
 
 impl Owned {
     pub(crate) fn new(award: Award, now: f64) -> Self {
-        let charges = if award == Award::LanternWard { 2 } else { 1 };
+        let charges = if award == Award::LanternWard {
+            TOP25.lantern_ward_charges
+        } else {
+            1
+        };
         Self {
             award,
             charges,

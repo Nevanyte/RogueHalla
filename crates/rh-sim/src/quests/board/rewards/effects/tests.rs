@@ -107,7 +107,7 @@ fn stasis_stops_real_movement_attacks_casting_and_damage_then_releases() {
     let mirrors = sim.player(owner).unwrap().modifiers.mirrors();
     cast(&mut sim, owner, Award::Stasis, from, None);
     assert_eq!(position(&sim, owner), from, "the existing path stopped");
-    let end = sim.w.server_time + STASIS_MS;
+    let end = sim.w.server_time + crate::quests::board::tuning::TOP25.stasis_ms;
     let hp = sim.player(owner).unwrap().vitals.hp;
     let rival_hp = sim.player(rival).unwrap().vitals.hp;
     grant(&mut sim, owner, Award::BlindRage);
@@ -509,7 +509,7 @@ fn checkpoint_rejects_excess_pending_tornadoes() {
     let row = Tornado {
         owner,
         at: position(&sim, owner),
-        lands: sim.w.server_time + TORNADO_WINDUP,
+        lands: sim.w.server_time + crate::quests::board::tuning::TOP25.tornado_windup_ms,
         max_hp: 100.,
     };
     state_mut(&mut sim.w).tornadoes.push(row);
