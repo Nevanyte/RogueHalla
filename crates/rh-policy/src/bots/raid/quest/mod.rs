@@ -7,3 +7,27 @@ pub mod search;
 pub mod walker;
 #[cfg(test)]
 mod walker_tests;
+
+use crate::bots::raid::goal::Cx;
+use rh_sim::quests::board::catalog::{RewardKind, DEFINITIONS};
+
+/// The seat holds this many quest spells at most (a third reward waits in `pending`).
+pub(crate) const SPELL_SLOTS: usize = 2;
+
+/// Spell slots spoken for: quest spells held, plus every accepted, unfinished quest on the board whose reward is a spell,
+/// whichever executor owns it (the same count as the walker's private `slots_taken`).
+pub(crate) fn spell_slots_taken(cx: &Cx<'_>) -> usize {
+    cx.p.quests.as_ref().map_or(0, |q| {
+        q.spells.len()
+            + q.rows
+                .iter()
+                .filter(|r| r.owner_accepted && r.state == 1)
+                .filter(|r| {
+                    DEFINITIONS
+                        .iter()
+                        .find(|d| d.id == r.def)
+                        .is_some_and(|d| d.reward.kind() != RewardKind::Permanent)
+                })
+                .count()
+    })
+}
