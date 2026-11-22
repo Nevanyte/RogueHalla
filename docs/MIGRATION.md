@@ -47,11 +47,27 @@ exact step that resumes it.
     tried: 255 u/s, real jitter, Firefox and Safari. Its playtest server is left up at `http://127.0.0.1:8081/` for
     the owner's look at the cues; the launch entry that serves it is uncommitted in the lane's worktree.
   - **Backend efficiency:** only P-DB-INDEX-1 above is unmerged; its test database is stopped.
-  - **Staging security:** three hand-overs wait, none merged: `agent/opus/P-SEC-DEVAUTH-EXPOSURE-1-fix` @ `9cfab3549`
-    (regenerates `protocol/fixtures/v24.json`: the Hello vectors' debug text, hex unchanged; merges with the gate's
-    `--regen-fixtures`), `agent/sonnet/P-HOST-STAGING-PROXY-1` @ `ff474f2c1` (under `hosting/`, its protected-path
-    commit `819d72625`) and `agent/sonnet/P-CI-ADVISORIES-1` @ `b068e94a3` (under `.github/`, its protected-path
-    commit `003063da9`). The lane also asks the coordinator for one `Cargo.lock` change, `url` 2.5.8 to 2.5.9.
+  - **Staging security:** three hand-overs wait, none merged. The coordinator checked the heads, that each hand-off
+    file is on its branch, and what the two protected commits touch; the gates and verdicts are the lane's.
+    - `agent/opus/P-SEC-DEVAUTH-EXPOSURE-1-fix` @ `9cfab3549` (holds `agent/opus/P-SEC-DEVAUTH-EXPOSURE-1` @
+      `10b94fa8d`). Quick gate PASS on both, Postgres skipped; reviewer-opus LAND WITH NOTES (a non-ASCII byte let
+      the forwarded-header scan fail open), closed by the `-fix` packet, reviewed LAND. `10b94fa8d` regenerates
+      `protocol/fixtures/v24.json` by its documented command (three Hello `debug` strings, every hex unchanged), so
+      its merge gate needs `--regen-fixtures`, and it touches `crates/rh-protocol`: it merges alone. Hand-off
+      `docs/coordination/HANDOFF_P-SEC-DEVAUTH-EXPOSURE-1_2026-11-22.md`.
+    - `agent/sonnet/P-HOST-STAGING-PROXY-1` @ `ff474f2c1`. Quick gate PASS with `--allow-protected`; reviewer LAND.
+      Protected commit `819d72625` (three files under `hosting/staging-mvp/`). Hand-off
+      `docs/coordination/HANDOFF_P-HOST-STAGING-PROXY-1_2026-11-22.md`.
+    - `agent/sonnet/P-CI-ADVISORIES-1` @ `b068e94a3`. Quick gate PASS with `--allow-protected`; reviewer LAND.
+      Protected commit `003063da9` (a new `.github/workflows/supply-chain.yml`, `hosting/Dockerfile`,
+      `hosting/README.md`). Hand-off `docs/coordination/HANDOFF_P-CI-ADVISORIES-1_2026-11-22.md`.
+    - The lane reports that the owner approved both protected commits in its chat as commits on a local branch. That
+      is not the merge: each merges only after his confirmation in the coordinator's chat.
+    - The coordinator's `Cargo.lock` change the lane asks for: `cargo update -p url --precise 2.5.9` (`url` 2.5.8 to
+      2.5.9, `form_urlencoded` 1.2.2 to 1.2.3; RUSTSEC-2026-0592, reached only through sqlx). It lands before or with
+      P-CI-ADVISORIES-1, or the new workflow's first run is red. Not applied during the pause.
+    - Merge order when work resumes: the lock bump; the security packet alone; the `hosting/` and `.github/` packets
+      after the owner's confirmation; then the full gate on the merged tree.
   - **glbridge token** (`packet/P-HOST-GLBRIDGE-TOKEN-1` @ `ab638fcae`, a session started from the security lane):
     stopped on a question to the owner in its own chat.
 - **Waiting on the owner** (nothing here is acted on without him):
