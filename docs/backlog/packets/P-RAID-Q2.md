@@ -217,6 +217,8 @@ guide in `raid/mod.rs`.
 - **Oracle amendments for the owner:** `crates/rh-policy/tests/raid_quests.rs`: adds `walker_prices()` (walker defs at 1.0, all else 0)
   and builds its `RaidBot` with it, plus a test that the table lists the walker list. Reason: the walker's floors were measured under
   flat 1.0 pricing with no other executor; this keeps every later quest executor out of that file. Same seeds, floors and assertions.
+  `raid_dwell.rs` correction (not a loosened expectation): `raid_bot_accepts_and_completes_each_dwell_quest` priced both dwell rows while asserting
+  "accepts only the quest under test", which seed 2 (dealing both) contradicts; it now prices only that quest (`raid_only(def)`).
 
 ## The oracle (loose proof)
 
