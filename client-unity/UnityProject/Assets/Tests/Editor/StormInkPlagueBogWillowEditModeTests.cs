@@ -21,6 +21,7 @@ namespace Roguehalla.Client.Tests
             var hauntedCover = Cover(placements, 15, 8);
             var fireCover = Cover(placements, 18, 8);
             var neutralCover = Cover(placements, 21, 8);
+            var frostCover = Cover(placements, 20, 12);
             var plagueDecor = placements.Single(p => p.Shipped && p.Kind == 24 && p.Tx == 9 && p.Ty == 10);
             var hauntedDecor = placements.Single(p => p.Shipped && p.Kind == 24 && p.Tx == 16 && p.Ty == 10);
 
@@ -47,6 +48,7 @@ namespace Roguehalla.Client.Tests
                 var hauntedDecorSprite = At(root, hauntedDecor);
                 var fireSprite = At(root, fireCover);
                 var neutralSprite = At(root, neutralCover);
+                var frostSprite = At(root, frostCover);
 
                 Assert.That(plagueCoverSprite.sprite, Is.SameAs(willow.Sprite));
                 Assert.That(plagueDecorSprite.sprite, Is.SameAs(willow.Sprite));
@@ -55,6 +57,10 @@ namespace Roguehalla.Client.Tests
                 Assert.That(hauntedCoverSprite.sprite, Is.SameAs(blackthorn.Sprite));
                 Assert.That(hauntedDecorSprite.sprite, Is.SameAs(blackthorn.Sprite));
                 Assert.That(neutralSprite.sprite.name, Is.EqualTo("plague.bush"));
+                Assert.That(RegionPropArt.TryGet("frost.bush", out var juniper), Is.True);
+                Assert.That(juniper.UsesAuthoredTexture, Is.True);
+                Assert.That(frostSprite.sprite, Is.SameAs(juniper.Sprite));
+                Assert.That(juniper.MinMargin, Is.GreaterThanOrEqualTo(RegionPropArt.RequiredMargin));
                 Assert.That(fireSprite.sprite.name, Is.EqualTo("fire.bush"), "the prior Fire art/fallback binding remains independent");
 
                 Vector3 plagueFoot = ArenaView.WorldPoint((plagueCover.X) * 32f, (plagueCover.Y) * 32f);
@@ -62,7 +68,7 @@ namespace Roguehalla.Client.Tests
                 var canopy = Resources.Load<ConcealmentCanopyArt>("StormInk/Props/ConcealmentCanopyArt");
                 Assert.That(canopy.HeightScale, Is.GreaterThan(1f));
                 Assert.That(canopy.WidthScale, Is.GreaterThan(1f));
-                foreach (var cover in new[] { plagueCoverSprite, hauntedCoverSprite, neutralSprite })
+                foreach (var cover in new[] { plagueCoverSprite, hauntedCoverSprite, neutralSprite, frostSprite })
                 {
                     Assert.That(Mathf.Abs(cover.transform.localScale.x), Is.EqualTo(canopy.WidthScale));
                     Assert.That(cover.transform.localScale.y, Is.EqualTo(canopy.HeightScale));
@@ -146,6 +152,8 @@ namespace Roguehalla.Client.Tests
             bushes[8 * Width + 8] = 23;
             bushes[8 * Width + 15] = 9;
             bushes[8 * Width + 18] = 3;
+            regions[12 * Width + 20] = (byte)RegionId.Frost;
+            bushes[12 * Width + 20] = 12;
             bushes[8 * Width + 21] = 1; // no region: preserve the old neutral fallback
             originalBushes = (byte[])bushes.Clone();
             var props = new[]

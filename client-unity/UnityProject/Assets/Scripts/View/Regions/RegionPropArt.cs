@@ -436,7 +436,10 @@ namespace Roguehalla.Client
                 c.Fill(mound, Toon(mound, snowShade, snow, snowLight, 5f), null);
             });
 
-            Add(l, "frost.bush", 104, 80, 8, (c, gy) =>
+            var juniper = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/FrostJuniperArt");
+            int bushHeight = juniper != null ? juniper.HeightPixels(80) : 80;
+            Add(l, "frost.bush", juniper != null ? juniper.WidthPixels(104) : 104, bushHeight,
+                juniper != null ? juniper.GroundPixels(8, bushHeight) : 8, (c, gy) =>
             {
                 float cx = c.DesignW / 2f;
                 c.SoftShadow(cx + 5, gy + 1, 38f, 7f, .35f, Alpha(snowDeep, 1f));
@@ -454,7 +457,8 @@ namespace Roguehalla.Client
                 edge.Add(new Vector2(cx + 50f, gy + 90f)); edge.Add(new Vector2(cx - 50f, gy + 90f));
                 var cover = Intersect(Grow(u, -.6f), Poly(edge.ToArray()));
                 c.Fill(cover, Toon(cover, snowShade, snow, snowLight, 12f, .03f, 6, .0f, .15f), Alpha(snowDeep, .35f), 1f);
-            });
+            }, textureFoot: juniper != null ? juniper.ClampedTextureFoot(new Vector2(.5f, .055f)) : null,
+                textureSource: juniper != null ? juniper.Pigment : null);
         }
 
         static float SmoothU(float v, float a, float b) { float t = Mathf.Clamp01((v - a) / (b - a)); return t * t * (3f - 2f * t); }
