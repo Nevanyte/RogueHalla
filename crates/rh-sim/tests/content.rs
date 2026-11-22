@@ -34,7 +34,6 @@ const NON_GAMEPLAY: &[(&str, &str, &str)] = &[
     ("quests/board/special/egg_tests.rs", "PLANTED", "fixture identity or geography used only by the Top 25 acceptance tests"),
     ("quests/board/special/egg_tests.rs", "FALLEN", "fixture identity or geography used only by the Top 25 acceptance tests"),
     ("quests/board/special/egg_tests.rs", "CROWN", "fixture identity or geography used only by the Top 25 acceptance tests"),
-    ("quests/board/special/wall.rs", "RADIUS_SQ", "squared distance derived directly from the content-hashed WallBuster radius"),
     ("barriers_public_tests.rs", "W", "cfg(test)-only room width of the public-wall observation tests; never read by gameplay"),
     ("barriers_public_tests.rs", "H", "cfg(test)-only room height of the public-wall observation tests; never read by gameplay"),
     ("barriers_public_tests.rs", "CASTER", "cfg(test)-only seat index of the public-wall observation tests; never read by gameplay"),
