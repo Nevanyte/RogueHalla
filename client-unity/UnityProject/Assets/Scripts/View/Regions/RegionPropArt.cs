@@ -647,7 +647,7 @@ namespace Roguehalla.Client
                 c.Fill(Capsule(new Vector2(cx + 7, gy + 60), new Vector2(cx + 6, gy + 18), 1.8f, 1f), Flat(leafMid), Alpha(leafDark, .8f), 1f);
                 Lumps(c, cx, gy, 18, 12, 3, leafDark, leafMid, leafLight, 7);
             }, true);
-            Add(l, "plague.rubble", 112, 60, 8, (c, gy) =>
+            void RubbleFallback(RegionCanvas c, int gy)
             {
                 c.SoftShadow(56, gy + 1, 44f, 7f, .4f, Alpha(shadow, 1f));
                 Rock(c, 38, gy, 24, 18, 2, stoneD, stoneM, stoneL, null, 0, Shade(stoneD, .6f), .22f, 7);
@@ -655,7 +655,22 @@ namespace Roguehalla.Client
                 Rock(c, 56, gy + 1, 15, 11, 8, stoneD, stoneM, stoneL);
                 Lumps(c, 44, gy + 4, 28, 14, 3, leafDark, leafMid, leafLight, 15);
                 Blades(c, 80, gy + 3, 5, 20, 12, 1.3f, leafMid, leafLight, 3, .4f);
-            }, false, "StormInk/Props/PlagueRubble");
+            }
+            void AddBankRoot(string key, string definition, string legacyTexture = null)
+            {
+                var source = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/" + definition);
+                int width = source != null ? source.WidthPixels(112) : 112;
+                int height = source != null ? source.HeightPixels(60) : 60;
+                int ground = source != null ? source.GroundPixels(8, height) : 8;
+                Add(l, key, width, height, ground, RubbleFallback,
+                    texturePath: source == null ? legacyTexture : null,
+                    textureFoot: source != null ? source.ClampedTextureFoot(new Vector2(.5f, 0f)) : null,
+                    textureSource: source != null ? source.Pigment : null);
+            }
+            AddBankRoot("plague.rubble", "PlagueRubbleArt", "StormInk/Props/PlagueRubble");
+            AddBankRoot("plague.root.ribbon", "PlagueRootRibbonArt");
+            AddBankRoot("plague.root.fan", "PlagueRootFanArt");
+
             Add(l, "plague.mushroom", 96, 84, 8, (c, gy) =>
             {
                 c.SoftShadow(48, gy + 1, 30f, 5f, .35f, Alpha(shadow, 1f)); c.Glow(48, gy + 20, 36f, spore, .22f);

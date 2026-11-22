@@ -110,6 +110,18 @@ namespace Roguehalla.Client
                 DecorationKinds.TryGet(placement.Kind, out var kind) && kind.Name == "frost.spire")
                 return RegionPropArt.TryGet("frost.spire", out var spire) && spire.UsesAuthoredTexture
                     ? "frost.spire" : "frost.spire.fallback";
+            if (placement.Shipped && placement.Art == "plague.rubble" &&
+                DecorationKinds.TryGet(placement.Kind, out var bankKind) && bankKind.Name == "plague.root")
+            {
+                // Public variant two keeps the old arched root. The other three break up
+                // its silhouette. Use exact feet for variant zero, including roots sharing a tile.
+                int variant = placement.Variant & 3;
+                if (variant == 2) return placement.Art;
+                bool ribbon = variant == 1 || (variant == 0 && RegionNoise.Hash01(
+                    Mathf.RoundToInt(placement.X * 32f), Mathf.RoundToInt(placement.Y * 32f), 283) < .5f);
+                string key = ribbon ? "plague.root.ribbon" : "plague.root.fan";
+                if (RegionPropArt.TryGet(key, out var root) && root.UsesAuthoredTexture) return key;
+            }
             if (placement.Art == "fire.rocks")
             {
                 if (!placement.Shipped) return "fire.scree";
