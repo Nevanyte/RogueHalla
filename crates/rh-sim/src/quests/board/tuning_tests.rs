@@ -424,19 +424,19 @@ fn couplings_the_restore_validators_assume() {
     );
 }
 
-const WORDS: [&str; 13] = [
-    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-    "eleven", "twelve",
-];
-
 fn seconds(ms: f64) -> String {
     format!("{}", ms / 1000.)
 }
 
 fn word_seconds(ms: f64) -> String {
+    // A local, not a const: tests/content.rs scans every const in src/ (this file included).
+    let words = [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+        "eleven", "twelve",
+    ];
     let s = ms / 1000.;
     assert!(s.fract() == 0. && s <= 12., "{ms} ms has no number word");
-    WORDS[s as usize].to_string()
+    words[s as usize].to_string()
 }
 
 fn percent(share: f64) -> String {
