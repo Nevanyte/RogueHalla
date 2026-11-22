@@ -16,6 +16,16 @@ namespace Roguehalla.Net
         void Poll();
     }
 
+    /// <summary>
+    /// Optional on an <see cref="ITransport"/>: how long ago (ms) the socket delivered the frame that the current
+    /// <c>Received</c> event carries; valid only inside that handler. The session times snapshots for the render clock at
+    /// <c>now - ReceivedAgeMs</c>, so the delay between the socket and the frame drain is not counted as network jitter.
+    /// </summary>
+    public interface IArrivalTimedTransport
+    {
+        double ReceivedAgeMs { get; }
+    }
+
     /// <summary>Why a session ended as Failed; <see cref="ConnectionCopy.ForFailure"/> words it for the player. <c>Session.Error</c> keeps the raw text for logs.</summary>
     public enum FailureKind { None, ConnectTimeout, ClosedBeforeWelcome, LostConnection, Other }
 
@@ -553,6 +563,10 @@ namespace Roguehalla.Net
             }
             double now = Now;
             if (_detached) return;
+            // The render clock is timed at the socket arrival, not the frame drain (Motion keeps the drain-time now).
+            double arrived = now;
+            var timed = _t as IArrivalTimedTransport;
+            if (timed != null) arrived = now - Math.Min(1000, Math.Max(0, timed.ReceivedAgeMs));
             var snap = msg as ServerMsg.Snapshot;
             if (snap != null)
             {
@@ -564,7 +578,7 @@ namespace Roguehalla.Net
                         replaceCurrentTick && snap.ServerMs < Latest.ServerMs);
                     Latest = snap;
                     Training = snap.Training;
-                    if (!replaceCurrentTick || sourceChanged) Clock.OnSnapshot(now, snap.ServerMs);
+                    if (!replaceCurrentTick || sourceChanged) Clock.OnSnapshot(arrived, snap.ServerMs);
                     _hasMe = snap.Me != null;
                     if (_hasMe) _me.CopyFrom(snap.Me, snap.OwnerCombat);
                     else _me.OwnerCombat = null;
