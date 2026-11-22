@@ -155,3 +155,108 @@ pub fn apply(sim: &mut Sim, id: PlayerId, build: &TrustedBuild) -> Result<(), Bu
     sim.projection.marks = Default::default();
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    //! P-BAL-PROBE-1: `Sim::quest_attempts` and `Sim::gates_locked` only read. A board world with a granted reward and
+    //! an accepted attempt steps to the same state hash and events whether or not the probes run between its steps.
+    use super::*;
+    use crate::mapgen::{coliseum, pipeline};
+    use crate::quest_view::QuestObserver;
+    use crate::quests::board::map_admission;
+    use crate::{ArenaRules, Placement, Secrets, SimConfig, WeaponId};
+
+    /// A generated Top 25 raid: one human seat and one bot seat, the first lock five minutes away.
+    fn board_world() -> Sim {
+        let fixed = coliseum::fixed_layout();
+        let generator = pipeline::Pipeline::new(&fixed);
+        let secrets = Secrets::from_seed(1);
+        let options = pipeline::Options {
+            decor: false,
+            ..Default::default()
+        };
+        let arena = map_admission::generate(&generator, 1, 0..32, options, secrets)
+            .unwrap()
+            .validate()
+            .unwrap()
+            .into_arena()
+            .unwrap();
+        let players: [Placement; 2] = std::array::from_fn(|i| Placement {
+            profile: format!("probe-{i}"),
+            faction: crate::FactionId::Holy,
+            bot: i == 1,
+            at: arena.spawns[i],
+            hp: None,
+            weapon0: Some(WeaponId::Sword),
+            weapon1: None,
+        });
+        let rules = ArenaRules {
+            plan_seconds: 0.,
+            first_patience_seconds: Some(0.),
+            coliseum_schedule: None,
+            patience_seconds: 300.,
+            patience_min_seconds: 120.,
+            ..Default::default()
+        };
+        let config = SimConfig {
+            lifecycle: crate::ArenaMode::Source(rules),
+            min_players: 1,
+            ..SimConfig::live_content()
+        };
+        Sim::reset_active(config, arena, secrets, &players)
+    }
+
+    /// Stands `seat` at the first offer's giver and accepts it through the seat's own journal and a validated input.
+    fn accept_first_offer(sim: &mut Sim, seat: PlayerId) {
+        let giver = sim.w.quests.as_ref().unwrap().offers[0].at;
+        let p = sim.w.players.get_mut(seat).unwrap();
+        p.body.x = giver.x;
+        p.body.y = giver.y;
+        p.body.history.reset(crate::state::Sample {
+            t: sim.w.server_time,
+            x: giver.x,
+            y: giver.y,
+        });
+        p.motion.path.clear();
+        p.motion.slip = None;
+        let mut observer = QuestObserver::new(seat);
+        let prepared = observer.prepare(sim).unwrap();
+        let handle = prepared
+            .view
+            .rows
+            .iter()
+            .find(|r| r.can_accept)
+            .expect("the giver's offer can be accepted")
+            .handle;
+        prepared.commit();
+        let cmd = observer.resolve_accept(sim, handle);
+        sim.submit(seat, cmd).unwrap();
+        sim.step();
+    }
+
+    #[test]
+    fn the_probes_leave_every_step_as_it_was() {
+        let mut quiet = board_world();
+        let seat = quiet.w.players[0].id;
+        let rewards = TrustedBuild {
+            rewards: vec![RewardId::Hook, RewardId::WarmCoat],
+            ..TrustedBuild::default()
+        };
+        apply(&mut quiet, seat, &rewards).expect("a spell and a permanent");
+        accept_first_offer(&mut quiet, seat);
+        let mut probed = quiet.clone();
+        let ids: Vec<PlayerId> = probed.players().iter().map(|p| p.id).collect();
+        let mut rows = 0;
+        for _ in 0..120 {
+            for &id in &ids {
+                rows += probed.quest_attempts(id).len();
+            }
+            let _ = probed.gates_locked();
+            quiet.step();
+            probed.step();
+            assert_eq!(probed.state_hash(), quiet.state_hash());
+            assert_eq!(probed.take_events(), quiet.take_events());
+        }
+        assert!(rows > 0, "the probes read a held attempt");
+    }
+}
