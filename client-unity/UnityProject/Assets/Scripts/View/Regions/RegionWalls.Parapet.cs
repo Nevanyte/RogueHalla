@@ -21,7 +21,10 @@ namespace Roguehalla.Client
             float leftFront = south ? leftCut : 0f, rightFront = south ? rightCut : 0f;
             float leftBack = 1f - (north ? leftCut : 0f), rightBack = 1f - (north ? rightCut : 0f);
 
-            Vector2 Surface(float u, float v) => new Vector2(x + u, foot + WallHeight + v * TopHeight);
+            // Use the same subpixel lap as ordinary wall rows where masonry meets its neighbour.
+            float left = west ? x : x - .003f;
+            float right = east ? x + 1f : x + 1.003f;
+            Vector2 Surface(float u, float v) => new Vector2(Mathf.Lerp(left, right, u), foot + WallHeight + v * TopHeight);
             Vector2 CapUv(float u, float v) => new Vector2(
                 Mathf.Lerp(cap.Min.x, cap.Max.x, recedes ? 1f - v : u),
                 Mathf.Lerp(cap.Min.y, cap.Max.y, recedes ? u : v));
