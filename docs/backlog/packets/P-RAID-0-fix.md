@@ -90,7 +90,7 @@ shared files a later packet touches.
 
 - `crates/rh-policy/tests/raid_bot.rs` (4 tests): precondition and `HumanBot` control, `RaidBot` clears the scene camp
   within 1,800 ticks on at least 7 of 8 seeds, `SeatStats.rejected == 0`, replay equal (same clear tick, stats, state
-  hash). Stays green and unedited. Measured on the base, seeds 1-8, clear ticks **258, 112, 1257, 362, 139, 321, 319, 399**
+  hash). Stays green; its only edit is the farm-only price table in `raid()` (see "Oracle amendments"). Measured on the base, seeds 1-8, clear ticks **258, 112, 1257, 362, 139, 321, 319, 399**
   (from the coordinator; the brief does not re-measure them): moving constants into `Prices::LOCAL` and adding a
   pre-emption rule that nothing triggers must leave them identical; the lock-target preference may move them, and if it
   does the implementer reports before and after.
@@ -132,6 +132,18 @@ hash-ordered collections, no clock, no platform libm); `docs/agent/READABILITY.m
 - `Prices` stays `Copy + PartialEq + Debug` and `Default`; `RaidBot::with_prices(Prices)` keeps its signature;
   `arbiter::Prices` stays reachable (re-export) because `bot.rs` imports it from there.
 - No new `Cx` or `RaidPercept` field (the oracle builds both by literal).
+- `tests/raid_bot.rs` passes with the amended constructor (`with_prices(Prices::farm_only())`) on the stub exactly as it
+  does today: the stub's accessors are unread, so the clear ticks 258, 112, 1257, 362, 139, 321, 319, 399 must not move.
+- `Prices::reward_value(def)` is what every quest executor multiplies its candidate's value by, and a table can set it
+  to zero (`Prices::farm_only()` does, with `augment_value`). The accessor's doc and the extension guide in `mod.rs` say
+  so; `farm_only()` (stub, `const fn`) sets `reward_default` and `augment_default` to 0 over `LOCAL`.
+
+## Oracle amendments for the owner
+
+- `crates/rh-policy/tests/raid_bot.rs` (`oracle-amend:` commit): `raid()` builds `RaidBot` with
+  `.with_prices(Prices::farm_only())`. Nothing else changes (same seeds, floors, assertions). Reason: once a quest
+  executor is registered the bot would price a nearby quest above the camp and walk to a giver; this test proves the
+  farm executor, not that farming beats every other goal.
 
 ## 8. Acceptance checks
 
@@ -148,6 +160,7 @@ hash-ordered collections, no clock, no platform libm); `docs/agent/READABILITY.m
 ## Oracle files (read-only for implementers)
 
 - `crates/rh-policy/src/bots/raid/fix_tests.rs`
+- `crates/rh-policy/tests/raid_bot.rs` (amended in its own `oracle-amend:` commit, see above)
 - `docs/backlog/packets/P-RAID-0-fix.md`
 
 What it asserts (one scene: camp 0 of `seed1.map.json`, owner Holy 200 units east of the camp, active raid, no
