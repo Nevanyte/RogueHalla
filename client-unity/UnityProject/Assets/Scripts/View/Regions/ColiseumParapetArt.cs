@@ -1,3 +1,4 @@
+// Artist-owned pigment, coping and frieze settings for the arena parapet.
 using UnityEngine;
 
 namespace Roguehalla.Client

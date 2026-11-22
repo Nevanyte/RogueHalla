@@ -1,3 +1,4 @@
+// Refresh the shared Coliseum wall atlas after Inspector edits, Undo and source reimports.
 using System;
 using Roguehalla.Client;
 using UnityEditor;

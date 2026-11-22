@@ -1,3 +1,4 @@
+// Build the exposed stone faces and continuous coping around delivered Coliseum wall cells.
 using Roguehalla.Net.Protocol;
 using UnityEngine;
 
