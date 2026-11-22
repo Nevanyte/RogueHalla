@@ -27,7 +27,7 @@ use std::time::Duration;
 use sha2::{Digest, Sha256};
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use sqlx::types::Json;
-use sqlx::{PgConnection, Row};
+use sqlx::PgConnection;
 use uuid::Uuid;
 
 pub use model::*;
