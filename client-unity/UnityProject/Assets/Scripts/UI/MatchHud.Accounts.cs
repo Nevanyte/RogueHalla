@@ -247,7 +247,7 @@ namespace Roguehalla.Client
             if (!string.IsNullOrEmpty(resumeStatus)) status = resumeStatus;
             if (string.IsNullOrEmpty(status) && pending) status = LaunchCopy.PendingText(_client.SelectedLaunchMode);
             if (string.IsNullOrEmpty(status) && _session != null && !pending)
-                status = LaunchCopy.SessionFailureText(_session.State, _session.RejectReason);
+                status = LaunchCopy.SessionFailureText(_session.State, _session.RejectCode, _session.RejectReason, _session.FailureKind);
             if (string.IsNullOrEmpty(status) && state != null)
             {
                 if (busy) status = state.State == AccountHubState.PreparingJoin ? "Checking your profile and joining…" : state.State == AccountHubState.Refreshing ? "Refreshing your profile…" : "Loading your profile…";

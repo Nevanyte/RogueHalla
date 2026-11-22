@@ -1,4 +1,5 @@
 using Roguehalla.Net;
+using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Client
 {
@@ -63,11 +64,13 @@ namespace Roguehalla.Client
         /// <summary>A launch that never reached a confirmed match, phrased for the player instead of the transport's own error text.</summary>
         public static string SessionFailureText(SessionState state, string rejectReason)
         {
-            if (state == SessionState.Rejected)
-                return string.IsNullOrWhiteSpace(rejectReason) ? "The server didn't accept that join. Try again in a moment." : "The server didn't accept that join: " + rejectReason.Trim();
-            if (state == SessionState.Failed || state == SessionState.Ended)
-                return "Couldn't reach the game server. Check your connection and try again.";
-            return "";
+            return SessionFailureText(state, null, rejectReason, FailureKind.Other);
+        }
+
+        /// <summary>Same, with the reject code and failure kind when the caller has them; the raw reason is never shown.</summary>
+        public static string SessionFailureText(SessionState state, RejectCode? code, string rejectReason, FailureKind kind)
+        {
+            return ConnectionCopy.ForState(state, code, rejectReason, kind);
         }
 
         public static string PendingText(MatchLaunchMode mode)

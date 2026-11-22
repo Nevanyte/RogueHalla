@@ -21,6 +21,15 @@ impl Room {
             .map(|h| h.player)
             .collect();
         for p in expired {
+            if let Some(h) = self.humans.iter().find(|h| h.player == p) {
+                eprintln!(
+                    "{}",
+                    crate::lifecycle_log::grace_expired(
+                        &crate::control::room_id_hex(self.id),
+                        &h.profile
+                    )
+                );
+            }
             self.leave(p, GoneReason::GraceExpired);
         }
         // A training room whose seat stopped sending accepted inputs closes: there is no run to settle and nothing to bank.

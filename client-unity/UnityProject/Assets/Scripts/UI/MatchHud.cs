@@ -267,9 +267,9 @@ namespace Roguehalla.Client
                 if (_session.Me == null && latest != null) banner += " · Spectating";
             }
             else if (_session.State == SessionState.Reconnecting || _session.State == SessionState.HelloSent && _session.ReconnectAttempt > 0)
-                banner = "Connection interrupted · resuming seat (attempt " + _session.ReconnectAttempt + ")";
-            else if (_session.State == SessionState.Rejected) banner = "Join rejected: " + _session.RejectReason;
-            else if (_session.State == SessionState.Failed) banner = "Connection failed: " + _session.Error;
+                banner = "Reconnecting… (" + _session.ReconnectAttempt + "/" + _session.ReconnectAttemptMax + ")";
+            else if (_session.State == SessionState.Rejected) banner = ConnectionCopy.ForState(_session.State, _session.RejectCode, _session.RejectReason, _session.FailureKind);
+            else if (_session.State == SessionState.Failed) banner = ConnectionCopy.ForState(_session.State, _session.RejectCode, _session.RejectReason, _session.FailureKind);
             else banner = _session.State.ToString();
             Set(_banner, banner); Set(_plateStatus, practiceBanner ? TrainingBanner : banner); _bannerPractice = practiceBanner; _bannerState = _session.State; _bannerPhase = phase; _bannerAttempt = _session.ReconnectAttempt;
             }

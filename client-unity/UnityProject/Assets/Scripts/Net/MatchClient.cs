@@ -225,6 +225,8 @@ namespace Roguehalla.Client
         {
             if (!focused) Hud?.ReleaseUiFocusForWindowLoss();
             else Hud?.RestoreUiFocusAfterWindowGain();
+            // Back in the foreground after a drop: do not wait out the backoff.
+            if (focused && Session != null) Session.RetryNow();
             if (focused || Session == null || Session.State != SessionState.InMatch) return;
             if (_attackHeld) Session.Input.Release(_aimAngle, Session.Clock.RenderMs);
             if (_steering) Session.OrderStop();
@@ -331,10 +333,12 @@ namespace Roguehalla.Client
                 if (Time.unscaledTime >= _nextReconLog && motion.ReconSamples > 0)
                 {
                     _nextReconLog = Time.unscaledTime + 1f;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
                     Debug.Log(string.Format(System.Globalization.CultureInfo.InvariantCulture,
                         "[recon] samples={0} corrections(>{1}u)={2} big(>{3}u)={4} maxErr={5:F3} meanErr={6:F4} snaps={7} foot={8} swings={9} hits={10}",
                         motion.ReconSamples, LocalMotion.ReconCorrectionU, motion.ReconCorrections, LocalMotion.ReconBigU, motion.ReconBig,
                         motion.ReconMaxErr, motion.ReconErrSum / motion.ReconSamples, motion.Snaps, motion.Foot, _fxSwings, _fxHits));
+#endif
                 }
             }
             if (probe) InputLatencyProbe.EndFrame(NowMs(), Session.Motion.DrawnX, Session.Motion.DrawnY, Session.Me.X, Session.Me.Y);
@@ -399,9 +403,11 @@ namespace Roguehalla.Client
                 // Projectiles are simulated on the ground and drawn raised by the shooter's chest: aim at the cursor's ground point
                 // shifted that far toward screen-down so the drawn shot leaves the chest and passes through the cursor (ChestAim).
                 _aimAngle = (float)ChestAim.Angle(myX, myY, sx, sy, Session.OwnChest);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
                 if (HitboxOverlay.Enabled && mouse.leftButton.wasPressedThisFrame)
                     Debug.Log(string.Format(System.Globalization.CultureInfo.InvariantCulture, "[aim] t={0:F1} from={1:F2},{2:F2} cursor={3:F2},{4:F2} chest={5} angle={6:F5}",
                         Time.realtimeSinceStartup * 1000f, myX, myY, sx, sy, Session.OwnChest, _aimAngle));
+#endif
                 Session.Input.Aim(_aimAngle);
                 bool aimClick = false;
                 if (mouse.leftButton.wasPressedThisFrame)

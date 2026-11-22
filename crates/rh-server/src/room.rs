@@ -37,8 +37,8 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 
-/// Seconds a dropped player's seat is held for a reconnect (legacy reconnect grace).
-pub const RECONNECT_GRACE: Duration = Duration::from_secs(10);
+/// How long a dropped player's seat is held for a reconnect (legacy: 10 s; 60 s for the open alpha, a deliberate difference).
+pub const RECONNECT_GRACE: Duration = Duration::from_secs(60);
 /// A finished match stays up this long so clients receive the end and their results.
 pub const LINGER: Duration = Duration::from_secs(5);
 pub const INBOUND_CAP: usize = 2048;
@@ -134,6 +134,12 @@ pub enum RoomCmd {
     Disconnected {
         player: PlayerId,
         conn: u64,
+    },
+    /// [`RoomCmd::Disconnected`] that also says why the connection ended (for the lifecycle log).
+    Lost {
+        player: PlayerId,
+        conn: u64,
+        reason: crate::lifecycle_log::DropReason,
     },
     Leave {
         player: PlayerId,

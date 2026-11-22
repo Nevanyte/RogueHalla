@@ -100,6 +100,16 @@ impl Room {
         if !interrupted {
             self.report_results(&pending);
         }
+        if self.had_human {
+            eprintln!(
+                "{}",
+                crate::lifecycle_log::match_end(
+                    &crate::control::room_id_hex(self.id),
+                    Instant::now().saturating_duration_since(self.opened_at),
+                    self.humans.len()
+                )
+            );
+        }
         let why = if interrupted {
             GoneReason::Aborted
         } else {

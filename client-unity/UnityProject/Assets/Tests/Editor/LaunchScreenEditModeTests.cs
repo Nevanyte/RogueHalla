@@ -276,7 +276,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(LaunchCopy.CallsignProblem("bad name!"), Does.Contain("2 to 16"));
             Assert.That(LaunchCopy.CallsignProblem("Valid_name-1"), Is.Null);
             Assert.That(LaunchCopy.SessionFailureText(SessionState.Failed, null), Does.StartWith("Couldn't reach the game server"));
-            Assert.That(LaunchCopy.SessionFailureText(SessionState.Rejected, "room full"), Does.Contain("room full"));
+            Assert.That(LaunchCopy.SessionFailureText(SessionState.Rejected, "room full"), Does.Not.Contain("room full"));
             Assert.That(LaunchCopy.SessionFailureText(SessionState.InMatch, null), Is.Empty);
         }
 

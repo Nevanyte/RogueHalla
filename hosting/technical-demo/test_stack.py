@@ -30,8 +30,8 @@ def security_contract(t):
     assert all(v['Type'] in allowed for v in r.values())
     assert sum(v['Type'] == 'AWS::EC2::Instance' for v in r.values()) == 1
     host = r['DemoHost']['Properties']
-    assert host['InstanceType'] == 't3.small'
-    assert host['CreditSpecification']['CPUCredits'] == 'standard'
+    assert host['InstanceType'] == 't3.medium'
+    assert host['CreditSpecification']['CPUCredits'] == 'unlimited'
     assert host['InstanceInitiatedShutdownBehavior'] == 'terminate'
     assert 'KeyName' not in host
     assert host['MetadataOptions']['HttpTokens'] == 'required'

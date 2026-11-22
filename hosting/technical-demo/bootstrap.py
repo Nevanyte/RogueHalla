@@ -14,12 +14,12 @@ import time
 
 ROOT = Path('/opt/rougehalla-demo')
 # Optional Source-room launch settings (P-HOST-FLAGS-1); absent means today's behaviour.
-LAUNCH_SETTINGS = ('map_pool', 'signature_landmarks', 'lobby_timing', 'bot_brain')
+LAUNCH_SETTINGS = ('map_pool', 'signature_landmarks', 'lobby_timing', 'bot_brain', 'bot_wait_seconds')
 CONFIG = Path('/etc/rougehalla-demo.json')
 UNITS = Path('/etc/systemd/system')
 MAX_BUNDLE = 160 * 1024 * 1024
 MAX_EXTRACT = 400 * 1024 * 1024
-MAX_LIFETIME = dt.timedelta(hours=12)
+MAX_LIFETIME = dt.timedelta(days=7)  # open alpha (owner 2026-11-22): one launch covers the week; was 12 hours
 ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8'}
 
 
@@ -32,12 +32,17 @@ def config(raw, now=None):
     c = json.loads(raw)
     required = {'bucket', 'key', 'sha256', 'region', 'expires_at', 'domain', 'run_id', 'protocol', 'content_hash'}
     require(type(c) is dict and required <= set(c) <= required | set(LAUNCH_SETTINGS), 'config keys')
-    require(all(type(v) is str and v for k, v in c.items() if k not in ('protocol', 'map_pool', 'signature_landmarks', 'bot_brain')), 'config strings')
+    require(all(type(v) is str and v for k, v in c.items() if k not in ('protocol', 'map_pool', 'signature_landmarks', 'bot_brain', 'bot_wait_seconds')), 'config strings')
     for flag in ('map_pool', 'signature_landmarks'):
         require(type(c.get(flag, False)) is bool, f'{flag} must be true or false')
     require(c.get('lobby_timing', 'legacy') in ('legacy', 'matchmaking'), 'lobby_timing must be legacy or matchmaking')
     require(type(c.get('bot_brain', 'off')) is str and c.get('bot_brain', 'off') in ('off', 'full'), 'bot_brain must be off or full')
     require(not c.get('signature_landmarks', False) or c.get('map_pool', False), 'signature_landmarks needs map_pool')
+    # Open alpha (owner 2026-11-22): the matchmaking lobby waits this long for humans before bots fill. Needs an rh-server
+    # built with `--bot-wait-seconds` (an older server exits on the flag), so it is opt-in.
+    wait = c.get('bot_wait_seconds')
+    require(wait is None or (type(wait) is int and 0 <= wait <= 600), 'bot_wait_seconds must be an integer 0-600')
+    require(wait is None or c.get('lobby_timing') == 'matchmaking', 'bot_wait_seconds needs lobby_timing matchmaking')
     require(type(c['protocol']) is int and 1 <= c['protocol'] <= 65535, 'protocol u16')
     require(re.fullmatch(r'[a-f0-9]{16}', c['content_hash']), 'content hash')
     require(re.fullmatch(r'[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]', c['bucket']), 'bucket')
@@ -48,7 +53,7 @@ def config(raw, now=None):
     require(re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', c['expires_at']), 'UTC expiry')
     end = dt.datetime.strptime(c['expires_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=dt.timezone.utc)
     now = now or dt.datetime.now(dt.timezone.utc)
-    require(dt.timedelta(0) < end - now <= MAX_LIFETIME, 'expired or greater than twelve hours')
+    require(dt.timedelta(0) < end - now <= MAX_LIFETIME, 'expired or greater than seven days')
     return c, end
 
 
@@ -112,7 +117,7 @@ def shaper_command(ipv4, ipv6):
         devices.add(dev)
     require(len(devices) == 1, 'multiple default NICs refused')
     return ('/usr/sbin/tc', 'qdisc', 'replace', 'dev', devices.pop(), 'root', 'handle', '1:',
-            'tbf', 'rate', '8mbit', 'burst', '512kb', 'latency', '500ms')
+            'tbf', 'rate', '20mbit', 'burst', '512kb', 'latency', '500ms')
 
 
 ISOLATION_STAGES = frozenset(('nft-load', 'guard', 'route-v4', 'route-v6', 'tbf', 'fq_codel'))
@@ -218,11 +223,24 @@ def guard():
     config(CONFIG.read_bytes())  # Immutable absolute deadline, including every reboot/restart.
 
 
+# Open alpha (owner 2026-11-22): 10+ testers need more than one 8-seat room on Source. P-TICK-6 measured 9-19 rooms per
+# core at 40 Hz, so four rooms fit the t3.medium (unlimited CPU credits). Training rooms are solo (tutorial/practice): one room meant one tester at a
+# time, so it takes sixteen.
+SOURCE_MAX_ROOMS = 4
+TRAINING_MAX_ROOMS = 16
+# Testers often share one network (NAT): the defaults are 16 sockets and 10 new profiles per IP per hour.
+PER_IP_LIMITS = '--ws-max-per-ip 64 --new-profiles-per-ip-per-hour 40'
+# rh-server's own lifecycle lines (join/leave/drop/reject/match end) go to journald, capped so the root disk cannot fill.
+# PG stays suppressed (SQL). Restart=on-failure brings a crashed room server back; the guard still refuses past expiry and
+# OnFailure poweroff fires only once the start limit is hit.
+JOURNALD_CONF = '[Journal]\nSystemMaxUse=200M\nSystemMaxFileSize=20M\n'
+
+
 def app_unit(c, training):
     mode = 'training' if training else 'source-arena'
     port = 7779 if training else 7777
     if training:
-        options = '--min-players 1 --fill-bots 0 --max-rooms 1 --lobby-seconds 0 --fill-seconds 0'
+        options = f'--min-players 1 --fill-bots 0 --max-rooms {TRAINING_MAX_ROOMS} --lobby-seconds 0 --fill-seconds 0'
     else:
         # The training room refuses the pool and the timing switch, so these apply to Source only. With matchmaking the
         # server sets the 15 s lobby, bots at second 13 itself (it overrides --lobby-seconds/--fill-seconds), so the pair is dropped.
@@ -231,7 +249,8 @@ def app_unit(c, training):
         extra = (' --map-pool' if c.get('map_pool') else '') + (' --signature-landmarks' if c.get('signature_landmarks') else '') + (' --lobby-timing matchmaking' if matchmaking else '')
         # `--bot-brain full`: the ported Brain plays the fill bots (HumanBot on a fault). Source only; training has no fill bots.
         extra += ' --bot-brain full' if c.get('bot_brain') == 'full' else ''
-        options = f'--map {ROOT}/source-map.json --result-spool /var/lib/rougehalla-demo/spool --min-players 1 --fill-bots 8 --max-rooms 1{lobby}{extra}'
+        extra += f" --bot-wait-seconds {c['bot_wait_seconds']}" if c.get('bot_wait_seconds') is not None else ''
+        options = f'--map {ROOT}/source-map.json --result-spool /var/lib/rougehalla-demo/spool --min-players 1 --fill-bots 8 --max-rooms {SOURCE_MAX_ROOMS}{lobby}{extra}'
     # Owner approval 2026-11-11: the legacy bot learner runs on Source (single writer on this host's Postgres); training
     # refuses learning (rh-server exits 2), so it keeps it off.
     learning = 'off' if training else 'single-writer'
@@ -239,20 +258,24 @@ def app_unit(c, training):
 Requires=rh-demo-pg.service rh-demo-expiry.timer
 After=rh-demo-pg.service rh-demo-expiry.timer
 OnFailure=rh-demo-poweroff.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
 [Service]
 User=rougehalla
 Group=rougehalla
 ExecStartPre=+/usr/bin/python3 -I /usr/local/lib/rh-demo/bootstrap.py guard
-ExecStart={ROOT}/rh-server --runtime {mode} --bind 127.0.0.1:{port} --instance-id {c['run_id']}-{mode} {options} --database-url postgresql://rougehalla@localhost/roguehalla?host=/run/rh-demo-pg --bot-learning {learning} --api-cors-origins https://play.rougehalla.com --client-ip-header x-forwarded-for --trusted-proxies 127.0.0.1
-Restart=no
+ExecStart={ROOT}/rh-server --runtime {mode} --bind 127.0.0.1:{port} --instance-id {c['run_id']}-{mode} {options} --database-url postgresql://rougehalla@localhost/roguehalla?host=/run/rh-demo-pg --bot-learning {learning} --api-cors-origins https://play.rougehalla.com --client-ip-header x-forwarded-for --trusted-proxies 127.0.0.1 {PER_IP_LIMITS}
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=90
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
 ReadWritePaths=/var/lib/rougehalla-demo /run/rh-demo-pg
 UMask=0077
-StandardOutput=null
-StandardError=null
+StandardOutput=journal
+StandardError=journal
 [Install]
 WantedBy=multi-user.target
 '''
@@ -393,6 +416,9 @@ def install():
     with Path('/var/lib/rh-demo-pg/postgresql.conf').open('a') as f:
         f.write("\nlisten_addresses = ''\nunix_socket_directories = '/run/rh-demo-pg'\nfsync = on\nsynchronous_commit = on\nfull_page_writes = on\nlog_statement = 'none'\nlog_min_error_statement = 'panic'\nlogging_collector = off\n")
     unit('rh-demo-pg.service', '[Unit]\nRequires=rh-demo-isolation.service rh-demo-expiry.timer\nAfter=rh-demo-isolation.service rh-demo-expiry.timer\nOnFailure=rh-demo-poweroff.service\n[Service]\nUser=postgres\nRuntimeDirectory=rh-demo-pg\nRuntimeDirectoryMode=0755\nExecStartPre=+/usr/bin/python3 -I /usr/local/lib/rh-demo/bootstrap.py guard\nExecStart=/usr/lib/postgresql/16/bin/postgres -D /var/lib/rh-demo-pg\nRestart=no\nStandardOutput=null\nStandardError=null\n[Install]\nWantedBy=multi-user.target\n')
+    run('/usr/bin/install', '-d', '-m', '0755', '/etc/systemd/journald.conf.d')
+    write(Path('/etc/systemd/journald.conf.d/rh-demo.conf'), JOURNALD_CONF)
+    run('/usr/bin/systemctl', 'restart', 'systemd-journald.service')
     for name, training in (('source', False), ('training', True)):
         unit(f'rh-demo-{name}.service', app_unit(c, training).replace('Requires=rh-demo-pg.service', 'Requires=rh-demo-isolation.service rh-demo-pg.service').replace('After=rh-demo-pg.service', 'After=rh-demo-isolation.service rh-demo-pg.service'))
     run('/usr/bin/systemctl', 'daemon-reload')

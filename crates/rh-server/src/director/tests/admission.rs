@@ -55,12 +55,12 @@ async fn a_dead_lobby_retry_waits_for_its_own_lease_give_back() {
     }
 }
 
-/// LEAVING_WAIT bounds the whole admission, not each retry: with give-backs that take 2 s and two dead lobbies, the
-/// second wait ends at the shared deadline (3 s after the admission began), not 2 s later.
+/// LEAVING_WAIT bounds the whole admission, not each retry: with give-backs that take 4 s and two dead lobbies, the
+/// second wait ends at the shared deadline (6 s after the admission began), not 4 s later.
 #[tokio::test(start_paused = true)]
 async fn leaving_wait_is_one_deadline_for_the_whole_admission() {
     let d = director_with(MemoryStore {
-        release_delay: Duration::from_secs(2),
+        release_delay: Duration::from_secs(4),
         ..MemoryStore::strict()
     });
     dead_lobby(&d, id(9), 3);
@@ -78,7 +78,7 @@ async fn leaving_wait_is_one_deadline_for_the_whole_admission() {
         "the real bound is the documented one"
     );
     // The second dead lobby's give-back still lands and frees the entry it owns.
-    tokio::time::sleep(Duration::from_secs(2)).await;
+    tokio::time::sleep(Duration::from_secs(4)).await;
     settle().await;
     assert!(entry_of(&d, "papa").is_none());
     assert!(store(&d).lease("papa").expect("row").released);

@@ -167,8 +167,8 @@ Resources:
     DependsOn: BundleTransportPolicy
     Properties:
       ImageId: !Ref ImageId
-      InstanceType: t3.small
-      CreditSpecification: {CPUCredits: standard}
+      InstanceType: t3.medium
+      CreditSpecification: {CPUCredits: unlimited}
       IamInstanceProfile: !Ref HostProfile
       InstanceInitiatedShutdownBehavior: terminate
       Monitoring: false

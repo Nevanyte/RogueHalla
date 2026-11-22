@@ -32,7 +32,7 @@ namespace Roguehalla.Client
             MapToggle = PlayerPrefs.GetInt(MapModeKey, 0) != 0;
             ShowRoute = PlayerPrefs.GetInt(RouteVisibleKey, 1) != 0;
             ShowFps = PlayerPrefs.GetInt(ShowFpsKey, 0) != 0;
-            ShowPing = PlayerPrefs.GetInt(ShowPingKey, 0) != 0;
+            ShowPing = PlayerPrefs.GetInt(ShowPingKey, 1) != 0;
             MinimapScale = Snap(PlayerPrefs.GetFloat(MinimapScaleKey, 1f));
             QuickCast = PlayerPrefs.GetInt(QuickCastKey, 0) != 0;
         }
@@ -58,9 +58,9 @@ namespace Roguehalla.Client
 
         public void ResetDefaults()
         {
-            MapToggle = false; ShowRoute = true; ShowFps = false; ShowPing = false; MinimapScale = 1f; QuickCast = false;
+            MapToggle = false; ShowRoute = true; ShowFps = false; ShowPing = true; MinimapScale = 1f; QuickCast = false;
             PlayerPrefs.SetInt(QuickCastKey, 0); PlayerPrefs.SetInt(MapModeKey, 0); PlayerPrefs.SetInt(RouteVisibleKey, 1);
-            PlayerPrefs.SetInt(ShowFpsKey, 0); PlayerPrefs.SetInt(ShowPingKey, 0); PlayerPrefs.SetFloat(MinimapScaleKey, 1f);
+            PlayerPrefs.SetInt(ShowFpsKey, 0); PlayerPrefs.SetInt(ShowPingKey, 1); PlayerPrefs.SetFloat(MinimapScaleKey, 1f);
             PlayerPrefs.Save(); RaiseChanged();
         }
 
