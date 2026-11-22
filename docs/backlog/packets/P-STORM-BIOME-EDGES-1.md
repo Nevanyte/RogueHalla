@@ -15,3 +15,7 @@ The starting Web player draws a continuous low-contrast dissolve over fully inta
 ## Authority and risks
 
 D1 uses only public region, obstacle, dressing and terrain geometry. D2 does not apply. D9 walking and C-OBS visibility remain server-owned. Keep details at the material edge legible at gameplay zoom and avoid covering an actual terrain warning, foliage concealment cell or furnished interior.
+
+## Saved review checkpoint
+
+The regional ground and foreground changes are implemented through `c1f7e63ab`. The Unity run passed 53 focused checks and the Web player built successfully. Native A/B renders covered the snow/sand and grass/snow seams, a three-region junction, Low quality, and the contact wash at individual prop feet. The earlier joined Web pass on `cef989406` covered four routes and the Haunted/Holy doorway-side crossing. The latest joined replay, solo and crowded timings, and full gate were interrupted by the owner's pause. The remaining checks are tracked in `docs/art/STORM_INK_VISUAL_CHECKS.csv`.
