@@ -21,7 +21,9 @@ fn raid_with(wanted: &[QuestId]) -> Raid {
 }
 
 /// Quests whose objective is a set of anchors away from the giver, with a route timer: ready is seen before turn-in.
-const ANCHOR_QUESTS: [QuestId; 3] = [BarrowRun, Watchtowers, PilgrimsPath];
+fn anchor_quests() -> [QuestId; 3] {
+    [BarrowRun, Watchtowers, PilgrimsPath]
+}
 
 impl Raid {
     fn probe(&self) -> Option<crate::QuestAttemptProbe> {
@@ -41,7 +43,7 @@ impl Raid {
 
 #[test]
 fn the_probe_follows_an_attempt_from_accept_through_ready_to_completion() {
-    let mut raid = raid_with(&ANCHOR_QUESTS);
+    let mut raid = raid_with(&anchor_quests());
     assert!(
         raid.sim.quest_attempts(raid.seat).is_empty(),
         "an untouched board gives no rows"
@@ -115,7 +117,7 @@ fn the_probe_follows_an_attempt_from_accept_through_ready_to_completion() {
 
 #[test]
 fn an_attempt_that_runs_out_of_time_or_is_abandoned_leaves_no_row() {
-    let base = raid_with(&ANCHOR_QUESTS);
+    let base = raid_with(&anchor_quests());
 
     let mut timed = Raid::new(base.sim.clone(), base.quest);
     timed.accept();
