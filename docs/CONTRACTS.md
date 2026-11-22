@@ -18,7 +18,7 @@ On `integration/backend-unity-union` (head `f6432ea9`, merge `1319260b`) the cur
 the merges), observation 24 (25 since P-WIRE17-HUD-1, 2026-11-11), checkpoint `rh-checkpoint/31` (`rh-checkpoint/32` since P-TRAINING-CAMPS-1, 2026-11-13; `rh-checkpoint/33` since P-AUG-PLANT-1, 2026-11-19; `rh-checkpoint/35` since integration 65, 2026-11-20), replay `rh-replay/25`, policy contract 18 (19 since P-WIRE17-HUD-1), content hash
 `a2d1022ebe713382`. Gates and limits are in [MIGRATION.md](MIGRATION.md#backendunity-union-checkpoint-2026-11-10). The current
 identities on `feature/unity-rework` (protocol 24, observation 37, policy contract 33, checkpoint 39, replay 28, content hash
-`8a4bf0ce37b406f2`, as of integration 80, 2026-11-21) are in the MIGRATION checkpoint's top section.
+`8a4bf0ce37b406f2`, as of integration 81, 2026-11-22 (unchanged since integration 80)) are in the MIGRATION checkpoint's top section.
 The per-row validation cuts below name their own revisions and identities and are kept as history; they are not re-validated
 at the union head.
 

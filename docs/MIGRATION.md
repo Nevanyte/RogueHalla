@@ -151,6 +151,28 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
   recordings. PR 81 met the same case and took perfproof's route; PR 80's description now declares
   `headless_seed1_recorded.stateHashFold` too, which makes the gate record on both builds and require identical recorded
   inputs (`--rerecord`). The description edit started perfproof run 44973634910.
+- **Origin moved again; integration 81** (2026-11-22, Auto-fix reported PR 80 conflicting at `e220c95ca`). Origin's
+  `feature/unity-rework` went from `ef8d5e9ce` to `64ca1230c` (PRs 82 to 89: P-QUEST25-FIX-1, Storm Ink art, the open
+  alpha server and client packets, P-SPECTATE-1, hosting).
+  - Merge `d9c082d4c`: one textual conflict, `MatchHud.HudLateUpdate`, kept both the rework's `RefreshReadouts()` and
+    origin's `TickSpectate()`. Origin bumped no identity (it is still protocol 23, observation 36, checkpoint 38, replay
+    27, policy 32, content `7639672bbb0933c9`), so the merged identities stay those of integration 80. Spectating reuses
+    `WireCommand::Target`: no wire change. Card chain `failureCount` 0.
+  - reviewer-opus: **LAND**. No hunk lost; spectating swaps only the world's sight, and the readouts, plan, summary and
+    chest stay the viewer's own; origin adds no serialized field. Risk, not a defect: origin's Warhorn factor (1 + 0.2 per
+    taunted enemy, camp mobs counted) multiplies outside the Rework 2.6 row cap against mobs and elites, and the elite
+    numbers were measured before it.
+  - First full gate (`--coordinator --keep-going --allow-protected --allow-artefacts --regen-fixtures --base 64ca1230c`;
+    `--allow-protected` covers P-NOALLOC-GATE-1's `.github/workflows/rust.yml` and `scripts/gate.sh` lines, already in
+    PR 80): red. Origin's new `crates/rh-server/tests/alpha_server_tolerance.rs` built a full `SimConfig` without
+    `augments` and `elites`; fixed in `051f67240` (both Legacy).
+  - Unity EditMode: three failures, `DressedMapEditModeTests` (two: 5 props expected, 22 drawn; 1 expected, 13 drawn) and
+    `StormInkFireGeologyEditModeTests.EditorCleanupBetweenAtlasLookupAndSceneBuildPreservesRegisteredSprites`. Origin's
+    `64ca1230c` alone fails the same three with the same values, so they are origin's (Storm Ink), not the merge's; CI
+    does not run EditMode.
+  - The proposed rework DEVIATIONS rows are renumbered DEV-042 to DEV-060, since origin now holds DEV-040 (quests) and
+    DEV-041 (open alpha idle and reconnect).
+  - Pushed to PR 80 while the second full gate (on `051f67240`) was still running, so CI and the local gate run together.
 
 ## Resumed (2026-11-20): the elite and augment rework, integration 65
 
