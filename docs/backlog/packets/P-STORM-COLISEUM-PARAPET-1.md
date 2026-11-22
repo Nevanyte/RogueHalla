@@ -18,7 +18,7 @@ Regional row meshes and lighting, the delivered Coliseum footprint, accepted are
 
 ## Exclusive write scope
 
-This packet, its backlog and visual tracker entries, the new paths above with their import metadata, and the existing `RegionWalls`, `RegionWallAtlas` and `RegionCanvas` rendering code.
+This packet, its backlog and visual tracker entries, the new paths above with their import metadata, and the existing `RegionWalls` (including its parapet partial), `RegionWallAtlas` and `RegionCanvas` rendering code.
 
 ## Contracts and references
 

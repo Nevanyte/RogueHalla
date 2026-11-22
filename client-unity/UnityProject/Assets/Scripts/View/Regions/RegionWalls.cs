@@ -9,7 +9,7 @@ using Roguehalla.Net.Protocol;
 namespace Roguehalla.Client
 {
     /// <summary>Builds the wall meshes of the map in row chunks that are culled off screen, and owns their material.</summary>
-    public sealed class RegionWalls : System.IDisposable
+    public sealed partial class RegionWalls : System.IDisposable
     {
         public const float WallHeight = .67f;           // legacy face height in world units
         /// <summary>Row meshes are split every 32 tiles so a row of walls far off screen is culled; only non-empty chunks exist.</summary>
@@ -114,7 +114,6 @@ namespace Roguehalla.Client
                     bool parapet = tile == MapBlob.Wall && arena != null && !inBlock && !templeWall &&
                         regions[y * w + x] == (byte)RegionId.Coliseum && x >= arena.X && x < arena.X + arena.W &&
                         y >= arena.Y && y < arena.Y + arena.H && kind != (int)TerrainKind.Fence;
-                    if (parapet) set = RegionWallAtlas.Parapet;
                     float hash = RegionNoise.Hash01(x, y, 5); float tint = parapet ? 1f : .92f + hash * .08f;
                     var col = new Color32((byte)(255 * tint), (byte)(255 * tint), (byte)(255 * tint), 255);
                     float py = -(y + 1) * ArenaView.GroundSquash;                   // tile bottom edge in world space
@@ -132,13 +131,11 @@ namespace Roguehalla.Client
                     }
                     int faceV = inBlock ? bcol : templeWall ? ((x % 3) + 3) % 3 : v % RegionWallAtlas.FaceVariants, topV = inBlock ? bcol + 3 * brow : templeWall ? 4 : (v / 3) % RegionWallAtlas.TopVariants;
                     bool southSolid = Solid(x, y + 1);
-                    bool recedes = parapet && !Solid(x - 1, y) && !Solid(x + 1, y) &&
-                        (southSolid || Solid(x, y - 1));
                     if (parapet)
                     {
-                        faceV = (x - arena.X) % RegionWallAtlas.FaceVariants;
-                        int along = recedes ? y - arena.Y : x - arena.X;
-                        topV = along % RegionWallAtlas.TopVariants;
+                        DrawParapet(x, y, arena, py, !Solid(x - 1, y), !Solid(x + 1, y),
+                            !Solid(x, y - 1), !southSolid, col);
+                        continue;
                     }
                     if (!southSolid)
                     {
@@ -146,14 +143,7 @@ namespace Roguehalla.Client
                         _kind = 1f; Rect(px0 - .003f, py, px1 + .003f, py + WallHeight + .02f, set.Face[faceV], col); _kind = 0f;
                     }
                     float ty0 = py + WallHeight, ty1 = ty0 + TopHeight;
-                    var cap = set.Top[topV];
-                    if (recedes)
-                    {
-                        // The strip advances towards map south. Its northern end meets the preceding cell.
-                        Quad(new Vector3(px0, ty0), new Vector3(px1, ty0), new Vector3(px1, ty1), new Vector3(px0, ty1),
-                            new Vector2(cap.Max.x, cap.Min.y), cap.Max, new Vector2(cap.Min.x, cap.Max.y), cap.Min, col);
-                    }
-                    else Rect(px0 - .003f, ty0, px1 + .003f, ty1, cap, col);
+                    Rect(px0 - .003f, ty0, px1 + .003f, ty1, set.Top[topV], col);
                     var rim = set.Rim; const float rimW = .085f;
                     var white = new Color32(255, 255, 255, 255);
                     if (!Solid(x, y - 1))   // north edge: strong at the outer edge
