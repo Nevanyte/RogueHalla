@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text;
 using TMPro;
 using Roguehalla.Net;
@@ -9,7 +10,7 @@ namespace Roguehalla.Client
 {
     /// <summary>
     /// The hub's lobby-activity card (legacy ui/lobbyActivity.ts): who is in a game and who waits in the hub. Polled every 15 s while the
-    /// hub is up (never during a match); a signed-in hub posts its presence as the poll, an anonymous one only reads. All text is plain.
+    /// hub is up (never during a match); a signed-in hub posts its presence as the poll, an anonymous one only reads. Names are plain text; only the card's own status lines are coloured.
     /// </summary>
     public sealed class HubLobbyActivityView : MonoBehaviour
     {
@@ -41,6 +42,7 @@ namespace Roguehalla.Client
             _scale = _body.GetComponent<MythicTextScale>();
             if (_scale != null) { _scale.BaseSize = 15f; _scale.FitBox = true; _scale.MinSize = 11f; }
             _body.enableAutoSizing = true; _body.fontSizeMin = 11f; _body.fontSizeMax = 15f;   // until the first Apply
+            _body.richText = true;   // status colours only: every name has its angle brackets stripped (LobbyActivity.CleanName)
             _panel.gameObject.SetActive(false);
         }
 
@@ -143,34 +145,64 @@ namespace Roguehalla.Client
         {
             if (_body == null) return;
             double age = (Time.realtimeSinceStartup - _receivedAt) * 1000.0;
-            _body.text = Compose(_model, _model.Available && age <= LobbyActivity.StaleMs ? (long)Math.Max(0, age) : long.MaxValue, _model.Available);
+            var theme = UiTheme.Current;
+            var style = new Style(Hex(theme.TextSecondary), Hex(theme.Success), Hex(theme.Accent));
+            _body.text = Compose(_model, _model.Available && age <= LobbyActivity.StaleMs ? (long)Math.Max(0, age) : long.MaxValue, _model.Available, style);
         }
 
-        /// <summary>The card text (legacy panel content). <paramref name="ageMs"/> is the age of <paramref name="model"/>; names are already plain and bounded.</summary>
-        public static string Compose(LobbyActivityModel model, long ageMs, bool hadData)
+        static string Hex(Color32 c) { return "#" + ColorUtility.ToHtmlStringRGB(c); }
+
+        /// <summary>Rich-text colours for <see cref="Compose"/>: muted section lines, a "joinable" tone for rooms still gathering, an accent for running ones.</summary>
+        public sealed class Style
+        {
+            public readonly string Muted, Open, Running;
+            public Style(string muted, string open, string running) { Muted = muted; Open = open; Running = running; }
+        }
+
+        /// <summary>
+        /// The card text. <paramref name="ageMs"/> is the age of <paramref name="model"/>; names are already plain and bounded (angle
+        /// brackets removed by <see cref="LobbyActivity.CleanName"/>), so they cannot carry rich-text tags. With no <paramref name="style"/>
+        /// the text is plain (tests). Layout: a "Players online · N" title, then per room a coloured status line and its people on one
+        /// line (bots folded into a count), then who waits in the hub, so ten or more people still fit the card.
+        /// </summary>
+        public static string Compose(LobbyActivityModel model, long ageMs, bool hadData, Style style = null)
         {
             bool stale = LobbyActivity.IsStale(model, ageMs);
             var sb = new StringBuilder();
-            sb.Append(stale ? LobbyActivity.PanelTitle : LobbyActivity.PanelHeader(model)).Append('\n');
+            Bold(sb, style, stale ? LobbyActivity.OnlineTitle : LobbyActivity.OnlineTitle + " · " + model.OnlineCount.ToString(CultureInfo.InvariantCulture)).Append('\n');
             if (stale)
             {
-                sb.Append(hadData ? LobbyActivity.StatusStale : LobbyActivity.StatusNever).Append("\n\n");
-                sb.Append(LobbyActivity.GameHeading).Append('\n').Append(LobbyActivity.Unavailable).Append("\n\n");
-                sb.Append(LobbyActivity.WaitingHeading).Append('\n').Append(LobbyActivity.Unavailable);
+                Tint(sb, style?.Muted, hadData ? LobbyActivity.StatusStale : LobbyActivity.StatusNever).Append('\n');
+                sb.Append(LobbyActivity.Unavailable);
                 return sb.ToString();
             }
-            sb.Append('\n');
-            if (model.Rooms.Count == 0) sb.Append(LobbyActivity.GameHeading).Append('\n').Append(LobbyActivity.NoGame).Append('\n');
-            foreach (var room in model.Rooms)
+            if (model.Rooms.Count == 0 && model.Waiting.Count == 0)
             {
-                sb.Append(LobbyActivity.RoomHeading(room)).Append(" · ").Append(LobbyActivity.PhaseLabel(room.Phase)).Append('\n');
-                if (room.Players.Count == 0) sb.Append(LobbyActivity.NoPlayers).Append('\n');
-                foreach (var p in room.Players) sb.Append(p.Name).Append(" · ").Append(p.Bot ? "Bot" : "Human").Append('\n');
+                Tint(sb, style?.Muted, LobbyActivity.NobodyOnline);
+                return sb.ToString();
             }
-            sb.Append('\n').Append(LobbyActivity.WaitingTitle(model)).Append('\n');
-            if (model.Waiting.Count == 0) sb.Append(LobbyActivity.NoWaiting);
-            foreach (var p in model.Waiting) sb.Append(p.Name).Append(" · Human\n");
+            foreach (var room in LobbyActivity.DisplayOrder(model.Rooms))
+            {
+                string tone = style == null ? null : room.Phase == LobbyPhase.Lobby ? style.Open : room.Phase == LobbyPhase.Finished ? style.Muted : style.Running;
+                Tint(sb, tone, LobbyActivity.RoomStatus(room)).Append('\n');
+                sb.Append(LobbyActivity.RoomNames(room)).Append('\n');
+            }
+            if (model.Waiting.Count > 0)
+            {
+                Tint(sb, style?.Muted, LobbyActivity.HubTitle + " · " + model.Waiting.Count.ToString(CultureInfo.InvariantCulture)).Append('\n');
+                sb.Append(LobbyActivity.NameList(LobbyActivity.WaitingNames(model), LobbyActivity.MaxNamesShown));
+            }
             return sb.ToString().TrimEnd('\n');
+        }
+
+        static StringBuilder Tint(StringBuilder sb, string hex, string text)
+        {
+            return hex == null ? sb.Append(text) : sb.Append("<color=").Append(hex).Append('>').Append(text).Append("</color>");
+        }
+
+        static StringBuilder Bold(StringBuilder sb, Style style, string text)
+        {
+            return style == null ? sb.Append(text) : sb.Append("<b>").Append(text).Append("</b>");
         }
     }
 }

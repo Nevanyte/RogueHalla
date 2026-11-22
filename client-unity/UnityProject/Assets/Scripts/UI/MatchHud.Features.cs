@@ -361,7 +361,7 @@ namespace Roguehalla.Client
         }
         float _nextHiddenAccountRefresh;
 
-        // In the lobby phase: the seated players in seat order (bots tagged) under a "Players n" count. The room's own minimum is not on
+        // In the lobby phase: the seated humans in seat order, then the bots on one line, under a "Players · n humans · m bots" header. The room's own minimum is not on
         // the wire, so no "n/m" is shown in a match (the hub poll's numbers are never used here). Names are plain text.
         TMP_Text _lobbyRoster;
         object _lobbyRosterSource; bool _lobbyRosterOn;
@@ -382,14 +382,13 @@ namespace Roguehalla.Client
                 _lobbyRoster = MythicUi.Text(_hud, "LobbyRoster", "", new Vector2(.02f, .50f), new Vector2(.27f, .78f), 15, ShowcasePalette.Text, TextAlignmentOptions.TopLeft);
             _lobbyRoster.gameObject.SetActive(true);
             _lobbyRosterOn = true; _lobbyRosterSource = roster;
-            _lobbyRoster.text = ComposeLobbyRoster(roster);
+            _lobbyRoster.text = ComposeLobbyRoster(roster, _session.PlayerId);
         }
 
-        public static string ComposeLobbyRoster(System.Collections.Generic.IReadOnlyList<RosterEntry> roster)
+        /// <summary>Humans first (the local player marked "(you)"), bots folded onto one line, under a "Players · n humans · m bots" header.</summary>
+        public static string ComposeLobbyRoster(System.Collections.Generic.IReadOnlyList<RosterEntry> roster, uint me = 0)
         {
-            var sb = new System.Text.StringBuilder("Players " + roster.Count);
-            foreach (string line in Roguehalla.Net.Ui.LobbyActivity.RosterLines(roster)) sb.Append('\n').Append(line);
-            return sb.ToString();
+            return Roguehalla.Net.Ui.LobbyActivity.SeatedList(roster, me);
         }
         void RefreshWorldHudVisibility()
         {
