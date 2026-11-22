@@ -162,8 +162,8 @@ oracle; see "The oracle".
   instead of the scene camp, turning `raid_bot_clears_a_nearby_normal_camp_within_90_s` red.** The brief said "the
   P-RAID-0 oracle stays green"; that holds only if the walker's price keeps farm ahead at 256 u from a camp, which then
   also changes how many quests the oracle below completes. Options for the coordinator: (a) keep `reward_value` flat at
-  2.0 and approve an `oracle-amend` of `raid_bot.rs` (scene started on a world where the walker has no quest: for example
-  `Persona`/prices swapped by `RaidBot::with_prices`, which does not reach `reward_value`, so not enough on its own);
+  2.0 and approve an `oracle-amend` of `raid_bot.rs` (for example a scene whose seat has no quest to take;
+  prices swapped by `RaidBot::with_prices`, which does not reach `reward_value`, so not enough on its own);
   (b) set the walker's flat value low enough that a near camp beats a far giver and a near giver beats a far camp (the
   oracle below then has no camp near its start by construction, see "The oracle"); (c) wait for P-RAID-V. The oracle
   below passes under (b) or (c) and under (a). **This packet's implementer must run `raid_bot` and stop and report if
@@ -227,7 +227,35 @@ C-INPUT, C-OBS, C-POLICY; `crates/rh-policy/AGENTS.md`; `docs/agent/READABILITY.
 - `crates/rh-policy/tests/raid_quests.rs`
 - `docs/backlog/packets/P-RAID-Q1.md`
 
-(The oracle section below is completed in the `oracle:` commit.)
+## The oracle (loose proof)
+
+`crates/rh-policy/tests/raid_quests.rs`. Seeds 1-6 on `seed1.map.json`, `SimConfig::live_content()` with
+`lifecycle: Off`, `min_players: 1`, one `bot: false` Holy seat with a sword. Per seed the scene is the cheapest dealt
+walker quest (order: ember_walk, watchtowers, barrow_run, pilgrims_path, a_cruel_joke, even_skeletons_get_cold,
+tuber_eats, lost_brother, smugglers_run, letters, let_him_cook), with the start 160 u from its giver on a straight
+floor line (measured scenes: ember_walk on seeds 1, 2, 5, 6; barrow_run on 3; pilgrims_path on 4). 3 600 ticks (180 s).
+A second `ItemObserver` of the same viewer reads the sim's observation every 4 ticks: a quest is **accepted** when its
+row shows `owner_accepted`, **completed** when an accepted row later leaves the view (F1: the board never sets
+`owner_completed`). Cheapest-quest time: 8-19 s straight against a 38-56 s timer.
+
+- **Control, passes today:** `raid_quests_scene_is_a_human_seat_offering_an_acceptable_quest_at_the_start` (human seat;
+  at the giver the frame offers the quest with `can_accept`; at the start point, 160 u away, it does not) and
+  `a_scripted_straight_walk_completes_the_scenes_quest` (no policy: accept, offered action 3, straight `Move` to the
+  nearest objective; completes the scene's quest on **6 of 6** seeds within 180 s, measured, one spell held at the end).
+  The second one validates the completion detector.
+- `raid_bot_accepts_and_completes_walker_quests_before_their_timers`: on every seed RaidBot accepts a quest, every quest it
+  accepts is on the walker list (it does not touch dwell, decision, kill, PvP, search quests or `feed_or_hunt`), and the
+  sweep totals at least 6 completions with at least one on 5 of the 6 seeds. **How the floor was chosen:** the
+  scripted straight walk does one quest per seed (6 total); a bot that walks the same routes at the same speed and
+  keeps the whole window (180 s) must at least match it; one seed is allowed to be lost to a camp or a different
+  choice of quest. The floor is **not measured on a RaidBot** (none exists): the coordinator should tighten it from the
+  first implementation's total.
+- `raid_bot_sends_only_commands_the_sim_accepts_on_the_quest_board`: every seed, no fault, no fallback decision,
+  `rejected == 0`, `accepted == proposed`, and a quest was accepted.
+- `raid_bot_replays_a_quest_run_exactly` (seed 1): the same accepted and completed sets, seat stats and final state hash.
+
+Red on the stub: the three RaidBot tests, each on an assertion ("accepted no quest"). Debug build: about 12 s for the
+file with the stub (the scripted control 0.8 s); expect under a minute with the executor.
 
 ## 10. Risk and suggested model tier
 
