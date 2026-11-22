@@ -143,7 +143,7 @@ and Caddy validation remain host execution gates.
 
 Source and Training use the existing public runtimes/flags, loopback 7777/7779,
 and durable Source result spool on the ephemeral root. Source uses
-`--min-players 1 --fill-bots 8 --max-rooms 1 --lobby-seconds 10 --fill-seconds 3`:
+`--min-players 1 --fill-bots 8 --max-rooms 3 --lobby-seconds 10 --fill-seconds 3`:
 the fill target is eight total players, normally one human plus seven bots.
 The first seat sets the 10-second lobby deadline; reaching the one-human minimum
 shortens it to at most three remaining seconds, with missing bots filled before
@@ -169,9 +169,14 @@ Caddy exposes HTTPS static/WS/Source API only, routes `/training/ws` separately,
 refuses control/probe and Training API routes, replaces XFF with the actual peer,
 and enables normal compression. Explicit gzip/Brotli Unity suffix headers are
 included; actual loader/MIME/CORS/TLS/browser behavior remains unrun. No Caddy
-access log is enabled and application/PG stdout/stderr are suppressed, so
-private tokens/SQL are not copied into a proof receipt. Operational diagnostics
-are intentionally sparse; use SSM metadata and Root-approved safe probes.
+access log is enabled and PG stdout/stderr is suppressed, so SQL is not copied
+into a proof receipt. Since the open alpha (owner 2026-11-22) rh-server
+stdout/stderr go to journald, capped at 200 MB by
+`/etc/systemd/journald.conf.d/rh-demo.conf`; read them over SSM with
+`journalctl -u rh-demo-source`. Source runs three rooms (24 seats), and both
+app units restart on failure (3 s delay, at most 5 starts in 5 minutes before
+the OnFailure poweroff); the expiry guard still refuses a start past the
+deadline.
 The setup receipt means services were started and loopback identity checked,
 not that ACME completed, the public site loaded or a genuine match succeeded.
 

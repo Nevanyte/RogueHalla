@@ -218,6 +218,15 @@ def guard():
     config(CONFIG.read_bytes())  # Immutable absolute deadline, including every reboot/restart.
 
 
+# Open alpha (owner 2026-11-22): 10+ testers need more than one 8-seat room on Source. P-TICK-6 measured 9-19 rooms per
+# core at 40 Hz, so three rooms fit a t3.small. Training stays one room.
+SOURCE_MAX_ROOMS = 3
+# rh-server's own lifecycle lines (join/leave/drop/reject/match end) go to journald, capped so the root disk cannot fill.
+# PG stays suppressed (SQL). Restart=on-failure brings a crashed room server back; the guard still refuses past expiry and
+# OnFailure poweroff fires only once the start limit is hit.
+JOURNALD_CONF = '[Journal]\nSystemMaxUse=200M\nSystemMaxFileSize=20M\n'
+
+
 def app_unit(c, training):
     mode = 'training' if training else 'source-arena'
     port = 7779 if training else 7777
@@ -231,7 +240,7 @@ def app_unit(c, training):
         extra = (' --map-pool' if c.get('map_pool') else '') + (' --signature-landmarks' if c.get('signature_landmarks') else '') + (' --lobby-timing matchmaking' if matchmaking else '')
         # `--bot-brain full`: the ported Brain plays the fill bots (HumanBot on a fault). Source only; training has no fill bots.
         extra += ' --bot-brain full' if c.get('bot_brain') == 'full' else ''
-        options = f'--map {ROOT}/source-map.json --result-spool /var/lib/rougehalla-demo/spool --min-players 1 --fill-bots 8 --max-rooms 1{lobby}{extra}'
+        options = f'--map {ROOT}/source-map.json --result-spool /var/lib/rougehalla-demo/spool --min-players 1 --fill-bots 8 --max-rooms {SOURCE_MAX_ROOMS}{lobby}{extra}'
     # Owner approval 2026-11-11: the legacy bot learner runs on Source (single writer on this host's Postgres); training
     # refuses learning (rh-server exits 2), so it keeps it off.
     learning = 'off' if training else 'single-writer'
@@ -239,20 +248,24 @@ def app_unit(c, training):
 Requires=rh-demo-pg.service rh-demo-expiry.timer
 After=rh-demo-pg.service rh-demo-expiry.timer
 OnFailure=rh-demo-poweroff.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
 [Service]
 User=rougehalla
 Group=rougehalla
 ExecStartPre=+/usr/bin/python3 -I /usr/local/lib/rh-demo/bootstrap.py guard
 ExecStart={ROOT}/rh-server --runtime {mode} --bind 127.0.0.1:{port} --instance-id {c['run_id']}-{mode} {options} --database-url postgresql://rougehalla@localhost/roguehalla?host=/run/rh-demo-pg --bot-learning {learning} --api-cors-origins https://play.rougehalla.com --client-ip-header x-forwarded-for --trusted-proxies 127.0.0.1
-Restart=no
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=90
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
 ReadWritePaths=/var/lib/rougehalla-demo /run/rh-demo-pg
 UMask=0077
-StandardOutput=null
-StandardError=null
+StandardOutput=journal
+StandardError=journal
 [Install]
 WantedBy=multi-user.target
 '''
@@ -393,6 +406,9 @@ def install():
     with Path('/var/lib/rh-demo-pg/postgresql.conf').open('a') as f:
         f.write("\nlisten_addresses = ''\nunix_socket_directories = '/run/rh-demo-pg'\nfsync = on\nsynchronous_commit = on\nfull_page_writes = on\nlog_statement = 'none'\nlog_min_error_statement = 'panic'\nlogging_collector = off\n")
     unit('rh-demo-pg.service', '[Unit]\nRequires=rh-demo-isolation.service rh-demo-expiry.timer\nAfter=rh-demo-isolation.service rh-demo-expiry.timer\nOnFailure=rh-demo-poweroff.service\n[Service]\nUser=postgres\nRuntimeDirectory=rh-demo-pg\nRuntimeDirectoryMode=0755\nExecStartPre=+/usr/bin/python3 -I /usr/local/lib/rh-demo/bootstrap.py guard\nExecStart=/usr/lib/postgresql/16/bin/postgres -D /var/lib/rh-demo-pg\nRestart=no\nStandardOutput=null\nStandardError=null\n[Install]\nWantedBy=multi-user.target\n')
+    run('/usr/bin/install', '-d', '-m', '0755', '/etc/systemd/journald.conf.d')
+    write(Path('/etc/systemd/journald.conf.d/rh-demo.conf'), JOURNALD_CONF)
+    run('/usr/bin/systemctl', 'restart', 'systemd-journald.service')
     for name, training in (('source', False), ('training', True)):
         unit(f'rh-demo-{name}.service', app_unit(c, training).replace('Requires=rh-demo-pg.service', 'Requires=rh-demo-isolation.service rh-demo-pg.service').replace('After=rh-demo-pg.service', 'After=rh-demo-isolation.service rh-demo-pg.service'))
     run('/usr/bin/systemctl', 'daemon-reload')
