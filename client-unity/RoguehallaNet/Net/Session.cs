@@ -183,6 +183,10 @@ namespace Roguehalla.Net
         public event Action TimelineReset;
         /// <summary>Round trip of each Pong, in ms.</summary>
         public event Action<double> RttSample;
+        /// <summary>Presentation cue (P-UI-INPUT-CUES-1): raised in <see cref="FlushInput"/> once per Cast, Swap, Pickup or
+        /// UseConsumable command that leaves in a sent frame, in frame order, after that frame is sent. Never for a dropped
+        /// command or an unsent frame; it carries no outcome.</summary>
+        public event Action<WireCommand> CueSent;
 
         public Session(ITransport transport, SessionOptions options)
         {
@@ -359,17 +363,31 @@ namespace Roguehalla.Net
         {
             if (_detached) return;
             if (State != SessionState.InMatch) return;
+            Exception cueFault = null;
             foreach (var f in Input.Flush(Now))
             {
                 Send(f);
-                if (_detached) return;
+                if (_detached) break;
                 if (Motion != null) foreach (var command in f.Commands)
                 {
                     Motion.MovementOrderSent(command, f.Seq);
                     if (command.Kind == CommandKind.Cast && command.Seq.HasValue)
                         Motion.NonMovementOrderSent(command, f.Seq);
                 }
+                // Presentation cues come last: the frame is sent and its prediction bookkeeping is done, so a faulty subscriber
+                // cannot cost a frame or an order echo. Its first exception is rethrown once the whole flush is complete.
+                var cue = CueSent;
+                if (cue != null) foreach (var command in f.Commands)
+                {
+                    var k = command.Kind;
+                    if (k != CommandKind.Cast && k != CommandKind.Swap && k != CommandKind.Pickup && k != CommandKind.UseConsumable) continue;
+                    try { cue(command); }
+                    catch (Exception e) { if (cueFault == null) cueFault = e; }
+                    if (_detached) break;
+                }
+                if (_detached) break;
             }
+            if (cueFault != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(cueFault).Throw();
         }
 
         void Send(ClientMsg m) { if (!_detached) _t.Send(m.Encode()); }

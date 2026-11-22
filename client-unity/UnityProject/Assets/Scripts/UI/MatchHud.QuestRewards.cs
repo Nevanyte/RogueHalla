@@ -12,6 +12,7 @@ namespace Roguehalla.Client
     {
         RectTransform _questRewardHud, _questChoiceOverlay, _nearbyQuestOverlay, _nearbyQuestList;
         readonly TMP_Text[] _questSlotLabels = new TMP_Text[2];
+        readonly RectTransform[] _questSlotTiles = new RectTransform[2];
         readonly (byte Reward, byte Charges, double Seconds)?[] _questSlotKeys = new (byte, byte, double)?[2];
         readonly UnityEngine.UI.Button[] _questChoiceButtons = new UnityEngine.UI.Button[3];
         readonly List<UnityEngine.UI.Button> _nearbyQuestButtons = new List<UnityEngine.UI.Button>();
@@ -34,6 +35,7 @@ namespace Roguehalla.Client
             for (int i = 0; i < _questSlotLabels.Length; i++)
             {
                 var slot = HudUi.Box(_questRewardHud, "QuestSpell" + (i + 1), HudAnchor.BottomLeft, 145f * i + 2f, 0, 141f, 39f);
+                _questSlotTiles[i] = slot;
                 HudUi.Surface(slot, UiTheme.Current.Surface, 5f, UiTheme.Current.BorderStrong, false, true);
                 _questSlotLabels[i] = MythicUi.Text(slot, "Spell", "", Vector2.zero, Vector2.one, 12,
                     alignment: TextAlignmentOptions.Center);
