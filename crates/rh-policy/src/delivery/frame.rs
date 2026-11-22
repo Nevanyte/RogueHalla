@@ -62,8 +62,16 @@ pub struct CollectionView {
     /// State key 13: the owner's own build summary (None when unseated).
     pub(crate) summary: Option<rh_protocol::state::WireBuildSummary>,
     pub(crate) destroyed_terrain: Vec<u32>,
+    /// State key 15 (P-AUG-NATIVE-5): the public Marked Man rows; optional, never required for completeness.
+    pub(crate) marked: Vec<rh_protocol::WireMarked>,
+    /// State key 16 (P-WIRE19-B; key 14 before protocol 24): the owner's own native readout rows; optional, never
+    /// required for completeness.
+    pub(crate) readouts: Vec<rh_protocol::WireReadout>,
     pub(crate) tick: u32,
 }
+/// The keys a complete view must have received: 1..=13. Keys 14 (opened terrain), 15 (P-AUG-NATIVE-5 Marked Man rows)
+/// and 16 (P-WIRE19-B readouts) are sent only on change, so a viewer without them never receives them.
+const REQUIRED_STATE_KEYS: usize = rh_protocol::state::REQUIRED_STATE_KEYS;
 impl CollectionView {
     pub fn inventory(&self) -> Option<&WireInventory> {
         self.inventory.as_ref()
@@ -107,6 +115,15 @@ impl CollectionView {
     pub fn summary(&self) -> Option<&rh_protocol::state::WireBuildSummary> {
         self.summary.as_ref()
     }
+    /// P-WIRE19-B: the owner's own native readout rows (State key 14) as delivered; empty until key 14 arrives.
+    pub fn readouts(&self) -> &[rh_protocol::WireReadout] {
+        &self.readouts
+    }
+    /// P-AUG-NATIVE-5: the public Marked Man rows of State key 15 the client holds (empty until key 15 arrives; each
+    /// key 15 replaces them).
+    pub fn marked(&self) -> &[rh_protocol::WireMarked] {
+        &self.marked
+    }
     pub fn tick(&self) -> u32 {
         self.tick
     }
@@ -114,9 +131,7 @@ impl CollectionView {
         &self.destroyed_terrain
     }
     pub fn complete(&self) -> bool {
-        self.seen[..rh_protocol::state::REQUIRED_STATE_KEYS]
-            .iter()
-            .all(|v| *v)
+        self.seen[..REQUIRED_STATE_KEYS].iter().all(|v| *v)
     }
     /// Atomic same-view replacement, including retained props/quests. Domain/budget checks apply
     /// to this actual update, not to an invented oversized re-encoding of all retained collections.
@@ -143,6 +158,8 @@ impl CollectionView {
                 StateItem::Roster(v) => next.roster = v.clone(),
                 StateItem::BuildSummary(v) => next.summary = v.clone(),
                 StateItem::DestroyedTerrain(v) => next.destroyed_terrain = v.clone(),
+                StateItem::Marked(v) => next.marked = v.clone(),
+                StateItem::Readouts(v) => next.readouts = v.clone(),
             }
         }
         rh_protocol::validate_quest_props(&next.props, next.quests.as_ref())?;

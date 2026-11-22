@@ -541,7 +541,14 @@ fn frame14_requires_all_eleven_keys_including_explicit_trade_unavailable() {
         },
         "empty terrain is a valid v19 replacement"
     );
-    assert!(ServerMsg::decode(&[0x88, 0x01, 0x01, 15, 0]).is_err());
+    assert!(
+        // P-AUG-NATIVE-5 (oracle-amend): key 15 is the Marked Man rows; P-SYNC-ORIGIN-3: key 16 is the own readouts
+        // (key 14 before protocol 24), so 17 is the first unknown key.
+        ServerMsg::decode(&[0x88, 0x01, 0x01, 17, 0]).is_err(),
+        "State 17 is still unknown"
+    );
+    // P-SYNC-ORIGIN-3: origin's first unknown key (15) is the Marked Man rows here.
+    assert!(ServerMsg::decode(&[0x88, 0x01, 0x01, 17, 0]).is_err());
 }
 
 #[test]

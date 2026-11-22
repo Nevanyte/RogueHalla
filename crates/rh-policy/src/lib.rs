@@ -53,11 +53,27 @@ use std::time::{Duration, Instant};
 /// Wall (field kind 3) with its tile list; bots do not decide on it.
 /// Version 25 (observation 30, P-FROST-WALL-BOTS-1): [`MatchStart`] carries `frost_wish`, the room's Frost Wish (the
 /// room-wide public value every human client reads from the Welcome's HUD block, term 23); bots aim Frost Wall by it.
-/// Version 26 (protocol 19, observation 31) delivers personal quest slots and actions, public quest
+/// Version 26 (observation 31, P-WIRE19-A): a projected reward chest row (State key 4) carries `first_pick` (the killer
+/// first-pick window's end and the viewer's own `mine`), and a card option may be a native id 80..=93.
+/// Version 27 (observation 32, P-WIRE19-B): the observation carries the viewer's own native readout rows, projected as
+/// the optional State key 14 (State key 16 since protocol 24; sent on change only) and kept by `CollectionView::readouts`; bots do not decide on them.
+/// Origin's version 26 (observation 31, its protocol 19, P-NET-DRAWAHEAD-1a): each delivered player row and its
+/// projected actor carry the public walk hint (heading, committed ticks); bots do not decide on it.
+/// Version 28 (observation 33, protocol 20, P-SYNC-ORIGIN-1): both lines' version 26/27 changes together.
+/// Version 29 (P-AUG-BOTS-1): `MatchStart` carries the room's elite rule (`SimConfig::elites`); the planning and hunt
+/// estimates of an elite read it.
+/// Version 30 (observation 34, P-AUG-NATIVE-5): the observation carries every `Alive` Marked Man holder's public
+/// position, projected as the optional State key 15 (sent on change only) and kept by `CollectionView::marked`; bots do
+/// not decide on it.
+/// Origin's version 27 (its protocol 20, P-COLISEUM-HEALS-2): heal props; bots ignore them.
+/// Version 31 (observation 35, protocol 22, P-SYNC-ORIGIN-2): the local version 30 and origin's version 27 together.
+/// Origin: Version 26 (protocol 19, observation 31) delivers personal quest slots and actions, public quest
 /// markers, and destroyed terrain. Fill bots receive their own view and cannot accept quests.
 /// Versions 27–31 carry public walk hints, heal props, 40 Hz projection, and merged observation extensions.
 /// Version 32 adds the quest carrier and rebirth egg projections while retaining heal and walk hints.
-pub const POLICY_CONTRACT_VERSION: u16 = 32;
+/// Version 33 (observation 37, protocol 24, P-SYNC-ORIGIN-3): the local version 31 and origin's version 32 together;
+/// the own readout rows move to State key 16, origin's opened terrain keeps key 14.
+pub const POLICY_CONTRACT_VERSION: u16 = 33;
 
 /// Everything a policy may know about a match before its first observation, all of it public static data (the map
 /// and spawn points), never match state. Never a [`rh_sim::Secrets`] value and never the sim itself (C-OBS, C-RNG, C-POLICY).
@@ -80,6 +96,9 @@ pub struct MatchStart {
     /// plays legacy's Frost Wall policy row (`bots::wish::wish_for`; the Brain's composed def); with `Freeze` every
     /// decision is today's. P-FROST-WALL-BOTS-1.
     pub frost_wish: rh_sim::FrostWish,
+    /// Which elite numbers the room plays (`SimConfig::elites`): the room-wide public rule (P-AUG-BOTS-1). The planning
+    /// and hunt estimates of an elite's hp and damage read it.
+    pub elites: rh_sim::EliteRule,
 }
 
 impl MatchStart {
@@ -97,6 +116,7 @@ impl MatchStart {
             observation_version: OBSERVATION_VERSION,
             tick_ms: f64::from(sim.tick_ms()),
             frost_wish: sim.config().frost_wish,
+            elites: sim.config().elites,
         }
     }
 

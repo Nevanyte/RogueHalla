@@ -66,6 +66,16 @@ pub(crate) fn credit_kill(
     if bounty > 0 && !victim.bot {
         credit(w, ev, bi, GvReason::Bounty, bounty);
     }
+    // P-AUG-NATIVE-1b: the native credited-kill hook (a player kill), before the `playerKilled` chain.
+    crate::cards::native::hooks::fire(
+        k,
+        w,
+        by,
+        crate::cards::native::hooks::NativeEvent::CreditedKill {
+            player: true,
+            elite: false,
+        },
+    );
     if k.quest_deal.is_some() && victim.outcome == crate::Outcome::Died {
         crate::quests::board::attempts::on_bounty_kill(w, by, victim.id, bounty);
     }

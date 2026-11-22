@@ -27,9 +27,9 @@ const stateFrame = rows => new Uint8Array([0x88, ...varint(202), 1, 2, ...varint
   ...rows.flatMap(r => [...varint(r.handle), ...u16(r.x), ...u16(r.y), r.kind, ...varint(r.readyAt)]), 0]).buffer;
 const propsOf = msg => msg.items.find(i => i.key === 2).value;
 
-test('the probe speaks protocol 23', () => {
-  assert.equal(probe.PROTOCOL, 23, 'a new prop kind is an incompatible wire change: 22 -> 23');
-  assert.notEqual(html.indexOf('// ---- protocol v23 '), -1, 'the codec block marker names v23');
+test('the probe speaks protocol 24', () => {
+  assert.equal(probe.PROTOCOL, 24, 'a new prop kind is an incompatible wire change: 19 -> 20 (origin); P-SYNC-ORIGIN-2 carries it as 22; origin\'s 23 adds the Rebirth Egg; P-SYNC-ORIGIN-3 carries both as 24');
+  assert.notEqual(html.indexOf('// ---- protocol v24 '), -1, 'the codec block marker names v24');
 });
 
 test('the probe reads a hand-built kind 8 row as a heal with its clock', () => {

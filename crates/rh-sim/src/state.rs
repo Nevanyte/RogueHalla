@@ -394,6 +394,15 @@ pub struct PendingAction {
     /// The attacking Fire player was armed when this action started: the source's armed-packet mark.
     #[serde(default)]
     pub roam_armed: bool,
+    /// Plant Your Feet (legacy `PendingAction.rangeMult`, `weapons.ts:333-347`): the attack's reach or flight range and
+    /// its baked damage multiplier, decided when the attack starts; 1 for an unplanted attack and for every mob.
+    #[serde(default = "unit_range_mult")]
+    pub range_mult: f64,
+}
+
+/// The serde default of an unplanted attack's `range_mult`.
+pub(crate) fn unit_range_mult() -> f64 {
+    1.0
 }
 
 /// One real player death's harvestable remains. Ordinary loot/body containers are separate.
@@ -850,6 +859,10 @@ pub(crate) struct Projectile {
     /// The flight launched from an armed Fire attack: the source's armed-packet mark carried across ticks.
     #[serde(default)]
     pub(crate) roam_armed: bool,
+    /// Plant Your Feet: the launching attack's `range_mult` (legacy `SpawnRequest.rangeMult` and the packet's baked
+    /// `mult`); 1 when unplanted. A reflection keeps it for the damage but flies the catalog range.
+    #[serde(default = "unit_range_mult")]
+    pub(crate) range_mult: f64,
 }
 impl Projectile {
     pub(crate) fn weapon(&self) -> WeaponId {
@@ -1131,18 +1144,15 @@ impl World {
                     .as_str(),
             )
             .expect("catalog type");
+            // The world's elite numbers (P-AUG-RULES-1: the rule its mob runtime stores).
+            let elites = crate::mob_runtime::EliteTuning::of_world(self);
             let k = if m.elite {
-                crate::constants::ELITE_K
+                elites.k
             } else {
                 crate::constants::MOB_K
             };
             f.hp = (f.hp * k)
-                * (crate::constants::MOB_HP_MULT
-                    * if m.elite {
-                        crate::constants::ELITE_HP_MULT
-                    } else {
-                        1.
-                    })
+                * (crate::constants::MOB_HP_MULT * if m.elite { elites.hp_mult } else { 1. })
                 * ty.role_def().hp_mult;
             f.hit = self.point_damage(ix, f.hit, false);
         }
@@ -1169,17 +1179,14 @@ impl World {
                 .as_str(),
         )
         .expect("catalog type");
+        // The world's elite numbers (P-AUG-RULES-1: the rule its mob runtime stores).
+        let elites = crate::mob_runtime::EliteTuning::of_world(self);
         let k = if m.elite {
-            crate::constants::ELITE_K
+            elites.k
         } else {
             crate::constants::MOB_K
         };
-        let d = crate::constants::MOB_DMG_MULT
-            * if m.elite {
-                crate::constants::ELITE_DMG_MULT
-            } else {
-                1.
-            };
+        let d = crate::constants::MOB_DMG_MULT * if m.elite { elites.dmg_mult } else { 1. };
         let zone = match ty.zone {
             crate::FactionId::Plague => crate::constants::MOB_PLAGUE_DAMAGE,
             crate::FactionId::Holy => crate::constants::MOB_HOLY_DAMAGE,
@@ -1352,3 +1359,7 @@ impl World {
 #[cfg(test)]
 #[path = "state_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "state/history_step_tests.rs"]
+mod history_step_tests;

@@ -69,10 +69,11 @@ fn varint(v: u32) -> Vec<u8> {
 }
 
 #[test]
-fn the_protocol_is_23() {
+fn the_protocol_is_24() {
     assert_eq!(
-        PROTOCOL_VERSION, 23,
-        "the integrated protocol carries both the heal and the Rebirth Egg"
+        PROTOCOL_VERSION, 24,
+        "a new prop kind is an incompatible wire change: 19 -> 20 (origin); P-SYNC-ORIGIN-2 carries it as 22, origin's 23 \
+         adds the Rebirth Egg, P-SYNC-ORIGIN-3 carries both as 24"
     );
 }
 

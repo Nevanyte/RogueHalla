@@ -25,7 +25,9 @@ pub use self::trade::*;
 
 /// Keys delivered on every baseline, even when they carry an empty collection.
 pub const REQUIRED_STATE_KEYS: usize = 13;
-pub const MAX_STATE_KEYS: usize = 14;
+/// Keys 1..=16; key 14 (opened base-map tiles), key 15 (P-AUG-NATIVE-5, the public Marked Man rows) and key 16
+/// (P-WIRE19-B, the own readout rows; key 14 before protocol 24) are optional and sent only on change.
+pub const MAX_STATE_KEYS: usize = 16;
 /// One radius-300 cast opens fewer than 300 cells. Bound even 32 seats' changes.
 pub const MAX_DESTROYED_TERRAIN: usize = 9_600;
 /// Most roster rows a State key 12 carries (ADR0026); a match seats at most 8 players today.
@@ -95,6 +97,66 @@ pub struct WireRewardChest {
     pub options: Vec<WireRewardOption>,
     pub picked: bool,
     pub can_choose: bool,
+    /// P-WIRE19-A (protocol 19): the killer first-pick window while it is in force (P-ELITE-PICK-1). Its end is public;
+    /// `mine` is the viewer's own fact (true only in the killer's row). Never a player id (C-OBS).
+    pub first_pick: Option<WireFirstPick>,
+}
+/// P-WIRE19-A: a reward chest's first-pick window as one viewer sees it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WireFirstPick {
+    /// The window's end, server ms (open while `server_ms < until`).
+    pub until: f64,
+    /// Whether the window is this viewer's own.
+    pub mine: bool,
+}
+/// P-WIRE19-B (protocol 19, State key 14): most readout rows one viewer receives (two per native card; equal to
+/// `rh_sim::cards::native::MAX_READOUTS`).
+pub const MAX_READOUTS: usize = 28;
+/// P-WIRE19-B: readout kind codes (`rh_sim::cards::native::ReadoutKind` order). A code at or above
+/// [`READOUT_KIND_COUNT`] is refused ("readout kind").
+pub const READOUT_KIND_COUNTER: u8 = 0;
+pub const READOUT_KIND_METER: u8 = 1;
+pub const READOUT_KIND_MARKS: u8 = 2;
+/// Number of readout kind codes: counter, meter, marks.
+pub const READOUT_KIND_COUNT: u8 = 3;
+/// P-WIRE19-B: one of the viewer's own native readout rows (C-OBS: never another player's). `card` is a native
+/// `CardId` index (80..=93), `kind` a `READOUT_KIND_*` code; `value` and `max` are finite with `0 <= value <= max`.
+/// On the wire (brief `docs/backlog/packets/P-WIRE19-B.md`): `u8 card, u8 kind, f64 value, f64 max`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WireReadout {
+    pub card: u8,
+    pub kind: u8,
+    pub value: f64,
+    pub max: f64,
+}
+impl WireReadout {
+    /// Bytes a row: card, kind, value, max.
+    pub(crate) const LEN: usize = 18;
+    /// The first native card index (`CardId::NATIVE`); a catalog card never has a readout.
+    const FIRST_CARD: u8 = 80;
+    /// The last native card index.
+    const LAST_CARD: u8 = 93;
+    /// Why this row is refused after a row of card `previous`, checked in the wire order: card, kind, value and max,
+    /// then native order (a card never decreases; two rows of one card are allowed).
+    pub(crate) fn fault(&self, previous: Option<u8>) -> Result<(), &'static str> {
+        if !(Self::FIRST_CARD..=Self::LAST_CARD).contains(&self.card) {
+            return Err("readout card");
+        }
+        if self.kind >= READOUT_KIND_COUNT {
+            return Err("readout kind");
+        }
+        if !(self.value.is_finite()
+            && self.max.is_finite()
+            && self.value >= 0.
+            && self.value <= self.max)
+        {
+            return Err("readout value");
+        }
+        if previous.is_some_and(|p| self.card < p) {
+            return Err("readout order");
+        }
+        Ok(())
+    }
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct WireBuild {
@@ -274,6 +336,38 @@ pub enum StateItem {
     BuildSummary(Option<WireBuildSummary>),
     /// Key 14: complete sorted indices of permanently opened base-map tiles.
     DestroyedTerrain(Vec<u32>),
+    /// Key 15 (P-AUG-NATIVE-5): every `Alive` Marked Man holder's position, the same for every viewer (the minimap
+    /// marker). Sent only when the rows change (a client's rows start empty).
+    Marked(Vec<WireMarked>),
+    /// Key 16 (P-WIRE19-B; key 14 before protocol 24): the viewer's own native readout rows, in native order; never
+    /// another seat's. Sent only when the rows change (a client's rows start empty), so a viewer without native cards
+    /// never receives it.
+    Readouts(Vec<WireReadout>),
+}
+
+/// P-AUG-NATIVE-5: one Marked Man holder: its actor id and position (brief
+/// `docs/backlog/packets/P-AUG-NATIVE-5.md`, "Wire layout"): `varint id, u16 x, u16 y` (actor quantization).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WireMarked {
+    pub id: u32,
+    pub x: f32,
+    pub y: f32,
+}
+
+impl WireMarked {
+    /// The reason a row after one with id `previous` (0 for the first) is refused: id 0, then the order.
+    pub(crate) fn id_fault(id: u32, previous: u32) -> Option<&'static str> {
+        if id == 0 {
+            Some("marked id")
+        } else if id <= previous {
+            Some("marked order")
+        } else {
+            None
+        }
+    }
+    pub(crate) fn len(&self) -> usize {
+        varint_len(self.id) + 4
+    }
 }
 
 /// Public camp summary; no private actor identity is carried.

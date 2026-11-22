@@ -319,7 +319,7 @@ fn another_seat_never_observes_this_seats_new_codes() {
 #[test]
 fn the_observation_identity_moves_for_the_new_codes() {
     assert_eq!(
-        OBSERVATION_VERSION, 36,
-        "Observation.panel gains codes 23-27 (27, P-WIRE17-HUD-2c); 28: P-WIRE17-HUD-3"
+        OBSERVATION_VERSION, 37,
+        "Observation.panel gains codes 23-27 (27, P-WIRE17-HUD-2c); 28: P-WIRE17-HUD-3; 31: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 34: P-AUG-NATIVE-5; 35: P-SYNC-ORIGIN-2; 36: origin's Top 25 quests; 37: P-SYNC-ORIGIN-3"
     );
 }

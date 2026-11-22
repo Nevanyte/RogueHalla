@@ -125,11 +125,12 @@ fn constants_match_the_brief() {
     assert_eq!((FROST_WISH_FREEZE, FROST_WISH_WALL), (0.0, 1.0));
 }
 
-/// Guard: the protocol number is 23 (P-PROTOCOL-18-STAMP-1 stamped 18; P-NET-DRAWAHEAD-1a moved it to 19 for the walk hint;
-/// P-COLISEUM-HEALS-2 to 20 for the heal prop; P-TICK-3 to 23 for the snapshot rate).
+/// Guard: the protocol number is 24 (P-PROTOCOL-18-STAMP-1 stamped 18; P-WIRE19-A and, on origin, P-NET-DRAWAHEAD-1a each
+/// moved it to 19; P-SYNC-ORIGIN-1 merged both as 20; origin's P-COLISEUM-HEALS-2 took 20 and P-TICK-3 21; P-SYNC-ORIGIN-2
+/// merged both lines as 22; origin's P-QUEST25-INTEGRATE took 23; P-SYNC-ORIGIN-3 merged both lines as 24).
 #[test]
-fn guard_the_protocol_is_23() {
-    assert_eq!(PROTOCOL_VERSION, 23);
+fn guard_the_protocol_is_24() {
+    assert_eq!(PROTOCOL_VERSION, 24);
 }
 
 // ---- layout --------------------------------------------------------------------------------------------------------

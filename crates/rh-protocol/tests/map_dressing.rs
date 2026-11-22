@@ -555,8 +555,10 @@ fn a_map_without_dressing_keeps_today_s_bytes() {
 }
 
 // Moved with the version field at protocol 18: v17/v18 Welcomes differ only in 811100 -> 811200 (protocol_18_stamp.rs);
-// again at protocol 19 (P-NET-DRAWAHEAD-1a): 811200 -> 811300; at protocol 20 (P-COLISEUM-HEALS-2): 811300 -> 811400;
-// and at protocol 21 (P-TICK-3): 811400 -> 811500.
+// at protocol 19 (P-WIRE19-A; P-NET-DRAWAHEAD-1a on origin): 811200 -> 811300; at 20 (P-SYNC-ORIGIN-1; P-COLISEUM-HEALS-2
+// on origin): 811300 -> 811400; at 21 on origin (P-TICK-3): 811400 -> 811500; at 22 (P-SYNC-ORIGIN-2): -> 811600.
+// Origin's P-QUEST25-INTEGRATE normalizes the stamp back to 811500 before hashing, so these are the protocol-21 digests
+// again (P-SYNC-ORIGIN-3 took origin's normalization; only the version field differs, which the test forces to 21).
 const WELCOME_LEN: usize = 1832;
 const WELCOME_DIGEST: u64 = 0x5a5b_0e96_9a7e_e9cf;
 const SHIPPED_LEN: usize = 2324;

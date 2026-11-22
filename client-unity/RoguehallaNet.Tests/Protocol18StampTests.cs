@@ -5,10 +5,22 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Net.Tests
 {
-    /// <summary>Historical protocol-18 fixtures remain covered while the active client speaks protocol 23.</summary>
+    /// <summary>P-PROTOCOL-18-STAMP-1 oracle (client): the codec speaks protocol 18 (owner approval 9, 2026-11-12), decodes the
+    /// v18 golden vectors as protocol 18, and a session refuses a protocol-17 server's Welcome while accepting an 18 one.
+    /// P-NET-DRAWAHEAD-1a moved the codec to protocol 19 (the walk hint): an 18 Welcome is now the refused one.
+    /// P-COLISEUM-HEALS-2 moved it to protocol 20 (the heal prop): a 19 Welcome is now the refused one.
+    /// P-TICK-3 moved it to protocol 21 (snapshot time from the Welcome rate): a 20 Welcome is now the refused one.
+    /// P-SYNC-ORIGIN-2 merged both lines as protocol 22: every Welcome of 17 to 21 is refused.
+    /// Origin's protocol 23 (the Top 25 quests) and the local 22 merged as protocol 24 (P-SYNC-ORIGIN-3): every Welcome of
+    /// 17 to 23 is refused. Historical protocol-18 fixtures remain covered.</summary>
     public class Protocol18StampTests
     {
-        [Test] public void CodecSpeaksProtocol23() { Assert.AreEqual(23, Wire.ProtocolVersion); }
+        /// <summary>P-WIRE19-A moved the codec to 19; the v18 history below stays.</summary>
+        [Test] public void CodecSpeaksProtocol18OrLater() { Assert.GreaterOrEqual((int)Wire.ProtocolVersion, 18); }
+        /// <summary>P-NET-DRAWAHEAD-1a pinned 19; P-SYNC-ORIGIN-1 merged both protocol-19 wires as 20; origin took 20 and 21
+        /// (heal props, tick rate); P-SYNC-ORIGIN-2 merged both lines as 22; origin took 23 (quests); P-SYNC-ORIGIN-3 merged
+        /// both lines as 24.</summary>
+        [Test] public void CodecSpeaksProtocol24() { Assert.AreEqual(24, Wire.ProtocolVersion); }
 
         [Test]
         public void V18FixtureExistsAndItsHelloSays18()
@@ -39,19 +51,26 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
-        public void AProtocol22WelcomeIsRefusedAndA23WelcomeAccepted()
+        public void AProtocol23WelcomeIsRefusedAndA24WelcomeAccepted()
         {
-            var old = new FakeTransport(); var s22 = NewSession(old);
-            s22.Connect(); old.Open();
-            Assert.AreEqual(23, old.LastSent<ClientMsg.Hello>().Protocol, "the Hello says 23");
-            old.Deliver(Welcome(22));
-            Assert.AreEqual(SessionState.Failed, s22.State, "a protocol-22 Welcome is refused");
-            StringAssert.Contains("server protocol 22", s22.Error);
+            // P-WIRE19-A refused 17, P-NET-DRAWAHEAD-1a refused 18; P-SYNC-ORIGIN-1 (protocol 20) refuses both and 19;
+            // P-SYNC-ORIGIN-2 (protocol 22) refuses 20 (both lines' 20s) and origin's 21 as well; P-SYNC-ORIGIN-3
+            // (protocol 24) refuses the local 22 and origin's 23.
+            foreach (ushort oldProtocol in new ushort[] { 17, 18, 19, 20, 21, 22, 23 })
+            {
+                var old = new FakeTransport(); var sOld = NewSession(old);
+                sOld.Connect(); old.Open();
+                Assert.AreEqual(Wire.ProtocolVersion, old.LastSent<ClientMsg.Hello>().Protocol, "the Hello says the codec's version");
+                old.Deliver(Welcome(oldProtocol));
+                Assert.AreEqual(SessionState.Failed, sOld.State, $"a protocol-{oldProtocol} Welcome is refused");
+                StringAssert.Contains($"server protocol {oldProtocol}", sOld.Error);
+            }
 
-            var cur = new FakeTransport(); var s23 = NewSession(cur);
-            s23.Connect(); cur.Open();
-            cur.Deliver(Welcome(23));
-            Assert.AreEqual(SessionState.InMatch, s23.State, "a protocol-23 Welcome starts the match");
+            var cur = new FakeTransport(); var sCur = NewSession(cur);
+            sCur.Connect(); cur.Open();
+            Assert.AreEqual(24, cur.LastSent<ClientMsg.Hello>().Protocol, "the Hello says 24");
+            cur.Deliver(Welcome(24));
+            Assert.AreEqual(SessionState.InMatch, sCur.State, "a protocol-24 Welcome starts the match");
         }
     }
 }

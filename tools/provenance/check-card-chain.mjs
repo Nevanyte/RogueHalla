@@ -18,27 +18,27 @@ const eq = (kind, path, expected, actual, detail) => { if (expected !== actual) 
 const need = (p) => { if (!existsSync(join(root, p))) { fail('missing-file', p, 'exists', 'missing'); return false; } return true; };
 
 const EXPECTED = {
-  catalogSource: '8e444cf1eed6d2c0b0e1f73faec4f330221f819fe6f6991227a9b3ae3b044b9f',
-  protocolVectors: 'e06942914a5a156f37936b1fea6e15057b2578385bafdbf000d1f16db392f139',
+  catalogSource: 'f2a83fe59291310817c3d0d37965e79c25e2c7148afe09c177df1019fb7f1cf6',
+  protocolVectors: '0b1c5b05c1ec3d1ea079296a5d8ce2c8872af07b108fb4214fc4c63296422958',
   browserProof: '1ddd14104f861e2afcdf2b9d95379d0927719ca5d87bf3b648c9694f5869459a',
-  runtimeSource: '1242c3ca67f3c8c141192e136862ffd654d02ae20c0726dcecf5fb071ce47571',
-  runtimeInput: 'bd64eedec0a64f03eeb3d1f41d5497b4b2ed478c9a2f51fa9ea456b8c15f74ad',
-  runtimeCaptureTool: 'a85ce3109ef4be5d22d1289ea23b2f0293be20c47296d78dc41254bd3edcfa63',
-  witnessSource: 'deb05ebce31339f377caddb7e5c19c997071fb4123605a0efe824a2ca02ac183',
-  witnessInput: 'dab3bf721f5d8fc8da03f1d843e2d502b72bae2a32653485741f537993bbaecb',
-  witnessCaptureTool: 'df1a859a9689a96a9859f079fe59d3abc78c7564a44bf05a823acf81d8f08972',
+  runtimeSource: '0be9e0b66a633bb094d6e4769e9ed1daa0b162b8df96827050f61249084c65f7',
+  runtimeInput: '571228ac5113dbfb4593fb86018471ed75761a2392e2f987a643d069cd421489',
+  runtimeCaptureTool: '120f19dc4c845e4ae43964a6b089df567cc45c1b8cabd6867fa9bb6a692f6b21',
+  witnessSource: '7a9fd006f700cde50f0c3abd4156a8f7ddfd362c7a052f358018017681979221',
+  witnessInput: '8401446bf93260a051a46b94ef77f95bdf231aadc086e1a62ef0bec6788ed1af',
+  witnessCaptureTool: '3c65eaf69e29eec8d734b6dd7d6aabc05187e55f560a00f327ce4c8a5b337356',
   frozenPins: '7ed1086915fafd5fa129669270d6d53090f4b81052660a18318df60cab8b3023',
   frozenSource: 'c2e5d1a071f3f7a05a6c3e8bf46fbdba8f0c7ae47d4de1aea8e62a1726ecd019',
   runtimeSourceOriginal: 'c2e5d1a071f3f7a05a6c3e8bf46fbdba8f0c7ae47d4de1aea8e62a1726ecd019',
-  runtimeSourcePrior: '7cb8040b16176c526b131e7445b22b5fa5bc751009a70fd6ae8389d8dc574031',
+  runtimeSourcePrior: '1242c3ca67f3c8c141192e136862ffd654d02ae20c0726dcecf5fb071ce47571',
   runtimeInputOriginal: '2ea71ac15addc60e406aebbb7defedf8492c135d0a787a15808b69e4bc34d39a',
-  runtimeInputPrior: 'bdc4a742b07f91edf10a402bec26754811d4e00df81206905c55d763911103b4',
+  runtimeInputPrior: 'bd64eedec0a64f03eeb3d1f41d5497b4b2ed478c9a2f51fa9ea456b8c15f74ad',
   toolOriginal: '24df22055a3c77b75e01b478d04a477a57690d7f71220916d0816551102fff9e',
-  toolPrior: '8e22485fe88ba0d34f7c9df0c3b83ef3b20f5f3431a8ff9685a6c23f7b089807',
+  toolPrior: 'a85ce3109ef4be5d22d1289ea23b2f0293be20c47296d78dc41254bd3edcfa63',
   docOriginal: 'd5d3c30632494c98fb96ce4ddad76da2e716322609ccca767e52b868ec16742d',
   docAccepted: 'd0fa1b753a7016e07c9bb3b3db4ae55ef483df176c343296c80e2c8756ba5ed8',
   catalogOriginal: 'd50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e',
-  catalogPrior: 'ab40ad59065713589f94c7f33dbbac3ea6cd9cc028463d90d6c6fe7fe1856214',
+  catalogPrior: '8e444cf1eed6d2c0b0e1f73faec4f330221f819fe6f6991227a9b3ae3b044b9f',
 };
 const overlays = [
   { path: 'parity/card-runtime/source.json', original: EXPECTED.runtimeSourceOriginal, prior: EXPECTED.runtimeSourcePrior, effective: EXPECTED.runtimeSource },
@@ -94,12 +94,12 @@ if (need('parity/card-runtime/source.json')) {
     eq('runtime-overlay-original', 'provenance.acceptedProvenanceOverlay.originalSha256', EXPECTED.catalogOriginal, ov.originalSha256);
     eq('runtime-overlay-prior', 'provenance.acceptedProvenanceOverlay.priorAcceptedEffectiveSha256', EXPECTED.catalogPrior, ov.priorAcceptedEffectiveSha256);
     eq('runtime-overlay-effective', 'provenance.acceptedProvenanceOverlay.effectiveSha256', EXPECTED.catalogSource, ov.effectiveSha256);
-    eq('runtime-overlay-preserved-prior-lineage', 'provenance.acceptedProvenanceOverlay.preservedPriorLineage', 'catalog original d50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e -> accepted 9e76292b7ae74d305da2729a2ceba63965e64aa9fd670ab85568ae7909270507 -> accepted 2ddb8f85114ff6e8e70c2d70b8207ed3f32c71431845f3cce1007be494e39792 -> accepted e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3 -> accepted 9e194b56fa5e435c6546440d3f22ba40d671dc79d259936f3db90d26ad1e96ca -> accepted 04c2c8d0bf4547e2e1db0050179c92e9d1458d80cb908e5ade5b049f8819c9f2 -> accepted ab40ad59065713589f94c7f33dbbac3ea6cd9cc028463d90d6c6fe7fe1856214 -> this effectiveSha256; earlier exact leaf transitions/receipts remain in docs/evidence/ci-card-catalog-protocol13, docs/evidence/ci-browser-provenance-chain, docs/evidence/browser-provenance14, docs/evidence/ci-provenance-refresh-2026-11-14, docs/evidence/ci-provenance-refresh-2026-11-17, docs/evidence/ci-provenance-refresh-2026-11-20 and docs/evidence/quest25-integration-2026-11-21; this hop admits only the three listed current-to-final protected leaves', ov.preservedPriorLineage);
+    eq('runtime-overlay-preserved-prior-lineage', 'provenance.acceptedProvenanceOverlay.preservedPriorLineage', 'catalog original d50c03e471f9d11ff790cac0f31d4ab82b5bb45f1b963b41725d58814cc6f74e -> accepted 9e76292b7ae74d305da2729a2ceba63965e64aa9fd670ab85568ae7909270507 -> accepted 2ddb8f85114ff6e8e70c2d70b8207ed3f32c71431845f3cce1007be494e39792 -> accepted e2de5226d31fc7fe4f23d8cd0552ad73be44855bb3109ebed8042b2fd899b9c3 -> accepted 9e194b56fa5e435c6546440d3f22ba40d671dc79d259936f3db90d26ad1e96ca -> accepted 04c2c8d0bf4547e2e1db0050179c92e9d1458d80cb908e5ade5b049f8819c9f2 -> accepted ab40ad59065713589f94c7f33dbbac3ea6cd9cc028463d90d6c6fe7fe1856214 -> accepted 8e444cf1eed6d2c0b0e1f73faec4f330221f819fe6f6991227a9b3ae3b044b9f -> this effectiveSha256; earlier exact leaf transitions/receipts remain in docs/evidence/ci-card-catalog-protocol13, docs/evidence/ci-browser-provenance-chain, docs/evidence/browser-provenance14, docs/evidence/ci-provenance-refresh-2026-11-14, docs/evidence/ci-provenance-refresh-2026-11-17, docs/evidence/ci-provenance-refresh-2026-11-20, docs/evidence/quest25-integration-2026-11-21 and docs/evidence/ci-provenance-refresh-2026-11-21-merge-quests; this hop admits only the three listed current-to-final protected leaves', ov.preservedPriorLineage);
     eq('runtime-overlay-leaf-count', 'provenance.acceptedProvenanceOverlay.acceptedChanges', 3, (ov.acceptedChanges ?? []).length);
     const expectedLeaves = {
-      '/protectedSha256/tools/protocol-js/check-vectors.mjs': ['aebbcc177fb42dc39676c26b5bf64ec21b142c6230805f7eaf0328b82d547b2b', 'e06942914a5a156f37936b1fea6e15057b2578385bafdbf000d1f16db392f139'],
-      '/protectedSha256/tools/determinism/compare.py': ['e3fe6a69c7591e825411714218b97b4b63803a986bb0b58ef0b0152d60a01d84', '1434f2e87a14c683f1346ba78c1dd3dcbe56be254da5883793b8d5cf13ab5cdf'],
-      '/protectedSha256/tools/determinism/test_compare.py': ['85aa88b08e1a29fb96e31b25f379af4e91a89a53a4296875713991f56d996501', '894e3804e909463235f642569c1521d8b160285ac55d7c8ac5c61bd412ebc1d5'],
+      '/protectedSha256/tools/protocol-js/check-vectors.mjs': ['e06942914a5a156f37936b1fea6e15057b2578385bafdbf000d1f16db392f139', '0b1c5b05c1ec3d1ea079296a5d8ce2c8872af07b108fb4214fc4c63296422958'],
+      '/protectedSha256/tools/determinism/compare.py': ['1434f2e87a14c683f1346ba78c1dd3dcbe56be254da5883793b8d5cf13ab5cdf', '509bed93f76de495ce0718fbcf5919b62904b51054a50e7f162c59b01f7c3185'],
+      '/protectedSha256/tools/determinism/test_compare.py': ['894e3804e909463235f642569c1521d8b160285ac55d7c8ac5c61bd412ebc1d5', '7d5f96ba61339bacc598c56bd9b1050c4143c83622ab6b7d6597af7ef525583e'],
     };
     for (const change of ov.acceptedChanges ?? []) {
       const want = expectedLeaves[change.leaf];
@@ -107,7 +107,7 @@ if (need('parity/card-runtime/source.json')) {
       else {
         eq('runtime-overlay-leaf-from', change.leaf + '.from', want[0], change.from);
         eq('runtime-overlay-leaf-to', change.leaf + '.to', want[1], change.to);
-        eq('runtime-overlay-leaf-evidence', change.leaf + '.evidence', 'docs/evidence/quest25-integration-2026-11-21/README.md', change.evidence);
+        eq('runtime-overlay-leaf-evidence', change.leaf + '.evidence', 'docs/evidence/ci-provenance-refresh-2026-11-21-merge-quests/README.md', change.evidence);
       }
     }
     for (const p of (ov.acceptedChanges ?? []).map((c) => c.leaf)) delete expectedLeaves[p];

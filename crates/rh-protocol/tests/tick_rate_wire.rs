@@ -75,10 +75,10 @@ fn full_and_delta() -> (Vec<u8>, Vec<u8>) {
 }
 
 #[test]
-fn the_wire_speaks_protocol_23() {
+fn the_wire_speaks_protocol_24() {
     assert_eq!(
-        PROTOCOL_VERSION, 23,
-        "snapshot time read from Welcome.tick_rate is an incompatible wire change: 20 -> 21"
+        PROTOCOL_VERSION, 24,
+        "snapshot time read from Welcome.tick_rate is an incompatible wire change: 20 -> 21 (origin); P-SYNC-ORIGIN-2 carries it as 22, P-SYNC-ORIGIN-3 as 24"
     );
 }
 

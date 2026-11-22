@@ -9,6 +9,7 @@
 //!    `SimConfig` field does not compile here until someone states what the live server plays for it.
 //!    No `--frost-wish`, camp-buff or regen flag exists in `runtime.rs` (they are fixed in `Settings::sim`).
 //!    P-FROST-WALL-3 amended the stated live `frost_wish` from `Freeze` to `Wall` in both tables (coordinator-approved).
+//!    P-AUG-RULES-1 added `augments` and `elites` and states `Rework` for both in both tables (for the owner).
 //!    The core runtime (no `--runtime`, `--runtime core`, `--first-playable`) builds its `SimConfig` inline in
 //!    `src/main.rs` and is not reachable from a test; what is reachable (`from_args` declines it, `core_hitboxes`) is
 //!    pinned here, and `main.rs` is outside the packet's write scope.
@@ -87,6 +88,9 @@ fn expected_source(
         // P-FROST-WALL-3: the live profiles play Frost Wall (owner decision 2, 2026-11-10).
         top25_quests: true,
         frost_wish: FrostWish::Wall,
+        // P-AUG-RULES-1: the live profiles play the augment and elite rework (owner direction 2026-11-18).
+        augments: rh_sim::AugmentRule::Rework,
+        elites: rh_sim::EliteRule::Rework,
         tick_ms: 50,
     }
 }
@@ -119,6 +123,9 @@ fn expected_training(hitboxes: HitboxMode) -> SimConfig {
         // P-FROST-WALL-3: the live profiles play Frost Wall (owner decision 2, 2026-11-10).
         top25_quests: true,
         frost_wish: FrostWish::Wall,
+        // P-AUG-RULES-1: the live profiles play the augment and elite rework (owner direction 2026-11-18).
+        augments: rh_sim::AugmentRule::Rework,
+        elites: rh_sim::EliteRule::Rework,
         tick_ms: 50,
     }
 }

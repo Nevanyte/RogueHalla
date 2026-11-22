@@ -71,7 +71,7 @@ pub(crate) fn after_damage(cx: &mut Cx) {
         }
         let mut wish_ms = 0.;
         for id in w.players[i].build.cards() {
-            for row in id.definition().rows {
+            for row in k.cards.def(id).rows {
                 if let crate::cards::CardRow::Trigger(t) = row {
                     if t.on == crate::cards::TriggerOn::Hit {
                         if let crate::cards::TriggerAction::Cooldown { ms } = t.action {
@@ -90,6 +90,7 @@ pub(crate) fn after_damage(cx: &mut Cx) {
             let p = &mut w.players[i];
             let cast = p.card_runtime.and_then(|r| r.wish_cast);
             crate::cards::wishful_thinking(
+                k.cards.numbers(),
                 n_total,
                 wish_ms,
                 now,
@@ -198,7 +199,8 @@ pub(crate) fn resolve_splashes(w: &mut crate::state::World) {
         for i in 0..w.mobs.len() {
             let m = &w.mobs[i];
             let id = m.core.id;
-            if id == req.victim {
+            // Legacy splashOverkill skips quest givers (cardHooks.ts:252, `isQuestGiver(c)`); P-SYNC-ORIGIN-3-fix.
+            if id == req.victim || m.kind == crate::mob_runtime::MobKind::QuestGiver {
                 continue;
             }
             if crate::status_runtime::untargetable(&m.core.statuses.instances, w.server_time) {
@@ -242,3 +244,7 @@ pub(crate) fn resolve_splashes(w: &mut crate::state::World) {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "splash_giver_tests.rs"]
+mod splash_giver_tests;

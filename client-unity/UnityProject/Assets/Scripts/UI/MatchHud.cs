@@ -248,6 +248,7 @@ namespace Roguehalla.Client
         void HudLateUpdate()
         {
             TickFeatures();
+            RefreshReadouts();
             TickSpectate();
             TickTutorial();
             TickWishTileMotion();

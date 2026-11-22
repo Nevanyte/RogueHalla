@@ -34,6 +34,10 @@ pub struct CollectionPublisher {
     roster: Vec<rh_protocol::WireRosterRow>,
     summary: Option<WireBuildSummary>,
     destroyed_terrain: Vec<u32>,
+    /// P-AUG-NATIVE-5: the quantized Marked Man rows the client holds (empty from every Welcome).
+    marked: Vec<rh_protocol::WireMarked>,
+    /// P-WIRE19-B: the readout rows the client holds (empty from every Welcome).
+    readouts: Vec<rh_protocol::WireReadout>,
     last_forced: Option<u32>,
     /// P-TICK-3-fix: the connection's ms per tick ([`CollectionPublisher::set_tick_ms`]), `None` for 50.
     tick_ms: Option<u32>,
@@ -57,6 +61,50 @@ fn inventory(value: Inventory) -> WireInventory {
         healing_until: value.healing_until,
         speed_boost_until: value.speed_boost_until,
     }
+}
+
+/// P-AUG-NATIVE-5: the public Marked Man rows as State key 15 rows, each position as the client will decode it (the
+/// actor quantization), so a sub-quantum move compares equal and is not resent. A position the wire cannot carry is
+/// passed through unquantized, so the encoder refuses it (never clamped).
+fn marked(observation: &Observation) -> Vec<rh_protocol::WireMarked> {
+    use rh_protocol::quant::{dequantize_pos, pos_in_range, quantize_pos};
+    let on_wire = |v: f64| {
+        let v = v as f32;
+        if pos_in_range(v) {
+            dequantize_pos(quantize_pos(v))
+        } else {
+            v
+        }
+    };
+    observation
+        .marked
+        .iter()
+        .map(|row| rh_protocol::WireMarked {
+            id: row.id.0,
+            x: on_wire(row.x),
+            y: on_wire(row.y),
+        })
+        .collect()
+}
+
+/// P-WIRE19-B: the viewer's own readout rows as State key 14 rows, value and max unchanged (the encoder refuses an
+/// invalid row, never clamps it).
+fn readouts(observation: &Observation) -> Vec<rh_protocol::WireReadout> {
+    use rh_sim::cards::native::ReadoutKind;
+    observation
+        .readouts
+        .iter()
+        .map(|row| rh_protocol::WireReadout {
+            card: u8::try_from(row.card.index()).expect("a card index fits u8"),
+            kind: match row.kind {
+                ReadoutKind::Counter => rh_protocol::state::READOUT_KIND_COUNTER,
+                ReadoutKind::Meter => rh_protocol::state::READOUT_KIND_METER,
+                ReadoutKind::Marks => rh_protocol::state::READOUT_KIND_MARKS,
+            },
+            value: row.value,
+            max: row.max,
+        })
+        .collect()
 }
 
 fn props(observation: &Observation) -> Result<WireProps, EncodeError> {
@@ -447,6 +495,11 @@ fn rewards(observation: &Observation) -> Result<Vec<WireRewardChest>, EncodeErro
                     .collect(),
                 picked: c.picked,
                 can_choose: c.can_choose,
+                // P-WIRE19-A: the observed window as this viewer sees it (its end and its own `mine`).
+                first_pick: c.first_pick.map(|f| rh_protocol::WireFirstPick {
+                    until: f.until,
+                    mine: f.mine,
+                }),
             })
         })
         .collect()
@@ -780,6 +833,18 @@ impl CollectionPublisher {
                 observation.destroyed_terrain.clone(),
             ));
         }
+        // Key 15 (P-AUG-NATIVE-5) is optional: the public Marked Man rows, sent only when the quantized rows differ from
+        // what the client holds (empty from every Welcome), so a world without a holder never sends it.
+        let next_marked = marked(observation);
+        if next_marked != self.marked || (full && !next_marked.is_empty()) {
+            items.push(StateItem::Marked(next_marked));
+        }
+        // Key 16 (P-WIRE19-B; key 14 before protocol 24) follows key 15's rule: sent only when the rows differ from what
+        // the client holds, so a viewer without rows never receives it, not even in a full or forced State.
+        let next_readouts = readouts(observation);
+        if next_readouts != self.readouts || (full && !next_readouts.is_empty()) {
+            items.push(StateItem::Readouts(next_readouts));
+        }
         let (frame, items) = if items.is_empty() {
             (None, items)
         } else {
@@ -820,6 +885,8 @@ impl PendingState {
                 StateItem::RewardChests(_) => {}
                 StateItem::BuildSummary(v) => publisher.summary = v,
                 StateItem::DestroyedTerrain(v) => publisher.destroyed_terrain = v,
+                StateItem::Marked(v) => publisher.marked = v,
+                StateItem::Readouts(v) => publisher.readouts = v,
             }
         }
         publisher.sent = true;
@@ -831,5 +898,4 @@ impl PendingState {
 }
 
 #[cfg(test)]
-#[path = "collections_tests.rs"]
 mod tests;

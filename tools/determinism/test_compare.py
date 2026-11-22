@@ -202,6 +202,7 @@ class ComparatorTests(unittest.TestCase):
     NEW_LEAVES = {
         "consumables": True, "walk_hints": None, "hitboxes": "Archetypes", "mob_spacing": None,
         "regen_in_combat": None, "camp_buffs": None, "frost_wish": "wall", "tick_ms": 25,
+        "augments": "rework", "elites": None,
         "top25_quests": True,
     }
 
@@ -221,7 +222,8 @@ class ComparatorTests(unittest.TestCase):
         self.mutate_both_replays(lambda r: r["config"].update(invented_leaf=True))
         self.assert_rejected()
         for key, bad in (("frost_wish", "freeze"), ("hitboxes", "Round"), ("consumables", 1),
-                         ("tick_ms", 33), ("top25_quests", "yes"), ("top25_quests", None)):
+                         ("tick_ms", 33), ("augments", "legacy"), ("elites", True),
+                         ("top25_quests", "yes"), ("top25_quests", None)):
             self.reset()
             self.mutate_both_replays(lambda r: r["config"].update({key: bad}))
             self.assert_rejected()

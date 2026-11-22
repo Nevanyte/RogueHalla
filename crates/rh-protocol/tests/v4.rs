@@ -275,6 +275,12 @@ fn an_empty_state_retains_the_snapshot_and_unknown_keys_are_refused() {
     assert_eq!(b, [0x88, 0xac, 0x02, 0]);
     assert_eq!(ServerMsg::decode(&b), Ok(m.clone()));
     assert_eq!(
+        // P-WIRE19-B (oracle-amend): the readout rows (key 16 since protocol 24). P-AUG-NATIVE-5 (oracle-amend): key 15 is
+        // the Marked Man rows; origin's key 14 is the opened tiles; 17 is the first undefined key.
+        ServerMsg::decode(&[0x88, 0, 1, 17]),
+        Err(DecodeError::BadField("state key"))
+    );
+    assert_eq!(
         ServerMsg::decode(&[0x88, 0, 1, 127]),
         Err(DecodeError::BadField("state key"))
     );

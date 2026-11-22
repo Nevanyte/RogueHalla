@@ -102,6 +102,8 @@ namespace Roguehalla.Net
         public bool Picked { get; internal set; }
         public bool CanChoose { get; internal set; }
         public IReadOnlyList<RewardOptionView> Options { get; internal set; }
+        /// <summary>P-WIRE19-A: the killer first-pick window while it is in force (its end, and whether it is mine).</summary>
+        public WireFirstPick? FirstPick { get; internal set; }
     }
 
     public readonly struct PlanOptionView
@@ -405,6 +407,13 @@ namespace Roguehalla.Net
         /// <summary>The owner's own GAINED strip (State key 13), as delivered (quantized; WireBuildSummary.Gain scales);
         /// null when unseated or before the key arrives.</summary>
         public WireBuildSummary Summary { get; private set; }
+        /// <summary>P-WIRE19-B: the owner's own native readout rows (State key 16), in native order; empty until the key
+        /// arrives and after a Welcome. Each key-16 item replaces them. Not part of HasFullState.</summary>
+        public IReadOnlyList<WireReadout> Readouts { get; private set; } = Array.Empty<WireReadout>();
+        /// <summary>P-AUG-NATIVE-5: every <c>Alive</c> Marked Man holder's public position (State key 15), by ascending id, the
+        /// same for every viewer; empty until the key arrives and after a Welcome. Each key-15 item replaces them. Not part of
+        /// HasFullState.</summary>
+        public IReadOnlyList<WireMarked> Marked { get; private set; } = Array.Empty<WireMarked>();
         const uint KnownStateMask =
             (1u << ((int)StateKey.Inventory - 1)) | (1u << ((int)StateKey.Props - 1)) |
             (1u << ((int)StateKey.Fields - 1)) | (1u << ((int)StateKey.RewardChests - 1)) |
@@ -433,7 +442,7 @@ namespace Roguehalla.Net
 
         internal void Reset()
         {
-            Plan = null; Arena = null; Quests = null; Trade = null; Roster = Array.Empty<RosterEntry>(); Summary = null;
+            Plan = null; Arena = null; Quests = null; Trade = null; Roster = Array.Empty<RosterEntry>(); Summary = null; Readouts = Array.Empty<WireReadout>(); Marked = Array.Empty<WireMarked>();
             TerrainMap = _baseMap; _destroyedCells = Array.Empty<uint>();
             Tick = 0; _seen = 0; Camps=Array.Empty<CampView>(); Projectiles=Array.Empty<NetProjectileView>(); Inventory = null; Focus = null; HasBuild = false;
             Props = Array.Empty<PropView>(); Fields = Array.Empty<AreaView>();
@@ -453,7 +462,7 @@ namespace Roguehalla.Net
             var destroyedCells = _destroyedCells;
             foreach (var item in state.Items)
             {
-                if (item.Key < (uint)StateKey.Inventory || item.Key > (uint)StateKey.DestroyedTerrain)
+                if (item.Key < (uint)StateKey.Inventory || item.Key > (uint)StateKey.Readouts)
                     throw new ArgumentException("unknown state key");
                 if (item is DestroyedTerrainState terrain && !SameCells(destroyedCells, terrain.Cells))
                 {
@@ -553,7 +562,7 @@ namespace Roguehalla.Net
                                 Taken = o.Taken, TakenBy = o.TakenBy
                             };
                         }
-                        rows[i] = new RewardChestView { Handle = c.Handle, X = Quant.DequantizePos(c.X), Y = Quant.DequantizePos(c.Y), ExpiresAt = c.ExpiresAt, Picked = c.Picked, CanChoose = c.CanChoose, Options = options };
+                        rows[i] = new RewardChestView { Handle = c.Handle, X = Quant.DequantizePos(c.X), Y = Quant.DequantizePos(c.Y), ExpiresAt = c.ExpiresAt, Picked = c.Picked, CanChoose = c.CanChoose, Options = options, FirstPick = c.FirstPick };
                     }
                     RewardChests = rows;
                 }
@@ -596,6 +605,14 @@ namespace Roguehalla.Net
                 else if (item is BuildSummaryState summary)
                 {
                     Summary = summary.Value;
+                }
+                else if (item is ReadoutsState readouts)
+                {
+                    Readouts = readouts.Rows.Length == 0 ? Array.Empty<WireReadout>() : (WireReadout[])readouts.Rows.Clone();
+                }
+                else if (item is MarkedState marked)
+                {
+                    Marked = marked.Rows.Length == 0 ? Array.Empty<WireMarked>() : (WireMarked[])marked.Rows.Clone();
                 }
                 else if (item is RosterState roster)
                 {

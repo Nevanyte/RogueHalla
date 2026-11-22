@@ -4,13 +4,430 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
-## Top 25 quests on the 40 Hz integration branch (2026-11-21)
+## Push requested (2026-11-20): the origin syncs and the provenance refreshes
+
+**Owner direction 2026-11-20:** "Please push and merge the new augments". The route on this repository is a pull
+request into origin's `feature/unity-rework` (every other lane's work lands that way; the branch is not protected).
+`main` is not part of this request.
+
+- **Origin moved again:** `origin/feature/unity-rework` @ `1dd79a938`, 95 commits after `81866e9c4` (PRs 75 to 78).
+  - Protocol 20 went to the coliseum heal props and 21 to the 40 Hz tick's snapshot time.
+  - P-TICK-1b made every `rh-sim` system read the sim's step.
+  - PR 79 (P-TICK-6, server default 25 ms) is open, not merged.
+- **P-SYNC-ORIGIN-2** (`implementer-opus`, `reviewer-opus`; brief `docs/backlog/packets/P-SYNC-ORIGIN-2.md`): merge as
+  protocol 22, observation 35, policy contract 31, checkpoint 37 by default. It converts the rework's 50 ms sites to
+  the sim's step, and adds one new test: a Rework world at 25 ms restores every checkpoint.
+- **P-CI-GREEN-7** runs in parallel on the same base. Of the catalog's 325 pinned files, only `check-vectors.mjs`
+  differs between the two lines, and origin has not touched the card chain since `81866e9c4`. The sync may change no
+  pinned file.
+- **Docker:** Desktop's backend hung (no engine VM; `docker version` never answered). **Owner, 2026-11-21:** "You
+  restart it". The coordinator quit Desktop, stopped the backend processes left behind and reopened it; it answered
+  (server 29.2.1).
+
+- **Integration 76, the second origin sync** (fast-forward to `1180da226`): P-SYNC-ORIGIN-2.
+  - **What it joins:** origin @ `1dd79a938` (PRs 75 to 78). Merge commit `fce203e07`, 42 conflicts, every one kept
+    both sides; no behaviour conflict.
+  - **Identities:** protocol 22, observation 35, policy contract 31, `rh-checkpoint/37`, replay 25, content
+    `d43155e2ed7d1c68` (unchanged). `v20.json` and `v21.json` are origin's; `v22.json` is generated. The server refuses
+    17 to 21.
+  - **Checkpoint 37:** origin added no serialized field, so 36 could have stood. 37 is the brief's default, because
+    P-TICK-1b changed what a 25 ms world stores in those fields.
+  - **Step conversions:** the Wish restore lattice and every other local `TICK_MS` read in `abilities/checkpoint.rs`,
+    Overflow decay (`systems/buffs.rs`), Glacier's chill (`cards/native/hooks.rs`, `systems/frost.rs`), and
+    `start_attack` (`tick_ms` beside `range_mult`).
+  - **New test:** `crates/rh-headless/tests/rework_at_25ms.rs`.
+    - Setup: a Rework world at 25 ms, 8 bots, 8 seeds, 23 natives granted per seed.
+    - It restores every 200 steps and on every Wish step.
+    - Result: 13 Wishes landed, all off the 50 ms grid; no `invalid mob rewind` on these seeds.
+    - It is release-only.
+  - **Full gate:** the implementer's run on `1180da226`, the same commit the integration branch now points at. It is
+    green except the waived `check-vectors.mjs` pin, with pgtest; EditMode 1582/1582, C# 2313/2313. Log
+    `.agent-runs/gate/20261120T205710-agent-opus-P-SYNC-ORIGIN-2-full.log`.
+  - **Review:** reviewer-opus LAND WITH NOTES. Its one note: `rework_at_25ms` is not in `scripts/gate.sh`'s release-only
+    list (line 162), so nothing automated runs it. That file is owner-approved; the coordinator asked for the one-line
+    edit.
+  - **Minor, not notes:**
+    - `elite_bench.rs` `MINUTE5_TICK = 6000` counts steps as time, which matters if P-TICK-6 moves `live_content`'s step.
+    - Three stale test names.
+    - The checkpoint comment overstates the reason for 37.
+- **PR 80** (`claude/augment-elite-rework` @ `52bd52065`, draft, into origin's `feature/unity-rework`), pushed
+  2026-11-20 under the owner's request. Its first CI run found three reds beyond the waived pin:
+  - `provenance`: the waived `check-vectors.mjs` pin, as expected.
+  - "Produce CI artifacts" (x86_64 and aarch64): `trusted_build_leak_paths` ran `cargo tree --offline`, and the
+    determinism job never fetched rh-server's graph.
+  - `perfproof`: Ir ratios 1.04 to 1.17 against the merge-base on legacy-rule workloads, with behaviour identical.
+    Also `verify_replay.contentHash` changed from "same" to "ignored", because the rework moves the content hash on
+    purpose.
+- **Integration 77** (`efdd9af7d`):
+  - P-CI-GREEN-8 (`24ae84007`, coordinator): the leak-path test runs `cargo tree --locked` without `--offline`. Its
+    assertions are unchanged.
+  - Merge of origin @ `5567458fb` (PR 79, P-TICK-6: `runtime::LIVE_TICK_MS` = 25, so the server's default step is
+    25 ms). Only this file conflicted; both sides were kept.
+  - Full gate with pgtest, run in a clean detached worktree, because the main checkout's uncommitted
+    `.claude/settings.json` trips the protected-path check. Result: green except the waived pin. Log
+    `.agent-runs/gate/20261121T112722-coord-int-77-clean-full.log`. `rework_at_25ms` (release) PASS.
+  - reviewer-opus **LAND**. No rework code assumes a 50 ms default; the rework's timers are in milliseconds.
+  - Minor, not notes:
+    - the `live_content.rs` tables still state `tick_ms: 50`;
+    - the bench defaults stay at 50;
+    - the staging and demo service files pass no `--tick-ms`, so the next deploy runs at 25 ms (origin's intent;
+      deploys need the owner).
+- **Integration 78** (`bd6c7c8dc`): P-CI-GREEN-7 (implementer-sonnet; reviewer LAND).
+  - Genuine recapture in the pinned amd64 image. The only catalog leaf that changed is the `check-vectors.mjs` pin; the
+    runtime and witness corpora changed in provenance only.
+  - The coordinator reran the three `capture.sh --check`: exit 0, hashes `08eedc97`, `eb66dd5e`, `03e174c3`.
+  - `check-card-chain.mjs`: `failureCount: 0`. The waiver ends here.
+- **Integration 79** (`427909940`): P-AUG-PERF-1 (implementer-opus; reviewer-opus LAND).
+  - Callgrind on both builds put the cost in `Build::cards()`. Chaining the 14 native slots onto the catalog walk
+    stopped it inlining. It is now one hand-written iterator that skips 8 empty catalog slots at a time, with the same
+    cards in the same order.
+  - `step_weapon` reads Plant Your Feet only when an attack starts.
+  - perfproof in a native arm64 container against `1dd79a938`: every workload 0.91 to 1.00, fingerprints and
+    allocations equal. Evidence `docs/evidence/rework-perf-2026-11-21/README.md`.
+- **Perf declaration:** PR 80's description carries `Perf-Allow-Fingerprint: verify_replay.contentHash`, the
+  CONTRIBUTING.md route for an intentional change. It waives that one key only: `verified`, `steps` and `finalHash` are
+  still compared.
+- **CI on `fa064ce24`** (run 44939899271): perfproof, provenance, rust, simulation, csharp and both cross-architecture
+  replay checks passed. "Compare native CI artifacts" failed: `tools/determinism/compare.py` did not list the replay
+  config leaves `augments` and `elites`. P-CI-GREEN-9 (coordinator) adds them; on that run's two artifacts the comparator
+  now prints `ok: ci 6 scenarios match; replay bytes are identical`.
+- **Merge route:** the owner said yes to auto-merge and Auto-fix (2026-11-21). Auto-fix is on. GitHub refused auto-merge,
+  because the repository does not allow it, so the coordinator merges PR 80 by hand once CI is green.
+- **CI on `a4abce7ea`** (run 44951373714): `provenance` failed on the catalog pins of `compare.py` and `test_compare.py`,
+  which P-CI-GREEN-9 had edited. P-CI-GREEN-10 (implementer-sonnet; reviewer LAND) recaptured them; the integration branch
+  fast-forwarded to `a9fc34dd5`. It was not pushed, because origin had moved.
+- **Origin moved again:** PR 81 (the Top 25 quests, protocol 23) merged into origin's `feature/unity-rework` @ `ef8d5e9ce`,
+  and PR 80 conflicted with its base (89 files in the coordinator's trial merge).
+- **Integration 80, the third origin sync** (`27b2cd12f`): P-SYNC-ORIGIN-3, P-SYNC-ORIGIN-3-fix and P-CI-GREEN-11.
+  - **What it joins:** origin @ `ef8d5e9ce` (merge base `5567458fb`). Merge commit `5191d7cdc`, 91 conflicted files, each
+    keeping both sides. Briefs and hand-offs: `docs/backlog/packets/P-SYNC-ORIGIN-3.md`, `P-SYNC-ORIGIN-3-fix.md`,
+    `P-CI-GREEN-11.md`.
+  - **Identities:** protocol 24, observation 37, policy contract 33, `rh-checkpoint/39`, `rh-replay/28`, content
+    `8a4bf0ce37b406f2` (written by `scripts/regolden-content.sh`). The server refuses 23 and below. `v24.json` is
+    generated, `v23.json` is origin's, `v22.json` is unchanged. Checkpoint 39 refuses 36 to 38; replay 28 refuses 24 to 27.
+  - **Wire:** origin's numbers stand: State key 14 (opened base-map tiles), prop kind 9 (Rebirth Eggs), command 19
+    (`QuestInteract`). The own-card readouts move from key 14 to **16**; Marked Man stays on 15. `MAX_STATE_KEYS` 16.
+  - **Both lines live:** `live_content()` turns on `augments`, `elites` and `top25_quests`. No quest reward touches cards or
+    chests. Hash tape: no case digest moved.
+  - **Coordinator decisions on what the sync stopped on:**
+    - Overkill's splash skips quest givers, as legacy `cardHooks.ts:252` does. A splash on a neutral giver gave it a contact,
+      and restore then refused the checkpoint (`rework_at_25ms` seed 7). Givers exist only in quest worlds (K1 or Top 25),
+      so the skip also reaches K1 quest worlds, a move toward legacy; the parity report and the hash tape did not move.
+      Legacy's other two filters (non-hostile, evading) and its tie rank change legacy worlds: they are
+      P-CARD-SPLASH-PARITY-1.
+    - A credited elite killer whose kill origin marks `skip_stat` (the quest's remote turret) gets no helper share; every
+      other contributor still gets theirs. This follows origin's rule that turret kills pay no stat stacks.
+    - Quest target elites (The Warden, A Bone to Pick, Elite Slayer) take the Rework elite numbers, then their quest
+      multiplier on top.
+    - `rework_at_25ms` seeds 5 and 8 end before the test's 2400-step floor under origin's own quest config too (augments
+      and elites Legacy), so they are origin's quest trajectory: they became 9 and 12. The floor and the checks are
+      unchanged.
+  - **Card chain:** P-SYNC-ORIGIN-3 took origin's provenance files whole. P-CI-GREEN-11 recaptured the three pins both lines
+    changed (`compare.py`, `test_compare.py`, `check-vectors.mjs`); nothing else differed. `check-card-chain.mjs`:
+    `failureCount: 0`.
+  - **Gates:**
+    - The implementer's full gate on `4fa0e59de`, with pgtest, was green except the three pins; EditMode 1602/1602,
+      dotnet 2328/2328.
+    - The fix's quick gate, `cargo test -p rh-sim`, the hash tape and `rework_at_25ms` (release, every seed) passed on
+      `af348797e`.
+    - Coordinator full gate with pgtest on `d73a509db`, in a clean detached worktree: **PASS**, card chain included;
+      EditMode 1602/1602. Log `.agent-runs/gate/20261121T185134-coord-int-80-clean-full.log`.
+    - The coordinator reran the three `capture.sh --check`: exit 0, hashes `f2a83fe5`, `0be9e0b6`, `7a9fd006`.
+  - **Reviews:** reviewer-opus LAND on the merge and LAND on the fix; reviewer LAND on P-CI-GREEN-11. Minor, not notes:
+    - a few comments still call the readouts State key 14;
+    - the `replay.rs` and rh-policy version notes interleave both lines' histories.
+    - origin's rewritten `WALL_CONTENT_HASH` test in `frost_wall_content.rs` is not carried, because the local line retired
+      that pin (P-CONTENT-REGOLDEN-1);
+    - one history-ring test in `state.rs` now runs twice (origin's file and the local one).
+  - **Found, not fixed** (both predate the rework):
+    - P-CHECKPOINT-CONTAINER-1: restore refuses a body holding more than 2 + the potion cap items, which play allows
+      (`rework_at_25ms` seed 14).
+    - P-MOB-REWIND-RESTORE-1 again: seed 11.
+- **PR 80 pushed again** (2026-11-21): `feature/unity-rework` to `claude/augment-elite-rework`, a fast-forward from
+  `a4abce7ea`. Origin's base was still `ef8d5e9ce`, so the PR no longer conflicts. Its description now gives the
+  protocol 24 identities.
+- **CI on `e220c95ca`** (perfproof run 44971955306): every workload's Ir ratio was 0.88 to 1.00 with identical
+  fingerprints, but `verify_replay` failed (`verified` false, 0 steps). Replay format 28 refuses the base's format-27
+  recordings. PR 81 met the same case and took perfproof's route; PR 80's description now declares
+  `headless_seed1_recorded.stateHashFold` too, which makes the gate record on both builds and require identical recorded
+  inputs (`--rerecord`). The description edit started perfproof run 44973634910.
+- **Origin moved again; integration 81** (2026-11-22, Auto-fix reported PR 80 conflicting at `e220c95ca`). Origin's
+  `feature/unity-rework` went from `ef8d5e9ce` to `64ca1230c` (PRs 82 to 89: P-QUEST25-FIX-1, Storm Ink art, the open
+  alpha server and client packets, P-SPECTATE-1, hosting).
+  - Merge `d9c082d4c`: one textual conflict, `MatchHud.HudLateUpdate`, kept both the rework's `RefreshReadouts()` and
+    origin's `TickSpectate()`. Origin bumped no identity (it is still protocol 23, observation 36, checkpoint 38, replay
+    27, policy 32, content `7639672bbb0933c9`), so the merged identities stay those of integration 80. Spectating reuses
+    `WireCommand::Target`: no wire change. Card chain `failureCount` 0.
+  - reviewer-opus: **LAND**. No hunk lost; spectating swaps only the world's sight, and the readouts, plan, summary and
+    chest stay the viewer's own; origin adds no serialized field. Risk, not a defect: origin's Warhorn factor (1 + 0.2 per
+    taunted enemy, camp mobs counted) multiplies outside the Rework 2.6 row cap against mobs and elites, and the elite
+    numbers were measured before it.
+  - First full gate (`--coordinator --keep-going --allow-protected --allow-artefacts --regen-fixtures --base 64ca1230c`;
+    `--allow-protected` covers P-NOALLOC-GATE-1's `.github/workflows/rust.yml` and `scripts/gate.sh` lines, already in
+    PR 80): red. Origin's new `crates/rh-server/tests/alpha_server_tolerance.rs` built a full `SimConfig` without
+    `augments` and `elites`; fixed in `051f67240` (both Legacy).
+  - Unity EditMode: three failures, `DressedMapEditModeTests` (two: 5 props expected, 22 drawn; 1 expected, 13 drawn) and
+    `StormInkFireGeologyEditModeTests.EditorCleanupBetweenAtlasLookupAndSceneBuildPreservesRegisteredSprites`. Origin's
+    `64ca1230c` alone fails the same three with the same values, so they are origin's (Storm Ink), not the merge's; CI
+    does not run EditMode.
+  - Fixed on origin's line by P-EDITMODE-STORMINK-1 (side session, `agent/opus/P-EDITMODE-STORMINK-1` @ `24a5e3a86`, from
+    origin's `64ca1230c`; merged into origin as PR 91, `d14e2fd60`, 2026-11-22, with its CI still queued and no reviewer
+    agent run): EditMode 2000/2000, quick gate green. All three broke at
+    PR 83: one Editor bug (the region atlas is now kept through Editor cleanup), two dressed-map test premises amended
+    because Storm Ink's seam details draw on dressed maps. Owner, 2026-11-22, asked whether to keep those client-made
+    seam details on dressed maps: "Keep them" (`docs/OWNER_DECISIONS.md`).
+  - The proposed rework DEVIATIONS rows are renumbered DEV-042 to DEV-060, since origin now holds DEV-040 (quests) and
+    DEV-041 (open alpha idle and reconnect).
+  - Pushed to PR 80 as `dd8912812` while the second full gate (on `051f67240`) was still running, so CI and the local
+    gate ran together. That gate: every step green (clippy, workspace and rh-sim suites, Postgres, parity report,
+    headless smoke, release-only checks, C#, JS, card chain) except Unity EditMode, 1997/2000, the three origin failures
+    above. Log `.agent-runs/gate/20261122T022801-coord-int-81-clean-full.log`.
+  - **Owner, 2026-11-22: "please commit and merge".** PR 80's CI on `dd8912812` was green on every check (Rust
+    foundation, native determinism and replay, perf gate, latency report, C#, provenance, card runtime source), and the
+    PR merged cleanly over PR 91 (which touches only Unity view code, one EditMode test file and its packet file). The
+    records after `dd8912812` (the gate result, the seam decision and this bullet) touch only `docs/MIGRATION.md` and
+    `docs/OWNER_DECISIONS.md`, which no CI job reads, so PR 80 was merged by hand at that head without a second CI run.
+
+## Resumed (2026-11-20): the elite and augment rework, integration 65
+
+**Owner direction 2026-11-19:** "resume" (after the evening pause). Owner OK the same day for the side session's Frost
+Wall fix: "Yes, review it" (review it and merge it into the next integration). Nothing is pushed and `main` is untouched.
+
+**Integration branch:** `feature/unity-rework`, integrations 65 to 71 landed 2026-11-20.
+- **Integration 65** (`coord/int-65` @ `35eceb4e0`): P-ELITE-TUNE-1-fix, P-AUG-POOL-1-fix, P-ELITE-PICK-1 and
+  P-AUG-NATIVE-1a.
+  - Full gate PASS on `35eceb4e0`: `--coordinator --keep-going --allow-artefacts --regen-fixtures --base 7a3436271`,
+    with pgtest, EditMode 1581/1581. Log `.agent-runs/gate/20261119T232717-coord-int-65-full.log`.
+  - reviewer-opus integration review: **LAND**. No merge resolution lost or reverted a hunk; the six content-hash copies
+    agree; `rh-checkpoint/35` refuses /34 and /33.
+  - **Correction to the earlier wording:** Legacy behaviour and draws are unchanged, but the state hash and checkpoint
+    bytes move for every world holding a reward chest, Legacy included: P-ELITE-PICK-1's `Chest::first_pick` is an
+    `Option` whose tag is hashed (its brief's decision 7). No parity fixture moved beyond the `contentHash` and
+    `checkpoint` lines.
+- **Identities:** content hash `8196e898724e4218`, checkpoint `rh-checkpoint/35`. Protocol 18, observation 30, policy
+  contract 25 and replay 25 are unchanged.
+- **P-FROST-RESTORE-1** (side session, `agent/opus/P-FROST-RESTORE-1` @ `52aba986d`): reviewer-opus **LAND**. The Wish
+  restore validator judges the world's own rows (`definition_for`, `cooldown_for`), so a live Frost Wall cast
+  checkpointed in flight restores. No hash, format or Legacy change. It goes into integration 66.
+
+- **Integration 66** (`coord/int-66` @ `6083165a1`, landed as `5d1f2532b`): P-FROST-RESTORE-1 plus the coordinator's
+  prose fix (the README and `fighter.rs` lines that named `rh-checkpoint/33` now name `CHECKPOINT_FORMAT`). Full gate
+  PASS with pgtest, EditMode 1581/1581 (`.agent-runs/gate/20261120T000448-coord-int-66-full.log`). reviewer-opus
+  integration review: **LAND** (the merge equals the branch's own diff; no restore path from integrations 64–65 reads
+  the catalog row). Identities unchanged.
+  - Minor, not a note: `OwnerView::of` (`abilities/mod.rs:508`) still reads the catalog row. Frost Wall and Freeze rows
+    hold the same cast, cooldown and charges today, so nothing shows; the P-AUG-NATIVE-3 plan note covers it.
+
+- **Integration 67** (`coord/int-67` @ `d837d7652`):
+  - **What it holds:**
+    - P-AUG-NATIVE-1b: the 13 native hook points, the batch tables, the own-only readouts, Marksman's Tally and Bastion,
+      and `MAX_FOLD_ROWS` 80. Implemented by Opus, after a coordinator oracle-amend. reviewer-opus: LAND.
+    - P-WIRE19-A: native card ids to 93 on the wire, and the first-pick window with the viewer's own `mine` flag.
+      Rust, C# and JS decoders and v19 fixtures. Two coordinator oracle-amends. reviewer-opus: LAND.
+  - **Merge:** one conflict, in `normal-companion.mjs`, resolved to protocol 19 plus the new content hash.
+  - **Full gate:** green except the waived provenance pin of `check-vectors.mjs` (`failureCount` 1). With pgtest,
+    EditMode 1581/1581. Log `.agent-runs/gate/20261120T013515-coord-int-67-full.log`.
+  - **Deploy rule:** a build holding WIRE19-A without WIRE19-B is never deployed (P-WIRE19-A decision 6). WIRE19-B
+    stays inside protocol 19.
+  - reviewer-opus integration review: **LAND**. Neither merge lost a hunk, and the hash tape reads content
+    `a03745630efa1c12` and observation 31.
+  - **Gap the review found:** no pool reads `cards::native::pool_members()` yet. P-AUG-NATIVE-4 owns wiring it into the
+    Rework chest pool for all three batch tables, with an end-to-end test from a pick to a hook.
+  - The gate logs of integrations 65 to 67 are in `.agent-runs/gate/`, which is local and not committed.
+- **Identities after integration 67:** protocol 19, observation 31, policy contract 26, checkpoint `rh-checkpoint/35`,
+  replay 25, content hash `a03745630efa1c12`.
+
+- **Integration 68** (`coord/int-68` @ `c5efcdb83`, landed as `7592e8f2c`):
+  - **What it holds:**
+    - P-AUG-NATIVE-2, the weapon batch: Calluses, Executioner's Ledger and Eighth Strike, plus the stat-fold seam and
+      the refold in `native::hooks::fire`. reviewer: LAND WITH NOTES. Its one note (Eighth Strike counted earlier hits
+      that dealt nothing) was fixed by the coordinator in `11d60cdae`.
+    - P-AUG-NATIVE-3, the zone batch: Pathfinder, Hazard Walker and Overflow. reviewer-opus: LAND.
+  - **Merge:** conflicts in `cards/native/mod.rs` and the guide, resolved by keeping both sides, as the reviewer
+    proved on the merged tree.
+  - **Full gate:** green except the waived pin, with pgtest and EditMode 1581/1581. Content hash `b482e30841717576`.
+- **Integration 69** (`coord/int-69` @ `76f314709`): P-WIRE19-B.
+  - **What it adds:** own-only native readout rows as an optional State key 14 in protocol 19. Observation 32, policy
+    contract 26 → 27.
+  - **Fixes before review:** two coordinator oracle-amends (`delivery_tests.rs`, `native_cards.rs`); the implementer
+    fixed rustfmt and moved `collections.rs`'s tests to `collections/tests.rs`.
+  - **Review and gate:** reviewer-opus LAND. Full gate green except the waived pin, EditMode 1581/1581.
+- **Identities after integration 69:** protocol 19 (local; see the origin note), observation 32, policy contract 27,
+  checkpoint `rh-checkpoint/35`, replay 25, content hash `b482e30841717576`.
+- **Rows for the owner to sign at the end (DEVIATIONS):**
+  - Hazard Walker: one stack per second on a hazard, 4% resist and 0.5% base max hp per stack. Each stack also raises
+    hp with max hp, so up to 7.5% free healing.
+  - Overflow: the shield cap is the G6 cap, and every barrier the holder has, Second Skin included, fades over 8 s.
+  - An immune Hazard Walker stops the world's ember and bog seconds for itself. Nothing reads those counters.
+
+**In flight:**
+- Oracles from `coord/int-67`: P-AUG-NATIVE-2 and P-AUG-NATIVE-3 (Sonnet), and P-WIRE19-B (Opus); all three since landed
+  or in integration 69.
+- Wish Engine is split from P-AUG-NATIVE-3 as P-AUG-NATIVE-3b (Opus), because shortening the Wish cooldown means
+  redesigning the restore envelope.
+- P-AUG-NATIVE-4 follows.
+
+**Next:** the Opus implementers for both packets, then waves 6 to 9 as listed in the paused section below.
+
+**Origin has its own protocol 19 (found 2026-11-20).**
+- `origin/feature/unity-rework` is 60 commits ahead of the local integration branch, and the local branch is 233 ahead.
+  The merge base is `24a2ce99f` (2026-11-18). Origin's commits are other sessions' merged pull requests: Coliseum heals,
+  the Frost Wall preview and others.
+- Origin took protocol 19 for P-NET-DRAWAHEAD-1a (`cf21211bc`, a walk hint in actor records, with its own
+  `v19.json`). The local protocol 19 is P-WIRE19-A/B. These are two different wires under one number, so neither may
+  be pushed or deployed as is.
+- **Decision.** When the coordinator syncs with origin, an Opus integration packet (P-WIRE20-SYNC) merges both wire
+  changes into protocol 20:
+  - one `v20.json` from the fixture tool;
+  - the Rust, C# and JS decoders carrying both changes;
+  - the observation and policy versions reconciled;
+  - the content hash regolded;
+  - the card provenance pin refreshed once (P-CI-GREEN-7) after that.
+- P-WIRE19-B's "stay at 19" holds only for the local line until then.
+
+- **Integration 70** (`coord/int-70` @ `8f17aaff7`, landed as `89499458d`): P-AUG-NATIVE-4, the faction batch.
+  - **What it holds:**
+    - Corpse Hoarder, Stoked, Glacier and Trophy Hunter.
+    - Native cards in the Rework chest pool, with their offer rules. Legacy draws are byte-identical; Rework chest
+      outcomes move by design.
+    - Content hash `f79973a86f714d7a`, which now folds pool membership.
+  - **Review:** reviewer-opus LAND, after four coordinator oracle-amends:
+    - Glacier's 0.1 mirror rounding;
+    - a refold after a hand-set counter;
+    - an own-faction floor of 10 (measured 15 to 23);
+    - the console pool assertion.
+  - **Full gate:** green except the waived pin.
+- **Sync with origin, P-SYNC-ORIGIN-1** (brief `d3e4b3fb1`, Opus implementing):
+  - It merges `origin/feature/unity-rework` @ `81866e9c4`, which is now 92 commits ahead.
+  - **Wire:** protocol 20, observation 33, policy contract 28. The checkpoint goes to 36 unless shapes match.
+  - **Oracle (coordinator decision):** the union of both lines' existing suites. No test is weakened or deleted; only
+    version stamps move.
+
+- **Integration 71, the origin sync** (`coord/int-71` @ `c92129f48`, landed as `e054367e3`): P-SYNC-ORIGIN-1.
+  - **What it joins:** `origin/feature/unity-rework` @ `81866e9c4`, 92 commits (P-NET-DRAWAHEAD-1a/1b, the grand
+    coliseum and its heal pickups, P-TICK-1a's `tick_ms`, P-CI-GREEN-4/6, the Frost Wall preview).
+  - **Merge:** 31 conflicts, every one kept both sides; no behaviour conflict.
+  - **Identities:** protocol 20 (the walk hint plus P-WIRE19-A/B), observation 33, policy contract 28,
+    `rh-checkpoint/36` (origin added `tick_ms` and `ContainerKind::Heal`), content `f79973a86f714d7a` (unchanged).
+    Origin's `v19.json` is kept; `v20.json` is generated.
+  - **Review:** reviewer-opus LAND WITH NOTES. No hunk lost; no test weakened or deleted.
+  - **Full gate:** green except the waived pin, with pgtest, C# in the gate and EditMode 1581/1581.
+  - **Review notes, handled:**
+    1. Origin had promised protocol 20 to P-COLISEUM-HEALS-2. The records now give heal props 21 and P-TICK-3 the next
+       free number; the owner tells those threads.
+    2. Origin landed its own P-CI-GREEN-6, so the local `check-vectors.mjs` refresh is renamed P-CI-GREEN-7.
+    3. The silent-switch injectivity test (`tests/augment_rules.rs`) covers six switches, and `tick_ms` is a seventh.
+       It goes in a test packet, P-SYNC-ORIGIN-1-fix.
+  - **For P-TICK-1b:** the local sites that still read `constants::TICK_MS`. They are equal at 50 ms; at 25 ms the
+    Wish restore lattice would refuse valid checkpoints.
+    - `abilities/checkpoint.rs` :9, :30, :40, :169, :194, :203, :221, :241, :320, :325, :335, :408 (line numbers as of
+      integration 73, Wish Engine included; P-TICK-1b's brief already covers the whole file);
+    - `abilities/mod.rs:708`;
+    - `cards/native/hooks.rs:172` (Glacier's chill ms);
+    - `systems/buffs.rs` :78, :80 (barrier decay);
+    - and the native and plant tests.
+- **Identities after integration 71:** protocol 20, observation 33, policy contract 28, checkpoint `rh-checkpoint/36`,
+  replay 25, content hash `f79973a86f714d7a`. Integration 72 (Wish Engine) moves the content hash again.
+
+- **Integration 72** (`coord/int-72` @ `4f1a1884a`, landed as `53b0ef416`): P-AUG-NATIVE-3b (Wish Engine) with
+  P-AUG-NATIVE-3b-fix.
+  - **Wish Engine:** a landed Wish steps a per-faction share of the cooldown, up to 25%. The Wish restore check is now
+    an envelope over levers × lattice shares, with no new serialized field; `rh-checkpoint/36` stands.
+    reviewer-opus: LAND WITH NOTES. The one note became the fix.
+  - **The fix:** the owner view reads charges and the next charge off the stock clocks. reviewer-opus: LAND.
+  - **Merge and gate:** the content hash was regolded to `84fb785f2972e59a`, because Wish Engine joins the zone pool.
+    Full gate green except the waived pin.
+- **Rows for the owner to sign, added:**
+  - Wish Engine counts landed casts only. Its 50% floor is the combined multiplier, so Wish Engine with Wishful
+    Thinking can bring one cast to 0.375 of the row.
+  - The Wish slot shows the true charge count when Arcane Overload is granted mid-recharge (display only; legacy's
+    `abilitySlot.ts` shows a charge early).
+
+- **Integration 73** (`coord/int-73` @ `be990828c`):
+  - **What it holds:**
+    - P-AUG-BOTS-1: bots score native chest cards and read the elite rule, and `MatchStart` carries the rule (policy
+      contract 29, after nine coordinator oracle-amends moved the pins). Spawn-time camp scoring still uses the Legacy
+      elite numbers, which is cautious and was accepted.
+    - P-AUG-UI-2: native card text, native chest options, the owner's readout strip and the first-pick countdown.
+      The strip has not yet been looked at in a render.
+  - **Review and gate:** reviewer LAND on both. Full gate green except the waived pin.
+  - reviewer-opus integration review of integrations 72 and 73: **LAND**. No hunk lost; a restored Rework chest
+    offering Wish Engine passes `validate_world`; BOTS-1 and UI-2 cover Wish Engine.
+- **Identities after integration 73:** protocol 20, observation 33, policy contract 29, checkpoint `rh-checkpoint/36`,
+  replay 25, content hash `84fb785f2972e59a`.
+
+- **Integration 74** (`coord/int-74` @ `314261a56`, landed as `191935e79`):
+  - **What it holds:**
+    - **P-AUG-NATIVE-3c:** Hazard Walker's ice effect, and Pathfinder's speed in the owner speed mirror and the client's
+      walk prediction. New Rust vector `pathfinder_walk_v1.json`. reviewer-opus LAND.
+    - **P-AUG-NATIVE-5, Marked Man:**
+      - A holder's normal-kill stacks are +50%, with the half carried (4, 5, 4, 5).
+      - Every Alive holder is public on every minimap as State key 15. The C-OBS exception is recorded in CONTRACTS.
+      - Observation 34, policy contract 30, v20 regenerated in place.
+      - Three coordinator oracle-amends. reviewer-opus LAND.
+    - **P-SYNC-ORIGIN-1-fix:** the silent-switch injectivity test covers `tick_ms` (128 combinations). Test-only; the
+      coordinator read it.
+    - **P-AUG-DOCS-1:** the design docs. reviewer LAND, plus a coordinator fix of the quest numbers.
+  - **Full gate:** green except the waived pin.
+- **Identities after integration 74:** protocol 20, observation 34, policy contract 30, checkpoint `rh-checkpoint/36`,
+  replay 25, content hash `d43155e2ed7d1c68`.
+- **Rows for the owner to sign, added:**
+  - Marked Man does not multiply the elite helper share, player kills or hunt stacks. Decision 9 is ambiguous on the
+    share.
+  - The holder's own row is not drawn as a second mark (P-AUG-UI-3), and the marks also show on the Tab map.
+- **Left for the map lane:** `GAME_DESIGN.md` still says 8 camps a zone and 136 × 136. The code has 10 and 160 × 160.
+
+- **Integration 75** (`coord/int-75` @ `4871777f1`, landed as `607bf22da`): P-AUG-UI-3, Marked Man holders on the minimap
+  and the Tab map. A coordinator oracle-amend fixed a typo in the expected order. reviewer LAND; full gate green except
+  the waived pin.
+- **Proposed DEVIATIONS rows:** DEV-042 to DEV-056 (renumbered at integration 81) are in `docs/coordination/REWORK_DEVIATIONS_PROPOSED.md`, unsigned,
+  for the owner.
+- **Final combined review** (reviewer-opus, `93b253f1e`): **READY TO PUSH AFTER P-CI-GREEN-7**, with no rework defect
+  that blocks. Its findings, now tracked:
+  - **Live checkpoints refused (pre-existing).** A live soak (seed 3, tick 1200) is refused on restore with "invalid
+    mob rewind". The cause is the mob rewind-history check, which predates the rework. It goes in
+    P-MOB-REWIND-RESTORE-1.
+  - **Unbuilt.** The Best Offense marker and Pathfinder's on-map collection are planned but not built. They are
+    P-AUG-UI-4, for the owner to decide.
+  - **Missing rows.** Four DEVIATIONS rows were missing; they are added as DEV-057 to DEV-060 (renumbered at integration 81).
+  - **Loose check.** Hazard Walker's `check_world` rule is an upper bound only. It goes in P-AUG-NATIVE-3-check.
+  - **Allocation coverage.** The no-alloc test covers only the exemplars. It goes in P-AUG-NOALLOC-2.
+  - **Stale guide.** It goes in P-AUG-GUIDE-1.
+- **Left before a push:**
+  - P-CI-GREEN-7, the provenance refresh. It is blocked because Docker Desktop's API does not answer here.
+  - The final combined review (running).
+  - A look check of the new HUD (readout strip, first-pick countdown, Marked Man marks), which has not been seen in a
+    render.
+  - The owner's word to push. The local line is about 300 commits ahead of origin, which keeps moving.
+
+**Coordinator decisions (2026-11-20):**
+- **Oracle-amends.** Three existing tests were left stale by the two new oracles, and the coordinator amended each in an
+  `oracle-amend:` commit on the packet branch, one file per commit:
+  - **P-AUG-NATIVE-1b:** `tests/native_cards.rs` pinned Bastion's meter cap at 0, but the brief decides 250
+    (`REWORK_BASTION_METER_CAP`); 1a had left the number to 1b. The implementer had used both gate attempts.
+  - **P-WIRE19-A:** `UnionProtocolTests.cs`, where the boundary option moves from 80 to 94, the C# twin of
+    `v11_union.rs`.
+  - **P-WIRE19-A:** the `barriers_reach_tests.rs` observation digest. Only the version moved: with version 30 forced, the
+    old pin matches.
+- **Card provenance pin.**
+  - **Why the step is red.** Any wire change edits `tools/protocol-js/check-vectors.mjs`, whose SHA the card provenance
+    chain pins. So the gate step "card provenance chain (pins current)" is red from P-WIRE19-A on.
+  - **Why one refresh, at the end.** The refresh is the Docker recapture route of P-CI-GREEN-1/5
+    (`docs/evidence/ci-provenance-refresh-2026-11-14/README.md`; about four hours emulated). P-WIRE19-B, and possibly
+    P-AUG-NATIVE-5, edit the file again. So the refresh runs once, as P-CI-GREEN-7, after the rework's last wire packet
+    and before any push.
+  - **Waiver until then.** The coordinator waives exactly that red. Each gate's chain output must show
+    `check-vectors.mjs` as its only failing pin.
+
+## From origin (merged by P-SYNC-ORIGIN-1 to 3)
+
+### Top 25 quests on the 40 Hz integration branch (2026-11-21)
 
 [P-QUEST25-INTEGRATE](backlog/packets/P-QUEST25-INTEGRATE.md) combines the November 19 quest branch with the target through `5567458fb`. Each normal raid draws two of the five eligible quests in each zone. Each player can finish each offer once per match. Completing it retires that player's row and preserves the offer for other players.
 
 The combined wire version is 23 and the content hash is `7639672bbb0933c9`. Heal pickups use prop kind 8, Rebirth Eggs use kind 9, and destroyed terrain uses State key 14. The quest data uses observation 36, policy 32, checkpoint 38 and replay 27. The 40 Hz live default and 20 Hz compatibility both apply. See the [integration checks](evidence/quest25-integration-2026-11-21/README.md) and [PR #81](https://github.com/Nevanyte/RogueHalla/pull/81).
 
-## 40 Hz tick, P-TICK-1a to 6 (2026-11-20, branch `claude/project-thread-baoxuk`)
+### 40 Hz tick, P-TICK-1a to 6 (2026-11-20, branch `claude/project-thread-baoxuk`)
 
 **Owner direction 2026-11-19:** "lets do 40" (live tick 40 Hz), then "okay for all 3" (accept ADR 0029, sign DEV-039,
 push). ADR 0029 Accepted; C-TICK amended; DEV-039 signed; packets P-TICK-0..6 (backlog section 1a). P-TICK-3 lands after
@@ -62,19 +479,198 @@ per core 9-19 (was 15-28), bandwidth 2.5 KB/s per player in the density bench (h
 `--tick-ms 50` or `RH_TICK_MS=50` rolls back. Browser click-to-confirmed latency not measured here (no browser build).
 Nothing deployed: a staging deploy needs the owner's OK.
 
-## Local Top 25 quest playtest (2026-11-19)
+## Paused (2026-11-19, evening): the elite and augment rework, after integration 64
 
-The owner approved activating the workbook’s Top 25 in normal Rust and Unity raids. The local implementation is on `codex/top25-quests`, based on `feature/unity-rework` at `24a2ce99f`. The ten-offer board is shared during planning. Each player completes the selected offers once per match and receives their own named rewards. Training and the K1 parity path retain their separate configurations. [Quest rules](quests.md) · [DEV-040](DEVIATIONS.md#entries)
+**Owner direction 2026-11-19:** "please save and pause all development". Every agent and gate this coordinator session
+started is stopped, and its throwaway Postgres is stopped. Nothing is pushed or deleted, and `main` is untouched.
 
-The candidate uses protocol 20, observation 31, policy contract 26, checkpoint `rh-checkpoint/33`, replay `rh-replay/26` and content `7639672bbb0933c9`. Returning players resume server-held quest and reward state. Unity presents the delivered offers, objective actions, spell slots and public cues. [Board packet](backlog/packets/P-QUEST25-BOARD-1.md) · [Two-seat release check](backlog/packets/P-QUEST25-PLAYTHROUGH.md)
+**On `feature/unity-rework` @ `02bdef002`, gated and reviewed:**
+- integrations 61 to 64;
+- the owner's elite numbers (P-ELITE-TUNE-1);
+- identities `rh-checkpoint/33`, content `204532d861849785`.
 
-Two human seats completed every catalog quest and exercised their named rewards in deterministic generated matches. Two independently rendered WebGL players received the same ten physical offers and took one into the raid through the journal. [Two-browser playtest and screenshot](evidence/quest25-playtest-2026-11-19/README.md) · [Protocol provenance](evidence/quest25-provenance-2026-11-19/README.md)
+**Saved, not yet on the integration branch:**
+- **`coord/int-65` @ `35eceb4e0`.** Each packet is reviewer-opus LAND.
+  - **What it holds:**
+    - P-ELITE-TUNE-1-fix (test-only);
+    - P-AUG-POOL-1-fix (the content hash folds the realized card tables);
+    - P-ELITE-PICK-1 (killer's first pick, `rh-checkpoint/34`, regolded on the merge);
+    - P-AUG-NATIVE-1a (native ids and state, `rh-checkpoint/35`).
+  - **Identities:** `rh-checkpoint/35`, content `8196e898724e4218`.
+  - **Its full gate was stopped mid-run.** To resume:
+    1. In a clean worktree at `35eceb4e0`, with pgtest, run
+       `scripts/gate.sh --coordinator --keep-going --allow-artefacts --regen-fixtures --base 7a3436271`.
+    2. On PASS, merge into `feature/unity-rework`.
+    3. Update the identities in this file and in CONTRACTS.
+    4. Refresh the stale `rh-checkpoint/33` prose in `crates/rh-sim/README.md` (~71) and `crates/rh-sim/src/fighter.rs`
+       (~7).
+    5. Run the reviewer-opus integration review.
+- **`packet/P-AUG-NATIVE-1b` @ `a66f51a8d`.** The oracle is unfinished, saved as one WIP commit on `coord/int-65`. To
+  resume: an oracle-author splits it into stub and oracle commits and passes `--oracle-check`.
+- **`packet/P-WIRE19-A` @ `35199d48d`.** The oracle is unfinished, saved as one WIP commit on `coord/int-65`. It touches
+  rh-protocol, the C# decoders and rh-policy tests. To resume: the same as NATIVE-1b.
+- **Side session, `agent/opus/P-FROST-RESTORE-1` @ `52aba986d`.** A live Frost Wall mid-cast restore fix, quick gate
+  PASS. It waits for the owner's OK to review and merge.
 
-The deeper local playtest completed all 25 quests in authoritative rooms using 2,928 recorded player input frames. The completing player kept the reward after reconnecting. A second player retained the original offer. Chrome accepted all 25 in rendered Unity WebGL. The test also covers both banner deliveries, single-word map markers, reusable spell recharge and all 81 broker choices. [Quest-by-quest results](evidence/quest25-deep-playtest-2026-11-19/README.md)
+**Worktrees kept:**
+- `agent-acb6b8b8c731079ba` (NATIVE-1b) and `agent-a5183b4104af51307` (WIRE19-A), both with rows in
+  `.agent-runs/worktrees.csv`;
+- the coordinator's scratchpad worktree, `coord` on `coord/int-65`.
 
-The full protocol 20 gate passed at `ba5b0c696` with PostgreSQL, legacy parity, 2,186 C# tests, 1,601 Unity EditMode tests and the release-mode bot checks. [Full playtest and replay](evidence/quest25-deep-playtest-2026-11-19/README.md)
+**Next after resume:**
+1. Land integration 65.
+2. Finish the NATIVE-1b and WIRE19-A oracles, then their Opus implementers.
+3. Waves 6 to 9: NATIVE-2/3/4, BOTS-1 (which also threads the elite rule into rh-policy's elite readers), WIRE19-B,
+   NATIVE-5, UI-2 and DOCS-1.
+4. The final combined review, and the DEVIATIONS rows for the owner to sign.
 
-The earlier protocol 19 full gate passed at `1beb7e7cd` with PostgreSQL and the pinned Unity Editor. It included both release-mode bot checks and the legacy parity report. [Packet hand-off and verification results](coordination/HANDOFF_P-QUEST25_2026-11-19.md)
+## Resumed (2026-11-19): the elite and augment rework, wave 3
+
+**Owner direction 2026-11-19:** "resume" (after "please pause and save all development" the same day). Owner OK the same
+day:
+- merge P-NOALLOC-GATE-1, including its `scripts/gate.sh` and `.github/workflows/rust.yml` edits, after review;
+- delete `packet/P-AUG-POOL-1-merge-int61` (done).
+
+Nothing is pushed and `main` is untouched.
+
+**Integration branch:** `feature/unity-rework` @ `d646c0dfb`.
+- **Integration 61:** P-AUG-CONTENT-1 and P-AUG-UI-1.
+- **Integration 62:** P-ELITE-BENCH-1, P-AUG-CONTENT-1-fix and P-AUG-POOL-1. reviewer-opus: LAND WITH NOTES; the note
+  becomes P-AUG-POOL-1-fix.
+- **Integration 63:**
+  - P-NOALLOC-GATE-1, with the owner's OK for `scripts/gate.sh` and `.github/workflows/rust.yml`;
+  - P-ELITE-BENCH-2, the Duelist bench;
+  - P-ELITE-SHARE-1, the helper share, after a reviewer-opus REJECT and two oracle-amends;
+  - P-AUG-TUNE-1, Wishful Thinking plus three Wish restore fixes for reachable states.
+  - Full gate PASS on `289fb9424`: `--coordinator --keep-going --allow-artefacts --regen-fixtures --allow-protected --base
+    4194c9b14`, EditMode 1581/1581, and the new no-alloc step ran. Postgres suites ran with pgtest.
+  - reviewer-opus integration review: **LAND**.
+- **Integration 64:** P-ELITE-TUNE-1, the owner's elite numbers (dmg ×1.0, hp ×1.5, Rework only).
+  - Duelist banked_12 went from 43.1% to 17.4%. Tables are in `tools/balance-camps/elite_before.txt` and
+    `elite_after.txt`.
+  - Full gate PASS on `763ef71c3`, EditMode 1581/1581.
+  - reviewer-opus: LAND WITH NOTES. The note: the retargeted equivalence test covered only 6 ticks. The owner was told.
+    It becomes P-ELITE-TUNE-1-fix, test-only, now 50 to 161 ticks a run.
+- **Identities:** content hash `204532d861849785` (move 7), checkpoint `rh-checkpoint/33`.
+- **Coordinator oracle-amends:**
+  - `373b919fe` for P-AUG-POOL-1: CONTENT-1's rows are one run, and the pool line checks Legacy.
+  - `7bfe42809` for P-AUG-TUNE-1: Wishful's Rework row is text-only in the card-table test.
+  - Both were judged honest by reviewer-opus.
+
+**In flight**
+- **P-AUG-POOL-1-fix** (Opus implementing): fold the realized card tables into the content hash (widened 2026-11-19).
+- **P-ELITE-PICK-1** (Opus implementing): the killer's 5 s first pick, `rh-checkpoint/34`.
+- **P-AUG-NATIVE-1a** (oracle): native ids and state.
+- **Coordinator decision 2026-11-19 on scheduling:**
+  - The script-written content-hash lines and the `CHECKPOINT_FORMAT` line are merge-time work, not authored write scope.
+  - Content packets may be implemented in parallel. They merge one at a time, with a regold (and, where needed, one more
+    format bump) at each merge.
+- **Side session, P-FROST-RESTORE-1:** a live restore defect older than the rework. `abilities/checkpoint.rs` reads the
+  Freeze row, while live servers play Frost Wall (`Target::Placed`), so a checkpoint taken mid-cast is refused ("invalid
+  Wish target provenance"). It merges after review.
+
+**Elite measurement (owner checkpoint, 2026-11-19).** Bench: P-ELITE-BENCH-2's Duelist (`5a2b9c0c4`). It commits
+to the elite camp, ranged weapons stand and shoot, it casts Wish, and it never dodges or retreats. Reference build:
+banked_12. 900 fights per point (10 elite camps × 5 factions × 6 weapons × 3 seeds).
+
+Today's numbers (k 0.65, hp ×2.0, dmg ×1.5):
+- 43.1% overall (decided 43.8%).
+- By weapon: axe 23%, shield 29%, sword 32%, fists 43%, wand 63%, bow 75%.
+- Brawler upper bound: 46.4%.
+
+A throwaway sweep of `REWORK_ELITES` (k 0.65), banked_12, Duelist, overall death rate:
+
+| dmg × | hp 2.0 | hp 1.5 |
+|---|---|---|
+| 1.5 | 43.1% | 32.0% |
+| 1.2 | 33.9% | 22.1% |
+| 1.0 | 27.4% | 18.3% |
+| 0.8 | 21.1% | 14.6% |
+
+- **(dmg 1.0, hp 1.5):**
+  - By weapon: sword 9%, axe 6%, shield 7%, fists 15%, wand 26%, bow 51%.
+  - By camp: from executioner 2% to avalancheTroll 50%.
+  - banked_0 70%, banked_18 7%.
+- **(dmg 0.8, hp 1.5):** bow 45%, avalancheTroll 42%.
+- Results: `elite-sweep/` in the coordinator scratchpad.
+- The global table cannot even out Avalanche Troll, or bow against elites.
+- The coordinator recommended (dmg 1.0, hp 1.5), because the bench's rates are an upper bound (no dodging).
+- **Owner 2026-11-19: "dmg 1.0, hp 1.5".** P-ELITE-TUNE-1 sets `REWORK_ELITES` to dmg_mult 1.0 and hp_mult 1.5 (k 0.65)
+  through two `REWORK_ELITE_*` registry rows, with a before and after bench table.
+
+**Integration 62 review (reviewer-opus): LAND WITH NOTES.** One note:
+- The Rework pool tables (`REWORK_POOL`, `faction_only`, the Eye for an Eye weight flag) are outside the content hash.
+- It becomes **P-AUG-POOL-1-fix** (Opus): fold them in `content/fold.rs`, with a perturbation test. That is content-hash
+  move 7, after P-AUG-TUNE-1 lands, because both regold.
+
+**Noted for later packets, no packet yet**
+- `card_trims` probably allocates on the first Wishful trim after a clone or restore (capacity == len). That is the warm-path
+  class P-NOALLOC-GATE-1 fixed for `BuildMarkCache`. It predates the rework and is unmeasured; the no-alloc tests never drive
+  Wishful (int-63 review).
+- The training console `clear` resets the build but leaves the Wish stocks, which a Full-abilities checkpoint after a
+  clear may refuse. It predates the rework and is unchecked (int-63 review).
+- `REWORK_EYE_FOR_AN_EYE_WEIGHT` is an f64 used as a whole count of copies.
+
+## Elite and augment rework (2026-11-18): approved plan, in progress
+
+**Owner direction 2026-11-18:**
+- "please use majority sonnet sub agents and opus sub agents to implement the elite and augment reworks", from the
+  future-only workbook `docs/quests/FUTURE_ONLY_Quest_Design_Discussion.xlsx`.
+- Answers to the coordinator's questions:
+  - Augments: "Plus 13 new" (the 13 the current whitelist allows).
+  - Elites: all three: "Measure, then tune", "Killer first pick", "Helpers earn stacks".
+- After seeing the skip list: "Add 'marked man' to the list of augments and the plan is perfect" (plan approved).
+
+**Plan of record:** [backlog/AUGMENT_ELITE_REWORK.md](backlog/AUGMENT_ELITE_REWORK.md). It holds the scope, the
+decisions taken under the 2026-11-14 delegation, 23 packets in 9 waves, and Appendix A (the Augment_Tuning numbers).
+
+- Every change is live-only, behind `SimConfig::augments` and `SimConfig::elites`: `Legacy` by default, `Rework` in
+  `live_content`. The one exception is the Plant Your Feet range port, which is legacy behaviour.
+- Balance rows go to DEVIATIONS for the owner to sign at the end.
+- One planned stop: after wave 3, the elite bench table and the proposed elite numbers go to the owner before
+  P-ELITE-TUNE-1.
+- Not built: 6 stat conversions and 8 keystones ("needs ruling").
+
+**Approvals this covers:** packets and oracles for the 23 packet ids in the plan, protocol 19, the checkpoint-format
+bumps and three content-hash moves the plan names, and Unity client edits. A push or a merge into `main` still waits for
+the owner.
+
+## Integrations 59 to 61 (2026-11-19): the rework's seams, Plant Your Feet, the Augment_Tuning numbers
+
+Plan: [backlog/AUGMENT_ELITE_REWORK.md](backlog/AUGMENT_ELITE_REWORK.md), waves 1 and 2. Nothing pushed; `main` untouched.
+
+**Integration 59.**
+- `dc8611325` P-CONTENT-REGOLDEN-1 (`scripts/regolden-content.sh`: one command moves every pinned copy of the content
+  hash). Sonnet oracle and implementer; coordinator oracle-amend `0bc7f7812` (the oracle carried a literal copy of the
+  hash it forbids); reviewer LAND. Full gate PASS.
+- `8aa2dbf59` P-AUG-RULES-1 (`SimConfig::augments` / `SimConfig::elites`, the card table `cards::Tuning`, the elite table
+  `EliteTuning`, guide [agent/AUGMENT_REWORK.md](agent/AUGMENT_REWORK.md)). Opus oracle and implementer; reviewer-opus
+  LAND WITH NOTES, the one note (rh-policy elite readers pinned to Legacy) folded into P-AUG-BOTS-1. Full gate PASS.
+- `ec6d2c2a9` P-SIM-BENCH-SEAM-1 (`rh_sim::trusted_build::apply` behind cargo feature `trusted-build-setup`). Opus;
+  reviewer-opus LAND WITH NOTES, the note (the feature guard missed `default` lists and dotted dependency tables) folded
+  into P-ELITE-BENCH-1's oracle. The first gate stopped on a full disk; the rerun failed one step, an `rh-server`
+  real-binary readiness timeout while three builds ran at once (3 of 3 passes on rerun; the step rerun green, the
+  Postgres suites with the throwaway database).
+
+**Integration 60.** `fae047f76` P-AUG-PLANT-1 (Plant Your Feet's +range for every weapon, every world: legacy behaviour
+never ported) and `8f330dd01` (CONTRACTS identity line). Opus; reviewer-opus LAND, no notes; the hash tape re-recorded on
+the packet's stub layout (15 folds take the `range_mult` word, no tick count moves). Full gate PASS. reviewer-opus
+integration review of `ec6d2c2a9` and `fae047f76`: LAND.
+- Legacy doubts for the owner (no packet): legacy rolls one crit per attack for every weapon, Rust per target and never
+  for flights (`packages/server/src/sim/weapons.ts:291-293`); legacy arms the plant only once card state exists
+  (`cardState.ts:88`), Rust may plant one attack after a reset.
+
+**Integration 61 (gate pending).** P-AUG-CONTENT-1 (23 `REWORK_*` registry rows plus the helper-share count, 18 override
+rows, the `REWORK` named numbers: Plant +35%, Gambler 18/12, outgoing cap 2.6, Third Time 2.5x) with P-AUG-UI-1 (the
+Unity text of the same cards). Sonnet; reviewer LAND and LAND. Content hash `10dfa3b399dc43a1` (move 1 of 3).
+- Coordinator oracle-amends: `b72081b47` (Gambler, Third Time and Plant keep their flag row; Boom checked as the landed
+  hit), `b18de2af9` (`frost_wall_content` anchors the wall rows on their predecessor, not the registry tail), and at the
+  merge `08bbb1405` (Wishful Thinking's Unity text stays legacy until P-AUG-TUNE-1 ports its rule).
+- The two fixtures moved only in `contentHash`; at the merge the tape was re-recorded by its documented command
+  (checkpoint 33 + the new hash).
+
+**Identities:** protocol 18, observation 30, policy contract 25, checkpoint 33 (since integration 60), replay 25, content hash
+`10dfa3b399dc43a1` (was `7a542a13187f034c`).
 
 ## Integration 58 (2026-11-18): the GitHub front page
 

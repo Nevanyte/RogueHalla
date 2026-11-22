@@ -256,5 +256,5 @@ fn comparison_diagnostic_variant_ranges_and_gains_are_distinct() {
     };
     assert!(public_cmp(&with(kill(1.)), &with(kill(2.))).is_lt());
     assert!(public_cmp(&with(kill(1.)), &with(kill(1.))).is_eq());
-    assert_eq!(crate::OBSERVATION_VERSION, 36);
+    assert_eq!(crate::OBSERVATION_VERSION, 37); // 31: P-NET-DRAWAHEAD-1a; 32: P-WIRE19-B; 33: P-SYNC-ORIGIN-1; 34: P-AUG-NATIVE-5; 35: P-SYNC-ORIGIN-2; 36: origin quests; 37: P-SYNC-ORIGIN-3
 }

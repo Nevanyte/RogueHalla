@@ -221,7 +221,7 @@ fn the_arena_view_carries_the_rooms_minimum_players() {
 #[test]
 fn the_observation_version_moves_for_the_clocks_and_the_minimum() {
     assert_eq!(
-        OBSERVATION_VERSION, 36,
-        "Inventory gains the owner's two end times and ArenaView the room minimum (P-WIRE17-HUD-3)"
+        OBSERVATION_VERSION, 37,
+        "Inventory gains the owner's two end times and ArenaView the room minimum (P-WIRE17-HUD-3); 31: P-NET-DRAWAHEAD-1a (protocol 19 on origin); 33: P-SYNC-ORIGIN-1 (with P-WIRE19-A/B, protocol 20); 34: P-AUG-NATIVE-5; 35: P-SYNC-ORIGIN-2; 36: origin's Top 25 quests; 37: P-SYNC-ORIGIN-3"
     );
 }
