@@ -26,6 +26,35 @@ namespace Roguehalla.Client.Tests
         }
 
         [Test]
+        public void PlacedNaturalPropsCarryTheirOwnContactHeightInTheSharedShader()
+        {
+            const int width = 48, height = 32;
+            var regions = new byte[width * height];
+            for (int i = 0; i < regions.Length; i++) regions[i] = i % width < width / 2 ? (byte)5 : (byte)4;
+            var map = new MapBlob(width, height, new byte[regions.Length], new byte[regions.Length], regions, MapBlob.GroundTerrainAll);
+            var root = new GameObject("Open winter verge");
+            try
+            {
+                using var props = RegionProps.Build(root.transform, map);
+                var block = new MaterialPropertyBlock();
+                int washed = 0;
+                foreach (var sprite in root.GetComponentsInChildren<SpriteRenderer>())
+                {
+                    sprite.GetPropertyBlock(block);
+                    var wash = block.GetVector("_RegionFootWash");
+                    if (wash.z <= 0f) continue;
+                    Assert.That(sprite.sharedMaterial.HasProperty("_RegionFootWash"), Is.True);
+                    Assert.That(wash.x, Is.EqualTo(sprite.transform.position.y).Within(.001f));
+                    Assert.That(wash.y, Is.Positive);
+                    Assert.That(sprite.transform.position.x, Is.InRange(20f, 28f));
+                    washed++;
+                }
+                Assert.That(washed, Is.Positive);
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
         public void ArtistCanTuneEachMaterialIndependently()
         {
             var art = RegionTransitionArt.Load();

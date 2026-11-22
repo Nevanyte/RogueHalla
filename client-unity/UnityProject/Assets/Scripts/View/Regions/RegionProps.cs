@@ -319,6 +319,8 @@ namespace Roguehalla.Client
             if (litShader != null) _owned.Add(_material);
             var placements = Scatter(map);
             var transitions = RegionTransitionArt.Load();
+            var footWash = transitions != null && transitions.FootWash > 0 && _material.HasProperty("_RegionFootWash")
+                ? new MaterialPropertyBlock() : null;
             if (transitions != null)
             {
                 if (field == null || !field.Ready)
@@ -425,6 +427,17 @@ namespace Roguehalla.Client
                     sr.SetPropertyBlock(flamePigment);
                 }
                 else if (art.UsesAuthoredTexture && mattePigment != null) sr.SetPropertyBlock(mattePigment);
+                if (footWash != null && !pl.ConcealmentCell)
+                {
+                    var contact = transitions.ContactAt(renderArtKey, field, transitionWeights,
+                        new Vector2(pl.X, pl.Y), foot.y, art.Height * scaleY);
+                    if (contact.z > 0f)
+                    {
+                        sr.GetPropertyBlock(footWash);
+                        footWash.SetVector("_RegionFootWash", contact);
+                        sr.SetPropertyBlock(footWash);
+                    }
+                }
                 sr.color = tint;
                 sr.sortingOrder = 2000 + Mathf.RoundToInt(sortY * 16f) + pl.Bias;
                 if (pl.Art == "col.rack")
