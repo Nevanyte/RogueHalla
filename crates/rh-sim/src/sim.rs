@@ -356,12 +356,11 @@ impl Sim {
     /// an unknown id. An attempt that ended by timer, death, abandon or departure is gone from the state, so it is
     /// absent here too (the state cannot tell those apart).
     pub fn quest_attempts(&self, owner: PlayerId) -> Vec<QuestAttemptProbe> {
-        let _ = owner;
-        Vec::new() // P-BAL-PROBE-1 stub
+        crate::quests::board::attempts::probe(&self.w, owner)
     }
     /// P-BAL-PROBE-1: the coliseum lock (gates shut, players teleported in), read between steps.
     pub fn gates_locked(&self) -> bool {
-        false // P-BAL-PROBE-1 stub
+        self.w.rt.gates_locked
     }
     pub fn secrets_for_replay(&self) -> Secrets {
         self.k.secrets

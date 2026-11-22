@@ -67,3 +67,82 @@ pub(crate) fn has(w: &World, owner: PlayerId, award: Award) -> bool {
 }
 #[cfg(test)]
 pub(crate) use permanent::armor_bypass_fraction;
+
+/// P-BAL-PROBE-1: why a trusted quest-reward grant (`crate::trusted_build`) is refused. Nothing is written then.
+#[cfg(feature = "trusted-build-setup")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum GrantRefusal {
+    /// The world has no Top 25 board (no quest deal).
+    NoBoard,
+    /// A bot seat owns no quest reward.
+    BotSeat,
+    /// Crown Power, Trade Up and The Bargain take their size from how the quest was played.
+    NeedsQuest(super::catalog::RewardId),
+    /// A permanent already held, or asked twice in one request.
+    Held(super::catalog::RewardId),
+    /// Fewer empty spell slots than this spell needs (two for the Blind Rage bundle).
+    SlotsFull(super::catalog::RewardId),
+}
+
+/// P-BAL-PROBE-1: checks, without writing anything, that [`pay_checked`] can pay every reward of `rewards` to the
+/// seated player `owner` in request order. The caller has already checked that `owner` is seated and standing.
+#[cfg(feature = "trusted-build-setup")]
+pub(crate) fn check_grant(
+    w: &World,
+    owner: PlayerId,
+    rewards: &[super::catalog::RewardId],
+) -> Result<(), GrantRefusal> {
+    if w
+        .quests
+        .as_ref()
+        .is_none_or(|q| q.board.is_none() || q.rewards.is_none())
+    {
+        return Err(GrantRefusal::NoBoard);
+    }
+    if w.player(owner).is_none_or(|p| p.seat.bot) {
+        return Err(GrantRefusal::BotSeat);
+    }
+    let slots = inventory::owner(w, owner).map_or(inventory::Owner::default().slots, |o| o.slots);
+    let mut free = slots.iter().filter(|s| s.is_none()).count();
+    for (i, &reward) in rewards.iter().enumerate() {
+        let award = Award::from(reward);
+        if !award.is_permanent() {
+            free = free
+                .checked_sub(awards::bundle(award).len())
+                .ok_or(GrantRefusal::SlotsFull(reward))?;
+        } else if matches!(
+            award,
+            Award::CrownPower | Award::TradeUp | Award::TheBargain
+        ) {
+            return Err(GrantRefusal::NeedsQuest(reward));
+        } else if inventory::has(w, owner, award) || rewards[..i].contains(&reward) {
+            return Err(GrantRefusal::Held(reward));
+        }
+    }
+    Ok(())
+}
+
+/// P-BAL-PROBE-1: pays `rewards`, which passed [`check_grant`], to `owner` through the turn-in's own code: a spell
+/// through `inventory::grant` (an empty slot, full charges, ready now), a permanent through `permanent::apply` (its
+/// ordinary effect, then ownership). Between steps only. Emits no event: the owner notices a payment would raise are
+/// dropped, so the next step's events are what they would have been.
+#[cfg(feature = "trusted-build-setup")]
+pub(crate) fn pay_checked(cx: &mut Cx, owner: PlayerId, rewards: &[super::catalog::RewardId]) {
+    let events = cx.ev.len();
+    for &reward in rewards {
+        for award in awards::bundle(Award::from(reward)) {
+            let paid = if award.is_permanent() {
+                permanent::apply(
+                    cx,
+                    owner,
+                    award,
+                    super::attempts::PendingReward::default(),
+                )
+            } else {
+                inventory::grant(cx.w, owner, award)
+            };
+            assert!(paid, "check_grant passed {reward:?}, yet {award:?} was not paid");
+        }
+    }
+    cx.ev.truncate(events);
+}

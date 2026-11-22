@@ -1,6 +1,7 @@
 //! Trusted build setup for headless benches (feature `trusted-build-setup`, never in a server build): gives a seated
 //! fighter cards, normal-mob stat stacks and chest stat boosts between steps, with the grant rules of legacy
-//! `grantCard` (`packages/server/src/sim/chests.ts:189`). Not an input path (C-INPUT): no command reaches it.
+//! `grantCard` (`packages/server/src/sim/chests.ts:189`), and Top 25 quest rewards through the board's own reward code
+//! (P-BAL-PROBE-1; no legacy counterpart). Not an input path (C-INPUT): no command reaches it.
 //! No RNG draw, no event. Packet P-SIM-BENCH-SEAM-1.
 use crate::cards::CardId;
 use crate::mob_catalog::MobTypeId;
@@ -124,14 +125,32 @@ pub fn apply(sim: &mut Sim, id: PlayerId, build: &TrustedBuild) -> Result<(), Bu
         *slot = u8::try_from(total).map_err(|_| BuildRefusal::BoostOverCap(boost))?;
         changed = true;
     }
-    if !changed {
+    // P-BAL-PROBE-1: quest rewards are checked last, still before any write.
+    let paying = !build.rewards.is_empty();
+    if paying {
+        use crate::quests::board::rewards::{check_grant, GrantRefusal};
+        check_grant(&sim.w, id, &build.rewards).map_err(|refusal| match refusal {
+            GrantRefusal::NoBoard => BuildRefusal::NoBoard,
+            GrantRefusal::BotSeat => BuildRefusal::BotSeat(id),
+            GrantRefusal::NeedsQuest(r) => BuildRefusal::RewardNeedsQuest(r),
+            GrantRefusal::Held(r) => BuildRefusal::RewardHeld(r),
+            GrantRefusal::SlotsFull(r) => BuildRefusal::SlotsFull(r),
+        })?;
+    }
+    if !changed && !paying {
         return Ok(());
     }
-    // The chest pick's and credited kill's order: counts, one re-fold, then max hp follows the fold.
-    sim.w.players[i].build = cards;
-    sim.w.players[i].farm = farm;
-    crate::modifiers::recompute(&sim.k, &mut sim.w, crate::fighter::FighterIx::of_slot(i));
-    crate::modifiers::sync_max_hp(&mut sim.w.players[i]);
+    if changed {
+        // The chest pick's and credited kill's order: counts, one re-fold, then max hp follows the fold.
+        sim.w.players[i].build = cards;
+        sim.w.players[i].farm = farm;
+        crate::modifiers::recompute(&sim.k, &mut sim.w, crate::fighter::FighterIx::of_slot(i));
+        crate::modifiers::sync_max_hp(&mut sim.w.players[i]);
+    }
+    if paying {
+        // After the re-fold (Chef's Kiss reads the current fold), through the board's own reward code; no event.
+        sim.with_cx(|cx| crate::quests::board::rewards::pay_checked(cx, id, &build.rewards));
+    }
     // The build-mark cache was exact as of the last step; its inputs just changed outside one.
     sim.projection.marks = Default::default();
     Ok(())
