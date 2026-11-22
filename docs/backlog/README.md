@@ -344,7 +344,8 @@ is **not implemented**; the gain figures are **estimates**.
 | P-STORM-COLISEUM-TORCH-1 | Painted arena fire baskets with a separate flame and editable light | P-STORM-COLISEUM-STANDARD-1 | Web and Unity visual checks and full project gate passed on `ed680e11d` | [spec](packets/P-STORM-COLISEUM-TORCH-1.md) |
 | P-STORM-COLISEUM-RACK-1 | Low oak rack displaying the shared equipment art | P-STORM-COLISEUM-TORCH-1 | Web and Unity visual checks and full project gate passed on `ed680e11d` | [spec](packets/P-STORM-COLISEUM-RACK-1.md) |
 | P-STORM-BIOME-EDGES-1 | Weathered material boundaries and foreground dressing | P-STORM-HAUNTED-FLAGSTONES-1 | Ground implemented; integrated visual and foreground checks in progress | [spec](packets/P-STORM-BIOME-EDGES-1.md) |
-| P-STORM-SAVED-DRAFTS-1 | Preserve the saved Storm Ink artwork | P-STORM-BIOME-EDGES-1 | Five editable environment studies | [spec](packets/P-STORM-SAVED-DRAFTS-1.md) |
+| P-STORM-SAVED-DRAFTS-1 | Preserve the saved Storm Ink artwork | P-STORM-BIOME-EDGES-1 | Five editable environment studies and one actor sheet | [spec](packets/P-STORM-SAVED-DRAFTS-1.md) |
+| P-STORM-WARDEN-LASH-1 | Chain Warden weighted manacle lash | P-STORM-SAVED-DRAFTS-1 | Implemented draft, gameplay review open | [spec](packets/P-STORM-WARDEN-LASH-1.md) |
 | P-STORM-WISH-FROST-WALL-1 | Crosswise and receding Frost Wall shelves | P-STORM-SAVED-DRAFTS-1 | Implemented draft, gameplay contrast review open | [spec](packets/P-STORM-WISH-FROST-WALL-1.md) |
 | P-STORM-HAUNTED-FLAGSTONES-1 | Dark grey, umber and plum painted square courses | P-STORM-REGIONAL-GROUND-1 | Implemented, awaiting visual check | [spec](packets/P-STORM-HAUNTED-FLAGSTONES-1.md) |
 | P-STORM-REGIONAL-GROUND-1 | Five painted faction grounds and their walkable joins | P-STORM-COLISEUM-LIMESTONE-1 | Implemented, awaiting native and joined Web visual checks |
