@@ -38,6 +38,23 @@ namespace Roguehalla.Client.Tests
             }
         }
 
+        [Test]
+        public void HauntedSetsOnePaintedSquarePerWorldTile()
+        {
+            var root = new GameObject("Haunted flagstone courses");
+            try
+            {
+                var regions = new byte[] { 2, 2, 2, 2 };
+                var map = new MapBlob(2, 2, new byte[4], new byte[4], regions, MapBlob.GroundTerrainAll);
+                using var ground = RegionGround.Create(root.transform, map, 1f);
+                var paint = ground.Material.GetVectorArray("_DryPaint")[1];
+                var axes = ground.Material.GetVectorArray("_DryPaintUV")[1];
+                Assert.That(paint.z, Is.EqualTo(4f), "Four by four hand-painted flagstone faces");
+                Assert.That(Vector4.Distance(axes * paint.z, new Vector4(1f, 0f, 0f, 1f)), Is.LessThan(.0001f));
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
         [TestCase(true)]
         [TestCase(false)]
         public void JoinedGroundPacksOnlyThePresentDryPaints(bool allRegions)
