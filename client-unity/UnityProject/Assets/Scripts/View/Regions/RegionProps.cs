@@ -96,9 +96,13 @@ namespace Roguehalla.Client
         // Resolve the entire art entry so its sprite, lighting, draw order, fade and overlap bounds stay together.
         static string RenderArtKey(Placement placement, MapBlob map)
         {
-            if (placement.Art == "plague.bush" && IsPlagueTile(map, placement) &&
-                RegionPropArt.TryGet("plague.willow.bush", out var willow) && willow.UsesAuthoredTexture)
-                return "plague.willow.bush";
+            if (placement.Art == "plague.bush")
+            {
+                byte region = BushRegion(map, placement);
+                string key = region == (byte)RegionId.Plague ? "plague.willow.bush" :
+                    region == (byte)RegionId.Sentenced ? "sent.blackthorn.bush" : null;
+                if (key != null && RegionPropArt.TryGet(key, out var bush) && bush.UsesAuthoredTexture) return key;
+            }
             if (placement.Art == "fire.bush")
                 return RegionPropArt.TryGet("fire.bush", out var fireBush) && fireBush.UsesAuthoredTexture
                     ? "fire.bush" : "plague.bush";
@@ -123,13 +127,13 @@ namespace Roguehalla.Client
             return placement.Art;
         }
 
-        static bool IsPlagueTile(MapBlob map, Placement placement)
+        static byte BushRegion(MapBlob map, Placement placement)
         {
             if (map == null || map.Regions == null || map.W <= 0 || map.H <= 0 || map.Regions.Length != map.W * map.H)
-                return false;
+                return 0;
             if ((uint)placement.Tx >= (uint)map.W || (uint)placement.Ty >= (uint)map.H)
-                return false;
-            return map.Regions[placement.Ty * map.W + placement.Tx] == (byte)RegionId.Plague;
+                return 0;
+            return map.Regions[placement.Ty * map.W + placement.Tx];
         }
 
         /// <summary>Small deterministic variation only for migrated, readable Storm Ink ground paintings. Uniform scaling keeps the foot planted.</summary>

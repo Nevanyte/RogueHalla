@@ -50,8 +50,10 @@ namespace Roguehalla.Client.Tests
 
                 Assert.That(plagueCoverSprite.sprite, Is.SameAs(willow.Sprite));
                 Assert.That(plagueDecorSprite.sprite, Is.SameAs(willow.Sprite));
-                Assert.That(hauntedCoverSprite.sprite.name, Is.EqualTo("plague.bush"));
-                Assert.That(hauntedDecorSprite.sprite.name, Is.EqualTo("plague.bush"));
+                Assert.That(RegionPropArt.TryGet("sent.blackthorn.bush", out var blackthorn), Is.True);
+                Assert.That(blackthorn.UsesAuthoredTexture, Is.True);
+                Assert.That(hauntedCoverSprite.sprite, Is.SameAs(blackthorn.Sprite));
+                Assert.That(hauntedDecorSprite.sprite, Is.SameAs(blackthorn.Sprite));
                 Assert.That(neutralSprite.sprite.name, Is.EqualTo("plague.bush"));
                 Assert.That(fireSprite.sprite.name, Is.EqualTo("fire.bush"), "the prior Fire art/fallback binding remains independent");
 
@@ -118,8 +120,8 @@ namespace Roguehalla.Client.Tests
                 Assert.That(At(root, Cover(RegionProps.Scatter(map), 8, 8)).sprite.name, Is.EqualTo("plague.bush"));
                 Assert.That(At(root, RegionProps.Scatter(map).Single(p => p.Shipped && p.Kind == 24 && p.Tx == 9 && p.Ty == 10)).sprite.name,
                     Is.EqualTo("plague.bush"));
-                Assert.That(At(root, Cover(RegionProps.Scatter(map), 15, 8)).sprite.name, Is.EqualTo("plague.bush"),
-                    "Haunted keeps the same procedural bush even while the Plague art definition is unavailable");
+                Assert.That(At(root, Cover(RegionProps.Scatter(map), 15, 8)).sprite.name, Is.EqualTo("sent.blackthorn.bush"),
+                    "Haunted retains its own painting while Plague art is unavailable");
             }
             finally
             {

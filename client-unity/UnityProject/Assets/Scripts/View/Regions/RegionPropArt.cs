@@ -580,13 +580,17 @@ namespace Roguehalla.Client
                 for (int k = 0; k < 6; k++) { float x = 30 + RegionNoise.Hash01(k, 2, 21) * 68, y = gy + 14 + RegionNoise.Hash01(k, 3, 21) * 30; c.Fill(Circle(x, y, 1.8f), Flat(Mix(spore, Color.white, .5f))); }
             };
             Add(l, "plague.bush", 128, 88, 8, bushFallback);
-            var willow = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/PlagueBogWillowArt");
-            int willowW = willow != null ? willow.WidthPixels(128) : 128;
-            int willowH = willow != null ? willow.HeightPixels(88) : 88;
-            int willowGround = willow != null ? willow.GroundPixels(8, willowH) : 8;
-            Add(l, "plague.willow.bush", willowW, willowH, willowGround, bushFallback,
-                textureFoot: willow != null ? willow.ClampedTextureFoot(new Vector2(.5f, .055f)) : null,
-                textureSource: willow != null ? willow.Pigment : null);
+            void PaintedBush(string key, string resource)
+            {
+                var definition = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/" + resource);
+                int height = definition != null ? definition.HeightPixels(88) : 88;
+                Add(l, key, definition != null ? definition.WidthPixels(128) : 128, height,
+                    definition != null ? definition.GroundPixels(8, height) : 8, bushFallback,
+                    textureFoot: definition != null ? definition.ClampedTextureFoot(new Vector2(.5f, .055f)) : null,
+                    textureSource: definition != null ? definition.Pigment : null);
+            }
+            PaintedBush("plague.willow.bush", "PlagueBogWillowArt");
+            PaintedBush("sent.blackthorn.bush", "HauntedBlackthornArt");
             Add(l, "plague.tree", 148, 204, 10, (c, gy) =>
             {
                 float cx = 74; c.SoftShadow(cx + 8, gy + 1, 40f, 8f, .42f, Alpha(shadow, 1f));
