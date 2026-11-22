@@ -1,5 +1,5 @@
 //! Viewer-scoped action offers and authoritative turn-in range checks.
-use super::interactions::{has_spare_weapon, CONTACT_RANGE};
+use super::interactions::has_spare_weapon;
 use super::*;
 use QuestId::*;
 
@@ -38,7 +38,7 @@ pub(crate) fn choices(
         return;
     }
     let pos = player.pos();
-    let close = |at: Vec2| near(k, w, pos, at, CONTACT_RANGE);
+    let close = |at: Vec2| near(k, w, pos, at, TOP25.contact_range);
     let at = |i| objective_for_owner(w, owner, o.id, i).filter(|&at| close(at));
     let items = match id {
         SmugglersRun if !a.carrying => &["Take the parcel"][..],
@@ -93,7 +93,7 @@ pub(crate) fn choices(
     }
     if id == TheBargain && close(end) {
         for (i, give) in BARGAIN_STAT_NAMES.iter().enumerate() {
-            if bargain_stacks(player, i as u8) < BARGAIN_COST {
+            if bargain_stacks(player, i as u8) < TOP25.bargain_cost {
                 continue;
             }
             for (j, receive) in BARGAIN_STAT_NAMES

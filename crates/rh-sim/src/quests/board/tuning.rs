@@ -5,8 +5,6 @@
 use crate::constants::{QUEST_TURN_IN_RANGE, TILE};
 
 /// The Top 25 tuning table. Times in ms, distances in world units, shares as fractions.
-// STUB (P-BAL-Q25-SEAM-1): remove with the allowance on `TOP25` below.
-#[allow(dead_code)]
 pub(crate) struct Top25Tuning {
     // Objectives and attempts.
     pub(crate) fort_ms: f64,
@@ -111,9 +109,6 @@ pub(crate) struct Top25Tuning {
     pub(crate) wall_anchor_margin: f64,
 }
 
-// STUB (P-BAL-Q25-SEAM-1): the implementer wires every field into the game and removes this allowance; the oracle
-// (`tests/top25_tuning.rs`) refuses it.
-#[allow(dead_code)]
 pub(crate) static TOP25: Top25Tuning = Top25Tuning {
     fort_ms: 45_000.,
     meditate_ms: 30_000.,

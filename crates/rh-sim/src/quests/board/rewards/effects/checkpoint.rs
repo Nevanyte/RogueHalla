@@ -21,12 +21,12 @@ pub(crate) fn validate(k: &crate::statics::MatchStatic, w: &World) -> Result<(),
             || !deadline(
                 r.until,
                 match r.effect {
-                    Buff::Stasis => STASIS_MS,
-                    Buff::Shield { .. } => SHIELD_MS,
-                    Buff::BlindRage => 6000.,
-                    Buff::StillMind => 3000.,
-                    Buff::Warhorn { .. } => WARHORN_MS,
-                    Buff::Cleansed => TORNADO_WINDUP,
+                    Buff::Stasis => TOP25.stasis_ms,
+                    Buff::Shield { .. } => TOP25.shield_ms,
+                    Buff::BlindRage => TOP25.blind_rage_ms,
+                    Buff::StillMind => TOP25.still_mind_ms,
+                    Buff::Warhorn { .. } => TOP25.warhorn_ms,
+                    Buff::Cleansed => TOP25.tornado_windup_ms,
                 },
             )
             || s.buffs[..i].iter().any(|p| {
@@ -35,14 +35,14 @@ pub(crate) fn validate(k: &crate::statics::MatchStatic, w: &World) -> Result<(),
             })
             || match r.effect {
                 Buff::Shield { refund_at } => {
-                    refund_at != r.until - SHIELD_MS + Award::SpellShield.cooldown_ms()
+                    refund_at != r.until - TOP25.shield_ms + Award::SpellShield.cooldown_ms()
                 }
                 Buff::Warhorn { count } => count == 0,
                 _ => false,
             }
     }) || s.control.iter().enumerate().any(|(i, r)| {
         !known(r.id)
-            || !deadline(r.until, WARHORN_MS)
+            || !deadline(r.until, TOP25.warhorn_ms)
             || s.control[..i].iter().any(|p| p.id == r.id)
             || match r.effect {
                 Control::Pull { to } => !point(to),
@@ -51,7 +51,7 @@ pub(crate) fn validate(k: &crate::statics::MatchStatic, w: &World) -> Result<(),
     }) || s.tornadoes.iter().any(|r| {
         !player(r.owner)
             || !point(r.at)
-            || !deadline(r.lands, TORNADO_WINDUP)
+            || !deadline(r.lands, TOP25.tornado_windup_ms)
             || !r.max_hp.is_finite()
             || r.max_hp <= 0.
     }) || s.swaps.iter().enumerate().any(|(i, r)| {
@@ -61,7 +61,7 @@ pub(crate) fn validate(k: &crate::statics::MatchStatic, w: &World) -> Result<(),
             || w.player(r.b).is_none()
             || r.slot_a > 1
             || r.slot_b > 1
-            || !deadline(r.until, 10_000.)
+            || !deadline(r.until, TOP25.swap_ms)
             || s.swaps[..i]
                 .iter()
                 .any(|p| [p.a, p.b].contains(&r.a) || [p.a, p.b].contains(&r.b))

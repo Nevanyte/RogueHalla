@@ -5,6 +5,7 @@ use crate::fighter::{FighterIx, Signature};
 use crate::mob_catalog::MobTypeId::{self, *};
 use crate::modifiers::{self, farm};
 use crate::quests::board::attempts::{self, PendingReward};
+use crate::quests::board::tuning::TOP25;
 use crate::stat_fold::{EffectKind, EffectRow};
 use crate::state::{Player, PlayerId, World};
 use crate::systems::{ledger::Entry, Cx};
@@ -12,26 +13,21 @@ use crate::WeaponId;
 use serde::{Deserialize, Serialize};
 
 pub(crate) fn visit_rules(word: &mut dyn FnMut(u64)) {
-    for count in TRADE_UP_STACKS {
+    for count in TOP25.trade_up_stacks {
         word(count);
     }
     word(SCORCH_STAT as u64);
     for stat in CHEF_STATS {
         word(stat as u64);
     }
-    word(BARGAIN_STACKS);
-    word(FEED_DAMAGE_STACKS);
-    for value in [CHEF_BONUS_SHARE, HELM_BYPASS] {
+    word(TOP25.bargain_stacks);
+    word(TOP25.feed_damage_stacks);
+    for value in [TOP25.chef_bonus_share, TOP25.helm_bypass] {
         word(value.to_bits());
     }
 }
 
 const SCORCH_STAT: MobTypeId = EmberImp;
-const TRADE_UP_STACKS: [u64; 3] = [12, 30, 54];
-const BARGAIN_STACKS: u64 = 24;
-const FEED_DAMAGE_STACKS: u64 = 6;
-const CHEF_BONUS_SHARE: f64 = 0.20;
-const HELM_BYPASS: f64 = 0.20;
 
 // Farm attributes with a positive starting value. Roster order breaks equal growth.
 const CHEF_STATS: [MobTypeId; 6] = [
@@ -100,7 +96,7 @@ fn chef_bonus(p: &Player) -> ChefBonus {
     };
     ChefBonus {
         stat,
-        amount: unit * (1. + growth).max(0.) * CHEF_BONUS_SHARE,
+        amount: unit * (1. + growth).max(0.) * TOP25.chef_bonus_share,
     }
 }
 
@@ -134,7 +130,7 @@ fn bargain(cx: &mut Cx, owner: PlayerId, pending: PendingReward) -> bool {
     let Some(i) = cx.w.idx(owner) else {
         return false;
     };
-    if stack_room(&cx.w.players[i], stat) < BARGAIN_STACKS
+    if stack_room(&cx.w.players[i], stat) < TOP25.bargain_stacks
         || (pending.weapon_trade && super::effects::locked_gear(cx.w, owner))
     {
         return false;
@@ -153,13 +149,13 @@ fn bargain(cx: &mut Cx, owner: PlayerId, pending: PendingReward) -> bool {
         let Some(give) = pending.give.filter(|&give| give != receive) else {
             return false;
         };
-        if attempts::bargain_stacks(p, give) < attempts::BARGAIN_COST
-            || !attempts::bargain_take(p, give, attempts::BARGAIN_COST)
+        if attempts::bargain_stacks(p, give) < TOP25.bargain_cost
+            || !attempts::bargain_take(p, give, TOP25.bargain_cost)
         {
             return false;
         }
     }
-    grant_stacks(cx, owner, stat, BARGAIN_STACKS);
+    grant_stacks(cx, owner, stat, TOP25.bargain_stacks);
     true
 }
 
@@ -182,7 +178,7 @@ pub(super) fn apply(cx: &mut Cx, owner: PlayerId, award: Award, pending: Pending
             let Some(stacks) = pending
                 .points
                 .checked_sub(1)
-                .and_then(|stage| TRADE_UP_STACKS.get(usize::from(stage)))
+                .and_then(|stage| TOP25.trade_up_stacks.get(usize::from(stage)))
             else {
                 return false;
             };
@@ -199,7 +195,7 @@ pub(super) fn apply(cx: &mut Cx, owner: PlayerId, award: Award, pending: Pending
             modifiers::recompute_with(cx.k, cx.w, ix, cx.stats);
             modifiers::sync_max_hp(&mut cx.w.players[ix.slot()]);
         }
-        Award::FeedOrHuntDamage => grant_stacks(cx, owner, SCORCH_STAT, FEED_DAMAGE_STACKS),
+        Award::FeedOrHuntDamage => grant_stacks(cx, owner, SCORCH_STAT, TOP25.feed_damage_stacks),
         Award::WarmCoat => clear_chill(&mut cx.w.core_mut(ix).signature),
         Award::BreakersHelm => {} // The damage ledger reads permanent ownership on each weapon hit.
         _ => return false,
@@ -251,7 +247,7 @@ pub(crate) fn armor_bypass_fraction(w: &World, owner: PlayerId, weapon: WeaponId
     if matches!(weapon, WeaponId::Axe | WeaponId::Bow)
         && inventory::has(w, owner, Award::BreakersHelm)
     {
-        HELM_BYPASS
+        TOP25.helm_bypass
     } else {
         0.
     }
