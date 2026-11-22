@@ -2,8 +2,8 @@
 //! `Executor` trait every goal kind implements, and what one think returns (`Step`: a status, intents for the Humanizer,
 //! acts for the paced queue). The rules for an executor are on the trait.
 use super::acts::Act;
-use super::arbiter::Prices;
 use super::percept::RaidPercept;
+use super::values::Prices;
 use crate::bots::knowledge::Knowledge;
 use crate::bots::paths::RoomPathService;
 use crate::bots::planning::PlanMap;
@@ -48,6 +48,11 @@ pub enum GoalKind {
 }
 
 impl GoalKind {
+    /// This kind may take over from a committed, running incumbent (the arbiter keeps a fight under way unless the
+    /// top-ranked candidate pre-empts). Stub: no kind does yet.
+    pub fn preempts_commitment(self) -> bool {
+        false
+    }
     /// The persona's appetite for this kind of goal: a multiplier on the candidate's score. Read from the legacy persona
     /// table (`bots/types.rs` PERSONAS), so a Farmer and a Hunter rank the same candidates differently.
     pub fn persona_mult(self, p: &PersonaParams) -> f64 {

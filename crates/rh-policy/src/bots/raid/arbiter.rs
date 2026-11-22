@@ -11,39 +11,7 @@ pub const HYSTERESIS_FLOOR: f64 = 0.05;
 /// A goal underfoot still takes this long (minutes): no candidate divides by zero.
 pub const MIN_MINUTES: f64 = 0.05;
 
-/// The value inputs, in camp-equivalents (ce). Local constants until P-RAID-V (`data/raid_values.json`).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Prices {
-    /// One normal camp cleared.
-    pub camp: f64,
-    /// Stat stacks one camp-equivalent stands for (the workbook's unit).
-    pub stacks_per_camp: f64,
-    /// One reward chest's pick.
-    pub chest: f64,
-    /// What roaming finds per minute on average (the floor every other goal must beat).
-    pub roam_per_minute: f64,
-    /// What dying loses: the run's progress and the time to get back to farming.
-    pub death_loss: f64,
-    /// Seconds to kill one normal camp member, fighting it alone.
-    pub kill_seconds: f64,
-}
-
-impl Prices {
-    pub const LOCAL: Self = Self {
-        camp: 1.,
-        stacks_per_camp: 12.,
-        chest: 1.5,
-        roam_per_minute: 0.1,
-        death_loss: 6.,
-        kill_seconds: 10.,
-    };
-}
-
-impl Default for Prices {
-    fn default() -> Self {
-        Self::LOCAL
-    }
-}
+pub use super::values::{DeathModel, Prices};
 
 /// One candidate with its score (ce per minute, multipliers applied).
 #[derive(Clone, Debug, PartialEq)]

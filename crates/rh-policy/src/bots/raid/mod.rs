@@ -16,6 +16,8 @@ pub mod bot;
 ///   and drops it when the frame no longer offers it.
 /// - **A fight**: return `Step::committed` while it is on, so the arbiter does not walk away from members that follow.
 pub mod exec;
+#[cfg(test)]
+mod fix_tests;
 pub mod goal;
 pub mod percept;
 /// Quest stages (P-RAID-Q1..Q4, -P, -W): each file is an executor of its `GoalKind::Quest*`, registered in
