@@ -111,8 +111,9 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
     chests. Hash tape: no case digest moved.
   - **Coordinator decisions on what the sync stopped on:**
     - Overkill's splash skips quest givers, as legacy `cardHooks.ts:252` does. A splash on a neutral giver gave it a contact,
-      and restore then refused the checkpoint (`rework_at_25ms` seed 7). Givers exist only with quests on, so legacy worlds
-      are unchanged. Legacy's other two filters (non-hostile, evading) and its tie rank change legacy worlds: they are
+      and restore then refused the checkpoint (`rework_at_25ms` seed 7). Givers exist only in quest worlds (K1 or Top 25),
+      so the skip also reaches K1 quest worlds, a move toward legacy; the parity report and the hash tape did not move.
+      Legacy's other two filters (non-hostile, evading) and its tie rank change legacy worlds: they are
       P-CARD-SPLASH-PARITY-1.
     - A credited elite killer whose kill origin marks `skip_stat` (the quest's remote turret) gets no helper share; every
       other contributor still gets theirs. This follows origin's rule that turret kills pay no stat stacks.
@@ -130,9 +131,12 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
     - The fix's quick gate, `cargo test -p rh-sim`, the hash tape and `rework_at_25ms` (release, every seed) passed on
       `af348797e`.
     - The coordinator's full gate on the integration commit is recorded below.
-  - **Reviews:** reviewer-opus LAND on the merge; reviewer LAND on P-CI-GREEN-11. Minor, not notes:
+  - **Reviews:** reviewer-opus LAND on the merge and LAND on the fix; reviewer LAND on P-CI-GREEN-11. Minor, not notes:
     - a few comments still call the readouts State key 14;
     - the `replay.rs` and rh-policy version notes interleave both lines' histories.
+    - origin's rewritten `WALL_CONTENT_HASH` test in `frost_wall_content.rs` is not carried, because the local line retired
+      that pin (P-CONTENT-REGOLDEN-1);
+    - one history-ring test in `state.rs` now runs twice (origin's file and the local one).
   - **Found, not fixed** (both predate the rework):
     - P-CHECKPOINT-CONTAINER-1: restore refuses a body holding more than 2 + the potion cap items, which play allows
       (`rework_at_25ms` seed 14).
