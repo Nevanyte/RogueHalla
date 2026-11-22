@@ -184,12 +184,19 @@ quests:  { "by_quest": [{ "quest": str, "dealt": n, "accepted": n, "attempts": n
 augments:{ "by_card": [{ "card": str, "offered": n, "picked": n, "held_by_winner": n }] }
 ```
 
-`elites`, `rewards` and every other field (per-minute stacks, camp seconds, native growth, spell casts) are the implementer's
+`dealt` and `accepted` count (seat, offer) pairs, `attempts` counts `owner_accepted` false -> true flips, so
+`accepted <= dealt`, `accepted <= attempts`, and `completed + ended_timer + ended_death + abandoned <= attempts` (the oracle
+asserts all three). `player_deaths.by_cause` adds up to `total`. `seeds[i].state_hash` is the final state hash of the
+observed match, which must equal the unwatched one. `elites`, `rewards` and every other field (per-minute stacks, camp seconds, native growth, spell casts) are the implementer's
 design, documented in `tools/balance-lab/README.md`; extra keys are allowed anywhere.
 
 ## Oracle files (read-only for implementers)
 
 - `crates/rh-headless/tests/balance_lab.rs`
+
+Seven tests: observer purity (seeds 1..4 human seats, seed 1 bot seats: state hash and tick count equal an unwatched `Env`);
+bytes equal for `--jobs` 1, 2 and 3; schema, key order, `content_hash`, per-seed records and `maps`; counter consistency;
+world block not empty; human seats are dealt quests and bot seats none; command-line parse and refusals.
 
 (The `stub:` commit holds `crates/rh-headless/src/balance_lab.rs`, `crates/rh-headless/src/bin/balance_lab.rs` and the
 `pub mod` line; the implementer replaces the stub bodies. `parse_args`, `match_setup`, `Options` and the type names below are
