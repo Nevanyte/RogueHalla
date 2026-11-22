@@ -16,6 +16,9 @@ namespace Roguehalla.Net
         void Poll();
     }
 
+    /// <summary>Why a session ended as Failed; <see cref="ConnectionCopy.ForFailure"/> words it for the player. <c>Session.Error</c> keeps the raw text for logs.</summary>
+    public enum FailureKind { None, ConnectTimeout, ClosedBeforeWelcome, LostConnection, Other }
+
     public enum SessionState { Idle, Connecting, HelloSent, InMatch, Reconnecting, Ended, Rejected, Failed, Detached }
 
     public sealed class SessionOptions
@@ -31,6 +34,10 @@ namespace Roguehalla.Net
         public byte? Faction;
         public int MaxReconnectAttempts = 5;
         public double ReconnectBaseMs = 500, ReconnectMaxMs = 8000, PingIntervalMs = 1000;
+        /// <summary>P-ALPHA-CLIENT-1 (stub: unused): a connect or Hello not answered by a Welcome within this long becomes Failed (ConnectTimeout).</summary>
+        public double ConnectTimeoutMs = 10000;
+        /// <summary>P-ALPHA-CLIENT-1 (stub: unused): a dropped seat keeps retrying until this long after the drop.</summary>
+        public double ReconnectBudgetMs = 55000;
         /// <summary>
         /// A Resync still unanswered after this long is sent again with the next refused delta. The server never drops a Resync
         /// and answers within one second (it spaces forced Full frames by 20 ticks), so this only matters if a request or its
@@ -112,6 +119,10 @@ namespace Roguehalla.Net
         public double ServerTimeMs { get { return Latest == null ? 0 : Latest.ServerMs; } }
         public WireResult LastResult { get; private set; }
         public int ReconnectAttempt { get { return _attempt; } }
+        /// <summary>P-ALPHA-CLIENT-1 (stub): how many reconnect attempts fit the budget, for a banner "(3/12)".</summary>
+        public int ReconnectAttemptMax { get { return 0; } }
+        /// <summary>P-ALPHA-CLIENT-1 (stub): the kind of the last Failed state.</summary>
+        public FailureKind FailureKind { get; private set; }
         public int SnapshotsReceived { get; private set; }
         public int DecodeErrors { get; private set; }
         public int Ignored { get; private set; }
