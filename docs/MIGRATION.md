@@ -170,6 +170,11 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
     `StormInkFireGeologyEditModeTests.EditorCleanupBetweenAtlasLookupAndSceneBuildPreservesRegisteredSprites`. Origin's
     `64ca1230c` alone fails the same three with the same values, so they are origin's (Storm Ink), not the merge's; CI
     does not run EditMode.
+  - Fixed on origin's line by P-EDITMODE-STORMINK-1 (side session, `agent/opus/P-EDITMODE-STORMINK-1` @ `58b76445a`, from
+    origin's `64ca1230c`, local only, not yet reviewed or pushed): EditMode 2000/2000, quick gate green. All three broke at
+    PR 83: one Editor bug (the region atlas is now kept through Editor cleanup), two dressed-map test premises amended
+    because Storm Ink's seam details draw on dressed maps. Owner, 2026-11-22, asked whether to keep those client-made
+    seam details on dressed maps: "Keep them" (`docs/OWNER_DECISIONS.md`).
   - The proposed rework DEVIATIONS rows are renumbered DEV-042 to DEV-060, since origin now holds DEV-040 (quests) and
     DEV-041 (open alpha idle and reconnect).
   - Pushed to PR 80 as `dd8912812` while the second full gate (on `051f67240`) was still running, so CI and the local
