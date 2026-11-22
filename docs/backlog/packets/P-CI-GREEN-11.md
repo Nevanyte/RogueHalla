@@ -58,3 +58,23 @@
   `tools/card-runtime-witness-fixtures/capture.sh --check` pass, each with its exit status recorded.
 - `scripts/gate.sh --quick --allow-protected --regen-fixtures --base e180967ac` passes.
 - The evidence README is written, and the AGENTS.md hand-off report is in this file.
+
+## Hand-off
+
+```
+PACKET:          P-CI-GREEN-11 — serves CI green for PR 80 (owner, 2026-11-20: push and merge the new augments)
+BRANCH:          agent/sonnet/P-CI-GREEN-11 @ HANDOFF_SHA
+GATE:            PASS (quick) `scripts/gate.sh --quick --allow-protected --regen-fixtures --base e180967ac`; check-card-chain failureCount 0; capture.sh --check exit 0 for card-catalog, card-runtime, card-runtime-witness (explicit exit statuses)
+CHANGED:         parity/card-catalog/source.json; parity/card-runtime/{source,INPUT_SHA256}.json; parity/card-runtime-witness/{source,INPUT_SHA256}.json (all by capture.sh output); tools/card-runtime-fixtures/capture.mts and tools/card-runtime-witness-fixtures/capture.mts (overlay entries); tools/provenance/check-card-chain.mjs (EXPECTED, lineage, leaf table, evidence path); docs/evidence/ci-provenance-refresh-2026-11-21-merge-quests/README.md; this file
+D-RULES:         n/a (provenance only; no parity capture content changed)
+DEVIATIONS:      none
+SHARED RECORDS:  none
+LEGACY DOUBTS:   none
+NOT ESTABLISHED: nothing beyond the pins being correct for this base
+RISKS:           any later edit to a pinned file needs another refresh
+```
+
+Pins: catalog `f2a83fe5...`, runtime source `0be9e0b6...`, runtime input `571228ac...`, witness source `7a9fd006...`,
+witness input `8401446b...`, runtime tool `120f19dc...`, witness tool `3c65eaf6...`. Only differing catalog leaves were
+the three named pins; runtime 14 and witness 22 differing leaves, all provenance. Corpora captured once each, outside
+the repo.
