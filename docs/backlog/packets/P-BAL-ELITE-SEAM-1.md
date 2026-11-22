@@ -204,8 +204,31 @@ Not in scope: anything under `quests/board/**` (P-BAL-Q25-SEAM-1 is moving it), 
 
 - `crates/rh-sim/tests/elite_seam.rs`: `no_file_outside_mob_runtime_reads_an_elite_multiplier_field` (red on the stub
   at `state.rs:1155`, `state.rs:1189`, `systems/sentenced.rs:543`).
-- `crates/rh-sim/src/mob_runtime/elite_kind_tests.rs`: behaviour through a doctored one-row table (red on the stub,
-  assertion failures), and the empty-table guard (green on the stub, must stay green).
+- `crates/rh-sim/src/mob_runtime/elite_kind_tests.rs`: behaviour through a doctored Rework table (the real globals plus
+  one row hp x1.25, dmg x0.8 for the first seed1 elite kind that hits a player beside it, Wyrmling today), red on the
+  stub with assertion failures:
+  - `a_row_scales_the_spawn_hp_of_its_kind_only`: the row's kind spawns with real max hp x 1.25; every other mob (other
+    elite kinds included) keeps its hp bit for bit. (Stub: "Wyrmling: doctored max hp 1852.5 is not the real 1852.5 x
+    row 1.25".)
+  - `a_row_scales_the_faction_sheet_and_point_damage_of_its_kind_only`: `World::faction_spec` hp x1.25 and hit x0.8,
+    `signature_damage` x0.8 for the row's kind; other elite kinds bit for bit.
+  - `a_row_scales_the_hits_its_kind_lands_on_a_player`: the first real `Event::Hit` of that elite on a player lands on
+    the same tick and is x0.8 (within 0.02). (Stub: ratio 1.)
+  - `a_mid_fight_checkpoint_of_a_doctored_world_restores_under_its_table_only`: after the elite's first hit, the
+    checkpoint stores `"rework"`, restores under the doctored table with an equal state hash and the elite at max hp
+    x1.25, replays 40 ticks with equal events, and is REFUSED by `Sim::restore` under the real table (the restore check
+    reads the table).
+  - Guard, green on the stub and after: `with_the_real_tables_every_elite_kind_plays_todays_numbers_bit_for_bit`: both
+    real `per_kind` tables are empty (rows, if any, are elite kinds, one per kind); for the ten elite kinds under both
+    rules the accessors return the global field's bits and `spawn_hp` equals today's formula bit for bit; every seed1
+    elite's max hp, `faction_spec` hp and hit equal today's formulas bit for bit under both rules.
+
+Line numbers in this brief are those of the base 83edb687f; on `packet/P-BAL-ELITE-SEAM-1` the stub moved
+`spawn_hp`'s read from `mob_runtime.rs:497` to `:556`. The test hook is `mob_runtime::with_rework_table` (cfg(test),
+thread-local `TEST_REWORK_ELITES` consulted by `EliteTuning::of(Rework)`); keep it, its NON_GAMEPLAY row and the
+`#[cfg(test)] mod elite_kind_tests;` line. The oracle was checked satisfiable before commit: accessors
+`per_kind.iter().find(|r| r.ty == ty).map_or(global, |r| global * r.hp)` and the four reader lines on them make all five
+tests, `elite_seam`, `elite_tune`, `augment_rules` and `content` (golden hash included) green.
 - `crates/rh-sim/tests/content.rs`: the one NON_GAMEPLAY row for `TEST_REWORK_ELITES` (oracle-amend, see below).
 - `docs/backlog/packets/P-BAL-ELITE-SEAM-1.md` (this brief).
 
