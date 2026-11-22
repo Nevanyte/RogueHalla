@@ -5,3 +5,5 @@ pub mod hunt;
 pub mod pvp;
 pub mod search;
 pub mod walker;
+#[cfg(test)]
+mod walker_tests;
