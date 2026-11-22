@@ -4,7 +4,7 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
-## Push requested (2026-11-20): the second origin sync and the provenance refresh
+## Push requested (2026-11-20): the origin syncs and the provenance refreshes
 
 **Owner direction 2026-11-20:** "Please push and merge the new augments". The route on this repository is a pull
 request into origin's `feature/unity-rework` (every other lane's work lands that way; the branch is not protected).
@@ -93,6 +93,50 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
   now prints `ok: ci 6 scenarios match; replay bytes are identical`.
 - **Merge route:** the owner said yes to auto-merge and Auto-fix (2026-11-21). Auto-fix is on. GitHub refused auto-merge,
   because the repository does not allow it, so the coordinator merges PR 80 by hand once CI is green.
+- **CI on `a4abce7ea`** (run 44951373714): `provenance` failed on the catalog pins of `compare.py` and `test_compare.py`,
+  which P-CI-GREEN-9 had edited. P-CI-GREEN-10 (implementer-sonnet; reviewer LAND) recaptured them; the integration branch
+  fast-forwarded to `a9fc34dd5`. It was not pushed, because origin had moved.
+- **Origin moved again:** PR 81 (the Top 25 quests, protocol 23) merged into origin's `feature/unity-rework` @ `ef8d5e9ce`,
+  and PR 80 conflicted with its base (89 files in the coordinator's trial merge).
+- **Integration 80, the third origin sync** (`27b2cd12f`): P-SYNC-ORIGIN-3, P-SYNC-ORIGIN-3-fix and P-CI-GREEN-11.
+  - **What it joins:** origin @ `ef8d5e9ce` (merge base `5567458fb`). Merge commit `5191d7cdc`, 91 conflicted files, each
+    keeping both sides. Briefs and hand-offs: `docs/backlog/packets/P-SYNC-ORIGIN-3.md`, `P-SYNC-ORIGIN-3-fix.md`,
+    `P-CI-GREEN-11.md`.
+  - **Identities:** protocol 24, observation 37, policy contract 33, `rh-checkpoint/39`, `rh-replay/28`, content
+    `8a4bf0ce37b406f2` (written by `scripts/regolden-content.sh`). The server refuses 23 and below. `v24.json` is
+    generated, `v23.json` is origin's, `v22.json` is unchanged. Checkpoint 39 refuses 36 to 38; replay 28 refuses 24 to 27.
+  - **Wire:** origin's numbers stand: State key 14 (opened base-map tiles), prop kind 9 (Rebirth Eggs), command 19
+    (`QuestInteract`). The own-card readouts move from key 14 to **16**; Marked Man stays on 15. `MAX_STATE_KEYS` 16.
+  - **Both lines live:** `live_content()` turns on `augments`, `elites` and `top25_quests`. No quest reward touches cards or
+    chests. Hash tape: no case digest moved.
+  - **Coordinator decisions on what the sync stopped on:**
+    - Overkill's splash skips quest givers, as legacy `cardHooks.ts:252` does. A splash on a neutral giver gave it a contact,
+      and restore then refused the checkpoint (`rework_at_25ms` seed 7). Givers exist only with quests on, so legacy worlds
+      are unchanged. Legacy's other two filters (non-hostile, evading) and its tie rank change legacy worlds: they are
+      P-CARD-SPLASH-PARITY-1.
+    - A credited elite killer whose kill origin marks `skip_stat` (the quest's remote turret) gets no helper share; every
+      other contributor still gets theirs. This follows origin's rule that turret kills pay no stat stacks.
+    - Quest target elites (The Warden, A Bone to Pick, Elite Slayer) take the Rework elite numbers, then their quest
+      multiplier on top.
+    - `rework_at_25ms` seeds 5 and 8 end before the test's 2400-step floor under origin's own quest config too (augments
+      and elites Legacy), so they are origin's quest trajectory: they became 9 and 12. The floor and the checks are
+      unchanged.
+  - **Card chain:** P-SYNC-ORIGIN-3 took origin's provenance files whole. P-CI-GREEN-11 recaptured the three pins both lines
+    changed (`compare.py`, `test_compare.py`, `check-vectors.mjs`); nothing else differed. `check-card-chain.mjs`:
+    `failureCount: 0`.
+  - **Gates:**
+    - The implementer's full gate on `4fa0e59de`, with pgtest, was green except the three pins; EditMode 1602/1602,
+      dotnet 2328/2328.
+    - The fix's quick gate, `cargo test -p rh-sim`, the hash tape and `rework_at_25ms` (release, every seed) passed on
+      `af348797e`.
+    - The coordinator's full gate on the integration commit is recorded below.
+  - **Reviews:** reviewer-opus LAND on the merge; reviewer LAND on P-CI-GREEN-11. Minor, not notes:
+    - a few comments still call the readouts State key 14;
+    - the `replay.rs` and rh-policy version notes interleave both lines' histories.
+  - **Found, not fixed** (both predate the rework):
+    - P-CHECKPOINT-CONTAINER-1: restore refuses a body holding more than 2 + the potion cap items, which play allows
+      (`rework_at_25ms` seed 14).
+    - P-MOB-REWIND-RESTORE-1 again: seed 11.
 
 ## Resumed (2026-11-20): the elite and augment rework, integration 65
 
