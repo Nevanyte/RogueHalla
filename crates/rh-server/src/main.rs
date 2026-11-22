@@ -17,7 +17,7 @@
 //!       (account API: PLAYTEST_PASSCODE env sets the claim passcode; 0 disables a limit; see docs/adr/0006-persistence.md)
 //!       [--lease-ttl-secs 120] [--lease-renew-secs 30] [--lease-db-timeout-secs 5]
 //!       [--result-spool <dir> [--result-spool-max 4096] [--result-dead-max 1024] [--result-retry-secs 900]]   (needs postgres + --database-url)
-//!       [--db-connect-timeout-secs 60] [--drain-max-secs 55] [--drain-write-wait-secs 20]   (see the shutdown budget below)
+//!       [--db-connect-timeout-secs 60] [--db-pool 16] [--drain-max-secs 55] [--drain-write-wait-secs 20]   (see the shutdown budget below)
 //!
 //!       [--control 127.0.0.1:7778 (--control-token-file <file> | --control-insecure-loopback)] [--require-admit [--admit-ttl-secs 60]]
 //!       [--ws-origins '*'|origin,origin (default: --api-cors-origins)] [--ws-max-per-ip 16] [--ws-connect-burst 20]
@@ -53,6 +53,9 @@
 //!
 //! `--database-url` retries an unreachable database for `--db-connect-timeout-secs N` (default 60; 0 = one attempt) with
 //! exponential backoff, then exits 69 (schema migration failure: 70; schema newer than this binary: 78; bad flags: 2).
+//! `--db-pool N` (default 16; 1..=1024) sizes the durable store's connection pool. Admission bounds its credential check,
+//! like its lease acquisition, by `--lease-db-timeout-secs`: a saturated pool refuses a Hello ("try again shortly", never
+//! a bad credential) instead of holding its socket for the pool's 30 s acquire timeout.
 //! Log lines never carry the connection string.
 
 use database::durable;
