@@ -15,13 +15,16 @@ namespace Roguehalla.Client
     public sealed class FrostWallPresenter : IDisposable
     {
         // ---- looks-only dials (docs/unity/DIALS.md) ----
-        /// <summary>Legacy ice colours (FieldView.ts WALL_TOP, WALL_FRONT, WALL_EDGE) and the preview's invalid tint
-        /// (AbilityAim.ts 0xef5350).</summary>
-        public static readonly Color32 TopColor = new Color32(0xf1, 0xfb, 0xff, 0xff);
+        /// <summary>Three-value ice silhouette: pale crown, deep opaque face, and near-black boundary.</summary>
+        public static readonly Color32 TopColor = new Color32(0xc5, 0xed, 0xf7, 0xff);
         // P-UNITY-FROST-WALL-READ-1: a deeper, more saturated face and a dark navy outline, same ice-blue hue family (legacy 4fc3f7 and 0288d1
         // sit too close to Frost's pale ground); the preview's own fixed colours (the faction tint is too close to the ground).
-        public static readonly Color32 FaceColor = new Color32(0x45, 0xaa, 0xe6, 0xff);
-        public static readonly Color32 EdgeColor = new Color32(0x16, 0x53, 0x81, 0xff);
+        public static readonly Color32 FaceColor = new Color32(0x10, 0x2d, 0x45, 0xff);
+        public static readonly Color32 EdgeColor = new Color32(0x06, 0x18, 0x27, 0xff);
+        public static readonly Color32 FacetColor = new Color32(0x2b, 0x6f, 0x8b, 0xff);
+        public static readonly Color32 BevelColor = new Color32(0xc5, 0xed, 0xf7, 0xff);
+        /// <summary>The restrained cool light settles over the newly planted wall across this server-time interval.</summary>
+        public const double FractureArrivalMs = 220;
         public static readonly Color32 InvalidTint = new Color32(0xd5, 0x32, 0x47, 0xff);
         /// <summary>The valid preview's coloured core, the dark neutral halo under every preview mark, and the crack's darkening and white-hot flash colours.</summary>
         public static readonly Color32 ValidTint = new Color32(0x3d, 0xb6, 0xea, 0xff);
@@ -29,12 +32,12 @@ namespace Roguehalla.Client
         public static readonly Color32 CrackColor = new Color32(0x0d, 0x2a, 0x4b, 0xff);
         public static readonly Color32 CrackHotColor = new Color32(0xff, 0xff, 0xff, 0xff);
         /// <summary>The outline's thickness round each block (sim px) and how strongly the crack darkens the block and flashes its rim (alpha at the end).</summary>
-        public const float EdgeWidth = 3f, CrackDarkAlpha = .5f, CrackHotAlpha = .9f;
+        public const float EdgeWidth = 3f, CrackDarkAlpha = .7f, CrackHotAlpha = .9f;
         /// <summary>Legacy top alpha, how much the crack takes off it, and the crack's time (ms before the end).</summary>
         public const float TopAlpha = .9f, CrackFade = .3f;
         public const double CrackMs = 1000;
         /// <summary>Legacy face alpha, edge alpha, the lift (sim px) and the fade-out at the end (ms).</summary>
-        public const float FaceAlpha = .94f, EdgeAlpha = .95f, Lift = 20f;
+        public const float FaceAlpha = 1f, EdgeAlpha = .98f, Lift = 20f;
         public const double FadeMs = 300;
         /// <summary>Preview: fill alpha (base, pulse swing), outline alpha (base, pulse swing), line alpha, centre dot alpha, reach ring alpha,
         /// pulse speed (radians per ms; legacy 0.008).</summary>
@@ -48,11 +51,12 @@ namespace Roguehalla.Client
         public const float TelegraphAlpha = .15f, TelegraphGather = .35f, TelegraphCoreAlpha = .6f;
 
         const float S = ArenaView.Scale, G = ArenaView.GroundSquash;
+        static readonly Color ShelfExposure = new Color(.9f, .9f, .9f, 1f);
         // OverlayOrder: the preview and the telegraph draw over the fighters (legacy DEPTH_AIM, above fighters) and under the world marks
         // (WorldMarks 29000, labels 29100). Not a looks dial: a layering rule.
         const int MaxPreviewTiles = 24, RingSegments = 48, WallOrderBase = 2000, OverlayOrder = 28900;
-        // face, top, four rim strips (N S W E), base line, crack darkening, four white-hot rim strips (N S W E)
-        const int BlockQuads = 12;
+        // face, top, four rim strips (N S W E), base, crack wash, four white-hot rim strips, two broad sloping face facets
+        const int BlockQuads = 14;
         // preview quads: ring (halo, white, colour: 48 each), tile fills, tile outline halos (4 per tile), tile outline whites, line (3), dot (3)
         const int PvRingHalo = 0, PvRingMid = RingSegments, PvRingCore = RingSegments * 2, PvFill = RingSegments * 3,
             PvTileHalo = PvFill + MaxPreviewTiles, PvTileMid = PvTileHalo + MaxPreviewTiles * 4, PvLine = PvTileMid + MaxPreviewTiles * 4,
@@ -101,7 +105,8 @@ namespace Roguehalla.Client
             public Color32 ColorOf(int q) { return _c[q * 4]; }
         }
 
-        sealed class Block { public QuadMesh Mesh; public MeshRenderer Renderer; public MapTile Tile; public float TopAlpha; }
+        sealed class Block { public QuadMesh Mesh; public MeshRenderer Renderer; public SpriteRenderer Shelf; public MapTile Tile; public float TopAlpha, Lift; }
+        struct ShelfSlice { public bool Horizontal; public int Segment, Count; }
         sealed class Wall
         {
             public AreaKey Key; public double EndsAt, StartedAt; public bool Seen;
@@ -109,6 +114,8 @@ namespace Roguehalla.Client
         }
 
         readonly Transform _container; readonly List<UnityEngine.Object> _owned = new List<UnityEngine.Object>();
+        readonly Dictionary<int, Sprite> _shelfSlices = new Dictionary<int, Sprite>();
+        Texture2D _shelfTexture, _recedingTexture;
         readonly List<Wall> _walls = new List<Wall>(), _ordered = new List<Wall>(); readonly List<Block> _pool = new List<Block>();
         readonly QuadMesh _telegraph, _preview;
         double _renderMs; bool _disposed;
@@ -162,21 +169,119 @@ namespace Roguehalla.Client
             return true;
         }
 
+        Sprite ShelfSliceSprite(ShelfSlice slice)
+        {
+            bool horizontal = slice.Horizontal;
+            if (horizontal)
+            {
+                if (_shelfTexture == null) _shelfTexture = Resources.Load<Texture2D>("StormInk/Surfaces/FrostWallShelf");
+            }
+            else if (_recedingTexture == null) _recedingTexture = Resources.Load<Texture2D>("StormInk/Surfaces/FrostWallReceding");
+            var texture = horizontal ? _shelfTexture : _recedingTexture;
+            if (texture == null) return null;
+            int count = Mathf.Clamp(slice.Count, 1, 64), segment = Mathf.Clamp(slice.Segment, 0, count - 1);
+            int key = (horizontal ? 0 : int.MinValue) | (count << 16) | segment;
+            if (_shelfSlices.TryGetValue(key, out var cached) && cached != null) return cached;
+            Rect rect;
+            Vector2 pivot;
+            float pixelsPerUnit;
+            if (horizontal)
+            {
+                float x0 = texture.width * (float)segment / count;
+                float x1 = texture.width * (float)(segment + 1) / count;
+                rect = new Rect(x0, 0, x1 - x0, texture.height); pivot = new Vector2(.5f, .02f); pixelsPerUnit = texture.height;
+            }
+            else
+            {
+                float y0 = texture.height * (float)segment / count;
+                float y1 = texture.height * (float)(segment + 1) / count;
+                rect = new Rect(0, y0, texture.width, y1 - y0); pivot = new Vector2(.5f, .5f); pixelsPerUnit = texture.height / 3f;
+            }
+            var sprite = Sprite.Create(texture, rect, pivot, pixelsPerUnit, 0, SpriteMeshType.FullRect);
+            sprite.name = (horizontal ? "frost-wall-shelf-" : "frost-wall-receding-") + count + "-" + segment; sprite.hideFlags = HideFlags.HideAndDontSave;
+            _shelfSlices[key] = sprite; _owned.Add(sprite);
+            return sprite;
+        }
+
+        static ShelfSlice[] ResolveShelfSlices(MapTile[] tiles)
+        {
+            var result = new ShelfSlice[tiles.Length]; var seen = new bool[tiles.Length];
+            for (int root = 0; root < tiles.Length; root++)
+            {
+                if (seen[root]) continue;
+                var run = new List<int> { root }; seen[root] = true;
+                for (int scan = 0; scan < run.Count; scan++)
+                {
+                    var at = tiles[run[scan]];
+                    for (int j = 0; j < tiles.Length; j++)
+                    {
+                        if (seen[j]) continue;
+                        var other = tiles[j];
+                        int dx = Mathf.Abs((int)at.X - other.X), dy = Mathf.Abs((int)at.Y - other.Y);
+                        if (dx + dy == 1) { seen[j] = true; run.Add(j); }
+                    }
+                }
+                int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
+                for (int j = 0; j < run.Count; j++)
+                {
+                    var t = tiles[run[j]]; minX = Mathf.Min(minX, t.X); maxX = Mathf.Max(maxX, t.X);
+                    minY = Mathf.Min(minY, t.Y); maxY = Mathf.Max(maxY, t.Y);
+                }
+                bool horizontal = maxX - minX >= maxY - minY;
+                int count = horizontal ? maxX - minX + 1 : maxY - minY + 1;
+                for (int j = 0; j < run.Count; j++)
+                {
+                    int i = run[j]; var t = tiles[i];
+                    // Screen-space Y is inverted from map Y, so the portrait source's longitudinal slices run in reverse map order.
+                    result[i] = new ShelfSlice { Horizontal = horizontal, Count = count, Segment = horizontal ? t.X - minX : maxY - t.Y };
+                }
+            }
+            return result;
+        }
+
         void BuildWall(Wall w, MapTile[] tiles)
         {
-            foreach (var t in tiles)
+            var slices = ResolveShelfSlices(tiles);
+            for (int ti = 0; ti < tiles.Length; ti++)
             {
+                var t = tiles[ti];
                 var b = AcquireBlock();
                 b.Tile = t;
+                int pattern = (t.X * 17 + t.Y * 31) & 7;
+                int step = (t.X * 17 + t.Y * 31) % 7 - 3;
+                b.Lift = Lift + step * 1.2f;
                 bool nN = false, nS = false, nW = false, nE = false;
                 foreach (var o in tiles)
                 {
                     if (o.X == t.X && o.Y + 1 == t.Y) nN = true; else if (o.X == t.X && o.Y == t.Y + 1) nS = true;
                     else if (o.Y == t.Y && o.X + 1 == t.X) nW = true; else if (o.Y == t.Y && o.X == t.X + 1) nE = true;
                 }
-                ShapeBlock(b.Mesh, nN, nS, nW, nE);
+                ShapeBlock(b.Mesh, nN, nS, nW, nE, b.Lift, pattern);
+                var slice = slices[ti];
+                var shelf = ShelfSliceSprite(slice);
+                if (shelf != null)
+                {
+                    b.Shelf.sprite = shelf;
+                    b.Shelf.enabled = true;
+                    b.Shelf.color = Color.white;
+                    b.Shelf.sortingOrder = WallOrderBase + Mathf.RoundToInt((t.Y * 32 + 16) * .5f) + 3;
+                    b.Shelf.transform.localRotation = Quaternion.identity;
+                    b.Shelf.transform.localScale = slice.Horizontal
+                        ? new Vector3(slice.Count / 3f, 1.42f, 1f)
+                        : new Vector3(1.42f, slice.Count * G / 3f, 1f);
+                    b.Shelf.transform.localPosition = slice.Horizontal
+                        ? new Vector3(0, -16 * S * G, -.003f)
+                        : new Vector3(0, 0, -.003f);
+                    // The authored shelf owns its connected silhouette and broad face. Mesh quads remain for exposed ends and hit cracks.
+                    b.Mesh.Collapse(0); b.Mesh.Collapse(1); b.Mesh.Collapse(12); b.Mesh.Collapse(13);
+                    for (int q = 2; q <= 6; q++) b.Mesh.Collapse(q);
+                    for (int q = 8; q < 12; q++) b.Mesh.Collapse(q);
+                    b.Mesh.UploadShape();
+                }
+                else b.Shelf.enabled = false; // V13 opaque geometry remains the missing-resource fallback.
+                b.Mesh.Mesh.RecalculateBounds();
                 b.Mesh.Go.transform.position = ArenaView.WorldPoint(t.X * 32 + 16, t.Y * 32 + 16);
-                b.Renderer.sortingOrder = WallOrderBase + Mathf.RoundToInt((t.Y * 32 + 16) * .5f); // the actors' formula at the tile's row, so an actor beside any block sorts right
+                b.Renderer.sortingOrder = WallOrderBase + Mathf.RoundToInt((t.Y * 32 + 16) * .5f) + 4; // above same-cell dressing; actors on later rows still sort in front
                 b.Mesh.Active(true); b.TopAlpha = -1f;
                 w.Blocks.Add(b);
             }
@@ -189,27 +294,77 @@ namespace Roguehalla.Client
             var m = new QuadMesh("Ice block", _container, BlockQuads, WallOrderBase, false, _owned);
             ShapeBlock(m, false, false, false, false);
             m.Mesh.RecalculateBounds();
-            return new Block { Mesh = m, Renderer = m.Go.GetComponent<MeshRenderer>() };
+            var shelfGo = new GameObject("Ice shelf art"); shelfGo.transform.SetParent(m.Go.transform, false);
+            var shelf = shelfGo.AddComponent<SpriteRenderer>();
+            shelf.sharedMaterial = ShowcaseSprites.Unlit;
+            return new Block { Mesh = m, Renderer = m.Go.GetComponent<MeshRenderer>(), Shelf = shelf };
         }
 
         /// <summary>Sets a block's quads. An outline strip on a side that touches another block of the same wall is collapsed (the wall reads as one
         /// piece of ice), colours unaffected.</summary>
-        static void ShapeBlock(QuadMesh m, bool north, bool south, bool west, bool east)
+        static void ShapeBlock(QuadMesh m, bool north, bool south, bool west, bool east, float liftSimPx = Lift, int pattern = 0)
         {
-            float hw = 16 * S, hd = 16 * S * G, lift = Lift * S, e = EdgeWidth * S;
-            m.Rect(0, -hw, -hd, hw, -hd + lift);              // face: from the tile's south edge on the ground up to the top
-            m.Rect(1, -hw, -hd + lift, hw, hd + lift);        // top
+            float hw = 16 * S, hd = 16 * S * G, lift = liftSimPx * S, e = EdgeWidth * S;
+            bool stackedRun = north || south;
+            float crownL = hw * (.45f + .1f * (pattern & 1)), crownR = hw * (.45f + .1f * ((pattern >> 1) & 1));
+            float footCutL = stackedRun ? hw * (.18f + .08f * ((pattern >> 1) & 1)) : 0f;
+            float footCutR = stackedRun ? hw * (.18f + .08f * (pattern & 1)) : 0f;
+            float crownSkew = lift * (((pattern >> 2) & 1) == 0 ? .3f : -.25f);
+            float footY = -hd, crownY = hd + lift;
+            m.Quad(0,
+                new Vector3(-hw + footCutL, footY), new Vector3(hw - footCutR, footY),
+                new Vector3(hw - crownR, crownY + crownSkew), new Vector3(-hw + crownL, crownY - crownSkew)); // opaque side rises from the delivered tile base
+            if (stackedRun) m.Collapse(1);
+            else m.Quad(1,
+                    new Vector3(-hw + crownL, crownY - .22f), new Vector3(hw - crownR, crownY - .22f),
+                    new Vector3(hw - crownR * .65f, crownY + crownSkew), new Vector3(-hw + crownL * .65f, crownY - crownSkew)); // narrow, broken pale bevel at the shard crown
             for (int pass = 0; pass < 2; pass++)
             {
-                // pass 1 is the crack's white-hot line: just inside the dark outline, so the flash never washes the outline out
+                // pass 1 is the crack's white-hot rim: just inside the dark outline, so the flash never washes the lip out
                 int o = pass == 0 ? 2 : 8; float a = pass == 0 ? 0 : e, b = pass == 0 ? e : e * 2;
-                if (north) m.Collapse(o); else m.Rect(o, -hw + a, hd + lift - b, hw - a, hd + lift - a);                  // north
-                if (south) m.Collapse(o + 1); else m.Rect(o + 1, -hw + a, -hd + lift + a, hw - a, -hd + lift + b);       // south (top meets face)
-                if (west) m.Collapse(o + 2); else m.Rect(o + 2, -hw + a, -hd + (pass == 0 ? 0 : e), -hw + b, hd + lift - a); // west, down the face too
-                if (east) m.Collapse(o + 3); else m.Rect(o + 3, hw - b, -hd + (pass == 0 ? 0 : e), hw - a, hd + lift - a);   // east
+                float nickL = e * (.35f + .2f * (pattern & 1)), nickR = e * (.4f + .18f * ((pattern >> 1) & 1));
+                float lipPeak = (pattern & 2) == 0 ? e * .55f : -e * .35f;
+                if (north) m.Collapse(o); else m.Quad(o,
+                    new Vector3(-hw + crownL + a, crownY - b), new Vector3(hw - crownR - a, crownY - b),
+                    new Vector3(hw - crownR - a - nickR, crownY - a + lipPeak), new Vector3(-hw + crownL + a + nickL, crownY - a - lipPeak)); // broken far lip
+                if (south) m.Collapse(o + 1); else m.Quad(o + 1,
+                    new Vector3(-hw + footCutL + a, footY + a), new Vector3(hw - footCutR - a, footY + a),
+                    new Vector3(hw - footCutR - a - nickR, footY + b - lipPeak), new Vector3(-hw + footCutL + a + nickL, footY + b + lipPeak)); // lower fracture lip
+                if (west) m.Collapse(o + 2); else m.Quad(o + 2,
+                    new Vector3(-hw + footCutL + a, footY), new Vector3(-hw + crownL + a, crownY - crownSkew),
+                    new Vector3(-hw + crownL + b, crownY - crownSkew), new Vector3(-hw + footCutL + b, footY)); // tapered west bevel
+                if (east) m.Collapse(o + 3); else m.Quad(o + 3,
+                    new Vector3(hw - footCutR - a, footY), new Vector3(hw - crownR - a, crownY + crownSkew),
+                    new Vector3(hw - crownR - b, crownY + crownSkew), new Vector3(hw - footCutR - b, footY)); // tapered east bevel
             }
             if (south) m.Collapse(6); else m.Rect(6, -hw, -hd, hw, -hd + e); // base line
-            m.Rect(7, -hw, -hd, hw, hd + lift);               // crack darkening over the whole block
+            // A single ink fracture, kept independently per delivered tile for impact damage.
+            float crackHeight = crownY - footY;
+            m.Quad(7, new Vector3(-hw, footY + crackHeight * .12f), new Vector3(hw * .25f, footY + crackHeight * .08f),
+                new Vector3(hw, footY + crackHeight * .88f), new Vector3(-hw * .25f, footY + crackHeight * .92f));
+            m.UploadShape();
+            // Sparse, opaque planes form a few diagonal shard faces across a solid ice silhouette.
+            float fx = ((pattern & 7) - 3.5f) * .018f;
+            float l = footY, h = crownY - footY;
+            if ((pattern & 3) == 0)
+            {
+                m.Quad(12,
+                    new Vector3(-hw + .035f, l + h * .08f), new Vector3(-.08f + fx, l + h * .04f),
+                    new Vector3(.22f + fx, l + h * .72f), new Vector3(.04f + fx, l + h * .84f));
+                m.Quad(13,
+                    new Vector3(.14f + fx, l + h * .67f), new Vector3(.31f + fx, l + h * .81f),
+                    new Vector3(hw - .09f, l + h * .79f), new Vector3(hw - .04f, l + h * .7f));
+            }
+            else if ((pattern & 3) == 1)
+            {
+                m.Quad(12,
+                    new Vector3(.16f + fx, l + h * .06f), new Vector3(hw - .035f, l + h * .16f),
+                    new Vector3(.02f + fx, l + h * .78f), new Vector3(-.2f + fx, l + h * .86f));
+                m.Quad(13,
+                    new Vector3(-.22f + fx, l + h * .73f), new Vector3(-.02f + fx, l + h * .86f),
+                    new Vector3(hw - .08f, l + h * .81f), new Vector3(hw - .03f, l + h * .7f));
+            }
+            else { m.Collapse(12); m.Collapse(13); }
             m.UploadShape();
         }
 
@@ -227,10 +382,13 @@ namespace Roguehalla.Client
                 foreach (var b in w.Blocks)
                 {
                     b.TopAlpha = top;
+                    if (b.Shelf != null) b.Shelf.color = new Color(ShelfExposure.r, ShelfExposure.g, ShelfExposure.b, Mathf.Clamp01(FaceAlpha * fade));
                     b.Mesh.Color(0, fc); b.Mesh.Color(1, tc);
                     for (int q = 2; q <= 6; q++) b.Mesh.Color(q, ec);
                     b.Mesh.Color(7, dc);
-                    for (int q = 8; q < BlockQuads; q++) b.Mesh.Color(q, hc);
+                    for (int q = 8; q < 12; q++) b.Mesh.Color(q, hc);
+                    b.Mesh.Color(12, With(FacetColor, (.78f + .1f * crack) * fade));
+                    b.Mesh.Color(13, With(BevelColor, (.9f + .08f * crack) * fade));
                     b.Mesh.UploadColors();
                 }
             }
@@ -268,8 +426,8 @@ namespace Roguehalla.Client
             switch (part)
             {
                 case BlockPart.Top: return new[] { m.ColorOf(1) };
-                case BlockPart.Face: return new[] { m.ColorOf(0) };
-                default: { var l = new Color32[BlockQuads - 2]; for (int q = 2; q < BlockQuads; q++) l[q - 2] = m.ColorOf(q); return l; }
+                case BlockPart.Face: return new[] { m.ColorOf(0), m.ColorOf(12), m.ColorOf(13) };
+                default: { var l = new Color32[10]; for (int q = 2; q < 12; q++) l[q - 2] = m.ColorOf(q); return l; }
             }
         }
 
@@ -317,8 +475,49 @@ namespace Roguehalla.Client
                 _telegraph.UploadShape(); _telegraph.UploadColors();
             }
             _telegraph.Active(_tgOn);
+            StageTelegraphLights(renderMs);
+            StageWallLights();
             _pulse = reducedMotion ? .5f : .5f + .5f * Mathf.Sin(now * 1000f * PulseSpeed);
             if (_pvOn) { PreviewColors(); _preview.UploadColors(); }
+        }
+
+        static bool LightsOn { get { return AtmosphereQuality.AnalyticLights && AtmosphereQuality.FxLights; } }
+
+        void StageTelegraphLights(double renderMs)
+        {
+            if (!_tgOn || !LightsOn) return;
+            float p = _tgDur > 0 ? Mathf.Clamp01((float)((renderMs - _tgStart) / _tgDur)) : 1f;
+            Color ice = new Color(.34f, .72f, .96f);
+            for (int i = 0; i < 3; i++)
+            {
+                float u = .2f + .3f * i;
+                Vector3 at = ArenaView.WorldPoint(Mathf.Lerp(_tgAx, _tgBx, u), Mathf.Lerp(_tgAy, _tgBy, u));
+                LocalLightField.StageWorld(at, .18f, .52f, ice, .18f + .12f * p);
+            }
+        }
+
+        void StageWallLights()
+        {
+            if (!LightsOn) return;
+            Color ice = new Color(.34f, .72f, .96f);
+            for (int wi = 0; wi < _ordered.Count; wi++)
+            {
+                var w = _ordered[wi]; int count = w.Blocks.Count;
+                if (count == 0) continue;
+                int samples = Mathf.Min(3, count);
+                double left = w.EndsAt - _renderMs;
+                float crack = left < CrackMs ? 1f - Mathf.Max(0f, (float)left / (float)CrackMs) : 0f;
+                float fade = _renderMs < w.StartedAt ? 0f : left < FadeMs ? Mathf.Max(0f, (float)left / (float)FadeMs) : 1f;
+                float arrival = Mathf.Clamp01((float)((_renderMs - w.StartedAt) / FractureArrivalMs));
+                float intensity = (.19f + .12f * crack) * fade * arrival;
+                for (int i = 0; i < samples; i++)
+                {
+                    int bi = samples == 1 ? 0 : Mathf.RoundToInt(i * (count - 1f) / (samples - 1f));
+                    var tile = w.Blocks[bi].Tile;
+                    Vector3 at = ArenaView.WorldPoint(tile.X * 32 + 16, tile.Y * 32 + 16);
+                    LocalLightField.StageWorld(at, .16f, .62f, ice, intensity);
+                }
+            }
         }
         public bool TelegraphVisible { get { return _tgOn; } }
         /// <summary>The telegraph's ends in sim units (legacy order: <c>(x - uy*half, y + ux*half)</c>, then the other).</summary>

@@ -15,6 +15,7 @@ namespace Roguehalla.Client
             public SpriteOutline[] Plates;
             public SpriteOutline OutBody, OutHp, OutFoot;
             public StormInkBowstring Bowstring;
+            public StormInkManacles Manacles;
             public SpriteRenderer[] BarrierRing;
             public SpriteRenderer[] StatusIcons;
             public ShowcasePointLight Light;
