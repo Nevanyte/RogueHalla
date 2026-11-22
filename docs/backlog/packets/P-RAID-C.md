@@ -62,7 +62,7 @@ RaidBot has no legacy counterpart (P-RAID-0 section 3); the legacy bot's potion 
   trader** (`traders/runtime.rs:344-356`, barter pick 1; pick 2 spends one small potion on a weapon). So a farming bot
   earns a large potion per camp it clears, and the sustain question is whether it drinks it.
 - **Passive recovery** (`systems/regen.rs`, `constants.rs:381-385`): `SimConfig::live_content()` sets `regen: true`,
-  `regen_in_combat: Off` (`statics.rs:640-646`; owner decision 2026-11-12 "DEV-017 regen in combat", `OWNER_DECISIONS.md`
+  `regen_in_combat: Off` (`statics.rs:640,646`; owner decision 2026-11-12 "DEV-017 regen in combat", `OWNER_DECISIONS.md`
   L115): **0.8 % of max hp per second (`PLAYER_REGEN_SHARE_OUT = 0.008`) only after 3 s with no hit dealt or taken
   (`PLAYER_REGEN_QUIET_MS`), nothing in combat.** Full from empty in 125 s: the "heal-up seconds" the lab counts are
   mostly this. A potion is 10 s of regen (small: 31 s; large: 50 s) in 5 s.
@@ -82,8 +82,9 @@ RaidBot has no legacy counterpart (P-RAID-0 section 3); the legacy bot's potion 
   fresh fight. The members that chase follow the bot until the leash (`MOB_LEASH_MARGIN = 24 u` for their own steps).
 - So "leave the leash" is the disengage that ends the fight; "walk a short way away" only drags the members along (they
   keep hitting). `kite::away_point` (`bots/kite.rs:15-33`, a step away from a threat turned until the walk is clear, or
-  `None` when cornered) is the heading; the leash edge is `crate::bots::planning` camp geometry (`PlanMap.camps[i]`: `x,
-  y, radius`, check the struct) and `RaidPercept::camp(i).at`.
+  `None` when cornered) is the heading; the leash edge: `PlanCamp` (`planning.rs:458`) has only `x, y, zone, elite_spot`, no radius or territory, so the
+  executor can only use the circle `rh_sim::constants::MOB_LEASH_RADIUS` (24 tiles, the cap) round `RaidPercept::camp(i).at`;
+  a camp with a smaller territory radius lets go sooner.
 
 ### F2. What the percept gives the executor today (`raid/percept.rs`)
 
@@ -93,7 +94,7 @@ RaidBot has no legacy counterpart (P-RAID-0 section 3); the legacy bot's potion 
   (status bits), `at`, `weapons`, `slot`; `p.camps[i]` (`alive`, `at`, `zone`, `elite`); `p.mobs` (`at`, `hp_share`,
   `alive`, `class`, `camp` label by position, `engaged`, `weapon`). `p.now` is server ms.
 - **Missing or wrong for sustain:** (1) no field says whether the owner was hit this frame beyond `p.hit_at:
-  Option<f64>`; (2) `Refs::potions` (`refs.rs:90`: `p.me.potions() > 0`) counts running hots as potions, so the queue
+  Option<f64>`; (2) `Refs::potions` (`refs.rs:82`: `p.me.potions() > 0`) counts running hots as potions, so the queue
   keeps an `Act::UseConsumable` alive and sends it while only a heal is running: the sim then answers `Notice::Busy` or
   `Full` (a harmless refusal, no `Rejected` command: the order goes through `Sim::submit` and the notice is an event),
   but it spends order budget: the executor must gate on `potion_small + potion_large > 0` and `healing_until` itself
@@ -103,10 +104,75 @@ RaidBot has no legacy counterpart (P-RAID-0 section 3); the legacy bot's potion 
   zone), false)` (as `Farm::share`, cached per pair: the executor keeps its own cache).
 - Neither a `percept.rs`, `acts.rs`, `bot.rs` nor `arbiter.rs` change is needed (the seam suffices: `Executor::urgent`,
   `propose`, `act`, `ride_along`, `Act::UseConsumable`, `GoalKind::Sustain::preempts_commitment`). The one thing `bot.rs`
-  already does: it forces a strategy and think tick on **a hp edge below 0.5** (`bot.rs:288-290`, `low_hp_prev`); the
+  already does: it forces a strategy and think tick on **a hp edge below 0.5** (`bot.rs:406`, `low_hp_prev`); the
   executor's own `urgent()` adds the death-model edge and the drink edge.
 
-### F3. Probe (scratch, not committed): see "Probe results" below.
+### F3. Probe results (scratch, not committed; `coord/int-83`, release build)
+
+Setup: `balance_lab --seeds 1..5 --jobs 4 --human-seats --seat 0=raid ... --seat 7=raid` (4 seeds, 71,287 ticks, eight
+RaidBots in human seats, matches run 15 to 16 minutes). From the table:
+
+- **Camps cleared: 133** in 4 seeds (about 33 a seed). Per-camp cycle: **kill 13.1 s (n 133), heal 11.1 s (n 123), walk
+  19.7 s (n 123)**.
+- **Stacks per player** (farm stacks / players alive at the sample): minute 5 **411 / 16 = 25.7**, minute 8 633 / 14 =
+  45.2, minute 12 420 / 7 = 60. Players alive fall from 26.6 player-minutes in minute 0 to 15.2 in minute 5 and 7.0 in
+  minute 12.
+- **Deaths: 29** (player 24, mob 5, elite 0, hazard 0). By minute: 0:4, 1:4, 2:0, 3:3, 4:5, 5:1, 7:1, 9:2, 11:4, 13:1,
+  16:3, 18:1. Twelve of the 29 fall in the first four minutes.
+- No elite attempts and no quests (this base has none).
+
+**Per-seat trace of seed 1** (19,551 ticks; scratch example `crates/rh-headless/examples/sustain_probe.rs`, since
+removed; it reads `Sim` state and events each tick):
+
+- **Potions held: every seat stores them and none ever drinks.** Stored (camp-clear rewards, `PotionNotice::LargeStored`):
+  5 for seats p1, p2, p5, p7, p8, 3 for p6, 2 for p3, 0 for p4; **drinks: 0 for all eight seats**, over the whole match.
+  Time-averaged stock on the long-lived seats: p1 4.24, p5 4.65, p7 4.64 (the cap is 5: `DEFINITION.cap`); the bag is
+  full for most of the match, so later clears' potions are refused (`CampBagFull`).
+- **How low hp gets:** minimum hp share over the match is 0.00 to 0.01 on seven of eight seats (they die or nearly).
+  Seconds below 65 % hp: p8 168 s of 426 s alive (39 %), p7 124 s of 668, p5 92 s of 970, p2 72 of 304, p1 51 of 970.
+  p8's hp histogram spends 20 s under 20 %.
+- **Deaths on seed 1** (6 real deaths; the two at tick 19,551 are the match end): `stock` is the potion stock the last
+  tick before dying (a death drops the bag): **p2 died holding 5, p8 holding 5, p7 holding 5, p6 holding 3, p3 holding
+  2, p4 holding 0**. So **five of six deaths had a potion that could have been drunk with a 5 s heal of 25-40 % of max
+  hp and were not**; every one of them was below 65 % for most of the fight.
+- **Standing still below full hp** (no hit taken for 3 s, i.e. waiting for the 0.8 %/s regen): p5 175 s of 970 (18 %), p7
+  128 s of 668 (19 %), p2 34 s, p1 27 s, p8 14 s; plus time standing hurt inside a fight (p5 111 s, p8 66 s, p7 58 s).
+  The seats move 45 to 90 % of their active time. This is the lab's "heal-up seconds" (11 s a camp on average).
+- **Camp sizes and what the farm refuses.** Seed 1's 41 normal camps: **11 of 3 members, 18 of 4, 12 of 5** (elite camps:
+  3 of 3, 2 of 4, 5 of 5). `Farm::propose` at full hp, `Prices::LOCAL`, walk 0.3 min (rate in ce per minute; roam pays
+  0.1): a **4-member camp is negative for every faction pair except Holy vs Plague/Holy (+0.89) and Holy vs Sentenced
+  (+0.01)**; a **5-member camp is negative for every pair except Holy vs Plague (+0.30) and Holy vs Holy (+0.92)**; a
+  3-member camp is positive for every pair except Sentenced vs Fire/Sentenced/Frost (about -0.7). Reason: the model
+  prices the duel loss `(1 - share) * n(n+1)/2 * fight_weight` against hp held (`farm.rs:32-42`); with `share` about
+  0.95 (`matchup_share`) a five-member clear needs ratio 1.4-2.2 of the hp held, death chance 0.3 to 0.98, times
+  `death_loss` 6, against a value of 1.25. **The model has no term for a potion**, so a bot holding five potions (200 %
+  of max hp of healing) still refuses 73 % of the normal camps on its map. (Scratch table at the end of
+  `trace1.txt`; reproduce with `farm::death_chance` and `matchup_share`.)
+
+### F4. Player-attributed deaths (seed 1 trace)
+
+Of the lab's 29 deaths 24 read "player", although `RaidBot` proposes no player fight. The chain on seed 1:
+
+- The attribution is **the sim's, not the lab's fallback**: `Event::Death.by` is already `Some(player)` on four of the six
+  deaths (p2, p3, p6, p8 all `by = PlayerId(7)`); `KILL_CREDIT_SECONDS = 5` (`constants.rs:162`) credits a kill to the last
+  player who hit the victim within 5 s, even when mobs landed the last blows. p2 died with its last three hits from camp
+  mobs (Bow, 12 each, 12 to 39 ticks before) and one `PLAYER7` Wand hit 50 ticks (2.5 s) before: credited to p7. The two
+  `by = None` deaths (p4, p7) read mob or hazard in the lab. (`observer.rs:298` falls back to the last hit, only when
+  `by` is `None`; here it rarely mattered.)
+- Real player-on-player damage exists, though: **232 hits from a player on another player in the match** (Wand 193 hits /
+  2,925 damage, Fists 35 / 645, Bow 3, Shield 1); player damage was 164 to 1,068 per seat against mob damage of 32 to
+  2,218. Geometry of those 232 hits (a living non-zombie mob within 500 u of the attacker, the angle between the
+  attacker-to-mob and attacker-to-victim directions): **116 (50 %) have a mob in the line of fire BEYOND the victim**
+  (a shot at a camp member that hit the bot standing in front of it), 39 (17 %) a mob in line nearer than the victim (a
+  piercing or area wand), 76 (33 %) a mob within 500 u but off the line (area damage or a turned shot), 1 with no mob
+  nearby. So the player kills are **mostly friendly fire at a shared camp**: two RaidBots fight the same camp (the lab
+  puts eight bots on one map), the wand and bow shots meant for a member hit the other bot, and the 5 s credit rule
+  turns the mob's finishing hit into a player kill. Wands dominate: p7 carried a Wand (193 hits).
+- **What this means for P-RAID-C2:** do not add "avoid fighting players" as the fix for these deaths. The fix is in
+  where and when the bot fights a camp another bot is already fighting (a camp with a player at it is a candidate that
+  costs friendly fire and a shared clear), and in not standing in front of the other shooter's line; the lab's "player
+  deaths" are a measure of camp crowding as much as of player hunting. Attribution caveat: one seed, six deaths; not a
+  count over seeds.
 
 ## 4. New paths
 
