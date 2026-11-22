@@ -1,9 +1,9 @@
-// Build the exposed stone faces and continuous coping around delivered Coliseum wall cells.
 using Roguehalla.Net.Protocol;
 using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Build the exposed stone faces and continuous coping around delivered Coliseum wall cells.</summary>
     public sealed partial class RegionWalls
     {
         // Abrasion cuts only exposed corners. Joined edges keep their full span and the painted

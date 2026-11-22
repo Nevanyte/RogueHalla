@@ -1,4 +1,3 @@
-// Refresh the shared Coliseum wall atlas after Inspector edits, Undo and source reimports.
 using System;
 using Roguehalla.Client;
 using UnityEditor;
@@ -6,6 +5,7 @@ using UnityEngine;
 
 namespace Roguehalla.Editor
 {
+    /// <summary>Refresh the shared Coliseum wall atlas after Inspector edits, Undo and source reimports.</summary>
     [CustomEditor(typeof(ColiseumParapetArt))]
     sealed class ColiseumParapetInspector : UnityEditor.Editor
     {

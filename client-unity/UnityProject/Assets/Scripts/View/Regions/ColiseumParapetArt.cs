@@ -1,8 +1,8 @@
-// Artist-owned pigment, coping and frieze settings for the arena parapet.
 using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Artist-owned pigment, coping and frieze settings for the arena parapet.</summary>
     [CreateAssetMenu(menuName = "RogueHalla/Coliseum parapet")]
     public sealed class ColiseumParapetArt : ScriptableObject
     {
