@@ -170,8 +170,9 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
     `StormInkFireGeologyEditModeTests.EditorCleanupBetweenAtlasLookupAndSceneBuildPreservesRegisteredSprites`. Origin's
     `64ca1230c` alone fails the same three with the same values, so they are origin's (Storm Ink), not the merge's; CI
     does not run EditMode.
-  - Fixed on origin's line by P-EDITMODE-STORMINK-1 (side session, `agent/opus/P-EDITMODE-STORMINK-1` @ `58b76445a`, from
-    origin's `64ca1230c`, local only, not yet reviewed or pushed): EditMode 2000/2000, quick gate green. All three broke at
+  - Fixed on origin's line by P-EDITMODE-STORMINK-1 (side session, `agent/opus/P-EDITMODE-STORMINK-1` @ `24a5e3a86`, from
+    origin's `64ca1230c`; merged into origin as PR 91, `d14e2fd60`, 2026-11-22, with its CI still queued and no reviewer
+    agent run): EditMode 2000/2000, quick gate green. All three broke at
     PR 83: one Editor bug (the region atlas is now kept through Editor cleanup), two dressed-map test premises amended
     because Storm Ink's seam details draw on dressed maps. Owner, 2026-11-22, asked whether to keep those client-made
     seam details on dressed maps: "Keep them" (`docs/OWNER_DECISIONS.md`).
@@ -181,6 +182,11 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
     gate ran together. That gate: every step green (clippy, workspace and rh-sim suites, Postgres, parity report,
     headless smoke, release-only checks, C#, JS, card chain) except Unity EditMode, 1997/2000, the three origin failures
     above. Log `.agent-runs/gate/20261122T022801-coord-int-81-clean-full.log`.
+  - **Owner, 2026-11-22: "please commit and merge".** PR 80's CI on `dd8912812` was green on every check (Rust
+    foundation, native determinism and replay, perf gate, latency report, C#, provenance, card runtime source), and the
+    PR merged cleanly over PR 91 (which touches only Unity view code, one EditMode test file and its packet file). The
+    records after `dd8912812` (the gate result, the seam decision and this bullet) touch only `docs/MIGRATION.md` and
+    `docs/OWNER_DECISIONS.md`, which no CI job reads, so PR 80 was merged by hand at that head without a second CI run.
 
 ## Resumed (2026-11-20): the elite and augment rework, integration 65
 
