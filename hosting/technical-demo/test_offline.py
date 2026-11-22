@@ -298,6 +298,22 @@ class LaunchFlags(unittest.TestCase):
         self.assertNotIn('--map-pool', line)
         self.assertIn('--min-players 1 --fill-bots 8 --max-rooms 3', line)
 
+    def test_bot_wait_with_matchmaking(self):
+        c = dict(C, lobby_timing='matchmaking', bot_wait_seconds=60)
+        config(json.dumps(c), NOW)
+        line = exec_line(c, False)
+        self.assertIn(' --lobby-timing matchmaking --bot-wait-seconds 60 ', line)
+        self.assertNotIn('--lobby-seconds', line)
+        self.assertNotIn('--bot-wait-seconds', exec_line(c, True))
+        self.assertNotIn('--bot-wait-seconds', exec_line(C, False))
+
+    def test_bot_wait_rejects_bad_values(self):
+        for extra in (dict(bot_wait_seconds=60), dict(lobby_timing='matchmaking', bot_wait_seconds=-1),
+                      dict(lobby_timing='matchmaking', bot_wait_seconds=601), dict(lobby_timing='matchmaking', bot_wait_seconds='60'),
+                      dict(lobby_timing='matchmaking', bot_wait_seconds=True)):
+            with self.subTest(extra=extra), self.assertRaisesRegex(ValueError, 'bot_wait_seconds'):
+                config(json.dumps(dict(C, **extra)), NOW)
+
     def test_all_three_on_source_only(self):
         c = dict(C, **ON)
         config(json.dumps(c), NOW)

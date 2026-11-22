@@ -14,7 +14,7 @@ import time
 
 ROOT = Path('/opt/rougehalla-demo')
 # Optional Source-room launch settings (P-HOST-FLAGS-1); absent means today's behaviour.
-LAUNCH_SETTINGS = ('map_pool', 'signature_landmarks', 'lobby_timing', 'bot_brain')
+LAUNCH_SETTINGS = ('map_pool', 'signature_landmarks', 'lobby_timing', 'bot_brain', 'bot_wait_seconds')
 CONFIG = Path('/etc/rougehalla-demo.json')
 UNITS = Path('/etc/systemd/system')
 MAX_BUNDLE = 160 * 1024 * 1024
@@ -32,12 +32,17 @@ def config(raw, now=None):
     c = json.loads(raw)
     required = {'bucket', 'key', 'sha256', 'region', 'expires_at', 'domain', 'run_id', 'protocol', 'content_hash'}
     require(type(c) is dict and required <= set(c) <= required | set(LAUNCH_SETTINGS), 'config keys')
-    require(all(type(v) is str and v for k, v in c.items() if k not in ('protocol', 'map_pool', 'signature_landmarks', 'bot_brain')), 'config strings')
+    require(all(type(v) is str and v for k, v in c.items() if k not in ('protocol', 'map_pool', 'signature_landmarks', 'bot_brain', 'bot_wait_seconds')), 'config strings')
     for flag in ('map_pool', 'signature_landmarks'):
         require(type(c.get(flag, False)) is bool, f'{flag} must be true or false')
     require(c.get('lobby_timing', 'legacy') in ('legacy', 'matchmaking'), 'lobby_timing must be legacy or matchmaking')
     require(type(c.get('bot_brain', 'off')) is str and c.get('bot_brain', 'off') in ('off', 'full'), 'bot_brain must be off or full')
     require(not c.get('signature_landmarks', False) or c.get('map_pool', False), 'signature_landmarks needs map_pool')
+    # Open alpha (owner 2026-11-22): the matchmaking lobby waits this long for humans before bots fill. Needs an rh-server
+    # built with `--bot-wait-seconds` (an older server exits on the flag), so it is opt-in.
+    wait = c.get('bot_wait_seconds')
+    require(wait is None or (type(wait) is int and 0 <= wait <= 600), 'bot_wait_seconds must be an integer 0-600')
+    require(wait is None or c.get('lobby_timing') == 'matchmaking', 'bot_wait_seconds needs lobby_timing matchmaking')
     require(type(c['protocol']) is int and 1 <= c['protocol'] <= 65535, 'protocol u16')
     require(re.fullmatch(r'[a-f0-9]{16}', c['content_hash']), 'content hash')
     require(re.fullmatch(r'[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]', c['bucket']), 'bucket')
@@ -240,6 +245,7 @@ def app_unit(c, training):
         extra = (' --map-pool' if c.get('map_pool') else '') + (' --signature-landmarks' if c.get('signature_landmarks') else '') + (' --lobby-timing matchmaking' if matchmaking else '')
         # `--bot-brain full`: the ported Brain plays the fill bots (HumanBot on a fault). Source only; training has no fill bots.
         extra += ' --bot-brain full' if c.get('bot_brain') == 'full' else ''
+        extra += f" --bot-wait-seconds {c['bot_wait_seconds']}" if c.get('bot_wait_seconds') is not None else ''
         options = f'--map {ROOT}/source-map.json --result-spool /var/lib/rougehalla-demo/spool --min-players 1 --fill-bots 8 --max-rooms {SOURCE_MAX_ROOMS}{lobby}{extra}'
     # Owner approval 2026-11-11: the legacy bot learner runs on Source (single writer on this host's Postgres); training
     # refuses learning (rh-server exits 2), so it keeps it off.

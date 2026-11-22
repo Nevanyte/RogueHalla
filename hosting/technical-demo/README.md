@@ -182,7 +182,7 @@ not that ACME completed, the public site loaded or a genuine match succeeded.
 
 ## Source launch settings (P-HOST-FLAGS-1)
 
-The nonsecret config takes four optional keys for the **Source** room; Training never receives them (rh-server refuses
+The nonsecret config takes five optional keys for the **Source** room; Training never receives them (rh-server refuses
 `--map-pool` and `--lobby-timing` there). Absent keys mean the defaults, and with all defaults the rendered units are
 byte-identical to the earlier ones. The owner chooses the values at deploy time.
 
@@ -199,6 +199,10 @@ byte-identical to the earlier ones. The owner chooses the values at deploy time.
   falls back to HumanBot on a fault. Measured on the release commit with these flags: HumanBot fill bots die within a
   minute and matches end at 41 to 112 s, while with the Brain no match ended within 600 s in 12 runs (measured with
   the learner off and no database, not in the host's exact configuration).
+- `bot_wait_seconds` (integer 0 to 600, absent by default): adds `--bot-wait-seconds N`, so the matchmaking lobby waits
+  N seconds for humans before bots fill. Refused unless `lobby_timing` is `"matchmaking"`, and it needs an `rh-server`
+  built with that flag (an older server exits on it). Open alpha (owner 2026-11-22): `"lobby_timing": "matchmaking",
+  "bot_wait_seconds": 60`.
 
 Any other key or value is refused. Offline check of the rendered flags: `test_offline.py` (`LaunchFlags`). Local proof
 that the "all three on" command starts a real server: build `rh-server`, then run it on loopback with the Source options
