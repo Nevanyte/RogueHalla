@@ -23,11 +23,17 @@ namespace Roguehalla.Client.Tests
 
             // Vary an interior region bit to vary the deterministic placement seed without removing any wall
             // geometry or shrinking the Coliseum. Return a fixture that drives the real scatter/render path.
-            for (int variation = 0; variation < MapSize * MapSize; variation++)
+            var seedCells = new[]
             {
-                regions[MapSize + 1] = (byte)(variation & 1);
-                regions[MapSize + 2] = (byte)((variation >> 1) & 1);
-                regions[MapSize + 3] = (byte)((variation >> 2) & 1);
+                12 * MapSize + 12, 12 * MapSize + 27,
+                18 * MapSize + 12, 18 * MapSize + 27,
+                24 * MapSize + 12, 24 * MapSize + 27,
+                28 * MapSize + 15, 28 * MapSize + 24,
+            };
+            for (int variation = 0; variation < 1 << seedCells.Length; variation++)
+            {
+                for (int bit = 0; bit < seedCells.Length; bit++)
+                    regions[seedCells[bit]] = (byte)((variation >> bit) & 1);
                 var map = new MapBlob(MapSize, MapSize, tiles, null, regions);
                 var placements = RegionProps.Scatter(map);
                 var found = placements.FirstOrDefault(p => p.Art == "col.rack");
