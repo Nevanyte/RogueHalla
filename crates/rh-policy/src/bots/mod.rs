@@ -26,6 +26,7 @@ pub mod orbwalk;
 pub mod paths;
 pub mod perception;
 pub mod planning;
+pub mod raid;
 pub mod random;
 pub mod reflex;
 mod temporal_percept;
@@ -78,6 +79,7 @@ pub use mob_hunt::{
 pub use paths::{PathBudget, PathStats, RoomPathService, WalkAnswer, BOT_PATH_BUDGET_PER_TICK};
 pub use perception::Perception;
 pub use planning::{PlanDeal, PlanIntent, PlanLearned, PlanMap, PlanModule, PlanState};
+pub use raid::RaidBot;
 pub use random::{derive, Rng};
 pub use types::{
     BotWeapon, Command, CommandType, ExGaussian, Intent, IntentBody, IntentChannel, IntentKind,

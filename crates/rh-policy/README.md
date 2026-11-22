@@ -18,6 +18,8 @@ bot-vs-bot runs.
 - `src/scripted.rs`: simple scripted policies such as `Brawler`.
 - `src/bots/bot.rs`: `HumanBot`, the live fill bot (a partial port of the legacy bot in `packages/server/src/bots/`).
   `src/bots/mod.rs` lists its modules (reflex, fight, kite, loot, planning, perception, humanizer, and more).
+- `src/bots/raid/`: `RaidBot`, the balance lab's test player (one arbiter in camp-equivalents per minute; one file per
+  goal kind under `exec/` and `quest/`).
 - `src/bots/brain.rs` and `src/bots/brain_bot.rs`: the ported legacy Brain, not wired to live bots.
 - `src/delivery/`: the shared public projection that delivers observations to a policy.
 - `data/brain_tuning.json`: the Brain's tier and persona numbers.
