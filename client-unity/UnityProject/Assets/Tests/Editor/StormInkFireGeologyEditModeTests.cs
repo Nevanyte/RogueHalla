@@ -3,6 +3,7 @@ using System.Linq;
 using NUnit.Framework;
 using Roguehalla.Net.Protocol;
 using Roguehalla.Net.Ui;
+using UnityEditor;
 using UnityEngine;
 
 namespace Roguehalla.Client.Tests
@@ -88,6 +89,29 @@ namespace Roguehalla.Client.Tests
                     Assert.That(renderers[i].transform.localPosition, Is.EqualTo(ArenaView.WorldPoint(rows[i].X, rows[i].Y)));
                     Assert.That(renderers[i].sprite.texture, Is.SameAs(RegionPropArt.Atlas));
                 }
+            }
+            finally
+            {
+                scene?.Dispose();
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void EditorCleanupBetweenAtlasLookupAndSceneBuildPreservesRegisteredSprites()
+        {
+            var rows = new[] { new MapProp(3, 96, 96, 0, 0) };
+            var map = new MapBlob(20, 20, new byte[400]).WithPublic(null, null, null, rows, null);
+            RegionProps.Scatter(map);
+            Assert.That(RegionPropArt.TryGet("fire.scree", out var scree), Is.True);
+            EditorUtility.UnloadUnusedAssetsImmediate();
+
+            var root = new GameObject("Fire scree after editor cleanup");
+            RegionProps scene = null;
+            try
+            {
+                scene = RegionProps.Build(root.transform, map);
+                Assert.That(root.GetComponentInChildren<SpriteRenderer>().sprite, Is.SameAs(scree.Sprite));
             }
             finally
             {

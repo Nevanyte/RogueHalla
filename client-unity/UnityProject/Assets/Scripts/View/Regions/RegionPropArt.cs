@@ -33,6 +33,11 @@ namespace Roguehalla.Client
         static Dictionary<string, RegionPropSprite> _all;
         static Texture2D _atlas;
         static int _authoredDefinitionsDirty;
+#if UNITY_EDITOR
+        // Keep the authoring sources alive as long as their preview atlas. Otherwise editor cleanup
+        // can unload an unchanged source and its next load calls OnValidate in the middle of placement.
+        static StormInkPropArtDefinition[] _previewSources;
+#endif
         public static Texture2D Atlas { get { Ensure(); return _atlas; } }
         public static bool TryGet(string key, out RegionPropSprite sprite) { Ensure(); return _all.TryGetValue(key, out sprite); }
         public static IEnumerable<string> Keys { get { Ensure(); return _all.Keys; } }
@@ -45,6 +50,9 @@ namespace Roguehalla.Client
         {
             _all = null;
             _atlas = null;
+#if UNITY_EDITOR
+            _previewSources = null;
+#endif
             Interlocked.Exchange(ref _authoredDefinitionsDirty, 0);
         }
 
@@ -55,12 +63,18 @@ namespace Roguehalla.Client
 
         static void Ensure()
         {
-            if (Interlocked.Exchange(ref _authoredDefinitionsDirty, 0) != 0)
+            bool dirty = Interlocked.Exchange(ref _authoredDefinitionsDirty, 0) != 0;
+            if (_all != null && !dirty) return;
+            _all = null;
+            _atlas = null;
+#if UNITY_EDITOR
+            if (_previewSources == null || dirty)
             {
-                _all = null;
-                _atlas = null;
+                _previewSources = Resources.LoadAll<StormInkPropArtDefinition>("StormInk/Props");
+                // Validation during this load is covered by the fresh definition reads below.
+                Interlocked.Exchange(ref _authoredDefinitionsDirty, 0);
             }
-            if (_all != null) return;
+#endif
             var defs = new List<Def>();
             AddFrost(defs); AddFire(defs); AddSentenced(defs); AddPlague(defs); AddHoly(defs); AddTemple(defs); AddColiseum(defs); AddPlaceholder(defs);
             // Shelf-pack into an atlas, growing the height if needed.

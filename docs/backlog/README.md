@@ -341,6 +341,7 @@ is **not implemented**; the gain figures are **estimates**.
 | P-STORM-COLISEUM-STANDARD-1 | Faded cloth arena standard beside the northeast wall | P-STORM-COLISEUM-LIMESTONE-1 | Visual checks passed in Web and Unity. Integrated gate pending | [spec](packets/P-STORM-COLISEUM-STANDARD-1.md) |
 | P-STORM-COLISEUM-TORCH-1 | Painted arena fire baskets with a separate flame and editable light | P-STORM-COLISEUM-STANDARD-1 | Visual checks passed in Web and Unity. Integrated gate pending | [spec](packets/P-STORM-COLISEUM-TORCH-1.md) |
 | P-STORM-COLISEUM-RACK-1 | Low oak rack displaying the shared equipment art | P-STORM-COLISEUM-TORCH-1 | In progress | [spec](packets/P-STORM-COLISEUM-RACK-1.md) |
+| P-STORM-PROP-ATLAS-LIFETIME-1 | Stable registration of painted props across Editor asset cleanup | P-STORM-CONCEALMENT-CANOPY-1 | In progress | [spec](packets/P-STORM-PROP-ATLAS-LIFETIME-1.md) |
 | P-STORM-MARSH-DRESSING-REVIEW-1 | Ordinary tree, crowded mushrooms, ferns and repeat defects on the marsh route | P-STORM-PLAGUE-TREE-1, P-STORM-PLAGUE-MUSHROOM-VARIATION-1, P-STORM-PLAGUE-FERN-1, P-STORM-PLAGUE-RUBBLE-1 | Joined visual review recorded | [spec](packets/P-STORM-MARSH-DRESSING-REVIEW-1.md) |
 | P-STORM-PLAGUE-BOG-WILLOW-1 | Low painted willow for Plague decoration and marsh cover | P-STORM-MARSH-DRESSING-REVIEW-1 | In progress | [spec](packets/P-STORM-PLAGUE-BOG-WILLOW-1.md) |
 | P-STORM-CONCEALMENT-CANOPY-1 | Taller regional hiding places at fighter scale | P-STORM-PLAGUE-BOG-WILLOW-1 | In progress | [spec](packets/P-STORM-CONCEALMENT-CANOPY-1.md) |
