@@ -338,6 +338,7 @@ is **not implemented**; the gain figures are **estimates**.
 | P-STORM-FIRE-THORN-COVER-1 | Charcoal thorn scrub on volcanic concealment tiles | P-STORM-FIRE-ROCK-FIELD-1 | Art approved | [spec](packets/P-STORM-FIRE-THORN-COVER-1.md) |
 | P-STORM-COLISEUM-GATES-1 | Limestone posts and iron closures at the four delivered openings | P-STORM-FIRE-THORN-COVER-1 | In progress | [spec](packets/P-STORM-COLISEUM-GATES-1.md) |
 | P-STORM-MARSH-DRESSING-REVIEW-1 | Ordinary tree, crowded mushrooms, ferns and repeat defects on the marsh route | P-STORM-PLAGUE-TREE-1, P-STORM-PLAGUE-MUSHROOM-VARIATION-1, P-STORM-PLAGUE-FERN-1, P-STORM-PLAGUE-RUBBLE-1 | Joined visual review recorded | [spec](packets/P-STORM-MARSH-DRESSING-REVIEW-1.md) |
+| P-STORM-PLAGUE-BOG-WILLOW-1 | Low painted willow for Plague decoration and marsh cover | P-STORM-MARSH-DRESSING-REVIEW-1 | In progress | [spec](packets/P-STORM-PLAGUE-BOG-WILLOW-1.md) |
 | P-UI-9 | Settings, accessibility, input rebinding, audio decision | P-UNITY-1 | Coarse | client/src/settings.ts, ui/settingsPanel.ts |
 | P-UI-10 | Unity batchmode tests + build in CI | P-UNITY-1, P-CI-1 | Coarse | none |
 
