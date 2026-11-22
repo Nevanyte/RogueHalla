@@ -95,6 +95,31 @@ namespace Roguehalla.Client.Tests
             finally { Object.DestroyImmediate(settings); }
         }
 
+        [Test]
+        public void AHalfStrengthRockWashInterpolatesBothSizeAndPigment()
+        {
+            var map = EdgeMap(1, 4);
+            var field = Field(map);
+            var settings = ScriptableObject.CreateInstance<RegionTransitionArt>();
+            try
+            {
+                var rock = new RegionProps.Placement { X = 23.5f, Y = 10.5f, Tx = 23, Ty = 10 };
+                var weights = new float[RegionField.Regions];
+                float sx = 1f, sy = 1f;
+                var tint = Color.white;
+                Assert.That(RegionEdgeProps.WeatherExisting(map, field, settings, rock, "fire.scree", weights, ref sx, ref sy, ref tint), Is.True);
+                float fullWidth = sx;
+                var fullTint = tint;
+                settings.RockBreakup = .5f;
+                sx = sy = 1f;
+                tint = Color.white;
+                Assert.That(RegionEdgeProps.WeatherExisting(map, field, settings, rock, "fire.scree", weights, ref sx, ref sy, ref tint), Is.True);
+                Assert.That(Mathf.Abs(sx - Mathf.Lerp(1f, fullWidth, .5f)), Is.LessThan(.0001f));
+                Assert.That(tint, Is.EqualTo(Color.Lerp(Color.white, fullTint, .5f)));
+            }
+            finally { Object.DestroyImmediate(settings); }
+        }
+
         static MapBlob EdgeMap(byte westRegion, byte eastRegion)
         {
             const int width = 48, height = 32;

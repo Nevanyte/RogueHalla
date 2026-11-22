@@ -14,7 +14,7 @@ namespace Roguehalla.Client
         const int SeedSalt = 0x2E19;
 
         public static List<RegionProps.Placement> Generate(MapBlob map, RegionField field,
-            RegionTransitionArt art, IList<RegionProps.Placement> existing)
+            RegionTransitionArt art, IList<RegionProps.Placement> existing, TempleLayout temple = null, PlagueGround plagueGround = null)
         {
             var result = new List<RegionProps.Placement>();
             if (map == null || map.Tiles == null || map.Regions == null || map.Tiles.Length != map.W * map.H ||
@@ -25,8 +25,8 @@ namespace Roguehalla.Client
             if (grass <= 0f && rocks <= 0f) return result;
             var weights = new float[RegionField.Regions];
             var nave = ChurchLandmark.DeliveredNave(map);
-            var temple = TempleLayout.For(map);
-            var plagueGround = PlagueGround.Build(map);
+            temple ??= TempleLayout.For(map);
+            plagueGround ??= PlagueGround.Build(map);
             int seed = unchecked((int)(map.LayerHash ^ (map.SemanticHash * 2654435761u))) + SeedSalt;
             byte[] terrain = map.Terrain, bushes = map.Bushes;
             for (int y = 2; y < map.H - 2; y++) for (int x = 2; x < map.W - 2; x++)
@@ -102,12 +102,12 @@ namespace Roguehalla.Client
             float grass = Mathf.Clamp01(art.GrassWeathering), rocks = Mathf.Clamp01(art.RockBreakup);
             if (grass <= 0f && rocks <= 0f) return false;
             byte region = map.Regions[placement.Ty * map.W + placement.Tx];
-            field.Sample(placement.X, placement.Y, weights);
-            float frostMix = weights[Frost - 1];
             if (grass > 0f && (artKey == "plague.fern" || artKey == "holy.grass" || artKey == "sent.deadgrass") &&
-                region != Frost && frostMix >= .035f && frostMix < .9f &&
-                Touches(map.Regions, map.W, map.H, placement.Tx, placement.Ty, Frost, 2))
+                region != Frost && Touches(map.Regions, map.W, map.H, placement.Tx, placement.Ty, Frost, 2))
             {
+                field.Sample(placement.X, placement.Y, weights);
+                float frostMix = weights[Frost - 1];
+                if (frostMix < .035f || frostMix >= .9f) return false;
                 var dry = new Color(.83f, .79f, .66f, 1f);
                 tint *= Color.Lerp(Color.white, dry, Mathf.Clamp01(frostMix * grass * .78f));
                 float thinning = artKey == "sent.deadgrass" ? .035f : .07f;
@@ -118,11 +118,13 @@ namespace Roguehalla.Client
             if (rocks > 0f && (artKey == "fire.scree" || artKey == "fire.scree.cobbles") &&
                 region == Fire && TouchesOtherRegion(map.Regions, map.W, map.H, placement.Tx, placement.Ty, Fire, 2))
             {
+                field.Sample(placement.X, placement.Y, weights);
                 float fireMix = weights[Fire - 1];
                 float breakup = Mathf.Clamp01((1f - fireMix) * rocks);
                 scaleX *= 1f - breakup * .18f;
                 scaleY *= 1f - breakup * .18f;
-                tint *= Color.Lerp(new Color(.82f, .80f, .79f, 1f), Color.white, fireMix * .25f);
+                var weathered = Color.Lerp(new Color(.82f, .80f, .79f, 1f), Color.white, fireMix * .25f);
+                tint *= Color.Lerp(Color.white, weathered, rocks);
                 return breakup > 0f;
             }
             return false;

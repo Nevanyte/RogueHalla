@@ -306,12 +306,13 @@ namespace Roguehalla.Client
             return false;
         }
 
-        public static RegionProps Build(Transform parent, MapBlob map, RegionField field = null)
+        public static RegionProps Build(Transform parent, MapBlob map, RegionField field = null, TempleLayout temple = null,
+            PlagueGround plague = null)
         {
-            var p = new RegionProps(); p.Create(parent, map, field); return p;
+            var p = new RegionProps(); p.Create(parent, map, field, temple, plague); return p;
         }
 
-        void Create(Transform parent, MapBlob map, RegionField field)
+        void Create(Transform parent, MapBlob map, RegionField field, TempleLayout temple, PlagueGround plague)
         {
             _root = new GameObject("Region props (deterministic, decorative)"); _root.transform.SetParent(parent, false);
             var litShader = Resources.Load<Shader>("Regions/RegionSpriteLit");
@@ -328,7 +329,7 @@ namespace Roguehalla.Client
                     field = new RegionField();
                     field.Build(map != null ? map.Regions : null, map != null ? map.W : 0, map != null ? map.H : 0);
                 }
-                placements.AddRange(RegionEdgeProps.Generate(map, field, transitions, placements));
+                placements.AddRange(RegionEdgeProps.Generate(map, field, transitions, placements, temple, plague));
             }
             int visualSeed = unchecked((int)(map.LayerHash ^ (map.SemanticHash * 2654435761u)));
             HashSet<byte> warned = null;

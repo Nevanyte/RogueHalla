@@ -64,7 +64,7 @@ namespace Roguehalla.Client
             _regionGround = RegionGround.Create(_mapRoot, map, RegionExposure, temple, plague);
             if (temple.Found && !temple.IsSignature) AddTempleEmblem(temple);
             _regionWalls = RegionWalls.Build(_mapRoot, map, RegionExposure);
-            _regionProps = RegionProps.Build(_mapRoot, map, _atmos != null ? _atmos.Field : null);
+            _regionProps = RegionProps.Build(_mapRoot, map, _atmos != null ? _atmos.Field : null, temple, plague);
             _coliseumGates = ColiseumGatePresenter.Build(_mapRoot, map);
             _landmarks = LandmarkView.Build(_mapRoot, map);
             if (_atmos != null) _atmos.Lights.RegisterLandmarkCandles(_landmarks);
