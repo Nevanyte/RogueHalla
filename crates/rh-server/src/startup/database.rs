@@ -32,6 +32,7 @@ pub(crate) fn db_connect_budget(args: &[String]) -> Result<Duration, String> {
 
 /// `--db-pool N` (default 16; 1..=1024): the durable store's connection pool size.
 #[cfg(any(feature = "postgres", test))]
+#[allow(dead_code)] // stub: P-DB-POOL-1 wires it into `durable`
 pub(crate) fn db_pool_size(_args: &[String]) -> Result<u32, String> {
     // stub: P-DB-POOL-1
     Ok(16)
