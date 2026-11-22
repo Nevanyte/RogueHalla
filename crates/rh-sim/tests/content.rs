@@ -266,6 +266,7 @@ const TABLES_FOLDED_BY_HASH: &[(&str, &str, &str)] = &[
     ("quests/board/special/wall.rs", "ANCHOR_MARGIN", "Top 25 authoritative tuning folded by quests/board/catalog::visit_content"),
     ("quests/board/special/wall.rs", "MAX_REMOVALS", "Top 25 authoritative tuning folded by quests/board/catalog::visit_content"),
     ("quests/board/special/egg.rs", "RADIUS", "Top 25 authoritative tuning folded by quests/board/catalog::visit_content"),
+    ("quests/board/tuning.rs", "TOP25", "P-BAL-Q25-SEAM-1: the Top 25 quest tuning table, folded field by field by the quests/board visit_rules chain from catalog::visit_content in the word order of the consts it replaced; the fields the packet lists as not folded are not hashed"),
     ("archetype.rs", "ARCHETYPES", "ADR0024 hitbox archetype table (body/foot boxes, chest) folded by archetype::visit_content under hitbox-archetypes/1"),
     ("archetype.rs", "PLAYER_CHEST", "ADR0024 projectile height of every player look (C-OBS), folded row by row by archetype::visit_content (each row's chest)"),
     ("archetype.rs", "FOOT", "ADR0024 shared foot box of the archetype table, folded row by row by archetype::visit_content"),

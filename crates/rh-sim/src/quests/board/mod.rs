@@ -5,6 +5,7 @@ pub mod map_admission;
 pub mod placement;
 pub(crate) mod rewards;
 pub(crate) mod special;
+pub(crate) mod tuning;
 
 use super::placement::Placement;
 use crate::private_rng::Sfc32;

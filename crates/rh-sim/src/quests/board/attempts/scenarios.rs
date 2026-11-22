@@ -467,11 +467,18 @@ impl Raid {
             }
             HoldTheFort => {
                 self.arrange(self.seat, self.objective(0));
-                self.steps((FORT_MS / self.sim.k.tick_ms()) as usize + 1);
+                self.steps(
+                    (crate::quests::board::tuning::TOP25.fort_ms / self.sim.k.tick_ms()) as usize
+                        + 1,
+                );
             }
             StayAWhile => {
                 self.action(6, 0);
-                self.steps((MEDITATE_MS / self.sim.k.tick_ms()) as usize + 1);
+                self.steps(
+                    (crate::quests::board::tuning::TOP25.meditate_ms / self.sim.k.tick_ms())
+                        as usize
+                        + 1,
+                );
             }
             BountyHunter => {
                 self.sim
@@ -819,7 +826,7 @@ fn a_published_lifesteal_trade_can_be_submitted_and_settled() {
     let at = raid.objective(0);
     raid.arrange(raid.seat, at);
     let farm = &mut raid.sim.w.players.get_mut(raid.seat).unwrap().farm;
-    farm.set(RotMonk, BARGAIN_COST);
+    farm.set(RotMonk, crate::quests::board::tuning::TOP25.bargain_cost);
     let previous = farm.count(PlagueRat);
 
     let (handle, journal) = raid.entry();
