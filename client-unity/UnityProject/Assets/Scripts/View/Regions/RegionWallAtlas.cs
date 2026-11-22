@@ -31,7 +31,9 @@ namespace Roguehalla.Client
         static Texture2D _atlas; static Set[] _sets; static Cell _contact, _fenceGround;
         public static Texture2D Atlas { get { Ensure(); return _atlas; } }
         public static Set SetFor(WallStyle style) { Ensure(); return _sets[(int)style]; }
-        static Set _nave;
+        static Set _nave, _parapet;
+        static ColiseumParapetArt _parapetArt;
+        public static Set Parapet { get { Ensure(); return _parapet; } }
         public static Set Nave { get { Ensure(); return _nave; } }
         public static Cell Contact { get { Ensure(); return _contact; } }
         /// <summary>A flat decal cell (the fence's iron at alpha .3) drawn over the ground of a fence tile, as legacy drawFenceTile does.</summary>
@@ -55,11 +57,11 @@ namespace Roguehalla.Client
             var px = new Color32[AtlasW * atlasH];
             _sets = new Set[styles];
             int x = 2, y = 2, rowH = 0;
-            Cell Place(RegionCanvas cv, ref int cx, ref int cy, ref int rh)
+            Cell Place(RegionCanvas cv, ref int cx, ref int cy, ref int rh, bool solidGutter = false)
             {
                 int w = cv.W + 4, h = cv.H + 4;
                 if (cx + w > AtlasW) { cx = 2; cy += rh; rh = 0; }
-                cv.CopyTo(px, AtlasW, cx + 2, cy + 2);
+                cv.CopyTo(px, AtlasW, cx + 2, cy + 2, solidGutter: solidGutter);
                 var c = new Cell(new Vector2((cx + 2f) / AtlasW, (cy + 2f) / atlasH), new Vector2((cx + 2f + cv.W) / AtlasW, (cy + 2f + cv.H) / atlasH));
                 cx += w; rh = Mathf.Max(rh, h);
                 return c;
@@ -93,25 +95,54 @@ namespace Roguehalla.Client
                 for (int v = 0; v < TopVariants; v++) _nave.Top[v] = Place(finish.Tile(true, v), ref x, ref y, ref rowH);
                 for (int v = 0; v < FaceVariants; v++) _nave.Face[v] = Place(finish.Tile(false, v), ref x, ref y, ref rowH);
             }
+            var limestone = _sets[(int)WallStyle.Limestone];
+            _parapet = new Set { Rim = limestone.Rim };
+            _parapetArt = ColiseumParapetArt.Load();
+            var pigment = _parapetArt != null ? _parapetArt.ReadPigment() : null;
+            for (int v = 0; v < TopVariants; v++)
+                _parapet.Top[v] = Place(ParapetTile(true, v, pigment), ref x, ref y, ref rowH, true);
+            for (int v = 0; v < FaceVariants; v++)
+                _parapet.Face[v] = Place(ParapetTile(false, v, pigment), ref x, ref y, ref rowH, true);
             _atlas = new Texture2D(AtlasW, atlasH, TextureFormat.RGBA32, true, false) { name = "Region walls atlas", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, anisoLevel = 2 };
             _atlas.SetPixelData(px, 0); _atlas.Apply(true, !Application.isEditor);
         }
 
+        static RegionCanvas ParapetTile(bool coping, int section, Color32[] pigment)
+        {
+            if (pigment != null) return _parapetArt.Tile(coping, section, pigment);
+            var theme = ThemeOf(WallStyle.Limestone);
+            return coping ? PaintTop(WallStyle.Limestone, theme, section) : PaintFace(WallStyle.Limestone, theme, section);
+        }
+
 #if UNITY_EDITOR
+        public static bool HasParapetAtlas => _atlas != null;
+        public static ColiseumParapetArt ParapetSource => _parapetArt;
+
+        public static void RefreshParapetFinish()
+        {
+            if (_atlas == null) return;
+            _parapetArt = ColiseumParapetArt.Load();
+            var pigment = _parapetArt != null ? _parapetArt.ReadPigment() : null;
+            for (int v = 0; v < TopVariants; v++) Replace(_parapet.Top[v], ParapetTile(true, v, pigment), true);
+            for (int v = 0; v < FaceVariants; v++) Replace(_parapet.Face[v], ParapetTile(false, v, pigment), true);
+            _atlas.Apply(true, false);
+        }
+
+        static void Replace(Cell cell, RegionCanvas paint, bool solidGutter = false)
+        {
+            int w = paint.W + 4, h = paint.H + 4;
+            var pixels = new Color32[w * h];
+            paint.CopyTo(pixels, w, 2, 2, solidGutter: solidGutter);
+            _atlas.SetPixels32(Mathf.RoundToInt(cell.Min.x * _atlas.width) - 2,
+                Mathf.RoundToInt(cell.Min.y * _atlas.height) - 2, w, h, pixels);
+        }
+
         /// <summary>Updates only the six authored wall cells in the existing editor atlas.</summary>
         public static void RefreshNaveFinish()
         {
             var finish = ChurchMasonryArt.Load();
             if (finish == null || _atlas == null || _nave == _sets[(int)WallStyle.Limestone]) return;
             finish.ReadPigment();
-            void Replace(Cell cell, RegionCanvas paint)
-            {
-                int w = paint.W + 4, h = paint.H + 4;
-                var pixels = new Color32[w * h];
-                paint.CopyTo(pixels, w, 2, 2);
-                _atlas.SetPixels32(Mathf.RoundToInt(cell.Min.x * _atlas.width) - 2,
-                    Mathf.RoundToInt(cell.Min.y * _atlas.height) - 2, w, h, pixels);
-            }
             for (int v = 0; v < TopVariants; v++) Replace(_nave.Top[v], finish.Tile(true, v));
             for (int v = 0; v < FaceVariants; v++) Replace(_nave.Face[v], finish.Tile(false, v));
             _atlas.Apply(true, false);

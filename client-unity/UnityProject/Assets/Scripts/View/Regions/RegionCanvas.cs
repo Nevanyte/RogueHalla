@@ -179,14 +179,14 @@ namespace Roguehalla.Client
         }
 
         /// <summary>Copies the canvas into <paramref name="dst"/> at (ox,oy), with <paramref name="padding"/> px of edge-extended gutter to stop bilinear bleeding.</summary>
-        public void CopyTo(Color32[] dst, int dstW, int ox, int oy, int padding = 2)
+        public void CopyTo(Color32[] dst, int dstW, int ox, int oy, int padding = 2, bool solidGutter = false)
         {
             for (int y = -padding; y < H + padding; y++) for (int x = -padding; x < W + padding; x++)
             {
                 int sx = Mathf.Clamp(x, 0, W - 1), sy = Mathf.Clamp(y, 0, H - 1);
                 Color c = Px[sy * W + sx];
                 // Gutter pixels keep the colour but not the alpha, so the sprite edge never haloes.
-                if (x < 0 || y < 0 || x >= W || y >= H) c.a = 0f;
+                if (!solidGutter && (x < 0 || y < 0 || x >= W || y >= H)) c.a = 0f;
                 dst[(oy + y) * dstW + ox + x] = new Color32((byte)(c.r * 255f + .5f), (byte)(c.g * 255f + .5f), (byte)(c.b * 255f + .5f), (byte)(c.a * 255f + .5f));
             }
         }

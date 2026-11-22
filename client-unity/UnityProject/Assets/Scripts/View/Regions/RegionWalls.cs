@@ -57,6 +57,7 @@ namespace Roguehalla.Client
             var root = new GameObject("Region walls (row meshes)"); root.transform.SetParent(parent, false); _rows.Add(root);
             int w = map.W, h = map.H; var tiles = map.Tiles; var terrain = map.Terrain; var regions = map.Regions;
             var contact = RegionWallAtlas.Contact;
+            var arena = map.Coliseum;
             var temple = TempleLayout.For(map);
             var church = ChurchLandmark.DeliveredNave(map);
             bool paintedPiers = temple.IsSignature && Resources.Load<Sprite>("StormInk/Holy/SunPier") != null;
@@ -110,7 +111,11 @@ namespace Roguehalla.Client
                         : temple.Contains(x, y));
                     if (inBlock || templeWall) style = WallStyle.Temple;
                     var set = tile == MapBlob.Wall && church.IsBoundary(x, y) ? RegionWallAtlas.Nave : RegionWallAtlas.SetFor(style);
-                    float hash = RegionNoise.Hash01(x, y, 5); float tint = .92f + hash * .08f;
+                    bool parapet = tile == MapBlob.Wall && arena != null && !inBlock && !templeWall &&
+                        regions[y * w + x] == (byte)RegionId.Coliseum && x >= arena.X && x < arena.X + arena.W &&
+                        y >= arena.Y && y < arena.Y + arena.H && kind != (int)TerrainKind.Fence;
+                    if (parapet) set = RegionWallAtlas.Parapet;
+                    float hash = RegionNoise.Hash01(x, y, 5); float tint = parapet ? 1f : .92f + hash * .08f;
                     var col = new Color32((byte)(255 * tint), (byte)(255 * tint), (byte)(255 * tint), 255);
                     float py = -(y + 1) * ArenaView.GroundSquash;                   // tile bottom edge in world space
                     float px0 = x, px1 = x + 1;
@@ -127,13 +132,28 @@ namespace Roguehalla.Client
                     }
                     int faceV = inBlock ? bcol : templeWall ? ((x % 3) + 3) % 3 : v % RegionWallAtlas.FaceVariants, topV = inBlock ? bcol + 3 * brow : templeWall ? 4 : (v / 3) % RegionWallAtlas.TopVariants;
                     bool southSolid = Solid(x, y + 1);
+                    bool recedes = parapet && !Solid(x - 1, y) && !Solid(x + 1, y) &&
+                        (southSolid || Solid(x, y - 1));
+                    if (parapet)
+                    {
+                        faceV = (x - arena.X) % RegionWallAtlas.FaceVariants;
+                        int along = recedes ? y - arena.Y : x - arena.X;
+                        topV = along % RegionWallAtlas.TopVariants;
+                    }
                     if (!southSolid)
                     {
                         _kind = 4f; Rect(px0 - .04f, py - .30f, px1 + .04f, py + .04f, contact, new Color32(255, 255, 255, 255));
                         _kind = 1f; Rect(px0 - .003f, py, px1 + .003f, py + WallHeight + .02f, set.Face[faceV], col); _kind = 0f;
                     }
                     float ty0 = py + WallHeight, ty1 = ty0 + TopHeight;
-                    Rect(px0 - .003f, ty0, px1 + .003f, ty1, set.Top[topV], col);
+                    var cap = set.Top[topV];
+                    if (recedes)
+                    {
+                        // The strip advances towards map south. Its northern end meets the preceding cell.
+                        Quad(new Vector3(px0, ty0), new Vector3(px1, ty0), new Vector3(px1, ty1), new Vector3(px0, ty1),
+                            new Vector2(cap.Max.x, cap.Min.y), cap.Max, new Vector2(cap.Min.x, cap.Max.y), cap.Min, col);
+                    }
+                    else Rect(px0 - .003f, ty0, px1 + .003f, ty1, cap, col);
                     var rim = set.Rim; const float rimW = .085f;
                     var white = new Color32(255, 255, 255, 255);
                     if (!Solid(x, y - 1))   // north edge: strong at the outer edge
