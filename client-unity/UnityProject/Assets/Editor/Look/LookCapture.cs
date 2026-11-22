@@ -461,6 +461,8 @@ namespace Roguehalla.Editor
             if (sc.IsWall)
             {
                 var ws = BuildWallScene(name);
+                // The red stand-in remains in BuildWallScene for the editor diagnostics, but is not part of the owner-facing wall art plate.
+                var marker = ws.Arena.transform.Find("stand-in actor"); if (marker != null) marker.gameObject.SetActive(false);
                 bool pv = name.StartsWith("frost-wall-preview");
                 float ty = pv ? (name.EndsWith("invalid") ? 31f : 32f) : (name == "frost-wall-vertical" ? 30.5f : 30.5f);
                 Shot(ws.View, path, 30.5f, ty, 9f, ws.Actors[0].x, ws.Actors[0].y);

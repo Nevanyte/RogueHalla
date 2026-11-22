@@ -673,6 +673,7 @@ namespace Roguehalla.Client
             if (!drawingString) a.Bowstring?.Clear(a.Weapon, a.OutBody);
             a.Weapon.color = weapon == WeaponId.Fists ? new Color(.9f, .86f, .72f, hiddenAlpha) : new Color(1f, 1f, 1f, hiddenAlpha);
             a.Weapon.enabled = !paintedWand && !hauntedFists && !dead && weapon.HasValue && hiddenAlpha > 0f;
+            PresentManacles(a, trackedWeapon && a.Weapon.enabled, phase, weaponProgress, poseFacing, reduced, order);
             BindArtistSources(a, weapon, trackedWeapon ? poseFacing : facing,
                 axeBody != null || swordBody != null || bowBody != null ? fireAxeArt : null, swordBody != null ? fireSwordArt : null,
                 fireBowBodyArt);

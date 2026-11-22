@@ -39,6 +39,29 @@ namespace Roguehalla.Client
             };
         }
 
+        static void PresentManacles(Art a, bool tracked, StormInkWeaponMotion.Phase phase, float progress,
+            float facing, bool reduced, int order)
+        {
+            if (!tracked || a.MobType != MobTypeId.ChainWarden ||
+                !TryWeaponHand(a, false, out var primary) || !TryWeaponHand(a, true, out var support))
+            {
+                a.Manacles?.Hide();
+                return;
+            }
+            int row = StormInkActors.PoseRowForFacing(facing);
+            // The issued sword stays at the belt. The chain the Warden wears is the moving weapon.
+            float side = row >= 4 && row <= 6 ? 1 : -1;
+            var hip = BodySocket(a.Body, new Vector2(.5f + .12f * side, .44f));
+            var rotation = Quaternion.Euler(0, 0, side * 112f);
+            var socket = SpriteSocket(a.Weapon.sprite, StormInkWeaponArt.Grip(WeaponId.Sword, row), a.Weapon.transform.localScale);
+            a.Weapon.transform.localPosition = hip - rotation * socket;
+            a.Weapon.transform.localRotation = rotation;
+            a.Weapon.sortingOrder = order - 2;
+            a.Manacles ??= new StormInkManacles(a.Root.transform, a.Weapon.sharedMaterial);
+            a.Manacles.Draw(BodySocket(a.Body, primary), BodySocket(a.Body, support), row, phase, progress,
+                reduced, order, a.Weapon.color.a);
+        }
+
         static float EquipmentScale(Art a)
         {
             // A bite-mounted focus must clear the drake's ground marker and overhead health bar.
@@ -52,6 +75,7 @@ namespace Roguehalla.Client
             a.HasAttackFacing = a.LocalCue = false;
             a.DrawStartedAt = a.MotionSuccessor = 0;
             a.Bowstring?.Clear(a.Weapon, a.OutBody);
+            a.Manacles?.Hide();
         }
 
         /// <summary>Local click feedback settles the champion into a guard until a delivered cue commits the motion.</summary>
