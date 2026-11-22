@@ -27,7 +27,7 @@ recorded at `conn.rs:266`) would grow with the number of rooms faster than the s
 
 ## Results
 
-| Config | Rooms | Server CPU (cores) | step µs p50/p99/max | wake lateness µs p50/p99/max | step→conn µs p50/p99/max | step→written µs p50/p99/max | client snapshot interval p99 / max ms | verdict |
+| Config | Rooms (steady mean) | Server CPU (cores) | step µs p50/p99/max | wake lateness µs p50/p99/max | step→conn µs p50/p99/max | step→written µs p50/p99/max | client snapshot interval p99 / max ms | verdict |
 |---|---|---|---|---|---|---|---|---|
 | base | 4 | 0.05 | 55 / 223 / 1 460 | 1 279 / 3 583 / 7 121 | 159 / 511 / 3 498 | 159 / 511 / 3 501 | 27 / 33 | healthy |
 | base | 8 | 0.09 | 55 / 255 / 1 557 | 1 535 / 4 095 / 8 679 | 159 / 895 / 4 588 | 191 / 895 / 4 593 | 29 / 40 | healthy |
