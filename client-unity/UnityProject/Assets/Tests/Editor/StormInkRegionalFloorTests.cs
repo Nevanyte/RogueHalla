@@ -6,6 +6,38 @@ namespace Roguehalla.Client.Tests
 {
     public sealed class StormInkRegionalFloorTests
     {
+        [Test]
+        public void EditedFootprintAndOptionalPigmentSurviveAdjacentLayers()
+        {
+            var fire = Resources.Load<RegionalFloorArt>("StormInk/Surfaces/FireAshFloor");
+            var heath = Resources.Load<RegionalFloorArt>("StormInk/Surfaces/HauntedHeathFloor");
+            var original = (fire.Pigment, heath.RotationDegrees, heath.RepeatSpan, heath.WashStrength);
+            var root = new GameObject("Edited regional floor");
+            try
+            {
+                fire.Pigment = null;
+                heath.RotationDegrees = 90f;
+                heath.RepeatSpan = new Vector2(5, 10);
+                heath.WashStrength = .65f;
+                var cells = new byte[] { 1, 2, 4, 6 };
+                var map = new MapBlob(2, 2, new byte[4], new byte[4], cells, MapBlob.GroundTerrainAll);
+                using var ground = RegionGround.Create(root.transform, map, 1f);
+                var material = ground.Material;
+                var paint = material.GetVectorArray("_DryPaint");
+                var axes = material.GetVectorArray("_DryPaintUV");
+                Assert.That(paint[0].y, Is.Zero);
+                Assert.That(paint[1].y, Is.EqualTo(.65f).Within(.001f));
+                Assert.That(Vector4.Distance(axes[1], new Vector4(0, .2f, -.1f, 0)), Is.LessThan(.00001f));
+                Assert.That(paint[3].x, Is.EqualTo(paint[1].x + 1f));
+                Assert.That(material.GetFloat("_ColiseumPavingSlice"), Is.EqualTo(paint[3].x + 1f));
+            }
+            finally
+            {
+                (fire.Pigment, heath.RotationDegrees, heath.RepeatSpan, heath.WashStrength) = original;
+                Object.DestroyImmediate(root);
+            }
+        }
+
         [TestCase(true)]
         [TestCase(false)]
         public void JoinedGroundPacksOnlyThePresentDryPaints(bool allRegions)

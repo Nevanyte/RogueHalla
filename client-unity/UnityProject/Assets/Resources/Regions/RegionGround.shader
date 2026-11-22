@@ -125,6 +125,9 @@ Shader "Roguehalla/RegionGround"
             float4 _PalPar[8];
             // x macro variation, y accent emission, z highlight toward the key colour (brightest detail), w glint intensity
             float4 _PalPar2[8];
+            // Region id minus one. xy = atlas slice and authored wash strength.
+            float4 _DryPaint[6];
+            float4 _DryPaintUV[6];
             // Looks-only dials of the decoration bands (docs/unity/DIALS.md): warp = how far the band's outline wanders (tiles), noise scale = wobbles per tile, width = how much of the
             // tile-to-tile fade is kept (1 = fades across a whole tile, smaller = a narrower, crisper rim).
             #define RH_BAND_WARP 1.5
@@ -573,6 +576,32 @@ Shader "Roguehalla/RegionGround"
                 return float2(dot(p, _ColiseumPavingUV.xy), dot(p, _ColiseumPavingUV.zw));
             }
 
+            Ground ShadeDryFloor(int layer, float2 mapPoint, float macro, float pocketN, float2 mapDx, float2 mapDy)
+            {
+                float strength = _DryPaint[layer].y;
+                Ground g = (Ground)0;
+                if (strength < 1.0) g = ShadeRegion(layer + 1, layer, mapPoint, macro, pocketN);
+                if (strength > 0.0)
+                {
+                    float4 axes = _DryPaintUV[layer];
+                    // Bend the washes very gently in map space. Baked edge bleeds allow the brush
+                    // to cross a repeat without the bilateral symmetry of reflected dry-brush marks.
+                    float2 drift = float2(sin(mapPoint.y * .16 + mapPoint.x * .06),
+                                          sin(mapPoint.x * .13 - mapPoint.y * .08));
+                    float2 p = mapPoint + drift * 1.15;
+                    float2 uv = float2(dot(p, axes.xy), dot(p, axes.zw));
+                    float2 dx = float2(dot(mapDx, axes.xy), dot(mapDx, axes.zw));
+                    float2 dy = float2(dot(mapDy, axes.xy), dot(mapDy, axes.zw));
+                    float3 pigment = SAMPLE_TEXTURE2D_ARRAY_GRAD(_GroundTex, sampler_GroundTex, uv,
+                        (int)_DryPaint[layer].x, dx, dy).rgb;
+                    // A broad change in paper value under the groves also breaks neighbouring repeats.
+                    pigment *= 1.0 + .32 * (macro - .5) - .08 * smoothstep(.55, .80, pocketN);
+                    g.col = lerp(g.col, pigment, strength);
+                    g.emis *= 1.0 - strength;
+                }
+                return g;
+            }
+
             Ground ShadeColiseum(float2 t, float2 mapPoint, float macro, float pocketN, float2 mapDx, float2 mapDy)
             {
                 float wash = _ColiseumPavingWash;
@@ -612,14 +641,15 @@ Shader "Roguehalla/RegionGround"
                     t += amp * 0.04 * float2(sin(t.y * 7.0 + tm * 3.1) + sin(t.x * 5.0 - tm * 2.3), cos(t.x * 6.0 + tm * 2.7) + sin(t.y * 4.0 + tm * 1.9));
                 }
                 // Ragged, noise-warped region borders on top of the blurred weight textures.
-                float2 warp = (float2(VNoise(t * 0.55 + 7.3), VNoise(t * 0.55 + 91.7)) - 0.5) * 1.6;
-                float2 ruv = (t + warp) / _Map.xy;
+                float2 warp = (float2(VNoise(tSun * 0.55 + 7.3), VNoise(tSun * 0.55 + 91.7)) - 0.5) * 1.6;
+                // Broad feathered washes share one map-anchored edge even under moving heat haze.
+                float2 ruv = (tSun + warp) / _Map.xy;
                 // Use the same region planes as RhSun so the two painted washes can reuse the old sampler slots.
                 half4 wa = SAMPLE_TEXTURE2D(_RhRegA, sampler_RhRegA, ruv);
                 half4 wb = SAMPLE_TEXTURE2D(_RhRegB, sampler_RhRegB, ruv);
                 float wgt[6] = { wa.r, wa.g, wa.b, wa.a, wb.r, wb.g };
                 float tot = 0;
-                [unroll] for (int k = 0; k < 6; k++) { wgt[k] = smoothstep(0.10, 0.90, wgt[k]); tot += wgt[k]; }
+                [unroll] for (int k = 0; k < 6; k++) { wgt[k] = smoothstep(0.015, 0.985, wgt[k]); tot += wgt[k]; }
                 tot = max(tot, 1e-3);
 
                 float paintedMarsh = _StormMarshOn * saturate(wgt[2] / tot);
@@ -659,6 +689,7 @@ Shader "Roguehalla/RegionGround"
                             else g = ShadePlague(t, macro, plg.rgb, waterChannel);
                         }
                         else if (k2 == 5) g = ShadeColiseum(t, tSun, macro, pocketN, gdx * 4.0, gdy * 4.0);
+                        else if (_DryPaint[k2].y > 0.0) g = ShadeDryFloor(k2, tSun, macro, pocketN, gdx * 4.0, gdy * 4.0);
                         else g = ShadeRegion(k2 + 1, k2, t, macro, pocketN);
                         float wk = wgt[k2] / tot;
                         col += g.col * wk; emis += g.emis * wk;
@@ -666,7 +697,7 @@ Shader "Roguehalla/RegionGround"
                         [branch] if (locLit)
                         {
                             float4 nr = SAMPLE_TEXTURE2D_ARRAY_GRAD(_GroundNrm, sampler_GroundNrm, tSun * 0.25, k2, gdx, gdy);
-                            float relief = k2 == 2 ? 1.0 - .80 * _StormMarshOn : 1.0;
+                            float relief = k2 == 2 ? 1.0 - .80 * _StormMarshOn : 1.0 - _DryPaint[k2].y;
                             if (k2 == 5) relief *= 1.0 - _ColiseumPavingWash;
                             float2 tilt = (nr.rg * 2.0 - 1.0) * wk * relief;
                             float gloss = nr.b * wk * relief;
@@ -685,6 +716,11 @@ Shader "Roguehalla/RegionGround"
                 {
                     float3 beforeVariants = col;
                     half4 vt = SAMPLE_TEXTURE2D_LOD(_VariantTex, sampler_TempleTex, (floor(t) + 0.5) / _Map.xy, 0);
+                    // Keep the delivered clearings and softer bands. The legacy single-cell
+                    // accents would stamp hard squares onto continuous ash, heath and snow.
+                    float dryWash = dot(float3(wgt[0], wgt[1], wgt[3]),
+                                        float3(_DryPaint[0].y, _DryPaint[1].y, _DryPaint[3].y)) / tot;
+                    vt.a *= 1.0 - saturate(dryWash);
                     col *= lerp(1.0, vt.rgb * (255.0 / 128.0), vt.a);
                     [branch] if (_VariantSoft > 0.5)
                     {

@@ -35,7 +35,12 @@ namespace Roguehalla.Client
             if (temple != null) temple.BindSignatureGround(Material);
             bool paintedMarsh = PlagueGround.BindStormInkGround(Material, map);
 
-            var ground = RegionGroundTextures.Build(holySand, out var groundNormals, out bool holySandPacked, limestone); _owned.Add(ground); _owned.Add(groundNormals);
+            var dryFloors = new RegionalFloorArt[RegionGroundTextures.Layers];
+            LoadFloor(dryFloors, map.Regions, RegionId.Fire, "FireAshFloor");
+            LoadFloor(dryFloors, map.Regions, RegionId.Sentenced, "HauntedHeathFloor");
+            LoadFloor(dryFloors, map.Regions, RegionId.Frost, "FrostSnowFloor");
+            var ground = RegionGroundTextures.Build(holySand, out var groundNormals, out bool holySandPacked,
+                limestone, dryFloors, Material); _owned.Add(ground); _owned.Add(groundNormals);
             Material.SetTexture("_GroundTex", ground); Material.SetTexture("_GroundNrm", groundNormals);
             holySand?.Bind(Material, holySandPacked);
             if (limestone != null) paving.Bind(Material, ground.depth - 1);
@@ -122,6 +127,12 @@ namespace Roguehalla.Client
             mr.sharedMaterial = Material; mr.sortingOrder = GroundSortingOrder;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
             mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+        }
+
+        static void LoadFloor(RegionalFloorArt[] floors, byte[] regions, RegionId id, string name)
+        {
+            if (System.Array.IndexOf(regions, (byte)id) >= 0)
+                floors[(int)id - 1] = Resources.Load<RegionalFloorArt>("StormInk/Surfaces/" + name);
         }
 
         /// <summary>One texel per tile (row-major, w * h), the ground-variant look the shader applies to the base ground: rgb the tint, a its strength (0 = base ground), as decided by <see cref="Roguehalla.Net.Ui.GroundTint.Bake"/> (the server's variant, plus the Sentenced scatter family). Variant 0 on a tile without a scatter family and an unknown variant bake 0; an unknown variant logs once per call.</summary>

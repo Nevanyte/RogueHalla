@@ -24,12 +24,19 @@ namespace Roguehalla.Client
 
         /// <summary>Like <see cref="Build(out Texture2DArray)"/>, and reports whether the optional art was packed.</summary>
         public static Texture2DArray Build(HolyDrySandArt holySand, out Texture2DArray normals, out bool holySandPacked, Texture2D limestone = null)
+            => Build(holySand, out normals, out holySandPacked, limestone, null, null);
+
+        internal static Texture2DArray Build(HolyDrySandArt holySand, out Texture2DArray normals, out bool holySandPacked,
+            Texture2D limestone, RegionalFloorArt[] dryFloors, Material material)
         {
             holySandPacked = holySand != null && holySand.CanPackPigment;
             normals = new Texture2DArray(Size, Size, Layers, TextureFormat.RGBA32, true, true)
             { name = "Region ground normals", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 2 };
             var npx = new Color32[Size * Size];
             int pigmentSlices = 2 + (holySandPacked ? 1 : 0) + (limestone != null ? 1 : 0);
+            if (dryFloors != null)
+                foreach (var floor in dryFloors)
+                    if (floor != null && floor.ActivePigment != null) pigmentSlices++;
             var array = new Texture2DArray(Size, Size, Layers + pigmentSlices, TextureFormat.RGBA32, true, true)
             { name = "Region ground detail", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 4 };
             var h = new float[Size * Size]; var r = new float[Size * Size]; var g = new float[Size * Size]; var b = new float[Size * Size];
@@ -46,6 +53,28 @@ namespace Roguehalla.Client
             WritePigment(array, Layers + 1, "MoltenInk", px);
             if (holySandPacked)
                 array.SetPixelData(ReadLinearPigment(holySand.Pigment), 0, HolyDrySandSlice);
+            if (dryFloors != null)
+            {
+                int slice = Layers + 2 + (holySandPacked ? 1 : 0);
+                var paramsByLayer = new Vector4[Layers];
+                var uvByLayer = new Vector4[Layers];
+                for (int layer = 0; layer < Layers; layer++)
+                {
+                    var floor = dryFloors[layer];
+                    if (floor == null || floor.ActivePigment == null) continue;
+                    var pixels = ReadLinearPigment(floor.ActivePigment);
+                    for (int line = 0; line < Size; line++)
+                    {
+                        JoinEdges(pixels, line * Size, 1);
+                        JoinEdges(pixels, line, Size);
+                    }
+                    array.SetPixelData(pixels, 0, slice);
+                    paramsByLayer[layer] = new Vector4(slice++, Mathf.Clamp01(floor.WashStrength), 0f, 0f);
+                    uvByLayer[layer] = floor.MapToPaint;
+                }
+                material.SetVectorArray("_DryPaint", paramsByLayer);
+                material.SetVectorArray("_DryPaintUV", uvByLayer);
+            }
             if (limestone != null) array.SetPixelData(ReadLinearPigment(limestone), 0, array.depth - 1);
             array.Apply(true, true);
             normals.Apply(true, true);
