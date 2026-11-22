@@ -132,3 +132,22 @@ late order; the oracle pins the rate, review checks the feel argument.
 Keyboard steering re-sends on goal consumption, a heading change or a 500 ms safety repeat instead of every 100 ms
 (legacy `keyboardMovement.ts:21`); aim-only frames stand back to 50 ms above 36 frames in the last second. Client
 pacing only: same goals, same server rules.
+
+## Existing tests that touch steering or aim (survey by the oracle author)
+
+No existing test pins the steering cadence (`SteerRepeatMs` lives only in `MatchClient.cs`, which has no C# test). Aim and
+budget tests, each checked by running the whole suite against a throwaway implementation of the design (reverted): all
+green, no `oracle-amend:` needed.
+
+- `NetTests.AimIsRateLimitedToFortyPerSecond` (aim-only, 5 ms flush, 1 s, `InRange(38,40)`): the meter reaches 36 frames
+  at about 0.9 s, so the stand-back to 50 ms only bites in the last ~100 ms; stays 38 to 40.
+- `NetTests.UnchangedAimIsNotResentExceptByTheSlowRepeat` (`InRange(20,21)` in 2 s): 10 frames/s, under 36; unchanged.
+- `NetTests.ChangedAimIsNeverLostWhileRateLimited`: few frames, gaps 25 ms as before; unchanged.
+- `NetTests.IdleFlushAllocatesNothing` (< 1 KB): the ring is allocated once; green.
+- `NetTests.LatestAimWinsAndNonAimLeavesImmediately`: a queued command keeps the 25 ms gap; green.
+- `OrderBudgetTests` (all six): `OrderBudget` and `StopRetry` are not edited; green.
+- `UnityCopyOfTheLibraryIsUpToDate`: needs `sync-net.sh` after the implementation.
+
+Measured on the stub (today's rule), `dotnet test --filter SteerPacing`: 18.0 orders/s, 62 dropped, first drop 9500 ms,
+peak frames 39 (60 fps), 49 (144), 55 (240); rooted walker: 20 Moves in 2 s. Throwaway design: 13.0 orders/s, 0 dropped,
+peak 37 / 40 / 45.
