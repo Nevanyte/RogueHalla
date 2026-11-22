@@ -169,7 +169,10 @@ fn unknown_keys_take_the_flat_default_and_farm_only_zeroes_every_row() {
     let t = Prices::LOCAL;
     assert_eq!(t.reward_value("no_such_quest"), 1.0);
     assert_eq!(t.augment_value("noSuchCard"), 1.0);
-    assert!(t.reward_value("trade_up") > 0.0, "LOCAL prices rewards");
+    assert!(
+        t.reward_value("trade_up") > 1.0,
+        "LOCAL prices rewards by row"
+    );
     let f = Prices::farm_only();
     assert_eq!(f.reward_value("no_such_quest"), 0.0);
     assert_eq!(f.augment_value("noSuchCard"), 0.0);
