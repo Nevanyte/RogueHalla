@@ -306,6 +306,7 @@ namespace Roguehalla.Client
                 flamePigment = new MaterialPropertyBlock();
                 flamePigment.SetFloat("_StormInkResponse", 2f);
             }
+            var willowArt = Resources.Load<PlagueWillowArt>("StormInk/Props/PlagueBogWillowArt");
             MushroomPatch mushrooms = null;
             foreach (var pl in placements)
             {
@@ -325,6 +326,8 @@ namespace Roguehalla.Client
                     scaleX *= size;
                     scaleY *= size;
                 }
+                if (renderArtKey == "plague.willow.bush" && willowArt != null)
+                    willowArt.FitThicket(map, pl, visualSeed, ref scaleX, ref scaleY, ref flip);
                 bool fern = pl.Art == "plague.fern";
                 if (art.UsesAuthoredTexture && (fern || pl.Art == "plague.rubble"))
                 {
