@@ -44,7 +44,7 @@ namespace Roguehalla.Client
                 float roll = RegionNoise.Hash01(x, y, seed + 77);
                 if (i - last < 3 && last >= 0) continue;
                 string art = null;
-                if (north && roll < .16f) art = roll < .08f ? "col.banner" : "col.rack";
+                if (north && roll < .16f) art = roll < .08f ? "col.standard" : "col.rack";
                 else if (side && roll > .82f) art = "col.torch";
                 if (art == null) continue;
                 last = i;

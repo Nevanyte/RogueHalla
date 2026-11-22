@@ -189,8 +189,9 @@ namespace Roguehalla.Client
             Add(l, "col.gate.pier", pierW, pierH, pierGround, gatePierFallback, true,
                 textureFoot: gatePier != null ? gatePier.ClampedTextureFoot(new Vector2(.5f, .09f)) : null,
                 textureSource: gatePier != null ? gatePier.Pigment : null);
-            // Banner on a pole: burgundy cloth with a gold band and a swallow-tail, standing against the arena wall.
-            Add(l, "col.banner", 72, 150, 6, (c, gy) =>
+            // Legacy banner fallback stays available for Holy's shipped banner kind. Coliseum standards use
+            // the separately editable Storm Ink asset below, with this painter retained as its safe fallback.
+            Action<RegionCanvas, int> bannerFallback = (c, gy) =>
             {
                 float cx = 36; c.SoftShadow(cx + 3, gy + 1, 12f, 3.5f, .3f, Alpha(shadow, 1f));
                 c.Fill(Capsule(new Vector2(cx, gy + 2), new Vector2(cx, gy + 128), 1.8f, 1.5f), Flat(wood), Ink, 1f);
@@ -199,7 +200,15 @@ namespace Roguehalla.Client
                 c.Fill(cl, Split(cx - 4, clothL, clothD, 18f), Ink, 1.3f);
                 c.Fill(Intersect(cl, Box(cx, gy + 108, 18, 3)), Flat(Mix(P(5, RegionPaletteGenerated.Accent), P(5, RegionPaletteGenerated.Key), .6f)));
                 c.Fill(Circle(cx, gy + 92, 6), Flat(Alpha(Mix(P(5, RegionPaletteGenerated.Accent), P(5, RegionPaletteGenerated.Key), .6f), .95f)), Ink, .8f);
-            }, true);
+            };
+            Add(l, "col.banner", 72, 150, 6, bannerFallback, true);
+            var standard = Resources.Load<StormInkPropArtDefinition>("StormInk/Props/ColiseumStandardArt");
+            int standardW = standard != null ? standard.WidthPixels(72) : 72;
+            int standardH = standard != null ? standard.HeightPixels(150) : 150;
+            int standardGround = standard != null ? standard.GroundPixels(6, standardH) : 6;
+            Add(l, "col.standard", standardW, standardH, standardGround, bannerFallback, true,
+                textureFoot: standard != null ? standard.ClampedTextureFoot(new Vector2(.478f, .014f)) : null,
+                textureSource: standard != null ? standard.Pigment : null);
             // Torch stand: iron tripod with a bowl of fire.
             Add(l, "col.torch", 56, 110, 6, (c, gy) =>
             {

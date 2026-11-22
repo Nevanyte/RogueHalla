@@ -76,7 +76,7 @@ namespace Roguehalla.Client
         public static bool Sways(string key)
         {
             return key == "plague.tree.ink" || key == "frost.spire.fallback" || key.EndsWith(".pine") || key.EndsWith(".pine2") || key.EndsWith(".tree") || key.EndsWith(".deadtree") || key.EndsWith(".palm") || key.EndsWith(".reeds") || key.EndsWith(".bush")
-                || key.EndsWith(".shrub") || key.EndsWith(".fern") || key.EndsWith(".flowers") || key.EndsWith(".grass") || key.EndsWith(".deadgrass") || key.EndsWith(".banner") || key.EndsWith(".scarecrow");
+                || key.EndsWith(".shrub") || key.EndsWith(".fern") || key.EndsWith(".flowers") || key.EndsWith(".grass") || key.EndsWith(".deadgrass") || key.EndsWith(".banner") || key.EndsWith(".scarecrow") || key == "col.standard";
         }
         /// <summary>Atlas V below which a vertex belongs to wind-capable art (the global <c>_RhSwayV</c>).</summary>
         public static float SwayV { get; private set; }
