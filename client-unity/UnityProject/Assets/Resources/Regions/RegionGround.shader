@@ -648,8 +648,28 @@ Shader "Roguehalla/RegionGround"
                 half4 wa = SAMPLE_TEXTURE2D(_RhRegA, sampler_RhRegA, ruv);
                 half4 wb = SAMPLE_TEXTURE2D(_RhRegB, sampler_RhRegB, ruv);
                 float wgt[6] = { wa.r, wa.g, wa.b, wa.a, wb.r, wb.g };
+                // At a transition the fluid pigment collects on the teeth and valleys of
+                // the same paper. Give neighbouring washes irregular fingers, with a thin
+                // drier fringe of the underlying material. Pure interiors stay untouched.
+                float dominant = max(max(max(wa.r, wa.g), max(wa.b, wa.a)), max(wb.r, wb.g));
+                float waterline = 0.0;
+                [branch] if (dominant > .005 && dominant < .995)
+                {
+                    float2 grain = float2(tSun.x + .48 * tSun.y, tSun.y - .28 * tSun.x);
+                    waterline = (VNoise(grain * float2(.35, .77) + 33.7) - .5) * .86
+                              + (VNoise(grain * float2(1.8, 3.1) + 5.1) - .5) * .28;
+                }
+                // Alternating warm/cool bias also lets snow linger in hollows on the ash
+                // side. Each value is bounded by its own coverage, including at three-way joins.
+                const float affinity[6] = { -.86, .28, -.36, 1.0, .62, -.12 };
                 float tot = 0;
-                [unroll] for (int k = 0; k < 6; k++) { wgt[k] = smoothstep(0.015, 0.985, wgt[k]); tot += wgt[k]; }
+                [unroll] for (int k = 0; k < 6; k++)
+                {
+                    float weight = wgt[k];
+                    weight += 4.0 * weight * (1.0 - weight) * waterline * affinity[k];
+                    wgt[k] = smoothstep(.015, .985, weight);
+                    tot += wgt[k];
+                }
                 tot = max(tot, 1e-3);
 
                 float paintedMarsh = _StormMarshOn * saturate(wgt[2] / tot);
