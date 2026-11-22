@@ -89,9 +89,60 @@ reduction on server side or front end."
     old, which an agent reading between builds can meet. Not touched.
   - `[profile.dist]` for the shipped binary only (the measured LTO gain without the build cost elsewhere) is an
     owner option under `hosting/`; not built.
-- **In flight after integration 82:** P-BAL-Q25-SEAM-1, P-BAL-ELITE-SEAM-1 and P-RAID-0-fix (three Opus implementers);
-  P-RAID-Q1's oracle is ready and waits for P-RAID-0-fix. Handed over for integration 83: P-DB-POOL-1,
-  P-UI-INPUT-CUES-1.
+- **Integration 83** (`coord/int-83` @ `84d666014`, six `--no-ff` merges onto `c92d606e9`; the integration branch
+  fast-forwarded to it):
+  - **What it holds:**
+    - P-BAL-Q25-SEAM-1 (`implementer-opus`; reviewer-opus LAND WITH NOTES): all 91 Top 25 quest numbers in `TOP25`
+      (`crates/rh-sim/src/quests/board/tuning.rs`). No number moved; content hash `8a4bf0ce37b406f2` unchanged. The
+      reviewer read all 91 rows against the diff. Its two notes (one read of `QUEST_TURN_IN_RANGE` left in
+      `at_turn_in`; `falcon_cap` is only a restore bound) are in P-BAL-PROBE-1's brief.
+    - P-BAL-ELITE-SEAM-1 (`implementer-opus`; reviewer-opus LAND): `EliteTuning::hp_mult_of` / `dmg_mult_of` and an
+      empty per-kind table. Bit-identical with the empty table; the four elite readers and both restore checks go
+      through it. The number packet adds the content-hash visitor (`"elite-kinds/1"`) with the rows.
+    - P-RAID-0-fix (`implementer-opus`, two rounds; reviewer-opus LAND): a `Sustain` goal may pre-empt a committed
+      fight; the death model, `reward_value` and `augment_value` live in `Prices` (`values.rs`); `Executor::urgent`;
+      mob tracking by the held lock. The first round's camp restriction (the coordinator's own addition) dropped a
+      fought member whose position label changed mid-chase; fixed on the branch before landing. Play unchanged: the
+      eight oracle seeds' clear ticks and final state hashes are identical.
+    - P-RAID-H1 (`implementer-sonnet`; reviewer LAND): `BotKind::Raid`, `run_bot_match_seated` (human seats), the lab's
+      `raid` seat policy.
+    - P-DB-POOL-1 (backend-efficiency lane; its reviewer-opus LAND): `rh-server --db-pool N`; admission's credential
+      check bounded at 5 s with the existing RateLimited refusal.
+    - P-UI-INPUT-CUES-1 (client-input lane; reviewer LAND): presentation-only cues when a cast, potion, swap or
+      pickup leaves the client.
+  - **Full gate** with pgtest on `84d666014`, clean detached worktree: **GATE PASS (full)**, EditMode 2000/2000; it is
+    the first run of `raid_seats` against the fixed bot. Log
+    `.agent-runs/gate/20261122T151234-coord-int-83-clean-full.log`.
+  - **reviewer-opus on the merge: LAND**, no notes. Each merge's patch equals its branch's; only
+    `crates/rh-sim/tests/content.rs` is shared by two (both edits present); the two sim seams share no code; a
+    timed-out credential check is refused, cannot complete later and logs no profile or ticket.
+  - **Oracle amendments for the owner in this integration** (each its own commit, none loosens an expectation):
+    `crates/rh-policy/tests/raid_bot.rs` (the farm scene's bot is built with `Prices::farm_only()`); one
+    `NON_GAMEPLAY` row in `crates/rh-sim/tests/content.rs` (the test-only elite stand-in); one line in
+    `crates/rh-headless/tests/balance_lab.rs` (the refused example policy `raid` became `nope`).
+  - **Not established by this gate:** how the input cues look in a real build (a refused cast still plays a short Cast
+    clip); the bots' elite estimates still read the global pair (P-BAL-ELITE-BOTS-1 lands before or with the rows).
+  - **Minor, not notes:** `--db-pool` is validated only when a database is configured; `api::log_internal` has one
+    global once-a-second limit; the lab attributes a death to a player from the last hit with no time window (in
+    P-BAL-LAB-1-fix); the lab README lacks the RaidBot command line; `tests/content.rs` lists the egg `RADIUS` row
+    twice (older than this work).
+- **First lab run of `RaidBot`** (8 seeds, eight RaidBots in human seats, full length, before sustain and quests):
+  259 camps cleared (today's fill bots: 24), 40 of 64 players alive at minute 5 (4), about 23 stat stacks a player at
+  minute 5, a cycle of 17 s to kill, 13 s to heal up and 23 s to walk, one elite attempt (a death), no quest accepted.
+  The design workbook assumes 12 camps (144 stacks) banked at minute 5.
+- **What the sustain packet's trace found** (P-RAID-C brief, one seed): every camp clear hands each contributor a
+  large potion and no bot ever drinks one (five of six deaths held two to five); the farm's death model refuses about
+  73% of the map's normal camps (the four- and five-member ones); the deaths the sim credits to a player are friendly
+  fire at a camp another bot is fighting (232 player-on-player hits, 193 by wand) under the 5 s kill credit.
+- **Per-elite sweep (coordinator, `camp_bench --elite`, Duelist at `banked_12`, on the seam):** six seeds a point
+  (180 fights an elite). Death rate now: Avalanche Troll 38%, Glacial Warden 27%, Ash Drake 27%, Gaoler 24%,
+  Wyrmling 23%, Pox Behemoth 12%, Rat Ogre 11%, Archon 7%, Blood Saint 6%, Executioner 1%. Two candidate tables put
+  every elite between 9% and 19% over nine seeds; the numbers are not committed. The two Holy elites barely respond
+  to hp or damage below about 1.9 times damage.
+- **In flight after integration 83:** P-RAID-Q1 (the quest walker: 12 quests accepted and 12 completed over its six
+  oracle seeds) and P-RAID-V (the value table) are reviewed LAND and wait for integration 84; P-RAID-C (sustain),
+  P-RAID-Q2 (dwell) and P-BAL-PROBE-1 are implementing; P-RAID-Q3 (slot choice, drop pickup, The Bargain) has its
+  oracle; P-RAID-Q3b (Two Banners, Trade Up) has its brief.
 - **Decisions the coordinator took (his to reverse):**
   - `RaidBot` is a third policy in new files (`crates/rh-policy/src/bots/raid/`). `HumanBot`, `BrainBot`, the bot
     `Command` enum and every pinned bot capture are untouched.
