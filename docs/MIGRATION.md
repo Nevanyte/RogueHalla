@@ -130,7 +130,9 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
       dotnet 2328/2328.
     - The fix's quick gate, `cargo test -p rh-sim`, the hash tape and `rework_at_25ms` (release, every seed) passed on
       `af348797e`.
-    - The coordinator's full gate on the integration commit is recorded below.
+    - Coordinator full gate with pgtest on `d73a509db`, in a clean detached worktree: **PASS**, card chain included;
+      EditMode 1602/1602. Log `.agent-runs/gate/20261121T185134-coord-int-80-clean-full.log`.
+    - The coordinator reran the three `capture.sh --check`: exit 0, hashes `f2a83fe5`, `0be9e0b6`, `7a9fd006`.
   - **Reviews:** reviewer-opus LAND on the merge and LAND on the fix; reviewer LAND on P-CI-GREEN-11. Minor, not notes:
     - a few comments still call the readouts State key 14;
     - the `replay.rs` and rh-policy version notes interleave both lines' histories.
@@ -141,6 +143,9 @@ request into origin's `feature/unity-rework` (every other lane's work lands that
     - P-CHECKPOINT-CONTAINER-1: restore refuses a body holding more than 2 + the potion cap items, which play allows
       (`rework_at_25ms` seed 14).
     - P-MOB-REWIND-RESTORE-1 again: seed 11.
+- **PR 80 pushed again** (2026-11-21): `feature/unity-rework` to `claude/augment-elite-rework`, a fast-forward from
+  `a4abce7ea`. Origin's base was still `ef8d5e9ce`, so the PR no longer conflicts. Its description now gives the
+  protocol 24 identities.
 
 ## Resumed (2026-11-20): the elite and augment rework, integration 65
 
