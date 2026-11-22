@@ -38,7 +38,8 @@ def archive(path, extras=(), edit=None):
 class Offline(unittest.TestCase):
     def test_expiry(self):
         config(json.dumps(C), NOW)
-        for stamp in ('2026-11-09T00:00:00Z', '2026-11-09T12:00:01Z', '2026-11-09T12:00:00+00:00'):
+        config(json.dumps(dict(C, expires_at='2026-11-16T00:00:00Z')), NOW)  # seven days is the open-alpha bound
+        for stamp in ('2026-11-09T00:00:00Z', '2026-11-16T00:00:01Z', '2026-11-09T12:00:00+00:00'):
             with self.subTest(stamp=stamp), self.assertRaises(ValueError):
                 config(json.dumps(dict(C, expires_at=stamp)), NOW)
 

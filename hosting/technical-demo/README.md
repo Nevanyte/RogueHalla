@@ -62,7 +62,9 @@ new plus CAD9 historical = CAD19 within the CAD20 owner limit.
 40 Hz rooms are never throttled and ten players can load the Web build together. Rate bound per 12-hour guest:
 108 decimal GB (USD9.72) egress plus about USD0.56 compute and at most about USD1 CPU surplus, roughly CAD16 worst
 case; the figures below describe the earlier t3.small/8mbit plan. The owner chose this knowing a week of sessions
-needs a budget above CAD20. These are planning
+needs a budget above CAD20. The absolute lifetime bound (`MAX_LIFETIME`) is now seven days, so one launch can
+cover the alpha week; the expiry timer, guard and EventBridge termination still apply at the chosen `expires_at`.
+Mentions of a twelve-hour maximum below describe the pre-alpha recipe. These are planning
 figures and a reserve, not a billing hard cap, live FX quote, credit/balance
 measurement or actual bill. Root must confirm termination
 behavior and DNS before release. This source does not validate live account/

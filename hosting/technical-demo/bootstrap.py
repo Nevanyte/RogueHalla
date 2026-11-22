@@ -19,7 +19,7 @@ CONFIG = Path('/etc/rougehalla-demo.json')
 UNITS = Path('/etc/systemd/system')
 MAX_BUNDLE = 160 * 1024 * 1024
 MAX_EXTRACT = 400 * 1024 * 1024
-MAX_LIFETIME = dt.timedelta(hours=12)
+MAX_LIFETIME = dt.timedelta(days=7)  # open alpha (owner 2026-11-22): one launch covers the week; was 12 hours
 ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8'}
 
 
@@ -53,7 +53,7 @@ def config(raw, now=None):
     require(re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', c['expires_at']), 'UTC expiry')
     end = dt.datetime.strptime(c['expires_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=dt.timezone.utc)
     now = now or dt.datetime.now(dt.timezone.utc)
-    require(dt.timedelta(0) < end - now <= MAX_LIFETIME, 'expired or greater than twelve hours')
+    require(dt.timedelta(0) < end - now <= MAX_LIFETIME, 'expired or greater than seven days')
     return c, end
 
 
