@@ -12,6 +12,8 @@ namespace Roguehalla.Net
     public sealed class InputSender
     {
         public const double AimMinIntervalMs = 25, AimRepeatMs = 100;
+        public const double AimSoloSlowMs = 50, FrameMeterWindowMs = 1000;
+        public const int AimStandBackFrames = 36;
         static readonly List<ClientMsg.Input> NoFrames = new List<ClientMsg.Input>();
         readonly List<WireCommand> _queue = new List<WireCommand>();
         float _aim, _lastSentAim;

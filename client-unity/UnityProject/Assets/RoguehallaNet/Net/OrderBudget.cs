@@ -71,4 +71,33 @@ namespace Roguehalla.Net
             return true;
         }
     }
+
+    public enum SteerDecision { None, Turn, Refresh }
+
+    /// <summary>
+    /// Decides when a held keyboard direction sends a Move. STUB: today's rule (Turn when not steering or the keys changed,
+    /// Refresh every <see cref="MinRepeatMs"/>); the packet replaces it with goal-consumption pacing.
+    /// </summary>
+    public sealed class SteerPacer
+    {
+        public const double MinRepeatMs = 100, NearlyConsumedU = 24, SafetyRepeatMs = 500, SameGoalU = 2, TurnDegrees = 20;
+        bool _steering;
+        int _keyX, _keyY;
+        double _lastMs;
+
+        public bool Steering { get { return _steering; } }
+
+        public SteerDecision Decide(double nowMs, int keyX, int keyY, double posX, double posY, double goalX, double goalY)
+        {
+            if (!_steering || keyX != _keyX || keyY != _keyY) return SteerDecision.Turn;
+            return nowMs - _lastMs >= MinRepeatMs ? SteerDecision.Refresh : SteerDecision.None;
+        }
+
+        public void Sent(double nowMs, int keyX, int keyY, double goalX, double goalY)
+        {
+            _steering = true; _keyX = keyX; _keyY = keyY; _lastMs = nowMs;
+        }
+
+        public void Reset() { _steering = false; }
+    }
 }
