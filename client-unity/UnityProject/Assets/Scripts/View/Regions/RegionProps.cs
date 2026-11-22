@@ -318,6 +318,7 @@ namespace Roguehalla.Client
             var coliseumTorch = ColiseumTorchArt.Load();
             bool authoredTorch = coliseumTorch != null && coliseumTorch.IsReady;
             MushroomPatch mushrooms = null;
+            bool hasMountedWeapons = false;
             foreach (var pl in placements)
             {
                 if (pl.Shipped && (pl.Flags & 2) == 0 && !DecorationKinds.TryGet(pl.Kind, out _))
@@ -391,8 +392,8 @@ namespace Roguehalla.Client
                 sr.color = tint;
                 sr.sortingOrder = 2000 + Mathf.RoundToInt(sortY * 16f) + pl.Bias;
                 if (pl.Art == "col.rack")
-                    ColiseumWeaponRackPresenter.AddMountedWeapons(go.transform, sr, coliseumRackArt,
-                        art.UsesAuthoredTexture, _material);
+                    hasMountedWeapons |= ColiseumWeaponRackPresenter.AddMountedWeapons(go.transform, sr, coliseumRackArt,
+                        art.UsesAuthoredTexture, _material) > 0;
                 if (pl.Art == "col.torch" && authoredTorch && coliseumTorch.TryGetFittedSocketOffset(out var flameOffset))
                 {
                     ShowcaseSprites.Initialize();
@@ -413,6 +414,8 @@ namespace Roguehalla.Client
                     cell.Add(index);
                 }
             }
+            // Immediate camera renders must use the planted row even before Unity's next sorting update.
+            if (hasMountedWeapons) UnityEngine.Rendering.SortingGroup.UpdateAllSortingGroups();
         }
         static int Cell(int tx, int ty) { return ty * 4096 + tx; }
 
