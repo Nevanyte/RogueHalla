@@ -258,6 +258,13 @@ namespace Roguehalla.Net
             return Cast(slot, x, y, actorRef, Clock.RenderMs);
         }
 
+        /// <summary>Skips the wait before the next reconnect attempt (the tab came back to the foreground); no-op unless Reconnecting with no attempt in flight.</summary>
+        public void RetryNow()
+        {
+            if (_detached || State != SessionState.Reconnecting || _attemptInFlight) return;
+            _nextAttemptAt = 0;
+        }
+
         public void Leave()
         {
             if (_detached) return;

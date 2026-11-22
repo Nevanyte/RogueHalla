@@ -6,6 +6,13 @@ mergeInto(LibraryManager.library, {
   RhWs_Create: function (urlPtr) {
     var url = UTF8ToString(urlPtr);
     var reg = Module.rhSockets || (Module.rhSockets = { next: 1, map: {} });
+    if (!reg.pagehide && typeof window !== "undefined") {
+      // Close cleanly (1000) when the page goes away, so the server sees an orderly close, not a dead link.
+      reg.pagehide = true;
+      window.addEventListener("pagehide", function () {
+        for (var k in reg.map) { var q = reg.map[k]; if (q && q.ws && q.state < 2) { try { q.ws.close(1000); } catch (e) {} } }
+      });
+    }
     var id = reg.next++;
     var s = { ws: null, state: 0, queue: [], code: 0 };
     reg.map[id] = s;
