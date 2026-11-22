@@ -18,18 +18,23 @@ float EdgeFlagstone(float2 p, float4 axes, float courses, float coverage, float 
     float2 cell = floor(tile), q = frac(tile) - .5;
     float2 grain = H22(cell + 13.6);
     q *= lerp(-1.0, 1.0, step(.5, grain));
-    float intact = smoothstep(.06 + .34 * grain.x, .88 + .10 * grain.y, coverage);
+    // Neighbouring courses can survive together, with an occasional whole slab missing.
+    float pocket = VNoise(cell * .36 + 8.13);
+    float remaining = coverage + .44 * (pocket - .5) + .28 * (grain.x - .5);
+    float intact = smoothstep(.11, .86, remaining);
     float wear = 1.0 - intact;
-    float2 chipCentre = (H22(cell + 73.2) - .5) * .32 * wear;
+    float2 chipCentre = (H22(cell + 73.2) - .5) * .53 * wear;
     float2 v = q - chipCentre;
-    float2 radius = lerp(float2(.065, .09), float2(.54, .54), intact);
-    float rag = (EdgeDryBrush(tile * 5.5) - .5) * .085 * wear;
+    v.x += (grain.y - .5) * v.y * 1.35 * wear;
+    float2 radius = lerp(float2(.055, .042) + grain * .068, float2(.54, .54), intact);
+    float rag = (EdgeDryBrush(tile * 4.1) - .5) * .21 * wear;
     float side = min(radius.x - abs(v.x), radius.y - abs(v.y));
     float corner = .30 + .79 * intact + (grain.y - .5) * .19 - v.x - v.y;
-    float body = smoothstep(-aa, aa, min(side, corner) + rag);
+    float lip = aa + .03 * wear;
+    float body = smoothstep(-lip, lip, min(side, corner) + rag);
     float split = abs(q.y - (.38 + grain.x * .41) * q.x - (grain.y - .5) * .44 + .5 * rag);
-    body *= smoothstep(.10 * wear * wear - aa, .10 * wear * wear + aa, split + .045 * intact);
-    body *= smoothstep(.045 + .15 * grain.y, .18 + .18 * grain.x, coverage);
+    float cleft = smoothstep(.10 * wear * wear - lip, .10 * wear * wear + lip, split + .045 * intact);
+    body *= lerp(1.0, cleft, smoothstep(.26, .72, grain.y)) * smoothstep(.085, .36, remaining);
     float2 chip = q - float2(.35, -.26) + (grain - .5) * .19;
     float chipSize = .20 * wear * smoothstep(.035, .38, coverage) * (.45 + .55 * grain.y);
     float fragment = smoothstep(-aa, aa, chipSize - abs(chip.x) - 1.55 * abs(chip.y + .35 * chip.x));
@@ -59,7 +64,10 @@ void EdgeMaterials(float2 p, float4 wa, float4 wb, float aa, inout float w[6], i
     {
         float stone = EdgeFlagstone(p, _DryPaintUV[1], _DryPaint[1].z, wa.g, aa);
         float border = smoothstep(.012, .12, wa.g) * (1.0 - smoothstep(.80, .985, wa.g));
-        float wanted = lerp(previous, stone, strength * border);
+        // Dust fills the mortar and partly buries exposed chips. Leave the loose pigment in
+        // those gaps so a bright neighbouring material cannot make a hard geometric outline.
+        float exposure = .44 + .45 * smoothstep(.09, .78, wa.g);
+        float wanted = lerp(previous, stone, strength * border * exposure);
         float other = (1.0 - wanted) / max(1e-4, total - w[1]);
         [unroll] for (int n = 0; n < 6; n++) w[n] *= other;
         w[1] = wanted;
@@ -75,18 +83,21 @@ float3 EdgeBasaltChips(float3 ground, float3 ash, float2 p, float fire, float ar
     if (band * _RegionEdgeArt.y <= .002 || arena > .15) return ground;
     float2 lattice = float2(p.x + .13 * p.y, p.y - .13 * p.x) * 1.12;
     float2 cell = floor(lattice), seed = H22(cell + 42.73);
-    float radius = lerp(.052, .26, smoothstep(.01, .87, fire)) * (.72 + .56 * seed.y);
-    float2 v = frac(lattice) - (.26 + .48 * seed);
-    v.x += v.y * (.8 * seed.x - .4);
-    v.y *= 1.35;
-    float rim = max(max(abs(v.x), abs(v.y)), .73 * abs(v.x - v.y)) - radius;
+    float radius = lerp(.043, .21, smoothstep(.01, .87, fire)) * (.58 + .78 * seed.y);
+    float2 v = frac(lattice) - (.20 + .60 * seed);
+    v.x += v.y * (1.4 * seed.x - .7);
+    v.y *= 1.04 + .81 * seed.y;
+    float rim = max(abs(v.x) * .84 + abs(v.y) * .56,
+                    max(.94 * abs(v.y - .47 * v.x), .81 * abs(v.x + .51 * v.y))) - radius;
+    rim += radius * .21 * (EdgeDryBrush(p * 9.1) - .5);
     float pocket = VNoise(p * .39 + 3.77);
     float scatter = smoothstep(.66, .73, seed.x + .22 * fire + .24 * (pocket - .50));
-    float coverage = (1.0 - smoothstep(-aa, aa, rim)) * band * scatter * _RegionEdgeArt.y;
+    float lip = aa + .022;
+    float coverage = (1.0 - smoothstep(-lip, lip, rim)) * band * scatter * _RegionEdgeArt.y;
     float paper = .74 + .38 * EdgeDryBrush(p * 8.0 + cell);
     float3 stone = (float3(.054, .043, .042) + ash * .42) * paper;
     float edge = smoothstep(-.052, .0, rim);
-    return lerp(ground, stone * (1.0 - .33 * edge), coverage);
+    return lerp(ground, stone * (1.0 - .21 * edge), coverage * (.30 + .49 * fire));
 }
 
 // A dry straw wash on the actual low-grass mask, before any snow, hazard, shadow or light.
