@@ -3,11 +3,11 @@
 - **Serves:** REQUIREMENTS R-OPT-1/R-OPT-2 and ORDER_OF_OPERATIONS phase 4, item 18; owner direction 2026-11-22 (the
   backend audit, finding 9 of `docs/backlog/BALANCE_LAB_PATCH.md`), dispatched by the coordinator session to the
   backend-efficiency lane.
-- **Status:** HELD. A new migration needs the owner's yes in chat before it is written (`CLAUDE.md` "Approvals"). This
-  brief and its evidence are ready; no migration file exists.
+- **Status:** Ready. The owner said yes in chat on 2026-11-22 to writing migration 0003 (`CLAUDE.md` "Approvals"); that
+  yes covers this one additive migration and nothing else.
 - **Implementer tier:** implementer-opus (migrations)
 - **Reviewer:** reviewer-opus
-- **Integration base:** `feature/unity-rework` @ `83edb687f`
+- **Integration base:** `feature/unity-rework` @ `c92d606e9` (rebased from `83edb687f`; no change to `rh-persist` schema code between them)
 - **D-rules touched:** D1 n/a · D2 n/a · D5/D6/D9 none
 
 ## 1. ID and outcome
@@ -30,7 +30,7 @@ thousands of rows per player.
 
 ## 2. Dependencies
 
-The owner's yes. None in code.
+None (the owner's yes was given in chat on 2026-11-22).
 
 ## 3. Relevant legacy paths
 
