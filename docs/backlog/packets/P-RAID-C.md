@@ -1,0 +1,194 @@
+# P-RAID-C: RaidBot sustain (drink, disengage, price the heal-up)
+
+- **Serves:** not in the plan: owner approval 2026-11-22 (`docs/OWNER_DECISIONS.md` row "Balance patch, test bot,
+  per-elite numbers"; plan of record `docs/backlog/BALANCE_LAB_PATCH.md` section 1)
+- **Implementer tier:** implementer-sonnet
+- **Reviewer:** reviewer-opus (bot priority competition: a goal that pre-empts a committed fight)
+- **Integration base:** `coord/int-83` @ `84d666014`
+- **D-rules touched:** D1 loose proof (owner direction 2026-11-10) · D2 n/a · D5/D6/D9 none (no sim, wire, observation or
+  client change; D9: the bot still acts only through `validate` + `Sim::submit`, the drink is `Act::UseConsumable`)
+
+## 1. ID and outcome
+
+`RaidBot` gets sustain. The `Sustain` executor (`crates/rh-policy/src/bots/raid/exec/sustain.rs`, a header-only stub in
+the base) (1) drinks a held healing potion when hp is low and no heal is running, (2) leaves a camp fight the death
+model says it will lose, as a `GoalKind::Sustain` goal that pre-empts the committed farm fight, and (3) prices low hp
+between camps as a candidate in camp-equivalents per minute, so the arbiter can take a small camp now instead of standing
+still. Its thresholds are fields of `Prices` (a new `sustain` part), not constants in the executor. When this lands the
+lab's RaidBot farms faster and dies less in four- and five-member camps; fighting players, micro, the faction Wish
+(P-RAID-C2), elites (P-RAID-E) and quests are not here.
+
+## 2. Dependencies
+
+- `coord/int-83` @ `84d666014` (P-RAID-0, P-RAID-0-fix, P-RAID-H1 merged). `raid_quests.rs` is not in this base (quest
+  packets are in flight): the packet does not depend on it.
+- **Shared files.** `values.rs` is edited by P-RAID-V (in flight, adds row slices): this packet's edit there is appended
+  fields and consts only, and **merges after P-RAID-V**. `exec/mod.rs` (the registry) merges one packet at a time.
+
+## 3. Relevant legacy paths
+
+RaidBot has no legacy counterpart (P-RAID-0 section 3); the legacy bot's potion rule is the reference for the drink:
+- `packages/server/src/bots/brain/runner.ts:29-35` `shouldUsePotion`: alive, `hp < 0.65 * maxHp`, a large or small potion
+  held, `healingUntil <= now` (no heal running), not stunned or casting, and at least 1000 ms since the last try.
+- `packages/server/src/bots/brain/runner.ts:64-67`: the runner sends `useConsumable` after the brain's commands, every
+  frame the predicate holds.
+- Rust `HumanBot` has **no** potion use at all (`rg UseConsumable crates/rh-policy/src` finds only `raid/refs.rs`,
+  `raid/acts.rs` and a test), so the lab's HumanBot seats never drink either.
+
+## Established facts (verified in code on `coord/int-83`)
+
+### F1. Consumables and recovery under `SimConfig::live_content()`
+
+- **The command.** `PublicCommand::UseConsumable` -> `systems/potions.rs:39-92` `use_potion`. Refused with a notice (no
+  state change) when: the fighter is not standing, a status blocks actions (`status_runtime::action_blocked`),
+  **three heals already run** (`DEFINITION.concurrent = 3`: `potions/mod.rs:27`), hp is full, or no potion is held. It
+  does not refuse for being in combat; **damage or attacking does not interrupt the heal** (the hot is a record in
+  `World::potion_healing`, cleared only when the fighter is no longer standing: `systems/potions.rs:124-134`).
+- **Which potion.** The large ("Camp") potion is used first when held (`potions.rs:56,69-79`, "legacy
+  `const large = s.potionLarge > 0`"); else the small one.
+- **How much.** `DEFINITION` (`potions/mod.rs:27-34`): `small_share 0.25`, `large_share 0.4` of **max hp**, delivered
+  over `heal_ms 5000` in `10` equal steps of `step_ms 500`, the first one 500 ms after the use (`start_hot`,
+  `potions.rs:94-122`). Through `heal::Kind::IgnoreLockout`, so the 3 s combat heal lockout (`HEAL_LOCKOUT_MS`,
+  `constants.rs:154`) does not apply; `heal_taken_mult` and the heal factor of statuses still do (`systems/heal.rs`
+  `apply_with`). Hots stack: a second use while the first runs adds a second hot (up to 3). The wire shows the count in
+  `potions_healing` and the deadline in `healing_until`.
+- **Cooldown.** None beyond the three-concurrent cap. The order budget applies (`ORDER_BURST`, `ORDER_PER_SECOND`); the
+  act queue keeps `ACT_RESERVE = 6` tokens back (`acts.rs:682`) and waits 180-420 ms before a send (`ACT_GAP_MS`).
+- **Stock.** `DEFINITION.cap = 5` per size (`potions/mod.rs:22`); `grant` refuses past it (`potions.rs:11-34`).
+- **How a player comes to hold potions.** Not at the start (`state.rs:706-715`: all zero). (a) **Every standing
+  contributor of a camp clear is paid one large potion**, whether or not it is near the camp (`systems/camp_heal.rs:
+  72-84`, legacy `campHeal.payCampHeal`); (b) a **chest** on the ground holds one small potion (`initial_world/mod.rs:
+  215-230`, `systems/items.rs:415-441`: picked up through the pickup command; a full bag refuses); (c) the **small-potion
+  trader** (`traders/runtime.rs:344-356`, barter pick 1; pick 2 spends one small potion on a weapon). So a farming bot
+  earns a large potion per camp it clears, and the sustain question is whether it drinks it.
+- **Passive recovery** (`systems/regen.rs`, `constants.rs:381-385`): `SimConfig::live_content()` sets `regen: true`,
+  `regen_in_combat: Off` (`statics.rs:640-646`; owner decision 2026-11-12 "DEV-017 regen in combat", `OWNER_DECISIONS.md`
+  L115): **0.8 % of max hp per second (`PLAYER_REGEN_SHARE_OUT = 0.008`) only after 3 s with no hit dealt or taken
+  (`PLAYER_REGEN_QUIET_MS`), nothing in combat.** Full from empty in 125 s: the "heal-up seconds" the lab counts are
+  mostly this. A potion is 10 s of regen (small: 31 s; large: 50 s) in 5 s.
+- **Heal props** exist only in the grand coliseum (`systems/heal_pickups.rs:85-125`: a Large-potion hot for the nearest
+  damaged player with no heal running, then a respawn timer; none in training or outside the active phase). Not a
+  farming-phase source. **Lifesteal** is a card effect (`heal::Kind::Lifesteal`), not a base kit.
+- **Faction** mechanics for healing: Holy gets extra heal from heal zones (owner decision 2026-11-12, `OWNER_DECISIONS.md`
+  L96); the executor does not price it (P-RAID-C2's Wish).
+
+### F1b. Mobs: when a camp resets (`systems/mob_ai.rs`)
+
+- A mob **gives up** (`give_up`, :198-205; mode `Return`) when its position leaves the camp's leash (`fight`, :267:
+  `leash_ok(.., margin 0)`: `mapdata/patience.rs:37-57`, the camp's radius capped at `MOB_LEASH_CAP = 24 tiles`, and
+  the position must be on the camp's territory) or when it has had **no combat for `MOB_GIVE_UP_SECONDS = 20 s`**
+  (`b.last_combat_at`). It then walks home and, **on arriving within `MOB_HOME_RADIUS = 10 u`, its hp is reset to full**
+  (`home`, :190-191) and it idles. A camp the bot leaves therefore heals back to full and is still alive; a clear needs a
+  fresh fight. The members that chase follow the bot until the leash (`MOB_LEASH_MARGIN = 24 u` for their own steps).
+- So "leave the leash" is the disengage that ends the fight; "walk a short way away" only drags the members along (they
+  keep hitting). `kite::away_point` (`bots/kite.rs:15-33`, a step away from a threat turned until the walk is clear, or
+  `None` when cornered) is the heading; the leash edge is `crate::bots::planning` camp geometry (`PlanMap.camps[i]`: `x,
+  y, radius`, check the struct) and `RaidPercept::camp(i).at`.
+
+### F2. What the percept gives the executor today (`raid/percept.rs`)
+
+- Present: `p.me.hp`, `max_hp`, `hp_share()`, `potion_small`, `potion_large`, `potions_healing`, `healing_until:
+  Option<f64>` (server ms, the wire's inventory block; `percept.rs:339-342,514-517`), `potions()` (the sum of the three,
+  **including `potions_healing`, which is the count of running hots and not a stock**: `percept.rs:354-358`), `effects`
+  (status bits), `at`, `weapons`, `slot`; `p.camps[i]` (`alive`, `at`, `zone`, `elite`); `p.mobs` (`at`, `hp_share`,
+  `alive`, `class`, `camp` label by position, `engaged`, `weapon`). `p.now` is server ms.
+- **Missing or wrong for sustain:** (1) no field says whether the owner was hit this frame beyond `p.hit_at:
+  Option<f64>`; (2) `Refs::potions` (`refs.rs:90`: `p.me.potions() > 0`) counts running hots as potions, so the queue
+  keeps an `Act::UseConsumable` alive and sends it while only a heal is running: the sim then answers `Notice::Busy` or
+  `Full` (a harmless refusal, no `Rejected` command: the order goes through `Sim::submit` and the notice is an event),
+  but it spends order budget: the executor must gate on `potion_small + potion_large > 0` and `healing_until` itself
+  (it has both), not on `potions()`; (3) no member count of "who fights me now" beyond `mobs` (`engaged`, distance): the
+  farm's `members_left(p, camp)` (`exec/farm.rs:45-53`) and `death_chance(hp, share, members, &prices.death)`
+  (`farm.rs:39-42`) are the model's inputs and are public; the duel `share` is `planning::matchup_share(me, zone_faction(
+  zone), false)` (as `Farm::share`, cached per pair: the executor keeps its own cache).
+- Neither a `percept.rs`, `acts.rs`, `bot.rs` nor `arbiter.rs` change is needed (the seam suffices: `Executor::urgent`,
+  `propose`, `act`, `ride_along`, `Act::UseConsumable`, `GoalKind::Sustain::preempts_commitment`). The one thing `bot.rs`
+  already does: it forces a strategy and think tick on **a hp edge below 0.5** (`bot.rs:288-290`, `low_hp_prev`); the
+  executor's own `urgent()` adds the death-model edge and the drink edge.
+
+### F3. Probe (scratch, not committed): see "Probe results" below.
+
+## 4. New paths
+
+- `crates/rh-policy/tests/raid_sustain.rs` (the oracle).
+
+## 5. Exclusive write scope
+
+- `crates/rh-policy/src/bots/raid/exec/sustain.rs` (the executor; the stub commit replaces its one line).
+- `crates/rh-policy/src/bots/raid/exec/mod.rs`: **one registry line**, `Box::new(sustain::Sustain::default())`, placed
+  **first** in `registry()` (the stub commit already puts it there; the implementer keeps it). First because `Sustain`
+  is the first `GoalKind` (the arbiter's tie order), because it draws nothing from the arbiter stream in `observe`,
+  `urgent` or `propose`, so the order moves **no draw**; the only order-sensitive thing is `ride_along` merge priority,
+  and `Sustain::ride_along` returns an act, not an intent. A line later in the list would change nothing either; first
+  keeps the file's pattern (declaration order).
+- `crates/rh-policy/src/bots/raid/values.rs`: appended only: the `SustainPrices` struct and its `LOCAL`/`OFF`, the one
+  `sustain` field of `Prices`, and `farm_only()` setting it `OFF`. **Merges after P-RAID-V** (shared file: it adds row
+  slices to `Prices`); append the field last, touch nothing else.
+- If the executor needs something the seam lacks (a percept field, an `Act`, `bot.rs`, `arbiter.rs`): **stop and report**
+  to the coordinator; do not edit them.
+
+## 6. Contracts and references
+
+C-INPUT (the drink is a paced `Act::UseConsumable` through `validate` + `Sim::submit`), C-OBS (the executor reads the
+percept only), C-TICK and determinism (no clock, no hash order; `urgent` and `propose` draw nothing), `crates/rh-policy/
+AGENTS.md` ("priorities compete every decision tick", a commitment is the exception: `GoalKind::preempts_commitment`).
+Owner decisions kept to: DEV-017 (regen in combat Off, `OWNER_DECISIONS.md` L115) and the faction home-ground benefits
+(L96), unchanged.
+
+## 7. Behaviour to preserve
+
+- `crates/rh-policy/tests/raid_bot.rs` (four tests; header and `raid()` use `Prices::farm_only()`; it clears the
+  three-member scene on at least 7 of 8 seeds in 90 s, sends only accepted commands with `rejected == 0` and replays one
+  seed exactly). **`Prices::farm_only()` sets sustain `OFF`**, so those four tests replay byte for byte (an `OFF`
+  Sustain proposes nothing, `urgent()` is false and draws nothing): they are the proof the registry line moves no draw.
+- `raid/fix_tests.rs`, `raid/review_tests.rs` (both build scenes at full hp with no potions: `Sustain::urgent` must be
+  false there and draw nothing, `review_tests.rs:276+` asserts the arbiter stream is untouched by `any_urgent`; that test
+  also pushes a stand-in `Alarm` executor of kind `Sustain` AFTER the registry, the real `Sustain` first in the list takes
+  the dispatch only for goals it proposed: the real one proposes nothing at full hp, so the test is unchanged),
+  `crates/rh-headless/tests/raid_seats.rs` (eight RaidBots in a real match: no fault, repeats exactly; with `Prices::LOCAL`
+  sustain is on there, so its replay changes but must stay deterministic and fault-free), `parity` and `HumanBot` tests
+  (untouched: HumanBot has no Sustain).
+- Pinned replays this packet can move: only seats built with `Prices::LOCAL` (the default of `RaidBot::new`): the lab,
+  `raid_seats.rs`. The implementer proves the farm scenes still clear by running `raid_bot.rs` with `Prices::LOCAL`
+  swapped in for `farm_only()` in a scratch copy and reporting clears and `rejected` (not committed).
+
+## 8. Acceptance checks
+
+- `scripts/gate.sh --quick --oracle packet/P-RAID-C` passes (the full gate is the coordinator's).
+- `crates/rh-policy/tests/raid_sustain.rs` passes in a debug build in about a minute or two; `raid_bot.rs`,
+  `raid_seats.rs` stay green.
+
+## Oracle files (read-only for implementers)
+
+(filled when the oracle is committed)
+
+## 9. Validation commands
+
+- `cargo test -p rh-policy --test raid_sustain` and `--test raid_bot`; `cargo test -p rh-policy --lib raid`;
+  `cargo test -p rh-headless --test raid_seats`.
+- The lab, for the numbers in the report: `cargo run --release -p rh-headless --bin balance_lab -- --seeds 1..5 --jobs 4
+  --human-seats --seat 0=raid ... --seat 7=raid`.
+
+## 10. Risk and suggested model tier
+
+implementer-sonnet: one executor, one price struct, one registry line, with an oracle that fails by assertion. The hard
+part is the pre-empting goal: `Sustain` must win only when the fight is lost, leave a committed farm exactly once (no
+flip-flop with Farm re-proposing the same camp next tick: farm `ban`s are its own and Sustain must hold the goal through
+the disengage), and not starve itself on the order budget. reviewer-opus reads the pre-emption.
+
+## 11. Known traps
+
+- `Me::potions()` counts running hots: do not gate on it (F2).
+- A potion use while a hot runs is accepted by `Sim::submit` and refused by the sim with a notice; it still costs one
+  order token. Gate on `healing_until`/`potions_healing` before queueing.
+- `ActQueue::push` ignores an equal act already waiting, drops acts older than `ACT_TTL_MS = 4 s`, and sends at most one
+  per 180-420 ms: "within one second of crossing the threshold" has about 0.5 s of slack for the queue.
+- `urgent()` fires on the edge only. `any_urgent` asks every executor every frame and draws nothing; a level-triggered
+  `urgent` makes every frame a strategy tick and shifts the arbiter stream's draw count (changes replays).
+- Mob labels (`MobSeen::camp`) are by position; a member chasing the bot reads as another camp or none (`farm.rs`
+  `keepable`). Count the fight's members as `farm.rs` does (`engaged` within `DEFEND_U`, camp members within `FIGHT_U`).
+- A camp the bot leaves heals to full when its members get home (F1b); `Farm` re-proposes it with its full `members_left`.
+  Sustain must not drift into "leave, heal, return at once, die again": the heal-up candidate and the farm candidate's
+  own death term must share the hp the bot holds.
+
+## Notes from previous attempts
