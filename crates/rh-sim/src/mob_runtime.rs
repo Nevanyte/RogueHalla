@@ -439,8 +439,22 @@ impl Mob {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EliteTuning {
     pub k: f64,
+    /// The global elite hp multiplier. Readers in rh-sim read [`EliteTuning::hp_mult_of`] (P-BAL-ELITE-SEAM-1).
     pub hp_mult: f64,
+    /// The global elite damage multiplier. Readers in rh-sim read [`EliteTuning::dmg_mult_of`] (P-BAL-ELITE-SEAM-1).
     pub dmg_mult: f64,
+    /// P-BAL-ELITE-SEAM-1: per-elite-kind factors on top of the global pair, at most one row per kind. Empty in both
+    /// tables until a number packet fills the Rework one (`docs/backlog/packets/P-BAL-ELITE-SEAM-1.md`, content-hash
+    /// rule); `Legacy` stays empty (legacy has one global pair).
+    pub per_kind: &'static [EliteKindRow],
+}
+
+/// One per-kind row of [`EliteTuning::per_kind`]: the kind's hp and damage factors, multiplied onto the global pair.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EliteKindRow {
+    pub ty: MobTypeId,
+    pub hp: f64,
+    pub dmg: f64,
 }
 
 // The two tables, registered constants by name (`tests/content.rs` lists both in NON_GAMEPLAY). P-ELITE-TUNE-1 points
@@ -449,20 +463,65 @@ static LEGACY_ELITES: EliteTuning = EliteTuning {
     k: crate::constants::ELITE_K,
     hp_mult: crate::constants::ELITE_HP_MULT,
     dmg_mult: crate::constants::ELITE_DMG_MULT,
+    per_kind: &[],
 };
 static REWORK_ELITES: EliteTuning = EliteTuning {
     k: crate::constants::ELITE_K,
     hp_mult: crate::constants::REWORK_ELITE_HP_MULT,
     dmg_mult: crate::constants::REWORK_ELITE_DMG_MULT,
+    per_kind: &[],
 };
+
+// Test-only stand-in for the Rework table (P-BAL-ELITE-SEAM-1, `with_rework_table`): thread-local, so each test thread
+// sees only its own; compiled out of every non-test build.
+#[cfg(test)]
+thread_local! {
+    static TEST_REWORK_ELITES: std::cell::Cell<Option<&'static EliteTuning>> = const { std::cell::Cell::new(None) };
+}
+
+/// Test-only: runs `f` with `table` standing in for the Rework elite table on this thread. Every reader resolves its
+/// table through [`EliteTuning::of`] (spawn, the restore checks, `faction_spec`, `point_damage`, `npc_pulse`,
+/// `stored_rule`), so a whole world plays the doctored table, including `Sim::restore`.
+#[cfg(test)]
+pub(crate) fn with_rework_table<R>(table: &'static EliteTuning, f: impl FnOnce() -> R) -> R {
+    struct Reset(Option<&'static EliteTuning>);
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            TEST_REWORK_ELITES.with(|c| c.set(self.0));
+        }
+    }
+    let _reset = Reset(TEST_REWORK_ELITES.with(|c| c.replace(Some(table))));
+    f()
+}
+
+#[cfg(test)]
+mod elite_kind_tests;
 
 impl EliteTuning {
     /// The elite numbers of a rule (a static: no allocation).
     pub fn of(rule: crate::EliteRule) -> &'static EliteTuning {
         match rule {
             crate::EliteRule::Legacy => &LEGACY_ELITES,
-            crate::EliteRule::Rework => &REWORK_ELITES,
+            crate::EliteRule::Rework => {
+                #[cfg(test)]
+                if let Some(t) = TEST_REWORK_ELITES.with(std::cell::Cell::get) {
+                    return t;
+                }
+                &REWORK_ELITES
+            }
         }
+    }
+    /// The elite hp multiplier of kind `ty`: the global one, times the kind's row when it has one.
+    /// STUB (P-BAL-ELITE-SEAM-1): ignores `per_kind`.
+    pub fn hp_mult_of(&self, ty: MobTypeId) -> f64 {
+        let _ = ty;
+        self.hp_mult
+    }
+    /// The elite damage multiplier of kind `ty`: the global one, times the kind's row when it has one.
+    /// STUB (P-BAL-ELITE-SEAM-1): ignores `per_kind`.
+    pub fn dmg_mult_of(&self, ty: MobTypeId) -> f64 {
+        let _ = ty;
+        self.dmg_mult
     }
     /// The rule a world's mob runtime stores for a config rule (`MobRuntime::elites`): the rule itself, except that a
     /// rule whose numbers equal the legacy ones is stored as `Legacy`, which writes nothing. So a `Rework` world whose
