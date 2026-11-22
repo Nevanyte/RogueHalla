@@ -162,32 +162,36 @@ pub struct Step {
     /// the act queue (`acts.rs`).
     pub acts: Vec<Act>,
     pub why: &'static str,
+    /// The goal is mid-action (a fight on, a channel under way): leaving it does not escape its risk, so the arbiter
+    /// keeps it while its own score stays positive (a losing fight still yields).
+    pub committed: bool,
 }
 
 impl Step {
-    pub fn running(intents: Vec<Intent>, why: &'static str) -> Self {
+    fn of(status: Status, intents: Vec<Intent>, why: &'static str) -> Self {
         Self {
-            status: Status::Running,
+            status,
             intents,
             acts: Vec::new(),
             why,
+            committed: false,
+        }
+    }
+    pub fn running(intents: Vec<Intent>, why: &'static str) -> Self {
+        Self::of(Status::Running, intents, why)
+    }
+    /// Running and committed (see `committed`).
+    pub fn committed(intents: Vec<Intent>, why: &'static str) -> Self {
+        Self {
+            committed: true,
+            ..Self::of(Status::Running, intents, why)
         }
     }
     pub fn done(why: &'static str) -> Self {
-        Self {
-            status: Status::Done,
-            intents: Vec::new(),
-            acts: Vec::new(),
-            why,
-        }
+        Self::of(Status::Done, Vec::new(), why)
     }
     pub fn failed(why: &'static str) -> Self {
-        Self {
-            status: Status::Failed,
-            intents: Vec::new(),
-            acts: Vec::new(),
-            why,
-        }
+        Self::of(Status::Failed, Vec::new(), why)
     }
     /// Nothing to add (a ride-along hook with nothing to say).
     pub fn none() -> Self {

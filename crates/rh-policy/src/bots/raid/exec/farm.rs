@@ -1,8 +1,8 @@
 //! Farm (P-RAID-0): clearing a camp with the mob_hunt rules and a lock/attack loop.
 //!
 //! Candidates: every camp with members alive and no elite (elite camps are P-RAID-E's), priced at `Prices::camp` per
-//! `TYPICAL_MEMBERS` members, with a success and death chance from the duel share (`Knowledge::mob_share`, the shared
-//! planning duel) against the owner's hp. Execution follows HumanBot's compatibility combat (`bots/bot.rs`): walk to
+//! `TYPICAL_MEMBERS` members, with a success and death chance from the shared planning duel's share
+//! (`planning::matchup_share`) against the owner's hp. Execution follows HumanBot's compatibility combat (`bots/bot.rs`): walk to
 //! the camp, take the nearest living regional member, lock it inside weapon reach, else walk to it; hold the better
 //! weapon slot (`mob_hunt::best_slot_vs_mob`). Only regional mobs are targets: quest givers (actor kind 4, filed under
 //! camp 0 in the sim) are not in `RaidPercept::mobs`, and players are never farmed.
@@ -20,38 +20,66 @@ pub const TYPICAL_MEMBERS: f64 = 4.;
 pub const MELEE_LOCK_U: f64 = 40.;
 /// A mob of another camp this close that is fighting is fought first: it is on us.
 pub const DEFEND_U: f64 = 96.;
+/// A living member of the camp this close means the fight is on (an aggroed camp chases).
+pub const FIGHT_U: f64 = 240.;
 /// Standing at the camp with no member in sight this long fails the goal...
 const EMPTY_MS: f64 = 3_000.;
 /// ...and the camp is not proposed again for this long.
 const FAILED_BAN_MS: f64 = 20_000.;
-/// The chance of death when the hp the fight needs equals the hp held (the curve's midpoint), and its slope per hp share.
-const DEATH_MID: f64 = 0.5;
-const DEATH_SLOPE: f64 = 2.;
+/// An aggroed camp fights together: while the bot kills member k of n, the n - k + 1 still standing all hit it, so the hp
+/// a clear costs is the duel's loss times n(n+1)/2, times this weight (the reference duel is kinder than a real fight).
+/// Set so a fresh fighter's three-member camp is a small risk, as HumanBot clears those 8 of 8 (P-RAID-0 oracle), and a
+/// five-member camp a likely death without sustain (32 of 96 HumanBot camps of all sizes ended in death or no clear).
+pub const FIGHT_WEIGHT: f64 = 3.;
+/// The death chance rises by this per unit of (hp needed / hp held) past `SAFE_RATIO`.
+const DEATH_PER_RATIO: f64 = 0.4;
+const SAFE_RATIO: f64 = 0.65;
+/// A member is the same one next think when it stands within this of where the last one was (npc keys live one frame).
+const TRACK_U: f64 = 80.;
 
-/// The chance to die clearing `alive` members, each costing `1 - share` of max hp, starting at `hp` share.
-pub fn death_chance(hp: f64, share: f64, alive: u32) -> f64 {
-    let need = f64::from(alive) * (1. - share.clamp(0., 1.));
-    (DEATH_MID + (need - hp) * DEATH_SLOPE).clamp(0.02, 0.98)
+/// The share of max hp clearing `members` members costs, each a duel the bot keeps `share` of its hp in. `members` is
+/// in whole members' worth of hp (a member at half hp counts one half).
+pub fn hp_needed(share: f64, members: f64) -> f64 {
+    let n = members.max(0.);
+    (1. - share.clamp(0., 1.)) * n * (n + 1.) / 2. * FIGHT_WEIGHT
+}
+
+/// The chance to die clearing `members` members' worth of hp from `hp` share of max hp. Local constants until P-RAID-C
+/// and P-RAID-V price sustain and the real fight.
+pub fn death_chance(hp: f64, share: f64, members: f64) -> f64 {
+    let ratio = hp_needed(share, members) / hp.max(0.05);
+    (DEATH_PER_RATIO * (ratio - SAFE_RATIO)).clamp(0.02, 0.98)
+}
+
+/// The camp's members in whole members' worth of hp: those alive, less what the visible ones have lost.
+pub fn members_left(p: &crate::bots::raid::percept::RaidPercept, camp: &CampSeen) -> f64 {
+    let lost: f64 = p
+        .mobs
+        .iter()
+        .filter(|m| m.alive && m.class == MobClass::Regional && m.camp == Some(camp.index))
+        .map(|m| 1. - m.hp_share.clamp(0., 1.))
+        .sum();
+    (f64::from(camp.alive) - lost).max(0.)
 }
 
 /// The Farm goal's state: the duel shares it computed, the member it fights, the camps it gave up on.
 #[derive(Default)]
 pub struct Farm {
     shares: Vec<((FactionId, FactionId), f64)>,
-    target: Option<String>,
+    /// Where the member it fights stood at the last think.
+    target: Option<Vec2>,
     empty_since: Option<f64>,
     banned: Vec<(u32, f64)>,
 }
 
 impl Farm {
-    fn share(&mut self, cx: &Cx<'_>, me: FactionId, region: FactionId) -> f64 {
+    /// The shared planning duel's share (public content, exact): the lab's player prices camps by the rules, not by
+    /// Knowledge's per-bot error (which swings a three-member camp's death term several-fold).
+    fn share(&mut self, me: FactionId, region: FactionId) -> f64 {
         if let Some((_, s)) = self.shares.iter().find(|(k, _)| *k == (me, region)) {
             return *s;
         }
-        let s = cx.knowledge.map_or_else(
-            || matchup_share(me, region, false),
-            |k| k.mob_share(me, region, false),
-        );
+        let s = matchup_share(me, region, false);
         self.shares.push(((me, region), s));
         s
     }
@@ -114,29 +142,28 @@ impl Executor for Farm {
             .collect();
         order.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.index.cmp(&b.1.index)));
         let horizon = cx.tier_params().route.horizon as usize;
-        let camps: Vec<(usize, u32, Vec2, rh_sim::mapdata::Zone, u32)> = order
+        let camps: Vec<(usize, u32, Vec2, rh_sim::mapdata::Zone, u32, f64)> = order
             .iter()
             .enumerate()
-            .map(|(n, (_, c))| (n, c.index, c.at, c.zone, c.alive))
+            .map(|(n, (_, c))| (n, c.index, c.at, c.zone, c.alive, members_left(cx.p, c)))
             .collect();
-        for (n, index, camp_at, zone, alive) in camps {
+        for (n, index, camp_at, zone, alive, left) in camps {
+            // A failed search (a camp spot or the bot's own spot against a wall) falls back to the straight estimate:
+            // the walk itself finds the way, and dropping the camp would abandon a fight in progress.
             let walk = if n < horizon {
-                match eta_minutes(cx.paths, at, camp_at) {
-                    Some(m) => m,
-                    None => continue,
-                }
+                eta_minutes(cx.paths, at, camp_at).unwrap_or_else(|| straight_minutes(at, camp_at))
             } else {
                 straight_minutes(at, camp_at)
             };
-            let share = self.share(cx, me, zone_faction(zone));
-            let death = death_chance(hp, share, alive);
+            let share = self.share(me, zone_faction(zone));
+            let death = death_chance(hp, share, left);
             out.push(Candidate {
                 goal: RaidGoal::new(GoalKind::Farm, Target::Camp(index)),
                 value: cx.prices.camp * f64::from(alive) / TYPICAL_MEMBERS,
                 success: 1. - death,
                 death,
                 loss: cx.prices.death_loss,
-                minutes: walk + f64::from(alive) * cx.prices.kill_seconds / 60.,
+                minutes: walk + left * cx.prices.kill_seconds / 60.,
             });
         }
     }
@@ -156,12 +183,13 @@ impl Executor for Farm {
         }
         let camp_at = camp.at;
         let now = cx.p.now;
-        // Keep the member we fight while it lives; else take the nearest.
-        let kept = self.target.as_ref().and_then(|key| {
+        // Keep the member we fight while it lives (found where it stood: npc keys live one frame); else the nearest.
+        let kept = self.target.and_then(|was| {
             cx.p
                 .mobs
                 .iter()
-                .find(|m| &m.key == key && m.alive && m.class == MobClass::Regional)
+                .filter(|m| m.alive && m.class == MobClass::Regional && dist(m.at, was) <= TRACK_U)
+                .min_by(|a, b| dist(a.at, was).total_cmp(&dist(b.at, was)).then_with(|| a.key.cmp(&b.key)))
         });
         let Some(mob) = kept.or_else(|| Self::pick(cx, index)).cloned() else {
             self.target = None;
@@ -179,7 +207,7 @@ impl Executor for Farm {
             return Step::running(Vec::new(), "waiting at the camp");
         };
         self.empty_since = None;
-        self.target = Some(mob.key.clone());
+        self.target = Some(mob.at);
         let mut intents = Vec::new();
         let slots = cx.p.me.weapons;
         let slot = best_slot_vs_mob(slots, cx.p.me.slot, mob.weapon);
@@ -193,6 +221,13 @@ impl Executor for Farm {
         }
         let in_hand = slots[usize::from(cx.p.me.slot.min(1))];
         let d = cx.p.dist(mob.at);
+        // A fight is on once a member of the camp is close or a mob is fighting next to us: they follow if we leave.
+        let fighting = cx.p.mobs.iter().any(|m| {
+            m.alive
+                && m.class == MobClass::Regional
+                && ((m.camp == Some(index) && cx.p.dist(m.at) <= FIGHT_U)
+                    || (m.engaged && cx.p.dist(m.at) <= DEFEND_U))
+        });
         if d <= lock_range(in_hand) {
             intents.push(Intent {
                 body: IntentBody::Lock {
@@ -206,7 +241,11 @@ impl Executor for Farm {
         } else if let Some(next) = step_toward(cx.paths, cx.p.me.at, mob.at) {
             intents.push(move_intent(next, "farm approach"));
         }
-        Step::running(intents, "farming")
+        if fighting {
+            Step::committed(intents, "fighting")
+        } else {
+            Step::running(intents, "approaching")
+        }
     }
 }
 
@@ -216,9 +255,14 @@ mod tests {
 
     #[test]
     fn death_chance_grows_with_the_fight_and_falls_with_hp() {
-        assert!(death_chance(1., 0.8, 1) < death_chance(1., 0.8, 3));
-        assert!(death_chance(1., 0.5, 3) > death_chance(1., 0.8, 3));
-        assert!(death_chance(0.3, 0.8, 2) > death_chance(1., 0.8, 2));
-        assert_eq!(death_chance(1., 1., 0), 0.02);
+        assert!(death_chance(1., 0.965, 1.) < death_chance(1., 0.965, 3.));
+        assert!(death_chance(1., 0.9, 3.) > death_chance(1., 0.965, 3.));
+        assert!(death_chance(0.3, 0.965, 2.) > death_chance(1., 0.965, 2.));
+        assert_eq!(death_chance(1., 1., 0.), 0.02);
+        // A fresh fighter: a three-member camp is a small risk, a five-member camp a likely death (Holy vs Fire share).
+        assert!(death_chance(1., 0.965, 3.) < 0.1);
+        assert!(death_chance(1., 0.965, 5.) > 0.3);
+        // A camp worn down is cheaper to finish than a fresh one.
+        assert!(death_chance(0.6, 0.965, 1.6) < death_chance(0.6, 0.965, 3.));
     }
 }

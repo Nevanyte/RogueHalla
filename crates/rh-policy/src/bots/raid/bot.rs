@@ -61,6 +61,7 @@ pub struct RaidBot {
     executors: Vec<Box<dyn Executor>>,
     goal: RaidGoal,
     status: Status,
+    committed: bool,
     why: &'static str,
     next_think_at: f64,
     acts: ActQueue,
@@ -98,6 +99,7 @@ impl RaidBot {
             executors: exec::registry(),
             goal: no_goal(),
             status: Status::Done,
+            committed: false,
             why: "",
             next_think_at: 0.,
             acts: ActQueue::default(),
@@ -206,6 +208,7 @@ impl Policy for RaidBot {
         }
         self.goal = no_goal();
         self.status = Status::Done;
+        self.committed = false;
         self.why = "";
         self.next_think_at = 0.;
         self.budget = OrderBudgetMirror::default();
@@ -452,7 +455,7 @@ impl RaidBot {
             let chosen = self.arbiter.choose(
                 now,
                 candidates,
-                (&held, self.status),
+                (&held, self.status, self.committed),
                 tier,
                 persona,
                 parts.rng,
@@ -462,6 +465,7 @@ impl RaidBot {
                 changed = true;
                 self.goal = next;
                 self.status = Status::Running;
+                self.committed = false;
                 let goal = self.goal.clone();
                 if let Some(e) = self
                     .executors
@@ -475,7 +479,9 @@ impl RaidBot {
                 self.goal = next;
             }
         }
-        if !(changed || urgent || now >= self.next_think_at) {
+        // A committed goal (a fight) thinks every frame: a melee lock needs this frame's positions, as HumanBot's front end
+        // re-plans every frame. Others think on the tier's cadence.
+        if !(changed || urgent || self.committed || now >= self.next_think_at) {
             return (Vec::new(), Vec::new());
         }
         let goal = self.goal.clone();
@@ -488,6 +494,7 @@ impl RaidBot {
             None => Step::failed("no executor for the goal"),
         };
         self.status = step.status;
+        self.committed = step.committed;
         self.why = step.why;
         let mut intents = step.intents;
         let mut acts = step.acts;

@@ -55,6 +55,7 @@ fn step(out: crate::bots::brain::Output) -> Step {
         intents: out.intents,
         acts: Vec::new(),
         why: out.why,
+        committed: false,
     }
 }
 

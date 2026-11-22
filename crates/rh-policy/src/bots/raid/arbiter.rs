@@ -3,7 +3,8 @@
 //! Every strategy tick each registered executor proposes candidates (`goal::Executor::propose`); the arbiter scores
 //! each `(value x success - death x loss) / minutes` (the workbook's currency: one normal camp = 12 stat stacks = one
 //! camp-equivalent), times its kind's tier and persona multipliers (`goal::GoalKind`). The incumbent goal, while it
-//! runs, gets a hysteresis margin so the bot does not dither. Ties fall to the kind's declaration order, then the
+//! runs, gets a hysteresis margin so the bot does not dither; a committed incumbent (a fight under way: `Step::committed`)
+//! is kept outright while its own score stays positive. Ties fall to the kind's declaration order, then the
 //! target's stable key: the choice depends on nothing but the candidates (no hash order, no float-order surprise).
 //!
 //! Prices are local constants (`Prices::LOCAL`) until P-RAID-V's value table; a caller swaps them with
@@ -43,7 +44,7 @@ impl Prices {
         chest: 1.5,
         roam_per_minute: 0.1,
         death_loss: 6.,
-        kill_seconds: 6.,
+        kill_seconds: 10.,
     };
 }
 
@@ -104,13 +105,14 @@ impl Arbiter {
         !self.started || now >= self.next_at || status != Status::Running || urgent
     }
 
-    /// Rank `candidates` and return the winner. The incumbent, while it runs, keeps a hysteresis margin. Draws the next
-    /// strategy time from `rng` (the arbiter stream, tag 16) once per call.
+    /// Rank `candidates` and return the winner. The incumbent, while it runs, keeps a hysteresis margin, and while it is
+    /// also committed it wins outright as long as its score is positive. Draws the next strategy time from `rng` (the
+    /// arbiter stream, tag 16) once per call.
     pub fn choose(
         &mut self,
         now: f64,
         candidates: Vec<Candidate>,
-        incumbent: (&RaidGoal, Status),
+        incumbent: (&RaidGoal, Status, bool),
         tier: &TierParams,
         persona: &PersonaParams,
         rng: &mut Rng,
@@ -122,7 +124,7 @@ impl Arbiter {
                 tier.strategy_ms.mean - tier.strategy_ms.jitter,
                 tier.strategy_ms.mean + tier.strategy_ms.jitter,
             );
-        let (held, status) = incumbent;
+        let (held, status, committed) = incumbent;
         let mut ranked: Vec<Scored> = candidates
             .into_iter()
             .filter_map(|candidate| {
@@ -140,7 +142,10 @@ impl Arbiter {
             })
             .collect();
         ranked.sort_by(better);
-        let winner = ranked.first().map(|s| s.candidate.goal.clone());
+        let kept = (status == Status::Running && committed)
+            .then(|| ranked.iter().find(|s| s.candidate.goal.same(held) && s.score > 0.))
+            .flatten();
+        let winner = kept.or(ranked.first()).map(|s| s.candidate.goal.clone());
         self.last = ranked;
         winner
     }
@@ -179,7 +184,7 @@ mod tests {
             cand(GoalKind::Farm, Target::Camp(7), 1., 1.),
             cand(GoalKind::Farm, Target::Camp(3), 1., 1.),
         ];
-        let got = arb.choose(0., a, (&idle, Status::Done), tier, persona, &mut rng);
+        let got = arb.choose(0., a, (&idle, Status::Done, false), tier, persona, &mut rng);
         assert_eq!(got, Some(RaidGoal::new(GoalKind::Farm, Target::Camp(3))));
         // The incumbent keeps a slightly worse score...
         let held = RaidGoal::new(GoalKind::Farm, Target::Camp(7));
@@ -187,14 +192,24 @@ mod tests {
             cand(GoalKind::Farm, Target::Camp(3), 1.1, 1.),
             cand(GoalKind::Farm, Target::Camp(7), 1., 1.),
         ];
-        let got = arb.choose(0., b, (&held, Status::Running), tier, persona, &mut rng);
+        let got = arb.choose(0., b, (&held, Status::Running, false), tier, persona, &mut rng);
         assert_eq!(got, Some(held.clone()));
         // ...but not a much worse one.
         let c = vec![
             cand(GoalKind::Farm, Target::Camp(3), 2., 1.),
             cand(GoalKind::Farm, Target::Camp(7), 1., 1.),
         ];
-        let got = arb.choose(0., c, (&held, Status::Running), tier, persona, &mut rng);
+        let got = arb.choose(0., c.clone(), (&held, Status::Running, false), tier, persona, &mut rng);
         assert_eq!(got, Some(RaidGoal::new(GoalKind::Farm, Target::Camp(3))));
+        // A committed incumbent (a fight under way) stays while its score is positive...
+        let got = arb.choose(0., c, (&held, Status::Running, true), tier, persona, &mut rng);
+        assert_eq!(got, Some(held.clone()));
+        // ...and yields once the fight is a losing one.
+        let mut losing = cand(GoalKind::Farm, Target::Camp(7), 1., 1.);
+        losing.death = 0.5;
+        losing.loss = 6.;
+        let d = vec![losing, cand(GoalKind::Roam, Target::None, 0.1, 1.)];
+        let got = arb.choose(0., d, (&held, Status::Running, true), tier, persona, &mut rng);
+        assert_eq!(got, Some(RaidGoal::new(GoalKind::Roam, Target::None)));
     }
 }
