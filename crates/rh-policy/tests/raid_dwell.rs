@@ -268,6 +268,20 @@ fn run(s: &Scene, policy: Box<dyn Policy>) -> Run {
     }
 }
 
+/// Only `def`'s reward is worth anything: a sweep that proves one quest prices only that quest (seed 2 deals both).
+fn raid_only(def: &str) -> Box<dyn Policy> {
+    const HOLD: Prices = Prices {
+        reward_rows: &[("hold_the_fort", 3.6)],
+        ..Prices::farm_only()
+    };
+    const STAY: Prices = Prices {
+        reward_rows: &[("stay_a_while", 2.0)],
+        ..Prices::farm_only()
+    };
+    let prices = if def == "hold_the_fort" { HOLD } else { STAY };
+    Box::new(RaidBot::new(TierId::Normal, PersonaId::Farmer).with_prices(prices))
+}
+
 fn raid_dwell_only() -> Box<dyn Policy> {
     Box::new(RaidBot::new(TierId::Normal, PersonaId::Farmer).with_prices(DWELL_ONLY))
 }
@@ -415,7 +429,7 @@ fn raid_bot_accepts_and_completes_each_dwell_quest() {
     for (def, seeds) in [("hold_the_fort", HOLD_SEEDS), ("stay_a_while", STAY_SEEDS)] {
         let mut done = Vec::new();
         for seed in seeds {
-            let r = run(&scene(seed, def, false), raid_dwell_only());
+            let r = run(&scene(seed, def, false), raid_only(def));
             assert!(
                 r.journal.accepted.contains(def),
                 "seed {seed}: RaidBot accepted {def}: {r:?}"
