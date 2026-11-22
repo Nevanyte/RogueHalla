@@ -15,6 +15,9 @@ namespace Roguehalla.Client
         [ColorUsage(false, false), Tooltip("Cool edge pigment on the closed gate bars.")]
         public Color GateIronHighlight = new Color(.48f, .52f, .55f, 1f);
 
+        [Tooltip("Hand-painted iron plate along the top of the side gates and the cross rails, lit by scene lights.")]
+        public Sprite RailIronwork;
+
         [Range(.12f, .44f), Tooltip("Thickness of the forged frame seen from above at the east and west gates, in world units.")]
         public float FrameDepthWorldUnits = .31f;
     }
