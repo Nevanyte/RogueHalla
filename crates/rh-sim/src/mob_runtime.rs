@@ -511,17 +511,26 @@ impl EliteTuning {
             }
         }
     }
-    /// The elite hp multiplier of kind `ty`: the global one, times the kind's row when it has one.
-    /// STUB (P-BAL-ELITE-SEAM-1): ignores `per_kind`.
-    pub fn hp_mult_of(&self, ty: MobTypeId) -> f64 {
-        let _ = ty;
-        self.hp_mult
+    /// The row of kind `ty` in [`EliteTuning::per_kind`], if any: a linear scan of a `&'static` slice (ordered, no
+    /// allocation; C-DET). At most one row per kind, so the first match is the only one.
+    fn row_of(&self, ty: MobTypeId) -> Option<&'static EliteKindRow> {
+        self.per_kind.iter().find(|r| r.ty == ty)
     }
-    /// The elite damage multiplier of kind `ty`: the global one, times the kind's row when it has one.
-    /// STUB (P-BAL-ELITE-SEAM-1): ignores `per_kind`.
+    /// The elite hp multiplier of kind `ty`: the global field itself when the kind has no row (bit-identical: no
+    /// floating-point operation runs), else `global * row.hp` (one multiply, global first; C-NUM).
+    pub fn hp_mult_of(&self, ty: MobTypeId) -> f64 {
+        match self.row_of(ty) {
+            None => self.hp_mult,
+            Some(r) => self.hp_mult * r.hp,
+        }
+    }
+    /// The elite damage multiplier of kind `ty`: the global field itself when the kind has no row (bit-identical: no
+    /// floating-point operation runs), else `global * row.dmg` (one multiply, global first; C-NUM).
     pub fn dmg_mult_of(&self, ty: MobTypeId) -> f64 {
-        let _ = ty;
-        self.dmg_mult
+        match self.row_of(ty) {
+            None => self.dmg_mult,
+            Some(r) => self.dmg_mult * r.dmg,
+        }
     }
     /// The rule a world's mob runtime stores for a config rule (`MobRuntime::elites`): the rule itself, except that a
     /// rule whose numbers equal the legacy ones is stored as `Legacy`, which writes nothing. So a `Rework` world whose
@@ -553,7 +562,7 @@ pub fn spawn_hp(elites: &EliteTuning, region: FactionId, elite: bool, ty: MobTyp
     } else {
         crate::constants::MOB_K
     };
-    let hp_mult = crate::constants::MOB_HP_MULT * if elite { elites.hp_mult } else { 1. };
+    let hp_mult = crate::constants::MOB_HP_MULT * if elite { elites.hp_mult_of(ty) } else { 1. };
     let role = crate::mob_catalog::mob_type_in(region, Some(ty.as_str()))
         .map_or(1., |t| t.role_def().hp_mult);
     (crate::content::faction(region).hp * scale) * hp_mult * role
