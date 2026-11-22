@@ -1,14 +1,5 @@
-//! The arbiter (P-RAID-0): candidate goals scored in camp-equivalents per minute, with hysteresis.
-//!
-//! Every strategy tick each registered executor proposes candidates (`goal::Executor::propose`); the arbiter scores
-//! each `(value x success - death x loss) / minutes` (the workbook's currency: one normal camp = 12 stat stacks = one
-//! camp-equivalent), times its kind's tier and persona multipliers (`goal::GoalKind`). The incumbent goal, while it
-//! runs, gets a hysteresis margin so the bot does not dither; a committed incumbent (a fight under way: `Step::committed`)
-//! is kept outright while its own score stays positive. Ties fall to the kind's declaration order, then the
-//! target's stable key: the choice depends on nothing but the candidates (no hash order, no float-order surprise).
-//!
-//! Prices are local constants (`Prices::LOCAL`) until P-RAID-V's value table; a caller swaps them with
-//! `RaidBot::with_prices`, so no file here changes when the table lands.
+//! The arbiter (P-RAID-0): candidate goals scored in camp-equivalents per minute, with hysteresis, and the `Prices` the
+//! candidates are valued with (local constants until P-RAID-V's table; a caller swaps them with `RaidBot::with_prices`).
 use super::goal::{Candidate, RaidGoal, Status};
 use crate::bots::random::{uniform, Rng};
 use crate::bots::types::{PersonaParams, TierParams};
@@ -86,7 +77,12 @@ fn better(a: &Scored, b: &Scored) -> std::cmp::Ordering {
         })
 }
 
-/// The strategy cadence and the last ranking.
+/// The strategy cadence and the last ranking. Every strategy tick each registered executor proposes candidates
+/// (`goal::Executor::propose`); each is scored `(value x success - death x loss) / minutes` (the workbook's currency:
+/// one normal camp = 12 stat stacks = one camp-equivalent), times its kind's tier and persona multipliers
+/// (`goal::GoalKind`). The running incumbent gets a hysteresis margin; a committed incumbent (a fight under way,
+/// `Step::committed`) is kept outright while its own score stays positive. Ties fall to the kind's declaration order,
+/// then the target's key: the choice depends on the candidates alone, not on the order they were proposed in.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Arbiter {
     started: bool,

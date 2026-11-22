@@ -1,10 +1,6 @@
-//! Travel (P-RAID-0): walking through RoomPathService within its per-tick budget, and the Roam goal.
-//!
-//! `step_toward` is the walking primitive every executor uses: the destination itself when the straight segment is
-//! clear, else the next waypoint of a budgeted path search (`BOT_PATH_BUDGET_PER_TICK`, a 1 s cache), else the
-//! destination when the service could not search this tick (the sim walks a clicked point on its own path).
-//! `eta_minutes` prices a trip for the arbiter. Roam walks to a camp or spawn point drawn from the arbiter stream; it is
-//! the floor every paying goal must beat (`Prices::roam_per_minute`).
+//! Travel (P-RAID-0): walking through RoomPathService within its per-tick budget (`step_toward`, `walk`), trip prices
+//! for the arbiter (`eta_minutes`), and the Roam goal: a camp or spawn point drawn from the arbiter stream, the floor
+//! every paying goal must beat (`Prices::roam_per_minute`).
 use crate::bots::paths::RoomPathService;
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Step, Target};
 use crate::bots::types::{Intent, IntentBody, IntentTiming, PRIORITY_GOAL};
@@ -23,7 +19,9 @@ fn dist(a: Vec2, b: Vec2) -> f64 {
     rh_sim::math::hypot(a.x - b.x, a.y - b.y)
 }
 
-/// The point to click next on the way from `from` to `to`; `None` when the service knows there is no way.
+/// The point to click next on the way from `from` to `to`: the destination when the straight segment is clear, else
+/// the next waypoint of a budgeted search (`BOT_PATH_BUDGET_PER_TICK`, a 1 s cache), else the destination when no
+/// search ran this tick; `None` when the service knows there is no way.
 pub fn step_toward(paths: &mut RoomPathService, from: Vec2, to: Vec2) -> Option<Vec2> {
     if dist(from, to) <= 2. * ARRIVE_U || paths.clear(from, to) {
         return Some(to);

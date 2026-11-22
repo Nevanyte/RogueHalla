@@ -1,9 +1,7 @@
-//! RaidBot percept (P-RAID-0): what one accepted Frame14 says, joined to the static PlanMap camps. Built from `&Frame14`
-//! only (C-OBS), beside the shared hand percept the Humanizer and `Loot` read (`bots::perception`).
-//!
-//! Actors are split by kind: players, mobs (regional, elite by type, zombie, dummy) and quest givers. Quest givers are
-//! mobs filed under camp 0 in the sim, actor kind 4 on the wire: they go to `givers` only and are never a farm target.
-//! A mob's camp is the nearest `PlanCamp` within `CAMP_JOIN_RADIUS` (the wire carries no camp index on an actor).
+//! RaidBot percept (P-RAID-0): what one accepted Frame14 says (C-OBS), joined to the static PlanMap camps, beside the
+//! shared hand percept the Humanizer and `Loot` read. Quest givers (sim mobs under camp 0, actor kind 4) go to `givers`
+//! only, never `mobs`; a mob's camp is the nearest `PlanCamp` within `CAMP_JOIN_RADIUS` (an actor carries no camp
+//! index). An npc's key is new in every frame (its wire id is a per-frame reference): follow a mob by position.
 use crate::bots::perception::{npc_key, player_key, LootFacts};
 use crate::bots::planning::PlanMap;
 use crate::bots::types::Percept;

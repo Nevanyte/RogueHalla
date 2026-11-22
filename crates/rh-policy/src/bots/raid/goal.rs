@@ -1,13 +1,6 @@
-//! Goals and executors (P-RAID-0): `RaidGoal`, the `Executor` trait every goal kind implements, and what an executor
-//! returns each think (`Step`: a status, intents for the Humanizer, acts for the paced queue).
-//!
-//! A goal names its target by a STABLE key (a camp index, a point, a chest's public key, an actor's rendered key, a
-//! quest's definition id), never by a frame handle: handles live one frame and are resolved at emit time by `refs.rs`.
-//!
-//! What an executor may do: read the percept (`Cx::p`), ask the room path service within its per-tick budget, draw from
-//! the arbiter stream it is lent, keep its own memory between thinks (stable keys only), and return intents and acts.
-//! What it may not do: emit `PublicCommand`s itself, hold a handle past its frame, read anything but the percept and the
-//! match's public statics, use a clock or a hash-ordered collection, or reach into another executor's state.
+//! Goals and executors (P-RAID-0): `RaidGoal`, the `Candidate` an executor proposes (priced in camp-equivalents), the
+//! `Executor` trait every goal kind implements, and what one think returns (`Step`: a status, intents for the Humanizer,
+//! acts for the paced queue). The rules for an executor are on the trait.
 use super::acts::Act;
 use super::arbiter::Prices;
 use super::percept::RaidPercept;
@@ -88,7 +81,8 @@ impl GoalKind {
     }
 }
 
-/// What a goal aims at, by stable key (never a frame handle).
+/// What a goal aims at, by a key that outlives the frame, never by a frame handle (handles live one frame and are
+/// resolved at emit time by `refs.rs`).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Target {
     None,
@@ -98,7 +92,8 @@ pub enum Target {
     Point(Vec2),
     /// A reward chest or container by its public key (`perception::ChestRef::key`, `PropRef::key`).
     Key(String),
-    /// An actor by its rendered key (`p<id>` a player, `n<id>` an npc).
+    /// A player by its rendered key (`p<id>`, stable). Never an npc: an npc's wire id, and so its `n<id>` key, is new in
+    /// every frame; an executor follows a mob by position (as `exec/farm.rs` does) and names it only inside one think.
     Actor(String),
     /// A quest row by its definition id (`WireQuestRow::def`), with the stage-specific index the executor wants.
     Quest { def: String, stage: u8 },
@@ -246,6 +241,11 @@ impl Cx<'_> {
 
 /// One goal kind's module: it proposes candidates for its kind, executes the goals of its kind, and may add intents or
 /// acts on top of whatever goal is running (a chest pick, a potion, a spell). Registered once in `exec::registry`.
+///
+/// An executor may read the percept (`Cx::p`) and the match's public statics, ask the room path service within its
+/// per-tick budget, draw from the arbiter stream it is lent (in registry order), keep its own memory between thinks, and
+/// return intents and acts. It may not emit a `PublicCommand` itself, keep a handle or an npc key past its frame, read
+/// anything else, use a clock or a hash-ordered collection, or reach into another executor's state.
 pub trait Executor: Send {
     /// The goal kinds this executor runs (empty for a module that only rides along).
     fn kinds(&self) -> &'static [GoalKind];

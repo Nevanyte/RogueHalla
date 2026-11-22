@@ -1,9 +1,6 @@
-//! Frame-local references (P-RAID-0): the actor, prop, chest and quest handles valid for this frame only.
-//!
-//! Goals and queued acts name things by stable keys (an actor's rendered key, a chest's public key, a quest's definition
-//! id). `Refs` is rebuilt from every accepted frame and is the only place a key becomes a handle, at emit time. A key the
-//! frame did not deliver resolves to `None` and its command is dropped: never guessed, never a row index, never a handle
-//! kept from an older frame (the seat would refuse it: `Seat::resolve`, `submit_all`).
+//! Frame-local references (P-RAID-0): the actor, prop, chest and quest handles valid for this frame only. Rebuilt from
+//! every accepted frame, it is the one place a key becomes a handle, at emit time; a key the frame did not deliver
+//! resolves to `None` and its command is dropped (never guessed, never a row index, never a stale handle).
 use super::acts::Act;
 use super::percept::RaidPercept;
 use crate::bots::bot::CommandRefs;

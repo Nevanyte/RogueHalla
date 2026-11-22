@@ -1,13 +1,6 @@
-//! The paced act queue (P-RAID-0): QuestAccept, QuestInteract, UseConsumable and Trade sent as PublicCommand.
-//!
-//! Executors return `Act`s beside their intents; the shared `Command` enum (`bots/types.rs`) is not extended (it keys
-//! HumanBot's stats). The queue keeps at most `MAX_QUEUED` acts and paces them like a person working a menu: one send,
-//! then a pause drawn from the queue's own stream (tag 17). Every frame it drops an act whose quest row, offered
-//! interaction, merchant or potion the frame no longer shows, and one older than `ACT_TTL_MS`.
-//!
-//! The seat's order budget (`Sim::submit`: `ORDER_BURST` tokens refilled at `ORDER_PER_SECOND` on sim time) is shared
-//! with the Humanizer. `OrderBudgetMirror` replays that bucket from the commands the seat emits, so the seat never sends
-//! a command the bucket would refuse; the queue sends only while `ACT_RESERVE` tokens stay for the Humanizer's clicks.
+//! The paced act queue (P-RAID-0): QuestAccept, QuestInteract, UseConsumable and Trade sent as PublicCommand, and the
+//! mirror of the seat's order budget that keeps every send inside it. The shared `Command` enum (`bots/types.rs`) is
+//! not extended: it keys HumanBot's stats. Pauses draw from the queue's own stream (tag 17).
 use super::refs::Refs;
 use crate::bots::random::{uniform, Rng};
 use rh_sim::constants::{ORDER_BURST, ORDER_PER_SECOND};
@@ -99,7 +92,11 @@ pub struct ActStats {
     pub dropped: u64,
 }
 
-/// The paced queue of acts.
+/// The paced queue of acts. Executors return `Act`s beside their intents; the queue keeps at most `MAX_QUEUED` and paces
+/// them like a person working a menu: an act waits a pause before it goes, then one send, then another pause. Every
+/// frame it first drops an act whose quest row, offered interaction, merchant or potion the frame no longer shows, and
+/// one older than `ACT_TTL_MS`. It sends only while `ACT_RESERVE` order-budget tokens stay for the Humanizer's clicks
+/// (the budget is the seat's, shared: `Sim::submit` refuses past `ORDER_BURST` tokens refilled at `ORDER_PER_SECOND`).
 pub struct ActQueue {
     entries: Vec<Entry>,
     rng: Rng,

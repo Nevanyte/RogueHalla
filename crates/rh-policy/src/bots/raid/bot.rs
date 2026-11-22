@@ -1,12 +1,7 @@
 //! The RaidBot policy seat (P-RAID-0): checks its input as HumanBot does, answers the planning screen through
 //! `PlanModule`, builds the percept, runs the arbiter and the executors, and emits through the Humanizer and the act
-//! queue, inside the seat's order budget.
-//!
-//! One frame, in order: memory scene -> (planning screen: `PlanModule`, done) -> shared hand percept -> `RaidPercept`
-//! -> `Refs` -> path service tick -> every executor's `observe` -> on a strategy tick every executor's `propose` and the
-//! arbiter's choice -> on a think tick the goal's executor `act` plus every executor's `ride_along` -> Humanizer ->
-//! commands resolved through `Refs` and the budget mirror -> the act queue. Streams: `derive(seed, 0/1/2/3)` decide,
-//! motor, lapse and Knowledge as HumanBot; 16 the arbiter and executors; 17 the act queue.
+//! queue, inside the seat's order budget. Streams: `derive(seed, 0/1/2/3)` decide, motor, lapse and Knowledge as
+//! HumanBot; 16 the arbiter and executors; 17 the act queue.
 use super::acts::{ActQueue, OrderBudgetMirror};
 use super::arbiter::{Arbiter, Prices};
 use super::exec;
@@ -39,7 +34,11 @@ pub const ARBITER_TAG: u32 = 16;
 /// The act queue's stream tag.
 pub const ACTS_TAG: u32 = 17;
 
-/// The balance lab's test player on one seat.
+/// The balance lab's test player on one seat. One frame, in order: memory scene -> (planning screen: `PlanModule`,
+/// done) -> shared hand percept -> `RaidPercept` -> `Refs` -> path service tick -> every executor's `observe` -> on a
+/// strategy tick every executor's `propose` and the arbiter's choice -> on a think tick (every frame while committed)
+/// the goal's executor `act` plus every executor's `ride_along` -> Humanizer -> commands resolved through `Refs` and
+/// admitted by the budget mirror -> the act queue.
 pub struct RaidBot {
     tier: TierId,
     persona: PersonaId,

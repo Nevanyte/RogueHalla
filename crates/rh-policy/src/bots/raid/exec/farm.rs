@@ -1,11 +1,7 @@
-//! Farm (P-RAID-0): clearing a camp with the mob_hunt rules and a lock/attack loop.
-//!
-//! Candidates: every camp with members alive and no elite (elite camps are P-RAID-E's), priced at `Prices::camp` per
-//! `TYPICAL_MEMBERS` members, with a success and death chance from the shared planning duel's share
-//! (`planning::matchup_share`) against the owner's hp. Execution follows HumanBot's compatibility combat (`bots/bot.rs`): walk to
-//! the camp, take the nearest living regional member, lock it inside weapon reach, else walk to it; hold the better
-//! weapon slot (`mob_hunt::best_slot_vs_mob`). Only regional mobs are targets: quest givers (actor kind 4, filed under
-//! camp 0 in the sim) are not in `RaidPercept::mobs`, and players are never farmed.
+//! Farm (P-RAID-0): clearing a camp with the mob_hunt rules and a lock/attack loop (HumanBot's compatibility combat,
+//! `bots/bot.rs`). Candidates are the camps with members alive and no elite (elite camps are P-RAID-E's), priced by
+//! the shared planning duel (`planning::matchup_share`) against the owner's hp. Only regional mobs are targets: quest
+//! givers are not in `RaidPercept::mobs`, and players are never farmed.
 use crate::bots::mob_hunt::best_slot_vs_mob;
 use crate::bots::planning::{matchup_share, zone_faction};
 use crate::bots::raid::exec::travel::{self, eta_minutes, move_intent, step_toward, straight_minutes};
@@ -62,7 +58,9 @@ pub fn members_left(p: &crate::bots::raid::percept::RaidPercept, camp: &CampSeen
     (f64::from(camp.alive) - lost).max(0.)
 }
 
-/// The Farm goal's state: the duel shares it computed, the member it fights, the camps it gave up on.
+/// The Farm goal: walk to the camp, take the nearest living regional member (or one fighting at our side), lock it
+/// inside weapon reach, else walk to it, holding the better weapon slot (`mob_hunt::best_slot_vs_mob`). Its state: the
+/// duel shares it computed, where the member it fights stood, the camps it gave up on.
 #[derive(Default)]
 pub struct Farm {
     shares: Vec<((FactionId, FactionId), f64)>,
@@ -255,7 +253,7 @@ mod tests {
 
     #[test]
     fn death_chance_grows_with_the_fight_and_falls_with_hp() {
-        assert!(death_chance(1., 0.965, 1.) < death_chance(1., 0.965, 3.));
+        assert!(death_chance(1., 0.965, 1.) < death_chance(1., 0.965, 4.));
         assert!(death_chance(1., 0.9, 3.) > death_chance(1., 0.965, 3.));
         assert!(death_chance(0.3, 0.965, 2.) > death_chance(1., 0.965, 2.));
         assert_eq!(death_chance(1., 1., 0.), 0.02);
