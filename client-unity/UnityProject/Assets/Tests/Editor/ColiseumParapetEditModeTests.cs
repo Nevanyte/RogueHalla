@@ -1,0 +1,60 @@
+using System.Linq;
+using NUnit.Framework;
+using Roguehalla.Net.Protocol;
+using UnityEngine;
+
+namespace Roguehalla.Client.Tests
+{
+    public sealed class ColiseumParapetEditModeTests
+    {
+        [Test]
+        public void PaintedCapsFollowActualArenaWallsAndTurnWithTheRun()
+        {
+            const int w = 14, h = 12;
+            var tiles = new byte[w * h];
+            var regions = Enumerable.Repeat((byte)RegionId.Coliseum, w * h).ToArray();
+            foreach (var p in new[] { new Vector2Int(2, 3), new Vector2Int(3, 3),
+                new Vector2Int(4, 3), new Vector2Int(4, 4), new Vector2Int(4, 5),
+                new Vector2Int(8, 7), new Vector2Int(0, 0) }) tiles[p.y * w + p.x] = MapBlob.Wall;
+            tiles[7 * w + 7] = MapBlob.Low;
+            var map = new MapBlob(w, h, tiles, null, regions, MapBlob.GroundTerrainMap)
+                .WithPublic(null, new MapColiseum(1, 1, 10, 9, new MapGate[0]), null, null, null);
+            var property = typeof(RegionWallAtlas).GetProperty("Parapet");
+            Assert.That(property, Is.Not.Null, "The flat grey arena grid still uses the generic wall painting");
+            var set = (RegionWallAtlas.Set)property.GetValue(null);
+            var root = new GameObject("Arena wall mesh oracle");
+            try
+            {
+                int count = 0;
+                bool across = false, receding = false;
+                using (var walls = RegionWalls.Build(root.transform, map, 1f))
+                {
+                    foreach (var filter in root.GetComponentsInChildren<MeshFilter>())
+                    {
+                        var mesh = filter.sharedMesh;
+                        var uv = mesh.uv;
+                        var points = mesh.vertices;
+                        for (int i = 0; i < uv.Length; i += 4)
+                        {
+                            Vector2 center = (uv[i] + uv[i + 2]) * .5f;
+                            if (!set.Top.Take(RegionWallAtlas.TopVariants).Any(c =>
+                                center.x > c.Min.x && center.x < c.Max.x && center.y > c.Min.y && center.y < c.Max.y)) continue;
+                            int x = Mathf.RoundToInt(points[i].x);
+                            int y = Mathf.RoundToInt((RegionWalls.WallHeight - points[i].y) / ArenaView.GroundSquash) - 1;
+                            Assert.That(tiles[y * w + x], Is.EqualTo(MapBlob.Wall));
+                            Assert.That(x, Is.GreaterThan(0), "The arena finish must stop at the delivered footprint");
+                            if (x == 3 && y == 3) across = Mathf.Abs(uv[i + 1].x - uv[i].x) > .001f;
+                            if (x == 4 && y == 4) receding = Mathf.Abs(uv[i + 1].y - uv[i].y) > .001f;
+                            Assert.That(filter.GetComponent<MeshRenderer>().sortingOrder, Is.EqualTo(2000 + y * 16));
+                            count++;
+                        }
+                    }
+                    Assert.That(count, Is.EqualTo(6));
+                    Assert.That(across && receding, Is.True, "Coping must rotate on receding runs");
+                    Assert.That(root.GetComponentsInChildren<Collider2D>(), Is.Empty);
+                }
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+    }
+}
