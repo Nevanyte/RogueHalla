@@ -1,4 +1,4 @@
-// Procedural ground detail for the five regions and the coliseum, followed by elemental pigments and the optional Holy sand pigment.
+// Procedural ground detail for the five regions and the coliseum, followed by elemental pigments and optional regional albedo.
 // Region layer order remains wire region id minus one: 0 fire, 1 sentenced, 2 plague, 3 frost, 4 holy, 5 coliseum.
 // Procedural channels are r detail (relief baked in), g secondary mask, b accent mask, a height; each detail layer covers 4x4 tiles.
 using UnityEngine;
@@ -23,13 +23,14 @@ namespace Roguehalla.Client
         public static Texture2DArray Build(out Texture2DArray normals) => Build(null, out normals, out _);
 
         /// <summary>Like <see cref="Build(out Texture2DArray)"/>, and reports whether the optional art was packed.</summary>
-        public static Texture2DArray Build(HolyDrySandArt holySand, out Texture2DArray normals, out bool holySandPacked)
+        public static Texture2DArray Build(HolyDrySandArt holySand, out Texture2DArray normals, out bool holySandPacked, Texture2D limestone = null)
         {
             holySandPacked = holySand != null && holySand.CanPackPigment;
             normals = new Texture2DArray(Size, Size, Layers, TextureFormat.RGBA32, true, true)
             { name = "Region ground normals", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 2 };
             var npx = new Color32[Size * Size];
-            var array = new Texture2DArray(Size, Size, Layers + 2 + (holySandPacked ? 1 : 0), TextureFormat.RGBA32, true, true)
+            int pigmentSlices = 2 + (holySandPacked ? 1 : 0) + (limestone != null ? 1 : 0);
+            var array = new Texture2DArray(Size, Size, Layers + pigmentSlices, TextureFormat.RGBA32, true, true)
             { name = "Region ground detail", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 4 };
             var h = new float[Size * Size]; var r = new float[Size * Size]; var g = new float[Size * Size]; var b = new float[Size * Size];
             var px = new Color32[Size * Size];
@@ -45,6 +46,7 @@ namespace Roguehalla.Client
             WritePigment(array, Layers + 1, "MoltenInk", px);
             if (holySandPacked)
                 array.SetPixelData(ReadLinearPigment(holySand.Pigment), 0, HolyDrySandSlice);
+            if (limestone != null) array.SetPixelData(ReadLinearPigment(limestone), 0, array.depth - 1);
             array.Apply(true, true);
             normals.Apply(true, true);
             return array;

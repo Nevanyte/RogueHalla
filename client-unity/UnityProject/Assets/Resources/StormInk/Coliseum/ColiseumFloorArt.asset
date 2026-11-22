@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1562a400b8e64cd18742337f8111a6a9, type: 3}
+  m_Name: ColiseumFloorArt
+  m_EditorClassIdentifier:
+  Pigment: {fileID: 2800000, guid: a166348df9f34746b4995a03d196afbd, type: 3}
+  RepeatSpan: {x: 4.5, y: 6.25}
+  RotationDegrees: 0
+  WashStrength: 1

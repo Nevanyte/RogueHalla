@@ -29,12 +29,16 @@ namespace Roguehalla.Client
             Material = new Material(shader) { name = "Roguehalla / region ground" };
             _owned.Add(Material);
             var holySand = HolyDrySandArt.Load();
+            var arenaBounds = ColiseumBounds(map.Regions, map.W, map.H);
+            var paving = arenaBounds.w > 0f ? Resources.Load<ColiseumFloorArt>("StormInk/Coliseum/ColiseumFloorArt") : null;
+            var limestone = paving != null ? paving.ActivePigment : null;
             if (temple != null) temple.BindSignatureGround(Material);
             bool paintedMarsh = PlagueGround.BindStormInkGround(Material, map);
 
-            var ground = RegionGroundTextures.Build(holySand, out var groundNormals, out bool holySandPacked); _owned.Add(ground); _owned.Add(groundNormals);
+            var ground = RegionGroundTextures.Build(holySand, out var groundNormals, out bool holySandPacked, limestone); _owned.Add(ground); _owned.Add(groundNormals);
             Material.SetTexture("_GroundTex", ground); Material.SetTexture("_GroundNrm", groundNormals);
             holySand?.Bind(Material, holySandPacked);
+            if (limestone != null) paving.Bind(Material, ground.depth - 1);
 
             int w = map.W, h = map.H;
             var regionA = new Color32[w * RegionTexelsPerTile * h * RegionTexelsPerTile];
@@ -98,7 +102,7 @@ namespace Roguehalla.Client
             bool anyVariant = vin.SoftActive; for (int i = 0; i < vin.Tile.Length && !anyVariant; i++) if (vin.Tile[i].a != 0) anyVariant = true;
             Material.SetFloat("_VariantOn", anyVariant ? 1f : 0f);
             Material.SetFloat("_VariantSoft", vin.SoftActive ? 1f : 0f);
-            Material.SetVector("_Coliseum", ColiseumBounds(map.Regions, w, h));
+            Material.SetVector("_Coliseum", arenaBounds);
 
             Material.SetVector("_Map", new Vector4(w, h, ArenaView.GroundSquash, 0));
             Material.SetFloat("_Exposure", exposure);
