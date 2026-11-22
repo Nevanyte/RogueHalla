@@ -4,6 +4,7 @@
 //! No RNG draw, no event. Packet P-SIM-BENCH-SEAM-1.
 use crate::cards::CardId;
 use crate::mob_catalog::MobTypeId;
+use crate::quests::board::catalog::RewardId;
 use crate::reward_chests::BoostId;
 use crate::{PlayerId, Sim};
 
@@ -17,6 +18,11 @@ pub struct TrustedBuild {
     pub stacks: Vec<(MobTypeId, u64)>,
     /// Chest stat boost picks to add (`Build::boosts`).
     pub boosts: Vec<(BoostId, u8)>,
+    /// P-BAL-PROBE-1: Top 25 quest rewards to pay, in request order, after the build's re-fold (a spell into an empty
+    /// slot with full charges, a permanent as its ordinary effect). Left out of the JSON when empty, so a build without
+    /// rewards serializes as before.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rewards: Vec<RewardId>,
 }
 
 /// Why a request was refused. A refused request changes nothing.
@@ -40,6 +46,16 @@ pub enum BuildRefusal {
     BoostOverCap(BoostId),
     /// P-AUG-NATIVE-1b: a native card (`CardId::NATIVE`) in a world whose card table is not `Rework`.
     NativeOutsideRework(CardId),
+    /// P-BAL-PROBE-1: quest rewards asked in a world without the Top 25 board.
+    NoBoard,
+    /// P-BAL-PROBE-1: quest rewards asked for a bot seat (a bot owns no quest reward).
+    BotSeat(PlayerId),
+    /// P-BAL-PROBE-1: a reward whose size comes from how its quest was played (Crown Power, Trade Up, The Bargain).
+    RewardNeedsQuest(RewardId),
+    /// P-BAL-PROBE-1: a permanent reward already held, or asked twice.
+    RewardHeld(RewardId),
+    /// P-BAL-PROBE-1: not enough empty spell slots for this spell (two for Blind Rage and Still Mind).
+    SlotsFull(RewardId),
 }
 
 /// Adds `build` to the seated fighter `id`, between steps only: all or nothing, then one re-fold and max hp following.

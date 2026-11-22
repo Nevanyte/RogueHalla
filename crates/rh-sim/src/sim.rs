@@ -30,6 +30,27 @@ pub use crate::state::{
 pub use crate::statics::{Arena, Secrets, SimConfig};
 pub use crate::systems::melee::in_arc;
 
+/// P-BAL-PROBE-1: one Top 25 board attempt of a seat, as stored (see [`Sim::quest_attempts`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct QuestAttemptProbe {
+    /// The board offer id (stable for the match).
+    pub offer: u32,
+    /// The quest of that offer.
+    pub quest: crate::quests::board::catalog::QuestId,
+    /// Accepted and not completed (the journal's `owner_accepted`).
+    pub accepted: bool,
+    /// Objective met and not completed (the journal's `owner_ready`).
+    pub ready: bool,
+    /// Turned in at its endpoint, reward not paid yet (full spell slots or a refused permanent).
+    pub turned_in: bool,
+    /// Paid: the reward is owned. Kept for the whole match.
+    pub completed: bool,
+    /// Server ms the route timer ends (the journal's `expires_at`); 0 with no route timer, once turned in or completed.
+    pub deadline: f64,
+    /// Objective progress (the journal's `owner_progress`).
+    pub progress: u8,
+}
+
 /// One match: what it is played with ([`MatchStatic`]), what evolves ([`World`]), per-tick working sets
 /// ([`TickScratch`], never part of a checkpoint or the hash) and the path search scratch.
 /// Clone + serde = checkpoint `{format, statics, world}` (see `checkpoint.rs`; a decoded `Sim` is complete: the derived
@@ -329,6 +350,18 @@ impl Sim {
     /// Recorded callsign, including a fighter who has left (for a body label or hit source).
     pub fn player_name(&self, id: PlayerId) -> Option<&str> {
         self.w.roster.name(id)
+    }
+    /// P-BAL-PROBE-1: every Top 25 board attempt `owner` holds (open, ready, turned in, completed), in storage order.
+    /// A read between steps for benches and the balance lab; it allocates. Empty without the board, for a bot seat or
+    /// an unknown id. An attempt that ended by timer, death, abandon or departure is gone from the state, so it is
+    /// absent here too (the state cannot tell those apart).
+    pub fn quest_attempts(&self, owner: PlayerId) -> Vec<QuestAttemptProbe> {
+        let _ = owner;
+        Vec::new() // P-BAL-PROBE-1 stub
+    }
+    /// P-BAL-PROBE-1: the coliseum lock (gates shut, players teleported in), read between steps.
+    pub fn gates_locked(&self) -> bool {
+        false // P-BAL-PROBE-1 stub
     }
     pub fn secrets_for_replay(&self) -> Secrets {
         self.k.secrets

@@ -183,6 +183,7 @@ pub fn sample_builds(map: &str, seeds: Range<u64>, tick: u32) -> Result<SampleFi
                         .filter(|b| boosts[b.index()] > 0)
                         .map(|b| (b, boosts[b.index()]))
                         .collect(),
+                    rewards: Vec::new(),
                 },
             });
         }
@@ -1258,5 +1259,6 @@ pub fn banked_camp_build(probe: &Sim, seed: u64, camps: u32) -> TrustedBuild {
         cards: Vec::new(),
         stacks,
         boosts: Vec::new(),
+        rewards: Vec::new(),
     }
 }
