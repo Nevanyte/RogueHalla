@@ -18,7 +18,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(art.Pigment.isReadable, Is.True);
             Assert.That(art.Flame, Is.Not.Null);
 
-            var map = ColiseumMapWithTorch();
+            var map = ColiseumMapWithDressing();
             var placements = RegionProps.Scatter(map).Where(p => p.Art == "col.torch").ToArray();
             Assert.That(placements.Length, Is.GreaterThan(0), "the map must place at least one real Coliseum torch");
             Assert.That(art.TryGetPlacedSocketOffset(1f, false, out var unmirrored), Is.True);
@@ -88,7 +88,7 @@ namespace Roguehalla.Client.Tests
             var flame = serialized.FindProperty("Flame");
             var originalPigment = pigment.objectReferenceValue;
             var originalFlame = flame.objectReferenceValue;
-            var map = ColiseumMapWithTorch();
+            var map = ColiseumMapWithDressing();
             try
             {
                 flame.objectReferenceValue = null;
@@ -156,7 +156,7 @@ namespace Roguehalla.Client.Tests
             }
         }
 
-        static MapBlob ColiseumMapWithTorch()
+        internal static MapBlob ColiseumMapWithDressing()
         {
             const int size = 40;
             var regions = Enumerable.Repeat((byte)RegionId.Coliseum, size * size).ToArray();

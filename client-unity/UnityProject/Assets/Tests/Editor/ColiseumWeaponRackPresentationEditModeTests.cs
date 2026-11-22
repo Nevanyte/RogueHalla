@@ -10,43 +10,11 @@ namespace Roguehalla.Client.Tests
 {
     public sealed class ColiseumWeaponRackPresentationEditModeTests
     {
-        const int MapSize = 40;
-
         static MapBlob MapWithRack(out RegionProps.Placement rack)
         {
-            var tiles = new byte[MapSize * MapSize];
-            var regions = Enumerable.Repeat((byte)RegionId.Coliseum, tiles.Length).ToArray();
-            for (int y = 0; y < MapSize; y++)
-            for (int x = 0; x < MapSize; x++)
-                if (x == 0 || y == 0 || x == MapSize - 1 || y == MapSize - 1)
-                    tiles[y * MapSize + x] = MapBlob.Wall;
-
-            // Vary an interior region bit to vary the deterministic placement seed without removing any wall
-            // geometry or shrinking the Coliseum. Return a fixture that drives the real scatter/render path.
-            var seedCells = new[]
-            {
-                12 * MapSize + 12, 12 * MapSize + 27,
-                18 * MapSize + 12, 18 * MapSize + 27,
-                24 * MapSize + 12, 24 * MapSize + 27,
-                28 * MapSize + 15, 28 * MapSize + 24,
-            };
-            for (int variation = 0; variation < 1 << seedCells.Length; variation++)
-            {
-                for (int bit = 0; bit < seedCells.Length; bit++)
-                    regions[seedCells[bit]] = (byte)((variation >> bit) & 1);
-                var map = new MapBlob(MapSize, MapSize, tiles, null, regions);
-                var placements = RegionProps.Scatter(map);
-                var found = placements.FirstOrDefault(p => p.Art == "col.rack");
-                if (found.Art != null)
-                {
-                    rack = found;
-                    return map;
-                }
-            }
-
-            Assert.Fail("A deterministic wall-adjacent Coliseum rack fixture could not be found.");
-            rack = default;
-            return null;
+            var map = ColiseumTorchArtEditModeTests.ColiseumMapWithDressing();
+            rack = RegionProps.Scatter(map).First(p => p.Art == "col.rack");
+            return map;
         }
 
         static SpriteRenderer At(Transform rack, string childName) =>
@@ -90,7 +58,8 @@ namespace Roguehalla.Client.Tests
                         "The rack uses the same transferable sprite as the player's weapon.");
                     Assert.That(item.sharedMaterial, Is.SameAs(body.sharedMaterial), "Weapon pigment stays in the normal lit material path.");
                     Assert.That(item.sortingOrder, Is.EqualTo(i + 1));
-                    Assert.That(item.transform.localPosition, Is.EqualTo(definition.TryGetFittedOffset(slot.normalizedAnchor, out var expected) ? expected : Vector2.zero));
+                    Assert.That(definition.TryGetFittedOffset(slot.normalizedAnchor, out var expected), Is.True);
+                    Assert.That(item.transform.localPosition, Is.EqualTo((Vector3)expected));
                     Assert.That(item.transform.localScale.x, Is.EqualTo(slot.scale).Within(.001f));
 
                     var block = new MaterialPropertyBlock();
