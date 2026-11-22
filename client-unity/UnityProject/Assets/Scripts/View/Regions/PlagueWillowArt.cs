@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Artist-owned marsh shrub proportions and deterministic canopy variation over adjoining cover cells.</summary>
     [CreateAssetMenu(menuName = "RogueHalla/Storm Ink/Plague willow", fileName = "PlagueBogWillowArt")]
     public sealed class PlagueWillowArt : StormInkPropArtDefinition
     {

@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Editable gatepost pigment, closed ironwork and world-space dimensions for the four Coliseum gates.</summary>
     [CreateAssetMenu(menuName = "RogueHalla/Storm Ink/Coliseum gate", fileName = "ColiseumGatePierArt")]
     public sealed class ColiseumGateArt : StormInkPropArtDefinition
     {
