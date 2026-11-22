@@ -59,7 +59,7 @@ namespace Roguehalla.Client.Tests
         sealed class Site
         {
             public MapBlob Map; public MapAnchor Anchor; public int K;
-            public List<(int x, int y)> Gate = new List<(int, int)>(), Door = new List<(int, int)>(), Interior = new List<(int, int)>(),
+            public List<(int x, int y)> Gate = new List<(int, int)>(), Door = new List<(int, int)>(), RearDoor = new List<(int, int)>(), Interior = new List<(int, int)>(),
                 BuildingWalls = new List<(int, int)>(), Headstones = new List<(int, int)>(), Lane = new List<(int, int)>(), Yard = new List<(int, int)>();
             public List<List<(int x, int y)>> Groups = new List<List<(int, int)>>();
             public (int x, int y) Camp;
@@ -79,6 +79,7 @@ namespace Roguehalla.Client.Tests
                 if (c == '+') { tiles[i] = MapBlob.Low; terrain[i] = (byte)TerrainKind.Fence; }
                 if (c == 'M') s.Gate.Add(t);
                 if (c == 'D') s.Door.Add(t);
+                if (c == 'R') s.RearDoor.Add(t);
                 if (c == 'i' || c == 'E') s.Interior.Add(t);
                 if (c == 'E') s.Camp = t;
                 if (c == 'L') s.Lane.Add(t);
@@ -173,7 +174,7 @@ namespace Roguehalla.Client.Tests
                 var lm = Built(scene, "orientation " + k);
                 Assert.That(scene.Root.transform.childCount, Is.EqualTo(1), "one landmark object under the parent");
                 Assert.That(lm.Root.transform.parent, Is.EqualTo(scene.Root.transform));
-                Assert.That(lm.WallCount, Is.EqualTo(139), "orientation " + k + ": 115 building (67 wall + 48 pillar) + 24 headstone tiles");
+                Assert.That(lm.WallCount, Is.EqualTo(136), "orientation " + k + ": 112 building (64 wall + 48 pillar) + 24 headstone tiles");
                 Assert.That(lm.IceCount, Is.EqualTo(0));
                 Assert.That(lm.InteriorCount, Is.EqualTo(204), "orientation " + k + ": the walled building's floor");
                 Assert.That(logs.Count("LandmarkView: no art"), Is.EqualTo(0));
@@ -218,7 +219,8 @@ namespace Roguehalla.Client.Tests
                 v.Tick(10f);
                 Assert.That(lm.RoofAlpha, Is.EqualTo(LandmarkView.RoofOpaqueAlpha), "nobody inside: opaque");
                 var notInside = new List<(string, (int x, int y))> { ("graveyard", site.Yard[0]), ("graveyard", site.Yard[1]), ("main gate", site.Gate[0]),
-                    ("main gate middle", site.Gate[2]), ("door", site.Door[0]), ("door middle", site.Door[1]), ("lane before the door", site.Lane[0]) };
+                    ("main gate middle", site.Gate[2]), ("front door", site.Door[0]), ("front door middle", site.Door[1]),
+                    ("rear door", site.RearDoor[0]), ("rear door middle", site.RearDoor[1]), ("lane before the door", site.Lane[0]) };
                 foreach (var (what, t) in notInside)
                 {
                     v.NoteActor(TileCentre(t)); v.Tick(10f);
@@ -286,12 +288,158 @@ namespace Roguehalla.Client.Tests
             {
                 var lm = Built(scene, "orientation " + k);
                 Assert.That(site.Door.Count, Is.EqualTo(3));
-                Assert.That(TryBounds(Named(lm, DoorName), out var door), Is.True, "orientation " + k + ": door art (objects named '" + DoorName + "' with renderers)");
-                foreach (var t in site.Door) Assert.That(Reaches(door, t), Is.True, "orientation " + k + ": the door surround spans door tile " + t);
-                foreach (var t in site.Gate) Assert.That(Reaches(door, t), Is.False, "orientation " + k + ": the door surround is twelve rows from the gate, not on it: " + t);
-                float dx = site.Door.Average(t => t.x + .5f), dy = site.Door.Average(t => t.y + .5f);
-                float bx = door.center.x, by = -door.center.y / ArenaView.GroundSquash;
-                Assert.That(Vector2.Distance(new Vector2(bx, by), new Vector2(dx, dy)), Is.LessThan(2.5f), "orientation " + k + ": the surround is centred on the door");
+                Assert.That(site.RearDoor.Count, Is.EqualTo(3));
+                var doors = Named(lm, DoorName).Where(t => t.GetComponentsInChildren<Renderer>(true).Length > 0).ToArray();
+                Assert.That(doors.Length, Is.GreaterThanOrEqualTo(2), "orientation " + k + ": both openings have distinct door artwork");
+                foreach (var run in new[] { site.Door, site.RearDoor })
+                {
+                    float dx = run.Average(t => t.x + .5f), dy = run.Average(t => t.y + .5f);
+                    var near = doors.Select(t => { TryBounds(new[] { t }, out var b); return (t, b, d: Vector2.Distance(new Vector2(b.center.x, -b.center.y / ArenaView.GroundSquash), new Vector2(dx, dy))); }).OrderBy(v => v.d).First();
+                    Assert.That(near.d, Is.LessThan(2.5f), "orientation " + k + ": a separate surround is centred on doorway at " + dx + "," + dy);
+                    foreach (var t in run) Assert.That(Reaches(near.b, t), Is.True, "orientation " + k + ": a door surround spans tile " + t);
+                    foreach (var t in site.Gate) Assert.That(Reaches(near.b, t), Is.False, "orientation " + k + ": door surround is not on the graveyard gate: " + t);
+                }
+            }
+        }
+
+        [TestCaseSource(nameof(Orientations))]
+        public void PewsAndPulpitArePaintedObjectsPlacedInsideTheWalkableChurch(int k)
+        {
+            var site = Church(k);
+            using (var scene = new Scene(site.Map, site.Anchor))
+            {
+                var lm = Built(scene, "orientation " + k);
+                var pews = Named(lm, "Church pew").ToArray();
+                Assert.That(pews.Length, Is.GreaterThanOrEqualTo(6), "orientation " + k + ": both sides of the central aisle have pews");
+                foreach (var pew in pews)
+                {
+                    Assert.That(pew.GetComponentsInChildren<Collider>(true), Is.Empty, "pews are presentation only and remain walk-through");
+                    Assert.That(TryBounds(new[] { pew }, out var bounds), Is.True);
+                    float x = bounds.center.x, y = -bounds.center.y / ArenaView.GroundSquash;
+                    Assert.That(site.Interior.Any(t => Mathf.Abs(t.x + .5f - x) < 1.2f && Mathf.Abs(t.y + .5f - y) < 1.2f), Is.True,
+                        "orientation " + k + ": pew remains within the room's floor");
+                }
+                Assert.That(Named(lm, "Church pulpit").Count(), Is.EqualTo(1), "one raised side pulpit");
+                Assert.That(Named(lm, "Church stained glass").Count(), Is.GreaterThanOrEqualTo(2), "garnet lancets flank the nave");
+                Assert.That(Named(lm, "Church candle flame").Count(), Is.GreaterThanOrEqualTo(2), "candles mark the side walls");
+                Assert.That(Named(lm, "Church slate floor").Count(), Is.EqualTo(1), "one slate-and-rune finish over the interior floor");
+            }
+        }
+
+        [TestCaseSource(nameof(Orientations))]
+        public void OakBanksFrameTheDoorwayWidthAndLeaveAnOpenCrossing(int k)
+        {
+            var site = Church(k);
+            using (var scene = new Scene(site.Map, site.Anchor))
+            {
+                var room = Built(scene, "pew bank " + k);
+                bool alongX = site.Door[0].x == site.Door[1].x;
+                Vector2 DoorCentre(List<(int x, int y)> run) => new Vector2(
+                    run.Average(t => (float)t.x) + .5f, run.Average(t => (float)t.y) + .5f);
+                Vector2 front = DoorCentre(site.Door), rear = DoorCentre(site.RearDoor);
+                Vector2 middle = (front + rear) * .5f;
+                var pews = Named(room, "Church pew").ToArray();
+                Assert.That(pews.Length, Is.EqualTo(8));
+                foreach (var pew in pews)
+                {
+                    var b = pew.GetComponent<SpriteRenderer>().bounds;
+                    var centre = new Vector2(b.center.x, -b.center.y / ArenaView.GroundSquash);
+                    var half = new Vector2(b.extents.x, b.extents.y / ArenaView.GroundSquash);
+                    var delta = centre - middle;
+                    float innerTip = alongX ? Mathf.Abs(delta.y) - half.y : Mathf.Abs(delta.x) - half.x;
+                    Assert.That(innerTip, Is.EqualTo(site.Door.Count * .5f).Within(.15f),
+                        "the seat ends establish the same aisle as the doorway");
+                    float along = alongX ? Mathf.Abs(delta.x) : Mathf.Abs(delta.y);
+                    Assert.That(along - (alongX ? half.x : half.y), Is.GreaterThan(1.35f),
+                        "the centre crossing is clear for two opponents");
+                    Assert.That(Vector2.Distance(front, rear) * .5f - along, Is.GreaterThan(1.9f),
+                        "the outer rows stand away from the windows");
+                    for (int y = Mathf.FloorToInt(centre.y - half.y); y <= Mathf.FloorToInt(centre.y + half.y); y++)
+                    for (int x = Mathf.FloorToInt(centre.x - half.x); x <= Mathf.FloorToInt(centre.x + half.x); x++)
+                        Assert.That(site.Map.At(x, y), Is.EqualTo(MapBlob.Floor), "a pew must clear every solid tile");
+                }
+            }
+        }
+
+        [TestCaseSource(nameof(Orientations))]
+        public void OverheadPewBackCapFacesTheGraveyardEntrance(int k)
+        {
+            var site = Church(k);
+            using (var scene = new Scene(site.Map, site.Anchor))
+            {
+                var lm = Built(scene, "orientation " + k);
+                // The authored seat opens on sprite-local -Y. Use the two delivered door runs as the oracle.
+                Vector2 front = new Vector2(site.Door.Average(t => (float)t.x), -site.Door.Average(t => (float)t.y));
+                Vector2 rear = new Vector2(site.RearDoor.Average(t => (float)t.x), -site.RearDoor.Average(t => (float)t.y));
+                var pews = Named(lm, "Church pew").ToArray();
+                Assert.That(pews.Length, Is.GreaterThanOrEqualTo(6));
+                foreach (var pew in pews)
+                    Assert.That(Vector2.Dot(pew.up, (front - rear).normalized), Is.GreaterThan(.99f),
+                        "the thin back cap is on the entrance side of every seat in both banks");
+            }
+        }
+
+        [TestCaseSource(nameof(Orientations))]
+        public void ObliqueMapBearingKeepsPewsSquareToTheDeliveredRoom(int k)
+        {
+            var site = Church(k);
+            var a = site.Anchor;
+            // Real maps report a 16-way bearing toward the arena centre even when doorways run due east/west.
+            var oblique = new MapAnchor(a.Zone, a.Kind, a.Centre, a.Footprint, (byte)((a.Front + 1) % 16), a.Entrance);
+            using (var scene = new Scene(site.Map, oblique))
+            {
+                var lm = Built(scene, "oblique front in orientation " + k);
+                var rear = site.RearDoor[1];
+                var front = site.Door[1];
+                var back = new Vector2(front.x - rear.x, rear.y - front.y).normalized;
+                var pews = Named(lm, "Church pew").ToArray();
+                Assert.That(pews.Length, Is.GreaterThanOrEqualTo(6));
+                foreach (var pew in pews)
+                    Assert.That(Vector2.Dot(pew.up, back), Is.GreaterThan(.999f));
+            }
+        }
+
+        [TestCaseSource(nameof(Orientations))]
+        public void CandleBasesStandOnSlateClearOfThePewSeat(int k)
+        {
+            var site = Church(k);
+            using (var scene = new Scene(site.Map, site.Anchor))
+            {
+                var lm = Built(scene, "orientation " + k);
+                var candles = Named(lm, "Church candle flame").ToArray();
+                Assert.That(candles.Length, Is.GreaterThanOrEqualTo(4));
+                foreach (var pew in Named(lm, "Church pew"))
+                {
+                    var seat = pew.GetComponent<SpriteRenderer>().bounds;
+                    foreach (var candle in candles)
+                    {
+                        var contact = candle.position;
+                        bool touchesSeat = Mathf.Abs(contact.x - seat.center.x) < seat.extents.x + .16f
+                            && Mathf.Abs(contact.y - seat.center.y) < seat.extents.y + .16f * ArenaView.GroundSquash;
+                        Assert.That(touchesSeat, Is.False, "a standing candelabrum needs clear slate around its base");
+                    }
+                }
+            }
+        }
+
+        [TestCaseSource(nameof(Orientations))]
+        public void PewRowsCrossTheAisleAndThePulpitStandsUpright(int k)
+        {
+            var site = Church(k);
+            using (var scene = new Scene(site.Map, site.Anchor))
+            {
+                var lm = Built(scene, "orientation " + k);
+                bool aisleRunsOnX = site.Door[0].x == site.Door[1].x;
+                foreach (var pew in Named(lm, "Church pew"))
+                {
+                    Assert.That(TryBounds(new[] { pew }, out var bounds), Is.True);
+                    float across = aisleRunsOnX ? bounds.size.y / ArenaView.GroundSquash : bounds.size.x;
+                    float along = aisleRunsOnX ? bounds.size.x : bounds.size.y / ArenaView.GroundSquash;
+                    Assert.Greater(across, 3f * along, "the bench spans a bank of seats across the aisle");
+                    Assert.Greater(across, 3f, "one bench seats a row of fighters");
+                }
+                var pulpit = Named(lm, "Church pulpit").Single();
+                Assert.Greater(Vector3.Dot(pulpit.up, Vector3.up), .98f, "the raised pulpit stays upright in the camera");
             }
         }
 

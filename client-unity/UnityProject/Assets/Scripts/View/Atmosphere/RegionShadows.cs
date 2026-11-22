@@ -70,12 +70,17 @@ namespace Roguehalla.Client
         void Collect(MapBlob map, RegionField field)
         {
             var tiles = map.Tiles; var terrain = map.Terrain; int w = _w, h = _h;
+            var stormCypressWalls = StormCypressGeometry.For(map).ReplacementWalls();
+            var stormFrostWalls = StormFrostGeometry.For(map).ReplacementWalls();
             bool Solid(int x, int y) { return x < 0 || y < 0 || x >= w || y >= h || tiles[y * w + x] == MapBlob.Wall; }
             for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
             {
-                byte t = tiles[y * w + x]; if (t == MapBlob.Floor) continue;
+                int i = y * w + x;
+                byte t = tiles[i]; if (t == MapBlob.Floor) continue;
+                if (stormFrostWalls != null && stormFrostWalls[i]) continue;
                 int kind = terrain != null ? terrain[y * w + x] : 0;
                 if (kind == (int)TerrainKind.Lava || kind == (int)TerrainKind.Crevasse) continue;
+                if (stormCypressWalls != null && stormCypressWalls[i]) continue;
                 bool low = t == MapBlob.Low;
                 if (!low && Solid(x + 1, y) && Solid(x, y + 1) && Solid(x + 1, y + 1)) continue;
                 float len = LengthAt(field, x + .5f, y + .5f); if (len <= 0f) continue;

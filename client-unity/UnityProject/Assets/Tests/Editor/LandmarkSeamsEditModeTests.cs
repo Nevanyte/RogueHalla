@@ -350,7 +350,9 @@ namespace Roguehalla.Client.Tests
                 if (c == 'G') { tiles[i] = MapBlob.Wall; s.Headstones.Add(t); }
                 if (c == '+') { tiles[i] = MapBlob.Low; terrain[i] = (byte)TerrainKind.Fence; }
                 if (c == 'M') gate.Add(t);
-                if (c == 'i' || c == 'E') s.Cover.Add(t);
+                // R is the new traversable doorway cut from the existing covered wall run.
+                // It belongs to the historical roof footprint without becoming a collision wall.
+                if (c == 'i' || c == 'E' || c == 'R') s.Cover.Add(t);
                 if (c == 'E') camp = t;
             }
             double mx = gate.Average(m => m.x) - (FootX + (ChurchSize - 1) / 2.0), my = gate.Average(m => m.y) - (FootY + (ChurchSize - 1) / 2.0);

@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f69bd73c883b45b2814d74af821d3884, type: 3}
+  m_Name: AxeArtAuthoring
+  m_EditorClassIdentifier:
+  grips:
+  - {x: 0.385, y: 0.27}
+  - {x: 0.432, y: 0.27}
+  - {x: 0.498, y: 0.27}
+  - {x: 0.564, y: 0.27}
+  - {x: 0.611, y: 0.27}
+  - {x: 0.568, y: 0.27}
+  - {x: 0.502, y: 0.27}
+  - {x: 0.406, y: 0.27}
+  groundCentre: {x: 0, y: 0.39}

@@ -51,14 +51,29 @@ namespace Roguehalla.Client
 
         public static OverheadIndicators.Marks Of(in InterpActor a, string name)
         {
-            return new OverheadIndicators.Marks { Name = name, Immune = a.TeleportImmune, Roam = a.RoamReady, Engaged = a.Engaged,
+            return new OverheadIndicators.Marks { Name = name, Immune = a.TeleportImmune, Roam = a.Faction == FactionId.Fire && a.RoamReady, Engaged = a.Engaged,
                 Top1 = a.TopStat1.HasValue ? (byte)a.TopStat1.Value : (byte)0, Top2 = a.TopStat2.HasValue ? (byte)a.TopStat2.Value : (byte)0, Tier = a.MarkTier, Brand = a.Brand, Tax = a.MarkTax };
         }
 
-        public static OverheadIndicators.Marks Of(SelfView me, string name)
+        public static OverheadIndicators.Marks Of(SelfView me, string name, WireBuildSummary summary = null, WireHudContent hud = null)
         {
-            return new OverheadIndicators.Marks { Name = name, Immune = me.TeleportImmune, Roam = me.RoamReady,
+            return new OverheadIndicators.Marks { Name = name, Immune = me.TeleportImmune, Roam = me.Faction == FactionId.Fire && me.RoamReady,
+                RoamCharge = FireRoamCharge(me, summary, hud),
                 Top1 = me.TopStat1.HasValue ? (byte)me.TopStat1.Value : (byte)0, Top2 = me.TopStat2.HasValue ? (byte)me.TopStat2.Value : (byte)0, Tier = me.MarkTier, Brand = me.Brand, Tax = me.MarkTax };
+        }
+
+        static float FireRoamCharge(SelfView me, WireBuildSummary summary, WireHudContent hud)
+        {
+            if (me.Faction != FactionId.Fire || me.Status != ActorStatus.Alive || me.RoamReady || summary?.Panel == null
+                || !(hud?.Term(HudTerm.FireRoamChargeMax) is double max) || max <= 0) return 0f;
+            foreach (var value in summary.Panel)
+            {
+                if (value.Code != 8) continue;
+                double charge = value.Scaled;
+                // A full panel can outlive the ready flag when it is spent. Only the flag arms the mark.
+                return charge > 0 && charge < max ? (float)(charge / max) : 0f;
+            }
+            return 0f;
         }
 
         /// <summary>The Wish state beside a remote player's name: 0 none (not a player, or no faction), 1 ready, 2 recharging (the wire carries only ready or not).</summary>

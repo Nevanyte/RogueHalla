@@ -26,8 +26,12 @@ namespace Roguehalla.Client
         static readonly float[] Windiness = { .30f, .30f, .55f, .85f, .75f, .50f };
         /// <summary>Cloud shadow amount per wire id 0..7 (sunny zones only: frost, holy, plague clearings, coliseum).</summary>
         static readonly Vector4[] CloudAmt = { Vector4.zero, Vector4.zero, Vector4.zero, new Vector4(.30f, 0, 0, 0), new Vector4(.62f, 0, 0, 0), new Vector4(.55f, 0, 0, 0), new Vector4(.35f, 0, 0, 0), Vector4.zero };
+        static readonly int IdInkClock = Shader.PropertyToID("_RhInkClock");
+        float _inkTime;
+
         static readonly int IdWind = Shader.PropertyToID("_RhWind"), IdCloud = Shader.PropertyToID("_RhCloud"), IdActorN = Shader.PropertyToID("_RhActorN"), IdFx = Shader.PropertyToID("_RhFx");
-        readonly SurfaceFx.RippleInfo[] _ripples = new SurfaceFx.RippleInfo[16]; readonly Vector4[] _ripP = new Vector4[6], _ripB = new Vector4[6];
+        readonly SurfaceFx.RippleInfo[] _ripples = new SurfaceFx.RippleInfo[SurfaceFx.MaxRipples]; readonly Vector4[] _ripP = new Vector4[6], _ripB = new Vector4[6];
+        readonly float[] _rippleDistances = new float[6];
         static readonly int IdRip = Shader.PropertyToID("_RhRip"), IdRipB = Shader.PropertyToID("_RhRipB");
         public WallSdf WallSdf { get { return _sdf; } }
         readonly float[] _w = new float[RegionField.Regions];
@@ -139,6 +143,10 @@ namespace Roguehalla.Client
         {
             _cam = cam; if (cam == null) return;
             _time += dt;
+            bool inkMotion = !AtmosphereQuality.ReducedMotion;
+            if (inkMotion) _inkTime += Mathf.Max(0f, dt);
+            Shader.SetGlobalVector(IdInkClock, new Vector4(_inkTime, inkMotion ? 1f : 0f,
+                inkMotion && AtmosphereQuality.SurfaceGlisten ? 1f : 0f, 0f));
             Vector3 c = cam.transform.position;
             float tx = c.x, ty = -c.y / ArenaView.GroundSquash;
             float halfW = cam.orthographic ? cam.orthographicSize * cam.aspect : 12f, halfH = (cam.orthographic ? cam.orthographicSize : 9f) / ArenaView.GroundSquash;
@@ -162,7 +170,7 @@ namespace Roguehalla.Client
                         ^ ((Mathf.FloorToInt((ty - halfH - CullMarginTiles) / cs) + 64) << 8) ^ (Mathf.FloorToInt((ty + halfH + CullMarginTiles) / cs) + 64);
                 if (key != _rectKey) { _rectKey = key; _shadows.UpdateVisible(tx - halfW, ty - halfH, tx + halfW, ty + halfH, CullMarginTiles); }
             }
-            PushSurfaceGlobals(tx, ty);
+            PushSurfaceGlobals(tx, ty, halfW, halfH);
             bool analytic = AtmosphereQuality.AnalyticLights;
             if (analytic) { LocalLightField.Begin(AtmosphereQuality.EffectiveLocalLights); if (AtmosphereQuality.FxLights) LocalLightField.AddFlashes(dt); }
             _lights.Tick(tx, ty, halfW, halfH, dt, _time);
@@ -174,7 +182,7 @@ namespace Roguehalla.Client
         }
 
         /// <summary>Wind, cloud shadows and the presented actors, for the ground, wall and prop shaders (RhSun.hlsl). Fixed arrays, no allocation.</summary>
-        void PushSurfaceGlobals(float tx, float ty)
+        void PushSurfaceGlobals(float tx, float ty, float halfW, float halfH)
         {
             float wind = 0; for (int k = 0; k < RegionField.Regions; k++) wind += _w[k] * Windiness[k];
             float ang = .45f + .35f * Mathf.Sin(_time * .05f);
@@ -187,10 +195,29 @@ namespace Roguehalla.Client
             if (AtmosphereQuality.Water && SurfaceFx.Current != null)
             {
                 int cnt = SurfaceFx.Current.CopyRipples(_ripples);
-                for (int i = 0; i < cnt && nr < 6; i++)
+                for (int i = 0; i < cnt; i++)
                 {
-                    var r = _ripples[i]; if (r.Reaction != WaterReaction.Shallow) continue;
-                    _ripP[nr] = new Vector4(r.World.x, -r.World.y / ArenaView.GroundSquash, r.Birth, r.Life); _ripB[nr] = new Vector4(r.Diameter, 0, 0, 0); nr++;
+                    var r = _ripples[i];
+                    if (r.Reaction != WaterReaction.Shallow) continue;
+                    float rx = r.World.x, ry = -r.World.y / ArenaView.GroundSquash;
+                    float dx = rx - tx, dy = ry - ty;
+                    if (Mathf.Abs(dx) > halfW + r.Diameter || Mathf.Abs(dy) > halfH + r.Diameter) continue;
+                    float distance = dx * dx + dy * dy;
+                    int at = nr;
+                    while (at > 0 && distance < _rippleDistances[at - 1])
+                    {
+                        if (at < _ripP.Length)
+                        {
+                            _rippleDistances[at] = _rippleDistances[at - 1];
+                            _ripP[at] = _ripP[at - 1]; _ripB[at] = _ripB[at - 1];
+                        }
+                        at--;
+                    }
+                    if (at >= _ripP.Length) continue;
+                    _rippleDistances[at] = distance;
+                    _ripP[at] = new Vector4(rx, ry, r.Birth, r.Life);
+                    _ripB[at] = new Vector4(r.Diameter, 0f, 0f, 0f);
+                    nr = Mathf.Min(nr + 1, _ripP.Length);
                 }
                 if (nr > 0) { Shader.SetGlobalVectorArray(IdRip, _ripP); Shader.SetGlobalVectorArray(IdRipB, _ripB); }
             }
@@ -242,6 +269,7 @@ namespace Roguehalla.Client
             if (AtmosphereShadows.Field == _field) AtmosphereShadows.Field = null;
             if (_profile != null && _volume != null && _volume.sharedProfile != _profile) { }
             Shader.SetGlobalVector("_RhSwitch", Vector4.zero);
+            Shader.SetGlobalVector(IdInkClock, Vector4.zero);
         }
     }
 }

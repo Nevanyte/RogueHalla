@@ -13,6 +13,7 @@ float4 _RhAmbCol[8];    // rgb = ambient, a = sun strength (shadow opacity)
 float4 _RhShadowCol[8]; // rgb = multiplier applied inside a cast shadow
 float4 _RhFloorCol[8];  // rgb = passive-light floor (never below the global minimum), independent of every emitter
 float4 _RhSwitch;       // x sun shading, y shadows, z ice translucency, w heat shimmer (1 = on)
+float4 _RhInkClock;     // x shared motion time (holds in Reduced Motion), y ornamental motion, z glints
 float4 _RhCam;          // xy = camera in tile space
 float4 _RhActors[8];    // xy = tile position of each presented (server-delivered) actor; surface effects clear a disc around them
 float4 _RhActorN;       // x actor count, y cloud shadows on (1/0), z unused, w unused
@@ -65,7 +66,7 @@ float3 RhSunMul(float2 world, float ndl, out float strength, out float3 shadowMu
     float inv = 1.0 / tot;
     strength = st * inv; shadowMul = sh * inv;
     // Marsh sunlight is dappled: slow drifting light and shade patches on the plague share of the pixel (weight index 2).
-    float pat = sin(world.x * 1.3 + sin(world.y * 2.1) * 1.4) * sin(world.y * 1.5 + sin(world.x * 0.9 + _Time.y * 0.15) * 1.8);
+    float pat = sin(world.x * 1.3 + sin(world.y * 2.1) * 1.4) * sin(world.y * 1.5 + sin(world.x * 0.9 + _RhInkClock.x * 0.15) * 1.8);
     float dap = lerp(1.0, lerp(0.45, 1.3, smoothstep(-0.25, 0.55, pat)), saturate(w[2] * inv) * 0.9);
     // Drifting cloud shadows on the sunny zones: they only thin the sun term (the passive floor below still holds) and clear away from actors.
     float cl = 1.0;
@@ -75,7 +76,7 @@ float3 RhSunMul(float2 world, float ndl, out float strength, out float3 shadowMu
         ca *= inv;
         [branch] if (ca > 0.01)
         {
-            float2 cw = t * 0.05 + _RhWind.xy * (_Time.y * 0.022);
+            float2 cw = t * 0.05 + _RhWind.xy * (_RhInkClock.x * 0.022);
             float cn = RhLNoise(cw) * 0.55 + RhLNoise(cw * 2.1 + 5.2) * 0.3 + RhLNoise(cw * 4.3 + 1.7) * 0.15;
             cl = 1.0 - ca * smoothstep(0.5, 0.74, cn) * RhActorClear(t) * 0.62;
         }

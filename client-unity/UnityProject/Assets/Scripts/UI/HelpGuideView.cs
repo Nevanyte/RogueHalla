@@ -139,7 +139,7 @@ namespace Roguehalla.Client
             {
                 M("Fire · Burn", "Magic damage over time."),
                 M("Fire · Backlash", "Physical damage returned to an attacker."),
-                M("Sentenced · Mark", "Combines physical and magic damage."),
+                M("Haunted · Mark", "Combines physical and magic damage."),
                 M("Plague · Disease and execute", "Disease deals magic damage over time; the signature also threatens weakened targets."),
                 M("Frost · Chill", "Slows the target."),
                 M("Holy · Lifesteal", "Restores health from damage dealt."),

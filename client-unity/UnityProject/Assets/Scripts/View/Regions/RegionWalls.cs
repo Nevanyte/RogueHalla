@@ -9,7 +9,7 @@ using Roguehalla.Net.Protocol;
 namespace Roguehalla.Client
 {
     /// <summary>Builds the wall meshes of the map in row chunks that are culled off screen, and owns their material.</summary>
-    public sealed class RegionWalls : System.IDisposable
+    public sealed partial class RegionWalls : System.IDisposable
     {
         public const float WallHeight = .67f;           // legacy face height in world units
         /// <summary>Row meshes are split every 32 tiles so a row of walls far off screen is culled; only non-empty chunks exist.</summary>
@@ -57,7 +57,13 @@ namespace Roguehalla.Client
             var root = new GameObject("Region walls (row meshes)"); root.transform.SetParent(parent, false); _rows.Add(root);
             int w = map.W, h = map.H; var tiles = map.Tiles; var terrain = map.Terrain; var regions = map.Regions;
             var contact = RegionWallAtlas.Contact;
+            var arena = map.Coliseum;
             var temple = TempleLayout.For(map);
+            var church = ChurchLandmark.DeliveredNave(map);
+            bool paintedPiers = temple.IsSignature && Resources.Load<Sprite>("StormInk/Holy/SunPier") != null;
+            var gatePiers = new HashSet<int>(ColiseumGateLayout.PierCells(map, ColiseumGateLayout.IsArtReady()).ConvertAll(p => p.y * w + p.x));
+            var stormCypressWalls = StormCypressGeometry.For(map).ReplacementWalls();
+            var stormFrostWalls = StormFrostGeometry.For(map).ReplacementWalls();
 
             bool Solid(int x, int y)
             {
@@ -90,12 +96,25 @@ namespace Roguehalla.Client
                     byte tile = tiles[y * w + x]; if (tile == MapBlob.Floor) continue;
                     int kind = terrain != null ? terrain[y * w + x] : 0;
                     if (kind == (int)TerrainKind.Lava || kind == (int)TerrainKind.Crevasse) continue;   // the ground shader draws the hazard
+                    if (stormCypressWalls != null && stormCypressWalls[y * w + x]) { TileCount++; continue; }
+                    if (stormFrostWalls != null && stormFrostWalls[y * w + x]) { TileCount++; continue; }
+                    if (gatePiers.Contains(y * w + x)) { TileCount++; continue; }
+                    if (church.ReplacesPier(x, y)) { TileCount++; continue; }
+                    if (paintedPiers && temple.TryBlock(x, y, out _, out _)) { TileCount++; continue; }
                     var style = kind == (int)TerrainKind.Fence ? WallStyle.Timber : RegionThemes.Get(RegionOf(x, y)).Wall;
-                    bool inBlock = temple.TryBlock(x, y, out int bcol, out int brow);   // pillar block of the generated temple: columns, arches, gilded cap
-                    bool templeWall = !inBlock && tile == MapBlob.Wall && temple.Contains(x, y);   // a real wall inside the footprint: dressed as solid temple wall (blind arcade), never a pier
+                    int bcol = 0, brow = 0;
+                    bool inBlock = !temple.IsSignature && temple.TryBlock(x, y, out bcol, out brow);   // inferred temple: columns, arches, gilded cap
+                    // The signature sanctuary is the one connected enclosure around the healing floor.
+                    bool templeWall = !inBlock && tile == MapBlob.Wall && (temple.IsSignature
+                        ? x >= temple.ShrineWalls.MinX && x <= temple.ShrineWalls.MaxX &&
+                          y >= temple.ShrineWalls.MinY && y <= temple.ShrineWalls.MaxY
+                        : temple.Contains(x, y));
                     if (inBlock || templeWall) style = WallStyle.Temple;
-                    var set = RegionWallAtlas.SetFor(style);
-                    float hash = RegionNoise.Hash01(x, y, 5); float tint = .92f + hash * .08f;
+                    var set = tile == MapBlob.Wall && church.IsBoundary(x, y) ? RegionWallAtlas.Nave : RegionWallAtlas.SetFor(style);
+                    bool parapet = tile == MapBlob.Wall && arena != null && !inBlock && !templeWall &&
+                        regions[y * w + x] == (byte)RegionId.Coliseum && x >= arena.X && x < arena.X + arena.W &&
+                        y >= arena.Y && y < arena.Y + arena.H && kind != (int)TerrainKind.Fence;
+                    float hash = RegionNoise.Hash01(x, y, 5); float tint = parapet ? 1f : .92f + hash * .08f;
                     var col = new Color32((byte)(255 * tint), (byte)(255 * tint), (byte)(255 * tint), 255);
                     float py = -(y + 1) * ArenaView.GroundSquash;                   // tile bottom edge in world space
                     float px0 = x, px1 = x + 1;
@@ -112,6 +131,12 @@ namespace Roguehalla.Client
                     }
                     int faceV = inBlock ? bcol : templeWall ? ((x % 3) + 3) % 3 : v % RegionWallAtlas.FaceVariants, topV = inBlock ? bcol + 3 * brow : templeWall ? 4 : (v / 3) % RegionWallAtlas.TopVariants;
                     bool southSolid = Solid(x, y + 1);
+                    if (parapet)
+                    {
+                        DrawParapet(x, y, arena, py, !Solid(x - 1, y), !Solid(x + 1, y),
+                            !Solid(x, y - 1), !southSolid, col);
+                        continue;
+                    }
                     if (!southSolid)
                     {
                         _kind = 4f; Rect(px0 - .04f, py - .30f, px1 + .04f, py + .04f, contact, new Color32(255, 255, 255, 255));

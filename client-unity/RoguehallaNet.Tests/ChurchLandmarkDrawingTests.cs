@@ -25,12 +25,13 @@ namespace Roguehalla.Net.Tests
         {
             var rows = Rows();
             Assert.That(rows.Length, Is.EqualTo(29)); Assert.That(rows.All(r => r.Length == 29), Is.True);
-            Assert.That(Count(rows, '#'), Is.EqualTo(67), "building wall (70 border tiles less the 3 door tiles)");
+            Assert.That(Count(rows, '#'), Is.EqualTo(64), "building wall (70 border tiles less both 3-tile doorways)");
             Assert.That(Count(rows, 'P'), Is.EqualTo(48), "pillar tiles");
             Assert.That(Count(rows, 'G'), Is.EqualTo(24), "headstone tiles");
             Assert.That(Count(rows, 'D'), Is.EqualTo(3), "door tiles");
+            Assert.That(Count(rows, 'R'), Is.EqualTo(3), "rear doorway tiles");
             Assert.That(Count(rows, 'E'), Is.EqualTo(1));
-            Assert.That(Count(rows, '#') + Count(rows, 'P') + Count(rows, 'G'), Is.EqualTo(139), "Landmark.WallCount of the church");
+            Assert.That(Count(rows, '#') + Count(rows, 'P') + Count(rows, 'G'), Is.EqualTo(136), "Landmark.WallCount of the church after adding the rear doorway");
         }
 
         [Test]
@@ -38,6 +39,7 @@ namespace Roguehalla.Net.Tests
         {
             var rows = Rows();
             for (int x = 13; x <= 15; x++) Assert.That(rows[16][x], Is.EqualTo('D'), "door column " + x + " on row 16");
+            for (int x = 13; x <= 15; x++) Assert.That(rows[3][x], Is.EqualTo('R'), "rear door column " + x + " on row 3");
             for (int x = 12; x <= 16; x++) Assert.That(rows[28][x], Is.EqualTo('.'), "main gate column " + x + " on row 28");
             Assert.That(rows[28][11], Is.EqualTo('+')); Assert.That(rows[28][17], Is.EqualTo('+'));
         }

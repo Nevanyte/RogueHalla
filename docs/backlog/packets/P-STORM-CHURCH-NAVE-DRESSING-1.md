@@ -1,0 +1,5 @@
+# P-STORM-CHURCH-NAVE-DRESSING-1 — Keep outdoor decor outside the church
+
+Phase 3 item 16a. Keep ordinary Haunted slabs, roadside lanterns, dead grass and other exterior theme dressing out of the delivered church nave. Keep exterior placement, heads and gates, authentic concealment bushes and legacy placeholders. The signed church's published collision and visual body, furnishings, lights and roof fade remain the established scene.
+
+Exclusive write scope is the shared church geometry lookup in ChurchLandmark, the placement filter in RegionProps, the new StormInkChurchNaveDressingEditModeTests oracle and metadata, and this brief. RegionProps.Scatter supplies sprites, ordinary emitters and prop shadow casters. The fix is client presentation only and may leave decoration rows visible in public map inspection. Server generation, existing goldens and protocol remain untouched. The oracle uses eight orientations of a walkable nave with a separate enclosed yard plot, a legacy prop and a gameplay bush. It checks shared placements and scene sprites, and confirms maps without a matching signed anchor keep their current presentation.

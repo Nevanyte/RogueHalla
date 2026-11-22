@@ -85,6 +85,8 @@ namespace Roguehalla.Client
             if (pick < 0) return false;
             int index = _candidates[pick].Handle;
             art = _ghosts[index]; _ghosts.RemoveAt(index);
+            if (art.MotionSuccessor != 0 && art.MotionSuccessor != id) ClearWeaponMotion(art);
+            art.MotionSuccessor = 0;
             var f = art.Fade; float alpha = f.Opacity;
             f.Exiting = false;
             if (dead) { f.Entering = false; Apply(art, 1f); } // a body never fades in
@@ -170,6 +172,7 @@ namespace Roguehalla.Client
             if (OnDeparted != null && f.Kind == ActorKind.Player) { var p = art.Root.transform.position; OnDeparted(p.x, -p.y / ArenaView.GroundSquash); }
             _active.Remove(id);
             art.Light.SetVisible(false);
+            art.Ind.HideFireRoam();
             f.Entering = false; f.Exiting = true; f.ExitAt = Now(); f.ExitFrom = f.Opacity;
             _ghosts.Add(art);
             return true;

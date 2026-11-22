@@ -53,7 +53,6 @@ namespace Roguehalla.Client
         readonly byte[] _boostsShown = new byte[8];
         bool _buildShown, _hasBuildShown;
         ulong _rewardSignature = ulong.MaxValue;
-        static readonly string[] Factions = { "Fire", "Sentenced", "Plague", "Frost", "Holy" };
         static readonly string[] Phases = { "Lobby — waiting for players", "Match active", "Match ended", "Planning — choose your spawn" };
         static readonly string[] Outcomes = { "Victory", "Draw", "Defeated", "Missing in action" };
 
@@ -61,7 +60,7 @@ namespace Roguehalla.Client
 
         public void Initialize(MatchClient client)
         {
-            _client = client; _faction = client.Faction >= 0 && client.Faction < Factions.Length ? client.Faction : 4;
+            _client = client; _faction = client.Faction >= 0 && client.Faction < Roguehalla.Net.Ui.FactionPresentation.Count ? client.Faction : 4;
             if (EventSystem.current == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
             else if (EventSystem.current.GetComponent<InputSystemUIInputModule>() == null)

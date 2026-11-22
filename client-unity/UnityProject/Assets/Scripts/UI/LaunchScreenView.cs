@@ -122,7 +122,7 @@ namespace Roguehalla.Client
         void BuildPanel(UiTheme theme)
         {
             Panel = HudUi.Box(Stage, "LaunchPanel", HudAnchor.TopLeft, PanelX, PanelY, PanelW, PanelH);
-            HudUi.Surface(Panel, theme.Surface, theme.CornerRadiusLarge, theme.Border, true, true);
+            HudUi.Surface(Panel, UiTheme.With(theme.Surface, .90f), theme.CornerRadiusLarge, theme.Border, true, true);
 
             float y = 14f;
             LaunchUi.Text(Panel, "CallsignLabel", Pad, y, Inner, 14f, "CALLSIGN", 11f, theme.TextSecondary, TextAlignmentOptions.MidlineLeft, true).characterSpacing = 1.5f;

@@ -11,11 +11,14 @@ namespace Roguehalla.Net.Ui
         public const int None = 0, Fire = 1, Sentenced = 2, Plague = 3, Frost = 4, Holy = 5, Coliseum = 6;
         public const int Count = 6;
 
-        static readonly string[] Names = { "", "Fire", "Sentenced", "Plague", "Frost", "Holy", "Coliseum" };
         static readonly ZoneShape[] Shapes = { ZoneShape.None, ZoneShape.Triangle, ZoneShape.Diamond, ZoneShape.Disc, ZoneShape.Asterisk, ZoneShape.Ring, ZoneShape.Square };
 
         public static bool IsZone(int region) { return region >= Fire && region <= Coliseum; }
-        public static string Name(int region) { return IsZone(region) ? Names[region] : ""; }
+        public static string Name(int region)
+        {
+            if (!IsZone(region)) return "";
+            return region == Coliseum ? "Coliseum" : FactionPresentation.Name(region - 1);
+        }
         public static ZoneShape Shape(int region) { return IsZone(region) ? Shapes[region] : ZoneShape.None; }
 
         /// <summary>Index into the five theme faction colours (Fire..Holy), or -1 for the coliseum and for no zone.</summary>

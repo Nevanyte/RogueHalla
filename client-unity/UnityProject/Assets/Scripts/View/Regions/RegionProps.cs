@@ -17,12 +17,59 @@ namespace Roguehalla.Client
             /// <summary>Set only for a prop the server sent (MapBlob.Props): its kind code, variant and flags (tall 1, legacy 2). Kind 0 means a client-rolled placement.</summary>
             public byte Kind, Variant, Flags;
             /// <summary>True for a row of the server's decoration: its tall flag (not the art's) decides the fade.</summary>
-            public bool Shipped; }
+            public bool Shipped;
+            /// <summary>True only for a shrub placed by the public bush grid, including a single-cell patch.</summary>
+            public bool ConcealmentCell;
+            /// <summary>Small, cosmetic plant/pebble placed at an open regional edge; never server-authored gameplay state.</summary>
+            public bool TransitionDetail;
+            public Color TransitionTint;
+            public float TransitionWidth, TransitionHeight; }
 
         struct Prop
         {
             public SpriteRenderer Renderer; public float FootX, FootY, HalfW, Height; public bool Tall;
             public float Alpha; public int MarkFrame; public bool InActive; public Color Base;
+        }
+
+        /// <summary>Chooses nearby visual silhouettes while retaining the placed mushroom's geometry and shader inputs.</summary>
+        sealed class MushroomPatch
+        {
+            const float Near = 45f / 32f;
+            readonly List<(Vector2 Foot, int Variant)> _placed = new List<(Vector2, int)>();
+            readonly Sprite[] _variants;
+            readonly int _seed;
+
+            internal MushroomPatch(Sprite original, int seed)
+            {
+                _variants = new[] { original, Authored("plague.mushroom.umbrella"), Authored("plague.mushroom.pair") };
+                _seed = seed;
+            }
+
+            static Sprite Authored(string key) =>
+                RegionPropArt.TryGet(key, out var art) && art.UsesAuthoredTexture ? art.Sprite : null;
+
+            internal Sprite At(float x, float y)
+            {
+                var foot = new Vector2(x, y);
+                int nearby = 0;
+                foreach (var item in _placed)
+                    if ((foot - item.Foot).sqrMagnitude <= Near * Near) nearby |= 1 << item.Variant;
+
+                int variant = 0;
+                if (nearby != 0)
+                {
+                    int first = RegionNoise.Hash01(Mathf.RoundToInt(x * 32f), Mathf.RoundToInt(y * 32f), _seed) < .5f ? 1 : 2;
+                    for (int n = 0; n < _variants.Length; n++)
+                    {
+                        int candidate = (first + n) % _variants.Length;
+                        if (_variants[candidate] == null || (nearby & (1 << candidate)) != 0) continue;
+                        variant = candidate;
+                        break;
+                    }
+                }
+                _placed.Add((foot, variant));
+                return _variants[variant];
+            }
         }
 
         readonly List<Prop> _props = new List<Prop>(2048);
@@ -36,6 +83,111 @@ namespace Roguehalla.Client
         /// <summary>True when the map blob carries the server's decoration (shipped props): the client then rolls none of its own look.</summary>
         public static bool IsDressed(MapBlob map) { return map != null && map.Props != null && map.Props.Length > 0; }
 
+        // Flame centres in source pixels above/right of the painted foot. The same point
+        // drives the atlas emission mask and the world light after per-instance reflection.
+        internal static bool TryFlameSocket(string art, out Vector2 socket)
+        {
+            switch (art)
+            {
+                case "sent.lantern": socket = new Vector2(13f, 95f); return true;
+                case "col.torch": socket = new Vector2(0f, 82f); return true;
+                case "temple.brazier": socket = new Vector2(0f, 50f); return true;
+                default: socket = default; return false;
+            }
+        }
+
+        // A delivered Frost spire has its own ice painting. If it is unavailable, keep the old procedural pine silhouette.
+        // Resolve the entire art entry so its sprite, lighting, draw order, fade and overlap bounds stay together.
+        static string RenderArtKey(Placement placement, MapBlob map)
+        {
+            if (placement.Art == "plague.bush")
+            {
+                byte region = BushRegion(map, placement);
+                string key = region == (byte)RegionId.Plague ? "plague.willow.bush" :
+                    region == (byte)RegionId.Sentenced ? "sent.blackthorn.bush" : null;
+                if (key != null && RegionPropArt.TryGet(key, out var bush) && bush.UsesAuthoredTexture) return key;
+            }
+            if (placement.Art == "fire.bush")
+                return RegionPropArt.TryGet("fire.bush", out var fireBush) && fireBush.UsesAuthoredTexture
+                    ? "fire.bush" : "plague.bush";
+            if (placement.Shipped && placement.Art == "frost.pine2" &&
+                DecorationKinds.TryGet(placement.Kind, out var kind) && kind.Name == "frost.spire")
+                return RegionPropArt.TryGet("frost.spire", out var spire) && spire.UsesAuthoredTexture
+                    ? "frost.spire" : "frost.spire.fallback";
+            if (placement.Shipped && placement.Art == "plague.rubble" &&
+                DecorationKinds.TryGet(placement.Kind, out var bankKind) && bankKind.Name == "plague.root")
+            {
+                // Public variant two keeps the old arched root. The other three break up
+                // its silhouette. Use exact feet for variant zero, including roots sharing a tile.
+                int variant = placement.Variant & 3;
+                if (variant == 2) return placement.Art;
+                bool ribbon = variant == 1 || (variant == 0 && RegionNoise.Hash01(
+                    Mathf.RoundToInt(placement.X * 32f), Mathf.RoundToInt(placement.Y * 32f), 283) < .5f);
+                string key = ribbon ? "plague.root.ribbon" : "plague.root.fan";
+                if (RegionPropArt.TryGet(key, out var root) && root.UsesAuthoredTexture) return key;
+            }
+            if (placement.Art == "fire.rocks")
+            {
+                if (!placement.Shipped) return "fire.scree";
+                if (DecorationKinds.TryGet(placement.Kind, out var fireKind))
+                {
+                    if (fireKind.Name == "fire.rocks")
+                    {
+                        if ((placement.Variant & 1) != 0 && RegionPropArt.TryGet("fire.scree.cobbles", out var cobbles) && cobbles.UsesAuthoredTexture)
+                            return "fire.scree.cobbles";
+                        return "fire.scree";
+                    }
+                    if (fireKind.Name == "fire.basalt") return "fire.basalt.ledge";
+                }
+            }
+            return placement.Art;
+        }
+
+        static byte BushRegion(MapBlob map, Placement placement)
+        {
+            if (map == null || map.Regions == null || map.W <= 0 || map.H <= 0 || map.Regions.Length != map.W * map.H)
+                return 0;
+            if ((uint)placement.Tx >= (uint)map.W || (uint)placement.Ty >= (uint)map.H)
+                return 0;
+            return map.Regions[placement.Ty * map.W + placement.Tx];
+        }
+
+        /// <summary>Small deterministic variation only for migrated, readable Storm Ink ground paintings. Uniform scaling keeps the foot planted.</summary>
+        static void ApplyPaintedGeologyVariation(string artKey, Placement placement, int visualSeed,
+            ref float scaleX, ref float scaleY, ref bool flip, ref Color tint)
+        {
+            float minScale, maxScale;
+            int salt;
+            switch (artKey)
+            {
+                case "fire.scree.cobbles":
+                case "fire.scree": minScale = .79f; maxScale = 1.03f; salt = 157; break;
+                case "fire.basalt.ledge": minScale = .79f; maxScale = 1.03f; salt = 163; break;
+                case "frost.spire":
+                    // The delivered tall and short variants can stand side by side at the cave.
+                    bool shortSpire = (placement.Variant & 2) != 0;
+                    minScale = shortSpire ? .76f : .93f;
+                    maxScale = shortSpire ? .84f : 1f;
+                    salt = 173;
+                    break;
+                default: return;
+            }
+
+            int x = placement.Tx + placement.Kind * 97;
+            int y = placement.Ty + placement.Variant * 151;
+            float size = Mathf.Lerp(minScale, maxScale, RegionNoise.Hash01(x, y, visualSeed + salt));
+            scaleX *= size;
+            scaleY *= size;
+            flip = artKey == "frost.spire" ? (placement.Variant & 2) != 0
+                : RegionNoise.Hash01(x, y, visualSeed + salt + 2) < .5f;
+
+            if (artKey == "fire.basalt.ledge")
+            {
+                float value = RegionNoise.Hash01(x, y, visualSeed + salt + 3);
+                tint = Color.Lerp(new Color(.78f, .78f, .78f, 1f), new Color(.90f, .90f, .90f, 1f), value);
+            }
+        }
+
         /// <summary>The one test of "this placed prop is tall": the shipped row's flag for shipped props, the art's for client-rolled ones. Drawing, fading and shadows all use it.</summary>
         public static bool IsTall(Placement pl, RegionPropSprite art) { return pl.Shipped ? (pl.Flags & 1) != 0 : art.Tall; }
 
@@ -43,7 +195,8 @@ namespace Roguehalla.Client
         public static List<Placement> Scatter(MapBlob map)
         {
             var list = new List<Placement>(2048);
-            if (IsDressed(map)) { AddShipped(map, list); return list; }
+            var nave = ChurchLandmark.DeliveredNave(map);
+            if (IsDressed(map)) { AddShipped(map, list, nave); ColiseumProps.AddGatePiers(map, list); return list; }
             if (map.Regions == null) { AddRealBushes(map, list); return list; }
             int w = map.W, h = map.H; var tiles = map.Tiles; var regions = map.Regions; var terrain = map.Terrain;     // props avoid every terrain tile, drawn or not
             int seed = unchecked((int)(map.LayerHash ^ (map.SemanticHash * 2654435761u)));
@@ -54,6 +207,7 @@ namespace Roguehalla.Client
                 int i = y * w + x;
                 if (tiles[i] != MapBlob.Floor || (terrain != null && terrain[i] != 0)) continue;
                 int region = regions[i]; if (region < 1 || region > 5) continue;
+                if (nave.Contains(x, y)) continue;
                 if (temple.Contains(x, y)) continue;                              // the temple replaces the garden props inside its footprint
                 if (plague.KindAt(x, y) == PlagueGround.Water) continue;          // nothing stands in the shallow water
                 var theme = RegionThemes.Get(region); var rules = theme.Props; if (rules.Length == 0) continue;
@@ -88,17 +242,23 @@ namespace Roguehalla.Client
             foreach (var d in temple.Props)
                 list.Add(new Placement { Art = d.Art, X = d.X, Y = d.Y, Scale = d.Scale, Flip = d.Flip, Tx = Mathf.FloorToInt(d.X), Ty = Mathf.FloorToInt(d.Y + (d.Bias > 0 ? 1.5f : 0f)), Bias = d.Bias });
             ColiseumProps.Add(map, list, seed);
+            ColiseumProps.AddGatePiers(map, list);
             AddRealBushes(map, list);
             return list;
         }
 
         /// <summary>A map whose blob carries decoration: exactly the server's props (tile units), the fixed temple and coliseum furniture, and the real bushes. Nothing is rolled.</summary>
-        static void AddShipped(MapBlob map, List<Placement> list)
+        static void AddShipped(MapBlob map, List<Placement> list, ChurchLandmark.NaveFloor nave)
         {
             foreach (var p in map.Props)
             {
                 float x = p.X / 32f, y = p.Y / 32f;
-                list.Add(new Placement { Art = DecorationKinds.ArtKey(p.Kind, p.Variant, p.Flags), X = x, Y = y, Scale = 1f, Flip = false, Tx = Mathf.FloorToInt(x), Ty = Mathf.FloorToInt(y),
+                int tx = Mathf.FloorToInt(x), ty = Mathf.FloorToInt(y);
+                string art = DecorationKinds.ArtKey(p.Kind, p.Variant, p.Flags);
+                // Authored church furnishings are independent of the outdoor prop pass.
+                // Legacy placeholders and the separately appended real bush plane keep their existing cues.
+                if (nave.Contains(tx, ty) && art.StartsWith("sent.", System.StringComparison.Ordinal)) continue;
+                list.Add(new Placement { Art = art, X = x, Y = y, Scale = 1f, Flip = false, Tx = tx, Ty = ty,
                     Kind = p.Kind, Variant = p.Variant, Flags = p.Flags, Shipped = true });
             }
             if (map.Regions != null && map.Regions.Length == map.W * map.H)
@@ -119,8 +279,8 @@ namespace Roguehalla.Client
             {
                 int i = y * map.W + x; if (bushes[i] == 0) continue;
                 int region = map.Regions != null && map.Regions.Length == map.W * map.H ? map.Regions[i] : 0;
-                string art = region == 4 ? "frost.bush" : region == 5 ? "holy.shrub" : "plague.bush";
-                list.Add(new Placement { Art = art, X = x + .5f, Y = y + .5f, Scale = 1f, Flip = ((x * 7 + y * 13) & 1) == 1, Tx = x, Ty = y });
+                string art = region == 1 ? "fire.bush" : region == 4 ? "frost.bush" : region == 5 ? "holy.shrub" : "plague.bush";
+                list.Add(new Placement { Art = art, X = x + .5f, Y = y + .5f, Scale = 1f, Flip = ((x * 7 + y * 13) & 1) == 1, Tx = x, Ty = y, ConcealmentCell = true });
             }
         }
 
@@ -146,19 +306,49 @@ namespace Roguehalla.Client
             return false;
         }
 
-        public static RegionProps Build(Transform parent, MapBlob map)
+        public static RegionProps Build(Transform parent, MapBlob map, RegionField field = null, TempleLayout temple = null,
+            PlagueGround plague = null)
         {
-            var p = new RegionProps(); p.Create(parent, map); return p;
+            var p = new RegionProps(); p.Create(parent, map, field, temple, plague); return p;
         }
 
-        void Create(Transform parent, MapBlob map)
+        void Create(Transform parent, MapBlob map, RegionField field, TempleLayout temple, PlagueGround plague)
         {
             _root = new GameObject("Region props (deterministic, decorative)"); _root.transform.SetParent(parent, false);
             var litShader = Resources.Load<Shader>("Regions/RegionSpriteLit");
             _material = litShader != null ? new Material(litShader) { name = "Roguehalla / region props (sun lit)" } : ShowcaseSprites.Lit;
             if (litShader != null) _owned.Add(_material);
             var placements = Scatter(map);
+            var transitions = RegionTransitionArt.Load();
+            var footWash = transitions != null && transitions.FootWash > 0 && _material.HasProperty("_RegionFootWash")
+                ? new MaterialPropertyBlock() : null;
+            if (transitions != null)
+            {
+                if (field == null || !field.Ready)
+                {
+                    field = new RegionField();
+                    field.Build(map != null ? map.Regions : null, map != null ? map.W : 0, map != null ? map.H : 0);
+                }
+                placements.AddRange(RegionEdgeProps.Generate(map, field, transitions, placements, temple, plague));
+            }
+            int visualSeed = unchecked((int)(map.LayerHash ^ (map.SemanticHash * 2654435761u)));
             HashSet<byte> warned = null;
+            MaterialPropertyBlock mattePigment = null, flamePigment = null;
+            if (_material.HasProperty("_StormInkResponse"))
+            {
+                mattePigment = new MaterialPropertyBlock();
+                mattePigment.SetFloat("_StormInkResponse", 1f);
+                flamePigment = new MaterialPropertyBlock();
+                flamePigment.SetFloat("_StormInkResponse", 2f);
+            }
+            var willowArt = Resources.Load<PlagueWillowArt>("StormInk/Props/PlagueBogWillowArt");
+            var canopy = Resources.Load<ConcealmentCanopyArt>("StormInk/Props/ConcealmentCanopyArt");
+            var coliseumRackArt = ColiseumWeaponRackArtDefinition.Load();
+            var coliseumTorch = ColiseumTorchArt.Load();
+            bool authoredTorch = coliseumTorch != null && coliseumTorch.IsReady;
+            var transitionWeights = new float[RegionField.Regions];
+            MushroomPatch mushrooms = null;
+            bool hasMountedWeapons = false;
             foreach (var pl in placements)
             {
                 if (pl.Shipped && (pl.Flags & 2) == 0 && !DecorationKinds.TryGet(pl.Kind, out _))
@@ -166,14 +356,110 @@ namespace Roguehalla.Client
                     if (warned == null) warned = new HashSet<byte>();
                     if (warned.Add(pl.Kind)) Debug.LogWarning("RegionProps: unknown decoration kind " + pl.Kind + " drawn as the placeholder");
                 }
-                if (!RegionPropArt.TryGet(pl.Art, out var art)) continue;
+                string renderArtKey = RenderArtKey(pl, map);
+                string ordinaryArtKey = renderArtKey;
+                if (transitions != null && !pl.ConcealmentCell)
+                    renderArtKey = transitions.GrassView(renderArtKey, field, transitionWeights, pl);
+                if (!RegionPropArt.TryGet(renderArtKey, out var art)) continue;
+                float scaleX = pl.Scale, scaleY = pl.Scale;
+                bool flip = pl.Flip;
+                Color tint = Color.white;
+                if (pl.TransitionDetail)
+                {
+                    scaleX *= Mathf.Max(0f, pl.TransitionWidth);
+                    scaleY *= Mathf.Max(0f, pl.TransitionHeight);
+                }
+                if (renderArtKey == "fire.bush" && art.UsesAuthoredTexture)
+                {
+                    float size = Mathf.Lerp(.94f, 1.06f, RegionNoise.Hash01(pl.Tx, pl.Ty, 397));
+                    scaleX *= size;
+                    scaleY *= size;
+                }
+                if (renderArtKey == "plague.willow.bush" && willowArt != null)
+                    willowArt.FitThicket(map, pl, visualSeed, ref scaleX, ref scaleY, ref flip);
+                float sortY = pl.Y;
+                if (pl.ConcealmentCell && canopy != null)
+                {
+                    scaleX *= canopy.WidthScale;
+                    scaleY *= canopy.HeightScale;
+                    sortY += canopy.ForegroundDepth;
+                }
+                bool fern = renderArtKey == "plague.fern";
+                if (art.UsesAuthoredTexture && (fern || pl.Art == "plague.rubble"))
+                {
+                    int vx = pl.Tx + pl.Kind * 97, vy = pl.Ty + pl.Variant * 151;
+                    scaleX *= Mathf.Lerp(.84f, .98f, RegionNoise.Hash01(vx, vy, visualSeed + 101));
+                    scaleY *= Mathf.Lerp(fern ? .88f : .66f, fern ? 1f : .82f, RegionNoise.Hash01(vx, vy, visualSeed + 103));
+                    flip = RegionNoise.Hash01(vx, vy, visualSeed + 107) < .5f;
+                    float pigment = RegionNoise.Hash01(vx, vy, visualSeed + 109);
+                    tint = fern
+                        ? Color.Lerp(new Color(.47f, .62f, .52f), new Color(.74f, .81f, .65f), pigment)
+                        : Color.Lerp(new Color(.64f, .71f, .60f, 1f), new Color(.82f, .86f, .76f, 1f), pigment);
+                }
+                if (art.UsesAuthoredTexture && pl.Art == "holy.paver")
+                {
+                    float wear = RegionNoise.Hash01(pl.Tx, pl.Ty, visualSeed + 123);
+                    float size = Mathf.Lerp(.70f, 1.04f, wear);
+                    scaleX *= size;
+                    scaleY *= size;
+                    flip = RegionNoise.Hash01(pl.Tx, pl.Ty, visualSeed + 125) < .5f;
+                    tint.a = Mathf.Lerp(.49f, .73f, wear);
+                }
+                if (art.UsesAuthoredTexture && !pl.TransitionDetail)
+                    ApplyPaintedGeologyVariation(renderArtKey, pl, visualSeed, ref scaleX, ref scaleY, ref flip, ref tint);
+                if (pl.TransitionDetail) tint *= pl.TransitionTint;
+                else if (transitions != null && field != null && field.Ready)
+                    RegionEdgeProps.WeatherExisting(map, field, transitions, pl, ordinaryArtKey, transitionWeights,
+                        ref scaleX, ref scaleY, ref tint);
                 var go = new GameObject(pl.Art); go.transform.SetParent(_root.transform, false);
                 Vector3 foot = ArenaView.WorldPoint(pl.X * 32f, pl.Y * 32f);
-                go.transform.localPosition = foot; go.transform.localScale = new Vector3(pl.Flip ? -pl.Scale : pl.Scale, pl.Scale, 1f);
+                go.transform.localPosition = foot; go.transform.localScale = new Vector3(flip ? -scaleX : scaleX, scaleY, 1f);
                 var sr = go.AddComponent<SpriteRenderer>(); sr.sprite = art.Sprite; sr.sharedMaterial = _material;
-                sr.sortingOrder = 2000 + Mathf.RoundToInt(pl.Y * 32f * .5f) + pl.Bias;
+                if (pl.Art == "plague.tree" && RegionPropArt.TryGet("plague.tree.ink", out var treeInk) && treeInk.UsesAuthoredTexture)
+                    sr.sprite = treeInk.Sprite;
+                if (pl.Art == "plague.mushroom" && art.UsesAuthoredTexture)
+                {
+                    mushrooms ??= new MushroomPatch(art.Sprite, visualSeed + 131);
+                    sr.sprite = mushrooms.At(pl.X, pl.Y);
+                }
+                if (flamePigment != null && !(pl.Art == "col.torch" && authoredTorch) && TryFlameSocket(pl.Art, out var flame))
+                {
+                    var sprite = art.Sprite;
+                    Vector2 centre = sprite.rect.position + sprite.pivot + flame;
+                    float w = sprite.texture.width, h = sprite.texture.height;
+                    flamePigment.SetVector("_StormFlameUV", new Vector4(centre.x / w, centre.y / h, w / 14f, h / 21f));
+                    sr.SetPropertyBlock(flamePigment);
+                }
+                else if (art.UsesAuthoredTexture && mattePigment != null) sr.SetPropertyBlock(mattePigment);
+                if (footWash != null && !pl.ConcealmentCell)
+                {
+                    var contact = transitions.ContactAt(renderArtKey, field, transitionWeights,
+                        new Vector2(pl.X, pl.Y), foot.y, art.Height * scaleY);
+                    if (contact.z > 0f)
+                    {
+                        sr.GetPropertyBlock(footWash);
+                        footWash.SetVector("_RegionFootWash", contact);
+                        sr.SetPropertyBlock(footWash);
+                    }
+                }
+                sr.color = tint;
+                sr.sortingOrder = 2000 + Mathf.RoundToInt(sortY * 16f) + pl.Bias;
+                if (pl.Art == "col.rack")
+                    hasMountedWeapons |= ColiseumWeaponRackPresenter.AddMountedWeapons(go.transform, sr, coliseumRackArt,
+                        art.UsesAuthoredTexture, _material) > 0;
+                if (pl.Art == "col.torch" && authoredTorch && coliseumTorch.TryGetFittedSocketOffset(out var flameOffset))
+                {
+                    ShowcaseSprites.Initialize();
+                    var flameObject = new GameObject("Coliseum torch flame");
+                    flameObject.transform.SetParent(go.transform, false);
+                    var flameLayer = flameObject.AddComponent<ChurchCandleFlameLayer>();
+                    flameLayer.ConfigureAtLocalOffset(sr, coliseumTorch.Flame, flameOffset,
+                        new Vector2(coliseumTorch.FlameWidthWorldUnits, coliseumTorch.FlameHeightWorldUnits),
+                        coliseumTorch.FlameTint, ShowcaseSprites.Unlit,
+                        pl.Tx * .31f + pl.Ty * .73f, sr.sortingOrder + 1);
+                }
                 bool tall = IsTall(pl, art);
-                var prop = new Prop { Renderer = sr, FootX = foot.x, FootY = foot.y, HalfW = art.Width * .5f * pl.Scale * .8f, Height = art.Height * pl.Scale, Tall = tall, Alpha = 1f, MarkFrame = -10, Base = Color.white };
+                var prop = new Prop { Renderer = sr, FootX = foot.x, FootY = foot.y, HalfW = art.Width * .5f * scaleX * .8f, Height = art.Height * scaleY, Tall = tall, Alpha = 1f, MarkFrame = -10, Base = tint };
                 int index = _props.Count; _props.Add(prop);
                 if (tall)
                 {
@@ -181,6 +467,8 @@ namespace Roguehalla.Client
                     cell.Add(index);
                 }
             }
+            // Immediate camera renders must use the planted row even before Unity's next sorting update.
+            if (hasMountedWeapons) UnityEngine.Rendering.SortingGroup.UpdateAllSortingGroups();
         }
         static int Cell(int tx, int ty) { return ty * 4096 + tx; }
 

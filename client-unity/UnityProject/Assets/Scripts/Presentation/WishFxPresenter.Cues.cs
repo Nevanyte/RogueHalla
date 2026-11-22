@@ -142,18 +142,44 @@ namespace Roguehalla.Client
                 {
                     Vector3 D = W(c.X2, c.Y2);
                     float streak = Mathf.Clamp01(1f - p * 1.8f);
-                    Line(WishFxArt.Beam, A0 + new Vector3(0, .5f, 0), D + new Vector3(0, .5f, 0), .85f * streak, A(Deep(col, 1f), .45f * streak), order - 1);
-                    Line(WishFxArt.Beam, A0 + new Vector3(0, .5f, 0), D + new Vector3(0, .5f, 0), .5f * streak, A(Mix(col, new Color(1f, .85f, .45f), .55f), .95f * streak), order);
-                    Line(WishFxArt.Beam, A0 + new Vector3(0, .5f, 0), D + new Vector3(0, .5f, 0), .18f * streak, A(Color.white, .95f * streak), order + 1);
-                    SafeRing(WishFxArt.Band, A0, Mathf.Lerp(.2f, .95f, e), A(Mix(col, Color.white, .3f), .75f * fade), order);
-                    SafeRing(WishFxArt.Band, D, Mathf.Lerp(.25f, 1.75f, e), A(Mix(col, Color.white, .25f), .85f * fade), order);
-                    _pen.Draw(WishFxArt.Soft, D + new Vector3(0, .5f, 0), Vector2.one * 3f * (.6f + .4f * e), 0, A(col, .42f * fade * fade), order - 2);
-                    _pen.Draw(WishFxArt.Cross, D + new Vector3(0, .5f, 0), Vector2.one * (1.0f + .6f * e), 0, A(Color.white, .85f * fade), order + 2);
-                    _pen.Draw(WishFxArt.Cross, A0 + new Vector3(0, .5f, 0), Vector2.one * (.7f + .3f * e), 0, A(Color.white, .75f * fade), order + 2);
+                    DrawInkTrail(A0, D, .86f * streak, streak, order, t, reduced, c.Seed);
+                    Vector3 travelDir = (D - A0).sqrMagnitude > .001f ? (D - A0).normalized : Vector3.right;
+                    float travelAngle = Mathf.Atan2(travelDir.y, travelDir.x) * Mathf.Rad2Deg;
+                    _pen.Draw(WishFxArt.FireWash, D - travelDir * .13f, new Vector2(1.25f, .42f) * (.72f + .28f * e), travelAngle,
+                        A(Mix(Deep(col, 1f), new Color(1f, .38f, .09f), .48f), .72f * fade), order - 1);
+                    _pen.Draw(WishFxArt.FireWash, D, new Vector2(.42f, .26f) * (.74f + .26f * e), travelAngle,
+                        A(new Color(1f, .77f, .3f), .72f * fade), order);
+                    _pen.Draw(WishFxArt.FireWash, A0, new Vector2(.78f, .5f), 0, A(Deep(col, 1f), .35f * fade), order - 1);
+                    float impact = Mathf.Clamp01(1f - p * 3f);
+                    if (impact > .01f)
+                    {
+                        Vector3 travel = (D - A0).sqrMagnitude > .001f ? (D - A0).normalized : Vector3.right;
+                        Vector2 side = new Vector2(-travel.y, travel.x);
+                        for (int i = 0; i < 5; i++)
+                        {
+                            float h = WishFxModel.Hash01(c.Seed + (uint)(i * 23 + 41));
+                            float signedSide = (WishFxModel.Hash01(c.Seed + (uint)(i * 23 + 42)) - .5f) * .78f;
+                            float back = (h - .5f) * .72f - p * (.2f + h * .2f);
+                            Vector3 offset = new Vector3(travel.x, travel.y, 0) * back + new Vector3(side.x * signedSide, side.y * signedSide, 0);
+                            float size = .13f + .07f * h;
+                            float rotation = Mathf.Atan2(travel.y, travel.x) * Mathf.Rad2Deg - 90f + (h - .5f) * 38f;
+                            _pen.Draw(WishFxArt.FireFleck, D + offset, new Vector2(size * .62f, size * 1.7f), rotation,
+                                A(Mix(new Color(1f, .51f, .13f), new Color(1f, .82f, .34f), .2f + .25f * h), .72f * impact * fade), order + 2 + i);
+                        }
+                    }
                     if (fire)
                     {
-                        for (int i = 0; i < pn; i++) _particles.Rise(Vector3.Lerp(A0, D, Random01(ref _rng)) + new Vector3(0, .5f, 0), new Vector3((Random01(ref _rng) - .5f) * 1.2f, .4f + Random01(ref _rng) * .9f), .11f, .9f, A(Mix(col, new Color(1f, .8f, .3f), .5f), .95f));
-                        for (int i = 0; i < pn; i++) { float a = i * 6.2832f / pn; _particles.Rise(D + new Vector3(0, .5f, 0), new Vector3(Mathf.Cos(a), Mathf.Sin(a) * .7f + .5f) * (1.2f + Random01(ref _rng)), .12f, .8f, A(new Color(1f, .75f, .3f), .95f)); }
+                        int flecks = Mathf.Min(8, pn);
+                        Vector3 travel = (D - A0).sqrMagnitude > .001f ? (D - A0).normalized : Vector3.right;
+                        for (int i = 0; i < flecks; i++)
+                        {
+                            float h = WishFxModel.Hash01(c.Seed + (uint)(i * 19 + 7));
+                            float side = (WishFxModel.Hash01(c.Seed + (uint)(i * 19 + 8)) - .5f) * .85f;
+                            Vector3 offset = new Vector3(-travel.y, travel.x, 0) * side;
+                            Vector3 velocity = travel * (.55f + h * .8f) + new Vector3(0, .32f + h * .3f, 0) + offset * .38f;
+                            _particles.Rise(D + offset * .28f + new Vector3(0, .16f, 0), velocity, .085f + h * .035f, .55f,
+                                A(Mix(col, new Color(1f, .73f, .25f), .35f), .88f));
+                        }
                     }
                     break;
                 }

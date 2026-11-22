@@ -103,11 +103,12 @@ namespace Roguehalla.Client
             Debug.Log("[regions] " + temple.Describe() + "; plague ground: " + plague.MudTiles + " mud, " + plague.GrassTiles + " grass, " + plague.WaterTiles + " shallow water tiles; terrain mode " + map.TerrainMode);
             Surfaces.ClearLayers(); Surfaces.AddLayer(temple); Surfaces.AddLayer(plague);          // decorative surfaces for SurfaceMap (never override real terrain)
             _regionGround = RegionGround.Create(_mapRoot, map, RegionExposure, temple, plague);
-            if (temple.Found) AddTempleEmblem(temple);
+            if (temple.Found && !temple.IsSignature) AddTempleEmblem(temple);
             _regionWalls = RegionWalls.Build(_mapRoot, map, RegionExposure);
-            _coliseumGates = ColiseumGateWalls.Build(_mapRoot, map, _regionWalls.Material);
-            _regionProps = RegionProps.Build(_mapRoot, map);
+            _regionProps = RegionProps.Build(_mapRoot, map, _atmos != null ? _atmos.Field : null, temple, plague);
+            _coliseumGates = ColiseumGatePresenter.Build(_mapRoot, map, _regionWalls.Material);
             _landmarks = LandmarkView.Build(_mapRoot, map);
+            if (_atmos != null) _atmos.Lights.RegisterLandmarkCandles(_landmarks);
             HasMap = true;
             ApplyQuality();
         }

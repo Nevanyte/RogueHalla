@@ -11,6 +11,22 @@ namespace Roguehalla.Client
     /// <summary>Adds Coliseum banner, rack and torch prop placements beside walls on its floor tiles, using seeded hashes.</summary>
     public static class ColiseumProps
     {
+        /// <summary>Adds paired limestone gateposts from the delivered gate rows. The editor-authored asset is required: if it
+        /// is absent or unreadable, the ordinary wall boxes remain visible as the safe fallback.</summary>
+        public static void AddGatePiers(MapBlob map, List<RegionProps.Placement> list)
+        {
+            if (!ColiseumGateLayout.IsArtReady()) return;
+            foreach (var cell in ColiseumGateLayout.PierCells(map, true))
+            {
+                if (!ColiseumGateLayout.IsSolid(map, cell.x, cell.y)) continue;
+                list.Add(new RegionProps.Placement
+                {
+                    Art = "col.gate.pier", X = cell.x + .5f, Y = cell.y + .5f,
+                    Scale = 1f, Tx = cell.x, Ty = cell.y, Bias = 1
+                });
+            }
+        }
+
         public static void Add(MapBlob map, List<RegionProps.Placement> list, int seed)
         {
             if (map.Regions == null) return;
@@ -28,7 +44,7 @@ namespace Roguehalla.Client
                 float roll = RegionNoise.Hash01(x, y, seed + 77);
                 if (i - last < 3 && last >= 0) continue;
                 string art = null;
-                if (north && roll < .16f) art = roll < .08f ? "col.banner" : "col.rack";
+                if (north && roll < .16f) art = roll < .08f ? "col.standard" : "col.rack";
                 else if (side && roll > .82f) art = "col.torch";
                 if (art == null) continue;
                 last = i;

@@ -245,14 +245,9 @@ fn far_elite(seed: i64, m: &GameMapData) -> (Cell, (f64, f64, f64)) {
     (world_cell(c.x, c.y), (c.x / TILE, c.y / TILE, c.r / TILE))
 }
 
-/// Amended by P-MAPGEN-SIG-SCALE-2 (the anchor's entrance is now the churchyard's main gate, 12 tiles beyond the door):
-/// the church's door is read as the lanes read it (`style_gallows/lanes.rs` `frame`): the tiles of the `Church` box's
-/// edge on the door side (the dominant axis of the anchor's front) that are floor owned by no feature, in edge order.
-/// Returns (door side, door line, the door tiles); `along_across(side, line, ..)` then gives `along`, the signed distance
-/// out of the church through the door side, and `across`, the coordinate along the wall. (Replaces `door_frame`, which
-/// read the anchor's entrance.)
-fn church_door(m: &GameMapData, k: usize, a: &ZoneAnchor) -> (Cell, i32, Vec<Cell>) {
-    let side = door_side(a.front);
+/// The three unowned floor tiles on the given church wall edge, in edge order. `along_across(side, line, ..)` gives
+/// `along`, the signed distance out of the church, and `across`, the coordinate along the wall.
+fn church_door_on_side(m: &GameMapData, k: usize, side: Cell) -> (Cell, i32, Vec<Cell>) {
     let (x0, y0, x1, y1) = grow(m.features[k].bbox, 0);
     let (line, edge): (i32, Vec<Cell>) = match side {
         (1, 0) => (x1, (y0..=y1).map(|y| (x1, y)).collect()),
@@ -268,6 +263,17 @@ fn church_door(m: &GameMapData, k: usize, a: &ZoneAnchor) -> (Cell, i32, Vec<Cel
         })
         .collect();
     (side, line, door)
+}
+
+/// The Sentenced front opening is read from the edge on the dominant axis of the anchor's front, as the lanes do.
+fn church_door(m: &GameMapData, k: usize, a: &ZoneAnchor) -> (Cell, i32, Vec<Cell>) {
+    church_door_on_side(m, k, door_side(a.front))
+}
+
+/// The newly approved rear opening lies on the edge opposite the church's front opening.
+fn rear_church_door(m: &GameMapData, k: usize, a: &ZoneAnchor) -> (Cell, i32, Vec<Cell>) {
+    let front = door_side(a.front);
+    church_door_on_side(m, k, (-front.0, -front.1))
 }
 
 fn along_across(side: Cell, line: i32, c: Cell) -> (i32, i32) {
@@ -481,12 +487,11 @@ fn shape_bog_tree_stands_in_the_outer_third_ringed_by_bog() {
     }
 }
 
-/// Sentenced: the church is a wall ring whose box holds the far elite camp's whole clearing; its door (3 floor tiles in
-/// a row, owned by no feature) lies on the church box's edge facing the front and joins the walkable region of the first
-/// spawn; with the door shut the camp is sealed off from that spawn. Amended by P-MAPGEN-SIG-SCALE-2 (approved by the
-/// landmark lane, 2026-11-13): the box is the `Church` feature's (the anchor's footprint is now the whole churchyard,
-/// pinned by `mapgen_signature_church.rs`), and the door is read from that box (`church_door`), not from the anchor's
-/// entrance (now the churchyard's main gate). Was: footprint == the church's box, door = entrance of 2-3 tiles.
+/// Sentenced: the church is a wall ring whose box holds the far elite camp's whole clearing; its front and rear wall
+/// edges each have a three-tile unowned floor doorway that joins the first spawn's walkable region; with both doors shut
+/// the camp is sealed off from that spawn. Amended by P-MAPGEN-SIG-SCALE-2 (approved by the landmark lane,
+/// 2026-11-13): the box is the `Church` feature's, and the front door is read from that box, not from the anchor's
+/// entrance (the churchyard's main gate). Extended by P-STORM-CHURCH-MAP-3 for the approved rear `R` doorway.
 #[test]
 fn shape_church_encloses_the_far_elite_camp_with_a_door_to_the_front() {
     for (seed, m) in maps() {
@@ -525,37 +530,43 @@ fn shape_church_encloses_the_far_elite_camp_with_a_door_to_the_front() {
             }
         }
         assert_eq!(a.front, expected_front(m, camp), "seed {seed}: front");
-        let (side, _, door) = church_door(m, k, a);
-        assert_eq!(
-            door.len(),
-            3,
-            "seed {seed}: door {door:?} on the {side:?} edge of {:?}",
-            f.bbox
-        );
-        let mut across: Vec<i32> = door
-            .iter()
-            .map(|c| if side.0 != 0 { c.1 } else { c.0 })
-            .collect();
-        across.sort_unstable();
-        assert!(
-            across.windows(2).all(|w| w[1] == w[0] + 1),
-            "seed {seed}: door {door:?} is not one opening"
-        );
-        for &c in &door {
-            assert_eq!(
-                m.tiles[at(m, c).unwrap()],
-                T_FLOOR,
-                "seed {seed}: door tile {c:?} is not floor"
-            );
-        }
+        let (front_side, _, front_door) = church_door(m, k, a);
+        let (rear_side, _, rear_door) = rear_church_door(m, k, a);
         let spawn = first_spawn(m);
         let reach = flood(m, &m.tiles, &[spawn]);
-        assert!(
-            door.iter().any(|&c| reach[at(m, c).unwrap()]),
-            "seed {seed}: door {door:?} does not join the first spawn's region"
-        );
+        for (name, side, door) in [
+            ("front", front_side, &front_door),
+            ("rear", rear_side, &rear_door),
+        ] {
+            assert_eq!(
+                door.len(),
+                3,
+                "seed {seed}: {name} door {door:?} on the {side:?} edge of {:?}",
+                f.bbox
+            );
+            let mut across: Vec<i32> = door
+                .iter()
+                .map(|c| if side.0 != 0 { c.1 } else { c.0 })
+                .collect();
+            across.sort_unstable();
+            assert!(
+                across.windows(2).all(|w| w[1] == w[0] + 1),
+                "seed {seed}: {name} door {door:?} is not one opening"
+            );
+            for &c in door {
+                assert_eq!(
+                    m.tiles[at(m, c).unwrap()],
+                    T_FLOOR,
+                    "seed {seed}: {name} door tile {c:?} is not floor"
+                );
+            }
+            assert!(
+                door.iter().any(|&c| reach[at(m, c).unwrap()]),
+                "seed {seed}: {name} door {door:?} does not join the first spawn's region"
+            );
+        }
         let mut shut = m.tiles.clone();
-        for &c in &door {
+        for &c in front_door.iter().chain(&rear_door) {
             shut[at(m, c).unwrap()] = T_WALL;
         }
         let inside_church = flood(m, &shut, &[camp]);
