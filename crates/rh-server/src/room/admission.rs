@@ -82,6 +82,16 @@ impl Room {
                 event: SeatEvent::Seated,
             });
         }
+        if let Some(h) = self.humans.last() {
+            eprintln!(
+                "{}",
+                crate::lifecycle_log::join(
+                    &crate::control::room_id_hex(self.id),
+                    &h.profile,
+                    self.humans.len()
+                )
+            );
+        }
         Ok(JoinOk {
             player,
             session,

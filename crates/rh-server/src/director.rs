@@ -446,7 +446,7 @@ pub struct Director {
 /// How long an admission waits, in all (one deadline shared by its retries), for a profile that is mid-release (its lease
 /// give-back or result write is in flight) before it is refused as in use. A release is milliseconds; a result write that
 /// is being retried can take minutes, and that is a refusal, not a wait.
-pub const LEAVING_WAIT: Duration = Duration::from_secs(3);
+pub const LEAVING_WAIT: Duration = Duration::from_secs(6);
 
 pub struct Hello {
     pub protocol: u16,

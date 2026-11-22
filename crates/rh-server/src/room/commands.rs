@@ -2,7 +2,42 @@
 
 use super::*;
 
+use crate::lifecycle_log::{self, DropReason};
+
 impl Room {
+    /// A connection ended: the seat it spoke for is held for the reconnect grace. A connection that a resume already
+    /// replaced matches no seat and logs nothing.
+    fn disconnect(&mut self, player: PlayerId, conn: u64, now: Instant, reason: DropReason) {
+        if let Some(h) = self
+            .humans
+            .iter_mut()
+            .find(|h| h.player == player && h.conn == conn)
+        {
+            let old = h.outbox.take();
+            h.dropped_at = Some(now);
+            let callsign = h.profile.clone();
+            self.record(ReplayInput::Dropped {
+                player,
+                dropped: true,
+            });
+            self.sim.mark_dropped(player, true);
+            if let Some(old) = old {
+                self.retire_outbox(&old);
+            }
+            eprintln!(
+                "{}",
+                lifecycle_log::dropped(&crate::control::room_id_hex(self.id), &callsign, reason)
+            );
+            if let Some(h) = self.humans.iter().find(|h| h.player == player) {
+                let _ = self.reports.send(RoomReport::Seat {
+                    match_id: self.id,
+                    profile: h.profile.clone(),
+                    event: SeatEvent::Away { at: now },
+                });
+            }
+        }
+    }
+
     pub fn handle(&mut self, cmd: RoomCmd, now: Instant) {
         let now = now.max(Instant::now());
         self.expire_leases(now);
@@ -64,10 +99,13 @@ impl Room {
                         Self::bind_rate(self.sim.tick_ms(), &outbox, &mut h.collections);
                         let (player, session) = (h.player, h.session);
                         let seat_profile = h.profile.clone();
+                        let mut replaced = false;
                         let resolved = h.result.clone();
                         if let Some(old) = old {
                             old.close(RejectCode::Kicked);
                             self.retire_outbox(&old);
+                            // The old connection was still live: it is replaced, not lost (it logs no drop of its own).
+                            replaced = true;
                         }
                         self.record(ReplayInput::Dropped {
                             player,
@@ -76,7 +114,7 @@ impl Room {
                         self.sim.mark_dropped(player, false);
                         let _ = self.reports.send(RoomReport::Seat {
                             match_id: self.id,
-                            profile: seat_profile,
+                            profile: seat_profile.clone(),
                             event: SeatEvent::Back,
                         });
                         // The run this player already resolved: the one reliable event that is not state the client can read
@@ -92,6 +130,17 @@ impl Room {
                             }
                         }
                         // A fresh Welcome is the resync: full map and the current tick; the next snapshot follows.
+                        let room = crate::control::room_id_hex(self.id);
+                        if replaced {
+                            eprintln!(
+                                "{}",
+                                lifecycle_log::dropped(&room, &seat_profile, DropReason::Replaced)
+                            );
+                        }
+                        eprintln!(
+                            "{}",
+                            lifecycle_log::resume(&room, &seat_profile, self.humans.len())
+                        );
                         Ok(JoinOk {
                             player,
                             session,
@@ -175,30 +224,14 @@ impl Room {
                 }
             }
             RoomCmd::Disconnected { player, conn } => {
-                // A replaced connection's late disconnect must not detach the seat its resume took over.
-                if let Some(h) = self
-                    .humans
-                    .iter_mut()
-                    .find(|h| h.player == player && h.conn == conn)
-                {
-                    let old = h.outbox.take();
-                    h.dropped_at = Some(now);
-                    self.record(ReplayInput::Dropped {
-                        player,
-                        dropped: true,
-                    });
-                    self.sim.mark_dropped(player, true);
-                    if let Some(old) = old {
-                        self.retire_outbox(&old);
-                    }
-                    if let Some(h) = self.humans.iter().find(|h| h.player == player) {
-                        let _ = self.reports.send(RoomReport::Seat {
-                            match_id: self.id,
-                            profile: h.profile.clone(),
-                            event: SeatEvent::Away { at: now },
-                        });
-                    }
-                }
+                self.disconnect(player, conn, now, DropReason::Closed);
+            }
+            RoomCmd::Lost {
+                player,
+                conn,
+                reason,
+            } => {
+                self.disconnect(player, conn, now, reason);
             }
             RoomCmd::Leave { player, conn } => {
                 if self
@@ -206,7 +239,21 @@ impl Room {
                     .iter()
                     .any(|h| h.player == player && h.conn == conn)
                 {
+                    let callsign = self
+                        .humans
+                        .iter()
+                        .find(|h| h.player == player)
+                        .map(|h| h.profile.clone())
+                        .unwrap_or_default();
                     self.leave(player, GoneReason::Left);
+                    eprintln!(
+                        "{}",
+                        lifecycle_log::leave(
+                            &crate::control::room_id_hex(self.id),
+                            &callsign,
+                            self.humans.len()
+                        )
+                    );
                 }
             }
             RoomCmd::Kick { profile } => {

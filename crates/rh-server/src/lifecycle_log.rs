@@ -18,41 +18,92 @@ pub enum DropReason {
 }
 
 /// The generic formatter: `[server] INFO event=<event>` then each field as ` key=value`, in the order given.
-pub fn line(_event: &str, _fields: &[(&str, &str)]) -> String {
-    String::new()
+pub fn line(event: &str, fields: &[(&str, &str)]) -> String {
+    let mut out = format!("[server] INFO event={event}");
+    for (k, v) in fields {
+        if v.is_empty() || v.chars().any(|c| c.is_whitespace() || c == '"' || c == '=') {
+            out.push_str(&format!(" {k}={v:?}"));
+        } else {
+            out.push_str(&format!(" {k}={v}"));
+        }
+    }
+    out
 }
 
 /// `event=join room=<room> callsign=<callsign> humans=<n>`
-pub fn join(_room: &str, _callsign: &str, _humans: usize) -> String {
-    String::new()
+pub fn join(room: &str, callsign: &str, humans: usize) -> String {
+    line(
+        "join",
+        &[
+            ("room", room),
+            ("callsign", callsign),
+            ("humans", &humans.to_string()),
+        ],
+    )
 }
 
 /// `event=resume room=<room> callsign=<callsign> humans=<n>`
-pub fn resume(_room: &str, _callsign: &str, _humans: usize) -> String {
-    String::new()
+pub fn resume(room: &str, callsign: &str, humans: usize) -> String {
+    line(
+        "resume",
+        &[
+            ("room", room),
+            ("callsign", callsign),
+            ("humans", &humans.to_string()),
+        ],
+    )
 }
 
 /// `event=drop room=<room> callsign=<callsign> reason=<idle_timeout|closed|replaced>`
-pub fn dropped(_room: &str, _callsign: &str, _reason: DropReason) -> String {
-    String::new()
+pub fn dropped(room: &str, callsign: &str, reason: DropReason) -> String {
+    let reason = match reason {
+        DropReason::IdleTimeout => "idle_timeout",
+        DropReason::Closed => "closed",
+        DropReason::Replaced => "replaced",
+    };
+    line(
+        "drop",
+        &[("room", room), ("callsign", callsign), ("reason", reason)],
+    )
 }
 
 /// `event=grace_expired room=<room> callsign=<callsign>`
-pub fn grace_expired(_room: &str, _callsign: &str) -> String {
-    String::new()
+pub fn grace_expired(room: &str, callsign: &str) -> String {
+    line("grace_expired", &[("room", room), ("callsign", callsign)])
 }
 
 /// `event=leave room=<room> callsign=<callsign> humans=<n>` (humans left after this one)
-pub fn leave(_room: &str, _callsign: &str, _humans: usize) -> String {
-    String::new()
+pub fn leave(room: &str, callsign: &str, humans: usize) -> String {
+    line(
+        "leave",
+        &[
+            ("room", room),
+            ("callsign", callsign),
+            ("humans", &humans.to_string()),
+        ],
+    )
 }
 
 /// `event=reject code=<RejectCode Debug name> reason=<text> peer=<ip>`
-pub fn reject(_code: rh_protocol::RejectCode, _reason: &str, _peer: IpAddr) -> String {
-    String::new()
+pub fn reject(code: rh_protocol::RejectCode, reason: &str, peer: IpAddr) -> String {
+    line(
+        "reject",
+        &[
+            ("code", &format!("{code:?}")),
+            ("reason", reason),
+            ("peer", &peer.to_string()),
+        ],
+    )
 }
 
 /// `event=match_end room=<room> duration_ms=<ms> humans=<n>`
-pub fn match_end(_room: &str, _duration: Duration, _humans: usize) -> String {
-    String::new()
+pub fn match_end(room: &str, duration: Duration, humans: usize) -> String {
+    line(
+        "match_end",
+        &[
+            ("room", room),
+            ("duration_ms", &duration.as_millis().to_string()),
+            ("humans", &humans.to_string()),
+        ],
+    )
 }
