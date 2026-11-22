@@ -164,7 +164,9 @@ pub(crate) async fn durable(url: &str, args: &[String]) -> (Persistence, Auth) {
         ConnectFail::fatal,
         |e: &ConnectFail| redact_secrets(&e.to_string(), &[url]),
         |_| async move {
-            match tokio::time::timeout(per_attempt, rh_persist::Store::connect_with(url, pool_size)).await {
+            match tokio::time::timeout(per_attempt, rh_persist::Store::connect_with(url, pool_size))
+                .await
+            {
                 Ok(r) => r.map_err(ConnectFail::Store),
                 Err(_) => Err(ConnectFail::Timeout(per_attempt.as_secs())),
             }

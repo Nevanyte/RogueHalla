@@ -111,11 +111,13 @@ impl Director {
                 crate::api::log_internal("hello credential check", &e);
                 return Err(unavailable());
             }
-            // The log line carries the bound alone: no profile, no ticket.
+            // It fires in a reconnect storm, once per Hello: the same rate-limited log as the storage error, carrying the
+            // bound alone (no profile, no ticket).
             Err(_elapsed) => {
-                eprintln!(
-                    "[server] WARN event=credential_check_timed_out budget_ms={}",
-                    self.cfg.leases.db_timeout.as_millis()
+                let bound = self.cfg.leases.db_timeout.as_millis();
+                crate::api::log_internal(
+                    "hello credential check",
+                    &format_args!("event=credential_check_timed_out budget_ms={bound}"),
                 );
                 return Err(unavailable());
             }
