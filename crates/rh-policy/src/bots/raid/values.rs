@@ -32,6 +32,9 @@ pub struct SustainPrices {
     /// Leave a camp fight once the death model's chance to die finishing it, from the hp held and the members
     /// still alive, is at least this (0..=1).
     pub disengage_death: f64,
+    /// Leave this much early (chance): the percept's hp and member counts are rounded and a frame old, so a leave decided
+    /// at exactly `disengage_death` comes late.
+    pub disengage_lead: f64,
     /// The hp share the heal-up candidate brings the bot back to before it goes for a camp.
     pub ready_hp: f64,
     /// Share of max hp a large potion gives back (the sim's `potions::DEFINITION.large_share`): the farm prices a camp
@@ -65,6 +68,7 @@ impl SustainPrices {
         on: false,
         drink_below: 0.,
         disengage_death: 2.,
+        disengage_lead: 0.,
         ready_hp: 0.,
         large_share: 0.,
         small_share: 0.,
@@ -77,6 +81,7 @@ impl SustainPrices {
         on: true,
         drink_below: 0.65,
         disengage_death: 0.5,
+        disengage_lead: 0.05,
         ready_hp: 0.85,
         large_share: 0.4,
         small_share: 0.25,

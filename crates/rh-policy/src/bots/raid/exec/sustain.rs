@@ -19,10 +19,10 @@ use crate::bots::raid::percept::{MobClass, MobSeen};
 use crate::bots::types::PRIORITY_COMBAT;
 use rh_sim::{FactionId, Vec2};
 
-/// A member this close reaches the bot (melee and the shorter bows): the fight is on.
-const REACH_U: f64 = 160.;
 /// One step of a retreat (units): far enough that the walk goes somewhere, short enough to re-aim every think.
 const STEP_U: f64 = 192.;
+/// A bow reaches this far past its listed range once the shot is in flight (units).
+const BOW_MARGIN_U: f64 = 60.;
 /// A cornered bot (no clear heading) does not try to leave again for this long (ms).
 const CORNERED_MS: f64 = 3_000.;
 
@@ -37,6 +37,14 @@ pub struct Sustain {
     was_lost: bool,
     /// No leaving before this (server ms): the last attempt found no way out.
     cornered_until: f64,
+}
+
+/// How far from the bot `m` is a threat: melee reach, or its projectile range plus a margin.
+fn threat_u(m: &MobSeen) -> f64 {
+    match m.weapon.map(|w| rh_sim::content::weapon(w).shape) {
+        Some(rh_sim::content::Shape::Projectile { range, .. }) => (range + BOW_MARGIN_U).max(FIGHT_U),
+        _ => FIGHT_U,
+    }
 }
 
 /// A fight the death model prices.
@@ -76,11 +84,12 @@ impl Sustain {
         cx.p.me.hp_share() < cx.prices.sustain.drink_below && Self::can_drink(cx)
     }
 
-    /// The nearest living regional mob within `within` of the bot.
-    fn nearest<'a>(cx: &'a Cx<'_>, within: f64) -> Option<&'a MobSeen> {
+    /// The nearest living regional mob that can hit the bot where it stands: within `FIGHT_U` (melee) or within its
+    /// bow's range plus a margin (a fight is not left by walking out of reach of the shorter weapons only).
+    fn nearest<'a>(cx: &'a Cx<'_>) -> Option<&'a MobSeen> {
         cx.p.mobs
             .iter()
-            .filter(|m| m.alive && m.class == MobClass::Regional && cx.p.dist(m.at) <= within)
+            .filter(|m| m.alive && m.class == MobClass::Regional && cx.p.dist(m.at) <= threat_u(m))
             .min_by(|a, b| {
                 cx.p.dist(a.at)
                     .total_cmp(&cx.p.dist(b.at))
@@ -91,7 +100,7 @@ impl Sustain {
     /// The fight the bot is in (a member within reach) and whether the death model says it is lost.
     fn fight(&mut self, cx: &Cx<'_>) -> Option<Fight> {
         let me = cx.p.me.faction?;
-        let near = Self::nearest(cx, REACH_U)?;
+        let near = Self::nearest(cx)?;
         let camp = match near.camp {
             Some(c) => cx.p.camp(c)?,
             None => cx
@@ -107,7 +116,7 @@ impl Sustain {
             .mobs
             .iter()
             .filter(|m| m.alive && m.class == MobClass::Regional)
-            .filter(|m| m.camp == Some(camp.index) || m.camp.is_none())
+            .filter(|m| m.camp == Some(camp.index) || (m.camp.is_none() && cx.p.dist(m.at) <= FIGHT_U))
             .map(|m| 1. - m.hp_share.clamp(0., 1.))
             .sum();
         let left = (f64::from(camp.alive) - lost_hp).max(0.);
@@ -115,7 +124,7 @@ impl Sustain {
         let death = death_chance(Self::hp_held(cx), share, left, &cx.prices.death);
         Some(Fight {
             camp: camp.index,
-            lost: death >= cx.prices.sustain.disengage_death,
+            lost: death >= cx.prices.sustain.disengage_death - cx.prices.sustain.disengage_lead,
         })
     }
 
@@ -163,7 +172,7 @@ impl Executor for Sustain {
             return;
         }
         // Nobody on us and hp short of ready: a heal-up, priced by the regeneration it waits for.
-        if hp < s.ready_hp && Self::nearest(cx, FIGHT_U).is_none() {
+        if hp < s.ready_hp && Self::nearest(cx).is_none() {
             let deficit = s.ready_hp - hp;
             out.push(Candidate {
                 goal: RaidGoal::new(GoalKind::Sustain, Target::None),
@@ -187,7 +196,7 @@ impl Executor for Sustain {
             return Step::failed("sustain is off");
         }
         let leaving = matches!(goal.target, Target::Camp(_));
-        let threat = Self::nearest(cx, FIGHT_U).map(|m| m.at);
+        let threat = Self::nearest(cx).map(|m| m.at);
         if let Some(from) = threat {
             if !leaving {
                 // Someone arrived while resting: the heal-up is over, the arbiter decides again.
