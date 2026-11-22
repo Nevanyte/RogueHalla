@@ -52,6 +52,7 @@ pub mod schedule;
 mod scratch;
 pub mod sight;
 pub mod sim;
+mod spectate;
 pub mod stat_fold;
 pub mod state;
 pub mod statics;

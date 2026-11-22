@@ -437,12 +437,15 @@ namespace Roguehalla.Client
         }
         /// <summary>CONTRAST LAB ONLY: drives the fog of war with the local player parked at a server position (the lab has no session). Never called by the game.</summary>
         public void LabFogTick(bool on, float serverX, float serverY) { _visionFog.Tick(on, serverX, serverY, 0, _actors); }
+        /// <summary>Spectating: the fog follows the watched player (MatchClient sets these each frame).</summary>
+        public bool SpectateFog; public float SpectateX, SpectateY;
         void TickVision()
         {
             var s = _visionSession;
-            bool on = HasMap && s != null && s.State == SessionState.InMatch && s.Phase == MatchPhase.Active && !s.Training
-                && s.Me != null && s.Me.Status == ActorStatus.Alive;
-            _visionFog.Tick(on, on ? s.Me.X : 0, on ? s.Me.Y : 0, s != null ? s.ServerTimeMs : 0, _actors);
+            bool live = HasMap && s != null && s.State == SessionState.InMatch && s.Phase == MatchPhase.Active && !s.Training;
+            bool own = live && s.Me != null && s.Me.Status == ActorStatus.Alive;
+            bool watch = live && !own && SpectateFog;
+            _visionFog.Tick(own || watch, own ? s.Me.X : watch ? SpectateX : 0, own ? s.Me.Y : watch ? SpectateY : 0, s != null ? s.ServerTimeMs : 0, _actors);
         }
         /// <summary>One remote fighter's overhead facts: its off-hand weapon (fists when empty), Wish-ready icon, name, stat marks, mark plate, immunity, roam and engaged flags.</summary>
         void RemoteIndicators(InterpActor a, bool locked)

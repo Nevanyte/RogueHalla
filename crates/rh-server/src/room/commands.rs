@@ -126,6 +126,14 @@ impl Room {
                     let mut accepted = 0u32;
                     let mut clamps = RewindClampStats::default();
                     for c in commands {
+                        // Spectating: once this seat's run ended in death, a Target names the player it wants to
+                        // watch (by public player id, the roster's). It is a view choice, never a sim command.
+                        if let rh_protocol::WireCommand::Target { actor } = c {
+                            if self.sim.may_spectate(player) {
+                                self.humans[index].items.set_spectate(Some(PlayerId(actor)));
+                                continue;
+                            }
+                        }
                         let (proposal, clamped) = clamp_render_time_noted_at(
                             wire::command(c),
                             now_apply,
