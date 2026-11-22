@@ -159,6 +159,7 @@ namespace Roguehalla.Client
             _inventoryShown = null; _focusShown = null; _buildShown = false; _rewardSignature = ulong.MaxValue;
             _dirty = _rewardsDirty = true; _bannerState = (SessionState)(-1); _bannerPhase = -1;
             ClearOwnerPresentation("Awaiting server");
+            ArmFirstRunHint();
             // Menu/modal visibility can keep these controls inactive until the next HUD tick.
             _pickup.interactable = false; _pickup.GetComponentInChildren<TMP_Text>(true).text = "F"; _pickup.gameObject.SetActive(false);
             _slots[0].GetComponentInChildren<TMP_Text>(true).text = "1";
@@ -206,7 +207,7 @@ namespace Roguehalla.Client
             if (_launchMenuInput != null) _launchMenuInput.interactable = true;
             _rewards.gameObject.SetActive(false); _results.gameObject.SetActive(false); _settings.gameObject.SetActive(false);
             ClearOwnerPresentation("Awaiting server");
-            _banner.text = "Choose a faction and join"; _notice.text = ""; Set(_plateStatus, "");
+            _banner.text = "Choose a faction, then START RUN"; _notice.text = ""; Set(_plateStatus, "");
             _map?.Bind(null); _drawer?.SetVisible(false); RefreshHeaderActionsVisibility(); ReleaseChestFocus();
         }
 
@@ -281,6 +282,7 @@ namespace Roguehalla.Client
         }
         void HudOwnerRefresh(string banner)
         {
+            TickFirstRunHint();
             Set(_notice, _feedback);
             var me = _session.Me;
             if (me == null)

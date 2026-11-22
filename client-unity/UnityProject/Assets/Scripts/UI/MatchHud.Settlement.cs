@@ -61,7 +61,7 @@ namespace Roguehalla.Client
             var theme = UiTheme.Current;
             _resultOutcome.text = r.Outcome < Outcomes.Length ? Outcomes[r.Outcome] : "Outcome " + r.Outcome;
             _resultOutcome.color = r.Outcome == 0 ? (Color)theme.Accent : r.Outcome == 2 ? (Color)theme.Warning : (Color)theme.TextPrimary;
-            string[] values = { r.Place + " of " + r.Players, r.Kills.ToString(), r.GvTotal + "  (win " + r.GvWin + ")", r.DurationSec + " s", r.KilledBy };
+            string[] values = { r.Place + " of " + r.Players, r.Kills.ToString(), r.GvTotal + "  (" + r.GvWin + " from the win)", (r.DurationSec / 60) + ":" + (r.DurationSec % 60).ToString("00"), r.KilledBy };
             for (int i = 0; i < values.Length; i++)
             {
                 bool show = i != 4 || !string.IsNullOrEmpty(r.KilledBy);
