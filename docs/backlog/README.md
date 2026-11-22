@@ -595,6 +595,10 @@ Plan of record: [BALANCE_LAB_PATCH.md](BALANCE_LAB_PATCH.md) (the packet table, 
 ORDER_OF_OPERATIONS: owner approval 2026-11-22. A row moves to "Ready packet" when its brief is in `packets/`, and to
 "Done (`<sha>`)" when merged.
 
+**Paused by the owner on 2026-11-22** ("please pause and save all development"). Nothing in this table starts until
+he says so; branch heads and the step that resumes each stopped packet are in the "Paused" section at the top of
+[MIGRATION.md](../MIGRATION.md).
+
 | ID | Outcome | Depends on | Status |
 |---|---|---|---|
 | P-RAID-0 | [`RaidBot` skeleton](packets/P-RAID-0.md) in `crates/rh-policy/src/bots/raid/`: policy, percept, act queue, executor trait, arbiter with farm, roam and chest | none | Done (4c22ec3e9, integration 82; notes in P-RAID-0-fix) |
@@ -602,9 +606,9 @@ ORDER_OF_OPERATIONS: owner approval 2026-11-22. A row moves to "Ready packet" wh
 | P-RAID-Q1 | [The quest walker](packets/P-RAID-Q1.md): accept, walk, contact, turn-in for 11 quests; an accepted quest is a commitment | P-RAID-0-fix | Reviewed LAND (`agent/sonnet/P-RAID-Q1` @ `716865e27`), for integration 84 |
 | P-RAID-H1 | [Headless seat](packets/P-RAID-H1.md): `BotKind::Raid`, human seats, the lab's `raid` policy | P-RAID-0 | Done (3af033621, integration 83) |
 | P-RAID-V | [The value table](packets/P-RAID-V.md): a camp-equivalent row per quest reward (25) and pool augment (33), mirrored in `data/raid_values.json` | P-RAID-0-fix | Reviewed LAND (`agent/haiku/P-RAID-V` @ `7b4d96056`), for integration 84 |
-| P-RAID-C | [Sustain](packets/P-RAID-C.md): drink a potion, leave a lost fight, heal up on purpose; the farm prices camps with the potions held | P-RAID-0-fix, -V | Ready packet (implementing) |
+| P-RAID-C | [Sustain](packets/P-RAID-C.md): drink a potion, leave a lost fight, heal up on purpose; the farm prices camps with the potions held | P-RAID-0-fix, -V | Ready packet (paused 2026-11-22: `agent/sonnet/P-RAID-C` @ `1daf49e82`, no report, gate not run) |
 | P-RAID-C2 | Fight micro, the faction Wish, and a camp another player is already fighting (friendly fire) | P-RAID-C | Coarse |
-| P-RAID-Q2 | [Dwell quests](packets/P-RAID-Q2.md): Hold the Fort, Stay A While | P-RAID-Q1 | Ready packet (implementing; oracle being corrected) |
+| P-RAID-Q2 | [Dwell quests](packets/P-RAID-Q2.md): Hold the Fort, Stay A While | P-RAID-Q1 | Ready packet (paused 2026-11-22: `c9e30015e` reviewed LAND WITH NOTES; the notes' fixes are a wip commit `8946d6b08`, gate not run) |
 | P-RAID-Q3 | [Decisions](packets/P-RAID-Q3.md): the reward slot choice, picking up a dropped spell, The Bargain | P-RAID-Q1, -V | Ready packet (oracle on `packet/P-RAID-Q3`) |
 | P-RAID-Q3b | [Two Banners and Trade Up](packets/P-RAID-Q3b.md) | P-RAID-Q3 | Brief only |
 | P-RAID-Q3c | A spell-reward quest is accepted beyond two held spells when its reward beats the weakest held one | P-RAID-Q2, -Q3 | Coarse |
@@ -616,7 +620,7 @@ ORDER_OF_OPERATIONS: owner approval 2026-11-22. A row moves to "Ready packet" wh
 | P-BAL-LAB-1 | [`balance_lab`](packets/P-BAL-LAB-1.md): observation-based metrics | none | Done (2fe5634f4, integration 82; notes in P-BAL-LAB-1-fix) |
 | P-BAL-LAB-1-fix | Quest completions read from the sim's attempt state (the board never sets `owner_completed`); scripted-view tests; the report says what is unmeasured | P-BAL-PROBE-1 | Coarse |
 | P-BAL-LAB-2 | Paired mode, lock metrics, cast windows, encounters while questing | P-BAL-PROBE-1, P-BAL-EVAL-1 | Coarse |
-| P-BAL-PROBE-1 | [Read-only sim probes](packets/P-BAL-PROBE-1.md) (a seat's quest attempts, the coliseum lock) and a quest-reward grant in `trusted_build`; the two P-BAL-Q25-SEAM-1 review notes | P-BAL-Q25-SEAM-1 | Ready packet (implementing) |
+| P-BAL-PROBE-1 | [Read-only sim probes](packets/P-BAL-PROBE-1.md) (a seat's quest attempts, the coliseum lock) and a quest-reward grant in `trusted_build`; the two P-BAL-Q25-SEAM-1 review notes | P-BAL-Q25-SEAM-1 | Ready packet (paused 2026-11-22: `agent/opus/P-BAL-PROBE-1` @ `a59693b7b`, code complete, gate not finished) |
 | P-BAL-EVAL-1 | `balance_model` and `balance_eval`: lab report to the value model's verdicts | P-BAL-LAB-1 | Coarse |
 | P-BAL-ELITE-BOTS-1 | Bots read per-kind elite numbers | P-BAL-ELITE-SEAM-1 | Coarse |
 | P-BAL-NATIVE-TEXT-GUARD-1, P-BAL-DOC-1 | EditMode guard on native card text; `docs/agent/BALANCE_LAB.md` | none; P-BAL-LAB-2 | Coarse |
