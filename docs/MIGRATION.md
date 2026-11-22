@@ -344,7 +344,7 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
 - **Integration 75** (`coord/int-75` @ `4871777f1`, landed as `607bf22da`): P-AUG-UI-3, Marked Man holders on the minimap
   and the Tab map. A coordinator oracle-amend fixed a typo in the expected order. reviewer LAND; full gate green except
   the waived pin.
-- **Proposed DEVIATIONS rows:** DEV-040 to DEV-054 are in `docs/coordination/REWORK_DEVIATIONS_PROPOSED.md`, unsigned,
+- **Proposed DEVIATIONS rows:** DEV-042 to DEV-056 (renumbered at integration 81) are in `docs/coordination/REWORK_DEVIATIONS_PROPOSED.md`, unsigned,
   for the owner.
 - **Final combined review** (reviewer-opus, `93b253f1e`): **READY TO PUSH AFTER P-CI-GREEN-7**, with no rework defect
   that blocks. Its findings, now tracked:
@@ -353,7 +353,7 @@ Wall fix: "Yes, review it" (review it and merge it into the next integration). N
     P-MOB-REWIND-RESTORE-1.
   - **Unbuilt.** The Best Offense marker and Pathfinder's on-map collection are planned but not built. They are
     P-AUG-UI-4, for the owner to decide.
-  - **Missing rows.** Four DEVIATIONS rows were missing; they are added as DEV-055 to DEV-058.
+  - **Missing rows.** Four DEVIATIONS rows were missing; they are added as DEV-057 to DEV-060 (renumbered at integration 81).
   - **Loose check.** Hazard Walker's `check_world` rule is an upper bound only. It goes in P-AUG-NATIVE-3-check.
   - **Allocation coverage.** The no-alloc test covers only the exemplars. It goes in P-AUG-NOALLOC-2.
   - **Stale guide.** It goes in P-AUG-GUIDE-1.
