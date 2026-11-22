@@ -15,6 +15,7 @@ use super::goal::Executor;
 /// ride-along intent wins a channel).
 pub fn registry() -> Vec<Box<dyn Executor>> {
     vec![
+        Box::new(sustain::Sustain),
         Box::new(farm::Farm::default()),
         Box::new(chest::Chest::default()),
         Box::new(super::quest::walker::Walker::default()),
