@@ -43,3 +43,13 @@ Gate width and depth are easy to confuse on the east and west sides. Review both
 ## Known traps
 
 The square gate footprint can include several consecutive floor tiles. The gateposts belong on the neighboring solid cells. Measurements must use the joins and actual player-foot locations from the captured map.
+
+## Evidence and completion
+
+- Joined public Web candidate `8a38edfc1`, protocol 18, content hash `10dfa3b399dc43a1`, certified seed `52666345` (map-pool hash `3ccddedb`; C4 rectangle tiles 71,71 through 88,88).
+- At server tick 60 / 2,000 ms, arena authority reported gates open. At tick 12,060 / 602,350 ms, the normal timer reported `gatesLocked=true` and `inColiseum=true`. Frost player id 1 remained at `(2560,2746)` while ordinary outward movement samples were blocked.
+- After the Fire player id 3 left through the normal browser session and its reconnect grace expired, public authority reopened the arena at tick 12,795 / 639,450 ms (`gatesLocked=false`, `inColiseum=false`). Frost id 1 crossed the same south gate and reached `(2560,2933)` outside C4 at full 985 HP. Three joined seats kept the match active through the departure.
+- The published gallery at `world/coliseum-gates/index.html` links normal-zoom open, locked and server-reopened Web captures plus compact authority, route, public-map and input-hash receipts. Earlier joined Web evidence checks four open approaches and four locked interiors; the native evidence checks all four orientations, open/closed/reopened presentation and 19 focused Editor tests.
+- At gameplay scale the opening, iron closure and reopened passage read clearly. Delivered square wall cells remain visually prominent; this belongs to the separate Coliseum walls/floor/standards review and does not block this gate-presentation packet.
+
+The gateposts and closures visual checks are complete. This does not close the broader Coliseum environment review or establish the full project gate.

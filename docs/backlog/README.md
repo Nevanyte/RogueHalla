@@ -336,7 +336,7 @@ is **not implemented**; the gain figures are **estimates**.
 | P-STORM-FROST-PINES-1 | Snow-loaded spruce and wind-trained pine at the Frost lakeshore | P-STORM-HOLY-OASIS-SHRUB-1 | Art approved | [spec](packets/P-STORM-FROST-PINES-1.md) |
 | P-STORM-FIRE-ROCK-FIELD-1 | Loose scree and fractured bedrock at the volcano | P-STORM-FROST-PINES-1 | Art approved | [spec](packets/P-STORM-FIRE-ROCK-FIELD-1.md) |
 | P-STORM-FIRE-THORN-COVER-1 | Charcoal thorn scrub on volcanic concealment tiles | P-STORM-FIRE-ROCK-FIELD-1 | Art approved | [spec](packets/P-STORM-FIRE-THORN-COVER-1.md) |
-| P-STORM-COLISEUM-GATES-1 | Limestone posts and iron closures at the four delivered openings | P-STORM-FIRE-THORN-COVER-1 | In progress | [spec](packets/P-STORM-COLISEUM-GATES-1.md) |
+| P-STORM-COLISEUM-GATES-1 | Limestone posts and iron closures at the four delivered openings | P-STORM-FIRE-THORN-COVER-1 | Visual checks passed in Web and Unity | [spec](packets/P-STORM-COLISEUM-GATES-1.md) |
 | P-STORM-COLISEUM-LIMESTONE-1 | Matte limestone at arena thresholds and on the fighting floor | P-STORM-COLISEUM-GATES-1 | Visual checks passed in Web and Unity. Integrated gate pending | [spec](packets/P-STORM-COLISEUM-LIMESTONE-1.md) |
 | P-STORM-COLISEUM-STANDARD-1 | Faded cloth arena standard beside the northeast wall | P-STORM-COLISEUM-LIMESTONE-1 | Visual checks passed in Web and Unity. Integrated gate pending | [spec](packets/P-STORM-COLISEUM-STANDARD-1.md) |
 | P-STORM-COLISEUM-TORCH-1 | Painted arena fire baskets with a separate flame and editable light | P-STORM-COLISEUM-STANDARD-1 | In progress | [spec](packets/P-STORM-COLISEUM-TORCH-1.md) |
