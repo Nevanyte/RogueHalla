@@ -183,6 +183,12 @@ namespace Roguehalla.Net
         public event Action TimelineReset;
         /// <summary>Round trip of each Pong, in ms.</summary>
         public event Action<double> RttSample;
+        /// <summary>Presentation cue (P-UI-INPUT-CUES-1): raised in <see cref="FlushInput"/> once per Cast, Swap, Pickup or
+        /// UseConsumable command that leaves in a sent frame, in frame order, after that frame is sent. Never for a dropped
+        /// command or an unsent frame; it carries no outcome.</summary>
+#pragma warning disable CS0067 // stub: raised by the implementation
+        public event Action<WireCommand> CueSent;
+#pragma warning restore CS0067
 
         public Session(ITransport transport, SessionOptions options)
         {
