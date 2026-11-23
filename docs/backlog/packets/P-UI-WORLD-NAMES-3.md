@@ -197,7 +197,14 @@ base).
 - `node --test client-unity/UnityProject/Tools/hud-seams.test.cjs` unaffected (no `MatchHud` member touched).
 
 ## Oracle files (read-only for implementers)
-(filled in at the oracle commit)
+- `client-unity/RoguehallaNet.Tests/NameAnchorGlideTests.cs` (dotnet, 8 tests)
+- `client-unity/RoguehallaNet.Tests/OverheadBoxLayoutCarryTests.cs` (dotnet, 3 tests)
+- `client-unity/UnityProject/Assets/Tests/Editor/WorldNamesGlideEditModeTests.cs` and its `.meta` (EditMode, 7 tests, 11 cases)
+- `client-unity/UnityProject/Assets/Tests/Editor/WorldNamesCarryEditModeTests.cs` and its `.meta` (EditMode, 3 tests, 6 cases)
+- `docs/backlog/packets/P-UI-WORLD-NAMES-3.md` (this packet)
+
+Stub commits (the implementer replaces them): `NameAnchorGlide.cs` (+ synced copy and `.meta`), `OverheadBoxLayout.Carry`,
+`SpriteActorPresenter.ActorArt.cs` fields, `SpriteActorPresenter.Names.cs` (`MergeMobNames(float dt)`, `_glideStamp`).
 
 ## 9. Validation commands
 - `.../bin/in.sh <worktree> dotnet test client-unity/RoguehallaNet.Tests --filter "NameAnchorGlideTests|OverheadBoxLayoutCarryTests"`
@@ -223,7 +230,60 @@ implementer-sonnet: a small stateful library class, two presenter edits (merge a
 - Code is read by member name, not by line.
 
 ## Notes from the oracle author
-(filled in at the oracle commit)
+
+**Red on the stub, and on which assertion** (all assertions about behaviour; run 2026-11-23 on `packet/P-UI-WORLD-NAMES-3`):
+- dotnet, 11 of 11 red. `NameAnchorGlideTests`: every test fails on `TryResidual` true / `Count` / the glided `x` (the stub
+  returns the target and keeps nothing). `ASteadyFrameAllocatesNothing` fails on its set-up `Count == 8`, before the
+  allocation meter. `OverheadBoxLayoutCarryTests`: each fails on `Carry(7, 9)` true (the positive control).
+- EditMode `WorldNamesGlideEditModeTests`, 15 cases red: every one fails on its first "mid-glide" line, the first
+  frame moved 1.0 (the base steps at once) where at most a third is allowed; `AWalkingPackKeepsPaceWhileTheStepGlides`
+  on "lags behind the walker, frame 1" (0.0). The glide of a hover, a drop, a cut, a second `End` and the allocation test all open with that line.
+- EditMode `WorldNamesCarryEditModeTests`: `APackThatLeavesItsCampsReachKeepsItsLift` and
+  `ThePacksNewKeyTakesTheLowestSerialMembersLift` red on "the lift, frame 1" (expected 0.538, was 0: the base drops
+  the lift on a new key); `TheGroundColourIsTheColourAtTheDrawnPlace("A"|"B"|"C")` red on "frame 2: the face at lift 0.2667"
+  (the base samples the unlifted place); `AStrayThatStandsAloneStartsAtLiftZero` and
+  `TheGroundColourIsTheColourAtTheDrawnPlace("D")` are STANDING GUARDS, green on the stub and the base (2 passed of 17).
+- The 100 tests of the existing classes `NamePackGroup2EditModeTests`, `NamePackFix4EditModeTests`, `NamePackEditModeTests`,
+  `NamePackHoverEditModeTests`, `NameLegibleEditModeTests`, `WorldNamesEditModeTests`, `WorldNamesTimeEditModeTests`,
+  `NameLayoutKeyEditModeTests` are green on the stub, and the 49 dotnet tests of `OverheadBoxLayoutTests`, `NameMergeTests`,
+  `NamePackGroup2Tests`.
+
+**Scratch run (not committed).** One run per new class (dotnet and EditMode) with every `Assert.That` turned into a
+catch-and-collect `Soft.That`, collected and failed in TearDown. No exception other than the collected assertions
+occurred in any test: every line of every test ran (the fixtures, the Settle frames, the object paths, the map and the
+face lookups of case A to D). Every collected entry is about the missing behaviour (a missing entry, a missing glide,
+a missing carry, the unlifted ground). The set-up lines the spec marked unverified held: base row of case A/B in 6..33,
+column in 2..37, the settled lift 0.538 (> .5), the first climbing frame (0.1333) short of the edge and the second
+(0.2667) past it, the C and D rows 1 and 0.
+
+**Allocation test (spec's "Unverified").** The primary form was taken, not the fallback. Measured with
+`AllocationMeter.Samples(..., 100)`, twice, on the stub: the indicators part 0, the merge alone 0, the reset
+(`FieldInfo.SetValue` of a pre-boxed `-1`) 0, the indicators + reset + merge 0, the same-stamp variant 0. The value is
+**0** in both runs, so `AssertAtMost(step, 100, 0, ...)` is `AssertNone` and an implementation that allocates one
+object in the steady merge fails. The Carry pass is not measured (the stamp does not advance in EditMode); dotnet
+test 8 covers the arithmetic.
+
+**Deviations from the spec's test text** (none changes a behaviour pinned):
+- dotnet: the check of the constants (`GlideSeconds` in [.12, .18], `MaxDt` equal to `ForgetSeconds`) is the first
+  line of `AStepIsCoveredInTheSameTimeWhateverItsSize`, not a test of its own (a test of constants alone would pass on the stub).
+  The step test runs at dt 1/60 and 1/30 with the bound computed per dt.
+- EditMode glide test 1 and cases of test 3 are `[TestCase]`s (ids 2 and 1; "hidden", "dt0", "reduced"); the carry test 4
+  is a `[TestCase]` over "A" to "D". The face is compared with `NameLegibleFloors.Luminance` against the reference
+  frame, and also against the palette's light and dark mob faces (`NamePalette.Colours(NameKind.Mob, pale)`) so that case D,
+  which has no reference on another ground, is pinned absolutely.
+- Glide tests: the first frame must move the name by more than 0 and at most `|step| / 3 + 1e-4`; the same assertion
+  opens the leave-hover leg and the dropped-member test.
+
+**Things the implementer should know.**
+- The chain wardens' camp in carry test 1 is `new MapCamp(660, 640, 96, 1)` with one `CampView` row of Chain Warden;
+  moved creatures keep their camp because EditMode time is frozen (`LastPosition` is written only when the clock moved).
+- `FinishNames` must sample at `NameBasePosition + (0, LayoutLift, 0)` after the layout: case A/B/C fail at the second
+  climbing frame (lift .2667 past the .1716 edge) on the base.
+- Allocation test: `_glideStamp` (private int instance field) and `MergeMobNames(float)` (private instance method) are found by reflection.
+- Legacy doubts: none (legacy has no pack name motion, no carrier and no hover rule; DEV-024).
+- NOT ESTABLISHED: the flicker tremble of Outcome 1 (a count that changes every few frames) is bounded, not removed; the
+  Carry pass's allocations are measured by no test; the real-order case (names built hidden, then shown) is covered only by the
+  Tab-map cut in glide test 3.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
