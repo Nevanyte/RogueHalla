@@ -563,7 +563,7 @@ fn native_growth(r: &Report, card: &str) -> Option<f64> {
             }
         }
     }
-    pts.sort_by(|a, b| a.0.cmp(&b.0));
+    pts.sort_by_key(|a| a.0);
     let (first, last) = (pts.first()?, pts.last()?);
     if last.0 == first.0 {
         return None;
