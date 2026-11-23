@@ -128,9 +128,10 @@ namespace Roguehalla.Client
             if (visible && _scroll != null) _scroll.StopMovement();
         }
 
+        /// <summary>Brings the drawer current. A closed drawer does nothing: <see cref="MatchHud"/> refreshes it once when it opens.</summary>
         public void Refresh(CollectionsView collections, SelfView me, float textScale = 1f)
         {
-            if (_root == null) return;
+            if (_root == null || !_root.gameObject.activeSelf) return;
             textScale = Mathf.Clamp(float.IsNaN(textScale) || float.IsInfinity(textScale) ? 1f : textScale, .75f, 1.5f);
             if (!Mathf.Approximately(textScale, _textScale)) { _textScale = textScale; ApplyTextScale(); }
 

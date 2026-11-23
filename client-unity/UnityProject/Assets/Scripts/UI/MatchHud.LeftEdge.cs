@@ -18,7 +18,7 @@ namespace Roguehalla.Client
         HudIconHint _gainsHint;
         bool _gainsHitStale = true;
         float _gainsHitSize = -1f;
-        IReadOnlyList<BuildCell> _headerCells;
+        int _headerVersion = -1;   // _gainCellsVersion at the last header write; -1 = never written or invalidated
         bool _headerFolded;
 
         public bool GainsFolded => _gainsFolded;
@@ -116,8 +116,9 @@ namespace Roguehalla.Client
         {
             if (_gainsHeader == null) return;
             if (_gainsHitStale) SizeGainsHit();
-            if (ReferenceEquals(_headerCells, _gainCells) && _headerFolded == _gainsFolded) return;
-            _headerCells = _gainCells; _headerFolded = _gainsFolded;
+            // An open header shows neither count nor hint, so a changed cell matters only while the strip is folded.
+            if (_headerVersion >= 0 && _headerFolded == _gainsFolded && (!_gainsFolded || _headerVersion == _gainCellsVersion)) return;
+            _headerVersion = _gainCellsVersion; _headerFolded = _gainsFolded;
             _gainsHeader.text = LeftEdgeText.GainedHeader(_gainCells, _gainsFolded);
             _gainsHint.Text = LeftEdgeText.GainedHint(_gainCells, _gainsFolded);
             SizeGainsHit();

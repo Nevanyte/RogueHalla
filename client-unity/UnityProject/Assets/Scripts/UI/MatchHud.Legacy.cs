@@ -203,6 +203,7 @@ namespace Roguehalla.Client
             _plateActive = active;
             _platePractice = _client != null && _client.ConfirmedPractice;
             if (_healthRow == null) return;
+            WriteOwnerTexts(!active, !active && !_platePractice);   // before SetActive(true): the label refits for its final text
             _healthRow.gameObject.SetActive(active); _buildBox.gameObject.SetActive(active && _gainsShown); _extrasToggle.gameObject.SetActive(active);
             _extrasBody.gameObject.SetActive(active && _extrasOpen);
             _plateStatus.gameObject.SetActive(!active); _vitals.gameObject.SetActive(!active); _combatStats.gameObject.SetActive(!active && !_platePractice);
@@ -310,13 +311,7 @@ namespace Roguehalla.Client
                 float share = max > 0 ? hp / max : 1f;
                 fill.color = share <= .18f ? theme.Danger : share <= .35f ? theme.Warning : theme.Success;
             }
-            if (_hpValue != null)
-            {
-                var value = new StringBuilder().Append(hp.ToString("0")).Append('/').Append(max.ToString("0"));
-                if (me.Barrier > 0) value.Append(" +").Append(me.Barrier.ToString("0"));
-                if (me.Bounty > 0) value.Append(" <color=").Append(Hex(theme.Accent)).Append("> · Bounty ").Append(me.Bounty).Append("</color>");
-                Set(_hpValue, value.ToString());
-            }
+            if (_hpValue != null) WriteHpLabel(hp, max, me, theme);
             if (_championName != null)
             {
                 Set(_championName, ShowcasePalette.GetFactionName((int)me.Faction));
