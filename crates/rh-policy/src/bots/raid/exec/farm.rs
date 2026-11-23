@@ -124,12 +124,12 @@ impl Farm {
     }
 }
 
-fn dist(a: Vec2, b: Vec2) -> f64 {
+pub(super) fn dist(a: Vec2, b: Vec2) -> f64 {
     rh_sim::math::hypot(a.x - b.x, a.y - b.y)
 }
 
 /// The distance a lock is clicked at with `weapon` in hand.
-fn lock_range(weapon: Option<WeaponId>) -> f64 {
+pub(super) fn lock_range(weapon: Option<WeaponId>) -> f64 {
     match weapon.map(|w| rh_sim::content::weapon(w).shape) {
         Some(rh_sim::content::Shape::Projectile { range, .. }) => range * 0.8,
         _ => MELEE_LOCK_U,

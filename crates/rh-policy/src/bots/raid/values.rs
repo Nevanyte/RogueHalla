@@ -99,6 +99,79 @@ impl SustainPrices {
     };
 }
 
+/// What `exec/elite.rs` prices an elite camp with (P-RAID-E). `OFF` turns the executor off (it proposes nothing, picks
+/// nothing, draws nothing): `Prices::farm_only` uses it so the pinned replays do not move. The death prior is the elite
+/// bench's table (`tools/balance-camps/elite_after.txt`, duelist, Rework elites hp 1.5 dmg 1.0): it goes stale when
+/// P-BAL-NUM-ELITE-1 changes the per-kind numbers (refresh `kind_death` and `weapon_factor` then).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ElitePrices {
+    /// The executor is on.
+    pub on: bool,
+    /// What the kill itself pays (ce): the 12 stacks every contributor gets (`REWORK_ELITE_SHARE_STACKS`).
+    pub share: f64,
+    /// What the chest's best card is worth before the offer is seen (ce): the mean best of three over `augment_rows`.
+    pub pool_pick: f64,
+    /// The banked-camp counts of the `kind_death` columns (camps of `Prices::stacks_per_camp` stacks).
+    pub camp_columns: [f64; 4],
+    /// Death rate of the reference fighter per elite kind (`MobTypeId::as_str`) at `camp_columns` banked camps (0..=1).
+    pub kind_death: &'static [(&'static str, [f64; 4])],
+    /// Death-rate factor per weapon in hand (`WeaponId::as_str`): the weapon's banked_12 rate over the all-weapon rate.
+    pub weapon_factor: &'static [(&'static str, f64)],
+    /// How long an elite fight takes from the first blow to the kill (s; measured: executioner at 36 stacks 47 to 73).
+    pub fight_seconds: f64,
+    /// Walk to the chest and pick once the elite is dead (s).
+    pub chest_seconds: f64,
+    /// The longest an elite fight may run before the goal gives the camp up (s).
+    pub give_up_seconds: f64,
+    /// How much of an elite one of its normal members weighs in the fallback death model (unitless).
+    pub add_weight: f64,
+}
+
+impl ElitePrices {
+    pub const OFF: Self = Self {
+        on: false,
+        share: 0.,
+        pool_pick: 0.,
+        camp_columns: [0., 6., 12., 18.],
+        kind_death: &[],
+        weapon_factor: &[],
+        fight_seconds: 60.,
+        chest_seconds: 10.,
+        give_up_seconds: 120.,
+        add_weight: 0.25,
+    };
+    pub const LOCAL: Self = Self {
+        on: true,
+        share: 1.,
+        pool_pick: 2.6,
+        camp_columns: [0., 6., 12., 18.],
+        kind_death: &[
+            ("wyrmling", [0.833, 0.667, 0.256, 0.067]),
+            ("ashDrake", [0.789, 0.422, 0.222, 0.122]),
+            ("executioner", [0.656, 0.089, 0.022, 0.011]),
+            ("gaoler", [0.933, 0.733, 0.233, 0.033]),
+            ("ratOgre", [0.800, 0.333, 0.089, 0.056]),
+            ("poxBehemoth", [0.533, 0.200, 0.144, 0.111]),
+            ("glacialWarden", [0.811, 0.611, 0.178, 0.011]),
+            ("avalancheTroll", [0.933, 0.878, 0.467, 0.200]),
+            ("bloodSaint", [0.122, 0.078, 0.067, 0.067]),
+            ("archon", [0.500, 0.100, 0.067, 0.056]),
+        ],
+        weapon_factor: &[
+            ("sword", 0.49),
+            ("bow", 2.68),
+            ("wand", 1.42),
+            ("shield", 0.38),
+            ("axe", 0.34),
+            ("fists", 0.81),
+        ],
+        fight_seconds: 50.,
+        chest_seconds: 10.,
+        give_up_seconds: 120.,
+        add_weight: 0.25,
+    };
+}
+
 /// The value inputs, in camp-equivalents (ce: one normal camp cleared = 12 stat stacks = 1). The reward and augment rows
 /// are workbook estimates, mirrored in `data/raid_values.json`; lab measurements will replace them.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -143,6 +216,8 @@ pub struct Prices {
     pub answer_minutes: f64,
     /// The share of its worth a reusable quest spell keeps while it has no charge (recharging).
     pub recharging_share: f64,
+    /// Elite camps (P-RAID-E): what an elite and its chest are worth and how likely the fight kills the bot.
+    pub elite: ElitePrices,
 }
 
 /// What the weapon in hand adds to a stat's worth (`bots/temporal_percept/modules/choice.rs` `base_fit`).
@@ -256,6 +331,7 @@ impl Prices {
         death_floor: 0.02,
         answer_minutes: 0.01,
         recharging_share: 0.5,
+        elite: ElitePrices::LOCAL,
     };
 
     /// `LOCAL` with quest rewards and augments worth nothing and sustain off: a seat that farms, roams and opens chests
@@ -269,6 +345,7 @@ impl Prices {
             reward_rows: &[],
             augment_rows: &[],
             sustain: SustainPrices::OFF,
+            elite: ElitePrices::OFF,
             ..Self::LOCAL
         }
     }
