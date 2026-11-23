@@ -179,7 +179,21 @@ fn scaled(spec: &DuelSpec, k: f64) -> DuelSpec {
 /// The elite numbers come from the sim's elite seam (`EliteTuning`, P-AUG-RULES-1) under the room's `rule`
 /// (`MatchStart::elites`, carried by `Knowledge`, P-AUG-BOTS-1); the context-free callers read the legacy rule.
 fn mob_faction(region: FactionId, elite: bool, rule: rh_sim::EliteRule) -> DuelSpec {
-    let elites = rh_sim::mob_runtime::EliteTuning::of(rule);
+    mob_faction_under(
+        region,
+        elite,
+        None,
+        rh_sim::mob_runtime::EliteTuning::of(rule),
+    )
+}
+/// `mob_faction` against an explicit elite table and, for an elite, its kind (`None` = kind unknown: the global pair).
+/// P-BAL-ELITE-BOTS-1 STUB: reads the global pair for every kind.
+fn mob_faction_under(
+    region: FactionId,
+    elite: bool,
+    _ty: Option<rh_sim::mob_catalog::MobTypeId>,
+    elites: &rh_sim::mob_runtime::EliteTuning,
+) -> DuelSpec {
     let k = if elite { elites.k } else { MOB_K };
     let base = scaled(&player_spec(region), k);
     let hp_mult = MOB_HP_MULT * if elite { elites.hp_mult } else { 1. };
@@ -194,6 +208,8 @@ fn mob_faction(region: FactionId, elite: bool, rule: rh_sim::EliteRule) -> DuelS
     out.params.mark_kill = base_spec.params.mark_kill * k * d;
     out
 }
+#[cfg(test)]
+mod elite_kind_tests;
 #[cfg(test)]
 mod elite_tests;
 fn mark_tier_of(progress: f64, swap_steps: f64, tier_hits: f64) -> u8 {
