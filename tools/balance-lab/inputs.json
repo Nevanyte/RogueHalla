@@ -1,1 +1,32 @@
-{}
+{
+  "schema": "balance-inputs/1",
+  "band": { "low": 0.85, "high": 1.25 },
+  "premium": 1.15,
+  "stacks_per_camp": 12,
+  "coliseum_start_minute": 12,
+  "difficulty_targets": { "easy": 0.95, "medium": 0.85, "hard": 0.70 },
+  "failure": { "downtime_secs": 15, "failed_attempt_share": 1.0 },
+  "elite_assumptions": {
+    "pick_minute": 5,
+    "time_ce": { "solo": 2.2, "duo": 1.6, "trio": 1.4 },
+    "death_chance": { "solo": 0.15, "duo": 0.05, "trio": 0.02 }
+  },
+  "quests": {
+    "a_bone_to_pick": { "difficulty": "medium" },
+    "a_cruel_joke": { "difficulty": "medium" },
+    "barrow_run": { "difficulty": "easy" },
+    "even_skeletons_get_cold": { "difficulty": "easy" },
+    "ember_walk": { "difficulty": "medium" },
+    "feed_or_hunt": { "difficulty": "easy" },
+    "let_him_cook": { "difficulty": "hard" },
+    "lost_brother": { "difficulty": "medium" },
+    "pilgrims_path": { "difficulty": "medium" },
+    "rime_hunt": { "difficulty": "medium" },
+    "smugglers_run": { "difficulty": "hard" },
+    "trade_up": { "difficulty": "medium" },
+    "tuber_eats": { "difficulty": "medium" },
+    "watchtowers": { "difficulty": "easy" },
+    "whispers_in_the_brush": { "difficulty": "easy" }
+  },
+  "augments": {}
+}
