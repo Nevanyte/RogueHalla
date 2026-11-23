@@ -2,8 +2,8 @@
 
 - **Serves:** not in ORDER_OF_OPERATIONS. The client input lane the owner started from the 2026-11-22 audit (earlier packets
   P-NET-ARRIVAL-CLOCK-1, P-NET-STEER-1). Evidence from the UI rework lane's perf A/B, 2026-11-23.
-- **Implementer tier:** implementer-sonnet is enough for the wall-map half; the pathfinder-table half touches `rh-sim` mirrored
-  prediction code that must keep the Rust vectors, so the coordinator decides (proposal in section 5).
+- **Implementer tier:** the coordinator decided both halves are in scope (wall-map clone and pathfinder tables and node array); the pathfinder half touches mirrored
+  prediction code that must keep the Rust vectors, so the tier is the coordinator's call (proposal in section 5).
 - **Reviewer:** reviewer-opus if `Pathfinder*.cs` or `LocalMotion*.cs` change (AGENTS.md routing: prediction math), else reviewer
 - **Integration base:** `feature/unity-rework` @ `c9629669f`
 - **D-rules touched:** D1 loose proof (allocation budgets, no capture) · D2 n/a · D5/D6 none · D9 unchanged (no prediction change)
@@ -82,7 +82,10 @@ raising the budget ... or tolerating recurring garbage") applies in spirit: do n
 
 ## 8. Acceptance checks
 
-- `dotnet test client-unity/RoguehallaNet.Tests --filter PollAllocationTests` fully green.
+- `dotnet test client-unity/RoguehallaNet.Tests --filter PollAllocationTests` fully green (21 tests: the five red ones pass, and
+  `GuardAWallSetThatChangesAgainAndAgainNeverServesAnAnswerFromAnEarlierSet` stays green).
+- Both halves are in scope and both must be done: the wall-map clone (standing: 27 KB to at most 2 KB) and the pathfinder tables and
+  node array (walking: 259 to 669 KB to at most 2 KB).
 - `dotnet test client-unity/RoguehallaNet.Tests` green; `bash client-unity/sync-net.sh --check` clean.
 - `scripts/gate.sh --quick --oracle packet/P-NET-POLL-ALLOC-1`.
 
@@ -90,13 +93,15 @@ raising the budget ... or tolerating recurring garbage") applies in spirit: do n
 
 - `client-unity/RoguehallaNet.Tests/PollAllocationTests.cs`
 
-Red today (4 of 17 tests in `PollAllocationTests`, all by assertion):
+Red today (5 of 21 tests in `PollAllocationTests`, all by assertion):
 - `TheWallSetChangingEveryTickWhileStandingAllocatesWithinTheBudget` (27,104 B on a poll),
 - `TheWallSetChangingEveryTickWhileWalkingAllocatesWithinTheBudget` (666,912 B on a poll),
 - `FrostWallsRisingAndFallingEveryHalfSecondAllocateWithinTheBudget(false)` (28,440 B) and `(true)` (668,608 B): the realistic shape,
-  one wall every 500 ms standing 4 s.
+  one wall every 500 ms standing 4 s,
+- `GatesTogglingWithAWallStandingAllocateWithinTheBudget` (26,856 B per toggle poll): a coliseum gate closing or opening with a
+  wall standing goes through `SetCollisionMap` -> `RebuildWalkMap`, the same 25.6 KB clone, so the same 2,048 B budget.
 
-The other thirteen tests pass today and stay as guards (see the table in the hand-off for their bytes). The measurement method is in
+The other sixteen tests pass today and stay as guards (see the table in the hand-off for their bytes). The measurement method is in
 the file header: each scenario is replayed 3 times from scratch on one thread and each poll takes its minimum over the replays
 (the probe's best-of defence against collector noise, which only adds bytes); budgets are "at most", never exact.
 
@@ -110,8 +115,28 @@ the file header: each scenario is replayed 3 times from scratch on one thread an
 - After a Welcome or resume: a bounded burst of at most 8,192 B per poll for the first 132 polls (40 snapshots = 2 s = 120 polls plus
   12 margin); measured 1,776 B per snapshot poll (40 fighters, no spare yet: `Session.cs:474-513` / `SnapshotBuffer.TakeSpare` null),
   then the warm budget. Five snapshots drained in one poll measured 8,880 B only inside that first 2 s, and 0 afterwards.
-- `Destroyed terrain` changing on every State is NOT the evidence's shape (a rare event): pinned at at most 64 KB (measures 34 KB,
-  a `Tiles.Clone()` plus a rebuilt `MapBlob` with `WithPublic`), a guard and not a target.
+- **Destroyed terrain** does NOT go through `RebuildWalkMap`, so it is not red and its allocation is not removed by this scope.
+  The 28 to 34 KB is made in `Collections.Apply` (`Collections.cs:461-470`) by `MapBlob.WithDestroyedTerrain` (`MapBlob.cs:127-144`:
+  a `Tiles.Clone()`, a new `MapBlob` and `WithPublic`): a NEW terrain map object per distinct destroyed-cell set. `Session.cs:554-566`
+  detects the change by `ReferenceEquals(previousTerrain, TerrainMap)` and renderers hold that object, so reusing one buffer is a
+  design change, not a cleanup. It happens once per change of the cell set (a wall-buster), not per frame, and the same cell list
+  again allocates 440 B (guard `GuardTheSameDestroyedTerrainOnEveryStateAllocatesWithinTheBudget`, at the 2,048 B budget). The
+  per-change cost stays pinned at 64 KB (`GuardDestroyedTerrainChangingEveryTickAllocatesWithinTheBudget`, measures 34 KB). The Motion
+  side of a terrain change (`SetCollisionMap(Map)`, `Session.cs:566-575`) allocates nothing in the poll (no wall standing); its
+  pathfinder rebuild is deferred to the next `Order` (outside `netPoll`).
+- **Coliseum gates**: with no wall standing a toggle allocates 400 B in the poll after the first closing (the first closing builds
+  and caches `ClosedGateMap`, 28 KB once per Welcome, `Session.cs:717-727`): guard
+  `GuardGatesTogglingWithoutWallsAllocateWithinTheBudget`. The pathfinder's rebuild (`InvalidateMap()`, `LocalMotion.cs:SetCollisionMap`) is
+  again deferred to the next `Order`; measured about 0.6 MB there, outside `netPoll`, and the fix in scope for the pathfinder removes it too.
+- The stale-state guard `GuardAWallSetThatChangesAgainAndAgainNeverServesAnAnswerFromAnEarlierSet` is green on the base by construction:
+  60 rounds on ONE long-lived `LocalMotion` and ONE long-lived `Pathfinder` (reading `motion.WalkMap`, as Unity steering does) over
+  seven wall sets (none, a column across the route, another column, two walls, a row, none, a short column), each round compared with
+  FRESH instances EXACTLY (no tolerance): the walk map tiles against an independent build, every waypoint of three planned paths,
+  five `SegmentClear` probes, and the pose after a second of walking with a wall set changing mid-walk (a rising wall that blocks
+  the rest of the walk makes `SetWalls` re-plan). `WalkBlocked` and the motion's own path are private, so they are compared through
+  what they decide (the pose after the re-plan). Because the long-lived `Pathfinder` is the test's own, a fix that mutates the
+  walk-map tile array IN PLACE and keeps the same `MapBlob` object while the set changes between two standing sets fails this test (the
+  Unity steering pathfinder would be stale too): hand out a new object, or make the pathfinder detect the change itself.
 
 ## 9. Validation commands
 

@@ -604,6 +604,212 @@ namespace Roguehalla.Net.Tests
         }
 
         // ------------------------------------------------------------------------------------------------------------------
+        // The other triggers of a walk-map rebuild
+
+        static MapBlob GatedOpen()
+        {
+            var gate = new[] { new MapTile(80, 70), new MapTile(80, 71), new MapTile(80, 72) };
+            return Open().WithPublic(null, new MapColiseum(81, 0, 70, 160, new[] { new MapGate(3, gate) }), null, null, null);
+        }
+
+        static byte[] StateGatesAndWalls(uint tick, bool locked, params WireField[] walls)
+        {
+            return new ServerMsg.State
+            {
+                Tick = tick,
+                Items = new StateItem[] { new FieldsState { Rows = walls }, new ArenaState { Value = new WireArena { InColiseum = locked, GatesLocked = locked } } }
+            }.Encode();
+        }
+
+        /// <summary>Gates closing and opening every 0.5 s with no wall standing: SetCollisionMap swaps between two cached maps
+        /// (the Welcome map and its closed-gate copy), so the poll itself allocates nothing large; the pathfinder's rebuild is
+        /// deferred to the next Order, which the Unity input makes after the poll (measured 0.6 MB there, outside netPoll).</summary>
+        [Test]
+        public void GuardGatesTogglingWithoutWallsAllocateWithinTheBudget()
+        {
+            var sc = new Scenario
+            {
+                Build = () => new Rig(GatedOpen(), 800, 800, 40),
+                Feed = (r, f) =>
+                {
+                    if (f % 3 != 0) return;
+                    r.T.Enqueue(StateGatesAndWalls(r.Srv.Tick + 1, f / 30 % 2 == 1));
+                    r.T.Enqueue(r.Srv.NextDelta());
+                },
+                Frames = 900,
+                Act = (r, f) => { if (f % 240 == 10) r.Move(800 + (f / 240 % 2 == 0 ? 1 : -1) * 1500, 800); }
+            };
+            AssertWarm("gates toggle every 0.5 s, no walls", Measure(sc, WarmFrames, StateBudget), StateBudget);
+        }
+
+        /// <summary>The same toggle with a Frost Wall standing: SetCollisionMap calls RebuildWalkMap, which clones the 25.6 KB tile map
+        /// again on every toggle: the same allocation as a wall-set change, so the same budget.</summary>
+        [Test]
+        public void GatesTogglingWithAWallStandingAllocateWithinTheBudget()
+        {
+            var sc = new Scenario
+            {
+                Build = () => new Rig(GatedOpen(), 800, 800, 40),
+                Feed = (r, f) =>
+                {
+                    if (f % 3 != 0) return;
+                    r.T.Enqueue(StateGatesAndWalls(r.Srv.Tick + 1, f / 30 % 2 == 1, Wall(5000, 25 * 160 + 20)));
+                    r.T.Enqueue(r.Srv.NextDelta());
+                },
+                Frames = 900
+            };
+            AssertWarm("gates toggle every 0.5 s, a wall standing", Measure(sc, WarmFrames, StateBudget), StateBudget);
+        }
+
+        /// <summary>The same destroyed cells again on every State (the usual case after a wall-buster): <c>Collections.Apply</c> compares
+        /// the cell list and keeps the terrain map, so only the rows are rebuilt.</summary>
+        [Test]
+        public void GuardTheSameDestroyedTerrainOnEveryStateAllocatesWithinTheBudget()
+        {
+            var sc = new Scenario
+            {
+                Build = () => new Rig(Serpentine(), Centre(4), Centre(5), 40),
+                Feed = (r, f) =>
+                {
+                    if (f % 3 != 0) return;
+                    var cells = new uint[40];
+                    for (int i = 0; i < 40; i++) cells[i] = (uint)(8 * 160 + 10 + i);
+                    r.T.Enqueue(new ServerMsg.State { Tick = r.Srv.Tick + 1, Items = new StateItem[] { new DestroyedTerrainState { Cells = cells } } }.Encode());
+                    r.T.Enqueue(r.Srv.NextDelta());
+                }
+            };
+            AssertWarm("the same destroyed cells on every State", Measure(sc, WarmFrames, StateBudget), StateBudget);
+        }
+
+        // ------------------------------------------------------------------------------------------------------------------
+        // Stale retained state
+
+        static MapTile[] Column(int x, int y0, int count)
+        {
+            var t = new MapTile[count];
+            for (int i = 0; i < count; i++) t[i] = new MapTile((ushort)x, (ushort)(y0 + i));
+            return t;
+        }
+
+        static MapTile[] Row(int y, int x0, int count)
+        {
+            var t = new MapTile[count];
+            for (int i = 0; i < count; i++) t[i] = new MapTile((ushort)(x0 + i), (ushort)y);
+            return t;
+        }
+
+        static AreaView[] Fields(int id, params MapTile[][] walls)
+        {
+            var rows = new AreaView[walls.Length];
+            for (int i = 0; i < walls.Length; i++)
+                rows[i] = new AreaView { Kind = AreaKind.Wall, Tiles = walls[i], Key = new AreaKey(1000.0 * id + i, (uint)(walls[i][0].Y * 160 + walls[i][0].X)) };
+            return rows;
+        }
+
+        /// <summary>The expected walk map, built here and independently of the library: the base tiles with every wall tile that is
+        /// FLOOR turned LOW (rh-sim <c>with_low</c>).</summary>
+        static MapBlob Expected(MapBlob map, AreaView[] walls)
+        {
+            var tiles = (byte[])map.Tiles.Clone();
+            foreach (var w in walls)
+                foreach (var c in w.Tiles)
+                    if (tiles[c.Y * map.W + c.X] == MapBlob.Floor) tiles[c.Y * map.W + c.X] = MapBlob.Low;
+            return new MapBlob(map.W, map.H, tiles);
+        }
+
+        /// <summary>One replay: set <paramref name="before"/>, cut to a start pose, order a walk, step half a second, set
+        /// <paramref name="after"/> (a rising wall may block the remaining walk, which re-plans from the model), step half a second more.
+        /// Returns the pose at the middle and the end. The same code runs on a long-lived and on a fresh instance.</summary>
+        static double[] Replay(LocalMotion m, AreaView[] before, AreaView[] after, byte cut, byte seq, double now, double goalX, double goalY)
+        {
+            m.SetWalls(before);
+            m.OnSnapshot(new WireSelf { Id = 3, X = 400, Y = 800, Hp = 10, MaxHp = 10, Status = 1, DisplaceSeq = cut }, now);
+            m.Order((float)goalX, (float)goalY, seq, now);
+            for (int k = 1; k <= 10; k++) m.Step(now + 50.0 * k);
+            double mx = m.DrawnX, my = m.DrawnY;
+            m.SetWalls(after);
+            for (int k = 11; k <= 20; k++) m.Step(now + 50.0 * k);
+            return new double[] { mx, my, m.DrawnX, m.DrawnY, m.VisualX, m.VisualY };
+        }
+
+        /// <summary>
+        /// Guard against a fix that keeps one tile array or the pathfinder's tables across wall changes and then serves stale answers.
+        /// ONE long-lived <see cref="LocalMotion"/> and one long-lived <see cref="Pathfinder"/> (the way Unity steering holds its own, reading
+        /// <c>WalkMap</c>) go through 60 changes of the standing-wall set (none, a column that cuts the direct route, another column, two
+        /// walls, a row, none again), and after every change are compared EXACTLY with instances built fresh for the same map and set:
+        /// the walk map tiles (against an independent construction), every waypoint of several planned paths, <c>SegmentClear</c> for
+        /// probes across where walls rise and fall, and the predicted pose after a second of walking, with a wall rising or falling
+        /// mid-walk. <c>WalkBlocked</c> and the motion's own path are private, so they are compared through what they decide: the pose
+        /// after the re-plan. A pathfinder that holds tables for an earlier tile array fails the path and probe comparisons; a
+        /// walk map mutated in place under the same object fails the long-lived pathfinder's answers.
+        /// </summary>
+        [Test]
+        public void GuardAWallSetThatChangesAgainAndAgainNeverServesAnAnswerFromAnEarlierSet()
+        {
+            var map = Open();
+            var sets = new[]
+            {
+                new AreaView[0],
+                Fields(1, Column(25, 15, 30)),                       // cuts the direct route along row 25 (y 800)
+                Fields(2, Column(30, 10, 30)),                       // a different column further on
+                Fields(3, Column(25, 15, 30), Row(45, 20, 25)),      // two walls
+                Fields(4, Row(25, 20, 20)),                          // a row ON the direct route, no cut
+                new AreaView[0],
+                Fields(5, Column(25, 22, 6)),                        // a short column the walk can pass round closely
+            };
+            var probes = new[] { new[] { 400.0, 800, 1200, 800 }, new[] { 400.0, 700, 1200, 1000 }, new[] { 700.0, 400, 700, 1500 }, new[] { 500.0, 1450, 1500, 1450 }, new[] { 850.0, 810, 1000, 810 } };
+            var goals = new[] { new[] { 1200.0, 800 }, new[] { 900.0, 1100 }, new[] { 1500.0, 400 } };
+
+            var longMotion = new LocalMotion(map);
+            var longPf = new Pathfinder();
+            double now = 0;
+            int checks = 0;
+            for (int round = 0; round < 60; round++)
+            {
+                var before = sets[round % sets.Length];
+                var after = sets[(round * 3 + 1) % sets.Length];
+                byte cut = (byte)(round + 1), seq = (byte)(round % 250 + 1);
+                double[] goal = goals[round % goals.Length];
+                now += 5000;
+                var fresh = new LocalMotion(map);
+                var got = Replay(longMotion, before, after, cut, seq, now, goal[0], goal[1]);
+                var want = Replay(fresh, before, after, cut, seq, now, goal[0], goal[1]);
+                for (int i = 0; i < got.Length; i++) Assert.AreEqual(want[i], got[i], "round " + round + ": walked pose component " + i);
+
+                // The walk map of the long-lived instance (it now holds `after`) against an independent build.
+                var expectedMap = Expected(map, after);
+                Assert.AreEqual(expectedMap.Tiles, longMotion.WalkMap.Tiles, "round " + round + ": walk map tiles");
+                Assert.AreEqual(expectedMap.Tiles, fresh.WalkMap.Tiles, "round " + round + ": fresh walk map tiles");
+
+                var freshPf = new Pathfinder();
+                foreach (var p in probes)
+                {
+                    Assert.AreEqual(freshPf.SegmentClear(expectedMap, p[0], p[1], p[2], p[3], 12.0), longPf.SegmentClear(longMotion.WalkMap, p[0], p[1], p[2], p[3], 12.0),
+                        "round " + round + ": SegmentClear probe");
+                    checks++;
+                }
+                foreach (var g in goals)
+                {
+                    var wantPath = freshPf.FindPath(expectedMap, 400, 800, g[0], g[1], Footprint.Legacy);
+                    var gotPath = longPf.FindPath(longMotion.WalkMap, 400, 800, g[0], g[1], Footprint.Legacy);
+                    Assert.AreEqual(wantPath.Length, gotPath.Length, "round " + round + ": path length to " + g[0] + "," + g[1]);
+                    for (int i = 0; i < wantPath.Length; i++)
+                    {
+                        Assert.AreEqual(wantPath[i].X, gotPath[i].X, "round " + round + ": waypoint " + i + " x");
+                        Assert.AreEqual(wantPath[i].Y, gotPath[i].Y, "round " + round + ": waypoint " + i + " y");
+                    }
+                    checks++;
+                }
+            }
+            // The sets really differ in what they decide: the cut column makes a detour, the empty set a straight line.
+            var cutPath = new Pathfinder().FindPath(Expected(map, sets[1]), 400, 800, 1200, 800, Footprint.Legacy);
+            var openPath = new Pathfinder().FindPath(Expected(map, sets[0]), 400, 800, 1200, 800, Footprint.Legacy);
+            Assert.Greater(cutPath.Length, openPath.Length, "a wall across the route forces a detour; no wall is a straight line");
+            Assert.AreEqual(1, openPath.Length);
+            Assert.GreaterOrEqual(checks, 60 * (probes.Length + goals.Length));
+        }
+
+        // ------------------------------------------------------------------------------------------------------------------
         // The parts of a poll, called separately
 
         [Test]
