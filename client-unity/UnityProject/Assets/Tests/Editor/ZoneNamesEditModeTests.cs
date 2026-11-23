@@ -459,6 +459,13 @@ namespace Roguehalla.Client.Tests
             var givers = new List<MapRect>();
             foreach (var world in PictureGiverWorld()) givers.Add(Square(LayerOf(world), 19.6f));
             Assert.That(HitCount(Spot(0, Haunted), givers), Is.EqualTo(2), "set-up: spot 0 of HAUNTED overlaps both givers");
+            for (int region = 1; region <= MapZones.Count; region++)
+            {
+                Assert.That(NameLabel(region).gameObject.activeInHierarchy, Is.True, "set-up: the label of " + MapZones.Name(region) + " is active in the hierarchy");
+                Assert.That(Marks().ZoneLabelRect(region).HasValue, Is.True, MapZones.Name(region) + " has a name rect");
+                Assert.That(NameRect(region).width, Is.EqualTo(NameLabel(region).preferredWidth).Within(.01f), MapZones.Name(region) + " kept width is the label's");
+                Assert.That(NameRect(region).height, Is.EqualTo(NameLabel(region).preferredHeight).Within(.01f), MapZones.Name(region) + " kept height is the label's");
+            }
             Assert.That(Marks().ZoneLabelRect(Haunted).HasValue, Is.True, "HAUNTED has a name rect on the planning map");
             Assert.That(Hits(Of(NameRect(Haunted)), givers), Is.False, "the planning map's HAUNTED name misses both givers");
         }
