@@ -19,7 +19,9 @@ use crate::bots::mob_hunt::best_slot_vs_mob;
 use crate::bots::perception::ChestRef;
 use crate::bots::planning::{matchup_share_of_kind, zone_faction};
 use crate::bots::raid::exec::farm::{death_chance, dist, lock_range, DEFEND_U, FIGHT_U};
-use crate::bots::raid::exec::travel::{self, eta_minutes, move_intent, step_toward, straight_minutes};
+use crate::bots::raid::exec::travel::{
+    self, eta_minutes, move_intent, step_toward, straight_minutes,
+};
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 use crate::bots::raid::percept::{CampSeen, MobClass, MobSeen, CAMP_JOIN_RADIUS};
 use crate::bots::raid::values::{ElitePrices, Prices};
@@ -68,6 +70,8 @@ pub struct Elite {
     banned: Vec<(u32, f64)>,
     /// Server ms the held goal's fight began (a member or the elite on the bot), `None` before.
     fight_since: Option<f64>,
+    /// Server ms the held goal's first think ran: the walk and approach are bounded too.
+    started: Option<f64>,
     empty_since: Option<f64>,
     /// Camps whose elite died while this seat fought it, with the server ms of the kill: the chest phase.
     killed: Vec<(u32, f64)>,
@@ -82,7 +86,6 @@ pub struct Elite {
     held: Option<u32>,
     /// What each elite camp's fights have cost and bought so far (until its elite dies or respawns).
     tallies: Vec<Tally>,
-    trace_goal: String, // SCRATCH-TRACE
 }
 
 /// The living elite of `kind` nearest `near` (ties by key), among the frame's mobs.
@@ -128,7 +131,9 @@ impl Elite {
     }
 
     fn banned(&self, camp: u32, now: f64) -> bool {
-        self.banned.iter().any(|(c, until)| *c == camp && *until > now)
+        self.banned
+            .iter()
+            .any(|(c, until)| *c == camp && *until > now)
     }
 
     fn ban(&mut self, camp: u32, now: f64, e: &ElitePrices) {
@@ -200,6 +205,7 @@ impl Elite {
                 self.ban(was, now, &e);
             }
             self.fight_since = None;
+            self.started = None;
         }
         self.held = held;
     }
@@ -249,18 +255,20 @@ impl Elite {
     /// left (the members alive less what the visible ones have lost). `None` when `seen` asks for the elite in sight and
     /// it is not (its share is then taken as full).
     fn fight_left(&self, cx: &Cx<'_>, camp: &CampSeen, kind: MobTypeId, seen: bool) -> Option<f64> {
-        let near = self.watch_of(camp.index).and_then(|w| w.at).unwrap_or(camp.at);
+        let near = self
+            .watch_of(camp.index)
+            .and_then(|w| w.at)
+            .unwrap_or(camp.at);
         let elite = elite_mob(cx, kind, near).map(|m| m.hp_share.clamp(0., 1.));
         if seen && elite.is_none() {
             return None;
         }
-        let lost: f64 = cx
-            .p
-            .mobs
-            .iter()
-            .filter(|m| m.alive && m.class == MobClass::Regional && m.camp == Some(camp.index))
-            .map(|m| 1. - m.hp_share.clamp(0., 1.))
-            .sum();
+        let lost: f64 =
+            cx.p.mobs
+                .iter()
+                .filter(|m| m.alive && m.class == MobClass::Regional && m.camp == Some(camp.index))
+                .map(|m| 1. - m.hp_share.clamp(0., 1.))
+                .sum();
         let adds = (f64::from(camp.alive.saturating_sub(1)) - lost).max(0.);
         Some(elite.unwrap_or(1.) + cx.prices.elite.add_hp * adds)
     }
@@ -268,6 +276,11 @@ impl Elite {
     /// The readable chests' first-readable times, the asks of closed panels dropped, the cards this seat took.
     fn watch_chests(&mut self, cx: &Cx<'_>) {
         let now = cx.p.now;
+        let chests = &cx.p.facts.chests;
+        self.readable
+            .retain(|(k, _)| chests.iter().any(|c| c.key == *k));
+        self.asks
+            .retain(|a| chests.iter().any(|c| c.key == a.chest));
         for c in &cx.p.facts.chests {
             let Some(options) = &c.options else {
                 self.readable.retain(|(k, _)| *k != c.key);
@@ -339,7 +352,7 @@ impl Elite {
             Some(c) => {
                 c.picked
                     || c.expires_at <= now
-                    || c.taken_by.iter().any(|by| *by == cx.p.self_key)
+                    || c.taken_by.contains(&cx.p.self_key)
                     || self
                         .asks
                         .iter()
@@ -350,7 +363,10 @@ impl Elite {
 
     /// The share of the elite's hp still standing (1 when it is not in sight).
     fn elite_left(&self, cx: &Cx<'_>, camp: &CampSeen, kind: MobTypeId) -> f64 {
-        let near = self.watch_of(camp.index).and_then(|w| w.at).unwrap_or(camp.at);
+        let near = self
+            .watch_of(camp.index)
+            .and_then(|w| w.at)
+            .unwrap_or(camp.at);
         elite_mob(cx, kind, near)
             .filter(|m| {
                 goal_camp(cx.goal) == Some(camp.index) || dist(m.at, camp.at) <= CAMP_JOIN_RADIUS
@@ -363,13 +379,17 @@ impl Elite {
     fn death(&self, cx: &Cx<'_>, camp: &CampSeen, kind: MobTypeId, left: f64) -> f64 {
         let e = &cx.prices.elite;
         let me = &cx.p.me;
-        let held = me.hp_share() + cx.prices.sustain.potion_hp(me.potion_large, me.potion_small);
+        let held = me.hp_share()
+            + cx.prices
+                .sustain
+                .potion_hp(me.potion_large, me.potion_small);
         let has_row = e.kind_death.iter().any(|(k, _)| *k == kind.as_str());
         let by_rate = self.by_rate(cx, camp, kind, held);
         if has_row {
-            let stacks: f64 = cx.p.summary.as_ref().map_or(0., |s| {
-                s.mob_rows.iter().map(|r| f64::from(r.stacks)).sum()
-            });
+            let stacks: f64 =
+                cx.p.summary
+                    .as_ref()
+                    .map_or(0., |s| s.mob_rows.iter().map(|r| f64::from(r.stacks)).sum());
             let weapon = me.weapons[usize::from(me.slot.min(1))];
             let held = held / left.max(f64::MIN_POSITIVE);
             let prior = death_prior(e, kind, weapon, stacks, cx.prices.stacks_per_camp, held);
@@ -525,12 +545,17 @@ impl Elite {
                     && ((m.camp == Some(index) && cx.p.dist(m.at) <= FIGHT_U)
                         || (m.engaged && cx.p.dist(m.at) <= DEFEND_U))
             });
+        let started = *self.started.get_or_insert(now);
         if fighting {
             let since = *self.fight_since.get_or_insert(now);
             if now - since > e.give_up_seconds * 1_000. {
                 self.ban(index, now, &e);
                 return Step::failed("the elite fight ran out of time");
             }
+        } else if self.fight_since.is_none() && now - started > e.give_up_seconds * 1_000. {
+            // Never reached: an elite out of every path, or one that keeps out of reach.
+            self.ban(index, now, &e);
+            return Step::failed("the elite was never reached");
         }
         let Some(mob) = add.or(elite) else {
             self.target = None;
@@ -613,7 +638,9 @@ impl Elite {
         let now = cx.p.now;
         let chest = Self::pick_chest(cx)?;
         let options = chest.options.as_ref()?;
-        let option = best_card(cx.prices, options, &chest.taken_by, &|id| self.refused(cx, id))?;
+        let option = best_card(cx.prices, options, &chest.taken_by, &|id| {
+            self.refused(cx, id)
+        })?;
         match self.asks.iter().position(|a| a.chest == chest.key) {
             None => self.asks.push(Ask {
                 chest: chest.key.clone(),
@@ -658,7 +685,10 @@ impl Elite {
                     value: None,
                 },
             },
-            why: format!("chest {}: priced card {option} ({})", chest.key, options[option]),
+            why: format!(
+                "chest {}: priced card {option} ({})",
+                chest.key, options[option]
+            ),
         })
     }
 }
@@ -678,15 +708,6 @@ impl Executor for Elite {
         self.watch_elites(cx);
         self.track(cx);
         self.watch_chests(cx);
-        // SCRATCH-TRACE
-        if std::env::var("ELITE_TRACE").is_ok() {
-            let g = format!("{:?}/{:?}/{:?}", cx.goal.kind, cx.goal.target, cx.status);
-            if g != self.trace_goal || cx.p.tick % 100 == 0 {
-                let el: Vec<String> = cx.p.mobs.iter().filter(|m| m.class == MobClass::Elite).map(|m| format!("{:?}@{:.0},{:.0} hp{:.2} d{:.0}", m.mob_type, m.at.x, m.at.y, m.hp_share, cx.p.dist(m.at))).collect();
-                eprintln!("T{} goal {} hp {:.2} pots {} elites {:?} watch {:?} killed {:?} banned {:?}", cx.p.tick, g, cx.p.me.hp_share(), cx.p.me.potion_large, el, self.watch.iter().filter(|w| w.alive).map(|w| w.camp).collect::<Vec<_>>(), self.killed, self.banned);
-                self.trace_goal = g;
-            }
-        }
     }
     fn propose(&mut self, cx: &mut Cx<'_>, out: &mut Vec<Candidate>) {
         let e = cx.prices.elite;
@@ -699,7 +720,10 @@ impl Executor for Elite {
         let live: Vec<(u32, f64)> = self
             .killed
             .iter()
-            .filter(|(c, at)| p.camp(*c).is_some_and(|camp| !self.chest_over(cx, camp.at, *at)))
+            .filter(|(c, at)| {
+                p.camp(*c)
+                    .is_some_and(|camp| !self.chest_over(cx, camp.at, *at))
+            })
             .copied()
             .collect();
         self.killed = live;
@@ -714,14 +738,13 @@ impl Executor for Elite {
             if camp.alive == 0 || self.banned(camp.index, now) || !self.known_alive(camp) {
                 continue;
             }
-            let c = self.fight_candidate(cx, camp, kind);
-            if std::env::var("ELITE_TRACE").is_ok() && (goal_camp(cx.goal) == Some(camp.index) || cx.p.tick % 200 < 20) { eprintln!("T{} cand camp {} {:?} death {:.3} min {:.2} rate {:.2}", cx.p.tick, camp.index, kind, c.death, c.minutes, crate::bots::raid::arbiter::rate(&c)); } // SCRATCH-TRACE
-            out.push(c);
+            out.push(self.fight_candidate(cx, camp, kind));
         }
     }
     fn start(&mut self, goal: &RaidGoal, _cx: &mut Cx<'_>) {
         if goal.kind == GoalKind::Elite {
             self.fight_since = None;
+            self.started = None;
             self.empty_since = None;
         }
     }
@@ -741,9 +764,7 @@ impl Executor for Elite {
         if !self.known_alive(&camp) {
             return Step::done("the elite is gone");
         }
-        let st = self.fight_step(cx, &camp, kind);
-        if std::env::var("ELITE_TRACE").is_ok() && st.status != Status::Running { eprintln!("T{} act -> {:?} {}", cx.p.tick, st.status, st.why); } // SCRATCH-TRACE
-        st
+        self.fight_step(cx, &camp, kind)
     }
     fn ride_along(&mut self, _goal: &RaidGoal, cx: &mut Cx<'_>) -> Step {
         if !cx.prices.elite.on {

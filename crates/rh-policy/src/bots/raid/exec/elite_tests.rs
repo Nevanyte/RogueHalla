@@ -30,7 +30,14 @@ fn the_death_prior_clamps_and_reads_the_top_for_an_unknown_kind() {
     );
     assert_eq!(none, e.death_range.1);
     // Lots held: the floor.
-    let lots = death_prior(&e, MobTypeId::BloodSaint, Some(WeaponId::Axe), 600., spc, 50.);
+    let lots = death_prior(
+        &e,
+        MobTypeId::BloodSaint,
+        Some(WeaponId::Axe),
+        600.,
+        spc,
+        50.,
+    );
     assert_eq!(lots, e.death_range.0);
     // A kind with no row in the table (OFF has none): the top of its range.
     let off = ElitePrices::OFF;
@@ -62,7 +69,18 @@ fn the_priced_pick_skips_empty_ids_and_zero_worth() {
     );
     // A shorter taken list leaves the rest free.
     assert_eq!(
-        best_card(&p, &o("slowBurn", "markedMan", "tankEngine"), &[], &|_| false),
+        best_card(&p, &o("slowBurn", "markedMan", "tankEngine"), &[], &|_| {
+            false
+        }),
         Some(1)
     );
+}
+
+#[test]
+fn the_clear_share_reads_its_row_and_defaults_to_one() {
+    let e = Prices::LOCAL.elite;
+    assert_eq!(clear_share(&e, MobTypeId::BloodSaint), 0.);
+    assert_eq!(clear_share(&e, MobTypeId::Executioner), 1.);
+    assert_eq!(clear_share(&e, MobTypeId::Wyrmling), 1.);
+    assert_eq!(clear_share(&ElitePrices::OFF, MobTypeId::BloodSaint), 1.);
 }
