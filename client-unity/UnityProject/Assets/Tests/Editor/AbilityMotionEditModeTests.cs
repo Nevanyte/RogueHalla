@@ -386,7 +386,11 @@ namespace Roguehalla.Client.Tests
         public void TheWishTileHasOneScaleWriter()
         {
             BuildRig(); var tile = Tile("WishTile");
-            AcceptedCast(10000);
+            SnapWish(10, 50000, Wish(0, 55000, 10000)); Frame();
+            SnapWish(11, 55050, Wish(1, 55000, 10000)); _local += 50; Frame();
+            _local += 50; Frame();
+            _local += 200; Frame();
+            Assert.That(WedgeOn(tile), Is.False, "set-up: the Wish is ready, so the press goes through");
             double start = _local;
             Call(_hud, "InputCue", WireCommand.Cast(0, 0f, 0f));
             for (int ms = 10; ms <= 150; ms += 10)
