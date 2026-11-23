@@ -17,6 +17,8 @@ namespace Roguehalla.Client
         readonly string[] _questSlotHints = new string[2], _questSlotEquipped = new string[2];
         readonly Roguehalla.Net.Ui.CooldownSpan[] _questSpans = new Roguehalla.Net.Ui.CooldownSpan[2];
         bool _questTilesFresh = true, _promptPair, _questViewKnown;
+        float _promptPairScale = 1f;
+        bool _promptLaneHooked;
         readonly UnityEngine.UI.Button[] _questChoiceButtons = new UnityEngine.UI.Button[3];
         readonly List<UnityEngine.UI.Button> _nearbyQuestButtons = new List<UnityEngine.UI.Button>();
         TMP_Text _questChoiceTitle, _questChoiceSpells, _questChoiceStatus, _questActionCaption;
@@ -299,13 +301,32 @@ namespace Roguehalla.Client
         /// <summary>One prompt lane: the pickup pill and the quest launcher share it, side by side when both show. Rewritten only when the pair state changes.</summary>
         void UpdatePromptLane()
         {
+            if (!_promptLaneHooked && _stageScaler != null)
+            {
+                // The row's scale changes with the viewport, which runs no refresh: follow it (the scaler lives as long as this HUD).
+                _promptLaneHooked = true;
+                _stageScaler.ViewportChanged += FollowRowScale;
+            }
             bool pair = _questRewardHud.gameObject.activeSelf && _questActionLauncher.gameObject.activeSelf
                 && _pickup != null && _pickup.gameObject.activeSelf;
-            if (pair == _promptPair) return;
+            float raw = _weaponBar != null ? _weaponBar.localScale.x : 1f;
+            bool stateChanged = pair != _promptPair;
+            if (!stateChanged && raw == _promptPairScale) return;
             _promptPair = pair;
-            HudUi.Place(_questRewardHud, pair ? HudRegions.PromptPair(1) : HudRegions.Prompt());
+            _promptPairScale = raw;
+            float s = HudRegions.PairScale(raw);
+            var at = pair ? HudRegions.PromptPair(1, s) : HudRegions.PromptLone(s);
+            var box = new HudRegion(at.Anchor, at.X, at.Y, pair ? HudRegions.PromptPairWidth : HudRegions.PromptWidth, HudRegions.PromptHeight);
+            HudUi.Place(_questRewardHud, box);
+            _questRewardHud.localScale = s == 1f ? Vector3.one : new Vector3(s, s, 1f);
+            if (!stateChanged) return;
             if (_pickup != null) HudUi.Place((RectTransform)_pickup.transform, PickupRegion(pair));
             RefitLabel(_questActionCaption); RefitLabel(_pickupText);
+        }
+
+        void FollowRowScale(HudViewport viewport)
+        {
+            if (_questRewardHud != null && _questActionLauncher != null) UpdatePromptLane();
         }
 
         static void RefitLabel(TMP_Text label)
