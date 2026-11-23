@@ -55,7 +55,7 @@ pub struct Decide {
     refused: Option<f64>,
     /// Since when the owner has stood where a decision is answered with nothing offered: (def, ms).
     stood: Option<(String, f64)>,
-    /// `act` ran since the last `observe`: the seat's goal is this executor's. Without it the waits above start over.
+    /// `act` ran since the last `observe`. Without it, and with another goal held, the waits above start over.
     acted: bool,
 }
 
@@ -548,7 +548,8 @@ impl Executor for Decide {
     }
     fn observe(&mut self, cx: &mut Cx<'_>) {
         // Another goal had the seat since the last think: a stand's clock does not run while it is away.
-        if !std::mem::take(&mut self.acted) {
+        let acted = std::mem::take(&mut self.acted);
+        if !acted && cx.goal.kind != GoalKind::QuestDecide {
             self.stood = None;
             self.refused = None;
         }
