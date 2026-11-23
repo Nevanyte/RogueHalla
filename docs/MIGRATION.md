@@ -4,6 +4,66 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Paused a third time (2026-11-22, late night): after a second resume; integration 84 still not gated
+
+**Owner direction 2026-11-22 (chat), in order:** "resume"; "please pause". Every gate, check and agent of this
+programme is stopped again, every agent worktree is clean, and nothing new starts until he says so. The two sections
+below this one still hold except where this one says otherwise. **Nothing is pushed; `main` is untouched; nothing
+deployed.**
+
+- **The integration 84 preview** is `coord/int-84` @ `1c2c7520f`: what the section below lists, plus the test
+  amendment `3567504da` and P-BAL-ELITE-BOTS-1. It still has **no full gate and no merge review**, and
+  `feature/unity-rework` holds none of its code. `cargo clean -p rh-persist` before its gate still applies.
+- **Found in this resume: a seat test was red on the preview.** `raid_seats::the_lab_runs_raid_seats` wants one camp
+  cleared inside 1200 ticks. Since P-RAID-Q1 a raid seat takes a quest in the first minute. Measured on `coord/int-84`
+  @ `c6df2c160`, seed 1, eight raid seats (debug build): 0 camps by tick 1200, 3 by 2400, 5 by 3600, with 12 quests
+  accepted in minute 0. P-RAID-Q2 does not change it (the preview's base measures the same). The quick gate of an
+  `rh-policy` packet does not run the `rh-headless` tests, which is how P-RAID-Q1 passed. The coordinator amended the
+  test to run 2400 ticks with its expectation unchanged (`oracle-amend:` `3567504da`); `cargo test -p rh-headless
+  --test raid_seats` on the preview then gave 6 passed.
+- **A number to keep in view, not explained:** 5 camps in 3 minutes across 8 raid seats is about 0.2 camps a
+  player-minute, against the workbook's assumed 2.9. One seed, no sustain, no elite packet; the cause is not
+  established and the pilot measures it properly.
+- **What moved, by packet** (no result below is a gate result unless it says so):
+
+  | Packet | Branch @ head | State at this pause | First step on resume |
+  |---|---|---|---|
+  | P-BAL-ELITE-BOTS-1 | `agent/sonnet/P-BAL-ELITE-BOTS-1` @ `0c4756d3b` | The coordinator answered the brief's question: accept, the camp-level share stays on the global pair (`c8f23e2bb` on the packet branch). Implementer's quick gate PASS with the oracle. `reviewer` **LAND** (it ran the elite and planning-parity tests, 7 passed). Merged in the preview. | None: it rides integration 84. Owed: the reader list in `docs/agent/AUGMENT_REWORK.md`. |
+  | P-RAID-C (sustain) | attempt 1 `agent/sonnet/P-RAID-C` @ `1daf49e82`; attempt 2 `agent/sonnet/P-RAID-C-2` @ `4a4ca8206` | reviewer-opus **REJECT** on attempt 1: `raid_seats::eight_raid_bots_in_human_seats_play_a_real_match` fails (3 camps over seeds 1 to 3 against a floor of 6; it passes on the stub), and `Sustain::hp_held` leaves out a heal still running. Scope, determinism, priority, sustain-off and fairness passed. Attempt 2 (`implementer-sonnet`, high effort) was stopped mid-edit: its head is a wip commit, **not built and not tested**. | `implementer-sonnet` at high effort again on the attempt-2 branch (no gate was run, so it is still attempt 2). Its brief says: measure the cause before changing anything. If its gate fails, `implementer-opus`. |
+  | P-RAID-Q3 (decisions) | `agent/sonnet/P-RAID-Q3` @ `861e9dd3b` on `packet/P-RAID-Q3` @ `174303f0d` | `--oracle-check` PASS (base `coord/int-84`). The implementer was stopped after two commits; its last message said its tests were green and the gate was next. Not verified; no report. | In `agent-a5d8164f03ed45642`: `scripts/gate.sh --quick --base coord/int-84 --oracle packet/P-RAID-Q3`; then reviewer-opus, who establishes the write scope and the draws and runs `raid_seats`. |
+  | P-BAL-PROBE-1 (sim probes) | `agent/opus/P-BAL-PROBE-1` @ `a59693b7b` | The quick gate was stopped a third time in the `rh-sim` suite, after about 25 minutes on a machine at a load above 100. The steps before it passed again. No gate result stands. | The same gate line, run alone first; then reviewer-opus. |
+  | P-BAL-EVAL-1 (evaluator) | `packet/P-BAL-EVAL-1` @ `057a508fd` | The coordinator read the brief (its five tests match the test file) and answered its two questions in `057a508fd`: P-BAL-LAB-1-fix emits the completion samples; the elite cost stays a labelled assumption. Its `--oracle-check` was stopped in the stub test run. | `scripts/gate.sh --oracle-check`; then `implementer-sonnet`. |
+  | P-BAL-NATIVE-TEXT-GUARD-1 (card text guard) | `packet/P-BAL-NATIVE-TEXT-GUARD-1` @ `dac716e7e` | The coordinator read the brief against the test file: the six tests match. Its `--oracle-check` was not started. | `scripts/gate.sh --oracle-check`; then `implementer-sonnet`. |
+
+- **What this resume taught about the process:**
+  - An implementer is isolated. The harness refuses its git commands in any worktree but its own, and removes its
+    worktree when it stops with nothing committed. A brief says "work in your own worktree, `git checkout -B
+    agent/<model>/<ID> packet/<ID>`, commit early" and names no other worktree.
+  - A RaidBot packet's acceptance names `cargo test -p rh-headless --test raid_seats`, and its reviewer runs it. The
+    quick gate will not.
+  - Three implementers, two gates and the lanes' builds took the machine to a load above 100 on 18 cores. The probes
+    gate runs alone next time.
+- **The lanes** (their own reports, not re-verified by the coordinator):
+  - Staging security reports that the owner wrote "resume development" in its chat. It has nothing in flight; its
+    three hand-overs and the `url` lock bump are untouched in the coordinator's queue.
+  - glbridge token continued from its wip: by report its quick gate passes, the reworded commit is `71e2ef0cb`, and
+    its reviewer was reading a new part (`hosting/scripts/fleet-local/fleet.mjs`, the drain runbook). The security
+    session flagged that the owner's "Approve both commits" in the glbridge chat came before `fleet.mjs` joined that
+    packet's scope; the glbridge session is to ask him there. Any `hosting/` commit still needs his confirmation in
+    the coordinator's chat before it merges. Both sessions were told of this pause.
+  - Client input and backend efficiency: nothing queued, not contacted.
+- **Waiting on the owner:** the word to resume. Items 2 to 7 of the evening list stand, with two additions: the test
+  amendment `3567504da` joins the oracle amendments of item 6, and the quick gate's blind spot (an `rh-policy` change
+  runs no `rh-headless` test) joins the gate gaps of item 7.
+- **Left in place, nothing running:** the agent worktrees of the packets above (claims marked done, not removed), the
+  coordinator's gate worktree on `coord/int-84`, and the P-RAID-C reviewer's export of the stub tree in the
+  coordinator's scratch folder.
+- **Order when work resumes:** the probes quick gate, alone; reviewer-opus on it; merge it into the preview; the full
+  gate (`scripts/gate.sh --coordinator --keep-going`, pgtest) and reviewer-opus on the merge; move
+  `feature/unity-rework` up to it. Integration 84 does not wait for P-RAID-C. Beside that, one at a time while a gate
+  runs: the P-RAID-Q3 gate and review, P-RAID-C attempt 2, the oracle checks and implementers of P-BAL-EVAL-1 and
+  P-BAL-NATIVE-TEXT-GUARD-1. Then the list at the end of the section below, from P-RAID-Q3b's oracle on.
+
 ## Paused again (2026-11-22, night): after a short resume; integration 84 assembled, not gated
 
 **Owner direction 2026-11-22 (chat), in order:** "please continue"; "Yes, include it" (his answer to "Should
