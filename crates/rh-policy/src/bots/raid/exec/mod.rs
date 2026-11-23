@@ -4,6 +4,7 @@ pub mod chest;
 pub mod combat;
 pub mod elite;
 pub mod farm;
+pub mod held;
 pub mod sustain;
 pub mod travel;
 

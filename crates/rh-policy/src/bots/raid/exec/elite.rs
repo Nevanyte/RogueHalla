@@ -864,6 +864,31 @@ pub fn best_card(
     best.map(|(i, _)| i)
 }
 
+/// How long a camp is banned at its `giveups`-th give-up (s): `ban_seconds` x `ban_growth`^(giveups - 1), at most
+/// `ban_max_seconds` (P-RAID-E-leave). Stub: the flat ban.
+pub fn ban_seconds_after(elite: &ElitePrices, _giveups: u32) -> f64 {
+    elite.ban_seconds
+}
+
+/// Whether the fight with the elite of `kind` is lost for a seat holding `held` (hp, potions and heals running) at
+/// `hp_share`, with `elite_left` of the elite's hp standing: the bench death prior reaches Sustain's disengage line and
+/// the seat is below `ready_hp`. The one view Sustain uses for an Elite goal (P-RAID-E-leave). Stub: always lost.
+pub fn elite_fight_lost(
+    _prices: &Prices,
+    _kind: MobTypeId,
+    _weapon: Option<WeaponId>,
+    _stacks: f64,
+    _hp_share: f64,
+    _held: f64,
+    _elite_left: f64,
+) -> bool {
+    true
+}
+
 #[cfg(test)]
 #[path = "elite_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "elite_leave_tests.rs"]
+mod leave_tests;

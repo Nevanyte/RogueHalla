@@ -156,6 +156,10 @@ pub struct ElitePrices {
     /// executioner 6 of 6 (36 stacks, 2 potions); Blood Saint 0 of 12 (0 stacks and 36 stacks with 2 potions: it
     /// moves faster than a melee lock follows, its hp fell 0.35 in 120 s, and no fight was lost either).
     pub kind_clear: &'static [(&'static str, f64)],
+    /// Each further give-up at one camp multiplies its ban by this (`ban_seconds` x growth^(n - 1)); 1 keeps the ban flat.
+    pub ban_growth: f64,
+    /// The longest ban a camp's give-ups grow to (s).
+    pub ban_max_seconds: f64,
 }
 
 impl ElitePrices {
@@ -179,6 +183,8 @@ impl ElitePrices {
         tally_min_lost: 0.1,
         add_hp: 0.45,
         kind_clear: &[],
+        ban_growth: 1.,
+        ban_max_seconds: 20.,
     };
     pub const LOCAL: Self = Self {
         on: true,
@@ -218,6 +224,8 @@ impl ElitePrices {
         tally_min_lost: 0.1,
         add_hp: 0.45,
         kind_clear: &[("executioner", 1.), ("bloodSaint", 0.)],
+        ban_growth: 2.,
+        ban_max_seconds: 300.,
     };
 }
 
