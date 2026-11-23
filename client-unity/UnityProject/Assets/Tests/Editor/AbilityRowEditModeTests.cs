@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using NUnit.Framework;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
@@ -10,15 +9,14 @@ using Roguehalla.Net.Ui;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Roguehalla.Client.Tests
 {
     /// <summary>
     /// P-UI-ABILITY-ROW-1: the in-match action row. Weapon 1, swap chip, weapon 2, R, Shift, Q on one row built from HudRegions; the quest
-    /// spells are ability tiles inside it; nothing floats above it and the pickup pill and quest launcher share one prompt lane; the keys
-    /// 1 and 2 pick a weapon slot; a swap pulses the two slots; the row shrinks on a narrow stage. Two rigs: the layout rig builds the HUD
+    /// spells are ability tiles inside it; nothing floats above it and the pickup pill and quest launcher share one prompt lane; the weapon
+    /// slots carry no digit key cap; a swap pulses the two slots; the row shrinks on a narrow stage. Two rigs: the layout rig builds the HUD
     /// from pieces as HudLegacyLayoutEditModeTests does, the full rig is a whole MatchHud on a real MatchClient over a fake transport as
     /// PlayerFlowsEditModeTests does. Nothing here reads a clock: EditMode time does not advance.
     /// </summary>
@@ -366,47 +364,32 @@ namespace Roguehalla.Client.Tests
             Assert.That(equipped.text, Is.EqualTo("SHIFT · Shoulder Charge 2 charges · Ready\nQ · Empty"));
         }
 
-        // ------------------------------------------------------------------ 7. digit keys
+        // ------------------------------------------------------------------ 7. no digit caps on the weapon slots
 
+        /// <summary>
+        /// P-QUEST25-CONTROLS (owner direction 2026-11-18): Space swaps weapons and the digit keys do not, so the slots carry no key cap. The base
+        /// builds the cap in CreateWeaponBar as the box "Key" under each slot, with a child "Label" showing "1" or "2". The swap chip keeps its
+        /// Space cap.
+        /// </summary>
         [Test]
-        public async Task DigitKeysSelectTheWeaponSlot()
+        public void TheWeaponSlotsCarryNoDigitCap()
         {
-            using (var rig = await TrainingHudRig.Start(practice: false))
+            BuildLayoutRig(); LayoutAt(Windows[0]);
+            var bar = Child(_layoutStage, "PlayerHUD/CombatActions");
+            for (int i = 0; i < 2; i++)
             {
-                var swaps = new List<WireCommand>();
-                rig.Client.Session.CueSent += c => { if (c.Kind == CommandKind.Swap) swaps.Add(c); };
-                rig.Settle();
-                swaps.Clear();
-
-                rig.Tap(Key.Digit1);
-                Assert.That(swaps.Count, Is.EqualTo(1), "key 1 sends one Swap");
-                Assert.That(swaps[0].Slot, Is.EqualTo((byte?)0), "key 1 picks slot 0");
-                rig.Tap(Key.Digit2);
-                Assert.That(swaps.Count, Is.EqualTo(2), "key 2 sends one Swap");
-                Assert.That(swaps[1].Slot, Is.EqualTo((byte?)1), "key 2 picks slot 1");
-
-                // While the chest owns the digits (C pressed over a reward chest) 1 and 2 choose a reward and send no swap.
-                // Driven by hand: Frame() would run the chest's own digit handling against a chest that is not there.
-                var held = (HashSet<Key>)TrainingHudRig.GetField(rig, "_held");
-                typeof(MatchHud).GetField("_chestFocus", All).SetValue(rig.Hud, true);
-                Assert.That(rig.Hud.ChestOwnsDigits, Is.True, "set-up: the chest owns the digits");
-                int before = swaps.Count;
-                held.Add(Key.Digit1); TrainingHudRig.Call(rig, "Send");
-                TrainingHudRig.Call(rig.Client, "ReadInput"); rig.Client.Session.FlushInput();
-                held.Remove(Key.Digit1); TrainingHudRig.Call(rig, "Send");
-                typeof(MatchHud).GetField("_chestFocus", All).SetValue(rig.Hud, false);
-                Assert.That(swaps.Count, Is.EqualTo(before), "no swap while the chest owns the digits");
-
-                // In planning 1 and 2 pick a spawn: no swap. (The map may also keep the client's keyboard blocked there; either way none is sent.)
-                var transport = TrainingHudRig.GetField(rig, "_transport");
-                transport.GetType().GetMethod("Deliver").Invoke(transport, new object[] { new ServerMsg.Snapshot { Tick = 1000, ServerTimeOverrideMs = 20000,
-                    Phase = (byte)MatchPhase.Planning, Me = new WireSelf { Id = 3, X = 320, Y = 320, Hp = 100, MaxHp = 100, Status = 1, Weapon = 0 } } });
-                Assert.That(rig.Client.Session.Phase, Is.EqualTo(MatchPhase.Planning), "set-up: the room is in planning");
-                held.Add(Key.Digit2); TrainingHudRig.Call(rig, "Send");
-                TrainingHudRig.Call(rig.Client, "ReadInput"); rig.Client.Session.FlushInput();
-                held.Remove(Key.Digit2); TrainingHudRig.Call(rig, "Send");
-                Assert.That(swaps.Count, Is.EqualTo(before), "no swap in the planning phase");
+                var slot = Child(bar, "Slot" + (i + 1));
+                var cap = slot.Find("Key/Label");
+                Assert.That(cap == null || cap.GetComponent<TMP_Text>().text.Length == 0, Is.True,
+                    "Slot" + (i + 1) + "/Key/Label is absent or empty (it shows '" + (cap == null ? "" : cap.GetComponent<TMP_Text>().text) + "')");
+                foreach (var label in slot.GetComponentsInChildren<TMP_Text>(true))
+                {
+                    string shown = label.text == null ? "" : label.text.Trim();
+                    Assert.That(shown, Is.Not.EqualTo("1").And.Not.EqualTo("2"),
+                        "no label under Slot" + (i + 1) + " shows a digit cap, but '" + label.transform.parent.name + "/" + label.name + "' reads '" + shown + "'");
+                }
             }
+            Assert.That(Text(Child(bar, "QSwap"), "Key"), Is.EqualTo("Space"), "the swap chip keeps its Space cap");
         }
 
         // ------------------------------------------------------------------ 8. the swap pulse

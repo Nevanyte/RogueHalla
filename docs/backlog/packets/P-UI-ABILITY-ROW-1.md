@@ -5,11 +5,11 @@
 - **Reviewer:** reviewer
 - **Integration base:** `lane/ui-rework/base-2` (the integration branch `feature/unity-rework` plus P-UI-HUD-SEAMS-1,
   P-UI-HUD-REGIONS-1, P-UI-MOTION-1, P-UI-CAMP-LABEL-STABLE-1, P-UI-TABMAP-FLOW-1)
-- **D-rules touched:** D1 presentation only: digit keys 1 and 2 selecting a weapon slot is legacy behaviour
-  (`docs/rework/LEGACY_LAYOUT.md` key table, "Run": `1` `2` slot; `packages/client/src/ui/helpOverlay.ts:42`), so this removes a
-  difference. The quest spells moving from a text cluster above the bar into the row has no legacy counterpart (legacy has no
-  Shift/Q quest spells in its bar): propose a DEVIATIONS row in the hand-off. · D2 n/a · D5/D6 none · D9 untouched: nothing here
-  predicts an outcome, every state drawn is a delivered fact.
+- **D-rules touched:** D1 presentation only. The quest spells moving from a text cluster above the bar into the row has no legacy
+  counterpart (legacy has no Shift/Q quest spells in its bar): propose a DEVIATIONS row in the hand-off. · D2 n/a · D5/D6 none ·
+  D9 untouched: nothing here predicts an outcome, every state drawn is a delivered fact. Owner direction 2026-11-18, carried out by the
+  merged P-QUEST25-CONTROLS (`docs/backlog/packets/P-QUEST25-CONTROLS.md`): Space swaps weapons and the digit keys do not; this packet
+  only removes the two key caps that packet missed (outcome 4).
 
 ## 1. ID and outcome
 
@@ -17,7 +17,7 @@ P-UI-ABILITY-ROW-1. The in-match action bar becomes one row of six, left to righ
 (104 x 76), R (the Wish tile), Shift, Q (64 x 64 each), 6 apart: 458 wide, centred, the row's bottom 48 above the stage bottom.
 Shift and Q are new `AbilityTile`s (key cap, name, countdown, cooldown wedge, charge badge) that replace the two text tiles that
 floated above the bar. Nothing floats above the row any more; the pickup pill and the quest-action launcher share one prompt lane.
-The keys 1 and 2 pick a weapon slot. A swap pulses the two slots and never the whole bar. On a narrow stage the row shrinks so it
+The weapon slots carry no digit key cap. A swap pulses the two slots and never the whole bar. On a narrow stage the row shrinks so it
 clears the champion panel and the minimap; the minimap keeps its size. Every rect comes from `Roguehalla.Net.Ui.HudRegions`.
 
 What is wrong today (on the base):
@@ -25,8 +25,9 @@ What is wrong today (on the base):
   spells (Shift, Q) are two 141 x 39 text tiles in a separate box `QuestRewards` floating above the bar at y 157..196, with a
   launcher button above them (`UI/MatchHud.QuestRewards.cs:31-45`, bottom `BarBottom + SlotHeight + ConsumablesHeight + 2 * BarGap + 27`
   = 157). They show text only ("SHIFT · Name / 2 charges · 5s"), no cooldown wedge.
-- The slots carry key caps "1" and "2" (`ActionBar.cs:71`) and nothing handles those keys in a run: `Net/MatchClient.cs:466-489` handles
-  R, Space (:474-477), Shift, Q, E, F. In planning, 1 and 2 pick a spawn (`UI/TacticalMapController.cs:419-422`).
+- The slots carry key caps "1" and "2" (`ActionBar.cs:71`, the box `Key` with its child `Label`, under `Slot1` and `Slot2`) although no key
+  is bound to a slot: P-QUEST25-CONTROLS took the digit swap away (`Net/MatchClient.cs` handles R, Space, Shift, Q, E, F) and missed
+  the caps.
 - The pickup pill (`CreatePickupHint`, `ActionBar.cs:161`, a child of the bar, 230 x 22 at 116 above the bar bottom) sits at stage
   y 130..152; the space above it is where P-UI-TOAST-LANES-1 (same wave) puts the feedback toasts, from y 162.
 - A Space swap pulses the whole bar (`UI/MatchHud.Pulses.cs:31-35`: `Pulse(_weaponBar)` when the command carries no slot).
@@ -37,9 +38,8 @@ The base above. P-UI-TOAST-LANES-1 (same wave) amends `Tools/hud-seams.test.cjs`
 
 ## 3. Relevant legacy paths
 
-- `packages/client/src/ui/helpOverlay.ts:42`: the help text lists `1` `2` as the weapon slot keys (legacy). `docs/rework/LEGACY_LAYOUT.md`
-  key table, "Run": `1` `2` slot.
-- Legacy has no Shift/Q quest spells in its bar: no counterpart (see DEVIATIONS note above).
+- Legacy has no Shift/Q quest spells in its bar: no counterpart (see DEVIATIONS note above). Outcome 4 follows the owner
+  direction carried out by P-QUEST25-CONTROLS, not legacy.
 - Evidence read by the lane: `.agent-runs/lane-ui-rework/understand/ability-spell-bar.txt` (sections 1 and 2, defects 1, 10, 11, 12).
 
 ## 4. New paths
@@ -169,23 +169,25 @@ public sealed class AbilityTile
 - new `client-unity/UnityProject/Assets/Scripts/UI/AbilityTile.cs` with `.meta`
 - `client-unity/UnityProject/Assets/Scripts/UI/MatchHud.ActionBar.cs`, `MatchHud.QuestRewards.cs`, `MatchHud.Pulses.cs` (the swap
   cue only), `MatchHud.Legacy.cs` (the bar scale line in `ApplyLegacyViewport`, :345, and any bar constant still declared there)
-- `client-unity/UnityProject/Assets/Scripts/Net/MatchClient.cs` (the two digit keys only)
 - the oracle files listed below are read-only for the implementer
 - Not in scope: `HudLayout.cs` and the capture tools under `UnityProject/Tools/` (the minimap formula does not change),
   `Tools/hud-seams.test.cjs`, `UI/HelpGuideView.cs`, `MatchHud.PlayerFlows.cs`, `MatchHud.cs`, `MatchHud.TopCentre.cs`,
-  `MatchHud.Notices.cs`, `OrderedNoticeFeed.cs`, `MatchHud.Visibility.cs`, the Tab map files, `HudTextScaleEditModeTests.cs` (its
-  inventory of 63 stays; three packets of this wave add labels), the Wish tile's contents and texts (P-UI-ABILITY-MOTION-1).
+  `MatchHud.Notices.cs`, `OrderedNoticeFeed.cs`, `MatchHud.Visibility.cs`, the Tab map files, `Net/MatchClient.cs` (it must end identical
+  to the base: the digit keys stay unbound), `HudTextScaleEditModeTests.cs` (an oracle file: its inventory is amended from 63 to 61 by
+  the oracle author, the implementer does not edit it; three packets of this wave add labels), the Wish tile's contents and texts
+  (P-UI-ABILITY-MOTION-1).
 - Do not add lines to `View/ArenaView.cs` or `Presentation/SpriteActorPresenter.cs`. New non-test C# files carry a `/// <summary>`
   before the first type and stay under 800 lines.
 
 ## 6. Contracts and references
 
-- R-AUTH / ADR 0008 / D9: Unity decides no outcome; every state shown is a delivered fact. Keys 1 and 2 send `Swap(slot)` and the
-  server decides; no client-side check of the active slot (the slot buttons already send the same command).
-- C-INPUT: the digit keys go through `Session.Input.Swap(byte slot)` (`RoguehalaNet/Net/InputSender.cs:102`).
+- R-AUTH / ADR 0008 / D9: Unity decides no outcome; every state shown is a delivered fact. This packet adds no key binding and sends no
+  command: the new tiles carry a hint and send nothing.
+- P-QUEST25-CONTROLS (merged; `docs/backlog/packets/P-QUEST25-CONTROLS.md`, outcome and acceptance checks): Space swaps weapons, the digit keys do not,
+  and the HUD no longer describes digits as weapon swaps. Outcome 4 of this packet finishes that for the two slot key caps.
 - Lane rules `.agent-runs/lane-ui-rework/specs/COMMON.md` (HUD stage units, theme colours only, `HudUi.Label`, unscaled time, no
   allocation in a steady frame, `MatchHud` bind/unbind safety).
-- `docs/OWNER_DECISIONS.md`: searched for the action bar, quest spell slots and weapon keys; no decided row governs this subject.
+- `docs/OWNER_DECISIONS.md`: searched for the action bar, quest spell slots and weapon keys; no decided row governs this subject (the digit-key direction of 2026-11-18 is in P-QUEST25-CONTROLS, not in that index).
 
 ## 7. Behaviour to preserve
 
@@ -215,8 +217,8 @@ public sealed class AbilityTile
 ## 8. Acceptance checks
 
 - `scripts/gate.sh --quick --oracle packet/P-UI-ABILITY-ROW-1 --base lane/ui-rework/base-2` prints `GATE PASS`.
-- All tests of "Oracle files" green; the existing tests listed under "Existing tests that pin this code" green except the one
-  expectation amended in its own `oracle-amend:` commit.
+- All tests of "Oracle files" green; the existing tests listed under "Existing tests that pin this code" green except the two
+  expectations amended, each in its own `oracle-amend:` commit (`HudLegacyLayoutEditModeTests`, `HudTextScaleEditModeTests`).
 
 ### Outcome (the implementer builds this)
 
@@ -240,10 +242,11 @@ public sealed class AbilityTile
      pickup in reach must not hide it.
    - The placement is rewritten only when the pair state changes. On a narrow stage the pill scales with the bar and the box does not:
      accepted.
-4. **1 and 2 pick a weapon slot.** In `Net/MatchClient.cs`, in the block that already guards Space with `Hud.ChestOwnsDigits` (:474-477):
-   `digit1Key` sends `Session.Input.Swap(0)`, `digit2Key` sends `Session.Input.Swap(1)`, only while
-   `Session.Phase == MatchPhase.Active` (in planning 1 and 2 pick a spawn, `TacticalMapController.cs:421-422`). No client-side check of
-   the active slot. The help window gets no new row here (`UI/HelpGuideView.cs` belongs to a later packet): say so in the hand-off.
+4. **The weapon slots carry no digit key cap.** The key caps "1" and "2" that `CreateWeaponBar` puts on `Slot1` and `Slot2` (the box
+   `Key` with its child `Label`, `ActionBar.cs:71`) are removed: no key is bound to a slot, so the caps are a leftover that
+   P-QUEST25-CONTROLS missed. The swap chip keeps its Space cap (`QSwap/Key/Label` reads "Space"). `Net/MatchClient.cs` is not touched: the
+   digit keys stay unbound (`UiInputRoutingEditModeTests.DigitKeysNoLongerSwapWeaponsOutsideChestChoice` stays green unchanged).
+   The two labels leave the inventory of `HudTextScaleEditModeTests`: see the amended expectations.
 5. **A swap pulses the two slots, never the bar.** In `InputCue` (`Pulses.cs:31-35`): a `Swap` with a slot pulses that slot (as today);
    a `Swap` without one pulses both slots.
 6. **Narrow stages: the row shrinks, the minimap keeps its size.** `ApplyLegacyViewport` (`MatchHud.Legacy.cs:338`, the line at :345)
@@ -277,7 +280,7 @@ Each verified by reading it. Run these classes on the stub (green) and again aft
 | `HudLegacyLayoutEditModeTests.HudEdgesLandOnTheScreenEdgesAtAnyCanvasScaleAndPixelRatio` (:283) | bar centred on the screen, bar bottom 14 units | unchanged (pivot is bottom centre, so a scaled bar stays centred) |
 | `HudLegacyLayoutEditModeTests.MinimapIsASquareTwelveFromTheBottomRightCorner`, `ChestPanelAnchorsRight...` | minimap size and chest anchor from `HudLayout.MinimapSize` | unchanged: the minimap formula does not change |
 | `HudLegacyLayoutEditModeTests.EveryHudGraphicUsesAColourFromTheTheme`, `ARecolouredThemeReskinsEveryHudGraphic` | every HUD graphic colour is a theme token (alpha variants allowed) | unchanged, must stay green with the tiles built in `CreateWeaponBar` |
-| `HudTextScaleEditModeTests` (`TheInventoryCoversTheWholeMatchHud`: 63 labels; every label has `MythicTextScale`, no Ellipsis/Truncate) | `_weaponBar`, `_slotNames`, `_wishTile`, `_pickupText` by field, `ControlsLine` by path | unchanged: keep `_pickupText` and `ControlsLine`; build every label with `HudUi.Label` |
+| `HudTextScaleEditModeTests` (`TheInventoryCoversTheWholeMatchHud`: 63 labels; every label has `MythicTextScale`, no Ellipsis/Truncate) | `_weaponBar`, `_slotNames`, `_wishTile`, `_pickupText` by field, `ControlsLine` by path; the inventory lists the two slot caps as `SlotKey 1` and `SlotKey 2` (`Slot1/Key/Label`, `Slot2/Key/Label`) | **amended: the two cap rows leave the inventory and the pinned count 63 becomes 61, own `oracle-amend:` commit, for the owner**; the rest unchanged: keep `_pickupText` and `ControlsLine`; build every label with `HudUi.Label` |
 | `PlayerFlowsEditModeTests.NearbyRewardPickupUsesTheOfferedHandleAndDropIndex` | launcher found at `MatchUI/HudStage/PlayerHUD/QuestRewards/QuestActionLauncher`, active with a nearby action, its click opens the overlay | unchanged: that path stays |
 | `PlayerFlowsEditModeTests.FullQuestSlotsPresentServerChoice...` | the "Equipped" text contains `SHIFT · Hook 2 charges · 3s` and `Q · Tornado 1 charge · Ready` | unchanged: the Equipped line keeps its exact text |
 | `MatchHudIconPresentationEditModeTests` (:111) | `HudStage/PlayerHUD/CombatActions/WishTile` is a Button with the R hint | unchanged |
@@ -285,7 +288,8 @@ Each verified by reading it. Run these classes on the stub (green) and again aft
 | `HudRegionsEditModeTests` | `HudUi.Box/Place` from a region measure the same as `region.On` | unchanged |
 | `ChampionPanelNoGarbageEditModeTests` | the Wish row and slots allocate nothing while inputs stay | unchanged |
 | `RoguehallaNet.Tests.HudRegionsTests` | the table of `HudRegions` (ability row 458 wide, 6 elements, prompt, stack, collisions) | unchanged: only additions to `HudRegions` |
-| `RoguehallaNet.Tests.InputCueTests` | `Session.CueSent` raised once per sent Cast/Swap/Pickup/UseConsumable | unchanged: Swap(0)/Swap(1) from the keys raise the same cue |
+| `RoguehallaNet.Tests.InputCueTests` | `Session.CueSent` raised once per sent Cast/Swap/Pickup/UseConsumable | unchanged |
+| `UiInputRoutingEditModeTests.DigitKeysNoLongerSwapWeaponsOutsideChestChoice` (:323) | pressing keys 1 and 2 outside the chest choice sends no command | unchanged, must stay green (this packet leaves `MatchClient.cs` as it is) |
 | `Tools/hud-seams.test.cjs` | the four old files do not declare what moved; no method in two files; size caps | unchanged; it no longer pins the moved members (P-UI-HUD-SEAMS-1-fix) |
 
 ## Oracle files (read-only for implementers)
@@ -293,7 +297,8 @@ Each verified by reading it. Run these classes on the stub (green) and again aft
 - `client-unity/RoguehallaNet.Tests/AbilityFaceTests.cs`
 - `client-unity/UnityProject/Assets/Tests/Editor/AbilityRowEditModeTests.cs`
 - `client-unity/UnityProject/Assets/Tests/Editor/AbilityRowEditModeTests.cs.meta`
-- `client-unity/UnityProject/Assets/Tests/Editor/HudLegacyLayoutEditModeTests.cs` (the single amended expectation, own commit)
+- `client-unity/UnityProject/Assets/Tests/Editor/HudLegacyLayoutEditModeTests.cs` (the bar width 318 becomes 458, own commit)
+- `client-unity/UnityProject/Assets/Tests/Editor/HudTextScaleEditModeTests.cs` (the two slot caps leave the inventory, the count 63 becomes 61, own commit)
 - this packet
 
 (The stub commit also holds the synced copy of the pure files and the stub `AbilityTile.cs`; those the implementer replaces.)
@@ -336,9 +341,8 @@ error or an exception. The existing classes pinning this code (`HudLegacyLayoutE
 `PlayerFlowsEditModeTests`: 77 tests; `MatchHudIconPresentationEditModeTests`, `MatchHudWishBarrierEditModeTests`,
 `ChampionPanelNoGarbageEditModeTests`, `HudRegionsEditModeTests`: 13; dotnet `HudRegionsTests` and `InputCueTests`: 28;
 `node --test Tools/hud-seams.test.cjs`: 18) were green on the stub before the amended expectation. A scratch implementation of the
-three pure functions made all 15 `AbilityFaceTests` pass (then reverted), and a scratch two-line digit handler in `MatchClient.cs` made
-`DigitKeysSelectTheWeaponSlot` pass, and without its `Phase == Active` condition the test failed on the planning half (then reverted):
-so the two "none" halves of that test do bite.
+three pure functions made all 15 `AbilityFaceTests` pass (then reverted). (An earlier test of this class pinned digit keys 1 and 2
+sending `Swap`; it is withdrawn, see "Fix pass 2" below.)
 
 Red tests and the assertion each fails on (stub):
 
@@ -351,7 +355,7 @@ Red tests and the assertion each fails on (stub):
 | `AnEmptySpellTileIsADimOutline` | no `QuestSpell1` under `CombatActions` |
 | `ADeliveredQuestSpellShowsNameChargesAndCountdown` | no `QuestSpell1` under `CombatActions` (set-up asserts on server time and delivered spell pass) |
 | `TheEquippedLineStillListsBothSpells` | with a quest view and no spell the Equipped line is empty, expected `SHIFT · Empty` + line break + `Q · Empty` |
-| `DigitKeysSelectTheWeaponSlot` | key 1 sends no Swap |
+| `TheWeaponSlotsCarryNoDigitCap` | `Slot1/Key/Label` shows "1" (and `Slot2/Key/Label` shows "2"); the swap chip's Space cap passes |
 | `ASwapWithoutASlotPulsesBothSlotsAndNeverTheBar` | a Swap with no slot pulses the bar, not the two slots (the with-slot step passes) |
 | `TheRowShrinksOnANarrowStage` | the bar's scale at 700 x 600 is 1 (the 1280 x 800 half passes) |
 | `AnUnchangedTileAllocatesNothing` | `tile.Root` is null |
@@ -366,26 +370,21 @@ Deviations from the spec's test list, and what could not be proved on the stub:
   `SHIFT · Empty` + line break + `Q · Empty`. The spec's own state (Shoulder Charge, 2 charges, Ready) is the second step.
 - Spec test 10 is two tests (`AnUnchangedTileAllocatesNothing` on a tile built directly, `ASteadyQuestRefreshFrameAllocatesNothing` on the full
   rig), so each fails on its own assertion.
-- Spec test 7 (digit keys), chest half: it sets `MatchHud._chestFocus` by reflection but drives the key by hand (`Send`, then the client's
-  `ReadInput`, then `FlushInput`) instead of `rig.Tap`, because a `Frame()` would run the chest's own digit handler (`Choose`) against a
-  chest that does not exist. Planning half: a Planning snapshot is delivered through the rig's private transport and `ReadInput` is
-  called directly. The map may also keep the client's keyboard blocked in planning, so this half pins "no swap" rather than the
-  `Phase == Active` condition alone; the temporary check above showed it does fail without that condition.
-- `TrainingHudRig.Start(practice: false)` is used (an arena room), not training.
+- Spec test 7 (digit keys 1 and 2 send `Swap`) is withdrawn and replaced by `TheWeaponSlotsCarryNoDigitCap` (layout rig): see "Fix pass 2".
 - The steps of tests 3, 5, 6 and the second half of 10 after the first red assertion were not run on the stub: they follow the
   fixtures of `PlayerFlowsEditModeTests` (a delivered `State` plus `Snapshot`, then the HUD's `LateUpdate` and `TickPlayerFlows`) and the set-up
   assertions that precede them pass. If one of those later steps is wrong about the code, the implementer reports it with the failing
   line instead of editing the oracle.
 - `TheRowShrinksOnANarrowStage` and the layout rig rely on `HudStage.ViewportChanged` calling `ApplyLegacyViewport` (`MatchHud.Features.cs:100`),
   so `LayoutAt` alone lays out the bar scale and the minimap.
-- The spec's reference to `TacticalMapController.cs:396-397` is `:421-422` on the base; the spec's `MatchHud.cs:189-192` pulse code is
-  `MatchHud.Pulses.cs:31-35`.
+- The spec's `MatchHud.cs:189-192` pulse code is `MatchHud.Pulses.cs:31-35`.
 - The test file reads `_questTiles` (an `AbilityTile[]` of two) and `_pulses` (`List<(RectTransform Rect, float Start)>`), `_slots`
-  (`Button[]`), `RefreshQuestRewardHud`, `InputCue`, `ClearPulses`, `TickPulses`, `PulseSeconds`, `_questChoiceSpells`, `_chestFocus` by
+  (`Button[]`), `RefreshQuestRewardHud`, `InputCue`, `ClearPulses`, `TickPulses`, `PulseSeconds`, `_questChoiceSpells` by
   reflection: keep those names and types.
 
 Legacy doubts: none. Proposed DEVIATIONS row (owner signs): DEV-<n>, quest spells Shift and Q are ability tiles in the action row
-(legacy has no quest spells); keys 1 and 2 pick a weapon slot (this removes a difference from legacy).
+(legacy has no quest spells). Nothing else: the weapon slots lose their digit key caps because the owner removed the digit swap
+(P-QUEST25-CONTROLS), which is not a difference from legacy to sign.
 
 Fix pass (checker findings): (1) the tile's `Frame` Image child is now named in section 4 (the test reads it, so the spec states it);
 (2) the Cooling/Empty name rule is now stated as "deactivate the `Name` box or clear its text", which is what `NameShown` checks.
@@ -413,3 +412,35 @@ aliases, this addendum and section 7 govern. No test of the oracle reads those n
   pattern), not as `fillAmount` 0 on an enabled image.
 - Section 5's "any bar constant still declared there" for `MatchHud.Legacy.cs` means: none stays.
 
+
+### Fix pass 2 (oracle author, 2026-11-23, on the lane lead's decisions)
+
+1. **Outcome 4 is withdrawn and replaced.** The old outcome 4 (digit keys 1 and 2 send `Swap(0)` and `Swap(1)`) contradicted the owner direction
+   of 2026-11-18 that P-QUEST25-CONTROLS carried out (Space swaps, the digit keys do not; the HUD no longer describes digits as weapon swaps).
+   `UiInputRoutingEditModeTests.DigitKeysNoLongerSwapWeaponsOutsideChestChoice` pins that and stays green unchanged. The new outcome 4 is
+   "The weapon slots carry no digit key cap": `CreateWeaponBar` builds the cap as the box `Key` with the child `Label` under `Slot1` and `Slot2`
+   (`MatchHud.ActionBar.cs:71`, text `(i + 1).ToString()`); both go, the swap chip's `QSwap/Key/Label` ("Space") stays. `Net/MatchClient.cs` leaves
+   the write scope and must end identical to the base; the digit-key sentences were removed from the D-rules line, the legacy paths, the write
+   scope, the contracts, the proposed DEVIATIONS row and the notes. The implementation on `agent/sonnet/P-UI-ABILITY-ROW-1` adds a digit
+   handler to `MatchClient.cs` (+5 lines): the implementer reverts that file to the base when adapting.
+2. **Test 7 replaced.** `DigitKeysSelectTheWeaponSlot` (the `TrainingHudRig` test, with its `Task`, `UnityEngine.InputSystem` usings and keyboard
+   helpers; nothing else in the class used them) is replaced by `TheWeaponSlotsCarryNoDigitCap` (layout rig, 1280 x 800): `Slot1/Key/Label` and
+   `Slot2/Key/Label` are absent or have empty text, no label anywhere under `Slot1` or `Slot2` reads "1" or "2", and `QSwap/Key/Label` reads
+   "Space". Red on the stub on those assertions (the caps read "1" and "2"; the Space cap already passes).
+   Scratch run (the installed NUnit has no `Assert.Multiple`, so a catch-and-collect wrapper stood in for it; not committed): on the stub the
+   test lists the four cap assertions and no exception; against `agent/sonnet/P-UI-ABILITY-ROW-1` the other 16 tests of the class pass and this one
+   lists the same four (that implementation still builds the caps).
+3. **Existing tests that read the slot caps.** Searched `Assets/Tests/Editor` for the names `Key`, `Slot1`, `Slot2`, `SlotKey`, the texts "1" and "2" and
+   every `GetComponentsInChildren<TMP_Text>` walk. Only `HudTextScaleEditModeTests` reads them (inventory rows `SlotKey 1` and `SlotKey 2`, path
+   `Slot<n>/Key/Label`, whose `Add` asserts the label exists in `SetUp`, so without the amendment every test of the class would fail once the caps
+   go). `MatchHudIconPresentationEditModeTests`, `HudLegacyLayoutEditModeTests`, `ChampionPanelNumbersEditModeTests` read other children of the slots
+   (`Scaling/Label`, the rects) and are unaffected. The class's walks (`NoLabelOfTheMatchHudIsOptedOutOfTheSetting`) scan whatever labels exist.
+
+Amended expectations (owner approves; each in its own `oracle-amend:` commit):
+- `HudLegacyLayoutEditModeTests.WeaponBarIsCentredWithSlotsWishTileConsumablesAndSwapChip`: was bar width 318, now 458.
+- `HudTextScaleEditModeTests.TheInventoryCoversTheWholeMatchHud`: was `_entries.Count` 63, now 61. The two inventory rows `SlotKey 1` and `SlotKey 2`
+  (`Slot1/Key/Label`, `Slot2/Key/Label`, texts "1" and "2") are removed from `BuildInventory`, which is the fixture every test of the class
+  builds in `SetUp`; the commit holds both the rows and the count, because the rows alone would leave the count test red. No other test of the class
+  changes its expectation (they check whatever the inventory holds). P-UI-TOAST-LANES-1, already merged in the lane base but not in this branch,
+  changed one row of the same inventory (`Notice`, now read from `FeedbackLane/Toast0/Text`) without changing the count: the two edits touch
+  different lines of `BuildInventory` and the count line is untouched there, so the branches merge cleanly and the merged count stays 61.
