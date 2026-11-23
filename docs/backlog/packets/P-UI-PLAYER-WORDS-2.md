@@ -39,7 +39,7 @@ For each added enum, every defined value plus one undefined: `IsNamed` is true f
 
 ### Fit (`HudUi.Label` texts shrink, none is cut)
 
-Longer by at most: Wish tile name (60 x 26, wraps) +5 ("Blaze Step"), same on card and hint; pickup prompt +7 (21 characters; today's "F  swap Shield for Fists" is 24); build tip entry +11; banner, plate status, result note +15 (20 characters; today's "Planning — choose your spawn" is 28); `_combatStats` +14 (40 in all; sample 28); Ledger status +14; trader heading +7 (34); Ledger card tag line +14 (34 characters on card 65; card 56 grows +24, to 33); chest kind line +14 (46 characters on card 65). The Ledger tag line is the tight one (a 9 to 13 unit font in a box about 88 by 27 units at the narrowest cell): `LedgerWordsEditModeTests.GUARD_EveryCardTagLineFits` measures it at text scales 1 and 1.5.
+Longer by at most: Wish tile name (60 x 26, wraps) +5 ("Blaze Step"), same on card and hint; pickup prompt +7 (21 characters; today's "F  swap Shield for Fists" is 24); build tip entry +11; banner, plate status, result note +15 (20 characters; today's "Planning — choose your spawn" is 28); `_combatStats` +14 (40 in all; sample 28); Ledger status +14; trader heading +7 (34); Ledger card tag line +14 (34 characters on card 65; card 56 grows +24, to 33); chest kind line +14 (46 characters on card 65). The Ledger tag line is the tight one (a 9 to 13 unit font in a box about 88 by 27 units at the narrowest cell): `LedgerWordsEditModeTests.GUARD_EveryCardTagLineFits` measures it at text scale 1 in a 245 unit cell; the narrowest cell and text scale 1.5 are not covered, because the line overflows there with or without this packet (see "Spec deviation" under section 2).
 
 ## 2. Dependencies
 
