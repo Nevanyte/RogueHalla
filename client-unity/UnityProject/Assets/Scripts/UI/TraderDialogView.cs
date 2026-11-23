@@ -31,7 +31,9 @@ namespace Roguehalla.Client
         TradeView _renderedTrade;
         sealed class ViewRef { public TradeView View; }
         ViewRef _viewRef = new ViewRef();
-        string _renderedSignature = "";
+        TradeView _builtFrom;
+        int _sightCount = -1;
+        string _sightText = "";
         Action _onClose;
         uint _boundEpoch;
         int _selectedMerchant = -1;
@@ -100,7 +102,7 @@ namespace Roguehalla.Client
             _pending = false; _pendingText = "";
             _renderGeneration++;
             ClearTradePresentation("Looking for traders…");
-            _renderedTrade = null;
+            _renderedTrade = null; _builtFrom = null;
             Refresh();
         }
 
@@ -128,7 +130,7 @@ namespace Roguehalla.Client
                 _selectedMerchant = -1;
                 _pending = false; _pendingText = "";
                 ClearTradePresentation("No match in progress.");
-                _renderedTrade = null;
+                _renderedTrade = null; _builtFrom = null;
                 return;
             }
 
@@ -139,7 +141,7 @@ namespace Roguehalla.Client
                 _pending = false; _pendingText = "";
                 _renderGeneration++;
                 ClearTradePresentation("Looking for traders…");
-                _renderedTrade = null;
+                _renderedTrade = null; _builtFrom = null;
             }
 
             TradeView current = _session.Collections.Trade;
@@ -149,14 +151,13 @@ namespace Roguehalla.Client
                 // The server may deliver the same trade content again and again (every state frame while a merchant is in sight). Rebuilding
                 // the rows each time resets hover, keyboard focus and the colour tween (rows read as pale, half-faded greys), so an identical
                 // replacement only rebinds the rows to the new view object; the stale-row guard still compares object identity.
-                string signature = TradeSignature(current);
-                bool identical = current != null && current.Available && _renderedTrade != null && signature == _renderedSignature;
+                bool identical = current != null && current.Available && _builtFrom != null && SameContent(_builtFrom, current);
                 _renderedTrade = current;
                 _pending = false; _pendingText = "";
                 if (identical) _viewRef.View = current;
                 else
                 {
-                    _renderedSignature = signature; _viewRef = new ViewRef { View = current };
+                    _builtFrom = current; _viewRef = new ViewRef { View = current };
                     _renderGeneration++;
                     var oldSelection = _selectedMerchant;
                     int count = current != null && current.Available ? current.Merchants.Count : 0;
@@ -177,7 +178,7 @@ namespace Roguehalla.Client
                 current.Merchants[_selectedMerchant].Kind == TradeKind.Stats)
                 SetState("Stat trade used this run.");
             else if (current.TradeUsed) SetState("Stat trade used this run. Barter is still open.");
-            else SetState(current.Merchants.Count == 1 ? "1 trader in sight" : current.Merchants.Count + " traders in sight");
+            else SetState(current.Merchants.Count == 1 ? "1 trader in sight" : SightText(current.Merchants.Count));
 
             if (!(current != null && current.Available) || _selectedMerchant < 0)
             {
@@ -233,16 +234,30 @@ namespace Roguehalla.Client
             if (button.targetGraphic is UnityEngine.UI.Image image) image.canvasRenderer.SetColor(colors.normalColor);
         }
 
-        static string TradeSignature(TradeView v)
+        string SightText(int count)
         {
-            if (v == null) return "null";
-            if (!v.Available) return "unavailable";
-            var sb = new System.Text.StringBuilder().Append(v.TradeUsed ? 'u' : 'f').Append('|').Append(v.BarterReadyAt.HasValue ? v.BarterReadyAt.Value.ToString("R", CultureInfo.InvariantCulture) : "-");
-            foreach (var m in v.Merchants) sb.Append("|m").Append((int)m.Kind).Append(',').Append(m.X.ToString("R", CultureInfo.InvariantCulture)).Append(',').Append(m.Y.ToString("R", CultureInfo.InvariantCulture)).Append(',').Append(m.Name);
-            foreach (var o in v.Offers) sb.Append("|o").Append((int)o.Cost).Append((int)o.Gain).Append(',').Append(o.CostValue.ToString("R", CultureInfo.InvariantCulture)).Append(',').Append(o.GainValue.ToString("R", CultureInfo.InvariantCulture)).Append(',').Append(o.Label);
-            foreach (var d in v.Stats) sb.Append("|s").Append((int)d.Stat).Append(',').Append(d.Value.ToString("R", CultureInfo.InvariantCulture));
-            foreach (var l in v.BarterLabels) sb.Append("|b").Append(l);
-            return sb.ToString();
+            if (_sightCount != count) { _sightCount = count; _sightText = count + " traders in sight"; }
+            return _sightText;
+        }
+
+        /// <summary>True when two deliveries differ at most in merchants' positions (nothing in the window shows them).</summary>
+        static bool SameContent(TradeView a, TradeView b)
+        {
+            if (a.Available != b.Available || a.TradeUsed != b.TradeUsed || a.BarterReadyAt != b.BarterReadyAt) return false;
+            if (a.Merchants.Count != b.Merchants.Count || a.Offers.Count != b.Offers.Count ||
+                a.Stats.Count != b.Stats.Count || a.BarterLabels.Count != b.BarterLabels.Count) return false;
+            for (int i = 0; i < a.Merchants.Count; i++)
+                if (a.Merchants[i].Kind != b.Merchants[i].Kind || a.Merchants[i].Name != b.Merchants[i].Name) return false;
+            for (int i = 0; i < a.Offers.Count; i++)
+            {
+                var x = a.Offers[i]; var y = b.Offers[i];
+                if (x.Cost != y.Cost || x.Gain != y.Gain || x.CostValue != y.CostValue || x.GainValue != y.GainValue || x.Label != y.Label) return false;
+            }
+            for (int i = 0; i < a.Stats.Count; i++)
+                if (a.Stats[i].Stat != b.Stats[i].Stat || a.Stats[i].Value != b.Stats[i].Value) return false;
+            for (int i = 0; i < a.BarterLabels.Count; i++)
+                if (a.BarterLabels[i] != b.BarterLabels[i]) return false;
+            return true;
         }
 
         bool IsCurrentView(Session session, uint epoch, TradeView view, int generation)
