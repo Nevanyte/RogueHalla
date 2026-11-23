@@ -29,7 +29,6 @@ namespace Roguehalla.Client
         readonly List<UnityEngine.UI.Button> _actions = new List<UnityEngine.UI.Button>();
         QuestView _actionView;
         QuestRowView _actionRow;
-        RectTransform _actionList;
         int _visibleRowCount;
         Session _session;
         Action _onClose;
@@ -50,6 +49,18 @@ namespace Roguehalla.Client
         QuestRowView _hintRow; bool _hintFar; string _hintText = "";
         QuestHandle? _markedSelected; bool _rowsNeedMark = true;
         bool _acceptShowsPending;
+        RectTransform _textFrame, _strip, _stripContent;
+        UnityEngine.UI.ScrollRect _stripScroll;
+        ScrollIndicator _textIndicator, _stripIndicator;
+        UnityEngine.UI.Button _abandon;
+        TMP_Text _abandonLabel, _trackLabel;
+        GameObject[] _emptyHidden;
+        int _hasState = -1, _stripRows;
+        QuestHandle? _stripQuest, _renderedHandle, _abandonQuest;
+        bool _abandonArmed;
+        string _abandonDelivered = "Abandon", _stateText;
+        int _stateTextCount = -1;
+        const string ArmedText = "Confirm abandon";
 
         public RectTransform Root => _root;
         public bool IsVisible => _root != null && _root.gameObject.activeSelf;
@@ -67,13 +78,13 @@ namespace Roguehalla.Client
             _state = MythicUi.Text(_card, "JournalState", "Waiting for quest data…", new Vector2(.035f, .75f), new Vector2(.965f, .80f), 16, ShowcasePalette.MutedText);
             _scroll = CreateScroll(_card, new Vector2(.035f, .05f), new Vector2(.43f, .73f), out _content);
             var detail = MythicUi.Panel(_card, "QuestDetail", new Vector2(.455f, .05f), new Vector2(.965f, .73f), ShowcasePalette.PanelRaised); // a lifted slate well, not the near-black sunken token
-            MythicUi.Text(detail, "DetailHeading", "QUEST DETAILS", new Vector2(.025f, .84f), new Vector2(.975f, .99f), 19, ShowcasePalette.Text);
-            _detailScroll = CreateReadingScroll(detail, new Vector2(.025f, .20f), new Vector2(.975f, .81f), out _detailContent);
+            MythicUi.Text(detail, "DetailHeading", "QUEST DETAILS", new Vector2(.025f, .885f), new Vector2(.975f, .99f), 19, ShowcasePalette.Text);
+            _detailScroll = CreateReadingScroll(detail, new Vector2(.025f, .20f), new Vector2(.975f, .87f), out _detailContent);
+            _textFrame = (RectTransform)_detailScroll.transform;
             _detailName = CreateQuestField(_detailContent, "QuestName", "QUEST NAME", 18, ShowcasePalette.Text);
             _objective = CreateQuestField(_detailContent, "QuestObjective", "OBJECTIVE", 17, ShowcasePalette.Text);
             _giver = CreateQuestField(_detailContent, "QuestGiver", "GIVER", 16, ShowcasePalette.Gold);
             _brief = CreateQuestField(_detailContent, "QuestBrief", "BRIEF", 17, ShowcasePalette.MutedText);
-            _actionList = CreateActionList(_detailContent, "QuestActions");
             _reward = CreateQuestField(_detailContent, "QuestReward", "REWARD", 16, ShowcasePalette.Text);
             _participants = CreateQuestField(_detailContent, "QuestParticipants", "PARTICIPANTS", 15, ShowcasePalette.Text);
             _status = MythicUi.Text(detail, "QuestStatus", "", new Vector2(.025f, .115f), new Vector2(.975f, .20f), 15, ShowcasePalette.MutedText);
@@ -83,6 +94,18 @@ namespace Roguehalla.Client
             _acceptHint.gameObject.SetActive(false);
             _accept = MythicUi.Button(detail, "AcceptQuest", "ACCEPT QUEST", new Vector2(.52f, .025f), new Vector2(.965f, .12f), () => { }, MythicUi.ButtonStyle.Primary);
             _acceptLabel = _accept.GetComponentInChildren<TMP_Text>(true);
+            _abandon = MythicUi.Button(detail, "AbandonQuest", _abandonDelivered, new Vector2(.52f, .025f), new Vector2(.965f, .12f), () => { }, MythicUi.ButtonStyle.Secondary);
+            _abandonLabel = _abandon.GetComponentInChildren<TMP_Text>(true);
+            _abandon.gameObject.SetActive(false);
+            _trackLabel = _track.GetComponentInChildren<TMP_Text>(true);
+            _strip = CreateStrip(detail, out _stripScroll, out _stripContent);
+            _textIndicator = new ScrollIndicator(_detailScroll, _textFrame);
+            _stripIndicator = new ScrollIndicator(_stripScroll, _strip);
+            _emptyHidden = new[]
+            {
+                _detailName.transform.parent.Find("FieldLabel").gameObject, _objective.transform.parent.gameObject, _giver.transform.parent.gameObject,
+                _reward.transform.parent.gameObject, _participants.transform.parent.gameObject,
+            };
             _root.gameObject.SetActive(false);
             RenderSelection();
         }
@@ -141,7 +164,6 @@ namespace Roguehalla.Client
             var label = MythicUi.Text(field, "FieldLabel", labelText, Vector2.zero, Vector2.one, 12, ShowcasePalette.Gold);
             label.enableAutoSizing = false; label.enableWordWrapping = false; label.fontSizeMin = label.fontSize; label.fontSizeMax = label.fontSize;
             label.rectTransform.anchorMin = new Vector2(0, 1); label.rectTransform.anchorMax = Vector2.one; label.rectTransform.pivot = new Vector2(.5f, 1f);
-            var labelHeight = label.gameObject.AddComponent<UnityEngine.UI.LayoutElement>(); labelHeight.minHeight = 22; labelHeight.preferredHeight = 22;
 
             var value = MythicUi.Text(field, "Value", "", Vector2.zero, Vector2.one, size, color);
             value.enableAutoSizing = false; value.enableWordWrapping = true; value.alignment = TextAlignmentOptions.TopLeft;
@@ -151,14 +173,26 @@ namespace Roguehalla.Client
             return value;
         }
 
-        internal static RectTransform CreateActionList(Transform parent, string name)
+        /// <summary>The quest's own actions: a window of at most two rows onto a list, outside the details scroll.</summary>
+        static RectTransform CreateStrip(Transform parent, out UnityEngine.UI.ScrollRect scroll, out RectTransform content)
         {
-            var list = MythicUi.Rect(parent, name, new Vector2(0, 1), Vector2.one, Vector2.zero, Vector2.zero);
-            list.pivot = new Vector2(.5f, 1f);
-            var layout = list.gameObject.AddComponent<UnityEngine.UI.VerticalLayoutGroup>();
-            layout.spacing = 5; layout.childControlWidth = true; layout.childControlHeight = true;
-            layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
-            return list;
+            var frame = MythicUi.Rect(parent, "QuestActions", new Vector2(.025f, .20f), new Vector2(.975f, .20f));
+            frame.pivot = new Vector2(.5f, 0f); frame.anchoredPosition = Vector2.zero; frame.sizeDelta = Vector2.zero;
+            scroll = frame.gameObject.AddComponent<UnityEngine.UI.ScrollRect>();
+            scroll.horizontal = false; scroll.vertical = true; scroll.movementType = UnityEngine.UI.ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 36; scroll.inertia = true;
+            var viewport = MythicUi.Rect(frame, "Viewport", Vector2.zero, Vector2.one);
+            var image = viewport.gameObject.AddComponent<UnityEngine.UI.Image>(); image.color = Color.clear; image.raycastTarget = true;
+            viewport.gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
+            content = MythicUi.Rect(viewport, "Content", new Vector2(0, 1), Vector2.one, Vector2.zero, Vector2.zero);
+            content.pivot = new Vector2(.5f, 1f);
+            var stack = content.gameObject.AddComponent<UnityEngine.UI.VerticalLayoutGroup>();
+            stack.padding = new RectOffset(8, 8, 0, 0); stack.spacing = QuestActionStrip.RowGap; stack.childAlignment = TextAnchor.UpperCenter;
+            stack.childControlWidth = true; stack.childControlHeight = true; stack.childForceExpandWidth = true; stack.childForceExpandHeight = false;
+            content.gameObject.AddComponent<UnityEngine.UI.ContentSizeFitter>().verticalFit = UnityEngine.UI.ContentSizeFitter.FitMode.PreferredSize;
+            scroll.viewport = viewport; scroll.content = content;
+            frame.gameObject.SetActive(false);
+            return frame;
         }
 
         internal static UnityEngine.UI.Button ActionButton(List<UnityEngine.UI.Button> buttons, RectTransform parent, int index)
@@ -232,7 +266,12 @@ namespace Roguehalla.Client
                 SetRows(_visibleRowCount); _rowsNeedMark = true;
                 _scroll.verticalNormalizedPosition = scrollPosition;
             }
-            _state.text = _visibleRowCount == 0 ? "No quests are currently available." : _visibleRowCount + " quest" + (_visibleRowCount == 1 ? "" : "s");
+            if (_stateTextCount != _visibleRowCount)
+            {
+                _stateTextCount = _visibleRowCount;
+                _stateText = _visibleRowCount == 0 ? "No quests are currently available." : _visibleRowCount + " quest" + (_visibleRowCount == 1 ? "" : "s");
+            }
+            SetText(_state, _stateText);
             RenderSelection();
         }
 
@@ -267,7 +306,10 @@ namespace Roguehalla.Client
         QuestRowView Find(QuestHandle handle)
         {
             if (_view == null || !_view.Available) return null;
-            var row = QuestPresentation.FindRow(_view, handle);
+            QuestRowView row = null;
+            var rows = _view.Rows;
+            for (int i = 0; i < rows.Count; i++)
+                if (rows[i].Handle.Equals(handle)) { row = rows[i]; break; }
             return row != null && QuestPresentation.ShowsOffer(row) ? row : null;
         }
 
@@ -294,14 +336,25 @@ namespace Roguehalla.Client
         {
             QuestRowView q = _selected.HasValue ? Find(_selected.Value) : null;
             bool has = q != null;
-            _detailName.text = has ? q.Name : "Select a quest";
-            _giver.text = has ? q.GiverLabel : "";
-            _brief.text = has ? q.Brief : "";
+            if (_hasState != (has ? 1 : 0))
+            {
+                _hasState = has ? 1 : 0;
+                for (int i = 0; i < _emptyHidden.Length; i++) _emptyHidden[i].SetActive(has);
+            }
+            SetText(_detailName, has ? q.Name : "Select a quest");
+            SetText(_giver, has ? q.GiverLabel : "");
+            SetText(_brief, has ? q.Brief : "");
             bool showBrief = has && QuestJournalCopy.ShowsBrief(q);
             if (_brief.transform.parent.gameObject.activeSelf != showBrief) _brief.transform.parent.gameObject.SetActive(showBrief);
-            _objective.text = has ? q.Objective : "";
-            _reward.text = has ? q.Reward : "";
-            _participants.text = has ? ParticipantCopyCached(_view, q) : "";
+            SetText(_objective, has ? q.Objective : "");
+            SetText(_reward, has ? q.Reward : "");
+            SetText(_participants, has ? ParticipantCopyCached(_view, q) : "");
+            QuestHandle? effective = has ? q.Handle : (QuestHandle?)null;
+            if (!QuestPresentation.SameHandle(effective, _renderedHandle))
+            {
+                _renderedHandle = effective;
+                _detailScroll.StopMovement(); _detailContent.anchoredPosition = Vector2.zero;
+            }
             if (!has)
             {
                 _participantCacheView = null; _participantCacheRow = null; _participantCacheText = null;
@@ -312,7 +365,7 @@ namespace Roguehalla.Client
             MarkRows();
             RenderActions(q);
             _track.interactable = has && IsCurrentView(_session, _boundEpoch, _view);
-            _track.GetComponentInChildren<TMP_Text>().text = _tracked.HasValue && has && _tracked.Value.Equals(q.Handle) ? "STOP TRACKING" : "TRACK OBJECTIVE";
+            SetText(_trackLabel, _tracked.HasValue && has && _tracked.Value.Equals(q.Handle) ? "STOP TRACKING" : "TRACK OBJECTIVE");
             _accept.gameObject.SetActive(has && q.CanAccept);
             if (_acceptShowsPending != acceptPending)
             {
@@ -338,7 +391,10 @@ namespace Roguehalla.Client
 
         void RenderStatus(QuestRowView q, bool acceptPending)
         {
-            bool reward = QuestPresentation.IsPending(_view, q.Handle);
+            bool reward = false;
+            if (_view != null)
+                for (int i = 0; i < _view.Pending.Count; i++)
+                    if (_view.Pending[i].Equals(q.Handle)) { reward = true; break; }
             int seconds = -1;
             if (q.ExpiresAt > 0)
             {
@@ -353,7 +409,7 @@ namespace Roguehalla.Client
                 bool holds = q.OwnerAccepted || acceptPending || reward;
                 _status.color = holds ? ShowcasePalette.Text : ShowcasePalette.MutedText;
             }
-            if (!ReferenceEquals(_status.text, _statusText) && _status.text != _statusText) _status.text = _statusText;
+            SetText(_status, _statusText);
         }
 
         void RenderHint(QuestRowView q, bool buttonHidden)
@@ -374,7 +430,7 @@ namespace Roguehalla.Client
                     _hintText = QuestJournalCopy.Hint(q, far ? double.NaN : 0d);
                 }
                 show = _hintText.Length > 0;
-                if (show && _acceptHint.text != _hintText) _acceptHint.text = _hintText;
+                if (show) SetText(_acceptHint, _hintText);
             }
             else _hintRow = null;
             if (_acceptHint.gameObject.activeSelf != show) _acceptHint.gameObject.SetActive(show);
@@ -388,22 +444,38 @@ namespace Roguehalla.Client
                 MythicUi.Select(_rows[i].Button, _selected.HasValue && _selected.Value.Equals(_rows[i].Handle));
         }
 
+        static void SetText(TMP_Text label, string value)
+        {
+            value = value ?? string.Empty;
+            string current = label.text;
+            if (!ReferenceEquals(current, value) && current != value) label.text = value;
+        }
+
         void RenderActions(QuestRowView row)
         {
             if (ReferenceEquals(_actionView, _view) && ReferenceEquals(_actionRow, row)) return;
             _actionView = _view; _actionRow = row;
             int used = 0;
+            bool haveAbandon = false;
+            QuestActionView abandon = default(QuestActionView);
             if (row != null)
             {
                 var session = _session;
                 uint epoch = _boundEpoch;
                 QuestView view = _view;
-                foreach (var action in view.Actions)
+                var actions = view.Actions;
+                for (int a = 0; a < actions.Count; a++)
                 {
-                    if (!action.Quest.Equals(row.Handle) || action.Action == QuestPresentation.RewardChoice ||
-                        action.Action == QuestPresentation.PickupReward) continue;
-                    var button = ActionButton(_actions, _actionList, used++);
-                    button.GetComponentInChildren<TMP_Text>(true).text = action.Label;
+                    QuestActionView action = actions[a];
+                    if (!action.Quest.Equals(row.Handle)) continue;
+                    if (action.Action == QuestPresentation.Abandon)
+                    {
+                        if (!haveAbandon) { haveAbandon = true; abandon = action; }
+                        continue;
+                    }
+                    if (action.Action == QuestPresentation.RewardChoice || action.Action == QuestPresentation.PickupReward) continue;
+                    var button = ActionButton(_actions, _stripContent, used++);
+                    SetText(button.GetComponentInChildren<TMP_Text>(true), action.Label);
                     button.onClick.RemoveAllListeners();
                     button.onClick.AddListener(() =>
                     {
@@ -418,6 +490,52 @@ namespace Roguehalla.Client
                 _actions[i].onClick.RemoveAllListeners();
                 _actions[i].gameObject.SetActive(false);
             }
+            LayoutStrip(row, used);
+            RenderAbandon(row, haveAbandon, abandon);
+        }
+
+        void LayoutStrip(QuestRowView row, int used)
+        {
+            int rows = Math.Min(used, QuestActionStrip.MaxRows);
+            QuestHandle? quest = row != null ? row.Handle : (QuestHandle?)null;
+            if (!QuestPresentation.SameHandle(quest, _stripQuest))
+            {
+                _stripQuest = quest;
+                _stripScroll.StopMovement(); _stripContent.anchoredPosition = Vector2.zero;
+            }
+            if (rows == _stripRows) return;
+            _stripRows = rows;
+            _strip.sizeDelta = new Vector2(_strip.sizeDelta.x, QuestActionStrip.Height(rows));
+            _strip.gameObject.SetActive(rows > 0);
+            _textFrame.offsetMin = new Vector2(_textFrame.offsetMin.x, QuestActionStrip.ScrollBottom(rows));
+        }
+
+        void RenderAbandon(QuestRowView row, bool have, QuestActionView abandon)
+        {
+            if (!have)
+            {
+                _abandonArmed = false; _abandonQuest = null;
+                if (_abandon.gameObject.activeSelf) { _abandon.onClick.RemoveAllListeners(); _abandon.gameObject.SetActive(false); }
+                SetText(_abandonLabel, _abandonDelivered);
+                return;
+            }
+            if (!QuestPresentation.SameHandle(row.Handle, _abandonQuest)) _abandonArmed = false;
+            _abandonQuest = row.Handle; _abandonDelivered = abandon.Label ?? string.Empty;
+            var session = _session; uint epoch = _boundEpoch; QuestView view = _view;
+            _abandon.onClick.RemoveAllListeners();
+            _abandon.onClick.AddListener(() => PressAbandon(session, epoch, view, abandon));
+            WriteAbandonLabel();
+            if (!_abandon.gameObject.activeSelf) _abandon.gameObject.SetActive(true);
+        }
+
+        void WriteAbandonLabel() => SetText(_abandonLabel, _abandonArmed ? ArmedText : _abandonDelivered);
+
+        void PressAbandon(Session session, uint epoch, QuestView view, QuestActionView action)
+        {
+            if (!(_selected.HasValue && _selected.Value.Equals(action.Quest) && IsCurrentView(session, epoch, view))) return;
+            if (!_abandonArmed) { _abandonArmed = true; WriteAbandonLabel(); return; }
+            _abandonArmed = false; WriteAbandonLabel();
+            QuestPresentation.TrySend(session, epoch, view, action.Quest, action.Action, action.Target);
         }
 
         static string ParticipantCopy(QuestView view, QuestRowView quest)
@@ -486,6 +604,7 @@ namespace Roguehalla.Client
             if (_root == null) return;
             _root.gameObject.SetActive(visible);
             if (visible) { _root.SetAsLastSibling(); _scroll.StopMovement(); }
+            else if (_abandonArmed) { _abandonArmed = false; WriteAbandonLabel(); }
         }
 
         void ClearTracked()
