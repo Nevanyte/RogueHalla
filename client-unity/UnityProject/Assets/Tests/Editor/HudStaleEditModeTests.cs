@@ -563,6 +563,11 @@ namespace Roguehalla.Client.Tests
             HudGarbageRig.Call(hud, "ApplyFolds", false, false);
 
             // (g) After a theme switch an equal summary in a fresh object recolours the muted and the primary cells (guard).
+            // First settle on a summary whose muted cells already read 0, so the next one changes no raw value: only the key can force the rewrite.
+            var settled = Summary(BaseGains, typed.MobRows);
+            Deliver(settled);
+            var cellsSettled = BuildHudText.Cells(settled);
+            Assert.That(cellsSettled.Any(c => c.Dim) && cellsSettled.Any(c => !c.Dim), Is.True, "set-up: the settled summary has muted and primary cells");
             _theme = UiTheme.Skin();
             _theme.TextPrimary = new Color32(11, 22, 33, 255);
             _theme.TextSecondary = new Color32(44, 55, 66, 255);
