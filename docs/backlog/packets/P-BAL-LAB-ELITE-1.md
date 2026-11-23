@@ -258,3 +258,17 @@ update it for the new buckets (not pinned). Nothing needs an `oracle-amend`.
 ## Notes from previous attempts
 
 None.
+
+## Coordinator's answers (2026-11-23)
+
+- **No schema bump:** the report stays `balance-lab/1`; `NOTES` and the README say that `died` and
+  `taken_by_other` are narrower than before.
+- **The chest's "killer" is the killing blow,** as decided here, and `NOTES` says so and says that the sim gives
+  the first pick to the seat with the most damage, which may be another seat. If the pilot shows the two differ
+  often, P-BAL-LAB-2 adds the damage leader beside it; nothing here needs to.
+- **The two release-only tests** are part of acceptance: the implementer pastes the result of
+  `cargo test --release --locked -p rh-headless --test balance_lab_elite`, and the reviewer runs it again. The
+  coordinator's full gate does not run them (its debug run skips them, as it skips the other release-only lab
+  tests).
+- **Recognising an elite's chest** is the implementer's design within the write scope; it says in the hand-off how
+  it tells an elite's chest from a ground chest near the camp, and what would fool it.
