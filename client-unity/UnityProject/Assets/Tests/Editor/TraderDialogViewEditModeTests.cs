@@ -241,7 +241,7 @@ namespace Roguehalla.Client.Tests
                 Assert.AreEqual(0, _view.ChoiceCount);
                 Assert.AreEqual(-1, _view.SelectedMerchantIndex);
                 Assert.IsFalse(_canvas.GetComponentsInChildren<TMP_Text>().Any(x => x.text.Contains("Old merchant")));
-                StringAssert.Contains("awaiting trade view", _canvas.transform.Find("TraderDialog/Status").GetComponent<TMP_Text>().text);
+                StringAssert.Contains("Looking for traders…", _canvas.transform.Find("TraderDialog/Status").GetComponent<TMP_Text>().text);
                 Assert.IsFalse(_view.TryTrade(TradeKind.Barter, 1));
                 next.FlushInput();
                 Assert.IsFalse(nextTransport.Sent.Where(x => x.Length > 0 && x[0] == 2)
