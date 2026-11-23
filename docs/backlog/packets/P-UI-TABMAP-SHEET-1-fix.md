@@ -81,4 +81,13 @@ Small, one method. implementer-sonnet; reviewer (not Opus): no Rust, no wire, no
 - The spec's test 2 (`AChangeStillReachesTheHeader`) is green on the base and says so in its summary: it guards a sticking cache. The layout-change step
   shrinks the stage to 640x480 units and runs a frame, then asserts the long phase line is dropped.
 - No stub commit: both tests compile against the base.
-- Result of the run: recorded below.
+- Deviation from the spec's meter: `GC.GetAllocatedBytesForCurrentThread()` returns 0 in this editor's Mono even for a control that allocates
+  (measured: 0 after 20000 string concatenations), so a test using it passes on any code. `ChampionPanelNoGarbageEditModeTests` uses it and is therefore
+  vacuous here (not changed by this packet; for the owner's information). The oracle measures `Profiler.GetMonoUsedSizeLong()` after `GC.Collect()`
+  over 20000 calls (it moves in 16 KB steps), and first asserts a control allocation of the same kind registers (over 100000 bytes), so the meter is proven live.
+- Run on the stub (= base) with `unity-class.sh`:
+  - `AnUnchangedHeaderAllocatesNothing`: RED on the assertion "20000 calls of PresentHeader with nothing changed allocated 8429568 bytes"
+    (expected less than 32768).
+  - `AChangeStillReachesTheHeader`: green on the base, as designed.
+  - `TabMapSheetEditModeTests`, `TabMapFlowEditModeTests`, `TabMapVisualFix3EditModeTests`, `TacticalMapEditModeTests`: green (40 cases).
+- The implementer must reach 0 steady allocation on every call, including `Preferred`/label writes only on change; the 32768 limit leaves room only for meter noise.
