@@ -253,7 +253,45 @@ EditMode `QuestJournalDetailsEditModeTests` (a NEW class; see the file's header 
 
 ## Oracle files (read-only for implementers)
 
-(completed in the oracle commit)
+- `client-unity/RoguehallaNet.Tests/QuestActionStripTests.cs`
+- `client-unity/RoguehallaNet.Tests/ScrollThumbTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/QuestJournalDetailsEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/QuestJournalDetailsEditModeTests.cs.meta`
+- `client-unity/UnityProject/Assets/Tests/Editor/QuestJournalViewEditModeTests.cs` (one amended line, its own `oracle-amend:` commit, below)
+- `docs/backlog/packets/P-UI-JOURNAL-DETAILS-1.md`
+
+### Amended expectation, for the owner (a re-statement, not a loosening)
+
+`QuestJournalViewEditModeTests.JournalUsesExactProjectedChoicesAndRevokesThemBeforeRefresh`, line 89: the list was found at
+`QuestDetail/QuestTextScroll/Viewport/Content/QuestActions`; it is now found at `QuestDetail/QuestActions/Viewport/Content`
+(the strip, outside the scroll). Everything else of the test (labels, the stale-callback revocation, the one sent
+command) is unchanged. It is red on the stub by design and green once the strip exists.
+
+### Red tests on the stub (what each fails on)
+
+dotnet: `QuestActionStripTests.HeightsFollowTheCountAndStopAtTwoRows` (Height 1 is 0, not 44);
+`ScrollThumbTests.TheThumbIsShownOnlyWhileTheContentIsTaller` and `TheLengthIsViewport...` (`Compute` returns false).
+
+EditMode `QuestJournalDetailsEditModeTests` (16 cases, all red on the stub, each on an assertion, none on an exception):
+- `RewardStandsUnderTheGiverWhateverTheActions`: giver to reward is 20, 64, 113 (not 10).
+- `NoActionIsInTheScrollOrOverlapsTheRest`: `Action0` is inside the details scroll.
+- `AbandonStandsInTheFooterAndTheDeliveredTuplesAreSent`: no object `QuestActions/Viewport/Content`.
+- `TheStripHeightFollowsTheOwnActionsAndTheScrollFollowsTheStrip`: no object `QuestDetail/QuestActions`.
+- `NothingSelectedShowsOneLineOfGuidance`: the `QuestName` heading is active before a selection.
+- `NoHeadingIsTallerThanItsRowAndNothingOverlaps(1)`: red on the base too (not a standing guard): a heading needs 24.56,
+  its row is 22. `(1.5)`: needs 36.83 of 22.
+- `TheHeadingsAreRightWhenTheJournalOpensAfterDeliveriesWhileHidden`: needs 36.83 of 22; giver to reward 113.
+- `TheScrollReturnsToTheTopWhenTheSelectionChanges`: position stays .2 after `SelectQuest` of another quest.
+- `TheIndicatorShowsOnlyWhileTheContentIsTaller`: no object `QuestTextScroll/ScrollIndicator`.
+- `AnUnchangedRefreshWritesNoRectAndAllocatesNothing`: no object `QuestDetail/QuestActions`. On the base the meter reports
+  1200 GC.Alloc samples in its quietest measurement of 200 calls (6 per call) for the settled refresh.
+- `ADeliveryThatChangesNothingShownWritesNoRectAndKeepsTheStripScroll`: no object `QuestDetail/QuestActions`.
+- `ADoubleClickOnAcceptNeverAbandons`, `AbandonIsArmedUntilSomethingChanges`, `TheArmedTextFitsTheButton(1, 1.5)`: no
+  object `QuestDetail/AbandonQuest`.
+
+Existing classes run on the stub and green before the amend: `QuestJournalViewEditModeTests` and
+`QuestJournalPolishEditModeTests` (17 tests together with the 16 red ones: 33 run, 17 passed). After the amend the one
+amended test is red until the strip exists.
 
 ## 11. Known traps
 
@@ -277,6 +315,37 @@ EditMode `QuestJournalDetailsEditModeTests` (a NEW class; see the file's header 
 
 ## Notes from the oracle author
 
-(completed in the oracle commit)
+- **Measured on the base** (Unity probe, not committed): a button made by `ActionButton` is 44.0 high and 690.98 wide
+  (the spec's 44 and 691 hold, so 93 and 2935 are right). The armed text "Confirm abandon" in a button of the
+  `AcceptQuest` rectangle (label box 319.2 x 49.5, `MythicUi.Button` font 16, scale applies 24 at 1.0 and 36 at 1.5):
+  one line at both sizes. At 1.0: needs 185 x 32.7 at the largest size (limit 281 wide, 49.5 high), 157 x 27.8 at the
+  smallest. At 1.5: 278 x 49.1 at the largest (just inside 281 and 49.5), 236 x 41.7 at the smallest. The old wording
+  "Press again to abandon" at 1.5 needs 98 high (it wraps), which confirms the lane lead's ruling. Test 13 asserts the
+  height at the smallest size the auto-size may reach (a wrap at the smallest size would still fail it: two lines are
+  55.6 at 1.0).
+- **The setter does not raise `onValueChanged`**: measured on a plain `ScrollRect` (`verticalNormalizedPosition = .3f`
+  raised 0 events), so test 8 keeps the line "position set and `Refresh()` called without the event: the handle stays".
+- **Heading height**: the spec said 27 against 22 at 1.5; the label's preferred height is 36.83 (27 is the font size) and
+  24.56 at 1.0, so the 1.0 case is red on the base and is not a standing guard. The tolerance is .5 as in the spec.
+- **"not `Content` among its ancestors"** (spec test 2): the strip's own list is also named `Content`
+  (`QuestActions/Viewport/Content`), so the test reads it as "not under `QuestTextScroll`" (the details pane), the
+  intended meaning.
+- **Guards**: in `NoActionIsInTheScrollOrOverlapsTheRest` the `AbandonQuest` versus `QuestStatus` check is a standing
+  guard (gap .08 units) and is named so in the test; `QuestStatus`, `TrackQuest`, `AcceptQuest`, `AcceptHint` anchors in
+  test 4 and "consecutive fields do not overlap" in test 6 are green on the base by design, inside red tests. The rig
+  asserts `QuestDetail` is 583.8 +/- 1 high (the units of this packet).
+- **Test 10 (c)** carries one assertion not in the spec: after setting the strip to .4 again its content offset is above
+  100, so the reset in `SelectQuest` of the second quest is not satisfied by an offset that was already 0.
+- **Scratch run done** (one per new EditMode class, not committed): a copy of the class with every assertion wrapped in a
+  catch-and-collect helper, a missing object answered by a dummy, and the base's real journal. All 17 cases ran to the
+  end. Every entry was an assertion about the missing behaviour (a missing object, a wrong rect, a wrong text, 1200
+  allocation samples); the only non-assertion exceptions were null references reading a command that was never sent
+  (`LastCommand()` after a missing Abandon), which I fixed by returning from `AssertLast` after its own not-null check.
+  Lines that act on `AbandonQuest`, the strip and `ScrollIndicator` can only be exercised against dummies on the stub,
+  so their expected values (the arm sequence of 11 and 12, the strip offsets of 10, the handle anchors of 8) were
+  checked against this packet's rules by reading, not by a passing run. After that run test 10 (c) got its rig
+  assertion and `AssertLast` got its quest argument; the class was compiled and run once more (16 red on assertions).
+  The dotnet pair was also run against a throwaway correct implementation (3 green) and the stub restored.
+- `ScrollIndicator.cs` is not stubbed; no test names the type.
 
 ## Notes from previous attempts
