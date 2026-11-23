@@ -285,5 +285,13 @@ test 8 covers the arithmetic.
   Carry pass's allocations are measured by no test; the real-order case (names built hidden, then shown) is covered only by the
   Tab-map cut in glide test 3.
 
+**Oracle correction (2026-11-23, called back by the implementer).** `NameAnchorGlideTests.EverySnapTakesTheTargetAtOnce`,
+case "a key never seen": the shared `check` read the residual of key 1, but that case steps only key 2 in its last frame,
+and `End()` drops every key not stepped (this packet says so, and the next case pins it), so no implementation could
+satisfy both. `check` now takes the key the snap frame stepped (1 for every case but "a key never seen", which passes 2)
+and asserts that key's residual is 0. Nothing else changed and no assertion was weakened. A scratch run with failures
+collected, on the agent branch, listed this one line as the only defect of the test (the later cases and the dt 1e-4
+block all held).
+
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
