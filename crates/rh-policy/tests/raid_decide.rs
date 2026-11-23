@@ -710,7 +710,7 @@ fn scripted_bargain(seed: u64, gift: &Gift, trade: (u8, u8)) -> Outcome {
 
 /// The Bargain scenes prove which trade the bot makes, not that The Bargain outbids the rest of the map. Since
 /// P-RAID-Q3-fix the candidate is worth the chosen trade's own gain (about 1.1 to 1.3 camp-equivalents), not the table
-/// row's 2.7, and under the default prices another quest or a camp outbids it on these maps. This table keeps the
+/// row's 2.7, and under the default prices a richer quest outbids it on these maps (camps do not). This table keeps the
 /// scenes on the decision: The Bargain's row stays (it gates the candidate), every other quest and augment is 0.
 fn bargain_prices() -> Prices {
     Prices {
