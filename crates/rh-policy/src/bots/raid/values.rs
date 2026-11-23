@@ -56,6 +56,9 @@ pub struct SustainPrices {
     pub hurt_seconds: f64,
     /// Share of max hp the sim regenerates a second after the quiet spell (`PLAYER_REGEN_SHARE_OUT`).
     pub regen_per_second: f64,
+    /// A stand ends once hp is this share of max hp below the most it held since the stand began (a fall from a source the
+    /// hold does not see; the sim regenerates 0.008 a second, so 0.03 is four seconds of regeneration lost at once).
+    pub fall_share: f64,
 }
 
 impl SustainPrices {
@@ -81,6 +84,7 @@ impl SustainPrices {
         regen_per_second: 0.008,
         heal_seconds: 5.,
         hurt_seconds: 3.,
+        fall_share: 0.03,
     };
     pub const LOCAL: Self = Self {
         on: true,
@@ -96,6 +100,7 @@ impl SustainPrices {
         regen_per_second: 0.008,
         heal_seconds: 5.,
         hurt_seconds: 3.,
+        fall_share: 0.03,
     };
 }
 

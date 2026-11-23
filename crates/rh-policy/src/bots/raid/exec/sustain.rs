@@ -48,6 +48,11 @@ pub struct Sustain {
     /// Potions held the frame before (large, small) and the shares of the heals still running, newest last.
     prev_stock: (u8, u8),
     hots: Vec<f64>,
+    /// The hold (P-RAID-HOLD-1): the highest hp share held since the stand began, where the seat stood the frame before
+    /// and the way it last moved (a unit step). All cleared when the goal is not Sustain.
+    stand_hp: Option<f64>,
+    last_at: Option<Vec2>,
+    heading: Option<Vec2>,
 }
 
 /// What the current fight has cost and bought (units: shares of the bot's max hp, members' worth of hp).
@@ -134,6 +139,19 @@ impl Sustain {
         }
     }
 
+    /// Keep the way the seat last moved (a unit step), for a retreat from a source nobody sees.
+    fn move_trail(&mut self, cx: &Cx<'_>) {
+        let at = cx.p.me.at;
+        if let Some(prev) = self.last_at {
+            let (dx, dy) = (at.x - prev.x, at.y - prev.y);
+            let len = (dx * dx + dy * dy).sqrt();
+            if len > 1e-6 {
+                self.heading = Some(Vec2::new(dx / len * STEP_U, dy / len * STEP_U));
+            }
+        }
+        self.last_at = Some(at);
+    }
+
     /// The bot is in a fight rather than near one: it lost hp lately, or a member stands within reach on the camp it
     /// works (a camp passed at a distance, or the bow range of one, is not a fight).
     fn in_fight(cx: &Cx<'_>, hurt_at: Option<f64>) -> bool {
@@ -148,6 +166,46 @@ impl Sustain {
                 .mobs
                 .iter()
                 .any(|m| m.alive && m.class == MobClass::Regional && cx.p.dist(m.at) <= FIGHT_U))
+    }
+
+    /// Something hurts the seat: a hit or a hp fall within `hurt_seconds`, or hp down by more than `fall_share` since the
+    /// stand began (any source: a mob out of the hold's view, another player, a damage-over-time effect).
+    fn hurt(&self, cx: &Cx<'_>) -> bool {
+        let s = &cx.prices.sustain;
+        self.hurt_at
+            .is_some_and(|t| cx.p.now - t <= s.hurt_seconds * 1_000.)
+            || self
+                .stand_hp
+                .is_some_and(|top| cx.p.me.hp_share() < top - s.fall_share)
+    }
+
+    /// Where the seat moves to get away: from the nearest visible threat of any class (a mob, or a player of another
+    /// faction), else along the way it last moved. `None`: no heading is clear.
+    fn away(&self, cx: &mut Cx<'_>) -> Option<Vec2> {
+        let at = cx.p.me.at;
+        let me = cx.p.me.faction;
+        let mobs =
+            cx.p.mobs
+                .iter()
+                .filter(|m| m.alive)
+                .map(|m| (m.at, m.key.as_str()));
+        let players =
+            cx.p.players
+                .iter()
+                .filter(|o| o.alive && o.faction != me)
+                .map(|o| (o.at, o.key.as_str()));
+        let near = mobs
+            .chain(players)
+            .min_by(|a, b| {
+                cx.p.dist(a.0)
+                    .total_cmp(&cx.p.dist(b.0))
+                    .then_with(|| a.1.cmp(b.1))
+            })
+            .map(|(p, _)| p)
+            .or_else(|| self.heading.map(|h| Vec2::new(at.x - h.x, at.y - h.y)))?;
+        SIDESTEPS
+            .iter()
+            .find_map(|turn| away_point(cx.paths, at, near, STEP_U, *turn))
     }
 
     /// A potion could be drunk now: one is held and no heal runs.
@@ -319,6 +377,28 @@ impl Sustain {
             self.leaving = None;
             return Step::done("healed");
         }
+        if cx.p.base.hud.gates_locked {
+            // Nothing regenerates behind locked gates: standing here can only end in death.
+            self.leaving = None;
+            return Step::failed("no regeneration");
+        }
+        let top = self.stand_hp.unwrap_or(0.).max(cx.p.me.hp_share());
+        self.stand_hp = Some(top);
+        if self.hurt(cx) {
+            // Hit, or hp falling, by something the hold does not see: stop standing and move off (the hit chain is what
+            // blocks regeneration).
+            return match self.away(cx) {
+                Some(to) => {
+                    let mut mv = move_intent(to, "move off while hurt");
+                    mv.priority = PRIORITY_COMBAT;
+                    Step::running(vec![mv], "hurt while healing")
+                }
+                None => {
+                    self.leaving = None;
+                    Step::failed("hurt and cornered")
+                }
+            };
+        }
         Step::running(Vec::new(), "healing up")
     }
 }
@@ -335,8 +415,10 @@ impl Executor for Sustain {
         // the leave may come back only through a fresh `lost` fight (`start` re-arms it on adoption).
         if cx.goal.kind != GoalKind::Sustain {
             self.leaving = None;
+            self.stand_hp = None;
         }
         if cx.prices.sustain.on && cx.p.active {
+            self.move_trail(cx);
             self.watch(cx);
             self.track(cx);
         }
@@ -371,7 +453,11 @@ impl Executor for Sustain {
             return;
         }
         // Nobody on us and hp short of ready: a heal-up, priced by the regeneration it waits for.
-        if hp < s.ready_hp && Self::nearest(cx).is_none() {
+        if hp < s.ready_hp
+            && Self::nearest(cx).is_none()
+            && !cx.p.base.hud.gates_locked
+            && !self.hurt(cx)
+        {
             let deficit = s.ready_hp - hp;
             out.push(Candidate {
                 goal: RaidGoal::new(GoalKind::Sustain, Target::None),
@@ -383,11 +469,12 @@ impl Executor for Sustain {
             });
         }
     }
-    fn start(&mut self, goal: &RaidGoal, _cx: &mut Cx<'_>) {
+    fn start(&mut self, goal: &RaidGoal, cx: &mut Cx<'_>) {
         self.leaving = match goal.target {
             Target::Camp(c) => Some(c),
             _ => None,
         };
+        self.stand_hp = Some(cx.p.me.hp_share());
     }
     fn act(&mut self, goal: &RaidGoal, cx: &mut Cx<'_>) -> Step {
         self.think(goal, cx)
