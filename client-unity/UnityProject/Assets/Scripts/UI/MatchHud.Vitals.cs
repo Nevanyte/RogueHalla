@@ -1,6 +1,7 @@
 using System.Text;
 using UnityEngine;
 using Roguehalla.Net;
+using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
