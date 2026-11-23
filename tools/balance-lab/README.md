@@ -34,3 +34,14 @@ so later minutes have few samples or none.
   `elite`/`mob`/`player`/`hazard`.
 - Observations are not sampled on the step that ends the match. The observer reads `&Sim`, events and observations only.
 - Share reaching the coliseum and encounters while questing are not measured.
+
+## inputs.json: where the numbers come from
+
+`tools/balance-lab/inputs.json` holds the design numbers the evaluator prices from. The `quests` and `augments` objects
+were transcribed by hand from `docs/quests/FUTURE_ONLY_Quest_Design_Discussion.xlsx` (sheets `Top_25` and
+`Augment_Tuning`); every `source` string names the row. Spell rewards stay "not measured" until paired duels give a
+duel equivalence (P-BAL-LAB-2); their entries carry no number.
+
+To change one number, edit its line in `inputs.json`, keep the JSON valid, and run
+`cargo test -p rh-headless --test balance_inputs --test balance_eval`. The `balance_inputs` test tables pin each number
+exactly, so a design change edits both files in the same reviewed change.
