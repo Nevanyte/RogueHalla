@@ -42,8 +42,9 @@ so later minutes have few samples or none.
   name and means "ended otherwise": manual abandon, departure or anything the state cannot tell apart. `open` is still
   accepted at the last read; `turned_in_unpaid` met its objective and was never paid (full spell slots, a granted reward).
   `complete_secs` is `{sum, n, samples}`: the accept to the first read turned in or paid, one sample per completion, in
-  seat then seed order. A vanished row is a timer end if its last deadline had passed and the gates were not locked, else
-  a death end if the seat died that step or the one before, else `abandoned`. Not measured: abandon versus departure, a
+  seat then seed order. A vanished row is a timer end when its last deadline passed within
+  the last two ticks (100 ms) and the gates were not locked; otherwise it is a death end if the seat died that step or the
+  one before, else `abandoned` (a row gone later than the two ticks is never a timer). Not measured: abandon versus departure, a
   retry within one step, a death two or more steps before the row vanished, and what a seat chose not to do. The schema
   stays `balance-lab/1`; only the fields above are new.
 - Camp kill/heal/walk seconds and quest-spell casts are heuristics, as documented in `notes`. A death falls back to the
