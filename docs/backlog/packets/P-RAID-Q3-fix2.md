@@ -188,3 +188,13 @@ Sustain leave must be ranked over a committed incumbent; the new pick-up ban mus
   walker) is accepted: no shared field.
 - **C, the documented switch** is accepted. `bargain_leg_minutes` sits before P-RAID-E's `elite`, which stays the
   last field of `Prices`; the coordinator resolves the append point at merge.
+
+**Decided on the implementer's stop (2026-11-23).** B's stateless walker rule turned one existing unit test red:
+`decide_tests.rs` `with_a_slot_free_a_dropped_spell_at_the_feet_still_holds_the_walker_back` builds a wanted drop at the
+seat's feet and offers no pick-up action, which under the new rule no longer holds the walker. The rule stays. The
+scene was missing what the sim sends for a drop in reach, so the coordinator's `oracle-amend:` makes `walker_scene`
+offer action 9 for its drop while a slot is free; the expectation ("the walker waits for the pick-up") is unchanged
+and all 58 decision unit tests pass on the implementer's tree. The implementer's two other choices stand for the
+reviewer to judge: the pending walk is priced with `straight_minutes` (the oracle asks for at least the straight
+line), and the stale `stood` / `refused` clocks are cleared when `act` did not run since the last `observe` rather
+than by reading `cx.goal`.
