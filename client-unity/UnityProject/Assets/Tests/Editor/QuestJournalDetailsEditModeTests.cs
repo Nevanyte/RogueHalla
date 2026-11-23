@@ -635,6 +635,7 @@ namespace Roguehalla.Client.Tests
                 if (previous != null)
                     Assert.That(Local(previous).yMin, Is.GreaterThanOrEqualTo(Local(field).yMax - .01f), previous.name + " overlaps " + name + " " + at);
                 previous = field;
+                if (name == "QuestName") continue; // the name has no heading (P-UI-FLOWS-LEFTOVERS-1)
                 var label = FieldLabel(name);
                 Assert.IsTrue(label.gameObject.activeInHierarchy, name + " heading is shown");
                 float need = label.GetPreferredValues(label.text, 0f, 0f).y;
