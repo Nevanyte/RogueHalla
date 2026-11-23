@@ -21,6 +21,7 @@ namespace Roguehalla.Client.Tests
 
         // Controls are static delegates, built once: a closure allocates when it is created.
         public const int ControlCalls = 10, CountingAllocationsPerCall = 3;
+        public const int MaxMeasurements = 3;
         public static readonly Action AllocatingControl = () => { s_sinkObj = new object(); s_sinkStr = s_a + s_b; };
         public static readonly Action CleanControl = () => { s_sinkInt += 3; };
         static object s_sinkObj2, s_sinkObj3;
