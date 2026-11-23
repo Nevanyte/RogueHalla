@@ -433,10 +433,8 @@ namespace Roguehalla.Client.Tests
             for (int i = 0; i < 6; i++) view.Refresh(_session, true, 166f, 344f, .016f);   // warm up
             Assert.AreEqual(2, view.Rows, "the card is up and drawing two rows");
             Assert.AreEqual("0:40", view.Root.Find("Row0/Clock/Label").GetComponent<TMP_Text>().text);
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 200; i++) view.Refresh(_session, true, 166f, 344f, .016f);
-            long grown = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.LessOrEqual(grown, 0, "200 steady frames allocated " + grown + " bytes");
+            Action refresh = () => view.Refresh(_session, true, 166f, 344f, .016f);
+            AllocationMeter.AssertNone(refresh, 200, "200 steady frames");
         }
 
         [Test]
