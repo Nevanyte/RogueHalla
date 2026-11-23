@@ -571,9 +571,9 @@ namespace Roguehalla.Client.Tests
                 rig.View.SetVisible(true);
                 AssertTaller(rig.View, "at the opening");
                 Scrolled(rig.View);
-                rig.Deliver(true, 3.5);
+                rig.Deliver(ChangedOffer());   // a content change, same merchants: a rebuild with the window open
                 rig.View.Refresh();
-                Assert.That(Position(rig.View), Is.EqualTo(.4f).Within(.02f), "after the same trader moved (a rebuild), Refresh");
+                Assert.That(Position(rig.View), Is.EqualTo(.4f).Within(.02f), "after the same trader's offer changed (a rebuild), Refresh");
                 rig.LateUpdate();
                 Assert.That(Position(rig.View), Is.EqualTo(.4f).Within(.02f), "after the next frame");
             }
