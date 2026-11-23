@@ -317,12 +317,12 @@ namespace Roguehalla.Client.Tests
             BuildFullRig(); LayoutFull(Windows[0]);
             var theme = UiTheme.Current;
             Snap(10, 1000);
-            Items(10, Quests(new[] { new WireQuestSpell { Slot = 0, Reward = 3, Charges = 2, ReadyAt = 6000 } }));
+            Items(10, Quests(new[] { new WireQuestSpell { Slot = 0, Reward = 3, Charges = 0, ReadyAt = 6000 } }));
             Frame();
             Assert.That(_session.ServerTimeMs, Is.EqualTo(1000d), "set-up: the server time is the delivered one");
             Assert.That(_session.Collections.Quests.Spells.Count, Is.EqualTo(1), "set-up: the spell was delivered");
             var one = Tile("QuestSpell1"); var two = Tile("QuestSpell2");
-            Assert.That(Text(one, "Charges"), Is.EqualTo("2"), "badge");
+            Assert.That(Text(one, "Charges"), Is.EqualTo("0"), "badge");
             Assert.That(Text(one, "Seconds"), Is.EqualTo("5"), "5 s left");
             Assert.That(NameShown(one), Is.False, "the name is hidden while cooling");
             Assert.That(WedgeOn(one), Is.True, "wedge on");
@@ -333,14 +333,16 @@ namespace Roguehalla.Client.Tests
             Assert.That(Text(one, "Seconds"), Is.EqualTo("3"), "2.5 s left rounds up to 3");
             Assert.That(WedgeFill(one), Is.EqualTo(.5f).Within(.02f), "half the span is left");
 
-            Snap(12, 7000); Frame();
+            Snap(12, 7000);
+            Items(12, Quests(new[] { new WireQuestSpell { Slot = 0, Reward = 3, Charges = 1, ReadyAt = 6000 } }));
+            Frame();
             Assert.That(NameShown(one), Is.True, "ready: the name shows");
             Assert.That(Text(one, "Name"), Is.EqualTo("Shoulder Charge"));
             Assert.That(Text(one, "Seconds"), Is.Empty);
             Assert.That(WedgeOn(one), Is.False, "wedge off");
             Assert.That(FrameColour(one), Is.EqualTo((Color)theme.BorderStrong), "ready frame");
             Assert.That(Surface(one).color, Is.EqualTo((Color)theme.SurfaceRaised), "the surface is exactly the table's colour");
-            Assert.That(Text(one, "Charges"), Is.EqualTo("2"));
+            Assert.That(Text(one, "Charges"), Is.EqualTo("1"));
 
             Assert.That(NameShown(two), Is.False, "Q stays empty");
             Assert.That(Text(two, "Charges"), Is.Empty);
@@ -475,7 +477,7 @@ namespace Roguehalla.Client.Tests
         {
             BuildFullRig(); LayoutFull(Windows[0]);
             Snap(10, 1000);
-            Items(10, Quests(new[] { new WireQuestSpell { Slot = 0, Reward = 3, Charges = 2, ReadyAt = 6000 } }));
+            Items(10, Quests(new[] { new WireQuestSpell { Slot = 0, Reward = 3, Charges = 0, ReadyAt = 6000 } }));
             Frame();
             Assert.That(Text(Tile("QuestSpell1"), "Seconds"), Is.EqualTo("5"), "set-up: the spell is drawn");
             var refresh = (Action)Delegate.CreateDelegate(typeof(Action), _hud, typeof(MatchHud).GetMethod("RefreshQuestRewardHud", All));

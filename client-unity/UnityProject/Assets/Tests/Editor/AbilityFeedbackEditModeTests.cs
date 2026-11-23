@@ -364,7 +364,7 @@ namespace Roguehalla.Client.Tests
                 S("cooling 3 s", Spell(i, 0, 52100), 0, Face.Cooling, 3, "Ready in 3", false);
                 S("cooling 299 s", Spell(i, 0, 348100), 0, Face.Cooling, 299, "Ready in 4:59", false);
                 S("effects bit 4096", Spell(i, 1, 0), CastingBit, Face.Ready, 0, "Casting", false);
-                S("charge in hand, next recharging", Spell(i, 1, 52100), 0, Face.Cooling, 3, null, true);
+                S("charge in hand, next recharging", Spell(i, 1, 52100), 0, Face.Ready, 0, null, true);
                 S("stunned", Spell(i, 1, 0), Stun, Face.Ready, 0, null, true);
                 S("silenced", Spell(i, 1, 0), Silence, Face.Ready, 0, null, true);
             }
@@ -402,6 +402,45 @@ namespace Roguehalla.Client.Tests
                 else AssertPills(c.Name + ": the pill is the line", c.Line);
                 Assert.That(Pulses().Count, Is.EqualTo(before + (c.Pops ? 1 : 0)), c.Name + (c.Pops ? ": the press pops" : ": the press does not pop"));
             }
+        }
+
+        /// <summary>P-UI-CHARGE-TILES-1: the tile and the key say the same thing in every case of the matrix. Reads only what the tile
+        /// draws (FaceOf), what the pure reading says from the delivered facts, and what the press did; never a case's expected Tile.</summary>
+        [Test]
+        public void TheTileAndTheKeyAgreeInEveryCase()
+        {
+            var cases = Cases();
+            Assert.That(cases.Count, Is.EqualTo(24), "set-up: eight facts for each of R, Shift and Q");
+            int cooling = 0, popped = 0;
+            foreach (var c in cases)
+            {
+                Cleanup();
+                BuildRig();
+                Snap(50000, c.Wish, c.Effects);
+                if (c.Slot > 0) Items(Spells(c.Spell.HasValue ? new[] { c.Spell.Value } : new WireQuestSpell[0]));
+                Frame();
+                var face = FaceOf(Tile(c.Slot));
+                CastReading reading;
+                double now = _session.ServerTimeMs;
+                if (c.Slot == 0) reading = CastReadiness.Wish(_session.Me.Wish, now, _session.Me.Effects);
+                else if (c.Spell.HasValue) reading = CastReadiness.Spell(true, c.Spell.Value.Charges, c.Spell.Value.ReadyAt, now, _session.Me.Effects);
+                else reading = CastReadiness.Spell(false, 0, 0d, now, _session.Me.Effects);
+                int before = Pulses().Count;
+                Press(c.Slot); Frame();
+                bool pops = Pulses().Count > before;
+                var texts = Texts();
+                bool saysReady = reading.Line != null && reading.Line.StartsWith("Ready in ");
+                if (face == Face.Cooling) { cooling++; Assert.That(saysReady, Is.True, c.Name + ": a cooling tile's line starts with 'Ready in ' (line: " + (reading.Line ?? "none") + ")"); }
+                if (face == Face.Cooling) Assert.That(pops, Is.False, c.Name + ": a press of a cooling tile does not pop");
+                if (saysReady) Assert.That(face, Is.EqualTo(Face.Cooling), c.Name + ": a line 'Ready in ...' means a cooling tile");
+                if (saysReady) Assert.That(texts, Is.EqualTo(new List<string> { reading.Line }), c.Name + ": and the press shows that line");
+                if (pops) { popped++; Assert.That(face, Is.EqualTo(Face.Ready), c.Name + ": a press that pops is on a ready tile"); }
+                if (face == Face.Empty) Assert.That(pops, Is.False, c.Name + ": an empty tile does not pop");
+                if (face == Face.Empty) Assert.That(texts, Is.Empty, c.Name + ": and shows no line");
+                if (face == Face.Cast) Assert.That(reading.Line, Is.EqualTo("Casting"), c.Name + ": a cast-bar tile reads 'Casting'");
+            }
+            Assert.That(cooling, Is.GreaterThanOrEqualTo(6), "set-up: the matrix has cooling tiles (R, Shift, Q at 3 s and 299 s)");
+            Assert.That(popped, Is.GreaterThanOrEqualTo(6), "set-up: the matrix has presses that pop");
         }
 
         // ------------------------------------------------------------------ 7, 8, 9. reduced motion, a rebind, no garbage
