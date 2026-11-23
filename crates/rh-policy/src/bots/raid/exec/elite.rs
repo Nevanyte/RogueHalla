@@ -21,6 +21,7 @@ use crate::bots::mob_hunt::best_slot_vs_mob;
 use crate::bots::perception::ChestRef;
 use crate::bots::planning::{matchup_share_of_kind, zone_faction};
 use crate::bots::raid::exec::farm::{death_chance, dist, lock_range, DEFEND_U, FIGHT_U};
+use crate::bots::raid::exec::held::{hp_held, HotWatch};
 use crate::bots::raid::exec::travel::{
     self, eta_minutes, move_intent, step_toward, straight_minutes,
 };
@@ -53,6 +54,15 @@ struct Tally {
     dealt: f64,
     hp: f64,
     left: Option<f64>,
+}
+
+/// The give-ups at one elite camp since its elite was last killed or the camp last respawned (`Elite::ban`). `touched`:
+/// the camp has been seen fought (`state` not 0) since the first of them, so a camp back at `state` 0 has respawned.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct GiveUps {
+    camp: u32,
+    n: u32,
+    touched: bool,
 }
 
 /// One priced ask at a chest (Loot's discipline: another card only, at most `MAX_ASKS`, inside `ASK_WINDOW_MS`).
@@ -88,6 +98,16 @@ pub struct Elite {
     held: Option<u32>,
     /// What each elite camp's fights have cost and bought so far (until its elite dies or respawns).
     tallies: Vec<Tally>,
+    /// The give-ups at each elite camp (one row per camp, until a kill here, a clear or a respawn): the ban grows with
+    /// them (`ban_seconds_after`). Kept apart from `banned`, whose expired rows `propose` drops.
+    giveups: Vec<GiveUps>,
+    /// The shares of the heals running, for the hp held (`held::hp_held`).
+    hots: HotWatch,
+}
+
+/// The living elite of `kind` nearest `near` (ties by key), among the frame's mobs: the one Sustain prices too.
+pub(crate) fn elite_of<'a>(cx: &'a Cx<'_>, kind: MobTypeId, near: Vec2) -> Option<&'a MobSeen> {
+    elite_mob(cx, kind, near)
 }
 
 /// The living elite of `kind` nearest `near` (ties by key), among the frame's mobs.
@@ -138,8 +158,29 @@ impl Elite {
             .any(|(c, until)| *c == camp && *until > now)
     }
 
+    /// Give up on `camp`: one more give-up on its count, and a ban as long as the count says (`ban_seconds_after`).
     fn ban(&mut self, camp: u32, now: f64, e: &ElitePrices) {
-        self.banned.push((camp, now + e.ban_seconds * 1_000.));
+        let n = match self.giveups.iter_mut().find(|g| g.camp == camp) {
+            Some(g) => {
+                g.n = g.n.saturating_add(1);
+                g.n
+            }
+            None => {
+                self.giveups.push(GiveUps {
+                    camp,
+                    n: 1,
+                    touched: false,
+                });
+                1
+            }
+        };
+        self.banned
+            .push((camp, now + ban_seconds_after(e, n) * 1_000.));
+    }
+
+    /// The give-up count of `camp` starts again: its elite was killed here, the camp was cleared, or it respawned.
+    fn forgive(&mut self, camp: u32) {
+        self.giveups.retain(|g| g.camp != camp);
     }
 
     /// Keep each elite camp's elite alive or dead: alive while the camp is untouched since its respawn or the elite is
@@ -184,12 +225,23 @@ impl Elite {
                 w.alive = false;
                 w.at = None;
             }
-            if was.alive && !w.alive && mine && self.fight_since.is_some() {
+            let alive = w.alive;
+            if was.alive && !alive && mine && self.fight_since.is_some() {
                 self.killed.retain(|(c, _)| *c != camp.index);
                 self.killed.push((camp.index, now));
+                self.forgive(camp.index);
+            }
+            // The give-ups end with the elite: a clear (whoever killed it), or a camp back untouched after it was seen
+            // fought (a respawn). A camp given up on while still untouched (never reached) keeps its count.
+            if let Some(g) = self.giveups.iter().position(|g| g.camp == camp.index) {
+                if camp.state == 2 || (camp.state == 0 && self.giveups[g].touched && !mine) {
+                    self.giveups.remove(g);
+                } else if camp.state != 0 {
+                    self.giveups[g].touched = true;
+                }
             }
             // A dead elite or a fresh one (the camp respawned, untouched) has no fight on record.
-            if !w.alive || (camp.state == 0 && !mine) {
+            if !alive || (camp.state == 0 && !mine) {
                 self.tallies.retain(|t| t.camp != camp.index);
             }
         }
@@ -381,10 +433,16 @@ impl Elite {
     fn death(&self, cx: &Cx<'_>, camp: &CampSeen, kind: MobTypeId, left: f64) -> f64 {
         let e = &cx.prices.elite;
         let me = &cx.p.me;
-        let held = me.hp_share()
-            + cx.prices
-                .sustain
-                .potion_hp(me.potion_large, me.potion_small);
+        let held = hp_held(
+            &cx.prices.sustain,
+            me.hp_share(),
+            me.potion_large,
+            me.potion_small,
+            me.potions_healing,
+            me.healing_until,
+            cx.p.now,
+            self.hots.shares(),
+        );
         let has_row = e.kind_death.iter().any(|(k, _)| *k == kind.as_str());
         let by_rate = self.by_rate(cx, camp, kind, held);
         if has_row {
@@ -707,6 +765,13 @@ impl Executor for Elite {
         if !cx.prices.elite.on || !cx.p.active {
             return;
         }
+        let me = &cx.p.me;
+        self.hots.watch(
+            &cx.prices.sustain,
+            me.potion_large,
+            me.potion_small,
+            me.potions_healing,
+        );
         self.watch_goal(cx);
         self.watch_elites(cx);
         self.track(cx);
@@ -865,24 +930,43 @@ pub fn best_card(
 }
 
 /// How long a camp is banned at its `giveups`-th give-up (s): `ban_seconds` x `ban_growth`^(giveups - 1), at most
-/// `ban_max_seconds` (P-RAID-E-leave). Stub: the flat ban.
-pub fn ban_seconds_after(elite: &ElitePrices, _giveups: u32) -> f64 {
-    elite.ban_seconds
+/// `ban_max_seconds` (P-RAID-E-leave). 0 reads as the first give-up.
+pub fn ban_seconds_after(elite: &ElitePrices, giveups: u32) -> f64 {
+    let mut s = elite.ban_seconds;
+    // Repeated products, not `powi` (the crate's math stays libm-free); 64 doublings pass any cap.
+    for _ in 1..giveups.min(64) {
+        if s >= elite.ban_max_seconds {
+            break;
+        }
+        s *= elite.ban_growth;
+    }
+    s.min(elite.ban_max_seconds)
 }
 
 /// Whether the fight with the elite of `kind` is lost for a seat holding `held` (hp, potions and heals running) at
 /// `hp_share`, with `elite_left` of the elite's hp standing: the bench death prior reaches Sustain's disengage line and
-/// the seat is below `ready_hp`. The one view Sustain uses for an Elite goal (P-RAID-E-leave). Stub: always lost.
+/// the seat is below `ready_hp`. The one view Sustain uses for an Elite goal (P-RAID-E-leave): the line is the one the
+/// Elite score turns negative at. A kind with no table row reads the top of `death_range` (lost below `ready_hp`).
 pub fn elite_fight_lost(
-    _prices: &Prices,
-    _kind: MobTypeId,
-    _weapon: Option<WeaponId>,
-    _stacks: f64,
-    _hp_share: f64,
-    _held: f64,
-    _elite_left: f64,
+    prices: &Prices,
+    kind: MobTypeId,
+    weapon: Option<WeaponId>,
+    stacks: f64,
+    hp_share: f64,
+    held: f64,
+    elite_left: f64,
 ) -> bool {
-    true
+    let s = &prices.sustain;
+    let held = held / elite_left.max(f64::MIN_POSITIVE);
+    let death = death_prior(
+        &prices.elite,
+        kind,
+        weapon,
+        stacks,
+        prices.stacks_per_camp,
+        held,
+    );
+    death >= s.disengage_death - s.disengage_lead && hp_share < s.ready_hp
 }
 
 #[cfg(test)]
