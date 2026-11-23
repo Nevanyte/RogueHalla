@@ -336,7 +336,6 @@ namespace Roguehalla.Client
                     _wishKey = key; _wishKeyValid = true;
                     _wishCardText = FormatWishCard(me.Wish, serverTimeMs, block, me.Faction);
                     Set(_wishCard, _wishCardText);
-                    Set(_wishSummary, WishIconText(me.Wish, serverTimeMs));
                     if (_wishHint != null) _wishHint.Text = _wishCardText;
                 }
                 _lastWish = me.Wish; _lastServerTime = serverTimeMs;
@@ -351,7 +350,7 @@ namespace Roguehalla.Client
             Set(_vitals, reason == "Unavailable" ? "Waiting / spectating" : "Waiting for player state");
             Set(_combatStats, "Awaiting player stats");
             Set(_wishCard, "R · WISH\n" + reason);
-            Set(_wishSummary, "—");
+            ClearWishTile();
             if (_wishHint != null) _wishHint.Text = "R · Wish\n" + reason;
             RefreshDamageReadout(null);
             RefreshLegacyHud(null, 0d);

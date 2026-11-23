@@ -13,7 +13,7 @@ namespace Roguehalla.Client.Tests
     {
         GameObject _root;
         MatchHud _hud;
-        TMP_Text _vitals, _wish, _summary, _stats;
+        TMP_Text _vitals, _wish, _stats;
         RectTransform _health, _barrier;
 
         [SetUp]
@@ -23,16 +23,13 @@ namespace Roguehalla.Client.Tests
             _hud = _root.AddComponent<MatchHud>();
             _vitals = new GameObject("Vitals", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
             _wish = new GameObject("Wish", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
-            _summary = new GameObject("Wish summary", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
             _stats = new GameObject("Combat stats", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
             _health = new GameObject("Health fill", typeof(RectTransform)).GetComponent<RectTransform>();
             _barrier = new GameObject("Barrier fill", typeof(RectTransform)).GetComponent<RectTransform>();
             _vitals.transform.SetParent(_root.transform, false); _wish.transform.SetParent(_root.transform, false);
-            _summary.transform.SetParent(_root.transform, false);
             _stats.transform.SetParent(_root.transform, false);
             _health.SetParent(_root.transform, false); _barrier.SetParent(_root.transform, false);
             SetField("_vitals", _vitals); SetField("_wishCard", _wish);
-            SetField("_wishSummary", _summary);
             SetField("_combatStats", _stats);
             SetField("_healthBarFill", _health); SetField("_barrierBarFill", _barrier);
         }
@@ -48,7 +45,6 @@ namespace Roguehalla.Client.Tests
             Invoke("RefreshOwnerPresentation", me, 5000d);
             StringAssert.Contains(SlotText.ReadyIn(125000), _wish.text);
             StringAssert.Contains("Ready in 2:05", _wish.text);
-            Assert.That(_summary.text, Is.EqualTo("0/2 · 2:05"));
         }
 
         [Test]
@@ -81,7 +77,6 @@ namespace Roguehalla.Client.Tests
             StringAssert.DoesNotContain("Kills", _vitals.text);
             StringAssert.Contains("Kills 2 · GV 4", _stats.text);
             StringAssert.Contains("Blaze", _wish.text); StringAssert.Contains("1/2", _wish.text);
-            Assert.That(_summary.text, Is.EqualTo("1/2 · 1"));
             StringAssert.Contains("Ready in 1", _wish.text);
             StringAssert.Contains("Recharge 4", _wish.text);
             StringAssert.Contains("Next charge in 2", _wish.text);
@@ -105,13 +100,11 @@ namespace Roguehalla.Client.Tests
             StringAssert.DoesNotContain("Full charges in", _wish.text);
             StringAssert.Contains("Casting Blaze", _wish.text); StringAssert.DoesNotContain("Casting Blaze ·", _wish.text);
             StringAssert.Contains("1/2", _wish.text, "elapsed labels never predict stock");
-            Assert.That(_summary.text, Is.EqualTo("1/2"), "elapsed time never predicts summary stock either");
 
             var stock = me.Wish.Value;
             stock.Charges = 0; me.Wish = stock;
             Invoke("RefreshOwnerPresentation", me, 13010d);
             StringAssert.Contains("0/2", _wish.text);
-            Assert.That(_summary.text, Is.EqualTo("0/2"));
             stock.Charges = 2; stock.NextChargeAt = null; stock.FullAt = null; stock.Cast = null;
             me.Wish = stock;
             Invoke("RefreshOwnerPresentation", me, 13020d);
@@ -126,14 +119,11 @@ namespace Roguehalla.Client.Tests
 
             Invoke("ClearOwnerPresentation", "Awaiting server");
             Assert.That(_stats.text, Is.EqualTo("Awaiting player stats"), "separated stats clear on owner rebind too");
-            Assert.That(_summary.text, Is.EqualTo("—"), "a rebind clears the previous owner's stock immediately");
             Invoke("RefreshOwnerPresentation", me, 13030d);
-            Assert.That(_summary.text, Is.EqualTo("2/2"));
 
             me.Wish = null; me.Barrier = 0;
             Invoke("RefreshOwnerPresentation", me, 13040d);
             StringAssert.Contains("None delivered", _wish.text);
-            Assert.That(_summary.text, Is.EqualTo("—"));
             StringAssert.Contains("Barrier 0", _vitals.text);
             StringAssert.DoesNotContain("ring", _vitals.text);
             Invoke("TickOwnerVitals", 1f);

@@ -33,9 +33,9 @@ namespace Roguehalla.Client
         readonly CanvasGroup[] _slotGroups = new CanvasGroup[2];
         UnityEngine.UI.Button _swapChip, _potionButton, _windChip;
         RectTransform _weaponBar, _wishTile;
-        UnityEngine.UI.Image _wishIcon;
-        TMP_Text _wishSeconds, _wishCharges, _healText, _healStatus, _windText, _pickupText;
-        UnityEngine.UI.Image _wishSweep, _wishCastBar, _wishGlow;
+        TMP_Text _healText, _healStatus, _windText, _pickupText;
+        UnityEngine.UI.Image _wishGlow;
+        AbilityTile _wishAbilityTile;
         readonly WishTileMotion _wishMotion = new WishTileMotion();
         float _attackCooldownTotal = 1f;
         // Champion combat HUD.

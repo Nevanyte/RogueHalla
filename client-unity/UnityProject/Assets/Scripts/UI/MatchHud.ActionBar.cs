@@ -109,30 +109,14 @@ namespace Roguehalla.Client
 
         void CreateWishTile(UiTheme theme)
         {
-            _wishTile = HudUi.Box(_weaponBar, "WishTile", BarElement(3));
-            var image = HudUi.Surface(_wishTile, Color.white, theme.CornerRadius, theme.Border, true, true);
-            var wishInfo = _wishTile.gameObject.AddComponent<UnityEngine.UI.Button>(); wishInfo.targetGraphic = image;
-            HudUi.ApplyColors(wishInfo, theme.SurfaceRaised);
-            HudUi.Label(HudUi.At(_wishTile, "Key", 5, 4, 14, 12), "Label", "R", theme.SizeTiny, theme.TextSecondary);
-            var icon = _wishIcon = MythicUi.Icon(_wishTile, "WishIcon", MythicGlyph.Wish, 24f);
-            icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = new Vector2(.5f, 1f);
-            icon.rectTransform.pivot = new Vector2(.5f, 1f); icon.rectTransform.anchoredPosition = new Vector2(0, -6);
-            _wishSeconds = HudUi.Label(HudUi.At(_wishTile, "Seconds", 0, 6, HudRegions.TileSize, 24), "Label", "", 15f, theme.TextPrimary, TextAlignmentOptions.Center, true);
-            _wishSummary = HudUi.Label(HudUi.At(_wishTile, "Name", 2, 36, HudRegions.TileSize - 4, 12), "Label", "—", theme.SizeTiny, theme.TextPrimary, TextAlignmentOptions.Center);
-            _wishCharges = HudUi.Label(HudUi.At(_wishTile, "Charges", HudRegions.TileSize - 22, HudRegions.TileSize - 20, 20, 14), "Label", "", theme.SizeSmall, theme.Accent, TextAlignmentOptions.Center, true);
-            _wishSweep = HudUi.Fill(_wishTile, "CooldownSweep", Tone(theme.OutlineDark, .62f));
-            _wishSweep.rectTransform.offsetMin = new Vector2(1f, 1f); _wishSweep.rectTransform.offsetMax = new Vector2(-1f, -1f);
-            _wishSweep.sprite = UiSprites.Flat(); _wishSweep.type = UnityEngine.UI.Image.Type.Filled;
-            _wishSweep.fillMethod = UnityEngine.UI.Image.FillMethod.Radial360; _wishSweep.fillOrigin = 2; _wishSweep.fillClockwise = false; _wishSweep.fillAmount = 0f; _wishSweep.enabled = false;
-            var cast = HudUi.Box(_wishTile, "CastBar", HudAnchor.BottomLeft, 0, 0, HudRegions.TileSize, 3);
-            _wishCastBar = cast.gameObject.AddComponent<UnityEngine.UI.Image>(); _wishCastBar.color = theme.Accent; _wishCastBar.raycastTarget = false;
-            _wishCastBar.type = UnityEngine.UI.Image.Type.Filled; _wishCastBar.fillMethod = UnityEngine.UI.Image.FillMethod.Horizontal; _wishCastBar.fillAmount = 0f; _wishCastBar.enabled = false;
+            _wishAbilityTile = new AbilityTile(_weaponBar, "WishTile", HudRegions.AbilityElement(3), RowRaise, "R", _root, MythicGlyph.Wish);
+            _wishTile = _wishAbilityTile.Root;
+            _wishHint = _wishAbilityTile.Hint; _wishHint.Text = "R · Wish\nAwaiting server";
+            _wishAbilityTile.Show(AbilityFace.Empty, AbilityFaces.NoWishLabel);
             // Cast / ready feedback: a faction-tinted wash over the tile, behind its text (driven by TickWishTileMotion).
             _wishGlow = HudUi.Fill(_wishTile, "WishGlow", new Color(1f, 1f, 1f, 0f));
             _wishGlow.rectTransform.offsetMin = new Vector2(1f, 1f); _wishGlow.rectTransform.offsetMax = new Vector2(-1f, -1f);
             _wishGlow.transform.SetSiblingIndex(Mathf.Min(1, _wishTile.childCount - 1)); _wishGlow.enabled = false;
-            _wishSummary.text = "—";
-            _wishHint = HudIconHint.Attach(wishInfo, _root, "R · Wish\nAwaiting server");
             // Retain the existing formatted detail model for tests/readers, without a permanent world overlay.
             _wishDetails = Panel(_hud, "WishPanel", .775f, .70f, .985f, .915f);
             _wishCard = Text(_wishDetails, "WishCard", "R · WISH\nAwaiting server", .04f, .04f, .96f, .96f, 14);
@@ -185,42 +169,32 @@ namespace Roguehalla.Client
             _pickup.gameObject.SetActive(false);
         }
 
+        WireHudContent _wishNameBlock; AbilityId _wishNameAbility; string _wishNameText = "";
+
+        /// <summary>The Wish's name, cached against the content block and the ability so an unchanged Wish allocates nothing.</summary>
+        string WishNameFor(WishView? wish)
+        {
+            if (!wish.HasValue) return "";
+            var block = HudContent; var ability = wish.Value.Ability;
+            if (_wishNameText.Length == 0 || !ReferenceEquals(_wishNameBlock, block) || _wishNameAbility != ability)
+            { _wishNameBlock = block; _wishNameAbility = ability; _wishNameText = HudContentText.WishName(block, ability); }
+            return _wishNameText;
+        }
+
         void RefreshWishTile(WishView? wish, double serverTimeMs, UiTheme theme)
         {
-            if (_wishSeconds == null) return;
-            if (!wish.HasValue)
-            {
-                _wishMotion.Observe(null, serverTimeMs, Time.unscaledTime);
-                Set(_wishSeconds, ""); Set(_wishCharges, ""); if (_wishSweep != null) _wishSweep.enabled = false;
-                if (_wishCastBar != null) _wishCastBar.enabled = false;
-                HudUi.SetFrame(_wishTile, theme.Border);
-                return;
-            }
-            var w = wish.Value;
+            if (_wishAbilityTile == null) return;
             _wishMotion.Observe(wish, serverTimeMs, Time.unscaledTime);
-            double remainingMs = Math.Max(0d, w.ReadyAt - serverTimeMs);
-            bool ready = remainingMs <= 0d && w.Charges > 0;
-            Set(_wishSeconds, remainingMs > 0d ? Math.Ceiling(remainingMs / 1000d).ToString("0") : "");
-            // The seconds sit over the icon (legacy); dim the icon while they show so the number stays legible.
-            if (_wishIcon != null) { var tint = MythicUi.GlyphColor(MythicGlyph.Wish); tint.a = remainingMs > 0d ? .3f : 1f; _wishIcon.color = tint; }
-            Set(_wishCharges, w.MaxCharges > 1 ? w.Charges.ToString() : "");
-            if (_wishSweep != null)
-            {
-                _wishSweep.enabled = remainingMs > 0d && w.RechargeMs > 0d;
-                _wishSweep.fillAmount = w.RechargeMs > 0d ? (float)Math.Min(1d, remainingMs / w.RechargeMs) : 0f;
-            }
-            if (_wishCastBar != null)
-            {
-                bool casting = w.Cast.HasValue;
-                _wishCastBar.enabled = casting;
-                if (casting)
-                {
-                    var c = w.Cast.Value;
-                    double span = Math.Max(1d, c.LandsAt - c.StartedAt);
-                    _wishCastBar.fillAmount = (float)Math.Max(0d, Math.Min(1d, (serverTimeMs - c.StartedAt) / span));
-                }
-            }
-            HudUi.SetFrame(_wishTile, w.Cast.HasValue ? theme.BorderStrong : ready ? theme.FactionColor(_faction) : theme.Border);
+            _wishAbilityTile.Show(AbilityFaces.Wish(wish, serverTimeMs), AbilityFaces.WishLabel(wish, WishNameFor(wish)));
+            if (wish.HasValue) _wishAbilityTile.Cooldown(wish.Value.ReadyAt, wish.Value.RechargeMs); else _wishAbilityTile.Cooldown(0d, 0d);
+        }
+
+        /// <summary>Draws the Wish tile with no Wish delivered (after a rebind, a menu or a spectator view).</summary>
+        void ClearWishTile()
+        {
+            if (_wishAbilityTile == null) return;
+            _wishAbilityTile.Show(AbilityFace.Empty, AbilityFaces.NoWishLabel);
+            _wishAbilityTile.Cooldown(0d, 0d);
         }
 
         /// <summary>

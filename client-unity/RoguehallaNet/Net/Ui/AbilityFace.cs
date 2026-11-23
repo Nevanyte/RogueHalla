@@ -1,3 +1,5 @@
+using Roguehalla.Net;
+
 namespace Roguehalla.Net.Ui
 {
     /// <summary>What an ability tile shows at one moment.</summary>
@@ -41,6 +43,43 @@ namespace Roguehalla.Net.Ui
                 return new AbilityFace(AbilityPhase.Cooling, sweep, (int)System.Math.Ceiling(left / 1000d), charges, -1f);
             }
             return new AbilityFace(AbilityPhase.Ready, 0f, 0, charges, -1f);
+        }
+
+        /// <summary>The label the Wish tile shows with no Wish delivered.</summary>
+        public const string NoWishLabel = "\u2014";
+
+        /// <summary>The Wish's face. null: Empty. left = ReadyAt - now (NaN or infinite times count 0). left above 0: Cooling,
+        /// Seconds = ceil(left / 1000) capped at int.MaxValue, Sweep = RechargeMs finite and above 0 ? clamp01(left / RechargeMs) : 1.
+        /// Else Ready (the server's test: ready_at not after now). Badge = MaxCharges above 1 ? Charges : -1. Cast = no cast ? -1 :
+        /// clamp01((now - StartedAt) / max(1, LandsAt - StartedAt)), in any phase.</summary>
+        public static AbilityFace Wish(WishView? wish, double nowMs)
+        {
+            if (!wish.HasValue) return AbilityFace.Empty;
+            var w = wish.Value;
+            double now = Finite(nowMs);
+            double left = Finite(w.ReadyAt) - now;
+            int badge = w.MaxCharges > 1 ? w.Charges : -1;
+            float cast = -1f;
+            if (w.Cast.HasValue)
+            {
+                double started = Finite(w.Cast.Value.StartedAt);
+                double span = System.Math.Max(1d, Finite(w.Cast.Value.LandsAt) - started);
+                cast = Clamp01((now - started) / span);
+            }
+            if (left > 0d)
+            {
+                bool total = !double.IsNaN(w.RechargeMs) && !double.IsInfinity(w.RechargeMs) && w.RechargeMs > 0d;
+                float sweep = total ? Clamp01(left / w.RechargeMs) : 1f;
+                double sec = System.Math.Ceiling(left / 1000d);
+                return new AbilityFace(AbilityPhase.Cooling, sweep, sec >= int.MaxValue ? int.MaxValue : (int)sec, badge, cast);
+            }
+            return new AbilityFace(AbilityPhase.Ready, 0f, 0, badge, cast);
+        }
+
+        /// <summary>abilityName, or NoWishLabel when wish is null or the name is null or empty.</summary>
+        public static string WishLabel(WishView? wish, string abilityName)
+        {
+            return !wish.HasValue || string.IsNullOrEmpty(abilityName) ? NoWishLabel : abilityName;
         }
 
         static double Finite(double v) { return double.IsNaN(v) || double.IsInfinity(v) ? 0d : v; }
