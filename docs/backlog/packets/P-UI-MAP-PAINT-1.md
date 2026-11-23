@@ -200,8 +200,10 @@ public sealed partial class TacticalMapMarks    // Cover.cs
 
 ## Oracle files (read-only for implementers)
 
-- `client-unity/UnityProject/Assets/Tests/Editor/MapCoverEditModeTests.cs` (+ `.meta`)
-- `client-unity/UnityProject/Assets/Tests/Editor/MapPaintEditModeTests.cs` (+ `.meta`)
+- `client-unity/UnityProject/Assets/Tests/Editor/MapCoverEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/MapCoverEditModeTests.cs.meta`
+- `client-unity/UnityProject/Assets/Tests/Editor/MapPaintEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/MapPaintEditModeTests.cs.meta`
 - `docs/backlog/packets/P-UI-MAP-PAINT-1.md`
 
 The `stub:` commit (not an oracle file; the implementer replaces it) adds `CoverTests`, `CampCovered`, `WardCovered`, empty private
@@ -248,7 +250,49 @@ opening reads an empty quests text). Oracle tests 10, 14 and 15 are the guards.
 
 ## Notes from the oracle author
 
-(filled in with the oracle commit)
+Run on the stub (`unity-class.sh MapCoverEditModeTests,MapPaintEditModeTests`): 37 tests, 19 green (the standing guards), 18 red,
+each on an assertion about the missing behaviour:
+
+- `MapCoverEditModeTests`: `OneCoverTestPerCampAndActorPerPaint` (expected 340 cover tests, the stub makes 920 = 46 * 20),
+  `AMeshRebuildMakesNoCoverTest` (expected 0, 340).
+- `MapPaintEditModeTests`: `ASnapshotEveryFiftyMsPaintsOncePerSnapshot` (both cases: expected 40, base 80),
+  `WithNoDeliveryItPaintsFourTimesASecond` (both: 12 to 24, base 100), `TheHeartbeatIsAQuarterSecond` (both: a paint 240 ms
+  after one), `ACollectionsEventPaintsOnce` (both: one present too many), `AStateEventPaintsOnce`, `ATrackedQuestPaintsOnce` (both),
+  `ANewMinimapSizePaintsOnTheNextTick`, `AChangedStagePaintsOnTheNextTick`, `ARefusedPickShowsItsFeedbackOnTheNextTick` (the status
+  still reads "Choose spawn + boon, then Ready..."), `AGestureTicksOnAFrameWithoutAPaint` (nothing sent 105 ms after the press),
+  `UnchangedContactsAllocateNothingOnANewSnapshot` (4000 GC.Alloc samples in 200 calls).
+- Green on purpose (guards): cover tests 1 (both cases), 2, 5 and the three of 6; paint tests `ARouteStopPaintsOnTheNextTick`,
+  `ShowingTheRoutePaintsOnTheNextTick`, `OpeningTheMapPaintsOnTheNextTick`, `ClockTextsFollowTheServerTime`, the six guards of
+  test 14 (`ADestroyedTerrainReachesTheVisibleSurface` in both cases) and `TheMinimapShowsItsCampsAfterTheFirstTick`.
+
+**Scratch run (not committed).** One scratch copy of each new class, with every `Assert.That`, `Assert.DoesNotThrow`,
+`AllocationMeter.AssertNone` and `StringAssert.StartsWith` replaced by a catch-and-collect helper that failed the test at its
+TearDown with the list. Result: every entry in the list was one of the red assertions above (the `ARefusedPick...` test lists
+both its spawn and its boon assertion; every other red test lists exactly its one), so every later line of each test ran without an
+exception. The scratch also held four probes of values the fixed code will have to produce, all green on the base: after a
+300 ms wait the status reads "That spawn is already confirmed." and then "That boon is already confirmed."; a gesture sends B on a
+painted frame 155 ms after the press; `Snapshots.Sample` into a reused list, `WeaponCounterGuide.ActiveWeapon`, the legend
+`GetComponentInChildren<TMP_Text>()` and `ShowcasePalette.GetFactionName` allocate nothing in 200 calls (so the allocation test
+of `PresentTactics` can be met); the reflection write of `_lastContactsSnapshot` with a pre-boxed -1 allocates nothing (its control
+passes), so `TacticsRebuilds` is NOT needed and the stub does not add it.
+
+**Differences from the spec, and what the tests pin.**
+- Premises are asserted inside `Step` of the cover class (the sampled actors are those delivered, in delivery order, within .05):
+  they held on every step.
+- The own actor (id 1) stands on camp 0 in `OneCoverTestPerCampAndActorPerPaint`; the codec accepts it and the sample returns it.
+- `ARefusedPickShowsItsFeedbackOnTheNextTick` covers the spawn and boon picks; `Ready` is "by review" as in the spec.
+- `AStateEventPaintsOnce` closes the transport; the session goes to Reconnecting (the Welcome carries a session token), the minimap
+  stays shown, so the Tick after the event presents it on the base (+2) and must not on the fixed code (+1).
+- The scratch copies, the helper and the probes are deleted; none is committed.
+
+**Existing test red on the base, not on this packet.** `MinimapCaptureEditModeTests.PhysicalRightReleaseProjectsOverlayPositionAndFlushesChangedPointExactlyOnce`
+fails on `lane/ui-rework/base-3` itself ("release flushes just the final changed point": expected 1, was 0): measured with the
+two new test files and the stub removed from the tree. It is not touched by this packet and stays red whatever the implementer does;
+the implementer's gate comparison should treat it as a base failure. The other 158 tests of the classes listed under "Behaviour to
+preserve" (TabMap*, ZoneNames*, CampText, Declutter*, TacticalMapEditModeTests, MinimapReturn, ContactRailWords, PlayerFlows,
+MapScreen) are green on the stub.
+
+No `oracle-amend:` is needed: no existing expectation changes.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
