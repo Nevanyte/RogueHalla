@@ -227,7 +227,7 @@ namespace Roguehalla.Client.Tests
         public void LayoutNamesAllocatesNothing()
         {
             var actors = new List<Actor>();
-            for (uint i = 0; i < 10; i++) actors.Add(Actor.Fighter(i + 1, 640f + 6f * i, "fighter " + (i + 1), i == 0));   // ten names on one another
+            for (uint i = 0; i < 10; i++) actors.Add(Actor.Fighter(i + 1, 640f + 3f * i, "fighter " + (i + 1), i == 0));   // ten names on one another: all within .84 units of the local box, so each overlaps it and must lift
             for (uint i = 0; i < 10; i++) actors.Add(Actor.Mob(100 + i, 1400f + 400f * i, 640f, MobTypeId.MagmaBrute));   // ten more, far apart
             Frame(P, Scene.Of(actors.ToArray()));
             for (uint id = 2; id <= 10; id++)
