@@ -66,6 +66,7 @@ namespace Roguehalla.Client.Tests
                 PlayerId = 1, TickRate = 20, ServerMs = 50, Map = new MapBlob(32, 32, new byte[1024]) });
             _transport.Deliver(new ServerMsg.Snapshot { Tick = 1, ServerTimeOverrideMs = 50, Phase = 1,
                 Me = new WireSelf { Id = 1, X = 64, Y = 64, Hp = 100, MaxHp = 100, Status = 1, Weapon = 0 } });
+            ClearFirstRunHint();
             Layout(new Vector2(1422, 800));
         }
 
@@ -82,6 +83,8 @@ namespace Roguehalla.Client.Tests
         // ---- helpers ------------------------------------------------------------------------------------------------------------
 
         object Get(string field) => typeof(MatchHud).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_hud);
+        /// <summary>Bind arms the first-run hint (no account flow in this rig, so it is armed and its expiry needs Time.unscaledTime, which does not move in EditMode): clear it so the feedback lane starts empty.</summary>
+        void ClearFirstRunHint() { Set("_firstRunHint", false); Set("_feedback", ""); }
         void Set(string field, object value) => typeof(MatchHud).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(_hud, value);
         RectTransform Stage => (RectTransform)Get("_stage");
         float StageW => Stage.rect.width;
@@ -395,6 +398,7 @@ namespace Roguehalla.Client.Tests
             try
             {
                 _hud.Bind(other);
+                ClearFirstRunHint();
                 Frames(2);
                 Assert.AreEqual(0, Active("EventLane").Count);
                 Assert.AreEqual(0, Active("FeedbackLane").Count);
