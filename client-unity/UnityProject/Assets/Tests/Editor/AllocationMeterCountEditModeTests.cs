@@ -121,7 +121,7 @@ namespace Roguehalla.Client.Tests
             AllocationMeter.SamplesOverride = Overrides(20, 0, 30, 137, a => { if (ReferenceEquals(a, OneObject)) measuredSeen++; });
 
             Assert.DoesNotThrow(() => AllocationMeter.AssertAtMost(OneObject, 250, 137, "the limit probe"), "at the limit it returns");
-            Assert.That(measuredSeen, Is.EqualTo(1), "the override saw the measured action once (at the limit)");
+            Assert.That(measuredSeen, Is.EqualTo(3), "the override saw the measured action once per measurement, three (at the limit)");
 
             measuredSeen = 0;
             var ex = Assert.Throws<AssertionException>(() => AllocationMeter.AssertAtMost(OneObject, 250, 136, "the limit probe"), "one above the limit fails");
@@ -129,7 +129,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(ex.Message, Does.Contain("made 137 GC.Alloc samples in 250 calls"));
             Assert.That(ex.Message, Does.Contain("limit of 136"));
             Assert.That(ex.Message, Does.Contain(AllocationMeter.Meter));
-            Assert.That(measuredSeen, Is.EqualTo(1), "the override saw the measured action once (above the limit)");
+            Assert.That(measuredSeen, Is.EqualTo(3), "the override saw the measured action once per measurement, three (above the limit)");
         }
 
         [Test]
