@@ -226,7 +226,19 @@ Each in its own `oracle-amend:` commit, one test method each. The coordinator re
 
 ## Oracle files (read-only for implementers)
 
-ORACLE_FILES_PLACEHOLDER
+New (commit `oracle:`):
+
+- `client-unity/RoguehallaNet.Tests/QuestJournalCopyTests.cs` (dotnet; 4 tests)
+- `client-unity/UnityProject/Assets/Tests/Editor/QuestJournalPolishEditModeTests.cs` and its `.meta` (EditMode; 7 tests)
+- `docs/backlog/packets/P-UI-JOURNAL-POLISH-1.md`
+
+Amended (one `oracle-amend:` commit each, the three expectations listed above):
+
+- `client-unity/UnityProject/Assets/Tests/Editor/QuestJournalViewEditModeTests.cs` (two commits, one method each)
+- `client-unity/UnityProject/Assets/Tests/Editor/PlayerFlowsEditModeTests.cs` (one commit)
+
+The `stub:` commit holds `QuestJournalCopy.cs` (stub bodies: "" and true), its synced copy and the copy's `.meta`; the
+implementer replaces the bodies.
 
 ## 9. Validation commands
 
@@ -259,7 +271,42 @@ rows is gone on purpose.
 
 ## Notes from the oracle author
 
-NOTES_PLACEHOLDER
+Red on the stub (run before the amends; each fails on an assertion about the missing behaviour):
+
+- dotnet `QuestJournalCopyTests`, all four: `RowState`, `Status` and `Hint` return "" and fail on the first
+  `AreEqual` ("COMPLETE", "Accepting…", "Go to Gallows quest giver to accept"); `ShowsBrief` returns true and fails at
+  the "equal" line. A scratch implementation of the rules above (not committed) made all four green, so every line can
+  run and the expectations agree with the rules and the worked numbers.
+- EditMode `QuestJournalPolishEditModeTests`, all seven red: `AcceptCannotBeSentTwice` ("the button cannot be pressed
+  again", button still interactable); `ANewQuestViewEndsThePendingState` ("rig: the accept is pending", label still
+  "ACCEPT QUEST"); `TheStatusLineLeadsWithTheLiveFacts` ("Accepted · 12 / 45 s · 2:14 left" vs "... · Server deadline in
+  134s"); `TheObjectiveComesFirstAndTheRepeatedBriefIsHidden` ("the objective is above the giver", 3 vs less than 1);
+  `AnOfferOutOfReachSaysWhereToGo` ("the journal has QuestDetail/AcceptHint", not null); `TheSelectedRowStaysMarked`
+  ("row 1 after SelectQuest of the second", the stripe colour vs `SurfaceSelected`); `TheListRowSaysOfferHereOnlyInReach`
+  ("OFFER · HERE  ·  Wanderer & Co." vs "OFFER  ·  ...").
+- Scratch run (not committed): each EditMode test was run once with every assertion caught and collected (and a dummy
+  `AcceptHint` object so test 5 could run to its end). Every collected entry is an assertion about the missing behaviour
+  (pending state, new words, size 22.5, field order, hint text, selected colour, list-row words); there was no
+  exception from the set-up, the deliveries, the object paths or the sibling indexes. The helper was removed.
+- Existing classes on the stub: `QuestJournalViewEditModeTests`, `PlayerFlowsEditModeTests` and `QuestTrackerEditModeTests`
+  ran 45 of 45 green (with amend 1 applied; amends 2 and 3 are applied after, and are written to pass on the stub's old
+  texts only where noted: they expect the new words, so they are red on the stub by design).
+
+Differences from the spec, and why:
+
+- `TheStatusLineLeadsWithTheLiveFacts` gets its time of 1000 ms from `new ServerMsg.Snapshot { Tick = 20, Phase = 1 }`
+  (server time is tick x 50 ms), not from `ServerTimeOverrideMs = 1000`: the encoder refuses an override that equals
+  tick x 50 ("redundant time"), and tick 20 is the pattern of `QuestJournalViewEditModeTests` :300. The numbers are the
+  spec's (135000 - 1000 = 134 s = "2:14").
+- `ABriefThatRepeatsTheObjectiveIsNotShown` and the blank giver label: a null `Brief` or `GiverLabel` cannot be delivered
+  (the quest-view encoder refuses a null string), so those two cases build the `QuestRowView` through its internal
+  constructor with reflection (`Raw`), keeping the spec's null case; the empty and blank cases go through the session.
+  `QuestJournalCopy` must therefore accept null.
+- The row painted by the test for `AnOfferOutOfReachSaysWhereToGo` is `Open` with `CanAccept` false: in `Preview`
+  the hint is empty by rule.
+- The tests read the UI by object path; `AcceptHint` is looked up as `QuestJournal/QuestDetail/AcceptHint` and must be
+  a `TMP_Text` (the test reads `GetComponent<TMP_Text>()` on that object).
+- `QuestJournalView.Initialize` is called without an `onTracked` callback in the new class (not used there).
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
