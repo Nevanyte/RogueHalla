@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
+using Roguehalla.Net.Ui;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -221,13 +222,17 @@ namespace Roguehalla.Client.Tests
         }
 
         [TestCaseSource(nameof(Windows))]
-        public void BannerAndToastsUseTheTopCentreAndBottomOneTwentyFourAnchors(Vector2 window)
+        public void BannerAndStickyToastUseTheTopCentreAndFeedbackAnchors(Vector2 window)
         {
             Layout(window);
             var banner = Measure(_stage, Child(_stage, "ConnectionBanner"));
             Assert.That(banner.Top, Is.EqualTo(12f).Within(.01f)); Assert.That(banner.Left, Is.EqualTo(banner.Right).Within(.01f));
-            var toast = Measure(_stage, Child(_stage, "ToastStack"));
-            Assert.That(toast.Bottom, Is.EqualTo(124f).Within(.01f)); Assert.That(toast.Left, Is.EqualTo(toast.Right).Within(.01f));
+            _hud.SetStickyNotice("Resume is unavailable");
+            MatchHud.NoticeDtOverride = .5f;
+            try { for (int i = 0; i < 3; i++) Invoke("TickNotices"); }
+            finally { MatchHud.NoticeDtOverride = null; }
+            var toast = Measure(_stage, Child(_stage, "FeedbackLane/Toast0"));
+            Assert.That(toast.Bottom, Is.EqualTo(HudRegions.FeedbackBottom).Within(.5f)); Assert.That(toast.Left, Is.EqualTo(toast.Right).Within(.5f));
             var bar = Measure(_stage, Child(_stage, "PlayerHUD/CombatActions/Slot1"));
             Assert.That(toast.Bottom, Is.GreaterThanOrEqualTo(bar.Bottom + bar.Height - .01f), "toasts clear the slot row");
         }
