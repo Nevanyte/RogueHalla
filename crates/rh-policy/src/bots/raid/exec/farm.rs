@@ -150,7 +150,11 @@ impl Executor for Farm {
             return;
         };
         let at = cx.p.me.at;
-        let hp = cx.p.me.hp_share();
+        // The hp the model prices with: what is held plus what the potions held will give back (sustain on).
+        let hp = cx.p.me.hp_share()
+            + cx.prices
+                .sustain
+                .potion_hp(cx.p.me.potion_large, cx.p.me.potion_small);
         // Path searches for the nearest few (the tier's route horizon); straight estimates beyond it.
         let mut order: Vec<(f64, &CampSeen)> =
             cx.p.camps

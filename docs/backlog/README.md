@@ -595,8 +595,9 @@ Plan of record: [BALANCE_LAB_PATCH.md](BALANCE_LAB_PATCH.md) (the packet table, 
 ORDER_OF_OPERATIONS: owner approval 2026-11-22. A row moves to "Ready packet" when its brief is in `packets/`, and to
 "Done (`<sha>`)" when merged.
 
-**Resumed by the owner on 2026-11-23** ("resume"), after three pauses on 2026-11-22. Integration 84 is merged; the
-packets in flight and the integration 85 preview are in the top section of [MIGRATION.md](../MIGRATION.md).
+**Resumed by the owner on 2026-11-23** ("resume"), after three pauses on 2026-11-22. Integrations 84 and 85 are
+merged; the packets in flight and the integration 86 preview are in the top section of
+[MIGRATION.md](../MIGRATION.md).
 
 | ID | Outcome | Depends on | Status |
 |---|---|---|---|
@@ -605,30 +606,34 @@ packets in flight and the integration 85 preview are in the top section of [MIGR
 | P-RAID-Q1 | [The quest walker](packets/P-RAID-Q1.md): accept, walk, contact, turn-in for 11 quests; an accepted quest is a commitment | P-RAID-0-fix | Done (62964a0c4, integration 84) |
 | P-RAID-H1 | [Headless seat](packets/P-RAID-H1.md): `BotKind::Raid`, human seats, the lab's `raid` policy | P-RAID-0 | Done (3af033621, integration 83) |
 | P-RAID-V | [The value table](packets/P-RAID-V.md): a camp-equivalent row per quest reward (25) and pool augment (33), mirrored in `data/raid_values.json` | P-RAID-0-fix | Done (52ec36ccd, integration 84) |
-| P-RAID-C | [Sustain](packets/P-RAID-C.md): drink a potion, leave a lost fight, heal up on purpose; the farm prices camps with the potions held | P-RAID-0-fix, -V | Reviewed LAND WITH NOTES (`agent/sonnet/P-RAID-C-2` @ `5e28cc43b`, attempt 2; the note is P-RAID-C-fix), in the integration 85 preview |
-| P-RAID-C-fix | A leave does not outlive the Sustain goal that held it; a guard that the sustain prices equal the sim numbers they copy | P-RAID-C | Ready packet (oracle on `packet/P-RAID-C-fix` @ `d94bacc97`; implementer running) |
+| P-RAID-C | [Sustain](packets/P-RAID-C.md): drink a potion, leave a lost fight, heal up on purpose; the farm prices camps with the potions held | P-RAID-0-fix, -V | Done (1282a3ba2, integration 85; its note closed by P-RAID-C-fix) |
+| P-RAID-C-fix | [A leave does not outlive the Sustain goal that held it](packets/P-RAID-C-fix.md); a guard that the sustain prices equal the sim numbers they copy | P-RAID-C | Done (6fbd087aa, integration 85) |
 | P-RAID-C2 | Fight micro, the faction Wish, and a camp another player is already fighting (friendly fire) | P-RAID-C | Coarse |
 | P-RAID-Q2 | [Dwell quests](packets/P-RAID-Q2.md): Hold the Fort, Stay A While | P-RAID-Q1 | Done (c3eb0d749, integration 84) |
-| P-RAID-Q3 | [Decisions](packets/P-RAID-Q3.md): the reward slot choice, picking up a dropped spell, The Bargain | P-RAID-Q1, -V | Reviewed LAND WITH NOTES (`agent/sonnet/P-RAID-Q3` @ `a9d534dff`; the notes are P-RAID-Q3-fix), in the integration 85 preview |
-| P-RAID-Q3-fix | A seat cannot freeze on a quest decision (bounded waits, the token remembered); the decision prices live in `Prices`; The Bargain is valued by the trade's gain | P-RAID-Q3, -C | Ready packet (oracle on `packet/P-RAID-Q3-fix` @ `6e4437386`; implementer running) |
+| P-RAID-Q3 | [Decisions](packets/P-RAID-Q3.md): the reward slot choice, picking up a dropped spell, The Bargain | P-RAID-Q1, -V | Done (4054ad8ab, integration 85; its notes closed by P-RAID-Q3-fix and -fix2) |
+| P-RAID-Q3-fix | [A seat cannot freeze on a quest decision](packets/P-RAID-Q3-fix.md) (bounded waits, the token remembered); the decision prices live in `Prices`; The Bargain is valued by the trade's gain | P-RAID-Q3, -C | Done (53ca07799, integration 85; its note closed by P-RAID-Q3-fix2) |
+| P-RAID-Q3-fix2 | A pending choice's walk is priced, so the leave from a lost fight outranks it from afar; the pick-up stand is bounded; The Bargain's leg is a price in the table | P-RAID-Q3-fix, -C-fix | Reviewed LAND (`agent/sonnet/P-RAID-Q3-fix2` @ `af1bae8e9`), in the integration 86 preview |
 | P-RAID-TOP25-READ-1 | The quest bots read the quest numbers they use (timer base and pace, dwell seconds, contact range, The Bargain's stacks) from the sim's table instead of hand copies; cross-crate | P-RAID-Q3-fix | Coarse (before P-BAL-NUM-Q25-1: a quest retune would drift the bots unseen) |
 | P-RAID-Q3b | [Two Banners and Trade Up](packets/P-RAID-Q3b.md) | P-RAID-Q3 | Brief only |
 | P-RAID-Q3c | A spell-reward quest is accepted beyond two held spells when its reward beats the weakest held one | P-RAID-Q2, -Q3 | Coarse |
-| P-RAID-E, -S | Elite pricing and fights; quest spell cast rules | P-RAID-C, -V, -Q1 | Coarse |
+| P-RAID-E | Elite pricing (the bench's per-kind table, a weapon factor, a measured clear share), the fight (adds first) and the priced chest pick | P-RAID-C, -V, -Q1 | Gate-green (`agent/opus/P-RAID-E` @ `dbe547411`), in review by reviewer-opus |
+| P-RAID-E-leave | Sustain's leave sees an Elite goal and the elite itself; what the 11 of 21 lab attempts that ended with neither side dead cost | P-RAID-E | Coarse |
+| P-RAID-HOLD-1 | A heal-up stand ends when the seat is hit by any source or cannot regenerate (locked gates): a seat stood still while its hp fell from 0.22 to 0.01 | P-RAID-C-fix | Coarse |
+| P-RAID-S | Quest spell cast rules (18 spells) | P-RAID-Q1 | Coarse |
 | P-RAID-Q4, -P, -W | Kill quests; PvP, event and coliseum goals; the Whispers search | P-RAID-E, -Q1 | Coarse |
 | P-RAID-LIVE | `BotBrain::Raid` behind a server flag, off by default | all `P-RAID-*` | Coarse |
 | P-BAL-Q25-SEAM-1 | [Every Top 25 quest number (91) in one table](packets/P-BAL-Q25-SEAM-1.md); content hash unchanged | none | Done (10bd47797, integration 83; notes in P-BAL-PROBE-1) |
 | P-BAL-ELITE-SEAM-1 | [Per-elite-kind hp and damage multipliers](packets/P-BAL-ELITE-SEAM-1.md) under Rework, empty table; content hash unchanged | none | Done (910926543, integration 83) |
 | P-BAL-LAB-1 | [`balance_lab`](packets/P-BAL-LAB-1.md): observation-based metrics | none | Done (2fe5634f4, integration 82; notes in P-BAL-LAB-1-fix) |
-| P-BAL-LAB-1-fix | Quest outcomes read from the sim's attempt probe on every step (completed, timer, death, unknown, open, turned in unpaid); completion-time samples; the report says what is unmeasured | P-BAL-PROBE-1 | Reviewed LAND (`agent/sonnet/P-BAL-LAB-1-fix` @ `f132beeb9`), in the integration 85 preview |
+| P-BAL-LAB-1-fix | Quest outcomes read from the sim's attempt probe on every step (completed, timer, death, unknown, open, turned in unpaid); completion-time samples; the report says what is unmeasured | P-BAL-PROBE-1 | Done (72d26ebfd, integration 85) |
 | P-BAL-LAB-2 | Paired mode (a granted seat stays off the offer that pays its grant: the P-BAL-PROBE-1 review note), lock metrics, cast windows, encounters while questing, measured elite time | P-BAL-PROBE-1, P-BAL-EVAL-1 | Coarse |
 | P-BAL-PROBE-1 | [Read-only sim probes](packets/P-BAL-PROBE-1.md) (a seat's quest attempts, the coliseum lock) and a quest-reward grant in `trusted_build`; the two P-BAL-Q25-SEAM-1 review notes | P-BAL-Q25-SEAM-1 | Done (1e906d8bf, integration 84; its review note rides P-BAL-LAB-2) |
-| P-BAL-EVAL-1 | `balance_model` and `balance_eval`: lab report to the value model's verdicts | P-BAL-LAB-1 | Reviewed LAND WITH NOTES (`agent/sonnet/P-BAL-EVAL-1` @ `f78ef6694`; the notes are closed by P-BAL-EVAL-1-fix), in the integration 85 preview |
-| P-BAL-EVAL-1-fix | No design number comes from a code default; an unknown growth, or a reward missing a number its kind reads, is an error; no verdict beside a blank ratio | P-BAL-EVAL-1 | Reviewed LAND (`agent/sonnet/P-BAL-EVAL-1-fix` @ `d360dac2d`), in the integration 85 preview |
-| P-BAL-INPUTS-1 | `tools/balance-lab/inputs.json` carries the workbook's design numbers: 7 permanent rewards priced, 18 spell rewards by kind, 14 augments | P-BAL-EVAL-1 | Reviewed LAND (`agent/haiku/P-BAL-INPUTS-1` @ `726c02d4f`), in the integration 85 preview |
+| P-BAL-EVAL-1 | `balance_model` and `balance_eval`: lab report to the value model's verdicts | P-BAL-LAB-1 | Done (c348a5b98, integration 85; its notes closed by P-BAL-EVAL-1-fix) |
+| P-BAL-EVAL-1-fix | No design number comes from a code default; an unknown growth, or a reward missing a number its kind reads, is an error; no verdict beside a blank ratio | P-BAL-EVAL-1 | Done (87099e24f, integration 85) |
+| P-BAL-INPUTS-1 | `tools/balance-lab/inputs.json` carries the workbook's design numbers: 7 permanent rewards priced, 18 spell rewards by kind, 14 augments | P-BAL-EVAL-1 | Done (2eb8caeb2, integration 85) |
 | P-BAL-EVAL-2 | The model's gaps: a per-card factor from a native's own unit to stacks (measured growth against design), an upfront-cost field (The Bargain), a reusable spell's farming dividend; `Reward` as an enum by kind | P-BAL-INPUTS-1, P-BAL-LAB-1-fix | Coarse (before the baseline) |
 | P-BAL-ELITE-BOTS-1 | Bots read per-kind elite numbers: every estimate that knows the elite's kind; the camp-level share stays on the global pair (coordinator, 2026-11-22) | P-BAL-ELITE-SEAM-1 | Done (1c2c7520f, integration 84; the reader list in `docs/agent/AUGMENT_REWORK.md` is P-BAL-DOC-1's) |
-| P-BAL-NATIVE-TEXT-GUARD-1 | Guard on the numbers in native card text against the Rust table (a Rust test, `crates/rh-sim/tests/native_text_guard.rs`) | none | Ready packet (`--oracle-check` PASS on `packet/P-BAL-NATIVE-TEXT-GUARD-1` @ `dac716e7e`; implementer running) |
+| P-BAL-NATIVE-TEXT-GUARD-1 | Guard on the numbers in native card text against the Rust table (a Rust test, `crates/rh-sim/tests/native_text_guard.rs`) | none | Done (932dde409, integration 85; numbers only; a fifteenth native would not be caught) |
 | P-BAL-DOC-1 | `docs/agent/BALANCE_LAB.md` | P-BAL-LAB-2 | Coarse |
 | P-BAL-NUM-ELITE-1, -Q25-1, -AUG-1, P-BAL-DEV-1 | The measured numbers (per-elite, quests, augments) and their proposed DEVIATIONS rows; the quest packet also folds the 39 quest numbers the content hash misses today | the baseline measurement | Coarse |
 
@@ -648,8 +653,16 @@ Lane packets merged by the coordinator (owner-started lanes from the 2026-11-22 
 | P-UI-MOTION-1, -fix | [Motion helpers](packets/P-UI-MOTION-1.md) (`UiEase`, `HudClock`, `HudFade`, `HudPulses`) and [the review fix](packets/P-UI-MOTION-1-fix.md) | UI rework | Done (ea521e6aa, integration 84; "allocates nothing" not established) |
 | P-UI-CAMP-LABEL-STABLE-1, -fix | [The camp badge and texts glide instead of hopping](packets/P-UI-CAMP-LABEL-STABLE-1.md) and [the review fix](packets/P-UI-CAMP-LABEL-STABLE-1-fix.md) | UI rework | Done (ea521e6aa, integration 84; "allocates nothing" not established; not yet seen in a real build) |
 | P-UI-TABMAP-FLOW-1 | [Tab map: right-mouse steering, painted on the frame it opens, the camera not re-pinned](packets/P-UI-TABMAP-FLOW-1.md) | UI rework | Done (ea521e6aa, integration 84; three amended expectations for the owner; one stale minimap frame on close, P-UI-TABMAP-FLOW-1-fix) |
-| P-UI-TABMAP-FLOW-1-fix, P-UI-HUD-SEAMS-1-fix | The merge review's two notes: the minimap is painted on the frame it is shown again; the seams oracle no longer pins members the next wave replaces | UI rework | In the lane (with wave 2) |
-| P-UNITY-ALLOC-TESTS-1 | The thirteen older EditMode "allocates nothing" classes move onto the lane's `AllocationMeter` (their counter reads 0 in this editor, so they pass on any code) | coordinator (found by UI rework) | Coarse (after P-UI-ALLOC-METER-1 merges with wave 2) |
+| P-UI-TABMAP-FLOW-1-fix | The wave 1 merge review's note 1: the minimap is painted on the frame it is shown again | UI rework | Green in the lane (`agent/sonnet/P-UI-TABMAP-FLOW-1-fix` @ `4e1f9346a`), with wave 3 |
+| P-UI-HUD-SEAMS-1-fix | [The seams oracle no longer pins members the next wave replaces](packets/P-UI-HUD-SEAMS-1-fix.md) | UI rework | Done (1bd9cc1dd, integration 85; an oracle amendment for the owner) |
+| P-UI-TRADER-COPY-1 | [The trader window in the game's words](packets/P-UI-TRADER-COPY-1.md) | UI rework | Done (1bd9cc1dd, integration 85) |
+| P-UI-QUEST-TRACKER-1 | [A tracker card of up to three accepted quests under the plate](packets/P-UI-QUEST-TRACKER-1.md) | UI rework | Done (1bd9cc1dd, integration 85; a DEVIATIONS row proposed) |
+| P-UI-TABMAP-SHEET-1, -fix | [The Tab map as one sheet with a header](packets/P-UI-TABMAP-SHEET-1.md) and [its review fix](packets/P-UI-TABMAP-SHEET-1-fix.md) | UI rework | Done (1bd9cc1dd, integration 85; a DEVIATIONS row proposed) |
+| P-UI-TOAST-LANES-1 | [Notices as pills in two lanes; the box in the middle of the map gone](packets/P-UI-TOAST-LANES-1.md) | UI rework | Done (1bd9cc1dd, integration 85; a DEVIATIONS row proposed; the Notices history keeps the newest 200) |
+| P-UI-ABILITY-ROW-1 | [One action row of six with the quest spells as tiles](packets/P-UI-ABILITY-ROW-1.md) | UI rework | Done (1bd9cc1dd, integration 85; a DEVIATIONS row proposed; two review notes in the lane's wave 3) |
+| P-UI-ALLOC-METER-1, P-UI-ALLOC-PROOF-1 | [A self-checking allocation meter](packets/P-UI-ALLOC-METER-1.md) on Unity's allocation constraint and [the lane's four allocation tests moved onto it](packets/P-UI-ALLOC-PROOF-1.md) | UI rework | Done (1bd9cc1dd, integration 85) |
+| P-UNITY-ALLOC-TESTS-1 | The thirteen older EditMode "allocates nothing" classes move onto the lane's `AllocationMeter` (their counter reads 0 in this editor, so they pass on any code) | coordinator (found by UI rework) | Coarse (P-UI-ALLOC-METER-1 is in; its counting form, P-UI-ALLOC-METER-2, arrives with wave 3 and the `RenderPassEditModeTests` byte budget needs it) |
+| P-TEST-HARDEN-1d | The C# probe `AllocationProbeTests.PlainDecodeAllocatesExactly…InEveryRun` failed one full gate run (2808.084 against 2808 in its run 0) and passed seven others on the same tree: make it hold under load without loosening what it pins | coordinator | Coarse |
 
 ## Requirement coverage ([../REQUIREMENTS.md](../REQUIREMENTS.md))
 
