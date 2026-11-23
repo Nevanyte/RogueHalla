@@ -68,6 +68,7 @@ namespace Roguehalla.Net
         int _w, _h;
         byte[] _nav;
         int[] _comp;
+        int[] _queue;
 
         // ---- A* scratch (the generation stamp replaces a full clear, as in Rust) ----
         Node[] _nodes;

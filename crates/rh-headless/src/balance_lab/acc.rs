@@ -153,6 +153,8 @@ pub struct World {
     /// Cleared camps with a credited seat (the seat with the most damage on the camp's mobs).
     pub camps_credited: u64,
     pub camps_by_type: BTreeMap<String, u64>,
+    /// Cleared camps that held an elite (a subset of `camps_cleared`).
+    pub elite_camps_cleared: u64,
     /// Heuristic: first hit on the camp by the credited seat to the clear.
     pub kill_secs: Sum,
     /// Heuristic: the clear until hp >= 95% or the next hit taken.
@@ -167,6 +169,7 @@ impl Merge for World {
         self.camps_cleared += o.camps_cleared;
         self.camps_credited += o.camps_credited;
         self.camps_by_type.fold_in(o.camps_by_type);
+        self.elite_camps_cleared += o.elite_camps_cleared;
         self.kill_secs.fold_in(o.kill_secs);
         self.heal_secs.fold_in(o.heal_secs);
         self.walk_secs.fold_in(o.walk_secs);
@@ -182,6 +185,19 @@ pub struct EliteCounts {
     pub died: u64,
     pub taken_by_other: u64,
     pub open: u64,
+    /// The seat died in the fight's window to something that is not the elite or its camp.
+    pub died_elsewhere: u64,
+    /// Gave up: idle (no hit dealt or taken against the elite or its camp) for more than `LEAVE_MS`.
+    pub left: u64,
+    /// Contact to kill, one sample per `killed`.
+    pub kill_secs: SampledSum,
+    /// One chest outcome per kill: picked by the credited killer's seat, only by another seat, by nobody, or still standing.
+    pub chest_killer: u64,
+    pub chest_other: u64,
+    pub chest_none: u64,
+    pub chest_open: u64,
+    /// Picks by seats other than the killer from the kills' chests (counted when the chest is gone).
+    pub chest_bystander_picks: u64,
 }
 impl Merge for EliteCounts {
     fn fold_in(&mut self, o: Self) {
@@ -190,6 +206,14 @@ impl Merge for EliteCounts {
         self.died += o.died;
         self.taken_by_other += o.taken_by_other;
         self.open += o.open;
+        self.died_elsewhere += o.died_elsewhere;
+        self.left += o.left;
+        self.kill_secs.fold_in(o.kill_secs);
+        self.chest_killer += o.chest_killer;
+        self.chest_other += o.chest_other;
+        self.chest_none += o.chest_none;
+        self.chest_open += o.chest_open;
+        self.chest_bystander_picks += o.chest_bystander_picks;
     }
 }
 
@@ -261,12 +285,18 @@ pub struct Rewards {
     pub picks_by_kind: BTreeMap<String, u64>,
     /// `Event::ChestTaken` count: the cross-check of the observed picks.
     pub chest_taken_events: u64,
+    /// The same picks as `picks_by_kind`, by the chest they came from: `elite` (a kill's chest), `trophy`, `ground`.
+    pub picks_by_chest_kind: BTreeMap<String, u64>,
+    /// `ChestTaken` events whose option the lab could not name (a skip, or a pick no observation showed).
+    pub picks_unnamed: u64,
 }
 impl Merge for Rewards {
     fn fold_in(&mut self, o: Self) {
         self.chests_offered += o.chests_offered;
         self.picks_by_kind.fold_in(o.picks_by_kind);
         self.chest_taken_events += o.chest_taken_events;
+        self.picks_by_chest_kind.fold_in(o.picks_by_chest_kind);
+        self.picks_unnamed += o.picks_unnamed;
     }
 }
 
@@ -275,12 +305,17 @@ pub struct AugCounts {
     pub offered: u64,
     pub picked: u64,
     pub held_by_winner: u64,
+    /// Picks from an elite kill's chest by the credited killer's seat (who holds the first pick), and by another seat.
+    pub picked_by_killer: u64,
+    pub picked_by_bystander: u64,
 }
 impl Merge for AugCounts {
     fn fold_in(&mut self, o: Self) {
         self.offered += o.offered;
         self.picked += o.picked;
         self.held_by_winner += o.held_by_winner;
+        self.picked_by_killer += o.picked_by_killer;
+        self.picked_by_bystander += o.picked_by_bystander;
     }
 }
 
