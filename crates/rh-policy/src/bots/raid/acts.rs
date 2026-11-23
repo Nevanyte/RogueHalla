@@ -26,6 +26,13 @@ pub enum Act {
         action: u8,
         target: u8,
     },
+    /// Pick up a dropped quest spell (action 9). A drop has no row: it is named by the frame's drop `index` and its wire
+    /// `reward` id (both checked against the same frame at send time, so an index that moved to another spell sends
+    /// nothing).
+    QuestPickup {
+        index: u8,
+        reward: u8,
+    },
     UseConsumable,
     Trade {
         merchant: rh_sim::traders::Kind,

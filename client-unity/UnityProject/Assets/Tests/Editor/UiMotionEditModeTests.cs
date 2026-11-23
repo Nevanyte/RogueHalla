@@ -333,10 +333,9 @@ namespace Roguehalla.Client.Tests
             var pulses = new HudPulses();
             Assert.That(pulses.Count, Is.EqualTo(0));
             for (int i = 0; i < 5; i++) { fade.Tick(Dt); hidden.Tick(Dt); pulses.Tick(i * Dt); }
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 200; i++) { fade.Tick(Dt); hidden.Tick(Dt); pulses.Tick(1f + i * Dt); }
-            long after = GC.GetAllocatedBytesForCurrentThread();
-            Assert.That(after - before, Is.LessThanOrEqualTo(0), "idle ticks allocate nothing");
+            int step = 0;
+            Action idleTick = () => { fade.Tick(Dt); hidden.Tick(Dt); pulses.Tick(1f + (step++ % 200) * Dt); };
+            AllocationMeter.AssertNone(idleTick, 200, "idle ticks");
             Assert.That(fade.Alpha, Is.EqualTo(1f));
             Assert.That(hidden.Active, Is.False, "an idle tick does not wake a hidden panel");
         }

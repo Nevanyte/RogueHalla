@@ -58,14 +58,14 @@ namespace Roguehalla.Client
             var close = MythicUi.Button(_root, "Close", "CLOSE", new Vector2(.87f, .915f), new Vector2(.975f, .995f), Close, MythicUi.ButtonStyle.Quiet);
             close.GetComponentInChildren<TMP_Text>().fontSize = 13;
 
-            _status = MythicUi.Text(_root, "Status", "Awaiting server trade view", new Vector2(.025f, .735f), new Vector2(.975f, .80f), 16, ShowcasePalette.MutedText);
+            _status = MythicUi.Text(_root, "Status", "Looking for traders…", new Vector2(.025f, .735f), new Vector2(.975f, .80f), 16, ShowcasePalette.MutedText);
             var merchantPanel = MythicUi.Panel(_root, "MerchantPanel", new Vector2(.025f, .17f), new Vector2(.29f, .72f), ShowcasePalette.PanelRaised, false);
-            MythicUi.Text(merchantPanel, "MerchantHeading", "VISIBLE MERCHANTS", new Vector2(.035f, .84f), new Vector2(.965f, .99f), 14, ShowcasePalette.Gold);
+            MythicUi.Text(merchantPanel, "MerchantHeading", "TRADERS IN SIGHT", new Vector2(.035f, .84f), new Vector2(.965f, .99f), 14, ShowcasePalette.Gold);
             _merchantList = MythicUi.Rect(merchantPanel, "MerchantList", new Vector2(.02f, .02f), new Vector2(.98f, .82f));
 
             var detailPanel = MythicUi.Panel(_root, "OfferPanel", new Vector2(.31f, .17f), new Vector2(.975f, .72f), ShowcasePalette.PanelRaised, false);
-            _detailHeading = MythicUi.Text(detailPanel, "DetailHeading", "Select a visible merchant", new Vector2(.025f, .83f), new Vector2(.975f, .99f), 19, ShowcasePalette.Text);
-            _detailSummary = MythicUi.Text(detailPanel, "DetailSummary", "Offers and choices are supplied by the server.", new Vector2(.025f, .70f), new Vector2(.975f, .83f), 13, ShowcasePalette.MutedText);
+            _detailHeading = MythicUi.Text(detailPanel, "DetailHeading", "Traders", new Vector2(.025f, .83f), new Vector2(.975f, .99f), 19, ShowcasePalette.Text);
+            _detailSummary = MythicUi.Text(detailPanel, "DetailSummary", "Pick a trader to see the offers.", new Vector2(.025f, .70f), new Vector2(.975f, .83f), 13, ShowcasePalette.MutedText);
             _empty = MythicUi.Text(detailPanel, "Empty", "", new Vector2(.03f, .08f), new Vector2(.97f, .66f), 16, ShowcasePalette.MutedText, TextAlignmentOptions.Center);
             var scrollRoot = MythicUi.Rect(detailPanel, "ChoiceScroll", new Vector2(.02f, .07f), new Vector2(.98f, .68f));
             _choiceScroll = scrollRoot.gameObject.AddComponent<UnityEngine.UI.ScrollRect>();
@@ -81,10 +81,10 @@ namespace Roguehalla.Client
             _choiceScroll.viewport = viewport; _choiceScroll.content = _choiceContent;
             scrollRoot.gameObject.AddComponent<KeyboardScrollPane>().Initialize(_choiceScroll);
 
-            MythicUi.Text(_root, "AuthorityNote", "Server decides whether a choice can be completed.", new Vector2(.025f, .035f), new Vector2(.975f, .13f), 13, ShowcasePalette.MutedText);
+            MythicUi.Text(_root, "AuthorityNote", "", new Vector2(.025f, .035f), new Vector2(.975f, .13f), 13, ShowcasePalette.MutedText);
             _initialized = true;
             _root.gameObject.SetActive(false);
-            SetState("Awaiting server trade view");
+            SetState("Looking for traders…");
         }
 
         public void Bind(Session session)
@@ -99,7 +99,7 @@ namespace Roguehalla.Client
             _selectedMerchant = -1;
             _pending = false; _pendingText = "";
             _renderGeneration++;
-            ClearTradePresentation("Waiting for an authoritative trade view.");
+            ClearTradePresentation("Looking for traders…");
             _renderedTrade = null;
             Refresh();
         }
@@ -124,7 +124,7 @@ namespace Roguehalla.Client
             {
                 _selectedMerchant = -1;
                 _pending = false; _pendingText = "";
-                ClearTradePresentation("No active Session");
+                ClearTradePresentation("No match in progress.");
                 _renderedTrade = null;
                 return;
             }
@@ -135,7 +135,7 @@ namespace Roguehalla.Client
                 _selectedMerchant = -1;
                 _pending = false; _pendingText = "";
                 _renderGeneration++;
-                ClearTradePresentation("Waiting for an authoritative trade view.");
+                ClearTradePresentation("Looking for traders…");
                 _renderedTrade = null;
             }
 
@@ -165,22 +165,21 @@ namespace Roguehalla.Client
                 }
             }
 
-            string authority = _session.State == SessionState.InMatch ? "Server trade view" : StateCopy(_session.State);
-            if (current == null) SetState(authority + " · awaiting trade view");
-            else if (!current.Available) SetState(authority + " · trader data unavailable");
-            else if (current.Merchants.Count == 0) SetState(authority + " · no visible merchants");
-            else if (_pending) SetState(authority + " · " + _pendingText);
+            if (_session.State != SessionState.InMatch) SetState(StateCopy(_session.State));
+            else if (current == null) SetState("Looking for traders…");
+            else if (!current.Available) SetState("Traders are unavailable in this match.");
+            else if (current.Merchants.Count == 0) SetState("No trader in sight.");
+            else if (_pending) SetState(_pendingText);
             else if (current.TradeUsed && _selectedMerchant >= 0 && _selectedMerchant < current.Merchants.Count &&
                 current.Merchants[_selectedMerchant].Kind == TradeKind.Stats)
-                SetState(authority + " · stat trade used this run");
-            else if (current.TradeUsed) SetState(authority + " · stat trade used · barter remains available");
-            else SetState(authority + " · choices are server-authoritative");
+                SetState("Stat trade used this run.");
+            else if (current.TradeUsed) SetState("Stat trade used this run. Barter is still open.");
+            else SetState(current.Merchants.Count == 1 ? "1 trader in sight" : current.Merchants.Count + " traders in sight");
 
             if (!(current != null && current.Available) || _selectedMerchant < 0)
             {
-                Set(_detailHeading, "Select a visible merchant");
-                Set(_detailSummary, current == null ? "Waiting for an authoritative trade view." :
-                    !current.Available ? "Trader data is unavailable." : "No visible merchant is present in the delivered view.");
+                Set(_detailHeading, "Traders");
+                Set(_detailSummary, "");
             }
             UpdateButtonAvailability(current);
             ReflowIfLayoutChanged();
@@ -219,8 +218,8 @@ namespace Roguehalla.Client
             if (kind == TradeKind.Stats && pick >= view.Offers.Count) return false;
             session.Input.Trade(kind, pick);
             _pending = true;
-            _pendingText = "choice queued · awaiting server state";
-            SetState("Server trade view · " + _pendingText);
+            _pendingText = "Trading…";
+            SetState(_pendingText);
             return true;
         }
 
@@ -282,17 +281,17 @@ namespace Roguehalla.Client
             _empty.gameObject.SetActive(true);
             if (view == null)
             {
-                Set(_empty, "Waiting for an authoritative trade view.");
+                Set(_empty, "Looking for traders…");
                 SetContentHeight(0);
                 return;
             }
             if (!view.Available)
             {
-                Set(_empty, "Trader data is unavailable."); SetContentHeight(0); return;
+                Set(_empty, "Traders are unavailable in this match."); SetContentHeight(0); return;
             }
             if (_selectedMerchant < 0 || _selectedMerchant >= view.Merchants.Count)
             {
-                Set(_empty, view.Merchants.Count == 0 ? "No visible merchants in the delivered view." : "Select a visible merchant.");
+                Set(_empty, view.Merchants.Count == 0 ? "No trader in sight." : "Pick a trader.");
                 SetContentHeight(0); return;
             }
 
@@ -304,7 +303,7 @@ namespace Roguehalla.Client
                 {
                     byte capturedPick = pick; var capturedSession = _session; uint capturedEpoch = _boundEpoch;
                     int capturedGeneration = _renderGeneration, capturedMerchant = _selectedMerchant;
-                    string label = (pick + 1).ToString(CultureInfo.InvariantCulture) + " · " + view.BarterLabels[pick];
+                    string label = view.BarterLabels[pick];
                     var button = CreateChoiceButton(pick, label, () => TryTradeBound(capturedSession, capturedEpoch, viewRef.View,
                         capturedGeneration, capturedMerchant, TradeKind.Barter, capturedPick));
                     _choiceButtons.Add(button);
@@ -331,7 +330,7 @@ namespace Roguehalla.Client
                 }
                 if (offers.Count == 0)
                 {
-                    if (statRowsHeight == 0) Set(_empty, "No stat offers are present in the delivered view.");
+                    if (statRowsHeight == 0) Set(_empty, "This trader has no offers right now.");
                     else _empty.gameObject.SetActive(false);
                     SetContentHeight(statRowsHeight);
                 }
@@ -345,7 +344,7 @@ namespace Roguehalla.Client
                         var offer = offers[pick];
                         // Legacy shows the server's offer label alone ("-12% attack speed -> +13.9 Defense"); the raw cost/gain numbers are
                         // fractions and flat values in different units, so repeating them read as a second, inconsistent quote.
-                        string label = (pick + 1).ToString(CultureInfo.InvariantCulture) + " · " + offer.Label;
+                        string label = offer.Label;
                         var button = CreateChoiceButton(pick, label, () => TryTradeBound(capturedSession, capturedEpoch, viewRef.View,
                             capturedGeneration, capturedMerchant, TradeKind.Stats, capturedPick));
                         button.interactable = !view.TradeUsed;
@@ -418,8 +417,8 @@ namespace Roguehalla.Client
             SetContentHeight(0);
             if (_choiceScroll != null) { _choiceScroll.StopMovement(); _choiceScroll.verticalNormalizedPosition = 1; }
             if (_empty != null) { _empty.gameObject.SetActive(true); Set(_empty, copy); }
-            Set(_detailHeading, "Select a visible merchant");
-            Set(_detailSummary, copy);
+            Set(_detailHeading, "Traders");
+            Set(_detailSummary, "");
             SetState(copy);
         }
 
@@ -597,7 +596,7 @@ namespace Roguehalla.Client
                 case SessionState.Reconnecting: return "Connection interrupted · resuming";
                 case SessionState.Failed: return "Connection failed";
                 case SessionState.Rejected: return "Connection rejected";
-                case SessionState.Ended: return "Session ended";
+                case SessionState.Ended: return "Match ended";
                 default: return state.ToString();
             }
         }

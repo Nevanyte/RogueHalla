@@ -9,6 +9,18 @@ namespace Roguehalla.Net.Tests
     /// every name, MobView.ts:108-110); the survivor of a pack is the lowest actor id so the label never flickers between mobs.</summary>
     public sealed class NameMergeTests
     {
+        static string[] s_counterControl;
+
+        /// <summary>Guard (P-UI-ALLOC-PROOF-1): the allocation counter must register a known allocation, so a test built on it can never go blind silently.</summary>
+        static void AssertCounterSees()
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            var kept = new string[1000];
+            for (int i = 0; i < kept.Length; i++) kept[i] = "control" + i;
+            s_counterControl = kept;
+            Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.GreaterThan(0L), "the allocation counter did not see 1,000 kept string concatenations: it is blind here");
+        }
+
         const float W = 60f;
 
         static NameMergeItem Mob(uint id, string text, float x, float y = 0f, bool elite = false, float width = W) =>
@@ -139,6 +151,7 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void DecidingAllocatesNothing()
         {
+            AssertCounterSees();
             var items = Enumerable.Range(0, 40).Select(i => Mob((uint)(100 - i), i % 3 == 0 ? "Rat" : "Witch", i * 9f, i % 2 * 7f, i % 11 == 0)).ToArray();
             var shown = new bool[items.Length];
             NameMerge.Decide(items, items.Length, shown);   // warm up

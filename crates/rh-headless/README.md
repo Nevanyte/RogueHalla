@@ -21,6 +21,7 @@ uses `Env` in tests), and `rh-parity` compiles `src/digest.rs` into its `parity-
 - `src/tournament.rs`, `src/tournament_cli.rs`, `src/bin/tournament.rs`: the bot tournament.
 - `src/tune.rs`, `src/bin/tune.rs`: the port of legacy `tune.ts` and the offline seeded search over Brain numbers.
 - `src/balance_lab.rs`, `src/balance_lab/`, `src/bin/balance_lab.rs`: the balance measurement tool (`tools/balance-lab/README.md`).
+- `src/balance_model.rs`, `src/bin/balance_eval.rs`: the evaluator turning a `balance_lab` report plus `tools/balance-lab/inputs.json` into value-model verdicts.
 - `src/bin/scalebench.rs`: N fighters past the normal player cap (needs `--features bench`).
 - `examples/`: `first_playable.rs`, `full_map_cost.rs`, `hitbox_compare.rs`, `source_soak.rs`.
 

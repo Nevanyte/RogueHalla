@@ -24,6 +24,8 @@ namespace Roguehalla.Client
         public RectTransform Rect => (RectTransform)transform;
         public TacticalMapMarks Marks => _marks;
         /// <summary>True when the map carried a region plane and the terrain is tinted by zone.</summary>
+        /// <summary>P-UI-TABMAP-SHEET-1: true when the layout owns this surface's rect, so <see cref="Rebuild"/> adds no aspect fitter (the Tab map sets it; the minimap does not).</summary>
+        public bool LayoutOwnsRect;
         public bool HasZoneTint => _raster != null && _raster.Tinted;
 
         public void Initialize()
@@ -67,6 +69,7 @@ namespace Roguehalla.Client
             if (_map == null) return;
             _raster = TerrainRaster.Acquire(_map, UiTheme.Current);
             _terrain.texture = _raster.Texture;
+            if (LayoutOwnsRect) return;
             var fit = GetComponent<AspectRatioFitter>() ?? gameObject.AddComponent<AspectRatioFitter>();
             fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent; fit.aspectRatio = (float)_map.W / _map.H;
         }

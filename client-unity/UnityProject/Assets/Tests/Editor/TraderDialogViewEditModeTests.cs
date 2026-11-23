@@ -45,7 +45,7 @@ namespace Roguehalla.Client.Tests
         {
             _view.SetVisible(true);
             Assert.IsNull(_session.Collections.Trade);
-            Assert.That(_canvas.transform.Find("TraderDialog/Status").GetComponent<TMP_Text>().text, Does.Contain("awaiting trade view"));
+            Assert.That(_canvas.transform.Find("TraderDialog/Status").GetComponent<TMP_Text>().text, Is.EqualTo("Looking for traders…"));
             _session.Update();
             Assert.AreEqual(0, InputMessages().SelectMany(x => x.Commands).Count(c => c.Kind == CommandKind.Trade));
 
@@ -59,7 +59,7 @@ namespace Roguehalla.Client.Tests
             _view.Refresh();
             Assert.IsTrue(_session.Collections.Trade.Available);
             Assert.AreEqual(0, _session.Collections.Trade.Merchants.Count);
-            Assert.That(_canvas.transform.Find("TraderDialog/Status").GetComponent<TMP_Text>().text, Does.Contain("no visible merchants"));
+            Assert.That(_canvas.transform.Find("TraderDialog/Status").GetComponent<TMP_Text>().text, Is.EqualTo("No trader in sight."));
             Assert.AreEqual(0, InputMessages().SelectMany(x => x.Commands).Count(c => c.Kind == CommandKind.Trade));
         }
 
@@ -241,7 +241,7 @@ namespace Roguehalla.Client.Tests
                 Assert.AreEqual(0, _view.ChoiceCount);
                 Assert.AreEqual(-1, _view.SelectedMerchantIndex);
                 Assert.IsFalse(_canvas.GetComponentsInChildren<TMP_Text>().Any(x => x.text.Contains("Old merchant")));
-                StringAssert.Contains("awaiting trade view", _canvas.transform.Find("TraderDialog/Status").GetComponent<TMP_Text>().text);
+                StringAssert.Contains("Looking for traders…", _canvas.transform.Find("TraderDialog/Status").GetComponent<TMP_Text>().text);
                 Assert.IsFalse(_view.TryTrade(TradeKind.Barter, 1));
                 next.FlushInput();
                 Assert.IsFalse(nextTransport.Sent.Where(x => x.Length > 0 && x[0] == 2)

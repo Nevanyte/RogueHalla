@@ -1,5 +1,9 @@
 //! Quest goals (P-RAID-Q1..Q4, -P, -W): the executors that walk, dwell, decide, hunt, fight and search for quests.
 pub mod decide;
+#[cfg(test)]
+mod decide_fix_tests;
+#[cfg(test)]
+mod decide_tests;
 pub mod dwell;
 #[cfg(test)]
 mod dwell_tests;
