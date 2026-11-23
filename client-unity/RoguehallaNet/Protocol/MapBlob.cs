@@ -89,6 +89,19 @@ namespace Roguehalla.Net.Protocol
             ContextHash = ComputeContextHash(LayerHash, SemanticHash, terrainMode);
         }
 
+        /// <summary>A tile-only map whose semantic hash the caller already holds (it depends only on w and h without planes or
+        /// sections: <c>ComputeSemanticHash(w, h, null, null)</c>), so a rebuild costs the object alone.</summary>
+        internal MapBlob(ushort w, ushort h, byte[] tiles, uint tileOnlySemanticHash)
+        {
+            W = w;
+            H = h;
+            Tiles = tiles;
+            LayerHash = ComputeHash(w, h, tiles);
+            TerrainMode = GroundTerrainOff;
+            SemanticHash = tileOnlySemanticHash;
+            ContextHash = ComputeContextHash(LayerHash, SemanticHash, TerrainMode);
+        }
+
         MapBlob() { }
 
         /// <summary>A copy carrying the protocol 17 public sections, hashes recomputed. Empty or null means absent. Refuses (never

@@ -81,6 +81,9 @@ namespace Roguehalla.Net
 
         /// <summary>The C# <c>TileMap::with_low</c> over the base map; a new map object (over a retained tile buffer) only when a wall stands.</summary>
         byte[] _walkTiles;
+        uint _semantic;
+        int _semanticW, _semanticH;
+        bool _semanticKnown;
 
         void RebuildWalkMap()
         {
@@ -104,7 +107,14 @@ namespace Roguehalla.Net
                     if (tiles[at] == MapBlob.Floor) tiles[at] = MapBlob.Low;
                 }
             }
-            _walkMap = new MapBlob(_map.W, _map.H, tiles);
+            if (!_semanticKnown || _semanticW != w || _semanticH != h)
+            {
+                _semantic = MapBlob.ComputeSemanticHash(_map.W, _map.H, null, null);
+                _semanticW = w;
+                _semanticH = h;
+                _semanticKnown = true;
+            }
+            _walkMap = new MapBlob(_map.W, _map.H, tiles, _semantic);
         }
 
         /// <summary>rh-sim <c>barriers::walk_blocked</c>: does the remaining walk from the model position cross the walk map?</summary>
