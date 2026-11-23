@@ -43,6 +43,12 @@ namespace Roguehalla.Client
         /// <summary>The region moved up by an offset (down when negative) from its edge.</summary>
         static HudRegion Raised(HudRegion region, float by) => new HudRegion(region.Anchor, region.X, region.Y + by, region.Width, region.Height);
 
+        /// <summary>Local milliseconds of the HUD clock; a test replaces it (EditMode time does not advance).</summary>
+        public Func<double> HudLocalMs = () => Time.unscaledTimeAsDouble * 1000d;
+
+        /// <summary>Every frame: the action row's motion (stub: does nothing yet).</summary>
+        void TickActionRow() { }
+
         /// <summary>The Shift and Q ability tiles of the row.</summary>
         AbilityTile[] _questTiles = new AbilityTile[2];
 
