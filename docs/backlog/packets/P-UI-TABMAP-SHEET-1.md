@@ -206,3 +206,20 @@ Sonnet: presentation only, one pure layout function with exact numbers, one part
 - Test 8 reads "no border" as: no child named `Frame` on the rail (what `HudUi.Surface` draws when it is given a border); the implementer re-surfaces the rails with `HudUi.Surface(rail, theme.SurfaceRaised, theme.CornerRadius, null, true, false)`.
 - A dim test (`TheDimIsDarkerOnTheTabMapAndPlanningKeepsItsOwn`) is added for the .86 / .84 alphas of 6.2.
 - Test 9 (`PlanningStillBlocksTheMapUnderTheJournal`) is green before and after: it guards `BlockPlanningMapInput` / `RestorePlanningMapInput` (`MatchHud.PlayerFlows.cs:110,125`) against this packet's panel changes.
+
+## Addendum from the lane lead (2026-11-23, after the first implementer pass)
+
+- **Oracle correction.** `TabMapSheetEditModeTests.TheLiveRectsEqualTheLayout` looked for the minimap under the
+  canvas (`_canvas.transform.Find("Minimap/TerrainFrame")`); the controller builds it under the stage it is given.
+  The lookup is now `_stage.Find(...)`, with a set-up assertion that it is found. Nothing else in the oracle changed.
+- **The map header's phase line empties when the pill does.** `TickMetrics` (`UI/MatchHud.Features.cs`) empties the
+  phase pill in two places that do not go through `ApplyPhaseStrip` (`_phaseStrip.text = ""`: the early return when
+  the session is not in a match, and the return when the phase line is null). At those two places the map's line is
+  emptied too (`_map?.SetPhaseLine(null)`, through the helper in `MatchHud.Visibility.cs` if that reads better).
+  **Write scope, added:** those two lines of `UI/MatchHud.Features.cs`. No test pins this; the reviewer reads it.
+- **Text size of the header's labels.** The first pass pinned the hint at 11 and the phase label at 13 so that they
+  do not follow the player's text-size setting (the room rule measured shrunken labels as narrower than they draw).
+  Keep the labels on the setting if the room rule can be made right another way: measure with the font size the
+  label is drawn at after its fit (`MythicTextScale.Refit()`, then the label's own preferred width). If that
+  cannot be done inside the write scope, keep the pin and say so in the hand-off under RISKS.
+

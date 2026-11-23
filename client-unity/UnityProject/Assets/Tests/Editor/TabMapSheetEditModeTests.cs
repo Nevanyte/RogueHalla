@@ -193,7 +193,8 @@ namespace Roguehalla.Client.Tests
             AssertSame(l.Map, Measure(map), "PublicMap after the map was delivered");
             Assert.That(map.GetComponent<TacticalMapSurface>().Map, Is.Not.Null, "set-up: a map was delivered to the large surface");
             Assert.That(map.GetComponent<AspectRatioFitter>(), Is.Null, "the layout owns the large map's rect: no aspect fitter");
-            var mini = _canvas.transform.Find("Minimap/TerrainFrame");
+            var mini = _stage.Find("Minimap/TerrainFrame");   // the controller builds the minimap under the stage it is given
+            Assert.That(mini, Is.Not.Null, "set-up: the minimap's terrain frame is under the stage");
             Assert.That(mini.GetComponent<AspectRatioFitter>(), Is.Not.Null, "the minimap surface keeps its own fitter");
         }
 
