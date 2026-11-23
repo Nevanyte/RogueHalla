@@ -308,14 +308,14 @@ namespace Roguehalla.Client.Tests
             Snap(10, 1000);
             Items(10, Quests(new[]
             {
-                new WireQuestSpell { Slot = 0, Reward = 3, Charges = 2, ReadyAt = 6000 },
+                new WireQuestSpell { Slot = 0, Reward = 3, Charges = 0, ReadyAt = 6000 },
                 new WireQuestSpell { Slot = 1, Reward = 4, Charges = 1, ReadyAt = 0 },
             }));
             Frame();
             Frame();
             Assert.That(Text(Tile("QuestSpell1"), "Seconds"), Is.EqualTo("5"), "set-up: the first spell cools");
             Assert.That(Text(Tile("QuestSpell2"), "Name"), Is.EqualTo("Tornado"), "set-up: the second is ready");
-            Assert.That(((TMP_Text)GetF(_hud, "_questChoiceSpells")).text, Does.Contain("2 charges · 5s"), "set-up: the equipped line");
+            Assert.That(((TMP_Text)GetF(_hud, "_questChoiceSpells")).text, Does.Contain("0 charges · 5s"), "set-up: the equipped line");
             var refresh = Refresh();
             AllocationMeter.AssertNone(refresh, 200, "200 refresh frames with one spell cooling and one ready");
         }
