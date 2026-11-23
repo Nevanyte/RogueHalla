@@ -1,8 +1,9 @@
 //! The read-only observer of one `balance_lab` match: after each step it reads `&Sim`, the step's events and the seats'
 //! ordinary observations, and folds them into an [`Acc`]. It never submits, draws or mutates (purity is tested by
 //! comparing state hashes with an unwatched run). Sources per metric: docs/backlog/packets/P-BAL-LAB-1.md.
-use super::acc::{Acc, MinuteAcc, NativeAcc};
+use super::acc::{Acc, Merge, MinuteAcc, NativeAcc};
 use super::attempts::{ProbeRow, SeatTally, StepRead};
+use super::chest_picks::{tally_chests, ChestKind, ChestRow, ChestStep, OptionRow};
 use super::credit_window_open;
 use super::elite_fights::{tally_elites, Contact, EliteDeath, EliteStep, SeatDeath};
 use rh_sim::cards::native::readouts;
@@ -35,6 +36,7 @@ struct Pending {
 /// default lifetime, at the camp's chest spot (or the body of a campless elite): a chest row without a kill option
 /// whose `expires_at - lifetime` is the death's time (within a tick) and whose position is within the camp's reach of
 /// the elite's body or home is that chest. Once seen, its `expires_at` names it.
+/// It is gone at that time, or `UNSEEN_WAIT_MS` after the kill when never seen.
 struct ChestWatch {
     elite: PlayerId,
     killer: Option<(PlayerId, usize)>,
@@ -64,15 +66,6 @@ struct SeatQuests {
     spells: BTreeMap<u8, (u8, u8, f64)>,
 }
 
-#[derive(Default)]
-struct SeatChests {
-    /// chest handle -> option names as last seen.
-    options: BTreeMap<u32, Vec<(String, &'static str)>>,
-    offered: BTreeSet<(u32, usize)>,
-    chest_offered: BTreeSet<u32>,
-    picked: BTreeSet<(u32, usize)>,
-}
-
 pub struct Observer {
     ids: Vec<PlayerId>,
     seat_of: BTreeMap<PlayerId, usize>,
@@ -98,7 +91,10 @@ pub struct Observer {
     chest_watch: Vec<ChestWatch>,
     camp_count: usize,
     quests: Vec<SeatQuests>,
-    chests: Vec<SeatChests>,
+    /// Every step's chest facts, tallied at the end by `chest_picks::tally_chests`.
+    chest_steps: Vec<ChestStep>,
+    /// The chest facts of the step being read.
+    cur_chests: ChestStep,
     farm_types: Vec<MobTypeId>,
     pub acc: Acc,
 }
@@ -120,7 +116,8 @@ impl Observer {
                 .map(|p| (!p.seat.bot).then(SeatTally::default))
                 .collect(),
             quests: ids.iter().map(|_| SeatQuests::default()).collect(),
-            chests: ids.iter().map(|_| SeatChests::default()).collect(),
+            chest_steps: Vec::new(),
+            cur_chests: ChestStep::default(),
             ids,
             mobs: BTreeMap::new(),
             camp_damage: BTreeMap::new(),
@@ -147,6 +144,7 @@ impl Observer {
             now_ms: sim.server_time(),
             ..EliteStep::default()
         };
+        self.cur_chests = ChestStep::default();
         for m in sim.mobs() {
             self.mobs.entry(m.core.id).or_insert_with(|| MobInfo {
                 camp: m.camp,
@@ -178,6 +176,7 @@ impl Observer {
             }
         }
         self.chests_gone();
+        self.chest_steps.push(std::mem::take(&mut self.cur_chests));
         self.elite_steps.push(std::mem::take(&mut self.cur));
         self.minute_sample(sim, tick);
     }
@@ -295,6 +294,20 @@ impl Observer {
                 }
             }
         }
+        let tally = tally_chests(&self.chest_steps);
+        let rw = &mut self.acc.rewards;
+        rw.chests_offered += tally.chests_offered;
+        rw.picks_by_kind.fold_in(tally.picks_by_kind);
+        rw.picks_by_chest_kind.fold_in(tally.picks_by_chest_kind);
+        rw.picks_unnamed += tally.picks_unnamed;
+        for (name, c) in tally.cards {
+            // `victory` already wrote `held_by_winner` into the same entries: add, never overwrite.
+            let a = self.acc.augments.by_card.entry(name).or_default();
+            a.offered += c.offered;
+            a.picked += c.picked;
+            a.picked_by_killer += c.picked_by_killer;
+            a.picked_by_bystander += c.picked_by_bystander;
+        }
         let last = self.elite_steps.last().map_or(0., |s| s.now_ms);
         self.elite_steps.push(EliteStep {
             now_ms: last,
@@ -346,7 +359,10 @@ impl Observer {
             } => self.hit(sim, *victim, *by, *amount, *weapon, tick),
             Event::CampCleared { camp } => self.camp_cleared(sim, *camp, tick),
             Event::Death { id, by, .. } => self.death(sim, *id, *by, tick, died),
-            Event::ChestTaken { .. } => self.acc.rewards.chest_taken_events += 1,
+            Event::ChestTaken { .. } => {
+                self.acc.rewards.chest_taken_events += 1;
+                self.cur_chests.taken_events += 1;
+            }
             Event::Victory { id, draw } => self.victory(sim, *id, *draw),
             _ => {}
         }
@@ -545,6 +561,8 @@ impl Observer {
         let (body, home) = self
             .elite_pos
             .remove(&mob)
+            // No known position (the elite was never listed): the infinite position matches no chest by place, so this
+            // elite's chest ends as `none` after the unseen wait.
             .unwrap_or((Vec2::new(f64::INFINITY, 0.), Vec2::new(f64::INFINITY, 0.)));
         self.chest_watch.push(ChestWatch {
             elite: mob,
@@ -639,79 +657,46 @@ impl Observer {
         }
     }
 
+    /// One seat's chest rows of this step, as facts for `chest_picks::tally_chests` (no handle: it is reissued).
     fn chest_rows(&mut self, seat: usize, chests: &[RewardChestView]) {
         let me = self.ids[seat];
         for c in chests {
             let class = self.classify(c);
-            let sc = &mut self.chests[seat];
-            let h = c.handle.wire();
-            let names: Vec<(String, &'static str)> = c
+            let (kind, seat_is_killer) = match class {
+                ChestClass::Elite(w) => {
+                    let w = &mut self.chest_watch[w];
+                    if c.options.iter().any(|o| o.taken_by == Some(me)) && w.picked.insert(seat) {
+                        self.cur.chest_picks.push((w.elite.0, seat));
+                    }
+                    (ChestKind::Elite, w.killer.is_some_and(|(id, _)| id == me))
+                }
+                ChestClass::Trophy => (ChestKind::Trophy, false),
+                ChestClass::Ground => (ChestKind::Ground, false),
+            };
+            let options = c
                 .options
                 .iter()
-                .map(|o| {
-                    let kind = match o.id {
+                .map(|o| OptionRow {
+                    name: o.id.as_str().into_owned(),
+                    kind: match o.id {
                         OptionId::Card(_) => "card",
                         OptionId::Boost(_) => "boost",
                         OptionId::Kill(_) => "kill",
-                    };
-                    (o.id.as_str().into_owned(), kind)
+                    }
+                    .to_string(),
+                    taken_by_seat: o.taken_by == Some(me),
                 })
                 .collect();
-            if c.can_choose {
-                if sc.chest_offered.insert(h) {
-                    self.acc.rewards.chests_offered += 1;
-                }
-                for (i, (name, _)) in names.iter().enumerate() {
-                    if sc.offered.insert((h, i)) {
-                        self.acc
-                            .augments
-                            .by_card
-                            .entry(name.clone())
-                            .or_default()
-                            .offered += 1;
-                    }
-                }
-            }
-            for (i, o) in c.options.iter().enumerate() {
-                if o.taken_by == Some(me) && sc.picked.insert((h, i)) {
-                    let (name, kind) = &names[i];
-                    let by_card = &mut self.acc.augments.by_card;
-                    let counts = by_card.entry(name.clone()).or_default();
-                    if sc.offered.insert((h, i)) {
-                        counts.offered += 1;
-                    }
-                    counts.picked += 1;
-                    let chest_kind = match class {
-                        ChestClass::Elite(w) => {
-                            let w = &mut self.chest_watch[w];
-                            if w.killer.is_some_and(|(id, _)| id == me) {
-                                counts.picked_by_killer += 1;
-                            } else {
-                                counts.picked_by_bystander += 1;
-                            }
-                            if w.picked.insert(seat) {
-                                self.cur.chest_picks.push((w.elite.0, seat));
-                            }
-                            "elite"
-                        }
-                        ChestClass::Trophy => "trophy",
-                        ChestClass::Ground => "ground",
-                    };
-                    *self
-                        .acc
-                        .rewards
-                        .picks_by_chest_kind
-                        .entry(chest_kind.to_string())
-                        .or_default() += 1;
-                    *self
-                        .acc
-                        .rewards
-                        .picks_by_kind
-                        .entry((*kind).to_string())
-                        .or_default() += 1;
-                }
-            }
-            sc.options.insert(h, names);
+            self.cur_chests.rows.push(ChestRow {
+                seat,
+                x: c.at.x,
+                y: c.at.y,
+                expires_at: c.expires_at,
+                can_choose: c.can_choose,
+                kind,
+                seat_is_killer,
+                options,
+            });
         }
     }
 

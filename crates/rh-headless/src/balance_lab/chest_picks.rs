@@ -1,6 +1,6 @@
 //! P-BAL-LAB-ELITE-1-fix: the chest offers and picks of a whole match as a pure function of per-step facts. STUB: the
 //! implementer replaces `tally_chests` (rules: docs/backlog/packets/P-BAL-LAB-ELITE-1-fix.md, decisions 1 to 5).
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Which kind of chest a row is (as the observer classifies it).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -65,8 +65,59 @@ pub struct ChestTally {
     pub taken_events: u64,
 }
 
-/// The tally of a match.
+/// A chest named by facts that never change over its life (never by handle: the sim reissues those, and a viewer's
+/// handles restart at 1 on every `observe` call): seat, `expires_at` and position, by bits.
+type ChestKey = (usize, u64, u64, u64);
+
+/// The tally of a match: one offer per (seat, chest, option), one pick per (seat, chest, option) the seat holds, and
+/// every `ChestTaken` event that no row could name (a skip, a pick on the last step, an expired chest) as unnamed.
 pub fn tally_chests(steps: &[ChestStep]) -> ChestTally {
-    let _ = steps;
-    ChestTally::default()
+    let mut t = ChestTally::default();
+    let mut chests: BTreeSet<ChestKey> = BTreeSet::new();
+    let mut offered: BTreeSet<(ChestKey, usize)> = BTreeSet::new();
+    let mut picked: BTreeSet<(ChestKey, usize)> = BTreeSet::new();
+    let mut named = 0u64;
+    for step in steps {
+        t.taken_events += step.taken_events;
+        for r in &step.rows {
+            let key = (r.seat, r.expires_at.to_bits(), r.x.to_bits(), r.y.to_bits());
+            if r.can_choose {
+                if chests.insert(key) {
+                    t.chests_offered += 1;
+                }
+                for (i, o) in r.options.iter().enumerate() {
+                    if offered.insert((key, i)) {
+                        t.cards.entry(o.name.clone()).or_default().offered += 1;
+                    }
+                }
+            }
+            for (i, o) in r.options.iter().enumerate() {
+                if !o.taken_by_seat || !picked.insert((key, i)) {
+                    continue;
+                }
+                let c = t.cards.entry(o.name.clone()).or_default();
+                if offered.insert((key, i)) {
+                    c.offered += 1;
+                }
+                c.picked += 1;
+                if r.kind == ChestKind::Elite {
+                    if r.seat_is_killer {
+                        c.picked_by_killer += 1;
+                    } else {
+                        c.picked_by_bystander += 1;
+                    }
+                }
+                let chest_kind = match r.kind {
+                    ChestKind::Elite => "elite",
+                    ChestKind::Trophy => "trophy",
+                    ChestKind::Ground => "ground",
+                };
+                *t.picks_by_chest_kind.entry(chest_kind.into()).or_default() += 1;
+                *t.picks_by_kind.entry(o.kind.clone()).or_default() += 1;
+                named += 1;
+            }
+        }
+    }
+    t.picks_unnamed = t.taken_events.saturating_sub(named);
+    t
 }

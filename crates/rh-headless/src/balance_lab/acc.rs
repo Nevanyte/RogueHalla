@@ -191,7 +191,7 @@ pub struct EliteCounts {
     pub left: u64,
     /// Contact to kill, one sample per `killed`.
     pub kill_secs: SampledSum,
-    /// One chest outcome per kill: picked by the killing blow's seat, only by another seat, by nobody, or still standing.
+    /// One chest outcome per kill: picked by the credited killer's seat, only by another seat, by nobody, or still standing.
     pub chest_killer: u64,
     pub chest_other: u64,
     pub chest_none: u64,
@@ -305,7 +305,7 @@ pub struct AugCounts {
     pub offered: u64,
     pub picked: u64,
     pub held_by_winner: u64,
-    /// Picks from an elite kill's chest by the killing blow's seat, and by another seat.
+    /// Picks from an elite kill's chest by the credited killer's seat (who holds the first pick), and by another seat.
     pub picked_by_killer: u64,
     pub picked_by_bystander: u64,
 }

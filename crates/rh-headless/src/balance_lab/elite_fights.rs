@@ -31,7 +31,7 @@ pub struct SeatDeath {
     pub attacker_camp: Option<i32>,
 }
 
-/// An elite died; `killer` is the seat with the killing blow (`Death.by`).
+/// An elite died; `killer` is the seat the sim credited with the kill (`Death.by`: most damage, or a killing Smite); it holds the first pick.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct EliteDeath {
     pub elite: u32,
@@ -47,7 +47,7 @@ pub struct EliteStep {
     pub elite_deaths: Vec<EliteDeath>,
     /// A seat's first pick from the chest of an elite's death: (elite mob id, seat).
     pub chest_picks: Vec<(u32, usize)>,
-    /// The chest of this elite's death is gone (expired, or in nobody's observation any more).
+    /// The chest of this elite's death is gone (its `expires_at` has passed, or, for a chest never seen, the unseen wait is over).
     pub chests_gone: Vec<u32>,
 }
 
