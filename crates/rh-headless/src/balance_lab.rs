@@ -20,11 +20,10 @@ pub const SCHEMA: &str = "balance-lab/1";
 /// Seats in a lab match.
 pub const SEATS: usize = 8;
 
-/// Stub: always false. Replaced by the sim's own credit window (`recent_rival`, `systems/credit.rs:24`): a hit counts
-/// for a death while `death_at_ms - hit_at_ms <= KILL_CREDIT_SECONDS * 1000`.
+/// The sim's own credit window (`systems/credit.rs:24`): a hit counts for a death while
+/// `death_at_ms - hit_at_ms <= KILL_CREDIT_SECONDS * 1000`.
 pub fn credit_window_open(hit_at_ms: f64, death_at_ms: f64) -> bool {
-    let _ = (hit_at_ms, death_at_ms);
-    false
+    death_at_ms - hit_at_ms <= rh_sim::constants::KILL_CREDIT_SECONDS * 1000.
 }
 
 /// The policy of one seat (`--seat I=POLICY`).
@@ -306,12 +305,13 @@ struct Report {
     notes: Vec<&'static str>,
 }
 
-const NOTES: [&str; 6] = [
+const NOTES: [&str; 7] = [
     "A seat with bot:true has no quest view and cannot accept, interact or cast quest things (quest_view/mod.rs:203, quests/board/attempts.rs:217): without --human-seats the quests block is zero by construction.",
     "Kills of a bot:true seat are fill-bot kills (no GV, no damaged_humans entry); the lobby counts only bot:false seats.",
     "Camp kill/heal/walk seconds are heuristics: kill = the credited seat's first hit on the camp to the clear; heal = clear to 95% hp or the next hit taken; walk = the rest to the seat's next hit on any mob.",
-    "Quest end causes are heuristic: expiry passed = timer (also when the seat died the same step), else a seat death that step = death, else abandoned. Attempts open at match end are in no end bucket.",
-    "Death cause: Death.by or the victim's latest Hit.by resolved against remembered mob ids (elite/mob); otherwise hazard. world.player_deaths.hits_on_players_by_mob counts the hits that resolved to a mob.",
+    "Quests are read from Sim::quest_attempts(seat) after every step, for every bot:false seat (so completed is real; the seat's own journal drops a paid offer). attempts = completed + ended_timer + ended_death + abandoned + open + turned_in_unpaid; a retry of an offer is a new attempt, accepted counts offers once. complete_secs is the accept (first read of the row) to the first read of it turned in or paid, one sample a completion in `samples`.",
+    "Quest end causes: a vanished row is ended_timer if its last deadline had passed and the gates were not locked, else ended_death if the seat died that step or the step before, else `abandoned`, which therefore means ended otherwise (manual abandon, departure or unknown). Not measured: abandon versus departure, an abandon and retry inside one step, a death two or more steps before the row vanished, granted rewards (a turned-in attempt that is never paid is turned_in_unpaid, not a completion), what a seat chose not to do.",
+    "Death cause: Death.by or the victim's latest Hit.by within the kill-credit window (5 s) resolved against remembered mob ids (elite/mob); otherwise hazard. world.player_deaths.hits_on_players_by_mob counts the hits that resolved to a mob.",
     "Observations are not sampled on the step that ends the match. Minute samples (world.minutes) carry their own sample counts; short matches have none at later minutes. Share reaching the coliseum is not measured.",
 ];
 

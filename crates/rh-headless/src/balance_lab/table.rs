@@ -1,13 +1,12 @@
 //! The stderr table of a `balance_lab` report: the same numbers as the JSON, for reading. Pure text, no clock.
-use super::acc::Sum;
 use super::Report;
 use std::fmt::Write;
 
-fn mean(s: &Sum) -> String {
-    if s.n == 0 {
+fn mean(sum: f64, n: u64) -> String {
+    if n == 0 {
         "-".to_string()
     } else {
-        format!("{:.1}", s.sum / s.n as f64)
+        format!("{:.1}", sum / n as f64)
     }
 }
 
@@ -32,11 +31,11 @@ pub fn render(r: &Report) -> String {
         "world: camps cleared {} (credited {}); kill s {} (n {}), heal s {} (n {}), walk s {} (n {})",
         w.camps_cleared,
         w.camps_credited,
-        mean(&w.kill_secs),
+        mean(w.kill_secs.sum, w.kill_secs.n),
         w.kill_secs.n,
-        mean(&w.heal_secs),
+        mean(w.heal_secs.sum, w.heal_secs.n),
         w.heal_secs.n,
-        mean(&w.walk_secs),
+        mean(w.walk_secs.sum, w.walk_secs.n),
         w.walk_secs.n
     );
     let _ = writeln!(
@@ -82,12 +81,12 @@ pub fn render(r: &Report) -> String {
     }
     let _ = writeln!(
         t,
-        "quests (dealt accepted attempts done timer death abandoned, mean s to complete):"
+        "quests (dealt accepted attempts done timer death abandoned open unpaid, mean s to complete):"
     );
     for (name, c) in &r.quests.by_quest {
         let _ = writeln!(
             t,
-            "  {name}: {} {} {} {} {} {} {}, {}",
+            "  {name}: {} {} {} {} {} {} {} {} {}, {}",
             c.dealt,
             c.accepted,
             c.attempts,
@@ -95,7 +94,9 @@ pub fn render(r: &Report) -> String {
             c.ended_timer,
             c.ended_death,
             c.abandoned,
-            mean(&c.complete_secs)
+            c.open,
+            c.turned_in_unpaid,
+            mean(c.complete_secs.sum, c.complete_secs.n)
         );
     }
     let _ = writeln!(

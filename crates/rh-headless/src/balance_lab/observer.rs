@@ -1,10 +1,12 @@
 //! The read-only observer of one `balance_lab` match: after each step it reads `&Sim`, the step's events and the seats'
 //! ordinary observations, and folds them into an [`Acc`]. It never submits, draws or mutates (purity is tested by
 //! comparing state hashes with an unwatched run). Sources per metric: docs/backlog/packets/P-BAL-LAB-1.md.
-use super::acc::{Acc, AugCounts, EliteCounts, MinuteAcc, NativeAcc, QuestCounts};
+use super::acc::{Acc, AugCounts, EliteCounts, MinuteAcc, NativeAcc};
+use super::attempts::{ProbeRow, SeatTally, StepRead};
+use super::credit_window_open;
 use rh_sim::cards::native::readouts;
 use rh_sim::mob_catalog::{normal_types_of, MobTypeId};
-use rh_sim::quest_view::{QuestView, RowState};
+use rh_sim::quest_view::QuestView;
 use rh_sim::reward_chests::{BoostId, OptionId, RewardChestView};
 use rh_sim::{Event, FactionId, Observation, Phase, PlayerId, Sim};
 use std::collections::{BTreeMap, BTreeSet};
@@ -29,17 +31,8 @@ struct Pending {
 }
 
 #[derive(Default)]
-struct HandleState {
-    def: String,
-    expires_at: f64,
-    accepted_once: bool,
-    active_since: Option<f64>,
-    finished: bool,
-}
-
-#[derive(Default)]
 struct SeatQuests {
-    handles: BTreeMap<u32, HandleState>,
+    handles: BTreeMap<u32, ()>,
     /// slot -> (reward, charges, ready_at) as last seen.
     spells: BTreeMap<u8, (u8, u8, f64)>,
 }
@@ -60,7 +53,10 @@ pub struct Observer {
     camp_damage: BTreeMap<u32, BTreeMap<PlayerId, f64>>,
     camp_first_hit: BTreeMap<(u32, PlayerId), u32>,
     pending: BTreeMap<PlayerId, Pending>,
-    last_hit_on_player: BTreeMap<PlayerId, Option<PlayerId>>,
+    /// Attacker and server ms of the latest hit on each player.
+    last_hit_on_player: BTreeMap<PlayerId, (Option<PlayerId>, f64)>,
+    /// Per seat: the probe-fed quest funnel (None for a bot seat, whose probe is empty).
+    attempts: Vec<Option<SeatTally>>,
     /// (seat id, elite mob id) -> (kind, weapon) while the fight is undecided.
     elite_open: BTreeMap<(PlayerId, PlayerId), (String, String)>,
     quests: Vec<SeatQuests>,
@@ -80,6 +76,11 @@ impl Observer {
             .collect();
         Self {
             seat_of,
+            attempts: sim
+                .players()
+                .iter()
+                .map(|p| (!p.seat.bot).then(SeatTally::default))
+                .collect(),
             quests: ids.iter().map(|_| SeatQuests::default()).collect(),
             chests: ids.iter().map(|_| SeatChests::default()).collect(),
             ids,
@@ -112,18 +113,73 @@ impl Observer {
             self.event(sim, e, tick, &mut died);
         }
         self.heal_check(sim, tick);
+        self.probe_quests(sim, tick, &died);
         if sample {
             let now = sim.server_time();
             for seat in 0..self.ids.len() {
                 let obs = rh_sim::observe(sim, self.ids[seat], events);
-                self.observation(seat, &obs, now, tick, died.contains(&self.ids[seat]));
+                self.observation(seat, &obs, now);
             }
         }
         self.minute_sample(sim, tick);
     }
 
-    /// Closes the books: fights still undecided are `open`.
+    /// Reads `Sim::quest_attempts` for every human seat (every step, including the last: the probe needs no observation).
+    fn probe_quests(&mut self, sim: &Sim, tick: u32, died: &BTreeSet<PlayerId>) {
+        let (now_ms, locked) = (sim.server_time(), sim.gates_locked());
+        for (seat, tally) in self.attempts.iter_mut().enumerate() {
+            let Some(tally) = tally else { continue };
+            let id = self.ids[seat];
+            let rows = sim
+                .quest_attempts(id)
+                .into_iter()
+                .map(|r| ProbeRow {
+                    offer: r.offer,
+                    quest: r.quest.definition().id.to_string(),
+                    accepted: r.accepted,
+                    ready: r.ready,
+                    turned_in: r.turned_in,
+                    completed: r.completed,
+                    deadline: r.deadline,
+                    progress: r.progress,
+                })
+                .collect();
+            tally.push(&StepRead {
+                tick,
+                now_ms,
+                locked,
+                died: died.contains(&id),
+                rows,
+            });
+        }
+    }
+
+    /// Closes the books: fights still undecided are `open`; quest attempts are folded in seat order.
     pub fn finish(mut self) -> Acc {
+        for tally in std::mem::take(&mut self.attempts).into_iter().flatten() {
+            for (quest, t) in tally.finish() {
+                let c = self.acc.quests.by_quest.entry(quest).or_default();
+                c.accepted += t.accepted;
+                c.attempts += t.attempts;
+                c.completed += t.completed;
+                c.ended_timer += t.ended_timer;
+                c.ended_death += t.ended_death;
+                c.abandoned += t.unknown;
+                c.open += t.open;
+                c.turned_in_unpaid += t.turned_in_unpaid;
+                for s in t.complete_secs {
+                    c.complete_secs.add(s);
+                }
+                for tick in t.first_accept_ticks {
+                    *self
+                        .acc
+                        .quests
+                        .accepted_by_minute
+                        .entry(tick / MINUTE)
+                        .or_default() += 1;
+                }
+            }
+        }
         for (kind, weapon) in std::mem::take(&mut self.elite_open).into_values() {
             self.elite(&kind, &weapon).open += 1;
         }
@@ -184,7 +240,8 @@ impl Observer {
             if by.is_some_and(|b| self.mobs.contains_key(&b)) {
                 d.hits_on_players_by_mob += 1;
             }
-            self.last_hit_on_player.insert(victim, by);
+            self.last_hit_on_player
+                .insert(victim, (by, sim.server_time()));
             if let Some(p) = self.pending.get_mut(&victim) {
                 p.healed.get_or_insert(tick);
             }
@@ -295,7 +352,13 @@ impl Observer {
         }
         died.insert(id);
         self.pending.remove(&id);
-        let attacker = by.or_else(|| self.last_hit_on_player.get(&id).copied().flatten());
+        let now = sim.server_time();
+        let attacker = by.or_else(|| {
+            self.last_hit_on_player
+                .get(&id)
+                .filter(|(_, at)| credit_window_open(*at, now))
+                .and_then(|(a, _)| *a)
+        });
         let d = &mut self.acc.world.player_deaths;
         let minute = d.by_minute.entry(tick / MINUTE).or_default();
         let causes = [&mut d.by_cause, &mut minute.by_cause];
@@ -360,60 +423,22 @@ impl Observer {
         }
     }
 
-    fn observation(&mut self, seat: usize, obs: &Observation, now: f64, tick: u32, died: bool) {
+    fn observation(&mut self, seat: usize, obs: &Observation, now: f64) {
         if let Some(view) = &obs.quests {
-            self.quest_rows(seat, view, now, tick, died);
+            self.quest_rows(seat, view);
             self.quest_spells(seat, view, now);
         }
         self.chest_rows(seat, &obs.reward_chests);
     }
 
-    fn quest_rows(&mut self, seat: usize, view: &QuestView, now: f64, tick: u32, died: bool) {
+    /// `dealt`: a row handle's first sighting in the seat's observation. Everything else about a quest comes from the probe.
+    fn quest_rows(&mut self, seat: usize, view: &QuestView) {
         let acc = &mut self.acc.quests;
         let sq = &mut self.quests[seat];
-        let mut present = BTreeSet::new();
         for row in &view.rows {
-            let h = row.handle.get();
-            present.insert(h);
-            let st = sq.handles.entry(h).or_insert_with(|| {
+            sq.handles.entry(row.handle.get()).or_insert_with(|| {
                 acc.by_quest.entry(row.def.clone()).or_default().dealt += 1;
-                HandleState {
-                    def: row.def.clone(),
-                    ..HandleState::default()
-                }
             });
-            st.expires_at = row.expires_at;
-            if st.finished {
-                continue;
-            }
-            let over = matches!(row.state, RowState::Done | RowState::Expired);
-            let live = row.owner_accepted && !over;
-            let counts = acc.by_quest.entry(st.def.clone()).or_default();
-            if (live || row.owner_completed) && st.active_since.is_none() {
-                counts.attempts += 1;
-                st.active_since = Some(now);
-                if !st.accepted_once {
-                    st.accepted_once = true;
-                    counts.accepted += 1;
-                    *acc.accepted_by_minute.entry(tick / MINUTE).or_default() += 1;
-                }
-            }
-            if row.owner_completed {
-                counts.completed += 1;
-                counts
-                    .complete_secs
-                    .add((now - st.active_since.unwrap_or(now)) / 1000.);
-                st.finished = true;
-                st.active_since = None;
-            } else if st.active_since.is_some() && !live {
-                end_attempt(counts, st, now, died);
-            }
-        }
-        for (h, st) in &mut sq.handles {
-            if st.active_since.is_some() && !st.finished && !present.contains(h) {
-                let counts = acc.by_quest.entry(st.def.clone()).or_default();
-                end_attempt(counts, st, now, died);
-            }
         }
     }
 
@@ -513,16 +538,4 @@ impl Observer {
         }
         self.acc.world.minutes.insert(minute, acc);
     }
-}
-
-/// An attempt that did not complete: timer if its expiry has passed, death if the seat died this step, else abandoned.
-fn end_attempt(counts: &mut QuestCounts, st: &mut HandleState, now: f64, died: bool) {
-    if st.expires_at > 0. && st.expires_at <= now {
-        counts.ended_timer += 1;
-    } else if died {
-        counts.ended_death += 1;
-    } else {
-        counts.abandoned += 1;
-    }
-    st.active_since = None;
 }
