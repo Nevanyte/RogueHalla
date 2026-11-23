@@ -217,7 +217,21 @@ fn run(s: Scene) -> Out {
         if near {
             o.ticks_near += 1;
         }
-        streak = if near && !hit { streak + 1 } else { 0 };
+        // A seat that lands a hit on ANY victim this tick is fighting, not stalled (coordinator's oracle-amend,
+        // 2026-11-23): at seed 1 camp 50 the seat clears the camp, moves on to camp 32 and fights it from a band point
+        // 23 u from camp 50's resting spot; when camp 50 respawns its idle member stands beside a seat that is busy,
+        // and the first form counted those ticks (235) as a stall because it only looked at hits on camp 50.
+        let fighting = events.iter().any(|e| {
+            matches!(
+                e,
+                Event::Hit { by: Some(b), .. } if *b == me
+            )
+        });
+        streak = if near && !hit && !fighting {
+            streak + 1
+        } else {
+            0
+        };
         o.worst_stall = o.worst_stall.max(streak);
     }
     o.fault = seats[0].fault.is_some();
