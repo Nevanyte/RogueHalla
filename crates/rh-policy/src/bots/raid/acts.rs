@@ -38,7 +38,31 @@ pub enum Act {
         merchant: rh_sim::traders::Kind,
         pick: i8,
     },
+    /// Cast the quest spell in wire slot `slot` (0 = Q, 1 = E), checked at send time to still hold `reward` with a charge.
+    Cast {
+        slot: u8,
+        reward: u8,
+        aim: CastAim,
+    },
 }
+
+/// Where a cast aims.
+#[derive(Clone, Debug, PartialEq)]
+pub enum CastAim {
+    /// The seat's own position.
+    OwnPosition,
+    /// A point on the map.
+    Point(rh_sim::Vec2),
+    /// An actor by its rendered key (`p<id>` / `n<id>`), resolved through the frame at send time.
+    Actor(String),
+    /// A mob by where it stood when asked: an npc's key is new every frame, so the key of the asking frame is stale by
+    /// the time the paced act is sent. Resolved at send time to the nearest living mob of the same class (`elite`) within
+    /// `MOB_AIM_SLACK` of `at`.
+    Mob { at: rh_sim::Vec2, elite: bool },
+}
+
+/// How far a mob may have moved between the asking frame and the send (units).
+pub const MOB_AIM_SLACK: f64 = 160.;
 
 /// The seat's order budget as the sim keeps it (`rh_sim::input::OrderBudget`), replayed from what this seat emits.
 /// Every emitted command but `Aim` spends one token (the seat never sends `Aim`). A command the seat later fails to
