@@ -56,9 +56,11 @@ it. No wire change follows: nothing under `protocol/` or `crates/` moved.
 ## Seen in a running build
 
 Web round 1 (`docs/unity/WEB_ROUND.md`): a Web build of `7438eab35`, client and server from that one tree, played in
-a headed Chromium at 1920 x 1080 on ports of its own. The pictures are in the lane's scratch folder, not in the
-repository; the owner got them in the lane's chat. The round was still playing when this was written. The lane lead
-read the first pictures himself: the hub, the HUD at the spawn, the Tab map held, a feedback toast, a camp.
+a headed Chromium at 1920 x 1080 on ports of its own. Two matches were played; the first ended in a death at a camp.
+The driver's error list was empty at the end. The pictures are in the lane's scratch folder, not in the repository;
+the owner got them in the lane's chat. The lane lead read these himself: the HUD at the spawn, the Tab map held, a
+feedback toast, an event toast with the quest tracker, the HUD in a fight, and the camp badge in four stills of one
+walk.
 
 What they show:
 - HUD at the spawn: the plate with its gained-stats panel top left, the timer pill top centre, three buttons and the
@@ -73,7 +75,14 @@ What they show:
   controls, the square map with the six zone chips, and the weapon counters with the quest list. The plate, the
   champion panel, the action row, the minimap and the timer pill are gone; the three buttons and the frame-time pill
   stay.
-- A camp: its reward badge sits above the camp's leader.
+- Event toast: accepting a quest shows one pill, "Accepted: A Bone to Pick", under the match timer. Nothing appears
+  in the middle of the screen.
+- Quest tracker: under the plate's gained-stats panel sits a small card, "QUESTS" with "J · log", and one row: "A
+  Bone to Pick", "0:52" and the shortened objective "Hunt a named skeleton archer who…". It overlaps nothing.
+- Prompt lane: "F take Cannon" is one pill above the action row.
+- In a fight: every HUD panel stays where it is. Damage numbers and the camp's outline are drawn in the world.
+- Camp badge (wave 1): in four stills 150 ms apart, taken while walking past a camp, the badge keeps the same place
+  relative to its camp while the camera scrolls about 145 pixels from still to still.
 
 Seen and not right. None of these is a wave-2 outcome failing; each goes to a later packet of the lane:
 - The Tab map's title reads as "TACTICALMAP": the display font's long L runs into the M. The string is "TACTICAL
@@ -86,10 +95,13 @@ Seen and not right. None of these is a wave-2 outcome failing; each goes to a la
   name plate show through them. In one picture a trader's name plate ("Soul Broker") sits inside the Q tile.
 - Two actor names side by side run together ("Chain Warden", "Gaoler").
 - The controls line under the consumables row touches the bottom edge of the window.
+- On bright ground the empty Shift and Q tiles almost vanish: their frame and key cap have little contrast.
+- World labels collide with the player's own name and health bar ("Travel cannon · F to blast" is crossed by the
+  bar).
 
-Not seen when this was written: an event toast under the timer, the quest tracker card with an accepted quest, the
-HUD in a fight, any window size but 1920 x 1080, any text size but 1. The steadiness of the camp badge (wave 1) can
-only be judged from four stills.
+Not seen: a kill or pickup toast (no kill was made), a second line in either toast lane, the Tab map in toggle mode,
+any window size but 1920 x 1080, any text size but 1. The steadiness of the camp badge is judged from those four
+stills, walking past a camp, not circling it.
 
 ## Amended test expectations (the owner's to approve)
 
@@ -208,8 +220,7 @@ The coordinator's merge review of wave 1 (`reviewer-opus`, LAND WITH NOTES, two 
 - No full gate was run by the lane. The gate that counts is the coordinator's full gate on the merged tree. The
   Rust, Postgres and browser-proof suites did not run for this head at all.
 - EditMode, dotnet and node only: nothing was measured in a player build. The look was checked in one Web round at
-  one window size ("Seen in a running build"); the event toast lane, the quest tracker card and the HUD in a fight
-  had not been seen when this was written.
+  one window size and one text size ("Seen in a running build").
 - Allocation freedom is proven in EditMode with `AllocationMeter` for the four converted tests, the Tab-map header
   (`TabMapHeaderNoGarbageEditModeTests`) and nothing else of the lane; the ability row's is blind.
 - Every reviewer ran no suite and relied on the gate log of its own head; none re-read the oracle tests line by
@@ -248,7 +259,7 @@ The coordinator's merge review of wave 1 (`reviewer-opus`, LAND WITH NOTES, two 
 - `ClearTradePresentation` now writes an empty detail summary; the status and the empty label carry the copy.
 - The ability row packet's gate treats the packet document as an oracle file: a lane or coordinator edit of a packet
   document on an agent branch turns the gate red (met by `P-UI-ALLOC-METER-1`).
-- The Web round found nothing that blocks the merge. The seven things listed under "Seen and not right" are not
+- The Web round found nothing that blocks the merge. The things listed under "Seen and not right" are not
   fixed in this hand-off.
 - Wave 3 runs on top of this head and is not part of this hand-off: P-UI-JOURNAL-POLISH-1, P-UI-VITALS-EASE-1,
   P-UI-TABMAP-MARKS-1 (running), P-UI-QUEST-OFFER-1, P-UI-ABILITY-MOTION-1, P-UI-TABMAP-FLOW-1-fix (next).
