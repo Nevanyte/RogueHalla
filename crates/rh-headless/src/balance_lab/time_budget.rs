@@ -87,6 +87,20 @@ impl Buckets {
         }
     }
 
+    pub fn add(&mut self, b: Bucket) {
+        match b {
+            Bucket::Dead => self.dead += 1,
+            Bucket::Elite => self.elite += 1,
+            Bucket::Camp => self.camp += 1,
+            Bucket::Player => self.player += 1,
+            Bucket::QuestMoving => self.quest_moving += 1,
+            Bucket::QuestStill => self.quest_still += 1,
+            Bucket::Moving => self.moving += 1,
+            Bucket::Resting => self.resting += 1,
+            Bucket::Idle => self.idle += 1,
+        }
+    }
+
     pub fn total(&self) -> u64 {
         Bucket::ALL.into_iter().map(|b| self.get(b)).sum()
     }
@@ -150,26 +164,105 @@ pub struct SeatRow {
     pub weapon: Option<String>,
 }
 
-/// Incremental tally of a match. STUB: counts nothing.
+/// The minute band of a tick: 0 (minutes 0 to 4), 1 (5 to 10), 2 (11 on).
+pub fn band_of(tick: u32) -> usize {
+    let minute = tick / MINUTE_TICKS;
+    BAND_STARTS.iter().filter(|&&m| minute >= m).count()
+}
+
+/// Per seat: the row so far and the step of the last hit of each kind (elite, camp, player).
+struct SeatState {
+    row: SeatRow,
+    last_hit: [Option<u64>; 3],
+}
+
+/// Incremental tally of a match: counters and the last hit steps per seat, never a row per step.
 pub struct TimeTally {
-    seats: usize,
+    seats: Vec<SeatState>,
 }
 
 impl TimeTally {
     pub fn new(seats: usize) -> Self {
-        Self { seats }
+        Self {
+            seats: (0..seats)
+                .map(|seat| SeatState {
+                    row: SeatRow {
+                        seat,
+                        ..SeatRow::default()
+                    },
+                    last_hit: [None; 3],
+                })
+                .collect(),
+        }
     }
 
-    pub fn push(&mut self, _step: &TimeStep) {}
+    pub fn push(&mut self, step: &TimeStep) {
+        let band = band_of(step.tick);
+        for (st, s) in self.seats.iter_mut().zip(&step.seats) {
+            let n = st.row.steps;
+            st.row.steps += 1;
+            let bucket = if !s.alive {
+                st.last_hit = [None; 3];
+                Bucket::Dead
+            } else {
+                for (last, hit) in
+                    st.last_hit
+                        .iter_mut()
+                        .zip([s.hit_elite, s.hit_camp, s.hit_player])
+                {
+                    if hit {
+                        *last = Some(n);
+                    }
+                }
+                let held = |k: usize| {
+                    st.last_hit[k].is_some_and(|h| n - h < u64::from(FIGHT_WINDOW_STEPS))
+                };
+                let moved = s.moved >= MOVED_DIST;
+                if held(0) {
+                    Bucket::Elite
+                } else if held(1) {
+                    Bucket::Camp
+                } else if held(2) {
+                    Bucket::Player
+                } else if s.quest_open {
+                    if moved {
+                        Bucket::QuestMoving
+                    } else {
+                        Bucket::QuestStill
+                    }
+                } else if moved {
+                    Bucket::Moving
+                } else if !s.hp_full {
+                    Bucket::Resting
+                } else {
+                    Bucket::Idle
+                }
+            };
+            st.row.time.add(bucket);
+            st.row.bands[band].add(bucket);
+            let r = &mut st.row;
+            r.camps_normal += u64::from(s.camps_normal);
+            r.camps_elite += u64::from(s.camps_elite);
+            r.deaths += u64::from(s.deaths);
+            r.quests_completed += u64::from(s.quests_completed);
+            r.elite_kills += u64::from(s.elite_kills);
+            for p in &s.picks {
+                *r.picks.entry(p.clone()).or_default() += 1;
+            }
+            if let Some((minute, stacks)) = s.farm_stacks {
+                if let Some(i) = STACK_MINUTES.iter().position(|&m| m == minute) {
+                    r.farm_stacks[i] = Some(stacks);
+                }
+            }
+            if let Some(w) = &s.weapon {
+                r.weapon = Some(w.clone());
+            }
+        }
+    }
 
     /// One row per seat, in seat order.
     pub fn finish(self) -> Vec<SeatRow> {
-        (0..self.seats)
-            .map(|seat| SeatRow {
-                seat,
-                ..SeatRow::default()
-            })
-            .collect()
+        self.seats.into_iter().map(|s| s.row).collect()
     }
 }
 
