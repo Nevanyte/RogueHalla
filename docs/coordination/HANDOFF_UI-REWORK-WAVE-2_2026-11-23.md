@@ -639,3 +639,72 @@ These get no packet (owner direction 2026-11-13).
 - P-UI-ALLOC-PROOF-1: the idle-tick test's `now` wraps backwards at 200 steps.
 - P-UI-ALLOC-PROOF-1: five dotnet guards copy one helper each.
 - P-UI-ALLOC-PROOF-1: the scratch run that shows the tests can fail is not committed.
+
+## Addendum after the coordinator's merge review (2026-11-23)
+
+The coordinator merged this branch into the integration 85 preview (`coord/int-85` @ `1bd9cc1dd`). Its
+`reviewer-opus` read the merge: LAND WITH NOTES, two notes. It found nothing in the wave that decides an outcome or
+shows a viewer something the server did not send, and none of the things listed under "Seen and not right" blocks.
+
+Note 1, a broken guarantee of `P-UI-ABILITY-ROW-1`. Two tests of `AbilityRowEditModeTests`
+(`AnUnchangedTileAllocatesNothing`, `ASteadyQuestRefreshFrameAllocatesNothing`) still measure with the blind counter
+and pass on any code, and with nearby quest actions `RefreshQuestRewardHud` builds the caption "Nearby quest actions
+· n" every frame, a case the rig never builds. Two packets of wave 3 take it: `P-UI-QUEST-OFFER-1` moves both tests
+to `AllocationMeter`; `P-UI-ABILITY-ROW-1-fix` builds the case in a rig, tests that frame and caches the caption.
+
+Note 2, structure: old and new side by side. The Wish tile is hand-built in `MatchHud.ActionBar.cs` while Shift and
+Q use `AbilityTile`; `MatchHud.Pulses.cs` keeps its own pulse list beside `HudPulses` and reduced motion is read two
+ways; `HudLayout.MinimapBarClearance` still assumes legacy's 284-wide bar. Two packets of wave 3 take it, structure
+first: `P-UI-WISH-TILE-1` builds the Wish tile on `AbilityTile` with a cast bar; `P-UI-ABILITY-MOTION-1` then drives
+every press pulse through `HudPulses`, deletes the old list and the second reduced-motion read, and says in
+`HudLayout.cs` that 142 is legacy's minimap rule and the row yields to the minimap. The value stays.
+
+The proposed DEVIATIONS rows above are replaced by these four. The reviewer corrected the wording against
+`docs/rework/LEGACY_LAYOUT.md` sections 4, 8, 12 and 13; the lane checked its corrections against that document and
+the code.
+1. Tab map. Legacy: three columns on a 50 percent dim (`rgba(8,10,14,.5)`) with the HUD beneath. Unity: one sheet
+   with a full-width header (title, phase line, hint) on an 86 percent dim; the phase pill, the quests launcher, the
+   edge glows and the world marks are hidden while it is open.
+2. Toasts. Legacy: one stack at bottom centre (bottom 124), at most 3 lines with the oldest dropped; holds of 1.8 s
+   by default, 2.2 s for an ok line and 4 to 8 s for errors; a red error tone; a repeat extends the line. Unity: two
+   lanes (events under the match timer, up to 3 lines; feedback above the action row, up to 2) with up to 6 lines
+   waiting per lane; every line holds 2.2 to 4.5 s by its length; a full lane makes the oldest leave after 1 s; a
+   repeat shows "xN"; no red tone (refusals are amber); lines wait while the Tab map, the journal or a window is
+   open; the history keeps the newest 200. The removal of the box in the middle of the map is not part of the row:
+   that box was Unity's own.
+3. Action row. Extends DEV-040: the quest spells Shift and Q are ability tiles in the row; the row has six elements
+   and is 458 wide against legacy's 284; the Wish is no longer at the right end; the weapon slots carry no "1" and
+   "2" key caps; on a narrow stage the whole row scales down where legacy narrowed the slots to 88 and the Wish to
+   60.
+4. Quest tracker (it was missing from this hand-off). Legacy: one line at bottom centre (bottom 112) for the one
+   tracked quest, with an Untrack button. Unity: a card at the left under the plate that lists up to three accepted
+   running quests, sorted ready first and then by expiry, with countdown colours and progress; no Untrack; it
+   ignores the journal's tracked quest.
+
+Dropped guarantees, as the reviewer sorted the amended expectations. The owner should read these as losses, not as
+re-statements:
+- `hud-seams.test.cjs`: the five "declares each member that moved into it" tests are gone (agreed by the
+  coordinator).
+- `Ui4EditModeTests.RecentNoticeCardExpiresButTheHistoryKeepsEveryNotice` is removed and its promise is no longer
+  true: the Notices page keeps the newest 200 lines (`OrderedNoticeFeed.MaxEntries`).
+- Missing from the table above: the banner-and-toast layout test's position tolerance went from .01 to .5, and it
+  now measures the client's own sticky line, not a server toast.
+- Missing from the table above: `HudTextScaleEditModeTests.TheInventoryCoversTheWholeMatchHud` no longer covers the
+  whole HUD. The tracker's labels, the Shift and Q tile labels, the map header's phase label and the lanes' pills
+  after the first are not in it, and the event lane and the phase label have no fit test at text sizes above 1. A
+  wave 4 packet (`P-UI-TEXT-FIT-1`) restores this.
+Everything else in the table is a re-statement forced by the new look, or a strengthening.
+
+Minor items the reviewer listed. Taken into wave 4: on a stage narrower than about 1040 units the pickup pill
+shrinks with the row while the quest launcher stays full size, so the pair lane splits; the empty Shift and Q tiles
+are see-through and are focusable buttons with nothing to do. Considered with the toast row: `NoticeTone.Bad` is
+never produced. Left as they are: the tracker's dwell seconds 45 and 30 are literals shared with the journal;
+refusal reason codes survive only in the history; more than 6 lines waiting in one lane drops the oldest from the
+toasts only; out of a match the connection state overrides the trader's "Trading…" line; the stale message "Wish
+tile is docked at the right end" in `HudLegacyLayoutEditModeTests` (corrected when that test is next amended).
+
+`AllocationMeter` was judged sound for "zero allocations in N calls". Its limits, as the reviewer named them: the
+warm-up doubles the calls, so a stateful rig advances twice as far; allocations that happen once a second fall
+outside the measured window by design; other threads are not counted. A counting form (`P-UI-ALLOC-METER-2`) is
+being added for the coordinator's conversion of the byte budget in `RenderPassEditModeTests`. The test framework
+version is not in doubt: the manifest, the lock file's own entry and the package cache all say 1.6.0.

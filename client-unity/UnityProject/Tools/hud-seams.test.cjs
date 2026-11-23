@@ -143,3 +143,9 @@ test('the old files shrank: MatchHud.Legacy.cs under 420 lines, MatchHud.cs unde
   assert.ok(count('MatchHud.Legacy.cs') < 420, `MatchHud.Legacy.cs has ${count('MatchHud.Legacy.cs')} lines`);
   assert.ok(count('MatchHud.cs') < 600, `MatchHud.cs has ${count('MatchHud.cs')} lines`);
 });
+
+test('MatchHud.Pulses.cs has one owner of pulses and one reduced-motion source (P-UI-ABILITY-MOTION-1)', () => {
+  const pulses = code('MatchHud.Pulses.cs');
+  assert.ok(!pulses.includes('ShowcaseSettings'), 'MatchHud.Pulses.cs reads ShowcaseSettings: UiMotion.Reduced is the one source');
+  assert.ok(!/List<\s*\(/.test(pulses), 'MatchHud.Pulses.cs declares a list of tuples: HudPulses is the one owner of pulses');
+});

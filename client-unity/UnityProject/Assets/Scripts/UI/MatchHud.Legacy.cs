@@ -29,13 +29,12 @@ namespace Roguehalla.Client
         bool _extrasOpen, _plateActive;
         // Weapon bar.
         readonly TMP_Text[] _slotNames = new TMP_Text[2], _slotScaling = new TMP_Text[2];
-        readonly UnityEngine.UI.Image[] _slotSweeps = new UnityEngine.UI.Image[2];
         readonly CanvasGroup[] _slotGroups = new CanvasGroup[2];
         UnityEngine.UI.Button _swapChip, _potionButton, _windChip;
         RectTransform _weaponBar, _wishTile;
-        UnityEngine.UI.Image _wishIcon;
-        TMP_Text _wishSeconds, _wishCharges, _healText, _healStatus, _windText, _pickupText;
-        UnityEngine.UI.Image _wishSweep, _wishCastBar, _wishGlow;
+        TMP_Text _healText, _healStatus, _windText, _pickupText;
+        UnityEngine.UI.Image _wishGlow;
+        AbilityTile _wishAbilityTile;
         readonly WishTileMotion _wishMotion = new WishTileMotion();
         float _attackCooldownTotal = 1f;
         // Champion combat HUD.
@@ -110,6 +109,9 @@ namespace Roguehalla.Client
             var bar = HudUi.At(_healthRow, "OwnerVitalBar", 20, 3.5f, 76, 8);
             _hpTrough = HudUi.Surface(bar, Tone(theme.SurfaceSunken, 1f), 5f, theme.Border, false);
             var inner = HudUi.Inset(bar, "Meter", 1, 1, 1, 1);
+            _healthGhostFill = Rect(inner, "HealthGhost", 0, 0, 0, 1);
+            _healthGhostFill.gameObject.AddComponent<UnityEngine.UI.Image>().color = Tone(theme.Danger, .55f);
+            _healthGhostFill.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
             _healthBarFill = Rect(inner, "HealthFill", 0, 0, 0, 1);
             _healthBarFill.gameObject.AddComponent<UnityEngine.UI.Image>().color = theme.Success;
             _healthBarFill.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
@@ -323,7 +325,7 @@ namespace Roguehalla.Client
             // Wish row of the champion HUD: the ability name and numbers the server delivered.
             ApplyWishRow(me);
             RefreshWishTile(me.Wish, serverTimeMs, theme);
-            RefreshCooldownSweep(me);
+            RefreshCooldownSweep(me, serverTimeMs);
             RefreshHudElementVisibility();
         }
 

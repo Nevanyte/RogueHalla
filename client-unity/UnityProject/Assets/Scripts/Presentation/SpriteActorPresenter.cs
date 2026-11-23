@@ -558,7 +558,7 @@ namespace Roguehalla.Client
             OverheadStack.Build(in barFacts, _barLayout);
             a.Hp.enabled = a.HpBack.enabled = a.Barrier.enabled = false;
             float barBase = 1.8f + lift - OverheadStack.ToUnits(33.2f);   // the bar's centre stays where it was; the layout's y is up from the feet
-            for (int i = 0; i < _barLayout.Count; i++)
+            for (int i = 0, n = WorldLabelVisibility.Hidden ? 0 : _barLayout.Count; i < n; i++)
             {
                 var e = _barLayout[i];
                 SpriteRenderer r;

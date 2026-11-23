@@ -14,8 +14,8 @@ namespace Roguehalla.Client
     {
         // Press pulses (P-UI-INPUT-CUES-1): a ~150 ms scale pop on an existing element the moment a cast, swap, pickup or
         // potion command leaves. It shows that the key was heard and nothing about the outcome.
-        const float PulseSeconds = .15f, PulsePop = .1f;
-        readonly System.Collections.Generic.List<(RectTransform Rect, float Start)> _pulses = new System.Collections.Generic.List<(RectTransform, float)>();
+        const float PulseSeconds = HudPulses.Seconds, PulsePop = HudPulses.Pop;
+        readonly HudPulses _pulses = new HudPulses();
 
         void InputCue(WireCommand command)
         {
@@ -36,39 +36,10 @@ namespace Roguehalla.Client
             }
         }
 
-        void Pulse(RectTransform rect)
-        {
-            if (rect == null) return;
-            float now = Time.unscaledTime;
-            for (int i = 0; i < _pulses.Count; i++) if (_pulses[i].Rect == rect) { _pulses[i] = (rect, now); return; }
-            _pulses.Add((rect, now));
-        }
+        void Pulse(RectTransform rect) { _pulses.Play(rect, HudSeconds); }
 
-        void TickPulses()
-        {
-            if (_pulses.Count == 0) return;
-            float now = Time.unscaledTime;
-            bool reduced = ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
-            for (int i = _pulses.Count - 1; i >= 0; i--)
-            {
-                var (rect, start) = _pulses[i];
-                float t = (now - start) / PulseSeconds;
-                if (rect == null) { _pulses.RemoveAt(i); continue; }
-                bool wish = ReferenceEquals(rect, _wishTile) && _wishGlow != null && _wishGlow.enabled;
-                if (t >= 1f)
-                {
-                    if (!wish) rect.localScale = Vector3.one;
-                    _pulses.RemoveAt(i); continue;
-                }
-                float pop = reduced ? 1f : 1f + PulsePop * Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI);
-                rect.localScale = wish ? rect.localScale * pop : Vector3.one * pop;
-            }
-        }
+        void TickPulses() { _pulses.Tick(HudSeconds); }
 
-        void ClearPulses()
-        {
-            foreach (var p in _pulses) if (p.Rect != null && !(ReferenceEquals(p.Rect, _wishTile) && _wishGlow != null && _wishGlow.enabled)) p.Rect.localScale = Vector3.one;
-            _pulses.Clear();
-        }
+        void ClearPulses() { _pulses.Clear(); }
     }
 }

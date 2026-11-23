@@ -28,6 +28,22 @@ namespace Roguehalla.Client
         public bool LayoutOwnsRect;
         public bool HasZoneTint => _raster != null && _raster.Tinted;
 
+        /// <summary>How much larger than its base size the marks layer is drawn (1 on the minimap).</summary>
+        public float MarkScale { get; private set; } = 1f;
+        /// <summary>Draws the marks layer k times larger while it still covers the surface exactly (a value under 1 or not finite is 1).</summary>
+        public void SetMarkScale(float k)
+        {
+            if (float.IsNaN(k) || float.IsInfinity(k) || k < 1f) k = 1f;
+            if (k == MarkScale || _marks == null) return;
+            MarkScale = k;
+            var r = _marks.rectTransform;
+            float lo = .5f - .5f / k, hi = .5f + .5f / k;
+            r.anchorMin = new Vector2(lo, lo); r.anchorMax = new Vector2(hi, hi);
+            r.offsetMin = r.offsetMax = Vector2.zero; r.pivot = new Vector2(.5f, .5f);
+            r.localScale = new Vector3(k, k, 1f);
+            _marks.LayerChanged();
+        }
+
         public void Initialize()
         {
             _terrain = gameObject.AddComponent<RawImage>();

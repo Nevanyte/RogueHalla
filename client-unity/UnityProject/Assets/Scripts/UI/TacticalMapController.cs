@@ -71,7 +71,7 @@ namespace Roguehalla.Client
         readonly RectTransform[] _chips = new RectTransform[MapZones.Count + 1];
         readonly MinimapGesture _largeGesture = new MinimapGesture();
         MapScreenLayout _layout;
-        Vector2 _layoutSize; MapScreenMode _layoutMode; float _layoutScale = -1f;
+        Vector2 _layoutSize; MapScreenMode _layoutMode; float _layoutScale = -1f, _layoutPx = -1f;
         double _planTotalMs;
         int _ownZone = -1;
 
@@ -188,7 +188,7 @@ namespace Roguehalla.Client
             _mini.Pressed = MinimapPress; _mini.Dragged = MinimapDrag; _mini.PointerReleased = MinimapRelease; _mini.Aborted = EndMinimapGesture;
             // Route controls draw over both the planning card and the Tab columns.
             _routeText.transform.SetAsLastSibling(); _undo.transform.SetAsLastSibling(); _clear.transform.SetAsLastSibling(); _status.transform.SetAsLastSibling();
-            _layoutScale = -1f;
+            _layoutScale = -1f; _layoutPx = -1f;
             SyncStage(); ApplyLayout(true);
             _panel.gameObject.SetActive(false); _miniRoot.gameObject.SetActive(false);
         }
@@ -257,14 +257,16 @@ namespace Roguehalla.Client
             var size = _stage != null ? _stage.sizeDelta : _panel.rect.size;
             if (size.x < 2f || size.y < 2f) size = new Vector2(1280f, 800f);
             var mode = IsPlanning ? MapScreenMode.Planning : MapScreenMode.Tab; float ts = TextScale();
-            if (!force && size == _layoutSize && mode == _layoutMode && Mathf.Approximately(ts, _layoutScale)) return;
-            _layoutSize = size; _layoutMode = mode; _layoutScale = ts;
+            float px = _panel.lossyScale.x;
+            if (!force && size == _layoutSize && mode == _layoutMode && Mathf.Approximately(ts, _layoutScale) && Mathf.Approximately(px, _layoutPx)) return;
+            _layoutSize = size; _layoutMode = mode; _layoutScale = ts; _layoutPx = px;
             var L = _layout = MapScreenLayout.Compute(size.x, size.y, mode, ts);
             bool tab = mode == MapScreenMode.Tab;
             var theme = UiTheme.Current;
             _scrim.color = UiTheme.With(theme.OutlineDark, tab ? .86f : .84f);
             Put(_titleRect, L.Header); Put(_frameRect, L.Frame);
             ApplySheet(L, tab && !L.Stacked);
+            _large.SetMarkScale(MapMarkScale.Layer(L.Map.W, px));
             if (!tab) _close.gameObject.SetActive(false);
             _timer.gameObject.SetActive(!tab); _planBar.gameObject.SetActive(!tab);
             _planBar.sizeDelta = new Vector2(L.Title.W, 3f);
@@ -375,7 +377,15 @@ namespace Roguehalla.Client
                 (_bound.State == SessionState.InMatch || _bound.State == SessionState.Reconnecting);
             bool shown = _miniRoot.gameObject.activeSelf;
             if (!visible && shown) EndMinimapGesture();   // on the transition only; ends a peek's camera once
-            if (visible != shown) { _miniRoot.gameObject.SetActive(visible); if (visible) MarkRepaint(); }
+            if (visible != shown)
+            {
+                _miniRoot.gameObject.SetActive(visible);
+                if (visible)
+                {
+                    MarkRepaint();
+                    if (_bound != null && _bound.Map != null) { PresentMini(); FollowDrawn(); }   // current on the call that shows it
+                }
+            }
             bool open = IsOpen;
             if (open != _largeShown)
             {
@@ -529,18 +539,25 @@ namespace Roguehalla.Client
             _contacts.Clear(); _bound.Snapshots.Sample(_bound.Snapshots.NewestMs, _contacts);
             var text = new StringBuilder();
             int shown = 0;
-            var groups = new List<KeyValuePair<string, int>>();
+            var groups = new List<(int Faction, int Kind, int Count)>();
             foreach (var actor in _contacts)
             {
                 if (actor.Id == _bound.PlayerId) continue;
                 shown++;
                 string faction = actor.Faction.HasValue ? ShowcasePalette.GetFactionName((int)actor.Faction.Value) : "Neutral";
                 if (actor.Kind == ActorKind.Player) { text.Append(faction).Append(" · Player\n"); continue; }
-                string key = faction + " · " + actor.Kind;
-                int at = groups.FindIndex(g => g.Key == key);
-                if (at < 0) groups.Add(new KeyValuePair<string, int>(key, 1)); else groups[at] = new KeyValuePair<string, int>(key, groups[at].Value + 1);
+                int f = actor.Faction.HasValue ? (int)actor.Faction.Value : -1;
+                int k = PlayerWords.IsNamed(actor.Kind) ? (int)actor.Kind : 255;
+                int at = 0;
+                while (at < groups.Count && (groups[at].Faction < f || (groups[at].Faction == f && groups[at].Kind < k))) at++;
+                if (at < groups.Count && groups[at].Faction == f && groups[at].Kind == k) groups[at] = (f, k, groups[at].Count + 1);
+                else groups.Insert(at, (f, k, 1));
             }
-            foreach (var g in groups) text.Append(g.Key).Append(" x").Append(g.Value).Append("\n");
+            foreach (var g in groups)
+            {
+                PlayerWords.AppendContactRow(text, g.Faction < 0 ? null : ShowcasePalette.GetFactionName(g.Faction), (ActorKind)g.Kind, g.Count);
+                text.Append('\n');
+            }
             if (shown == 0) text.Append("No other contacts in view.");
             _contactsText.text = text.ToString().TrimEnd('\n');
             _counterGuide.SetWeapon(_bound.Me != null ? _bound.Me.Weapon.ToString() : "fists");

@@ -106,10 +106,10 @@ namespace Roguehalla.Client.Tests
         public void WishSummaryStaysCompactWhileFullDeliveredDescriptionRemainsFocusedAndDismissible()
         {
             var details = (RectTransform)GetField("_wishDetails");
-            var summary = (TMP_Text)GetField("_wishSummary");
             var hint = (HudIconHint)GetField("_wishHint");
             var wishButton = _root.transform.Find("HudStage/PlayerHUD/CombatActions/WishTile").GetComponent<Button>();
-            var wishImage = wishButton.transform.Find("WishIcon").GetComponent<Image>();
+            Assert.That(wishButton.transform.Find("Icon"), Is.Not.Null, "the Wish tile has an Icon child");
+            var wishImage = wishButton.transform.Find("Icon").GetComponent<Image>();
             Assert.That(wishImage.enabled && wishImage.sprite != null, Is.True, "wish action has a visible semantic icon");
             Assert.That(details.gameObject.activeSelf, Is.False, "the permanent top-right Wish paragraph is inactive");
 
@@ -122,7 +122,8 @@ namespace Roguehalla.Client.Tests
             };
             Invoke("RefreshOwnerPresentation", me, 5000d);
 
-            Assert.That(summary.text, Is.EqualTo("1/2 · 1"));
+            Assert.That(wishButton.transform.Find("Name/Label").GetComponent<TMP_Text>().text, Is.EqualTo(""), "ReadyAt is ahead: the tile recharges and hides the name");
+            Assert.That(wishButton.transform.Find("Seconds/Label").GetComponent<TMP_Text>().text, Is.EqualTo("1"), "the countdown is on the tile");
             StringAssert.Contains("Blaze", hint.Text);
             StringAssert.Contains("Next charge in 2", hint.Text);
             StringAssert.Contains("Casting Blaze · 2", hint.Text);
