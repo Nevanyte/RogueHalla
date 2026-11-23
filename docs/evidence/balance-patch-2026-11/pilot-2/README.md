@@ -50,6 +50,7 @@ figure.
    (`systems/fire_roam.rs`); its attacks burn (`systems/fire.rs`); and the bot's own fight prices read a faction
    match-up table (`raid/exec/farm.rs`, `exec/elite.rs`). In the first five minutes, on six seeds of an earlier tree
    of this integration, a Fire seat's normal camp took a median 8.4 s against 12.8 to 20.0 s for the others.
+   **It is the game's numbers, not the bot:** see "A bench without the bot" below.
 2. **The workbook's farm rate is out of reach for four factions even with no walking.** The average seat clears
    0.68 camps per living minute, 0.83 per minute that is not spent on a quest or a player, and 1.67 per minute
    actually spent fighting camps. The workbook assumes 2.9: a camp every 21 s, walk included. Here a normal camp
@@ -79,6 +80,25 @@ figure.
 8. **Spread:** a match's mean stacks per seat at minute 12 has a standard deviation of 55 across seeds (44 before):
    an unpaired comparison of one seat would need about 2,680 seeds per arm for one camp-equivalent. Comparisons must
    be made inside one match (P-BAL-LAB-2).
+
+## A bench without the bot
+
+`camp_bench --seed 1` on the same tree ([tools/balance-camps](../../../../tools/balance-camps/README.md)): one scripted
+fighter with no cards and no stacks, which walks up and swings and never retreats or heals, against one camp of each
+of the 30 camp kinds, for each faction and each of six weapons. No `RaidBot` is involved. Under the live hitbox mode:
+
+| Fighter's faction | Normal camps cleared, of 120 | Median clear, s (the 79 scenarios all five cleared) | Time relative to Fire |
+|---|---|---|---|
+| Fire | 108 | 13.1 | 1.00 |
+| Sentenced | 96 | 17.6 | 1.40 |
+| Plague | 104 | 18.4 | 1.41 |
+| Holy | 103 | 22.2 | 1.79 |
+| Frost | 103 | 26.4 | 2.03 |
+
+So a Fire fighter clears the same camp with the same weapon 1.4 to 2 times faster than any other faction before the
+bot makes a single choice. With fists alone the medians over cleared camps are 13.9 s for Fire and 21.9 to 31.6 s for
+the others. No scenario with an elite camp was cleared by all five, so the bench says nothing about elites. Which of
+Fire's mechanics does it (the burn, the roam burst) is not measured. One seed, one camp per kind.
 
 ## Corrections to the first pilot's page
 
@@ -111,9 +131,9 @@ figure.
 
 - **Anything about players.** Bots in human seats are not players; the bot does not dodge, kite or use its Wish in a
   camp fight, and human-seat rules change kill accounting.
-- **Why Fire farms faster**, and whether a person playing another faction farms faster than this bot does. The three
-  candidates above are read from the code. Until that is known, the farm rate that should price a quest's time is
-  open, and no quest number should move.
+- **Which of Fire's mechanics makes it clear camps faster** (the bench shows it is the faction, not the bot), whether
+  the bot's match-up prices widen the gap, and whether a person playing another faction farms faster than this bot
+  does. The farm rate that should price a quest's time is open, and no quest number should move until it is chosen.
 - **Card strength.** Pick rates follow the bot's own price table, written by hand. "Held by the winner" mostly says
   which faction won.
 - **The value of any spell reward.** Four spells are cast (92 dashes and 25 turrets here; Smite and Cleanse were never

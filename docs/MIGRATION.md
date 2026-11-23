@@ -38,9 +38,10 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
   and the lab differ). What it shows:
   - **One faction farms at twice the rate of the others.** A Fire seat clears 1.37 camps per living minute; Plague
     0.66, Frost 0.54, Holy 0.46, Sentenced 0.40. Fire takes 473 of 775 elite kills and is 22 of the 32 seats alive
-    when a match is decided. Not a spawn effect (it holds at seven of eight seat numbers). Causes offered by the
-    code, none measured apart: Fire's speed out of combat (to 1.5 times over 20 s) with a burst on the next hit, its
-    burn, and the bot's own faction match-up prices.
+    when a match is decided. Not a spawn effect (it holds at seven of eight seat numbers). **It is the game's
+    numbers, not the bot:** the camp bench (a scripted fighter, no cards, no `RaidBot`) clears the same normal camps
+    in a median 13.1 s as Fire and 17.6 to 26.4 s as the other four (1.4 to 2 times longer). Which Fire mechanic
+    does it is not measured (the code offers its burn, and a burst on the first hit after 20 s out of combat).
   - **The workbook's 2.9 camps a minute is out of reach for four factions even with no walking.** The average seat
     clears 0.68 per living minute (0.63 in the first pilot), 0.83 per minute not on a quest or a player, and 1.67
     per minute actually fighting camps. A normal camp takes 23.7 s, the walk 8.9 s, the heal-up 5.0 s; the workbook
@@ -117,8 +118,9 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
     camp's band. Still red on the base for all three weapons.
   - Briefs: P-BAL-LAB-TIME-1 (the two rules above), P-RAID-Q3b-fix (the ruling).
 - **Not established:**
-  - Why Fire farms at twice the rate of the other factions, and whether a person playing another faction farms
-    faster than this bot (it does not dodge, kite or use its Wish in a camp fight: P-RAID-C2b).
+  - Which of Fire's mechanics makes it clear camps 1.4 to 2 times faster, whether the bot's match-up prices widen
+    the gap, and whether a person playing another faction farms faster than this bot (it does not dodge, kite or use
+    its Wish in a camp fight: P-RAID-C2b).
   - So: which farm rate should price a quest's time, and every quest verdict.
   - Any card's strength (pick rates follow the bot's hand-written prices; "held by the winner" mostly says which
     faction won); the value of any spell reward (92 dashes and 25 turrets were cast; Smite and Cleanse never in 40
@@ -146,9 +148,7 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
   frame, about 15,000 Unity objects per 100 frames). By the lane's own Web build run (50 windows; seen by the lane,
   not by the coordinator) the bursts are gone: at most 2.3 KB a frame, was 20 to 25 KB; and no long frame, the
   largest 10.7 ms. The others are as below.
-- **Next, in order:** integration 89 (P-RAID-S-fix2 is in its preview); P-BAL-FIRE-1 (why Fire farms at twice
-  the rate: lab runs with Fire's roam, its burn and the bot's match-up prices switched off one at a time);
-  P-BAL-LAB-2 (grants inside one match, per-seat rows, deaths while holding a quest, the time
+- **Next, in order:** integration 89 (P-RAID-S-fix2 is in its preview); P-BAL-LAB-2 (grants inside one match, per-seat rows, deaths while holding a quest, the time
   budget's missing counters, an incremental chest tally); P-RAID-C2b (fight movement, when to leave, the escape
   Wishes); P-RAID-LOS-1; P-RAID-S2 (the other fifteen spell rules); P-RAID-Q3c; P-RAID-Q4, -P, -W. Then the baseline
   and the number packets. Beside them: P-NET-COLLECTIONS-ROWS-1, P-UNITY-ALLOC-TESTS-1, P-UNITY-TEST-ASSET-COPY-1,
