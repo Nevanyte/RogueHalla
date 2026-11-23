@@ -233,5 +233,112 @@ namespace Roguehalla.Net.Tests
             waiting.End("cast");
             Assert.That(waiting.Waiting, Is.EqualTo(1), "End leaves a waiting line alone");
         }
+
+        // ------------------------------------------------------------------ P-UI-ABILITY-FEEDBACK-1-fix: a replaced keyed line holds for its new text
+
+        static readonly string Short = "Quest: 1 of 3";            // 13 characters: 2.2 s
+        static readonly string Long = new string('l', 40);          // 40 characters: 3.1 s
+
+        static void AssertPremise()
+        {
+            Assert.That(NoticeRouter.HoldSeconds(Short), Is.EqualTo(2.2f).Within(.001f), "premise: the short text holds 2.2 s");
+            Assert.That(NoticeRouter.HoldSeconds(Long) - NoticeRouter.HoldSeconds(Short), Is.GreaterThanOrEqualTo(.5f), "premise: the long text holds at least .5 s longer");
+        }
+
+        /// <summary>
+        /// Pushes <paramref name="first"/> under a key, lets it be shown for .5 s, replaces it by <paramref name="second"/> (no explicit hold) and
+        /// reads the line at the marks. The line is already in its hold at the replacement, so its opaque time counts from the replacement.
+        /// </summary>
+        static void Replace(string first, string second, bool neverLate, float opaqueAt1, float opaqueAt2, float goneAt)
+        {
+            var m = new ToastLaneModel(3);
+            m.Push(first, NoticeTone.Info, "k", 0f, neverLate);
+            Run(m, .5f);
+            m.Push(second, NoticeTone.Info, "k", 0f, neverLate);
+            Assert.That(m.Count, Is.EqualTo(1), "set-up: one line");
+            Run(m, opaqueAt1);
+            ShowsFully(m, second, opaqueAt1.ToString("0.00") + " s after the replacement");
+            Run(m, opaqueAt2 - opaqueAt1);
+            ShowsFully(m, second, opaqueAt2.ToString("0.00") + " s after the replacement");
+            Run(m, goneAt - opaqueAt2);
+            Gone(m, second, goneAt.ToString("0.00") + " s after the replacement");
+        }
+
+        [Test]
+        public void AReplacedKeyedLineHoldsForItsNewText()
+        {
+            AssertPremise();
+            // 3.1 s hold: still fully shown at 2.4 s (old hold 2.2 s + .2) and at 3.0 s; gone at 3.5 s (3.1 + .25 fade + .15).
+            Replace(Short, Long, false, 2.4f, 3.0f, 3.5f);
+        }
+
+        [Test]
+        public void AReplacedKeyedLineWithAShorterTextLeavesSooner()
+        {
+            AssertPremise();
+            // 2.2 s hold replaces 3.1 s: fully shown at 2.0 s (.2 under); gone at 2.6 s (2.2 + .25 fade + .15), the old hold would still show it.
+            Replace(Long, Short, false, 1.0f, 2.0f, 2.6f);
+        }
+
+        [Test]
+        public void AReplacedNeverLateLineHoldsForItsNewText()
+        {
+            AssertPremise();
+            Replace(Short, Long, true, 2.4f, 3.0f, 3.5f);
+            Replace(Long, Short, true, 1.0f, 2.0f, 2.6f);
+        }
+
+        [Test]
+        public void AReplacedWaitingKeyedLineHoldsForItsNewText()
+        {
+            AssertPremise();
+            var m = new ToastLaneModel(1);
+            m.Push("A", NoticeTone.Info);
+            m.Push(Short, NoticeTone.Info, "k");
+            Assert.That(m.Waiting, Is.EqualTo(1), "set-up: the keyed line waits");
+            Run(m, .5f);
+            m.Push(Long, NoticeTone.Info, "k");
+            Assert.That(m.Waiting, Is.EqualTo(1), "set-up: replaced, not added");
+            int guard = 0;
+            while (IndexOf(m, Long) < 0 && guard++ < 1000) m.Tick(Dt, true, false);
+            Assert.That(IndexOf(m, Long), Is.GreaterThanOrEqualTo(0), "set-up: the waiting line comes in with its new text");
+            // It is drawn at its first tick in the lane: .12 s of fade in, then the hold of the NEW text (3.1 s), then .25 s of fade out.
+            Run(m, .12f + 2.2f + .2f);
+            ShowsFully(m, Long, "2.52 s after it came in (the old text's hold plus the fade in plus .2)");
+            Run(m, .5f);
+            ShowsFully(m, Long, "3.02 s after it came in");
+            Run(m, .6f);
+            Gone(m, Long, "3.62 s after it came in");
+        }
+
+        [Test]
+        public void AKeyedHitWithAnExplicitHoldKeepsThatHold()
+        {
+            foreach (bool neverLate in new[] { false, true })
+            {
+                var m = new ToastLaneModel(3);
+                m.Push(Short, NoticeTone.Info, "k", 0f, neverLate);
+                Run(m, .5f);
+                m.Push(Long, NoticeTone.Warn, "k", 1f, neverLate);      // a long text, but the caller's 1 s wins
+                Run(m, .9f);
+                ShowsFully(m, Long, "neverLate " + neverLate + ": .9 s after the replacement");
+                Run(m, .6f);
+                Gone(m, Long, "neverLate " + neverLate + ": 1.5 s after it: the 1 s hold, not 3.1 s");
+            }
+        }
+
+        [Test]
+        public void AnUnkeyedRepeatOfTheSameTextRestartsWithTheSameHold()
+        {
+            var m = new ToastLaneModel(3);
+            m.Push(Long, NoticeTone.Info);
+            Run(m, .5f);
+            m.Push(Long, NoticeTone.Info);
+            Assert.That(m.Line(0).Text, Is.EqualTo(Long + " x2"), "set-up: the counter");
+            Run(m, 2.9f);
+            Assert.That(m.Line(0).Alpha, Is.EqualTo(1f).Within(.001f), "2.9 s after the repeat: the 3.1 s hold restarted");
+            Run(m, .2f + .25f + .1f);
+            Assert.That(m.Count, Is.EqualTo(0), "3.55 s after it: gone");
+        }
     }
 }

@@ -74,7 +74,10 @@ none (tests are added to existing files).
 - Unity classes `AbilityMotionEditModeTests`, `AbilityFeedbackEditModeTests`, `ToastLanesEditModeTests`, `FirstRunHintEditModeTests` stay green.
 
 ## Oracle files (read-only for implementers)
-(filled in by the oracle commit)
+- `client-unity/RoguehallaNet.Tests/ToastLaneHoldTests.cs` (six tests added, commit `oracle:`): see "Red and green" below.
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityMotionEditModeTests.cs` (ONE test amended, `TheWishTileHasOneScaleWriter`, commit
+  `oracle-amend:` alone; listed for the owner as a STRENGTHENING: it restores the overlap the earlier amend lost).
+- `docs/backlog/packets/P-UI-ABILITY-FEEDBACK-1-fix.md`
 
 ## 9. Validation commands
 - `.agent-runs/lane-ui-rework/bin/in.sh <worktree> dotnet test client-unity/RoguehallaNet.Tests --filter "ToastLaneHoldTests|ToastLaneModelTests"`
@@ -91,7 +94,42 @@ Low: a few lines in `Push`. implementer-sonnet; reviewer (not reviewer-opus: no 
 - No `Assert.Multiple`; no `InternalsVisibleTo`; EditMode time does not advance (the dotnet tests pass `dt` in).
 
 ## Notes from the oracle author
-(filled in by the oracle commit)
+**No stub commit.** The tests use only existing API (`Push` with its five parameters, `NoticeRouter.HoldSeconds`, `HudPulses`), so nothing
+needs a stub.
+
+**Red and green (dotnet, `ToastLaneHoldTests`, run on the base):** RED on an assertion about the hold: `AReplacedKeyedLineHoldsForItsNewText`
+("2.40 s after the replacement ... is fully opaque", alpha .24: the old 2.2 s hold is leaving), `AReplacedKeyedLineWithAShorterTextLeavesSooner`
+("2.60 s after the replacement: ... is gone", the old 3.1 s hold still shows it), `AReplacedNeverLateLineHoldsForItsNewText` (same
+message as the first, never-late path; it also runs the shorter-text case), `AReplacedWaitingKeyedLineHoldsForItsNewText` (a waiting line, lane
+of 1: "2.52 s after it came in ... is fully opaque"). The spec lists three; the fourth covers the "showing or waiting" half of the outcome.
+GREEN on the base, by design (standing guards): `AKeyedHitWithAnExplicitHoldKeepsThatHold` (both keyed paths, a 40-character text with a
+1 s hold: shown at .9 s, gone at 1.5 s) and `AnUnkeyedRepeatOfTheSameTextRestartsWithTheSameHold` (the counter keeps the 3.1 s hold). Premise
+asserted with the real function: 13 characters hold 2.2 s, 40 characters 3.1 s (.9 s longer). Margins: opaque marks at least .2 s inside the hold
+(2.4 s vs the old 2.2 s; 2.0 s vs the new 2.2 s), gone marks .15 s after hold plus the .25 s fade (3.5 s vs 3.35 s; 2.6 s vs 2.45 s).
+
+**Scratch run (not committed):** the test file is plain dotnet, but its later lines were proved the same way: the four red tests were rerun with
+the second push given the explicit hold `NoticeRouter.HoldSeconds(newText)` (exactly what the fix does inside `Push`); all 36 tests of
+`ToastLaneHoldTests` and `ToastLaneModelTests` then passed, so every line of the red tests runs and the numbers fit the rule. The product
+file was not edited for this (the first attempt to patch `ToastLaneModel.cs` as a scratch was refused by the environment; the explicit-hold
+rerun above proves the same timings). The file was restored from a copy afterwards.
+
+**EditMode amend, `TheWishTileHasOneScaleWriter` (`AbilityMotionEditModeTests.cs:386`):** ready snapshot (Wish with a charge at server time
+55050), frames at local +50 ms and +100 ms; on the +100 ms frame `HudPulses.Count` is 1: the ready pop starts there (measured by the test's own
+`pulses.Count` assertions, run green) and lasts `HudPulses.Seconds` = .15 s. The press goes in 60 ms into it (a quarter of .15 s is 37 ms, so
+60 ms is inside with margin both sides: the pop is still running at +60 and would run to +150). The test asserts: the ready pop is running
+before and at the press; the tile reads Ready (`WedgeOn` false); then for 150 ms after the press, every 10 ms, `localScale.x <= 1 + Pop + .001`
+and the wash is on (its original assertions, `f90ca108a`); and the peak scale reaches at least `1 + Pop * .9` (the press popped). It is
+GREEN on the base (the product has one writer): a standing guard, the dotnet tests carry the red.
+**Proof it can fail:** in a scratch (never committed) I added to `MatchHud.ActionBar.cs` `TickActionRow`, after `TickPulses();`,
+`if (_pulses.Count > 0 && _wishTile != null) _wishTile.localScale *= 1.05f;` (a second scale writer stacking on the pop). Unity run of
+`AbilityMotionEditModeTests`: `TheWishTileHasOneScaleWriter` RED with "one pop and no wash scale at +20 ms / Expected: less than or equal to
+1.08100009f / But was: 1.08416581f" (also `APressPopsAboutTheCentre` red, as expected). The fault was reverted with `git checkout --`.
+Old test (press at 300 ms after the ready snapshot, after the ready pop) never overlapped two pops, so it could not see such a writer
+while the pulse had only one running pop.
+
+**Existing classes on the stub:** `ToastLaneModelTests` and `ToastLaneHoldTests` (dotnet: only the four new tests red), and Unity
+`ToastLanesEditModeTests`, `AbilityFeedbackEditModeTests`, `AbilityMotionEditModeTests` (with the amend), `FirstRunHintEditModeTests`:
+58 of 58 green. `FirstRunHintEditModeTests` read: the first-run hint is a sticky line, `Find` skips it, the fix does not touch it.
 
 ## Existing tests that pin this code (read 2026-11-23; all stay green)
 | Test | What it asserts | Affected? |
