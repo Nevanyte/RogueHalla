@@ -172,3 +172,19 @@ Sustain leave must be ranked over a committed incumbent; the new pick-up ban mus
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
+
+## Coordinator's answers (2026-11-23)
+
+- **D, the token skip: left out**, as the default has it. A fresh `Decide` with a pending token choice and no token
+  remembered is what `a_seat_walking_to_a_far_turn_in_point_is_not_given_up_for_being_slow` builds, and that test
+  stays as it is. The seat that never saw the accept keeps its bounded give-up; it is not a lab case (a RaidBot
+  seated from the start always sees the accept).
+- **A, the high-value rewards.** The candidate is `value / minutes`, so once the walk is priced a pending
+  `hold_the_fort` (3.6) falls below the leave's 30 for any walk longer than about 0.12 minute and
+  `the_burning_crown` (5.2) for about 0.17: the brief's "2.4 and 3.5 min" reads the rates as minutes. The oracle
+  still pins `letters` only. The implementer reports the measured crossover walk for all three rewards, and
+  reviewer-opus checks the ranking for the two high ones. Nothing is added to the oracle.
+- **B, the stateless walker rule** (a drop within `STAND_U` with no action 9 for its index does not hold the
+  walker) is accepted: no shared field.
+- **C, the documented switch** is accepted. `bargain_leg_minutes` sits before P-RAID-E's `elite`, which stays the
+  last field of `Prices`; the coordinator resolves the append point at merge.
