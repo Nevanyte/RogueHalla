@@ -214,3 +214,17 @@ time-out in 130 s). Green guards:
 - **Q1: owner field.** The owner is not on the wire, so the exact fix is a protocol change. Default: faction rule only, no
   percept or wire change.
 - **Q2: D1 bound.** Default: full `disengage_death` line during the chest phase. Alternative: always `Some(false)`.
+
+## Coordinator's answers (2026-11-23)
+
+- **Q1 no:** no owner field on the wire. A Plague seat ignores every zombie of its own faction; that also ignores
+  another Plague player's zombie, which is accepted. A foe's zombie stays a threat.
+- **Q2 the bound stands:** during the chest phase Sustain's verdict needs the full `disengage_death` line, not the
+  early one. Adds that will kill the seat still pull it off the chest; a seat is not asked to die for a card. The
+  line is untuned: the lab row (kills recorded with a pick by the killer, of kills recorded; deaths within the
+  chest phase) says whether it is right.
+- **Q3 yes:** four defects, note 4 in `exec/elite.rs`.
+- **The lab row's source.** "Kills" and "picks" in the acceptance comparison come from the lab's elite table and
+  from temporary stderr counters that pair a kill with its killer's pick, as reviewer-opus traced them; never from
+  counting the bots' private `killed` entries. A lab packet (P-BAL-LAB-ELITE-1) is being written to make the lab
+  report that pairing itself; this packet does not wait for it.
