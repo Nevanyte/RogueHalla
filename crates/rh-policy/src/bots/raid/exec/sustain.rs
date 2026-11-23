@@ -48,7 +48,6 @@ pub struct Sustain {
     /// Potions held the frame before (large, small) and the shares of the heals still running, newest last.
     prev_stock: (u8, u8),
     hots: Vec<f64>,
-    dbg_kind: Option<GoalKind>,
 }
 
 /// What the current fight has cost and bought (units: shares of the bot's max hp, members' worth of hp).
@@ -330,7 +329,6 @@ impl Executor for Sustain {
     }
     fn observe(&mut self, cx: &mut Cx<'_>) {
         if cx.prices.sustain.on && cx.p.active {
-            if cx.goal.kind != GoalKind::Sustain { self.dbg_kind = Some(cx.goal.kind); }
             self.watch(cx);
             self.track(cx);
         }
@@ -377,12 +375,7 @@ impl Executor for Sustain {
             });
         }
     }
-    fn start(&mut self, goal: &RaidGoal, cx: &mut Cx<'_>) {
-        {
-            let n = Self::nearest(cx);
-            let v = Self::view(cx);
-            eprintln!("DBG start now={} slot={} prev={:?} goal={:?} hp={:.2} pot={}/{} near={:?} view={:?} seen={:?}", cx.p.now, cx.p.me.slot, self.dbg_kind, goal.target, cx.p.me.hp_share(), cx.p.me.potion_large, cx.p.me.potion_small, n.map(|m| (m.camp, cx.p.dist(m.at) as i32)), v.map(|v| (v.0, v.2)), (self.seen.lost, self.seen.dealt));
-        }
+    fn start(&mut self, goal: &RaidGoal, _cx: &mut Cx<'_>) {
         self.leaving = match goal.target {
             Target::Camp(c) => Some(c),
             _ => None,
