@@ -35,7 +35,7 @@ namespace Roguehalla.Client
         // The offer prompt: the handle and giver label last seen in reach, and whether it can be pressed now.
         QuestHandle? _promptOffer;
         string _promptGiver, _promptCaption, _promptCaptionGiver;
-        bool _promptCaptionPair, _promptCaptionKey;
+        bool _promptCaptionKey;
         bool _offerPrompt, _offerPromptLive;
         public QuestOfferCard OfferCard { get { return _offerCard; } }
         public bool OfferOpen { get { return _offerCard != null && _offerCard.IsOpen; } }
@@ -172,7 +172,7 @@ namespace Roguehalla.Client
             bool key = !beside;
             if (_promptCaption == null || !string.Equals(_promptCaptionGiver, _promptGiver) || _promptCaptionKey != key)
             {
-                _promptCaptionGiver = _promptGiver; _promptCaptionKey = key; _promptCaptionPair = beside;
+                _promptCaptionGiver = _promptGiver; _promptCaptionKey = key;
                 _promptCaption = (key ? "F \u00b7 Talk to " : "Talk to ") + _promptGiver;
             }
             return _promptCaption;
