@@ -364,7 +364,7 @@ namespace Roguehalla.Client.Tests
                 S("cooling 3 s", Spell(i, 0, 52100), 0, Face.Cooling, 3, "Ready in 3", false);
                 S("cooling 299 s", Spell(i, 0, 348100), 0, Face.Cooling, 299, "Ready in 4:59", false);
                 S("effects bit 4096", Spell(i, 1, 0), CastingBit, Face.Ready, 0, "Casting", false);
-                S("charge in hand, next recharging", Spell(i, 1, 52100), 0, Face.Cooling, 3, null, true);
+                S("charge in hand, next recharging", Spell(i, 1, 52100), 0, Face.Ready, 0, null, true);
                 S("stunned", Spell(i, 1, 0), Stun, Face.Ready, 0, null, true);
                 S("silenced", Spell(i, 1, 0), Silence, Face.Ready, 0, null, true);
             }
