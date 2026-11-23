@@ -110,6 +110,9 @@ namespace Roguehalla.Client
             var bar = HudUi.At(_healthRow, "OwnerVitalBar", 20, 3.5f, 76, 8);
             _hpTrough = HudUi.Surface(bar, Tone(theme.SurfaceSunken, 1f), 5f, theme.Border, false);
             var inner = HudUi.Inset(bar, "Meter", 1, 1, 1, 1);
+            _healthGhostFill = Rect(inner, "HealthGhost", 0, 0, 0, 1);
+            _healthGhostFill.gameObject.AddComponent<UnityEngine.UI.Image>().color = Tone(theme.Danger, .55f);
+            _healthGhostFill.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
             _healthBarFill = Rect(inner, "HealthFill", 0, 0, 0, 1);
             _healthBarFill.gameObject.AddComponent<UnityEngine.UI.Image>().color = theme.Success;
             _healthBarFill.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;

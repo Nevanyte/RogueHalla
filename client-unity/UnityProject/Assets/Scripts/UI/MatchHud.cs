@@ -208,6 +208,7 @@ namespace Roguehalla.Client
             SetStickyNotice("");
             _wishMotion.Reset();
             ResetPlayerFlowTimeline();
+            ClearOwnerVitals();
             if (_session == null) ClearOwnerPresentation("Awaiting server");
             else if (_session.Me == null) ClearOwnerPresentation(_session.Latest == null ? "Awaiting server" : "Unavailable");
             else RefreshOwnerPresentation(_session.Me, _session.ServerTimeMs);
@@ -244,6 +245,7 @@ namespace Roguehalla.Client
             TickWishTileMotion();
             TickPulses();
             RefreshSettlementRow();
+            TickOwnerVitals(Time.unscaledDeltaTime);
             if (_session != null && _session.ReconnectAttempt != _bannerAttempt) _dirty = true;
             if (!_dirty || _session == null) return;
             _dirty = false;
@@ -320,13 +322,8 @@ namespace Roguehalla.Client
                 Set(_vitals, ShowcasePalette.GetFactionName((int)me.Faction) + " · HP " + me.Hp.ToString("0.#") + " / " + me.MaxHp.ToString("0.#") + " · Barrier " + me.Barrier.ToString("0.#"));
                 Set(_combatStats, "Kills " + me.Kills + " · GV " + me.Gv + " · " + me.Status);
                 _lastHp = me.Hp; _lastMaxHp = me.MaxHp; _lastKills = me.Kills; _lastGv = me.Gv; _lastStatus = me.Status; _lastBarrier = me.Barrier; _lastBarrierRing = me.BarrierRingStep;
-                OwnerVitalBars.Percent(me, out float healthPercent, out float barrierPercent);
-                float healthEnd = healthPercent / 100f;
-                float barrierEnd = (healthPercent + barrierPercent) / 100f;
-                _healthBarFill.anchorMax = new Vector2(healthEnd, 1f);
-                _barrierBarFill.anchorMin = new Vector2(healthEnd, 0f);
-                _barrierBarFill.anchorMax = new Vector2(barrierEnd, 1f);
             }
+            DeliverOwnerVitals(me);
             bool wishChanged = _lastWish.HasValue != me.Wish.HasValue;
             if (!wishChanged && me.Wish.HasValue && _lastWish.HasValue) wishChanged = !WishEquals(me.Wish.Value, _lastWish.Value);
             if (wishChanged || serverTimeMs != _lastServerTime)
@@ -358,8 +355,7 @@ namespace Roguehalla.Client
             if (_wishHint != null) _wishHint.Text = "R · Wish\n" + reason;
             RefreshDamageReadout(null);
             RefreshLegacyHud(null, 0d);
-            if (_healthBarFill != null) _healthBarFill.anchorMax = Vector2.zero;
-            if (_barrierBarFill != null) { _barrierBarFill.anchorMin = Vector2.zero; _barrierBarFill.anchorMax = Vector2.zero; }
+            ClearOwnerVitals();
         }
 
         internal static string FormatWishCard(WishView? wish, double serverTimeMs, Roguehalla.Net.Protocol.WireHudContent block = null, FactionId faction = default(FactionId))
