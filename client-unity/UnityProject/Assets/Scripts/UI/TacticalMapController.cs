@@ -18,6 +18,14 @@ namespace Roguehalla.Client
     {
         const float Tile = 32f;
         const double PreviewSpeed = 170d;
+        /// <summary>Test seam (P-UI-TABMAP-FLOW-1): the controller's clock in seconds; the real unscaled clock unless a test replaces it.</summary>
+        public static Func<double> SecondsClock = () => UnityEngine.Time.realtimeSinceStartupAsDouble;
+        static double Now => SecondsClock();
+        /// <summary>Test-visible: how many times the Tab map surface / the minimap surface was presented (marks rebuilt).</summary>
+        public int LargePresentCount { get; private set; }
+        public int MinimapPresentCount { get; private set; }
+        void PresentLarge() { LargePresentCount++; _large.Present(_bound, ShowRoute ? _routePoints : null); }
+        void PresentMini() { MinimapPresentCount++; _mini.Present(_bound, ShowRoute ? _routePoints : null); }
         MatchClient _client;
         UiDisplayPreferences _prefs;
         Session _bound;
@@ -175,7 +183,7 @@ namespace Roguehalla.Client
             var miniFrame = MythicUi.Rect(_miniRoot, "TerrainFrame", Vector2.zero, Vector2.one);
             _mini = miniFrame.gameObject.AddComponent<TacticalMapSurface>(); _mini.Initialize();
             _miniMarks = _mini.GetComponentInChildren<TacticalMapMarks>();
-            _mini.Pressed = MinimapPress; _mini.Dragged = MinimapDrag; _mini.PointerReleased = MinimapRelease; _mini.Aborted = ReleaseMinimap;
+            _mini.Pressed = MinimapPress; _mini.Dragged = MinimapDrag; _mini.PointerReleased = MinimapRelease; _mini.Aborted = EndMinimapGesture;
             // Route controls draw over both the planning card and the Tab columns.
             _routeText.transform.SetAsLastSibling(); _undo.transform.SetAsLastSibling(); _clear.transform.SetAsLastSibling(); _status.transform.SetAsLastSibling();
             _layoutScale = -1f;
@@ -316,7 +324,7 @@ namespace Roguehalla.Client
         public void Bind(Session session)
         {
             UnsubscribeMapFacts();
-            ReleaseTransient(); _selections.Update(null, false, Time.realtimeSinceStartupAsDouble * 1000); _bound = session; _storageKey = null; _routeStorageDirty = false; _route.Clear(); _route.SetStart(null);
+            ReleaseTransient(); _selections.Update(null, false, Now * 1000); _bound = session; _storageKey = null; _routeStorageDirty = false; _route.Clear(); _route.SetStart(null);
             _factsDirty = true; _lastContactsSnapshot = -1; _contacts.Clear(); _contactsText.text = "";
             if (_bound != null)
             {
@@ -337,8 +345,8 @@ namespace Roguehalla.Client
         }
         void RefreshDeliveredMarks()
         {
-            _large.Present(_bound, ShowRoute ? _routePoints : null);
-            _mini.Present(_bound, ShowRoute ? _routePoints : null);
+            if (IsOpen) PresentLarge();
+            if (_miniRoot != null && _miniRoot.gameObject.activeSelf) PresentMini();
         }
         public void SetToggleMode(bool value) { _prefs.SetMapToggle(value); ReleaseTransient(); }
         public void SetShowRoute(bool value) { _prefs.SetShowRoute(value); _nextPaint = 0; }
@@ -361,8 +369,26 @@ namespace Roguehalla.Client
             if (_miniRoot == null) return;
             bool visible = !_minimapSuppressed && !IsOpen && _bound != null && _bound.LastResult == null &&
                 (_bound.State == SessionState.InMatch || _bound.State == SessionState.Reconnecting);
-            if (!visible) ReleaseMinimap();
-            if (_miniRoot.gameObject.activeSelf != visible) _miniRoot.gameObject.SetActive(visible);
+            bool shown = _miniRoot.gameObject.activeSelf;
+            if (!visible && shown) EndMinimapGesture();   // on the transition only; ends a peek's camera once
+            if (visible != shown) { _miniRoot.gameObject.SetActive(visible); if (visible) MarkRepaint(); }
+            bool open = IsOpen;
+            if (open != _largeShown)
+            {
+                _largeShown = open;
+                if (open) MarkRepaint(); else _largeGesture.Abort();
+            }
+        }
+        /// <summary>A surface just became visible: the next Tick paints everything, so it is current on its first frame.</summary>
+        void MarkRepaint() { _factsDirty = true; _lastContactsSnapshot = -1; _nextPaint = 0; }
+        bool _largeShown;
+        /// <summary>The visible surface's own marker follows the drawn character every frame (the other marks keep the paint interval).</summary>
+        void FollowDrawn()
+        {
+            var motion = _bound?.Motion;
+            if (motion == null || !motion.Initialized) return;
+            if (IsOpen) _largeMarks.FollowSelf(motion.DrawnX, motion.DrawnY);
+            else if (_miniRoot.gameObject.activeSelf) _miniMarks.FollowSelf(motion.DrawnX, motion.DrawnY);
         }
         public void SetOpen(bool open)
         {
@@ -371,7 +397,6 @@ namespace Roguehalla.Client
             _panel.gameObject.SetActive(IsPlanning || _mapOpen); WorldLabelVisibility.Hidden = _panel.gameObject.activeSelf;
             ApplyLayout();
             RefreshMinimapVisibility();
-            if (open) ReleaseMinimap();
         }
         bool MapAllowed => _bound != null && _bound.State == SessionState.InMatch && _bound.Phase == MatchPhase.Active && !_bound.Training && _bound.LastResult == null;
         UiInputContext MapContext(bool typing, bool dialog) => new UiInputContext(MapAllowed, _bound != null && _bound.Training,
@@ -418,9 +443,10 @@ namespace Roguehalla.Client
             UpdateMinimapRing();
             RefreshMinimapVisibility();
             if (_factsDirty) _nextPaint = 0;
-            if (Time.realtimeSinceStartupAsDouble < _nextPaint) return;
+            FollowDrawn();
+            if (Now < _nextPaint) return;
             _factsDirty = false;
-            _nextPaint = Time.realtimeSinceStartupAsDouble + 1d / 30d;
+            _nextPaint = Now + 1d / 30d;
             var plan = _bound.Collections.Plan;
             if (plan != null) PresentPlan(plan); else if (IsOpen) PresentTactics();
             if (plan == null) foreach (var marker in _spawnMarks) marker.gameObject.SetActive(false);
@@ -428,24 +454,26 @@ namespace Roguehalla.Client
             if (plan == null && me != null)
             {
                 _route.Advance(new RoutePoint(me.X, me.Y), Tile);
-                if (Time.realtimeSinceStartupAsDouble >= _nextPath) _route.SetStart(new RoutePoint(me.X, me.Y));
+                if (Now >= _nextPath) _route.SetStart(new RoutePoint(me.X, me.Y));
             }
-            if (Time.realtimeSinceStartupAsDouble >= _nextPath)
+            if (Now >= _nextPath)
             {
-                _nextPath = Time.realtimeSinceStartupAsDouble + .25;
+                _nextPath = Now + .25;
                 _routePlan = _route.PlanAhead(_bound.TerrainMap, new RouteGeometry(Tile, _bound.OwnFoot, PreviewSpeed), plan == null && me != null ? new RoutePoint(me.X, me.Y) : _route.Start);
                 _routePoints = _routePlan.Points;
                 _routeText.text = (_route.Waypoints.Count - _route.NextIndex) + "/12 stops · " + (_routePlan.Start.HasValue ? _routePlan.EtaSeconds.ToString("0") + "s base-speed walk" : "choose a spawn for ETA") +
                     (_routePlan.Unreachable.Count > 0 ? " · " + _routePlan.Unreachable.Count + " unreachable" : "") + "\nClick the map to add a stop.";
             }
             SaveRoute();
-            _large.Present(_bound, ShowRoute ? _routePoints : null); _mini.Present(_bound, ShowRoute ? _routePoints : null);
+            if (IsOpen) PresentLarge();
+            if (_miniRoot.gameObject.activeSelf) PresentMini();
+            FollowDrawn();
             TickGesture(_miniGesture);
             TickGesture(_largeGesture);
         }
         void TickGesture(MinimapGesture gesture)
         {
-            var point = gesture.Tick(Time.realtimeSinceStartupAsDouble * 1000);
+            var point = gesture.Tick(Now * 1000);
             if (point.HasValue && !SubmitMapMove(point, true)) gesture.Unsend();
         }
         void PresentPlan(PlanView plan)
@@ -555,10 +583,10 @@ namespace Roguehalla.Client
             RefreshDeliveredMarks();
             if (_bound?.State != SessionState.InMatch) { _contactsText.text = "No current contacts."; _lastContactsSnapshot = -1; }
         }
-        void UpdateSelections() => _selections.Update(_bound?.Collections.Plan, _bound != null && _bound.State == SessionState.InMatch, Time.realtimeSinceStartupAsDouble * 1000);
-        void PickSpawn(byte pick) { UpdateSelections(); if (_bound != null && _selections.TryPickSpawn(pick, _bound.Input, Time.realtimeSinceStartupAsDouble * 1000)) _nextPaint = 0; }
-        void PickBoon(byte pick) { UpdateSelections(); if (_bound != null && _selections.TryPickBoon(pick, _bound.Input, Time.realtimeSinceStartupAsDouble * 1000)) _nextPaint = 0; }
-        void Ready() { UpdateSelections(); if (_bound != null && _selections.TryReady(_bound.Input, Time.realtimeSinceStartupAsDouble * 1000)) _nextPaint = 0; }
+        void UpdateSelections() => _selections.Update(_bound?.Collections.Plan, _bound != null && _bound.State == SessionState.InMatch, Now * 1000);
+        void PickSpawn(byte pick) { UpdateSelections(); if (_bound != null && _selections.TryPickSpawn(pick, _bound.Input, Now * 1000)) _nextPaint = 0; }
+        void PickBoon(byte pick) { UpdateSelections(); if (_bound != null && _selections.TryPickBoon(pick, _bound.Input, Now * 1000)) _nextPaint = 0; }
+        void Ready() { UpdateSelections(); if (_bound != null && _selections.TryReady(_bound.Input, Now * 1000)) _nextPaint = 0; }
         void AddRoutePoint(Vector2 point) { if (_bound?.Map == null) return; _route.ToggleUpcoming(new RoutePoint(point.x, point.y), _bound.TerrainMap, Tile); _routeStorageDirty = true; _nextPath = _nextPaint = 0; }
         void ReconcileMinimapButtons()
         {
@@ -581,7 +609,7 @@ namespace Roguehalla.Client
                     // Reconcile a missing UI pointer-up using this overlay canvas's current release position.
                     if (surface.ScreenWorld(mouse.position.ReadValue(), null, out var point))
                         gesture.Drag(MinimapButton.Right, new RoutePoint(point.x, point.y));
-                    SubmitMapMove(gesture.Release(MinimapButton.Right, Time.realtimeSinceStartupAsDouble * 1000), false);
+                    SubmitMapMove(gesture.Release(MinimapButton.Right, Now * 1000), false);
                 }
                 else gesture.Cancel(MinimapButton.Right);
             }
@@ -591,7 +619,7 @@ namespace Roguehalla.Client
         void MinimapPress(Vector2 point, PointerEventData.InputButton button)
         {
             if (!CanWalkFromMap || button == PointerEventData.InputButton.Middle) return;
-            SubmitMapMove(_miniGesture.Press(MiniButton(button), new RoutePoint(point.x, point.y), Time.realtimeSinceStartupAsDouble * 1000), false);
+            SubmitMapMove(_miniGesture.Press(MiniButton(button), new RoutePoint(point.x, point.y), Now * 1000), false);
         }
         void MinimapDrag(Vector2 point, PointerEventData.InputButton button)
         {
@@ -600,16 +628,17 @@ namespace Roguehalla.Client
         void MinimapRelease(Vector2 point, PointerEventData.InputButton button)
         {
             if (button == PointerEventData.InputButton.Middle) return;
+            bool wasPeeking = _miniGesture.IsPeeking;
             _miniGesture.Drag(MiniButton(button), new RoutePoint(point.x, point.y));
-            SubmitMapMove(_miniGesture.Release(MiniButton(button), Time.realtimeSinceStartupAsDouble * 1000), false);
-            if (!IsPeeking) RestoreCamera();
+            SubmitMapMove(_miniGesture.Release(MiniButton(button), Now * 1000), false);
+            if (wasPeeking && !IsPeeking) RestoreCamera();
         }
         // The Tab map: left click plans a route stop (as before); right click or right drag walks there like a minimap right-click.
         void LargePress(Vector2 point, PointerEventData.InputButton button)
         {
             if (button == PointerEventData.InputButton.Left) { AddRoutePoint(point); return; }
             if (button != PointerEventData.InputButton.Right || !CanWalkFromMap) return;
-            SubmitMapMove(_largeGesture.Press(MinimapButton.Right, new RoutePoint(point.x, point.y), Time.realtimeSinceStartupAsDouble * 1000), false);
+            SubmitMapMove(_largeGesture.Press(MinimapButton.Right, new RoutePoint(point.x, point.y), Now * 1000), false);
         }
         void LargeDrag(Vector2 point, PointerEventData.InputButton button)
         {
@@ -619,7 +648,7 @@ namespace Roguehalla.Client
         {
             if (button != PointerEventData.InputButton.Right) return;
             _largeGesture.Drag(MinimapButton.Right, new RoutePoint(point.x, point.y));
-            SubmitMapMove(_largeGesture.Release(MinimapButton.Right, Time.realtimeSinceStartupAsDouble * 1000), false);
+            SubmitMapMove(_largeGesture.Release(MinimapButton.Right, Now * 1000), false);
         }
         /// <summary>
         /// Sends a map destination as an ordinary move order through the match client: the world right-click's path (it spends the order
@@ -640,14 +669,21 @@ namespace Roguehalla.Client
             HudUi.SetFrame(_miniRoot, _miniGesture.IsSteering ? theme.Success : _miniGesture.IsPeeking ? theme.OutlineLight : theme.Border);
         }
         void ReleaseLarge() { _largeGesture.Abort(); }
-        public void ReleaseMinimap() { _miniGesture.Abort(); _largeGesture.Abort(); RestoreCamera(); }
+        public void ReleaseMinimap() { EndMinimapGesture(); _largeGesture.Abort(); }
+        /// <summary>Ends the minimap's gesture; the camera goes back to the player only when a peek was in progress.</summary>
+        void EndMinimapGesture()
+        {
+            bool wasPeeking = _miniGesture.IsPeeking;
+            _miniGesture.Abort();
+            if (wasPeeking) RestoreCamera();
+        }
         void RestoreCamera()
         {
             var motion = _client != null ? _client.Session?.Motion : null;
             if (motion != null && motion.Initialized && _client.Cam != null && _client.Arena != null)
                 _client.Arena.Follow(_client.Cam, motion.DrawnX, motion.DrawnY);
         }
-        public void ReleaseTransient() { _mapOpen = false; WorldLabelVisibility.Hidden = false; _mapKeys.WindowBlur(); ReleaseMinimap(); if (_panel != null) _panel.gameObject.SetActive(false); UiBrowserStorage.CaptureTab(false); }
+        public void ReleaseTransient() { _mapOpen = false; _largeShown = false; WorldLabelVisibility.Hidden = false; _mapKeys.WindowBlur(); ReleaseMinimap(); if (_panel != null) _panel.gameObject.SetActive(false); UiBrowserStorage.CaptureTab(false); }
         void OnApplicationFocus(bool focused) { if (!focused) ReleaseTransient(); }
         void OnDisable() => ReleaseTransient();
         [Serializable] sealed class SavedRoute { public int version = 1; public double[] x, y; }
