@@ -602,7 +602,7 @@ impl Executor for Decide {
                 let walk = if offered || cx.p.dist(to) <= STAND_U {
                     0.
                 } else {
-                    Self::walk_minutes(cx, to)
+                    straight_minutes(cx.p.me.at, to)
                 };
                 out.push(Candidate {
                     goal: Self::goal(&def, STAGE_SLOT),
