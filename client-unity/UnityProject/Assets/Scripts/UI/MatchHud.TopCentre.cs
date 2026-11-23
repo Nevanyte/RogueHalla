@@ -18,12 +18,12 @@ namespace Roguehalla.Client
         {
             var theme = UiTheme.Current;
             _bannerPill = HudUi.Box(_stage, "ConnectionBanner", HudAnchor.TopCenter, 0, BannerTop, 380, 28);
-            HudUi.Surface(_bannerPill, Tone(theme.Surface, .96f), 14f, theme.BorderStrong, false, true);
+            HudUi.Surface(_bannerPill, Tone(theme.Surface, HudUi.PlateAlpha), 14f, theme.BorderStrong, false, true);
             _banner = HudUi.Label(_bannerPill, "Connection", "Choose a faction and join", theme.SizeBody, theme.TextPrimary, TextAlignmentOptions.Center, true);
             _banner.rectTransform.offsetMin = new Vector2(12, 0); _banner.rectTransform.offsetMax = new Vector2(-12, 0);
 
             _phasePill = HudUi.Box(_stage, "PhaseTimerPill", HudAnchor.TopCenter, 0, BannerTop, 220, 26);
-            HudUi.Surface(_phasePill, Tone(theme.Surface, .94f), theme.CornerRadius, theme.Border, false, true);
+            HudUi.Surface(_phasePill, Tone(theme.Surface, HudUi.PlateAlpha), theme.CornerRadius, theme.Border, false, true);
             _phaseStrip = HudUi.Label(_phasePill, "PhaseTimer", "", theme.SizeBody, theme.TextPrimary, TextAlignmentOptions.Center, true);
             _phasePill.gameObject.SetActive(false);
 

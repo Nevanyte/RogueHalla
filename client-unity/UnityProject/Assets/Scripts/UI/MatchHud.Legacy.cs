@@ -71,7 +71,7 @@ namespace Roguehalla.Client
             }
             float perfRight = ChromeRight + 3 * ChromeButton + 2 * ChromeGap + ChromePerfGap;
             _metricsPill = HudUi.Box(_chromeStage, "PerformancePill", HudAnchor.TopRight, perfRight, ChromeTop + 3f, 124f, 24f);
-            HudUi.Surface(_metricsPill, Tone(theme.SurfaceRaised, .85f), theme.CornerRadius, theme.Border, false);
+            HudUi.Surface(_metricsPill, Tone(theme.SurfaceRaised, HudUi.PlateAlpha), theme.CornerRadius, theme.Border, false);
             _metrics = HudUi.Label(_metricsPill, "PerformanceReadout", "", theme.SizeSmall, theme.TextSecondary, TextAlignmentOptions.MidlineRight);
             _metrics.rectTransform.offsetMin = new Vector2(8, 0); _metrics.rectTransform.offsetMax = new Vector2(-8, 0);
             _metricsPill.gameObject.SetActive(false);
@@ -94,7 +94,7 @@ namespace Roguehalla.Client
         {
             var theme = UiTheme.Current;
             _vitalsPanel = HudUi.Box(_hud, "VitalsPanel", HudAnchor.TopLeft, PlateLeft, PlateTop, HudLayout.PlateWidth(1920f), 60f);
-            HudUi.Surface(_vitalsPanel, Tone(theme.Surface, .94f), theme.CornerRadius, theme.Border, false, true);
+            HudUi.Surface(_vitalsPanel, Tone(theme.Surface, HudUi.PlateAlpha), theme.CornerRadius, theme.Border, false, true);
             _plateBody = HudUi.Inset(_vitalsPanel, "PlateBody", 8, 5, 8, 6);
 
             // Not active: status line (600) and vitals line, plus the kills / GV line Unity already received.
@@ -217,7 +217,7 @@ namespace Roguehalla.Client
         {
             var theme = UiTheme.Current;
             _championHud = _damagePanel = HudUi.Box(_hud, "ChampionCombatHud", HudAnchor.BottomLeft, ChampionLeft, ChampionBottom, 250f, ChampionHeight);
-            HudUi.Surface(_championHud, Tone(theme.Surface, .94f), 7f, theme.Border, true, true);
+            HudUi.Surface(_championHud, Tone(theme.Surface, HudUi.PlateAlpha), 7f, theme.Border, true, true);
             CreateChampionHeader();
             _championIcon = LaunchUi.FactionShape(_championHud, "FactionIcon", 4, 8f, 7f, 14f, theme.TextPrimary);
             _championName = HudUi.Label(HudUi.At(_championHud, "Head", 26, 6, 106, 16), "Champion", "Champion", 12f, theme.TextPrimary, bold: true);

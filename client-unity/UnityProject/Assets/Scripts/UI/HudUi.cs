@@ -15,6 +15,9 @@ namespace Roguehalla.Client
     /// </summary>
     public static class HudUi
     {
+        /// <summary>Fill alpha of a text plate over the world. Not a dial: below 1 a white name reads through.</summary>
+        public const float PlateAlpha = 1f;
+
         static Vector2 Point(HudAnchor anchor)
         {
             switch (anchor)

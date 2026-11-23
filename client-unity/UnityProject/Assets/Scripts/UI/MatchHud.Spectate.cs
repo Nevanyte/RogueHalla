@@ -21,7 +21,7 @@ namespace Roguehalla.Client
         {
             var theme = UiTheme.Current;
             _spectateBar = HudUi.Box(_stage, "SpectateBar", HudAnchor.BottomCenter, 0, SpectateBarBottom, SpectateBarWidth, SpectateBarHeight);
-            HudUi.Surface(_spectateBar, UiTheme.With(theme.Surface, .94f), theme.CornerRadiusLarge, theme.BorderStrong, true, true);
+            HudUi.Surface(_spectateBar, UiTheme.With(theme.Surface, HudUi.PlateAlpha), theme.CornerRadiusLarge, theme.BorderStrong, true, true);
             _spectateName = LaunchUi.Text(_spectateBar, "Watching", 16f, 8f, 216f, 40f, "", 14f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, true, UiFontRole.Body, true);
             _spectateName.richText = false;   // player names are typed by players
             var next = LaunchUi.Button(_spectateBar, "NextPlayer", 240f, 8f, 112f, 40f, LaunchUi.Look.Primary, SpectateNext);
