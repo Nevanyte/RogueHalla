@@ -181,6 +181,34 @@ ids, is the owner's decision.
 
 ## Notes from the oracle author
 
-(filled in with the oracle commit)
+- **No stub commit:** the tests reach the code through the caption text and the existing fields (`_nearbyQuestCount`, `_nearbyCaption`,
+  `_offerPrompt`, `_promptPair`) by reflection, so nothing needed a stub to compile.
+- **Run on the base (stub = base):** `QuestActionPromptEditModeTests`, 12 cases (11 tests, one with two cases): 3 green (the standing
+  guards `OnlyAbandonShowsNoCaptionAndNoLauncher`, `TwoActionsStillReadTheCount`, `AnEmptyLabelFallsBackToTheCount`), 9 red, each on a
+  caption or text assertion:
+  - `OneNearbyActionIsNamedInTheCaption`: "the caption names the action and its quest" (is "Nearby quest actions · 1").
+  - `AnActionWithoutAQuestNameReadsItsLabelAlone`: "action 9 has no row: its label alone" (count text), and the second delivery
+    "a row with an empty name: the label alone" (count text).
+  - `TheWindowReadsTheLabelFirst`: "window button 0" and "window button 1" (quest first: "Stay A While · Meditate"); the count "· 3", the
+    window opening and button 2 "Pick up WallBuster" are green.
+  - `ANewViewWithoutTheActionClearsTheCaption`: the set-up caption, then "the cached caption is empty" (`_nearbyCaption` keeps the old text).
+  - `AResetClearsTheCaption`: set-up caption, then "the reset clears the caption label", count, `_nearbyCaption`, and the same three after
+    the pickup half.
+  - `AnActionStillBeatsTheOffer`: "the action keeps the caption" (premise `_offerPrompt` true holds).
+  - `ASteadyFrameWithOneNamedActionAllocatesNothing`: premise "set-up: the action is named" (the `AssertNone` line is green on the base,
+    because the base caption is cached by count; it is a standing guard for the new build-at-bind code).
+  - `TheLongestCaptionFitsTheBoxAtBothTextSizes` (1 and 1.5): "the caption names the action" (the pair, the 220 box and the active label
+    premises are green).
+- **Scratch run (not committed):** one copy of the class with every `Assert.That` wrapped in a catch-and-collect helper and a flush in
+  `TearDown`. Every line of every test ran. The collected entries were all assertions about the missing behaviour (caption text, window
+  text, `_nearbyCaption`, count after a reset); no exception from set-up or deliveries. The fit lines of test 10 passed on the stub when the
+  label text was set by the test.
+- **Measured fit (test 10, from the scratch run with the new text written to the label):** at N2 the 44-character caption fits at font size
+  **9.69** at both text scales 1 and 1.5 (needs 193.54 of the 193.6 allowed in the 220 box). The spec's estimate was about 8.8. The
+  margin is .06 units: this is the component's own fit to 88 percent, so the assertion holds by construction when the label's text is set
+  and refitted; the test also asserts the label is active in the hierarchy so the measure is not a tenth of its size.
+- **Existing tests run on the stub (before the amends), all green:** AbilityRowNearbyNoGarbageEditModeTests, PlayerFlowsEditModeTests, PromptPairNarrowEditModeTests (37 of 37); AbilityRowEditModeTests, QuestOfferEditModeTests, QuestJournalViewEditModeTests (47 of 47). After the two oracle-amend commits the two amended tests are red on the stub until the caption change lands.
+- **Deviation from the spec:** the `Deliver(tick, items)` helper of the new class runs `Snap`, `Items` and two `Frame()`s for every
+  delivery (the spec says `Frame()` once in some tests); two frames is what the guards need and changes no expectation.
 
 ## Notes from previous attempts
