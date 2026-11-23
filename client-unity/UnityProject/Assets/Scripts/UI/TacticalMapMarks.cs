@@ -123,6 +123,11 @@ namespace Roguehalla.Client
             SetVerticesDirty();
         }
 
+        /// <summary>How many times the layer changed (P-UI-TABMAP-MARKS-1). STUB: never.</summary>
+        public int LayerChanges { get; private set; }
+        /// <summary>The layer's scale changed. STUB (P-UI-TABMAP-MARKS-1): does nothing.</summary>
+        public void LayerChanged() { }
+
         void Update()
         {
             if (_ping.Active)

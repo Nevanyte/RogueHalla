@@ -28,6 +28,11 @@ namespace Roguehalla.Client
         public bool LayoutOwnsRect;
         public bool HasZoneTint => _raster != null && _raster.Tinted;
 
+        /// <summary>How much larger than its base size the marks layer is drawn (1 on the minimap). STUB (P-UI-TABMAP-MARKS-1).</summary>
+        public float MarkScale { get; private set; } = 1f;
+        /// <summary>STUB (P-UI-TABMAP-MARKS-1): does nothing.</summary>
+        public void SetMarkScale(float k) { }
+
         public void Initialize()
         {
             _terrain = gameObject.AddComponent<RawImage>();
