@@ -175,7 +175,17 @@ Unscaled time through `Now()` (`FadeClock` seam). Nothing allocates in a steady 
 
 ## Oracle files (read-only for implementers)
 
-(Filled in the `oracle:` commit.)
+The files of the `oracle:` commit (new, each with its `.meta`; a stub-only change is in the `stub:` commit):
+- `client-unity/UnityProject/Assets/Tests/Editor/WorldNamesRig.cs` (stateless helpers: `Stage`, `Actor`, `Scene`, `Frame`,
+  `Settle`, `LineBox`, `SlidePx`, `MeasurePicture`; 317 lines)
+- `client-unity/UnityProject/Assets/Tests/Editor/WorldNamesEditModeTests.cs` (tests 1 to 7 and 12; 387 lines)
+- `client-unity/UnityProject/Assets/Tests/Editor/WorldNamesTimeEditModeTests.cs` (tests 8 to 11, 13, 14; 245 lines)
+- the three `.meta` files of those
+- `docs/backlog/packets/P-UI-WORLD-NAMES-2.md` (this file)
+
+The `oracle-amend:` commits, one existing test each (listed for the owner; the implementer does not touch them):
+- `client-unity/UnityProject/Assets/Tests/Editor/NameLegibleEditModeTests.cs` (the set-up line `:357` to `Is.False`)
+- `client-unity/UnityProject/Assets/Tests/Editor/NamePackGroup2EditModeTests.cs` (a rename and its comment; green before and after)
 
 ## 9. Validation commands
 
@@ -249,9 +259,75 @@ Stay green, assertions unchanged (each class that names `SpriteActorPresenter` i
   (`Update` only, `_shift` stays 0), `NamePackHoverEditModeTests`, `AbilityRowEditModeTests` (its own local
   `NameShown`), `VisionPresentationEditModeTests`, `ArenaPresentationEditModeTests`.
 
+## Tests and where each is red on the stub
+
+Run on the stub (`unity-class.sh ... WorldNamesEditModeTests,WorldNamesTimeEditModeTests`, 2026-11-23): 15 tests, all 15 red,
+each on the first assertion that asks for the layout. Every test first states a set-up that holds on the base (the alone
+boxes, grown by `PadEnter`, overlap: tests 1, 4, 7 assert it with a measured slide) and then asks `TryNameLift` for a
+lift. Tests that read no slid scene (2, 3, 5, 6, 9, 11, 12, 13, 14) open with `TryNameLift` true and lift > 0.
+
+| # | Test (class) | First red assertion on the stub |
+|---|---|---|
+| 1 | `ThePictureNamesNoLongerTouch` (Names) | "set-up: the pack's name takes part in the layout": `TryNameLift` true, was False |
+| 2 | `AdjacentElitesDoNotLandOnEachOthersStars` (Names) | "set-up: the second elite takes part": True, was False |
+| 3 | `EveryKindOfNameTakesPart` (Names) | "set-up: the second fighter takes part": True, was False |
+| 4 | `ASmallPaceMovesNothingAndAReleaseWaitsThenGlides` (Names) | "set-up: the pack's name takes part": True, was False |
+| 5 | `TheOrderDoesNotFollowThePlayer` (Names) | "set-up: the second fighter takes part": True, was False |
+| 6 | `AClusterMovesAsOneAndTheStarGoesWithItsName` (Names) | "set-up: the crowned fighter takes part": True, was False |
+| 7 | `OtherActorsBarsLiftANameButNeverTheLocalFightersOwn` (Names) | "set-up: 31 takes part in the layout": True, was False |
+| 12 | `EndTwiceOnOneFrameChangesNothing` (Names) | "set-up: the pack's name takes part": True, was False |
+| 8 | `ARenewedHandleKeepsItsLiftAndItsPlace` (Time) | "set-up: the lone Pardoner takes part": True, was False |
+| 9 | `ReducedMotionTakesTheTargetAtOnceAndKeepsTheHold` (Time) | "set-up: the second fighter takes part": True, was False |
+| 10 | `TheTabMapForgetsAndNamesReturnAtTheirLift` (Time) | "set-up: the pack's name takes part": True, was False |
+| 11 | `AHiddenNameKeepsItsLiftForAHalfSecondAndForgetsAfterMoreThanASecond` (Time) | "set-up: the second fighter takes part": True, was False |
+| 11b | `ANameFirstSeenHiddenIsMeasuredWhenItAppears` (Time) | "set-up: the revealed fighter takes part": True, was False |
+| 13 | `EndWithoutADtDerivesItFromThePresenterClock` (Time) | "set-up: the second fighter takes part": True, was False |
+| 14 | `LayoutNamesAllocatesNothing` (Time) | "set-up: fighter 2 takes part": True, was False |
+
+Existing classes still green on the stub (run together with the new ones: 290 tests, 275 passed, the 15 failures being the
+tests above): `NameLegibleEditModeTests`, `NamePackGroup2EditModeTests`, `NamePackFix4EditModeTests`,
+`NamePackEditModeTests`, `NamePackHoverEditModeTests`, `HudVisualFix2EditModeTests`, `MapOpenWorldEditModeTests`,
+`NameLayoutKeyEditModeTests`, `StormInkSignatureCueEditModeTests`, `MobContinuityEditModeTests`,
+`SpriteActorSignatureEditModeTests`, `ActorOutlineEditModeTests`, `SpriteActorBarrierEditModeTests`,
+`StormInkFireRoamEditModeTests`, `OverheadIndicatorsEditModeTests`, `DeclutterEditModeTests`, `UiLabFixesEditModeTests`,
+`LegacyFactsEditModeTests`, `AbilityRowEditModeTests`, `NameLegibleTableEditModeTests`, `NameLegibleHubCardEditModeTests`,
+`VisionPresentationEditModeTests`, `ArenaPresentationEditModeTests`. (The `oracle-amend:` change to the first of them is
+committed after this run; its amended line is red on the stub by design.)
+
 ## Notes from the oracle author
 
-(Filled in the `oracle:` commit.)
+- **Scratch run (every line can run).** One run per new class on copies of the three files (not committed, deleted) in which
+  `Assert.That` and `Assert.Fail` went through a catch-and-collect helper (an `AssertionException` is kept and the test
+  carries on; the list is written to a file and the test fails at its end). Result: 15 tests, 7 to 72 collected entries
+  each, no exception of any other kind, no test aborted early. Every entry is an assertion about the missing behaviour:
+  `TryNameLift` false, a lift of 0 where one is wanted, line boxes that still overlap, a cluster that did not rise with its
+  name, `FighterNameRects` without the lone mob, dummy or star rectangles (or changing between two calls), the badge on
+  the lines, the first frame of a contact not climbing at the rise rate. A few lines hold on the stub (a name that has no
+  neighbour stays, the held/zero checks of test 9 with a lift of 0) and are only reached after a red one.
+- **Frozen clock (Outcome 6), measured.** In an EditMode test `Time.unscaledTime` is the same on two reads with 3,000,000
+  square roots and a GameObject between (0.9344762 and 0.9344762); `Application.isPlaying` is false;
+  `Time.unscaledDeltaTime` is NOT 0 (0.9252325 both times, a stale constant). So `End()` is as written (the difference of
+  `Now()`, no `isPlaying` guard) and never reads `unscaledDeltaTime`.
+- **Measured geometry (for the implementer's expectations; no test pins a value).** Line boxes (preferred size times lossy
+  scale, centred on the label): fighter and ordinary mob 0.42 high, elite 0.46; the mesh bounds are shorter (0.23 to 0.32)
+  than the line box, so a box built from `NameDrawnBounds` instead of the line box fails tests 1, 3 and 11b. A name's line
+  box ends 0.256 (elite) to 0.274 (fighter, mob, dummy) above its own bar: more than `Gap` (0.10), so a box never meets its
+  own bar. Elite bar 1.50 wide, fighter 0.87, mob and dummy 1.12.
+- **Placement of tests.** The spec puts test 4 in `WorldNamesEditModeTests` (done) although it runs frames: it reads the
+  library's rates only. Test 11's variant lives in `WorldNamesTimeEditModeTests` with test 11.
+- **Nearest-test choices.** Test 3 asks each lift to exceed the one before by 1e-3 (strict increase with a floor). Test 7
+  puts the three targets and their three hurt brutes in one slid scene (groups 2,560 px apart in x) and reads the
+  first-sight "own bar" set-up from a separate earlier frame with a dummy; the brutes' names are in no assertion. Test 12
+  puts the pack under a Gaoler (elite, same spot) and the fighter cluster (bounty 40, marks) beside the local fighter, 1,760
+  px apart, in one frame. Test 14 calls the private `LayoutNames(float)` through a delegate; on the stub (an empty method)
+  `AssertNone` passes by itself, so the test is red only through its set-up lifts. Tests 9 and 11 use two arenas in one
+  test (one per condition) rather than reusing one presenter.
+- **Camp badge (test 1)** is drawn through the real `CampRespawnLabels.Draw` wired to `FighterNameRects`; on the stub the
+  badge lands on the line boxes because the old rectangles are the shorter mesh bounds.
+- **Rig contract the implementer must not break:** `_active` (private field), `Art.Root` and `Art.LayoutKey` (public
+  fields, read by reflection), the private instance method `LayoutNames(float)`, object names ("Name", "Elite star",
+  "Elite star plate", "Bounty crown", "Bounty number", "Secondary weapon backer", "Mark pip 1" to "4", "Stat mark backer 1"
+  and "2", "Health and barrier track"), and `NameShown`.
 
 ## Not established
 
