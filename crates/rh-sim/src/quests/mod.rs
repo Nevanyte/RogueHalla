@@ -32,6 +32,7 @@ mod tests;
 #[cfg(test)]
 mod tour_supply_source_tests;
 
+pub use board::tuning::{public_rules, QuestPublicRules};
 pub use catalog::{Def, Kind, Tokens};
 pub use placement::Placement;
 pub use roster::RosterEntry;

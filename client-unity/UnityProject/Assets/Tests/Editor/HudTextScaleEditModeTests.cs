@@ -185,9 +185,9 @@ namespace Roguehalla.Client.Tests
             Add("ControlsLine", Find(weaponBar, "ControlsLine/Label"), "WASD move · Click attack · Shift/Q quest · R Wish");
             Add("PickupHint", (TMP_Text)GetField("_pickupText"), "F  swap Shield for Fists", "F");
             Add("WishKey", Find(wishTile, "Key/Label"), "R");
-            Add("WishSeconds", (TMP_Text)GetField("_wishSeconds"), "125");
-            Add("WishSummary", (TMP_Text)GetField("_wishSummary"), "3/3 · 1:25");
-            Add("WishCharges", (TMP_Text)GetField("_wishCharges"), "3");
+            Add("WishSeconds", Find(wishTile, "Seconds/Label"), "125");
+            Add("WishName", Find(wishTile, "Name/Label"), "LastStand", "Frost Wall");
+            Add("WishCharges", Find(wishTile, "Charges/Label"), "3");
             Add("HealKey", Find(potion, "Key/Label"), "E");
             Add("HealName", Find(potion, "Name/Label"), "Heal");
             Add("HealCounts", (TMP_Text)GetField("_healText"), "99 large · 99 small", "— large · — small");

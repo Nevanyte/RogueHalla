@@ -218,6 +218,8 @@ namespace Roguehalla.Client
             if (sprite.enabled && sprite.color.a > 0f) into.Add(CombatHudPlacement.FromBounds(sprite.bounds));
         }
 
+        bool _hiddenByMap;
+
         public void HideAll()
         {
             _hover.enabled = _hunt.enabled = _wishIcon.enabled = _crown.enabled = _badgeBack.enabled = _badgeEdge.enabled = _badgeIcon.enabled = _lockOuter.enabled = _lockInner.enabled = _root.enabled = _zone.enabled = false;
@@ -242,6 +244,8 @@ namespace Roguehalla.Client
         public void Update(in Facts f)
         {
             if (f.Dead) { HideAll(); return; }
+            if (WorldLabelVisibility.Hidden) { if (!_hiddenByMap) { _hiddenByMap = true; HideAll(); } return; }
+            _hiddenByMap = false;
             var theme = UiTheme.Current;
             _extras.Update(in f, theme);
 

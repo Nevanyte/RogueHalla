@@ -486,7 +486,7 @@ namespace Roguehalla.Client
                 Session.CollectSpellInput(2, blocked, haveCursor, sx, sy, target == 0 ? (uint?)null : target);
             }
             if (kb.eKey.wasPressedThisFrame) Session.Input.UseConsumable();
-            if (kb.fKey.wasPressedThisFrame) PickupFocus();
+            if (kb.fKey.wasPressedThisFrame) { if (Session.Collections.Focus.HasValue) PickupFocus(); else Hud?.TryInteract(); }
             // Server +y points down the screen. This sends destinations; it never simulates movement. As in legacy
             // keyboardMoveGoal, the destination is the first body-clear straight goal (held heading, then each axis of a
             // diagonal, 64 down to 8 u) so steering into or along a wall slides instead of path-walking around it.

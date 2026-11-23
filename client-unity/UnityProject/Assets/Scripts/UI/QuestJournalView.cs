@@ -4,6 +4,7 @@ using System.Globalization;
 using TMPro;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
+using Roguehalla.Net.Ui;
 using UnityEngine;
 
 namespace Roguehalla.Client
@@ -22,7 +23,7 @@ namespace Roguehalla.Client
         RectTransform _root, _card, _content;
         UnityEngine.UI.ScrollRect _scroll, _detailScroll;
         RectTransform _detailContent;
-        TMP_Text _state, _detailName, _giver, _brief, _objective, _reward, _participants, _status;
+        TMP_Text _state, _detailName, _giver, _brief, _objective, _reward, _participants, _status, _acceptHint, _acceptLabel;
         UnityEngine.UI.Button _close, _accept, _track;
         readonly List<Row> _rows = new List<Row>();
         readonly List<UnityEngine.UI.Button> _actions = new List<UnityEngine.UI.Button>();
@@ -45,6 +46,10 @@ namespace Roguehalla.Client
         QuestHandle _acceptBoundHandle;
         bool _acceptBindingValid;
         bool _initialized;
+        QuestRowView _statusRow; bool _statusPending, _statusReward; int _statusSeconds; string _statusText = "";
+        QuestRowView _hintRow; bool _hintFar; string _hintText = "";
+        QuestHandle? _markedSelected; bool _rowsNeedMark = true;
+        bool _acceptShowsPending;
 
         public RectTransform Root => _root;
         public bool IsVisible => _root != null && _root.gameObject.activeSelf;
@@ -65,15 +70,19 @@ namespace Roguehalla.Client
             MythicUi.Text(detail, "DetailHeading", "QUEST DETAILS", new Vector2(.025f, .84f), new Vector2(.975f, .99f), 19, ShowcasePalette.Text);
             _detailScroll = CreateReadingScroll(detail, new Vector2(.025f, .20f), new Vector2(.975f, .81f), out _detailContent);
             _detailName = CreateQuestField(_detailContent, "QuestName", "QUEST NAME", 18, ShowcasePalette.Text);
+            _objective = CreateQuestField(_detailContent, "QuestObjective", "OBJECTIVE", 17, ShowcasePalette.Text);
             _giver = CreateQuestField(_detailContent, "QuestGiver", "GIVER", 16, ShowcasePalette.Gold);
-            _brief = CreateQuestField(_detailContent, "QuestBrief", "BRIEF", 17, ShowcasePalette.Text);
-            _objective = CreateQuestField(_detailContent, "QuestObjective", "OBJECTIVE", 17, ShowcasePalette.MutedText);
+            _brief = CreateQuestField(_detailContent, "QuestBrief", "BRIEF", 17, ShowcasePalette.MutedText);
             _actionList = CreateActionList(_detailContent, "QuestActions");
             _reward = CreateQuestField(_detailContent, "QuestReward", "REWARD", 16, ShowcasePalette.Text);
             _participants = CreateQuestField(_detailContent, "QuestParticipants", "PARTICIPANTS", 15, ShowcasePalette.Text);
-            _status = MythicUi.Text(detail, "QuestStatus", "", new Vector2(.025f, .115f), new Vector2(.975f, .20f), 13, ShowcasePalette.MutedText);
+            _status = MythicUi.Text(detail, "QuestStatus", "", new Vector2(.025f, .115f), new Vector2(.975f, .20f), 15, ShowcasePalette.MutedText);
             _track = MythicUi.Button(detail, "TrackQuest", "TRACK OBJECTIVE", new Vector2(.035f, .025f), new Vector2(.48f, .12f), ToggleTrack, MythicUi.ButtonStyle.Secondary);
+            _acceptHint = MythicUi.Text(detail, "AcceptHint", "", new Vector2(.52f, .025f), new Vector2(.965f, .12f), 13, ShowcasePalette.MutedText, TextAlignmentOptions.Center);
+            _acceptHint.enableWordWrapping = true;
+            _acceptHint.gameObject.SetActive(false);
             _accept = MythicUi.Button(detail, "AcceptQuest", "ACCEPT QUEST", new Vector2(.52f, .025f), new Vector2(.965f, .12f), () => { }, MythicUi.ButtonStyle.Primary);
+            _acceptLabel = _accept.GetComponentInChildren<TMP_Text>(true);
             _root.gameObject.SetActive(false);
             RenderSelection();
         }
@@ -220,7 +229,7 @@ namespace Roguehalla.Client
                     row.Button.onClick.RemoveAllListeners(); row.Button.onClick.AddListener(() => SelectCurrent(capturedSession, capturedEpoch, next, capturedHandle));
                     row.Root.gameObject.SetActive(true);
                 }
-                SetRows(_visibleRowCount);
+                SetRows(_visibleRowCount); _rowsNeedMark = true;
                 _scroll.verticalNormalizedPosition = scrollPosition;
             }
             _state.text = _visibleRowCount == 0 ? "No quests are currently available." : _visibleRowCount + " quest" + (_visibleRowCount == 1 ? "" : "s");
@@ -229,8 +238,7 @@ namespace Roguehalla.Client
 
         static string QuestRowLabel(QuestRowView q)
         {
-            string state = q.OwnerCompleted ? "COMPLETE" : q.OwnerAccepted ? "ACCEPTED" : q.CanAccept ? "OFFER" : q.State.ToString().ToUpperInvariant();
-            return (q.Name ?? string.Empty) + "\n" + state + "  ·  " + (q.GiverLabel ?? string.Empty);
+            return (q.Name ?? string.Empty) + "\n" + QuestJournalCopy.RowState(q) + "  ·  " + (q.GiverLabel ?? string.Empty);
         }
 
         Row GetRow(int index)
@@ -238,12 +246,11 @@ namespace Roguehalla.Client
             while (_rows.Count <= index)
             {
                 int rowIndex = _rows.Count;
-                var root = MythicUi.Panel(_content, "QuestRow" + rowIndex, Vector2.zero, Vector2.one,
-                    rowIndex % 2 == 0 ? ShowcasePalette.PanelRaised : ShowcasePalette.Panel);
+                var root = MythicUi.Panel(_content, "QuestRow" + rowIndex, Vector2.zero, Vector2.one, ShowcasePalette.PanelRaised);
                 var le = root.gameObject.AddComponent<UnityEngine.UI.LayoutElement>(); le.minHeight = 62; le.preferredHeight = 70;
                 var button = root.gameObject.AddComponent<UnityEngine.UI.Button>(); button.targetGraphic = root.GetComponent<UnityEngine.UI.Image>();
                 root.GetComponent<UnityEngine.UI.Image>().color = Color.white; // the colour block below is the fill (a token times a token painted rows black)
-                var colors = button.colors; colors.normalColor = rowIndex % 2 == 0 ? ShowcasePalette.PanelRaised : ShowcasePalette.Panel; colors.highlightedColor = MythicUi.HoverFill;
+                var colors = button.colors; colors.normalColor = ShowcasePalette.PanelRaised; colors.highlightedColor = MythicUi.HoverFill;
                 colors.selectedColor = MythicUi.SelectedFill; button.colors = colors;
                 var label = MythicUi.Text(root, "QuestRowLabel", "", Vector2.zero, Vector2.one, 14, ShowcasePalette.Text);
                 label.margin = new Vector4(12, 5, 8, 5); label.alignment = TextAlignmentOptions.MidlineLeft;
@@ -290,6 +297,8 @@ namespace Roguehalla.Client
             _detailName.text = has ? q.Name : "Select a quest";
             _giver.text = has ? q.GiverLabel : "";
             _brief.text = has ? q.Brief : "";
+            bool showBrief = has && QuestJournalCopy.ShowsBrief(q);
+            if (_brief.transform.parent.gameObject.activeSelf != showBrief) _brief.transform.parent.gameObject.SetActive(showBrief);
             _objective.text = has ? q.Objective : "";
             _reward.text = has ? q.Reward : "";
             _participants.text = has ? ParticipantCopyCached(_view, q) : "";
@@ -297,23 +306,20 @@ namespace Roguehalla.Client
             {
                 _participantCacheView = null; _participantCacheRow = null; _participantCacheText = null;
             }
-            if (has)
-            {
-                string deadline = q.ExpiresAt > 0 ? " · " + DeadlineCopy(q) : "";
-                string readiness = q.OwnerReady ? " · Ready" : "";
-                _status.text = _acceptPendingFor.HasValue && _acceptPendingFor.Value.Equals(q.Handle)
-                    ? "Acceptance queued · waiting for server update" + deadline
-                    : QuestPresentation.IsPending(_view, q.Handle) ? "Reward choice pending"
-                    : q.OwnerCompleted ? "Completed" + readiness + deadline
-                    : q.OwnerAccepted ? "Accepted · " + QuestProgressText(q) + readiness + deadline
-                    : q.CanAccept ? "Available" + deadline : q.State.ToString() + readiness + deadline;
-            }
-            else _status.text = "";
+            bool acceptPending = has && _acceptPendingFor.HasValue && _acceptPendingFor.Value.Equals(q.Handle);
+            if (has) RenderStatus(q, acceptPending);
+            else { _statusRow = null; _status.text = ""; }
+            MarkRows();
             RenderActions(q);
             _track.interactable = has && IsCurrentView(_session, _boundEpoch, _view);
             _track.GetComponentInChildren<TMP_Text>().text = _tracked.HasValue && has && _tracked.Value.Equals(q.Handle) ? "STOP TRACKING" : "TRACK OBJECTIVE";
             _accept.gameObject.SetActive(has && q.CanAccept);
-            _accept.interactable = has && q.CanAccept && _session != null && _session.State == SessionState.InMatch && _session.LastResult == null && ReferenceEquals(_session.Collections.Quests, _view);
+            if (_acceptShowsPending != acceptPending)
+            {
+                _acceptShowsPending = acceptPending; _acceptLabel.text = acceptPending ? "ACCEPTING…" : "ACCEPT QUEST";
+            }
+            _accept.interactable = has && q.CanAccept && !acceptPending && _session != null && _session.State == SessionState.InMatch && _session.LastResult == null && ReferenceEquals(_session.Collections.Quests, _view);
+            RenderHint(q, has && !q.CanAccept);
             if (!has)
             {
                 if (_acceptBindingValid) _accept.onClick.RemoveAllListeners();
@@ -330,11 +336,56 @@ namespace Roguehalla.Client
             }
         }
 
-        static string QuestProgressText(QuestRowView q)
+        void RenderStatus(QuestRowView q, bool acceptPending)
         {
-            if (q.Def == "hold_the_fort") return q.OwnerProgress + " / 45 s";
-            if (q.Def == "stay_a_while") return q.OwnerProgress + " / 30 s";
-            return q.OwnerProgress + " progress";
+            bool reward = QuestPresentation.IsPending(_view, q.Handle);
+            int seconds = -1;
+            if (q.ExpiresAt > 0)
+            {
+                double s = _session != null && _session.Latest != null ? Math.Ceiling((q.ExpiresAt - _session.ServerTimeMs) / 1000.0) : -1;
+                if (_session != null && _session.Latest != null)
+                    seconds = double.IsNaN(s) || double.IsInfinity(s) || s < 0 ? 0 : s > 1000000000.0 ? 1000000000 : (int)s;
+            }
+            if (!ReferenceEquals(_statusRow, q) || _statusPending != acceptPending || _statusReward != reward || _statusSeconds != seconds)
+            {
+                _statusRow = q; _statusPending = acceptPending; _statusReward = reward; _statusSeconds = seconds;
+                _statusText = QuestJournalCopy.Status(q, acceptPending, reward, seconds);
+                bool holds = q.OwnerAccepted || acceptPending || reward;
+                _status.color = holds ? ShowcasePalette.Text : ShowcasePalette.MutedText;
+            }
+            if (!ReferenceEquals(_status.text, _statusText) && _status.text != _statusText) _status.text = _statusText;
+        }
+
+        void RenderHint(QuestRowView q, bool buttonHidden)
+        {
+            bool show = false;
+            if (q != null && buttonHidden)
+            {
+                bool far = true;
+                var me = _session != null ? _session.Me : null;
+                if (me != null)
+                {
+                    double dx = me.X - q.GiverX, dy = me.Y - q.GiverY, d = Math.Sqrt(dx * dx + dy * dy);
+                    far = double.IsNaN(d) || double.IsInfinity(d) || d > QuestJournalCopy.GiverReach;
+                }
+                if (!ReferenceEquals(_hintRow, q) || _hintFar != far)
+                {
+                    _hintRow = q; _hintFar = far;
+                    _hintText = QuestJournalCopy.Hint(q, far ? double.NaN : 0d);
+                }
+                show = _hintText.Length > 0;
+                if (show && _acceptHint.text != _hintText) _acceptHint.text = _hintText;
+            }
+            else _hintRow = null;
+            if (_acceptHint.gameObject.activeSelf != show) _acceptHint.gameObject.SetActive(show);
+        }
+
+        void MarkRows()
+        {
+            if (!_rowsNeedMark && _markedSelected.HasValue == _selected.HasValue && (!_selected.HasValue || _markedSelected.Value.Equals(_selected.Value))) return;
+            _rowsNeedMark = false; _markedSelected = _selected;
+            for (int i = 0; i < _visibleRowCount; i++)
+                MythicUi.Select(_rows[i].Button, _selected.HasValue && _selected.Value.Equals(_rows[i].Handle));
         }
 
         void RenderActions(QuestRowView row)
@@ -405,16 +456,6 @@ namespace Roguehalla.Client
         }
 
 
-        string DeadlineCopy(QuestRowView quest)
-        {
-            if (_session == null || _session.Latest == null) return "Awaiting server deadline update";
-            double remainingMs = quest.ExpiresAt - _session.ServerTimeMs;
-            if (double.IsNaN(remainingMs) || double.IsInfinity(remainingMs) || remainingMs <= 0)
-                return "Awaiting server deadline update";
-            double seconds = Math.Ceiling(remainingMs / 1000.0);
-            return "Server deadline in " + seconds.ToString("0", CultureInfo.InvariantCulture) + "s";
-        }
-
         public bool TryAccept(QuestHandle handle) => TryAcceptFrom(_session, _boundEpoch, _view, handle);
 
         bool TryAcceptFrom(Session session, uint epoch, QuestView view, QuestHandle handle)
@@ -422,6 +463,7 @@ namespace Roguehalla.Client
             if (!IsCurrentView(session, epoch, view) || session.LastResult != null) return false;
             QuestRowView current = Find(handle);
             if (current == null || !current.CanAccept) return false;
+            if (_acceptPendingFor.HasValue && _acceptPendingFor.Value.Equals(handle)) return false;
             session.Input.QuestAccept(handle);
             _acceptPendingFor = handle;
             RenderSelection();

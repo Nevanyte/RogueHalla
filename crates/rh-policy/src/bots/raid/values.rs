@@ -56,6 +56,9 @@ pub struct SustainPrices {
     pub hurt_seconds: f64,
     /// Share of max hp the sim regenerates a second after the quiet spell (`PLAYER_REGEN_SHARE_OUT`).
     pub regen_per_second: f64,
+    /// A stand ends once hp is this share of max hp below the most it held since the stand began (a fall from a source the
+    /// hold does not see; the sim regenerates 0.008 a second, so 0.03 is four seconds of regeneration lost at once).
+    pub fall_share: f64,
 }
 
 impl SustainPrices {
@@ -81,6 +84,7 @@ impl SustainPrices {
         regen_per_second: 0.008,
         heal_seconds: 5.,
         hurt_seconds: 3.,
+        fall_share: 0.03,
     };
     pub const LOCAL: Self = Self {
         on: true,
@@ -96,6 +100,132 @@ impl SustainPrices {
         regen_per_second: 0.008,
         heal_seconds: 5.,
         hurt_seconds: 3.,
+        fall_share: 0.03,
+    };
+}
+
+/// What `exec/elite.rs` prices an elite camp with (P-RAID-E). `OFF` turns the executor off (it proposes nothing, picks
+/// nothing, draws nothing): `Prices::farm_only` uses it so the pinned replays do not move. The death prior is the elite
+/// bench's table (`tools/balance-camps/elite_after.txt`, duelist, Rework elites hp 1.5 dmg 1.0): it goes stale when
+/// P-BAL-NUM-ELITE-1 changes the per-kind numbers (refresh `kind_death` and `weapon_factor` then).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ElitePrices {
+    /// The executor is on.
+    pub on: bool,
+    /// What the kill itself pays (ce): the 12 stacks every contributor gets (`REWORK_ELITE_SHARE_STACKS`).
+    pub share: f64,
+    /// What the chest's best card is worth before the offer is seen (ce): the mean best of three over `augment_rows`.
+    pub pool_pick: f64,
+    /// The banked-camp counts of the `kind_death` columns (camps of `Prices::stacks_per_camp` stacks).
+    pub camp_columns: [f64; 4],
+    /// Death rate of the reference fighter per elite kind (`MobTypeId::as_str`) at `camp_columns` banked camps (0..=1).
+    pub kind_death: &'static [(&'static str, [f64; 4])],
+    /// Death-rate factor per weapon in hand (`WeaponId::as_str`): the weapon's banked_12 rate over the all-weapon rate.
+    pub weapon_factor: &'static [(&'static str, f64)],
+    /// How long an elite fight takes from the first blow to the kill (s; measured: executioner at 36 stacks 47 to 73).
+    pub fight_seconds: f64,
+    /// Walk to the chest and pick once the elite is dead (s).
+    pub chest_seconds: f64,
+    /// The longest an elite fight may run before the goal gives the camp up (s).
+    pub give_up_seconds: f64,
+    /// How much of an elite one of its normal members weighs in the fallback death model (unitless).
+    pub add_weight: f64,
+    /// The least and the greatest death chance an elite fight is priced at (chance, 0..=1); a kind with no
+    /// `kind_death` row reads the greatest in `death_prior` (the executor prices it with the farm model instead).
+    pub death_range: (f64, f64),
+    /// Standing at the camp with neither the elite nor a member in sight this long fails the goal (s)...
+    pub empty_seconds: f64,
+    /// ...and a camp given up on (empty, a fight past `give_up_seconds`, no way there) is not proposed for this long (s).
+    pub ban_seconds: f64,
+    /// After the kill, the goal looks this long for the camp's chest before it ends (s): the drop is immediate.
+    pub chest_find_seconds: f64,
+    /// After the kill, the goal stands at the chest at most this long (s; the chest lasts 15, `lifetime_ms`), and never
+    /// past the chest's own expiry.
+    pub chest_wait_seconds: f64,
+    /// The fight's own exchange (hp lost per camp hp destroyed, in elites' worth: the elite plus `add_hp` a member)
+    /// prices the death once the bot has destroyed this much...
+    pub tally_min_dealt: f64,
+    /// ...and lost this share of its own (shares of max hp).
+    pub tally_min_lost: f64,
+    /// A camp member's max hp as a share of its elite's (Rework: `MOB_K` 0.22 x 2.0 against `ELITE_K` 0.65 x 1.5,
+    /// `constants.rs`): the fight's tally counts the adds destroyed in elites' worth.
+    pub add_hp: f64,
+    /// The share of fights the RaidBot ends with the elite dead inside `give_up_seconds`, by kind (`MobTypeId::as_str`),
+    /// where measured; a kind with no row is 1 (the bench's duelist cleared what it did not die to). Measured in the
+    /// `tests/raid_elite.rs` harness (sword, Holy, seed1 fixture map, seeds 1 to 6, the take forced by `death_loss` 0):
+    /// executioner 6 of 6 (36 stacks, 2 potions); Blood Saint 0 of 12 (0 stacks and 36 stacks with 2 potions: it
+    /// moves faster than a melee lock follows, its hp fell 0.35 in 120 s, and no fight was lost either).
+    pub kind_clear: &'static [(&'static str, f64)],
+    /// Each further give-up at one camp multiplies its ban by this (`ban_seconds` x growth^(n - 1)); 1 keeps the ban flat.
+    pub ban_growth: f64,
+    /// The longest ban a camp's give-ups grow to (s).
+    pub ban_max_seconds: f64,
+}
+
+impl ElitePrices {
+    pub const OFF: Self = Self {
+        on: false,
+        share: 0.,
+        pool_pick: 0.,
+        camp_columns: [0., 6., 12., 18.],
+        kind_death: &[],
+        weapon_factor: &[],
+        fight_seconds: 60.,
+        chest_seconds: 10.,
+        give_up_seconds: 120.,
+        add_weight: 0.25,
+        death_range: (0.02, 0.98),
+        empty_seconds: 3.,
+        ban_seconds: 20.,
+        chest_find_seconds: 3.,
+        chest_wait_seconds: 16.,
+        tally_min_dealt: 0.1,
+        tally_min_lost: 0.1,
+        add_hp: 0.45,
+        kind_clear: &[],
+        ban_growth: 1.,
+        ban_max_seconds: 20.,
+    };
+    pub const LOCAL: Self = Self {
+        on: true,
+        share: 1.,
+        pool_pick: 2.6,
+        camp_columns: [0., 6., 12., 18.],
+        kind_death: &[
+            ("wyrmling", [0.833, 0.667, 0.256, 0.067]),
+            ("ashDrake", [0.789, 0.422, 0.222, 0.122]),
+            ("executioner", [0.656, 0.089, 0.022, 0.011]),
+            ("gaoler", [0.933, 0.733, 0.233, 0.033]),
+            ("ratOgre", [0.800, 0.333, 0.089, 0.056]),
+            ("poxBehemoth", [0.533, 0.200, 0.144, 0.111]),
+            ("glacialWarden", [0.811, 0.611, 0.178, 0.011]),
+            ("avalancheTroll", [0.933, 0.878, 0.467, 0.200]),
+            ("bloodSaint", [0.122, 0.078, 0.067, 0.067]),
+            ("archon", [0.500, 0.100, 0.067, 0.056]),
+        ],
+        weapon_factor: &[
+            ("sword", 0.49),
+            ("bow", 2.68),
+            ("wand", 1.42),
+            ("shield", 0.38),
+            ("axe", 0.34),
+            ("fists", 0.81),
+        ],
+        fight_seconds: 50.,
+        chest_seconds: 10.,
+        give_up_seconds: 120.,
+        add_weight: 0.25,
+        death_range: (0.02, 0.98),
+        empty_seconds: 3.,
+        ban_seconds: 20.,
+        chest_find_seconds: 3.,
+        chest_wait_seconds: 16.,
+        tally_min_dealt: 0.1,
+        tally_min_lost: 0.1,
+        add_hp: 0.45,
+        kind_clear: &[("executioner", 1.), ("bloodSaint", 0.)],
+        ban_growth: 2.,
+        ban_max_seconds: 300.,
     };
 }
 
@@ -143,6 +273,10 @@ pub struct Prices {
     pub answer_minutes: f64,
     /// The share of its worth a reusable quest spell keeps while it has no charge (recharging).
     pub recharging_share: f64,
+    /// The minutes from a Bargain's giver to its hag, priced before the quest is accepted (min; the hag is not in the view then).
+    pub bargain_leg_minutes: f64,
+    /// Elite camps (P-RAID-E): what an elite and its chest are worth and how likely the fight kills the bot.
+    pub elite: ElitePrices,
 }
 
 /// What the weapon in hand adds to a stat's worth (`bots/temporal_percept/modules/choice.rs` `base_fit`).
@@ -199,7 +333,7 @@ impl Prices {
             ("elite_slayer", 2.1),
             ("tuber_eats", 2.2),
             ("barrow_run", 1.5),
-            ("the_bargain", 2.7),
+            ("the_bargain", 2.7), // a switch: the candidate is the chosen trade's gain, not this
             ("a_cruel_joke", 2.0),
             ("a_bone_to_pick", 1.8),
             ("feed_or_hunt", 1.5),
@@ -256,6 +390,8 @@ impl Prices {
         death_floor: 0.02,
         answer_minutes: 0.01,
         recharging_share: 0.5,
+        bargain_leg_minutes: 0.5,
+        elite: ElitePrices::LOCAL,
     };
 
     /// `LOCAL` with quest rewards and augments worth nothing and sustain off: a seat that farms, roams and opens chests
@@ -269,13 +405,15 @@ impl Prices {
             reward_rows: &[],
             augment_rows: &[],
             sustain: SustainPrices::OFF,
+            elite: ElitePrices::OFF,
             ..Self::LOCAL
         }
     }
 
-    /// Camp-equivalents a quest's reward is worth, by the quest row's def id (`goal::Target::Quest::def`). Every quest
-    /// executor multiplies its candidate's value by this and reads a reward's worth nowhere else, so a table turns the
-    /// whole quest family off by pricing it at zero (`farm_only` does). The row for the def, else `reward_default`.
+    /// Camp-equivalents a quest's reward is worth, by the quest row's def id (`goal::Target::Quest::def`). Most quest
+    /// executors multiply their candidate's value by this; a table turns the whole quest family off by pricing it at zero
+    /// (`farm_only` does). The Bargain's row is a switch only (positive: on): its candidate is the chosen trade's gain,
+    /// not capped by the row. The row for the def, else `reward_default`.
     pub fn reward_value(&self, def: &str) -> f64 {
         self.reward_rows
             .iter()

@@ -4,6 +4,7 @@
 //! givers are not in `RaidPercept::mobs`, and players are never farmed.
 use crate::bots::mob_hunt::best_slot_vs_mob;
 use crate::bots::planning::{matchup_share, zone_faction};
+use crate::bots::raid::exec::held::{hp_held, HotWatch};
 use crate::bots::raid::exec::travel::{
     self, eta_minutes, move_intent, step_toward, straight_minutes,
 };
@@ -63,6 +64,8 @@ pub struct Farm {
     target: Option<Vec2>,
     empty_since: Option<f64>,
     banned: Vec<(u32, f64)>,
+    /// The shares of the heals running, for the hp held (`held::hp_held`, P-RAID-E-leave).
+    hots: HotWatch,
 }
 
 impl Farm {
@@ -124,12 +127,12 @@ impl Farm {
     }
 }
 
-fn dist(a: Vec2, b: Vec2) -> f64 {
+pub(super) fn dist(a: Vec2, b: Vec2) -> f64 {
     rh_sim::math::hypot(a.x - b.x, a.y - b.y)
 }
 
 /// The distance a lock is clicked at with `weapon` in hand.
-fn lock_range(weapon: Option<WeaponId>) -> f64 {
+pub(super) fn lock_range(weapon: Option<WeaponId>) -> f64 {
     match weapon.map(|w| rh_sim::content::weapon(w).shape) {
         Some(rh_sim::content::Shape::Projectile { range, .. }) => range * 0.8,
         _ => MELEE_LOCK_U,
@@ -143,6 +146,17 @@ impl Executor for Farm {
     fn reset(&mut self) {
         *self = Self::default();
     }
+    fn observe(&mut self, cx: &mut Cx<'_>) {
+        if cx.prices.sustain.on && cx.p.active {
+            let me = &cx.p.me;
+            self.hots.watch(
+                &cx.prices.sustain,
+                me.potion_large,
+                me.potion_small,
+                me.potions_healing,
+            );
+        }
+    }
     fn propose(&mut self, cx: &mut Cx<'_>, out: &mut Vec<Candidate>) {
         let now = cx.p.now;
         self.banned.retain(|(_, until)| *until > now);
@@ -150,11 +164,19 @@ impl Executor for Farm {
             return;
         };
         let at = cx.p.me.at;
-        // The hp the model prices with: what is held plus what the potions held will give back (sustain on).
-        let hp = cx.p.me.hp_share()
-            + cx.prices
-                .sustain
-                .potion_hp(cx.p.me.potion_large, cx.p.me.potion_small);
+        // The hp the model prices with: what is held plus what the potions held and the heals running will give back
+        // (sustain on; the one count Sustain and Elite use).
+        let me_now = &cx.p.me;
+        let hp = hp_held(
+            &cx.prices.sustain,
+            me_now.hp_share(),
+            me_now.potion_large,
+            me_now.potion_small,
+            me_now.potions_healing,
+            me_now.healing_until,
+            now,
+            self.hots.shares(),
+        );
         // Path searches for the nearest few (the tier's route horizon); straight estimates beyond it.
         let mut order: Vec<(f64, &CampSeen)> =
             cx.p.camps

@@ -399,27 +399,28 @@ namespace Roguehalla.Client.Tests
         {
             BuildLayoutRig(); LayoutAt(Windows[0]);
             var hud = _layoutHud;
+            double local = 5000; hud.HudLocalMs = () => local;
             var bar = Child(_layoutStage, "PlayerHUD/CombatActions");
             var slots = (Button[])GetF(hud, "_slots");
-            var pulses = (List<(RectTransform Rect, float Start)>)GetF(hud, "_pulses");
+            var pulses = GetF(hud, "_pulses") as HudPulses;
+            Assert.That(pulses, Is.Not.Null, "MatchHud._pulses is the one HudPulses");
             var barScale = bar.localScale;
 
             Call(hud, "InputCue", WireCommand.Swap(1));
             Assert.That(pulses.Count, Is.EqualTo(1), "a swap with a slot pulses that slot (as before)");
-            Assert.That(pulses[0].Rect, Is.SameAs((RectTransform)slots[1].transform));
+            local = 5075; Call(hud, "TickActionRow");
+            Assert.That(slots[1].transform.localScale.x, Is.GreaterThan(1f), "the slot named pops");
+            Assert.That(slots[0].transform.localScale.x, Is.EqualTo(1f), "the other slot does not");
             Call(hud, "ClearPulses");
+            Assert.That(pulses.Count, Is.EqualTo(0), "ClearPulses ends them all");
 
+            local = 6000;
             Call(hud, "InputCue", WireCommand.Swap());
-            Assert.That(pulses.Select(p => p.Rect.name).ToArray(), Is.EquivalentTo(new[] { "Slot1", "Slot2" }), "a swap without a slot pulses the two slots");
-            Assert.That(pulses.Any(p => ReferenceEquals(p.Rect, bar)), Is.False, "never the bar");
-
-            for (int i = 0; i < pulses.Count; i++) pulses[i] = (pulses[i].Rect, pulses[i].Start - MatchHudPulseSeconds() / 2f);
-            Call(hud, "TickPulses");
+            Assert.That(pulses.Count, Is.EqualTo(2), "a swap without a slot pulses the two slots, and no third element (never the bar)");
+            local = 6075; Call(hud, "TickActionRow");
             foreach (var slot in slots) Assert.That(slot.transform.localScale.x, Is.GreaterThan(1f), "both slots pop");
             Assert.That(bar.localScale, Is.EqualTo(barScale), "the bar keeps the scale the layout gave it");
         }
-
-        static float MatchHudPulseSeconds() => (float)typeof(MatchHud).GetField("PulseSeconds", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public).GetRawConstantValue();
 
         // ------------------------------------------------------------------ 9. a narrow stage
 
@@ -462,11 +463,9 @@ namespace Roguehalla.Client.Tests
             Assert.That(tile.SecondsLabel.text, Is.EqualTo("5"));
             Assert.That(tile.BadgeLabel.text, Is.EqualTo("2"));
             Assert.That(tile.Sweep.fillAmount, Is.EqualTo(.42f).Within(.001f));
-            for (int i = 0; i < 5; i++) tile.Show(face, "Hook", "Shift · Hook\n2 charges · 5s");   // warm up
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 200; i++) tile.Show(face, "Hook", "Shift · Hook\n2 charges · 5s");
-            long grown = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.That(grown, Is.LessThanOrEqualTo(0), "200 unchanged Show calls allocated " + grown + " bytes");
+            Action show = () => tile.Show(face, "Hook", "Shift · Hook\n2 charges · 5s");
+            for (int i = 0; i < 5; i++) show();   // warm up
+            AllocationMeter.AssertNone(show, 200, "200 unchanged Show calls");
             tile.Show(new AbilityFace(AbilityPhase.Ready, 0f, 0, 2, -1f), "Hook", "Shift · Hook");
             Assert.That(tile.SecondsLabel.text, Is.Empty, "a changed face still redraws");
         }
@@ -481,10 +480,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(Text(Tile("QuestSpell1"), "Seconds"), Is.EqualTo("5"), "set-up: the spell is drawn");
             var refresh = (Action)Delegate.CreateDelegate(typeof(Action), _hud, typeof(MatchHud).GetMethod("RefreshQuestRewardHud", All));
             for (int i = 0; i < 5; i++) refresh();   // warm up
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 200; i++) refresh();
-            long grown = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.That(grown, Is.LessThanOrEqualTo(0), "200 steady refresh frames allocated " + grown + " bytes");
+            AllocationMeter.AssertNone(refresh, 200, "200 steady refresh frames");
         }
 
         // ------------------------------------------------------------------ 11. the labels fit

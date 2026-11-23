@@ -12,7 +12,9 @@
 //!   `rest_value` per share, over the minutes the sim's regeneration needs; a camp worth taking beats it.
 use crate::bots::kite::away_point;
 use crate::bots::planning::{matchup_share, zone_faction};
+use crate::bots::raid::exec::elite::{elite_fight_lost, elite_mob};
 use crate::bots::raid::exec::farm::{death_chance, FIGHT_U};
+use crate::bots::raid::exec::held::{hp_held, HotWatch};
 use crate::bots::raid::exec::travel::move_intent;
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Step, Target};
 use crate::bots::raid::percept::{MobClass, MobSeen};
@@ -45,9 +47,14 @@ pub struct Sustain {
     /// Server ms of the last frame the bot lost hp (or was hit), and the hp share it held the frame before.
     hurt_at: Option<f64>,
     prev_hp: f64,
-    /// Potions held the frame before (large, small) and the shares of the heals still running, newest last.
-    prev_stock: (u8, u8),
-    hots: Vec<f64>,
+    /// The shares of the heals still running (`held::hp_held`).
+    hots: HotWatch,
+    /// The hold (P-RAID-HOLD-1): the highest hp share held since the stand last went `hurt_seconds` without a hit or a
+    /// fall, where the seat stood the frame before and the way it last moved (a unit step). `stand_hp` is cleared when
+    /// the goal is not Sustain and in the retreat (P-RAID-E-leave: hp lost while leaving is not a fall of the stand).
+    stand_hp: Option<f64>,
+    last_at: Option<Vec2>,
+    heading: Option<Vec2>,
 }
 
 /// What the current fight has cost and bought (units: shares of the bot's max hp, members' worth of hp).
@@ -67,6 +74,18 @@ const TALLY_QUIET_MS: f64 = 5_000.;
 /// The tally speaks once it holds this much destroyed member hp (members' worth) and this much lost hp (share).
 const TALLY_MIN_DEALT: f64 = 0.5;
 const TALLY_MIN_LOST: f64 = 0.1;
+
+/// A mob that can hurt the seat: alive, of any class but a training dummy (an elite counts: P-RAID-E-leave).
+fn threat(m: &MobSeen) -> bool {
+    m.alive && m.class != MobClass::Dummy
+}
+
+/// The order threats are taken in: the nearer first, ties by key (`nearest` and `away` share it).
+fn nearer(cx: &Cx<'_>, a: (Vec2, &str), b: (Vec2, &str)) -> std::cmp::Ordering {
+    cx.p.dist(a.0)
+        .total_cmp(&cx.p.dist(b.0))
+        .then_with(|| a.1.cmp(b.1))
+}
 
 /// How far from the bot `m` is a threat: melee reach, or its projectile range plus a margin.
 fn threat_u(m: &MobSeen) -> f64 {
@@ -94,60 +113,103 @@ impl Sustain {
         s
     }
 
-    /// Hp share held, plus the potions held, plus what the heals already running will still give back (a drunk potion
-    /// leaves the stock at once while the sim returns its share over `heal_seconds`).
+    /// Hp share held, plus the potions held, plus what the heals already running will still give back: the count Elite
+    /// and Farm price with too (`held::hp_held`).
     fn hp_held(&self, cx: &Cx<'_>) -> f64 {
-        let s = &cx.prices.sustain;
         let me = &cx.p.me;
-        let mut held = me.hp_share() + s.potion_hp(me.potion_large, me.potion_small);
-        if me.potions_healing > 0 {
-            if let Some(until) = me.healing_until {
-                let to_come = ((until - cx.p.now) / (s.heal_seconds * 1_000.)).clamp(0., 1.);
-                let n = usize::from(me.potions_healing).min(self.hots.len());
-                held += self.hots[self.hots.len() - n..].iter().sum::<f64>() * to_come;
-            }
-        }
-        held
+        hp_held(
+            &cx.prices.sustain,
+            me.hp_share(),
+            me.potion_large,
+            me.potion_small,
+            me.potions_healing,
+            me.healing_until,
+            cx.p.now,
+            self.hots.shares(),
+        )
     }
 
     /// Keep the hurt clock and the shares of the heals running (a stock that fell by one is a drink of that size).
     fn watch(&mut self, cx: &Cx<'_>) {
         let me = &cx.p.me;
-        let s = &cx.prices.sustain;
         if me.hp_share() < self.prev_hp - 1e-9 || cx.p.hit_at.is_some() {
             self.hurt_at = Some(cx.p.now);
         }
         self.prev_hp = me.hp_share();
-        if me.potion_large < self.prev_stock.0 {
-            self.hots.push(s.large_share);
-        } else if me.potion_small < self.prev_stock.1 {
-            self.hots.push(s.small_share);
-        }
-        self.prev_stock = (me.potion_large, me.potion_small);
-        if me.potions_healing == 0 {
-            self.hots.clear();
-        } else {
-            let keep = usize::from(me.potions_healing);
-            if self.hots.len() > keep {
-                self.hots.drain(..self.hots.len() - keep);
-            }
-        }
+        self.hots.watch(
+            &cx.prices.sustain,
+            me.potion_large,
+            me.potion_small,
+            me.potions_healing,
+        );
     }
 
-    /// The bot is in a fight rather than near one: it lost hp lately, or a member stands within reach on the camp it
-    /// works (a camp passed at a distance, or the bow range of one, is not a fight).
+    /// Keep the way the seat last moved (a unit step), for a retreat from a source nobody sees.
+    fn move_trail(&mut self, cx: &Cx<'_>) {
+        let at = cx.p.me.at;
+        if let Some(prev) = self.last_at {
+            let (dx, dy) = (at.x - prev.x, at.y - prev.y);
+            let len = (dx * dx + dy * dy).sqrt();
+            if len > 1e-6 {
+                self.heading = Some(Vec2::new(dx / len * STEP_U, dy / len * STEP_U));
+            }
+        }
+        self.last_at = Some(at);
+    }
+
+    /// The bot is in a fight rather than near one: it lost hp lately, or a member or the elite stands within reach on
+    /// the camp it works (a camp passed at a distance, or the bow range of one, is not a fight).
     fn in_fight(cx: &Cx<'_>, hurt_at: Option<f64>) -> bool {
         let hurt = hurt_at.is_some_and(|t| cx.p.now - t <= cx.prices.sustain.hurt_seconds * 1_000.);
         let works_camp = matches!(
             (cx.goal.kind, &cx.goal.target),
-            (GoalKind::Farm | GoalKind::Sustain, Target::Camp(_))
+            (
+                GoalKind::Farm | GoalKind::Sustain | GoalKind::Elite,
+                Target::Camp(_)
+            )
         );
         hurt || (works_camp
-            && cx
-                .p
-                .mobs
+            && cx.p.mobs.iter().any(|m| {
+                m.alive
+                    && matches!(m.class, MobClass::Regional | MobClass::Elite)
+                    && cx.p.dist(m.at) <= FIGHT_U
+            }))
+    }
+
+    /// Something hurts the seat: a hit or a hp fall within `hurt_seconds`, or hp down by more than `fall_share` since the
+    /// stand began (any source: a mob out of the hold's view, another player, a damage-over-time effect).
+    fn hurt(&self, cx: &Cx<'_>) -> bool {
+        let s = &cx.prices.sustain;
+        self.hurt_at
+            .is_some_and(|t| cx.p.now - t <= s.hurt_seconds * 1_000.)
+            || self
+                .stand_hp
+                .is_some_and(|top| cx.p.me.hp_share() < top - s.fall_share)
+    }
+
+    /// Where the seat moves to get away: from the nearest visible threat of any class (a mob, or a player of another
+    /// faction), else along the way it last moved. `None`: no heading is clear.
+    fn away(&self, cx: &mut Cx<'_>) -> Option<Vec2> {
+        let at = cx.p.me.at;
+        let me = cx.p.me.faction;
+        let mobs =
+            cx.p.mobs
                 .iter()
-                .any(|m| m.alive && m.class == MobClass::Regional && cx.p.dist(m.at) <= FIGHT_U))
+                .filter(|m| threat(m))
+                .map(|m| (m.at, m.key.as_str()));
+        let players =
+            cx.p.players
+                .iter()
+                .filter(|o| o.alive && o.faction != me)
+                .map(|o| (o.at, o.key.as_str()));
+        let near = mobs
+            .chain(players)
+            .min_by(|a, b| nearer(cx, *a, *b))
+            .map(|(p, _)| p)
+            .or_else(|| self.heading.map(|h| Vec2::new(at.x - h.x, at.y - h.y)))?;
+        SIDESTEPS
+            .iter()
+            .find_map(|turn| away_point(cx.paths, at, near, STEP_U, *turn))
     }
 
     /// A potion could be drunk now: one is held and no heal runs.
@@ -163,17 +225,14 @@ impl Sustain {
         cx.p.me.hp_share() < cx.prices.sustain.drink_below && Self::can_drink(cx)
     }
 
-    /// The nearest living regional mob that can hit the bot where it stands: within `FIGHT_U` (melee) or within its
-    /// bow's range plus a margin (a fight is not left by walking out of reach of the shorter weapons only).
+    /// The nearest living mob (a regional, an elite: `threat`) that can hit the bot where it stands: within `FIGHT_U`
+    /// (melee) or within its bow's range plus a margin (a fight is not left by walking out of reach of the shorter weapons
+    /// only). `away` takes the same threats in the same order, at any distance and with the players.
     fn nearest<'a>(cx: &'a Cx<'_>) -> Option<&'a MobSeen> {
         cx.p.mobs
             .iter()
-            .filter(|m| m.alive && m.class == MobClass::Regional && cx.p.dist(m.at) <= threat_u(m))
-            .min_by(|a, b| {
-                cx.p.dist(a.at)
-                    .total_cmp(&cx.p.dist(b.at))
-                    .then_with(|| a.key.cmp(&b.key))
-            })
+            .filter(|m| threat(m) && cx.p.dist(m.at) <= threat_u(m))
+            .min_by(|a, b| nearer(cx, (a.at, &a.key), (b.at, &b.key)))
     }
 
     /// The camp the bot is fighting, its zone and the members' worth of hp it has left (`None`: no fight).
@@ -182,7 +241,7 @@ impl Sustain {
         // The camp the bot works (the farm's, or the one it is leaving): a member that chases is labelled by where it
         // stands, which may be another camp. Else the label, else the nearest camp.
         let held = match (cx.goal.kind, &cx.goal.target) {
-            (GoalKind::Farm | GoalKind::Sustain, Target::Camp(c)) => {
+            (GoalKind::Farm | GoalKind::Sustain | GoalKind::Elite, Target::Camp(c)) => {
                 cx.p.camp(*c).filter(|c| c.alive > 0)
             }
             _ => None,
@@ -259,17 +318,50 @@ impl Sustain {
     /// The fight the bot is in (a member within reach) and whether it is lost: the death model says so AND the bot has
     /// already lost hp (below `ready_hp`). A model's verdict at full hp is a forecast, not a fight; leaving on it made a
     /// committed walk to a camp turn back over and over (P-RAID-C attempt 1: 30 of 34 leaves began at hp 1.0).
+    ///
+    /// While the goal is an Elite goal and its camp's elite is in sight, the verdict is the elite's death term
+    /// (`elite::elite_fight_lost`, the bench table Elite prices the same fight with), not the farm model on whichever
+    /// adds are near: one view of one fight (P-RAID-E-leave).
     fn fight(&mut self, cx: &Cx<'_>) -> Option<Fight> {
         if !Self::in_fight(cx, self.hurt_at) {
             return None;
         }
         let (camp, zone, left) = Self::view(cx)?;
+        if let Some(lost) = self.elite_lost(cx, camp) {
+            return Some(Fight { camp, lost });
+        }
         let death = self.death(cx, zone, left)?;
         Some(Fight {
             camp,
             lost: death >= cx.prices.sustain.disengage_death - cx.prices.sustain.disengage_lead
                 && cx.p.me.hp_share() < cx.prices.sustain.ready_hp,
         })
+    }
+
+    /// The elite term's verdict on the held Elite goal's fight at `camp` (`None`: the goal is not an Elite goal on this
+    /// camp, the camp has no elite, or its elite is not in sight; the farm model then prices what is near).
+    fn elite_lost(&self, cx: &Cx<'_>, camp: u32) -> Option<bool> {
+        if !matches!((cx.goal.kind, &cx.goal.target), (GoalKind::Elite, Target::Camp(c)) if *c == camp)
+        {
+            return None;
+        }
+        let seen = cx.p.camp(camp)?;
+        let kind = seen.elite?;
+        let elite = elite_mob(cx, kind, seen.at)?;
+        let me = &cx.p.me;
+        let stacks: f64 =
+            cx.p.summary
+                .as_ref()
+                .map_or(0., |s| s.mob_rows.iter().map(|r| f64::from(r.stacks)).sum());
+        Some(elite_fight_lost(
+            cx.prices,
+            kind,
+            me.weapons[usize::from(me.slot.min(1))],
+            stacks,
+            me.hp_share(),
+            self.hp_held(cx),
+            elite.hp_share.clamp(0., 1.),
+        ))
     }
 
     fn leave_candidate(cx: &Cx<'_>, camp: u32) -> Candidate {
@@ -302,6 +394,8 @@ impl Sustain {
             let heading = SIDESTEPS
                 .iter()
                 .find_map(|turn| away_point(cx.paths, at, from, STEP_U, *turn));
+            // hp lost on the way out is the fight's, not a fall of the stand that follows (P-RAID-E-leave, F5).
+            self.stand_hp = None;
             return match heading {
                 Some(to) => {
                     let mut mv = move_intent(to, "leave a lost fight");
@@ -319,6 +413,37 @@ impl Sustain {
             self.leaving = None;
             return Step::done("healed");
         }
+        if cx.p.base.hud.gates_locked {
+            // Nothing regenerates behind locked gates: standing here can only end in death.
+            self.leaving = None;
+            return Step::failed("no regeneration");
+        }
+        // The stand's mark: the most hp held since the seat last went `hurt_seconds` with no hit and no fall; a quiet seat
+        // marks where it is now (a loss the hurt clock already answered is not a fall twice: P-RAID-E-leave, F5).
+        let hp = cx.p.me.hp_share();
+        let quiet = self
+            .hurt_at
+            .is_none_or(|t| cx.p.now - t > s.hurt_seconds * 1_000.);
+        let top = match self.stand_hp {
+            Some(top) if !quiet => top.max(hp),
+            _ => hp,
+        };
+        self.stand_hp = Some(top);
+        if self.hurt(cx) {
+            // Hit, or hp falling, by something the hold does not see: stop standing and move off (the hit chain is what
+            // blocks regeneration).
+            return match self.away(cx) {
+                Some(to) => {
+                    let mut mv = move_intent(to, "move off while hurt");
+                    mv.priority = PRIORITY_COMBAT;
+                    Step::running(vec![mv], "hurt while healing")
+                }
+                None => {
+                    self.leaving = None;
+                    Step::failed("hurt and cornered")
+                }
+            };
+        }
         Step::running(Vec::new(), "healing up")
     }
 }
@@ -335,8 +460,10 @@ impl Executor for Sustain {
         // the leave may come back only through a fresh `lost` fight (`start` re-arms it on adoption).
         if cx.goal.kind != GoalKind::Sustain {
             self.leaving = None;
+            self.stand_hp = None;
         }
         if cx.prices.sustain.on && cx.p.active {
+            self.move_trail(cx);
             self.watch(cx);
             self.track(cx);
         }
@@ -370,8 +497,13 @@ impl Executor for Sustain {
             out.push(Self::leave_candidate(cx, camp));
             return;
         }
-        // Nobody on us and hp short of ready: a heal-up, priced by the regeneration it waits for.
-        if hp < s.ready_hp && Self::nearest(cx).is_none() {
+        // Nobody on us (no living threat of any class in reach, the elite included) and hp short of ready: a heal-up,
+        // priced by the regeneration it waits for.
+        if hp < s.ready_hp
+            && Self::nearest(cx).is_none()
+            && !cx.p.base.hud.gates_locked
+            && !self.hurt(cx)
+        {
             let deficit = s.ready_hp - hp;
             out.push(Candidate {
                 goal: RaidGoal::new(GoalKind::Sustain, Target::None),
@@ -383,11 +515,12 @@ impl Executor for Sustain {
             });
         }
     }
-    fn start(&mut self, goal: &RaidGoal, _cx: &mut Cx<'_>) {
+    fn start(&mut self, goal: &RaidGoal, cx: &mut Cx<'_>) {
         self.leaving = match goal.target {
             Target::Camp(c) => Some(c),
             _ => None,
         };
+        self.stand_hp = Some(cx.p.me.hp_share());
     }
     fn act(&mut self, goal: &RaidGoal, cx: &mut Cx<'_>) -> Step {
         self.think(goal, cx)

@@ -17,6 +17,8 @@ namespace Roguehalla.Client
         readonly string[] _questSlotHints = new string[2], _questSlotEquipped = new string[2];
         readonly Roguehalla.Net.Ui.CooldownSpan[] _questSpans = new Roguehalla.Net.Ui.CooldownSpan[2];
         bool _questTilesFresh = true, _promptPair, _questViewKnown;
+        float _promptPairScale = 1f;
+        bool _promptLaneHooked;
         readonly UnityEngine.UI.Button[] _questChoiceButtons = new UnityEngine.UI.Button[3];
         readonly List<UnityEngine.UI.Button> _nearbyQuestButtons = new List<UnityEngine.UI.Button>();
         TMP_Text _questChoiceTitle, _questChoiceSpells, _questChoiceStatus, _questActionCaption;
@@ -27,6 +29,28 @@ namespace Roguehalla.Client
         uint _questRewardEpoch;
         double _questChoiceRetryAt;
         int _nearbyQuestCount;
+
+        QuestOfferCard _offerCard;
+        Session _offerSession;
+        uint _offerEpoch;
+        int _offerTickFrame = -1;
+        // The offer prompt: the handle and giver label last seen in reach, and whether it can be pressed now.
+        QuestHandle? _promptOffer;
+        string _promptGiver, _promptCaption, _promptCaptionGiver;
+        bool _promptCaptionKey;
+        bool _offerPrompt, _offerPromptLive;
+        public QuestOfferCard OfferCard { get { return _offerCard; } }
+        public bool OfferOpen { get { return _offerCard != null && _offerCard.IsOpen; } }
+
+        /// <summary>The HUD's answer to F when there is nothing to pick up: closes an open offer card, else opens the offer in reach.</summary>
+        public bool TryInteract()
+        {
+            if (_offerCard == null) return false;
+            if (_offerCard.IsOpen) { CloseOffer(); return true; }
+            return OpenOffer();
+        }
+
+        void CloseOffer() { if (_offerCard != null) _offerCard.Close(); }
 
         bool QuestRewardModalVisible => _questChoiceOverlay?.gameObject.activeSelf == true || _nearbyQuestOverlay?.gameObject.activeSelf == true;
         RectTransform QuestRewardFocus => _questChoiceOverlay?.gameObject.activeSelf == true ? _questChoiceOverlay : _nearbyQuestOverlay;
@@ -39,7 +63,8 @@ namespace Roguehalla.Client
             var fill = (RectTransform)_questActionLauncher.transform;
             fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.pivot = new Vector2(.5f, .5f);
             fill.offsetMin = fill.offsetMax = Vector2.zero;
-            _questActionCaption = _questActionLauncher.GetComponentInChildren<TMP_Text>(true);
+            _questActionCaption = HudUi.Label(fill, "Label", "", 11f, UiTheme.Current.TextPrimary, TextAlignmentOptions.Center);
+            _offerCard = new QuestOfferCard(_hud, () => AcceptOffer(), CloseOffer);
 
             _questChoiceOverlay = MythicUi.Panel(_root, "QuestRewardChoiceOverlay", Vector2.zero, Vector2.one, new Color(0, 0, 0, .68f));
             var card = MythicUi.Panel(_questChoiceOverlay, "QuestRewardChoice", new Vector2(.28f, .23f), new Vector2(.72f, .77f));
@@ -98,7 +123,7 @@ namespace Roguehalla.Client
                 _questChoiceOverlay.gameObject.SetActive(false);
                 _nearbyQuestOverlay.gameObject.SetActive(false);
             }
-            else if (_questChoice.HasValue && !_questChoice.Equals(_questChoiceDeferred) &&
+            else if (_questChoice.HasValue && !QuestPresentation.SameHandle(_questChoice, _questChoiceDeferred) &&
                 (_questChoiceOverlay.gameObject.activeSelf || _nearbyQuestOverlay.gameObject.activeSelf ||
                     _questJournal?.IsVisible == true || WorldHudVisible))
             {
@@ -119,7 +144,8 @@ namespace Roguehalla.Client
                 if (_nearbyQuestCount == 0) _nearbyQuestOverlay.gameObject.SetActive(false);
             }
 
-            bool showHud = worldAvailable && WorldHudVisible && QuestPresentation.HasRewardHud(view);
+            RefreshOffer(view, worldAvailable);
+            bool showHud = worldAvailable && WorldHudVisible && (_offerPrompt || QuestPresentation.HasRewardHud(view));
             _questRewardHud.gameObject.SetActive(showHud);
             if (session != null) RefreshQuestTiles(view, session.ServerTimeMs);
             if (_questChoiceOverlay.gameObject.activeSelf)
@@ -131,24 +157,176 @@ namespace Roguehalla.Client
             if (!showHud) { UpdatePromptLane(); return; }
 
             int pendingCount = view.Pending.Count;
-            _questActionLauncher.gameObject.SetActive(_nearbyQuestCount > 0 || pendingCount > 0);
-            _questActionLauncher.interactable = _questChoice.HasValue || _nearbyQuestCount > 0;
-            Set(_questActionCaption, _questChoice.HasValue ? "Choose quest reward" :
-                _nearbyQuestCount > 0 ? "Nearby quest actions · " + _nearbyQuestCount :
+            _questActionLauncher.gameObject.SetActive(_nearbyQuestCount > 0 || pendingCount > 0 || _offerPrompt);
+            bool others = _questChoice.HasValue || _nearbyQuestCount > 0;
+            _questActionLauncher.interactable = others || _offerPrompt && _offerPromptLive;
+            if (!others && _offerPrompt) Set(_questActionCaption, OfferCaption());
+            else Set(_questActionCaption, _questChoice.HasValue ? "Choose quest reward" :
+                _nearbyQuestCount > 0 ? NearbyActionsCaption() :
                 pendingCount > 0 ? "Return to turn in your reward" : "");
             UpdatePromptLane();
+        }
+
+        int _nearbyCaptionCount = -1;
+        string _nearbyCaption = "";
+
+        /// <summary>"Nearby quest actions · n", rebuilt only when the count changes.</summary>
+        string NearbyActionsCaption()
+        {
+            if (_nearbyCaptionCount != _nearbyQuestCount)
+            {
+                _nearbyCaptionCount = _nearbyQuestCount;
+                _nearbyCaption = "Nearby quest actions \u00b7 " + _nearbyQuestCount;
+            }
+            return _nearbyCaption;
+        }
+
+        /// <summary>"F · Talk to giver", or "Talk to giver" beside the pickup pill; rebuilt only when the giver or the pair changes.</summary>
+        string OfferCaption()
+        {
+            bool beside = _pickup != null && _pickup.gameObject.activeSelf;
+            bool key = !beside;
+            if (_promptCaption == null || !string.Equals(_promptCaptionGiver, _promptGiver) || _promptCaptionKey != key)
+            {
+                _promptCaptionGiver = _promptGiver; _promptCaptionKey = key;
+                _promptCaption = (key ? "F \u00b7 Talk to " : "Talk to ") + _promptGiver;
+            }
+            return _promptCaption;
+        }
+
+        bool OfferGatesHold(Session session)
+        {
+            if (session == null || !ReferenceEquals(session, _session) || !Active || session.Phase != MatchPhase.Active || session.LastResult != null) return false;
+            var me = session.Me;
+            return me != null && me.Status == ActorStatus.Alive && WorldHudVisible;
+        }
+
+        bool OpenOffer()
+        {
+            var session = _session;
+            if (_offerCard == null || !OfferGatesHold(session)) return false;
+            var view = session.Collections.Quests;
+            var me = session.Me;
+            int reach;
+            var pick = QuestOffer.Pick(view, me.X, me.Y, out reach);
+            if (pick == null || !QuestPresentation.ShowsOffer(pick)) return false;
+            _offerSession = session; _offerEpoch = session.TimelineEpoch;
+            _offerCard.Open(pick, reach, session.ServerTimeMs);
+            PlaceOffer();
+            return true;
+        }
+
+        bool AcceptOffer()
+        {
+            var card = _offerCard; var session = _session;
+            if (card == null || !card.IsOpen || card.Accepting || !card.Shown.HasValue || session == null || !ReferenceEquals(session, _offerSession)) return false;
+            if (session.State != SessionState.InMatch || session.LastResult != null || session.Phase != MatchPhase.Active || session.TimelineEpoch != _offerEpoch) return false;
+            var row = QuestOffer.Find(session.Collections.Quests, card.Shown.Value);
+            if (row == null || !row.CanAccept) return false;
+            session.Input.QuestAccept(card.Shown.Value);
+            card.MarkAccepting();
+            return true;
+        }
+
+        /// <summary>Ticks, refreshes, closes and places the offer card, and sets the prompt state. Runs before the box is shown or hidden.</summary>
+        void RefreshOffer(QuestView view, bool worldAvailable)
+        {
+            var card = _offerCard;
+            if (card == null) return;
+            if (_offerTickFrame != Time.frameCount)
+            {
+                _offerTickFrame = Time.frameCount;
+                card.Tick(Mathf.Min(Time.unscaledDeltaTime, .1f));
+            }
+            var session = _session;
+            bool gates = worldAvailable && OfferGatesHold(session);
+            QuestRowView pick = null;
+            int reach = 0;
+            if (gates)
+            {
+                var me = session.Me;
+                pick = QuestOffer.Pick(view, me.X, me.Y, out reach);
+                if (pick != null && !QuestPresentation.ShowsOffer(pick)) pick = null;
+            }
+            if (card.IsOpen)
+            {
+                QuestRowView row = null;
+                if (gates && card.Shown.HasValue && ReferenceEquals(session, _offerSession) && session.TimelineEpoch == _offerEpoch)
+                    row = QuestOffer.Find(view, card.Shown.Value);
+                if (row == null || row.OwnerAccepted || !QuestPresentation.ShowsOffer(row)) card.Close();
+                else
+                {
+                    card.NoteReach(row.CanAccept);
+                    if (card.Lapsed) card.Close();
+                    else
+                    {
+                        card.Refresh(row, reach, session.ServerTimeMs);
+                        PlaceOffer();
+                    }
+                }
+            }
+            if (card.IsOpen || !gates)
+            {
+                _offerPrompt = false; _offerPromptLive = false;
+                if (!gates) _promptOffer = null;
+                return;
+            }
+            card.NoteReach(pick != null);
+            if (pick != null)
+            {
+                _promptOffer = pick.Handle; _promptGiver = pick.GiverLabel ?? "";
+                _offerPrompt = true; _offerPromptLive = true;
+            }
+            else
+            {
+                bool held = _promptOffer.HasValue && !card.Lapsed;
+                if (!held) _promptOffer = null;
+                _offerPrompt = held; _offerPromptLive = false;
+            }
+        }
+
+        void PlaceOffer()
+        {
+            var card = _offerCard;
+            if (card == null || _hud == null) return;
+            int rows = _questTracker != null ? _questTracker.Rows : 0;
+            float dockTop = PlateChainBottom() + HudRegions.TrackerGap;
+            float floor = TrackerFloor();
+            var region = HudRegions.OfferCard(_hud.rect.height, dockTop, rows, card.WantedHeight, floor + HudRegions.TrackerGap);
+            var dock = HudRegions.TrackerDock(dockTop, rows);
+            float top = QuestOffer.Lift(region.Y, region.Height, dock.Y + dock.Height, floor);
+            card.Place(new HudRegion(region.Anchor, region.X, top, region.Width, region.Height));
         }
 
         /// <summary>One prompt lane: the pickup pill and the quest launcher share it, side by side when both show. Rewritten only when the pair state changes.</summary>
         void UpdatePromptLane()
         {
+            if (!_promptLaneHooked && _stageScaler != null)
+            {
+                // The row's scale changes with the viewport, which runs no refresh: follow it (the scaler lives as long as this HUD).
+                _promptLaneHooked = true;
+                _stageScaler.ViewportChanged += FollowRowScale;
+            }
             bool pair = _questRewardHud.gameObject.activeSelf && _questActionLauncher.gameObject.activeSelf
                 && _pickup != null && _pickup.gameObject.activeSelf;
-            if (pair == _promptPair) return;
+            float raw = _weaponBar != null ? _weaponBar.localScale.x : 1f;
+            bool stateChanged = pair != _promptPair;
+            if (!stateChanged && raw == _promptPairScale) return;
             _promptPair = pair;
-            HudUi.Place(_questRewardHud, pair ? HudRegions.PromptPair(1) : HudRegions.Prompt());
+            _promptPairScale = raw;
+            float s = HudRegions.PairScale(raw);
+            var at = pair ? HudRegions.PromptPair(1, s) : HudRegions.PromptLone(s);
+            var box = new HudRegion(at.Anchor, at.X, at.Y, pair ? HudRegions.PromptPairWidth : HudRegions.PromptWidth, HudRegions.PromptHeight);
+            HudUi.Place(_questRewardHud, box);
+            _questRewardHud.localScale = s == 1f ? Vector3.one : new Vector3(s, s, 1f);
+            if (!stateChanged) return;
             if (_pickup != null) HudUi.Place((RectTransform)_pickup.transform, PickupRegion(pair));
             RefitLabel(_questActionCaption); RefitLabel(_pickupText);
+        }
+
+        void FollowRowScale(HudViewport viewport)
+        {
+            if (_questRewardHud != null && _questActionLauncher != null) UpdatePromptLane();
         }
 
         static void RefitLabel(TMP_Text label)
@@ -172,8 +350,8 @@ namespace Roguehalla.Client
                 {
                     if (action.Action != QuestPresentation.RewardChoice) continue;
                     if (!QuestPresentation.IsPending(view, action.Quest)) continue;
-                    if (!_questChoice.HasValue || _questChoice.Equals(_questChoiceDeferred)) _questChoice = action.Quest;
-                    if (!_questChoice.Equals(_questChoiceDeferred)) break;
+                    if (!_questChoice.HasValue || QuestPresentation.SameHandle(_questChoice, _questChoiceDeferred)) _questChoice = action.Quest;
+                    if (!QuestPresentation.SameHandle(_questChoice, _questChoiceDeferred)) break;
                 }
                 if (_questChoice.HasValue)
                 {
@@ -227,7 +405,7 @@ namespace Roguehalla.Client
             foreach (var button in _questChoiceButtons) button.interactable = false;
         }
 
-        bool WaitingForQuestChoice => _questChoice.HasValue && _questChoice.Equals(_questChoiceSent) &&
+        bool WaitingForQuestChoice => _questChoice.HasValue && QuestPresentation.SameHandle(_questChoice, _questChoiceSent) &&
             Time.unscaledTimeAsDouble < _questChoiceRetryAt;
 
         /// <summary>The Shift and Q tiles and the "Equipped" line, from the delivered spells (both Empty without a quest view or spell).
@@ -309,6 +487,7 @@ namespace Roguehalla.Client
                 _nearbyQuestOverlay.SetAsLastSibling();
                 UiFocusNavigation.Cycle(_nearbyQuestOverlay, false);
             }
+            else if (_offerPrompt && _offerPromptLive) OpenOffer();
         }
 
         void CloseQuestRewardModal()
@@ -321,6 +500,8 @@ namespace Roguehalla.Client
         void ResetQuestRewardHud()
         {
             CloseQuestRewardModal();
+            CloseOffer();
+            _offerSession = null; _promptOffer = null; _offerPrompt = _offerPromptLive = false;
             _questRewardHud?.gameObject.SetActive(false);
             _questTilesFresh = true;
             for (int i = 0; i < _questTiles.Length; i++)
@@ -339,6 +520,10 @@ namespace Roguehalla.Client
     internal static class QuestPresentation
     {
         public const byte Abandon = 1, RewardChoice = 8, PickupReward = 9;
+
+        /// <summary>Null-aware handle compare that boxes nothing (both null equal, one null not).</summary>
+        public static bool SameHandle(QuestHandle? a, QuestHandle? b) =>
+            a.HasValue ? b.HasValue && a.Value.Equals(b.Value) : !b.HasValue;
 
         // Rust board rewards' wire order. These labels are presentation only.
         static readonly string[] Rewards =
@@ -375,8 +560,9 @@ namespace Roguehalla.Client
         public static bool HasBoardRows(QuestView view)
         {
             if (view == null) return false;
-            foreach (var row in view.Rows)
-                if (IsBoardRow(row)) return true;
+            var rows = view.Rows;
+            for (int i = 0; i < rows.Count; i++)
+                if (IsBoardRow(rows[i])) return true;
             return false;
         }
 

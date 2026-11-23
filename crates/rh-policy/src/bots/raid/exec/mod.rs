@@ -4,6 +4,7 @@ pub mod chest;
 pub mod combat;
 pub mod elite;
 pub mod farm;
+pub mod held;
 pub mod sustain;
 pub mod travel;
 
@@ -18,6 +19,7 @@ pub fn registry() -> Vec<Box<dyn Executor>> {
         Box::new(sustain::Sustain::default()),
         Box::new(farm::Farm::default()),
         Box::new(chest::Chest::default()),
+        Box::new(elite::Elite::default()),
         Box::new(super::quest::walker::Walker::default()),
         Box::new(super::quest::dwell::Dwell::default()),
         Box::new(travel::Roam::default()),

@@ -76,14 +76,6 @@ namespace Roguehalla.Client
         static int ShownSecond(double? until, double now) { return !until.HasValue ? -1 : until.Value > now ? (int)System.Math.Ceiling((until.Value - now) / 1000d) : 0; }
         PotionKey _potionKey; bool _potionKeyValid;
 
-        static string WishIconText(WishView? wish, double serverTimeMs)
-        {
-            if (!wish.HasValue) return "—";
-            var w = wish.Value;
-            var cool = SlotText.Cooldown(w.ReadyAt - serverTimeMs);
-            return w.Charges + "/" + w.MaxCharges + (cool.Length > 0 ? " · " + cool : "");
-        }
-
         readonly bool[] _slotKeyValid = new bool[2], _slotEquipped = new bool[2];
         readonly Roguehalla.Net.Protocol.WireHudContent[] _slotBlock = new Roguehalla.Net.Protocol.WireHudContent[2];
         readonly WeaponId?[] _slotWeapon = new WeaponId?[2];

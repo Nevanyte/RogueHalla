@@ -78,7 +78,7 @@ namespace Roguehalla.Client
     {
         public const float Seconds = .15f, Pop = .08f;
 
-        struct Entry { public RectTransform Rect; public float Start; public Vector2 Origin; }
+        struct Entry { public RectTransform Rect; public float Start; public Vector2 Origin, Last; }
         readonly List<Entry> _entries = new List<Entry>();
 
         public int Count { get { return _entries.Count; } }
@@ -93,7 +93,7 @@ namespace Roguehalla.Client
                 var e = _entries[i]; e.Start = now; _entries[i] = e;
                 return;
             }
-            _entries.Add(new Entry { Rect = rect, Start = now, Origin = rect.anchoredPosition });
+            _entries.Add(new Entry { Rect = rect, Start = now, Origin = rect.anchoredPosition, Last = rect.anchoredPosition });
         }
 
         /// <summary>Unscaled time.</summary>
@@ -104,6 +104,8 @@ namespace Roguehalla.Client
             {
                 var e = _entries[i];
                 if (e.Rect == null) { _entries.RemoveAt(i); continue; }
+                // Something else placed the rect during the pulse: its position is the new origin.
+                if ((e.Rect.anchoredPosition - e.Last).sqrMagnitude > MovedSq) { e.Origin = e.Last = e.Rect.anchoredPosition; }
                 float t = (now - e.Start) / Seconds;
                 if (reduced || t >= 1f) { Restore(e); _entries.RemoveAt(i); continue; }
                 float s = 1f + Pop * UiEase.Pop(t);
@@ -111,7 +113,9 @@ namespace Roguehalla.Client
                 r.localScale = new Vector3(s, s, 1f);
                 Vector2 off = (new Vector2(.5f, .5f) - r.pivot);
                 off.x *= r.rect.width; off.y *= r.rect.height;
-                r.anchoredPosition = e.Origin + off * (1f - s);
+                var placed = e.Origin + off * (1f - s);
+                r.anchoredPosition = placed;
+                e.Last = placed; _entries[i] = e;
             }
         }
 
@@ -122,10 +126,12 @@ namespace Roguehalla.Client
             _entries.Clear();
         }
 
+        const float MovedSq = .001f * .001f;
+
         static void Restore(Entry e)
         {
             e.Rect.localScale = Vector3.one;
-            e.Rect.anchoredPosition = e.Origin;
+            if ((e.Rect.anchoredPosition - e.Last).sqrMagnitude <= MovedSq) e.Rect.anchoredPosition = e.Origin;
         }
     }
 }
