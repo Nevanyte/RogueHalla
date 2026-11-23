@@ -330,10 +330,7 @@ namespace Roguehalla.Client.Tests
             var tick = (Action)Delegate.CreateDelegate(typeof(Action), _hud, typeof(MatchHud).GetMethod("TickNotices", BindingFlags.Instance | BindingFlags.NonPublic));
             MatchHud.NoticeDtOverride = .001f;
             for (int i = 0; i < 10; i++) tick();                       // warm up
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 200; i++) tick();
-            long after = GC.GetAllocatedBytesForCurrentThread();
-            Assert.AreEqual(0, after - before, "a steady notice tick allocates nothing");
+            AllocationMeter.AssertNone(tick, 200, "a steady notice tick");
             Assert.AreEqual(1, Active("EventLane").Count, "the pill is still there");
         }
 
