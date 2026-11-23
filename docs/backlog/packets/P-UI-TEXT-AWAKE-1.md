@@ -99,11 +99,13 @@ No conflict between these tests and the packet: none needs an `oracle-amend:`.
 
 ## Oracle files (read-only for implementers)
 
-- `client-unity/UnityProject/Assets/Tests/Editor/TraderRowsRealOrderEditModeTests.cs` (+ `.meta`)
-- `client-unity/UnityProject/Assets/Tests/Editor/AsleepFitEditModeTests.cs` (+ `.meta`)
+- `client-unity/UnityProject/Assets/Tests/Editor/TraderRowsRealOrderEditModeTests.cs` (holds two classes: `TraderRowsRealOrderEditModeTests`, tests 1-6 and 8, and `TraderRowsWholeHudEditModeTests`, test 7)
+- `client-unity/UnityProject/Assets/Tests/Editor/TraderRowsRealOrderEditModeTests.cs.meta`
+- `client-unity/UnityProject/Assets/Tests/Editor/AsleepFitEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/AsleepFitEditModeTests.cs.meta`
 - `docs/backlog/packets/P-UI-TEXT-AWAKE-1.md`
 
-(To be completed below, with the red/green record, by the oracle author.)
+There is no `stub:` commit: the tests use only public API (`TraderDialogView`, `MythicTextScale.Apply`, `MythicUi.ApplyTextScale`, `HudUi`) and reflection on existing private members, so they compile on the base.
 
 ## 9. Validation commands
 
@@ -127,7 +129,24 @@ Sonnet: two small edits with exact code in this packet. The risk is a test-order
 
 ## Notes from the oracle author
 
-(filled in below after the runs)
+**Red and green on the base (run through `unity-class.sh`, 40 cases: 6 green, 34 red; every red is an assertion).**
+
+- `TraderRowsRealOrderEditModeTests.EveryRowIsRightOnTheFirstFrameOfARealMatch` (12 cases): red in 11, each on "X is as tall as its text needs (n)" (a Merchant row 72 against 83 or 96 or more; `stat` at size 1.0 wide: AppliedStat 40 against 43). The sight lines (text not taller than its button) are red too, collected by the scratch run (merchants at 1.5 wide: 79.8 > 72). Green: `barter`, 1.0, wide (standing guard, as the spec says). The layout lines (position of each row, content = sum minus 4) are derived from the heights actually written and are green on the base in the stuck state: they guard the stacking rule once the heights are right.
+- `TheRealOrderEqualsTheControlOrder` (12): red in 11 on "row i height, real order against control order" (real 72, control 83/96/...; stat 1.0 wide: 40 against 43, content 336 against 342); `barter`, 1.0, wide is the standing guard.
+- `AHiddenWindowMeasuresAndCachesNothing` (barter, stat): red on "no row was measured and cached while hidden" (expected 0, was 5 and 7). The content line is red too (scratch run: 248 against 252, 336 against 332). The 55-height and the `SetVisible(true)` cache-count lines are green standing guards.
+- `LaterCallsChangeNoRowAndMeasureNothingAgain` (barter, stat): red on the opening formula (Merchant_0 72 against 96). The `AssertUnchanged` lines after it are green on the base (standing); on the fixed code they pin that nothing is re-measured.
+- `AReopenedWindowIsRightAfterARebuildWhileClosed` (barter, stat): red on the formula (72 against 96). The scroll-position line (stat) is a standing guard, green on the base, as the spec says.
+- `ATextSizeChangedWhileHiddenIsRightAtTheFirstOpen`: red on the formula (72 against 96; sight 79.8 > 72).
+- `TraderRowsWholeHudEditModeTests.TheWholeHudRealChain` (barter, stat): red on the formula (Merchant_0 72 against 96). Widths are the editor's overlay canvas (relations only).
+- `FitHeightOnAHiddenRowReturnsTheMinimumAndCachesNothing`: red on "and stores nothing" (expected 0, was 1); the result-is-72 line is green.
+- `AsleepFitEditModeTests.AnAsleepLabelIsFittedWhenItWakes`: red on "once awake it is fitted like its twin" (expected 6, was 14). `ATextSizeAppliedWhileAsleepIsFittedWhenItWakes`: red on the same line (expected 6, was 21).
+- Green standing guards (as specified): `ATextThatFitsKeepsTheWantedSizeEitherWay`, `ATextChangedWhileAsleepIsFittedWhenItWakes`, `AnAwakeLabelStillFitsAtOnce`, `AThreeDimensionalLabelIsStillFittedAtOnce` (its set-up read `isOrthographic` false, so no stop-and-report).
+
+**Existing classes, green on the base (same run command):** `TraderDialogViewEditModeTests`, `TraderCopyEditModeTests`, `TraderWordsEditModeTests`, `PlayerFlowsEditModeTests`, `UiLabFixesEditModeTests`: 45 of 45. `HudVisualFix4EditModeTests`, `HudTextScaleEditModeTests`, `NameLegibleHubCardEditModeTests`, `ZoneNamesEditModeTests`, `ZoneNamesRealOrderEditModeTests`, `TabMapMarksEditModeTests`: 81 of 81.
+
+**Scratch run (not committed).** For each new class I made a copy in which every `Assert.` statement was wrapped in a catch-and-collect call (catches `AssertionException`, keeps the message, carries on; the list is written out in TearDown and the test does not fail). 40 of 40 ran to the end with no exception other than assertion failures, so no line is a set-up defect (object paths, deliveries in key order, the scroll set-up, the reflection call all execute). Every collected entry is an assertion about the missing behaviour (heights, cache count, content estimate, sight, real against control, fit after wake). Differences from the spec's lists: (a) the `barter`, 1.0, wide case of tests 1 and 2 is the only green case of each, as the spec says; (b) narrow `stat` at 1.0: Merchant_1 is 72 against 96 and the applied rows 40 against 43, so the red set is the spec's. I did not remove the early return of `ReflowChoiceRows` to show the scroll line red (the scratch would have meant editing product code, which an oracle author does not do): the spec's claim that line is red only on an implementation that writes content height 0 is not demonstrated here; on the base it passes, as the spec says.
+
+**Where the tests differ from the spec text.** Test names and combinations follow the spec (12 combinations as a `[Combinatorial]` over case x scale x canvas). Test 7 lives in a second class in the same file (it needs a different fixture); the file is about 500 lines. Rows are found by name through `View.Root` (public) instead of `canvas.transform.Find("TraderDialog/...")`: the same objects. A new view object per delivery carries a rising tick. The base `lane/ui-rework/base-3` has moved since the spec to `f90ca108a` (P-UI-TABMAP-TEXT-1 and P-UI-QUEST-OFFER-1-fix merged); the two product files are byte-identical to the spec's tree, so nothing in the spec changes.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
