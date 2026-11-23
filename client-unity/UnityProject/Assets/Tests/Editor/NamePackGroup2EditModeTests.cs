@@ -222,8 +222,10 @@ namespace Roguehalla.Client.Tests
         }
 
         [Test]
-        public void FightersStandingTogetherHaveTheirNamesStackedNearestToTheLocalFighterLowest()
+        public void FightersStandingTogetherHaveTheirNamesStackedByClassAndActorIdTheLocalFighterLowest()
         {
+            // P-UI-WORLD-NAMES-2: the order is the layout's (class, then actor id), no longer the distance to the local fighter. Ids 1 to 4 arrive in order and the
+            // local one is id 1, so class then actor id gives the order this test always pinned: the local fighter lowest, then 2, 3, 4 upward.
             // Six pixels apart: every pair of these four names overlaps when unstacked (a drawn name is about 22 px wide),
             // so each farther one must climb. Names that do not overlap are not stacked (coordinator amendment 2026-11-12:
             // at 20 px apart only neighbours overlapped, and the strict order could be met only by a 45 px blanket margin).
