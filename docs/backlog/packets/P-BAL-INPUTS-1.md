@@ -265,6 +265,10 @@ exists: the reviewer reads them).
 - The Bargain's upfront cost and the reusable spells' dividend are not in the shape; do not squeeze them into
   `direct_stacks` or `damage_fraction` to make a ratio look right.
 - `Augment_Tuning` numbers, not `Augment_Value`'s (decision 4); `Marked Man` income and hazard are 1.5.
+- Every `permanent_buff` descriptor carries all three numbers `quest_verdict` reads: `direct_stacks`, `damage_fraction`
+  and `move_fraction`, written even when 0 (P-BAL-EVAL-1-fix turns a missing one into an `Err` naming the quest and field).
+  Kind `spell` needs none. Where the workbook gives no design number for a reward, the answer is no descriptor and a listed
+  open row, never a placeholder; today there is no such row (all 25 are priced or spells). The oracle checks the fields.
 - An untimed quest gets no `difficulty` key at all, not an empty string.
 
 ## NOT ESTABLISHED by this packet

@@ -97,7 +97,14 @@ fn every_quest_and_native_augment_has_an_entry() {
                     "{}",
                     d.id
                 );
-                assert!(r["damage_fraction"].as_f64().is_some(), "{}", d.id);
+                // Every number `quest_verdict` reads for this kind must be written, never left to a default.
+                for field in ["damage_fraction", "move_fraction"] {
+                    assert!(
+                        r[field].as_f64().is_some_and(|x| (0. ..1.).contains(&x)),
+                        "{}: permanent_buff needs {field} written, as a fraction",
+                        d.id
+                    );
+                }
             }
             RewardKind::SingleUse | RewardKind::Reusable => {
                 assert_eq!(kind, "spell", "{}: a spell reward", d.id);
