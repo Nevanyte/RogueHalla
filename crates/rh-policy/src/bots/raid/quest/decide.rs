@@ -134,6 +134,11 @@ pub fn pickup_wanted(prices: &Prices, held: &[WireQuestSpell], drop: &WireQuestD
     held.len() < usize::from(SPELL_SLOTS) && spell_worth(prices, drop.reward, drop.charges) > 0.
 }
 
+/// `stat_worth` with the prices of `prices` (the spare-weapon-free half of the Bargain's valuation).
+pub fn stat_worth_at(_prices: &Prices, stat: u8, me: &Me) -> f64 {
+    stat_worth(stat, me)
+}
+
 /// What a stat of The Bargain (index 0..9: damage, move speed, max HP, ability power, armor, shield, attack damage,
 /// attack speed, lifesteal) is worth per stack to this build, in the units of `Prices::chest` boosts (2.5 neutral).
 pub fn stat_worth(stat: u8, me: &Me) -> f64 {

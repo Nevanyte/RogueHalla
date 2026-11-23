@@ -131,6 +131,40 @@ pub struct Prices {
     pub augment_rows: &'static [(&'static str, f64)],
     /// Sustain (P-RAID-C): potions, disengaging, healing up.
     pub sustain: SustainPrices,
+    /// What the spare weapon is worth when The Bargain takes it in trade (ce; a placeholder, no table row).
+    pub spare_weapon: f64,
+    /// What one stack of a stat nothing favours is worth in the Bargain's units (a chest boost's base, `choice.rs`).
+    pub neutral_stat: f64,
+    /// How the weapon in hand moves a stat's worth (the legacy chest fit, `choice.rs` `base_fit`).
+    pub stat_fit: StatFit,
+    /// The least chance a quest walk to die is priced at (chance, 0..=1).
+    pub death_floor: f64,
+    /// The minutes a decision already waiting costs to answer (min): what the arbiter sees.
+    pub answer_minutes: f64,
+    /// The share of its worth a reusable quest spell keeps while it has no charge (recharging).
+    pub recharging_share: f64,
+}
+
+/// What the weapon in hand adds to a stat's worth (`bots/temporal_percept/modules/choice.rs` `base_fit`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StatFit {
+    /// The stat suits the weapon (attack damage for a sword, axe or bow; ability power for a wand; armor and shield for a shield).
+    pub matched: f64,
+    /// Bare fists take attack damage and ability power equally.
+    pub fists: f64,
+    /// Attack damage for a wand.
+    pub wand_attack: f64,
+    /// The stat does not suit the weapon.
+    pub mismatched: f64,
+}
+
+impl StatFit {
+    pub const LOCAL: Self = Self {
+        matched: 1.,
+        fists: 0.5,
+        wand_attack: -0.5,
+        mismatched: -1.,
+    };
 }
 
 impl Prices {
@@ -216,6 +250,12 @@ impl Prices {
             ("raceToZero", 0.0),
         ],
         sustain: SustainPrices::LOCAL,
+        spare_weapon: 1.5,
+        neutral_stat: 2.5,
+        stat_fit: StatFit::LOCAL,
+        death_floor: 0.02,
+        answer_minutes: 0.01,
+        recharging_share: 0.5,
     };
 
     /// `LOCAL` with quest rewards and augments worth nothing and sustain off: a seat that farms, roams and opens chests
