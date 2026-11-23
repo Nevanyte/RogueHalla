@@ -443,6 +443,11 @@ namespace Roguehalla.Client.Tests
             Assert.That(WedgeFill(tile), Is.EqualTo(.49f).Within(.004f), "the wedge still moves");
             Assert.That(pulses.Count, Is.EqualTo(0), "nothing pulses");
             Assert.That(tile.localScale.x, Is.EqualTo(1f), "the Wish tile is at scale 1");
+            SnapWish(12, 55000, Wish(0, 60000, 10000)); Frame();
+            SnapWish(13, 60050, Wish(1, 60000, 10000)); _local += 50; Frame();
+            _local += 50; Frame();
+            _local += 200; Frame();
+            Assert.That(WedgeOn(tile), Is.False, "set-up: a fresh ready Wish, so the press goes through");
             double start = _local;
             Call(_hud, "InputCue", WireCommand.Cast(0, 0f, 0f));
             for (int ms = 10; ms <= 150; ms += 10)
