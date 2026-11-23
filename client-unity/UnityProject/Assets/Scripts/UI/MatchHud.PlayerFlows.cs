@@ -11,7 +11,6 @@ namespace Roguehalla.Client
     {
         QuestJournalView _questJournal;
         TraderDialogView _traderDialog;
-        OrderedNoticeFeed _orderedNotices;
         UnityEngine.UI.Button _journalButton;
         uint _playerFlowEpoch;
         bool _returnToResults;
@@ -34,8 +33,7 @@ namespace Roguehalla.Client
             _questJournal.Initialize(_root, ClosePlayerFlows, handle => _map?.SetTrackedQuest(handle));
             _traderDialog = gameObject.AddComponent<TraderDialogView>();
             _traderDialog.Initialize(_root, ClosePlayerFlows);
-            _orderedNotices = gameObject.AddComponent<OrderedNoticeFeed>();
-            _orderedNotices.Initialize(_root, ClosePlayerFlows);
+            CreateNoticeFeed();
             AddPlayerFlowTabs(_questJournal.Root); AddPlayerFlowTabs(_traderDialog.Root); AddPlayerFlowTabs(_orderedNotices.Root);
             // Legacy launcher: left 12, bottom 12, small 11 px button; the journal itself is only re-skinned.
             _journalButton = HudUi.Button(_stage, "Journal", "Quests · J", HudAnchor.BottomLeft, QuestLauncherLeft, QuestLauncherBottom, 84f, 22f,
@@ -156,7 +154,7 @@ namespace Roguehalla.Client
         {
             if (_session != null && _playerFlowEpoch != _session.TimelineEpoch) ResetPlayerFlowTimeline();
             RefreshPlayerFlows();
-            _orderedNotices?.SetRecentVisible(_session != null && WorldHudVisible);
+            TickNotices();
             _orderedNotices?.Refresh();
             _huntPanel?.Refresh(_session, _session != null && WorldHudVisible && !PlayerFlowVisible);
         }
