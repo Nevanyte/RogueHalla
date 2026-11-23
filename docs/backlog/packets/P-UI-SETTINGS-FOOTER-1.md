@@ -93,6 +93,17 @@ P-UI-SETTINGS-LABELS-1 merged in the base (`SettingsLabelsEditModeTests.cs` and 
 ## 8. Acceptance checks
 
 - `scripts/gate.sh --quick --oracle packet/P-UI-SETTINGS-FOOTER-1` prints `GATE PASS`.
+- Red on the base (run 2026-11-23, `unity-class.sh SettingsFooterEditModeTests`: 12 run, 3 pass, 9 fail), each on an assertion:
+  `TheFooterIsInViewOnFirstOpening` x4 scales: "the Footer is a child of the card itself" false; `TheFooterStaysWhileTheBodyScrolls` (1, 1.5):
+  "scrolled to 0.5 the footer's rect in the card is the one at the start" false (footer moves with the content); `TheBodyEndsAboveTheFooter`:
+  "the scroll frame's bottom edge is the footer's top edge" (frame bottom -730, footer top -738); `ATallWindowShowsTheWholeCardWithoutScrolling`:
+  card height expected 876.02 +/- .5, was 814.02 (content 768.02); `ACardWithoutALeaveActionHasTheShortFooter`: "Reset is in view" (Reset at
+  y -764..-742 in a card spanning -740..0).
+  Green on the base and after (named guards): `TheFootersThreeTextsAndPlacesInsideItAreUnchanged`, `LeaveNeedsASecondClickAndResetResetsTheDisplayOptions`,
+  `TheTabCycleEndsAtResetThenLeave`.
+- Existing classes green on the base: `SettingsLabelsEditModeTests`, `ModernSettingsLayoutEditModeTests`, `HudLegacyLayoutEditModeTests`,
+  `HudTextScaleEditModeTests`, `UiInputRoutingEditModeTests`, `PlatesOpaqueEditModeTests`, `ControlsLineEditModeTests`: 129 of 129 (before the
+  amend). After the amend `TheOpenCardFollowsATextSizeChange` is red on the base, by design.
 - Every test of `SettingsFooterEditModeTests` green; `SettingsLabelsEditModeTests`, `ModernSettingsLayoutEditModeTests`,
   `HudLegacyLayoutEditModeTests`, `HudTextScaleEditModeTests`, `UiInputRoutingEditModeTests`, `PlatesOpaqueEditModeTests` stay green;
   the node tests under `Tools/` (`node --test client-unity/UnityProject/Tools/hud-seams.test.cjs` etc.) if a file under `Tools/` changed.
@@ -131,6 +142,14 @@ P-UI-SETTINGS-LABELS-1 merged in the base (`SettingsLabelsEditModeTests.cs` and 
 
 - `client-unity/UnityProject/Assets/Tests/Editor/SettingsFooterEditModeTests.cs`
 - `client-unity/UnityProject/Assets/Tests/Editor/SettingsFooterEditModeTests.cs.meta`
+- `client-unity/UnityProject/Assets/Tests/Editor/SettingsLabelsEditModeTests.cs` (one line changed, `oracle-amend:` commit, see below)
+
+## Amended expectation (for the owner)
+
+- `SettingsLabelsEditModeTests.TheOpenCardFollowsATextSizeChange`, line 509: `36f + content + 10f` becomes `36f + content + 62f + 10f`.
+  Kind: RE-STATEMENT. The asserted total (the open card's height) is the same number as before the change; the footer's 62 moves from the
+  content term to its own term. It is red on the base (the card there is 36 + content + 10 with the footer inside the content) and green
+  once the footer leaves the content.
 
 ## 9. Validation commands
 
@@ -172,4 +191,27 @@ implementer-sonnet, reviewer. One file; the traps are layout ones (inner width, 
   and `TheBodyEndsAboveTheFooter` run at 1 (the rig's other scales are covered by test 1).
 - The Leave guard drives no clock: in EditMode `Time.unscaledTime` is constant, `_leaveArmedUntil` starts at -1, so the first click arms
   (t > -1) and the second finds t <= t + 3: the test says so by its two clicks. No existing test covers the two clicks; the new guard does.
+- Scratch run (not committed): one run of a copy of the class in which every assertion was caught and collected (`Soft.That`), so a failed
+  assertion did not stop its test. Every collected entry was one of the assertions above or a sibling of them about the footer's parent, its
+  place, the viewport it must not be under, the frame's edge, the missing `Rule` (those about the Rule's geometry and colour sit after
+  `if (rule == null) return;`, because there is no Rule on the base) and the scroll comparisons; no exception from set-up or deliveries.
+  NOT PROVEN on the base: the lines after that `return` (the Rule's top edge, height, width and colour against the rows' rule), and the lines of
+  `ATallWindowShowsTheWholeCardWithoutScrolling` that compare the footer to the card's bottom with the footer inside the card (they run on the
+  base, but were never seen true). The oracle author did not write a throwaway implementation (the session's permission layer refused an
+  edit of a product file; the brief said not to implement). The implementer who finds a line of these that no implementation can satisfy
+  reports `oracleDefect` with file and line, as the lane rules say.
+- The expected values: Footer rect = card width minus 28 wide, its lower edge 10 above the card's bottom; frame bottom = footer top within .5;
+  card height = 36 + content + 62 + 10 (tall window); at text sizes 1 and 1.5 the content (about 706 without the footer) is taller than the
+  viewport (about 632), so the scrolling cases scroll. Those two numbers are estimates from the base's 768 content (which includes the footer 62
+  and the 4 bottom pad), not measured on an implementation.
+- hud-shots.cjs:263 (outcome 6): `Tools/hud-shots.cjs` runs windows 1280x800, 1920x1080, 2560x1440 (dpr 1) and 1280x800 (dpr 2) (:34-35), with
+  legacy scale s = clamp(min(stageW/1280, h/800), .8, 1.5) (:37-40): uiH is 800 in the first, second and fourth, 960 in the third. The click
+  `(cfg.w - 258.5 s, 676 s)` hits the Leave button on the base only if Leave sat at y 676 in uiH 800: on the base Leave's centre in the 1280x800
+  card (cap 740, viewport 694) is at card top 48 + 36 + (768 - 4 - 62 + 34 + 11 = 747) = 831 before scroll, off screen, so the coordinate does not
+  hit it on the base either (the tool predates P-UI-SETTINGS-LABELS-1's taller rows); it was not run here (needs a browser and a Unity Web build:
+  unverified). After this packet Leave's centre in the 1280x800 window is x = uiW - 12 - 320 + 14 + 70 = uiW - 248 (card left + 14 side pad + half the
+  140 button), y = 48 + cardHeight - 10 - 62 + 34 + 11 = 21 + cardHeight, with cardHeight = min(uiH - 60, natural height); in uiH 800 the card is
+  capped at 740 so y = 761, x = cfg.w - 248 s. The implementer sets these two numbers (replacing 258.5 and 676) for the capped windows and marks them
+  unverified in its report; for the 2560x1440 window (uiH 960) the card is not capped if its natural height (about 814 at text size 1) is below 900,
+  so y there is 21 + 814 = 835 in HUD units (a measured card height is needed: unverified).
 - Existing test pins and the DEVIATIONS row are listed in sections 3 and "Existing tests that pin this code".
