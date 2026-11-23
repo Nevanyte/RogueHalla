@@ -114,6 +114,7 @@ fn minute_five() -> TrustedBuild {
         ],
         stacks: vec![(MobTypeId::EmberImp, 12), (MobTypeId::MagmaBrute, 12)],
         boosts: vec![(BoostId::Ad, 2)],
+        rewards: Vec::new(),
     }
 }
 

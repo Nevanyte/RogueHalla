@@ -42,5 +42,7 @@ pub mod refs;
 mod review_tests;
 pub mod spells;
 pub mod values;
+#[cfg(test)]
+mod values_tests;
 
 pub use bot::RaidBot;

@@ -139,6 +139,6 @@ pub(crate) fn at_turn_in(k: &MatchStatic, w: &World, owner: PlayerId, offer_id: 
     w.player(owner).is_some_and(|p| {
         a.pending.is_some()
             && !crate::status_runtime::action_blocked(&p.statuses, w.server_time)
-            && near(k, w, p.pos(), endpoint(w, o, id, a), QUEST_TURN_IN_RANGE)
+            && near(k, w, p.pos(), endpoint(w, o, id, a), TOP25.contact_range)
     })
 }

@@ -1,6 +1,6 @@
 //! The value table (P-RAID-V): camp-equivalents per quest reward, native augment, camp and elite tier. Holds `Prices`, the
 //! one struct every executor prices with (`Cx::prices`), including the farm's death model and the chest pick. Local
-//! constants until P-RAID-V's table; a caller swaps them with `RaidBot::with_prices`. No executor or arbiter file holds a
+//! constants (the reward and augment rows are the workbook estimates); a caller swaps them with `RaidBot::with_prices`. No executor or arbiter file holds a
 //! price of its own: a number that values or times a goal lives here.
 
 /// How a camp fight's death chance is priced (`exec/farm.rs` `death_chance`). An aggroed camp fights together: while the
@@ -20,8 +20,8 @@ pub struct DeathModel {
     pub typical_members: f64,
 }
 
-/// The value inputs, in camp-equivalents (ce: one normal camp cleared = 12 stat stacks = 1). Local constants until
-/// P-RAID-V (`data/raid_values.json`).
+/// The value inputs, in camp-equivalents (ce: one normal camp cleared = 12 stat stacks = 1). The reward and augment rows
+/// are workbook estimates, mirrored in `data/raid_values.json`; lab measurements will replace them.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Prices {
     /// One normal camp cleared (ce).
@@ -42,10 +42,14 @@ pub struct Prices {
     pub pick_seconds: f64,
     /// The chance a walk to a chest ends in a pick; it may expire or be taken (0..=1).
     pub pick_success: f64,
-    /// A quest reward's worth when the table has no row for its def id (ce; 1 is a placeholder until P-RAID-V).
+    /// A quest reward's worth when the table has no row for its def id (ce; 1 is a placeholder, every board def has a row).
     pub reward_default: f64,
-    /// An augment's worth when the table has no row for the card (ce; 1 is a placeholder until P-RAID-V).
+    /// An augment's worth when the table has no row for the card (ce; 1 is a placeholder, every pool card has a row).
     pub augment_default: f64,
+    /// Quest reward rows: (board def id, ce). A def with no row takes `reward_default`.
+    pub reward_rows: &'static [(&'static str, f64)],
+    /// Augment rows: (`CardId::as_str`, ce). A card with no row takes `augment_default`.
+    pub augment_rows: &'static [(&'static str, f64)],
 }
 
 impl Prices {
@@ -66,33 +70,104 @@ impl Prices {
         pick_success: 0.9,
         reward_default: 1.,
         augment_default: 1.,
+        // Workbook estimates of 2026-11-22 (camp-equivalents, to be replaced by lab measurements). Mirrored in
+        // data/raid_values.json; values_tests.rs pins both copies.
+        reward_rows: &[
+            ("the_warden", 2.0),
+            ("hold_the_fort", 3.6),
+            ("bounty_hunter", 3.5),
+            ("smugglers_run", 2.5),
+            ("two_banners", 3.0),
+            ("ember_walk", 2.0),
+            ("the_burning_crown", 5.2),
+            ("let_him_cook", 3.7),
+            ("elite_slayer", 2.1),
+            ("tuber_eats", 2.2),
+            ("barrow_run", 1.5),
+            ("the_bargain", 2.7),
+            ("a_cruel_joke", 2.0),
+            ("a_bone_to_pick", 1.8),
+            ("feed_or_hunt", 1.5),
+            ("rime_hunt", 3.5),
+            ("watchtowers", 0.9),
+            ("whispers_in_the_brush", 0.8),
+            ("even_skeletons_get_cold", 1.5),
+            ("lost_brother", 2.5),
+            ("pilgrims_path", 2.0),
+            ("gatecrasher", 2.5),
+            ("letters", 2.0),
+            ("stay_a_while", 2.0),
+            ("trade_up", 5.6),
+        ],
+        augment_rows: &[
+            ("markedMan", 7.0),
+            ("pathfinder", 3.2),
+            ("marksmansTally", 2.4),
+            ("eighthStrike", 1.9),
+            ("calluses", 1.3),
+            ("bastion", 1.2),
+            ("hazardWalker", 1.1),
+            ("glacier", 0.9),
+            ("stoked", 0.9),
+            ("overflow", 0.8),
+            ("corpseHoarder", 0.6),
+            ("wishEngine", 0.5),
+            ("trophyHunter", 0.5),
+            ("executionersLedger", 0.45),
+            ("committed", 5.4),
+            ("machineGun", 2.5),
+            ("plantYourFeet", 2.3),
+            ("fistsOfFury", 1.9),
+            ("tankEngine", 1.9),
+            ("gambler", 1.9),
+            ("hereComesTheBoom", 1.7),
+            ("hemorrhage", 1.5),
+            ("overkill", 1.4),
+            ("thirdTimesTheCharm", 0.9),
+            ("spikedShell", 0.9),
+            ("secondWind", 0.8),
+            ("slowBurn", 0.6),
+            ("bestOffense", 0.6),
+            ("eyeForAnEye", 0.5),
+            ("siphon", 0.5),
+            ("wishfulThinking", 0.4),
+            ("pocketSand", 0.3),
+            ("raceToZero", 0.0),
+        ],
     };
 
     /// `LOCAL` with quest rewards and augments worth nothing: a seat that farms, roams and opens chests only, so a test
     /// of the farm executor is not changed by quest executors registered later. It zeroes `reward_default` and
-    /// `augment_default` only (camps, chests, roaming and the death model keep `LOCAL`); a later packet that adds
-    /// per-def or per-card rows must clear those rows here too, or `farm_only` stops turning the families off.
+    /// `augment_default` and clears both row tables (camps, chests, roaming and the death model keep `LOCAL`), so every
+    /// quest reward and augment is worth 0 here.
     pub const fn farm_only() -> Self {
         Self {
             reward_default: 0.,
             augment_default: 0.,
+            reward_rows: &[],
+            augment_rows: &[],
             ..Self::LOCAL
         }
     }
 
     /// Camp-equivalents a quest's reward is worth, by the quest row's def id (`goal::Target::Quest::def`). Every quest
     /// executor multiplies its candidate's value by this and reads a reward's worth nowhere else, so a table turns the
-    /// whole quest family off by pricing it at zero (`farm_only` does). One flat `reward_default` until P-RAID-V adds
-    /// per-def rows here.
-    pub fn reward_value(&self, _def: &str) -> f64 {
-        self.reward_default
+    /// whole quest family off by pricing it at zero (`farm_only` does). The row for the def, else `reward_default`.
+    pub fn reward_value(&self, def: &str) -> f64 {
+        self.reward_rows
+            .iter()
+            .find(|(k, _)| *k == def)
+            .map_or(self.reward_default, |(_, v)| *v)
     }
 
     /// Camp-equivalents an augment card is worth. Every executor that values an augment (elite chests, augment quests)
     /// multiplies by this and reads an augment's worth nowhere else, so a table turns augment hunting off by pricing it
-    /// at zero (`farm_only` does). One flat `augment_default` until P-RAID-V adds per-card rows here.
-    pub fn augment_value(&self, _card: &str) -> f64 {
-        self.augment_default
+    /// at zero (`farm_only` does). The row for the card, else `augment_default`.
+    pub fn augment_value(&self, card: &str) -> f64 {
+        self.augment_rows
+            .iter()
+            .find(|(k, _)| *k == card)
+            .map_or(self.augment_default, |(_, v)| *v)
     }
 }
 
