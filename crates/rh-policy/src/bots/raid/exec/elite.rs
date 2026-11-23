@@ -1050,3 +1050,7 @@ mod leave_fix2_tests;
 #[cfg(test)]
 #[path = "elite_reach_tests.rs"]
 mod reach_tests;
+
+#[cfg(test)]
+#[path = "elite_reach_fix_tests.rs"]
+mod reach_fix_tests;
