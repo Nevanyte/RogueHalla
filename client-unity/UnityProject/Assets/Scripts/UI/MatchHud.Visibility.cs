@@ -60,6 +60,13 @@ namespace Roguehalla.Client
             _map?.SetPhaseLine(text);
         }
 
+        /// <summary>Empties the phase pill and the map header's line together.</summary>
+        void ClearPhaseLine()
+        {
+            _phaseStrip.text = "";
+            _map?.SetPhaseLine(null);
+        }
+
         /// <summary>While the map is open the phase pill, the journal launcher, the edge threats and the world marks are veiled (the chrome stays).</summary>
         void RefreshAroundTheMap()
         {

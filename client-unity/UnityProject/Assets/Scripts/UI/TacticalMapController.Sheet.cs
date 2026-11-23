@@ -28,8 +28,16 @@ namespace Roguehalla.Client
         void BuildPhaseLabel(UiTheme theme)
         {
             _phaseLabel = HudUi.Label(_titleRect, "MapPhase", "", 13f, theme.TextPrimary, TextAlignmentOptions.Center);
-            // Both lines keep their size: the room rule measures their real widths, and a shrunk label would pass it falsely.
-            FixSize(_phaseLabel, 13f); FixSize(_hint, 11f);
+            // Both lines follow the text-size setting but are never shrunk to their box: the room rule measures their real widths.
+            FollowSettingUnshrunk(_phaseLabel); FollowSettingUnshrunk(_hint);
+        }
+
+        void FollowSettingUnshrunk(TMP_Text label)
+        {
+            var scale = label.GetComponent<MythicTextScale>();
+            if (scale == null) return;
+            scale.FitBox = false;
+            scale.Apply(TextScale());
         }
 
         /// <summary>The HUD's phase line for the map header (null or empty shows nothing); written only when it changes.</summary>

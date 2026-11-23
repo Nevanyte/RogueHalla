@@ -187,13 +187,13 @@ namespace Roguehalla.Client
             _metrics.text = metrics; _metrics.color = tone;
             if (_metricsPill != null) _metricsPill.gameObject.SetActive(metrics.Length > 0);
             bool runOver = _session != null && _session.State == SessionState.Ended && _matchEnded;
-            if (_session == null || _session.State != SessionState.InMatch && !runOver) { _phaseStrip.text = ""; return; }
+            if (_session == null || _session.State != SessionState.InMatch && !runOver) { ClearPhaseLine(); return; }
             if (_client != null && _client.LaunchPending) { ApplyPhaseLine("VERIFYING DESTINATION", Roguehalla.Net.Ui.Indicators.ArenaLineTone.Normal); return; }
             if (_client != null && _client.ConfirmedPractice) { ApplyPhaseLine("PRACTICE · NO RUN REWARDS", Roguehalla.Net.Ui.Indicators.ArenaLineTone.Normal); return; }
             // Legacy top-centre strip (hud.ts statusLine / updateArena), produced by the library. the room minimum comes from ArenaView.MinPlayers; 0 (not delivered) drops "/min".
             MatchPhase phase = runOver ? MatchPhase.Ended : _session.Collections.Plan != null ? MatchPhase.Planning : (_session.Phase ?? MatchPhase.Lobby);
             var text = Roguehalla.Net.Ui.Indicators.PhaseLine(phase, _session.ServerTimeMs, _session.Collections.Arena, _session.Collections.Roster.Count, runOver ? WinnerLabel() : null, out var lineTone);
-            if (text == null) { _phaseStrip.text = ""; return; }
+            if (text == null) { ClearPhaseLine(); return; }
             ApplyPhaseLine(text, lineTone);
         }
         void ToggleBuild()
