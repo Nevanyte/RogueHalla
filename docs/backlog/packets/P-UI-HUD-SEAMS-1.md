@@ -67,6 +67,7 @@ Read at the base. They reach moved members by reflection (names must not change)
 
 ## Oracle files (read-only for implementers)
 - `client-unity/UnityProject/Tools/hud-seams.test.cjs`
+- `docs/backlog/packets/P-UI-HUD-SEAMS-1.md` (the packet itself)
 
 ## 9. Validation commands
 - `.agent-runs/lane-ui-rework/bin/in.sh <worktree> node --test client-unity/UnityProject/Tools/hud-seams.test.cjs`
@@ -89,6 +90,12 @@ Low behaviour risk, moderate mechanical risk (a member left behind or declared t
 - No stub commit: the oracle reads source text, so it needs no signature to compile.
 - The decls in checks 2 and 3 match the real declarations (regexes in the test file). `RowSlot`, `Rect2`, `WeaponBarWidth` and the fields `_worldHudVisible`, `_worldHudFocus`, `_boundNoticeEvents`, `_orderedNotices` are added to the spec's table because only the moved code uses them; the oracle pins them too.
 - Red/green record: see "Oracle result" below.
+- Each member regex was checked against the base declarations by reading the four old files (the line numbers in section 3 were re-verified at the base).
+- The oracle strips `//` comments before matching, so prose and doc comments never satisfy or break a check. The "two files" check (check 4) expects at least 21 `MatchHud*.cs` files (16 at the base plus the five new ones).
+- Ordering is pinned for the extracted notice methods: `CreateNoticeFeed();` sits after `_traderDialog.Initialize` and before `AddPlayerFlowTabs(_questJournal.Root)`; `TickNotices();` replaces the `SetRecentVisible` line inside `TickPlayerFlows`.
+
+## Oracle result
+`node --test client-unity/UnityProject/Tools/hud-seams.test.cjs` on the base plus this commit: 18 tests, 0 pass, 18 fail. Each fails on an assertion: for the five files, "`MatchHud.<X>.cs` must exist under Assets/Scripts/UI" (file-exists assertion); the PlayerFlows, duplicate-name and shrink tests fail on the same existence assertion first, and would then fail on `CreateNoticeFeed()`/`TickNotices()` not being called, on duplicates left behind, and on `MatchHud.Legacy.cs` (647 lines, limit 420) / `MatchHud.cs` (647, limit 600). No stub is needed: the oracle reads text only. Existing Unity classes are untouched by this commit (only a new `.cjs` and this packet change).
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
