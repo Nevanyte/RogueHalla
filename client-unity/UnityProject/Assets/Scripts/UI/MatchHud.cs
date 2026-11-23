@@ -318,11 +318,11 @@ namespace Roguehalla.Client
             RefreshDamageReadout(me);
             // The healing and wind seconds count down with the clock: re-run the (cached) texts every frame.
             if (_session != null) ApplyInventoryHints(_session.Collections.Inventory, serverTimeMs);
+            _lastFaction = me.Faction;
             if (me.Hp != _lastHp || me.MaxHp != _lastMaxHp || me.Kills != _lastKills || me.Gv != _lastGv || me.Status != _lastStatus || me.Barrier != _lastBarrier || me.BarrierRingStep != _lastBarrierRing)
             {
-                Set(_vitals, ShowcasePalette.GetFactionName((int)me.Faction) + " · HP " + me.Hp.ToString("0.#") + " / " + me.MaxHp.ToString("0.#") + " · Barrier " + me.Barrier.ToString("0.#"));
-                Set(_combatStats, "Kills " + me.Kills + " · GV " + me.Gv + " · " + PlayerWords.Word(me.Status));
                 _lastHp = me.Hp; _lastMaxHp = me.MaxHp; _lastKills = me.Kills; _lastGv = me.Gv; _lastStatus = me.Status; _lastBarrier = me.Barrier; _lastBarrierRing = me.BarrierRingStep;
+                NoteOwnerTextsChanged(_vitals != null && _vitals.gameObject.activeSelf, _combatStats != null && _combatStats.gameObject.activeSelf);
             }
             DeliverOwnerVitals(me);
             bool wishChanged = _lastWish.HasValue != me.Wish.HasValue;
@@ -347,7 +347,7 @@ namespace Roguehalla.Client
         internal void ClearOwnerPresentation(string reason)
         {
             _wishKeyValid = false;
-            _lastHp = float.NaN; _lastBarrier = 0f; _lastBarrierRing = 0; _lastWish = null; _lastServerTime = double.NaN;
+            _lastHp = float.NaN; ResetOwnerTexts(); _lastBarrier = 0f; _lastBarrierRing = 0; _lastWish = null; _lastServerTime = double.NaN;
             Set(_vitals, reason == "Unavailable" ? "Waiting / spectating" : "Waiting for player state");
             Set(_combatStats, "Awaiting player stats");
             Set(_wishCard, "R · WISH\n" + reason);
@@ -440,8 +440,7 @@ namespace Roguehalla.Client
                 }
                 if (_pickupHint != null) _pickupHint.Text = view.Focus.HasValue ? "F · Pick up " + what : "F · Pick up\nNo pickup in range";
             }
-            bool buildChanged = !_buildShown || _hasBuildShown != view.HasBuild || !ReferenceEquals(_summaryShown, view.Summary);
-            _summaryShown = view.Summary;
+            bool buildChanged = !_buildShown || _hasBuildShown != view.HasBuild || BuildSummaryKeyMoved(view.Summary);
             if (_cardsShown.Length != view.Cards.Count)
             {
                 _cardsShown = new byte[view.Cards.Count];
@@ -461,7 +460,6 @@ namespace Roguehalla.Client
             if (_buildHint != null) _buildHint.Text = "B · Full build details\n" + text;
             RefreshCardsRow(view);
         }
-        object _summaryShown;
         void RefreshRewards()
         {
             var chests = _session.Collections.RewardChests;
