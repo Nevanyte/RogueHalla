@@ -15,6 +15,12 @@ namespace Roguehalla.Client
         Action<ServerMsg.Events> _boundNoticeEvents;
         OrderedNoticeFeed _orderedNotices;
 
+        /// <summary>Test seam: seconds the toast lanes advance per tick instead of the unscaled frame time. Null in play.</summary>
+        public static float? NoticeDtOverride;
+
+        /// <summary>Sets (or, for null or empty, clears) the sticky feedback toast line.</summary>
+        public void SetStickyNotice(string text) { }
+
         void RotateNoticeEvents()
         {
             var session = _session;
