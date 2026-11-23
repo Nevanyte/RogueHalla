@@ -34,3 +34,24 @@ so later minutes have few samples or none.
   `elite`/`mob`/`player`/`hazard`.
 - Observations are not sampled on the step that ends the match. The observer reads `&Sim`, events and observations only.
 - Share reaching the coliseum and encounters while questing are not measured.
+
+## Evaluating a report
+
+`balance_eval` turns a lab report into verdicts with the value model:
+
+```
+cargo run --release -p rh-headless --bin balance_eval -- --report <report.json> --inputs tools/balance-lab/inputs.json
+```
+
+The JSON result goes to stdout and a table to
+stderr. Every model number comes from the report or from `inputs.json`; the evaluator has no defaults for them. Required in
+the inputs: `band`, `premium`, `stacks_per_camp`, `coliseum_start_minute`, `difficulty_targets`, `failure`,
+`elite_assumptions`; a missing one is an error naming it. A reward descriptor needs `kind` and, for `permanent_buff`,
+`direct_stacks`, `damage_fraction` and `move_fraction`. A quest with no descriptor is "not measured".
+
+- **not measured**: the report lacks what the quantity needs, or the price is not above 0 or the value is not finite. The
+  field is absent (never a 0, never a ratio beside a blank) and `not_measured` gives the reason.
+- **assumed**: a number taken from `inputs.json` as design intent (the elite's cost, reward descriptors, difficulty
+  classes), not measured by the lab.
+
+Rime Hunt's class is `medium` in the workbook's `Time_Limits` sheet and `hard` in `Top_25`; the shipped inputs use medium.

@@ -21,7 +21,7 @@
     "let_him_cook": { "difficulty": "hard" },
     "lost_brother": { "difficulty": "medium" },
     "pilgrims_path": { "difficulty": "medium" },
-    "rime_hunt": { "difficulty": "medium" },
+    "rime_hunt": { "difficulty": "medium", "_note": "workbook Time_Limits says medium, Top_25 says hard; medium is used" },
     "smugglers_run": { "difficulty": "hard" },
     "trade_up": { "difficulty": "medium" },
     "tuber_eats": { "difficulty": "medium" },
