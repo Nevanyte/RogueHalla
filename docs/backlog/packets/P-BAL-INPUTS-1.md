@@ -279,4 +279,13 @@ exists: the reviewer reads them).
 - Any comparison of the lab's measured native growth with the design growth (decision 3).
 - The Bargain's ratio is gross of its upfront cost (difference 4).
 
+## Coordinator's answers (2026-11-23)
+
+The defaults stand. 1: the 14 augments carry the design stacks (`growth: "none"`), because the model has no factor
+from a card's own unit to stacks; the comparison with measured growth is P-BAL-EVAL-2's. 2: The Bargain is entered as
+is and its ratio is read as gross of the 20-stack cost until P-BAL-EVAL-2 gives the shape an upfront-cost field. 3: a
+reusable spell's farming dividend stays in this brief's table; P-BAL-EVAL-2 and P-BAL-LAB-2 carry it. Rime Hunt's
+class stays `medium` (the `Time_Limits` sheet is the timer's own). The sibling P-BAL-EVAL-1-fix does not edit
+`inputs.json`: this packet is the only writer of that file in this round.
+
 ## Notes from previous attempts
