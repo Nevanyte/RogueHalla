@@ -40,6 +40,11 @@ namespace Roguehalla.Client
         bool _promptCaptionKey;
         bool _offerPrompt, _offerPromptLive;
         public QuestOfferCard OfferCard { get { return _offerCard; } }
+        readonly QuestAcceptLatch _acceptLatch = new QuestAcceptLatch();
+        public QuestAcceptLatch AcceptLatch { get { return _acceptLatch; } }
+        /// <summary>Null in play; a test sets it to drive the frame's offer tick.</summary>
+        public static float? OfferFrameDeltaOverride;
+        public void TickOffer(float dt) { if (_offerCard != null) _offerCard.Tick(dt); }
         public bool OfferOpen { get { return _offerCard != null && _offerCard.IsOpen; } }
 
         /// <summary>The HUD's answer to F when there is nothing to pick up: closes an open offer card, else opens the offer in reach.</summary>
@@ -64,7 +69,7 @@ namespace Roguehalla.Client
             fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.pivot = new Vector2(.5f, .5f);
             fill.offsetMin = fill.offsetMax = Vector2.zero;
             _questActionCaption = HudUi.Label(fill, "Label", "", 11f, UiTheme.Current.TextPrimary, TextAlignmentOptions.Center);
-            _offerCard = new QuestOfferCard(_hud, () => AcceptOffer(), CloseOffer);
+            _offerCard = new QuestOfferCard(_hud, _acceptLatch, () => AcceptOffer(), CloseOffer);
 
             _questChoiceOverlay = MythicUi.Panel(_root, "QuestRewardChoiceOverlay", Vector2.zero, Vector2.one, new Color(0, 0, 0, .68f));
             var card = MythicUi.Panel(_questChoiceOverlay, "QuestRewardChoice", new Vector2(.28f, .23f), new Vector2(.72f, .77f));

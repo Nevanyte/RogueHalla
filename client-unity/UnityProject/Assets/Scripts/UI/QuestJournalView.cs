@@ -45,6 +45,7 @@ namespace Roguehalla.Client
         QuestHandle _acceptBoundHandle;
         bool _acceptBindingValid;
         bool _initialized;
+        QuestAcceptLatch _latch = new QuestAcceptLatch();
         QuestRowView _statusRow; bool _statusPending, _statusReward; int _statusSeconds; string _statusText = "";
         QuestRowView _hintRow; bool _hintFar; string _hintText = "";
         QuestHandle? _markedSelected; bool _rowsNeedMark = true;
@@ -66,11 +67,12 @@ namespace Roguehalla.Client
         public bool IsVisible => _root != null && _root.gameObject.activeSelf;
         public QuestHandle? TrackedQuest => _tracked;
 
-        public void Initialize(Transform canvasRoot, Action onClose = null, Action<QuestHandle?> onTracked = null)
+        public void Initialize(Transform canvasRoot, Action onClose = null, Action<QuestHandle?> onTracked = null, QuestAcceptLatch latch = null)
         {
             if (_initialized) throw new InvalidOperationException("QuestJournalView is already initialized.");
             if (canvasRoot == null) throw new ArgumentNullException(nameof(canvasRoot));
             _initialized = true; _onClose = onClose; _onTracked = onTracked;
+            if (latch != null) _latch = latch;
             _root = MythicUi.Panel(canvasRoot, "QuestJournal", new Vector2(.12f, .12f), new Vector2(.88f, .915f), ShowcasePalette.Panel);
             _card = _root;
             MythicUi.Text(_card, "JournalTitle", "QUEST JOURNAL", new Vector2(.035f, .925f), new Vector2(.66f, .995f), 27, ShowcasePalette.Gold, heading: true);

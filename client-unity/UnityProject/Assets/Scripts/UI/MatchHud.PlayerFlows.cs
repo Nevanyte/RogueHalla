@@ -31,7 +31,7 @@ namespace Roguehalla.Client
         void InitializePlayerFlows()
         {
             _questJournal = gameObject.AddComponent<QuestJournalView>();
-            _questJournal.Initialize(_root, ClosePlayerFlows, handle => _map?.SetTrackedQuest(handle));
+            _questJournal.Initialize(_root, ClosePlayerFlows, handle => _map?.SetTrackedQuest(handle), _acceptLatch);
             _traderDialog = gameObject.AddComponent<TraderDialogView>();
             _traderDialog.Initialize(_root, ClosePlayerFlows);
             CreateNoticeFeed();

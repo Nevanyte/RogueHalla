@@ -18,6 +18,7 @@ namespace Roguehalla.Client
         readonly RectTransform _root, _footer;
         readonly HudFade _fade;
         readonly System.Action _onAccept, _onClose;
+        readonly QuestAcceptLatch _latch;
         readonly RectTransform[] _boxes = new RectTransform[6];
         readonly TMP_Text[] _labels = new TMP_Text[6];
         readonly float[] _sizes = new float[6];
@@ -35,8 +36,9 @@ namespace Roguehalla.Client
         bool _captionInteractable;
         HudRegion _placed;
 
-        public QuestOfferCard(Transform parent, System.Action onAccept, System.Action onClose)
+        public QuestOfferCard(Transform parent, QuestAcceptLatch latch, System.Action onAccept, System.Action onClose)
         {
+            _latch = latch;
             _onAccept = onAccept; _onClose = onClose;
             var theme = UiTheme.Current;
             _root = HudUi.Box(parent, "QuestOffer", HudAnchor.TopLeft, HudRegions.Margin, 0f, HudRegions.OfferWidth, HudRegions.OfferMinHeight);
