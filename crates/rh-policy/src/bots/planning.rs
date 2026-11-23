@@ -178,6 +178,7 @@ fn scaled(spec: &DuelSpec, k: f64) -> DuelSpec {
 ///
 /// The elite numbers come from the sim's elite seam (`EliteTuning`, P-AUG-RULES-1) under the room's `rule`
 /// (`MatchStart::elites`, carried by `Knowledge`, P-AUG-BOTS-1); the context-free callers read the legacy rule.
+#[cfg(test)]
 fn mob_faction(region: FactionId, elite: bool, rule: rh_sim::EliteRule) -> DuelSpec {
     mob_faction_under(
         region,
