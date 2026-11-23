@@ -45,6 +45,7 @@ namespace Roguehalla.Client
             public OverheadIndicators Ind; // overhead cluster and body marks (OverheadIndicators.cs)
             public OverheadIndicators.Facts IndFacts;
             public MobLook Look; // what a creature looked like when last presented (MobContinuity)
+            public int LayoutKey; // serial of this art for the name layout (kept by a renewed handle; fresh for a reused pooled art)
         }
     }
 }
