@@ -60,7 +60,7 @@ has `offered`, `picked`, `held_by_winner`. Nothing says which chest a pick came 
 whether the picker was the killer. `reward_chests::Chest` is `pub(crate)` (`crates/rh-sim/src/reward_chests/mod.rs:40-60`):
 the lab cannot read a chest's camp or first-pick holder from `&Sim`, only the `RewardChestView` (handle, `at`,
 `expires_at`, options with `taken_by`, `first_pick` as "mine" only) and `Event::ChestTaken { chest, by, pick }`
-(`events.rs:67`). An elite camp's chest is dropped by `on_mount_killed` (`mod.rs:215-272`) when the elite dies: at the
+(`events.rs:67`). An elite camp's chest is dropped by `on_mob_killed` (`mod.rs:215-272`) when the elite dies: at the
 camp's chest spot (not the elite's body) for a camp elite, at the body for a campless one; a Trophy (`drop_trophy`,
 `:185`) has only `Kill` options and an owner; any other chest is ground loot. **The first-pick holder is the credited
 killer (the player with most damage on the camp, `:254-266`), which can differ from the `Death.by` killing blow the lab
@@ -129,8 +129,7 @@ at this length. It is pinned by the scripted cases; the real run pins what it ca
    `chest_none`. A kill whose chest never went by the last step is `chest_open`. `killed = chest_killer + chest_other +
    chest_none + chest_open`. `chest_bystander_picks` counts picks by seats other than the killer from the kills' chests
    (including chests the killer also picked from), counted at `ChestGone`. A kill with no chest at all (the sim dropped
-   none) is `chest_none` once the observer is sure none appeared: say in the code how long it waits (suggest the
-   elite chest's life; `expires_at` of the view when seen, otherwise `KILL_AUG`-free: 30 s after the kill).
+   none) is `chest_none` once the observer is sure none appeared: say in the code how long it waits (suggest the chest's own `expires_at` when it was seen, otherwise 30 s after the kill).
 9. **Reward chest kinds.** `rewards.picks_by_chest_kind: {"elite": n, "trophy": n, "ground": n}` (a `BTreeMap`; a key is
    absent when 0), the picks the observer already counts, by the chest they came from; the sum of its values equals the
    sum of `picks_by_kind`. A chest with any `kill` option is `trophy`; an elite's chest as in decision 8 is `elite`; the
