@@ -193,18 +193,22 @@ fn a_verdict_can_differ_between_the_two_rates() {
     );
 }
 
-/// `upfront_stacks` takes `upfront / stacks_per_camp` off the value, at both rates, and nothing off the price.
-/// 20 / 12 = 1.6667 CE. Default 0. A negative number is refused, naming the field.
+/// `upfront_stacks` is part of the PRICE: stacks paid at the trade are given up like time. It adds
+/// `upfront / stacks_per_camp` = 20 / 12 = 1.6667 CE as a certain cost: no premium, no retry term, and the same amount at
+/// the reference rate (it does not scale with the farm rate). The value stays gross. Default 0. A negative number is
+/// refused, naming the field. The quest here fails half its attempts, so a premium or retry factor on the cost would show.
 #[test]
-fn upfront_stacks_lower_the_value_by_stacks_over_stacks_per_camp() {
+fn upfront_stacks_add_stacks_over_stacks_per_camp_to_the_price() {
     let with_upfront = |u: Option<f64>| {
         let mut b = buff(24., 0.05);
         if let Some(u) = u {
             b["upfront_stacks"] = json!(u);
         }
         let q = json!({ "bargain": { "reward": b } });
+        let tries = json!({ "quest": "bargain", "attempts": 10, "completed": 5,
+            "complete_secs": { "sum": 25., "n": 5, "samples": vec![5.; 5] } });
         eval(
-            &report(62, json!([done("bargain", 5.)])),
+            &report(62, json!([tries])),
             &inputs_with(reference(), q, json!({})),
         )
     };
@@ -216,15 +220,26 @@ fn upfront_stacks_lower_the_value_by_stacks_over_stacks_per_camp() {
         quest(&zero, "bargain"),
         quest(&cost, "bargain"),
     );
-    near(z.value, b.value.unwrap(), "an upfront of 0 is the default");
-    near(c.value, b.value.unwrap() - 20. / 12., "value less 20 / 12");
+    let up = 20. / 12.;
+    near(z.price, b.price.unwrap(), "an upfront of 0 is the default");
+    near(c.price, b.price.unwrap() + up, "price plus 20 / 12");
     near(
-        c.value_at_reference,
-        b.value_at_reference.expect("value at reference") - 20. / 12.,
-        "the same stacks at the reference rate",
+        c.price_at_reference,
+        b.price_at_reference.expect("price at reference") + up,
+        "the same 20 / 12 at the reference rate: it does not scale with the farm rate",
     );
-    assert_eq!(c.price, b.price, "the cost is on the value side only");
-    assert!(c.ratio.unwrap() < b.ratio.unwrap());
+    assert_eq!(c.value, b.value, "the value stays gross");
+    assert_eq!(c.value_at_reference, b.value_at_reference);
+    near(
+        c.ratio,
+        b.value.unwrap() / (b.price.unwrap() + up),
+        "ratio = gross value over price plus the cost",
+    );
+    near(
+        c.ratio_at_reference,
+        b.value_at_reference.unwrap() / (b.price_at_reference.unwrap() + up),
+        "ratio at the reference rate",
+    );
 
     let bad = {
         let mut b = buff(24., 0.05);
@@ -509,8 +524,9 @@ fn shipped() -> String {
 /// The shipped inputs carry the reference rate (2.9, with its source) and 20 upfront stacks on `the_bargain`; on the dry run
 /// (c_eff 0.618) the four permanent quests that had a verdict print both rates in the JSON and the table.
 /// Dry-run values before this packet: even_skeletons 7.99, tuber_eats 7.39, let_him_cook 1.37, the_bargain 109.4.
-/// `the_bargain` after the cost: value 2.230 - 20/12 = 0.563 over a price of 0.0204, about 27.6; at 2.9 about 14.7. Still
-/// AboveBand: its 1.7 s completion time makes the price meaningless (a remaining gap named in the packet).
+/// `the_bargain` is priced as a trade: gross value 2.2295 over (time price 0.0204 + 20/12) = 1.3215, AboveBand (band to
+/// 1.25); at 2.9 gross value 3.0769 over (0.0956 + 1.6667) = 1.746, AboveBand. A fix that took the 20 stacks off the value
+/// instead would read about 27.6 and 14.7, and fails the brackets below.
 #[test]
 fn the_shipped_inputs_print_both_rates_on_the_dry_run() {
     let text = shipped();
@@ -564,9 +580,11 @@ fn the_shipped_inputs_print_both_rates_on_the_dry_run() {
             at_ref < ratio,
             "{id}: the reference rate is higher, so the ratio falls: {ratio} -> {at_ref}"
         );
+        // The Bargain's upfront cost (20 / 12) is a certain cost that does not scale with the farm rate.
+        let up = if id == "the_bargain" { 20. / 12. } else { 0. };
         near(
             q.price_at_reference,
-            q.price.unwrap() * 2.9 / c,
+            (q.price.unwrap() - up) * 2.9 / c + up,
             &format!("{id}: price at 2.9"),
         );
         let row = table
@@ -585,14 +603,22 @@ fn the_shipped_inputs_print_both_rates_on_the_dry_run() {
         "no dividend: the ratio falls by exactly c / 2.9",
     );
     let b = quest(&e, "the_bargain");
+    let (v, vr) = (b.value.unwrap(), b.value_at_reference.unwrap());
+    assert!(
+        (v - 2.2295).abs() < 0.01,
+        "the_bargain value stays gross: {v}"
+    );
+    assert!((vr - 3.0769).abs() < 0.01, "gross value at 2.9: {vr}");
     let r = b.ratio.unwrap();
     assert!(
-        r > 20. && r < 35.,
-        "the_bargain net of its cost, about 27.6 (was 109.4): {r}"
+        (1.25..1.40).contains(&r),
+        "the_bargain priced as a trade, about 1.32 (was 109.4; 27.6 would be the value-side reading): {r}"
     );
+    assert_eq!(b.verdict, Some(Verdict::AboveBand));
     let rr = b.ratio_at_reference.unwrap();
     assert!(
-        rr > 10. && rr < 20.,
-        "the_bargain at the reference rate, about 14.7: {rr}"
+        (1.65..1.85).contains(&rr),
+        "the_bargain at the reference rate, about 1.75 (14.7 would be the value-side reading): {rr}"
     );
+    assert_eq!(b.verdict_at_reference, Some(Verdict::AboveBand));
 }
