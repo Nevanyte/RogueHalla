@@ -82,7 +82,7 @@ This test is green on the base and stays green on the stub and after the fix: it
 ## Oracle files (read-only for implementers)
 - `client-unity/UnityProject/Assets/Tests/Editor/MinimapReturnEditModeTests.cs`
 - `client-unity/UnityProject/Assets/Tests/Editor/MinimapReturnEditModeTests.cs.meta`
-- `client-unity/UnityProject/Assets/Tests/Editor/PlayerFlowsEditModeTests.cs` (the amendment only)
+- `client-unity/UnityProject/Assets/Tests/Editor/PlayerFlowsEditModeTests.cs` (the amendment only, in its own `oracle-amend:` commit)
 - `docs/backlog/packets/P-UI-TABMAP-FLOW-1-fix.md`
 
 ## 9. Validation commands
@@ -123,10 +123,10 @@ The rig copies `TabMapFlowEditModeTests` (its `RecordingTransport`, `SetUp`, `Te
 - **Scratch run done** (one per class, a catch-and-collect wrapper around every assertion, not committed): every collected entry was an assertion about the missing behaviour (the lines above, plus the later `c0 + 2` lines of `AHiddenMinimapIsStillNotPresented`, which are off by one on the base and follow from the `c0 + 1` line); no other exception, so every later line runs.
 - **Deviations from the spec's test text:**
   - Case 5: the spec says `MinimapPresentCount` stays 0. The `SetUp` frames have painted the minimap already, so the test reads the count first (`c0`) and asserts it is unchanged by the three calls.
-  - Case 2: the spec says the contact count is 0 on the base. It is 0 only because the contact arrives while the minimap is hidden (the test was first run with a stale contact; see next note); with the fixture reset it is 0 and the test is red on the contact count and the present count.
+  - Case 2: as the spec says, the contact count is 0 on the base (the contact arrives while the minimap is hidden); the test is red on that line and on the present-count line.
   - The fixture instance is shared by NUnit between tests, so `SetUp` resets `_actors`, `_tick` and `_now` (the copied `TabMapFlowEditModeTests` does not, and a contact set by one test would leak into the next).
 - **Big-map edge read (spec item 3)**: repeated on the base, no gap (see section 1, item 3).
-- The amended expectation of `PlayerFlowsEditModeTests` is in its own `oracle-amend:` commit (above); it is green on the stub and after the fix.
+- Amendment (spec item 4): the replacing state delivered before it drops the tracked quest, so the amended test calls `SetTrackedQuest(handle)` again before opening the big map (otherwise the big map's objective cue count is 0, not 1). Otherwise as the spec. It is in its own `oracle-amend:` commit (above); it is green on the base (run: PlayerFlows 18/18, TabMapFlow and TacticalMap classes green: 39 of the 40 in the three classes before the amendment's fix-up, then 18/18 for PlayerFlows) and stays green after the fix.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
