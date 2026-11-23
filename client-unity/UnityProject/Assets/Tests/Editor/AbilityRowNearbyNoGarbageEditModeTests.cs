@@ -13,7 +13,7 @@ namespace Roguehalla.Client.Tests
 {
     /// <summary>
     /// P-UI-ABILITY-ROW-1-fix: one call of MatchHud.RefreshQuestRewardHud allocates nothing in the states the first allocation tests of the
-    /// ability row never built: nearby quest actions (the caption is cached by its count), a pending reward choice with the overlay open, sent
+    /// ability row never built: nearby quest actions (the caption is built when the actions are bound), a pending reward choice with the overlay open, sent
     /// and awaited, and deferred by LATER (no boxed nullable compare), a nearby action beside the pickup pill, a cooling spell, and a board
     /// row alone. A whole MatchHud on a real MatchClient over a fake transport, as AbilityRowEditModeTests builds it. Every snapshot carries
     /// server time 1000, so no spell key moves between the measured calls. Nothing here reads a clock.
@@ -183,7 +183,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(Launcher.gameObject.activeInHierarchy, Is.True, "set-up: the launcher shows");
             Assert.That(Launcher.GetComponent<Button>().interactable, Is.True, "set-up: and can be pressed");
             Assert.That((int)GetF(_hud, "_nearbyQuestCount"), Is.EqualTo(1), "set-up: one nearby action");
-            Assert.That(LauncherCaption(), Is.EqualTo("Nearby quest actions · 1"), "set-up: the caption");
+            Assert.That(LauncherCaption(), Is.EqualTo("Pick up WallBuster"), "set-up: the caption");
             Assert.That(_session.ServerTimeMs, Is.EqualTo(1000d), "set-up: the server time is the delivered one");
             var refresh = Refresh();
             AllocationMeter.AssertNone(refresh, 200, "200 refresh frames with a nearby quest action");
