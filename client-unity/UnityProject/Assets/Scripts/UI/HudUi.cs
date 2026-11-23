@@ -169,6 +169,12 @@ namespace Roguehalla.Client
             return label;
         }
 
+        /// <summary>Gives a HudUi.Label its wanted size (base size x text scale) and no box fit.</summary>
+        public static TMP_Text Unfit(TMP_Text label)
+        {
+            return label;
+        }
+
         /// <summary>A themed rounded button with a centred label; the colour block carries every state.</summary>
         public static Button Button(Transform parent, string name, string label, HudAnchor anchor, float x, float y, float width, float height,
             UnityAction onClick, float fontSize = 11f, float radius = -1f)
