@@ -17,7 +17,6 @@ use super::*;
 use crate::bots::paths::{PathBudget, RoomPathService};
 use crate::bots::perception::LootFacts;
 use crate::bots::planning::PlanMap;
-use crate::bots::raid::exec::combat::may_fight_from;
 use crate::bots::raid::exec::farm::{Farm, MELEE_LOCK_U};
 use crate::bots::raid::percept::{Me, RaidPercept};
 use crate::bots::random::Rng;
@@ -485,70 +484,10 @@ fn a_melee_seats_approach_is_unchanged() {
     assert!(!has_lock(&step), "a lock from 200 u with a sword: {step:?}");
 }
 
-/// Guard (the helper over several maps): at every resting spot that the sim's own leash accepts the helper allows the
-/// fight, and nowhere does it allow a place the sim's leash refuses: for a point `p` it says yes to, `leash_ok` holds
-/// for the camp's elite spot (an elite target) or for some spot (a normal target). A later change of the sim's leash
-/// numbers breaks this test, not the bot silently. RED on the stub (it says yes everywhere).
-///
-/// Coordinator's oracle-amend (2026-11-23): the first half used to demand a yes at EVERY resting spot. On small camps
-/// the spot itself fails `leash_ok` with the 24 u margin (a point 24 u off along an axis leaves the camp's territory:
-/// seed 1 camp 50, seed 7 camps 50 and 51), so that demand contradicted the second half. It now holds for the spots
-/// the sim accepts, and each seed must have some.
-#[test]
-fn the_helpers_reach_never_exceeds_the_sims_leash() {
-    for seed in [1u64, 2, 3, 7] {
-        let arena = lab_arena(seed);
-        let paths = RoomPathService::new(&arena.map, PathBudget::default());
-        let data = arena.map.layers().expect("layers").data();
-        let margin = rh_sim::constants::MOB_LEASH_MARGIN;
-        let mut denied = 0u32;
-        let mut spots_in_band = 0u32;
-        for (ci, c) in data.camps.iter().enumerate() {
-            let camp = ci as u32;
-            if c.spots.is_empty() {
-                continue;
-            }
-            let elite = c.elite_spot >= 0;
-            let homes: Vec<Vec2> = if elite {
-                vec![spot(&arena, camp, c.elite_spot as usize)]
-            } else {
-                (0..c.spots.len()).map(|i| spot(&arena, camp, i)).collect()
-            };
-            for h in &homes {
-                if !leash_ok(data, camp, *h, *h, margin) {
-                    continue;
-                }
-                spots_in_band += 1;
-                assert!(
-                    may_fight_from(&paths, camp, elite, *h),
-                    "seed {seed} camp {camp}: the helper refuses a resting spot the sim's leash accepts {h:?}"
-                );
-            }
-            for gx in -16i32..=16 {
-                for gy in -16i32..=16 {
-                    let p = Vec2::new(
-                        homes[0].x + f64::from(gx) * 64.,
-                        homes[0].y + f64::from(gy) * 64.,
-                    );
-                    if may_fight_from(&paths, camp, elite, p) {
-                        let sim_ok = homes.iter().any(|h| leash_ok(data, camp, *h, p, margin));
-                        assert!(
-                            sim_ok,
-                            "seed {seed} camp {camp} elite={elite}: the helper allows {p:?}, the sim's leash does not"
-                        );
-                    } else {
-                        denied += 1;
-                    }
-                }
-            }
-        }
-        assert!(denied > 0, "seed {seed}: the helper never refused anything");
-        assert!(
-            spots_in_band > 0,
-            "seed {seed}: no resting spot lies inside its own band"
-        );
-    }
-}
+// Removed by the coordinator's oracle-amend (2026-11-23, P-RAID-REACH-1-fix): `the_helpers_reach_never_exceeds_the_sims_leash`
+// bounded the helper by the leash at the 24 u margin, which is the sim's rule for a mob's retreat and spacing steps, not
+// for a chasing mob (it gives up when its OWN position fails the leash at margin 0). The corrected bound, both halves,
+// is `the_helper_says_yes_exactly_where_a_mob_inside_its_leash_can_reach` in `elite_reach_fix_tests.rs`.
 
 // ---- Part 2: the fight record names its camp; a lock counts only on this camp's mob ----------------------------------
 
