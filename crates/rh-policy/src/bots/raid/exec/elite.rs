@@ -5,12 +5,14 @@
 //! Three parts:
 //! - **The candidate** (`propose`): each elite camp whose elite this seat can show alive (the camp untouched since its
 //!   respawn, or the elite seen alive; `Watch`), priced by the elite bench's death table (`death_prior`) for the kind,
-//!   the stacks banked, the weapon in hand and the hp held with potions counted, scaled by the share of the elite's hp
-//!   still standing. The death term rises as hp falls, so the arbiter hands the seat away from a fight being lost: there
-//!   is no leave rule of this file's own.
-//! - **The fight and the chest** (`act`): the elite first (an add only while the elite is not in sight), committed while
-//!   the camp is on the bot; once the elite is gone, the camp's chest, stood at until the card is picked, the chest is
-//!   gone or `chest_wait_seconds` pass. Every stand is bounded by an `ElitePrices` field and ends in a ban or `Done`.
+//!   the stacks banked, the weapon in hand and the hp held with potions counted, set against the share of the elite's
+//!   hp still standing, and raised to what the fight's own exchange says once it has one (`by_rate`). The death term
+//!   rises as hp falls, so the arbiter hands the seat away from a fight being lost: there is no leave rule of this
+//!   file's own (a fight handed away bans the camp for `ban_seconds`). Success is also the kind's measured clear share.
+//! - **The fight and the chest** (`act`): the camp's adds first (nearest, the one fought kept), then the elite,
+//!   committed while the camp is on the bot; once the elite is gone, the camp's chest, stood at until the card is
+//!   picked, the chest is gone or `chest_wait_seconds` pass. Every stand is bounded by an `ElitePrices` field (the walk
+//!   and the fight by `give_up_seconds`, an empty camp by `empty_seconds`) and ends in a ban or `Done`.
 //! - **The priced pick** (`ride_along`, every goal): the card the price table ranks highest (`best_card`), sent after the
 //!   chest module's own pick so it replaces it on the menu channel; with Loot's ask discipline (`ASK_WINDOW_MS`,
 //!   `MAX_ASKS`).
@@ -50,7 +52,7 @@ struct Tally {
     lost: f64,
     dealt: f64,
     hp: f64,
-    elite: Option<f64>,
+    left: Option<f64>,
 }
 
 /// One priced ask at a chest (Loot's discipline: another card only, at most `MAX_ASKS`, inside `ASK_WINDOW_MS`).
@@ -210,13 +212,13 @@ impl Elite {
         self.held = held;
     }
 
-    /// Add this frame to the held fight's tally: hp lost and elite hp destroyed since the last frame.
+    /// Add this frame to the held fight's tally: hp lost and camp hp destroyed (elites' worth) since the last frame.
     fn track(&mut self, cx: &Cx<'_>) {
         let hp = cx.p.me.hp_share();
         let Some(index) = self.held.filter(|_| self.fight_since.is_some()) else {
             for t in &mut self.tallies {
                 t.hp = hp;
-                t.elite = None;
+                t.left = None;
             }
             return;
         };
@@ -226,7 +228,7 @@ impl Elite {
         let Some(kind) = camp.elite else {
             return;
         };
-        let elite = self.fight_left(cx, camp, kind, true);
+        let left = self.fight_left(cx, camp, kind, true);
         let i = match self.tallies.iter().position(|t| t.camp == index) {
             Some(i) => i,
             None => {
@@ -235,19 +237,19 @@ impl Elite {
                     lost: 0.,
                     dealt: 0.,
                     hp,
-                    elite,
+                    left,
                 });
                 self.tallies.len() - 1
             }
         };
         let t = &mut self.tallies[i];
         t.lost += (t.hp - hp).max(0.);
-        if let (Some(was), Some(now)) = (t.elite, elite) {
+        if let (Some(was), Some(now)) = (t.left, left) {
             t.dealt += (was - now).max(0.);
         }
         t.hp = hp;
-        if elite.is_some() {
-            t.elite = elite;
+        if left.is_some() {
+            t.left = left;
         }
     }
 
@@ -407,9 +409,10 @@ impl Elite {
             .max(by_rate)
     }
 
-    /// The death chance the fight's own exchange says, once its tally holds `tally_min_dealt` of the elite and
-    /// `tally_min_lost` of the seat's hp: the hp it has cost per elite destroyed, times the elite left, against the hp
-    /// held, read by the farm's death model (`Prices::death`). The floor of `death_range` before.
+    /// The death chance the fight's own exchange says, once its tally holds `tally_min_dealt` of the camp (elites'
+    /// worth) and `tally_min_lost` of the seat's hp: the hp it has cost per elite's worth destroyed, times the fight left
+    /// (`fight_left`), against the hp held, read by the farm's death model (`Prices::death`). The floor of `death_range`
+    /// before.
     fn by_rate(&self, cx: &Cx<'_>, camp: &CampSeen, kind: MobTypeId, held: f64) -> f64 {
         let e = &cx.prices.elite;
         let Some(t) = self.tallies.iter().find(|t| {
