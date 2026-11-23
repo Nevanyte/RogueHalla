@@ -330,6 +330,42 @@ namespace Roguehalla.Client.Tests
             AssertNamesClear(closer, "k = 1.4");
         }
 
+        // ---- 1b. the picture with the shipped key on ----------------------------------------------------------------------------------
+
+        /// <summary>P-UI-GUARDS-2: the picture with the Tab map key on, as shipped: the two Stat-0 camps (amounts that vary) keep their texts, the two Stat-2
+        /// camps lose theirs. Every name misses the four plates, the two givers and each text that stands.</summary>
+        [Test]
+        public void ThePicturesNamesAreClearOfTheirMarksWithTheKeyOn()
+        {
+            var camps = PictureMapCamps(false);
+            BuildController(false, camps);
+            Marks().CampFactsInKey = true;
+            DeliverCamps(); DeliverGivers(PictureGiverWorld());
+            Frame(); Frame();
+            Large().SetMarkScale(1f);
+            Assert.That(Marks().CampFactsInKey, Is.True, "set-up: the key is on");
+            Assert.That(Marks().CampMarkerCount, Is.EqualTo(4), "set-up: the four camps are delivered");
+            Assert.That(Marks().QuestGiverCount, Is.EqualTo(2), "set-up: the two givers are delivered");
+            Assert.That(Marks().CampTextRect(0).HasValue && Marks().CampTextRect(2).HasValue, Is.True, "set-up: the two Stat-0 camps keep their texts");
+            Assert.That(Marks().CampTextRect(1).HasValue || Marks().CampTextRect(3).HasValue, Is.False, "set-up: the two Stat-2 camps lose theirs, the key says them");
+            var marks = PictureMarks(true, false);
+            foreach (var camp in _mapCamps) marks.Add(Square(LayerOf(new Vector2(camp.X, camp.Y)), 20.4f));
+            for (int i = 0; i < _mapCamps.Length; i++)
+            {
+                var block = Marks().CampTextRect(i);
+                if (block.HasValue) { var r = block.Value; marks.Add(new MapRect(r.x, r.y, r.width, r.height)); }
+            }
+            Assert.That(marks.Count, Is.EqualTo(8), "set-up: two givers, four plates and the two texts that stand");
+            foreach (int region in new[] { Haunted, Holy })
+                Assert.That(Marks().ZoneLabelSpot(region), Is.GreaterThan(0), MapZones.Name(region) + " leaves spot 0 for the givers and plates");
+            for (int region = 1; region <= MapZones.Count; region++)
+            {
+                Assert.That(NameLabel(region).gameObject.activeInHierarchy, Is.True, "set-up: the label of " + MapZones.Name(region) + " is active in the hierarchy");
+                Assert.That(Marks().ZoneLabelRect(region).HasValue, Is.True, MapZones.Name(region) + " has a name rect");
+                Assert.That(Hits(Of(NameRect(region)), marks), Is.False, "key on: " + MapZones.Name(region) + "'s name overlaps no giver, plate or text");
+            }
+        }
+
         // ---- 2. nothing near it ------------------------------------------------------------------------------------------------------
 
         void AssertEveryNameIsToday(string step)

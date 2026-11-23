@@ -248,6 +248,57 @@ namespace Roguehalla.Client.Tests
             }
         }
 
+        // ---------------------------------------------------------------------------------------------------------------- 4b
+
+        /// <summary>P-UI-GUARDS-2: a short window (1280 x 400, the card capped at 340) keeps the footer, with its Reset and Leave, whole inside the card
+        /// above the scroll frame's bottom edge, while the body scrolls to both ends. (ModernSettingsLayoutEditModeTests.ShortWindowScrollsTheBodyToBothEnds
+        /// now reads only the last scrolling row, since the footer left the scrolling content.)</summary>
+        [Test]
+        public void AShortWindowKeepsTheFooterInView()
+        {
+            using (var alone = new Alone(true))
+            {
+                var view = alone.View; var card = view.Root;
+                view.ApplyViewport(new HudViewport(1f, 1280f, 400f));
+                SettingsRig.Update();
+                var content = Content(view); var scroll = Scroll(view); var footer = Footer(view);
+                Assert.That(footer != null, "the card has a Footer (set-up)");
+                Assert.That(card.sizeDelta.y, Is.EqualTo(340f).Within(.01f), "the card is capped at uiH 400 - 60");
+                Assert.That(footer.parent == card, "the Footer is a child of the card itself, not of the scrolling content");
+                Assert.That(Mathf.Abs(footer.rect.height - FooterWithLeave) <= .01f, "the footer is 62 high with a leave action: " + footer.rect.height);
+                var inside = card.rect;
+                var fb = BoundsIn(footer, card);
+                foreach (var name in new[] { "Reset", "Leave" })
+                {
+                    var t = FindDeep(card, name);
+                    Assert.That(t != null, name + " exists (set-up)");
+                    Assert.That(t.gameObject.activeInHierarchy, Is.True, name + " is active");
+                    var b = BoundsIn((RectTransform)t, card);
+                    Assert.That(b.xMin >= inside.xMin - .2f && b.xMax <= inside.xMax + .2f, name + " lies inside the card sideways: " + Show(b) + " in " + Show(inside));
+                    Assert.That(b.yMax <= inside.yMax + .2f, name + " lies below the card's top: " + Show(b) + " in " + Show(inside));
+                    Assert.That(b.yMin >= inside.yMin + BottomPad - .5f, name + " lies above the card's bottom pad: " + Show(b) + " in " + Show(inside));
+                }
+                Assert.That(fb.yMin >= inside.yMin + BottomPad - .5f && fb.yMax <= inside.yMax + .2f, "the Footer lies inside the card above its bottom pad: " + Show(fb) + " in " + Show(inside));
+                var frame = BoundsIn(Frame(view), card);
+                Assert.That(frame.yMin >= fb.yMax - .5f, "the scroll frame ends at or above the footer's top: frame " + Show(frame) + ", footer " + Show(fb));
+                var viewport = scroll.viewport;
+                Assert.That(viewport.rect.height, Is.EqualTo(232f).Within(1f), "the viewport is about 232 high");
+                Assert.That(content.rect.height, Is.GreaterThan(viewport.rect.height), "the body overflows, so it scrolls");
+                var viewportBox = viewport.rect;
+                var lastRow = (RectTransform)content.GetChild(content.childCount - 1);
+                Assert.That(lastRow != footer, "the footer is not inside the scrolling content");
+                SetScroll(view, 0f);
+                var lb = BoundsIn(lastRow, viewport);
+                Assert.That(lb.xMin >= viewportBox.xMin - .5f && lb.xMax <= viewportBox.xMax + .5f && lb.yMin >= viewportBox.yMin - .5f && lb.yMax <= viewportBox.yMax + .5f,
+                    "at the bottom of the scroll the Training walkthrough row lies wholly in the viewport: " + Show(lb) + " in " + Show(viewportBox));
+                fb = BoundsIn(footer, card);
+                Assert.That(Mathf.Abs(fb.yMin - (inside.yMin + BottomPad)) <= .5f, "and the footer has not moved: " + Show(fb) + " in " + Show(inside));
+                SetScroll(view, 1f);
+                fb = BoundsIn(footer, card);
+                Assert.That(Mathf.Abs(fb.yMin - (inside.yMin + BottomPad)) <= .5f, "at the top the footer stands at the same place: " + Show(fb) + " in " + Show(inside));
+            }
+        }
+
         // ---------------------------------------------------------------------------------------------------------------- 5
 
         [Test]

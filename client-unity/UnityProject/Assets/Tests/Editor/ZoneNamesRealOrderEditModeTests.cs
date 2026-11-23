@@ -66,6 +66,7 @@ namespace Roguehalla.Client.Tests
         MapCamp[] _mapCamps;
         PicCamp[] _campRows = EdgeCamps;
         WireSelf _wireSelf;
+        bool _keyOn;   // the Tab map key shows the amounts (CampFactsInKey) from the build on; the older tests keep it off
 
         [SetUp]
         public void SetUp()
@@ -76,6 +77,7 @@ namespace Roguehalla.Client.Tests
             _priorTheme = UiTheme.Current;
             WorldLabelVisibility.Hidden = false;
             _campRows = EdgeCamps;
+            _keyOn = false;
         }
 
         [TearDown]
@@ -138,7 +140,7 @@ namespace Roguehalla.Client.Tests
             _controller = _controllerObject.AddComponent<TacticalMapController>();
             if (_prefs == null) { _prefs = new UiDisplayPreferences(); _priorToggle = _prefs.MapToggle; }
             _controller.Initialize(_client, _canvas.transform, _prefs, _stage);
-            Marks().CampFactsInKey = false;   // P-UI-TABMAP-TEXT-2: the zone names are placed around the camps' own texts, as these tests were written
+            Marks().CampFactsInKey = _keyOn;   // P-UI-TABMAP-TEXT-2: off in the older tests (the zone names are placed around the camps' own texts, as they were written); on in the key-on guard
             _controller.SetToggleMode(false);
             _controller.Bind(_session);
             if (open) _controller.SetOpen(true);
@@ -277,15 +279,16 @@ namespace Roguehalla.Client.Tests
             return Vector2.zero;
         }
 
-        /// <summary>The marks of the four edge camps as the tests see them: a plate 20.4 square at the camp, its amount text to the right.</summary>
+        /// <summary>The marks of the four edge camps as the tests see them: a plate 20.4 square at each camp, and each camp's text block as the
+        /// map placed it (read from <see cref="TacticalMapMarks.CampTextRect"/>, not modelled: the text may stand Right, Below, Above or Left).</summary>
         List<MapRect> EdgeMarks()
         {
             var list = new List<MapRect>();
             foreach (var camp in _mapCamps) list.Add(Square(LayerOf(new Vector2(camp.X, camp.Y)), 20.4f));
             for (int i = 0; i < _mapCamps.Length; i++)
             {
-                var at = LayerOf(new Vector2(_mapCamps[i].X, _mapCamps[i].Y)); var size = TextSize(_campRows[i].Text);
-                list.Add(new MapRect(at.x + 21.2f, at.y + 2f - size.y / 2f, size.x, size.y));
+                var block = Marks().CampTextRect(i);
+                if (block.HasValue) { var r = block.Value; list.Add(new MapRect(r.x, r.y, r.width, r.height)); }
             }
             return list;
         }
@@ -334,7 +337,10 @@ namespace Roguehalla.Client.Tests
         void AssertClearOfEdgeMarks(string step)
         {
             var marks = EdgeMarks();
-            Assert.That(marks.Count, Is.EqualTo(8), step + ": four camp plates and four amount texts");
+            int blocks = 0;
+            for (int i = 0; i < _mapCamps.Length; i++) if (Marks().CampTextRect(i).HasValue) blocks++;
+            Assert.That(blocks, Is.EqualTo(4), step + ": the key is off, so each of the four camps has its text block");
+            Assert.That(marks.Count, Is.EqualTo(4 + blocks), step + ": four camp plates and the text blocks the map placed");
             for (int r = 1; r <= MapZones.Count; r++)
             {
                 var drawn = DrawnRect(r);
@@ -486,6 +492,31 @@ namespace Roguehalla.Client.Tests
             FindCamps(EdgeCamps);
             Control();
             AssertTrueAndClear("control order");
+        }
+
+        // ---- 6b. standing guard: the shipped key is on ------------------------------------------------------------------------------
+
+        /// <summary>P-UI-GUARDS-2: a real match (built closed, delivered closed, opened later) with the Tab map key on, as shipped: the two Stat-0 camps
+        /// (amounts that vary) keep their texts, the two Stat-2 camps (one amount) lose theirs, and no zone name overlaps a plate or a text that stands.</summary>
+        [Test]
+        public void TheNamesOfARealMatchAreClearOfTheMarksWithTheKeyOn()
+        {
+            FindCamps(EdgeCamps);
+            _keyOn = true;
+            Real();
+            Assert.That(Marks().CampFactsInKey, Is.True, "set-up: the key is on");
+            Assert.That(Marks().CampMarkerCount, Is.EqualTo(4), "the four camps are delivered");
+            Assert.That(Marks().CampTextRect(0).HasValue && Marks().CampTextRect(2).HasValue, Is.True, "set-up: the two Stat-0 camps keep their texts");
+            Assert.That(Marks().CampTextRect(1).HasValue || Marks().CampTextRect(3).HasValue, Is.False, "set-up: the two Stat-2 camps lose theirs, the key says them");
+            AssertKeptSizesAreTrue("key on");
+            var marks = EdgeMarks();
+            Assert.That(marks.Count, Is.EqualTo(6), "four camp plates and the two texts that stand");
+            for (int r = 1; r <= MapZones.Count; r++)
+            {
+                var drawn = DrawnRect(r);
+                foreach (var m in marks)
+                    Assert.That(drawn.Overlaps(m), Is.False, "key on: the drawn name " + MapZones.Name(r) + " overlaps no camp plate or text");
+            }
         }
 
         // ---- 7. a rebind ------------------------------------------------------------------------------------------------------------
