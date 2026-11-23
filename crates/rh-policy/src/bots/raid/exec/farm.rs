@@ -4,11 +4,9 @@
 //! givers are not in `RaidPercept::mobs`, and players are never farmed.
 use crate::bots::mob_hunt::best_slot_vs_mob;
 use crate::bots::planning::{matchup_share, zone_faction};
-use crate::bots::raid::exec::combat::locks_from_here;
+use crate::bots::raid::exec::combat::{Engage, Reach};
 use crate::bots::raid::exec::held::{hp_held, HotWatch};
-use crate::bots::raid::exec::travel::{
-    self, eta_minutes, move_intent, step_toward, straight_minutes,
-};
+use crate::bots::raid::exec::travel::{self, eta_minutes, move_intent, straight_minutes};
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 use crate::bots::raid::percept::{CampSeen, MobClass, MobSeen};
 use crate::bots::raid::values::DeathModel;
@@ -25,6 +23,10 @@ pub const FIGHT_U: f64 = 240.;
 const EMPTY_MS: f64 = 3_000.;
 /// ...and the camp is not proposed again for this long.
 const FAILED_BAN_MS: f64 = 20_000.;
+/// A member of the camp in sight this long with no contact (no hit dealt to the camp, none taken) gives the camp up for
+/// `FAILED_BAN_MS` (P-RAID-REACH-1-fix): the sim's own mob gives up 20 s after its last contact
+/// (`MOB_GIVE_UP_SECONDS`), so a fight with no contact for as long is not a fight.
+const NO_CONTACT_MS: f64 = 20_000.;
 /// With no held lock on a mob it may keep, a member is the same one next think when it stands within this of where the
 /// last one was (npc keys live one frame).
 const TRACK_U: f64 = 80.;
@@ -67,6 +69,19 @@ pub struct Farm {
     banned: Vec<(u32, f64)>,
     /// The shares of the heals running, for the hp held (`held::hp_held`, P-RAID-E-leave).
     hots: HotWatch,
+    /// The approach to a member: the points the camp may be fought from, the walk to them (P-RAID-REACH-1-fix).
+    reach: Reach,
+    /// The contact bound on the held camp (P-RAID-REACH-1-fix).
+    quiet: Option<Quiet>,
+}
+
+/// The held Farm goal's last contact with its camp: the camp, the server ms of the last contact (or of the first think
+/// that held the goal with a member in sight), and the camp's members left at the last frame (`members_left`).
+#[derive(Clone, Copy, Debug)]
+struct Quiet {
+    camp: u32,
+    since: f64,
+    left: f64,
 }
 
 impl Farm {
@@ -128,7 +143,7 @@ impl Farm {
     }
 }
 
-pub(super) fn dist(a: Vec2, b: Vec2) -> f64 {
+pub(crate) fn dist(a: Vec2, b: Vec2) -> f64 {
     rh_sim::math::hypot(a.x - b.x, a.y - b.y)
 }
 
@@ -148,6 +163,20 @@ impl Executor for Farm {
         *self = Self::default();
     }
     fn observe(&mut self, cx: &mut Cx<'_>) {
+        // Contact with the held camp, every frame: a hit taken, or the camp's members left falling (a hit dealt or a
+        // member killed).
+        if let (GoalKind::Farm, Target::Camp(index)) = (cx.goal.kind, &cx.goal.target) {
+            if let (Some(q), Some(camp)) = (
+                self.quiet.as_mut().filter(|q| q.camp == *index),
+                cx.p.camp(*index),
+            ) {
+                let left = members_left(cx.p, camp);
+                if cx.p.hit_at.is_some() || left < q.left - 1e-9 {
+                    q.since = cx.p.now;
+                }
+                q.left = left;
+            }
+        }
         if cx.prices.sustain.on && cx.p.active {
             let me = &cx.p.me;
             self.hots.watch(
@@ -215,6 +244,7 @@ impl Executor for Farm {
     fn start(&mut self, _goal: &RaidGoal, _cx: &mut Cx<'_>) {
         self.target = None;
         self.empty_since = None;
+        self.quiet = None;
     }
     fn act(&mut self, goal: &RaidGoal, cx: &mut Cx<'_>) -> Step {
         let Target::Camp(index) = goal.target else {
@@ -245,6 +275,8 @@ impl Executor for Farm {
         });
         let Some(mob) = kept.or_else(|| Self::pick(cx, index)).cloned() else {
             self.target = None;
+            // Walking to the camp or waiting at it is not a fight without contact (`EMPTY_MS` bounds the wait).
+            self.quiet = None;
             let step = travel::walk(cx, camp_at, "to camp");
             if step.status == Status::Running {
                 self.empty_since = None;
@@ -260,6 +292,22 @@ impl Executor for Farm {
         };
         self.empty_since = None;
         self.target = Some(mob.at);
+        // A member in sight and no contact with the camp for `NO_CONTACT_MS`: give the camp up for a while. The clock
+        // starts on the first think that holds the goal with a member in sight (with or without `start`).
+        let quiet = match self.quiet.filter(|q| q.camp == index) {
+            Some(q) => q,
+            None => Quiet {
+                camp: index,
+                since: now,
+                left: members_left(cx.p, camp),
+            },
+        };
+        self.quiet = Some(quiet);
+        if now - quiet.since >= NO_CONTACT_MS {
+            self.quiet = None;
+            self.banned.push((index, now + FAILED_BAN_MS));
+            return Step::failed("no contact with the camp");
+        }
         let mut intents = Vec::new();
         let slots = cx.p.me.weapons;
         let slot = best_slot_vs_mob(slots, cx.p.me.slot, mob.weapon);
@@ -272,7 +320,6 @@ impl Executor for Farm {
             });
         }
         let in_hand = slots[usize::from(cx.p.me.slot.min(1))];
-        let d = cx.p.dist(mob.at);
         // A fight is on once a member of the camp is close or a mob is fighting next to us: they follow if we leave.
         let fighting = cx.p.mobs.iter().any(|m| {
             m.alive
@@ -280,13 +327,10 @@ impl Executor for Farm {
                 && ((m.camp == Some(index) && cx.p.dist(m.at) <= FIGHT_U)
                     || (m.engaged && cx.p.dist(m.at) <= DEFEND_U))
         });
-        // A ranged seat outside the camp's leash band steps in before it fights (P-RAID-REACH-1); with no known way in
-        // it fights from where it stands, as before.
-        let step_in = (!locks_from_here(cx, index, false, &mob, in_hand))
-            .then(|| step_toward(cx.paths, cx.p.me.at, mob.at))
-            .flatten();
-        if d <= lock_range(in_hand) && step_in.is_none() {
-            intents.push(Intent {
+        // A ranged seat that may not fight from where it stands walks to the nearest place it may (P-RAID-REACH-1-fix);
+        // with none, no known way there, or a walk that stops, it fights from where it stands.
+        match self.reach.engage(cx, index, false, &mob, in_hand) {
+            Engage::Lock => intents.push(Intent {
                 body: IntentBody::Lock {
                     target: mob.key.clone(),
                     at: mob.at,
@@ -294,9 +338,9 @@ impl Executor for Farm {
                 priority: PRIORITY_COMBAT,
                 timing: IntentTiming::Step {},
                 why: "farm engage".into(),
-            });
-        } else if let Some(next) = step_in {
-            intents.push(move_intent(next, "farm approach"));
+            }),
+            Engage::Move(next) => intents.push(move_intent(next, "farm approach")),
+            Engage::Stand => {}
         }
         if fighting {
             Step::committed(intents, "fighting")

@@ -179,13 +179,9 @@ fn run(start: Vec2, weapon: WeaponId) -> Run {
                     ..
                 } if *b == me => {
                     if let Some(m) = sim.mobs().iter().find(|m| m.core.id == *victim && m.elite) {
-                        let inside = leash_ok(
-                            &data,
-                            m.camp,
-                            m.home,
-                            p.pos(),
-                            rh_sim::constants::MOB_LEASH_MARGIN,
-                        );
+                        // Margin 0 (coordinator's oracle-amend, 2026-11-23): the sim tests a chasing mob's own
+                        // position at margin 0; the 24 u margin is for its retreat and spacing steps.
+                        let inside = leash_ok(&data, m.camp, m.home, p.pos(), 0.);
                         let es = r.elites.entry(m.camp).or_insert(Es {
                             hits: 0,
                             hits_in_band: 0,
@@ -214,15 +210,7 @@ fn run(start: Vec2, weapon: WeaponId) -> Run {
         {
             if let Some(es) = r.elites.get_mut(&m.camp) {
                 es.min_share = es.min_share.min(m.core.vitals.hp / m.core.vitals.max_hp);
-                if es.in_band_at.is_none()
-                    && leash_ok(
-                        &data,
-                        m.camp,
-                        m.home,
-                        p.pos(),
-                        rh_sim::constants::MOB_LEASH_MARGIN,
-                    )
-                {
+                if es.in_band_at.is_none() && leash_ok(&data, m.camp, m.home, p.pos(), 0.) {
                     es.in_band_at = Some(tick);
                 }
             }
