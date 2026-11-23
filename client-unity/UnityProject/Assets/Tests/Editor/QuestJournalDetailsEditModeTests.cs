@@ -280,10 +280,11 @@ namespace Roguehalla.Client.Tests
         public void TheHeadingsAreRightWhenTheJournalOpensAfterDeliveriesWhileHidden()
         {
             var actions = new[] { Act(_first, 1, 0, "Abandon"), Act(_first, 3, 0, "Own") };
-            Deliver(new[] { LongRow(_first) }, actions); _view.Refresh(); _view.Refresh();
+            Deliver(new[] { LongRowWithParticipant(_first) }, actions, null, ParticipantRoster); _view.Refresh(); _view.Refresh();
             Assert.IsFalse(_view.Root.gameObject.activeSelf, "the journal is still hidden");
             Open(); Select(_first);
             MythicUi.ApplyTextScale(_view.Root, 1.5f); Rebuild();
+            Assert.IsTrue(Field("QuestParticipants").gameObject.activeInHierarchy, "rig: the PARTICIPANTS heading is on, so AssertHeadings measures it");
             AssertHeadings("after a hidden delivery");
             Assert.That(Local(Field("QuestGiver")).yMin - Local(Field("QuestReward")).yMax, Is.EqualTo(10f).Within(.5f), "giver to reward");
         }
