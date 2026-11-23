@@ -304,8 +304,7 @@ fn a_bow_seat_at_seed_5_camp_51_hits_the_camp_and_does_not_stall() {
 #[test]
 #[ignore = "measurement"]
 fn measure_the_stall_scenes() {
-    for i in 0..SCENES.len() {
-        let (seed, start, camp, weapon) = SCENES[i];
+    for (seed, start, camp, weapon) in SCENES {
         run(Scene {
             seed,
             start,

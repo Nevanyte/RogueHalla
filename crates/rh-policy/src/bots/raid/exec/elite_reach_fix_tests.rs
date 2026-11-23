@@ -10,26 +10,13 @@ use crate::bots::paths::{PathBudget, RoomPathService};
 use crate::bots::perception::LootFacts;
 use crate::bots::planning::PlanMap;
 use crate::bots::raid::exec::combat::may_fight_from;
-use crate::bots::raid::exec::farm::{Farm, MELEE_LOCK_U};
+use crate::bots::raid::exec::farm::Farm;
 use crate::bots::raid::percept::{Me, RaidPercept};
 use crate::bots::random::Rng;
 use crate::bots::types::{HudView, Percept, PersonaId, SelfView, TierId};
 use rh_sim::mapdata::patience::leash_ok;
 use rh_sim::{Arena, FactionId, Secrets};
 use std::sync::Arc;
-
-fn seed1_arena() -> Arena {
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../rh-sim/src/mapdata/fixtures/seed1.map.json"
-    );
-    let text = std::fs::read_to_string(path).expect("the seed1 fixture map");
-    let file: rh_sim::mapdata::MapExport = serde_json::from_str(&text).expect("rh-map/2 json");
-    file.validate()
-        .expect("an admitted map")
-        .into_arena()
-        .expect("an arena")
-}
 
 /// The map `balance_lab` plays for `seed` (generated, board-admitted as `Env::new` does).
 fn lab_arena(seed: u64) -> Arc<Arena> {
@@ -217,10 +204,6 @@ fn farm_frame(farm: &mut Farm, f: &mut Frame, goal: &RaidGoal) -> Step {
     let mut rng = Rng::new(1);
     farm.observe(&mut cx(f, goal, &mut rng, prices));
     farm.act(goal, &mut cx(f, goal, &mut rng, prices))
-}
-
-fn giveups_at(el: &Elite, camp: u32) -> Option<u32> {
-    el.giveups.iter().find(|g| g.camp == camp).map(|g| g.n)
 }
 
 fn move_to(step: &Step) -> Option<Vec2> {
