@@ -415,8 +415,12 @@ namespace Roguehalla.Client
                     bool inHand = weapon.HasValue && inv.ActiveSlot == i;
                     if (_weaponActiveBars[i] != null) _weaponActiveBars[i].enabled = inHand;
                     if (_slots[i] != null) HudUi.ApplyColors(_slots[i], inHand ? UiTheme.Current.SurfaceSelected : UiTheme.Current.SurfaceRaised);
-                    if (_slotGroups[i] != null) _slotGroups[i].alpha = weapon.HasValue ? 1f : .5f;
-                    if (_slotNames[i] != null) Set(_slotNames[i], weapon.HasValue ? weapon.Value.ToString() : "Empty");
+                    if (_slotNames[i] != null)
+                    {
+                        Set(_slotNames[i], weapon.HasValue ? weapon.Value.ToString() : "Empty");
+                        Color nameColour = weapon.HasValue ? (Color)UiTheme.Current.TextPrimary : AbilityTile.EmptyTextColour(UiTheme.Current);
+                        if (_slotNames[i].color != nameColour) _slotNames[i].color = nameColour;
+                    }
                     if (weapon.HasValue)
                     {
                         MythicGlyph glyph = weapon == WeaponId.Bow ? MythicGlyph.Bow : weapon == WeaponId.Wand ? MythicGlyph.Wand : weapon == WeaponId.Shield ? MythicGlyph.Shield : weapon == WeaponId.Axe ? MythicGlyph.Axe : MythicGlyph.Sword;
@@ -427,8 +431,13 @@ namespace Roguehalla.Client
             }
             else for (int i = 0; i < _weaponIcons.Length; i++)
             {
-                if (_slotGroups[i] != null) _slotGroups[i].alpha = .5f;
-                if (_slotNames[i] != null) Set(_slotNames[i], "Empty");
+                if (_slots[i] != null) HudUi.ApplyColors(_slots[i], UiTheme.Current.SurfaceRaised);
+                if (_slotNames[i] != null)
+                {
+                    Set(_slotNames[i], "Empty");
+                    Color nameColour = AbilityTile.EmptyTextColour(UiTheme.Current);
+                    if (_slotNames[i].color != nameColour) _slotNames[i].color = nameColour;
+                }
                 if (_weaponIcons[i] != null) _weaponIcons[i].enabled = false;
                 if (_weaponActiveBars[i] != null) _weaponActiveBars[i].enabled = false;
             }

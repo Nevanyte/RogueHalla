@@ -29,7 +29,6 @@ namespace Roguehalla.Client
         bool _extrasOpen, _plateActive;
         // Weapon bar.
         readonly TMP_Text[] _slotNames = new TMP_Text[2], _slotScaling = new TMP_Text[2];
-        readonly CanvasGroup[] _slotGroups = new CanvasGroup[2];
         UnityEngine.UI.Button _swapChip, _potionButton, _windChip;
         RectTransform _weaponBar, _wishTile;
         TMP_Text _healText, _healStatus, _windText, _pickupText;

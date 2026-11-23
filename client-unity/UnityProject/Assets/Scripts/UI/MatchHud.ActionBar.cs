@@ -108,11 +108,10 @@ namespace Roguehalla.Client
                 var button = _slots[i] = rect.gameObject.AddComponent<UnityEngine.UI.Button>();
                 button.targetGraphic = image; button.onClick.AddListener(() => Swap(slot));
                 HudUi.ApplyColors(button, theme.SurfaceRaised);
-                _slotGroups[i] = rect.gameObject.AddComponent<CanvasGroup>();
                 _weaponIcons[i] = MythicUi.Icon(rect, "WeaponIcon", MythicGlyph.Sword, 26f);
                 _weaponIcons[i].rectTransform.anchorMin = _weaponIcons[i].rectTransform.anchorMax = new Vector2(.5f, 1f);
                 _weaponIcons[i].rectTransform.pivot = new Vector2(.5f, 1f); _weaponIcons[i].rectTransform.anchoredPosition = new Vector2(0, -12);
-                _slotNames[i] = HudUi.Label(HudUi.At(rect, "Name", 4, 42, HudRegions.WeaponSlotWidth - 8, 14), "Label", "Empty", theme.SizeSmall, theme.TextPrimary, TextAlignmentOptions.Center);
+                _slotNames[i] = HudUi.Label(HudUi.At(rect, "Name", 4, 42, HudRegions.WeaponSlotWidth - 8, 14), "Label", "Empty", theme.SizeSmall, AbilityTile.EmptyTextColour(theme), TextAlignmentOptions.Center);
                 _slotScaling[i] = HudUi.Label(HudUi.At(rect, "Scaling", 2, 59, HudRegions.WeaponSlotWidth - 4, 11), "Label", "", theme.SizeMicro, theme.TextSecondary, TextAlignmentOptions.Center, wrap: true);
                 var barBox = HudUi.Box(rect, "AttackBar", HudAnchor.BottomLeft, 6f, 4f, HudRegions.WeaponSlotWidth - 12f, 3f);
                 var bar = barBox.gameObject.AddComponent<UnityEngine.UI.Image>();
