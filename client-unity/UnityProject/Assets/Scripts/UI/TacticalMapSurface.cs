@@ -142,11 +142,23 @@ namespace Roguehalla.Client
         static readonly List<Entry> Cache = new List<Entry>();
         const int TargetTexels = 1024;
 
+        /// <summary>Whole picture builds so far (a counter for the tests).</summary>
+        public static int FullBuilds { get; private set; }
+        /// <summary>Pictures derived from a kin so far (a counter for the tests).</summary>
+        public static int DerivedBuilds { get; private set; }
+        /// <summary>Texels computed by the last derive.</summary>
+        public static int LastDerivedTexels { get; private set; }
+        /// <summary>True when a picture nobody holds is parked with a live texture.</summary>
+        public static bool HasSpare { get { return false; } }
+        /// <summary>Destroys the parked picture, if any.</summary>
+        public static void DropSpare() { }
+
         public static Entry Acquire(MapBlob map, UiTheme theme)
         {
             foreach (var e in Cache)
                 if (ReferenceEquals(e.Map, map) && ReferenceEquals(e.Theme, theme) && e.Texture != null) { e.Refs++; return e; }
             var entry = new Entry { Map = map, Theme = theme, Refs = 1 };
+            FullBuilds++;
             Build(entry);
             Cache.Add(entry);
             return entry;
