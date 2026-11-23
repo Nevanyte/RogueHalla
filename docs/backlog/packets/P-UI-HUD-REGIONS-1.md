@@ -34,8 +34,8 @@ No legacy TypeScript. Current Unity code the numbers come from (verified by read
 - `client-unity/UnityProject/Assets/Tests/Editor/HudRegionsEditModeTests.cs` (+ `.meta`)
 
 ## 5. Exclusive write scope
-- `client-unity/RoguehallaNet/Net/Ui/HudRegions.cs` (stub already committed; the implementer replaces the bodies) and its synced copy and `.meta`
-- `client-unity/UnityProject/Assets/Scripts/UI/HudUi.cs` (the two overloads only; the stub already adds them with empty behaviour)
+- `client-unity/RoguehallaNet/Net/Ui/HudRegions.cs` (the `stub:` commit adds it with default-returning bodies; the implementer replaces the bodies) and its synced copy (`bash client-unity/sync-net.sh`) and `.meta`
+- `client-unity/UnityProject/Assets/Scripts/UI/HudUi.cs` (the two overloads only; the `stub:` commit already adds them with empty behaviour: `Box` makes an unplaced rect, `Place` does nothing)
 - nothing else. The test files and this packet are oracle files.
 
 ## 6. Contracts and references
@@ -119,7 +119,7 @@ Unity adapter, the only existing file touched, `UI/HudUi.cs`: two overloads besi
 `public static void Place(RectTransform rect, HudRegion region)`; they map `HudRegionAnchor` to `HudAnchor` by value and call the existing `Box` / `Place`.
 
 ## Oracle files (read-only for implementers)
-- `client-unity/RoguehallaNet.Tests/HudRegionsTests.cs`
+- `client-unity/RoguehallaNet.Tests/HudRegionsTests.cs` (25 tests in 26 cases with the four-stage sweeps)
 - `client-unity/UnityProject/Assets/Tests/Editor/HudRegionsEditModeTests.cs`
 - `client-unity/UnityProject/Assets/Tests/Editor/HudRegionsEditModeTests.cs.meta`
 - `docs/backlog/packets/P-UI-HUD-REGIONS-1.md`
@@ -148,6 +148,7 @@ Low: arithmetic and two thin overloads. implementer-sonnet; reviewer (not Opus):
 
 ## Notes from the oracle author
 Where the spec left a number open the tests pin only what the spec says, plus these choices (the implementer follows them):
+- Spec choice recorded: the tracker is placed `TrackerGap` (8) or less below `plateChainBottom`: the tests pin `Y` in `[plateChainBottom, plateChainBottom + 8]`.
 - Constructors: `HudStageRect(float left, float top, float width, float height)` and `HudRegion(HudRegionAnchor anchor, float x, float y, float width, float height)` are public (the tests build rects and regions by hand). The stub has them; keep them.
 - `AbilityElement` sizes: weapon slots 104 x 76, tiles (R, Shift, Q) 64 x 64, swap 28 wide and 40 high (the existing chip, `MatchHud.Legacy.cs:374`); all six have Y inset 0 (bottoms on the row's bottom edge), anchor BottomLeft, X inset = running sum of widths plus 6 gaps (0, 110, 144, 254, 324, 394). The tests pin the swap height only as 0 < h <= 76.
 - `TrackerDock`: anchor TopLeft, X = `Margin`, width `TrackerWidth` (260), Y >= `plateChainBottom`, height for rows 1..3 at least `TrackerHeader + rows * TrackerRow` and at most that plus `rows * TrackerGap`; rows 0 gives height 0.
@@ -155,4 +156,9 @@ Where the spec left a number open the tests pin only what the spec says, plus th
 - Allocation-freedom is not tested (a stub passes it trivially); it is a review point.
 - The enum-names check of the EditMode test is inside the two measuring cases: a separate test would be green on the stub.
 
-Red on the stub (each on an assertion about behaviour): see the list in the oracle commit message and below.
+Red on the stub (each on an assertion about behaviour; the stub returns default regions and 0 for `Right`/`Bottom`/`LaneWidth`):
+- dotnet `HudRegionsTests`: all 26 cases fail on assertions (anchors default to TopLeft, widths 0, `Right`/`Bottom` 0, `LaneWidth` 0, `OnAgrees...` Left 0, etc.). Checked afterwards against a throw-away implementation (not committed): all 26 pass, so the tests are satisfiable.
+- Unity `HudRegionsEditModeTests`: see the second list below.
+- Not tested on purpose: allocation-freedom (review point); the anchor-name order check lives only inside the EditMode cases (a dotnet copy would be green on the stub).
+
+Existing classes run green on the stub: see "Run results" at the end.
