@@ -132,7 +132,10 @@ Rows in those tests that leave `Index` at 0 for several camps: the fresh-frame r
 
 ## Oracle files (read-only for implementers)
 - `client-unity/RoguehallaNet.Tests/LabelLiftTests.cs`
-- `client-unity/UnityProject/Assets/Tests/Editor/CampLabelStableEditModeTests.cs` (and its `.meta`)
+- `client-unity/UnityProject/Assets/Tests/Editor/CampLabelStableEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/CampLabelStableEditModeTests.cs.meta`
+(The stub commit holds `LabelLift.cs` (library and synced copy, with its `.meta`) and the `ReducedMotionSource` / four-argument `Draw` stubs in
+`CampRespawnLabels.cs`: those are the implementer's to replace.)
 
 ## 9. Validation commands
 - `bash .agent-runs/lane-ui-rework/bin/in.sh <worktree> dotnet test client-unity/RoguehallaNet.Tests --filter LabelLiftTests`
@@ -167,11 +170,45 @@ changes, and zero allocation in a steady frame.
   stays still across a flickering obstacle (the new behaviour), which is what makes it red on the stub.
 - Alpha is read from `SpriteRenderer.color.a`; an inactive plaque counts as alpha 0.
 - The "ward above plaque" gap is asserted on every frame including the glide (test 11); the plate's rect is the child "Plate" sprite bounds.
+- A trap the oracle exposed (existing behaviour, not in the spec): in `DrawBadges` (`CampRespawnLabels.cs:266-268` before the stub's added lines) the
+  plaque is given `drawMode = Sliced; size = ...` and only THEN `Place` assigns the sprite; Unity resets `size` to the sprite's native size when a
+  sprite is assigned, so a pooled plaque is drawn at 1.5 x 1.0 in its very first frame and at 0.92 x 0.78 from the second. The tests read the drawn
+  rect as position plus `SpriteRenderer.size` (never `bounds`, which lags). `BaseBadge()` warms two frames. The implementer must assign the sprite
+  before the size (or otherwise draw the right size at once) so the first frame is drawn at the size the lift was computed for: test 4 asserts the
+  DRAWN plaque clears the obstacle on a fresh frame.
+- In the fade-in tests the plaque must be ACTIVE on the frame its row appears, with alpha below 1 (alpha 0 is allowed), and reach 1 within
+  `ceil(FadeSeconds / dt) + 1` = 10 frames. During the linger (frames 1..11 at 1/60 s after the row leaves) the plaque and its icon stay active at alpha 1
+  at the same position, so the implementer remembers the last row of a badge. At 23 frames (0.383 s) they are inactive.
+- The tests read the plaque by name ("Camp reward plaque", sliced `size`), icons by "Camp reward badge" and the texts' plates as the child sprite of
+  "Camp respawn label" / "Camp ward label". Only active (`activeSelf`) objects count.
 - Camp rows use distinct `Index` per camp in the tests; the respawn and ward text tests use separate camps for each kind so that the
   two never interact.
 
 ## Red tests on the stub
-(filled in at the oracle commit)
+dotnet `LabelLiftTests`: all 11 cases red on their value assertions (the stub returns 0): `StartTakesTheWantedValueAtOnceAndNeverNegative`
+(Value 0, expected 0.7), `ARiseMoves...`, `ADropHolds...`, `AWantedValueThatAlternates...`, `JitterInsideTheDeadband...`,
+`AWantedValueBackInsideTheDeadbandRestartsTheHold`, `ARiseAboveTheDeadband...`, `ReducedMotionJumps...` (0, expected 0.5), `ANegativeDtOrWantedIsClamped`
+(Target), `ValueIsNeverNegative...(false/true)` (`sawLift`). The tests were also run against a throwaway reference implementation of the Step rules
+above: 11 of 11 green (not committed).
+
+Unity `CampLabelStableEditModeTests` (13 cases, all red on assertions, none on an exception):
+- `ABadgeGlidesWhenAFighterWalksUnderIt`: the plaque hopped 0.46 at frame 38 (limit 0.134).
+- `AnObstacleThatFlickersLeavesTheBadgeStill`: y follows the flicker at frame 1.
+- `TheBadgeComesDownOnlyAfterTheHold`: y drops at once, 1 frame after the obstacle leaves.
+- `ABadgeDrawnForTheFirstTimeOverAHeadIsAlreadyClear`: the set-up `alpha < 1` after the badge enters a running label set (alpha is 1). The single-fresh-frame half
+  passes on the stub (it is today's behaviour) and stays as a regression pin.
+- `SmallChangesInTheObstacleDoNotMoveTheBadge`: y moves by 0.02 at frame 0.
+- `RespawnAndWardTextGlideTheSameWay(false/true)`: the text hopped 0.34 (limit 0.134).
+- `BadgesAreNotDrawnWhileTheTabMapIsOpen`: `BadgesUsed` is 1 while Hidden (expected 0).
+- `ABadgeThatLeavesTheRowsLingersThenFades`: the plaque is gone 1 frame after the row left (expected drawn through the linger).
+- `ABadgeThatEntersLaterFadesIn`: alpha is 1 on the frame the row appears (expected below 1).
+- `ReducedMotionJumpsButStillHolds`: y drops at once after the obstacle leaves (the hold is missing).
+- `TheWardTextStaysAboveThePlaqueOfItsCamp`: at frame 0 the ward text rect intersects the plaque.
+- `ASteadyFrameAllocatesNothing`: the allocation half is green on the stub (today's code allocates nothing); the flicker half is red (y follows the flicker at frame 1).
+
+Existing classes run on the stub, 83 of 83 green: `NamePackGroup2EditModeTests`, `NameLegibleEditModeTests`, `CampLabelsHiddenFix4EditModeTests`,
+`StormInkCombatHudEditModeTests`, `TacticalMapEditModeTests`. `CampRespawnLabels` is constructed only by `ArenaView` and by those four test classes
+(`git grep CampRespawnLabels`); `TacticalMapController.cs` / `TacticalMapMarks.cs` use only its statics.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
