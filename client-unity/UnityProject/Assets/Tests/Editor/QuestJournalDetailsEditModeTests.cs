@@ -40,6 +40,7 @@ namespace Roguehalla.Client.Tests
 
         GameObject _canvas, _host;
         QuestJournalView _view;
+        Roguehalla.Net.Ui.QuestAcceptLatch _latch = new Roguehalla.Net.Ui.QuestAcceptLatch();
         Session _session;
         TestTransport _transport;
         readonly QuestHandle _first = new QuestHandle(71), _second = new QuestHandle(72);
@@ -54,7 +55,7 @@ namespace Roguehalla.Client.Tests
             canvasRect.sizeDelta = new Vector2(1920, 1080); canvasRect.position = Vector3.zero; canvasRect.localScale = Vector3.one;
             _host = new GameObject("Quest journal details host");
             _view = _host.AddComponent<QuestJournalView>();
-            _view.Initialize(_canvas.transform);
+            _view.Initialize(_canvas.transform, null, null, _latch);
             _transport = new TestTransport(); _session = NewSession(_transport, 1);
             _view.Bind(_session);
         }
@@ -470,14 +471,21 @@ namespace Roguehalla.Client.Tests
             Assert.That(a.yMax, Is.EqualTo(b.yMax).Within(.5f), "same rect: top");
             Assert.AreEqual("Abandon", ButtonLabel("AbandonQuest"));
 
+            for (int click = 2; click <= 4; click++)
+            {
+                abandon.GetComponent<Button>().onClick.Invoke(); _session.FlushInput();
+                int accepts = 0, interacts = 0;
+                foreach (var c in Commands()) { if (c.Kind == CommandKind.QuestAccept) accepts++; if (c.Kind == CommandKind.QuestInteract) interacts++; }
+                Assert.AreEqual(1, accepts, "one QuestAccept");
+                Assert.AreEqual(0, interacts, "click " + click + " of a rapid series sends no Abandon");
+                Assert.AreEqual("Abandon", ButtonLabel("AbandonQuest"), "click " + click + " arms nothing");
+            }
+            _latch.Tick(Roguehalla.Net.Ui.QuestAcceptLatch.HoldSeconds);
             abandon.GetComponent<Button>().onClick.Invoke(); _session.FlushInput();
-            int accepts = 0, interacts = 0;
-            foreach (var c in Commands()) { if (c.Kind == CommandKind.QuestAccept) accepts++; if (c.Kind == CommandKind.QuestInteract) interacts++; }
-            Assert.AreEqual(1, accepts, "one QuestAccept");
-            Assert.AreEqual(0, interacts, "the second click of a double click sends no Abandon");
+            Assert.AreEqual(0, Interacts(), "after the hold the first press only arms");
             Assert.AreEqual("Confirm abandon", ButtonLabel("AbandonQuest"));
             abandon.GetComponent<Button>().onClick.Invoke(); _session.FlushInput();
-            AssertLast(1, 0, "the third click abandons");
+            AssertLast(1, 0, "the second press after the hold abandons");
             Assert.AreEqual("Abandon", ButtonLabel("AbandonQuest"));
         }
 
