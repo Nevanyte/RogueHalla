@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
+using Roguehalla.Net.Ui;
 using TMPro;
 using UnityEngine;
 
