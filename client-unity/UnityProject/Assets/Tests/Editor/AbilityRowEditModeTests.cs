@@ -462,11 +462,9 @@ namespace Roguehalla.Client.Tests
             Assert.That(tile.SecondsLabel.text, Is.EqualTo("5"));
             Assert.That(tile.BadgeLabel.text, Is.EqualTo("2"));
             Assert.That(tile.Sweep.fillAmount, Is.EqualTo(.42f).Within(.001f));
-            for (int i = 0; i < 5; i++) tile.Show(face, "Hook", "Shift · Hook\n2 charges · 5s");   // warm up
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 200; i++) tile.Show(face, "Hook", "Shift · Hook\n2 charges · 5s");
-            long grown = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.That(grown, Is.LessThanOrEqualTo(0), "200 unchanged Show calls allocated " + grown + " bytes");
+            Action show = () => tile.Show(face, "Hook", "Shift · Hook\n2 charges · 5s");
+            for (int i = 0; i < 5; i++) show();   // warm up
+            AllocationMeter.AssertNone(show, 200, "200 unchanged Show calls");
             tile.Show(new AbilityFace(AbilityPhase.Ready, 0f, 0, 2, -1f), "Hook", "Shift · Hook");
             Assert.That(tile.SecondsLabel.text, Is.Empty, "a changed face still redraws");
         }
