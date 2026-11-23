@@ -327,7 +327,7 @@ namespace Roguehalla.Client.Tests
             Assert.AreEqual(2, marks.Length);
             // P-UI-TABMAP-FLOW-1: a surface that is not on screen is not painted, so each surface is read while it is shown:
             // the minimap with the map closed, the big map with the map open (it is painted on the frame it opens).
-            void ReadBoth(int merchants, int givers, int objectives, string why)
+            void ReadBoth(int merchants, int givers, int objectives, string why, bool bigMustOpen = true)
             {
                 var mini = _hud.TacticalMap.MinimapRoot.GetComponentInChildren<TacticalMapMarks>(true);
                 var large = marks.Single(x => x != mini);
@@ -335,6 +335,7 @@ namespace Roguehalla.Client.Tests
                 Assert.AreEqual(merchants, mini.MerchantCount, why); Assert.AreEqual(givers, mini.QuestGiverCount, why);
                 Assert.AreEqual(objectives, mini.QuestObjectiveCount, why);
                 _hud.TacticalMap.SetOpen(true); _hud.TacticalMap.Tick();
+                if (bigMustOpen) Assert.IsTrue(_hud.TacticalMap.IsOpen, why + " (the big map opens)");
                 Assert.AreEqual(merchants, large.MerchantCount, why); Assert.AreEqual(givers, large.QuestGiverCount, why);
                 Assert.AreEqual(objectives, large.QuestObjectiveCount, why);
                 _hud.TacticalMap.SetOpen(false); _hud.TacticalMap.Tick();
@@ -345,8 +346,16 @@ namespace Roguehalla.Client.Tests
                 new TradeState { Available = true, Value = new WireTradeView() } } });
             ReadBoth(0, 0, 0, "a replacing state clears both surfaces");
             _transport.Deliver(new ServerMsg.State { Tick = 3, Items = new StateItem[] { QuestState(handle) } });
+            // The big map holds a cue to lose: open it, then disconnect with it open. The session state change presents the open surface at once.
+            var bigMap = marks.Single(x => x != _hud.TacticalMap.MinimapRoot.GetComponentInChildren<TacticalMapMarks>(true));
+            _hud.TacticalMap.SetTrackedQuest(handle);   // the replacing state above dropped the tracked quest; the objective cue needs it
+            _hud.TacticalMap.SetOpen(true); _hud.TacticalMap.Tick();
+            Assert.IsTrue(_hud.TacticalMap.IsOpen, "set-up: the big map is open"); Assert.AreEqual(1, bigMap.QuestGiverCount, "set-up: it holds the quest giver cue");
+            Assert.AreEqual(1, bigMap.QuestObjectiveCount, "set-up: and the objective cue");
             _transport.Drop();
-            ReadBoth(0, 0, 0, "disconnect removes current point cues immediately");
+            Assert.AreEqual(0, bigMap.QuestGiverCount, "disconnect clears the open big map before any Tick"); Assert.AreEqual(0, bigMap.QuestObjectiveCount, "disconnect clears the open big map's objective before any Tick");
+            Assert.AreEqual(0, bigMap.MerchantCount, "disconnect clears the open big map's merchants before any Tick");
+            ReadBoth(0, 0, 0, "disconnect removes current point cues immediately (the minimap; the big map cannot open while reconnecting)", false);
             Assert.AreEqual(0, _root.GetComponentsInChildren<SpriteRenderer>(true).Count(x => x.name == "Observed merchant"));
         }
 
