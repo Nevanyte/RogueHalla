@@ -56,8 +56,7 @@ namespace Roguehalla.Client
             _root = MythicUi.Panel(canvasRoot, "TraderDialog", new Vector2(.12f, .12f), new Vector2(.88f, .915f), ShowcasePalette.Panel);
             MythicUi.Border(_root, ShowcasePalette.PanelStroke);
             MythicUi.Text(_root, "Title", "TRADERS", new Vector2(.025f, .915f), new Vector2(.72f, .995f), 26, ShowcasePalette.Gold, heading: true);
-            var close = MythicUi.Button(_root, "Close", "CLOSE", new Vector2(.87f, .915f), new Vector2(.975f, .995f), Close, MythicUi.ButtonStyle.Quiet);
-            close.GetComponentInChildren<TMP_Text>().fontSize = 13;
+            FlowWindowClose.Create(_root, "Close", Close);
 
             _status = MythicUi.Text(_root, "Status", "Looking for traders…", new Vector2(.025f, .735f), new Vector2(.975f, .80f), 16, ShowcasePalette.MutedText);
             var merchantPanel = MythicUi.Panel(_root, "MerchantPanel", new Vector2(.025f, .17f), new Vector2(.29f, .72f), ShowcasePalette.PanelRaised, false);
@@ -108,12 +107,15 @@ namespace Roguehalla.Client
         public void SetVisible(bool visible)
         {
             if (_root == null) return;
+            bool opening = visible && !_root.gameObject.activeSelf;
             if (visible) _root.SetAsLastSibling();
             _root.gameObject.SetActive(visible);
+            if (opening) _listToTop = true;
             if (visible)
             {
                 if (_choiceScroll != null) _choiceScroll.StopMovement();
                 Refresh();
+                if (opening && _listToTop) PlaceList(1f, ChoiceRowsAwake());
             }
         }
 
@@ -277,8 +279,9 @@ namespace Roguehalla.Client
         void RebuildChoices(TradeView view)
         {
             var viewRef = _viewRef;
-            float scroll = _choiceScroll == null ? 1f : _choiceScroll.verticalNormalizedPosition;
+            float scroll = ReadList();
             HideRows(_choiceRows); _choiceButtons.Clear();
+            if (ListChanged(view)) _listToTop = true;
             _empty.gameObject.SetActive(true);
             if (view == null)
             {
@@ -355,8 +358,46 @@ namespace Roguehalla.Client
                 }
                 UpdateDetailSummary(view, _selectedMerchant);
             }
-            if (_choiceScroll != null) _choiceScroll.verticalNormalizedPosition = scroll;
-            ReflowChoiceRows();
+            PlaceList(scroll, ReflowChoiceRows());
+        }
+
+        int _listMerchant = -1; TradeKind _listKind; string _listName; bool _listToTop = true;
+
+        /// <summary>The list's scroll position, read only when it means something: 1 (the top) unless the content is taller than the viewport.</summary>
+        float ReadList()
+        {
+            if (_choiceScroll == null) return 1f;
+            var content = _choiceScroll.content; var viewport = _choiceScroll.viewport;
+            if (content == null || viewport == null || content.rect.height <= viewport.rect.height + .5f) return 1f;
+            return _choiceScroll.verticalNormalizedPosition;
+        }
+
+        /// <summary>True when the selected merchant is not the one the list was built for; stores the new one.</summary>
+        bool ListChanged(TradeView view)
+        {
+            int index = -1; TradeKind kind = default(TradeKind); string name = null;
+            if (view != null && view.Available && _selectedMerchant >= 0 && _selectedMerchant < view.Merchants.Count)
+            {
+                index = _selectedMerchant; kind = view.Merchants[index].Kind; name = view.Merchants[index].Name;
+            }
+            bool changed = index != _listMerchant || kind != _listKind || name != _listName;
+            _listMerchant = index; _listKind = kind; _listName = name;
+            return changed;
+        }
+
+        void PlaceList(float read, bool measured)
+        {
+            if (_choiceScroll == null) return;
+            _choiceScroll.verticalNormalizedPosition = _listToTop ? 1f : read;
+            if (_listToTop && measured) _listToTop = false;
+        }
+
+        bool ChoiceRowsAwake()
+        {
+            if (_choiceRows.Count == 0) return true;
+            for (int i = 0; i < _choiceRows.Count; i++)
+                if (_choiceRows[i] != null && _choiceRows[i].activeInHierarchy) return true;
+            return false;
         }
 
         UnityEngine.UI.Button CreateChoiceButton(byte pick, string label, UnityEngine.Events.UnityAction action)
@@ -417,6 +458,7 @@ namespace Roguehalla.Client
             HideRows(_choiceRows); _choiceButtons.Clear();
             SetContentHeight(0);
             if (_choiceScroll != null) { _choiceScroll.StopMovement(); _choiceScroll.verticalNormalizedPosition = 1; }
+            _listMerchant = -1; _listToTop = true;
             if (_empty != null) { _empty.gameObject.SetActive(true); Set(_empty, copy); }
             Set(_detailHeading, "Traders");
             Set(_detailSummary, "");
@@ -445,9 +487,8 @@ namespace Roguehalla.Client
             if (merchants) ReflowMerchantRows();
             if (choices)
             {
-                float scroll = _choiceScroll.verticalNormalizedPosition;
-                ReflowChoiceRows();
-                _choiceScroll.verticalNormalizedPosition = scroll;
+                float scroll = ReadList();
+                PlaceList(scroll, ReflowChoiceRows());
             }
         }
 
@@ -482,7 +523,7 @@ namespace Roguehalla.Client
             }
         }
 
-        void ReflowChoiceRows()
+        bool ReflowChoiceRows()
         {
             float y = 0;
             bool measured = false;
@@ -498,9 +539,10 @@ namespace Roguehalla.Client
                 rect.sizeDelta = new Vector2(0, height);
                 y += height + (actionRow ? 8f : 4f);
             }
-            if (!measured) return; // hidden rebuild keeps RebuildChoices' estimate (and the scroll position)
+            if (!measured) return false; // hidden rebuild keeps RebuildChoices' estimate (and the scroll position)
             if (_choiceRows.Count > 0) y -= 4f;
             SetContentHeight(Mathf.Max(0, y));
+            return true;
         }
 
         float FitHeight(GameObject row, TMP_Text text, RectTransform rect, float minimum, bool choices)
@@ -588,7 +630,6 @@ namespace Roguehalla.Client
                 case SessionState.Reconnecting: return "Connection interrupted · resuming";
                 case SessionState.Failed: return "Connection failed";
                 case SessionState.Rejected: return "Connection rejected";
-                case SessionState.Ended: return "Match ended";
                 default: return PlayerWords.Word(state);
             }
         }
