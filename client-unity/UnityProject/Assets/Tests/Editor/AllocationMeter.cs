@@ -20,8 +20,20 @@ namespace Roguehalla.Client.Tests
         static string s_sinkStr;
 
         // Controls are static delegates, built once: a closure allocates when it is created.
-        static readonly Action AllocatingControl = () => { s_sinkObj = new object(); s_sinkStr = s_a + s_b; };
-        static readonly Action CleanControl = () => { s_sinkInt += 3; };
+        public const int ControlCalls = 10, CountingAllocationsPerCall = 3;
+        public static readonly Action AllocatingControl = () => { s_sinkObj = new object(); s_sinkStr = s_a + s_b; };
+        public static readonly Action CleanControl = () => { s_sinkInt += 3; };
+        static object s_sinkObj2, s_sinkObj3;
+        public static readonly Action CountingControl = () => { s_sinkObj = new object(); s_sinkObj2 = new object(); s_sinkObj3 = new object(); };
+
+        /// <summary>Test seam, null in normal use. When set, Samples returns its answer and runs nothing.</summary>
+        public static Func<Action, int, int> SamplesOverride;
+
+        /// <summary>Stub: the implementer replaces it.</summary>
+        public static int Samples(Action action, int calls) { return 0; }
+
+        /// <summary>Stub: the implementer replaces it.</summary>
+        public static void AssertAtMost(Action action, int calls, int maxSamples, string what) { }
 
         /// <summary>True when calling action `calls` times allocated managed memory.</summary>
         public static bool Allocates(Action action, int calls)
