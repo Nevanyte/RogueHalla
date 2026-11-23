@@ -403,7 +403,9 @@ namespace Roguehalla.Client.Tests
                     RealUntilOpen(FourCamps(), FourRows());
                     Open();
                     string step = window.x + "x" + window.y + " text " + ts;
-                    Assert.That(LeftColumnLabels().Count, Is.GreaterThanOrEqualTo(2), step + ": premise: the left column has labels");
+                    // a shown key gives the column its heading, twelve rows and IN VIEW; a hidden key (rule 1) leaves IN VIEW alone
+                    int expected = KeyRoot().gameObject.activeInHierarchy ? 2 : 1;
+                    Assert.That(LeftColumnLabels().Count, Is.GreaterThanOrEqualTo(expected), step + ": premise: the left column has labels");
                     float worst;
                     string who = WorstOverprint(ts == 1f, out worst);
                     Assert.That(worst, Is.EqualTo(0f), step + ": no two labels overprint (worst: " + who + " by " + worst + " units)");
