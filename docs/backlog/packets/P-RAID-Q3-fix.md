@@ -100,7 +100,23 @@ this packet owns those three for this round.
 
 ## 5. Facts the brief establishes by measurement
 
-(Filled by the oracle commit: see section 10.)
+Measured on the base `coord/int-85` (debug build, `crates/rh-policy/tests/raid_decide_fix.rs`; the throwaway numbers are printed
+by that test with `--nocapture`):
+
+1. **The seat freezes on the live sim.** The scripted prelude plays two quests then `letters` to its pending slot choice (seed 4:
+   `pilgrims_path`, `lost_brother`, `letters`; seed 5: `barrow_run`, `a_cruel_joke`, `letters`), the script walks the seat to
+   `letters`' giver for 120 ticks (out of the token's reach, so action 8 is gone), and a `RaidBot` takes over for 1 200 ticks
+   (60 s). On the base the seat reaches the giver and **never moves again**: seed 4 from tick 285 to the end of the run (915
+   ticks, 45.8 s, 0.0 u of movement), seed 5 from tick 295 (905 ticks, 45.3 s, 0.0 u); the choice is still pending at the end.
+   The run was stopped at 1 200 ticks, not by the freeze ending: nothing in the code would end it.
+2. **The unit scenes show the same on a hand-built frame**: a pending `letters` row, the seat at its giver, no action offered:
+   the goal is still proposed and running after 15 s (300 ticks watched); the same for the hag stand with 20 damage stacks
+   counted by the seat and no trade offered.
+3. **`remember` records nothing for a token quest**: in the unit scene (accepted frame with the token as objective, then a
+   pending frame far away) the base walks to the giver, not the token.
+4. **The Bargain candidate on the base** is 2.7 in every build the oracle tries (stack trade 1.133, weapon trade 1.3, a 0.3 trade).
+5. Not measured: the `raid_decide.rs` Bargain scenes with the lower candidate value (see section 4). The oracle author did not
+   write the fix.
 
 ## 6. Exclusive write scope
 
@@ -156,7 +172,28 @@ or arbiter file holds a price of its own").
 
 ## Oracle files (read-only for implementers)
 
-(Completed by the oracle commit.)
+- `crates/rh-policy/src/bots/raid/quest/decide_fix_tests.rs` (in-crate; the `mod decide_fix_tests;` line is in the stub commit)
+- `crates/rh-policy/tests/raid_decide_fix.rs`
+- `docs/backlog/packets/P-RAID-Q3-fix.md`
+
+Stub commit (the implementer's to replace or edit): `values.rs` (the new `Prices` fields and `StatFit`, with today's numbers,
+unread), `quest/decide.rs` (`stat_worth_at`, delegating to `stat_worth`), `quest/mod.rs` (the `mod` line).
+
+Green on the stub **by design** (guards): `a_pending_choice_is_not_given_up_while_the_server_offers_the_answer`,
+`a_seat_walking_to_a_far_turn_in_point_is_not_given_up_for_being_slow`, `the_local_decision_prices_are_the_numbers_the_executor_used`,
+`a_table_that_prices_the_bargain_at_nothing_proposes_none_and_so_does_a_build_with_no_trade`. Red on the stub, each on an
+assertion: the other 12 unit tests and the scene test.
+
+What the tests pin, by name:
+- the bounded waits: `a_pending_choice_with_nothing_offered_at_the_giver_is_given_up_within_a_bounded_wait`,
+  `a_hag_stand_with_no_trade_offered_is_given_up_within_a_bounded_wait` (given up within 5 s, stays given up at least 10 s),
+  `a_pending_choice_on_a_token_quest_walks_back_to_the_token_not_the_giver` (the first move goes toward the token remembered
+  from the accepted frame), and the live scene `a_seat_pushed_off_a_pending_token_quest_is_not_held_by_it` (both seeds must
+  move at least 60 u in the last 30 s of a 60 s run);
+- the prices: `a_stats_worth_follows_the_neutral_and_fit_prices`, `the_spare_weapons_price_decides_whether_it_is_traded`,
+  `the_fit_prices_decide_whether_a_stack_trade_is_taken`, `the_recharging_share_prices_a_spell_with_no_charge`,
+  `the_answer_minutes_and_the_death_floor_are_read_from_the_prices`, `decide_declares_none_of_the_moved_constants` (source scan);
+- the Bargain's value: the stack trade 34/30, the weapon trade 1.3, a doctored 0.3 trade, never the table's 2.7.
 
 ## 11. Risk and suggested model tier
 
@@ -176,7 +213,15 @@ Bargain value that stays above the roam floor so the scenes of `raid_decide.rs` 
 
 ## Not established
 
-Filled by the oracle commit.
+- Whether `raid_decide.rs`'s Bargain scenes (seeds 2, 4, 6, 9, floor 3 of 4) still complete when the candidate is worth 1.1 to
+  1.3 instead of 2.7: the oracle author did not write the fix. If a scene goes red because another goal now outranks the
+  Bargain, stop and report: do not amend the scene; the coordinator decides (a floor on the value, or the scene).
+- That a handed-over seat recovers its answer: a seat that never saw the accepted row (a bot that took over a pending token quest) can
+  only give the def up for a while; it does not find the token. The oracle pins the give-up and the live scene's movement,
+  not a late answer. A pending choice then waits in the sim for ever (nothing expires it).
+- The Bargain's giver-to-hag leg (minor, unpinned: the hag is not in the frame before accepting).
+- Whether the walker's and dwell's copies of `DEATH_FLOOR` should read the field: the oracle scans `decide.rs` only.
+- The live scene's late-movement floor (60 u in 30 s) is not measured on an implementation.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
