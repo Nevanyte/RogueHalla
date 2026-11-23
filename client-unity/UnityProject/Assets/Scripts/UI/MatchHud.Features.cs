@@ -30,7 +30,6 @@ namespace Roguehalla.Client
         readonly UnityEngine.UI.Image[] _weaponIcons = new UnityEngine.UI.Image[2];
         readonly UnityEngine.UI.Image[] _weaponActiveBars = new UnityEngine.UI.Image[2];
         UnityEngine.UI.Image _potionIcon;
-        TMP_Text _wishSummary;
         RectTransform _wishDetails;
         RectTransform _vitalsPanel, _buildStrip, _combatActions, _damagePanel;
         TMP_Text _combatStats;
