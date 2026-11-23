@@ -223,5 +223,18 @@ Bargain value that stays above the roam floor so the scenes of `raid_decide.rs` 
 - Whether the walker's and dwell's copies of `DEATH_FLOOR` should read the field: the oracle scans `decide.rs` only.
 - The live scene's late-movement floor (60 u in 30 s) is not measured on an implementation.
 
+## Coordinator's answers (2026-11-23)
+
+1. Yes: `quest/dwell.rs` joins the write scope for its `DEATH_FLOOR` const and that const's uses alone, which read
+   `cx.prices.death_floor` as the walker's do. One price, one place; the number stays 0.02, so `raid_dwell` and
+   `dwell_tests` must stay green unchanged. This overrides "Not touched: `quest/dwell.rs`" in section 6.
+2. If a Bargain scene in `tests/raid_decide.rs` goes red once the candidate is valued by the trade's gain, the
+   implementer stops and reports the scene, the seed and the numbers. An amendment of that file is the
+   coordinator's, never the implementer's.
+3. A seat handed a pending token quest it never saw accepted gives up for a while and is not held: accepted as
+   pinned. Finding the token without having seen the accept is not in this packet.
+
+The decision prices stay Rust-only (no JSON mirror), as decided in section 9.
+
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
