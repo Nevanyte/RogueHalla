@@ -254,6 +254,14 @@ step lag (F2, last bullet) and the order of bucket tests (decision 6).
   balance number.
 - The `notes` and README wording are not pinned by a test.
 
+## Coordinator's answers (2026-11-23)
+
+The three defaults stand. 1: no schema bump; the report stays `balance-lab/1`, and the changed meaning of
+`completed` and `abandoned` is stated in `notes` and the README. 2: the name `abandoned` stays and means "ended
+otherwise (unknown)"; no `unknown` field is added. 3: the write scope leaves out `crates/rh-headless/src/lib.rs` and
+`Cargo.toml` (P-BAL-EVAL-1 edits beside this packet). The paired mode's granted rewards are P-BAL-LAB-2's: that
+packet keeps a granted seat off the offer that pays its grant, or leaves that offer out of the arm's statistics.
+
 ## Notes from previous attempts
 
 None.
