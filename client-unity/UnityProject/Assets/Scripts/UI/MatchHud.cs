@@ -158,6 +158,7 @@ namespace Roguehalla.Client
             _lastWish = null; _lastBarrier = float.NaN; _lastBarrierRing = 0; _lastServerTime = double.NaN;
             _inventoryShown = null; _focusShown = null; _buildShown = false; _rewardSignature = ulong.MaxValue;
             _dirty = _rewardsDirty = true; _bannerState = (SessionState)(-1); _bannerPhase = -1;
+            ResetActionClock();
             ClearOwnerPresentation("Awaiting server");
             ArmFirstRunHint();
             // Menu/modal visibility can keep these controls inactive until the next HUD tick.
@@ -187,6 +188,7 @@ namespace Roguehalla.Client
             _session.TimelineReset -= ResetPlayerFlowTimeline;
             _session.CueSent -= InputCue;
             ClearPulses();
+            ResetActionClock();
             BindPlayerFlows(null);
             _session = null;
         }
@@ -207,6 +209,7 @@ namespace Roguehalla.Client
             _feedback = "";
             SetStickyNotice("");
             _wishMotion.Reset();
+            ResetActionClock();
             ResetPlayerFlowTimeline();
             ClearOwnerVitals();
             if (_session == null) ClearOwnerPresentation("Awaiting server");
@@ -242,8 +245,7 @@ namespace Roguehalla.Client
             RefreshReadouts();
             TickSpectate();
             TickTutorial();
-            TickWishTileMotion();
-            TickPulses();
+            TickActionRow();
             RefreshSettlementRow();
             TickOwnerVitals(Time.unscaledDeltaTime);
             if (_session != null && _session.ReconnectAttempt != _bannerAttempt) _dirty = true;

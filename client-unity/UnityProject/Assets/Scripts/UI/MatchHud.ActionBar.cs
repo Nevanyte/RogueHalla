@@ -43,6 +43,53 @@ namespace Roguehalla.Client
         /// <summary>The region moved up by an offset (down when negative) from its edge.</summary>
         static HudRegion Raised(HudRegion region, float by) => new HudRegion(region.Anchor, region.X, region.Y + by, region.Width, region.Height);
 
+        /// <summary>Local milliseconds of the HUD clock; a test replaces it (EditMode time does not advance).</summary>
+        public Func<double> HudLocalMs = () => Time.unscaledTimeAsDouble * 1000d;
+
+        /// <summary>The HUD's own clock: server time advanced between snapshots, so wedges and bars move every frame.</summary>
+        readonly HudClock _hudClock = new HudClock();
+        /// <summary>The attack timer's bar on each weapon slot; only the weapon in hand shows it.</summary>
+        readonly UnityEngine.UI.Image[] _attackBars = new UnityEngine.UI.Image[2];
+        double _attackReadyAtMs;
+        float _previousFlash, _previousReadyPulse;
+
+        /// <summary>Seconds of the HUD's local clock; every press pop and wash ages on it.</summary>
+        float HudSeconds { get { return (float)(HudLocalMs() / 1000d); } }
+
+        /// <summary>The server time the row draws at: the HUD clock once it has a snapshot, else the time passed.</summary>
+        double ActionNowMs(double serverTimeMs) => _hudClock.Ready ? _hudClock.Now(HudLocalMs()) : serverTimeMs;
+
+        /// <summary>Forgets the clock and the attack timer (a new session, an unbind, a presentation clock cut).</summary>
+        void ResetActionClock()
+        {
+            _hudClock.Reset();
+            _previousFlash = _previousReadyPulse = 0f;
+            _attackReadyAtMs = 0d; _attackCooldownTotal = 1f;
+            WriteAttackBars(0d);
+        }
+
+        /// <summary>Every frame: feeds the clock, runs the Wish wash and the press pops, then moves the wedges, the cast bar and the attack bars.</summary>
+        void TickActionRow()
+        {
+            if (_session != null && _session.Latest != null) _hudClock.OnServerTime(_session.ServerTimeMs, HudLocalMs());
+            TickWishTileMotion();
+            TickPulses();
+            if (!_hudClock.Ready) return;
+            double now = _hudClock.Now(HudLocalMs());
+            if (_wishAbilityTile != null)
+            {
+                _wishAbilityTile.SweepAt(now);
+                var me = _session != null ? _session.Me : null;
+                if (me != null && me.Wish.HasValue && me.Wish.Value.Cast.HasValue)
+                {
+                    var cast = me.Wish.Value.Cast.Value;
+                    _wishAbilityTile.CastAt(now, cast.StartedAt, cast.LandsAt);
+                }
+            }
+            for (int i = 0; i < _questTiles.Length; i++) if (_questTiles[i] != null) _questTiles[i].SweepAt(now);
+            WriteAttackBars(now);
+        }
+
         /// <summary>The Shift and Q ability tiles of the row.</summary>
         AbilityTile[] _questTiles = new AbilityTile[2];
 
@@ -67,11 +114,12 @@ namespace Roguehalla.Client
                 _weaponIcons[i].rectTransform.pivot = new Vector2(.5f, 1f); _weaponIcons[i].rectTransform.anchoredPosition = new Vector2(0, -12);
                 _slotNames[i] = HudUi.Label(HudUi.At(rect, "Name", 4, 42, HudRegions.WeaponSlotWidth - 8, 14), "Label", "Empty", theme.SizeSmall, theme.TextPrimary, TextAlignmentOptions.Center);
                 _slotScaling[i] = HudUi.Label(HudUi.At(rect, "Scaling", 2, 59, HudRegions.WeaponSlotWidth - 4, 11), "Label", "", theme.SizeMicro, theme.TextSecondary, TextAlignmentOptions.Center, wrap: true);
-                var sweep = HudUi.Fill(rect, "CooldownSweep", Tone(theme.OutlineDark, .62f));
-                sweep.rectTransform.offsetMin = new Vector2(1f, 1f); sweep.rectTransform.offsetMax = new Vector2(-1f, -1f);
-                sweep.sprite = UiSprites.Flat(); sweep.type = UnityEngine.UI.Image.Type.Filled;
-                sweep.fillMethod = UnityEngine.UI.Image.FillMethod.Radial360; sweep.fillOrigin = 2; sweep.fillClockwise = false; sweep.fillAmount = 0f;
-                _slotSweeps[i] = sweep; sweep.enabled = false;
+                var barBox = HudUi.Box(rect, "AttackBar", HudAnchor.BottomLeft, 6f, 4f, HudRegions.WeaponSlotWidth - 12f, 3f);
+                var bar = barBox.gameObject.AddComponent<UnityEngine.UI.Image>();
+                bar.sprite = UiSprites.Flat(); bar.color = theme.Accent; bar.raycastTarget = false;
+                bar.type = UnityEngine.UI.Image.Type.Filled; bar.fillMethod = UnityEngine.UI.Image.FillMethod.Horizontal;
+                bar.fillOrigin = 0; bar.fillAmount = 0f; bar.enabled = false;
+                _attackBars[i] = bar;
                 var active = HudUi.Fill(rect, "ActiveWeapon", theme.BorderStrong);
                 active.sprite = UiSprites.Frame(theme, theme.CornerRadius); active.type = UnityEngine.UI.Image.Type.Sliced;
                 _weaponActiveBars[i] = active; active.enabled = false;
@@ -184,9 +232,12 @@ namespace Roguehalla.Client
         void RefreshWishTile(WishView? wish, double serverTimeMs, UiTheme theme)
         {
             if (_wishAbilityTile == null) return;
-            _wishMotion.Observe(wish, serverTimeMs, Time.unscaledTime);
+            _wishMotion.Observe(wish, serverTimeMs, HudSeconds);
             _wishAbilityTile.Show(AbilityFaces.Wish(wish, serverTimeMs), AbilityFaces.WishLabel(wish, WishNameFor(wish)));
             if (wish.HasValue) _wishAbilityTile.Cooldown(wish.Value.ReadyAt, wish.Value.RechargeMs); else _wishAbilityTile.Cooldown(0d, 0d);
+            double now = ActionNowMs(serverTimeMs);
+            _wishAbilityTile.SweepAt(now);
+            if (wish.HasValue && wish.Value.Cast.HasValue) _wishAbilityTile.CastAt(now, wish.Value.Cast.Value.StartedAt, wish.Value.Cast.Value.LandsAt);
         }
 
         /// <summary>Draws the Wish tile with no Wish delivered (after a rebind, a menu or a spectator view).</summary>
@@ -204,23 +255,38 @@ namespace Roguehalla.Client
         void TickWishTileMotion()
         {
             if (_wishGlow == null || _wishTile == null) return;
-            float now = Time.unscaledTime, flash = _wishMotion.Flash(now), pulse = _wishMotion.ReadyPulse(now);
-            bool reduced = ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
+            float now = HudSeconds, flash = _wishMotion.Flash(now), pulse = _wishMotion.ReadyPulse(now);
+            // The pop belongs to HudPulses (the one scale writer): ask for it on the edges of the two animations.
+            if (flash > _previousFlash + .3f || (_previousReadyPulse <= 0f && pulse > 0f)) Pulse(_wishTile);
+            _previousFlash = flash; _previousReadyPulse = pulse;
             float alpha = Mathf.Clamp01(.6f * flash + .4f * pulse);
-            if (alpha <= .004f) { if (_wishGlow.enabled) { _wishGlow.enabled = false; _wishTile.localScale = Vector3.one; } return; }
+            if (alpha <= .004f) { if (_wishGlow.enabled) _wishGlow.enabled = false; return; }
             Color color = UiTheme.Current.FactionColor(_faction); color.a = alpha;
             _wishGlow.enabled = true; _wishGlow.color = color;
-            _wishTile.localScale = reduced ? Vector3.one : Vector3.one * (1f + .12f * flash + .05f * pulse);
         }
 
-        void RefreshCooldownSweep(SelfView me)
+        void RefreshCooldownSweep(SelfView me, double serverTimeMs)
         {
-            // One shared attack-cooldown wedge over both slots; the share left shrinks against the longest cooldown seen.
+            // The attack timer: the length is the largest time left seen since it was last 0; the bar drains against it.
             if (me.ReadyInMs > _attackCooldownTotal) _attackCooldownTotal = me.ReadyInMs;
             if (me.ReadyInMs == 0) _attackCooldownTotal = 1f;
-            float share = Mathf.Clamp01(me.ReadyInMs / Mathf.Max(1f, _attackCooldownTotal));
-            for (int i = 0; i < 2; i++)
-                if (_slotSweeps[i] != null) { _slotSweeps[i].enabled = share > 0f; _slotSweeps[i].fillAmount = share; }
+            _attackReadyAtMs = serverTimeMs + me.ReadyInMs;
+            WriteAttackBars(ActionNowMs(serverTimeMs));
+        }
+
+        /// <summary>Draws the attack bar of the weapon in hand at server time <paramref name="nowMs"/>; the other slot's bar is off.</summary>
+        void WriteAttackBars(double nowMs)
+        {
+            int active = _inventoryShown.HasValue ? _inventoryShown.Value.ActiveSlot : 0;
+            float fill = _attackReadyAtMs > 0d ? Mathf.Clamp01((float)((_attackReadyAtMs - nowMs) / Math.Max(1d, _attackCooldownTotal))) : 0f;
+            for (int i = 0; i < _attackBars.Length; i++)
+            {
+                var bar = _attackBars[i];
+                if (bar == null) continue;
+                bool on = i == active && fill > 0f;
+                if (bar.enabled != on) bar.enabled = on;
+                if (on && bar.fillAmount != fill) bar.fillAmount = fill;
+            }
         }
     }
 }
