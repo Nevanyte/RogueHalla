@@ -45,7 +45,7 @@ namespace Roguehalla.Client.Tests
         {
             _view.SetVisible(true);
             Assert.IsNull(_session.Collections.Trade);
-            Assert.That(_canvas.transform.Find("TraderDialog/Status").GetComponent<TMP_Text>().text, Does.Contain("awaiting trade view"));
+            Assert.That(_canvas.transform.Find("TraderDialog/Status").GetComponent<TMP_Text>().text, Is.EqualTo("Looking for traders…"));
             _session.Update();
             Assert.AreEqual(0, InputMessages().SelectMany(x => x.Commands).Count(c => c.Kind == CommandKind.Trade));
 
@@ -59,7 +59,7 @@ namespace Roguehalla.Client.Tests
             _view.Refresh();
             Assert.IsTrue(_session.Collections.Trade.Available);
             Assert.AreEqual(0, _session.Collections.Trade.Merchants.Count);
-            Assert.That(_canvas.transform.Find("TraderDialog/Status").GetComponent<TMP_Text>().text, Does.Contain("no visible merchants"));
+            Assert.That(_canvas.transform.Find("TraderDialog/Status").GetComponent<TMP_Text>().text, Is.EqualTo("No trader in sight."));
             Assert.AreEqual(0, InputMessages().SelectMany(x => x.Commands).Count(c => c.Kind == CommandKind.Trade));
         }
 
