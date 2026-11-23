@@ -26,10 +26,36 @@ unlisted seats play `human`), `--human-seats` (seat everyone `bot:false`). A usa
 ## Reading the report
 
 One compact JSON object on stdout, schema `balance-lab/1`, keys in declaration order: `schema`, `content_hash`, `seeds`,
-`seating`, `maps` (the map the sim admitted), `world`, `elites`, `quests`, `rewards`, `augments`, `notes`. Counters are
+`seating`, `maps` (the map the sim admitted), `world`, `elites`, `quests`, `rewards`, `augments`, `seats`, `notes`. Counters are
 sums over seeds, folded in seed order. Sums of seconds carry `n`, the sample count; minute samples (`world.minutes`, at
 minutes 5, 8, 12 of the sim clock) carry `samples`. Matches of eight human-bot seats end after about 900 to 3,400 ticks,
 so later minutes have few samples or none.
+
+## Where each seat's time goes (`world.time`, `seats`)
+
+Every seat-step (a seat's state after one match step; the lobby counts; alive or not) lands in exactly one bucket, the
+first that matches:
+
+| bucket | meaning |
+|---|---|
+| `dead` | the seat is not standing (`Player::standing()`); its fight windows are cleared |
+| `elite`, `camp`, `player` | the seat dealt or took a hit in the last 60 steps (3 s, counting the hit's own step) against a mob of an elite camp, a mob of a normal camp (or with no camp), or another player; each kind has its own window, and the highest open one wins |
+| `quest_moving`, `quest_still` | an open quest attempt in the sim's probe (accepted, not turned in or completed), split by moved |
+| `moving` | the seat's position changed by at least 1.0 unit since the last step |
+| `resting` | standing still below full hp |
+| `idle` | standing still at full hp |
+
+The 3 s window and the 1 u distance are choices, not measurements (`FIGHT_WINDOW_STEPS`, `MOVED_DIST`). `world.time.steps`
+is all seat-steps; `world.time.buckets.<bucket>` has `all` and the minute bands `m0_5` (ticks below 6000), `m5_11` (below
+13200) and `m11_plus` (`tick / 1200`, so the lobby counts as minutes). `seats` has one row per seed and seat, in seed
+then seat order: faction, last weapon, steps, buckets, camps credited (`camps_normal`, `camps_elite`), `deaths`,
+`quests_completed`, `elite_kills`, `farm_stacks` at the minute-5, 8, 12 samples (null where the seat was not standing)
+and named chest `picks`. The seat credits are the world's: the camp's best-damage seat, the elite's killing-blow seat,
+the lab's own death and quest-completion counts, so the seats' sums equal the world totals. A camp is elite when the
+observer has seen its elite alive: a camp whose elite nobody saw counts as normal (`camps_credited_normal`,
+`kill_secs_normal`; the elite share is the difference, `kill_secs_elite`). `kill_secs.n` can be below `camps_credited`.
+Not shown: walking to a quest not yet accepted is `moving`; fleeing is `moving` once the window passes; time at a chest
+is `idle` or `resting`; area or status damage with no attacker is no fight; being knocked about is `moving`.
 
 ## Caveats
 
