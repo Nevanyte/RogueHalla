@@ -118,4 +118,33 @@ trades with an add count as fighting (intended: the add is of the camp).
 
 ## Oracle files (read-only for implementers)
 
-(filled in the `oracle:` commit)
+- `crates/rh-policy/src/bots/raid/exec/elite_leave_fix2_tests.rs` (7 tests: 4 red on the base by assertion, 3 green guards)
+- `docs/backlog/packets/P-RAID-E-leave-fix2.md` (this brief)
+
+The `stub:` commit holds the `mod leave_fix2_tests;` line in `exec/elite.rs` and a one-line placeholder of the test file.
+No `oracle-amend:`.
+
+Routing: serves: balance patch wave 5 (P-RAID-E follow-up) · tier: implementer-opus · reviewer: reviewer-opus · D-rules: D1
+loose proof, no D5/D6/D9 · write scope: section 5.
+
+Red on the base: `a_seat_standing_out_of_the_panels_reach_walks_to_the_chest` (hand-built: chest phase with `killed` set
+directly, seat 100/120/149 u from the chest, `still_since` 0 at now 5 000: step stands with no intent),
+`a_ranged_seat_locked_on_the_elite_gets_the_chest_phase` and `..._on_an_add_...` (hand-built: Wand seat at 400 u, lock
+`Held { target: Some(key) }`, then the kill frame: elite and add gone, camp `state` 2, chest delivered; base: no
+`fight_since`, so no kill record), `a_ranged_fight_handed_away_is_one_give_up` (no give-up on the base).
+Green guards: `a_seat_within_the_panels_reach_stands_at_the_chest` (60 u), `a_ranged_seat_with_no_lock_is_not_fighting`,
+`a_lock_on_a_mob_of_another_camp_is_not_this_fight`.
+
+Hand-built frames, checked against what the sim can produce: the camp, mob and chest rows follow
+`elite_leave_fix_tests.rs`; the lock is the shape `perception.rs:443-465` builds (`Held { target: attack_target }`) and a
+Wand locks up to 512 u inside the 900 u vision; the kill frame has the camp cleared (`state` 2, as the sim reports a
+cleared camp) so `watch_elites` reads the elite dead without view geometry; the chest is at the camp centre within
+`CAMP_JOIN_RADIUS`. Each walking test asserts first that the map has a way to the chest (`step_toward`).
+
+## NOT ESTABLISHED
+
+- That the pick then fires in a live room (the lab count carries it); that the margin is right (pinned only between 0 and
+  28 u).
+- The `Held { target: None }` fallback (the elite within `lock_range`) is unpinned.
+- The kill frame's two fixed facts (add gone, camp cleared) are the simplest frame; a kill with adds still alive is not
+  pinned.
