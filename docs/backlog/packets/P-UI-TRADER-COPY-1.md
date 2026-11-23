@@ -135,4 +135,19 @@ every active label of the dialog for the banned words.
 - Reflow: labels are width-fitted by `FitHeight`; shorter copy cannot overflow.
 
 ## Oracle author notes
-(filled below after the run)
+- No stub commit: the tests use only existing public members; strings are the only thing that changes.
+- Spec test 1 is split in two methods: `TheStatusLineOfEachCase` (the seven rows) and
+  `ASessionNotInAMatchShowsTheStateCopyAlone` ("Connection interrupted · resuming" after a dropped socket; "Match ended"
+  after a `MatchEnded` event, with a trade view that has a merchant). Together they are the spec's test 1.
+- Red on the stub (run through `unity-class.sh`, 6 new tests, all on assertions):
+  - `TheStatusLineOfEachCase`: expected "Looking for traders…", was "Server trade view · awaiting trade view".
+  - `ASessionNotInAMatchShowsTheStateCopyAlone`: expected "Connection interrupted · resuming", was that plus
+    " · choices are server-authoritative".
+  - `NoPlayerFacingTextMentionsTheServer`: lists Status, DetailSummary, Empty, AuthorityNote texts with the banned words.
+  - `ChoiceButtonsCarryTheOfferAlone`: expected "Small potion for a sword", was "1 · Small potion for a sword".
+  - `SendingATradeSaysTrading`: expected "Trading…", was "Server trade view · choice queued · awaiting server state".
+  - `TheEmptyStatesSayItOnce`: expected centre "Looking for traders…", was "Waiting for an authoritative trade view.".
+- Green on the stub: the other `TraderDialogViewEditModeTests` methods and `TrainingHudNotesEditModeTests` (9 of 15
+  in the three classes run; the two amend-bound methods are green until amended, then red until implemented).
+- The test for the banned words is case-insensitive over "server", "authoritative", "delivered", "session".
+- Unity writes `TraderCopyEditModeTests.cs.meta`: committed with the oracle.
