@@ -245,7 +245,7 @@ Stay green, assertions unchanged (each class that names `SpriteActorPresenter` i
 - `StormInkSignatureCueEditModeTests` (`PlaceSignatureCues` reads the lifted bounds; run it).
 - `MobContinuityEditModeTests`, `SpriteActorSignatureEditModeTests`, `ActorOutlineEditModeTests` (no `PresentIndicators`),
   `SpriteActorBarrierEditModeTests`, `StormInkFireRoamEditModeTests` (one actor), `OverheadIndicatorsEditModeTests`,
-  `NameLegibleTableEditModeTests`, `NameLegibleHubCardEditModeTests`, `UiLabEditModeTests`, `LegacyFactsEditModeTests`
+  `NameLegibleTableEditModeTests`, `NameLegibleHubCardEditModeTests`, `UiLabFixesEditModeTests`, `DeclutterEditModeTests`, `LegacyFactsEditModeTests`
   (`Update` only, `_shift` stays 0), `NamePackHoverEditModeTests`, `AbilityRowEditModeTests` (its own local
   `NameShown`), `VisionPresentationEditModeTests`, `ArenaPresentationEditModeTests`.
 
