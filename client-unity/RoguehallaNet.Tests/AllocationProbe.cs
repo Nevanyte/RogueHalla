@@ -1,6 +1,6 @@
 using System;
-using System.Runtime.ExceptionServices;
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 
 namespace Roguehalla.Net.Tests
@@ -82,6 +82,7 @@ namespace Roguehalla.Net.Tests
             var ages = new long[maxRuns];
             long start = Stopwatch.GetTimestamp();
             int done = 0;
+            bool exact = false;
             try
             {
                 for (int r = 0; r < maxRuns; r++)
@@ -90,29 +91,41 @@ namespace Roguehalla.Net.Tests
                     bytes[r] = got;
                     ages[r] = Stopwatch.GetTimestamp();
                     done = r + 1;
-                    if (got <= expectedBytesPerCall) return got;
+                    if (got == expectedBytesPerCall) { exact = true; return got; }
+                    if (got < expectedBytesPerCall) return got;
                     best = Math.Min(best, got);
                 }
                 return best;
             }
             finally
             {
-                var info = GC.GetGCMemoryInfo();
-                var log = new System.Text.StringBuilder("attempts (expected " + expectedBytesPerCall + "; collector memory load " + (info.MemoryLoadBytes >> 20) + " of "
-                    + (info.HighMemoryLoadThresholdBytes >> 20) + " MB high-load threshold, process age " + (long)(DateTime.Now - Process.GetCurrentProcess().StartTime).TotalMilliseconds + " ms at the end): ");
-                for (int r = 0; r < done; r++)
-                    log.Append(string.Format(System.Globalization.CultureInfo.InvariantCulture, "#{0} {1:R} B/call gc0/1/2 {2}/{3}/{4} thread {5} t+{6} ms; ", r, bytes[r],
-                        windows[r][0], windows[r][1], windows[r][2], windows[r][3], (ages[r] - start) * 1000 / Stopwatch.Frequency));
-                lastAttempts.Value = log.ToString();
+                // Built only for a failing result: a passing call must leave no allocation or finalizable object behind
+                // between measurements, which is itself enough to reproduce the failure this diagnostic exists to explain.
+                if (!exact) lastAttempts = Describe(expectedBytesPerCall, bytes, windows, ages, start, done);
+                else lastAttempts = "";
             }
         }
 
-        static readonly ThreadLocal<string> lastAttempts = new ThreadLocal<string>(() => "");
-        /// <summary>For the calling thread's most recent <see cref="PerCallExact"/>: every attempt's bytes per call, collection counts of
-        /// generations 0, 1 and 2 across its window, the measuring thread id and its time since the first attempt, and at the end the
-        /// collector's memory load against its high-load threshold and the process age. Append it to the assertion message so a failure
-        /// explains itself.</summary>
-        public static string LastAttempts => lastAttempts.Value;
+        static readonly long ProcessStartTicks;
+        static AllocationProbe() { ProcessStartTicks = Environment.TickCount64; } // an explicit static constructor: captured when the probe is first used, not at its first failure
+
+        static string Describe(double expected, double[] bytes, int[][] windows, long[] ages, long start, int done)
+        {
+            var info = GC.GetGCMemoryInfo();
+            var log = new System.Text.StringBuilder("attempts (expected " + expected + "; collector memory load " + (info.MemoryLoadBytes >> 20) + " of "
+                + (info.HighMemoryLoadThresholdBytes >> 20) + " MB high-load threshold, " + (Environment.TickCount64 - ProcessStartTicks) + " ms since the probe was first used): ");
+            for (int r = 0; r < done; r++)
+                log.Append(string.Format(System.Globalization.CultureInfo.InvariantCulture, "#{0} {1:R} B/call gc0/1/2 {2}/{3}/{4} thread {5} t+{6} ms; ", r, bytes[r],
+                    windows[r][0], windows[r][1], windows[r][2], windows[r][3], (ages[r] - start) * 1000 / Stopwatch.Frequency));
+            return log.ToString();
+        }
+
+        static volatile string lastAttempts = "";
+        /// <summary>For the most recent <see cref="PerCallExact"/>: empty when it passed (no allocation), otherwise every attempt's bytes per
+        /// call, collection counts of generations 0, 1 and 2 across its window, the measuring thread id and its time since the first
+        /// attempt, the collector's memory load against its high-load threshold and the time since the probe was first used. Append it
+        /// to the assertion message so a failure explains itself; tests run one at a time.</summary>
+        public static string LastAttempts => lastAttempts;
 
         /// <summary>The minimum of <paramref name="runs"/> measurements.</summary>
         public static double PerCallMin(Action<int> body, int runs = 5, int iterations = DefaultIterations)
