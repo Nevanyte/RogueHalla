@@ -18,7 +18,7 @@ namespace Roguehalla.Client
         readonly MythicTextScale[] _ckScales = new MythicTextScale[CampAmountKey.Kinds];
         int _ckVersion = -1, _ckFlag = -1;
         bool _ckOn;
-        float _ckWidth = -1f;
+        float _ckWidth = -1f, _ckShared = -1f, _ckTextScale = -1f;
 
         /// <summary>Creates the nine hidden kind cells under the key (between the heading row and the elite row).</summary>
         void BuildCampCells(UiTheme theme)
@@ -54,6 +54,38 @@ namespace Roguehalla.Client
                 if (!string.Equals(_ckTexts[k].text, c.Text, System.StringComparison.Ordinal)) _ckTexts[k].text = c.Text;
                 if (_ckScales[k] != null) _ckScales[k].Refit();
             }
+            ShareCampSize();
+        }
+
+        /// <summary>Gives every visible fixed cell the smallest size any of them fits at; a varying cell keeps its own fit when smaller.</summary>
+        void ShareCampSize()
+        {
+            var key = _largeMarks.CampKey;
+            float shared = float.MaxValue;
+            for (int k = 0; k < CampAmountKey.Kinds; k++)
+                if (_ckCells[k].gameObject.activeSelf && key.IsFixed(k)) shared = Mathf.Min(shared, _ckTexts[k].fontSize);
+            _ckShared = shared == float.MaxValue ? -1f : shared;
+            _ckTextScale = TextScale();
+            if (_ckShared < 0f) return;
+            for (int k = 0; k < CampAmountKey.Kinds; k++)
+            {
+                if (!_ckCells[k].gameObject.activeSelf) continue;
+                var t = _ckTexts[k];
+                if (!key.IsFixed(k) && t.fontSize <= _ckShared) continue;
+                t.enableAutoSizing = false;
+                t.fontSize = t.fontSizeMax = t.fontSizeMin = _ckShared;
+                t.overflowMode = TextOverflowModes.Overflow;
+            }
+        }
+
+        /// <summary>True when a fixed visible cell no longer has the shared size (a text-size change applied every label alone).</summary>
+        bool CampSizeDrifted()
+        {
+            if (_ckShared < 0f) return false;
+            var key = _largeMarks.CampKey;
+            for (int k = 0; k < CampAmountKey.Kinds; k++)
+                if (_ckCells[k].gameObject.activeSelf && key.IsFixed(k) && !Mathf.Approximately(_ckTexts[k].fontSize, _ckShared)) return true;
+            return false;
         }
 
         /// <summary>Brings the cells in line with the learned kinds, the key's on flag and its width; returns at once when none changed.</summary>
@@ -63,7 +95,7 @@ namespace Roguehalla.Client
             bool on = _keyRoot.gameObject.activeSelf;
             float width = _keyRoot.sizeDelta.x;
             int version = _largeMarks.CampKey.Version;
-            if (version == _ckVersion && on == _ckOn && width == _ckWidth) return;
+            if (version == _ckVersion && on == _ckOn && width == _ckWidth && Mathf.Approximately(_ckTextScale, TextScale()) && !CampSizeDrifted()) return;
             _ckVersion = version; _ckOn = on; _ckWidth = width;
             PlaceCampGrid(width);
         }
