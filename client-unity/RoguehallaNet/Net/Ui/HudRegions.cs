@@ -99,6 +99,22 @@ namespace Roguehalla.Net.Ui
         public static HudRegion Prompt(float width = PromptWidth) =>
             new HudRegion(HudRegionAnchor.BottomCenter, 0f, PromptBottom, width, PromptHeight);
 
+        /// <summary>The scale of the action row on a narrow stage: 1 while the centred row clears, by 8 on each side, a
+        /// panel that ends leftObstacleRight from the left edge (the champion panel) and one that starts rightObstacleLeft from the
+        /// left edge (the minimap); smaller below that; never under .6.</summary>
+        public static float AbilityRowScale(float stageWidth, float leftObstacleRight, float rightObstacleLeft)
+        {
+            return 1f;   // stub: P-UI-ABILITY-ROW-1 implements this
+        }
+
+        public const float PromptPairWidth = 220f;
+
+        /// <summary>The prompt lane when it holds two pills: index 0 the left one, 1 the right one, 4 from the centre line.</summary>
+        public static HudRegion PromptPair(int index)
+        {
+            return Prompt(PromptPairWidth);   // stub: P-UI-ABILITY-ROW-1 implements this
+        }
+
         /// <summary>min(wanted, stageWidth - 2 * Margin).</summary>
         public static float LaneWidth(float stageWidth, float wanted = LaneMaxWidth)
         {
