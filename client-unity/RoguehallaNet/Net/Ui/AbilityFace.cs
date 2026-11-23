@@ -31,13 +31,15 @@ namespace Roguehalla.Net.Ui
     /// <summary>Faces of the ability tiles.</summary>
     public static class AbilityFaces
     {
-        /// <summary>A quest spell slot. totalMs is the length of the running cooldown (from CooldownSpan); 0 or less
-        /// draws a full wedge while cooling.</summary>
+        /// <summary>A quest spell slot. The server refuses a cast for its cooldown only at 0 charges (readyAt is when the
+        /// NEXT charge arrives), so the face is Cooling only when left = readyAt - now is above 0 AND charges is 0 or less
+        /// (a negative count counts as none); otherwise Ready with Sweep 0 and Seconds 0. Badge is charges as given.
+        /// totalMs is the length of the running cooldown (from CooldownSpan); 0 or less draws a full wedge while cooling.</summary>
         public static AbilityFace Spell(bool has, int charges, double readyAtMs, double nowMs, double totalMs)
         {
             if (!has) return AbilityFace.Empty;
             double left = Finite(readyAtMs) - Finite(nowMs);
-            if (left > 0d)
+            if (left > 0d && charges <= 0)
             {
                 float sweep = totalMs > 0d ? Clamp01(left / totalMs) : 1f;
                 return new AbilityFace(AbilityPhase.Cooling, sweep, (int)System.Math.Ceiling(left / 1000d), charges, -1f);
