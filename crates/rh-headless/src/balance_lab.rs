@@ -3,6 +3,7 @@
 //! Used by `src/bin/balance_lab.rs` and `tests/balance_lab.rs`; see `tools/balance-lab/README.md`.
 mod acc;
 pub mod attempts;
+pub mod elite_fights;
 mod observer;
 mod table;
 
