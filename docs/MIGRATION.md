@@ -4,6 +4,106 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integration 86 merged (2026-11-23); the pilot waits on two packets
+
+**Owner direction in force:** "resume" (2026-11-23, chat). This section governs; the two below it record integrations
+85 and 84. **Nothing is pushed; `main` is untouched; nothing deployed.**
+
+- **Integration 86 is merged.** The integration branch `feature/unity-rework` is at `736b975c6`, the tree of
+  `coord/int-86` @ `834cdd175`.
+  - **Holds:** P-RAID-Q3-fix2 (`29d412b12`), P-RAID-E (`dd65ec18c`), P-RAID-HOLD-1 (`8d9b279ad`), P-TEST-HARDEN-1d
+    (`d02e55ad8`), the UI rework lane's wave 3 (`b3e3edb0a`, fifteen client-only packets), P-RAID-TOP25-READ-1
+    (`bbdd24e4e`) and P-RAID-E-leave (`834cdd175`).
+  - **Full gate** with pgtest on `834cdd175`, clean worktree, first run: **GATE PASS (full)**, EditMode 2302/2302
+    (headless 2300, graphics 2); the Postgres suites ran. Run with `--allow-artefacts` for one deliberate artefact,
+    `client-unity/UnityProject/Assets/Resources/Showcase/CinzelDecorative.asset` (P-UI-HEADING-GAPS-1: fifteen
+    kerning pair records; the gate's note names that file and no other). Log
+    `.agent-runs/gate/20261123T053102-HEAD-full.log`.
+  - **reviewer-opus on the merge, Rust side: LAND WITH NOTES** (two notes; by reading, no test run). The lab books
+    every later death of a seat as `died` for each elite attempt it still has open (P-BAL-LAB-ELITE-1, in review); an
+    elite fight already under way has no time bound when the elite stays out of reach (in P-RAID-E-leave-fix). No
+    loop found between the sustain, elite, decision and walker rules; nothing reads a removed constant; the only
+    `rh-sim` source change is the read-only `public_rules()`; no format moved.
+  - **reviewer-opus on the merge, client side: LAND WITH NOTES** (one note, taken by the lane as
+    P-UI-QUEST-OFFER-1-fix in wave 4: the journal and the offer card each guard a sent accept and the journal's
+    guard never expires, so a command dropped before the sim hides the retry). No game rule in Unity and no new
+    command: F, Enter and Escape read delivered rows and send the existing `QuestAccept`. Nothing was run by the
+    reviewer.
+- **For a player, by the lane's hand-off (seen by the lane in a Web build, not by the coordinator):** F beside a
+  quest giver opens a small offer card (Enter accepts, Escape or F closes); the health and barrier bars glide and
+  lost health lingers as a strip; the Wish tile is built like Shift and Q; wedges and the cast bar move every frame;
+  the attack timer is a bar on the weapon in hand; on the Tab map marks and text grow with the map and the world's
+  bars, names and rings hide while it is open.
+- **Packets since the record below** (quick gates are the packets' own):
+
+  | Packet | Branch @ head | Result |
+  |---|---|---|
+  | P-RAID-E (elites) | `agent/opus/P-RAID-E` @ `dbe547411` | reviewer-opus **LAND WITH NOTES** (3: a fight handed to the heal-up beside a live elite, two lab seats died standing; the attempt, leave, ban loop unbounded; the death term jumped at a drink), closed by P-RAID-E-leave. In integration 86. |
+  | P-RAID-HOLD-1 | `agent/sonnet/P-RAID-HOLD-1` @ `ed79f688c` | Gate PASS, attempt 1. reviewer-opus **LAND WITH NOTES** (1: the fall rule latched during a leave), closed by P-RAID-E-leave. Traced base against head, seeds 1 to 6 at 4800 ticks: "healing up" thinks with a hit in the last second 51 to 0; camps 98 to 108; deaths 8 to 4. |
+  | P-RAID-TOP25-READ-1 | `agent/opus/P-RAID-TOP25-READ-1` @ `fd042b6cf` | Gate PASS (the whole `rh-sim` suite), attempt 1. reviewer-opus **LAND**: eight hand copies replaced by reads of `rh_sim::quests::public_rules()`, each bit-identical by arithmetic; no base-against-head hash comparison was run. |
+  | P-RAID-E-leave | `agent/opus/P-RAID-E-leave` @ `8d12afc4a` | The implementer's gate failed on one oracle assertion that was wrong; the coordinator amended it (below) and the gate passed. reviewer-opus **LAND WITH NOTES** (3: a kill's chest lost to the leave; a Plague seat's own zombie a threat; one time-out counted as two give-ups). Lab, seeds 1 to 12 at 6000 ticks: hand-aways 33 to 15, frames standing beside a live elite 13 to 0, kills 17 and 17, camps 242 and 238. |
+  | P-TEST-HARDEN-1d | `packet/P-TEST-HARDEN-1d` @ `53d951884` | A diagnostic only: the C# allocation probe records its 25 attempts and the exact decode tests print them, with the collector's memory load, on a failing result. No expectation changed. The cause of the flake is **not established**; the coordinator's hypothesis (a charge per collection) was refuted with numbers. reviewer **LAND WITH NOTES** (1, closed on the branch). |
+  | P-RAID-E-leave-fix | `agent/opus/P-RAID-E-leave-fix` @ `0569c0ece` | Gate PASS, attempt 1; in review by reviewer-opus. Four defects (the chest, the zombie, the double give-up, the unbounded fight). Lab, seeds 1 to 12: ten seeds byte-identical; two of the four fixes never fired there. |
+  | P-BAL-LAB-ELITE-1 | `agent/sonnet/P-BAL-LAB-ELITE-1` @ `3d8d8dad9` | Gate PASS, attempt 1; in review by reviewer. An elite attempt now ends as killed, taken by another seat, died, died elsewhere, left or open, and each kill's chest as taken by the killer, by another seat, by none or open. Lab, seeds 1 to 6 at 6000 ticks: 25 attempts are 10 killed, 1 taken by another, 9 left, 5 open and none died; the old counters read 27 attempts, 10 killed, 4 taken and 13 open on the same seeds. The implementer flagged one reading: a seat with a contact in a step is not expired in that step, where the brief says expiry comes first. |
+
+- **Decisions the coordinator took in this stretch, for the owner to know:**
+  - The quest bots may read three numbers that are not written out in game text (`fort_range`, `route_pace`,
+    `route_slack_ms`) through the sim's read-only accessor. They are static, the same for every match and seat, and
+    the bots held all three by hand before. reviewer-opus judged it sound. The packet describes the clean cut if he
+    wants them hidden.
+  - The gate's `--allow-artefacts` exception was used once, for the font file above.
+  - No owner field was added to the wire for a Plague seat's zombie: the bot ignores every zombie of its own faction.
+  - The lab names a chest's "killer" by the killing blow; the sim gives the first pick to the seat with the most
+    damage, which may be another seat.
+- **Oracle amendments since the record below, for the owner** (no expectation loosened unless it says so):
+  - `ff1f86be0` `exec/elite_leave_tests.rs` (a test created in this integration): one hand-built frame had a heal
+    ending at the current time while its comment and the sim say it ends at the drink plus `heal_seconds`.
+  - `2fe99dbae`, `53d951884` (P-TEST-HARDEN-1d): the probe's diagnostic; the three exact decode tests assert the
+    same numbers.
+  - **UI wave 3:** thirteen rows in `docs/coordination/HANDOFF_UI-REWORK-WAVE-3_2026-11-23.md`, sorted by
+    reviewer-opus, plus one the lane's table did not list. **Loosened:** every `AllocationMeter.AssertNone` and
+    `AssertAtMost` test (row 14: the meter takes the smallest of up to three windows, so an action is reported only
+    if every window of its calls allocates; sound for a per-frame claim and nothing else) and the meter's own
+    comparing test. **Dropped:** the Wish summary text; the tile no longer shows the maximum charges (the hover hint
+    does). **Changed meaning:** the journal says "time is up" while ACCEPT is still enabled. The rest are
+    re-statements or strengthenings.
+- **Proposed and unsigned (the owner signs or refuses):**
+  - Seven DEVIATIONS rows from wave 3 (vitals ease, Tab-map marks, the quest offer card, the world hidden under the
+    map, the Wish tile, zone names, ability motion), four of them reworded by the lane after the merge review, and a
+    correction to wave 2's toast row. **The zone-names row stays unsigned:** the lane found P-UI-ZONE-NAMES-1 inert
+    in a running build (a label built under a hidden panel measures at a tenth of its size and the measure is kept);
+    harmless as merged, fixed in wave 4.
+  - The offer card's three keys (F talks, Enter accepts, Escape closes): not in P-QUEST25-CONTROLS; the lane's
+    default is that they stay; asked in the lane's chat.
+- **Not established:**
+  - Any elite or augment number: the lab's new elite counters (P-BAL-LAB-ELITE-1) are in review, and reviewer-opus
+    rated the bot not yet fit for the pilot until P-RAID-E-leave-fix lands.
+  - `kind_clear` is measured for two of ten elite kinds (a sword cannot kill Blood Saint: 0 of 12); the other eight
+    default to 1.
+  - Why the C# probe `PlainDecodeAllocatesExactly…InEveryRun(68)` fails under load (one coordinator gate, three lane
+    gates). A lead, unproven: memory pressure near the collector's high-load threshold.
+  - Fourteen older EditMode "allocates nothing" classes still measure with the blind counter.
+  - The frame cost of the HUD's new per-frame work in a Web build (one canvas dirtied every frame in combat).
+- **Lessons for the process:**
+  - A worktree is marked done only after its reviewer has reported: a cleanup removed a checkout a reviewer was
+    using.
+  - An agent that creates machine load starts it from one script that kills its children on exit and never hands
+    back with it running: one left 24 processes behind (load 66), stopped by the coordinator.
+  - An oracle frame can be wrong. Three times an implementer stopped on a red test it believed was mistaken and
+    reported instead of bending the code; twice it was an existing scene, once the new oracle itself. The coordinator
+    checked each against the sim and amended it on the packet branch.
+  - Two Unity tests of the Storm Ink overhaul edit a real asset and leave it re-serialized after every EditMode run
+    (`ColiseumTorchArt.asset`, `ColiseumWeaponRackArt.asset`); the gate worktree is restored after each gate
+    (P-UNITY-TEST-ASSET-COPY-1).
+- **Waiting on the owner:** the lists in the sections below stand, plus the decisions, amendments and proposed rows
+  above.
+- **Lanes:** UI rework is active (wave 4 on its own branch; told that wave 3 is handed over). The others are as below.
+- **Next, in order:** reviewer-opus on P-RAID-E-leave-fix; the reviewer on P-BAL-LAB-ELITE-1; merge both
+  (integration 87, with the lane's wave 4 if it has arrived), the full gate, the merge reviews. Then **the pilot**:
+  40 seeds, full-length matches, eight RaidBots in human seats, the lab and the evaluator; the first table and the
+  seed count. After it: P-BAL-EVAL-2, P-RAID-Q3b, P-RAID-S, P-BAL-LAB-2; P-UNITY-ALLOC-TESTS-1 and
+  P-UNITY-TEST-ASSET-COPY-1 beside them; the security queue.
+
 ## Integration 85 merged (2026-11-23); integration 86 assembling
 
 **Owner direction in force:** "resume" (2026-11-23, chat). This section governs; the one below it records integration
