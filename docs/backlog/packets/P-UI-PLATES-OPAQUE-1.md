@@ -206,7 +206,27 @@ over lava, the tracker, and a hover at the top right. Proposed DEV row: see D-ru
 
 ## Notes from the oracle author
 
-(filled after the oracle is written)
+- **Tests (21 cases, one class `PlatesOpaqueEditModeTests`):** ten opacity tests, each `[TestCase(false)] [TestCase(true)]`
+  on `recoloured` (20 cases), plus the standing guard `TheHudIgnoresAThemeChangeForItsPlates`. No stub, no library file, no
+  dotnet test: nothing names `HudUi.PlateAlpha` (the tests assert drawn alpha >= .999).
+- **Red on the stub (20), each on its "is see-through: drawn alpha <a>" assertion** (set-up lines all pass): plate, champion,
+  Wind, phase, tutorial card, chest .94 (tutorial card and chest .235 recoloured); ping .85; banner .96; toasts .97 (shown and
+  pooled: EventLane has 4 pills, FeedbackLane 3, two shown in FeedbackLane because the first-run hint stands beside the
+  refusal); tracker .82; offer .96; ice chip and note .8; hunt .93; spectate bar .94; inspector .78. **Green on the base (1):**
+  the guard, by design (it pins that the HUD ignores `UiTheme.Changed`; it must stay green after the change).
+- **Scratch run done** (collect-all, not committed): `AssertOpaque` / `AssertDrawnOpaque` caught `AssertionException` into a
+  list that `TearDown` failed with. Every entry of every test was a "see-through" line with the values above; every set-up
+  assertion (theme alpha 240/60, session Reconnecting or Failed after `Close`, tracker `Rows >= 1`, `OpenOffer` true,
+  `HuntPanel.IsVisible`, spectate bar, chest panel, first-run pill and refusal pill found by text) passed, and no other
+  exception occurred; so every line of each test ran.
+- **Deviations from the spec text:** none in design. Details the spec left open: the offer's giver is placed at (70, 64) beside
+  the rig's player (64, 64) so `OpenOffer` finds it in reach (`QuestOfferEditModeTests.Offer` puts it at 330, 320 for a player
+  at 320, 320); the chest is placed at (64, 64) for the same reason; paths are looked up as `_hud.transform.Find(...)`
+  (`MatchUI/...` is a child of the HUD object), exact, never `HudTestPaths.Find`. `Frame()` does not set `_dirty` (not needed).
+- **Existing classes run on the stub, all green (133/133):** `HudVisualFix3EditModeTests`, `HudLegacyLayoutEditModeTests`,
+  `ToastLanesEditModeTests`, `QuestTrackerEditModeTests`, `HudTextScaleEditModeTests`, `QuestOfferEditModeTests`,
+  `InspectorCardViewEditModeTests`, `HudVisualFix4EditModeTests`, `Ui4EditModeTests`; and `node --test
+  client-unity/UnityProject/Tools/hud-seams.test.cjs` (14/14).
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
