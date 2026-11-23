@@ -142,4 +142,57 @@ call by hand); the tests give the answer in seconds per run, one to three minute
 
 ## Notes from the oracle author
 
-(see the section below, filled in after the runs)
+### The finding: what each converted test does on the base (`lane/ui-rework/base-2` plus these amendments)
+
+Run: `unity-class.sh` on the four classes together, 56 tests, 56 passed, 0 compile errors.
+
+| Test | Result on the base | Message |
+|---|---|---|
+| `CampLabelStableEditModeTests.ASteadyFrameAllocatesNothing` | GREEN | none: `CampRespawnLabels.Draw` allocates nothing in 200 steady frames (the meter checked itself first) |
+| `UiMotionEditModeTests.AnIdleTickAllocatesNothing` | GREEN | none |
+| `QuestTrackerEditModeTests.ASteadyFrameAllocatesNothing` | GREEN | none |
+| `ToastLanesEditModeTests.ASteadyFrameWithToastsAllocatesNothing` | GREEN | none |
+
+**All four are green on the base: nothing to implement.** The lane's "allocates nothing in a steady frame" claims are
+proven for the first time by a working meter. The implementer only runs the quick gate; the product files in the write
+scope stay untouched unless the gate shows otherwise. (Answer for a checker that wants a red test: this table.)
+
+Proof the converted tests can fail (scratch run, not committed): an allocating statement (`new object().GetHashCode()`)
+was added to each measured action; all four then failed with `... allocated managed memory in 200 calls (meter
+UnityEngine.TestTools.Constraints GC.Alloc samples)`; the scratch edit was reverted (`git checkout --`). So the
+green results above are not a blind meter.
+
+Scratch run with `Assert.Multiple`: not needed. No new test and no new set-up line exists: each amended test keeps
+every line it had, the first four runs executed to the end (green), and only the measuring lines changed.
+
+### What changed in each amended test (the meter only; one `oracle-amend:` commit per method)
+
+- `CampLabelStableEditModeTests.ASteadyFrameAllocatesNothing`: the counter lines became
+  `Action frame = rig.Frame; AllocationMeter.AssertNone(frame, 200, "200 unchanged frames");` (a method group, built
+  once). The set-up, the 60 warm-up frames and the second half (the badge does not follow a flickering fighter) are unchanged.
+- `UiMotionEditModeTests.AnIdleTickAllocatesNothing`: the counter lines became an `Action idleTick` built once that
+  ticks the two fades and the pulses (`pulses.Tick(1f + (step++ % 200) * Dt)`, a captured counter standing for the old
+  loop index so `now` stays in the old range) and `AllocationMeter.AssertNone(idleTick, 200, "idle ticks")`. The five
+  warm-up ticks and the assertions before and after are unchanged. Dt is 1/60 s; hidden fade stays hidden, shown fade stays shown.
+- `QuestTrackerEditModeTests.ASteadyFrameAllocatesNothing`: counter lines became
+  `Action refresh = () => view.Refresh(_session, true, 166f, 344f, .016f); AllocationMeter.AssertNone(refresh, 200, "200 steady frames");`.
+  The six warm-up refreshes and the row and clock assertions are unchanged.
+- `ToastLanesEditModeTests.ASteadyFrameWithToastsAllocatesNothing`: counter lines became
+  `AllocationMeter.AssertNone(tick, 200, "a steady notice tick");` (`tick` was already a delegate built once;
+  `MatchHud.NoticeDtOverride = .001f`, so 200 ticks plus the meter's warm run of 200 move nothing). The tail assertion (the pill is still there) is unchanged. Note: this test sets `MatchHud.NoticeDtOverride` and the existing TearDown restores it (unchanged).
+- Dotnet (five tests, one commit each): `AssertCounterSees()` (a private static helper per class: 1,000 string concatenations
+  kept in a static field, asserts the counter grew by more than 0 bytes) is the first statement of
+  `ToastLaneModelTests.ATickThatChangesNothingAllocatesNothing`, `GarbageTests.SessionMeMakesNoGarbageOnTheSteadyPath`,
+  `InputSenderTests.IdleFlushAllocatesNothing` (in `NetTests.cs`),
+  `OwnerCombatProtocolTests.RetainingOwnerCombatAcrossPooledDeltasDoesNotAllocateSteadily`,
+  `NameMergeTests.DecidingAllocatesNothing`. These guards are green on the base (dotnet run: 69 passed, 0 failed over the five classes).
+  Nothing else in those tests changed. For the owner: these are `oracle-amend` commits because they change existing tests.
+
+### Deviations from the spec
+
+- The spec says "Everything else in each test stays": kept. No stub and no new class, as the spec says.
+- The spec names `ToastLaneModelTests` "at least"; the search found four more direct uses of the counter in
+  `RoguehallaNet.Tests` (`GarbageTests`, `NetTests`, `OwnerCombatProtocolTests`, `NameMergeTests`); all four got the guard.
+  `AllocationProbe.cs` and its users measure through the probe (retire the block, proven by `AllocationProbeTests`) and were left alone.
+- The existing classes that pin this code were run: `CampLabelStableEditModeTests`, `UiMotionEditModeTests`,
+  `QuestTrackerEditModeTests`, `ToastLanesEditModeTests` (all 56 green); the dotnet classes above (69 green).
