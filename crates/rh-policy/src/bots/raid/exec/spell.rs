@@ -1,10 +1,21 @@
 //! The spell executor (P-RAID-S): no goal kinds; it rides along any goal and asks for the cast the rule table names
 //! (`spells::SPELL_RULES`). It draws nothing; its one memory is the `CastGate`.
 use crate::bots::raid::acts::{Act, CastAim};
+use crate::bots::raid::exec::farm::FIGHT_U;
 use crate::bots::raid::goal::{Cx, Executor, GoalKind, GoalKind as K, RaidGoal, Step, Target};
 use crate::bots::raid::percept::{MobClass, MobSeen};
+use crate::bots::raid::spells::CHARGE_RANGE;
 use crate::bots::raid::spells::{decide_cast, CastGate, Foe, FoeKind, HeldSpell, SpellScene};
 use rh_sim::Vec2;
+
+/// An enemy player this close to the dash's landing point blocks the dash: a melee weapon reaches 72-112 u plus the
+/// body radius, so about 130 u hits the seat on arrival; 200 adds a step of approach and stays under the dash's 220 u,
+/// so a player a whole dash away never blocks.
+const DASH_PLAYER_CLEARANCE_U: f64 = 200.;
+
+fn gap(a: Vec2, b: Vec2) -> f64 {
+    rh_sim::math::hypot(a.x - b.x, a.y - b.y)
+}
 
 /// Wire reward id of Cleanse.
 const CLEANSE: u8 = 16;
@@ -107,12 +118,24 @@ fn scene(goal: &RaidGoal, cx: &Cx<'_>) -> SpellScene {
             .filter(|o| o.alive && o.faction != cx.p.me.faction)
             .map(|o| cx.p.dist(o.at)),
     );
+    let enemy_player =
+        |o: &&crate::bots::raid::percept::PlayerSeen| o.alive && o.faction != cx.p.me.faction;
+    // A leave is a fight in reach: a living hostile mob within `FIGHT_U`. Further off the seat is resting.
     let leave_away = (goal.kind == K::Sustain && matches!(goal.target, Target::Camp(_)))
         .then(|| nearest(cx, cx.p.mobs.iter().filter(|m| hostile(m, cx))))
         .flatten()
+        .filter(|m| cx.p.dist(m.at) <= FIGHT_U)
         .and_then(|m| {
             let d = cx.p.dist(m.at);
             (d > 1e-6).then(|| Vec2::new((me.x - m.at.x) / d, (me.y - m.at.y) / d))
+        })
+        .filter(|v| {
+            let land = Vec2::new(me.x + v.x * CHARGE_RANGE, me.y + v.y * CHARGE_RANGE);
+            !cx.p
+                .players
+                .iter()
+                .filter(enemy_player)
+                .any(|o| gap(land, o.at) <= DASH_PLAYER_CLEARANCE_U)
         });
     SpellScene {
         me,
