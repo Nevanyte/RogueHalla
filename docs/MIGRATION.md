@@ -4,6 +4,156 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integration 88 merged (2026-11-23); the pilot has run a second time
+
+**Owner direction in force:** "resume" (2026-11-23, chat). This section governs; the four below it record integrations
+87, 86, 85 and 84. **Nothing is pushed; `main` is untouched; nothing deployed.**
+
+- **Integration 88 is merged.** The integration branch `feature/unity-rework` is at `35d15b0b2`, the tree of
+  `coord/int-88` @ `3618186b1`.
+  - **Holds:** P-RAID-S (`14f1a628e`), P-BAL-EVAL-2 (`f923d62a2`), P-RAID-S-fix (`40e8d7b1b`), P-RAID-Q3b
+    (`60f432c19`), P-RAID-REACH-1 (`055d3a22f`), P-BAL-LAB-TIME-1 (`f747f1e0f`), P-RAID-Q3b-fix (`58e36bb96`),
+    P-RAID-REACH-1-fix (`35ed9690d`) and P-RAID-Q3b-fix2 (`3618186b1`). Forty-eight files, all under `rh-policy`,
+    `rh-headless`, `tools/balance-lab` and the packet briefs; no `rh-sim` source, no wire, no client file.
+  - **Full gate** with pgtest on `3618186b1`, clean worktree, first run: **GATE PASS (full)**, EditMode 2302/2302
+    (headless 2300, graphics 2), C# 2583/2583; the Postgres suites ran; no `--allow-artefacts`. Log
+    `.agent-runs/gate/20261123T105826-HEAD-full.log`.
+  - **Not in the gate, run by the coordinator on that head:** the lab's release-only tests (`balance_lab`,
+    `balance_lab_elite`, `balance_lab_picks`, `balance_lab_time`): 7, 20, 10 and 16 passed. Adding them to
+    `scripts/gate.sh` is the owner's to approve.
+  - **reviewer-opus on the merge: LAND WITH NOTES** (one note; by reading, nothing run). Smite and Turret ignore
+    the reach rule: the spell executor names a camp's elite as its target at any distance, so a seat still walking
+    to a small camp's band casts from outside it; the woken elite chases, gives up at its leash, walks home and
+    heals, and the cast and its 20 s cooldown are lost. It is P-RAID-S-fix2 (reviewed LAND; in the integration 89
+    preview). Nine merges, no
+    hand-resolved hunk; no line added to the arbiter's draw stream; `Prices` has no default, so no new field can be
+    silently zero. No packet branch ever ran with both P-RAID-REACH-1-fix and P-RAID-Q3b-fix: this gate is the first
+    proof of the two together.
+  - **A defect the review found behind an amendment:** a ranged lock does not read line of sight (a Bow seat shot a
+    wall for 110 ticks in the scene `f2e5faa1d` cut out). Older than these packets; the farm's 20 s bound caps it
+    for a camp, an elite fight has only its 120 s give-up. It is P-RAID-LOS-1.
+- **The pilot has run again** on that tree:
+  [docs/evidence/balance-patch-2026-11/pilot-2/](evidence/balance-patch-2026-11/pilot-2/README.md) (the same 40
+  seeds; 347 s, 330 MB; the 40 one-seed reports sum exactly to it; the content hash is unchanged, so only the bot
+  and the lab differ). What it shows:
+  - **One faction farms at twice the rate of the others.** A Fire seat clears 1.37 camps per living minute; Plague
+    0.66, Frost 0.54, Holy 0.46, Sentenced 0.40. Fire takes 473 of 775 elite kills and is 22 of the 32 seats alive
+    when a match is decided. Not a spawn effect (it holds at seven of eight seat numbers). Causes offered by the
+    code, none measured apart: Fire's speed out of combat (to 1.5 times over 20 s) with a burst on the next hit, its
+    burn, and the bot's own faction match-up prices.
+  - **The workbook's 2.9 camps a minute is out of reach for four factions even with no walking.** The average seat
+    clears 0.68 per living minute (0.63 in the first pilot), 0.83 per minute not on a quest or a player, and 1.67
+    per minute actually fighting camps. A normal camp takes 23.7 s, the walk 8.9 s, the heal-up 5.0 s; the workbook
+    assumes a camp every 21 s, walk included. Idleness is not the gap: 3.6% of living time is standing at full
+    health.
+  - **Where a living seat's time goes:** normal camps 28.6%, elite camps 11.9%, moving 24.2%, quests 16.6% (37% of
+    the first five minutes), standing below full health 13.4% (30% from minute 11).
+  - Let Him Cook completes 120 of 121 (73 of 189); Two Banners and Trade Up are played and always completed; 15 of
+    25 quests are played. Elite kills 766 of 1,281 attempts (539 of 1,133); a wand seat 414 of 624 (181 of 475).
+    34 of 40 matches end with a winner (28).
+  - The 14 new augments were offered 0 to 27 times each in 1,290 chests: still almost no data.
+  - The five quests with a measured value all read above the band at the measured rate (1.3 to 7.7) and four of
+    five at 2.9 (Let Him Cook 1.18, inside). **No quest number moves until the farm rate that prices time is
+    chosen**, and that now includes "for which faction".
+  - **Seed count:** an unpaired comparison of one seat would need about 2,680 seeds per arm for one camp-equivalent.
+  - The report is byte-identical to a run on the tree before P-RAID-Q3b-fix2: that packet's cap changed no match in
+    these seeds.
+- **Two readings of the first pilot were wrong, and one thing the coordinator told the owner.**
+  - **Let Him Cook's 108 timer ends of 189 were the test bot, not the quest.** The bot accepted at one price for
+    the walk's danger and priced the same walk as deadly on its next think, so it stood still until the timer ran
+    out (P-RAID-Q3b-fix; shown by putting the old term back for that quest alone). The first pilot's evaluator row
+    for it (1.50 and 0.40) was measured under that error. Trade Up's early cash-outs on the first twelve-seed runs
+    were the same error.
+  - **"The bot farms slowly because it never uses its kit" was wrong.** A seat's only faction ability is its Wish
+    (Q and E hold quest spells); the five Wishes lock for 45 s with cooldowns of 30 to 180 s, and a scripted control
+    found none that shortens a camp fight. P-RAID-C2a's brief and oracle are parked on `packet/P-RAID-C2a` @
+    `1e6db412d` and fold into P-RAID-C2b.
+  - **P-RAID-REACH-1's brief said a chasing mob's steps are leash-tested with a 24 u margin.** They are not: a
+    chasing mob gives up when its own position fails the leash at margin 0 (the 24 u is for retreat and spacing
+    steps). The packet built to the brief stalled a ranged seat beside an idle mob at six small camps (the reviewer
+    reproduced one: 0 hits, 2,379 of 2,400 ticks). P-RAID-REACH-1-fix uses the sim's rule.
+- **Packets since the record below** (quick gates are the packets' own):
+
+  | Packet | Branch @ head | Result |
+  |---|---|---|
+  | P-RAID-Q3b (Two Banners, Trade Up) | `agent/sonnet/P-RAID-Q3b` @ `ba770bab7` | Gate PASS, attempt 1. reviewer-opus **LAND WITH NOTES** (2: walking up to a trader priced as fighting every camp within 480 u, though an idle camp never attacks a passer-by; a cash-out can lose to the trader's patrol), closed by P-RAID-Q3b-fix. |
+  | P-RAID-REACH-1 | `agent/opus/P-RAID-REACH-1` @ `a851668bd` | Gate PASS after one amendment. reviewer-opus **LAND WITH NOTES** (2: the stall above; a second ranged seat locking a pulled elite more than 480 u from the camp's centre gets no fight record), closed by P-RAID-REACH-1-fix. |
+  | P-BAL-LAB-TIME-1 (the time budget) | `agent/sonnet/P-BAL-LAB-TIME-1` @ `8ea15cfde` | The implementer stopped twice as briefed on tests that contradicted the brief or the sim; amended (below); gate PASS, attempt 1. reviewer **LAND WITH NOTES** (3, all wording), closed on the branch. |
+  | P-RAID-Q3b-fix | `agent/sonnet/P-RAID-Q3b-fix` @ `00e0c0b97` | Gate PASS, attempt 1. reviewer-opus **LAND WITH NOTES** (1: the Hold the Fort row scaled by 1 over the health share prices a held fort negative below 47% health, so a hurt seat walks out), closed by P-RAID-Q3b-fix2. Twelve lab seeds, base against head: Let Him Cook 12 of 37 attempts completed, then 40 of 41; Two Banners accepted 25, then 42; Trade Up 32 of 32 on both and 24 s, then 51 s (it plays all three stages now). |
+  | P-RAID-REACH-1-fix | `agent/opus/P-RAID-REACH-1-fix` @ `067bdefaa` | The implementer stopped on one live oracle scene and traced it (a seat farming another camp, shooting a wall); three amendments (below); gate PASS, attempt 1. reviewer-opus **LAND**, with an instrumented lab that reproduced the implementer's numbers. Twelve lab seeds on three trees (before P-RAID-REACH-1, with it, with the fix): elite camps cleared 11, 13, 23; wand elite kills 9 of 23, 12 of 21, 14 of 20; camps 235, 236, 245; deaths 12, 15, 15. |
+  | P-RAID-Q3b-fix2 | `agent/sonnet/P-RAID-Q3b-fix2` @ `4e82fbb05` | Gate PASS, attempt 1. reviewer **LAND**. |
+  | P-RAID-S-fix2 | `packet/P-RAID-S-fix2` @ `853159b0a` | Oracle red on the base for the right reason (a Wand, a Bow and a Sword seat each cast Smite at tick 6 from 231 u, outside the Gaoler's band at seed 7 camp 50, and never from inside it). The implementer stopped on the Sword test, which judged a cast at a second camp against the first camp's band; amended (below); gate PASS, attempt 1 (`agent/sonnet/P-RAID-S-fix2` @ `3c7cd8c7e`). reviewer-opus **LAND**. Six lab seeds are byte-identical base against head (no seat held Smite or Turret there). In the integration 89 preview (`coord/int-89` @ `7bc23f775`), not in integration 88. |
+  | P-RAID-C2a | `packet/P-RAID-C2a` @ `1e6db412d` | Brief and oracle only; parked (above). Its baseline by faction, six seeds, normal camps in the first five minutes, kill seconds median: Fire 8.4, Plague 12.8, Sentenced 14.3, Holy 14.9, Frost 20.0. |
+
+- **Decisions the coordinator took in this stretch, for the owner to know:**
+  - Two Banners' outpost is priced at the default: it is an idle camp and an idle camp never attacks a passer-by.
+    This reverses the coordinator's own decision in P-RAID-Q3b.
+  - A quest walk's danger reads two measured rows from the first pilot, checked in by hand (`quest_death_rows`:
+    Let Him Cook 7 of 189, Hold the Fort 9 of 32), scaled by health up to 1.5 times. The rows are refreshed by a
+    person from a rerun in a reviewed packet, never by a tool.
+  - A ranged seat fights from where the sim's leash (margin 0) lets the camp's mob reach it; a farm attempt with
+    no contact for 20 s ends and the camp is set aside for a while.
+  - The time budget's fight window is 3 s and "moved" is 1 u a step: choices, not measurements.
+  - P-RAID-C2a was not dispatched once its premise fell.
+- **Oracle amendments since the record below, for the owner** (no expectation loosened unless it says so):
+  - `2fbae7680` `balance_lab_time.rs`: with two fight windows open the highest-ranked wins (two tests expected the
+    newest hit's and contradicted a third and the brief).
+  - `1b08d2517` `balance_lab_time.rs`: per-seat elite kills sum to the new `world.elite_kills_credited`; the
+    attempts' `killed` is at most that (77 against 76 on six seeds: a kill credited to a seat whose attempt had
+    closed).
+  - `8d25ef659` `raid_decide_b.rs`, `raid_walk_risk.rs`: the scene that makes every camp deadly now expects the seat
+    to accept Two Banners, and a green guard became a red test, by the ruling on the outpost. **Changed meaning.**
+  - `67359d23f` `elite_reach_tests.rs`, `raid_reach.rs`: `the_helpers_reach_never_exceeds_the_sims_leash` is
+    **removed** (its bound was the wrong margin) and replaced by
+    `the_helper_says_yes_exactly_where_a_mob_inside_its_leash_can_reach`; in-band is measured at margin 0.
+  - `4141b6a28`, `3f221d66b`, `f2e5faa1d` `raid_reach_fix.rs`: the stall count resets on a hit landed on any
+    victim, a blocked attack or a hit taken, and stops once the watched camp is first cleared. **Loosened**: a
+    stall after the first clear, or more than 60 u from a member, is not pinned.
+  - `f6ff527a0` `raid_spells_fix.rs` (P-RAID-S-fix2, not in this integration): the Smite and Turret guard stood
+    outside every band of its camp; it now stands on the camp's first resting spot and asserts that the spot is
+    inside the band. The expectation is unchanged.
+  - `853159b0a` `raid_spell_reach.rs` (P-RAID-S-fix2, its own new oracle): each Smite is judged against the band of
+    the camp whose elite it was aimed at; the first form judged a cast at the next camp's elite against the first
+    camp's band. Still red on the base for all three weapons.
+  - Briefs: P-BAL-LAB-TIME-1 (the two rules above), P-RAID-Q3b-fix (the ruling).
+- **Not established:**
+  - Why Fire farms at twice the rate of the other factions, and whether a person playing another faction farms
+    faster than this bot (it does not dodge, kite or use its Wish in a camp fight: P-RAID-C2b).
+  - So: which farm rate should price a quest's time, and every quest verdict.
+  - Any card's strength (pick rates follow the bot's hand-written prices; "held by the winner" mostly says which
+    faction won); the value of any spell reward (92 dashes and 25 turrets were cast; Smite and Cleanse never in 40
+    matches; fifteen spells have no rule).
+  - What a third of the camp-fight time is spent on (the camp bucket holds 36 s per normal camp credited against
+    23.7 s from first hit to cleared).
+  - Elite difficulty by kind or weapon; the late game (no seat goes to the coliseum on purpose).
+  - That the network-poll bursts are gone in a Web build: the lane measured it, the coordinator did not.
+- **Lessons for the process:**
+  - A brief that states a sim rule quotes the line it comes from. Two packets in this stretch were built to a rule
+    the coordinator remembered wrongly (the leash margin; an idle camp's danger), and each cost a fix packet.
+  - A measured failure rate names its mechanism before it is read as balance: "ran out of time in 108 of 189" was
+    a bot standing still.
+  - A scene that counts "stalled" thinks needs the seat's goal in it: three amendments chased a seat that was
+    fighting somewhere else.
+  - A `scout` cannot read a branch through git; point it at a checked-out worktree.
+- **Waiting on the owner (nothing blocks):** the lists in the sections below stand, plus:
+  - **Q30** in the [owner queue](coordination/OWNER_QUEUE.md): which farm rate prices a quest's time (the bot's
+    average, its rate while fighting camps, the workbook's 2.9; and for which faction). P-BAL-EVAL-3 waits on it and
+    no quest number moves before it. Default in force: both rates printed, nothing retuned;
+  - the amendments above (one test removed, one changed in meaning, three loosened);
+  - `balance_lab_time` beside the three other release-only lab tests for `scripts/gate.sh`.
+- **Lanes:** UI rework is active (wave 4 on integration 87; thirty packets on its base at the last note, not handed
+  over). It found and fixed the cause of the network-poll bursts (the Traders window rebuilt its rows on every State
+  frame, about 15,000 Unity objects per 100 frames). By the lane's own Web build run (50 windows; seen by the lane,
+  not by the coordinator) the bursts are gone: at most 2.3 KB a frame, was 20 to 25 KB; and no long frame, the
+  largest 10.7 ms. The others are as below.
+- **Next, in order:** integration 89 (P-RAID-S-fix2 is in its preview); P-BAL-FIRE-1 (why Fire farms at twice
+  the rate: lab runs with Fire's roam, its burn and the bot's match-up prices switched off one at a time);
+  P-BAL-LAB-2 (grants inside one match, per-seat rows, deaths while holding a quest, the time
+  budget's missing counters, an incremental chest tally); P-RAID-C2b (fight movement, when to leave, the escape
+  Wishes); P-RAID-LOS-1; P-RAID-S2 (the other fifteen spell rules); P-RAID-Q3c; P-RAID-Q4, -P, -W. Then the baseline
+  and the number packets. Beside them: P-NET-COLLECTIONS-ROWS-1, P-UNITY-ALLOC-TESTS-1, P-UNITY-TEST-ASSET-COPY-1,
+  the security queue, and UI wave 4 when it is handed over.
+
 ## Integration 87 merged (2026-11-23); the pilot has run
 
 **Owner direction in force:** "resume" (2026-11-23, chat). This section governs; the three below it record integrations
