@@ -125,9 +125,29 @@ namespace Roguehalla.Client
             _drawn = true;
         }
 
-        /// <summary>Remembers the running cooldown (server ms it ends at, and its length; 0 and 0 when none) so that a later
-        /// packet can move the wedge every frame. In this packet it only stores the two values.</summary>
+        /// <summary>Remembers the running cooldown (server ms it ends at, and its length; 0 and 0 when none) so that
+        /// <see cref="SweepAt"/> can move the wedge every frame between snapshots.</summary>
         public void Cooldown(double readyAtMs, double totalMs) { _readyAtMs = readyAtMs; _totalMs = totalMs; }
+
+        /// <summary>Moves the wedge to the server time <paramref name="nowMs"/> while the drawn phase is Cooling. Writes the fill
+        /// only (never the cached fill or the wedge's switch: Show owns those) and only when it differs.</summary>
+        public void SweepAt(double nowMs)
+        {
+            if (_phase != AbilityPhase.Cooling || _readyAtMs <= 0d || !_sweep.enabled) return;
+            double total = _totalMs;
+            float fill = total > 0d && !double.IsInfinity(total) && !double.IsNaN(total)
+                ? Mathf.Clamp01((float)((_readyAtMs - nowMs) / total)) : 1f;
+            if (_sweep.fillAmount != fill) _sweep.fillAmount = fill;
+        }
+
+        /// <summary>Moves the Wish cast bar to the server time <paramref name="nowMs"/> while the bar is on.</summary>
+        public void CastAt(double nowMs, double startedMs, double landsMs)
+        {
+            if (!_cast.enabled) return;
+            double span = landsMs - startedMs; if (span < 1d) span = 1d;
+            float fill = Mathf.Clamp01((float)((nowMs - startedMs) / span));
+            if (_cast.fillAmount != fill) _cast.fillAmount = fill;
+        }
 
         public double ReadyAtMs { get { return _readyAtMs; } }
         public double TotalMs { get { return _totalMs; } }
