@@ -5,7 +5,7 @@
   Not a Rust phase item: presentation only.
 - **Implementer tier:** implementer-sonnet
 - **Reviewer:** reviewer
-- **Integration base:** `agent/sonnet/P-UI-TABMAP-SHEET-1` (this packet stacks on that branch; the gate compares against it with `--base`).
+- **Integration base:** `lane/ui-rework/base-2` (it contains P-UI-TABMAP-SHEET-1 and P-UI-ALLOC-METER-1; the gate compares against it with `--base lane/ui-rework/base-2`).
 - **D-rules touched:** D1 n/a (presentation) · D2 n/a · D5/D6/D9 none
 
 ## 1. ID and outcome
@@ -21,7 +21,8 @@ at once. `ApplySheet` already resets the key when the layout changes (`_headerKe
 header shows, and when it changes, stays exactly as it is.
 
 ## 2. Dependencies
-`P-UI-TABMAP-SHEET-1` (branch `agent/sonnet/P-UI-TABMAP-SHEET-1`) is the base: the sheet and `PresentHeader` exist only there.
+`lane/ui-rework/base-2` is the base. It contains `P-UI-TABMAP-SHEET-1` (the sheet and `PresentHeader` exist only there) and `P-UI-ALLOC-METER-1`
+(`Assets/Tests/Editor/AllocationMeter.cs`, the meter the oracle uses). The packet branch is linear on it (`brief:` and `oracle:` commits only, no merge).
 
 ## 3. Relevant legacy paths
 None: Unity-only presentation. Current code (on the base):
@@ -48,7 +49,7 @@ None: Unity-only presentation. Current code (on the base):
   The label widths also depend on the text-size setting, which the base's key does not contain; do not add or drop inputs, only change how they are compared.
 
 ## 8. Acceptance checks
-- `scripts/gate.sh --quick --oracle packet/P-UI-TABMAP-SHEET-1-fix --base agent/sonnet/P-UI-TABMAP-SHEET-1` prints `GATE PASS`.
+- `scripts/gate.sh --quick --oracle packet/P-UI-TABMAP-SHEET-1-fix --base lane/ui-rework/base-2` prints `GATE PASS`.
 - `TabMapHeaderNoGarbageEditModeTests`, `TabMapSheetEditModeTests`, `TabMapFlowEditModeTests`, `TabMapVisualFix3EditModeTests`, `TacticalMapEditModeTests` green.
 
 ## Oracle files (read-only for implementers)
@@ -57,7 +58,7 @@ None: Unity-only presentation. Current code (on the base):
 
 ## 9. Validation commands
 - `.agent-runs/lane-ui-rework/bin/unity-class.sh <worktree> TabMapHeaderNoGarbageEditModeTests,TabMapSheetEditModeTests,TabMapFlowEditModeTests`
-- `scripts/gate.sh --quick --oracle packet/P-UI-TABMAP-SHEET-1-fix --base agent/sonnet/P-UI-TABMAP-SHEET-1`
+- `scripts/gate.sh --quick --oracle packet/P-UI-TABMAP-SHEET-1-fix --base lane/ui-rework/base-2`
 
 ## 10. Risk and suggested model tier
 Small, one method. implementer-sonnet; reviewer (not Opus): no Rust, no wire, no state.
@@ -81,13 +82,19 @@ Small, one method. implementer-sonnet; reviewer (not Opus): no Rust, no wire, no
 - The spec's test 2 (`AChangeStillReachesTheHeader`) is green on the base and says so in its summary: it guards a sticking cache. The layout-change step
   shrinks the stage to 640x480 units and runs a frame, then asserts the long phase line is dropped.
 - No stub commit: both tests compile against the base.
-- Deviation from the spec's meter: `GC.GetAllocatedBytesForCurrentThread()` returns 0 in this editor's Mono even for a control that allocates
-  (measured: 0 after 20000 string concatenations), so a test using it passes on any code. `ChampionPanelNoGarbageEditModeTests` uses it and is therefore
-  vacuous here (not changed by this packet; for the owner's information). The oracle measures `Profiler.GetMonoUsedSizeLong()` after `GC.Collect()`
-  over 20000 calls (it moves in 16 KB steps), and first asserts a control allocation of the same kind registers (over 100000 bytes), so the meter is proven live.
-- Run on the stub (= base) with `unity-class.sh`:
-  - `AnUnchangedHeaderAllocatesNothing`: RED on the assertion "20000 calls of PresentHeader with nothing changed allocated 8429568 bytes"
-    (expected less than 32768).
-  - `AChangeStillReachesTheHeader`: green on the base, as designed.
-  - `TabMapSheetEditModeTests`, `TabMapFlowEditModeTests`, `TabMapVisualFix3EditModeTests`, `TacticalMapEditModeTests`: green (40 cases).
-- The implementer must reach 0 steady allocation on every call, including `Preferred`/label writes only on change; the 32768 limit leaves room only for meter noise.
+- The meter: `GC.GetAllocatedBytesForCurrentThread()` returns 0 in this editor even for a control that allocates (measured: 0 after 20000 string
+  concatenations; confirmed by P-UI-ALLOC-METER-1, whose measured table is in `docs/backlog/packets/P-UI-ALLOC-METER-1.md`), so a test using it passes on any
+  code. `ChampionPanelNoGarbageEditModeTests` uses it and is therefore vacuous here (not changed by this packet; for the owner's information).
+  The first version of this oracle used `Profiler.GetMonoUsedSizeLong()` with a control; the control read 0 inside the whole suite, so the gate went red on the
+  test's own set-up. The oracle now calls `AllocationMeter.AssertNone(present, 200, "PresentHeader with nothing changed")`
+  (`Assets/Tests/Editor/AllocationMeter.cs`, on the lane base). The meter counts GC.Alloc samples and checks itself against a known allocating and a known
+  clean control on every call. `present` is the `System.Action` made once with `Delegate.CreateDelegate`. The Profiler loop, its control and the 32768-byte limit are removed;
+  the set-up assertions stay (the map is open, the hint is not empty, a phase line is set).
+- Changed in this fix pass (lane lead's decisions): (1) the meter above; (2) the base of the packet is `lane/ui-rework/base-2` and the gate command takes
+  `--base lane/ui-rework/base-2`. Test 2 (`AChangeStillReachesTheHeader`) is unchanged.
+- Run with `unity-class.sh` on `TabMapHeaderNoGarbageEditModeTests,TabMapSheetEditModeTests,TabMapFlowEditModeTests,TabMapVisualFix3EditModeTests,TacticalMapEditModeTests`:
+  - On `packet/P-UI-TABMAP-SHEET-1-fix` (no fix): 42 cases, 41 pass, 1 red. `AnUnchangedHeaderAllocatesNothing` RED on the assertion
+    "PresentHeader with nothing changed allocated managed memory in 200 calls (meter UnityEngine.TestTools.Constraints GC.Alloc samples)" (the set-up assertions and the meter's
+    self-check passed first). `AChangeStillReachesTheHeader`: green on the base, as designed (it guards a cache that sticks). The other four classes: green.
+  - On `agent/sonnet/P-UI-TABMAP-SHEET-1-fix` (91ace0235) with this packet's test file checked out over its copy: 42 of 42 pass.
+- The implementer must reach 0 steady allocation on every call, including `Preferred`/label writes only on change.
