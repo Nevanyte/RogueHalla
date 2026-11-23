@@ -8,6 +8,7 @@
 //! sets `owner_completed`: `rh-sim/src/quest_view/board.rs:17-23,118`); a second `ItemObserver` of the same viewer reads
 //! the sim's own observation every few ticks for that. A scripted mover (no policy) is the control: it shows the scene's
 //! quest can be done by a straight walk, so a red RaidBot is the bot's.
+use rh_policy::bots::raid::values::Prices;
 use rh_policy::bots::{PersonaId, RaidBot, TierId};
 use rh_policy::{drive_seats_with, feed_seats, scripted, MatchStart, Policy, Seat, SeatStats};
 use rh_sim::{
@@ -230,8 +231,42 @@ fn run(s: &Scene, policy: Box<dyn Policy>) -> Run {
     }
 }
 
+/// The floors below were measured when every quest was priced at the flat placeholder 1.0 and no other quest executor
+/// existed. This table reproduces those conditions whatever rows the value table holds and whatever executors are
+/// registered later, so this file goes on proving the walker and nothing else (the walker's eleven quests at 1.0, every
+/// other quest and augment at 0).
+fn walker_prices() -> Prices {
+    Prices {
+        reward_rows: &[
+            ("ember_walk", 1.),
+            ("watchtowers", 1.),
+            ("barrow_run", 1.),
+            ("pilgrims_path", 1.),
+            ("a_cruel_joke", 1.),
+            ("even_skeletons_get_cold", 1.),
+            ("tuber_eats", 1.),
+            ("lost_brother", 1.),
+            ("smugglers_run", 1.),
+            ("letters", 1.),
+            ("let_him_cook", 1.),
+        ],
+        augment_rows: &[],
+        reward_default: 0.,
+        augment_default: 0.,
+        ..Prices::LOCAL
+    }
+}
+
 fn raid() -> Box<dyn Policy> {
-    Box::new(RaidBot::new(TierId::Normal, PersonaId::Farmer))
+    Box::new(RaidBot::new(TierId::Normal, PersonaId::Farmer).with_prices(walker_prices()))
+}
+
+#[test]
+fn the_walker_price_table_lists_exactly_the_walker_quests() {
+    let p = walker_prices();
+    let ids: Vec<&str> = p.reward_rows.iter().map(|r| r.0).collect();
+    assert_eq!(ids, WALKER.to_vec());
+    assert!(p.reward_rows.iter().all(|r| r.1 == 1.));
 }
 
 /// The control: no policy. Every few ticks it sends one command straight from the sim's own observation: accept the

@@ -284,6 +284,21 @@ fn mob_max_hp(
     name: Option<&str>,
     rule: rh_sim::EliteRule,
 ) -> f64 {
+    mob_max_hp_under(
+        zone,
+        elite,
+        name,
+        rh_sim::mob_runtime::EliteTuning::of(rule),
+    )
+}
+
+/// `mob_max_hp` against an explicit elite table.
+fn mob_max_hp_under(
+    zone: Option<FactionId>,
+    elite: bool,
+    name: Option<&str>,
+    elites: &rh_sim::mob_runtime::EliteTuning,
+) -> f64 {
     let Some(zone) = zone else {
         return f64::NAN;
     };
@@ -291,17 +306,22 @@ fn mob_max_hp(
         mob_catalog::mob_types_of(zone).find(|t| t.elite == elite && t.name == name)
     });
     // The sim's elite seam (P-AUG-RULES-1) under the room's rule (`MatchStart::elites`, P-AUG-BOTS-1).
-    let elites = rh_sim::mob_runtime::EliteTuning::of(rule);
     let k = if elite { elites.k } else { MOB_K };
     let base = crate::bots::build_route::reward_stat(None).map_or(0., |_| 0.)
         + rh_sim::content::faction(zone).hp
             * k
             * MOB_HP_MULT
-            * if elite { elites.hp_mult } else { 1. };
+            * if elite {
+                typed.map_or(elites.hp_mult, |t| elites.hp_mult_of(t.id))
+            } else {
+                1.
+            };
     let typed_mult = typed.map_or(1., |t| t.role_def().hp_mult);
     base * typed_mult
 }
 
+#[cfg(test)]
+mod elite_kind_tests;
 #[cfg(test)]
 mod elite_tests;
 
