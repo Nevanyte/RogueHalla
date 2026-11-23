@@ -124,7 +124,7 @@ It keeps its two `BarEase` values in non-readonly fields (a struct held in a rea
 - If a `MatchHud` member is renamed or moved: `node --test client-unity/UnityProject/Tools/hud-seams.test.cjs` (not expected to be needed).
 
 ## Oracle files (read-only for implementers)
-- `client-unity/RoguehallaNet.Tests/BarEaseTests.cs`
+- `client-unity/RoguehallaNet.Tests/BarEaseTests.cs` (8 tests, dotnet)
 - `client-unity/UnityProject/Assets/Tests/Editor/OwnerVitalEaseEditModeTests.cs`
 - `client-unity/UnityProject/Assets/Tests/Editor/OwnerVitalEaseEditModeTests.cs.meta`
 - `client-unity/UnityProject/Assets/Tests/Editor/MatchHudWishBarrierEditModeTests.cs` (the `oracle-amend:` commit, see below)
@@ -161,7 +161,19 @@ implementer-sonnet. The arithmetic is a small state machine with worked numbers.
 - Hand-off must carry: a proposed DEVIATIONS row (constant-rate ease plus ghost; legacy has a 100 ms linear width transition and no ghost) and the LEGACY DOUBT that `OwnerVitalBars.Percent` (divides by `max(MaxHp, hp + barrier)`) differs from legacy's `hud.ts` formula, left unchanged.
 
 ## Notes from the oracle author
-(filled in at the end of the oracle work)
+Red tests on the stub, each on an assertion about behaviour (stub: `BarEase.Step` and `Snap` do nothing, `OwnerVitalFills` writes nothing, the `MatchHud.Vitals.cs` methods are empty and `MatchHud.cs` still writes the bars directly):
+- `BarEaseTests` (8, dotnet): all red, first assertion `Expected: .5 +/- .001, But was: 0` (a value of the ease stays 0).
+- `OwnerVitalEaseEditModeTests` (11, Unity): all red. Group A tests (`TheFirstDeliverySnapsAndWrites`, `DamageEasesAndTheGhostLingers`, `AHealKeepsARunningGhost`, `TheBarrierEasesItsWidth`, `GainingBarrierAtFullHealthShowsNoGhostAndNoDip`, `ANewLifeSnaps`, `ABigHitEasesABigHealSnapsAndReducedMotionSnaps`, `ClearZeroesAndForgets`, `ASettledFrameAllocatesNothingAndWritesNoRect`) fail with an anchor reading .5 (the default of an unwritten `RectTransform`) or 0 against the expected eased value, or `Ready` false. `ARefreshDeliversAndATickMoves` fails on "the delivery moves nothing" (old code writes .70 at once: `Expected 1.0, But was .70`). `AMidEaseTimelineResetSnaps` fails on "mid-ease, so the premise holds" (`Expected .85, But was .70`).
+- `MatchHudWishBarrierEditModeTests.OwnerFactsRenderAndClearAcrossWishAndSessionResetTransitions` is GREEN on the stub with its amendment (the old code writes the barrier at once, and `TickOwnerVitals` exists as an empty method); it turns red without the amendment once the barrier eases. The amendment is in its own `oracle-amend:` commit, for the owner to approve.
+
+Existing classes run on the stub and green: `MatchHudWishBarrierEditModeTests` (all, with the amendment), `MatchHudStatusTextsEditModeTests`, `MatchHudStatusNotesEditModeTests`, `MatchHudIconPresentationEditModeTests` (25 of 36 tests green; the 11 red are the new class).
+
+Checks done before this hand-off:
+- `BarEaseTests`: a scratch reference implementation of the spec's `Step` (not committed, reverted) passed all 8, so every worked number in the tests is consistent with the rules.
+- `OwnerVitalEaseEditModeTests`, `MatchHudWishBarrierEditModeTests`: the same scratch reference (`OwnerVitalFills`, `MatchHud.Vitals.cs`, the four `MatchHud.cs` edits, not committed) passed all 16 tests in Unity, so each line of every test can run and the set-up (rig, reflection, `Fix3Transport`, `ResetTransientPresentation` on a half-built HUD) is sound.
+- Scratch run with a catch-and-collect helper (not committed; every assertion statement wrapped, failures listed in TearDown) on the stub: all 11 tests ran to their last line; every collected entry was an assertion about the missing behaviour (eased anchor values, ghost values, `Ready`, `HealthShown`, zeroed rects, "premise holds"). One exception: in that scratch run `AllocationMeter.AssertNone` reported its own self-check failure ("it reported allocation for a known clean control") after earlier failures had been caught in the same test; that is not an assertion about the feature, and I have not established its cause. In the plain run, and on the scratch reference, the test reaches the meter only with the correct behaviour and passed. If an implementer sees the meter complain, it is the meter's own check: report it, do not write another meter.
+- Notes on the tests as written: `AMidEaseTimelineResetSnaps` builds its own rig (the `MatchHudStatusTextsEditModeTests` one, with `Fix3Transport` and a `Snapshot(hp)` helper of its own, since that class's helper takes no Hp) and replaces `_healthBarFill`, `_barrierBarFill`, `_healthGhostFill` by bare rects. `TickOwnerVitals` is called through reflection (`internal`). Group A reads `anchorMax.x`, so a freshly created rect reads .5, not 0: an implementation must write the rect, a missing write cannot pass.
+- Nothing in the spec was changed; the tests follow its list one for one (test 9's last paragraph is in `ASettledFrameAllocatesNothingAndWritesNoRect`).
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
