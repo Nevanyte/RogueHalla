@@ -416,9 +416,10 @@ namespace Roguehalla.Client
                 label.transform.position = home;
                 if (!label.gameObject.activeSelf) label.gameObject.SetActive(true);
                 if (changed || !_plates.ContainsKey(label)) FitPlate(label, _plates);
-                float lift = TextLift(w.Index, 1, WantedClear(label, out float baseYMin), dt, reduced);
-                // A camp with a badge too: the text rides a gap above the plaque as drawn (which glides).
-                if (PlaqueTop(w.Index, out float top)) lift = Mathf.Max(lift, top + WardGap - baseYMin);
+                float wanted = WantedClear(label, out float baseYMin);
+                // A camp with a badge too: the text wants a gap above the plaque as drawn; the lift glides to it.
+                if (PlaqueTop(w.Index, out float top)) wanted = Mathf.Max(wanted, top + WardGap - baseYMin);
+                float lift = TextLift(w.Index, 1, wanted, dt, reduced);
                 if (lift > 0f) label.transform.position = home + new Vector3(0f, lift, 0f);
             }
             for (int i = BeaconsUsed; i < _beacons.Count; i++) if (_beacons[i].gameObject.activeSelf) _beacons[i].gameObject.SetActive(false);
