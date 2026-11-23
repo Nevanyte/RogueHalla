@@ -105,13 +105,8 @@ pub struct Elite {
     hots: HotWatch,
 }
 
-/// The living elite of `kind` nearest `near` (ties by key), among the frame's mobs: the one Sustain prices too.
-pub(crate) fn elite_of<'a>(cx: &'a Cx<'_>, kind: MobTypeId, near: Vec2) -> Option<&'a MobSeen> {
-    elite_mob(cx, kind, near)
-}
-
-/// The living elite of `kind` nearest `near` (ties by key), among the frame's mobs.
-fn elite_mob<'a>(cx: &'a Cx<'_>, kind: MobTypeId, near: Vec2) -> Option<&'a MobSeen> {
+/// The living elite of `kind` nearest `near` (ties by key), among the frame's mobs (Sustain prices the same one).
+pub(crate) fn elite_mob<'a>(cx: &'a Cx<'_>, kind: MobTypeId, near: Vec2) -> Option<&'a MobSeen> {
     cx.p.mobs
         .iter()
         .filter(|m| m.alive && m.class == MobClass::Elite && m.mob_type == Some(kind))

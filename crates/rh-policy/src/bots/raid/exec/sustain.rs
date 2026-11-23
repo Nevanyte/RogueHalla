@@ -12,7 +12,7 @@
 //!   `rest_value` per share, over the minutes the sim's regeneration needs; a camp worth taking beats it.
 use crate::bots::kite::away_point;
 use crate::bots::planning::{matchup_share, zone_faction};
-use crate::bots::raid::exec::elite::{elite_fight_lost, elite_of};
+use crate::bots::raid::exec::elite::{elite_fight_lost, elite_mob};
 use crate::bots::raid::exec::farm::{death_chance, FIGHT_U};
 use crate::bots::raid::exec::held::{hp_held, HotWatch};
 use crate::bots::raid::exec::travel::move_intent;
@@ -347,7 +347,7 @@ impl Sustain {
         }
         let seen = cx.p.camp(camp)?;
         let kind = seen.elite?;
-        let elite = elite_of(cx, kind, seen.at)?;
+        let elite = elite_mob(cx, kind, seen.at)?;
         let me = &cx.p.me;
         let stacks: f64 =
             cx.p.summary
