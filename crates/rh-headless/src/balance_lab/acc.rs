@@ -287,6 +287,8 @@ pub struct Rewards {
     pub chest_taken_events: u64,
     /// The same picks as `picks_by_kind`, by the chest they came from: `elite` (a kill's chest), `trophy`, `ground`.
     pub picks_by_chest_kind: BTreeMap<String, u64>,
+    /// `ChestTaken` events whose option the lab could not name (a skip, or a pick no observation showed).
+    pub picks_unnamed: u64,
 }
 impl Merge for Rewards {
     fn fold_in(&mut self, o: Self) {
@@ -294,6 +296,7 @@ impl Merge for Rewards {
         self.picks_by_kind.fold_in(o.picks_by_kind);
         self.chest_taken_events += o.chest_taken_events;
         self.picks_by_chest_kind.fold_in(o.picks_by_chest_kind);
+        self.picks_unnamed += o.picks_unnamed;
     }
 }
 
