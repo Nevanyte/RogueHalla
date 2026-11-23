@@ -7,6 +7,7 @@ pub mod chest_picks;
 pub mod elite_fights;
 mod observer;
 mod table;
+pub mod time_budget;
 
 use crate::{Agent, AgentSpec, BotKind, Env, EnvConfig};
 use acc::{Acc, Augments, Elites, Merge, Quests, Rewards, World};
