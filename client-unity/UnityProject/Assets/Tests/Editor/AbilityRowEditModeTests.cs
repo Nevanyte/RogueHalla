@@ -479,10 +479,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(Text(Tile("QuestSpell1"), "Seconds"), Is.EqualTo("5"), "set-up: the spell is drawn");
             var refresh = (Action)Delegate.CreateDelegate(typeof(Action), _hud, typeof(MatchHud).GetMethod("RefreshQuestRewardHud", All));
             for (int i = 0; i < 5; i++) refresh();   // warm up
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 200; i++) refresh();
-            long grown = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.That(grown, Is.LessThanOrEqualTo(0), "200 steady refresh frames allocated " + grown + " bytes");
+            AllocationMeter.AssertNone(refresh, 200, "200 steady refresh frames");
         }
 
         // ------------------------------------------------------------------ 11. the labels fit
