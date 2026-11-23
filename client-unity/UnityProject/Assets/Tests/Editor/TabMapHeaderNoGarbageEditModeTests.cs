@@ -116,21 +116,9 @@ namespace Roguehalla.Client.Tests
             var present = HeaderAction();
             for (int i = 0; i < 5; i++) present();   // warm up
 
-            // GC.GetAllocatedBytesForCurrentThread reads 0 in this editor's Mono (checked), so the meter is the managed heap's used size.
-            // A control proves the meter sees small allocations before the header is measured with it.
-            const int Calls = 20000;
-            GC.Collect();
-            long c0 = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
-            string sink = "";
-            for (int i = 0; i < Calls; i++) sink = "key" + i + "|" + (i * 1.5f);
-            long control = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong() - c0;
-            Assert.That(control, Is.GreaterThan(100000L), "set-up: the meter sees " + Calls + " small string allocations (" + sink + ")");
-
-            GC.Collect();
-            long before = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
-            for (int i = 0; i < Calls; i++) present();
-            long grown = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong() - before;
-            Assert.That(grown, Is.LessThan(32768L), Calls + " calls of PresentHeader with nothing changed allocated " + grown + " bytes (the meter counts in 16 KB steps; one 8 byte allocation per call would be 160000)");
+            // GC.GetAllocatedBytesForCurrentThread reads 0 in this editor, so the meter is AllocationMeter (P-UI-ALLOC-METER-1):
+            // it counts GC.Alloc samples and checks itself against a known allocating and a known clean control on every call.
+            AllocationMeter.AssertNone(present, 200, "PresentHeader with nothing changed");
         }
 
         /// <summary>Green on the base too: it guards the fix against a cache that sticks when an input changes.</summary>
