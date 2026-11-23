@@ -81,7 +81,7 @@ namespace Roguehalla.Client.Tests
             StringAssert.Contains("Recharge 4", _wish.text);
             StringAssert.Contains("Next charge in 2", _wish.text);
             StringAssert.Contains("Full charges in 7", _wish.text);
-            StringAssert.Contains("Casting Blaze · 2", _wish.text);
+            StringAssert.Contains("Casting Blaze Step · 2", _wish.text);
             StringAssert.DoesNotContain("5500", _wish.text); StringAssert.DoesNotContain("7000", _wish.text);
             StringAssert.DoesNotContain("12000", _wish.text); StringAssert.DoesNotContain("4500", _wish.text);
             StringAssert.DoesNotContain("6500", _wish.text); StringAssert.DoesNotContain("Opening", _wish.text);
@@ -92,13 +92,13 @@ namespace Roguehalla.Client.Tests
             StringAssert.Contains("Ready in 1", _wish.text);
             StringAssert.Contains("Next charge in 2", _wish.text);
             StringAssert.Contains("Full charges in 7", _wish.text);
-            StringAssert.Contains("Casting Blaze · 2", _wish.text);
+            StringAssert.Contains("Casting Blaze Step · 2", _wish.text);
 
             Invoke("RefreshOwnerPresentation", me, 13000d);
             StringAssert.Contains("Ready", _wish.text); StringAssert.DoesNotContain("Ready in", _wish.text);
             StringAssert.DoesNotContain("Next charge in", _wish.text);
             StringAssert.DoesNotContain("Full charges in", _wish.text);
-            StringAssert.Contains("Casting Blaze", _wish.text); StringAssert.DoesNotContain("Casting Blaze ·", _wish.text);
+            StringAssert.Contains("Casting Blaze", _wish.text); StringAssert.DoesNotContain("Casting Blaze Step ·", _wish.text);
             StringAssert.Contains("1/2", _wish.text, "elapsed labels never predict stock");
 
             var stock = me.Wish.Value;
