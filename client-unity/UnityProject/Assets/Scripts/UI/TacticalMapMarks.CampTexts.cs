@@ -24,6 +24,12 @@ namespace Roguehalla.Client
         float _ctSigW, _ctSigH, _ctSigK, _ctSigR;
         TMP_Text _ctMeasure;
 
+        /// <summary>What the Tab map key learns of the camp buff amounts (P-UI-TABMAP-TEXT-2).</summary>
+        public CampAmountKey CampKey { get; } = new CampAmountKey();
+
+        /// <summary>True while the Tab map key shows each kind's amount, so the map drops the texts the key says (P-UI-TABMAP-TEXT-2; stub: inert).</summary>
+        public bool CampFactsInKey { get; set; }
+
         /// <summary>How many camp-text placement passes have run.</summary>
         public int CampTextPlacements { get { return _ctPasses; } }
 
