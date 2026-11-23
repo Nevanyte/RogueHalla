@@ -23,6 +23,14 @@ namespace Roguehalla.Client
         int _secondsShown, _badgeShown;
         string _nameShown = "", _hintShown = "";
 
+        /// <summary>Alpha of the key cap of an Empty tile (P-UI-TILE-PLATES-1; stub value until the packet lands).</summary>
+        public const float EmptyKeyAlpha = .7f;
+        /// <summary>Alpha of the name text of an Empty tile or weapon slot (P-UI-TILE-PLATES-1).</summary>
+        public const float EmptyTextAlpha = .8f;
+
+        /// <summary>The colour of an empty tile's or slot's text: <c>TextSecondary</c> at <see cref="EmptyTextAlpha"/>.</summary>
+        public static Color EmptyTextColour(UiTheme theme) { return Color.clear; }
+
         public AbilityTile(Transform parent, string name, HudRegion region, float raise, string keyCap, Transform hintOverlay,
             MythicGlyph? icon = null)
         {
