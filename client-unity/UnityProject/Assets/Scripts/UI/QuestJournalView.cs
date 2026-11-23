@@ -77,7 +77,7 @@ namespace Roguehalla.Client
             _card = _root;
             MythicUi.Text(_card, "JournalTitle", "QUEST JOURNAL", new Vector2(.035f, .925f), new Vector2(.66f, .995f), 27, ShowcasePalette.Gold, heading: true);
             _close = FlowWindowClose.Create(_card, "CloseJournal", Close);
-            _state = MythicUi.Text(_card, "JournalState", "Waiting for quest data…", new Vector2(.035f, .75f), new Vector2(.965f, .80f), 16, ShowcasePalette.MutedText);
+            _state = MythicUi.Text(_card, "JournalState", "Waiting for quest data…", new Vector2(.035f, .74f), new Vector2(.965f, .80f), 16, ShowcasePalette.MutedText);
             _scroll = CreateScroll(_card, new Vector2(.035f, .05f), new Vector2(.43f, .73f), out _content);
             var detail = MythicUi.Panel(_card, "QuestDetail", new Vector2(.455f, .05f), new Vector2(.965f, .73f), ShowcasePalette.PanelRaised); // a lifted slate well, not the near-black sunken token
             MythicUi.Text(detail, "DetailHeading", "QUEST DETAILS", new Vector2(.025f, .885f), new Vector2(.975f, .99f), 19, ShowcasePalette.Text);
