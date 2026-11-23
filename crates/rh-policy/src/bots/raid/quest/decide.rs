@@ -159,25 +159,48 @@ pub fn stat_worth(stat: u8, me: &Me) -> f64 {
                 }
             }
         },
-        4 | 5 => {
-            if weapon == Some(WeaponId::Shield) {
-                1.
-            } else {
-                0.
-            }
-        }
+        4 | 5 if weapon == Some(WeaponId::Shield) => 1.,
         _ => 0.,
     };
     NEUTRAL_STAT + fit
+}
+
+/// One offered trade of The Bargain, scored.
+#[derive(Clone, Copy)]
+struct Trade {
+    /// The gain in camp-equivalents.
+    gain: f64,
+    /// Whether it pays with the spare weapon (then `give` is 0 and means nothing).
+    weapon: bool,
+    give: u8,
+    receive: u8,
+    /// The `(action, target)` to send, as the frame offered it.
+    pair: (u8, u8),
+}
+
+impl Trade {
+    /// The larger gain wins; equal gains go to the weapon trade, then the lower give, then the lower receive.
+    fn beats(&self, other: &Self) -> bool {
+        if (self.gain - other.gain).abs() > 1e-9 {
+            return self.gain > other.gain;
+        }
+        (
+            self.weapon,
+            std::cmp::Reverse(self.give),
+            std::cmp::Reverse(self.receive),
+        ) > (
+            other.weapon,
+            std::cmp::Reverse(other.give),
+            std::cmp::Reverse(other.receive),
+        )
+    }
 }
 
 /// The trade to send at the hag, `(action, target)` copied from `offered` (the frame's actions of The Bargain's row: 5
 /// with give * 9 + receive, 7 with the stat), or `None` when no offered trade is an improvement.
 pub fn bargain_trade(prices: &Prices, me: &Me, offered: &[(u8, u8)]) -> Option<(u8, u8)> {
     let unit = prices.stacks_per_camp * NEUTRAL_STAT;
-    // (gain, is weapon, give, receive, the pair); the best gain wins, ties to the weapon, then the lower give, then the
-    // lower receive.
-    let mut best: Option<(f64, bool, u8, u8, (u8, u8))> = None;
+    let mut best: Option<Trade> = None;
     for &(action, target) in offered {
         let (gain, weapon, give, receive) = match action {
             ACTION_STACKS if target < 81 && target / 9 != target % 9 => {
@@ -201,18 +224,18 @@ pub fn bargain_trade(prices: &Prices, me: &Me, offered: &[(u8, u8)]) -> Option<(
         if gain <= 1e-9 {
             continue;
         }
-        let better = best.is_none_or(|(g, w, gv, rc, _)| {
-            if (gain - g).abs() > 1e-9 {
-                return gain > g;
-            }
-            (weapon, std::cmp::Reverse(give), std::cmp::Reverse(receive))
-                > (w, std::cmp::Reverse(gv), std::cmp::Reverse(rc))
-        });
-        if better {
-            best = Some((gain, weapon, give, receive, (action, target)));
+        let trade = Trade {
+            gain,
+            weapon,
+            give,
+            receive,
+            pair: (action, target),
+        };
+        if best.is_none_or(|b| trade.beats(&b)) {
+            best = Some(trade);
         }
     }
-    best.map(|b| b.4)
+    best.map(|b| b.pair)
 }
 
 /// The trades the build could make with what it has: 20 stacks of a stat to any other, the spare weapon to any stat.
