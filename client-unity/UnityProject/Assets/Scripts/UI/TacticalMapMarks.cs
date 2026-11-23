@@ -14,7 +14,7 @@ namespace Roguehalla.Client
     /// over a dark outline in the faction/accent colour from the theme, so shapes stay legible on any zone tint.
     /// </summary>
     [RequireComponent(typeof(CanvasRenderer))]
-    public sealed class TacticalMapMarks : MaskableGraphic
+    public sealed partial class TacticalMapMarks : MaskableGraphic
     {
         readonly List<InterpActor> _actors = new List<InterpActor>();
         readonly List<Vector2> _route = new List<Vector2>();
