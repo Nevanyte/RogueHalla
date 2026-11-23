@@ -485,10 +485,15 @@ fn a_melee_seats_approach_is_unchanged() {
     assert!(!has_lock(&step), "a lock from 200 u with a sword: {step:?}");
 }
 
-/// Guard (the helper over several maps): at the resting spot of every camp the helper allows the fight (a mob at home
-/// reaches a seat standing on it), and nowhere does it allow a place the sim's leash refuses: for a point `p` it says
-/// yes to, `leash_ok` holds for the camp's elite spot (an elite target) or for some spot (a normal target). A later
-/// change of the sim's leash numbers breaks this test, not the bot silently. RED on the stub (it says yes everywhere).
+/// Guard (the helper over several maps): at every resting spot that the sim's own leash accepts the helper allows the
+/// fight, and nowhere does it allow a place the sim's leash refuses: for a point `p` it says yes to, `leash_ok` holds
+/// for the camp's elite spot (an elite target) or for some spot (a normal target). A later change of the sim's leash
+/// numbers breaks this test, not the bot silently. RED on the stub (it says yes everywhere).
+///
+/// Coordinator's oracle-amend (2026-11-23): the first half used to demand a yes at EVERY resting spot. On small camps
+/// the spot itself fails `leash_ok` with the 24 u margin (a point 24 u off along an axis leaves the camp's territory:
+/// seed 1 camp 50, seed 7 camps 50 and 51), so that demand contradicted the second half. It now holds for the spots
+/// the sim accepts, and each seed must have some.
 #[test]
 fn the_helpers_reach_never_exceeds_the_sims_leash() {
     for seed in [1u64, 2, 3, 7] {
@@ -497,6 +502,7 @@ fn the_helpers_reach_never_exceeds_the_sims_leash() {
         let data = arena.map.layers().expect("layers").data();
         let margin = rh_sim::constants::MOB_LEASH_MARGIN;
         let mut denied = 0u32;
+        let mut spots_in_band = 0u32;
         for (ci, c) in data.camps.iter().enumerate() {
             let camp = ci as u32;
             if c.spots.is_empty() {
@@ -509,9 +515,13 @@ fn the_helpers_reach_never_exceeds_the_sims_leash() {
                 (0..c.spots.len()).map(|i| spot(&arena, camp, i)).collect()
             };
             for h in &homes {
+                if !leash_ok(data, camp, *h, *h, margin) {
+                    continue;
+                }
+                spots_in_band += 1;
                 assert!(
                     may_fight_from(&paths, camp, elite, *h),
-                    "seed {seed} camp {camp}: the helper refuses the camp's own resting spot {h:?}"
+                    "seed {seed} camp {camp}: the helper refuses a resting spot the sim's leash accepts {h:?}"
                 );
             }
             for gx in -16i32..=16 {
@@ -533,6 +543,10 @@ fn the_helpers_reach_never_exceeds_the_sims_leash() {
             }
         }
         assert!(denied > 0, "seed {seed}: the helper never refused anything");
+        assert!(
+            spots_in_band > 0,
+            "seed {seed}: no resting spot lies inside its own band"
+        );
     }
 }
 
