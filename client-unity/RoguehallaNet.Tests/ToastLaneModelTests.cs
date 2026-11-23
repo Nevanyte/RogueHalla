@@ -11,6 +11,18 @@ namespace Roguehalla.Net.Tests
     /// </summary>
     public sealed class ToastLaneModelTests
     {
+        static string[] s_counterControl;
+
+        /// <summary>Guard (P-UI-ALLOC-PROOF-1): the allocation counter must register a known allocation, so a test built on it can never go blind silently.</summary>
+        static void AssertCounterSees()
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            var kept = new string[1000];
+            for (int i = 0; i < kept.Length; i++) kept[i] = "control" + i;
+            s_counterControl = kept;
+            Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.GreaterThan(0L), "the allocation counter did not see 1,000 kept string concatenations: it is blind here");
+        }
+
         const float Dt = .01f, Hold = 2.2f, FadeIn = ToastLaneModel.FadeInSeconds, FadeOut = ToastLaneModel.FadeOutSeconds;
 
         static void Run(ToastLaneModel m, float seconds, float dt = Dt, bool visible = true, bool reduced = false)
@@ -428,6 +440,7 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void ATickThatChangesNothingAllocatesNothing()
         {
+            AssertCounterSees();
             var m = new ToastLaneModel(3);
             m.SetSticky("Hint", NoticeTone.Info);
             m.Push("A line that holds", NoticeTone.Good);
