@@ -455,7 +455,7 @@ namespace Roguehalla.Client.Tests
             Assert.IsFalse(_hud.TacticalMap.IsPlanning);
             Assert.IsTrue(_hud.QuestJournal.TryAccept(handle), "only the new delivered CanAccept enables acceptance");
             Assert.IsFalse(_session.Collections.Quests.Rows[0].OwnerAccepted, "local pending feedback is not server acceptance");
-            StringAssert.Contains("Acceptance queued", _hud.QuestJournal.Root.Find("QuestDetail/QuestStatus").GetComponent<TMP_Text>().text);
+            StringAssert.Contains("Accepting", _hud.QuestJournal.Root.Find("QuestDetail/QuestStatus").GetComponent<TMP_Text>().text);
             _session.FlushInput();
             var command = _transport.Inputs().SelectMany(x => x.Commands).Single();
             Assert.AreEqual(CommandKind.QuestAccept, command.Kind); Assert.AreEqual(handle, command.QuestRef);
