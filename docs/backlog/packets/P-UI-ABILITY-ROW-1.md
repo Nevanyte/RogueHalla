@@ -283,7 +283,8 @@ Each verified by reading it. Run these classes on the stub (green) and again aft
 ## Oracle files (read-only for implementers)
 
 - `client-unity/RoguehallaNet.Tests/AbilityFaceTests.cs`
-- `client-unity/UnityProject/Assets/Tests/Editor/AbilityRowEditModeTests.cs` (+ `.meta`)
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityRowEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityRowEditModeTests.cs.meta`
 - `client-unity/UnityProject/Assets/Tests/Editor/HudLegacyLayoutEditModeTests.cs` (the single amended expectation, own commit)
 - this packet
 
@@ -322,7 +323,61 @@ frame (spell refresh), and the narrow-stage scale not touching the minimap.
 
 ## Notes from the oracle author
 
-(filled in by the oracle commit)
+Run on the stub (dotnet through `in.sh`, Unity through `unity-class.sh`): every new test is red on an assertion, none on a compile
+error or an exception. The existing classes pinning this code (`HudLegacyLayoutEditModeTests`, `HudTextScaleEditModeTests`,
+`PlayerFlowsEditModeTests`: 77 tests; `MatchHudIconPresentationEditModeTests`, `MatchHudWishBarrierEditModeTests`,
+`ChampionPanelNoGarbageEditModeTests`, `HudRegionsEditModeTests`: 13; dotnet `HudRegionsTests` and `InputCueTests`: 28;
+`node --test Tools/hud-seams.test.cjs`: 18) were green on the stub before the amended expectation. A scratch implementation of the
+three pure functions made all 15 `AbilityFaceTests` pass (then reverted), and a scratch two-line digit handler in `MatchClient.cs` made
+`DigitKeysSelectTheWeaponSlot` pass, and without its `Phase == Active` condition the test failed on the planning half (then reverted):
+so the two "none" halves of that test do bite.
+
+Red tests and the assertion each fails on (stub):
+
+| Test | Fails on |
+|---|---|
+| `AbilityFaceTests` (15 tests, all red) | `Spell` returns the default struct (no Empty/Ready/Cooling, badge 0), `CooldownSpan.Total` returns 0, `AbilityRowScale` returns 1, `PromptPair` returns the 220-wide centred region |
+| `TheRowHoldsSixElementsLeftToRight` (3 windows) | the row is 318 wide, expected 458 |
+| `NothingFloatsAboveTheRow` (2 windows) | `QuestRewards` measures as the old 290 x 70 box, expected `HudRegions.Prompt()` |
+| `APickupAndAQuestActionShareThePromptLane` | the box alone is not at the `Prompt()` rect (its set-up asserts on the delivered nearby action pass) |
+| `AnEmptySpellTileIsADimOutline` | no `QuestSpell1` under `CombatActions` |
+| `ADeliveredQuestSpellShowsNameChargesAndCountdown` | no `QuestSpell1` under `CombatActions` (set-up asserts on server time and delivered spell pass) |
+| `TheEquippedLineStillListsBothSpells` | with a quest view and no spell the Equipped line is empty, expected `SHIFT · Empty` + line break + `Q · Empty` |
+| `DigitKeysSelectTheWeaponSlot` | key 1 sends no Swap |
+| `ASwapWithoutASlotPulsesBothSlotsAndNeverTheBar` | a Swap with no slot pulses the bar, not the two slots (the with-slot step passes) |
+| `TheRowShrinksOnANarrowStage` | the bar's scale at 700 x 600 is 1 (the 1280 x 800 half passes) |
+| `AnUnchangedTileAllocatesNothing` | `tile.Root` is null |
+| `ASteadyQuestRefreshFrameAllocatesNothing` | no `QuestSpell1` under `CombatActions` |
+| `TheLongestSpellNamesFitTheTile` (scale 1 and 1.5) | no `QuestSpell1` under `CombatActions` |
+| `EveryTileGraphicUsesAThemeColour` | `MatchHud` has no `_questTiles` field |
+| `HudLegacyLayoutEditModeTests.WeaponBarIsCentred...` (amended) | bar width is 318, expected 458 |
+
+Deviations from the spec's test list, and what could not be proved on the stub:
+- Spec test 6 (`TheEquippedLineStillListsBothSpells`) passes on the stub as described (the line exists today), so a first step was added
+  that the spec's "runs also when the quest view has no spell" implies: with a quest view and no spell, the line reads
+  `SHIFT · Empty` + line break + `Q · Empty`. The spec's own state (Shoulder Charge, 2 charges, Ready) is the second step.
+- Spec test 10 is two tests (`AnUnchangedTileAllocatesNothing` on a tile built directly, `ASteadyQuestRefreshFrameAllocatesNothing` on the full
+  rig), so each fails on its own assertion.
+- Spec test 7 (digit keys), chest half: it sets `MatchHud._chestFocus` by reflection but drives the key by hand (`Send`, then the client's
+  `ReadInput`, then `FlushInput`) instead of `rig.Tap`, because a `Frame()` would run the chest's own digit handler (`Choose`) against a
+  chest that does not exist. Planning half: a Planning snapshot is delivered through the rig's private transport and `ReadInput` is
+  called directly. The map may also keep the client's keyboard blocked in planning, so this half pins "no swap" rather than the
+  `Phase == Active` condition alone; the temporary check above showed it does fail without that condition.
+- `TrainingHudRig.Start(practice: false)` is used (an arena room), not training.
+- The steps of tests 3, 5, 6 and the second half of 10 after the first red assertion were not run on the stub: they follow the
+  fixtures of `PlayerFlowsEditModeTests` (a delivered `State` plus `Snapshot`, then the HUD's `LateUpdate` and `TickPlayerFlows`) and the set-up
+  assertions that precede them pass. If one of those later steps is wrong about the code, the implementer reports it with the failing
+  line instead of editing the oracle.
+- `TheRowShrinksOnANarrowStage` and the layout rig rely on `HudStage.ViewportChanged` calling `ApplyLegacyViewport` (`MatchHud.Features.cs:100`),
+  so `LayoutAt` alone lays out the bar scale and the minimap.
+- The spec's reference to `TacticalMapController.cs:396-397` is `:421-422` on the base; the spec's `MatchHud.cs:189-192` pulse code is
+  `MatchHud.Pulses.cs:31-35`.
+- The test file reads `_questTiles` (an `AbilityTile[]` of two) and `_pulses` (`List<(RectTransform Rect, float Start)>`), `_slots`
+  (`Button[]`), `RefreshQuestRewardHud`, `InputCue`, `ClearPulses`, `TickPulses`, `PulseSeconds`, `_questChoiceSpells`, `_chestFocus` by
+  reflection: keep those names and types.
+
+Legacy doubts: none. Proposed DEVIATIONS row (owner signs): DEV-<n>, quest spells Shift and Q are ability tiles in the action row
+(legacy has no quest spells); keys 1 and 2 pick a weapon slot (this removes a difference from legacy).
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
