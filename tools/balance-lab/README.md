@@ -53,7 +53,9 @@ then seat order: faction, last weapon, steps, buckets, camps credited (`camps_no
 and named chest `picks`. The seat credits are the world's: the camp's best-damage seat, the elite's killing-blow seat,
 the lab's own death and quest-completion counts, so the seats' sums equal the world totals. A camp is elite when the
 observer has seen its elite alive: a camp whose elite nobody saw counts as normal (`camps_credited_normal`,
-`kill_secs_normal`; the elite share is the difference, `kill_secs_elite`). `kill_secs.n` can be below `camps_credited`.
+`kill_secs_normal`; the elite share is the difference, `kill_secs_elite`). `kill_secs.n` can be below `camps_credited`. `world.elite_kills_credited` is every elite death the sim credits to a seat
+(the seats' `elite_kills` summed); it minus the elites block's `killed` is the kills made by a seat with no open attempt
+(it only hit adds, it had gone idle for 10 s, or its attempt was cleared when it died).
 Not shown: walking to a quest not yet accepted is `moving`; fleeing is `moving` once the window passes; time at a chest
 is `idle` or `resting`; area or status damage with no attacker is no fight; being knocked about is `moving`.
 

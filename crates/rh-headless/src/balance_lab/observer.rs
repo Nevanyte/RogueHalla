@@ -661,6 +661,7 @@ impl Observer {
         let killer = by.and_then(|b| self.seat_of.get(&b).map(|s| (b, *s)));
         if let Some((_, seat)) = killer {
             self.cur_time[seat].elite_kills += 1;
+            self.acc.world.elite_kills_credited += 1;
         }
         self.cur.elite_deaths.push(EliteDeath {
             elite: mob.0,

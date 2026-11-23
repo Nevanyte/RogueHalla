@@ -170,6 +170,8 @@ pub struct World {
     pub kill_secs_elite: Sum,
     /// Where every seat-step went.
     pub time: TimeBlock,
+    /// Elite deaths the sim credits to a seat (`EliteDeath.killer`), the per-seat `elite_kills` summed.
+    pub elite_kills_credited: u64,
 }
 
 /// One bucket's seat-steps: all, and by minute band.
@@ -325,6 +327,7 @@ impl Merge for World {
         self.kill_secs_normal.fold_in(o.kill_secs_normal);
         self.kill_secs_elite.fold_in(o.kill_secs_elite);
         self.time.fold_in(o.time);
+        self.elite_kills_credited += o.elite_kills_credited;
     }
 }
 
