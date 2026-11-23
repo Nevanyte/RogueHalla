@@ -215,6 +215,18 @@ namespace Roguehalla.Net.Tests
 
     public class InputSenderTests
     {
+        static string[] s_counterControl;
+
+        /// <summary>Guard (P-UI-ALLOC-PROOF-1): the allocation counter must register a known allocation, so a test built on it can never go blind silently.</summary>
+        static void AssertCounterSees()
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            var kept = new string[1000];
+            for (int i = 0; i < kept.Length; i++) kept[i] = "control" + i;
+            s_counterControl = kept;
+            Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.GreaterThan(0L), "the allocation counter did not see 1,000 kept string concatenations: it is blind here");
+        }
+
         [Test]
         public void WeaponAndPickupIntentsKeepQueueOrderAcrossFrames()
         {
@@ -279,6 +291,7 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void IdleFlushAllocatesNothing()
         {
+            AssertCounterSees();
             var s = new InputSender();
             s.Aim(1f); s.Flush(0);
             for (int i = 0; i < 100; i++) s.Flush(i);
