@@ -71,7 +71,7 @@ namespace Roguehalla.Client
         readonly RectTransform[] _chips = new RectTransform[MapZones.Count + 1];
         readonly MinimapGesture _largeGesture = new MinimapGesture();
         MapScreenLayout _layout;
-        Vector2 _layoutSize; MapScreenMode _layoutMode; float _layoutScale = -1f;
+        Vector2 _layoutSize; MapScreenMode _layoutMode; float _layoutScale = -1f, _layoutPx = -1f;
         double _planTotalMs;
         int _ownZone = -1;
 
@@ -188,7 +188,7 @@ namespace Roguehalla.Client
             _mini.Pressed = MinimapPress; _mini.Dragged = MinimapDrag; _mini.PointerReleased = MinimapRelease; _mini.Aborted = EndMinimapGesture;
             // Route controls draw over both the planning card and the Tab columns.
             _routeText.transform.SetAsLastSibling(); _undo.transform.SetAsLastSibling(); _clear.transform.SetAsLastSibling(); _status.transform.SetAsLastSibling();
-            _layoutScale = -1f;
+            _layoutScale = -1f; _layoutPx = -1f;
             SyncStage(); ApplyLayout(true);
             _panel.gameObject.SetActive(false); _miniRoot.gameObject.SetActive(false);
         }
@@ -257,14 +257,16 @@ namespace Roguehalla.Client
             var size = _stage != null ? _stage.sizeDelta : _panel.rect.size;
             if (size.x < 2f || size.y < 2f) size = new Vector2(1280f, 800f);
             var mode = IsPlanning ? MapScreenMode.Planning : MapScreenMode.Tab; float ts = TextScale();
-            if (!force && size == _layoutSize && mode == _layoutMode && Mathf.Approximately(ts, _layoutScale)) return;
-            _layoutSize = size; _layoutMode = mode; _layoutScale = ts;
+            float px = _panel.lossyScale.x;
+            if (!force && size == _layoutSize && mode == _layoutMode && Mathf.Approximately(ts, _layoutScale) && Mathf.Approximately(px, _layoutPx)) return;
+            _layoutSize = size; _layoutMode = mode; _layoutScale = ts; _layoutPx = px;
             var L = _layout = MapScreenLayout.Compute(size.x, size.y, mode, ts);
             bool tab = mode == MapScreenMode.Tab;
             var theme = UiTheme.Current;
             _scrim.color = UiTheme.With(theme.OutlineDark, tab ? .86f : .84f);
             Put(_titleRect, L.Header); Put(_frameRect, L.Frame);
             ApplySheet(L, tab && !L.Stacked);
+            _large.SetMarkScale(MapMarkScale.Layer(L.Map.W, px));
             if (!tab) _close.gameObject.SetActive(false);
             _timer.gameObject.SetActive(!tab); _planBar.gameObject.SetActive(!tab);
             _planBar.sizeDelta = new Vector2(L.Title.W, 3f);

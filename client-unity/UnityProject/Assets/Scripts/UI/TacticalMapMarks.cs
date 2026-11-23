@@ -123,10 +123,20 @@ namespace Roguehalla.Client
             SetVerticesDirty();
         }
 
-        /// <summary>How many times the layer changed (P-UI-TABMAP-MARKS-1). STUB: never.</summary>
+        /// <summary>How many times the layer's scale changed (P-UI-TABMAP-MARKS-1).</summary>
         public int LayerChanges { get; private set; }
-        /// <summary>The layer's scale changed. STUB (P-UI-TABMAP-MARKS-1): does nothing.</summary>
-        public void LayerChanged() { }
+        /// <summary>The layer's scale changed: the zone labels follow it and the mesh redraws.</summary>
+        public void LayerChanged() { LayerChanges++; RefreshZoneLabels(); SetVerticesDirty(); }
+
+        /// <summary>The zone host (a sibling of this object) takes this object's transform so the labels sit in the layer's units.</summary>
+        void FollowLayer()
+        {
+            if (_zoneLabelHost == null || transform.parent == null || _zoneLabelHost.parent != transform.parent) return;
+            var me = rectTransform;
+            _zoneLabelHost.anchorMin = me.anchorMin; _zoneLabelHost.anchorMax = me.anchorMax;
+            _zoneLabelHost.offsetMin = me.offsetMin; _zoneLabelHost.offsetMax = me.offsetMax;
+            _zoneLabelHost.pivot = me.pivot; _zoneLabelHost.localScale = me.localScale;
+        }
 
         void Update()
         {
@@ -278,6 +288,7 @@ namespace Roguehalla.Client
             host.transform.SetParent(parent, false);
             _zoneLabelHost = (RectTransform)host.transform;
             _zoneLabelHost.anchorMin = Vector2.zero; _zoneLabelHost.anchorMax = Vector2.one; _zoneLabelHost.offsetMin = _zoneLabelHost.offsetMax = Vector2.zero;
+            FollowLayer();
             return _zoneLabelHost;
         }
 
@@ -294,6 +305,7 @@ namespace Roguehalla.Client
 
         void RefreshZoneLabels()
         {
+            FollowLayer();
             bool show = Large && _map != null;
             if (show && _zoneLabelHost != null) _zoneLabelHost.SetAsLastSibling();   // later siblings may have been added since it was created
             for (int i = 0; i < MapZones.Count; i++)

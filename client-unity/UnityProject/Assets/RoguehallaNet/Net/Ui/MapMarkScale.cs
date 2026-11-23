@@ -1,7 +1,7 @@
 namespace Roguehalla.Net.Ui
 {
     /// <summary>
-    /// How much larger than its base size the marks layer of the Tab map is drawn (P-UI-TABMAP-MARKS-1). STUB: always 1.
+    /// How much larger than its base size the marks layer of the Tab map is drawn (P-UI-TABMAP-MARKS-1).
     /// </summary>
     public static class MapMarkScale
     {
@@ -17,6 +17,14 @@ namespace Roguehalla.Net.Ui
         public const float Max = 1.6f;
 
         /// <summary>The layer scale for a map `mapSide` HUD units wide at `stageScale` screen pixels per HUD unit.</summary>
-        public static float Layer(float mapSide, float stageScale) { return 1f; }
+        public static float Layer(float mapSide, float stageScale) 
+        {
+            if (!(mapSide > 0f) || !(stageScale > 0f) || float.IsInfinity(mapSide) || float.IsInfinity(stageScale)) return 1f;
+            float growth = mapSide / ReferenceSide;
+            if (growth < 1f) growth = 1f; else if (growth > MaxGrowth) growth = MaxGrowth;
+            float floor = MinLabelPx / (LabelUnits * stageScale);
+            float k = growth > floor ? growth : floor;
+            return k > Max ? Max : k;
+        }
     }
 }
