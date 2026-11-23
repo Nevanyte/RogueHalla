@@ -204,7 +204,7 @@ same fact. The helper `MatchHudPulseSeconds` goes with it. The unchanged-expecta
 
 | Test | What it asserts | Stays green? |
 |---|---|---|
-| `AbilityRowEditModeTests.ASwapWithoutASlotPulsesBothSlotsAndNeverTheBar` (`:~345`) | `_pulses` is a `List<(RectTransform, float)>`, entries by identity, `TickPulses` at half `PulseSeconds` scales both slots >1, bar scale unchanged | NO: amended (above) |
+| `AbilityRowEditModeTests.ASwapWithoutASlotPulsesBothSlotsAndNeverTheBar` (`:398`) | `_pulses` is a `List<(RectTransform, float)>`, entries by identity, `TickPulses` at half `PulseSeconds` scales both slots >1, bar scale unchanged | NO: amended (above) |
 | `AbilityRowEditModeTests.ADeliveredQuestSpellShowsNameChargesAndCountdown` | quest tile wedge on, fill about 1 at first sight, about .5 at half span, off when Ready; read after `Frame()` (`LateUpdate` + `TickPlayerFlows`) with no local-time advance, so the clock adds 0 ms | yes |
 | `AbilityRowEditModeTests.AnEmptySpellTileIsADimOutline` | an empty tile has its wedge off | yes |
 | `AbilityRowEditModeTests.AnUnchangedTileAllocatesNothing`, `ASteadyQuestRefreshFrameAllocatesNothing` | `AbilityTile.Show` / `RefreshQuestRewardHud` unchanged allocate nothing (`AllocationMeter.AssertNone`) | yes |
