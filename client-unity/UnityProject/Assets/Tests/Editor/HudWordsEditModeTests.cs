@@ -165,9 +165,9 @@ namespace Roguehalla.Client.Tests
             _transport.Deliver(new ServerMsg.Events { Tick = 2, List = new List<WireEvent> { new WireEvent { Kind = EventKind.MatchEnded } } });
             Assert.That(_session.State, Is.EqualTo(SessionState.Ended), "set-up: the match has ended");
             Frame();
-            Assert.That(Banner.text, Is.EqualTo("The match has ended."), "banner after the match");
-            Assert.That(PlateStatus.text, Is.EqualTo("The match has ended."), "plate status after the match");
-            Assert.That(ResultNote.text, Is.EqualTo("The match has ended.\nNo authoritative result received."), "the result note");
+            Assert.That(Banner.text, Is.EqualTo("Run over"), "banner after the match");
+            Assert.That(PlateStatus.text, Is.EqualTo("Run over"), "plate status after the match");
+            Assert.That(ResultNote.text, Is.EqualTo("Run over\nNo authoritative result received."), "the result note");
 
             _session.Detach();
             Frame();

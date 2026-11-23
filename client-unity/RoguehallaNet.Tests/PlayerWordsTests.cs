@@ -158,7 +158,7 @@ namespace Roguehalla.Net.Tests
             Check<TradeStat>(PlayerWords.Word, (TradeStat.MaxHp, "max HP"), (TradeStat.Ad, "Offense"), (TradeStat.Ap, "Soul Offence"), (TradeStat.AttackSpeed, "attack speed"),
                 (TradeStat.MoveSpeed, "movement speed"), (TradeStat.Armor, "Defense"), (TradeStat.Shield, "Soul Defense"), ((TradeStat)200, "stat"));
             Check<SessionState>(PlayerWords.Word, (SessionState.Idle, "Not connected"), (SessionState.Connecting, "Connecting\u2026"), (SessionState.HelloSent, "Connecting\u2026"),
-                (SessionState.InMatch, "In the match"), (SessionState.Reconnecting, "Reconnecting\u2026"), (SessionState.Ended, "The match has ended."), (SessionState.Rejected, "Connection rejected"),
+                (SessionState.InMatch, "In the match"), (SessionState.Reconnecting, "Reconnecting\u2026"), (SessionState.Ended, "Run over"), (SessionState.Rejected, "Connection rejected"),
                 (SessionState.Failed, "Connection failed"), (SessionState.Detached, "Disconnected"), ((SessionState)99, "Unknown"));
             var expectedTags = new Dictionary<string, string>
             {
@@ -166,6 +166,15 @@ namespace Roguehalla.Net.Tests
                 ["Slow"] = "Slow", ["Heal"] = "Heal", ["Block"] = "Block", ["Ramping"] = "Ramping", ["Execute"] = "Execute", ["Area"] = "Area", ["Wish"] = "Wish", ["Bogus"] = "Other",
             };
             foreach (var pair in expectedTags) Assert.That(PlayerWords.CardTag(pair.Key), Is.EqualTo(pair.Value), "tag " + pair.Key);
+        }
+
+        [Test]
+        public void TheChestCardTitlesAreTheOnesTheGameReads()
+        {
+            void Check<T>(Func<T, string> word, params (T, string)[] table) { foreach (var (v, w) in table) Assert.That(word(v), Is.EqualTo(w), typeof(T).Name + "." + v); }
+            Check<BoostId>(PlayerWords.ChestTitle, (BoostId.Ad, "Offense"), (BoostId.Ap, "Soul Offence"), (BoostId.Armor, "Defense"), (BoostId.Shield, "Soul Defense"), (BoostId.MaxHp, "Max HP"),
+                (BoostId.AttackSpeed, "Attack Speed"), (BoostId.MoveSpeed, "Move Speed"), (BoostId.Lifesteal, "Leech"), ((BoostId)200, "Bonus"));
+            Sweep<BoostId>(PlayerWords.IsNamed, PlayerWords.ChestTitle, (BoostId)200, "Bonus");
         }
 
         static WireHudContent Block(params (HudTerm code, double value)[] t)

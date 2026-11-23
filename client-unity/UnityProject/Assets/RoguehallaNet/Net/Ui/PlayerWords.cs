@@ -185,6 +185,23 @@ namespace Roguehalla.Net.Ui
                 default: return "Bonus";
             }
         }
+        /// <summary>The chest card's title for the boost.</summary>
+        // Legacy chest-card titles: packages/shared/src/chestBoosts.ts:24-31.
+        public static string ChestTitle(BoostId value)
+        {
+            switch (value)
+            {
+                case BoostId.Ad: return "Offense";
+                case BoostId.Ap: return "Soul Offence";
+                case BoostId.Armor: return "Defense";
+                case BoostId.Shield: return "Soul Defense";
+                case BoostId.MaxHp: return "Max HP";
+                case BoostId.AttackSpeed: return "Attack Speed";
+                case BoostId.MoveSpeed: return "Move Speed";
+                case BoostId.Lifesteal: return "Leech";
+                default: return "Bonus";
+            }
+        }
         /// <summary>True for a defined value.</summary>
         public static bool IsNamed(TradeKind value)
         {
@@ -268,7 +285,7 @@ namespace Roguehalla.Net.Ui
                 case SessionState.HelloSent: return "Connecting\u2026";
                 case SessionState.InMatch: return "In the match";
                 case SessionState.Reconnecting: return "Reconnecting\u2026";
-                case SessionState.Ended: return "The match has ended.";
+                case SessionState.Ended: return "Run over";
                 case SessionState.Rejected: return "Connection rejected";
                 case SessionState.Failed: return "Connection failed";
                 case SessionState.Detached: return "Disconnected";

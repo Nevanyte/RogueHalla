@@ -32,9 +32,9 @@ namespace Roguehalla.Client.Tests
         [Test]
         public void ChestBoostsReadAsStatNamesNotEnumNames()
         {
-            Assert.AreEqual("Max health", MatchHud.BoostLabel(BoostId.MaxHp));
-            Assert.AreEqual("Attack speed", MatchHud.BoostLabel(BoostId.AttackSpeed));
-            Assert.AreEqual("Lifesteal", MatchHud.BoostLabel(BoostId.Lifesteal));
+            Assert.AreEqual("Max HP", MatchHud.BoostLabel(BoostId.MaxHp));
+            Assert.AreEqual("Attack Speed", MatchHud.BoostLabel(BoostId.AttackSpeed));
+            Assert.AreEqual("Leech", MatchHud.BoostLabel(BoostId.Lifesteal));
         }
 
         [Test]
