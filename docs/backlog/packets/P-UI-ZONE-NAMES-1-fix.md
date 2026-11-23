@@ -209,6 +209,53 @@ test differ, the oracle author's scratch run decides (see notes).
 
 ## Notes from the oracle author
 
-(filled in at the oracle commit)
+No stub commit: the tests use only public members that exist (`ZoneLabelRect`, `ZoneLabelSpot`, `ZoneLabelPlacements`,
+`CampMarkerCount`), so nothing needed a signature.
+
+**Tests of `ZoneNamesRealOrderEditModeTests` (8) and the base** (run on the base, `unity-class.sh`):
+
+| Test | On the base | First failing assertion |
+|---|---|---|
+| `TheNamesOfARealMatchAreMeasuredWhenTheMapOpens` | red | closed width of FIRE is 2.24, expected 0 |
+| `ThePlanningOrderMeasuresWhenThePanelShows` | red | FIRE kept width 2.24 against preferred 22.31 |
+| `CloseAndOpenAgainChangesNothing` | red | settled open: HAUNTED stays on spot 0 |
+| `ATextSizeChangedWhileClosedIsMeasuredWhenOpened` | red | text 1.5: FIRE kept width 3.35 against 33.47 |
+| `ANameKeepsNoStaleSizeAtAnOldFontWhileClosed` | red | closed at 1.5: FIRE kept 29.79, expected 0 |
+| `FiftyCampsInTheRealOrderGiveTheSpotsOfTheControlOrder` | red | HAUNTED real spot 0, control's spot 1 |
+| `AMapOpenedBeforeTheFirstFrameGivesTodaysResult` | GREEN (standing guard) | none, as the spec says |
+| `ARebindForgetsTheLastMatchsCamps` | red | first match: HAUNTED stays on spot 0 |
+
+Also red, amended: `ZoneNamesEditModeTests.ThePlanningMapAvoidsToo` (FIRE kept width 2.24 against 22.31).
+
+**Scratch run** (one per class, with a catch-and-collect helper, not committed): every entry of every test's list was an
+assertion about the missing behaviour; no other exception. The lists on the base: all closed/open width lines, the four
+edge spots, the `DrawnRect` overlaps of tests 1 and 2 (four names each), test 3 only its first four spot lines, test 4a
+widths and spots, test 4b the six closed widths, test 5 four spots, test 7 the first-match spots, `CampMarkerCount` 4,
+and the width lines of the open second match. Then the same run with items 1 and 5 applied, items 6 not applied: all
+green except test 7 (`CampMarkerCount` 4 not 0; the four edge names on spot 1 closed and open) and test 4a as first
+written (COLISEUM left spot 0: the test was corrected, see below): so test 7 pins item 6. With items 1, 5 and 6 applied (reverted before the commit) all 24 tests of the scratch run, the real
+class and `ZoneNamesEditModeTests` passed, as did `TabMapMarksEditModeTests`, `HudVisualFix2EditModeTests`,
+`MapScreenEditModeTests`, `TabMapFlowEditModeTests`, `TabMapSheetEditModeTests`, `TabMapVisualFix3EditModeTests` and
+`DeclutterEditModeTests` (112 tests). So the flag form of rule 1 satisfies the rule, and the `DrawnRect` lines of tests
+1, 2 and 6 hold (test 6 on the base, tests 1 and 2 with the rule applied): none dropped.
+
+**Where the tests differ from the spec text**
+- Test 4a (`ATextSizeChangedWhileClosedIsMeasuredWhenOpened`): at text size 1.5 COLISEUM also leaves spot 0 (its name is
+  81 wide), so the test asserts only that the four edge zones (HAUNTED, PLAGUE, FROST, HOLY) are above spot 0, not that
+  FIRE and COLISEUM stay on 0. Widths equal each label's own `preferredWidth` as specified.
+- Test 3's counter lines (`ZoneLabelPlacements` equal to `n` after three closed frames and after reopening) hold in the real
+  order with the rule applied; they are kept.
+- Test 7: the closed "every spot 0" lines and the open ones both fail without item 6 (old camps push the four names to
+  spot 1), so both pin it. Its `CampMarkerCount` 0 line right after the rebind is red on the base (4).
+- `ThePlanningMapAvoidsToo` amendment: the loop sits after the set-up line that spot 0 overlaps both givers and before the
+  `HasValue` and `Hits` lines of that test; the premise (labels active in the hierarchy in the planning order) holds on the base.
+- Counts of existing classes on the base: `ZoneNamesEditModeTests` 7 of 8 green (the 8th is the amended one);
+  `TabMapMarksEditModeTests`, `HudVisualFix2EditModeTests`, `MapScreenEditModeTests`, `TabMapFlowEditModeTests`,
+  `TabMapSheetEditModeTests`, `TabMapVisualFix3EditModeTests`, `DeclutterEditModeTests`: 96 of 96 green.
+
+**Amendment for the owner** (`oracle-amend:` commit, one method): `ZoneNamesEditModeTests.ThePlanningMapAvoidsToo` gains,
+before its `Hits(...)` line, a loop over the six regions asserting `NameLabel(r).gameObject.activeInHierarchy`, that
+`ZoneLabelRect(r)` has a value, and that `NameRect(r).width` and `.height` equal `NameLabel(r).preferredWidth` and
+`.preferredHeight` (Within .01). Red on the base (tenth boxes), green after.
 
 ## Notes from previous attempts
