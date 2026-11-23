@@ -55,7 +55,14 @@ pub enum CastAim {
     Point(rh_sim::Vec2),
     /// An actor by its rendered key (`p<id>` / `n<id>`), resolved through the frame at send time.
     Actor(String),
+    /// A mob by where it stood when asked: an npc's key is new every frame, so the key of the asking frame is stale by
+    /// the time the paced act is sent. Resolved at send time to the nearest living mob of the same class (`elite`) within
+    /// `MOB_AIM_SLACK` of `at`.
+    Mob { at: rh_sim::Vec2, elite: bool },
 }
+
+/// How far a mob may have moved between the asking frame and the send (units).
+pub const MOB_AIM_SLACK: f64 = 160.;
 
 /// The seat's order budget as the sim keeps it (`rh_sim::input::OrderBudget`), replayed from what this seat emits.
 /// Every emitted command but `Aim` spends one token (the seat never sends `Aim`). A command the seat later fails to

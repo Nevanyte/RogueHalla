@@ -25,5 +25,6 @@ pub fn registry() -> Vec<Box<dyn Executor>> {
         Box::new(super::quest::dwell::Dwell::default()),
         Box::new(travel::Roam::default()),
         Box::new(super::quest::decide::Decide::default()),
+        Box::new(spell::Spell::default()),
     ]
 }
