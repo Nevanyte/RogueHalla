@@ -119,7 +119,7 @@ Unity adapter, the only existing file touched, `UI/HudUi.cs`: two overloads besi
 `public static void Place(RectTransform rect, HudRegion region)`; they map `HudRegionAnchor` to `HudAnchor` by value and call the existing `Box` / `Place`.
 
 ## Oracle files (read-only for implementers)
-- `client-unity/RoguehallaNet.Tests/HudRegionsTests.cs` (25 tests in 26 cases with the four-stage sweeps)
+- `client-unity/RoguehallaNet.Tests/HudRegionsTests.cs` (26 cases: the four-stage sweeps count once per stage)
 - `client-unity/UnityProject/Assets/Tests/Editor/HudRegionsEditModeTests.cs`
 - `client-unity/UnityProject/Assets/Tests/Editor/HudRegionsEditModeTests.cs.meta`
 - `docs/backlog/packets/P-UI-HUD-REGIONS-1.md`
@@ -158,7 +158,12 @@ Where the spec left a number open the tests pin only what the spec says, plus th
 
 Red on the stub (each on an assertion about behaviour; the stub returns default regions and 0 for `Right`/`Bottom`/`LaneWidth`):
 - dotnet `HudRegionsTests`: all 26 cases fail on assertions (anchors default to TopLeft, widths 0, `Right`/`Bottom` 0, `LaneWidth` 0, `OnAgrees...` Left 0, etc.). Checked afterwards against a throw-away implementation (not committed): all 26 pass, so the tests are satisfiable.
-- Unity `HudRegionsEditModeTests`: see the second list below.
+- Unity `HudRegionsEditModeTests` (4 cases, all red): `BoxFromARegionMeasuresTheSameAsOn` at 1422x800 and 1280x960 fail on "the region has a size" (stub `On` returns an empty rect; once `HudRegions` is real they fail on the measured left/top of the unplaced rect until the `Box` overload places it); `PlaceFromARegionMovesAnExistingRectTheSameWay` at both stages fails on the measured `left` (Place does nothing: 661 vs 0 at 1422).
 - Not tested on purpose: allocation-freedom (review point); the anchor-name order check lives only inside the EditMode cases (a dotnet copy would be green on the stub).
 
 Existing classes run green on the stub: see "Run results" at the end.
+
+## Run results (oracle author)
+- `unity-class.sh HudRegionsEditModeTests,HudLegacyLayoutEditModeTests,HudTextScaleEditModeTests`: 63 tests, 59 passed, 4 failed: exactly the four `HudRegionsEditModeTests` cases above. `HudLegacyLayoutEditModeTests` and `HudTextScaleEditModeTests` are green on the stub.
+- `dotnet test client-unity/RoguehallaNet.Tests --filter HudRegionsTests`: 26 failed, 0 passed on the stub.
+- `bash client-unity/sync-net.sh --check`: clean. `HudRegions.cs.meta` (synced copy) is committed with the stub.
