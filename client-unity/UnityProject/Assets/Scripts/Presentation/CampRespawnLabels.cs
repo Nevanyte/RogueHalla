@@ -153,6 +153,12 @@ namespace Roguehalla.Client
             DrawBadges(); DrawBeacons(); DrawRows();
         }
 
+        /// <summary>Test seam: whether reduced motion is on. Stub: not read yet.</summary>
+        public Func<bool> ReducedMotionSource;
+
+        /// <summary>Draws one frame of <paramref name="dt"/> seconds with the lift, linger and fade state. Stub: draws a fresh frame, ignoring dt.</summary>
+        public void Draw(List<CampWorldLabel> rows, List<CampWardRow> wards, List<CampBadgeRow> badges, float dt) { Draw(rows, wards, badges); }
+
         readonly List<Rect> _names = new List<Rect>();
         readonly List<Rect> _badgeObstacles = new List<Rect>();
         readonly Dictionary<TextMeshPro, SpriteRenderer> _plates = new Dictionary<TextMeshPro, SpriteRenderer>();
