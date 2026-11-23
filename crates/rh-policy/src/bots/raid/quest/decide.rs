@@ -19,9 +19,9 @@ use crate::bots::raid::quest::walker::timer_spend_minutes;
 use crate::bots::raid::quest::{spell_slots_taken, stand_u, SPELL_SLOTS};
 use crate::bots::raid::values::Prices;
 use rh_protocol::state::{WireQuestDrop, WireQuestPoint, WireQuestRow, WireQuestSpell};
+use rh_sim::mapdata::Zone;
 use rh_sim::quests::board::catalog::{RewardKind, DEFINITIONS};
 use rh_sim::quests::public_rules;
-use rh_sim::mapdata::Zone;
 use rh_sim::{FactionId, Vec2, WeaponId};
 
 /// The reward slot choice and the pick-up (`quests/board/attempts/choices.rs`, `quest_view/board.rs`).
@@ -754,7 +754,11 @@ impl Decide {
             let (death, out_min, back_min) = self.banners_terms(cx, &row);
             let value = cx.prices.reward_value(TWO_BANNERS);
             let branch = banner_branch(cx.prices, value, death, out_min, back_min);
-            let target = if choices.contains(&branch) { branch } else { first };
+            let target = if choices.contains(&branch) {
+                branch
+            } else {
+                first
+            };
             let mut step = Step::committed(Vec::new(), "choosing a banner");
             if !self.throttled(TWO_BANNERS, ACTION_BRANCH, target, now) {
                 step.acts.push(Act::QuestInteract {
@@ -851,7 +855,12 @@ impl Decide {
         } else {
             let read = self.trade_read(cx, &row);
             if row.owner_ready || read.progress >= 3 {
-                (trade_banked(cx.prices, read.progress.max(1)), 1., floor, read.walk)
+                (
+                    trade_banked(cx.prices, read.progress.max(1)),
+                    1.,
+                    floor,
+                    read.walk,
+                )
             } else if !read.go_on {
                 // Cash out: bank what is held, at the last trader.
                 let walk = self
@@ -864,8 +873,10 @@ impl Decide {
                     walk,
                 )
             } else if read.next.is_some() {
+                // Going on is the quest's whole route (as before the accept, where it is priced whole): the stage rule
+                // `trade_go_on` already weighs each further stage on its own.
                 (
-                    trade_banked(cx.prices, read.progress + 1),
+                    trade_banked(cx.prices, 3),
                     reach_chance(read.time_left_s, read.walk),
                     read.death,
                     read.walk,
