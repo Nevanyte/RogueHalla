@@ -136,10 +136,10 @@ Low (a test-side parser). implementer-sonnet, reviewer `reviewer`.
 
 - `crates/rh-sim/tests/native_text_guard.rs`
 
-Seven tests: the real catalog and the real table give no mismatch; each of the 14 cards, doctored in its first digit, is
-reported alone and by name; a doctored table value is reported; a missing card is reported; a doctored number inside a longer
-text (Hazard Walker's second number, Wish Engine's 50) is reported; a different count of numbers is reported; the real text
-yields the 14 expected cards (non-vacuous).
+Six tests: the real catalog and the real table give no mismatch (passes against the stub; it is the guard itself, made
+non-vacuous by the others); each of the 14 cards, doctored in its first digit, is reported alone and by name; a doctored
+table value is reported; a later number of a longer text (Hazard Walker 20, Wish Engine 50, Marksman's Tally 80) is
+reported; a different count of numbers is reported; a card missing from the text, and an empty text, are reported.
 
 ## Routing block
 
