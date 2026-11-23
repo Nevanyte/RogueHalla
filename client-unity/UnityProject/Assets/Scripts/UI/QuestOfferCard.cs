@@ -42,7 +42,7 @@ namespace Roguehalla.Client
             _onAccept = onAccept; _onClose = onClose;
             var theme = UiTheme.Current;
             _root = HudUi.Box(parent, "QuestOffer", HudAnchor.TopLeft, HudRegions.Margin, 0f, HudRegions.OfferWidth, HudRegions.OfferMinHeight);
-            HudUi.Surface(_root, UiTheme.With(theme.Surface, .96f), theme.CornerRadiusLarge, theme.BorderStrong, true);
+            HudUi.Surface(_root, UiTheme.With(theme.Surface, HudUi.PlateAlpha), theme.CornerRadiusLarge, theme.BorderStrong, true);
             _sizes[Giver] = theme.SizeTiny; _sizes[Name] = 15f; _sizes[Objective] = theme.SizeSmall;
             _sizes[Reward] = theme.SizeSmall; _sizes[Ends] = theme.SizeSmall; _sizes[More] = theme.SizeTiny;
             Build(Giver, "Giver", theme.Accent, true, false);

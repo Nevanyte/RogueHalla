@@ -35,7 +35,7 @@ namespace Roguehalla.Client
         {
             var theme = UiTheme.Current;
             _root = HudUi.Box(parent, "SentencedHunt", HudAnchor.TopLeft, Left, _top, Width, 60f);
-            HudUi.Surface(_root, UiTheme.With(theme.Surface, .93f), 7f, theme.FactionColor(1), true, false);
+            HudUi.Surface(_root, UiTheme.With(theme.Surface, HudUi.PlateAlpha), 7f, theme.FactionColor(1), true, false);
             _title = HudUi.Label(HudUi.At(_root, "Title", 8f, 5f, Width - 16f, 15f), "Title", "Hunt", 11f, theme.FactionColor(1), bold: true);
             _status = HudUi.Label(HudUi.At(_root, "Status", 8f, StatusTop, Width - 16f, 40f), "Status", "", theme.SizeSmall, theme.TextSecondary, TextAlignmentOptions.TopLeft, false, UiFontRole.Body, true);
             _status.rectTransform.offsetMin = _status.rectTransform.offsetMax = Vector2.zero;   // fill the text box exactly (no extra line-grow below it)

@@ -27,6 +27,7 @@ namespace Roguehalla.Client
         {
             var theme = UiTheme.Current;
             _rewards = Panel(_stage, "Rewards", .70f, .425f, .985f, .915f);
+            _rewards.GetComponent<UnityEngine.UI.Image>().color = UiTheme.With(theme.Surface, HudUi.PlateAlpha);
             _rewardTitle = Text(_rewards, "RewardTitle", "", .045f, .925f, .66f, .995f, 20);
             SetBaseSize(_rewardTitle, 13f); _rewardTitle.color = ShowcasePalette.Gold;
             _chestTimer = Text(_rewards, "ChestTimer", "", .62f, .925f, .955f, .995f, 20);

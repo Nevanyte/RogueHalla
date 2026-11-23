@@ -45,7 +45,7 @@ namespace Roguehalla.Client
             {
                 var pill = new Pill();
                 pill.Rect = HudUi.Box(_root, "Toast" + i, _event ? HudAnchor.TopCenter : HudAnchor.BottomCenter, 0, 0, HudRegions.LaneMaxWidth, HudRegions.PillHeight);
-                HudUi.Surface(pill.Rect, UiTheme.With(theme.Surface, .97f), theme.CornerRadius, theme.BorderStrong, false, true);
+                HudUi.Surface(pill.Rect, UiTheme.With(theme.Surface, HudUi.PlateAlpha), theme.CornerRadius, theme.BorderStrong, false, true);
                 pill.Group = pill.Rect.gameObject.AddComponent<CanvasGroup>();
                 pill.Group.blocksRaycasts = false; pill.Group.interactable = false;
                 var strip = HudUi.Fill(pill.Rect, "Tone", theme.Accent);

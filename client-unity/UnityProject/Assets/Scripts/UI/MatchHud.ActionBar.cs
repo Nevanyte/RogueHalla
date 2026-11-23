@@ -186,7 +186,7 @@ namespace Roguehalla.Client
             _potionHint = HudIconHint.Attach(_potionButton, _root, "E · Drink potion\nAwaiting inventory");
             // Wind chip: "+50% speed · Active Ns" while the owner's boost runs, else "Walk over emblems" (ApplyInventoryHints).
             var wind = HudUi.Box(row, "Wind", HudAnchor.BottomRight, 0, 0, 146f, HudRegions.ConsumablesHeight);
-            HudUi.Surface(wind, Tone(theme.SurfaceRaised, .94f), 5f, theme.Border, false, true);
+            HudUi.Surface(wind, Tone(theme.SurfaceRaised, HudUi.PlateAlpha), 5f, theme.Border, false, true);
             HudUi.Label(HudUi.At(wind, "Name", 8, 7, 30, 14), "Label", "Wind", theme.SizeSmall, theme.Info, bold: true);
             _windText = HudUi.Label(HudUi.At(wind, "Text", 42, 7, 100, 14), "Label", "Walk over emblems", theme.SizeSmall, theme.TextPrimary);
             _windText.GetComponent<MythicTextScale>().MinSize = 7f;   // the text-size fit shrinks "+50% speed · Active 120s" to about 7.5

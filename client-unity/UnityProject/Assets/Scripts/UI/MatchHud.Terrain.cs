@@ -57,7 +57,7 @@ namespace Roguehalla.Client
                 int n = _terrainChips.Count;
                 var rect = HudUi.At(_terrainRow, "Chip" + n, 0, n * TerrainLine, TerrainWidth, TerrainLine);
                 var image = rect.gameObject.AddComponent<UnityEngine.UI.Image>();
-                image.color = new Color(10f / 255f, 12f / 255f, 16f / 255f, .8f);
+                image.color = new Color(10f / 255f, 12f / 255f, 16f / 255f, HudUi.PlateAlpha);
                 var outline = rect.gameObject.AddComponent<UnityEngine.UI.Outline>(); outline.effectDistance = new Vector2(1f, 1f); outline.useGraphicAlpha = false;
                 var label = HudUi.Label(rect, "Label", "", theme.SizeSmall, theme.Warning, TextAlignmentOptions.Center, bold: true);
                 label.enableWordWrapping = false;
@@ -132,7 +132,7 @@ namespace Roguehalla.Client
                 var theme = UiTheme.Current;
                 _terrainRow = HudUi.Box(_hud, "TerrainChips", HudAnchor.TopLeft, PlateLeft, PlateTop, TerrainWidth, TerrainLine);
                 var noteBack = HudUi.At(_terrainRow, "Note", 0, 0, TerrainWidth, TerrainLine);
-                noteBack.gameObject.AddComponent<UnityEngine.UI.Image>().color = new Color(10f / 255f, 12f / 255f, 16f / 255f, .8f);
+                noteBack.gameObject.AddComponent<UnityEngine.UI.Image>().color = new Color(10f / 255f, 12f / 255f, 16f / 255f, HudUi.PlateAlpha);
                 _terrainNoteText = HudUi.Label(noteBack, "Label", "", theme.SizeSmall, theme.Success, TextAlignmentOptions.TopLeft, wrap: true);
                 _terrainRow.gameObject.SetActive(false);
             }
