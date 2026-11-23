@@ -33,6 +33,7 @@ namespace Roguehalla.Client
         readonly float[] _zoneNameSizes = new float[2 * (MapZones.Count + 1)], _zoneNameSizesStored = new float[2 * (MapZones.Count + 1)];
         readonly float[] _zoneNameFont = new float[MapZones.Count + 1];
         readonly Vector2[] _zoneNameMeasured = new Vector2[MapZones.Count + 1];
+        readonly bool[] _zoneNameTaken = new bool[MapZones.Count + 1];   // the kept size was taken from a label active in the hierarchy
         readonly List<MapRect> _zoneSpots = new List<MapRect>(MapLabelPlacement.Spots), _zoneMarks = new List<MapRect>(64), _zoneMarksStored = new List<MapRect>(64);
         readonly Dictionary<MeasureKey, Vector2> _measured = new Dictionary<MeasureKey, Vector2>();
         float _lastRectW = float.NaN, _lastRectH = float.NaN;
@@ -185,11 +186,15 @@ namespace Roguehalla.Client
                 if (i < _zoneLabels.Count && _zoneLabels[i].gameObject.activeSelf)
                 {
                     var label = _zoneLabels[i]; float font = label.fontSize;
-                    if (_zoneNameFont[region] != font || _zoneNameMeasured[region].x <= 0f)
+                    if (label.gameObject.activeInHierarchy)
                     {
-                        _zoneNameMeasured[region] = label.GetPreferredValues(label.text, 0f, 0f); _zoneNameFont[region] = font;
+                        if (!_zoneNameTaken[region] || _zoneNameFont[region] != font)
+                        {
+                            _zoneNameMeasured[region] = label.GetPreferredValues(label.text, 0f, 0f); _zoneNameFont[region] = font; _zoneNameTaken[region] = true;
+                        }
                     }
-                    w = _zoneNameMeasured[region].x; h = _zoneNameMeasured[region].y;
+                    else if (_zoneNameFont[region] != font) _zoneNameTaken[region] = false;
+                    if (_zoneNameTaken[region]) { w = _zoneNameMeasured[region].x; h = _zoneNameMeasured[region].y; }
                 }
                 _zoneNameSizes[2 * region] = w; _zoneNameSizes[2 * region + 1] = h;
             }
@@ -252,6 +257,7 @@ namespace Roguehalla.Client
             var key = new MeasureKey(text, label.fontSize);
             Vector2 size;
             if (_measured.TryGetValue(key, out size)) return size;
+            if (!label.gameObject.activeInHierarchy) return Vector2.zero;   // not measured: nothing stored
             if (_measured.Count > 256) _measured.Clear();
             size = label.GetPreferredValues(text, 0f, 0f);
             _measured[key] = size;
