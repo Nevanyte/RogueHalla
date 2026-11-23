@@ -47,16 +47,19 @@ namespace Roguehalla.Client.Tests
         {
             CreateController(_session);
             _transport.Deliver(Snapshot(1, new WireActor { Id = 2, X = 48, Y = 48, HpPct = 100, Status = 1 }));
+            _controller.Tick();   // P-UI-TABMAP-FLOW-1: the minimap is painted while it is on screen (map closed)
+            Assert.AreEqual(1, MinimapMarks().ContactCount);
             _controller.SetOpen(true);
             _controller.Tick();
             Assert.AreEqual(1, LargeMarks().ContactCount);
-            Assert.AreEqual(1, MinimapMarks().ContactCount);
 
             SetNextPaint(Time.realtimeSinceStartupAsDouble + 60);
             _transport.Deliver(Snapshot(2));
             _controller.Tick();
 
             Assert.AreEqual(0, LargeMarks().ContactCount, "new accepted snapshots must invalidate a far-future paint throttle");
+            _controller.SetOpen(false);   // the minimap shows again and is painted at once
+            _controller.Tick();
             Assert.AreEqual(0, MinimapMarks().ContactCount, "the minimap must use the same current delivered contact set");
         }
 
@@ -65,16 +68,19 @@ namespace Roguehalla.Client.Tests
         {
             CreateController(_session);
             _transport.Deliver(Snapshot(1, new WireActor { Id = 2, X = 48, Y = 48, HpPct = 100, Status = 1 }));
+            _controller.Tick();   // P-UI-TABMAP-FLOW-1: the minimap is painted while it is on screen (map closed)
+            Assert.AreEqual(1, MinimapMarks().ContactCount);
             _controller.SetOpen(true);
             _controller.Tick();
             Assert.AreEqual(1, LargeMarks().ContactCount);
-            Assert.AreEqual(1, MinimapMarks().ContactCount);
             StringAssert.DoesNotContain("No other contacts", ContactsText());
 
             SetNextPaint(Time.realtimeSinceStartupAsDouble + 60);
             _transport.Drop();
             _controller.Tick();
             Assert.AreEqual(0, LargeMarks().ContactCount, "disconnect must clear the large map's cached marks");
+            _controller.SetOpen(false);
+            _controller.Tick();
             Assert.AreEqual(0, MinimapMarks().ContactCount, "disconnect must clear the minimap's cached marks");
 
             _controller.Bind(null);
@@ -93,6 +99,8 @@ namespace Roguehalla.Client.Tests
             StringAssert.Contains("Plague · Player", ContactsText());
             StringAssert.DoesNotContain("No other contacts", ContactsText(), "one observed enemy is still an observed contact");
             Assert.AreEqual(1, LargeMarks().ContactCount);
+            _controller.SetOpen(false);   // P-UI-TABMAP-FLOW-1: the hidden minimap is painted when it shows again
+            _controller.Tick();
             Assert.AreEqual(1, MinimapMarks().ContactCount);
         }
 
