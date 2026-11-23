@@ -125,6 +125,18 @@ pub struct ElitePrices {
     pub give_up_seconds: f64,
     /// How much of an elite one of its normal members weighs in the fallback death model (unitless).
     pub add_weight: f64,
+    /// The least and the greatest death chance an elite fight is priced at (chance, 0..=1); a kind with no
+    /// `kind_death` row reads the greatest in `death_prior` (the executor prices it with the farm model instead).
+    pub death_range: (f64, f64),
+    /// Standing at the camp with neither the elite nor a member in sight this long fails the goal (s)...
+    pub empty_seconds: f64,
+    /// ...and a camp given up on (empty, a fight past `give_up_seconds`, no way there) is not proposed for this long (s).
+    pub ban_seconds: f64,
+    /// After the kill, the goal looks this long for the camp's chest before it ends (s): the drop is immediate.
+    pub chest_find_seconds: f64,
+    /// After the kill, the goal stands at the chest at most this long (s; the chest lasts 15, `lifetime_ms`), and never
+    /// past the chest's own expiry.
+    pub chest_wait_seconds: f64,
 }
 
 impl ElitePrices {
@@ -139,6 +151,11 @@ impl ElitePrices {
         chest_seconds: 10.,
         give_up_seconds: 120.,
         add_weight: 0.25,
+        death_range: (0.02, 0.98),
+        empty_seconds: 3.,
+        ban_seconds: 20.,
+        chest_find_seconds: 3.,
+        chest_wait_seconds: 16.,
     };
     pub const LOCAL: Self = Self {
         on: true,
@@ -169,6 +186,11 @@ impl ElitePrices {
         chest_seconds: 10.,
         give_up_seconds: 120.,
         add_weight: 0.25,
+        death_range: (0.02, 0.98),
+        empty_seconds: 3.,
+        ban_seconds: 20.,
+        chest_find_seconds: 3.,
+        chest_wait_seconds: 16.,
     };
 }
 
