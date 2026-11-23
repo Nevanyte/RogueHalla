@@ -212,7 +212,44 @@ Superseded history, not edited: `docs/backlog/packets/P-UI-ABILITY-ROW-1.md` lin
 
 ## Notes from the oracle author
 
-(Filled in the oracle commit: red tests, scratch run, deviations from the spec.)
+Run on the stub (`unity-class.sh TilePlatesEditModeTests,WishTileEditModeTests`): 15 tests, 4 red, 11 green.
+
+Red, each on an assertion about the missing behaviour:
+- `TilePlatesEditModeTests.EverySlotAndTileStandsOnOnePlateInEveryState`: `a: as built / Slot1 plate alpha`, expected 1 but 0.5.
+- `TilePlatesEditModeTests.AnEmptyTileIsToldApartByItsContentOnly`: first line `EmptyTextColour has the rgb of
+  (178, 191, 206)` but the stub returns clear; behind it, key cap alpha .6 not .7 and names at `TextPrimary`.
+- `TilePlatesEditModeTests.NoCanvasGroupFadesTheRow`: `a: as built: the group on Slot1 fades the row`, 0.5.
+- `TilePlatesEditModeTests.AFrameDoesNotRewriteTheRowsLook`: its first half (frame leaves magenta alone) passes; the second half
+  is red on `after RefreshBuildIcons the empty slot name has the rgb of ...` (the base writes no label colour). The key cap
+  half (`Show(Ready)`) is green on the base, as the spec says.
+
+Green on the stub by the lane lead's ruling (standing guards): `AnEmptyAbilityTileIsNotAControlAndStillHints`,
+`AnUnchangedFaceAllocatesNothingInEveryPhase`, and `WishTileEditModeTests.TheBadgeFollowsTheDeliveredStockNotTheClock` (added in
+the oracle commit, an addition and not an amended expectation).
+
+Scratch run (not committed): a copy of `TilePlatesEditModeTests` in which a failed assertion is caught and collected, run once on the
+stub. Every entry of every list was an assertion about the missing behaviour (alpha .35 / .5 plates and frames, rgb of the faded
+plates, the stale `SurfaceSelected` on Slot2 in state f, key cap alpha .6, names at `TextPrimary`, the slot groups, the blended
+contrast 3.78 under 4.5, an equal-not-lower slot text ratio); no exception from set-up, delivery or lookup; states d and e (the filled
+ones) passed every line on the stub, so the later lines of each test were run. Tests 4 and 5 passed with no entry.
+
+Design notes and deviations from the spec's wording:
+- Test 4 hovers before it tabs, because a selection also shows a hint (`ISelectHandler`); the row is `activeInHierarchy` after `Frame()` in
+  the rig, so nothing needed making visible.
+- The slot name labels are checked by colour only, never by text: `MatchHud.IconPresentation.cs:100` writes a digit into the first label
+  under a slot between refreshes (the trap in section 11).
+- The spec's states are walked by one helper (`Walk`) shared by tests 1, 2 and 3 on one rig each; each state delivers its inventory
+  through the session and asserts the delivered inventory (HasValue, both slots, `ActiveSlot`) before any look is read. State d and e
+  also assert the held slot's `normalColor` is `SurfaceSelected`, which proves the refresh ran.
+- Test 2's contrast block reads the colours drawn in states a and c, so it follows whatever the implementer writes, and asserts the
+  spec's floors (key cap and empty slot text at least 4.5, below the filled one's; `Border` on the plate at least 3).
+- Test 5 asserts the Button's `interactable` after the first `Show` so the face is known to be drawn before the allocation window.
+
+For the owner (`oracle-amend:` commits, one each, wording in section "Existing tests that pin this code"):
+`AbilityRowEditModeTests.AnEmptySpellTileIsADimOutline` renamed `AnEmptySpellTileIsASolidPlateWithADimKeyCap` (old name and new name for
+the hand-off) with its surface line now `Is.EqualTo((Color)UiTheme.Current.SurfaceRaised)`;
+`AbilityRowEditModeTests.ADeliveredQuestSpellShowsNameChargesAndCountdown` line 347 likewise;
+`WishTileEditModeTests.NoWishShowsADash` via `AssertNoWishLook`, message `when + ": the surface is the solid plate"`.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
