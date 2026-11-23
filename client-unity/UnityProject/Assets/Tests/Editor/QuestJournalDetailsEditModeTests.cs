@@ -265,9 +265,10 @@ namespace Roguehalla.Client.Tests
         public void NoHeadingIsTallerThanItsRowAndNothingOverlaps(float scale)
         {
             Open();
-            Deliver(new[] { LongRow(_first) }, new[] { Act(_first, 1, 0, "Abandon"), Act(_first, 3, 0, "Own") });
+            Deliver(new[] { LongRowWithParticipant(_first) }, new[] { Act(_first, 1, 0, "Abandon"), Act(_first, 3, 0, "Own") }, null, ParticipantRoster);
             Select(_first);
             MythicUi.ApplyTextScale(_view.Root, scale); Rebuild();
+            Assert.IsTrue(Field("QuestParticipants").gameObject.activeInHierarchy, "rig: the PARTICIPANTS heading is on, so AssertHeadings measures it");
             AssertHeadings("text scale " + scale);
             var viewport = ((ScrollRect)DetailScroll()).viewport;
             Assert.That(DetailContent().rect.height, Is.GreaterThan(viewport.rect.height), "the long text overflows the pane");
@@ -595,11 +596,12 @@ namespace Roguehalla.Client.Tests
             Canvas.ForceUpdateCanvases();
         }
 
-        void Deliver(WireQuestRow[] rows, WireQuestAction[] actions = null, WireQuestDrop[] drops = null)
+        void Deliver(WireQuestRow[] rows, WireQuestAction[] actions = null, WireQuestDrop[] drops = null, WireQuestRosterEntry[] roster = null)
         {
             _transport.Deliver(new ServerMsg.State { Tick = 1, Items = new StateItem[] { new QuestsState { Available = true, View = new WireQuestView
             {
                 Rows = rows, Actions = actions ?? new WireQuestAction[0], Drops = drops ?? new WireQuestDrop[0],
+                Roster = roster ?? new WireQuestRosterEntry[0],
             } } } });
             _view.Refresh(); Rebuild();
         }
@@ -711,6 +713,16 @@ namespace Roguehalla.Client.Tests
         {
             var row = Row(handle, _long, _long, _long, _long, false, true);
             row.GiverLabel = _long;
+            return row;
+        }
+
+        /// <summary>The roster a participant needs: the wire refuses a participant who is not on the view's roster.</summary>
+        static readonly WireQuestRosterEntry[] ParticipantRoster = { new WireQuestRosterEntry { Id = new RosterId(11), Label = "Alice" } };
+
+        WireQuestRow LongRowWithParticipant(QuestHandle handle)
+        {
+            var row = LongRow(handle);
+            row.Participants = new[] { new WireQuestParticipant { Id = new RosterId(11), Accepted = true, Progress = 3 } };
             return row;
         }
 
