@@ -12,7 +12,7 @@ namespace Roguehalla.Client
     /// <summary>HUD part for the top-centre banner and phase pills and the toast pill, and the phase pill placement.</summary>
     public sealed partial class MatchHud
     {
-        internal const float ToastBottom = 124f, BannerTop = 12f;
+        internal const float BannerTop = 12f;
 
         void CreateTopAndToastPills()
         {
@@ -27,21 +27,12 @@ namespace Roguehalla.Client
             _phaseStrip = HudUi.Label(_phasePill, "PhaseTimer", "", theme.SizeBody, theme.TextPrimary, TextAlignmentOptions.Center, true);
             _phasePill.gameObject.SetActive(false);
 
-            _noticePill = HudUi.Box(_stage, "ToastStack", HudAnchor.BottomCenter, 0, ToastBottom, 480, 30);
-            HudUi.Surface(_noticePill, Tone(theme.Surface, .97f), theme.CornerRadius, theme.BorderStrong, false, true);
-            _notice = HudUi.Label(_noticePill, "Notice", "", theme.SizeBody, theme.Accent, TextAlignmentOptions.Center, true);
-            _notice.rectTransform.offsetMin = new Vector2(14, 0); _notice.rectTransform.offsetMax = new Vector2(-14, 0);
-            _noticePill.gameObject.SetActive(false);
+            CreateToastLanes();
         }
 
         /// <summary>Keeps the pills in step with their text: toasts only exist while they have text; the banner yields to nothing.</summary>
         void SyncTopCentre()
         {
-            if (_noticePill != null)
-            {
-                bool toast = _worldHudVisible && !string.IsNullOrEmpty(_notice.text);
-                if (_noticePill.gameObject.activeSelf != toast) _noticePill.gameObject.SetActive(toast);
-            }
             if (_bannerPill == null) return;
             // Plain phase captions live on the plate (legacy hud-status); the pill is for connection state only.
             bool inMatch = _session != null && _session.State == SessionState.InMatch;
@@ -55,6 +46,7 @@ namespace Roguehalla.Client
             if (_bannerPill.gameObject.activeSelf != showBanner) _bannerPill.gameObject.SetActive(showBanner);
             bool phase = !showBanner && _hud.gameObject.activeSelf && _phaseStrip != null && !string.IsNullOrEmpty(_phaseStrip.text);
             if (_phasePill.gameObject.activeSelf != phase) _phasePill.gameObject.SetActive(phase);
+            _topCentreBottom = showBanner ? BannerTop + _bannerPill.sizeDelta.y : phase ? BannerTop + _phasePill.sizeDelta.y : 0f;
         }
 
         /// <summary>Writes the top-centre phase line and its tone (P-UNITY-HUD-VISUAL-FIX-1 test seam: the tone must reach the label's colour, never tags in its text).</summary>

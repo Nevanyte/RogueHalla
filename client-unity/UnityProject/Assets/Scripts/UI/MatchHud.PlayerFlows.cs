@@ -10,6 +10,7 @@ namespace Roguehalla.Client
     public sealed partial class MatchHud
     {
         QuestJournalView _questJournal;
+        QuestTrackerView _questTracker;
         TraderDialogView _traderDialog;
         UnityEngine.UI.Button _journalButton;
         uint _playerFlowEpoch;
@@ -40,6 +41,7 @@ namespace Roguehalla.Client
                 () => ShowPlayerFlow(DefaultPlayerFlowPage), UiTheme.Current.SizeSmall, 5f);
             _journalButton.gameObject.SetActive(false);
             InitializeQuestRewardHud();
+            _questTracker = new QuestTrackerView(_hud);
         }
         void AddPlayerFlowTabs(Transform root)
         {
@@ -67,7 +69,6 @@ namespace Roguehalla.Client
             CloseHubPanels();
             if (_map?.IsPlanning == true) BlockPlanningMapInput(); else _map?.SetOpen(false);
             ReleaseChestFocus();
-            _orderedNotices.SetRecentVisible(false);
             _questJournal.SetVisible(page == 0); _traderDialog.SetVisible(page == 1); _orderedNotices.SetVisible(page == 2);
             RefreshPlanningJournalAccess();
             RefreshWorldHudVisibility();
@@ -157,6 +158,7 @@ namespace Roguehalla.Client
             TickNotices();
             _orderedNotices?.Refresh();
             _huntPanel?.Refresh(_session, _session != null && WorldHudVisible && !PlayerFlowVisible);
+            _questTracker?.Refresh(_session, _session != null && WorldHudVisible && !PlayerFlowVisible, PlateChainBottom() + Roguehalla.Net.Ui.HudRegions.TrackerGap, TrackerFloor(), Time.unscaledDeltaTime);
         }
         void RefreshJournalLauncher()
         {

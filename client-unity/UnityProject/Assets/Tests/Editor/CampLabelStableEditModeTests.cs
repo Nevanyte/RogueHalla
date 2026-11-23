@@ -473,10 +473,8 @@ namespace Roguehalla.Client.Tests
             var present = new[] { Obstacle(home.center.x, home.yMin + .4f) };
             rig.Obstacles = present;
             rig.Frames(60);
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int f = 0; f < 200; f++) rig.Frame();
-            long grown = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.That(grown, Is.LessThanOrEqualTo(0), "200 unchanged frames allocate nothing");
+            Action frame = rig.Frame;
+            AllocationMeter.AssertNone(frame, 200, "200 unchanged frames");
 
             // And the badge does not follow a flickering fighter (the new behaviour that keeps this packet's oracle red before it).
             float settled = rig.Plaque().transform.position.y;

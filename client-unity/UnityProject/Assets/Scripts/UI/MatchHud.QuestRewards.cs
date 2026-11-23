@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
+using Roguehalla.Net.Ui;
 using TMPro;
 using UnityEngine;
 
@@ -11,9 +12,11 @@ namespace Roguehalla.Client
     public sealed partial class MatchHud
     {
         RectTransform _questRewardHud, _questChoiceOverlay, _nearbyQuestOverlay, _nearbyQuestList;
-        readonly TMP_Text[] _questSlotLabels = new TMP_Text[2];
         readonly RectTransform[] _questSlotTiles = new RectTransform[2];
         readonly (byte Reward, byte Charges, double Seconds)?[] _questSlotKeys = new (byte, byte, double)?[2];
+        readonly string[] _questSlotHints = new string[2], _questSlotEquipped = new string[2];
+        readonly Roguehalla.Net.Ui.CooldownSpan[] _questSpans = new Roguehalla.Net.Ui.CooldownSpan[2];
+        bool _questTilesFresh = true, _promptPair, _questViewKnown;
         readonly UnityEngine.UI.Button[] _questChoiceButtons = new UnityEngine.UI.Button[3];
         readonly List<UnityEngine.UI.Button> _nearbyQuestButtons = new List<UnityEngine.UI.Button>();
         TMP_Text _questChoiceTitle, _questChoiceSpells, _questChoiceStatus, _questActionCaption;
@@ -30,18 +33,12 @@ namespace Roguehalla.Client
 
         void InitializeQuestRewardHud()
         {
-            float bottom = BarBottom + SlotHeight + ConsumablesHeight + 2 * BarGap + 27;
-            _questRewardHud = HudUi.Box(_hud, "QuestRewards", HudAnchor.BottomCenter, 0, bottom, 290f, 70f);
-            for (int i = 0; i < _questSlotLabels.Length; i++)
-            {
-                var slot = HudUi.Box(_questRewardHud, "QuestSpell" + (i + 1), HudAnchor.BottomLeft, 145f * i + 2f, 0, 141f, 39f);
-                _questSlotTiles[i] = slot;
-                HudUi.Surface(slot, UiTheme.Current.Surface, 5f, UiTheme.Current.BorderStrong, false, true);
-                _questSlotLabels[i] = MythicUi.Text(slot, "Spell", "", Vector2.zero, Vector2.one, 12,
-                    alignment: TextAlignmentOptions.Center);
-            }
-            _questActionLauncher = HudUi.Button(_questRewardHud, "QuestActionLauncher", "", HudAnchor.BottomCenter, 0, 43f,
-                220f, 26f, OpenQuestActions, radius: 5f);
+            _questRewardHud = HudUi.Box(_hud, "QuestRewards", HudRegions.Prompt());
+            _questActionLauncher = HudUi.Button(_questRewardHud, "QuestActionLauncher", "", HudAnchor.BottomLeft, 0, 0,
+                HudRegions.PromptWidth, HudRegions.PromptHeight, OpenQuestActions, radius: 5f);
+            var fill = (RectTransform)_questActionLauncher.transform;
+            fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.pivot = new Vector2(.5f, .5f);
+            fill.offsetMin = fill.offsetMax = Vector2.zero;
             _questActionCaption = _questActionLauncher.GetComponentInChildren<TMP_Text>(true);
 
             _questChoiceOverlay = MythicUi.Panel(_root, "QuestRewardChoiceOverlay", Vector2.zero, Vector2.one, new Color(0, 0, 0, .68f));
@@ -124,15 +121,14 @@ namespace Roguehalla.Client
 
             bool showHud = worldAvailable && WorldHudVisible && QuestPresentation.HasRewardHud(view);
             _questRewardHud.gameObject.SetActive(showHud);
-            if (showHud || _questChoiceOverlay.gameObject.activeSelf)
-                RefreshQuestSlotLabels(view, session.ServerTimeMs);
+            if (session != null) RefreshQuestTiles(view, session.ServerTimeMs);
             if (_questChoiceOverlay.gameObject.activeSelf)
             {
                 bool waiting = WaitingForQuestChoice;
                 foreach (var button in _questChoiceButtons) button.interactable = !waiting;
                 Set(_questChoiceStatus, waiting ? "Waiting for server…" : "");
             }
-            if (!showHud) return;
+            if (!showHud) { UpdatePromptLane(); return; }
 
             int pendingCount = view.Pending.Count;
             _questActionLauncher.gameObject.SetActive(_nearbyQuestCount > 0 || pendingCount > 0);
@@ -140,6 +136,25 @@ namespace Roguehalla.Client
             Set(_questActionCaption, _questChoice.HasValue ? "Choose quest reward" :
                 _nearbyQuestCount > 0 ? "Nearby quest actions · " + _nearbyQuestCount :
                 pendingCount > 0 ? "Return to turn in your reward" : "");
+            UpdatePromptLane();
+        }
+
+        /// <summary>One prompt lane: the pickup pill and the quest launcher share it, side by side when both show. Rewritten only when the pair state changes.</summary>
+        void UpdatePromptLane()
+        {
+            bool pair = _questRewardHud.gameObject.activeSelf && _questActionLauncher.gameObject.activeSelf
+                && _pickup != null && _pickup.gameObject.activeSelf;
+            if (pair == _promptPair) return;
+            _promptPair = pair;
+            HudUi.Place(_questRewardHud, pair ? HudRegions.PromptPair(1) : HudRegions.Prompt());
+            if (_pickup != null) HudUi.Place((RectTransform)_pickup.transform, PickupRegion(pair));
+            RefitLabel(_questActionCaption); RefitLabel(_pickupText);
+        }
+
+        static void RefitLabel(TMP_Text label)
+        {
+            var fit = label != null ? label.GetComponent<MythicTextScale>() : null;
+            if (fit != null) fit.Refit();
         }
 
         void BindQuestRewardActions(Session session, uint epoch, QuestView view)
@@ -215,32 +230,68 @@ namespace Roguehalla.Client
         bool WaitingForQuestChoice => _questChoice.HasValue && _questChoice.Equals(_questChoiceSent) &&
             Time.unscaledTimeAsDouble < _questChoiceRetryAt;
 
-        void RefreshQuestSlotLabels(QuestView view, double serverTime)
+        /// <summary>The Shift and Q tiles and the "Equipped" line, from the delivered spells (both Empty without a quest view or spell).
+        /// Strings are built only when a slot's change key differs, so a steady frame allocates nothing.</summary>
+        void RefreshQuestTiles(QuestView view, double serverTime)
         {
             bool changed = false;
-            for (int i = 0; i < _questSlotLabels.Length; i++)
+            var spells = view?.Spells;
+            int count = spells != null ? spells.Count : 0;
+            for (int i = 0; i < _questTiles.Length; i++)
             {
+                var tile = _questTiles[i];
+                if (tile == null) continue;
                 (byte Reward, byte Charges, double Seconds)? key = null;
-                foreach (var spell in view.Spells)
-                    if (spell.Slot == i)
-                        key = (spell.Reward, spell.Charges, Math.Ceiling(Math.Max(0, spell.ReadyAt - serverTime) / 1000));
-                if (Nullable.Equals(key, _questSlotKeys[i]) && _questSlotLabels[i].text.Length != 0) continue;
-                changed = true;
-                _questSlotKeys[i] = key;
-                Set(_questSlotLabels[i], QuestSpellText(i, key));
+                double readyAt = 0;
+                for (int k = 0; k < count; k++)
+                {
+                    var spell = spells[k];
+                    if (spell.Slot != i) continue;
+                    readyAt = spell.ReadyAt;
+                    key = (spell.Reward, spell.Charges, Math.Ceiling(Math.Max(0, spell.ReadyAt - serverTime) / 1000));
+                }
+                bool known = view != null;
+                if (_questTilesFresh || !Nullable.Equals(key, _questSlotKeys[i]) || known != _questViewKnown || _questSlotHints[i] == null)
+                {
+                    _questSlotKeys[i] = key; changed = true;
+                    _questSlotHints[i] = key.HasValue ? QuestSpellText(i, key) : QuestSpellHint(i, known);
+                    _questSlotEquipped[i] = QuestSpellText(i, key).Replace('\n', ' ');
+                }
+                if (key.HasValue)
+                {
+                    double total = _questSpans[i].Total(readyAt, serverTime);
+                    var face = AbilityFaces.Spell(true, key.Value.Charges, readyAt, serverTime, total);
+                    tile.Show(face, QuestPresentation.RewardName(key.Value.Reward), _questSlotHints[i]);
+                    tile.Cooldown(readyAt, total);
+                }
+                else
+                {
+                    _questSpans[i] = default(Roguehalla.Net.Ui.CooldownSpan);
+                    tile.Show(AbilityFace.Empty, "", _questSlotHints[i]);
+                    tile.Cooldown(0, 0);
+                }
             }
+            _questViewKnown = view != null;
+            _questTilesFresh = false;
             if (changed || _questChoiceSpells.text.Length == 0)
-                Set(_questChoiceSpells, _questSlotLabels[0].text.Replace('\n', ' ') + "\n" + _questSlotLabels[1].text.Replace('\n', ' '));
+                Set(_questChoiceSpells, _questSlotEquipped[0] + "\n" + _questSlotEquipped[1]);
+        }
+
+        /// <summary>The hint of a tile with no spell in it.</summary>
+        static string QuestSpellHint(int slot, bool questViewKnown)
+        {
+            string first = (slot == 0 ? "Shift" : "Q") + " \u00b7 Quest spell";
+            return questViewKnown ? first + "\nEmpty: a quest reward fills this slot" : first;
         }
 
         static string QuestSpellText(int slot, (byte Reward, byte Charges, double Seconds)? key)
         {
             string hotkey = slot == 0 ? "SHIFT" : "Q";
-            if (!key.HasValue) return hotkey + " · Empty";
+            if (!key.HasValue) return hotkey + " \u00b7 Empty";
             var spell = key.Value;
             string cooldown = spell.Seconds > 0 ? spell.Seconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "s" : "Ready";
-            return hotkey + " · " + QuestPresentation.RewardName(spell.Reward) + "\n" +
-                spell.Charges + (spell.Charges == 1 ? " charge · " : " charges · ") + cooldown;
+            return hotkey + " \u00b7 " + QuestPresentation.RewardName(spell.Reward) + "\n" +
+                spell.Charges + (spell.Charges == 1 ? " charge \u00b7 " : " charges \u00b7 ") + cooldown;
         }
 
         void OpenQuestActions()
@@ -271,6 +322,13 @@ namespace Roguehalla.Client
         {
             CloseQuestRewardModal();
             _questRewardHud?.gameObject.SetActive(false);
+            _questTilesFresh = true;
+            for (int i = 0; i < _questTiles.Length; i++)
+            {
+                _questSlotKeys[i] = null; _questSlotHints[i] = null; _questSpans[i] = default(Roguehalla.Net.Ui.CooldownSpan);
+                if (_questTiles[i] != null) { _questTiles[i].Show(AbilityFace.Empty, "", QuestSpellHint(i, false)); _questTiles[i].Cooldown(0, 0); }
+            }
+            if (_questRewardHud != null) UpdatePromptLane();
             _questRewardSession = null;
             _questRewardView = null;
             _questChoice = _questChoiceDeferred = _questChoiceSent = null;

@@ -7,6 +7,18 @@ namespace Roguehalla.Net.Tests
 {
     public sealed class OwnerCombatProtocolTests
     {
+        static string[] s_counterControl;
+
+        /// <summary>Guard (P-UI-ALLOC-PROOF-1): the allocation counter must register a known allocation, so a test built on it can never go blind silently.</summary>
+        static void AssertCounterSees()
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            var kept = new string[1000];
+            for (int i = 0; i < kept.Length; i++) kept[i] = "control" + i;
+            s_counterControl = kept;
+            Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.GreaterThan(0L), "the allocation counter did not see 1,000 kept string concatenations: it is blind here");
+        }
+
         const uint BaseTick = 20000;
 
         static WireOwnerCombat Group(uint? target = null, double asMilli = 100d, double windup = 250d, double speed = 100d, bool held = false)
@@ -199,6 +211,7 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void RetainingOwnerCombatAcrossPooledDeltasDoesNotAllocateSteadily()
         {
+            AssertCounterSees();
             var tracker = new SnapshotTracker();
             var reuse = DecodeFull(tracker, Full(BaseTick, Group(), Array.Empty<WireActor>()));
             var delta = Delta(BaseTick + 1, BaseTick);
