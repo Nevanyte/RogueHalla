@@ -47,7 +47,38 @@ namespace Roguehalla.Client
             }
             _map?.SetMinimapSuppressed(!visible);
             RefreshHeaderActionsVisibility();
+            RefreshAroundTheMap();
             RememberWorldHudFocus();
+        }
+
+        bool _aroundMapOpen;
+
+        /// <summary>Puts the phase line on the pill and hands the same line to the Tab map's header.</summary>
+        void ApplyPhaseLine(string text, Roguehalla.Net.Ui.Indicators.ArenaLineTone tone)
+        {
+            ApplyPhaseStrip(text, tone);
+            _map?.SetPhaseLine(text);
+        }
+
+        /// <summary>While the map is open the phase pill, the journal launcher, the edge threats and the world marks are veiled (the chrome stays).</summary>
+        void RefreshAroundTheMap()
+        {
+            bool open = _map != null && _map.IsOpen;
+            if (open == _aroundMapOpen) return;
+            _aroundMapOpen = open;
+            Veil(_phasePill, open);
+            Veil(_journalButton != null ? (RectTransform)_journalButton.transform : null, open);
+            Veil(_edgeThreats != null ? _edgeThreats.Root as RectTransform : null, open);
+            var arena = _client != null ? _client.Arena : null;
+            if (arena != null) arena.SetWorldMarksVisible(!open);
+        }
+
+        static void Veil(RectTransform rect, bool veiled)
+        {
+            if (rect == null) return;
+            var group = rect.GetComponent<CanvasGroup>();
+            if (group == null) group = rect.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = veiled ? 0f : 1f; group.blocksRaycasts = group.interactable = !veiled;
         }
 
         void RememberWorldHudFocus()

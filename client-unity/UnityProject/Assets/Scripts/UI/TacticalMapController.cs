@@ -14,7 +14,7 @@ using UnityEngine.UI;
 namespace Roguehalla.Client
 {
     /// <summary>Local map/planning presentation. All selections go through the normal validated input sender.</summary>
-    public sealed class TacticalMapController : MonoBehaviour
+    public sealed partial class TacticalMapController : MonoBehaviour
     {
         const float Tile = 32f;
         const double PreviewSpeed = 170d;
@@ -55,8 +55,6 @@ namespace Roguehalla.Client
         bool _factsDirty = true;
         bool _mapOpen;
         bool _minimapSuppressed;
-        /// <summary>P-UI-TABMAP-SHEET-1 stub: the HUD's phase line for the map header (null or empty shows nothing).</summary>
-        public void SetPhaseLine(string text) { }
         public bool ToggleMode => _prefs.MapToggle;
         public bool ShowRoute => _prefs.ShowRoute;
         public bool IsPlanning => _bound?.Collections.Plan != null && _bound.LastResult == null && (_bound.State == SessionState.InMatch || _bound.State == SessionState.Reconnecting || _bound.State == SessionState.HelloSent);
@@ -99,10 +97,11 @@ namespace Roguehalla.Client
             var scrim = HudUi.Fill(_panel, "Scrim", UiTheme.With(theme.OutlineDark, .5f), true);
             scrim.rectTransform.offsetMin = new Vector2(-4000f, -4000f); scrim.rectTransform.offsetMax = new Vector2(4000f, 4000f);
             _scrim = scrim;
+            BuildSheet(theme);
             _titleRect = HudUi.Box(_panel, "MapTitle", HudAnchor.TopLeft, 0, 0, 100, 30);
             _title = HudUi.Label(_titleRect, "MapHeading", "TACTICAL MAP", 20f, theme.Accent, TextAlignmentOptions.MidlineLeft, false, UiFontRole.Display);
             _hint = HudUi.Label(_titleRect, "MapHint", "", 11f, theme.TextSecondary, TextAlignmentOptions.MidlineRight);
-            ((RectTransform)_hint.transform).offsetMax = new Vector2(-92f, ((RectTransform)_hint.transform).offsetMax.y);
+            BuildPhaseLabel(theme);
             _timer = HudUi.Label(_titleRect, "PlanTimer", "", 26f, theme.Accent, TextAlignmentOptions.MidlineRight, false, UiFontRole.Display);
             _close = HudUi.Button(_titleRect, "CloseMap", "Close · Tab", HudAnchor.TopRight, 0, 4, 84, 24, () => SetOpen(false), 11f);
             _planBar = HudUi.Box(_titleRect, "PlanProgress", HudAnchor.BottomLeft, 0, 0, 100, 3);
@@ -112,7 +111,8 @@ namespace Roguehalla.Client
             _frameRect = HudUi.Box(_panel, "MapFrame", HudAnchor.TopLeft, 0, 0, 100, 100);
             HudUi.Surface(_frameRect, theme.SurfaceSunken, theme.CornerRadiusLarge, theme.Border, true, false);
             var mapRect = HudUi.Inset(_frameRect, "PublicMap", MapScreenLayout.FramePad, MapScreenLayout.FramePad, MapScreenLayout.FramePad, MapScreenLayout.FramePad);
-            _large = mapRect.gameObject.AddComponent<TacticalMapSurface>(); _large.Initialize();
+            _publicMap = mapRect;
+            _large = mapRect.gameObject.AddComponent<TacticalMapSurface>(); _large.LayoutOwnsRect = true; _large.Initialize();
             _largeMarks = _large.GetComponentInChildren<TacticalMapMarks>(); _largeMarks.Large = true;
             _large.Pressed = LargePress; _large.Dragged = LargeDrag; _large.PointerReleased = LargeRelease; _large.Aborted = ReleaseLarge;
             for (byte i = 0; i < 2; i++)
@@ -262,11 +262,13 @@ namespace Roguehalla.Client
             var L = _layout = MapScreenLayout.Compute(size.x, size.y, mode, ts);
             bool tab = mode == MapScreenMode.Tab;
             var theme = UiTheme.Current;
-            _scrim.color = UiTheme.With(theme.OutlineDark, tab ? .72f : .84f);
-            Put(_titleRect, L.Title); Put(_frameRect, L.Frame);
-            _close.gameObject.SetActive(tab); _timer.gameObject.SetActive(!tab); _planBar.gameObject.SetActive(!tab);
+            _scrim.color = UiTheme.With(theme.OutlineDark, tab ? .86f : .84f);
+            Put(_titleRect, L.Header); Put(_frameRect, L.Frame);
+            ApplySheet(L, tab && !L.Stacked);
+            if (!tab) _close.gameObject.SetActive(false);
+            _timer.gameObject.SetActive(!tab); _planBar.gameObject.SetActive(!tab);
             _planBar.sizeDelta = new Vector2(L.Title.W, 3f);
-            _hint.gameObject.SetActive(tab);
+            if (!tab) { _hint.gameObject.SetActive(false); _phaseLabel.gameObject.SetActive(false); }
             _zoneLegend.gameObject.SetActive(tab); _planningRail.gameObject.SetActive(!tab); _runRail.gameObject.SetActive(tab);
             if (tab)
             {
@@ -396,7 +398,7 @@ namespace Roguehalla.Client
         {
             if (open) _mapKeys.OpenMap(MapContext(false, false)); else _mapKeys.CloseMap();
             _mapOpen = _mapKeys.MapHeld;
-            _panel.gameObject.SetActive(IsPlanning || _mapOpen); WorldLabelVisibility.Hidden = _panel.gameObject.activeSelf;
+            ShowPanel(IsPlanning || _mapOpen);
             ApplyLayout();
             RefreshMinimapVisibility();
         }
@@ -425,7 +427,7 @@ namespace Roguehalla.Client
                 }
             }
             _mapOpen = _mapKeys.MapHeld;
-            _panel.gameObject.SetActive(IsPlanning || _mapOpen); WorldLabelVisibility.Hidden = _panel.gameObject.activeSelf;
+            ShowPanel(IsPlanning || _mapOpen);
             if (_panel.gameObject.activeSelf) ApplyLayout();
             RefreshMinimapVisibility();
         }
@@ -440,7 +442,7 @@ namespace Roguehalla.Client
                 if (_storageKey != key) { _storageKey = key; _route.Clear(); _route.SetStart(null); LoadRoute(); }
             }
             if (_bound.State != SessionState.InMatch || _bound.LastResult != null) ReleaseTransient();
-            _panel.gameObject.SetActive(_bound.LastResult == null && (IsPlanning || _mapOpen)); WorldLabelVisibility.Hidden = _panel.gameObject.activeSelf;
+            ShowPanel(_bound.LastResult == null && (IsPlanning || _mapOpen));
             if (_panel.gameObject.activeSelf) ApplyLayout();
             UpdateMinimapRing();
             RefreshMinimapVisibility();
@@ -520,7 +522,7 @@ namespace Roguehalla.Client
         void PresentTactics()
         {
             _title.text = _bound.Phase == MatchPhase.Lobby ? "LOBBY MAP" : "TACTICAL MAP";
-            _hint.text = ToggleMode ? "Delivered terrain and contacts · Tab closes · right-click to walk" : "Delivered terrain and contacts · release Tab to return · right-click to walk";
+            PresentHeader();
             RefreshOwnZone();
             if (_lastContactsSnapshot == _bound.SnapshotsReceived) return;
             _lastContactsSnapshot = _bound.SnapshotsReceived;
@@ -685,7 +687,7 @@ namespace Roguehalla.Client
             if (motion != null && motion.Initialized && _client.Cam != null && _client.Arena != null)
                 _client.Arena.Follow(_client.Cam, motion.DrawnX, motion.DrawnY);
         }
-        public void ReleaseTransient() { _mapOpen = false; _largeShown = false; WorldLabelVisibility.Hidden = false; _mapKeys.WindowBlur(); ReleaseMinimap(); if (_panel != null) _panel.gameObject.SetActive(false); UiBrowserStorage.CaptureTab(false); }
+        public void ReleaseTransient() { _mapOpen = false; _largeShown = false; _mapKeys.WindowBlur(); ReleaseMinimap(); ShowPanel(false); UiBrowserStorage.CaptureTab(false); }
         void OnApplicationFocus(bool focused) { if (!focused) ReleaseTransient(); }
         void OnDisable() => ReleaseTransient();
         [Serializable] sealed class SavedRoute { public int version = 1; public double[] x, y; }

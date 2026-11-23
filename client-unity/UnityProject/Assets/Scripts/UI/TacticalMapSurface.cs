@@ -69,6 +69,7 @@ namespace Roguehalla.Client
             if (_map == null) return;
             _raster = TerrainRaster.Acquire(_map, UiTheme.Current);
             _terrain.texture = _raster.Texture;
+            if (LayoutOwnsRect) return;
             var fit = GetComponent<AspectRatioFitter>() ?? gameObject.AddComponent<AspectRatioFitter>();
             fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent; fit.aspectRatio = (float)_map.W / _map.H;
         }
