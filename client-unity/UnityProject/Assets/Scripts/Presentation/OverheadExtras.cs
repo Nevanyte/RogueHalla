@@ -238,13 +238,27 @@ namespace Roguehalla.Client
             bool on = !f.Dead && f.Elite;
             _star.enabled = on; _starBack.enabled = on;
             if (!on) return cursor;
-            const float size = .3f;
+            const float size = OverheadCluster.EliteStarSize;
             _star.color = (Color)theme.Accent; _star.sortingOrder = f.Order + 12;
             _star.transform.localPosition = new Vector3(0, cursor + size * .5f, 0); _star.transform.localScale = new Vector3(size, size, 1);
             var plate = (Color)theme.OutlineDark; plate.a = .92f;
             _starBack.color = plate; _starBack.sortingOrder = f.Order + 11;
-            _starBack.transform.localPosition = _star.transform.localPosition; _starBack.transform.localScale = new Vector3(size * 1.4f, size * 1.4f, 1);
+            _starBack.transform.localPosition = _star.transform.localPosition; _starBack.transform.localScale = new Vector3(size * OverheadCluster.EliteStarPlate, size * OverheadCluster.EliteStarPlate, 1);
             return cursor + size + .04f;
+        }
+
+        /// <summary>Moves every enabled mark of the cluster (pips, stat marks, elite star and plate) up by dy world units.</summary>
+        public void Shift(float dy)
+        {
+            foreach (var r in _pips) Up(r, dy);
+            Up(_pipTop, dy);
+            for (int i = 0; i < 2; i++) { Up(_statEdge[i], dy); Up(_statBack[i], dy); Up(_statIcon[i], dy); }
+            Up(_star, dy); Up(_starBack, dy);
+        }
+
+        static void Up(SpriteRenderer r, float dy)
+        {
+            if (r.enabled) r.transform.position += new Vector3(0f, dy, 0f);
         }
 
         static void Place(SpriteRenderer r, Vector3 at, float w, float h, int order)
