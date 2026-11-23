@@ -4,6 +4,55 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Paused again (2026-11-22, night): after a short resume; integration 84 assembled, not gated
+
+**Owner direction 2026-11-22 (chat), in order:** "please continue"; "Yes, include it" (his answer to "Should
+integration 84 include the leaderboard index migration (P-DB-INDEX-1)?"); "please pause". Every gate, check and agent
+of this programme is stopped again, every agent worktree is clean, and nothing new starts until he says so. The
+section below this one (the evening pause) still holds except where this one says otherwise. **Nothing is pushed;
+`main` is untouched; nothing deployed.**
+
+- **The integration 84 preview** `coord/int-84` @ `c6df2c160` holds integration 83, P-RAID-Q1, P-RAID-V, the records
+  commits of integration 83 and the evening pause, P-RAID-Q2 and P-DB-INDEX-1. It has **no full gate and no merge
+  review**, and `feature/unity-rework` holds none of its code. Before its gate: `cargo clean -p rh-persist` in the
+  gate worktree (the index packet's `build.rs` is new).
+- **What moved, by packet** (no result below is a gate result unless it says so):
+
+  | Packet | Branch @ head | State at this pause | First step on resume |
+  |---|---|---|---|
+  | P-RAID-Q2 (dwell quests) | `agent/sonnet/P-RAID-Q2` @ `5f1cf7bf5` | Quick gate PASS with the oracle and `cargo test -p rh-policy` green on the tree of `8946d6b08`; the wip subject reworded (same tree, new sha); reviewer round two **LAND** (it read the fix and ran no test). Merged in the preview. | None: it rides integration 84. |
+  | P-DB-INDEX-1 (migration 0003) | `agent/opus/P-DB-INDEX-1` @ `7bcd4fb7a` | The owner confirmed it for integration 84. Merged in the preview. | None: it rides integration 84. |
+  | P-RAID-C (sustain) | `agent/sonnet/P-RAID-C` @ `1daf49e82` | Quick gate PASS with the oracle (base `coord/int-84`). The reviewer-opus review was stopped by the pause as it started the `rh-headless` seat test: **no verdict**. | reviewer-opus again. There is no implementer report, so the reviewer establishes the write scope and the draw order and runs `cargo test -p rh-headless --test raid_seats` itself. |
+  | P-BAL-PROBE-1 (sim probes, reward grant) | `agent/opus/P-BAL-PROBE-1` @ `a59693b7b` | The quick gate was stopped by the pause a second time, again in the `rh-sim` suite; the steps before it (clippy and tests of `rh-headless`, clippy of `rh-sim`, the content registry) had passed. No gate result stands. | The gate line in the table below; then reviewer-opus. |
+  | P-RAID-Q3 (slot choice, pick-up, The Bargain) | `packet/P-RAID-Q3` @ `174303f0d` | Rebased onto the preview at `c3eb0d749` (P-RAID-Q2 in), so its brief, stub and oracle commits have new shas. Its `--oracle-check` was stopped in clippy: no result. | `scripts/gate.sh --oracle-check --base coord/int-84`; then `implementer-sonnet`; reviewer-opus. |
+  | P-BAL-ELITE-BOTS-1 (bots read per-kind elite numbers) | `packet/P-BAL-ELITE-BOTS-1` @ `fdf6f7dc5` (brief, stub, oracle), from `feature/unity-rework` @ `c0ef232a1` | Complete. Its author reports `--oracle-check` PASS; two tests, one for each reader (`planning.rs`, `hunt_adapter.rs`). Write scope `rh-policy` alone: `implementer-sonnet`, `reviewer`. | The coordinator answers the author's question (next bullet); then the implementer. |
+  | P-BAL-EVAL-1 (evaluator) | `packet/P-BAL-EVAL-1` @ `0f58ca05c` (brief, stub, oracle), same base | The author was stopped before its report. Whether its `--oracle-check` ran, and whether it meant to write more, is not known. | Read the brief; `scripts/gate.sh --oracle-check`; then `implementer-sonnet`. |
+  | P-BAL-NATIVE-TEXT-GUARD-1 (card text guard) | `packet/P-BAL-NATIVE-TEXT-GUARD-1` @ `dac716e7e` (brief, stub, two oracle commits), same base | The author chose a Rust test (`crates/rh-sim/tests/native_text_guard.rs`), so the guard runs in the quick gate. Its last commit corrects the brief's list of tests; it was stopped before its report, and whether its `--oracle-check` ran is not known. | Read the brief against the test file; `scripts/gate.sh --oracle-check`; then `implementer-sonnet`. |
+
+- **Open for the coordinator (P-BAL-ELITE-BOTS-1):** a bot's camp-level estimate (`Knowledge::mob_share`) sees a camp
+  as a zone and an `elite` flag, not the elite's kind, which is rolled at spawn. It cannot read a per-kind row. The
+  author recommends accepting that for this packet: every estimate that knows the kind reads the row, and the
+  camp-level share stays on the global pair. The alternative (the mean of the zone's elite rows) changes the
+  `KnowledgeApi` trait on witnessed callers. Not decided.
+- **The lanes** (their own reports, not re-verified by the coordinator):
+  - Client input stayed paused through the resume: its session would not take the coordinator's relay over the
+    owner's last word in its own chat. Nothing is queued there.
+  - Backend efficiency has nothing left but the index migration, now in the preview.
+  - Staging security: its three hand-overs and the `url` lock bump are untouched. It was told of this pause.
+  - glbridge token, correcting the section below: `packet/P-HOST-GLBRIDGE-TOKEN-1` is at `073274928` (brief
+    `ab638fcae`, a stub and a red oracle under `hosting/glbridge/`), and by its session's report nothing there waited
+    on the owner. Its implementer was running when this pause came; the session was told to stop safely.
+- **Waiting on the owner:** the word to resume. Item 1 of the list below is answered (the index migration rides
+  integration 84); items 2 to 7 stand.
+- **Left in place, nothing running:** the agent worktrees of the packets above (claims marked done, not removed) and
+  the coordinator's gate worktree, now on `coord/int-84`.
+- **Order when work resumes:** the probe's quick gate, then reviewer-opus on it and on P-RAID-C; merge both into the
+  preview; the full gate (`scripts/gate.sh --coordinator --keep-going`, pgtest) and reviewer-opus on the merge; move
+  `feature/unity-rework` up to it. Beside that: the oracle checks and implementers of P-RAID-Q3 and the three new
+  packets. Then P-RAID-Q3b's oracle, P-BAL-LAB-1-fix, the security lane's queue (the lock bump, the dev-auth fix
+  alone with `--regen-fixtures`, the two protected packets after the owner's confirmation), and the plan of record
+  in its wave order.
+
 ## Paused (2026-11-22, evening): the balance programme and its three lanes, after integration 83
 
 **Owner direction 2026-11-22 (chat):** "please pause and save all development". Every agent, bench and gate run of
