@@ -217,15 +217,15 @@ fn run(s: Scene) -> Out {
         if near {
             o.ticks_near += 1;
         }
-        // A seat that lands a hit on ANY victim this tick is fighting, not stalled (coordinator's oracle-amend,
-        // 2026-11-23): at seed 1 camp 50 the seat clears the camp, moves on to camp 32 and fights it from a band point
-        // 23 u from camp 50's resting spot; when camp 50 respawns its idle member stands beside a seat that is busy,
+        // A seat that is in a fight this tick is not stalled (coordinator's oracle-amend, 2026-11-23): it landed a hit
+        // on any victim, had an attack blocked (a Shield mob's block is an `Event::Block`, not a hit), or was hit. At
+        // seed 1 camp 50 the seat clears the camp, moves on to camp 32 and fights its Shield mobs from a band point
+        // 23 u from camp 50's resting spot; when camp 50 respawns, its idle member stands beside a seat that is busy,
         // and the first form counted those ticks (235) as a stall because it only looked at hits on camp 50.
-        let fighting = events.iter().any(|e| {
-            matches!(
-                e,
-                Event::Hit { by: Some(b), .. } if *b == me
-            )
+        let fighting = events.iter().any(|e| match e {
+            Event::Hit { victim, by, .. } => *by == Some(me) || *victim == me,
+            Event::Block { id, by, .. } => *by == me || *id == me,
+            _ => false,
         });
         streak = if near && !hit && !fighting {
             streak + 1
