@@ -44,6 +44,28 @@ impl Merge for Sum {
     }
 }
 
+/// [`Sum`] that keeps its samples, in the order they were added and folded (seed order).
+#[derive(Clone, Debug, Default, serde::Serialize)]
+pub struct SampledSum {
+    pub sum: f64,
+    pub n: u64,
+    pub samples: Vec<f64>,
+}
+impl SampledSum {
+    pub fn add(&mut self, v: f64) {
+        self.sum += v;
+        self.n += 1;
+        self.samples.push(v);
+    }
+}
+impl Merge for SampledSum {
+    fn fold_in(&mut self, o: Self) {
+        self.sum += o.sum;
+        self.n += o.n;
+        self.samples.extend(o.samples);
+    }
+}
+
 #[derive(Clone, Debug, Default, serde::Serialize)]
 pub struct Causes {
     pub player: u64,
@@ -190,8 +212,14 @@ pub struct QuestCounts {
     pub completed: u64,
     pub ended_timer: u64,
     pub ended_death: u64,
+    /// Ended otherwise: abandon, departure or anything the state cannot tell apart (the sim's probe cannot split them).
     pub abandoned: u64,
-    pub complete_secs: Sum,
+    /// Still accepted and not turned in at the last read.
+    pub open: u64,
+    /// Turned in at the last read and never paid.
+    pub turned_in_unpaid: u64,
+    /// Accept to turn-in, one sample a completion.
+    pub complete_secs: SampledSum,
 }
 impl Merge for QuestCounts {
     fn fold_in(&mut self, o: Self) {
@@ -202,6 +230,8 @@ impl Merge for QuestCounts {
         self.ended_timer += o.ended_timer;
         self.ended_death += o.ended_death;
         self.abandoned += o.abandoned;
+        self.open += o.open;
+        self.turned_in_unpaid += o.turned_in_unpaid;
         self.complete_secs.fold_in(o.complete_secs);
     }
 }
