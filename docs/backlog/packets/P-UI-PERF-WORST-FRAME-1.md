@@ -319,6 +319,52 @@ carries one standing guard that is green on the base: "the five old exports exis
 
 ## Notes from the oracle author
 
-(filled in at the end of the oracle commit)
+What the oracle holds: `PerfWorstFrameEditModeTests` (18 tests, JsonUtility DTOs; every `Assert` line reads a helper that
+returns a sentinel instead of throwing when a row is missing) and `perf-matrix.test.cjs` (21 tests, the standing guard
+included). `AllocationMeter.AssertNone` is used for the no-garbage test.
+
+**Red state on the stub (commit `stub:`), checked by running them.** EditMode: all 18 red, each on an assertion about
+rows, JSON text or counters (examples: `frame.at is a row of 26 sections` Expected True But was False;
+`sections are PerfMarks.Names` actual is an empty array; `Calls after frame 1` Expected 2 But was 0;
+`wallsMax` Expected 3 But was 0; `three frames before the reset` Expected 3 But was 0; for
+`ASteadyFrameAllocatesNothing` the first assertion, `Frames` Expected 1 But was 0). Node: 20 red on assertions, the one
+standing guard ("the five old exports exist") green; no test is red on a TypeError (a property read on a result goes
+through a null-safe `P(...)`).
+
+**Scratch runs (not committed).** (1) EditMode, on the stub, with a catch-and-collect copy of the class (`Assert.` replaced
+by a collector, the meter wrapped, a sample document of the exact JSON shape parsed into the DTOs): every collected entry was an
+assertion about missing behaviour except one defect, `EachSlotKeepsItsWorstFrameWithNeighbours` read `.at.t` on a null row
+(NullReferenceException): fixed with a null-safe `RowT`. The sample document parsed (JsonUtility reads `double[]`, the
+6-deep nesting and `null` rows; the de-DE culture constructs). On the stub the meter's own control checks passed with
+`Begin`/`End` (so `Stopwatch.GetTimestamp` and `GC.GetTotalMemory(false)` read no sample: test 8's second delegate is
+sound). (2) A throwaway reference implementation of `PerfMarks` (the section 8 rules for the marks, rows, slots, counters
+and JSON, about 120 lines; NOT committed, `git checkout` restored the stub) made all 18 EditMode tests green, the meter
+tests included; a throwaway reference of the seven node functions made all 21 node tests green. So every expectation is
+reachable and consistent with this packet's rules. The recorder wiring (section 8, `PerfRecorder.cs`) is NOT covered by
+any test.
+
+**Where the oracle differs from the lane spec.**
+1. `ExistingStatisticsKeepTheirMeaning`: the spec says `MeanMs` 8 after the second frame. `MeanMs` is the window sum over
+   `Frames` (`PerfMarks.cs:69`), so after frames of 8 and 4 ms it is `(8 + 4) / 2 = 6`. The test asserts 6 (and `Frames` 2).
+   Calls 3, `MaxMs` 8 and `AllocPerFrame` 100 are as in the spec.
+2. `TheJsonHoldsTheNamedFields` and its de-DE half are two tests (`TheJsonIsTheSameUnderAGermanCulture`); same checks.
+3. Extra tests, each a rule the spec states in prose: `AFirstFrameOfZeroStillFillsTheSlots`,
+   `WithNoFrameEveryRowIsNullAndTheMaximumIsZero` (spec test 2's last sentence), `TheFrameEndOfASkippedFrameStillCountsAsThePreviousEnd`
+   (Outcome 4's "its FrameEnd still counts"). `NothingIsRecordedWhileOff` also asserts `Calls` 1, `AllocPerFrame` 0 and the
+   collection counters 0.
+4. Node: extra cases for rules in prose: a `resetAt` that is not finite gives `endSeconds` null; the frame-ms-not-above-0 /
+   non-finite / negative span rule of `slotPageIntervals` (the span becomes the instant, a boundary goes to the interval
+   that ends there); a section list with ties, the container skips and the three-section limit; `just before`/`gc in frame`
+   `n/a` for a -1 start read; `no section time`; the `actors`/`render` label and own row; two lines when one slot differs;
+   the slot independence of `slotPageIntervals`.
+5. The stub gives `Reset(int)` the old `Reset()` body (the stub cannot make `Reset()` call `Reset(-1)` without recursion);
+   the old `EndFrame()` stays in the stub only so `PerfRecorder` compiles.
+
+**Not tested (so the reviewer reads it):** `PerfRecorder.cs` wiring (gc reads' positions, context reads, session binding,
+`gcIncremental`, the handler), `Snapshot`'s JSON assembly with `AppendWorstFrames`, and `measure`'s calls in
+`perf-matrix.cjs` (alignment call, `pageByTime`, `pageWorst`, `clockCheck`, the printing). The scratch references above were
+not kept.
+
+**Existing test classes run on the stub:** none pins this code (see the section above), so none was run.
 
 ## Notes from previous attempts
