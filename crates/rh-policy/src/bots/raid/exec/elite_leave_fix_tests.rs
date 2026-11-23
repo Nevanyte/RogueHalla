@@ -453,3 +453,46 @@ fn four_adds_at_hp_0_4_still_pull_the_seat_off_the_chest() {
         "no leave from four adds at hp 0.4 beside the chest: {out:?}"
     );
 }
+
+/// Note 4: a fight that began (one frame with the elite within `FIGHT_U`), then the elite alive and in sight but beyond
+/// `FIGHT_U` (the seat 400 u off, no add near) for longer than `give_up_seconds`: the bound holds once `fight_since` is
+/// set, `fighting` or not. The step fails and the camp is banned once. On the base the time-out is checked only while
+/// `fighting`, so the step stays `Running` past the bound.
+#[test]
+fn a_fight_under_way_with_the_elite_out_of_reach_times_out_once() {
+    let e = Prices::LOCAL.elite;
+    let mut f = frame(Some(0.9), &[], Vec2::new(100., 0.), 0.9, 0, 0);
+    let goal = elite_goal();
+    let mut el = Elite::default();
+    let step = elite_frame(&mut el, &mut f, &goal);
+    assert_eq!(step.status, Status::Running, "the fight begins: {step:?}");
+    assert!(el.fight_since.is_some(), "premise: the fight began");
+    f.p.me.at = Vec2::new(f.centre.x + 400., f.centre.y);
+    let mut failed_at = None;
+    for k in 1..=130 {
+        f.p.now += 1_000.;
+        let step = elite_frame(&mut el, &mut f, &goal);
+        if step.status == Status::Failed {
+            failed_at = Some(k);
+            break;
+        }
+    }
+    let k = failed_at.expect("no time-out in 130 s with the elite out of reach");
+    assert!(
+        f64::from(k) > e.give_up_seconds - 1.,
+        "failed early at {k} s"
+    );
+    let banned_at = f.p.now;
+    f.p.now += 50.;
+    let other = RaidGoal::new(GoalKind::Farm, Target::Camp(0));
+    let mut rng = Rng::new(1);
+    el.observe(&mut cx(
+        &mut f,
+        &other,
+        Status::Running,
+        &mut rng,
+        &Prices::LOCAL,
+    ));
+    assert_eq!(giveups_at(&el, 0), Some(1), "one time-out, one give-up");
+    assert!(!el.banned(0, banned_at + e.ban_seconds * 1_000. + 1.));
+}

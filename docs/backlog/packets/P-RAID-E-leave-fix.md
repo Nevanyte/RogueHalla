@@ -1,4 +1,4 @@
-# P-RAID-E-leave-fix: three defects reviewer-opus found in P-RAID-E-leave
+# P-RAID-E-leave-fix: four defects reviewer-opus found in P-RAID-E-leave
 
 - **Serves:** not in the plan's phases: owner approval 2026-11-22 (`docs/OWNER_DECISIONS.md` row "Balance patch, test bot,
   per-elite numbers"); the three notes of reviewer-opus on P-RAID-E-leave (2026-11-23). Headless human seats only.
@@ -23,6 +23,8 @@
 3. **One time-out counts as two give-ups.** `fight_step` bans and returns `Failed` with `fight_since` still set; the next
    frame's goal switch makes `watch_goal` ban again. Bans run 40, 160, 300 s instead of 20, 40, 80. After: one give-up
    counts once however it ends.
+4. **A fight under way has no time bound** (reviewer-opus, integration 86 merge review). After: once `fight_since` is set,
+   `now - since > give_up_seconds` ends the fight whether or not the elite is within `FIGHT_U`: ban once, fail.
 
 ## 2. Dependencies
 
@@ -72,6 +74,16 @@ None: RaidBot has no legacy counterpart. Searched `docs/OWNER_DECISIONS.md` for 
   clear `fight_since`; a time-out, a walk failure or an empty camp after a fight began (`fight_since` set) returns `Failed`
   and the arbiter's next frame switches the goal, so `watch_goal` bans again. The existing oracle calls `ban` directly.
 - Measured: oracle test `a_fight_that_ran_out_of_time_is_one_give_up`: count 2 on the base.
+
+### F3b. Note 4
+
+- `fight_step` (`exec/elite.rs`, after `let started`, about `:605-616`): the `give_up_seconds` check sits inside `if fighting`;
+  the else-arm (`never reached`) applies only while `fight_since.is_none()`. `fighting` is the elite within `FIGHT_U` or a
+  member near. With the first blow landed (`fight_since` set) and the elite alive in sight but beyond `FIGHT_U`, neither
+  bound runs: the step is `Running` (no path: no move intent; or walking), uncommitted, and the Elite candidate stays
+  positive at full hp, so hysteresis keeps it. This breaks the file's header rule that every stand is bounded.
+- Measured: oracle test `a_fight_under_way_with_the_elite_out_of_reach_times_out_once`: no `Failed` in 130 s on the base.
+  The fix meets note 3: the time-out path clears `fight_since` (or `watch_goal` skips a camp banned), so one give-up.
 
 ### F4. Double-recorded kills (investigated, no fix)
 
@@ -134,6 +146,8 @@ outlives its goal (a new field is cleared when its goal ends); `stand_hp`'s life
   `four_adds...` and `adds_that_will_kill...` go red and are amended by the owner.
 - **D2 (note 2): faction rule.** `threat` takes the seat's faction: a `MobClass::Zombie` whose `faction` is
   `cx.p.me.faction` is not a threat (in `nearest`, `away`, and every reader). Another faction's zombie stays one.
+- **D4 (note 4): bound by `fight_since`.** Move the `give_up_seconds` check out of `if fighting`: when `fight_since` is
+  `Some(since)` and `now - since > give_up_seconds`, ban and fail; `fight_since` is cleared with it (D3).
 - **D3 (note 3): clear `fight_since` beside each `ban` in `fight_step`** (or skip a camp already banned in `watch_goal`);
   the count after one time-out and a goal switch is 1 and the first ban is `ban_seconds`.
 
@@ -167,7 +181,7 @@ ignores another Plague player's zombie; seed 1 p2 camp 27 (kill, no chest within
 
 ## Oracle files (read-only for implementers)
 
-- `crates/rh-policy/src/bots/raid/exec/elite_leave_fix_tests.rs` (10 tests: 4 red on the base by assertion, 6 green guards)
+- `crates/rh-policy/src/bots/raid/exec/elite_leave_fix_tests.rs` (11 tests: 5 red on the base by assertion, 6 green guards)
 - `docs/backlog/packets/P-RAID-E-leave-fix.md` (this brief)
 
 The `stub:` commit holds the `mod leave_fix_tests;` line in `exec/elite.rs` (not an oracle file). No `oracle-amend:`.
@@ -177,7 +191,8 @@ no D5/D6/D9 · write scope: section 5.
 
 Red on the base: `a_seat_that_killed_its_elite_is_not_led_off_its_chest_by_the_leave` (proposes `Sustain/Camp(0)`),
 `a_plague_seat_beside_its_own_zombie_is_offered_the_heal_up` (no candidate), `a_leave_beside_the_seats_own_zombie_stands_to_heal`
-(moves "leave a lost fight"), `a_fight_that_ran_out_of_time_is_one_give_up` (count 2). Green guards:
+(moves "leave a lost fight"), `a_fight_that_ran_out_of_time_is_one_give_up` (count 2), `a_fight_under_way_with_the_elite_out_of_reach_times_out_once` (no
+time-out in 130 s). Green guards:
 `without_a_chest_at_the_camp_the_leave_of_a_lost_fight_stands`, `the_chest_exemption_is_for_the_elite_goal_only`,
 `adds_that_will_kill_the_seat_still_pull_it_off_the_chest`, `four_adds_at_hp_0_4_still_pull_the_seat_off_the_chest`,
 `another_factions_zombie_in_reach_is_still_a_threat`, `a_fight_handed_away_is_one_give_up`.
@@ -189,6 +204,10 @@ Red on the base: `a_seat_that_killed_its_elite_is_not_led_off_its_chest_by_the_l
 - That the D1 bound (0.5) is the right line; untuned.
 - A zombie of another Plague player is ignored too (faction rule).
 - "Hurt and cornered" re-adoption (F5) is left out.
+- Left out, facts from the integration 86 review, no change here: `Sustain::elite_lost` looks the elite up with no distance
+  filter while `elite.rs` uses its `watch.at` filter (they agree except when two camps hold the same elite kind); an
+  Elite-to-Elite goal switch clears `fight_since` in `start`, so the camp left is not banned; Elite and Farm do not check
+  `gates_locked` (under sudden death, camps outside are proposed, fail their walk at once and are banned).
 
 ## Decisions for the coordinator (default in force)
 
