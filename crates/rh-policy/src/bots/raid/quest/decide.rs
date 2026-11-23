@@ -668,7 +668,11 @@ impl Decide {
         let end = Self::nearest(cx, &objectives);
         let outpost = end.or_else(|| Self::outpost_guess(cx, giver));
         let Some(outpost) = outpost else {
-            return (cx.prices.death_floor, cx.prices.bargain_leg_minutes, 0.);
+            return (
+                walk_death(cx, TWO_BANNERS, &[]),
+                cx.prices.bargain_leg_minutes,
+                0.,
+            );
         };
         let out = match end {
             Some(e) => Self::walk_minutes(cx, e),
@@ -797,7 +801,7 @@ impl Decide {
         let walk = next.map_or(0., |n| Self::walk_minutes(cx, n));
         let death = match next {
             Some(n) => walk_death(cx, TRADE_UP, &[n]),
-            None => cx.prices.death_floor,
+            None => walk_death(cx, TRADE_UP, &[]),
         };
         let go_on = progress == 0 || trade_go_on(cx.prices, progress, time_left_s, walk, death);
         TradeRead {
@@ -844,7 +848,7 @@ impl Decide {
                 // Cash out: bank what is held, at the last trader.
                 let walk = self
                     .last_trader
-                    .map_or(0., |(_, at)| straight_minutes(cx.p.me.at, at));
+                    .map_or(0., |(_, at)| Self::walk_minutes(cx, at));
                 (
                     trade_banked(cx.prices, read.progress),
                     reach_chance(read.time_left_s, walk),
@@ -1208,3 +1212,7 @@ impl Executor for Decide {
         step
     }
 }
+
+#[cfg(test)]
+#[path = "decide_walk_tests.rs"]
+mod walk_tests;
