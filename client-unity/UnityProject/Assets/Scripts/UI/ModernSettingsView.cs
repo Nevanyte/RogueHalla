@@ -21,6 +21,7 @@ namespace Roguehalla.Client
         Action _close, _leave;
         RectTransform _root, _content;
         ScrollRect _scroll;
+        ScrollIndicator _cue;
         Button _quality, _closeButton, _reset, _leaveButton;
         float _leaveArmedUntil = -1f; // Leave match asks for a second click within a few seconds, so a misclick never ends a run
         Switch _fullscreen, _motion, _fps, _ping, _route, _mapMode, _quickCast;
@@ -97,7 +98,7 @@ namespace Roguehalla.Client
             HudUi.Button(replay, "ReplayTutorial", "Replay tutorial", HudAnchor.MiddleRight, 0, 0, 120f, 22f, () => { CloseByUser(); ReplayTutorialRequested?.Invoke(); }, theme.SizeSmall, theme.CornerRadiusSmall);
             FooterRow();
 
-            new ScrollIndicator(_scroll, scrollRect);
+            _cue = new ScrollIndicator(_scroll, scrollRect);
             _fitScale = _source.TextScale;
             _source.Changed += SettingsChanged;
             _prefs.Changed += Refresh;
@@ -123,7 +124,7 @@ namespace Roguehalla.Client
                 LayoutRebuilder.ForceRebuildLayoutImmediate(_content);
                 float height = HeaderHeight + LayoutUtility.GetPreferredHeight(_content) + _footerHeight + 10f;
                 _root.sizeDelta = new Vector2(width, Mathf.Min(height, _maxHeight));
-                if (_root.gameObject.activeInHierarchy) RefitLabels();
+                if (_root.gameObject.activeInHierarchy) { RefitLabels(); _cue?.Refresh(); }
             }
             finally { _fitting = false; _fitScale = _source.TextScale; }
         }
