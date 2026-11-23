@@ -325,16 +325,28 @@ namespace Roguehalla.Client.Tests
             _hud.TacticalMap.SetTrackedQuest(handle);
             var marks = _hud.GetComponentsInChildren<TacticalMapMarks>(true);
             Assert.AreEqual(2, marks.Length);
-            foreach (var mark in marks)
-            { Assert.AreEqual(2, mark.MerchantCount); Assert.AreEqual(1, mark.QuestGiverCount); Assert.AreEqual(1, mark.QuestObjectiveCount); }
+            // P-UI-TABMAP-FLOW-1: a surface that is not on screen is not painted, so each surface is read while it is shown:
+            // the minimap with the map closed, the big map with the map open (it is painted on the frame it opens).
+            void ReadBoth(int merchants, int givers, int objectives, string why)
+            {
+                var mini = _hud.TacticalMap.MinimapRoot.GetComponentInChildren<TacticalMapMarks>(true);
+                var large = marks.Single(x => x != mini);
+                _hud.TacticalMap.SetOpen(false); _hud.TacticalMap.Tick();
+                Assert.AreEqual(merchants, mini.MerchantCount, why); Assert.AreEqual(givers, mini.QuestGiverCount, why);
+                Assert.AreEqual(objectives, mini.QuestObjectiveCount, why);
+                _hud.TacticalMap.SetOpen(true); _hud.TacticalMap.Tick();
+                Assert.AreEqual(merchants, large.MerchantCount, why); Assert.AreEqual(givers, large.QuestGiverCount, why);
+                Assert.AreEqual(objectives, large.QuestObjectiveCount, why);
+                _hud.TacticalMap.SetOpen(false); _hud.TacticalMap.Tick();
+            }
+            ReadBoth(2, 1, 1, "delivered points reach both surfaces");
             _transport.Deliver(new ServerMsg.State { Tick = 2, Items = new StateItem[] {
                 new QuestsState { Available = true, View = new WireQuestView() },
                 new TradeState { Available = true, Value = new WireTradeView() } } });
-            foreach (var mark in marks)
-            { Assert.AreEqual(0, mark.MerchantCount); Assert.AreEqual(0, mark.QuestGiverCount); Assert.AreEqual(0, mark.QuestObjectiveCount); }
+            ReadBoth(0, 0, 0, "a replacing state clears both surfaces");
             _transport.Deliver(new ServerMsg.State { Tick = 3, Items = new StateItem[] { QuestState(handle) } });
             _transport.Drop();
-            foreach (var mark in marks) Assert.AreEqual(0, mark.QuestGiverCount, "disconnect removes current point cues immediately");
+            ReadBoth(0, 0, 0, "disconnect removes current point cues immediately");
             Assert.AreEqual(0, _root.GetComponentsInChildren<SpriteRenderer>(true).Count(x => x.name == "Observed merchant"));
         }
 
