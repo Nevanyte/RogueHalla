@@ -277,15 +277,16 @@ namespace Roguehalla.Client.Tests
             return Vector2.zero;
         }
 
-        /// <summary>The marks of the four edge camps as the tests see them: a plate 20.4 square at the camp, its amount text to the right.</summary>
+        /// <summary>The marks of the four edge camps as the tests see them: a plate 20.4 square at each camp, and each camp's text block as the
+        /// map placed it (read from <see cref="TacticalMapMarks.CampTextRect"/>, not modelled: the text may stand Right, Below, Above or Left).</summary>
         List<MapRect> EdgeMarks()
         {
             var list = new List<MapRect>();
             foreach (var camp in _mapCamps) list.Add(Square(LayerOf(new Vector2(camp.X, camp.Y)), 20.4f));
             for (int i = 0; i < _mapCamps.Length; i++)
             {
-                var at = LayerOf(new Vector2(_mapCamps[i].X, _mapCamps[i].Y)); var size = TextSize(_campRows[i].Text);
-                list.Add(new MapRect(at.x + 21.2f, at.y + 2f - size.y / 2f, size.x, size.y));
+                var block = Marks().CampTextRect(i);
+                if (block.HasValue) { var r = block.Value; list.Add(new MapRect(r.x, r.y, r.width, r.height)); }
             }
             return list;
         }
@@ -334,7 +335,10 @@ namespace Roguehalla.Client.Tests
         void AssertClearOfEdgeMarks(string step)
         {
             var marks = EdgeMarks();
-            Assert.That(marks.Count, Is.EqualTo(8), step + ": four camp plates and four amount texts");
+            int blocks = 0;
+            for (int i = 0; i < _mapCamps.Length; i++) if (Marks().CampTextRect(i).HasValue) blocks++;
+            Assert.That(blocks, Is.EqualTo(4), step + ": the key is off, so each of the four camps has its text block");
+            Assert.That(marks.Count, Is.EqualTo(4 + blocks), step + ": four camp plates and the text blocks the map placed");
             for (int r = 1; r <= MapZones.Count; r++)
             {
                 var drawn = DrawnRect(r);
