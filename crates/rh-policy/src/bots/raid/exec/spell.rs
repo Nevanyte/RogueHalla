@@ -1,7 +1,8 @@
 //! The spell executor (P-RAID-S): no goal kinds; it rides along any goal and asks for the cast the rule table names
 //! (`spells::SPELL_RULES`). It draws nothing; its one memory is the `CastGate`.
 use crate::bots::raid::acts::{Act, CastAim};
-use crate::bots::raid::exec::farm::FIGHT_U;
+use crate::bots::raid::exec::combat::may_fight_from;
+use crate::bots::raid::exec::farm::{DEFEND_U, FIGHT_U};
 use crate::bots::raid::goal::{Cx, Executor, GoalKind, GoalKind as K, RaidGoal, Step, Target};
 use crate::bots::raid::percept::{MobClass, MobSeen};
 use crate::bots::raid::spells::CHARGE_RANGE;
@@ -70,8 +71,10 @@ fn nearest<'a>(cx: &Cx<'_>, mobs: impl Iterator<Item = &'a MobSeen>) -> Option<&
     })
 }
 
-/// The foe of the running fight: on a camp (Elite or Farm goal) its elite while one stands, else its nearest member; on
-/// a player fight (Fight goal) that player.
+/// The foe of the running fight: on a camp (Elite or Farm goal) its elite (the member labelled elite) while one stands,
+/// else its nearest member, and only when the seat may fight it from where it stands (`may_fight_from`, the flag of the
+/// foe picked) or that foe is engaged within `DEFEND_U` of the seat: a spell cast from outside the camp's band wakes a
+/// mob that gives up at the band's edge. On a player fight (Fight goal) that player.
 fn foe(goal: &RaidGoal, cx: &Cx<'_>) -> Option<Foe> {
     match (&goal.kind, &goal.target) {
         (K::Elite | K::Farm, Target::Camp(c)) => {
@@ -86,7 +89,11 @@ fn foe(goal: &RaidGoal, cx: &Cx<'_>) -> Option<Foe> {
             } else {
                 nearest(cx, members())
             };
-            pick.map(|m| foe_of(m, cx))
+            pick.filter(|m| {
+                (m.engaged && cx.p.dist(m.at) <= DEFEND_U)
+                    || may_fight_from(&*cx.paths, *c, m.class == MobClass::Elite, cx.p.me.at)
+            })
+            .map(|m| foe_of(m, cx))
         }
         (K::Fight, Target::Actor(key)) => {
             cx.p.players
