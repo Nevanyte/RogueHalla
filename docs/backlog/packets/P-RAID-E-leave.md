@@ -271,3 +271,20 @@ Red on the stub, by test: `no_heal_up_is_proposed_with_a_live_elite_in_reach`, `
 - **D3: the drink memory.** Default: a `HotWatch` held by each of three executors. Alternative (ask first): a `Me` field of the
   running heals' shares in `percept.rs`.
 - **D4: the minor list.** Default: left out (F4).
+
+## Coordinator's answers (2026-11-23)
+
+- **D1 yes:** the ban grows geometrically (`ban_growth` 2.0, capped at `ban_max_seconds` 300). The numbers are
+  untuned; the lab comparison says whether a seat still spends minutes on one camp.
+- **D2 yes:** Sustain's threshold for an elite fight is `disengage_death - disengage_lead`, the same line the Elite
+  score turns negative at. No separate field.
+- **D3 yes:** each of Sustain, Elite and Farm holds its own `HotWatch`. No percept change.
+- **D4 yes:** the minor list stays out.
+- **Order.** P-RAID-HOLD-1's implementer is working in `exec/sustain.rs` now (the stand branch of `think`, the hurt
+  clock in `watch`, and the heal-up not proposed while the seat is being hurt). When it has landed, the coordinator
+  re-cuts this packet's three commits in a line on the tree that holds it, and only then does this packet's
+  implementer start. The implementer keeps HOLD-1's rule as it finds it and adds this packet's beside it: the
+  heal-up is not proposed while a living threat of any class is in reach.
+- **What the oracle leaves to the lab:** the deaths beside an elite are pinned as frames only. The acceptance lab
+  row (seeds 1 to 6, 6000 ticks, against 119 camps, 10 deaths, 21 attempts, 7 kills, 8 picks, 12 hand-aways, 2
+  deaths "healing up" beside an elite) carries that proof, and reviewer-opus repeats its trace.
