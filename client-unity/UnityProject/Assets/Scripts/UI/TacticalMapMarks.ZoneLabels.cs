@@ -210,8 +210,7 @@ namespace Roguehalla.Client
                 float box = camp.IconKey != null ? 17f * s : 6f * s + 4f;
                 MapLabelPlacement.AddBox(into, p.x, p.y, box, box);
                 if (camp.Elite) MapLabelPlacement.AddBox(into, p.x, p.y + 13.5f, 6f * s + 4f, 6f * s + 4f);
-                if (amountLabel != null && camp.AmountText != null) AddMeasured(into, amountLabel, camp.AmountText, p.x + 21.2f, p.y + 2f, -1);
-                if (amountLabel != null && camp.EliteText != null) AddMeasured(into, amountLabel, camp.EliteText, p.x + 21.2f, p.y + 2f + (camp.AmountText != null ? 14.4f : 0f), -1);
+                if (i < _ctCount && _ctPlaces[i] != CampTextPlacement.None && _ctRects[i].W > 0f) into.Add(_ctRects[i]);
                 if (clockLabel != null && camp.Clock != null && !ChestBadges.Replaces(_chestRows, camp.Index)) AddMeasured(into, clockLabel, camp.Clock, p.x, p.y - 16f, 0);
             }
             if (Large)
