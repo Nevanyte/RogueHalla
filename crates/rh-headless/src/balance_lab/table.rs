@@ -71,12 +71,33 @@ pub fn render(r: &Report) -> String {
             v.native.len()
         );
     }
-    let _ = writeln!(t, "elites (kind/weapon: attempts killed died other open):");
+    let _ = writeln!(
+        t,
+        "elites (kind/weapon: attempts killed other died elsewhere left open, kill s min-max, chest killer/other/none/open):"
+    );
     for ((kind, weapon), c) in &r.elites.by_kind_weapon {
+        let range = c
+            .kill_secs
+            .samples
+            .iter()
+            .fold(None, |r: Option<(f64, f64)>, &x| {
+                Some(r.map_or((x, x), |(lo, hi)| (lo.min(x), hi.max(x))))
+            })
+            .map_or("-".to_string(), |(lo, hi)| format!("{lo:.1}-{hi:.1}"));
         let _ = writeln!(
             t,
-            "  {kind}/{weapon}: {} {} {} {} {}",
-            c.attempts, c.killed, c.died, c.taken_by_other, c.open
+            "  {kind}/{weapon}: {} {} {} {} {} {} {}, {range}, {}/{}/{}/{}",
+            c.attempts,
+            c.killed,
+            c.taken_by_other,
+            c.died,
+            c.died_elsewhere,
+            c.left,
+            c.open,
+            c.chest_killer,
+            c.chest_other,
+            c.chest_none,
+            c.chest_open
         );
     }
     let _ = writeln!(

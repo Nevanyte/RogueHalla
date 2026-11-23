@@ -79,7 +79,6 @@ struct Open {
     key: (String, String),
 }
 
-
 /// A kill's chest while its outcome is undecided.
 struct ChestRec {
     key: (String, String),
@@ -190,10 +189,7 @@ impl State {
                 continue;
             };
             if d.killer == Some(seat) {
-                let start = self
-                    .engaged
-                    .get(&(seat, d.elite))
-                    .map_or(now, |e| e.start);
+                let start = self.engaged.get(&(seat, d.elite)).map_or(now, |e| e.start);
                 let r = self.row(&a.key);
                 r.killed += 1;
                 r.kill_secs.push((now - start) / 1000.);
@@ -226,7 +222,8 @@ impl State {
                 continue;
             };
             let camp = self.camps.get(&elite).copied().unwrap_or(-1);
-            let fight = d.attacker_mob == Some(elite) || (camp >= 0 && d.attacker_camp == Some(camp));
+            let fight =
+                d.attacker_mob == Some(elite) || (camp >= 0 && d.attacker_camp == Some(camp));
             let r = self.row(&a.key);
             if fight {
                 r.died += 1;
