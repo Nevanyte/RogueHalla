@@ -103,6 +103,7 @@ namespace Roguehalla.Client
         /// </summary>
         void LayoutTerrainNote()
         {
+            SizeGainsHit();
             if (_terrainRow == null || _terrainNoteText == null) return;
             string note = _terrainNote;
             float noteY = _terrainShown * TerrainLine, noteH = TerrainLine;
@@ -187,7 +188,18 @@ namespace Roguehalla.Client
             float height = _hud != null ? _hud.rect.height : 800f;
             if (_readoutStrip != null && _readoutStrip.gameObject.activeInHierarchy && !string.IsNullOrEmpty(_readoutStrip.text))
                 return height * (1f - _readoutStrip.rectTransform.anchorMax.y) - Roguehalla.Net.Ui.HudRegions.TrackerGap;
-            return height - ChampionBottom - ChampionHeight - Roguehalla.Net.Ui.HudRegions.TrackerGap;
+            return height - ChampionBottom - (_championHud != null ? _championHud.sizeDelta.y : ChampionHeight) - Roguehalla.Net.Ui.HudRegions.TrackerGap;
+        }
+
+        /// <summary>After a fold: the chip row follows the plate's new height in the same frame (as ShowTerrain does), then the hunt card.</summary>
+        void FollowPlate()
+        {
+            if (_terrainRow != null && _terrainRow.gameObject.activeSelf && _vitalsPanel != null)
+            {
+                float top = PlateTop + _vitalsPanel.sizeDelta.y + 4f;
+                if (!Mathf.Approximately(top, _terrainTop)) { _terrainTop = top; HudUi.Place(_terrainRow, HudAnchor.TopLeft, PlateLeft, top, TerrainWidth, _terrainHeight); }
+            }
+            PlaceHuntPanel();
         }
 
         /// <summary>The Hunt card sits below the plate, and below the chip row (and home-ground note) when one is shown.</summary>

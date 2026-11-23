@@ -135,6 +135,7 @@ namespace Roguehalla.Client
             _drawer = gameObject.AddComponent<BuildDrawer>(); _drawer.Initialize(_root, RefreshHeaderActionsVisibility);
             _huntPanel = gameObject.AddComponent<SentencedHuntPanel>(); _huntPanel.Initialize(_hud);
             _uiPrefs = new UiDisplayPreferences();
+            if (Application.isPlaying) ApplyFolds(UiDisplayPreferences.GainsFoldedStored, UiDisplayPreferences.ChampionFoldedStored);
             _map = gameObject.AddComponent<TacticalMapController>(); _map.Initialize(_client, _root, _uiPrefs, _stage);
             _modernSettings = gameObject.AddComponent<ModernSettingsView>();
             _modernSettings.Initialize(_chromeStage, _showcaseSettings, _map, _uiPrefs, () => _modernSettings.SetVisible(false), () => _client.Leave());
