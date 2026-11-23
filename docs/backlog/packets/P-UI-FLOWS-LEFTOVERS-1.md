@@ -215,6 +215,9 @@ _listToTop = true`.
 - `client-unity/UnityProject/Assets/Tests/Editor/FlowsLeftoversEditModeTests.cs`
 - `client-unity/UnityProject/Assets/Tests/Editor/FlowsLeftoversEditModeTests.cs.meta`
 - `docs/backlog/packets/P-UI-FLOWS-LEFTOVERS-1.md`
+- Files of the three `oracle-amend:` commits (existing tests, changed expectations listed under "Oracle amendments"):
+  `client-unity/UnityProject/Assets/Tests/Editor/QuestJournalDetailsEditModeTests.cs` (two commits),
+  `client-unity/UnityProject/Assets/Tests/Editor/TraderCopyEditModeTests.cs`
 
 ## 9. Validation commands
 
