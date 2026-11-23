@@ -10,7 +10,7 @@
 ## 1. ID and outcome
 
 P-BAL-EVAL-1's rule: every model number comes from the lab report or `inputs.json`; a missing input is "not measured" with a
-reason, never a guess, never a silent zero. Two places break it (line numbers at `f78ef6694`, all in
+reason, never a guess, never a silent zero. Two places break it, and a third (reward descriptors defaulting to 0, section 3) was added by the coordinator (line numbers at `f78ef6694`, all in
 `crates/rh-headless/src/balance_model.rs`):
 
 1. **Invented numbers.** `#[serde(default)]` and `impl Default` supply `Inputs` (`:114-150`: band 0.85/1.25, premium 1.15,
@@ -40,8 +40,14 @@ base. **This packet adds no descriptor.** The two touch `inputs.json` at differe
   means "no effect": the identity of the arithmetic, not a design number. (The additive fields default to 0 on the same
   reasoning, and `growth` to `"none"`.) Required are the design numbers: `band` (and `low`, `high`), `premium`,
   `stacks_per_camp`, `coliseum_start_minute`, `difficulty_targets` (all three), `failure` (both fields), `elite_assumptions`
-  (`pick_minute`, `time_ce`, `death_chance` and each helper count). Quest reward descriptors (`Reward`, `:68-77`) also
-  default to 0; they are P-BAL-INPUTS-1's and are not changed here.
+  (`pick_minute`, `time_ce`, `death_chance` and each helper count). 
+- **Reward descriptors (`Reward`, `:68-77`) default their numbers to 0 today; in this packet each kind requires what
+  `quest_verdict` reads (`:439-472`).** `permanent_buff` reads `direct_stacks`, `damage_fraction`, `move_fraction`; `spell`
+  reads only the optional `duel_equivalent_ce` (absent stays "not measured", `:470`); any other kind is "not priced" and
+  reads nothing. Every descriptor needs `kind`. A missing number is an `Err` naming the quest and the field, never a 0. A
+  quest with no descriptor stays valid (the shipped `inputs.json` has none). P-BAL-INPUTS-1 is data only and fills them.
+  Existing `tests/balance_eval.rs` builds descriptors only through `buff10()` (`:81-83`: kind, direct_stacks,
+  damage_fraction, move_fraction), so none becomes an `Err`; checked.
 - Valid `growth` values are `"none"` and `"measured"`; anything else is an `Err` naming `growth`.
 - Missing field errors must name the field (serde's `missing field \`x\`` does; keep it).
 - A quest ratio and verdict exist only when price `> 0` and the ratio is finite; otherwise both are `None` and a
@@ -71,11 +77,13 @@ Scope items not pinned by the test or only partly pinned:
 
 ## 6. Oracle files (read-only for implementers)
 
-- `crates/rh-headless/tests/balance_eval_fix.rs` (new, 6 tests): each design block and nested number removed in turn is an
+- `crates/rh-headless/tests/balance_eval_fix.rs` (new, 7 tests): each design block and nested number removed in turn is an
   `Err` naming it (via `parse_inputs` and `evaluate_json`); unknown growth `Err`, valid growths and omitted multipliers `Ok`;
   `balance-lab/10`, `balance-inputs/10` and a duplicate quest id are `Err`; `camps_credited` 0 gives no ratio or verdict (an
   infinite and a NaN row), with a positive control; a non-finite augment value is all `None` with a reason; a generic walk of
-  `to_json` output finds no null `value`/`price`/`ratio*` beside a non-null `verdict`/`meets_rule`; the shipped inputs parse.
+  `to_json` output finds no null `value`/`price`/`ratio*` beside a non-null `verdict`/`meets_rule`; the shipped inputs parse; a reward descriptor
+  missing `kind` or a number its kind reads is an `Err` naming quest and field, a spell or unpriced kind needs none, and no
+  descriptor is valid.
 - Existing tests that pin what this changes: `tests/balance_eval.rs` (five tests, unchanged, stay green; its
   `balance-lab/2` is `Err` check holds).
 - No `oracle-amend`.
@@ -85,9 +93,17 @@ Scope items not pinned by the test or only partly pinned:
 implementer-sonnet; one file of logic, no `rh-sim` contact. Low risk. Trap: do not add a descriptor or number to
 `inputs.json`; do not edit `tests/balance_eval.rs`.
 
+## Coordinator's answers (2026-11-23)
+
+1. Reward descriptors: the numbers a reward's kind needs are required in this packet (model code); P-BAL-INPUTS-1 is data only
+   and fills them. A descriptor lacking a number its kind reads is an `Err` naming quest and field, never a 0; `spell` needs
+   none of the value numbers; no descriptor stays valid. Implement per section 3, reading only what `quest_verdict` uses.
+2. Rime Hunt stays `medium` (the `Time_Limits` sheet is the timer's own sheet); the implementer records the disagreement with
+   `Top_25` (hard) in the README or a `_note` key.
+
 ## NOT ESTABLISHED by this packet
 
-That any evaluator number is right (the oracle checks refusals and absence, not values); that quest reward descriptors are
-required (they stay optional until P-BAL-INPUTS-1); that the NaN/inf guard covers every future formula (only the paths above
-are tested); `rate_gain` and `balance_eval` binary error output are not pinned; the README section and Rime Hunt note are not
+That any evaluator number is right (the oracle checks refusals and absence, not values); that reward descriptor numbers are
+right (only that the ones a kind reads are present); that the NaN/inf guard covers every future formula (only the paths above
+are tested); `rate_gain` and the `balance_eval` binary error output are not pinned; the README section and Rime Hunt note are not
 tested.
