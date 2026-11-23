@@ -271,7 +271,36 @@ before it moves `_local`. SetUp sets `UiMotion.ReducedOverride = false`, TearDow
 
 ### Notes from the oracle author
 
-(written after the runs: see the end of this file)
+- **Red state, run with `unity-class.sh` on the stub** (stub: `public Func<double> HudLocalMs` and an empty private `TickActionRow()` in
+  `MatchHud.ActionBar.cs`, `HudLateUpdate` unchanged): all 15 `AbilityMotionEditModeTests` fail on an assertion about the missing behaviour:
+  1 `TheWishWedgeMovesBetweenSnapshots` (.49 expected, 0.5); 2 `TheCastBarMovesBetweenSnapshots` (.1 expected, 0.0); 3
+  `AQuestSpellWedgeMovesBetweenSnapshots` (.98 expected, 1.0); 4 `TheAttackBarIsOnTheWeaponInHandOnly` (the radial `CooldownSweep` still
+  exists under `Slot1`); 5 `TheAttackBarDrainsBetweenSnapshots` (no `AttackBar` under `Slot1`); 6 `APressPopsAboutTheCentre` (scale
+  not above 1 at half time: nothing ticks); 7 `APulseLeavesARePlacedPillWhereItWasPlaced` (`_pulses` is not a `HudPulses`); 8
+  `TheWishTileHasOneScaleWriter` (scale 1.12 above 1.081); 9, 10 (`_pulses` is not a `HudPulses`); 11
+  `ReducedMotionKeepsTheWashAndTheWedgesAndDropsThePop` (`_pulses` is not a `HudPulses`); 12
+  `EveryPressPulseGoesThroughTheOneHudPulses` (`_pulses` has type `List<ValueTuple<...>>`); 13 `ASteadyActionRowTickAllocatesNothing`
+  (no `AttackBar` under `Slot1`); 14 `ANewSessionRestartsTheClock` (.485 expected, 0.5); 15 `ADirtyFrameWithoutASnapshotKeepsTheFill`
+  (.49 expected, 0.5). The node case (16) fails on "MatchHud.Pulses.cs reads ShowcaseSettings". The amended
+  `AbilityRowEditModeTests.ASwapWithoutASlotPulsesBothSlotsAndNeverTheBar` fails on "`_pulses` is the one HudPulses" (null).
+- **Scratch run done** (`AbilityMotionEditModeTests`, not committed): a copy in which every `Assert.That` statement was wrapped in a
+  catch-and-collect helper and the missing-child and missing-`HudPulses` lookups returned a dummy, so no failed assertion stops a test.
+  Run twice (the second after adding three set-up guards). Every entry of the list was an assertion about the missing behaviour (the wedge
+  and cast fills not moving, no `AttackBar`, `_pulses` not a `HudPulses`, the Wish tile scaled 1.12, `PulsePop` .1); no other exception.
+  Lines that pass on the stub and so guard the rig: the tile set-ups, the two-spell delivery, the inventory delivery
+  (`_inventoryShown.ActiveSlot`), point-anchored rects, the `Bind` of a second session, and the wash being on.
+- Time: `_local` is a field the test moves; every `Frame()` runs `LateUpdate` then `TickPlayerFlows`. The expected numbers were checked
+  against the rules above: wedge `(ReadyAt - now) / RechargeMs` with `now = server + min(150, local - arrival)`; the quest spell's total is
+  the first time left seen (5000 of 5000), so +100 ms reads .98; the attack bar `(server + ReadyInMs - now) / 400`.
+- Nearest-test notes: test 6 reads "the world centre" in the stage's own units (HUD units, `Stage.InverseTransformPoint`), tolerance .01;
+  test 3's "+0, +40, +80 ms" are taken from the +100 ms frame; test 13 delivers two quest spells (Shift and Q) so that the three wedges are
+  R, Shift and Q; test 4 also checks the geometry on both slots (the off bar too, since a disabled `Image` still has a rect).
+- Test 16 is added to `Tools/hud-seams.test.cjs` as a new `test(...)` after the last one: an addition, no existing expectation changed.
+- `oracle-amend:` (owner to approve): `AbilityRowEditModeTests.ASwapWithoutASlotPulsesBothSlotsAndNeverTheBar` only, as described above;
+  the helper `MatchHudPulseSeconds` is deleted with it. Alone in its commit.
+- Existing classes run on the stub and green before the amend (94 of 94): `AbilityRowEditModeTests`, `WishTileEditModeTests`,
+  `UiMotionEditModeTests`, `MatchHudWishBarrierEditModeTests`, `MatchHudIconPresentationEditModeTests`, `MatchHudStatusNotesEditModeTests`,
+  `MatchHudStatusTextsEditModeTests`, `OwnerVitalEaseEditModeTests`, `HudTextScaleEditModeTests`. `hud-seams.test.cjs` otherwise green.
 
 ## 9. Validation commands
 
