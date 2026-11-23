@@ -256,7 +256,9 @@ impl Sustain {
         Some(by_model.max(by_rate))
     }
 
-    /// The fight the bot is in (a member within reach) and whether it is lost.
+    /// The fight the bot is in (a member within reach) and whether it is lost: the death model says so AND the bot has
+    /// already lost hp (below `ready_hp`). A model's verdict at full hp is a forecast, not a fight; leaving on it made a
+    /// committed walk to a camp turn back over and over (P-RAID-C attempt 1: 30 of 34 leaves began at hp 1.0).
     fn fight(&mut self, cx: &Cx<'_>) -> Option<Fight> {
         if !Self::in_fight(cx, self.hurt_at) {
             return None;
@@ -265,7 +267,8 @@ impl Sustain {
         let death = self.death(cx, zone, left)?;
         Some(Fight {
             camp,
-            lost: death >= cx.prices.sustain.disengage_death - cx.prices.sustain.disengage_lead,
+            lost: death >= cx.prices.sustain.disengage_death - cx.prices.sustain.disengage_lead
+                && cx.p.me.hp_share() < cx.prices.sustain.ready_hp,
         })
     }
 
