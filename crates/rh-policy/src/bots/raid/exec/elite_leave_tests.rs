@@ -537,3 +537,67 @@ fn farm_only_proposes_nothing_from_elite_or_sustain() {
     );
     assert!(out.is_empty(), "farm_only proposed {out:?}");
 }
+
+// ---- reviewer-opus on P-RAID-HOLD-1: the fall rule must not latch during a leave -------------------------------------
+
+/// One frame of the seat as it drives Sustain: `observe`, then `act`; the seat then takes a step of 10 u along a move.
+fn drive(s: &mut Sustain, f: &mut Frame, goal: &RaidGoal, prices: &Prices) -> Step {
+    let mut rng = Rng::new(1);
+    s.observe(&mut cx(f, goal, Status::Running, &mut rng, prices));
+    let step = s.act(goal, &mut cx(f, goal, Status::Running, &mut rng, prices));
+    let to = step.intents.iter().find_map(|i| match &i.body {
+        IntentBody::Move { to } => Some(*to),
+        _ => None,
+    });
+    if let Some(to) = to {
+        let at = f.p.me.at;
+        let d = dist(to, at).max(1e-6);
+        f.p.me.at = Vec2::new(
+            at.x + (to.x - at.x) / d * 10.,
+            at.y + (to.y - at.y) / d * 10.,
+        );
+    }
+    f.p.now += 50.;
+    step
+}
+
+/// A leave adopted at hp 0.5 (an add within reach), hp falling to 0.3 under hits during the retreat; the add is then
+/// out of reach and nothing hits the seat for 5 s. The hold must stand (a `Running` step with no intent). On the base the
+/// stand's high-water mark is the hp the leave began at, so the loss during the retreat reads as a fall since the stand
+/// began and the seat keeps walking ("hurt while healing") until hp climbs back.
+#[test]
+fn a_leave_that_cost_hp_during_the_retreat_stands_once_the_hits_stop() {
+    let prices = &Prices::LOCAL;
+    let mut f = frame(None, &[1.], Vec2::new(100., 0.), 0.5, 0, 0);
+    let goal = RaidGoal::new(GoalKind::Sustain, Target::Camp(0));
+    let mut s = Sustain::default();
+    {
+        let mut rng = Rng::new(1);
+        s.start(
+            &goal,
+            &mut cx(&mut f, &goal, Status::Running, &mut rng, prices),
+        );
+    }
+    for k in 0..10 {
+        let hp = 0.5 - 0.02 * f64::from(k + 1);
+        f.p.me.hp = 100. * hp;
+        f.p.hit_at = Some(f.p.now);
+        let step = drive(&mut s, &mut f, &goal, prices);
+        assert!(
+            !step.intents.is_empty(),
+            "frame {k}: the retreat moves: {step:?}"
+        );
+    }
+    // The add stays behind; the hits stop; hp holds at 0.3 for 5 s.
+    f.p.mobs.clear();
+    f.p.hit_at = None;
+    let mut last = None;
+    for _ in 0..100 {
+        last = Some(drive(&mut s, &mut f, &goal, prices));
+    }
+    let step = last.expect("frames ran");
+    assert!(
+        step.status == Status::Running && step.intents.is_empty() && step.acts.is_empty(),
+        "5 s after the last hit the seat is not standing: {step:?}"
+    );
+}
