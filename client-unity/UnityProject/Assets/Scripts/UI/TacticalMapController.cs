@@ -266,7 +266,7 @@ namespace Roguehalla.Client
             Put(_titleRect, L.Header); Put(_frameRect, L.Frame);
             ApplySheet(L, tab && !L.Stacked);
             bool inKey = CampKeyLayout.InKey(tab, L.Left.W, L.Left.H);
-            if ((inKey ? 1 : 0) != _ckFlag) { _ckFlag = inKey ? 1 : 0; }
+            if ((inKey ? 1 : 0) != _ckFlag) { _ckFlag = inKey ? 1 : 0; _largeMarks.CampFactsInKey = inKey; }
             _large.SetMarkScale(MapMarkScale.Layer(L.Map.W, px));
             if (!tab) _close.gameObject.SetActive(false);
             _timer.gameObject.SetActive(!tab); _planBar.gameObject.SetActive(!tab);
