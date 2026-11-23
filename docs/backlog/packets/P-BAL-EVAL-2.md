@@ -17,13 +17,13 @@ the scratchpad `pilot-dry/`, reduced to `crates/rh-headless/tests/fixtures/balan
   (`docs/QUEST_VALUE_MODEL.md:28`, row `c`: "use 2.9"; section 8 uses c_eff = 2.9). Every price is time at the measured rate, so
   the short permanent-reward quests read 7 to 8 times above the band (`even_skeletons_get_cold` 7.99, `tuber_eats` 7.39) and
   nobody can tell the quest from the slow bot.
-- `the_bargain` reads 109.4: its reward (24 stacks) is gross of the 20 stacks it costs, and its accept-to-trade time is
+- `the_bargain` reads 109.4: its price ignores the 20 stacks it costs, and its accept-to-trade time is
   0.029 min (173.75 s over 101 completions, so 1.7 s each).
 - All 18 spell rewards are "not measured".
 - All 14 native augments say `growth: "none"`, and a `"measured"` growth in the card's own readout unit would be read as stat
   stacks (`native_growth`, `balance_model.rs:563-581`, feeds `a.cap_stacks.min(g * ra)` at `:614` as stacks).
 
-After this packet the evaluator prints every quest and augment row at two farm rates, prices `the_bargain` net of its cost,
+After this packet the evaluator prints every quest and augment row at two farm rates, prices `the_bargain` as a trade (its 20 stacks in the price),
 values a reusable spell by section 4.3 when the numbers exist, converts a measured native growth to stacks, and carries a
 reward as an enum by kind.
 
@@ -69,15 +69,12 @@ Stay green unchanged, and constrain the design:
 - `balance_eval.rs:88-125` (the section 8 worked example), `:128-170` (timers), `:175-198` (augment prices); `balance_inputs.rs:272-`
   (augments against the workbook, all `growth: none`).
 
-Must change (the coordinator's `oracle-amend:` commit; the implementer does not touch them; each keeps its other assertions):
-1. `crates/rh-headless/tests/balance_inputs.rs:209`: `("the_bargain", 4, 0.1, 24., 0.05, 2.697)` becomes `... 1.030)`.
-   Decision 2 puts `upfront_stacks` 20 on `the_bargain`, so its value falls by `20/12 = 1.667` (2.697 - 1.667 = 1.030). The
-   test's own check is within 10%, tau 0.1 min, pick-up minute 4.
-2. `crates/rh-headless/tests/balance_eval.rs:204-205` (`unmeasured_is_not_a_verdict`, augment `grower`, `"growth": "measured"`):
+Must change (two; the earlier third, the_bargain's value in `balance_inputs.rs:209`, is dropped because the value stays gross and that row stays green; no existing test pins `the_bargain`'s price or ratio: `balance_inputs.rs:166-203` only needs a value, ratio and verdict above 0; the coordinator's `oracle-amend:` commit; the implementer does not touch them; each keeps its other assertions):
+1. `crates/rh-headless/tests/balance_eval.rs:204-205` (`unmeasured_is_not_a_verdict`, augment `grower`, `"growth": "measured"`):
    add `"readout_per_stack": 1` to it. Decision 4 makes `"measured"` without it an error, and this test calls
    `evaluate_json(...).expect("evaluates")` on that file. Expectations unchanged (no growth is measured, so `ratio_duo` and
    `meets_rule` stay `None` with a reason).
-3. `crates/rh-headless/tests/balance_eval_fix.rs:116-119` (`an_unknown_growth_is_an_error`, the loop over
+2. `crates/rh-headless/tests/balance_eval_fix.rs:116-119` (`an_unknown_growth_is_an_error`, the loop over
    `["none", "measured"]` through `augment(g)` at `:64-67`): the `"measured"` case must carry `"readout_per_stack": 1`
    (put it in `augment()` so both cases carry it; `none` with the field must stay valid, see the decision below).
 
@@ -98,15 +95,18 @@ Names are mine where the coordinator said "for example"; adjusted names are mark
    columns used which; the rows carry both ratios and both verdicts. Absent: JSON and table exactly today's. No code default.
    Consequence to know (not a bug): a reward with a dividend gains value at the reference rate too, so its ratio falls by less
    than `2.9 / 0.618`; a reward with no dividend falls by exactly that factor.
-2. **Upfront cost.** A permanent reward may carry `upfront_stacks` (default 0, never negative): value minus
-   `upfront_stacks / stacks_per_camp`, at both rates (stacks, not time, so not scaled by the rate). `the_bargain` gets 20
-   (its `source` string already says so). On the dry-run report, by hand with the model's own formulas:
-   measured rate: value 2.230 - 1.667 = 0.563, price 0.0204, ratio about 27.6 (was 109.4); at 2.9: value about 1.41, price
-   about 0.0956, ratio about 14.7. Both still `AboveBand`. **Remaining gap, not papered over:** its completion time is 1.7 s
-   (accept-to-trade is one interaction, not a task), so price is about 0 at either rate and the ratio measures the size of a
-   rounding, not the quest's balance. The evaluator cannot say what a fair time is for it; it needs a quest-design number
-   (a minimum honest duration, or pricing the 20-stack cost as the time to farm it, which is what `upfront_stacks` now
-   does on the value side only). Name it in the README as a known gap.
+2. **Upfront cost (revised 2026-11-23: part of the PRICE).** A stack paid at the trade is given up like time. A permanent
+   reward may carry `upfront_stacks` (default 0, never negative): it adds `upfront_stacks / stacks_per_camp` camp-equivalents
+   to the quest's price as a certain cost: no premium, no retry term, and NOT scaled by the farm rate (the same amount in the
+   measured and the reference row; so `price_at_reference = (price - up) * ref / c + up`). The value stays gross, at both rates.
+   `parity` fields: `reward_value_at_parity` is the price, so it includes the cost; `duration_secs_at_parity` solves
+   value = price with the cost in the price's constant term. `the_bargain` gets 20 (its `source` string already says so; the
+   implementer rewrites the "cannot say" tail of that string). On the dry-run report, by hand with the model's own formulas
+   (script in the scratchpad): measured rate 0.618: gross value 2.2295 over (time price 0.0204 + 1.6667) = **1.3215, AboveBand**
+   (was 109.4); at 2.9: gross value 3.0769 over (0.0956 + 1.6667) = **1.746, AboveBand**. (Taking the 20 stacks off the value
+   instead reads 27.6 and 14.7; the oracle brackets 1.25-1.40 and 1.65-1.85 so that reading fails.) The price is now
+   dominated by the upfront cost (1.667 against 0.020 of time), so the 1.7 s completion time no longer decides the ratio: no
+   remaining gap on that count. README: "The Bargain is priced as a trade."
 3. **Reusable spell dividend.** `V_CD = Delta_CD + (min(g_CD*c, cap) - c_eff)*(R - tau)` (`QUEST_VALUE_MODEL.md:92`). A
    reusable spell reward may carry `duel_equivalent_ce` (Delta_CD), `farm_rate_gain` (`g_CD`, a multiplier) and
    `cap_camps_per_minute` (`cap`, per player). When all three are present the value is computed with `c = c_eff` (the model
@@ -130,7 +130,7 @@ Names are mine where the coordinator said "for example"; adjusted names are mark
    additive and the shipped file stays valid; a bump would force an amend of every inputs fixture in three test files for no
    reader's benefit. (The two new errors, `measured` without the readout and a cross-kind number, are refusals of files that
    were already wrong.)
-6. Only the three amends in section 3 are needed.
+6. Only the two amends in section 3 are needed.
 
 ## 5. Exclusive write scope (implementer)
 
@@ -150,13 +150,13 @@ measured" with a reason, never a zero.
 ## 7. Behaviour to preserve
 
 With no `reference_farm_rate`, no `upfront_stacks` and no new field set, `to_json` and `render_table` are byte-for-byte
-today's. The existing suites in section 3 (minus the three amends) pass as they are.
+today's. The existing suites in section 3 (minus the two amends) pass as they are.
 
 ## 8. Acceptance checks
 
 - `scripts/gate.sh --quick --oracle packet/P-BAL-EVAL-2` passes; `cargo test -p rh-headless --test balance_eval2 --test
   balance_eval --test balance_eval_fix --test balance_inputs` green after the amends.
-- By hand on the dry-run fixture: `the_bargain` ratio about 27.6 measured and 14.7 at reference.
+- By hand on the dry-run fixture: `the_bargain` ratio about 1.32 measured and 1.75 at reference, both AboveBand.
 
 ## Oracle files (read-only for implementers)
 
