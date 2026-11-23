@@ -73,22 +73,24 @@ namespace Roguehalla.Net.Tests
         public void EverySnapTakesTheTargetAtOnce()
         {
             // Each case: a settled key (two frames at 0, token 0), then the token changes and the target is 1 away.
-            Action<string, Func<NameAnchorGlide, (float x, float y)>> check = (what, snap) =>
+            // The residual is read on the key the snap frame stepped (End drops every other key, so key 1 has no entry
+            // after a frame that steps only key 2).
+            Action<string, long, Func<NameAnchorGlide, (float x, float y)>> check = (what, steppedKey, snap) =>
             {
                 var g = new NameAnchorGlide();
                 Frame(g, 1, 0, 0f, 0f); Frame(g, 1, 0, 0f, 0f);
                 var drawn = snap(g);
                 Near(drawn.x, 1f, 1e-5f, what + ": drawn x is the target"); Near(drawn.y, 0f, 1e-5f, what + ": drawn y");
-                Residual(g, 1, 0f, 0f, what);
+                Residual(g, steppedKey, 0f, 0f, what);
             };
             foreach (float dt in new[] { 0f, -1f, float.NaN, 1.0001f })
             {
                 float d = dt;
-                check("dt " + d, g => Frame(g, 1, 1, 1f, 0f, d));
+                check("dt " + d, 1, g => Frame(g, 1, 1, 1f, 0f, d));
             }
-            check("reduced motion", g => Frame(g, 1, 1, 1f, 0f, Dt, true));
-            check("a key never seen", g => Frame(g, 2, 1, 1f, 0f));
-            check("a key skipped by one Begin/End", g =>
+            check("reduced motion", 1, g => Frame(g, 1, 1, 1f, 0f, Dt, true));
+            check("a key never seen", 2, g => Frame(g, 2, 1, 1f, 0f));
+            check("a key skipped by one Begin/End", 1, g =>
             {
                 Frame(g, 9, 0, 0f, 0f);   // key 1 is not stepped in this frame, so End drops it
                 return Frame(g, 1, 1, 1f, 0f);
