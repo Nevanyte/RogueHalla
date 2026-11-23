@@ -899,11 +899,11 @@ fn an_unruled_spell_is_never_cast() {
     }
 }
 
-/// The state hash after 600 ticks of a seat that holds no spell, on seed 1 from the arena centre, captured on the stub
-/// (today's seat). It must not move: a new executor that draws from the arbiter stream, or a seat that changes without a
-/// spell, moves it.
-const NO_SPELL_HASH: u64 = 13_278_554_912_207_179_832;
-
+/// A seat that holds no spell sends no cast over 600 ticks, on seed 1 from the arena centre. The state hash is printed,
+/// not pinned (coordinator, 2026-11-23): a golden of the whole seat's behaviour moves with every other RaidBot packet, so
+/// "the new executor moves no draw" rests on `review_tests.rs` (every executor's `urgent` is false and draws nothing in
+/// a no-spell seat) and on the implementer's own comparison of this printed hash on the stub and on its head, on one
+/// base (run with `--nocapture`).
 #[test]
 fn no_spell_seat_plays_as_before() {
     let seed = 1;
@@ -912,10 +912,6 @@ fn no_spell_seat_plays_as_before() {
     let (live, _) = play(sim, me, seed, &spy, 600, None);
     assert!(live.casts.is_empty());
     println!("NO_SPELL_HASH {}", live.hash);
-    assert_eq!(
-        live.hash, NO_SPELL_HASH,
-        "the seat holding no spell plays exactly as before"
-    );
 }
 
 /// An elite camp's start: 256 u (or nearer) from its members, with a floor line.

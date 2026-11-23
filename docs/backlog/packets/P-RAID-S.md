@@ -129,11 +129,10 @@ C-INPUT (the cast goes through `validate` + `Sim::submit` like a human's), C-OBS
 
 ## 7. Behaviour to preserve
 
-- A seat holding no spell plays exactly as before: the golden state hash in `raid_spells.rs`
-  (`no_spell_seat_plays_as_before`, captured on the stub, i.e. today's behaviour) must stay equal. This is the guard that the
-  new executor draws nothing from the arbiter stream and moves no existing draw. (It is a golden of today's whole-seat
-  behaviour: another packet merged before this one lands that moves RaidBot behaviour moves it; the coordinator re-captures
-  only on a documented reason.)
+- A seat holding no spell plays exactly as before. The oracle pins that it sends no cast (`no_spell_seat_plays_as_before`)
+  and prints its state hash after 600 ticks; the hash is not pinned (coordinator, 2026-11-23: a golden of the whole seat
+  moves with every other RaidBot packet). The implementer proves "no existing draw moves" by hand: the printed hash on
+  the stub (`packet/P-RAID-S` with the base merged) and on its head must be equal, and both go in the report.
 - Every existing test, capture and vector. `raid_decide.rs` (seed 4) seats a RaidBot holding Cleanse and Forget-Me-Not for
   1 200 ticks (`:30-31`, `SLOT_CASES`): it must not start casting there unless the seat is rooted or stunned.
 
@@ -209,8 +208,8 @@ a spent Cleanse sends nothing when rooted again (a new seat), Hook + Tornado nev
 elite over seeds 1-6 (measured on the stub: the seat fights it in reach on all six, 280-1244 ticks; floor 5; Smite spent
 within 20 ticks of 60 ticks of fight; Q key, with an actor id).
 Guards that already pass on the stub and must stay green: `an_unruled_spell_is_never_cast`, `no_spell_seat_plays_as_before`
-(golden `NO_SPELL_HASH`), the award-list test. The golden is the state hash after 600 ticks of a no-spell RaidBot on seed 1
-at the arena centre.
+(no cast sent; it prints the state hash after 600 ticks of a no-spell RaidBot on seed 1 at the arena centre, which the
+implementer compares by hand), the award-list test.
 
 Not tested (said plainly): the refusal gate live (a cast the sim refuses silently needs a taunt or pull no test can stage);
 `Crowd`, `HpBelow` and `FoePosition` (no rule uses them yet); a stunned seat not sending ShoulderCharge; that `urgent()` stays
