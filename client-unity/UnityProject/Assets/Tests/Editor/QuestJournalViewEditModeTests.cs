@@ -302,16 +302,16 @@ namespace Roguehalla.Client.Tests
             pastButStillAcceptable.ExpiresAt = 500;
             DeliverQuestState(_session, _transport, Available(pastButStillAcceptable));
             _view.Refresh(); _view.SelectQuest(_first);
-            StringAssert.Contains("Awaiting server deadline update", Status());
+            StringAssert.Contains("Preview · time is up", Status());
             Assert.IsTrue(_view.TryAccept(_first), "past presentation deadline does not override current server CanAccept");
-            StringAssert.Contains("Acceptance queued · waiting for server update", Status());
+            StringAssert.Contains("Accepting…", Status());
             Assert.IsFalse(_session.Collections.Quests.Rows[0].OwnerAccepted, "queueing is not an optimistic server acceptance");
 
             // Server replacement revokes the affordance before dispatch; the old callback cannot queue it.
             DeliverQuestState(_session, _transport, Available(Row(_first, "Fresh", "brief", "objective", "reward", false)));
             _view.Refresh();
             Assert.IsFalse(_view.TryAccept(_first));
-            StringAssert.DoesNotContain("Acceptance queued", Status(), "a new reliable replacement clears only local pending feedback");
+            StringAssert.DoesNotContain("Accepting", Status(), "a new reliable replacement clears only local pending feedback");
             _session.FlushInput();
             var frames = InputFrames(_transport);
             Assert.AreEqual(1, frames.Count);
