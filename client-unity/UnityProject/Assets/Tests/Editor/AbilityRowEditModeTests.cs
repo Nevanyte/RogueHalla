@@ -290,7 +290,7 @@ namespace Roguehalla.Client.Tests
         // ------------------------------------------------------------------ 4. an empty tile
 
         [Test]
-        public void AnEmptySpellTileIsADimOutline()
+        public void AnEmptySpellTileIsASolidPlateWithADimKeyCap()
         {
             BuildLayoutRig(); LayoutAt(Windows[0]);
             foreach (string name in new[] { "QuestSpell1", "QuestSpell2" })
@@ -302,7 +302,7 @@ namespace Roguehalla.Client.Tests
                 Assert.That(Text(tile, "Charges"), Is.Empty, name + " badge");
                 Assert.That(tile.GetComponent<Button>(), Is.Not.Null, name + " carries the hint button");
                 Assert.That(tile.GetComponent<Button>().interactable, Is.False, name + " is not interactable while empty");
-                Assert.That(Surface(tile).color.a, Is.LessThan(.5f), name + " surface is dim");
+                Assert.That(Surface(tile).color, Is.EqualTo((Color)UiTheme.Current.SurfaceRaised), name + " surface is the solid plate");
                 Assert.That(WedgeOn(tile), Is.False, name + " wedge");
             }
             Assert.That(Text(Child(_layoutStage, "PlayerHUD/CombatActions/QuestSpell1"), "Key"), Is.EqualTo("Shift"));
