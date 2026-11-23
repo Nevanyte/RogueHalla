@@ -136,6 +136,8 @@ impl Refs {
                 merchant: *merchant,
                 pick: *pick,
             }),
+            // STUB (P-RAID-S): nothing sends a cast yet.
+            Act::Cast { .. } => None,
         }
     }
 }

@@ -38,6 +38,23 @@ pub enum Act {
         merchant: rh_sim::traders::Kind,
         pick: i8,
     },
+    /// Cast the quest spell in wire slot `slot` (0 = Q, 1 = E), checked at send time to still hold `reward` with a charge.
+    Cast {
+        slot: u8,
+        reward: u8,
+        aim: CastAim,
+    },
+}
+
+/// Where a cast aims.
+#[derive(Clone, Debug, PartialEq)]
+pub enum CastAim {
+    /// The seat's own position.
+    OwnPosition,
+    /// A point on the map.
+    Point(rh_sim::Vec2),
+    /// An actor by its rendered key (`p<id>` / `n<id>`), resolved through the frame at send time.
+    Actor(String),
 }
 
 /// The seat's order budget as the sim keeps it (`rh_sim::input::OrderBudget`), replayed from what this seat emits.

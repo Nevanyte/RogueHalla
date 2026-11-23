@@ -5,6 +5,7 @@ pub mod combat;
 pub mod elite;
 pub mod farm;
 pub mod held;
+pub mod spell;
 pub mod sustain;
 pub mod travel;
 
