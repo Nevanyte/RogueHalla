@@ -29,7 +29,7 @@ namespace Roguehalla.Client
         readonly List<Button> _minimapSizes = new List<Button>();
         GameObject _previousFocus;
         bool _initialized, _refreshing, _fitting;
-        float _fitScale;
+        float _fitScale, _footerHeight;
         readonly List<MythicTextScale> _fits = new List<MythicTextScale>();
         const float SwitchReserve = 48f;
         float _maxHeight = 740f;
@@ -56,7 +56,8 @@ namespace Roguehalla.Client
             HudUi.Label(HudUi.At(_root, "HeadingRow", CardPadSide, CardPadTop, 180, 20), "SettingsHeading", "SETTINGS", theme.SizeBody, theme.TextPrimary, bold: true).characterSpacing = 2f;
             _closeButton = HudUi.Button(_root, "CloseSettings", "Close · Esc", HudAnchor.TopRight, 10f, 10f, 84f, 20f, CloseByUser, theme.SizeSmall, theme.CornerRadiusSmall);
 
-            var scrollRect = HudUi.Inset(_root, "SettingsScroll", 0, HeaderHeight, 0, 10);
+            _footerHeight = _leave != null ? 62f : 36f;
+            var scrollRect = HudUi.Inset(_root, "SettingsScroll", 0, HeaderHeight, 0, 10f + _footerHeight);
             _scroll = scrollRect.gameObject.AddComponent<ScrollRect>();
             _scroll.horizontal = false; _scroll.vertical = true; _scroll.movementType = ScrollRect.MovementType.Clamped;
             _scroll.scrollSensitivity = 30; _scroll.inertia = true;
@@ -120,7 +121,7 @@ namespace Roguehalla.Client
                 _root.sizeDelta = new Vector2(width, _root.sizeDelta.y);
                 Canvas.ForceUpdateCanvases();
                 LayoutRebuilder.ForceRebuildLayoutImmediate(_content);
-                float height = HeaderHeight + LayoutUtility.GetPreferredHeight(_content) + 10f;
+                float height = HeaderHeight + LayoutUtility.GetPreferredHeight(_content) + _footerHeight + 10f;
                 _root.sizeDelta = new Vector2(width, Mathf.Min(height, _maxHeight));
                 if (_root.gameObject.activeInHierarchy) RefitLabels();
             }
@@ -306,10 +307,17 @@ namespace Roguehalla.Client
             }
         }
 
+        /// <summary>The footer stands on the card itself, not in the scrolling body: a constant height, inner width equal to a row's.</summary>
         void FooterRow()
         {
             var theme = UiTheme.Current;
-            var row = Row("Footer", _leave != null ? 62f : 36f);
+            var row = MythicUi.Rect(_root, "Footer", new Vector2(0, 0), new Vector2(1, 0));
+            row.pivot = new Vector2(.5f, 0);
+            row.offsetMin = new Vector2(CardPadSide, 10f);
+            row.offsetMax = new Vector2(-CardPadSide, 10f + _footerHeight);
+            var rule = HudUi.Fill(row, "Rule", Tone(theme.Border, .25f)).rectTransform;
+            rule.anchorMin = new Vector2(0, 1); rule.anchorMax = new Vector2(1, 1); rule.pivot = new Vector2(.5f, 1);
+            rule.sizeDelta = new Vector2(0, 1); rule.anchoredPosition = Vector2.zero;
             HudUi.Label(HudUi.At(row, "Saved", 0, 8, 150, 14), "Label", "Saved in this browser.", theme.SizeSmall, theme.TextSecondary);
             _reset = HudUi.Button(row, "Reset", "Reset to defaults", HudAnchor.TopRight, 0, 4, 120f, 22f, ResetDisplayOptions, theme.SizeSmall, theme.CornerRadiusSmall);
             if (_leave != null)
