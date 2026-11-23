@@ -19,15 +19,19 @@ namespace Roguehalla.Client
         }
         float _endClock; bool _haveEndClock;
         int _solvedStamp = -1;
+        int _glideStamp = -1;
 
         /// <summary>Ends a frame with the clock the caller supplies (seconds since the previous frame): merges the pack names, lays every name out, evicts what was not drawn.</summary>
         public void End(float dt)
         {
             _frameLaunches.Clear();
-            MergeMobNames();
-            if (WorldLabelVisibility.Hidden) { }
-            else if (_solvedStamp != _stamp) { LayoutNames(dt); _solvedStamp = _stamp; }
-            else ApplyLifts();
+            MergeMobNames(dt);
+            if (!WorldLabelVisibility.Hidden)
+            {
+                if (_solvedStamp != _stamp) { LayoutNames(dt); _solvedStamp = _stamp; }
+                else ApplyLifts();
+                FinishNames();
+            }
             _remove.Clear(); foreach (var pair in _active) if (pair.Value.Stamp != _stamp) _remove.Add(pair.Key);
             foreach (uint id in _remove)
             {
@@ -47,12 +51,13 @@ namespace Roguehalla.Client
         float[] _anchorX = new float[32], _anchorY = new float[32], _packFade = new float[32]; int[] _packSize = new int[32]; long[] _packKey = new long[32];
         readonly List<Rect> _nameRects = new List<Rect>();
         readonly OverheadBoxLayout _layout = new OverheadBoxLayout();
+        readonly NameAnchorGlide _glide = new NameAnchorGlide();
         readonly List<Art> _boxArts = new List<Art>();
 
         // Forgets every lift and every stored rectangle (the Tab map is open, names are hidden).
         void ClearNameLayout()
         {
-            _layout.Clear(); _nameRects.Clear(); _solvedStamp = -1;
+            _layout.Clear(); _nameRects.Clear(); _solvedStamp = -1; _glide.Clear(); _glideStamp = -1;
             foreach (var pair in _active) pair.Value.LayoutStamp = -1;
         }
 
@@ -120,7 +125,10 @@ namespace Roguehalla.Client
                 var art = pair.Value;
                 if (art.Stamp != _stamp || art.Dead || art.Ind == null) continue;
                 if (art.IndFacts.Dead || !art.Ind.NameActive) continue;
-                art.Ind.SetNameGround(FloorLuminance(Surfaces.SurfaceAt(art.Ind.NameBasePosition)));
+                // The place the name is drawn this frame: its base raised by the lift the layout gave it.
+                var at = art.Ind.NameBasePosition;
+                if (art.LayoutStamp == _stamp) at.y += art.LayoutLift;
+                art.Ind.SetNameGround(FloorLuminance(Surfaces.SurfaceAt(at)));
             }
         }
 
@@ -128,7 +136,7 @@ namespace Roguehalla.Client
         /// Mobs of one camp that stand together show exactly one name (P-UNITY-NAME-GROUP-2): over the pack, or over the hovered or locked member.
         /// Then the fighters' names are stacked so none overlaps another. Runs after every actor's indicators were presented. Players are never merged.
         /// </summary>
-        void MergeMobNames()
+        void MergeMobNames(float dt)
         {
             if (WorldLabelVisibility.Hidden)
             {
@@ -137,6 +145,8 @@ namespace Roguehalla.Client
                 foreach (var pair in _active) if (pair.Value.Ind != null) pair.Value.Ind.HideName();
                 return;
             }
+            bool fresh = _glideStamp != _stamp;
+            if (fresh) _glide.Begin();
             int n = 0;
             foreach (var pair in _active)
             {
@@ -173,19 +183,50 @@ namespace Roguehalla.Client
                     // A pack's one name fades with its most visible member, so a carrier at the edge of vision does not make it faint.
                     if (_active.TryGetValue(_mergeIds[i], out var m) && m.Ind != null && m.Ind.TextFade > _packFade[_mergeScratch[i]]) _packFade[_mergeScratch[i]] = m.Ind.TextFade;
                 }
+                if (fresh) CarryNameKeys(n);
                 for (int i = 0; i < n; i++)
                 {
                     if (!_active.TryGetValue(_mergeIds[i], out var art)) continue;
                     if (!_mergeShown[i]) { art.Ind.HideName(); continue; }
-                    bool pack = _packSize[_mergeScratch[i]] > 1;
+                    int root = _mergeScratch[i];
+                    bool pack = _packSize[root] > 1;
                     art.LayoutPack = pack;
-                    art.LayoutNameKey = _mergeItems[i].Camp > 0 ? OverheadBoxLayout.CampKey(_mergeItems[i].Camp) : _packKey[_mergeScratch[i]];
+                    art.LayoutNameKey = _mergeItems[i].Camp > 0 ? OverheadBoxLayout.CampKey(_mergeItems[i].Camp) : _packKey[root];
                     // Strength is set in OverheadIndicators.Update (full for every shown mob name, DEV-024); only a pack's one name takes the fade of its most visible member.
-                    if (pack) art.Ind.NameFullAlpha(_packFade[_mergeScratch[i]]);
-                    if (_anchorX[i] != _mergeItems[i].X || _anchorY[i] != _mergeItems[i].Y) art.Ind.MoveName(_anchorX[i], _anchorY[i]);
+                    if (pack) art.Ind.NameFullAlpha(_packFade[root]);
+                    float gx = _anchorX[i], gy = _anchorY[i];
+                    if (!_mergeItems[i].Elite)
+                    {
+                        if (fresh)
+                        {
+                            long token = (art.LayoutKey * 2L + (_mergeItems[i].Single != 0 ? 1L : 0L)) * 64L + System.Math.Min(_packSize[root], 63);
+                            _glide.Step(art.LayoutNameKey, token, gx, gy, dt, UiMotion.Reduced, out gx, out gy);
+                            art.GlideStamp = _stamp; art.GlideX = gx; art.GlideY = gy;
+                        }
+                        else if (art.GlideStamp == _stamp) { gx = art.GlideX; gy = art.GlideY; }
+                    }
+                    if (gx != _mergeItems[i].X || gy != _mergeItems[i].Y) art.Ind.MoveName(gx, gy);
                 }
             }
-            FinishNames();
+            if (fresh) { _glide.End(); _glideStamp = _stamp; }
+        }
+
+        // On a new stamp: a pack whose layout key changed hands its lift and its glide to the new key (one call per pack, from its lowest-serial member).
+        void CarryNameKeys(int n)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                if (_mergeItems[i].Elite || !_active.TryGetValue(_mergeIds[i], out var art)) continue;
+                int root = _mergeScratch[i];
+                long key = _mergeItems[i].Camp > 0 ? OverheadBoxLayout.CampKey(_mergeItems[i].Camp) : _packKey[root];
+                if (OverheadBoxLayout.SerialKey(art.LayoutKey) == _packKey[root] && _packSize[root] > 1
+                    && art.NameKeyStamp == _stamp - 1 && art.NameKeySerial == art.LayoutKey && art.NameKeyPrev != key)
+                {
+                    _layout.Carry(art.NameKeyPrev, key);
+                    _glide.Carry(art.NameKeyPrev, key);
+                }
+                art.NameKeyPrev = key; art.NameKeyStamp = _stamp; art.NameKeySerial = art.LayoutKey;
+            }
         }
     }
 }

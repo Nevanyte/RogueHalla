@@ -50,6 +50,9 @@ namespace Roguehalla.Client
             public bool LayoutPack; // true on the carrier of a pack of two or more this frame: its box is the name alone
             public int LayoutStamp = -1; // the stamp whose layout set LayoutLift and LayoutTarget (-1: never)
             public float LayoutLift, LayoutTarget;
+            public int GlideStamp = -1; // the stamp whose merge set GlideX and GlideY (the glided anchor of a pack name)
+            public float GlideX, GlideY;
+            public long NameKeyPrev; public int NameKeyStamp = int.MinValue; public int NameKeySerial; // last frame's layout key of this art, for Carry
         }
     }
 }
