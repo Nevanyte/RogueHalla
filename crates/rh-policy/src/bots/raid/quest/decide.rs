@@ -8,15 +8,13 @@
 //! The pure rules (`def_of_reward`, `spell_worth`, `slot_answer`, `pickup_wanted`, `stat_worth`, `bargain_trade`) are
 //! public and unit tested; the executor reads the board each think and sends only what the frame offers (a Bargain trade is
 //! copied from the frame's actions, never guessed). It draws nothing from `cx.rng`.
-use crate::bots::planning::{matchup_share, zone_faction};
 use crate::bots::raid::acts::Act;
 use crate::bots::raid::arbiter::{HYSTERESIS, HYSTERESIS_FLOOR, MIN_MINUTES};
-use crate::bots::raid::exec::farm::{death_chance, members_left};
 use crate::bots::raid::exec::travel::{eta_minutes, move_intent, step_toward, straight_minutes};
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
-use crate::bots::raid::percept::{Me, CAMP_JOIN_RADIUS};
+use crate::bots::raid::percept::Me;
 use crate::bots::raid::quest::walker::timer_spend_minutes;
-use crate::bots::raid::quest::{spell_slots_taken, stand_u, SPELL_SLOTS};
+use crate::bots::raid::quest::{spell_slots_taken, stand_u, walk_death, SPELL_SLOTS};
 use crate::bots::raid::values::Prices;
 use rh_protocol::state::{WireQuestDrop, WireQuestPoint, WireQuestRow, WireQuestSpell};
 use rh_sim::mapdata::Zone;
@@ -51,6 +49,15 @@ const ACTION_CASH_OUT: u8 = 4;
 const ACCEPT_KEY: u8 = 255;
 /// Standing at a quest's end point this long without the turn-in leaves it alone (`BAN_MS`).
 const END_STAND_MS: f64 = 4_000.;
+/// The patrol of Trade Up's traders (`crates/rh-sim/src/quests/board/attempts/interactions.rs`, guarded by
+/// `death_tests.rs` against that file): each trader walks out 72 u along an axis and back on a 12 s period, so one stands
+/// out of contact range (64 u) of a seat 32 u from its barter point for up to 6.7 s of every period. The cash-out stand
+/// waits at least one period for it; the sim lines are `let phase = ((now + 3000. * i as f64) % 12_000.) / 6000.;`,
+/// `let fraction = 1. - (phase - 1.).abs();` and `Vec2::new(72., 0.),`.
+const PATROL_PERIOD_MS: f64 = 12_000.;
+/// A cash-out stand that has waited this many patrol periods without the cash-out being offered is let go (no ban): the
+/// trader is out of reach for a reason the patrol does not explain.
+const CASH_OUT_PERIODS: f64 = 2.;
 /// Slack (time left over the walk still to do) from which a walk is certain to finish; below 1 it cannot.
 const REACH_SLACK: f64 = 1.2;
 /// A send is not repeated before this long.
@@ -75,8 +82,6 @@ pub struct Decide {
     stood: Option<(String, f64)>,
     /// `act` ran since the last `observe`. Without it, and with another goal held, the waits above start over.
     acted: bool,
-    /// Duel shares by (me, region), for the death term of a walk past camps.
-    shares: Vec<((FactionId, FactionId), f64)>,
     /// Where Trade Up's last bartered trader stood when it was bartered with, and the progress that left: (progress, point).
     last_trader: Option<(u32, Vec2)>,
 }
@@ -609,32 +614,6 @@ impl Decide {
         })
     }
 
-    /// The chance to die in the living camps whose centre lies within `CAMP_JOIN_RADIUS` of any of `points` (the walk
-    /// passes where they stand and they join a fight), floored at `prices.death_floor`.
-    fn death_near(&mut self, cx: &Cx<'_>, points: &[Vec2]) -> f64 {
-        let Some(me) = cx.p.me.faction else {
-            return cx.prices.death_floor;
-        };
-        let hp = cx.p.me.hp_share();
-        let mut survive = 1.;
-        for camp in &cx.p.camps {
-            if camp.alive == 0 || !points.iter().any(|p| dist(*p, camp.at) <= CAMP_JOIN_RADIUS) {
-                continue;
-            }
-            let region = zone_faction(camp.zone);
-            let share = match self.shares.iter().find(|(k, _)| *k == (me, region)) {
-                Some((_, s)) => *s,
-                None => {
-                    let s = matchup_share(me, region, false);
-                    self.shares.push(((me, region), s));
-                    s
-                }
-            };
-            survive *= 1. - death_chance(hp, share, members_left(cx.p, camp), &cx.prices.death);
-        }
-        (1. - survive).max(cx.prices.death_floor)
-    }
-
     /// Where Two Banners' outpost probably stands, before the choice shows it: the first camp (map order) of the zone whose
     /// camps lie farthest from the giver on average.
     fn outpost_guess(cx: &Cx<'_>, giver: Vec2) -> Option<Vec2> {
@@ -697,7 +676,7 @@ impl Decide {
             None => Self::walk_minutes(cx, giver) + straight_minutes(giver, outpost),
         };
         let back = straight_minutes(outpost, giver);
-        (self.death_near(cx, &[outpost]), out, back)
+        (walk_death(cx, TWO_BANNERS, &[outpost]), out, back)
     }
 
     fn propose_banners(&mut self, cx: &mut Cx<'_>, out: &mut Vec<Candidate>) {
@@ -817,7 +796,7 @@ impl Decide {
         };
         let walk = next.map_or(0., |n| Self::walk_minutes(cx, n));
         let death = match next {
-            Some(n) => self.death_near(cx, &[n]),
+            Some(n) => walk_death(cx, TRADE_UP, &[n]),
             None => cx.prices.death_floor,
         };
         let go_on = progress == 0 || trade_go_on(cx.prices, progress, time_left_s, walk, death);
@@ -873,10 +852,9 @@ impl Decide {
                     walk,
                 )
             } else if read.next.is_some() {
-                // Going on is the quest's whole route (as before the accept, where it is priced whole): the stage rule
-                // `trade_go_on` already weighs each further stage on its own.
+                // Going on is worth the next stage's share (what `trade_go_on` weighs), at the walk's death term.
                 (
-                    trade_banked(cx.prices, 3),
+                    trade_banked(cx.prices, read.progress + 1),
                     reach_chance(read.time_left_s, read.walk),
                     read.death,
                     read.walk,
@@ -954,11 +932,36 @@ impl Decide {
         let Some(to) = back.or(read.next) else {
             return Step::failed("no objective in the view");
         };
+        let cashing_out = back.is_some();
         if cx.p.dist(to) > stand_u() {
             self.stood = None;
+            if cashing_out && reach_chance(read.time_left_s, Self::walk_minutes(cx, to)) <= 0. {
+                // The time left is under the walk: the cash-out cannot land, and holding progress loses nothing more.
+                return Step::failed("the timer ends before the last trader");
+            }
             return Self::walk_to(cx, to, "to the trader", true);
         }
+        if cashing_out {
+            return self.stand_for_patrol(now, step);
+        }
         self.stand_at_end(TRADE_UP, now, step)
+    }
+
+    /// The cash-out stand at the remembered trader point: the trader patrols in and out of contact range, so the stand
+    /// outlasts a patrol period (`PATROL_PERIOD_MS`) and is never followed by a ban while progress is held.
+    fn stand_for_patrol(&mut self, now: f64, step: Step) -> Step {
+        let since = match &self.stood {
+            Some((d, at)) if d == TRADE_UP => *at,
+            _ => {
+                self.stood = Some((TRADE_UP.to_string(), now));
+                now
+            }
+        };
+        if now - since >= CASH_OUT_PERIODS * PATROL_PERIOD_MS {
+            self.stood = None;
+            return Step::failed("the last trader did not come into reach");
+        }
+        step
     }
 
     fn act_bargain(&mut self, cx: &mut Cx<'_>) -> Step {
