@@ -237,7 +237,14 @@ Read on the base; each is listed with what it asserts. All of them stay green on
   it is the owner's question, not this packet's.
 
 ## Oracle files (read-only for implementers)
-ORACLE_FILES_PLACEHOLDER
+- `client-unity/RoguehallaNet.Tests/LeftEdgeTextTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/LeftEdgeFoldEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/LeftEdgeFoldEditModeTests.cs.meta`
+- `docs/backlog/packets/P-UI-LEFT-EDGE-1.md`
+
+The `stub:` commit holds what the implementer replaces: `RoguehallaNet/Net/Ui/LeftEdgeText.cs` (bodies return "", 0, an
+empty list), its synced copy and `.meta`, `UI/MatchHud.LeftEdge.cs` and `.meta` (flags false, empty `ApplyFolds`), and the
+consts, keys, readers (return the default) and empty writers in `UI/UiDisplayPreferences.cs`.
 
 ## 9. Validation commands
 - `/Users/nevinmckinnon/Documents/Projects/RogueHalla/.agent-runs/lane-ui-rework/bin/in.sh <worktree> dotnet test client-unity/RoguehallaNet.Tests --filter LeftEdgeText`
@@ -279,8 +286,70 @@ lines. Reviewer: reviewer.
   place where an attack click is swallowed (the box, not the 278 band); where the offer card sits after a fold
   (`HudRegions.OfferCard` centres it unless that would touch the tracker, so it need not move).
 
+## The oracle (what each test pins; the files are the source of truth)
+dotnet `LeftEdgeTextTests` (namespace `Roguehalla.Net.Tests`, 4 tests): the count is the cells that are not Dim (null, empty
+and `Summary()` 0; the eight-cell summary 8; one cell 1; raw 100 counts 1); the header (`GAINED · 2 ▼` folded, `GAINED ▲`
+open, null and zeros folded `GAINED · 0 ▼`, glyph constants); the hint (heading, one `Label Value` per non-dim cell while
+folded, `Nothing gained yet`, last line `Click to show the table` / `Click to fold the table`); the 11 header forms.
+EditMode `LeftEdgeFoldEditModeTests` (13 tests; the full HUD of `QuestTrackerEditModeTests` on a real `MatchClient`;
+`SetUp` saves, deletes and `TearDown` restores both PlayerPrefs keys; every find is `_hud.transform.Find(path)`;
+a click is `ExecuteEvents.ExecuteHierarchy<IPointerClickHandler>` with a Left `PointerEventData` and must return the
+header object itself). Numbers at the 1280 x 800 window:
+1. `TheDefaultIsUnfolded`: flags equal the constants, both constants false, plate 148, champion 126, the nine cells
+   switched on (`activeSelf`), the header reads `GAINED ▲`.
+2. `TheGainsHeaderFoldsTheTableAndTheTrackerRisesInTheSameFrame`: tracker top 166 (set-up); a click: flag, plate 63,
+   strip visible, cells hidden in the hierarchy, `GAINED · 3 ▼`, `BuildDetails` 85 higher, no keyboard block, both roots
+   active; ONE `TickPlayerFlows` (no `Frame`): tracker top 81 (`ChainBottom() + 8`).
+3. `AnotherClickRestoresTheFirstRectsExactly`: the rects of plate, `BuildStrip`, `BuildDetails`, champion, tracker, `HitBox`
+   after two clicks of each header equal the first, within .01.
+4. `TheChampionHeaderFoldsTheBodyAndKeepsTheRoot`: 126 high, bottom 48, floor 618; `HeadToggle` 1 inside on left, right,
+   top, 26 high; a click: 28, bottom 48, root active, `ChampionBody` inactive, `_championRow[2]` still on, name and weapon
+   label active with the same texts, glyph `▼`, floor 716, header still 1 inside left, right, top and 1 above the bottom.
+5. `ARowRefreshAndASummaryDoNotUndoAFold`: after `ApplyFolds(true, true)`, `ApplyChampionRows(null)` and `(Summary())`
+   keep rows 0 and 1 on by data but hidden, body inactive, panel 28; then a summary, `RefreshLegacyHud` and
+   `ResetTransientPresentation`: plate 63, `GAINED · 3 ▼`, both flags true.
+6. `TheClickWritesTheKeyAndTheStoredReadersReadIt`: defaults when absent; a click writes 1, the next 0, readers follow;
+   `StoreGainsFolded(true)` alone moves only its reader; likewise the champion's.
+7. `TheStoredValuesFoldAFreshHudThroughApplyFoldsAndNeverWrite`: stored true, fresh rig, `ApplyFolds(Stored, Stored)`:
+   flags, plate 63 (no summary, strip not visible), champion 28; `ApplyFolds(false, false)`: 148 and 126; keys still 1.
+8. `TheHeadersAreRealClickTargetsAndTheGainsOneIsOnlyAsWideAsItsText`: both Images enabled, raycast target, not culled
+   when clear, `targetGraphic`, interactable, hit at the centre, click flips the flag; a point in the right of the old
+   band is not a hit on `HitBox`.
+9. `TheHeaderSaysWhatIsHidden`: `GAINED · 3 ▼` then `GAINED · 0 ▼` folded, `HudIconHint.Text` on `HitBox` equals
+   `GainedHint(cells, true)`, `GAINED ▲` open.
+10. `ASteadyFoldedFrameAllocatesNothingAndWritesNoRect`: folded plate 63 (set-up), `AllocationMeter.AssertNone` over a
+    frame of `TickTerrain` plus the tracker view, then +7 on both heights survives three `Frame()` calls.
+11. `TheChipRowAndTheHuntCardFollowOnTheClick`: no `Frame()`; chip row top 162; a click: 77; hunt card 4 under the
+    row; `PlateChainBottom` is the card's bottom; one `TickPlayerFlows`: tracker 8 under the card; click again: 162.
+12. `ARebuiltHudIgnoresTheStoredValuesInEditMode`: standing guard, GREEN on the stub on purpose (item 7).
+13. `TheGainsHitBoxIsAsWideAsItsWidestHeaderAtTheCurrentTextSize`: width = `ceil(max preferred width over the 11 forms) +
+    margin.x + margin.z` at text scale 1 and again at 1.4 (larger), 14 high, at the left of the band, under half the
+    band, unchanged by a fold and a new summary.
+
 ## Notes from the oracle author
-(filled with the oracle commit)
+- Scratch run done (not committed): a copy of `LeftEdgeFoldEditModeTests` in which every assertion line was wrapped in a
+  catch-and-collect helper (`AssertionException` kept, the test carried on, failed at the end with the list) and a
+  missing path gave a dummy object (an Image with a Button, or a label for a `/Label` path) so the later lines ran.
+  On the stub the run listed only assertions about the missing behaviour (missing `HitBox`, `HeadToggle`,
+  `ChampionBody`; flags, heights, texts, keys, tracker and chip-row tops that did not move), and no other exception.
+  One scratch-only defect was in the scratch's own dummy label, fixed in the scratch, not in the test.
+- Set-up numbers re-derived on the stub: plate 148, champion 126, tracker top 166, chip row top 162, floor 618,
+  `BuildDetails` top 136 open (51 folded expected), all as the spec says.
+- Red on the stub (run through `unity-class.sh`, 12 red, 1 green): tests 2, 3, 6, 8, 11, 13 at the find of
+  `GainedLabel/HitBox`; test 4 at the find of `ChampionCombatHud/HeadToggle`; test 5 at the find of `ChampionBody`;
+  test 1 at the header text (`GAINED` for `GAINED ▲`); test 9 at the header text (`GAINED` for `GAINED · 3 ▼`);
+  test 7 at `GainsFolded` true (false); test 10 at the set-up plate 63 (148). Test 12 is green by design.
+  dotnet `LeftEdgeTextTests`: 4 of 4 red on assertions (a reference implementation written in a scratch copy passed all 4
+  and was removed).
+- The EditMode tests cannot see the real values of test 13's formula (the stub's forms list is empty) until the
+  implementation exists; the formula is read from the packet, not measured.
+- Deviation from the spec text: test 1 checks the cells with `activeSelf`, test 2 with `activeInHierarchy` (the strip is
+  hidden without a summary, so the cells are not in the hierarchy in test 1); helper `AssertCells(active, why, ownSwitch)`.
+  The champion header checks in test 4 use the panel's measured rect, not literals, for left, right and top.
+- Existing classes run on the stub, all green: `BuildHudCellsEditModeTests`, `QuestTrackerEditModeTests`,
+  `QuestOfferEditModeTests` (40), `HudLegacyLayoutEditModeTests`, `HudTextScaleEditModeTests`,
+  `ChampionPanelNumbersEditModeTests` (73), `UiInputRoutingEditModeTests`, `TrainingBannerEditModeTests`,
+  `HudVisualFix4EditModeTests` (37); `hud-seams.test.cjs` 14 of 14; `sync-net.sh --check` clean.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
