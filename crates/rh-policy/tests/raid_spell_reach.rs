@@ -169,16 +169,47 @@ impl Policy for Spy {
     }
 }
 
+/// One Smite the seat sent: the tick, the camp of the elite it was aimed at, and the seat's distance to that elite.
+type CastSeen = (u32, u32, f64);
+
 #[derive(Debug, Default)]
 struct Out {
-    /// (tick, seat-to-elite distance) of every Smite the seat sent while outside the band with no elite within DEFEND_U.
-    from_outside: Vec<(u32, f64)>,
-    /// (tick, seat-to-elite distance) of every Smite the seat sent from inside the band or with an elite beside it.
-    from_inside: Vec<(u32, f64)>,
-    /// Ticks the seat stood inside the band (the scene's premise: it gets there).
+    /// Every Smite the seat sent while outside the band of the elite it aimed at, with that elite further than
+    /// DEFEND_U.
+    from_outside: Vec<CastSeen>,
+    /// Every Smite the seat sent from inside the band of the elite it aimed at, or with that elite beside it.
+    from_inside: Vec<CastSeen>,
+    /// Ticks the seat stood inside camp 50's band (the scene's premise: it gets there).
     ticks_in_band: u32,
     seat_died_at: Option<u32>,
     fault: bool,
+}
+
+/// Is `at` inside the leash of camp `camp`'s elite at margin 0 (`mob_ai.rs` `fight`: a chasing mob gives up when its own
+/// position fails it)? The home is the camp's elite spot, or any spot of the camp when it has none
+/// (`exec::combat::may_fight_from`).
+fn in_band_of(data: &rh_sim::mapdata::LayerData, camp: u32, at: Vec2) -> bool {
+    let def = &data.camps[camp as usize];
+    let home = |s: &rh_sim::mapdata::WorldPt| leash_ok(data, camp, Vec2::new(s.x, s.y), at, 0.);
+    match usize::try_from(def.elite_spot)
+        .ok()
+        .and_then(|i| def.spots.get(i))
+    {
+        Some(s) => home(s),
+        None => def.spots.iter().any(home),
+    }
+}
+
+/// The living elite a Smite aimed at `aim` was meant for (the nearest one to the aim point): its camp and its distance
+/// to the seat at `at`. The seat goes on to other camps once camp 50 is cleared, so each cast is judged against the
+/// band of the camp it was aimed at, not against camp 50's.
+fn aimed_at(sim: &Sim, aim: Vec2, at: Vec2) -> Option<(u32, f64)> {
+    sim.mobs()
+        .iter()
+        .filter(|m| m.elite && m.status == rh_sim::Status::Alive)
+        .map(|m| (m.camp, dist(m.core.pos(), aim), dist(m.core.pos(), at)))
+        .min_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)))
+        .map(|(camp, _, gap)| (camp, gap))
 }
 
 fn run(weapon: WeaponId) -> Out {
@@ -220,23 +251,21 @@ fn run(weapon: WeaponId) -> Out {
         let sent: Vec<PublicCommand> = std::mem::take(&mut *casts.lock().unwrap());
         if let Some(p) = sim.player(me).filter(|p| p.standing()) {
             let at = p.pos();
-            let in_band = leash_ok(&data, CAMP, home, at, 0.);
-            let elite_gap = sim
-                .mobs()
-                .iter()
-                .filter(|m| m.camp == CAMP && m.elite && m.status == rh_sim::Status::Alive)
-                .map(|m| dist(m.core.pos(), at))
-                .fold(f64::MAX, f64::min);
-            if in_band {
+            if leash_ok(&data, CAMP, home, at, 0.) {
                 o.ticks_in_band += 1;
             }
-            for _ in &sent {
-                // "Engaged within DEFEND_U": read as an elite beside the seat (the percept's engaged flag is a
+            for c in &sent {
+                let PublicCommand::Cast { x, y, .. } = *c else {
+                    continue;
+                };
+                let (camp, gap) = aimed_at(&sim, Vec2::new(x, y), at)
+                    .expect("a Smite is aimed at a living elite");
+                // "Engaged within DEFEND_U": read as that elite beside the seat (the percept's engaged flag is a
                 // subset of it, so this exemption is the looser one).
-                if in_band || elite_gap <= DEFEND_U {
-                    o.from_inside.push((tick, elite_gap));
+                if in_band_of(&data, camp, at) || gap <= DEFEND_U {
+                    o.from_inside.push((tick, camp, gap));
                 } else {
-                    o.from_outside.push((tick, elite_gap));
+                    o.from_outside.push((tick, camp, gap));
                 }
             }
         }
@@ -258,14 +287,15 @@ fn assert_smite_only_where_the_elite_can_reach(weapon: WeaponId) {
     assert!(!o.fault, "no seat fault");
     assert!(
         o.from_outside.is_empty(),
-        "{weapon:?}: {} Smite cast(s) sent from outside camp 50's band with no elite within {DEFEND_U} u (tick, \
-         distance to the elite): {:?} ({o:?})",
+        "{weapon:?}: {} Smite cast(s) sent from outside the band of the elite aimed at, that elite further than \
+         {DEFEND_U} u (tick, camp, distance to the elite): {:?} ({o:?})",
         o.from_outside.len(),
         o.from_outside
     );
     assert!(
-        !o.from_inside.is_empty(),
-        "{weapon:?}: the seat never cast Smite from inside the band, so the test proves nothing ({o:?})"
+        o.from_inside.iter().any(|c| c.1 == CAMP),
+        "{weapon:?}: the seat never cast Smite at camp 50's elite from inside its band, so the test proves nothing \
+         ({o:?})"
     );
 }
 
