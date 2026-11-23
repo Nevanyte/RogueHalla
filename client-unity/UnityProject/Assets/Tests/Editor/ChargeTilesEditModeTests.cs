@@ -257,7 +257,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(FrameOf(tile), Is.EqualTo((Color)UiTheme.Current.Border), "step 3: the cooling frame");
             Assert.That(tile.Sweep.enabled, Is.True, "step 3: the wedge is on");
             Assert.That(tile.SecondsLabel.text, Is.EqualTo("57"), "step 3: 57 s left");
-            Assert.That(tile.Sweep.fillAmount, Is.InRange(.90f, 1f), "step 3: the wedge starts at its true share of the 60 s, not at a fresh full");
+            Assert.That(tile.Sweep.fillAmount, Is.EqualTo(.95f).Within(.005f), "step 3: the wedge starts at its true share of the 60 s, not at a fresh full");
             Assert.That(tile.BadgeLabel.text, Is.EqualTo("0"), "step 3: no charge left");
             Assert.That(PopsOfPress(1), Is.EqualTo(0), "step 3: a press does not pop");
             Assert.That(Pills(), Is.EqualTo(new List<string> { "Ready in 57" }), "step 3: it says when");
