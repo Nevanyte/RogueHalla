@@ -199,7 +199,7 @@ namespace Roguehalla.Client.Tests
             Items(10, NearbyAction());
             Frame();
             Assert.That((int)GetF(_hud, "_nearbyQuestCount"), Is.EqualTo(1));
-            Assert.That(LauncherCaption(), Is.EqualTo("Nearby quest actions · 1"));
+            Assert.That(LauncherCaption(), Is.EqualTo("Pick up WallBuster"));
 
             Snap(11, 1000);
             Items(11, Quests(
@@ -221,7 +221,7 @@ namespace Roguehalla.Client.Tests
             Items(12, NearbyAction());
             Frame();
             Assert.That((int)GetF(_hud, "_nearbyQuestCount"), Is.EqualTo(1));
-            Assert.That(LauncherCaption(), Is.EqualTo("Nearby quest actions · 1"));
+            Assert.That(LauncherCaption(), Is.EqualTo("Pick up WallBuster"));
         }
 
         // ------------------------------------------------------------------ 3 to 5. a pending choice
