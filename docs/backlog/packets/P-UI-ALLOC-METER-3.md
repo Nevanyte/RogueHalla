@@ -134,4 +134,23 @@ implementer-sonnet; one test-support file, about 60 lines. Hard part: the record
 
 ## Notes from the oracle author
 
-(Filled in after the test run: see below.)
+Tests of `AllocationMeterNoiseEditModeTests` (ten, as the lane spec lists them, names unchanged): all ten are red on the stub (today's single window), each on an assertion about the missing behaviour, measured by `unity-class.sh` on 6000.0.85f2:
+
+| test | first red assertion on the stub |
+|---|---|
+| `AOneOffSampleThatDoesNotRepeatIsDropped` | `Samples(Probe, 100)` expected 0, was 1 |
+| `AnAllocationInEveryMeasurementGivesTheSmallestCount` | smallest of 2,3,1: expected 1, was 2 |
+| `ThereAreNeverMoreThanThreeMeasurements` | measured exactly three times: expected 3, was 1 (`MaxMeasurements` is in the stub, so its first assert is green) |
+| `AssertAtMostComparesTheSmallestCount` | `{2,3,1}` at limit 1: threw "made 2 GC.Alloc samples ... above the limit of 1" |
+| `AnAllocatingOrCleanControlThatFailsInAnyMeasurementIsNotWorking` | allocating `{20,0,20}` under `AssertNone`: expected `AssertionException`, was null (the clean `{2}` half is green on the stub, as the spec says) |
+| `ACountingControlThatReadsLowInAnyMeasurementIsNotWorking` | `{30,29,30}` under `AssertAtMost`: expected `AssertionException`, was null (the `{29,30,30}` half is green on the stub) |
+| `ANoisyCleanControlThatReadsZeroOnceIsSound` | `AssertNone` with clean `{1,0}` threw "it reported allocation for a known clean control" |
+| `TheYesOrNoSeamIsAskedOncePerQuestion` | `Samples(Probe, 100)` expected 0, was 1 |
+| `ABusyThreadNextDoorCannotFoolTheMeter` | on the first run "round 13: clean code read 1 samples under a busy thread" |
+| `TheWarmUpRunsOnceAndEachMeasurementRunsTheLoop` | counter expected 28, was 14 |
+
+Scratch run (catch-and-collect helper, not committed, deleted with its `.meta`): every assertion of the nine scripted and counting tests ran on the stub, none of the collected entries was anything but an assertion about the missing behaviour (counts, "measured three times", the quietest-count message, "not working" throws); lines that follow a failed `Assert.Throws` read an empty message and fail as derived entries, which is expected. In test 9 the stub read wrong in 9 of 100 rounds (8 clean windows with 1 extra sample, 1 allocating window with 21), no set-up fault. After the cure, the lines past the first red assertion are consistent with the packet's rules (worked through by hand: `AssertNone` on clean code = allocating control 3, clean 1, probe 1 measurements; `AssertAtMost` = 3, 1, 3, probe 1 to 3).
+
+Existing classes on the stub: `AllocationMeterEditModeTests` six of six green; `AllocationMeterCountEditModeTests` eight of nine green and `CountAndAnswerAgreeTwentyTimes` failed once in this very run ("round 12, allocating control ... expected 21, was 20", the sighting of section 1, the constraint's extra sample): the amendment below is the cure for exactly that. `AssertAtMostPassesAtTheLimitAndFailsOneAbove` is green on the stub and turns red on the cure unless amended (it reads 1 only while one window is made).
+
+Deviations from the spec: none. The scripted `Source` is a small private class of the test; the probe is an empty static `Action` that is never run.
