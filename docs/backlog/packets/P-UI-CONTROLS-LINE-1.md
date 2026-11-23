@@ -172,7 +172,15 @@ Tests (the two rigs are copies; no helper is shared between fixtures):
 
 ### Red on the stub (measured)
 
-See "Notes from the oracle author" (filled after the run).
+Run of `ControlsLineLayoutEditModeTests`, `ControlsLineHintEditModeTests` on the stub (no production change), 8 red and
+every one on an assertion about the missing behaviour:
+
+- `TheControlsLineIsGone` (3 windows): `bar.Find("ControlsLine")` is not null.
+- `NothingUnderTheRowCrossesTheConsumablesBottom` (3 windows): offenders `CombatActions/ControlsLine bottom 0` and
+  `CombatActions/ControlsLine/Label bottom -5`, and only those two.
+- `TheFirstRunHintNamesMoveAndAttack`: the pill text is the old 65 character hint, not the new one.
+- `TheHintFitsItsPillAtScaleOneAndOnePointFive(1.5, 15)`: fontSize 13.79 under 15.
+- `TheHintFitsItsPillAtScaleOneAndOnePointFive(1, 13)` is green on the base (the standing guard).
 
 ## 9. Validation commands
 
@@ -211,6 +219,19 @@ permanent controls line is dropped) and lists the one amended expectation (`HudT
 
 ## Notes from the oracle author
 
-(filled after the run)
+- Scratch run done, once per class, with a catch-and-collect helper (not committed): every assertion wrapped, a failed
+  one kept, failures reported in `TearDown`. Entries on the stub were only the assertions listed above (for the first
+  test of the hint class: the text, the constant, `potion` and `Wish` present; the scale-1 case had none). No set-up or
+  delivery line threw. (A first scratch variant raised in `TearDown` before the fixture was destroyed and so left
+  `ShowcaseSettings.Current` alive for the next case; that was the scratch's own flaw, the committed `TearDown` destroys
+  the root first.)
+- Existing classes run on the stub with the amendment applied: `HudTextScaleEditModeTests`,
+  `HudLegacyLayoutEditModeTests`, `ToastLanesEditModeTests`, `AbilityRowEditModeTests`, `HudRegionsEditModeTests`,
+  `UiInputRoutingEditModeTests` all green (119 tests in the run: 111 pass, the 8 red above).
+- Deviation from the spec: the "no label repeats the keys" check stops at the first banned word per label, so the
+  message names each label once. Nothing else differs.
+- Oracle amendment for the owner (own `oracle-amend:` commit): `HudTextScaleEditModeTests.cs`, the
+  `Add("ControlsLine", ...)` row of `BuildInventory` deleted and `TheInventoryCoversTheWholeMatchHud` expects 60 instead
+  of 61. Green on the base and after the change.
 
 ## Notes from previous attempts
