@@ -116,5 +116,40 @@ Sonnet. One file, a cache with reference counts and a derive with a precise dirt
 - That the two call sites of the shared texel function give bit-identical floats under IL2CPP (settled under Mono by the oracle's texel-for-texel tests only).
 - What the large surface shows after a theme change while the Tab map is closed (it unsubscribes while disabled): not looked at; the theme changes only in tests.
 
+## Oracle: the tests, and what is red on the stub
+
+Fixture (a) `MapRasterEditModeTests` (`TerrainRaster` used directly; SetUp drops the spare and sets `UiTheme.Current` to the fixture's `Skin()`; maps are 16 x 16, 8 texels a tile, 64 texels a tile squared). Fixture (b) `MapRasterControllerEditModeTests` (the real `TacticalMapController` rig copied from `MapPaintEditModeTests`, Welcome map 16 x 16 with region bands, walls at (5,5) and (6,5), a low at (10,9); surfaces `Minimap/TerrainFrame` and `TacticalMap/MapFrame/PublicMap`). "Reference picture": a whole build under a fresh `UiTheme.Skin()` (never Current), compared mip 0, mip 1 and the last mip texel for texel after a premise line that the two themes' colours are equal.
+
+Red on the stub (11 tests, each on a behaviour assertion; run with `unity-class.sh`, 2026-11-23):
+
+| Test | First red assertion |
+|---|---|
+| (b) `ARebindKeepsTheTerrainPicture` | the minimap shows the same picture object (the old texture is destroyed by `Bind`; expected same as the destroyed one) |
+| (b) `AnUnbindAndRebindKeepsThePicture` | the same |
+| (b) `ADestroyedTerrainDeliveryPatchesBothSurfaces` | "no whole build": `FullBuilds` rose by one |
+| (a) `AnEqualMapObjectReusesThePicture` | the last release of a Current-theme picture parks it (`HasSpare` false) |
+| (a) `APictureHeldTwiceIsParkedAtTheSecondRelease` | held twice: one entry (an equal map object is another entry) |
+| (a) `ADestroyedCellIsPatchedNotRebuilt` | "no whole build" (`FullBuilds` + 1) |
+| (a) `ARestoredMapIsPatchedBack` | "premise: B is derived from A" (`DerivedBuilds` + 0) |
+| (a) `CellsAtTheBorderAndInALineStillMatchAWholeBuild` | "(i) no whole build" |
+| (a) `TheOldPictureIsNotKeptBesideTheNewOne` | "premise: two holders of one picture" (an equal map object is another entry) |
+| (a) `OnlyOnePictureWaitsUnheld` | "A is parked" (`HasSpare` false) |
+| (a) `ADeriveAllocatesLittleManagedMemory` | "one derive grows the managed heap by 7000064 bytes" (expected under 1,048,576) |
+
+Green on the stub and after (standing guards): `TheFirstPictureIsAWholeBuild`, `AThemeChangeStillBuildsWhole`, `AnotherMapBuildsWhole`, `APictureOfAnotherThemeIsDestroyedAtItsLastRelease`, `AThemeChangeLeavesNothingParked`.
+
+Existing classes run on the stub in the same Unity run and all green, unedited: `MapScreenEditModeTests`, `MapPaintEditModeTests`, `MapCoverEditModeTests`, `TabMapFlowEditModeTests`, `TacticalMapEditModeTests` (84 tests in the run: 73 passed, the 11 above failed). The other classes of the list above were not run by the oracle author: the implementer runs them after the implementation.
+
+## Notes from the oracle author
+
+- **Scratch run (every line can run).** One run per new class with a catch-and-collect `Assert` shadow in a scratch namespace (a copy of the file, deleted, not committed): every line of every test ran on the stub; the collected failures were all assertions about the missing behaviour (the lists above), no other exception, none from the set-up or the deliveries. Lines that can only be tried once the derive exists (the texel-for-texel comparisons `Differs`, which compare the picture with a whole build of the same map under another `Skin()`) already ran and pass on the stub, where every picture is a whole build: they are standing equalities, and they bite as soon as a derive writes a wrong texel.
+- **Heap meter (test 9, `ADeriveAllocatesLittleManagedMemory`) is in.** `UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong()` checks out on its control: a kept `new byte[4 * 1024 * 1024]` reads 4,198,400 to 4,210,688 bytes in three rounds (and `GC.GetTotalMemory(false)` reads the same). The test repeats the control on every run (at least 3 MB) after a `GC.Collect()`, then asserts that one derive of a 160 x 160 map (6 texels a tile) grows the managed heap by under 1,048,576 bytes. **The whole build's reading:** 7,000,064 bytes in the stub's run (a probe of three whole builds read 26.6, 21.3 and 7.0 MB: the first two include heap growth; the steady figure is 7.0 MB, the 6.96 MB of the arithmetic above). So the reviewer's by-reading check is "no managed array of the picture's size" in addition.
+- **Native calls, settled in a probe run (6000.0.85f2, deleted).** On a new readable `RGBA32` texture with mips: `GetPixelData<Color32>(0)` is a writable view (a write is seen after `Apply`); `GetPixelData<Color32>(0).CopyFrom(other.GetPixelData<Color32>(0))` copies mip 0; `Apply(true, false)` rebuilds the mips (mip 1 read the copied colour) and the texture stays readable (`isReadable` true, 7 mips for 64 x 64).
+- **Spec split into more tests than numbered.** Spec test 3 is two tests here (`AnEqualMapObjectReusesThePicture` and `APictureHeldTwiceIsParkedAtTheSecondRelease`). Test 5 and 7 acquire under the fixture's Current theme (they need parking); tests 4, 6, 9 and the guards use a fresh `Skin()`.
+- **Two kin at once.** In test 6 the line picture is released before the corner is derived, so exactly one kin (A) is alive for each count; with both alive the derive's kin would be the implementer's choice and the count would depend on it.
+- **Counters are cumulative across the whole run** (static, never reset): every test reads them as a difference.
+- **No `oracle-amend:`.** No existing expectation changes.
+- **Test file shape.** `RasterFixtures` (internal static class) holds the maps and the picture comparison; it shares the file with the two fixtures.
+
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
