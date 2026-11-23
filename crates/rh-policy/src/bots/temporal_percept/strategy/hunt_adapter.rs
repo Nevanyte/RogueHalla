@@ -292,7 +292,7 @@ fn mob_max_hp(
     )
 }
 
-/// `mob_max_hp` against an explicit elite table. P-BAL-ELITE-BOTS-1 STUB: reads the global pair for every kind.
+/// `mob_max_hp` against an explicit elite table.
 fn mob_max_hp_under(
     zone: Option<FactionId>,
     elite: bool,
@@ -311,7 +311,11 @@ fn mob_max_hp_under(
         + rh_sim::content::faction(zone).hp
             * k
             * MOB_HP_MULT
-            * if elite { elites.hp_mult } else { 1. };
+            * if elite {
+                typed.map_or(elites.hp_mult, |t| elites.hp_mult_of(t.id))
+            } else {
+                1.
+            };
     let typed_mult = typed.map_or(1., |t| t.role_def().hp_mult);
     base * typed_mult
 }

@@ -187,17 +187,21 @@ fn mob_faction(region: FactionId, elite: bool, rule: rh_sim::EliteRule) -> DuelS
     )
 }
 /// `mob_faction` against an explicit elite table and, for an elite, its kind (`None` = kind unknown: the global pair).
-/// P-BAL-ELITE-BOTS-1 STUB: reads the global pair for every kind.
 fn mob_faction_under(
     region: FactionId,
     elite: bool,
-    _ty: Option<rh_sim::mob_catalog::MobTypeId>,
+    ty: Option<rh_sim::mob_catalog::MobTypeId>,
     elites: &rh_sim::mob_runtime::EliteTuning,
 ) -> DuelSpec {
     let k = if elite { elites.k } else { MOB_K };
     let base = scaled(&player_spec(region), k);
-    let hp_mult = MOB_HP_MULT * if elite { elites.hp_mult } else { 1. };
-    let d = MOB_DMG_MULT * if elite { elites.dmg_mult } else { 1. };
+    let (elite_hp, elite_dmg) = match (elite, ty) {
+        (false, _) => (1., 1.),
+        (true, Some(ty)) => (elites.hp_mult_of(ty), elites.dmg_mult_of(ty)),
+        (true, None) => (elites.hp_mult, elites.dmg_mult),
+    };
+    let hp_mult = MOB_HP_MULT * elite_hp;
+    let d = MOB_DMG_MULT * elite_dmg;
     let mut out = scaled(&base, d);
     out.hp = base.hp * hp_mult;
     // The mob owner's hand scaling on top (shared/mobs.ts mobFaction tail): an execute scales by k again, and the mark's
@@ -453,8 +457,23 @@ pub fn matchup_share_under(
     elite: bool,
     rule: rh_sim::EliteRule,
 ) -> f64 {
+    matchup_share_of_kind(me, region, elite, None, rule)
+}
+/// `matchup_share_under` against an elite of a known kind (`None` = unknown: the global pair; P-BAL-ELITE-BOTS-1).
+pub fn matchup_share_of_kind(
+    me: FactionId,
+    region: FactionId,
+    elite: bool,
+    ty: Option<rh_sim::mob_catalog::MobTypeId>,
+    rule: rh_sim::EliteRule,
+) -> f64 {
     let a = player_spec(me);
-    let b = mob_faction(region, elite, rule);
+    let b = mob_faction_under(
+        region,
+        elite,
+        ty,
+        rh_sim::mob_runtime::EliteTuning::of(rule),
+    );
     let d = duel(&a, &b, 0.01, 120.);
     if d.winner == Some(0) {
         d.hp_a / a.hp
