@@ -44,7 +44,11 @@ namespace Roguehalla.Client
         public QuestAcceptLatch AcceptLatch { get { return _acceptLatch; } }
         /// <summary>Null in play; a test sets it to drive the frame's offer tick.</summary>
         public static float? OfferFrameDeltaOverride;
-        public void TickOffer(float dt) { if (_offerCard != null) _offerCard.Tick(dt); }
+        public void TickOffer(float dt)
+        {
+            _acceptLatch.Tick(dt);
+            if (_offerCard != null) _offerCard.Tick(dt);
+        }
         public bool OfferOpen { get { return _offerCard != null && _offerCard.IsOpen; } }
 
         /// <summary>The HUD's answer to F when there is nothing to pick up: closes an open offer card, else opens the offer in reach.</summary>
@@ -215,10 +219,11 @@ namespace Roguehalla.Client
         bool AcceptOffer()
         {
             var card = _offerCard; var session = _session;
-            if (card == null || !card.IsOpen || card.Accepting || !card.Shown.HasValue || session == null || !ReferenceEquals(session, _offerSession)) return false;
+            if (card == null || !card.IsOpen || !card.Shown.HasValue || session == null || !ReferenceEquals(session, _offerSession)) return false;
             if (session.State != SessionState.InMatch || session.LastResult != null || session.Phase != MatchPhase.Active || session.TimelineEpoch != _offerEpoch) return false;
             var row = QuestOffer.Find(session.Collections.Quests, card.Shown.Value);
             if (row == null || !row.CanAccept) return false;
+            if (!_acceptLatch.TryBegin(card.Shown.Value, QuestAcceptLatch.SignatureOf(row))) return false;
             session.Input.QuestAccept(card.Shown.Value);
             card.MarkAccepting();
             return true;
@@ -232,7 +237,7 @@ namespace Roguehalla.Client
             if (_offerTickFrame != Time.frameCount)
             {
                 _offerTickFrame = Time.frameCount;
-                card.Tick(Mathf.Min(Time.unscaledDeltaTime, .1f));
+                TickOffer(OfferFrameDeltaOverride ?? Mathf.Min(Time.unscaledDeltaTime, .1f));
             }
             var session = _session;
             bool gates = worldAvailable && OfferGatesHold(session);
@@ -500,6 +505,7 @@ namespace Roguehalla.Client
         {
             CloseQuestRewardModal();
             CloseOffer();
+            _acceptLatch.Clear();
             _offerSession = null; _promptOffer = null; _offerPrompt = _offerPromptLive = false;
             _questRewardHud?.gameObject.SetActive(false);
             _questTilesFresh = true;

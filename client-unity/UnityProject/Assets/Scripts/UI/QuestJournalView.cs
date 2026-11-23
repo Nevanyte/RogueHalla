@@ -38,7 +38,7 @@ namespace Roguehalla.Client
         QuestRowView _participantCacheRow;
         string _participantCacheText;
         QuestHandle? _selected;
-        QuestHandle? _tracked, _acceptPendingFor;
+        QuestHandle? _tracked;
         uint _boundEpoch, _acceptBoundEpoch;
         Session _acceptBoundSession;
         QuestView _acceptBoundView;
@@ -211,7 +211,7 @@ namespace Roguehalla.Client
         {
             if (ReferenceEquals(_session, session)) { Refresh(); return; }
             _session = session; _boundEpoch = session != null ? session.TimelineEpoch : 0;
-            _selected = null; ClearTracked(); _acceptPendingFor = null;
+            _selected = null; ClearTracked(); _latch.Clear();
             Refresh();
         }
 
@@ -221,27 +221,27 @@ namespace Roguehalla.Client
             if (_session == null || _session.State != SessionState.InMatch)
             {
                 if (_view != null) { _view = null; _selected = null; ClearTracked(); SetRows(0); }
-                _acceptPendingFor = null;
+                _latch.Clear();
                 _state.text = _session == null ? "Quest data is not connected." : _session.State == SessionState.Reconnecting ? "Reconnecting · quest actions paused" : "Quest journal unavailable while disconnected.";
                 RenderSelection(); return;
             }
             if (_boundEpoch != _session.TimelineEpoch)
             {
                 _boundEpoch = _session.TimelineEpoch; _view = null; _selected = null;
-                ClearTracked(); _acceptPendingFor = null; SetRows(0);
+                ClearTracked(); _latch.Clear(); SetRows(0);
             }
             QuestView next = _session.Collections.Quests;
             if (next == null)
             {
                 if (_view != null) { _view = null; _selected = null; ClearTracked(); SetRows(0); }
-                _acceptPendingFor = null;
+                _latch.Clear();
                 _state.text = "Waiting for quest data…"; RenderSelection(); return;
             }
             if (!next.Available)
             {
                 if (!ReferenceEquals(next, _view))
                 {
-                    _view = next; _selected = null; ClearTracked(); _acceptPendingFor = null; SetRows(0);
+                    _view = next; _selected = null; ClearTracked(); _latch.Clear(); SetRows(0);
                 }
                 _state.text = "Quest journal unavailable."; RenderSelection(); return;
             }
@@ -251,7 +251,11 @@ namespace Roguehalla.Client
                 float scrollPosition = _scroll.verticalNormalizedPosition;
                 QuestHandle? selected = _selected;
                 _view = next;
-                _acceptPendingFor = null;
+                for (int i = 0; i < QuestAcceptLatch.Capacity; i++)
+                {
+                    QuestHandle held;
+                    if (_latch.TryGetHeld(i, out held)) _latch.Answer(held, QuestAcceptLatch.SignatureOf(Find(held)));
+                }
                 if (selected.HasValue && Find(selected.Value) == null) selected = null;
                 _selected = selected;
                 if (_tracked.HasValue && Find(_tracked.Value) == null) ClearTracked();
@@ -366,7 +370,7 @@ namespace Roguehalla.Client
             {
                 _participantCacheView = null; _participantCacheRow = null; _participantCacheText = null;
             }
-            bool acceptPending = has && _acceptPendingFor.HasValue && _acceptPendingFor.Value.Equals(q.Handle);
+            bool acceptPending = has && _latch.IsHeld(q.Handle);
             if (has) RenderStatus(q, acceptPending);
             else { _statusRow = null; _status.text = ""; }
             MarkRows();
@@ -548,6 +552,7 @@ namespace Roguehalla.Client
 
         void PressAbandon(Session session, uint epoch, QuestView view, QuestActionView action)
         {
+            if (_latch.PressedRecently(action.Quest)) return;
             if (!(_selected.HasValue && _selected.Value.Equals(action.Quest) && IsCurrentView(session, epoch, view))) return;
             if (!_abandonArmed) { _abandonArmed = true; WriteAbandonLabel(); return; }
             _abandonArmed = false; WriteAbandonLabel();
@@ -597,9 +602,8 @@ namespace Roguehalla.Client
             if (!IsCurrentView(session, epoch, view) || session.LastResult != null) return false;
             QuestRowView current = Find(handle);
             if (current == null || !current.CanAccept) return false;
-            if (_acceptPendingFor.HasValue && _acceptPendingFor.Value.Equals(handle)) return false;
+            if (!_latch.TryBegin(handle, QuestAcceptLatch.SignatureOf(current))) return false;
             session.Input.QuestAccept(handle);
-            _acceptPendingFor = handle;
             RenderSelection();
             return true;
         }

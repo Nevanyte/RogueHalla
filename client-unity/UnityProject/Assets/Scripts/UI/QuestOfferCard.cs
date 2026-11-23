@@ -11,7 +11,7 @@ namespace Roguehalla.Client
     /// it sends nothing itself.</summary>
     public sealed class QuestOfferCard
     {
-        public const float AcceptSeconds = 2.5f, GraceSeconds = .5f;
+        public const float GraceSeconds = .5f;
         const float Pad = 12f, Gap = 4f, FooterHeight = 28f, InnerWidth = HudRegions.OfferWidth - Pad * 2f;
         const string AcceptCaption = "ACCEPT · Enter", AcceptingCaption = "ACCEPTING…";
 
@@ -29,7 +29,7 @@ namespace Roguehalla.Client
 
         bool _open, _reachOk = true, _laidOut, _dirty;
         QuestHandle? _shown;
-        float _acceptLeft, _lost, _wanted, _scale = float.NaN;
+        float _lost, _wanted, _scale = float.NaN;
         string _giverText, _nameText, _objectiveText, _rewardSource, _rewardText, _endsText, _moreText;
         int _endsSeconds = -2, _moreReach = -1;
         string _caption;
@@ -74,13 +74,13 @@ namespace Roguehalla.Client
         public QuestHandle? Shown { get { return _shown; } }
         /// <summary>The height its text needs.</summary>
         public float WantedHeight { get { return _wanted; } }
-        public bool Accepting { get { return _acceptLeft > 0f; } }
+        public bool Accepting { get { return _open && _shown.HasValue && _latch.IsHeld(_shown.Value); } }
         public bool Lapsed { get { return !_reachOk && _lost >= GraceSeconds; } }
 
         public void Open(QuestRowView offer, int inReach, double serverMs)
         {
             if (offer == null) return;
-            _open = true; _shown = offer.Handle; _acceptLeft = 0f; _reachOk = true; _lost = 0f;
+            _open = true; _shown = offer.Handle; _reachOk = true; _lost = 0f;
             _fade.Set(true);
             Refresh(offer, inReach, serverMs);
         }
@@ -131,7 +131,7 @@ namespace Roguehalla.Client
 
         public void Close()
         {
-            _open = false; _acceptLeft = 0f; _shown = null;
+            _open = false; _shown = null;
             _fade.Set(false);
             UpdateAccept();
         }
@@ -149,20 +149,15 @@ namespace Roguehalla.Client
 
         public void MarkAccepting()
         {
-            _acceptLeft = AcceptSeconds;
             UpdateAccept();
         }
 
-        /// <summary>The fade, the accepting timer and the grace: its only clock.</summary>
+        /// <summary>The fade and the grace; the accept hold is aged by the shared latch.</summary>
         public void Tick(float dt)
         {
-            if (_acceptLeft > 0f)
-            {
-                _acceptLeft -= dt;
-                if (_acceptLeft <= 0f) { _acceptLeft = 0f; UpdateAccept(); }
-            }
             if (!_reachOk) _lost += dt;
             _fade.Tick(dt);
+            UpdateAccept();
         }
 
         // ---------------------------------------------------------------- internals
