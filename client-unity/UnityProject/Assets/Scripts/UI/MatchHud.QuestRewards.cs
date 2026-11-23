@@ -167,19 +167,10 @@ namespace Roguehalla.Client
             UpdatePromptLane();
         }
 
-        int _nearbyCaptionCount = -1;
         string _nearbyCaption = "";
 
-        /// <summary>"Nearby quest actions · n", rebuilt only when the count changes.</summary>
-        string NearbyActionsCaption()
-        {
-            if (_nearbyCaptionCount != _nearbyQuestCount)
-            {
-                _nearbyCaptionCount = _nearbyQuestCount;
-                _nearbyCaption = "Nearby quest actions \u00b7 " + _nearbyQuestCount;
-            }
-            return _nearbyCaption;
-        }
+        /// <summary>The launcher caption for the nearby actions, built when they are bound.</summary>
+        string NearbyActionsCaption() => _nearbyCaption;
 
         /// <summary>"F · Talk to giver", or "Talk to giver" beside the pickup pill; rebuilt only when the giver or the pair changes.</summary>
         string OfferCaption()
@@ -338,6 +329,7 @@ namespace Roguehalla.Client
         void BindQuestRewardActions(Session session, uint epoch, QuestView view)
         {
             int nearby = 0;
+            string firstText = null;
             foreach (var button in _questChoiceButtons)
             {
                 button.onClick.RemoveAllListeners();
@@ -374,8 +366,9 @@ namespace Roguehalla.Client
                     if (action.Action == QuestPresentation.Abandon) continue;
                     var nearbyButton = QuestJournalView.ActionButton(_nearbyQuestButtons, _nearbyQuestList, nearby++);
                     var quest = QuestPresentation.FindRow(view, action.Quest);
-                    Set(nearbyButton.GetComponentInChildren<TMP_Text>(true),
-                        action.Action == QuestPresentation.PickupReward || quest == null ? action.Label : quest.Name + " · " + action.Label);
+                    string text = QuestPresentation.ActionText(view, action);
+                    if (nearby == 1) firstText = string.IsNullOrEmpty(action.Label) ? null : text;
+                    Set(nearbyButton.GetComponentInChildren<TMP_Text>(true), text);
                     nearbyButton.onClick.RemoveAllListeners();
                     nearbyButton.onClick.AddListener(() =>
                     {
@@ -392,6 +385,7 @@ namespace Roguehalla.Client
                 _nearbyQuestButtons[i].gameObject.SetActive(false);
             }
             _nearbyQuestCount = nearby;
+            _nearbyCaption = nearby == 0 ? "" : nearby == 1 ? firstText ?? "Nearby quest actions \u00b7 1" : "Nearby quest actions \u00b7 " + nearby;
         }
 
         void SubmitQuestRewardChoice(Session session, uint epoch, QuestView view, QuestHandle quest, byte action, byte target)
@@ -513,6 +507,9 @@ namespace Roguehalla.Client
             _questRewardSession = null;
             _questRewardView = null;
             _questChoice = _questChoiceDeferred = _questChoiceSent = null;
+            _nearbyQuestCount = 0;
+            _nearbyCaption = "";
+            Set(_questActionCaption, "");
         }
     }
 
@@ -535,6 +532,14 @@ namespace Roguehalla.Client
         };
 
         public static string RewardName(byte reward) => reward < Rewards.Length ? Rewards[reward] : "Quest spell";
+
+        /// <summary>Window and launcher text of a nearby action: its label, then the quest name when there is one.</summary>
+        internal static string ActionText(QuestView view, QuestActionView action)
+        {
+            string label = action.Label ?? "";
+            var row = FindRow(view, action.Quest);
+            return action.Action == PickupReward || row == null || string.IsNullOrEmpty(row.Name) ? label : label + " \u00b7 " + row.Name;
+        }
 
         public static QuestRowView FindRow(QuestView view, QuestHandle handle)
         {
