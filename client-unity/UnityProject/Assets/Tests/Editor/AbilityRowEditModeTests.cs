@@ -271,7 +271,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(alone.Left, Is.EqualTo(alone.Right).Within(Eps), "the launcher is centred");
             AssertRect(Measure(stage, box), HudRegions.Prompt().On(w, h), "box alone");
 
-            Snap(11, 150); Items(11, NearbyAction(), PickupInReach(true)); Frame();
+            Snap(11, 150); Items(11, PickupInReach(true), NearbyAction());   // state items go in ascending key order: Props (2) before Quests (10) Frame();
             Assert.That(pill.gameObject.activeInHierarchy, Is.True, "set-up: a pickup in reach shows the pill");
             Assert.That(launcher.gameObject.activeInHierarchy, Is.True, "the pickup does not hide the launcher");
             var left = HudRegions.PromptPair(0).On(w, h); var right = HudRegions.PromptPair(1).On(w, h);
@@ -281,7 +281,7 @@ namespace Roguehalla.Client.Tests
             var pillRect = Measure(stage, pill); var boxRect = Measure(stage, box);
             Assert.That(pillRect.Left + pillRect.Width, Is.LessThanOrEqualTo(boxRect.Left + Eps), "they do not overlap");
 
-            Snap(12, 200); Items(12, NearbyAction(), PickupInReach(false)); Frame();
+            Snap(12, 200); Items(12, PickupInReach(false), NearbyAction()); Frame();
             Assert.That(pill.gameObject.activeInHierarchy, Is.False, "set-up: the pickup is gone");
             Assert.That(launcher.gameObject.activeInHierarchy, Is.True);
             AssertRect(Measure(stage, box), HudRegions.Prompt().On(w, h), "box centred again");

@@ -402,3 +402,14 @@ into this branch) removed that requirement, and section 7 above was rewritten: t
 `Rect2` are removed, not kept as aliases. Where any earlier sentence of this packet still says they stay or become
 aliases, this addendum and section 7 govern. No test of the oracle reads those names.
 
+### Second addendum (lane lead, 2026-11-23, after the first implementer pass)
+
+- **Oracle correction.** `AbilityRowEditModeTests.APickupAndAQuestActionShareThePromptLane` delivered its two
+  state items in the wrong order (Quests, key 10, before Props, key 2); the encoder requires ascending keys, so the
+  test threw in its own delivery before any HUD code ran. The two calls now pass Props first. Nothing else in the
+  oracle changed. The later steps of that test have therefore never run against an implementation: if one of them
+  is wrong about the code, report the failing line; do not edit the test.
+- **A wedge that is off** is read by the tests as `Image.enabled` false or the object inactive (the Wish tile's
+  pattern), not as `fillAmount` 0 on an enabled image.
+- Section 5's "any bar constant still declared there" for `MatchHud.Legacy.cs` means: none stays.
+
