@@ -85,16 +85,22 @@ namespace Roguehalla.Client.Tests
                     bool answer = AllocationMeter.Allocates(action, 10);
                     TestDelegate loop = () => { for (int i = 0; i < 10; i++) action(); };
                     loop();
-                    var result = new UnityEngine.TestTools.Constraints.AllocatingGCMemoryConstraint().ApplyTo(loop);
-                    var writer = new NUnit.Framework.Internal.TextMessageWriter("");
-                    result.WriteMessageTo(writer);
-                    string message = writer.ToString();
-                    var m = Regex.Match(message, @"made (\d+) GC allocation");
-                    int witnessCount = m.Success ? int.Parse(m.Groups[1].Value) : 0;
+                    int witnessCount = int.MaxValue; bool witnessSuccess = true; string message = "";
+                    for (int run = 0; run < 3; run++)
+                    {
+                        var result = new UnityEngine.TestTools.Constraints.AllocatingGCMemoryConstraint().ApplyTo(loop);
+                        var writer = new NUnit.Framework.Internal.TextMessageWriter("");
+                        result.WriteMessageTo(writer);
+                        string text = writer.ToString();
+                        var m = Regex.Match(text, @"made (\d+) GC allocation");
+                        int count = m.Success ? int.Parse(m.Groups[1].Value) : 0;
+                        if (count < witnessCount) { witnessCount = count; message = text; }
+                        witnessSuccess &= result.IsSuccess;
+                    }
 
                     string where = "round " + round + ", " + name + ": ";
-                    Assert.That(samples > 0, Is.EqualTo(result.IsSuccess), where + "the count is above 0 exactly when the constraint succeeds");
-                    Assert.That(answer, Is.EqualTo(result.IsSuccess), where + "Allocates agrees with the constraint");
+                    Assert.That(samples > 0, Is.EqualTo(witnessSuccess), where + "the count is above 0 exactly when the constraint succeeds");
+                    Assert.That(answer, Is.EqualTo(witnessSuccess), where + "Allocates agrees with the constraint");
                     Assert.That(samples, Is.EqualTo(witnessCount), where + "the count equals the constraint's own count (" + message.Trim() + ")");
                     Assert.That(samples > 0, Is.EqualTo(action == AllocationMeter.AllocatingControl), where + "the allocating control counts, the clean one does not");
                 }
@@ -121,7 +127,7 @@ namespace Roguehalla.Client.Tests
             AllocationMeter.SamplesOverride = Overrides(20, 0, 30, 137, a => { if (ReferenceEquals(a, OneObject)) measuredSeen++; });
 
             Assert.DoesNotThrow(() => AllocationMeter.AssertAtMost(OneObject, 250, 137, "the limit probe"), "at the limit it returns");
-            Assert.That(measuredSeen, Is.EqualTo(1), "the override saw the measured action once (at the limit)");
+            Assert.That(measuredSeen, Is.EqualTo(3), "the override saw the measured action once per measurement, three (at the limit)");
 
             measuredSeen = 0;
             var ex = Assert.Throws<AssertionException>(() => AllocationMeter.AssertAtMost(OneObject, 250, 136, "the limit probe"), "one above the limit fails");
@@ -129,7 +135,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(ex.Message, Does.Contain("made 137 GC.Alloc samples in 250 calls"));
             Assert.That(ex.Message, Does.Contain("limit of 136"));
             Assert.That(ex.Message, Does.Contain(AllocationMeter.Meter));
-            Assert.That(measuredSeen, Is.EqualTo(1), "the override saw the measured action once (above the limit)");
+            Assert.That(measuredSeen, Is.EqualTo(3), "the override saw the measured action once per measurement, three (above the limit)");
         }
 
         [Test]
