@@ -142,7 +142,12 @@ C-INPUT, C-OBS, C-POLICY; `crates/rh-policy/AGENTS.md`; `docs/agent/READABILITY.
 - `docs/backlog/packets/P-RAID-Q3-fix2.md`
 
 Stub commit: `values.rs` (`bargain_leg_minutes: 0.5`, unread), `quest/mod.rs` (the `mod` line).
-Green on the stub by design (guards): see the `guard_` tests of the file.
+Green on the stub by design (6 guards, all named `guard_...`): the offered answer costs `answer_minutes`; the offered pick-up is
+not banned; the walker proposes with no drop; the walker stays held by an offered or a distant drop; an accepted Bargain has no
+leg; the table row is a switch, not a cap. The other 10 tests are red on an assertion (measured: a letters choice 689 u away
+has minutes 0.01; `hold_the_fort` 0.636 min of walk unpriced; the arbiter keeps `QuestDecide` over the Sustain leave; the pick-up
+stand is never given up; stale clocks give up at the first tick back; a leg of 2 minutes moves nothing; `values.rs` has no
+"switch"; `decide.rs` has `+ 0.5`).
 
 ## 11. Risk and suggested model tier
 
