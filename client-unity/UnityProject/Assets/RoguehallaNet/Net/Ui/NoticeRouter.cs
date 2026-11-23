@@ -2,6 +2,7 @@ using Roguehalla.Net.Protocol;
 
 namespace Roguehalla.Net.Ui
 {
+    /// <summary>The toast lane a notice goes to; None shows no toast.</summary>
     public enum NoticeLane : byte { None = 0, Event = 1, Feedback = 2 }
 
     public enum NoticeTone : byte { Info = 0, Good = 1, Warn = 2, Bad = 3 }
