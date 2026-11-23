@@ -121,6 +121,17 @@ namespace Roguehalla.Net.Ui
             return new HudRegion(HudRegionAnchor.BottomCenter, x, PromptBottom, PromptPairWidth, PromptHeight);
         }
 
+        public const float PromptPairHalfGap = 4f, PairScaleMin = .6f;
+
+        /// <summary>The row scale for the lane: NaN and infinities give 1, else clamped to PairScaleMin..1.</summary>
+        public static float PairScale(float rowScale) => rowScale;
+
+        /// <summary>The pair at row scale `scale`: the stage rectangle of element index (0 pill, else launcher).</summary>
+        public static HudRegion PromptPair(int index, float scale) => default(HudRegion);
+
+        /// <summary>The lone prompt at row scale `scale`: the stage rectangle of the launcher or the pill alone.</summary>
+        public static HudRegion PromptLone(float scale) => default(HudRegion);
+
         /// <summary>min(wanted, stageWidth - 2 * Margin).</summary>
         public static float LaneWidth(float stageWidth, float wanted = LaneMaxWidth)
         {
