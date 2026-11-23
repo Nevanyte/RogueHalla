@@ -4,6 +4,94 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Paused (2026-11-22, evening): the balance programme and its three lanes, after integration 83
+
+**Owner direction 2026-11-22 (chat):** "please pause and save all development". Every agent, bench and gate run of
+this programme is stopped, every piece of work is committed on its own branch, and nothing new starts until he says
+so. The section below this one is the programme's record up to the pause; this one says where each piece is and the
+exact step that resumes it.
+
+- **Merged and gated:** the integration branch `feature/unity-rework` holds integrations 82 and 83 (head of the code
+  `84d666014`, full gate PASS, reviewer-opus LAND; records on top). It is 88 commits ahead of
+  `origin/feature/unity-rework` (`d0712ab82`). **Nothing is pushed; `main` is untouched; nothing deployed.**
+- **Reviewed, not merged** (integration 84 was not run):
+  - P-RAID-Q1, the quest walker (`agent/sonnet/P-RAID-Q1` @ `716865e27`, reviewer LAND) and P-RAID-V, the value table
+    (`agent/haiku/P-RAID-V` @ `7b4d96056`, reviewer LAND). Both are merged in the preview branch `coord/int-84` @
+    `52ec36ccd` (integration 83 plus these two). The preview has no full gate and no merge review; it exists so the
+    packets after it have a base.
+  - P-DB-INDEX-1, migration 0003 (backend-efficiency lane; `agent/opus/P-DB-INDEX-1` @ `7bcd4fb7a`, its
+    reviewer-opus LAND, quick gate PASS). A new migration: the owner was asked to confirm the merge and has not
+    answered. When it merges, run `cargo clean -p rh-persist` in the gate worktree first (its `build.rs` is new).
+- **Stopped mid-work, each saved on its branch** (worktrees clean; no result below is a gate result unless it says so):
+
+  | Packet | Branch @ head | State at the pause | First step on resume |
+  |---|---|---|---|
+  | P-RAID-C (sustain) | `agent/sonnet/P-RAID-C` @ `1daf49e82`, three commits on `packet/P-RAID-C` @ `a4cf4efd0` | The implementer reached its turn limit and sent **no report**: gate, oracle and lab results are unknown. | `scripts/gate.sh --quick --base coord/int-84 --oracle packet/P-RAID-C`; read its three commits; then reviewer-opus. |
+  | P-RAID-Q2 (dwell quests) | `agent/sonnet/P-RAID-Q2` @ `8946d6b08` (a `wip:` commit) | `c9e30015e` passed the quick gate with the oracle and was reviewed LAND WITH NOTES (two notes). The notes are written in the wip commit; its seven own tests (`quest/dwell_tests.rs`) passed alone; the gate was not run on it. | `scripts/gate.sh --quick --base coord/int-84 --oracle packet/P-RAID-Q2` and `cargo test -p rh-policy`; reword the wip subject; the reviewer reads the two notes' fixes. |
+  | P-BAL-PROBE-1 (sim probes, reward grant) | `agent/opus/P-BAL-PROBE-1` @ `a59693b7b` on `packet/P-BAL-PROBE-1` @ `f40386c17` | Code complete, its focused tests green; the quick gate was stopped by the pause in the `rh-sim` suite, so no gate result stands for this head. | `scripts/gate.sh --quick --base agent/opus/P-BAL-Q25-SEAM-1 --oracle packet/P-BAL-PROBE-1`; then reviewer-opus. |
+  | P-RAID-Q3 (slot choice, pick-up, The Bargain) | `packet/P-RAID-Q3` @ `7559c78eb` (brief and failing oracle) | No implementer started. The coordinator approved three things its oracle author asked for: an `rh-policy` dev-dependency on `rh-sim`'s `trusted-build-setup` feature; the `drop_near` condition in `walker.rs`; `Act::QuestPickup` in `acts.rs` and `refs.rs`. | Rebase onto the landed P-RAID-Q2, `--oracle-check`, then `implementer-sonnet`; reviewer-opus reviews (bot priority). |
+  | P-RAID-Q3b (Two Banners, Trade Up) | brief only, `docs/backlog/packets/P-RAID-Q3b.md` on `packet/P-RAID-Q3` | No oracle. | `oracle-author` after P-RAID-Q3. |
+
+- **The per-elite sweep is stopped with no number chosen.** `REWORK_ELITES.per_kind` is empty on every branch.
+  Method, three grids and the finding: `docs/evidence/balance-patch-2026-11/elite-sweep/README.md`.
+  - **The finding:** the overall death rate hides a split by weapon. Over nine seeds today, melee dies 7.5% of the
+    time against elites, bow 43.8%, wand 20.4%. Three tables that put every elite's overall rate in the 10-20% band do
+    it by killing bow more (Blood Saint: melee 1.7%, bow 79%), so none of them is the patch.
+  - **Coordinator's recommendation, not applied:** tune each elite on the melee reference and settle bow separately,
+    after the bench's ranged fighter is given a kite (it stands and shoots, which the bench's own caveat names). The
+    owner's 2026-11-19 target is on the overall rate, so the change of measure is his to confirm.
+- **The three lanes are paused** (each lane session's own report, 2026-11-22; not re-verified by the coordinator):
+  - **Client input:** all six of its branches are already merged (integrations 82 and 83). Its playtest in a Web
+    build found the arrival clock's WebGL path working (queue ages 4 to 6 ms at the median), no stop while steering at
+    170 and 221 u/s and with 120 ms added round trip, and a 30 s kite at 13.5 orders a second with none dropped. Not
+    tried: 255 u/s, real jitter, Firefox and Safari. Its playtest server is left up at `http://127.0.0.1:8081/` for
+    the owner's look at the cues; the launch entry that serves it is uncommitted in the lane's worktree.
+  - **Backend efficiency:** only P-DB-INDEX-1 above is unmerged; its test database is stopped.
+  - **Staging security:** three hand-overs wait, none merged. The coordinator checked the heads, that each hand-off
+    file is on its branch, and what the two protected commits touch; the gates and verdicts are the lane's.
+    - `agent/opus/P-SEC-DEVAUTH-EXPOSURE-1-fix` @ `9cfab3549` (holds `agent/opus/P-SEC-DEVAUTH-EXPOSURE-1` @
+      `10b94fa8d`). Quick gate PASS on both, Postgres skipped; reviewer-opus LAND WITH NOTES (a non-ASCII byte let
+      the forwarded-header scan fail open), closed by the `-fix` packet, reviewed LAND. `10b94fa8d` regenerates
+      `protocol/fixtures/v24.json` by its documented command (three Hello `debug` strings, every hex unchanged), so
+      its merge gate needs `--regen-fixtures`, and it touches `crates/rh-protocol`: it merges alone. Hand-off
+      `docs/coordination/HANDOFF_P-SEC-DEVAUTH-EXPOSURE-1_2026-11-22.md`.
+    - `agent/sonnet/P-HOST-STAGING-PROXY-1` @ `ff474f2c1`. Quick gate PASS with `--allow-protected`; reviewer LAND.
+      Protected commit `819d72625` (three files under `hosting/staging-mvp/`). Hand-off
+      `docs/coordination/HANDOFF_P-HOST-STAGING-PROXY-1_2026-11-22.md`.
+    - `agent/sonnet/P-CI-ADVISORIES-1` @ `b068e94a3`. Quick gate PASS with `--allow-protected`; reviewer LAND.
+      Protected commit `003063da9` (a new `.github/workflows/supply-chain.yml`, `hosting/Dockerfile`,
+      `hosting/README.md`). Hand-off `docs/coordination/HANDOFF_P-CI-ADVISORIES-1_2026-11-22.md`.
+    - The lane reports that the owner approved both protected commits in its chat as commits on a local branch. That
+      is not the merge: each merges only after his confirmation in the coordinator's chat.
+    - The coordinator's `Cargo.lock` change the lane asks for: `cargo update -p url --precise 2.5.9` (`url` 2.5.8 to
+      2.5.9, `form_urlencoded` 1.2.2 to 1.2.3; RUSTSEC-2026-0592, reached only through sqlx). It lands before or with
+      P-CI-ADVISORIES-1, or the new workflow's first run is red. Not applied during the pause.
+    - Merge order when work resumes: the lock bump; the security packet alone; the `hosting/` and `.github/` packets
+      after the owner's confirmation; then the full gate on the merged tree.
+  - **glbridge token** (`packet/P-HOST-GLBRIDGE-TOKEN-1` @ `ab638fcae`, a session started from the security lane):
+    stopped on a question to the owner in its own chat.
+- **Waiting on the owner** (nothing here is acted on without him):
+  1. The word to resume, and whether integration 84 takes the index migration.
+  2. Confirmation in the coordinator's chat before the `hosting/` and `.github/` commits merge; whether the staging
+     host should serve dev auth at all (ADR 0020).
+  3. The elite measure: overall rate (his 2026-11-19 target) or the melee reference, with bow as its own problem.
+  4. DEV-061 (keyboard steering pacing), unsigned in `docs/coordination/DEVIATIONS_PROPOSED_2026-11-22.md`.
+  5. A look at the input cues: whether the pulse on the Wish, potion, swap and pickup controls is visible enough,
+     and whether a refused cast (R on cooldown) reading as a short cast pose is acceptable.
+  6. The oracle amendments, each its own commit and none loosening an expectation: the three listed under
+     integration 83 below, and on unmerged branches the walker-only price table in
+     `crates/rh-policy/tests/raid_quests.rs` (`7df698d36`), the dwell oracle's per-quest price table (`f722f1ff5`)
+     and the `falcon_cap` range `1..=1` in `tuning_tests.rs` (P-BAL-PROBE-1).
+  7. The `scripts/gate.sh --oracle-check` gap and the `[profile.dist]` option, both under "Found, for the owner" below.
+- **Left in place, nothing running:** the agent worktrees of the four packets above (`.claude/worktrees/agent-*`,
+  their claims marked done, not removed); the coordinator's two scratch worktrees (`coord/int-83` for gates, and the
+  sweep's detached copy with its source restored); the full sweep reports in the git-ignored
+  `.agent-runs/elite-sweep/`. No branch was deleted. The main checkout's local `.claude/settings.json`,
+  `.claude/launch.json` and `.deploy-beta/` are the owner's and are not committed.
+- **Order when work resumes:** gate and review the three stopped packets; integration 84 (`coord/int-84` plus
+  whatever is reviewed, the records commit merged in, full gate, reviewer-opus); then P-RAID-Q3, the lab fix
+  (P-BAL-LAB-1-fix on the probe), and the rest of the plan of record in its wave order.
+
 ## Balance patch and test bot (2026-11-22)
 
 **Owner direction 2026-11-22 (chat):** "As Fable you have the horsepower to make drastic improvements. I want you to do
@@ -89,9 +177,63 @@ reduction on server side or front end."
     old, which an agent reading between builds can meet. Not touched.
   - `[profile.dist]` for the shipped binary only (the measured LTO gain without the build cost elsewhere) is an
     owner option under `hosting/`; not built.
-- **In flight after integration 82:** P-BAL-Q25-SEAM-1, P-BAL-ELITE-SEAM-1 and P-RAID-0-fix (three Opus implementers);
-  P-RAID-Q1's oracle is ready and waits for P-RAID-0-fix. Handed over for integration 83: P-DB-POOL-1,
-  P-UI-INPUT-CUES-1.
+- **Integration 83** (`coord/int-83` @ `84d666014`, six `--no-ff` merges onto `c92d606e9`; the integration branch
+  fast-forwarded to it):
+  - **What it holds:**
+    - P-BAL-Q25-SEAM-1 (`implementer-opus`; reviewer-opus LAND WITH NOTES): all 91 Top 25 quest numbers in `TOP25`
+      (`crates/rh-sim/src/quests/board/tuning.rs`). No number moved; content hash `8a4bf0ce37b406f2` unchanged. The
+      reviewer read all 91 rows against the diff. Its two notes (one read of `QUEST_TURN_IN_RANGE` left in
+      `at_turn_in`; `falcon_cap` is only a restore bound) are in P-BAL-PROBE-1's brief.
+    - P-BAL-ELITE-SEAM-1 (`implementer-opus`; reviewer-opus LAND): `EliteTuning::hp_mult_of` / `dmg_mult_of` and an
+      empty per-kind table. Bit-identical with the empty table; the four elite readers and both restore checks go
+      through it. The number packet adds the content-hash visitor (`"elite-kinds/1"`) with the rows.
+    - P-RAID-0-fix (`implementer-opus`, two rounds; reviewer-opus LAND): a `Sustain` goal may pre-empt a committed
+      fight; the death model, `reward_value` and `augment_value` live in `Prices` (`values.rs`); `Executor::urgent`;
+      mob tracking by the held lock. The first round's camp restriction (the coordinator's own addition) dropped a
+      fought member whose position label changed mid-chase; fixed on the branch before landing. Play unchanged: the
+      eight oracle seeds' clear ticks and final state hashes are identical.
+    - P-RAID-H1 (`implementer-sonnet`; reviewer LAND): `BotKind::Raid`, `run_bot_match_seated` (human seats), the lab's
+      `raid` seat policy.
+    - P-DB-POOL-1 (backend-efficiency lane; its reviewer-opus LAND): `rh-server --db-pool N`; admission's credential
+      check bounded at 5 s with the existing RateLimited refusal.
+    - P-UI-INPUT-CUES-1 (client-input lane; reviewer LAND): presentation-only cues when a cast, potion, swap or
+      pickup leaves the client.
+  - **Full gate** with pgtest on `84d666014`, clean detached worktree: **GATE PASS (full)**, EditMode 2000/2000; it is
+    the first run of `raid_seats` against the fixed bot. Log
+    `.agent-runs/gate/20261122T151234-coord-int-83-clean-full.log`.
+  - **reviewer-opus on the merge: LAND**, no notes. Each merge's patch equals its branch's; only
+    `crates/rh-sim/tests/content.rs` is shared by two (both edits present); the two sim seams share no code; a
+    timed-out credential check is refused, cannot complete later and logs no profile or ticket.
+  - **Oracle amendments for the owner in this integration** (each its own commit, none loosens an expectation):
+    `crates/rh-policy/tests/raid_bot.rs` (the farm scene's bot is built with `Prices::farm_only()`); one
+    `NON_GAMEPLAY` row in `crates/rh-sim/tests/content.rs` (the test-only elite stand-in); one line in
+    `crates/rh-headless/tests/balance_lab.rs` (the refused example policy `raid` became `nope`).
+  - **Not established by this gate:** how the input cues look in a real build (a refused cast still plays a short Cast
+    clip); the bots' elite estimates still read the global pair (P-BAL-ELITE-BOTS-1 lands before or with the rows).
+  - **Minor, not notes:** `--db-pool` is validated only when a database is configured; `api::log_internal` has one
+    global once-a-second limit; the lab attributes a death to a player from the last hit with no time window (in
+    P-BAL-LAB-1-fix); the lab README lacks the RaidBot command line; `tests/content.rs` lists the egg `RADIUS` row
+    twice (older than this work).
+- **First lab run of `RaidBot`** (8 seeds, eight RaidBots in human seats, full length, before sustain and quests):
+  259 camps cleared (today's fill bots: 24), 40 of 64 players alive at minute 5 (4), about 23 stat stacks a player at
+  minute 5, a cycle of 17 s to kill, 13 s to heal up and 23 s to walk, one elite attempt (a death), no quest accepted.
+  The design workbook assumes 12 camps (144 stacks) banked at minute 5.
+- **What the sustain packet's trace found** (P-RAID-C brief, one seed): every camp clear hands each contributor a
+  large potion and no bot ever drinks one (five of six deaths held two to five); the farm's death model refuses about
+  73% of the map's normal camps (the four- and five-member ones); the deaths the sim credits to a player are friendly
+  fire at a camp another bot is fighting (232 player-on-player hits, 193 by wand) under the 5 s kill credit.
+- **Per-elite sweep (coordinator, `camp_bench --elite`, Duelist at `banked_12`, on the seam):** six seeds a point
+  (180 fights an elite). Death rate now: Avalanche Troll 38%, Glacial Warden 27%, Ash Drake 27%, Gaoler 24%,
+  Wyrmling 23%, Pox Behemoth 12%, Rat Ogre 11%, Archon 7%, Blood Saint 6%, Executioner 1%. Two candidate tables put
+  every elite between 9% and 19% over nine seeds; the numbers are not committed. The two Holy elites barely respond
+  to hp or damage below about 1.9 times damage. **Superseded the same day** by the per-weapon split (the "Paused"
+  section above; `docs/evidence/balance-patch-2026-11/elite-sweep/README.md`): those tables reach the band by killing
+  bow more, so neither is the patch.
+- **In flight after integration 83:** P-RAID-Q1 (the quest walker: 12 quests accepted and 12 completed over its six
+  oracle seeds) and P-RAID-V (the value table) are reviewed LAND and wait for integration 84; P-RAID-C (sustain),
+  P-RAID-Q2 (dwell: 5 of 5 on both quests in its oracle) and P-BAL-PROBE-1 were stopped by the pause; P-RAID-Q3 (slot
+  choice, drop pickup, The Bargain) has its oracle; P-RAID-Q3b (Two Banners, Trade Up) has its brief. Branch heads
+  and resume steps are in the "Paused" section above.
 - **Decisions the coordinator took (his to reverse):**
   - `RaidBot` is a third policy in new files (`crates/rh-policy/src/bots/raid/`). `HumanBot`, `BrainBot`, the bot
     `Command` enum and every pinned bot capture are untouched.
