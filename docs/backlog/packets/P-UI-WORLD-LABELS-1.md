@@ -285,7 +285,7 @@ itself (called at `SpriteActorPresenter.Overheads.cs:77`) is not touched. The ba
 ## 8. Acceptance checks
 
 - `scripts/gate.sh --quick --oracle packet/P-UI-WORLD-LABELS-1 --base lane/ui-rework/base-3` prints `GATE PASS`.
-- The 20 `LabelClearanceTests` / `QuestNameOnceTests` and the 24 `WorldLabelsEditModeTests` below are green; no oracle
+- The 33 tests of `LabelClearanceTests` / `QuestNameOnceTests` and the 26 of `WorldLabelsEditModeTests` are green; no oracle
   file changed; `bash client-unity/sync-net.sh --check` clean; `View/ArenaView.cs` still 798 lines.
 - Not proven by tests (implementer and reviewer check by reading): the two `ArenaView` lines; a look check at alpha
   .33 shows whether the outlined material fades its outline with the vertex alpha.
@@ -297,6 +297,9 @@ itself (called at `SpriteActorPresenter.Overheads.cs:77`) is not touched. The ba
 - `client-unity/UnityProject/Assets/Tests/Editor/WorldLabelsEditModeTests.cs`
 - `client-unity/UnityProject/Assets/Tests/Editor/WorldLabelsEditModeTests.cs.meta`
 - `docs/backlog/packets/P-UI-WORLD-LABELS-1.md`
+
+Red on the stub: 32 of 33 dotnet tests and 25 of 26 EditMode tests; the two guards are `NeverAnsweredIsNoCluster` and
+`NothingElseMoved` (counts and assertions in "Notes from the oracle author").
 
 (The stub commit holds `LabelClearance.cs`, `QuestNameOnce.cs`, their synced copies and `.meta`,
 `SpriteActorPresenter.LocalCluster.cs` with `.meta`, and the stub members of `WorldMarks`, `WorldIndicators` and
@@ -332,4 +335,61 @@ box fades too, and a focused prop's label is born hidden when the player stands 
 - Do not edit `CardDisplayCatalog.cs` or `BakedContent.cs`. Restore the two StormInk prop assets after a Unity run.
 
 ## Notes from the oracle author
-<!-- filled in below the oracle commit -->
+
+**Tests written (all asserted, none merely compiles).**
+
+- dotnet `client-unity/RoguehallaNet.Tests/LabelClearanceTests.cs` (20 tests) and `QuestNameOnceTests.cs` (11 tests: the spec's
+  list plus `AMovedByAHairIsTheSameCarrier` and `TwoOffersWithinAHairBothCarry`; in `LabelClearanceTests` also
+  `MeetsOnEveryEdgeAndNaNMeetsNothing`, `CentredBuildsTheBox`, `NoClusterReturnsAHiddenLabel` and `AClearCallDropsEveryEntry`).
+  33 tests: 32 red on an assertion on the stub, 1 green by design (`NeverAnsweredIsNoCluster`, the named guard).
+- EditMode `Assets/Tests/Editor/WorldLabelsEditModeTests.cs` (26 tests): 25 red on an assertion on the stub, 1 green by design
+  (`NothingElseMoved`, the guard: it pins offsets, sizes, orders and plate scales as the base writes them). The spec called test 12
+  (`TheQuestItemMarkerAndChestSecondsAreNeverHidden`) a guard; it is red on its set-up line instead (the quest item's TEXT must
+  fade under the cluster, so the never-hidden lines mean something).
+- Existing classes run on the stub and still green: `WorldIndicatorsEditModeTests`, `UiLabFixesEditModeTests`,
+  `OverheadIndicatorsEditModeTests`, `PlayerFlowsEditModeTests`, `TabMapSheetEditModeTests`, `MapOpenWorldEditModeTests`,
+  `WorldMarks2EditModeTests`, `WorldNamesEditModeTests`, `WorldNamesTimeEditModeTests` (109 passed with the 26 new tests in the
+  run, the 25 failures all in `WorldLabelsEditModeTests`).
+
+**Scratch runs (not committed).**
+
+1. The COMMON catch-and-collect run of `WorldLabelsEditModeTests` on the stub (a copy with every `Assert.That` wrapped and
+   `AllocationMeter.AssertNone` replaced): every entry of every test was an assertion about the missing behaviour; no
+   other exception (no wrong object path, no null, no delivery out of key order). The tests that read the cluster rectangle
+   (15, 16, 17 to 22) can only show `TryLocalClusterRect` false on the stub, so their later lines could not run there.
+2. So, to prove every line can run and every expected number is consistent with the rules, a throwaway reference
+   implementation of the whole packet (library, `WorldMarks`, `WorldIndicators`, `TryLocalClusterRect`,
+   `AddOverheadObstacles`) was written in the worktree and removed again: the 33 dotnet tests and all 26 EditMode tests passed
+   against it, with `AllocationMeter.AssertNone` green (0 samples in 200 calls) for `WorldMarks.Update`,
+   `WorldIndicators.Update` and `TryLocalClusterRect`. Nothing of it is committed; it is not a hint for the design.
+
+**Allocation samples on the base (stub) before the tests 8 and 9 were written as exact** (`AllocationMeter.Samples`, 200 calls):
+`WorldMarks.Update` with a giver, three points, a drop and a trader: 1400 = exactly 7 per frame (the seven `foreach` over
+`IReadOnlyList`: givers 1, objectives 1, `FindRow` 3, drops 1, merchants 1); `WorldIndicators.Update` with five props: 200
+= 1 per frame (the `Props` enumerator; the empty `RewardChests` array allocates none). Both are therefore only the `foreach`
+loops this packet turns into indexed loops: no allocation outside the write scope, so both tests are exact `AssertNone`.
+
+**Measured on the real presenter (reference run), for tests 21 and 22.** A fighter with the off-hand badge: R0 = (x 19.56, y -13.50,
+w .87, h .73), R1 = (x 19.16, y -13.50, w 1.28, h 1.56): the badge grows the Top edge by .83 and the Left edge by .40; the Right
+and Bottom edges are shared. The tests find E (the edge with the largest growth, Top) and F (the first shared edge, Right) by
+measuring, so they follow a tuning; they assert at set-up that E grew by at least .1 and that an edge is shared. The Casting
+glyph lies outside R0 (asserted at set-up of `AStatusEffectDoesNotGrowTheCluster`), so including it would grow the rectangle.
+
+**Where a test differs from the spec text.**
+
+- Test 16 `NoLocalNoRect`: the `Hidden` case asserts false both at once (the flag is read at ask time) and after a frame drawn
+  while it is true.
+- Test 20: the first Update must be born under the cluster, so the plate is measured on a throwaway `WorldMarks`
+  (`MeasureMark`) and the real one is given the cluster before its first Update. Test 13 and 19 do the same with
+  `MeasureProp`.
+- Test 6 is one method with `[TestCase(false)]` (root inactive) and `[TestCase(true)]` (`Hidden`).
+- Test 2 re-delivers a quest state without the 320 point with `Deliver`; `CollectionsView.Apply` took a repeat delivery
+  (re-Apply) and the accepted-quest and public-carrier rows (reflection, as `UiLabFixesEditModeTests`).
+- Tests 5: "exactly one `Ember Walk` label" counts active labels; the other labels counted are only the giver's.
+- In the unit tests `MeetsIsStrict` asserts the exact-pad edge on x (right, left) and y (above, below) with the plain
+  constructor, as the spec says; the NaN cases are in `MeetsOnEveryEdgeAndNaNMeetsNothing`.
+- A `foreach` over `Dictionary` in `TryLocalClusterRect` allocated nothing in the reference run (`_active` is a `Dictionary`).
+
+**Things the implementer must keep.** Tests are a separate assembly: `LocalCluster`, the three-argument `Update`, `LocalClusterSource` and
+`TryLocalClusterRect` are public (they already are in the stub). The stub of `LabelClearance.Forget()` assigns `_alpha`
+only so the file compiles under warnings-as-errors (CS0649); the implementer replaces the body.
