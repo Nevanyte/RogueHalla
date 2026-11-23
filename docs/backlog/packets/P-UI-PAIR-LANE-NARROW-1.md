@@ -196,7 +196,29 @@ write, `Reset` leaving a stale scale).
 
 ## Notes from the oracle author
 
-(filled in with the oracle commit)
+Stub: `HudRegions.PairScale` returns its input, `PromptPair(int, float)` and `PromptLone` return `default` (library file and synced copy);
+`PromptPairHalfGap` and `PairScaleMin` exist. The field `_promptPairScale` is NOT in the stub (no test reads it): the implementer adds it.
+
+Red on the stub, each on an assertion:
+- dotnet `PromptPairTests` (13 cases): `AtScaleOneItIsTheOldLane` (anchor: TopLeft, expected BottomCenter), `PairScaleClampsAndFallsBack` (NaN gives NaN,
+  expected 1), `ThePairIsAdjacentCentredAndInsideAtFiveWidths` x5, `ThePairStaysInsideTheRowFootprint` and `TheLonePromptIsTheScaledLane` x5 (zero-width
+  default rects). Checked green against a scratch reference of the formulas in this packet (13 of 13), then the reference was reverted.
+- EditMode `PromptPairNarrowEditModeTests` (11 cases; 7 red): `ThePairIsOneLayoutOnANarrowStage` (N1, N2: "pill left", the stub's zero rect),
+  `TheLauncherBoxIsScaledNotResized` ("box scale x", expected .714, was 1), `TheLaneFollowsTheRowWhenTheStageChanges` (true, false: "box pair at N1
+  left" / "box alone at N1 left"), `ALonePromptSitsInTheScaledLane` (N1, N2: "launcher alone left"). Green guards on the stub as the spec wants:
+  `TheWideLanesAreUnchanged`, `ASteadyPairFrameAllocatesNothingAndWritesNoRect`, `TheLabelsStillFitAtTheSmallScale` (1 and 1.5).
+- Existing classes run on the stub and green: `AbilityRowEditModeTests`, `AbilityRowNearbyNoGarbageEditModeTests`, `HudLegacyLayoutEditModeTests`
+  (68 of 68 outside the new class); dotnet `AbilityFaceTests` and `HudRegionsTests` green.
+
+Scratch run (not committed): every `Assert.That` of the EditMode class went through a catch-and-collect helper, once on the bare stub and once
+with a scratch reference of `HudRegions` (formulas of this packet) in the Unity copy. All 7 red tests collected only assertions about the missing
+behaviour (the box at scale 1 and at its unscaled place and size); no other exception. With the reference the pill rects, the pill-alone step, the
+reset step and every line after the first red assertion ran: the pill rects matched `PromptPair(0, s)`, so the layout numbers agree with the live
+row. The reference and the helper were reverted (`git status` clean, copy in sync).
+
+Deviations from the spec: test 1 also checks the lone numbers of its table row (test 5 checks them too, redundantly). Test 12 also fails on a
+fitted size under `MinSize`. `W` = 1280 x 800 window. Tests 10 and 12 use the spec's deliveries; the `Frame()` swallowed by the comment on line 272 of
+`AbilityRowEditModeTests.cs` is not copied. The existing tests are not amended.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
