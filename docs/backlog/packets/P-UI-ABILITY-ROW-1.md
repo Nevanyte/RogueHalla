@@ -192,13 +192,17 @@ public sealed class AbilityTile
 - Object names `Slot1`, `QSwap`, `Slot2`, `WishTile`, `Consumables`, `ControlsLine`, `Pickup`, `QuestRewards`,
   `QuestActionLauncher` (path `MatchUI/HudStage/PlayerHUD/QuestRewards/QuestActionLauncher`). The consumables row and the controls
   line keep their rects and text. The Wish tile keeps its own code and tests; only its position comes from `HudRegions`.
-- The constants `BarBottom`, `SlotWidth`, `SlotHeight`, `SwapWidth`, `WishSize`, `BarGap`, `ConsumablesHeight` stay declared in
-  `ActionBar.cs` under their names as `const float`, and `internal static float WeaponBarWidth { get ... }` stays; they take their
-  values from the `HudRegions` constants. `RowSlot(int)` returning `Rect2` and `struct Rect2` stay (`RowSlot(i)` now returns the rect of
-  `HudRegions.AbilityElement(i)` raised by the row's offset). `Tools/hud-seams.test.cjs` pins all of these declarations in that
-  file and runs in the full gate: do not edit it. Also pinned there: `CreateWeaponBar`, `CreateWishTile`, `CreateConsumables`,
-  `CreatePickupHint`, `ApplyWishRow`, `RefreshWishTile`, `TickWishTileMotion`, `RefreshCooldownSweep`; in `MatchHud.Pulses.cs`:
-  `InputCue`, `Pulse`, `TickPulses`, `ClearPulses`, `_pulses = new`, `PulseSeconds`, `PulsePop`.
+- The constants `BarBottom`, `SlotWidth`, `SlotHeight`, `SwapWidth`, `WishSize`, `BarGap`, `ConsumablesHeight`, the property
+  `WeaponBarWidth`, `RowSlot(int)` and `struct Rect2` are REMOVED from `ActionBar.cs`. Every place that read one reads the
+  `HudRegions` constant or region that replaces it (`ConsumablesBottom`, `ConsumablesHeight`, `AbilityBottom`, `AbilityHeight`,
+  `WeaponSlotWidth`, `SwapWidth`, `TileSize`, `AbilityGap`, `AbilityWidth`, `AbilityElement(i)`, `AbilityRow()`,
+  `Consumables()`): one source for each number. The only reader outside `ActionBar.cs` is `InitializeQuestRewardHud`
+  (`MatchHud.QuestRewards.cs`), which this packet rewrites anyway. `Tools/hud-seams.test.cjs` no longer requires a moved member
+  to keep existing (P-UI-HUD-SEAMS-1-fix, on the base); it still fails if one of the four OLD files declares a moved member again.
+- These method names stay, because other code and tests call them: `CreateWeaponBar`, `CreateWishTile`, `CreateConsumables`,
+  `CreatePickupHint`, `ApplyWishRow`, `RefreshWishTile`, `TickWishTileMotion`, `RefreshCooldownSweep`. In `MatchHud.Pulses.cs`
+  the pulse members (`InputCue`, `Pulse`, `TickPulses`, `ClearPulses`, `_pulses`, `PulseSeconds`, `PulsePop`) stay in THIS
+  packet: its test 8 reads them by reflection. P-UI-ABILITY-MOTION-1 replaces them with `HudPulses` afterwards.
 - `_questSlotTiles[i]` stays the tile's root `RectTransform` (the press pulse of P-UI-INPUT-CUES-1, `Pulses.cs:26`, targets it).
   Keep the `Session.CueSent` subscription (`MatchHud.cs:153`, `:188`).
 - The "Equipped" line of the reward-choice modal (`_questChoiceSpells`) keeps its exact text (`QuestSpellText` for both slots, joined as
@@ -282,7 +286,7 @@ Each verified by reading it. Run these classes on the stub (green) and again aft
 | `ChampionPanelNoGarbageEditModeTests` | the Wish row and slots allocate nothing while inputs stay | unchanged |
 | `RoguehallaNet.Tests.HudRegionsTests` | the table of `HudRegions` (ability row 458 wide, 6 elements, prompt, stack, collisions) | unchanged: only additions to `HudRegions` |
 | `RoguehallaNet.Tests.InputCueTests` | `Session.CueSent` raised once per sent Cast/Swap/Pickup/UseConsumable | unchanged: Swap(0)/Swap(1) from the keys raise the same cue |
-| `Tools/hud-seams.test.cjs` | declarations that must stay in `MatchHud.ActionBar.cs`, `Pulses.cs`, ... (see section 7) | unchanged, runs in the full gate |
+| `Tools/hud-seams.test.cjs` | the four old files do not declare what moved; no method in two files; size caps | unchanged; it no longer pins the moved members (P-UI-HUD-SEAMS-1-fix) |
 
 ## Oracle files (read-only for implementers)
 
@@ -389,3 +393,12 @@ No test code changed, so the red/green results above stand.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
+
+## Addendum from the lane lead (2026-11-23, before any implementer started)
+
+The coordinator's merge review of the first wave found that the seams test forced this packet to keep the old bar
+constants declared beside `HudRegions`, two sources for one number. P-UI-HUD-SEAMS-1-fix (now on the base, merged
+into this branch) removed that requirement, and section 7 above was rewritten: the old constants, `RowSlot` and
+`Rect2` are removed, not kept as aliases. Where any earlier sentence of this packet still says they stay or become
+aliases, this addendum and section 7 govern. No test of the oracle reads those names.
+
