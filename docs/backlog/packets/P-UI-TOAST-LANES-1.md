@@ -234,7 +234,15 @@ child label `Text`.
 
 ## Oracle files (read-only for implementers)
 
-(see the end of this file; completed in the `oracle:` commit)
+- `client-unity/RoguehallaNet.Tests/NoticeRouterTests.cs` (dotnet, 33 cases: one per table row, hold, shorten)
+- `client-unity/RoguehallaNet.Tests/ToastLaneModelTests.cs` (dotnet, the lane state machine)
+- `client-unity/UnityProject/Assets/Tests/Editor/ToastLanesEditModeTests.cs` and its `.meta` (13 EditMode tests)
+- amended in their own `oracle-amend:` commits: `client-unity/UnityProject/Assets/Tests/Editor/HudLegacyLayoutEditModeTests.cs`,
+  `client-unity/UnityProject/Assets/Tests/Editor/HudTextScaleEditModeTests.cs`,
+  `client-unity/UnityProject/Assets/Tests/Editor/Ui4EditModeTests.cs`, `client-unity/UnityProject/Tools/hud-seams.test.cjs`
+- stubs (`stub:` commit, the implementer replaces them): `client-unity/RoguehallaNet/Net/Ui/NoticeRouter.cs`,
+  `ToastLaneModel.cs`, their synced copies and `.meta` files, and `MatchHud.NoticeDtOverride` / `SetStickyNotice` in
+  `UI/MatchHud.Notices.cs`.
 
 ## Existing tests this changes (amended by the oracle author, each in its own `oracle-amend:` commit; listed for the owner)
 
@@ -286,7 +294,28 @@ lane model's rules in a full lane, and layout that must equal `HudRegions` to 0.
 
 ## Notes from the oracle author
 
-(filled in the `oracle:` commit)
+Red on the stub, and on what:
+- dotnet `NoticeRouterTests` and `ToastLaneModelTests`: all 60 cases fail on assertions (lane / text / hold / `Count` are the
+  stub defaults). The tests were also run against a throw-away reference implementation (not committed): all 60 pass, so the
+  timelines in them are consistent with a model that follows section 1 item 3.
+- `ToastLanesEditModeTests`: all 13 fail on assertions; 12 on "EventLane / FeedbackLane exists under the HUD stage" (the
+  lanes do not exist), `TheHistoryKeepsTheNewestTwoHundred` on `Expected: 200 But was: 250`. Only the first half of each test
+  could be run against the stub; the pill-level assertions (positions, alpha, activeInHierarchy of pills, sticky feedback via
+  `_feedback`) were written from the code but not run against an implementation. If one is wrong about the rig and the
+  implementer is sure, report it instead of working around it.
+- The amended tests are red on the stub for the same reason (no `FeedbackLane/Toast0`).
+
+Where the spec and the code differ, or I chose:
+- The spec says the banner is 40 high; the code builds it 28 high (`MatchHud.TopCentre.cs:20`). The tests compute
+  `topCentreBottom` as `12 + sizeDelta.y` of the active banner or phase pill, so either height works.
+- Cannon reloading without seconds: the router gives "Cannon reloading" (history shows today's "Cannon reloading · s").
+- Time: the EditMode tests drive lane time through `MatchHud.NoticeDtOverride` only; `Frame()` sets `_dirty` and invokes
+  `LateUpdate`, so `TickNotices` runs through `TickFeatures` -> `TickPlayerFlows` (`MatchHud.PlayerFlows.cs:157`).
+- Model details pinned beyond the spec's wording (all follow from it): a same-text or keyed push never makes the line flicker
+  (alpha stays 1); the sticky line keeps `Slot` 0 and the next line is `Slot` 1; a line pushed while hidden has alpha 0 until
+  the lane is visible; reduced motion shows a line at once and a waiting line takes a freed slot after the first second.
+- `ToastsWaitWhileTheTabMapIsOpen` uses `TacticalMap.SetOpen(true)` (public) to make `WorldHudVisible` false.
+- The `HudTextScaleEditModeTests` amendment keeps the id "Notice" for the lane label row.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
