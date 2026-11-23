@@ -52,7 +52,7 @@ namespace Roguehalla.Net.Ui
                 if (shown != null)
                 {
                     shown.BaseText = text; shown.Tone = tone; shown.Count = 1; shown.Display = text;
-                    if (hasHold) shown.Hold = holdSeconds;
+                    shown.Hold = hasHold ? holdSeconds : NoticeRouter.HoldSeconds(text);
                     shown.NeverLate = true;
                     Restart(shown);
                     return;
@@ -70,7 +70,7 @@ namespace Roguehalla.Net.Ui
                 if (hit != null)
                 {
                     hit.BaseText = text; hit.Tone = tone; hit.Count = 1; hit.Display = text;
-                    if (hasHold) hit.Hold = holdSeconds;
+                    hit.Hold = hasHold ? holdSeconds : NoticeRouter.HoldSeconds(text);
                     Restart(hit);
                     return;
                 }
