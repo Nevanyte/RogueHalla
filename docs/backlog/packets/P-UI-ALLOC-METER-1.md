@@ -144,3 +144,8 @@ suite leaves a warm, collecting heap. The self-check is what keeps a blind meter
 - Test 2 (`ACleanDelegateIsNotSeen`) would pass on the stub (stub answers false), so it also asserts that the meter sees an allocating control in the same test (a "clean" answer from a blind meter means nothing). Red on the stub on that assertion.
 - The spec lists `Meter` "is not empty and not none": the stub returns "none".
 - Seam: `AllocationMeter.MeterOverride` (see section 4).
+- Red on the stub (all six, each on an assertion): `AnAllocatingDelegateIsSeen` (`Allocates` expected True, was False, "string concatenation x1 ..."); `ACleanDelegateIsNotSeen` ("the meter sees the allocating control" expected True); `ItGivesTheSameAnswerTwentyTimes` ("round 0: string concatenation is seen"); `AssertNoneFailsOnAnAllocatingDelegate` (expected AssertionException, was null); `ABlindMeterFailsTheTest` (expected AssertionException, was null); `TheMeterHasAName` (expected not "none").
+- Scratch run: this NUnit has no `Assert.Multiple`, so I ran one scratch pass per class with a soft-assert wrapper (each assertion caught and listed, bodies otherwise intact). Every line ran; every listed failure was an assertion on the missing behaviour (the clean-delegate assertions passed on the stub, as they must). Not committed.
+- The clean-delegate cases of test 2 and the clean `AssertNone` line of test 4 pass on the stub by nature; the red assertions come first/alongside them.
+- No existing class pins this code (no product or existing test file changes), so no existing class was run.
+- The seam `MeterOverride` replaces the raw measurement used by both the self-check and the real measurement; the blind test sets `(a, n) => false`.
