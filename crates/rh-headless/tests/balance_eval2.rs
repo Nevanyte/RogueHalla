@@ -576,10 +576,20 @@ fn the_shipped_inputs_print_both_rates_on_the_dry_run() {
             q.verdict.is_some() && q.verdict_at_reference.is_some(),
             "{id}: {q:?}"
         );
-        assert!(
-            at_ref < ratio,
-            "{id}: the reference rate is higher, so the ratio falls: {ratio} -> {at_ref}"
-        );
+        // A quest priced by its time falls at the higher rate. The Bargain does not (coordinator's oracle-amend,
+        // 2026-11-23): its price is almost all the fixed upfront cost while its value has a dividend that grows
+        // with the rate, so its ratio rises (1.32 to 1.75 by hand; bracketed below).
+        if id == "the_bargain" {
+            assert!(
+                at_ref > ratio,
+                "{id}: a fixed upfront cost against a growing dividend, so the ratio rises: {ratio} -> {at_ref}"
+            );
+        } else {
+            assert!(
+                at_ref < ratio,
+                "{id}: the reference rate is higher, so the ratio falls: {ratio} -> {at_ref}"
+            );
+        }
         // The Bargain's upfront cost (20 / 12) is a certain cost that does not scale with the farm rate.
         let up = if id == "the_bargain" { 20. / 12. } else { 0. };
         near(
