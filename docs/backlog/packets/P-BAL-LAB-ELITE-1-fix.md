@@ -14,7 +14,17 @@ picked_by_killer,picked_by_bystander}`, `rewards.chests_offered`) are read by th
 reissues a viewer's handle when the chest's public facts change (`crates/rh-sim/src/reward_chests/observer.rs` near
 `:196`, e.g. when another seat picks), so one pick is counted again under each new handle. Measured by the coordinator
 on two full matches: `committed` offered 2, picked 4; `kill:attackSpeed:0.0750` offered 0, picked 1; picks seen 24
-against 37 `ChestTaken` events. When this lands every pick is counted once, `picked <= offered` holds per card, and
+against 37 `ChestTaken` events.
+
+**The cause is wider than a reissue (coordinator, from an Opus trace of twelve seeds).** The lab reads each seat with
+`rh_sim::observe` (`crates/rh-sim/src/observe.rs:729-748`, "checked disposable preview"), which builds a fresh
+`ItemObserver::new(viewer)` on every call; the chest observer's counter starts at `next: 1` (`reward_chests/observer.rs:36`).
+So a viewer's handle values restart at 1 on every step and **collide across chests**: two different chests can carry the
+same handle value for one seat at different times, and the second one's offers and picks are swallowed (an undercount),
+besides one chest changing handle (a double count). Reference, seeds 1 to 12 at 6000 ticks, eight raid seats: keyed by
+handle the lab read 24 picks, 19 chests offered, 55 card offers; keyed by chest identity (expiry plus position) 28 picks,
+29 chests offered, 85 card offers; the sim pushed 28 `ChestTaken` events, so there named picks equal the events. When
+this lands every pick is counted once, `picked <= offered` holds per card, and
 `sum(picks_by_kind) + picks_unnamed == chest_taken_events` holds on every run. The review's second note (a zero-second
 kill) becomes documented behaviour.
 
@@ -100,7 +110,14 @@ Nothing else. Nothing under `crates/rh-sim`; `SCHEMA` stays `balance-lab/1`.
    whose first contact is the killing blow. The coordinator amends `> 0.` to `>= 0.` in
    `tests/balance_lab_elite.rs` (near `:406`) in an `oracle-amend:` commit after this packet's oracle; the implementer
    does not touch that file. The implementer adds one sentence saying what `kill_secs` measures to `NOTES` and to the README.
-7. **Riding along (no test):** the doc comments of `ChestWatch` (`observer.rs:34-37`) and `ChestStep.chests_gone`
+6b. **`kill_secs` wording:** a zero-second sample is a seat credited with the kill whose first contact with the elite is the
+   step the elite dies.
+7. **Riding along (no test):** (a) `Event::Death.by` IS the sim's credited killer, the seat with the most damage on the
+   mob (or a killing Smite), `crates/rh-sim/src/systems/mob_life.rs:258-282` and `:366-371`, and that seat holds the first
+   pick (`reward_chests/mod.rs:254-266`): the lab's killer and the first-pick holder are always the same seat. Correct
+   every place that says "killing blow" or that the first pick may go to another seat: `tools/balance-lab/README.md`
+   (near lines 53 and 63-64), the `NOTES` entry in `balance_lab.rs`, the comments at `elite_fights.rs:34`, `acc.rs:194`
+   and `:305`. Words only; no counter changes meaning. (b) the doc comments of `ChestWatch` (`observer.rs:34-37`) and `ChestStep.chests_gone`
    (`elite_fights.rs:50`) say a chest is gone when "in nobody's observation any more", but the code (`chests_gone`,
    `observer.rs:227`) uses `expires_at`, or the 30 s unseen wait when never seen: correct the comments. `elite_pos` falls
    back to an infinite position when an elite's last position is missing (`observer.rs:545-548`): add a comment saying

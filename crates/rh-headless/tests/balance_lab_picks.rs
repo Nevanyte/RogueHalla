@@ -190,6 +190,25 @@ fn two_chests_with_the_same_expiry_at_different_places_are_two_chests() {
 }
 
 #[test]
+fn two_chests_one_seat_saw_under_the_same_handle_value_at_different_times_are_two_chests() {
+    // `rh_sim::observe` builds a fresh observer per call, so a viewer's handles restart at 1 every step: chest 1 (step
+    // 1 to 2) and chest 2 (step 3 to 4) both carry handle 1 for this seat. The rows carry no handle; the two chests
+    // differ in expiry and place, so each is offered once and picked once.
+    let first = |taken| row(0, 30_000., 5., ChestKind::Ground, vec![card("a", taken)]);
+    let second = |taken| row(0, 52_000., 80., ChestKind::Ground, vec![card("a", taken)]);
+    let steps = [
+        step(0, vec![first(false)]),
+        step(1, vec![first(true)]),
+        step(0, vec![second(false)]),
+        step(1, vec![second(true)]),
+    ];
+    let t = tally_chests(&steps);
+    check(&t, 2);
+    assert_eq!(t.chests_offered, 2, "{t:?}");
+    assert_eq!((offered(&t, "a"), picked(&t, "a")), (2, 2), "{t:?}");
+}
+
+#[test]
 fn the_killer_and_bystander_split_of_an_elite_chest_counts_each_pick_once() {
     // One elite chest; seat 0 is the killer and takes a, seat 1 takes a too. A trophy pick of a never counts as either.
     let view = |seat, killer, taken| {
