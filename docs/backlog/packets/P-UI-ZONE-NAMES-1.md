@@ -267,6 +267,70 @@ frame, a pass at the wrong time (per frame, or from the rect event storing a hal
 
 ## Notes from the oracle author
 
-(filled in the oracle commit: measurements, red tests, scratch run)
+**Stub commit** (the implementer replaces or edits these; they are not oracle files): `MapLabelPlacement.cs` (library and synced
+copy with `.meta`), `TacticalMapMarks.ZoneLabels.cs` (+ `.meta`; the four reads only), `partial` on `TacticalMapMarks.cs`.
+
+**Measured in the editor on the stub (1280 x 720, 6 x 6 tiles, layer 624 units wide at k = 1, 445.7 at k = 1.4), 2026-11-23.**
+
+- Box constants of rule 1.2, checked against `OnPopulateMesh` / `DrawCamps` / `RefreshBadgeTexts` of the base: camp plate `17 s`
+  (:549), no-reward dot `6 s + 4` (`Marker` adds 4, :550), elite diamond `6 s + 4` at `+13.5` (`IconSize * .5 + 5 s` = 7.5 + 6,
+  :555), amount text `x = p.x + 11 s + 8 = p.x + 21.2`, `cy = p.y + 2` (`RewardSlot` :436, +8 at :475), elite text `+ row * 12 s =
+  14.4` (:476), ward box `8 s + 4` at `p + (-13.2, 2)` (`WardSlot` :437; `DrawBadges` :535), ward text `x = p.x - 21.2`
+  (:484), chest box `11 s + 4` (:591), chest seconds mesh box `(len * 6 + 8) s` by `12 s` at `p + (0, -15)` (:590, :410), clock
+  at `p + (0, -16)` (:360), delivered sizes :598-616 (Giver `13 s` + 4 = 19.6, camp plate 20.4 are the tests' own).
+- Name labels (font 10, box 120 x 18): FIRE 22.31, HAUNTED 52.13, PLAGUE 39.69, FROST 33.28, HOLY 27.62, COLISEUM 54.15 wide, all
+  13.49 high at text scale 1 (so `h` is under 14 and spot 0 is today's `(0, -24)`). `preferredWidth` equals
+  `GetPreferredValues(text, 0, 0)` for every name. At text scale 1.5 `MythicTextScale` sets the font to 13.35 (not 15: the 18 high
+  box shrinks it): 29.79, 69.60, 53.00, 44.43, 36.87, 72.29 wide (each 1.335 times), 18.00 high (so `drop` = 26).
+- 9-unit texts (font 9, 12.14 high): "+3" 8.86, "+3%" 15.02, "+4.5" 15.67, "Aug" 20.66, a ward countdown or clock "88" 9.94, "2:05"
+  17.10, "12" 8.08 wide. ("Aug", ward and clock texts were measured on `CampBadgeText0` with the text set by hand; no elite camp,
+  ward or chest is delivered by the tests.)
+- The picture's state at k = 1, overlap area of each spot with the test-built marks and map edges (0 = free):
+  HAUNTED `0=705.2 1=0 2=0 3=222.9 4=122.0 5=202.7`; HOLY `0=272.3 1=0 2=0 3=0 4=180.8 5=275.2`.
+  At k = 1.4: HAUNTED `0=715.5 1=0 2=0 3=213.5 4=168.6 5=136.8`; HOLY `0=133.8 1=0 2=14.4 3=49.5 4=76.1 5=178.5`.
+  So spot 1 (above) is free in both zones at both scales and the offsets of rule 1.1 need no change. Spot 0 of the other four
+  zones is free of every mark and inside the layer at both scales (so they stay on spot 0 in the picture).
+- The picture's camps round to world ushorts (53,89), (31,83), (147,86), (134,86) (HAUNTED then HOLY, the order of the table in
+  the test); givers at world (43.08, 89.23) and (46.77, 87.08) at k = 1 offsets; the tests compute their rects from the world points.
+- The rect event: with a counter in `OnRectTransformDimensionsChange` (scratch, removed), writing `rectTransform.offsetMax`
+  fires it at once (one call per write), `Canvas.ForceUpdateCanvases()` adds none. Test 7 does not depend on the force.
+- The stub's `LayerChanged` allocates nothing (`AllocationMeter.AssertNone` passes on it), so a pass that allocates is the
+  implementation's own.
+
+**Differences from the lane spec's test text.** (1) `ZoneLabelSpot` is -1 on the stub, so `Is.Not.EqualTo(0)` would pass on it:
+the tests assert `Is.GreaterThan(0)` (spot 0 is left for a spot 1 to 5) and the first red line of tests 1 and 3 is set-up or
+that. (2) Every test that delivers marks first asserts the delivery reached the layer (`CampMarkerCount`, `QuestGiverCount`),
+so a delivery that silently draws nothing cannot pass a test. (3) The picture's marks are delivered after a first build that
+reads the layer width at k = 1 (a second build puts the four camps on the map); the scale is set by hand after the paint frames
+(a `Frame()` re-applies the controller's scale). (4) Test 1 asserts 10 test-built marks (2 givers, 4 camp plates, 4 amount texts).
+(5) `ZoneLabelRect` of the stub is null, so assertions on a rect use `ZoneLabelRect(..) ?? default` after asserting it has a
+value; nothing in the tests throws on the stub.
+
+**Red on the stub, and on what** (`unity-class.sh ... ZoneNamesEditModeTests`: 8 failed; dotnet `MapLabelPlacementTests`: 6 failed):
+`ThePicturesNamesAreClearOfTheirMarks` (spot 0 of HAUNTED overlaps at least two marks: expected >= 2, was 0, because `Spot` is a
+zero rect), `ANameWithNothingNearItIsWhereItIsToday` (Fire on spot 0: expected 0, was -1), `ANameKeepsItsSpotWhileItIsFree`
+(HAUNTED has a spot: expected >= 1, was -1), `TheBoxesAreTheTextAndThePlateFollows` (Fire has a name rect), `AQuietFrameAllocatesNothingAndPlacesNothing`
+(`ZoneLabelPlacements` > 0, was 0), `ThePlanningMapAvoidsToo` (spot 0 of HAUNTED overlaps both givers: expected 2, was 0),
+`ANarrowedAndRestoredRectBringsTheSpotBack` (no mark so Fire on spot 0: expected 0, was -1), `TextScaleOnePointFiveKeepsNamesOffTheirIcons`
+(Fire has a name rect at scale 1). dotnet: `SpotsAreTheWorkedTable` (spot 0 X expected 71 was 0), `TheFirstFreeSpotWinsAndAFreeCurrentIsKept`,
+`NoFreeSpotTakesTheSmallestOverlap` (expected 1 was -1), `BadInputsAreSafe` (current 9: expected 0 was -1), `TheBuildersAddTheRightBoxes`
+(AddBox adds one box: expected 1 was 0), `ChoosingAllocatesNothing` (Spot(0,100,100,58,14) X expected 71 was 0).
+
+**Scratch runs (not committed).** (a) dotnet: a reference implementation of `MapLabelPlacement` written in the working tree
+made all six `MapLabelPlacementTests` pass (70 ms), then was removed: the six tests can be met. (b) EditMode: with a catch-and-collect
+helper (`Assert.That` replaced by a call that keeps the `AssertionException` message and carries on, failing in `TearDown` with the
+list) and the reference `MapLabelPlacement` in place, each of the eight tests ran to its last line on the stub. Every collected
+entry was an assertion about the missing behaviour (a name rect, spot, plate or pass count that the stub does not give: 4, 72,
+7, 3, 12, 54, 40 and 1 entries); no other exception occurred; the set-up assertions (deliveries, camp and giver counts, spot 0
+overlapping the marks, the narrowed rect, the planning map drawing the givers) all held. The expected values were read once
+more against the rules and the worked numbers above. The Tab map's own set-up `Frame()` needs no change for the planning map.
+
+**Existing tests that pin this code stay green on the stub:** `TabMapMarksEditModeTests`, `TabMapSheetEditModeTests`,
+`HudVisualFix2EditModeTests`, `TabMapVisualFix3EditModeTests`, `TabMapFlowEditModeTests`, `TacticalMapEditModeTests`,
+`DeclutterEditModeTests`, `MapScreenEditModeTests`: 110 passed, none failed (with the 8 new red, 118 run).
+
+**Hand-off lines the implementer's report repeats:** names will usually leave spot 0 in a real match (the picture's givers lie 30
+to 50 layer units from the icon); the planning spawn buttons are not obstacles; a name may leave its zone; nothing here
+says how it looks (the lane's Web round judges it); a proposed `DEVIATIONS.md` row is in the routing block above.
 
 ## Notes from previous attempts
