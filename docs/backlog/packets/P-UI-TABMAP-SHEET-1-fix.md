@@ -5,7 +5,7 @@
   Not a Rust phase item: presentation only.
 - **Implementer tier:** implementer-sonnet
 - **Reviewer:** reviewer
-- **Integration base:** `lane/ui-rework/base-2` (it contains P-UI-TABMAP-SHEET-1 and P-UI-ALLOC-METER-1; the gate compares against it with `--base lane/ui-rework/base-2`).
+- **Integration base:** the branch forks at `20a1a004e` (an older `lane/ui-rework/base-2`; it contains P-UI-TABMAP-SHEET-1 and P-UI-ALLOC-METER-1). `lane/ui-rework/base-2` has since moved to `a7dc34e9b` (P-UI-ABILITY-ROW-1 merged, 16 commits, 17 files, none under the tab map). History is not rewritten here: the lane lead may rebuild `packet/` and `agent/sonnet/` on the current base-2, or keep this fork. Either way the gate takes `--base 20a1a004e` for this branch as it stands, or `--base lane/ui-rework/base-2` after a rebuild.
 - **D-rules touched:** D1 n/a (presentation) · D2 n/a · D5/D6/D9 none
 
 ## 1. ID and outcome
@@ -21,8 +21,9 @@ at once. `ApplySheet` already resets the key when the layout changes (`_headerKe
 header shows, and when it changes, stays exactly as it is.
 
 ## 2. Dependencies
-`lane/ui-rework/base-2` is the base. It contains `P-UI-TABMAP-SHEET-1` (the sheet and `PresentHeader` exist only there) and `P-UI-ALLOC-METER-1`
-(`Assets/Tests/Editor/AllocationMeter.cs`, the meter the oracle uses). The packet branch is linear on it (`brief:` and `oracle:` commits only, no merge).
+The base is `20a1a004e` (the fork point of this branch, an earlier `lane/ui-rework/base-2`); current `lane/ui-rework/base-2` (`a7dc34e9b`) is a descendant and works equally. Both
+contain `P-UI-TABMAP-SHEET-1` (the sheet and `PresentHeader` exist only there) and `P-UI-ALLOC-METER-1`
+(`Assets/Tests/Editor/AllocationMeter.cs`, the meter the oracle uses). The packet branch is linear on `20a1a004e` (`brief:` and `oracle:` commits only, no merge).
 
 ## 3. Relevant legacy paths
 None: Unity-only presentation. Current code (on the base):
@@ -49,7 +50,7 @@ None: Unity-only presentation. Current code (on the base):
   The label widths also depend on the text-size setting, which the base's key does not contain; do not add or drop inputs, only change how they are compared.
 
 ## 8. Acceptance checks
-- `scripts/gate.sh --quick --oracle packet/P-UI-TABMAP-SHEET-1-fix --base lane/ui-rework/base-2` prints `GATE PASS`.
+- `scripts/gate.sh --quick --oracle packet/P-UI-TABMAP-SHEET-1-fix --base 20a1a004e` (or `--base lane/ui-rework/base-2` after a rebuild) prints `GATE PASS`.
 - `TabMapHeaderNoGarbageEditModeTests`, `TabMapSheetEditModeTests`, `TabMapFlowEditModeTests`, `TabMapVisualFix3EditModeTests`, `TacticalMapEditModeTests` green.
 
 ## Oracle files (read-only for implementers)
@@ -58,7 +59,7 @@ None: Unity-only presentation. Current code (on the base):
 
 ## 9. Validation commands
 - `.agent-runs/lane-ui-rework/bin/unity-class.sh <worktree> TabMapHeaderNoGarbageEditModeTests,TabMapSheetEditModeTests,TabMapFlowEditModeTests`
-- `scripts/gate.sh --quick --oracle packet/P-UI-TABMAP-SHEET-1-fix --base lane/ui-rework/base-2`
+- `scripts/gate.sh --quick --oracle packet/P-UI-TABMAP-SHEET-1-fix --base 20a1a004e` (`--base lane/ui-rework/base-2` after a rebuild)
 
 ## 10. Risk and suggested model tier
 Small, one method. implementer-sonnet; reviewer (not Opus): no Rust, no wire, no state.
@@ -97,4 +98,10 @@ Small, one method. implementer-sonnet; reviewer (not Opus): no Rust, no wire, no
     "PresentHeader with nothing changed allocated managed memory in 200 calls (meter UnityEngine.TestTools.Constraints GC.Alloc samples)" (the set-up assertions and the meter's
     self-check passed first). `AChangeStillReachesTheHeader`: green on the base, as designed (it guards a cache that sticks). The other four classes: green.
   - On `agent/sonnet/P-UI-TABMAP-SHEET-1-fix` (91ace0235) with this packet's test file checked out over its copy: 42 of 42 pass.
+- Base drift (checker finding, second fix pass): the 16 commits between `20a1a004e` and current base-2 touch `AbilityTile`, `MatchHud.ActionBar/Legacy/Pulses/QuestRewards`,
+  `HudRegions`, `AbilityFace`, `HudLegacyLayoutEditModeTests`, `HudTextScaleEditModeTests` and docs; none touches `TacticalMapController*` or any Tab map test. To measure on the
+  current tree without merging into the packet, I made a scratch branch from `a7dc34e9b`, copied this packet's two test files onto it, ran
+  `TabMapHeaderNoGarbageEditModeTests,TabMapSheetEditModeTests,TabMapFlowEditModeTests,TabMapVisualFix3EditModeTests,TacticalMapEditModeTests,AbilityRowEditModeTests,HudTextScaleEditModeTests`:
+  79 cases, 78 pass, 1 red: `AnUnchangedHeaderAllocatesNothing` on the same assertion message as above; everything else (the ability row and text-scale classes included) green. The scratch branch is deleted.
+  So the two result lines above hold on the current base-2 as well; the earlier run lines were taken on the `20a1a004e` tree and are still correct for it.
 - The implementer must reach 0 steady allocation on every call, including `Preferred`/label writes only on change.
