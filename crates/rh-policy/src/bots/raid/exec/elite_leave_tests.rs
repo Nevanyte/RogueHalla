@@ -420,7 +420,7 @@ fn a_drink_does_not_change_the_hp_held() {
         0,
         0,
         1,
-        Some(1_000. + s.heal_seconds * 500.),
+        Some(1_000. + s.heal_seconds * 1_000.),
         1_000. + s.heal_seconds * 500.,
         &[s.large_share],
     );
