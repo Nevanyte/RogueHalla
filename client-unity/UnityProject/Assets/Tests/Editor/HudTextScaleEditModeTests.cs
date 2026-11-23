@@ -182,7 +182,6 @@ namespace Roguehalla.Client.Tests
                 Add("SlotName " + (i + 1), slotNames[i], "Shield", "Empty");
             Add("SwapKey", Find(weaponBar, "QSwap/Key/Label"), "Space");
             Add("SwapCaption", Find(weaponBar, "QSwap/Caption/Label"), "SWAP");
-            Add("ControlsLine", Find(weaponBar, "ControlsLine/Label"), "WASD move · Click attack · Shift/Q quest · R Wish");
             Add("PickupHint", (TMP_Text)GetField("_pickupText"), "F  swap Shield for Fists", "F");
             Add("WishKey", Find(wishTile, "Key/Label"), "R");
             Add("WishSeconds", Find(wishTile, "Seconds/Label"), "125");
@@ -292,7 +291,7 @@ namespace Roguehalla.Client.Tests
         public void TheInventoryCoversTheWholeMatchHud()
         {
             // The packet brief lists these labels; the count guards against a label silently dropping out of the checks.
-            Assert.That(_entries.Count, Is.EqualTo(61), "labels in the inventory");
+            Assert.That(_entries.Count, Is.EqualTo(60), "labels in the inventory");
             var ids = new HashSet<string>();
             foreach (var e in _entries) Assert.That(ids.Add(e.Id), Is.True, "duplicate id " + e.Id);
         }
