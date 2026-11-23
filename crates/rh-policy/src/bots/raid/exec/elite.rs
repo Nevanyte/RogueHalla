@@ -20,8 +20,8 @@ use crate::bots::loot::{ASK_WINDOW_MS, MAX_ASKS};
 use crate::bots::mob_hunt::best_slot_vs_mob;
 use crate::bots::perception::{ChestRef, CHEST_PANEL_RANGE};
 use crate::bots::planning::{matchup_share_of_kind, zone_faction};
-use crate::bots::raid::exec::combat::locks_from_here;
-use crate::bots::raid::exec::farm::{death_chance, dist, lock_range, DEFEND_U, FIGHT_U};
+use crate::bots::raid::exec::combat::{in_leash, Engage, Reach};
+use crate::bots::raid::exec::farm::{death_chance, dist, DEFEND_U, FIGHT_U};
 use crate::bots::raid::exec::held::{hp_held, HotWatch};
 use crate::bots::raid::exec::travel::{
     self, eta_minutes, move_intent, step_toward, straight_minutes,
@@ -111,6 +111,8 @@ pub struct Elite {
     giveups: Vec<GiveUps>,
     /// The shares of the heals running, for the hp held (`held::hp_held`).
     hots: HotWatch,
+    /// The approach to the target: the points each camp may be fought from, the walk to them (P-RAID-REACH-1-fix).
+    reach: Reach,
 }
 
 /// The living elite of `kind` nearest `near` (ties by key), among the frame's mobs (Sustain prices the same one).
@@ -625,8 +627,9 @@ impl Elite {
         // beyond `FIGHT_U`). A redacted lock (`target: None`) names nothing.
         // It counts as this camp's fight only on a mob that is this camp's (P-RAID-REACH-1): a member labelled with the
         // camp or fighting at our side (not one of no camp: a chaser of another camp reads so), or the camp's elite
-        // standing within the camp's join radius of its centre, or already this camp's fight on record (not another
-        // camp's elite of the same kind).
+        // standing inside this camp's leash from its elite spot (P-RAID-REACH-1-fix: where it may chase a seat without
+        // giving up; the camp's join radius of its centre on a map without layers), or already this camp's fight on
+        // record (not another camp's elite of the same kind).
         let lock_key = match &cx.p.base.self_view.owner_lock {
             Some(OwnerLock::Held { target: Some(key) }) => Some(key),
             _ => None,
@@ -640,7 +643,10 @@ impl Elite {
         let lock_on_camp = lock_key.is_some_and(|key| {
             cx.p.mobs.iter().any(|m| m.key == *key && ours(m))
                 || elite.as_ref().is_some_and(|m| {
-                    m.key == *key && (on_record || dist(m.at, camp.at) <= CAMP_JOIN_RADIUS)
+                    m.key == *key
+                        && (on_record
+                            || in_leash(cx.paths, index, true, m.at)
+                                .unwrap_or_else(|| dist(m.at, camp.at) <= CAMP_JOIN_RADIUS))
                 })
         });
         // The camp is on the bot: the elite or a member close, or a mob fighting at our side; or the seat's lock on it.
@@ -709,14 +715,12 @@ impl Elite {
             });
         }
         let in_hand = slots[usize::from(cx.p.me.slot.min(1))];
-        // A ranged seat outside the leash band of the mob's home steps in before it fights (P-RAID-REACH-1): the elite
-        // reads its elite spot, an add any spot of the camp. With no known way in it fights from where it stands.
+        // A ranged seat that may not fight from where it stands walks to the nearest place it may (P-RAID-REACH-1-fix):
+        // the elite reads its elite spot, an add any spot of the camp. With none, no known way there, or a walk that
+        // stops, it fights from where it stands.
         let elite_target = mob.class == MobClass::Elite;
-        let step_in = (!locks_from_here(cx, index, elite_target, &mob, in_hand))
-            .then(|| step_toward(cx.paths, cx.p.me.at, mob.at))
-            .flatten();
-        if cx.p.dist(mob.at) <= lock_range(in_hand) && step_in.is_none() {
-            intents.push(Intent {
+        match self.reach.engage(cx, index, elite_target, &mob, in_hand) {
+            Engage::Lock => intents.push(Intent {
                 body: IntentBody::Lock {
                     target: mob.key.clone(),
                     at: mob.at,
@@ -724,9 +728,9 @@ impl Elite {
                 priority: PRIORITY_COMBAT,
                 timing: IntentTiming::Step {},
                 why: "elite engage".into(),
-            });
-        } else if let Some(next) = step_in {
-            intents.push(move_intent(next, "elite approach"));
+            }),
+            Engage::Move(next) => intents.push(move_intent(next, "elite approach")),
+            Engage::Stand => {}
         }
         if fighting {
             Step::committed(intents, "fighting the elite")
