@@ -126,11 +126,55 @@ implementer-sonnet, reviewer. Many small call sites in six files and one library
 
 ## Oracle files (read-only for implementers)
 
-(Filled in with the `oracle:` commit.)
+`oracle:` commits (new tests):
+- `client-unity/RoguehallaNet.Tests/PlayerWordsTests.cs` (cases appended: `EveryAddedEnumHasAPlayerWord`, `TheWordsAreTheOnesTheGameReads`, `TheWishNameIsTheChampionRowName`, `CardTagsReadAsWords`)
+- `client-unity/UnityProject/Assets/Tests/Editor/OwnerWordsEditModeTests.cs` and `.meta`
+- `client-unity/UnityProject/Assets/Tests/Editor/HudWordsEditModeTests.cs` and `.meta`
+- `client-unity/UnityProject/Assets/Tests/Editor/TraderWordsEditModeTests.cs` and `.meta`
+- `client-unity/UnityProject/Assets/Tests/Editor/LedgerWordsEditModeTests.cs` and `.meta`
+- `docs/backlog/packets/P-UI-PLAYER-WORDS-2.md`
+
+`oracle-amend:` commits (existing tests whose expectation changes; each alone, listed here for the owner):
+- `client-unity/RoguehallaNet.Tests/WishTextTests.cs` (`UnderFreezeEveryWishStringIsTodays`, `UnderTheWallEveryOtherWishIsUnchanged`: the expected `WishName` is a table of the five words instead of `a.ToString()`)
+- `client-unity/UnityProject/Assets/Tests/Editor/MatchHudWishBarrierEditModeTests.cs` (`OwnerFactsRenderAndClearAcrossWishAndSessionResetTransitions`: "Casting Blaze Step · 2" at the two `Contains` lines, "Casting Blaze Step ·" at the one `DoesNotContain`)
+- `client-unity/UnityProject/Assets/Tests/Editor/MatchHudIconPresentationEditModeTests.cs` (`WishSummaryStaysCompactWhileFullDeliveredDescriptionRemainsFocusedAndDismissible`: "Casting Blaze Step · 2")
+- `client-unity/UnityProject/Assets/Tests/Editor/TraderDialogViewEditModeTests.cs` (`DuplicateMerchantRowsLabelsAndSignedStatDeltasRenderInSourceOrder`: "Offense  -1.25" and "Offense  0.5")
+
+`stub:` commit (the implementer replaces it; not oracle): `client-unity/RoguehallaNet/Net/Ui/PlayerWords.cs` and its synced copy `client-unity/UnityProject/Assets/RoguehallaNet/Net/Ui/PlayerWords.cs` (overloads that return "", `IsNamed` false, `CardTags` returns its input).
+
+## Red tests on the stub, and the assertion each fails on
+
+dotnet (`dotnet test client-unity/RoguehallaNet.Tests --filter PlayerWordsTests`): 4 new tests red, 9 older green.
+- `EveryAddedEnumHasAPlayerWord`: `IsNamed AbilityId.Freeze` expected True.
+- `TheWordsAreTheOnesTheGameReads`: `AbilityId.Freeze` expected "Freeze", was "".
+- `TheWishNameIsTheChampionRowName`: `WishName(null, Blaze)` expected "Blaze Step", was "Blaze".
+- `CardTagsReadAsWords`: `CardTags("OnHit, Dot, Physical")` expected "On-hit, Damage over time, Physical", was the input.
+
+Unity EditMode (`unity-class.sh OwnerWordsEditModeTests,HudWordsEditModeTests,TraderWordsEditModeTests,LedgerWordsEditModeTests`): 12 red, 5 green (all on behaviour assertions; the scratch run below lists every one):
+- `OwnerWordsEditModeTests.TheWishReadsInTheGamesWords`: card text has "R · LastStand · 1/1", expected "R · Last Stand · 1/1"; tile name "LastStand"; Fire "Blaze".
+- `OwnerWordsEditModeTests.TheStatusWordReplacesTheCode`: `_combatStats` is "Kills 2 · GV 4 · Mia", expected "... · Missing in action".
+- `OwnerWordsEditModeTests.TheTablesAllocateNothing`: `Word(AbilityId.Blaze)` expected "Blaze Step", was "" (the meter part runs after it and passed on the stub).
+- `HudWordsEditModeTests.ThePickupPromptNamesTheProp(WindEmblem, "Wind emblem")` and `(Cannon, "Travel cannon")`: "F  take WindEmblem" and "F  take Cannon". The four other cases (Chest, Body, Corpse, Ground with Axe) are green guards.
+- `HudWordsEditModeTests.TheBuildTipNamesTheBoosts`: tip reads "BUILD  Ad+1  Ap+2  Armor+3 ...", expected "Offense +1" and the seven others.
+- `HudWordsEditModeTests.TheBannerSpeaksInWords`: banner and plate status "HelloSent" (expected "Connecting…"), "Ended" (expected "The match has ended."), "Detached" (expected "Disconnected"); result note "Ended\nNo authoritative result received.".
+- `HudWordsEditModeTests.GUARD_ReconnectingKeepsItsBanner`: green on the stub and after.
+- `TraderWordsEditModeTests.TheDetailHeadingNamesTheTrade`: "The Villager · Barter", expected "The Villager · Weapon barter"; "The Ledger · Stats".
+- `TraderWordsEditModeTests.TheStatusDefaultReadsInWords`: "Idle", "HelloSent", "Detached" for "Not connected", "Connecting…", "Disconnected".
+- `TraderWordsEditModeTests.TheStatLinesUseTheTradeNames`: "AD  1", "AP  1", "move speed  1", "armor  1", "shield  1".
+- `LedgerWordsEditModeTests.TheStatusLineNamesTheStatus`: "Mia  ·  Axe  ·  4 kills ...", expected to start "Missing in action  ·  Axe".
+- `LedgerWordsEditModeTests.CardTagsReadAsWords`: `Card65/CardTags` is "ONHIT, DOT, PHYSICAL", expected "ON-HIT, DAMAGE OVER TIME, PHYSICAL".
+- `LedgerWordsEditModeTests.GUARD_EveryCardTagLineFits`: green on the stub (see the note below for how it differs from the lane spec).
+
+The existing classes that pin this code, run on the stub: `TraderDialogViewEditModeTests`, `MatchHudWishBarrierEditModeTests`, `MatchHudIconPresentationEditModeTests`, `TraderCopyEditModeTests`, `BuildDrawerEditModeTests`, `WishTileEditModeTests`, `PromptPairNarrowEditModeTests`, `ShowcaseStateEditModeTests` and the dotnet `WishTextTests`, `PlayerWordsTests` (older cases) are green with the amendments not yet applied. After the four `oracle-amend:` commits the three Unity amended tests and the two `WishTextTests` cases are red on the stub, and green with the feature.
 
 ## Notes from the oracle author
 
-(Filled in with the `oracle:` commit.)
+- **Scratch runs (not committed).** (1) On the stub, each of the four new EditMode classes was run once with every `Assert.That` and `StringAssert` wrapped in a catch-and-collect helper (a failed assertion does not stop the test). Every collected entry was an assertion about the missing behaviour (the lists above); none came from set-up, a lookup under the wrong parent, delivery order or an expectation that contradicted another line, and the `AllocationMeter` part of `TheTablesAllocateNothing` ran and passed on the stub. (2) A full scratch implementation of the packet (tables, five `MatchHud` lines, `TraderDialogView`, `BuildDrawer` with the rect remedy, `ChestOptionText`) was applied and reverted: all new tests, the dotnet `PlayerWordsTests` and `WishTextTests` (apart from the two amended cases), `BuildDrawerEditModeTests`, `TraderCopyEditModeTests` and `WishTileEditModeTests` were green, and exactly the four amended tests were red. So every expected value in the new tests is reachable.
+- **Spec deviation: `GUARD_EveryCardTagLineFits`.** The lane spec asks for scale 1 and 1.5 at the narrowest cell (88.3 by 27 and 43.5 units), measured at `fontSizeMin`, with a remedy in `CreateCard`. Measured on the base this cannot be written as described: (a) it is red on the base for eight cards at scale 1 and twelve at 1.5 (today's raw tags already wrap to two or three lines in a 27 unit box; card 79's text does not change at all), so it is not a guard that is green on the stub; (b) its height and width are written out from the constant `.15`, so editing the rect (the remedy) cannot turn it green; (c) at the narrowest cell the new words need four lines for card 65 (69.6 units at scale 1, 156.5 at 1.5), which no rect change of the allowed size holds. The nearest test that pins the same behaviour: the same measure at scale 1 in a 245 unit cell (a 1280 wide window), taking width and height from the card's own tag-rect anchors (so the remedy does move it), and allowing the larger of the rect's height and what today's text needed (so a card whose words do not change cannot fail it). It is green on the stub, red after the words are longer until the `CardTags` rect is raised (eight cards need 34.8 of 27 units), and green with the spec's remedy (`CardTags` top `.05` to `.24`, `CardDescription` bottom `.22` to `.26`), checked in the scratch implementation. **Not established, for the lane lead:** at the narrowest cell (152) and at text scale 1.5 the longer tag lines overflow their rect with or without the remedy (text is not cut: `MythicUi.Text` overflows). A layout decision (a full-width tag line, abbreviating words on the tile only, or accepting overflow below a window width) is the lane lead's; this packet does not take it.
+- **Chest kind line is not tested.** `MatchHud.FillChestCard` is private and the spec lists no EditMode test for it; R8's chest half is pinned through `ChestOptionText.Describe(...).Tags` in the dotnet `CardTagsReadAsWords` (all 80 cards). The line is `kind + "  ·  " + tags.ToUpperInvariant()` (`MatchHud.Chest.cs:110`), so it reads "AUGMENT  ·  ON-HIT, DAMAGE OVER TIME, PHYSICAL" once `Tags` carries the words.
+- **Build tip format.** The tip entry is `word + " +" + count` ("Offense +1": a space before the plus sign, as the spec's examples), two spaces between entries; today it is `Ad+1`.
+- **No test reads a clock.** The banner test sets `_dirty` itself in its `Frame()` (the HUD only rewrites the banner when dirty, and `Session.Detach()` and the Ended event set it through the HUD's handlers anyway).
+- **Packet line numbers** were re-read on the base: the spec's `MatchHud.cs` lines were close but not exact (banner compare is :257, result note :311, pickup `what` :436); the packet carries the corrected ones.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
