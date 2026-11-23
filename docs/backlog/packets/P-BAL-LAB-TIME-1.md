@@ -108,7 +108,7 @@ C-OBS and C-RNG are untouched (the observer reads only). `crates/rh-headless/AGE
    the seats' buckets bucket by bucket, and each bucket's three bands sum to its `all`; per-seat `camps_normal +
    camps_elite` sum to `camps_credited`, `camps_normal` sum to `camps_credited_normal`; `deaths` sum to
    `player_deaths.total`; `quests_completed` sum to the quests' `completed`; `elite_kills` sum to the elites' `killed`;
-   `kill_secs_normal.n + kill_secs_elite.n == kill_secs.n`, and `kill_secs_normal.n` is bounded by the normal camps.
+   `kill_secs_normal.n + kill_secs_elite.n == kill_secs.n` (and the sums add).
 4. **Incremental**: `TimeTally::push(&TimeStep)` and `finish()`; per seat counters and the last hit steps only, never a
    row per step. `tally_time(&[TimeStep], seats)` wraps it for the scripted tests.
 5. **The observer still only reads.** No draw, no mutation, nothing hash-ordered. The elite and camp hit facts come from
@@ -184,6 +184,14 @@ event walk without double counting; seat rows folded in seed order (`Acc` needs 
 - Bot seats (`bot: true`) have no quest probe: `quest_open` is false there.
 - The two quest buckets use the probe's open attempt, not the observation.
 - `Sim::tick()` at the first step is 1; the band uses the step's own tick.
+
+## Oracle check on the base
+
+- Scripted tests (12, debug): all red by assertion on the stub (e.g. `step 0 must land in exactly one bucket once, got []`).
+- Release (`cargo test --release -p rh-headless --test balance_lab_time`): `test result: FAILED. 0 passed; 16 failed; 0 ignored`
+  (the four real-run tests fail on `the report has no seats array` / missing `all`). Measured on the base (seeds 1..4, 6000
+  ticks, eight raid human seats): 59 camps credited, 2 deaths (so `dead` is asserted `>= deaths` and `> 0`, not a count).
+- Guards: none are green on the stub; the existing lab tests stay the guards for purity and `--jobs` identity.
 
 ## Not established
 
