@@ -193,7 +193,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(Text(tile, "Charges"), Is.EqualTo(""), when + ": no badge");
             Assert.That(WedgeOn(tile), Is.False, when + ": no wedge");
             Assert.That(CastOn(tile), Is.False, when + ": no cast bar");
-            Assert.That(Surface(tile).color.a, Is.LessThan(.5f), when + ": the surface is dim");
+            Assert.That(Surface(tile).color, Is.EqualTo((Color)UiTheme.Current.SurfaceRaised), when + ": the surface is the solid plate");
             Assert.That(tile.GetComponent<Button>().interactable, Is.False, when + ": the button is not interactable");
         }
 
