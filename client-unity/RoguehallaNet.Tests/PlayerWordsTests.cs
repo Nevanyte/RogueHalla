@@ -168,6 +168,15 @@ namespace Roguehalla.Net.Tests
             foreach (var pair in expectedTags) Assert.That(PlayerWords.CardTag(pair.Key), Is.EqualTo(pair.Value), "tag " + pair.Key);
         }
 
+        [Test]
+        public void TheChestCardTitlesAreTheOnesTheGameReads()
+        {
+            void Check<T>(Func<T, string> word, params (T, string)[] table) { foreach (var (v, w) in table) Assert.That(word(v), Is.EqualTo(w), typeof(T).Name + "." + v); }
+            Check<BoostId>(PlayerWords.ChestTitle, (BoostId.Ad, "Offense"), (BoostId.Ap, "Soul Offence"), (BoostId.Armor, "Defense"), (BoostId.Shield, "Soul Defense"), (BoostId.MaxHp, "Max HP"),
+                (BoostId.AttackSpeed, "Attack Speed"), (BoostId.MoveSpeed, "Move Speed"), (BoostId.Lifesteal, "Leech"), ((BoostId)200, "Bonus"));
+            Sweep<BoostId>(PlayerWords.IsNamed, PlayerWords.ChestTitle, (BoostId)200, "Bonus");
+        }
+
         static WireHudContent Block(params (HudTerm code, double value)[] t)
         {
             return new WireHudContent { Terms = t.OrderBy(r => (byte)r.code).Select(r => new WireHudTerm { Code = (byte)r.code, Value = r.value }).ToArray() };

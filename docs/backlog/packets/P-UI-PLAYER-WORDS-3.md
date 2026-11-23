@@ -189,7 +189,29 @@ Low: three string edits and one new function; implementer-sonnet. The risk is ch
 
 ## Notes from the oracle author
 
-(filled when the oracle is committed)
+- Spec followed as written; no test was changed in shape. Wording check: every `Where` line was re-opened on the base `packages/`
+  (chestBoosts.ts:24-31, hud.ts:54, consumables.ts:178, traders.ts:13-14, glossary.ts:20-72, abilities.ts name lines, buildHud.ts:154-157).
+  The spec's `buildModel.ts` lives at `packages/client/src/ui/buildModel.ts` (not `shared`). `Cells(null)` returns no cells, so the
+  GAINED rows use `Cells(new WireBuildSummary())` as the spec says (nine cells).
+- Stub: `PlayerWords.ChestTitle` returns `Word(value)` (stub commit; library file and synced copy).
+- Red on the stub (dotnet, `--filter "LegacyWordsTests|PlayerWordsTests"`: 6 failed, 13 passed):
+  - `LegacyWordsTests.ADifferentChestTitleIsLegacys` x4: `Assert.AreEqual` of the title ("Max HP" vs "Max health", "Attack Speed" vs
+    "Attack speed", "Move Speed" vs "Move speed", "Leech" vs "Lifesteal").
+  - `LegacyWordsTests.EveryTableWordWithALegacyWordIsLegacys`: coverage passes; equality fails with exactly five entries
+    (`ChestTitle.MaxHp`, `ChestTitle.AttackSpeed`, `ChestTitle.MoveSpeed`, `ChestTitle.Lifesteal`, `SessionState.Ended`).
+  - `PlayerWordsTests.TheChestCardTitlesAreTheOnesTheGameReads`: red at `BoostId.MaxHp` ("Max HP" vs "Max health").
+- Scratch run (not committed): a copy of the new `PlayerWordsTests` test with every step wrapped in a catch-and-collect helper
+  showed exactly four assertion failures (MaxHp, AttackSpeed, MoveSpeed, Lifesteal) and no other exception: the `Bonus`
+  neutral, the `Sweep` word rules and `IsNamed` lines all run and pass on the stub. `LegacyWordsTests.EveryTable...` collects by its own
+  design (the five entries above, nothing else), and `ADifferentChestTitleIsLegacys` is one assertion per case.
+- Amended existing tests (Unity EditMode, `unity-class.sh HudWordsEditModeTests,Ui4EditModeTests,MatchHudTrophyEditModeTests`: 16 run,
+  13 pass, 3 red on the stub, each on the changed expectation): `HudWordsEditModeTests.TheBannerSpeaksInWords` (banner: expected
+  "Run over", was "The match has ended."), `Ui4EditModeTests.ChestBoostsReadAsStatNamesNotEnumNames` ("Max HP" vs "Max health"),
+  `MatchHudTrophyEditModeTests...` (":53 "Leech" vs "Lifesteal"). Those three amended tests change only expected strings; the lines
+  after each changed line were green on the base and are untouched, so no further scratch run was made on them. After the
+  implementation the plate and result-note lines of `TheBannerSpeaksInWords` (:169-170) are first reached; their expected strings come
+  from `MatchHud.cs:271,311` (banner = `PlayerWords.Word(state)`, note = banner + "\nNo authoritative result received.").
+- The other word classes still green on the stub (see the hand-off).
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation. -->
