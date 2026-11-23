@@ -260,6 +260,14 @@ pub struct QuestVerdict {
     pub timer_secs: Option<f64>,
     pub reward_value_at_parity: Option<f64>,
     pub duration_secs_at_parity: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub price_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ratio_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verdict_at_reference: Option<Verdict>,
     pub not_measured: Vec<String>,
 }
 
@@ -280,6 +288,16 @@ pub struct AugmentVerdict {
     pub ratio_duo: Option<f64>,
     pub ratio_trio: Option<f64>,
     pub meets_rule: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ratio_solo_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ratio_duo_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ratio_trio_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meets_rule_at_reference: Option<bool>,
     pub not_measured: Vec<String>,
 }
 
@@ -300,6 +318,10 @@ pub struct Measured {
 pub struct Evaluation {
     pub schema: String,
     pub needed: Needed,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub needed_at_reference: Option<Needed>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reference_farm_rate: Option<f64>,
     pub quests: Vec<QuestVerdict>,
     pub augments: Vec<AugmentVerdict>,
     /// Numbers taken from `inputs.json` as design assumptions, not measured.
@@ -680,6 +702,8 @@ pub fn evaluate_json(report: &str, inputs: &str) -> Result<Evaluation, String> {
         ],
         measured: m,
         not_measured: nm,
+        needed_at_reference: None,
+        reference_farm_rate: None,
     })
 }
 
