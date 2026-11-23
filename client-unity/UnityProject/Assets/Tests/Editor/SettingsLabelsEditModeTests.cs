@@ -506,7 +506,7 @@ namespace Roguehalla.Client.Tests
                 AssertNoteRows(rig.Settings, "at 1.5 after a change while open");
                 float h2 = rig.Settings.Root.sizeDelta.y;
                 Assert.That(h2, Is.GreaterThan(h1), "the card grows with its text");
-                Assert.That(h2, Is.EqualTo(36f + Content(rig.Settings).rect.height + 10f).Within(1f), "the card is its header, its content and 10");
+                Assert.That(h2, Is.EqualTo(36f + Content(rig.Settings).rect.height + 62f + 10f).Within(1f), "the card is its header, its content, its footer (62, with a leave action) and 10");
             }
         }
 
