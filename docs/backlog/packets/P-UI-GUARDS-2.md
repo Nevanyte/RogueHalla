@@ -137,7 +137,21 @@ Rows 7 to 9 are NEW test methods in `oracle:` commits.
 
 ## Oracle files (read-only for implementers)
 
-(filled in the oracle commit)
+All under `client-unity/UnityProject/Assets/Tests/Editor/`. Five `oracle-amend:` commits (existing test methods, listed for the owner with their kind), one `oracle:` commit.
+
+- `QuestJournalDetailsEditModeTests.cs`: `oracle-amend` (rows 1 and 2, RE-STATEMENT) `NoHeadingIsTallerThanItsRowAndNothingOverlaps(1f)` and `(1.5f)`:
+  the row is `LongRowWithParticipant`, the delivery carries `ParticipantRoster`, one added precondition assertion that the PARTICIPANTS field is
+  active in the hierarchy (new helper `LongRowWithParticipant`, new static `ParticipantRoster`, `Deliver` takes an optional `roster`); `oracle-amend`
+  (row 3, RE-STATEMENT) `TheHeadingsAreRightWhenTheJournalOpensAfterDeliveriesWhileHidden`: same row, roster and precondition.
+- `FlowsLeftoversEditModeTests.cs`: `oracle-amend` (row 4, RE-STATEMENT) `TraderListTopEditModeTests.EveryOpeningStartsAtTheTop` (new helper
+  `ChangedOffer`); `oracle-amend` (row 5, RE-STATEMENT) `TraderListTopEditModeTests.ARebuildWhileOpenKeepsThePosition`.
+- `ZoneNamesRealOrderEditModeTests.cs`: `oracle-amend` (row 6, STRENGTHENING) helpers `EdgeMarks` and `AssertClearOfEdgeMarks`, which change
+  `TheNamesOfARealMatchAreMeasuredWhenTheMapOpens`, `ThePlanningOrderMeasuresWhenThePanelShows` and `AMapOpenedBeforeTheFirstFrameGivesTodaysResult`
+  (`TextSize` stays, now unused by `EdgeMarks`); `oracle` (row 8, new) `TheNamesOfARealMatchAreClearOfTheMarksWithTheKeyOn` with the field `_keyOn`
+  read by `BuildController` (default false, reset in `SetUp`: no other test changes).
+- `ZoneNamesEditModeTests.cs`: `oracle` (row 7, new) `ThePicturesNamesAreClearOfTheirMarksWithTheKeyOn`.
+- `SettingsFooterEditModeTests.cs`: `oracle` (row 9, new) `AShortWindowKeepsTheFooterInView`.
+- `docs/backlog/packets/P-UI-GUARDS-2.md`.
 
 ## 9. Validation commands
 
@@ -158,4 +172,48 @@ Low: tests only. Sonnet implements nothing; if a guard is red on the base it is 
 
 ## Notes from the oracle author
 
-(filled in the oracle commit)
+Spec differences (the code decided):
+
+- **The spec's participant needs a roster.** The wire refuses a quest participant that is not on the view's roster
+  (`client-unity/RoguehallaNet/Protocol/StateItemsSocial.cs:408-412`, "quest participant"): a row with `Participants = { Id 11 }` and no roster throws
+  `EncodeException` in `Deliver` (seen on the first run). The two journal tests therefore deliver `Roster = { 11 "Alice" }` too. The heading is the same
+  field; only the value line reads "Alice" where the spec's wording had the fallback "Participant".
+- **Rows 1 to 3 gain one precondition assertion** (`QuestParticipants` active in the hierarchy before `AssertHeadings`), so the guard cannot pass again
+  because the field is hidden (the original loss).
+- **Row 6**: `CampTextRect(i)` reads null for a camp with no block; with the key off all four camps have one, so the helper also asserts four blocks
+  and `marks.Count == 4 + blocks` (the spec's count).
+- **Row 7 and 8 assertions on spots**: row 7 keeps `ZoneLabelSpot(Haunted/Holy) > 0` (measured green and sensitive to the plate); row 8 does not claim
+  `AssertEdgeSpots` (the spec said "not established"). Both add set-up assertions that the key really is on (camps 0 and 2 have a block, 1 and 3 none).
+- **Row 9** is a new method in `SettingsFooterEditModeTests` (the spec's first alternative); `ModernSettingsLayoutEditModeTests` is outside the write scope
+  and unchanged. The Training walkthrough row is `content.GetChild(childCount - 1)` (the footer is no longer in the content).
+- `FlowsLeftoversEditModeTests.TraderListTopEditModeTests` is a separate class from `FlowsLeftoversEditModeTests` in that file: run it by its own name.
+
+Results on the base `88bbbdbe7` (all green with the new tests; run by `unity-class.sh`, Unity 6000.0.85f2):
+
+- `QuestJournalDetailsEditModeTests`, `FlowsLeftoversEditModeTests`, `TraderListTopEditModeTests`: 22 of 22.
+- `ZoneNamesEditModeTests`, `ZoneNamesRealOrderEditModeTests`, `SettingsFooterEditModeTests`: 31 of 31.
+- Final whole-class run on the committed tree, with the neighbours: see the line "Final run" below.
+
+No scratch catch-and-collect run: nothing here is red on the base, so no test stops early; each test ran to its end green, and the mutation runs
+below show each guard's assertion fail. Red on the base: none.
+
+Mutations (each applied alone to the product file, the class run, the file put back with `git checkout --`; `git status` clean afterwards each time):
+
+| Guard | Mutation | Failing message |
+|---|---|---|
+| Rows 1, 2, 3 (three tests) | `QuestJournalView.CreateQuestField`: for `QuestParticipants` add a `LayoutElement` with `preferredHeight = 2` on the FieldLabel | `QuestParticipants heading needs 24.56 of 2 text scale 1` (1.5: `36.83 of 2`; hidden-delivery test: `36.83 of 2 after a hidden delivery`) |
+| Row 4 `EveryOpeningStartsAtTheTop` | `TraderDialogView.SetVisible`: comment out `if (opening) _listToTop = true;` | `the list stands at its top when it opens after a rebuild while closed` (expected 1, was .4); the first failing step is the amended one |
+| Row 5 `ARebuildWhileOpenKeepsThePosition` | `TraderDialogView.PlaceList`: `verticalNormalizedPosition = 1f` instead of `_listToTop ? 1f : read` | `after the same trader's offer changed (a rebuild), Refresh` (expected .4, was 1). The old moved-merchant trigger passes under this mutation: the amend is what makes the guard bite |
+| Rows 7, 8 plates | `TacticalMapMarks.ZoneLabels.cs:211` remove `AddBox(into, p.x, p.y, box, box)` (the camp plate obstacle) | row 8: `key on: the drawn name Haunted overlaps no camp plate or text` (expected False, was True); row 7: `Holy leaves spot 0 for the givers and plates` (expected > 0, was 0). Eight older tests fail too (they pin spots) |
+| Rows 7, 8 key | `TacticalMapMarks.cs:159` `CampKey.Apply(_camps, false)` | both: `set-up: the two Stat-2 camps lose theirs, the key says them` (expected False, was True): the key-on claim is real |
+| Row 9 | `ModernSettingsView.cs:60` scroll inset bottom `10f` instead of `10f + _footerHeight` | `the scroll frame ends at or above the footer's top: frame [.. y -330..-36], footer [.. y -330..-268]` (three older footer tests fail too) |
+| Row 9 | `ModernSettingsView.cs:314` `FooterRow` `offsetMin.y = -30f` | `the footer is 62 high with a leave action: 102` |
+
+**Not sharp (stated, not hidden):** the text-block clause of rows 6, 7 and 8. Removing the placed text block from the zone-name obstacles
+(`TacticalMapMarks.ZoneLabels.cs:213`, `into.Add(_ctRects[i])`) turns NO test red, old or new, in all 18 tests of the two classes: on these scenes the
+plates and givers keep every name away from the texts anyway, so the "no name overlaps a text that stands" assertions hold on today's geometry and would
+not catch that regression. The plate clause is sharp (above). A scene where a name would otherwise land on a text needs a camp layout designed for it;
+that is outside this packet's rows and is left for the lane lead. Row 6's own change (reading the placed block instead of modelling it) is covered by
+the green run only: the plate mutation reddens those three tests earlier, at the spot assertion.
+
+Final run, on the tree of the last commit: QuestJournalDetails, QuestJournalView, FlowsLeftovers, TraderListTop, TraderRowsRealOrder, TraderSteady, ZoneNames, ZoneNamesRealOrder, CampText, SettingsFooter and ModernSettingsLayout EditMode classes: 134 of 134 passed, 0 failed. The five product files are untouched (`git diff 88bbbdbe7 --stat -- client-unity/UnityProject/Assets/Scripts` is empty).

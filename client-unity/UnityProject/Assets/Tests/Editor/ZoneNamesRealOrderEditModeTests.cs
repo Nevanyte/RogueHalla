@@ -66,6 +66,7 @@ namespace Roguehalla.Client.Tests
         MapCamp[] _mapCamps;
         PicCamp[] _campRows = EdgeCamps;
         WireSelf _wireSelf;
+        bool _keyOn;   // the Tab map key shows the amounts (CampFactsInKey) from the build on; the older tests keep it off
 
         [SetUp]
         public void SetUp()
@@ -76,6 +77,7 @@ namespace Roguehalla.Client.Tests
             _priorTheme = UiTheme.Current;
             WorldLabelVisibility.Hidden = false;
             _campRows = EdgeCamps;
+            _keyOn = false;
         }
 
         [TearDown]
@@ -138,7 +140,7 @@ namespace Roguehalla.Client.Tests
             _controller = _controllerObject.AddComponent<TacticalMapController>();
             if (_prefs == null) { _prefs = new UiDisplayPreferences(); _priorToggle = _prefs.MapToggle; }
             _controller.Initialize(_client, _canvas.transform, _prefs, _stage);
-            Marks().CampFactsInKey = false;   // P-UI-TABMAP-TEXT-2: the zone names are placed around the camps' own texts, as these tests were written
+            Marks().CampFactsInKey = _keyOn;   // P-UI-TABMAP-TEXT-2: off in the older tests (the zone names are placed around the camps' own texts, as they were written); on in the key-on guard
             _controller.SetToggleMode(false);
             _controller.Bind(_session);
             if (open) _controller.SetOpen(true);
@@ -490,6 +492,31 @@ namespace Roguehalla.Client.Tests
             FindCamps(EdgeCamps);
             Control();
             AssertTrueAndClear("control order");
+        }
+
+        // ---- 6b. standing guard: the shipped key is on ------------------------------------------------------------------------------
+
+        /// <summary>P-UI-GUARDS-2: a real match (built closed, delivered closed, opened later) with the Tab map key on, as shipped: the two Stat-0 camps
+        /// (amounts that vary) keep their texts, the two Stat-2 camps (one amount) lose theirs, and no zone name overlaps a plate or a text that stands.</summary>
+        [Test]
+        public void TheNamesOfARealMatchAreClearOfTheMarksWithTheKeyOn()
+        {
+            FindCamps(EdgeCamps);
+            _keyOn = true;
+            Real();
+            Assert.That(Marks().CampFactsInKey, Is.True, "set-up: the key is on");
+            Assert.That(Marks().CampMarkerCount, Is.EqualTo(4), "the four camps are delivered");
+            Assert.That(Marks().CampTextRect(0).HasValue && Marks().CampTextRect(2).HasValue, Is.True, "set-up: the two Stat-0 camps keep their texts");
+            Assert.That(Marks().CampTextRect(1).HasValue || Marks().CampTextRect(3).HasValue, Is.False, "set-up: the two Stat-2 camps lose theirs, the key says them");
+            AssertKeptSizesAreTrue("key on");
+            var marks = EdgeMarks();
+            Assert.That(marks.Count, Is.EqualTo(6), "four camp plates and the two texts that stand");
+            for (int r = 1; r <= MapZones.Count; r++)
+            {
+                var drawn = DrawnRect(r);
+                foreach (var m in marks)
+                    Assert.That(drawn.Overlaps(m), Is.False, "key on: the drawn name " + MapZones.Name(r) + " overlaps no camp plate or text");
+            }
         }
 
         // ---- 7. a rebind ------------------------------------------------------------------------------------------------------------
