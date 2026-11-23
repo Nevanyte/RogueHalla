@@ -107,7 +107,7 @@ namespace Roguehalla.Client
         {
             _map = map;
             _ping.Active = false;
-            if (map == null) { _actors.Clear(); _contactMarks.Clear(); _marked.Clear(); RefreshContactLabels(); _route.Clear(); _chests.Clear(); _self = null; ClearDelivered(); _camps.Clear(); _wards.Clear(); _chestRows.Clear(); _realIcons = 0; for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false; }
+            if (map == null) { _actors.Clear(); _contactMarks.Clear(); _marked.Clear(); RefreshContactLabels(); _route.Clear(); _chests.Clear(); _self = null; ClearDelivered(); _camps.Clear(); _wards.Clear(); _chestRows.Clear(); _realIcons = 0; for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false; ClearCampTexts(); }
             else if (map.Regions != null) MapZones.LabelTiles(map.Regions, map.W, map.H, out _zoneFound, out _zoneX, out _zoneY);
             else for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false;
             ResetZoneSpots();
@@ -125,7 +125,7 @@ namespace Roguehalla.Client
         /// <summary>How many times the layer's scale changed (P-UI-TABMAP-MARKS-1).</summary>
         public int LayerChanges { get; private set; }
         /// <summary>The layer's scale changed: the zone labels follow it and the mesh redraws.</summary>
-        public void LayerChanged() { LayerChanges++; RefreshZoneLabels(ZonePass.Forced); SetVerticesDirty(); }
+        public void LayerChanged() { LayerChanges++; PlaceCampTexts(true); RefreshBadgeTexts(); RefreshZoneLabels(ZonePass.Forced); SetVerticesDirty(); }
 
         void Update()
         {
@@ -237,6 +237,7 @@ namespace Roguehalla.Client
                 }
             }
             RefreshCampClocks();
+            PlaceCampTexts(false);
             RefreshBadgeTexts();
             RefreshContactLabels();
             RefreshChestTexts();
@@ -399,14 +400,14 @@ namespace Roguehalla.Client
             return _badgeTexts[i];
         }
 
-        void ShowBadgeText(ref int used, Vector2 at, string text, Color32 color, bool leftOfPoint)
+        void ShowBadgeText(ref int used, Vector2 at, string text, Color32 color, int align)
         {
             var t = BadgeText(used++);
             if (!t.gameObject.activeSelf) t.gameObject.SetActive(true);
             if (t.text != text) t.text = text;
             t.color = color;
-            t.alignment = leftOfPoint ? TextAlignmentOptions.Right : TextAlignmentOptions.Left;
-            t.rectTransform.pivot = new Vector2(leftOfPoint ? 1f : 0f, .5f);
+            t.alignment = align < 0 ? TextAlignmentOptions.Left : align > 0 ? TextAlignmentOptions.Right : TextAlignmentOptions.Center;
+            t.rectTransform.pivot = new Vector2(align < 0 ? 0f : align > 0 ? 1f : .5f, .5f);
             t.rectTransform.anchoredPosition = at;
         }
 
@@ -421,9 +422,7 @@ namespace Roguehalla.Client
                     var b = _camps[i];
                     var p = At(new Vector2((float)b.WorldX, (float)b.WorldY));
                     if (ContactNear(p)) continue;
-                    int row = 0;
-                    if (b.AmountText != null) ShowBadgeText(ref used, RewardSlot(p, row++) + new Vector2(8f, 0f), b.AmountText, Rgb(b.IconRgb), false);
-                    if (b.EliteText != null) ShowBadgeText(ref used, RewardSlot(p, row) + new Vector2(8f, 0f), b.EliteText, ChestTone, false);
+                    ShowCampTexts(ref used, i, b);
                 }
                 for (int i = 0; i < _wards.Count; i++)
                 {
@@ -431,7 +430,7 @@ namespace Roguehalla.Client
                     var p = At(new Vector2((float)w.WorldX, (float)w.WorldY));
                     if (ContactNear(p)) continue;
                     if (!Large) continue; // the minimap keeps the ward mark only, no number
-                    ShowBadgeText(ref used, WardSlot(p) + new Vector2(-8f, 0f), w.Countdown, Rgb(w.TextRgb), true);
+                    ShowBadgeText(ref used, WardSlot(p) + new Vector2(-8f, 0f), w.Countdown, Rgb(w.TextRgb), 1);
                 }
             }
             for (int i = used; i < _badgeTexts.Count; i++) if (_badgeTexts[i].gameObject.activeSelf) _badgeTexts[i].gameObject.SetActive(false);
