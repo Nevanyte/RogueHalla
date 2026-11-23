@@ -182,6 +182,11 @@ fn run(s: Scene) -> Out {
     let mut events: Vec<Event> = Vec::new();
     let mut o = Out::default();
     let mut streak = 0u32;
+    // The scene is the seat's FIRST fight with the watched camp: once the camp has been cleared the stall count stops
+    // (coordinator's oracle-amend, 2026-11-23). At seed 1 camp 50 the Bow seat clears the camp at tick 531 with a worst
+    // stall of 32; later it farms camp 35, shooting at a member it has no line of sight to (an older defect of the
+    // ranged lock, not this packet's), while camp 50's respawned idle member stands 55 u away: 110 ticks read as a stall.
+    let mut cleared = false;
     for tick in 0..s.ticks {
         drive_seats_with(&mut sim, &mut seats, &events, &mut sight, |_, _| {});
         events.clear();
@@ -207,13 +212,18 @@ fn run(s: Scene) -> Out {
             o.hits += 1;
             o.first_hit.get_or_insert(tick);
         }
-        let near = sim.mobs().iter().any(|m| {
-            m.camp == s.camp
-                && m.elite == s.elite
-                && m.status == rh_sim::Status::Alive
-                && m.core.vitals.hp >= m.core.vitals.max_hp * 0.999
-                && dist(m.core.pos(), p.pos()) <= NEAR_U
-        });
+        cleared |= !sim
+            .mobs()
+            .iter()
+            .any(|m| m.camp == s.camp && m.elite == s.elite && m.status == rh_sim::Status::Alive);
+        let near = !cleared
+            && sim.mobs().iter().any(|m| {
+                m.camp == s.camp
+                    && m.elite == s.elite
+                    && m.status == rh_sim::Status::Alive
+                    && m.core.vitals.hp >= m.core.vitals.max_hp * 0.999
+                    && dist(m.core.pos(), p.pos()) <= NEAR_U
+            });
         if near {
             o.ticks_near += 1;
         }
