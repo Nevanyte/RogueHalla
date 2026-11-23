@@ -55,6 +55,8 @@ namespace Roguehalla.Client
         bool _factsDirty = true;
         bool _mapOpen;
         bool _minimapSuppressed;
+        /// <summary>P-UI-TABMAP-SHEET-1 stub: the HUD's phase line for the map header (null or empty shows nothing).</summary>
+        public void SetPhaseLine(string text) { }
         public bool ToggleMode => _prefs.MapToggle;
         public bool ShowRoute => _prefs.ShowRoute;
         public bool IsPlanning => _bound?.Collections.Plan != null && _bound.LastResult == null && (_bound.State == SessionState.InMatch || _bound.State == SessionState.Reconnecting || _bound.State == SessionState.HelloSent);

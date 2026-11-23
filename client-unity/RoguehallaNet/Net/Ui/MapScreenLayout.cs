@@ -23,6 +23,7 @@ namespace Roguehalla.Net.Ui
     /// </summary>
     public readonly struct MapScreenLayout
     {
+        public const float SheetPad = 12f;
         public const float Pad = 12f, Gap = 12f, FramePad = 4f, TitleHeight = 34f, TabLegendHeight = 30f, PlanningTitleHeight = 40f, PlanningNoteHeight = 52f;
         public const float StackBelow = 900f, ChromeClear = 44f, PlanningColumn = 340f;
         public const float MapMin = 240f, MapMax = 820f;
@@ -31,6 +32,10 @@ namespace Roguehalla.Net.Ui
         public readonly bool Stacked;
         /// <summary>The heading strip above the map frame.</summary>
         public readonly MapRect Title;
+        /// <summary>The backing panel behind the whole Tab block on the wide layout (stacked and planning: equals <see cref="Body"/>, not drawn).</summary>
+        public readonly MapRect Sheet;
+        /// <summary>The full-width heading strip of the sheet (stacked and planning: equals <see cref="Title"/>).</summary>
+        public readonly MapRect Header;
         /// <summary>The panel that frames the map (the map square plus <see cref="FramePad"/> on every side).</summary>
         public readonly MapRect Frame;
         /// <summary>The square the map is drawn in.</summary>
@@ -47,6 +52,7 @@ namespace Roguehalla.Net.Ui
         MapScreenLayout(MapScreenMode mode, bool stacked, MapRect title, MapRect frame, MapRect legend, MapRect left, MapRect right, MapRect body)
         {
             Mode = mode; Stacked = stacked; Title = title; Frame = frame; Legend = legend; Left = left; Right = right; Body = body;
+            Sheet = new MapRect(0, 0, 0, 0); Header = new MapRect(0, 0, 0, 0);   // stub: P-UI-TABMAP-SHEET-1 replaces these
             Map = new MapRect(frame.X + FramePad, frame.Y + FramePad, frame.W - FramePad * 2f, frame.H - FramePad * 2f);
         }
 
