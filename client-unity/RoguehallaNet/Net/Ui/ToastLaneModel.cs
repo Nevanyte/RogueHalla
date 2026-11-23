@@ -42,7 +42,7 @@ namespace Roguehalla.Net.Ui
         static string Display(Item i) => i.Count > 1 ? i.BaseText + " x" + i.Count : i.BaseText;
 
         /// <summary>Null or empty text is ignored.</summary>
-        public void Push(string text, NoticeTone tone, string key = null)
+        public void Push(string text, NoticeTone tone, string key = null, float holdSeconds = 0f, bool dropIfLate = false)
         {
             if (string.IsNullOrEmpty(text)) return;
             if (key != null)
@@ -115,6 +115,9 @@ namespace Roguehalla.Net.Ui
             }
             _lines.Insert(0, new Item { BaseText = text, Display = text, Tone = tone, Sticky = true, HoldLeft = float.PositiveInfinity });
         }
+
+        /// <summary>Starts the fade out of a showing, non-sticky line with this key. STUB: does nothing.</summary>
+        public void End(string key) { }
 
         /// <summary>Timers run only while visible.</summary>
         public void Tick(float dt, bool visible, bool reducedMotion)
