@@ -34,9 +34,6 @@ namespace Roguehalla.Client
         RectTransform _wishDetails;
         RectTransform _vitalsPanel, _buildStrip, _combatActions, _damagePanel;
         TMP_Text _combatStats;
-        bool _worldHudVisible = true;
-        GameObject _worldHudFocus;
-        bool WorldHudVisible => !BlocksKeyboardInput && !(_map?.IsOpen ?? false);
         // Panels (plate, champion, hotbar, minimap) read console focus only while the console is open; the closed CONSOLE button takes focus on a plain Tab.
         bool PanelHudVisible => !BlocksKeyboardInputCore(_trainingConsole?.IsOpen == true) && !(_map?.IsOpen ?? false);
         public TacticalMapController TacticalMap => _map;
@@ -199,22 +196,6 @@ namespace Roguehalla.Client
             if (text == null) { _phaseStrip.text = ""; return; }
             ApplyPhaseStrip(text, lineTone);
         }
-        /// <summary>Writes the top-centre phase line and its tone (P-UNITY-HUD-VISUAL-FIX-1 test seam: the tone must reach the label's colour, never tags in its text).</summary>
-        public void ApplyPhaseStrip(string text, Roguehalla.Net.Ui.Indicators.ArenaLineTone tone)
-        {
-            // Colour through the label, never tags: HudUi.Label is plain text (richText = false). Legacy --warn and .hud-arena.sudden (style.css:44,320).
-            _phaseStrip.color = tone == Roguehalla.Net.Ui.Indicators.ArenaLineTone.Danger ? (Color)new Color32(0xff, 0x8a, 0x80, 255)
-                : tone == Roguehalla.Net.Ui.Indicators.ArenaLineTone.Warn ? (Color)new Color32(0xff, 0xcc, 0x80, 255) : (Color)UiTheme.Current.TextPrimary;
-            // Legacy's line is as wide as its text (hud.ts updateArena): size the pill to the measured text, only when the text changed.
-            bool changed = _phaseStrip.text != text;
-            _phaseStrip.text = text;
-            if (changed && _phasePill != null)
-            {
-                float w = _phaseStrip.GetPreferredValues(text, 0f, 0f).x;
-                _phasePill.sizeDelta = new Vector2(Mathf.Max(120f, Mathf.Ceil(w) + 24f), _phasePill.sizeDelta.y);
-                PlacePhasePill();
-            }
-        }
         void ToggleBuild()
         {
             if (_drawer == null || _session == null) return;
@@ -224,14 +205,6 @@ namespace Roguehalla.Client
         }
         void ToggleHelp() { if (_help != null) { SuspendTrainingForPanel(); _help.gameObject.SetActive(!_help.gameObject.activeSelf); if (_help.gameObject.activeSelf) { CloseHubPanels(); _drawer?.SetVisible(false); _map?.SetOpen(false); } ReleaseChestFocus(); RefreshHeaderActionsVisibility(); } }
         void ToggleHelpClosed() { ReleaseChestFocus(); RefreshHeaderActionsVisibility(); }
-        void RefreshHeaderActionsVisibility()
-        {
-            bool visible = (_drawer == null || !_drawer.IsVisible) && !PlayerFlowVisible;
-            for (int i = 0; i < _headerActions.Length; i++)
-                if (_headerActions[i] != null && _headerActions[i].gameObject.activeSelf != visible)
-                    _headerActions[i].gameObject.SetActive(visible);
-            RefreshJournalLauncher();
-        }
         public void ReadUiInput()
         {
             if (TrainingInputConsumed) return;
@@ -389,31 +362,6 @@ namespace Roguehalla.Client
         public static string ComposeLobbyRoster(System.Collections.Generic.IReadOnlyList<RosterEntry> roster, uint me = 0)
         {
             return Roguehalla.Net.Ui.LobbyActivity.SeatedList(roster, me);
-        }
-        void RefreshWorldHudVisibility()
-        {
-            bool visible = PanelHudVisible;
-            if (_worldHudVisible != visible)
-            {
-                HudIconHint.CloseAll();
-                _worldHudVisible = visible;
-                RefreshHudElementVisibility();
-                var selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
-                var target = _worldHudFocus != null ? _worldHudFocus.GetComponent<UnityEngine.UI.Selectable>() : null;
-                if (visible && target != null && target.IsActive() && target.IsInteractable() &&
-                    EventSystem.current != null && (selected == null || !selected.activeInHierarchy))
-                    EventSystem.current.SetSelectedGameObject(_worldHudFocus);
-                _dirty = _rewardsDirty = true;
-            }
-            _map?.SetMinimapSuppressed(!visible);
-            RefreshHeaderActionsVisibility();
-            RememberWorldHudFocus();
-        }
-        void RememberWorldHudFocus()
-        {
-            if (!_worldHudVisible || !WorldHudVisible || EventSystem.current == null) return;
-            var selected = EventSystem.current.currentSelectedGameObject;
-            _worldHudFocus = selected != null && selected.transform.IsChildOf(_hud) ? selected : null;
         }
         static int CountCards(CollectionsView view) { int count = 0; foreach (byte card in view.Cards) if (card > 0) count++; return count; }
         /// <summary>Redraws the GAINED cells and the mob-bonus row from the owner's summary; null (none arrived yet) hides the
