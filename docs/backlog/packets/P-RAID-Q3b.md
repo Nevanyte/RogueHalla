@@ -290,3 +290,24 @@ seeds only (the oracle sweeps seeds with floors); the stage stacks are not publi
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation. -->
+
+## Coordinator's decisions on the oracle author's open points (2026-11-23)
+
+- **Trade Up's stage sizes stay out of the sim's public rules.** The reward text says only "Escalating permanent stats",
+  so the three stage sizes are not a published number, and adding them to `public_rules()` would make this packet
+  cross-crate for one array. The bot prices the stages with a `Prices` field of its own, appended before `elite`
+  (`trade_up_stage_share: [f64; 3]`, each stage's share of the whole reward row), with a range test, and with a guard
+  test that the shares equal the sim's `trade_up_stacks` ratios, read the way P-RAID-S guards its three ranges
+  (`include_str!` of `crates/rh-sim/src/quests/board/tuning.rs`, parsed, loud on a format change). Tier stays
+  implementer-sonnet; reviewer-opus reviews.
+- **Two Banners follows the walker's slot rule as it is today**: no spell-reward quest is accepted once two slots are
+  spoken for. The general rule (accept beyond two held spells when the reward beats the weakest held one) is
+  P-RAID-Q3c's, and it applies to every spell quest, not to this one alone.
+- **The leave guards keep their floor of 4 of 6.** The stub already leaves in 5 of 6 scenes per quest; the floor is there
+  to catch a new stage that holds the seat through a lost fight, not to pin Sustain.
+- **Branch 0 on every seed is accepted**: on today's sim the two branches differ only by the walk back, so price can
+  never choose branch 1. That is a finding about the quest, for the balance report; nothing in the sim changes here.
+- **Base:** the implementer merges `coord/int-88` (integration 87 plus P-RAID-S and P-RAID-E-leave-fix2) into its agent
+  branch before writing code, and runs this oracle on that merged stub first: the guards must be green and the red
+  tests red for the reasons above. If not, it stops and reports.
+
