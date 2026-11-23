@@ -477,7 +477,7 @@ namespace Roguehalla.Client.Tests
         {
             BuildFullRig(); LayoutFull(Windows[0]);
             Snap(10, 1000);
-            Items(10, Quests(new[] { new WireQuestSpell { Slot = 0, Reward = 3, Charges = 2, ReadyAt = 6000 } }));
+            Items(10, Quests(new[] { new WireQuestSpell { Slot = 0, Reward = 3, Charges = 0, ReadyAt = 6000 } }));
             Frame();
             Assert.That(Text(Tile("QuestSpell1"), "Seconds"), Is.EqualTo("5"), "set-up: the spell is drawn");
             var refresh = (Action)Delegate.CreateDelegate(typeof(Action), _hud, typeof(MatchHud).GetMethod("RefreshQuestRewardHud", All));
