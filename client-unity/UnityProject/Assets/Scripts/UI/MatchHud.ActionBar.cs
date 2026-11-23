@@ -140,8 +140,6 @@ namespace Roguehalla.Client
             CreateQuestTiles();
             CreateConsumables(theme);
             CreatePickupHint(theme);
-            var controls = HudUi.Label(HudUi.Box(_weaponBar, "ControlsLine", HudAnchor.BottomCenter, 0, -14f, 240, 13), "Label", "WASD move · Click attack · Shift/Q quest · R Wish", theme.SizeTiny, theme.TextSecondary, TextAlignmentOptions.Center);
-            controls.raycastTarget = false;
         }
 
         void CreateQuestTiles()

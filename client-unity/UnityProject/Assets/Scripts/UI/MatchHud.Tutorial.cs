@@ -32,7 +32,7 @@ namespace Roguehalla.Client
 
         // First real runs (open alpha): a one-line controls reminder in the bottom toast, shown through the lobby and for the
         // first seconds of the match, never in Training (the tutorial card covers it). Presentation only.
-        internal const string FirstRunHint = "Right-click move · Left-click attack · E potion · R Wish · H help";
+        internal const string FirstRunHint = "WASD or right-click move · Left-click attack · H help";
         const float FirstRunHintSeconds = 20f;
         bool _firstRunHint;
         float _firstRunHintUntil = -1f;
