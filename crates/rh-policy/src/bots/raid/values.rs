@@ -20,6 +20,85 @@ pub struct DeathModel {
     pub typical_members: f64,
 }
 
+/// What `exec/sustain.rs` prices with (P-RAID-C): when to drink, when a fight is lost, how much hp it wants before
+/// it takes a camp. Shares are of max hp. `OFF` turns the executor off (it proposes nothing, is never urgent, draws
+/// nothing): `Prices::farm_only` uses it so the farm's own tests replay as before.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SustainPrices {
+    /// The executor is on.
+    pub on: bool,
+    /// Drink a potion when hp is below this share (legacy `shouldUsePotion`: 0.65).
+    pub drink_below: f64,
+    /// Leave a camp fight once the death model's chance to die finishing it, from the hp held and the members
+    /// still alive, is at least this (0..=1).
+    pub disengage_death: f64,
+    /// Leave this much early (chance): the percept's hp and member counts are rounded and a frame old, so a leave decided
+    /// at exactly `disengage_death` comes late.
+    pub disengage_lead: f64,
+    /// The hp share the heal-up candidate brings the bot back to before it goes for a camp.
+    pub ready_hp: f64,
+    /// Share of max hp a large potion gives back (the sim's `potions::DEFINITION.large_share`): the farm prices a camp
+    /// with the potions held counted as hp.
+    pub large_share: f64,
+    /// Share of max hp a small potion gives back (`potions::DEFINITION.small_share`).
+    pub small_share: f64,
+    /// What leaving a lost fight is worth (ce): the death it avoids, priced so a leave outranks any camp.
+    pub leave_value: f64,
+    /// Seconds a leave takes to price (s): short, so the leave's rate is high.
+    pub leave_seconds: f64,
+    /// Worth of one share of max hp healed on purpose (ce per share): with `regen_per_second` this fixes the heal-up's
+    /// rate in ce per minute, which a camp worth taking beats and standing still does not.
+    pub rest_value: f64,
+    /// Seconds a potion takes to give its share back (`potions::DEFINITION.heal_ms`): hp still to come while a heal runs.
+    pub heal_seconds: f64,
+    /// A fight is on while the bot lost hp within this many seconds, or a member stands within reach of it on a camp it
+    /// works: a camp passed at a distance is not a fight to leave.
+    pub hurt_seconds: f64,
+    /// Share of max hp the sim regenerates a second after the quiet spell (`PLAYER_REGEN_SHARE_OUT`).
+    pub regen_per_second: f64,
+}
+
+impl SustainPrices {
+    /// Hp share the potions held will give back (0 when sustain is off, so the farm prices as before).
+    pub fn potion_hp(&self, large: u8, small: u8) -> f64 {
+        if !self.on {
+            return 0.;
+        }
+        f64::from(large) * self.large_share + f64::from(small) * self.small_share
+    }
+
+    pub const OFF: Self = Self {
+        on: false,
+        drink_below: 0.,
+        disengage_death: 2.,
+        disengage_lead: 0.,
+        ready_hp: 0.,
+        large_share: 0.,
+        small_share: 0.,
+        leave_value: 0.,
+        leave_seconds: 1.,
+        rest_value: 0.,
+        regen_per_second: 0.008,
+        heal_seconds: 5.,
+        hurt_seconds: 3.,
+    };
+    pub const LOCAL: Self = Self {
+        on: true,
+        drink_below: 0.65,
+        disengage_death: 0.5,
+        disengage_lead: 0.15,
+        ready_hp: 0.85,
+        large_share: 0.4,
+        small_share: 0.25,
+        leave_value: 3.,
+        leave_seconds: 6.,
+        rest_value: 0.6,
+        regen_per_second: 0.008,
+        heal_seconds: 5.,
+        hurt_seconds: 3.,
+    };
+}
+
 /// The value inputs, in camp-equivalents (ce: one normal camp cleared = 12 stat stacks = 1). The reward and augment rows
 /// are workbook estimates, mirrored in `data/raid_values.json`; lab measurements will replace them.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -50,6 +129,8 @@ pub struct Prices {
     pub reward_rows: &'static [(&'static str, f64)],
     /// Augment rows: (`CardId::as_str`, ce). A card with no row takes `augment_default`.
     pub augment_rows: &'static [(&'static str, f64)],
+    /// Sustain (P-RAID-C): potions, disengaging, healing up.
+    pub sustain: SustainPrices,
 }
 
 impl Prices {
@@ -134,18 +215,20 @@ impl Prices {
             ("pocketSand", 0.3),
             ("raceToZero", 0.0),
         ],
+        sustain: SustainPrices::LOCAL,
     };
 
-    /// `LOCAL` with quest rewards and augments worth nothing: a seat that farms, roams and opens chests only, so a test
-    /// of the farm executor is not changed by quest executors registered later. It zeroes `reward_default` and
-    /// `augment_default` and clears both row tables (camps, chests, roaming and the death model keep `LOCAL`), so every
-    /// quest reward and augment is worth 0 here.
+    /// `LOCAL` with quest rewards and augments worth nothing and sustain off: a seat that farms, roams and opens chests
+    /// only, so a test of the farm executor is not changed by quest or sustain executors registered later. It zeroes
+    /// `reward_default` and `augment_default`, clears both row tables and turns `sustain` off; camps, chests, roaming and
+    /// the death model keep `LOCAL`, so every quest reward and augment is worth 0 here.
     pub const fn farm_only() -> Self {
         Self {
             reward_default: 0.,
             augment_default: 0.,
             reward_rows: &[],
             augment_rows: &[],
+            sustain: SustainPrices::OFF,
             ..Self::LOCAL
         }
     }
