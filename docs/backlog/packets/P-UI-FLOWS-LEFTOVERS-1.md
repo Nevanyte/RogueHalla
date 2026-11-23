@@ -120,7 +120,7 @@ public static class FlowWindowClose
 {
     public static readonly Vector2 AnchorMin = new Vector2(.87f, .915f), AnchorMax = new Vector2(.975f, .995f);
     public const MythicUi.ButtonStyle Style = MythicUi.ButtonStyle.Quiet; public const float FontSize = 16f;
-    public const float MinWidth = 0f;   // canvas units (Outcome 4)
+    public const float MinWidth = 0f;   // canvas units (Outcome 4); the stub holds 0, the implementer sets 109
     public static UnityEngine.UI.Button Create(Transform card, string name, UnityEngine.Events.UnityAction onClick)
         => MythicUi.Button(card, name, "CLOSE", AnchorMin, AnchorMax, onClick, Style, FontSize);  // + MinWidth rule
 }
@@ -206,7 +206,7 @@ _listToTop = true`.
 ## 8. Acceptance checks
 
 - `scripts/gate.sh --quick --oracle packet/P-UI-FLOWS-LEFTOVERS-1 --base lane/ui-rework/base-3` prints `GATE PASS`.
-- The 19 tests of `FlowsLeftoversEditModeTests.cs` are green; the three amended expectations are the only changed lines of
+- The 20 tests of `FlowsLeftoversEditModeTests.cs` are green; the three amended expectations are the only changed lines of
   existing tests.
 - `node --test client-unity/UnityProject/Tools/hud-seams.test.cjs` still passes (no `MatchHud` member touched).
 
@@ -262,7 +262,7 @@ Each is its own `oracle-amend:` commit.
 3. `TraderCopyEditModeTests.ASessionNotInAMatchShowsTheStateCopyAlone` (:93): Ended reads `PlayerWords.Word(SessionState.Ended)`,
    not "Match ended" (kind: re-statement; legacy `hud.ts:54`).
 
-## Oracle: four classes, 19 tests
+## Oracle: four classes, 20 tests
 
 All in `FlowsLeftoversEditModeTests.cs`. No `Assert.Multiple`, no `InternalsVisibleTo`; no test reads `Time` or the wall
 clock (state is delivered; `Refresh` and `LateUpdate` are called by hand). Each class has a case in the real order: build
@@ -278,14 +278,63 @@ hidden, deliver, refresh hidden, then open. A test green on the base is a named 
 guard). 10. `TheCloseLabelFitsItsButtonAtTheLargestTextSize`. 11. `EachCloseKeepsItsNameAndStillCloses` (standing guard).
 
 **`TraderListTopEditModeTests`** (text size 1.5, 1920 x 1080). 12. `AStatListFirstOpensAtTheTop`. 13. `EveryOpeningStartsAtTheTop`.
-14. `AnotherTradersListStartsAtTheTop`. 15. `ARebuildWhileOpenKeepsThePosition`. 16. `ABarterListThatGrowsPastTheViewportStandsAtTheTop`.
+14. `AnotherTradersListStartsAtTheTop`. 15. `ARebuildWhileOpenKeepsThePosition`. 16. `ABarterListThatGrowsPastTheViewportStandsAtTheTop`
+(standing guard, see the notes). 16b. `ALongBarterListFirstOpensAtTheTop` (added by the oracle author, see the notes).
 
 **`FlowEndWordsEditModeTests`**. 17. `TheQuestsTabSaysTheEndedWord`. 18. `TheTradersTabSaysTheEndedWord`. 19. `ADisconnectKeepsItsOwnWords`
 (standing guard).
 
 ## Notes from the oracle author
 
-(filled in the oracle commit)
+Scratch run: one run per class with every `Assert` replaced by a catch-and-collect helper (`AssertionException` kept,
+test failed in a TearDown with the list; not committed). Every entry on the stub was an assertion about the missing
+behaviour; no set-up, delivery or lookup threw. Two defects found and fixed this way before the commit: test 10 measured
+the label with a width bound of 0 (below), and the first draft had no test that is red for a barter list on first opening.
+
+Results on the stub (`unity-class.sh` on the four classes, 28 tests with the added one): red on an assertion, green as
+standing guards (each is named; a guard is green on the base by design).
+
+- Green on the stub (standing guards): 5 `TheFieldOrderAndTheStackAreUnchanged`, 9 `TheCloseLabelsShareOneTextSize`,
+  11 `EachCloseKeepsItsNameAndStillCloses`, 16 `ABarterListThatGrowsPastTheViewportStandsAtTheTop`, 19 `ADisconnectKeepsItsOwnWords`.
+- Red: 1, 2 (the delivery without participants), 3 (x3), 4, 6 (set-up: the empty reward and participants are still shown): the
+  field or heading is active when it should not be. 7 (x3): the Quests CLOSE has anchorMax (.965, .99), Traders' left edge and
+  the Notices' right edge differ. 8: Notices' `normalColor` is `SurfaceRaised`. 10 (x3): Traders' label needs 96.24 and has 90.14
+  (1280 x 800) or 66.20 (980 x 2121). 12: position 3.8e-07 at the first opening. 13: position .4 after a rebuild while closed and
+  after a reopening. 14: .670 for another trader's list and for a click on the selected row. 15: .670 after a rebuild while open.
+  16b: position -4.8e-08. 17: "Quest journal unavailable while disconnected." and the word is the state text. 18: "Match ended".
+
+Where the lane spec was corrected by measurement:
+
+- **Test 10's recipe (`GetPreferredValues("CLOSE", 0, 0).x`) measures one capital (23.48), not the word**: a width bound of 0
+  breaks a word letter by letter, so the spec's recipe is green on every canvas for the wrong reason. The test measures with a
+  box wide enough for the line (`GetPreferredValues("CLOSE", 100000, 0).x`): 96.24 at the smallest size TMP may use (30.6, text
+  size 1.5), on all three labels. Label widths (button width minus 12, text size 1.5): Quests 243.4 / 158.2 / 118.3, Notices
+  221.5 / 143.6 / 107.2, Traders 141.2 / 90.1 / 66.2 at 1920 x 1080 / 1280 x 800 / 980 x 2121. Only Traders does not fit, at 1280 x 800
+  and on the narrow canvas: a measured red, as expected by the spec. **`FlowWindowClose.MinWidth` is 109** (96.24 + 12 = 108.24,
+  rounded up). The test also resizes the canvas to 980 x 2121 and reads again with no frame in between (`Canvas.ForceUpdateCanvases`
+  only): the minimum width must follow a change of the canvas by a rectangle callback (`OnRectTransformDimensionsChange`) or by anchors,
+  not by a per-frame update, which never runs in EditMode.
+- Test 16 (a barter list that grows past the viewport) is **green on the base**: the read before the rebuild returns 1 for a list
+  that is not taller than its viewport, so the spec's mechanism ("0 is read") does not occur for a 248-high list. It stays as a
+  standing guard. The mechanism of Outcome 3 that does occur for a barter list is the first build (an empty content reads 0), so
+  test 16b (a barter list with three long labels, delivered while hidden, then opened on a 1920 x 1000 canvas: content taller
+  than the 266.7 viewport, asserted; position 1) is added and is red (-4.8e-08). This is the one test beyond the spec's 19.
+- Test 14's second half (a click on the selected row keeps .4) is red on the stub (.670), not green: the base drifts the position
+  on any rebuild that grows the content (332 to 368), as Outcome 5 says for test 15. The implementation must keep .4 there too.
+- Test 13's third step (a tab click on the open window keeps .4) is green on the stub, as the spec said; its first two are red.
+- Test 17's fit assertion reads the state-text label at text size 1.5: on the stub the long disconnect text needs 41.74 of 36.93
+  (two lines), which is a second red entry; "Run over" is one line.
+- Test 6 is red only on its set-up assertions (the fields are shown); `AllocationMeter.AssertNone` itself is green on the stub, as the
+  spec expected for the allocation lines of 6 and 17.
+- `OrderedNoticeFeed` builds standalone on a host (`Initialize(canvas.transform, onClose)`): no `PlayerFlowsEditModeTests` rig needed.
+- Every quest name of the catalog is non-empty (seven of twenty defs read by the spec; not re-verified here): test 4's name is
+  "Echo Quest".
+- Not established: two wrapped lines at 1.5 lifting a barter list: the long labels of 16 and 16b are three lines or more; the
+  assertion on the content height guards it, the number of lines is not pinned.
+
+The stub is `FlowWindowClose.cs` only (its `Create` returns null and nothing calls it); the three views are untouched, so the
+oracle needs no other stub. The existing classes that pin the code (listed under section 7) were run on the stub: 116 of 116
+green, before the three `oracle-amend:` commits.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
