@@ -17,14 +17,14 @@ pub enum Verdict {
 }
 
 /// The balanced band of value / price.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 pub struct Band {
     pub low: f64,
     pub high: f64,
 }
 
 /// The chance to beat the timer, by difficulty class.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 pub struct Targets {
     pub easy: f64,
     pub medium: f64,
@@ -33,23 +33,13 @@ pub struct Targets {
 
 /// Failure cost of a quest attempt.
 #[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(default)]
 pub struct Failure {
     pub downtime_secs: f64,
     pub failed_attempt_share: f64,
 }
-impl Default for Failure {
-    fn default() -> Self {
-        Failure {
-            downtime_secs: 15.,
-            failed_attempt_share: 1.,
-        }
-    }
-}
 
 /// One value per helper count.
-#[derive(Clone, Copy, Debug, Default, Deserialize)]
-#[serde(default)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 pub struct PerHelpers {
     pub solo: f64,
     pub duo: f64,
@@ -57,8 +47,7 @@ pub struct PerHelpers {
 }
 
 /// The elite's cost, labelled as assumed until the lab measures it.
-#[derive(Clone, Copy, Debug, Default, Deserialize)]
-#[serde(default)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 pub struct EliteAssumptions {
     pub pick_minute: f64,
     pub time_ce: PerHelpers,
@@ -110,10 +99,10 @@ impl Default for AugmentInput {
     }
 }
 
-/// Design intent (`tools/balance-lab/inputs.json`).
+/// Design intent (`tools/balance-lab/inputs.json`). Every design number is required: nothing here has a default.
 #[derive(Clone, Debug, Deserialize)]
-#[serde(default)]
 pub struct Inputs {
+    #[serde(default)]
     pub schema: String,
     pub band: Band,
     pub premium: f64,
@@ -122,41 +111,57 @@ pub struct Inputs {
     pub difficulty_targets: Targets,
     pub failure: Failure,
     pub elite_assumptions: EliteAssumptions,
+    #[serde(default)]
     pub quests: BTreeMap<String, QuestInput>,
+    #[serde(default)]
     pub augments: BTreeMap<String, AugmentInput>,
 }
-impl Default for Inputs {
-    fn default() -> Self {
-        Inputs {
-            schema: String::new(),
-            band: Band {
-                low: 0.85,
-                high: 1.25,
-            },
-            premium: 1.15,
-            stacks_per_camp: 12.,
-            coliseum_start_minute: 12.,
-            difficulty_targets: Targets {
-                easy: 0.95,
-                medium: 0.85,
-                hard: 0.70,
-            },
-            failure: Failure::default(),
-            elite_assumptions: EliteAssumptions::default(),
-            quests: BTreeMap::new(),
-            augments: BTreeMap::new(),
-        }
-    }
+
+/// True when `s` is `prefix` followed by nothing or a non-digit.
+fn schema_is(s: &str, prefix: &str) -> bool {
+    s.strip_prefix(prefix)
+        .is_some_and(|rest| !rest.starts_with(|c: char| c.is_ascii_digit()))
 }
 
 /// Parses the inputs file.
 pub fn parse_inputs(json: &str) -> Result<Inputs, String> {
     let i: Inputs = serde_json::from_str(json).map_err(|e| format!("inputs: {e}"))?;
-    if !i.schema.starts_with("balance-inputs/1") {
+    if !schema_is(&i.schema, "balance-inputs/1") {
         return Err(format!("inputs: unsupported schema {:?}", i.schema));
     }
     if i.stacks_per_camp <= 0. {
         return Err("inputs: stacks_per_camp must be positive".to_string());
+    }
+    // A descriptor carries `kind` and every number its kind reads (see `quest_verdict`).
+    let raw: serde_json::Value = serde_json::from_str(json).map_err(|e| format!("inputs: {e}"))?;
+    if let Some(qs) = raw.get("quests").and_then(|q| q.as_object()) {
+        for (id, q) in qs {
+            let Some(rw) = q.get("reward").filter(|r| !r.is_null()) else {
+                continue;
+            };
+            let need: &[&str] = match rw.get("kind").and_then(|k| k.as_str()) {
+                None => {
+                    return Err(format!(
+                        "inputs: quest {id}: reward is missing field `kind`"
+                    ))
+                }
+                Some("permanent_buff") => &["direct_stacks", "damage_fraction", "move_fraction"],
+                Some(_) => &[],
+            };
+            for f in need {
+                if !rw.get(*f).is_some_and(|x| x.is_number()) {
+                    return Err(format!("inputs: quest {id}: reward is missing field `{f}`"));
+                }
+            }
+        }
+    }
+    for (card, a) in &i.augments {
+        if a.growth != "none" && a.growth != "measured" {
+            return Err(format!(
+                "inputs: augment {card}: unknown growth {:?} (none or measured)",
+                a.growth
+            ));
+        }
     }
     Ok(i)
 }
@@ -475,14 +480,18 @@ fn quest_verdict(
     v.price = price;
     if let (Some(val), Some(pr)) = (v.value, price) {
         let ratio = val / pr;
-        v.ratio = Some(ratio);
-        v.verdict = Some(if ratio < inp.band.low {
-            Verdict::BelowBand
-        } else if ratio > inp.band.high {
-            Verdict::AboveBand
+        if pr > 0. && ratio.is_finite() {
+            v.ratio = Some(ratio);
+            v.verdict = Some(if ratio < inp.band.low {
+                Verdict::BelowBand
+            } else if ratio > inp.band.high {
+                Verdict::AboveBand
+            } else {
+                Verdict::InBand
+            });
         } else {
-            Verdict::InBand
-        });
+            why.push("ratio: the price is not above 0, so value over price is not measured".into());
+        }
     }
     v.reward_value_at_parity = price;
     if let (Some(vf), Some(pf)) = (vform, price_form) {
@@ -610,6 +619,11 @@ fn augment_verdict(
             });
             let pp = c * (a.income_mult * kg * a_bar(mu * lh, ra) - a_bar(mu, ra));
             let val = n + pp;
+            if !val.is_finite() {
+                v.not_measured
+                    .push("value: not finite for these inputs".into());
+                return v;
+            }
             v.value = Some(val);
             let ratio = |nd: Option<f64>| nd.filter(|x| *x > 0.).map(|x| val / x);
             v.ratio_solo = ratio(needed.solo);
@@ -632,7 +646,7 @@ fn augment_verdict(
 pub fn evaluate_json(report: &str, inputs: &str) -> Result<Evaluation, String> {
     let inp = parse_inputs(inputs)?;
     let rep: Report = serde_json::from_str(report).map_err(|e| format!("report: {e}"))?;
-    if !rep.schema.starts_with("balance-lab/1") {
+    if !schema_is(&rep.schema, "balance-lab/1") {
         return Err(format!("report: unsupported schema {:?}", rep.schema));
     }
     let mut nm = Vec::new();
@@ -640,7 +654,9 @@ pub fn evaluate_json(report: &str, inputs: &str) -> Result<Evaluation, String> {
     let needed = needed_for(&inp, &m, &mut nm);
     let mut by: BTreeMap<&str, &ByQuest> = BTreeMap::new();
     for q in &rep.quests.by_quest {
-        by.entry(q.quest.as_str()).or_insert(q);
+        if by.insert(q.quest.as_str(), q).is_some() {
+            return Err(format!("report: duplicate quest id {:?}", q.quest));
+        }
     }
     let quests = by
         .iter()
@@ -669,7 +685,7 @@ pub fn evaluate_json(report: &str, inputs: &str) -> Result<Evaluation, String> {
 
 /// The evaluation as compact JSON, keys in declaration order.
 pub fn to_json(e: &Evaluation) -> String {
-    serde_json::to_string(e).unwrap_or_default()
+    serde_json::to_string(e).expect("the evaluation serialises: no non-finite number reaches it")
 }
 
 fn fmt(x: Option<f64>) -> String {
