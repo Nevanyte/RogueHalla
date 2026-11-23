@@ -185,6 +185,11 @@ namespace Roguehalla.Net.Ui
                 default: return "Bonus";
             }
         }
+        /// <summary>The chest card's title for the boost. STUB (P-UI-PLAYER-WORDS-3): returns the build tip's word.</summary>
+        public static string ChestTitle(BoostId value)
+        {
+            return Word(value);
+        }
         /// <summary>True for a defined value.</summary>
         public static bool IsNamed(TradeKind value)
         {
