@@ -98,7 +98,19 @@ Low: three small edits and one bool. Sonnet implements, Sonnet reviews. The hard
 - `CampLabelsHiddenFix4`, `CampLabelStable`, `TabMapFlow` set the flag or open a map and read no bar; all restore it to false.
 
 ## Oracle author's notes ("Notes from the oracle author")
-(filled in below)
+- **Stub:** none needed. The test uses only members that already exist and are public (`WorldLabelVisibility.Hidden`, `SpriteActorPresenter`, `ArenaView.SetWorldMarksVisible`, `OverheadIndicators.NameActive`, `MatchHud.TacticalMap`, `MatchClient.Arena`, `AllocationMeter.AssertNone`), so there is no `stub:` commit.
+- **Red on the stub, by assertion** (run with `unity-class.sh`: 7 tests, 1 passed, 6 failed):
+  - `NoOverheadObjectIsDrawnWhileTheMapIsOpen`: "drawn while the map is open", expected an empty list of drawn overhead names, got the bar, bounty crown, etc.
+  - `EverythingIsBackOnTheFirstFrameAfterTheMapCloses`: "set-up: the bar is not drawn while the map is open" (`Confirmed health` is still drawn).
+  - `AnActorBornOrPooledWhileTheMapIsOpenIsHiddenAndComesBack`: "a fighter born while the map is open", the list is not empty.
+  - `TheOutlinesRootIsHiddenWithTheWorldMarks`: "the outlines root is hidden", expected `activeSelf` false.
+  - `TheOpenEdgeHidesAndRestoresTheOutlinesRootThroughTheHud`: "the open edge hides the outlines root" (the flag assertion before it passes).
+  - `AHiddenClusterFrameAllocatesNothing`: "the crown is not drawn while the map is open" (the allocation line passes on the stub, as the spec said).
+  - Green on the stub, by design: `TheBodyAndItsFootprintStayDrawnWhileTheMapIsOpen` (a guard against hiding the actor root).
+- **Scratch run done** (one per class, not committed): a copy of the class whose `Assert.That` is shadowed by a catch-and-collect helper, so no failed assertion stops a test. All 7 tests ran to their last line. Every collected entry is about the missing behaviour: test 1 the hidden list; test 2 only the set-up bar line (every later line, the comparison of all transforms, renderers, colours, scales and texts, `.468`, `Success`, "s1" and "40", passed on the stub, as they must when nothing is hidden); test 4 the fighter born hidden and the pooled elite; test 5 the root and its child; test 6 the root; test 7 the crown and the name (its allocation line passed). No set-up exception, no wrong object path.
+- **All 25 names of `OverheadNames` draw** in the rig (the set-up assertion of test 1 passes), including "Health and barrier track outline" with `SpriteOutline.Enabled` set: none was dropped from the list.
+- **Deviations from the spec's test text:** the old three roots and the fourth are checked in one test (5) with a mark under each; test 2 compares every transform of the arena by an index path rather than a list of chosen objects (stricter, same rule). Time: the presenter's `FadeClock` and the controller's `SecondsClock`, restored in `TearDown`. The test 6 rig is a copy of the TabMapSheet rig (`RigTransport`, `BuildHud`, `Snapshot`, `Call`); no other test of that class is reused.
+- **Existing pins re-run on the stub, all green:** `NamePackFix4EditModeTests`, `SpriteActorBarrierEditModeTests`, `ArenaPresentationEditModeTests` (27), `NamePackEditModeTests`, `ActorOutlineEditModeTests`, `OverheadIndicatorsEditModeTests` (36), `UiLabEditModeTests`, `UiLabFixesEditModeTests`, `SpriteActorSignatureEditModeTests` (23), `TabMapSheetEditModeTests`, `HudVisualFix4EditModeTests` (26). `CampLabelsHiddenFix4`, `CampLabelStable` and `TabMapFlow` were not run (they read no bar and restore the flag).
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
