@@ -156,4 +156,11 @@ Low. A pure table and one text block; implementer-sonnet, reviewer. The one subt
 
 ## Notes from the oracle author
 
-(filled in with the oracle commit)
+- Commits on `packet/P-UI-PLAYER-WORDS-1`: `brief:`, `stub:` (PlayerWords.cs, library and synced copy; bodies return defaults), `stub:` (the copy's `.meta`), `oracle:` (the two test files, the `.meta` of the EditMode file, this packet).
+- Red on the stub, each on an assertion:
+  - dotnet `PlayerWordsTests`: all 9 cases red (`EveryActorKindHasAPlayerWord` on `IsNamed` being false for a defined kind; `TheWordsAreTheOnesTheOwnerReads` x5 on `Expected: "creature" But was: "RegionalMob"` and the like; `AnUnknownKindGetsANeutralWord` x2 on "contact"; `ARowReadsFactionWordAndCount` on an empty row).
+  - EditMode `ContactRailWordsEditModeTests`: `CreaturesReadAsCreaturesNotAsTheCodeName`, `EveryKindGetsItsOwnWordsInAFixedOrder`, `AnUnchangedSnapshotAllocatesNothing` (on its first word assertion, before the meter) and `ARowKeepsItsPlaceWhenActorIdsChange` (on the words, base text `Plague · RegionalMob x1\nHaunted · RegionalMob x2`) all red on the contact text.
+- Scratch run (not committed): a copy of the EditMode class with every assertion wrapped in a catch-and-collect helper. Every collected entry of all four tests is the contact text (the code name in place of the word, the first-seen order). In test 3 the meter assertion did not fail on the base (the early return precedes every allocation, so `PresentHeader`, `RefreshOwnZone` and the title write allocate nothing in this rig; the meter ran and passed), and the word assertions collected are the only red. The giver (Kind 4, Faction 15, Weapon 15) and the Kind 5 and 6 actors pass the rig (encode, decode, marks) without an exception: the base text of test 2 is `Plague · Player\nHaunted · RegionalMob x2\nHaunted · Zombie x1\nNeutral · QuestGiver x1\nHaunted · 5 x1\nHaunted · 6 x1\nPlague · RegionalMob x1`, all seven actors present.
+- Existing classes run on the stub and green (40 of 40): `TabMapFlowEditModeTests`, `TacticalMapEditModeTests`, `DeclutterLegendEditModeTests`, `TabMapSheetEditModeTests`, `TabMapHeaderNoGarbageEditModeTests`.
+- Deviation from the spec: the dotnet test 3 is a `[TestCase(5)]`/`[TestCase(255)]` pair (two cases, same assertions); the dotnet test 2 is five `[TestCase]` rows. Same behaviour pinned.
+- The meter part of EditMode test 3 passes on the stub (it guards a later regression: a build moved above the early return), as the spec says.
