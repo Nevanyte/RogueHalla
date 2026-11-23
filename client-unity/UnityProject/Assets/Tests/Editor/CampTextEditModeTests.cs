@@ -17,7 +17,9 @@ namespace Roguehalla.Client.Tests
     /// and the camps are delivered while the panel is closed, windows are built hidden, the first refresh runs before anything opens),
     /// with the tests' own deliveries. A text label never active in the hierarchy measures a tenth of its size, so every width assertion
     /// first asserts the label is active. Every mark rect is built here from the layer rect. The packet
-    /// (docs/backlog/packets/P-UI-TABMAP-TEXT-1.md) has the rules and the numbers.
+    /// (docs/backlog/packets/P-UI-TABMAP-TEXT-1.md) has the rules and the numbers. Since P-UI-TABMAP-TEXT-2 the fixture turns the map key's
+    /// camp amounts off (<c>CampFactsInKey = false</c> after Initialize), the configuration these tests were written for; CampKeyEditModeTests
+    /// pins the default.
     /// </summary>
     public sealed class CampTextEditModeTests
     {
@@ -127,6 +129,7 @@ namespace Roguehalla.Client.Tests
             _controller = _controllerObject.AddComponent<TacticalMapController>();
             if (_prefs == null) { _prefs = new UiDisplayPreferences(); _priorToggle = _prefs.MapToggle; }
             _controller.Initialize(_client, _canvas.transform, _prefs, _stage);
+            Marks().CampFactsInKey = false;   // P-UI-TABMAP-TEXT-2: these tests are of the texts beside the camps, so the key does not say them
             _controller.SetToggleMode(false);
             _controller.Bind(_session);
             if (open) _controller.SetOpen(true);
