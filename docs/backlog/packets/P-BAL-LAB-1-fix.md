@@ -114,9 +114,13 @@ seats completing the same offer.
    later step is a new attempt of the same offer. Detecting a retry from a reset deadline is not needed with every-step
    probing (a retry needs the row gone first); a retry within one step is not distinguished (listed in NOT ESTABLISHED).
 6. **How a vanished row ends** (evaluated at the step it is first absent, with its last probed row, in this order):
-   timer if `!locked`, `deadline > 0` and `deadline <= now_ms` (the existing lab's order: timer wins over a same-step death,
-   `observer.rs:519-526`; `<=` as the sim's own test); else death if the seat died at this step or the step before; else
-   unknown. While locked nothing is a timer (the sim pushes deadlines back), `deadline == 0` is never a timer.
+   timer if `!locked`, `deadline > 0` and the deadline passed within the last two ticks (`0 <= now_ms - deadline <= 100`;
+   the existing lab's order: timer wins over a same-step death, `observer.rs:519-526`); else death if the seat died at
+   this step or the step before; else unknown. The sim removes an expired row in the first step whose time reaches its
+   deadline, so a row that outlived its deadline by longer did not end by its timer: it is booked death or unknown.
+   While locked nothing is a timer (the sim pushes deadlines back), `deadline == 0` is never a timer.
+   (Reworded by the coordinator on 2026-11-23 after review: the first wording, "`deadline <= now_ms`", contradicted the
+   oracle case of a row gone long after its deadline.)
 7. **Ends still standing at the last read:** `completed` rows are completions; rows with `turned_in && !completed` are
    `turned_in_unpaid`; the remaining accepted rows (ready or not) are `open`. A `turned_in` row that never completes is in
    `turned_in_unpaid`, never lost (the paired-mode case: a seat holding a granted reward accepts the quest that pays it).
