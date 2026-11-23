@@ -28,7 +28,10 @@ namespace Roguehalla.Client
         TMP_Text _textScaleValue, _musicValue, _ambienceValue, _sfxValue, _qualityValue;
         readonly List<Button> _minimapSizes = new List<Button>();
         GameObject _previousFocus;
-        bool _initialized, _refreshing;
+        bool _initialized, _refreshing, _fitting;
+        float _fitScale;
+        readonly List<MythicTextScale> _fits = new List<MythicTextScale>();
+        const float SwitchReserve = 48f;
         float _maxHeight = 740f;
 
         sealed class Switch { public Button Button; public Image Track; public RectTransform Knob; }
@@ -93,7 +96,9 @@ namespace Roguehalla.Client
             HudUi.Button(replay, "ReplayTutorial", "Replay tutorial", HudAnchor.MiddleRight, 0, 0, 120f, 22f, () => { CloseByUser(); ReplayTutorialRequested?.Invoke(); }, theme.SizeSmall, theme.CornerRadiusSmall);
             FooterRow();
 
-            _source.Changed += Refresh;
+            new ScrollIndicator(_scroll, scrollRect);
+            _fitScale = _source.TextScale;
+            _source.Changed += SettingsChanged;
             _prefs.Changed += Refresh;
             Refresh();
             SetVisible(false);
@@ -109,10 +114,32 @@ namespace Roguehalla.Client
 
         void Fit(float width)
         {
-            Canvas.ForceUpdateCanvases();
-            LayoutRebuilder.ForceRebuildLayoutImmediate(_content);
-            float height = HeaderHeight + LayoutUtility.GetPreferredHeight(_content) + 10f;
-            _root.sizeDelta = new Vector2(width, Mathf.Min(height, _maxHeight));
+            _fitting = true;
+            try
+            {
+                _root.sizeDelta = new Vector2(width, _root.sizeDelta.y);
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(_content);
+                float height = HeaderHeight + LayoutUtility.GetPreferredHeight(_content) + 10f;
+                _root.sizeDelta = new Vector2(width, Mathf.Min(height, _maxHeight));
+                if (_root.gameObject.activeInHierarchy) RefitLabels();
+            }
+            finally { _fitting = false; _fitScale = _source.TextScale; }
+        }
+
+        void RefitLabels()
+        {
+            _root.GetComponentsInChildren(false, _fits);
+            for (int i = 0; i < _fits.Count; i++)
+                if (_fits[i].FitBox) _fits[i].Refit();
+            _fits.Clear();
+        }
+
+        void SettingsChanged()
+        {
+            Refresh();
+            if (!_fitting && _root != null && _root.gameObject.activeInHierarchy && !Mathf.Approximately(_source.TextScale, _fitScale))
+                Fit(_root.sizeDelta.x);
         }
 
         public void SetVisible(bool visible)
@@ -143,7 +170,7 @@ namespace Roguehalla.Client
 
         void OnDestroy()
         {
-            if (_source != null) _source.Changed -= Refresh;
+            if (_source != null) _source.Changed -= SettingsChanged;
             if (_prefs != null) _prefs.Changed -= Refresh;
         }
 
@@ -173,12 +200,20 @@ namespace Roguehalla.Client
             HudUi.Fill(row, "Rule", Tone(theme.Border, .25f)).rectTransform.sizeDelta = Vector2.zero;
             var rule = row.Find("Rule").GetComponent<RectTransform>();
             rule.anchorMin = new Vector2(0, 0); rule.anchorMax = new Vector2(1, 0); rule.sizeDelta = new Vector2(0, 1); rule.anchoredPosition = Vector2.zero;
-            var text = HudUi.Label(row, "SettingLabel", label, theme.SizeBody, theme.TextPrimary, note == null ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.TopLeft);
-            text.rectTransform.offsetMax = new Vector2(-150f, note == null ? 0 : -4);
-            if (note != null)
+            var text = HudUi.Label(row, "SettingLabel", label, theme.SizeBody, theme.TextPrimary, TextAlignmentOptions.MidlineLeft);
+            if (note == null) text.rectTransform.offsetMax = new Vector2(-150f, 0);
+            else
             {
-                var sub = HudUi.Label(row, "SettingNote", note, theme.SizeSmall, theme.TextSecondary, TextAlignmentOptions.BottomLeft);
-                sub.rectTransform.offsetMax = new Vector2(-150f, 0); sub.rectTransform.offsetMin = new Vector2(0, 3);
+                var stack = row.gameObject.AddComponent<VerticalLayoutGroup>();
+                stack.padding = new RectOffset(0, 0, 4, 3); stack.spacing = 0; stack.childAlignment = TextAnchor.UpperLeft;
+                stack.childControlWidth = true; stack.childControlHeight = true; stack.childForceExpandWidth = true; stack.childForceExpandHeight = false;
+                row.GetComponent<LayoutElement>().preferredHeight = -1f;
+                rule.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                HudUi.Unfit(text);
+                text.margin = new Vector4(0, 0, SwitchReserve, 0);
+                text.gameObject.AddComponent<LayoutElement>().minHeight = 20f;
+                var sub = HudUi.Label(row, "SettingNote", note, theme.SizeSmall, theme.TextSecondary, TextAlignmentOptions.TopLeft, wrap: true);
+                HudUi.Unfit(sub);
             }
             return row;
         }
@@ -189,7 +224,8 @@ namespace Roguehalla.Client
         {
             var theme = UiTheme.Current;
             var row = ControlRow(label, note == null ? RowHeight : 44f, note);
-            var rect = HudUi.Box(row, "Value", HudAnchor.MiddleRight, 0, 0, 36f, 20f);
+            var rect = note == null ? HudUi.Box(row, "Value", HudAnchor.MiddleRight, 0, 0, 36f, 20f) : HudUi.Box(row, "Value", HudAnchor.TopRight, 0, 4f, 36f, 20f);
+            if (note != null) rect.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             var track = HudUi.Surface(rect, theme.SurfaceDisabled, 10f, theme.Border, true);
             var button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = track; button.transition = Selectable.Transition.None;
             button.onClick.AddListener(action);
