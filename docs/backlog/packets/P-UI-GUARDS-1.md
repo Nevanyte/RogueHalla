@@ -141,8 +141,53 @@ Low. Tests only. implementer-sonnet is the default tier; the work is review of t
 
 ## Oracle files (read-only for implementers)
 
-(filled in the oracle commit)
+All six are new test methods in one `oracle:` commit; no `stub:` commit (nothing new is called) and no `oracle-amend:` commit
+(no line of an existing test method changed).
+
+- `client-unity/RoguehallaNet.Tests/ChargeFaceTests.cs` (new `ASpellWithNoTimeLeftReadsLikeTheWishAtAnyChargeCount`)
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityRowEditModeTests.cs` (new `ACoolingQuestSpellTurnsReadyOnTheSnapshotClockAlone`)
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityMotionEditModeTests.cs` (new `ThePressPopAndTheAcceptFlashPopShareOneScaleWriter`, `APressOnAnIdleReadyWishTilePopsOnceAndLeavesTheScaleAtOne`)
+- `client-unity/UnityProject/Assets/Tests/Editor/LeftEdgeFoldEditModeTests.cs` (new `NothingInTheGainedBandTakesThePointerExceptTheHitBox`)
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityRowNearbyNoGarbageEditModeTests.cs` (new `TwoNearbyActionsAllocateNothing`)
+- `docs/backlog/packets/P-UI-GUARDS-1.md`
 
 ## Notes from the oracle author
 
-(filled in the oracle commit)
+**Every test is a standing guard, GREEN on the base** (as the spec says; the "red on a stub" rule does not apply). Red on the
+base: none; no product regression was found, so there is no "Red on the base" entry. Run on the base `88bbbdbe7` plus the tests:
+the four Unity classes (`AbilityRowEditModeTests`, `AbilityMotionEditModeTests`, `LeftEdgeFoldEditModeTests`,
+`AbilityRowNearbyNoGarbageEditModeTests`) total 58, passed 58; dotnet `ChargeFaceTests`, `WishFaceTests`, `AbilityFaceTests` 27/27.
+No scratch catch-and-collect run: the spec says it is not needed (no test stops early on a red assertion); the mutation runs below replace it.
+
+**Each guard and its mutation** (scratch only, put back with `git checkout --`, `git status --short` showed only the test files after
+each; the last status before the commit showed only the five test files):
+
+| Row | Guard | Mutation | Failing message (on its assertion) |
+|---|---|---|---|
+| 1 | `ChargeFaceTests.ASpellWithNoTimeLeftReadsLikeTheWishAtAnyChargeCount` | `RoguehallaNet/Net/Ui/AbilityFace.cs:47` Ready path returns Sweep `charges == 1 ? .5f : 0f` | `sweep, charges 1 readyAt 0 now 1000`: expected 0, was 0.5 (`ALanternWardRunsThroughItsRealStates` step 2 also fails; the new guard is the one that names the no-time cells) |
+| 2 | `AbilityRowEditModeTests.ACoolingQuestSpellTurnsReadyOnTheSnapshotClockAlone` | `MatchHud.QuestRewards.cs:~430` `AbilityFaces.Spell(..., Math.Min(serverTime, readyAt - 1d), total)` (a face that never sees time pass the ready point) | `ready: the name shows` expected True was False. ONLY this test fails (the delivered-spell test passes: it delivers 1 charge, Ready under the mutation too). A coarser mutation (cap the server time at `:159`) also fails two existing tests |
+| 3 | `AbilityMotionEditModeTests.ThePressPopAndTheAcceptFlashPopShareOneScaleWriter` | `UiMotion.cs` `HudPulses`: a restarted pulse gets `Boost = Pop` and `Tick` uses `1 + (Pop + Boost) * ease` | `one pop, no stacked scale, at +70 ms`: expected <= 1.081, was 1.094 (`TheWishTileHasOneScaleWriter` also fails at +30 ms). A second mutation (`Play` adds a second entry on restart) fails only this test: `the press pop and the accept pop are one pulse at +40 ms`, expected 1 was 2 |
+| 4 | `AbilityMotionEditModeTests.APressOnAnIdleReadyWishTilePopsOnceAndLeavesTheScaleAtOne` | `MatchHud.ActionBar.cs` `TickWishTileMotion` writes `_wishTile.localScale = 1 + .15 * max(flash, pulse)` (a second scale writer) | `the scale is exactly 1 after the pop`: expected 1, was 1.149 (the reduced-motion test fails too) |
+| 5 | `LeftEdgeFoldEditModeTests.NothingInTheGainedBandTakesThePointerExceptTheHitBox` | (a) `MatchHud.LeftEdge.cs` `_gainsHeader.raycastTarget = true`; (b) an `Image` added on `_buildStrip` | (a) `no other graphic in the band takes the pointer: Label`; (b) `no graphic of the band or its ancestors up to the vitals panel takes the pointer: BuildStrip` |
+| 6 | `AbilityRowNearbyNoGarbageEditModeTests.TwoNearbyActionsAllocateNothing` | `MatchHud.QuestRewards.cs:182` `NearbyActionsCaption()` builds the count text each call for two or more actions | `200 refresh frames with two nearby quest actions allocated managed memory ... 400 GC.Alloc samples` (the one-action test passes under it, so this guard is the only one on that state) |
+
+**Deviations from the spec's RESTORE lines, and why**
+- Row 1: a new test method instead of one added line in `AMaximumOfOneChargeReadsAsBefore`, so no existing test method changes
+  (no `oracle-amend:`). It covers (1, past) AND the whole no-time-left grid for 0, 1, 2 charges, comparing Seconds and Sweep with the
+  Wish's face and asserting both are 0.
+- Row 2: a new test (not a step of the existing one) with Charges 0, ReadyAt 6000, delivered at 1000, then `Snap(12, 7000); Frame();`
+  and no `Items`. As the spec says; the badge stays "0".
+- Rows 3 and 4: the spec's trigger for Row 3 (press on a ready Wish with no earlier cooling) leaves the ready wash off at the press, so
+  a "wash on" assertion cannot hold. The test cools the Wish, makes it ready (snapshot 55050), lets the ready pop finish (+300 ms), then
+  presses; the accepting snapshot comes 30 ms later (server 55430, ReadyAt 65430). Wash on is asserted from the press to +150 ms.
+  Row 4's idle case is the same set-up without the accepting snapshot. In the accept-overlap test the one-pulse assertion
+  (`pulses.Count == 1` at every step) is an extra, and it is what catches a restart that adds a second pulse.
+- Row 5: a new test method (sibling) instead of lines in the existing test. Ancestors are read with `GetComponents<Graphic>` on each
+  transform from the band up to and including `VitalsPanel` (including the vitals panel itself): none takes the pointer on the base.
+- Row 6: the two-action state is built as in `TheNearbyCaptionFollowsTheCount` (actions 9 with drops 37 and 38). The caption and
+  `_nearbyQuestCount == 2` are asserted before `AllocationMeter.AssertNone(Refresh(), 200, ...)`. The measured path is the same cached
+  field read, so the value is low, as the spec said; the mutation above shows it does catch a caption built on every call.
+
+**Things to know**
+- `unity-class.sh` printed no new `.meta` files; no new Unity script was added.
+- The tests run in 14 to 37 s per class run.

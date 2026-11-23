@@ -350,6 +350,37 @@ namespace Roguehalla.Client.Tests
             Assert.That(two.GetComponent<Button>().interactable, Is.False);
         }
 
+        /// <summary>
+        /// Standing guard (P-UI-GUARDS-1), green on the base. A cooling quest spell turns Ready on the snapshot clock alone: no new State
+        /// delivery between the cooling frame and the ready frame (the product recomputes the face every frame from the held spell and
+        /// Session.ServerTimeMs). The delivered count stays what it was, 0, because the tick has not banked the charge yet.
+        /// </summary>
+        [Test]
+        public void ACoolingQuestSpellTurnsReadyOnTheSnapshotClockAlone()
+        {
+            BuildFullRig(); LayoutFull(Windows[0]);
+            var theme = UiTheme.Current;
+            Snap(10, 1000);
+            Items(10, Quests(new[] { new WireQuestSpell { Slot = 0, Reward = 3, Charges = 0, ReadyAt = 6000 } }));
+            Frame();
+            var one = Tile("QuestSpell1");
+            Assert.That(_session.ServerTimeMs, Is.EqualTo(1000d), "set-up: the server time is the delivered one");
+            Assert.That(Text(one, "Seconds"), Is.EqualTo("5"), "set-up: cooling, 5 s left");
+            Assert.That(NameShown(one), Is.False, "set-up: the name is hidden while cooling");
+
+            Snap(12, 7000);
+            Frame();
+            Assert.That(_session.ServerTimeMs, Is.EqualTo(7000d), "set-up: the clock moved with no delivery of the spell");
+            Assert.That(_session.Collections.Quests.Spells.Count, Is.EqualTo(1), "set-up: the same single spell is held");
+            Assert.That(NameShown(one), Is.True, "ready: the name shows");
+            Assert.That(Text(one, "Name"), Is.EqualTo("Shoulder Charge"));
+            Assert.That(Text(one, "Seconds"), Is.Empty, "no number");
+            Assert.That(WedgeOn(one), Is.False, "wedge off");
+            Assert.That(FrameColour(one), Is.EqualTo((Color)theme.BorderStrong), "ready frame");
+            Assert.That(Surface(one).color, Is.EqualTo((Color)theme.SurfaceRaised));
+            Assert.That(Text(one, "Charges"), Is.EqualTo("0"), "the badge is the delivered count");
+        }
+
         // ------------------------------------------------------------------ 6. the equipped line
 
         [Test]
