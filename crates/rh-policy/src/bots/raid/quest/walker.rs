@@ -111,13 +111,19 @@ fn slot_choice(cx: &Cx<'_>, row: &WireQuestRow) -> bool {
 }
 
 /// A dropped quest spell lies near the owner and a slot is free to pick it up (decide.rs's job): with both slots full the
-/// server offers no pick-up, and the drop must not freeze the walker.
+/// server offers no pick-up, and the drop must not freeze the walker. A drop within `STAND_U` for which the frame offers no
+/// pick-up (a wall, no room) is not waited for either: decide.rs gives that stand up.
 fn drop_near(cx: &Cx<'_>) -> bool {
     cx.p.quests.as_ref().is_some_and(|q| {
         q.spells.len() < SPELL_SLOTS
-            && q.drops
-                .iter()
-                .any(|d| dist(point(d.at), cx.p.me.at) <= DROP_NEAR_U)
+            && q.drops.iter().any(|d| {
+                let gap = dist(point(d.at), cx.p.me.at);
+                gap <= DROP_NEAR_U
+                    && (gap > STAND_U
+                        || q.actions.iter().any(|a| {
+                            a.action == super::decide::ACTION_PICKUP && a.target == d.index
+                        }))
+            })
     })
 }
 

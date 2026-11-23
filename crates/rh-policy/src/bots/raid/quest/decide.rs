@@ -17,7 +17,7 @@ use rh_sim::{FactionId, Vec2, WeaponId};
 
 /// The reward slot choice and the pick-up (`quests/board/attempts/choices.rs`, `quest_view/board.rs`).
 const ACTION_SLOT_CHOICE: u8 = 8;
-const ACTION_PICKUP: u8 = 9;
+pub(super) const ACTION_PICKUP: u8 = 9;
 /// The Bargain's trades: stacks (`give * 9 + receive`) and the spare weapon (`receive`).
 const ACTION_STACKS: u8 = 5;
 const ACTION_WEAPON: u8 = 7;
@@ -55,6 +55,8 @@ pub struct Decide {
     refused: Option<f64>,
     /// Since when the owner has stood where a decision is answered with nothing offered: (def, ms).
     stood: Option<(String, f64)>,
+    /// `act` ran since the last `observe`. Without it, and with another goal held, the waits above start over.
+    acted: bool,
 }
 
 fn dist(a: Vec2, b: Vec2) -> f64 {
@@ -284,6 +286,11 @@ impl Decide {
             .any(|(d, until)| d == def && *until > now)
     }
 
+    /// The ban and stand key of a def's pick-up, apart from its slot answer's.
+    fn pickup_key(def: &str) -> String {
+        format!("pickup:{def}")
+    }
+
     fn throttled(&mut self, def: &str, action: u8, target: u8, now: f64) -> bool {
         self.sent.retain(|s| now - s.3 < RESEND_MS);
         if self
@@ -445,6 +452,10 @@ impl Decide {
             }
             return step;
         }
+        if cx.p.dist(point(drop.at)) <= STAND_U {
+            // The sim never offers it from here (a wall, or no room): a bounded stand, then the def is left alone.
+            return self.wait_or_give_up(&Self::pickup_key(def), now, "the pick-up is not offered");
+        }
         Self::go(cx, point(drop.at), "to the dropped spell")
     }
 
@@ -536,6 +547,12 @@ impl Executor for Decide {
         *self = Self::default();
     }
     fn observe(&mut self, cx: &mut Cx<'_>) {
+        // Another goal had the seat since the last think: a stand's clock does not run while it is away.
+        let acted = std::mem::take(&mut self.acted);
+        if !acted && cx.goal.kind != GoalKind::QuestDecide {
+            self.stood = None;
+            self.refused = None;
+        }
         self.remember(cx);
     }
     fn propose(&mut self, cx: &mut Cx<'_>, out: &mut Vec<Candidate>) {
@@ -549,34 +566,52 @@ impl Executor for Decide {
         {
             return;
         }
-        let (pending, drops): (Vec<String>, Vec<WireQuestDrop>) = cx.p.quests.as_ref().map_or_else(
-            || (Vec::new(), Vec::new()),
-            |q| {
-                (
-                    q.rows
-                        .iter()
-                        .filter(|r| q.pending.contains(&r.handle))
-                        .map(|r| r.def.clone())
-                        .collect(),
-                    q.drops.clone(),
-                )
-            },
-        );
+        let (pending, drops): (Vec<(String, Vec2, bool)>, Vec<WireQuestDrop>) =
+            cx.p.quests.as_ref().map_or_else(
+                || (Vec::new(), Vec::new()),
+                |q| {
+                    (
+                        q.rows
+                            .iter()
+                            .filter(|r| q.pending.contains(&r.handle))
+                            .map(|r| {
+                                let offered = q
+                                    .actions
+                                    .iter()
+                                    .any(|a| a.quest == r.handle && a.action == ACTION_SLOT_CHOICE);
+                                (r.def.clone(), point(r.giver), offered)
+                            })
+                            .collect(),
+                        q.drops.clone(),
+                    )
+                },
+            );
         let spells =
             cx.p.quests
                 .as_ref()
                 .map_or_else(Vec::new, |q| q.spells.clone());
-        // A pending slot choice: answered first (it costs nothing and holds a reward).
-        for def in pending {
+        // A pending slot choice: answered first (it costs nothing and holds a reward), but a seat far from its turn-in
+        // point is priced by the walk, so a better use of the minutes (Sustain's leave) can rank first.
+        for (def, giver, offered) in pending {
             let value = cx.prices.reward_value(&def);
             if value > 0. && !self.banned(&def, now) {
+                let to = self
+                    .turn_in
+                    .iter()
+                    .find(|(d, _)| *d == def)
+                    .map_or(giver, |(_, at)| *at);
+                let walk = if offered || cx.p.dist(to) <= STAND_U {
+                    0.
+                } else {
+                    straight_minutes(cx.p.me.at, to)
+                };
                 out.push(Candidate {
                     goal: Self::goal(&def, STAGE_SLOT),
                     value,
                     success: 1.,
                     death: 0.,
                     loss: cx.prices.death_loss,
-                    minutes: cx.prices.answer_minutes,
+                    minutes: walk + cx.prices.answer_minutes,
                 });
             }
         }
@@ -586,7 +621,10 @@ impl Executor for Decide {
             let Some((def, _)) = def_of_reward(d.reward) else {
                 continue;
             };
-            if seen.contains(&def) || !pickup_wanted(cx.prices, &spells, d) {
+            if seen.contains(&def)
+                || !pickup_wanted(cx.prices, &spells, d)
+                || self.banned(&Self::pickup_key(def), now)
+            {
                 continue;
             }
             seen.push(def);
@@ -630,7 +668,7 @@ impl Executor for Decide {
             + if row.owner_accepted {
                 0.
             } else {
-                straight_minutes(point(row.giver), target) + 0.5
+                cx.prices.bargain_leg_minutes
             };
         out.push(Candidate {
             goal: Self::goal(BARGAIN, STAGE_BARGAIN),
@@ -648,6 +686,7 @@ impl Executor for Decide {
         if cx.p.arena.is_some_and(|a| a.gates_locked) {
             return Step::failed("the board is locked");
         }
+        self.acted = true;
         self.remember(cx);
         let step = match *stage {
             STAGE_SLOT => self.act_slot(def, cx),

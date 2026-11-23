@@ -143,6 +143,8 @@ pub struct Prices {
     pub answer_minutes: f64,
     /// The share of its worth a reusable quest spell keeps while it has no charge (recharging).
     pub recharging_share: f64,
+    /// The minutes from a Bargain's giver to its hag, priced before the quest is accepted (min; the hag is not in the view then).
+    pub bargain_leg_minutes: f64,
 }
 
 /// What the weapon in hand adds to a stat's worth (`bots/temporal_percept/modules/choice.rs` `base_fit`).
@@ -199,7 +201,7 @@ impl Prices {
             ("elite_slayer", 2.1),
             ("tuber_eats", 2.2),
             ("barrow_run", 1.5),
-            ("the_bargain", 2.7),
+            ("the_bargain", 2.7), // a switch: the candidate is the chosen trade's gain, not this
             ("a_cruel_joke", 2.0),
             ("a_bone_to_pick", 1.8),
             ("feed_or_hunt", 1.5),
@@ -256,6 +258,7 @@ impl Prices {
         death_floor: 0.02,
         answer_minutes: 0.01,
         recharging_share: 0.5,
+        bargain_leg_minutes: 0.5,
     };
 
     /// `LOCAL` with quest rewards and augments worth nothing and sustain off: a seat that farms, roams and opens chests
@@ -273,9 +276,10 @@ impl Prices {
         }
     }
 
-    /// Camp-equivalents a quest's reward is worth, by the quest row's def id (`goal::Target::Quest::def`). Every quest
-    /// executor multiplies its candidate's value by this and reads a reward's worth nowhere else, so a table turns the
-    /// whole quest family off by pricing it at zero (`farm_only` does). The row for the def, else `reward_default`.
+    /// Camp-equivalents a quest's reward is worth, by the quest row's def id (`goal::Target::Quest::def`). Most quest
+    /// executors multiply their candidate's value by this; a table turns the whole quest family off by pricing it at zero
+    /// (`farm_only` does). The Bargain's row is a switch only (positive: on): its candidate is the chosen trade's gain,
+    /// not capped by the row. The row for the def, else `reward_default`.
     pub fn reward_value(&self, def: &str) -> f64 {
         self.reward_rows
             .iter()
