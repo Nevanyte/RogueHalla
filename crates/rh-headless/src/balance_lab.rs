@@ -2,6 +2,7 @@
 //! (schema `balance-lab/1`). The observer takes `&Sim`, events and ordinary observations; it never changes the sim.
 //! Used by `src/bin/balance_lab.rs` and `tests/balance_lab.rs`; see `tools/balance-lab/README.md`.
 mod acc;
+pub mod attempts;
 mod observer;
 mod table;
 
@@ -18,6 +19,13 @@ use std::sync::Mutex;
 pub const SCHEMA: &str = "balance-lab/1";
 /// Seats in a lab match.
 pub const SEATS: usize = 8;
+
+/// Stub: always false. Replaced by the sim's own credit window (`recent_rival`, `systems/credit.rs:24`): a hit counts
+/// for a death while `death_at_ms - hit_at_ms <= KILL_CREDIT_SECONDS * 1000`.
+pub fn credit_window_open(hit_at_ms: f64, death_at_ms: f64) -> bool {
+    let _ = (hit_at_ms, death_at_ms);
+    false
+}
 
 /// The policy of one seat (`--seat I=POLICY`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
