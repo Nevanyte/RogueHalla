@@ -344,7 +344,7 @@ namespace Roguehalla.Client.Tests
 
             Assert.That(NameShown(two), Is.False, "Q stays empty");
             Assert.That(Text(two, "Charges"), Is.Empty);
-            Assert.That(Surface(two).color.a, Is.LessThan(.5f));
+            Assert.That(Surface(two).color, Is.EqualTo((Color)theme.SurfaceRaised));
             Assert.That(two.GetComponent<Button>().interactable, Is.False);
         }
 
