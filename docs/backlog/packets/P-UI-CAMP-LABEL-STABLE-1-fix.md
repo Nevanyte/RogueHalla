@@ -101,9 +101,15 @@ first-frame snap.
 
 ## Notes from the oracle author
 - Test 5 (`AFreshWardTextOverAPlaqueIsAlreadyClear`) is GREEN on the base: it guards the first-frame snap of the fix.
-- Test 3 (`ABadgeThatFlickersLeavesTheWardTextStill`) is red on the base only if the flicker toggles the plaque's presence; the badge row on odd frames is absent but the badge lingers 0.2 s, so the drawn plaque (and the ward text) should not move: see the red list below for what was observed.
+- Test 3 (`ABadgeThatFlickersLeavesTheWardTextStill`) is GREEN on the base: the badge lingers 0.2 s, so a one-frame absence never removes the plaque and the base text does not move either. It guards the fix against a regression that would follow the badge row instead of the drawn plaque.
 - The drawn gap is read as plate `bounds` of the ward label's child "Plate" (a transform-driven rect, as in the base packet's test) against the plaque rect from position and `size`.
+- No warm-up of the plaque pool is needed: on this base `Place` assigns the sprite before the size is set (`CampRespawnLabels.cs:378-382`), so the first drawn plaque already has its 0.78 height (test 5 pins frame 0).
 - Frames go through the four-argument `Draw` at 1/60 s; "the text rests" is waited out with a fixed frame count (60 frames > hold + travel).
 
 ## Red tests on the base
-(filled after the run)
+Unity `CampWardTextGlideEditModeTests` (5 tests; 3 red on assertions, 2 green guards):
+- `TheWardTextGlidesUpWhenItsCampsBadgeAppears`: RED, "the ward text hopped 0.7525 at frame 0 after the badge appeared" (limit 0.1343).
+- `TheWardTextHoldsWhileTheBadgeFadesAndThenGlidesDown`: RED, "the text dropped 0.7525 in one frame at frame 21 (plaque gone for 1 frames)" (limit 0.051).
+- `ReducedMotionJumpsButStillHolds`: RED, "reduced motion still holds: the text dropped only 1 frames after the plaque left" (expected >= 24).
+- `ABadgeThatFlickersLeavesTheWardTextStill`: green on the base (guard).
+- `AFreshWardTextOverAPlaqueIsAlreadyClear`: green on the base (guard of the first-frame snap).
