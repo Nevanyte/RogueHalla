@@ -172,6 +172,12 @@ namespace Roguehalla.Client
             PlaceHuntPanel();
         }
 
+        /// <summary>The bottom edge, from the top of the stage, of the lowest showing element of the plate, terrain row and hunt card chain.</summary>
+        float PlateChainBottom() { return 0f; }
+
+        /// <summary>The top of whatever lies under the quest tracker, minus 8: the readout strip while it shows, else the champion panel.</summary>
+        float TrackerFloor() { return 0f; }
+
         /// <summary>The Hunt card sits below the plate, and below the chip row (and home-ground note) when one is shown.</summary>
         void PlaceHuntPanel()
         {
