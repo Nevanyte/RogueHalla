@@ -17,7 +17,7 @@ namespace Roguehalla.Net.Ui
         public float Alpha { get { return Has ? _alpha : 1f; } }
         public bool Hidden { get; private set; }
         public bool Has { get; private set; }
-        public void Forget() { }
+        public void Forget() { _alpha = 1f; }
         public float Next(in LabelBox label, bool haveCluster, in LabelBox cluster, float dt, bool reduced) { return 1f; }
     }
 
