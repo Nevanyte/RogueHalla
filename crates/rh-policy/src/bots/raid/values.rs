@@ -137,6 +137,14 @@ pub struct ElitePrices {
     /// After the kill, the goal stands at the chest at most this long (s; the chest lasts 15, `lifetime_ms`), and never
     /// past the chest's own expiry.
     pub chest_wait_seconds: f64,
+    /// The fight's own exchange (hp lost per camp hp destroyed, in elites' worth: the elite plus `add_hp` a member)
+    /// prices the death once the bot has destroyed this much...
+    pub tally_min_dealt: f64,
+    /// ...and lost this share of its own (shares of max hp).
+    pub tally_min_lost: f64,
+    /// A camp member's max hp as a share of its elite's (Rework: `MOB_K` 0.22 x 2.0 against `ELITE_K` 0.65 x 1.5,
+    /// `constants.rs`): the fight's tally counts the adds destroyed in elites' worth.
+    pub add_hp: f64,
 }
 
 impl ElitePrices {
@@ -156,6 +164,9 @@ impl ElitePrices {
         ban_seconds: 20.,
         chest_find_seconds: 3.,
         chest_wait_seconds: 16.,
+        tally_min_dealt: 0.1,
+        tally_min_lost: 0.1,
+        add_hp: 0.45,
     };
     pub const LOCAL: Self = Self {
         on: true,
@@ -191,6 +202,9 @@ impl ElitePrices {
         ban_seconds: 20.,
         chest_find_seconds: 3.,
         chest_wait_seconds: 16.,
+        tally_min_dealt: 0.1,
+        tally_min_lost: 0.1,
+        add_hp: 0.45,
     };
 }
 
