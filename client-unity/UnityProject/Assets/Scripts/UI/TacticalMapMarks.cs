@@ -107,7 +107,7 @@ namespace Roguehalla.Client
         {
             _map = map;
             _ping.Active = false;
-            if (map == null) { _actors.Clear(); _contactMarks.Clear(); _marked.Clear(); RefreshContactLabels(); _route.Clear(); _chests.Clear(); _self = null; ClearDelivered(); _camps.Clear(); _wards.Clear(); _chestRows.Clear(); _realIcons = 0; for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false; ClearCampTexts(); ClearCover(); }
+            if (map == null) { _actors.Clear(); _contactMarks.Clear(); _marked.Clear(); RefreshContactLabels(); _route.Clear(); _chests.Clear(); _self = null; ClearDelivered(); _camps.Clear(); _wards.Clear(); _chestRows.Clear(); _realIcons = 0; for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false; ClearCampTexts(); ClearCover(); CampKey.Forget(); }
             else if (map.Regions != null) MapZones.LabelTiles(map.Regions, map.W, map.H, out _zoneFound, out _zoneX, out _zoneY);
             else for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false;
             ResetZoneSpots();
@@ -156,6 +156,7 @@ namespace Roguehalla.Client
                 {
                     bool active = !session.Training;
                     CampMarks.Glyphs(_map.Camps, session.Collections.Camps, session.ServerTimeMs, active, Large ? CampSurface.TabMap : CampSurface.Minimap, _camps);
+                    if (Large) CampKey.Apply(_camps, CampFactsInKey);
                     for (int i = 0; i < _camps.Count; i++) if (_camps[i].IconKey != null) _realIcons++;
                     CampBadges.Wards(_map.Camps, session.Collections.Camps, session.ServerTimeMs, active, _wards);
                 }

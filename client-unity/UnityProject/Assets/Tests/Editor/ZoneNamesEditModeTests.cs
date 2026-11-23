@@ -124,6 +124,7 @@ namespace Roguehalla.Client.Tests
             _controller = _controllerObject.AddComponent<TacticalMapController>();
             if (_prefs == null) { _prefs = new UiDisplayPreferences(); _priorToggle = _prefs.MapToggle; }
             _controller.Initialize(_client, _canvas.transform, _prefs, _stage);
+            Marks().CampFactsInKey = false;   // P-UI-TABMAP-TEXT-2: the zone names are placed around the camps' own texts, as these tests were written
             _controller.SetToggleMode(false);
             _controller.Bind(_session);
             if (planning)

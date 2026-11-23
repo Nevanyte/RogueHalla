@@ -236,6 +236,7 @@ namespace Roguehalla.Client.Tests
         public void MarkLabelsAreAtLeastTenPixels(Vector2 window)
         {
             BuildController(window);
+            Marks().CampFactsInKey = false;   // P-UI-TABMAP-TEXT-2: this test measures the amount labels, which the key would take off the map
             DeliverMarks();
             var found = new Dictionary<string, List<TMP_Text>>();
             foreach (var prefix in LabelPrefixes) found[prefix] = new List<TMP_Text>();

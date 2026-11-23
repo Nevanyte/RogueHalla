@@ -24,7 +24,7 @@ namespace Roguehalla.Client
         /// <summary>Test-visible: how many times the Tab map surface / the minimap surface was presented (marks rebuilt).</summary>
         public int LargePresentCount { get; private set; }
         public int MinimapPresentCount { get; private set; }
-        void PresentLarge() { LargePresentCount++; _large.Present(_bound, ShowRoute ? _routePoints : null); if (_large.Map != null) _largeFresh = true; }
+        void PresentLarge() { LargePresentCount++; _large.Present(_bound, ShowRoute ? _routePoints : null); if (_large.Map != null) _largeFresh = true; ApplyCampKey(); }
         void PresentMini() { MinimapPresentCount++; _mini.Present(_bound, ShowRoute ? _routePoints : null); if (_mini.Map != null) _miniFresh = true; }
         MatchClient _client;
         UiDisplayPreferences _prefs;
@@ -198,13 +198,14 @@ namespace Roguehalla.Client
 
         void BuildKey(UiTheme theme)
         {
-            _keyRoot = HudUi.At(_contactRail, "Key", 0, 34, 250, 237);
+            _keyRoot = HudUi.At(_contactRail, "Key", 0, CampKeyLayout.KeyTop, 250, CampKeyLayout.KeyH);
             float y = 0f;
+            float textX = 34f;
             Func<string, RectTransform> row = text =>
             {
                 var r = HudUi.At(_keyRoot, "KeyRow", 0, y, 250, 19);
                 var l = HudUi.Label(r, "Text", text, 11f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft);
-                ((RectTransform)l.transform).offsetMin = new Vector2(34f, ((RectTransform)l.transform).offsetMin.y);
+                ((RectTransform)l.transform).offsetMin = new Vector2(textX, ((RectTransform)l.transform).offsetMin.y);
                 y += 19f; return r;
             };
             var r0 = row("You"); GlyphImage(r0, "Icon", MapGlyph.Disc, theme.Info, 12f, 14f, 3f);
@@ -216,14 +217,9 @@ namespace Roguehalla.Client
             }
             ((RectTransform)r1.Find("Text")).offsetMin = new Vector2(34f + 4f * 15f + 4f, ((RectTransform)r1.Find("Text")).offsetMin.y);
             var r2 = row("Creatures"); GlyphImage(r2, "Icon", MapGlyph.Disc, theme.TextSecondary, 8f, 16f, 5f);
-            var rb = row("Camp buff");   // one stat icon per camp, in the stat's colour (P-UNITY-DECLUTTER-1)
-            {
-                var rect = HudUi.At(rb, "Icon", 14f, 2f, 14f, 14f);
-                var img = rect.gameObject.AddComponent<Image>();
-                img.sprite = CampRespawnLabels.Art(CampBadges.IconKey(2)); img.color = theme.TextPrimary;   // the map tints it per stat
-                img.preserveAspect = true; img.raycastTarget = false;
-            }
-            var re = row("Elite camp"); GlyphImage(re, "Icon", MapGlyph.Diamond, theme.Accent, 12f, 14f, 3f);   // the gold of the map's elite diamond
+            textX = 8f; row("Camp buff, each kill"); textX = 34f;   // the heading of the kind cells, which carry their own glyphs
+            BuildCampCells(theme); y += 5f * CampKeyLayout.RowH;   // the grid's five rows are reserved whatever the kinds seen
+            var re = row("Elite camp: augment chest"); GlyphImage(re, "Icon", MapGlyph.Diamond, theme.Accent, 12f, 14f, 3f);   // the gold of the map's elite diamond
             var r3 = row("Quest giver"); GlyphImage(r3, "Icon", MapGlyph.Diamond, theme.TextPrimary, 12f, 14f, 3f);
             var r4 = row("Trader"); GlyphImage(r4, "Icon", MapGlyph.Ring, theme.TextPrimary, 12f, 14f, 3f);
             var r5 = row("Quest objective"); GlyphImage(r5, "Icon", MapGlyph.Cross, theme.TextPrimary, 12f, 14f, 3f);
@@ -269,6 +265,8 @@ namespace Roguehalla.Client
             _scrim.color = UiTheme.With(theme.OutlineDark, tab ? .86f : .84f);
             Put(_titleRect, L.Header); Put(_frameRect, L.Frame);
             ApplySheet(L, tab && !L.Stacked);
+            bool inKey = CampKeyLayout.InKey(tab, L.Left.W, L.Left.H);
+            if ((inKey ? 1 : 0) != _ckFlag) { _ckFlag = inKey ? 1 : 0; _largeMarks.CampFactsInKey = inKey; }
             _large.SetMarkScale(MapMarkScale.Layer(L.Map.W, px));
             if (!tab) _close.gameObject.SetActive(false);
             _timer.gameObject.SetActive(!tab); _planBar.gameObject.SetActive(!tab);
@@ -281,9 +279,10 @@ namespace Roguehalla.Client
                 float gap = 4f, cw = (L.Legend.W - gap * (MapZones.Count - 1)) / MapZones.Count;
                 for (int r = 1; r <= MapZones.Count; r++) HudUi.Place(_chips[r], HudAnchor.TopLeft, (r - 1) * (cw + gap), 2f, cw, 26f);
                 Put((RectTransform)_contactRail, L.Left); Put((RectTransform)_counterRail, L.Right);
-                float lw = L.Left.W, lh = L.Left.H; bool compact = lh < 430f;
-                _keyRoot.gameObject.SetActive(!compact);
-                float viewY = compact ? 10f : 271f;
+                float lw = L.Left.W, lh = L.Left.H;
+                _keyRoot.gameObject.SetActive(inKey);
+                if (inKey) _keyRoot.sizeDelta = new Vector2(lw, CampKeyLayout.KeyH);
+                float viewY = inKey ? CampKeyLayout.ViewY : 10f;
                 var vh = (RectTransform)_inViewHeading.transform; vh.anchorMin = vh.anchorMax = vh.pivot = new Vector2(.5f, 1f); vh.sizeDelta = new Vector2(lw - 24f, 20f); vh.anchoredPosition = new Vector2(0f, -viewY);
                 _contactScroll.anchorMin = Vector2.zero; _contactScroll.anchorMax = Vector2.one;
                 _contactScroll.offsetMin = new Vector2(8f, 112f); _contactScroll.offsetMax = new Vector2(-8f, -(viewY + 22f));
