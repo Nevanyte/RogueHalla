@@ -280,6 +280,11 @@ and reading a report whose fields may be absent. Reviewer `reviewer`. No Opus: n
 2. Elite seconds and helper count are not in the report (gap 2). Default in force: `inputs.json` `elite_assumptions`
    (workbook values), listed as `assumed` in the output.
 
+**Coordinator's answers (2026-11-22).** 1: yes. P-BAL-LAB-1-fix emits `quests.by_quest[].complete_secs.samples`
+(the seconds of each completion, folded in seed order so the report stays byte-identical across `--jobs`); the
+default here stands, read it when present. 2: yes to the default. `elite_assumptions` stay in `inputs.json` and are
+listed as `assumed`; P-BAL-LAB-2 brings the measured elite time.
+
 ## Existing tests that pin what this packet changes
 
 None. The packet adds files and one `pub mod` line; it changes no constant and no existing test. Searched:
