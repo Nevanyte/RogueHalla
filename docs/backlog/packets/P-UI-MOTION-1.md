@@ -178,5 +178,11 @@ Where the tests go beyond or differ from the spec text:
 - `UiEase.Approach` is pinned only by behaviour (a frame moves part of the gap, no overshoot, gap at most 15 percent
   after `seconds`, exact landing, jump under epsilon or reduced, no move at dt 0), not by a formula.
 
+Fix pass (checker finding, float32 rounding): `10f + .15f` is 10.14999962, so a pulse ticked at exactly `start + Seconds`
+has t = 0.9999974 and a correct implementation that ends at t >= 1 would still be running. The three end-of-pulse ticks
+in `UiMotionEditModeTests` (`10f + Seconds`, `.05f + Seconds`, `1f + Seconds`) now add `.01f`, so t is above 1 whatever
+the rounding. Ticks from start 0f (`ReducedMotionPulseDoesNotScale`, the `Seconds * .5f` and `.75f` ones) are exact or
+mid-pulse and are unchanged.
+
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation. -->
