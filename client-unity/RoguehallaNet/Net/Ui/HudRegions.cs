@@ -10,14 +10,16 @@ namespace Roguehalla.Net.Ui
 
         public HudStageRect(float left, float top, float width, float height) { Left = left; Top = top; Width = width; Height = height; }
 
-        public float Right => 0f;
-        public float Bottom => 0f;
+        public float Right => Left + Width;
+        public float Bottom => Top + Height;
 
         /// <summary>True when the interiors intersect; touching edges do not overlap.</summary>
-        public bool Overlaps(HudStageRect other) => false;
+        public bool Overlaps(HudStageRect other) =>
+            Left < other.Right && other.Left < Right && Top < other.Bottom && other.Top < Bottom;
 
         /// <summary>True when the whole rectangle lies on the stage.</summary>
-        public bool Inside(float stageWidth, float stageHeight) => false;
+        public bool Inside(float stageWidth, float stageHeight) =>
+            Left >= 0f && Top >= 0f && Right <= stageWidth && Bottom <= stageHeight;
     }
 
     /// <summary>
@@ -32,7 +34,14 @@ namespace Roguehalla.Net.Ui
         public HudRegion(HudRegionAnchor anchor, float x, float y, float width, float height) { Anchor = anchor; X = x; Y = y; Width = width; Height = height; }
 
         /// <summary>The region's rectangle on a stage of the given size.</summary>
-        public HudStageRect On(float stageWidth, float stageHeight) => default;
+        public HudStageRect On(float stageWidth, float stageHeight)
+        {
+            int a = (int)Anchor;
+            int col = a % 3, row = a / 3;
+            float left = col == 0 ? X : col == 1 ? stageWidth * .5f + X - Width * .5f : stageWidth - X - Width;
+            float top = row == 0 ? Y : row == 1 ? stageHeight * .5f - Y - Height * .5f : stageHeight - Y - Height;
+            return new HudStageRect(left, top, Width, Height);
+        }
     }
 
     /// <summary>Where each top-level in-match HUD region sits. The single source of these numbers.</summary>
@@ -58,30 +67,76 @@ namespace Roguehalla.Net.Ui
         public const float CombatZoneWidthShare = .46f, CombatZoneHeightShare = .44f;
 
         /// <summary>The centred middle of the stage that no region may cover.</summary>
-        public static HudStageRect CombatZone(float stageWidth, float stageHeight) => default;
+        public static HudStageRect CombatZone(float stageWidth, float stageHeight)
+        {
+            float w = stageWidth * CombatZoneWidthShare, h = stageHeight * CombatZoneHeightShare;
+            return new HudStageRect((stageWidth - w) * .5f, (stageHeight - h) * .5f, w, h);
+        }
 
-        public static HudRegion Consumables() => default;
+        static int Clamp(int v, int lo, int hi) => v < lo ? lo : v > hi ? hi : v;
 
-        public static HudRegion AbilityRow() => default;
+        public static HudRegion Consumables() =>
+            new HudRegion(HudRegionAnchor.BottomCenter, 0f, ConsumablesBottom, ConsumablesWidth, ConsumablesHeight);
+
+        public static HudRegion AbilityRow() =>
+            new HudRegion(HudRegionAnchor.BottomCenter, 0f, AbilityBottom, AbilityWidth, AbilityHeight);
 
         /// <summary>Element i of the ability row, left to right: 0 weapon 1, 1 swap, 2 weapon 2, 3 R, 4 Shift, 5 Q.</summary>
-        public static HudRegion AbilityElement(int index) => default;
+        public static HudRegion AbilityElement(int index)
+        {
+            index = Clamp(index, 0, 5);
+            const float slotStep = WeaponSlotWidth + AbilityGap, swapStep = SwapWidth + AbilityGap, tileStep = TileSize + AbilityGap;
+            switch (index)
+            {
+                case 0: return new HudRegion(HudRegionAnchor.BottomLeft, 0f, 0f, WeaponSlotWidth, AbilityHeight);
+                case 1: return new HudRegion(HudRegionAnchor.BottomLeft, slotStep, 0f, SwapWidth, 40f);
+                case 2: return new HudRegion(HudRegionAnchor.BottomLeft, slotStep + swapStep, 0f, WeaponSlotWidth, AbilityHeight);
+                default:
+                    return new HudRegion(HudRegionAnchor.BottomLeft, 2f * slotStep + swapStep + (index - 3) * tileStep, 0f, TileSize, TileSize);
+            }
+        }
 
-        public static HudRegion Prompt(float width = PromptWidth) => default;
+        public static HudRegion Prompt(float width = PromptWidth) =>
+            new HudRegion(HudRegionAnchor.BottomCenter, 0f, PromptBottom, width, PromptHeight);
 
         /// <summary>min(wanted, stageWidth - 2 * Margin).</summary>
-        public static float LaneWidth(float stageWidth, float wanted = LaneMaxWidth) => 0f;
+        public static float LaneWidth(float stageWidth, float wanted = LaneMaxWidth)
+        {
+            float room = stageWidth - 2f * Margin;
+            return wanted < room ? wanted : room;
+        }
 
         /// <summary>Feedback pill i of the bottom-centre lane; index 0 is the lowest.</summary>
-        public static HudRegion FeedbackPill(int index, float width) => default;
+        public static HudRegion FeedbackPill(int index, float width) =>
+            new HudRegion(HudRegionAnchor.BottomCenter, 0f, FeedbackBottom + Clamp(index, 0, FeedbackMax - 1) * (PillHeight + PillGap), width, PillHeight);
 
         /// <summary>Pill i of the event lane, index 0 on top; the lane starts TopCentreGap below the lowest top-centre pill, never above EventTop.</summary>
-        public static HudRegion EventPill(int index, float width, float topCentreBottom = EventTop - TopCentreGap) => default;
+        public static HudRegion EventPill(int index, float width, float topCentreBottom = EventTop - TopCentreGap)
+        {
+            float start = topCentreBottom + TopCentreGap;
+            if (start < EventTop) start = EventTop;
+            return new HudRegion(HudRegionAnchor.TopCenter, 0f, start + Clamp(index, 0, EventMax - 1) * (PillHeight + PillGap), width, PillHeight);
+        }
 
         /// <summary>The quest tracker under the top-left plate chain; rows 0 gives a region of height 0.</summary>
-        public static HudRegion TrackerDock(float plateChainBottom, int rows) => default;
+        public static HudRegion TrackerDock(float plateChainBottom, int rows)
+        {
+            rows = Clamp(rows, 0, TrackerMaxRows);
+            float height = rows == 0 ? 0f : TrackerHeader + rows * TrackerRow;
+            return new HudRegion(HudRegionAnchor.TopLeft, Margin, plateChainBottom, TrackerWidth, height);
+        }
 
         /// <summary>The quest offer card on the left, centred when that clears the tracker, otherwise just below it.</summary>
-        public static HudRegion OfferCard(float stageHeight, float plateChainBottom, int trackerRows, float wantedHeight, float championTop) => default;
+        public static HudRegion OfferCard(float stageHeight, float plateChainBottom, int trackerRows, float wantedHeight, float championTop)
+        {
+            var tracker = TrackerDock(plateChainBottom, trackerRows);
+            float clear = tracker.Y + tracker.Height;
+            float centred = (stageHeight - wantedHeight) * .5f;
+            float top = centred >= clear ? centred : clear;
+            float height = championTop - TrackerGap - top;
+            if (height > wantedHeight) height = wantedHeight;
+            if (height < OfferMinHeight) height = OfferMinHeight;
+            return new HudRegion(HudRegionAnchor.TopLeft, Margin, top, OfferWidth, height);
+        }
     }
 }

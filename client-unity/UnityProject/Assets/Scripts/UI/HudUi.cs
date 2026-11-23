@@ -58,12 +58,14 @@ namespace Roguehalla.Client
         {
             var rect = (RectTransform)new GameObject(name, typeof(RectTransform)).transform;
             rect.SetParent(parent, false);
+            Place(rect, region);
             return rect;
         }
 
         /// <summary>Places an existing rect from a <see cref="Roguehalla.Net.Ui.HudRegion"/>.</summary>
         public static void Place(RectTransform rect, Roguehalla.Net.Ui.HudRegion region)
         {
+            Place(rect, (HudAnchor)(int)region.Anchor, region.X, region.Y, region.Width, region.Height);
         }
 
         /// <summary>A child that fills its parent with the given insets (left, top, right, bottom).</summary>
