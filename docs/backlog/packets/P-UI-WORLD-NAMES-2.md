@@ -291,8 +291,11 @@ tests above): `NameLegibleEditModeTests`, `NamePackGroup2EditModeTests`, `NamePa
 `SpriteActorSignatureEditModeTests`, `ActorOutlineEditModeTests`, `SpriteActorBarrierEditModeTests`,
 `StormInkFireRoamEditModeTests`, `OverheadIndicatorsEditModeTests`, `DeclutterEditModeTests`, `UiLabFixesEditModeTests`,
 `LegacyFactsEditModeTests`, `AbilityRowEditModeTests`, `NameLegibleTableEditModeTests`, `NameLegibleHubCardEditModeTests`,
-`VisionPresentationEditModeTests`, `ArenaPresentationEditModeTests`. (The `oracle-amend:` change to the first of them is
-committed after this run; its amended line is red on the stub by design.)
+`VisionPresentationEditModeTests`, `ArenaPresentationEditModeTests`. After the two `oracle-amend:` commits
+(run of `NameLegibleEditModeTests` and `NamePackGroup2EditModeTests`: 66 tests, 65 passed): the amended
+`AnEliteNameDoesNotIntersectItsCampBadgeOrThePackMembersBars` is red on the stub on its amended set-up line ("the layout already
+lifts the elite clear of the member's bar", expected False, was True) and goes green when the elite's name is lifted clear of
+the member's bar inside `End`; the renamed `...StackedByClassAndActorIdTheLocalFighterLowest` is green.
 
 ## Notes from the oracle author
 
