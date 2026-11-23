@@ -470,13 +470,14 @@ fn a_hurt_seat_is_likelier_to_die_to_the_same_walk() {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Two Banners: the outpost keeps its pricing (decision 6, OPEN in the packet)
+// Two Banners: the outpost is an idle camp (the coordinator's ruling on decision 6)
 // ---------------------------------------------------------------------------------------------------------------
 
-/// Guard (green on the base): Two Banners' outpost, a camp's centre, keeps the camp-fight term: with a five-member camp on
-/// the outpost the candidate's death is the camp's (measured 0.36 at full hp), far above the default.
+/// RED on the base (0.36 for a five-member Fire camp at full hp): Two Banners' outpost is a camp's centre and that camp
+/// is idle, so it adds nothing: the candidate's death is the default. Coordinator's oracle-amend (2026-11-23): this was a
+/// green guard that the outpost KEEPS the camp-fight term; the ruling is that it does not.
 #[test]
-fn guard_two_banners_keeps_pricing_the_camp_at_its_outpost() {
+fn two_banners_outpost_is_an_idle_camp_and_is_priced_at_the_default() {
     let mut w = World::new();
     let home = w.home();
     let outpost = Vec2::new(home.x + 900., home.y);
@@ -499,7 +500,11 @@ fn guard_two_banners_keeps_pricing_the_camp_at_its_outpost() {
     let out = w.propose(&mut Decide::default(), &p);
     let d = candidate_of(&out, "two_banners").death;
     eprintln!("two_banners outpost death {d:.4}");
-    assert!(d >= 0.25, "the outpost's camp is priced {d}");
+    let floor = Prices::LOCAL.death_floor;
+    assert!(
+        d >= floor * 0.999 && d <= floor * 1.15,
+        "the outpost's idle camp is priced {d}, the default is {floor}"
+    );
 }
 
 // ---------------------------------------------------------------------------------------------------------------

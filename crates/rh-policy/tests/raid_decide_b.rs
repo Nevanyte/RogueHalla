@@ -852,12 +852,15 @@ fn raid_bot_accepts_two_banners_chooses_within_a_bounded_time_and_completes_it()
     );
 }
 
-/// The price follows the camp. On the same seeds the seat accepts the quest on the normal table (a floor of five of the six)
-/// and, with every camp fight priced as a near-certain death, never accepts it (so it never stands undecided at the giver
-/// and never walks to the outpost's camp). The deadly table moves only `DeathModel`. Branch 1 is not the answer: it reaches
-/// the same camp (packet section 9.1).
+/// An idle camp at the outpost is not a fight. On the same seeds the seat accepts the quest on the normal table (a floor
+/// of five of the six) and ALSO with every camp fight priced as a near-certain death: the outpost is a camp's centre, its
+/// mobs never attack a seat that only walks up and stands (the sim wakes a mob only on damage or a camp mate's death),
+/// and the lab's twenty-five Two Banners attempts all completed with no death. The deadly table moves only `DeathModel`.
+///
+/// Coordinator's oracle-amend (2026-11-23, P-RAID-Q3b-fix): the second half used to demand that the deadly table make the
+/// seat DECLINE, which pinned the walk-is-a-fight pricing that packet removes. The test keeps its seeds and its floor.
 #[test]
-fn a_table_that_makes_every_camp_deadly_makes_the_seat_decline_two_banners() {
+fn a_table_that_makes_every_camp_deadly_does_not_stop_two_banners() {
     let mut normal = Vec::new();
     for seed in BANNER_SEEDS {
         let run = banner_run(seed, banners_prices(), BANNER_TICKS);
@@ -870,16 +873,18 @@ fn a_table_that_makes_every_camp_deadly_makes_the_seat_decline_two_banners() {
         "normal table: the seat accepts two_banners on {normal:?}, fewer than {BANNER_FLOOR} of {}",
         BANNER_SEEDS.len()
     );
+    let mut deadly = Vec::new();
     for seed in BANNER_SEEDS {
         let run = banner_run(seed, deadly_camps(banners_prices()), BANNER_TICKS);
-        let b = banners_of(&run);
-        assert!(
-            b.accepted.is_none(),
-            "seed {seed}: with deadly camps the seat accepted at {:?} (and chose at {:?}): the death term of the outpost's camp is not priced",
-            b.accepted,
-            b.decided
-        );
+        if banners_of(&run).accepted.is_some() {
+            deadly.push(seed);
+        }
     }
+    assert!(
+        deadly.len() >= BANNER_FLOOR,
+        "deadly camps: the seat accepts two_banners on {deadly:?}, fewer than {BANNER_FLOOR} of {}: an idle camp at the outpost is priced as a fight",
+        BANNER_SEEDS.len()
+    );
 }
 
 // ---------------------------------------------------------------------------------------------------------------

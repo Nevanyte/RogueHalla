@@ -257,3 +257,22 @@ bounded by the time left and the timer's own expiry).
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation. -->
+
+
+## Coordinator's ruling on the open point (2026-11-23)
+
+**Two Banners' outpost is an idle camp like any other: it is priced at the default.** The outpost is a non-target
+camp's centre; the sim wakes a mob only on damage or a camp mate's death, the quest step only asks the seat to walk up
+and stand, and the lab's twenty-five Two Banners attempts all completed with no death. So decision 6's "keeps its
+outpost pricing" is withdrawn: the shared helper applies, an awake camp at the outpost still counts, and Two Banners
+has no row in the measured table (it takes the default) until a lab run says otherwise.
+
+Two tests are amended to match (`oracle-amend:` on this branch, the coordinator's):
+- `tests/raid_decide_b.rs`: `a_table_that_makes_every_camp_deadly_makes_the_seat_decline_two_banners` becomes
+  `a_table_that_makes_every_camp_deadly_does_not_stop_two_banners`: under the deadly table the seat still accepts on at
+  least five of the six seeds. Red on the base.
+- `tests/raid_walk_risk.rs`: the green guard `guard_two_banners_keeps_pricing_the_camp_at_its_outpost` becomes the red
+  test `two_banners_outpost_is_an_idle_camp_and_is_priced_at_the_default`.
+
+`tests/raid_decide_b.rs` is therefore an oracle file of this packet too: the implementer does not edit it.
+\n
