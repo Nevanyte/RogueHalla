@@ -90,10 +90,11 @@ namespace Roguehalla.Net.Tests
                 {
                     object sink = null;
                     double spectator = AllocationProbe.PerCallExact(i => sink = ServerMsg.Decode(spectatorFrame, spectatorFrame.Length), 88.0 + 40 * actors, 2000);
+                    string specLog = AllocationProbe.LastAttempts;
                     double withMe = AllocationProbe.PerCallExact(i => sink = ServerMsg.Decode(selfFrame, selfFrame.Length), 176.0 + 40 * actors, 2000);
                     GC.KeepAlive(sink);
-                    Assert.AreEqual(88.0 + 40 * actors, spectator, "run " + run + ", no self");
-                    Assert.AreEqual(176.0 + 40 * actors, withMe, "run " + run + ", with a self");
+                    Assert.AreEqual(88.0 + 40 * actors, spectator, "run " + run + ", no self; " + specLog);
+                    Assert.AreEqual(176.0 + 40 * actors, withMe, "run " + run + ", with a self; " + AllocationProbe.LastAttempts);
                 }
             }
         }
