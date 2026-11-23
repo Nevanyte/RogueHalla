@@ -288,11 +288,95 @@ into the text by hand that must survive): 7 `TheRowsAreRightAndTheTooltipIsRebui
 `TheVitalsStringsAreCurrentWhenTheirLabelIsShown`, 10 `TheDrawerOpensWithCurrentNumbers`, 11
 `TheWeaponNameIsTheEnumNameForEveryValue` (standing guard), 12 `EachBuildPartFollowsItsInputsWhenANewSummaryArrives`.
 
-OWNER_PLACEHOLDER_RESULTS
+## Oracle results on the stub (run by the oracle author)
+
+dotnet `BuildHudCellTests` (stub `Cell` returns `default`): both tests red. `CellEqualsCellsForEveryIndexAndEdgeRaw` fails on
+`label, index 0 raw 0` (expected "Offense", was null); `CellRefusesAnIndexOutsideTheNine` fails because no
+`ArgumentOutOfRangeException` is thrown. On the throwaway implementation both pass (and `BuildHudTextTests`, `BuildHudHeaderTests`, 16 of 16).
+
+EditMode, `HudGarbageEditModeTests` (11 tests): 9 red on an assertion, 2 standing guards green.
+- `ChampionRowsAllocateNothingWhileOnlyTheRoamCodesMove` red: 57,840 samples in 320 calls (180.75 a call).
+- `AnOwnerRefreshWithOnlyTheKillsMovingAllocatesNothing` red: 5,120 (16 a call).
+- `TheHpLabelAllocatesNothingWhileItsInputsStay` red twice: 1,600 (5 a call), then with a bounty 4,480 (14 a call).
+- `AClosedDrawerAllocatesNothingOnAnHpChange` red: 3,840 (12 a call); its control (open drawer allocates) is green.
+- `TheWeaponNameAllocatesNothing` red: 640 (2 a call).
+- `AnEqualSummaryInAFreshObjectAllocatesNothingInTheHud` red: 16,320 (51 a call). The views carry the rig's inventory: the control
+  (the loop on a correct implementation) allocates nothing with it.
+- `ARampTickOfTheWholeHudStaysUnderTheBound` red: 80,800 (252.5 a call) against the limit 7,680.
+- `TheCollectionsHandlerInTheRampStaysUnderTheBound` red: 19,760 (61.75 a call) against 6,400.
+- `ADamageTickOfTheWholeHudStaysUnderTheBound` red: 9,920 (31 a call) against 2,880.
+- `AnIdleFrameStillAllocatesNothing`: green on the stub and on the throwaway (standing guard).
+
+EditMode, `HudStaleEditModeTests` (6 tests): 5 red on assertions, 1 standing guard green. Every red entry (scratch run, below):
+- `TheRowsAreRightAndTheTooltipIsRebuiltOnlyWhenNeeded`: "a closed tooltip is left alone while only the roam codes move" and
+  "... after the pointer left" (the closed tooltip text is rewritten; expected the marker).
+- `TheHpLabelFollowsItsInputs`: "the hp label is not rewritten while hp, max, barrier, bounty and the accent stay".
+- `TheVitalsStringsAreCurrentWhenTheirLabelIsShown`: the hidden kills label is rebuilt at kills 2, kills 5, GV 3 and hp 800, and the
+  hidden vitals label at hp 800.
+- `TheDrawerOpensWithCurrentNumbers`: "a closed drawer is not refreshed by the frames" (reads `HP 700 / 950`, expected the first open's `HP 950 / 950`).
+- `EachBuildPartFollowsItsInputsWhenANewSummaryArrives`: 53 entries, all "is not rewritten": (a) the nine cells, mob line, BUILD line, B hint,
+  cards row, gains header and hint; (b) cells 0-7 and the same seven others; (c) cells, and after a Stacks change the BUILD line, B hint and
+  cards row; (c) new type: cells 0-8; (e) an open header's text and hint survive a cell change and a zero cell turning non-zero.
+- `TheWeaponNameIsTheEnumNameForEveryValue`: green on the stub (standing guard).
+
+All the guard lines of tests 7 to 12 (marked "guard" in the test messages) are green on the stub and on the throwaway.
+
+Existing classes on the stub: the 32 classes of the list above (335 tests: `ChampionPanelNumbers`, `MatchHudIconPresentation`, `HudVisualFix`..`4`,
+`HudLegacyLayout`, `HudTextScale`, `LeftEdgeFold`, `TrainingBanner`, `TrainingBannerNotes`, `ChampionPanelNoGarbage`, `BuildHudCells`,
+`OwnerVitalEase`, `MatchHudWishBarrier`, `WishTile`, `ShowcaseState`, `HudWords`, `BuildDrawer`, `LedgerWords`, `OwnerWords`,
+`MatchHudStatusNotes`, `MatchHudStatusTexts`, `TilePlates`, `QuestOffer`, `QuestTracker`, `UiInputRouting`, `TrainingConsoleIntegration`,
+`ChampionRowNameFit`, `AbilityFeedback`, `PlayerFlows`, `TrainingHudVisibility`) are 335 of 335 green. The same 32 classes ran green on the
+throwaway implementation as well (together with the new classes: 350 of 351, the one red being the hazard below).
+
+## Bounds (measured on a throwaway correct implementation)
+
+The author wrote the six cuts as a throwaway (not committed; the patch is outside the repository), ran the new classes, and measured:
+
+| test | base a call | M a call (throwaway) | limit a call = ceil(1.5 M) | limit in 320 calls | at most half the base |
+|---|---|---|---|---|---|
+| `ARampTickOfTheWholeHudStaysUnderTheBound` | 252.5 | 15.75 | 24 | 7,680 | 126.25: yes |
+| `TheCollectionsHandlerInTheRampStaysUnderTheBound` | 61.75 | 12.75 | 20 | 6,400 | 30.9: yes |
+| `ADamageTickOfTheWholeHudStaysUnderTheBound` | 31 | 6 | 9 | 2,880 | 15.5: yes |
+
+On the throwaway every test of the three classes is green (16 of 16 EditMode tests, 2 of 2 dotnet).
+
 
 ## Notes from the oracle author
 
-OWNER_PLACEHOLDER_NOTES
+- **Scratch run** (not committed): for each new EditMode class a copy in a throwaway namespace shadowed `Assert` and `AllocationMeter` with
+  catch-and-collect versions (catch `AssertionException`, write its message to a file, carry on), so no failed assertion stopped a test. On the
+  stub every collected entry was an assertion about the missing behaviour (the lists above); no other exception, no set-up defect. Run on the
+  throwaway implementation the collected list was empty except the three bounded tests at a limit of 0 (which gave M). That run found one
+  defect of mine, fixed before the commit: in test 12 (g) the summary had no zero cell, so the muted colour was not tested (it now uses a
+  summary with two zero gains).
+- **Throwaway implementation**: the six cuts as the spec describes them (the packet's edits (i) and (ii) from the experiment, a writer for the
+  vitals strings with two stale flags and `_lastFaction`, `BuildDrawer.Refresh` gated on the open drawer plus the `ToggleBuild` refresh, the
+  weapon-name array, `BuildHudText.Cell`, persistent `BuildCell[9]` with a version counter, per-cell labels, a mob-rows copy, the independent BUILD
+  key). It is the proof that the oracle can be satisfied, nothing more: the implementer writes their own.
+- **Differences from the spec**:
+  - Test 11 (`TheWeaponNameIsTheEnumNameForEveryValue`): "a fresh HUD whose first value is Sword" is a standalone `SelfView` handed to
+    `RefreshDamageReadout` on the rig's HUD (the rig's player holds a Wand). The helper's array is static, so a truly fresh cache is not reachable
+    from a test; the values 0-5, 6, 99 and 255 are all compared with `ToString()`.
+  - Test 9 has one more red line than the spec lists: hp 800 while the plate is active leaves the hidden vitals label unchanged (the vitals
+    text has no kills in it, so kills and GV alone only prove the kills label).
+  - Test 7 builds the `OwnerCombatView` with `Activator.CreateInstance(typeof(OwnerCombatView), true)` and sets the compiler's
+    `<AsMilli>k__BackingField` (the recipe works on this editor). The text-scale step is a guard: it sets `ShowcaseSettings._textScale` to 1.25,
+    calls `ApplyTextScale`, and checks the open tooltip after a roam move.
+  - Test 12 (e): the line "an open header's marker survives a zero cell turning non-zero" is red on the base like the other open-header line.
+  - Test 13: the 64 views carry the rig's inventory (the control measured zero on a correct implementation).
+  - `AnIdleFrameStillAllocatesNothing` settles in the ramp state with a delivered window first, then measures the HUD's `LateUpdate` alone.
+- **Hazard found while running subsets (pre-existing, not caused by this packet)**: in a Unity run that selects `TrainingConsoleIntegrationEditModeTests`
+  together with about thirty other classes, `EscapeClosesTrainingConsoleAndOnlyTheNextPhysicalEscapeLeavesTraining` (or
+  `HigherSettingsModalUnbindsConsoleUntilANewAcceptedSnapshot`) fails after ANY class that uses `AllocationMeter`. The existing
+  `AllocationMeterEditModeTests` alone and the existing `AbilityRowNearbyNoGarbageEditModeTests` alone reproduce it on the base; the 32 existing
+  classes without them are 335 of 335 green, and the new classes with `TrainingConsoleIntegration` alone are green. The cause was not found (the
+  profiler Recorder is the common factor). The gate runs the whole suite in its own order and the base is green there; if the full gate shows only
+  that Training failure on this branch, run `TrainingConsoleIntegrationEditModeTests` alone (green) and report it to the coordinator: it is not
+  the implementer's defect and no existing test or oracle file may be edited for it.
+- **Not run on purpose**: the whole EditMode suite and `scripts/gate.sh` (it is for the implementer); `hud-seams.test.cjs` (no product file changed
+  in the oracle commits).
+- **Counts for the implementer**: the stub leaves `MatchHud.Legacy.cs` at 374 lines (wc), `MatchHud.cs` at 571, `MatchHud.Features.cs` at 446. The
+  throwaway added a net 10 lines to `MatchHud.Legacy.cs`, 0 to `MatchHud.cs` and 54 to `MatchHud.Features.cs` (the vitals writer, 17 lines, went to `MatchHud.Vitals.cs`): re-count after the last edit.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
