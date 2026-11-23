@@ -441,18 +441,32 @@ fn with_cx<R>(s: &mut Scene, f: impl FnOnce(&mut Cx<'_>) -> R) -> R {
 
 /// A fresh `tuber_eats` (a permanent reward: it needs no slot) offered at the owner's feet, `n` spells held and a dropped
 /// spell at the owner's feet.
+/// A wanted drop at the seat's feet. With a slot free the frame offers its pick-up (action 9), as the sim does for a
+/// drop in reach: since P-RAID-Q3-fix2 a drop beside the seat that the sim does not offer no longer holds the walker.
 fn walker_scene(n: usize) -> Scene {
-    scene(|at| WireQuestView {
-        rows: vec![row(1, "tuber_eats", at)],
-        spells: held(&[(0, 3), (1, 4)])[..n].to_vec(),
-        drops: vec![drop_of(17)]
-            .into_iter()
-            .map(|d| WireQuestDrop {
+    scene(|at| {
+        let d = drop_of(17);
+        let actions = if n < 2 {
+            vec![WireQuestAction {
+                quest: QuestHandle::new(7).expect("a handle"),
+                action: 9,
+                target: d.index,
+                at: vec![WireQuestPoint { x: at.x, y: at.y }],
+                label: "Pick up".into(),
+            }]
+        } else {
+            Vec::new()
+        };
+        WireQuestView {
+            rows: vec![row(1, "tuber_eats", at)],
+            spells: held(&[(0, 3), (1, 4)])[..n].to_vec(),
+            drops: vec![WireQuestDrop {
                 at: WireQuestPoint { x: at.x, y: at.y },
                 ..d
-            })
-            .collect(),
-        ..WireQuestView::default()
+            }],
+            actions,
+            ..WireQuestView::default()
+        }
     })
 }
 
