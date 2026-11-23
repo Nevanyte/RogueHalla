@@ -403,7 +403,9 @@ fn raid_bots_fight_elites_and_every_attempt_and_every_kill_is_in_one_bucket() {
         assert_eq!(n(secs, "n"), n(e, "killed"), "{name}: one sample a kill");
         let total: f64 = samples.iter().map(|s| s.as_f64().expect("number")).sum();
         assert!((total - secs["sum"].as_f64().expect("sum")).abs() < 1e-6);
-        assert!(samples.iter().all(|s| s.as_f64().is_some_and(|x| x > 0.)));
+        // A seat credited with the kill whose first contact with the elite is the step the elite dies gives a
+        // zero-second sample (P-BAL-LAB-ELITE-1-fix, decision 6b): `kill_secs` is the seat's own engagement.
+        assert!(samples.iter().all(|s| s.as_f64().is_some_and(|x| x >= 0.)));
         attempts += n(e, "attempts");
         kills += n(e, "killed");
         died += n(e, "died");
