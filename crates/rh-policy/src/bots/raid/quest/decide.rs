@@ -9,10 +9,11 @@ use crate::bots::raid::acts::Act;
 use crate::bots::raid::exec::travel::{eta_minutes, move_intent, step_toward, straight_minutes};
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 use crate::bots::raid::percept::Me;
-use crate::bots::raid::quest::SPELL_SLOTS;
+use crate::bots::raid::quest::{stand_u, SPELL_SLOTS};
 use crate::bots::raid::values::Prices;
 use rh_protocol::state::{WireQuestDrop, WireQuestPoint, WireQuestRow, WireQuestSpell};
 use rh_sim::quests::board::catalog::{RewardKind, DEFINITIONS};
+use rh_sim::quests::public_rules;
 use rh_sim::{FactionId, Vec2, WeaponId};
 
 /// The reward slot choice and the pick-up (`quests/board/attempts/choices.rs`, `quest_view/board.rs`).
@@ -22,9 +23,6 @@ pub(super) const ACTION_PICKUP: u8 = 9;
 const ACTION_STACKS: u8 = 5;
 const ACTION_WEAPON: u8 = 7;
 const BARGAIN: &str = "the_bargain";
-/// Stacks one trade takes and gives (`TOP25.bargain_cost`, `bargain_stacks`: crate-private to `rh-sim`).
-const COST_STACKS: f64 = 20.;
-const GAIN_STACKS: f64 = 24.;
 /// A Bargain stat index (0..9) to its HUD stat code in the build summary's mob rows.
 const BARGAIN_TO_HUD: [u8; 9] = [2, 8, 5, 1, 6, 7, 0, 3, 4];
 /// Quests whose turn-in point is a token, not the giver (`attempts.rs` `endpoint`): the view shows the token only before it is ready.
@@ -33,8 +31,6 @@ const TOKEN_QUESTS: [&str; 3] = ["letters", "tuber_eats", "even_skeletons_get_co
 const STAGE_SLOT: u8 = 0;
 const STAGE_PICKUP: u8 = 1;
 const STAGE_BARGAIN: u8 = 2;
-/// Walk to within this of a point (the server's reach is 64 u).
-const STAND_U: f64 = 32.;
 /// A send is not repeated before this long.
 const RESEND_MS: f64 = 2_500.;
 /// A Bargain with no improving trade, or refused at its giver, is left alone this long.
@@ -213,14 +209,17 @@ pub fn bargain_gain(prices: &Prices, me: &Me, offered: &[(u8, u8)]) -> Option<f6
 
 fn best_trade(prices: &Prices, me: &Me, offered: &[(u8, u8)]) -> Option<Trade> {
     let unit = prices.stacks_per_camp * prices.neutral_stat;
+    // Stacks one trade takes and gives: the published `bargain_cost` and `bargain_stacks` (the reward text says them).
+    let rules = public_rules();
+    let (cost_stacks, gain_stacks) = (rules.bargain_cost as f64, rules.bargain_stacks as f64);
     let mut best: Option<Trade> = None;
     for &(action, target) in offered {
         let (gain, weapon, give, receive) = match action {
             ACTION_STACKS if target < 81 && target / 9 != target % 9 => {
                 let (give, receive) = (target / 9, target % 9);
                 (
-                    (GAIN_STACKS * stat_worth_at(prices, receive, me)
-                        - COST_STACKS * stat_worth_at(prices, give, me))
+                    (gain_stacks * stat_worth_at(prices, receive, me)
+                        - cost_stacks * stat_worth_at(prices, give, me))
                         / unit,
                     false,
                     give,
@@ -228,7 +227,7 @@ fn best_trade(prices: &Prices, me: &Me, offered: &[(u8, u8)]) -> Option<Trade> {
                 )
             }
             ACTION_WEAPON if target < 9 => (
-                GAIN_STACKS * stat_worth_at(prices, target, me) / unit - prices.spare_weapon,
+                gain_stacks * stat_worth_at(prices, target, me) / unit - prices.spare_weapon,
                 true,
                 0,
                 target,
@@ -252,9 +251,11 @@ fn best_trade(prices: &Prices, me: &Me, offered: &[(u8, u8)]) -> Option<Trade> {
     best
 }
 
-/// The trades the build could make with what it has: 20 stacks of a stat to any other, the spare weapon to any stat.
+/// The trades the build could make with what it has: `bargain_cost` stacks of a stat to any other, the spare weapon to any
+/// stat.
 fn possible_trades(cx: &Cx<'_>) -> Vec<(u8, u8)> {
     let mut trades = Vec::new();
+    let cost_stacks = public_rules().bargain_cost;
     if let Some(summary) = cx.p.summary.as_ref() {
         for give in 0..9u8 {
             let code = BARGAIN_TO_HUD[usize::from(give)];
@@ -264,7 +265,7 @@ fn possible_trades(cx: &Cx<'_>) -> Vec<(u8, u8)> {
                 .filter(|r| r.stat == code)
                 .map(|r| u64::from(r.stacks))
                 .sum();
-            if stacks as f64 >= COST_STACKS {
+            if stacks >= cost_stacks {
                 trades.extend(
                     (0..9u8)
                         .filter(|j| *j != give)
@@ -327,7 +328,7 @@ impl Decide {
     }
 
     fn go(cx: &mut Cx<'_>, to: Vec2, why: &'static str) -> Step {
-        if cx.p.dist(to) <= STAND_U {
+        if cx.p.dist(to) <= stand_u() {
             return Step::running(Vec::new(), "standing");
         }
         match step_toward(cx.paths, cx.p.me.at, to) {
@@ -395,7 +396,7 @@ impl Decide {
                 .iter()
                 .find(|(d, _)| d == def)
                 .map_or_else(|| point(row.giver), |(_, at)| *at);
-            if cx.p.dist(to) > STAND_U {
+            if cx.p.dist(to) > stand_u() {
                 self.stood = None;
                 return Self::go(cx, to, "to the turn-in point");
             }
@@ -452,7 +453,7 @@ impl Decide {
             }
             return step;
         }
-        if cx.p.dist(point(drop.at)) <= STAND_U {
+        if cx.p.dist(point(drop.at)) <= stand_u() {
             // The sim never offers it from here (a wall, or no room): a bounded stand, then the def is left alone.
             return self.wait_or_give_up(&Self::pickup_key(def), now, "the pick-up is not offered");
         }
@@ -479,7 +480,7 @@ impl Decide {
                 }
                 return step;
             }
-            if cx.p.dist(giver) > STAND_U {
+            if cx.p.dist(giver) > stand_u() {
                 self.refused = None;
                 return Self::go(cx, giver, "to the giver");
             }
@@ -531,7 +532,7 @@ impl Decide {
         else {
             return Step::failed("no objective in the view");
         };
-        if cx.p.dist(hag) > STAND_U {
+        if cx.p.dist(hag) > stand_u() {
             self.stood = None;
             return Self::go(cx, hag, "to the hag");
         }
@@ -600,7 +601,7 @@ impl Executor for Decide {
                     .iter()
                     .find(|(d, _)| *d == def)
                     .map_or(giver, |(_, at)| *at);
-                let walk = if offered || cx.p.dist(to) <= STAND_U {
+                let walk = if offered || cx.p.dist(to) <= stand_u() {
                     0.
                 } else {
                     straight_minutes(cx.p.me.at, to)

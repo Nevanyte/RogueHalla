@@ -10,6 +10,8 @@ pub mod dwell;
 #[cfg(test)]
 mod dwell_tests;
 pub mod hunt;
+#[cfg(test)]
+mod public_rules_tests;
 pub mod pvp;
 pub mod search;
 pub mod walker;
@@ -21,6 +23,12 @@ use rh_sim::quests::board::catalog::{RewardKind, DEFINITIONS};
 
 /// The seat holds this many quest spells at most (a third reward waits in `pending`).
 pub(crate) const SPELL_SLOTS: usize = 2;
+
+/// Walk to within this of a point to accept, claim, deliver, pick up or stand (u). A bot rule over the published contact
+/// range (`rh_sim::quests::public_rules().contact_range`, 64 u today): stand at half of it, well inside the server's reach.
+pub(super) fn stand_u() -> f64 {
+    rh_sim::quests::public_rules().contact_range / 2.
+}
 
 /// Spell slots spoken for: quest spells held, plus every accepted, unfinished quest on the board whose reward is a spell,
 /// whichever executor owns it (the same count as the walker's private `slots_taken`). A later packet points the walker at
