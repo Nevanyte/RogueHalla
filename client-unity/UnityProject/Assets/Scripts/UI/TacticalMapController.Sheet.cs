@@ -17,7 +17,11 @@ namespace Roguehalla.Client
         TMP_Text _phaseLabel;
         string _phaseLine = "";
         int _railsOnSheet = -1;
-        string _headerKey;
+        // What the header was last laid out for: compared field by field so a steady call allocates nothing.
+        bool _headerShown, _headerToggle;
+        float _headerWidth;
+        string _headerPhase, _headerTitle;
+        const string HintToggle = "Right-click to walk · Tab closes", HintHold = "Right-click to walk · release Tab to close";
 
         void BuildSheet(UiTheme theme)
         {
@@ -73,7 +77,7 @@ namespace Roguehalla.Client
                     else HudUi.Surface(rail, theme.Surface, theme.CornerRadiusLarge, theme.Border, true, true);
                 }
             }
-            _headerKey = null;
+            _headerShown = false;
             if (onSheet || _layoutMode == MapScreenMode.Tab) PresentHeader();
         }
 
@@ -82,11 +86,11 @@ namespace Roguehalla.Client
         {
             if (_hint == null || _layoutMode != MapScreenMode.Tab) return;
             bool toggle = ToggleMode;
-            string hint = toggle ? "Right-click to walk · Tab closes" : "Right-click to walk · release Tab to close";
+            string hint = toggle ? HintToggle : HintHold;
             float width = _layout.Header.W;
-            string key = hint + "|" + _phaseLine + "|" + toggle + "|" + width + "|" + _title.text;
-            if (key == _headerKey) return;
-            _headerKey = key;
+            string title = _title.text;
+            if (_headerShown && toggle == _headerToggle && width == _headerWidth && _phaseLine == _headerPhase && title == _headerTitle) return;
+            _headerShown = true; _headerToggle = toggle; _headerWidth = width; _headerPhase = _phaseLine; _headerTitle = title;
             _hint.text = hint;
             _close.gameObject.SetActive(toggle);
             float inset = toggle ? CloseInset : 0f;
