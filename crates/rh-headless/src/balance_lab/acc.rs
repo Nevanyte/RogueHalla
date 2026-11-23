@@ -191,7 +191,7 @@ pub struct EliteCounts {
     pub left: u64,
     /// Contact to kill, one sample per `killed`.
     pub kill_secs: SampledSum,
-    /// One chest outcome per kill: picked by the killing blow's seat, only by another seat, by nobody, or still standing.
+    /// One chest outcome per kill: picked by the credited killer's seat, only by another seat, by nobody, or still standing.
     pub chest_killer: u64,
     pub chest_other: u64,
     pub chest_none: u64,
@@ -287,6 +287,8 @@ pub struct Rewards {
     pub chest_taken_events: u64,
     /// The same picks as `picks_by_kind`, by the chest they came from: `elite` (a kill's chest), `trophy`, `ground`.
     pub picks_by_chest_kind: BTreeMap<String, u64>,
+    /// `ChestTaken` events whose option the lab could not name (a skip, or a pick no observation showed).
+    pub picks_unnamed: u64,
 }
 impl Merge for Rewards {
     fn fold_in(&mut self, o: Self) {
@@ -294,6 +296,7 @@ impl Merge for Rewards {
         self.picks_by_kind.fold_in(o.picks_by_kind);
         self.chest_taken_events += o.chest_taken_events;
         self.picks_by_chest_kind.fold_in(o.picks_by_chest_kind);
+        self.picks_unnamed += o.picks_unnamed;
     }
 }
 
@@ -302,7 +305,7 @@ pub struct AugCounts {
     pub offered: u64,
     pub picked: u64,
     pub held_by_winner: u64,
-    /// Picks from an elite kill's chest by the killing blow's seat, and by another seat.
+    /// Picks from an elite kill's chest by the credited killer's seat (who holds the first pick), and by another seat.
     pub picked_by_killer: u64,
     pub picked_by_bystander: u64,
 }

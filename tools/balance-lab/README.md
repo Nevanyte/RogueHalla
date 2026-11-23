@@ -50,21 +50,26 @@ so later minutes have few samples or none.
 - Elite fights (`elites.by_kind_weapon`, per kind and opening weapon). A seat is *engaged* with an elite while it deals or
   takes a hit against the elite or any mob of its camp. An attempt opens on the first hit the seat deals to the elite
   itself and ends exactly once: `attempts = killed + taken_by_other + died + died_elsewhere + left + open`. `killed`: the
-  killing blow (`Death.by`) was the seat's. `taken_by_other`: the elite died to anyone else while the seat was engaged.
+  seat was credited with the kill (`Death.by`: the seat with the most damage on the elite, or a killing Smite). `taken_by_other`: the elite died to anyone else while the seat was engaged.
   `died`: the seat died while engaged and the resolved attacker (`Death.by`, else the latest hit inside the 5 s window) was
   the elite or a mob of its camp. `died_elsewhere`: it died while engaged to anything else. `left`: idle more than 10 s
   (`LEAVE_MS`); a later death or kill of the elite is not that attempt's. `open`: still undecided at the end.
   **`died` and `taken_by_other` are narrower than before** (they used to count every later seat death and every elite
   death after a give-up); the schema stays `balance-lab/1`. A seat that is engaged again later opens a new attempt, so
   tries per kill is `attempts / killed`. `kill_secs` is `{sum, n, samples}` with `n == killed`: the first contact of the
-  engaged streak (a hit taken counts) to the kill.
+  engaged streak (a hit taken counts) to the kill: the seat's own engagement, not the fight's length. A zero-second
+  sample is a seat credited with the kill whose first contact with the elite is the step the elite dies.
 - Chests. Each kill has one chest outcome, `killed = chest_killer + chest_other + chest_none + chest_open`: picked by the
   killer, picked only by another seat, picked by nobody before it expired, or still standing at the end;
-  `chest_bystander_picks` counts other seats' picks. The killer is the killing blow, but the sim gives the first pick to
-  the seat with the most damage, which may be another seat. The lab reads only seats' observations, so it recognises an
+  `chest_bystander_picks` counts other seats' picks. The killer is the sim's credited killer (`Death.by`), and the same seat
+  holds the first pick. The lab reads only seats' observations, so it recognises an
   elite's chest as the non-trophy chest whose drop time (`expires_at` minus the chest lifetime) is the elite's death tick
   and which lies within 12 tiles of the elite's body or home; a different chest dropped in that same tick nearby would
   fool it. A chest nobody saw counts as none 30 s after the kill; a pick on the match's last step is not seen.
+  A pick is one `ChestTaken` event: a chest is named by seat, `expires_at` and position (never by handle, which the sim
+  reissues), so `sum(picks_by_kind) + picks_unnamed == chest_taken_events`. `rewards.picks_unnamed` counts events no
+  observation could name: a skip (`pick == -1`, no option taken), a pick on the last step, a chest that expired in the
+  step of the pick. An elite whose last position is unknown never matches its chest by place and ends as `none`.
   `rewards.picks_by_chest_kind` splits `picks_by_kind` into `elite`, `trophy` and `ground`; `augments.by_card[]` has
   `picked_by_killer` and `picked_by_bystander` (elite chests only). `world.elite_camps_cleared` is the part of
   `camps_cleared` whose camp held an elite.
