@@ -5,6 +5,9 @@ using UnityEngine;
 using UnityEngine.LowLevel;
 using UnityEngine.PlayerLoop;
 using UnityEngine.Rendering.Universal;
+using NetSession = global::Roguehalla.Net.Session;
+using NetCollections = global::Roguehalla.Net.CollectionsView;
+using NetMap = global::Roguehalla.Net.Protocol.MapBlob;
 #if UNITY_WEBGL && !UNITY_EDITOR
 using System.Runtime.InteropServices;
 #endif
@@ -33,6 +36,13 @@ namespace Roguehalla.Client
         const int DefaultCapacity = 200000;
         static PerfRecorder _instance;
         ArenaView _arena;
+        MatchClient _client;
+        // Worst-frame context (P-UI-PERF-WORST-FRAME-1): the session this recorder subscribed to and the baselines of the last frame.
+        NetSession _heldSession;
+        long _wallsSig; NetMap _lastWalk, _lastTerrain; int _lastSnapshots;
+        static int s_stateFrames;
+        static readonly System.Action<NetCollections> s_onCollections = OnCollections;
+        PerfMarks.GcReads _gc = new PerfMarks.GcReads { FrameStart = -1, ScriptsStart = -1, ScriptsEnd = -1, RenderStart = -1, FrameEnd = -1 };
         int _lastActors = -1, _lastRegion = -2, _lastX, _lastY;
         float _nextPoll;
 
@@ -105,6 +115,7 @@ namespace Roguehalla.Client
             if (Time.unscaledTime < _nextPoll) return;
             _nextPoll = Time.unscaledTime + .25f;
             if (_arena == null) _arena = FindFirstObjectByType<ArenaView>();
+            if (_client == null) _client = FindFirstObjectByType<MatchClient>();
             int actors = _arena != null ? _arena.ObservedActorCount : 0;
             int region = _arena != null ? (int)_arena.LocalRegion : -1;
             int px = 0, py = 0;
@@ -182,14 +193,28 @@ namespace Roguehalla.Client
 
         void OnFrameStart()
         {
+            if (PerfMarks.On) _gc.FrameStart = System.GC.CollectionCount(0);
             _frameStart = PerfMarks.Begin();
             long heap = System.GC.GetTotalMemory(false);
             if (heap > _lastHeap) _gcBytes += heap - _lastHeap;
             _lastHeap = heap; _gcFrames++;
         }
-        void OnScriptsStart() { if (_frameStart.T != 0) PerfMarks.End(PerfMarks.Sec.PreUpdate, _frameStart); _scriptsStart = PerfMarks.Begin(); }
-        void OnScriptsEnd() { PerfMarks.End(PerfMarks.Sec.Scripts, _scriptsStart); }
-        void OnRenderStart() { _renderStart = PerfMarks.Begin(); }
+        void OnScriptsStart()
+        {
+            if (_frameStart.T != 0) PerfMarks.End(PerfMarks.Sec.PreUpdate, _frameStart);
+            if (PerfMarks.On) _gc.ScriptsStart = System.GC.CollectionCount(0);
+            _scriptsStart = PerfMarks.Begin();
+        }
+        void OnScriptsEnd()
+        {
+            PerfMarks.End(PerfMarks.Sec.Scripts, _scriptsStart);
+            if (PerfMarks.On) _gc.ScriptsEnd = System.GC.CollectionCount(0);
+        }
+        void OnRenderStart()
+        {
+            if (PerfMarks.On) _gc.RenderStart = System.GC.CollectionCount(0);
+            _renderStart = PerfMarks.Begin();
+        }
         void OnUiStart()
         {
             _uiStart = PerfMarks.Begin();
@@ -202,7 +227,12 @@ namespace Roguehalla.Client
         {
             PerfMarks.End(PerfMarks.Sec.Render, _renderStart);
             PerfMarks.End(PerfMarks.Sec.Frame, _frameStart);
-            PerfMarks.EndFrame();
+            if (PerfMarks.On)
+            {
+                _gc.FrameEnd = System.GC.CollectionCount(0);
+                PerfMarks.EndFrame(_gc, ReadContext(), Time.realtimeSinceStartup - _windowStart);
+                _gc.FrameStart = -1;
+            }
             lastHeapAfterFrame = System.GC.GetTotalMemory(false);
             if (lastHeapAfterFrame > _lastHeap) _gcBytes += lastHeapAfterFrame - _lastHeap;
             _lastHeap = lastHeapAfterFrame;
@@ -214,13 +244,70 @@ namespace Roguehalla.Client
         }
         long lastHeapAfterFrame;
 
+        static void OnCollections(NetCollections view) { if (!PerfMarks.On) return; s_stateFrames++; }
+
+        void Unbind()
+        {
+            if (_heldSession != null) _heldSession.CollectionsChanged -= s_onCollections;
+            _heldSession = null;
+        }
+
+        /// <summary>
+        /// The session's state in this frame. Every read is null-safe (a throw would skip the frame's end), allocates nothing, and runs
+        /// after the frame bracket closed, so no section is charged for it. A session seen for the first time takes every baseline again.
+        /// </summary>
+        PerfMarks.FrameContext ReadContext()
+        {
+            var ctx = new PerfMarks.FrameContext();
+            ctx.Actors = _arena != null ? _arena.ObservedActorCount : 0;
+            NetSession s = _client != null ? _client.Session : null;
+            if (s == null) { Unbind(); return ctx; }
+            var fields = s.Collections.Fields;
+            int walls = 0; long sig = 0;
+            int n = fields != null ? fields.Count : 0;
+            unchecked
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    var f = fields[i];
+                    if (f.Kind != global::Roguehalla.Net.AreaKind.Wall || f.Tiles == null) continue;
+                    walls++;
+                    sig = sig * 31 + System.BitConverter.DoubleToInt64Bits(f.Key.StartedAt);
+                    sig += f.Key.FirstTile; sig += f.Tiles.Length;
+                }
+            }
+            NetMap walk = s.Motion != null ? s.Motion.WalkMap : null;
+            NetMap terrain = s.TerrainMap;
+            ctx.Walls = walls;
+            if (!ReferenceEquals(s, _heldSession))
+            {
+                Unbind();
+                if (_instance == this) s.CollectionsChanged += s_onCollections;
+                _heldSession = s; s_stateFrames = 0;
+            }
+            else
+            {
+                ctx.WallsChanged = sig != _wallsSig ? 1 : 0;
+                ctx.WalkMapChanged = !ReferenceEquals(walk, _lastWalk) ? 1 : 0;
+                ctx.TerrainMapChanged = !ReferenceEquals(terrain, _lastTerrain) ? 1 : 0;
+                ctx.StateFrames = s_stateFrames; s_stateFrames = 0;
+                ctx.Snapshots = s.SnapshotsReceived - _lastSnapshots;
+            }
+            _wallsSig = sig; _lastWalk = walk; _lastTerrain = terrain; _lastSnapshots = s.SnapshotsReceived;
+            ctx.Dead = s.Me != null && s.Me.Status == global::Roguehalla.Net.ActorStatus.Dead ? 1 : 0;
+            ctx.OrderPending = s.Motion != null && s.Motion.OrderPending ? 1 : 0;
+            ctx.MapTiles = terrain != null ? terrain.W * terrain.H : 0;
+            return ctx;
+        }
+
         static int NewInstanceId() { var m = new Mesh(); int id = m.GetInstanceID(); Destroy(m); return id; }
 
         /// <summary>Page: start a counting window (SendMessage("Frame-time recorder", "ResetCounters", "")).</summary>
         public void ResetCounters(string unused)
         {
-            PerfMarks.Reset();
-            _gcBytes = 0; _gcFrames = 0; _gcBase = System.GC.CollectionCount(0); _tmpChanges = 0; _lastHeap = System.GC.GetTotalMemory(false);
+            _gcBase = System.GC.CollectionCount(0);
+            PerfMarks.Reset(_gcBase);
+            _gcBytes = 0; _gcFrames = 0; _tmpChanges = 0; _lastHeap = System.GC.GetTotalMemory(false);
             _layoutQueue = _graphicQueue = 0; _layoutMax = _graphicMax = 0; LocalLightField.ResetStats();
             for (int i = 0; i < _counters.Count; i++) { var c = _counters[i]; c.Sum = 0; c.Max = 0; _counters[i] = c; }
             _instanceIdBase = NewInstanceId();
@@ -233,7 +320,7 @@ namespace Roguehalla.Client
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             int frames = Mathf.Max(1, PerfMarks.Frames);
             float seconds = Mathf.Max(.001f, Time.realtimeSinceStartup - _windowStart);
-            var sb = new StringBuilder(2048);
+            var sb = new StringBuilder(12288);
             sb.Append("{\"frames\":").Append(PerfMarks.Frames).Append(",\"seconds\":").Append(seconds.ToString("0.###", inv));
             sb.Append(",\"cpu\":{");
             for (int i = 0; i < (int)PerfMarks.Sec.Count; i++)
@@ -244,6 +331,7 @@ namespace Roguehalla.Client
             }
             sb.Append("},\"gcBytesPerFrame\":").Append((_gcBytes / Mathf.Max(1, _gcFrames)).ToString("0", inv))
               .Append(",\"gcCollections\":").Append(System.GC.CollectionCount(0) - _gcBase)
+              .Append(",\"gcIncremental\":").Append(UnityEngine.Scripting.GarbageCollector.isIncremental ? "true" : "false")
               .Append(",\"heapBytes\":").Append(System.GC.GetTotalMemory(false))
               .Append(",\"adaptive\":").Append(ShowcaseSettings.Current != null ? ShowcaseSettings.Current.AdaptiveDebug : "null")
               .Append(",\"lightsOfferedPerFrame\":").Append((LocalLightField.StatOffered / (float)Mathf.Max(1, LocalLightField.StatFrames)).ToString("0.##", inv))
@@ -262,7 +350,9 @@ namespace Roguehalla.Client
                 if (!c.Rec.Valid) { sb.Append("null"); continue; }
                 sb.Append("{\"mean\":").Append((c.Sum / frames).ToString("0.##", inv)).Append(",\"max\":").Append(c.Max).Append('}');
             }
-            sb.Append("}}");
+            sb.Append("},");
+            PerfMarks.AppendWorstFrames(sb);
+            sb.Append('}');
             string json = sb.ToString();
 #if UNITY_WEBGL && !UNITY_EDITOR
             RhPerf_SetUnity(json);
@@ -335,7 +425,7 @@ namespace Roguehalla.Client
         void OnDestroy()
         {
             if (_instance != this) return;
-            Quality.Changed -= PublishRow; _instance = null; PerfMarks.On = false;
+            Quality.Changed -= PublishRow; _instance = null; PerfMarks.On = false; Unbind();
             if (_hooked)
             {
                 Canvas.preWillRenderCanvases -= OnUiStart; Canvas.willRenderCanvases -= OnUiEnd;
