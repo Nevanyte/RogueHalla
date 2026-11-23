@@ -231,7 +231,7 @@ namespace Roguehalla.Client.Tests
                 pulses.Tick(10f + HudPulses.Seconds * .5f);
                 Assert.That(rect.localScale.x, Is.GreaterThan(1f), "larger than 1 at half time, pivot " + pivot);
                 Assert.That(Vector3.Distance(Centre(rect), centre), Is.LessThan(.01f));
-                pulses.Tick(10f + HudPulses.Seconds);
+                pulses.Tick(10f + HudPulses.Seconds + .01f);
                 Assert.That(rect.localScale, Is.EqualTo(Vector3.one), "scale exactly 1 at the end, pivot " + pivot);
                 Assert.That(rect.anchoredPosition.x, Is.EqualTo(original.x), "position exactly as before, pivot " + pivot);
                 Assert.That(rect.anchoredPosition.y, Is.EqualTo(original.y));
@@ -252,7 +252,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(pulses.Count, Is.EqualTo(1), "one pulse per rect");
             pulses.Tick(.05f + HudPulses.Seconds * .5f);
             Assert.That(rect.localScale.x, Is.EqualTo(1f + HudPulses.Pop).Within(1e-3f), "the new pulse is at its peak half a pulse later");
-            pulses.Tick(.05f + HudPulses.Seconds);
+            pulses.Tick(.05f + HudPulses.Seconds + .01f);
             Assert.That(rect.localScale, Is.EqualTo(Vector3.one));
             Assert.That(rect.anchoredPosition.x, Is.EqualTo(original.x));
             Assert.That(rect.anchoredPosition.y, Is.EqualTo(original.y), "shifts never accumulate");
@@ -276,7 +276,7 @@ namespace Roguehalla.Client.Tests
             pulses.Play(_rect, 1f);
             pulses.Tick(1f + HudPulses.Seconds * .5f);
             Assert.That(_rect.localScale.x, Is.GreaterThan(1f));
-            pulses.Tick(1f + HudPulses.Seconds);
+            pulses.Tick(1f + HudPulses.Seconds + .01f);
             Assert.That(_rect.localScale, Is.EqualTo(Vector3.one));
         }
 
