@@ -57,19 +57,26 @@ pub(crate) fn spell_slots_taken(cx: &Cx<'_>) -> usize {
     })
 }
 
+/// The most a hurt seat's health scales a quest's death share (P-RAID-Q3b-fix2). A measured row already holds the lab's mix
+/// of health, so a full 1 / hp share would price a held dwell out of existence; a hold is let go by the dwell executor's own
+/// rule (below `LOW_HP` while hit) and by Sustain, not by this price.
+pub(crate) const HEALTH_FACTOR_CAP: f64 = 1.5;
+
 /// The chance that the walk and stand of quest `def` through `points` ends in the seat's death. One helper for every quest
 /// executor (P-RAID-Q3b-fix).
 ///
 /// * What the quest does by design is `Prices::quest_death_share(def)` (a measured row, else `death_floor`), scaled up for a
-///   hurt seat by 1 / hp share (as `death_chance` does), at most 0.98 and never below the row.
+///   hurt seat by 1 / hp share (as `death_chance` does) but by at most `HEALTH_FACTOR_CAP`; at most 0.98 and never below the
+///   row. Total: a row or `death_floor` above 0.98 prices at itself (at most 1), without a panic.
 /// * A camp that is idle near a point adds nothing: the sim wakes a mob only on damage, a blocked hit or a camp mate's death,
 ///   and no quest step does any of them. A camp that is already awake counts (a living mob of it is `engaged` in the frame
 ///   and its camp label is the camp) with the per-camp `death_chance` of a fight, for every such camp whose centre lies
 ///   within `CAMP_JOIN_RADIUS` of any point. The two combine as `1 - (1 - quest)(1 - camp)...`.
 pub(crate) fn walk_death(cx: &Cx<'_>, def: &str, points: &[Vec2]) -> f64 {
     let hp = cx.p.me.hp_share();
-    let row = cx.prices.quest_death_share(def);
-    let mut survive = 1. - (row / hp.max(0.05)).clamp(row, 0.98);
+    let row = cx.prices.quest_death_share(def).clamp(0., 1.);
+    let factor = (1. / hp.max(0.05)).min(HEALTH_FACTOR_CAP);
+    let mut survive = 1. - (row * factor).min(0.98).max(row);
     if let Some(me) = cx.p.me.faction {
         for camp in &cx.p.camps {
             let near = points
@@ -86,5 +93,5 @@ pub(crate) fn walk_death(cx: &Cx<'_>, def: &str, points: &[Vec2]) -> f64 {
             survive *= 1. - death_chance(hp, share, members_left(cx.p, camp), &cx.prices.death);
         }
     }
-    (1. - survive).max(row)
+    (1. - survive).max(row).min(1.)
 }
