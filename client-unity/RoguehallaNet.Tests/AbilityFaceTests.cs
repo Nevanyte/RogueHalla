@@ -46,15 +46,15 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void ACoolingSpellShowsWholeSecondsRoundedUpAndTheShareOfTheTotalLeft()
         {
-            var face = AbilityFaces.Spell(true, 1, 5200, 1000, 10000);   // 4,200 ms left of 10,000
+            var face = AbilityFaces.Spell(true, 0, 5200, 1000, 10000);   // 4,200 ms left of 10,000
             Assert.That(face.Phase, Is.EqualTo(AbilityPhase.Cooling));
             Assert.That(face.Seconds, Is.EqualTo(5));
             Assert.That(face.Sweep, Is.EqualTo(.42f).Within(Eps));
-            Assert.That(face.Badge, Is.EqualTo(1));
+            Assert.That(face.Badge, Is.EqualTo(0));
             Assert.That(face.Cast, Is.EqualTo(-1f));
 
-            Assert.That(AbilityFaces.Spell(true, 1, 2000, 1000, 10000).Seconds, Is.EqualTo(1), "1,000 ms left is one second");
-            Assert.That(AbilityFaces.Spell(true, 1, 2001, 1000, 10000).Seconds, Is.EqualTo(2), "1,001 ms left rounds up");
+            Assert.That(AbilityFaces.Spell(true, 0, 2000, 1000, 10000).Seconds, Is.EqualTo(1), "1,000 ms left is one second");
+            Assert.That(AbilityFaces.Spell(true, 0, 2001, 1000, 10000).Seconds, Is.EqualTo(2), "1,001 ms left rounds up");
         }
 
         [Test]
