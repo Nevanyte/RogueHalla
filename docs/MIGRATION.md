@@ -4,6 +4,100 @@ The single status record of the Rust + Unity + AWS migration. **Only the coordin
 [REQUIREMENTS.md](REQUIREMENTS.md). Invariants and their validation status: [CONTRACTS.md](CONTRACTS.md). Remaining work:
 [backlog/README.md](backlog/README.md). Decisions: [adr/](adr/README.md).
 
+## Integration 85 merged (2026-11-23); integration 86 assembling
+
+**Owner direction in force:** "resume" (2026-11-23, chat). This section governs; the one below it records integration
+84 and the start of this resume. **Nothing is pushed; `main` is untouched; nothing deployed.**
+
+- **Integration 85 is merged.** The integration branch `feature/unity-rework` is at `8f6efbd0f`, the tree of
+  `coord/int-85` @ `1bd9cc1dd`.
+  - **Holds:** P-RAID-C (`1282a3ba2`), P-RAID-Q3 (`4054ad8ab`), P-BAL-EVAL-1 (`c348a5b98`), P-BAL-EVAL-1-fix
+    (`87099e24f`), P-BAL-LAB-1-fix (`72d26ebfd`), P-BAL-INPUTS-1 (`2eb8caeb2`), P-BAL-NATIVE-TEXT-GUARD-1
+    (`932dde409`), P-RAID-C-fix (`6fbd087aa`), P-RAID-Q3-fix (`53ca07799`), a comment-only test amendment
+    (`9ae165b46`) and the UI rework lane's wave 2 (`1bd9cc1dd`: P-UI-HUD-SEAMS-1-fix, P-UI-TRADER-COPY-1,
+    P-UI-QUEST-TRACKER-1, P-UI-TABMAP-SHEET-1 and -fix, P-UI-TOAST-LANES-1, P-UI-ALLOC-METER-1, P-UI-ABILITY-ROW-1,
+    P-UI-ALLOC-PROOF-1; client only).
+  - **Full gate** with pgtest on `1bd9cc1dd`, clean worktree, two runs:
+    - First run: **GATE FAIL (1 step): C# net library tests.** One test,
+      `AllocationProbeTests.PlainDecodeAllocatesExactlyTheSnapshotItsSelfAndOneActorArrayInEveryRun(68)`, read
+      2808.084 bytes a call against 2808 in its run 0. The file is untouched by this integration. On the same tree it
+      then passed 3 of 3 alone and 3 of 3 in the whole assembly. Every other step passed. Log
+      `.agent-runs/gate/20261123T023339-HEAD-full.log`.
+    - Second run, same tree: **GATE PASS (full)**, EditMode 2124/2124 (headless 2122, graphics 2); the Postgres
+      suites ran. Log `.agent-runs/gate/20261123T031944-HEAD-full.log`. The gate has no way to rerun one step, so the
+      whole gate ran again; P-TEST-HARDEN-1d is the packet for that test.
+  - **reviewer-opus on the merge, Rust side: LAND WITH NOTES** (two notes, both from sustain and decisions meeting
+    in one tree, both closed by P-RAID-Q3-fix2): a pending slot choice was priced at twenty times its reward at any
+    distance, so it outranked the leave from a lost fight; the pick-up stand had no bound. It also ran the lab and
+    `balance_eval` on this tree: every non-spell quest with a completion gets a value.
+  - **reviewer-opus on the merge, client side: LAND WITH NOTES** (two notes, answered by lane packets for wave 3:
+    two ability-row allocation tests on the blind counter and a string built every frame near a quest giver; the old
+    Wish tile and press pulses beside the new ones). No game rule in Unity; none of the lane's nine "seen and not
+    right" items blocks. Nothing was run in Unity by the reviewer.
+- **For a player, by the lane's hand-off (seen by the lane in a Web build, not by the coordinator):** notices are
+  small pills in two lanes and the box in the middle of the map is gone; the action row is one row of six with the
+  quest spells as tiles; the Tab map is one sheet with a header; accepted quests show in a tracker under the plate;
+  the trader window uses the game's words.
+- **Packets since the record below** (quick gates are the packets' own):
+
+  | Packet | Branch @ head | Result |
+  |---|---|---|
+  | P-RAID-C-fix | `agent/sonnet/P-RAID-C-fix` @ `23fc6b8a0` | Gate PASS, attempt 1. reviewer-opus **LAND**. Same-base before and after, seeds 1 to 6 at 4800 ticks: stale leaves 4 of 43 adoptions to 0 of 37; camps 94 to 98; deaths 8 and 8; hashes identical on the seeds with no stale leave. In integration 85. |
+  | P-RAID-Q3-fix | `agent/sonnet/P-RAID-Q3-fix` @ `43727d4be` | The implementer stopped, as briefed, when three Bargain scenes went red; the coordinator amended them (below); gate PASS, attempt 1. reviewer-opus **LAND WITH NOTES** (1: The Bargain's table row is now only a switch and one timing price was a literal), closed by P-RAID-Q3-fix2. In integration 85. |
+  | P-RAID-Q3-fix2 | `agent/sonnet/P-RAID-Q3-fix2` @ `af1bae8e9` | The implementer stopped when one walker scene went red; the coordinator amended it (below); gate PASS, attempt 1. reviewer-opus **LAND**. A pending choice now loses to the leave once the walk back is longer than 4 to 12 s (by reward size, with the incumbent's hysteresis; computed, not measured). In the integration 86 preview. |
+  | P-BAL-NATIVE-TEXT-GUARD-1 | `agent/sonnet/P-BAL-NATIVE-TEXT-GUARD-1` @ `f24093d6b` | Gate PASS, attempt 1. reviewer **LAND**. It compares numbers only (a word such as "doubles" passes), and a fifteenth native would not be caught: the oracle's list is hand-written. In integration 85. |
+  | P-RAID-E (elites) | `agent/opus/P-RAID-E` @ `dbe547411` | Built; the coordinator's gate with the oracle PASS; in review by reviewer-opus. Lab by the implementer, seeds 1 to 6 at 6000 ticks: elite attempts 0 to 21, kills 7, card picks 8, deaths in elite fights 2, camps 134 to 119; 11 of 21 attempts ended with neither side dead. A sword cannot kill Blood Saint (0 of 12 forced fights), so the price carries a measured per-kind clear share. |
+
+- **The integration 86 preview** is `coord/int-86` @ `29d412b12`: integration 85 plus P-RAID-Q3-fix2. Not gated.
+  P-RAID-E joins it when reviewed (the coordinator resolves the `Prices` append point: `bargain_leg_minutes`, then
+  `elite` last). The UI lane's wave 3 rides it if its hand-off arrives before the gate.
+- **Oracle amendments since the record below, for the owner** (each its own commit; no expectation loosened unless
+  it says so):
+  - `4e264535a` `raid_decide.rs`: the three Bargain scenes seat the bot with a table that prices The Bargain alone.
+    The candidate is now worth the trade's own gain (1.13 to 1.3), not the table's 2.7, which was gross of the 20
+    stacks it costs, and under the default prices a richer quest outbids it. The scenes prove which trade is chosen.
+    Given up: no test shows The Bargain taken under the default prices. reviewer-opus judged the amendment sound.
+  - `9ae165b46`: a comment in the same file.
+  - `66a26bc2e` `decide_tests.rs` (integration 86 preview): `walker_scene` offers the pick-up for its drop while a
+    slot is free, as the sim does for a drop in reach; the expectation is unchanged. reviewer-opus checked the scene
+    against the sim.
+  - `d5d8bcc43` (a brief, P-BAL-LAB-1-fix decision 6): a timer end is a deadline passed within the last two ticks.
+  - **UI wave 2:** 18 amended or removed expectations (the table is in
+    `docs/coordination/HANDOFF_UI-REWORK-WAVE-2_2026-11-23.md`). reviewer-opus sorted them. **Guarantees dropped:**
+    the five "declares each member that moved into it" tests of `hud-seams.test.cjs` (agreed by the coordinator);
+    `Ui4EditModeTests.RecentNoticeCardExpiresButTheHistoryKeepsEveryNotice` is removed and the Notices page now
+    keeps the newest 200. **Not in the lane's table:** the banner and toast test's tolerance went from .01 to .5 and
+    it now measures the client's own sticky line; `HudTextScaleEditModeTests.TheInventoryCoversTheWholeMatchHud` no
+    longer covers the tracker's labels, the Shift and Q tile labels, the map header's phase label and the lanes'
+    pills (the lane's P-UI-TEXT-FIT-1 restores it). The rest are re-statements forced by the new look, or
+    strengthenings.
+- **Proposed DEVIATIONS rows, unsigned (the owner signs or refuses):** four from the UI lane, in the wording its
+  session sent after the merge review corrected the first three: the Tab map as one sheet on an 86 percent dim; the
+  two toast lanes with their holds, queue and the history bounded at 200; the action row of six, extending DEV-040;
+  the quest tracker card (missing from the lane's hand-off). The lane says he has the pictures in its chat.
+- **Not established:**
+  - The elite executor in a full match: most bots still decline elites at minute 5, and no seat held an augment at
+    a match's end in the 6000-tick lab runs (no winners yet).
+  - The leave from a lost fight on a real pending-choice route (proved against a hand-built leave candidate only).
+  - Whether bots take The Bargain at all under the default prices. The evaluator prints a ratio of 314 for it (its
+    0.6 s accept-to-trade time and its unpriced cost): the model's limit, P-BAL-EVAL-2.
+  - The thirteen older EditMode "allocates nothing" classes are still on the blind counter (P-UNITY-ALLOC-TESTS-1).
+- **Lessons for the process:**
+  - Never merge the base into a `packet/<ID>` branch after its `stub:` commit: the gate reads a merge commit there
+    as oracle files and every implementer's `--oracle` gate fails in path checks. Rebase the packet commits in a line
+    instead (P-RAID-E was re-cut with identical trees). Merging the base into an `agent/` branch is fine.
+  - An implementer told to stop when an existing test goes red, and a coordinator `oracle-amend:` on the packet
+    branch merged into the agent branch, worked twice in an hour. The brief says which tests are behaviour to preserve.
+  - The disk reached 97 percent (29 GB free) from agent worktrees' build folders; cleaning this session's finished
+    worktrees after each integration freed 109 GB.
+- **Waiting on the owner:** the list in the section below stands (items 2 to 5 and 7 of the evening list; the oracle
+  amendments), plus the amendments and the four DEVIATIONS rows above.
+- **Lanes:** UI rework is active (wave 3 on its own branch; told that wave 2 is handed over). The others are as below.
+- **Next, in order:** reviewer-opus on P-RAID-E; merge it into the preview; the full gate and reviewer-opus on
+  integration 86; move `feature/unity-rework` up. Then, towards the pilot: P-RAID-E-leave and P-RAID-HOLD-1 (the two
+  survival gaps the reviews measured), P-RAID-TOP25-READ-1, P-RAID-Q3b, P-RAID-S, P-BAL-EVAL-2, P-BAL-LAB-2;
+  P-TEST-HARDEN-1d and P-UNITY-ALLOC-TESTS-1 beside them; the security queue.
+
 ## Resumed (2026-11-23): integration 84 merged; integration 85 assembling
 
 **Owner direction 2026-11-23 (chat):** "resume". The three "Paused" sections below are history; this section governs.

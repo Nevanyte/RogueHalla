@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 
@@ -25,9 +26,14 @@ namespace Roguehalla.Net.Tests
         static void RetireAllocationBlock() => GC.Collect();
 
         /// <summary>Bytes allocated per call of <paramref name="body"/>, after 200 warm-up calls, on one dedicated worker thread.</summary>
-        public static double PerCall(Action<int> body, int iterations = DefaultIterations)
+        public static double PerCall(Action<int> body, int iterations = DefaultIterations) => PerCallWindow(body, iterations, out _);
+
+        /// <summary>One measured window; <paramref name="window"/> receives collections of generations 0, 1, 2 across it and the measuring thread id.</summary>
+        static double PerCallWindow(Action<int> body, int iterations, out int[] window)
         {
             double result = 0;
+            int[] w = new int[4];
+            window = w;
             ExceptionDispatchInfo failure = null;
             var worker = new Thread(() =>
             {
@@ -37,9 +43,13 @@ namespace Roguehalla.Net.Tests
                     GC.GetAllocatedBytesForCurrentThread();
                     for (int i = 0; i < 200; i++) body(i);
                     RetireAllocationBlock();
+                    int c0 = GC.CollectionCount(0), c1 = GC.CollectionCount(1), c2 = GC.CollectionCount(2);
                     long before = GC.GetAllocatedBytesForCurrentThread();
                     for (int i = 200; i < 200 + iterations; i++) body(i);
-                    result = (GC.GetAllocatedBytesForCurrentThread() - before) / (double)iterations;
+                    long after = GC.GetAllocatedBytesForCurrentThread();
+                    w[0] = GC.CollectionCount(0) - c0; w[1] = GC.CollectionCount(1) - c1; w[2] = GC.CollectionCount(2) - c2;
+                    w[3] = Thread.CurrentThread.ManagedThreadId;
+                    result = (after - before) / (double)iterations;
                 }
                 catch (Exception error)
                 {
@@ -65,14 +75,57 @@ namespace Roguehalla.Net.Tests
         public static double PerCallExact(Action<int> body, double expectedBytesPerCall, int iterations = DefaultIterations, int maxRuns = 25)
         {
             double best = double.MaxValue;
-            for (int r = 0; r < maxRuns; r++)
+            // Recorded as plain numbers while measuring and formatted once at the end, so the diagnostic adds no allocation or
+            // finalizable object between attempts.
+            var bytes = new double[maxRuns];
+            var windows = new int[maxRuns][];
+            var ages = new long[maxRuns];
+            long start = Stopwatch.GetTimestamp();
+            int done = 0;
+            bool exact = false;
+            try
             {
-                double got = PerCall(body, iterations);
-                if (got <= expectedBytesPerCall) return got;
-                best = Math.Min(best, got);
+                for (int r = 0; r < maxRuns; r++)
+                {
+                    double got = PerCallWindow(body, iterations, out windows[r]);
+                    bytes[r] = got;
+                    ages[r] = Stopwatch.GetTimestamp();
+                    done = r + 1;
+                    if (got == expectedBytesPerCall) { exact = true; return got; }
+                    if (got < expectedBytesPerCall) return got;
+                    best = Math.Min(best, got);
+                }
+                return best;
             }
-            return best;
+            finally
+            {
+                // Built only for a failing result: a passing call must leave no allocation or finalizable object behind
+                // between measurements, which is itself enough to reproduce the failure this diagnostic exists to explain.
+                if (!exact) lastAttempts = Describe(expectedBytesPerCall, bytes, windows, ages, start, done);
+                else lastAttempts = "";
+            }
         }
+
+        static readonly long ProcessStartTicks;
+        static AllocationProbe() { ProcessStartTicks = Environment.TickCount64; } // an explicit static constructor: captured when the probe is first used, not at its first failure
+
+        static string Describe(double expected, double[] bytes, int[][] windows, long[] ages, long start, int done)
+        {
+            var info = GC.GetGCMemoryInfo();
+            var log = new System.Text.StringBuilder("attempts (expected " + expected + "; collector memory load " + (info.MemoryLoadBytes >> 20) + " of "
+                + (info.HighMemoryLoadThresholdBytes >> 20) + " MB high-load threshold, " + (Environment.TickCount64 - ProcessStartTicks) + " ms since the probe was first used): ");
+            for (int r = 0; r < done; r++)
+                log.Append(string.Format(System.Globalization.CultureInfo.InvariantCulture, "#{0} {1:R} B/call gc0/1/2 {2}/{3}/{4} thread {5} t+{6} ms; ", r, bytes[r],
+                    windows[r][0], windows[r][1], windows[r][2], windows[r][3], (ages[r] - start) * 1000 / Stopwatch.Frequency));
+            return log.ToString();
+        }
+
+        static volatile string lastAttempts = "";
+        /// <summary>For the most recent <see cref="PerCallExact"/>: empty when it passed (no allocation), otherwise every attempt's bytes per
+        /// call, collection counts of generations 0, 1 and 2 across its window, the measuring thread id and its time since the first
+        /// attempt, the collector's memory load against its high-load threshold and the time since the probe was first used. Append it
+        /// to the assertion message so a failure explains itself; tests run one at a time.</summary>
+        public static string LastAttempts => lastAttempts;
 
         /// <summary>The minimum of <paramref name="runs"/> measurements.</summary>
         public static double PerCallMin(Action<int> body, int runs = 5, int iterations = DefaultIterations)
