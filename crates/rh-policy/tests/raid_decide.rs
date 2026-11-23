@@ -9,6 +9,7 @@
 //! observation and stops at the decision; then a `RaidBot` seat takes over the same sim. `Bargain` scenes start the seat a
 //! short walk from the giver with stacks granted by `rh_sim::trusted_build` (a dev-only feature of this crate's tests).
 //! Every scene has a scripted control that does the same decision itself, so a red RaidBot is the bot's.
+use rh_policy::bots::raid::values::Prices;
 use rh_policy::bots::{PersonaId, RaidBot, TierId};
 use rh_policy::{drive_seats_with, feed_seats, scripted, MatchStart, Policy, Seat, SeatStats};
 use rh_sim::abilities::Slot;
@@ -707,8 +708,24 @@ fn scripted_bargain(seed: u64, gift: &Gift, trade: (u8, u8)) -> Outcome {
     outcome(&s, &reads)
 }
 
+/// The Bargain scenes prove which trade the bot makes, not that The Bargain outbids the rest of the map. Since
+/// P-RAID-Q3-fix the candidate is worth the chosen trade's own gain (about 1.1 to 1.3 camp-equivalents), not the table
+/// row's 2.7, and under the default prices another quest or a camp outbids it on these maps. This table keeps the
+/// scenes on the decision: The Bargain's row stays (it gates the candidate), every other quest and augment is 0.
+fn bargain_prices() -> Prices {
+    Prices {
+        reward_rows: &[("the_bargain", 2.7)],
+        augment_rows: &[],
+        reward_default: 0.,
+        augment_default: 0.,
+        ..Prices::LOCAL
+    }
+}
+
 fn raid_bargain(seed: u64, gift: &Gift) -> (Outcome, Run) {
-    let (run, s) = seat(bargain_world(seed, gift), raid(), BARGAIN_TICKS);
+    let policy: Box<dyn Policy> =
+        Box::new(RaidBot::new(TierId::Normal, PersonaId::Farmer).with_prices(bargain_prices()));
+    let (run, s) = seat(bargain_world(seed, gift), policy, BARGAIN_TICKS);
     (outcome(&s, &run.reads), run)
 }
 

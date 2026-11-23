@@ -236,5 +236,15 @@ Bargain value that stays above the roam floor so the scenes of `raid_decide.rs` 
 
 The decision prices stay Rust-only (no JSON mirror), as decided in section 9.
 
+**Decided on the implementer's stop (2026-11-23).** With the candidate valued by the trade's gain (1.13 for the stack
+trade, 1.3 for the spare weapon) three scenes of `tests/raid_decide.rs` went red: under the default prices another
+quest outbids The Bargain on those maps, on all four seeds. That is the valuation working, not a defect: the table's
+2.7 is the reward gross of the 20 stacks it costs. The candidate keeps the gain. The scenes prove which trade the bot
+makes, so the coordinator's `oracle-amend:` gives `raid_bargain` a table that prices The Bargain alone (every other
+quest and augment at 0, camps as they are), the way `raid_quests.rs` and `raid_dwell.rs` isolate their executor;
+with it all ten tests of that file pass on the implementer's tree. What this gives up: no test shows The Bargain
+taken under the default prices. Whether bots take it at all in the lab is a result for the balance patch (its price
+leaves out its cost: P-BAL-EVAL-2).
+
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
