@@ -989,3 +989,7 @@ mod leave_tests;
 #[cfg(test)]
 #[path = "elite_leave_fix_tests.rs"]
 mod leave_fix_tests;
+
+#[cfg(test)]
+#[path = "elite_leave_fix2_tests.rs"]
+mod leave_fix2_tests;
