@@ -113,12 +113,14 @@ fn slot_choice(cx: &Cx<'_>, row: &WireQuestRow) -> bool {
     })
 }
 
-/// A dropped quest spell lies near the owner.
+/// A dropped quest spell lies near the owner and a slot is free to pick it up (decide.rs's job): with both slots full the
+/// server offers no pick-up, and the drop must not freeze the walker.
 fn drop_near(cx: &Cx<'_>) -> bool {
     cx.p.quests.as_ref().is_some_and(|q| {
-        q.drops
-            .iter()
-            .any(|d| dist(point(d.at), cx.p.me.at) <= DROP_NEAR_U)
+        q.spells.len() < SPELL_SLOTS
+            && q.drops
+                .iter()
+                .any(|d| dist(point(d.at), cx.p.me.at) <= DROP_NEAR_U)
     })
 }
 

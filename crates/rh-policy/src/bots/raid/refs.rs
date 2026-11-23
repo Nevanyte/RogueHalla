@@ -26,6 +26,8 @@ pub struct Refs {
     quests: Vec<QuestRef>,
     /// The quest interactions this frame offers: (quest handle, action, target).
     actions: Vec<(u32, u8, u8)>,
+    /// The dropped quest spells this frame shows: (index, wire reward id).
+    drops: Vec<(u8, u8)>,
     /// The merchant kinds whose offer this frame shows, and whether the owner's trade is still unused.
     merchants: Vec<rh_sim::traders::Kind>,
     trade_used: bool,
@@ -69,6 +71,9 @@ impl Refs {
                     .map(|a| (a.quest.get(), a.action, a.target))
                     .collect()
             }),
+            drops: quests.map_or_else(Vec::new, |q| {
+                q.drops.iter().map(|d| (d.index, d.reward)).collect()
+            }),
             merchants: p.trade.as_ref().map_or_else(Vec::new, |t| {
                 t.merchants
                     .iter()
@@ -107,6 +112,22 @@ impl Refs {
                         action: *action,
                         target: *target,
                     })
+            }
+            Act::QuestPickup { index, reward } => {
+                if !self.drops.contains(&(*index, *reward)) {
+                    return None;
+                }
+                // The drop's action handle is not a row's: it is the one frame handle offered with action 9 and this index.
+                let (handle, _, _) = self
+                    .actions
+                    .iter()
+                    .copied()
+                    .find(|(_, action, target)| *action == 9 && target == index)?;
+                Some(PublicCommand::QuestInteract {
+                    handle: rh_sim::quest_view::QuestHandle::new(handle)?,
+                    action: 9,
+                    target: *index,
+                })
             }
             Act::UseConsumable => self.potions.then_some(PublicCommand::UseConsumable),
             Act::Trade { merchant, pick } => (!self.trade_used
