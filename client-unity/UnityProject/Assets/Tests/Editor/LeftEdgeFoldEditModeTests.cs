@@ -425,6 +425,38 @@ namespace Roguehalla.Client.Tests
             Assert.IsFalse(RectTransformUtility.RectangleContainsScreenPoint(hit, new Vector2(rightPart, ScreenBounds(band).center.y), null), "the rest of the band is outside the hit box, so click-through");
         }
 
+        /// <summary>
+        /// Standing guard (P-UI-GUARDS-1), green on the base. The rest of the GAINED band takes no pointer: of every graphic in the band, the
+        /// only one that takes the pointer is the hit box's Image, and no graphic of the band or its ancestors up to the vitals panel does
+        /// (a raycast-target label or plate there would swallow attack clicks over the band).
+        /// </summary>
+        [Test]
+        public void NothingInTheGainedBandTakesThePointerExceptTheHitBox()
+        {
+            DeliverSummary();
+            var band = Find(Gains);
+            var hit = Find(Gains + "/HitBox").GetComponent<Image>();
+            Assert.IsNotNull(hit, "set-up: the hit box is an Image");
+            Assert.IsTrue(hit.raycastTarget, "set-up: the hit box takes the pointer");
+            Assert.IsTrue(band.gameObject.activeInHierarchy, "set-up: the band is shown with a summary");
+            var inside = band.GetComponentsInChildren<Graphic>(true);
+            Assert.GreaterOrEqual(inside.Length, 2, "set-up: the band has the hit box and at least its label");
+            var takers = new List<string>();
+            foreach (var graphic in inside)
+                if (graphic.gameObject.activeInHierarchy && graphic.raycastTarget && graphic != hit) takers.Add(graphic.transform.name);
+            Assert.IsEmpty(takers, "no other graphic in the band takes the pointer: " + string.Join(", ", takers));
+
+            var vitals = Find("VitalsPanel");
+            var above = new List<string>();
+            for (Transform t = band; t != null; t = t.parent)
+            {
+                foreach (var graphic in t.GetComponents<Graphic>())
+                    if (graphic.raycastTarget) above.Add(t.name);
+                if (t == vitals) break;
+            }
+            Assert.IsEmpty(above, "no graphic of the band or its ancestors up to the vitals panel takes the pointer: " + string.Join(", ", above));
+        }
+
         void AssertTarget(Transform header, Func<bool> flag, string name)
         {
             var image = header.GetComponent<Image>(); var button = header.GetComponent<Button>();

@@ -152,6 +152,33 @@ namespace Roguehalla.Net.Tests
             Assert.That(differing, Is.GreaterThanOrEqualTo(20), "set-up: the grid covers the charge-with-time-left cases");
         }
 
+        // Standing guard (P-UI-GUARDS-1): green on the base. With no time left the quest-spell face is the Wish's face whatever
+        // the charge count: Ready, no number, no wedge. TheWishAndASpellDifferOnlyByHoldingACharge compares only Phase there.
+        [Test]
+        public void ASpellWithNoTimeLeftReadsLikeTheWishAtAnyChargeCount()
+        {
+            int cells = 0;
+            foreach (byte charges in new byte[] { 0, 1, 2 })
+                foreach (double readyAt in new[] { 0d, 900d, 1000d, 5000d })
+                    foreach (double now in new[] { 1000d, 5000d, 5500d })
+                    {
+                        if (readyAt - now > 0d) continue;
+                        cells++;
+                        var wish = AbilityFaces.Wish(new WishView { Ability = AbilityId.Blaze, Charges = charges, MaxCharges = 2, ReadyAt = readyAt, RechargeMs = 10000d }, now);
+                        var spell = AbilityFaces.Spell(true, charges, readyAt, now, 10000d);
+                        string at = "charges " + charges + " readyAt " + readyAt + " now " + now;
+                        Assert.That(spell.Phase, Is.EqualTo(AbilityPhase.Ready), "phase, " + at);
+                        Assert.That(spell.Seconds, Is.EqualTo(wish.Seconds), "seconds, " + at);
+                        Assert.That(spell.Seconds, Is.EqualTo(0), "no number, " + at);
+                        Assert.That(spell.Sweep, Is.EqualTo(wish.Sweep).Within(1e-6f), "sweep, " + at);
+                        Assert.That(spell.Sweep, Is.EqualTo(0f), "no wedge, " + at);
+                    }
+            Assert.That(cells, Is.GreaterThanOrEqualTo(20), "set-up: the grid has cells with no time left at every count");
+
+            var oneCharge = AbilityFaces.Spell(true, 1, 0, 1000, 0);
+            Assert.That(oneCharge.Sweep, Is.EqualTo(0f), "(1, past) with no total draws no wedge");
+        }
+
         // Standing guard: green on the base; nothing else pins one charge to two.
         [Test]
         public void AWishGainingASecondChargeDoesNotPulse()

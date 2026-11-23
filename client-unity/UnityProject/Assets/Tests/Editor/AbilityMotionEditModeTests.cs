@@ -409,6 +409,78 @@ namespace Roguehalla.Client.Tests
             Assert.That(peak, Is.GreaterThan(1f + HudPulses.Pop * .9f), "the press's pop reached its full size: the overlap was a pop, not nothing");
         }
 
+        /// <summary>
+        /// Standing guard (P-UI-GUARDS-1), green on the base. The real sequence: a press on a ready Wish pops the tile, and the accepting
+        /// snapshot a few frames later makes the tile's own flash edge ask for a pop of the tile that is already popping. HudPulses restarts
+        /// the one pulse, so the scale never goes above 1 + Pop and the accept wash stays on; once the pop is over the scale is exactly 1.
+        /// </summary>
+        [Test]
+        public void ThePressPopAndTheAcceptFlashPopShareOneScaleWriter()
+        {
+            BuildRig(); var tile = Tile("WishTile");
+            SnapWish(10, 50000, Wish(0, 55000, 10000)); Frame();
+            var pulses = Pulses();
+            SnapWish(11, 55050, Wish(1, 55000, 10000)); _local += 50; Frame();
+            _local += 50; Frame();
+            _local += 300; Frame();
+            Assert.That(pulses.Count, Is.EqualTo(0), "set-up: no pop is running before the press");
+            Assert.That(WedgeOn(tile), Is.False, "set-up: the Wish is ready, so the press goes through");
+            Assert.That(Glow.enabled, Is.True, "set-up: the ready wash is still on");
+            double start = _local;
+            Call(_hud, "InputCue", WireCommand.Cast(0, 0f, 0f));
+            Assert.That(pulses.Count, Is.EqualTo(1), "set-up: the press popped the tile");
+            float peak = 1f;
+            for (int ms = 10; ms <= 150; ms += 10)
+            {
+                _local = start + ms;
+                if (ms == 30) SnapWish(12, 55430, Wish(0, 65430, 10000));
+                Frame();
+                Assert.That(tile.localScale.x, Is.LessThanOrEqualTo(1f + HudPulses.Pop + .001f), "one pop, no stacked scale, at +" + ms + " ms");
+                Assert.That(Glow.enabled, Is.True, "the wash is on at +" + ms + " ms");
+                Assert.That(pulses.Count, Is.EqualTo(1), "the press pop and the accept pop are one pulse at +" + ms + " ms");
+                peak = Mathf.Max(peak, tile.localScale.x);
+            }
+            Assert.That(WedgeOn(tile), Is.True, "set-up: the accepting snapshot reached the tile (it cools)");
+            Assert.That(peak, Is.GreaterThan(1f + HudPulses.Pop * .9f), "the tile did pop");
+            _local = start + 400; Frame();
+            Assert.That(pulses.Count, Is.EqualTo(0), "the pop is over");
+            Assert.That(Glow.enabled, Is.True, "the accept wash is still on");
+            Assert.That(tile.localScale.x, Is.EqualTo(1f), "the scale is exactly 1 after the pop");
+        }
+
+        /// <summary>
+        /// Standing guard (P-UI-GUARDS-1), green on the base. A press on an idle, ready Wish tile (its ready pop is over, the ready wash is
+        /// still on) pops it once, to at most 1 + Pop, and leaves the scale exactly 1.
+        /// </summary>
+        [Test]
+        public void APressOnAnIdleReadyWishTilePopsOnceAndLeavesTheScaleAtOne()
+        {
+            BuildRig(); var tile = Tile("WishTile");
+            SnapWish(10, 50000, Wish(0, 55000, 10000)); Frame();
+            var pulses = Pulses();
+            SnapWish(11, 55050, Wish(1, 55000, 10000)); _local += 50; Frame();
+            _local += 50; Frame();
+            _local += 300; Frame();
+            Assert.That(pulses.Count, Is.EqualTo(0), "set-up: the ready pop is over, the tile is idle");
+            Assert.That(WedgeOn(tile), Is.False, "set-up: the Wish reads Ready");
+            Assert.That(Glow.enabled, Is.True, "set-up: the ready wash is still on");
+            Assert.That(tile.localScale.x, Is.EqualTo(1f), "set-up: at rest");
+            double start = _local;
+            Call(_hud, "InputCue", WireCommand.Cast(0, 0f, 0f));
+            float peak = 1f;
+            for (int ms = 10; ms <= 150; ms += 10)
+            {
+                _local = start + ms; Frame();
+                Assert.That(tile.localScale.x, Is.LessThanOrEqualTo(1f + HudPulses.Pop + .001f), "one pop and no wash scale at +" + ms + " ms");
+                Assert.That(Glow.enabled, Is.True, "the wash is on at +" + ms + " ms");
+                peak = Mathf.Max(peak, tile.localScale.x);
+            }
+            Assert.That(peak, Is.GreaterThan(1f + HudPulses.Pop * .9f), "the press popped the idle tile");
+            _local = start + 160; Frame();
+            Assert.That(pulses.Count, Is.EqualTo(0), "the pop is over");
+            Assert.That(tile.localScale.x, Is.EqualTo(1f), "the scale is exactly 1 after the pop");
+        }
+
         [Test]
         public void AnAcceptedCastPopsTheWishTileOnce()
         {

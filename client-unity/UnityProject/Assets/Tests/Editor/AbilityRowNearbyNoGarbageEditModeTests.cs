@@ -189,6 +189,37 @@ namespace Roguehalla.Client.Tests
             AllocationMeter.AssertNone(refresh, 200, "200 refresh frames with a nearby quest action");
         }
 
+        /// <summary>
+        /// Standing guard (P-UI-GUARDS-1), green on the base. The count caption ("Nearby quest actions · n", shown for two or more actions)
+        /// is a cached text, so 200 steady refresh frames in that state allocate nothing either.
+        /// </summary>
+        [Test]
+        public void TwoNearbyActionsAllocateNothing()
+        {
+            BuildFullRig(); LayoutFull(new Vector2(1280, 800));
+            Snap(10, 1000);
+            Items(10, Quests(
+                actions: new[]
+                {
+                    new WireQuestAction { Quest = new QuestHandle(71), Action = 9, Target = 37, Label = "Pick up WallBuster", Points = new[] { 64.0, 64.0 } },
+                    new WireQuestAction { Quest = new QuestHandle(72), Action = 9, Target = 38, Label = "Pick up Hook", Points = new[] { 64.0, 64.0 } },
+                },
+                drops: new[]
+                {
+                    new WireQuestDrop { Index = 37, Reward = 20, Charges = 1, X = 64, Y = 64 },
+                    new WireQuestDrop { Index = 38, Reward = 2, Charges = 1, X = 64, Y = 64 },
+                }));
+            Frame();
+            Frame();
+            Assert.That(Launcher.gameObject.activeInHierarchy, Is.True, "set-up: the launcher shows");
+            Assert.That(Launcher.GetComponent<Button>().interactable, Is.True, "set-up: and can be pressed");
+            Assert.That((int)GetF(_hud, "_nearbyQuestCount"), Is.EqualTo(2), "set-up: two nearby actions");
+            Assert.That(LauncherCaption(), Is.EqualTo("Nearby quest actions · 2"), "set-up: the count caption");
+            Assert.That(_session.ServerTimeMs, Is.EqualTo(1000d), "set-up: the server time is the delivered one");
+            var refresh = Refresh();
+            AllocationMeter.AssertNone(refresh, 200, "200 refresh frames with two nearby quest actions");
+        }
+
         // ------------------------------------------------------------------ 2. the caption follows the count
 
         [Test]
