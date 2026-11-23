@@ -178,10 +178,18 @@ that keeps the AssertionException and fails in TearDown with the list. Result: t
 `ALLOC ...` entry for the measured call and nothing else; the other four collected nothing. So every line after the first red assertion
 runs (set-up, deliveries in key order, paths, reflection) and the only failures are allocation assertions.
 
-Not done: the scratch cause-removal edits of the spec (one edit to `MatchHud.QuestRewards.cs` per red test, to show the red is that line
-alone). The sandbox's permission classifier refused the edit to `MatchHud.QuestRewards.cs` outside the write scope of an oracle author, so
-the tree was restored (`git checkout --`). The causes are therefore from reading the code (confirmed only in that the red set matches the
-reading: tests that reach no concat or boxed compare are green).
+Cause-removal scratch edits (done in the fix pass, each to `MatchHud.QuestRewards.cs`, never committed, each undone with `git checkout --`;
+the new class run after each, base run first: 4 red, 4 green):
+
+| Scratch edit | Result of the class | Proves |
+|---|---|---|
+| the caption operand at line 163 replaced by a call to a count-keyed cached string (`"Nearby quest actions · " + n` rebuilt only when `n` changes) | tests 1 and 6 green; 4 and 5 still red | the red of 1 and 6 is that concat alone |
+| `WaitingForQuestChoice` (line 373): `_questChoice.Equals(_questChoiceSent)` replaced by `_questChoiceSent.HasValue && _questChoice.Value.Equals(_questChoiceSent.Value)` | test 4 green; 1, 5, 6 still red | the red of 4 is the boxed compare there alone |
+| the overlay test (line 124): `!_questChoice.Equals(_questChoiceDeferred)` replaced by an unboxed null-aware compare | test 5 green; 1, 4, 6 still red | the red of 5 is the boxed compare there alone |
+
+Flake seen once: on the first run after the caption edit compiled, guard test 8 (`ABoardQuestAloneAllocatesNothing`) failed too. A repeat of the
+same edit, and the base run, left it green (6 of 8 and 4 of 8 red as above). Read as a first-run-after-compile warm-up artefact of the editor
+(a recompile just before the run), not a defect of the test; if an implementer sees test 8 red on a first run after a compile, run it once more.
 
 Existing classes run on the base, all green (72 of 72): `AbilityRowEditModeTests`, `PlayerFlowsEditModeTests`, `QuestOfferEditModeTests`,
 `UiInputRoutingEditModeTests`.
