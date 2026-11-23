@@ -41,7 +41,17 @@ section below this one (the evening pause) still holds except where this one say
   - Staging security: its three hand-overs and the `url` lock bump are untouched. It was told of this pause.
   - glbridge token, correcting the section below: `packet/P-HOST-GLBRIDGE-TOKEN-1` is at `073274928` (brief
     `ab638fcae`, a stub and a red oracle under `hosting/glbridge/`), and by its session's report nothing there waited
-    on the owner. Its implementer was running when this pause came; the session was told to stop safely.
+    on the owner. Its implementer was running when this pause came. The session's pause report: the implementer is
+    stopped; `agent/sonnet/P-HOST-GLBRIDGE-TOKEN-1` @ `2138fd6dc` (a wip commit in `crates/rh-server/tests/
+    bridge_e2e.rs`) in worktree `agent-aeeb3539aa49ae402`; the implementation is written and its Go suite green, the
+    quick gate passed before the last fix, and no review has run. Its edits under `hosting/` (`README.md`,
+    `glbridge/{control_token,main,supervisor}.go`, `scripts/docker-smoke.sh`) are **uncommitted in that worktree on
+    purpose**: the owner allowed their commit only after a Sonnet LAND. A backup patch is in the session's notes
+    folder. Do not clean that worktree.
+  - **Found by that lane, not verified by the coordinator:** the ignored whole-session test
+    `crates/rh-server/tests/bridge_e2e.rs` is red on the integration branch without the packet: `17560d30f`
+    (P-ALPHA-SERVER-1) raised the reconnect grace to 60 s and the test still waits 10 s. No gate runs it (it is
+    `#[ignore]`). The lane's wip commit makes it wait for `rh_server::room::RECONNECT_GRACE`.
 - **Waiting on the owner:** the word to resume. Item 1 of the list below is answered (the index migration rides
   integration 84); items 2 to 7 stand.
 - **Left in place, nothing running:** the agent worktrees of the packets above (claims marked done, not removed) and
