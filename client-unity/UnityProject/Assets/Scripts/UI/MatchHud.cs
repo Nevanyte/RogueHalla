@@ -52,7 +52,7 @@ namespace Roguehalla.Client
         readonly byte[] _boostsShown = new byte[8];
         bool _buildShown, _hasBuildShown;
         ulong _rewardSignature = ulong.MaxValue;
-        static readonly string[] Phases = { "Lobby — waiting for players", "Match active", "Match ended", "Planning — choose your spawn" };
+        static readonly string[] Phases = { "Lobby — waiting for players", "Match active", "Run over", "Planning — choose your spawn" };
         static readonly string[] Outcomes = { "Victory", "Draw", "Defeated", "Missing in action" };
 
         public bool BlocksWorldInput => BlocksKeyboardInput || BlocksPointerInput;
