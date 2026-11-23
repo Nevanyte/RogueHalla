@@ -10,7 +10,7 @@ mod table;
 pub mod time_budget;
 
 use crate::{Agent, AgentSpec, BotKind, Env, EnvConfig};
-use acc::{Acc, Augments, Elites, Merge, Quests, Rewards, World};
+use acc::{Acc, Augments, Elites, Merge, Quests, Rewards, SeatReport, World};
 use observer::Observer;
 use rh_sim::{FactionId, SimConfig};
 use serde::Serialize;
@@ -305,10 +305,11 @@ struct Report {
     quests: Quests,
     rewards: Rewards,
     augments: Augments,
+    seats: Vec<SeatReport>,
     notes: Vec<&'static str>,
 }
 
-const NOTES: [&str; 8] = [
+const NOTES: [&str; 9] = [
     "A seat with bot:true has no quest view and cannot accept, interact or cast quest things (quest_view/mod.rs:203, quests/board/attempts.rs:217): without --human-seats the quests block is zero by construction.",
     "Kills of a bot:true seat are fill-bot kills (no GV, no damaged_humans entry); the lobby counts only bot:false seats.",
     "Camp kill/heal/walk seconds are heuristics: kill = the credited seat's first hit on the camp to the clear; heal = clear to 95% hp or the next hit taken; walk = the rest to the seat's next hit on any mob.",
@@ -316,6 +317,7 @@ const NOTES: [&str; 8] = [
     "Quest end causes: a vanished row is ended_timer if its last deadline passed within the last two ticks (100 ms) and the gates were not locked, else ended_death if the seat died that step or the step before, else `abandoned` (a row gone later than that is booked death or `abandoned`, never timer), which therefore means ended otherwise (manual abandon, departure or unknown). Not measured: abandon versus departure, an abandon and retry inside one step, a death two or more steps before the row vanished, granted rewards (a turned-in attempt that is never paid is turned_in_unpaid, not a completion), what a seat chose not to do.",
     "Death cause: Death.by or the victim's latest Hit.by within the kill-credit window (5 s) resolved against remembered mob ids (elite/mob); otherwise hazard. world.player_deaths.hits_on_players_by_mob counts the hits that resolved to a mob.",
     "Elite fights (P-BAL-LAB-ELITE-1): a seat is engaged with an elite while it deals or takes a hit against the elite or a mob of its camp; an attempt opens on the first hit the seat deals to the elite itself and ends once, as killed (credited with the kill), taken_by_other (the elite died, by anyone else, while the seat was engaged), died (the seat died while engaged and the resolved attacker was the elite or a mob of its camp), died_elsewhere (the seat died while engaged to anything else), left (idle more than 10 s: a later death or kill is not this attempt's) or open (at the end). died and taken_by_other are narrower than before the change: a death after a give-up no longer counts. kill_secs is the seat's own engagement, first contact of the streak to the kill (0 when the first contact is the step the elite dies). A kill's chest is picked by the killer (the sim's credited killer, Death.by, who also holds the first pick), only by another seat, by nobody, or still open. A chest pick is one ChestTaken event and is counted once: a chest is named by seat, expiry and place, never by handle; sum(picks_by_kind) + picks_unnamed == chest_taken_events, where picks_unnamed is a skip, a pick on the last step or a chest that expired in the step of the pick. An elite's chest is recognised by its drop time and place (see README): a same-tick ground chest near the camp could be mistaken for it. Not measured: a pick on the last step, a hit with no attacker (area or status damage), the damage leader.",
+    "Time (P-BAL-LAB-TIME-1): every seat-step (a seat's state after one match step, lobby included, alive or not) lands in exactly one bucket, first match wins: dead (the seat is not standing; its fight windows are cleared); elite, camp, player (the seat dealt or took a hit against a mob of an elite camp, a mob of a normal camp or with no camp, or another player, in the last 60 steps = 3 s counting the hit's own step; each kind has its own window and the highest open one wins: elite, then camp, then player); quest_moving, quest_still (an open quest attempt in the sim's probe, accepted and not turned in or completed, split by moved); moving (the seat's position changed by at least 1.0 unit since the last step); resting (standing still below full hp); idle (still at full hp). The 3 s window and the 1 u distance are choices, not measurements. world.time.buckets splits each bucket by minute band (tick / 1200: m0_5 ticks below 6000, m5_11 below 13200, m11_plus the rest) and seats has one row per seed and seat in seed then seat order (weapon is the last one in hand; farm_stacks are the stacks at the minute-5, 8 and 12 samples where the seat stood, else null; picks are named chest picks). Seat credits are the world's: the camp's best-damage seat (camps_normal, camps_elite), the elite's killing-blow seat (elite_kills), the lab's own death and quest-completion counts. A camp is elite when the observer has seen its elite alive; a camp whose elite nobody saw is counted as normal (camps_credited_normal, kill_secs_normal). kill_secs.n can be below camps_credited (a credited camp with no first hit adds no sample). Not shown: a walk to a quest not yet accepted is moving, a flight is moving once the window passes, time at a chest is idle or resting, a hit with no attacker (area or status damage) is no fight, being knocked about is moving.",
     "Observations are not sampled on the step that ends the match. Minute samples (world.minutes) carry their own sample counts; short matches have none at later minutes. Share reaching the coliseum is not measured.",
 ];
 
@@ -365,6 +367,7 @@ pub fn run(opts: &Options) -> Result<Output, String> {
         quests: Quests::default(),
         rewards: Rewards::default(),
         augments: Augments::default(),
+        seats: Vec::new(),
         notes: NOTES.to_vec(),
     };
     let mut all = Acc::default();
@@ -384,13 +387,18 @@ pub fn run(opts: &Options) -> Result<Output, String> {
             seed: played.run.seed,
             map_hash: played.map_hash,
         });
-        all.fold_in(played.acc);
+        let mut acc = played.acc;
+        for s in &mut acc.seats {
+            s.seed = played.run.seed;
+        }
+        all.fold_in(acc);
     }
     report.world = all.world;
     report.elites = all.elites;
     report.quests = all.quests;
     report.rewards = all.rewards;
     report.augments = all.augments;
+    report.seats = all.seats;
     Ok(Output {
         json: serde_json::to_string(&report).map_err(|e| e.to_string())?,
         table: table::render(&report),

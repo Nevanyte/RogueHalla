@@ -1,11 +1,12 @@
 //! The read-only observer of one `balance_lab` match: after each step it reads `&Sim`, the step's events and the seats'
 //! ordinary observations, and folds them into an [`Acc`]. It never submits, draws or mutates (purity is tested by
 //! comparing state hashes with an unwatched run). Sources per metric: docs/backlog/packets/P-BAL-LAB-1.md.
-use super::acc::{Acc, Merge, MinuteAcc, NativeAcc};
+use super::acc::{Acc, Merge, MinuteAcc, NativeAcc, SeatReport};
 use super::attempts::{ProbeRow, SeatTally, StepRead};
 use super::chest_picks::{tally_chests, ChestKind, ChestRow, ChestStep, OptionRow};
 use super::credit_window_open;
 use super::elite_fights::{tally_elites, Contact, EliteDeath, EliteStep, SeatDeath};
+use super::time_budget::{SeatStep, TimeStep, TimeTally};
 use rh_sim::cards::native::readouts;
 use rh_sim::mob_catalog::{normal_types_of, MobTypeId};
 use rh_sim::quest_view::QuestView;
@@ -96,6 +97,16 @@ pub struct Observer {
     /// The chest facts of the step being read.
     cur_chests: ChestStep,
     farm_types: Vec<MobTypeId>,
+    /// Where each seat's time goes: the tally, the facts of the step being read, and the few last values it needs.
+    time: TimeTally,
+    cur_time: Vec<SeatStep>,
+    prev_pos: Vec<Option<(f64, f64)>>,
+    last_weapon: Vec<Option<rh_sim::WeaponId>>,
+    factions: Vec<String>,
+    /// `(quest, offer)` already counted as completed, per seat (the rule of `SeatTally`: a paid row, once).
+    paid: Vec<BTreeSet<(String, u32)>>,
+    /// Chest options already counted as picked, named as `tally_chests` names them: (seat, expires_at, x, y, option).
+    picked_seen: BTreeSet<(usize, u64, u64, u64, usize)>,
     pub acc: Acc,
 }
 
@@ -133,6 +144,23 @@ impl Observer {
             chest_watch: Vec::new(),
             camp_count: sim.camp_rosters().len(),
             farm_types,
+            time: TimeTally::new(sim.players().len()),
+            cur_time: vec![SeatStep::default(); sim.players().len()],
+            prev_pos: vec![None; sim.players().len()],
+            last_weapon: vec![None; sim.players().len()],
+            factions: sim
+                .players()
+                .iter()
+                .map(|p| {
+                    p.core
+                        .vitals
+                        .faction
+                        .faction_id()
+                        .map_or_else(|| "none".to_string(), |f| format!("{f:?}"))
+                })
+                .collect(),
+            paid: vec![BTreeSet::new(); sim.players().len()],
+            picked_seen: BTreeSet::new(),
             acc: Acc::default(),
         }
     }
@@ -145,6 +173,7 @@ impl Observer {
             ..EliteStep::default()
         };
         self.cur_chests = ChestStep::default();
+        self.cur_time = vec![SeatStep::default(); self.ids.len()];
         for m in sim.mobs() {
             self.mobs.entry(m.core.id).or_insert_with(|| MobInfo {
                 camp: m.camp,
@@ -179,6 +208,45 @@ impl Observer {
         self.chest_steps.push(std::mem::take(&mut self.cur_chests));
         self.elite_steps.push(std::mem::take(&mut self.cur));
         self.minute_sample(sim, tick);
+        self.time_step(sim, tick);
+    }
+
+    /// Closes the step's per-seat time facts (position, hp, weapon) and feeds the tally.
+    fn time_step(&mut self, sim: &Sim, tick: u32) {
+        let mut seats = std::mem::take(&mut self.cur_time);
+        for (seat, s) in seats.iter_mut().enumerate() {
+            let Some(p) = sim.player(self.ids[seat]) else {
+                continue;
+            };
+            s.alive = p.standing();
+            s.hp_full = p.vitals.hp >= p.vitals.max_hp;
+            let pos = p.core.pos();
+            if s.alive {
+                s.moved = self.prev_pos[seat].map_or(0., |(x, y)| (pos.x - x).hypot(pos.y - y));
+                self.prev_pos[seat] = Some((pos.x, pos.y));
+            } else {
+                // A dead step has no movement, and the respawn jump is not a move.
+                self.prev_pos[seat] = None;
+            }
+            let w = p.active_weapon();
+            if self.last_weapon[seat] != Some(w) {
+                self.last_weapon[seat] = Some(w);
+                s.weapon = Some(w.as_str().to_string());
+            }
+        }
+        self.time.push(&TimeStep { tick, seats });
+    }
+
+    /// A hit between a seat and a mob: an elite fight when the mob is an elite or of an elite camp (a camp whose elite
+    /// the observer has seen alive), else a camp fight (a mob with no camp too).
+    fn hit_kind_mob(&mut self, seat: usize, camp: u32, elite: bool) {
+        let is_elite = elite || (self.camp_of(camp) >= 0 && self.elite_camps.contains(&camp));
+        let s = &mut self.cur_time[seat];
+        if is_elite {
+            s.hit_elite = true;
+        } else {
+            s.hit_camp = true;
+        }
     }
 
     /// The camp index as the tally wants it: negative for a mob outside the map's camps (training, companions).
@@ -244,7 +312,7 @@ impl Observer {
         for (seat, tally) in self.attempts.iter_mut().enumerate() {
             let Some(tally) = tally else { continue };
             let id = self.ids[seat];
-            let rows = sim
+            let rows: Vec<ProbeRow> = sim
                 .quest_attempts(id)
                 .into_iter()
                 .map(|r| ProbeRow {
@@ -258,6 +326,13 @@ impl Observer {
                     progress: r.progress,
                 })
                 .collect();
+            let t = &mut self.cur_time[seat];
+            for r in &rows {
+                t.quest_open |= r.accepted && !r.turned_in && !r.completed;
+                if r.completed && self.paid[seat].insert((r.quest.clone(), r.offer)) {
+                    t.quests_completed += 1;
+                }
+            }
             tally.push(&StepRead {
                 tick,
                 now_ms,
@@ -270,6 +345,15 @@ impl Observer {
 
     /// Closes the books: fights still undecided are `open`; quest attempts are folded in seat order.
     pub fn finish(mut self) -> Acc {
+        let rows = std::mem::replace(&mut self.time, TimeTally::new(0)).finish();
+        for r in rows {
+            self.acc.world.time.add_row(&r);
+            self.acc.seats.push(SeatReport {
+                seed: 0,
+                faction: self.factions[r.seat].clone(),
+                row: r,
+            });
+        }
         for tally in std::mem::take(&mut self.attempts).into_iter().flatten() {
             for (quest, t) in tally.finish() {
                 let c = self.acc.quests.by_quest.entry(quest).or_default();
@@ -385,6 +469,15 @@ impl Observer {
             }
             self.last_hit_on_player
                 .insert(victim, (by, sim.server_time()));
+            if let (Some(&seat), Some(b)) = (self.seat_of.get(&victim), by) {
+                if let Some(info) = self.mobs.get(&b) {
+                    let (camp, elite) = (info.camp, info.elite);
+                    self.hit_kind_mob(seat, camp, elite);
+                } else if let Some(&other) = self.seat_of.get(&b) {
+                    self.cur_time[seat].hit_player = true;
+                    self.cur_time[other].hit_player = true;
+                }
+            }
             if let (Some(&seat), Some((elite, on_elite))) =
                 (self.seat_of.get(&victim), by.and_then(|b| self.elite_of(b)))
             {
@@ -402,6 +495,7 @@ impl Observer {
         ) else {
             return;
         };
+        self.hit_kind_mob(self.seat_of[&seat_id], info.camp, info.elite);
         *self
             .camp_damage
             .entry(info.camp)
@@ -469,8 +563,22 @@ impl Observer {
             return;
         };
         w.camps_credited += 1;
+        let elite = self.elite_camps.contains(&camp);
+        let seat = self.seat_of[&seat_id];
+        if elite {
+            self.cur_time[seat].camps_elite += 1;
+        } else {
+            w.camps_credited_normal += 1;
+            self.cur_time[seat].camps_normal += 1;
+        }
         if let Some(first) = self.camp_first_hit.get(&(camp, seat_id)) {
-            w.kill_secs.add(f64::from(tick - first) / 20.);
+            let secs = f64::from(tick - first) / 20.;
+            w.kill_secs.add(secs);
+            if elite {
+                w.kill_secs_elite.add(secs);
+            } else {
+                w.kill_secs_normal.add(secs);
+            }
         }
         for k in firsts {
             self.camp_first_hit.remove(&k);
@@ -532,6 +640,7 @@ impl Observer {
         d.total += 1;
         minute.total += 1;
         if let Some(&seat) = self.seat_of.get(&id) {
+            self.cur_time[seat].deaths += 1;
             let mob_info = attacker.and_then(|a| self.mobs.get(&a));
             self.cur.seat_deaths.push(SeatDeath {
                 seat,
@@ -550,6 +659,9 @@ impl Observer {
             return;
         }
         let killer = by.and_then(|b| self.seat_of.get(&b).map(|s| (b, *s)));
+        if let Some((_, seat)) = killer {
+            self.cur_time[seat].elite_kills += 1;
+        }
         self.cur.elite_deaths.push(EliteDeath {
             elite: mob.0,
             killer: killer.map(|(_, s)| s),
@@ -661,6 +773,12 @@ impl Observer {
     fn chest_rows(&mut self, seat: usize, chests: &[RewardChestView]) {
         let me = self.ids[seat];
         for c in chests {
+            let at = (c.expires_at.to_bits(), c.at.x.to_bits(), c.at.y.to_bits());
+            for (i, o) in c.options.iter().enumerate() {
+                if o.taken_by == Some(me) && self.picked_seen.insert((seat, at.0, at.1, at.2, i)) {
+                    self.cur_time[seat].picks.push(o.id.as_str().into_owned());
+                }
+            }
             let class = self.classify(c);
             let (kind, seat_is_killer) = match class {
                 ChestClass::Elite(w) => {
@@ -707,11 +825,16 @@ impl Observer {
         let mut acc = MinuteAcc::default();
         for p in sim.players().iter().filter(|p| p.standing()) {
             acc.samples += 1;
+            let mut stacks = 0;
             for t in &self.farm_types {
                 let n = p.farm.count(*t);
                 if n > 0 {
                     *acc.farm_stacks.entry(format!("{t:?}")).or_default() += n;
+                    stacks += n;
                 }
+            }
+            if let Some(&seat) = self.seat_of.get(&p.core.id) {
+                self.cur_time[seat].farm_stacks = Some((minute, stacks));
             }
             for (b, n) in BoostId::ALL.into_iter().zip(p.build.boosts()) {
                 if n > 0 {

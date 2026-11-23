@@ -1,5 +1,6 @@
 //! The counters `balance_lab` reports, one struct per report block. Every field is a sum, so two seeds merge by
 //! adding (`Merge`), in seed order. Maps are `BTreeMap` (byte-stable output). Serialization order is declaration order.
+use super::time_budget::{Bucket, SeatRow, STACK_MINUTES};
 use serde::ser::Serializer;
 use std::collections::BTreeMap;
 
@@ -163,6 +164,151 @@ pub struct World {
     pub walk_secs: Sum,
     pub player_deaths: Deaths,
     pub minutes: BTreeMap<u32, MinuteAcc>,
+    /// Of `camps_credited`: camps not known to hold an elite (see NOTES).
+    pub camps_credited_normal: u64,
+    pub kill_secs_normal: Sum,
+    pub kill_secs_elite: Sum,
+    /// Where every seat-step went.
+    pub time: TimeBlock,
+}
+
+/// One bucket's seat-steps: all, and by minute band.
+#[derive(Clone, Debug, Default, serde::Serialize)]
+pub struct Cell {
+    pub all: u64,
+    pub m0_5: u64,
+    pub m5_11: u64,
+    pub m11_plus: u64,
+}
+
+/// The nine buckets (declaration order is key order).
+#[derive(Clone, Debug, Default, serde::Serialize)]
+pub struct Cells {
+    pub dead: Cell,
+    pub elite: Cell,
+    pub camp: Cell,
+    pub player: Cell,
+    pub quest_moving: Cell,
+    pub quest_still: Cell,
+    pub moving: Cell,
+    pub resting: Cell,
+    pub idle: Cell,
+}
+impl Cells {
+    pub fn cell(&self, b: Bucket) -> &Cell {
+        match b {
+            Bucket::Dead => &self.dead,
+            Bucket::Elite => &self.elite,
+            Bucket::Camp => &self.camp,
+            Bucket::Player => &self.player,
+            Bucket::QuestMoving => &self.quest_moving,
+            Bucket::QuestStill => &self.quest_still,
+            Bucket::Moving => &self.moving,
+            Bucket::Resting => &self.resting,
+            Bucket::Idle => &self.idle,
+        }
+    }
+    fn cell_mut(&mut self, b: Bucket) -> &mut Cell {
+        match b {
+            Bucket::Dead => &mut self.dead,
+            Bucket::Elite => &mut self.elite,
+            Bucket::Camp => &mut self.camp,
+            Bucket::Player => &mut self.player,
+            Bucket::QuestMoving => &mut self.quest_moving,
+            Bucket::QuestStill => &mut self.quest_still,
+            Bucket::Moving => &mut self.moving,
+            Bucket::Resting => &mut self.resting,
+            Bucket::Idle => &mut self.idle,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, serde::Serialize)]
+pub struct TimeBlock {
+    pub steps: u64,
+    pub buckets: Cells,
+}
+impl TimeBlock {
+    /// Adds one seat's steps and its buckets by band.
+    pub fn add_row(&mut self, r: &SeatRow) {
+        self.steps += r.steps;
+        for b in Bucket::ALL {
+            let c = self.buckets.cell_mut(b);
+            c.all += r.time.get(b);
+            c.m0_5 += r.bands[0].get(b);
+            c.m5_11 += r.bands[1].get(b);
+            c.m11_plus += r.bands[2].get(b);
+        }
+    }
+}
+impl Merge for TimeBlock {
+    fn fold_in(&mut self, o: Self) {
+        self.steps += o.steps;
+        for b in Bucket::ALL {
+            let d = o.buckets.cell(b).clone();
+            let c = self.buckets.cell_mut(b);
+            c.all += d.all;
+            c.m0_5 += d.m0_5;
+            c.m5_11 += d.m5_11;
+            c.m11_plus += d.m11_plus;
+        }
+    }
+}
+
+/// One seat of one seed, for the report's `seats` array.
+#[derive(Clone, Debug, Default)]
+pub struct SeatReport {
+    pub seed: u64,
+    pub faction: String,
+    pub row: SeatRow,
+}
+
+impl serde::Serialize for SeatReport {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let r = &self.row;
+        let b = &r.time;
+        let mut st = s.serialize_struct("SeatReport", 13)?;
+        st.serialize_field("seed", &self.seed)?;
+        st.serialize_field("seat", &r.seat)?;
+        st.serialize_field("faction", &self.faction)?;
+        st.serialize_field("weapon", &r.weapon)?;
+        st.serialize_field("steps", &r.steps)?;
+        st.serialize_field("buckets", &BucketCounts(b.clone()))?;
+        st.serialize_field("camps_normal", &r.camps_normal)?;
+        st.serialize_field("camps_elite", &r.camps_elite)?;
+        st.serialize_field("deaths", &r.deaths)?;
+        st.serialize_field("quests_completed", &r.quests_completed)?;
+        st.serialize_field("elite_kills", &r.elite_kills)?;
+        st.serialize_field("farm_stacks", &Stacks(r.farm_stacks))?;
+        st.serialize_field("picks", &r.picks)?;
+        st.end()
+    }
+}
+
+/// A seat's nine bucket counts as an object in bucket order.
+struct BucketCounts(super::time_budget::Buckets);
+impl serde::Serialize for BucketCounts {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let mut m = s.serialize_map(Some(9))?;
+        for b in Bucket::ALL {
+            m.serialize_entry(b.name(), &self.0.get(b))?;
+        }
+        m.end()
+    }
+}
+
+struct Stacks([Option<u64>; 3]);
+impl serde::Serialize for Stacks {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let mut m = s.serialize_map(Some(3))?;
+        for (minute, v) in STACK_MINUTES.into_iter().zip(self.0) {
+            m.serialize_entry(&format!("m{minute}"), &v)?;
+        }
+        m.end()
+    }
 }
 impl Merge for World {
     fn fold_in(&mut self, o: Self) {
@@ -175,6 +321,10 @@ impl Merge for World {
         self.walk_secs.fold_in(o.walk_secs);
         self.player_deaths.fold_in(o.player_deaths);
         self.minutes.fold_in(o.minutes);
+        self.camps_credited_normal += o.camps_credited_normal;
+        self.kill_secs_normal.fold_in(o.kill_secs_normal);
+        self.kill_secs_elite.fold_in(o.kill_secs_elite);
+        self.time.fold_in(o.time);
     }
 }
 
@@ -342,6 +492,8 @@ pub struct Acc {
     pub quests: Quests,
     pub rewards: Rewards,
     pub augments: Augments,
+    /// One entry per seat of each seed, in seed order then seat order.
+    pub seats: Vec<SeatReport>,
 }
 impl Merge for Acc {
     fn fold_in(&mut self, o: Self) {
@@ -350,6 +502,7 @@ impl Merge for Acc {
         self.quests.fold_in(o.quests);
         self.rewards.fold_in(o.rewards);
         self.augments.fold_in(o.augments);
+        self.seats.extend(o.seats);
     }
 }
 
