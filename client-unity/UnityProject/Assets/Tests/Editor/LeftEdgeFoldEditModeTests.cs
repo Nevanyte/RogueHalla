@@ -420,7 +420,9 @@ namespace Roguehalla.Client.Tests
             var band = (RectTransform)Find(Gains);
             float rightPart = ScreenBounds(band).xMax - 2f;
             Assert.Greater(rightPart, ScreenBounds(hit).xMax, "the probe lies right of the hit box");
-            Assert.IsFalse(hit.GetComponent<Image>().Raycast(new Vector2(rightPart, ScreenBounds(band).center.y), null), "the rest of the band is click-through");
+            // Image.Raycast does no rectangle test (the GraphicRaycaster filters by rect first), so the hit box rect is asked.
+            Assert.IsTrue(RectTransformUtility.RectangleContainsScreenPoint(hit, ScreenBounds(hit).center, null), "the hit box rect holds its own centre");
+            Assert.IsFalse(RectTransformUtility.RectangleContainsScreenPoint(hit, new Vector2(rightPart, ScreenBounds(band).center.y), null), "the rest of the band is outside the hit box, so click-through");
         }
 
         void AssertTarget(Transform header, Func<bool> flag, string name)

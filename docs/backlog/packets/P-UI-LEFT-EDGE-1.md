@@ -351,5 +351,13 @@ header object itself). Numbers at the 1280 x 800 window:
   `ChampionPanelNumbersEditModeTests` (73), `UiInputRoutingEditModeTests`, `TrainingBannerEditModeTests`,
   `HudVisualFix4EditModeTests` (37); `hud-seams.test.cjs` 14 of 14; `sync-net.sh --check` clean.
 
+- Correction after the implementer's report (oracle defect): `TheHeadersAreRealClickTargetsAndTheGainsOneIsOnlyAsWideAsItsText`
+  asked `Image.Raycast` at a point right of the hit box for false. In this uGUI (cd4936b8279f) `Graphic.Raycast` does no
+  rectangle test (a GraphicRaycaster filters by rect first) and `Image.IsRaycastLocationValid` returns true at alpha
+  threshold 0, so no width of the hit box could make it false. The line now asks the hit box rect
+  (`RectTransformUtility.RectangleContainsScreenPoint`, camera null as in `ScreenBounds`): true at its centre, false at the
+  probe right of it. The probe-right-of-the-box assertion and the centre `Image.Raycast` in `AssertTarget` are unchanged.
+  It was the last line of its test and the other 12 tests were green on the implementation, so no other line is affected.
+
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
