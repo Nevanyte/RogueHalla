@@ -9,6 +9,7 @@ use rh_policy::bots::paths::{PathBudget, RoomPathService};
 use rh_policy::bots::perception::LootFacts;
 use rh_policy::bots::planning::PlanMap;
 use rh_policy::bots::raid::acts::{Act, CastAim};
+use rh_policy::bots::raid::exec::combat::may_fight_from;
 use rh_policy::bots::raid::exec::spell::Spell;
 use rh_policy::bots::raid::goal::{Cx, Executor, GoalKind, RaidGoal, Status, Target};
 use rh_policy::bots::raid::percept::{Me, MobClass, MobSeen, PlayerSeen, RaidPercept};
@@ -165,6 +166,29 @@ fn leaving() -> RaidGoal {
     RaidGoal::new(GoalKind::Sustain, Target::Camp(0))
 }
 
+/// Camp 0's first resting spot on the fixture map: a point inside that camp's leash band, where a seat may fight its
+/// members (`exec::combat::may_fight_from`). `ME` is outside every band of camp 0 (P-RAID-S-fix2).
+fn in_camp_0() -> Vec2 {
+    let arena = arena();
+    let data = arena.map.layers().expect("layers").data();
+    let s = &data.camps[0].spots[0];
+    let at = Vec2::new(s.x, s.y);
+    let paths = RoomPathService::new(&arena.map, PathBudget::default());
+    assert!(
+        may_fight_from(&paths, 0, true, at) && !may_fight_from(&paths, 0, true, ME),
+        "the spot is inside camp 0's band and ME is not"
+    );
+    at
+}
+
+/// `p` with the seat moved to `at`.
+fn seat_at(mut p: RaidPercept, at: Vec2) -> RaidPercept {
+    p.me.at = at;
+    p.base.self_view.x = at.x;
+    p.base.self_view.y = at.y;
+    p
+}
+
 /// A mob `d` u east of the seat: the dash away runs west, landing at `ME.x - 220`.
 fn mob_at(d: f64) -> MobSeen {
     mob("n7", MobClass::Regional, Vec2::new(ME.x + d, ME.y))
@@ -255,9 +279,15 @@ fn cleanse_smite_and_turret_answer_as_before() {
         "Cleanse on a rooted seat: {acts:?}"
     );
 
-    let elite = || mob("n3", MobClass::Elite, Vec2::new(ME.x + 300., ME.y));
+    // The seat stands inside camp 0's band (P-RAID-S-fix2: a camp's foe is a spell target only from where the camp's
+    // mob can reach the seat), the elite 300 u east of it as before.
+    let here = in_camp_0();
+    let elite = || mob("n3", MobClass::Elite, Vec2::new(here.x + 300., here.y));
     let fight = RaidGoal::new(GoalKind::Elite, Target::Camp(0));
-    let smite = asked(&fight, &frame(SMITE, 0, 1., vec![elite()], vec![]));
+    let smite = asked(
+        &fight,
+        &seat_at(frame(SMITE, 0, 1., vec![elite()], vec![]), here),
+    );
     assert!(
         matches!(
             smite.as_slice(),
@@ -269,7 +299,10 @@ fn cleanse_smite_and_turret_answer_as_before() {
         ),
         "Smite at an elite in reach: {smite:?}"
     );
-    let turret = asked(&fight, &frame(TURRET, 0, 1., vec![elite()], vec![]));
+    let turret = asked(
+        &fight,
+        &seat_at(frame(TURRET, 0, 1., vec![elite()], vec![]), here),
+    );
     assert!(
         matches!(
             turret.as_slice(),
