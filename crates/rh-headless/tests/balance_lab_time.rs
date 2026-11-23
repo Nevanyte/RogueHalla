@@ -596,7 +596,19 @@ fn the_real_report_holds_the_identities_between_seats_and_the_world() {
         .iter()
         .map(|e| n(e, "killed"))
         .sum();
-    assert_eq!(sum("elite_kills"), killed);
+    // Coordinator's oracle-amend (2026-11-23): a seat's `elite_kills` is the sim's own credit (`Death.by` of an elite),
+    // counted for every elite death; the elites block's `killed` counts only a kill that closed an attempt its killer
+    // still had open, so it can be lower (77 against 76 on six full-length seeds). The world carries the sim's count,
+    // so the kills the attempts miss are a number in the report and not a guess.
+    assert_eq!(
+        sum("elite_kills"),
+        n(w, "elite_kills_credited"),
+        "per-seat elite kills sum to the elite kills the sim credited to a seat"
+    );
+    assert!(
+        killed <= n(w, "elite_kills_credited"),
+        "the attempts' kills never exceed the kills the sim credited to a seat"
+    );
     assert_eq!(
         n(&w["kill_secs_normal"], "n") + n(&w["kill_secs_elite"], "n"),
         n(&w["kill_secs"], "n"),

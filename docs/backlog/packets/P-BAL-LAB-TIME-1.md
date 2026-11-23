@@ -198,3 +198,16 @@ event walk without double counting; seat rows folded in seed order (`Acc` needs 
 The weapon at minute 5 (not read). Whether 3 s is the right window. Anything about human players.
 
 ## Notes from previous attempts
+
+
+## Coordinator's amendments (2026-11-23)
+
+- **The highest-ranked open fight window wins**, whatever the newest hit was (`oracle-amend:` `2fbae7680`): two scripted
+  tests expected the newest hit's bucket, against decision 1 and against the window test.
+- **A seat's `elite_kills` is the sim's credit, and the world reports it.** The first identity demanded that the per-seat
+  elite kills sum to the elites block's `killed`. They do not on a long run (77 against 76 on six full-length seeds):
+  `killed` counts only a kill that closed an attempt its killer still had open. The per-seat credit stays the sim's
+  (`Death.by` of an elite). The report gains `world.elite_kills_credited` (every elite death credited to a seat); the
+  identities are `sum(seats.elite_kills) == world.elite_kills_credited` and
+  `sum(elites.killed) <= world.elite_kills_credited`. `NOTES` and the README say what the difference is.
+\n
