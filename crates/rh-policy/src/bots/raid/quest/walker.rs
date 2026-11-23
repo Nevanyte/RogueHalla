@@ -21,6 +21,7 @@ use crate::bots::raid::exec::farm::{death_chance, members_left};
 use crate::bots::raid::exec::travel::{eta_minutes, move_intent, step_toward, straight_minutes};
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 use crate::bots::raid::percept::CAMP_JOIN_RADIUS;
+use crate::bots::raid::quest::SPELL_SLOTS;
 use rh_protocol::state::{WireQuestObjective, WireQuestRow};
 use rh_sim::mapdata::Zone;
 use rh_sim::quests::board::catalog::{RewardKind, DEFINITIONS};
@@ -48,8 +49,6 @@ const ACTION_CONTACT: u8 = 3;
 const ACTION_SLOT_CHOICE: u8 = 8;
 /// A pseudo action number for the accept send in the resend throttle.
 const ACCEPT_KEY: u8 = 255;
-/// The seat holds this many quest spells at most (a third reward waits in `pending`).
-const SPELL_SLOTS: usize = 2;
 /// Walk to within this of a point to accept, claim, deliver or stand (the server's range is 64 u).
 const STAND_U: f64 = 32.;
 /// A send is not repeated before this long (the act queue pauses and the frame's lag).
@@ -60,8 +59,6 @@ const REFUSED_MS: f64 = 1_500.;
 const BAN_MS: f64 = 20_000.;
 /// A dropped quest spell this near is another packet's pick-up: the walker does nothing.
 const DROP_NEAR_U: f64 = 160.;
-/// The chance floor of a walk to die (as `farm::death_chance`'s).
-const DEATH_FLOOR: f64 = 0.02;
 /// Seconds of timer the server adds to 1.5 times its own path walk (`attempts.rs:302-305`).
 const TIMER_BASE_S: f64 = 15.;
 /// A quest with no route timer and no lock time yet: the walk assumed before accepting (min).
@@ -198,10 +195,10 @@ impl Walker {
     }
 
     /// The chance to die to the living camps whose centre lies within `CAMP_JOIN_RADIUS` of any of `points`: the walk
-    /// passes where they stand and they join a fight (`let_him_cook`'s Plague contact). Floored at `DEATH_FLOOR`.
+    /// passes where they stand and they join a fight (`let_him_cook`'s Plague contact). Floored at `prices.death_floor`.
     fn death_near(&mut self, cx: &Cx<'_>, points: &[Vec2]) -> f64 {
         let Some(me) = cx.p.me.faction else {
-            return DEATH_FLOOR;
+            return cx.prices.death_floor;
         };
         let hp = cx.p.me.hp_share();
         let mut survive = 1.;
@@ -212,7 +209,7 @@ impl Walker {
             let share = self.share(me, zone_faction(camp.zone));
             survive *= 1. - death_chance(hp, share, members_left(cx.p, camp), &cx.prices.death);
         }
-        (1. - survive).max(DEATH_FLOOR)
+        (1. - survive).max(cx.prices.death_floor)
     }
 
     fn candidate(&mut self, cx: &mut Cx<'_>, row: &WireQuestRow) -> Option<Candidate> {
@@ -281,7 +278,7 @@ impl Walker {
         let death = if def == "let_him_cook" {
             self.death_near(cx, &danger_points)
         } else {
-            DEATH_FLOOR
+            cx.prices.death_floor
         };
         Some(Candidate {
             goal: RaidGoal::new(

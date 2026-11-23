@@ -9,6 +9,7 @@ use crate::bots::raid::acts::Act;
 use crate::bots::raid::exec::travel::{eta_minutes, move_intent, step_toward, straight_minutes};
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 use crate::bots::raid::percept::Me;
+use crate::bots::raid::quest::SPELL_SLOTS;
 use crate::bots::raid::values::Prices;
 use rh_protocol::state::{WireQuestDrop, WireQuestPoint, WireQuestRow, WireQuestSpell};
 use rh_sim::quests::board::catalog::{RewardKind, DEFINITIONS};
@@ -24,14 +25,10 @@ const BARGAIN: &str = "the_bargain";
 /// Stacks one trade takes and gives (`TOP25.bargain_cost`, `bargain_stacks`: crate-private to `rh-sim`).
 const COST_STACKS: f64 = 20.;
 const GAIN_STACKS: f64 = 24.;
-/// What the spare weapon is worth in camp-equivalents: a placeholder, no table row.
-const SPARE_WEAPON_WORTH: f64 = 1.5;
-/// A stat nothing favours is worth this per stack (a chest boost's base, `choice.rs` `card_score`).
-const NEUTRAL_STAT: f64 = 2.5;
 /// A Bargain stat index (0..9) to its HUD stat code in the build summary's mob rows.
 const BARGAIN_TO_HUD: [u8; 9] = [2, 8, 5, 1, 6, 7, 0, 3, 4];
-/// Quest spell slots.
-const SPELL_SLOTS: u8 = 2;
+/// Quests whose turn-in point is a token, not the giver (`attempts.rs` `endpoint`): the view shows the token only before it is ready.
+const TOKEN_QUESTS: [&str; 3] = ["letters", "tuber_eats", "even_skeletons_get_cold"];
 /// Stages of the goal's target.
 const STAGE_SLOT: u8 = 0;
 const STAGE_PICKUP: u8 = 1;
@@ -44,10 +41,6 @@ const RESEND_MS: f64 = 2_500.;
 const BAN_MS: f64 = 30_000.;
 /// Standing at a giver this long with the quest still refused bans it.
 const REFUSED_MS: f64 = 1_500.;
-/// A decision already waiting costs nothing to answer: the minutes the arbiter sees.
-const ANSWER_MINUTES: f64 = 0.01;
-/// The chance floor of a walk to die.
-const DEATH_FLOOR: f64 = 0.02;
 
 /// The quest executor of `GoalKind::QuestDecide`.
 #[derive(Default)]
@@ -60,6 +53,8 @@ pub struct Decide {
     banned: Vec<(String, f64)>,
     /// Since when the owner has stood at the Bargain's giver unable to accept (ms).
     refused: Option<f64>,
+    /// Since when the owner has stood where a decision is answered with nothing offered: (def, ms).
+    stood: Option<(String, f64)>,
 }
 
 fn dist(a: Vec2, b: Vec2) -> f64 {
@@ -97,7 +92,7 @@ pub fn spell_worth(prices: &Prices, reward: u8, charges: u8) -> f64 {
     };
     let worth = prices.reward_value(def) * share;
     if charges == 0 && reward_kind(def) == Some(RewardKind::Reusable) {
-        worth * 0.5
+        worth * prices.recharging_share
     } else {
         worth
     }
@@ -110,7 +105,8 @@ fn is_reusable(reward: u8) -> bool {
 /// The answer to a pending reward slot choice (action 8, target): 0 or 1 drops that slot's spell and equips the new
 /// reward (an empty slot is simply filled); 2 leaves the new reward on the ground. `new_def` is the pending quest's def.
 pub fn slot_answer(prices: &Prices, held: &[WireQuestSpell], new_def: &str) -> u8 {
-    if let Some(free) = (0..SPELL_SLOTS).find(|s| !held.iter().any(|h| h.slot == *s)) {
+    let mut slots = (0..SPELL_SLOTS).filter_map(|s| u8::try_from(s).ok());
+    if let Some(free) = slots.find(|s| !held.iter().any(|h| h.slot == *s)) {
         return free;
     }
     let share = if new_def == "lost_brother" { 0.5 } else { 1. };
@@ -131,28 +127,23 @@ pub fn slot_answer(prices: &Prices, held: &[WireQuestSpell], new_def: &str) -> u
 /// Whether to pick a dropped spell up (action 9): a slot is free (the server offers the pick-up only then) and the spell
 /// is worth something.
 pub fn pickup_wanted(prices: &Prices, held: &[WireQuestSpell], drop: &WireQuestDrop) -> bool {
-    held.len() < usize::from(SPELL_SLOTS) && spell_worth(prices, drop.reward, drop.charges) > 0.
+    held.len() < SPELL_SLOTS && spell_worth(prices, drop.reward, drop.charges) > 0.
 }
 
 /// `stat_worth` with the prices of `prices` (the spare-weapon-free half of the Bargain's valuation).
-pub fn stat_worth_at(_prices: &Prices, stat: u8, me: &Me) -> f64 {
-    stat_worth(stat, me)
-}
-
-/// What a stat of The Bargain (index 0..9: damage, move speed, max HP, ability power, armor, shield, attack damage,
-/// attack speed, lifesteal) is worth per stack to this build, in the units of `Prices::chest` boosts (2.5 neutral).
-pub fn stat_worth(stat: u8, me: &Me) -> f64 {
+pub fn stat_worth_at(prices: &Prices, stat: u8, me: &Me) -> f64 {
+    let fit = prices.stat_fit;
     let weapon = me.weapons.get(usize::from(me.slot)).copied().flatten();
     let fit = match stat {
         6 => match weapon {
-            Some(WeaponId::Sword | WeaponId::Axe | WeaponId::Bow) => 1.,
-            None | Some(WeaponId::Fists) => 0.5,
-            Some(WeaponId::Wand) => -0.5,
-            Some(WeaponId::Shield) => -1.,
+            Some(WeaponId::Sword | WeaponId::Axe | WeaponId::Bow) => fit.matched,
+            None | Some(WeaponId::Fists) => fit.fists,
+            Some(WeaponId::Wand) => fit.wand_attack,
+            Some(WeaponId::Shield) => fit.mismatched,
         },
         3 => match weapon {
-            Some(WeaponId::Wand) => 1.,
-            None | Some(WeaponId::Fists) => 0.5,
+            Some(WeaponId::Wand) => fit.matched,
+            None | Some(WeaponId::Fists) => fit.fists,
             _ => {
                 if matches!(
                     me.faction,
@@ -160,14 +151,20 @@ pub fn stat_worth(stat: u8, me: &Me) -> f64 {
                 ) {
                     0.
                 } else {
-                    -1.
+                    fit.mismatched
                 }
             }
         },
-        4 | 5 if weapon == Some(WeaponId::Shield) => 1.,
+        4 | 5 if weapon == Some(WeaponId::Shield) => fit.matched,
         _ => 0.,
     };
-    NEUTRAL_STAT + fit
+    prices.neutral_stat + fit
+}
+
+/// What a stat of The Bargain (index 0..9: damage, move speed, max HP, ability power, armor, shield, attack damage,
+/// attack speed, lifesteal) is worth per stack to this build, in the units of `Prices::chest` boosts (2.5 neutral).
+pub fn stat_worth(stat: u8, me: &Me) -> f64 {
+    stat_worth_at(&Prices::LOCAL, stat, me)
 }
 
 /// One offered trade of The Bargain, scored.
@@ -204,14 +201,24 @@ impl Trade {
 /// The trade to send at the hag, `(action, target)` copied from `offered` (the frame's actions of The Bargain's row: 5
 /// with give * 9 + receive, 7 with the stat), or `None` when no offered trade is an improvement.
 pub fn bargain_trade(prices: &Prices, me: &Me, offered: &[(u8, u8)]) -> Option<(u8, u8)> {
-    let unit = prices.stacks_per_camp * NEUTRAL_STAT;
+    best_trade(prices, me, offered).map(|t| t.pair)
+}
+
+/// The gain, in camp-equivalents, of the trade `bargain_trade` chooses from `offered`.
+pub fn bargain_gain(prices: &Prices, me: &Me, offered: &[(u8, u8)]) -> Option<f64> {
+    best_trade(prices, me, offered).map(|t| t.gain)
+}
+
+fn best_trade(prices: &Prices, me: &Me, offered: &[(u8, u8)]) -> Option<Trade> {
+    let unit = prices.stacks_per_camp * prices.neutral_stat;
     let mut best: Option<Trade> = None;
     for &(action, target) in offered {
         let (gain, weapon, give, receive) = match action {
             ACTION_STACKS if target < 81 && target / 9 != target % 9 => {
                 let (give, receive) = (target / 9, target % 9);
                 (
-                    (GAIN_STACKS * stat_worth(receive, me) - COST_STACKS * stat_worth(give, me))
+                    (GAIN_STACKS * stat_worth_at(prices, receive, me)
+                        - COST_STACKS * stat_worth_at(prices, give, me))
                         / unit,
                     false,
                     give,
@@ -219,7 +226,7 @@ pub fn bargain_trade(prices: &Prices, me: &Me, offered: &[(u8, u8)]) -> Option<(
                 )
             }
             ACTION_WEAPON if target < 9 => (
-                GAIN_STACKS * stat_worth(target, me) / unit - SPARE_WEAPON_WORTH,
+                GAIN_STACKS * stat_worth_at(prices, target, me) / unit - prices.spare_weapon,
                 true,
                 0,
                 target,
@@ -240,7 +247,7 @@ pub fn bargain_trade(prices: &Prices, me: &Me, offered: &[(u8, u8)]) -> Option<(
             best = Some(trade);
         }
     }
-    best.map(|b| b.pair)
+    best
 }
 
 /// The trades the build could make with what it has: 20 stacks of a stat to any other, the spare weapon to any stat.
@@ -295,7 +302,12 @@ impl Decide {
         let Some(q) = cx.p.quests.as_ref() else {
             return;
         };
-        for row in q.rows.iter().filter(|r| r.owner_ready) {
+        for row in q.rows.iter().filter(|r| {
+            r.owner_ready
+                || (r.owner_accepted
+                    && !r.owner_completed
+                    && TOKEN_QUESTS.contains(&r.def.as_str()))
+        }) {
             let Some(o) = q.objectives.iter().find(|o| o.quest == row.handle) else {
                 continue;
             };
@@ -376,8 +388,13 @@ impl Decide {
                 .iter()
                 .find(|(d, _)| d == def)
                 .map_or_else(|| point(row.giver), |(_, at)| *at);
-            return Self::go(cx, to, "to the turn-in point");
+            if cx.p.dist(to) > STAND_U {
+                self.stood = None;
+                return Self::go(cx, to, "to the turn-in point");
+            }
+            return self.wait_or_give_up(def, now, "nothing offered at the turn-in point");
         }
+        self.stood = None;
         let want = slot_answer(cx.prices, &q.spells, def);
         let answer = if offered.contains(&want) { want } else { 2 };
         let mut step = Step::committed(Vec::new(), "answering the slot choice");
@@ -389,6 +406,23 @@ impl Decide {
             });
         }
         step
+    }
+
+    /// Standing where nothing is offered: running until `REFUSED_MS`, then the def is left alone for `BAN_MS`.
+    fn wait_or_give_up(&mut self, def: &str, now: f64, why: &'static str) -> Step {
+        let since = match &self.stood {
+            Some((d, at)) if d == def => *at,
+            _ => {
+                self.stood = Some((def.to_string(), now));
+                now
+            }
+        };
+        if now - since >= REFUSED_MS {
+            self.banned.push((def.to_string(), now + BAN_MS));
+            self.stood = None;
+            return Step::failed(why);
+        }
+        Step::running(Vec::new(), "standing")
     }
 
     fn act_pickup(&mut self, def: &str, cx: &mut Cx<'_>) -> Step {
@@ -458,6 +492,7 @@ impl Decide {
             .map(|a| (a.action, a.target))
             .collect();
         if !offered.is_empty() {
+            self.stood = None;
             return match bargain_trade(cx.prices, &cx.p.me, &offered) {
                 Some((action, target)) => {
                     let mut step = Step::committed(Vec::new(), "trading at the hag");
@@ -485,7 +520,11 @@ impl Decide {
         else {
             return Step::failed("no objective in the view");
         };
-        Self::go(cx, hag, "to the hag")
+        if cx.p.dist(hag) > STAND_U {
+            self.stood = None;
+            return Self::go(cx, hag, "to the hag");
+        }
+        self.wait_or_give_up(BARGAIN, now, "no trade offered at the hag")
     }
 }
 
@@ -530,14 +569,14 @@ impl Executor for Decide {
         // A pending slot choice: answered first (it costs nothing and holds a reward).
         for def in pending {
             let value = cx.prices.reward_value(&def);
-            if value > 0. {
+            if value > 0. && !self.banned(&def, now) {
                 out.push(Candidate {
                     goal: Self::goal(&def, STAGE_SLOT),
                     value,
                     success: 1.,
                     death: 0.,
                     loss: cx.prices.death_loss,
-                    minutes: ANSWER_MINUTES,
+                    minutes: cx.prices.answer_minutes,
                 });
             }
         }
@@ -559,22 +598,21 @@ impl Executor for Decide {
                 goal: Self::goal(def, STAGE_PICKUP),
                 value: spell_worth(cx.prices, near.reward, near.charges),
                 success: 1.,
-                death: DEATH_FLOOR,
+                death: cx.prices.death_floor,
                 loss: cx.prices.death_loss,
                 minutes,
             });
         }
         // The Bargain, while a trade can improve the build.
-        let value = cx.prices.reward_value(BARGAIN);
-        if value <= 0. || self.banned(BARGAIN, now) {
+        if cx.prices.reward_value(BARGAIN) <= 0. || self.banned(BARGAIN, now) {
             return;
         }
         let Some(row) = Self::bargain_row(cx) else {
             return;
         };
-        if bargain_trade(cx.prices, &cx.p.me, &possible_trades(cx)).is_none() {
+        let Some(value) = bargain_gain(cx.prices, &cx.p.me, &possible_trades(cx)) else {
             return;
-        }
+        };
         let target = if row.owner_accepted {
             cx.p.quests.as_ref().and_then(|q| {
                 q.objectives
@@ -598,7 +636,7 @@ impl Executor for Decide {
             goal: Self::goal(BARGAIN, STAGE_BARGAIN),
             value,
             success: 1.,
-            death: DEATH_FLOOR,
+            death: cx.prices.death_floor,
             loss: cx.prices.death_loss,
             minutes,
         });
