@@ -173,6 +173,13 @@ impl Elite {
             .push((camp, now + ban_seconds_after(e, n) * 1_000.));
     }
 
+    /// A give-up `fight_step` ends its own fight with (out of time, the walk failed, the camp empty): the ban, and the
+    /// fight's start cleared so the goal switch that follows the failure (`watch_goal`) does not count it again.
+    fn give_up(&mut self, camp: u32, now: f64, e: &ElitePrices) {
+        self.ban(camp, now, e);
+        self.fight_since = None;
+    }
+
     /// The give-up count of `camp` starts again: its elite was killed here, the camp was cleared, or it respawned.
     fn forgive(&mut self, camp: u32) {
         self.giveups.retain(|g| g.camp != camp);
@@ -376,8 +383,9 @@ impl Elite {
         })
     }
 
-    /// The chest the kill dropped: of the frame's chests within the camp's join radius, the nearest the camp.
-    fn camp_chest<'a>(cx: &'a Cx<'_>, camp_at: Vec2) -> Option<&'a ChestRef> {
+    /// The chest the kill dropped: of the frame's chests within the camp's join radius, the nearest the camp (Sustain
+    /// reads it too: the chest phase of an Elite goal).
+    pub(crate) fn camp_chest<'a>(cx: &'a Cx<'_>, camp_at: Vec2) -> Option<&'a ChestRef> {
         cx.p.facts
             .chests
             .iter()
@@ -603,15 +611,21 @@ impl Elite {
             });
         let started = *self.started.get_or_insert(now);
         if fighting {
-            let since = *self.fight_since.get_or_insert(now);
-            if now - since > e.give_up_seconds * 1_000. {
-                self.ban(index, now, &e);
+            self.fight_since.get_or_insert(now);
+        }
+        // A fight begun is bounded from its first blow whether or not the camp is on the bot now (an elite that keeps
+        // beyond `FIGHT_U` after it was engaged); before that, the walk and approach are bounded from the first think.
+        match self.fight_since {
+            Some(since) if now - since > e.give_up_seconds * 1_000. => {
+                self.give_up(index, now, &e);
                 return Step::failed("the elite fight ran out of time");
             }
-        } else if self.fight_since.is_none() && now - started > e.give_up_seconds * 1_000. {
-            // Never reached: an elite out of every path, or one that keeps out of reach.
-            self.ban(index, now, &e);
-            return Step::failed("the elite was never reached");
+            None if now - started > e.give_up_seconds * 1_000. => {
+                // Never reached: an elite out of every path, or one that keeps out of reach.
+                self.give_up(index, now, &e);
+                return Step::failed("the elite was never reached");
+            }
+            _ => {}
         }
         let Some(mob) = add.or(elite) else {
             self.target = None;
@@ -622,14 +636,14 @@ impl Elite {
                     return step;
                 }
                 Status::Failed => {
-                    self.ban(index, now, &e);
+                    self.give_up(index, now, &e);
                     return step;
                 }
                 Status::Done => {}
             }
             let since = *self.empty_since.get_or_insert(now);
             if now - since >= e.empty_seconds * 1_000. {
-                self.ban(index, now, &e);
+                self.give_up(index, now, &e);
                 return Step::failed("no elite in sight at the camp");
             }
             return Step::running(Vec::new(), "waiting at the elite camp");
