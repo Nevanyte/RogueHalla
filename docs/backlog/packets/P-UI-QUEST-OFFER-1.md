@@ -275,18 +275,18 @@ tracker and the champion panel across three windows.
   red one before changing code: a changed expectation goes to the owner as `oracle-amend`.
 
 ## Existing tests that pin this code (verified by reading; all green on the stub)
-- `AbilityRowEditModeTests.NothingFloatsAboveTheRow` (`:236`): the `QuestRewards` box holds only the launcher as its one
+- `AbilityRowEditModeTests.NothingFloatsAboveTheRow` (`:242`): the `QuestRewards` box holds only the launcher as its one
   child, at `HudRegions.Prompt()`. The new card is under `PlayerHUD`, not in the box.
 - `AbilityRowEditModeTests.APickupAndAQuestActionShareThePromptLane` (`:260`): nearby action with no quest row: the launcher
   and the pickup pill share the lane; no offer in reach, so captions are unchanged.
 - `PlayerFlowsEditModeTests.NearbyRewardPickupUsesTheOfferedHandleAndDropIndex` (`:126`): nearby action button; no rows.
 - `PlayerFlowsEditModeTests.FullQuestSlotsPresentServerChoiceAgainAfterReconnectAndSendTheChosenTuple` (`:72`): the reward
   choice modal with a `CanAccept = false` row; the choice caption keeps priority.
-- `PlayerFlowsEditModeTests.JournalKeyboardOwnsSimultaneousMapAndWorldKeysAndRespectsExistingModals` (`:~370`) and
-  `PlanningQuestReviewPreservesMapChoicesAndFocusWhileBlockingOtherPagesAndWorldKeys` (`:~400`): hold F with the journal
+- `PlayerFlowsEditModeTests.JournalKeyboardOwnsSimultaneousMapAndWorldKeysAndRespectsExistingModals` (`:370`) and
+  `PlanningQuestReviewPreservesMapChoicesAndFocusWhileBlockingOtherPagesAndWorldKeys` (`:393`): hold F with the journal
   open and assert no input leaks.
 - `UiInputRoutingEditModeTests.DigitKeysNoLongerSwapWeaponsOutsideChestChoice` (`:323`): digits send nothing.
-- `UiInputRoutingEditModeTests.ChestChoiceConsumesDigitEvenAsItReleasesChestFocus` and the Tab-map tests: Escape and the
+- `UiInputRoutingEditModeTests.ChestChoiceConsumesDigitEvenAsItReleasesChestFocus` (`:425`) and the Tab-map tests: Escape and the
   chest focus (`ReleaseChestFocus`).
 - `QuestTrackerEditModeTests` (all, notably `TheReadoutStripSetsTheFloor` `:402`): the tracker and `TrackerFloor`.
 - `QuestJournalPolishEditModeTests` (`:75`): the journal sends exactly one `QuestAccept`.
@@ -294,9 +294,121 @@ tracker and the champion panel across three windows.
   `GC.GetAllocatedBytesForCurrentThread()`, which reads 0 here: see "oracle-amend" below.
 
 ## Oracle files (read-only for implementers)
-(filled in by the oracle commit)
+- `client-unity/RoguehallaNet.Tests/QuestOfferTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/QuestOfferEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/QuestOfferEditModeTests.cs.meta`
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityRowEditModeTests.cs` (two `oracle-amend:` commits, see below)
+- `docs/backlog/packets/P-UI-QUEST-OFFER-1.md`
+
+### Existing tests amended (`oracle-amend:` commits, for the owner to approve)
+`AbilityRowEditModeTests.AnUnchangedTileAllocatesNothing` and `ASteadyQuestRefreshFrameAllocatesNothing` measured with
+`GC.GetAllocatedBytesForCurrentThread()`, which reads 0 in this editor (lane facts, `specs/COMMON.md`), so they passed
+on any code. Each is converted, in its own commit, to `AllocationMeter.AssertNone(action, 200, what)` with the delegate
+built once and the set-up assertions kept (as `specs/P-UI-ALLOC-PROOF-1.md` items 1 to 3 say). **Both are GREEN on the
+base with the real meter** (measured on the stub tree, 2026-11-23): the tile's `Show` and the steady quest refresh
+frame (a view with one quest spell) allocate nothing. Nothing for the implementer to remove there; if a later change of
+this packet makes one red, remove the allocation (`UI/AbilityTile.cs`, `RoguehallaNet/Net/Ui/AbilityFace.cs` with its
+synced copy), never loosen the test.
+
+### What the stub commit left for the implementer to replace
+- `RoguehallaNet/Net/Ui/QuestOffer.cs` and its synced copy: `Pick` returns null and 0, `Find` null, `Lift` returns
+  `regionTop`.
+- `UI/QuestOfferCard.cs`: every member returns a default (`Root` is null, the constructor ignores its arguments).
+  The card must now be built for real: root `QuestOffer` under `_hud`.
+- `UI/MatchHud.QuestRewards.cs`: `_offerCard` / `OfferCard` (a lazily made default stub card, to be built in
+  `InitializeQuestRewardHud`), `OfferOpen` (false), `TryInteract()` (false), `AcceptOffer()` and `CloseOffer()` (do
+  nothing). Keep the names: the tests call `OfferCard`, `OfferOpen`, `TryInteract` directly.
 
 ## Notes from the oracle author
-(filled in by the oracle commit)
+
+### Tests: which are red, and on which assertion (stub tree, 2026-11-23)
+dotnet `QuestOfferTests` (6 tests), all red on the stub, each on an assertion: `NoAcceptableRowGivesNullAndZero` ("the same
+rows with one CanAccept row pick it"; the empty answers alone would pass on a default stub, so the test also proves the
+function is not a constant), `OneAcceptableRowAmongOthersIsPickedAndOnlyAcceptableRowsAreCounted`,
+`TheNearerGiverWinsAndEqualDistancesKeepTheFirstRow`, `NaNPositionsNeverThrowAndPickTheFirstAcceptableRow`,
+`FindReturnsTheRowOfAHandleAndNullOtherwise`, `LiftKeepsTheCardAboveTheFloorAndBelowTheTracker` ("overrunning by 30 with
+room ends at the floor"). They pass against a scratch reference implementation (not committed).
+
+Unity `QuestOfferEditModeTests` (20 test cases from 17 test methods), all red on the stub on an assertion:
+- `FOpensTheOfferCardWhenAnOfferIsInReach`: "F opens the card" (OfferOpen false).
+- `FStillPicksUpWhenAPropIsInReach`: the pickup half is green on the stub; red on "F talks when nothing is in reach to pick up".
+- `EnterAcceptsOnce(Enter)`, `(NumpadEnter)`, `TheCardClosesWhenTheServerConfirms`,
+  `TheCardClosesHalfASecondAfterTheOfferLeavesReach`, `AShortLossOfReachKeepsTheCard`, `EscapeAndFCloseIt`,
+  `TheCardDoesNotStopPlay`, `ItNeverOpensOverAModalOrTheMap`, `TheEndsAndMoreLines`, `TheTextFitsAtTextScaleOnePointFive`,
+  `AcceptChecksTheCurrentView`, `AnOpenCardAllocatesNothing`, and `TheCardSitsOnTheLeftClear...` (3 windows): red on
+  "set-up: F opened the card" (a set-up assertion that is itself the behaviour: F opens the card).
+- `ThePromptLaneOffersTheTalk`: "an offer in reach shows the launcher".
+- `TheRewardChoiceCaptionStillWins`: "the pending choice keeps the caption" (see the defect below).
+- `AClosedCardWithAnOfferInReachAllocatesNothing`: "set-up: the launcher shows the offer in reach".
+
+Existing classes run on the stub and green: `AbilityRowEditModeTests` (with the two amended tests), `PlayerFlowsEditModeTests`,
+`UiInputRoutingEditModeTests`, `QuestTrackerEditModeTests`, `QuestJournalPolishEditModeTests`,
+`QuestJournalViewEditModeTests`, `HudTextScaleEditModeTests`: 106 passed, the only 20 red are the new cases above.
+The 126 total of that run is those classes plus `QuestOfferEditModeTests`.
+
+### Scratch run (not committed)
+For `QuestOfferEditModeTests` one scratch copy of the class ran with a catch-and-collect `Assert` (every failed assertion
+recorded, the test carried on to its last line). Result: every entry (about 140 over the 20 cases) is an assertion about
+the missing behaviour (no card, no caption, no command, no allocation); no other exception was thrown, so every line of
+every test can run. The run found and fixed two defects of the first version of the tests: (1) the readout strip and
+the open extras together leave only 56 units between tracker and floor at 1280x800 and 1920x1080 (the spec's order
+"extras, then readouts, then require 96" cannot hold): test 9 now checks the extras without readouts, closes the extras
+again, then delivers the readouts; (2) negative or NaN giver positions are refused by the encoder (`quest giver
+position`; found by the dotnet run against the scratch reference), so the dotnet NaN case moved to the query point. Test 8
+also sends the digit first, so that no Stop from a released W lands in "a digit does nothing" (by reasoning, not seen).
+The assertions that follow a card that opens (`Accepting`, the labels after an accept, the geometry of test 9, the text
+fit at scale 1.5) could only be run up to their first lookup of the missing card: their expected values were read once
+more against the rules of this packet, not executed.
+
+### Differences from the spec (nearest test that pins the same behaviour)
+- One rig for every EditMode test: the `UiInputRoutingEditModeTests` fixture (spec: Rig A for most, Rig B, the
+  `AbilityRowEditModeTests` full rig, for test 9). Both are a whole `MatchHud` on a real `MatchClient` over a fake
+  transport; Rig A has a real keyboard and gives the server time 1000, so test 9 uses it too. The tracker and
+  champion-panel geometry is read from the live HUD in both.
+- Test 9 order (see the scratch run, defect 1): extras without readouts, extras closed, then the readout strip. In the
+  open-extras state the 96-unit minimum card cannot fit between tracker and floor once readouts show; that is
+  `HudRegions.OfferMinHeight` winning, as RISKS 3 says.
+- Test 1 of the dotnet class carries one extra positive case (the same rows with one acceptable row), because the "no
+  acceptable row" answers alone pass on a default stub.
+- The text scale is set on the HUD's own `ShowcaseSettings` and on `ShowcaseSettings.Current` (the card reads the
+  second, `MatchHud.ApplyTextScale` the first); both are restored in TearDown.
+- Test 11 ends with F while the choice is deferred (`TryInteract` true, `OfferOpen`, caption unchanged), because its
+  caption lines alone are covered by existing behaviour once the caption label exists.
+- `AbilityRowEditModeTests` allocation tests: both green on the base (above).
+
+### DEFECT in the spec found by the oracle author: the launcher has no caption label today
+`InitializeQuestRewardHud` builds the launcher with `HudUi.Button(..., "", ...)` (`MatchHud.QuestRewards.cs:37`), and
+`HudUi.Button` adds a `Label` child only when its label text is not empty (`HudUi.cs` Button). So
+`_questActionCaption = _questActionLauncher.GetComponentInChildren<TMP_Text>(true)` (`:42`) is null and `Set(null, ...)`
+(`MatchHud.cs:512`) does nothing: the launcher has never shown "Choose quest reward" or "Nearby quest actions · n"; it is a
+bare rounded button. The spec's "the existing caption stays" is therefore false. This packet needs a real caption: the
+implementer builds a label under the launcher (`HudUi.Label`, so it follows the text scale) in `InitializeQuestRewardHud`,
+so that all captions of the prompt lane (the three old ones and "F · Talk to ..." / "Talk to ...") are drawn. The tests
+find the caption as the first `TMP_Text` under `QuestRewards/QuestActionLauncher`. `UpdatePromptLane` already refits it
+(`RefitLabel(_questActionCaption)`). The width of the launcher is 300, 220 beside the pill (`HudRegions.PromptWidth`,
+`PromptPairWidth`): "Nearby quest actions · 12" and "Talk to <long giver label>" must still fit (FitBox shrinks).
+
+### TRAP found by the oracle author: the steady refresh allocates for a view with a non-board row today
+`QuestPresentation.HasRewardHud` -> `HasBoardRows` (`MatchHud.QuestRewards.cs:369-381`) runs `foreach` over
+`view.Rows`, an `IReadOnlyList`: that allocates an enumerator every call, and `RefreshQuestRewardHud` calls it each
+frame (`:122`) whenever the view has no spells, pending or actions. Measured on the stub: with the view of these tests
+(one `Def "fixture"` row), `AllocationMeter.AssertNone` over `RefreshQuestRewardHud` reports an allocation, and it is gone
+once `HasBoardRows` is an index loop. The two allocation tests of the packet
+(`AClosedCardWithAnOfferInReachAllocatesNothing`, `AnOpenCardAllocatesNothing`) need that loop (it is in this scope:
+`MatchHud.QuestRewards.cs`). `IsPending` (`:361`) and `FindRow` (`:354`) also use `foreach`; keep them off the per-frame path.
+
+### Other facts the implementer needs
+- Item keys of a state message are ascending (Props 2, Quests 10, Readouts 16): the tests deliver them in that order.
+- A quest giver position must be finite and non-negative to encode (`EncodeException: quest giver position`).
+- The tests run time through `OfferCard.Tick(dt)` only. The HUD adds at most 0.1 s once per `Time.frameCount`
+  (`Time.frameCount` does not advance inside a test), so a test's later `Tick(.6f)` is the only large step.
+- `WorldHudVisible` is a live property (`MatchHud.Visibility.cs:17`: not `BlocksKeyboardInput` and the map not open), so
+  the card gate flips the instant a modal or the map opens; the tests rely on it.
+- Stage sizes: 1280x800 gives a 1280x800 stage, 1920x1080 gives 1422x800, 2560x1440 gives 1707x960 (HUD units).
+- Existing classes to run and keep green: `AbilityRowEditModeTests`, `PlayerFlowsEditModeTests`,
+  `UiInputRoutingEditModeTests`, `QuestTrackerEditModeTests`, `QuestJournalPolishEditModeTests`,
+  `QuestJournalViewEditModeTests`, `HudTextScaleEditModeTests`, plus the node test `hud-seams.test.cjs` and
+  `HudLegacyLayoutEditModeTests`. A quest view with a `CanAccept` row now shows the launcher (and may open the card);
+  read any red existing test before changing code.
 
 ## Notes from previous attempts
