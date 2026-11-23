@@ -138,3 +138,17 @@ implementer-opus, reviewer-opus. Risk: low (no number moves); the traps are abou
 - That the three non-visible numbers may be exposed (flag above).
 - That the client's 45 and 30 agree after a retune (out of scope).
 - The behaviour pins cannot detect a retune on this base (the numbers are equal); they catch a copy that diverges later.
+
+## Coordinator's answers (2026-11-23)
+
+1. **`fort_range`, `route_pace` and `route_slack_ms` are exposed**, as the default has it. The ruling: they are static
+   content, the same for every match and every seat, and the bots hold all three by hand today, so the accessor
+   changes what a bot can drift from, not what it knows. Nothing per-match, per-seat or random is exposed (C-OBS,
+   C-RNG). A player meets them as the deadline in the journal and the ring of the fort; that they are not written
+   out as numbers in game text is recorded for the owner in the MIGRATION checkpoint as a decision taken, with the
+   clean cut this brief describes if he rules them hidden.
+2. **The two seams** (`walker::timer_spend_minutes`, `dwell::dwell_seconds`) keep their names and signatures.
+- **Base.** `coord/int-86` has gained the elite executor since this packet branched (`exec/elite.rs`, `ElitePrices`);
+  nothing in this packet's scope is touched by it. The gate takes `--base coord/int-86`.
+- **The content check** (`scripts/regolden-content.sh --check`, or the content registry test the gate runs) is an
+  acceptance step: the hash must not move.
