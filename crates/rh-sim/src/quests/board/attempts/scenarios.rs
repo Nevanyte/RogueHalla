@@ -1,5 +1,6 @@
 //! A generated board, normal seat actions and observed objectives for every catalog quest.
 mod full_slots;
+mod probe_tests;
 mod spells;
 use super::*;
 use crate::input::{validate as validate_input, RawCommand};

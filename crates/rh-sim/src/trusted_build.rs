@@ -1,9 +1,11 @@
 //! Trusted build setup for headless benches (feature `trusted-build-setup`, never in a server build): gives a seated
 //! fighter cards, normal-mob stat stacks and chest stat boosts between steps, with the grant rules of legacy
-//! `grantCard` (`packages/server/src/sim/chests.ts:189`). Not an input path (C-INPUT): no command reaches it.
+//! `grantCard` (`packages/server/src/sim/chests.ts:189`), and Top 25 quest rewards through the board's own reward code
+//! (P-BAL-PROBE-1; no legacy counterpart). Not an input path (C-INPUT): no command reaches it.
 //! No RNG draw, no event. Packet P-SIM-BENCH-SEAM-1.
 use crate::cards::CardId;
 use crate::mob_catalog::MobTypeId;
+use crate::quests::board::catalog::RewardId;
 use crate::reward_chests::BoostId;
 use crate::{PlayerId, Sim};
 
@@ -17,6 +19,11 @@ pub struct TrustedBuild {
     pub stacks: Vec<(MobTypeId, u64)>,
     /// Chest stat boost picks to add (`Build::boosts`).
     pub boosts: Vec<(BoostId, u8)>,
+    /// P-BAL-PROBE-1: Top 25 quest rewards to pay, in request order, after the build's re-fold (a spell into an empty
+    /// slot with full charges, a permanent as its ordinary effect). Left out of the JSON when empty, so a build without
+    /// rewards serializes as before.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rewards: Vec<RewardId>,
 }
 
 /// Why a request was refused. A refused request changes nothing.
@@ -40,6 +47,16 @@ pub enum BuildRefusal {
     BoostOverCap(BoostId),
     /// P-AUG-NATIVE-1b: a native card (`CardId::NATIVE`) in a world whose card table is not `Rework`.
     NativeOutsideRework(CardId),
+    /// P-BAL-PROBE-1: quest rewards asked in a world without the Top 25 board.
+    NoBoard,
+    /// P-BAL-PROBE-1: quest rewards asked for a bot seat (a bot owns no quest reward).
+    BotSeat(PlayerId),
+    /// P-BAL-PROBE-1: a reward whose size comes from how its quest was played (Crown Power, Trade Up, The Bargain).
+    RewardNeedsQuest(RewardId),
+    /// P-BAL-PROBE-1: a permanent reward already held, or asked twice.
+    RewardHeld(RewardId),
+    /// P-BAL-PROBE-1: not enough empty spell slots for this spell (two for Blind Rage and Still Mind).
+    SlotsFull(RewardId),
 }
 
 /// Adds `build` to the seated fighter `id`, between steps only: all or nothing, then one re-fold and max hp following.
@@ -108,15 +125,138 @@ pub fn apply(sim: &mut Sim, id: PlayerId, build: &TrustedBuild) -> Result<(), Bu
         *slot = u8::try_from(total).map_err(|_| BuildRefusal::BoostOverCap(boost))?;
         changed = true;
     }
-    if !changed {
+    // P-BAL-PROBE-1: quest rewards are checked last, still before any write.
+    let paying = !build.rewards.is_empty();
+    if paying {
+        use crate::quests::board::rewards::{check_grant, GrantRefusal};
+        check_grant(&sim.w, id, &build.rewards).map_err(|refusal| match refusal {
+            GrantRefusal::NoBoard => BuildRefusal::NoBoard,
+            GrantRefusal::BotSeat => BuildRefusal::BotSeat(id),
+            GrantRefusal::NeedsQuest(r) => BuildRefusal::RewardNeedsQuest(r),
+            GrantRefusal::Held(r) => BuildRefusal::RewardHeld(r),
+            GrantRefusal::SlotsFull(r) => BuildRefusal::SlotsFull(r),
+        })?;
+    }
+    if !changed && !paying {
         return Ok(());
     }
-    // The chest pick's and credited kill's order: counts, one re-fold, then max hp follows the fold.
-    sim.w.players[i].build = cards;
-    sim.w.players[i].farm = farm;
-    crate::modifiers::recompute(&sim.k, &mut sim.w, crate::fighter::FighterIx::of_slot(i));
-    crate::modifiers::sync_max_hp(&mut sim.w.players[i]);
+    if changed {
+        // The chest pick's and credited kill's order: counts, one re-fold, then max hp follows the fold.
+        sim.w.players[i].build = cards;
+        sim.w.players[i].farm = farm;
+        crate::modifiers::recompute(&sim.k, &mut sim.w, crate::fighter::FighterIx::of_slot(i));
+        crate::modifiers::sync_max_hp(&mut sim.w.players[i]);
+    }
+    if paying {
+        // After the re-fold (Chef's Kiss reads the current fold), through the board's own reward code; no event.
+        sim.with_cx(|cx| crate::quests::board::rewards::pay_checked(cx, id, &build.rewards));
+    }
     // The build-mark cache was exact as of the last step; its inputs just changed outside one.
     sim.projection.marks = Default::default();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    //! P-BAL-PROBE-1: `Sim::quest_attempts` and `Sim::gates_locked` only read. A board world with a granted reward and
+    //! an accepted attempt steps to the same state hash and events whether or not the probes run between its steps.
+    use super::*;
+    use crate::mapgen::{coliseum, pipeline};
+    use crate::quest_view::QuestObserver;
+    use crate::quests::board::map_admission;
+    use crate::{ArenaRules, Placement, Secrets, SimConfig, WeaponId};
+
+    /// A generated Top 25 raid: one human seat and one bot seat, the first lock five minutes away.
+    fn board_world() -> Sim {
+        let fixed = coliseum::fixed_layout();
+        let generator = pipeline::Pipeline::new(&fixed);
+        let secrets = Secrets::from_seed(1);
+        let options = pipeline::Options {
+            decor: false,
+            ..Default::default()
+        };
+        let arena = map_admission::generate(&generator, 1, 0..32, options, secrets)
+            .unwrap()
+            .validate()
+            .unwrap()
+            .into_arena()
+            .unwrap();
+        let players: [Placement; 2] = std::array::from_fn(|i| Placement {
+            profile: format!("probe-{i}"),
+            faction: crate::FactionId::Holy,
+            bot: i == 1,
+            at: arena.spawns[i],
+            hp: None,
+            weapon0: Some(WeaponId::Sword),
+            weapon1: None,
+        });
+        let rules = ArenaRules {
+            plan_seconds: 0.,
+            first_patience_seconds: Some(0.),
+            coliseum_schedule: None,
+            patience_seconds: 300.,
+            patience_min_seconds: 120.,
+            ..Default::default()
+        };
+        let config = SimConfig {
+            lifecycle: crate::ArenaMode::Source(rules),
+            min_players: 1,
+            ..SimConfig::live_content()
+        };
+        Sim::reset_active(config, arena, secrets, &players)
+    }
+
+    /// Stands `seat` at the first offer's giver and accepts it through the seat's own journal and a validated input.
+    fn accept_first_offer(sim: &mut Sim, seat: PlayerId) {
+        let giver = sim.w.quests.as_ref().unwrap().offers[0].at;
+        let p = sim.w.players.get_mut(seat).unwrap();
+        p.body.x = giver.x;
+        p.body.y = giver.y;
+        p.body.history.reset(crate::state::Sample {
+            t: sim.w.server_time,
+            x: giver.x,
+            y: giver.y,
+        });
+        p.motion.path.clear();
+        p.motion.slip = None;
+        let mut observer = QuestObserver::new(seat);
+        let prepared = observer.prepare(sim).unwrap();
+        let handle = prepared
+            .view
+            .rows
+            .iter()
+            .find(|r| r.can_accept)
+            .expect("the giver's offer can be accepted")
+            .handle;
+        prepared.commit();
+        let cmd = observer.resolve_accept(sim, handle);
+        sim.submit(seat, cmd).unwrap();
+        sim.step();
+    }
+
+    #[test]
+    fn the_probes_leave_every_step_as_it_was() {
+        let mut quiet = board_world();
+        let seat = quiet.w.players[0].id;
+        let rewards = TrustedBuild {
+            rewards: vec![RewardId::Hook, RewardId::WarmCoat],
+            ..TrustedBuild::default()
+        };
+        apply(&mut quiet, seat, &rewards).expect("a spell and a permanent");
+        accept_first_offer(&mut quiet, seat);
+        let mut probed = quiet.clone();
+        let ids: Vec<PlayerId> = probed.players().iter().map(|p| p.id).collect();
+        let mut rows = 0;
+        for _ in 0..120 {
+            for &id in &ids {
+                rows += probed.quest_attempts(id).len();
+            }
+            let _ = probed.gates_locked();
+            quiet.step();
+            probed.step();
+            assert_eq!(probed.state_hash(), quiet.state_hash());
+            assert_eq!(probed.take_events(), quiet.take_events());
+        }
+        assert!(rows > 0, "the probes read a held attempt");
+    }
 }

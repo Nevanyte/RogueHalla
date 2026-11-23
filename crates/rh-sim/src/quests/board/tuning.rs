@@ -1,7 +1,10 @@
 //! Every Top 25 quest number in one table, `TOP25`: objectives, reward cooldowns and sizes, spell effects, deployments,
 //! Rebirth Egg and WallBuster. Each `visit_rules` folds its fields in the word order of the consts they replaced, so
-//! moving a number here does not move the content hash; changing one does. Route timers and objective counts stay in
-//! the `def!` rows of `catalog.rs`.
+//! moving a number here does not move the content hash; changing a folded one does. Not every field is folded today:
+//! 39 of the 91 fields (the inline literals they replaced were never folded: the route deadline, most spell ranges,
+//! widths, pulls and durations, the deployment hp, caps, reveals and turret share; the "not folded" rows of
+//! `docs/backlog/packets/P-BAL-Q25-SEAM-1.md`) reach no `visit_rules`, so retuning one of them moves no content hash
+//! until a later packet folds them. Route timers and objective counts stay in the `def!` rows of `catalog.rs`.
 use crate::constants::{QUEST_TURN_IN_RANGE, TILE};
 
 /// The Top 25 tuning table. Times in ms, distances in world units, shares as fractions.
@@ -9,7 +12,11 @@ pub(crate) struct Top25Tuning {
     // Objectives and attempts.
     pub(crate) fort_ms: f64,
     pub(crate) meditate_ms: f64,
+    /// The Burning Crown's burn: share of the carrier's max hp dealt as true terrain damage once per whole second
+    /// carried (paused while the crown is turned in and waiting for its claim). Folded.
     pub(crate) crown_burn_rate: f64,
+    /// Most Crown Power stacks (EmberImp): one per whole second the crown is carried, capped here. Also the restore
+    /// bound on a turned-in crown's points. Folded.
     pub(crate) crown_power_cap: u8,
     pub(crate) contact_range: f64,
     pub(crate) fort_range: f64,
@@ -18,7 +25,8 @@ pub(crate) struct Top25Tuning {
     pub(crate) quest_respawn_ms: f64,
     pub(crate) warden_hp_multiplier: f64,
     pub(crate) bargain_cost: u64,
-    /// Route deadline floor: `length * route_pace / PLAYER_SPEED + route_slack_ms` (1.5x the walk plus slack).
+    /// Route deadline floor: `length * route_pace / PLAYER_SPEED + route_slack_ms` (1.5x the walk plus slack): ms of
+    /// deadline per second the route takes at `PLAYER_SPEED` (u/s), so 1000 is exactly the walk. Not folded.
     pub(crate) route_pace: f64,
     pub(crate) route_slack_ms: f64,
     // Reusable spell cooldowns and charges.
@@ -43,8 +51,12 @@ pub(crate) struct Top25Tuning {
     pub(crate) stasis_ms: f64,
     pub(crate) shield_ms: f64,
     pub(crate) warhorn_ms: f64,
+    /// Tornado: ms from the cast until it lands. Also how long the Cleansed buff of a Cleanse lasts (a Cleansed fighter
+    /// ignores Tornado pulls) and that buff's restore bound. Folded.
     pub(crate) tornado_windup_ms: f64,
     pub(crate) tornado_radius: f64,
+    /// Hook and Tornado pulls: world units a pulled fighter moves toward its pull point per legacy 50 ms tick (scaled
+    /// by `per_step` at other step rates). Folded.
     pub(crate) pull_tick_distance: f64,
     pub(crate) smite_range: f64,
     pub(crate) swap_range: f64,
@@ -71,6 +83,9 @@ pub(crate) struct Top25Tuning {
     pub(crate) hook_stop_distance: f64,
     pub(crate) hook_pull_ms: f64,
     pub(crate) bolas_root_ms: f64,
+    /// Tornado: the longest pull, in world units toward its centre, scaled by
+    /// `clamp(caster max hp / target max hp - 1, 0, 1)` (full at twice the target's max hp; a turret's max hp is
+    /// `turret_hp`). Not folded.
     pub(crate) tornado_pull: f64,
     pub(crate) tornado_pull_ms: f64,
     pub(crate) taunt_stop_distance: f64,
@@ -88,15 +103,22 @@ pub(crate) struct Top25Tuning {
     pub(crate) falcon_ms: f64,
     pub(crate) cage_cast_range: f64,
     pub(crate) deploy_range: f64,
+    /// Turret: hit points at placement and their restore bound; also the turret's max hp in the Tornado pull scale.
+    /// Not folded.
     pub(crate) turret_hp: f64,
     pub(crate) ward_hp: f64,
     pub(crate) turret_cap: usize,
     pub(crate) ward_cap: usize,
+    /// Scout Falcons per owner: a restore bound only (the deployment validator). A cast always replaces the owner's
+    /// previous falcon, so play keeps at most one, and a value above 1 would admit restores play cannot produce.
+    /// Not folded.
     pub(crate) falcon_cap: usize,
     pub(crate) falcon_range: f64,
     pub(crate) turret_reveal: f64,
     pub(crate) ward_reveal: f64,
     pub(crate) falcon_reveal: f64,
+    /// Turret: share of the owner's own weapon damage per second that the turret deals (each shot is this share of one
+    /// weapon hit's raw damage, times the shot interval over the owner's attack interval). Not folded.
     pub(crate) turret_damage_share: f64,
     // Rebirth Egg.
     pub(crate) egg_safe_distance: f64,

@@ -82,7 +82,8 @@ pub use owner_combat::{OwnerCombatView, OwnerLockView};
 pub use quests::board::rewards::effects::{DeploymentKind, DeploymentView, SpellCue, SpellCueKind};
 pub use sight::{SightCache, SightStats};
 pub use sim::{
-    Arena, Event, Outcome, Phase, Placement, PlayerId, RunResult, Secrets, Sim, SimConfig, Status,
+    Arena, Event, Outcome, Phase, Placement, PlayerId, QuestAttemptProbe, RunResult, Secrets, Sim,
+    SimConfig, Status,
 };
 pub use state::{
     Container, ContainerKind, ProjectileEnd, ProjectileKind, ProjectileLaunch, WeaponItem,
