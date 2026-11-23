@@ -4,6 +4,7 @@
 //! trainer) act for their own players through [`Env::step`]. Both go through the same input path.
 
 pub mod balance_lab;
+pub mod balance_model;
 mod command_delay;
 pub mod digest;
 pub mod telemetry_record;
