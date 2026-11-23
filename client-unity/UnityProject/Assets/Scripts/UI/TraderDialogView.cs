@@ -456,7 +456,7 @@ namespace Roguehalla.Client
             for (int i = 0; i < rows.Count; i++)
             {
                 GameObject row = rows[i];
-                if (row == null || !row.activeSelf) continue;
+                if (row == null || !row.activeInHierarchy) continue;
                 TMP_Text text = row.GetComponentInChildren<TMP_Text>();
                 if (text == null) continue;
                 float width = MeasureWidth((RectTransform)row.transform, choices);
@@ -472,7 +472,7 @@ namespace Roguehalla.Client
             float y = 0;
             for (int i = 0; i < _merchantRows.Count; i++)
             {
-                GameObject row = _merchantRows[i]; if (row == null || !row.activeSelf) continue;
+                GameObject row = _merchantRows[i]; if (row == null || !row.activeInHierarchy) continue;
                 var rect = (RectTransform)row.transform;
                 var text = row.GetComponentInChildren<TMP_Text>();
                 float height = FitHeight(row, text, rect, MerchantRowHeight, false);
@@ -485,9 +485,11 @@ namespace Roguehalla.Client
         void ReflowChoiceRows()
         {
             float y = 0;
+            bool measured = false;
             for (int i = 0; i < _choiceRows.Count; i++)
             {
-                GameObject row = _choiceRows[i]; if (row == null || !row.activeSelf) continue;
+                GameObject row = _choiceRows[i]; if (row == null || !row.activeInHierarchy) continue;
+                measured = true;
                 var rect = (RectTransform)row.transform;
                 bool actionRow = row.GetComponent<UnityEngine.UI.Button>() != null;
                 var text = row.GetComponentInChildren<TMP_Text>();
@@ -496,6 +498,7 @@ namespace Roguehalla.Client
                 rect.sizeDelta = new Vector2(0, height);
                 y += height + (actionRow ? 8f : 4f);
             }
+            if (!measured) return; // hidden rebuild keeps RebuildChoices' estimate (and the scroll position)
             if (_choiceRows.Count > 0) y -= 4f;
             SetContentHeight(Mathf.Max(0, y));
         }
@@ -506,6 +509,7 @@ namespace Roguehalla.Client
             float fontSize = text == null ? 16f : text.fontSize;
             string value = text == null ? "" : text.text;
             if (text == null) return minimum;
+            if (!text.gameObject.activeInHierarchy) return minimum; // never woken: measures a tenth
             float available = Mathf.Max(1f, width - 24f);
             float preferred = text.GetPreferredValues(value, available, Mathf.Infinity).y;
             float height = Mathf.Max(minimum, Mathf.Ceil(preferred + 16f));
