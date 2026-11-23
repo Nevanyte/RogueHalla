@@ -113,7 +113,20 @@ The rig copies `TabMapFlowEditModeTests` (its `RecordingTransport`, `SetUp`, `Te
 5. `ShowingWithoutAMapDoesNothing`: (a) `Bind(null)`, suppress, un-suppress, `Tick()`; (b) a second `Session` on its own `RecordingTransport`, connected and opened but given no Welcome (asserted: `Map` null, `State` not InMatch), the same three calls; `Assert.DoesNotThrow`, `MinimapPresentCount` stays 0, minimap root inactive. Green on the base; it guards the edge's surroundings.
 
 ## Notes from the oracle author
-<!-- filled with the run results in the oracle commit -->
+- No stub commit: every member the tests use (`MinimapPresentCount`, `SecondsClock`, `SetMinimapSuppressed`, `MinimapRoot`, `Marks.SelfMarkerRect`, `Marks.ContactCount`) exists on the base, so the tests compile and fail on assertions.
+- **Red on the stub** (one run of the class, `unity-class.sh`):
+  - `TheMinimapIsCurrentOnTheCallThatShowsIt`: "the minimap shows the contact on the call that shows it" (expected 1, was 0).
+  - `TheSameHoldsWhenTheTabMapCloses`: "and it is current on that frame" (expected 1, was 0), then the present-count line (expected `atSuppress + 1`, was `atSuppress`).
+  - `TheOwnMarkerIsPlacedToo`: "the own marker is on the drawn x" (expected 2.11 +/- .5, was -109.7), and y likewise.
+  - `AHiddenMinimapIsStillNotPresented`: the `c0 + 1` line (expected c0 + 1, was c0); the first half (ten hidden frames present nothing) is green on the base and guards the fix.
+  - `ShowingWithoutAMapDoesNothing`: green on the base, as the spec says (it guards the edge's surroundings).
+- **Scratch run done** (one per class, a catch-and-collect wrapper around every assertion, not committed): every collected entry was an assertion about the missing behaviour (the lines above, plus the later `c0 + 2` lines of `AHiddenMinimapIsStillNotPresented`, which are off by one on the base and follow from the `c0 + 1` line); no other exception, so every later line runs.
+- **Deviations from the spec's test text:**
+  - Case 5: the spec says `MinimapPresentCount` stays 0. The `SetUp` frames have painted the minimap already, so the test reads the count first (`c0`) and asserts it is unchanged by the three calls.
+  - Case 2: the spec says the contact count is 0 on the base. It is 0 only because the contact arrives while the minimap is hidden (the test was first run with a stale contact; see next note); with the fixture reset it is 0 and the test is red on the contact count and the present count.
+  - The fixture instance is shared by NUnit between tests, so `SetUp` resets `_actors`, `_tick` and `_now` (the copied `TabMapFlowEditModeTests` does not, and a contact set by one test would leak into the next).
+- **Big-map edge read (spec item 3)**: repeated on the base, no gap (see section 1, item 3).
+- The amended expectation of `PlayerFlowsEditModeTests` is in its own `oracle-amend:` commit (above); it is green on the stub and after the fix.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
