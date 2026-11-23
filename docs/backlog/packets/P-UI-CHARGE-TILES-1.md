@@ -116,11 +116,34 @@ The amend commits come one per test; none of them is an implementer's to make, a
 
 ## Oracle files (read-only for implementers)
 
-(filled in by the oracle commit)
+New tests (`oracle:` commit):
+- `client-unity/RoguehallaNet.Tests/ChargeFaceTests.cs` (6 tests)
+- `client-unity/UnityProject/Assets/Tests/Editor/ChargeTilesEditModeTests.cs` and `ChargeTilesEditModeTests.cs.meta` (5 tests)
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityFeedbackEditModeTests.cs` (one new method, `TheTileAndTheKeyAgreeInEveryCase`; also amend 11)
+- `docs/backlog/packets/P-UI-CHARGE-TILES-1.md`
+
+Amended existing tests (each its own `oracle-amend:` commit, for the owner; see the table above):
+- `client-unity/RoguehallaNet.Tests/AbilityFaceTests.cs` (amends 1 to 4, one commit each)
+- `client-unity/RoguehallaNet.Tests/WishFaceTests.cs` (amend 5)
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityRowEditModeTests.cs` (amends 6, 7)
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityMotionEditModeTests.cs` (amends 8, 9)
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityRowNearbyNoGarbageEditModeTests.cs` (amend 10)
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityFeedbackEditModeTests.cs` (amend 11)
 
 ## Notes from the oracle author
 
-(filled in by the oracle commit)
+- **Stub commit: none.** `AbilityFaces.Spell` already exists with the right signature and every new test compiles against the base; the tests are red on assertions with no stub. The implementer's only edit is the body and doc of `Spell` (plus the sync).
+- **Red on the base (assertion each fails on).**
+  - `ChargeFaceTests.AChargeInHandReadsReadyWhileTheNextOneRecharges`: `face.Phase` expected Ready, was Cooling ("one charge with the next 4.2 s away").
+  - `ChargeFaceTests.ALanternWardRunsThroughItsRealStates`: step 2 `face.Phase` expected Ready, was Cooling.
+  - `ChargeFaceTests.TheWishAndASpellDifferOnlyByHoldingACharge`: "a spell with a charge in hand casts, charges 1 readyAt 4000 now 0": Phase expected Ready, was Cooling.
+  - `ChargeTilesEditModeTests.AHeldChargeDrawsTheReadyLook`, `ARealLanternWardCycle` (at step 2), `ASecondChargeArrivingChangesTheBadgeOnly` (set-up), `AHeldChargeFrameAllocatesNothing` (set-up): "the name box is shown" / "the held charge shows its name" expected True, was False.
+  - `AbilityFeedbackEditModeTests.TheTileAndTheKeyAgreeInEveryCase`: the Shift and Q "charge in hand, next recharging" cases: a cooling tile's line does not start with "Ready in " (none), its press pops, and a press that pops is on a Cooling tile.
+  - `AbilityFeedbackEditModeTests.TheLineIsTheOneTheFunctionGivesForEveryPhaseTheTileShows` after amend 11: the same two cases expect Ready, the tile shows Cooling.
+- **Green on the base (standing guards, as the spec says):** `ChargeFaceTests.NoChargeStillCools`, `AMaximumOfOneChargeReadsAsBefore`, `AWishGainingASecondChargeDoesNotPulse`; `ChargeTilesEditModeTests.TheHintKeepsTheTimeOfTheNextCharge`. The lines of `ASecondChargeArrivingChangesTheBadgeOnly` after its set-up are a guard behind a red set-up line.
+- **Scratch run done** (catch-and-collect copy of each new EditMode class, not committed, deleted): `ChargeTilesEditModeTests` collected 6, 1, 12 and 5 entries for the four red tests (every entry an assertion about the held charge: name, name text, strong frame, wedge, number, Ready face, or the frame unchanged after a red set-up line), and none for the guards; every other line of `ARealLanternWardCycle` ran and passed on the base (steps 1 and 2 presses pop with no pill, step 3 press does not pop and shows "Ready in 57", the wedge is inside .90 to 1, steps 3 and 5 badges). `TheTileAndTheKeyAgreeInEveryCase` collected exactly six entries, three for each of the Shift and Q "charge in hand" cases; all other 22 cases ran every line. No exception other than an assertion occurred.
+- **Spec deviations in the tests.** None in design. The rig of `ChargeTilesEditModeTests` is trimmed from `AbilityFeedbackEditModeTests` (no Wish, no events, no lane model). The `Sweep.fillAmount` band of test 2 (.90 to 1) held on the base for step 3 (a cooling tile, which the base draws as Cooling too), so the "unverified" band is now measured to hold there; the implementer's change does not touch that path.
+- **Library rule not run against an implementation:** the dotnet tests were run red on the base only; the rule of Outcome 1 satisfies each by hand-calculation (e.g. step 3: 57000 / 60000 = .95; the grid of test 5 holds 52 charge-with-time-left cases).
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
