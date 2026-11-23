@@ -94,8 +94,8 @@ namespace Roguehalla.Net.Tests
             Assert.That(face.Phase, Is.EqualTo(AbilityPhase.Cooling));
             Assert.That(face.Seconds, Is.EqualTo(int.MaxValue), "a huge ReadyAt caps at int.MaxValue");
 
-            // The same Phase, Seconds and Sweep as a quest spell with the same numbers.
-            foreach (byte charges in new byte[] { 0, 1, 2 })
+            // The same Phase, Seconds and Sweep as a quest spell with no charge (one with a charge in hand differs: ChargeFaceTests).
+            foreach (byte charges in new byte[] { 0 })
                 foreach (double readyAt in new[] { 0d, 4000d, 5000d, 5001d, 5999d, 6000d, 6001d, 9000d, 25000d })
                     foreach (double now in new[] { 0d, 1000d, 5000d, 5500d })
                     {
