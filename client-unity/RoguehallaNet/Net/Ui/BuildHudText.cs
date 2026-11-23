@@ -45,6 +45,13 @@ namespace Roguehalla.Net.Ui
             "Acolyte", "Seraph Shard", "Penitent", "Zealot", "Blood Saint", "Archon",
         };
 
+        /// <summary>The GAINED cell at <paramref name="index"/> (0-8, legacy order) for one raw gain; Cells(s)[i] equals
+        /// Cell(i, s.Gains[i]) in every field. Throws ArgumentOutOfRangeException outside 0-8. STUB (P-UI-HUD-GARBAGE-1).</summary>
+        public static BuildCell Cell(int index, int raw)
+        {
+            return default(BuildCell);
+        }
+
         /// <summary>The nine cells in legacy order; empty when <paramref name="summary"/> is null (strip not shown yet).</summary>
         public static IReadOnlyList<BuildCell> Cells(WireBuildSummary summary)
         {
