@@ -305,6 +305,15 @@ Red on the stub, and on what:
   implementer is sure, report it instead of working around it.
 - The amended tests are red on the stub for the same reason (no `FeedbackLane/Toast0`).
 
+Fix pass (checker finding: the first-run hint in the rig):
+- `MatchHud.Bind` calls `ArmFirstRunHint`; the rig has no `AccountFlow`, so the profile is null and `_feedback` becomes the
+  first-run hint, which `TickFirstRunHint` expires only on `Time.unscaledTime` (it does not move in EditMode). A correct
+  implementation shows that sticky pill from the first frame. `ToastLanesEditModeTests` now clears `_firstRunHint` and
+  `_feedback` after the bind in SetUp and after the rebind in `ANewSessionStartsWithEmptyLanes` (helper `ClearFirstRunHint`).
+- The class was run against a throw-away implementation (router, model, `ToastLane`, wiring; not committed): 13/13 green, and
+  the dotnet `NoticeRouterTests` and `ToastLaneModelTests` 60/60, so the pill-level assertions have now run. On the stub the
+  class is still 13/13 red on assertions (12 on "EventLane / FeedbackLane exists", one on 200 vs 250).
+
 Where the spec and the code differ, or I chose:
 - The spec says the banner is 40 high; the code builds it 28 high (`MatchHud.TopCentre.cs:20`). The tests compute
   `topCentreBottom` as `12 + sizeDelta.y` of the active banner or phase pill, so either height works.
