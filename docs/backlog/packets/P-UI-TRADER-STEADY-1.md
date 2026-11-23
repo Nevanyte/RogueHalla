@@ -147,7 +147,7 @@ leave `_viewRef` on the old view) and the status string (a concatenation allocat
 
 ## Notes from the oracle author
 
-Tests (`TraderSteadyEditModeTests`, 21 cases) and their state on the base `9c9e4fa9c` (run with `unity-class.sh`):
+Tests (`TraderSteadyEditModeTests`, 23 cases) and their state on the base `9c9e4fa9c` (run with `unity-class.sh`):
 
 | Test | State on the base | Assertion it fails on |
 |---|---|---|
