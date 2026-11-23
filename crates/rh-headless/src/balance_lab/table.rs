@@ -30,21 +30,43 @@ fn time_lines(t: &mut String, w: &super::acc::World) {
         band_total(|c| c.m5_11),
         band_total(|c| c.m11_plus),
     ];
+    let dead = b.cell(Bucket::Dead);
+    let living = [
+        totals[0] - dead.all,
+        totals[1] - dead.m0_5,
+        totals[2] - dead.m5_11,
+        totals[3] - dead.m11_plus,
+    ];
     let _ = writeln!(
         t,
-        "time: % of seat-steps ({} steps; bands m0-5 {}, m5-11 {}, m11+ {}), each as all/m0-5/m5-11/m11+:",
-        w.time.steps, totals[1], totals[2], totals[3]
+        "time: % of ALL seat-steps | % of LIVING seat-steps (steps - dead; dead shown only against all); each as all/m0-5/m5-11/m11+"
+    );
+    let _ = writeln!(
+        t,
+        "  steps: all {} (m0-5 {}, m5-11 {}, m11+ {}); living {} (m0-5 {}, m5-11 {}, m11+ {})",
+        totals[0], totals[1], totals[2], totals[3], living[0], living[1], living[2], living[3]
     );
     for k in Bucket::ALL {
         let c = b.cell(k);
+        let of_living = |n: u64, i: usize| {
+            if k == Bucket::Dead {
+                "-".to_string()
+            } else {
+                pct(n, living[i])
+            }
+        };
         let _ = writeln!(
             t,
-            "  {:<12} {:>5} / {:>5} / {:>5} / {:>5}",
+            "  {:<12} {:>5} / {:>5} / {:>5} / {:>5} | {:>5} / {:>5} / {:>5} / {:>5}",
             k.name(),
             pct(c.all, totals[0]),
             pct(c.m0_5, totals[1]),
             pct(c.m5_11, totals[2]),
-            pct(c.m11_plus, totals[3])
+            pct(c.m11_plus, totals[3]),
+            of_living(c.all, 0),
+            of_living(c.m0_5, 1),
+            of_living(c.m5_11, 2),
+            of_living(c.m11_plus, 3)
         );
     }
     let _ = writeln!(
