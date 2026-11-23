@@ -72,7 +72,7 @@ namespace Roguehalla.Net.Tests
         public void NanTimesCountAsZero()
         {
             Assert.That(AbilityFaces.Spell(true, 1, double.NaN, 1000, 5000).Phase, Is.EqualTo(AbilityPhase.Ready), "NaN readyAt");
-            var face = AbilityFaces.Spell(true, 1, 5000, double.NaN, 10000);   // now counts as 0: 5,000 left
+            var face = AbilityFaces.Spell(true, 0, 5000, double.NaN, 10000);   // now counts as 0: 5,000 left
             Assert.That(face.Phase, Is.EqualTo(AbilityPhase.Cooling));
             Assert.That(face.Seconds, Is.EqualTo(5));
             Assert.That(face.Sweep, Is.EqualTo(.5f).Within(Eps));
