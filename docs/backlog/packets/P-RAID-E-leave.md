@@ -28,18 +28,29 @@ After this packet: a seat beside a live elite never holds a heal-up and walks aw
 seat's goal is an Elite goal Sustain's "lost" decision is Elite's death term; the n-th give-up at one camp bans it longer
 than the first; and Elite, Sustain and Farm price the hp they hold the same way, so a drink changes no price.
 
-Not here: Sustain's "a heal-up stand ends when hp falls or the seat was hit" (P-RAID-HOLD-1's), fight micro (P-RAID-C2),
+4. **The fall rule latches during a leave** (reviewer-opus on P-RAID-HOLD-1, F5): hp lost to the camp during the retreat reads
+   as a fall since the stand began, so a seat that has escaped keeps walking ("hurt while healing") until hp climbs back.
+   After this packet it stands once `hurt_seconds` pass with no hit and no further fall.
+
+Not here: Sustain's hit and fall exits themselves (P-RAID-HOLD-1's, landed), fight micro (P-RAID-C2),
 Farm taking the remains of an elite camp (P-RAID-E D5), a change to `Prices` itself, `arbiter.rs`, `bot.rs`.
 
 ## 2. Dependencies
 
-Base `coord/int-86` (P-RAID-E merged, not yet gated there). **P-RAID-HOLD-1 owns one rule in `exec/sustain.rs`**: a "healing
-up" stand ends when hp is falling or the seat was hit, or when it cannot regenerate. It owns `Sustain::think`'s stand branch
-(the `Step::running(Vec::new(), "healing up")` tail, `sustain.rs:318-322` here) and the hurt clock in `watch`. **This packet
-owns** `Sustain::nearest`, `in_fight`, `view`, `fight` and the heal-up branch of `propose` (`sustain.rs:139-213`, `262-273`,
-`373-384`), and `hp_held`. `think`'s threat branch (`:295-317`) follows from `nearest` and needs no edit. The oracle files of
-the two packets are disjoint; the two implementers edit the same file in different functions, which is why the stub commit
-does not edit `sustain.rs` at all, so the rebase onto P-RAID-HOLD-1 is trivial.
+Base `coord/int-86` @ `8d9b279ad` (P-RAID-E and P-RAID-HOLD-1 merged; the preview is not yet gated). **P-RAID-HOLD-1 has landed**
+(`sustain.rs`: `stand_hp`, `last_at`, `heading`, `move_trail`, `hurt`, `away`, the gates-locked and hurt exits in `think`'s
+stand part, `fall_share` 0.03 in `SustainPrices`). Its rule stays; this packet adds beside it. **This packet owns** in
+`exec/sustain.rs`: `nearest`, `in_fight`, `view`, `fight`, the heal-up branch of `propose`, `hp_held`, and now **the stand part
+of `think` and the life of `stand_hp`** (fact F5). The oracle files of HOLD-1 (`tests/raid_hold.rs`) are not touched.
+
+What the implementer must keep of HOLD-1 (reviewer-opus's list):
+- in `propose`, `!gates_locked && !self.hurt(cx)` stays beside this packet's "no living threat of any class in reach";
+- the order of the hold in `think`: threat branch, healed, locked, hurt;
+- the life of `stand_hp`: set by `start`, cleared in `observe` when the goal is not Sustain (changed only as F5 says);
+- `move_trail` before `watch` in `observe`, both only with sustain on;
+- to reconcile: `away()` scans every mob at any distance (ties by key) while `nearest()` will count elites within `threat_u`:
+  ideally one threat list with one key tie-break; `hurt()` and `in_fight()` both read `hurt_at`, so if the drink bookkeeping of
+  `watch` moves into `held.rs`, `hurt_at` and the hp-fall stamp must survive in `Sustain`.
 
 ## 3. Relevant legacy paths
 
@@ -105,6 +116,20 @@ None: RaidBot has no legacy counterpart. References: `docs/backlog/packets/P-RAI
 - `chest_candidate` prices `death: 0` with adds near the chest (`elite.rs:457-476`): **left out**.
 - Loot's own `Choose` once the ask window closes: **left out**.
 
+### F5. The fall rule latches during a leave (on `8d9b279ad`)
+
+- `start` sets `stand_hp = Some(hp)` when the goal begins (`sustain.rs:472-478`). For a leave that is before the retreat.
+  `think` returns from the threat branch (the retreat) before `stand_hp` is touched (`:385-386` is the stand part only), so hp
+  lost to the camp during the retreat is a fall of more than `fall_share` below the mark, and `hurt()` (`:173-180`) stays
+  true; the stand part then answers "hurt while healing" with a move (`away`) until hp is within 0.03 of where the leave began.
+  With no potion a retreat that cost 0.2 hp is about 21 s of regeneration plus the 3 s quiet spell, all walking (by reading;
+  the lab showed 17 walk frames in six seeds held by the latch alone, seats there drink).
+- Measured on this base (oracle test `a_leave_that_cost_hp_during_the_retreat_stands_once_the_hits_stop`): a leave adopted
+  at hp 0.5, hp falling to 0.3 under hits during ten retreat frames, the add left behind, then 100 frames (5 s) with no hit:
+  the step is still `Running` with a move ("move off while hurt", why "hurt while healing").
+- Wanted: `stand_hp` is reset to the current hp once `hurt_at` is older than `hurt_seconds`, and cleared in the retreat branch
+  ("not again until `hurt_seconds` pass with hp no lower"); a fall after that still ends the stand (HOLD-1's oracle).
+
 ## 4. New paths
 
 - `crates/rh-policy/src/bots/raid/exec/held.rs` (stub: the shared hp-held helper, design decision 4).
@@ -118,7 +143,8 @@ None: RaidBot has no legacy counterpart. References: `docs/backlog/packets/P-RAI
   elite dies or the camp respawns untouched), the stubbed pure functions `ban_seconds_after` and `elite_fight_lost`, a
   `HotWatch` field and its `observe` call.
 - `exec/sustain.rs`: the functions listed in section 2 only, plus `hp_held` and `watch`'s drink bookkeeping moved into the
-  shared helper (the stub does not edit this file).
+  shared helper (the stub does not edit this file), plus the stand part of `think` and `stand_hp`'s life (F5: reset once
+  `hurt_at` is older than `hurt_seconds`, cleared in the retreat branch). Keep what section 2 lists of HOLD-1.
 - `exec/farm.rs`: the `hp` line of `propose` (`:153-157`), a `HotWatch` field, and an `observe` that feeds it (Farm has
   none today). Nothing else.
 - `exec/held.rs` (new, the helper's home), `exec/mod.rs` (the `pub mod held;` line, from the stub).
@@ -235,7 +261,7 @@ on the stub by assertion.
 
 ## Oracle files (read-only for implementers)
 
-- `crates/rh-policy/src/bots/raid/exec/elite_leave_tests.rs` (12 tests, 11 red on the stub by assertion, 1 green guard)
+- `crates/rh-policy/src/bots/raid/exec/elite_leave_tests.rs` (13 tests, 12 red on the stub by assertion, 1 green guard; the 12 are unchanged by P-RAID-HOLD-1, none turned green)
 - `crates/rh-policy/tests/raid_elite_leave.rs` (3 tests, red on the stub by assertion)
 - `docs/backlog/packets/P-RAID-E-leave.md` (this brief)
 
@@ -252,7 +278,8 @@ Red on the stub, by test: `no_heal_up_is_proposed_with_a_live_elite_in_reach`, `
 `the_ban_after_n_give_ups_is_longer_than_after_one_and_capped`, `the_executor_bans_a_camp_longer_at_each_give_up`,
 `a_drink_does_not_change_the_hp_held`, `the_heal_watch_reads_a_stock_that_fell_as_a_drink`,
 `the_elite_candidate_does_not_change_when_the_seat_drinks` (measured on the base: death 0.321 before the drink, 0.536 after),
-`the_farm_candidate_does_not_change_when_the_seat_drinks` (0.155 before, 0.431 after). Green on the base by design:
+`the_farm_candidate_does_not_change_when_the_seat_drinks` (0.155 before, 0.431 after). Red for F5:
+`a_leave_that_cost_hp_during_the_retreat_stands_once_the_hits_stop` (still walking after 5 s). Green on the base by design:
 `farm_only_proposes_nothing_from_elite_or_sustain`.
 
 ## NOT ESTABLISHED
