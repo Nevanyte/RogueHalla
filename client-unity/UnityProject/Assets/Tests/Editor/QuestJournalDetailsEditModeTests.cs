@@ -248,8 +248,10 @@ namespace Roguehalla.Client.Tests
             Assert.IsFalse(Req(Detail + "/AbandonQuest").gameObject.activeSelf, "no Abandon");
 
             Deliver(new[] { Row(_first, "Held", "b", "o", "r", false, true) }, new[] { Act(_first, 1, 0, "Abandon") }); Select(_first);
-            foreach (var name in new[] { "QuestName", "QuestObjective", "QuestGiver", "QuestReward", "QuestParticipants" })
+            foreach (var name in new[] { "QuestObjective", "QuestGiver", "QuestReward" })
                 Assert.IsTrue(FieldLabel(name).gameObject.activeInHierarchy, name + " has its heading after a selection");
+            foreach (var name in new[] { "QuestName", "QuestParticipants" })
+                Assert.IsFalse(FieldLabel(name).gameObject.activeInHierarchy, name + " has no heading: the name has none, and the row has no participants");
             Deliver(new[] { Row(_second, "Other", "b", "o", "r", false, true) });
             foreach (var name in new[] { "QuestName", "QuestObjective", "QuestGiver", "QuestReward", "QuestParticipants" })
                 Assert.IsFalse(FieldLabel(name).gameObject.activeInHierarchy, name + " is hidden again when the row is gone");
