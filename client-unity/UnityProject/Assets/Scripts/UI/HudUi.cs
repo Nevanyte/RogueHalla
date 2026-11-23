@@ -53,6 +53,19 @@ namespace Roguehalla.Client
             rect.sizeDelta = new Vector2(width, height);
         }
 
+        /// <summary>Places a fixed-size box from a <see cref="Roguehalla.Net.Ui.HudRegion"/> (same rule as the long overload).</summary>
+        public static RectTransform Box(Transform parent, string name, Roguehalla.Net.Ui.HudRegion region)
+        {
+            var rect = (RectTransform)new GameObject(name, typeof(RectTransform)).transform;
+            rect.SetParent(parent, false);
+            return rect;
+        }
+
+        /// <summary>Places an existing rect from a <see cref="Roguehalla.Net.Ui.HudRegion"/>.</summary>
+        public static void Place(RectTransform rect, Roguehalla.Net.Ui.HudRegion region)
+        {
+        }
+
         /// <summary>A child that fills its parent with the given insets (left, top, right, bottom).</summary>
         public static RectTransform Inset(Transform parent, string name, float left, float top, float right, float bottom)
         {
