@@ -167,11 +167,12 @@ wiring, no call from the presenter): P-UI-WORLD-NAMES-2 does that.
 
 - `client-unity/RoguehallaNet.Tests/OverheadBoxLayoutTests.cs`
 - `client-unity/RoguehallaNet.Tests/OverheadClusterTests.cs`
-- `client-unity/UnityProject/Assets/Tests/Editor/NameLayoutKeyEditModeTests.cs` (and its `.meta`)
+- `client-unity/UnityProject/Assets/Tests/Editor/NameLayoutKeyEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/NameLayoutKeyEditModeTests.cs.meta`
 - `docs/backlog/packets/P-UI-WORLD-NAMES-1.md`
 
 The `stub:` commit holds `Lib/OverheadBoxLayout.cs`, `Lib/OverheadCluster.cs` (no behaviour), their synced copies and
-`.meta`, and `public int LayoutKey;` on `Art`. The implementer replaces them.
+`.meta` (both `stub:` commits), and `public int LayoutKey;` on `Art`. The implementer replaces them.
 
 ## Tests (what each pins; all red on the stub at a behaviour assertion)
 
@@ -309,6 +310,29 @@ neutral beyond what the listed classes see.
 
 ## Notes from the oracle author
 
-(filled in with the oracle commit)
+- **Red on the stub (run 2026-11-23):** dotnet, 14 of 14 red, each on a behaviour assertion: `TwoTouchingBoxesTheLaterInTheOrderYields`
+  (B lift expected .44, was 0), `PadsGapAndJitter` ("just inside PadEnter" .44 vs 0), `TheKeepBandHoldsThenReleases`
+  (`MemoryCount` 2 vs 0), `AClusterMovesAsOne` (target .44 vs 0), `FixedRectanglesLiftEveryBoxButOptOuts` (.32 vs 0),
+  `AFrozenOrCutClockForgets` (contact first .44 vs 0), `ReducedMotionJumpsAndKeepsTheHold` (.44 vs 0),
+  `TheStackTheCapAndTargets` (box 1 .44 vs 0), `ASteadyFrameAllocatesNothing` (`BoxCount` 40 vs 0),
+  `TheMemoryFollowsTheKeyNotTheGeometry` (.44 vs 0), `KeysAndClassesKeepTheOrderTheDesignNeeds` (`SerialKey(5)` 5 vs 0),
+  and the three `OverheadClusterTests` (`AddParts` count 2, 8, 8 vs 0). Unity: `NameLayoutKeyEditModeTests` red at
+  "id 1 has a key" (expected greater than 0, was 0).
+- **Every line can run.** The dotnet expectations were proved against a throw-away reference implementation of the rules
+  above (written by the oracle author, not committed): all 14 tests pass on it, including the 120-solve jitter run, the
+  hold and release counts, the cap, the ageing and the 0-byte frame. For the EditMode class a scratch run with a
+  catch-and-collect helper (not committed) collected 5 entries, all key assertions ("id 1 has a key", "id 3 has a key", "two
+  arts, two keys", and the two "fresh key above" lines); the premises (`MobArt.Continued` 1, `MobArt.Destroyed` 1, the pooled
+  art reused by `ReferenceEquals`, the reflection lookups) passed on the stub, so no later line throws.
+- **Existing classes on the stub:** the 40 classes of "Existing tests" (the 39 `SpriteActorPresenter` files minus none, plus
+  `StormInkSignatureCueEditModeTests` and `CampLabelStableEditModeTests`): 442 tests, 442 passed.
+- **Deviations from the lane spec:** none in design. Details: (1) `ContinuityEnabled` is saved in SetUp and restored in
+  TearDown instead of a `finally` (same effect, matches the class's pattern). (2) The `TryMemory` ageing checks use the raw key
+  `2L`, not `SerialKey(2)`, so the ageing test does not depend on the key functions. (3) The cluster test pins the bounty
+  number's rectangle `(-.312, .7873, .312, 1.1305)` and the name's `(-.624, -.17, .624, .17)`, which the spec leaves out; both
+  follow from the spec's rule and `OverheadStack.Build`. (4) The stub's `AddBox` returns 0 and `BoxCount` is 0 (no behaviour).
+- **Legacy-style doubts:** none. Two points the implementer may meet: the `r.y0 < q.y1 + Gap` test after a raise sits within
+  an ulp of equality (the 32-pass cap and the 1e-4 tolerance cover it), and `Hold` in the tests is `(int)(.45f / (1f / 60f))`,
+  which is 26 or 27 depending on float rounding (every use leaves a margin of 3).
 
 ## Notes from previous attempts
