@@ -133,7 +133,7 @@ namespace Roguehalla.Client
         float _height = 60f;
 
         /// <summary>The card's bottom edge from the stage top while it shows, else a negative number.</summary>
-        public float Bottom { get { return -1f; } }
+        public float Bottom { get { return IsVisible ? _top + _height : -1f; } }
 
         /// <summary>Where the card's top edge sits in HUD units: under the GAINED plate, and under the terrain chip row when one shows (MatchHud sets it).</summary>
         public void SetTop(float top)

@@ -173,10 +173,22 @@ namespace Roguehalla.Client
         }
 
         /// <summary>The bottom edge, from the top of the stage, of the lowest showing element of the plate, terrain row and hunt card chain.</summary>
-        float PlateChainBottom() { return 0f; }
+        float PlateChainBottom()
+        {
+            float bottom = PlateTop + (_vitalsPanel != null ? _vitalsPanel.sizeDelta.y : 148f);
+            if (_terrainRow != null && _terrainRow.gameObject.activeSelf && _terrainTop >= 0f) bottom = bottom + 4f + _terrainHeight;
+            if (_huntPanel != null) bottom = Mathf.Max(bottom, _huntPanel.Bottom);
+            return bottom;
+        }
 
         /// <summary>The top of whatever lies under the quest tracker, minus 8: the readout strip while it shows, else the champion panel.</summary>
-        float TrackerFloor() { return 0f; }
+        float TrackerFloor()
+        {
+            float height = _hud != null ? _hud.rect.height : 800f;
+            if (_readoutStrip != null && _readoutStrip.gameObject.activeInHierarchy && !string.IsNullOrEmpty(_readoutStrip.text))
+                return height * (1f - _readoutStrip.rectTransform.anchorMax.y) - Roguehalla.Net.Ui.HudRegions.TrackerGap;
+            return height - ChampionBottom - ChampionHeight - Roguehalla.Net.Ui.HudRegions.TrackerGap;
+        }
 
         /// <summary>The Hunt card sits below the plate, and below the chip row (and home-ground note) when one is shown.</summary>
         void PlaceHuntPanel()
