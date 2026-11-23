@@ -219,7 +219,7 @@ Augment (workbook `Augment_Value`, formulas in its rows 15-27 and 30+):
 
 ## 8. Acceptance checks
 
-- `cargo test -p rh-headless --test balance_eval` passes (the oracle, four tests).
+- `cargo test -p rh-headless --test balance_eval` passes (the oracle, five tests).
 - `scripts/gate.sh --quick --oracle packet/P-BAL-EVAL-1` passes.
 - `python3 scripts/readability_check.py` clean.
 - `cargo run -p rh-headless --bin balance_eval -- --report r.json --inputs tools/balance-lab/inputs.json` on a real lab
@@ -291,7 +291,7 @@ plan before this packet. The one existing check that reads these directories is 
 
 - `crates/rh-headless/tests/balance_eval.rs`
 
-Four tests, each over hand-built reports through `balance_model::evaluate_json(report, inputs)`:
+Five tests, four over hand-built reports through `balance_model::evaluate_json(report, inputs)`:
 
 1. `quest_a_worked_example`: QUEST_VALUE_MODEL section 8, lines 147-165 ("`Quest A, time only: τ = 0.75 min, p = 1, E[C] =
    2.9·0.75 = 2.18` CE, so it needs `V ≥ 2.50`. → ... overpriced for its reward even at R = 8 (2.04 < 2.50) ... about a 37 s
@@ -311,8 +311,9 @@ Four tests, each over hand-built reports through `balance_model::evaluate_json(r
    samples) gives no value, ratio, verdict or timer for that quest and a non-empty reason, and no field is `0.0`; (b) a
    quest with completions but no `samples` has a ratio and no timer; (c) a quest absent from `inputs.json` has no timer; (d)
    a `growth: "measured"` augment with no native data has no ratio; (e) a report with schema `balance-lab/2` is an `Err`.
-   Also: the shipped `tools/balance-lab/inputs.json` parses, holds the band 0.85 to 1.25 and the targets 0.95 / 0.85 / 0.70,
-   and gives a difficulty class to every route-clock quest of the Top 25 catalog.
+5. `shipped_inputs_hold_the_design_intent`: the shipped `tools/balance-lab/inputs.json` parses, holds the band 0.85 to 1.25
+   and the targets 0.95 / 0.85 / 0.70, and gives a difficulty class to every quest of the Top 25 catalog that has a route
+   timer (`route_timer_ms.is_some()`, `catalog.rs:179`).
 
 (The `stub:` commit holds `crates/rh-headless/src/balance_model.rs` (public types and signatures, bodies returning empty
 results), `src/bin/balance_eval.rs`, the `pub mod balance_model;` line and an empty `tools/balance-lab/inputs.json`; the
