@@ -143,6 +143,8 @@ pub struct Prices {
     pub answer_minutes: f64,
     /// The share of its worth a reusable quest spell keeps while it has no charge (recharging).
     pub recharging_share: f64,
+    /// The minutes from a Bargain's giver to its hag, priced before the quest is accepted (min; the hag is not in the view then).
+    pub bargain_leg_minutes: f64,
 }
 
 /// What the weapon in hand adds to a stat's worth (`bots/temporal_percept/modules/choice.rs` `base_fit`).
@@ -256,6 +258,7 @@ impl Prices {
         death_floor: 0.02,
         answer_minutes: 0.01,
         recharging_share: 0.5,
+        bargain_leg_minutes: 0.5,
     };
 
     /// `LOCAL` with quest rewards and augments worth nothing and sustain off: a seat that farms, roams and opens chests
