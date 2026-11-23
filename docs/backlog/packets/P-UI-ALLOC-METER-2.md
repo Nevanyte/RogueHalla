@@ -54,7 +54,22 @@ none (test support in the Unity client; no legacy behaviour).
 
 ### Measured table (oracle author, editor 6000.0.85f2, from `ProjectSettings/ProjectVersion.txt`, the editor `unity-class.sh` runs)
 
-MEASURED_TABLE_PLACEHOLDER
+Method: an uncommitted scratch class held the listing of section 1 (the warm-up, the recorder sequence, `sampleBlockCount`) and the controls below; per cell 20 rounds with `GC.Collect()` before every third round; "low / high" are the lowest and highest read of the 20. Two runs: the class alone, and in one run with `PlayerFlowsEditModeTests`, `HudLegacyLayoutEditModeTests`, `TabMapSheetEditModeTests` and `AllocationMeterEditModeTests`. Both runs gave the same numbers.
+
+| Control (per call) | calls n | k * n | alone low / high | heavy run low / high |
+|---|---|---|---|---|
+| 1 `new object()` | 10 | 10 | 10 / 10 | 10 / 10 |
+| 1 `new object()` | 100 | 100 | 100 / 100 | 100 / 100 |
+| 2 `new object()` | 10 | 20 | 20 / 20 | 20 / 20 |
+| 2 `new object()` | 100 | 200 | 200 / 200 | 200 / 200 |
+| 5 `new object()` | 10 | 50 | 50 / 50 | 50 / 50 |
+| 5 `new object()` | 100 | 500 | 500 / 500 | 500 / 500 |
+| `CountingControl` (3 `new object()`), the cell self-check (c) depends on | 10 (`ControlCalls`) | 30 | 30 / 30 | 30 / 30 |
+| for information: one boxed `int` | 100 | 100 | 100 / 100 | 100 / 100 |
+| for information: `"a" + int.ToString()` (2 allocations: the ToString string and the concatenation) | 100 | 200 | 200 / 200 | 200 / 200 |
+| for information: `new int[8]` | 100 | 100 | 100 / 100 | 100 / 100 |
+
+Reading: no read in any cell is below `k * n`, so the meter does not under-count on 6000.0.85f2 and self-check (c) is sound. Every read equals `k * n`, so the doc comments of `Samples` and `AssertAtMost` say **"one sample per allocation (measured on 6000.0.85f2)"**. Array size does not change the count (an 8-int array is one sample). The table claims nothing for another editor. A test asserts `>=` only, never equality.
 
 ## 4. New paths
 
@@ -111,7 +126,11 @@ Sonnet: one file, a short fixed sequence. The risk is in the window: any allocat
 
 ## Notes from the oracle author
 
-NOTES_PLACEHOLDER
+- **Scratch run done** (not committed): a copy of `AllocationMeterCountEditModeTests` with every `Assert.That`, `Assert.Throws<T>` and `Assert.DoesNotThrow` routed through a catch-and-collect helper, failing in `TearDown` with the list, run on the stub. Every entry was an assertion about the missing behaviour (counts of 0 against `>= k * n`, no throw from `AssertAtMost`, override not honoured, warm-up counter 0 against 14); no exception from set-up or deliveries. The witness parse works: on the stub it printed "The provided delegate made 20 GC allocation(s)." for the allocating control at 10 calls (2 allocations a call: the object and the string), and the parse takes "made N". The type is `NUnit.Framework.Internal.TextMessageWriter` (the test writes it fully qualified; `NUnit.Framework.Constraints` does not hold it in this NUnit), so the count comparison in `CountAndAnswerAgreeTwentyTimes` is kept.
+- **Red on the stub**, each on an assertion: `ACleanDelegateCountsZero` (the meter counts string concatenation: expected > 0, was 0); `EveryAllocationIsCountedAtLeastOnce` (one object x10: expected >= 10, was 0); `CountAndAnswerAgreeTwentyTimes` (round 0, allocating control: count above 0 exactly when the constraint succeeds); `AssertAtMostPassesAtTheLimitAndFailsOneAbove` (the override saw the measured action once: expected 1, was 0); `AMeterThatIsBlindOrWrongFailsAsNotWorking` (blind to the allocating control: no `AssertionException`); `TheRealMeterBacksAssertAtMost` (an allocating action fails a limit of 0: no throw); `TheSeamsAreSeparate` (Samples returns the override's answer: expected 5, was 0); `TheWarmUpRunsTheActionOnceMoreFirst` (expected 14, was 0); `BadArgumentsThrowBeforeMeasuring` (a null action: no `ArgumentNullException`). Run: `AllocationMeterCountEditModeTests,AllocationMeterEditModeTests,PlayerFlowsEditModeTests,HudLegacyLayoutEditModeTests,TabMapSheetEditModeTests`: 87 tests, 78 passed, the 9 new ones red, the six `AllocationMeterEditModeTests` and the three heavy classes green.
+- The test the spec calls item 10 (the old six stay green alone, with the heavy three, and in the gate's whole suite) is not a separate test: it is the existing class, run as above.
+- **One flake seen on the unchanged `Raw` path (stub):** in one run of `ScratchSoftCountEditModeTests,AllocationMeterCountEditModeTests,AllocationMeterEditModeTests` together, `AllocationMeterEditModeTests.ACleanDelegateIsNotSeen` failed once on "Time.frameCount read x10000 allocates nothing" (expected false, was true). Run alone (6/6) and in the heavy run (above, and a second time) it passed. The stub did not change `Raw`, `Allocates` or the controls' behaviour, so this is an existing noise source of the older meter that the implementer should keep in mind when a 10,000-call clean cell fails once; it is not a defect in the new tests.
+- Spec deviation: none in design. The commit order is brief, stub, oracle; the `.meta` of the new test file is in the oracle commit.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
