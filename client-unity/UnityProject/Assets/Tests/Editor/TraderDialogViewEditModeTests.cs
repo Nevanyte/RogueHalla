@@ -117,8 +117,8 @@ namespace Roguehalla.Client.Tests
             Assert.That(ChoiceLabel(2).text, Does.Contain("Third offer"));
             Assert.That(ChoiceLabel(0).text, Does.Contain("Same offer"));
             Assert.That(ChoiceLabel(0).text, Does.Not.Contain("Costs"), "no raw cost/gain numbers beside the server label");
-            Assert.AreEqual("AD  -1.25", ChoiceContent().Find("AppliedStat_0").GetComponent<TMP_Text>().text);
-            Assert.AreEqual("AD  0.5", ChoiceContent().Find("AppliedStat_1").GetComponent<TMP_Text>().text);
+            Assert.AreEqual("Offense  -1.25", ChoiceContent().Find("AppliedStat_0").GetComponent<TMP_Text>().text);
+            Assert.AreEqual("Offense  0.5", ChoiceContent().Find("AppliedStat_1").GetComponent<TMP_Text>().text);
             Assert.AreEqual("max HP  -12", ChoiceContent().Find("AppliedStat_2").GetComponent<TMP_Text>().text);
 
             Assert.IsTrue(_view.SelectMerchant(1));

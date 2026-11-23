@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using Roguehalla.Net;
+using Roguehalla.Net.Ui;
 using TMPro;
 using UnityEngine;
 
@@ -21,8 +22,6 @@ namespace Roguehalla.Client
         RectTransform _chestBarFill;
         UnityEngine.UI.Button _chestNext;
         UnityEngine.UI.Image _chestFocusRing;
-
-        static readonly string[] BoostNames = { "Offense", "Soul Offence", "Defense", "Soul Defense", "Max health", "Attack speed", "Move speed", "Lifesteal" };
 
         void CreateChestPanel()
         {
@@ -83,7 +82,7 @@ namespace Roguehalla.Client
             return tail == "I" || tail == "II" || tail == "III" || tail == "IV" || tail == "V" ? tail : "";
         }
 
-        public static string BoostLabel(BoostId id) { int i = (int)id; return i >= 0 && i < BoostNames.Length ? BoostNames[i] : id.ToString(); }
+        public static string BoostLabel(BoostId id) { return PlayerWords.Word(id); }
 
         /// <summary>Per frame: the countdown and its bar follow the server's deadline (the part of the panel that is not cached by signature).</summary>
         void RefreshChestClock(RewardChestView chest)

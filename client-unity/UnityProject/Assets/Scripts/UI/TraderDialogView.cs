@@ -5,6 +5,7 @@ using TMPro;
 using UnityEngine;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
+using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
@@ -376,7 +377,7 @@ namespace Roguehalla.Client
         {
             if (index < 0 || index >= view.Merchants.Count) return;
             var merchant = view.Merchants[index];
-            Set(_detailHeading, merchant.Name + " · " + merchant.Kind);
+            Set(_detailHeading, merchant.Name + " · " + PlayerWords.Word(merchant.Kind));
             UpdateDetailSummary(view, index);
             if (rebuild) RebuildChoices(view);
             RefreshMerchantSelection();
@@ -570,23 +571,10 @@ namespace Roguehalla.Client
 
         static string MerchantLabel(MerchantView merchant)
         {
-            return merchant.Name + "\n" + (merchant.Kind == TradeKind.Barter ? "Weapon barter" : "Stat trader");
+            return merchant.Name + "\n" + PlayerWords.Word(merchant.Kind);
         }
 
-        static string StatName(TradeStat stat)
-        {
-            switch (stat)
-            {
-                case TradeStat.MaxHp: return "max HP";
-                case TradeStat.Ad: return "AD";
-                case TradeStat.Ap: return "AP";
-                case TradeStat.AttackSpeed: return "attack speed";
-                case TradeStat.MoveSpeed: return "move speed";
-                case TradeStat.Armor: return "armor";
-                case TradeStat.Shield: return "shield";
-                default: return stat.ToString();
-            }
-        }
+        static string StatName(TradeStat stat) { return PlayerWords.Word(stat); }
 
         static string FormatDouble(double value) { return Math.Round(value, 2).ToString("0.##", CultureInfo.InvariantCulture); }
         static string StateCopy(SessionState state)
@@ -597,7 +585,7 @@ namespace Roguehalla.Client
                 case SessionState.Failed: return "Connection failed";
                 case SessionState.Rejected: return "Connection rejected";
                 case SessionState.Ended: return "Match ended";
-                default: return state.ToString();
+                default: return PlayerWords.Word(state);
             }
         }
         void SetState(string value) { Set(_status, value); }

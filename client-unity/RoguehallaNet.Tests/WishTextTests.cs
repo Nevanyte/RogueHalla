@@ -20,6 +20,12 @@ namespace Roguehalla.Net.Tests
     /// </summary>
     public sealed class WishTextTests
     {
+        /// <summary>P-UI-PLAYER-WORDS-2: the player's word for each ability (it was the identifier).</summary>
+        static readonly System.Collections.Generic.Dictionary<AbilityId, string> Words = new System.Collections.Generic.Dictionary<AbilityId, string>
+        {
+            [AbilityId.Freeze] = "Freeze", [AbilityId.Swarm] = "Swarm", [AbilityId.Trial] = "Trial", [AbilityId.Blaze] = "Blaze Step", [AbilityId.LastStand] = "Last Stand",
+        };
+
         const string TipLine2 = "Blocks walking and melee swings; shots fly over it";
 
         static WireHudContent Vector(string name)
@@ -133,7 +139,7 @@ namespace Roguehalla.Net.Tests
                 Assert.That(HudContentText.WishTip(hud, f), Is.EqualTo(""), f + " has no extra tooltip lines today");
             }
             foreach (AbilityId a in Enum.GetValues(typeof(AbilityId)))
-                Assert.That(HudContentText.WishName(hud, a), Is.EqualTo(a.ToString()), a.ToString());
+                Assert.That(HudContentText.WishName(hud, a), Is.EqualTo(Words[a]), a.ToString());
         }
 
         [Test]
@@ -175,7 +181,7 @@ namespace Roguehalla.Net.Tests
                 Assert.That(HudContentText.WishTip(hud, f), Is.EqualTo(""), f.ToString());
             }
             foreach (var a in new[] { AbilityId.Swarm, AbilityId.Trial, AbilityId.Blaze, AbilityId.LastStand })
-                Assert.That(HudContentText.WishName(hud, a), Is.EqualTo(a.ToString()), a.ToString());
+                Assert.That(HudContentText.WishName(hud, a), Is.EqualTo(Words[a]), a.ToString());
         }
     }
 }
