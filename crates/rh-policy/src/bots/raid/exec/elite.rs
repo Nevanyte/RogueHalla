@@ -18,7 +18,7 @@
 //!   `MAX_ASKS`).
 use crate::bots::loot::{ASK_WINDOW_MS, MAX_ASKS};
 use crate::bots::mob_hunt::best_slot_vs_mob;
-use crate::bots::perception::ChestRef;
+use crate::bots::perception::{ChestRef, CHEST_PANEL_RANGE};
 use crate::bots::planning::{matchup_share_of_kind, zone_faction};
 use crate::bots::raid::exec::farm::{death_chance, dist, lock_range, DEFEND_U, FIGHT_U};
 use crate::bots::raid::exec::held::{hp_held, HotWatch};
@@ -35,6 +35,12 @@ use crate::bots::types::{
 use rh_sim::cards::CardId;
 use rh_sim::mob_catalog::MobTypeId;
 use rh_sim::{Vec2, WeaponId};
+
+/// How far inside the chest panel's reach (`CHEST_PANEL_RANGE`) the chest phase stands, so a step or a shove does not
+/// take the seat out of it (P-RAID-E-leave-fix2).
+const CHEST_REACH_MARGIN_U: f64 = 16.;
+/// The chest phase stands within this of the chest and walks to it from farther.
+const CHEST_REACH_U: f64 = CHEST_PANEL_RANGE - CHEST_REACH_MARGIN_U;
 
 /// What the seat knows of one elite camp's elite.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -537,6 +543,8 @@ impl Elite {
     }
 
     /// One think of the chest phase: walk to the camp's chest and stand in its panel's reach; the pick rides along.
+    /// Standing at the chest is being within `CHEST_REACH_U` of it, whatever travel's stillness rule says (a killer has
+    /// just stood still, so `travel::walk` would call 150 u "arrived"): beyond it the seat clicks toward the chest.
     fn chest_step(&mut self, cx: &mut Cx<'_>, camp_at: Vec2, killed_at: f64) -> Step {
         if self.chest_over(cx, camp_at, killed_at) {
             return Step::done("the elite's chest is picked, gone or out of time");
@@ -544,9 +552,14 @@ impl Elite {
         let Some(at) = Self::camp_chest(cx, camp_at).map(|c| c.at) else {
             return Step::running(Vec::new(), "looking for the elite's chest");
         };
-        let step = travel::walk(cx, at, "to the elite's chest");
-        if step.status == Status::Running {
-            return step;
+        if cx.p.dist(at) > CHEST_REACH_U {
+            // No known way: stand where the seat is (as before), `chest_over` bounds the wait.
+            if let Some(next) = step_toward(cx.paths, cx.p.me.at, at) {
+                return Step::running(
+                    vec![move_intent(next, "to the elite's chest")],
+                    "to the elite's chest",
+                );
+            }
         }
         Step::running(Vec::new(), "at the elite's chest")
     }
@@ -601,8 +614,16 @@ impl Elite {
                     })
             })
             .cloned();
-        // The camp is on the bot: the elite or a member close, or a mob fighting at our side.
-        let fighting = elite.as_ref().is_some_and(|m| cx.p.dist(m.at) <= FIGHT_U)
+        // The seat attacks the camp from any range: its own lock names the elite or a member (a ranged weapon locks
+        // beyond `FIGHT_U`). A redacted lock (`target: None`) names nothing.
+        let lock_on_camp = locked.is_some()
+            || matches!(
+                (&cx.p.base.self_view.owner_lock, &elite),
+                (Some(OwnerLock::Held { target: Some(key) }), Some(m)) if *key == m.key
+            );
+        // The camp is on the bot: the elite or a member close, or a mob fighting at our side; or the seat's lock on it.
+        let fighting = lock_on_camp
+            || elite.as_ref().is_some_and(|m| cx.p.dist(m.at) <= FIGHT_U)
             || cx.p.mobs.iter().any(|m| {
                 m.alive
                     && m.class == MobClass::Regional
