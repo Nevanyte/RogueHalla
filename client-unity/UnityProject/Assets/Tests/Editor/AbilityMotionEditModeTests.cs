@@ -455,7 +455,10 @@ namespace Roguehalla.Client.Tests
         [Test]
         public void EveryPressPulseGoesThroughTheOneHudPulses()
         {
-            BuildRig(); Snap(10, 50000); Frame();
+            BuildRig();
+            SnapWish(10, 50000, Wish(1, 40000, 10000));
+            Items(11, Spells(new WireQuestSpell { Slot = 0, Reward = 3, Charges = 1, ReadyAt = 0 }));
+            Frame();
             var field = typeof(MatchHud).GetField("_pulses", All);
             Assert.That(field, Is.Not.Null, "MatchHud keeps _pulses");
             Assert.That(field.FieldType, Is.EqualTo(typeof(HudPulses)), "and it is the one HudPulses");
