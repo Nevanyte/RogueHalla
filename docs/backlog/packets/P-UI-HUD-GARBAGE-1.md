@@ -349,6 +349,7 @@ On the throwaway every test of the three classes is green (16 of 16 EditMode tes
   throwaway implementation the collected list was empty except the three bounded tests at a limit of 0 (which gave M). That run found one
   defect of mine, fixed before the commit: in test 12 (g) the summary had no zero cell, so the muted colour was not tested (it now uses a
   summary with two zero gains).
+- **Fix pass (checker finding on test 12 (g))**: the theme step used to follow a summary whose two muted cells (1 and 6) held non-zero gains, so they were rewritten by their raw change whatever the key held, and only TextPrimary was isolated. Test 12 (g) now first delivers a settled `Summary(BaseGains, ...)` (muted cells already 0), then switches the theme and delivers a second fresh equal summary: no raw value changes, so only a key that holds TextSecondary and TextPrimary recolours the cells. The per-cell colour loop is kept. The changed lines come after (a) in test 12 and so did not run on the stub (the test stops at (a)); they use only helpers the same test already calls.
 - **Throwaway implementation**: the six cuts as the spec describes them (the packet's edits (i) and (ii) from the experiment, a writer for the
   vitals strings with two stale flags and `_lastFaction`, `BuildDrawer.Refresh` gated on the open drawer plus the `ToggleBuild` refresh, the
   weapon-name array, `BuildHudText.Cell`, persistent `BuildCell[9]` with a version counter, per-cell labels, a mob-rows copy, the independent BUILD
