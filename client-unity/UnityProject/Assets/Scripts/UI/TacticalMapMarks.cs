@@ -134,6 +134,15 @@ namespace Roguehalla.Client
 
         protected override void OnRectTransformDimensionsChange() { base.OnRectTransformDimensionsChange(); RefreshZoneLabels(); }
 
+        /// <summary>Moves the own marker to the drawn character (no repaint of the other marks); a no-op without a delivered position.</summary>
+        public void FollowSelf(float x, float y)
+        {
+            if (!_self.HasValue) return;
+            var p = new Vector2(x, y);
+            if (_self.Value == p) return;
+            _self = p; SetVerticesDirty();
+        }
+
         public void Present(Session session, IReadOnlyList<RoutePoint> route)
         {
             _actors.Clear(); _route.Clear(); _chests.Clear(); _chestRows.Clear(); _camps.Clear(); _realIcons = 0; _wards.Clear(); _contactMarks.Clear(); _marked.Clear(); _self = null; ClearDelivered();
