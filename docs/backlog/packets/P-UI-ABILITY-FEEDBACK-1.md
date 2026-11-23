@@ -255,10 +255,75 @@ rig (deliveries rise, seam time) and the "never late" lane rule; both are pinned
 - `Tools/hud-seams.test.cjs` :52 requires `InputCue` to stay `void InputCue(...)` in a `MatchHud.*.cs` file.
 
 ## Oracle files (read-only for implementers)
-ORACLE_FILES_PLACEHOLDER
+- `client-unity/RoguehallaNet.Tests/CastReadinessTests.cs` (commit `oracle:`, dotnet)
+- `client-unity/RoguehallaNet.Tests/ToastLaneHoldTests.cs` (commit `oracle:`, dotnet)
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityFeedbackEditModeTests.cs` and its `.meta` (commit `oracle:`)
+- `docs/backlog/packets/P-UI-ABILITY-FEEDBACK-1.md` (this file)
+- `client-unity/UnityProject/Assets/Tests/Editor/AbilityMotionEditModeTests.cs`: four tests re-stated, each its own
+  `oracle-amend:` commit, listed for the owner below.
+
+The `stub:` commit holds `CastReadiness.cs` (defaults), `ToastLaneModel.cs` (`Push` parameters accepted and ignored, empty
+`End`), their synced copies and the new copy's `.meta`: the implementer replaces those bodies.
 
 ## Notes from the oracle author
-NOTES_PLACEHOLDER
+**Red now (on the stub), each on an assertion.**
+- dotnet `CastReadinessTests`, all 10 red: `SilentForAnEmptyOrReadySlot` (`none.Empty` expected True),
+  `CooldownFormatsLegacyWay` (`Cooldown(0)` expected "0"), `CooldownAgreesWithSlotText` (expected "1", was ""),
+  `ACoolingSlotSaysWhen` (expected "Ready in 1", was null), `CastingBeatsEverythingButEmpty` (expected "Casting"),
+  `EachBlockerHasItsWord` (expected "Stunned"), `WishFollowsTheServer` (expected "Stunned"),
+  `ASpellHoldingAChargeIsNotRefused` (`Pops` expected True), `TheLineAgreesWithTheFace` (`Pops` expected True),
+  `ConstantsAndWords` (`LineKey` expected "cast"). The spec's test 9 and the `ConstantsAndWords` name are the same test.
+- dotnet `ToastLaneHoldTests`, all 10 red: `AHoldOfOneSecondEndsTheLineSooner`, `AHoldThatIsNotFiniteAndAboveZeroUsesTheDefault`
+  and `ARestartedKeyedLineTakesTheHoldOfThePush` (line not gone at 1.5 / 1.6 s), `ALeavingKeyedLineIsRevivedByANeverLatePush`
+  and `EndFadesAShowingLineByKeyAndNothingElse` (alpha not below 1), `ALineThatCannotShowAtOnceIsDropped` and
+  `AStickyLineCountsTowardTheRoom` (`Waiting` expected 0), `ALineWithRoomShowsAtOnceAndASecondPressReplacesIt` (not gone
+  1.5 s after the second push), `ANeverLateLineIsRemovedAtTheFirstTickThatIsNotVisible` (`Count` expected 1),
+  `ANeverLatePushWithNoKeyIsAPlainPush` (X not gone at 3.2 s).
+- Unity `AbilityFeedbackEditModeTests`, 10 red and 2 standing guards green (`AReadyPressPopsAndSpeaksNothing`,
+  `ARootDoesNotStopACast`): `ADeniedPressSaysWhyAndPopsNothing`, `ASecondPressReplacesTheLine`,
+  `ASteadyFrameWithTheLineAllocatesNothing`, `ARebindForgetsTheLine`, `ReducedMotionStillSpeaks`,
+  `APressThatGoesThroughEndsTheLine`, `TheLineLastsOneSecondAndNeverShowsLate` (no pill), `AnEmptySlotNeitherPopsNorSpeaks`
+  (a pop expected 0), `TheLineIsTheOneTheFunctionGivesForEveryPhaseTheTileShows` (first red: "R empty: the press does not
+  pop"), `ThePressReadsTheNewestSnapshot` (the press did not pop).
+- Existing classes still green on the stub: `AbilityMotionEditModeTests` (with the four amended tests),
+  `AbilityRowEditModeTests`, `WishTileEditModeTests`, `ToastLanesEditModeTests`, `MatchHudWishBarrierEditModeTests` (59 of
+  59); dotnet `ToastLaneModelTests`, `WishFaceTests`, `AbilityFaceTests`, `SlotTextTests`, `InputCueTests`,
+  `InputCueFaultTests` (50 of 50); `hud-seams.test.cjs` (14 of 14).
+
+**Scratch runs (not committed).** (1) A copy of `AbilityFeedbackEditModeTests` with every `Assert.That` routed to a
+catch-and-collect helper, run on the stub: all 12 tests ran to their last line; 0 non-assertion exceptions; every collected
+entry is an assertion about the missing behaviour (the matrix test collected 48 entries over all 24 cases, none of them a
+set-up assertion). Two extra scratch tests there checked the lines that the stub cannot reach: `MatchHud.ShowMenu()` empties
+the feedback model (a line pushed by hand), and `AllocationMeter.AssertNone` passes on `TickNotices` and `TickActionRow` with a
+cast line showing on the present code. (2) A throw-away reference implementation of the whole packet (library, `ReadCast`,
+`InputCue`), built from this packet's text and reverted before any commit: all 12 new Unity tests, the 15 tests of
+`AbilityMotionEditModeTests` (with the four amended) and all 40 dotnet tests of the three toast and cast classes passed, so
+every expected value agrees with the rules above. The dotnet classes are plain assertions with no later-line hazard; the
+reference run is their proof.
+
+**Differences from the spec text.**
+- Oracle 5 builds a fresh rig for each of the 24 facts (the lane and the tile state of one case cannot leak into the next).
+  The 299 s Wish uses `RechargeMs` 300000 (a 10 s recharge with 298 s left is not a state the server delivers).
+- `ThePressReadsTheNewestSnapshot` reads the model with a guard (`Count > 0 ? Line(0).Text : "(no line)"`) so a missing
+  line is an assertion, not an `ArgumentOutOfRangeException`. The tone-strip and alpha reads in tests 1 and 10 loop over the
+  pills for the same reason.
+- Quest spells in the new file use Reward 3 in both slots (the spec's "Reward 3 here").
+- Deliveries in the new file use one counter: every snapshot and events message takes the next tick, a State reuses the
+  newest snapshot's tick, and `Snap` asserts server times rise.
+- Spec "Unverified", settled by running: `WorldHudVisible` is true and the lanes draw in this rig; the first `FlushInput`
+  sends the Cast (seq not 0, no extra `Frame()` needed); a first-sight READY Wish adds no pulse (so the ready guards count
+  cleanly); the 5 s server-time steps of the amended reduced-motion flow run the wash as in `TheReadyPulsePopsTheWishTileOnce`;
+  events at a tick above every snapshot's are accepted and both fill the lane within a few `Frame()`s; a State may reuse its
+  snapshot's tick; Oracle 9's margin holds; the new file has 511 lines. Not settled: whether a Wish with an instant cast
+  (cast_ms 0) ever carries a cast record (the function follows the record).
+
+**The four amended tests, for the owner** (`AbilityMotionEditModeTests.cs`, each its own `oracle-amend:` commit; each is a
+press re-stated on a slot that can cast, as the spec said): `APressPopsAboutTheCentre` and
+`EveryPressPulseGoesThroughTheOneHudPulses` (a ready Wish and a ready quest spell are delivered before the first frame),
+`TheWishTileHasOneScaleWriter` (the accepted-cast set-up becomes the ready flow of `TheReadyPulsePopsTheWishTileOnce`, then
+the press; adds `WedgeOn` false before it) and `ReducedMotionKeepsTheWashAndTheWedgesAndDropsThePop` (after its "scale 1"
+assertion a fresh ready flow is delivered, `WedgeOn` false before the press). All four pass on the stub and with the
+reference implementation.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation. -->
