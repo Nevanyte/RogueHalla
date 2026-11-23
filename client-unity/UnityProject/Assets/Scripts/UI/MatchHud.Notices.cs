@@ -85,7 +85,7 @@ namespace Roguehalla.Client
         {
             if (_eventModel == null) return;
             float dt = NoticeDtOverride ?? Time.unscaledDeltaTime;
-            bool visible = _session != null && WorldHudVisible, reduced = UiMotion.Reduced;
+            bool visible = WorldHudVisible && _hud.gameObject.activeInHierarchy, reduced = UiMotion.Reduced;
             _eventModel.Tick(dt, visible, reduced);
             _feedbackModel.Tick(dt, visible, reduced);
             float stageWidth = _stage.rect.width;
