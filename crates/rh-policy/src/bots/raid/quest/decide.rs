@@ -495,11 +495,10 @@ impl Executor for Decide {
                 )
             },
         );
-        let spells = cx
-            .p
-            .quests
-            .as_ref()
-            .map_or_else(Vec::new, |q| q.spells.clone());
+        let spells =
+            cx.p.quests
+                .as_ref()
+                .map_or_else(Vec::new, |q| q.spells.clone());
         // A pending slot choice: answered first (it costs nothing and holds a reward).
         for def in pending {
             let value = cx.prices.reward_value(&def);
@@ -545,9 +544,7 @@ impl Executor for Decide {
         let Some(row) = Self::bargain_row(cx) else {
             return;
         };
-        if !(row.owner_accepted || row.can_accept)
-            || bargain_trade(cx.prices, &cx.p.me, &possible_trades(cx)).is_none()
-        {
+        if bargain_trade(cx.prices, &cx.p.me, &possible_trades(cx)).is_none() {
             return;
         }
         let target = if row.owner_accepted {
