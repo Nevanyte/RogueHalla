@@ -147,3 +147,17 @@ seat cornered by walls must fail rather than spin.
 
 - Locked gates: the default ends the stand and stops proposing the heal-up (no movement). If the owner wants the seat to
   head for something instead (the coliseum fight), that is a separate packet.
+
+## Coordinator's answers (2026-11-23)
+
+- **Locked gates:** the default stands. The stand ends with `Step::failed`, no heal-up is proposed and the seat does
+  not move for this reason alone. Where a seat should go in a locked coliseum is P-RAID-P's (the coliseum goals).
+- **The lab base row** is the implementer's to measure on this packet's base (`packet/P-RAID-HOLD-1`, the executor
+  as it is), beside its own row: seeds 1 to 6 at 4800 ticks, camps cleared, deaths, and if it is cheap the count of
+  "healing up" thinks with hp falling.
+- **What the oracle does not show** (the live effect): the whole-sim scene left "healing up" at the first hit by
+  itself, so the lab's falls are most likely hp lost with no hit event (a damage-over-time effect). The lab
+  comparison and reviewer-opus's trace decide whether the fix reaches them; say what you see.
+- **Another packet in this file:** P-RAID-E-leave (its oracle is being written on a later base) owns making
+  `nearest`, `view` and `in_fight` see `MobClass::Elite`, and a shared "hp held". This packet does not touch those
+  three functions beyond what the hold rule needs; its implementer goes first.
