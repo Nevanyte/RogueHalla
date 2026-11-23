@@ -385,11 +385,55 @@ EditMode `QuestAcceptLatchEditModeTests` (the rig of `QuestOfferEditModeTests`, 
 
 ## Oracle files (read-only for implementers)
 
-(filled in by the oracle commit)
+- `client-unity/RoguehallaNet.Tests/QuestAcceptLatchTests.cs` (14 tests; `oracle:` commit)
+- `client-unity/UnityProject/Assets/Tests/Editor/QuestAcceptLatchEditModeTests.cs` and its `.meta` (16 tests; `oracle:` commit)
+- `docs/backlog/packets/P-UI-QUEST-OFFER-1-fix.md` (this packet)
+- `client-unity/UnityProject/Assets/Tests/Editor/QuestOfferEditModeTests.cs` (`oracle-amend:` 1, for the owner)
+- `client-unity/UnityProject/Assets/Tests/Editor/QuestJournalPolishEditModeTests.cs` (`oracle-amend:` 2, for the owner)
+- `client-unity/UnityProject/Assets/Tests/Editor/QuestJournalDetailsEditModeTests.cs` (`oracle-amend:` 3, for the owner)
+
+The `stub:` commit holds `QuestAcceptLatch` (library, synced copy and `.meta`) as a stub plus the compile-only seams
+(`QuestJournalView.Initialize(..., latch)`, `QuestOfferCard(parent, latch, ...)`, `MatchHud.AcceptLatch`,
+`MatchHud.TickOffer`, `MatchHud.OfferFrameDeltaOverride`, the `Initialize`/constructor call sites): the implementer replaces
+all of it.
+
+## Red tests, and on what
+
+On the stub (`QuestAcceptLatch` with `HoldSeconds` 0, `Capacity` 1, `TryBegin` always true, `IsHeld` false; the journal and
+card keep today's guards):
+- dotnet `QuestAcceptLatchTests`: all 14 red on an assertion (the first assertion of each is false on the stub: for
+  example `IsHeld` after `TryBegin`, `HoldSeconds` equal to 2.5, the default handle's `TryBegin` false).
+- EditMode `QuestAcceptLatchEditModeTests`: all 16 red, each on its first assertion after the first accept press
+  (`AcceptLatch.IsHeld(<handle>)` true, false on the stub).
+- `oracle-amend:` 3 (`ADoubleClickOnAcceptNeverAbandons`) is red on the stub (click 2 arms Abandon: the label reads
+  "Confirm abandon" where "Abandon" is expected). Amends 1 and 2 are green on the stub and on the implementation.
+- Existing classes `QuestOfferEditModeTests`, `QuestJournalPolishEditModeTests`, `QuestJournalDetailsEditModeTests`,
+  `QuestJournalViewEditModeTests`, `PlayerFlowsEditModeTests`: 71 of 71 green on the stub before the amends.
 
 ## Notes from the oracle author
 
-(filled in by the oracle commit)
+- **Scratch run of every line.** For the EditMode class, a scratch copy wrapped every single-line assertion in a
+  catch-and-collect helper (catch `AssertionException`, carry on, fail in `TearDown` with the list; not committed). Result on
+  the stub: all 16 tests ran to their last line; every entry of every list was an assertion about the missing behaviour
+  (no other exception: no wrong path, null or key-order failure); 16 of 16 lists non-empty. Then, to prove the later lines
+  can pass and the expected values agree with the rules above, a throwaway reference implementation of this packet
+  (the latch of this packet, the journal, card and HUD edits as specified; not committed) was applied: the dotnet
+  `QuestAcceptLatchTests` 14 of 14, `QuestAcceptLatchEditModeTests` 16 of 16, and with the three amends applied the classes
+  `QuestOfferEditModeTests`, `QuestJournalPolishEditModeTests`, `QuestJournalDetailsEditModeTests`,
+  `QuestJournalViewEditModeTests`, `PlayerFlowsEditModeTests` plus the new one 87 of 87 were green. Then it was reverted.
+- **Unverified items of the spec, settled.** The rig delivers an Active snapshot and runs `Frame()` while the journal is
+  hidden, as a match does; `Time.frameCount` is constant inside a test, so only the first `RefreshOffer` of a test ticks
+  by `Time.unscaledDeltaTime`. To keep time exact the new fixture sets `MatchHud.OfferFrameDeltaOverride = 0f` in `SetUp`
+  (and null in `TearDown`); test 5 sets it to .5f and resets the private `_offerTickFrame` to -1 before each frame. After
+  `_transport.Close()` the next `Frame()` runs the journal's `Refresh` with a session that is not InMatch (test 16 passes on
+  the reference). The HUD rig shows Abandon for an accepted row with an Abandon action (tests 14, 15 pass on the
+  reference). `out QuestHandle h` in the answer loop and the field initialiser compile as written.
+- **Deviation from the spec's test list: none in behaviour.** Test 1 closes the journal with J and opens the card with F as a
+  player does. The fixture drops the spec's `QuestAcceptLatchEditModeTests.TearDown` scale-backup lines (no text-scale test
+  in this class).
+- `QuestAcceptLatch.SignatureOf(QuestRowView)` is not tested in dotnet (`QuestRowView`'s constructor is internal and the
+  test assembly has no `InternalsVisibleTo`); the EditMode tests 6 to 9 exercise it through the HUD.
+- A stale `Temp/UnityLockfile` in this worktree (no Unity process of mine running) was deleted once.
 
 ## NOT ESTABLISHED
 
