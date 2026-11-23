@@ -145,7 +145,24 @@ Unity `CampTextEditModeTests` (fixture copied from `ZoneNamesRealOrderEditModeTe
 11. `ATerrainChangeInTheMiddleOfAMatchMovesNoText`.
 
 ## Notes from the oracle author
-<!-- filled in with the measured numbers, the red/green table and the scratch-run result before the oracle commit -->
+**Measured on the lane base** (Unity 6000.0.85f2, `unity-class.sh`): at open the controller's own scale is 1.3 and the layer 480 across; at `SetMarkScale(1)` the layer is 624 across, 3.25 layer units per world unit (the spec's estimate holds). Text sizes at R 9 (13.5): "888" 14.91 x 12.14 (22.36 x 18.20), "+0.75%" 27.13 (40.69), "+1.5%" 19.68 (29.52), "+2.25%" 26.54 (39.80), "+3%" 15.02 (22.52), "Aug" 20.66 (30.99), "+3" 8.86, "+4.5" 15.67; one line is 12.14 (18.20) high. Test 3's overlap is 12.14 - 3 x 3.25 = 2.39 high. On the base neither `LayerChanged()` nor a steady `Present` allocates (0 samples each, 200 calls), so test 5 asserts both (its `Allocates` guard of the spec is kept and not taken). A wall tile at cell 0 passes the Welcome map's checks and `WithDestroyedTerrain`.
+
+**Red / green on the stub** (`unity-class.sh`, then dotnet):
+- dotnet `CampTextPlacementTests`: all 9 red. Each fails on its first assertion about behaviour: "has a place" (the stub's `Place` writes None) or a `RectOf` worked number (the stub returns the zero rect). `MapLabelPlacementTests` stays green.
+- Unity `CampTextEditModeTests`: 10 red, 1 green (the standing guard `ACampWithNoTextCreatesNoLabel`, as the spec says). Reds: tests 1 to 6, 9, 10, 11 fail on "a camp-text pass has run" (`CampTextPlacements` 0); test 8 fails on "closed Present: no CampBadgeText label is created" (6 labels, the base draws a text on a closed marks object).
+- The ten existing classes of section 7 (116 tests) are green on the stub. They were also green against a scratch reference implementation of the whole packet (not committed), so no `oracle-amend:` is needed: `ZoneNamesEditModeTests.PictureMarks` and `ZoneNamesRealOrderEditModeTests.EdgeMarks` only leave a phantom box at the old right-hand slot, which no test of those classes happens to meet.
+
+**Scratch runs, not committed.** (a) dotnet: a reference `CampTextPlacement` (about 90 lines) turns all 9 tests green, so every line of them runs and the numbers agree with the rules. (b) Unity: a copy of `CampTextEditModeTests` in a nested namespace with a shadow `Assert` that catches `AssertionException` and fails at the end with the list: on the stub every one of the 11 tests ran to its last line, and every entry of the lists (5 to 63 per test) is an assertion about the missing behaviour (a pass, a block, a drawn label, a width, a place, a drawn position that drifts because the stub's `LayerChanged` redraws no text); no other exception occurred, `DoesNotThrow` on the closed Present passed. (c) The same 11 tests are green against a scratch reference of the Unity side (the partial file, the five `TacticalMapMarks.cs` edits, the two `BuildZoneMarks` statements), then everything was restored.
+
+**Deviations from the spec's test text (the nearest test that pins the same behaviour):**
+1. dotnet test 7 (`ObstacleOrderChangesNothing`): the spec says "the others cannot be Right". In that grid a camp with no free place takes the least-overlap place, which can be Right (camp 8 does), so the test asserts: no place None, the last column is Right, every rect is its place's `RectOf`, at least two different places occur, and the results are equal for the reversed and the rotated obstacle list.
+2. dotnet test 8: a bad `bounds` (zero, NaN, negative) gives Right with that place's real `RectOf` (the spec says only "Right"); short buffers write the least of the three lengths (the fourth place stays untouched when the rects buffer has 3); `Place` with null blocks does not throw.
+3. Unity test 8: at the controller's own scale (1.3, layer 480) the camp at (184, 96) cannot be Below at R 13.5 (the camp stands at x 220, its Below block is 40.69 wide and ends at 240.35, the inset right edge is 238): the spec's premise of phase B fails there, as its own fallback says. The test checks the blocks and widths at the controller's own scale after opening (as the spec), then sets the scale to 1 (layer 624) and runs phases B and C from there; the camp at (184, 96) is Below at 13.5 at scale 1.
+4. Unity tests 6 and 11 build the picture without a `Frame()` between `BuildController` and `DeliverRows` (as the spec's `FindCamps` order); `DeliverQuests` reads `QuestsState { Available = true, View }` with rows and `Drops` together; `Row` sets `ClearedAt` 1000 for a cleared camp.
+5. Unity test 4: "a new text size then a Present" is `Marks().Present(_session, null)` called directly, once for the pass and once more to show no second pass.
+6. Unity test 5 keeps the spec's `Allocates` guard on the steady Present; on the base it is not taken (both assertions run).
+
+Nothing in the spec contradicts the code in a way that changes the design.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
