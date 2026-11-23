@@ -144,7 +144,7 @@ namespace Roguehalla.Client.Tests
             Add("PerformanceReadout", (TMP_Text)GetField("_metrics"), "240 fps · 1234 ms", "— ms");
             Add("ConnectionBanner", (TMP_Text)GetField("_banner"), banner);
             Add("PhaseTimer", (TMP_Text)GetField("_phaseStrip"), "Waiting for players 12 — run starts in 1:30", "Run over — [BOT] Wanderer1234 is victorious", "PRACTICE · NO RUN REWARDS");
-            Add("Notice", (TMP_Text)GetField("_notice"), "Resume is unavailable while another launch or session is active.");
+            Add("Notice", Find(stage, "FeedbackLane/Toast0/Text"), "Resume is unavailable while another launch or session is active.");
             Add("QuestLauncher", Find(stage, "Journal/Label"), "Quests · J");
 
             // Plate.
