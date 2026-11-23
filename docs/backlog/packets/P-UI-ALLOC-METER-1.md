@@ -149,3 +149,34 @@ suite leaves a warm, collecting heap. The self-check is what keeps a blind meter
 - The clean-delegate cases of test 2 and the clean `AssertNone` line of test 4 pass on the stub by nature; the red assertions come first/alongside them.
 - No existing class pins this code (no product or existing test file changes), so no existing class was run.
 - The seam `MeterOverride` replaces the raw measurement used by both the self-check and the real measurement; the blind test sets `(a, n) => false`.
+
+## Measured table (recorded by the lane lead from the implementer's hand-off, 2026-11-23)
+
+The implementer could not commit this on its branch: the gate treats the packet file as an oracle file there.
+
+Unity 6000.0.85f2, Mono, batch mode. 20 rounds, a `GC.Collect()` every third round, 20,000 iterations a round.
+Allocating control: a string concatenation plus `new object()`, results kept alive in lists. Clean control: an
+`int` addition. "Seen n/20" is how many rounds the meter reported an allocation. "Heavy run" is the class run
+together with `PlayerFlowsEditModeTests`, `HudLegacyLayoutEditModeTests` and `TabMapSheetEditModeTests`.
+
+| Candidate | Allocating, alone | Clean, alone | Allocating, heavy run | Clean, heavy run | Verdict |
+|---|---|---|---|---|---|
+| `GC.GetAllocatedBytesForCurrentThread()` | delta 0, seen 0/20 | 0/20 | 0/20 | 0/20 | blind: rejected |
+| `Is.Not.AllocatingGCMemory()` (`AllocatingGCMemoryConstraint`) | seen 20/20 | 0/20 | 20/20 | 0/20 | right in all four cells: chosen |
+| `ProfilerRecorder` | not measured | | | | skipped (the constraint passed first) |
+| `GC.GetTotalAllocatedBytes` | does not exist on this Mono (compile error) | | | | rejected |
+| `GC.GetTotalMemory(false)` / gen-0 `CollectionCount` | 1/20 / 0/20 | 0/20 | 7/20 | 0/20 | unreliable: rejected |
+| `Profiler.GetMonoUsedSizeLong()` (no hold-off of collections tried) | 1/20 (one 1,105,920-byte step, then collections hide it) | 0/20 | 7/20 | 0/20 | flaky: rejected |
+
+The six `AllocationMeterEditModeTests` were green alone, in the heavy run and in the whole EditMode suite of the
+gate (2105 of 2105), including `ItGivesTheSameAnswerTwentyTimes`.
+
+What follows from the first row: every EditMode test in the repository that measures with
+`GC.GetAllocatedBytesForCurrentThread()` passes on any code. On the lane base those are, besides the lane's own
+(`CampLabelStableEditModeTests`, `UiMotionEditModeTests`, `QuestTrackerEditModeTests`, `ToastLanesEditModeTests`),
+thirteen older classes: `AtmosphereEditModeTests`, `BogTreeLandmarkEditModeTests`,
+`ChampionPanelNoGarbageEditModeTests`, `ChurchLandmarkEditModeTests`, `DressedMapEditModeTests`,
+`FrostWallPresenterEditModeTests`, `HallLandmarkEditModeTests`, `LandmarkViewEditModeTests`,
+`MatchHudStatusTextsEditModeTests`, `RenderPassEditModeTests`, `SrgbMeshColorsEditModeTests`,
+`VolcanoLandmarkEditModeTests`, `WorldMarks2EditModeTests`. The lane moves its own onto `AllocationMeter`
+(P-UI-ALLOC-PROOF-1); the older ones are the coordinator's to decide.
