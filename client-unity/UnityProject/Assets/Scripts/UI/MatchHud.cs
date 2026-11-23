@@ -278,7 +278,6 @@ namespace Roguehalla.Client
         }
         void HudOwnerRefresh(string banner)
         {
-            TickFirstRunHint();
             SetStickyNotice(_feedback);
             var me = _session.Me;
             if (me == null)
