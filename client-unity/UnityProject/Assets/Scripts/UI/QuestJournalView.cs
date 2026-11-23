@@ -55,8 +55,8 @@ namespace Roguehalla.Client
         ScrollIndicator _textIndicator, _stripIndicator;
         UnityEngine.UI.Button _abandon;
         TMP_Text _abandonLabel, _trackLabel;
-        GameObject[] _emptyHidden;
-        int _hasState = -1, _stripRows;
+        GameObject _objectiveField, _giverField, _briefField, _rewardField, _participantsField;
+        int _stripRows;
         QuestHandle? _stripQuest, _renderedHandle, _abandonQuest;
         bool _abandonArmed;
         string _abandonDelivered = "Abandon", _stateText;
@@ -76,8 +76,8 @@ namespace Roguehalla.Client
             _root = MythicUi.Panel(canvasRoot, "QuestJournal", new Vector2(.12f, .12f), new Vector2(.88f, .915f), ShowcasePalette.Panel);
             _card = _root;
             MythicUi.Text(_card, "JournalTitle", "QUEST JOURNAL", new Vector2(.035f, .925f), new Vector2(.66f, .995f), 27, ShowcasePalette.Gold, heading: true);
-            _close = MythicUi.Button(_card, "CloseJournal", "CLOSE", new Vector2(.79f, .925f), new Vector2(.965f, .99f), Close, MythicUi.ButtonStyle.Quiet);
-            _state = MythicUi.Text(_card, "JournalState", "Waiting for quest data…", new Vector2(.035f, .75f), new Vector2(.965f, .80f), 16, ShowcasePalette.MutedText);
+            _close = FlowWindowClose.Create(_card, "CloseJournal", Close);
+            _state = MythicUi.Text(_card, "JournalState", "Waiting for quest data…", new Vector2(.035f, .74f), new Vector2(.965f, .80f), 16, ShowcasePalette.MutedText);
             _scroll = CreateScroll(_card, new Vector2(.035f, .05f), new Vector2(.43f, .73f), out _content);
             var detail = MythicUi.Panel(_card, "QuestDetail", new Vector2(.455f, .05f), new Vector2(.965f, .73f), ShowcasePalette.PanelRaised); // a lifted slate well, not the near-black sunken token
             MythicUi.Text(detail, "DetailHeading", "QUEST DETAILS", new Vector2(.025f, .885f), new Vector2(.975f, .99f), 19, ShowcasePalette.Text);
@@ -103,11 +103,10 @@ namespace Roguehalla.Client
             _strip = CreateStrip(detail, out _stripScroll, out _stripContent);
             _textIndicator = new ScrollIndicator(_detailScroll, _textFrame);
             _stripIndicator = new ScrollIndicator(_stripScroll, _strip);
-            _emptyHidden = new[]
-            {
-                _detailName.transform.parent.Find("FieldLabel").gameObject, _objective.transform.parent.gameObject, _giver.transform.parent.gameObject,
-                _reward.transform.parent.gameObject, _participants.transform.parent.gameObject,
-            };
+            _detailName.transform.parent.Find("FieldLabel").gameObject.SetActive(false); // the list row already says the name
+            _objectiveField = _objective.transform.parent.gameObject; _giverField = _giver.transform.parent.gameObject;
+            _briefField = _brief.transform.parent.gameObject; _rewardField = _reward.transform.parent.gameObject;
+            _participantsField = _participants.transform.parent.gameObject;
             _root.gameObject.SetActive(false);
             RenderSelection();
         }
@@ -222,7 +221,7 @@ namespace Roguehalla.Client
             {
                 if (_view != null) { _view = null; _selected = null; ClearTracked(); SetRows(0); }
                 _latch.Clear();
-                _state.text = _session == null ? "Quest data is not connected." : _session.State == SessionState.Reconnecting ? "Reconnecting · quest actions paused" : "Quest journal unavailable while disconnected.";
+                SetText(_state, _session == null ? "Quest data is not connected." : _session.State == SessionState.Reconnecting ? "Reconnecting · quest actions paused" : _session.State == SessionState.Ended ? PlayerWords.Word(SessionState.Ended) : "Quest journal unavailable while disconnected.");
                 RenderSelection(); return;
             }
             if (_boundEpoch != _session.TimelineEpoch)
@@ -235,7 +234,7 @@ namespace Roguehalla.Client
             {
                 if (_view != null) { _view = null; _selected = null; ClearTracked(); SetRows(0); }
                 _latch.Clear();
-                _state.text = "Waiting for quest data…"; RenderSelection(); return;
+                SetText(_state, "Waiting for quest data…"); RenderSelection(); return;
             }
             if (!next.Available)
             {
@@ -243,7 +242,7 @@ namespace Roguehalla.Client
                 {
                     _view = next; _selected = null; ClearTracked(); _latch.Clear(); SetRows(0);
                 }
-                _state.text = "Quest journal unavailable."; RenderSelection(); return;
+                SetText(_state, "Quest journal unavailable."); RenderSelection(); return;
             }
             bool collectionChanged = !ReferenceEquals(next, _view);
             if (collectionChanged)
@@ -347,19 +346,17 @@ namespace Roguehalla.Client
         {
             QuestRowView q = _selected.HasValue ? Find(_selected.Value) : null;
             bool has = q != null;
-            if (_hasState != (has ? 1 : 0))
-            {
-                _hasState = has ? 1 : 0;
-                for (int i = 0; i < _emptyHidden.Length; i++) _emptyHidden[i].SetActive(has);
-            }
             SetText(_detailName, has ? q.Name : "Select a quest");
             SetText(_giver, has ? q.GiverLabel : "");
             SetText(_brief, has ? q.Brief : "");
-            bool showBrief = has && QuestJournalCopy.ShowsBrief(q);
-            if (_brief.transform.parent.gameObject.activeSelf != showBrief) _brief.transform.parent.gameObject.SetActive(showBrief);
             SetText(_objective, has ? q.Objective : "");
             SetText(_reward, has ? q.Reward : "");
             SetText(_participants, has ? ParticipantCopyCached(_view, q) : "");
+            Show(_objectiveField, has && !string.IsNullOrEmpty(_objective.text));
+            Show(_giverField, has && !string.IsNullOrEmpty(_giver.text));
+            Show(_briefField, has && QuestJournalCopy.ShowsBrief(q));
+            Show(_rewardField, has && !string.IsNullOrEmpty(_reward.text));
+            Show(_participantsField, has && !string.IsNullOrEmpty(_participants.text));
             QuestHandle? effective = has ? q.Handle : (QuestHandle?)null;
             if (!QuestPresentation.SameHandle(effective, _renderedHandle))
             {
@@ -372,7 +369,7 @@ namespace Roguehalla.Client
             }
             bool acceptPending = has && _latch.IsHeld(q.Handle);
             if (has) RenderStatus(q, acceptPending);
-            else { _statusRow = null; _status.text = ""; }
+            else { _statusRow = null; SetText(_status, ""); }
             MarkRows();
             RenderActions(q);
             _track.interactable = has && IsCurrentView(_session, _boundEpoch, _view);
@@ -396,6 +393,11 @@ namespace Roguehalla.Client
                 _acceptBoundSession = _session; _acceptBoundEpoch = _boundEpoch; _acceptBoundView = _view;
                 _acceptBoundHandle = q.Handle; _acceptBindingValid = true;
             }
+        }
+
+        static void Show(GameObject field, bool on)
+        {
+            if (field.activeSelf != on) field.SetActive(on);
         }
 
         void BindAccept(Session session, uint epoch, QuestView view, QuestHandle handle)
