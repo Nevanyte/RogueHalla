@@ -147,11 +147,31 @@ Any conflict between the above and the new oracle goes to the coordinator, not t
 ## Oracle files (read-only for implementers)
 - `client-unity/RoguehallaNet.Tests/MapScreenTests.cs` (new tests `TheTabSheetWrapsHeaderMapAndRails`, `TheSheetNumbersAtTwoStages`, `StackedAndPlanningKeepTheirRects` in class `MapScreenLayoutTests`; existing tests unchanged)
 - `client-unity/UnityProject/Tools/tab-map-sheet.test.cjs`
-- `client-unity/UnityProject/Assets/Tests/Editor/TabMapSheetEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/TabMapSheetEditModeTests.cs` (tests: `TheLiveRectsEqualTheLayout` x3 windows, `TheSheetIsBehindEverythingAndOnlyOnTheWideTabLayout` x3, `TheSheetIsHiddenOnTheStackedLayoutAndOnThePlanningScreen`, `TheHeaderCarriesTitlePhaseAndHint`, `TheHeaderDropsWhatDoesNotFit`, `TheRailsAreUnframedOnlyOnTheSheet`, `TheDimIsDarkerOnTheTabMapAndPlanningKeepsItsOwn`, `TheHudHandsItsPhaseLineToTheMap`, `OnlyTheChromeSurvivesTheMap`, `WorldMarksAreHiddenWhileTheMapIsOpen`, `PlanningStillBlocksTheMapUnderTheJournal`)
 - `client-unity/UnityProject/Assets/Tests/Editor/TabMapSheetEditModeTests.cs.meta`
 - `docs/backlog/packets/P-UI-TABMAP-SHEET-1.md`
 
 Stub commit (not oracle; the implementer edits these): `MapScreenLayout.cs` and its synced copy (`SheetPad`, `Sheet` and `Header` as zero rects), `UI/TacticalMapSurface.cs` (`LayoutOwnsRect`), `UI/TacticalMapController.cs` (`SetPhaseLine` empty), `View/ArenaView.MapOpen.cs` + `.meta` (`SetWorldMarksVisible` empty).
+
+## Red state on the stub (run by the oracle author)
+
+dotnet (`MapScreenLayoutTests`): `TheTabSheetWrapsHeaderMapAndRails` red on "the sheet starts below the chrome" (Sheet is zero); `TheSheetNumbersAtTwoStages` red on "1422x800 Sheet x" (expected 121, was 0); `StackedAndPlanningKeepTheirRects` red on "800x700 Sheet is Body x" (the Title/Frame/Legend/Left/Right literals before it pass). The seven existing tests of the class are green. With a reference implementation of 6.1 all ten are green.
+
+node `tab-map-sheet.test.cjs`: both `tabMapRect` tests red on "1920x1080 x: 522.45 is not 538.65"; the controller test red on "exactly one assignment ... actual 4".
+
+Unity `TabMapSheetEditModeTests` (15 cases, 14 red, 1 green guard):
+- `TheLiveRectsEqualTheLayout` (3): "the panel has MapSheet" expected not null.
+- `TheSheetIsBehindEverythingAndOnlyOnTheWideTabLayout` (3) and `TheSheetIsHiddenOnTheStackedLayoutAndOnThePlanningScreen`: second child is "MapTitle", expected "MapSheet".
+- `TheHeaderCarriesTitlePhaseAndHint`: hold-mode hint is the old 76 character text, expected "Right-click to walk · release Tab to close".
+- `TheHeaderDropsWhatDoesNotFit`: "the panel has MapTitle/MapPhase" expected not null.
+- `TheRailsAreUnframedOnlyOnTheSheet`: ContactsPage on the sheet fill is `Surface` (20,27,37), expected `SurfaceRaised` (32,42,54). Its stacked and planning parts (the base look) pass on the stub (checked by running them alone).
+- `TheDimIsDarkerOnTheTabMapAndPlanningKeepsItsOwn`: Tab dim .72, expected .86 (the planning .84 part passes on the stub).
+- `TheHudHandsItsPhaseLineToTheMap`: "the map header has a phase label" expected not null.
+- `OnlyTheChromeSurvivesTheMap`: "phase pill is veiled by a CanvasGroup" expected not null (its chrome-untouched check runs first and passes on the stub).
+- `WorldMarksAreHiddenWhileTheMapIsOpen`: "World markers test mark is hidden while the map is open" expected False.
+- `PlanningStillBlocksTheMapUnderTheJournal`: GREEN on the stub, as intended (a guard).
+
+Existing classes run on the stub (`TabMapFlow`, `TabMapVisualFix3`, `TacticalMap`, `MinimapCapture`, `HudVisualFix4`, `DeclutterLegend`, `MapScreen`, `TrainingHudVisibility`, `PlayerFlows`, `HudLegacyLayout`): 116 of 117 green. **One is red on the base too, before this packet: `MinimapCaptureEditModeTests.PhysicalRightReleaseProjectsOverlayPositionAndFlushesChangedPointExactlyOnce` ("release flushes just the final changed point": expected 1, was 0)**. Confirmed by stashing the stub and running that class alone on `lane/ui-rework/base-2`. It is not this packet's to fix; the implementer must not count it as caused by the packet, and the gate's full run will show it if it is real on the base.
 
 ## 9. Validation commands
 
@@ -182,4 +202,7 @@ Sonnet: presentation only, one pure layout function with exact numbers, one part
 - Oracle test 3 (`StackedAndPlanningKeepTheirRects`) pins literals computed by hand from the base formulas and confirmed green on a stub that returns `Sheet = Body`, `Header = Title`.
 - Test 7 (`WorldMarksAreHiddenWhileTheMapIsOpen`): a delivered quest giver, chest ring and carrier flag need a whole world state; the test instead puts one active enabled `SpriteRenderer` under each of the three root objects by hand (found by name) and asserts on those. It pins the behaviour of `SetWorldMarksVisible` (roots hidden/shown) and not the presenters. It runs `Awake` by reflection when the roots do not exist.
 - Test 5 reads the phase line through `TickMetrics` (private, reflection) with the lobby phase and no arena ("FORMING MATCH"), because the metrics tick is throttled by the real clock.
+- The header room rule (test 4) restates the packet's rule with the labels' preferred widths, as the spec asks. It checks the label that shows, not whether an empty phase label is active (an empty `MapPhase` may stay active). At 640x480 the toggle-mode hint with no phase line must be hidden (Wh + 16 + Wt over 392); a long phase line must be hidden.
+- Test 8 reads "no border" as: no child named `Frame` on the rail (what `HudUi.Surface` draws when it is given a border); the implementer re-surfaces the rails with `HudUi.Surface(rail, theme.SurfaceRaised, theme.CornerRadius, null, true, false)`.
+- A dim test (`TheDimIsDarkerOnTheTabMapAndPlanningKeepsItsOwn`) is added for the .86 / .84 alphas of 6.2.
 - Test 9 (`PlanningStillBlocksTheMapUnderTheJournal`) is green before and after: it guards `BlockPlanningMapInput` / `RestorePlanningMapInput` (`MatchHud.PlayerFlows.cs:110,125`) against this packet's panel changes.
