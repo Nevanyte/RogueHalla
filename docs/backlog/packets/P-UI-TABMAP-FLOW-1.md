@@ -72,7 +72,7 @@ Not `Scripts/UI/TacticalMapSurface.cs`, not `MinimapGesture.cs` (library), not `
 
 ## Existing tests that pin this code
 
-All stay green and unchanged except the two in `TacticalMapEditModeTests` named under "Conflict with the spec".
+All stay green and unchanged except the two in `TacticalMapEditModeTests` named under "Conflict with the spec" and the one in `PlayerFlowsEditModeTests` below.
 
 - `Tests/Editor/TacticalMapEditModeTests.cs` (14 tests, builds a controller with `CreateController`): snapshots invalidate the paint throttle and clear both surfaces' marks (`NewSnapshotInvalidatesPaintThrottle...`, `DisconnectAndRebindClearMarks...`: assert `LargeMarks().ContactCount` and `MinimapMarks().ContactCount` after `SetOpen(true); Tick()`), minimap visibility tracks open/suppress/unbind (`MinimapVisibilityTracks...`), marks model tests that build `TacticalMapMarks` alone (camps, badges, wards, chests, quest marks, eggs, labels), pointer projection, phase ownership.
 - `Tests/Editor/MinimapCaptureEditModeTests.cs` (9 tests, real mouse and keyboard devices, recording transport, `MatchClient` with `Arena` and `Cam`): Tab-map right click sends one ordinary move and pings both maps; left click plans a route stop and never moves; held repeats obey the order budget but press and release do not; right click is ignored while planning; physical left release cancels a peek and restores the owner camera (expected position `ArenaView.WorldPoint(Drawn) + up*1.5 + back*30`); physical right release projects the overlay position and flushes the changed point exactly once; lost mouse capture cancels a queued drag; typing or a modal aborts before release reconciliation. These call `ReadUiInput` but never `Tick` after set-up.
@@ -83,17 +83,23 @@ All stay green and unchanged except the two in `TacticalMapEditModeTests` named 
 - `Tests/Editor/HudLegacyLayoutEditModeTests.cs`: minimap is a square 12 from the bottom-right corner (`MinimapRoot` rect at several windows), no button strip, chest panel above the minimap.
 - `Tests/Editor/TrainingConsoleIntegrationEditModeTests.cs:354`: arena `Hud.TacticalMap.IsOpen` after Tab.
 - `Tests/Editor/HudVisualFix2EditModeTests.cs` (zone labels draw after the marks mesh and the fog) and `Tests/Editor/MapScreenEditModeTests.cs` (marks zone icons, layout): build `TacticalMapSurface`/`TacticalMapMarks` alone; unaffected unless the marks class changes shape.
+- `Tests/Editor/PlayerFlowsEditModeTests.cs`, `DeliveredMapPointsReplaceWithoutActorFabricationOrNameDeduplication` (:318): builds a real `MatchHud` with the map closed and, with no `Tick` or `SetOpen`, expects BOTH `TacticalMapMarks` to show MerchantCount/QuestGiverCount/QuestObjectiveCount after a State delivery, after `SetTrackedQuest`, after a replacing State and after `Drop`. That relied on `RefreshDeliveredMarks` presenting the closed big surface, which outcome 4 forbids: changed by a second `oracle-amend:` commit (see below). The other `PlayerFlowsEditModeTests` users of the controller (:175-190 calls `Present` on the marks directly) are unaffected; `MatchLaunchEditModeTests:435`, `UiInputRoutingEditModeTests` and `TrainingHudRig` only read `IsOpen`/`_bound`.
 - Library `RoguehallaNet.Tests`: `MinimapGestureTests`, `MapAnchorsTests` (the library is not edited).
 
 ### Conflict with the spec: two existing tests assume the hidden minimap is painted (owner to approve)
 
 The spec says the surface not on screen is not presented (outcome 4) and also that the existing tests stay green unchanged. They cannot both hold: in `TacticalMapEditModeTests`, `NewSnapshotInvalidatesPaintThrottleAndClearsBothObservedMapSurfaces` and `DisconnectAndRebindClearMarksAndRefreshSingleObservedContactRail` call `SetOpen(true); Tick();` and then assert `MinimapMarks().ContactCount == 1` (and later `== 0` after a newer snapshot while the map is still open). With the minimap hidden by the open map and not presented, the first assertion would read 0, and the later `0` would read a stale 1. The `oracle-amend:` commit (alone, one commit) changes only those two tests (13 lines of `TacticalMapEditModeTests.cs`: 10 added, 3 removed) so each minimap assertion is made while the minimap is on screen (a `Tick()` with the map closed before opening, or `SetOpen(false); Tick()` before the minimap's later read), keeping what they prove (the minimap shows the same current delivered set; a snapshot invalidates the throttle; disconnect and rebind clear both). Verified: the amended class is 14/14 green on the stub, and 14/14 green against a throwaway implementation of this packet (discarded, not committed). It passes on the stub (which presents both surfaces always) and on the implementation, and it requires outcome 5's second half (the minimap is painted the frame it shows again). If the owner does not approve the amend, the spec must change (present the hidden minimap on contact change only) before an implementer starts.
 
+### Second amend: PlayerFlows delivered points (owner to approve)
+
+`oracle-amend:` commit 2 changes only `DeliveredMapPointsReplaceWithoutActorFabricationOrNameDeduplication`. The same four checks now go through a local `ReadBoth` that reads the minimap's marks after `SetOpen(false); Tick()` and the big map's after `SetOpen(true); Tick()` (each surface while on screen; the big map is painted on the frame it opens, outcome 5). It keeps what the test proves (delivered points replace, no actor fabrication, no name deduplication, disconnect clears at once) and runs green on the stub (PlayerFlowsEditModeTests all green with the stub, 18 of 26 passed with the 8 new tests red). Not run against an implementation: the pattern is the one the two TacticalMapEditModeTests amends use. The alternative, stating that a closed big surface still refreshes delivered marks on collection change, was rejected: it is a present of a surface not on screen.
+
 ## Oracle files (read-only for implementers)
 
 - `Tests/Editor/TabMapFlowEditModeTests.cs`
 - `Tests/Editor/TabMapFlowEditModeTests.cs.meta`
-- `Tests/Editor/TacticalMapEditModeTests.cs` (changed by the `oracle-amend:` commit only; see above)
+- `Tests/Editor/TacticalMapEditModeTests.cs` (changed by the first `oracle-amend:` commit only; see above)
+- `Tests/Editor/PlayerFlowsEditModeTests.cs` (changed by the second `oracle-amend:` commit only; see above)
 - `docs/backlog/packets/P-UI-TABMAP-FLOW-1.md`
 
 (The stub commit's `Scripts/UI/TacticalMapController.cs` edit is the implementer's to build on: see "Seams from the stub".)
