@@ -146,4 +146,56 @@ leave `_viewRef` on the old view) and the status string (a concatenation allocat
 - What else allocates per delivered Trade item outside this file (the map's marks, the journal): not looked at here.
 
 ## Notes from the oracle author
-(filled in below once the tests have run)
+
+Tests (`TraderSteadyEditModeTests`, 21 cases) and their state on the base `9c9e4fa9c` (run with `unity-class.sh`):
+
+| Test | State on the base | Assertion it fails on |
+|---|---|---|
+| `AWalkingTraderRebuildsNoRow("barter")`, `("stat")` | RED | first assertion: "Merchant_0 is not destroyed by 100 moved-only deliveries" (the proof of the cause: the rows are destroyed and rebuilt; the same loop then fails "is the same object" for every row, the child counts hold, and the object count fails) |
+| `AWalkingTraderKeepsTheOpenWindowsFocusAndPlace` | RED | "the focused row is still alive after a trader's step" (then: same object, same label; the scroll position is kept by today's code and the taller-than-viewport check holds, both green on the base) |
+| `AMovedMerchantStillSendsThroughTheNewView` | green (standing guard) | one Barter trade command, pick 1, status "Trading…" after a click that follows three moved-only deliveries |
+| `EveryOtherChangeStillRebuilds` (9 changes x closed/open = 18) | green (standing guards) | every row of the first delivery is destroyed and replaced by a new object, and the new content shows: offer label, merchant name, merchant added (from one merchant; the wire allows two at most), merchant removed, `TradeUsed`, `BarterReadyAt`, a stat row's value, a barter label, and an offer label together with a moved merchant |
+| `AMovedOnlyDeliveryAllocatesNothingInRefresh` | RED | "GC.Alloc samples that Refresh adds to a moved-only delivery": delivery alone a = 2750 samples (50 calls), with Refresh b = 39550, b - a = 36800 |
+
+Measures on the base: Unity objects created by 100 moved-only deliveries (two merchants, window closed) = 15,000 objects (30,002 ids
+between two fresh Meshes; the id step of a fresh Mesh is 2; a `GameObject` takes 4, itself and its Transform, so ids must be
+stepped with Meshes as the recorder does). `GC.GetAllocatedBytesForCurrentThread` is not used; the unit is GC.Alloc samples
+(`AllocationMeter.Samples`), not bytes.
+
+What I could NOT measure: the throwaway implementation. The tool call that edits `TraderDialogView.cs` was refused in this session
+(the oracle author does not implement), so the green side was not run. The bounds are therefore stated from the rules, not from a
+measurement: `CreatedBound = 5` (after the fix no Unity object is created at all; 5 is a margin for the meters), and
+`RefreshSampleBound = 0` (Refresh adds no sample to the delivery). The implementer must tell the reviewer the measured values after the
+fix. If a bound is wrong for a reason that is not an allocation of this file (for example a TMP call that allocates in this editor
+on a closed window), report `oracleDefect` with the number; do not edit the test.
+
+Test 5 separates the two measures cleanly: the rig's view is not subscribed to the session, so a delivery reaches no view code, and the
+frames are encoded once before the meter runs. Expected after the fix: the status line "N traders in sight" (concatenation at
+`TraderDialogView.cs:180`) is the one known allocation left in `Refresh` for two merchants; the test does not exempt it.
+
+Scratch run (not committed): a copy of the class whose `Assert.That` and `Assert.AreSame` caught `AssertionException` and collected
+the messages, failing in TearDown with the list, ran on the base. Every entry was an assertion about the missing behaviour (the
+destroyed rows, "same object", the object count, the focused row, its label, the Refresh samples); no other exception was left once
+three defects of my own were fixed (a plain `EventSystem` is not registered in EditMode, use `UiInputRoutingEventSystem` as
+`TraderRowsWholeHudEditModeTests` does; a third merchant is refused by the wire; reading a destroyed row's label threw
+`MissingReferenceException`). Lines after a red assertion that are green on the base (scroll position kept, list taller than the
+viewport) ran.
+
+Amended expectation (own `oracle-amend:` commit; a RE-STATEMENT for the owner: the guarantee is unchanged, only the way the test
+causes a rebuild): `TraderRowsRealOrderEditModeTests.AReopenedWindowIsRightAfterARebuildWhileClosed` (was line 191).
+- Old set-up line: `rig.Deliver(stat, 3.5); rig.View.Refresh(); rig.LateUpdate();` (a MOVED merchant; no rebuild after this packet).
+- New set-up lines: `var changed = Trade(stat, 0); changed.Offers[0].Label = "−30% movement speed → +99.9 Soul Offence";` then
+  `rig.T.Deliver(new ServerMsg.State { Tick = 99, Items = new StateItem[] { new TradeState { Available = true, Value = changed } } });`
+  then `rig.View.Refresh(); rig.LateUpdate();`. Every assertion after it is as it was. Green before and after.
+
+Two more existing tests deliver a moved merchant (`FlowsLeftoversEditModeTests.TraderListTopEditModeTests.EveryOpeningStartsAtTheTop`,
+line 523, and `ARebuildWhileOpenKeepsThePosition`, line 566). They stay green, but after this packet they no longer cause a
+rebuild, so they no longer test "a rebuild keeps the place" (the spec allowed one amendment; I did not add two). They are listed above
+for the owner: a later packet may re-state them with a content change.
+
+Existing classes run on the base and green with the amendment: `TraderDialogViewEditModeTests`, `TraderRowsRealOrderEditModeTests`,
+`TraderRowsWholeHudEditModeTests`, `TraderCopyEditModeTests`, `TraderWordsEditModeTests`, `FlowsLeftoversEditModeTests` (with
+`TraderListTopEditModeTests`), `PlayerFlowsEditModeTests` (93 of 97 passed in the run with the new class; the four failures are the red
+new tests above).
+
+No stub commit: the tests compile against the existing members (`TraderDialogView.Refresh`, `SelectedMerchantIndex`, `Root`, ...).
