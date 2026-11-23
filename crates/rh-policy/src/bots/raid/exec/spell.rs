@@ -5,8 +5,8 @@ use crate::bots::raid::exec::combat::may_fight_from;
 use crate::bots::raid::exec::farm::{DEFEND_U, FIGHT_U};
 use crate::bots::raid::goal::{Cx, Executor, GoalKind, GoalKind as K, RaidGoal, Step, Target};
 use crate::bots::raid::percept::{MobClass, MobSeen};
-use crate::bots::raid::spells::CHARGE_RANGE;
 use crate::bots::raid::spells::{decide_cast, CastGate, Foe, FoeKind, HeldSpell, SpellScene};
+use crate::bots::raid::spells::{CHARGE_RANGE, SHOT_LINE_CLEARANCE_U};
 use rh_sim::Vec2;
 
 /// An enemy player this close to the dash's landing point blocks the dash: a melee weapon reaches 72-112 u plus the
@@ -22,6 +22,20 @@ fn gap(a: Vec2, b: Vec2) -> f64 {
 const CLEANSE: u8 = 16;
 /// `Me::effects` bits: stunned (1), rooted (2).
 const STUNNED_OR_ROOTED: u16 = 1 | 2;
+/// `Me::effects` bits the sim refuses a shot on: stunned (1), silenced (4), casting (4096).
+const NO_CAST: u16 = 1 | 4 | 4096;
+
+/// Distance from `p` to the segment `a`-`b`.
+fn segment_gap(p: Vec2, a: Vec2, b: Vec2) -> f64 {
+    let (dx, dy) = (b.x - a.x, b.y - a.y);
+    let len2 = dx * dx + dy * dy;
+    let t = if len2 < 1e-9 {
+        0.
+    } else {
+        (((p.x - a.x) * dx + (p.y - a.y) * dy) / len2).clamp(0., 1.)
+    };
+    gap(p, Vec2::new(a.x + t * dx, a.y + t * dy))
+}
 
 /// Casts held quest spells by `spells::SPELL_RULES`.
 #[derive(Default)]
@@ -98,7 +112,7 @@ fn foe(goal: &RaidGoal, cx: &Cx<'_>) -> Option<Foe> {
         (K::Fight, Target::Actor(key)) => {
             cx.p.players
                 .iter()
-                .find(|o| o.alive && &o.key == key)
+                .find(|o| o.alive && o.targetable && &o.key == key)
                 .map(|o| Foe {
                     key: o.key.clone(),
                     kind: FoeKind::Player,
@@ -144,10 +158,19 @@ fn scene(goal: &RaidGoal, cx: &Cx<'_>) -> SpellScene {
                 .filter(enemy_player)
                 .any(|o| gap(land, o.at) <= DASH_PLAYER_CLEARANCE_U)
         });
+    // A player foe is the target of the shots only (Hook, Bolas): none is asked while the seat is stunned, silenced or
+    // casting, or while a hostile mob stands near the line (the shot would hit it first), so no foe is named then.
+    let foe = foe(goal, cx).filter(|f| {
+        f.kind != FoeKind::Player
+            || (cx.p.me.effects & NO_CAST == 0
+                && !cx.p.mobs.iter().any(|m| {
+                    hostile(m, cx) && segment_gap(m.at, me, f.at) <= SHOT_LINE_CLEARANCE_U
+                }))
+    });
     SpellScene {
         me,
         impaired: cx.p.me.effects & STUNNED_OR_ROOTED != 0,
-        foe: foe(goal, cx),
+        foe,
         hostile_distances,
         leave_away,
         hp_share: cx.p.me.hp_share(),
@@ -364,5 +387,17 @@ mod tests {
             ),
             "inside the band: the Turret"
         );
+    }
+
+    /// A mob within 48 u of the segment holds the shot; one just outside does not.
+    #[test]
+    fn the_line_check_is_48_u_from_the_segment() {
+        let (a, b) = (Vec2::new(0., 0.), Vec2::new(300., 0.));
+        assert!(segment_gap(Vec2::new(150., 47.), a, b) <= SHOT_LINE_CLEARANCE_U);
+        assert!(segment_gap(Vec2::new(150., 49.), a, b) > SHOT_LINE_CLEARANCE_U);
+        assert!(segment_gap(Vec2::new(-47., 0.), a, b) <= SHOT_LINE_CLEARANCE_U);
+        assert!(segment_gap(Vec2::new(-49., 0.), a, b) > SHOT_LINE_CLEARANCE_U);
+        assert!(segment_gap(Vec2::new(347., 0.), a, b) <= SHOT_LINE_CLEARANCE_U);
+        assert!(segment_gap(Vec2::new(349., 0.), a, b) > SHOT_LINE_CLEARANCE_U);
     }
 }
