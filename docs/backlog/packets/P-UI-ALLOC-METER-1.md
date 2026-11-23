@@ -54,11 +54,11 @@ none (test support in the Unity client; no legacy behaviour).
 
 | Candidate | alloc control alone (string / object) | clean control alone | alloc in heavy run | clean in heavy run | verdict |
 |---|---|---|---|---|---|
-| `GC.GetAllocatedBytesForCurrentThread` | reads 0 (20 of 20 rounds; 20,000 string concats + 20,000 `new object()` kept alive) | 0 | 0 | 0 | blind: rejected |
-| `Is.Not.AllocatingGCMemory` (`AllocatingGCMemoryConstraint`, 20 rounds, 20,000 calls each, GC.Collect every third) | seen 20/20 | seen 0/20 | seen 20/20 | seen 0/20 | passes all four cells: CHOSEN |
-| `ProfilerRecorder` | not measured (a passing candidate came earlier in the order) | | | | skipped |
-| `GC.GetTotalAllocatedBytes` / `CollectionCount` | `GetTotalAllocatedBytes` does not exist on Mono here (compile error); `GC.GetTotalMemory(false)` seen 1/20, Gen0 collection count seen 0/20 | 0/20 | 7/20 | 0/20 | unreliable: rejected |
-| `GetMonoUsedSizeLong` (no hold-off tried) | seen 1/20 (1,105,920 byte step in round 0, then collections hide it) | 0/20 | 7/20 | 0/20 | flaky: rejected |
+| `GC.GetAllocatedBytesForCurrentThread` | | | | | |
+| `Is.Not.AllocatingGCMemory` | | | | | |
+| `ProfilerRecorder` | | | | | |
+| `GC.GetTotalAllocatedBytes` / `CollectionCount` | | | | | |
+| `GetMonoUsedSizeLong` held off | | | | | |
 
 ## 4. New paths
 
