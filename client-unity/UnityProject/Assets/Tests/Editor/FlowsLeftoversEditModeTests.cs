@@ -482,6 +482,14 @@ namespace Roguehalla.Client.Tests
             Assert.That(Position(view), Is.EqualTo(.4f).Within(.02f), "set-up: the list is scrolled to .4");
         }
 
+        /// <summary>The standard stat trade with one offer's label changed: SameContent differs, so Refresh rebuilds; the merchants keep their names and kinds.</summary>
+        static WireTradeView ChangedOffer()
+        {
+            var changed = TraderRowsRealOrderEditModeTests.Trade(true, 0);
+            changed.Offers[0].Label = "−30% movement speed → +99.9 Soul Offence";
+            return changed;
+        }
+
         static WireTradeView TwoStatTraders()
         {
             var view = TraderRowsRealOrderEditModeTests.Trade(true, 0);
@@ -520,7 +528,7 @@ namespace Roguehalla.Client.Tests
                 AssertTaller(rig.View, "at the first opening");
                 Scrolled(rig.View);
                 rig.View.SetVisible(false);
-                rig.Deliver(true, 3.5); rig.View.Refresh(); rig.LateUpdate();
+                rig.Deliver(ChangedOffer()); rig.View.Refresh(); rig.LateUpdate();   // a content change rebuilds while closed: a moved merchant no longer does (P-UI-TRADER-STEADY-1)
                 rig.View.SetVisible(true);
                 AssertTop(rig.View, "when it opens after a rebuild while closed");
                 Scrolled(rig.View);
