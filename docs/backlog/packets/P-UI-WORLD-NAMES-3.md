@@ -199,8 +199,8 @@ base).
 ## Oracle files (read-only for implementers)
 - `client-unity/RoguehallaNet.Tests/NameAnchorGlideTests.cs` (dotnet, 8 tests)
 - `client-unity/RoguehallaNet.Tests/OverheadBoxLayoutCarryTests.cs` (dotnet, 3 tests)
-- `client-unity/UnityProject/Assets/Tests/Editor/WorldNamesGlideEditModeTests.cs` and its `.meta` (EditMode, 7 tests, 11 cases)
-- `client-unity/UnityProject/Assets/Tests/Editor/WorldNamesCarryEditModeTests.cs` and its `.meta` (EditMode, 3 tests, 6 cases)
+- `client-unity/UnityProject/Assets/Tests/Editor/WorldNamesGlideEditModeTests.cs` and its `.meta` (EditMode, 7 tests, 10 cases)
+- `client-unity/UnityProject/Assets/Tests/Editor/WorldNamesCarryEditModeTests.cs` and its `.meta` (EditMode, 3 tests, 7 cases)
 - `docs/backlog/packets/P-UI-WORLD-NAMES-3.md` (this packet)
 
 Stub commits (the implementer replaces them): `NameAnchorGlide.cs` (+ synced copy and `.meta`), `OverheadBoxLayout.Carry`,
@@ -235,14 +235,14 @@ implementer-sonnet: a small stateful library class, two presenter edits (merge a
 - dotnet, 11 of 11 red. `NameAnchorGlideTests`: every test fails on `TryResidual` true / `Count` / the glided `x` (the stub
   returns the target and keeps nothing). `ASteadyFrameAllocatesNothing` fails on its set-up `Count == 8`, before the
   allocation meter. `OverheadBoxLayoutCarryTests`: each fails on `Carry(7, 9)` true (the positive control).
-- EditMode `WorldNamesGlideEditModeTests`, 15 cases red: every one fails on its first "mid-glide" line, the first
+- EditMode `WorldNamesGlideEditModeTests`, all 10 cases red: every one fails on its first "mid-glide" line, the first
   frame moved 1.0 (the base steps at once) where at most a third is allowed; `AWalkingPackKeepsPaceWhileTheStepGlides`
   on "lags behind the walker, frame 1" (0.0). The glide of a hover, a drop, a cut, a second `End` and the allocation test all open with that line.
 - EditMode `WorldNamesCarryEditModeTests`: `APackThatLeavesItsCampsReachKeepsItsLift` and
   `ThePacksNewKeyTakesTheLowestSerialMembersLift` red on "the lift, frame 1" (expected 0.538, was 0: the base drops
   the lift on a new key); `TheGroundColourIsTheColourAtTheDrawnPlace("A"|"B"|"C")` red on "frame 2: the face at lift 0.2667"
   (the base samples the unlifted place); `AStrayThatStandsAloneStartsAtLiftZero` and
-  `TheGroundColourIsTheColourAtTheDrawnPlace("D")` are STANDING GUARDS, green on the stub and the base (2 passed of 17).
+  `TheGroundColourIsTheColourAtTheDrawnPlace("D")` are STANDING GUARDS, green on the stub and the base (2 passed of 17 cases; 15 red).
 - The 100 tests of the existing classes `NamePackGroup2EditModeTests`, `NamePackFix4EditModeTests`, `NamePackEditModeTests`,
   `NamePackHoverEditModeTests`, `NameLegibleEditModeTests`, `WorldNamesEditModeTests`, `WorldNamesTimeEditModeTests`,
   `NameLayoutKeyEditModeTests` are green on the stub, and the 49 dotnet tests of `OverheadBoxLayoutTests`, `NameMergeTests`,
