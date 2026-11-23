@@ -143,7 +143,7 @@ namespace Roguehalla.Client
             content = MythicUi.Rect(viewport, "Content", new Vector2(0, 1), Vector2.one, Vector2.zero, Vector2.zero);
             content.pivot = new Vector2(.5f, 1f);
             var stack = content.gameObject.AddComponent<UnityEngine.UI.VerticalLayoutGroup>();
-            stack.padding = new UnityEngine.RectOffset(8, 8, 6, 8); stack.spacing = 10;
+            stack.padding = new UnityEngine.RectOffset(8, 8, 4, 4); stack.spacing = 10;
             stack.childAlignment = UnityEngine.TextAnchor.UpperLeft; stack.childControlWidth = true; stack.childControlHeight = true;
             stack.childForceExpandWidth = true; stack.childForceExpandHeight = false;
             content.gameObject.AddComponent<UnityEngine.UI.ContentSizeFitter>().verticalFit = UnityEngine.UI.ContentSizeFitter.FitMode.PreferredSize;
@@ -259,8 +259,7 @@ namespace Roguehalla.Client
                     if (!QuestPresentation.ShowsOffer(quest)) continue;
                     Row row = GetRow(_visibleRowCount++); row.Handle = quest.Handle;
                     row.Label.text = QuestRowLabel(quest);
-                    QuestHandle capturedHandle = quest.Handle; Session capturedSession = _session; uint capturedEpoch = _boundEpoch;
-                    row.Button.onClick.RemoveAllListeners(); row.Button.onClick.AddListener(() => SelectCurrent(capturedSession, capturedEpoch, next, capturedHandle));
+                    BindRow(row, _session, _boundEpoch, next, quest.Handle);
                     row.Root.gameObject.SetActive(true);
                 }
                 SetRows(_visibleRowCount); _rowsNeedMark = true;
@@ -273,6 +272,12 @@ namespace Roguehalla.Client
             }
             SetText(_state, _stateText);
             RenderSelection();
+        }
+
+        void BindRow(Row row, Session session, uint epoch, QuestView view, QuestHandle handle)
+        {
+            row.Button.onClick.RemoveAllListeners();
+            row.Button.onClick.AddListener(() => SelectCurrent(session, epoch, view, handle));
         }
 
         static string QuestRowLabel(QuestRowView q)
@@ -381,12 +386,16 @@ namespace Roguehalla.Client
             else if (!_acceptBindingValid || !ReferenceEquals(_acceptBoundSession, _session) || !ReferenceEquals(_acceptBoundView, _view) ||
                 _acceptBoundEpoch != _boundEpoch || !_acceptBoundHandle.Equals(q.Handle))
             {
-                _accept.onClick.RemoveAllListeners();
-                Session capturedSession = _session; uint capturedEpoch = _boundEpoch; QuestView capturedView = _view; QuestHandle capturedHandle = q.Handle;
-                _accept.onClick.AddListener(() => TryAcceptFrom(capturedSession, capturedEpoch, capturedView, capturedHandle));
-                _acceptBoundSession = capturedSession; _acceptBoundEpoch = capturedEpoch; _acceptBoundView = capturedView;
-                _acceptBoundHandle = capturedHandle; _acceptBindingValid = true;
+                BindAccept(_session, _boundEpoch, _view, q.Handle);
+                _acceptBoundSession = _session; _acceptBoundEpoch = _boundEpoch; _acceptBoundView = _view;
+                _acceptBoundHandle = q.Handle; _acceptBindingValid = true;
             }
+        }
+
+        void BindAccept(Session session, uint epoch, QuestView view, QuestHandle handle)
+        {
+            _accept.onClick.RemoveAllListeners();
+            _accept.onClick.AddListener(() => TryAcceptFrom(session, epoch, view, handle));
         }
 
         void RenderStatus(QuestRowView q, bool acceptPending)
@@ -477,11 +486,7 @@ namespace Roguehalla.Client
                     var button = ActionButton(_actions, _stripContent, used++);
                     SetText(button.GetComponentInChildren<TMP_Text>(true), action.Label);
                     button.onClick.RemoveAllListeners();
-                    button.onClick.AddListener(() =>
-                    {
-                        if (_selected.HasValue && _selected.Value.Equals(action.Quest) && IsCurrentView(session, epoch, view))
-                            QuestPresentation.TrySend(session, epoch, view, action.Quest, action.Action, action.Target);
-                    });
+                    BindStripButton(button, session, epoch, view, action);
                     button.gameObject.SetActive(true);
                 }
             }
@@ -492,6 +497,15 @@ namespace Roguehalla.Client
             }
             LayoutStrip(row, used);
             RenderAbandon(row, haveAbandon, abandon);
+        }
+
+        void BindStripButton(UnityEngine.UI.Button button, Session session, uint epoch, QuestView view, QuestActionView action)
+        {
+            button.onClick.AddListener(() =>
+            {
+                if (_selected.HasValue && _selected.Value.Equals(action.Quest) && IsCurrentView(session, epoch, view))
+                    QuestPresentation.TrySend(session, epoch, view, action.Quest, action.Action, action.Target);
+            });
         }
 
         void LayoutStrip(QuestRowView row, int used)
