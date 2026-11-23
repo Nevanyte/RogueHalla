@@ -188,7 +188,9 @@ namespace Roguehalla.Client.Tests
                     Assert.That(scroll.verticalNormalizedPosition, Is.EqualTo(1f).Within(.01f), "the list stands at the top (set-up)");
                 }
                 rig.View.SetVisible(false);
-                rig.Deliver(stat, 3.5); rig.View.Refresh(); rig.LateUpdate();
+                var changed = Trade(stat, 0); changed.Offers[0].Label = "−30% movement speed → +99.9 Soul Offence";   // a content change: a moved merchant no longer rebuilds (P-UI-TRADER-STEADY-1)
+                rig.T.Deliver(new ServerMsg.State { Tick = 99, Items = new StateItem[] { new TradeState { Available = true, Value = changed } } });
+                rig.View.Refresh(); rig.LateUpdate();
                 rig.View.SetVisible(true);
                 AssertFormula(rig.View, stat);
                 if (stat)
