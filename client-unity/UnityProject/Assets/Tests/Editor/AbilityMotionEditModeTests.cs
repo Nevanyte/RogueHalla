@@ -512,7 +512,7 @@ namespace Roguehalla.Client.Tests
             BuildRig();
             SnapWish(10, 50000, Wish(0, 55000, 10000, 50000, 51000), 400);
             Items(10, Inventory(0));
-            Items(11, Spells(new WireQuestSpell { Slot = 0, Reward = 3, Charges = 2, ReadyAt = 55000 }, new WireQuestSpell { Slot = 1, Reward = 4, Charges = 1, ReadyAt = 56000 }));
+            Items(11, Spells(new WireQuestSpell { Slot = 0, Reward = 3, Charges = 0, ReadyAt = 55000 }, new WireQuestSpell { Slot = 1, Reward = 4, Charges = 0, ReadyAt = 56000 }));
             Frame();
             Assert.That(WedgeOn(Tile("WishTile")), Is.True, "set-up: the Wish wedge is on");
             Assert.That(WedgeOn(Tile("QuestSpell1")), Is.True, "set-up: the Shift wedge is on");
