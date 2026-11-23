@@ -95,13 +95,12 @@ fn foe(goal: &RaidGoal, cx: &Cx<'_>) -> Option<Foe> {
 /// What this think reads of the percept.
 fn scene(goal: &RaidGoal, cx: &Cx<'_>) -> SpellScene {
     let me = cx.p.me.at;
-    let mut hostile_distances: Vec<f64> = cx
-        .p
-        .mobs
-        .iter()
-        .filter(|m| hostile(m, cx))
-        .map(|m| cx.p.dist(m.at))
-        .collect();
+    let mut hostile_distances: Vec<f64> =
+        cx.p.mobs
+            .iter()
+            .filter(|m| hostile(m, cx))
+            .map(|m| cx.p.dist(m.at))
+            .collect();
     hostile_distances.extend(
         cx.p.players
             .iter()
