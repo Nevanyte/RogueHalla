@@ -8,12 +8,29 @@ namespace Roguehalla.Net.Ui
         public static QuestRowView Pick(QuestView view, double x, double y, out int inReach)
         {
             inReach = 0;
-            return null;
+            if (view == null || !view.Available) return null;
+            var rows = view.Rows;
+            QuestRowView best = null;
+            double bestDistance = 0;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var row = rows[i];
+                if (!row.CanAccept) continue;
+                inReach++;
+                double dx = row.GiverX - x, dy = row.GiverY - y;
+                double distance = dx * dx + dy * dy;
+                if (best == null || distance < bestDistance) { best = row; bestDistance = distance; }
+            }
+            return best;
         }
 
         /// <summary>The row of this handle; null when absent, or the view is null or unavailable.</summary>
         public static QuestRowView Find(QuestView view, QuestHandle handle)
         {
+            if (view == null || !view.Available) return null;
+            var rows = view.Rows;
+            for (int i = 0; i < rows.Count; i++)
+                if (rows[i].Handle.Equals(handle)) return rows[i];
             return null;
         }
 
@@ -21,7 +38,10 @@ namespace Roguehalla.Net.Ui
         /// else floor - regionHeight, never above clear (the tracker's bottom). Any NaN gives regionTop.</summary>
         public static float Lift(float regionTop, float regionHeight, float clear, float floor)
         {
-            return regionTop;
+            if (float.IsNaN(regionTop) || float.IsNaN(regionHeight) || float.IsNaN(clear) || float.IsNaN(floor)) return regionTop;
+            if (regionTop + regionHeight <= floor) return regionTop;
+            float lifted = floor - regionHeight;
+            return lifted > clear ? lifted : clear;
         }
     }
 }
