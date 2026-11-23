@@ -28,6 +28,14 @@ namespace Roguehalla.Client
         double _questChoiceRetryAt;
         int _nearbyQuestCount;
 
+        // P-UI-QUEST-OFFER-1 stub: the implementer replaces these.
+        QuestOfferCard _offerCard;
+        public QuestOfferCard OfferCard { get { return _offerCard ?? (_offerCard = new QuestOfferCard(null, null, null)); } }
+        public bool OfferOpen { get { return false; } }
+        public bool TryInteract() { return false; }
+        bool AcceptOffer() { return false; }
+        void CloseOffer() { }
+
         bool QuestRewardModalVisible => _questChoiceOverlay?.gameObject.activeSelf == true || _nearbyQuestOverlay?.gameObject.activeSelf == true;
         RectTransform QuestRewardFocus => _questChoiceOverlay?.gameObject.activeSelf == true ? _questChoiceOverlay : _nearbyQuestOverlay;
 
