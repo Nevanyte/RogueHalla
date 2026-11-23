@@ -204,6 +204,8 @@ namespace Roguehalla.Net.Ui
             if (e < 0) { value = target = 0f; return false; }
             value = _mLift[e].Value; target = _mLift[e].Target; return true;
         }
+        /// <summary>Copies the memory of oldKey to newKey when oldKey has one and newKey has none; true when it copied. Stub: copies nothing.</summary>
+        public bool Carry(long oldKey, long newKey) { return false; }
         /// <summary>Keys with a memory.</summary>
         public int MemoryCount { get { return _memory; } }
         /// <summary>Forgets the whole memory (the Tab map, a clock cut).</summary>

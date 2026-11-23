@@ -19,12 +19,13 @@ namespace Roguehalla.Client
         }
         float _endClock; bool _haveEndClock;
         int _solvedStamp = -1;
+        int _glideStamp = -1;
 
         /// <summary>Ends a frame with the clock the caller supplies (seconds since the previous frame): merges the pack names, lays every name out, evicts what was not drawn.</summary>
         public void End(float dt)
         {
             _frameLaunches.Clear();
-            MergeMobNames();
+            MergeMobNames(dt);
             if (WorldLabelVisibility.Hidden) { }
             else if (_solvedStamp != _stamp) { LayoutNames(dt); _solvedStamp = _stamp; }
             else ApplyLifts();
@@ -128,7 +129,7 @@ namespace Roguehalla.Client
         /// Mobs of one camp that stand together show exactly one name (P-UNITY-NAME-GROUP-2): over the pack, or over the hovered or locked member.
         /// Then the fighters' names are stacked so none overlaps another. Runs after every actor's indicators were presented. Players are never merged.
         /// </summary>
-        void MergeMobNames()
+        void MergeMobNames(float dt)
         {
             if (WorldLabelVisibility.Hidden)
             {
