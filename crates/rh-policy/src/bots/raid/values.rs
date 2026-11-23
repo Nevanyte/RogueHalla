@@ -49,6 +49,11 @@ pub struct SustainPrices {
     /// Worth of one share of max hp healed on purpose (ce per share): with `regen_per_second` this fixes the heal-up's
     /// rate in ce per minute, which a camp worth taking beats and standing still does not.
     pub rest_value: f64,
+    /// Seconds a potion takes to give its share back (`potions::DEFINITION.heal_ms`): hp still to come while a heal runs.
+    pub heal_seconds: f64,
+    /// A fight is on while the bot lost hp within this many seconds, or a member stands within reach of it on a camp it
+    /// works: a camp passed at a distance is not a fight to leave.
+    pub hurt_seconds: f64,
     /// Share of max hp the sim regenerates a second after the quiet spell (`PLAYER_REGEN_SHARE_OUT`).
     pub regen_per_second: f64,
 }
@@ -74,6 +79,8 @@ impl SustainPrices {
         leave_seconds: 1.,
         rest_value: 0.,
         regen_per_second: 0.008,
+        heal_seconds: 5.,
+        hurt_seconds: 3.,
     };
     pub const LOCAL: Self = Self {
         on: true,
@@ -87,6 +94,8 @@ impl SustainPrices {
         leave_seconds: 6.,
         rest_value: 0.6,
         regen_per_second: 0.008,
+        heal_seconds: 5.,
+        hurt_seconds: 3.,
     };
 }
 

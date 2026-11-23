@@ -42,6 +42,13 @@ pub struct Sustain {
     cornered_until: f64,
     /// The fight so far (`track`): hp lost and member hp destroyed, the real exchange rate.
     seen: Seen,
+    /// Server ms of the last frame the bot lost hp (or was hit), and the hp share it held the frame before.
+    hurt_at: Option<f64>,
+    prev_hp: f64,
+    /// Potions held the frame before (large, small) and the shares of the heals still running, newest last.
+    prev_stock: (u8, u8),
+    hots: Vec<f64>,
+    dbg_kind: Option<GoalKind>,
 }
 
 /// What the current fight has cost and bought (units: shares of the bot's max hp, members' worth of hp).
@@ -88,12 +95,60 @@ impl Sustain {
         s
     }
 
-    /// Hp share held plus the potions held (the farm's view of what the bot can still spend).
-    fn hp_held(cx: &Cx<'_>) -> f64 {
-        cx.p.me.hp_share()
-            + cx.prices
-                .sustain
-                .potion_hp(cx.p.me.potion_large, cx.p.me.potion_small)
+    /// Hp share held, plus the potions held, plus what the heals already running will still give back (a drunk potion
+    /// leaves the stock at once while the sim returns its share over `heal_seconds`).
+    fn hp_held(&self, cx: &Cx<'_>) -> f64 {
+        let s = &cx.prices.sustain;
+        let me = &cx.p.me;
+        let mut held = me.hp_share() + s.potion_hp(me.potion_large, me.potion_small);
+        if me.potions_healing > 0 {
+            if let Some(until) = me.healing_until {
+                let to_come = ((until - cx.p.now) / (s.heal_seconds * 1_000.)).clamp(0., 1.);
+                let n = usize::from(me.potions_healing).min(self.hots.len());
+                held += self.hots[self.hots.len() - n..].iter().sum::<f64>() * to_come;
+            }
+        }
+        held
+    }
+
+    /// Keep the hurt clock and the shares of the heals running (a stock that fell by one is a drink of that size).
+    fn watch(&mut self, cx: &Cx<'_>) {
+        let me = &cx.p.me;
+        let s = &cx.prices.sustain;
+        if me.hp_share() < self.prev_hp - 1e-9 || cx.p.hit_at.is_some() {
+            self.hurt_at = Some(cx.p.now);
+        }
+        self.prev_hp = me.hp_share();
+        if me.potion_large < self.prev_stock.0 {
+            self.hots.push(s.large_share);
+        } else if me.potion_small < self.prev_stock.1 {
+            self.hots.push(s.small_share);
+        }
+        self.prev_stock = (me.potion_large, me.potion_small);
+        if me.potions_healing == 0 {
+            self.hots.clear();
+        } else {
+            let keep = usize::from(me.potions_healing);
+            if self.hots.len() > keep {
+                self.hots.drain(..self.hots.len() - keep);
+            }
+        }
+    }
+
+    /// The bot is in a fight rather than near one: it lost hp lately, or a member stands within reach on the camp it
+    /// works (a camp passed at a distance, or the bow range of one, is not a fight).
+    fn in_fight(cx: &Cx<'_>, hurt_at: Option<f64>) -> bool {
+        let hurt = hurt_at.is_some_and(|t| cx.p.now - t <= cx.prices.sustain.hurt_seconds * 1_000.);
+        let works_camp = matches!(
+            (cx.goal.kind, &cx.goal.target),
+            (GoalKind::Farm | GoalKind::Sustain, Target::Camp(_))
+        );
+        hurt || (works_camp
+            && cx
+                .p
+                .mobs
+                .iter()
+                .any(|m| m.alive && m.class == MobClass::Regional && cx.p.dist(m.at) <= FIGHT_U))
     }
 
     /// A potion could be drunk now: one is held and no heal runs.
@@ -189,7 +244,7 @@ impl Sustain {
     fn death(&mut self, cx: &Cx<'_>, zone: rh_sim::mapdata::Zone, left: f64) -> Option<f64> {
         let me = cx.p.me.faction?;
         let share = self.share(me, zone_faction(zone));
-        let hp = Self::hp_held(cx);
+        let hp = self.hp_held(cx);
         let model = &cx.prices.death;
         let by_model = death_chance(hp, share, left, model);
         let seen = &self.seen;
@@ -204,6 +259,9 @@ impl Sustain {
 
     /// The fight the bot is in (a member within reach) and whether it is lost.
     fn fight(&mut self, cx: &Cx<'_>) -> Option<Fight> {
+        if !Self::in_fight(cx, self.hurt_at) {
+            return None;
+        }
         let (camp, zone, left) = Self::view(cx)?;
         let death = self.death(cx, zone, left)?;
         Some(Fight {
@@ -272,6 +330,8 @@ impl Executor for Sustain {
     }
     fn observe(&mut self, cx: &mut Cx<'_>) {
         if cx.prices.sustain.on && cx.p.active {
+            if cx.goal.kind != GoalKind::Sustain { self.dbg_kind = Some(cx.goal.kind); }
+            self.watch(cx);
             self.track(cx);
         }
     }
@@ -317,7 +377,12 @@ impl Executor for Sustain {
             });
         }
     }
-    fn start(&mut self, goal: &RaidGoal, _cx: &mut Cx<'_>) {
+    fn start(&mut self, goal: &RaidGoal, cx: &mut Cx<'_>) {
+        {
+            let n = Self::nearest(cx);
+            let v = Self::view(cx);
+            eprintln!("DBG start now={} slot={} prev={:?} goal={:?} hp={:.2} pot={}/{} near={:?} view={:?} seen={:?}", cx.p.now, cx.p.me.slot, self.dbg_kind, goal.target, cx.p.me.hp_share(), cx.p.me.potion_large, cx.p.me.potion_small, n.map(|m| (m.camp, cx.p.dist(m.at) as i32)), v.map(|v| (v.0, v.2)), (self.seen.lost, self.seen.dealt));
+        }
         self.leaving = match goal.target {
             Target::Camp(c) => Some(c),
             _ => None,
