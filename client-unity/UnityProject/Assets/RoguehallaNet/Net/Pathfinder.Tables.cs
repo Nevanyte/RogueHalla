@@ -20,9 +20,8 @@ namespace Roguehalla.Net
             _w = map.W;
             _h = map.H;
             BuildTables();
-            // Force the next Reset to allocate the node array for this map size.
-            _n = 0;
-            _base = 0;
+            // The node array and its stamps stay: Reset re-allocates only when the map size changes, and every stamp left by an
+            // earlier map is below the next base (g = infinity, open).
             _heapCount = 0;
             _tilePathLen = 0;
             _candLen = 0;
@@ -33,9 +32,10 @@ namespace Roguehalla.Net
         {
             int n = _w * _h;
             byte[] tiles = _map.Tiles;
-            _comp = new int[n];
+            if (_comp == null || _comp.Length != n) _comp = new int[n];
+            if (_queue == null || _queue.Length != n) _queue = new int[n];
             for (int i = 0; i < n; i++) _comp[i] = -1;
-            var queue = new int[n];
+            int[] queue = _queue;
             int id = 0;
             for (int s = 0; s < n; s++)
             {
@@ -55,7 +55,7 @@ namespace Roguehalla.Net
                 id++;
             }
 
-            _nav = new byte[n];
+            if (_nav == null || _nav.Length != n) _nav = new byte[n];
             for (int y = 0; y < _h; y++)
             {
                 for (int x = 0; x < _w; x++)
