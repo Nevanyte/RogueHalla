@@ -268,7 +268,7 @@ namespace Roguehalla.Client
                 banner = "Reconnecting… (" + _session.ReconnectAttempt + "/" + _session.ReconnectAttemptMax + ")";
             else if (_session.State == SessionState.Rejected) banner = ConnectionCopy.ForState(_session.State, _session.RejectCode, _session.RejectReason, _session.FailureKind);
             else if (_session.State == SessionState.Failed) banner = ConnectionCopy.ForState(_session.State, _session.RejectCode, _session.RejectReason, _session.FailureKind);
-            else banner = _session.State.ToString();
+            else banner = PlayerWords.Word(_session.State);
             Set(_banner, banner); Set(_plateStatus, practiceBanner ? TrainingBanner : banner); _bannerPractice = practiceBanner; _bannerState = _session.State; _bannerPhase = phase; _bannerAttempt = _session.ReconnectAttempt;
             }
             if (_client != null && _client.LaunchPending) return;
@@ -322,7 +322,7 @@ namespace Roguehalla.Client
             if (me.Hp != _lastHp || me.MaxHp != _lastMaxHp || me.Kills != _lastKills || me.Gv != _lastGv || me.Status != _lastStatus || me.Barrier != _lastBarrier || me.BarrierRingStep != _lastBarrierRing)
             {
                 Set(_vitals, ShowcasePalette.GetFactionName((int)me.Faction) + " · HP " + me.Hp.ToString("0.#") + " / " + me.MaxHp.ToString("0.#") + " · Barrier " + me.Barrier.ToString("0.#"));
-                Set(_combatStats, "Kills " + me.Kills + " · GV " + me.Gv + " · " + me.Status);
+                Set(_combatStats, "Kills " + me.Kills + " · GV " + me.Gv + " · " + PlayerWords.Word(me.Status));
                 _lastHp = me.Hp; _lastMaxHp = me.MaxHp; _lastKills = me.Kills; _lastGv = me.Gv; _lastStatus = me.Status; _lastBarrier = me.Barrier; _lastBarrierRing = me.BarrierRingStep;
             }
             DeliverOwnerVitals(me);
@@ -433,7 +433,7 @@ namespace Roguehalla.Client
                 _focusShown = view.Focus;
                 _pickup.interactable = view.Focus.HasValue;
                 _pickup.gameObject.SetActive(view.Focus.HasValue);
-                string what = view.Focus.HasValue ? (view.Focus.Value.Weapon.HasValue ? view.Focus.Value.Weapon.ToString() : view.Focus.Value.Kind.ToString()) : "";
+                string what = view.Focus.HasValue ? (view.Focus.Value.Weapon.HasValue ? view.Focus.Value.Weapon.ToString() : PlayerWords.Word(view.Focus.Value.Kind)) : "";
                 if (_pickupText != null)
                 {
                     string held = _inventoryShown.HasValue ? (_inventoryShown.Value.ActiveSlot == 0 ? _inventoryShown.Value.Slot0 : _inventoryShown.Value.Slot1)?.ToString() : null;
@@ -456,7 +456,7 @@ namespace Roguehalla.Client
             _buildShown = true; _hasBuildShown = view.HasBuild;
             var text = new StringBuilder("BUILD  "); bool any = false;
             for (int i = 0; i < view.Cards.Count; i++) if (view.Cards[i] > 0) { text.Append(CardDisplayCatalog.Title((byte)i)).Append('×').Append(view.Cards[i]).Append("  "); any = true; }
-            for (int i = 0; i < view.Boosts.Count; i++) if (view.Boosts[i] > 0) { text.Append((BoostId)i).Append('+').Append(view.Boosts[i]).Append("  "); any = true; }
+            for (int i = 0; i < view.Boosts.Count; i++) if (view.Boosts[i] > 0) { text.Append(PlayerWords.Word((BoostId)i)).Append(" +").Append(view.Boosts[i]).Append("  "); any = true; }
             if (!any) text.Append(view.HasBuild ? "None" : "awaiting server");
             Set(_build, view.HasBuild ? BuildHudText.ExtrasHeader(CountCards(view), view.Summary) : "Cards & mob bonuses");
             if (_buildHint != null) _buildHint.Text = "B · Full build details\n" + text;
