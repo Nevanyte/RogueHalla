@@ -474,6 +474,11 @@ namespace Roguehalla.Client
             if (Hud == null || !Hud.ChestOwnsDigits)
             {
                 if (kb.spaceKey.wasPressedThisFrame) Session.Input.Swap();
+                if (Session.Phase == MatchPhase.Active)
+                {
+                    if (kb.digit1Key.wasPressedThisFrame) Session.Input.Swap(0);
+                    if (kb.digit2Key.wasPressedThisFrame) Session.Input.Swap(1);
+                }
             }
             if (kb.shiftKey.wasPressedThisFrame)
             {

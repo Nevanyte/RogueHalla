@@ -342,7 +342,14 @@ namespace Roguehalla.Client
             if (_vitalsPanel != null) _vitalsPanel.sizeDelta = new Vector2(HudLayout.PlateWidth(viewport.UiWidth), _vitalsPanel.sizeDelta.y);
             if (_championHud != null)
                 _championHud.sizeDelta = new Vector2(HudLayout.ChampionWidth(viewport.UiWidth, viewport.Narrow), _championHud.sizeDelta.y);
-            if (_weaponBar != null) _weaponBar.localScale = Vector3.one;
+            if (_weaponBar != null)
+            {
+                // The row shrinks to clear the champion panel and the minimap; the minimap keeps its size.
+                float minimap = HudLayout.MinimapSize(viewport.UiWidth, viewport.UiHeight, _uiPrefs != null ? _uiPrefs.MinimapScale : 1f);
+                float scale = HudRegions.AbilityRowScale(viewport.UiWidth, ChampionLeft + HudLayout.ChampionWidth(viewport.UiWidth, viewport.Narrow),
+                    viewport.UiWidth - HudLayout.MinimapGutter - minimap);
+                _weaponBar.localScale = new Vector3(scale, scale, 1f);
+            }
             _map?.ApplyViewport(viewport, _uiPrefs != null ? _uiPrefs.MinimapScale : 1f);
             ApplyRewardsAnchor();
             _modernSettings?.ApplyViewport(viewport);

@@ -31,7 +31,7 @@ namespace Roguehalla.Client
                 case CommandKind.Swap:
                     if (command.Slot.HasValue && command.Slot.Value < _slots.Length && _slots[command.Slot.Value] != null)
                         Pulse((RectTransform)_slots[command.Slot.Value].transform);
-                    else Pulse(_weaponBar);
+                    else for (int i = 0; i < _slots.Length; i++) if (_slots[i] != null) Pulse((RectTransform)_slots[i].transform);
                     break;
             }
         }
