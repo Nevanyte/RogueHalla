@@ -88,8 +88,6 @@ const REFUSED_MS: f64 = 1_500.;
 const REFUSED_BAN_MS: f64 = 20_000.;
 /// Players this near the monk are close enough to hit the seat while it meditates.
 const MONK_DANGER_U: f64 = 400.;
-/// The chance floor of a walk to die (the walker's).
-const DEATH_FLOOR: f64 = 0.02;
 /// Slack (time left over time needed) from which the dwell is certain to finish.
 const SAFE_SLACK: f64 = 1.2;
 /// Release a running dwell when hit below this hp share.
@@ -248,7 +246,7 @@ impl Dwell {
     /// The chance to die to the living camps whose centre lies within `CAMP_JOIN_RADIUS` of `point`, floored.
     fn death_near(&mut self, cx: &Cx<'_>, point: Vec2) -> f64 {
         let Some(me) = cx.p.me.faction else {
-            return DEATH_FLOOR;
+            return cx.prices.death_floor;
         };
         let hp = cx.p.me.hp_share();
         let mut survive = 1.;
@@ -259,7 +257,7 @@ impl Dwell {
             let share = self.share(me, zone_faction(camp.zone));
             survive *= 1. - death_chance(hp, share, members_left(cx.p, camp), &cx.prices.death);
         }
-        (1. - survive).max(DEATH_FLOOR)
+        (1. - survive).max(cx.prices.death_floor)
     }
 
     fn candidate(&mut self, cx: &mut Cx<'_>, row: &WireQuestRow) -> Option<Candidate> {
