@@ -387,18 +387,26 @@ namespace Roguehalla.Client.Tests
         {
             BuildRig(); var tile = Tile("WishTile");
             SnapWish(10, 50000, Wish(0, 55000, 10000)); Frame();
+            var pulses = Pulses();
             SnapWish(11, 55050, Wish(1, 55000, 10000)); _local += 50; Frame();
             _local += 50; Frame();
-            _local += 200; Frame();
-            Assert.That(WedgeOn(tile), Is.False, "set-up: the Wish is ready, so the press goes through");
+            // The ready pop of the tile starts on this frame (100 ms after the ready snapshot) and lasts .15 s. The press goes in at 60 ms
+            // into it (a quarter of the pop is 37 ms): the press's pop meets a pop of the same tile that is still running.
+            Assert.That(pulses.Count, Is.EqualTo(1), "set-up: the ready pop of the Wish tile is running");
+            _local += 60; Frame();
+            Assert.That(pulses.Count, Is.EqualTo(1), "set-up: still running 60 ms into it");
+            Assert.That(WedgeOn(tile), Is.False, "set-up: the Wish reads Ready just before the press, so the press pops");
             double start = _local;
             Call(_hud, "InputCue", WireCommand.Cast(0, 0f, 0f));
+            float peak = 1f;
             for (int ms = 10; ms <= 150; ms += 10)
             {
                 _local = start + ms; Frame();
                 Assert.That(tile.localScale.x, Is.LessThanOrEqualTo(1f + HudPulses.Pop + .001f), "one pop and no wash scale at +" + ms + " ms");
                 Assert.That(Glow.enabled, Is.True, "the wash is on at +" + ms + " ms");
+                peak = Mathf.Max(peak, tile.localScale.x);
             }
+            Assert.That(peak, Is.GreaterThan(1f + HudPulses.Pop * .9f), "the press's pop reached its full size: the overlap was a pop, not nothing");
         }
 
         [Test]
