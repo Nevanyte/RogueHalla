@@ -140,6 +140,10 @@ public sealed class AbilityTile
   labels through `HudUi.Label`; none is a raycast target. `Key`, `Name`, `Seconds` and `Charges` are the BOX objects (explicit
   size: key 30 x 12 at the top left, name 60 x 26 centred, seconds 40 x 20 centred, charges 20 x 14 at the bottom right); the text
   is the child `Label`.
+- `Frame`: an `Image` child of the tile root (a thin outline, not a raycast target) whose `color` is exactly the table's frame
+  colour for the phase; the oracle reads the frame colour from `Frame`'s Image and nowhere else.
+- Hiding the name (Cooling, Empty) means: the `Name` box is deactivated (`SetActive(false)`) or its label text is empty. The oracle
+  reads exactly that (`Name` active and a non-empty `Name/Label` text); disabling the TMP component or zeroing its alpha does not count.
 - The tile's surface is one `Image` whose `color` is exactly the table's surface colour: the `Button` on the tile has
   `transition = Selectable.Transition.None`, so no colour block tints it. `UiTheme.With(colour, alpha)` (`UI/UiTheme.cs:129`) gives
   the alpha variants (the HUD's private `Tone` helper is not reachable from this class).
@@ -378,6 +382,10 @@ Deviations from the spec's test list, and what could not be proved on the stub:
 
 Legacy doubts: none. Proposed DEVIATIONS row (owner signs): DEV-<n>, quest spells Shift and Q are ability tiles in the action row
 (legacy has no quest spells); keys 1 and 2 pick a weapon slot (this removes a difference from legacy).
+
+Fix pass (checker findings): (1) the tile's `Frame` Image child is now named in section 4 (the test reads it, so the spec states it);
+(2) the Cooling/Empty name rule is now stated as "deactivate the `Name` box or clear its text", which is what `NameShown` checks.
+No test code changed, so the red/green results above stand.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
