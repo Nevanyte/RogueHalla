@@ -54,23 +54,170 @@ pub struct EliteAssumptions {
     pub death_chance: PerHelpers,
 }
 
-/// A quest's reward descriptor.
-#[derive(Clone, Debug, Default, Deserialize)]
-#[serde(default)]
-pub struct Reward {
-    pub kind: String,
-    pub direct_stacks: f64,
-    pub damage_fraction: f64,
-    pub move_fraction: f64,
-    pub duel_equivalent_ce: Option<f64>,
+/// A quest's reward descriptor, an enum by `kind`. Parsed by hand (`parse_reward`): serde cannot refuse an unknown field on
+/// an internally tagged enum, and the errors must name the quest.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Reward {
+    /// Stacks now plus a farming dividend; `upfront_stacks` are paid at the trade and belong to the price.
+    PermanentBuff {
+        direct_stacks: f64,
+        damage_fraction: f64,
+        move_fraction: f64,
+        upfront_stacks: f64,
+    },
+    /// A single-use spell (the default `spell_type`): its duel equivalent alone.
+    SingleUse { duel_equivalent_ce: Option<f64> },
+    /// A reusable spell: `Delta_CD` plus a farming dividend (QUEST_VALUE_MODEL 4.3).
+    Reusable {
+        duel_equivalent_ce: Option<f64>,
+        farm_rate_gain: Option<f64>,
+        cap_camps_per_minute: Option<f64>,
+    },
+    /// Any other kind: kept, not priced.
+    Unpriced { kind: String },
+}
+
+fn reward_number(
+    id: &str,
+    rw: &serde_json::Map<String, serde_json::Value>,
+    f: &str,
+    required: bool,
+) -> Result<Option<f64>, String> {
+    match rw.get(f) {
+        None | Some(serde_json::Value::Null) if !required => Ok(None),
+        Some(x) if x.is_number() => Ok(x.as_f64()),
+        _ => Err(format!("quest {id}: reward is missing field `{f}`")),
+    }
+}
+
+fn parse_reward(id: &str, raw: &serde_json::Value) -> Result<Reward, String> {
+    let Some(rw) = raw.as_object() else {
+        return Err(format!("quest {id}: reward must be an object"));
+    };
+    let Some(kind) = rw.get("kind").and_then(|k| k.as_str()) else {
+        return Err(format!("quest {id}: reward is missing field `kind`"));
+    };
+    let spell_type = if kind == "spell" {
+        match rw.get("spell_type").map(|t| t.as_str()) {
+            None => "single_use",
+            Some(Some(t @ ("single_use" | "reusable"))) => t,
+            Some(_) => {
+                return Err(format!(
+                    "quest {id}: reward `spell_type` must be single_use or reusable"
+                ))
+            }
+        }
+    } else {
+        ""
+    };
+    let allowed: &[&str] = match (kind, spell_type) {
+        ("permanent_buff", _) => &[
+            "direct_stacks",
+            "damage_fraction",
+            "move_fraction",
+            "upfront_stacks",
+        ],
+        ("spell", "reusable") => &[
+            "duel_equivalent_ce",
+            "farm_rate_gain",
+            "cap_camps_per_minute",
+        ],
+        ("spell", _) => &["duel_equivalent_ce"],
+        _ => &[],
+    };
+    for f in rw.keys() {
+        let common = f == "kind" || f == "source" || (f == "spell_type" && kind == "spell");
+        if !common && !allowed.contains(&f.as_str()) {
+            return Err(format!(
+                "quest {id}: reward field `{f}` is not read by kind {kind:?}{}",
+                if spell_type.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({spell_type})")
+                }
+            ));
+        }
+    }
+    let num = |f: &str, req: bool| reward_number(id, rw, f, req);
+    let positive = |f: &str, x: Option<f64>| match x {
+        Some(v) if v <= 0. || !v.is_finite() => {
+            Err(format!("quest {id}: reward `{f}` must be above 0"))
+        }
+        _ => Ok(x),
+    };
+    Ok(match (kind, spell_type) {
+        ("permanent_buff", _) => {
+            let upfront = num("upfront_stacks", false)?.unwrap_or(0.);
+            if upfront < 0. {
+                return Err(format!(
+                    "quest {id}: reward `upfront_stacks` must not be negative"
+                ));
+            }
+            Reward::PermanentBuff {
+                direct_stacks: num("direct_stacks", true)?.unwrap_or(0.),
+                damage_fraction: num("damage_fraction", true)?.unwrap_or(0.),
+                move_fraction: num("move_fraction", true)?.unwrap_or(0.),
+                upfront_stacks: upfront,
+            }
+        }
+        ("spell", "reusable") => Reward::Reusable {
+            duel_equivalent_ce: num("duel_equivalent_ce", false)?,
+            farm_rate_gain: positive("farm_rate_gain", num("farm_rate_gain", false)?)?,
+            cap_camps_per_minute: positive(
+                "cap_camps_per_minute",
+                num("cap_camps_per_minute", false)?,
+            )?,
+        },
+        ("spell", _) => Reward::SingleUse {
+            duel_equivalent_ce: num("duel_equivalent_ce", false)?,
+        },
+        _ => Reward::Unpriced {
+            kind: kind.to_string(),
+        },
+    })
 }
 
 /// A quest's design class and reward.
-#[derive(Clone, Debug, Default, Deserialize)]
-#[serde(default)]
+#[derive(Clone, Debug, Default)]
 pub struct QuestInput {
     pub difficulty: String,
     pub reward: Option<Reward>,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct RawQuest {
+    difficulty: String,
+    reward: Option<serde_json::Value>,
+}
+
+fn deserialize_quests<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<BTreeMap<String, QuestInput>, D::Error> {
+    let raw: BTreeMap<String, RawQuest> = BTreeMap::deserialize(d)?;
+    let mut out = BTreeMap::new();
+    for (id, q) in raw {
+        let reward = match q.reward.as_ref().filter(|r| !r.is_null()) {
+            None => None,
+            Some(r) => Some(parse_reward(&id, r).map_err(serde::de::Error::custom)?),
+        };
+        out.insert(
+            id,
+            QuestInput {
+                difficulty: q.difficulty,
+                reward,
+            },
+        );
+    }
+    Ok(out)
+}
+
+/// The farm rate every row is also computed at (the workbook's `c`), with where it comes from.
+#[derive(Clone, Debug, Deserialize)]
+pub struct ReferenceFarmRate {
+    pub camps_per_minute: f64,
+    #[serde(default)]
+    pub source: String,
 }
 
 /// An augment's design numbers (workbook `Augment_Value`).
@@ -84,6 +231,8 @@ pub struct AugmentInput {
     pub hazard_mult: f64,
     pub cap_stacks: f64,
     pub growth: String,
+    /// Readout units of the card's native per stack (needed when `growth` is "measured").
+    pub readout_per_stack: Option<f64>,
 }
 impl Default for AugmentInput {
     fn default() -> Self {
@@ -95,6 +244,7 @@ impl Default for AugmentInput {
             hazard_mult: 1.,
             cap_stacks: 0.,
             growth: "none".to_string(),
+            readout_per_stack: None,
         }
     }
 }
@@ -112,6 +262,8 @@ pub struct Inputs {
     pub failure: Failure,
     pub elite_assumptions: EliteAssumptions,
     #[serde(default)]
+    pub reference_farm_rate: Option<ReferenceFarmRate>,
+    #[serde(default, deserialize_with = "deserialize_quests")]
     pub quests: BTreeMap<String, QuestInput>,
     #[serde(default)]
     pub augments: BTreeMap<String, AugmentInput>,
@@ -132,27 +284,12 @@ pub fn parse_inputs(json: &str) -> Result<Inputs, String> {
     if i.stacks_per_camp <= 0. {
         return Err("inputs: stacks_per_camp must be positive".to_string());
     }
-    // A descriptor carries `kind` and every number its kind reads (see `quest_verdict`).
-    let raw: serde_json::Value = serde_json::from_str(json).map_err(|e| format!("inputs: {e}"))?;
-    if let Some(qs) = raw.get("quests").and_then(|q| q.as_object()) {
-        for (id, q) in qs {
-            let Some(rw) = q.get("reward").filter(|r| !r.is_null()) else {
-                continue;
-            };
-            let need: &[&str] = match rw.get("kind").and_then(|k| k.as_str()) {
-                None => {
-                    return Err(format!(
-                        "inputs: quest {id}: reward is missing field `kind`"
-                    ))
-                }
-                Some("permanent_buff") => &["direct_stacks", "damage_fraction", "move_fraction"],
-                Some(_) => &[],
-            };
-            for f in need {
-                if !rw.get(*f).is_some_and(|x| x.is_number()) {
-                    return Err(format!("inputs: quest {id}: reward is missing field `{f}`"));
-                }
-            }
+    if let Some(r) = &i.reference_farm_rate {
+        if r.camps_per_minute.is_nan()
+            || r.camps_per_minute <= 0.
+            || !r.camps_per_minute.is_finite()
+        {
+            return Err("inputs: reference_farm_rate.camps_per_minute must be above 0".to_string());
         }
     }
     for (card, a) in &i.augments {
@@ -160,6 +297,18 @@ pub fn parse_inputs(json: &str) -> Result<Inputs, String> {
             return Err(format!(
                 "inputs: augment {card}: unknown growth {:?} (none or measured)",
                 a.growth
+            ));
+        }
+        if let Some(x) = a.readout_per_stack {
+            if x.is_nan() || x <= 0. || !x.is_finite() {
+                return Err(format!(
+                    "inputs: augment {card}: readout_per_stack must be above 0"
+                ));
+            }
+        }
+        if a.growth == "measured" && a.readout_per_stack.is_none() {
+            return Err(format!(
+                "inputs: augment {card}: growth \"measured\" needs readout_per_stack"
             ));
         }
     }
@@ -260,6 +409,14 @@ pub struct QuestVerdict {
     pub timer_secs: Option<f64>,
     pub reward_value_at_parity: Option<f64>,
     pub duration_secs_at_parity: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub price_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ratio_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verdict_at_reference: Option<Verdict>,
     pub not_measured: Vec<String>,
 }
 
@@ -280,6 +437,16 @@ pub struct AugmentVerdict {
     pub ratio_duo: Option<f64>,
     pub ratio_trio: Option<f64>,
     pub meets_rule: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ratio_solo_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ratio_duo_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ratio_trio_at_reference: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meets_rule_at_reference: Option<bool>,
     pub not_measured: Vec<String>,
 }
 
@@ -300,6 +467,10 @@ pub struct Measured {
 pub struct Evaluation {
     pub schema: String,
     pub needed: Needed,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub needed_at_reference: Option<Needed>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reference_farm_rate: Option<f64>,
     pub quests: Vec<QuestVerdict>,
     pub augments: Vec<AugmentVerdict>,
     /// Numbers taken from `inputs.json` as design assumptions, not measured.
@@ -393,6 +564,153 @@ struct Lin {
     b: f64,
 }
 
+/// One quest's price and value at one farm rate `c`.
+struct QuestRow {
+    price_form: Option<Lin>,
+    vform: Option<Lin>,
+    value: Option<f64>,
+    price: Option<f64>,
+    ratio: Option<f64>,
+    verdict: Option<Verdict>,
+    why: Vec<String>,
+}
+
+/// Prices and values a quest with the farm rate `c` wherever the model uses it.
+fn quest_row(
+    c: Option<f64>,
+    p: Option<f64>,
+    tau: Option<f64>,
+    inp: &Inputs,
+    m: &Measured,
+    rw: Option<&Reward>,
+) -> QuestRow {
+    let mut why: Vec<String> = Vec::new();
+    // A stack paid at the trade is a certain cost: no premium, no retries, not scaled by the farm rate.
+    let up = match rw {
+        Some(Reward::PermanentBuff { upfront_stacks, .. }) => upfront_stacks / inp.stacks_per_camp,
+        _ => 0.,
+    };
+    // Price = pi * E[C] + upfront = a + b * tau.
+    let price_form = match (p, c) {
+        (Some(p), Some(c)) => {
+            let retries = (1. - p) / p;
+            let l = c * inp.failure.downtime_secs / 60.;
+            Some(Lin {
+                a: inp.premium * retries * l + up,
+                b: inp.premium * c * (1. + retries * inp.failure.failed_attempt_share),
+            })
+        }
+        _ => None,
+    };
+    let price = price_form.zip(tau).map(|(f, t)| f.a + f.b * t);
+    // Value = a + b * tau.
+    let mut vform: Option<Lin> = None;
+    let r = m.pickup_minute.map(|p| inp.coliseum_start_minute - p);
+    match rw {
+        None => why.push("value: no reward descriptor in inputs".into()),
+        Some(Reward::PermanentBuff {
+            direct_stacks,
+            damage_fraction,
+            move_fraction,
+            ..
+        }) => {
+            let b = direct_stacks / inp.stacks_per_camp;
+            let mut g = Some(1.);
+            if *damage_fraction > 0. {
+                g = g
+                    .zip(m.kappa)
+                    .map(|(g, k)| g * rate_gain(*damage_fraction, k));
+            }
+            if *move_fraction > 0. {
+                g = g
+                    .zip(m.walk_share)
+                    .map(|(g, s)| g * rate_gain(*move_fraction, s));
+            }
+            match (g, c, r) {
+                (Some(g), Some(c), Some(r)) => {
+                    let k = (g - 1.) * c;
+                    vform = Some(Lin {
+                        a: b + k * r,
+                        b: -k,
+                    });
+                }
+                _ => {
+                    why.push("value: needs kappa or walk share, c_eff and the pickup minute".into())
+                }
+            }
+        }
+        Some(Reward::SingleUse { duel_equivalent_ce }) => match duel_equivalent_ce {
+            Some(d) => vform = Some(Lin { a: *d, b: 0. }),
+            None => why.push("value: spell reward has no duel equivalent".into()),
+        },
+        Some(Reward::Reusable {
+            duel_equivalent_ce,
+            farm_rate_gain,
+            cap_camps_per_minute,
+        }) => {
+            // V = Delta + (min(g * c, cap) - c) * (R - tau)  (QUEST_VALUE_MODEL 4.3)
+            let missing: Vec<&str> = [
+                ("duel_equivalent_ce", duel_equivalent_ce.is_none()),
+                ("farm_rate_gain", farm_rate_gain.is_none()),
+                ("cap_camps_per_minute", cap_camps_per_minute.is_none()),
+            ]
+            .iter()
+            .filter(|(_, none)| *none)
+            .map(|(f, _)| *f)
+            .collect();
+            if !missing.is_empty() {
+                why.push(format!(
+                    "value: reusable spell reward is missing {}",
+                    missing.join(", ")
+                ));
+            } else if let (Some(d), Some(g), Some(cap), Some(c), Some(r)) = (
+                duel_equivalent_ce,
+                farm_rate_gain,
+                cap_camps_per_minute,
+                c,
+                r,
+            ) {
+                let gain = (g * c).min(*cap) - c;
+                vform = Some(Lin {
+                    a: d + gain * r,
+                    b: -gain,
+                });
+            } else {
+                why.push("value: needs c_eff and the pickup minute".into());
+            }
+        }
+        Some(Reward::Unpriced { kind }) => {
+            why.push(format!("value: reward kind {kind:?} is not priced"))
+        }
+    }
+    let value = vform.zip(tau).map(|(f, t)| f.a + f.b * t);
+    let (mut ratio, mut verdict) = (None, None);
+    if let (Some(val), Some(pr)) = (value, price) {
+        let rt = val / pr;
+        if pr > 0. && rt.is_finite() {
+            ratio = Some(rt);
+            verdict = Some(if rt < inp.band.low {
+                Verdict::BelowBand
+            } else if rt > inp.band.high {
+                Verdict::AboveBand
+            } else {
+                Verdict::InBand
+            });
+        } else {
+            why.push("ratio: the price is not above 0, so value over price is not measured".into());
+        }
+    }
+    QuestRow {
+        price_form,
+        vform,
+        value,
+        price,
+        ratio,
+        verdict,
+        why,
+    }
+}
+
 fn quest_verdict(
     id: &str,
     q: &ByQuest,
@@ -426,76 +744,24 @@ fn quest_verdict(
     if m.c_eff.is_none() {
         why.push("c_eff not measured".into());
     }
-    // Price = pi * E[C] = a + b * tau.
-    let price_form = match (p, m.c_eff) {
-        (Some(p), Some(c)) => {
-            let retries = (1. - p) / p;
-            let l = c * inp.failure.downtime_secs / 60.;
-            Some(Lin {
-                a: inp.premium * retries * l,
-                b: inp.premium * c * (1. + retries * inp.failure.failed_attempt_share),
-            })
-        }
-        _ => None,
-    };
-    let price = price_form.zip(tau).map(|(f, t)| f.a + f.b * t);
-    // Value = a + b * tau.
-    let mut vform: Option<Lin> = None;
-    match qi.and_then(|x| x.reward.as_ref()) {
-        None => why.push("value: no reward descriptor in inputs".into()),
-        Some(rw) if rw.kind == "permanent_buff" => {
-            let b = rw.direct_stacks / inp.stacks_per_camp;
-            let mut g = Some(1.);
-            if rw.damage_fraction > 0. {
-                g = g
-                    .zip(m.kappa)
-                    .map(|(g, k)| g * rate_gain(rw.damage_fraction, k));
-            }
-            if rw.move_fraction > 0. {
-                g = g
-                    .zip(m.walk_share)
-                    .map(|(g, s)| g * rate_gain(rw.move_fraction, s));
-            }
-            let r = m.pickup_minute.map(|p| inp.coliseum_start_minute - p);
-            match (g, m.c_eff, r) {
-                (Some(g), Some(c), Some(r)) => {
-                    let k = (g - 1.) * c;
-                    vform = Some(Lin {
-                        a: b + k * r,
-                        b: -k,
-                    });
-                }
-                _ => {
-                    why.push("value: needs kappa or walk share, c_eff and the pickup minute".into())
-                }
-            }
-        }
-        Some(rw) if rw.kind == "spell" => match rw.duel_equivalent_ce {
-            Some(d) => vform = Some(Lin { a: d, b: 0. }),
-            None => why.push("value: spell reward has no duel equivalent".into()),
-        },
-        Some(rw) => why.push(format!("value: reward kind {:?} is not priced", rw.kind)),
-    }
-    v.value = vform.zip(tau).map(|(f, t)| f.a + f.b * t);
+    let rw = qi.and_then(|x| x.reward.as_ref());
+    let row = quest_row(m.c_eff, p, tau, inp, m, rw);
+    why.extend(row.why.iter().cloned());
+    let (vform, price_form, price) = (row.vform, row.price_form, row.price);
+    v.value = row.value;
     v.price = price;
-    if let (Some(val), Some(pr)) = (v.value, price) {
-        let ratio = val / pr;
-        if pr > 0. && ratio.is_finite() {
-            v.ratio = Some(ratio);
-            v.verdict = Some(if ratio < inp.band.low {
-                Verdict::BelowBand
-            } else if ratio > inp.band.high {
-                Verdict::AboveBand
-            } else {
-                Verdict::InBand
-            });
-        } else {
-            why.push("ratio: the price is not above 0, so value over price is not measured".into());
-        }
+    v.ratio = row.ratio;
+    v.verdict = row.verdict;
+    if let Some(rf) = &inp.reference_farm_rate {
+        let at = quest_row(Some(rf.camps_per_minute), p, tau, inp, m, rw);
+        v.value_at_reference = at.value;
+        v.price_at_reference = at.price;
+        v.ratio_at_reference = at.ratio;
+        v.verdict_at_reference = at.verdict;
     }
     v.reward_value_at_parity = price;
     if let (Some(vf), Some(pf)) = (vform, price_form) {
-        // value(t) = price(t)  =>  t = (vf.a - pf.a) / (pf.b - vf.b)
+        // value(t) = price(t)  =>  t = (vf.a - pf.a) / (pf.b - vf.b); the upfront cost is in pf.a
         let denom = pf.b - vf.b;
         let t = (vf.a - pf.a) / denom;
         if denom > 0. && t > 0. {
@@ -542,9 +808,8 @@ fn a_bar(mu: f64, r: f64) -> f64 {
     }
 }
 
-fn needed_for(inp: &Inputs, m: &Measured, nm: &mut Vec<String>) -> Needed {
-    let (Some(mu), Some(c), Some(banked)) = (m.deaths_per_player_minute, m.c_eff, m.banked_ce)
-    else {
+fn needed_for(inp: &Inputs, m: &Measured, c: Option<f64>, nm: &mut Vec<String>) -> Needed {
+    let (Some(mu), Some(c), Some(banked)) = (m.deaths_per_player_minute, c, m.banked_ce) else {
         nm.push("needed: requires mu, c_eff and banked_ce".into());
         return Needed::default();
     };
@@ -580,6 +845,51 @@ fn native_growth(r: &Report, card: &str) -> Option<f64> {
     Some((last.1 - first.1) / f64::from(last.0 - first.0))
 }
 
+/// One augment's numbers at the farm rate `c`.
+struct AugmentRow {
+    value: f64,
+    solo: Option<f64>,
+    duo: Option<f64>,
+    trio: Option<f64>,
+    meets_rule: Option<bool>,
+}
+
+/// `None` when the value is not finite. `growth` is stacks per minute.
+fn augment_row(
+    a: &AugmentInput,
+    growth: f64,
+    c: f64,
+    mu: f64,
+    inp: &Inputs,
+    m: &Measured,
+    needed: &Needed,
+) -> Option<AugmentRow> {
+    let ra = (inp.coliseum_start_minute - inp.elite_assumptions.pick_minute).max(0.);
+    let g = growth;
+    let mm = a.fight_stacks_now + if g > 0. { a.cap_stacks.min(g * ra) } else { 0. };
+    let lh = a.hazard_mult;
+    let n = (mm + a.one_shot_stacks) / inp.stacks_per_camp * (-mu * lh * ra).exp();
+    let kg = m.kappa.map_or(1., |k| {
+        1. / (1. - k * a.farm_speed_pct / (100. + a.farm_speed_pct))
+    });
+    let pp = c * (a.income_mult * kg * a_bar(mu * lh, ra) - a_bar(mu, ra));
+    let val = n + pp;
+    if !val.is_finite() {
+        return None;
+    }
+    let ratio = |nd: Option<f64>| nd.filter(|x| *x > 0.).map(|x| val / x);
+    let (solo, duo, trio) = (ratio(needed.solo), ratio(needed.duo), ratio(needed.trio));
+    Some(AugmentRow {
+        value: val,
+        solo,
+        duo,
+        trio,
+        meets_rule: duo
+            .zip(solo)
+            .map(|(d, s)| d >= inp.band.low && s <= inp.band.high),
+    })
+}
+
 fn augment_verdict(
     card: &str,
     a: &AugmentInput,
@@ -587,14 +897,17 @@ fn augment_verdict(
     inp: &Inputs,
     m: &Measured,
     needed: &Needed,
+    needed_ref: Option<&Needed>,
 ) -> AugmentVerdict {
     let mut v = AugmentVerdict {
         card: card.to_string(),
         ..AugmentVerdict::default()
     };
-    let ra = (inp.coliseum_start_minute - inp.elite_assumptions.pick_minute).max(0.);
     let growth = if a.growth == "measured" {
-        let g = native_growth(r, card);
+        // The card's own readout per minute, in stacks per minute.
+        let g = native_growth(r, card)
+            .zip(a.readout_per_stack)
+            .map(|(g, u)| g / u);
         if g.is_none() {
             v.not_measured
                 .push("growth: no native samples with holders at two minutes".into());
@@ -611,31 +924,28 @@ fn augment_verdict(
     }
     if v.not_measured.is_empty() {
         if let (Some(g), Some(c), Some(mu)) = (growth, m.c_eff, m.deaths_per_player_minute) {
-            let mm = a.fight_stacks_now + if g > 0. { a.cap_stacks.min(g * ra) } else { 0. };
-            let lh = a.hazard_mult;
-            let n = (mm + a.one_shot_stacks) / inp.stacks_per_camp * (-mu * lh * ra).exp();
-            let kg = m.kappa.map_or(1., |k| {
-                1. / (1. - k * a.farm_speed_pct / (100. + a.farm_speed_pct))
-            });
-            let pp = c * (a.income_mult * kg * a_bar(mu * lh, ra) - a_bar(mu, ra));
-            let val = n + pp;
-            if !val.is_finite() {
+            let Some(row) = augment_row(a, g, c, mu, inp, m, needed) else {
                 v.not_measured
                     .push("value: not finite for these inputs".into());
                 return v;
-            }
-            v.value = Some(val);
-            let ratio = |nd: Option<f64>| nd.filter(|x| *x > 0.).map(|x| val / x);
-            v.ratio_solo = ratio(needed.solo);
-            v.ratio_duo = ratio(needed.duo);
-            v.ratio_trio = ratio(needed.trio);
-            v.meets_rule = v
-                .ratio_duo
-                .zip(v.ratio_solo)
-                .map(|(d, s)| d >= inp.band.low && s <= inp.band.high);
+            };
+            v.value = Some(row.value);
+            v.ratio_solo = row.solo;
+            v.ratio_duo = row.duo;
+            v.ratio_trio = row.trio;
+            v.meets_rule = row.meets_rule;
             if v.meets_rule.is_none() {
                 v.not_measured
                     .push("needed: the elite cost is not measured".into());
+            }
+            if let (Some(rf), Some(nr)) = (&inp.reference_farm_rate, needed_ref) {
+                if let Some(at) = augment_row(a, g, rf.camps_per_minute, mu, inp, m, nr) {
+                    v.value_at_reference = Some(at.value);
+                    v.ratio_solo_at_reference = at.solo;
+                    v.ratio_duo_at_reference = at.duo;
+                    v.ratio_trio_at_reference = at.trio;
+                    v.meets_rule_at_reference = at.meets_rule;
+                }
             }
         }
     }
@@ -651,7 +961,9 @@ pub fn evaluate_json(report: &str, inputs: &str) -> Result<Evaluation, String> {
     }
     let mut nm = Vec::new();
     let m = measure(&rep, &inp, &mut nm);
-    let needed = needed_for(&inp, &m, &mut nm);
+    let needed = needed_for(&inp, &m, m.c_eff, &mut nm);
+    let reference = inp.reference_farm_rate.as_ref().map(|r| r.camps_per_minute);
+    let needed_at_reference = reference.map(|c| needed_for(&inp, &m, Some(c), &mut Vec::new()));
     let mut by: BTreeMap<&str, &ByQuest> = BTreeMap::new();
     for q in &rep.quests.by_quest {
         if by.insert(q.quest.as_str(), q).is_some() {
@@ -665,7 +977,7 @@ pub fn evaluate_json(report: &str, inputs: &str) -> Result<Evaluation, String> {
     let augments = inp
         .augments
         .iter()
-        .map(|(c, a)| augment_verdict(c, a, &rep, &inp, &m, &needed))
+        .map(|(c, a)| augment_verdict(c, a, &rep, &inp, &m, &needed, needed_at_reference.as_ref()))
         .collect();
     Ok(Evaluation {
         schema: EVAL_SCHEMA.to_string(),
@@ -680,6 +992,8 @@ pub fn evaluate_json(report: &str, inputs: &str) -> Result<Evaluation, String> {
         ],
         measured: m,
         not_measured: nm,
+        needed_at_reference,
+        reference_farm_rate: reference,
     })
 }
 
@@ -700,11 +1014,28 @@ pub fn render_table(e: &Evaluation) -> String {
         fmt(e.needed.duo),
         fmt(e.needed.trio)
     );
-    s += "quest                      value   price   ratio  verdict      timer_s  parity_value  parity_secs\n";
+    let rf = e.reference_farm_rate;
+    if let (Some(rate), Some(n)) = (rf, &e.needed_at_reference) {
+        s += &format!(
+            "needed at the reference rate (CE)  solo {}  duo {}  trio {}\n",
+            fmt(n.solo),
+            fmt(n.duo),
+            fmt(n.trio)
+        );
+        s += &format!(
+            "rates: measured {} camps/min, reference {rate:.3}; the plain columns use the measured rate, the ref_ columns the reference rate\n",
+            fmt(e.measured.c_eff)
+        );
+    }
+    s += "quest                      value   price   ratio  verdict      timer_s  parity_value  parity_secs";
+    if rf.is_some() {
+        s += "  ref_value ref_price ref_ratio ref_verdict";
+    }
+    s += "\n";
     for q in &e.quests {
         let verdict = q.verdict.map_or("n/m".to_string(), |v| format!("{v:?}"));
         s += &format!(
-            "{:<26} {:>7} {:>7} {:>7}  {:<11} {:>8} {:>13} {:>12}\n",
+            "{:<26} {:>7} {:>7} {:>7}  {:<11} {:>8} {:>13} {:>12}",
             q.quest,
             fmt(q.value),
             fmt(q.price),
@@ -714,22 +1045,50 @@ pub fn render_table(e: &Evaluation) -> String {
             fmt(q.reward_value_at_parity),
             fmt(q.duration_secs_at_parity)
         );
+        if rf.is_some() {
+            let vr = q
+                .verdict_at_reference
+                .map_or("n/m".to_string(), |v| format!("{v:?}"));
+            s += &format!(
+                "  {:>9} {:>9} {:>9} {}",
+                fmt(q.value_at_reference),
+                fmt(q.price_at_reference),
+                fmt(q.ratio_at_reference),
+                vr
+            );
+        }
+        s += "\n";
         for r in &q.not_measured {
             s += &format!("    not measured: {r}\n");
         }
     }
-    s += "augment                    value   solo    duo     trio    meets_rule\n";
+    s += "augment                    value   solo    duo     trio    meets_rule";
+    if rf.is_some() {
+        s += "  ref_value ref_solo ref_duo ref_trio ref_meets_rule";
+    }
+    s += "\n";
     for a in &e.augments {
-        let mr = a.meets_rule.map_or("n/m".to_string(), |b| b.to_string());
+        let mr = |x: Option<bool>| x.map_or("n/m".to_string(), |b| b.to_string());
         s += &format!(
-            "{:<26} {:>7} {:>7} {:>7} {:>7}  {}\n",
+            "{:<26} {:>7} {:>7} {:>7} {:>7}  {}",
             a.card,
             fmt(a.value),
             fmt(a.ratio_solo),
             fmt(a.ratio_duo),
             fmt(a.ratio_trio),
-            mr
+            mr(a.meets_rule)
         );
+        if rf.is_some() {
+            s += &format!(
+                "  {:>9} {:>8} {:>7} {:>8} {}",
+                fmt(a.value_at_reference),
+                fmt(a.ratio_solo_at_reference),
+                fmt(a.ratio_duo_at_reference),
+                fmt(a.ratio_trio_at_reference),
+                mr(a.meets_rule_at_reference)
+            );
+        }
+        s += "\n";
         for r in &a.not_measured {
             s += &format!("    not measured: {r}\n");
         }

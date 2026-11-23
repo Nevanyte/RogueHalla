@@ -63,7 +63,9 @@ fn without(mut v: Value, path: &[&str]) -> String {
 
 fn augment(growth: &str) -> Value {
     json!({ "fight_stacks_now": 28, "one_shot_stacks": 0, "farm_speed_pct": 38, "income_mult": 1,
-            "hazard_mult": 1, "cap_stacks": 0, "growth": growth })
+            "hazard_mult": 1, "cap_stacks": 0, "growth": growth,
+            // P-BAL-EVAL-2: required when `growth` is "measured", allowed when it is "none".
+            "readout_per_stack": 1 })
 }
 
 /// No number of the model comes from code: every block and number the inputs file owns must be in it.

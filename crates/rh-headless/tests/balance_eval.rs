@@ -202,7 +202,9 @@ fn unmeasured_is_not_a_verdict() {
     let i = inputs(
         json!({ "nobody_completes": reward, "no_samples": reward, "measured": reward }),
         json!({ "grower": { "fight_stacks_now": 0, "one_shot_stacks": 0, "farm_speed_pct": 0, "income_mult": 1,
-                            "hazard_mult": 1, "cap_stacks": 40, "growth": "measured" } }),
+                            "hazard_mult": 1, "cap_stacks": 40, "growth": "measured",
+                            // P-BAL-EVAL-2: a measured growth must say how many readout units are worth one stack.
+                            "readout_per_stack": 1 } }),
     );
     let quests = json!([
         // The real shape of today's lab output: accepted, never completed, no completion times.
