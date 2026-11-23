@@ -46,6 +46,10 @@ namespace Roguehalla.Client
             public OverheadIndicators.Facts IndFacts;
             public MobLook Look; // what a creature looked like when last presented (MobContinuity)
             public int LayoutKey; // serial of this art for the name layout (kept by a renewed handle; fresh for a reused pooled art)
+            public long LayoutNameKey; // layout memory key of this art's mob name (written by the name merge)
+            public bool LayoutPack; // true on the carrier of a pack of two or more this frame: its box is the name alone
+            public int LayoutStamp = -1; // the stamp whose layout set LayoutLift and LayoutTarget (-1: never)
+            public float LayoutLift, LayoutTarget;
         }
     }
 }
