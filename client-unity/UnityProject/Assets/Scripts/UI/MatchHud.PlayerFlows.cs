@@ -67,7 +67,6 @@ namespace Roguehalla.Client
             CloseHubPanels();
             if (_map?.IsPlanning == true) BlockPlanningMapInput(); else _map?.SetOpen(false);
             ReleaseChestFocus();
-            _orderedNotices.SetRecentVisible(false);
             _questJournal.SetVisible(page == 0); _traderDialog.SetVisible(page == 1); _orderedNotices.SetVisible(page == 2);
             RefreshPlanningJournalAccess();
             RefreshWorldHudVisibility();
