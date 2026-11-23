@@ -60,9 +60,9 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void ACoolingSpellWithNoKnownTotalDrawsAFullWedgeAndALongerLeftThanTotalClampsToOne()
         {
-            Assert.That(AbilityFaces.Spell(true, 1, 5200, 1000, 0).Sweep, Is.EqualTo(1f).Within(Eps), "total 0");
-            Assert.That(AbilityFaces.Spell(true, 1, 5200, 1000, -3).Sweep, Is.EqualTo(1f).Within(Eps), "negative total");
-            var face = AbilityFaces.Spell(true, 1, 13000, 1000, 10000);   // 12,000 left of 10,000
+            Assert.That(AbilityFaces.Spell(true, 0, 5200, 1000, 0).Sweep, Is.EqualTo(1f).Within(Eps), "total 0");
+            Assert.That(AbilityFaces.Spell(true, 0, 5200, 1000, -3).Sweep, Is.EqualTo(1f).Within(Eps), "negative total");
+            var face = AbilityFaces.Spell(true, 0, 13000, 1000, 10000);   // 12,000 left of 10,000
             Assert.That(face.Phase, Is.EqualTo(AbilityPhase.Cooling));
             Assert.That(face.Sweep, Is.EqualTo(1f).Within(Eps), "clamped");
             Assert.That(face.Seconds, Is.EqualTo(12));
