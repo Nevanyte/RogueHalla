@@ -136,6 +136,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(_summary.text, Is.EqualTo("—"));
             StringAssert.Contains("Barrier 0", _vitals.text);
             StringAssert.DoesNotContain("ring", _vitals.text);
+            Invoke("TickOwnerVitals", 1f);
             Assert.That(_barrier.anchorMax.x, Is.EqualTo(_barrier.anchorMin.x).Within(.001f));
 
             Invoke("ClearOwnerPresentation", "Awaiting server");
