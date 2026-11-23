@@ -381,6 +381,7 @@ fn the_minute_bands_split_at_ticks_6000_and_13200() {
 fn a_row_adds_up_to_what_was_fed_in_and_seats_do_not_leak_into_each_other() {
     let steps = generated(7, 3, 4000, 1);
     let rows = tally_time(&steps, 3);
+    #[allow(clippy::needless_range_loop)]
     for seat in 0..3 {
         let fed =
             |f: fn(&SeatStep) -> u64| -> u64 { steps.iter().map(|s| f(&s.seats[seat])).sum() };
