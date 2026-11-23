@@ -35,17 +35,14 @@
 //!
 //! **Stillness.** The goal's step during a meditation carries no intent. The send waits until `still_since` shows the seat
 //! has stood still (the click to the giver may still be walking it in), so the position the server records is the final one.
-use crate::bots::planning::{matchup_share, zone_faction};
 use crate::bots::raid::acts::Act;
-use crate::bots::raid::exec::farm::{death_chance, members_left};
 use crate::bots::raid::exec::travel::{eta_minutes, move_intent, step_toward, straight_minutes};
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
-use crate::bots::raid::percept::CAMP_JOIN_RADIUS;
-use crate::bots::raid::quest::{spell_slots_taken, stand_u, SPELL_SLOTS};
+use crate::bots::raid::quest::{spell_slots_taken, stand_u, walk_death, SPELL_SLOTS};
 use rh_protocol::state::{WireQuestRow, FIELD_KIND_QUEST_FORT};
 use rh_sim::quests::board::catalog::{RewardKind, DEFINITIONS};
 use rh_sim::quests::public_rules;
-use rh_sim::{FactionId, Vec2};
+use rh_sim::Vec2;
 
 const HOLD: &str = "hold_the_fort";
 const STAY: &str = "stay_a_while";
@@ -100,7 +97,6 @@ struct Track {
 
 #[derive(Default)]
 pub struct Dwell {
-    shares: Vec<((FactionId, FactionId), f64)>,
     /// Quests not to propose or work on until the time: (def, until ms).
     banned: Vec<(String, f64)>,
     /// When a send of (def, action) was last queued: (def, action, ms).
@@ -239,32 +235,6 @@ impl Dwell {
         false
     }
 
-    fn share(&mut self, me: FactionId, region: FactionId) -> f64 {
-        if let Some((_, s)) = self.shares.iter().find(|(k, _)| *k == (me, region)) {
-            return *s;
-        }
-        let s = matchup_share(me, region, false);
-        self.shares.push(((me, region), s));
-        s
-    }
-
-    /// The chance to die to the living camps whose centre lies within `CAMP_JOIN_RADIUS` of `point`, floored.
-    fn death_near(&mut self, cx: &Cx<'_>, point: Vec2) -> f64 {
-        let Some(me) = cx.p.me.faction else {
-            return cx.prices.death_floor;
-        };
-        let hp = cx.p.me.hp_share();
-        let mut survive = 1.;
-        for camp in &cx.p.camps {
-            if camp.alive == 0 || dist(point, camp.at) > CAMP_JOIN_RADIUS {
-                continue;
-            }
-            let share = self.share(me, zone_faction(camp.zone));
-            survive *= 1. - death_chance(hp, share, members_left(cx.p, camp), &cx.prices.death);
-        }
-        (1. - survive).max(cx.prices.death_floor)
-    }
-
     fn candidate(&mut self, cx: &mut Cx<'_>, row: &WireQuestRow) -> Option<Candidate> {
         let def = row.def.as_str();
         let value = cx.prices.reward_value(def);
@@ -343,7 +313,7 @@ impl Dwell {
             ),
             value,
             success,
-            death: self.death_near(cx, spot),
+            death: walk_death(cx, def, &[spot]),
             loss: cx.prices.death_loss,
             minutes,
         })
