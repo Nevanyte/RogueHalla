@@ -172,7 +172,8 @@ fn quest_inputs() -> Value {
     json!({
         // Value over price 0 is infinite today; the empty buff is 0 over 0, NaN today.
         "spell": { "difficulty": "easy", "reward": { "kind": "spell", "duel_equivalent_ce": 2.0 } },
-        "empty_buff": { "difficulty": "easy", "reward": { "kind": "permanent_buff", "direct_stacks": 0 } }
+        "empty_buff": { "difficulty": "easy", "reward": { "kind": "permanent_buff", "direct_stacks": 0,
+            "damage_fraction": 0, "move_fraction": 0 } }
     })
 }
 
@@ -235,4 +236,35 @@ fn shipped_inputs_still_parse() {
     );
     let text = std::fs::read_to_string(path).expect("inputs.json exists");
     parse_inputs(&text).expect("the shipped inputs parse with every block required");
+}
+
+/// A reward descriptor carries the numbers its kind makes the model read: a permanent buff reads `direct_stacks`,
+/// `damage_fraction` and `move_fraction`; a spell reads none (its duel equivalent may be absent: not measured); every
+/// descriptor names its `kind`. A missing one is an `Err` naming the quest and the field, never a 0. No descriptor at all is
+/// still valid.
+#[test]
+fn a_reward_descriptor_lacks_no_number_its_kind_reads() {
+    let buff = || json!({ "kind": "permanent_buff", "direct_stacks": 10, "damage_fraction": 0.1, "move_fraction": 0 });
+    let parse = |reward: Value| {
+        let q = json!({ "some_quest": { "difficulty": "easy", "reward": reward } });
+        parse_inputs(&inputs_value(q, json!({})).to_string())
+    };
+    parse(buff()).expect("the complete buff descriptor parses");
+    parse(json!({ "kind": "spell" })).expect("a spell needs no value number");
+    parse(json!({ "kind": "spell", "duel_equivalent_ce": 2.0 })).expect("a complete spell parses");
+    parse(json!({ "kind": "something_unpriced" })).expect("an unpriced kind needs no number");
+    let none = json!({ "some_quest": { "difficulty": "easy" } });
+    parse_inputs(&inputs_value(none, json!({})).to_string()).expect("no descriptor is valid");
+
+    for field in ["kind", "direct_stacks", "damage_fraction", "move_fraction"] {
+        let mut r = buff();
+        r.as_object_mut().unwrap().remove(field);
+        let err = parse(r)
+            .map(|_| ())
+            .expect_err(&format!("a buff without {field} must be refused"));
+        assert!(
+            err.contains(field) && err.contains("some_quest"),
+            "the error names the quest and {field}: {err}"
+        );
+    }
 }
