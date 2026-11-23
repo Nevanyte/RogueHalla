@@ -4,6 +4,7 @@
 //! givers are not in `RaidPercept::mobs`, and players are never farmed.
 use crate::bots::mob_hunt::best_slot_vs_mob;
 use crate::bots::planning::{matchup_share, zone_faction};
+use crate::bots::raid::exec::combat::locks_from_here;
 use crate::bots::raid::exec::held::{hp_held, HotWatch};
 use crate::bots::raid::exec::travel::{
     self, eta_minutes, move_intent, step_toward, straight_minutes,
@@ -279,7 +280,12 @@ impl Executor for Farm {
                 && ((m.camp == Some(index) && cx.p.dist(m.at) <= FIGHT_U)
                     || (m.engaged && cx.p.dist(m.at) <= DEFEND_U))
         });
-        if d <= lock_range(in_hand) {
+        // A ranged seat outside the camp's leash band steps in before it fights (P-RAID-REACH-1); with no known way in
+        // it fights from where it stands, as before.
+        let step_in = (!locks_from_here(cx, index, false, &mob, in_hand))
+            .then(|| step_toward(cx.paths, cx.p.me.at, mob.at))
+            .flatten();
+        if d <= lock_range(in_hand) && step_in.is_none() {
             intents.push(Intent {
                 body: IntentBody::Lock {
                     target: mob.key.clone(),
@@ -289,7 +295,7 @@ impl Executor for Farm {
                 timing: IntentTiming::Step {},
                 why: "farm engage".into(),
             });
-        } else if let Some(next) = step_toward(cx.paths, cx.p.me.at, mob.at) {
+        } else if let Some(next) = step_in {
             intents.push(move_intent(next, "farm approach"));
         }
         if fighting {

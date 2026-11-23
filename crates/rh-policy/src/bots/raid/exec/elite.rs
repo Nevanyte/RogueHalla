@@ -20,6 +20,7 @@ use crate::bots::loot::{ASK_WINDOW_MS, MAX_ASKS};
 use crate::bots::mob_hunt::best_slot_vs_mob;
 use crate::bots::perception::{ChestRef, CHEST_PANEL_RANGE};
 use crate::bots::planning::{matchup_share_of_kind, zone_faction};
+use crate::bots::raid::exec::combat::locks_from_here;
 use crate::bots::raid::exec::farm::{death_chance, dist, lock_range, DEFEND_U, FIGHT_U};
 use crate::bots::raid::exec::held::{hp_held, HotWatch};
 use crate::bots::raid::exec::travel::{
@@ -86,8 +87,9 @@ struct Ask {
 pub struct Elite {
     watch: Vec<Watch>,
     banned: Vec<(u32, f64)>,
-    /// Server ms the held goal's fight began (a member or the elite on the bot), `None` before.
-    fight_since: Option<f64>,
+    /// The fight on record: the elite camp whose fight it is and the server ms it began (a member or the elite on the
+    /// bot), `None` before (P-RAID-REACH-1: the record names its camp, so a goal switch bans only the camp fought).
+    fight_since: Option<(u32, f64)>,
     /// Server ms the held goal's first think ran: the walk and approach are bounded too.
     started: Option<f64>,
     empty_since: Option<f64>,
@@ -145,6 +147,11 @@ fn card_of(id: &str) -> Option<CardId> {
 }
 
 impl Elite {
+    /// The fight on record is camp `camp`'s.
+    fn fights(&self, camp: u32) -> bool {
+        self.fight_since.is_some_and(|(c, _)| c == camp)
+    }
+
     fn watch_of(&self, camp: u32) -> Option<&Watch> {
         self.watch.iter().find(|w| w.camp == camp)
     }
@@ -234,7 +241,7 @@ impl Elite {
                 w.at = None;
             }
             let alive = w.alive;
-            if was.alive && !alive && mine && self.fight_since.is_some() {
+            if was.alive && !alive && mine && self.fights(camp.index) {
                 self.killed.retain(|(c, _)| *c != camp.index);
                 self.killed.push((camp.index, now));
                 self.forgive(camp.index);
@@ -262,7 +269,7 @@ impl Elite {
         let held = goal_camp(cx.goal);
         if let Some(was) = self.held.filter(|c| held != Some(*c)) {
             let alive = self.watch_of(was).is_some_and(|w| w.alive);
-            if self.fight_since.is_some() && alive && !self.killed.iter().any(|(c, _)| *c == was) {
+            if self.fights(was) && alive && !self.killed.iter().any(|(c, _)| *c == was) {
                 let e = cx.prices.elite;
                 self.ban(was, now, &e);
             }
@@ -275,7 +282,7 @@ impl Elite {
     /// Add this frame to the held fight's tally: hp lost and camp hp destroyed (elites' worth) since the last frame.
     fn track(&mut self, cx: &Cx<'_>) {
         let hp = cx.p.me.hp_share();
-        let Some(index) = self.held.filter(|_| self.fight_since.is_some()) else {
+        let Some(index) = self.held.filter(|c| self.fights(*c)) else {
             for t in &mut self.tallies {
                 t.hp = hp;
                 t.left = None;
@@ -616,11 +623,26 @@ impl Elite {
             .cloned();
         // The seat attacks the camp from any range: its own lock names the elite or a member (a ranged weapon locks
         // beyond `FIGHT_U`). A redacted lock (`target: None`) names nothing.
-        let lock_on_camp = locked.is_some()
-            || matches!(
-                (&cx.p.base.self_view.owner_lock, &elite),
-                (Some(OwnerLock::Held { target: Some(key) }), Some(m)) if *key == m.key
-            );
+        // It counts as this camp's fight only on a mob that is this camp's (P-RAID-REACH-1): a member labelled with the
+        // camp or fighting at our side (not one of no camp: a chaser of another camp reads so), or the camp's elite
+        // standing within the camp's join radius of its centre, or already this camp's fight on record (not another
+        // camp's elite of the same kind).
+        let lock_key = match &cx.p.base.self_view.owner_lock {
+            Some(OwnerLock::Held { target: Some(key) }) => Some(key),
+            _ => None,
+        };
+        let ours = |m: &MobSeen| {
+            m.alive
+                && m.class == MobClass::Regional
+                && (m.camp == Some(index) || (m.engaged && cx.p.dist(m.at) <= DEFEND_U))
+        };
+        let on_record = self.fights(index);
+        let lock_on_camp = lock_key.is_some_and(|key| {
+            cx.p.mobs.iter().any(|m| m.key == *key && ours(m))
+                || elite.as_ref().is_some_and(|m| {
+                    m.key == *key && (on_record || dist(m.at, camp.at) <= CAMP_JOIN_RADIUS)
+                })
+        });
         // The camp is on the bot: the elite or a member close, or a mob fighting at our side; or the seat's lock on it.
         let fighting = lock_on_camp
             || elite.as_ref().is_some_and(|m| cx.p.dist(m.at) <= FIGHT_U)
@@ -631,12 +653,16 @@ impl Elite {
                         || (m.engaged && cx.p.dist(m.at) <= DEFEND_U))
             });
         let started = *self.started.get_or_insert(now);
-        if fighting {
-            self.fight_since.get_or_insert(now);
+        if fighting && !self.fights(index) {
+            self.fight_since = Some((index, now));
         }
         // A fight begun is bounded from its first blow whether or not the camp is on the bot now (an elite that keeps
         // beyond `FIGHT_U` after it was engaged); before that, the walk and approach are bounded from the first think.
-        match self.fight_since {
+        match self
+            .fight_since
+            .filter(|(c, _)| *c == index)
+            .map(|(_, t)| t)
+        {
             Some(since) if now - since > e.give_up_seconds * 1_000. => {
                 self.give_up(index, now, &e);
                 return Step::failed("the elite fight ran out of time");
@@ -683,7 +709,13 @@ impl Elite {
             });
         }
         let in_hand = slots[usize::from(cx.p.me.slot.min(1))];
-        if cx.p.dist(mob.at) <= lock_range(in_hand) {
+        // A ranged seat outside the leash band of the mob's home steps in before it fights (P-RAID-REACH-1): the elite
+        // reads its elite spot, an add any spot of the camp. With no known way in it fights from where it stands.
+        let elite_target = mob.class == MobClass::Elite;
+        let step_in = (!locks_from_here(cx, index, elite_target, &mob, in_hand))
+            .then(|| step_toward(cx.paths, cx.p.me.at, mob.at))
+            .flatten();
+        if cx.p.dist(mob.at) <= lock_range(in_hand) && step_in.is_none() {
             intents.push(Intent {
                 body: IntentBody::Lock {
                     target: mob.key.clone(),
@@ -693,7 +725,7 @@ impl Elite {
                 timing: IntentTiming::Step {},
                 why: "elite engage".into(),
             });
-        } else if let Some(next) = step_toward(cx.paths, cx.p.me.at, mob.at) {
+        } else if let Some(next) = step_in {
             intents.push(move_intent(next, "elite approach"));
         }
         if fighting {
@@ -1014,3 +1046,7 @@ mod leave_fix_tests;
 #[cfg(test)]
 #[path = "elite_leave_fix2_tests.rs"]
 mod leave_fix2_tests;
+
+#[cfg(test)]
+#[path = "elite_reach_tests.rs"]
+mod reach_tests;
