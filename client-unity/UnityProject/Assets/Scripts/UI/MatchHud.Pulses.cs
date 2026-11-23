@@ -57,8 +57,22 @@ namespace Roguehalla.Client
 
         void Pulse(RectTransform rect) { _pulses.Play(rect, HudSeconds); }
 
-        void TickPulses() { _pulses.Tick(HudSeconds); }
+        // The Wish aim's last seen state (P-UI-ABILITY-FEEDBACK-2): the line is pushed on its false-to-true edge only.
+        bool _wishAimWasArmed;
 
-        void ClearPulses() { _pulses.Clear(); }
+        void TickPulses()
+        {
+            _pulses.Tick(HudSeconds);
+            var aim = _client != null ? _client.WishAim : null;
+            bool armed = aim != null && aim.Aiming;
+            if (armed && !_wishAimWasArmed)
+            {
+                var reading = ReadCast(0);
+                if (reading.Line != null) PushFeedbackLine(reading.Line, NoticeTone.Warn, CastReadiness.LineKey);
+            }
+            _wishAimWasArmed = armed;
+        }
+
+        void ClearPulses() { _pulses.Clear(); _wishAimWasArmed = false; }
     }
 }
