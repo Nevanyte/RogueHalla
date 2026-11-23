@@ -53,6 +53,11 @@ namespace Roguehalla.Client
             (route.Lane == NoticeLane.Event ? _eventModel : _feedbackModel)?.Push(text, route.Tone, route.Key);
         }
 
+        void PushFeedbackLine(string text, NoticeTone tone, string key)
+        {
+            _feedbackModel?.Push(text, tone, key, CastReadiness.HoldSeconds, dropIfLate: true);
+        }
+
         void RotateNoticeEvents()
         {
             var session = _session;

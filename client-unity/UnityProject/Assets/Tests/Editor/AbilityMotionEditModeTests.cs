@@ -330,7 +330,10 @@ namespace Roguehalla.Client.Tests
         [Test]
         public void APressPopsAboutTheCentre()
         {
-            BuildRig(); Snap(10, 50000); Frame();
+            BuildRig();
+            SnapWish(10, 50000, Wish(1, 40000, 10000));
+            Items(11, Spells(new WireQuestSpell { Slot = 0, Reward = 3, Charges = 1, ReadyAt = 0 }));
+            Frame();
             var cases = new List<(string Name, RectTransform Rect, WireCommand Cue)>
             {
                 ("the Wish tile", Tile("WishTile"), WireCommand.Cast(0, 0f, 0f)),
@@ -383,7 +386,11 @@ namespace Roguehalla.Client.Tests
         public void TheWishTileHasOneScaleWriter()
         {
             BuildRig(); var tile = Tile("WishTile");
-            AcceptedCast(10000);
+            SnapWish(10, 50000, Wish(0, 55000, 10000)); Frame();
+            SnapWish(11, 55050, Wish(1, 55000, 10000)); _local += 50; Frame();
+            _local += 50; Frame();
+            _local += 200; Frame();
+            Assert.That(WedgeOn(tile), Is.False, "set-up: the Wish is ready, so the press goes through");
             double start = _local;
             Call(_hud, "InputCue", WireCommand.Cast(0, 0f, 0f));
             for (int ms = 10; ms <= 150; ms += 10)
@@ -436,6 +443,11 @@ namespace Roguehalla.Client.Tests
             Assert.That(WedgeFill(tile), Is.EqualTo(.49f).Within(.004f), "the wedge still moves");
             Assert.That(pulses.Count, Is.EqualTo(0), "nothing pulses");
             Assert.That(tile.localScale.x, Is.EqualTo(1f), "the Wish tile is at scale 1");
+            SnapWish(12, 55000, Wish(0, 60000, 10000)); Frame();
+            SnapWish(13, 60050, Wish(1, 60000, 10000)); _local += 50; Frame();
+            _local += 50; Frame();
+            _local += 200; Frame();
+            Assert.That(WedgeOn(tile), Is.False, "set-up: a fresh ready Wish, so the press goes through");
             double start = _local;
             Call(_hud, "InputCue", WireCommand.Cast(0, 0f, 0f));
             for (int ms = 10; ms <= 150; ms += 10)
@@ -452,7 +464,10 @@ namespace Roguehalla.Client.Tests
         [Test]
         public void EveryPressPulseGoesThroughTheOneHudPulses()
         {
-            BuildRig(); Snap(10, 50000); Frame();
+            BuildRig();
+            SnapWish(10, 50000, Wish(1, 40000, 10000));
+            Items(11, Spells(new WireQuestSpell { Slot = 0, Reward = 3, Charges = 1, ReadyAt = 0 }));
+            Frame();
             var field = typeof(MatchHud).GetField("_pulses", All);
             Assert.That(field, Is.Not.Null, "MatchHud keeps _pulses");
             Assert.That(field.FieldType, Is.EqualTo(typeof(HudPulses)), "and it is the one HudPulses");
