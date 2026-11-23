@@ -162,16 +162,35 @@ between two fresh Meshes; the id step of a fresh Mesh is 2; a `GameObject` takes
 stepped with Meshes as the recorder does). `GC.GetAllocatedBytesForCurrentThread` is not used; the unit is GC.Alloc samples
 (`AllocationMeter.Samples`), not bytes.
 
-What I could NOT measure: the throwaway implementation. The tool call that edits `TraderDialogView.cs` was refused in this session
-(the oracle author does not implement), so the green side was not run. The bounds are therefore stated from the rules, not from a
-measurement: `CreatedBound = 5` (after the fix no Unity object is created at all; 5 is a margin for the meters), and
-`RefreshSampleBound = 0` (Refresh adds no sample to the delivery). The implementer must tell the reviewer the measured values after the
-fix. If a bound is wrong for a reason that is not an allocation of this file (for example a TMP call that allocates in this editor
-on a closed window), report `oracleDefect` with the number; do not edit the test.
+Green side, measured on a throwaway implementation (fix pass; the throwaway was run and then discarded, it is not committed). The
+throwaway: a field `_builtFrom` (the view the rows were last built from, set where the rebuild happens, cleared with `_renderedTrade = null`
+on a null session, a timeline-epoch change and `Bind`); `SameContent(a, b)` compares by `for` loops, with `==`, Available, TradeUsed,
+BarterReadyAt, merchants' count, `Kind` and `Name` (not `X`, `Y`), every offer's `Cost`, `Gain`, `CostValue`, `GainValue`, `Label`, every
+stat row's `Stat` and `Value`, and the barter labels; `TradeSignature` and `_renderedSignature` removed; the status `count + " traders in
+sight"` kept as a string cached with the count it was built for. File grew by 11 lines (about 650). Results, run with `unity-class.sh`:
+- `TraderSteadyEditModeTests`: 23 of 23 green with the committed bounds (`CreatedBound = 5`, `RefreshSampleBound = 0`).
+- To read the numbers, the two bounds were set to -1 in a scratch run (not committed): 100 moved-only deliveries created 0 objects
+  (`created = 0`: "2 ids between two fresh meshes", id step 2), for both `barter` and `stat`; and `a = 2750`, `b = 2750`, so
+  `b - a = 0` (the base: a = 2750, b = 39550, b - a = 36800). So `RefreshSampleBound = 0` is measured, not assumed: with the signature
+  string and the status concatenation gone, the rest of a closed-window Refresh (`SetState`, `UpdateButtonAvailability`,
+  `ReflowIfLayoutChanged`, `UpdateDeadlineSummaryIfNeeded`) adds no GC.Alloc sample. `CreatedBound = 5` is a margin of 5 over a measured 0
+  (the base is 15,000); no change to either constant.
+- Test 2 (`AWalkingTraderKeepsTheOpenWindowsFocusAndPlace`) is satisfiable: green on the throwaway. A keyboard-selected row
+  (`Choice_1`, `EventSystem.SetSelectedGameObject`), its label object and the scroll position (.4, within 1e-4) all survive a moved-only
+  delivery with the window open.
+- The existing classes (`TraderDialogViewEditModeTests`, `TraderRowsRealOrderEditModeTests`, `TraderRowsWholeHudEditModeTests`,
+  `TraderCopyEditModeTests`, `TraderWordsEditModeTests`, `FlowsLeftoversEditModeTests`, `PlayerFlowsEditModeTests`): 68 of 68 green on the
+  throwaway (with the amendment).
+- Unit of "created": a scratch test in this editor made one `new GameObject`, then three, between fresh Meshes: one GameObject moves the
+  Mesh id by 4 (6 between the two Meshes, of which 2 is the Mesh's own step), three GameObjects by 12 (14 between). So a GameObject
+  (itself and its Transform) is 4 ids, a Mesh 2, and the test's `created` is counted in Mesh steps of 2 ids: one GameObject reads as 2
+  "created". The base's 15,000 is therefore about 7,500 GameObjects' worth of ids for 100 deliveries (about 75 per delivery).
+  The bound of 5 allows at most two GameObjects over the whole 100 deliveries; a single rebuilt row is far above it.
 
 Test 5 separates the two measures cleanly: the rig's view is not subscribed to the session, so a delivery reaches no view code, and the
-frames are encoded once before the meter runs. Expected after the fix: the status line "N traders in sight" (concatenation at
-`TraderDialogView.cs:180`) is the one known allocation left in `Refresh` for two merchants; the test does not exempt it.
+frames are encoded once before the meter runs. After the fix the status line "N traders in sight" (concatenation at
+`TraderDialogView.cs:180`) must not allocate on a repeated call for two merchants (the throwaway caches the string with its count); the test
+does not exempt it, and the measured b - a is 0 with that cache.
 
 Scratch run (not committed): a copy of the class whose `Assert.That` and `Assert.AreSame` caught `AssertionException` and collected
 the messages, failing in TearDown with the list, ran on the base. Every entry was an assertion about the missing behaviour (the
