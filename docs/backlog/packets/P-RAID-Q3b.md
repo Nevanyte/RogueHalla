@@ -116,7 +116,32 @@ this packet avoids all four.
 
 ## 5. Facts established by measurement
 
-MEASURED_PLACEHOLDER
+Measured on `coord/int-87` (debug build) with `crates/rh-policy/tests/raid_decide_b.rs`; the board's deals by seed (seeds 1-24):
+
+- `two_banners` is dealt on seeds 1, 2, 6, 9, 10, 12, 16, 20, 21, 24 (givers (4208, 2096), or (4176, 2000) on 10 and 20);
+  `trade_up` on seeds 7, 8, 11, 12, 16, 18, 19, 23 (givers (2832, 1232) or (2864, 1136)). Seeds 12 and 16 deal both. The
+  oracle uses 1, 2, 6, 9, 12, 20 for Two Banners and 7, 8, 11, 12, 16, 18 for Trade Up. The outpost and trader positions are
+  not re-measured here (the old brief's: (592, 3568) on seeds 1, 2, 6; (1968, 4720) on seed 9; first trader (973, 1744)).
+- **Two Banners control** (scripted: accept, choose, walk the objective, take the banner on branch 1; 160 u from the giver):
+  branch 0 is paid at tick 492 on seeds 1, 2, 6, 12 (494 on 20, 428 on 9); branch 1 at 978 (977 on 20, 836 on 9): 24.6 s and
+  48.9 s. The bot's budget, 1 500 ticks (75 s), is three times branch 0's; both branches fit it.
+- **Trade Up control**: barters at ticks 251 / 546 / 781 (seed 7; 251 / 536 / 776 on 8, 18; 261 / 551 / 786 on 11; 251 / 541 /
+  776 on 16), paid at the third barter with 54 Penitent stacks; the deadline is 95 900 ms after the sim started; accepted at
+  tick 16. **The whole route takes 39 s of the 95.9 s timer on all six seeds**: no seed that deals the quest has a route that
+  does not fit, and a doctored timer is not allowed; so "cash out because the next trader cannot be reached in time" has no
+  live scene (section 9.4). A control that cashes out after one barter is paid 12 stacks.
+- **Penitent stacks are not a clean reading**: the stub's own farming gives a seat Penitent stacks (6 on seed 8 with no quest
+  played). The oracle reads the stage banked from the attempt's progress at the read that first shows it paid
+  (`QuestAttemptProbe::progress`, which stays after the pay), not from the stacks.
+- **The stub on the scenes**: no seat ever accepts either quest (`accepted: None` on all twelve runs); seed 9 on Two Banners
+  dies at tick 1 108 roaming. The two scripted controls and the two lost-fight guards are green on the stub; the other four
+  tests are red on an assertion (below).
+- **Lost fight while holding the quest** (the seat accepts at the giver by script, starts at 30 % hp, walks into the nearest
+  four-member camp outside the Sanctum (a Holy seat does not turn on a Holy-zone camp), `RaidBot` takes over once the death
+  model calls the fight lost with a member in reach; the camp is 449 u (Two Banners) or 1 378 u / 1 354 u (Trade Up) away; the
+  script reaches the scene holding the quest on all six seeds of both lists): one second later the seat has moved 85 to 87 u
+  away from the nearest member on Two Banners seeds 2, 6, 9, 12 (73 on seed 20; **+1.5 on seed 1**) and 84 to 113 u on Trade
+  Up seeds 7, 8, 11, 12, 18 (**-116 on seed 16**): Sustain's leave works on 5 of 6 in each, with no new stage.
 
 ## 6. Existing tests that pin what this packet changes
 
@@ -185,6 +210,24 @@ What the code says about them:
    `reward_value("trade_up")` split over the stages by a `Prices` field appended before `elite` (`trade_up_stage_share:
    [f64; 3]`, range test: strictly increasing, last <= 1). The oracle pins behaviour, not the numbers, so it holds for either.
 
+4. **The timer never binds on a real seed.** The route takes 39 s of the 95.9 s timer on all six seeds that were measured
+   (section 5), so the coordinator's "where the route does not fit it cashes out at the stage the rule says" has no live
+   scene without a doctored timer (not allowed). The live scenes pin what holds anyway: a stage banked, never progress lost
+   to the timer, stage three where it fits, and the death-priced table banking no more than the normal one. The cash-out rule
+   itself (stage, time left, walk to the next trader, stacks) is unit-test material for the implementer's own tests of its
+   pure function; the oracle does not name one (no stub signature), so it holds for any shape of it.
+
+## NOT ESTABLISHED
+
+- No reference executor exists: the floors stand on the scripted controls with headroom (3x on Two Banners' ticks, 2.4x
+  the route on Trade Up's run) and are not measured on an implementation. A floor that an honest implementation misses goes to
+  the coordinator, not into an amendment.
+- Whether a seat that is deadly-priced out of a quest is priced from the camps of the distant zone or by another estimate:
+  the oracle pins only that every camp priced deadly means no accept.
+- Branch 1 is never taken (section 9.1). If the coordinator wants the choice to be live, the sim must change.
+- The seat accepted and lived floor of Trade Up (4 of 6) is a guess at how often a Holy fighter dies on the first leg; the
+  control survives the straight walk on all six.
+
 ## 10. Acceptance checks
 
 - `scripts/gate.sh --quick --base coord/int-87 --oracle packet/P-RAID-Q3b` passes.
@@ -195,7 +238,32 @@ What the code says about them:
 
 ## Oracle files (read-only for implementers)
 
-ORACLE_FILES_PLACEHOLDER
+- `crates/rh-policy/tests/raid_decide_b.rs` (integration tests on the public API: `RaidBot`, `Prices`, the sim; no stub is
+  needed and none was committed: nothing in it names a symbol that does not exist)
+- `docs/backlog/packets/P-RAID-Q3b.md`
+
+The eight tests (name: state on the stub; floors, with the measurement they stand on):
+
+- `guard_a_scripted_control_completes_two_banners_on_both_branches_on_every_seed`: green by design. Branch 0 under 750
+  ticks (measured 492), branch 1 under 1 500 (978), on all six seeds.
+- `guard_a_scripted_control_plays_trade_up_to_stage_three_or_cashes_out_after_one`: green by design. Stage three at 54 stacks
+  at least 30 s before the deadline (measured 56 s), and a cash-out after one barter pays 12 stacks.
+- `raid_bot_accepts_two_banners_chooses_within_a_bounded_time_and_completes_it`: **red** (never accepts). Every seed that
+  accepts must choose within 200 ticks of the accept and never take branch 1; paid on at least 5 of 6 seeds within 1 500
+  ticks. Floor 5 of 6 against the control's 6 of 6; budget 3 times the control.
+- `a_table_that_makes_every_camp_deadly_makes_the_seat_decline_two_banners`: **red** on its first half (the normal table
+  accepts on at least 5 of 6 seeds); the second half (deadly `DeathModel`: no accept on any seed) is green on the stub.
+- `raid_bot_plays_trade_up_banks_a_stage_and_never_loses_progress_to_its_timer`: **red** (no seat accepts). Accepts within 300
+  ticks; at least 4 of 6 seeds accepted and lived; on each of those a stage is banked and paid; no seed ever loses
+  progress to the timer (the run is 2 400 ticks, longer than the 95.9 s timer); at least one seed reaches stage three.
+- `a_deadly_table_banks_no_more_than_the_normal_table_and_never_loses_progress`: **red** on its normal-table floor (a stage
+  banked on at least 4 of 6 seeds); then deadly <= normal and no progress lost on every seed.
+- `guard_a_seat_holding_two_banners_leaves_a_fight_it_is_losing`, `guard_a_seat_holding_trade_up_leaves_a_fight_it_is_losing`:
+  green by design (Sustain's leave; the stub leaves on 5 of 6 each): at least 5 scenes reached holding the quest, at least 4 left
+  (30 u away in one second). They turn red if a new stage holds the seat through the fight.
+
+The "existing decision scenes untouched" requirement is the existing files' own tests (`raid_decide.rs`, `raid_decide_fix.rs`,
+section 6); this file adds no copy of them.
 
 ## 11. Risk and suggested model tier
 
