@@ -234,7 +234,7 @@ child label `Text`.
 
 ## Oracle files (read-only for implementers)
 
-- `client-unity/RoguehallaNet.Tests/NoticeRouterTests.cs` (dotnet, 33 cases: one per table row, hold, shorten)
+- `client-unity/RoguehallaNet.Tests/NoticeRouterTests.cs` (dotnet: one case per table row, hold, shorten)
 - `client-unity/RoguehallaNet.Tests/ToastLaneModelTests.cs` (dotnet, the lane state machine)
 - `client-unity/UnityProject/Assets/Tests/Editor/ToastLanesEditModeTests.cs` and its `.meta` (13 EditMode tests)
 - amended in their own `oracle-amend:` commits: `client-unity/UnityProject/Assets/Tests/Editor/HudLegacyLayoutEditModeTests.cs`,
@@ -314,6 +314,9 @@ Where the spec and the code differ, or I chose:
 - Model details pinned beyond the spec's wording (all follow from it): a same-text or keyed push never makes the line flicker
   (alpha stays 1); the sticky line keeps `Slot` 0 and the next line is `Slot` 1; a line pushed while hidden has alpha 0 until
   the lane is visible; reduced motion shows a line at once and a waiting line takes a freed slot after the first second.
+- Existing classes run on the stub: `PlayerFlowsEditModeTests` and `HudRegionsEditModeTests` 22/22 green; `Ui4EditModeTests` green;
+  `HudLegacyLayoutEditModeTests` green except the amended test; `HudTextScaleEditModeTests` red only through the amended
+  row (SetUp: no 'FeedbackLane/Toast0/Text'); `node --test hud-seams.test.cjs` 18/18 green.
 - `ToastsWaitWhileTheTabMapIsOpen` uses `TacticalMap.SetOpen(true)` (public) to make `WorldHudVisible` false.
 - The `HudTextScaleEditModeTests` amendment keeps the id "Notice" for the lane label row.
 
