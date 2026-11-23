@@ -195,6 +195,27 @@ C-INPUT (the cast goes through `validate` + `Sim::submit` like a human's), C-OBS
 6. **No price changes.**
 7. A seat in a live match must be human (`bot: false`).
 
+## The oracle, test by test (`crates/rh-policy/tests/raid_spells.rs`)
+
+Hand-built (pure, `SpellScene` and `HeldSpell` written in the test): the award list and table coverage (list taken from
+`DEFINITIONS`/`RewardKind`, the wire id shift after 21 explained in the test), the four-rules-only test, each rule's boundary
+(Cleanse impaired or not, Smite 400 u in / 520 u out / player / camp mob, Turret 300 in / 500 out, ShoulderCharge along `+x`),
+slot naming, no charge, one cast a think, single-use never at a camp mob (vacuous today by construction, with a positive
+control), no spell / executor shape (`registry().len() == 9`, last has no kinds), and the three `CastGate` tests (one ask over
+the wait; a spent or recharged slot asks at once, which means **`CastGate::pass` must be called every think, with `None` when
+nothing is asked, so it sees the frame**; per slot and per spell).
+Live: Cleanse rooted within 10 ticks on seeds 1-4 (Q key; charge spent; root gone), Hook + Cleanse (E key only, slot 1 spent),
+a spent Cleanse sends nothing when rooted again (a new seat), Hook + Tornado never cast, Smite at an Executioner camp's
+elite over seeds 1-6 (measured on the stub: the seat fights it in reach on all six, 280-1244 ticks; floor 5; Smite spent
+within 20 ticks of 60 ticks of fight; Q key, with an actor id).
+Guards that already pass on the stub and must stay green: `an_unruled_spell_is_never_cast`, `no_spell_seat_plays_as_before`
+(golden `NO_SPELL_HASH`), the award-list test. The golden is the state hash after 600 ticks of a no-spell RaidBot on seed 1
+at the arena centre.
+
+Not tested (said plainly): the refusal gate live (a cast the sim refuses silently needs a taunt or pull no test can stage);
+`Crowd`, `HpBelow` and `FoePosition` (no rule uses them yet); a stunned seat not sending ShoulderCharge; that `urgent()` stays
+false without a Cleanse (`review_tests.rs` pins it).
+
 ## Existing tests that pin what the packet touches
 
 | Test | Asserts | Conflict |
