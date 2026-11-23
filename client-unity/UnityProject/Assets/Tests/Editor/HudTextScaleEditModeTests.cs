@@ -177,11 +177,9 @@ namespace Roguehalla.Client.Tests
                 "Frozen Justice: +12.5 Defense/SD · elite fights", "12 camps · +12.5% earned leech");
 
             // Weapon bar.
+            // The two weapon slots carry no digit key cap (P-UI-ABILITY-ROW-1): only the names are listed.
             for (int i = 0; i < 2; i++)
-            {
-                Add("SlotKey " + (i + 1), Find(weaponBar, "Slot" + (i + 1) + "/Key/Label"), (i + 1).ToString());
                 Add("SlotName " + (i + 1), slotNames[i], "Shield", "Empty");
-            }
             Add("SwapKey", Find(weaponBar, "QSwap/Key/Label"), "Space");
             Add("SwapCaption", Find(weaponBar, "QSwap/Caption/Label"), "SWAP");
             Add("ControlsLine", Find(weaponBar, "ControlsLine/Label"), "WASD move · Click attack · Shift/Q quest · R Wish");
@@ -294,7 +292,7 @@ namespace Roguehalla.Client.Tests
         public void TheInventoryCoversTheWholeMatchHud()
         {
             // The packet brief lists these labels; the count guards against a label silently dropping out of the checks.
-            Assert.That(_entries.Count, Is.EqualTo(63), "labels in the inventory");
+            Assert.That(_entries.Count, Is.EqualTo(61), "labels in the inventory");
             var ids = new HashSet<string>();
             foreach (var e in _entries) Assert.That(ids.Add(e.Id), Is.True, "duplicate id " + e.Id);
         }

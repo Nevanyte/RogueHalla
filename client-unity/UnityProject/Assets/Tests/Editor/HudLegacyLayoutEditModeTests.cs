@@ -145,7 +145,7 @@ namespace Roguehalla.Client.Tests
             var mBar = Measure(_stage, bar);
             Assert.That(mBar.Left, Is.EqualTo(mBar.Right).Within(.01f), "bar is centred");
             Assert.That(mBar.Bottom, Is.EqualTo(14f).Within(.01f), "bar sits 14 from the bottom");
-            Assert.That(mBar.Width, Is.EqualTo(318f).Within(.01f));
+            Assert.That(mBar.Width, Is.EqualTo(458f).Within(.01f), "one row of six: 104 + 28 + 104 + 3 * 64 + 5 * 6");
             foreach (string slot in new[] { "Slot1", "Slot2" })
             {
                 var m = Measure(_stage, Child(bar, slot));

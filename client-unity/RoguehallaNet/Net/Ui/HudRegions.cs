@@ -99,6 +99,28 @@ namespace Roguehalla.Net.Ui
         public static HudRegion Prompt(float width = PromptWidth) =>
             new HudRegion(HudRegionAnchor.BottomCenter, 0f, PromptBottom, width, PromptHeight);
 
+        /// <summary>The scale of the action row on a narrow stage: 1 while the centred row clears, by 8 on each side, a
+        /// panel that ends leftObstacleRight from the left edge (the champion panel) and one that starts rightObstacleLeft from the
+        /// left edge (the minimap); smaller below that; never under .6.</summary>
+        public static float AbilityRowScale(float stageWidth, float leftObstacleRight, float rightObstacleLeft)
+        {
+            if (!(stageWidth > 0f) || float.IsInfinity(stageWidth) || float.IsNaN(leftObstacleRight) || float.IsInfinity(leftObstacleRight)
+                || float.IsNaN(rightObstacleLeft) || float.IsInfinity(rightObstacleLeft)) return 1f;
+            float half = stageWidth / 2f;
+            float left = half - leftObstacleRight - 8f, right = rightObstacleLeft - 8f - half;
+            float scale = 2f * (left < right ? left : right) / AbilityWidth;
+            return scale < .6f ? .6f : scale > 1f ? 1f : scale;
+        }
+
+        public const float PromptPairWidth = 220f;
+
+        /// <summary>The prompt lane when it holds two pills: index 0 the left one, 1 the right one, 4 from the centre line.</summary>
+        public static HudRegion PromptPair(int index)
+        {
+            float x = (index == 0 ? -1f : 1f) * (PromptPairWidth / 2f + 4f);
+            return new HudRegion(HudRegionAnchor.BottomCenter, x, PromptBottom, PromptPairWidth, PromptHeight);
+        }
+
         /// <summary>min(wanted, stageWidth - 2 * Margin).</summary>
         public static float LaneWidth(float stageWidth, float wanted = LaneMaxWidth)
         {
