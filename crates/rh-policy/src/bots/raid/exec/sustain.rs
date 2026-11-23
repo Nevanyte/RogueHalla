@@ -331,6 +331,11 @@ impl Executor for Sustain {
         *self = Self::default();
     }
     fn observe(&mut self, cx: &mut Cx<'_>) {
+        // A leave lives only while the seat's goal is Sustain: once another goal holds the seat the hold is over, and
+        // the leave may come back only through a fresh `lost` fight (`start` re-arms it on adoption).
+        if cx.goal.kind != GoalKind::Sustain {
+            self.leaving = None;
+        }
         if cx.prices.sustain.on && cx.p.active {
             self.watch(cx);
             self.track(cx);
