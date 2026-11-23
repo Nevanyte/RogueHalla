@@ -122,13 +122,13 @@ namespace Roguehalla.Net.Tests
             double ready = 6000, last = 1f;
             for (double now = 1000; now < ready; now += 500)
             {
-                var face = AbilityFaces.Spell(true, 1, ready, now, span.Total(ready, now));
+                var face = AbilityFaces.Spell(true, 0, ready, now, span.Total(ready, now));
                 Assert.That(face.Phase, Is.EqualTo(AbilityPhase.Cooling));
                 Assert.That(face.Sweep, Is.LessThanOrEqualTo(last + Eps), "the wedge never grows");
                 last = face.Sweep;
             }
-            Assert.That(AbilityFaces.Spell(true, 1, ready, 1000, span.Total(ready, 1000)).Sweep, Is.EqualTo(1f).Within(Eps), "full at first sight");
-            Assert.That(AbilityFaces.Spell(true, 1, ready, ready, span.Total(ready, ready)).Phase, Is.EqualTo(AbilityPhase.Ready));
+            Assert.That(AbilityFaces.Spell(true, 0, ready, 1000, span.Total(ready, 1000)).Sweep, Is.EqualTo(1f).Within(Eps), "full at first sight");
+            Assert.That(AbilityFaces.Spell(true, 0, ready, ready, span.Total(ready, ready)).Phase, Is.EqualTo(AbilityPhase.Ready));
         }
 
         // ---- HudRegions.AbilityRowScale --------------------------------------------------------------------------------
