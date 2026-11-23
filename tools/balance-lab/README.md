@@ -74,3 +74,14 @@ the inputs: `band`, `premium`, `stacks_per_camp`, `coliseum_start_minute`, `diff
   classes), not measured by the lab.
 
 Rime Hunt's class is `medium` in the workbook's `Time_Limits` sheet and `hard` in `Top_25`; the shipped inputs use medium.
+
+## inputs.json: where the numbers come from
+
+`tools/balance-lab/inputs.json` holds the design numbers the evaluator prices from. The `quests` and `augments` objects
+were transcribed by hand from `docs/quests/FUTURE_ONLY_Quest_Design_Discussion.xlsx` (sheets `Top_25` and
+`Augment_Tuning`); every `source` string names the row. Spell rewards stay "not measured" until paired duels give a
+duel equivalence (P-BAL-LAB-2); their entries carry no number.
+
+To change one number, edit its line in `inputs.json`, keep the JSON valid, and run
+`cargo test -p rh-headless --test balance_inputs --test balance_eval`. The `balance_inputs` test tables pin each number
+exactly, so a design change edits both files in the same reviewed change.
