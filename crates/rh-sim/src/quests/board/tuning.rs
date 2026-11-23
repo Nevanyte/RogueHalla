@@ -249,6 +249,7 @@ pub struct QuestPublicRules {
 
 /// The public rules, read from `TOP25` at each call.
 #[must_use]
+#[inline]
 pub fn public_rules() -> QuestPublicRules {
     QuestPublicRules {
         fort_ms: TOP25.fort_ms,

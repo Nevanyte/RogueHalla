@@ -41,26 +41,21 @@ use crate::bots::raid::exec::farm::{death_chance, members_left};
 use crate::bots::raid::exec::travel::{eta_minutes, move_intent, step_toward, straight_minutes};
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 use crate::bots::raid::percept::CAMP_JOIN_RADIUS;
-use crate::bots::raid::quest::{spell_slots_taken, SPELL_SLOTS};
+use crate::bots::raid::quest::{spell_slots_taken, stand_u, SPELL_SLOTS};
 use rh_protocol::state::{WireQuestRow, FIELD_KIND_QUEST_FORT};
 use rh_sim::quests::board::catalog::{RewardKind, DEFINITIONS};
+use rh_sim::quests::public_rules;
 use rh_sim::{FactionId, Vec2};
 
 const HOLD: &str = "hold_the_fort";
 const STAY: &str = "stay_a_while";
-/// Seconds of dwell each quest needs (`TOP25.fort_ms`, `meditate_ms`).
-const HOLD_S: f64 = 45.;
-const STAY_S: f64 = 30.;
 /// The meditation action (`choices.rs`), target 0.
 const ACTION_MEDITATE: u8 = 6;
 /// A pseudo action number for the accept send in the resend throttle.
 const ACCEPT_KEY: u8 = 255;
-/// Walk to within this of a giver or the fort token (the server's contact range is 64 u).
-const STAND_U: f64 = 32.;
-/// Within this of the token the seat counts as inside the house (the server's `fort_range` is 72 u).
+/// Within this of the token the seat counts as inside the house: a bot margin under the published `fort_range` (72 u
+/// today).
 const INSIDE_U: f64 = 48.;
-/// The fort's range, the proxy for "in the fort" for other players.
-const FORT_RANGE: f64 = 72.;
 /// Where the fort lies from the giver before accepting: an estimate from one map (the Gallows fort on `seed1.map.json`),
 /// used for the price only.
 const FORT_WALK_U: f64 = 500.;
@@ -121,12 +116,13 @@ pub struct Dwell {
     breaks: u8,
 }
 
-/// Seconds the dwell quest `def` needs.
+/// Seconds the dwell quest `def` needs: the published `fort_ms` or `meditate_ms` (the quest text says the seconds).
 pub(super) fn dwell_seconds(def: &str) -> f64 {
+    let rules = public_rules();
     if def == HOLD {
-        HOLD_S
+        rules.fort_ms / 1000.
     } else {
-        STAY_S
+        rules.meditate_ms / 1000.
     }
 }
 
@@ -173,9 +169,9 @@ fn fort_marks(cx: &Cx<'_>) -> usize {
         .count()
 }
 
-/// Walk toward `to` unless already within `STAND_U` of it.
+/// Walk toward `to` unless already within `stand_u()` of it.
 fn go(cx: &mut Cx<'_>, to: Vec2, why: &'static str, committed: bool) -> Step {
-    let mut step = if cx.p.dist(to) <= STAND_U {
+    let mut step = if cx.p.dist(to) <= stand_u() {
         Step::running(Vec::new(), "standing")
     } else {
         match step_toward(cx.paths, cx.p.me.at, to) {
@@ -307,7 +303,9 @@ impl Dwell {
             } else {
                 to_fort + back + left_s / 60.
             };
-            let seen = fort.map_or(0, |f| others_near(cx, f, FORT_RANGE * 4.)) + fort_marks(cx);
+            // The published fort range, the proxy for "in the fort" for other players; four times it is "near the fort".
+            let fort_range = public_rules().fort_range;
+            let seen = fort.map_or(0, |f| others_near(cx, f, fort_range * 4.)) + fort_marks(cx);
             (
                 minutes,
                 fort.unwrap_or(giver),
@@ -357,7 +355,7 @@ impl Dwell {
         let giver = at(row.giver);
         if row.owner_ready {
             self.track = None;
-            if cx.p.dist(giver) <= STAND_U && self.stalled(&row.def, now, TURN_IN_STALL_MS) {
+            if cx.p.dist(giver) <= stand_u() && self.stalled(&row.def, now, TURN_IN_STALL_MS) {
                 self.ban(&row.def, now, DEAD_END_BAN_MS);
                 return Step::failed("the turn-in does not land");
             }
@@ -411,7 +409,7 @@ impl Dwell {
     fn meditate(&mut self, cx: &mut Cx<'_>, row: &WireQuestRow) -> Step {
         let now = cx.p.now;
         let giver = at(row.giver);
-        if cx.p.dist(giver) > STAND_U {
+        if cx.p.dist(giver) > stand_u() {
             self.stall = None;
             return go(cx, giver, "to the monk", true);
         }
@@ -510,7 +508,7 @@ impl Executor for Dwell {
             return Step::failed("quest refused or waiting for a choice");
         }
         let giver = at(row.giver);
-        if row.owner_accepted || row.can_accept || cx.p.dist(giver) > STAND_U {
+        if row.owner_accepted || row.can_accept || cx.p.dist(giver) > stand_u() {
             self.refused = None;
         }
         if !row.owner_accepted {
@@ -521,7 +519,7 @@ impl Executor for Dwell {
                 }
                 return step;
             }
-            if cx.p.dist(giver) > STAND_U {
+            if cx.p.dist(giver) > stand_u() {
                 return go(cx, giver, "to the giver", false);
             }
             let since = match &self.refused {

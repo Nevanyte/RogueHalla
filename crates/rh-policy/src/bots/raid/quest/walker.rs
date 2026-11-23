@@ -21,10 +21,11 @@ use crate::bots::raid::exec::farm::{death_chance, members_left};
 use crate::bots::raid::exec::travel::{eta_minutes, move_intent, step_toward, straight_minutes};
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 use crate::bots::raid::percept::CAMP_JOIN_RADIUS;
-use crate::bots::raid::quest::SPELL_SLOTS;
+use crate::bots::raid::quest::{stand_u, SPELL_SLOTS};
 use rh_protocol::state::{WireQuestObjective, WireQuestRow};
 use rh_sim::mapdata::Zone;
 use rh_sim::quests::board::catalog::{RewardKind, DEFINITIONS};
+use rh_sim::quests::public_rules;
 use rh_sim::{FactionId, Vec2};
 
 /// The quests this executor does (docs/backlog/packets/P-RAID-Q1.md F1/F2).
@@ -49,8 +50,6 @@ const ACTION_CONTACT: u8 = 3;
 const ACTION_SLOT_CHOICE: u8 = 8;
 /// A pseudo action number for the accept send in the resend throttle.
 const ACCEPT_KEY: u8 = 255;
-/// Walk to within this of a point to accept, claim, deliver or stand (the server's range is 64 u).
-const STAND_U: f64 = 32.;
 /// A send is not repeated before this long (the act queue pauses and the frame's lag).
 const RESEND_MS: f64 = 2_500.;
 /// Standing at a giver this long with the quest still refused (a scared-off giver, a taken offer) bans it...
@@ -59,8 +58,6 @@ const REFUSED_MS: f64 = 1_500.;
 const BAN_MS: f64 = 20_000.;
 /// A dropped quest spell this near is another packet's pick-up: the walker does nothing.
 const DROP_NEAR_U: f64 = 160.;
-/// Seconds of timer the server adds to 1.5 times its own path walk (`attempts.rs:302-305`).
-const TIMER_BASE_S: f64 = 15.;
 /// A quest with no route timer and no lock time yet: the walk assumed before accepting (min).
 const UNTIMED_WALK_MIN: f64 = 1.;
 /// Slack (time left over walk still to do) from which the walk is certain to finish; below 1 it cannot.
@@ -77,9 +74,12 @@ pub struct Walker {
     refused: Option<(String, f64)>,
 }
 
-/// Minutes of walk a route timer of `ms` stands for: the timer is a floor under `route_pace x walk + slack`.
+/// Minutes of walk a route timer of `ms` stands for: the timer is a floor under `route_pace x walk + slack`
+/// (`attempts.rs:302-305`), both read from the published rules (`route_pace` in ms of deadline per second of walk,
+/// `route_slack_ms`); the conversion to seconds and minutes is local.
 pub(super) fn timer_spend_minutes(ms: u64) -> f64 {
-    ((ms as f64 / 1000. - TIMER_BASE_S) / 1.5 / 60.).max(0.1)
+    let rules = public_rules();
+    ((ms as f64 / 1000. - rules.route_slack_ms / 1000.) / (rules.route_pace / 1000.) / 60.).max(0.1)
 }
 
 fn dist(a: Vec2, b: Vec2) -> f64 {
@@ -116,15 +116,16 @@ fn slot_choice(cx: &Cx<'_>, row: &WireQuestRow) -> bool {
 }
 
 /// A dropped quest spell lies near the owner and a slot is free to pick it up (decide.rs's job): with both slots full the
-/// server offers no pick-up, and the drop must not freeze the walker. A drop within `STAND_U` for which the frame offers no
+/// server offers no pick-up, and the drop must not freeze the walker. A drop within `stand_u()` for which the frame offers no
 /// pick-up (a wall, no room) is not waited for either: decide.rs gives that stand up.
 fn drop_near(cx: &Cx<'_>) -> bool {
+    let stand = stand_u();
     cx.p.quests.as_ref().is_some_and(|q| {
         q.spells.len() < SPELL_SLOTS
             && q.drops.iter().any(|d| {
                 let gap = dist(point(d.at), cx.p.me.at);
                 gap <= DROP_NEAR_U
-                    && (gap > STAND_U
+                    && (gap > stand
                         || q.actions.iter().any(|a| {
                             a.action == super::decide::ACTION_PICKUP && a.target == d.index
                         }))
@@ -250,9 +251,9 @@ impl Walker {
             let slack = time_left_s / (walk * 60.).max(1.);
             (walk, ((slack - 1.) / (SAFE_SLACK - 1.)).clamp(0., 1.), objs)
         } else {
-            // Before accepting, the objectives are not in the view: the timer the server will set is at least 1.5 times
-            // its own path walk plus 15 s, which says how far the route goes.
-            // An upper bound on the walk: the route timer is a floor under the server's `1.5 x walk + 15 s`, so this
+            // Before accepting, the objectives are not in the view: the timer the server will set is at least
+            // `route_pace` times its own path walk plus `route_slack_ms`, which says how far the route goes.
+            // An upper bound on the walk: the route timer is a floor under the server's `pace x walk + slack`, so this
             // overstates short routes and biases the bot against short quests before it accepts.
             let spend = book
                 .route_timer_ms
@@ -307,9 +308,9 @@ impl Walker {
         })
     }
 
-    /// Walk toward `to` unless already standing at it (`STAND_U`).
+    /// Walk toward `to` unless already standing at it (`stand_u()`).
     fn go(cx: &mut Cx<'_>, to: Vec2, why: &'static str) -> Step {
-        if cx.p.dist(to) <= STAND_U {
+        if cx.p.dist(to) <= stand_u() {
             return Step::running(Vec::new(), "standing");
         }
         match step_toward(cx.paths, cx.p.me.at, to) {
@@ -367,7 +368,7 @@ impl Executor for Walker {
             return Step::failed("quest refused or waiting for a choice");
         }
         let giver = point(row.giver);
-        if row.owner_accepted || row.can_accept || cx.p.dist(giver) > STAND_U {
+        if row.owner_accepted || row.can_accept || cx.p.dist(giver) > stand_u() {
             // Not waiting at a refusing giver: the refusal clock starts over next time.
             self.refused = None;
         }
@@ -379,7 +380,7 @@ impl Executor for Walker {
                 }
                 return step;
             }
-            if cx.p.dist(giver) > STAND_U {
+            if cx.p.dist(giver) > stand_u() {
                 return Self::go(cx, giver, "to the giver");
             }
             // At the giver and still refused: wait a moment, then leave it for a while.
