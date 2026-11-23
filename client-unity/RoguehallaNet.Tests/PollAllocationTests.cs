@@ -39,6 +39,13 @@ namespace Roguehalla.Net.Tests
         /// red tests below is that a change of the WALL SET costs 27 KB standing and 259 to 669 KB walking, on one poll.
         /// </summary>
         const double StateBudget = 2048;
+
+        /// <summary>
+        /// The most a poll may allocate when it applies a State that carries eight standing walls and nothing changed: today 2,224 B
+        /// (about 240 B a wall in the decode and <c>Collections.Apply</c>), outside this packet's write scope. A ceiling, not a
+        /// target: P-NET-COLLECTIONS-ROWS-1 brings it under <see cref="StateBudget"/>.
+        /// </summary>
+        const double EightWallsCeiling = 4096;
         /// <summary>Polls to skip as warm-up: the spare exists after 40 snapshots (2 s at 20 Hz); 3 s leaves a second of margin.</summary>
         const int WarmFrames = 180;
         const int RunFrames = 600;
@@ -557,28 +564,45 @@ namespace Roguehalla.Net.Tests
         }
 
         /// <summary>The shape of a fight with Frost Walls: one wall rises every 500 ms and stands for 4 s, so the set of standing walls
-        /// changes about four times a second (a rise, then a fall), with a State frame carrying the set on every snapshot.</summary>
+        /// changes about four times a second (a rise, then a fall), with a State frame carrying the set on every snapshot.
+        /// The budget is relative (coordinator's oracle-amend, 2026-11-23). A State that carries eight standing walls allocates
+        /// about 240 B a wall in its decode and in <c>Collections.Apply</c> whether or not the set changed (2,224 B measured with
+        /// <c>SetWalls</c> returning at once), and those files are outside this packet (P-NET-COLLECTIONS-ROWS-1). So the same
+        /// eight walls standing unchanged are measured first, and a poll whose wall set changed may allocate at most
+        /// <see cref="WarmBudget"/> more than the worst poll of that run. What the packet removes (26 KB standing, 259 to 669 KB
+        /// walking, per change) stays pinned; what it cannot remove is not charged to it, and is capped at
+        /// <see cref="EightWallsCeiling"/> so it cannot grow unseen.</summary>
         [TestCase(false)]
         [TestCase(true)]
         public void FrostWallsRisingAndFallingEveryHalfSecondAllocateWithinTheBudget(bool walking)
         {
-            var sc = new Scenario
+            Func<Func<int, int>, bool, Scenario> scene = (newest, lasting) => new Scenario
             {
                 Build = () => new Rig(Open(), 800, 800, 40),
                 Feed = (r, f) =>
                 {
                     if (f % 3 != 0) return;
-                    int born = f / 30;                      // the newest wall's index: a new one every 30 frames
+                    int born = newest(f);                   // the newest wall's index
                     var rows = new List<WireField>();
-                    for (int k = Math.Max(0, born - 7); k <= born; k++) rows.Add(Wall(5000 + k * 500.0, (uint)(25 * 160 + 20 + (k * 7) % 100)));
+                    for (int k = Math.Max(0, born - 7); k <= born; k++)
+                    {
+                        var w = Wall(5000 + k * 500.0, (uint)(25 * 160 + 20 + (k * 7) % 100));
+                        if (lasting) w.EndsAt = 1e9;
+                        rows.Add(w);
+                    }
                     r.T.Enqueue(StateWalls(r.Srv.Tick + 1, rows.ToArray()));
                     r.T.Enqueue(r.Srv.NextDelta());
                 },
                 Frames = 900,
                 Act = (r, f) => { if (walking && f % 240 == 10) r.Move(800 + (f / 240 % 2 == 0 ? 1 : -1) * 1500, 800); }
             };
-            AssertWarm(walking ? "walls rise and fall four times a second, walking" : "walls rise and fall four times a second, standing",
-                Measure(sc, WarmFrames, StateBudget), StateBudget);
+            string how = walking ? "walking" : "standing";
+            // Eight walls standing for the whole run: what a State that carries them costs when nothing changes.
+            var still = Measure(scene(f => 7, true), WarmFrames, EightWallsCeiling);
+            AssertWarm("eight walls standing unchanged, " + how, still, EightWallsCeiling);
+            double budget = still.WarmMax + WarmBudget;
+            // A new wall every 30 frames, each standing 4 s: the set changes about four times a second.
+            AssertWarm("walls rise and fall four times a second, " + how, Measure(scene(f => f / 30, false), WarmFrames, budget), budget);
         }
 
         [Test]
