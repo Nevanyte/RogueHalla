@@ -275,6 +275,14 @@ pub struct Prices {
     pub recharging_share: f64,
     /// The minutes from a Bargain's giver to its hag, priced before the quest is accepted (min; the hag is not in the view then).
     pub bargain_leg_minutes: f64,
+    /// Trade Up (P-RAID-Q3b): each stage's share of the whole reward row, banked at one, two and three barters (the sim's
+    /// `trade_up_stacks` over its last: 12, 30, 54 of 54; the stage sizes are not a published rule, so a guard test
+    /// reads them from the sim's source). Strictly increasing, the last at most 1.
+    pub trade_up_stage_share: [f64; 3],
+    /// A committed quest walk (Two Banners, Trade Up) is priced at most this share of Sustain's leave rate
+    /// (`leave_value` over `leave_seconds`), so a leave from a lost fight outranks the walk wherever the seat stands
+    /// (0 < share < 1; unused while sustain is off).
+    pub quest_hold_share: f64,
     /// Elite camps (P-RAID-E): what an elite and its chest are worth and how likely the fight kills the bot.
     pub elite: ElitePrices,
 }
@@ -391,6 +399,8 @@ impl Prices {
         answer_minutes: 0.01,
         recharging_share: 0.5,
         bargain_leg_minutes: 0.5,
+        trade_up_stage_share: [12. / 54., 30. / 54., 1.],
+        quest_hold_share: 0.7,
         elite: ElitePrices::LOCAL,
     };
 
