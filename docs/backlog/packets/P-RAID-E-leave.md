@@ -235,7 +235,25 @@ on the stub by assertion.
 
 ## Oracle files (read-only for implementers)
 
-(filled in at the oracle commit)
+- `crates/rh-policy/src/bots/raid/exec/elite_leave_tests.rs` (12 tests, 11 red on the stub by assertion, 1 green guard)
+- `crates/rh-policy/tests/raid_elite_leave.rs` (3 tests, red on the stub by assertion)
+- `docs/backlog/packets/P-RAID-E-leave.md` (this brief)
+
+The `stub:` commit (the implementer's to replace: `exec/held.rs`, `ban_seconds_after` and `elite_fight_lost` in `exec/elite.rs`,
+the two `ElitePrices` fields and their numbers in `values.rs`, the `pub mod held;` line, the `mod leave_tests` line) is not an
+oracle file. No existing test or capture is amended (no `oracle-amend:` commit).
+
+Routing: serves: the P-RAID-E follow-up (see the top) · tier: implementer-opus · reviewer: reviewer-opus · D-rules: D1 loose
+proof, no D5/D6/D9 change · write scope: section 5.
+
+Red on the stub, by test: `no_heal_up_is_proposed_with_a_live_elite_in_reach`, `a_heal_up_held_beside_a_live_elite_does_not_stand`,
+`a_leave_with_only_the_elite_near_walks_away_from_it`, `the_elite_death_term_says_when_the_elite_fight_is_lost`,
+`sustain_does_not_leave_a_fight_the_elite_term_rates_as_winning` (the base proposes a `Sustain/Camp(0)` leave, value 3),
+`the_ban_after_n_give_ups_is_longer_than_after_one_and_capped`, `the_executor_bans_a_camp_longer_at_each_give_up`,
+`a_drink_does_not_change_the_hp_held`, `the_heal_watch_reads_a_stock_that_fell_as_a_drink`,
+`the_elite_candidate_does_not_change_when_the_seat_drinks` (measured on the base: death 0.321 before the drink, 0.536 after),
+`the_farm_candidate_does_not_change_when_the_seat_drinks` (0.155 before, 0.431 after). Green on the base by design:
+`farm_only_proposes_nothing_from_elite_or_sustain`.
 
 ## NOT ESTABLISHED
 
