@@ -24,8 +24,8 @@ namespace Roguehalla.Client
         /// <summary>Test-visible: how many times the Tab map surface / the minimap surface was presented (marks rebuilt).</summary>
         public int LargePresentCount { get; private set; }
         public int MinimapPresentCount { get; private set; }
-        void PresentLarge() { LargePresentCount++; _large.Present(_bound, ShowRoute ? _routePoints : null); }
-        void PresentMini() { MinimapPresentCount++; _mini.Present(_bound, ShowRoute ? _routePoints : null); }
+        void PresentLarge() { LargePresentCount++; _large.Present(_bound, ShowRoute ? _routePoints : null); if (_large.Map != null) _largeFresh = true; }
+        void PresentMini() { MinimapPresentCount++; _mini.Present(_bound, ShowRoute ? _routePoints : null); if (_mini.Map != null) _miniFresh = true; }
         MatchClient _client;
         UiDisplayPreferences _prefs;
         Session _bound;
@@ -52,6 +52,8 @@ namespace Roguehalla.Client
         RectTransform _contactRail, _counterRail;
         bool _routeStorageDirty;
         double _nextPaint, _nextPath;
+        bool _largeFresh, _miniFresh;
+        const double HeartbeatSeconds = .25d;
         bool _factsDirty = true;
         bool _mapOpen;
         bool _minimapSuppressed;
@@ -146,8 +148,8 @@ namespace Roguehalla.Client
                 _boons[i] = HudUi.Button(_planningRail, "Boon" + i, "BOON", HudAnchor.TopLeft, 12, 0, 316, 40, () => PickBoon(pick), 12f);
             }
             _routeText = HudUi.Label(_panel, "RouteSummary", "Click the map to add a route stop", 11f, theme.TextSecondary, TextAlignmentOptions.TopLeft, false, UiFontRole.Body, true);
-            _undo = HudUi.Button(_panel, "UndoRoute", "Undo stop", HudAnchor.TopLeft, 0, 0, 100, 26, () => { _route.Undo(); _routeStorageDirty = true; _nextPath = _nextPaint = 0; }, 11f);
-            _clear = HudUi.Button(_panel, "ClearRoute", "Clear route", HudAnchor.TopLeft, 0, 0, 100, 26, () => { _route.Clear(); _routeStorageDirty = true; _nextPath = _nextPaint = 0; }, 11f);
+            _undo = HudUi.Button(_panel, "UndoRoute", "Undo stop", HudAnchor.TopLeft, 0, 0, 100, 26, () => { _route.Undo(); _routeStorageDirty = true; _nextPath = 0; MarkNews(); }, 11f);
+            _clear = HudUi.Button(_panel, "ClearRoute", "Clear route", HudAnchor.TopLeft, 0, 0, 100, 26, () => { _route.Clear(); _routeStorageDirty = true; _nextPath = 0; MarkNews(); }, 11f);
             _status = HudUi.Label(_panel, "MapStatus", "", 12f, theme.TextSecondary, TextAlignmentOptions.TopLeft, false, UiFontRole.Body, true);
 
             // Tab columns: left = map key + contacts in view, right = weapon guide + quests/traders.
@@ -260,6 +262,7 @@ namespace Roguehalla.Client
             float px = _panel.lossyScale.x;
             if (!force && size == _layoutSize && mode == _layoutMode && Mathf.Approximately(ts, _layoutScale) && Mathf.Approximately(px, _layoutPx)) return;
             _layoutSize = size; _layoutMode = mode; _layoutScale = ts; _layoutPx = px;
+            MarkNews();
             var L = _layout = MapScreenLayout.Compute(size.x, size.y, mode, ts);
             bool tab = mode == MapScreenMode.Tab;
             var theme = UiTheme.Current;
@@ -331,7 +334,7 @@ namespace Roguehalla.Client
         {
             UnsubscribeMapFacts();
             ReleaseTransient(); _selections.Update(null, false, Now * 1000); _bound = session; _storageKey = null; _routeStorageDirty = false; _route.Clear(); _route.SetStart(null);
-            _factsDirty = true; _lastContactsSnapshot = -1; _contacts.Clear(); _contactsText.text = "";
+            MarkNews(); _lastContactsSnapshot = -1; _tacContactCount = _tacOfferCount = -1; _contacts.Clear(); _contactsText.text = "";
             if (_bound != null)
             {
                 _bound.SnapshotReceived += MapSnapshotChanged;
@@ -340,14 +343,14 @@ namespace Roguehalla.Client
             }
             _large.SetMap(null); _mini.SetMap(null); _routePlan = null; _routePoints = Array.Empty<RoutePoint>();
             SetTrackedQuest(null);
-            RefreshMinimapVisibility(); _nextPaint = _nextPath = 0;
+            RefreshMinimapVisibility(); _nextPath = 0; MarkNews();
         }
         public void SetTrackedQuest(QuestHandle? handle)
         {
             if (Nullable.Equals(_trackedQuest, handle)) return;
             _trackedQuest = handle;
             _largeMarks.TrackedQuest = _miniMarks.TrackedQuest = handle;
-            RefreshDeliveredMarks(); _factsDirty = true; _nextPaint = 0;
+            MarkNews(); RefreshDeliveredMarks();
         }
         void RefreshDeliveredMarks()
         {
@@ -355,13 +358,14 @@ namespace Roguehalla.Client
             if (_miniRoot != null && _miniRoot.gameObject.activeSelf) PresentMini();
         }
         public void SetToggleMode(bool value) { _prefs.SetMapToggle(value); ReleaseTransient(); }
-        public void SetShowRoute(bool value) { _prefs.SetShowRoute(value); _nextPaint = 0; }
+        public void SetShowRoute(bool value) { _prefs.SetShowRoute(value); MarkNews(); }
         /// <summary>Sizes the minimap by the legacy formula for the laid-out HUD (units) and the user's minimap scale setting.</summary>
         public void ApplyViewport(HudViewport viewport, float userScale)
         {
             if (_miniRoot == null || viewport.UiWidth <= 0f) return;
             float size = HudLayout.MinimapSize(viewport.UiWidth, viewport.UiHeight, userScale);
-            _miniRoot.sizeDelta = new Vector2(size, size);
+            var newSize = new Vector2(size, size);
+            if (_miniRoot.sizeDelta != newSize) { _miniRoot.sizeDelta = newSize; MarkNews(); }
             ApplyLayout();
         }
         public RectTransform MinimapRoot => _miniRoot;
@@ -394,7 +398,9 @@ namespace Roguehalla.Client
             }
         }
         /// <summary>A surface just became visible: the next Tick paints everything, so it is current on its first frame.</summary>
-        void MarkRepaint() { _factsDirty = true; _lastContactsSnapshot = -1; _nextPaint = 0; }
+        void MarkRepaint() { MarkNews(); _lastContactsSnapshot = -1; }
+        /// <summary>Something the map shows changed: the next Tick paints every visible surface.</summary>
+        void MarkNews() { _factsDirty = true; _nextPaint = 0; _largeFresh = _miniFresh = false; }
         bool _largeShown;
         /// <summary>The visible surface's own marker follows the drawn character every frame (the other marks keep the paint interval).</summary>
         void FollowDrawn()
@@ -444,6 +450,7 @@ namespace Roguehalla.Client
         public void Tick()
         {
             if (_bound == null || _bound.Map == null) return;
+            if (!ReferenceEquals(_large.Map, _bound.TerrainMap) || !ReferenceEquals(_mini.Map, _bound.TerrainMap)) MarkNews();
             _large.SetMap(_bound.TerrainMap); _mini.SetMap(_bound.TerrainMap);
             if ((_storageKey == null || _timelineEpoch != _bound.TimelineEpoch) && _bound.Welcome != null)
             {
@@ -458,9 +465,12 @@ namespace Roguehalla.Client
             RefreshMinimapVisibility();
             if (_factsDirty) _nextPaint = 0;
             FollowDrawn();
+            TickGesture(_miniGesture);
+            TickGesture(_largeGesture);
             if (Now < _nextPaint) return;
+            bool news = _factsDirty, replanned = false;
             _factsDirty = false;
-            _nextPaint = Now + 1d / 30d;
+            _nextPaint = Now + HeartbeatSeconds;
             var plan = _bound.Collections.Plan;
             if (plan != null) PresentPlan(plan); else if (IsOpen) PresentTactics();
             if (plan == null) foreach (var marker in _spawnMarks) marker.gameObject.SetActive(false);
@@ -473,17 +483,16 @@ namespace Roguehalla.Client
             if (Now >= _nextPath)
             {
                 _nextPath = Now + .25;
+                replanned = true;
                 _routePlan = _route.PlanAhead(_bound.TerrainMap, new RouteGeometry(Tile, _bound.OwnFoot, PreviewSpeed), plan == null && me != null ? new RoutePoint(me.X, me.Y) : _route.Start);
                 _routePoints = _routePlan.Points;
                 _routeText.text = (_route.Waypoints.Count - _route.NextIndex) + "/12 stops · " + (_routePlan.Start.HasValue ? _routePlan.EtaSeconds.ToString("0") + "s base-speed walk" : "choose a spawn for ETA") +
                     (_routePlan.Unreachable.Count > 0 ? " · " + _routePlan.Unreachable.Count + " unreachable" : "") + "\nClick the map to add a stop.";
             }
             SaveRoute();
-            if (IsOpen) PresentLarge();
-            if (_miniRoot.gameObject.activeSelf) PresentMini();
+            if (IsOpen && !(news && _largeFresh && !replanned)) PresentLarge();
+            if (_miniRoot.gameObject.activeSelf && !(news && _miniFresh && !replanned)) PresentMini();
             FollowDrawn();
-            TickGesture(_miniGesture);
-            TickGesture(_largeGesture);
         }
         void TickGesture(MinimapGesture gesture)
         {
@@ -529,49 +538,6 @@ namespace Roguehalla.Client
             if (picked.HasValue) _route.SetStart(new RoutePoint(picked.Value.X, picked.Value.Y));
             _status.text = !string.IsNullOrEmpty(_selections.Feedback) ? _selections.Feedback : connected ? "Choose spawn + boon, then Ready · your route stays private." : "Reconnecting · wait for the server plan.";
         }
-        void PresentTactics()
-        {
-            _title.text = _bound.Phase == MatchPhase.Lobby ? "LOBBY MAP" : "TACTICAL MAP";
-            PresentHeader();
-            RefreshOwnZone();
-            if (_lastContactsSnapshot == _bound.SnapshotsReceived) return;
-            _lastContactsSnapshot = _bound.SnapshotsReceived;
-            _contacts.Clear(); _bound.Snapshots.Sample(_bound.Snapshots.NewestMs, _contacts);
-            var text = new StringBuilder();
-            int shown = 0;
-            var groups = new List<(int Faction, int Kind, int Count)>();
-            foreach (var actor in _contacts)
-            {
-                if (actor.Id == _bound.PlayerId) continue;
-                shown++;
-                string faction = actor.Faction.HasValue ? ShowcasePalette.GetFactionName((int)actor.Faction.Value) : "Neutral";
-                if (actor.Kind == ActorKind.Player) { text.Append(faction).Append(" · Player\n"); continue; }
-                int f = actor.Faction.HasValue ? (int)actor.Faction.Value : -1;
-                int k = PlayerWords.IsNamed(actor.Kind) ? (int)actor.Kind : 255;
-                int at = 0;
-                while (at < groups.Count && (groups[at].Faction < f || (groups[at].Faction == f && groups[at].Kind < k))) at++;
-                if (at < groups.Count && groups[at].Faction == f && groups[at].Kind == k) groups[at] = (f, k, groups[at].Count + 1);
-                else groups.Insert(at, (f, k, 1));
-            }
-            foreach (var g in groups)
-            {
-                PlayerWords.AppendContactRow(text, g.Faction < 0 ? null : ShowcasePalette.GetFactionName(g.Faction), (ActorKind)g.Kind, g.Count);
-                text.Append('\n');
-            }
-            if (shown == 0) text.Append("No other contacts in view.");
-            _contactsText.text = text.ToString().TrimEnd('\n');
-            _counterGuide.SetWeapon(_bound.Me != null ? _bound.Me.Weapon.ToString() : "fists");
-            var legendNow = _counterGuide.LegendRoot != null ? _counterGuide.LegendRoot.GetComponentInChildren<TMP_Text>() : null;
-            if (legendNow != null && legendNow.text != _laidLegend && _panel.gameObject.activeSelf) ApplyLayout(true);
-            var quests = new StringBuilder();
-            var qs = _bound.Collections.Quests;
-            if (qs != null && qs.Available) foreach (var row in qs.Rows)
-                if (QuestPresentation.ShowsOffer(row)) quests.Append(row.GiverLabel).Append(": ").Append(row.Name).Append("\n");
-            var trade = _bound.Collections.Trade;
-            if (trade != null && trade.Available) foreach (var m in trade.Merchants) quests.Append(m.Name).Append(" · trader\n");
-            if (quests.Length == 0) quests.Append("No quest givers or traders delivered.");
-            _questsText.text = quests.ToString().TrimEnd('\n');
-        }
         /// <summary>The zone chip of the region under the player gets the gold frame.</summary>
         void RefreshOwnZone()
         {
@@ -596,19 +562,19 @@ namespace Roguehalla.Client
             _bound.CollectionsChanged -= MapCollectionsChanged;
             _bound.StateChanged -= MapStateChanged;
         }
-        void MapSnapshotChanged(ServerMsg.Snapshot _) { _factsDirty = true; _nextPaint = 0; }
-        void MapCollectionsChanged(CollectionsView _) { _factsDirty = true; _lastContactsSnapshot = -1; _nextPaint = 0; RefreshDeliveredMarks(); }
+        void MapSnapshotChanged(ServerMsg.Snapshot _) { MarkNews(); }
+        void MapCollectionsChanged(CollectionsView _) { MarkNews(); _lastContactsSnapshot = -1; RefreshDeliveredMarks(); }
         void MapStateChanged(SessionState _)
         {
-            _factsDirty = true; _nextPaint = 0;
+            MarkNews();
             RefreshDeliveredMarks();
-            if (_bound?.State != SessionState.InMatch) { _contactsText.text = "No current contacts."; _lastContactsSnapshot = -1; }
+            if (_bound?.State != SessionState.InMatch) { _contactsText.text = "No current contacts."; _lastContactsSnapshot = -1; _tacContactCount = -1; }
         }
         void UpdateSelections() => _selections.Update(_bound?.Collections.Plan, _bound != null && _bound.State == SessionState.InMatch, Now * 1000);
-        void PickSpawn(byte pick) { UpdateSelections(); if (_bound != null && _selections.TryPickSpawn(pick, _bound.Input, Now * 1000)) _nextPaint = 0; }
-        void PickBoon(byte pick) { UpdateSelections(); if (_bound != null && _selections.TryPickBoon(pick, _bound.Input, Now * 1000)) _nextPaint = 0; }
-        void Ready() { UpdateSelections(); if (_bound != null && _selections.TryReady(_bound.Input, Now * 1000)) _nextPaint = 0; }
-        void AddRoutePoint(Vector2 point) { if (_bound?.Map == null) return; _route.ToggleUpcoming(new RoutePoint(point.x, point.y), _bound.TerrainMap, Tile); _routeStorageDirty = true; _nextPath = _nextPaint = 0; }
+        void PickSpawn(byte pick) { UpdateSelections(); if (_bound != null) { _selections.TryPickSpawn(pick, _bound.Input, Now * 1000); MarkNews(); } }
+        void PickBoon(byte pick) { UpdateSelections(); if (_bound != null) { _selections.TryPickBoon(pick, _bound.Input, Now * 1000); MarkNews(); } }
+        void Ready() { UpdateSelections(); if (_bound != null) { _selections.TryReady(_bound.Input, Now * 1000); MarkNews(); } }
+        void AddRoutePoint(Vector2 point) { if (_bound?.Map == null) return; _route.ToggleUpcoming(new RoutePoint(point.x, point.y), _bound.TerrainMap, Tile); _routeStorageDirty = true; _nextPath = 0; MarkNews(); }
         void ReconcileMinimapButtons()
         {
             Reconcile(_miniGesture, _mini);
