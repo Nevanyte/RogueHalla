@@ -46,7 +46,7 @@ None: RaidBot has no legacy counterpart (P-RAID-C section 3).
   Farm with no mob in the percept, the bot standing and healing at hp 0.65 to 0.70.
 - **F6. Measured by this oracle's scene on the base** (debug build, `raid_sustain_fix.rs`: a four-member camp 100 u away,
   start hp 0.5, two large potions, sustain on, `death_loss 0` so the farm takes the fight, 2400 ticks): the seat leaves,
-  drinks and hands over to Farm at hp 0.85 or more on seeds 5, 6, 7, 12, 13 (of 1 to 14). Stale leaves adopted:
+  drinks and hands over to Farm at hp 0.85 or more on seeds 5, 6, 7, 10, 12, 13, 14 (of 1 to 14). Stale leaves adopted:
   **seed 5, tick 2168, hp 0.848, nearest member 26 u, `Farm/Camp(34)` -> `Sustain/Camp(51)`; seed 7, tick 1727, hp 0.815,
   nearest 37 u, `Farm/Camp(36)` -> `Sustain/Camp(51)`**. Camp 51 was left earlier (seed 5 t922, hand-over t1473; seed 7
   t826, hand-over t1583). Seeds 1 to 8 are the sweep: two stale, six clean.
