@@ -233,8 +233,17 @@ namespace Roguehalla.Client
             _extras.AddMarkObstacles(into);
         }
 
-        /// <summary>Stub (P-UI-WORLD-LABELS-1): adds nothing.</summary>
-        internal void AddOverheadObstacles(List<Rect> into) { }
+        /// <summary>The overhead cluster's rectangles without the body-anchored status glyphs (the world labels keep clear of these).</summary>
+        internal void AddOverheadObstacles(List<Rect> into)
+        {
+            if (NameActive) into.Add(CombatHudPlacement.FromBounds(NameDrawnBounds));
+            if (_number.gameObject.activeInHierarchy)
+                into.Add(CombatHudPlacement.FromBounds(_number.GetComponent<MeshRenderer>().bounds));
+            AddVisibleRect(_crown, into);
+            AddVisibleRect(_wishIcon, into);
+            AddVisibleRect(_badgeBack, into);
+            _extras.AddMarkObstacles(into);
+        }
 
         internal static void AddVisibleRect(SpriteRenderer sprite, List<Rect> into)
         {

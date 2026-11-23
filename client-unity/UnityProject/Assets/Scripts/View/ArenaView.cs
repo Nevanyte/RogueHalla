@@ -163,7 +163,7 @@ namespace Roguehalla.Client
             _worldMarks = new WorldMarks(Child("World markers"), _catalog); _campLabels = new CampRespawnLabels(Child("Camp respawn labels"));
             _campLabels.NameRectSource = _actors.FighterNameRects;
             _campLabels.HeaderRectSource = _actors.FighterHeaderRects;
-            _worldIndicators = new WorldIndicators(Child("World indicators")); _vignette = new HurtVignette(transform);
+            _worldIndicators = new WorldIndicators(Child("World indicators")); _vignette = new HurtVignette(transform); _worldMarks.LocalCluster = _worldIndicators.LocalCluster = _actors.TryLocalClusterRect;
             _patience = new CampPatienceOutlines(Child("Camp patience outlines")); _carrierFlags = new QuestCarrierFlags(Child("Quest carrier flags"));
             // the drawn actors: the presenter that Present()s every observed fighter, the local player included
             _carrierActorPoint = (uint id, out float x, out float y) => { if (_actors.TryPosition(id, out var w)) { x = w.x / Scale; y = -w.y / (Scale * GroundSquash); return true; } x = y = 0; return false; };
@@ -607,7 +607,7 @@ namespace Roguehalla.Client
             }
             _markVisible = _markVisible ?? MarkVisible;
             _worldMarks.Update(collections, _markVisible); _campLabels.Update(_visionSession, _markVisible);
-            _worldIndicators.Update(collections, _sourceTimeMs, _haveLocal, _localX, _localY, Time.unscaledTime, MarkVisible);
+            _worldIndicators.Update(collections, _sourceTimeMs, _haveLocal, _localX, _localY, Time.unscaledTime, _markVisible);
             var vs = _visionSession;
             if (vs != null && !ReferenceEquals(vs.Map, _campAttackMap)) { _campAttackMap = vs.Map; _campAttack.Clear(); }   // a new map is a new match
             _campMobs.Clear();
