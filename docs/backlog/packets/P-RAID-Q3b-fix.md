@@ -214,7 +214,31 @@ past, or a stand beside, an idle camp is not a fight, by the sim's rules.
 
 ## 9. The oracle's tests
 
-TO BE FILLED WITH MEASUREMENTS.
+`crates/rh-policy/tests/raid_walk_risk.rs`: hand-built percepts driven through the public executors (`Walker`, `Dwell`,
+`Decide`), as `raid_hold.rs` does; no stub is needed (nothing names a symbol that does not exist: the `Prices` row table is
+not named, only behaviour). The death term is read off `Candidate::death`, the smallest public entry. Holy seat, five-member
+idle camp 256 u from the point, `Prices::LOCAL`. Measured on the base: **8 red by assertion, 3 green guards**.
+
+| Test | Base | Floor and the measurement it stands on |
+|---|---|---|
+| `an_idle_camp_near_let_him_cooks_points_prices_it_at_its_row` | red | within 15 % of 7/189 = 0.037, before and after accepting, with and without a Plague camp (base: 0.02 without, 0.125 with) |
+| `hold_the_fort_is_priced_at_its_row_with_or_without_an_idle_camp` | red | within 15 % of 9/32 = 0.281 (base: 0.02 unaccepted; 0.36 with the Fire camp) |
+| `an_idle_camp_adds_nothing_to_a_quest_without_a_row` | red | Stay A While equals `death_floor` 0.02 with an idle camp (base 0.362); `ember_walk` the same (green on the base alone) |
+| `a_hurt_seat_is_likelier_to_die_to_the_same_walk` | red | at 30 % hp strictly above 100 % hp for Let Him Cook, Hold the Fort, Stay A While; at most 0.98, at least the floor (base: Let Him Cook 0.02 both) |
+| `trade_up_goes_on_past_an_idle_camp_at_progress_one` | red | seat at trader 1, progress 1, idle camp 256 u away: barter sent (target 1) and the candidate is worth 5.6 x 30/54 = 3.11 within 2 % (base: no act, candidate 1.24 = the cash-out's) |
+| `trade_up_going_on_is_worth_the_next_stage_not_the_whole_route` | red | no camp: progress 1 candidate 3.11 and barter, progress 2 candidate 5.6 and barter, within 2 % (base: 5.6 at progress 1, the whole route) |
+| `a_cash_out_stand_waits_out_the_patrol_and_is_not_banned` | red | barter at fraction 0, back at the point 30 u away 2.9 s later (out of contact 2.9-9.2 s), frames every 0.5 s for 13 s: never `Failed`, the cash-out is sent (computed from the patrol, 6.3 s after arriving; asserted no sooner than 5 s; not measured on an implementation) and `propose` still offers Trade Up (not banned). Base: fails at 4.0 s and bans |
+| `an_awake_camp_near_the_points_still_counts` | green | an `engaged` member of the camp: Stay A While >= 0.25 (0.362), Let Him Cook >= 0.1 (0.125), accepted or not |
+| `guard_two_banners_keeps_pricing_the_camp_at_its_outpost` | green | outpost with a five-member Fire camp: death >= 0.25 (0.362) |
+| `guard_the_patrol_mirrored_here_is_the_sims` | green | `interactions.rs` still holds the three patrol lines this file mirrors |
+| `the_rows_sit_above_the_default_and_in_the_pilots_order` | red on the base (the rows do not exist) | Let Him Cook > 1.3 x the default, Hold > 3 x Let Him Cook, at full hp, no camp |
+
+**Not in this file (named, not run by the oracle author):** the six Trade Up seeds and six Two Banners seeds are guarded by the
+existing `raid_decide_b.rs` tests (section 5), unchanged; the implementer runs them. A live scene "a seat offered Let Him Cook
+under default prices accepts on a seed where the base declines or outbids it" was **not built**: the base's Let Him Cook term
+against a Holy seat is at most 0.125 for one camp in the hand-built scene, which leaves the quest well above the roam rate
+(3.7 ce against 0.75 ce of death over minutes), so no accept/decline flip is expected on the fixture map; the pricing
+assertions above are the oracle for it. Not searched seed by seed.
 
 ## 10. Risk and suggested model tier
 
