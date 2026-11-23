@@ -260,7 +260,7 @@ async function launchFlow(cfg, browser, errors, logs) {
   await page.mouse.click((pBx + pFrame + 12 + 12 + 158) * s, (pBy + 12 + 23) * s, { delay: 80 });
   await page.waitForTimeout(Number(process.env.RH_SHOTS_MATCH_MS || 9000)); await shot(page, 'play-match');
   await page.mouse.click(cfg.w - (12 + 36 + 15) * s, (10 + 15) * s, { delay: 60 }); await page.waitForTimeout(700); // settings gear
-  await page.mouse.click(cfg.w - 258.5 * s, 676 * s, { delay: 60 }); await page.waitForTimeout(2500);               // Leave match
+  await page.mouse.click(cfg.w - 248 * s, 761 * s, { delay: 60 }); await page.waitForTimeout(2500);               // Leave match
   await shot(page, 'return-to-menu');
   await click(page, geo.play, Number(process.env.RH_SHOTS_PLAN_MS || 9000)); await shot(page, 'play-again-planning');
   await page.context().close();
