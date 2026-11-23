@@ -62,7 +62,6 @@ namespace Roguehalla.Client
                 button.targetGraphic = image; button.onClick.AddListener(() => Swap(slot));
                 HudUi.ApplyColors(button, theme.SurfaceRaised);
                 _slotGroups[i] = rect.gameObject.AddComponent<CanvasGroup>();
-                HudUi.Label(HudUi.At(rect, "Key", 5, 4, 20, 12), "Label", (i + 1).ToString(), theme.SizeTiny, theme.TextSecondary);
                 _weaponIcons[i] = MythicUi.Icon(rect, "WeaponIcon", MythicGlyph.Sword, 26f);
                 _weaponIcons[i].rectTransform.anchorMin = _weaponIcons[i].rectTransform.anchorMax = new Vector2(.5f, 1f);
                 _weaponIcons[i].rectTransform.pivot = new Vector2(.5f, 1f); _weaponIcons[i].rectTransform.anchoredPosition = new Vector2(0, -12);
