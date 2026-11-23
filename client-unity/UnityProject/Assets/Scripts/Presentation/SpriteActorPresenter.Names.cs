@@ -20,6 +20,14 @@ namespace Roguehalla.Client
                 Evict(id);
             }
         }
+        // STUB (P-UI-WORLD-NAMES-2): the implementer replaces these four members with the rule.
+        /// <summary>Ends a frame with the clock the caller supplies (seconds since the previous frame).</summary>
+        public void End(float dt) { End(); }
+        /// <summary>Growth in x of every name rectangle handed to the camp labels, world units.</summary>
+        public const float NameRectPad = .03f;
+        /// <summary>The drawn and target lift of an actor's name cluster this frame; false when it took no part in the layout.</summary>
+        public bool TryNameLift(uint id, out float lift, out float target) { lift = target = 0f; return false; }
+        void LayoutNames(float dt) { }
         NameStackItem[] _stackItems = new NameStackItem[16]; float[] _lift = new float[16]; uint[] _stackIds = new uint[16];
         float[] _anchorX = new float[32], _anchorY = new float[32], _packFade = new float[32]; int[] _packSize = new int[32];
         readonly List<uint> _packNameIds = new List<uint>();
