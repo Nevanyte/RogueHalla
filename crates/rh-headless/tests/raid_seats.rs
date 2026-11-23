@@ -228,7 +228,9 @@ fn the_seats_are_raid_bots_with_the_human_draw() {
 #[test]
 fn the_lab_runs_raid_seats() {
     let args = |extra: &[&str]| -> Vec<String> { extra.iter().map(|s| s.to_string()).collect() };
-    let mut line = vec!["--human-seats", "--seeds", "1..2", "--max-ticks", "1200"];
+    // 2400 ticks, not 1200: since P-RAID-Q1 a raid seat takes a quest in the first minute, so seed 1 clears no camp
+    // before tick 1200 (measured on integration 84: 0 by 1200, 3 by 2400, 5 by 3600). The expectation is unchanged.
+    let mut line = vec!["--human-seats", "--seeds", "1..2", "--max-ticks", "2400"];
     let seats: Vec<String> = (0..SEATS).map(|i| format!("{i}=raid")).collect();
     for s in &seats {
         line.push("--seat");
