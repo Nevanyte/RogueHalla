@@ -1,17 +1,23 @@
-//! Quest decisions (P-RAID-Q3): the reward slot choice, the pick-up of a dropped quest spell and The Bargain. Two Banners and
-//! Trade Up are P-RAID-Q3b's. Each decision is a `GoalKind::QuestDecide` goal on `Target::Quest { def, stage }`: stage 0
-//! answers a pending slot choice (action 8), stage 1 picks a dropped spell up (action 9), stage 2 works The Bargain.
+//! Quest decisions (P-RAID-Q3, -Q3b): the reward slot choice, the pick-up of a dropped quest spell, The Bargain, Two Banners
+//! and Trade Up. Each decision is a `GoalKind::QuestDecide` goal on `Target::Quest { def, stage }`: stage 0 answers a
+//! pending slot choice (action 8), stage 1 picks a dropped spell up (action 9), stage 2 works The Bargain, stage 3 plays
+//! Two Banners (accept, choose a branch by price, walk it) and stage 4 plays Trade Up (barter on while the next stage pays,
+//! then cash out). A committed quest walk is priced at most `Prices::quest_hold_share` of Sustain's leave rate, so a leave
+//! from a lost fight always outranks it.
 //!
 //! The pure rules (`def_of_reward`, `spell_worth`, `slot_answer`, `pickup_wanted`, `stat_worth`, `bargain_trade`) are
 //! public and unit tested; the executor reads the board each think and sends only what the frame offers (a Bargain trade is
 //! copied from the frame's actions, never guessed). It draws nothing from `cx.rng`.
 use crate::bots::raid::acts::Act;
+use crate::bots::raid::arbiter::{HYSTERESIS, HYSTERESIS_FLOOR, MIN_MINUTES};
 use crate::bots::raid::exec::travel::{eta_minutes, move_intent, step_toward, straight_minutes};
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
 use crate::bots::raid::percept::Me;
-use crate::bots::raid::quest::{stand_u, SPELL_SLOTS};
+use crate::bots::raid::quest::walker::timer_spend_minutes;
+use crate::bots::raid::quest::{spell_slots_taken, stand_u, walk_death, SPELL_SLOTS};
 use crate::bots::raid::values::Prices;
 use rh_protocol::state::{WireQuestDrop, WireQuestPoint, WireQuestRow, WireQuestSpell};
+use rh_sim::mapdata::Zone;
 use rh_sim::quests::board::catalog::{RewardKind, DEFINITIONS};
 use rh_sim::quests::public_rules;
 use rh_sim::{FactionId, Vec2, WeaponId};
@@ -31,6 +37,29 @@ const TOKEN_QUESTS: [&str; 3] = ["letters", "tuber_eats", "even_skeletons_get_co
 const STAGE_SLOT: u8 = 0;
 const STAGE_PICKUP: u8 = 1;
 const STAGE_BARGAIN: u8 = 2;
+const STAGE_BANNERS: u8 = 3;
+const STAGE_TRADE: u8 = 4;
+const TWO_BANNERS: &str = "two_banners";
+const TRADE_UP: &str = "trade_up";
+/// Two Banners' branch choice, the contact (take the rival banner, barter) and Trade Up's cash out.
+const ACTION_BRANCH: u8 = 2;
+const ACTION_CONTACT: u8 = 3;
+const ACTION_CASH_OUT: u8 = 4;
+/// A pseudo action number for the accept send in the resend throttle.
+const ACCEPT_KEY: u8 = 255;
+/// Standing at a quest's end point this long without the turn-in leaves it alone (`BAN_MS`).
+const END_STAND_MS: f64 = 4_000.;
+/// The patrol of Trade Up's traders (`crates/rh-sim/src/quests/board/attempts/interactions.rs`, guarded by
+/// `death_tests.rs` against that file): each trader walks out 72 u along an axis and back on a 12 s period, so one stands
+/// out of contact range (64 u) of a seat 32 u from its barter point for up to 6.7 s of every period. The cash-out stand
+/// waits at least one period for it; the sim lines are `let phase = ((now + 3000. * i as f64) % 12_000.) / 6000.;`,
+/// `let fraction = 1. - (phase - 1.).abs();` and `Vec2::new(72., 0.),`.
+const PATROL_PERIOD_MS: f64 = 12_000.;
+/// A cash-out stand that has waited this many patrol periods without the cash-out being offered is let go (no ban): the
+/// trader is out of reach for a reason the patrol does not explain.
+const CASH_OUT_PERIODS: f64 = 2.;
+/// Slack (time left over the walk still to do) from which a walk is certain to finish; below 1 it cannot.
+const REACH_SLACK: f64 = 1.2;
 /// A send is not repeated before this long.
 const RESEND_MS: f64 = 2_500.;
 /// A Bargain with no improving trade, or refused at its giver, is left alone this long.
@@ -53,6 +82,8 @@ pub struct Decide {
     stood: Option<(String, f64)>,
     /// `act` ran since the last `observe`. Without it, and with another goal held, the waits above start over.
     acted: bool,
+    /// Where Trade Up's last bartered trader stood when it was bartered with, and the progress that left: (progress, point).
+    last_trader: Option<(u32, Vec2)>,
 }
 
 fn dist(a: Vec2, b: Vec2) -> f64 {
@@ -280,6 +311,79 @@ fn possible_trades(cx: &Cx<'_>) -> Vec<(u8, u8)> {
     trades
 }
 
+/// The chance a walk of `walk_minutes` ends before a deadline `time_left_s` away (an infinite time left is certain).
+pub fn reach_chance(time_left_s: f64, walk_minutes: f64) -> f64 {
+    if !time_left_s.is_finite() {
+        return 1.;
+    }
+    ((time_left_s / (walk_minutes * 60.).max(1.) - 1.) / (REACH_SLACK - 1.)).clamp(0., 1.)
+}
+
+/// The minutes a committed quest goal of net worth `net` (ce) is priced over: at least what keeps its rate under
+/// `quest_hold_share` of Sustain's leave rate, so a leave from a lost fight outranks it even when the goal is underfoot.
+pub fn held_minutes(prices: &Prices, net: f64, minutes: f64) -> f64 {
+    let s = &prices.sustain;
+    if !s.on || s.leave_value <= 0. || s.leave_seconds <= 0. || net <= 0. {
+        return minutes;
+    }
+    let leave_rate = s.leave_value / (s.leave_seconds / 60.);
+    minutes.max(net / (prices.quest_hold_share * leave_rate))
+}
+
+/// Two Banners' branch by price: 0 (carry the Gallows banner, which ends at the outpost) or 1 (take the rival banner: the
+/// same outpost, then the walk back to the giver). Branch 1 only when its rate beats branch 0's by the arbiter's own
+/// hysteresis, so a tie, and any price in which the walk back costs time, takes branch 0.
+pub fn banner_branch(
+    prices: &Prices,
+    value: f64,
+    death: f64,
+    out_minutes: f64,
+    back_minutes: f64,
+) -> u8 {
+    let net = value - death * prices.death_loss;
+    let rate = |minutes: f64| net / minutes.max(MIN_MINUTES);
+    let (zero, one) = (rate(out_minutes), rate(out_minutes + back_minutes));
+    u8::from(one > zero + (zero.abs() * HYSTERESIS).max(HYSTERESIS_FLOOR))
+}
+
+/// What the stages banked at `progress` barters are worth (ce): the reward row times that stage's share.
+pub fn trade_banked(prices: &Prices, progress: usize) -> f64 {
+    match progress {
+        0 => 0.,
+        n => prices.reward_value(TRADE_UP) * prices.trade_up_stage_share[n.min(3) - 1],
+    }
+}
+
+/// Trade Up after `progress` barters: go on to the next trader only while the next stage's extra worth, times the chance
+/// to reach that trader before the timer (`time_left_s`), outweighs the death term of the walk and what the extra minutes
+/// would earn roaming. Otherwise cash out. At three barters there is nothing to go on to.
+pub fn trade_go_on(
+    prices: &Prices,
+    progress: usize,
+    time_left_s: f64,
+    walk_minutes: f64,
+    death: f64,
+) -> bool {
+    if progress >= 3 {
+        return false;
+    }
+    let extra = trade_banked(prices, progress + 1) - trade_banked(prices, progress);
+    let chance = reach_chance(time_left_s, walk_minutes);
+    extra * chance - death * prices.death_loss > walk_minutes * prices.roam_per_minute
+}
+
+/// What one think reads of a Trade Up attempt.
+struct TradeRead {
+    progress: usize,
+    /// The next trader (the view's one objective), when shown.
+    next: Option<Vec2>,
+    /// Go on to it (always true before the first barter: there is nothing to cash out).
+    go_on: bool,
+    time_left_s: f64,
+    walk: f64,
+    death: f64,
+}
+
 impl Decide {
     fn banned(&self, def: &str, now: f64) -> bool {
         self.banned
@@ -458,6 +562,410 @@ impl Decide {
             return self.wait_or_give_up(&Self::pickup_key(def), now, "the pick-up is not offered");
         }
         Self::go(cx, point(drop.at), "to the dropped spell")
+    }
+
+    fn walk_to(cx: &mut Cx<'_>, to: Vec2, why: &'static str, committed: bool) -> Step {
+        let mut step = Self::go(cx, to, why);
+        step.committed = committed && step.status == Status::Running;
+        step
+    }
+
+    fn row_of(cx: &Cx<'_>, def: &str) -> Option<WireQuestRow> {
+        let q = cx.p.quests.as_ref()?;
+        q.rows
+            .iter()
+            .find(|r| r.def == def && r.state == 1 && !r.owner_completed)
+            .cloned()
+    }
+
+    /// The row's reward choice is waiting (stage 0's).
+    fn is_pending(cx: &Cx<'_>, row: &WireQuestRow) -> bool {
+        cx.p.quests
+            .as_ref()
+            .is_some_and(|q| q.pending.contains(&row.handle))
+    }
+
+    /// This frame's objective points of the row.
+    fn objectives_of(cx: &Cx<'_>, row: &WireQuestRow) -> Vec<Vec2> {
+        cx.p.quests.as_ref().map_or_else(Vec::new, |q| {
+            q.objectives
+                .iter()
+                .filter(|o| o.quest == row.handle)
+                .map(|o| point(o.at))
+                .collect()
+        })
+    }
+
+    fn nearest(cx: &Cx<'_>, points: &[Vec2]) -> Option<Vec2> {
+        points
+            .iter()
+            .copied()
+            .min_by(|a, b| dist(*a, cx.p.me.at).total_cmp(&dist(*b, cx.p.me.at)))
+    }
+
+    /// The action targets the frame offers for the row.
+    fn offered(cx: &Cx<'_>, row: &WireQuestRow, action: u8) -> Vec<u8> {
+        cx.p.quests.as_ref().map_or_else(Vec::new, |q| {
+            q.actions
+                .iter()
+                .filter(|a| a.quest == row.handle && a.action == action)
+                .map(|a| a.target)
+                .collect()
+        })
+    }
+
+    /// Where Two Banners' outpost probably stands, before the choice shows it: the first camp (map order) of the zone whose
+    /// camps lie farthest from the giver on average.
+    fn outpost_guess(cx: &Cx<'_>, giver: Vec2) -> Option<Vec2> {
+        let mut zones: Vec<(Zone, f64, f64)> = Vec::new();
+        for camp in &cx.p.camps {
+            let gap = dist(camp.at, giver);
+            match zones.iter_mut().find(|z| z.0 == camp.zone) {
+                Some(z) => {
+                    z.1 += gap;
+                    z.2 += 1.;
+                }
+                None => zones.push((camp.zone, gap, 1.)),
+            }
+        }
+        let far = zones
+            .iter()
+            .max_by(|a, b| (a.1 / a.2).total_cmp(&(b.1 / b.2)))?
+            .0;
+        cx.p.camps.iter().find(|c| c.zone == far).map(|c| c.at)
+    }
+
+    /// Accepting a quest at its giver: `Some(step)` while the row is not accepted (accept, walk to the giver, or give up the
+    /// refusing giver after a short stand), `None` once it is.
+    fn accept_at_giver(&mut self, def: &str, row: &WireQuestRow, cx: &mut Cx<'_>) -> Option<Step> {
+        if row.owner_accepted {
+            return None;
+        }
+        let now = cx.p.now;
+        if row.can_accept {
+            self.stood = None;
+            let mut step = Step::running(Vec::new(), "accepting");
+            if !self.throttled(def, ACCEPT_KEY, 0, now) {
+                step.acts.push(Act::QuestAccept {
+                    def: def.to_string(),
+                });
+            }
+            return Some(step);
+        }
+        let giver = point(row.giver);
+        if cx.p.dist(giver) > stand_u() {
+            self.stood = None;
+            return Some(Self::go(cx, giver, "to the giver"));
+        }
+        Some(self.wait_or_give_up(def, now, "the giver refuses"))
+    }
+
+    /// Two Banners' price terms from here: (death, minutes to the end, minutes back to the giver if carried). Before the
+    /// choice the outpost is a guess (`outpost_guess`); after it, the objective in the view.
+    fn banners_terms(&mut self, cx: &mut Cx<'_>, row: &WireQuestRow) -> (f64, f64, f64) {
+        let giver = point(row.giver);
+        let objectives = Self::objectives_of(cx, row);
+        let end = Self::nearest(cx, &objectives);
+        let outpost = end.or_else(|| Self::outpost_guess(cx, giver));
+        let Some(outpost) = outpost else {
+            return (
+                walk_death(cx, TWO_BANNERS, &[]),
+                cx.prices.bargain_leg_minutes,
+                0.,
+            );
+        };
+        let out = match end {
+            Some(e) => Self::walk_minutes(cx, e),
+            None if row.owner_accepted => straight_minutes(cx.p.me.at, outpost),
+            None => Self::walk_minutes(cx, giver) + straight_minutes(giver, outpost),
+        };
+        let back = straight_minutes(outpost, giver);
+        (walk_death(cx, TWO_BANNERS, &[outpost]), out, back)
+    }
+
+    fn propose_banners(&mut self, cx: &mut Cx<'_>, out: &mut Vec<Candidate>) {
+        let value = cx.prices.reward_value(TWO_BANNERS);
+        if value <= 0. || self.banned(TWO_BANNERS, cx.p.now) {
+            return;
+        }
+        let Some(row) = Self::row_of(cx, TWO_BANNERS) else {
+            return;
+        };
+        if Self::is_pending(cx, &row) {
+            return;
+        }
+        // The walker's slot rule: no spell reward is taken with both slots spoken for.
+        if !row.owner_accepted && spell_slots_taken(cx) >= SPELL_SLOTS {
+            return;
+        }
+        let (death, minutes, _) = self.banners_terms(cx, &row);
+        let minutes = if row.owner_accepted {
+            held_minutes(cx.prices, value - death * cx.prices.death_loss, minutes)
+        } else {
+            minutes
+        };
+        out.push(Candidate {
+            goal: Self::goal(TWO_BANNERS, STAGE_BANNERS),
+            value,
+            success: 1.,
+            death,
+            loss: cx.prices.death_loss,
+            minutes: minutes + cx.prices.answer_minutes,
+        });
+    }
+
+    fn act_banners(&mut self, cx: &mut Cx<'_>) -> Step {
+        let now = cx.p.now;
+        let Some(row) = Self::row_of(cx, TWO_BANNERS) else {
+            return Step::done("two banners is over");
+        };
+        if Self::is_pending(cx, &row) {
+            return Step::done("the reward choice is the slot stage's");
+        }
+        if self.banned(TWO_BANNERS, now) {
+            return Step::failed("two banners is left alone");
+        }
+        if !row.owner_accepted && spell_slots_taken(cx) >= SPELL_SLOTS {
+            return Step::failed("both spell slots are spoken for");
+        }
+        if let Some(step) = self.accept_at_giver(TWO_BANNERS, &row, cx) {
+            return step;
+        }
+        let choices = Self::offered(cx, &row, ACTION_BRANCH);
+        if let Some(&first) = choices.first() {
+            self.stood = None;
+            let (death, out_min, back_min) = self.banners_terms(cx, &row);
+            let value = cx.prices.reward_value(TWO_BANNERS);
+            let branch = banner_branch(cx.prices, value, death, out_min, back_min);
+            let target = if choices.contains(&branch) {
+                branch
+            } else {
+                first
+            };
+            let mut step = Step::committed(Vec::new(), "choosing a banner");
+            if !self.throttled(TWO_BANNERS, ACTION_BRANCH, target, now) {
+                step.acts.push(Act::QuestInteract {
+                    def: TWO_BANNERS.to_string(),
+                    action: ACTION_BRANCH,
+                    target,
+                });
+            }
+            return step;
+        }
+        let objectives = Self::objectives_of(cx, &row);
+        // No objective before the choice: the giver is where it is made.
+        let to = Self::nearest(cx, &objectives).unwrap_or_else(|| point(row.giver));
+        if cx.p.dist(to) > stand_u() {
+            self.stood = None;
+            return Self::walk_to(cx, to, "to the banner", true);
+        }
+        let mut step = Step::committed(Vec::new(), "at the banner");
+        for target in Self::offered(cx, &row, ACTION_CONTACT) {
+            if !self.throttled(TWO_BANNERS, ACTION_CONTACT, target, now) {
+                step.acts.push(Act::QuestInteract {
+                    def: TWO_BANNERS.to_string(),
+                    action: ACTION_CONTACT,
+                    target,
+                });
+            }
+        }
+        self.stand_at_end(TWO_BANNERS, now, step)
+    }
+
+    /// Standing at an end point for the turn-in: kept while it comes, left alone after `END_STAND_MS`.
+    fn stand_at_end(&mut self, def: &str, now: f64, step: Step) -> Step {
+        let since = match &self.stood {
+            Some((d, at)) if d == def => *at,
+            _ => {
+                self.stood = Some((def.to_string(), now));
+                now
+            }
+        };
+        if now - since >= END_STAND_MS {
+            self.banned.push((def.to_string(), now + BAN_MS));
+            self.stood = None;
+            return Step::failed("the turn-in did not come");
+        }
+        step
+    }
+
+    fn trade_read(&mut self, cx: &mut Cx<'_>, row: &WireQuestRow) -> TradeRead {
+        let progress = row.owner_progress as usize;
+        let objectives = Self::objectives_of(cx, row);
+        let next = Self::nearest(cx, &objectives);
+        let time_left_s = if row.expires_at > 0. {
+            (row.expires_at - cx.p.now) / 1000.
+        } else {
+            f64::INFINITY
+        };
+        let walk = next.map_or(0., |n| Self::walk_minutes(cx, n));
+        let death = match next {
+            Some(n) => walk_death(cx, TRADE_UP, &[n]),
+            None => walk_death(cx, TRADE_UP, &[]),
+        };
+        let go_on = progress == 0 || trade_go_on(cx.prices, progress, time_left_s, walk, death);
+        TradeRead {
+            progress,
+            next,
+            go_on,
+            time_left_s,
+            walk,
+            death,
+        }
+    }
+
+    fn propose_trade(&mut self, cx: &mut Cx<'_>, out: &mut Vec<Candidate>) {
+        if cx.prices.reward_value(TRADE_UP) <= 0. || self.banned(TRADE_UP, cx.p.now) {
+            return;
+        }
+        let Some(row) = Self::row_of(cx, TRADE_UP) else {
+            return;
+        };
+        if Self::is_pending(cx, &row) {
+            return;
+        }
+        let loss = cx.prices.death_loss;
+        let floor = cx.prices.death_floor;
+        let (value, success, death, minutes) = if !row.owner_accepted {
+            // The traders are not in the view yet: the whole route, over the timer's walk, at the floor death.
+            let spend = DEFINITIONS
+                .iter()
+                .find(|d| d.id == TRADE_UP)
+                .and_then(|d| d.route_timer_ms)
+                .map_or(1., timer_spend_minutes);
+            let walk = Self::walk_minutes(cx, point(row.giver)) + spend;
+            (trade_banked(cx.prices, 3), 1., floor, walk)
+        } else {
+            let read = self.trade_read(cx, &row);
+            if row.owner_ready || read.progress >= 3 {
+                (
+                    trade_banked(cx.prices, read.progress.max(1)),
+                    1.,
+                    floor,
+                    read.walk,
+                )
+            } else if !read.go_on {
+                // Cash out: bank what is held, at the last trader.
+                let walk = self
+                    .last_trader
+                    .map_or(0., |(_, at)| Self::walk_minutes(cx, at));
+                (
+                    trade_banked(cx.prices, read.progress),
+                    reach_chance(read.time_left_s, walk),
+                    floor,
+                    walk,
+                )
+            } else if read.next.is_some() {
+                // Going on is worth the next stage's share (what `trade_go_on` weighs), at the walk's death term.
+                (
+                    trade_banked(cx.prices, read.progress + 1),
+                    reach_chance(read.time_left_s, read.walk),
+                    read.death,
+                    read.walk,
+                )
+            } else {
+                return;
+            }
+        };
+        let minutes = if row.owner_accepted {
+            held_minutes(cx.prices, value * success - death * loss, minutes)
+        } else {
+            minutes
+        };
+        out.push(Candidate {
+            goal: Self::goal(TRADE_UP, STAGE_TRADE),
+            value,
+            success,
+            death,
+            loss,
+            minutes: minutes + cx.prices.answer_minutes,
+        });
+    }
+
+    fn act_trade(&mut self, cx: &mut Cx<'_>) -> Step {
+        let now = cx.p.now;
+        let Some(row) = Self::row_of(cx, TRADE_UP) else {
+            return Step::done("trade up is over");
+        };
+        if Self::is_pending(cx, &row) {
+            return Step::done("the reward is paid");
+        }
+        if self.banned(TRADE_UP, now) {
+            return Step::failed("trade up is left alone");
+        }
+        if let Some(step) = self.accept_at_giver(TRADE_UP, &row, cx) {
+            return step;
+        }
+        let read = self.trade_read(cx, &row);
+        let mut step = Step::committed(Vec::new(), "trading up");
+        // Cash out while the last trader is in reach and the next stage does not pay.
+        if read.progress > 0 && !read.go_on && !Self::offered(cx, &row, ACTION_CASH_OUT).is_empty()
+        {
+            self.stood = None;
+            if !self.throttled(TRADE_UP, ACTION_CASH_OUT, 0, now) {
+                step.acts.push(Act::QuestInteract {
+                    def: TRADE_UP.to_string(),
+                    action: ACTION_CASH_OUT,
+                    target: 0,
+                });
+            }
+            return step;
+        }
+        // A barter the frame offers (only the next trader's, in reach).
+        if read.go_on {
+            if let Some(&target) = Self::offered(cx, &row, ACTION_CONTACT).first() {
+                self.stood = None;
+                if let Some(at) = read.next {
+                    self.last_trader = Some((row.owner_progress + 1, at));
+                }
+                if !self.throttled(TRADE_UP, ACTION_CONTACT, target, now) {
+                    step.acts.push(Act::QuestInteract {
+                        def: TRADE_UP.to_string(),
+                        action: ACTION_CONTACT,
+                        target,
+                    });
+                }
+                return step;
+            }
+        }
+        // Walk to the next trader, or back to the last one when cashing out.
+        let back = match self.last_trader {
+            Some((p, at)) if !read.go_on && p == row.owner_progress => Some(at),
+            _ => None,
+        };
+        let Some(to) = back.or(read.next) else {
+            return Step::failed("no objective in the view");
+        };
+        let cashing_out = back.is_some();
+        if cx.p.dist(to) > stand_u() {
+            self.stood = None;
+            if cashing_out && reach_chance(read.time_left_s, Self::walk_minutes(cx, to)) <= 0. {
+                // The time left is under the walk: the cash-out cannot land, and holding progress loses nothing more.
+                return Step::failed("the timer ends before the last trader");
+            }
+            return Self::walk_to(cx, to, "to the trader", true);
+        }
+        if cashing_out {
+            return self.stand_for_patrol(now, step);
+        }
+        self.stand_at_end(TRADE_UP, now, step)
+    }
+
+    /// The cash-out stand at the remembered trader point: the trader patrols in and out of contact range, so the stand
+    /// outlasts a patrol period (`PATROL_PERIOD_MS`) and is never followed by a ban while progress is held.
+    fn stand_for_patrol(&mut self, now: f64, step: Step) -> Step {
+        let since = match &self.stood {
+            Some((d, at)) if d == TRADE_UP => *at,
+            _ => {
+                self.stood = Some((TRADE_UP.to_string(), now));
+                now
+            }
+        };
+        if now - since >= CASH_OUT_PERIODS * PATROL_PERIOD_MS {
+            self.stood = None;
+            return Step::failed("the last trader did not come into reach");
+        }
+        step
     }
 
     fn act_bargain(&mut self, cx: &mut Cx<'_>) -> Step {
@@ -642,6 +1150,8 @@ impl Executor for Decide {
                 minutes,
             });
         }
+        self.propose_banners(cx, out);
+        self.propose_trade(cx, out);
         // The Bargain, while a trade can improve the build.
         if cx.prices.reward_value(BARGAIN) <= 0. || self.banned(BARGAIN, now) {
             return;
@@ -692,6 +1202,8 @@ impl Executor for Decide {
         let step = match *stage {
             STAGE_SLOT => self.act_slot(def, cx),
             STAGE_PICKUP => self.act_pickup(def, cx),
+            STAGE_BANNERS => self.act_banners(cx),
+            STAGE_TRADE => self.act_trade(cx),
             _ => self.act_bargain(cx),
         };
         if step.status == Status::Done {
@@ -700,3 +1212,7 @@ impl Executor for Decide {
         step
     }
 }
+
+#[cfg(test)]
+#[path = "decide_walk_tests.rs"]
+mod walk_tests;

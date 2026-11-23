@@ -15,18 +15,15 @@
 //! way, bounded by the coliseum lock. Only the walk after accepting is held; going to a giver is not.
 //!
 //! The walker never abandons (an expired attempt resets for free), never attacks and never targets a player.
-use crate::bots::planning::{matchup_share, zone_faction};
 use crate::bots::raid::acts::Act;
-use crate::bots::raid::exec::farm::{death_chance, members_left};
 use crate::bots::raid::exec::travel::{eta_minutes, move_intent, step_toward, straight_minutes};
 use crate::bots::raid::goal::{Candidate, Cx, Executor, GoalKind, RaidGoal, Status, Step, Target};
-use crate::bots::raid::percept::CAMP_JOIN_RADIUS;
-use crate::bots::raid::quest::{stand_u, SPELL_SLOTS};
+use crate::bots::raid::quest::{stand_u, walk_death, SPELL_SLOTS};
 use rh_protocol::state::{WireQuestObjective, WireQuestRow};
 use rh_sim::mapdata::Zone;
 use rh_sim::quests::board::catalog::{RewardKind, DEFINITIONS};
 use rh_sim::quests::public_rules;
-use rh_sim::{FactionId, Vec2};
+use rh_sim::Vec2;
 
 /// The quests this executor does (docs/backlog/packets/P-RAID-Q1.md F1/F2).
 pub const WALKER: [&str; 11] = [
@@ -65,7 +62,6 @@ const SAFE_SLACK: f64 = 1.2;
 
 #[derive(Default)]
 pub struct Walker {
-    shares: Vec<((FactionId, FactionId), f64)>,
     /// Quests not to propose or work on until the time: (def, until ms).
     banned: Vec<(String, f64)>,
     /// When a send of (def, action, target) was last queued: (def, action, target, ms).
@@ -197,33 +193,6 @@ impl Walker {
         false
     }
 
-    fn share(&mut self, me: FactionId, region: FactionId) -> f64 {
-        if let Some((_, s)) = self.shares.iter().find(|(k, _)| *k == (me, region)) {
-            return *s;
-        }
-        let s = matchup_share(me, region, false);
-        self.shares.push(((me, region), s));
-        s
-    }
-
-    /// The chance to die to the living camps whose centre lies within `CAMP_JOIN_RADIUS` of any of `points`: the walk
-    /// passes where they stand and they join a fight (`let_him_cook`'s Plague contact). Floored at `prices.death_floor`.
-    fn death_near(&mut self, cx: &Cx<'_>, points: &[Vec2]) -> f64 {
-        let Some(me) = cx.p.me.faction else {
-            return cx.prices.death_floor;
-        };
-        let hp = cx.p.me.hp_share();
-        let mut survive = 1.;
-        for camp in &cx.p.camps {
-            if camp.alive == 0 || !points.iter().any(|p| dist(*p, camp.at) <= CAMP_JOIN_RADIUS) {
-                continue;
-            }
-            let share = self.share(me, zone_faction(camp.zone));
-            survive *= 1. - death_chance(hp, share, members_left(cx.p, camp), &cx.prices.death);
-        }
-        (1. - survive).max(cx.prices.death_floor)
-    }
-
     fn candidate(&mut self, cx: &mut Cx<'_>, row: &WireQuestRow) -> Option<Candidate> {
         let def = row.def.as_str();
         let value = cx.prices.reward_value(def);
@@ -284,14 +253,8 @@ impl Walker {
         if success <= 0. {
             return None;
         }
-        // Only `let_him_cook`'s third contact stands inside a camp that fights. Counting a camp near every quest's
-        // tokens priced a quick touch as a camp fight and dropped accepted `ember_walk`s (measured on the oracle seeds:
-        // four of six lost their first quest), so the other quests keep the floor.
-        let death = if def == "let_him_cook" {
-            self.death_near(cx, &danger_points)
-        } else {
-            cx.prices.death_floor
-        };
+        // An idle camp near the points is not a fight; what a quest does by design is its row of `quest_death_rows`.
+        let death = walk_death(cx, def, &danger_points);
         Some(Candidate {
             goal: RaidGoal::new(
                 GoalKind::QuestWalk,

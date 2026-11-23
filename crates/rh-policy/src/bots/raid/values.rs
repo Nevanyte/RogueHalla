@@ -275,6 +275,18 @@ pub struct Prices {
     pub recharging_share: f64,
     /// The minutes from a Bargain's giver to its hag, priced before the quest is accepted (min; the hag is not in the view then).
     pub bargain_leg_minutes: f64,
+    /// Trade Up (P-RAID-Q3b): each stage's share of the whole reward row, banked at one, two and three barters (the sim's
+    /// `trade_up_stacks` over its last: 12, 30, 54 of 54; the stage sizes are not a published rule, so a guard test
+    /// reads them from the sim's source). Strictly increasing, the last at most 1.
+    pub trade_up_stage_share: [f64; 3],
+    /// A committed quest walk (Two Banners, Trade Up) is priced at most this share of Sustain's leave rate
+    /// (`leave_value` over `leave_seconds`), so a leave from a lost fight outranks the walk wherever the seat stands
+    /// (0 < share < 1; unused while sustain is off).
+    pub quest_hold_share: f64,
+    /// What a quest's own objective does by design (P-RAID-Q3b-fix): (board def id, the share of attempts that end in a
+    /// death at full health, 0..=0.98). A quest with no row takes `death_floor`. Measured, hand-edited in a reviewed packet
+    /// after a lab run; not mirrored in `data/raid_values.json` (`values_tests.rs` pins only the reward and augment rows).
+    pub quest_death_rows: &'static [(&'static str, f64)],
     /// Elite camps (P-RAID-E): what an elite and its chest are worth and how likely the fight kills the bot.
     pub elite: ElitePrices,
 }
@@ -391,6 +403,15 @@ impl Prices {
         answer_minutes: 0.01,
         recharging_share: 0.5,
         bargain_leg_minutes: 0.5,
+        trade_up_stage_share: [12. / 54., 30. / 54., 1.],
+        quest_hold_share: 0.7,
+        quest_death_rows: &[
+            // Pilot of record (docs/evidence/balance-patch-2026-11/pilot/README.md, 40 matches, eight test bots): 7 attempts
+            // of 189 ended in a death.
+            ("let_him_cook", 7. / 189.),
+            // The same pilot: 9 attempts of 32 (the hold is shown on every map and a player fight ends it).
+            ("hold_the_fort", 9. / 32.),
+        ],
         elite: ElitePrices::LOCAL,
     };
 
@@ -419,6 +440,14 @@ impl Prices {
             .iter()
             .find(|(k, _)| *k == def)
             .map_or(self.reward_default, |(_, v)| *v)
+    }
+
+    /// The share of a quest's attempts that end in a death at full health: the row for the def, else `death_floor`.
+    pub fn quest_death_share(&self, def: &str) -> f64 {
+        self.quest_death_rows
+            .iter()
+            .find(|(k, _)| *k == def)
+            .map_or(self.death_floor, |(_, v)| *v)
     }
 
     /// Camp-equivalents an augment card is worth. Every executor that values an augment (elite chests, augment quests)

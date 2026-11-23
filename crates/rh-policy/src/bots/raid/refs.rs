@@ -1,7 +1,8 @@
 //! Frame-local references (P-RAID-0): the actor, prop, chest and quest handles valid for this frame only. Rebuilt from
 //! every accepted frame, it is the one place a key becomes a handle, at emit time; a key the frame did not deliver
 //! resolves to `None` and its command is dropped (never guessed, never a row index, never a stale handle).
-use super::acts::Act;
+use super::acts::{Act, CastAim, MOB_AIM_SLACK};
+use super::percept::MobClass;
 use super::percept::RaidPercept;
 use crate::bots::bot::CommandRefs;
 use rh_sim::{PlayerId, PublicCommand};
@@ -33,6 +34,13 @@ pub struct Refs {
     trade_used: bool,
     /// The owner carries a consumable.
     potions: bool,
+    /// The held quest spells this frame shows: (wire slot, wire reward id, charges).
+    spells: Vec<(u8, u8, u8)>,
+    /// The living mobs this frame shows: (key, position, elite).
+    mobs: Vec<(String, rh_sim::Vec2, bool)>,
+    /// The owner's position and status bits (a cast aims at them and is refused while silenced, casting or stunned).
+    me_at: (f64, f64),
+    effects: u16,
 }
 
 impl Refs {
@@ -85,11 +93,76 @@ impl Refs {
             }),
             trade_used: p.trade.as_ref().is_none_or(|t| t.trade_used),
             potions: p.me.potions() > 0,
+            spells: quests.map_or_else(Vec::new, |q| {
+                q.spells
+                    .iter()
+                    .map(|s| (s.slot, s.reward, s.charges))
+                    .collect()
+            }),
+            mobs: p
+                .mobs
+                .iter()
+                .filter(|m| m.alive)
+                .map(|m| (m.key.clone(), m.at, m.class == MobClass::Elite))
+                .collect(),
+            me_at: (p.me.at.x, p.me.at.y),
+            effects: p.me.effects,
         }
     }
 
     fn quest(&self, def: &str) -> Option<&QuestRef> {
         self.quests.iter().find(|q| q.def == def)
+    }
+
+    /// A cast, if this frame still shows `reward` with a charge in wire slot `slot` and the seat may cast it: not silenced
+    /// (bit 4), not casting (bit 4096), not stunned (bit 1) unless the spell is Cleanse (16).
+    fn cast(&self, slot: u8, reward: u8, aim: &CastAim) -> Option<PublicCommand> {
+        const STUNNED: u16 = 1;
+        const SILENCED: u16 = 4;
+        const CASTING: u16 = 4096;
+        const CLEANSE: u8 = 16;
+        if !self
+            .spells
+            .iter()
+            .any(|&(s, r, charges)| s == slot && r == reward && charges >= 1)
+        {
+            return None;
+        }
+        if self.effects & (SILENCED | CASTING) != 0
+            || (self.effects & STUNNED != 0 && reward != CLEANSE)
+        {
+            return None;
+        }
+        let key = match slot {
+            0 => rh_sim::abilities::Slot::Q,
+            1 => rh_sim::abilities::Slot::E,
+            _ => return None,
+        };
+        let (mut x, mut y, mut id) = (self.me_at.0, self.me_at.1, None);
+        match aim {
+            CastAim::OwnPosition => {}
+            CastAim::Point(p) => (x, y) = (p.x, p.y),
+            CastAim::Actor(k) => id = Some(self.actor(k)?),
+            CastAim::Mob { at, elite } => {
+                let key = self
+                    .mobs
+                    .iter()
+                    .filter(|(_, _, e)| e == elite)
+                    .map(|(k, p, _)| (rh_sim::math::hypot(p.x - at.x, p.y - at.y), k))
+                    .filter(|(d, _)| *d <= MOB_AIM_SLACK)
+                    .min_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1)))?
+                    .1;
+                id = Some(self.actor(key)?);
+            }
+        }
+        Some(PublicCommand::Cast {
+            slot: key,
+            x,
+            y,
+            id,
+            t: None,
+            seq: None,
+        })
     }
 
     /// The public command for a queued act, if this frame still offers what it names.
@@ -136,6 +209,7 @@ impl Refs {
                 merchant: *merchant,
                 pick: *pick,
             }),
+            Act::Cast { slot, reward, aim } => self.cast(*slot, *reward, aim),
         }
     }
 }

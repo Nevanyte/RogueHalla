@@ -26,10 +26,54 @@ unlisted seats play `human`), `--human-seats` (seat everyone `bot:false`). A usa
 ## Reading the report
 
 One compact JSON object on stdout, schema `balance-lab/1`, keys in declaration order: `schema`, `content_hash`, `seeds`,
-`seating`, `maps` (the map the sim admitted), `world`, `elites`, `quests`, `rewards`, `augments`, `notes`. Counters are
+`seating`, `maps` (the map the sim admitted), `world`, `elites`, `quests`, `rewards`, `augments`, `seats`, `notes`. Counters are
 sums over seeds, folded in seed order. Sums of seconds carry `n`, the sample count; minute samples (`world.minutes`, at
 minutes 5, 8, 12 of the sim clock) carry `samples`. Matches of eight human-bot seats end after about 900 to 3,400 ticks,
 so later minutes have few samples or none.
+
+## Where each seat's time goes (`world.time`, `seats`)
+
+Every seat-step (a seat's state after one match step; the lobby counts; alive or not) lands in exactly one bucket, the
+first that matches:
+
+| bucket | meaning |
+|---|---|
+| `dead` | the seat is not standing (`Player::standing()`); its fight windows are cleared |
+| `elite`, `camp`, `player` | the seat dealt or took a hit in the last 60 steps (3 s, counting the hit's own step) against a mob of an elite camp, a mob of a normal camp (or with no camp), or another player; each kind has its own window, and the highest open one wins |
+| `quest_moving`, `quest_still` | an open quest attempt in the sim's probe (accepted, not turned in or completed), split by moved |
+| `moving` | the seat's position changed by at least 1.0 unit since the last step |
+| `resting` | standing still below full hp |
+| `idle` | standing still at full hp |
+
+The 3 s window and the 1 u distance are choices, not measurements (`FIGHT_WINDOW_STEPS`, `MOVED_DIST`). `world.time.steps`
+is all seat-steps; `world.time.buckets.<bucket>` has `all` and the minute bands, which split on `tick / 1200` (the lab's
+minute, which includes the lobby): `m0_5` is ticks below 6,000, `m5_11` ticks 6,000 to 13,199, `m11_plus` every tick from
+13,200. `seats` has one row per seed and seat, in seed then seat order: faction, last weapon, steps, buckets, camps
+credited (`camps_normal`, `camps_elite`), `deaths`, `quests_completed`, `elite_kills`, `farm_stacks` at the minute-5, 8,
+12 samples (null where the seat was not standing) and named chest `picks`. The seat credits are the world's: the camp's
+best-damage seat, the elite's killing-blow seat, the lab's own death and quest-completion counts, so the seats' sums
+equal the world totals.
+
+A camp is elite when the observer has seen its elite alive: a camp whose elite nobody saw counts as normal
+(`camps_credited_normal`, `kill_secs_normal`; the elite share is the difference, `kill_secs_elite`). `kill_secs.n` can be
+below `camps_credited`. `world.elite_kills_credited` is every elite death the sim credits to a seat (the seats'
+`elite_kills` summed). It minus the elites block's `killed` is the kills made by a seat with no open attempt (it only hit
+adds, it had gone idle for 10 s, or its attempt was cleared when it died).
+
+What the buckets do not show:
+
+- `elite` is time against a mob of an elite camp, the elite or its adds, including the adds after the elite is dead (the
+  observer's set of elite camps is never pruned, which keeps the bucket consistent with `camps_elite`).
+- `dead` includes a seat eliminated for good, until the match ends, so it dominates the late band of a full-length run.
+  A living share is `bucket / (steps - dead)`; the stderr table prints both.
+- `resting` is exactly "did not move and hp below the maximum", with no tolerance: a seat standing at 99.9% health is
+  `resting`. A seat waiting at a quest giver with no open attempt, standing at a chest, or frozen for any reason lands in
+  `resting` or `idle` by its health.
+- Walking to a quest not yet accepted is `moving`; fleeing is `moving` once the window passes; area or status damage with
+  no attacker is no fight; being knocked about is `moving`.
+- A teleport counts as moved; a respawn does not (the first step after one has no previous position).
+- A Plague seat's zombie is a mob: a hit between it and another seat is that seat's `camp`-kind fight, and a zombie's hit
+  on a mob is nobody's.
 
 ## Caveats
 
@@ -93,6 +137,19 @@ stderr. Every model number comes from the report or from `inputs.json`; the eval
 the inputs: `band`, `premium`, `stacks_per_camp`, `coliseum_start_minute`, `difficulty_targets`, `failure`,
 `elite_assumptions`; a missing one is an error naming it. A reward descriptor needs `kind` and, for `permanent_buff`,
 `direct_stacks`, `damage_fraction` and `move_fraction`. A quest with no descriptor is "not measured".
+
+- **Reference farm rate.** The optional `reference_farm_rate` (`camps_per_minute`, above 0, and its `source`) makes every quest
+  and augment row print a second time with the measured rate replaced by the reference everywhere it enters (the price, the
+  retry term, a permanent reward's dividend, an augment's income term, the risk in "needed"). The `*_at_reference` fields and
+  a table header line name both rates. Without it the output is unchanged and the word "reference" appears nowhere.
+- **Reward kinds.** `permanent_buff` (`direct_stacks`, `damage_fraction`, `move_fraction`, optional `upfront_stacks`),
+  `spell` with `spell_type` `single_use` (the default; `duel_equivalent_ce` alone) or `reusable` (`duel_equivalent_ce`,
+  `farm_rate_gain`, `cap_camps_per_minute`; all three give the 4.3 value, a missing one is "not measured" and named). A
+  number another kind does not read is an error naming the quest and the field. Any other kind is unpriced.
+- **Upfront cost.** `upfront_stacks` is added to the price as `upfront_stacks / stacks_per_camp` camp-equivalents, certain
+  and not scaled by the farm rate; the value stays gross. The Bargain is priced as a trade.
+- **Native augments.** `growth: "measured"` needs `readout_per_stack` (above 0): the measured readout growth per minute is
+  divided by it to give stacks per minute.
 
 - **not measured**: the report lacks what the quantity needs, or the price is not above 0 or the value is not finite. The
   field is absent (never a 0, never a ratio beside a blank) and `not_measured` gives the reason.

@@ -4,6 +4,7 @@
   "premium": 1.15,
   "stacks_per_camp": 12,
   "coliseum_start_minute": 12,
+  "reference_farm_rate": { "camps_per_minute": 2.9, "source": "docs/QUEST_VALUE_MODEL.md:28 (c, 'use 2.9') and section 8" },
   "difficulty_targets": { "easy": 0.95, "medium": 0.85, "hard": 0.70 },
   "failure": { "downtime_secs": 15, "failed_attempt_share": 1.0 },
   "elite_assumptions": {
@@ -50,8 +51,8 @@
     "stay_a_while": {
       "reward": { "kind": "spell", "spell_type": "single_use", "source": "Top_25 row 23: Δ = T23 (a design guess, not entered)" } },
     "the_bargain": {
-      "reward": { "kind": "permanent_buff", "damage_fraction": 0.05, "direct_stacks": 24, "move_fraction": 0,
-        "source": "Top_25 row 15: b = S15 2 CE x s 12; d = U15. Gross of the 20-stack upfront cost (R15 = 1.67 CE), which the shape cannot say" } },
+      "reward": { "kind": "permanent_buff", "damage_fraction": 0.05, "direct_stacks": 24, "move_fraction": 0, "upfront_stacks": 20,
+        "source": "Top_25 row 15: b = S15 2 CE x s 12; d = U15. Value is gross; the 20-stack upfront cost (R15 = 1.67 CE) is part of the price (upfront_stacks), so the Bargain is priced as a trade" } },
     "the_burning_crown": {
       "reward": { "kind": "permanent_buff", "damage_fraction": 0.1, "direct_stacks": 48, "move_fraction": 0,
         "source": "Top_25 row 6: b = S6 4 CE x s 12; d = U6" } },
