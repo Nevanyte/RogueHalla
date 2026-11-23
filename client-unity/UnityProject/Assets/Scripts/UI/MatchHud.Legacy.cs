@@ -48,7 +48,7 @@ namespace Roguehalla.Client
         // Death line, glows, chrome, top-centre and toast pills.
         TMP_Text _deathLine;
         EdgeThreatView _edgeThreats;
-        RectTransform _metricsPill, _bannerPill, _phasePill, _noticePill;
+        RectTransform _metricsPill, _bannerPill, _phasePill;
 
         static Color Tone(Color32 color, float alpha) { return UiTheme.With(color, alpha); }
         static string Hex(Color32 c) { return "#" + c.r.ToString("X2") + c.g.ToString("X2") + c.b.ToString("X2"); }

@@ -75,17 +75,5 @@ namespace Roguehalla.Client.Tests
             foreach (var name in new[] { "Fire", "Sentenced", "Plague", "Frost", "Holy" })
                 StringAssert.DoesNotContain("[", ShowcasePalette.GetFactionName(System.Array.IndexOf(new[] { "Fire", "Sentenced", "Plague", "Frost", "Holy" }, name)));
         }
-
-        [Test]
-        public void RecentNoticeCardExpiresButTheHistoryKeepsEveryNotice()
-        {
-            var feed = Canvas().gameObject.AddComponent<OrderedNoticeFeed>();
-            feed.Initialize(_root.transform);
-            feed.SetRecentVisible(true);
-            Assert.IsFalse(feed.Root.gameObject.activeSelf);
-            var recent = _root.transform.Find("RecentServerNotices");
-            Assert.IsFalse(recent.gameObject.activeSelf, "nothing received, nothing shown");
-            Assert.AreEqual(8f, OrderedNoticeFeed.RecentSeconds);
-        }
     }
 }

@@ -26,7 +26,6 @@ const MOVED = {
     ['SyncTopCentre', method('void', 'SyncTopCentre')],
     ['PlacePhasePill', method('void', 'PlacePhasePill')],
     ['ApplyPhaseStrip', method('void', 'ApplyPhaseStrip')],
-    ['ToastBottom', constant('ToastBottom')],
     ['BannerTop', constant('BannerTop')],
   ],
   'MatchHud.ActionBar.cs': [
@@ -117,7 +116,6 @@ test('PlayerFlows calls the two extracted notice methods from the old places', (
   const create = notices.slice(notices.indexOf('void CreateNoticeFeed'));
   assert.match(create, /AddComponent<OrderedNoticeFeed>\(\)/);
   assert.match(create, /_orderedNotices\.Initialize\(_root, ClosePlayerFlows\)/);
-  assert.match(notices, /_orderedNotices\?\.SetRecentVisible\(_session != null && WorldHudVisible\)/);
 });
 
 test('no method name is declared in two MatchHud*.cs files', () => {

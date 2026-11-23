@@ -19,7 +19,7 @@ namespace Roguehalla.Client
         RectTransform _root, _stage, _chromeStage, _menu, _hud, _rewards, _results, _settings;
         HudStage _stageScaler, _chromeScaler;
         TMP_InputField _nickname;
-        TMP_Text _banner, _vitals, _build, _wishCard, _rewardTitle, _resultTitle, _notice;
+        TMP_Text _banner, _vitals, _build, _wishCard, _rewardTitle, _resultTitle;
         RectTransform _healthBarFill, _barrierBarFill;
         readonly UnityEngine.UI.Button[] _options = new UnityEngine.UI.Button[3];
         readonly UnityEngine.UI.Button[] _headerActions = new UnityEngine.UI.Button[3];
@@ -197,7 +197,7 @@ namespace Roguehalla.Client
             if (_launchMenuInput != null) _launchMenuInput.interactable = true;
             _rewards.gameObject.SetActive(false); _results.gameObject.SetActive(false); _settings.gameObject.SetActive(false);
             ClearOwnerPresentation("Awaiting server");
-            _banner.text = "Choose a faction, then START RUN"; _notice.text = ""; Set(_plateStatus, "");
+            _banner.text = "Choose a faction, then START RUN"; SetStickyNotice(""); Set(_plateStatus, "");
             _map?.Bind(null); _drawer?.SetVisible(false); RefreshHeaderActionsVisibility(); ReleaseChestFocus();
         }
 
@@ -205,7 +205,7 @@ namespace Roguehalla.Client
         public void ResetTransientPresentation()
         {
             _feedback = "";
-            Set(_notice, "");
+            SetStickyNotice("");
             _wishMotion.Reset();
             ResetPlayerFlowTimeline();
             if (_session == null) ClearOwnerPresentation("Awaiting server");
@@ -275,7 +275,7 @@ namespace Roguehalla.Client
         void HudOwnerRefresh(string banner)
         {
             TickFirstRunHint();
-            Set(_notice, _feedback);
+            SetStickyNotice(_feedback);
             var me = _session.Me;
             if (me == null)
             {
