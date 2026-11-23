@@ -12,7 +12,7 @@
 //!   `rest_value` per share, over the minutes the sim's regeneration needs; a camp worth taking beats it.
 use crate::bots::kite::away_point;
 use crate::bots::planning::{matchup_share, zone_faction};
-use crate::bots::raid::exec::elite::{elite_fight_lost, elite_mob};
+use crate::bots::raid::exec::elite::{elite_fight_lost, elite_mob, Elite};
 use crate::bots::raid::exec::farm::{death_chance, FIGHT_U};
 use crate::bots::raid::exec::held::{hp_held, HotWatch};
 use crate::bots::raid::exec::travel::move_intent;
@@ -75,9 +75,13 @@ const TALLY_QUIET_MS: f64 = 5_000.;
 const TALLY_MIN_DEALT: f64 = 0.5;
 const TALLY_MIN_LOST: f64 = 0.1;
 
-/// A mob that can hurt the seat: alive, of any class but a training dummy (an elite counts: P-RAID-E-leave).
-fn threat(m: &MobSeen) -> bool {
-    m.alive && m.class != MobClass::Dummy
+/// A mob that can hurt the seat of faction `me`: alive, of any class but a training dummy (an elite counts:
+/// P-RAID-E-leave), and not a zombie of the seat's own faction (a Plague seat's pet walks beside it; the frame carries no
+/// owner, so another Plague player's zombie is passed over too: P-RAID-E-leave-fix).
+fn threat(m: &MobSeen, me: Option<FactionId>) -> bool {
+    m.alive
+        && m.class != MobClass::Dummy
+        && !(m.class == MobClass::Zombie && m.faction.is_some() && m.faction == me)
 }
 
 /// The order threats are taken in: the nearer first, ties by key (`nearest` and `away` share it).
@@ -195,7 +199,7 @@ impl Sustain {
         let mobs =
             cx.p.mobs
                 .iter()
-                .filter(|m| threat(m))
+                .filter(|m| threat(m, me))
                 .map(|m| (m.at, m.key.as_str()));
         let players =
             cx.p.players
@@ -231,7 +235,7 @@ impl Sustain {
     fn nearest<'a>(cx: &'a Cx<'_>) -> Option<&'a MobSeen> {
         cx.p.mobs
             .iter()
-            .filter(|m| threat(m) && cx.p.dist(m.at) <= threat_u(m))
+            .filter(|m| threat(m, cx.p.me.faction) && cx.p.dist(m.at) <= threat_u(m))
             .min_by(|a, b| nearer(cx, (a.at, &a.key), (b.at, &b.key)))
     }
 
@@ -331,11 +335,33 @@ impl Sustain {
             return Some(Fight { camp, lost });
         }
         let death = self.death(cx, zone, left)?;
+        let s = &cx.prices.sustain;
+        // The chest phase of a kill is left only on the full line: adds that will kill the seat, not a few beside a
+        // seat that won at low hp (P-RAID-E-leave-fix).
+        let line = if Self::chest_phase(cx) {
+            s.disengage_death
+        } else {
+            s.disengage_death - s.disengage_lead
+        };
         Some(Fight {
             camp,
-            lost: death >= cx.prices.sustain.disengage_death - cx.prices.sustain.disengage_lead
-                && cx.p.me.hp_share() < cx.prices.sustain.ready_hp,
+            lost: death >= line && cx.p.me.hp_share() < s.ready_hp,
         })
+    }
+
+    /// The held goal is an Elite goal whose camp's elite is not in sight and whose chest stands at the camp (Elite's own
+    /// test, `Elite::camp_chest`): the chest phase of a kill, as far as the frame shows it.
+    fn chest_phase(cx: &Cx<'_>) -> bool {
+        let (GoalKind::Elite, Target::Camp(c)) = (cx.goal.kind, &cx.goal.target) else {
+            return false;
+        };
+        let Some(seen) = cx.p.camp(*c) else {
+            return false;
+        };
+        let Some(kind) = seen.elite else {
+            return false;
+        };
+        elite_mob(cx, kind, seen.at).is_none() && Elite::camp_chest(cx, seen.at).is_some()
     }
 
     /// The elite term's verdict on the held Elite goal's fight at `camp` (`None`: the goal is not an Elite goal on this
