@@ -61,7 +61,7 @@ namespace Roguehalla.Client.Tests
         public void UntimedAcceptedQuestShowsProgressWithoutWaitingForADeadline()
         {
             var row = Row(_first, "The Warden", "brief", "objective", "reward", false, true);
-            row.ExpiresAt = 0;
+            row.ExpiresAt = 0; row.OwnerReady = false;
             DeliverQuestState(_session, _transport, Available(row));
             _view.Refresh();
             _view.SelectQuest(_first);
