@@ -86,7 +86,7 @@ impl SustainPrices {
         on: true,
         drink_below: 0.65,
         disengage_death: 0.5,
-        disengage_lead: 0.05,
+        disengage_lead: 0.15,
         ready_hp: 0.85,
         large_share: 0.4,
         small_share: 0.25,
