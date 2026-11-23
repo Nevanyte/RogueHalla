@@ -332,6 +332,13 @@ the member's bar inside `End`; the renamed `...StackedByClassAndActorIdTheLocalF
   "Elite star plate", "Bounty crown", "Bounty number", "Secondary weapon backer", "Mark pip 1" to "4", "Stat mark backer 1"
   and "2", "Health and barrier track"), and `NameShown`.
 
+- **Correction (oracle author, called back, 2026-11-23): test 14's fighters stand 3 px apart, not 6.** The set-up asks
+  fighters 2 to 10 for a lift above 0. At 6 px the ninth fighter (id 9) stands 48 px = 1.5 units from the local box, outside
+  `PadEnter` plus the box width (1.2 + .16 = 1.36), and box 1 has already risen above its top, so the library rightly leaves it
+  at lift 0 (a scratch run on the implementation listed that one assertion and nothing else). The set-up line was wrong, not
+  the implementation. At 3 px every fighter is within .84 units of the local box, so each overlaps it at lift 0 and must rise
+  (capped at `MaxLift`, still above 0). Only the spacing literal and its comment changed; no assertion was touched.
+
 ## Not established
 
 How it looks. `Gap`, `PadEnter`, `PadKeep`, `MaxLift`, the `LabelLift` rates and the name line height are first
