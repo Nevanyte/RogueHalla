@@ -184,5 +184,11 @@ pair. Options: accept (this packet: every estimate that knows the kind), or a fo
 of its zone's two elites' rows (a `KnowledgeApi` change on witnessed callers, larger). Recommendation: accept; the lab's
 per-kind numbers are about fights, and live bots are Rework-only behind a flag.
 
+**Coordinator's answer (2026-11-22): accept.** The camp-level share stays on the global pair in this packet and
+`KnowledgeApi` is not widened. The estimates that decide a fight (`mob_max_hp`, the visible-mob share) follow the
+row; the lab's test player (`RaidBot`) reads neither path; the Brain's camp choice is pinned to Legacy witnesses.
+Name the limit in the hand-off's NOT ESTABLISHED line. A mean-of-zone follow-up is opened only if a number packet
+makes the camp-level error matter.
+
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
