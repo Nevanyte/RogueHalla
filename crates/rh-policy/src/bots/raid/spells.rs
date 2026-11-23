@@ -58,6 +58,12 @@ pub enum When {
         kinds: &'static [FoeKind],
         within: f64,
     },
+    /// A foe of one of `kinds` at `min..=within`, (the executor withholds a player foe while the shot line is blocked).
+    FoeShot {
+        kinds: &'static [FoeKind],
+        min: f64,
+        within: f64,
+    },
     Crowd {
         at_least: u32,
         within: f64,
@@ -94,6 +100,15 @@ pub const CHARGE_RANGE: f64 = 220.;
 /// `TOP25.turret_range` (tuning.rs:203): what the turret reaches, not its 400 u deploy range.
 pub const TURRET_RANGE: f64 = 340.;
 
+/// A mob this close to the seat-to-foe segment would be hit first by a shot (width 14 plus a body).
+pub const SHOT_LINE_CLEARANCE_U: f64 = 48.;
+/// Hook: no use below 220 u (the pull ends 42 u from the seat); beyond 450 u the foe leaves the 700 u shot.
+pub const HOOK_MIN_U: f64 = 220.;
+pub const HOOK_MAX_U: f64 = 450.;
+/// Bolas: a 550 u shot, 350 u leaves margin for the delay between ask and send.
+pub const BOLAS_MAX_U: f64 = 350.;
+
+const PLAYER_ONLY: &[FoeKind] = &[FoeKind::Player];
 const ELITE_ONLY: &[FoeKind] = &[FoeKind::Elite];
 
 const fn never(reward: u8) -> SpellRule {
@@ -137,8 +152,27 @@ pub const SPELL_RULES: &[SpellRule] = &[
         aim: RuleAim::AwayAlongLeave,
         why: "a dash of up to 220 u away from a lost fight",
     },
+    SpellRule {
+        reward: 2, // Hook
+        when: When::FoeShot {
+            kinds: PLAYER_ONLY,
+            min: HOOK_MIN_U,
+            within: HOOK_MAX_U,
+        },
+        aim: RuleAim::FoePosition,
+        why: "pulls a fought player in from a gap (220-450 u)",
+    },
+    SpellRule {
+        reward: 19, // Bolas
+        when: When::FoeShot {
+            kinds: PLAYER_ONLY,
+            min: 0.,
+            within: BOLAS_MAX_U,
+        },
+        aim: RuleAim::FoePosition,
+        why: "roots a fought player within 350 u",
+    },
     never(0),  // WardensCage
-    never(2),  // Hook
     never(4),  // Tornado
     never(6),  // RebirthEgg
     never(7),  // Warhorn
@@ -148,7 +182,6 @@ pub const SPELL_RULES: &[SpellRule] = &[
     never(15), // LanternWard
     never(17), // ScoutFalcon
     never(18), // Stasis
-    never(19), // Bolas
     never(20), // WallBuster
     never(21), // BlindRage
     never(22), // StillMind
@@ -162,6 +195,10 @@ fn holds(when: &When, scene: &SpellScene) -> bool {
             .foe
             .as_ref()
             .is_some_and(|f| kinds.contains(&f.kind) && f.distance <= within),
+        When::FoeShot { kinds, min, within } => scene
+            .foe
+            .as_ref()
+            .is_some_and(|f| kinds.contains(&f.kind) && f.distance >= min && f.distance <= within),
         When::Crowd { at_least, within } => {
             scene
                 .hostile_distances
