@@ -251,6 +251,13 @@ namespace Roguehalla.Client
                 bool modified = kb.ctrlKey.isPressed || kb.altKey.isPressed || kb.leftMetaKey.isPressed || kb.rightMetaKey.isPressed || kb.shiftKey.isPressed;
                 if (!modified)
                 {
+                    if (kb.escapeKey.wasPressedThisFrame && OfferOpen && !aimEsc)
+                    {
+                        CloseOffer();
+                        _map?.ReadUiInput(typing, true);
+                        return;
+                    }
+                    if ((kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame) && OfferOpen && !dialog) AcceptOffer();
                     if (!trainingOwnsKeys && kb.jKey.wasPressedThisFrame && (PlayerFlowVisible || PlayerFlowLauncherAllowed))
                     {
                         if (PlayerFlowVisible) ClosePlayerFlows();
