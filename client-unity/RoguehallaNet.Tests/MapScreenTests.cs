@@ -226,5 +226,78 @@ namespace Roguehalla.Net.Tests
                 Assert.Greater(l.Map.W, 0f);
             }
         }
+
+        // ---- P-UI-TABMAP-SHEET-1: the Tab map is one sheet with a header ----------------------------------------------------------
+
+        static readonly float[][] SheetStages = { new[] { 1280f, 800f }, new[] { 1422f, 800f }, new[] { 1707f, 960f }, new[] { 1280f, 960f }, new[] { 1866f, 800f }, new[] { 2400f, 800f } };
+
+        static void AssertRect(float x, float y, float w, float h, MapRect r, string what)
+        {
+            Assert.AreEqual(x, r.X, .01f, what + " x"); Assert.AreEqual(y, r.Y, .01f, what + " y");
+            Assert.AreEqual(w, r.W, .01f, what + " w"); Assert.AreEqual(h, r.H, .01f, what + " h");
+        }
+
+        [Test]
+        public void TheTabSheetWrapsHeaderMapAndRails()
+        {
+            foreach (var s in SheetStages)
+            {
+                var l = MapScreenLayout.Compute(s[0], s[1], MapScreenMode.Tab);
+                string id = s[0] + "x" + s[1];
+                float pad = MapScreenLayout.SheetPad;
+                Assert.IsFalse(l.Stacked, id);
+                Assert.AreEqual(12f, pad, id + " SheetPad");
+                Assert.IsTrue(l.Sheet.Within(s[0], s[1]), id + " the sheet is inside the stage");
+                Assert.GreaterOrEqual(l.Sheet.Y, MapScreenLayout.ChromeClear - .01f, id + " the sheet starts below the chrome");
+                Assert.LessOrEqual(l.Sheet.Bottom, s[1] - 12f + .01f, id + " the sheet ends 12 above the stage bottom");
+                Assert.Greater(l.Sheet.W, 0f, id + " the sheet has a size");
+                foreach (var r in new[] { l.Header, l.Left, l.Frame, l.Legend, l.Right })
+                    Assert.IsTrue(r.X >= l.Sheet.X + pad - .01f && r.Y >= l.Sheet.Y + pad - .01f && r.Right <= l.Sheet.Right - pad + .01f && r.Bottom <= l.Sheet.Bottom - pad + .01f,
+                        id + " every part keeps 12 from each sheet edge");
+                Assert.AreEqual(l.Left.X, l.Header.X, .01f, id + " the header starts at the left rail");
+                Assert.AreEqual(l.Right.Right, l.Header.Right, .01f, id + " the header ends at the right rail");
+                Assert.AreEqual(l.Title.X, l.Header.X, .01f, id + " Title equals Header"); Assert.AreEqual(l.Title.W, l.Header.W, .01f, id);
+                Assert.AreEqual(l.Title.Y, l.Header.Y, .01f, id); Assert.AreEqual(l.Title.H, l.Header.H, .01f, id);
+                Assert.AreEqual(l.Header.Bottom + 12f, l.Left.Y, .01f, id + " the rails start 12 under the header");
+                Assert.AreEqual(l.Left.Y, l.Frame.Y, .01f, id); Assert.AreEqual(l.Left.Y, l.Right.Y, .01f, id);
+                var parts = new[] { l.Header, l.Left, l.Frame, l.Legend, l.Right };
+                for (int i = 0; i < parts.Length; i++) for (int j = i + 1; j < parts.Length; j++) Assert.IsFalse(parts[i].Overlaps(parts[j]), id + " parts " + i + " and " + j + " overlap");
+                AssertRect(l.Frame.X + 4f, l.Frame.Y + 4f, l.Frame.W - 8f, l.Frame.H - 8f, l.Map, id + " Map is Frame inset by 4");
+            }
+        }
+
+        [Test]
+        public void TheSheetNumbersAtTwoStages()
+        {
+            var a = MapScreenLayout.Compute(1422, 800, MapScreenMode.Tab);
+            AssertRect(121, 44, 1180, 744, a.Sheet, "1422x800 Sheet"); AssertRect(133, 56, 1156, 34, a.Header, "1422x800 Header");
+            AssertRect(133, 102, 250, 674, a.Left, "1422x800 Left"); AssertRect(395, 102, 632, 632, a.Frame, "1422x800 Frame");
+            AssertRect(395, 746, 632, 30, a.Legend, "1422x800 Legend"); AssertRect(1039, 102, 250, 674, a.Right, "1422x800 Right");
+            var b = MapScreenLayout.Compute(1280, 960, MapScreenMode.Tab);
+            AssertRect(12, 86, 1256, 820, b.Sheet, "1280x960 Sheet"); AssertRect(24, 98, 1232, 34, b.Header, "1280x960 Header");
+            AssertRect(24, 144, 250, 750, b.Left, "1280x960 Left"); AssertRect(286, 144, 708, 708, b.Frame, "1280x960 Frame");
+            AssertRect(286, 864, 708, 30, b.Legend, "1280x960 Legend"); AssertRect(1006, 144, 250, 750, b.Right, "1280x960 Right");
+        }
+
+        [Test]
+        public void StackedAndPlanningKeepTheirRects()
+        {
+            // Literals read from the base (lane/ui-rework/base-2) by hand from the formulas of MapScreenLayout.Tab / Planning.
+            var s = MapScreenLayout.Compute(800, 700, MapScreenMode.Tab);
+            Assert.IsTrue(s.Stacked);
+            AssertRect(172, 44, 456, 34, s.Title, "800x700 Title"); AssertRect(172, 84, 456, 456, s.Frame, "800x700 Frame");
+            AssertRect(172, 546, 456, 30, s.Legend, "800x700 Legend"); AssertRect(12, 588, 382, 100, s.Left, "800x700 Left"); AssertRect(406, 588, 382, 100, s.Right, "800x700 Right");
+            AssertRect(s.Body.X, s.Body.Y, s.Body.W, s.Body.H, s.Sheet, "800x700 Sheet is Body"); AssertRect(s.Title.X, s.Title.Y, s.Title.W, s.Title.H, s.Header, "800x700 Header is Title");
+            var n = MapScreenLayout.Compute(420, 700, MapScreenMode.Tab);
+            Assert.IsTrue(n.Stacked);
+            AssertRect(12, 44, 396, 34, n.Title, "420x700 Title"); AssertRect(12, 84, 396, 396, n.Frame, "420x700 Frame");
+            AssertRect(12, 486, 396, 30, n.Legend, "420x700 Legend"); AssertRect(12, 528, 192, 160, n.Left, "420x700 Left"); AssertRect(216, 528, 192, 160, n.Right, "420x700 Right");
+            AssertRect(n.Body.X, n.Body.Y, n.Body.W, n.Body.H, n.Sheet, "420x700 Sheet is Body"); AssertRect(n.Title.X, n.Title.Y, n.Title.W, n.Title.H, n.Header, "420x700 Header is Title");
+            var p = MapScreenLayout.Compute(1422, 800, MapScreenMode.Planning);
+            Assert.IsFalse(p.Stacked);
+            AssertRect(221, 44, 628, 40, p.Title, "planning Title"); AssertRect(221, 96, 628, 628, p.Frame, "planning Frame");
+            AssertRect(221, 736, 628, 52, p.Legend, "planning Legend"); AssertRect(0, 0, 0, 0, p.Left, "planning Left"); AssertRect(861, 44, 340, 744, p.Right, "planning Right");
+            AssertRect(p.Body.X, p.Body.Y, p.Body.W, p.Body.H, p.Sheet, "planning Sheet is Body"); AssertRect(p.Title.X, p.Title.Y, p.Title.W, p.Title.H, p.Header, "planning Header is Title");
+        }
     }
 }
