@@ -275,7 +275,50 @@ packet deletes, so they would error on the implementation):
 
 ## Notes from the oracle author
 
-(filled in with the oracle commit)
+**Red tests on the stub (base-3 plus the `stub:` commit), each on an assertion:**
+
+- `WishFaceTests` (dotnet, 5 tests): all five red on their first assertion about the face (`Wish` returns `default`, whose Phase
+  is Empty: "Expected: Ready/Cooling but was Empty"; `NoWishIsEmptyAndReadsADash` on `Is.EqualTo(AbilityFace.Empty)`). Proved
+  consistent: a throwaway reference implementation of the rules in this packet (not committed) made all five green, so no later
+  line contradicts the rules or throws.
+- `WishTileEditModeTests` (Unity, 8 cases): `AReadyWishShowsItsNameAndARechargingWishItsCountdownOnce` red at "a ready Wish shows
+  its name" (reads "1/2", expected "Blaze"); `OneChargeShowsNoBadgeAndMoreShowTheirStock` red at "ready: the name" ("1/1");
+  `TheLongestWishNameFits(1.0f)` and `(1.5f)` red on the problems list (the label reads "1/1", not the name);
+  `NoWishShowsADash` red at "no 'Cast' under WishTile"; `TheWishTileAndTheQuestTilesAreOneClass` red at "_wishAbilityTile is an
+  AbilityTile"; `TheCastBarFillsFromTheLeftWithTheCastProgress` red at "no 'Cast' under WishTile"; `AnUnchangedWishRefreshAllocatesNothing`
+  red at the meter ("an unchanged Wish tile refresh allocated managed memory in 200 calls"; on the base the seconds assertion before
+  it passes because the hand-built tile also writes "9").
+- `MatchHudIconPresentationEditModeTests.WishSummaryStays...` (amended): red at "the Wish tile has an Icon child" on the stub.
+- The other four amended or kept classes are green on the stub: `AbilityRowEditModeTests`, `HudLegacyLayoutEditModeTests`,
+  `HudTextScaleEditModeTests` (amended), `MatchHudWishBarrierEditModeTests` (amended): 83 of 84 tests pass, the one failure being the
+  line above. `hud-seams.test.cjs` 13 of 13, `AbilityFaceTests` and `WishFxModelTests` green.
+
+**Scratch run (not committed).** One run of `WishTileEditModeTests` with `Assert` and `StringAssert` shadowed by catch-and-collect
+nested classes (and `Child` returning a dummy for a missing path), so that a failed assertion did not stop a test. Every collected
+entry was an assertion about the missing behaviour (the old name line "1/2", the name box still on while recharging, no `Cast` or
+`Icon` child, `_wishAbilityTile` null, the Wish boxes not the quest tiles' (`Key` 14 wide, `Name` at 2,36, `Seconds` 64 x 24,
+`Charges` top-left anchored), the white Wish surface and faction-yellow frame, the old `Name`/`Charges` overlap, `Seconds` over `Key`,
+`CastBar` Simple/Radial, the wedge and seconds left over after `ClearOwnerPresentation`, the dim and not-interactable Empty look). No
+other exception occurred; the only non-assertion noise was the scratch helper's own dummy object. A second scratch run drove
+`TheLongestWishNameFits` against the quest tile's `Name` box (same 60 x 26 geometry and `HudUi.Label` construction as the new
+Wish `Name`) with every ability name and "Frost Wall": it passed at scale 1 and 1.5 with size at least 8 and a fit, so the size
+estimate in the spec holds on the quest tile; the Wish tile's own `Name` is checked when the implementation exists.
+
+**Differences from the spec's list of tests (nearest test, same behaviour):**
+
+- The tests read the new tile through child paths (`Name/Label`, `Cast`, `Icon`, ...) and `_wishAbilityTile` by reflection, and the
+  stub adds only the three `AbilityFaces` members: the Unity stub is not extended with `AbilityTile` members, since no test names
+  them (`CastBar` and `Icon` are read as children `Cast` and `Icon`). `ReadyAtMs`, `TotalMs` and `Root` are read from the
+  `AbilityTile` that exists.
+- Test 5 also pins the icon box at 16 x 16, right edge 60 and top 3 (outcome item 2 gives the numbers) and that the glow sits behind
+  `Key`; the surface and frame equality compare `Color` exactly.
+- The existing `IconPresentation` amend reads `Name/Label` and `Seconds/Label` of the tile found under the stage path.
+- The amended `HudTextScaleEditModeTests` passes on the stub already (its three rows read labels that exist in the old tile); it
+  is an amend because on the implementation `_wishSeconds` and `_wishSummary` no longer exist.
+
+**Legacy-looking behaviour pinned on purpose:** a Wish with 0 charges and `ReadyAt` passed reads Ready with badge 0 (the server
+would accept it); `WishTileMotion.Observe` (not in scope) still needs `Charges > 0`, so the ready pulse and the tile can differ for one
+snapshot.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
