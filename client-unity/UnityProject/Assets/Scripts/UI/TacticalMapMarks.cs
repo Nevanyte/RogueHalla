@@ -282,7 +282,7 @@ namespace Roguehalla.Client
         bool ContactNear(Vector2 p)
         {
             foreach (var actor in _actors)
-                if (actor.Id != _selfId && (At(new Vector2(actor.X, actor.Y)) - p).sqrMagnitude < CampDropPx * CampDropPx) return true;
+                if (actor.Id != _selfId && ++CoverTests > 0 && (At(new Vector2(actor.X, actor.Y)) - p).sqrMagnitude < CampDropPx * CampDropPx) return true;
             return false;
         }
 
