@@ -1,3 +1,5 @@
+using Roguehalla.Net;
+
 namespace Roguehalla.Net.Ui
 {
     /// <summary>What an ability tile shows at one moment.</summary>
@@ -42,6 +44,15 @@ namespace Roguehalla.Net.Ui
             }
             return new AbilityFace(AbilityPhase.Ready, 0f, 0, charges, -1f);
         }
+
+        /// <summary>The label the Wish tile shows with no Wish delivered.</summary>
+        public const string NoWishLabel = "\u2014";
+
+        /// <summary>Stub (P-UI-WISH-TILE-1): the implementer replaces it.</summary>
+        public static AbilityFace Wish(WishView? wish, double nowMs) { return default(AbilityFace); }
+
+        /// <summary>Stub (P-UI-WISH-TILE-1): the implementer replaces it.</summary>
+        public static string WishLabel(WishView? wish, string abilityName) { return ""; }
 
         static double Finite(double v) { return double.IsNaN(v) || double.IsInfinity(v) ? 0d : v; }
 
