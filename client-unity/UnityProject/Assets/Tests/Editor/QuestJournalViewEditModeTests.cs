@@ -86,7 +86,7 @@ namespace Roguehalla.Client.Tests
             } });
             _view.Refresh();
             _view.SelectQuest(_first);
-            var actionList = _view.Root.Find("QuestDetail/QuestTextScroll/Viewport/Content/QuestActions");
+            var actionList = _view.Root.Find("QuestDetail/QuestActions/Viewport/Content");
             var first = actionList.Find("Action0").GetComponent<UnityEngine.UI.Button>();
             var second = actionList.Find("Action1").GetComponent<UnityEngine.UI.Button>();
             Assert.AreEqual("Carry the Gallows banner", first.GetComponentInChildren<TMP_Text>().text);
