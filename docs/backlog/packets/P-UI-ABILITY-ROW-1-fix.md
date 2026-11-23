@@ -156,6 +156,36 @@ Low risk: a cached string and a null-aware compare in one file. Sonnet. The only
 
 ## Notes from the oracle author
 
-(filled after the runs, in the oracle commit)
+No stub: the tests compile on the base (private members are reached by reflection).
+
+Red or green on the base (Unity run of the class, 8 tests):
+
+| Test | Result | Assertion |
+|---|---|---|
+| 1 `ANearbyActionAllocatesNothing` | RED | `AllocationMeter.AssertNone`: "200 refresh frames with a nearby quest action allocated managed memory" (the caption concat) |
+| 2 `TheNearbyCaptionFollowsTheCount` | green (guard) | |
+| 3 `APendingChoiceWithTheOverlayOpenAllocatesNothing` | green (guard) | |
+| 4 `AChoiceSentAndAwaitedAllocatesNothing` | RED | `AssertNone`: "200 refresh frames while the sent choice is awaited" (boxing in `WaitingForQuestChoice`) |
+| 5 `ADeferredChoiceAllocatesNothing` | RED | `AssertNone`: "200 refresh frames with the choice deferred" (boxing in the overlay test, line 124) |
+| 6 `ANearbyActionBesideThePickupPillAllocatesNothing` | RED | `AssertNone`: "200 refresh frames with a nearby action beside the pickup pill" (the concat) |
+| 7 `ACoolingQuestSpellAllocatesNothing` | green (guard) | |
+| 8 `ABoardQuestAloneAllocatesNothing` | green (guard) | |
+
+The red set is exactly the spec's (1, 4, 5, 6). All set-up assertions of every test hold on the base.
+
+Scratch run (not committed): every `Assert.That` and `AllocationMeter.AssertNone` of the class was wrapped in a catch-and-collect helper
+that keeps the AssertionException and fails in TearDown with the list. Result: the four red tests listed one entry each, an
+`ALLOC ...` entry for the measured call and nothing else; the other four collected nothing. So every line after the first red assertion
+runs (set-up, deliveries in key order, paths, reflection) and the only failures are allocation assertions.
+
+Not done: the scratch cause-removal edits of the spec (one edit to `MatchHud.QuestRewards.cs` per red test, to show the red is that line
+alone). The sandbox's permission classifier refused the edit to `MatchHud.QuestRewards.cs` outside the write scope of an oracle author, so
+the tree was restored (`git checkout --`). The causes are therefore from reading the code (confirmed only in that the red set matches the
+reading: tests that reach no concat or boxed compare are green).
+
+Existing classes run on the base, all green (72 of 72): `AbilityRowEditModeTests`, `PlayerFlowsEditModeTests`, `QuestOfferEditModeTests`,
+`UiInputRoutingEditModeTests`.
+
+Test 2 text and tests 3 to 5 set-up states are what P-UI-QUEST-REWARD-PROMPT-1 amends (see Known traps).
 
 ## Notes from previous attempts
