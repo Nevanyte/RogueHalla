@@ -224,6 +224,35 @@ No conflict found between the packet and any existing test. No row in `docs/OWNE
 - `client-unity/UnityProject/Assets/Tests/Editor/QuestTrackerEditModeTests.cs.meta`
 - `docs/backlog/packets/P-UI-QUEST-TRACKER-1.md`
 
+### What the stub commit left for the implementer to replace
+`QuestTracker.cs` (library and synced copy: every member returns a default), `UI/QuestTrackerView.cs` (builds an inactive
+empty `QuestTracker` root under its parent, `Rows` is 0, `Refresh` does nothing), `SentencedHuntPanel.Bottom` (returns -1),
+`MatchHud.PlateChainBottom()` and `MatchHud.TrackerFloor()` (return 0). The field `_questTracker`, its construction under
+`_hud` in `InitializePlayerFlows` and the `Refresh` line in `TickPlayerFlows` are already wired: keep their names (the
+tests read the field `_questTracker` and call `TrackerFloor` by reflection).
+
+### Red on the stub (each on an assertion)
+- dotnet `QuestTrackerTests`: all 10 red (`Build` returns 0, texts are "", `SameFace` false, `RowsThatFit` 0, `Short` returns "").
+- Unity `QuestTrackerEditModeTests`: all 17 cases red, each on its first behaviour assertion (root not shown, `Rows` 0, a label or
+  `Header/Title` not found, `TrackerFloor` 0). The rig preconditions (`AssertRig`: phase Active, world HUD visible, no journal)
+  are green on the stub, so the red is the feature's.
+- Green on the stub: `PlayerFlowsEditModeTests`, `HudVisualFix4EditModeTests`, `Ui4EditModeTests`, `HudTextScaleEditModeTests`,
+  `HudLegacyLayoutEditModeTests`, `QuestJournalViewEditModeTests` (104 tests), and `hud-seams.test.cjs` (18).
+
+## Notes from the oracle author
+- No oracle file was run green: nothing implements the feature. The EditMode tests were written against the rig of
+  `PlayerFlowsEditModeTests` (real `MatchClient`, `InitializeLayoutReview`); frames call `TickPlayerFlows`, `TickTerrain`
+  and `RefreshReadouts` by reflection. Reading private members by reflection means the implementer keeps the names
+  `_questTracker`, `_vitalsPanel`, `_terrainRow`, `_championHud`, `_readoutStrip`, `TrackerFloor`, `ToggleExtras`.
+- Spec test 13 (readout strip) pins `TrackerFloor()` exactly (champion panel top minus 8; strip top minus 8) as well as the
+  card staying 8 above the strip, and expects fewer than three rows with the extras open in the rig (strip top 352, dock top
+  about 232).
+- Spec test 11 (a new session) drives `Refresh` with a second real `Session` object.
+- Test 8 uses a snapshot with phase Ended as "phase not Active".
+- Fade tests (9, 10) set `UiMotion.ReducedOverride = false` and call `Refresh` directly with `dt` .05 / .5 (default
+  in time .12, out time .25).
+- Test 14 asserts the card is up with two rows before it measures, so an inert `Refresh` cannot pass it.
+
 ## 9. Validation commands
 - `bash client-unity/sync-net.sh` then `dotnet test client-unity/RoguehallaNet.Tests --filter QuestTrackerTests`
 - Unity: EditMode class `QuestTrackerEditModeTests` (lane helper `unity-class.sh`)
