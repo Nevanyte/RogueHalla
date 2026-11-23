@@ -158,7 +158,7 @@ namespace Roguehalla.Net.Tests
             Check<TradeStat>(PlayerWords.Word, (TradeStat.MaxHp, "max HP"), (TradeStat.Ad, "Offense"), (TradeStat.Ap, "Soul Offence"), (TradeStat.AttackSpeed, "attack speed"),
                 (TradeStat.MoveSpeed, "movement speed"), (TradeStat.Armor, "Defense"), (TradeStat.Shield, "Soul Defense"), ((TradeStat)200, "stat"));
             Check<SessionState>(PlayerWords.Word, (SessionState.Idle, "Not connected"), (SessionState.Connecting, "Connecting\u2026"), (SessionState.HelloSent, "Connecting\u2026"),
-                (SessionState.InMatch, "In the match"), (SessionState.Reconnecting, "Reconnecting\u2026"), (SessionState.Ended, "The match has ended."), (SessionState.Rejected, "Connection rejected"),
+                (SessionState.InMatch, "In the match"), (SessionState.Reconnecting, "Reconnecting\u2026"), (SessionState.Ended, "Run over"), (SessionState.Rejected, "Connection rejected"),
                 (SessionState.Failed, "Connection failed"), (SessionState.Detached, "Disconnected"), ((SessionState)99, "Unknown"));
             var expectedTags = new Dictionary<string, string>
             {
