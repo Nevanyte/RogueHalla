@@ -107,7 +107,7 @@ namespace Roguehalla.Client
         {
             _map = map;
             _ping.Active = false;
-            if (map == null) { _actors.Clear(); _contactMarks.Clear(); _marked.Clear(); RefreshContactLabels(); _route.Clear(); _chests.Clear(); _self = null; ClearDelivered(); for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false; }
+            if (map == null) { _actors.Clear(); _contactMarks.Clear(); _marked.Clear(); RefreshContactLabels(); _route.Clear(); _chests.Clear(); _self = null; ClearDelivered(); _camps.Clear(); _wards.Clear(); _chestRows.Clear(); _realIcons = 0; for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false; }
             else if (map.Regions != null) MapZones.LabelTiles(map.Regions, map.W, map.H, out _zoneFound, out _zoneX, out _zoneY);
             else for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false;
             ResetZoneSpots();
