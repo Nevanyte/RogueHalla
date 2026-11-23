@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Roguehalla.Client.Tests
 {
-    /// <summary>P-UNITY-DECLUTTER-1 review note 1: the Tab map's MAP KEY lists "Camp buff" and "Elite camp" and the IN VIEW list starts below the last key row.</summary>
+    /// <summary>P-UNITY-DECLUTTER-1 review note 1: the Tab map's MAP KEY lists "Camp buff, each kill" and "Elite camp: augment chest" (P-UI-TABMAP-TEXT-2 retitled both) and the IN VIEW list starts below the last key row.</summary>
     public sealed class DeclutterLegendEditModeTests
     {
         GameObject _uiRoot, _clientObject, _controllerObject;
@@ -51,8 +51,8 @@ namespace Roguehalla.Client.Tests
             RectTransform last = null;
             foreach (Transform row in key) { labels.Add(row.Find("Text").GetComponent<TMP_Text>().text); last = (RectTransform)row; }
             CollectionAssert.Contains(labels, "Players");
-            CollectionAssert.Contains(labels, "Camp buff");
-            CollectionAssert.Contains(labels, "Elite camp");
+            CollectionAssert.Contains(labels, "Camp buff, each kill");
+            CollectionAssert.Contains(labels, "Elite camp: augment chest");
             if (!key.gameObject.activeInHierarchy) Assert.Pass("compact layout hides the key");
             var corners = new Vector3[4]; var head = new Vector3[4];
             last.GetWorldCorners(corners); ((RectTransform)page.Find("InViewHeading")).GetWorldCorners(head);
