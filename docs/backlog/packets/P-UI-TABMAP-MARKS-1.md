@@ -141,7 +141,7 @@ The base above (P-UI-TABMAP-SHEET-1 and its fix: `LayoutOwnsRect`, `ApplySheet`,
 
 - The minimap: marks object anchors (0,0)-(1,1), zero offsets, scale 1, never given a scale.
 - Every number inside `TacticalMapMarks` (sizes, offsets, `CampDropPx`, the 1.2 factor, `SelfMarkerRect`).
-- Hit testing (`ScreenWorld` uses the surface's own rect); the marks object is not a raycast target (`TacticalMapSurface.cs:52`) and the scaled layer must not become one.
+- Hit testing (`ScreenWorld` uses the surface's own rect); the marks object is not a raycast target (`TacticalMapSurface.cs:51`) and the scaled layer must not become one.
 - The surface's `Rebuild`, the fog and terrain images and the planning `SpawnMarker` buttons are siblings of the marks and are not scaled.
 - Do not touch any `fontSize` to reach the floor: the transform does it (SDF text stays sharp when scaled).
 - `HudStage` keeps the scale between .8 and 1.5, so `Max` never binds in play; it is a guard for odd inputs.
@@ -166,7 +166,7 @@ it stops and reports (`blocked`); it does not edit the test.
 
 - `scripts/gate.sh --quick --oracle packet/P-UI-TABMAP-MARKS-1 --base lane/ui-rework/base-3` prints `GATE PASS`.
 - `dotnet test client-unity/RoguehallaNet.Tests --filter MapMarkScaleTests` green (4 tests).
-- Unity EditMode class `TabMapMarksEditModeTests` green (13 test cases: see Oracle files), and the classes listed in section 7 stay green.
+- Unity EditMode class `TabMapMarksEditModeTests` green (11 tests, 26 cases: tests 3 to 6 and 9 take windows), and the classes listed in section 7 stay green.
 - `bash client-unity/sync-net.sh --check` clean.
 - `node --test client-unity/UnityProject/Tools/hud-seams.test.cjs` green (no `MatchHud` member is touched).
 
@@ -207,7 +207,36 @@ over contacts: report it under RISKS.
 
 ## Notes from the oracle author
 
-(Written with the oracle commit.)
+- **Tests as written.** `MapMarkScaleTests` has the four tests of the plan. `TabMapMarksEditModeTests` has the eleven
+  tests of the plan (26 cases with the window parameters: `All` 4, `Wide` 3, and for test 3 1280 x 720, 1024 x 768 and 640 x 480).
+  The fixture is a copy of `TabMapSheetEditModeTests.BuildController` (its `RigTransport` is not needed: the tests use
+  `Fix3Transport`). Test 9 and tests 1, 2, 8 also assert that the rule itself gives a layer above 1.2 (the planning map
+  is 620 wide at 1422 x 800: 1.292; 780 wide on the 1280 x 960 stage: 1.4), because on the stub `Layer` returns 1 and
+  `Expected()` would equal the unscaled layer: without it tests 1 and 2 were green on the stub (seen on the first run).
+- **One addition to the dotnet plan.** `NeverSmallerThanTheMinimapAndNeverPastTheGuard` also asserts
+  `Layer(784, .1) == Max` (the guard binds), otherwise the test passes on the stub (a constant 1 satisfies every other line).
+- **Tests are red on the stub (all 4 dotnet, all 26 cases of Unity), each on an assertion:** the dotnet ones on the
+  `Layer` values (`1280 x 720` expected 1.300, was 1.0; the label floor; the full-growth line at 672; the guard at .1).
+  Unity: tests 1, 2, 9 and 8 on "the rule gives a layer larger than the minimap's marks" (stub `Layer`); tests 4, 5, 7,
+  10 and 11 on their opening `MarkScale > 1.2` assertion (was 1.0); test 3 on the pixel floor (`CampClock '181'` is 8.1
+  px at 1280 x 720, 7.2 at 1024 x 768 and 640 x 480; `ZoneLabel` 9.0 / 8.0 / 8.0); test 6 on the host's scale and anchors
+  (1.0 and (0,0)-(1,1), expected 1.25 and (.1,.1)-(.9,.9)).
+- **Scratch run (not committed).** For `TabMapMarksEditModeTests` I ran a copy in which every `Assert.That` is a
+  catch-and-collect call and a failed assertion does not stop the test, and in which, after the controller was built,
+  the marks object and the zone host were scaled by hand to 1.3 (anchors `.5 -+ .5/1.3`) so that the geometry lines run at
+  a scale above 1 although the stub does nothing. Result: every entry was an assertion about the missing behaviour
+  (stub `MarkScale` 1.0, the stub `Layer`, `LayerChanges` stuck at n, the labels under 10 px, the host not following a
+  hand-scaled layer); no exception from the set-up or a delivery. At the hand-set 1.3 the lines of tests 4, 5 and 7
+  (own ring, `ScreenWorld`, `CampClock0` at `-16 k px`, zone labels at `-24 k px`, minimap anchors) all held, so the
+  world-point arithmetic is right; test 3 held at 1.3 on 1280 x 720 (11.7 px) and was short only at the .8 stage
+  scales (9.36 px at 1.3, which the real `Layer` of 1.389 and 1.400 lifts to 10.0 and 10.1). The labels were not shrunk
+  by `MythicTextScale` (`CampClock '181'`, `ChestSeconds '13'`, `CampBadgeText '+0.36%'`, `HUNT`, `ENEMY`, zone names).
+- **Corner assertions** (the layer covers the map; the zone host covers what the layer covers) hold on the stub as
+  well (a scale-1 layer covers the map): they are guards, the red assertions are the scale and anchors.
+- **Existing classes on the stub:** `TabMapSheetEditModeTests`, `HudVisualFix2EditModeTests`, `TabMapVisualFix3EditModeTests`,
+  `TabMapFlowEditModeTests`, `TacticalMapEditModeTests`, `DeclutterEditModeTests`, `MapScreenEditModeTests`: 84 of 84 green.
+  No existing expectation needs to change (no `oracle-amend:` commit).
+- **The stub commits** also include `MapMarkScale.cs.meta` (the synced copy); the new test's `.meta` is in the oracle commit.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
