@@ -79,11 +79,19 @@ namespace Roguehalla.Net
             return false;
         }
 
-        /// <summary>The C# <c>TileMap::with_low</c> over the base map; allocates a new map only when a wall stands.</summary>
+        /// <summary>The C# <c>TileMap::with_low</c> over the base map; a new map object (over a retained tile buffer) only when a wall stands.</summary>
+        byte[] _walkTiles;
+
         void RebuildWalkMap()
         {
             if (_map == null || _wallCount == 0) { _walkMap = _map; return; }
-            byte[] tiles = (byte[])_map.Tiles.Clone();
+            byte[] baseTiles = _map.Tiles;
+            // One retained tile buffer: every walk map handed out is a NEW MapBlob object over it, so a holder of an earlier
+            // object (a pathfinder keyed on object identity) sees a different object and rebuilds; nobody reads an older
+            // object's tiles after WalkMap moved on.
+            if (_walkTiles == null || _walkTiles.Length != baseTiles.Length) _walkTiles = new byte[baseTiles.Length];
+            byte[] tiles = _walkTiles;
+            Buffer.BlockCopy(baseTiles, 0, tiles, 0, baseTiles.Length);
             int w = _map.W, h = _map.H;
             for (int i = 0; i < _wallCount; i++)
             {
