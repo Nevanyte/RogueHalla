@@ -284,7 +284,44 @@ runs every frame; the tests pin both.
 
 ## Notes from the oracle author
 
-(Filled with the oracle commit: the run results and the scratch run.)
+### Oracle run results (stub, lane base)
+
+- dotnet `FirstRunHintRulesTests`: 4 of 4 red on assertions (`Owed(null)` false; `Judge` Stand for End cases; `Count` not
+  returned; `Advance` ignores the step). They go green on a reference implementation of the spec's rules (checked, not kept).
+- Unity `FirstRunHintEditModeTests`: 18 cases, 15 red, 3 green standing guards (`InPracticeTheHintNeverShows`,
+  `ASteadyTickAllocatesNothing`, `ProfileRunsDecideWhetherTheHintIsOwed(2L,false)`). First red assertion of each: the pill is
+  missing (the join's wipe) in tests 1, 2, 3, 4, 5 (both cases), 6, 7, 8, 9 (runs 0 and 1), 12, 13, 14 (after the target is
+  cleared), 15 (premise "the hint stands").
+- Existing classes run on the stub and green: `ControlsLineHintEditModeTests` (2 tests), `ToastLanesEditModeTests`,
+  `PlayerFlowsEditModeTests`, `HudLegacyLayoutEditModeTests`, `HudTextScaleEditModeTests` (96 tests with the guards; the 15 red
+  are the new ones).
+- **A reference implementation of the spec** (temporary, in the worktree, then reverted: the spec's `FirstRunHintRules`, the
+  `Tutorial.cs` change and the deleted `HudOwnerRefresh` line) makes all 18 cases pass and keeps the existing classes
+  `ControlsLineHintEditModeTests` and `ToastLanesEditModeTests` green (34 of 34). With the tick left in `HudOwnerRefresh` instead
+  of `TickTutorial`, only `QuietFramesCountToo` goes red (on "the 80th quiet frame ends it"): the test pins the call's place.
+
+### The scratch run
+
+One scratch run of `FirstRunHintEditModeTests` on the stub with every `Assert.That` wrapped in a catch-and-collect helper (an
+`AssertionException` kept, the test failed at TearDown with the list; not committed). All 15 failing tests collected only
+assertions about the missing hint (pill missing, `_firstRunHint` still true or already false where the hint should stand or go);
+no other exception from set-up, deliveries, reflection or helpers, so every line of every test ran. The 3 guards passed.
+
+### Where the packet's spec was wrong about the code (tests follow the code; no design change)
+
+1. **Spec (d), the arena rig's resume status.** `TrainingHudRig`'s client has no seat storage, so its first confirmed snapshot
+   writes the status "This run could not be saved for reload." (`Net/MatchClient.Resume.cs:216`) and the HUD copies it into
+   `_feedback` (`MatchHud.Resume.cs:183`), in practice as well as in the arena. The hint is then replaced (as item "Resume status"
+   says it should be) and tests 10 and 12 would be red for the wrong reason (10: `_feedback` not empty on the base). Both
+   tests call `ClearSaveStatus(rig)` after `Start` (client `_resumeStatus` and HUD `_feedback` set to ""): a browser that can
+   save leaves neither. Test 10 stays a real guard: with the status cleared, a missing practice End would restore the hint.
+2. **Test 13 pill timing.** `HudLateUpdate` runs `TickFeatures` (`TickNotices` presents the lane) before `TickTutorial`, so
+   on the frame the tick puts the line back into the lane model the pill is not yet drawn: it shows one frame later. The
+   test asserts the pill after two quiet frames (the `_dirty` premise is still read after the first), then 79 frames in total
+   stand and the 80th ends it, as the spec's numbers say.
+3. Unverified items (a), (b), (c), (e), (f), (g) of the spec hold (checked by the reference implementation run: pending launch
+   by reflection, quiet frames not dirty, `SnapCut` raises `TimelineEpoch` by one, alpha-0 pill counts, profile reaches
+   `ArmFirstRunHint`, coordinator on rig A's root). (h) was not checked (the picture is not in this tree).
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
