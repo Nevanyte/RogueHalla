@@ -1,6 +1,8 @@
 'use strict';
 // P-UI-HUD-SEAMS-1: MatchHud's top-centre, action-bar, pulse, notice and visibility code each live in their own
 // partial file. The source is read as text; nothing here needs Unity.
+// P-UI-HUD-SEAMS-1-fix: the MOVED table says what LEFT the four old files and must not grow back there. It no
+// longer requires a moved member to keep existing in its new file: later packets replace those members.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -89,12 +91,6 @@ for (const file of Object.keys(MOVED)) {
     const above = lines.slice(0, typeLine).join('\n');
     assert.match(above, /\/\/\/\s*<summary>/, `${file} has a /// <summary> before the type`);
     assert.ok(lines.length <= 800, `${file} has ${lines.length} lines, limit 800`);
-  });
-
-  test(`${file} declares each member that moved into it`, () => {
-    requireFile(file);
-    const text = code(file);
-    for (const [label, re] of MOVED[file]) assert.match(text, re, `${file} declares ${label}`);
   });
 
   test(`the four old MatchHud files no longer declare what moved into ${file}`, () => {
