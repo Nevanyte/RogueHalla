@@ -50,6 +50,11 @@ pub struct AttemptTally {
     pub complete_secs: Vec<f64>,
 }
 
+/// A row that vanished is a timer end only if its deadline passed no more than this long before the step that shows it
+/// gone (two 50 ms ticks: the sim drops an expired attempt in the pass of the tick the deadline falls in). A row gone
+/// long after its deadline was ended by something else.
+const TIMER_SLACK_MS: f64 = 100.;
+
 /// The attempt of one offer being followed.
 struct Live {
     first_ms: f64,
@@ -113,7 +118,7 @@ impl SeatTally {
             }
             let t = self.out.entry(key.0).or_default();
             let d = live.last.deadline;
-            if !s.locked && d > 0. && d <= s.now_ms {
+            if !s.locked && d > 0. && d <= s.now_ms && s.now_ms - d <= TIMER_SLACK_MS {
                 t.ended_timer += 1;
             } else if s.died || self.prev_died {
                 t.ended_death += 1;
