@@ -59,6 +59,24 @@ namespace Roguehalla.Client
             }
         }
 
+        /// <summary>STUB (P-UI-PERF-WORST-FRAME-1): the collection counts read around one frame; -1 is "not read".</summary>
+        public struct GcReads { public int FrameStart, ScriptsStart, ScriptsEnd, RenderStart, FrameEnd; }
+
+        /// <summary>STUB (P-UI-PERF-WORST-FRAME-1): the session's state in one frame (five of these are 0 or 1 flags).</summary>
+        public struct FrameContext { public int Actors, Walls, WallsChanged, WalkMapChanged, TerrainMapChanged, StateFrames, Snapshots, Dead, OrderPending, MapTiles; }
+
+        /// <summary>STUB: does nothing.</summary>
+        public static void Add(Sec s, double ms, long grewBytes) { }
+
+        /// <summary>STUB: does nothing.</summary>
+        public static void EndFrame(GcReads gc, FrameContext ctx, double seconds) { }
+
+        /// <summary>STUB: clears like <see cref="Reset()"/>.</summary>
+        public static void Reset(int gcCount) { Reset(); }
+
+        /// <summary>STUB: appends an empty member.</summary>
+        public static void AppendWorstFrames(System.Text.StringBuilder sb) { sb.Append("\"worstFrames\":{}"); }
+
         public static void Reset()
         {
             _frames = 0;

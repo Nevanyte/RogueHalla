@@ -347,5 +347,14 @@ async function main() {
   console.log('\n' + path.join(out, 'summary.json'));
 }
 
-module.exports = { budget, summarise, readyPoint, minimapRect, legacyScale };
+// STUBS (P-UI-PERF-WORST-FRAME-1): the implementer replaces these seven with the real functions.
+function worstPageFrame() {}
+function pageIntervalAt() {}
+function slotPageIntervals() {}
+function clockCheckLine() {}
+function describeWorstFrame() {}
+function worstFrameLines() {}
+function describePageWorst() {}
+
+module.exports = { budget, summarise, readyPoint, minimapRect, legacyScale, worstPageFrame, pageIntervalAt, slotPageIntervals, clockCheckLine, describeWorstFrame, worstFrameLines, describePageWorst };
 if (require.main === module) main().catch(e => { console.error(e.stack || e); process.exitCode = 2; });
