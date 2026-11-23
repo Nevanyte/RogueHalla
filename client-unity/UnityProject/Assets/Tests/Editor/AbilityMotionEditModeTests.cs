@@ -330,7 +330,10 @@ namespace Roguehalla.Client.Tests
         [Test]
         public void APressPopsAboutTheCentre()
         {
-            BuildRig(); Snap(10, 50000); Frame();
+            BuildRig();
+            SnapWish(10, 50000, Wish(1, 40000, 10000));
+            Items(11, Spells(new WireQuestSpell { Slot = 0, Reward = 3, Charges = 1, ReadyAt = 0 }));
+            Frame();
             var cases = new List<(string Name, RectTransform Rect, WireCommand Cue)>
             {
                 ("the Wish tile", Tile("WishTile"), WireCommand.Cast(0, 0f, 0f)),
