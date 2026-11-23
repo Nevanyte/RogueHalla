@@ -19,7 +19,7 @@ pub(crate) use signals::{
 use self::signals::BARGAIN_STAT_NAMES;
 use super::tuning::TOP25;
 use super::{catalog::QuestId, quest};
-use crate::constants::{PLAYER_SPEED, QUEST_TURN_IN_RANGE};
+use crate::constants::PLAYER_SPEED;
 use crate::hooks::Hx;
 use crate::state::{Phase, PlayerId, World};
 use crate::statics::MatchStatic;
@@ -246,6 +246,32 @@ pub(crate) fn crown_power(w: &World, owner: PlayerId) -> Option<u8> {
 /// A deferred choice can survive death even though a dead seat cannot turn it in.
 pub(crate) fn has_pending_choice(w: &World, owner: PlayerId, offer: u32) -> bool {
     attempt(w, owner, offer).is_some_and(|a| a.pending.is_some())
+}
+
+/// P-BAL-PROBE-1: every stored attempt of `owner`, in storage order (accept order), read through the same readers the
+/// journal uses. For `Sim::quest_attempts` between steps only: it allocates. Reads the raw `pending` field, not
+/// `pending()`, so a turned-in reward of a dead seat still shows.
+pub(crate) fn probe(w: &World, owner: PlayerId) -> Vec<crate::sim::QuestAttemptProbe> {
+    let Some(state) = board(w) else {
+        return Vec::new();
+    };
+    state
+        .attempts
+        .iter()
+        .filter(|a| a.owner == owner)
+        .filter_map(|a| {
+            Some(crate::sim::QuestAttemptProbe {
+                offer: a.offer,
+                quest: offer(w, a.offer).and_then(kind)?,
+                accepted: is_accepted(w, owner, a.offer),
+                ready: ready(w, owner, a.offer),
+                turned_in: has_pending_choice(w, owner, a.offer),
+                completed: is_completed(w, owner, a.offer),
+                deadline: deadline(w, owner, a.offer),
+                progress: progress(w, owner, a.offer),
+            })
+        })
+        .collect()
 }
 
 pub(crate) fn pending(w: &World, owner: PlayerId, offer: u32) -> Option<PendingReward> {

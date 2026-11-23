@@ -109,21 +109,16 @@ namespace Roguehalla.Client
         /// <summary>As above, and the world reward badges (icon only, over living camps the viewer can see through <paramref name="visible"/>) and ward beacons.</summary>
         public void Update(Session session, Func<float, float, bool> visible)
         {
-            _badges.Clear(); _wards.Clear();
+            _badges.Clear(); _wards.Clear(); _rows.Clear();
             if (session != null && session.Map != null && session.State == SessionState.InMatch)
             {
                 bool active = !session.Training;
                 _visible = visible;
                 CampBadges.Rewards(session.Map.Camps, session.Collections.Camps, active, CampSurface.World, _canSee, _badges);
                 CampBadges.Wards(session.Map.Camps, session.Collections.Camps, session.ServerTimeMs, active, _wards);
+                CampMarks.WorldLabels(session.Map.Camps, session.Collections.Camps, session.ServerTimeMs, active, _rows);
             }
-            FetchNames();
-            DrawBadges(); DrawBeacons();
-
-            _rows.Clear();
-            if (session != null && session.Map != null && session.State == SessionState.InMatch)
-                CampMarks.WorldLabels(session.Map.Camps, session.Collections.Camps, session.ServerTimeMs, !session.Training, _rows);
-            DrawRows();
+            DrawFrame(Time.unscaledDeltaTime, false);
         }
 
         /// <summary>
@@ -136,21 +131,88 @@ namespace Roguehalla.Client
 
         /// <summary>
         /// P-UNITY-NAME-GROUP-2 seam for tests: draws the respawn labels and the ward beacons with their labels from ready rows, without a
-        /// Session. <see cref="Update(Session, Func{float, float, bool})"/> does the same from the session's rows.
+        /// Session, as one fresh frame. <see cref="Update(Session, Func{float, float, bool})"/> does the same from the session's rows.
         /// </summary>
         public void Draw(List<CampWorldLabel> rows, List<CampWardRow> wards) { Draw(rows, wards, new List<CampBadgeRow>()); }
 
         /// <summary>
         /// As above, and the world reward badges (plaque and icons) from ready rows (P-UNITY-NAME-LEGIBLE-1 seam: the badge of an elite's camp must not
-        /// cover the elite's name). <see cref="Update(Session, Func{float, float, bool})"/> draws the badges from the session's rows the same way.
+        /// cover the elite's name). One fresh frame: labels at their wanted lift at once, badges fully drawn, no state carried.
         /// </summary>
         public void Draw(List<CampWorldLabel> rows, List<CampWardRow> wards, List<CampBadgeRow> badges)
+        {
+            Copy(rows, wards, badges);
+            ResetState();
+            DrawFrame(0f, true);
+        }
+
+        /// <summary>Test seam: whether reduced motion is on; unset, it reads <see cref="ShowcaseSettings.Current"/>.</summary>
+        public Func<bool> ReducedMotionSource;
+
+        /// <summary>Draws one frame of <paramref name="dt"/> seconds with the lift, linger and fade state.</summary>
+        public void Draw(List<CampWorldLabel> rows, List<CampWardRow> wards, List<CampBadgeRow> badges, float dt)
+        {
+            Copy(rows, wards, badges);
+            DrawFrame(dt, false);
+        }
+
+        void Copy(List<CampWorldLabel> rows, List<CampWardRow> wards, List<CampBadgeRow> badges)
         {
             _rows.Clear(); _rows.AddRange(rows);
             _wards.Clear(); _wards.AddRange(wards);
             _badges.Clear(); _badges.AddRange(badges);
+        }
+
+        // ---- Stable labels (P-UI-CAMP-LABEL-STABLE-1): a lift with memory per camp and kind, a linger and a fade for badges. ----
+        const float LingerSeconds = .2f, FadeSeconds = .15f, ForgetSeconds = 1f, WardGap = .08f;
+
+        struct LiftState { public int Index, Kind; public LabelLift Lift; public float Unseen; public bool Seen; }
+        struct BadgeState { public int Index; public CampBadgeRow Row; public LabelLift Lift; public float Alpha, Gone, Top; public bool Seen, Drawn; }
+        readonly List<LiftState> _lifts = new List<LiftState>();
+        readonly List<BadgeState> _badgeStates = new List<BadgeState>();
+        bool _ran, _wasHidden;
+
+        void ResetState() { _lifts.Clear(); _badgeStates.Clear(); }
+
+        bool ReducedMotion()
+        {
+            if (ReducedMotionSource != null) return ReducedMotionSource();
+            return ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
+        }
+
+        void DrawFrame(float dt, bool forceFresh)
+        {
+            bool hidden = WorldLabelVisibility.Hidden;
+            bool fresh = forceFresh || !_ran || _wasHidden || dt > ForgetSeconds;
+            _ran = true; _wasHidden = hidden;
+            if (fresh || hidden) ResetState();
+            if (dt < 0f || fresh) dt = 0f;
+            bool reduced = ReducedMotion();
+            for (int i = 0; i < _lifts.Count; i++) { var s = _lifts[i]; s.Seen = false; _lifts[i] = s; }
             FetchNames();
-            DrawBadges(); DrawBeacons(); DrawRows();
+            DrawBadges(dt, fresh, reduced); DrawBeacons(dt, reduced); DrawRows(dt, reduced);
+            for (int i = _lifts.Count - 1; i >= 0; i--)
+            {
+                var s = _lifts[i];
+                if (s.Seen) continue;
+                s.Unseen += dt;
+                if (s.Unseen > ForgetSeconds) _lifts.RemoveAt(i); else _lifts[i] = s;
+            }
+        }
+
+        // The state of one camp's label of one kind; a camp not drawn for a while starts again at its wanted lift.
+        float TextLift(int index, int kind, float wanted, float dt, bool reduced)
+        {
+            for (int i = 0; i < _lifts.Count; i++)
+            {
+                var s = _lifts[i];
+                if (s.Seen || s.Index != index || s.Kind != kind) continue;
+                s.Lift = s.Lift.Step(wanted, dt, reduced); s.Seen = true; s.Unseen = 0f; _lifts[i] = s;
+                return s.Lift.Value;
+            }
+            var n = new LiftState { Index = index, Kind = kind, Lift = LabelLift.Start(wanted), Seen = true };
+            _lifts.Add(n);
+            return n.Lift.Value;
         }
 
         readonly List<Rect> _names = new List<Rect>();
@@ -186,23 +248,28 @@ namespace Roguehalla.Client
             plate.transform.localScale = new Vector3(b.size.x + .3f, b.size.y + .16f, 1f);
         }
 
-        // Shifts the label up, one line at a time, until its plate clears every fighter name.
-        void Clear(TextMeshPro label)
+        // How far up the label must go from its base to clear every fighter name (one line at a time, as before), measured with the label
+        // at its base. baseYMin is the plate's lower edge there.
+        float WantedClear(TextMeshPro label, out float baseYMin)
         {
             _plates.TryGetValue(label, out var plate);
-            if (plate == null || _names.Count == 0) return;
-            for (int pass = 0; pass < 8; pass++)
+            baseYMin = 0f;
+            if (plate == null) return 0f;
+            var pb = plate.bounds; var rect = new Rect(pb.min.x, pb.min.y, pb.size.x, pb.size.y);
+            baseYMin = rect.yMin;
+            float total = 0f;
+            for (int pass = 0; pass < 8 && _names.Count > 0; pass++)
             {
-                var pb = plate.bounds; var rect = new Rect(pb.min.x, pb.min.y, pb.size.x, pb.size.y);
                 float lift = 0f;
                 for (int i = 0; i < _names.Count; i++)
                     if (rect.Overlaps(_names[i])) lift = Mathf.Max(lift, _names[i].yMax - rect.yMin + .04f);
-                if (lift <= 0f) return;
-                label.transform.position += new Vector3(0f, lift, 0f);
+                if (lift <= 0f) break;
+                total += lift; rect.y += lift;
             }
+            return total;
         }
 
-        void DrawRows()
+        void DrawRows(float dt, bool reduced)
         {
             Used = WorldLabelVisibility.Hidden ? 0 : _rows.Count;   // the Tab map is open: no world label behind its panels
             for (int i = 0; i < Used; i++)
@@ -211,10 +278,12 @@ namespace Roguehalla.Client
                 var row = _rows[i];
                 bool changed = label.text != row.Text;
                 if (changed) label.text = row.Text;
-                label.transform.position = ArenaView.WorldPoint((float)row.WorldX, (float)row.WorldY + OffsetUnits);
+                var home = ArenaView.WorldPoint((float)row.WorldX, (float)row.WorldY + OffsetUnits);
+                label.transform.position = home;
                 if (!label.gameObject.activeSelf) label.gameObject.SetActive(true);
                 if (changed || !_plates.ContainsKey(label)) FitPlate(label, _plates);
-                Clear(label);
+                float lift = TextLift(row.Index, 0, WantedClear(label, out _), dt, reduced);
+                if (lift > 0f) label.transform.position = home + new Vector3(0f, lift, 0f);
             }
             for (int i = Used; i < _labels.Count; i++) if (_labels[i].gameObject.activeSelf) _labels[i].gameObject.SetActive(false);
         }
@@ -239,46 +308,100 @@ namespace Roguehalla.Client
             if (!r.gameObject.activeSelf) r.gameObject.SetActive(true);
         }
 
-        // The camp position is the public anchor; keep the local shift with
-        // the plaque and its icons so the reward continues to identify the camp.
-        void DrawBadges()
+        static Color32 Rgba(uint rgb, byte alpha) { return new Color32((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, alpha); }
+
+        float WantedBadge(CampBadgeRow b, int n)
         {
+            var c = ArenaView.WorldPoint((float)b.WorldX, (float)b.WorldY + BadgeOffsetUnits);
+            float w = n * BadgeStep + .3f;
+            var rect = new Rect(c.x - w * .5f, c.y - PlaqueHeight * .5f, w, PlaqueHeight);
+            return CombatHudPlacement.Lift(rect, _badgeObstacles).y - rect.y;
+        }
+
+        static int IconCount(CampBadgeRow b) { return (b.IconKey != null ? 1 : 0) + (b.EliteIconKey != null ? 1 : 0); }
+
+        // The camp position is the public anchor; keep the local shift with the plaque and its icons so the reward continues to identify
+        // the camp. Each camp's badge has a state (lift, alpha, the last row) so it glides, lingers and fades instead of hopping and blinking.
+        void DrawBadges(float dt, bool fresh, bool reduced)
+        {
+            int used = 0, plaques = 0;
+            if (WorldLabelVisibility.Hidden)
+            {
+                BadgesUsed = 0;
+                for (int i = 0; i < _badgeIcons.Count; i++) if (_badgeIcons[i].gameObject.activeSelf) _badgeIcons[i].gameObject.SetActive(false);
+                for (int i = 0; i < _plaques.Count; i++) if (_plaques[i].gameObject.activeSelf) _plaques[i].gameObject.SetActive(false);
+                return;
+            }
+            for (int i = 0; i < _badgeStates.Count; i++) { var s = _badgeStates[i]; s.Seen = false; s.Drawn = false; _badgeStates[i] = s; }
             _badgeObstacles.Clear();
-            if (_badges.Count > 0)
+            if (_badges.Count > 0 || _badgeStates.Count > 0)
             {
                 _badgeObstacles.AddRange(_names);
                 HeaderRectSource?.Invoke(_badgeObstacles);
             }
-            int used = 0, plaques = 0;
+            float step = dt / FadeSeconds;
             for (int i = 0; i < _badges.Count; i++)
             {
                 var b = _badges[i];
-                int n = (b.IconKey != null ? 1 : 0) + (b.EliteIconKey != null ? 1 : 0);
+                int n = IconCount(b);
                 if (n == 0) continue;
-                var centre = ArenaView.WorldPoint((float)b.WorldX, (float)b.WorldY + BadgeOffsetUnits);
-                int first = used;
+                float wanted = WantedBadge(b, n);
+                int at = -1;
+                for (int j = 0; j < _badgeStates.Count; j++) if (!_badgeStates[j].Seen && _badgeStates[j].Index == b.Index) { at = j; break; }
+                if (at >= 0)
+                {
+                    var s = _badgeStates[at];
+                    s.Row = b; s.Seen = true; s.Gone = 0f;
+                    s.Lift = s.Lift.Step(wanted, dt, reduced);
+                    s.Alpha = reduced ? 1f : Mathf.Min(1f, s.Alpha + step);
+                    _badgeStates[at] = s;
+                }
+                else
+                    _badgeStates.Add(new BadgeState { Index = b.Index, Row = b, Lift = LabelLift.Start(wanted), Seen = true, Alpha = fresh || reduced ? 1f : Mathf.Min(1f, step) });
+            }
+            for (int i = _badgeStates.Count - 1; i >= 0; i--)
+            {
+                var s = _badgeStates[i];
+                if (s.Seen) continue;
+                s.Gone += dt;
+                if (s.Gone > LingerSeconds) s.Alpha = reduced ? 0f : s.Alpha - step;
+                if (s.Alpha <= 0f) _badgeStates.RemoveAt(i); else _badgeStates[i] = s;
+            }
+            for (int si = 0; si < _badgeStates.Count; si++)
+            {
+                var s = _badgeStates[si];
+                var b = s.Row;
+                int n = IconCount(b);
+                byte alpha = (byte)Mathf.RoundToInt(255f * Mathf.Clamp01(s.Alpha));
+                var centre = ArenaView.WorldPoint((float)b.WorldX, (float)b.WorldY + BadgeOffsetUnits) + new Vector3(0f, s.Lift.Value, 0f);
                 var back = Icon(_plaques, plaques++, "Camp reward plaque", Order - 1);
-                back.drawMode = SpriteDrawMode.Sliced; back.size = new Vector2(n * BadgeStep + .3f, PlaqueHeight);
-                Place(back, Plaque(), Color.white, centre, 1f);
+                Place(back, Plaque(), new Color32(255, 255, 255, alpha), centre, 1f);
+                // The sprite goes in first: assigning it resets a sliced size to the sprite's own.
+                var size = new Vector2(n * BadgeStep + .3f, PlaqueHeight);
+                if (back.drawMode != SpriteDrawMode.Sliced) back.drawMode = SpriteDrawMode.Sliced;
+                if (back.size != size) back.size = size;
                 int k = 0;
                 if (b.IconKey != null)
-                    Place(Icon(_badgeIcons, used++, "Camp reward badge", Order), Art(b.IconKey), Rgb(b.IconRgb), centre + new Vector3((k++ - (n - 1) * .5f) * BadgeStep, 0f, 0f), BadgeScale);
+                    Place(Icon(_badgeIcons, used++, "Camp reward badge", Order), Art(b.IconKey), Rgba(b.IconRgb, alpha), centre + new Vector3((k++ - (n - 1) * .5f) * BadgeStep, 0f, 0f), BadgeScale);
                 if (b.EliteIconKey != null)
-                    Place(Icon(_badgeIcons, used++, "Camp reward badge", Order), Art(b.EliteIconKey), Rgb(b.EliteIconRgb), centre + new Vector3((k++ - (n - 1) * .5f) * BadgeStep, 0f, 0f), BadgeScale);
-                Rect bounds = CombatHudPlacement.FromBounds(back.bounds);
-                float lift = CombatHudPlacement.Lift(bounds, _badgeObstacles).yMin - bounds.yMin;
-                if (lift > 0f)
-                {
-                    back.transform.position += new Vector3(0f, lift, 0f);
-                    for (int j = first; j < used; j++) _badgeIcons[j].transform.position += new Vector3(0f, lift, 0f);
-                }
+                    Place(Icon(_badgeIcons, used++, "Camp reward badge", Order), Art(b.EliteIconKey), Rgba(b.EliteIconRgb, alpha), centre + new Vector3((k++ - (n - 1) * .5f) * BadgeStep, 0f, 0f), BadgeScale);
+                s.Top = centre.y + PlaqueHeight * .5f; s.Drawn = true;
+                _badgeStates[si] = s;
             }
             BadgesUsed = used;
             for (int i = used; i < _badgeIcons.Count; i++) if (_badgeIcons[i].gameObject.activeSelf) _badgeIcons[i].gameObject.SetActive(false);
             for (int i = plaques; i < _plaques.Count; i++) if (_plaques[i].gameObject.activeSelf) _plaques[i].gameObject.SetActive(false);
         }
 
-        void DrawBeacons()
+        // Top edge of the plaque drawn this frame for a camp, if any.
+        bool PlaqueTop(int index, out float top)
+        {
+            for (int i = 0; i < _badgeStates.Count; i++)
+                if (_badgeStates[i].Drawn && _badgeStates[i].Index == index) { top = _badgeStates[i].Top; return true; }
+            top = 0f; return false;
+        }
+
+        void DrawBeacons(float dt, bool reduced)
         {
             BeaconsUsed = WorldLabelVisibility.Hidden ? 0 : _wards.Count;
             for (int i = 0; i < BeaconsUsed; i++)
@@ -289,10 +412,15 @@ namespace Roguehalla.Client
                 bool changed = label.text != w.WorldText;
                 if (changed) label.text = w.WorldText;
                 label.color = Rgb(w.TextRgb);
-                label.transform.position = ArenaView.WorldPoint((float)w.WorldX, (float)w.WorldY + BeaconTextOffsetUnits);
+                var home = ArenaView.WorldPoint((float)w.WorldX, (float)w.WorldY + BeaconTextOffsetUnits);
+                label.transform.position = home;
                 if (!label.gameObject.activeSelf) label.gameObject.SetActive(true);
                 if (changed || !_plates.ContainsKey(label)) FitPlate(label, _plates);
-                Clear(label);
+                float wanted = WantedClear(label, out float baseYMin);
+                // A camp with a badge too: the text wants a gap above the plaque as drawn; the lift glides to it.
+                if (PlaqueTop(w.Index, out float top)) wanted = Mathf.Max(wanted, top + WardGap - baseYMin);
+                float lift = TextLift(w.Index, 1, wanted, dt, reduced);
+                if (lift > 0f) label.transform.position = home + new Vector3(0f, lift, 0f);
             }
             for (int i = BeaconsUsed; i < _beacons.Count; i++) if (_beacons[i].gameObject.activeSelf) _beacons[i].gameObject.SetActive(false);
             for (int i = BeaconsUsed; i < _beaconTexts.Count; i++) if (_beaconTexts[i].gameObject.activeSelf) _beaconTexts[i].gameObject.SetActive(false);
