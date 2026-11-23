@@ -121,7 +121,7 @@ namespace Roguehalla.Client
                 _questChoiceOverlay.gameObject.SetActive(false);
                 _nearbyQuestOverlay.gameObject.SetActive(false);
             }
-            else if (_questChoice.HasValue && !_questChoice.Equals(_questChoiceDeferred) &&
+            else if (_questChoice.HasValue && !QuestPresentation.SameHandle(_questChoice, _questChoiceDeferred) &&
                 (_questChoiceOverlay.gameObject.activeSelf || _nearbyQuestOverlay.gameObject.activeSelf ||
                     _questJournal?.IsVisible == true || WorldHudVisible))
             {
@@ -160,9 +160,23 @@ namespace Roguehalla.Client
             _questActionLauncher.interactable = others || _offerPrompt && _offerPromptLive;
             if (!others && _offerPrompt) Set(_questActionCaption, OfferCaption());
             else Set(_questActionCaption, _questChoice.HasValue ? "Choose quest reward" :
-                _nearbyQuestCount > 0 ? "Nearby quest actions · " + _nearbyQuestCount :
+                _nearbyQuestCount > 0 ? NearbyActionsCaption() :
                 pendingCount > 0 ? "Return to turn in your reward" : "");
             UpdatePromptLane();
+        }
+
+        int _nearbyCaptionCount = -1;
+        string _nearbyCaption = "";
+
+        /// <summary>"Nearby quest actions · n", rebuilt only when the count changes.</summary>
+        string NearbyActionsCaption()
+        {
+            if (_nearbyCaptionCount != _nearbyQuestCount)
+            {
+                _nearbyCaptionCount = _nearbyQuestCount;
+                _nearbyCaption = "Nearby quest actions \u00b7 " + _nearbyQuestCount;
+            }
+            return _nearbyCaption;
         }
 
         /// <summary>"F · Talk to giver", or "Talk to giver" beside the pickup pill; rebuilt only when the giver or the pair changes.</summary>
@@ -315,8 +329,8 @@ namespace Roguehalla.Client
                 {
                     if (action.Action != QuestPresentation.RewardChoice) continue;
                     if (!QuestPresentation.IsPending(view, action.Quest)) continue;
-                    if (!_questChoice.HasValue || _questChoice.Equals(_questChoiceDeferred)) _questChoice = action.Quest;
-                    if (!_questChoice.Equals(_questChoiceDeferred)) break;
+                    if (!_questChoice.HasValue || QuestPresentation.SameHandle(_questChoice, _questChoiceDeferred)) _questChoice = action.Quest;
+                    if (!QuestPresentation.SameHandle(_questChoice, _questChoiceDeferred)) break;
                 }
                 if (_questChoice.HasValue)
                 {
@@ -370,7 +384,7 @@ namespace Roguehalla.Client
             foreach (var button in _questChoiceButtons) button.interactable = false;
         }
 
-        bool WaitingForQuestChoice => _questChoice.HasValue && _questChoice.Equals(_questChoiceSent) &&
+        bool WaitingForQuestChoice => _questChoice.HasValue && QuestPresentation.SameHandle(_questChoice, _questChoiceSent) &&
             Time.unscaledTimeAsDouble < _questChoiceRetryAt;
 
         /// <summary>The Shift and Q tiles and the "Equipped" line, from the delivered spells (both Empty without a quest view or spell).
@@ -485,6 +499,10 @@ namespace Roguehalla.Client
     internal static class QuestPresentation
     {
         public const byte Abandon = 1, RewardChoice = 8, PickupReward = 9;
+
+        /// <summary>Null-aware handle compare that boxes nothing (both null equal, one null not).</summary>
+        public static bool SameHandle(QuestHandle? a, QuestHandle? b) =>
+            a.HasValue ? b.HasValue && a.Value.Equals(b.Value) : !b.HasValue;
 
         // Rust board rewards' wire order. These labels are presentation only.
         static readonly string[] Rewards =
