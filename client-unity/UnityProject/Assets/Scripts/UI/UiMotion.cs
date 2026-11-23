@@ -12,7 +12,7 @@ namespace Roguehalla.Client
         public static bool Reduced { get { return ReducedOverride ?? (ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion); } }
     }
 
-    /// <summary>A fade for one panel: alpha through a CanvasGroup, pointer blocked while it fades out. The owner ticks it.</summary>
+    /// <summary>A fade for one panel: alpha through a CanvasGroup, pointer blocked while it fades out. The owner ticks it. The owner shows and hides the root through Set and Snap only (a direct SetActive leaves the fade's state stale).</summary>
     public sealed class HudFade
     {
         public const float InSeconds = .12f, OutSeconds = .25f;
@@ -31,6 +31,8 @@ namespace Roguehalla.Client
             if (_group == null) _group = _root.gameObject.AddComponent<CanvasGroup>();
             _shown = _root.gameObject.activeSelf;
             _alpha = _shown ? _group.alpha : 0f;
+            bool takes = _shown && _interactive;
+            _group.blocksRaycasts = takes; _group.interactable = takes;
         }
 
         /// <summary>The wanted state.</summary>
