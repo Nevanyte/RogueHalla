@@ -77,6 +77,11 @@ pub struct Walker {
     refused: Option<(String, f64)>,
 }
 
+/// Minutes of walk a route timer of `ms` stands for: the timer is a floor under `route_pace x walk + slack`.
+pub(super) fn timer_spend_minutes(ms: u64) -> f64 {
+    ((ms as f64 / 1000. - TIMER_BASE_S) / 1.5 / 60.).max(0.1)
+}
+
 fn dist(a: Vec2, b: Vec2) -> f64 {
     rh_sim::math::hypot(a.x - b.x, a.y - b.y)
 }
@@ -249,9 +254,9 @@ impl Walker {
             // its own path walk plus 15 s, which says how far the route goes.
             // An upper bound on the walk: the route timer is a floor under the server's `1.5 x walk + 15 s`, so this
             // overstates short routes and biases the bot against short quests before it accepts.
-            let spend = book.route_timer_ms.map_or(UNTIMED_WALK_MIN, |ms| {
-                ((ms as f64 / 1000. - TIMER_BASE_S) / 1.5 / 60.).max(0.1)
-            });
+            let spend = book
+                .route_timer_ms
+                .map_or(UNTIMED_WALK_MIN, timer_spend_minutes);
             if book.reward.kind() != RewardKind::Permanent && slots_taken(cx) >= SPELL_SLOTS {
                 return None;
             }

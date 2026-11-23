@@ -225,6 +225,47 @@ pub(crate) static TOP25: Top25Tuning = Top25Tuning {
     wall_anchor_margin: TILE,
 };
 
+/// The published quest rules a bot may read (P-RAID-TOP25-READ-1): static design numbers, built from `TOP25`, like the
+/// catalog. Not state, not hashed, not an observation, not reachable from a `Command`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct QuestPublicRules {
+    /// Hold the Fort: ms to dwell (the quest text says the seconds).
+    pub fort_ms: f64,
+    /// Stay a While: ms to meditate (the quest text says the seconds).
+    pub meditate_ms: f64,
+    /// Range of a giver contact, accept and turn-in (u).
+    pub contact_range: f64,
+    /// Range of the fort token that counts as inside (u).
+    pub fort_range: f64,
+    /// The Bargain: stacks given up (the reward text says it).
+    pub bargain_cost: u64,
+    /// The Bargain: stacks received (the reward text says it).
+    pub bargain_stacks: u64,
+    /// Route deadline: ms of deadline per second of walk at `PLAYER_SPEED`.
+    pub route_pace: f64,
+    /// Route deadline: ms added on top of the paced walk.
+    pub route_slack_ms: f64,
+}
+
+/// The public rules, read from `TOP25` at each call.
+#[must_use]
+pub fn public_rules() -> QuestPublicRules {
+    QuestPublicRules {
+        fort_ms: TOP25.fort_ms,
+        meditate_ms: TOP25.meditate_ms,
+        contact_range: TOP25.contact_range,
+        fort_range: TOP25.fort_range,
+        bargain_cost: TOP25.bargain_cost,
+        bargain_stacks: TOP25.bargain_stacks,
+        route_pace: TOP25.route_pace,
+        route_slack_ms: TOP25.route_slack_ms,
+    }
+}
+
+#[cfg(test)]
+#[path = "public_rules_tests.rs"]
+mod public_rules_tests;
+
 #[cfg(test)]
 #[path = "tuning_tests.rs"]
 mod tests;

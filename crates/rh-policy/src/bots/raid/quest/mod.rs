@@ -10,6 +10,8 @@ pub mod dwell;
 #[cfg(test)]
 mod dwell_tests;
 pub mod hunt;
+#[cfg(test)]
+mod public_rules_tests;
 pub mod pvp;
 pub mod search;
 pub mod walker;

@@ -121,6 +121,15 @@ pub struct Dwell {
     breaks: u8,
 }
 
+/// Seconds the dwell quest `def` needs.
+pub(super) fn dwell_seconds(def: &str) -> f64 {
+    if def == HOLD {
+        HOLD_S
+    } else {
+        STAY_S
+    }
+}
+
 fn dist(a: Vec2, b: Vec2) -> f64 {
     rh_sim::math::hypot(a.x - b.x, a.y - b.y)
 }
@@ -275,7 +284,7 @@ impl Dwell {
         }
         let giver = at(row.giver);
         let me = cx.p.me.at;
-        let dwell_s = if def == HOLD { HOLD_S } else { STAY_S };
+        let dwell_s = dwell_seconds(def);
         let left_s = (dwell_s - f64::from(row.owner_progress)).max(0.);
         // The point the dwell happens at, the minutes it takes (the walk, and for the hold the way back), and what can cut it.
         let (minutes, spot, success) = if def == HOLD {
