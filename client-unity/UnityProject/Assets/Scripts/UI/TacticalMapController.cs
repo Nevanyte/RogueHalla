@@ -539,18 +539,25 @@ namespace Roguehalla.Client
             _contacts.Clear(); _bound.Snapshots.Sample(_bound.Snapshots.NewestMs, _contacts);
             var text = new StringBuilder();
             int shown = 0;
-            var groups = new List<KeyValuePair<string, int>>();
+            var groups = new List<(int Faction, int Kind, int Count)>();
             foreach (var actor in _contacts)
             {
                 if (actor.Id == _bound.PlayerId) continue;
                 shown++;
                 string faction = actor.Faction.HasValue ? ShowcasePalette.GetFactionName((int)actor.Faction.Value) : "Neutral";
                 if (actor.Kind == ActorKind.Player) { text.Append(faction).Append(" · Player\n"); continue; }
-                string key = faction + " · " + actor.Kind;
-                int at = groups.FindIndex(g => g.Key == key);
-                if (at < 0) groups.Add(new KeyValuePair<string, int>(key, 1)); else groups[at] = new KeyValuePair<string, int>(key, groups[at].Value + 1);
+                int f = actor.Faction.HasValue ? (int)actor.Faction.Value : -1;
+                int k = PlayerWords.IsNamed(actor.Kind) ? (int)actor.Kind : 255;
+                int at = 0;
+                while (at < groups.Count && (groups[at].Faction < f || (groups[at].Faction == f && groups[at].Kind < k))) at++;
+                if (at < groups.Count && groups[at].Faction == f && groups[at].Kind == k) groups[at] = (f, k, groups[at].Count + 1);
+                else groups.Insert(at, (f, k, 1));
             }
-            foreach (var g in groups) text.Append(g.Key).Append(" x").Append(g.Value).Append("\n");
+            foreach (var g in groups)
+            {
+                PlayerWords.AppendContactRow(text, g.Faction < 0 ? null : ShowcasePalette.GetFactionName(g.Faction), (ActorKind)g.Kind, g.Count);
+                text.Append('\n');
+            }
             if (shown == 0) text.Append("No other contacts in view.");
             _contactsText.text = text.ToString().TrimEnd('\n');
             _counterGuide.SetWeapon(_bound.Me != null ? _bound.Me.Weapon.ToString() : "fists");
