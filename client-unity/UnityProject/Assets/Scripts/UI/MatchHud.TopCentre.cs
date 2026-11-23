@@ -43,8 +43,10 @@ namespace Roguehalla.Client
             // A match that ended with a result: the results card is the truth, not a stale join status (P-UNITY-HUD-VISUAL-FIX-4).
             // LastResult belongs to one Session (a new join builds a new one, MatchClient), so this never hides a later join's notice; Failed and Reconnecting still show.
             if (_session != null && _session.State == SessionState.Rejected && _session.LastResult != null) showBanner = false;
+            bool runOver = _session != null && _session.State == SessionState.Ended;
+            if (runOver) showBanner = false;
             if (_bannerPill.gameObject.activeSelf != showBanner) _bannerPill.gameObject.SetActive(showBanner);
-            bool phase = !showBanner && _hud.gameObject.activeSelf && _phaseStrip != null && !string.IsNullOrEmpty(_phaseStrip.text);
+            bool phase = !showBanner && _hud.gameObject.activeSelf && _phaseStrip != null && !string.IsNullOrEmpty(_phaseStrip.text) && (!runOver || _matchEnded);
             if (_phasePill.gameObject.activeSelf != phase) _phasePill.gameObject.SetActive(phase);
             _topCentreBottom = showBanner ? BannerTop + _bannerPill.sizeDelta.y : phase ? BannerTop + _phasePill.sizeDelta.y : 0f;
         }

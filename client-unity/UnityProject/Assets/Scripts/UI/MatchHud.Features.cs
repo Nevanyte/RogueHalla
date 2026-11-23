@@ -163,7 +163,7 @@ namespace Roguehalla.Client
         void NoteMatchEnded(Roguehalla.Net.Protocol.ServerMsg.Events batch)
         {
             foreach (var e in batch.List)
-                if (e.Kind == Roguehalla.Net.Protocol.EventKind.MatchEnded) { _matchEnded = true; _winnerId = e.Draw ? null : e.Winner; _winnerLabel = null; _winnerLabelFor = null; }
+                if (e.Kind == Roguehalla.Net.Protocol.EventKind.MatchEnded) { _matchEnded = true; _winnerId = e.Draw ? null : e.Winner; _winnerLabel = null; _winnerLabelFor = null; _nextMetricsAt = 0d; }
         }
         // A new match on a reused Session (rematch without a fresh Bind) must not inherit the previous winner: entering InMatch clears it.
         void NoteSessionState(SessionState state) { if (state == SessionState.InMatch) ResetMatchEnded(); }
