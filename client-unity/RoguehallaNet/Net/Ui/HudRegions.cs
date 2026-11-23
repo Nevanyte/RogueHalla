@@ -124,13 +124,25 @@ namespace Roguehalla.Net.Ui
         public const float PromptPairHalfGap = 4f, PairScaleMin = .6f;
 
         /// <summary>The row scale for the lane: NaN and infinities give 1, else clamped to PairScaleMin..1.</summary>
-        public static float PairScale(float rowScale) => rowScale;
+        public static float PairScale(float rowScale) =>
+            float.IsNaN(rowScale) || float.IsInfinity(rowScale) ? 1f : rowScale < PairScaleMin ? PairScaleMin : rowScale > 1f ? 1f : rowScale;
 
         /// <summary>The pair at row scale `scale`: the stage rectangle of element index (0 pill, else launcher).</summary>
-        public static HudRegion PromptPair(int index, float scale) => default(HudRegion);
+        public static HudRegion PromptPair(int index, float scale)
+        {
+            float s = PairScale(scale);
+            float x = (index == 0 ? -1f : 1f) * (PromptPairWidth / 2f + PromptPairHalfGap) * s;
+            return new HudRegion(HudRegionAnchor.BottomCenter, x, ConsumablesBottom + (PromptBottom - ConsumablesBottom) * s,
+                PromptPairWidth * s, PromptHeight * s);
+        }
 
         /// <summary>The lone prompt at row scale `scale`: the stage rectangle of the launcher or the pill alone.</summary>
-        public static HudRegion PromptLone(float scale) => default(HudRegion);
+        public static HudRegion PromptLone(float scale)
+        {
+            float s = PairScale(scale);
+            return new HudRegion(HudRegionAnchor.BottomCenter, 0f, ConsumablesBottom + (PromptBottom - ConsumablesBottom) * s,
+                PromptWidth * s, PromptHeight * s);
+        }
 
         /// <summary>min(wanted, stageWidth - 2 * Margin).</summary>
         public static float LaneWidth(float stageWidth, float wanted = LaneMaxWidth)
