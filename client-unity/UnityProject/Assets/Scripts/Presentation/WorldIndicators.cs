@@ -38,6 +38,8 @@ namespace Roguehalla.Client
         public int MarkersShown { get { return _markersUsed; } }
 
         public WorldIndicators(Transform root) { _root = root; }
+        /// <summary>Stub (P-UI-WORLD-LABELS-1): stored and ignored.</summary>
+        public LocalClusterSource LocalCluster { get; set; }
         /// <summary>Test seam: the seconds text currently shown over ring <paramref name="index"/>, or null when hidden.</summary>
         public string SecondsShownForTest(int index) { return index < _rings.Count && _rings[index].Seconds.Text.gameObject.activeSelf ? _rings[index].Seconds.Text.text : null; }
 

@@ -30,7 +30,13 @@ namespace Roguehalla.Client
         public static string LookKey(TradeKind kind) { return kind == TradeKind.Stats ? "mage" : "mage-female"; }
 
         /// <param name="canSee">True when the ground at a sim position is not fogged; null shows everything (no fog yet).</param>
-        public void Update(CollectionsView c, System.Func<float, float, bool> canSee)
+        public void Update(CollectionsView c, System.Func<float, float, bool> canSee) { Update(c, canSee, Time.unscaledDeltaTime); }
+
+        /// <summary>Stub (P-UI-WORLD-LABELS-1): the cluster source is stored and ignored, <paramref name="dt"/> is ignored.</summary>
+        public LocalClusterSource LocalCluster { get; set; }
+
+        /// <summary>Stub: the same as the two-argument Update.</summary>
+        public void Update(CollectionsView c, System.Func<float, float, bool> canSee, float dt)
         {
             _used = 0;
             if (c != null)

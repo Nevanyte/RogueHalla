@@ -233,6 +233,9 @@ namespace Roguehalla.Client
             _extras.AddMarkObstacles(into);
         }
 
+        /// <summary>Stub (P-UI-WORLD-LABELS-1): adds nothing.</summary>
+        internal void AddOverheadObstacles(List<Rect> into) { }
+
         internal static void AddVisibleRect(SpriteRenderer sprite, List<Rect> into)
         {
             if (sprite.enabled && sprite.color.a > 0f) into.Add(CombatHudPlacement.FromBounds(sprite.bounds));
