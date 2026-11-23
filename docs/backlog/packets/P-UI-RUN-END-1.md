@@ -118,7 +118,29 @@ Sonnet: four one-line edits in four files, each pinned by a test. Risk is in the
 
 ## Notes from the oracle author
 
-(Filled in the oracle commit: the tests, which are red and on what, the scratch run.)
+No stub commit: every test reads the HUD by reflection and the public `ShowPlayerFlow`, `ReadUiInput`, `ServerNotices`, so nothing needed a signature.
+
+`RunEndEditModeTests` (`Tests/Editor/RunEndEditModeTests.cs`, 17 cases). Spec test numbers in brackets. Two deviations from the spec's wording, same behaviour pinned: the spec's test 12 guards are four separate tests (`GUARD_ReconnectingStillShowsItsPill`, `GUARD_FailedStillShowsItsPill`, `GUARD_ARejectedJoinWithAResultStillHidesItsPill`, `GUARD_ARejectedJoinWithNoResultStillShowsItsPill`); the spec's test 3 reaches Spectate with no MatchEnded event (Spectate needs State InMatch).
+
+Red on the stub (first failing assertion in the real run; the later red lines are in the scratch run below):
+- `ADefeatHidesTheBannerAndShowsTheRunOverLine` [1]: "no banner over a finished run (before the card)", expected False was True.
+- `TheTopPillDoesNotFollowTheCardAcrossAFlow` [5]: "no banner behind the flow", expected False was True.
+- `ADrawOrAnUnknownWinnerReadsBareRunOver` (2 cases) [6]: "the line is shown", expected True was False (phase pill; the banner is on).
+- `TheStripIsCurrentOnTheFrameTheEndArrives` [7]: strip expected "Run over — Quill is victorious" was "FORMING MATCH".
+- `AnEndWithTheEventAndNoResultShowsRunOverOnTheTop` [8]: "no banner over the card".
+- `AnEndWithoutTheEventShowsNoTopPill` [9]: "no banner over an ended run".
+- `TheLauncherLeavesAtTheDefeatResultAndStaysGone` [2]: "the launcher is gone with the result, before the card".
+- `TheLauncherReturnsWhileSpectatingAndLeavesWithTheCardAgain` [3]: "the launcher leaves with the card again" (its GUARD line, the launcher while spectating, is green).
+- `JOpensTheNoticesAfterTheEndAndCloseReturnsToACardWithoutALauncher` [4]: "no launcher with the card back" (the J lines are green).
+- `TheEndedPhaseWordIsRunOver` [10]: banner text expected "Run over" was "Match ended".
+
+Green on the stub (guards): `GUARD_TheEndedTermKeepsAStaleLineOffTheTop` [9], `GUARD_TheOtherPhaseWordsAreUntouched` [11], and the four `GUARD_` tests of [12].
+
+Scratch run (not committed): a copy of the class with every `Assert.That` replaced by a catch-and-collect helper, one run on the stub. Every collected entry was an assertion about the missing behaviour and no other exception occurred: [1] four (banner on, phase pill off, each before and with the card); [5] four (banner on, phase pill off, each behind the flow and with the card back); [6] two per case (phase pill off, banner on); [7] two (strip stale, phase pill off); [8] three (banner on, phase pill off, launcher on); [9] one (banner on); [2] two (launcher on before the card and under it); [3] one; [4] one; [10] two (banner and plate read "Match ended"). Each test's set-up assertions, the strip lines of [1] and the guard lines passed. Note for the implementer: the pill off in [6], [7] and [8] is a consequence of the banner being on, so one `showBanner = false` rule turns several lines green at once.
+
+Existing classes run on the stub, all green: HudWordsEditModeTests, HudVisualFix4EditModeTests, BannerPillAfterResultFix4EditModeTests (21 tests); PlayerFlowsEditModeTests, MatchSettlementEditModeTests, TabMapSheetEditModeTests, HudVisualFixEditModeTests, HudPhasePillNarrowEditModeTests (49 tests).
+
+Not established by the oracle: practice after the end (no test; the rule leaves it as is); `hud-seams.test.cjs` (the implementer runs it).
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
