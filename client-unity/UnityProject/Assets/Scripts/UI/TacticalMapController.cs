@@ -377,7 +377,15 @@ namespace Roguehalla.Client
                 (_bound.State == SessionState.InMatch || _bound.State == SessionState.Reconnecting);
             bool shown = _miniRoot.gameObject.activeSelf;
             if (!visible && shown) EndMinimapGesture();   // on the transition only; ends a peek's camera once
-            if (visible != shown) { _miniRoot.gameObject.SetActive(visible); if (visible) MarkRepaint(); }
+            if (visible != shown)
+            {
+                _miniRoot.gameObject.SetActive(visible);
+                if (visible)
+                {
+                    MarkRepaint();
+                    if (_bound != null && _bound.Map != null) { PresentMini(); FollowDrawn(); }   // current on the call that shows it
+                }
+            }
             bool open = IsOpen;
             if (open != _largeShown)
             {
