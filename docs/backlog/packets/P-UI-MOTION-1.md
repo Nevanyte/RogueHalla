@@ -154,7 +154,29 @@ Low: new self-contained files, pure maths plus one Unity helper. implementer-son
 - `HudFade.Tick` does nothing and allocates nothing when not Active and not Shown.
 
 ## Notes from the oracle author
-(filled below after the run)
+Run on the stub (all red on assertions, none on a compile error or missing member):
+- dotnet `UiEaseTests` (13 tests) and `HudClockTests` (8): 21 of 21 failed on value assertions (e.g. `Clamp01(.25)` gave 0,
+  `Ready` stayed false, `Now` gave 0).
+- Unity `UiMotionEditModeTests`: 13 of 13 failed on assertions (e.g. "a hidden panel is deactivated", "HudFade adds a
+  CanvasGroup to its root", pulse count 0 instead of 1, scale not above 1 mid pulse).
+- Existing classes: none pin this code (new files only), so there is no existing class to re-run.
+
+Where the tests go beyond or differ from the spec text:
+- Pulse tests use a point-anchored rect (anchorMin == anchorMax, as `HudUi.Place` makes), with the three pivots of the
+  spec; a stretched-anchor rect is not tested (the packet states pulses need a point anchor).
+- `APulseScalesAboutTheCentreWhateverThePivot` also pins the formula `scale = 1 + Pop * sin(pi t)` at 14 points (1e-3),
+  the end state (scale exactly 1, `anchoredPosition` exactly the original) and that a finished pulse leaves `Count` 0.
+- `ReducedMotionPulseDoesNotScale` ends with a normal pulse after reduced motion is turned off: without it the test
+  would pass on the stub (a pulse that does nothing is also "not scaled"). It does not pin whether a reduced pulse is
+  counted in `Count`.
+- `AnIdleTickAllocatesNothing` first asserts a settled shown fade (Alpha 1) and a settled hidden fade (inactive), for the
+  same reason (no pass on the stub); the measurement is the `ChampionPanelNoGarbageEditModeTests` pattern.
+- Extra tests: `SettingTheWantedStateAgainDoesNothing`, `AFadeUsesAnExistingCanvasGroupAndAddsOnlyOne`,
+  `ARestartedPulseRestartsTheClockAndKeepsTheFirstOriginal` (rules of the packet that had no listed test).
+- `HudClockTests.BetweenSnapshotsNowRisesWithLocalTime` is ordered so that the "never lower than the previous answer"
+  rule does not contradict its expectation (a snapshot is applied before `Now` is asked past it).
+- `UiEase.Approach` is pinned only by behaviour (a frame moves part of the gap, no overshoot, gap at most 15 percent
+  after `seconds`, exact landing, jump under epsilon or reduced, no move at dt 0), not by a formula.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation. -->
