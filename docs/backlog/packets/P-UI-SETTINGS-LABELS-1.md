@@ -100,7 +100,13 @@ New classes `SettingsLabelsEditModeTests` and `HelpBodyEditModeTests` (tests 9, 
 15. `TheHelpPanesShowTheirPositionCue` (`HelpBodyEditModeTests`): `ControlsScroll/ScrollIndicator` and `MechanicsScroll/ScrollIndicator` exist; active when the content is taller.
 
 ## Oracle files (read-only for implementers)
-ORACLE_FILES_PLACEHOLDER
+- `client-unity/UnityProject/Assets/Tests/Editor/SettingsLabelsEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/SettingsLabelsEditModeTests.cs.meta`
+- `client-unity/UnityProject/Assets/Tests/Editor/HelpBodyEditModeTests.cs`
+- `client-unity/UnityProject/Assets/Tests/Editor/HelpBodyEditModeTests.cs.meta`
+- `docs/backlog/packets/P-UI-SETTINGS-LABELS-1.md` (this packet)
+
+The stub (`stub:` commit, the implementer replaces it): `client-unity/UnityProject/Assets/Scripts/UI/HudUi.cs`, `HudUi.Unfit` returns its argument. `SettingsLabelsEditModeTests.cs` also holds the shared helper classes `SettingsEnv` and `SettingsRig` that `HelpBodyEditModeTests` uses (internal, same assembly).
 
 ## 9. Validation commands
 - `.agent-runs/lane-ui-rework/bin/unity-class.sh <worktree> SettingsLabelsEditModeTests,HelpBodyEditModeTests,ModernSettingsLayoutEditModeTests,HelpGuideViewEditModeTests` (the lane helper), then the gate above.
@@ -116,7 +122,26 @@ Sonnet. Hard parts: the stacked note row (a `VerticalLayoutGroup` overwrites the
 - The packet branch stays linear; the implementer's branch merges `packet/<ID>`, never the reverse.
 
 ## Notes from the oracle author
-NOTES_PLACEHOLDER
+**Result on the stub (Unity EditMode, `unity-class.sh`, 2026-11-23).** 41 new test cases (27 in `SettingsLabelsEditModeTests`, 14 in `HelpBodyEditModeTests`): 36 red, 5 green. The 5 green are the two named standing guards, tests 6 (4 scales) and 7 (1 case), as the spec says. Every red case fails on an assertion about the missing behaviour, never on an exception:
+- Test 1 (8 cases), test 3, test 13: "labels of the card are not at their wanted size" (the six note-row labels are still fitted: size 6 against 13 / 11, scale-dependent), and "16 to 17 of 40 labels differ from a refit on their laid-out box" (Fullscreen 6 against 13 at scale 1).
+- Test 2: "8 labels ... not at their wanted size" (the note "Alt+Enter does the same." at 7.74 against 11, Quick cast hint at 6).
+- Test 4 (4 scales): "the note is not fitted to its box" (it is), its size is 6, its box is 142 wide against the row's 292.
+- Test 5 (4 scales): "row leaves its height to the layout group" (`preferredHeight` 44 against -1), label not above the note, margin.z 0 against 48, switch 8 units off the label line.
+- Test 8: "the opening refits: 13" (7.77 against 13). Test 12: Unfit gives the wanted size (7.77 against 13). Test 14 and 15: no `ScrollIndicator` node.
+- Tests 9 (8 cases), 10 (4), 11: the help body at 6 against 11.05 / 13 / 16.25 / 19.5; margin.z 0 against 8; the box 861 / 806 units against the 1585 to 3630 the text needs.
+Existing classes run on the stub, all green (100 existing cases): `ModernSettingsLayoutEditModeTests`, `HelpGuideViewEditModeTests`, `HudLegacyLayoutEditModeTests`, `HudTextScaleEditModeTests`, `ControlsLineEditModeTests`, `UiInputRoutingEditModeTests`, `AsleepFitEditModeTests`, `TrainingConsoleIntegrationEditModeTests`.
+
+**Throwaway implementation.** Per the spec's trap, the whole design was written (uncommitted, then discarded: nothing of it is in this branch, `git diff packet/P-UI-SETTINGS-LABELS-1` in the product files is `Unfit` only) and ran green on all 41 cases: `Fit` in the (a) to (e) order with `_fitting` / `_fitScale`, `SettingsChanged`, `RefitLabels` with one `List`, the stacked note row (`VerticalLayoutGroup` 0/0/4/3, `preferredHeight = -1`, `ignoreLayout` on `Rule` and `Value`, label `LayoutElement` minHeight 20 and margin right 48, `Value` at TopRight x 0 y 4), `HudUi.Unfit`, `ScrollIndicator` on the card's `SettingsScroll` and on both help frames, help body margin right 8. The stacked row needed no fallback. It is about 50 changed lines in the three files.
+
+**Scratch run with a catch-and-collect helper** (not committed; one run over copies of both classes where every `Assert.` is a collecting `Soft.`, the failures listed at TearDown): on the stub every entry is an assertion about the missing behaviour (the lists above); no exception from set-up, delivery, lookup or null (Test 14 and 15 stop at their node-missing assertion by design: their later lines are proven by the throwaway run, which was green). Checks made in the scratch runs:
+- The Editor's echo: after `SettingsRig` ends its build, Own's scale equals the test's scale and the gear raises no further Changed event (Changes 1 before and 1 after the gear with a step fired, at all four scales): the echo comes out during the build, before the rig sets the scale. Test 1's counter asserts the events the test fires before the gear; the counter after the gear was read in the scratch run only.
+- Test 7 turns red when `SettingsChanged` fits on every Changed (the `Mathf.Approximately` condition removed): "a Changed event at the same text scale does not fit the card" (740 against 773). W (labels at their wanted size and clean, fitted, active): 23 of 40 on the base, 34 of 34 on the reference cure; the floor of 20 holds on both. `AllocationMeter.Samples(ApplyViewport(same viewport), 20)`, three runs each: 0, 0, 0 on the reference cure and 0, 0, 0 on the base (meter: GC.Alloc profiler samples, calling thread only; the meter's own controls passed). So `FitBaseSamples` = 0 (`AssertAtMost` with 0): if the finished code makes any sample the implementer reports it; nobody raises the limit silently.
+- Measured on the reference cure (replaces the spec's estimates), label line L (`preferredHeight` of the label), H = max(L, 20), switch-to-label-line gap, at scale .85 / 1 / 1.25 / 1.5: L 15.08 / 17.74 / 22.17 / 26.6; H 20 / 20 / 22.17 / 26.6; gap 0 / 0 / 1.08 / 3.3 (the test allows (H - 20) / 2 + 1: 1 / 1 / 2.08 / 4.3). Note lines: Fullscreen and Tab toggles map 1 line, Quick cast 2 / 3 / 3 / 4. Row heights: Fullscreen 44 / 44 / 47.93 / 56.11, Quick cast 52.51 / 72.02 / 85.44 / 123.63. Content 748.5 / 768.0 / 789.3 / 843.9 against a 694 viewport and a 740 card at all four scales (the footer then lies 55 / 74 / 95 / 150 units below the fold, as the spec accepted; the base: content 740, 46 below).
+- Help, with the rig as built (the help card keeps its creation height 640, so the viewport is 476 here, not 600; the test never relies on 600): Controls body 1585.6 / 1954.1 / 2597.7 / 3383.3 units at .85 / 1 / 1.25 / 1.5 (3.3 to 7.1 viewports), Mechanics 1665.5 / 2065.8 / 2826.1 / 3630.6; so both tabs scroll at all four sizes, and test 10's "above the viewport" holds on both.
+
+**Deviations from the spec's test list.** The spec's tests 9, 10, 11 and 15 are in `HelpBodyEditModeTests` (the optional second class). Test 6 and 7 are green on the base by design. Test 1, 2, 3 and 13 compare each label with a refit on its laid-out box; the check reads the six note labels and the five named labels BEFORE any refit (a refit would heal them and hide the defect), and the later `Refit()` calls heal the labels, so a second check in the same test (test 3) follows the first one's refit. Test 14 sets no `ScrollRect.LateUpdate`; it invokes `onValueChanged` as the journal test does. None of this needed a change of design: the spec was right about the code.
+
+**For the owner** (from the spec, repeated for the hand-off): may the arrow keys, Page Up and Down, Home and End scroll the help window and the settings card, as in the quest journal? Not done here: it would make keys act where they do nothing today.
 
 ## Notes from previous attempts
 <!-- Coordinator appends on escalation: tier, branch, the gate's failure block. Nothing else. -->
