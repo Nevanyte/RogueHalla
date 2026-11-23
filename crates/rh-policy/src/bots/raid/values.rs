@@ -145,6 +145,12 @@ pub struct ElitePrices {
     /// A camp member's max hp as a share of its elite's (Rework: `MOB_K` 0.22 x 2.0 against `ELITE_K` 0.65 x 1.5,
     /// `constants.rs`): the fight's tally counts the adds destroyed in elites' worth.
     pub add_hp: f64,
+    /// The share of fights the RaidBot ends with the elite dead inside `give_up_seconds`, by kind (`MobTypeId::as_str`),
+    /// where measured; a kind with no row is 1 (the bench's duelist cleared what it did not die to). Measured in the
+    /// `tests/raid_elite.rs` harness (sword, Holy, seed1 fixture map, seeds 1 to 6, the take forced by `death_loss` 0):
+    /// executioner 6 of 6 (36 stacks, 2 potions); Blood Saint 0 of 12 (0 stacks and 36 stacks with 2 potions: it
+    /// moves faster than a melee lock follows, its hp fell 0.35 in 120 s, and no fight was lost either).
+    pub kind_clear: &'static [(&'static str, f64)],
 }
 
 impl ElitePrices {
@@ -167,6 +173,7 @@ impl ElitePrices {
         tally_min_dealt: 0.1,
         tally_min_lost: 0.1,
         add_hp: 0.45,
+        kind_clear: &[],
     };
     pub const LOCAL: Self = Self {
         on: true,
@@ -205,6 +212,7 @@ impl ElitePrices {
         tally_min_dealt: 0.1,
         tally_min_lost: 0.1,
         add_hp: 0.45,
+        kind_clear: &[("executioner", 1.), ("bloodSaint", 0.)],
     };
 }
 

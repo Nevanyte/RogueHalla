@@ -420,7 +420,7 @@ impl Elite {
         Candidate {
             goal: RaidGoal::new(GoalKind::Elite, Target::Camp(camp.index)),
             value: e.share + e.pool_pick,
-            success: (1. - death) * cx.prices.pick_success,
+            success: (1. - death) * clear_share(&e, kind) * cx.prices.pick_success,
             death,
             loss: cx.prices.death_loss,
             minutes: walk
@@ -754,6 +754,15 @@ impl Executor for Elite {
             None => Step::none(),
         }
     }
+}
+
+/// The share of fights with the elite of `kind` the bot ends with a kill (`ElitePrices::kind_clear`, 1 with no row).
+pub fn clear_share(elite: &ElitePrices, kind: MobTypeId) -> f64 {
+    elite
+        .kind_clear
+        .iter()
+        .find(|(k, _)| *k == kind.as_str())
+        .map_or(1., |(_, c)| c.clamp(0., 1.))
 }
 
 /// The bench row of `kind` read at `camps` banked camps: linear between the `camp_columns`, held at the ends.
