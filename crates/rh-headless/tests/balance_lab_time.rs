@@ -125,29 +125,45 @@ fn without_a_fight_or_a_quest_a_step_is_moving_resting_or_idle() {
     );
 }
 
+/// Coordinator's oracle-amend (2026-11-23): the three fight kinds are tried in trails of their own. The first form put a
+/// camp hit, an elite hit and a player hit on consecutive steps and expected `Player` on the last, against the brief's
+/// rule (the highest-ranked OPEN window wins) and against `a_new_hit_restarts_the_window_and_each_kind_has_its_own`.
 #[test]
 fn an_open_quest_attempt_splits_into_moving_and_still_and_loses_to_any_fight() {
     let t = trail(&[
         quest(alive()),
         quest(walking(alive())),
         quest(hurt(alive())),
-        camp(quest(alive())),
-        elite(quest(walking(alive()))),
-        player(quest(alive())),
     ]);
     assert_eq!(
         t,
-        [
-            Bucket::QuestStill,
-            Bucket::QuestMoving,
-            Bucket::QuestStill,
-            Bucket::Camp,
-            Bucket::Elite,
-            Bucket::Player
-        ]
+        [Bucket::QuestStill, Bucket::QuestMoving, Bucket::QuestStill]
+    );
+    assert_eq!(
+        trail(&[quest(alive()), camp(quest(alive()))]),
+        [Bucket::QuestStill, Bucket::Camp]
+    );
+    assert_eq!(
+        trail(&[quest(walking(alive())), elite(quest(walking(alive())))]),
+        [Bucket::QuestMoving, Bucket::Elite]
+    );
+    assert_eq!(
+        trail(&[quest(alive()), player(quest(alive()))]),
+        [Bucket::QuestStill, Bucket::Player]
+    );
+    // With several windows open the highest-ranked one wins, whatever the newest hit was.
+    assert_eq!(
+        trail(&[
+            camp(quest(alive())),
+            elite(quest(walking(alive()))),
+            player(quest(alive())),
+        ]),
+        [Bucket::Camp, Bucket::Elite, Bucket::Elite]
     );
 }
 
+/// Coordinator's oracle-amend (2026-11-23): step 3 (a camp hit one step after an elite hit) is `Elite`, not `Camp`:
+/// the elite window opened at step 2 is still open and outranks the camp's. Movement is tried in trails of its own.
 #[test]
 fn the_fight_kinds_rank_elite_then_camp_then_player_and_movement_does_not_matter() {
     let t = trail(&[
@@ -163,10 +179,13 @@ fn the_fight_kinds_rank_elite_then_camp_then_player_and_movement_does_not_matter
             Bucket::Player,
             Bucket::Camp,
             Bucket::Elite,
-            Bucket::Camp,
+            Bucket::Elite,
             Bucket::Elite
         ]
     );
+    assert_eq!(trail(&[walking(camp(alive()))]), [Bucket::Camp]);
+    assert_eq!(trail(&[walking(hurt(elite(alive())))]), [Bucket::Elite]);
+    assert_eq!(trail(&[walking(hurt(player(alive())))]), [Bucket::Player]);
 }
 
 #[test]
