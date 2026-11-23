@@ -449,7 +449,7 @@ namespace Roguehalla.Client.Tests
             var name = view.Root.Find("Row0/Name/Label").GetComponent<TMP_Text>();
             var objective = view.Root.Find("Row0/Objective/Label").GetComponent<TMP_Text>();
             Assert.AreEqual(26, name.text.Length); StringAssert.EndsWith("…", name.text); Assert.IsFalse(name.text.EndsWith(" …"));
-            Assert.AreEqual(34, objective.text.Length); StringAssert.EndsWith("…", objective.text); Assert.IsFalse(objective.text.EndsWith(" …"));
+            Assert.AreEqual(33, objective.text.Length, "the cut falls on a space, which is dropped before the ellipsis"); StringAssert.EndsWith("…", objective.text); Assert.IsFalse(objective.text.EndsWith(" …"));
             Assert.AreEqual(LongName.Substring(0, 25).TrimEnd() + "…", name.text);
             Assert.AreEqual(LongObjective.Substring(0, 33).TrimEnd() + "…", objective.text);
 
