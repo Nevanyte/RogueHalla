@@ -179,6 +179,8 @@ namespace Roguehalla.Client
         RectTransform _root, _card;
         Button _controlsTab, _mechanicsTab, _closeButton;
         ScrollRect _controlsScroll, _mechanicsScroll;
+        ScrollIndicator _controlsCue, _mechanicsCue;
+        float _controlsViewH = float.NaN, _controlsContentH = float.NaN, _mechanicsViewH = float.NaN, _mechanicsContentH = float.NaN;
         TMP_Text _controlsText, _mechanicsText;
         Action _close;
         HelpGuideTab _currentTab;
@@ -209,8 +211,8 @@ namespace Roguehalla.Client
             _closeButton = HudUi.Button(_card, "HelpClose", "x", HudAnchor.TopRight, 16f, 14f, 24f, 24f, CloseByUser, theme.SizeBody, theme.CornerRadiusSmall);
             _controlsTab = HudUi.Button(_card, "ControlsTab", "Controls", HudAnchor.TopLeft, 20f, 50f, 110f, 26f, () => ShowTab(HelpGuideTab.Controls), theme.SizeBody, theme.CornerRadiusSmall);
             _mechanicsTab = HudUi.Button(_card, "MechanicsTab", "Mechanics", HudAnchor.TopLeft, 136f, 50f, 110f, 26f, () => ShowTab(HelpGuideTab.Mechanics), theme.SizeBody, theme.CornerRadiusSmall);
-            _controlsScroll = CreateTextScroll(_card, "ControlsScroll", out _controlsText);
-            _mechanicsScroll = CreateTextScroll(_card, "MechanicsScroll", out _mechanicsText);
+            _controlsScroll = CreateTextScroll(_card, "ControlsScroll", out _controlsText, out _controlsCue);
+            _mechanicsScroll = CreateTextScroll(_card, "MechanicsScroll", out _mechanicsText, out _mechanicsCue);
             _controlsText.text = FormatControls(HelpGuideContent.Controls);
             _mechanicsText.text = FormatMechanics(HelpGuideContent.Mechanics);
             ShowTab(HelpGuideTab.Controls);
@@ -242,6 +244,24 @@ namespace Roguehalla.Client
             SetTabStyle(_mechanicsTab, tab == HelpGuideTab.Mechanics);
         }
 
+        /// <summary>Refreshes the position cue of the tab on screen when its viewport or content height changed since the last refresh
+        /// (open, tab, text size, window size); a steady frame compares four numbers and does nothing else.</summary>
+        void LateUpdate()
+        {
+            if (_root == null || !_root.gameObject.activeInHierarchy) return;
+            if (_currentTab == HelpGuideTab.Controls) RefreshCue(_controlsScroll, _controlsCue, ref _controlsViewH, ref _controlsContentH);
+            else RefreshCue(_mechanicsScroll, _mechanicsCue, ref _mechanicsViewH, ref _mechanicsContentH);
+        }
+
+        static void RefreshCue(ScrollRect scroll, ScrollIndicator cue, ref float viewH, ref float contentH)
+        {
+            if (scroll == null || cue == null || !scroll.gameObject.activeInHierarchy) return;
+            float v = scroll.viewport.rect.height, c = scroll.content.rect.height;
+            if (v == viewH && c == contentH) return;
+            viewH = v; contentH = c;
+            cue.Refresh();
+        }
+
         void CloseByUser()
         {
             SetVisible(false);
@@ -258,7 +278,7 @@ namespace Roguehalla.Client
             if (label != null) { label.color = selected ? theme.TextPrimary : theme.TextSecondary; label.fontStyle = selected ? FontStyles.Bold : FontStyles.Normal; }
         }
 
-        static ScrollRect CreateTextScroll(Transform parent, string name, out TMP_Text text)
+        static ScrollRect CreateTextScroll(Transform parent, string name, out TMP_Text text, out ScrollIndicator cue)
         {
             var theme = UiTheme.Current;
             var frame = HudUi.Inset(parent, name, 20, 86, 20, 14);
@@ -276,7 +296,7 @@ namespace Roguehalla.Client
             text.richText = true; text.overflowMode = TextOverflowModes.Overflow;
             text.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scroll.viewport = viewport; scroll.content = text.rectTransform;
-            new ScrollIndicator(scroll, frame);
+            cue = new ScrollIndicator(scroll, frame);
             return scroll;
         }
 
