@@ -442,7 +442,9 @@ fn quest_verdict(
             let b = rw.direct_stacks / inp.stacks_per_camp;
             let mut g = Some(1.);
             if rw.damage_fraction > 0. {
-                g = g.zip(m.kappa).map(|(g, k)| g * rate_gain(rw.damage_fraction, k));
+                g = g
+                    .zip(m.kappa)
+                    .map(|(g, k)| g * rate_gain(rw.damage_fraction, k));
             }
             if rw.move_fraction > 0. {
                 g = g
@@ -458,9 +460,9 @@ fn quest_verdict(
                         b: -k,
                     });
                 }
-                _ => why.push(
-                    "value: needs kappa or walk share, c_eff and the pickup minute".into(),
-                ),
+                _ => {
+                    why.push("value: needs kappa or walk share, c_eff and the pickup minute".into())
+                }
             }
         }
         Some(rw) if rw.kind == "spell" => match rw.duel_equivalent_ce {
