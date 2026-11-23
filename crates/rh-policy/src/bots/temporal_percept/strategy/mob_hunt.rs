@@ -512,7 +512,9 @@ impl MobHunter {
                 continue;
             }
             let share = match (inp.self_.faction, m.faction) {
-                (Some(me), Some(theirs)) => matchup_share(me, theirs, m.kind == "elite", self.rule),
+                (Some(me), Some(theirs)) => {
+                    matchup_share(me, theirs, m.kind == "elite", m.type_.as_deref(), self.rule)
+                }
                 _ => 0.7,
             };
             let need = if m.kind != "elite" {
@@ -625,8 +627,19 @@ fn is_regional_kind(kind: &str) -> bool {
 fn distance(m: &HuntMobLike, at: Vec2) -> f64 {
     math::hypot(m.x - at.x, m.y - at.y)
 }
-fn matchup_share(me: FactionId, region: FactionId, elite: bool, rule: rh_sim::EliteRule) -> f64 {
-    crate::bots::planning::matchup_share_under(me, region, elite, rule)
+fn matchup_share(
+    me: FactionId,
+    region: FactionId,
+    elite: bool,
+    type_: Option<&str>,
+    rule: rh_sim::EliteRule,
+) -> f64 {
+    // `type_` is the mob type id; it only counts when it names an elite type of this region.
+    let ty = type_
+        .and_then(|id| rh_sim::mob_catalog::mob_type_in(region, Some(id)))
+        .filter(|t| t.elite == elite)
+        .map(|t| t.id);
+    crate::bots::planning::matchup_share_of_kind(me, region, elite, ty, rule)
 }
 fn hunt_mob_weapon(m: &HuntMobLike) -> Option<WeaponId> {
     m.weapon0
