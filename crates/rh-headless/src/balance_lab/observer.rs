@@ -1,14 +1,15 @@
 //! The read-only observer of one `balance_lab` match: after each step it reads `&Sim`, the step's events and the seats'
 //! ordinary observations, and folds them into an [`Acc`]. It never submits, draws or mutates (purity is tested by
 //! comparing state hashes with an unwatched run). Sources per metric: docs/backlog/packets/P-BAL-LAB-1.md.
-use super::acc::{Acc, AugCounts, EliteCounts, MinuteAcc, NativeAcc};
+use super::acc::{Acc, MinuteAcc, NativeAcc};
 use super::attempts::{ProbeRow, SeatTally, StepRead};
 use super::credit_window_open;
+use super::elite_fights::{tally_elites, Contact, EliteDeath, EliteStep, SeatDeath};
 use rh_sim::cards::native::readouts;
 use rh_sim::mob_catalog::{normal_types_of, MobTypeId};
 use rh_sim::quest_view::QuestView;
-use rh_sim::reward_chests::{BoostId, OptionId, RewardChestView};
-use rh_sim::{Event, FactionId, Observation, Phase, PlayerId, Sim};
+use rh_sim::reward_chests::{BoostId, OptionId, RewardChestView, DEFINITION};
+use rh_sim::{Event, FactionId, Observation, Phase, PlayerId, Sim, Vec2};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Ticks in a match minute at the live 50 ms step.
@@ -28,6 +29,32 @@ struct MobInfo {
 struct Pending {
     cleared: u32,
     healed: Option<u32>,
+}
+
+/// An elite's death whose chest the observer is looking for. The sim drops it in the death's own tick with the
+/// default lifetime, at the camp's chest spot (or the body of a campless elite): a chest row without a kill option
+/// whose `expires_at - lifetime` is the death's time (within a tick) and whose position is within the camp's reach of
+/// the elite's body or home is that chest. Once seen, its `expires_at` names it.
+struct ChestWatch {
+    elite: PlayerId,
+    killer: Option<(PlayerId, usize)>,
+    death_ms: f64,
+    body: Vec2,
+    home: Vec2,
+    expires_at: Option<f64>,
+    picked: BTreeSet<usize>,
+}
+
+/// How long a chest nobody saw is waited for after the kill before it counts as none (twice its lifetime).
+const UNSEEN_WAIT_MS: f64 = 30_000.;
+/// A tick, plus slack, between a death's time and a chest's drop time.
+const DROP_SLACK_MS: f64 = 60.;
+
+#[derive(Clone, Copy, PartialEq)]
+enum ChestClass {
+    Elite(usize),
+    Trophy,
+    Ground,
 }
 
 #[derive(Default)]
@@ -57,8 +84,19 @@ pub struct Observer {
     last_hit_on_player: BTreeMap<PlayerId, (Option<PlayerId>, f64)>,
     /// Per seat: the probe-fed quest funnel (None for a bot seat, whose probe is empty).
     attempts: Vec<Option<SeatTally>>,
-    /// (seat id, elite mob id) -> (kind, weapon) while the fight is undecided.
-    elite_open: BTreeMap<(PlayerId, PlayerId), (String, String)>,
+    /// Every step's elite facts, tallied at the end by `elite_fights::tally_elites`.
+    elite_steps: Vec<EliteStep>,
+    /// The facts of the step being read.
+    cur: EliteStep,
+    /// Camps that hold an elite, and the live elite of a camp.
+    elite_camps: BTreeSet<u32>,
+    camp_elite: BTreeMap<u32, PlayerId>,
+    dead_elites: BTreeSet<PlayerId>,
+    /// Last position and home of each elite mob (a dead mob has left the list).
+    elite_pos: BTreeMap<PlayerId, (Vec2, Vec2)>,
+    /// Chests of elite deaths still to be recognised, picked or expired.
+    chest_watch: Vec<ChestWatch>,
+    camp_count: usize,
     quests: Vec<SeatQuests>,
     chests: Vec<SeatChests>,
     farm_types: Vec<MobTypeId>,
@@ -89,7 +127,14 @@ impl Observer {
             camp_first_hit: BTreeMap::new(),
             pending: BTreeMap::new(),
             last_hit_on_player: BTreeMap::new(),
-            elite_open: BTreeMap::new(),
+            elite_steps: Vec::new(),
+            cur: EliteStep::default(),
+            elite_camps: BTreeSet::new(),
+            camp_elite: BTreeMap::new(),
+            dead_elites: BTreeSet::new(),
+            elite_pos: BTreeMap::new(),
+            chest_watch: Vec::new(),
+            camp_count: sim.camp_rosters().len(),
             farm_types,
             acc: Acc::default(),
         }
@@ -98,6 +143,10 @@ impl Observer {
     /// Reads one finished step. `sample` is false on the step that ended the match (observations are empty after it).
     pub fn step(&mut self, sim: &Sim, events: &[Event], sample: bool) {
         let tick = sim.tick();
+        self.cur = EliteStep {
+            now_ms: sim.server_time(),
+            ..EliteStep::default()
+        };
         for m in sim.mobs() {
             self.mobs.entry(m.core.id).or_insert_with(|| MobInfo {
                 camp: m.camp,
@@ -106,6 +155,13 @@ impl Observer {
                     .mob_type
                     .map_or_else(|| "none".to_string(), |t| format!("{t:?}")),
             });
+            if m.elite && !self.dead_elites.contains(&m.core.id) {
+                self.elite_pos.insert(m.core.id, (m.core.pos(), m.home));
+                if self.camp_of(m.camp) >= 0 {
+                    self.elite_camps.insert(m.camp);
+                    self.camp_elite.insert(m.camp, m.core.id);
+                }
+            }
         }
         self.minute_clock(sim, tick);
         let mut died = BTreeSet::new();
@@ -121,7 +177,66 @@ impl Observer {
                 self.observation(seat, &obs, now);
             }
         }
+        self.chests_gone();
+        self.elite_steps.push(std::mem::take(&mut self.cur));
         self.minute_sample(sim, tick);
+    }
+
+    /// The camp index as the tally wants it: negative for a mob outside the map's camps (training, companions).
+    fn camp_of(&self, camp: u32) -> i32 {
+        if (camp as usize) < self.camp_count {
+            camp as i32
+        } else {
+            -1
+        }
+    }
+
+    /// The elite a hit is about, from either end: the mob itself, or the live elite of the mob's camp.
+    fn elite_of(&self, mob: PlayerId) -> Option<(PlayerId, bool)> {
+        let info = self.mobs.get(&mob)?;
+        if info.elite {
+            Some((mob, true))
+        } else if self.camp_of(info.camp) >= 0 {
+            self.camp_elite.get(&info.camp).map(|e| (*e, false))
+        } else {
+            None
+        }
+    }
+
+    fn contact(
+        &self,
+        seat: usize,
+        elite: PlayerId,
+        on_elite: bool,
+        dealt: bool,
+        weapon: String,
+    ) -> Contact {
+        let info = &self.mobs[&elite];
+        Contact {
+            seat,
+            elite: elite.0,
+            camp: self.camp_of(info.camp),
+            kind: info.kind.clone(),
+            weapon,
+            dealt,
+            on_elite,
+        }
+    }
+
+    /// Chests whose time has come: expired (the chest's own `expires_at`), or never seen and past the unseen wait.
+    fn chests_gone(&mut self) {
+        let now = self.cur.now_ms;
+        let cur = &mut self.cur;
+        let by_exp = &mut self.chest_watch;
+        by_exp.retain(|w| {
+            let gone = w
+                .expires_at
+                .map_or(now >= w.death_ms + UNSEEN_WAIT_MS, |e| now >= e);
+            if gone {
+                cur.chests_gone.push(w.elite.0);
+            }
+            !gone
+        });
     }
 
     /// Reads `Sim::quest_attempts` for every human seat (every step, including the last: the probe needs no observation).
@@ -180,18 +295,30 @@ impl Observer {
                 }
             }
         }
-        for (kind, weapon) in std::mem::take(&mut self.elite_open).into_values() {
-            self.elite(&kind, &weapon).open += 1;
+        let last = self.elite_steps.last().map_or(0., |s| s.now_ms);
+        self.elite_steps.push(EliteStep {
+            now_ms: last,
+            ..EliteStep::default()
+        });
+        for (key, t) in tally_elites(&self.elite_steps) {
+            let c = self.acc.elites.by_kind_weapon.entry(key).or_default();
+            c.attempts = t.attempts;
+            c.killed = t.killed;
+            c.taken_by_other = t.taken_by_other;
+            c.died = t.died;
+            c.died_elsewhere = t.died_elsewhere;
+            c.left = t.left;
+            c.open = t.open;
+            for s in t.kill_secs {
+                c.kill_secs.add(s);
+            }
+            c.chest_killer = t.chest_killer;
+            c.chest_other = t.chest_other;
+            c.chest_none = t.chest_none;
+            c.chest_open = t.chest_open;
+            c.chest_bystander_picks = t.chest_bystander_picks;
         }
         self.acc
-    }
-
-    fn elite(&mut self, kind: &str, weapon: &str) -> &mut EliteCounts {
-        self.acc
-            .elites
-            .by_kind_weapon
-            .entry((kind.to_string(), weapon.to_string()))
-            .or_default()
     }
 
     fn minute_clock(&mut self, sim: &Sim, tick: u32) {
@@ -242,6 +369,12 @@ impl Observer {
             }
             self.last_hit_on_player
                 .insert(victim, (by, sim.server_time()));
+            if let (Some(&seat), Some((elite, on_elite))) =
+                (self.seat_of.get(&victim), by.and_then(|b| self.elite_of(b)))
+            {
+                let c = self.contact(seat, elite, on_elite, false, String::new());
+                self.cur.contacts.push(c);
+            }
             if let Some(p) = self.pending.get_mut(&victim) {
                 p.healed.get_or_insert(tick);
             }
@@ -270,22 +403,31 @@ impl Observer {
                 .add(f64::from(healed - p.cleared) / 20.);
             self.acc.world.walk_secs.add(f64::from(tick - healed) / 20.);
         }
-        if info.elite && !self.elite_open.contains_key(&(seat_id, victim)) {
-            let weapon = weapon.unwrap_or_else(|| {
-                sim.player(seat_id)
-                    .map_or(rh_sim::WeaponId::Fists, |p| p.active_weapon())
-            });
-            self.elite_open.insert(
-                (seat_id, victim),
-                (info.kind.clone(), weapon.as_str().into()),
-            );
-            self.elite(&info.kind, weapon.as_str()).attempts += 1;
+        if let Some((elite, on_elite)) = self.elite_of(victim) {
+            let seat = self.seat_of[&seat_id];
+            // The weapon is read only where it can open an attempt: a hit dealt to the elite itself.
+            let weapon = if on_elite {
+                weapon
+                    .unwrap_or_else(|| {
+                        sim.player(seat_id)
+                            .map_or(rh_sim::WeaponId::Fists, |p| p.active_weapon())
+                    })
+                    .as_str()
+                    .to_string()
+            } else {
+                String::new()
+            };
+            let c = self.contact(seat, elite, on_elite, true, weapon);
+            self.cur.contacts.push(c);
         }
     }
 
     fn camp_cleared(&mut self, sim: &Sim, camp: u32, tick: u32) {
         let w = &mut self.acc.world;
         w.camps_cleared += 1;
+        if self.elite_camps.contains(&camp) {
+            w.elite_camps_cleared += 1;
+        }
         if let Some(r) = sim.camp_rosters().get(camp as usize) {
             *w.camps_by_type
                 .entry(format!("{:?}", r.mob_type))
@@ -347,7 +489,7 @@ impl Observer {
         died: &mut BTreeSet<PlayerId>,
     ) {
         if sim.player(id).is_none() {
-            self.mob_death(id, by);
+            self.mob_death(sim, id, by);
             return;
         }
         died.insert(id);
@@ -373,36 +515,46 @@ impl Observer {
         }
         d.total += 1;
         minute.total += 1;
-        let lost: Vec<_> = self
-            .elite_open
-            .keys()
-            .filter(|(s, _)| *s == id)
-            .copied()
-            .collect();
-        for k in lost {
-            if let Some((kind, weapon)) = self.elite_open.remove(&k) {
-                self.elite(&kind, &weapon).died += 1;
-            }
+        if let Some(&seat) = self.seat_of.get(&id) {
+            let mob_info = attacker.and_then(|a| self.mobs.get(&a));
+            self.cur.seat_deaths.push(SeatDeath {
+                seat,
+                attacker_mob: attacker.filter(|a| self.mobs.contains_key(a)).map(|a| a.0),
+                attacker_camp: mob_info.map(|m| self.camp_of(m.camp)),
+            });
         }
     }
 
-    fn mob_death(&mut self, mob: PlayerId, by: Option<PlayerId>) {
-        let fights: Vec<_> = self
-            .elite_open
-            .keys()
-            .filter(|(_, m)| *m == mob)
-            .copied()
-            .collect();
-        for k in fights {
-            if let Some((kind, weapon)) = self.elite_open.remove(&k) {
-                let counts = self.elite(&kind, &weapon);
-                if by == Some(k.0) {
-                    counts.killed += 1;
-                } else {
-                    counts.taken_by_other += 1;
-                }
-            }
+    /// An elite's death: the facts for the tally, and a watch for the chest it drops.
+    fn mob_death(&mut self, sim: &Sim, mob: PlayerId, by: Option<PlayerId>) {
+        let Some(info) = self.mobs.get(&mob) else {
+            return;
+        };
+        if !info.elite {
+            return;
         }
+        let killer = by.and_then(|b| self.seat_of.get(&b).map(|s| (b, *s)));
+        self.cur.elite_deaths.push(EliteDeath {
+            elite: mob.0,
+            killer: killer.map(|(_, s)| s),
+        });
+        self.dead_elites.insert(mob);
+        if self.camp_elite.get(&info.camp) == Some(&mob) {
+            self.camp_elite.remove(&info.camp);
+        }
+        let (body, home) = self
+            .elite_pos
+            .remove(&mob)
+            .unwrap_or((Vec2::new(f64::INFINITY, 0.), Vec2::new(f64::INFINITY, 0.)));
+        self.chest_watch.push(ChestWatch {
+            elite: mob,
+            killer,
+            death_ms: sim.server_time(),
+            body,
+            home,
+            expires_at: None,
+            picked: BTreeSet::new(),
+        });
     }
 
     fn victory(&mut self, sim: &Sim, id: Option<PlayerId>, draw: bool) {
@@ -458,10 +610,40 @@ impl Observer {
         }
     }
 
+    /// Which kind of chest a row is. A row with a kill option is a Trophy. An elite's chest is found as described on
+    /// [`ChestWatch`]; what would fool it is another non-trophy chest dropped in the same tick (within a tick of the
+    /// death) within `CAMP_HEAL_RANGE` of the elite's body or home. Anything else is ground loot.
+    fn classify(&mut self, c: &RewardChestView) -> ChestClass {
+        if c.options.iter().any(|o| matches!(o.id, OptionId::Kill(_))) {
+            return ChestClass::Trophy;
+        }
+        if self.chest_watch.is_empty() {
+            return ChestClass::Ground;
+        }
+        let near =
+            |a: Vec2, b: Vec2| (a.x - b.x).hypot(a.y - b.y) <= rh_sim::constants::CAMP_HEAL_RANGE;
+        let drop_ms = c.expires_at - DEFINITION.lifetime_ms;
+        let found = self.chest_watch.iter().position(|w| match w.expires_at {
+            Some(e) => e == c.expires_at,
+            None => {
+                (drop_ms - w.death_ms).abs() <= DROP_SLACK_MS
+                    && (near(c.at, w.body) || near(c.at, w.home))
+            }
+        });
+        match found {
+            Some(i) => {
+                self.chest_watch[i].expires_at = Some(c.expires_at);
+                ChestClass::Elite(i)
+            }
+            None => ChestClass::Ground,
+        }
+    }
+
     fn chest_rows(&mut self, seat: usize, chests: &[RewardChestView]) {
         let me = self.ids[seat];
-        let sc = &mut self.chests[seat];
         for c in chests {
+            let class = self.classify(c);
+            let sc = &mut self.chests[seat];
             let h = c.handle.wire();
             let names: Vec<(String, &'static str)> = c
                 .options
@@ -494,11 +676,33 @@ impl Observer {
                 if o.taken_by == Some(me) && sc.picked.insert((h, i)) {
                     let (name, kind) = &names[i];
                     let by_card = &mut self.acc.augments.by_card;
-                    let counts: &mut AugCounts = by_card.entry(name.clone()).or_default();
+                    let counts = by_card.entry(name.clone()).or_default();
                     if sc.offered.insert((h, i)) {
                         counts.offered += 1;
                     }
                     counts.picked += 1;
+                    let chest_kind = match class {
+                        ChestClass::Elite(w) => {
+                            let w = &mut self.chest_watch[w];
+                            if w.killer.is_some_and(|(id, _)| id == me) {
+                                counts.picked_by_killer += 1;
+                            } else {
+                                counts.picked_by_bystander += 1;
+                            }
+                            if w.picked.insert(seat) {
+                                self.cur.chest_picks.push((w.elite.0, seat));
+                            }
+                            "elite"
+                        }
+                        ChestClass::Trophy => "trophy",
+                        ChestClass::Ground => "ground",
+                    };
+                    *self
+                        .acc
+                        .rewards
+                        .picks_by_chest_kind
+                        .entry(chest_kind.to_string())
+                        .or_default() += 1;
                     *self
                         .acc
                         .rewards
