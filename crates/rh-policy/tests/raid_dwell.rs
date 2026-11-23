@@ -49,6 +49,9 @@ const WALKER: [&str; 11] = [
     "let_him_cook",
 ];
 const DWELL: [&str; 2] = ["hold_the_fort", "stay_a_while"];
+/// The two decision quests P-RAID-Q3b taught the bot (coordinator's oracle-amend, 2026-11-23): under the default prices
+/// a seat may now accept them, as seed 19 does with Trade Up.
+const DECIDE_B: [&str; 2] = ["two_banners", "trade_up"];
 
 /// Only the two dwell rewards are worth anything: the bot is not drawn to a walker quest or a camp first, so the sweep
 /// proves the executor, not the arbiter's preference.
@@ -469,15 +472,14 @@ fn raid_bot_takes_only_walker_and_dwell_quests_and_sends_only_accepted_commands(
             );
         }
     }
-    // Default prices (walker and dwell quests compete): whatever it chooses stays on the two lists.
+    // Default prices (walker, dwell and decision quests compete): whatever it chooses is a quest the bot can play.
     for seed in BOTH_SEEDS {
         let r = run(&scene(seed, "stay_a_while", false), raid_default());
         assert!(
-            r.journal
-                .accepted
-                .iter()
-                .all(|d| WALKER.contains(&d.as_str()) || DWELL.contains(&d.as_str())),
-            "seed {seed}: RaidBot accepted a quest outside the walker and dwell lists: {r:?}"
+            r.journal.accepted.iter().all(|d| WALKER.contains(&d.as_str())
+                || DWELL.contains(&d.as_str())
+                || DECIDE_B.contains(&d.as_str())),
+            "seed {seed}: RaidBot accepted a quest outside the walker, dwell and decision lists: {r:?}"
         );
         assert_eq!(r.stats.rejected, 0, "seed {seed}: default prices: {r:?}");
         assert!(r.fault.is_none(), "seed {seed}: {r:?}");
