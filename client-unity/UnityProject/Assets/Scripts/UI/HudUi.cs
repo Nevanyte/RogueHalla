@@ -172,6 +172,10 @@ namespace Roguehalla.Client
         /// <summary>Gives a HudUi.Label its wanted size (base size x text scale) and no box fit.</summary>
         public static TMP_Text Unfit(TMP_Text label)
         {
+            var fit = label != null ? label.GetComponent<MythicTextScale>() : null;
+            if (fit == null) return label;
+            fit.FitBox = false;
+            fit.Apply(ShowcaseSettings.Current != null ? ShowcaseSettings.Current.TextScale : 1f);
             return label;
         }
 

@@ -269,11 +269,14 @@ namespace Roguehalla.Client
             var mask = viewport.gameObject.AddComponent<Image>(); mask.color = Color.clear; mask.raycastTarget = true;
             viewport.gameObject.AddComponent<RectMask2D>();
             text = HudUi.Label(viewport, "Content", "", theme.SizeBody, theme.TextPrimary, TextAlignmentOptions.TopLeft, wrap: true);
+            HudUi.Unfit(text);
+            text.margin = new Vector4(0, 0, ScrollIndicator.Width + ScrollIndicator.Inset + 1f, 0);
             text.rectTransform.anchorMin = new Vector2(0, 1); text.rectTransform.anchorMax = new Vector2(1, 1); text.rectTransform.pivot = new Vector2(.5f, 1);
             text.rectTransform.offsetMin = text.rectTransform.offsetMax = Vector2.zero;
             text.richText = true; text.overflowMode = TextOverflowModes.Overflow;
             text.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scroll.viewport = viewport; scroll.content = text.rectTransform;
+            new ScrollIndicator(scroll, frame);
             return scroll;
         }
 
