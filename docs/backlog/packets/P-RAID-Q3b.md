@@ -217,6 +217,14 @@ What the code says about them:
    itself (stage, time left, walk to the next trader, stacks) is unit-test material for the implementer's own tests of its
    pure function; the oracle does not name one (no stub signature), so it holds for any shape of it.
 
+5. **Spell slots decide whether Two Banners is ever accepted in a match** (not pinned by this oracle). Warhorn is a spell,
+   and `walker.rs:261` refuses to propose any spell-reward quest while `slots_taken(cx) >= SPELL_SLOTS` (2). On this base the
+   bot casts no quest spell (`raid/spells.rs` is a one-line placeholder: P-RAID-S, in review), so the first two spell
+   rewards fill both slots for the rest of the match. A Two Banners stage that copies the walker's rule is silent in the lab
+   after the second spell quest, whatever its price; one that uses the existing `slot_answer` (stage 0: drop the lowest-worth
+   spell when the new reward is worth more; Warhorn 3.0 beats Cleanse 2.0, Spell Shield 2.0 ...) can still take it. Which
+   one is the coordinator's call; the oracle's seats start with both slots empty. Trade Up (a permanent) is not affected.
+
 ## NOT ESTABLISHED
 
 - No reference executor exists: the floors stand on the scripted controls with headroom (3x on Two Banners' ticks, 2.4x
