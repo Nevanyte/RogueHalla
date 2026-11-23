@@ -186,10 +186,6 @@ fn elite_goal() -> RaidGoal {
     RaidGoal::new(GoalKind::Elite, Target::Camp(0))
 }
 
-fn near(a: f64, b: f64) -> bool {
-    (a - b).abs() < 1e-9
-}
-
 // ---- Note 1: no heal-up beside a live elite; the leave walks away from it ----------------------------------------------
 
 fn leave_candidates(out: &[Candidate]) -> Vec<&Candidate> {
