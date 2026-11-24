@@ -970,3 +970,102 @@ These get no packet (owner direction 2026-11-13).
 - P-UI-ALLOC-METER-3: The first `Recorder.Get` of an editor session was never measured.
 - P-UI-ABILITY-MOTION-1: A transient reset mid-cooldown blanks the attack bar until the next sweep refresh.
 - P-UI-ABILITY-MOTION-1: `AbilityTile.SweepAt` also returns when the sweep is not enabled.
+
+## Addendum after the coordinator's merge review (2026-11-23)
+
+The coordinator merged `lane/ui-rework/handoff-3` @ `6de332756` into the integration 86 preview (`coord/int-86` @
+`b3e3edb0a`, clean). Its reviewer (reviewer-opus) says LAND WITH NOTES, with one note. The full gate of integration
+86 had not run when this was written. What follows corrects this document; where it differs from a section above,
+this addendum is right.
+
+### Note 1: two accept latches, and the journal's never lets go
+
+`P-UI-QUEST-OFFER-1` with `P-UI-JOURNAL-POLISH-1`. `QuestJournalView.TryAcceptFrom` refuses a second accept for the
+same handle and its button stays "ACCEPTING…" until a new quest view arrives (or a rebind, a new timeline, a
+disconnect). The offer card guards for 2.5 s (`QuestOfferCard.AcceptSeconds`) and then lets the player press again.
+Every refusal by the sim changes the delivered state and so clears the journal's latch; a command dropped before the
+sim does not (the server's action queue holds 6 a tick and drops the rest silently), and then the journal hides a
+legitimate retry for good, where before this wave the button stayed pressable. The two guards are also independent:
+the journal and the card can each send an accept within a second.
+
+Taken by `P-UI-QUEST-OFFER-1-fix` (wave 4): one accept latch owned by the HUD, keyed by quest handle, shared by the
+journal and the card, with the card's 2.5 s expiry; tests for the dropped command (the accept is offered again after
+the expiry) and for journal then card within a second (one command).
+
+### Proposed DEVIATIONS rows, corrected
+
+These four replace the rows of the same packets above. Each legacy line was read by the lane lead in
+`packages/client/src` on the lane base after the review. The rows of `P-UI-VITALS-EASE-1`, `P-UI-ZONE-NAMES-1` and
+`P-UI-ABILITY-MOTION-1` and the toast correction stand as written. Enter and Escape on the offer card need the
+owner's word, not a row.
+
+- `P-UI-MAP-OPEN-WORLD-1`: legacy: under the held map the world hides its weapon range guide
+  (`scenes/RaidScene.ts:1637-1638`, DEV-016) and its ground route (`scenes/RaidScene.ts:916`, `!this.mapHold.held`),
+  and nothing else; Unity: while the Tab map or the planning screen is open the world also hides names, camp respawn
+  labels and ward beacons, the roots "World markers", "World indicators", "Quest carrier flags" and "Camp patience
+  outlines", the overhead cluster (rings, glyphs, bounty, Wish icon, badge, marks, TAXED cue, barrier bubble, Fire
+  roam glow) and the health and barrier bars, and in toggle mode keeps them hidden until the key is pressed again.
+  Actors and footprints stay under the 86 percent dim. Unity draws its route on the two maps only
+  (`TacticalMapController.cs:27-28`), so it has no ground route to hide (as far as the lane read: no route class
+  under `View/` or `Presentation/`).
+- `P-UI-QUEST-OFFER-1`: legacy: a quest dialog opens with F, and Enter or 1 accepts, Escape or F closes, only while
+  the dialog has focus (`ui/questDialogMath.ts:26-33`); F does the nearer of a pick-up and a talk, a tie going to
+  the pick-up (`render/interact.ts:156-172`, `scenes/RaidScene.ts:221, 723`); the dialog stands at left 12,
+  vertically centred. Unity: the card accepts with Enter and numpad Enter whether or not it has focus, digit 1 and
+  numpad 1 do not accept (digits bind nothing outside the chest picker), the card never blocks play, a pick-up in
+  focus always wins F (F talks only when nothing is in focus), and the card stands under the plate chain, centred
+  when that clears the tracker.
+- `P-UI-WISH-TILE-1`: legacy (`docs/rework/LEGACY_LAYOUT.md` section 4, `ui/abilitySlot.ts`,
+  `ui/abilitySlot.css`): a 24 x 24 icon, a name always shown, a blocking-reason line, a ready frame and glow in
+  the ability's colour (`abilitySlot.css:76`, `--as-color` from `def.color`, `abilitySlot.ts:82, 279-281`), a gold
+  frame while casting (`abilitySlot.css:79`), a deny line that floats above the slot for a second when a press
+  does nothing (`abilitySlot.ts:137-147, 210-264`, `abilitySlot.css:93`), and for a charged Wish the seconds to
+  the next charge in any state (`abilitySlot.ts:95-108`). Unity differs in seven places: the name is hidden while
+  recharging; the icon is 16 units in a corner; there is no blocking-reason line; there is no deny line; the ready
+  frame is the theme's strong border and the glow wash is the faction's colour, not the ability's; there is no
+  gold frame while casting (the cast bar fills); a Wish holding a charge shows no countdown for the next one (the
+  hint card keeps it).
+- `P-UI-TABMAP-MARKS-1`: legacy: the glyph scale is the map size over 640, clamped to .55 to 1.25
+  (`ui/planningMath.ts:148-151`), and mark text has a 9 px floor (`ui/planning.css:200, 330`, `max(9px, ...)`);
+  Unity: marks grow with the map from 480 to 672 units and never shrink, and mark text has a 10 px floor.
+
+### Amended expectations: one row was missing and three need a sentence
+
+14. A loosening the table above does not list. `P-UI-ALLOC-METER-3` changed `AllocationMeter.Samples`, and through
+    it `AssertNone` and `AssertAtMost` for EVERY caller, with no change in the text of those tests (the classes
+    `CampLabelStable`, `QuestTracker`, `TabMapHeaderNoGarbage`, `ToastLanes`, `UiMotion`, `AbilityRow` and the
+    meter's own). The exact guarantee now: an action is reported only if every measured window of `calls` calls (up
+    to three windows, stopping at the first that reads 0) records an allocation. An allocation with a period longer
+    than `calls`, or one that happens in some windows only, passes. That is sound for a per-frame claim and for
+    nothing else. The section "The allocation meter" says this as a claim; it belongs in the owner's table as a row.
+- Row 2: the new copy says "Preview · time is up" while ACCEPT is still enabled. The old "Awaiting server deadline
+  update" deliberately did not declare expiry while the server still said `CanAccept`. Both read the delivered
+  `ExpiresAt` against server time: the copy now announces expiry before the server does.
+- Row 9 also drops the tile's stock "1/2" assertion in that test (`WishTileEditModeTests` covers the badge).
+- Row 10: on the tile the player loses the maximum ("/2") and any stock figure for a one-charge Wish; both stay in
+  the hover hint. The fact with no test successor is that elapsed time never predicts stock; wave 4 puts that
+  assertion back in `WishTileEditModeTests` (inside `P-UI-TILE-PLATES-1`).
+
+### The review's minors
+
+- Taken: the whole HUD is one Canvas (`MatchHud.cs:70`), and the attack bar, the wedges and the eases now dirty it
+  every frame in combat instead of 20 times a second; the re-batching cost in a Web build is not measured. Wave 4
+  measures it in a Web round and, if it shows, puts the per-frame parts on their own canvas.
+- Examined inside `P-UI-QUEST-OFFER-1-fix`: Enter accepts even when a HUD button holds the event system's focus, so
+  one press could also submit that button.
+- Left and recorded: two clocks drive the HUD (`HudLocalMs` for the action row, `Time.unscaledDeltaTime` for the
+  vitals and the card); `MatchHud.PulseSeconds` and `PulsePop` survive only as aliases for a test; the older classes
+  that still use the blind byte counter are 14, not 13 (`TabMapHeaderNoGarbage` uses both counters).
+- Left, with the reason: moving the Cinzel pair records into a code table. The asset is pinned by
+  `DisplayFontGapsEditModeTests`, its diff is exactly the 15 pair records, and once the lane has taken integration
+  86 no gate sees the asset as changed, so `--allow-artefacts` is needed for this one merge only.
+- One client copy of the quest dwell seconds (45 and 30) is left, in the tracker; the Rust side of integration 86
+  makes the bots read those from the sim's table, so the client's copy is the remaining drift when quests are
+  retuned. Delivering the total with the quest is a wire change and the coordinator's.
+
+### Confirmed by the review
+
+No game rule in Unity and no new way to act: F, Enter and Escape only read delivered rows, and accepting sends the
+existing `QuestAccept` through the journal's path; a withdrawn offer closes the card; the vitals, the Wish tile, the
+wedges, the cast bar and the attack bar display delivered fields; walk prediction and every protocol and codec file
+are untouched. Note 2 of the wave 2 review is closed. None of the seven things "seen and not right" blocks.

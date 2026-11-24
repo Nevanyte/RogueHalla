@@ -15,6 +15,9 @@ namespace Roguehalla.Client
     /// </summary>
     public static class HudUi
     {
+        /// <summary>Fill alpha of a text plate over the world. Not a dial: below 1 a white name reads through.</summary>
+        public const float PlateAlpha = 1f;
+
         static Vector2 Point(HudAnchor anchor)
         {
             switch (anchor)
@@ -163,6 +166,16 @@ namespace Roguehalla.Client
             }
             var scale = rect.gameObject.AddComponent<MythicTextScale>(); scale.BaseSize = size; scale.FitBox = true;
             scale.Apply(ShowcaseSettings.Current != null ? ShowcaseSettings.Current.TextScale : 1f);
+            return label;
+        }
+
+        /// <summary>Gives a HudUi.Label its wanted size (base size x text scale) and no box fit.</summary>
+        public static TMP_Text Unfit(TMP_Text label)
+        {
+            var fit = label != null ? label.GetComponent<MythicTextScale>() : null;
+            if (fit == null) return label;
+            fit.FitBox = false;
+            fit.Apply(ShowcaseSettings.Current != null ? ShowcaseSettings.Current.TextScale : 1f);
             return label;
         }
 

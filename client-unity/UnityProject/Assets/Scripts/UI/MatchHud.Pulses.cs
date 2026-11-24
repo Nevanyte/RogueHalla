@@ -13,7 +13,7 @@ namespace Roguehalla.Client
     public sealed partial class MatchHud
     {
         // Press pulses (P-UI-INPUT-CUES-1): a ~150 ms scale pop on an existing element the moment a cast, swap, pickup or
-        // potion command leaves. It shows that the key was heard and nothing about the outcome.
+        // potion command leaves. It means the client knows no reason for a refusal, not that the server accepted.
         const float PulseSeconds = HudPulses.Seconds, PulsePop = HudPulses.Pop;
         readonly HudPulses _pulses = new HudPulses();
 
@@ -23,7 +23,13 @@ namespace Roguehalla.Client
             {
                 case CommandKind.Cast:
                     int slot = command.Slot ?? 0;
-                    Pulse(slot == 0 ? _wishTile : slot >= 1 && slot <= 2 ? _questSlotTiles[slot - 1] : null);
+                    var reading = ReadCast(slot);
+                    if (reading.Line != null) PushFeedbackLine(reading.Line, NoticeTone.Warn, CastReadiness.LineKey);
+                    else if (!reading.Empty)
+                    {
+                        _feedbackModel?.End(CastReadiness.LineKey);
+                        Pulse(slot == 0 ? _wishTile : slot >= 1 && slot <= 2 ? _questSlotTiles[slot - 1] : null);
+                    }
                     if (_client != null && _session != null && _client.Arena != null) _client.Arena.LocalCastCue(_session.PlayerId);
                     break;
                 case CommandKind.UseConsumable: Pulse(_potionButton != null ? (RectTransform)_potionButton.transform : null); break;
@@ -36,10 +42,37 @@ namespace Roguehalla.Client
             }
         }
 
+        // What the delivered facts say a cast key would do now (newest snapshot's time, never HudClock's).
+        CastReading ReadCast(int slot)
+        {
+            if (_session == null || slot < 0 || slot > 2) return new CastReading(true, null);
+            double now = _session.ServerTimeMs;
+            ushort effects = _session.Me != null ? _session.Me.Effects : (ushort)0;
+            if (slot == 0) return CastReadiness.Wish(_session.Me != null ? _session.Me.Wish : null, now, effects);
+            var key = _questSlotKeys[slot - 1];
+            var tile = _questTiles[slot - 1];
+            if (!key.HasValue || tile == null) return new CastReading(true, null);
+            return CastReadiness.Spell(true, key.Value.Charges, tile.ReadyAtMs, now, effects);
+        }
+
         void Pulse(RectTransform rect) { _pulses.Play(rect, HudSeconds); }
 
-        void TickPulses() { _pulses.Tick(HudSeconds); }
+        // The Wish aim's last seen state (P-UI-ABILITY-FEEDBACK-2): the line is pushed on its false-to-true edge only.
+        bool _wishAimWasArmed;
 
-        void ClearPulses() { _pulses.Clear(); }
+        void TickPulses()
+        {
+            _pulses.Tick(HudSeconds);
+            var aim = _client != null ? _client.WishAim : null;
+            bool armed = aim != null && aim.Aiming;
+            if (armed && !_wishAimWasArmed)
+            {
+                var reading = ReadCast(0);
+                if (reading.Line != null) PushFeedbackLine(reading.Line, NoticeTone.Warn, CastReadiness.LineKey);
+            }
+            _wishAimWasArmed = armed;
+        }
+
+        void ClearPulses() { _pulses.Clear(); _wishAimWasArmed = false; }
     }
 }

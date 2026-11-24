@@ -84,7 +84,8 @@ namespace Roguehalla.Client.Tests
             Assert.AreEqual("ACCEPTING…", ButtonLabel("AcceptQuest"), "rig: the accept is pending");
             Assert.IsFalse(accept.interactable, "rig: the accept is pending");
 
-            Deliver(Offer(_first)); _view.Refresh();
+            var changed = Offer(_first); changed.State = QuestRowState.Preview;
+            Deliver(changed); _view.Refresh();
             Assert.IsTrue(accept.gameObject.activeSelf);
             Assert.AreEqual("ACCEPT QUEST", ButtonLabel("AcceptQuest"));
             Assert.IsTrue(accept.interactable, "a new quest view clears the pending state");

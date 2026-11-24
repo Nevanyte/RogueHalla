@@ -5,6 +5,7 @@ using TMPro;
 using UnityEngine;
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
+using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
@@ -30,7 +31,9 @@ namespace Roguehalla.Client
         TradeView _renderedTrade;
         sealed class ViewRef { public TradeView View; }
         ViewRef _viewRef = new ViewRef();
-        string _renderedSignature = "";
+        TradeView _builtFrom;
+        int _sightCount = -1;
+        string _sightText = "";
         Action _onClose;
         uint _boundEpoch;
         int _selectedMerchant = -1;
@@ -55,8 +58,7 @@ namespace Roguehalla.Client
             _root = MythicUi.Panel(canvasRoot, "TraderDialog", new Vector2(.12f, .12f), new Vector2(.88f, .915f), ShowcasePalette.Panel);
             MythicUi.Border(_root, ShowcasePalette.PanelStroke);
             MythicUi.Text(_root, "Title", "TRADERS", new Vector2(.025f, .915f), new Vector2(.72f, .995f), 26, ShowcasePalette.Gold, heading: true);
-            var close = MythicUi.Button(_root, "Close", "CLOSE", new Vector2(.87f, .915f), new Vector2(.975f, .995f), Close, MythicUi.ButtonStyle.Quiet);
-            close.GetComponentInChildren<TMP_Text>().fontSize = 13;
+            FlowWindowClose.Create(_root, "Close", Close);
 
             _status = MythicUi.Text(_root, "Status", "Looking for traders…", new Vector2(.025f, .735f), new Vector2(.975f, .80f), 16, ShowcasePalette.MutedText);
             var merchantPanel = MythicUi.Panel(_root, "MerchantPanel", new Vector2(.025f, .17f), new Vector2(.29f, .72f), ShowcasePalette.PanelRaised, false);
@@ -100,19 +102,22 @@ namespace Roguehalla.Client
             _pending = false; _pendingText = "";
             _renderGeneration++;
             ClearTradePresentation("Looking for traders…");
-            _renderedTrade = null;
+            _renderedTrade = null; _builtFrom = null;
             Refresh();
         }
 
         public void SetVisible(bool visible)
         {
             if (_root == null) return;
+            bool opening = visible && !_root.gameObject.activeSelf;
             if (visible) _root.SetAsLastSibling();
             _root.gameObject.SetActive(visible);
+            if (opening) _listToTop = true;
             if (visible)
             {
                 if (_choiceScroll != null) _choiceScroll.StopMovement();
                 Refresh();
+                if (opening && _listToTop) PlaceList(1f, ChoiceRowsAwake());
             }
         }
 
@@ -125,7 +130,7 @@ namespace Roguehalla.Client
                 _selectedMerchant = -1;
                 _pending = false; _pendingText = "";
                 ClearTradePresentation("No match in progress.");
-                _renderedTrade = null;
+                _renderedTrade = null; _builtFrom = null;
                 return;
             }
 
@@ -136,7 +141,7 @@ namespace Roguehalla.Client
                 _pending = false; _pendingText = "";
                 _renderGeneration++;
                 ClearTradePresentation("Looking for traders…");
-                _renderedTrade = null;
+                _renderedTrade = null; _builtFrom = null;
             }
 
             TradeView current = _session.Collections.Trade;
@@ -146,14 +151,13 @@ namespace Roguehalla.Client
                 // The server may deliver the same trade content again and again (every state frame while a merchant is in sight). Rebuilding
                 // the rows each time resets hover, keyboard focus and the colour tween (rows read as pale, half-faded greys), so an identical
                 // replacement only rebinds the rows to the new view object; the stale-row guard still compares object identity.
-                string signature = TradeSignature(current);
-                bool identical = current != null && current.Available && _renderedTrade != null && signature == _renderedSignature;
+                bool identical = current != null && current.Available && _builtFrom != null && SameContent(_builtFrom, current);
                 _renderedTrade = current;
                 _pending = false; _pendingText = "";
                 if (identical) _viewRef.View = current;
                 else
                 {
-                    _renderedSignature = signature; _viewRef = new ViewRef { View = current };
+                    _builtFrom = current; _viewRef = new ViewRef { View = current };
                     _renderGeneration++;
                     var oldSelection = _selectedMerchant;
                     int count = current != null && current.Available ? current.Merchants.Count : 0;
@@ -174,7 +178,7 @@ namespace Roguehalla.Client
                 current.Merchants[_selectedMerchant].Kind == TradeKind.Stats)
                 SetState("Stat trade used this run.");
             else if (current.TradeUsed) SetState("Stat trade used this run. Barter is still open.");
-            else SetState(current.Merchants.Count == 1 ? "1 trader in sight" : current.Merchants.Count + " traders in sight");
+            else SetState(current.Merchants.Count == 1 ? "1 trader in sight" : SightText(current.Merchants.Count));
 
             if (!(current != null && current.Available) || _selectedMerchant < 0)
             {
@@ -230,16 +234,30 @@ namespace Roguehalla.Client
             if (button.targetGraphic is UnityEngine.UI.Image image) image.canvasRenderer.SetColor(colors.normalColor);
         }
 
-        static string TradeSignature(TradeView v)
+        string SightText(int count)
         {
-            if (v == null) return "null";
-            if (!v.Available) return "unavailable";
-            var sb = new System.Text.StringBuilder().Append(v.TradeUsed ? 'u' : 'f').Append('|').Append(v.BarterReadyAt.HasValue ? v.BarterReadyAt.Value.ToString("R", CultureInfo.InvariantCulture) : "-");
-            foreach (var m in v.Merchants) sb.Append("|m").Append((int)m.Kind).Append(',').Append(m.X.ToString("R", CultureInfo.InvariantCulture)).Append(',').Append(m.Y.ToString("R", CultureInfo.InvariantCulture)).Append(',').Append(m.Name);
-            foreach (var o in v.Offers) sb.Append("|o").Append((int)o.Cost).Append((int)o.Gain).Append(',').Append(o.CostValue.ToString("R", CultureInfo.InvariantCulture)).Append(',').Append(o.GainValue.ToString("R", CultureInfo.InvariantCulture)).Append(',').Append(o.Label);
-            foreach (var d in v.Stats) sb.Append("|s").Append((int)d.Stat).Append(',').Append(d.Value.ToString("R", CultureInfo.InvariantCulture));
-            foreach (var l in v.BarterLabels) sb.Append("|b").Append(l);
-            return sb.ToString();
+            if (_sightCount != count) { _sightCount = count; _sightText = count + " traders in sight"; }
+            return _sightText;
+        }
+
+        /// <summary>True when two deliveries differ at most in merchants' positions (nothing in the window shows them).</summary>
+        static bool SameContent(TradeView a, TradeView b)
+        {
+            if (a.Available != b.Available || a.TradeUsed != b.TradeUsed || a.BarterReadyAt != b.BarterReadyAt) return false;
+            if (a.Merchants.Count != b.Merchants.Count || a.Offers.Count != b.Offers.Count ||
+                a.Stats.Count != b.Stats.Count || a.BarterLabels.Count != b.BarterLabels.Count) return false;
+            for (int i = 0; i < a.Merchants.Count; i++)
+                if (a.Merchants[i].Kind != b.Merchants[i].Kind || a.Merchants[i].Name != b.Merchants[i].Name) return false;
+            for (int i = 0; i < a.Offers.Count; i++)
+            {
+                var x = a.Offers[i]; var y = b.Offers[i];
+                if (x.Cost != y.Cost || x.Gain != y.Gain || x.CostValue != y.CostValue || x.GainValue != y.GainValue || x.Label != y.Label) return false;
+            }
+            for (int i = 0; i < a.Stats.Count; i++)
+                if (a.Stats[i].Stat != b.Stats[i].Stat || a.Stats[i].Value != b.Stats[i].Value) return false;
+            for (int i = 0; i < a.BarterLabels.Count; i++)
+                if (a.BarterLabels[i] != b.BarterLabels[i]) return false;
+            return true;
         }
 
         bool IsCurrentView(Session session, uint epoch, TradeView view, int generation)
@@ -276,8 +294,9 @@ namespace Roguehalla.Client
         void RebuildChoices(TradeView view)
         {
             var viewRef = _viewRef;
-            float scroll = _choiceScroll == null ? 1f : _choiceScroll.verticalNormalizedPosition;
+            float scroll = ReadList();
             HideRows(_choiceRows); _choiceButtons.Clear();
+            if (ListChanged(view)) _listToTop = true;
             _empty.gameObject.SetActive(true);
             if (view == null)
             {
@@ -354,8 +373,46 @@ namespace Roguehalla.Client
                 }
                 UpdateDetailSummary(view, _selectedMerchant);
             }
-            if (_choiceScroll != null) _choiceScroll.verticalNormalizedPosition = scroll;
-            ReflowChoiceRows();
+            PlaceList(scroll, ReflowChoiceRows());
+        }
+
+        int _listMerchant = -1; TradeKind _listKind; string _listName; bool _listToTop = true;
+
+        /// <summary>The list's scroll position, read only when it means something: 1 (the top) unless the content is taller than the viewport.</summary>
+        float ReadList()
+        {
+            if (_choiceScroll == null) return 1f;
+            var content = _choiceScroll.content; var viewport = _choiceScroll.viewport;
+            if (content == null || viewport == null || content.rect.height <= viewport.rect.height + .5f) return 1f;
+            return _choiceScroll.verticalNormalizedPosition;
+        }
+
+        /// <summary>True when the selected merchant is not the one the list was built for; stores the new one.</summary>
+        bool ListChanged(TradeView view)
+        {
+            int index = -1; TradeKind kind = default(TradeKind); string name = null;
+            if (view != null && view.Available && _selectedMerchant >= 0 && _selectedMerchant < view.Merchants.Count)
+            {
+                index = _selectedMerchant; kind = view.Merchants[index].Kind; name = view.Merchants[index].Name;
+            }
+            bool changed = index != _listMerchant || kind != _listKind || name != _listName;
+            _listMerchant = index; _listKind = kind; _listName = name;
+            return changed;
+        }
+
+        void PlaceList(float read, bool measured)
+        {
+            if (_choiceScroll == null) return;
+            _choiceScroll.verticalNormalizedPosition = _listToTop ? 1f : read;
+            if (_listToTop && measured) _listToTop = false;
+        }
+
+        bool ChoiceRowsAwake()
+        {
+            if (_choiceRows.Count == 0) return true;
+            for (int i = 0; i < _choiceRows.Count; i++)
+                if (_choiceRows[i] != null && _choiceRows[i].activeInHierarchy) return true;
+            return false;
         }
 
         UnityEngine.UI.Button CreateChoiceButton(byte pick, string label, UnityEngine.Events.UnityAction action)
@@ -376,7 +433,7 @@ namespace Roguehalla.Client
         {
             if (index < 0 || index >= view.Merchants.Count) return;
             var merchant = view.Merchants[index];
-            Set(_detailHeading, merchant.Name + " · " + merchant.Kind);
+            Set(_detailHeading, merchant.Name + " · " + PlayerWords.Word(merchant.Kind));
             UpdateDetailSummary(view, index);
             if (rebuild) RebuildChoices(view);
             RefreshMerchantSelection();
@@ -416,6 +473,7 @@ namespace Roguehalla.Client
             HideRows(_choiceRows); _choiceButtons.Clear();
             SetContentHeight(0);
             if (_choiceScroll != null) { _choiceScroll.StopMovement(); _choiceScroll.verticalNormalizedPosition = 1; }
+            _listMerchant = -1; _listToTop = true;
             if (_empty != null) { _empty.gameObject.SetActive(true); Set(_empty, copy); }
             Set(_detailHeading, "Traders");
             Set(_detailSummary, "");
@@ -444,9 +502,8 @@ namespace Roguehalla.Client
             if (merchants) ReflowMerchantRows();
             if (choices)
             {
-                float scroll = _choiceScroll.verticalNormalizedPosition;
-                ReflowChoiceRows();
-                _choiceScroll.verticalNormalizedPosition = scroll;
+                float scroll = ReadList();
+                PlaceList(scroll, ReflowChoiceRows());
             }
         }
 
@@ -455,7 +512,7 @@ namespace Roguehalla.Client
             for (int i = 0; i < rows.Count; i++)
             {
                 GameObject row = rows[i];
-                if (row == null || !row.activeSelf) continue;
+                if (row == null || !row.activeInHierarchy) continue;
                 TMP_Text text = row.GetComponentInChildren<TMP_Text>();
                 if (text == null) continue;
                 float width = MeasureWidth((RectTransform)row.transform, choices);
@@ -471,7 +528,7 @@ namespace Roguehalla.Client
             float y = 0;
             for (int i = 0; i < _merchantRows.Count; i++)
             {
-                GameObject row = _merchantRows[i]; if (row == null || !row.activeSelf) continue;
+                GameObject row = _merchantRows[i]; if (row == null || !row.activeInHierarchy) continue;
                 var rect = (RectTransform)row.transform;
                 var text = row.GetComponentInChildren<TMP_Text>();
                 float height = FitHeight(row, text, rect, MerchantRowHeight, false);
@@ -481,12 +538,14 @@ namespace Roguehalla.Client
             }
         }
 
-        void ReflowChoiceRows()
+        bool ReflowChoiceRows()
         {
             float y = 0;
+            bool measured = false;
             for (int i = 0; i < _choiceRows.Count; i++)
             {
-                GameObject row = _choiceRows[i]; if (row == null || !row.activeSelf) continue;
+                GameObject row = _choiceRows[i]; if (row == null || !row.activeInHierarchy) continue;
+                measured = true;
                 var rect = (RectTransform)row.transform;
                 bool actionRow = row.GetComponent<UnityEngine.UI.Button>() != null;
                 var text = row.GetComponentInChildren<TMP_Text>();
@@ -495,8 +554,10 @@ namespace Roguehalla.Client
                 rect.sizeDelta = new Vector2(0, height);
                 y += height + (actionRow ? 8f : 4f);
             }
+            if (!measured) return false; // hidden rebuild keeps RebuildChoices' estimate (and the scroll position)
             if (_choiceRows.Count > 0) y -= 4f;
             SetContentHeight(Mathf.Max(0, y));
+            return true;
         }
 
         float FitHeight(GameObject row, TMP_Text text, RectTransform rect, float minimum, bool choices)
@@ -505,6 +566,7 @@ namespace Roguehalla.Client
             float fontSize = text == null ? 16f : text.fontSize;
             string value = text == null ? "" : text.text;
             if (text == null) return minimum;
+            if (!text.gameObject.activeInHierarchy) return minimum; // never woken: measures a tenth
             float available = Mathf.Max(1f, width - 24f);
             float preferred = text.GetPreferredValues(value, available, Mathf.Infinity).y;
             float height = Mathf.Max(minimum, Mathf.Ceil(preferred + 16f));
@@ -570,23 +632,10 @@ namespace Roguehalla.Client
 
         static string MerchantLabel(MerchantView merchant)
         {
-            return merchant.Name + "\n" + (merchant.Kind == TradeKind.Barter ? "Weapon barter" : "Stat trader");
+            return merchant.Name + "\n" + PlayerWords.Word(merchant.Kind);
         }
 
-        static string StatName(TradeStat stat)
-        {
-            switch (stat)
-            {
-                case TradeStat.MaxHp: return "max HP";
-                case TradeStat.Ad: return "AD";
-                case TradeStat.Ap: return "AP";
-                case TradeStat.AttackSpeed: return "attack speed";
-                case TradeStat.MoveSpeed: return "move speed";
-                case TradeStat.Armor: return "armor";
-                case TradeStat.Shield: return "shield";
-                default: return stat.ToString();
-            }
-        }
+        static string StatName(TradeStat stat) { return PlayerWords.Word(stat); }
 
         static string FormatDouble(double value) { return Math.Round(value, 2).ToString("0.##", CultureInfo.InvariantCulture); }
         static string StateCopy(SessionState state)
@@ -596,8 +645,7 @@ namespace Roguehalla.Client
                 case SessionState.Reconnecting: return "Connection interrupted · resuming";
                 case SessionState.Failed: return "Connection failed";
                 case SessionState.Rejected: return "Connection rejected";
-                case SessionState.Ended: return "Match ended";
-                default: return state.ToString();
+                default: return PlayerWords.Word(state);
             }
         }
         void SetState(string value) { Set(_status, value); }

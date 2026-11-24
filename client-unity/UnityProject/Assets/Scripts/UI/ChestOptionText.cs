@@ -1,4 +1,5 @@
 using Roguehalla.Net;
+using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
@@ -17,7 +18,7 @@ namespace Roguehalla.Client
             if (option.Card.HasValue)
             {
                 var entry = CardDisplayCatalog.Get((byte)option.Card.Value);
-                return new Card("AUGMENT", entry.Title, entry.Description, entry.Tags);
+                return new Card("AUGMENT", entry.Title, entry.Description, PlayerWords.CardTags(entry.Tags));
             }
             return new Card("BOOST", "", "Permanent bonus for this run.", "");
         }

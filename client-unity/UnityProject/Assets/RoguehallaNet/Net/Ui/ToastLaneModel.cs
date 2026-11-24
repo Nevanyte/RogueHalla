@@ -27,10 +27,10 @@ namespace Roguehalla.Net.Ui
             public string BaseText, Display, Key;
             public int Count = 1;
             public NoticeTone Tone;
-            public bool Sticky;
+            public bool Sticky, NeverLate;
             public Phase Phase;
             public float Fade;        // seconds into the fade in, or seconds left of the fade out
-            public float HoldLeft, Held, Alpha, Slot;
+            public float HoldLeft, Held, Alpha, Slot, Hold;
         }
 
         readonly int _capacity;
@@ -42,15 +42,35 @@ namespace Roguehalla.Net.Ui
         static string Display(Item i) => i.Count > 1 ? i.BaseText + " x" + i.Count : i.BaseText;
 
         /// <summary>Null or empty text is ignored.</summary>
-        public void Push(string text, NoticeTone tone, string key = null)
+        public void Push(string text, NoticeTone tone, string key = null, float holdSeconds = 0f, bool dropIfLate = false)
         {
             if (string.IsNullOrEmpty(text)) return;
+            bool hasHold = !float.IsNaN(holdSeconds) && !float.IsInfinity(holdSeconds) && holdSeconds > 0f;
+            if (key != null && dropIfLate)
+            {
+                var shown = Find(_lines, null, key);
+                if (shown != null)
+                {
+                    shown.BaseText = text; shown.Tone = tone; shown.Count = 1; shown.Display = text;
+                    shown.Hold = hasHold ? holdSeconds : NoticeRouter.HoldSeconds(text);
+                    shown.NeverLate = true;
+                    Restart(shown);
+                    return;
+                }
+                if (_waiting.Count > 0 || _lines.Count >= _capacity) return;
+                var now = new Item { BaseText = text, Display = text, Key = key, Tone = tone, NeverLate = true, Slot = _lines.Count };
+                now.Hold = hasHold ? holdSeconds : NoticeRouter.HoldSeconds(text);
+                now.HoldLeft = now.Hold;
+                _lines.Add(now);
+                return;
+            }
             if (key != null)
             {
                 var hit = Find(_lines, null, key) ?? Find(_waiting, null, key);
                 if (hit != null)
                 {
                     hit.BaseText = text; hit.Tone = tone; hit.Count = 1; hit.Display = text;
+                    hit.Hold = hasHold ? holdSeconds : NoticeRouter.HoldSeconds(text);
                     Restart(hit);
                     return;
                 }
@@ -65,7 +85,8 @@ namespace Roguehalla.Net.Ui
                     return;
                 }
             }
-            var item = new Item { BaseText = text, Display = text, Key = key, Tone = tone, HoldLeft = NoticeRouter.HoldSeconds(text) };
+            var item = new Item { BaseText = text, Display = text, Key = key, Tone = tone, Hold = hasHold ? holdSeconds : NoticeRouter.HoldSeconds(text) };
+            item.HoldLeft = item.Hold;
             if (_waiting.Count == 0 && _lines.Count < _capacity) { item.Slot = _lines.Count; _lines.Add(item); }
             else
             {
@@ -87,7 +108,7 @@ namespace Roguehalla.Net.Ui
 
         static void Restart(Item item)
         {
-            item.HoldLeft = NoticeRouter.HoldSeconds(item.BaseText);
+            item.HoldLeft = item.Hold;
             item.Held = 0f;
             if (item.Phase == Phase.Leaving) Revive(item);
         }
@@ -113,13 +134,30 @@ namespace Roguehalla.Net.Ui
                 if (sticky.Phase == Phase.Leaving) Revive(sticky);
                 return;
             }
-            _lines.Insert(0, new Item { BaseText = text, Display = text, Tone = tone, Sticky = true, HoldLeft = float.PositiveInfinity });
+            _lines.Insert(0, new Item { BaseText = text, Display = text, Tone = tone, Sticky = true, HoldLeft = float.PositiveInfinity, Hold = float.PositiveInfinity });
+        }
+
+        /// <summary>Starts the fade out of a showing, non-sticky line with this key.</summary>
+        public void End(string key)
+        {
+            if (key == null) return;
+            for (int i = 0; i < _lines.Count; i++)
+            {
+                var it = _lines[i];
+                if (it.Sticky || it.Key != key || it.Phase == Phase.Leaving) continue;
+                it.Phase = Phase.Leaving; it.Fade = it.Alpha * FadeOutSeconds;
+                return;
+            }
         }
 
         /// <summary>Timers run only while visible.</summary>
         public void Tick(float dt, bool visible, bool reducedMotion)
         {
-            if (!visible) return;
+            if (!visible)
+            {
+                for (int i = _lines.Count - 1; i >= 0; i--) if (_lines[i].NeverLate) _lines.RemoveAt(i);
+                return;
+            }
             for (int i = 0; i < _lines.Count; i++) Advance(_lines[i], dt, reducedMotion);
             RemoveGone(reducedMotion);
             if (_waiting.Count > 0 && _lines.Count >= _capacity && !AnyLeaving())

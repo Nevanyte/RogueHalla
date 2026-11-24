@@ -45,7 +45,7 @@ namespace Roguehalla.Client
             _onClose = onClose;
             _root = MythicUi.Panel(parent, "NoticeHistory", new Vector2(.12f, .12f), new Vector2(.88f, .915f));
             MythicUi.Text(_root, "Title", "SERVER NOTICES", new Vector2(.025f, .915f), new Vector2(.78f, .995f), 25, ShowcasePalette.Gold);
-            MythicUi.Button(_root, "Close", "CLOSE", new Vector2(.82f, .92f), new Vector2(.98f, .99f), () => { SetVisible(false); _onClose?.Invoke(); });
+            FlowWindowClose.Create(_root, "Close", () => { SetVisible(false); _onClose?.Invoke(); });
             _body = MythicUi.ScrollText(_root, "History", "No server notices received.", new Vector2(.025f, .04f), new Vector2(.975f, .80f), 17);
             _historyScroll = _body.GetComponentInParent<UnityEngine.UI.ScrollRect>();
             _historyScroll.gameObject.AddComponent<KeyboardScrollPane>().Initialize(_historyScroll);

@@ -13,7 +13,7 @@ namespace Roguehalla.Client.Tests
 {
     /// <summary>
     /// P-UI-ABILITY-ROW-1-fix: one call of MatchHud.RefreshQuestRewardHud allocates nothing in the states the first allocation tests of the
-    /// ability row never built: nearby quest actions (the caption is cached by its count), a pending reward choice with the overlay open, sent
+    /// ability row never built: nearby quest actions (the caption is built when the actions are bound), a pending reward choice with the overlay open, sent
     /// and awaited, and deferred by LATER (no boxed nullable compare), a nearby action beside the pickup pill, a cooling spell, and a board
     /// row alone. A whole MatchHud on a real MatchClient over a fake transport, as AbilityRowEditModeTests builds it. Every snapshot carries
     /// server time 1000, so no spell key moves between the measured calls. Nothing here reads a clock.
@@ -183,10 +183,41 @@ namespace Roguehalla.Client.Tests
             Assert.That(Launcher.gameObject.activeInHierarchy, Is.True, "set-up: the launcher shows");
             Assert.That(Launcher.GetComponent<Button>().interactable, Is.True, "set-up: and can be pressed");
             Assert.That((int)GetF(_hud, "_nearbyQuestCount"), Is.EqualTo(1), "set-up: one nearby action");
-            Assert.That(LauncherCaption(), Is.EqualTo("Nearby quest actions · 1"), "set-up: the caption");
+            Assert.That(LauncherCaption(), Is.EqualTo("Pick up WallBuster"), "set-up: the caption");
             Assert.That(_session.ServerTimeMs, Is.EqualTo(1000d), "set-up: the server time is the delivered one");
             var refresh = Refresh();
             AllocationMeter.AssertNone(refresh, 200, "200 refresh frames with a nearby quest action");
+        }
+
+        /// <summary>
+        /// Standing guard (P-UI-GUARDS-1), green on the base. The count caption ("Nearby quest actions · n", shown for two or more actions)
+        /// is a cached text, so 200 steady refresh frames in that state allocate nothing either.
+        /// </summary>
+        [Test]
+        public void TwoNearbyActionsAllocateNothing()
+        {
+            BuildFullRig(); LayoutFull(new Vector2(1280, 800));
+            Snap(10, 1000);
+            Items(10, Quests(
+                actions: new[]
+                {
+                    new WireQuestAction { Quest = new QuestHandle(71), Action = 9, Target = 37, Label = "Pick up WallBuster", Points = new[] { 64.0, 64.0 } },
+                    new WireQuestAction { Quest = new QuestHandle(72), Action = 9, Target = 38, Label = "Pick up Hook", Points = new[] { 64.0, 64.0 } },
+                },
+                drops: new[]
+                {
+                    new WireQuestDrop { Index = 37, Reward = 20, Charges = 1, X = 64, Y = 64 },
+                    new WireQuestDrop { Index = 38, Reward = 2, Charges = 1, X = 64, Y = 64 },
+                }));
+            Frame();
+            Frame();
+            Assert.That(Launcher.gameObject.activeInHierarchy, Is.True, "set-up: the launcher shows");
+            Assert.That(Launcher.GetComponent<Button>().interactable, Is.True, "set-up: and can be pressed");
+            Assert.That((int)GetF(_hud, "_nearbyQuestCount"), Is.EqualTo(2), "set-up: two nearby actions");
+            Assert.That(LauncherCaption(), Is.EqualTo("Nearby quest actions · 2"), "set-up: the count caption");
+            Assert.That(_session.ServerTimeMs, Is.EqualTo(1000d), "set-up: the server time is the delivered one");
+            var refresh = Refresh();
+            AllocationMeter.AssertNone(refresh, 200, "200 refresh frames with two nearby quest actions");
         }
 
         // ------------------------------------------------------------------ 2. the caption follows the count
@@ -199,7 +230,7 @@ namespace Roguehalla.Client.Tests
             Items(10, NearbyAction());
             Frame();
             Assert.That((int)GetF(_hud, "_nearbyQuestCount"), Is.EqualTo(1));
-            Assert.That(LauncherCaption(), Is.EqualTo("Nearby quest actions · 1"));
+            Assert.That(LauncherCaption(), Is.EqualTo("Pick up WallBuster"));
 
             Snap(11, 1000);
             Items(11, Quests(
@@ -221,7 +252,7 @@ namespace Roguehalla.Client.Tests
             Items(12, NearbyAction());
             Frame();
             Assert.That((int)GetF(_hud, "_nearbyQuestCount"), Is.EqualTo(1));
-            Assert.That(LauncherCaption(), Is.EqualTo("Nearby quest actions · 1"));
+            Assert.That(LauncherCaption(), Is.EqualTo("Pick up WallBuster"));
         }
 
         // ------------------------------------------------------------------ 3 to 5. a pending choice
@@ -308,14 +339,14 @@ namespace Roguehalla.Client.Tests
             Snap(10, 1000);
             Items(10, Quests(new[]
             {
-                new WireQuestSpell { Slot = 0, Reward = 3, Charges = 2, ReadyAt = 6000 },
+                new WireQuestSpell { Slot = 0, Reward = 3, Charges = 0, ReadyAt = 6000 },
                 new WireQuestSpell { Slot = 1, Reward = 4, Charges = 1, ReadyAt = 0 },
             }));
             Frame();
             Frame();
             Assert.That(Text(Tile("QuestSpell1"), "Seconds"), Is.EqualTo("5"), "set-up: the first spell cools");
             Assert.That(Text(Tile("QuestSpell2"), "Name"), Is.EqualTo("Tornado"), "set-up: the second is ready");
-            Assert.That(((TMP_Text)GetF(_hud, "_questChoiceSpells")).text, Does.Contain("2 charges · 5s"), "set-up: the equipped line");
+            Assert.That(((TMP_Text)GetF(_hud, "_questChoiceSpells")).text, Does.Contain("0 charges · 5s"), "set-up: the equipped line");
             var refresh = Refresh();
             AllocationMeter.AssertNone(refresh, 200, "200 refresh frames with one spell cooling and one ready");
         }

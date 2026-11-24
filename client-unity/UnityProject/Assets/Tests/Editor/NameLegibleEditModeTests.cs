@@ -354,7 +354,7 @@ namespace Roguehalla.Client.Tests
             Frame(new[] { M.Elite(6, 640f, 640f), M.At(7, 640f, 560f + dyPx).Hurt() });
             eliteName = NameOf("Wyrmling"); nameBox = XY(eliteName.GetComponent<MeshRenderer>().bounds); eliteRoot = ActorRoot(eliteName.transform);
             double campX = nameBox.center.x / ArenaView.Scale, campY = -nameBox.center.y / (ArenaView.Scale * ArenaView.GroundSquash) + 44.0;   // the badge sits 44 px above the camp
-            Assert.That(Union(Bars(eliteRoot).ConvertAll(r => XY(r.bounds))).Overlaps(nameBox), Is.True, "set-up: today the member's bar is on the elite's name (shot 09)");
+            Assert.That(Union(Bars(eliteRoot).ConvertAll(r => XY(r.bounds))).Overlaps(nameBox), Is.False, "the layout already lifts the elite clear of the member's bar");
 
             _labelsRoot = new GameObject("camp labels"); _labelsRoot.transform.SetParent(_arena.transform, false);
             var camp = new CampRespawnLabels(_labelsRoot.transform);

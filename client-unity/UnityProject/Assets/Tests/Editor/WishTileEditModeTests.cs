@@ -193,7 +193,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(Text(tile, "Charges"), Is.EqualTo(""), when + ": no badge");
             Assert.That(WedgeOn(tile), Is.False, when + ": no wedge");
             Assert.That(CastOn(tile), Is.False, when + ": no cast bar");
-            Assert.That(Surface(tile).color.a, Is.LessThan(.5f), when + ": the surface is dim");
+            Assert.That(Surface(tile).color, Is.EqualTo((Color)UiTheme.Current.SurfaceRaised), when + ": the surface is the solid plate");
             Assert.That(tile.GetComponent<Button>().interactable, Is.False, when + ": the button is not interactable");
         }
 
@@ -306,6 +306,25 @@ namespace Roguehalla.Client.Tests
             Deliver(Wish(AbilityId.Blaze, 1, 2, 4000, 14000, 14000), 5600);
             Assert.That(CastOn(tile), Is.False, "no cast, no bar");
             foreach (int i in new[] { 0, 1 }) Assert.That(CastOn(QuestTile(i)), Is.False, "the quest tile " + i + " has no cast bar on");
+        }
+
+        // ------------------------------------------------------------------ 6b. the badge follows the delivered stock
+
+        /// <summary>
+        /// P-UI-TILE-PLATES-1 (a standing guard, green on its base): elapsed time never predicts stock. Wave 3 removed the Wish summary label,
+        /// whose line "elapsed time never predicts summary stock either" lived in MatchHudWishBarrierEditModeTests; this restores the fact
+        /// for the tile's badge. The same view delivered again after NextChargeAt and FullAt have passed still reads one charge.
+        /// </summary>
+        [Test]
+        public void TheBadgeFollowsTheDeliveredStockNotTheClock()
+        {
+            var tile = Tile;
+            var wish = Wish(AbilityId.Blaze, 1, 2, 4000, 14000, 14000);
+            Deliver(wish, 5000);
+            Assert.That(Text(tile, "Charges"), Is.EqualTo("1"), "set-up: the delivered stock");
+            Deliver(wish, 15000);
+            Assert.That(Text(tile, "Charges"), Is.EqualTo("1"), "the same view at a later server time keeps the delivered stock");
+            Assert.That(NameBoxOn(tile), Is.True, "and the name box is on");
         }
 
         // ------------------------------------------------------------------ 7. no garbage

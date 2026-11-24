@@ -31,7 +31,7 @@ namespace Roguehalla.Client
         void InitializePlayerFlows()
         {
             _questJournal = gameObject.AddComponent<QuestJournalView>();
-            _questJournal.Initialize(_root, ClosePlayerFlows, handle => _map?.SetTrackedQuest(handle));
+            _questJournal.Initialize(_root, ClosePlayerFlows, handle => _map?.SetTrackedQuest(handle), _acceptLatch);
             _traderDialog = gameObject.AddComponent<TraderDialogView>();
             _traderDialog.Initialize(_root, ClosePlayerFlows);
             CreateNoticeFeed();
@@ -163,7 +163,7 @@ namespace Roguehalla.Client
         void RefreshJournalLauncher()
         {
             if (_journalButton == null) return;
-            _journalButton.gameObject.SetActive(PlayerFlowLauncherAllowed && !PlayerFlowVisible);
+            _journalButton.gameObject.SetActive(PlayerFlowLauncherAllowed && !PlayerFlowVisible && !(_results != null && _results.gameObject.activeSelf) && !(_session != null && _session.LastResult != null && !Spectating));
             var label = _journalButton.GetComponentInChildren<TMP_Text>(true);
             const string value = "Quests · J";
             if (label.text != value) label.text = value;

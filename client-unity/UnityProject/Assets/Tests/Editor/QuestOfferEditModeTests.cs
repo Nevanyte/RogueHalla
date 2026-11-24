@@ -457,7 +457,7 @@ namespace Roguehalla.Client.Tests
             Tap(enter);
             Assert.That(Count(_transport.TakeCommands(), CommandKind.QuestAccept), Is.EqualTo(0), "a second Enter sends nothing");
 
-            _hud.OfferCard.Tick(2.6f);
+            _hud.TickOffer(2.6f);
             Assert.That(_hud.OfferCard.Accepting, Is.False, "the wait is over after 2.5 s");
             Assert.That(CardText("Footer/Accept/Label"), Is.EqualTo("ACCEPT · Enter"), "the offer is still acceptable: the caption returns");
             Assert.That(AcceptInteractable(), Is.True, "and the button works again");

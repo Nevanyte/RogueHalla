@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Roguehalla.Net;
+using Roguehalla.Net.Ui;
 
 namespace Roguehalla.Client
 {
@@ -99,10 +100,10 @@ namespace Roguehalla.Client
             MythicUi.Icon(buttonRect, "CardGlyph", GlyphFor(display.Tags), new Vector2(.02f, .56f), new Vector2(.26f, .98f));
             MythicUi.Text(buttonRect, "CardTitle", display.Title, new Vector2(.27f, .69f), new Vector2(.96f, .97f), 15,
                 ShowcasePalette.Text);
-            MythicUi.Text(buttonRect, "CardDescription", display.Description, new Vector2(.04f, .22f), new Vector2(.96f, .66f), 12,
+            MythicUi.Text(buttonRect, "CardDescription", display.Description, new Vector2(.04f, .26f), new Vector2(.96f, .66f), 12,
                 ShowcasePalette.MutedText);
-            string tags = string.IsNullOrWhiteSpace(display.Tags) ? "CARD" : display.Tags.Replace("True_", "True").ToUpperInvariant();
-            MythicUi.Text(buttonRect, "CardTags", tags, new Vector2(.04f, .05f), new Vector2(.70f, .20f), 10, ShowcasePalette.Gold);
+            string tags = string.IsNullOrWhiteSpace(display.Tags) ? "CARD" : PlayerWords.CardTags(display.Tags).ToUpperInvariant();
+            MythicUi.Text(buttonRect, "CardTags", tags, new Vector2(.04f, .05f), new Vector2(.70f, .24f), 10, ShowcasePalette.Gold);
             _cardCounts[index] = MythicUi.Text(buttonRect, "OwnedCount", "×0", new Vector2(.72f, .035f), new Vector2(.97f, .21f), 14,
                 ShowcasePalette.Success, TextAlignmentOptions.MidlineRight);
         }
@@ -127,9 +128,10 @@ namespace Roguehalla.Client
             if (visible && _scroll != null) _scroll.StopMovement();
         }
 
+        /// <summary>Brings the drawer current. A closed drawer does nothing: <see cref="MatchHud"/> refreshes it once when it opens.</summary>
         public void Refresh(CollectionsView collections, SelfView me, float textScale = 1f)
         {
-            if (_root == null) return;
+            if (_root == null || !_root.gameObject.activeSelf) return;
             textScale = Mathf.Clamp(float.IsNaN(textScale) || float.IsInfinity(textScale) ? 1f : textScale, .75f, 1.5f);
             if (!Mathf.Approximately(textScale, _textScale)) { _textScale = textScale; ApplyTextScale(); }
 
@@ -154,7 +156,7 @@ namespace Roguehalla.Client
                     _hasSelf = true; _lastSelfId = me.Id; _lastHp = me.Hp; _lastMaxHp = me.MaxHp; _lastBarrier = me.Barrier;
                     _lastStatus = (byte)me.Status; _lastWeapon = (byte)me.Weapon; _lastKills = me.Kills; _lastBounty = me.Bounty; _lastGv = me.Gv;
                     Set(_vitals, "HP " + me.Hp.ToString("0.#") + " / " + me.MaxHp.ToString("0.#") + "     Barrier " + me.Barrier.ToString("0.#"));
-                    Set(_status, me.Status + "  ·  " + me.Weapon + "  ·  " + me.Kills + " kills  ·  Bounty " + me.Bounty + "  ·  GV " + me.Gv);
+                    Set(_status, PlayerWords.Word(me.Status) + "  ·  " + me.Weapon + "  ·  " + me.Kills + " kills  ·  Bounty " + me.Bounty + "  ·  GV " + me.Gv);
                 }
             }
         }
@@ -218,7 +220,7 @@ namespace Roguehalla.Client
             {
                 var display = CardDisplayCatalog.Get(_selectedIndex);
                 _detail.text = _selectedIndex < 0 ? "Select a card to inspect its server catalog description." :
-                    display.Title + "  ·  " + display.Description + (string.IsNullOrEmpty(display.Tags) ? "" : "  ·  " + display.Tags.Replace("True_", "True"));
+                    display.Title + "  ·  " + display.Description + (string.IsNullOrEmpty(display.Tags) ? "" : "  ·  " + PlayerWords.CardTags(display.Tags));
             }
         }
         void ApplyTextScale()

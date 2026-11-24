@@ -90,7 +90,7 @@ namespace Roguehalla.Client.Tests
                 other.Deliver(new ServerMsg.Events { Tick = 2, List = new List<WireEvent> { new WireEvent { Kind = EventKind.MatchEnded } } });
                 Assert.AreEqual(SessionState.Ended, ended.State, "set-up");
                 _view.Refresh();
-                Assert.AreEqual("Match ended", Status(), "whatever the view says");
+                Assert.AreEqual(Roguehalla.Net.Ui.PlayerWords.Word(SessionState.Ended), Status(), "whatever the view says");
             }
             finally { _view.Bind(_session); ended.Leave(); }
         }

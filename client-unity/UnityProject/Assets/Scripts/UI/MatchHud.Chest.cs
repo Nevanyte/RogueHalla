@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using Roguehalla.Net;
+using Roguehalla.Net.Ui;
 using TMPro;
 using UnityEngine;
 
@@ -22,12 +23,11 @@ namespace Roguehalla.Client
         UnityEngine.UI.Button _chestNext;
         UnityEngine.UI.Image _chestFocusRing;
 
-        static readonly string[] BoostNames = { "Offense", "Soul Offence", "Defense", "Soul Defense", "Max health", "Attack speed", "Move speed", "Lifesteal" };
-
         void CreateChestPanel()
         {
             var theme = UiTheme.Current;
             _rewards = Panel(_stage, "Rewards", .70f, .425f, .985f, .915f);
+            _rewards.GetComponent<UnityEngine.UI.Image>().color = UiTheme.With(theme.Surface, HudUi.PlateAlpha);
             _rewardTitle = Text(_rewards, "RewardTitle", "", .045f, .925f, .66f, .995f, 20);
             SetBaseSize(_rewardTitle, 13f); _rewardTitle.color = ShowcasePalette.Gold;
             _chestTimer = Text(_rewards, "ChestTimer", "", .62f, .925f, .955f, .995f, 20);
@@ -83,7 +83,7 @@ namespace Roguehalla.Client
             return tail == "I" || tail == "II" || tail == "III" || tail == "IV" || tail == "V" ? tail : "";
         }
 
-        public static string BoostLabel(BoostId id) { int i = (int)id; return i >= 0 && i < BoostNames.Length ? BoostNames[i] : id.ToString(); }
+        public static string BoostLabel(BoostId id) { return PlayerWords.ChestTitle(id); }
 
         /// <summary>Per frame: the countdown and its bar follow the server's deadline (the part of the panel that is not cached by signature).</summary>
         void RefreshChestClock(RewardChestView chest)

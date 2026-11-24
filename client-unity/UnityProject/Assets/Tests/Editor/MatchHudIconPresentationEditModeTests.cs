@@ -126,7 +126,7 @@ namespace Roguehalla.Client.Tests
             Assert.That(wishButton.transform.Find("Seconds/Label").GetComponent<TMP_Text>().text, Is.EqualTo("1"), "the countdown is on the tile");
             StringAssert.Contains("Blaze", hint.Text);
             StringAssert.Contains("Next charge in 2", hint.Text);
-            StringAssert.Contains("Casting Blaze · 2", hint.Text);
+            StringAssert.Contains("Casting Blaze Step · 2", hint.Text);
             Assert.That(details.gameObject.activeSelf, Is.False);
 
             var eventData = new BaseEventData(EventSystem.current);

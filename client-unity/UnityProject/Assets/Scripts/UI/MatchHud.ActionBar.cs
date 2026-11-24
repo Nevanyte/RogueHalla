@@ -108,11 +108,10 @@ namespace Roguehalla.Client
                 var button = _slots[i] = rect.gameObject.AddComponent<UnityEngine.UI.Button>();
                 button.targetGraphic = image; button.onClick.AddListener(() => Swap(slot));
                 HudUi.ApplyColors(button, theme.SurfaceRaised);
-                _slotGroups[i] = rect.gameObject.AddComponent<CanvasGroup>();
                 _weaponIcons[i] = MythicUi.Icon(rect, "WeaponIcon", MythicGlyph.Sword, 26f);
                 _weaponIcons[i].rectTransform.anchorMin = _weaponIcons[i].rectTransform.anchorMax = new Vector2(.5f, 1f);
                 _weaponIcons[i].rectTransform.pivot = new Vector2(.5f, 1f); _weaponIcons[i].rectTransform.anchoredPosition = new Vector2(0, -12);
-                _slotNames[i] = HudUi.Label(HudUi.At(rect, "Name", 4, 42, HudRegions.WeaponSlotWidth - 8, 14), "Label", "Empty", theme.SizeSmall, theme.TextPrimary, TextAlignmentOptions.Center);
+                _slotNames[i] = HudUi.Label(HudUi.At(rect, "Name", 4, 42, HudRegions.WeaponSlotWidth - 8, 14), "Label", "Empty", theme.SizeSmall, AbilityTile.EmptyTextColour(theme), TextAlignmentOptions.Center);
                 _slotScaling[i] = HudUi.Label(HudUi.At(rect, "Scaling", 2, 59, HudRegions.WeaponSlotWidth - 4, 11), "Label", "", theme.SizeMicro, theme.TextSecondary, TextAlignmentOptions.Center, wrap: true);
                 var barBox = HudUi.Box(rect, "AttackBar", HudAnchor.BottomLeft, 6f, 4f, HudRegions.WeaponSlotWidth - 12f, 3f);
                 var bar = barBox.gameObject.AddComponent<UnityEngine.UI.Image>();
@@ -140,8 +139,6 @@ namespace Roguehalla.Client
             CreateQuestTiles();
             CreateConsumables(theme);
             CreatePickupHint(theme);
-            var controls = HudUi.Label(HudUi.Box(_weaponBar, "ControlsLine", HudAnchor.BottomCenter, 0, -14f, 240, 13), "Label", "WASD move · Click attack · Shift/Q quest · R Wish", theme.SizeTiny, theme.TextSecondary, TextAlignmentOptions.Center);
-            controls.raycastTarget = false;
         }
 
         void CreateQuestTiles()
@@ -189,7 +186,7 @@ namespace Roguehalla.Client
             _potionHint = HudIconHint.Attach(_potionButton, _root, "E · Drink potion\nAwaiting inventory");
             // Wind chip: "+50% speed · Active Ns" while the owner's boost runs, else "Walk over emblems" (ApplyInventoryHints).
             var wind = HudUi.Box(row, "Wind", HudAnchor.BottomRight, 0, 0, 146f, HudRegions.ConsumablesHeight);
-            HudUi.Surface(wind, Tone(theme.SurfaceRaised, .94f), 5f, theme.Border, false, true);
+            HudUi.Surface(wind, Tone(theme.SurfaceRaised, HudUi.PlateAlpha), 5f, theme.Border, false, true);
             HudUi.Label(HudUi.At(wind, "Name", 8, 7, 30, 14), "Label", "Wind", theme.SizeSmall, theme.Info, bold: true);
             _windText = HudUi.Label(HudUi.At(wind, "Text", 42, 7, 100, 14), "Label", "Walk over emblems", theme.SizeSmall, theme.TextPrimary);
             _windText.GetComponent<MythicTextScale>().MinSize = 7f;   // the text-size fit shrinks "+50% speed · Active 120s" to about 7.5

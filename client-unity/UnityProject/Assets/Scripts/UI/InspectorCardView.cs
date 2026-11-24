@@ -26,7 +26,7 @@ namespace Roguehalla.Client
         public InspectorCardView(Transform parent)
         {
             _root = HudUi.Box(parent, "InspectorCard", HudAnchor.TopRight, WideRight, WideTop, WideMax, 60f);
-            HudUi.Surface(_root, new Color(0f, 0f, 0f, .78f), 8f, ShowcasePalette.PanelStroke, raycast: false);
+            HudUi.Surface(_root, new Color(0f, 0f, 0f, HudUi.PlateAlpha), 8f, ShowcasePalette.PanelStroke, raycast: false);
             var body = HudUi.Inset(_root, "Lines", Pad, Pad, Pad, Pad);
             _text = HudUi.Label(body, "Text", "", 14f, Color.white, TextAlignmentOptions.TopLeft, false, UiFontRole.Body, true);
             _follow = _text.GetComponent<MythicTextScale>();

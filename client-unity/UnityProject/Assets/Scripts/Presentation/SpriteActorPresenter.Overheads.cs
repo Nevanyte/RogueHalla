@@ -74,7 +74,6 @@ namespace Roguehalla.Client
             foreach (var art in _active.Values)
             {
                 if (art.Stamp != _stamp || art.Dead || !art.Root.activeSelf) continue;
-                if (art.IndFacts.Elite && art.Ind.NameActive) ClearOfBars(art);
                 art.Ind.AddIndicatorObstacles(_signatureObstacles);
             }
 

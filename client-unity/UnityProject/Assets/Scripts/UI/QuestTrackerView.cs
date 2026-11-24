@@ -34,7 +34,7 @@ namespace Roguehalla.Client
         {
             var theme = UiTheme.Current;
             _root = HudUi.Box(parent, "QuestTracker", HudAnchor.TopLeft, HudRegions.Margin, 0f, HudRegions.TrackerWidth, 0f);
-            HudUi.Surface(_root, UiTheme.With(theme.Surface, .82f), theme.CornerRadius, UiTheme.With(theme.Border, .6f), false);
+            HudUi.Surface(_root, UiTheme.With(theme.Surface, HudUi.PlateAlpha), theme.CornerRadius, UiTheme.With(theme.Border, .6f), false);
             var header = HudUi.At(_root, "Header", 0f, 0f, HudRegions.TrackerWidth, HudRegions.TrackerHeader);
             HudUi.Label(HudUi.At(header, "Title", 8f, 2f, 120f, 14f), "Label", "QUESTS", theme.SizeTiny, theme.Accent, TextAlignmentOptions.MidlineLeft, true);
             _more = HudUi.Label(HudUi.At(header, "More", 132f, 2f, 120f, 14f), "Label", "", theme.SizeTiny, theme.TextSecondary, TextAlignmentOptions.MidlineRight);

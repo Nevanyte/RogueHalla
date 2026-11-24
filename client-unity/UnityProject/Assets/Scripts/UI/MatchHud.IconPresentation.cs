@@ -27,9 +27,18 @@ namespace Roguehalla.Client
             _trainingLauncher.anchorMax = new Vector2(.32f, bottom + .10f);
         }
 
+        // A weapon's name without ToString() on every dirty frame: read from an array indexed by the enum value, filled lazily.
+        static readonly string[] WeaponNames = new string[6];
+        static string WeaponName(WeaponId weapon)
+        {
+            int index = (int)weapon;
+            if (index < 0 || index >= WeaponNames.Length) return weapon.ToString();
+            return WeaponNames[index] ?? (WeaponNames[index] = weapon.ToString());
+        }
+
         void RefreshDamageReadout(SelfView me)
         {
-            Set(_damageWeapon, me == null ? "—" : me.Weapon.ToString());
+            Set(_damageWeapon, me == null ? "—" : WeaponName(me.Weapon));
             ApplyChampionRows(me == null ? null : _session?.Collections?.Summary, me);
             if (_championScaling[2] != null && me == null) { Set(_championValue[2], "—"); Set(_championScaling[2], ""); }
         }
@@ -51,24 +60,51 @@ namespace Roguehalla.Client
             {
                 _panelShownCount = -1;
                 Set(_championValue[0], "—"); Set(_championScaling[0], ""); Set(_championValue[1], "—"); Set(_championScaling[1], "");
+                _damageTipStale = false;
                 if (_damageHint != null) _damageHint.Text = DamageUnavailable;
                 return;
             }
             var block = HudContent; double? asMilli = me.OwnerCombat.HasValue ? me.OwnerCombat.Value.AsMilli : (double?)null;
+            // Two keys. The rows rebuild when a code they show, the faction, weapon, HUD block, attack-speed mirror or the code list changed.
+            // A value that moved only in a tooltip-only code (8, 9, 23-27) rebuilds the tooltip alone, and only while it is open.
             bool same = _panelShownCount == panel.Length && _panelFaction == me.Faction && _panelWeapon == me.Weapon && ReferenceEquals(_panelHud, block) && _panelAs == asMilli;
+            bool tipMoved = false;
             for (int i = 0; same && i < panel.Length; i++)
-                same = _panelShown[i].Code == panel[i].Code && _panelShown[i].Value == panel[i].Value;
-            if (same) return;
+            {
+                if (_panelShown[i].Code != panel[i].Code) same = false;
+                else if (_panelShown[i].Value != panel[i].Value)
+                {
+                    if (TooltipOnlyCode(panel[i].Code)) tipMoved = true; else same = false;
+                }
+            }
             _panelShownCount = panel.Length; _panelFaction = me.Faction; _panelWeapon = me.Weapon; _panelHud = block; _panelAs = asMilli;
             for (int i = 0; i < panel.Length; i++) _panelShown[i] = panel[i];
+            if (same)
+            {
+                if (tipMoved) _damageTipStale = true;
+                if (_damageTipStale && _damageHint != null && _damageHint.IsVisible)
+                {
+                    _damageTipStale = false;
+                    _damageHint.Text = DamageTooltip(summary, me, block, asMilli);
+                }
+                return;
+            }
             var rows = ChampionPanelText.Rows(summary, me.Faction, me.Weapon);
             Set(_championLabel[0], rows.Auto.Name); Set(_championLabel[1], rows.Passive.Name);
             Set(_championValue[0], rows.Auto.Value); Set(_championScaling[0], block != null ? HudContentText.AutoScaling(block, me.Weapon) : rows.Auto.Scaling);
             Set(_championValue[1], rows.Passive.Value); Set(_championScaling[1], rows.Passive.Scaling);
-            if (_damageHint != null && block != null)
-                _damageHint.Text = DamageUnavailable + "\n" + HudContentText.AutoTooltip(summary, block, me.Faction, me.Weapon, asMilli);
-            else if (_damageHint != null)
-                _damageHint.Text = DamageUnavailable + (rows.Auto.Detail.Length > 0 ? "\n" + rows.Auto.Detail : "") + (rows.Roam.Length > 0 ? "\n" + rows.Roam : "");
+            _damageTipStale = false;
+            if (_damageHint != null) _damageHint.Text = DamageTooltip(summary, me, block, asMilli);
+        }
+
+        bool _damageTipStale;
+        static bool TooltipOnlyCode(byte code) { return code == 8 || code == 9 || code >= 23 && code <= 27; }
+
+        string DamageTooltip(Roguehalla.Net.Protocol.WireBuildSummary summary, SelfView me, Roguehalla.Net.Protocol.WireHudContent block, double? asMilli)
+        {
+            if (block != null) return DamageUnavailable + "\n" + HudContentText.AutoTooltip(summary, block, me.Faction, me.Weapon, asMilli);
+            var rows = ChampionPanelText.Rows(summary, me.Faction, me.Weapon);
+            return DamageUnavailable + (rows.Auto.Detail.Length > 0 ? "\n" + rows.Auto.Detail : "") + (rows.Roam.Length > 0 ? "\n" + rows.Roam : "");
         }
 
         struct PotionKey { public bool Delivered; public int Large, Small, Healing, HealSec, WindSec; public bool Equals(PotionKey o) { return Delivered == o.Delivered && Large == o.Large && Small == o.Small && Healing == o.Healing && HealSec == o.HealSec && WindSec == o.WindSec; } }
@@ -98,7 +134,7 @@ namespace Roguehalla.Client
                 if (_slotKeyValid[i] && ReferenceEquals(_slotBlock[i], block) && _slotWeapon[i] == weapon && _slotEquipped[i] == equipped) continue;
                 _slotKeyValid[i] = true; _slotBlock[i] = block; _slotWeapon[i] = weapon; _slotEquipped[i] = equipped;
                 Set(_slots[i].GetComponentInChildren<TMP_Text>(true), (i + 1).ToString());
-                if (_slotNames[i] != null) Set(_slotNames[i], weapon.HasValue ? weapon.Value.ToString() : "Empty");
+                if (_slotNames[i] != null) Set(_slotNames[i], weapon.HasValue ? WeaponName(weapon.Value) : "Empty");
                 string scaling = weapon.HasValue ? HudContentText.SlotScaling(block, weapon.Value) : "";
                 if (_slotScaling[i] != null) Set(_slotScaling[i], scaling);
                 string title = !weapon.HasValue ? "Empty weapon slot" : scaling.Length > 0 ? HudContentText.SlotTip(block, weapon.Value) : weapon.ToString();

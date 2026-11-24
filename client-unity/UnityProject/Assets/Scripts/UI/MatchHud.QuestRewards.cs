@@ -40,6 +40,15 @@ namespace Roguehalla.Client
         bool _promptCaptionKey;
         bool _offerPrompt, _offerPromptLive;
         public QuestOfferCard OfferCard { get { return _offerCard; } }
+        readonly QuestAcceptLatch _acceptLatch = new QuestAcceptLatch();
+        public QuestAcceptLatch AcceptLatch { get { return _acceptLatch; } }
+        /// <summary>Null in play; a test sets it to drive the frame's offer tick.</summary>
+        public static float? OfferFrameDeltaOverride;
+        public void TickOffer(float dt)
+        {
+            _acceptLatch.Tick(dt);
+            if (_offerCard != null) _offerCard.Tick(dt);
+        }
         public bool OfferOpen { get { return _offerCard != null && _offerCard.IsOpen; } }
 
         /// <summary>The HUD's answer to F when there is nothing to pick up: closes an open offer card, else opens the offer in reach.</summary>
@@ -64,7 +73,7 @@ namespace Roguehalla.Client
             fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.pivot = new Vector2(.5f, .5f);
             fill.offsetMin = fill.offsetMax = Vector2.zero;
             _questActionCaption = HudUi.Label(fill, "Label", "", 11f, UiTheme.Current.TextPrimary, TextAlignmentOptions.Center);
-            _offerCard = new QuestOfferCard(_hud, () => AcceptOffer(), CloseOffer);
+            _offerCard = new QuestOfferCard(_hud, _acceptLatch, () => AcceptOffer(), CloseOffer);
 
             _questChoiceOverlay = MythicUi.Panel(_root, "QuestRewardChoiceOverlay", Vector2.zero, Vector2.one, new Color(0, 0, 0, .68f));
             var card = MythicUi.Panel(_questChoiceOverlay, "QuestRewardChoice", new Vector2(.28f, .23f), new Vector2(.72f, .77f));
@@ -167,19 +176,10 @@ namespace Roguehalla.Client
             UpdatePromptLane();
         }
 
-        int _nearbyCaptionCount = -1;
         string _nearbyCaption = "";
 
-        /// <summary>"Nearby quest actions · n", rebuilt only when the count changes.</summary>
-        string NearbyActionsCaption()
-        {
-            if (_nearbyCaptionCount != _nearbyQuestCount)
-            {
-                _nearbyCaptionCount = _nearbyQuestCount;
-                _nearbyCaption = "Nearby quest actions \u00b7 " + _nearbyQuestCount;
-            }
-            return _nearbyCaption;
-        }
+        /// <summary>The launcher caption for the nearby actions, built when they are bound.</summary>
+        string NearbyActionsCaption() => _nearbyCaption;
 
         /// <summary>"F · Talk to giver", or "Talk to giver" beside the pickup pill; rebuilt only when the giver or the pair changes.</summary>
         string OfferCaption()
@@ -219,10 +219,11 @@ namespace Roguehalla.Client
         bool AcceptOffer()
         {
             var card = _offerCard; var session = _session;
-            if (card == null || !card.IsOpen || card.Accepting || !card.Shown.HasValue || session == null || !ReferenceEquals(session, _offerSession)) return false;
+            if (card == null || !card.IsOpen || !card.Shown.HasValue || session == null || !ReferenceEquals(session, _offerSession)) return false;
             if (session.State != SessionState.InMatch || session.LastResult != null || session.Phase != MatchPhase.Active || session.TimelineEpoch != _offerEpoch) return false;
             var row = QuestOffer.Find(session.Collections.Quests, card.Shown.Value);
             if (row == null || !row.CanAccept) return false;
+            if (!_acceptLatch.TryBegin(card.Shown.Value, QuestAcceptLatch.SignatureOf(row))) return false;
             session.Input.QuestAccept(card.Shown.Value);
             card.MarkAccepting();
             return true;
@@ -236,7 +237,7 @@ namespace Roguehalla.Client
             if (_offerTickFrame != Time.frameCount)
             {
                 _offerTickFrame = Time.frameCount;
-                card.Tick(Mathf.Min(Time.unscaledDeltaTime, .1f));
+                TickOffer(OfferFrameDeltaOverride ?? Mathf.Min(Time.unscaledDeltaTime, .1f));
             }
             var session = _session;
             bool gates = worldAvailable && OfferGatesHold(session);
@@ -338,6 +339,7 @@ namespace Roguehalla.Client
         void BindQuestRewardActions(Session session, uint epoch, QuestView view)
         {
             int nearby = 0;
+            string firstText = null;
             foreach (var button in _questChoiceButtons)
             {
                 button.onClick.RemoveAllListeners();
@@ -374,8 +376,9 @@ namespace Roguehalla.Client
                     if (action.Action == QuestPresentation.Abandon) continue;
                     var nearbyButton = QuestJournalView.ActionButton(_nearbyQuestButtons, _nearbyQuestList, nearby++);
                     var quest = QuestPresentation.FindRow(view, action.Quest);
-                    Set(nearbyButton.GetComponentInChildren<TMP_Text>(true),
-                        action.Action == QuestPresentation.PickupReward || quest == null ? action.Label : quest.Name + " · " + action.Label);
+                    string text = QuestPresentation.ActionText(view, action);
+                    if (nearby == 1) firstText = string.IsNullOrEmpty(action.Label) ? null : text;
+                    Set(nearbyButton.GetComponentInChildren<TMP_Text>(true), text);
                     nearbyButton.onClick.RemoveAllListeners();
                     nearbyButton.onClick.AddListener(() =>
                     {
@@ -392,6 +395,7 @@ namespace Roguehalla.Client
                 _nearbyQuestButtons[i].gameObject.SetActive(false);
             }
             _nearbyQuestCount = nearby;
+            _nearbyCaption = nearby == 0 ? "" : nearby == 1 ? firstText ?? "Nearby quest actions \u00b7 1" : "Nearby quest actions \u00b7 " + nearby;
         }
 
         void SubmitQuestRewardChoice(Session session, uint epoch, QuestView view, QuestHandle quest, byte action, byte target)
@@ -501,6 +505,7 @@ namespace Roguehalla.Client
         {
             CloseQuestRewardModal();
             CloseOffer();
+            _acceptLatch.Clear();
             _offerSession = null; _promptOffer = null; _offerPrompt = _offerPromptLive = false;
             _questRewardHud?.gameObject.SetActive(false);
             _questTilesFresh = true;
@@ -513,6 +518,9 @@ namespace Roguehalla.Client
             _questRewardSession = null;
             _questRewardView = null;
             _questChoice = _questChoiceDeferred = _questChoiceSent = null;
+            _nearbyQuestCount = 0;
+            _nearbyCaption = "";
+            Set(_questActionCaption, "");
         }
     }
 
@@ -535,6 +543,14 @@ namespace Roguehalla.Client
         };
 
         public static string RewardName(byte reward) => reward < Rewards.Length ? Rewards[reward] : "Quest spell";
+
+        /// <summary>Window and launcher text of a nearby action: its label, then the quest name when there is one.</summary>
+        internal static string ActionText(QuestView view, QuestActionView action)
+        {
+            string label = action.Label ?? "";
+            var row = FindRow(view, action.Quest);
+            return action.Action == PickupReward || row == null || string.IsNullOrEmpty(row.Name) ? label : label + " \u00b7 " + row.Name;
+        }
 
         public static QuestRowView FindRow(QuestView view, QuestHandle handle)
         {

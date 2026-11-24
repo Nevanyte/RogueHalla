@@ -116,7 +116,7 @@ namespace Roguehalla.Net.Ui
         /// Frost's Wish (<see cref="AbilityId.Freeze"/>) under a block that says <see cref="FrostWishKind.Wall"/>.</summary>
         public static string WishName(WireHudContent hud, AbilityId ability)
         {
-            return ability == AbilityId.Freeze && IsWall(hud) ? "Frost Wall" : ability.ToString();
+            return ability == AbilityId.Freeze && IsWall(hud) ? "Frost Wall" : PlayerWords.Word(ability);
         }
 
         /// <summary>The Wish slot tooltip's extra lines for a faction's Wish (combatTip.ts effectTip "wall"), joined by a newline; "" when it has

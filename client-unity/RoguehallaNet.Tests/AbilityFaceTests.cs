@@ -46,23 +46,23 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void ACoolingSpellShowsWholeSecondsRoundedUpAndTheShareOfTheTotalLeft()
         {
-            var face = AbilityFaces.Spell(true, 1, 5200, 1000, 10000);   // 4,200 ms left of 10,000
+            var face = AbilityFaces.Spell(true, 0, 5200, 1000, 10000);   // 4,200 ms left of 10,000
             Assert.That(face.Phase, Is.EqualTo(AbilityPhase.Cooling));
             Assert.That(face.Seconds, Is.EqualTo(5));
             Assert.That(face.Sweep, Is.EqualTo(.42f).Within(Eps));
-            Assert.That(face.Badge, Is.EqualTo(1));
+            Assert.That(face.Badge, Is.EqualTo(0));
             Assert.That(face.Cast, Is.EqualTo(-1f));
 
-            Assert.That(AbilityFaces.Spell(true, 1, 2000, 1000, 10000).Seconds, Is.EqualTo(1), "1,000 ms left is one second");
-            Assert.That(AbilityFaces.Spell(true, 1, 2001, 1000, 10000).Seconds, Is.EqualTo(2), "1,001 ms left rounds up");
+            Assert.That(AbilityFaces.Spell(true, 0, 2000, 1000, 10000).Seconds, Is.EqualTo(1), "1,000 ms left is one second");
+            Assert.That(AbilityFaces.Spell(true, 0, 2001, 1000, 10000).Seconds, Is.EqualTo(2), "1,001 ms left rounds up");
         }
 
         [Test]
         public void ACoolingSpellWithNoKnownTotalDrawsAFullWedgeAndALongerLeftThanTotalClampsToOne()
         {
-            Assert.That(AbilityFaces.Spell(true, 1, 5200, 1000, 0).Sweep, Is.EqualTo(1f).Within(Eps), "total 0");
-            Assert.That(AbilityFaces.Spell(true, 1, 5200, 1000, -3).Sweep, Is.EqualTo(1f).Within(Eps), "negative total");
-            var face = AbilityFaces.Spell(true, 1, 13000, 1000, 10000);   // 12,000 left of 10,000
+            Assert.That(AbilityFaces.Spell(true, 0, 5200, 1000, 0).Sweep, Is.EqualTo(1f).Within(Eps), "total 0");
+            Assert.That(AbilityFaces.Spell(true, 0, 5200, 1000, -3).Sweep, Is.EqualTo(1f).Within(Eps), "negative total");
+            var face = AbilityFaces.Spell(true, 0, 13000, 1000, 10000);   // 12,000 left of 10,000
             Assert.That(face.Phase, Is.EqualTo(AbilityPhase.Cooling));
             Assert.That(face.Sweep, Is.EqualTo(1f).Within(Eps), "clamped");
             Assert.That(face.Seconds, Is.EqualTo(12));
@@ -72,7 +72,7 @@ namespace Roguehalla.Net.Tests
         public void NanTimesCountAsZero()
         {
             Assert.That(AbilityFaces.Spell(true, 1, double.NaN, 1000, 5000).Phase, Is.EqualTo(AbilityPhase.Ready), "NaN readyAt");
-            var face = AbilityFaces.Spell(true, 1, 5000, double.NaN, 10000);   // now counts as 0: 5,000 left
+            var face = AbilityFaces.Spell(true, 0, 5000, double.NaN, 10000);   // now counts as 0: 5,000 left
             Assert.That(face.Phase, Is.EqualTo(AbilityPhase.Cooling));
             Assert.That(face.Seconds, Is.EqualTo(5));
             Assert.That(face.Sweep, Is.EqualTo(.5f).Within(Eps));
@@ -122,13 +122,13 @@ namespace Roguehalla.Net.Tests
             double ready = 6000, last = 1f;
             for (double now = 1000; now < ready; now += 500)
             {
-                var face = AbilityFaces.Spell(true, 1, ready, now, span.Total(ready, now));
+                var face = AbilityFaces.Spell(true, 0, ready, now, span.Total(ready, now));
                 Assert.That(face.Phase, Is.EqualTo(AbilityPhase.Cooling));
                 Assert.That(face.Sweep, Is.LessThanOrEqualTo(last + Eps), "the wedge never grows");
                 last = face.Sweep;
             }
-            Assert.That(AbilityFaces.Spell(true, 1, ready, 1000, span.Total(ready, 1000)).Sweep, Is.EqualTo(1f).Within(Eps), "full at first sight");
-            Assert.That(AbilityFaces.Spell(true, 1, ready, ready, span.Total(ready, ready)).Phase, Is.EqualTo(AbilityPhase.Ready));
+            Assert.That(AbilityFaces.Spell(true, 0, ready, 1000, span.Total(ready, 1000)).Sweep, Is.EqualTo(1f).Within(Eps), "full at first sight");
+            Assert.That(AbilityFaces.Spell(true, 0, ready, ready, span.Total(ready, ready)).Phase, Is.EqualTo(AbilityPhase.Ready));
         }
 
         // ---- HudRegions.AbilityRowScale --------------------------------------------------------------------------------

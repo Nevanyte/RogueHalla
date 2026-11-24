@@ -29,7 +29,6 @@ namespace Roguehalla.Client
         bool _extrasOpen, _plateActive;
         // Weapon bar.
         readonly TMP_Text[] _slotNames = new TMP_Text[2], _slotScaling = new TMP_Text[2];
-        readonly CanvasGroup[] _slotGroups = new CanvasGroup[2];
         UnityEngine.UI.Button _swapChip, _potionButton, _windChip;
         RectTransform _weaponBar, _wishTile;
         TMP_Text _healText, _healStatus, _windText, _pickupText;
@@ -72,7 +71,7 @@ namespace Roguehalla.Client
             }
             float perfRight = ChromeRight + 3 * ChromeButton + 2 * ChromeGap + ChromePerfGap;
             _metricsPill = HudUi.Box(_chromeStage, "PerformancePill", HudAnchor.TopRight, perfRight, ChromeTop + 3f, 124f, 24f);
-            HudUi.Surface(_metricsPill, Tone(theme.SurfaceRaised, .85f), theme.CornerRadius, theme.Border, false);
+            HudUi.Surface(_metricsPill, Tone(theme.SurfaceRaised, HudUi.PlateAlpha), theme.CornerRadius, theme.Border, false);
             _metrics = HudUi.Label(_metricsPill, "PerformanceReadout", "", theme.SizeSmall, theme.TextSecondary, TextAlignmentOptions.MidlineRight);
             _metrics.rectTransform.offsetMin = new Vector2(8, 0); _metrics.rectTransform.offsetMax = new Vector2(-8, 0);
             _metricsPill.gameObject.SetActive(false);
@@ -95,7 +94,7 @@ namespace Roguehalla.Client
         {
             var theme = UiTheme.Current;
             _vitalsPanel = HudUi.Box(_hud, "VitalsPanel", HudAnchor.TopLeft, PlateLeft, PlateTop, HudLayout.PlateWidth(1920f), 60f);
-            HudUi.Surface(_vitalsPanel, Tone(theme.Surface, .94f), theme.CornerRadius, theme.Border, false, true);
+            HudUi.Surface(_vitalsPanel, Tone(theme.Surface, HudUi.PlateAlpha), theme.CornerRadius, theme.Border, false, true);
             _plateBody = HudUi.Inset(_vitalsPanel, "PlateBody", 8, 5, 8, 6);
 
             // Not active: status line (600) and vitals line, plus the kills / GV line Unity already received.
@@ -132,7 +131,7 @@ namespace Roguehalla.Client
             // Legacy "Gained" strip: label + nine fixed cells, left rule in the stat colour, 13 px icon, name left, value right.
             _buildStrip = HudUi.At(_plateBody, "BuildStrip", 0, 18, PlateInner, BuildTop + 5 * BuildRowStep);
             _buildBox = _buildStrip;
-            HudUi.Label(HudUi.At(_buildStrip, "GainedLabel", 0, 0, PlateInner, 12), "Label", "GAINED", theme.SizeTiny, theme.TextSecondary).characterSpacing = 3f;
+            CreateGainsHeader(theme);
             for (int i = 0; i < 9; i++)
             {
                 int boost = CellBoost[i];
@@ -204,11 +203,13 @@ namespace Roguehalla.Client
             _plateActive = active;
             _platePractice = _client != null && _client.ConfirmedPractice;
             if (_healthRow == null) return;
+            WriteOwnerTexts(!active, !active && !_platePractice);   // before SetActive(true): the label refits for its final text
             _healthRow.gameObject.SetActive(active); _buildBox.gameObject.SetActive(active && _gainsShown); _extrasToggle.gameObject.SetActive(active);
             _extrasBody.gameObject.SetActive(active && _extrasOpen);
             _plateStatus.gameObject.SetActive(!active); _vitals.gameObject.SetActive(!active); _combatStats.gameObject.SetActive(!active && !_platePractice);
-            float height = active ? 5 + 18 + BuildTop + 5 * BuildRowStep + 3 + 14 + (_extrasOpen ? 66 : 0) + 8 : 5 + (_platePractice ? 31 : 48) + 6;
+            float height = active ? 5 + 18 + BuildTop + GainedBodyHeight() + 3 + 14 + (_extrasOpen ? 66 : 0) + 8 : 5 + (_platePractice ? 31 : 48) + 6;
             _vitalsPanel.sizeDelta = new Vector2(_vitalsPanel.sizeDelta.x, height);
+            RefreshGainsHeader();
         }
 
         // ------------------------------------------------------------------ champion combat HUD (section 5)
@@ -217,14 +218,15 @@ namespace Roguehalla.Client
         {
             var theme = UiTheme.Current;
             _championHud = _damagePanel = HudUi.Box(_hud, "ChampionCombatHud", HudAnchor.BottomLeft, ChampionLeft, ChampionBottom, 250f, ChampionHeight);
-            HudUi.Surface(_championHud, Tone(theme.Surface, .94f), 7f, theme.Border, true, true);
+            HudUi.Surface(_championHud, Tone(theme.Surface, HudUi.PlateAlpha), 7f, theme.Border, true, true);
+            CreateChampionHeader();
             _championIcon = LaunchUi.FactionShape(_championHud, "FactionIcon", 4, 8f, 7f, 14f, theme.TextPrimary);
-            _championName = HudUi.Label(HudUi.At(_championHud, "Head", 26, 6, 130, 16), "Champion", "Champion", 12f, theme.TextPrimary, bold: true);
-            _damageWeapon = HudUi.Label(HudUi.At(_championHud, "Weapon", 150, 8, 92, 14), "Weapon", "—", theme.SizeTiny, theme.Accent, TextAlignmentOptions.MidlineRight);
+            _championName = HudUi.Label(HudUi.At(_championHud, "Head", 26, 6, 106, 16), "Champion", "Champion", 12f, theme.TextPrimary, bold: true);
+            _damageWeapon = HudUi.Label(HudUi.At(_championHud, "Weapon", 136, 8, 92, 14), "Weapon", "—", theme.SizeTiny, theme.Accent, TextAlignmentOptions.MidlineRight);
             string[] labels = { "Attack", "Passive", "Wish" };
             for (int i = 0; i < 3; i++)
             {
-                var row = HudUi.At(_championHud, "Row" + labels[i], 8, 28 + i * 32, 234, 30);
+                var row = HudUi.At(_championBody, "Row" + labels[i], 8, 28 + i * 32, 234, 30);
                 row.gameObject.AddComponent<UnityEngine.UI.Image>().color = Tone(theme.SurfaceSunken, .7f);
                 row.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
                 var rule = HudUi.Box(row, "Rule", HudAnchor.TopLeft, 0, 0, 2, 30);
@@ -309,13 +311,7 @@ namespace Roguehalla.Client
                 float share = max > 0 ? hp / max : 1f;
                 fill.color = share <= .18f ? theme.Danger : share <= .35f ? theme.Warning : theme.Success;
             }
-            if (_hpValue != null)
-            {
-                var value = new StringBuilder().Append(hp.ToString("0")).Append('/').Append(max.ToString("0"));
-                if (me.Barrier > 0) value.Append(" +").Append(me.Barrier.ToString("0"));
-                if (me.Bounty > 0) value.Append(" <color=").Append(Hex(theme.Accent)).Append("> · Bounty ").Append(me.Bounty).Append("</color>");
-                Set(_hpValue, value.ToString());
-            }
+            if (_hpValue != null) WriteHpLabel(hp, max, me, theme);
             if (_championName != null)
             {
                 Set(_championName, ShowcasePalette.GetFactionName((int)me.Faction));

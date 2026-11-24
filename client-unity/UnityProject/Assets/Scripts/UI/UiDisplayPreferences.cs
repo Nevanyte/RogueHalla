@@ -18,6 +18,14 @@ namespace Roguehalla.Client
         /// <summary>The stored Quick cast value, read by the match when a Wish key or click needs it (every view holds its own preferences object).</summary>
         public static bool QuickCastStored { get { return PlayerPrefs.GetInt(QuickCastKey, 0) != 0; } }
 
+        /// <summary>P-UI-LEFT-EDGE-1: the left-edge folds (a layout memory, not a setting: ResetDefaults leaves them), open by default; a click stores them, only a click.</summary>
+        public const bool GainsFoldedDefault = false, ChampionFoldedDefault = false;
+        public const string GainsFoldedKey = "rh.ui.plate.gainsFolded", ChampionFoldedKey = "rh.ui.champion.folded";
+        public static bool GainsFoldedStored { get { return PlayerPrefs.GetInt(GainsFoldedKey, GainsFoldedDefault ? 1 : 0) != 0; } }
+        public static bool ChampionFoldedStored { get { return PlayerPrefs.GetInt(ChampionFoldedKey, ChampionFoldedDefault ? 1 : 0) != 0; } }
+        public static void StoreGainsFolded(bool folded) { SaveInt(GainsFoldedKey, folded); }
+        public static void StoreChampionFolded(bool folded) { SaveInt(ChampionFoldedKey, folded); }
+
         public event Action Changed;
         public bool MapToggle { get; private set; }
         public bool ShowRoute { get; private set; }

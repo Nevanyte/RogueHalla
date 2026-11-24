@@ -107,7 +107,7 @@ namespace Roguehalla.Client
         {
             _map = map;
             _ping.Active = false;
-            if (map == null) { _actors.Clear(); _contactMarks.Clear(); _marked.Clear(); RefreshContactLabels(); _route.Clear(); _chests.Clear(); _self = null; ClearDelivered(); for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false; }
+            if (map == null) { _actors.Clear(); _contactMarks.Clear(); _marked.Clear(); RefreshContactLabels(); _route.Clear(); _chests.Clear(); _self = null; ClearDelivered(); _camps.Clear(); _wards.Clear(); _chestRows.Clear(); _realIcons = 0; for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false; ClearCampTexts(); ClearCover(); CampKey.Forget(); }
             else if (map.Regions != null) MapZones.LabelTiles(map.Regions, map.W, map.H, out _zoneFound, out _zoneX, out _zoneY);
             else for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false;
             ResetZoneSpots();
@@ -125,7 +125,7 @@ namespace Roguehalla.Client
         /// <summary>How many times the layer's scale changed (P-UI-TABMAP-MARKS-1).</summary>
         public int LayerChanges { get; private set; }
         /// <summary>The layer's scale changed: the zone labels follow it and the mesh redraws.</summary>
-        public void LayerChanged() { LayerChanges++; RefreshZoneLabels(ZonePass.Forced); SetVerticesDirty(); }
+        public void LayerChanged() { EnsureCover(); LayerChanges++; PlaceCampTexts(true); RefreshBadgeTexts(); RefreshZoneLabels(ZonePass.Forced); SetVerticesDirty(); }
 
         void Update()
         {
@@ -156,6 +156,7 @@ namespace Roguehalla.Client
                 {
                     bool active = !session.Training;
                     CampMarks.Glyphs(_map.Camps, session.Collections.Camps, session.ServerTimeMs, active, Large ? CampSurface.TabMap : CampSurface.Minimap, _camps);
+                    if (Large) CampKey.Apply(_camps, CampFactsInKey);
                     for (int i = 0; i < _camps.Count; i++) if (_camps[i].IconKey != null) _realIcons++;
                     CampBadges.Wards(_map.Camps, session.Collections.Camps, session.ServerTimeMs, active, _wards);
                 }
@@ -236,7 +237,9 @@ namespace Roguehalla.Client
                         _delivered.Add(new DeliveredPoint { At = new Vector2((float)drop.X, (float)drop.Y), Kind = PointKind.QuestReward });
                 }
             }
+            ComputeCover();
             RefreshCampClocks();
+            PlaceCampTexts(false);
             RefreshBadgeTexts();
             RefreshContactLabels();
             RefreshChestTexts();
@@ -263,8 +266,7 @@ namespace Roguehalla.Client
 
         Vector2 At(Vector2 world)
         {
-            var r = rectTransform.rect;
-            return new Vector2(r.xMin + world.x / (_map.W * 32f) * r.width, r.yMax - world.y / (_map.H * 32f) * r.height);
+            return AtIn(rectTransform.rect, _map.W, _map.H, world);
         }
 
         protected override void OnDestroy()
@@ -278,13 +280,6 @@ namespace Roguehalla.Client
             base.OnDestroy();
         }
 
-        bool ContactNear(Vector2 p)
-        {
-            foreach (var actor in _actors)
-                if (actor.Id != _selfId && (At(new Vector2(actor.X, actor.Y)) - p).sqrMagnitude < CampDropPx * CampDropPx) return true;
-            return false;
-        }
-
         /// <summary>Respawn countdowns of cleared camps: pooled labels, reused across presentations.</summary>
         void RefreshCampClocks()
         {
@@ -295,8 +290,8 @@ namespace Roguehalla.Client
                     var camp = _camps[i];
                     if (camp.Clock == null) continue;
                     if (ChestBadges.Replaces(_chestRows, camp.Index)) continue; // one badge per camp: the chest's seconds win while it stands
+                    if (CampCovered(i)) continue;
                     var p = At(new Vector2((float)camp.WorldX, (float)camp.WorldY));
-                    if (ContactNear(p)) continue;
                     if (used >= _campClocks.Count)
                     {
                         var label = HudUi.Label(transform, "CampClock" + used, "", 9f, new Color32(0xb4, 0xc9, 0xdc, 255), TextAlignmentOptions.Center, false, UiFontRole.Display);
@@ -399,14 +394,14 @@ namespace Roguehalla.Client
             return _badgeTexts[i];
         }
 
-        void ShowBadgeText(ref int used, Vector2 at, string text, Color32 color, bool leftOfPoint)
+        void ShowBadgeText(ref int used, Vector2 at, string text, Color32 color, int align)
         {
             var t = BadgeText(used++);
             if (!t.gameObject.activeSelf) t.gameObject.SetActive(true);
             if (t.text != text) t.text = text;
             t.color = color;
-            t.alignment = leftOfPoint ? TextAlignmentOptions.Right : TextAlignmentOptions.Left;
-            t.rectTransform.pivot = new Vector2(leftOfPoint ? 1f : 0f, .5f);
+            t.alignment = align < 0 ? TextAlignmentOptions.Left : align > 0 ? TextAlignmentOptions.Right : TextAlignmentOptions.Center;
+            t.rectTransform.pivot = new Vector2(align < 0 ? 0f : align > 0 ? 1f : .5f, .5f);
             t.rectTransform.anchoredPosition = at;
         }
 
@@ -414,24 +409,19 @@ namespace Roguehalla.Client
         void RefreshBadgeTexts()
         {
             int used = 0;
-            if (_map != null)
+            if (_map != null && Large)   // the minimap draws no camp text and keeps the ward mark only, no number
             {
                 for (int i = 0; i < _camps.Count; i++)
                 {
-                    var b = _camps[i];
-                    var p = At(new Vector2((float)b.WorldX, (float)b.WorldY));
-                    if (ContactNear(p)) continue;
-                    int row = 0;
-                    if (b.AmountText != null) ShowBadgeText(ref used, RewardSlot(p, row++) + new Vector2(8f, 0f), b.AmountText, Rgb(b.IconRgb), false);
-                    if (b.EliteText != null) ShowBadgeText(ref used, RewardSlot(p, row) + new Vector2(8f, 0f), b.EliteText, ChestTone, false);
+                    if (CampCovered(i)) continue;
+                    ShowCampTexts(ref used, i, _camps[i]);
                 }
                 for (int i = 0; i < _wards.Count; i++)
                 {
+                    if (WardCovered(i)) continue;
                     var w = _wards[i];
                     var p = At(new Vector2((float)w.WorldX, (float)w.WorldY));
-                    if (ContactNear(p)) continue;
-                    if (!Large) continue; // the minimap keeps the ward mark only, no number
-                    ShowBadgeText(ref used, WardSlot(p) + new Vector2(-8f, 0f), w.Countdown, Rgb(w.TextRgb), true);
+                    ShowBadgeText(ref used, WardSlot(p) + new Vector2(-8f, 0f), w.Countdown, Rgb(w.TextRgb), 1);
                 }
             }
             for (int i = used; i < _badgeTexts.Count; i++) if (_badgeTexts[i].gameObject.activeSelf) _badgeTexts[i].gameObject.SetActive(false);
@@ -444,9 +434,9 @@ namespace Roguehalla.Client
             if (_map != null)
                 for (int i = 0; i < _camps.Count; i++)
                 {
+                    if (CampCovered(i)) continue;
                     var b = _camps[i];
                     var p = At(new Vector2((float)b.WorldX, (float)b.WorldY));
-                    if (ContactNear(p)) continue;
                     glyphs++; if (b.Dim) dim++;
                     if (b.IconKey == null) continue;
                     if (used >= _badgeIcons.Count)
@@ -477,10 +467,11 @@ namespace Roguehalla.Client
         void DrawBadges(VertexHelper vh, Color32 ink, float s)
         {
             WardsDrawn = 0;
-            foreach (var w in _wards)
+            for (int i = 0; i < _wards.Count; i++)
             {
+                if (WardCovered(i)) continue;
+                var w = _wards[i];
                 var p = At(new Vector2((float)w.WorldX, (float)w.WorldY));
-                if (ContactNear(p)) continue;
                 WardsDrawn++;
                 Marker(vh, WardSlot(p), 8f * s, MapGlyph.Ring, Rgb(w.BeaconRgb), ink);
             }
@@ -490,10 +481,11 @@ namespace Roguehalla.Client
         void DrawCamps(VertexHelper vh, UiTheme theme, Color32 ink, float s)
         {
             CampMarkersDrawn = CampShapesDrawn = EngagedRingsDrawn = EliteMarkersDrawn = BadgesDrawn = 0;
-            foreach (var camp in _camps)
+            for (int i = 0; i < _camps.Count; i++)
             {
+                if (CampCovered(i)) continue;
+                var camp = _camps[i];
                 var p = At(new Vector2((float)camp.WorldX, (float)camp.WorldY));
-                if (ContactNear(p)) continue;
                 CampMarkersDrawn++;
                 float a = camp.Dim ? .45f : 1f;
                 if (camp.IconKey != null) { BadgesDrawn++; Glyph(vh, p, 17f * s, MapGlyph.Disc, Alpha(ink, .9f * a)); }
@@ -510,6 +502,7 @@ namespace Roguehalla.Client
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             vh.Clear(); if (_map == null) return;
+            EnsureCover();
             var theme = UiTheme.Current;
             float s = Large ? 1.2f : 1f;
             Color32 ink = theme.OutlineDark;

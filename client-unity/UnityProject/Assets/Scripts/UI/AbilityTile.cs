@@ -4,7 +4,8 @@ using UnityEngine;
 
 namespace Roguehalla.Client
 {
-    /// <summary>One 64-unit ability tile of the action row: key cap, name, countdown, cooldown wedge, charge badge.</summary>
+    /// <summary>One 64-unit ability tile of the action row: key cap, name, countdown, cooldown wedge, charge badge.
+    /// Every phase stands on the one opaque SurfaceRaised plate; an Empty tile is told apart by its dim key cap and name.</summary>
     public sealed class AbilityTile
     {
         readonly RectTransform _root, _nameBox;
@@ -22,6 +23,14 @@ namespace Roguehalla.Client
         float _sweepFill, _castFill;
         int _secondsShown, _badgeShown;
         string _nameShown = "", _hintShown = "";
+
+        /// <summary>Alpha of the key cap of an Empty tile (P-UI-TILE-PLATES-1).</summary>
+        public const float EmptyKeyAlpha = .7f;
+        /// <summary>Alpha of the name text of an Empty tile or weapon slot (P-UI-TILE-PLATES-1).</summary>
+        public const float EmptyTextAlpha = .8f;
+
+        /// <summary>The colour of an empty tile's or slot's text: <c>TextSecondary</c> at <see cref="EmptyTextAlpha"/>.</summary>
+        public static Color EmptyTextColour(UiTheme theme) { return UiTheme.With(theme.TextSecondary, EmptyTextAlpha); }
 
         public AbilityTile(Transform parent, string name, HudRegion region, float raise, string keyCap, Transform hintOverlay,
             MythicGlyph? icon = null)
@@ -93,9 +102,9 @@ namespace Roguehalla.Client
             {
                 var theme = _theme;
                 bool empty = phase == AbilityPhase.Empty;
-                _surface.color = empty ? UiTheme.With(theme.Surface, .35f) : (Color)theme.SurfaceRaised;
-                HudUi.SetFrame(_root, empty ? UiTheme.With(theme.Border, .5f) : phase == AbilityPhase.Cooling ? (Color)theme.Border : (Color)theme.BorderStrong);
-                _key.color = empty ? UiTheme.With(theme.TextSecondary, .6f) : (Color)theme.TextSecondary;
+                HudUi.SetFrame(_root, phase == AbilityPhase.Ready ? (Color)theme.BorderStrong : (Color)theme.Border);
+                _key.color = empty ? UiTheme.With(theme.TextSecondary, EmptyKeyAlpha) : (Color)theme.TextSecondary;
+                _name.color = empty ? EmptyTextColour(theme) : (Color)theme.TextPrimary;
                 _button.interactable = !empty;
                 if (_icon != null) { var tint = MythicUi.GlyphColor(_glyph.Value); tint.a = phase == AbilityPhase.Ready ? 1f : .3f; _icon.color = tint; }
                 _phase = phase;
