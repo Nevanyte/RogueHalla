@@ -1,0 +1,9 @@
+# Replace both placeholders for the named staging tunnel and its isolated hostname.
+tunnel: TUNNEL_UUID
+credentials-file: /etc/rh-alpha/TUNNEL_UUID.json
+loglevel: info
+
+ingress:
+  - hostname: ALPHA_STAGE_HOSTNAME
+    service: unix:/run/rh-alpha-edge/caddy.sock
+  - service: http_status:404
