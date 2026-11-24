@@ -1,11 +1,12 @@
 //! The spell executor (P-RAID-S): no goal kinds; it rides along any goal and asks for the cast the rule table names
 //! (`spells::SPELL_RULES`). It draws nothing; its one memory is the `CastGate`.
 use crate::bots::raid::acts::{Act, CastAim};
-use crate::bots::raid::exec::farm::FIGHT_U;
+use crate::bots::raid::exec::combat::may_fight_from;
+use crate::bots::raid::exec::farm::{DEFEND_U, FIGHT_U};
 use crate::bots::raid::goal::{Cx, Executor, GoalKind, GoalKind as K, RaidGoal, Step, Target};
 use crate::bots::raid::percept::{MobClass, MobSeen};
-use crate::bots::raid::spells::CHARGE_RANGE;
 use crate::bots::raid::spells::{decide_cast, CastGate, Foe, FoeKind, HeldSpell, SpellScene};
+use crate::bots::raid::spells::{CHARGE_RANGE, SHOT_LINE_CLEARANCE_U};
 use rh_sim::Vec2;
 
 /// An enemy player this close to the dash's landing point blocks the dash: a melee weapon reaches 72-112 u plus the
@@ -21,6 +22,20 @@ fn gap(a: Vec2, b: Vec2) -> f64 {
 const CLEANSE: u8 = 16;
 /// `Me::effects` bits: stunned (1), rooted (2).
 const STUNNED_OR_ROOTED: u16 = 1 | 2;
+/// `Me::effects` bits the sim refuses a shot on: stunned (1), silenced (4), casting (4096).
+const NO_CAST: u16 = 1 | 4 | 4096;
+
+/// Distance from `p` to the segment `a`-`b`.
+fn segment_gap(p: Vec2, a: Vec2, b: Vec2) -> f64 {
+    let (dx, dy) = (b.x - a.x, b.y - a.y);
+    let len2 = dx * dx + dy * dy;
+    let t = if len2 < 1e-9 {
+        0.
+    } else {
+        (((p.x - a.x) * dx + (p.y - a.y) * dy) / len2).clamp(0., 1.)
+    };
+    gap(p, Vec2::new(a.x + t * dx, a.y + t * dy))
+}
 
 /// Casts held quest spells by `spells::SPELL_RULES`.
 #[derive(Default)]
@@ -70,8 +85,10 @@ fn nearest<'a>(cx: &Cx<'_>, mobs: impl Iterator<Item = &'a MobSeen>) -> Option<&
     })
 }
 
-/// The foe of the running fight: on a camp (Elite or Farm goal) its elite while one stands, else its nearest member; on
-/// a player fight (Fight goal) that player.
+/// The foe of the running fight: on a camp (Elite or Farm goal) its elite (the member labelled elite) while one stands,
+/// else its nearest member, and only when the seat may fight it from where it stands (`may_fight_from`, the flag of the
+/// foe picked) or that foe is engaged within `DEFEND_U` of the seat: a spell cast from outside the camp's band wakes a
+/// mob that gives up at the band's edge. On a player fight (Fight goal) that player.
 fn foe(goal: &RaidGoal, cx: &Cx<'_>) -> Option<Foe> {
     match (&goal.kind, &goal.target) {
         (K::Elite | K::Farm, Target::Camp(c)) => {
@@ -86,12 +103,16 @@ fn foe(goal: &RaidGoal, cx: &Cx<'_>) -> Option<Foe> {
             } else {
                 nearest(cx, members())
             };
-            pick.map(|m| foe_of(m, cx))
+            pick.filter(|m| {
+                (m.engaged && cx.p.dist(m.at) <= DEFEND_U)
+                    || may_fight_from(&*cx.paths, *c, m.class == MobClass::Elite, cx.p.me.at)
+            })
+            .map(|m| foe_of(m, cx))
         }
         (K::Fight, Target::Actor(key)) => {
             cx.p.players
                 .iter()
-                .find(|o| o.alive && &o.key == key)
+                .find(|o| o.alive && o.targetable && &o.key == key)
                 .map(|o| Foe {
                     key: o.key.clone(),
                     kind: FoeKind::Player,
@@ -137,10 +158,19 @@ fn scene(goal: &RaidGoal, cx: &Cx<'_>) -> SpellScene {
                 .filter(enemy_player)
                 .any(|o| gap(land, o.at) <= DASH_PLAYER_CLEARANCE_U)
         });
+    // A player foe is the target of the shots only (Hook, Bolas): none is asked while the seat is stunned, silenced or
+    // casting, or while a hostile mob stands near the line (the shot would hit it first), so no foe is named then.
+    let foe = foe(goal, cx).filter(|f| {
+        f.kind != FoeKind::Player
+            || (cx.p.me.effects & NO_CAST == 0
+                && !cx.p.mobs.iter().any(|m| {
+                    hostile(m, cx) && segment_gap(m.at, me, f.at) <= SHOT_LINE_CLEARANCE_U
+                }))
+    });
     SpellScene {
         me,
         impaired: cx.p.me.effects & STUNNED_OR_ROOTED != 0,
-        foe: foe(goal, cx),
+        foe,
         hostile_distances,
         leave_away,
         hp_share: cx.p.me.hp_share(),
@@ -201,5 +231,173 @@ impl Executor for Spell {
             step.why = "cast a quest spell";
         }
         step
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bots::paths::{PathBudget, RoomPathService};
+    use crate::bots::perception::LootFacts;
+    use crate::bots::planning::PlanMap;
+    use crate::bots::raid::exec::combat::may_fight_from;
+    use crate::bots::raid::goal::Status;
+    use crate::bots::raid::percept::{Me, RaidPercept};
+    use crate::bots::raid::values::Prices;
+    use crate::bots::random::Rng;
+    use crate::bots::types::{HudView, OwnerLock, Percept, PersonaId, SelfView, TierId};
+    use rh_protocol::{WireQuestSpell, WireQuestView};
+    use rh_sim::{Arena, FactionId, Vec2};
+
+    const TURRET: u8 = 5;
+
+    fn arena() -> Arena {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../rh-sim/src/mapdata/fixtures/seed1.map.json"
+        );
+        let text = std::fs::read_to_string(path).expect("the seed1 fixture map");
+        let file: rh_sim::mapdata::MapExport = serde_json::from_str(&text).expect("rh-map/2 json");
+        file.validate()
+            .expect("admitted")
+            .into_arena()
+            .expect("an arena")
+    }
+
+    /// One frame: the seat at `at` holding a Turret, camp 0's elite 300 u east of it.
+    fn frame(at: Vec2) -> RaidPercept {
+        let base = Percept {
+            now: 10_000.,
+            hud: HudView {
+                phase: "active".into(),
+                gates_locked: false,
+            },
+            self_view: SelfView {
+                x: at.x,
+                y: at.y,
+                status: "alive".into(),
+                hp: 100.,
+                max_hp: 100.,
+                owner_lock: Some(OwnerLock::Clear),
+                ..SelfView::default()
+            },
+            ..Percept::default()
+        };
+        RaidPercept {
+            now: 10_000.,
+            tick: 200,
+            base,
+            facts: LootFacts::default(),
+            toasts: Vec::new(),
+            self_key: "p1".into(),
+            me: Me {
+                at,
+                hp: 100.,
+                max_hp: 100.,
+                alive: true,
+                faction: Some(FactionId::Holy),
+                weapons: [None, None],
+                slot: 0,
+                effects: 0,
+                ready_at: 0.,
+                potion_small: 0,
+                potion_large: 0,
+                potions_healing: 0,
+                healing_until: None,
+            },
+            active: true,
+            camps: Vec::new(),
+            mobs: vec![MobSeen {
+                key: "n3".into(),
+                at: Vec2::new(at.x + 300., at.y),
+                hp_share: 1.,
+                alive: true,
+                class: MobClass::Elite,
+                mob_type: None,
+                weapon: None,
+                faction: None,
+                camp: Some(0),
+                engaged: false,
+            }],
+            givers: Vec::new(),
+            players: Vec::new(),
+            quests: Some(WireQuestView {
+                spells: vec![WireQuestSpell {
+                    slot: 1,
+                    reward: TURRET,
+                    charges: 1,
+                    ready_at: 0.,
+                }],
+                ..WireQuestView::default()
+            }),
+            trade: None,
+            fields: Vec::new(),
+            build: None,
+            summary: None,
+            arena: None,
+            hit_at: None,
+        }
+    }
+
+    fn asked(at: Vec2) -> Vec<Act> {
+        let arena = arena();
+        let plan = PlanMap::from_arena(&arena);
+        let mut paths = RoomPathService::new(&arena.map, PathBudget::default());
+        let prices = Prices::farm_only();
+        let mut rng = Rng::new(16);
+        let goal = RaidGoal::new(GoalKind::Elite, Target::Camp(0));
+        let p = frame(at);
+        let mut cx = Cx {
+            p: &p,
+            paths: &mut paths,
+            plan: &plan,
+            knowledge: None,
+            tier: TierId::Normal,
+            persona: PersonaId::Farmer,
+            prices: &prices,
+            still_since: 0.,
+            goal: &goal,
+            status: Status::Running,
+            rng: &mut rng,
+        };
+        Spell::default().ride_along(&goal, &mut cx).acts
+    }
+
+    /// P-RAID-S-fix2: a Turret is asked for an elite 300 u away only from where camp 0's mob can reach the seat.
+    #[test]
+    fn turret_asks_nothing_outside_the_band_and_casts_inside_it() {
+        let outside = Vec2::new(4000., 4000.);
+        let arena = arena();
+        let s = &arena.map.layers().expect("layers").data().camps[0].spots[0];
+        let inside = Vec2::new(s.x, s.y);
+        let paths = RoomPathService::new(&arena.map, PathBudget::default());
+        assert!(
+            may_fight_from(&paths, 0, true, inside) && !may_fight_from(&paths, 0, true, outside),
+            "the spot is inside camp 0's band and (4000, 4000) is not"
+        );
+        assert!(asked(outside).is_empty(), "outside the band: nothing");
+        assert!(
+            matches!(
+                asked(inside).as_slice(),
+                [Act::Cast {
+                    reward: TURRET,
+                    aim: CastAim::OwnPosition,
+                    ..
+                }]
+            ),
+            "inside the band: the Turret"
+        );
+    }
+
+    /// A mob within 48 u of the segment holds the shot; one just outside does not.
+    #[test]
+    fn the_line_check_is_48_u_from_the_segment() {
+        let (a, b) = (Vec2::new(0., 0.), Vec2::new(300., 0.));
+        assert!(segment_gap(Vec2::new(150., 47.), a, b) <= SHOT_LINE_CLEARANCE_U);
+        assert!(segment_gap(Vec2::new(150., 49.), a, b) > SHOT_LINE_CLEARANCE_U);
+        assert!(segment_gap(Vec2::new(-47., 0.), a, b) <= SHOT_LINE_CLEARANCE_U);
+        assert!(segment_gap(Vec2::new(-49., 0.), a, b) > SHOT_LINE_CLEARANCE_U);
+        assert!(segment_gap(Vec2::new(347., 0.), a, b) <= SHOT_LINE_CLEARANCE_U);
+        assert!(segment_gap(Vec2::new(349., 0.), a, b) > SHOT_LINE_CLEARANCE_U);
     }
 }

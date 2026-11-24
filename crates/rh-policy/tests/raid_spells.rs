@@ -178,8 +178,11 @@ fn every_non_permanent_award_has_exactly_one_rule_row_and_no_permanent_has_one()
     }
 }
 
+/// P-RAID-S ruled four spells; P-RAID-S2a adds Hook and Bolas (award 19). The set is pinned so that a new rule is a
+/// packet's decision, never a side effect.
 #[test]
-fn this_packet_rules_four_spells_and_leaves_the_rest_not_ruled_yet() {
+fn the_ruled_spells_are_these_six_and_the_rest_are_not_ruled_yet() {
+    const BOLAS: u8 = 19;
     let ruled: BTreeSet<u8> = SPELL_RULES
         .iter()
         .filter(|r| r.when != When::Never)
@@ -187,8 +190,8 @@ fn this_packet_rules_four_spells_and_leaves_the_rest_not_ruled_yet() {
         .collect();
     assert_eq!(
         ruled,
-        BTreeSet::from([SHOULDER_CHARGE, TURRET, SMITE, CLEANSE]),
-        "Cleanse, Smite, ShoulderCharge and Turret are ruled; the other fifteen are `Never`"
+        BTreeSet::from([HOOK, SHOULDER_CHARGE, TURRET, SMITE, CLEANSE, BOLAS]),
+        "Cleanse, Smite, ShoulderCharge, Turret, Hook and Bolas are ruled; the other thirteen are `Never`"
     );
 }
 
@@ -893,7 +896,7 @@ fn an_unruled_spell_is_never_cast() {
         let (live, _) = play(sim, me, seed, &Spy::new(any_prices()), 200, None);
         assert!(
             live.casts.is_empty(),
-            "seed {seed}: Hook and Tornado are not ruled yet: {:?}",
+            "seed {seed}: Tornado is not ruled and Hook has no player to be cast at here: {:?}",
             live.casts
         );
     }
