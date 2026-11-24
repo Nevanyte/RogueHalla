@@ -205,7 +205,10 @@ namespace Roguehalla.Client
             {
                 var r = HudUi.At(_keyRoot, "KeyRow", 0, y, 250, 19);
                 var l = HudUi.Label(r, "Text", text, 11f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft);
-                ((RectTransform)l.transform).offsetMin = new Vector2(textX, ((RectTransform)l.transform).offsetMin.y);
+                // Fit within the row spacing so large text cannot reach the adjacent key rows.
+                l.rectTransform.offsetMin = new Vector2(textX, 1f);
+                l.rectTransform.offsetMax = new Vector2(0f, -1f);
+                l.GetComponent<MythicTextScale>().Refit();
                 y += 19f; return r;
             };
             var r0 = row("You"); GlyphImage(r0, "Icon", MapGlyph.Disc, theme.Info, 12f, 14f, 3f);
@@ -281,7 +284,12 @@ namespace Roguehalla.Client
                 Put((RectTransform)_contactRail, L.Left); Put((RectTransform)_counterRail, L.Right);
                 float lw = L.Left.W, lh = L.Left.H;
                 _keyRoot.gameObject.SetActive(inKey); _contactRail.Find("KeyHeading").gameObject.SetActive(inKey);   // the heading goes with the key
-                if (inKey) _keyRoot.sizeDelta = new Vector2(lw, CampKeyLayout.KeyH);
+                if (inKey)
+                {
+                    // Use the spare space at the foot of the key to clear the larger heading.
+                    float extraHeadingSpace = Mathf.Lerp(0f, 4f, Mathf.InverseLerp(1f, 1.5f, ts));
+                    HudUi.Place(_keyRoot, HudAnchor.TopLeft, 0f, CampKeyLayout.KeyTop + extraHeadingSpace, lw, CampKeyLayout.KeyH - extraHeadingSpace);
+                }
                 float viewY = inKey ? CampKeyLayout.ViewY : 10f;
                 var vh = (RectTransform)_inViewHeading.transform; vh.anchorMin = vh.anchorMax = vh.pivot = new Vector2(.5f, 1f); vh.sizeDelta = new Vector2(lw - 24f, 20f); vh.anchoredPosition = new Vector2(0f, -viewY);
                 _contactScroll.anchorMin = Vector2.zero; _contactScroll.anchorMax = Vector2.one;
