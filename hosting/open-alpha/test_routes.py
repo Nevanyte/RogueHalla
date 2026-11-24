@@ -93,7 +93,9 @@ class RouteContract(unittest.TestCase):
         if not binary:
             raise AssertionError("Set CADDY_BIN to the Caddy 2.11.2 binary")
 
-        temp = Path(cls.enterClassContext(tempfile.TemporaryDirectory(dir="/tmp", prefix="rh-alpha-")))
+        temporary = tempfile.TemporaryDirectory(dir="/tmp", prefix="rh-alpha-")
+        cls.addClassCleanup(temporary.cleanup)
+        temp = Path(temporary.name)
         cls.endpoint = str(temp / "edge.sock")
         web = temp / "web"
         files = {
@@ -113,14 +115,16 @@ class RouteContract(unittest.TestCase):
             dest.parent.mkdir(exist_ok=True, parents=True)
             dest.write_bytes(content)
 
-        source = cls.enterClassContext(ThreadingHTTPServer(("127.0.0.1", 0), Source))
+        source = ThreadingHTTPServer(("127.0.0.1", 0), Source)
+        cls.addClassCleanup(source.server_close)
         thread = Thread(target=source.serve_forever, daemon=True)
         thread.start()
         cls.addClassCleanup(thread.join, 5)
         cls.addClassCleanup(source.shutdown)
         env = dict(os.environ, RH_ALPHA_HOST=HOST, RH_ALPHA_INGRESS_SOCKET=cls.endpoint,
                    RH_ALPHA_SOURCE=f"127.0.0.1:{source.server_port}", RH_ALPHA_WEB_ROOT=str(web))
-        log = cls.enterClassContext((temp / "caddy.log").open("w+"))
+        log = (temp / "caddy.log").open("w+")
+        cls.addClassCleanup(log.close)
         proxy = subprocess.Popen(
             [binary, "run", "--config", str(config), "--adapter", "caddyfile"],
             stdout=log, stderr=subprocess.STDOUT, env=env,
