@@ -1,0 +1,65 @@
+{
+	admin off
+	persist_config off
+	auto_https off
+	log {
+		format filter {
+			wrap json
+			fields {
+				request>headers>X-Playtest-Passcode delete
+				request>headers>X-Profile-Token delete
+			}
+		}
+	}
+	servers {
+		protocols h1
+		trusted_proxies_unix
+		client_ip_headers CF-Connecting-IP
+	}
+}
+
+:80 {
+	bind unix/{$RH_ALPHA_INGRESS_SOCKET}|0660
+
+	route {
+		@wrong_host not host {$RH_ALPHA_HOST}
+		respond @wrong_host 421
+
+		@private path /control /control/* /probe /probe/* /training /training/*
+		respond @private 404
+
+		@invalid_visitor not {
+			expression {http.request.header.CF-Connecting-IP}.matches('^[0-9A-Fa-f:.]+$')
+			client_ip 0.0.0.0/0 ::/0
+		}
+		respond @invalid_visitor 400
+
+		@source path /ws /info /ping /healthz /readyz /api /api/*
+		handle @source {
+			header >Cache-Control "no-store"
+			reverse_proxy {$RH_ALPHA_SOURCE} {
+				header_up X-Forwarded-For {client_ip}
+				header_up X-Forwarded-Host {host}
+				header_up X-Forwarded-Proto https
+				header_up -Forwarded
+				header_up -X-Real-IP
+				header_up -CF-Connecting-IP
+			}
+		}
+
+		handle {
+			root * {$RH_ALPHA_WEB_ROOT}
+			header {
+				Cache-Control no-cache
+				X-Content-Type-Options nosniff
+			}
+			@data path /Build/*.data
+			header @data Content-Type application/octet-stream
+			@wasm path /Build/*.wasm
+			header @wasm Content-Type application/wasm
+			file_server {
+				precompressed br gzip
+			}
+		}
+	}
+}
