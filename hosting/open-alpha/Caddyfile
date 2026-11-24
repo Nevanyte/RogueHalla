@@ -1,0 +1,9 @@
+{
+	admin off
+	auto_https off
+}
+
+:80 {
+	bind unix/{$RH_ALPHA_INGRESS_SOCKET}|0660
+	respond 404
+}
