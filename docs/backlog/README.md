@@ -427,6 +427,7 @@ is **not implemented**; the gain figures are **estimates**.
 
 | ID | Outcome | Depends on | Status | Legacy owners |
 |---|---|---|---|---|
+| P-OPEN-ALPHA-HANDOFF-1 | Reproducible combined source, Fable stop points and production launch plan | Local integration 88, UI wave 4, integration 89 preview | [Handoff](../coordination/OPEN_ALPHA_HANDOFF_2026-11-24.md) · [packet](packets/P-OPEN-ALPHA-HANDOFF-1.md) | Cloudflare Worker and Rust/Unity release path |
 | P-MIG-1 | Profile export from the legacy store (R2 `profiles/current.json` snapshot / `STASH_FILE`), dry-run import rehearsal, reconcile report | P-PERSIST-2 | Coarse | deployment/cloudflare/src/profileSnapshots.ts; crates/rh-persist (`import-legacy`) |
 | P-MIG-2 | Staged rollout plan: shadow matches, cohort cutover, rollback (needs the ORIGINAL profile file, tokens are hashed) | P-MIG-1, P-LOAD-2 | Coarse | docs/CLOUDFLARE_PUBLIC.md |
 | P-MIG-3 | Retire the legacy Cloudflare deployment (Worker, Container, R2, telemetry DO, DNS) | P-MIG-2 | Coarse | deployment/cloudflare/*, Dockerfile, .github/workflows/deploy.yml |
