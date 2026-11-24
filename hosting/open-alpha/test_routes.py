@@ -209,6 +209,16 @@ class RouteContract(unittest.TestCase):
                     "CF-Connecting-IP": address, "X-Forwarded-For": "198.51.100.24"
                 })
                 self.assertEqual(status, 400)
+        req = (
+            f"GET /info HTTP/1.1\r\nHost: {HOST}\r\nCF-Connecting-IP: {VISITOR}\r\n"
+            "CF-Connecting-IP: 192.0.2.99\r\n\r\n"
+        )
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            client.settimeout(4)
+            client.connect(self.endpoint)
+            client.sendall(req.encode())
+            with client.makefile("rb") as wire:
+                self.assertIn(b"400 Bad Request", wire.readline())
 
     def test_private_paths_and_unexpected_host(self):
         for path in ("/control", "/control/info", "/probe", "/probe/x", "/training",
