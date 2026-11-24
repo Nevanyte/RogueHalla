@@ -49,7 +49,9 @@ runuser -u postgres -- "$PG16/createdb" -h /run/rh-alpha-pg -O rh_alpha rh_alpha
 Create `/etc/rh-alpha/control.token` with a random token readable only by root and `rh_alpha` (for example root:rh_alpha mode 0440 under a traversable private configuration directory). If the owner selects a claim passcode, set `PLAYTEST_PASSCODE` in root-only mode 0600 `/etc/rh-alpha/source.env`. Set `release_sha`, `release_bin` and `release_map` from the receipt, `stage_origin` to the exact HTTPS staging origin, and `stage_min_players` and `stage_fill` to the reviewed counts. Use the same Source settings for baking Unity. Run Source under its database peer identity and preserve the same spool and instance ID across restarts of this origin.
 
 ```bash
-systemd-run --unit=rh-alpha-source --collect --uid=rh_alpha \
+set +x
+set -euo pipefail
+systemd-run --unit=rh-alpha-source --service-type=exec --uid=rh_alpha \
   --property=RequiresMountsFor=/srv/rh-alpha \
   --property=TimeoutStopSec=90s \
   --property=EnvironmentFile=-/etc/rh-alpha/source.env \
@@ -62,12 +64,24 @@ systemd-run --unit=rh-alpha-source --collect --uid=rh_alpha \
   --api-cors-origins "$stage_origin" --ws-origins "$stage_origin" \
   --client-ip-header x-forwarded-for --trusted-proxies 127.0.0.1 \
   --control 127.0.0.1:7778 --control-token-file /etc/rh-alpha/control.token
-curl -fsS http://127.0.0.1:7777/readyz | jq -e '.storage == "ok"'
-curl -fsS http://127.0.0.1:7777/info | jq -e \
+# systemd confirms exec, then Source connects, migrates and binds both listeners.
+control_auth=$(cat /etc/rh-alpha/control.token)
+ready_deadline=$((SECONDS + 120))
+until curl --max-time 2 -fs http://127.0.0.1:7777/readyz \
+    | jq -e '.ok == true and .state == "ready" and .storage == "ok"' >/dev/null &&
+    control_health=$(printf 'Authorization: Bearer %s\n' "$control_auth" \
+      | curl --max-time 2 -fs -H @- http://127.0.0.1:7778/control/health); do
+  if (( SECONDS >= ready_deadline )); then
+    echo 'Source did not become durably ready within 120 seconds. Check journalctl -u rh-alpha-source.' >&2
+    exit 1
+  fi
+  sleep 1
+done
+unset control_auth
+curl --max-time 2 -fsS http://127.0.0.1:7777/info | jq -e \
   '.protocol == 24 and (.contentHash | test("^[0-9a-fA-F]{16}$") and . != "0000000000000000")'
-printf 'Authorization: Bearer %s\n' "$(cat /etc/rh-alpha/control.token)" \
-  | curl -fsS -H @- http://127.0.0.1:7778/control/health \
-  | jq -e --arg expected "$release_sha" '.build == $expected'
+printf '%s\n' "$control_health" | jq -e --arg expected "$release_sha" '.build == $expected'
+unset control_health
 ```
 
 If the guest reboots, recreate the runtime directories before restarting services. Reuse the initialized cluster, spool and checked release. Keep TCP 7777 and 7778 on loopback and restrict shell access to operators. Keep PostgreSQL Unix-socket-only. Use a filesystem check and `ss -lnpt` before opening admissions.
@@ -98,14 +112,44 @@ Configure Cloudflare cache bypass for the entire staging hostname, preserve orig
 
 ## Back up and independently restore the database and spool
 
-Quiesce both sides of the consistency boundary. Stop the tunnel to close traffic, then stop Source and wait for the drain and status exit. Check that there is no Source process, that the PostgreSQL count of connections to `rh_alpha` from the admin `postgres` database is zero, and that the three durability settings above are still `on`. Run the backup with `umask 077` and shell tracing off. Use a root-only scratch directory on encrypted storage outside the Web root, and an empty backup output directory. Keep only the age public recipient on the source guest.
+Keep Caddy and the tunnel connected during the drain so active players can finish. The authenticated control request closes admissions and lets rooms end naturally. Source then settles writes and exits. Reserve time before the stage expiry for this drain and the backup. Set `stage_drain_wait_secs` to the approved natural-drain wait for this run (900 seconds by default).
+
+```bash
+(
+set +x
+set -euo pipefail
+drain_wait=${stage_drain_wait_secs:-900}
+[[ "$drain_wait" =~ ^[1-9][0-9]*$ ]]
+source_pid=$(systemctl show --property=MainPID --value rh-alpha-source.service)
+[[ "$source_pid" =~ ^[1-9][0-9]*$ ]]
+printf 'Authorization: Bearer %s\n' "$(cat /etc/rh-alpha/control.token)" \
+  | curl --max-time 5 -fsS -H @- -H 'Content-Type: application/json' \
+      --data '{"v":1}' http://127.0.0.1:7778/control/drain \
+  | jq -e '.v == 1 and (.state == "draining" or .state == "terminated")'
+drain_deadline=$((SECONDS + drain_wait))
+while kill -0 "$source_pid" 2>/dev/null; do
+  if (( SECONDS >= drain_deadline )); then
+    echo 'Source is still draining. Leave the tunnel connected and wait for exit or use the bounded shutdown below.' >&2
+    exit 1
+  fi
+  sleep 1
+done
+)
+```
+
+If that wait expires, either allow the process to finish naturally or use `systemctl stop rh-alpha-source.service` while the tunnel stays up. SIGTERM starts Source's bounded shutdown, with a 55-second room cap and up to 20 seconds to settle writes plus 5 seconds of HTTP shutdown at the default settings. Check the Source journal for any capped rooms, unsettled writes or failed shutdown, and record the outcome. A failed unit blocks capture. Stop the tunnel and start the backup only after Source has settled and exited successfully.
+
+Use a root-only scratch directory on encrypted storage outside the Web root, and an empty backup output directory. Keep only the age public recipient on the source guest.
 
 ```bash
 (
 set +x
 set -euo pipefail
 umask 077
-systemctl stop rh-alpha-tunnel rh-alpha-source
+source_units=$(systemctl list-units --all --state=active,activating,reloading,deactivating,failed \
+  --no-legend --no-pager rh-alpha-source.service)
+test -z "$source_units"
+systemctl stop rh-alpha-tunnel.service
 # Verify the Source exit and database quiescence before proceeding.
 test "$(runuser -u postgres -- "$PG16/psql" -X -h /run/rh-alpha-pg -d postgres -Atqc \
   "select count(*) from pg_stat_activity where datname = 'rh_alpha'")" = 0
