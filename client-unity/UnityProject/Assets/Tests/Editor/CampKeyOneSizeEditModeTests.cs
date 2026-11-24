@@ -413,6 +413,66 @@ namespace Roguehalla.Client.Tests
                 }
         }
 
+        [TestCase(1f)]
+        [TestCase(1.5f)]
+        public void KeyRowsKeepSeparateSpaceAfterResizingAndReopening(float scale)
+        {
+            Window = new Vector2(1920, 1080);
+            UseTextScale(scale);
+            RealUntilOpen(NineCamps(), NineRows());
+            Open();
+            AssertKeyRowsClear("1920x1080");
+
+            ResizeAndReopen(new Vector2(1280, 720));
+            AssertKeyRowsClear("1280x720 after reopening");
+        }
+
+        void AssertKeyRowsClear(string step)
+        {
+            Assert.That(KeyRoot().gameObject.activeInHierarchy, Is.True, step + ": the key is visible");
+            Assert.That(FixedCells().Count, Is.EqualTo(9), step + ": all nine camp labels are visible");
+            string pair = WorstOverprint(true, out float overlap);
+            Assert.That(overlap, Is.Zero, step + ": overlapping labels " + pair);
+        }
+
+        [TestCase(1f)]
+        [TestCase(1.5f)]
+        public void ZoneNamesFitAfterResizingAndReopening(float scale)
+        {
+            Window = new Vector2(1920, 1080);
+            UseTextScale(scale);
+            RealUntilOpen(NineCamps(), NineRows());
+            Open();
+            AssertZoneNamesFit("1920x1080");
+
+            ResizeAndReopen(new Vector2(1280, 720));
+            AssertZoneNamesFit("1280x720 after reopening");
+        }
+
+        void AssertZoneNamesFit(string step)
+        {
+            var host = Marks().transform.parent.Find("Zone labels");
+            Assert.That(host, Is.Not.Null, step + ": the zone name layer exists");
+            for (int region = 1; region <= MapZones.Count; region++)
+            {
+                var label = host.Find("ZoneLabel" + region).GetComponent<TMP_Text>();
+                Assert.That(label.gameObject.activeInHierarchy, Is.True, step + ": " + label.text + " is visible");
+                Assert.That(Fits(label, label.fontSize), Is.True,
+                    $"{step}: {label.text} needs {label.GetPreferredValues(label.text, 0f, 0f)} in {label.rectTransform.rect.size}");
+            }
+        }
+
+        void ResizeAndReopen(Vector2 window)
+        {
+            Close();
+            Window = window;
+            _stage.sizeDelta = StageUnits(Window);
+            float scale = HudLayout.Viewport(Window.x, Window.y).Scale;
+            _stage.localScale = new Vector3(scale, scale, 1f);
+            Frames(3);
+            Open();
+        }
+
         // ---- 3. the fixed cells share one size -------------------------------------------------------------------------------------------
 
         static readonly Vector2[] Canvases = { new Vector2(1920, 1080), new Vector2(1280, 800), new Vector2(980, 2121) };

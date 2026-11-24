@@ -190,7 +190,11 @@ namespace Roguehalla.Client
                     {
                         if (!_zoneNameTaken[region] || _zoneNameFont[region] != font)
                         {
-                            _zoneNameMeasured[region] = label.GetPreferredValues(label.text, 0f, 0f); _zoneNameFont[region] = font; _zoneNameTaken[region] = true;
+                            // Labels created while the map was closed can only fit their final box once active.
+                            if (!_zoneNameTaken[region]) label.GetComponent<MythicTextScale>().Refit();
+                            _zoneNameMeasured[region] = label.GetPreferredValues(label.text, 0f, 0f);
+                            _zoneNameFont[region] = label.fontSize;
+                            _zoneNameTaken[region] = true;
                         }
                     }
                     else if (_zoneNameFont[region] != font) _zoneNameTaken[region] = false;

@@ -205,7 +205,10 @@ namespace Roguehalla.Client
             {
                 var r = HudUi.At(_keyRoot, "KeyRow", 0, y, 250, 19);
                 var l = HudUi.Label(r, "Text", text, 11f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft);
-                ((RectTransform)l.transform).offsetMin = new Vector2(textX, ((RectTransform)l.transform).offsetMin.y);
+                // Fit within the row spacing so large text cannot reach the adjacent key rows.
+                l.rectTransform.offsetMin = new Vector2(textX, 1f);
+                l.rectTransform.offsetMax = new Vector2(0f, -1f);
+                l.GetComponent<MythicTextScale>().Refit();
                 y += 19f; return r;
             };
             var r0 = row("You"); GlyphImage(r0, "Icon", MapGlyph.Disc, theme.Info, 12f, 14f, 3f);
@@ -280,8 +283,17 @@ namespace Roguehalla.Client
                 for (int r = 1; r <= MapZones.Count; r++) HudUi.Place(_chips[r], HudAnchor.TopLeft, (r - 1) * (cw + gap), 2f, cw, 26f);
                 Put((RectTransform)_contactRail, L.Left); Put((RectTransform)_counterRail, L.Right);
                 float lw = L.Left.W, lh = L.Left.H;
-                _keyRoot.gameObject.SetActive(inKey); _contactRail.Find("KeyHeading").gameObject.SetActive(inKey);   // the heading goes with the key
-                if (inKey) _keyRoot.sizeDelta = new Vector2(lw, CampKeyLayout.KeyH);
+                var keyHeading = (RectTransform)_contactRail.Find("KeyHeading");
+                _keyRoot.gameObject.SetActive(inKey);
+                keyHeading.gameObject.SetActive(inKey);
+                if (inKey)
+                {
+                    _keyRoot.sizeDelta = new Vector2(lw, CampKeyLayout.KeyH);
+                    // The rail has room above the heading as text grows. Keep the key's rows in place.
+                    float headingLift = Mathf.Lerp(0f, 4f, Mathf.InverseLerp(1f, 1.5f, ts));
+                    keyHeading.offsetMin = new Vector2(keyHeading.offsetMin.x, -20f + headingLift);
+                    keyHeading.offsetMax = new Vector2(keyHeading.offsetMax.x, -10f + headingLift);
+                }
                 float viewY = inKey ? CampKeyLayout.ViewY : 10f;
                 var vh = (RectTransform)_inViewHeading.transform; vh.anchorMin = vh.anchorMax = vh.pivot = new Vector2(.5f, 1f); vh.sizeDelta = new Vector2(lw - 24f, 20f); vh.anchoredPosition = new Vector2(0f, -viewY);
                 _contactScroll.anchorMin = Vector2.zero; _contactScroll.anchorMax = Vector2.one;
