@@ -286,6 +286,89 @@ public sealed class MatchLaunchEditModeTests
         typeof(Bootstrap).GetMethod("ConfigureNetwork", BindingFlags.Static | BindingFlags.NonPublic)
             .Invoke(null, new object[] { client, page, query, split });
 
+    [TestCase(960, 600)]
+    [TestCase(1280, 800)]
+    public void FirstVisitHintFitsItsCardAtReadableSize(int width, int height)
+    {
+        using (var f = new Fixture())
+        {
+            f.Client.Profile = "";
+            f.InitializeHud();
+            var view = (LaunchScreenView)Get(f.Hud, "_launch");
+            view.StageScaler.Apply(width, height, HudLayout.CanvasScalerFactor(width, height));
+            Canvas.ForceUpdateCanvases();
+            var label = view.RecordText;
+            var scale = label.GetComponent<MythicTextScale>();
+            var card = (RectTransform)label.transform.parent.parent;
+            Assert.That(label.text, Does.Contain("callsign").And.Contain("Start Run"));
+            foreach (float textScale in new[] { .85f, 1f, 1.5f })
+            {
+                scale.Apply(textScale);
+                label.ForceMeshUpdate();
+                Assert.That(label.fontSize * view.StageScaler.Viewport.Scale, Is.GreaterThanOrEqualTo(15f));
+                Assert.That(label.textInfo.lineCount, Is.EqualTo(2));
+                var bounds = label.textBounds;
+                var min = card.InverseTransformPoint(label.transform.TransformPoint(bounds.min));
+                var max = card.InverseTransformPoint(label.transform.TransformPoint(bounds.max));
+                Assert.That(min.x, Is.GreaterThan(card.rect.xMin));
+                Assert.That(min.y, Is.GreaterThan(card.rect.yMin));
+                Assert.That(max.x, Is.LessThan(card.rect.xMax));
+                Assert.That(max.y, Is.LessThan(card.rect.yMax));
+            }
+        }
+    }
+
+    [Test]
+    public async Task ArenaOnlyMenuWidensPlayAndKeepsCancelDuringPendingLaunch()
+    {
+        using (var f = new Fixture(true))
+        {
+            f.Client.TrainingUrl = "";
+            f.InitializeHud();
+            var view = (LaunchScreenView)Get(f.Hud, "_launch");
+            var door = view.Atrium.Room.Find("Station_Training").gameObject;
+            Invoke(f.Hud, "RefreshAccountMenu");
+            Assert.That(view.Play.interactable, Is.True);
+            Assert.That(((RectTransform)view.Play.transform).rect.width, Is.EqualTo(LaunchScreenView.Inner));
+            Assert.That(view.Training.gameObject.activeSelf || door.activeSelf, Is.False);
+            Assert.That(view.Reason.text, Is.Empty);
+
+            await f.JoinReady(MatchLaunchMode.Arena);
+            f.Welcome();
+            Invoke(f.Hud, "RefreshAccountMenu");
+            Assert.That(view.Status.text, Does.Contain("arena"));
+            Assert.That(view.Training.gameObject.activeInHierarchy, Is.True);
+            Assert.That(view.TrainingLabel.text, Is.EqualTo("CANCEL"));
+            Assert.That(view.Training.IsInteractable(), Is.True);
+            Assert.That(door.activeSelf, Is.False);
+            view.Training.onClick.Invoke();
+            Assert.That(f.Client.Session, Is.Null);
+            Invoke(f.Hud, "RefreshAccountMenu");
+            Assert.That(view.Training.gameObject.activeSelf, Is.False);
+            Assert.That(view.Play.interactable, Is.True);
+        }
+    }
+
+    [Test]
+    public void OfferedTrainingRemainsVisibleWhenCallsignIsMissing()
+    {
+        using (var f = new Fixture())
+        {
+            f.Client.Profile = "";
+            f.InitializeHud();
+            var view = (LaunchScreenView)Get(f.Hud, "_launch");
+            var door = view.Atrium.Room.Find("Station_Training");
+            Invoke(f.Hud, "RefreshAccountMenu");
+            Assert.That(view.Training.gameObject.activeSelf && door.gameObject.activeSelf, Is.True);
+            Assert.That(view.Training.interactable, Is.False);
+            Assert.That(door.Find("HintBox/Hint").GetComponent<TMP_Text>().text, Is.EqualTo("Type a callsign first"));
+            view.Callsign.text = "Alice";
+            Invoke(f.Hud, "RefreshAccountMenu");
+            Assert.That(view.Training.interactable, Is.True);
+            Assert.That(door.Find("HintBox/Hint").GetComponent<TMP_Text>().text, Is.EqualTo("Practice room"));
+        }
+    }
+
     [Test]
     public async Task MissingTrainingNeverFallsBackOrStartsAnOwnershipRequest()
     {
