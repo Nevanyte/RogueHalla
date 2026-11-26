@@ -439,6 +439,7 @@ pub struct Director {
     spool_permits: tokio::sync::Semaphore,
     /// The P-BOTS-5 live learning sink: the record caller for bot results and the bias view the next lobby reads.
     learning: Mutex<Option<Arc<dyn LearningSink>>>,
+    alpha_capture: std::sync::OnceLock<crate::alpha_capture::Capture>,
     /// The bot fill's read-only profile-name set (source isNameTaken). Refreshed by the server; a new lobby reads it.
     bot_names: std::sync::RwLock<Arc<std::collections::HashSet<String>>>,
 }
@@ -553,6 +554,7 @@ impl Director {
             freed: Notify::new(),
             me: me.clone(),
             learning: Mutex::new(None),
+            alpha_capture: std::sync::OnceLock::new(),
             bot_names: std::sync::RwLock::new(Arc::new(std::collections::HashSet::new())),
             #[cfg(feature = "postgres")]
             spool,

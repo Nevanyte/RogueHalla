@@ -972,6 +972,7 @@ async fn health(State(c): State<Ctl>) -> Response {
             "build": rh_sim::replay::BUILD_ID,
             "metrics": crate::metrics::process().json(),
             "results": d.result_metrics(),
+            "alphaCapture": d.alpha_capture_health(),
             "control": d.control_info(),
             // Rooms whose task panicked since start, and the latest one: the operator's alert hook (not in public `/info`).
             "roomCrashes": d.crash_info(),

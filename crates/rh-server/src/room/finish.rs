@@ -115,6 +115,9 @@ impl Room {
         } else {
             GoneReason::MatchOver
         };
+        if let Some(metrics) = self.alpha_metrics.take() {
+            metrics.finish(why.as_str());
+        }
         for h in std::mem::take(&mut self.humans) {
             let _ = self.reports.send(RoomReport::Seat {
                 match_id: self.id,
@@ -196,6 +199,9 @@ impl Room {
             if let Some(o) = &h.outbox {
                 o.close(RejectCode::Kicked);
             }
+        }
+        if let Some(metrics) = self.alpha_metrics.take() {
+            metrics.finish("room_crashed");
         }
         let stats = RoomStats {
             crashed: true,

@@ -23,6 +23,9 @@ impl Room {
             self.sim.mark_dropped(player, true);
             if let Some(old) = old {
                 self.retire_outbox(&old);
+                if let Some(metrics) = &mut self.alpha_metrics {
+                    metrics.drop_connection(player);
+                }
             }
             eprintln!(
                 "{}",
@@ -112,6 +115,9 @@ impl Room {
                             dropped: false,
                         });
                         self.sim.mark_dropped(player, false);
+                        if let Some(metrics) = &mut self.alpha_metrics {
+                            metrics.resume(player);
+                        }
                         let _ = self.reports.send(RoomReport::Seat {
                             match_id: self.id,
                             profile: seat_profile.clone(),
@@ -197,11 +203,15 @@ impl Room {
                         // validator/budget/submit path. Target is an observer-issued reference,
                         // never a private-ID fallback. Misses are recorded ordinary commands.
                         let resolved = self.humans[index].items.resolve(&self.sim, proposal);
-                        if let Ok(cmd) = resolved {
+                        let submitted = if let Ok(cmd) = resolved {
                             self.record(ReplayInput::Command { player, cmd });
-                            if self.sim.submit(player, cmd).is_ok() {
-                                accepted += 1;
-                            }
+                            self.sim.submit(player, cmd).is_ok()
+                        } else {
+                            false
+                        };
+                        accepted += u32::from(submitted);
+                        if let Some(metrics) = &mut self.alpha_metrics {
+                            metrics.command(player, proposal, submitted);
                         }
                     }
                     self.metrics.note_rewind_clamps(&clamps);

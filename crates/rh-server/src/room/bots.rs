@@ -137,12 +137,10 @@ impl Room {
             self.bots[index].note_delivery(false);
             return;
         };
-        if let Some(r) = self.recorder.as_mut() {
-            r.record(ReplayInput::Command {
-                player,
-                cmd: command,
-            });
-        }
+        self.record(ReplayInput::Command {
+            player,
+            cmd: command,
+        });
         match self.sim.submit(player, command) {
             Ok(()) => {
                 self.bot_applied += 1;
