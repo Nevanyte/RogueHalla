@@ -423,6 +423,8 @@ pub struct Director {
     /// The configured map and its Welcome blob, built once and lent to every room.
     map: MapAssets,
     inner: Mutex<Inner>,
+    /// Serializes ordinary admissions that need a new board room, through its first reservation.
+    board_room_opening: Arc<tokio::sync::Mutex<()>>,
     reports: mpsc::UnboundedSender<RoomReport>,
     pub persistence: Arc<Persistence>,
     pub auth: Arc<Auth>,
@@ -547,6 +549,7 @@ impl Director {
             cfg,
             map,
             inner: Mutex::new(inner),
+            board_room_opening: Arc::new(tokio::sync::Mutex::new(())),
             reports: tx,
             persistence,
             auth,
