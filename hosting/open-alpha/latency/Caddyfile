@@ -69,7 +69,7 @@ https://:{$RH_ALB_TARGET_PORT:8443} {
 
 		@static {
 			method GET HEAD
-			path / /index.html /favicon.ico /Build /Build/* /TemplateData /TemplateData/* /StreamingAssets /StreamingAssets/* /Licenses /Licenses/*
+			path / /index.html /alpha-gameplay-data.html /favicon.ico /Build /Build/* /TemplateData /TemplateData/* /StreamingAssets /StreamingAssets/* /Licenses /Licenses/*
 		}
 		handle @static {
 			root * {$RH_ALB_WEB_ROOT}

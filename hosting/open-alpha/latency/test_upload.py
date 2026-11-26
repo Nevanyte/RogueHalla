@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import sys
 
 UPLOADER = Path(__file__).resolve().with_name("upload-capture.sh")
 ACCOUNT = "111111111111"
@@ -22,7 +23,12 @@ import sys
 
 args = sys.argv[1:]
 Path(os.environ["AWS_SPY"]).write_text(json.dumps(args))
-if os.environ["AWS_OUTCOME"] == "precondition":
+key = args[args.index("--key") + 1]
+log = os.environ.get("AWS_CALL_LOG")
+if log:
+    with Path(log).open("a") as calls:
+        print(key, file=calls)
+if os.environ["AWS_OUTCOME"] == "precondition" or key.endswith(os.environ.get("AWS_FAIL_KEY", "missing")):
     sys.exit(254)
 print("wrong-checksum" if os.environ["AWS_OUTCOME"] == "wrong"
       else args[args.index("--checksum-sha256") + 1])
@@ -79,6 +85,39 @@ class UploadContract(unittest.TestCase):
                                       (symlink, "staging"), (valid, "unreviewed")):
             self.assertEqual(self.upload(artifact, environment).returncode, 2)
             self.assertFalse(self.spy.exists())
+
+    def test_periodic_sweep_resumes_without_losing_unconfirmed_objects(self):
+        replay, metrics, state = (self.scratch / name for name in ("replay", "metrics", "state"))
+        for directory in (replay, metrics, state):
+            directory.mkdir()
+        files = [replay / f"replay-{number:032x}.json.age" for number in range(1, 11)]
+        files.append(metrics / METRICS)
+        for file in files:
+            file.write_bytes(ENVELOPE)
+        (replay / f".{REPLAY}.partial").write_bytes(ENVELOPE)
+        call_log = self.scratch / "call-log"
+        env = dict(self.env, STATE_DIRECTORY=str(state), RH_CAPTURE_BUCKET="test-private-bucket",
+                   RH_CAPTURE_OWNER=ACCOUNT, AWS_CALL_LOG=str(call_log), AWS_OUTCOME="ok",
+                   AWS_FAIL_KEY=files[0].name)
+        command = [sys.executable, str(UPLOADER.with_name("sweep-capture.py")),
+                   "staging", str(replay), str(metrics)]
+
+        first_run = subprocess.run(command, capture_output=True, text=True, env=env)
+        self.assertEqual(first_run.returncode, 1, first_run.stderr)
+        self.assertIn("confirmed=7 unresolved=1 queued=4", first_run.stdout)
+        self.assertEqual(len(call_log.read_text().splitlines()), 8)
+        self.assertTrue(files[0].exists())
+        self.assertTrue(all(not file.exists() for file in files[1:8]))
+        self.assertTrue(all(file.exists() for file in files[8:]))
+
+        second_run = subprocess.run(command, capture_output=True, text=True, env=env)
+        self.assertEqual(second_run.returncode, 1, second_run.stderr)
+        self.assertIn("confirmed=3 unresolved=1 queued=1", second_run.stdout)
+        self.assertEqual(call_log.read_text().splitlines()[8:],
+                         [f"staging/{file.name}" for file in [*files[8:], files[0]]])
+        self.assertEqual(files[0].read_bytes(), ENVELOPE)
+        self.assertTrue((replay / f".{REPLAY}.partial").exists())
+        self.assertTrue(all(not file.exists() for file in files[1:]))
 
     def test_ambiguous_or_wrong_receipt_preserves_local_ciphertext(self):
         artifact = self.scratch / REPLAY

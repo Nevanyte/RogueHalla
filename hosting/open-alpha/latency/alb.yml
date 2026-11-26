@@ -23,6 +23,10 @@ Parameters:
     Type: String
     Default: 'false'
     AllowedValues: ['false', 'true']
+  EnforceManagedRules:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['false', 'true']
   ProductionHostname:
     Type: String
     Default: ''
@@ -47,6 +51,7 @@ Rules:
         AssertDescription: Supply the live hostname and an issued Calgary ACM certificate.
 Conditions:
   ProductionEnabled: !Equals [!Ref EnableProduction, 'true']
+  ManagedRulesEnforced: !Equals [!Ref EnforceManagedRules, 'true']
 Resources:
   TargetSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -202,7 +207,8 @@ Resources:
         - Field: path-pattern
           PathPatternConfig:
             RegexValues:
-              - '^/((ws|info|ping|healthz|readyz|api(/.*)?)|(index[.]html|favicon[.]ico|(Build|TemplateData|StreamingAssets|Licenses)(/.*)?))?$'
+              - '^/(ws|info|ping|healthz|readyz|api(/.*)?)$'
+              - '^/(index[.]html|alpha-gameplay-data[.]html|favicon[.]ico|(Build|TemplateData|StreamingAssets|Licenses)(/.*)?)?$'
       Actions:
         - Type: forward
           TargetGroupArn: !Ref StagingTarget
@@ -220,7 +226,8 @@ Resources:
         - Field: path-pattern
           PathPatternConfig:
             RegexValues:
-              - '^/((ws|info|ping|healthz|readyz|api(/.*)?)|(index[.]html|favicon[.]ico|(Build|TemplateData|StreamingAssets|Licenses)(/.*)?))?$'
+              - '^/(ws|info|ping|healthz|readyz|api(/.*)?)$'
+              - '^/(index[.]html|alpha-gameplay-data[.]html|favicon[.]ico|(Build|TemplateData|StreamingAssets|Licenses)(/.*)?)?$'
       Actions:
         - Type: forward
           TargetGroupArn: !Ref ProductionTarget
@@ -237,8 +244,10 @@ Resources:
       Rules:
         - Name: AWSManagedRulesCommonRuleSet
           Priority: 0
-          OverrideAction:
-            Count: {}
+          OverrideAction: !If
+            - ManagedRulesEnforced
+            - None: {}
+            - Count: {}
           Statement:
             ManagedRuleGroupStatement:
               VendorName: AWS

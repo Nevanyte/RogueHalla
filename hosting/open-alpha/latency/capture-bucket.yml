@@ -47,7 +47,7 @@ Resources:
           - Id: ExpireStagingCaptures
             Status: Enabled
             Prefix: staging/
-            ExpirationInDays: 7
+            ExpirationInDays: 14
             NoncurrentVersionExpiration:
               NoncurrentDays: 1
             AbortIncompleteMultipartUpload:
@@ -55,7 +55,7 @@ Resources:
           - Id: ExpireLiveCaptures
             Status: Enabled
             Prefix: live/
-            ExpirationInDays: 30
+            ExpirationInDays: 14
             NoncurrentVersionExpiration:
               NoncurrentDays: 1
             AbortIncompleteMultipartUpload:

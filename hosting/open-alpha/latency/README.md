@@ -50,7 +50,9 @@ The default rule returns 404. The staging rule matches the exact staging hostnam
 and the reviewed native API and Web build paths. The live certificate, rule, target group
 and target SG rules are conditional. Managed WAF Core Rule Set counts at first. Keep
 request sampling off to avoid storing claim and profile headers. Review counts,
-request volume and connection metrics during the test before any change to WAF actions.
+request volume and connection metrics. Use a reviewed change set with
+`EnforceManagedRules=true` to qualify blocking and `false` to restore Count.
+Repeat the claim, Web and WSS tests when changing the WAF setting.
 [ALB rules](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/rule-condition-types.html) · [WAF Count](https://docs.aws.amazon.com/waf/latest/developerguide/web-acl-rule-group-override-options.html)
 
 ## Install the private target
@@ -70,7 +72,7 @@ Keep control, training, probe and PostgreSQL private.
 Create the root-owned directory `/etc/rh-alpha-alb` with mode 0755.
 Install Caddy 2.11.2's recipe at `/etc/rh-alpha-alb/Caddyfile` and
 `rh-alpha-alb@.service` at `/etc/systemd/system/rh-alpha-alb@.service`. The unit
-uses `/usr/bin/caddy`. Create non-login system users `rh-alpha-alb-staging` and
+uses `/usr/local/bin/caddy`. Create non-login system users `rh-alpha-alb-staging` and
 `rh-alpha-alb-live` for the instances you use, with read access to their respective
 immutable, verified Web roots. Populate root-owned `/etc/rh-alpha-alb/staging.env`
 and, later, `live.env` with mode 0600. Values below are placeholders for owner inputs.
@@ -112,7 +114,7 @@ unhealthy targets when all targets in a group fail checks.
 
 1. Wait for the staging target group to report `healthy`. Before DNS publishing,
    use the check below to test the host, SNI and ALB together. Try `/`,
-   a build Wasm and data asset, `/info`, `/ping`, `/healthz` and `/readyz`.
+   the gameplay data notice, a build Wasm and data asset, `/info`, `/ping`, `/healthz` and `/readyz`.
    Confirm the Web and Source match the release receipt. Check that `/control`,
    `/probe`, `/training`, `/__rh_alb_health` and an unknown host/path all fail.
 2. Make only the direct staging hostname a **DNS-only CNAME** to the ALB DNS

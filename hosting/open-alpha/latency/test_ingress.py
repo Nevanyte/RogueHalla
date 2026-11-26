@@ -53,6 +53,7 @@ class IngressContract(unittest.TestCase):
         web = cls.root / environment
         (web / "Build").mkdir(parents=True)
         (web / "index.html").write_text(environment)
+        (web / "alpha-gameplay-data.html").write_text("capture notice")
         (web / "Build/Web.wasm").write_bytes(b"\0asm\1\0\0\0")
         (web / "Build/Web.wasm.gz").write_bytes(gzip.compress(b"\0asm\1\0\0\0"))
         # Brotli encoding of the same eight-byte Wasm header.
@@ -145,6 +146,7 @@ class IngressContract(unittest.TestCase):
     def test_only_target_host_and_public_routes_reach_origin(self):
         for host, wrong, environment in ((STAGING, LIVE, "staging"), (LIVE, STAGING, "live")):
             self.assertEqual(self.request(host, "/")[2], environment.encode())
+            self.assertEqual(self.request(host, "/alpha-gameplay-data.html")[2], b"capture notice")
             self.assertEqual(self.request(host, "/info")[1]["X-Origin-Environment"], environment)
             self.assertEqual(self.request(host, "/info", {"Host": wrong})[0], 421)
             self.assertEqual(self.request(host, "/", method="POST")[0], 404)
