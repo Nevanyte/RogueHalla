@@ -1,0 +1,10 @@
+[Unit]
+Description=Schedule private RogueHalla alpha capture upload (%i)
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+Unit=rh-alpha-upload@%i.service
+
+[Install]
+WantedBy=timers.target

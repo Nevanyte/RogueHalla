@@ -1,0 +1,20 @@
+[Unit]
+Description=Upload committed RogueHalla alpha capture files (%i)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Set the actual isolated Source UID in the staging/live instance drop-in.
+User=nobody
+EnvironmentFile=/etc/rh-alpha-capture/%i.env
+Environment=AWS_SHARED_CREDENTIALS_FILE=/dev/null
+StateDirectory=rh-alpha-upload-%i
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /usr/local/lib/rh-alpha-capture/sweep-capture.py %i ${RH_CAPTURE_REPLAY_SPOOL} ${RH_CAPTURE_METRICS_SPOOL}
+TimeoutStartSec=140s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+UMask=0077

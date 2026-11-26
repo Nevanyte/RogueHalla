@@ -1,0 +1,149 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Retain private, immutable encrypted Source capture uploads with separate staging and live access.
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    ref:
+      - at: hosting/open-alpha/latency/CAPTURE.md
+        has: Ciphertext contract, upload identities, retention and recovery
+Parameters:
+  StagingUploaderRoleArn:
+    Type: String
+    AllowedPattern: 'arn:aws:iam::[0-9]{12}:role/[A-Za-z0-9_+=,.@/-]+'
+  LiveUploaderRoleArn:
+    Type: String
+    Default: ''
+    AllowedPattern: '(|arn:aws:iam::[0-9]{12}:role/[A-Za-z0-9_+=,.@/-]+)'
+Rules:
+  DistinctUploaderRoles:
+    Assertions:
+      - Assert: !Not [!Equals [!Ref StagingUploaderRoleArn, !Ref LiveUploaderRoleArn]]
+        AssertDescription: Supply different upload roles for staging and live.
+Conditions:
+  LiveUploads: !Not [!Equals [!Ref LiveUploaderRoleArn, '']]
+Resources:
+  CaptureBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireStagingCaptures
+            Status: Enabled
+            Prefix: staging/
+            ExpirationInDays: 14
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+          - Id: ExpireLiveCaptures
+            Status: Enabled
+            Prefix: live/
+            ExpirationInDays: 14
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+          - Id: RemoveExpiredDeleteMarkers
+            Status: Enabled
+            ExpiredObjectDeleteMarker: true
+  CapturePolicy:
+    Type: AWS::S3::BucketPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Bucket: !Ref CaptureBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: RequireTls
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource: [!GetAtt CaptureBucket.Arn, !Sub '${CaptureBucket.Arn}/*']
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+          - Sid: RequireNewObject
+            Effect: Deny
+            Principal: '*'
+            Action: s3:PutObject
+            Resource: !Sub '${CaptureBucket.Arn}/*'
+            Condition:
+              StringNotEquals:
+                s3:if-none-match: '*'
+          - Sid: RequireSseS3
+            Effect: Deny
+            Principal: '*'
+            Action: s3:PutObject
+            Resource: !Sub '${CaptureBucket.Arn}/*'
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption: AES256
+          - Sid: RestrictStagingWriters
+            Effect: Deny
+            Principal: '*'
+            Action: s3:PutObject
+            Resource: !Sub '${CaptureBucket.Arn}/staging/*'
+            Condition:
+              ArnNotEquals:
+                aws:PrincipalArn: !Ref StagingUploaderRoleArn
+          - Sid: RestrictLiveWriters
+            Effect: Deny
+            Principal: '*'
+            Action: s3:PutObject
+            Resource: !Sub '${CaptureBucket.Arn}/live/*'
+            Condition: !If
+              - LiveUploads
+              - ArnNotEquals:
+                  aws:PrincipalArn: !Ref LiveUploaderRoleArn
+              - !Ref 'AWS::NoValue'
+          - Sid: KeepUploadersWriteOnly
+            Effect: Deny
+            Principal: '*'
+            NotAction: s3:PutObject
+            Resource: [!GetAtt CaptureBucket.Arn, !Sub '${CaptureBucket.Arn}/*']
+            Condition:
+              ArnEquals:
+                aws:PrincipalArn:
+                  - !Ref StagingUploaderRoleArn
+                  - !If [LiveUploads, !Ref LiveUploaderRoleArn, !Ref 'AWS::NoValue']
+          - Sid: AllowStagingCaptureUpload
+            Effect: Allow
+            Principal:
+              AWS: !Ref StagingUploaderRoleArn
+            Action: s3:PutObject
+            Resource:
+              - !Sub '${CaptureBucket.Arn}/staging/replay-*.json.age'
+              - !Sub '${CaptureBucket.Arn}/staging/metrics-*.json.age'
+          - !If
+            - LiveUploads
+            - Sid: AllowLiveCaptureUpload
+              Effect: Allow
+              Principal:
+                AWS: !Ref LiveUploaderRoleArn
+              Action: s3:PutObject
+              Resource:
+                - !Sub '${CaptureBucket.Arn}/live/replay-*.json.age'
+                - !Sub '${CaptureBucket.Arn}/live/metrics-*.json.age'
+            - !Ref 'AWS::NoValue'
+Outputs:
+  CaptureBucketName:
+    Description: Private capture bucket name for the uploader.
+    Value: !Ref CaptureBucket
