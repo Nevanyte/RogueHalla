@@ -18,7 +18,7 @@ This packet. The regression cases extend the existing launch-screen and tactical
 
 ## 5. Exclusive write scope
 
-- Home lane owns `LaunchScreenView.cs`, `MatchHud.Accounts.cs`, the `HubAtriumView` files and focused additional launch/atrium tests.
+- Home lane owns `LaunchScreenView.cs`, `MatchHud.Accounts.cs`, the `HubAtriumView` files and focused additional launch/atrium tests. The staging walkthrough extended this lane to `MatchHud.Tutorial.cs`, the Training replay row in `ModernSettingsView.cs` and its focused label test.
 - Planning lane owns `TacticalMapController.cs`, its presentation partials and focused additional planning tests.
 - Coordinator owns the packet, the initial regression cases, integration and browser verification. Ask the coordinator before expanding either lane.
 
@@ -49,3 +49,5 @@ Use two Sol implementers. Give the planning lane additional reasoning for state-
 ## 11. Known traps
 
 An empty callsign also disables Training. Use the deployment's availability independently from the player's current ability to join. The server can offer a valid plan with no boons. Ready can use defaults. Existing pending/error feedback takes precedence over general instructions.
+
+A fresh account on the first public preview showed a Training invitation even though the hosted server offered only the Arena. The follow-up verifies both the first-visit prompt and the Settings replay action against the deployment’s available destinations, and preserves tutorial progress for a future deployment that offers Training.
