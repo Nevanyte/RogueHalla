@@ -46,7 +46,7 @@ runuser -u postgres -- "$PG16/createuser" -h /run/rh-alpha-pg rh_alpha
 runuser -u postgres -- "$PG16/createdb" -h /run/rh-alpha-pg -O rh_alpha rh_alpha
 ```
 
-Create `/etc/rh-alpha/control.token` with a random token readable only by root and `rh_alpha` (for example root:rh_alpha mode 0440 under a traversable private configuration directory). If the owner selects a claim passcode, set `PLAYTEST_PASSCODE` in root-only mode 0600 `/etc/rh-alpha/source.env`. Set `release_sha`, `release_bin` and `release_map` from the receipt, `stage_origin` to the exact HTTPS staging origin, and `stage_min_players` and `stage_fill` to the reviewed counts. Use the same Source settings for baking Unity. Run Source under its database peer identity and preserve the same spool and instance ID across restarts of this origin.
+Create `/etc/rh-alpha/control.token` with a random token readable only by root and `rh_alpha` (for example root:rh_alpha mode 0440 under a traversable private configuration directory). If the owner selects a claim passcode, set `PLAYTEST_PASSCODE` in root-only mode 0600 `/etc/rh-alpha/source.env`. Set `release_sha`, `release_bin` and `release_map` from the receipt, `stage_origin` to the exact HTTPS staging origin, and `stage_min_players` to the reviewed human minimum. The eight-seat alpha fill target is eight; keep the same Source settings when baking Unity. Run Source under its database peer identity and preserve the same spool and instance ID across restarts of this origin.
 
 ```bash
 set +x
@@ -56,8 +56,8 @@ systemd-run --unit=rh-alpha-source --service-type=exec --uid=rh_alpha \
   --property=TimeoutStopSec=90s \
   --property=EnvironmentFile=-/etc/rh-alpha/source.env \
   "$release_bin" --runtime source-arena --bind 127.0.0.1:7777 \
-  --map "$release_map" --map-pool --instance-id alpha-stage-source \
-  --min-players "$stage_min_players" --fill-bots "$stage_fill" --max-rooms 1 \
+  --map "$release_map" --map-pool --signature-landmarks --instance-id alpha-stage-source \
+  --min-players "$stage_min_players" --fill-bots 8 --max-rooms 1 \
   --bot-learning off \
   --database-url 'postgresql:///rh_alpha?host=/run/rh-alpha-pg&user=rh_alpha' \
   --result-spool /srv/rh-alpha/spool-source \
