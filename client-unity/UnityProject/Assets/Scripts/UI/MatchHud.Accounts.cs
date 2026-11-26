@@ -40,6 +40,7 @@ namespace Roguehalla.Client
             SetEmptyRecord();
             _nickname = _launch.Callsign; _nickname.text = _client.Profile;
             _loadProfile = _launch.Load; _joinMatch = _launch.Play; _joinTraining = _launch.Training;
+            _joinTraining.interactable = false; // The account menu refresh supplies the first launch verdict.
             _profileSummary = _launch.RecordText; _launchInfo = _launch.Reason; _accountStatus = _launch.Status;
             _launch.LoadRequested = () => _client.OpenProfile(_nickname.text, OwnershipKey, PlaytestPasscode);
             _launch.ProfileRequested = () => OpenProgress(HubProgressTab.Profile);
@@ -105,13 +106,13 @@ namespace Roguehalla.Client
             if (_joinMatch == null || !_joinMatch.interactable) return;
             _showcaseAudio?.UnlockFromUserGesture(); _client.Join(_nickname.text, _faction, MatchLaunchMode.Arena);
         }
-        bool CanLaunchTraining => _client != null && !_client.IsDiagnostic && !_client.LaunchPending &&
-            _client.LaunchTarget(MatchLaunchMode.Training).Available && _joinTraining != null &&
-            _joinTraining.gameObject.activeInHierarchy && _joinTraining.IsInteractable();
+        // The tutorial reads the same verdict already presented by RefreshAccountMenu. The button also serves as Cancel.
+        bool CanLaunchTraining => _joinTraining != null && _joinTraining.gameObject.activeInHierarchy &&
+            _joinTraining.IsInteractable() && _client != null && !_client.LaunchPending;
 
         bool StartTraining()
         {
-            if (!CanLaunchTraining) return false;
+            if (!CanLaunchTraining || _client.IsDiagnostic || !_client.LaunchTarget(MatchLaunchMode.Training).Available) return false;
             _showcaseAudio?.UnlockFromUserGesture(); _client.Join(_nickname.text, _faction, MatchLaunchMode.Training);
             return true;
         }
