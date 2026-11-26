@@ -173,11 +173,50 @@ fn five_known_givers_expand_to_ten_separated_givers_at_raid_start() {
 #[test]
 fn historic_quest_layout_is_implicit_in_old_configs() {
     let mut config = SimConfig::live_content();
+    assert_eq!(
+        serde_json::to_string(&rh_sim::statics::QuestBoard::Off).unwrap(),
+        "false"
+    );
+    assert_eq!(
+        serde_json::to_string(&rh_sim::statics::QuestBoard::Legacy).unwrap(),
+        "true"
+    );
+    assert_eq!(
+        serde_json::to_string(&rh_sim::statics::QuestBoard::Spread).unwrap(),
+        "\"spread\""
+    );
     let json = serde_json::to_value(&config).unwrap();
-    assert_eq!(json["spread_quest_givers"], true);
-    config.spread_quest_givers = false;
+    assert_eq!(json["top25_quests"], "spread");
+    config.quest_board = rh_sim::statics::QuestBoard::Legacy;
     let historical = serde_json::to_value(&config).unwrap();
-    assert!(historical.get("spread_quest_givers").is_none());
+    assert_eq!(historical["top25_quests"], true);
     let restored: SimConfig = serde_json::from_value(historical).unwrap();
     assert_eq!(restored, config);
+    config.quest_board = rh_sim::statics::QuestBoard::Off;
+    let old_off = serde_json::to_value(&config).unwrap();
+    assert_eq!(old_off["top25_quests"], false);
+    assert_eq!(
+        serde_json::from_value::<SimConfig>(old_off).unwrap(),
+        config
+    );
+}
+
+#[test]
+fn each_board_mode_has_a_distinct_digest_and_restores_without_layout_gaps() {
+    use rh_sim::statics::QuestBoard;
+    let mut hashes = BTreeSet::new();
+    for mode in [QuestBoard::Off, QuestBoard::Legacy, QuestBoard::Spread] {
+        let sim = Sim::new(
+            SimConfig {
+                quest_board: mode,
+                ..SimConfig::default()
+            },
+            rh_sim::arenas::practice_arena(),
+            Secrets::from_seed(71),
+        );
+        assert_eq!(sim.check_layout(), Ok(()), "{mode:?}");
+        assert!(hashes.insert(sim.state_hash()), "{mode:?} shares a digest");
+        let restored: Sim = serde_json::from_slice(&serde_json::to_vec(&sim).unwrap()).unwrap();
+        assert_eq!(sim.state_hash(), restored.state_hash(), "{mode:?}");
+    }
 }

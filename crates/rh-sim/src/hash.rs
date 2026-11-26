@@ -609,6 +609,17 @@ mod tests {
     }
 
     #[test]
+    fn quest_board_modes_keep_the_old_digest_words() {
+        use crate::statics::QuestBoard;
+        assert_eq!(hash_of(0, &QuestBoard::Off), hash_of(0, &()));
+        assert_eq!(hash_of(0, &QuestBoard::Legacy), hash_of(0, &"quests=top25"));
+        assert_eq!(
+            hash_of(0, &QuestBoard::Spread),
+            hash_of(0, &("quests=top25", "quests=spread_givers"))
+        );
+    }
+
+    #[test]
     fn the_layout_check_refuses_non_finite_skipped_and_flattened_fields() {
         #[derive(serde::Serialize)]
         struct Nan {

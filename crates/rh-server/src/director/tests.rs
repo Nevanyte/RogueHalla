@@ -62,8 +62,7 @@ fn director_with(store: MemoryStore) -> Arc<Director> {
         weapon_specials: true,
         faction_mode: rh_sim::FactionMode::Off,
         quests: false,
-        top25_quests: false,
-        spread_quest_givers: false,
+        quest_board: rh_sim::statics::QuestBoard::Off,
         tick_ms: 50,
     };
 

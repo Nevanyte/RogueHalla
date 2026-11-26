@@ -215,7 +215,7 @@ fn sim_config() -> rh_sim::SimConfig {
         .unwrap()
         .sim();
     // These paired cached maps isolate historical presentation data.
-    config.top25_quests = false;
+    config.quest_board = rh_sim::statics::QuestBoard::Off;
     config
 }
 

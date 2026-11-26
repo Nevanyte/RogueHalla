@@ -15,7 +15,7 @@ pub(super) fn stage(
     let mut view = QuestView::default();
     next.actionable.clear();
     let planning = sim.phase() == crate::Phase::Planning;
-    let preview = planning && sim.config().spread_quest_givers;
+    let preview = planning && sim.config().quest_board.spread();
     let mut seen_zones = [false; 5];
     let mut offers: Vec<_> = quests
         .offers
