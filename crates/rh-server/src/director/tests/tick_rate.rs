@@ -34,6 +34,7 @@ fn director_config_at(tick_ms: u32) -> DirectorConfig {
         faction_mode: rh_sim::FactionMode::Off,
         quests: false,
         top25_quests: false,
+        spread_quest_givers: false,
         tick_ms,
     };
     let map = rh_sim::TileMap::from_rows(&["####", "#..#", "#..#", "####"]).unwrap();

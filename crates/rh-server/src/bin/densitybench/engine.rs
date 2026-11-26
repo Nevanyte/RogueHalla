@@ -220,6 +220,7 @@ pub async fn run(o: &Opts, check_frames: bool) -> Report {
         regen: false,
         quests: false,
         top25_quests: false,
+        spread_quest_givers: false,
         training: false,
         dummies: false,
         consumables: true,

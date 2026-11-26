@@ -31,7 +31,7 @@ namespace Roguehalla.Client
 
         /// <summary>
         /// The catalog key to draw. The server's archetype key (table key = catalog key) wins whenever it names a look; a quest giver
-        /// always uses the neutral silhouette (the giver's server archetype is only a hero-sized box). Without a key (no table, or the
+        /// always uses the painted archivist (the giver's server archetype is only a hero-sized box). Without a key (no table, or the
         /// legacy row) the faction and mob-type mapping below decides, exactly as before protocol 16.
         /// </summary>
         public static string AppearanceKey(ActorKind kind, FactionId? faction, MobTypeId? type, string archetypeKey)

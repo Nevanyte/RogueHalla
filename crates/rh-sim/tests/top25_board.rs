@@ -30,7 +30,7 @@ fn home(name: &str) -> RegionId {
 }
 
 #[test]
-fn ten_public_givers_two_per_home_zone_survive_planning_and_restore() {
+fn five_known_givers_expand_to_ten_separated_givers_at_raid_start() {
     let layout = coliseum::fixed_layout();
     let map = pipeline::Pipeline::new(&layout)
         .generate_styled(
@@ -85,10 +85,10 @@ fn ten_public_givers_two_per_home_zone_survive_planning_and_restore() {
     }
     assert_eq!(sim.phase(), Phase::Planning);
     let planned = board(&sim, a);
-    assert_eq!(planned.rows.len(), 10);
+    assert_eq!(planned.rows.len(), 5);
     assert_eq!(
-        planned.unknown_count, 0,
-        "normal raids have no hidden quest roster"
+        planned.unknown_count, 5,
+        "one additional offer per zone opens at raid start"
     );
     let positions = |v: &QuestView| {
         v.rows
@@ -104,7 +104,7 @@ fn ten_public_givers_two_per_home_zone_survive_planning_and_restore() {
             .map(|r| &r.def)
             .collect::<BTreeSet<_>>()
             .len(),
-        10
+        5
     );
     let layers = sim.arena().map.layers().unwrap();
     let mut quotas = [0; 7];
@@ -118,7 +118,7 @@ fn ten_public_givers_two_per_home_zone_survive_planning_and_restore() {
         assert_eq!(actual, home(&name), "wrong starting zone for {name}");
         quotas[actual.code() as usize] += 1;
     }
-    assert_eq!(quotas, [0, 2, 2, 2, 2, 2, 0]);
+    assert_eq!(quotas, [0, 1, 1, 1, 1, 1, 0]);
     for _ in 0..25 {
         sim.step();
         if sim.phase() == Phase::Active {
@@ -133,9 +133,51 @@ fn ten_public_givers_two_per_home_zone_survive_planning_and_restore() {
             .count(),
         10
     );
-    assert_eq!(positions(&planned), positions(&board(&sim, a)));
+    let active = board(&sim, a);
+    assert_eq!(active.rows.len(), 10);
+    assert_eq!(active.unknown_count, 0);
+    let all = positions(&active);
+    assert!(positions(&planned).iter().all(|row| all.contains(row)));
+    assert_eq!(
+        active
+            .rows
+            .iter()
+            .map(|r| &r.def)
+            .collect::<BTreeSet<_>>()
+            .len(),
+        10
+    );
+    let layers = sim.arena().map.layers().unwrap();
+    for preview in &planned.rows {
+        let region = layers.region_at_world(preview.giver.x, preview.giver.y);
+        let others: Vec<_> = active
+            .rows
+            .iter()
+            .filter(|r| {
+                r.def != preview.def && layers.region_at_world(r.giver.x, r.giver.y) == region
+            })
+            .collect();
+        assert_eq!(others.len(), 1);
+        let other = others[0].giver;
+        assert!(
+            rh_sim::math::hypot(other.x - preview.giver.x, other.y - preview.giver.y)
+                >= 7. * rh_sim::constants::TILE
+        );
+    }
     let saved = serde_json::to_vec(&sim).unwrap();
     let restored: Sim = serde_json::from_slice(&saved).unwrap();
     assert_eq!(sim.state_hash(), restored.state_hash());
-    assert_eq!(positions(&planned), positions(&board(&restored, a)));
+    assert_eq!(all, positions(&board(&restored, a)));
+}
+
+#[test]
+fn historic_quest_layout_is_implicit_in_old_configs() {
+    let mut config = SimConfig::live_content();
+    let json = serde_json::to_value(&config).unwrap();
+    assert_eq!(json["spread_quest_givers"], true);
+    config.spread_quest_givers = false;
+    let historical = serde_json::to_value(&config).unwrap();
+    assert!(historical.get("spread_quest_givers").is_none());
+    let restored: SimConfig = serde_json::from_value(historical).unwrap();
+    assert_eq!(restored, config);
 }

@@ -140,6 +140,7 @@ pub(super) fn cfg(tick: Duration) -> RoomConfig {
             // Off until the coordinator-owned quest transport packet lands; the lifecycle has its own config switch.
             quests: false,
             top25_quests: false,
+            spread_quest_givers: false,
             tick_ms: 50,
         },
         arena: assets.arena,

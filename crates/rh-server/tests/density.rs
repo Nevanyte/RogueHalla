@@ -41,6 +41,7 @@ fn room_cfg() -> RoomConfig {
             regen: false,
             quests: false,
             top25_quests: false,
+            spread_quest_givers: false,
             training: false,
             dummies: false,
             consumables: true,

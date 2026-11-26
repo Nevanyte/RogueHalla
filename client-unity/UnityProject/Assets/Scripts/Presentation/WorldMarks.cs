@@ -15,19 +15,24 @@ namespace Roguehalla.Client
     {
         sealed class Mark { public SpriteRenderer Glyph, GlyphPlate, LabelPlate, Figure, Shadow, Cast, Goods; public Transform FigureRoot; public TextMeshPro Label; public string Text; }
         readonly Transform _root;
-        readonly ShowcaseCatalog _catalog;
+        readonly Sprite _apothecary, _barterMerchant, _tradeBarrel;
         readonly List<Mark> _marks = new List<Mark>();
         int _used;
         public int Used { get { return _used; } }
         const int Order = 29000;
 
         /// <summary>The look catalog the merchants' figures are drawn from (null: the neutral silhouette, as before).</summary>
-        public WorldMarks(Transform root, ShowcaseCatalog catalog = null) { _root = root; _catalog = catalog; }
+        public WorldMarks(Transform root, ShowcaseCatalog catalog = null)
+        {
+            _root = root;
+            if (catalog == null) return;
+            _apothecary = Resources.Load<Sprite>("StormInk/Actors/Apothecary");
+            _barterMerchant = Resources.Load<Sprite>("StormInk/Actors/BarterMerchant");
+            _tradeBarrel = Resources.Load<Sprite>("StormInk/Props/TradeBarrel");
+        }
 
         /// <summary>Same scale as every observed actor (SpriteActorPresenter.ActorVisualScale), so a trader is as tall as a fighter drawn from the same look.</summary>
         const float FigureScale = 1.2f;
-        /// <summary>Catalog looks a merchant is drawn from: an existing robed character per kind (stats and barter), standing with a barrel of goods.</summary>
-        public static string LookKey(TradeKind kind) { return kind == TradeKind.Stats ? "mage" : "mage-female"; }
 
         /// <param name="canSee">True when the ground at a sim position is not fogged; null shows everything (no fog yet).</param>
         public void Update(CollectionsView c, System.Func<float, float, bool> canSee) { Update(c, canSee, Time.unscaledDeltaTime); }
@@ -72,8 +77,10 @@ namespace Roguehalla.Client
                         bool accepted = q.OwnerAccepted;
                         var m = Next(); HideFigure(m);
                         Place(m, ArenaView.WorldPoint(x, y) + new Vector3(0, 2.55f, 0), IndicatorArt.Get(Indicators.QuestMark(accepted) == '!' ? "bang" : "query"), (Color)theme.Accent, accepted ? .6f : 1f, .5f);
-                        bool turnIn = accepted && q.OwnerReady;
-                        SetLabel(m, turnIn ? "Turn in here" : q.GiverLabel, turnIn ? theme.Accent : theme.TextPrimary, new Vector3(0, -.2f, 0), 2.3f, 1, x, y);
+                        bool turnIn = accepted && q.OwnerReady && !HasRemoteTurnIn(quests, q);
+                        string label = !accepted && !q.Carrier.HasValue && QuestPresentation.IsBoardRow(q) && !string.IsNullOrEmpty(q.Name)
+                            ? q.Name : q.GiverLabel;
+                        SetLabel(m, turnIn ? "Turn in here" : label, turnIn ? theme.Accent : theme.TextPrimary, new Vector3(0, -.2f, 0), 2.3f, 1, x, y);
                     }
                     var points = quests.Objectives;
                     for (int oi = 0; oi < points.Count; oi++)
@@ -87,7 +94,10 @@ namespace Roguehalla.Client
                         if (!DrawnObjective(quests, objective, canSee, out var row)) continue;
                         bool publicMark = row.Carrier.HasValue && (!row.OwnerAccepted || row.OwnerCompleted);
                         float ox = (float)objective.X, oy = (float)objective.Y;
-                        ObjectivePoint(ox, oy, _names.Carries(objective.Quest.Value, ox, oy) ? row.Name : null, publicMark ? "dashring" : "diamond", canSee);
+                        bool turnIn = row.OwnerAccepted && row.OwnerReady && !row.OwnerCompleted;
+                        if (turnIn && objective.X == row.GiverX && objective.Y == row.GiverY) continue;
+                        string label = turnIn ? "Turn in here" : _names.Carries(objective.Quest.Value, ox, oy) ? row.Name : null;
+                        ObjectivePoint(ox, oy, label, publicMark ? "dashring" : "diamond", canSee);
                     }
                     var drops = quests.Drops;
                     for (int di = 0; di < drops.Count; di++)
@@ -111,6 +121,16 @@ namespace Roguehalla.Client
                 }
             }
             for (int i = _used; i < _marks.Count; i++) { HideFigure(_marks[i]); _marks[i].Glyph.enabled = false; _marks[i].GlyphPlate.enabled = false; _marks[i].LabelPlate.enabled = false; _marks[i].Label.gameObject.SetActive(false); }
+        }
+
+        static bool HasRemoteTurnIn(QuestView view, QuestRowView row)
+        {
+            if (!QuestPresentation.IsBoardRow(row)) return false;
+            var points = view.Objectives;
+            for (int i = 0; i < points.Count; i++)
+                if (points[i].Quest.Equals(row.Handle))
+                    return points[i].X != row.GiverX || points[i].Y != row.GiverY;
+            return false;
         }
 
         /// <summary>True when the objective point is drawn: its row is a board row, Open, public or the player's own accepted one, and the point is not fogged. The row is found by an indexed loop.</summary>
@@ -169,32 +189,27 @@ namespace Roguehalla.Client
         }
 
         /// <summary>
-        /// A merchant's figure: an existing robed look from the catalog (see <see cref="LookKey"/>) idling facing the camera, with a barrel of goods beside it, a contact and a
-        /// cast shadow exactly as an observed actor gets (AtmosphereShadows.ApplyActor), standing at the delivered position. Without a catalog the neutral silhouette in the
-        /// kind colour is drawn as before. Returns the figure's top above its feet, in world units, so the marker sits above the head.
+        /// Draws the merchant and their stock at the delivered position and returns the figure's height for the label.
         /// </summary>
         float Figure(Mark m, TradeKind kind, Vector3 feet, float tileX, float tileY, int order, Color tone)
         {
             m.FigureRoot.position = feet;
-            var look = _catalog != null ? _catalog.Find(LookKey(kind)) : null;
+            var sprite = kind == TradeKind.Stats ? _apothecary : _barterMerchant;
             m.Figure.enabled = true; m.Figure.sortingOrder = order;
             m.Shadow.enabled = true; m.Shadow.sortingOrder = order - 8; m.Cast.sortingOrder = order - 9;
             AtmosphereShadows.ApplyActor(m.Shadow, tileX, tileY, 0f, 0f, m.Cast);
-            var frames = look != null ? look.Idle : null;
-            if (frames == null || frames.Length < 8)
+            if (sprite == null)
             {
                 m.Figure.sprite = ShowcaseIdentityAssets.GetFactionSilhouette(-1); m.Figure.color = Color.Lerp(Color.white, tone, .5f);
                 m.Figure.transform.localScale = new Vector3(.8f, 1.35f, 1f); m.Figure.transform.localPosition = new Vector3(0, .55f, 0);
                 m.Goods.enabled = false;
                 return (.55f + .675f) * FigureScale;
             }
-            int count = frames.Length / 8; bool reduced = ShowcaseSettings.Current != null && ShowcaseSettings.Current.ReducedMotion;
-            int frame = reduced ? 0 : Mathf.FloorToInt(Time.unscaledTime * Mathf.Max(1f, look.IdleFPS)) % Mathf.Max(1, count);
-            var sprite = frames[Mathf.Min(frames.Length - 1, FacingSouth * count + frame)];
-            m.Figure.sprite = sprite; m.Figure.color = Color.Lerp(Color.white, tone, .12f);
-            m.Figure.transform.localScale = Vector3.one * look.WorldHeight; m.Figure.transform.localPosition = new Vector3(0, .08f, 0);
-            float top = (.08f + sprite.bounds.max.y * look.WorldHeight);
-            var barrel = _catalog.Barrel;
+            const float height = 1.5f;
+            m.Figure.sprite = sprite; m.Figure.color = Color.white;
+            m.Figure.transform.localScale = Vector3.one * height; m.Figure.transform.localPosition = new Vector3(0, .08f, 0);
+            float top = .08f + sprite.bounds.max.y * height;
+            var barrel = _tradeBarrel;
             if (barrel != null && barrel.bounds.size.y > 1e-4f)
             {
                 m.Goods.enabled = true; m.Goods.sprite = barrel; m.Goods.sortingOrder = order + 1;
@@ -206,8 +221,6 @@ namespace Roguehalla.Client
             else m.Goods.enabled = false;
             return top * FigureScale;
         }
-        /// <summary>Catalog direction index facing the camera (flare order SW,W,NW,N,NE,E,SE,S, as SpriteActorPresenter).</summary>
-        const int FacingSouth = 7;
         const float GoodsHeight = .62f, GoodsSide = .62f;
 
         static void Place(Mark m, Vector3 at, Sprite sprite, Color color, float alpha, float size)

@@ -17,6 +17,7 @@ fn training_cfg(tick: Duration) -> RoomConfig {
             regen: false,
             quests: false,
             top25_quests: false,
+            spread_quest_givers: false,
             consumables: true,
             training: true,
             dummies: true,

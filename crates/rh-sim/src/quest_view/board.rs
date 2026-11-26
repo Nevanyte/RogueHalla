@@ -14,15 +14,34 @@ pub(super) fn stage(
 ) -> Result<(QuestStage, QuestView), Error> {
     let mut view = QuestView::default();
     next.actionable.clear();
+    let planning = sim.phase() == crate::Phase::Planning;
+    let preview = planning && sim.config().spread_quest_givers;
+    let mut seen_zones = [false; 5];
     let mut offers: Vec<_> = quests
         .offers
         .iter()
         .filter(|o| {
             o.published && o.status == Status::Open && !attempts::is_completed(&sim.w, me.id, o.id)
         })
+        .filter(|offer| {
+            if !preview {
+                return true;
+            }
+            // The private deal's first draw in each zone is the known quest for that zone.
+            let Some(quest) = board::quest(usize::from(offer.def)) else {
+                return true;
+            };
+            let seen = &mut seen_zones[usize::from(quest.home().code())];
+            let first = !*seen;
+            *seen = true;
+            if !first {
+                view.unknown_count += 1;
+            }
+            first
+        })
         .collect();
+    view.display_unknown_count = view.unknown_count;
     offers.sort_by_key(|o| o.def);
-    let planning = sim.phase() == crate::Phase::Planning;
     for offer in offers {
         let quest = board::quest(usize::from(offer.def)).ok_or(Error::InvalidState)?;
         let def = quest.definition();

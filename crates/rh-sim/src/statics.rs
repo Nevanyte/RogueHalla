@@ -92,7 +92,7 @@ impl MatchStatic {
         };
         let hazards = crate::terrain::Hazards::of(&arena.map, config.hazards);
         let quest_deal = (config.top25_quests && config.quests && !config.training)
-            .then(|| crate::quests::board::deal(&arena.map, secrets));
+            .then(|| crate::quests::board::deal(&arena.map, secrets, config.spread_quest_givers));
         let digest = crate::hash::hash_of(0, &(&config, &*arena));
         let cards = crate::cards::Tuning::of(&config);
         Self {
@@ -254,6 +254,14 @@ pub struct SimConfig {
     /// Private zoned draw. Old configs omit this field and retain the K1 digest.
     #[serde(default, serialize_with = "serialize_quest_board")]
     pub top25_quests: bool,
+    /// The November 26 layout and five-offer planning preview. Absent in earlier saves and replays.
+    /// Its default adds no hash word. The enabled form has its own domain tag.
+    #[serde(
+        default,
+        skip_serializing_if = "std::ops::Not::not",
+        serialize_with = "serialize_spread_givers"
+    )]
+    pub spread_quest_givers: bool,
     /// A training world (legacy `SimConfig.training`, `sim/training.ts`): the run never ends and nothing is recorded —
     /// no patience timer, teleport, sudden death, results or GV, and a fighter who goes down is revived. It implies the
     /// practice setup (`dummies`) and a world with no planning and no arena lifecycle.
@@ -640,6 +648,7 @@ impl SimConfig {
             regen: true,
             quests: true,
             top25_quests: true,
+            spread_quest_givers: true,
             walk_hints: Some(true),
             hitboxes: Self::live_hitboxes(),
             // Owner decision 2026-11-10 (legacy f8cd956e): passive regeneration out of combat only (P-REGEN-COMBAT-1).
@@ -677,6 +686,7 @@ impl Default for SimConfig {
             regen: false,
             quests: false,
             top25_quests: false,
+            spread_quest_givers: false,
             training: false,
             dummies: false,
             walk_hints: None,
@@ -702,6 +712,17 @@ fn serialize_quest_board<S: serde::Serializer>(
         serializer.serialize_str("quests=top25")
     } else {
         serializer.serialize_unit()
+    }
+}
+
+fn serialize_spread_givers<S: serde::Serializer>(
+    enabled: &bool,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    if serializer.is_human_readable() {
+        serializer.serialize_bool(*enabled)
+    } else {
+        serializer.serialize_str("quests=spread_givers")
     }
 }
 

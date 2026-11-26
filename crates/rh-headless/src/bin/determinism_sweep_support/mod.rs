@@ -107,6 +107,7 @@ impl From<&SimSpec> for SimConfig {
             lifecycle: rh_sim::ArenaMode::Off,
             quests: false,
             top25_quests: false,
+            spread_quest_givers: false,
             training: false,
             dummies: false,
             tick_ms: 50,
