@@ -118,7 +118,7 @@ namespace Roguehalla.Client
             _readyLabel.color = _ready.interactable ? theme.OutlineDark : connected && plan.Ready ? theme.Success : theme.TextPrimary;
             HudUi.SetFrame((RectTransform)_ready.transform, _ready.interactable ? theme.BorderStrong : connected && plan.Ready ? theme.Success : theme.Border);
             _readyDetail.text = !connected ? "Waiting for an updated plan." :
-                plan.Ready ? "The arena starts when all connected players are ready or time runs out." :
+                plan.Ready ? "The arena starts when all connected\nplayers are ready or time runs out." :
                 plan.Pick.HasValue ? "Ready locks your plan." : "Ready locks your plan. If you skip the spawn choice, the server places you.";
             _status.text = _selections.Feedback.Length > 0 ? _selections.Feedback : PlanGuidance(plan, connected);
 
