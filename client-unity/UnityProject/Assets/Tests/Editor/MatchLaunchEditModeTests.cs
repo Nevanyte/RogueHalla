@@ -25,10 +25,11 @@ public sealed class MatchLaunchEditModeTests
     {
         public readonly List<Request> Requests = new List<Request>();
         public bool Immediate;
+        public AccountHttpResponse ImmediateReply;
         public Task<AccountHttpResponse> GetProfileAsync(string url, string token, string passcode, CancellationToken cancellation)
         {
             var request = new Request(); Requests.Add(request);
-            return Immediate ? Task.FromResult(Owned()) : request.Reply.Task;
+            return Immediate ? Task.FromResult(ImmediateReply ?? Owned()) : request.Reply.Task;
         }
     }
     sealed class Credentials : IAccountCredentialStore
@@ -285,6 +286,48 @@ public sealed class MatchLaunchEditModeTests
     static void ConfigureNetwork(MatchClient client, string page, string query, bool split) =>
         typeof(Bootstrap).GetMethod("ConfigureNetwork", BindingFlags.Static | BindingFlags.NonPublic)
             .Invoke(null, new object[] { client, page, query, split });
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task FreshProfileOnlyOffersTutorialWhenTrainingCanLaunch(bool trainingOffered)
+    {
+        using (var f = new Fixture(true))
+        {
+            if (!trainingOffered)
+            {
+                ConfigureNetwork(f.Client, "https://play.roguehalla.com/", "?trainingServer=wss://play.roguehalla.com/training/ws", true);
+                Field(f.Client, "_launchEndpoint", null);
+                Assert.That(f.Client.LaunchTarget(MatchLaunchMode.Arena).Url, Is.EqualTo("wss://game.roguehalla.com/ws"));
+            }
+            Assert.That(f.Client.LaunchTarget(MatchLaunchMode.Training).Available, Is.EqualTo(trainingOffered));
+            f.Accounts.ImmediateReply = Owned();
+            f.Accounts.ImmediateReply.Reply.FullProfile = new AccountFullProfile("Alice", 0, 0, new Dictionary<string, long>(),
+                new AccountFullStats(0, 0, 0, 0, 0), new AccountFullCosmetics(Array.Empty<string>(), new Dictionary<string, string>()),
+                new Dictionary<string, long>(), new AccountFullProgress(0, 0, 0, new Dictionary<string, long>(), new Dictionary<string, long>()),
+                tutorialDue: true);
+            f.InitializeHud();
+            Assert.That(await f.Owner.Flow.OpenProfileAsync("Alice"), Is.True);
+            Assert.That(f.Owner.Flow.Snapshot.FullProfile?.TutorialDue, Is.True);
+            Invoke(f.Hud, "RefreshAccountMenu");
+            Invoke(f.Hud, "TickTutorial");
+            var tutorial = (TutorialView)Get(f.Hud, "_tutView");
+            var settings = (ModernSettingsView)Get(f.Hud, "_modernSettings");
+            var replay = (RectTransform)Get(settings, "_tutorialRow");
+            Assert.That(tutorial.WelcomeShown, Is.EqualTo(trainingOffered));
+            Assert.That(replay.gameObject.activeSelf, Is.EqualTo(trainingOffered));
+            if (!trainingOffered)
+            {
+                Invoke(f.Hud, "StartTutorialFromWelcome");
+                Invoke(f.Hud, "SkipTutorialFromWelcome");
+                Invoke(f.Hud, "ReplayTutorial");
+                Assert.That(f.Client.Session, Is.Null);
+                Assert.That(Get(f.Hud, "_tutArmed"), Is.False);
+                Assert.That(Get(f.Hud, "_tutDismissedFor"), Is.Null);
+                Assert.That(f.Owner.Flow.Snapshot.FullProfile.Tutorial, Is.Null);
+                Assert.That(f.Owner.Flow.Snapshot.FullProfile.TutorialDue, Is.True);
+            }
+        }
+    }
 
     [TestCase(960, 600)]
     [TestCase(1280, 800)]

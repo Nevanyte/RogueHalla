@@ -104,6 +104,8 @@ namespace Roguehalla.Client.Tests
             Hud = Client.Hud;
             Own = (ShowcaseSettings)typeof(MatchHud).GetField("_showcaseSettings", NP).GetValue(Hud);
             Settings = Client.GetComponent<ModernSettingsView>();
+            // Exercise the longest settings card, including the replay controls when Training is offered.
+            Settings.SetReplayTutorialAvailable(true);
             Help = Client.GetComponent<HelpGuideView>();
             session.Connect(); transport.Open();
             transport.Deliver(new ServerMsg.Welcome { Protocol = Wire.ProtocolVersion, MatchId = new byte[16], Session = new byte[16], PlayerId = 1, TickRate = 20, ServerMs = 50, Map = new MapBlob(32, 32, new byte[1024]) });
