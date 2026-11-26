@@ -149,10 +149,10 @@ namespace Roguehalla.Client
                 _spawns[i] = HudUi.Button(_planningRail, "Spawn" + i, (i + 1) + " · SPAWN", HudAnchor.TopLeft, 12, 0, 316, 56, () => PickSpawn(pick), 13f);
                 _boons[i] = HudUi.Button(_planningRail, "Boon" + i, "BOON", HudAnchor.TopLeft, 12, 0, 316, 40, () => PickBoon(pick), 12f);
             }
-            _planningQuestBox = HudUi.Box(_planningRail, "KnownQuests", HudAnchor.TopLeft, 12, 0, 316, 120);
+            _planningQuestBox = HudUi.Box(_panel, "PlanningQuests", HudAnchor.TopLeft, 0, 0, 260, 240);
             HudUi.Surface(_planningQuestBox, theme.SurfaceRaised, theme.CornerRadiusSmall, theme.Border, false, false);
             var planningQuestHeading = HudUi.Label(_planningQuestBox, "Heading", "KNOWN QUESTS", 11f, theme.Accent, TextAlignmentOptions.MidlineLeft, false, UiFontRole.Display);
-            HudUi.Place(planningQuestHeading.rectTransform, HudAnchor.TopLeft, 8f, 5f, 300f, 16f);
+            HudUi.Place(planningQuestHeading.rectTransform, HudAnchor.TopLeft, 8f, 5f, 244f, 16f);
             _planningQuestsText = MythicUi.ScrollText(_planningQuestBox, "QuestList", "Waiting for public quest list…", Vector2.zero, Vector2.one, 12.5f);
             var planningQuestTextRect = (RectTransform)_planningQuestsText.transform.parent.parent;
             planningQuestTextRect.anchorMin = Vector2.zero; planningQuestTextRect.anchorMax = Vector2.one;
@@ -285,7 +285,7 @@ namespace Roguehalla.Client
             _timer.gameObject.SetActive(!tab); _planBar.gameObject.SetActive(!tab);
             _planBar.sizeDelta = new Vector2(L.Title.W, 3f);
             if (!tab) { _hint.gameObject.SetActive(false); _phaseLabel.gameObject.SetActive(false); }
-            _zoneLegend.gameObject.SetActive(tab); _planningRail.gameObject.SetActive(!tab); _runRail.gameObject.SetActive(tab);
+            _zoneLegend.gameObject.SetActive(tab); _planningRail.gameObject.SetActive(!tab); _planningQuestBox.gameObject.SetActive(!tab); _runRail.gameObject.SetActive(tab);
             if (tab)
             {
                 Put(_legendRect, L.Legend);
@@ -330,6 +330,12 @@ namespace Roguehalla.Client
             }
             else
             {
+                if (L.Left.W > 0f)
+                {
+                    const float questHeight = 240f;
+                    float questTop = L.Left.Y + Mathf.Max(0f, (L.Left.H - questHeight) / 2f);
+                    HudUi.Place(_planningQuestBox, HudAnchor.TopLeft, L.Left.X, questTop, L.Left.W, Mathf.Min(questHeight, L.Left.H));
+                }
                 float f = Mathf.Clamp(L.Right.H / 520f, .72f, 1f);
                 float y = 12f;
                 HudUi.Place(_ready.GetComponent<RectTransform>(), HudAnchor.TopLeft, 12f, y, 316f, 46f * f); y += 46f * f + 12f;
@@ -337,10 +343,12 @@ namespace Roguehalla.Client
                 for (int i = 0; i < 2; i++) { HudUi.Place(_spawns[i].GetComponent<RectTransform>(), HudAnchor.TopLeft, 12f, y, 316f, 56f * f); y += 56f * f + 6f; }
                 y += 8f;
                 for (int i = 0; i < 2; i++) { HudUi.Place(_boons[i].GetComponent<RectTransform>(), HudAnchor.TopLeft, 12f, y, 316f, 40f * f); y += 40f * f + 6f; }
-                y += 8f;
-                float questH = Mathf.Clamp(L.Right.H * .22f, 92f, 132f);
-                HudUi.Place(_planningQuestBox, HudAnchor.TopLeft, 12f, y, 316f, questH); y += questH + 8f;
-                y += 2f;
+                if (L.Left.W <= 0f)
+                {
+                    y += 8f;
+                    float questH = Mathf.Clamp(L.Right.H * .22f, 92f, 132f);
+                    HudUi.Place(_planningQuestBox, HudAnchor.TopLeft, L.Right.X + 12f, L.Right.Y + y, 316f, questH); y += questH + 10f;
+                }
                 float bw = 154f;
                 HudUi.Place(_undo.GetComponent<RectTransform>(), HudAnchor.TopLeft, L.Right.X + 12f, L.Right.Y + y, bw, 28f);
                 HudUi.Place(_clear.GetComponent<RectTransform>(), HudAnchor.TopLeft, L.Right.X + 12f + bw + 8f, L.Right.Y + y, bw, 28f);

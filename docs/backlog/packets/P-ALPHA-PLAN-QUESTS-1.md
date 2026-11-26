@@ -23,11 +23,14 @@ invent hidden quest content.
 
 ## 4. New paths
 - `client-unity/UnityProject/Assets/Tests/Editor/TacticalMapEditModeTests.cs` — planning visibility regression.
+- `client-unity/RoguehallaNet.Tests/MapScreenTests.cs` — wide planning column layout regression.
 - This packet brief.
 
 ## 5. Exclusive write scope
 - `client-unity/UnityProject/Assets/Scripts/UI/TacticalMapController.cs`
 - `client-unity/UnityProject/Assets/Tests/Editor/TacticalMapEditModeTests.cs`
+- `client-unity/RoguehallaNet/Net/Ui/MapScreenLayout.cs` and its synced Unity copy
+- `client-unity/RoguehallaNet.Tests/MapScreenTests.cs`
 - `docs/backlog/packets/P-ALPHA-PLAN-QUESTS-1.md`
 
 ## 6. Contracts and references
@@ -40,8 +43,9 @@ invent hidden quest content.
 - Never display unrevealed quest names or details.
 
 ## 8. Acceptance checks
-- An EditMode regression delivers five public named rows and an unknown count of five, then checks the planning rail shows
-  all five names and “5 more revealed at raid start”.
+- EditMode regressions at 1280×720 and 1440×900 deliver five public named rows and an unknown count of five, then check
+  all five names and “5 more revealed at raid start” fit the board without scrolling.
+- Pure layout tests check the quest and decision columns flank the map without overlap at both desktop sizes.
 - Giver zone appears only when it can be derived from the public map region plane and delivered giver coordinates.
 - Run the targeted Unity EditMode regression and `scripts/gate.sh --quick --oracle packet/P-ALPHA-PLAN-QUESTS-1`.
 

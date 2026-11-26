@@ -63,15 +63,18 @@ namespace Roguehalla.Client.Tests
             Assert.AreEqual(0, MinimapMarks().ContactCount, "the minimap must use the same current delivered contact set");
         }
 
-        [Test]
-        public void PlanningScreenListsFivePublicQuestsAndKeepsFiveUnknownUntilRaidStart()
+        [TestCase(1280f, 720f)]
+        [TestCase(1440f, 900f)]
+        public void PlanningScreenListsFivePublicQuestsAndKeepsFiveUnknownUntilRaidStart(float width, float height)
         {
             CreateController(_session);
+            ((RectTransform)_uiRoot.transform).sizeDelta = new Vector2(width, height);
             var known = new[] { "Ashen Oath", "Broken Crown", "Cypress Debt", "Frostbound Key", "Last Benediction" };
             var rows = new WireQuestRow[known.Length];
             for (int i = 0; i < rows.Length; i++)
                 rows[i] = new WireQuestRow { Handle = new QuestHandle((uint)(i + 1)), Def = "fixture-" + i,
-                    State = QuestRowState.Preview, Name = known[i], GiverLabel = "Keeper", CanAccept = false };
+                    State = QuestRowState.Preview, Name = known[i], GiverLabel = "Keeper", Brief = "Brief", Objective = "Objective",
+                    Reward = "Reward", CanAccept = false };
             var quests = new QuestsState { Available = true, View = new WireQuestView { UnknownCount = 5, Rows = rows } };
             _transport.Deliver(new ServerMsg.Snapshot { Tick = 1, ServerTimeOverrideMs = 100, Phase = (byte)MatchPhase.Planning,
                 Me = new WireSelf { Id = 1, X = 32, Y = 32, Hp = 100, MaxHp = 100, Status = 1, Weapon = 0 } });
@@ -82,11 +85,16 @@ namespace Roguehalla.Client.Tests
                     Option1 = new WirePlanOption { Index = 1, X = 64, Y = 64, Zone = 2 } } }, quests } });
             _controller.Tick();
 
-            var text = _uiRoot.transform.Find("TacticalMap/PlanningDecisions/KnownQuests/QuestList/Viewport/Content")
+            var text = _uiRoot.transform.Find("TacticalMap/PlanningQuests/QuestList/Viewport/Content")
                 .GetComponent<TMPro.TMP_Text>().text;
             foreach (string name in known) StringAssert.Contains(name, text);
             StringAssert.Contains("5 more revealed at raid start", text);
             StringAssert.DoesNotContain("Hidden", text);
+            Canvas.ForceUpdateCanvases();
+            var textNode = _uiRoot.transform.Find("TacticalMap/PlanningQuests/QuestList/Viewport/Content").GetComponent<TMPro.TMP_Text>();
+            var viewport = (RectTransform)textNode.transform.parent;
+            Assert.That(textNode.preferredHeight, Is.LessThanOrEqualTo(viewport.rect.height + .5f),
+                "all five names and the raid-start count fit without clipping in the ordinary planning layout");
         }
 
         [Test]
