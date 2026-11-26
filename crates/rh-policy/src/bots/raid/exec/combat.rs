@@ -111,7 +111,7 @@ pub(crate) fn locks_from_here(
     );
     // P-RAID-LOS-1: a ranged seat locks only with line of sight to the mob (a shot into a wall is wasted).
     !ranged
-        || (shot_clear(&cx.paths, cx.p.me.at, mob.at)
+        || (shot_clear(cx.paths, cx.p.me.at, mob.at)
             && ((mob.engaged && d <= DEFEND_U)
                 || may_fight_from(&*cx.paths, camp, elite, cx.p.me.at)))
 }
