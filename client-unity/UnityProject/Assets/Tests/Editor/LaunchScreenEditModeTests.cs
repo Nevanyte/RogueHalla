@@ -41,6 +41,16 @@ namespace Roguehalla.Client.Tests
             if (_owner != null) Object.DestroyImmediate(_owner);
         }
 
+        [Test]
+        public void FreshCallsignInstructionsHaveReadableBodyType()
+        {
+            Layout(new Vector2(960, 600));
+            _view.SetRecordEmpty("Choose a callsign, then start your run.");
+            Assert.That(_view.RecordText.fontSize, Is.GreaterThanOrEqualTo(15f),
+                "The first instruction should be at least as readable as the faction names.");
+            Assert.That(_view.RecordText.textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+        }
+
         void Layout(Vector2 window)
         {
             _view.StageScaler.Apply(window.x, window.y, HudLayout.CanvasScalerFactor(window.x, window.y));

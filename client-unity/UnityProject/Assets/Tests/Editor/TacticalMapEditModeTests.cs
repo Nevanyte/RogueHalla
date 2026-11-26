@@ -146,6 +146,22 @@ namespace Roguehalla.Client.Tests
             Assert.Greater(mesh.vertexCount, 0, "the delivered contact must produce renderable vertices");
         }
 
+        [Test]
+        public void PlanWithoutABoonOffersOnlyActionsThisPlayerCanTake()
+        {
+            CreateController(_session);
+            _transport.Deliver(new ServerMsg.Snapshot { Tick = 1, Phase = 3 });
+            _transport.Deliver(new ServerMsg.State { Tick = 1, Items = new StateItem[] {
+                new PlanState { Value = new WirePlan { EndsAt = 45000, Spawn0 = 0, Spawn1 = 1,
+                    Option0 = new WirePlanOption { Index = 0, X = 16, Y = 16, Zone = 1 },
+                    Option1 = new WirePlanOption { Index = 1, X = 48, Y = 48, Zone = 2 } } }
+            } });
+            _controller.Tick();
+            string guidance = _uiRoot.transform.Find("TacticalMap/MapStatus").GetComponent<TMPro.TMP_Text>().text.ToLowerInvariant();
+            StringAssert.Contains("spawn", guidance);
+            StringAssert.DoesNotContain("boon", guidance, "This server offered no boon in the player's plan.");
+        }
+
         void CreateController(Session session)
         {
             _uiRoot = new GameObject("Tactical map controller canvas", typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster));
