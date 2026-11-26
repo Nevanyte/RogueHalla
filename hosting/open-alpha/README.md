@@ -46,7 +46,7 @@ runuser -u postgres -- "$PG16/createuser" -h /run/rh-alpha-pg rh_alpha
 runuser -u postgres -- "$PG16/createdb" -h /run/rh-alpha-pg -O rh_alpha rh_alpha
 ```
 
-Create `/etc/rh-alpha/control.token` with a random token readable only by root and `rh_alpha` (for example root:rh_alpha mode 0440 under a traversable private configuration directory). If the owner selects a claim passcode, set `PLAYTEST_PASSCODE` in root-only mode 0600 `/etc/rh-alpha/source.env`. Set `release_sha`, `release_bin` and `release_map` from the receipt, `stage_origin` to the exact HTTPS staging origin, and `stage_min_players` to the reviewed human minimum. The eight-seat alpha fill target is eight; keep the same Source settings when baking Unity. Run Source under its database peer identity and preserve the same spool and instance ID across restarts of this origin.
+Create `/etc/rh-alpha/control.token` with a random token readable only by root and `rh_alpha` (for example root:rh_alpha mode 0440 under a traversable private configuration directory). If the owner selects a claim passcode, set `PLAYTEST_PASSCODE` in root-only mode 0600 `/etc/rh-alpha/source.env`. Set `release_sha`, `release_bin` and `release_map` from the receipt, `stage_origin` to the exact HTTPS staging origin, and `stage_min_players` to the reviewed human minimum. Install the reviewed [alpha-gameplay.py](alpha-gameplay.py) as `/opt/rh-alpha/operator/alpha-gameplay.py` (root owned, mode 0755) alongside the verified release. It wraps an existing Source Arena command, preserving its database, origin, control, capture, room and timing arguments while selecting eight seats, signature landmarks and RaidBot. Use the same Source settings when baking Unity. Run Source under its database peer identity and preserve the same spool and instance ID across restarts of this origin.
 
 ```bash
 set +x
@@ -55,9 +55,10 @@ systemd-run --unit=rh-alpha-source --service-type=exec --uid=rh_alpha \
   --property=RequiresMountsFor=/srv/rh-alpha \
   --property=TimeoutStopSec=90s \
   --property=EnvironmentFile=-/etc/rh-alpha/source.env \
-  "$release_bin" --runtime source-arena --bind 127.0.0.1:7777 \
-  --map "$release_map" --map-pool --signature-landmarks --instance-id alpha-stage-source \
-  --min-players "$stage_min_players" --fill-bots 8 --bot-brain full --max-rooms 1 \
+  /opt/rh-alpha/operator/alpha-gameplay.py "$release_bin" \
+  --runtime source-arena --bind 127.0.0.1:7777 \
+  --map "$release_map" --map-pool --instance-id alpha-stage-source \
+  --min-players "$stage_min_players" --max-rooms 1 \
   --bot-learning off \
   --database-url 'postgresql:///rh_alpha?host=/run/rh-alpha-pg&user=rh_alpha' \
   --result-spool /srv/rh-alpha/spool-source \
@@ -83,6 +84,8 @@ curl --max-time 2 -fsS http://127.0.0.1:7777/info | jq -e \
 printf '%s\n' "$control_health" | jq -e --arg expected "$release_sha" '.build == $expected'
 unset control_health
 ```
+
+For an existing live or staging Source unit, retain its verified binary and complete origin-specific argument list and environment. Prefix its `rh-server` invocation with `/opt/rh-alpha/operator/alpha-gameplay.py`; keep any existing `--fill-bots 4` or `--bot-brain off` arguments in place because the wrapper replaces those two settings. Review the resulting unit's executable and arguments locally before restart. This recipe does not restart either service or authorize a deployment.
 
 If the guest reboots, recreate the runtime directories before restarting services. Reuse the initialized cluster, spool and checked release. Keep TCP 7777 and 7778 on loopback and restrict shell access to operators. Keep PostgreSQL Unix-socket-only. Use a filesystem check and `ss -lnpt` before opening admissions.
 
