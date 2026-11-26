@@ -2,6 +2,94 @@
 
 use super::*;
 
+/// A burst of real credential checks against a cold Source arena fits in two board rooms.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_ordinary_joins_fill_two_cold_board_rooms() {
+    let args = [
+        "--runtime",
+        "source-arena",
+        "--map",
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../maps/first-playable.json"
+        ),
+    ]
+    .map(str::to_owned);
+    let settings = crate::runtime::Settings::from_args(&args).unwrap().unwrap();
+    let cfg = DirectorConfig {
+        max_rooms: 2,
+        fixed_board_secrets: Some(rh_sim::Secrets::from_seed(2)),
+        ..DirectorConfig::new(settings.sim(), settings.arena().unwrap())
+    };
+    let seats = cfg.max_rooms * rh_sim::constants::MAX_PLAYERS;
+    let profiles: Vec<_> = (0..=seats).map(|i| format!("player{i}")).collect();
+    let auth = Auth::Static(
+        profiles
+            .iter()
+            .map(|profile| (profile.clone(), format!("{profile}-ticket")))
+            .collect(),
+    );
+    let d = Director::new(
+        cfg,
+        Arc::new(Persistence::Memory(Box::new(MemoryStore::strict()))),
+        Arc::new(auth),
+        Arc::new(Lifecycle::default()),
+    );
+    d.lifecycle.ready();
+    assert_eq!(d.room_count(), 0);
+    let credentialed_hello = |profile: &str| Hello {
+        ticket: format!("{profile}-ticket").into_bytes(),
+        ..hello(profile)
+    };
+    let start = Arc::new(tokio::sync::Barrier::new(seats + 1));
+    let mut joins = tokio::task::JoinSet::new();
+    for (i, profile) in profiles[..seats].iter().enumerate() {
+        let (d, start, h) = (d.clone(), start.clone(), credentialed_hello(profile));
+        joins.spawn(async move {
+            start.wait().await;
+            let result = d
+                .admit(h, Arc::new(Outbox::default()), (i + 1) as u64)
+                .await;
+            (i, result)
+        });
+    }
+    let (rooms, refused) = tokio::time::timeout(Duration::from_secs(40), async {
+        start.wait().await;
+        let mut rooms = HashMap::<MatchId, usize>::new();
+        let mut refused = Vec::new();
+        while let Some(outcome) = joins.join_next().await {
+            let (i, result) = outcome.unwrap();
+            match result {
+                Ok((_tx, ok)) => {
+                    let rh_protocol::ServerMsg::Welcome { match_id, .. } =
+                        rh_protocol::ServerMsg::decode(&ok.welcome).unwrap()
+                    else {
+                        panic!("expected a Welcome for {}", profiles[i]);
+                    };
+                    *rooms.entry(match_id).or_default() += 1;
+                }
+                Err(error) => refused.push((&profiles[i], error)),
+            }
+        }
+        (rooms, refused)
+    })
+    .await
+    .expect("all first-join attempts completed");
+    assert!(refused.is_empty(), "first-join refusals: {refused:?}");
+    assert_eq!(rooms.len(), 2);
+    assert!(rooms.values().all(|&n| n == rh_sim::constants::MAX_PLAYERS));
+    let refused = d
+        .admit(
+            credentialed_hello(&profiles[seats]),
+            Arc::new(Outbox::default()),
+            (seats + 1) as u64,
+        )
+        .await
+        .map(|_| ())
+        .unwrap_err();
+    assert_eq!(refused, (RejectCode::MatchFull, "no capacity".into()));
+}
+
 /// A lobby whose room task already ended (its last player left) is still in the map until its `Closed` report is
 /// handled: an admission that picks it is moved to another room instead of being refused.
 #[tokio::test]

@@ -1,6 +1,7 @@
 //! Spawning a room: bot learning and fill policy hooks, the room task itself, and the lease renewal tasks that outlive an admission.
 
 use super::*;
+use tokio::sync::OwnedMutexGuard;
 
 /// CPU-heavy map preparation is bounded across simultaneous new rooms.
 static QUEST_MAP_WORKERS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(2);
@@ -121,11 +122,16 @@ impl Director {
     pub(super) async fn prepare_board_room_async(
         &self,
         fill_bots_to: usize,
-    ) -> Result<PreparedRoom, String> {
+        opening_guard: OwnedMutexGuard<()>,
+    ) -> Result<(PreparedRoom, OwnedMutexGuard<()>), String> {
         let director = self.me.upgrade().ok_or("director is closed")?;
-        tokio::task::spawn_blocking(move || director.prepare_board_room(fill_bots_to))
-            .await
-            .map_err(|_| "quest map worker failed".to_owned())?
+        // A canceled admission cannot stop a running blocking worker. Keep the guard with that worker until it exits.
+        tokio::task::spawn_blocking(move || {
+            let room = director.prepare_board_room(fill_bots_to)?;
+            Ok((room, opening_guard))
+        })
+        .await
+        .map_err(|_| "quest map worker failed".to_owned())?
     }
 
     /// Legacy rooms retain the existing shared-map fast path.

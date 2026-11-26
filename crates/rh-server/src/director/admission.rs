@@ -139,6 +139,7 @@ impl Director {
         // seat, or with another admission in flight, is refused below as before.
         self.wait_while_leaving(&key, deadline).await;
         // Pick (or open) a lobby, reserving the profile in the same critical section so two connections cannot both pass.
+        let mut opening_guard = None;
         let mut prepared = None;
         let (match_id, tx, gen) = loop {
             let reserved = 'reserve: {
@@ -229,18 +230,25 @@ impl Director {
             if let Some(reserved) = reserved {
                 break reserved;
             }
-            prepared = Some(
-                self.prepare_board_room_async(self.cfg.fill_bots_to)
-                    .await
-                    .map_err(|error| {
-                        crate::api::log_internal("quest map preparation", &error);
-                        (
-                            RejectCode::RateLimited,
-                            "quest map unavailable; try again shortly".into(),
-                        )
-                    })?,
-            );
+            let Some(guard) = opening_guard.take() else {
+                // The previous opener may have opened a joinable lobby while we waited. Recheck before building.
+                opening_guard = Some(self.board_room_opening.clone().lock_owned().await);
+                continue;
+            };
+            let (room, guard) = self
+                .prepare_board_room_async(self.cfg.fill_bots_to, guard)
+                .await
+                .map_err(|error| {
+                    crate::api::log_internal("quest map preparation", &error);
+                    (
+                        RejectCode::RateLimited,
+                        "quest map unavailable; try again shortly".into(),
+                    )
+                })?;
+            prepared = Some(room);
+            opening_guard = Some(guard);
         };
+        drop(opening_guard);
         // Cross-host session ownership: a fenced lease in durable storage (off the tick; before the seat is taken).
         let mut pending = PendingAdmission {
             director: self.me.clone(),
