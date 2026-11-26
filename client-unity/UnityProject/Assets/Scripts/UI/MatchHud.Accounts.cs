@@ -105,9 +105,13 @@ namespace Roguehalla.Client
             if (_joinMatch == null || !_joinMatch.interactable) return;
             _showcaseAudio?.UnlockFromUserGesture(); _client.Join(_nickname.text, _faction, MatchLaunchMode.Arena);
         }
+        bool CanLaunchTraining => _client != null && !_client.IsDiagnostic && !_client.LaunchPending &&
+            _client.LaunchTarget(MatchLaunchMode.Training).Available && _joinTraining != null &&
+            _joinTraining.gameObject.activeInHierarchy && _joinTraining.IsInteractable();
+
         bool StartTraining()
         {
-            if (_joinTraining == null || !_joinTraining.gameObject.activeInHierarchy || !_joinTraining.IsInteractable() || _client.LaunchPending) return false;
+            if (!CanLaunchTraining) return false;
             _showcaseAudio?.UnlockFromUserGesture(); _client.Join(_nickname.text, _faction, MatchLaunchMode.Training);
             return true;
         }
