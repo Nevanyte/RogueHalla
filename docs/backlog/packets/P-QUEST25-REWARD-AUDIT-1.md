@@ -22,6 +22,7 @@ This packet brief.
 ## Exclusive write scope
 
 - `crates/rh-sim/src/quests/board/rewards/casts.rs`
+- `crates/rh-sim/src/quests/board/rewards/effects/tests.rs`
 - `crates/rh-sim/src/quests/board/attempts/scenarios.rs`
 - `crates/rh-sim/src/quests/board/attempts/scenarios/spells.rs`
 - This packet brief.
@@ -61,7 +62,7 @@ particular targets, terrain, equipment, or timing. The active spell numbers are 
 | Ember Walk | Spell Shield blocks one incoming spell. `shield_blocks_one_bolas_and_refunds_then_cleanse_removes_second_root` verifies block, consumed shield, refunded charge and that the second shot roots. The room cooldown test covers the spent reward through replacement, pickup and recharge. |
 | The Burning Crown | Ember Imp damage grows at one stack a second to 48. `crown_damage_follows_the_crown_and_caps_at_48_without_double_payment` uses Holy, verifies the carrier's HP loss and landed gain, transfers the provisional bonus on drop, and proves banked damage is paid once. |
 | Let Him Cook | Chef's Kiss increases the weakest eligible stat by 20%. `chef_increases_the_lowest_percentage_growth_by_twenty_percent` verifies the folded attack-speed multiplier changes from 1.20 to 1.44 while HP stays fixed. Eligibility is the six positive starting attributes in `rewards/permanent.rs`. |
-| Elite Slayer | Smite deals 220 true damage to a valid mob. The generated and focused tests check real mob HP loss. The credited lethal override and +15 GV use `systems/mob_life.rs` and the mob GV cap. |
+| Elite Slayer | Smite deals 220 true damage to a valid mob. The earned spell takes credit from a rival with more threat and pays the +15 GV bonus alongside normal mob GV. The focused spell test also checks nonlethal mob HP loss. |
 | Tuber Eats | Breaker's Helm moves 20% of bow and axe physical damage to true damage. `breakers_helm_bypasses_physical_armor_on_bow_and_axe_only` tests the actual loss of armored target HP and the Sword control. |
 | Barrow Run | WallBuster removes eligible walls within 300 u. The sweep checks a real terrain edit. The `special::wall` tests check range, protected terrain, movement and visibility. |
 | The Bargain | Twenty equivalent stacks or the inactive weapon buys 24 selected stacks. `bargain_spends_equivalent_stacks_or_the_inactive_weapon_for_real_max_hp` checks both payments, the active Bow survives, and +24% max HP folds in. The generated case and published lifesteal trade cover other receiving stats. |
@@ -73,7 +74,7 @@ particular targets, terrain, equipment, or timing. The active spell numbers are 
 | Whispers in the Brush | Lantern Ward gives two reusable charges and a private radius. `lantern_ward_has_two_independent_spends_and_private_sight` checks charges, recharge and sight. |
 | Even Skeletons Get Cold | Warm Coat blocks bog slow and chill. `warm_coat_stops_bog_movement_slow_and_both_kinds_of_frost_chill` checks the terrain and both chill sources. |
 | Lost Brother | One BlindRage and one StillMind. The sweeps check the 1.20 attack rate and that StillMind clears stun and adds immunity. The `warhorn_forces_walk_and_buffs_then_draughts_apply_and_expire` test checks both buffs and expiry. |
-| Pilgrim's Path | Cleanse removes root, stun and pull. The sweeps clear an applied root. The cast clears the runtime Root/Stun entries, weapon root and the forced-control row. |
+| Pilgrim's Path | Cleanse removes root, stun and pull. The sweeps clear an applied root. `cleanse_breaks_a_forced_pull_before_the_next_displacement` checks that the same forced pull moves the unprotected control and leaves the casting player in place. |
 | Gatecrasher | Rebirth Egg hatches after 3 s at 40% HP. The new sweep checks real death, hatch position and retained gear above the cutoff. `rebirth_egg_real_death_opens_gates_and_hatches_once_after_three_seconds` checks the timing and HP. |
 | Letters | Forget-Me-Not Seed records the server position and teleports back on the second cast. The sweep and Swap-Stick/Seed focused test both observe the player's return. |
 | Stay A While | Stasis lasts 2.5 s and blocks action and damage. `stasis_stops_real_movement_attacks_casting_and_damage_then_releases` checks the sim effects. The encoded room test earns and spends Stasis through normal client inputs. |

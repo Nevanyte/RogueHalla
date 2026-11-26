@@ -165,14 +165,35 @@ impl Raid {
                     .iter()
                     .find(|m| {
                         m.kind == crate::mob_runtime::MobKind::Regional
+                            && !m.elite
                             && m.status == crate::state::Status::Alive
                     })
                     .unwrap();
-                let (id, at, hp) = (target.core.id, target.core.pos(), target.core.vitals.hp);
+                let (id, at) = (target.core.id, target.core.pos());
                 self.arrange(self.seat, at);
+                let mob = self.sim.w.mobs.get_mut(id).unwrap();
+                mob.core.vitals.hp = 1.;
+                // This rival wins ordinary damage credit. Lethal Smite should take the kill.
+                crate::systems::mob_ai::add_threat(mob.regional_brain_mut(), rival, 100.);
+                let before = self.sim.w.player(self.seat).unwrap().credit.clone();
+                let rival_kills = self.sim.w.player(rival).unwrap().credit.mob_kills;
                 self.use_spell(award, at, Some(id));
-                self.legacy_steps(2);
-                assert!(self.sim.w.actor(id).is_none_or(|a| a.vitals.hp < hp));
+                assert!(self
+                    .sim
+                    .w
+                    .mobs
+                    .get(id)
+                    .is_none_or(|m| m.status == crate::state::Status::Dead));
+                let after = &self.sim.w.player(self.seat).unwrap().credit;
+                assert_eq!(after.mob_kills - before.mob_kills, 1);
+                assert_eq!(
+                    self.sim.w.player(rival).unwrap().credit.mob_kills,
+                    rival_kills
+                );
+                assert!(
+                    after.gv_parts.mobs - before.gv_parts.mobs > 15,
+                    "Smite should grant its 15 GV bonus in addition to the normal mob award"
+                );
             }
             SpellShield => {
                 self.use_spell(award, from, None);
