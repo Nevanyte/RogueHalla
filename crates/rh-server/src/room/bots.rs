@@ -243,32 +243,27 @@ impl Room {
             return;
         };
         self.report_bot(&name, true);
-        let brain = self
-            .fill
-            .as_ref()
-            .filter(|fill| fill.config().brain == crate::bot_fill::BotBrain::Full)
-            .map(|fill| fill.config().learned.clone());
-        let budgeted = brain.is_some();
-        let (policy, fallback, replay_name): (Box<dyn Policy>, Box<dyn Policy>, &str) = match brain
-        {
-            // P-BOT-BRAIN-LIVE-1: the Brain plays the seat; a faulted Brain hands it to HumanBot, not to Idle.
-            Some(learned) => (
+        use crate::bot_fill::BotBrain;
+        let config = self.fill.as_ref().map(|fill| fill.config());
+        let brain = config.map(|fill| fill.brain).unwrap_or_default();
+        let human = || Box::new(HumanBot::new(spec.tier, spec.persona));
+        let (policy, fallback): (Box<dyn Policy>, Box<dyn Policy>) = match brain {
+            BotBrain::Full => (
                 Box::new(
                     BrainBot::new(
                         spec.tier,
                         spec.persona,
                         rh_policy::bots::brain_features(self.sim.config(), self.sim.shared_arena()),
                     )
-                    .with_learned(learned),
+                    .with_learned(config.expect("configured full Brain").learned.clone()),
                 ),
-                Box::new(HumanBot::new(spec.tier, spec.persona)),
-                "brain",
+                human(),
             ),
-            None => (
-                Box::new(HumanBot::new(spec.tier, spec.persona)),
-                Box::new(scripted::Idle),
-                "human",
+            BotBrain::Raid => (
+                Box::new(rh_policy::bots::RaidBot::new(spec.tier, spec.persona)),
+                human(),
             ),
+            BotBrain::Off => (human(), Box::new(scripted::Idle)),
         };
         let interval = policy.spec().decision_interval_ticks;
         self.record(ReplayInput::Join {
@@ -276,7 +271,7 @@ impl Room {
             faction: Some(spec.faction),
             bot: true,
             policy: Some(BotPolicy {
-                name: replay_name.into(),
+                name: brain.policy_name().into(),
                 interval,
                 seed: u64::from(spec.seed),
             }),
@@ -286,7 +281,7 @@ impl Room {
             policy,
             fallback,
         );
-        if budgeted {
+        if brain != BotBrain::Off {
             seat.budget = Some(crate::bot_fill::BRAIN_DECISION_BUDGET);
         }
         seat.bind_fx(&self.sim).expect("new bot is unbound");
@@ -305,12 +300,18 @@ impl Room {
     /// P-BOT-BRAIN-FAULT-LOG-1: a Brain seat's first fault logs one line (and counts); the steady path scans a handful of
     /// seats and allocates nothing. Also the once-per-match line saying how many Brain seats the match started with.
     pub(super) fn log_brain_fallbacks(&mut self) {
+        let policy = self
+            .fill
+            .as_ref()
+            .map(|fill| fill.config().brain)
+            .unwrap_or_default()
+            .policy_name();
         if !self.brain_start_logged && self.sim.phase() == Phase::Active {
             self.brain_start_logged = true;
             let k = self.bots.iter().filter(|s| s.budget.is_some()).count();
             if k > 0 {
                 let line = format!(
-                    "[bots] match={} fill bots: {k} brain",
+                    "[bots] match={} fill bots: {k} {policy}",
                     crate::control::room_id_hex(self.id)
                 );
                 self.bots_log(line);
@@ -334,7 +335,7 @@ impl Room {
                 .find(|(id, _)| *id == player)
                 .map_or(0, |(_, spec)| spec.number);
             let line = format!(
-                "[bots] match={} seat={number} brain fell back to the fallback bot: {reason}",
+                "[bots] match={} seat={number} {policy} fell back to the fallback bot: {reason}",
                 crate::control::room_id_hex(self.id)
             );
             self.bots_log(line);
