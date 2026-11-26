@@ -20,6 +20,7 @@ fn sim_config() -> SimConfig {
         walk_hints: None,
         regen: false,
         quests: false,
+        combat_pace: rh_sim::CombatPace::Legacy,
         quest_board: rh_sim::statics::QuestBoard::Off,
         training: false,
         dummies: false,

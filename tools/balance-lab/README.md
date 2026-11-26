@@ -54,6 +54,10 @@ credited (`camps_normal`, `camps_elite`), `deaths`, `quests_completed`, `elite_k
 best-damage seat, the elite's killing-blow seat, the lab's own death and quest-completion counts, so the seats' sums
 equal the world totals.
 
+`world.normal_clear_secs_by_minute` retains every normal-camp duration in seconds, grouped by the raid minute at the
+start of each five-minute interval (0, 5, 10 and so on). It measures the credited seat's first landed hit through the
+clear. A fight interrupted by walking or another engagement can have a long elapsed time.
+
 A camp is elite when the observer has seen its elite alive: a camp whose elite nobody saw counts as normal
 (`camps_credited_normal`, `kill_secs_normal`; the elite share is the difference, `kill_secs_elite`). `kill_secs.n` can be
 below `camps_credited`. `world.elite_kills_credited` is every elite death the sim credits to a seat (the seats'

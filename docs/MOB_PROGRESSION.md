@@ -31,6 +31,8 @@ Each credited normal kill grants `MOB_KILL_STACKS` (3) whole stacks of its type,
 
 Defense (armor) pays 1.25 a stack and Soul Defense (magic resist) 1.5 (`DEFENSE_PER_STACK`, `SOUL_DEFENSE_PER_STACK`; they were 1): a counter to the damage type it answers, never the kill to take against a mixed field, and the most they can pay before a random route's incidental D/SD kills out-farm a build (testing/FARM_ROUTE_PROOF.md).
 
+In live raids, ordinary camps start with the same defenses for the first five minutes of active play. Their armor and magic resistance then rise gradually, reaching 240 extra points at minute ten and 420 at minute twenty. This slows repeated clears as builds grow. The themed reward, permanent stacks per kill, mob health and damage stay at their established values. Elite camps retain their own tuning. True damage still bypasses both defenses.
+
 The current map has ten camps per zone (160 x 160 tiles). Bag rosters guarantee all four normal types, and respawning preserves the roster. Fully cleared camps return after three minutes. Personal stat progress survives respawns and coliseum rounds. Dummy, quest-NPC, and training mob kills pay no progression.
 
 The HUD shows earned totals for owned types and exposes all twenty in an expandable catalog. Camp and planning tooltips describe the reward before a pull. The server credits the existing whole-fight damage winner and remains authoritative over all progression.

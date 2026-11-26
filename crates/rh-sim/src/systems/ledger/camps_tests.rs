@@ -16,13 +16,15 @@ fn arena() -> Arena {
     )))
     .unwrap();
     let hash = u32::from_str_radix(&crate::mapgen::map_hash::map_hash(&data), 16).unwrap();
-    let v = crate::mapdata::MapExport {
+    arena_from_export(crate::mapdata::MapExport {
         format: "rh-map/2".into(),
         legacy_map_hash_u32: hash,
         map: data,
-    }
-    .validate()
-    .unwrap();
+    })
+}
+
+fn arena_from_export(export: crate::mapdata::MapExport) -> Arena {
+    let v = export.validate().unwrap();
     let (w, h, t, l) = v.into_parts();
     let spawns = l
         .data()
@@ -40,8 +42,13 @@ fn arena() -> Arena {
 }
 
 fn pve_sim() -> Sim {
+    pve_sim_with_pace(crate::CombatPace::Legacy, arena())
+}
+
+fn pve_sim_with_pace(combat_pace: crate::CombatPace, arena: Arena) -> Sim {
     let mut sim = Sim::new(
         SimConfig {
+            combat_pace,
             consumables: true,
             initial_loot: true,
             mob_mode: MobMode::Pve,
@@ -50,7 +57,7 @@ fn pve_sim() -> Sim {
             fill_seconds: 0.0,
             ..Default::default()
         },
-        arena(),
+        arena,
         Secrets::from_seed(3),
     );
     for i in 0..3 {
@@ -388,4 +395,64 @@ fn h1_outcome_sensitive_execute_callsite_with_genuine_mark_denial() {
     );
 
     // The same-pass old-count/new-pass-new-count control remains covered by the existing camps test.
+}
+
+/// Put a real normal camp member under repeated equal blows until it falls. The attack
+/// size is chosen from the measured opening defense so a legacy full-health kill is possible.
+#[test]
+fn normal_camp_raid_pacing_preserves_the_opening_and_slows_late_kills() {
+    use crate::CombatPace::{Legacy, Raid};
+    let fight = |pace, minute: u32, fraction: f64, true_damage: bool| {
+        let arena = arena_from_export(
+            serde_json::from_str(include_str!("../../mapdata/fixtures/seed1.map.json")).unwrap(),
+        );
+        let mut sim = pve_sim_with_pace(pace, arena);
+        sim.w.server_time = sim.w.raid_started_at + f64::from(minute) * 60_000.;
+        let mob = sim
+            .w
+            .mobs
+            .iter()
+            .find(|m| {
+                m.kind == crate::mob_runtime::MobKind::Regional
+                    && sim.camp_rosters()[m.camp as usize].elite.is_none()
+            })
+            .unwrap();
+        let id = mob.core.id;
+        let initial = mob.core.vitals.hp;
+        let armor = sim
+            .w
+            .faction_spec(sim.w.fighter_idx(id).unwrap())
+            .unwrap()
+            .armor;
+        let raw = initial * fraction * if true_damage { 1. } else { 1. + armor / 100. };
+        let mut events = Vec::new();
+        let mut strikes = 0;
+        while sim.w.mobs.get(id).is_some_and(|m| m.core.vitals.hp > 0.) {
+            sim.s.ledger.push(entry(id, PlayerId(1), raw, true_damage));
+            super::apply(&mut cx(&mut sim, &mut events));
+            strikes += 1;
+            assert!(strikes <= 30);
+        }
+        strikes
+    };
+    assert_eq!(fight(Raid, 5, 0.25, false), fight(Legacy, 5, 0.25, false));
+    assert_eq!(fight(Legacy, 10, 1.02, false), 1);
+    assert!(fight(Raid, 10, 1.02, false) >= 2);
+    assert!(fight(Raid, 20, 0.25, false) > fight(Raid, 10, 0.25, false));
+    assert_eq!(
+        fight(Raid, 20, 1.02, true),
+        1,
+        "true damage keeps its armor bypass"
+    );
+
+    let mut sim = pve_sim_with_pace(Raid, arena());
+    sim.w.server_time = sim.w.raid_started_at + 1_200_000.;
+    assert!(
+        sim.camp_rosters()[0].elite.is_some(),
+        "fixture has an elite and its escorts"
+    );
+    for mob in sim.mobs() {
+        let ix = sim.w.fighter_idx(mob.core.id).unwrap();
+        assert_eq!(sim.w.defense(ix, Raid), sim.w.defense(ix, Legacy));
+    }
 }

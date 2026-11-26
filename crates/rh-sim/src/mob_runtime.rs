@@ -554,6 +554,18 @@ impl EliteTuning {
     }
 }
 
+/// Additional physical and magical defense on normal regional mobs. True damage bypasses both.
+pub(crate) fn normal_camp_defense(elapsed_ms: f64) -> f64 {
+    use crate::constants::*;
+    let mid = ((elapsed_ms - RAID_CAMP_OPENING_MS) / (RAID_CAMP_MIDGAME_MS - RAID_CAMP_OPENING_MS))
+        .clamp(0., 1.);
+    let late = ((elapsed_ms - RAID_CAMP_MIDGAME_MS)
+        / (RAID_CAMP_LATEGAME_MS - RAID_CAMP_MIDGAME_MS))
+        .clamp(0., 1.);
+    mid * RAID_CAMP_MIDGAME_DEFENSE
+        + late * (RAID_CAMP_LATEGAME_DEFENSE - RAID_CAMP_MIDGAME_DEFENSE)
+}
+
 /// Source mobTypeFaction HP only (an elite's `k` and hp multiplier from the world's elite numbers). Full faction sheets
 /// remain the combat stage's responsibility.
 pub fn spawn_hp(elites: &EliteTuning, region: FactionId, elite: bool, ty: MobTypeId) -> f64 {

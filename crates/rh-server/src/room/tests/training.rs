@@ -16,6 +16,7 @@ fn training_cfg(tick: Duration) -> RoomConfig {
             elites: rh_sim::EliteRule::Legacy,
             regen: false,
             quests: false,
+            combat_pace: rh_sim::CombatPace::Legacy,
             quest_board: rh_sim::statics::QuestBoard::Off,
             consumables: true,
             training: true,

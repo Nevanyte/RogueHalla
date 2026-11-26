@@ -321,6 +321,44 @@ pub struct SimConfig {
         deserialize_with = "read_tick_ms"
     )]
     pub tick_ms: u32,
+    /// The live raid pacing rules. Legacy adds no hash word, preserving previous replays.
+    #[serde(default)]
+    pub combat_pace: CombatPace,
+}
+
+/// Authoritative pacing for player fights and normal camp progression.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CombatPace {
+    #[default]
+    Legacy,
+    Raid,
+}
+
+impl serde::Serialize for CombatPace {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Legacy => s.serialize_unit(),
+            Self::Raid if s.is_human_readable() => s.serialize_str("raid"),
+            Self::Raid => s.serialize_str("combat_pace=raid"),
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CombatPace {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let raid = if d.is_human_readable() {
+            "raid"
+        } else {
+            "combat_pace=raid"
+        };
+        match Option::<String>::deserialize(d)?.as_deref() {
+            None => Ok(Self::Legacy),
+            Some(value) if value == raid => Ok(Self::Raid),
+            Some(value) => Err(serde::de::Error::custom(format!(
+                "unknown combat pace {value:?}"
+            ))),
+        }
+    }
 }
 
 /// `SimConfig::augments` (P-AUG-RULES-1). `Legacy` serializes as nothing (JSON `null`; the hashing serializer folds no
@@ -653,6 +691,7 @@ impl SimConfig {
             // (P-AUG-RULES-1; the tables equal legacy until the content packets fill them).
             augments: AugmentRule::Rework,
             elites: EliteRule::Rework,
+            combat_pace: CombatPace::Raid,
             ..Self::default()
         }
     }
@@ -688,6 +727,7 @@ impl Default for SimConfig {
             augments: AugmentRule::Legacy,
             elites: EliteRule::Legacy,
             tick_ms: legacy_tick_ms(),
+            combat_pace: CombatPace::Legacy,
         }
     }
 }

@@ -579,12 +579,18 @@ impl Observer {
             self.cur_time[seat].camps_normal += 1;
         }
         if let Some(first) = self.camp_first_hit.get(&(camp, seat_id)) {
-            let secs = f64::from(tick - first) / 20.;
+            let secs = f64::from(tick - first) * f64::from(sim.tick_ms()) / 1000.;
             w.kill_secs.add(secs);
             if elite {
                 w.kill_secs_elite.add(secs);
             } else {
                 w.kill_secs_normal.add(secs);
+                let first_ms = sim.server_time() - secs * 1000.;
+                let band = ((first_ms - sim.raid_started_at()).max(0.) / 300_000.) as u32 * 5;
+                w.normal_clear_secs_by_minute
+                    .entry(band)
+                    .or_default()
+                    .add(secs);
             }
         }
         for k in firsts {

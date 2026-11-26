@@ -1159,8 +1159,26 @@ impl World {
         }
         Some(f)
     }
-    pub(crate) fn defense(&self, ix: FighterIx) -> Option<(f64, f64)> {
-        self.faction_spec(ix).map(|f| (f.armor, f.shield))
+    pub(crate) fn defense(&self, ix: FighterIx, pace: crate::CombatPace) -> Option<(f64, f64)> {
+        let base = self.faction_spec(ix)?;
+        let elapsed = self.server_time - self.raid_started_at;
+        if pace == crate::CombatPace::Raid
+            && elapsed > crate::constants::RAID_CAMP_OPENING_MS
+            && !self.is_player(ix)
+            && self.mobs.get(self.core(ix).id).is_some_and(|m| {
+                m.kind == crate::mob_runtime::MobKind::Regional
+                    && m.zombie.is_none()
+                    && self
+                        .mob_runtime
+                        .as_ref()
+                        .and_then(|rt| rt.camps.get(m.camp as usize))
+                        .is_some_and(|camp| camp.elite.is_none())
+            })
+        {
+            let extra = crate::mob_runtime::normal_camp_defense(elapsed);
+            return Some((base.armor + extra, base.shield + extra));
+        }
+        Some((base.armor, base.shield))
     }
     /// Source scaledFaction -> mobFaction -> mobTypeFaction -> pacedFaction order for point-damage params.
     fn point_damage(&self, ix: FighterIx, raw: f64, execute: bool) -> f64 {

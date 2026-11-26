@@ -191,6 +191,7 @@ fn config_with_hitboxes(input: &V, hitboxes: crate::archetype::HitboxMode) -> Si
         mob_spacing: Default::default(),
         regen_in_combat: crate::RegenInCombat::Legacy,
         camp_buffs: crate::CampBuffRule::Legacy,
+        combat_pace: crate::CombatPace::Legacy,
         quest_board: crate::statics::QuestBoard::Off,
         frost_wish: crate::FrostWish::Freeze,
         augments: crate::AugmentRule::Legacy,

@@ -119,15 +119,15 @@ fn identity_base() -> Value {
     serde_json::to_value(&sim).unwrap()
 }
 
-/// The hasher folds values, not field names (`statics.rs`, `RegenInCombat`): every one of the seven config switches whose
+/// The hasher folds values, not field names (`statics.rs`, `RegenInCombat`): every one of these config switches whose
 /// default folds nothing must give its non-default value a word of its own, or two different worlds share a digest.
-/// All 128 combinations of the seven, on one fixed world, are 128 different state hashes.
+/// All 256 combinations on one fixed world have different state hashes.
 #[test]
 fn every_combination_of_the_silent_config_switches_is_its_own_statics_identity() {
     use rh_sim::archetype::MobSpacing;
     use rh_sim::{CampBuffRule, FrostWish, RegenInCombat};
     let base = identity_base();
-    let switches: [(&str, Value, Value); 7] = [
+    let switches: [(&str, Value, Value); 8] = [
         (
             "mob_spacing",
             serde_json::to_value(MobSpacing::Auto).unwrap(),
@@ -160,9 +160,22 @@ fn every_combination_of_the_silent_config_switches_is_its_own_statics_identity()
         ),
         // P-SYNC-ORIGIN-1-fix: P-TICK-1a's step length. The base world sits at tick 0, on both grids.
         ("tick_ms", json!(null), json!(25)),
+        ("combat_pace", json!(null), json!("raid")),
     ];
+    let mut old = base.clone();
+    old["statics"]["config"]
+        .as_object_mut()
+        .unwrap()
+        .remove("combat_pace");
+    let old = Sim::restore(old).expect("pre-pacing checkpoint");
+    assert_eq!(old.config().combat_pace, rh_sim::CombatPace::Legacy);
+    assert_eq!(
+        old.state_hash(),
+        Sim::restore(base.clone()).unwrap().state_hash()
+    );
+
     let mut seen: BTreeMap<u64, String> = BTreeMap::new();
-    for mask in 0u32..128 {
+    for mask in 0u32..1 << switches.len() {
         let mut cp = base.clone();
         let mut name = Vec::new();
         for (bit, (field, off, on)) in switches.iter().enumerate() {
@@ -184,7 +197,7 @@ fn every_combination_of_the_silent_config_switches_is_its_own_statics_identity()
             panic!("`{other}` and `{name}` share the statics digest (state hash {h:#018x})");
         }
     }
-    assert_eq!(seen.len(), 128);
+    assert_eq!(seen.len(), 1 << switches.len());
     // The two defaults fold nothing: the all-default restore is the base world's own hash.
     let unchanged = Sim::restore(base.clone()).unwrap().state_hash();
     assert_eq!(

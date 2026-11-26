@@ -38,7 +38,8 @@
 //!
 //! The config's later silent switches (`frost_wish`, and P-AUG-RULES-1's `augments` and `elites`) follow the same rule:
 //! their non-default values fold the tags `"frost_wish=wall"`, `"augments=rework"` and `"elites=rework"`, which no other
-//! field writes (`tests/augment_rules.rs` checks all 128 combinations of the seven silent switches, `tick_ms` included).
+//! field writes. The raid combat pace adds "combat_pace=raid". The switch-combination test in
+//! `tests/augment_rules.rs` checks all 256 combinations including the step length.
 //!
 //! Four World exceptions. `MobRuntime::elites` (P-AUG-RULES-1) writes `EliteRule::Legacy` as a unit (no word), so every
 //! world whose elite numbers are legacy keeps its hash and checkpoint; it is safe because `check_world` admits exactly

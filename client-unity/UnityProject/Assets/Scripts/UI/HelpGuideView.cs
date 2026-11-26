@@ -112,7 +112,8 @@ namespace Roguehalla.Client
             new HelpMechanicSection("How a run works", new[]
             {
                 M("Goal", "Last one standing wins. Grow stronger first, then outlast the other players."),
-                M("Camps", "Clear mob camps for stat rewards and a stored potion. Cleared camps respawn on a timer."),
+                M("Camps", "Pick camps for their permanent stat rewards. A clear stores a potion and starts the respawn timer."),
+                M("Camp defenses", "After five raid minutes, normal camps gradually gain armor and magic resistance until minute twenty."),
                 M("Quests", "Walk up to a quest giver, press F, then Enter to accept. Quests grant stats and GV. Press J to track them."),
                 M("Elites and chests", "Elite mobs can leave an augment chest. Press C, then pick a card with the number keys."),
                 M("Weapons", "Press F to pick up weapons. You carry two; Space swaps between them."),
