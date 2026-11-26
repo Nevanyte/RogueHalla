@@ -1,10 +1,11 @@
 //! Player damage pace is a before-mitigation multiplier. It leaves the hit and DoT caps in the ledger.
-use super::Entry;
+use super::{weapon_hit, Entry};
 use crate::constants::*;
+use crate::factions::{PerformedAttack, SignatureKind};
 use crate::fighter::FighterIx;
 use crate::state::{Player, World};
 use crate::statics::{CombatPace, MatchStatic};
-use crate::FactionId;
+use crate::{FactionId, WeaponId};
 
 // Both players in a matchup use the same product. The weights calibrate duel length while preserving the ratio
 // between their outgoing factors. Each mirror fight uses the square of that faction's weight.
@@ -58,5 +59,124 @@ pub(super) fn factor(
                 * faction_weight(w.players[victim.slot()].faction());
             build * matchup
         }
+    }
+}
+
+fn interval(attacker: &Player, weapon: WeaponId) -> f64 {
+    let haste = crate::stat_fold::decode_mult(attacker.modifiers.attack_rate_wire());
+    crate::content::attack_interval(&crate::content::faction(attacker.faction()), weapon, haste)
+}
+
+/// Ordinary weapon damage and Fire's direct reaction get separate cadence ceilings. The other sources still use
+/// the general hit and DoT limits; native weapon bonuses apply to the capped base contact afterwards.
+pub(super) fn hit_cap_share(w: &World, entry: &Entry, performed: &[PerformedAttack]) -> f64 {
+    if entry.ability.is_some() || entry.arena {
+        return f64::INFINITY;
+    }
+    let Some(attacker) = entry.by.and_then(|id| w.player(id)) else {
+        return f64::INFINITY;
+    };
+    if let Some(weapon) = entry.weapon.filter(|_| weapon_hit(entry)) {
+        return RAID_PVP_WEAPON_CAP_HP_PER_SEC * interval(attacker, weapon);
+    }
+    if entry.sig == Some(SignatureKind::Backlash) {
+        // Backlash reacts to the target's performed weapon, not Fire's display weapon or a reflected projectile.
+        // An input swap cancels the previous action, so both attacks at the two possible land sites use one weapon.
+        let trigger = performed.iter().find(|attack| attack.by == entry.victim);
+        if let Some((victim, trigger)) = w.player(entry.victim).zip(trigger) {
+            return RAID_PVP_BACKLASH_CAP_HP_PER_SEC * interval(victim, trigger.weapon);
+        }
+    }
+    f64::INFINITY
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{validate, Placement, RawCommand, Secrets, Sim, SimConfig, Vec2};
+
+    #[test]
+    fn cadence_caps_follow_attack_and_trigger_weapons() {
+        let mut sim = Sim::reset_active(
+            SimConfig::default(),
+            crate::arenas::practice_arena(),
+            Secrets::from_seed(3),
+            &[
+                Placement {
+                    profile: "fire".into(),
+                    faction: FactionId::Fire,
+                    bot: false,
+                    at: Vec2::new(400., 320.),
+                    hp: None,
+                    weapon0: Some(WeaponId::Wand),
+                    weapon1: Some(WeaponId::Sword),
+                },
+                Placement {
+                    profile: "opponent".into(),
+                    faction: FactionId::Holy,
+                    bot: false,
+                    at: Vec2::new(440., 320.),
+                    hp: None,
+                    weapon0: Some(WeaponId::Sword),
+                    weapon1: None,
+                },
+            ],
+        );
+        let attacker = sim.players()[0].id;
+        let victim = sim.players()[1].id;
+        sim.submit(
+            attacker,
+            validate(RawCommand::Swap { slot: Some(1) }).unwrap(),
+        )
+        .unwrap();
+        sim.step();
+        assert_eq!(sim.players()[0].active_weapon(), WeaponId::Sword);
+        let mut entry = Entry {
+            terrain: false,
+            dot: false,
+            ability: None,
+            arena: false,
+            source: None,
+            critical: false,
+            critical_mult: None,
+            sig: None,
+            execute: false,
+            victim,
+            by: Some(attacker),
+            packet: crate::state::Packet {
+                raw: 1.,
+                phys: 1.,
+                magic: 0.,
+                true_: 0.,
+            },
+            weapon: Some(WeaponId::Wand),
+            stagger: false,
+            projectile: Some(1),
+            scale: 1.,
+            derived: false,
+            passive: false,
+        };
+        // An in-flight ordinary projectile keeps the timing of its weapon of origin after an offhand swap.
+        assert_eq!(
+            hit_cap_share(&sim.w, &entry, &[]),
+            RAID_PVP_WEAPON_CAP_HP_PER_SEC * interval(&sim.players()[0], WeaponId::Wand)
+        );
+        entry.passive = true;
+        assert!(hit_cap_share(&sim.w, &entry, &[]).is_infinite());
+        entry.passive = false;
+        entry.sig = Some(SignatureKind::Backlash);
+        let attack = PerformedAttack {
+            by: victim,
+            weapon: WeaponId::Axe,
+        };
+        assert_eq!(
+            hit_cap_share(&sim.w, &entry, &[attack]),
+            RAID_PVP_BACKLASH_CAP_HP_PER_SEC * interval(&sim.players()[1], WeaponId::Axe)
+        );
+        entry.ability = Some(crate::status_runtime::AbilityId::Blaze);
+        assert!(hit_cap_share(&sim.w, &entry, &[attack]).is_infinite());
+        entry.ability = None;
+        entry.arena = true;
+        assert!(hit_cap_share(&sim.w, &entry, &[attack]).is_infinite());
     }
 }

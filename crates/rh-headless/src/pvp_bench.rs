@@ -70,9 +70,20 @@ fn duel_scene(
 #[derive(Default)]
 struct Duel {
     seconds: Option<f64>,
+    first_contact: Option<f64>,
     burn_amount: f64,
     mark_amount: f64,
     roam_amount: f64,
+    returned_amount: f64,
+    backlash_amount: f64,
+}
+
+impl Duel {
+    fn reaction_seconds(&self) -> Option<f64> {
+        self.seconds
+            .zip(self.first_contact)
+            .map(|(down, contact)| down - contact)
+    }
 }
 
 fn duel(
@@ -84,8 +95,12 @@ fn duel(
     build: &TrustedBuild,
     warmup_ms: u32,
 ) -> Duel {
-    let tick_ms = config.tick_ms;
     let mut sim = duel_scene(arena, config, seed, factions, weapon, build);
+    attack_until_down(&mut sim, warmup_ms, false)
+}
+
+fn attack_until_down(sim: &mut Sim, warmup_ms: u32, trace: bool) -> Duel {
+    let tick_ms = sim.tick_ms();
     let ids = [sim.players()[0].id, sim.players()[1].id];
     let mut events = Vec::new();
     for _ in 0..warmup_ms / tick_ms {
@@ -101,6 +116,23 @@ fn duel(
         events.clear();
         sim.step_into(&mut events);
         for e in &events {
+            if matches!(
+                e,
+                Event::Hit { by: Some(_), .. }
+                    | Event::SignatureHit { .. }
+                    | Event::AbilityHit { .. }
+            ) {
+                let seconds = f64::from(step * tick_ms) / 1000.;
+                result.first_contact.get_or_insert(seconds);
+                if trace {
+                    let health = sim
+                        .players()
+                        .iter()
+                        .map(|p| (p.vitals.hp, p.vitals.max_hp))
+                        .collect::<Vec<_>>();
+                    println!("sample trace {seconds:.3}s {e:?} health {health:?}");
+                }
+            }
             match *e {
                 Event::SignatureHit {
                     sig: SignatureKind::Burn,
@@ -112,6 +144,16 @@ fn duel(
                     amount,
                     ..
                 } => result.mark_amount += amount,
+                Event::SignatureHit {
+                    sig: SignatureKind::Backlash,
+                    amount,
+                    ..
+                } => result.backlash_amount += amount,
+                Event::Hit {
+                    passive: true,
+                    amount,
+                    ..
+                } => result.returned_amount += amount,
                 Event::Hit {
                     by: Some(_),
                     weapon: None,
@@ -207,6 +249,72 @@ const PILOT_PICKS: [&[CardId]; 3] = [
     ],
 ];
 
+// Fixed snapshots of two seats that actually survived to minute 20 in generated balance-lab matches.
+// The old Raid curve settled the Holy axe mirror in 1.40s and the Fire wand mirror in 3.85s at 20 Hz.
+const EARNED_AXE: &str = r#"{
+  "cards":[["hereComesTheBoom",1],["machineGun",1],["committed",1],["slowBurn",1],
+           ["fistsOfFury",1],["overkill",1],["tankEngine",1],["thirdTimesTheCharm",1],
+           ["bestOffense",1],["plantYourFeet",1],["wishfulThinking",1],["hemorrhage",1],
+           ["spikedShell",1],["siphon",1],["secondWind",1]],
+  "stacks":[["emberImp",27],["flameCaller",30],["inquisitor",51],["pardoner",48],
+            ["rotMonk",36],["frostbowSentry",55],["seraphShard",21],["penitent",9],["zealot",6]]
+}"#;
+const EARNED_WAND: &str = r#"{
+  "cards":[["hereComesTheBoom",1],["machineGun",1],["committed",1],["slowBurn",1],
+           ["fistsOfFury",1],["overkill",1],["tankEngine",1],["gambler",1],["raceToZero",1],
+           ["thirdTimesTheCharm",1],["plantYourFeet",1],["hemorrhage",1],["spikedShell",1],["siphon",1],["bastion",1]],
+  "stacks":[["emberImp",36],["magmaBrute",9],["flameCaller",36],["bailiff",9],["chainWarden",36],
+            ["inquisitor",36],["pardoner",72],["bloatfly",12],["frostWisp",9],["frostbowSentry",9],
+            ["penitent",78],["zealot",54]]
+}"#;
+
+const RESPONSE_BAND_MIN: f64 = 4.75;
+
+fn spike_controls(arena: &Arc<Arena>, verbose: bool) -> Vec<String> {
+    let mut failures = Vec::new();
+    for (seed, faction, weapon, probe) in [
+        (22, FactionId::Holy, WeaponId::Axe, EARNED_AXE),
+        (23, FactionId::Fire, WeaponId::Wand, EARNED_WAND),
+    ] {
+        let build = serde_json::from_str(probe).expect("recorded build");
+        for tick_ms in [50, 25] {
+            let [legacy, raid] = [CombatPace::Legacy, CombatPace::Raid].map(|pace| {
+                let mut sim = duel_scene(
+                    arena,
+                    config(tick_ms, pace),
+                    seed,
+                    [faction; 2],
+                    weapon,
+                    &build,
+                );
+                attack_until_down(&mut sim, 0, verbose && pace == CombatPace::Raid)
+            });
+            let legacy_window = legacy.reaction_seconds();
+            let raid_window = raid.reaction_seconds();
+            println!(
+                "{tick_ms}ms earned {} {}: first contact to down {legacy_window:?}s Legacy, {raid_window:?}s Raid, {:.2} returned, {:.2} Backlash",
+                faction.as_str(), weapon.as_str(), raid.returned_amount, raid.backlash_amount
+            );
+            let special = if faction == FactionId::Holy {
+                raid.returned_amount
+            } else {
+                raid.backlash_amount
+            };
+            if !raid_window.is_some_and(|seconds| seconds >= RESPONSE_BAND_MIN)
+                || special <= 0.
+                || !legacy_window.is_some_and(|seconds| seconds < RESPONSE_BAND_MIN)
+            {
+                failures.push(format!(
+                    "{tick_ms}ms {} {} response window or reactive effect",
+                    faction.as_str(),
+                    weapon.as_str()
+                ));
+            }
+        }
+    }
+    failures
+}
+
 pub fn run(args: &[String], map: &str) -> Result<(), String> {
     if args
         .iter()
@@ -237,8 +345,11 @@ pub fn run(args: &[String], map: &str) -> Result<(), String> {
         })
         .collect();
     let arena = Arc::new(rh_sim::arenas::practice_arena());
-    let mut failures = Vec::new();
     let verbose = args.iter().any(|arg| arg == "--verbose");
+    let mut failures = spike_controls(&arena, verbose);
+    if args.iter().any(|arg| arg == "--sampled") {
+        failures.extend(run_sampled(&arena, verbose)?);
+    }
     let factions = FactionId::ALL
         .into_iter()
         .enumerate()
@@ -345,9 +456,6 @@ pub fn run(args: &[String], map: &str) -> Result<(), String> {
             ));
         }
     }
-    if args.iter().any(|arg| arg == "--sampled") {
-        run_sampled(&arena)?;
-    }
     if args.iter().any(|arg| arg == "--check") && !failures.is_empty() {
         return Err(failures.join(", "));
     }
@@ -382,38 +490,15 @@ fn sample_build(player: &Player) -> TrustedBuild {
     }
 }
 
-fn run_sampled(duel_arena: &Arc<Arena>) -> Result<(), String> {
+fn run_sampled(duel_arena: &Arc<Arena>, verbose: bool) -> Result<Vec<String>, String> {
     let options = Options {
         seats: (0..SEATS).map(|i| (i, SeatPolicy::Raid)).collect(),
         human_seats: true,
         ..Options::default()
     };
     let mut sampled = 0;
-    for seed in [22, 23, 39] {
-        let (cfg, agents) = match_setup(&options, seed)?;
-        let mut env = Env::new(cfg, agents, seed);
-        let mut last = None;
-        loop {
-            let progress = env.advance(&[]);
-            if progress.terminated {
-                break;
-            }
-            let tick = env.sim.tick();
-            if tick >= 19_200 && tick % 1_200 == 0 {
-                last = Some((
-                    tick,
-                    env.sim
-                        .players()
-                        .iter()
-                        .filter(|p| p.standing())
-                        .map(|p| (p.faction(), p.active_weapon(), sample_build(p)))
-                        .collect::<Vec<_>>(),
-                ));
-            }
-            if progress.truncated {
-                break;
-            }
-        }
+    let mut failures = Vec::new();
+    for (seed, last) in sampled_rosters(&options)? {
         let Some((tick, fighters)) = last else {
             println!("sampled seed {seed}: ended before minute 16");
             continue;
@@ -425,26 +510,95 @@ fn run_sampled(duel_arena: &Arc<Arena>) -> Result<(), String> {
             }
             sampled += 1;
             let power = rh_sim::cards::Build::from_counts(build.cards.iter().copied()).power();
-            let times = [50, 25].map(|tick_ms| {
-                duel(
+            let results = [50, 25].map(|tick_ms| {
+                let mut sim = duel_scene(
                     duel_arena,
                     config(tick_ms, CombatPace::Raid),
                     seed,
                     [faction; 2],
                     weapon,
                     &build,
-                    0,
-                )
-                .seconds
+                );
+                attack_until_down(&mut sim, 0, false)
             });
+            let times = results.each_ref().map(|result| result.seconds);
+            let contact = results.each_ref().map(|result| result.first_contact);
+            if results.iter().any(|result| {
+                !result
+                    .reaction_seconds()
+                    .is_some_and(|seconds| seconds >= RESPONSE_BAND_MIN)
+            }) {
+                failures.push(format!("sampled seed {seed} {} {} response window: {times:?}s from attack, {contact:?}s first contact", faction.as_str(), weapon.as_str()));
+            }
             println!(
-                "sampled seed {seed} tick {tick} {} {} {stacks} stacks, {power} card power: {times:?} seconds (20, 40Hz)",
+                "sampled seed {seed} tick {tick} {} {} {stacks} stacks, {power} card power: {times:?} seconds from attack, {contact:?} first contact (20, 40Hz)",
                 faction.as_str(), weapon.as_str()
             );
+            if verbose {
+                println!("sampled build {}", serde_json::to_string(&build).unwrap());
+                if times[0].is_some_and(|seconds| seconds <= 5.) {
+                    let mut sim = duel_scene(
+                        duel_arena,
+                        config(50, CombatPace::Raid),
+                        seed,
+                        [faction; 2],
+                        weapon,
+                        &build,
+                    );
+                    attack_until_down(&mut sim, 0, true);
+                }
+            }
         }
     }
     if sampled == 0 {
         return Err("no standing farmed fighters sampled at minute 16 or later".into());
     }
-    Ok(())
+    Ok(failures)
+}
+
+type LateRoster = Option<(u32, Vec<(FactionId, WeaponId, TrustedBuild)>)>;
+
+fn sampled_rosters(opts: &Options) -> Result<Vec<(u64, LateRoster)>, String> {
+    std::thread::scope(|scope| {
+        let samples =
+            [22, 23, 39].map(|seed| (seed, scope.spawn(move || latest_roster(opts, seed))));
+        // Join in seed order so parallel match execution leaves the report deterministic.
+        samples
+            .into_iter()
+            .map(|(seed, task)| {
+                let roster = task
+                    .join()
+                    .map_err(|_| format!("sampled seed {seed} panicked"))??;
+                Ok((seed, roster))
+            })
+            .collect()
+    })
+}
+
+fn latest_roster(opts: &Options, seed: u64) -> Result<LateRoster, String> {
+    let (cfg, agents) = match_setup(opts, seed)?;
+    let mut env = Env::new(cfg, agents, seed);
+    let mut last = None;
+    loop {
+        let progress = env.advance(&[]);
+        if progress.terminated {
+            break;
+        }
+        let tick = env.sim.tick();
+        if tick >= 19_200 && tick % 1_200 == 0 {
+            last = Some((
+                tick,
+                env.sim
+                    .players()
+                    .iter()
+                    .filter(|p| p.standing())
+                    .map(|p| (p.faction(), p.active_weapon(), sample_build(p)))
+                    .collect(),
+            ));
+        }
+        if progress.truncated {
+            break;
+        }
+    }
+    Ok(last)
 }
