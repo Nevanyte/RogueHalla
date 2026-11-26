@@ -91,6 +91,9 @@ pub struct Observer {
     /// Chests of elite deaths still to be recognised, picked or expired.
     chest_watch: Vec<ChestWatch>,
     camp_count: usize,
+    /// Persistent per-viewer bindings, as in a live room: quest handles are never reused when the five planning rows
+    /// expand to ten raid rows. Disposable `rh_sim::observe` previews restart the handle counter every sample.
+    views: Vec<rh_sim::ItemObserver>,
     quests: Vec<SeatQuests>,
     /// Every step's chest facts, tallied at the end by `chest_picks::tally_chests`.
     chest_steps: Vec<ChestStep>,
@@ -126,6 +129,7 @@ impl Observer {
                 .iter()
                 .map(|p| (!p.seat.bot).then(SeatTally::default))
                 .collect(),
+            views: ids.iter().copied().map(rh_sim::ItemObserver::new).collect(),
             quests: ids.iter().map(|_| SeatQuests::default()).collect(),
             chest_steps: Vec::new(),
             cur_chests: ChestStep::default(),
@@ -200,7 +204,10 @@ impl Observer {
         if sample {
             let now = sim.server_time();
             for seat in 0..self.ids.len() {
-                let obs = rh_sim::observe(sim, self.ids[seat], events);
+                let mut obs = Observation::default();
+                self.views[seat]
+                    .observe_into(sim, events, &mut obs, None)
+                    .expect("trusted balance-lab observation");
                 self.observation(seat, &obs, now);
             }
         }
