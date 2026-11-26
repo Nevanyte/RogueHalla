@@ -133,7 +133,7 @@ fn fight(mut sim: Sim, scene: Scene, build: &TrustedBuild) -> Fight {
     while sim.server_time() - begin < LIMIT_MS {
         // The regular order budget is shared by move and attack. Keep the scripted cadence
         // below it and let the held trigger swing between decisions.
-        if ((sim.server_time() - begin) as u32).is_multiple_of(250) {
+        if (sim.server_time() - begin) as u32 % 250 == 0 {
             let player = &sim.players()[0];
             let at = player.pos();
             let nearest = sim
