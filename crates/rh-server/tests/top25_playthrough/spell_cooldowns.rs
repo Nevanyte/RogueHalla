@@ -248,6 +248,15 @@ async fn public_quest_frame_keeps_zero_charge_spell_and_drop_reacquire_valid() {
             })
         },
     );
+    // Give Warhorn a visible enemy at the turn-in before starting the shield cooldown.
+    // Both seats travel using the same encoded movement input as a player.
+    move_a_to(
+        &mut room,
+        &mut b,
+        &mut a,
+        barrow_giver,
+        "bring the other seat into Warhorn range",
+    );
     let shield = a
         .board
         .spells

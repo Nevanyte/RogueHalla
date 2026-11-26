@@ -610,8 +610,19 @@ fn alpha_raid_bot_plays_and_survives_on_real_fill_seats() {
         let mut moved = [false; 7];
         let mut steps_us = Vec::new();
         let mut mob_kills = 0;
+        let mut elite_kills = 0;
+        let mut chest_picks = 0;
+        let mut elite_ids = std::collections::BTreeSet::new();
         let mut first_death = None;
         for i in 1..=6000 {
+            // Death events can arrive after the victim has left the mob roster.
+            elite_ids.extend(
+                room.sim
+                    .mobs()
+                    .iter()
+                    .filter(|m| m.elite)
+                    .map(|m| m.core.id),
+            );
             at += tick;
             let before = std::time::Instant::now();
             assert!(room.wake(at));
@@ -629,7 +640,15 @@ fn alpha_raid_bot_plays_and_survives_on_real_fill_seats() {
                     } if room.sim.player(*id).is_none()
                         && room.sim.player(*by).is_some_and(|p| p.seat.bot) =>
                     {
-                        mob_kills += 1
+                        mob_kills += 1;
+                        if elite_ids.contains(id) {
+                            elite_kills += 1;
+                        }
+                    }
+                    Event::ChestTaken { by, .. }
+                        if room.sim.player(*by).is_some_and(|p| p.seat.bot) =>
+                    {
+                        chest_picks += 1;
                     }
                     Event::Resolved { result, .. } if result.outcome == rh_sim::Outcome::Died => {
                         first_death.get_or_insert(i);
@@ -648,7 +667,7 @@ fn alpha_raid_bot_plays_and_survives_on_real_fill_seats() {
             .filter(|s| room.sim.player(s.player()).unwrap().standing())
             .count();
         let human_alive = room.sim.player(human).unwrap().standing();
-        eprintln!("raid seed {seed}: {} active ticks, human alive {human_alive}, {survivors}/7 bots standing, first death {first_death:?}, {mob_kills} mob kills, moved {moved:?}, room wake p99 {} us", steps_us.len(), steps_us[(steps_us.len()-1)*99/100]);
+        eprintln!("raid seed {seed}: {} active ticks, human alive {human_alive}, {survivors}/7 bots standing, first death {first_death:?}, {mob_kills} mob kills including {elite_kills} elites, {chest_picks} chest picks, moved {moved:?}, room wake p99 {} us", steps_us.len(), steps_us[(steps_us.len()-1)*99/100]);
         assert_eq!(
             steps_us.len(),
             6000,
