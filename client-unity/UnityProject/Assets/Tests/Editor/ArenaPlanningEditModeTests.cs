@@ -80,7 +80,11 @@ namespace Roguehalla.Client.Tests
             plan.Ready = true;
             Deliver(plan);
             StringAssert.Contains("CONFIRMED", LabelAt("PlanningDecisions/Ready/Label").text);
-            StringAssert.Contains("The arena starts", LabelAt("PlanningDecisions/ReadyDetail").text);
+            var next = LabelAt("PlanningDecisions/ReadyDetail");
+            StringAssert.Contains("The arena starts", next.text);
+            next.GetComponent<MythicTextScale>().Refit();
+            float onscreenSize = next.fontSize * HudLayout.Viewport(960, 600).Scale;
+            Assert.That(onscreenSize, Is.GreaterThanOrEqualTo(12f), "the post-Ready instruction must read at 960×600");
             Assert.IsFalse(ready.interactable);
             Assert.IsNull(_session.Collections.Plan.Pick, "the server will assign the spawn at the start");
         }
