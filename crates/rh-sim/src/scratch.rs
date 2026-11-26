@@ -59,6 +59,8 @@ pub(crate) struct TickScratch {
     /// deferred payout can increment it), read by slot for outgoing damage and execute/full-versus-without shares. Transient
     /// pass scratch, never serialized; empty between passes.
     pub(crate) camps_at_pass_start: Vec<u16>,
+    /// Raid PvP multipliers computed lazily once per credited attacker, by player slot.
+    pub(crate) raid_pvp_factors: Vec<Option<f64>>,
     /// Indices of the players standing when this tick's move multipliers were read (legacy `standingCombatants`).
     pub(crate) standing: Vec<FighterIx>,
     /// Their move multipliers, aligned with `standing`: every one is read before anyone moves.
@@ -144,6 +146,7 @@ impl Default for TickScratch {
             action_order: Vec::with_capacity(p),
             rank: Vec::with_capacity(p),
             camps_at_pass_start: Vec::with_capacity(p),
+            raid_pvp_factors: Vec::with_capacity(p),
             standing: Vec::with_capacity(p),
             mults: Vec::with_capacity(p),
             melee: Vec::with_capacity(p),
@@ -206,7 +209,8 @@ impl TickScratch {
             status_active,
             dot_sums,
             alive,
-            camps_at_pass_start
+            camps_at_pass_start,
+            raid_pvp_factors
         );
     }
 
@@ -226,6 +230,7 @@ impl TickScratch {
             && self.standing.is_empty()
             && self.mults.is_empty()
             && self.camps_at_pass_start.is_empty()
+            && self.raid_pvp_factors.is_empty()
             && self.slot_head.iter().all(|&n| n == NONE)
             && self.slot_tail.iter().all(|&n| n == NONE)
     }

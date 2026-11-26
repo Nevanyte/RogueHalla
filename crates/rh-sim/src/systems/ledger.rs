@@ -4,7 +4,7 @@
 //! downed list; reads the ledger, the action-order ranks and the tick-start bounties from the tick scratch.
 
 use crate::constants::*;
-use crate::content::{mitigate_shares, pvp_factor, WeaponId};
+use crate::content::{mitigate_shares, WeaponId};
 use crate::events::Event;
 use crate::fighter::FighterIx;
 use crate::quests::board::rewards::permanent;
@@ -13,6 +13,8 @@ use crate::scratch::{TickScratch, NONE};
 use crate::state::{Packet, PlayerId, World};
 use crate::statics::MatchStatic;
 use crate::systems::{credit, settle, weapons, Cx};
+
+mod pvp;
 
 /// One hit of the tick ledger. Ordinary weapon rows retain IDs; status rows additionally
 /// retain the immutable source snapshot through shared handles, without cloning string bytes.
@@ -391,6 +393,7 @@ fn apply_inner(
         dot_sums,
         mark_denials,
         camps_at_pass_start,
+        raid_pvp_factors,
         ..
     } = &mut **s;
     // Freeze the canonical per-player camps count ONCE for this pass, before any victim or deferred payout can increment it:
@@ -404,6 +407,9 @@ fn apply_inner(
     if ledger.is_empty() {
         camps_at_pass_start.clear();
         return;
+    }
+    if k.config.pvp_rules && k.config.combat_pace == crate::CombatPace::Raid {
+        raid_pvp_factors.resize(w.players.len(), None);
     }
     let camps = camps_at_pass_start.as_slice();
     // Group by victim in order of first appearance (legacy Map insertion order): each entry is chained on its victim's
@@ -568,27 +574,9 @@ fn apply_inner(
         // Already multiplied entries (returned damage, a splash) only take the victim's Race to 0 (G4).
         let final_entry = e.passive || e.derived;
         races.push(if final_entry { taken } else { dealt * taken });
-        let credited = e.by.and_then(|id| w.credited_player(id));
+        let pvp = pvp::factor(k, w, e, vix, raid_pvp_factors);
         mults.push(
-            farm_mult
-                * gambler
-                * warhorn
-                * (if final_entry { taken } else { dealt * taken })
-                * (if k.config.pvp_rules
-                    && !e.arena
-                    && e.ability.is_none()
-                    && vix
-                        .zip(credited)
-                        .is_some_and(|(v, b)| w.is_player(v) && w.player(b).is_some())
-                {
-                    pvp_factor(
-                        w.players[w.idx(credited.expect("checked player attacker")).unwrap()]
-                            .build
-                            .power(),
-                    )
-                } else {
-                    1.0
-                }),
+            farm_mult * gambler * warhorn * (if final_entry { taken } else { dealt * taken }) * pvp,
         );
     }
     w.pay.items.clear();
@@ -649,6 +637,7 @@ fn apply_inner(
     pay_all_with(pass.k, pass.w, pass.ev, pf, pass.stats);
     ledger.clear();
     camps_at_pass_start.clear();
+    raid_pvp_factors.clear();
 }
 
 /// P-AUG-NATIVE-1b: an entry that, once landed, is an `Event::Hit` with a weapon and `passive: false` (the native hit
@@ -674,7 +663,7 @@ fn apply_victim(
     if !pass.w.standing(ix) || crate::quests::board::rewards::effects::stasis(pass.w, v) {
         return;
     }
-    let defense = pass.w.defense(ix);
+    let defense = pass.w.defense(ix, pass.k.config.combat_pace);
     // The armor mirror was folded after last tick's damage pass. A shred reaching
     // its boundary now still affects this hit; an axe in this pass takes effect afterwards.
     let (armor, shield) = defense.map_or((0., 0.), |(base_armor, base_shield)| {

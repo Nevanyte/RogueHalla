@@ -5,6 +5,7 @@
 //!
 //! `camp_bench [--seed N] [--quick] [--list] [--with-nospacing] [--max-ticks N] [--control-weapon-swap a=b]`
 //! (the swap flag is a test-only negative control: cells labelled `a` are run with weapon `b`).
+//! With `--features elite-bench`, use `camp_bench --pvp [--check] [--verbose] [--sampled]` for PvP timing.
 use rh_headless::{load_arena, Env};
 use rh_policy::scripted::Brawler;
 use rh_policy::{MatchStart, Policy};
@@ -23,6 +24,9 @@ use std::sync::Arc;
 #[cfg(feature = "elite-bench")]
 #[path = "../elite_bench.rs"]
 mod elite_bench;
+#[cfg(feature = "elite-bench")]
+#[path = "../pvp_bench.rs"]
+mod pvp_bench;
 
 /// The owner-approved relative band (plus or minus 10%, plan 2026-11-10) outside which a cell is listed.
 const BAND: f64 = 0.10;
@@ -424,6 +428,9 @@ fn fail(msg: &str) -> ! {
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let flag = |n: &str| args.iter().any(|a| a == n);
+    if flag("--pvp") {
+        pvp_main(&args);
+    }
     if flag("--elite") || flag("--sample-builds") {
         elite_main(&args);
     }
@@ -598,4 +605,18 @@ fn elite_main(args: &[String]) -> ! {
 #[cfg(not(feature = "elite-bench"))]
 fn elite_main(_args: &[String]) -> ! {
     fail("--elite and --sample-builds need a build with `--features elite-bench`")
+}
+
+/// Mirrors the same seeded farm builds under both PvP curves.
+#[cfg(feature = "elite-bench")]
+fn pvp_main(args: &[String]) -> ! {
+    match pvp_bench::run(args, MAP) {
+        Ok(()) => std::process::exit(0),
+        Err(error) => fail(&error),
+    }
+}
+
+#[cfg(not(feature = "elite-bench"))]
+fn pvp_main(_args: &[String]) -> ! {
+    fail("--pvp needs a build with `--features elite-bench`")
 }
