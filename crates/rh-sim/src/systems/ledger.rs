@@ -652,9 +652,9 @@ fn apply_inner(
 }
 
 /// P-AUG-NATIVE-1b: an entry that, once landed, is an `Event::Hit` with a weapon and `passive: false` (the native hit
-/// hooks' events and Bastion's burst carrier): not arena, not a damage-over-time, not a signature, not returned.
+/// hooks' events and Bastion's burst carrier): not arena, damage-over-time, signature, returned or derived.
 fn weapon_hit(e: &Entry) -> bool {
-    !e.arena && !e.is_dot() && e.sig.is_none() && e.weapon.is_some() && !e.passive
+    !e.arena && !e.is_dot() && e.sig.is_none() && e.weapon.is_some() && !e.passive && !e.derived
 }
 
 #[allow(clippy::too_many_arguments)]
