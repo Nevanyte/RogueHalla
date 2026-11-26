@@ -180,7 +180,10 @@ pub(crate) fn for_quest_board(
 ) -> Result<MapAssets, String> {
     use rh_sim::mapgen::{coliseum, pipeline};
     use rh_sim::quests::board::map_admission;
-    if map_admission::needs_repair(&base.arena, secrets) == Ok(false) {
+    // A cold pool may supply the configured fallback, whose Welcome carries no landmarks.
+    let landmarks_match =
+        !style.signature || base.welcome_map.anchor_count() == rh_protocol::map::MAX_MAP_ANCHORS;
+    if landmarks_match && map_admission::needs_repair(&base.arena, secrets) == Ok(false) {
         return Ok(base);
     }
     let data = base
