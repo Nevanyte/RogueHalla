@@ -227,18 +227,27 @@ impl Raid {
     }
 
     fn root_fixture_target(&mut self, id: PlayerId, by: PlayerId) {
-        use crate::status_runtime::{self, StatusApply, StatusKind, StatusSource};
+        self.fixture_status(id, by, crate::status_runtime::StatusKind::Root);
+    }
+
+    fn fixture_status(
+        &mut self,
+        id: PlayerId,
+        by: PlayerId,
+        kind: crate::status_runtime::StatusKind,
+    ) {
+        use crate::status_runtime::{self, StatusApply, StatusSource};
         let now = self.sim.w.server_time;
         let ix = self.sim.w.fighter_idx(id).unwrap();
         status_runtime::apply(
             &mut self.sim.w.core_mut(ix).statuses,
             now,
             StatusApply {
-                kind: StatusKind::Root,
+                kind,
                 source: StatusSource {
                     id: Some(by),
                     owner_id: Some(by),
-                    name: "Fixture root".into(),
+                    name: "Fixture status".into(),
                 },
                 ms: 2_000.,
                 ability: None,

@@ -124,11 +124,34 @@ impl Raid {
                 let victim = self.sim.w.players.get_mut(rival).unwrap();
                 (victim.vitals.max_hp, victim.vitals.hp) = prior;
             }
-            Turret | LanternWard | ScoutFalcon => {
+            Turret => {
+                let now = self.sim.w.server_time;
+                let victim = self.sim.w.players.get_mut(rival).unwrap();
+                victim.vitals.immune_until = now;
+                let hp = victim.vitals.hp;
                 self.use_spell(award, to, None);
-                assert!(effects::deployments(&self.sim.w)
+                self.legacy_steps(25);
+                assert!(self.sim.w.player(rival).unwrap().vitals.hp < hp);
+            }
+            LanternWard | ScoutFalcon => {
+                let remote = self
+                    .sim
+                    .k
+                    .arena
+                    .spawns
                     .iter()
-                    .any(|d| d.owner == self.seat));
+                    .copied()
+                    .find(|&at| distance(at, to) > crate::constants::VISION_RADIUS)
+                    .expect("a seat outside ordinary vision");
+                self.arrange(rival, remote);
+                self.sim.w.players.get_mut(rival).unwrap().vision = Default::default();
+                self.use_spell(award, to, None);
+                self.legacy_steps(6);
+                self.arrange(self.seat, remote);
+                // Prior ordinary sight has a 30-second trail. Clear it to isolate the cast.
+                self.sim.w.players.get_mut(self.seat).unwrap().vision = Default::default();
+                assert!(self.sim.can_see_point(self.seat, to));
+                assert!(!self.sim.can_see_point(rival, to));
             }
             Warhorn => {
                 self.use_spell(award, from, None);
@@ -159,6 +182,28 @@ impl Raid {
                 self.arrange(self.seat, self.giver);
                 self.use_spell(award, self.giver, None);
                 assert!(self.sim.w.rebirth_eggs.iter().any(|e| e.owner == self.seat));
+
+                let owner = self.seat;
+                let gear = self.sim.w.player(owner).unwrap().active_weapon();
+                let survivors = self
+                    .sim
+                    .w
+                    .players
+                    .iter()
+                    .filter(|p| p.id != owner && p.standing())
+                    .count();
+                self.arrange(owner, from);
+                self.seat = rival;
+                self.strike(owner, true);
+                self.seat = owner;
+                self.legacy_steps(65);
+                let revived = self.sim.w.player(owner).unwrap();
+                assert_eq!(revived.standing(), survivors > 3);
+                if survivors > 3 {
+                    assert!(distance(revived.pos(), self.giver) < 5.);
+                    assert_eq!(revived.active_weapon(), gear);
+                }
+                assert!(!self.sim.w.rebirth_eggs.iter().any(|e| e.owner == owner));
             }
             ForgetMeNotSeed => {
                 let slot = rewards::owned_spells(&self.sim.w, self.seat)
@@ -212,7 +257,23 @@ impl Raid {
             BlindRage => {
                 self.use_spell(award, from, None);
                 assert_eq!(effects::attack_rate(&self.sim.w, self.seat), 1.2);
-                self.use_spell(StillMind, from, None);
+                self.fixture_status(self.seat, rival, StatusKind::Stun);
+                let seat = self.seat;
+                let stunned = |w: &World| {
+                    status_runtime::has(
+                        &w.player(seat).unwrap().statuses.instances,
+                        StatusKind::Stun,
+                        w.server_time,
+                    )
+                };
+                assert!(stunned(&self.sim.w));
+                let slot = rewards::owned_spells(&self.sim.w, self.seat)
+                    .iter()
+                    .position(|s| s.is_some_and(|s| s.award == StillMind))
+                    .unwrap();
+                self.cast_input(slot, from, None);
+                assert!(!stunned(&self.sim.w), "StillMind must break an active stun");
+                assert!(rewards::owned_spells(&self.sim.w, self.seat)[slot].is_none());
                 assert!(effects::blocks_status(
                     &self.sim.w,
                     self.seat,
