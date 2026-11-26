@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -9,8 +10,15 @@ import subprocess
 import tempfile
 import unittest
 import sys
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 UPLOADER = Path(__file__).resolve().with_name("upload-capture.sh")
+BROKER_SPEC = importlib.util.spec_from_file_location(
+    "broker", UPLOADER.with_name("broker-capture-credentials.py")
+)
+BROKER = importlib.util.module_from_spec(BROKER_SPEC)
+BROKER_SPEC.loader.exec_module(BROKER)
 ACCOUNT = "111111111111"
 REPLAY = f"replay-{'1' * 32}.json.age"
 METRICS = f"metrics-{'2' * 32}-5.json.age"
@@ -127,6 +135,61 @@ class UploadContract(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(result.stdout, "")
             self.assertEqual(artifact.read_bytes(), ENVELOPE)
+
+
+class CredentialBrokerContract(unittest.TestCase):
+    def test_fixed_sts_session_and_private_atomically_published_credentials(self):
+        expiry = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+        role = f"arn:aws:iam::{ACCOUNT}:role/capture-staging"
+        credentials = dict(AccessKeyId="stub-key", SecretAccessKey="stub-secret",
+                           SessionToken="stub-token", Expiration=expiry)
+        reply = subprocess.CompletedProcess([], 0, json.dumps(credentials).encode())
+        with patch.object(BROKER.subprocess, "run", return_value=reply) as aws_call:
+            payload = BROKER.assume(Path("/vendor/aws"), "staging", role)
+        arguments = aws_call.call_args.args[0]
+        self.assertEqual(arguments[0:3], ["/vendor/aws", "sts", "assume-role"])
+        self.assertEqual(arguments[arguments.index("--role-arn") + 1], role)
+        self.assertEqual(arguments[arguments.index("--duration-seconds") + 1], "900")
+        self.assertEqual(aws_call.call_args.kwargs["env"]["AWS_CONFIG_FILE"], "/dev/null")
+        self.assertEqual(payload, dict(credentials, Version=1))
+
+        with tempfile.TemporaryDirectory() as scratch, patch.object(BROKER.os, "chown"), \
+                patch.object(BROKER.os, "fchown"):
+            root = Path(scratch)
+            BROKER.publish(root, "staging", 123, payload)
+            path = root / "staging" / "credential.json"
+            self.assertEqual(path.stat().st_mode & 0o777, 0o440)
+            self.assertEqual(path.parent.stat().st_mode & 0o777, 0o750)
+            self.assertEqual([p.name for p in path.parent.iterdir()], ["credential.json"])
+            self.assertEqual(json.loads(path.read_text()), payload)
+            self.assertFalse((root / "live").exists())
+
+    def test_staging_only_refresh_removes_stale_live_file_and_assumes_only_staging(self):
+        role = f"arn:aws:iam::{ACCOUNT}:role/capture-staging"
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            stale = root / "live" / "credential.json"
+            stale.parent.mkdir()
+            stale.write_text("stale-test-value")
+            with patch.object(BROKER, "CREDENTIALS", root), \
+                    patch.object(BROKER.os, "geteuid", return_value=0), \
+                    patch.object(BROKER, "configuration", return_value=(
+                        Path("/vendor/aws"), {"staging": (role, 123)}
+                    )), \
+                    patch.object(BROKER, "assume", return_value={"Version": 1}) as assume, \
+                    patch.object(BROKER, "publish") as publish:
+                self.assertEqual(BROKER.main(), 0)
+            self.assertFalse(stale.exists())
+            assume.assert_called_once_with(Path("/vendor/aws"), "staging", role)
+            publish.assert_called_once_with(root, "staging", 123, {"Version": 1})
+
+    def test_rejects_overlong_sts_session(self):
+        expiry = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        reply = subprocess.CompletedProcess([], 0, json.dumps({"Expiration": expiry}).encode())
+        with patch.object(BROKER.subprocess, "run", return_value=reply):
+            with self.assertRaisesRegex(ValueError, "invalid STS expiry"):
+                BROKER.assume(Path("/vendor/aws"), "staging",
+                              f"arn:aws:iam::{ACCOUNT}:role/capture-staging")
 
 
 if __name__ == "__main__":

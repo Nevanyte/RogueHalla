@@ -41,7 +41,9 @@ persistence during cutover and rollback. Keep private capture bodies outside web
 The focused oracle runs Caddy locally against both origin identities and checks the private health route, native API,
 upgrade, static compression, spoofed visitor headers, and rejection of unsupported hosts/paths. The upload oracle
 must reject plaintext and unsafe paths without invoking AWS, and the bounded sweep must recover its cursor and retain
-ambiguous ciphertext across restarts. Both templates lint in Calgary. For deployment acceptance,
+ambiguous ciphertext across restarts. The staging-only broker refreshes only its fixed role and publishes mode 0440
+temporary credentials atomically. The deployed Source and uploader units must pass IPv4 and IPv6 IMDS denial probes in
+their effective service slice. Both templates lint in Calgary. For deployment acceptance,
 the owner checks target health, listener TLS, release identity, real browser connect/reconnect, matched
 tunnel/ALB measurements, exact DNS reversal and cost through cleanup.
 

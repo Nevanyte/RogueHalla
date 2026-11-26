@@ -34,7 +34,7 @@ fi
 
 checksum=$(openssl dgst -sha256 -binary < "$artifact" | openssl base64 -A)
 received=$(
-  AWS_IGNORE_CONFIGURED_ENDPOINT_URLS=true aws --profile "$profile" s3api put-object \
+  AWS_IGNORE_CONFIGURED_ENDPOINT_URLS=true "${RH_CAPTURE_AWS_BIN:-aws}" --profile "$profile" s3api put-object \
     --no-cli-pager --region ca-west-1 --expected-bucket-owner "$owner" \
     --bucket "$bucket" --key "$environment/$name" --body "$artifact" \
     --if-none-match '*' --server-side-encryption AES256 \
