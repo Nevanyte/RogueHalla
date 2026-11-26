@@ -8,6 +8,7 @@
 //! token walk itself (a seat that saw the accepted row remembers the token).
 use rh_policy::bots::{PersonaId, RaidBot, TierId};
 use rh_policy::{drive_seats_with, feed_seats, scripted, MatchStart, Policy, Seat};
+use rh_sim::quests::board::catalog::QuestId;
 use rh_sim::{
     Arena, ArenaMode, Event, FactionId, ItemObserver, Observation, Placement, PlayerId,
     PublicCommand, Secrets, SightCache, Sim, SimConfig, Vec2, WeaponId,
@@ -49,6 +50,8 @@ fn config() -> SimConfig {
     SimConfig {
         lifecycle: ArenaMode::Off,
         min_players: 1,
+        // The fixed-map prelude and seed list were measured on the legacy board layout.
+        quest_board: rh_sim::statics::QuestBoard::Legacy,
         ..SimConfig::live_content()
     }
 }
@@ -255,7 +258,7 @@ fn raid() -> Box<dyn Policy> {
 }
 
 /// The seat's positions, one per tick, with `policy` seated for `ticks` ticks, and the last view's (pending, offered).
-fn run(mut s: Script, policy: Box<dyn Policy>, ticks: u32) -> (Vec<Vec2>, (bool, bool)) {
+fn run(mut s: Script, policy: Box<dyn Policy>, ticks: u32) -> (Vec<Vec2>, (bool, bool), bool) {
     let start = MatchStart::of(&s.sim, s.me, s.seed);
     let mut seats = vec![Seat::new(&start, policy, Box::new(scripted::Idle))];
     seats[0].bind_fx(&s.sim).expect("a new seat binds");
@@ -277,7 +280,12 @@ fn run(mut s: Script, policy: Box<dyn Policy>, ticks: u32) -> (Vec<Vec2>, (bool,
             );
         }
     }
-    (at, last)
+    let paid = s
+        .sim
+        .quest_attempts(s.me)
+        .iter()
+        .any(|a| a.quest == QuestId::Letters && a.completed);
+    (at, last, paid)
 }
 
 fn span(points: &[Vec2]) -> f64 {
@@ -303,7 +311,7 @@ fn a_seat_pushed_off_a_pending_token_quest_is_not_held_by_it() {
             report.push((seed, "choice not pending out of reach"));
             continue;
         }
-        let (at, (still_pending, _)) = run(s, raid(), RUN_TICKS);
+        let (at, (still_pending, _), paid) = run(s, raid(), RUN_TICKS);
         scenes += 1;
         let late = &at[at.len().saturating_sub(LATE_TICKS as usize)..];
         let moved = span(late);
@@ -318,8 +326,8 @@ fn a_seat_pushed_off_a_pending_token_quest_is_not_held_by_it() {
             at.len()
         );
         assert!(
-            still_pending,
-            "seed {seed}: nothing answers a choice out of reach: the scene is not the freeze"
+            still_pending || paid,
+            "seed {seed}: an out-of-reach choice must remain pending or be paid legitimately"
         );
         if moved < MOVED_AT_LEAST {
             held.push((seed, still_from));

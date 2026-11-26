@@ -49,6 +49,8 @@ fn config() -> SimConfig {
     SimConfig {
         lifecycle: ArenaMode::Off,
         min_players: 1,
+        // These fixed-map, fixed-seed scenes were measured before the spread giver layout.
+        quest_board: rh_sim::statics::QuestBoard::Legacy,
         ..SimConfig::live_content()
     }
 }
