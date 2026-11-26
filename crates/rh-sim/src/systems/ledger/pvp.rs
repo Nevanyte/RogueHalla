@@ -67,8 +67,8 @@ fn interval(attacker: &Player, weapon: WeaponId) -> f64 {
     crate::content::attack_interval(&crate::content::faction(attacker.faction()), weapon, haste)
 }
 
-/// Ordinary weapon damage and Fire's direct reaction get separate cadence ceilings. The other sources still use
-/// the general hit and DoT limits; native weapon bonuses apply to the capped base contact afterwards.
+/// Bound weapon hits and the damage riders that can repeat with them. Native bonuses still apply to the capped base
+/// contact, and the general hit and DoT limits still cover every source they did before.
 pub(super) fn hit_cap_share(w: &World, entry: &Entry, performed: &[PerformedAttack]) -> f64 {
     if entry.ability.is_some() || entry.arena {
         return f64::INFINITY;
@@ -78,6 +78,12 @@ pub(super) fn hit_cap_share(w: &World, entry: &Entry, performed: &[PerformedAtta
     };
     if let Some(weapon) = entry.weapon.filter(|_| weapon_hit(entry)) {
         return RAID_PVP_WEAPON_CAP_HP_PER_SEC * interval(attacker, weapon);
+    }
+    if let Some(weapon) = entry
+        .weapon
+        .filter(|_| entry.sig == Some(SignatureKind::Mark))
+    {
+        return RAID_PVP_MARK_CAP_HP_PER_SEC * interval(attacker, weapon);
     }
     if entry.sig == Some(SignatureKind::Backlash) {
         // Backlash reacts to the target's performed weapon, not Fire's display weapon or a reflected projectile.
@@ -172,6 +178,11 @@ mod tests {
         assert_eq!(
             hit_cap_share(&sim.w, &entry, &[attack]),
             RAID_PVP_BACKLASH_CAP_HP_PER_SEC * interval(&sim.players()[1], WeaponId::Axe)
+        );
+        entry.sig = Some(SignatureKind::Mark);
+        assert_eq!(
+            hit_cap_share(&sim.w, &entry, &[attack]),
+            RAID_PVP_MARK_CAP_HP_PER_SEC * interval(&sim.players()[0], WeaponId::Wand)
         );
         entry.ability = Some(crate::status_runtime::AbilityId::Blaze);
         assert!(hit_cap_share(&sim.w, &entry, &[attack]).is_infinite());

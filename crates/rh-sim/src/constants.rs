@@ -687,4 +687,7 @@ content! {
     RAID_PVP_PLAGUE_WEIGHT: f64 = 0.90, "multiplier";
     RAID_PVP_FROST_WEIGHT: f64 = 1.597, "multiplier";
     RAID_PVP_HOLY_WEIGHT: f64 = 1.497, "multiplier";
+    RAID_PVP_WEAPON_CAP_HP_PER_SEC: f64 = 0.18, "share of max hp per second";
+    RAID_PVP_BACKLASH_CAP_HP_PER_SEC: f64 = 0.025, "share of max hp per second";
+    RAID_PVP_MARK_CAP_HP_PER_SEC: f64 = RAID_PVP_WEAPON_CAP_HP_PER_SEC / 3., "share of max hp per second";
 }

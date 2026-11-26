@@ -249,8 +249,8 @@ const PILOT_PICKS: [&[CardId]; 3] = [
     ],
 ];
 
-// Fixed snapshots of two seats that actually survived to minute 20 in generated balance-lab matches.
-// The old Raid curve settled the Holy axe mirror in 1.40s and the Fire wand mirror in 3.85s at 20 Hz.
+// Fixed snapshots of three seats that actually survived to minute 20 in generated balance-lab matches.
+// Before cadence limits the Holy axe, Fire wand, and Sentenced wand mirrors settled in 1.40s, 3.85s, and 3.90s.
 const EARNED_AXE: &str = r#"{
   "cards":[["hereComesTheBoom",1],["machineGun",1],["committed",1],["slowBurn",1],
            ["fistsOfFury",1],["overkill",1],["tankEngine",1],["thirdTimesTheCharm",1],
@@ -259,7 +259,7 @@ const EARNED_AXE: &str = r#"{
   "stacks":[["emberImp",27],["flameCaller",30],["inquisitor",51],["pardoner",48],
             ["rotMonk",36],["frostbowSentry",55],["seraphShard",21],["penitent",9],["zealot",6]]
 }"#;
-const EARNED_WAND: &str = r#"{
+const EARNED_FIRE_WAND: &str = r#"{
   "cards":[["hereComesTheBoom",1],["machineGun",1],["committed",1],["slowBurn",1],
            ["fistsOfFury",1],["overkill",1],["tankEngine",1],["gambler",1],["raceToZero",1],
            ["thirdTimesTheCharm",1],["plantYourFeet",1],["hemorrhage",1],["spikedShell",1],["siphon",1],["bastion",1]],
@@ -268,13 +268,26 @@ const EARNED_WAND: &str = r#"{
             ["penitent",78],["zealot",54]]
 }"#;
 
+const EARNED_SENTENCED_WAND: &str = r#"{
+  "cards":[["machineGun",1],["committed",1],["fistsOfFury",1],["thirdTimesTheCharm",1],
+           ["eyeForAnEye",1],["plantYourFeet",1],["spikedShell",1],["secondWind",1],["executionersLedger",1]],
+  "stacks":[["flameCaller",39],["inquisitor",36],["pardoner",15],["bloatfly",36],
+            ["frostbowSentry",6],["acolyte",3],["penitent",81],["zealot",42]]
+}"#;
+
 const RESPONSE_BAND_MIN: f64 = 4.75;
 
 fn spike_controls(arena: &Arc<Arena>, verbose: bool) -> Vec<String> {
     let mut failures = Vec::new();
     for (seed, faction, weapon, probe) in [
         (22, FactionId::Holy, WeaponId::Axe, EARNED_AXE),
-        (23, FactionId::Fire, WeaponId::Wand, EARNED_WAND),
+        (23, FactionId::Fire, WeaponId::Wand, EARNED_FIRE_WAND),
+        (
+            23,
+            FactionId::Sentenced,
+            WeaponId::Wand,
+            EARNED_SENTENCED_WAND,
+        ),
     ] {
         let build = serde_json::from_str(probe).expect("recorded build");
         for tick_ms in [50, 25] {
@@ -292,13 +305,14 @@ fn spike_controls(arena: &Arc<Arena>, verbose: bool) -> Vec<String> {
             let legacy_window = legacy.reaction_seconds();
             let raid_window = raid.reaction_seconds();
             println!(
-                "{tick_ms}ms earned {} {}: first contact to down {legacy_window:?}s Legacy, {raid_window:?}s Raid, {:.2} returned, {:.2} Backlash",
-                faction.as_str(), weapon.as_str(), raid.returned_amount, raid.backlash_amount
+                "{tick_ms}ms earned {} {}: first contact to down {legacy_window:?}s Legacy, {raid_window:?}s Raid, {:.2} returned, {:.2} Backlash, {:.2} Mark",
+                faction.as_str(), weapon.as_str(), raid.returned_amount, raid.backlash_amount, raid.mark_amount
             );
-            let special = if faction == FactionId::Holy {
-                raid.returned_amount
-            } else {
-                raid.backlash_amount
+            let special = match faction {
+                FactionId::Holy => raid.returned_amount,
+                FactionId::Fire => raid.backlash_amount,
+                FactionId::Sentenced => raid.mark_amount,
+                _ => unreachable!("fixed earned builds"),
             };
             if !raid_window.is_some_and(|seconds| seconds >= RESPONSE_BAND_MIN)
                 || special <= 0.

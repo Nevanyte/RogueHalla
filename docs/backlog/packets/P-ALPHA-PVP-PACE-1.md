@@ -7,8 +7,9 @@ restoration. Equal-build PvP targets a median of about 25 seconds on starter gea
 Raid mode grows the PvP multiplier linearly from 0.425 at zero stat stacks to 0.95 at 288 stacks. Both camp and
 quest rewards can contribute these stacks. A symmetric faction-pair weight calibrates fight duration while applying the same matchup adjustment to both participants. Augments retain their own damage, defense
 and combat effects, with card power contributing up to 20% additional Raid PvP scaling. Extreme ordinary weapon
-hits and Fire Backlash use separate cadence-based ceilings. Each capped contact is limited to max HP times the
-weapon interval times 0.18 for an ordinary hit or 0.025 for Backlash before the existing hit limits.
+hits, Fire Backlash, and Sentenced Mark use cadence-based ceilings before the existing hit limits. Each capped contact
+is limited to max HP times its weapon interval times 0.18 for an ordinary hit, 0.025 for Backlash, or one-third of the
+ordinary rate for Mark.
 
 ## Dependencies
 
@@ -49,8 +50,8 @@ mitigation. Signature burn and mark still enter the normal settlement path. Wish
 Arena, unowned NPC and player-to-mob damage keep their existing settlement rules. The existing player hit and DoT
 limits still use the victim's max HP and the sim tick duration. The Raid cadence caps read their attack and trigger
 weapons before the damage pass. A swap leaves a projectile's weapon of origin intact. Fire Backlash reads the actual
-weapon that triggered it, and the reflected projectile, Spiked Shell return and native triggered weapon bonuses retain
-their existing settlement paths.
+weapon that triggered it. Mark uses the marking weapon's interval and keeps its true-damage share. Reflected
+projectiles, Spiked Shell returns and native triggered weapon bonuses retain their existing settlement paths.
 
 ## Acceptance checks
 
@@ -64,27 +65,25 @@ their existing settlement paths.
   and a post-charge Fire opening strike with a positive burst.
 - Sample actual late balance-lab survivors using the current rules, with their normal-mob stack mix, augments, boosts
   and weapon. Use mirror duels to report their timings as an independent distribution. Assert a response window of
-  at least 4.75 seconds between first contact and down for the sampled mirrors and two fixed extreme earned builds.
-  The fixed controls cover the fast Holy/Axe swings with Spiked Shell and Fire/Wand with Gambler, Race to Zero and
-  Backlash. Their pre-cap Raid contact-to-down timings were 1.35 and 3.25 seconds at 20 Hz.
+  at least 4.75 seconds between first contact and down for the sampled mirrors and three fixed extreme earned builds.
+  The controls cover fast Holy/Axe swings with Spiked Shell, Fire/Wand with Gambler, Race to Zero and Backlash,
+  and Sentenced/Wand with Mark pulsing alongside very fast casts. Their pre-cap Raid contact-to-down timings were
+  1.35, 3.25 and 3.60 seconds at 20 Hz. The Sentenced/Wand source trace showed an 80.79 weapon hit and 95.43 Mark
+  pulse every 0.30 seconds.
 
 The reference runs decided all 450 duels per profile, build and tick rate. Times below are seconds from attack start.
 
 | Build | Legacy 20 Hz median | Raid 20 Hz median | Raid 20 Hz p10–p90 | Raid 40 Hz median |
 | --- | ---: | ---: | ---: | ---: |
 | Starter | 15.15 | 25.25 | 22.45–29.00 | 25.20 |
-| 288 stacks | 11.50 | 9.30 | 6.80–13.90 | 9.28 |
-| 288 stacks and pilot augment picks | 4.70 | 11.05 | 6.55–18.80 | 11.00 |
+| 288 stacks | 11.50 | 9.45 | 7.20–13.90 | 9.43 |
+| 288 stacks and pilot augment picks | 4.70 | 11.45 | 6.75–18.80 | 11.38 |
 
 The Holy/Axe control gave 7.10 seconds after first contact at both rates. The Fire/Wand control gave 5.25 at 20 Hz
-and 4.875 at 40 Hz. Spiked Shell and Backlash both dealt damage in their respective controls. The real Blaze cast
+and 4.875 at 40 Hz. The Sentenced/Wand mirror gave 6.00 seconds at both rates. Spiked Shell, Backlash and Mark
+dealt damage in their respective controls. The real Blaze cast
 settled 133.50 damage at 20 Hz and 134.25 at 40 Hz under both profiles. A fully charged Fire opener still dealt
 45.02 burst damage at either rate.
-
-The final newly sampled survivors yielded ten mirror duels per rate from minutes 16–20. The response window ranged
-from 6.45 to 25.95 seconds at 20 Hz, with a 15.05-second median. At 40 Hz it ranged from 6.45 to 25.925 seconds,
-with a 15.0625-second median. Five sampled builds had at least 200 stacks. Their 20 Hz median from attack start
-was 12.30 seconds.
 
 ## Validation commands
 
@@ -105,8 +104,5 @@ unusual loadouts in addition to cohort medians.
 The bench gives full attack uptime and excludes movement, dodges and opponent policy. First down can be faster than
 both mirror fights in a mixed matchup. The balance-lab snapshot transplants static equipment and progression and starts
 each duel with fresh combat state. It excludes a sampled player's temporary effects, current health, quest inventory and
-accumulated combat-trigger meters. A live fight can include any of those. The fixed controls and three sampled seeds
-establish a response window for the traced weapon and Backlash spikes. A previously sampled 258-stack Sentenced/Wand
-mirror combined rapid 80.79 weapon contacts and separate 95.43 Mark pulses, ending 3.60 seconds after first contact
-even under the ordinary weapon ceiling. The reference grid and sampled mirrors provide a limited empirical timing
-check across builds and tick rates.
+accumulated combat-trigger meters. A live fight can include any of those. The reference grid and sampled mirrors
+establish timing for the specific builds and tick rates exercised.
