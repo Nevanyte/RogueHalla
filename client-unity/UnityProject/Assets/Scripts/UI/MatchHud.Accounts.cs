@@ -37,7 +37,7 @@ namespace Roguehalla.Client
             _launch.Build(_menu);
             _backdrop = gameObject.AddComponent<LaunchBackdrop>();
             _backdrop.Initialize(_client.Cam, _client);
-            _launch.SetRecordEmpty(_client.IsDiagnostic ? "Diagnostic session: accounts are off for this loopback test." : "New here? Type a name and press START RUN. Your record is saved under that name.");
+            SetEmptyRecord();
             _nickname = _launch.Callsign; _nickname.text = _client.Profile;
             _loadProfile = _launch.Load; _joinMatch = _launch.Play; _joinTraining = _launch.Training;
             _profileSummary = _launch.RecordText; _launchInfo = _launch.Reason; _accountStatus = _launch.Status;
@@ -107,7 +107,7 @@ namespace Roguehalla.Client
         }
         bool StartTraining()
         {
-            if (_joinTraining == null || !_joinTraining.interactable) return false;
+            if (_joinTraining == null || !_joinTraining.gameObject.activeInHierarchy || !_joinTraining.IsInteractable() || _client.LaunchPending) return false;
             _showcaseAudio?.UnlockFromUserGesture(); _client.Join(_nickname.text, _faction, MatchLaunchMode.Training);
             return true;
         }
@@ -217,30 +217,31 @@ namespace Roguehalla.Client
                     var p = state.Profile;
                     _launch.SetRecord(p.Gv.ToString("N0"), "Lifetime " + p.GvLifetime.ToString("N0") + "\nRuns " + p.Runs + " · Wins " + p.Wins + " · Kills " + p.Kills);
                 }
-                else _launch.SetRecordEmpty("New here? Type a name and press START RUN. Your record is saved under that name.");
+                else SetEmptyRecord();
             }
             bool busy = (state != null && state.Busy) || _client.ResumeBusy;
             bool pending = _client.LaunchPending;
             _loadProfile.interactable = !busy && !_client.IsDiagnostic;
             var arena = _client.LaunchTarget(MatchLaunchMode.Arena);
             var training = _client.LaunchTarget(MatchLaunchMode.Training);
-            bool account = _client.IsDiagnostic || _client.AccountFlow != null;
-            string callsignProblem = _client.IsDiagnostic ? null : LaunchCopy.CallsignProblem(_nickname.text);
+            bool diagnostic = _client.IsDiagnostic;
+            bool account = diagnostic || _client.AccountFlow != null;
+            string callsignProblem = diagnostic ? null : LaunchCopy.CallsignProblem(_nickname.text);
+            bool trainingOffered = !diagnostic && training.Available;
             bool ready = !busy && !pending && account && arena.Available && callsignProblem == null;
-            bool trainingReady = !busy && !pending && !_client.IsDiagnostic && account && training.Available && callsignProblem == null;
-            _joinMatch.interactable = ready;
-            _joinTraining.interactable = pending || trainingReady;
+            bool trainingReady = !busy && !pending && account && trainingOffered && callsignProblem == null;
             RefreshResumeMenu(state, busy, arena, training);
-            _launch.SetPlay(pending ? "JOINING" : "START RUN", ready, pending);
-            _launch.Atrium.SetPlayAvailable(ready, WhyNotPlay(account, callsignProblem, arena), callsignProblem != null && arena.Available ? "Type a callsign first" : "Unavailable",
-                trainingReady, WhyNotTraining(account, callsignProblem, training), "Unavailable");
+            _launch.SetPlay(pending ? "JOINING" : "START RUN", ready, pending, trainingOffered, trainingReady);
+            string arenaReason = WhyNotLaunch(account, callsignProblem, arena);
+            _launch.Atrium.SetPlayAvailable(ready, arenaReason, callsignProblem != null && arena.Available ? "Type a callsign first" : "Unavailable",
+                trainingReady, trainingOffered ? WhyNotLaunch(account, callsignProblem, training) : "",
+                callsignProblem != null && trainingOffered ? "Type a callsign first" : "Unavailable", trainingOffered);
 
             string reason = "";
             if (!pending && !busy)
             {
-                reason = WhyNotPlay(account, callsignProblem, arena);
-                if (reason.Length == 0 && !training.Available) reason = LaunchCopy.UnavailableText(MatchLaunchMode.Training, training);
-                if (reason.Length == 0 && !_client.IsDiagnostic) reason = "Training is a private practice room. Nothing is recorded.";
+                reason = arenaReason;
+                if (reason.Length == 0 && trainingOffered) reason = "Training is a private practice room. Nothing is recorded.";
             }
             string status = _client.AccountUiError;
             string resumeStatus = _client.ResumeStatus ?? "";
@@ -259,6 +260,10 @@ namespace Roguehalla.Client
             _launch.SetMessages(status, reason);
             if (_launch.Status.color != StatusTone(status, pending, busy)) _launch.Status.color = StatusTone(status, pending, busy);
         }
+        void SetEmptyRecord()
+        {
+            _launch.SetRecordEmpty(_client.IsDiagnostic ? "Loopback diagnostic.\nAccounts are off." : LaunchScreenView.FirstRunCallsignHint);
+        }
         Color StatusTone(string status, bool pending, bool busy)
         {
             var theme = UiTheme.Current;
@@ -266,16 +271,10 @@ namespace Roguehalla.Client
             if (status != null && status.StartsWith("Profile loaded")) return theme.Success;
             return theme.Warning;
         }
-        static string WhyNotPlay(bool account, string callsignProblem, MatchLaunchTarget arena)
+        static string WhyNotLaunch(bool account, string callsignProblem, MatchLaunchTarget target)
         {
             if (!account) return "Accounts aren't reachable from this page. Reload, or open the game from its main address.";
-            if (!arena.Available) return LaunchCopy.UnavailableText(MatchLaunchMode.Arena, arena);
-            return callsignProblem ?? "";
-        }
-        static string WhyNotTraining(bool account, string callsignProblem, MatchLaunchTarget training)
-        {
-            if (!account) return "Accounts aren't reachable from this page. Reload, or open the game from its main address.";
-            if (!training.Available) return LaunchCopy.UnavailableText(MatchLaunchMode.Training, training);
+            if (!target.Available) return LaunchCopy.UnavailableText(target.Mode, target);
             return callsignProblem ?? "";
         }
         static string AccountFailureText(AccountFailure failure)
