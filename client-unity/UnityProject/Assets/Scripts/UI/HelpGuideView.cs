@@ -141,7 +141,7 @@ namespace Roguehalla.Client
             new HelpMechanicSection("Cards, power, and PvP", new[]
             {
                 M("Card power", "Summarizes the tiers of cards you hold and informs the server’s player-versus-player damage factor. Live chest choices and mob stat stacks do not add to card power."),
-                M("PvP factor", "The server scales damage between players using card power. Mobs, Wishes, and arena burn use their own damage handling."),
+                M("PvP factor", "PvP damage scales with your stat stacks, card power, and the faction matchup. Mobs, Wishes, and arena burn use separate rules."),
                 M("Normal mob rewards", "Normal mob kills grant their type’s stat reward. Regular camp clears do not drop a chest."),
                 M("Quest rewards", "Quests grant stat rewards associated with their mob and zone, plus GV."),
                 M("Chests", "An elite can leave an augment chest. Each player makes a single server-validated choice, and an option may have a cost."),

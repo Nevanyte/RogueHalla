@@ -4,8 +4,8 @@
 
 P-ALPHA-PVP-PACE-1 serves the duel timing portion of ORDER_OF_OPERATIONS Phase 2 item 11 and the owner's alpha
 restoration. Equal-build PvP targets a median of about 25 seconds on starter gear and about 10 seconds on developed gear.
-Raid mode grows the PvP multiplier linearly from 0.425 at zero earned normal-mob stacks to 0.95 at 288 stacks. A
-symmetric faction-pair weight calibrates fight duration while applying the same matchup adjustment to both participants. Augments retain their own damage, defense
+Raid mode grows the PvP multiplier linearly from 0.425 at zero stat stacks to 0.95 at 288 stacks. Both camp and
+quest rewards can contribute these stacks. A symmetric faction-pair weight calibrates fight duration while applying the same matchup adjustment to both participants. Augments retain their own damage, defense
 and combat effects, with card power contributing up to 20% additional Raid PvP scaling.
 
 ## Dependencies
@@ -30,7 +30,8 @@ uses the elite bench's banked camp builds and the balance lab's match setup.
 ## Exclusive write scope
 
 The new paths plus `crates/rh-sim/src/systems/ledger.rs`, `crates/rh-sim/src/scratch.rs`,
-`crates/rh-sim/src/modifiers/farm.rs` and the `camp_bench` CLI in `crates/rh-headless/src/bin/camp_bench.rs`.
+`crates/rh-sim/src/modifiers/farm.rs`, `crates/rh-headless/src/bin/camp_bench.rs` and the PvP factor description in
+`client-unity/UnityProject/Assets/Scripts/UI/HelpGuideView.cs`.
 Configuration, the constants registry and the deviation record belong to the alpha coordinator.
 
 ## Contracts and references
