@@ -12,6 +12,22 @@ pub(super) struct PreparedRoom {
 }
 
 impl Director {
+    pub fn install_alpha_capture(&self, capture: crate::alpha_capture::Capture) {
+        let _ = self.alpha_capture.set(capture);
+    }
+
+    pub(crate) fn alpha_capture_health(&self) -> Option<serde_json::Value> {
+        self.alpha_capture
+            .get()
+            .map(crate::alpha_capture::Capture::health)
+    }
+
+    pub async fn flush_alpha_capture(&self) {
+        if let Some(capture) = self.alpha_capture.get() {
+            capture.flush().await;
+        }
+    }
+
     /// Installs the P-BOTS-5 record caller (the live learning store). The server calls it once at startup; tests install
     /// a probe sink. Learning stays off (the NO_BIAS zeros) when nothing is installed.
     pub fn install_learning(&self, sink: Arc<dyn LearningSink>) {
@@ -181,6 +197,9 @@ impl Director {
             linger: self.cfg.linger,
         };
         let mut room = Room::try_new(id, rc, self.reports.clone(), tokio::time::Instant::now())?;
+        if let Some(capture) = self.alpha_capture.get() {
+            room = room.with_alpha_capture(capture);
+        }
         if let Some(fill) = fill {
             room = room.with_bot_fill(fill).with_bot_names(self.bot_names());
             if let Some(sink) = self.learning.lock_recover().clone() {

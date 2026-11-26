@@ -15,6 +15,7 @@ mod task;
 
 pub use self::task::run_room;
 
+use crate::alpha_capture::{Capture, RoomMetrics, RoomReplay};
 use crate::bot_fill::{BotFillConfig, BotFillState, BotSeatSpec, FillView};
 use crate::metrics::{self, Histogram, Metrics};
 use crate::outbox::{Outbox, OutboxCounters};
@@ -511,6 +512,8 @@ pub struct Room {
     retired_outboxes: OutboxCounters,
     bot_seq: u64,
     recorder: Option<Recorder>,
+    alpha_metrics: Option<RoomMetrics>,
+    alpha_replay: Option<RoomReplay>,
     fixed_bot_seed: Option<u64>,
     reconnect_grace: Duration,
     linger: Duration,
@@ -641,6 +644,8 @@ impl Room {
             retired_outboxes: OutboxCounters::default(),
             bot_seq: 0,
             recorder,
+            alpha_metrics: None,
+            alpha_replay: None,
             fixed_bot_seed: cfg.fixed_bot_seed,
             reconnect_grace: cfg.reconnect_grace,
             linger: cfg.linger,
@@ -668,9 +673,23 @@ impl Room {
         self
     }
 
+    pub(crate) fn with_alpha_capture(mut self, capture: &Capture) -> Self {
+        if !self.training {
+            self.alpha_metrics = capture.room_metrics(self.id, &self.sim);
+            self.alpha_replay = capture.room_replay(self.id, &self.sim);
+        }
+        self
+    }
+
     fn record(&mut self, input: ReplayInput) {
-        if let Some(r) = self.recorder.as_mut() {
-            r.record(input);
+        match (&mut self.recorder, self.alpha_replay.is_some()) {
+            (Some(r), false) => r.record(input),
+            (Some(r), true) => {
+                r.record(input.clone());
+                RoomReplay::record(&mut self.alpha_replay, input);
+            }
+            (None, true) => RoomReplay::record(&mut self.alpha_replay, input),
+            (None, false) => {}
         }
     }
 

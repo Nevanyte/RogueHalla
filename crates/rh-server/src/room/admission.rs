@@ -38,6 +38,9 @@ impl Room {
         });
         let session = random16();
         let admission = lease.as_ref().map(|(identity, _)| *identity);
+        if let (Some(metrics), Some(admission)) = (&mut self.alpha_metrics, admission) {
+            metrics.admit(player, &profile, admission);
+        }
         let mut collections = crate::wire_state::CollectionPublisher::default();
         Self::bind_rate(self.sim.tick_ms(), &outbox, &mut collections);
         self.fences.push(SeatRecord {
@@ -138,6 +141,9 @@ impl Room {
                 && self.sim.player(player).is_some_and(|p| !p.resolved);
             self.record(ReplayInput::Leave { player });
             self.sim.remove_player(player);
+            if let Some(metrics) = &mut self.alpha_metrics {
+                metrics.exit(player, why.as_str());
+            }
             let _ = self.reports.send(RoomReport::Seat {
                 match_id: self.id,
                 profile: h.profile.clone(),

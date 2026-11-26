@@ -1,6 +1,7 @@
 //! Roguehalla live server: the thin adapter between sockets/wall clock/hosting and the deterministic core (rh-sim).
 //! See docs/CONTRACTS.md (C-NET, C-TICK) and docs/adr/0002-transport-and-protocol.md, 0004-hosting.md.
 
+pub mod alpha_capture;
 pub mod api;
 pub mod bot_fill;
 pub mod bot_learning;

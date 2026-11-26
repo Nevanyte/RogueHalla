@@ -104,10 +104,21 @@ impl Room {
             self.expire_leases(Instant::now().max(now));
             self.step_events.clear();
             self.sim.step_into(&mut self.step_events);
-            let us = t.elapsed().as_micros().min(u32::MAX as u128) as u32;
             if let Some(r) = self.recorder.as_mut() {
                 r.stepped(&self.sim);
             }
+            if self.alpha_replay.is_some() {
+                let completed = self.sim.phase() == Phase::Ended
+                    && self
+                        .step_events
+                        .iter()
+                        .any(|event| matches!(event, Event::RaidEnded));
+                RoomReplay::step(&mut self.alpha_replay, &self.sim, completed);
+            }
+            if let Some(metrics) = &mut self.alpha_metrics {
+                metrics.step(&self.sim, &self.step_events);
+            }
+            let us = t.elapsed().as_micros().min(u32::MAX as u128) as u32;
             self.step_us.record(us);
             self.metrics.step_us.record(us);
             rh_policy::feed_seats(&self.sim, &mut self.bots);

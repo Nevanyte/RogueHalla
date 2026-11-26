@@ -2,6 +2,7 @@
 
 use super::*;
 
+mod alpha_capture;
 mod bot_fill;
 mod pickups;
 mod tick_rate;
