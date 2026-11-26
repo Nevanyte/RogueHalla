@@ -34,7 +34,7 @@ At the opening, repeated equal player strikes kill the same normal mob in the sa
 
 ## 9. Validation
 
-Run the `normal_camp_raid_pacing_preserves` rh-sim unit test, the `augment_rules` statics-identity tests, `balance_lab_time`, and paired eight-seat RaidBot matches. The release-only `raid_camp_clear` test (rh-headless, feature `elite-bench`) plays 144 input-driven camp fights across four raid ages. The 0- and 5-minute pairs agree exactly. Compare the same full-raid seeds before and after. Run the full gate with PostgreSQL and Unity. The pre-change test failed on the minute-ten full-health kill.
+Run the `normal_camp_raid_pacing_preserves` rh-sim unit test, the `augment_rules` statics-identity tests, `balance_lab_time`, and paired eight-seat RaidBot matches. The release-only `raid_camp_clear` test (rh-headless, feature `elite-bench`) plays 144 input-driven camp fights across four raid ages. Opening pairs agree exactly. Fights that start at minute five can span the beginning of the ramp. Compare the same full-raid seeds before and after. Run the full gate with PostgreSQL and Unity. The pre-change test failed on the minute-ten full-health kill.
 
 ## 10. Risk and tier
 
