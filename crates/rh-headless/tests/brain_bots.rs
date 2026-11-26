@@ -80,8 +80,15 @@ struct Run {
 }
 
 fn run(kind: BotKind, seed: u64, max_ticks: u32, record: bool) -> Run {
+    run_at_tick_ms(kind, seed, max_ticks, record, 50)
+}
+
+fn run_at_tick_ms(kind: BotKind, seed: u64, max_ticks: u32, record: bool, tick_ms: u32) -> Run {
     let arena = arena();
-    let sim = live_config();
+    let sim = SimConfig {
+        tick_ms,
+        ..live_config()
+    };
     let agents = (0..8)
         .map(|i| rh_headless::AgentSpec {
             profile: format!("bot{i}"),
@@ -136,6 +143,41 @@ fn run(kind: BotKind, seed: u64, max_ticks: u32, record: bool) -> Run {
         first_death,
         stats: env.seat_stats(),
         replay: env.into_replay(),
+    }
+}
+
+/// Short matched-seed diagnostic before the coliseum closes. All agents occupy bot seats, as in a live fill room.
+#[test]
+#[ignore = "measures eight full-map policy seats; run explicitly in release"]
+fn early_survival_on_live_bot_seats() {
+    for (tick_ms, max_ticks) in [(25, 6_000), (50, 3_000)] {
+        let mut human_deaths = 0;
+        let mut brain_deaths = 0;
+        for seed in [3, 11, 17] {
+            let human = run_at_tick_ms(BotKind::Human, seed, max_ticks, false, tick_ms);
+            let brain = run_at_tick_ms(BotKind::Brain, seed, max_ticks, false, tick_ms);
+            eprintln!(
+                "{tick_ms}ms seed {seed}: HumanBot deaths={} first={:?} ticks={} mobs={}; BrainBot deaths={} first={:?} ticks={} mobs={}",
+                human.deaths, human.first_death, human.ticks, human.mob_kills, brain.deaths, brain.first_death, brain.ticks, brain.mob_kills
+            );
+            assert!(human.stats.iter().all(|(_, _, fault)| fault.is_none()));
+            assert!(brain.stats.iter().all(|(_, _, fault)| fault.is_none()));
+            assert!(
+                brain.stats.iter().any(|(_, stats, _)| stats.accepted > 0),
+                "seed {seed}: Brain seats must submit accepted commands"
+            );
+            assert!(brain.mob_kills > 0, "seed {seed}: Brain must farm");
+            human_deaths += human.deaths;
+            brain_deaths += brain.deaths;
+        }
+        assert!(
+            human_deaths >= 10,
+            "matched baseline must expose early HumanBot losses at {tick_ms}ms"
+        );
+        assert!(
+            brain_deaths < human_deaths,
+            "full Brain must preserve more starter seats before the coliseum at {tick_ms}ms"
+        );
     }
 }
 

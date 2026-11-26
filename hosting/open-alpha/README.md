@@ -57,7 +57,7 @@ systemd-run --unit=rh-alpha-source --service-type=exec --uid=rh_alpha \
   --property=EnvironmentFile=-/etc/rh-alpha/source.env \
   "$release_bin" --runtime source-arena --bind 127.0.0.1:7777 \
   --map "$release_map" --map-pool --signature-landmarks --instance-id alpha-stage-source \
-  --min-players "$stage_min_players" --fill-bots 8 --max-rooms 1 \
+  --min-players "$stage_min_players" --fill-bots 8 --bot-brain full --max-rooms 1 \
   --bot-learning off \
   --database-url 'postgresql:///rh_alpha?host=/run/rh-alpha-pg&user=rh_alpha' \
   --result-spool /srv/rh-alpha/spool-source \
