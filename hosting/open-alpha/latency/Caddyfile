@@ -1,0 +1,90 @@
+{
+	admin off
+	persist_config off
+	auto_https off
+	default_sni {$RH_ALB_HOST}
+	log {
+		format filter {
+			wrap json
+			fields {
+				request>headers>X-Playtest-Passcode delete
+				request>headers>X-Profile-Token delete
+			}
+		}
+	}
+	servers {
+		protocols h1
+		trusted_proxies static {$RH_ALB_SUBNETS}
+		trusted_proxies_strict
+		client_ip_headers X-Forwarded-For
+	}
+}
+
+https://:{$RH_ALB_TARGET_PORT:8443} {
+	bind {$RH_ALB_TARGET_IP}
+	tls {$RH_ALB_CERT_FILE} {$RH_ALB_KEY_FILE} {
+		protocols tls1.2 tls1.3
+	}
+
+	route {
+		@outside_alb not remote_ip {$RH_ALB_SUBNETS}
+		respond @outside_alb 403
+
+		@health {
+			method GET
+			host {$RH_ALB_TARGET_IP}
+			path /__rh_alb_health
+			header User-Agent ELB-HealthChecker/2.0
+		}
+		handle @health {
+			rewrite * /readyz
+			reverse_proxy {$RH_ALB_SOURCE}
+		}
+		@private path /control /control/* /probe /probe/* /training /training/* /__rh_alb_health /__rh_alb_health/*
+		respond @private 404
+
+		@wrong_host not host {$RH_ALB_HOST}
+		respond @wrong_host 421
+
+		# Require Caddy's validated client IP to be the literal last ALB-appended value.
+		# This also rejects missing/invalid suffixes and prevents falling back to an earlier hop.
+		@invalid_visitor not {
+			expression cel.bind(hops, {http.request.header.X-Forwarded-For}.split(','), hops[hops.size() - 1].trim() == {client_ip})
+			not client_ip {$RH_ALB_SUBNETS}
+		}
+		respond @invalid_visitor 400
+
+		@source path /ws /info /ping /healthz /readyz /api /api/*
+		handle @source {
+			header >Cache-Control "no-store"
+			reverse_proxy {$RH_ALB_SOURCE} {
+				header_up X-Forwarded-For {client_ip}
+				header_up X-Forwarded-Host {host}
+				header_up X-Forwarded-Proto https
+				header_up -Forwarded
+				header_up -X-Real-IP
+				header_up -CF-Connecting-IP
+			}
+		}
+
+		@static {
+			method GET HEAD
+			path / /index.html /favicon.ico /Build /Build/* /TemplateData /TemplateData/* /StreamingAssets /StreamingAssets/* /Licenses /Licenses/*
+		}
+		handle @static {
+			root * {$RH_ALB_WEB_ROOT}
+			header {
+				Cache-Control no-cache
+				X-Content-Type-Options nosniff
+			}
+			@data path /Build/*.data
+			header @data Content-Type application/octet-stream
+			@wasm path /Build/*.wasm
+			header @wasm Content-Type application/wasm
+			file_server {
+				precompressed br gzip
+			}
+		}
+		respond 404
+	}
+}

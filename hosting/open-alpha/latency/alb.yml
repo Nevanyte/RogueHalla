@@ -1,0 +1,268 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Calgary HTTPS ingress for an isolated Source rehearsal and an explicitly enabled live route.
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    ref:
+      - at: hosting/open-alpha/latency/README.md
+        has: Security boundaries, health checks, cost, rehearsal and rollback
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet::Id
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet::Id
+  SourceHostInstance:
+    Type: AWS::EC2::Instance::Id
+  StagingCertificateArn:
+    Type: String
+    AllowedPattern: 'arn:aws:acm:ca-west-1:[0-9]{12}:certificate/[0-9a-f-]+'
+  EnableProduction:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['false', 'true']
+  ProductionHostname:
+    Type: String
+    Default: ''
+    AllowedPattern: '(|[a-z0-9]([a-z0-9-]*[a-z0-9])?([.][a-z0-9]([a-z0-9-]*[a-z0-9])?)+)'
+    MaxLength: 128
+  ProductionCertificateArn:
+    Type: String
+    Default: ''
+    AllowedPattern: '(|arn:aws:acm:ca-west-1:[0-9]{12}:certificate/[0-9a-f-]+)'
+Rules:
+  DistinctSubnets:
+    Assertions:
+      - Assert: !Not [!Equals [!Ref PublicSubnetA, !Ref PublicSubnetB]]
+        AssertDescription: Supply two public subnets in different Availability Zones.
+  ProductionInputs:
+    RuleCondition: !Equals [!Ref EnableProduction, 'true']
+    Assertions:
+      - Assert: !And
+          - !Not [!Equals [!Ref ProductionHostname, '']]
+          - !Not [!Equals [!Ref ProductionHostname, latency-staging.roguehalla.com]]
+          - !Not [!Equals [!Ref ProductionCertificateArn, '']]
+        AssertDescription: Supply the live hostname and an issued Calgary ACM certificate.
+Conditions:
+  ProductionEnabled: !Equals [!Ref EnableProduction, 'true']
+Resources:
+  TargetSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Additional security group for private Source ingress targets
+      VpcId: !Ref VpcId
+      # A placeholder egress rule suppresses EC2's auto-added allow-all. Existing host SGs still govern egress.
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 1
+          ToPort: 1
+          CidrIp: 127.0.0.1/32
+          Description: Suppress the automatic allow-all egress rule
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public HTTPS to the ALB and private HTTPS to the Source ingress targets
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: Public IPv4 HTTPS and WSS
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 8443
+          ToPort: 8443
+          DestinationSecurityGroupId: !GetAtt TargetSecurityGroup.GroupId
+        - !If
+          - ProductionEnabled
+          - IpProtocol: tcp
+            FromPort: 8444
+            ToPort: 8444
+            DestinationSecurityGroupId: !GetAtt TargetSecurityGroup.GroupId
+          - !Ref AWS::NoValue
+  StagingTargetIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt TargetSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 8443
+      ToPort: 8443
+      SourceSecurityGroupId: !GetAtt LoadBalancerSecurityGroup.GroupId
+      Description: Staging TLS from the ingress ALB only
+  ProductionTargetIngress:
+    Condition: ProductionEnabled
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt TargetSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 8444
+      ToPort: 8444
+      SourceSecurityGroupId: !GetAtt LoadBalancerSecurityGroup.GroupId
+      Description: Live TLS from the ingress ALB only
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Scheme: internet-facing
+      IpAddressType: ipv4
+      SecurityGroups: [!GetAtt LoadBalancerSecurityGroup.GroupId]
+      Subnets: [!Ref PublicSubnetA, !Ref PublicSubnetB]
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '120'
+        - Key: routing.http.desync_mitigation_mode
+          Value: strictest
+        - Key: routing.http.drop_invalid_header_fields.enabled
+          Value: 'true'
+        - Key: routing.http.preserve_host_header.enabled
+          Value: 'true'
+        - Key: routing.http.xff_header_processing.mode
+          Value: append
+        - Key: routing.http.xff_client_port.enabled
+          Value: 'false'
+        - Key: waf.fail_open.enabled
+          Value: 'false'
+  StagingTarget:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      TargetType: instance
+      Protocol: HTTPS
+      ProtocolVersion: HTTP1
+      Port: 8443
+      HealthCheckProtocol: HTTPS
+      HealthCheckPath: /__rh_alb_health
+      HealthCheckIntervalSeconds: 15
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: '200'
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '120'
+      Targets:
+        - Id: !Ref SourceHostInstance
+  ProductionTarget:
+    Condition: ProductionEnabled
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      TargetType: instance
+      Protocol: HTTPS
+      ProtocolVersion: HTTP1
+      Port: 8444
+      HealthCheckProtocol: HTTPS
+      HealthCheckPath: /__rh_alb_health
+      HealthCheckIntervalSeconds: 15
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: '200'
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '120'
+      Targets:
+        - Id: !Ref SourceHostInstance
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      Certificates:
+        - CertificateArn: !Ref StagingCertificateArn
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            StatusCode: '404'
+            ContentType: text/plain
+            MessageBody: Not found
+  ProductionCertificate:
+    Condition: ProductionEnabled
+    Type: AWS::ElasticLoadBalancingV2::ListenerCertificate
+    Properties:
+      ListenerArn: !Ref Listener
+      Certificates:
+        - CertificateArn: !Ref ProductionCertificateArn
+  StagingRoutes:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref Listener
+      Priority: 10
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values: [latency-staging.roguehalla.com]
+        - Field: path-pattern
+          PathPatternConfig:
+            RegexValues:
+              - '^/((ws|info|ping|healthz|readyz|api(/.*)?)|(index[.]html|favicon[.]ico|(Build|TemplateData|StreamingAssets|Licenses)(/.*)?))?$'
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref StagingTarget
+  ProductionRoutes:
+    Condition: ProductionEnabled
+    DependsOn: ProductionCertificate
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref Listener
+      Priority: 20
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values: [!Ref ProductionHostname]
+        - Field: path-pattern
+          PathPatternConfig:
+            RegexValues:
+              - '^/((ws|info|ping|healthz|readyz|api(/.*)?)|(index[.]html|favicon[.]ico|(Build|TemplateData|StreamingAssets|Licenses)(/.*)?))?$'
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ProductionTarget
+  WebAcl:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub '${AWS::StackName}-acl'
+        SampledRequestsEnabled: false
+      Rules:
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 0
+          OverrideAction:
+            Count: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub '${AWS::StackName}-common'
+            SampledRequestsEnabled: false
+  WebAclBinding:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Ref LoadBalancer
+      WebACLArn: !GetAtt WebAcl.Arn
+Outputs:
+  AlbDnsName:
+    Description: IPv4 ALB DNS name for approved DNS-only CNAMEs.
+    Value: !GetAtt LoadBalancer.DNSName
+  TargetSecurityGroup:
+    Description: Add to approved target ENIs alongside their existing security groups.
+    Value: !GetAtt TargetSecurityGroup.GroupId
+  StagingTargetGroupArn:
+    Description: Staging target group for health verification.
+    Value: !Ref StagingTarget
+  ProductionTargetGroupArn:
+    Condition: ProductionEnabled
+    Description: Live target group for pre-cutover health verification.
+    Value: !Ref ProductionTarget

@@ -1,0 +1,28 @@
+let load_balancers = Resources.*[ Type == "AWS::ElasticLoadBalancingV2::LoadBalancer" ]
+let listeners = Resources.*[ Type == "AWS::ElasticLoadBalancingV2::Listener" ]
+let targets = Resources.*[ Type == "AWS::ElasticLoadBalancingV2::TargetGroup" ]
+let target_ingress = Resources.*[ Type == "AWS::EC2::SecurityGroupIngress" ]
+let buckets = Resources.*[ Type == "AWS::S3::Bucket" ]
+
+rule https_only_public_ingress when %load_balancers !empty {
+    %load_balancers.Properties.IpAddressType == "ipv4"
+    %listeners.Properties.Port == 443
+    %listeners.Properties.Protocol == "HTTPS"
+}
+
+rule private_tls_targets when %targets !empty {
+    %targets.Properties.Protocol == "HTTPS"
+    %targets.Properties.HealthCheckProtocol == "HTTPS"
+    %target_ingress.Properties.SourceSecurityGroupId exists
+    %target_ingress.Properties.CidrIp !exists
+    %target_ingress.Properties.CidrIpv6 !exists
+}
+
+rule private_capture_storage when %buckets !empty {
+    %buckets.DeletionPolicy == "Retain"
+    %buckets.UpdateReplacePolicy == "Retain"
+    %buckets.Properties.VersioningConfiguration.Status == "Enabled"
+    %buckets.Properties.OwnershipControls.Rules[*].ObjectOwnership == "BucketOwnerEnforced"
+    %buckets.Properties.PublicAccessBlockConfiguration.* == true
+    %buckets.Properties.BucketEncryption.ServerSideEncryptionConfiguration[*].ServerSideEncryptionByDefault.SSEAlgorithm == "AES256"
+}

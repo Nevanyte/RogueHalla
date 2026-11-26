@@ -1,0 +1,21 @@
+[Unit]
+Description=RogueHalla private ALB ingress (%i)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=rh-alpha-alb-%i
+EnvironmentFile=/etc/rh-alpha-alb/%i.env
+Environment=XDG_DATA_HOME=/var/lib/rh-alpha-alb/%i
+StateDirectory=rh-alpha-alb/%i
+ExecStartPre=/usr/bin/caddy validate --config /etc/rh-alpha-alb/Caddyfile --adapter caddyfile
+ExecStart=/usr/bin/caddy run --config /etc/rh-alpha-alb/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
