@@ -21,7 +21,8 @@ sys.path.insert(0, str(HERE.parent))
 from test_routes import KEY, Source
 
 STAGING = "latency-staging.roguehalla.com"
-LIVE = "live.example.test"
+LIVE = "game.roguehalla.com"
+PLAY = "play.roguehalla.com"
 PEER = "127.0.0.1"
 VISITOR = "198.51.100.24"
 
@@ -144,9 +145,9 @@ class IngressContract(unittest.TestCase):
             self.assertEqual(self.request(host, "/__rh_alb_health")[0], 404)
 
     def test_only_target_host_and_public_routes_reach_origin(self):
+        self.assertEqual(self.request(STAGING, "/")[2], b"staging")
+        self.assertEqual(self.request(STAGING, "/alpha-gameplay-data.html")[2], b"capture notice")
         for host, wrong, environment in ((STAGING, LIVE, "staging"), (LIVE, STAGING, "live")):
-            self.assertEqual(self.request(host, "/")[2], environment.encode())
-            self.assertEqual(self.request(host, "/alpha-gameplay-data.html")[2], b"capture notice")
             self.assertEqual(self.request(host, "/info")[1]["X-Origin-Environment"], environment)
             self.assertEqual(self.request(host, "/info", {"Host": wrong})[0], 421)
             self.assertEqual(self.request(host, "/", method="POST")[0], 404)
@@ -154,6 +155,9 @@ class IngressContract(unittest.TestCase):
                          "/__rh_alb_health", "/secret.txt"):
                 self.assertEqual(self.request(host, path)[0], 404)
         self.assertEqual(self.request("denied.example.test", "/info")[0], 403)
+        for path in ("/", "/index.html", "/Build/Web.wasm", "/TemplateData/style.css",
+                     "/alpha-gameplay-data.html"):
+            self.assertEqual(self.request(LIVE, path)[0], 404, path)
 
     def test_only_literal_last_alb_address_survives(self):
         status, headers, body = self.request(STAGING, "/api/profile", {
@@ -204,23 +208,38 @@ class IngressContract(unittest.TestCase):
         self.assertEqual(body.hex(), "8b03800061736d0100000003")
         self.assertEqual(self.request(STAGING, "/Build/Web.data")[1]["Content-Type"],
                          "application/octet-stream")
-        for host, environment in ((STAGING, "staging"), (LIVE, "live")):
-            port, context = self.listeners[host]
-            with socket.create_connection((PEER, port), timeout=3) as sock:
-                with context.wrap_socket(sock, server_hostname=host) as tls:
-                    tls.sendall(
-                        f"GET /ws HTTP/1.1\r\nHost: {host}\r\nOrigin: https://{host}\r\n"
-                        f"X-Forwarded-For: 192.0.2.5, {VISITOR}\r\n"
-                        "Connection: Upgrade\r\nUpgrade: websocket\r\n"
-                        f"Sec-WebSocket-Version: 13\r\nSec-WebSocket-Key: {KEY}\r\n\r\n".encode()
-                    )
-                    with tls.makefile("rb") as stream:
-                        self.assertIn(b"101 Switching Protocols", stream.readline())
-                        received = http.client.parse_headers(stream)
-                        self.assertEqual(received["X-Origin-Environment"], environment)
-                        self.assertEqual(received["X-Observed-Visitor"], VISITOR)
-                        self.assertEqual(received["X-Observed-Origin"], f"https://{host}")
-                        self.assertEqual(stream.read(5), b"\x82\x03rh!")
+        port, context = self.listeners[LIVE]
+        with socket.create_connection((PEER, port), timeout=3) as sock:
+            with context.wrap_socket(sock, server_hostname=LIVE) as tls:
+                tls.sendall(
+                    f"GET /ws HTTP/1.1\r\nHost: {LIVE}\r\nOrigin: https://{PLAY}\r\n"
+                    f"X-Forwarded-For: 192.0.2.5, {VISITOR}\r\n"
+                    "Connection: Upgrade\r\nUpgrade: websocket\r\n"
+                    f"Sec-WebSocket-Version: 13\r\nSec-WebSocket-Key: {KEY}\r\n\r\n".encode()
+                )
+                with tls.makefile("rb") as stream:
+                    self.assertIn(b"101 Switching Protocols", stream.readline())
+                    received = http.client.parse_headers(stream)
+                    self.assertEqual(received["X-Origin-Environment"], "live")
+                    self.assertEqual(received["X-Observed-Visitor"], VISITOR)
+                    self.assertEqual(received["X-Observed-Origin"], f"https://{PLAY}")
+                    self.assertEqual(stream.read(5), b"\x82\x03rh!")
+
+
+class ProductionTemplateContract(unittest.TestCase):
+    def test_production_alb_rule_is_dynamic_only_and_host_pinned(self):
+        template = (HERE / "alb.yml").read_text()
+        production = template.split("  ProductionRoutes:", 1)[1].split("  WebAcl:", 1)[0]
+        self.assertIn("Values: [!Ref ProductionHostname]", production)
+        self.assertIn("'^/(ws|info|ping|healthz|api(/.*)?)$'", production)
+        self.assertNotIn("Build", production)
+        self.assertNotIn("index[.]html", production)
+        self.assertIn("AllowedPattern: '(|game[.]roguehalla[.]com)'", template)
+
+    def test_static_caddy_matcher_is_staging_only(self):
+        config = (HERE / "Caddyfile").read_text()
+        static = config.split("\t\t@static {", 1)[1].split("\n\t\t}", 1)[0]
+        self.assertIn("host latency-staging.roguehalla.com", static)
 
 
 if __name__ == "__main__":

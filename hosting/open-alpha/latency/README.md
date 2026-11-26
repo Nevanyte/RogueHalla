@@ -1,5 +1,13 @@
 # Calgary open-alpha ingress
 
+This recipe reflects the owner-directed production split prepared in
+`P-HOST-PROD-SPLIT-1`: `play.roguehalla.com` stays proxied through its current
+tunnel as the Unity page origin; `game.roguehalla.com` is the DNS-only backend
+hostname. The production ALB route serves dynamic APIs and WSS only. The older
+single-host live cutover steps below are superseded by **Production split** at
+the end of this file. This is local implementation guidance; no provider state
+has been changed.
+
 This route adds an IPv4 HTTPS/WSS Application Load Balancer in Calgary (`ca-west-1`).
 The existing Cloudflare tunnels stay connected. Use [the staging rehearsal](../README.md)
 for the reviewed build, isolated PostgreSQL and Source runtime, backups and drain.
@@ -21,8 +29,13 @@ for the reviewed build, isolated PostgreSQL and Source runtime, backups and drai
    `latency-staging.roguehalla.com` in `ca-west-1`. In Cloudflare create the exact ACM
    validation CNAME as **DNS only**, using its complete target. Check the public
    answer with `dig @1.1.1.1 +short CNAME <validation-name>` and wait for ACM to show
-   `ISSUED`. Keep the validation record for renewal. Apply the same process to the
-   confirmed live Rust hostname before enabling live. Check CAA permissions if
+   `ISSUED`. Keep the validation record for renewal. The owner reports the
+   `game.roguehalla.com` certificate is already `ISSUED` in `ca-west-1`; verify
+   its SAN, account and region during preflight and retain its validation
+   record. If a replacement is needed, apply the same DNS validation process.
+   `play.roguehalla.com` remains the proxied page/tunnel hostname; it is not the
+   ALB certificate name.
+   Check CAA permissions if
    validation stalls. [ACM DNS validation](https://docs.aws.amazon.com/acm/latest/userguide/dns-validation.html)
 4. Confirm the complete test estimate is at most **CAD 100 total** including existing
    spend, taxes, currency conversion, host, EBS and backups. Include ALB hours, both
@@ -47,8 +60,10 @@ aws --region ca-west-1 cloudformation deploy --no-execute-changeset \
 ```
 
 The default rule returns 404. The staging rule matches the exact staging hostname
-and the reviewed native API and Web build paths. The live certificate, rule, target group
-and target SG rules are conditional. Managed WAF Core Rule Set counts at first. Keep
+and the reviewed native API and Web build paths. The production rule matches
+`game.roguehalla.com` and only `/ws`, `/info`, `/ping`, `/healthz` and `/api/*`
+dynamic routes; it never serves the Unity page or assets. The live certificate,
+rule, target group and target SG rules are conditional. Managed WAF Core Rule Set counts at first. Keep
 request sampling off to avoid storing claim and profile headers. Review counts,
 request volume and connection metrics. Use a reviewed change set with
 `EnforceManagedRules=true` to qualify blocking and `false` to restore Count.
@@ -88,8 +103,12 @@ RH_ALB_SOURCE=127.0.0.1:<separate staging Source port>
 RH_ALB_WEB_ROOT=<staging release Web root>
 ```
 
-Use 8444, the exact live Rust hostname, the existing live Rust loopback address,
-the active live Web root and a dedicated certificate/key in `live.env`. On the
+Use 8444, `game.roguehalla.com`, the existing live Rust loopback address
+`127.0.0.1:8777`, and a dedicated certificate/key in `live.env`. The production
+Caddy instance serves no Web content; set its otherwise-unused
+`RH_ALB_WEB_ROOT=/var/empty` while only the staging instance receives a release
+Web root.
+On the
 guest generate each private cert with `openssl req -new -newkey rsa:2048 -nodes
 -x509 -days 90 -subj "/CN=$host" -addext "subjectAltName=DNS:$host" -keyout
 "$key_file" -out "$cert_file"` under `umask 077`. Grant the appropriate Caddy
@@ -153,7 +172,12 @@ from the timestamps using one documented timestamp unit. Without that dataset,
 use only the matched client samples and note the provider telemetry gap.
 [WebSocket Analytics availability](https://developers.cloudflare.com/analytics/changelog/product-group/analytics/2/) · [Dataset fields](https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/zone/websocket_analytics/)
 
-## Live cutover and exact reversal
+## Legacy single-host live cutover (superseded)
+
+The historical procedure below describes the prior single-host model. Do not use
+it for this production split: it moves the page hostname to the ALB and sends Web
+assets through the production target, both of which are prohibited by the current
+owner direction.
 
 1. After staging acceptance and owner approval, confirm the intended live
    hostname currently reaches the same live Rust Source process that the ALB
@@ -187,3 +211,101 @@ use only the matched client samples and note the provider telemetry gap.
    EC2 ENI. Delete the ALB stack in the approved owner window. Check
    that the ALB/WAF, new rules, target groups and public IPv4 use are gone.
    The pre-existing staging and live tunnel configurations stay active.
+
+## Production split: dynamic backend and proxied page
+
+`play.roguehalla.com` remains **Proxied** and keeps its current Cloudflare tunnel
+target and route. Its selected Unity Web root provides the page. The sealed Unity
+release must set `<meta name="roguehalla-backend" content="split">`, causing its
+game socket and API requests to use `https://game.roguehalla.com`; the owner
+seals and publishes this HTML. The accepted browser Origin at the Rust server is
+the literal `https://play.roguehalla.com`. Start the existing live Source with
+both `--ws-origins https://play.roguehalla.com` and
+`--api-cors-origins https://play.roguehalla.com`, preserving the other live
+admission and persistence flags. `game.roguehalla.com` does not serve `/`,
+Unity paths, or arbitrary paths. Its only ALB route patterns are `/ws`, `/info`,
+`/ping`, `/healthz`, `/api`, and `/api/*`; private paths stay denied by Caddy.
+
+### Certificate and listener preflight
+
+The owner reports a public DNS-validated ACM certificate for the exact name
+`game.roguehalla.com` is already `ISSUED` in `ca-west-1`. Verify its SAN,
+account, region, and listener eligibility. Retain its validation CNAME for
+renewal. If replacement is needed, publish the ACM validation CNAME as
+DNS-only, verify it publicly with `dig`, wait for ACM `ISSUED`, and keep that
+record. Configure the production listener rule for host
+`game.roguehalla.com`, using that ACM certificate. Keep the ALB target TLS port
+8444 restricted to the ALB security group. The production Caddy service binds
+only the host's private IPv4 address, uses its private target certificate, and
+reverse proxies only to `127.0.0.1:8777`. Keep the existing authoritative Source
+process, database, cloudflared connector and tunnel route running throughout
+preflight. The ALB target health request uses its private Host and internally
+rewrites `/__rh_alb_health` to Source `/readyz`; public access to either internal
+health path is denied.
+
+Before any public DNS change, check the ALB host, TLS and routing while pinning
+resolution to the ALB:
+
+```bash
+host=game.roguehalla.com
+curl --fail --show-error --silent --connect-to "$host:443:$alb_dns:443" "https://$host/info"
+curl --include --connect-to "$host:443:$alb_dns:443" "https://$host/"
+curl --include --connect-to "$host:443:$alb_dns:443" "https://$host/Build/Web.wasm"
+```
+
+The first request must match the live Source release receipt. The latter two
+must return 404. Also verify `healthz`, a valid API call and WSS with Origin
+`https://play.roguehalla.com`; test an unrelated Origin is rejected by Rust.
+Check `/control`, `/probe`, `/training`, `/__rh_alb_health` and unknown paths
+are denied. Check the target group is healthy and that forged incoming XFF or
+Cloudflare IP headers cannot replace the ALB-appended address. Test the
+currently proxied `play.roguehalla.com` tunnel and page in parallel.
+
+### Stage and rollback app and page together without DNS changes
+
+Package each candidate as a release receipt with the Rust binary SHA, map,
+protocol/content identity, Web tree SHA manifest, backend mode and the exact
+sealed HTML SHA. Store app and Web files under separate immutable, read-only
+release directories named with the same release SHA. Never overwrite a release
+directory. Stage both from the isolated staging Source and staging tunnel first.
+For production preflight, keep DNS unchanged: send `game.roguehalla.com` requests
+through `curl --connect-to` or a local browser DNS override to the ALB, and use
+the existing tunnel's staging hostname for the candidate page. The owner owns
+the final tunnel release switch and HTML seal/publication.
+
+At an approved release, switch the app binary and page Web root as one reviewed
+release pair using the service and tunnel's existing release selectors, and
+record both prior selector values before switching either. Keep both prior
+immutable directories available. Validate the selected page's HTML identity,
+protocol/content handshake, WSS admission, API claims, reconnect and a complete
+match. If any check fails, restore both previous selectors from the receipt;
+leave all DNS records and tunnel routes as they were. This pair switch is the
+rollback boundary, and it does not require changing the `play` or `game` DNS
+records. Do not replace the live Source binary beneath active rooms; drain or
+use the existing restart policy before changing the app selector.
+
+Only after the owner accepts the release and separately approves DNS, change
+the saved `game.roguehalla.com` record to a DNS-only CNAME for the Calgary ALB.
+Do not edit the `play.roguehalla.com` record: it remains Proxied to the current
+tunnel. Rollback of the app/page release pair does not require DNS movement.
+If DNS itself is later reverted, restore only the saved `game` record by ID and
+its exact original type, target, proxy flag, TTL, tags, comment and settings;
+leave `play` untouched. Existing sockets drain naturally; DNS only affects new
+resolutions.
+
+### Versioned static CDN plan
+
+Static delivery stays on `play.roguehalla.com`, behind its existing proxied
+tunnel/CDN path; the DNS-only game hostname carries no static bytes. Publish
+each Web build into its immutable directory
+`/srv/rh-alpha/web-public/{staging,live}/<full SHA>/{Build,TemplateData,StreamingAssets,Licenses}/`.
+The page's sealed asset URLs use `/alpha-web/<full SHA>/...`; old directories
+remain available while old pages can still be open. Apply long-lived immutable
+cache headers only to that versioned prefix. Keep the selected HTML entry point
+revalidating (`no-cache`) and APIs/WSS uncached. Verify Unity's loader and every
+relative asset request resolve inside this namespace before enabling it. The
+current fixed `/Build/*` paths are not sufficient to claim immutable CDN cache
+safety. Until the sealed Unity HTML selects the prefix, use the existing
+proxied tunnel with conservative asset cache headers and retain the known-good
+Web root for rollback. No CDN or cache configuration is changed by this local
+recipe.

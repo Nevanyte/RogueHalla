@@ -30,7 +30,7 @@ Parameters:
   ProductionHostname:
     Type: String
     Default: ''
-    AllowedPattern: '(|[a-z0-9]([a-z0-9-]*[a-z0-9])?([.][a-z0-9]([a-z0-9-]*[a-z0-9])?)+)'
+    AllowedPattern: '(|game[.]roguehalla[.]com)'
     MaxLength: 128
   ProductionCertificateArn:
     Type: String
@@ -226,8 +226,7 @@ Resources:
         - Field: path-pattern
           PathPatternConfig:
             RegexValues:
-              - '^/(ws|info|ping|healthz|readyz|api(/.*)?)$'
-              - '^/(index[.]html|alpha-gameplay-data[.]html|favicon[.]ico|(Build|TemplateData|StreamingAssets|Licenses)(/.*)?)?$'
+              - '^/(ws|info|ping|healthz|api(/.*)?)$'
       Actions:
         - Type: forward
           TargetGroupArn: !Ref ProductionTarget

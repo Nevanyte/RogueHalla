@@ -68,6 +68,7 @@ https://:{$RH_ALB_TARGET_PORT:8443} {
 		}
 
 		@static {
+			host latency-staging.roguehalla.com
 			method GET HEAD
 			path / /index.html /alpha-gameplay-data.html /favicon.ico /Build /Build/* /TemplateData /TemplateData/* /StreamingAssets /StreamingAssets/* /Licenses /Licenses/*
 		}
