@@ -7,8 +7,14 @@ namespace Roguehalla.Net
     {
         public Uri ApiBase { get; }
         public string StorageScope => ApiBase.AbsoluteUri;
+        /// <summary>Browser sign-in storage key. A managed route can preserve its previous key across an account API move.</summary>
+        public string CredentialStorageScope { get; }
 
-        AccountEndpoint(Uri apiBase) { ApiBase = apiBase; }
+        internal AccountEndpoint(Uri apiBase, string credentialStorageScope = null)
+        {
+            ApiBase = apiBase;
+            CredentialStorageScope = credentialStorageScope ?? StorageScope;
+        }
 
         /// <summary>Ordinary Web visits use their own origin. Editor/development callers may explicitly supply /api.</summary>
         public static AccountEndpoint FromPage(string pageUrl, string explicitApiBase = null)

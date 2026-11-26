@@ -236,6 +236,56 @@ public sealed class MatchLaunchEditModeTests
         while (!completed() && timeout.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(1);
         Assert.That(completed(), Is.True, "public Join did not complete its ownership/session prerequisite");
     }
+
+    [TestCase("play.roguehalla.com", true, "game.roguehalla.com")]
+    [TestCase("play.roguehalla.com", false, "play.roguehalla.com")]
+    [TestCase("alpha-staging.roguehalla.com", true, "latency-staging.roguehalla.com")]
+    [TestCase("alpha-staging.roguehalla.com", false, "alpha-staging.roguehalla.com")]
+    public void ManagedPageIgnoresEndpointQueriesInBothReleaseModes(string pageHost, bool split, string targetHost)
+    {
+        var root = new GameObject("Managed page launch");
+        try
+        {
+            var client = root.AddComponent<MatchClient>();
+            const string hostile = "?server=wss://evil.example/ws&trainingServer=wss://evil.example/training/ws&accountApi=https://evil.example/api";
+            ConfigureNetwork(client, "https://" + pageHost + "/", hostile, split);
+            Invoke(client, "InitializeAccounts");
+
+            Assert.That(client.AccountOwner, Is.Not.Null);
+            var endpoint = (AccountEndpoint)Get(client, "_launchEndpoint");
+            Assert.That(endpoint.StorageScope, Is.EqualTo("https://" + targetHost + "/api/"));
+            Assert.That(client.LaunchTarget(MatchLaunchMode.Arena).Available, Is.True);
+            Assert.That(client.LaunchTarget(MatchLaunchMode.Arena).Url, Is.EqualTo("wss://" + targetHost + "/ws"));
+            Assert.That(client.LaunchTarget(MatchLaunchMode.Training).Available, Is.False);
+        }
+        finally { UnityEngine.Object.DestroyImmediate(root); }
+    }
+
+    [Test]
+    public void LoopbackPagePreservesConfiguredArenaTrainingAndAccountRoutes()
+    {
+        var root = new GameObject("Loopback page launch");
+        try
+        {
+            var client = root.AddComponent<MatchClient>();
+            const string overrides = "?server=ws://127.0.0.1:7780/arena/ws&trainingServer=ws://127.0.0.1:7780/training/ws&accountApi=http://127.0.0.1:7780/api";
+            ConfigureNetwork(client, "http://127.0.0.1:8080/", overrides, true);
+            Invoke(client, "InitializeAccounts");
+
+            Assert.That(client.AccountOwner, Is.Not.Null);
+            var endpoint = (AccountEndpoint)Get(client, "_launchEndpoint");
+            Assert.That(endpoint.StorageScope, Is.EqualTo("http://127.0.0.1:7780/api/"));
+            Assert.That(client.LaunchTarget(MatchLaunchMode.Arena).Url, Is.EqualTo("ws://127.0.0.1:7780/arena/ws"));
+            Assert.That(client.LaunchTarget(MatchLaunchMode.Training).Available, Is.True);
+            Assert.That(client.LaunchTarget(MatchLaunchMode.Training).Url, Is.EqualTo("ws://127.0.0.1:7780/training/ws"));
+        }
+        finally { UnityEngine.Object.DestroyImmediate(root); }
+    }
+
+    static void ConfigureNetwork(MatchClient client, string page, string query, bool split) =>
+        typeof(Bootstrap).GetMethod("ConfigureNetwork", BindingFlags.Static | BindingFlags.NonPublic)
+            .Invoke(null, new object[] { client, page, query, split });
+
     [Test]
     public async Task MissingTrainingNeverFallsBackOrStartsAnOwnershipRequest()
     {

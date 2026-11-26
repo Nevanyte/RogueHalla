@@ -90,7 +90,7 @@ namespace Roguehalla.Client
         {
             _nextPollAt = Time.realtimeSinceStartup + LobbyActivity.PollMs / 1000f;
             AccountEndpoint endpoint;
-            try { endpoint = AccountEndpoint.FromPage(_client.PageUrl, string.IsNullOrEmpty(_client.AccountApi) ? null : _client.AccountApi); }
+            try { endpoint = _client.ResolveAccountEndpoint(); }
             catch (ArgumentException) { Render(); return; }
             _inFlight = true;
             int generation = _generation;
@@ -122,7 +122,7 @@ namespace Roguehalla.Client
             try
             {
                 string normalized = AccountEndpoint.NormalizeName(snapshot.SelectedName);
-                string stored = new PlayerPrefsAccountCredentials().Read(endpoint.StorageScope, normalized);
+                string stored = new PlayerPrefsAccountCredentials().Read(endpoint.CredentialStorageScope, normalized);
                 if (!AccountSession.ValidToken(stored)) return false;
                 name = snapshot.SelectedName; token = stored;
                 return true;

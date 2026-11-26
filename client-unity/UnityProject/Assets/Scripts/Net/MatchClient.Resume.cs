@@ -84,7 +84,7 @@ namespace Roguehalla.Client
                 SeatName(AccountFlow?.Snapshot.SelectedName) != owner.Name) return false;
             try
             {
-                var configured = AccountEndpoint.FromPage(PageUrl, string.IsNullOrEmpty(AccountApi) ? null : AccountApi);
+                var configured = ResolveAccountEndpoint();
                 if (configured.StorageScope != owner.Scope || _launchEndpoint?.StorageScope != owner.Scope) return false;
             }
             catch (ArgumentException) { return false; }

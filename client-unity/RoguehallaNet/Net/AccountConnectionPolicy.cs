@@ -15,6 +15,29 @@ namespace Roguehalla.Net
             (uri.Scheme == "ws" || uri.Scheme == "wss") && uri.UserInfo.Length == 0 &&
             uri.Query.Length == 0 && uri.Fragment.Length == 0 && uri.AbsolutePath.EndsWith("/ws", StringComparison.Ordinal);
 
+        /// <summary>Recognizes a managed page host even if its origin is invalid. Only the canonical HTTPS origins get a route.</summary>
+        public static bool TryGetHostedRoute(string pageUrl, bool splitBackend, out AccountEndpoint account, out string matchUrl)
+        {
+            account = null;
+            matchUrl = "";
+            if (!Uri.TryCreate(pageUrl, UriKind.Absolute, out var page)) return false;
+            string backend;
+            switch (page.IdnHost.TrimEnd('.').ToLowerInvariant())
+            {
+                case "play.roguehalla.com": backend = "game.roguehalla.com"; break;
+                case "alpha-staging.roguehalla.com": backend = "latency-staging.roguehalla.com"; break;
+                default: return false;
+            }
+            if (page.Scheme != "https" || !page.IsDefaultPort || page.UserInfo.Length != 0 || page.IdnHost.EndsWith(".", StringComparison.Ordinal))
+                return true;
+
+            string apiHost = splitBackend ? backend : page.IdnHost;
+            // Each pair uses the same account database. Keep the page's existing saved sign-in key for both routes.
+            account = new AccountEndpoint(new Uri("https://" + apiHost + "/api/"), "https://" + page.IdnHost + "/api/");
+            matchUrl = "wss://" + apiHost + "/ws";
+            return true;
+        }
+
         /// <summary>The page determines the default match origin. An explicit remote account API never changes it silently.</summary>
         public static string DefaultMatchUrl(string pageUrl)
         {
