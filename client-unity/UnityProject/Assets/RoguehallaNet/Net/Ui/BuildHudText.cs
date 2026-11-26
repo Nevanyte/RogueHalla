@@ -45,25 +45,29 @@ namespace Roguehalla.Net.Ui
             "Acolyte", "Seraph Shard", "Penitent", "Zealot", "Blood Saint", "Archon",
         };
 
+        /// <summary>The GAINED cell at <paramref name="index"/> (0-8, legacy order) for one raw gain; Cells(s)[i] equals
+        /// Cell(i, s.Gains[i]) in every field. Throws ArgumentOutOfRangeException outside 0-8.</summary>
+        public static BuildCell Cell(int index, int raw)
+        {
+            if (index < 0 || index > 8) throw new System.ArgumentOutOfRangeException("index");
+            string value;
+            if (CellIsPercent[index]) value = (raw > 0 ? "+" : "") + Scaled(raw, 100, 2, false) + "%";
+            else
+            {
+                // num(): one decimal, half up (JS Math.round), then signed(); a rounded -0 reads "+0".
+                long tenths = FloorDiv((long)raw + 500, 1000);
+                string num = Scaled(tenths < 0 ? -tenths : tenths, 10, 1, false);
+                value = index == 5 ? "+" + (tenths < 0 ? "-" : "") + num : (tenths < 0 ? "-" : "+") + num;
+            }
+            return new BuildCell(CellLabels[index], value, raw == 0);
+        }
+
         /// <summary>The nine cells in legacy order; empty when <paramref name="summary"/> is null (strip not shown yet).</summary>
         public static IReadOnlyList<BuildCell> Cells(WireBuildSummary summary)
         {
             var cells = new List<BuildCell>();
             if (summary == null) return cells;
-            for (int i = 0; i < 9; i++)
-            {
-                int raw = i < summary.Gains.Length ? summary.Gains[i] : 0;
-                string value;
-                if (CellIsPercent[i]) value = (raw > 0 ? "+" : "") + Scaled(raw, 100, 2, false) + "%";
-                else
-                {
-                    // num(): one decimal, half up (JS Math.round), then signed(); a rounded -0 reads "+0".
-                    long tenths = FloorDiv((long)raw + 500, 1000);
-                    string num = Scaled(tenths < 0 ? -tenths : tenths, 10, 1, false);
-                    value = i == 5 ? "+" + (tenths < 0 ? "-" : "") + num : (tenths < 0 ? "-" : "+") + num;
-                }
-                cells.Add(new BuildCell(CellLabels[i], value, raw == 0));
-            }
+            for (int i = 0; i < 9; i++) cells.Add(Cell(i, i < summary.Gains.Length ? summary.Gains[i] : 0));
             return cells;
         }
 

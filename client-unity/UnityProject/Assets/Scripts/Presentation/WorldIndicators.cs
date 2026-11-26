@@ -38,6 +38,13 @@ namespace Roguehalla.Client
         public int MarkersShown { get { return _markersUsed; } }
 
         public WorldIndicators(Transform root) { _root = root; }
+        /// <summary>Answers the local fighter's overhead cluster; the prop labels fade while they lie on it (null: nothing hides).</summary>
+        public LocalClusterSource LocalCluster { get; set; }
+        LabelClearanceBook _book = new LabelClearanceBook();
+        ClusterHold _hold;
+        bool _run, _haveCluster, _reduced, _hasNow;
+        LabelBox _cluster;
+        float _dt, _lastNow;
         /// <summary>Test seam: the seconds text currently shown over ring <paramref name="index"/>, or null when hidden.</summary>
         public string SecondsShownForTest(int index) { return index < _rings.Count && _rings[index].Seconds.Text.gameObject.activeSelf ? _rings[index].Seconds.Text.text : null; }
 
@@ -46,12 +53,25 @@ namespace Roguehalla.Client
         public void Update(CollectionsView c, double serverMs, bool haveLocal, float localX, float localY, float now, System.Func<float, float, bool> canSee)
         {
             _labelsUsed = _markersUsed = _ringsUsed = 0;
+            _dt = _hasNow ? Mathf.Clamp(now - _lastNow, 0f, 1f) : 0f; _lastNow = now; _hasNow = true;
+            _book.Begin();
+            _run = !WorldLabelVisibility.Hidden && _root.gameObject.activeInHierarchy;
+            _haveCluster = false;
+            if (_run)
+            {
+                _reduced = UiMotion.Reduced;
+                bool answered = false; LabelBox box = default;
+                if (LocalCluster != null && LocalCluster(out var r)) { answered = true; box = new LabelBox(r.xMin, r.yMin, r.xMax, r.yMax); }
+                _haveCluster = _hold.Read(answered, in box, out _cluster);
+            }
             if (_born.Count > 64) _born.Clear();
             var theme = UiTheme.Current;
             if (c != null)
             {
-                foreach (var p in c.Props)
+                var props = c.Props;
+                for (int pi = 0; pi < props.Count; pi++)
                 {
+                    var p = props[pi];
                     if (canSee != null && !canSee(p.X, p.Y)) continue;
                     byte kind = (byte)p.Kind;
                     bool reloading = p.ReadyAt > serverMs;
@@ -71,10 +91,12 @@ namespace Roguehalla.Client
                     }
                     if (text == null) continue;
                     float lift = p.Kind == PropAppearance.Chest ? 1.15f : p.Kind == PropAppearance.Cannon ? 1.4f : p.Kind == PropAppearance.QuestItem ? 1.2f : .85f;
-                    Show(NextLabel(), text, at + new Vector3(0, lift, 0), 2.4f, p.Kind == PropAppearance.Body ? theme.TextSecondary : theme.TextPrimary);
+                    ShowProp(NextLabel(), text, at + new Vector3(0, lift, 0), 2.4f, p.Kind == PropAppearance.Body ? theme.TextSecondary : theme.TextPrimary, 16 + (byte)p.Kind, p.X, p.Y);
                 }
-                foreach (var chest in c.RewardChests)
+                var chests = c.RewardChests;
+                for (int ci = 0; ci < chests.Count; ci++)
                 {
+                    var chest = chests[ci];
                     if (canSee != null && !canSee(chest.X, chest.Y)) continue;
                     if (_ringsUsed >= MaxChestRings) break;
                     float left = (float)((chest.ExpiresAt - serverMs) / 1000d);
@@ -113,8 +135,9 @@ namespace Roguehalla.Client
 
         void TickDecals(float now, System.Func<float, float, bool> canSee)
         {
-            foreach (var d in _decals)
+            for (int di = 0; di < _decals.Count; di++)
             {
+                var d = _decals[di];
                 if (!d.Live) continue;
                 float a = WorldIndicatorRules.DecalAlpha((now - d.Start) * 1000f);
                 if (a <= 0f || (canSee != null && !canSee(d.X, d.Y))) { d.Live = false; d.Sprite.enabled = false; continue; }
@@ -239,6 +262,18 @@ namespace Roguehalla.Client
             l.Text.fontSharedMaterial = OverheadIndicators.OutlinedMaterial(l.Text.font); l.Text.rectTransform.sizeDelta = new Vector2(6f, .5f);
             l.Text.GetComponent<MeshRenderer>().sortingOrder = LabelOrder + 1; go.SetActive(false); l.Plate.enabled = false;
             return l;
+        }
+
+        /// <summary>A prop label through the clearance book: <see cref="Show"/>, then the label's alpha times the book's on the text and on the plate.</summary>
+        void ShowProp(Label l, string text, Vector3 at, float size, Color32 colour, int kind, float x, float y)
+        {
+            Show(l, text, at, size, colour);
+            var pos = l.Plate.transform.position; var scale = l.Plate.transform.localScale;
+            var box = LabelBox.Centred(pos.x, pos.y, scale.x, scale.y);
+            float alpha = _run ? _book.Next(kind, x, y, in box, _haveCluster, in _cluster, _dt, _reduced) : _book.Keep(kind, x, y);
+            if (alpha >= 1f) return;
+            var tc = l.Text.color; tc.a *= alpha; l.Text.color = tc;
+            var pc = l.Plate.color; pc.a *= alpha; l.Plate.color = pc;
         }
 
         static void Show(Label l, string text, Vector3 at, float size, Color32 colour)

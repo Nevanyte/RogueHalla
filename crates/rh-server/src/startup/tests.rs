@@ -251,6 +251,33 @@ fn drain_and_database_budget_flags_parse_with_safe_defaults() {
     assert!(db_connect_budget(&args(&["rh-server", "--db-connect-timeout-secs", "3601"])).is_err());
 }
 
+#[test]
+fn db_pool_flag_sizes_the_pool() {
+    // P-DB-POOL-1: the durable store's pool was fixed at 16; `--db-pool N` sizes it, default unchanged.
+    assert_eq!(db_pool_size(&args(&["rh-server"])).unwrap(), 16);
+    assert_eq!(
+        db_pool_size(&args(&["rh-server", "--db-pool", "4"])).unwrap(),
+        4
+    );
+    assert_eq!(
+        db_pool_size(&args(&["rh-server", "--db-pool", "1"])).unwrap(),
+        1
+    );
+    assert_eq!(
+        db_pool_size(&args(&["rh-server", "--db-pool", "1024"])).unwrap(),
+        1024
+    );
+    for bad in [
+        vec!["rh-server", "--db-pool", "0"],
+        vec!["rh-server", "--db-pool", "1025"],
+        vec!["rh-server", "--db-pool", "abc"],
+        vec!["rh-server", "--db-pool", "-3"],
+        vec!["rh-server", "--db-pool"],
+    ] {
+        assert!(db_pool_size(&args(&bad)).is_err(), "{bad:?}");
+    }
+}
+
 #[tokio::test(start_paused = true)]
 async fn the_connect_retry_backs_off_then_succeeds_or_gives_up_within_its_budget() {
     let (ms, no_show) = (Duration::from_millis, |e: &String| e.clone());

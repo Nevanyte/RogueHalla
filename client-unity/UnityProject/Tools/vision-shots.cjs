@@ -32,11 +32,13 @@ function legacyScale(w, h) {
   return Math.min(1.5, Math.max(0.8, Math.min(stageW / 1280, h / 800)));
 }
 function tabMapRect(w, h, s) {
-  const uiW = w / s, uiH = h / s, col = 250, fixedH = 34 + 12 + 12 + 30 + 8;
-  const side = Math.min(820, Math.max(240, Math.floor(Math.min(uiH - 44 - 12 - fixedH, uiW - 24 - col * 2 - 24 - 8))));
-  const frameW = side + 8, totalW = col * 2 + 24 + frameW, colH = 34 + 12 + frameW + 12 + 30;
-  const bx = Math.floor((uiW - totalW) / 2), by = Math.max(44, Math.floor(44 + (uiH - 44 - 12 - colH) / 2));
-  return { x: (bx + col + 12 + 4) * s, y: (by + 34 + 12 + 4) * s, size: side * s };
+  const uiW = w / s, uiH = h / s, col = 250;
+  const fixedH = 12 * 2 + 34 + 12 + 12 + 30 + 4 * 2;
+  const side = Math.min(820, Math.max(240, Math.floor(Math.min(uiH - 44 - 12 - fixedH, uiW - 24 - 24 - col * 2 - 24 - 8))));
+  const frameW = side + 8, innerW = col * 2 + 24 + frameW, innerH = 34 + 12 + frameW + 12 + 30;
+  const sheetX = Math.floor((uiW - innerW - 24) / 2);
+  const sheetY = Math.max(44, Math.floor(44 + (uiH - 44 - 12 - innerH - 24) / 2));
+  return { x: (sheetX + 12 + col + 12 + 4) * s, y: (sheetY + 12 + 34 + 12 + 4) * s, size: side * s };
 }
 function minimapRect(w, h, s) {
   const uiW = Math.floor(w / s), uiH = Math.floor(h / s);

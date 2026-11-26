@@ -24,19 +24,21 @@ namespace Roguehalla.Client
         double _nextMetricsAt;
         float _frameAverage;
         readonly TMP_Text[] _gainValues = new TMP_Text[9];
-        Roguehalla.Net.Protocol.WireBuildSummary _shownSummary;
-        IReadOnlyList<Roguehalla.Net.Ui.BuildCell> _gainCells = Array.Empty<Roguehalla.Net.Ui.BuildCell>();
-        bool _gainsShown;
+        // P-UI-HUD-GARBAGE-1: the GAINED strip is keyed on what it shows (the nine raw gains, the mob rows), never on the summary object.
+        // _gainCells is a persistent array while a summary is present (empty while none); _gainCellsVersion counts changed elements.
+        Roguehalla.Net.Ui.BuildCell[] _gainCells = Array.Empty<Roguehalla.Net.Ui.BuildCell>(), _gainStore;
+        int _gainCellsVersion;
+        bool _gainsShown, _gainCellsValid, _gainInkValid, _mobKeyValid, _buildKeyPresent;
+        int _gainInkPrimary, _gainInkSecondary, _mobShownCount, _buildKeyMobTypes;
+        readonly int[] _gainRaw = new int[9];
+        readonly bool[] _gainWritten = new bool[9];
+        Roguehalla.Net.Protocol.WireMobBonusRow[] _mobShown = new Roguehalla.Net.Protocol.WireMobBonusRow[8];
         readonly UnityEngine.UI.Image[] _weaponIcons = new UnityEngine.UI.Image[2];
         readonly UnityEngine.UI.Image[] _weaponActiveBars = new UnityEngine.UI.Image[2];
         UnityEngine.UI.Image _potionIcon;
-        TMP_Text _wishSummary;
         RectTransform _wishDetails;
         RectTransform _vitalsPanel, _buildStrip, _combatActions, _damagePanel;
         TMP_Text _combatStats;
-        bool _worldHudVisible = true;
-        GameObject _worldHudFocus;
-        bool WorldHudVisible => !BlocksKeyboardInput && !(_map?.IsOpen ?? false);
         // Panels (plate, champion, hotbar, minimap) read console focus only while the console is open; the closed CONSOLE button takes focus on a plain Tab.
         bool PanelHudVisible => !BlocksKeyboardInputCore(_trainingConsole?.IsOpen == true) && !(_map?.IsOpen ?? false);
         public TacticalMapController TacticalMap => _map;
@@ -139,6 +141,7 @@ namespace Roguehalla.Client
             _drawer = gameObject.AddComponent<BuildDrawer>(); _drawer.Initialize(_root, RefreshHeaderActionsVisibility);
             _huntPanel = gameObject.AddComponent<SentencedHuntPanel>(); _huntPanel.Initialize(_hud);
             _uiPrefs = new UiDisplayPreferences();
+            if (Application.isPlaying) ApplyFolds(UiDisplayPreferences.GainsFoldedStored, UiDisplayPreferences.ChampionFoldedStored);
             _map = gameObject.AddComponent<TacticalMapController>(); _map.Initialize(_client, _root, _uiPrefs, _stage);
             _modernSettings = gameObject.AddComponent<ModernSettingsView>();
             _modernSettings.Initialize(_chromeStage, _showcaseSettings, _map, _uiPrefs, () => _modernSettings.SetVisible(false), () => _client.Leave());
@@ -160,7 +163,7 @@ namespace Roguehalla.Client
         void NoteMatchEnded(Roguehalla.Net.Protocol.ServerMsg.Events batch)
         {
             foreach (var e in batch.List)
-                if (e.Kind == Roguehalla.Net.Protocol.EventKind.MatchEnded) { _matchEnded = true; _winnerId = e.Draw ? null : e.Winner; _winnerLabel = null; _winnerLabelFor = null; }
+                if (e.Kind == Roguehalla.Net.Protocol.EventKind.MatchEnded) { _matchEnded = true; _winnerId = e.Draw ? null : e.Winner; _winnerLabel = null; _winnerLabelFor = null; _nextMetricsAt = 0d; }
         }
         // A new match on a reused Session (rematch without a fresh Bind) must not inherit the previous winner: entering InMatch clears it.
         void NoteSessionState(SessionState state) { if (state == SessionState.InMatch) ResetMatchEnded(); }
@@ -190,48 +193,24 @@ namespace Roguehalla.Client
             _metrics.text = metrics; _metrics.color = tone;
             if (_metricsPill != null) _metricsPill.gameObject.SetActive(metrics.Length > 0);
             bool runOver = _session != null && _session.State == SessionState.Ended && _matchEnded;
-            if (_session == null || _session.State != SessionState.InMatch && !runOver) { _phaseStrip.text = ""; return; }
-            if (_client != null && _client.LaunchPending) { ApplyPhaseStrip("VERIFYING DESTINATION", Roguehalla.Net.Ui.Indicators.ArenaLineTone.Normal); return; }
-            if (_client != null && _client.ConfirmedPractice) { ApplyPhaseStrip("PRACTICE · NO RUN REWARDS", Roguehalla.Net.Ui.Indicators.ArenaLineTone.Normal); return; }
+            if (_session == null || _session.State != SessionState.InMatch && !runOver) { ClearPhaseLine(); return; }
+            if (_client != null && _client.LaunchPending) { ApplyPhaseLine("VERIFYING DESTINATION", Roguehalla.Net.Ui.Indicators.ArenaLineTone.Normal); return; }
+            if (_client != null && _client.ConfirmedPractice) { ApplyPhaseLine("PRACTICE · NO RUN REWARDS", Roguehalla.Net.Ui.Indicators.ArenaLineTone.Normal); return; }
             // Legacy top-centre strip (hud.ts statusLine / updateArena), produced by the library. the room minimum comes from ArenaView.MinPlayers; 0 (not delivered) drops "/min".
             MatchPhase phase = runOver ? MatchPhase.Ended : _session.Collections.Plan != null ? MatchPhase.Planning : (_session.Phase ?? MatchPhase.Lobby);
             var text = Roguehalla.Net.Ui.Indicators.PhaseLine(phase, _session.ServerTimeMs, _session.Collections.Arena, _session.Collections.Roster.Count, runOver ? WinnerLabel() : null, out var lineTone);
-            if (text == null) { _phaseStrip.text = ""; return; }
-            ApplyPhaseStrip(text, lineTone);
-        }
-        /// <summary>Writes the top-centre phase line and its tone (P-UNITY-HUD-VISUAL-FIX-1 test seam: the tone must reach the label's colour, never tags in its text).</summary>
-        public void ApplyPhaseStrip(string text, Roguehalla.Net.Ui.Indicators.ArenaLineTone tone)
-        {
-            // Colour through the label, never tags: HudUi.Label is plain text (richText = false). Legacy --warn and .hud-arena.sudden (style.css:44,320).
-            _phaseStrip.color = tone == Roguehalla.Net.Ui.Indicators.ArenaLineTone.Danger ? (Color)new Color32(0xff, 0x8a, 0x80, 255)
-                : tone == Roguehalla.Net.Ui.Indicators.ArenaLineTone.Warn ? (Color)new Color32(0xff, 0xcc, 0x80, 255) : (Color)UiTheme.Current.TextPrimary;
-            // Legacy's line is as wide as its text (hud.ts updateArena): size the pill to the measured text, only when the text changed.
-            bool changed = _phaseStrip.text != text;
-            _phaseStrip.text = text;
-            if (changed && _phasePill != null)
-            {
-                float w = _phaseStrip.GetPreferredValues(text, 0f, 0f).x;
-                _phasePill.sizeDelta = new Vector2(Mathf.Max(120f, Mathf.Ceil(w) + 24f), _phasePill.sizeDelta.y);
-                PlacePhasePill();
-            }
+            if (text == null) { ClearPhaseLine(); return; }
+            ApplyPhaseLine(text, lineTone);
         }
         void ToggleBuild()
         {
             if (_drawer == null || _session == null) return;
             SuspendTrainingForPanel();
-            _drawer.SetVisible(!_drawer.IsVisible); if (_drawer.IsVisible) { _map?.SetOpen(false); if (_help != null) _help.gameObject.SetActive(false); } ReleaseChestFocus();
+            _drawer.SetVisible(!_drawer.IsVisible); if (_drawer.IsVisible) { _drawer.Refresh(_session.Collections, _session.Me, _showcaseSettings.TextScale); _map?.SetOpen(false); if (_help != null) _help.gameObject.SetActive(false); } ReleaseChestFocus();
             RefreshHeaderActionsVisibility();
         }
         void ToggleHelp() { if (_help != null) { SuspendTrainingForPanel(); _help.gameObject.SetActive(!_help.gameObject.activeSelf); if (_help.gameObject.activeSelf) { CloseHubPanels(); _drawer?.SetVisible(false); _map?.SetOpen(false); } ReleaseChestFocus(); RefreshHeaderActionsVisibility(); } }
         void ToggleHelpClosed() { ReleaseChestFocus(); RefreshHeaderActionsVisibility(); }
-        void RefreshHeaderActionsVisibility()
-        {
-            bool visible = (_drawer == null || !_drawer.IsVisible) && !PlayerFlowVisible;
-            for (int i = 0; i < _headerActions.Length; i++)
-                if (_headerActions[i] != null && _headerActions[i].gameObject.activeSelf != visible)
-                    _headerActions[i].gameObject.SetActive(visible);
-            RefreshJournalLauncher();
-        }
         public void ReadUiInput()
         {
             if (TrainingInputConsumed) return;
@@ -278,6 +257,13 @@ namespace Roguehalla.Client
                 bool modified = kb.ctrlKey.isPressed || kb.altKey.isPressed || kb.leftMetaKey.isPressed || kb.rightMetaKey.isPressed || kb.shiftKey.isPressed;
                 if (!modified)
                 {
+                    if (kb.escapeKey.wasPressedThisFrame && OfferOpen && !aimEsc)
+                    {
+                        CloseOffer();
+                        _map?.ReadUiInput(typing, true);
+                        return;
+                    }
+                    if ((kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame) && OfferOpen && !dialog) AcceptOffer();
                     if (!trainingOwnsKeys && kb.jKey.wasPressedThisFrame && (PlayerFlowVisible || PlayerFlowLauncherAllowed))
                     {
                         if (PlayerFlowVisible) ClosePlayerFlows();
@@ -390,57 +376,89 @@ namespace Roguehalla.Client
         {
             return Roguehalla.Net.Ui.LobbyActivity.SeatedList(roster, me);
         }
-        void RefreshWorldHudVisibility()
-        {
-            bool visible = PanelHudVisible;
-            if (_worldHudVisible != visible)
-            {
-                HudIconHint.CloseAll();
-                _worldHudVisible = visible;
-                RefreshHudElementVisibility();
-                var selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
-                var target = _worldHudFocus != null ? _worldHudFocus.GetComponent<UnityEngine.UI.Selectable>() : null;
-                if (visible && target != null && target.IsActive() && target.IsInteractable() &&
-                    EventSystem.current != null && (selected == null || !selected.activeInHierarchy))
-                    EventSystem.current.SetSelectedGameObject(_worldHudFocus);
-                _dirty = _rewardsDirty = true;
-            }
-            _map?.SetMinimapSuppressed(!visible);
-            RefreshHeaderActionsVisibility();
-            RememberWorldHudFocus();
-        }
-        void RememberWorldHudFocus()
-        {
-            if (!_worldHudVisible || !WorldHudVisible || EventSystem.current == null) return;
-            var selected = EventSystem.current.currentSelectedGameObject;
-            _worldHudFocus = selected != null && selected.transform.IsChildOf(_hud) ? selected : null;
-        }
         static int CountCards(CollectionsView view) { int count = 0; foreach (byte card in view.Cards) if (card > 0) count++; return count; }
         /// <summary>Redraws the GAINED cells and the mob-bonus row from the owner's summary; null (none arrived yet) hides the
-        /// strip and the mob row rather than showing zeros. Runs only when the summary object changes.</summary>
+        /// strip and the mob row rather than showing zeros. Each part is written only when what it shows changed.</summary>
         void ApplyBuildSummary(Roguehalla.Net.Protocol.WireBuildSummary summary)
         {
-            _gainCells = Roguehalla.Net.Ui.BuildHudText.Cells(summary);
-            _gainsShown = _gainCells.Count == _gainValues.Length;
-            for (int i = 0; i < _gainValues.Length; i++)
+            bool present = summary != null;
+            bool flip = present != _gainsShown;
+            if (!present && !flip) return;
+            if (flip)
             {
-                if (_gainValues[i] == null || i >= _gainCells.Count) continue;
+                // A presence flip invalidates every remembered copy: the next summary writes everything.
+                _gainsShown = present; _gainCellsValid = false; _mobKeyValid = false; _gainCellsVersion = 0; _headerVersion = -1;
+                Array.Clear(_gainWritten, 0, _gainWritten.Length);
+                _gainCells = present ? (_gainStore ?? (_gainStore = new Roguehalla.Net.Ui.BuildCell[9])) : Array.Empty<Roguehalla.Net.Ui.BuildCell>();
+            }
+            if (present) WriteGainedCells(summary);
+            WriteMobBonusLine(summary);
+            if (flip) SetPlateMode(_plateActive); else RefreshGainsHeader();
+        }
+
+        static int PackInk(Color32 c) { return c.r << 24 | c.g << 16 | c.b << 8 | c.a; }
+
+        void WriteGainedCells(Roguehalla.Net.Protocol.WireBuildSummary summary)
+        {
+            var theme = UiTheme.Current;
+            int primary = PackInk(theme.TextPrimary), secondary = PackInk(theme.TextSecondary);
+            bool inkChanged = !_gainInkValid || primary != _gainInkPrimary || secondary != _gainInkSecondary;
+            _gainInkValid = true; _gainInkPrimary = primary; _gainInkSecondary = secondary;
+            for (int i = 0; i < _gainRaw.Length; i++)
+            {
+                int raw = i < summary.Gains.Length ? summary.Gains[i] : 0;
+                bool rawChanged = !_gainCellsValid || raw != _gainRaw[i];
+                if (rawChanged)
+                {
+                    _gainRaw[i] = raw; _gainCells[i] = Roguehalla.Net.Ui.BuildHudText.Cell(i, raw);
+                    if (_gainCellsValid) _gainCellsVersion++;
+                }
+                if (_gainValues[i] == null || !(rawChanged || inkChanged || !_gainWritten[i])) continue;
+                _gainWritten[i] = true;
                 var cell = _gainCells[i];
                 _gainValues[i].text = cell.Value;
                 // Legacy "dim" cell: a zero value is muted and regular weight.
-                _gainValues[i].color = cell.Dim ? UiTheme.Current.TextSecondary : UiTheme.Current.TextPrimary;
+                _gainValues[i].color = cell.Dim ? theme.TextSecondary : theme.TextPrimary;
                 _gainValues[i].fontStyle = cell.Dim ? FontStyles.Normal : FontStyles.Bold;
             }
-            if (_mobText != null)
+            _gainCellsValid = true;
+        }
+
+        void WriteMobBonusLine(Roguehalla.Net.Protocol.WireBuildSummary summary)
+        {
+            var rows = summary != null ? summary.MobRows : null;
+            int count = rows != null ? rows.Length : 0;
+            bool same = _mobKeyValid && _mobShownCount == count;
+            for (int i = 0; same && i < count; i++)
+                same = _mobShown[i].MobType == rows[i].MobType && _mobShown[i].Stat == rows[i].Stat && _mobShown[i].Stacks == rows[i].Stacks && _mobShown[i].Total == rows[i].Total;
+            if (same) return;
+            if (_mobShown.Length < count) _mobShown = new Roguehalla.Net.Protocol.WireMobBonusRow[count];
+            for (int i = 0; i < count; i++) _mobShown[i] = rows[i];
+            _mobShownCount = count; _mobKeyValid = true;
+            if (_mobText == null) return;
+            var lines = Roguehalla.Net.Ui.BuildHudText.MobLines(summary);
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < lines.Count; i++)
+                sb.Append(i > 0 ? " · " : "").Append(lines[i].Label).Append(lines[i].Total.Length > 0 ? " " + lines[i].Total : "");
+            Set(_mobText, sb.ToString());
+            _mobText.gameObject.SetActive(lines.Count > 0);
+        }
+
+        /// <summary>The BUILD block's own key on what its text reads from the summary: presence and the count of distinct mob types.
+        /// True when it changed (and remembers the new state).</summary>
+        bool BuildSummaryKeyMoved(Roguehalla.Net.Protocol.WireBuildSummary summary)
+        {
+            bool present = summary != null; int types = 0;
+            var rows = present ? summary.MobRows : null;
+            for (int i = 0; rows != null && i < rows.Length; i++)
             {
-                var lines = Roguehalla.Net.Ui.BuildHudText.MobLines(summary);
-                var sb = new System.Text.StringBuilder();
-                for (int i = 0; i < lines.Count; i++)
-                    sb.Append(i > 0 ? " · " : "").Append(lines[i].Label).Append(lines[i].Total.Length > 0 ? " " + lines[i].Total : "");
-                Set(_mobText, sb.ToString());
-                _mobText.gameObject.SetActive(lines.Count > 0);
+                bool seen = false;
+                for (int j = 0; j < i && !seen; j++) seen = rows[j].MobType == rows[i].MobType;
+                if (!seen) types++;
             }
-            SetPlateMode(_plateActive);
+            bool moved = present != _buildKeyPresent || types != _buildKeyMobTypes;
+            _buildKeyPresent = present; _buildKeyMobTypes = types;
+            return moved;
         }
         /// <summary>Test seam: the text of GAINED cell <paramref name="index"/> as drawn.</summary>
         public string GainedCellText(int index) => _gainValues[index] != null ? _gainValues[index].text : null;
@@ -448,7 +466,7 @@ namespace Roguehalla.Client
 
         void RefreshBuildIcons(CollectionsView view)
         {
-            if (!ReferenceEquals(view.Summary, _shownSummary)) { _shownSummary = view.Summary; ApplyBuildSummary(view.Summary); }
+            ApplyBuildSummary(view.Summary);
             if (view.Inventory.HasValue)
             {
                 var inv = view.Inventory.Value;
@@ -460,8 +478,12 @@ namespace Roguehalla.Client
                     bool inHand = weapon.HasValue && inv.ActiveSlot == i;
                     if (_weaponActiveBars[i] != null) _weaponActiveBars[i].enabled = inHand;
                     if (_slots[i] != null) HudUi.ApplyColors(_slots[i], inHand ? UiTheme.Current.SurfaceSelected : UiTheme.Current.SurfaceRaised);
-                    if (_slotGroups[i] != null) _slotGroups[i].alpha = weapon.HasValue ? 1f : .5f;
-                    if (_slotNames[i] != null) Set(_slotNames[i], weapon.HasValue ? weapon.Value.ToString() : "Empty");
+                    if (_slotNames[i] != null)
+                    {
+                        Set(_slotNames[i], weapon.HasValue ? WeaponName(weapon.Value) : "Empty");
+                        Color nameColour = weapon.HasValue ? (Color)UiTheme.Current.TextPrimary : AbilityTile.EmptyTextColour(UiTheme.Current);
+                        if (_slotNames[i].color != nameColour) _slotNames[i].color = nameColour;
+                    }
                     if (weapon.HasValue)
                     {
                         MythicGlyph glyph = weapon == WeaponId.Bow ? MythicGlyph.Bow : weapon == WeaponId.Wand ? MythicGlyph.Wand : weapon == WeaponId.Shield ? MythicGlyph.Shield : weapon == WeaponId.Axe ? MythicGlyph.Axe : MythicGlyph.Sword;
@@ -472,8 +494,13 @@ namespace Roguehalla.Client
             }
             else for (int i = 0; i < _weaponIcons.Length; i++)
             {
-                if (_slotGroups[i] != null) _slotGroups[i].alpha = .5f;
-                if (_slotNames[i] != null) Set(_slotNames[i], "Empty");
+                if (_slots[i] != null) HudUi.ApplyColors(_slots[i], UiTheme.Current.SurfaceRaised);
+                if (_slotNames[i] != null)
+                {
+                    Set(_slotNames[i], "Empty");
+                    Color nameColour = AbilityTile.EmptyTextColour(UiTheme.Current);
+                    if (_slotNames[i].color != nameColour) _slotNames[i].color = nameColour;
+                }
                 if (_weaponIcons[i] != null) _weaponIcons[i].enabled = false;
                 if (_weaponActiveBars[i] != null) _weaponActiveBars[i].enabled = false;
             }

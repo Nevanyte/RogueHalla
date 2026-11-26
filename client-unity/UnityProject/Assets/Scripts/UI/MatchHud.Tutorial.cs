@@ -30,32 +30,46 @@ namespace Roguehalla.Client
 
         AccountFullProfile TutorialProfile { get { return _client?.AccountFlow?.Snapshot?.FullProfile; } }
 
-        // First real runs (open alpha): a one-line controls reminder in the bottom toast, shown through the lobby and for the
-        // first seconds of the match, never in Training (the tutorial card covers it). Presentation only.
-        internal const string FirstRunHint = "Right-click move · Left-click attack · E potion · R Wish · H help";
-        const float FirstRunHintSeconds = 20f;
+        // First real runs (open alpha): a one-line controls reminder in the bottom toast, shown from the first accepted snapshot
+        // and for the first 20 seconds of play, never in Training (the tutorial card covers it). Presentation only.
+        internal const string FirstRunHint = "WASD or right-click move · Left-click attack · H help";
         bool _firstRunHint;
-        float _firstRunHintUntil = -1f;
+        float _firstRunHintPlayed;
 
         void ArmFirstRunHint()
         {
             var profile = TutorialProfile;
-            _firstRunHint = profile == null || profile.Stats == null || profile.Stats.Runs < 2;
-            _firstRunHintUntil = -1f;
+            _firstRunHint = FirstRunHintRules.Owed(profile?.Stats?.Runs);
+            _firstRunHintPlayed = 0f;
             if (_firstRunHint) _feedback = FirstRunHint;
         }
 
+        bool FirstRunHintLaneVisible => WorldHudVisible && _hud.gameObject.activeInHierarchy;
+
+        void EndFirstRunHint()
+        {
+            _firstRunHint = false;
+            if (_feedback == FirstRunHint) { _feedback = ""; SetStickyNotice(""); }
+        }
+
+        // Per frame (from TickTutorial): counts seconds of play, ends the hint, and puts the line back after a reset.
         void TickFirstRunHint()
         {
-            if (!_firstRunHint || _session == null) return;
-            bool practice = _client != null && _client.ConfirmedPractice;
-            if (_firstRunHintUntil < 0f && _session.State == SessionState.InMatch && !practice)
-                _firstRunHintUntil = UnityEngine.Time.unscaledTime + FirstRunHintSeconds;
-            if (practice || _firstRunHintUntil >= 0f && UnityEngine.Time.unscaledTime > _firstRunHintUntil)
+            if (!_firstRunHint || _session == null || _client != null && _client.LaunchPending) return;
+            var verdict = FirstRunHintRules.Judge(
+                practice: _client != null && _client.ConfirmedPractice,
+                matchOver: _session.LastResult != null || _session.State == SessionState.Ended,
+                inMatch: _session.State == SessionState.InMatch,
+                phase: _session.Phase,
+                laneVisible: FirstRunHintLaneVisible);
+            if (verdict == FirstRunHintVerdict.End) { EndFirstRunHint(); return; }
+            if (verdict == FirstRunHintVerdict.Count)
             {
-                _firstRunHint = false;
-                if (_feedback == FirstRunHint) _feedback = "";
+                _firstRunHintPlayed = FirstRunHintRules.Advance(_firstRunHintPlayed, NoticeDtOverride ?? UnityEngine.Time.unscaledDeltaTime);
+                if (FirstRunHintRules.Spent(_firstRunHintPlayed)) { EndFirstRunHint(); return; }
             }
+            if (string.IsNullOrEmpty(_feedback)) _feedback = FirstRunHint;
+            if (_feedback == FirstRunHint) SetStickyNotice(_feedback);
         }
 
         bool TutorialMenuVisible =>
@@ -132,6 +146,7 @@ namespace Roguehalla.Client
 
         void TickTutorial()
         {
+            TickFirstRunHint();
             if (_tutView == null) return;
             var profile = TutorialProfile;
             bool inMatch = _session != null && _session.State == SessionState.InMatch;

@@ -27,7 +27,7 @@ use std::time::Duration;
 use sha2::{Digest, Sha256};
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use sqlx::types::Json;
-use sqlx::{PgConnection, Row};
+use sqlx::PgConnection;
 use uuid::Uuid;
 
 pub use model::*;
@@ -379,20 +379,15 @@ impl Store {
         load_profile_lookup(&mut c, ProfileLookup::Id(profile_id), false).await
     }
 
-    /// Profiles by GV banked in `month`, highest first, ties by name (legacy `leaderboard`).
+    /// Profiles by GV banked in `month`, highest first, ties by name in byte order (legacy `leaderboard`): the
+    /// `(name, gv)` of `leaderboard_rows`, so every leaderboard read shares one order.
     pub async fn leaderboard(&self, month: &str, limit: i64) -> Result<Vec<(String, i64)>> {
-        if !valid_month(month) {
-            return Ok(vec![]);
-        }
-        let rows = sqlx::query(
-            "SELECT p.callsign, m.gv FROM gv_by_month m JOIN profiles p USING (profile_id)
-             WHERE m.month = $1 AND m.gv > 0 ORDER BY m.gv DESC, p.callsign LIMIT $2",
-        )
-        .bind(month)
-        .bind(limit.clamp(1, 1000))
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows.iter().map(|r| (r.get(0), r.get(1))).collect())
+        Ok(self
+            .leaderboard_rows(month, limit)
+            .await?
+            .into_iter()
+            .map(|r| (r.name, r.gv))
+            .collect())
     }
 
     // ---- leases ---------------------------------------------------------------------------------------------

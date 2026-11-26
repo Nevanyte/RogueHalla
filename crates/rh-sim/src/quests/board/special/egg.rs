@@ -1,4 +1,5 @@
 //! Rebirth Egg, the planted Gatecrasher reward (Spell_Reworks). Death happens before a hatch can be scheduled.
+use crate::quests::board::tuning::TOP25;
 use crate::{
     constants::{BUSH_REVEAL_RADIUS, MASK_MOVE, TILE},
     math::hypot,
@@ -11,22 +12,17 @@ use serde::{Deserialize, Serialize, Serializer};
 
 pub(crate) fn visit_rules(word: &mut dyn FnMut(u64)) {
     for value in [
-        SAFE_DISTANCE,
-        SIGHT_RADIUS,
-        HATCH_MS,
-        HATCH_HP_SHARE,
+        TOP25.egg_safe_distance,
+        TOP25.egg_sight_radius,
+        TOP25.egg_hatch_ms,
+        TOP25.egg_hatch_hp_share,
         RADIUS,
     ] {
         word(value.to_bits());
     }
-    word(MIN_STANDING as u64);
+    word(TOP25.egg_min_standing as u64);
 }
 
-const SAFE_DISTANCE: f64 = 600.;
-const SIGHT_RADIUS: f64 = 200.;
-const HATCH_MS: f64 = 3_000.;
-const HATCH_HP_SHARE: f64 = 0.4;
-const MIN_STANDING: usize = 4;
 pub(crate) const RADIUS: f64 = 14.;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -86,7 +82,7 @@ pub(crate) fn plant_egg(cx: &mut Cx, owner: PlayerId, _at: Vec2) -> bool {
         || !p.standing()
         || p.seat.bot
         || slot.is_ok()
-        || standing(cx.w) < MIN_STANDING
+        || standing(cx.w) < TOP25.egg_min_standing
         || !outside_coliseum(cx.k, at)
         || !p.foot().clear(map, at, MASK_MOVE)
     {
@@ -120,7 +116,7 @@ fn outside_coliseum(k: &MatchStatic, at: Vec2) -> bool {
     );
     at.x.is_finite()
         && at.y.is_finite()
-        && hypot(at.x - nearest.x, at.y - nearest.y) >= SAFE_DISTANCE
+        && hypot(at.x - nearest.x, at.y - nearest.y) >= TOP25.egg_safe_distance
 }
 
 fn standing(w: &World) -> usize {
@@ -129,7 +125,7 @@ fn standing(w: &World) -> usize {
 
 /// Keep the original result place and death time even when banking must wait.
 pub(crate) fn delay(w: &mut World, owner: PlayerId, standing: usize) -> bool {
-    if standing < MIN_STANDING {
+    if standing < TOP25.egg_min_standing {
         return false;
     }
     let Ok(index) = w.rebirth_eggs.binary_search_by_key(&owner, |egg| egg.owner) else {
@@ -156,7 +152,7 @@ pub(crate) fn keeps_gear(w: &World, owner: PlayerId) -> bool {
     planted
         && w.player(owner)
             .is_some_and(|p| p.down == Some(Outcome::Died))
-        && standing(w) >= MIN_STANDING
+        && standing(w) >= TOP25.egg_min_standing
 }
 
 /// A held result is already a death for credit and contact bookkeeping.
@@ -183,11 +179,12 @@ pub(crate) fn remove(w: &mut World, owner: PlayerId) -> Option<PendingDeath> {
 /// Runs at settlement after the lethal ledger and the normal death side effects.
 pub(crate) fn tick(cx: &mut Cx, standing: usize) {
     let mut index = 0;
-    let enabled = standing >= MIN_STANDING && cx.w.phase == Phase::Active && !cx.w.rt.voided;
+    let enabled =
+        standing >= TOP25.egg_min_standing && cx.w.phase == Phase::Active && !cx.w.rt.voided;
     while let Some(&egg) = cx.w.rebirth_eggs.get(index) {
         let due = egg
             .death
-            .is_some_and(|death| cx.w.server_time >= death.at + HATCH_MS);
+            .is_some_and(|death| cx.w.server_time >= death.at + TOP25.egg_hatch_ms);
         if enabled && !egg.broken && !due {
             index += 1;
             continue;
@@ -218,7 +215,7 @@ fn hatch(cx: &mut Cx, egg: Egg) {
     p.fate = Default::default();
     p.credit.last_hit = None;
     p.inputs.clear();
-    p.vitals.hp = p.vitals.max_hp * HATCH_HP_SHARE;
+    p.vitals.hp = p.vitals.max_hp * TOP25.egg_hatch_hp_share;
     p.vitals.barrier = 0.;
     p.vitals.immune_until = 0.;
     if let Some(corpse) =
@@ -246,7 +243,7 @@ pub(crate) fn visible(k: &MatchStatic, w: &World, viewer: &Player, egg: Egg) -> 
     }
     let from = viewer.pos();
     let distance = hypot(from.x - egg.at.x, from.y - egg.at.y);
-    if !viewer.standing() || distance > SIGHT_RADIUS {
+    if !viewer.standing() || distance > TOP25.egg_sight_radius {
         return false;
     }
     let map = crate::collision::view(k, w);
@@ -292,7 +289,7 @@ pub(crate) fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
     if w.phase != Phase::Active
         || w.rt.voided
         || k.config.training
-        || standing(w) < MIN_STANDING
+        || standing(w) < TOP25.egg_min_standing
         || !w
             .rebirth_eggs
             .windows(2)
@@ -314,8 +311,9 @@ pub(crate) fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
                     && p.down == Some(Outcome::Died)
                     && !p.resolved
                     && (w.raid_started_at..=w.server_time).contains(&death.at)
-                    && w.server_time < death.at + HATCH_MS
-                    && (MIN_STANDING as u32 + 1..=w.rt.started_with).contains(&death.place)
+                    && w.server_time < death.at + TOP25.egg_hatch_ms
+                    && (TOP25.egg_min_standing as u32 + 1..=w.rt.started_with)
+                        .contains(&death.place)
             }
         };
         if !valid {

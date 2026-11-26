@@ -2,13 +2,13 @@
 use super::*;
 use QuestId::*;
 
-pub(super) const CONTACT_RANGE: f64 = QUEST_TURN_IN_RANGE;
-const FORT_RANGE: f64 = 72.;
-const BRUSH_REVEAL_RANGE: f64 = 112.;
-const GIVER_FLEE_MS: f64 = 60_000.;
-
 pub(super) fn visit_rules(word: &mut dyn FnMut(u64)) {
-    for value in [CONTACT_RANGE, FORT_RANGE, BRUSH_REVEAL_RANGE, GIVER_FLEE_MS] {
+    for value in [
+        TOP25.contact_range,
+        TOP25.fort_range,
+        TOP25.brush_reveal_range,
+        TOP25.giver_flee_ms,
+    ] {
         word(value.to_bits());
     }
 }
@@ -91,11 +91,13 @@ pub(crate) fn interact(cx: &mut Cx, owner: PlayerId, offer_id: u32, action: u8, 
     } else {
         o.tokens.get(target as usize).copied()
     };
-    let at_contact = at.is_some_and(|p| near(cx.k, cx.w, pos, p, CONTACT_RANGE));
+    let at_contact = at.is_some_and(|p| near(cx.k, cx.w, pos, p, TOP25.contact_range));
 
     match (action, id) {
         (2, TwoBanners)
-            if a.branch.is_none() && target < 2 && near(cx.k, cx.w, pos, o.at, CONTACT_RANGE) =>
+            if a.branch.is_none()
+                && target < 2
+                && near(cx.k, cx.w, pos, o.at, TOP25.contact_range) =>
         {
             let a = board_mut(cx.w).unwrap().get_mut(owner, offer_id).unwrap();
             a.branch = Some(target);
@@ -124,7 +126,7 @@ pub(crate) fn interact(cx: &mut Cx, owner: PlayerId, offer_id: u32, action: u8, 
         }
         (3, TheBurningCrown) if target == 0 => {
             let at = crown_ground(board(cx.w).unwrap(), o);
-            if at.is_some_and(|p| near(cx.k, cx.w, pos, p, CONTACT_RANGE)) {
+            if at.is_some_and(|p| near(cx.k, cx.w, pos, p, TOP25.contact_range)) {
                 let b = board_mut(cx.w).unwrap();
                 b.crown.carrier = Some(owner);
                 b.crown.ground = None;
@@ -141,8 +143,8 @@ pub(crate) fn interact(cx: &mut Cx, owner: PlayerId, offer_id: u32, action: u8, 
             let Some((contact, at)) = prank_contact(cx.w, offer_id, target) else {
                 return;
             };
-            if near(cx.k, cx.w, pos, at, CONTACT_RANGE) {
-                let until = cx.w.server_time + GIVER_FLEE_MS;
+            if near(cx.k, cx.w, pos, at, TOP25.contact_range) {
+                let until = cx.w.server_time + TOP25.giver_flee_ms;
                 let b = board_mut(cx.w).unwrap();
                 let a = b.get_mut(owner, offer_id).unwrap();
                 if a.claim_anchor(target) {
@@ -177,7 +179,7 @@ pub(crate) fn interact(cx: &mut Cx, owner: PlayerId, offer_id: u32, action: u8, 
                 .map(|m| m.core.pos());
             let item = (1..=3).find(|&i| a.bits & (1 << i) != 0 && a.bits & (1 << (i + 3)) == 0);
             if let Some(item) =
-                item.filter(|_| at.is_some_and(|p| near(cx.k, cx.w, pos, p, CONTACT_RANGE)))
+                item.filter(|_| at.is_some_and(|p| near(cx.k, cx.w, pos, p, TOP25.contact_range)))
             {
                 let a = board_mut(cx.w).unwrap().get_mut(owner, offer_id).unwrap();
                 a.claim_anchor(item + 3);
@@ -195,20 +197,35 @@ pub(crate) fn interact(cx: &mut Cx, owner: PlayerId, offer_id: u32, action: u8, 
             }
         }
         (4, TradeUp)
-            if a.progress > 0 && near(cx.k, cx.w, pos, endpoint(cx.w, o, id, a), CONTACT_RANGE) =>
+            if a.progress > 0
+                && near(
+                    cx.k,
+                    cx.w,
+                    pos,
+                    endpoint(cx.w, o, id, a),
+                    TOP25.contact_range,
+                ) =>
         {
             let a = board_mut(cx.w).unwrap().get_mut(owner, offer_id).unwrap();
             a.reward.points = a.progress;
             a.achieve(a.progress);
         }
-        (5 | 7, TheBargain) if near(cx.k, cx.w, pos, endpoint(cx.w, o, id, a), CONTACT_RANGE) => {
+        (5 | 7, TheBargain)
+            if near(
+                cx.k,
+                cx.w,
+                pos,
+                endpoint(cx.w, o, id, a),
+                TOP25.contact_range,
+            ) =>
+        {
             let (give, receive, weapon_trade) =
                 if action == 7 && target < BARGAIN_STAT_COUNT && has_spare_weapon(cx.w, player) {
                     (None, target, true)
                 } else if action == 5
                     && target < BARGAIN_STAT_COUNT * BARGAIN_STAT_COUNT
                     && target / BARGAIN_STAT_COUNT != target % BARGAIN_STAT_COUNT
-                    && bargain_stacks(player, target / BARGAIN_STAT_COUNT) >= BARGAIN_COST
+                    && bargain_stacks(player, target / BARGAIN_STAT_COUNT) >= TOP25.bargain_cost
                 {
                     (
                         Some(target / BARGAIN_STAT_COUNT),
@@ -227,7 +244,7 @@ pub(crate) fn interact(cx: &mut Cx, owner: PlayerId, offer_id: u32, action: u8, 
             };
             a.achieve(1);
         }
-        (6, StayAWhile) if near(cx.k, cx.w, pos, o.at, CONTACT_RANGE) => {
+        (6, StayAWhile) if near(cx.k, cx.w, pos, o.at, TOP25.contact_range) => {
             let a = board_mut(cx.w).unwrap().get_mut(owner, offer_id).unwrap();
             a.meditation = Some(pos);
             a.dwell_ms = 0.;
@@ -238,7 +255,7 @@ pub(crate) fn interact(cx: &mut Cx, owner: PlayerId, offer_id: u32, action: u8, 
 
 fn inside_fort(k: &MatchStatic, at: Vec2, pos: Vec2) -> bool {
     let Some(layers) = k.arena.map.layers() else {
-        return distance(at, pos) <= FORT_RANGE;
+        return distance(at, pos) <= TOP25.fort_range;
     };
     let tile = crate::map::world_to_tile;
     let contains = |b: &crate::mapdata::TileRect, p: Vec2| {
@@ -262,7 +279,7 @@ pub(super) fn tick(cx: &mut Cx, i: usize, id: QuestId) {
     let p = cx.w.player(owner).unwrap();
     let pos = p.pos();
     let destination = endpoint(cx.w, o, id, a);
-    let at_end = near(cx.k, cx.w, pos, destination, CONTACT_RANGE);
+    let at_end = near(cx.k, cx.w, pos, destination, TOP25.contact_range);
     // A scared giver hides only itself: a turn-in at a remote contact, trader or rival outpost still lands.
     let at_giver = ends_at_giver(cx.w, o, id, a);
     let mut next = a.clone();
@@ -271,7 +288,7 @@ pub(super) fn tick(cx: &mut Cx, i: usize, id: QuestId) {
             SmugglersRun | TwoBanners if next.carrying && at_end => next.achieve(1),
             BarrowRun | Watchtowers | PilgrimsPath => {
                 for (j, &at) in o.tokens.iter().enumerate() {
-                    if near(cx.k, cx.w, pos, at, CONTACT_RANGE) {
+                    if near(cx.k, cx.w, pos, at, TOP25.contact_range) {
                         next.claim_anchor(j as u8);
                     }
                 }
@@ -290,8 +307,8 @@ pub(super) fn tick(cx: &mut Cx, i: usize, id: QuestId) {
                     })
                 });
                 if inside && !contested {
-                    next.dwell_ms = (next.dwell_ms + cx.k.tick_ms()).min(FORT_MS);
-                    if next.dwell_ms >= FORT_MS {
+                    next.dwell_ms = (next.dwell_ms + cx.k.tick_ms()).min(TOP25.fort_ms);
+                    if next.dwell_ms >= TOP25.fort_ms {
                         next.achieve(1);
                     }
                 } else if !inside {
@@ -307,8 +324,8 @@ pub(super) fn tick(cx: &mut Cx, i: usize, id: QuestId) {
                     next.meditation = None;
                     next.dwell_ms = 0.;
                 } else {
-                    next.dwell_ms = (next.dwell_ms + cx.k.tick_ms()).min(MEDITATE_MS);
-                    if next.dwell_ms >= MEDITATE_MS {
+                    next.dwell_ms = (next.dwell_ms + cx.k.tick_ms()).min(TOP25.meditate_ms);
+                    if next.dwell_ms >= TOP25.meditate_ms {
                         next.achieve(1);
                     }
                 }
@@ -379,7 +396,7 @@ pub(crate) fn objective_for_owner(
         TwoBanners if a.branch.is_some() && index == 0 => at(),
         SmugglersRun if a.carrying && index == 0 => Some(o.at),
         WhispersInTheBrush if index < 3 => at().filter(|&p| {
-            a.bits & (1 << index) == 0 && distance(player.pos(), p) <= BRUSH_REVEAL_RANGE
+            a.bits & (1 << index) == 0 && distance(player.pos(), p) <= TOP25.brush_reveal_range
         }),
         StayAWhile if index == 0 => Some(o.at),
         TheBurningCrown | BountyHunter | ACruelJoke | TradeUp | TwoBanners => None,

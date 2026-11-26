@@ -13,6 +13,18 @@ namespace Roguehalla.Net.Tests
     /// </summary>
     public class GarbageTests
     {
+        static string[] s_counterControl;
+
+        /// <summary>Guard (P-UI-ALLOC-PROOF-1): the allocation counter must register a known allocation, so a test built on it can never go blind silently.</summary>
+        static void AssertCounterSees()
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            var kept = new string[1000];
+            for (int i = 0; i < kept.Length; i++) kept[i] = "control" + i;
+            s_counterControl = kept;
+            Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.GreaterThan(0L), "the allocation counter did not see 1,000 kept string concatenations: it is blind here");
+        }
+
         const int Iterations = 20000;
 
         static WireSelf Self(uint i)
@@ -75,13 +87,14 @@ namespace Roguehalla.Net.Tests
         /// <summary>Bytes allocated per call of <paramref name="body"/>, after a warm-up (JIT, first-use statics).</summary>
         static double PerCall(Action<int> body) => AllocationProbe.PerCall(body, Iterations);
 
-        static double DecodeGarbage(int actors, bool me)
+        static double DecodeGarbage(int actors, bool me, out string attempts)
         {
             var frame = Snap(BaseTick, actors, me).Encode();
             object sink = null;
             // Exact equality met by any one run: a real allocation is in every run, collector noise only adds.
             double b = AllocationProbe.PerCallExact(i => { sink = ServerMsg.Decode(frame, frame.Length); }, (me ? 176.0 : 88.0) + 40 * actors, Iterations);
             GC.KeepAlive(sink);
+            attempts = AllocationProbe.LastAttempts;
             return b;
         }
 
@@ -90,12 +103,12 @@ namespace Roguehalla.Net.Tests
         [TestCase(68)]
         public void PlainDecodeAllocatesOnlyTheSnapshotItsSelfAndOneActorArray(int actors)
         {
-            double withMe = DecodeGarbage(actors, true), spectator = DecodeGarbage(actors, false);
+            double withMe = DecodeGarbage(actors, true, out string withMeLog), spectator = DecodeGarbage(actors, false, out string spectatorLog);
             TestContext.Progress.WriteLine("plain decode, {0} actors: {1} B with a self, {2} B without", actors, withMe, spectator);
             // Snapshot object (64 B) + array header (24 B) + 40 B per actor (v12 barrier share; v16 archetype and ADR0026 indicator facts);
             // a self adds one 88 B object (wish and barrier owner facts, indicator facts). No reader object.
-            Assert.AreEqual(40.0 * actors + 88, spectator);
-            Assert.AreEqual(40.0 * actors + 176, withMe);
+            Assert.AreEqual(40.0 * actors + 88, spectator, spectatorLog);
+            Assert.AreEqual(40.0 * actors + 176, withMe, withMeLog);
         }
 
         /// <summary>Decode into the buffer's spare, as Session does. <paramref name="vary"/> alternates the actor count every
@@ -239,6 +252,7 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void SessionMeMakesNoGarbageOnTheSteadyPath()
         {
+            AssertCounterSees();
             double now = 1000;
             var t = new FakeTransport();
             var s = new Session(t, new SessionOptions { Now = () => now });

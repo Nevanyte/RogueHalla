@@ -61,7 +61,7 @@ namespace Roguehalla.Client.Tests
         public void UntimedAcceptedQuestShowsProgressWithoutWaitingForADeadline()
         {
             var row = Row(_first, "The Warden", "brief", "objective", "reward", false, true);
-            row.ExpiresAt = 0;
+            row.ExpiresAt = 0; row.OwnerReady = false;
             DeliverQuestState(_session, _transport, Available(row));
             _view.Refresh();
             _view.SelectQuest(_first);
@@ -86,7 +86,7 @@ namespace Roguehalla.Client.Tests
             } });
             _view.Refresh();
             _view.SelectQuest(_first);
-            var actionList = _view.Root.Find("QuestDetail/QuestTextScroll/Viewport/Content/QuestActions");
+            var actionList = _view.Root.Find("QuestDetail/QuestActions/Viewport/Content");
             var first = actionList.Find("Action0").GetComponent<UnityEngine.UI.Button>();
             var second = actionList.Find("Action1").GetComponent<UnityEngine.UI.Button>();
             Assert.AreEqual("Carry the Gallows banner", first.GetComponentInChildren<TMP_Text>().text);
@@ -302,16 +302,16 @@ namespace Roguehalla.Client.Tests
             pastButStillAcceptable.ExpiresAt = 500;
             DeliverQuestState(_session, _transport, Available(pastButStillAcceptable));
             _view.Refresh(); _view.SelectQuest(_first);
-            StringAssert.Contains("Awaiting server deadline update", Status());
+            StringAssert.Contains("Preview · time is up", Status());
             Assert.IsTrue(_view.TryAccept(_first), "past presentation deadline does not override current server CanAccept");
-            StringAssert.Contains("Acceptance queued · waiting for server update", Status());
+            StringAssert.Contains("Accepting…", Status());
             Assert.IsFalse(_session.Collections.Quests.Rows[0].OwnerAccepted, "queueing is not an optimistic server acceptance");
 
             // Server replacement revokes the affordance before dispatch; the old callback cannot queue it.
             DeliverQuestState(_session, _transport, Available(Row(_first, "Fresh", "brief", "objective", "reward", false)));
             _view.Refresh();
             Assert.IsFalse(_view.TryAccept(_first));
-            StringAssert.DoesNotContain("Acceptance queued", Status(), "a new reliable replacement clears only local pending feedback");
+            StringAssert.DoesNotContain("Accepting", Status(), "a new reliable replacement clears only local pending feedback");
             _session.FlushInput();
             var frames = InputFrames(_transport);
             Assert.AreEqual(1, frames.Count);

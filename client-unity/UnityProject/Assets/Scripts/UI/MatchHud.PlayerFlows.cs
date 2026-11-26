@@ -10,8 +10,8 @@ namespace Roguehalla.Client
     public sealed partial class MatchHud
     {
         QuestJournalView _questJournal;
+        QuestTrackerView _questTracker;
         TraderDialogView _traderDialog;
-        OrderedNoticeFeed _orderedNotices;
         UnityEngine.UI.Button _journalButton;
         uint _playerFlowEpoch;
         bool _returnToResults;
@@ -31,17 +31,17 @@ namespace Roguehalla.Client
         void InitializePlayerFlows()
         {
             _questJournal = gameObject.AddComponent<QuestJournalView>();
-            _questJournal.Initialize(_root, ClosePlayerFlows, handle => _map?.SetTrackedQuest(handle));
+            _questJournal.Initialize(_root, ClosePlayerFlows, handle => _map?.SetTrackedQuest(handle), _acceptLatch);
             _traderDialog = gameObject.AddComponent<TraderDialogView>();
             _traderDialog.Initialize(_root, ClosePlayerFlows);
-            _orderedNotices = gameObject.AddComponent<OrderedNoticeFeed>();
-            _orderedNotices.Initialize(_root, ClosePlayerFlows);
+            CreateNoticeFeed();
             AddPlayerFlowTabs(_questJournal.Root); AddPlayerFlowTabs(_traderDialog.Root); AddPlayerFlowTabs(_orderedNotices.Root);
             // Legacy launcher: left 12, bottom 12, small 11 px button; the journal itself is only re-skinned.
             _journalButton = HudUi.Button(_stage, "Journal", "Quests · J", HudAnchor.BottomLeft, QuestLauncherLeft, QuestLauncherBottom, 84f, 22f,
                 () => ShowPlayerFlow(DefaultPlayerFlowPage), UiTheme.Current.SizeSmall, 5f);
             _journalButton.gameObject.SetActive(false);
             InitializeQuestRewardHud();
+            _questTracker = new QuestTrackerView(_hud);
         }
         void AddPlayerFlowTabs(Transform root)
         {
@@ -69,7 +69,6 @@ namespace Roguehalla.Client
             CloseHubPanels();
             if (_map?.IsPlanning == true) BlockPlanningMapInput(); else _map?.SetOpen(false);
             ReleaseChestFocus();
-            _orderedNotices.SetRecentVisible(false);
             _questJournal.SetVisible(page == 0); _traderDialog.SetVisible(page == 1); _orderedNotices.SetVisible(page == 2);
             RefreshPlanningJournalAccess();
             RefreshWorldHudVisibility();
@@ -156,14 +155,15 @@ namespace Roguehalla.Client
         {
             if (_session != null && _playerFlowEpoch != _session.TimelineEpoch) ResetPlayerFlowTimeline();
             RefreshPlayerFlows();
-            _orderedNotices?.SetRecentVisible(_session != null && WorldHudVisible);
+            TickNotices();
             _orderedNotices?.Refresh();
             _huntPanel?.Refresh(_session, _session != null && WorldHudVisible && !PlayerFlowVisible);
+            _questTracker?.Refresh(_session, _session != null && WorldHudVisible && !PlayerFlowVisible, PlateChainBottom() + Roguehalla.Net.Ui.HudRegions.TrackerGap, TrackerFloor(), Time.unscaledDeltaTime);
         }
         void RefreshJournalLauncher()
         {
             if (_journalButton == null) return;
-            _journalButton.gameObject.SetActive(PlayerFlowLauncherAllowed && !PlayerFlowVisible);
+            _journalButton.gameObject.SetActive(PlayerFlowLauncherAllowed && !PlayerFlowVisible && !(_results != null && _results.gameObject.activeSelf) && !(_session != null && _session.LastResult != null && !Spectating));
             var label = _journalButton.GetComponentInChildren<TMP_Text>(true);
             const string value = "Quests · J";
             if (label.text != value) label.text = value;

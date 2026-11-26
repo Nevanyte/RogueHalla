@@ -1,20 +1,23 @@
 //! WallBuster opens ordinary terrain and breaks the cells of temporary spell barriers.
 use crate::map::{tile_to_world_center, world_to_tile, TILE_FLOOR, TILE_LOW, TILE_WALL};
+use crate::quests::board::tuning::TOP25;
 use crate::{state::World, statics::MatchStatic, systems::Cx, Phase, PlayerId, Vec2};
 
 pub(crate) fn visit_rules(word: &mut dyn FnMut(u64)) {
-    word(RADIUS.to_bits());
-    word(ANCHOR_MARGIN.to_bits());
+    word(TOP25.wall_radius.to_bits());
+    word(TOP25.wall_anchor_margin.to_bits());
     word(MAX_REMOVALS as u64);
     word(u64::from(FENCE));
 }
 
-const RADIUS: f64 = 300.;
-const RADIUS_SQ: f64 = RADIUS * RADIUS;
 const FENCE: u8 = 2;
-const ANCHOR_MARGIN: f64 = crate::constants::TILE;
 // The reliable wire collection admits up to 300 cells for each possible wire seat.
 const MAX_REMOVALS: usize = 9_600;
+
+/// The WallBuster reach, squared (the product the former `RADIUS_SQ` const held).
+fn radius_sq() -> f64 {
+    TOP25.wall_radius * TOP25.wall_radius
+}
 
 pub(crate) fn wall_buster(cx: &mut Cx, owner: PlayerId) -> bool {
     let Some(aim) = cx.s.quest_spell_aim.take() else {
@@ -31,7 +34,8 @@ pub(crate) fn wall_buster(cx: &mut Cx, owner: PlayerId) -> bool {
         return false;
     }
     let from = cx.w.core(ix).pos();
-    let has_range = |pt: Vec2| distance_sq(from, pt) <= RADIUS_SQ;
+    let radius_sq = radius_sq();
+    let has_range = |pt: Vec2| distance_sq(from, pt) <= radius_sq;
     if !has_range(aim) {
         return false;
     }
@@ -57,10 +61,10 @@ pub(crate) fn wall_buster(cx: &mut Cx, owner: PlayerId) -> bool {
         return false;
     }
 
-    let min_y = world_to_tile(from.y - RADIUS).max(0);
-    let max_y = world_to_tile(from.y + RADIUS).min(i64::from(map.h) - 1);
-    let min_x = world_to_tile(from.x - RADIUS).max(0);
-    let max_x = world_to_tile(from.x + RADIUS).min(i64::from(map.w) - 1);
+    let min_y = world_to_tile(from.y - TOP25.wall_radius).max(0);
+    let max_y = world_to_tile(from.y + TOP25.wall_radius).min(i64::from(map.h) - 1);
+    let min_x = world_to_tile(from.x - TOP25.wall_radius).max(0);
+    let max_x = world_to_tile(from.x + TOP25.wall_radius).min(i64::from(map.w) - 1);
     let mut opened = Vec::new();
     for y in min_y..=max_y {
         for x in min_x..=max_x {
@@ -152,7 +156,7 @@ fn protected(k: &MatchStatic, w: &World, i: u32) -> bool {
         }
     }
     let at = center(k, i);
-    let nearby = |p| distance_sq(p, at) <= ANCHOR_MARGIN * ANCHOR_MARGIN;
+    let nearby = |p| distance_sq(p, at) <= TOP25.wall_anchor_margin * TOP25.wall_anchor_margin;
     if let Some(Ok(deal)) = &k.quest_deal {
         return deal.placements.iter().any(|p| {
             nearby(p.at) || p.tokens.iter().copied().any(nearby) || p.parcel.is_some_and(nearby)
@@ -297,7 +301,7 @@ mod tests {
         let expected: Vec<u32> = before
             .iter()
             .copied()
-            .filter(|&i| distance_sq(origin, super::center(&sim.k, i)) > RADIUS_SQ)
+            .filter(|&i| distance_sq(origin, super::center(&sim.k, i)) > radius_sq())
             .collect();
         assert!(!expected.is_empty() && expected.len() < before.len());
         assert!(cast(&mut sim, owner, aim));

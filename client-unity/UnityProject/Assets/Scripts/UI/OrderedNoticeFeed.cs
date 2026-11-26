@@ -23,14 +23,18 @@ namespace Roguehalla.Client
         readonly List<Entry> _entries = new List<Entry>();
         readonly StringBuilder _history = new StringBuilder();
         ReadOnlyCollection<Entry> _readOnly;
-        RectTransform _root, _recentRoot;
-        TMP_Text _body, _recent;
-        UnityEngine.UI.ScrollRect _historyScroll, _recentScroll;
+        RectTransform _root;
+        TMP_Text _body;
+        UnityEngine.UI.ScrollRect _historyScroll;
         Action _onClose;
-        ulong _version = 1, _historyVersion, _recentVersion, _cachedVersion;
-        /// <summary>The recent-notices card over the play area shows for this long after the newest notice; the full list stays in the Notices page.</summary>
-        public const float RecentSeconds = 8f;
-        float _recentHideAt;
+        ulong _version = 1, _historyVersion, _cachedVersion;
+        int _dropped;
+        /// <summary>The history keeps this many of the newest notices; numbering stays the absolute count.</summary>
+        public const int MaxEntries = 200;
+        /// <summary>Raised for each delivered event this feed accepts (it has a history line).</summary>
+        public event Action<WireEvent> Accepted;
+        /// <summary>Raised when the history is cleared (a new session or a timeline reset).</summary>
+        public event Action Cleared;
         string _cachedText;
         public RectTransform Root => _root;
         public bool IsVisible => _root != null && _root.gameObject.activeSelf;
@@ -41,61 +45,62 @@ namespace Roguehalla.Client
             _onClose = onClose;
             _root = MythicUi.Panel(parent, "NoticeHistory", new Vector2(.12f, .12f), new Vector2(.88f, .915f));
             MythicUi.Text(_root, "Title", "SERVER NOTICES", new Vector2(.025f, .915f), new Vector2(.78f, .995f), 25, ShowcasePalette.Gold);
-            MythicUi.Button(_root, "Close", "CLOSE", new Vector2(.82f, .92f), new Vector2(.98f, .99f), () => { SetVisible(false); _onClose?.Invoke(); });
+            FlowWindowClose.Create(_root, "Close", () => { SetVisible(false); _onClose?.Invoke(); });
             _body = MythicUi.ScrollText(_root, "History", "No server notices received.", new Vector2(.025f, .04f), new Vector2(.975f, .80f), 17);
             _historyScroll = _body.GetComponentInParent<UnityEngine.UI.ScrollRect>();
             _historyScroll.gameObject.AddComponent<KeyboardScrollPane>().Initialize(_historyScroll);
-            _recentRoot = MythicUi.Panel(parent, "RecentServerNotices", new Vector2(.405f, .735f), new Vector2(.665f, .845f));
-            _recent = MythicUi.ScrollText(_recentRoot, "ReceivedNotices", "", new Vector2(.02f, .03f), new Vector2(.98f, .97f), 14);
-            _recentScroll = _recent.GetComponentInParent<UnityEngine.UI.ScrollRect>();
-            _recentScroll.gameObject.AddComponent<KeyboardScrollPane>().Initialize(_recentScroll);
-            _root.gameObject.SetActive(false); _recentRoot.gameObject.SetActive(false);
+            _root.gameObject.SetActive(false);
         }
 
         public void SetVisible(bool visible) { if (_root != null) { _root.gameObject.SetActive(visible); Refresh(); } }
-        public void SetRecentVisible(bool visible)
-        {
-            if (_recentRoot != null) _recentRoot.gameObject.SetActive(visible && _entries.Count != 0 && Time.unscaledTime < _recentHideAt);
-            if (visible) Refresh();
-        }
         public void Clear()
         {
             _entries.Clear(); _history.Clear(); _version++;
             _cachedText = "No server notices received."; _cachedVersion = _version;
             if (_body != null) _body.text = _cachedText;
-            if (_recent != null) _recent.text = "";
-            _historyVersion = _recentVersion = 0;
-            if (_recentRoot != null) _recentRoot.gameObject.SetActive(false);
+            _historyVersion = 0; _dropped = 0;
             Refresh();
+            Cleared?.Invoke();
         }
         public void Append(ServerMsg.Events batch)
         {
             if (batch == null) return;
-            int before = _entries.Count;
+            int before = _entries.Count, droppedBefore = _dropped;
             foreach (var item in batch.List)
             {
                 if (!TryText(item, out var text)) continue;
                 _entries.Add(new Entry(batch.Tick, item.Kind, text));
                 if (_history.Length != 0) _history.Append('\n');
-                _history.Append(_entries.Count).Append(" · ").Append(text);
+                _history.Append(_dropped + _entries.Count).Append(" · ").Append(text);
+                Accepted?.Invoke(item);
             }
-            if (_entries.Count != before) { _version++; _recentHideAt = Time.unscaledTime + RecentSeconds; }
+            if (_entries.Count > MaxEntries) Trim();
+            if (_entries.Count != before || _dropped != droppedBefore) _version++;
             Refresh();
+        }
+        void Trim()
+        {
+            int extra = _entries.Count - MaxEntries;
+            _entries.RemoveRange(0, extra); _dropped += extra;
+            _history.Clear();
+            for (int i = 0; i < _entries.Count; i++)
+            {
+                if (i != 0) _history.Append('\n');
+                _history.Append(_dropped + i + 1).Append(" · ").Append(_entries[i].Text);
+            }
         }
         public void Refresh()
         {
             if (_body == null) return;
             bool historyChanged = IsVisible && _historyVersion != _version;
-            bool recentChanged = _recentRoot.gameObject.activeSelf && _recentVersion != _version;
-            if (!historyChanged && !recentChanged) return;
+            if (!historyChanged) return;
             if (_cachedVersion != _version)
             {
                 _cachedText = _entries.Count == 0 ? "No server notices received." : _history.ToString();
                 _cachedVersion = _version;
             }
             // Closed history does not force a large TMP layout. All entries remain in the received list.
-            if (historyChanged) { SetTextPreservingReader(_body, _historyScroll, _cachedText); _historyVersion = _version; }
-            if (recentChanged) { SetTextPreservingReader(_recent, _recentScroll, _cachedText); _recentVersion = _version; }
+            SetTextPreservingReader(_body, _historyScroll, _cachedText); _historyVersion = _version;
         }
         static void SetTextPreservingReader(TMP_Text target, UnityEngine.UI.ScrollRect scroll, string text)
         {

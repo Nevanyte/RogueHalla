@@ -1138,13 +1138,9 @@ impl World {
             if m.zombie.is_some() {
                 return None;
             }
-            let ty = crate::mob_catalog::mob_type_by_id(
-                m.mob_type
-                    .expect("non-dummy mob has a catalog type")
-                    .as_str(),
-            )
-            .expect("catalog type");
-            // The world's elite numbers (P-AUG-RULES-1: the rule its mob runtime stores).
+            let ty_id = m.mob_type.expect("non-dummy mob has a catalog type");
+            let ty = crate::mob_catalog::mob_type_by_id(ty_id.as_str()).expect("catalog type");
+            // The world's elite numbers (P-AUG-RULES-1: the rule its mob runtime stores), per kind (P-BAL-ELITE-SEAM-1).
             let elites = crate::mob_runtime::EliteTuning::of_world(self);
             let k = if m.elite {
                 elites.k
@@ -1152,7 +1148,12 @@ impl World {
                 crate::constants::MOB_K
             };
             f.hp = (f.hp * k)
-                * (crate::constants::MOB_HP_MULT * if m.elite { elites.hp_mult } else { 1. })
+                * (crate::constants::MOB_HP_MULT
+                    * if m.elite {
+                        elites.hp_mult_of(ty_id)
+                    } else {
+                        1.
+                    })
                 * ty.role_def().hp_mult;
             f.hit = self.point_damage(ix, f.hit, false);
         }
@@ -1173,20 +1174,21 @@ impl World {
         if m.zombie.is_some() {
             return raw;
         }
-        let ty = crate::mob_catalog::mob_type_by_id(
-            m.mob_type
-                .expect("non-dummy mob has a catalog type")
-                .as_str(),
-        )
-        .expect("catalog type");
-        // The world's elite numbers (P-AUG-RULES-1: the rule its mob runtime stores).
+        let ty_id = m.mob_type.expect("non-dummy mob has a catalog type");
+        let ty = crate::mob_catalog::mob_type_by_id(ty_id.as_str()).expect("catalog type");
+        // The world's elite numbers (P-AUG-RULES-1: the rule its mob runtime stores), per kind (P-BAL-ELITE-SEAM-1).
         let elites = crate::mob_runtime::EliteTuning::of_world(self);
         let k = if m.elite {
             elites.k
         } else {
             crate::constants::MOB_K
         };
-        let d = crate::constants::MOB_DMG_MULT * if m.elite { elites.dmg_mult } else { 1. };
+        let d = crate::constants::MOB_DMG_MULT
+            * if m.elite {
+                elites.dmg_mult_of(ty_id)
+            } else {
+                1.
+            };
         let zone = match ty.zone {
             crate::FactionId::Plague => crate::constants::MOB_PLAGUE_DAMAGE,
             crate::FactionId::Holy => crate::constants::MOB_HOLY_DAMAGE,

@@ -1,14 +1,14 @@
 //! Authoritative Top25 spell effects. The inventory pays only after effect admission succeeds.
 pub(super) fn visit_rules(word: &mut dyn FnMut(u64)) {
     for value in [
-        STASIS_MS,
-        SHIELD_MS,
-        WARHORN_MS,
-        TORNADO_WINDUP,
-        TORNADO_RADIUS,
-        PULL_TICK_DISTANCE,
-        SMITE_RANGE,
-        SWAP_RANGE,
+        TOP25.stasis_ms,
+        TOP25.shield_ms,
+        TOP25.warhorn_ms,
+        TOP25.tornado_windup_ms,
+        TOP25.tornado_radius,
+        TOP25.pull_tick_distance,
+        TOP25.smite_range,
+        TOP25.swap_range,
     ] {
         word(value.to_bits());
     }
@@ -24,6 +24,7 @@ mod departure_and_rate_tests;
 mod tests;
 
 use super::{inventory, Award};
+use crate::quests::board::tuning::TOP25;
 use crate::{
     fighter::FighterIx,
     geometry::{has_line_of_sight, Footprint},
@@ -40,20 +41,11 @@ pub(crate) use terrain::RADIUS as DEPLOYMENT_RADIUS;
 pub(crate) use terrain::{damage_deployment, deployments, is_cage, reveals, visible_deployments};
 pub use terrain::{DeploymentKind, DeploymentView};
 
-const STASIS_MS: f64 = 2500.;
-const SHIELD_MS: f64 = 1500.;
-const WARHORN_MS: f64 = 2500.;
-const TORNADO_WINDUP: f64 = 600.;
-const TORNADO_RADIUS: f64 = 240.;
-const PULL_TICK_DISTANCE: f64 = 80.;
-
 /// A distance tuned per legacy 50 ms tick, as this match's step: shots and pulls keep their speed in units per second
 /// at 40 Hz (exactly the tuned value at 20 Hz).
 fn per_step(cx: &Cx, per_legacy_tick: f64) -> f64 {
     per_legacy_tick * cx.k.tick_ms() / crate::constants::LEGACY_TICK_MS
 }
-const SMITE_RANGE: f64 = 450.;
-const SWAP_RANGE: f64 = 400.;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 enum Buff {
@@ -96,8 +88,8 @@ enum ShotKind {
 impl ShotKind {
     fn parameters(self) -> (f64, f64, u8) {
         match self {
-            Self::Hook => (700., 14., MASK_MOVE),
-            Self::Bolas => (550., 12., MASK_SIGHT),
+            Self::Hook => (TOP25.hook_range, TOP25.hook_width, MASK_MOVE),
+            Self::Bolas => (TOP25.bolas_range, TOP25.bolas_width, MASK_SIGHT),
         }
     }
 }
@@ -205,7 +197,7 @@ pub(crate) fn blocks_status(w: &World, id: PlayerId, kind: StatusKind) -> bool {
 
 pub(crate) fn attack_rate(w: &World, id: PlayerId) -> f64 {
     if buff(w, id, |b| b == Buff::BlindRage) {
-        1.20
+        TOP25.blind_rage_attack_rate
     } else {
         1.
     }
@@ -219,7 +211,7 @@ pub(crate) fn damage_factor(w: &World, id: PlayerId) -> f64 {
                 _ => None,
             })
         })
-        .map_or(1., |n| 1. + 0.2 * f64::from(n))
+        .map_or(1., |n| 1. + TOP25.warhorn_damage_per_taunt * f64::from(n))
 }
 
 /// Warhorn's guard: while its buff lasts the caster takes 15% less damage per enemy taunted, at most 60% less.
@@ -231,7 +223,9 @@ pub(crate) fn damage_taken_factor(w: &World, id: PlayerId) -> f64 {
                 _ => None,
             })
         })
-        .map_or(1., |n| (1. - 0.15 * f64::from(n)).max(0.4))
+        .map_or(1., |n| {
+            (1. - TOP25.warhorn_guard_per_taunt * f64::from(n)).max(TOP25.warhorn_guard_floor)
+        })
 }
 
 pub(crate) fn shielding(w: &World, id: PlayerId) -> bool {
@@ -340,14 +334,14 @@ pub(super) fn cast(
         Award::Hook => launch(cx, ix, aim, ShotKind::Hook),
         Award::ShoulderCharge => return charge(cx, ix, aim),
         Award::Tornado => {
-            if !placement(cx, from, aim, 500., 0.) {
+            if !placement(cx, from, aim, TOP25.tornado_cast_range, 0.) {
                 return false;
             }
             let row = Tornado {
                 owner: id,
                 at: aim,
                 max_hp: cx.w.core(ix).vitals.max_hp,
-                lands: cx.w.server_time + TORNADO_WINDUP,
+                lands: cx.w.server_time + TOP25.tornado_windup_ms,
             };
             state_mut(cx.w).tornadoes.push(row);
         }
@@ -358,7 +352,7 @@ pub(super) fn cast(
                 let j = FighterIx::of_slot(i);
                 let t = cx.w.core(j);
                 if enemy(cx.w, id, j)
-                    && distance(from, t.pos()) <= 280.
+                    && distance(from, t.pos()) <= TOP25.warhorn_radius
                     && has_line_of_sight(
                         crate::collision::map(cx.k, cx.w),
                         from,
@@ -369,27 +363,33 @@ pub(super) fn cast(
                     let victim = t.id;
                     if !defended(cx.w, victim) {
                         stop_attacking(cx, victim);
-                        control(cx.w, victim, WARHORN_MS, Control::Taunt { source: id });
+                        control(
+                            cx.w,
+                            victim,
+                            TOP25.warhorn_ms,
+                            Control::Taunt { source: id },
+                        );
                         provoke_mob(cx.w, victim, id);
                         count = count.saturating_add(1);
                     }
                 }
             }
             if count > 0 {
-                set_buff(cx.w, id, WARHORN_MS, Buff::Warhorn { count });
+                set_buff(cx.w, id, TOP25.warhorn_ms, Buff::Warhorn { count });
             }
         }
         Award::Smite => {
-            let Some(victim) = target.filter(|t| focused(cx, ix, *t, SMITE_RANGE, false)) else {
+            let Some(victim) = target.filter(|t| focused(cx, ix, *t, TOP25.smite_range, false))
+            else {
                 return false;
             };
             if !defended(cx.w, victim) {
-                hit(cx, id, victim, 220., Some(SMITE_SOURCE), true);
+                hit(cx, id, victim, TOP25.smite_damage, Some(SMITE_SOURCE), true);
             }
         }
         Award::SpellShield => {
             let refund_at = cx.w.server_time + award.cooldown_ms();
-            set_buff(cx.w, id, SHIELD_MS, Buff::Shield { refund_at });
+            set_buff(cx.w, id, TOP25.shield_ms, Buff::Shield { refund_at });
         }
         Award::ForgetMeNotSeed => {
             if let Some(i) = state(cx.w)
@@ -408,7 +408,8 @@ pub(super) fn cast(
             }
         }
         Award::SwapStick => {
-            let Some(victim) = target.filter(|t| focused(cx, ix, *t, SWAP_RANGE, true)) else {
+            let Some(victim) = target.filter(|t| focused(cx, ix, *t, TOP25.swap_range, true))
+            else {
                 return false;
             };
             if locked_gear(cx.w, id) || locked_gear(cx.w, victim) {
@@ -424,7 +425,7 @@ pub(super) fn cast(
                 b: victim,
                 slot_a: a.weapon.slot,
                 slot_b: b.weapon.slot,
-                until: cx.w.server_time + 10_000.,
+                until: cx.w.server_time + TOP25.swap_ms,
             };
             if !defended(cx.w, victim) {
                 swap_slots(cx.w, swap);
@@ -443,11 +444,11 @@ pub(super) fn cast(
             p.motion.path.clear();
             p.motion.slip = None;
             p.weapon.targeting = Default::default();
-            set_buff(cx.w, id, STASIS_MS, Buff::Stasis);
+            set_buff(cx.w, id, TOP25.stasis_ms, Buff::Stasis);
         }
         Award::Bolas => launch(cx, ix, aim, ShotKind::Bolas),
         Award::BlindRage => {
-            set_buff(cx.w, id, 6000., Buff::BlindRage);
+            set_buff(cx.w, id, TOP25.blind_rage_ms, Buff::BlindRage);
             crate::systems::items::refold_modifiers_with(cx.k, cx.w, ix.slot(), cx.stats);
         }
         Award::StillMind => {
@@ -460,7 +461,7 @@ pub(super) fn cast(
                     cx.stats,
                 );
             }
-            set_buff(cx.w, id, 3000., Buff::StillMind);
+            set_buff(cx.w, id, TOP25.still_mind_ms, Buff::StillMind);
         }
         _ => return false,
     }
@@ -480,7 +481,7 @@ fn cleanse(cx: &mut Cx, id: PlayerId) {
         cx.w.core_mut(ix).weapon.root_until = now;
     }
     state_mut(cx.w).control.retain(|r| r.id != id);
-    set_buff(cx.w, id, TORNADO_WINDUP, Buff::Cleansed);
+    set_buff(cx.w, id, TOP25.tornado_windup_ms, Buff::Cleansed);
 }
 
 /// A taunted camp mob fights the Warhorn caster: it wakes onto them with threat no ordinary hit outweighs.
@@ -597,22 +598,22 @@ fn recall(cx: &mut Cx, ix: FighterIx, from: Vec2, to: Vec2) -> bool {
 fn charge(cx: &mut Cx, ix: FighterIx, aim: Vec2) -> bool {
     let p = cx.w.core(ix);
     let (id, from) = (p.id, p.pos());
-    let end = aim_end(cx, ix, aim, 220.);
+    let end = aim_end(cx, ix, aim, TOP25.charge_range);
     let end = clipped(cx, p.foot(), from, end);
     if distance(from, end) < 1. {
         return false;
     }
-    let contact = first_hit(cx, id, from, end, 21., MASK_MOVE);
+    let contact = first_hit(cx, id, from, end, TOP25.charge_width, MASK_MOVE);
     let to = if let Some((victim, u)) = contact {
         let at = cx.w.core(cx.w.fighter_idx(victim).unwrap()).pos();
         if !defended(cx.w, victim) {
             let d = distance(from, end);
             let away = Vec2::new(
-                at.x + (end.x - from.x) * 120. / d,
-                at.y + (end.y - from.y) * 120. / d,
+                at.x + (end.x - from.x) * TOP25.charge_knockback / d,
+                at.y + (end.y - from.y) * TOP25.charge_knockback / d,
             );
             push(cx, victim, away);
-            apply_status(cx, id, victim, StatusKind::Stun, 500.);
+            apply_status(cx, id, victim, StatusKind::Stun, TOP25.charge_stun_ms);
         }
         between(from, end, u)
     } else {
@@ -760,7 +761,7 @@ fn shots(cx: &mut Cx) {
     while i < state(cx.w).unwrap().shots.len() {
         let shot = state(cx.w).unwrap().shots[i];
         let (_, width, mask) = shot.kind.parameters();
-        let goal = towards(shot.at, shot.end, per_step(cx, 175.));
+        let goal = towards(shot.at, shot.end, per_step(cx, TOP25.shot_speed));
         let map = terrain::body_map(cx.k, cx.w);
         let end = clip(shot.at, goal, |at| {
             has_line_of_sight(map, shot.at, at, mask)
@@ -771,12 +772,20 @@ fn shots(cx: &mut Cx) {
                     ShotKind::Hook => {
                         let at = cx.w.core(cx.w.fighter_idx(victim).unwrap()).pos();
                         let from = cx.w.player(shot.owner).map_or(shot.origin, |p| p.pos());
-                        let to = towards(at, from, (distance(at, from) - 42.).max(0.));
-                        control(cx.w, victim, 600., Control::Pull { to });
+                        let to = towards(
+                            at,
+                            from,
+                            (distance(at, from) - TOP25.hook_stop_distance).max(0.),
+                        );
+                        control(cx.w, victim, TOP25.hook_pull_ms, Control::Pull { to });
                     }
-                    ShotKind::Bolas => {
-                        apply_status(cx, shot.owner, victim, StatusKind::Root, 1500.)
-                    }
+                    ShotKind::Bolas => apply_status(
+                        cx,
+                        shot.owner,
+                        victim,
+                        StatusKind::Root,
+                        TOP25.bolas_root_ms,
+                    ),
                 }
             }
             state_mut(cx.w).shots.remove(i);
@@ -949,7 +958,7 @@ pub(crate) fn update(cx: &mut Cx) {
                 push(
                     cx,
                     row.id,
-                    towards(from, to, per_step(cx, PULL_TICK_DISTANCE)),
+                    towards(from, to, per_step(cx, TOP25.pull_tick_distance)),
                 );
             }
             let after = cx.w.core(ix).pos();
@@ -968,10 +977,10 @@ fn tornado(cx: &mut Cx, row: Tornado) {
         let j = FighterIx::of_slot(i);
         let t = cx.w.core(j);
         let (victim, at) = (t.id, t.pos());
-        let pull = 180. * (row.max_hp / t.vitals.max_hp - 1.).clamp(0., 1.);
+        let pull = TOP25.tornado_pull * (row.max_hp / t.vitals.max_hp - 1.).clamp(0., 1.);
         if pull > 0.
             && enemy(cx.w, row.owner, j)
-            && distance(at, row.at) <= TORNADO_RADIUS
+            && distance(at, row.at) <= TOP25.tornado_radius
             && !buff(cx.w, victim, |b| b == Buff::Cleansed)
             && has_line_of_sight(terrain::body_map(cx.k, cx.w), at, row.at, MASK_MOVE)
             && !defended(cx.w, victim)
@@ -979,7 +988,7 @@ fn tornado(cx: &mut Cx, row: Tornado) {
             control(
                 cx.w,
                 victim,
-                300.,
+                TOP25.tornado_pull_ms,
                 Control::Pull {
                     to: towards(at, row.at, pull),
                 },
@@ -1020,7 +1029,7 @@ pub(crate) fn walk_taunted(
     let p = w.core(ix);
     let from = p.pos();
     let target = w.player(source).expect("active taunt source").pos();
-    let stop = (distance(from, target) - 42.).max(0.);
+    let stop = (distance(from, target) - TOP25.taunt_stop_distance).max(0.);
     let to = towards(
         from,
         target,

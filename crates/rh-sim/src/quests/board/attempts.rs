@@ -13,12 +13,13 @@ pub(crate) use interactions::{interact, objective_for_owner, visible_giver};
 pub(crate) use signals::{
     bargain_stacks, bargain_stat, bargain_take, bind_target, on_bounty_kill, on_camp_cleared,
     on_drop_body, on_hit_landed, on_mob_killed, on_player_killed, on_target_killed, on_teleported,
-    BARGAIN_COST, BARGAIN_STAT_COUNT,
+    BARGAIN_STAT_COUNT,
 };
 
 use self::signals::BARGAIN_STAT_NAMES;
+use super::tuning::TOP25;
 use super::{catalog::QuestId, quest};
-use crate::constants::{PLAYER_SPEED, QUEST_TURN_IN_RANGE};
+use crate::constants::PLAYER_SPEED;
 use crate::hooks::Hx;
 use crate::state::{Phase, PlayerId, World};
 use crate::statics::MatchStatic;
@@ -27,13 +28,13 @@ use crate::Vec2;
 use serde::{Deserialize, Serialize};
 
 pub(crate) fn visit_rules(word: &mut dyn FnMut(u64)) {
-    for value in [FORT_MS, MEDITATE_MS, CROWN_BURN_RATE] {
+    for value in [TOP25.fort_ms, TOP25.meditate_ms, TOP25.crown_burn_rate] {
         word(value.to_bits());
     }
-    word(u64::from(CROWN_POWER_CAP));
+    word(u64::from(TOP25.crown_power_cap));
     interactions::visit_rules(word);
     targets::visit_rules(word);
-    word(signals::BARGAIN_COST);
+    word(TOP25.bargain_cost);
     word(u64::from(signals::BARGAIN_STAT_COUNT));
     for name in signals::BARGAIN_STAT_NAMES {
         word(name.len() as u64);
@@ -42,11 +43,6 @@ pub(crate) fn visit_rules(word: &mut dyn FnMut(u64)) {
         }
     }
 }
-
-const FORT_MS: f64 = 45_000.;
-const MEDITATE_MS: f64 = 30_000.;
-const CROWN_BURN_RATE: f64 = 0.01;
-const CROWN_POWER_CAP: u8 = 48;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PendingReward {
@@ -243,12 +239,39 @@ pub(crate) fn ready(w: &World, owner: PlayerId, offer: u32) -> bool {
 /// The provisional power backed by the one physical crown.
 pub(crate) fn crown_power(w: &World, owner: PlayerId) -> Option<u8> {
     let crown = board(w)?.crown;
-    (crown.carrier == Some(owner)).then(|| ((crown.elapsed_ms / 1000.) as u8).min(CROWN_POWER_CAP))
+    (crown.carrier == Some(owner))
+        .then(|| ((crown.elapsed_ms / 1000.) as u8).min(TOP25.crown_power_cap))
 }
 
 /// A deferred choice can survive death even though a dead seat cannot turn it in.
 pub(crate) fn has_pending_choice(w: &World, owner: PlayerId, offer: u32) -> bool {
     attempt(w, owner, offer).is_some_and(|a| a.pending.is_some())
+}
+
+/// P-BAL-PROBE-1: every stored attempt of `owner`, in storage order (accept order), read through the same readers the
+/// journal uses. For `Sim::quest_attempts` between steps only: it allocates. Reads the raw `pending` field, not
+/// `pending()`, so a turned-in reward of a dead seat still shows.
+pub(crate) fn probe(w: &World, owner: PlayerId) -> Vec<crate::sim::QuestAttemptProbe> {
+    let Some(state) = board(w) else {
+        return Vec::new();
+    };
+    state
+        .attempts
+        .iter()
+        .filter(|a| a.owner == owner)
+        .filter_map(|a| {
+            Some(crate::sim::QuestAttemptProbe {
+                offer: a.offer,
+                quest: offer(w, a.offer).and_then(kind)?,
+                accepted: is_accepted(w, owner, a.offer),
+                ready: ready(w, owner, a.offer),
+                turned_in: has_pending_choice(w, owner, a.offer),
+                completed: is_completed(w, owner, a.offer),
+                deadline: deadline(w, owner, a.offer),
+                progress: progress(w, owner, a.offer),
+            })
+        })
+        .collect()
 }
 
 pub(crate) fn pending(w: &World, owner: PlayerId, offer: u32) -> Option<PendingReward> {
@@ -301,7 +324,8 @@ pub(crate) fn accept(cx: &mut Cx, oi: usize, owner: PlayerId) {
     }
     let deadline = id.definition().route_timer_ms.map_or(0., |base| {
         let length = route_length(cx.w, crate::collision::open(cx.k, cx.w), cx.pf, o, id);
-        cx.w.server_time + (base as f64).max(length * 1500. / PLAYER_SPEED + 15_000.)
+        cx.w.server_time
+            + (base as f64).max(length * TOP25.route_pace / PLAYER_SPEED + TOP25.route_slack_ms)
     });
     let offer = o.id;
     let Some(state) = board_mut(cx.w) else { return };
@@ -524,7 +548,7 @@ fn valid_reward_payload(id: QuestId, a: &Attempt) -> bool {
     } = a.reward;
     match id {
         QuestId::TheBurningCrown => {
-            points <= CROWN_POWER_CAP && give.is_none() && receive.is_none() && !weapon_trade
+            points <= TOP25.crown_power_cap && give.is_none() && receive.is_none() && !weapon_trade
         }
         QuestId::TradeUp => {
             (1..=3).contains(&points)
@@ -572,7 +596,7 @@ pub(crate) fn validate(k: &MatchStatic, w: &World) -> Result<(), String> {
             || a.deadline < 0.
             || !a.dwell_ms.is_finite()
             || a.dwell_ms < 0.
-            || a.dwell_ms > FORT_MS
+            || a.dwell_ms > TOP25.fort_ms
             || a.progress
                 > id.definition()
                     .objective_count

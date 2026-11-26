@@ -151,11 +151,11 @@ async function session(o, build, quality, zone, round) {
     await page.waitForFunction(() => !!window.__rhPerf, undefined, { timeout: 60000 });
     rec.gpu = await page.evaluate(() => { const c = document.getElementById('unity-canvas'); return { canvas: [c.width, c.height], dpr: devicePixelRatio, screen: [screen.width, screen.height], timer: !!(window.__rhProfile && window.__rhProfile.contexts[0] && window.__rhProfile.contexts[0].timerQuery) }; });
     const measure = async (kind, seconds, input) => {
-      await page.evaluate(() => { window.unityInstance.SendMessage('Frame-time recorder', 'ResetCounters', ''); window.__rhPerf.reset(); const p = window.__rhProfile; if (p) { p.mark = performance.now(); p.callsAt = Object.assign({}, p.calls || {}); p.u4Floats = 0; p.u4Hist = {}; } });
+      const resetAt = await page.evaluate(() => { window.__rhPerf.unity = null; window.unityInstance.SendMessage('Frame-time recorder', 'ResetCounters', ''); window.__rhPerf.reset(); const at = performance.now(); const p = window.__rhProfile; if (p) { p.mark = performance.now(); p.callsAt = Object.assign({}, p.calls || {}); p.u4Floats = 0; p.u4Hist = {}; } return at; });
       const loadBefore = os.loadavg()[0]; const gpuBusyBefore = gpuUtil(); const cpu0 = browserCpu(), wall0 = Date.now();
       if (input) await input(seconds); else await sleep(seconds * 1000);
       const data = await page.evaluate(() => {
-        const P = window.__rhPerf; const t = P.timestamps(); window.unityInstance.SendMessage('Frame-time recorder', 'Snapshot', '');
+        const P = window.__rhPerf; const t = P.timestamps(); window.unityInstance.SendMessage('Frame-time recorder', 'Snapshot', ''); const now = performance.now();
         let gl = null; const p = window.__rhProfile;
         if (p) { const fr = p.frames.filter(f => f.time >= p.mark); const g = p.gpuMs.slice(-fr.length);
           const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
@@ -166,17 +166,21 @@ async function session(o, build, quality, zone, round) {
             uniform4fvFloatsPerFrame: (p.u4Floats || 0) / Math.max(1, fr.length), uniform4fvLengths: Object.fromEntries(Object.entries(p.u4Hist || {}).map(([k, v]) => [k, +(v / Math.max(1, fr.length)).toFixed(1)])),
             callsPerFrame: p.calls ? Object.fromEntries(Object.entries(p.calls).map(([k, v]) => [k, +((v - ((p.callsAt || {})[k] || 0)) / Math.max(1, fr.length)).toFixed(2)])) : null };
           p.frames.length = 0; p.gpuMs.length = 0; }
-        return { t, gl, actors: P.actors, region: P.region, x: P.x, y: P.y, row: P.row ? P.row.preset : null };
+        return { t, now, gl, actors: P.actors, region: P.region, x: P.x, y: P.y, row: P.row ? P.row.preset : null };
       });
       await sleep(150);
       const unity = await page.evaluate(() => window.__rhPerf.unity || null);
       const deltas = []; for (let i = 1; i < data.t.length; i++) deltas.push(data.t[i] - data.t[i - 1]);
       const cpu1 = browserCpu(), wall = (Date.now() - wall0) / 1000;
       const procCpu = cpu0 && cpu1 ? Object.fromEntries(Object.keys(cpu1).map(k => [k, +((cpu1[k] - cpu0[k]) / wall).toFixed(3)])) : null;   // cores busy during the window
-      const w = { kind, seconds, procCpu, gpuBusyBefore, stats: budget(deltas), unity, gl: data.gl, actors: data.actors, region: REGION_NAMES[data.region] || data.region, row: data.row, at: [data.x, data.y], load: [loadBefore, os.loadavg()[0]] };
+      const w = { kind, seconds, procCpu, gpuBusyBefore, stats: budget(deltas), pageWorst: worstPageFrame(data.t, resetAt), pageByTime: slotPageIntervals(unity, data.t, resetAt),
+        clockCheck: unity ? { pageSeconds: (data.now - resetAt) / 1000, unitySeconds: unity.seconds } : null, unity, gl: data.gl, actors: data.actors, region: REGION_NAMES[data.region] || data.region, row: data.row, at: [data.x, data.y], load: [loadBefore, os.loadavg()[0]] };
       rec.windows.push(w);
       const c = w.unity && w.unity.cpu;
       console.log(`  [${build.name} ${quality} ${zone} r${round}] ${kind.padEnd(8)} ${w.region || '-'} ${w.row || ''} actors ${w.actors} p50 ${f(w.stats.p50Ms)} p95 ${f(w.stats.p95Ms)} p99 ${f(w.stats.p99Ms)} >6.94 ${f(w.stats.over694Pct)}% | unity frame ${c ? f(c.frame.mean) : '-'} scripts ${c ? f(c.scripts.mean) : '-'} render ${c ? f(c.render.mean) : '-'} | gc ${w.unity ? w.unity.gcBytesPerFrame : '-'} B/f | draws ${w.gl ? f(w.gl.drawsMean) : '-'} gpu ${w.gl && w.gl.gpuMean != null ? f(w.gl.gpuMean) : '-'} | gpuProc ${w.procCpu ? f(w.procCpu.gpu) : '-'} rend ${w.procCpu ? f(w.procCpu.renderer) : '-'} | load ${f(loadBefore)}`);
+      for (const line of worstFrameLines(unity, w.pageByTime)) console.log('      ' + line);
+      const pwl = describePageWorst(w.pageWorst); if (pwl) console.log('      ' + pwl);
+      const ccl = clockCheckLine(w.clockCheck); if (ccl) console.log('      ' + ccl);
       return w;
     };
     const hold = key => async seconds => { await page.keyboard.down(key); await sleep(seconds * 1000); await page.keyboard.up(key); };
@@ -347,5 +351,118 @@ async function main() {
   console.log('\n' + path.join(out, 'summary.json'));
 }
 
-module.exports = { budget, summarise, readyPoint, minimapRect, legacyScale };
+// ---- worst frames (P-UI-PERF-WORST-FRAME-1): pure functions over the page's rAF stamps and the recorder's `unity.worstFrames`.
+const SLOTS = ['frame', 'actors', 'render'];
+const fin = Number.isFinite;
+
+/** The page's longest rAF interval of a window and up to two intervals each side (a non-finite delta stays in place as null). */
+function worstPageFrame(stamps, resetAt) {
+  if (!Array.isArray(stamps) || stamps.length < 2) return null;
+  const d = []; for (let i = 0; i + 1 < stamps.length; i++) { const v = stamps[i + 1] - stamps[i]; d.push(fin(v) ? v : null); }
+  let best = -1; for (let i = 0; i < d.length; i++) if (d[i] !== null && (best < 0 || d[i] > d[best])) best = i;
+  if (best < 0) return null;
+  return { deltaIndex: best, ms: d[best], endSeconds: fin(resetAt) ? (stamps[best + 1] - resetAt) / 1000 : null,
+    beforeMs: d.slice(Math.max(0, best - 2), best), afterMs: d.slice(best + 1, best + 3) };
+}
+
+/** The page interval holding `seconds` after resetAt (a boundary belongs to the interval that ends there), or null. */
+function pageIntervalAt(stamps, resetAt, seconds) {
+  if (!Array.isArray(stamps) || stamps.length < 2 || !fin(seconds)) return null;
+  for (let i = 0; i + 1 < stamps.length; i++) {
+    const start = (stamps[i] - resetAt) / 1000, end = (stamps[i + 1] - resetAt) / 1000;
+    if (!fin(end) || !fin(start)) continue;
+    if (start < seconds && seconds <= end) return { index: i, ms: stamps[i + 1] - stamps[i], startSeconds: start, endSeconds: end };
+  }
+  return null;
+}
+
+/** Per slot, the LONGEST page interval overlapping the slot's frame span (the recorder's row time is the frame's end, a page stamp a frame start). */
+function slotPageIntervals(unity, stamps, resetAt) {
+  const out = { frame: null, actors: null, render: null };
+  const wf = unity && unity.worstFrames, slots = wf && wf.slots;
+  if (!slots || !Array.isArray(stamps) || stamps.length < 2) return out;
+  const fi = Array.isArray(wf.sections) && wf.sections.indexOf('frame') >= 0 ? wf.sections.indexOf('frame') : 0;
+  for (const name of SLOTS) {
+    const at = slots[name] && slots[name].at;
+    if (!at || !fin(at.t)) continue;
+    const frameMs = at.ms ? at.ms[fi] : NaN;
+    if (!(fin(frameMs) && frameMs > 0)) { out[name] = pageIntervalAt(stamps, resetAt, at.t); continue; }
+    const spanStart = at.t - frameMs / 1000, spanEnd = at.t;
+    let best = null;
+    for (let i = 0; i + 1 < stamps.length; i++) {
+      const start = (stamps[i] - resetAt) / 1000, end = (stamps[i + 1] - resetAt) / 1000;
+      if (!fin(start) || !fin(end)) continue;
+      if (!(start < spanEnd && end > spanStart)) continue;
+      const ms = stamps[i + 1] - stamps[i];
+      if (!best || ms > best.ms) best = { index: i, ms, startSeconds: start, endSeconds: end };
+    }
+    out[name] = best;
+  }
+  return out;
+}
+
+/** A line only when the page's clock and the recorder's differ by more than 5 ms. */
+function clockCheckLine(cc) {
+  if (!cc || !fin(cc.pageSeconds) || !fin(cc.unitySeconds)) return null;
+  const ms = (cc.pageSeconds - cc.unitySeconds) * 1000;
+  if (Math.abs(ms) <= 5) return null;
+  return `clock check: page minus recorder ${ms >= 0 ? '+' : '-'}${Math.abs(ms).toFixed(1)} ms`;
+}
+
+const CONTAINERS = new Set(['frame', 'scripts', 'present', 'hud', 'camera']);
+const signed = n => (n >= 0 ? '+' : '') + n;
+
+/**
+ * One line for a slot's worst frame. The named sections are the three largest rows after the containers are skipped; they MAY
+ * OVERLAP (render contains uiRebuild, netPoll contains fxCues, camera contains atmosphere): a printed pair is neither a partition nor additive.
+ */
+function describeWorstFrame(unity, slotName, page) {
+  const wf = unity && unity.worstFrames, slot = wf && wf.slots && wf.slots[slotName];
+  const at = slot && slot.at;
+  if (!at || !Array.isArray(at.ms)) return null;
+  const names = Array.isArray(wf.sections) ? wf.sections : [];
+  const before = slot.before || null;
+  const idx = names.indexOf('frame') >= 0 ? names.indexOf('frame') : 0;
+  const secs = names.map((n, i) => ({ n, i, ms: at.ms[i] })).filter(x => !CONTAINERS.has(x.n) && fin(x.ms) && x.ms > 0)
+    .sort((a, b) => b.ms - a.ms || a.i - b.i).slice(0, 3)
+    .map(x => `${x.n} ${x.ms.toFixed(1)} ms ${Math.round(((at.bytes && at.bytes[x.i]) || 0) / 1024)} kB`);
+  const g = at.gc || [], bg = before && before.gc;
+  const inFrame = g[0] === -1 || !fin(g[0]) || !fin(g[4]) ? 'n/a' : signed(g[4] - g[0]);
+  const justBefore = !bg || g[0] === -1 || bg[0] === -1 || !fin(g[0]) || !fin(bg[0]) ? 'n/a' : signed(g[0] - bg[0]);
+  const c = at.ctx || {}, bc = before && before.ctx;
+  const sc = v => (v ? 'changed' : 'same'), yn = v => (v ? 'yes' : 'no');
+  const label = slotName === 'frame' ? 'worst frame' : `worst ${slotName} frame`;
+  return `${label} #${at.i} at ${Number(at.t).toFixed(2)} s: ${Number(at.ms[idx]).toFixed(1)} ms; ${secs.length ? secs.join(', ') : 'no section time'}; `
+    + `gc in frame ${inFrame}, just before ${justBefore}; actors ${c.actors} (before ${bc ? bc.actors : 'n/a'}); walls ${c.walls} ${sc(c.wallsChanged)}; `
+    + `walk map ${sc(c.walkMapChanged)}; terrain ${sc(c.terrainMapChanged)}; state frames ${c.stateFrames}; snapshots ${c.snapshots}; dead ${yn(c.dead)}; order pending ${yn(c.orderPending)}; `
+    + (page ? `page interval ${Number(page.ms).toFixed(1)} ms by time` : 'page interval n/a');
+}
+
+/** The slot lines to print: the frame slot's, then actors and render only when their frame differs from it. */
+function worstFrameLines(unity, pageByTime) {
+  const wf = unity && unity.worstFrames, slots = wf && wf.slots;
+  if (!slots) return [];
+  const pb = pageByTime || {};
+  const lines = [];
+  const frameAt = slots.frame && slots.frame.at;
+  for (const name of SLOTS) {
+    const at = slots[name] && slots[name].at;
+    if (!at) continue;
+    if (name !== 'frame' && frameAt && at.i === frameAt.i) continue;
+    const l = describeWorstFrame(unity, name, pb[name] || null);
+    if (l) lines.push(l);
+  }
+  return lines;
+}
+
+/** The page's own worst interval as a line: `none` for no usable stamps (null), null for an old record (undefined). */
+function describePageWorst(pw) {
+  if (pw === undefined) return null;
+  if (pw === null) return 'page worst interval none';
+  const list = a => (a && a.length ? a.map(v => (v === null || v === undefined ? 'n/a' : Number(v).toFixed(1))).join(', ') : 'none');
+  const end = fin(pw.endSeconds) ? Number(pw.endSeconds).toFixed(2) + ' s' : 'n/a';
+  return `page worst interval #${pw.deltaIndex} ends ${end} after the window began: ${Number(pw.ms).toFixed(1)} ms (before ${list(pw.beforeMs)}; after ${list(pw.afterMs)})`;
+}
+
+module.exports = { budget, summarise, readyPoint, minimapRect, legacyScale, worstPageFrame, pageIntervalAt, slotPageIntervals, clockCheckLine, describeWorstFrame, worstFrameLines, describePageWorst };
 if (require.main === module) main().catch(e => { console.error(e.stack || e); process.exitCode = 2; });

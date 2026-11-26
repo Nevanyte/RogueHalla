@@ -32,7 +32,9 @@ namespace Roguehalla.Client
 
         public const float MinimapMin = 195f, MinimapMax = 312f, MinimapHeightShare = .338f;
         public const float MinimapGutter = 12f, MinimapNarrowFloor = 110f;
-        /// <summary>Half the weapon bar (142) plus the 10 unit gap that keeps the minimap clear of it.</summary>
+        /// <summary>142 is legacy's minimap rule: half of legacy's 284 wide weapon bar, plus the 10 unit gap. Today's action row is
+        /// <c>HudRegions.AbilityWidth</c> (458) wide and <c>HudRegions.AbilityRowScale</c> shrinks it on a narrow stage, so the row
+        /// yields to the minimap, whose size the owner wants kept.</summary>
         public const float MinimapBarClearance = 142f + 10f;
 
         static float Whole(float v) { return float.IsNaN(v) || float.IsInfinity(v) ? 1f : Mathf.Max(1f, Mathf.Floor(v)); }

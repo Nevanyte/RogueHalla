@@ -45,6 +45,14 @@ namespace Roguehalla.Client
             public OverheadIndicators Ind; // overhead cluster and body marks (OverheadIndicators.cs)
             public OverheadIndicators.Facts IndFacts;
             public MobLook Look; // what a creature looked like when last presented (MobContinuity)
+            public int LayoutKey; // serial of this art for the name layout (kept by a renewed handle; fresh for a reused pooled art)
+            public long LayoutNameKey; // layout memory key of this art's mob name (written by the name merge)
+            public bool LayoutPack; // true on the carrier of a pack of two or more this frame: its box is the name alone
+            public int LayoutStamp = -1; // the stamp whose layout set LayoutLift and LayoutTarget (-1: never)
+            public float LayoutLift, LayoutTarget;
+            public int GlideStamp = -1; // the stamp whose merge set GlideX and GlideY (the glided anchor of a pack name)
+            public float GlideX, GlideY;
+            public long NameKeyPrev; public int NameKeyStamp = int.MinValue; public int NameKeySerial; // last frame's layout key of this art, for Carry
         }
     }
 }

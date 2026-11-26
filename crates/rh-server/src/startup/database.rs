@@ -30,6 +30,19 @@ pub(crate) fn db_connect_budget(args: &[String]) -> Result<Duration, String> {
     }
 }
 
+/// `--db-pool N` (default 16; 1..=1024): the durable store's connection pool size.
+#[cfg(any(feature = "postgres", test))]
+pub(crate) fn db_pool_size(args: &[String]) -> Result<u32, String> {
+    match flag_value(args, "--db-pool")? {
+        None => Ok(16),
+        Some(v) => v
+            .parse::<u32>()
+            .ok()
+            .filter(|n| (1..=1024).contains(n))
+            .ok_or_else(|| "--db-pool requires a whole number of connections, 1..=1024".into()),
+    }
+}
+
 /// Retries `op` with exponential backoff (`first_delay`, doubling, capped at `max_delay`) until it succeeds, `fatal` says the
 /// error cannot be cured by waiting, or `budget` is spent (one attempt when it is zero). The last error is returned.
 #[cfg(any(feature = "postgres", test))]
@@ -126,10 +139,13 @@ impl ConnectFail {
 /// `--database-url`: profiles, credentials, session leases and results in PostgreSQL (feature `postgres`).
 #[cfg(feature = "postgres")]
 pub(crate) async fn durable(url: &str, args: &[String]) -> (Persistence, Auth) {
-    let budget = db_connect_budget(args).unwrap_or_else(|e| {
-        eprintln!("[server] invalid database settings: {e}");
-        std::process::exit(2);
-    });
+    let (budget, pool_size) = match (db_connect_budget(args), db_pool_size(args)) {
+        (Ok(budget), Ok(pool_size)) => (budget, pool_size),
+        (Err(e), _) | (_, Err(e)) => {
+            eprintln!("[server] invalid database settings: {e}");
+            std::process::exit(2);
+        }
+    };
     // The startup schema gate: a database whose `schema_compat.min_binary` is above this binary (an older server meeting a
     // newer, incompatible schema during a rollout) is refused here, with a plain message and a non-zero exit, before the
     // server takes a single connection. An unreachable database is retried with backoff for the connect budget, then the
@@ -148,7 +164,9 @@ pub(crate) async fn durable(url: &str, args: &[String]) -> (Persistence, Auth) {
         ConnectFail::fatal,
         |e: &ConnectFail| redact_secrets(&e.to_string(), &[url]),
         |_| async move {
-            match tokio::time::timeout(per_attempt, rh_persist::Store::connect(url)).await {
+            match tokio::time::timeout(per_attempt, rh_persist::Store::connect_with(url, pool_size))
+                .await
+            {
                 Ok(r) => r.map_err(ConnectFail::Store),
                 Err(_) => Err(ConnectFail::Timeout(per_attempt.as_secs())),
             }

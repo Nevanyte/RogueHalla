@@ -38,7 +38,7 @@ namespace Roguehalla.Client
 
             // Legacy training-bar spot (bottom-left); above the quest launcher so the two do not overlap. Only its Skip button takes pointer input.
             _card = HudUi.Box(stage, "TutorialCard", HudAnchor.BottomLeft, 12f, 44f, CardWidth, 72f);
-            HudUi.Surface(_card, theme.Surface, theme.CornerRadius, theme.AccentDim, false, true);
+            HudUi.Surface(_card, UiTheme.With(theme.Surface, HudUi.PlateAlpha), theme.CornerRadius, theme.AccentDim, false, true);
             _cardText = HudUi.Label(HudUi.At(_card, "Copy", 10f, 6f, CardWidth - 104f, 60f), "Label", "", theme.SizeBody, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, false, UiFontRole.Body, true);
             _cardButtonLabel = HudUi.Button(_card, "Skip", "Skip tutorial", HudAnchor.MiddleRight, 8f, 0, 84f, 24f, () => { if (_cardDone) closeDone(); else skipStep(); }, theme.SizeSmall, theme.CornerRadiusSmall).GetComponentInChildren<TMP_Text>();
             _card.gameObject.SetActive(false);

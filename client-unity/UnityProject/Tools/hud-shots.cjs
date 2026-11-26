@@ -68,11 +68,13 @@ function minimapRect(w, h, s) {
   return { x: w - (12 + size) * s, y: h - (12 + size) * s, size: size * s };
 }
 function tabMapRect(w, h, s) {
-  const uiW = w / s, uiH = h / s, col = 250, fixedH = 34 + 12 + 12 + 30 + 8;
-  const side = Math.min(820, Math.max(240, Math.floor(Math.min(uiH - 44 - 12 - fixedH, uiW - 24 - col * 2 - 24 - 8))));
-  const frameW = side + 8, totalW = col * 2 + 24 + frameW, colH = 34 + 12 + frameW + 12 + 30;
-  const bx = Math.floor((uiW - totalW) / 2), by = Math.max(44, Math.floor(44 + (uiH - 44 - 12 - colH) / 2));
-  return { x: (bx + col + 12 + 4) * s, y: (by + 34 + 12 + 4) * s, size: side * s };
+  const uiW = w / s, uiH = h / s, col = 250;
+  const fixedH = 12 * 2 + 34 + 12 + 12 + 30 + 4 * 2;
+  const side = Math.min(820, Math.max(240, Math.floor(Math.min(uiH - 44 - 12 - fixedH, uiW - 24 - 24 - col * 2 - 24 - 8))));
+  const frameW = side + 8, innerW = col * 2 + 24 + frameW, innerH = 34 + 12 + frameW + 12 + 30;
+  const sheetX = Math.floor((uiW - innerW - 24) / 2);
+  const sheetY = Math.max(44, Math.floor(44 + (uiH - 44 - 12 - innerH - 24) / 2));
+  return { x: (sheetX + 12 + col + 12 + 4) * s, y: (sheetY + 12 + 34 + 12 + 4) * s, size: side * s };
 }
 
 // Right-click on the minimap and on the Tab map; verify the move order that went out and that the character really walked.
@@ -258,7 +260,7 @@ async function launchFlow(cfg, browser, errors, logs) {
   await page.mouse.click((pBx + pFrame + 12 + 12 + 158) * s, (pBy + 12 + 23) * s, { delay: 80 });
   await page.waitForTimeout(Number(process.env.RH_SHOTS_MATCH_MS || 9000)); await shot(page, 'play-match');
   await page.mouse.click(cfg.w - (12 + 36 + 15) * s, (10 + 15) * s, { delay: 60 }); await page.waitForTimeout(700); // settings gear
-  await page.mouse.click(cfg.w - 258.5 * s, 676 * s, { delay: 60 }); await page.waitForTimeout(2500);               // Leave match
+  await page.mouse.click(cfg.w - 248 * s, 761 * s, { delay: 60 }); await page.waitForTimeout(2500);               // Leave match
   await shot(page, 'return-to-menu');
   await click(page, geo.play, Number(process.env.RH_SHOTS_PLAN_MS || 9000)); await shot(page, 'play-again-planning');
   await page.context().close();

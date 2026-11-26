@@ -144,7 +144,7 @@ namespace Roguehalla.Client.Tests
             Add("PerformanceReadout", (TMP_Text)GetField("_metrics"), "240 fps · 1234 ms", "— ms");
             Add("ConnectionBanner", (TMP_Text)GetField("_banner"), banner);
             Add("PhaseTimer", (TMP_Text)GetField("_phaseStrip"), "Waiting for players 12 — run starts in 1:30", "Run over — [BOT] Wanderer1234 is victorious", "PRACTICE · NO RUN REWARDS");
-            Add("Notice", (TMP_Text)GetField("_notice"), "Resume is unavailable while another launch or session is active.");
+            Add("Notice", Find(stage, "FeedbackLane/Toast0/Text"), "Resume is unavailable while another launch or session is active.");
             Add("QuestLauncher", Find(stage, "Journal/Label"), "Quests · J");
 
             // Plate.
@@ -177,19 +177,16 @@ namespace Roguehalla.Client.Tests
                 "Frozen Justice: +12.5 Defense/SD · elite fights", "12 camps · +12.5% earned leech");
 
             // Weapon bar.
+            // The two weapon slots carry no digit key cap (P-UI-ABILITY-ROW-1): only the names are listed.
             for (int i = 0; i < 2; i++)
-            {
-                Add("SlotKey " + (i + 1), Find(weaponBar, "Slot" + (i + 1) + "/Key/Label"), (i + 1).ToString());
                 Add("SlotName " + (i + 1), slotNames[i], "Shield", "Empty");
-            }
             Add("SwapKey", Find(weaponBar, "QSwap/Key/Label"), "Space");
             Add("SwapCaption", Find(weaponBar, "QSwap/Caption/Label"), "SWAP");
-            Add("ControlsLine", Find(weaponBar, "ControlsLine/Label"), "WASD move · Click attack · Shift/Q quest · R Wish");
             Add("PickupHint", (TMP_Text)GetField("_pickupText"), "F  swap Shield for Fists", "F");
             Add("WishKey", Find(wishTile, "Key/Label"), "R");
-            Add("WishSeconds", (TMP_Text)GetField("_wishSeconds"), "125");
-            Add("WishSummary", (TMP_Text)GetField("_wishSummary"), "3/3 · 1:25");
-            Add("WishCharges", (TMP_Text)GetField("_wishCharges"), "3");
+            Add("WishSeconds", Find(wishTile, "Seconds/Label"), "125");
+            Add("WishName", Find(wishTile, "Name/Label"), "LastStand", "Frost Wall");
+            Add("WishCharges", Find(wishTile, "Charges/Label"), "3");
             Add("HealKey", Find(potion, "Key/Label"), "E");
             Add("HealName", Find(potion, "Name/Label"), "Heal");
             Add("HealCounts", (TMP_Text)GetField("_healText"), "99 large · 99 small", "— large · — small");
@@ -294,7 +291,7 @@ namespace Roguehalla.Client.Tests
         public void TheInventoryCoversTheWholeMatchHud()
         {
             // The packet brief lists these labels; the count guards against a label silently dropping out of the checks.
-            Assert.That(_entries.Count, Is.EqualTo(63), "labels in the inventory");
+            Assert.That(_entries.Count, Is.EqualTo(60), "labels in the inventory");
             var ids = new HashSet<string>();
             foreach (var e in _entries) Assert.That(ids.Add(e.Id), Is.True, "duplicate id " + e.Id);
         }

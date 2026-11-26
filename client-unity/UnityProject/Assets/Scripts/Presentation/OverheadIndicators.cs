@@ -160,9 +160,29 @@ namespace Roguehalla.Client
         /// <summary>Height of the drawn name line in world units.</summary>
         public float NameWorldHeight { get { return _name.preferredHeight * _name.transform.lossyScale.y; } }
         /// <summary>Moves the name label (centre) to a world point for this frame (pack anchor, stacking); <see cref="Update"/> resets it next frame.</summary>
-        public void MoveName(float worldX, float worldY) { var p = _name.transform.position; _name.transform.position = new Vector3(worldX, worldY, p.z); }
-        /// <summary>Raises the name label by dy world units for this frame (stacking).</summary>
-        public void LiftName(float dy) { _name.transform.position += new Vector3(0f, dy, 0f); }
+        public void MoveName(float worldX, float worldY) { var p = _name.transform.position; _name.transform.position = new Vector3(worldX, worldY + _shift, p.z); }
+        float _shift; bool _eliteSeen;
+        /// <summary>Where the name sits without the layout's lift (the base point of the merge and of the layout box).</summary>
+        public Vector3 NameBasePosition { get { var p = _name.transform.position; return new Vector3(p.x, p.y - _shift, p.z); } }
+        /// <summary>Adds this cluster's parts to the latest box of the layout; a pack's carrier hands in its name alone.</summary>
+        public void AddClusterParts(OverheadBoxLayout layout, bool nameOnly = false)
+        {
+            if (nameOnly) { float w = NameWorldWidth, h = NameWorldHeight; layout.AddPart(-w / 2f, -h / 2f, w / 2f, h / 2f); return; }
+            OverheadCluster.AddParts(layout, _stack, _eliteSeen, _name.transform.lossyScale.y, NameWorldWidth, NameWorldHeight);
+        }
+        /// <summary>Moves every enabled element of the cluster so the whole sits <paramref name="lift"/> world units above where Update placed it.</summary>
+        public void LiftCluster(float lift)
+        {
+            float dy = lift - _shift;
+            _shift = lift;
+            if (dy == 0f) return;
+            var up = new Vector3(0f, dy, 0f);
+            if (_name.gameObject.activeSelf) _name.transform.position += up;
+            if (_number.gameObject.activeSelf) _number.transform.position += up;
+            Up(_crown, up); Up(_wishIcon, up); Up(_badgeBack, up); Up(_badgeEdge, up); Up(_badgeIcon, up);
+            _extras.Shift(dy);
+        }
+        static void Up(SpriteRenderer r, Vector3 up) { if (r.enabled) r.transform.position += up; }
         /// <summary>A pack's one name, or a hovered or locked mob's, reads at full strength instead of the legacy idle .5.</summary>
         public void NameFullAlpha() { NameFullAlpha(_textFade); }
         /// <summary>As <see cref="NameFullAlpha()"/>, with the vision fade of the pack's most visible drawn member instead of this carrier's own.</summary>
@@ -213,10 +233,24 @@ namespace Roguehalla.Client
             _extras.AddMarkObstacles(into);
         }
 
+        /// <summary>The overhead cluster's rectangles without the body-anchored status glyphs (the world labels keep clear of these).</summary>
+        internal void AddOverheadObstacles(List<Rect> into)
+        {
+            if (NameActive) into.Add(CombatHudPlacement.FromBounds(NameDrawnBounds));
+            if (_number.gameObject.activeInHierarchy)
+                into.Add(CombatHudPlacement.FromBounds(_number.GetComponent<MeshRenderer>().bounds));
+            AddVisibleRect(_crown, into);
+            AddVisibleRect(_wishIcon, into);
+            AddVisibleRect(_badgeBack, into);
+            _extras.AddMarkObstacles(into);
+        }
+
         internal static void AddVisibleRect(SpriteRenderer sprite, List<Rect> into)
         {
             if (sprite.enabled && sprite.color.a > 0f) into.Add(CombatHudPlacement.FromBounds(sprite.bounds));
         }
+
+        bool _hiddenByMap;
 
         public void HideAll()
         {
@@ -224,7 +258,7 @@ namespace Roguehalla.Client
             foreach (var g in _glyphs) g.enabled = false;
             _lockDark.enabled = false;
             _number.gameObject.SetActive(false); _name.gameObject.SetActive(false);
-            _bounty = -1; _nameText = null; _textFade = 1f;
+            _bounty = -1; _nameText = null; _textFade = 1f; _shift = 0f; _eliteSeen = false;
             if (_namePale) { _namePale = false; ApplyNameLook(); }
             if (_extras != null) _extras.HideAll();
         }
@@ -242,6 +276,8 @@ namespace Roguehalla.Client
         public void Update(in Facts f)
         {
             if (f.Dead) { HideAll(); return; }
+            if (WorldLabelVisibility.Hidden) { if (!_hiddenByMap) { _hiddenByMap = true; HideAll(); } return; }
+            _hiddenByMap = false;
             var theme = UiTheme.Current;
             _extras.Update(in f, theme);
 
@@ -331,7 +367,8 @@ namespace Roguehalla.Client
                 }
             }
             if (!haveNumber) { _number.gameObject.SetActive(false); _bounty = -1; }
-            _extras.EliteStar(in f, dy + U(nameTopPx) + .02f, theme);   // the elite star sits just above the name (MobView)
+            _extras.EliteStar(in f, dy + U(nameTopPx) + OverheadCluster.EliteStarRise, theme);   // the elite star sits just above the name (MobView)
+            _shift = 0f; _eliteSeen = f.Elite;   // every cluster element is at its base place now: the layout lifts from here
 
             // Statuses (StatusArt.ts): each delivered effect bit is art at its fixed legacy anchor on the body, in legacy draw order (no badge row,
             // no plates). Anchors are fixed pixels relative to the feet and do not scale with the archetype. Rooted and zoned keep their ground rings.

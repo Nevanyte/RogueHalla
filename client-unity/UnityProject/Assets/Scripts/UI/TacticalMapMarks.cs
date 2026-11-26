@@ -14,14 +14,12 @@ namespace Roguehalla.Client
     /// over a dark outline in the faction/accent colour from the theme, so shapes stay legible on any zone tint.
     /// </summary>
     [RequireComponent(typeof(CanvasRenderer))]
-    public sealed class TacticalMapMarks : MaskableGraphic
+    public sealed partial class TacticalMapMarks : MaskableGraphic
     {
         readonly List<InterpActor> _actors = new List<InterpActor>();
         readonly List<Vector2> _route = new List<Vector2>();
         readonly List<Vector2> _chests = new List<Vector2>();
         readonly List<DeliveredPoint> _delivered = new List<DeliveredPoint>();
-        readonly List<TMP_Text> _zoneLabels = new List<TMP_Text>();
-        RectTransform _zoneLabelHost;
         enum PointKind { Merchant, Giver, Objective, TrackedObjective, PublicObjective, QuestReward, RebirthEgg, HatchingEgg, Crown, Smuggler, Fort, Meditation, Bounty }
         struct DeliveredPoint { public Vector2 At; public PointKind Kind; }
         readonly List<Vector2> _questCarriers = new List<Vector2>();
@@ -109,10 +107,11 @@ namespace Roguehalla.Client
         {
             _map = map;
             _ping.Active = false;
-            if (map == null) { _actors.Clear(); _contactMarks.Clear(); _marked.Clear(); RefreshContactLabels(); _route.Clear(); _chests.Clear(); _self = null; ClearDelivered(); for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false; }
+            if (map == null) { _actors.Clear(); _contactMarks.Clear(); _marked.Clear(); RefreshContactLabels(); _route.Clear(); _chests.Clear(); _self = null; ClearDelivered(); _camps.Clear(); _wards.Clear(); _chestRows.Clear(); _realIcons = 0; for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false; ClearCampTexts(); ClearCover(); CampKey.Forget(); }
             else if (map.Regions != null) MapZones.LabelTiles(map.Regions, map.W, map.H, out _zoneFound, out _zoneX, out _zoneY);
             else for (int r = 0; r <= MapZones.Count; r++) _zoneFound[r] = false;
-            RefreshZoneLabels();
+            ResetZoneSpots();
+            RefreshZoneLabels(ZonePass.Forced);
             SetVerticesDirty();
         }
 
@@ -123,6 +122,11 @@ namespace Roguehalla.Client
             SetVerticesDirty();
         }
 
+        /// <summary>How many times the layer's scale changed (P-UI-TABMAP-MARKS-1).</summary>
+        public int LayerChanges { get; private set; }
+        /// <summary>The layer's scale changed: the zone labels follow it and the mesh redraws.</summary>
+        public void LayerChanged() { EnsureCover(); LayerChanges++; PlaceCampTexts(true); RefreshBadgeTexts(); RefreshZoneLabels(ZonePass.Forced); SetVerticesDirty(); }
+
         void Update()
         {
             if (_ping.Active)
@@ -132,7 +136,16 @@ namespace Roguehalla.Client
             }
         }
 
-        protected override void OnRectTransformDimensionsChange() { base.OnRectTransformDimensionsChange(); RefreshZoneLabels(); }
+        protected override void OnRectTransformDimensionsChange() { base.OnRectTransformDimensionsChange(); RefreshZoneLabels(ZonePass.Rect); }
+
+        /// <summary>Moves the own marker to the drawn character (no repaint of the other marks); a no-op without a delivered position.</summary>
+        public void FollowSelf(float x, float y)
+        {
+            if (!_self.HasValue) return;
+            var p = new Vector2(x, y);
+            if (_self.Value == p) return;
+            _self = p; SetVerticesDirty();
+        }
 
         public void Present(Session session, IReadOnlyList<RoutePoint> route)
         {
@@ -143,6 +156,7 @@ namespace Roguehalla.Client
                 {
                     bool active = !session.Training;
                     CampMarks.Glyphs(_map.Camps, session.Collections.Camps, session.ServerTimeMs, active, Large ? CampSurface.TabMap : CampSurface.Minimap, _camps);
+                    if (Large) CampKey.Apply(_camps, CampFactsInKey);
                     for (int i = 0; i < _camps.Count; i++) if (_camps[i].IconKey != null) _realIcons++;
                     CampBadges.Wards(_map.Camps, session.Collections.Camps, session.ServerTimeMs, active, _wards);
                 }
@@ -223,11 +237,14 @@ namespace Roguehalla.Client
                         _delivered.Add(new DeliveredPoint { At = new Vector2((float)drop.X, (float)drop.Y), Kind = PointKind.QuestReward });
                 }
             }
+            ComputeCover();
             RefreshCampClocks();
+            PlaceCampTexts(false);
             RefreshBadgeTexts();
             RefreshContactLabels();
             RefreshChestTexts();
             RefreshBadgeIcons();
+            PlaceZoneNamesIfMarksChanged();
             SetVerticesDirty();
         }
 
@@ -249,22 +266,7 @@ namespace Roguehalla.Client
 
         Vector2 At(Vector2 world)
         {
-            var r = rectTransform.rect;
-            return new Vector2(r.xMin + world.x / (_map.W * 32f) * r.width, r.yMax - world.y / (_map.H * 32f) * r.height);
-        }
-
-        Vector2 ZoneAt(int region) { return At(new Vector2((float)_zoneX[region] * 32f, (float)_zoneY[region] * 32f)); }
-
-        /// <summary>The zone labels live in their own full-size container, a later sibling of this mesh (and of the fog), so nothing the mesh draws covers them.</summary>
-        RectTransform ZoneLabelHost()
-        {
-            if (_zoneLabelHost != null) return _zoneLabelHost;
-            var host = new GameObject("Zone labels", typeof(RectTransform));
-            var parent = transform.parent != null ? transform.parent : transform;
-            host.transform.SetParent(parent, false);
-            _zoneLabelHost = (RectTransform)host.transform;
-            _zoneLabelHost.anchorMin = Vector2.zero; _zoneLabelHost.anchorMax = Vector2.one; _zoneLabelHost.offsetMin = _zoneLabelHost.offsetMax = Vector2.zero;
-            return _zoneLabelHost;
+            return AtIn(rectTransform.rect, _map.W, _map.H, world);
         }
 
         protected override void OnDestroy()
@@ -278,37 +280,6 @@ namespace Roguehalla.Client
             base.OnDestroy();
         }
 
-        void RefreshZoneLabels()
-        {
-            bool show = Large && _map != null;
-            if (show && _zoneLabelHost != null) _zoneLabelHost.SetAsLastSibling();   // later siblings may have been added since it was created
-            for (int i = 0; i < MapZones.Count; i++)
-            {
-                int region = i + 1;
-                bool on = show && _zoneFound[region];
-                if (i >= _zoneLabels.Count)
-                {
-                    if (!on) continue;
-                    var label = HudUi.Label(ZoneLabelHost(), "ZoneLabel" + region, MapZones.Name(region).ToUpperInvariant(), 10f, UiTheme.Current.TextPrimary, TextAlignmentOptions.Center, false, UiFontRole.Display);
-                    var rect = label.rectTransform; rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f); rect.pivot = new Vector2(.5f, .5f); rect.sizeDelta = new Vector2(120f, 18f);
-                    label.fontSharedMaterial = OverheadIndicators.OutlinedMaterial(label.font);   // dark outline: reads over the cream self ring
-                    _zoneLabels.Add(label);
-                }
-                var text = _zoneLabels[i];
-                if (text.gameObject.activeSelf != on) text.gameObject.SetActive(on);
-                if (!on) continue;
-                // Sits just under the zone icon.
-                text.rectTransform.anchoredPosition = ZoneAt(region) + new Vector2(0f, -24f);
-            }
-        }
-
-        bool ContactNear(Vector2 p)
-        {
-            foreach (var actor in _actors)
-                if (actor.Id != _selfId && (At(new Vector2(actor.X, actor.Y)) - p).sqrMagnitude < CampDropPx * CampDropPx) return true;
-            return false;
-        }
-
         /// <summary>Respawn countdowns of cleared camps: pooled labels, reused across presentations.</summary>
         void RefreshCampClocks()
         {
@@ -319,8 +290,8 @@ namespace Roguehalla.Client
                     var camp = _camps[i];
                     if (camp.Clock == null) continue;
                     if (ChestBadges.Replaces(_chestRows, camp.Index)) continue; // one badge per camp: the chest's seconds win while it stands
+                    if (CampCovered(i)) continue;
                     var p = At(new Vector2((float)camp.WorldX, (float)camp.WorldY));
-                    if (ContactNear(p)) continue;
                     if (used >= _campClocks.Count)
                     {
                         var label = HudUi.Label(transform, "CampClock" + used, "", 9f, new Color32(0xb4, 0xc9, 0xdc, 255), TextAlignmentOptions.Center, false, UiFontRole.Display);
@@ -423,14 +394,14 @@ namespace Roguehalla.Client
             return _badgeTexts[i];
         }
 
-        void ShowBadgeText(ref int used, Vector2 at, string text, Color32 color, bool leftOfPoint)
+        void ShowBadgeText(ref int used, Vector2 at, string text, Color32 color, int align)
         {
             var t = BadgeText(used++);
             if (!t.gameObject.activeSelf) t.gameObject.SetActive(true);
             if (t.text != text) t.text = text;
             t.color = color;
-            t.alignment = leftOfPoint ? TextAlignmentOptions.Right : TextAlignmentOptions.Left;
-            t.rectTransform.pivot = new Vector2(leftOfPoint ? 1f : 0f, .5f);
+            t.alignment = align < 0 ? TextAlignmentOptions.Left : align > 0 ? TextAlignmentOptions.Right : TextAlignmentOptions.Center;
+            t.rectTransform.pivot = new Vector2(align < 0 ? 0f : align > 0 ? 1f : .5f, .5f);
             t.rectTransform.anchoredPosition = at;
         }
 
@@ -438,24 +409,19 @@ namespace Roguehalla.Client
         void RefreshBadgeTexts()
         {
             int used = 0;
-            if (_map != null)
+            if (_map != null && Large)   // the minimap draws no camp text and keeps the ward mark only, no number
             {
                 for (int i = 0; i < _camps.Count; i++)
                 {
-                    var b = _camps[i];
-                    var p = At(new Vector2((float)b.WorldX, (float)b.WorldY));
-                    if (ContactNear(p)) continue;
-                    int row = 0;
-                    if (b.AmountText != null) ShowBadgeText(ref used, RewardSlot(p, row++) + new Vector2(8f, 0f), b.AmountText, Rgb(b.IconRgb), false);
-                    if (b.EliteText != null) ShowBadgeText(ref used, RewardSlot(p, row) + new Vector2(8f, 0f), b.EliteText, ChestTone, false);
+                    if (CampCovered(i)) continue;
+                    ShowCampTexts(ref used, i, _camps[i]);
                 }
                 for (int i = 0; i < _wards.Count; i++)
                 {
+                    if (WardCovered(i)) continue;
                     var w = _wards[i];
                     var p = At(new Vector2((float)w.WorldX, (float)w.WorldY));
-                    if (ContactNear(p)) continue;
-                    if (!Large) continue; // the minimap keeps the ward mark only, no number
-                    ShowBadgeText(ref used, WardSlot(p) + new Vector2(-8f, 0f), w.Countdown, Rgb(w.TextRgb), true);
+                    ShowBadgeText(ref used, WardSlot(p) + new Vector2(-8f, 0f), w.Countdown, Rgb(w.TextRgb), 1);
                 }
             }
             for (int i = used; i < _badgeTexts.Count; i++) if (_badgeTexts[i].gameObject.activeSelf) _badgeTexts[i].gameObject.SetActive(false);
@@ -468,9 +434,9 @@ namespace Roguehalla.Client
             if (_map != null)
                 for (int i = 0; i < _camps.Count; i++)
                 {
+                    if (CampCovered(i)) continue;
                     var b = _camps[i];
                     var p = At(new Vector2((float)b.WorldX, (float)b.WorldY));
-                    if (ContactNear(p)) continue;
                     glyphs++; if (b.Dim) dim++;
                     if (b.IconKey == null) continue;
                     if (used >= _badgeIcons.Count)
@@ -501,10 +467,11 @@ namespace Roguehalla.Client
         void DrawBadges(VertexHelper vh, Color32 ink, float s)
         {
             WardsDrawn = 0;
-            foreach (var w in _wards)
+            for (int i = 0; i < _wards.Count; i++)
             {
+                if (WardCovered(i)) continue;
+                var w = _wards[i];
                 var p = At(new Vector2((float)w.WorldX, (float)w.WorldY));
-                if (ContactNear(p)) continue;
                 WardsDrawn++;
                 Marker(vh, WardSlot(p), 8f * s, MapGlyph.Ring, Rgb(w.BeaconRgb), ink);
             }
@@ -514,10 +481,11 @@ namespace Roguehalla.Client
         void DrawCamps(VertexHelper vh, UiTheme theme, Color32 ink, float s)
         {
             CampMarkersDrawn = CampShapesDrawn = EngagedRingsDrawn = EliteMarkersDrawn = BadgesDrawn = 0;
-            foreach (var camp in _camps)
+            for (int i = 0; i < _camps.Count; i++)
             {
+                if (CampCovered(i)) continue;
+                var camp = _camps[i];
                 var p = At(new Vector2((float)camp.WorldX, (float)camp.WorldY));
-                if (ContactNear(p)) continue;
                 CampMarkersDrawn++;
                 float a = camp.Dim ? .45f : 1f;
                 if (camp.IconKey != null) { BadgesDrawn++; Glyph(vh, p, 17f * s, MapGlyph.Disc, Alpha(ink, .9f * a)); }
@@ -534,6 +502,7 @@ namespace Roguehalla.Client
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             vh.Clear(); if (_map == null) return;
+            EnsureCover();
             var theme = UiTheme.Current;
             float s = Large ? 1.2f : 1f;
             Color32 ink = theme.OutlineDark;
@@ -548,7 +517,8 @@ namespace Roguehalla.Client
                 if (Large)
                 {
                     // A soft dark plate behind icon and name keeps them readable on the zone tint.
-                    GlyphXY(vh, p + new Vector2(0f, -12f), 104f, 56f, MapGlyph.Disc, Alpha(ink, .6f));
+                    Vector2 plateAt, plateSize; ZonePlate(region, out plateAt, out plateSize);
+                    GlyphXY(vh, plateAt, plateSize.x, plateSize.y, MapGlyph.Disc, Alpha(ink, .6f));
                 }
                 Glyph(vh, p, size + 4f, glyph, Alpha(ink, Large ? 1f : .8f));
                 Glyph(vh, p, size, glyph, Alpha(zone, Large ? 1f : .9f));

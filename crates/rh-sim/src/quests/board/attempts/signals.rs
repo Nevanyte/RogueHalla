@@ -321,7 +321,7 @@ pub(super) fn burn_crown(cx: &mut Cx) {
     if turned_in {
         return;
     }
-    let amount = p.vitals.max_hp * CROWN_BURN_RATE;
+    let amount = p.vitals.max_hp * TOP25.crown_burn_rate;
     let b = board_mut(cx.w).unwrap();
     let before = b.crown.elapsed_ms;
     b.crown.elapsed_ms += cx.k.tick_ms();
@@ -356,7 +356,6 @@ pub(super) fn burn_crown(cx: &mut Cx) {
 }
 
 pub(crate) const BARGAIN_STAT_COUNT: u8 = 9;
-pub(crate) const BARGAIN_COST: u64 = 20;
 pub(super) const BARGAIN_STAT_NAMES: [&str; BARGAIN_STAT_COUNT as usize] = [
     "damage",
     "move speed",

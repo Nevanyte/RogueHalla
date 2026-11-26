@@ -32,9 +32,9 @@ namespace Roguehalla.Client.Tests
         [Test]
         public void ChestBoostsReadAsStatNamesNotEnumNames()
         {
-            Assert.AreEqual("Max health", MatchHud.BoostLabel(BoostId.MaxHp));
-            Assert.AreEqual("Attack speed", MatchHud.BoostLabel(BoostId.AttackSpeed));
-            Assert.AreEqual("Lifesteal", MatchHud.BoostLabel(BoostId.Lifesteal));
+            Assert.AreEqual("Max HP", MatchHud.BoostLabel(BoostId.MaxHp));
+            Assert.AreEqual("Attack Speed", MatchHud.BoostLabel(BoostId.AttackSpeed));
+            Assert.AreEqual("Leech", MatchHud.BoostLabel(BoostId.Lifesteal));
         }
 
         [Test]
@@ -74,18 +74,6 @@ namespace Roguehalla.Client.Tests
             Assert.AreEqual(5, distinct.Count, "each faction has its own shape");
             foreach (var name in new[] { "Fire", "Sentenced", "Plague", "Frost", "Holy" })
                 StringAssert.DoesNotContain("[", ShowcasePalette.GetFactionName(System.Array.IndexOf(new[] { "Fire", "Sentenced", "Plague", "Frost", "Holy" }, name)));
-        }
-
-        [Test]
-        public void RecentNoticeCardExpiresButTheHistoryKeepsEveryNotice()
-        {
-            var feed = Canvas().gameObject.AddComponent<OrderedNoticeFeed>();
-            feed.Initialize(_root.transform);
-            feed.SetRecentVisible(true);
-            Assert.IsFalse(feed.Root.gameObject.activeSelf);
-            var recent = _root.transform.Find("RecentServerNotices");
-            Assert.IsFalse(recent.gameObject.activeSelf, "nothing received, nothing shown");
-            Assert.AreEqual(8f, OrderedNoticeFeed.RecentSeconds);
         }
     }
 }

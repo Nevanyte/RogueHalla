@@ -35,7 +35,7 @@ Needs Docker. The families, by name prefix (`bot-*` here means the folders `bot-
 | `perfproof/` | Deterministic A/B performance proof: `python3 tools/perfproof/perfproof.py --help`. |
 | `pgtest/` | Throwaway PostgreSQL for tests: `eval "$(tools/pgtest/start.sh)"`, then `tools/pgtest/stop.sh`. |
 | `browser-proof/` | Chromium over WSS against `rh-server`: `node tools/browser-proof/proof.mjs`. |
-| `map-bench/`, `stat-fold/`, `balance-camps/`, `hitbox-measure/`, `latency/` | Benchmarks and measurements, each with its own README or header. |
+| `map-bench/`, `stat-fold/`, `balance-camps/`, `balance-lab/`, `hitbox-measure/`, `latency/` | Benchmarks and measurements, each with its own README or header. |
 | `account-catalog/` | Exports account presentation JSON for Unity (`export.sh --check`). |
 | `unity-browser-reload-proof/`, `unity-readiness/`, `scene-candidate/`, `training-console/`, `release/` | Checks tied to the Unity client and its build identity. |
 | `staging-full-runtime/`, `staging-native-artifact/`, `backup-restore-proof/`, `full-runtime-account-proof/` | Staging preparation and backup proofs; nothing here deploys. |

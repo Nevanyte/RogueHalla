@@ -15,6 +15,9 @@ namespace Roguehalla.Client
     /// </summary>
     public static class HudUi
     {
+        /// <summary>Fill alpha of a text plate over the world. Not a dial: below 1 a white name reads through.</summary>
+        public const float PlateAlpha = 1f;
+
         static Vector2 Point(HudAnchor anchor)
         {
             switch (anchor)
@@ -51,6 +54,21 @@ namespace Roguehalla.Client
             float ay = p.y < .25f ? y : p.y > .75f ? -y : y;
             rect.anchoredPosition = new Vector2(ax, ay);
             rect.sizeDelta = new Vector2(width, height);
+        }
+
+        /// <summary>Places a fixed-size box from a <see cref="Roguehalla.Net.Ui.HudRegion"/> (same rule as the long overload).</summary>
+        public static RectTransform Box(Transform parent, string name, Roguehalla.Net.Ui.HudRegion region)
+        {
+            var rect = (RectTransform)new GameObject(name, typeof(RectTransform)).transform;
+            rect.SetParent(parent, false);
+            Place(rect, region);
+            return rect;
+        }
+
+        /// <summary>Places an existing rect from a <see cref="Roguehalla.Net.Ui.HudRegion"/>.</summary>
+        public static void Place(RectTransform rect, Roguehalla.Net.Ui.HudRegion region)
+        {
+            Place(rect, (HudAnchor)(int)region.Anchor, region.X, region.Y, region.Width, region.Height);
         }
 
         /// <summary>A child that fills its parent with the given insets (left, top, right, bottom).</summary>
@@ -148,6 +166,16 @@ namespace Roguehalla.Client
             }
             var scale = rect.gameObject.AddComponent<MythicTextScale>(); scale.BaseSize = size; scale.FitBox = true;
             scale.Apply(ShowcaseSettings.Current != null ? ShowcaseSettings.Current.TextScale : 1f);
+            return label;
+        }
+
+        /// <summary>Gives a HudUi.Label its wanted size (base size x text scale) and no box fit.</summary>
+        public static TMP_Text Unfit(TMP_Text label)
+        {
+            var fit = label != null ? label.GetComponent<MythicTextScale>() : null;
+            if (fit == null) return label;
+            fit.FitBox = false;
+            fit.Apply(ShowcaseSettings.Current != null ? ShowcaseSettings.Current.TextScale : 1f);
             return label;
         }
 

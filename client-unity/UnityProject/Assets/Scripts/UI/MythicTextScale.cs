@@ -35,6 +35,13 @@ namespace Roguehalla.Client
                 text.fontSizeMin = text.fontSize * .85f;
                 return;
             }
+            if (text is TextMeshProUGUI && !text.isOrthographic)   // never woken: every measure reads a tenth
+            {
+                float asleep = Mathf.Max(wanted, MinSize);
+                text.enableAutoSizing = false; text.fontSize = text.fontSizeMax = text.fontSizeMin = asleep;
+                text.overflowMode = TextOverflowModes.Overflow;
+                _fitted = null; return;                             // OnEnable refits when nothing is recorded as fitted
+            }
             float size = Fit(text, wanted, MinSize);
             text.enableAutoSizing = false;
             text.fontSize = text.fontSizeMax = text.fontSizeMin = size;

@@ -1,5 +1,6 @@
 //! Stable serialized names for the 25 awards.
 use super::super::catalog::{QuestId, RewardId};
+use super::super::tuning::TOP25;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,18 +76,18 @@ impl Award {
             Self::BreakersHelm => "Breaker's Helm",
         }
     }
-    pub(super) const fn cooldown_ms(self) -> f64 {
+    pub(super) fn cooldown_ms(self) -> f64 {
         match self {
-            Self::Hook => 45_000.,
-            Self::ShoulderCharge => 12_000.,
-            Self::Tornado => 14_000.,
-            Self::Turret => 30_000.,
-            Self::Smite => 20_000.,
-            Self::SpellShield => 25_000.,
-            Self::LanternWard => 60_000.,
-            Self::Cleanse => 30_000.,
-            Self::ScoutFalcon => 35_000.,
-            Self::Bolas => 18_000.,
+            Self::Hook => TOP25.hook_cooldown_ms,
+            Self::ShoulderCharge => TOP25.shoulder_charge_cooldown_ms,
+            Self::Tornado => TOP25.tornado_cooldown_ms,
+            Self::Turret => TOP25.turret_cooldown_ms,
+            Self::Smite => TOP25.smite_cooldown_ms,
+            Self::SpellShield => TOP25.spell_shield_cooldown_ms,
+            Self::LanternWard => TOP25.lantern_ward_cooldown_ms,
+            Self::Cleanse => TOP25.cleanse_cooldown_ms,
+            Self::ScoutFalcon => TOP25.scout_falcon_cooldown_ms,
+            Self::Bolas => TOP25.bolas_cooldown_ms,
             _ => 0.,
         }
     }
