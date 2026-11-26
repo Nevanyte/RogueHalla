@@ -64,6 +64,32 @@ namespace Roguehalla.Client.Tests
         }
 
         [Test]
+        public void PlanningScreenListsFivePublicQuestsAndKeepsFiveUnknownUntilRaidStart()
+        {
+            CreateController(_session);
+            var known = new[] { "Ashen Oath", "Broken Crown", "Cypress Debt", "Frostbound Key", "Last Benediction" };
+            var rows = new WireQuestRow[known.Length];
+            for (int i = 0; i < rows.Length; i++)
+                rows[i] = new WireQuestRow { Handle = new QuestHandle((uint)(i + 1)), Def = "fixture-" + i,
+                    State = QuestRowState.Preview, Name = known[i], GiverLabel = "Keeper", CanAccept = false };
+            var quests = new QuestsState { Available = true, View = new WireQuestView { UnknownCount = 5, Rows = rows } };
+            _transport.Deliver(new ServerMsg.Snapshot { Tick = 1, ServerTimeOverrideMs = 100, Phase = (byte)MatchPhase.Planning,
+                Me = new WireSelf { Id = 1, X = 32, Y = 32, Hp = 100, MaxHp = 100, Status = 1, Weapon = 0 } });
+            _transport.Deliver(new ServerMsg.State { Tick = 1, Items = new StateItem[] {
+                new PlanState { Value = new WirePlan { EndsAt = 45000, Spawn0 = 0, Spawn1 = 1,
+                    Boons = new[] { "First boon", "Second boon" },
+                    Option0 = new WirePlanOption { Index = 0, X = 32, Y = 32, Zone = 1 },
+                    Option1 = new WirePlanOption { Index = 1, X = 64, Y = 64, Zone = 2 } } }, quests } });
+            _controller.Tick();
+
+            var text = _uiRoot.transform.Find("TacticalMap/PlanningDecisions/KnownQuests/QuestList/Viewport/Content")
+                .GetComponent<TMPro.TMP_Text>().text;
+            foreach (string name in known) StringAssert.Contains(name, text);
+            StringAssert.Contains("5 more revealed at raid start", text);
+            StringAssert.DoesNotContain("Hidden", text);
+        }
+
+        [Test]
         public void DisconnectAndRebindClearMarksAndRefreshSingleObservedContactRail()
         {
             CreateController(_session);

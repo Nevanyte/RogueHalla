@@ -50,6 +50,8 @@ namespace Roguehalla.Client
         int _lastContactsSnapshot = -1;
         WeaponCounterGuide _counterGuide;
         RectTransform _contactRail, _counterRail;
+        RectTransform _planningQuestBox;
+        TMP_Text _planningQuestsText;
         bool _routeStorageDirty;
         double _nextPaint, _nextPath;
         bool _largeFresh, _miniFresh;
@@ -147,6 +149,14 @@ namespace Roguehalla.Client
                 _spawns[i] = HudUi.Button(_planningRail, "Spawn" + i, (i + 1) + " · SPAWN", HudAnchor.TopLeft, 12, 0, 316, 56, () => PickSpawn(pick), 13f);
                 _boons[i] = HudUi.Button(_planningRail, "Boon" + i, "BOON", HudAnchor.TopLeft, 12, 0, 316, 40, () => PickBoon(pick), 12f);
             }
+            _planningQuestBox = HudUi.Box(_planningRail, "KnownQuests", HudAnchor.TopLeft, 12, 0, 316, 120);
+            HudUi.Surface(_planningQuestBox, theme.SurfaceRaised, theme.CornerRadiusSmall, theme.Border, false, false);
+            var planningQuestHeading = HudUi.Label(_planningQuestBox, "Heading", "KNOWN QUESTS", 11f, theme.Accent, TextAlignmentOptions.MidlineLeft, false, UiFontRole.Display);
+            HudUi.Place(planningQuestHeading.rectTransform, HudAnchor.TopLeft, 8f, 5f, 300f, 16f);
+            _planningQuestsText = MythicUi.ScrollText(_planningQuestBox, "QuestList", "Waiting for public quest list…", Vector2.zero, Vector2.one, 12.5f);
+            var planningQuestTextRect = (RectTransform)_planningQuestsText.transform.parent.parent;
+            planningQuestTextRect.anchorMin = Vector2.zero; planningQuestTextRect.anchorMax = Vector2.one;
+            planningQuestTextRect.offsetMin = new Vector2(8f, 6f); planningQuestTextRect.offsetMax = new Vector2(-8f, -24f);
             _routeText = HudUi.Label(_panel, "RouteSummary", "Click the map to add a route stop", 11f, theme.TextSecondary, TextAlignmentOptions.TopLeft, false, UiFontRole.Body, true);
             _undo = HudUi.Button(_panel, "UndoRoute", "Undo stop", HudAnchor.TopLeft, 0, 0, 100, 26, () => { _route.Undo(); _routeStorageDirty = true; _nextPath = 0; MarkNews(); }, 11f);
             _clear = HudUi.Button(_panel, "ClearRoute", "Clear route", HudAnchor.TopLeft, 0, 0, 100, 26, () => { _route.Clear(); _routeStorageDirty = true; _nextPath = 0; MarkNews(); }, 11f);
@@ -327,7 +337,10 @@ namespace Roguehalla.Client
                 for (int i = 0; i < 2; i++) { HudUi.Place(_spawns[i].GetComponent<RectTransform>(), HudAnchor.TopLeft, 12f, y, 316f, 56f * f); y += 56f * f + 6f; }
                 y += 8f;
                 for (int i = 0; i < 2; i++) { HudUi.Place(_boons[i].GetComponent<RectTransform>(), HudAnchor.TopLeft, 12f, y, 316f, 40f * f); y += 40f * f + 6f; }
-                y += 10f;
+                y += 8f;
+                float questH = Mathf.Clamp(L.Right.H * .22f, 92f, 132f);
+                HudUi.Place(_planningQuestBox, HudAnchor.TopLeft, 12f, y, 316f, questH); y += questH + 8f;
+                y += 2f;
                 float bw = 154f;
                 HudUi.Place(_undo.GetComponent<RectTransform>(), HudAnchor.TopLeft, L.Right.X + 12f, L.Right.Y + y, bw, 28f);
                 HudUi.Place(_clear.GetComponent<RectTransform>(), HudAnchor.TopLeft, L.Right.X + 12f + bw + 8f, L.Right.Y + y, bw, 28f);
@@ -545,9 +558,32 @@ namespace Roguehalla.Client
             }
             _ready.GetComponentInChildren<TMP_Text>().text = plan.Ready ? "READY · CONFIRMED" : _selections.PendingReady ? "READY · PENDING" : connected ? "READY" : "RECONNECTING";
             _ready.interactable = _selections.CanReady;
+            _planningQuestsText.text = PlanningQuestCopy(_bound.Collections.Quests, _bound.Map);
             var picked = plan.Pick == 0 ? plan.Option0 : plan.Pick == 1 ? plan.Option1 : null;
             if (picked.HasValue) _route.SetStart(new RoutePoint(picked.Value.X, picked.Value.Y));
             _status.text = !string.IsNullOrEmpty(_selections.Feedback) ? _selections.Feedback : connected ? "Choose spawn + boon, then Ready · your route stays private." : "Reconnecting · wait for the server plan.";
+        }
+
+        internal static string PlanningQuestCopy(Roguehalla.Net.QuestView quests, MapBlob map)
+        {
+            if (quests == null || !quests.Available) return "Waiting for the public quest list…";
+            var copy = new StringBuilder();
+            foreach (var row in quests.Rows)
+            {
+                string name = string.IsNullOrWhiteSpace(row.Name) ? "Unnamed quest" : row.Name.Trim();
+                string zone = "";
+                int tx = map != null && map.W > 0 ? Mathf.FloorToInt((float)(row.GiverX / Tile)) : -1;
+                int ty = map != null && map.H > 0 ? Mathf.FloorToInt((float)(row.GiverY / Tile)) : -1;
+                if (map != null && map.Regions != null && map.Regions.Length == map.W * map.H && (uint)tx < (uint)map.W && (uint)ty < (uint)map.H)
+                    zone = MapZones.Name(map.Regions[ty * map.W + tx]);
+                copy.Append("• ").Append(name);
+                if (!string.IsNullOrEmpty(zone)) copy.Append("  ·  ").Append(zone);
+                copy.AppendLine();
+            }
+            if (quests.Rows.Count == 0) copy.AppendLine("No quests are public yet.");
+            if (quests.UnknownCount > 0) copy.Append(quests.UnknownCount).Append(" more revealed at raid start");
+            else if (quests.Rows.Count == 0) copy.Append("The public list will appear when received.");
+            return copy.ToString().TrimEnd();
         }
         /// <summary>The zone chip of the region under the player gets the gold frame.</summary>
         void RefreshOwnZone()
