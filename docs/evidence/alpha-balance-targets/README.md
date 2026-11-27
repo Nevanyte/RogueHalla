@@ -1,5 +1,7 @@
 # Raid balance verification
 
+The [local Unity preview](http://localhost:8888/) runs content `cb811d19ebed6dfe`, protocol 24. The full repository gate passed, including 2,846 Unity EditMode tests and both PostgreSQL suites. [Packet hand-off and test coverage](HANDOFF.md)
+
 The requested targets are about twice the ordinary solo clear time for an elite after minute five, and a 25–50% return above nearby farming for a well-chosen quest or faction route. Time in combat and time spent walking both use the authoritative 40 Hz raid clock. A player who dies, abandons a quest or fails a clear has spent time and earned a different reward. Each comparison retains its unsuccessful attempts.
 
 ## Quest rewards
