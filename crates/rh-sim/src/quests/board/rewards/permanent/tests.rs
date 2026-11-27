@@ -271,7 +271,7 @@ fn trade_up_all_three_cash_outs_raise_max_hp() {
 }
 
 #[test]
-fn chef_increases_the_lowest_percentage_growth_by_twenty_percent() {
+fn chef_increases_the_lowest_percentage_growth_and_snapshots_the_capped_gain() {
     let mut sim = practice(QuestId::LetHimCook);
     let id = sim.w.players[0].id;
     run(&mut sim, |cx| {
@@ -297,7 +297,7 @@ fn chef_increases_the_lowest_percentage_growth_by_twenty_percent() {
     close(sim.w.players[0].modifiers.mirrors().as_mult, 1.20);
     let before_hp = sim.w.players[0].vitals.max_hp;
     claim(&mut sim, id);
-    close(sim.w.players[0].modifiers.mirrors().as_mult, 1.44);
+    close(sim.w.players[0].modifiers.mirrors().as_mult, 1.55);
     close(sim.w.players[0].vitals.max_hp, before_hp);
 
     let saved = serde_json::to_vec(inventory::state(&sim.w).unwrap()).unwrap();
@@ -313,7 +313,7 @@ fn chef_increases_the_lowest_percentage_growth_by_twenty_percent() {
     assert_ne!(crate::hash::hash_of(0, &sim.w), hash);
     *inventory::state_mut(&mut sim.w).unwrap() = serde_json::from_slice(&saved).unwrap();
     modifiers::recompute(&sim.k, &mut sim.w, FighterIx::of_slot(0));
-    close(sim.w.players[0].modifiers.mirrors().as_mult, 1.44);
+    close(sim.w.players[0].modifiers.mirrors().as_mult, 1.55);
     inventory::owner_mut(&mut sim.w, id)
         .unwrap()
         .chef_bonus
@@ -321,6 +321,88 @@ fn chef_increases_the_lowest_percentage_growth_by_twenty_percent() {
         .unwrap()
         .stat = RotMonk;
     assert!(inventory::validate(&sim.w).is_err());
+}
+
+// Measure the claimed reward on the live fold and use a newly credited normal
+// camp on that same stat as the unit of comparison.
+#[test]
+fn chef_earned_stat_cases_match_authoritative_normal_camp_gain() {
+    fn sheet(sim: &Sim) -> [f64; 6] {
+        let p = &sim.w.players[0];
+        let (damage, mirrors) = p.modifiers.permanent_growth_inputs();
+        [
+            damage,
+            mirrors.speed_mult,
+            p.vitals.max_hp,
+            mirrors.armor_bonus,
+            mirrors.shield_bonus,
+            mirrors.as_mult,
+        ]
+    }
+
+    for (weakest, earned, mature, expected_stacks) in [
+        (0, 10, false, 33.),
+        (0, 50, true, 35.),
+        (1, 24, false, 44.8),
+        (1, 100, true, 48.),
+        (2, 10, false, 33.),
+        (3, 8, false, 21.12),
+        (4, 6, false, 17.4),
+        (5, 10, false, 33.),
+    ] {
+        let mut sim = practice(QuestId::LetHimCook);
+        let id = sim.w.players[0].id;
+        let other_stats = if mature {
+            [60, 120, 60, 38, 32, 60]
+        } else {
+            [20, 40, 20, 13, 11, 20]
+        };
+        run(&mut sim, |cx| {
+            for (index, stat) in CHEF_STATS.into_iter().enumerate() {
+                let stacks = if index == weakest {
+                    earned
+                } else {
+                    other_stats[index]
+                };
+                assert_eq!(
+                    modifiers::grant_mob_stat(cx.k, cx.w, id, stat, stacks),
+                    stacks
+                );
+            }
+            attempts::accept(cx, 0, id);
+            for ingredient in 0..3 {
+                attempts::interact(cx, id, OFFER, 3, ingredient);
+            }
+        });
+        let before = sheet(&sim);
+        claim(&mut sim, id);
+        assert_eq!(
+            inventory::owner(&sim.w, id)
+                .unwrap()
+                .chef_bonus
+                .unwrap()
+                .stat,
+            CHEF_STATS[weakest]
+        );
+        let after = sheet(&sim);
+        for index in 0..CHEF_STATS.len() {
+            if index != weakest {
+                close(before[index], after[index]);
+            }
+        }
+        run(&mut sim, |cx| {
+            assert_eq!(
+                modifiers::grant_mob_stat(cx.k, cx.w, id, CHEF_STATS[weakest], 12),
+                12
+            );
+        });
+        let camp_gain = sheet(&sim)[weakest] - after[weakest];
+        assert!(camp_gain > 0.);
+        close(
+            (after[weakest] - before[weakest]) / camp_gain * 12.,
+            expected_stacks,
+        );
+    }
 }
 
 #[test]
@@ -456,7 +538,7 @@ fn bargain_spends_equivalent_stacks_or_the_inactive_weapon_for_real_max_hp() {
         });
         claim(&mut sim, id);
         let p = sim.w.player(id).unwrap();
-        assert_eq!(p.farm.count(MagmaBrute), 28);
+        assert_eq!(p.farm.count(MagmaBrute), 29);
         close(p.vitals.max_hp, base * 1.28);
         assert_eq!(p.active_weapon(), WeaponId::Bow);
         assert_eq!(p.weapon.ready_at, ready_at);

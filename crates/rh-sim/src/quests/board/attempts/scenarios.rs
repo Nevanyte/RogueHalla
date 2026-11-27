@@ -742,7 +742,7 @@ impl Raid {
                 TheBurningCrown => assert_eq!(p.farm.count(EmberImp), 1),
                 TheBargain => {
                     assert!(p.weapon.weapon1.is_none());
-                    assert_eq!(p.farm.count(EmberImp), 28);
+                    assert_eq!(p.farm.count(EmberImp), 29);
                 }
                 TradeUp => assert_eq!(p.farm.count(Penitent), 29),
                 FeedOrHunt => assert_eq!(p.farm.count(EmberImp), 12),

@@ -22,7 +22,13 @@ pub(crate) fn visit_rules(word: &mut dyn FnMut(u64)) {
     }
     word(TOP25.bargain_stacks);
     word(TOP25.feed_damage_stacks);
-    for value in [TOP25.chef_bonus_share, TOP25.helm_bypass] {
+    for value in [
+        TOP25.chef_bonus_share,
+        TOP25.chef_bonus_cap,
+        TOP25.chef_move_share,
+        TOP25.chef_move_cap,
+        TOP25.helm_bypass,
+    ] {
         word(value.to_bits());
     }
 }
@@ -94,9 +100,16 @@ fn chef_bonus(p: &Player) -> ChefBonus {
         // Damage, movement and max HP rows are already in starting-stat units.
         _ => 1.,
     };
+    // Snapshot the gain at claim so future farming cannot compound it. Movement
+    // uses a smaller gain because each farm stack represents half a percent.
+    let (share, cap) = if stat == CinderHound {
+        (TOP25.chef_move_share, TOP25.chef_move_cap)
+    } else {
+        (TOP25.chef_bonus_share, TOP25.chef_bonus_cap)
+    };
     ChefBonus {
         stat,
-        amount: unit * (1. + growth).max(0.) * TOP25.chef_bonus_share,
+        amount: unit * ((1. + growth).max(0.) * share).min(cap),
     }
 }
 
