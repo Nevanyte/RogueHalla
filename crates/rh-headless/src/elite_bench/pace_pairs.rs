@@ -3,9 +3,8 @@
 use super::*;
 use serde_json::json;
 
-pub(super) fn run(seed: u64) -> Result<Output, String> {
-    let arena = Arc::new(rh_headless::balance_lab::generated_arena(seed)?);
-    let probe = Sim::reset_active(
+fn probe(arena: &Arc<Arena>, seed: u64) -> Sim {
+    Sim::reset_active(
         config(),
         arena.clone(),
         Secrets::from_seed(seed),
@@ -18,7 +17,12 @@ pub(super) fn run(seed: u64) -> Result<Output, String> {
             weapon0: None,
             weapon1: None,
         }],
-    );
+    )
+}
+
+pub(super) fn run(seed: u64) -> Result<Output, String> {
+    let arena = Arc::new(rh_headless::balance_lab::generated_arena(seed)?);
+    let probe = probe(&arena, seed);
     let rosters = probe.camp_rosters();
     let mut rows = Vec::new();
     for (index, elite) in rosters
@@ -76,4 +80,28 @@ pub(super) fn run(seed: u64) -> Result<Output, String> {
         json: serde_json::to_string(&rows).map_err(|e| e.to_string())?,
         table: String::new(),
     })
+}
+
+#[cfg(test)]
+#[test]
+fn incidental_damage_before_attacking_the_selected_camp_does_not_start_its_timer() {
+    let seed = 44;
+    let arena = Arc::new(rh_headless::balance_lab::generated_arena(seed).unwrap());
+    let probe = probe(&arena, seed);
+    let scene = scene_at(&probe, &arena, 3).unwrap();
+    let build = banked_camp_build(&probe, seed, 6);
+    let result = fight(
+        &arena,
+        seed,
+        FactionId::Sentenced,
+        WeaponId::Sword,
+        &scene,
+        Some(&build),
+        1_000,
+        Who::Duelist,
+        Some(0),
+    )
+    .unwrap();
+    assert_eq!(result.outcome, "cleared");
+    assert!(result.first_hit.unwrap() < result.first_camp_hit.unwrap());
 }
