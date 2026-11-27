@@ -34,7 +34,7 @@ The region boss also pays 12 camp-stat stacks to a qualifying contributor. In de
 
 ## Public build identity
 
-At 05:23 UTC on 27 November, both the public page endpoint and game endpoint reported protocol 24, content hash `8a4bf0ce37b406f2` and ready status. That hash matches the baked client at pre-restoration commit `dbaa701be`. The public response does not advertise the bot brain or fill target. The local alpha’s eight-seat policy and survival checks run against the actual room code. [Published page identity](https://play.roguehalla.com/info) · [Published game identity](https://game.roguehalla.com/info)
+At 05:23 UTC on 27 November, both the public page endpoint and game endpoint reported protocol 24, content hash `8a4bf0ce37b406f2` and ready status. That hash matches the baked client at pre-restoration commit `dbaa701be`. Its server supported HumanBot and the older full Brain. Commit `27e732688` added RaidBot support on actual fill seats. The public response identifies game content but does not expose the deployed binary revision, bot brain or fill target. The local alpha’s eight-seat policy and survival checks run against the actual room code. [Published page identity](https://play.roguehalla.com/info) · [Published game identity](https://game.roguehalla.com/info)
 
 ## Planning, maps and presentation
 
@@ -42,6 +42,6 @@ Planning reveals one named quest per zone. At raid start each zone reveals its s
 
 ## Bot play and remaining coverage
 
-The real-room test seated one human-controlled connection and seven RaidBots on each of three maps. At 150 active seconds 7, 6 and 7 bots remained standing, and the human survived all three. A bot killed an elite at 145.6 seconds and took a chest upgrade at 147.5 seconds on the first map. In the broader stock runs, all 33 elite augments were selected. Wish Engine and the Shield/Fists growth augments still need deliberate bot input and weapon choices for representative field data. [Production room checks](../../../crates/rh-server/src/room/tests/bot_fill.rs) · [Augment field measurements and direct effect checks](../quest-elite-balance/README.md#elite-augments)
+The [local Unity preview](local-preview/README.md) serves protocol 24 and content `13a89cbaff80132f`. The real-room test seated one human-controlled connection and seven RaidBots on each of three maps. At 150 active seconds 7, 6 and 7 bots remained standing, and the human survived all three. A bot killed an elite at 145.6 seconds and took a chest upgrade at 147.5 seconds on the first map. In the broader stock runs, all 33 elite augments were selected. Wish Engine and the Shield/Fists growth augments still need deliberate bot input and weapon choices for representative field data. [Production room checks](../../../crates/rh-server/src/room/tests/bot_fill.rs) · [Augment field measurements and direct effect checks](../quest-elite-balance/README.md#elite-augments)
 
 The next bot quality tests are human kiting and disengages, shield and fists use when a card pays for them, and target selection at the Coliseum lock. Sudden death accounted for 53 of 84 deaths on the twelve final maps. Four deaths occurred before five minutes. These gaps matter when interpreting bot results as a forecast of human play.
