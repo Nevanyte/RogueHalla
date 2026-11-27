@@ -38,7 +38,7 @@ The public giver-plus-24.7-second rule predicted at least +25% for **3/26** held
 ## Validation and limits
 
 - Every one of the 100 generated map boards matched the independent `quest_balance --board-only` offer identities. The pathfinder's length was asserted at least as long as the straight segment for every leg.
-- The final 20-map run repeated byte-for-byte. Targeted clippy with `-D warnings` and `cargo fmt --check --all` passed. The standalone release binary SHA-256 was `f91c95653c13cceb5de8201fe0b941f523309a6e179a8495b263fd17a64f26b1`.
+- The final 20-map run repeated byte-for-byte. Targeted clippy with `-D warnings` and `cargo fmt --check --all` passed. The offline tool source is commit `3b54acc9f` on game-source parent `30b951d32`; the standalone release binary SHA-256 was `f91c95653c13cceb5de8201fe0b941f523309a6e179a8495b263fd17a64f26b1`.
 - Both raw files carry content hash `cb811d19ebed6dfe`, map hash, benchmark seed, 25 ms step, path geometry, observed acceptance, timer and (for Feed) grant outcome. They contain no RNG state or simulation state hashes. [Calibration raw rows](walks_seed1_20.jsonl) · [Held-out raw rows](walks_seed21_100.jsonl).
 - The route probe does not play against moving opponents after the first active frame, does not attack mobs, and cannot measure the other eight rewards' situational PvP or PvE value. Its neutral and faction rates are opportunity-cost references, not paired counterfactual matches. There were zero deaths in the observed Feed routes; that is an outcome of this limited setup, not a survival guarantee.
 
