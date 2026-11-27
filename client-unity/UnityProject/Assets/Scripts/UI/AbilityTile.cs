@@ -59,8 +59,8 @@ namespace Roguehalla.Client
             }
 
             _key = HudUi.Label(HudUi.At(_root, "Key", 5, 4, 30, 12), "Label", keyCap, 12f, theme.TextSecondary);
-            // Keep the full two-line height while starting below the reserved corner-icon band.
-            _nameBox = HudUi.Box(_root, "Name", HudAnchor.Center, 0, -2, 60, 30);
+            // Keep the full two-line height between the reserved icon and charge bands.
+            _nameBox = HudUi.Box(_root, "Name", HudAnchor.Center, 0, -1.5f, 60, 29);
             _name = HudUi.Label(_nameBox, "Label", "", 12f, theme.TextPrimary, TextAlignmentOptions.Center, wrap: true);
             _seconds = HudUi.Label(HudUi.Box(_root, "Seconds", HudAnchor.Center, 0, 0, 40, 20), "Label", "", 15f, theme.TextPrimary,
                 TextAlignmentOptions.Center, true);

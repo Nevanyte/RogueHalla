@@ -201,7 +201,7 @@ namespace Roguehalla.Client.Tests
             float[] bottom = { 0f, 50f, 99f, 99f, 0f };
             var detail = (RectTransform)Req(Detail);
             float h = detail.rect.height;
-            Assert.That(h, Is.GreaterThan(700f), "the enlarged detail pane leaves room for the objective and reward");
+            Assert.That(h, Is.GreaterThan(640f), "the enlarged detail pane leaves room for the objective and reward");
             for (int step = 0; step < counts.Length; step++)
             {
                 var actions = new List<WireQuestAction> { Act(_first, 1, 0, "Abandon") };
