@@ -155,11 +155,12 @@ impl Sim {
         } else {
             arena
         };
+        let scratch = TickScratch::for_config(&config);
         let mut sim = Self {
             projection: Default::default(),
             k: MatchStatic::new(config, arena, secrets),
             w: World::new(&secrets),
-            s: TickScratch::default(),
+            s: scratch,
             pf: Pathfinder::default(),
         };
         crate::statics::validate_tick_ms(&sim.k.config)?;

@@ -22,6 +22,7 @@ use crate::fighter::FighterIx;
 use crate::input::Drained;
 use crate::math::Vec2;
 use crate::state::PlayerId;
+use crate::statics::{CombatPace, SimConfig};
 use crate::systems::ledger::Entry;
 use crate::systems::melee::MeleeReq;
 
@@ -122,12 +123,16 @@ pub(crate) struct TickScratch {
     pub(crate) step_event_start: usize,
 }
 
-impl Default for TickScratch {
-    /// Every list starts at the size one tick of a full lobby can need (`MAX_PLAYERS` fighters, each landing at most one
-    /// swing on every other), so a normal match never grows a buffer: not even on its first crowded tick. Later packets
-    /// that add actors (mobs) grow them once, to their high-water mark.
-    fn default() -> Self {
+impl TickScratch {
+    pub(crate) fn for_config(config: &SimConfig) -> Self {
+        Self::new(config.pvp_rules && config.combat_pace == CombatPace::Raid)
+    }
+
+    /// Enabled lists start at the size one tick of a full lobby can need (`MAX_PLAYERS` fighters, each landing at most
+    /// one swing on every other). Lists used only by raid PvP keep zero capacity when those rules are disabled.
+    fn new(raid_pvp: bool) -> Self {
         let (p, hits) = (MAX_PLAYERS, 2 * MAX_PLAYERS * MAX_PLAYERS);
+        let (raid_players, raid_hits) = if raid_pvp { (p, hits) } else { (0, 0) };
         Self {
             quest_spell_aim: None,
             cast_landings: Vec::with_capacity(p),
@@ -148,8 +153,8 @@ impl Default for TickScratch {
             action_order: Vec::with_capacity(p),
             rank: Vec::with_capacity(p),
             camps_at_pass_start: Vec::with_capacity(p),
-            raid_pvp_factors: Vec::with_capacity(p),
-            raid_hit_cap_shares: Vec::with_capacity(hits),
+            raid_pvp_factors: Vec::with_capacity(raid_players),
+            raid_hit_cap_shares: Vec::with_capacity(raid_hits),
             standing: Vec::with_capacity(p),
             mults: Vec::with_capacity(p),
             melee: Vec::with_capacity(p),
@@ -190,7 +195,7 @@ impl Default for TickScratch {
 impl Clone for TickScratch {
     fn clone(&self) -> Self {
         debug_assert!(self.is_settled(), "a sim is cloned between steps");
-        let mut scratch = Self::default();
+        let mut scratch = Self::new(self.raid_pvp_factors.capacity() != 0);
         scratch.reserve_actors(self.attack_started.len());
         scratch
     }
@@ -212,9 +217,11 @@ impl TickScratch {
             status_active,
             dot_sums,
             alive,
-            camps_at_pass_start,
-            raid_pvp_factors
+            camps_at_pass_start
         );
+        if self.raid_pvp_factors.capacity() != 0 {
+            reserve!(raid_pvp_factors);
+        }
     }
 
     /// True when nothing tick-local survives the step (asserted at the end of every step in debug builds). Checked: the
@@ -237,5 +244,45 @@ impl TickScratch {
             && self.raid_hit_cap_shares.is_empty()
             && self.slot_head.iter().all(|&n| n == NONE)
             && self.slot_tail.iter().all(|&n| n == NONE)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn raid_pvp_scratch_is_reserved_only_for_enabled_rules() {
+        let actor_count = MAX_PLAYERS + 4;
+        for (combat_pace, pvp_rules, raid_pvp) in [
+            (CombatPace::Legacy, true, false),
+            (CombatPace::Raid, false, false),
+            (CombatPace::Raid, true, true),
+        ] {
+            let sim = crate::Sim::new(
+                SimConfig {
+                    combat_pace,
+                    pvp_rules,
+                    ..SimConfig::default()
+                },
+                crate::arenas::practice_arena(),
+                crate::Secrets::from_seed(7),
+            );
+            let restored: crate::Sim =
+                serde_json::from_slice(&serde_json::to_vec(&sim).unwrap()).unwrap();
+            assert_eq!(restored.state_hash(), sim.state_hash());
+
+            for mut sim in [sim.clone(), sim, restored] {
+                sim.s.reserve_actors(actor_count);
+                let factors = sim.s.raid_pvp_factors.capacity();
+                let shares = sim.s.raid_hit_cap_shares.capacity();
+                if raid_pvp {
+                    assert!(factors >= actor_count);
+                    assert!(shares >= 2 * MAX_PLAYERS * MAX_PLAYERS);
+                } else {
+                    assert_eq!((factors, shares), (0, 0));
+                }
+            }
+        }
     }
 }
