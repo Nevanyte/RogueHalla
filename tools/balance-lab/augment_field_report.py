@@ -8,6 +8,23 @@ import statistics
 from pathlib import Path
 
 
+# Units follow the native card tables (rh-sim/src/cards/native/{weapon,zone,faction}.rs).
+READOUT_UNITS = {
+    "marksmansTally": ("outgoing damage share",),
+    "bastion": ("mitigated damage stored",),
+    "calluses": ("armor",),
+    "executionersLedger": ("Offense",),
+    "eighthStrike": ("hits since last doubled hit",),
+    "pathfinder": ("move-speed share", "distinct normal mob types"),
+    "hazardWalker": ("stacks", "ember exposure ms", "bog exposure ms", "ice exposure ms"),
+    "wishEngine": ("wish cooldown reduction share",),
+    "corpseHoarder": ("max-HP share",),
+    "stoked": ("Special Offense",),
+    "glacier": ("armor",),
+    "trophyHunter": ("outgoing damage share",),
+}
+
+
 def load_traces(paths):
     header = None
     matches = {}
@@ -37,13 +54,14 @@ def median(values):
     return round(statistics.median(values), 3) if values else None
 
 
-def growth_rows(holders):
+def growth_rows(card, holders):
     grouped = collections.defaultdict(list)
     for h in holders:
         for i, row in enumerate(h["rows"]):
             grouped[i, row["kind"]].append((h, row))
     return [{
         "kind": kind,
+        "unit": READOUT_UNITS[card][i],
         "readout_holders": len(samples),
         "changed": sum(row["rises"] != 0 or row["falls"] != 0 for _, row in samples),
         "rose": sum(row["rises"] > 0 for _, row in samples),
@@ -56,7 +74,7 @@ def growth_rows(holders):
         "peak_max": round(max(row["peak"] for _, row in samples), 3),
         "median_last_before_end": median([row["last"] for _, row in samples]),
         "cap": samples[0][1]["cap"],
-    } for (_, kind), samples in sorted(grouped.items())]
+    } for (i, kind), samples in sorted(grouped.items())]
 
 
 def summarize(meta, matches, catalog):
@@ -92,7 +110,7 @@ def summarize(meta, matches, catalog):
             "elite_median_standing_s": median([h["standing_s"] for h in elite_holders]),
             "elite_median_acquired_s": median([h["acquired_s"] for h in elite_holders]),
             "elite_no_longer_held": sum(not h["still_held"] for h in elite_holders),
-            "native_rows_from_elite": growth_rows(elite_holders),
+            "native_rows_from_elite": growth_rows(card, elite_holders),
         })
     return {
         "content_hash": meta["content_hash"], "seeds": sorted(matches),
