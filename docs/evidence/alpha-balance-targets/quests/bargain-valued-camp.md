@@ -66,6 +66,12 @@ Weighting failed routes at 0.6–1.4 of neutral changes the 21-stack full-near r
 
 [29-stack confirmation receipts](bargain_confirmation_29_receipts.csv) · [21-stack confirmation receipts](bargain_confirmation_21_receipts.csv) · [29-stack summary](bargain_confirmation_29_summary.json) · [21-stack summary](bargain_confirmation_21_summary.json)
 
+## Smaller lot fixed before the third holdout
+
+Reducing the stack fee and the reward limits the amount of stat a player can redirect in one trade. Candidate **10→14** keeps four net stacks and had projected full-near multiples of 1.290×, 1.223× and 1.726× in the three preceding independent cohorts when their observed swaps and timing stay fixed. The arithmetic mean is 1.413×. Observed price variants within each cohort contribute to a pooled denominator for that cohort. Other fixed-choice means were 1.301× for 8→12, 1.626× for 10→15 and 1.738× for 12→17. An otherwise unchanged 20→29 replay provides the control.
+
+The board-only selection found 19 Bargain offers from seeds 161–200. The replay includes all 19, selected before reading any ROI, acceptance or combat outcome. The seeds are 161, 166, 167, 170, 174, 175, 176, 177, 179, 180, 182, 184, 188, 189, 190, 192, 197, 198 and 199.
+
 ## Reproduction
 
 `quest_balance START END --board-only` records the five planning and ten raid offers and exits at raid setup. The first test cohort is every seed in 81–120 with The Bargain on the raid board, fixed before reading outcomes. Its 19 seeds are 81, 82, 83, 84, 85, 88, 89, 94, 95, 98, 101, 103, 105, 107, 108, 109, 111, 115 and 117. The additional confirmation board range is 121–160, with 17 eligible seeds (121, 123, 126, 127, 129, 131, 138, 139, 142, 144, 145, 146, 149, 151, 154, 155 and 156). Neither selection uses quote, travel, completion, payout or later raid outcomes.
