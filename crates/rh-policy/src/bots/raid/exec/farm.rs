@@ -39,6 +39,11 @@ const TRACK_U: f64 = 80.;
 #[derive(Clone, Copy, Debug)]
 pub enum LabRoute {
     TargetBuild(usize),
+    CalibratedBuild(usize),
+    SafeTargetBuild(usize),
+    FocusRoute,
+    FocusRiskControl,
+    FocusStatRisk(usize),
     LocalTarget(usize),
     Nearest,
     RandomNearby(u64),
@@ -79,6 +84,8 @@ pub struct Farm {
     lab_route: Option<LabRoute>,
     #[cfg(feature = "strategy-route-lab")]
     random_pick: Option<u32>,
+    #[cfg(feature = "strategy-route-lab")]
+    focus_origin: Option<u32>,
     shares: Vec<((FactionId, FactionId), f64)>,
     /// Where the member it fights stood at the last think.
     target: Option<Vec2>,
@@ -263,14 +270,44 @@ impl Executor for Farm {
             };
             let share = self.share(me, zone_faction(zone));
             let death = death_chance(hp, share, left, &cx.prices.death);
-            out.push(Candidate {
+            let candidate = Candidate {
                 goal: RaidGoal::new(GoalKind::Farm, Target::Camp(index)),
                 value: cx.prices.camp * f64::from(alive) / cx.prices.death.typical_members,
                 success: 1. - death,
                 death,
                 loss: cx.prices.death_loss,
                 minutes: walk + left * cx.prices.kill_seconds / 60.,
-            });
+            };
+            #[cfg(feature = "strategy-route-lab")]
+            let mut candidate = candidate;
+            #[cfg(feature = "strategy-route-lab")]
+            if let Some(route) = self.lab_route {
+                if let Some(camp) = cx.p.camp(index) {
+                    if matches!(route, LabRoute::FocusRoute)
+                        && camp.reward_stat == lab_route::focus_code(me)
+                    {
+                        candidate.value *= if self.focus_origin.is_some_and(|c| c != index) {
+                            2.0 // six actual stacks instead of three at a distinct focus camp
+                        } else if self.focus_origin.is_none() {
+                            1.25 // small option value of arming a follow-on route
+                        } else {
+                            1.0
+                        };
+                    } else if let LabRoute::FocusStatRisk(build) = route {
+                        use crate::bots::build_route::{BUILD_GOALS, STAT_FLOOR};
+                        let weight = camp.reward_stat.and_then(lab_route::farm_stat).map_or(
+                            STAT_FLOOR,
+                            |s| {
+                                BUILD_GOALS[me as usize][build.min(1)]
+                                    .weight(s)
+                                    .max(STAT_FLOOR)
+                            },
+                        );
+                        candidate.value *= weight;
+                    }
+                }
+            }
+            out.push(candidate);
         }
     }
     fn start(&mut self, _goal: &RaidGoal, _cx: &mut Cx<'_>) {
@@ -286,6 +323,17 @@ impl Executor for Farm {
             return Step::failed("camp not delivered");
         };
         if camp.alive == 0 {
+            #[cfg(feature = "strategy-route-lab")]
+            if matches!(
+                self.lab_route,
+                Some(
+                    LabRoute::FocusRoute | LabRoute::FocusRiskControl | LabRoute::FocusStatRisk(_)
+                )
+            ) && camp.elite.is_none()
+                && dist(cx.p.me.at, camp.at) <= rh_sim::constants::CAMP_HEAL_RANGE
+            {
+                self.focus_origin = Some(index);
+            }
             return Step::done("camp cleared");
         }
         let camp_at = camp.at;

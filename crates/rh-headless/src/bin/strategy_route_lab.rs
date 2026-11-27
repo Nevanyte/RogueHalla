@@ -2,7 +2,10 @@
 #[cfg(feature = "strategy-route-lab")]
 fn parse_args(args: &[String]) -> Result<(u64, u64, &'static [&'static str]), String> {
     if !(2..=3).contains(&args.len()) {
-        return Err("usage: strategy_route_lab COUNT FIRST_SEED [live|local-target]".into());
+        return Err(
+            "usage: strategy_route_lab COUNT FIRST_SEED [live|local-target|calibrated|safe-target|nearest|focus-target|focus-route|focus-risk|focus-nearest|focus-live|theme-stat|theme-risk]"
+                .into(),
+        );
     }
     let count: u64 = args[0]
         .parse()
@@ -21,7 +24,22 @@ fn parse_args(args: &[String]) -> Result<(u64, u64, &'static [&'static str]), St
         None => &["target", "nearest", "random5"],
         Some("live") => &["live"],
         Some("local-target") => &["local-target"],
-        Some(_) => return Err("unknown arm; expected live or local-target".into()),
+        Some("calibrated") => &["calibrated"],
+        Some("safe-target") => &["safe-target"],
+        Some("nearest") => &["nearest"],
+        Some("focus-target") => &["focus-target"],
+        Some("focus-route") => &["focus-route"],
+        Some("focus-risk") => &["focus-risk"],
+        Some("focus-nearest") => &["focus-nearest"],
+        Some("focus-live") => &["focus-live"],
+        Some("theme-stat") => &["theme-stat"],
+        Some("theme-risk") => &["theme-risk"],
+        Some(_) => {
+            return Err(
+                "unknown arm; expected live, local-target, calibrated, safe-target, nearest, focus-target, focus-route, focus-risk, focus-nearest, focus-live, theme-stat or theme-risk"
+                    .into(),
+            )
+        }
     };
     Ok((count, first, arms))
 }
@@ -44,6 +62,8 @@ mod tests {
             parse_args(&args(&["10", "41", "local-target"])).unwrap().0,
             10
         );
+        assert!(parse_args(&args(&["10", "41", "focus-risk"])).is_ok());
+        assert!(parse_args(&args(&["10", "41", "theme-stat"])).is_ok());
         for bad in [
             &["0", "1"][..],
             &["1", "0"],
@@ -80,6 +100,9 @@ fn main() {
             let (mut cfg, mut agents) =
                 balance_lab::match_setup(&opts, seed).expect("certified map");
             cfg.sim.tick_ms = 25;
+            if arm.starts_with("focus-") {
+                cfg.sim.camp_buffs = rh_sim::CampBuffRule::ThemedFocus;
+            }
             let assignments = assign_seats(seed, agents.len());
             let cohort = (seed - 1) as usize;
             let desired_faction = cohort % 5;
@@ -87,9 +110,14 @@ fn main() {
             let build_index = (cohort / 5) % 2;
             for (seat, a) in agents.iter_mut().enumerate() {
                 let route = match arm {
-                    "target" => LabRoute::TargetBuild(build_index),
+                    "target" | "focus-target" => LabRoute::TargetBuild(build_index),
+                    "focus-route" => LabRoute::FocusRoute,
+                    "focus-risk" | "theme-risk" => LabRoute::FocusRiskControl,
+                    "theme-stat" => LabRoute::FocusStatRisk(build_index),
                     "local-target" => LabRoute::LocalTarget(build_index),
-                    "nearest" => LabRoute::Nearest,
+                    "calibrated" => LabRoute::CalibratedBuild(build_index),
+                    "safe-target" => LabRoute::SafeTargetBuild(build_index),
+                    "nearest" | "focus-nearest" => LabRoute::Nearest,
                     _ => LabRoute::RandomNearby(seed.wrapping_mul(31).wrapping_add(seat as u64)),
                 };
                 let (tier, persona) = assignments[seat];
@@ -97,7 +125,7 @@ fn main() {
                 a.bot = seat != focal;
                 if seat == focal {
                     a.agent = Agent::Policy {
-                        policy: if arm == "live" {
+                        policy: if arm == "live" || arm == "focus-live" {
                             Box::new(RaidBot::new(tier, persona))
                         } else {
                             Box::new(RaidBot::new(tier, persona).with_lab_route(route))
@@ -114,6 +142,7 @@ fn main() {
             let mut progress = None;
             let mut travelled_u = 0.0;
             let mut moved_ticks = 0u64;
+            let mut focus_bonus_kills = 0u32;
             let mut previous = env.sim.players()[focal].core.pos();
             let focal_id = env.sim.players()[focal].id;
             let mut result = None;
@@ -127,6 +156,11 @@ fn main() {
                 moved_ticks += u64::from(delta >= 1.0);
                 previous = current;
                 for event in env.last_events() {
+                    if matches!(event, rh_sim::Event::Toast { to: Some(id), text }
+                        if *id == focal_id && text.contains("Focus route +3"))
+                    {
+                        focus_bonus_kills += 1;
+                    }
                     if let rh_sim::Event::Resolved { id, result: r, .. } = event {
                         if *id == focal_id {
                             result = Some(r.clone());
@@ -160,6 +194,7 @@ fn main() {
                                 "faction":format!("{faction:?}"), "build_id":build.id,
                                 "alive":me.status == rh_sim::Status::Alive, "stacks":stacks,
                                 "camp_clears":player.camps_cleared,
+                                "focus_bonus_kills":focus_bonus_kills,
                                 "movement_distance_u":travelled_u,"moved_ticks":moved_ticks,
                                 "map_hash":map_hash, "ticks":p.tick, "reached":true,
                             })
@@ -186,7 +221,7 @@ fn main() {
                     json!({"seed":seed,"arm":arm,"minute":next_minute,"seat":focal,
                     "faction":format!("{faction:?}"),"build_id":build.id,"alive":null,"stacks":null,
                     "map_hash":map_hash,"ticks":p.tick,"reached":false,
-                    "camp_clears":null,"movement_distance_u":null,"moved_ticks":null})
+                    "camp_clears":null,"focus_bonus_kills":null,"movement_distance_u":null,"moved_ticks":null})
                 );
                 next_minute += 5;
             }

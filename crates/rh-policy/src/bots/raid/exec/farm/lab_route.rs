@@ -27,6 +27,14 @@ impl Farm {
                         (walk, *c)
                     })
                     .collect();
+                if matches!(
+                    route,
+                    LabRoute::FocusRoute | LabRoute::FocusRiskControl | LabRoute::FocusStatRisk(_)
+                ) {
+                    let kept = focus_shortlist(&choices, me, self.focus_origin);
+                    order.retain(|(_, c)| kept.contains(&c.index));
+                    return;
+                }
                 let selected = choose_index(
                     route,
                     &choices,
@@ -35,12 +43,87 @@ impl Farm {
                     cx.prices.kill_seconds,
                     &mut self.random_pick,
                 );
+                if matches!(route, LabRoute::SafeTargetBuild(_)) {
+                    let kept = safe_shortlist(&choices, selected);
+                    order.retain(|(_, c)| kept.contains(&c.index));
+                    return;
+                }
                 let chosen = order[selected];
                 order.clear();
                 order.push(chosen);
             }
         }
     }
+}
+
+/// HUD reward codes are the actual camp stat, including an off-theme roll.
+pub(super) fn focus_code(faction: FactionId) -> Option<u8> {
+    Some(match faction {
+        FactionId::Fire => 2,                                           // Damage
+        FactionId::Plague => 1,                                         // Soul Offense / AP
+        FactionId::Sentenced | FactionId::Frost | FactionId::Holy => 3, // Attack speed
+    })
+}
+
+pub(super) fn farm_stat(code: u8) -> Option<crate::bots::build_route::FarmStat> {
+    use crate::bots::build_route::FarmStat;
+    match code {
+        0 => Some(FarmStat::Ad),
+        1 => Some(FarmStat::Ap),
+        2 => Some(FarmStat::Damage),
+        3 => Some(FarmStat::AttackSpeed),
+        4 => Some(FarmStat::Lifesteal),
+        5 => Some(FarmStat::MaxHp),
+        6 => Some(FarmStat::Armor),
+        7 => Some(FarmStat::Shield),
+        8 => Some(FarmStat::MoveSpeed),
+        _ => None,
+    }
+}
+
+/// Two local fallback camps remain for the ordinary risk arbiter. A focus destination
+/// must be a cheap local opening (4 s) or a modest follow-on detour (10 s).
+fn focus_shortlist(choices: &[(f64, &CampSeen)], me: FactionId, origin: Option<u32>) -> Vec<u32> {
+    let mut near: Vec<usize> = (0..choices.len()).collect();
+    near.sort_by(|&a, &b| {
+        choices[a]
+            .0
+            .total_cmp(&choices[b].0)
+            .then(choices[a].1.index.cmp(&choices[b].1.index))
+    });
+    let closest = choices[near[0]].0;
+    let detour = if origin.is_some() {
+        10. / 60.
+    } else {
+        4. / 60.
+    };
+    let mut kept: Vec<u32> = near.iter().take(2).map(|&i| choices[i].1.index).collect();
+    for (walk, c) in choices {
+        if c.reward_stat == focus_code(me)
+            && origin != Some(c.index)
+            && *walk <= closest + detour
+            && !kept.contains(&c.index)
+        {
+            kept.push(c.index);
+        }
+    }
+    kept
+}
+
+/// The target plus two shortest ETA fallbacks; the arbiter prices their real death risk.
+fn safe_shortlist(choices: &[(f64, &CampSeen)], selected: usize) -> Vec<u32> {
+    let mut near: Vec<usize> = (0..choices.len()).collect();
+    near.sort_by(|&a, &b| {
+        choices[a]
+            .0
+            .total_cmp(&choices[b].0)
+            .then(choices[a].1.index.cmp(&choices[b].1.index))
+    });
+    near.iter()
+        .take(2)
+        .map(|&i| choices[i].1.index)
+        .chain(std::iter::once(choices[selected].1.index))
+        .collect()
 }
 
 /// Selects only from the already eligible, already timed candidate set.
@@ -63,7 +146,13 @@ fn choose_index(
                     .then(a.1 .1.index.cmp(&b.1 .1.index))
             })
             .map_or(0, |(i, _)| i),
-        LabRoute::TargetBuild(build) | LabRoute::LocalTarget(build) => {
+        LabRoute::FocusRoute | LabRoute::FocusRiskControl | LabRoute::FocusStatRisk(_) => {
+            unreachable!("focus route uses the risk-arbiter shortlist")
+        }
+        LabRoute::TargetBuild(build)
+        | LabRoute::LocalTarget(build)
+        | LabRoute::CalibratedBuild(build)
+        | LabRoute::SafeTargetBuild(build) => {
             use crate::bots::build_route::{FarmStat, BUILD_GOALS, STAT_FLOOR};
             let goal = &BUILD_GOALS[me as usize][build.min(1)];
             let stat_of = |code| match code {
@@ -95,7 +184,17 @@ fn choose_index(
                             .reward_stat
                             .and_then(stat_of)
                             .map_or(STAT_FLOOR, |s| goal.weight(s).max(STAT_FLOOR));
-                        let clear = f64::from(c.alive) * kill_seconds / 60.;
+                        // The calibrated arm uses the source planner's 4 s per mob. Ordinary and
+                        // historical lab routes keep RaidBot's existing 10 s estimate.
+                        let clear_seconds = if matches!(
+                            route,
+                            LabRoute::CalibratedBuild(_) | LabRoute::SafeTargetBuild(_)
+                        ) {
+                            4.
+                        } else {
+                            kill_seconds
+                        };
+                        let clear = f64::from(c.alive) * clear_seconds / 60.;
                         weight * f64::from(c.alive) / (walk + clear).max(0.001)
                     };
                     score(a.1)
@@ -152,6 +251,43 @@ mod tests {
     }
 
     #[test]
+    fn focus_shortlist_uses_visible_stat_and_bounds_opening_detour() {
+        let camps = [
+            camp(0, Zone::Fire, 0),
+            camp(1, Zone::Fire, 2),
+            camp(2, Zone::Fire, 2),
+            camp(3, Zone::Fire, 2),
+        ];
+        let choices = [
+            (0., &camps[0]),
+            (3. / 60., &camps[1]),
+            (9. / 60., &camps[2]),
+            (18. / 60., &camps[3]),
+        ];
+        assert_eq!(focus_shortlist(&choices, FactionId::Fire, None), vec![0, 1]);
+        assert_eq!(
+            focus_shortlist(&choices, FactionId::Fire, Some(1)),
+            vec![0, 1, 2]
+        );
+        assert_eq!(
+            focus_shortlist(&choices, FactionId::Plague, None),
+            vec![0, 1]
+        );
+    }
+
+    #[test]
+    fn safe_shortlist_keeps_distant_target_and_two_eta_fallbacks() {
+        let camps: Vec<_> = (0..4).map(|i| camp(i, Zone::Fire, 2)).collect();
+        let choices = [
+            (0.3, &camps[0]),
+            (0.1, &camps[1]),
+            (0.2, &camps[2]),
+            (0.4, &camps[3]),
+        ];
+        assert_eq!(safe_shortlist(&choices, 3), vec![1, 2, 3]);
+    }
+
+    #[test]
     fn off_theme_hud_reward_beats_zone_label_when_detour_pays() {
         let near = camp(1, Zone::Fire, 8); // Fire zone, move speed.
         let far = camp(2, Zone::Frost, 2); // Frost zone, visible damage reward.
@@ -202,6 +338,29 @@ mod tests {
             1
         );
         let longer = [(0.1, &near), (2.0, &far)];
+        let excessive_detour = [(0.1, &near), (1.5, &far)];
+        assert_eq!(
+            choose_index(
+                LabRoute::TargetBuild(0),
+                &excessive_detour,
+                FactionId::Fire,
+                0.,
+                10.,
+                &mut None
+            ),
+            1
+        );
+        assert_eq!(
+            choose_index(
+                LabRoute::CalibratedBuild(0),
+                &excessive_detour,
+                FactionId::Fire,
+                0.,
+                10.,
+                &mut None
+            ),
+            0
+        );
         assert_eq!(
             choose_index(
                 LabRoute::TargetBuild(0),

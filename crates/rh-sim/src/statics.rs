@@ -561,11 +561,14 @@ pub enum CampBuffRule {
     #[default]
     Legacy,
     Themed,
+    /// Themed camps with a distinct-camp focus reward after an eligible clear.
+    ThemedFocus,
 }
 
 /// What `CampBuffRule::Themed` writes to a serializer that is not human-readable (the state hasher). JSON keeps
 /// `"themed"`.
 const CAMP_BUFFS_THEMED_TAG: &str = "camp_buffs=themed";
+const CAMP_BUFFS_THEMED_FOCUS_TAG: &str = "camp_buffs=themed_focus";
 
 impl serde::Serialize for CampBuffRule {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -573,6 +576,8 @@ impl serde::Serialize for CampBuffRule {
             Self::Legacy => s.serialize_unit(),
             Self::Themed if s.is_human_readable() => s.serialize_str("themed"),
             Self::Themed => s.serialize_str(CAMP_BUFFS_THEMED_TAG),
+            Self::ThemedFocus if s.is_human_readable() => s.serialize_str("themed_focus"),
+            Self::ThemedFocus => s.serialize_str(CAMP_BUFFS_THEMED_FOCUS_TAG),
         }
     }
 }
@@ -585,8 +590,10 @@ impl<'de> serde::Deserialize<'de> for CampBuffRule {
             None => Ok(Self::Legacy),
             Some("themed") if human => Ok(Self::Themed),
             Some(CAMP_BUFFS_THEMED_TAG) if !human => Ok(Self::Themed),
+            Some("themed_focus") if human => Ok(Self::ThemedFocus),
+            Some(CAMP_BUFFS_THEMED_FOCUS_TAG) if !human => Ok(Self::ThemedFocus),
             Some(other) => Err(serde::de::Error::custom(format!(
-                "camp_buffs must be null or \"themed\", not {other:?}"
+                "camp_buffs must be null, \"themed\" or \"themed_focus\", not {other:?}"
             ))),
         }
     }

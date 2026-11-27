@@ -544,6 +544,35 @@ impl WeaponRt {
     }
 }
 
+/// A route origin uses a distinct hash tag when armed, while JSON keeps the camp index.
+/// The absent field writes no word, retaining old match hashes under every non-focus rule.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct RouteOrigin(pub u32);
+
+impl serde::Serialize for RouteOrigin {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if serializer.is_human_readable() {
+            serializer.serialize_u32(self.0)
+        } else {
+            serde::Serialize::serialize(&("farm_route_origin", self.0), serializer)
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for RouteOrigin {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        if deserializer.is_human_readable() {
+            <u32 as serde::Deserialize>::deserialize(deserializer).map(Self)
+        } else {
+            let (tag, camp): (String, u32) = serde::Deserialize::deserialize(deserializer)?;
+            if tag != "farm_route_origin" {
+                return Err(serde::de::Error::custom("invalid farm route origin tag"));
+            }
+            Ok(Self(camp))
+        }
+    }
+}
+
 /// A seated player: the shared [`FighterCore`] plus what only a player has. The core is reachable through `Deref`
 /// (`p.body`, `p.vitals`, `p.weapon`, `p.motion`, `p.id`), also mutably; take `p.core` explicitly when another part of the
 /// player is borrowed at the same time. `status`, `down` and `resolved` are the run bookkeeping the settle owns.
@@ -632,6 +661,9 @@ pub struct Player {
     /// Camps this player's clear counted for (legacy `campsCleared`; the only consumer is a later card).
     #[serde(default)]
     pub camps_cleared: u16,
+    /// Last normal camp this player concluded while near it; a distinct focus camp pays the bonus.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) last_route_camp: Option<RouteOrigin>,
     /// Legacy `speedBoostUntil`: the wind emblem's +50% movement speed ends at this server time.
     #[serde(default)]
     pub speed_boost_until: f64,
@@ -706,6 +738,7 @@ impl Player {
             potion_small: 0,
             potion_large: 0,
             camps_cleared: 0,
+            last_route_camp: None,
             speed_boost_until: 0.,
             barrier_until: 0.,
             barrier_decays: false,

@@ -15,8 +15,9 @@
 //! Layout rules the serializer relies on (checked by [`Sim::check_layout`]): field names are not hashed, only their values
 //! and their order; enum variants hash their index; sequences, maps and strings hash their length first (8-byte chunks for
 //! text), so no two layouts can run into each other; an `Option` hashes its tag. That is why the world may not use
-//! `skip_serializing_if` or `flatten` (a missing or map-shaped field would be ambiguous), and may not hold a non-finite
-//! float (JSON would write it as `null`, so a checkpoint could not restore it): represent a sentinel as an `Option`.
+//! `skip_serializing_if` or `flatten` (a missing or map-shaped field would be ambiguous), except the narrowly checked
+//! `Player.last_route_camp` below, and may not hold a non-finite float (JSON would write it as `null`, so a checkpoint
+//! could not restore it): represent a sentinel as an `Option`.
 //!
 //! Three deliberate exceptions in the config: `SimConfig.mob_spacing = Auto`, `SimConfig.regen_in_combat = Legacy` and
 //! `SimConfig.camp_buffs = Legacy` serialize as a unit and so add no word of their own to the digest (the digest folds
@@ -41,7 +42,7 @@
 //! field writes. The raid combat pace adds "combat_pace=raid". The switch-combination test in
 //! `tests/augment_rules.rs` checks all 256 combinations including the step length.
 //!
-//! Four World exceptions. `MobRuntime::elites` (P-AUG-RULES-1) writes `EliteRule::Legacy` as a unit (no word), so every
+//! Five World exceptions. `MobRuntime::elites` (P-AUG-RULES-1) writes `EliteRule::Legacy` as a unit (no word), so every
 //! world whose elite numbers are legacy keeps its hash and checkpoint; it is safe because `check_world` admits exactly
 //! the one value `EliteTuning::stored_rule(config.elites)` per statics digest. `MobRuntime::buffs` (P-CAMP-BUFF-THEMES-1, coordinator decision) writes its empty row as a unit
 //! (no word) so every `CampBuffRule::Legacy` world keeps its hash and checkpoint; it is safe only because `check_world`
@@ -56,6 +57,9 @@
 //! native-free build, so every `Legacy` world and every `Rework` world holding no native card, keeps its hash and
 //! checkpoint. It is safe because both forms start with a sequence length: a held-native build with its row count
 //! (1..=14, refused empty on restore), a native-free one with `Counts`' length 80, so the two cannot run into each other.
+//! `Player.last_route_camp` skips its absent value so old player hashes stay unchanged. Its armed `RouteOrigin`
+//! starts with the unique `farm_route_origin` tag and camp index; `check_world` admits it only under ThemedFocus and
+//! only for a real normal camp. `HashStruct::skip_field` permits this exact Player field and no other World skip.
 //!
 //! Mixer: one `(h ^ word) * K` and a rotate per word (a bijection of the running state for every word, so a single changed
 //! word always changes the result), then a splitmix64 finalizer.
@@ -287,6 +291,7 @@ impl<'a, const CHECK: bool> ser::Serializer for &'a mut HashSer<CHECK> {
         Ok(HashStruct {
             hasher: self,
             is_sim_config: CHECK && name == "SimConfig",
+            is_player: CHECK && name == "Player",
         })
     }
     fn serialize_struct_variant(
@@ -336,6 +341,7 @@ impl<const CHECK: bool> ser::SerializeMap for &mut HashSer<CHECK> {
 pub(crate) struct HashStruct<'a, const CHECK: bool> {
     hasher: &'a mut HashSer<CHECK>,
     is_sim_config: bool,
+    is_player: bool,
 }
 
 impl<const CHECK: bool> ser::SerializeStruct for HashStruct<'_, CHECK> {
@@ -349,8 +355,12 @@ impl<const CHECK: bool> ser::SerializeStruct for HashStruct<'_, CHECK> {
         v.serialize(&mut *self.hasher)
     }
     fn skip_field(&mut self, key: &'static str) -> R {
-        // Legacy pacing writes no digest word and preserves the older checkpoint's JSON shape.
-        if CHECK && !(self.is_sim_config && key == "combat_pace") {
+        // Legacy pacing and an unarmed optional route write no word. The latter's armed form
+        // carries RouteOrigin's unique tag, and check_world ties it to ThemedFocus.
+        if CHECK
+            && !(self.is_sim_config && key == "combat_pace"
+                || self.is_player && key == "last_route_camp")
+        {
             self.hasher.at = key;
             self.hasher.violation("skipped field (skip_serializing_if)");
         }
@@ -620,6 +630,11 @@ mod tests {
     #[test]
     fn the_layout_check_accepts_the_real_state() {
         assert_eq!(sim().check_layout(), Ok(()));
+        assert_ne!(
+            hash_of(0, &crate::state::RouteOrigin(0)),
+            hash_of(0, &0u32),
+            "armed route origin needs its own hash tag"
+        );
     }
 
     #[test]
@@ -660,6 +675,19 @@ mod tests {
         let e = check_of(&OtherConfig { combat_pace: None }).unwrap_err();
         assert!(
             e.contains("skipped field") && e.contains("combat_pace"),
+            "{e}"
+        );
+        #[derive(serde::Serialize)]
+        struct OtherPlayer {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            last_route_camp: Option<u32>,
+        }
+        let e = check_of(&OtherPlayer {
+            last_route_camp: None,
+        })
+        .unwrap_err();
+        assert!(
+            e.contains("skipped field") && e.contains("last_route_camp"),
             "{e}"
         );
         #[derive(serde::Serialize)]
