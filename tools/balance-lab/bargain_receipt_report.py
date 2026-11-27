@@ -1,6 +1,8 @@
 """Join settled Bargain receipts to net route costs and score payment both ways."""
 import argparse
 import csv
+import json
+from collections import Counter
 from pathlib import Path
 
 from quest_economy import measure, read
@@ -46,6 +48,7 @@ def opportunity(meta, match, baseline, receipt):
         return {}
     normalizer = receipt["neutral_policy_weight"]
     valued = 0.
+    full_camp = 0.
     first = None
     for leg in match["quest_goal_legs"]:
         if leg["quest"] != "the_bargain" or leg["start_s"] > receipt["age_s"]:
@@ -59,11 +62,13 @@ def opportunity(meta, match, baseline, receipt):
         weight = weights[STAT_ORDER.index(alternative["paid_stat"])] / normalizer
         # The baseline route cost is denominated in a 12-stack normal camp.
         # The closest live normal roster has its own remaining stack count.
+        full_camp += cost * weight
         valued += cost * (alternative["alive"] * 3 / 12) * weight
     if first is None:
         return {}
     return {"nearby_first_stat": first["paid_stat"], "nearby_first_alive": first["alive"],
-            "nearby_first_distance": first["distance"], "nearby_route_fit_ce": valued}
+            "nearby_first_distance": first["distance"], "nearby_route_fit_ce": valued,
+            "full_nearby_route_fit_ce": full_camp}
 
 
 def report(meta, matches, baseline, payout, fee):
@@ -82,21 +87,52 @@ def report(meta, matches, baseline, payout, fee):
         result = prices(receipt, payout, fee)
         alternative = opportunity(meta, match, baseline, receipt)
         fit_cost = alternative.get("nearby_route_fit_ce")
+        full_cost = alternative.get("full_nearby_route_fit_ce")
         net = result.get("policy_fit_net_ce")
         fit_output = result.get("fit_output_ce")
         fit_input = result.get("fit_input_ce")
         fit_multiple = net / fit_cost if net is not None and fit_cost else None
         # Sensitivity assumes the same choice would still be taken at a different price.
-        payout_target = ((1.375 * fit_cost + fit_input) / fit_output * payout
-                         if fit_cost and fit_input is not None and fit_output else None)
+        payout_target = ((1.375 * full_cost + fit_input) / fit_output * payout
+                         if full_cost and fit_input is not None and fit_output else None)
         yield {
             "seed": match["seed"], "faction": match["faction"],
             "active_weapon": receipt["held_before"][receipt["active_before"]] or "Fists",
             "paid_age_s": receipt["age_s"], "route_cost_ce": cost, **result, **alternative,
             "equal_multiple": result["equal_net_ce"] / cost if cost and "equal_net_ce" in result else None,
             "policy_fit_multiple": net / cost if cost and net is not None else None,
-            "nearby_fit_multiple": fit_multiple, "same_trade_37_5pct_payout": payout_target,
+            "nearby_fit_multiple": fit_multiple,
+            "full_nearby_fit_multiple": net / full_cost if full_cost and net is not None else None,
+            "same_trade_37_5pct_payout": payout_target,
         }
+
+
+def summarize(meta, matches, rates, rows):
+    route = next(r for r in measure(meta, matches, rates) if r["quest"] == "the_bargain")
+    priced = [row for row in rows if row.get("nearby_route_fit_ce") is not None and "policy_fit_net_ce" in row]
+    failed = route["unsuccessful_only_route_cost_total"]
+    summaries = {}
+    for basis, key in (("neutral", "route_cost_ce"), ("remaining_nearby", "nearby_route_fit_ce"),
+                       ("full_nearby", "full_nearby_route_fit_ce")):
+        denom = sum(row[key] for row in priced)
+        numerator = sum(row["policy_fit_net_ce"] for row in priced)
+        # Failed routes have no settlement loadout. Sensitivity covers the full
+        # native stat-fit range (0.6–1.4 times neutral), holding clear rate fixed.
+        summaries[basis] = {
+            "paid_route_cost_ce": denom, "fit_gain_ce": numerator,
+            "multiple_before_failed_spend": numerator / denom if denom else None,
+            "multiple_including_failed_neutral": numerator / (denom + failed) if denom else None,
+            "including_failed_low_multiple": numerator / (denom + 1.4 * failed) if denom else None,
+            "including_failed_high_multiple": numerator / (denom + .6 * failed) if denom else None,
+        }
+    return dict(
+        maps=len(matches), offers=sum("the_bargain" in m["raid"] for m in matches),
+        accepted=sum(any(a["quest"] == "TheBargain" for a in m["attempts"]) for m in matches),
+        paid=len(rows), priced=len(priced), failed_route_cost_neutral_ce=failed,
+        payments=Counter(row["payment"] for row in rows),
+        received=Counter(row.get("received_stat", "unidentified") for row in rows),
+        timings=route, opportunity=summaries,
+    )
 
 
 def main():
@@ -106,6 +142,7 @@ def main():
     parser.add_argument("--payout", type=int, default=29)
     parser.add_argument("--fee", type=int, default=20)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--summary", type=Path)
     args = parser.parse_args()
     meta, matches = read(args.routes, {})
     _, rates = read([args.farm_reference], {})
@@ -113,11 +150,15 @@ def main():
                "received_stat", "equal_net_ce", "policy_fit_net_ce", "fit_input_ce",
                "fit_output_ce", "equal_multiple", "policy_fit_multiple",
                "nearby_first_stat", "nearby_first_alive", "nearby_first_distance", "nearby_route_fit_ce",
-               "nearby_fit_multiple", "same_trade_37_5pct_payout")
+               "nearby_fit_multiple", "full_nearby_route_fit_ce", "full_nearby_fit_multiple",
+               "same_trade_37_5pct_payout")
+    rows = list(report(meta, matches, rates, args.payout, args.fee))
     with args.output.open("w", newline="") as out:
         writer = csv.DictWriter(out, fieldnames=columns, lineterminator="\n")
         writer.writeheader()
-        writer.writerows(report(meta, matches, rates, args.payout, args.fee))
+        writer.writerows(rows)
+    if args.summary:
+        args.summary.write_text(json.dumps(summarize(meta, matches, rates, rows), indent=2) + "\n")
 
 
 if __name__ == "__main__":

@@ -39,7 +39,15 @@ struct RewardNotice<'a> {
     text: &'a str,
 }
 
-fn play(seed: u64, observe_bargain: bool) -> Result<serde_json::Value, String> {
+#[derive(Clone, Copy)]
+enum Mode {
+    Raid,
+    Bargain,
+    Board,
+}
+
+fn play(seed: u64, mode: Mode) -> Result<serde_json::Value, String> {
+    let observe_bargain = matches!(mode, Mode::Bargain);
     let opts = Options {
         max_ticks: 72_000,
         seats: (0..SEATS).map(|s| (s, SeatPolicy::Raid)).collect(),
@@ -105,6 +113,11 @@ fn play(seed: u64, observe_bargain: bool) -> Result<serde_json::Value, String> {
                     r.def
                 }));
             }
+        }
+        if matches!(mode, Mode::Board) && planning.len() == 5 && raid.len() == 10 {
+            return Ok(
+                json!({"seed": seed, "faction": player_faction(&env), "planning": planning, "raid": raid}),
+            );
         }
         let mut received = false;
         let mut bargain_received = false;
@@ -371,13 +384,16 @@ fn catalog() -> serde_json::Value {
 
 fn main() -> Result<(), String> {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    let (lo, hi, observe_bargain) = match args.as_slice() {
-        [lo, hi] => (lo, hi, false),
-        [lo, hi, flag] if flag == "--bargain-receipts" => (lo, hi, true),
-        _ => {
-            return Err("usage: quest_balance FIRST_SEED EXCLUSIVE_END [--bargain-receipts]".into())
-        }
-    };
+    let (lo, hi, mode) =
+        match args.as_slice() {
+            [lo, hi] => (lo, hi, Mode::Raid),
+            [lo, hi, flag] if flag == "--bargain-receipts" => (lo, hi, Mode::Bargain),
+            [lo, hi, flag] if flag == "--board-only" => (lo, hi, Mode::Board),
+            _ => return Err(
+                "usage: quest_balance FIRST_SEED EXCLUSIVE_END [--bargain-receipts|--board-only]"
+                    .into(),
+            ),
+        };
     let lo = lo.parse::<u64>().map_err(|_| "invalid first seed")?;
     let hi = hi.parse::<u64>().map_err(|_| "invalid exclusive end")?;
     if lo >= hi || hi > i64::MAX as u64 {
@@ -385,7 +401,7 @@ fn main() -> Result<(), String> {
     }
     println!("{}", catalog());
     for seed in lo..hi {
-        println!("{}", play(seed, observe_bargain)?);
+        println!("{}", play(seed, mode)?);
     }
     Ok(())
 }
