@@ -234,6 +234,21 @@ namespace Roguehalla.Client.Tests
             AssertReadyLook("one charge, the next 60 s away", 1, "1");
         }
 
+        [Test]
+        public void DraughtNamesBreakBetweenWordsAndKeepTheFullSpellInTheHint()
+        {
+            BuildRig();
+            Snap(2000);
+            Items(Spells(
+                new WireQuestSpell { Slot = 0, Reward = 21, Charges = 1, ReadyAt = 2000 },
+                new WireQuestSpell { Slot = 1, Reward = 22, Charges = 1, ReadyAt = 2000 }));
+            Frame();
+            Assert.That(Tile(0).NameLabel.text, Is.EqualTo("Blind\nRage"));
+            Assert.That(Tile(1).NameLabel.text, Is.EqualTo("Still\nMind"));
+            Assert.That(Tile(0).Hint.Text, Does.Contain("BlindRage"));
+            Assert.That(Tile(1).Hint.Text, Does.Contain("StillMind"));
+        }
+
         // ------------------------------------------------------------------ 2. the real cycle of a Lantern Ward
 
         [Test]

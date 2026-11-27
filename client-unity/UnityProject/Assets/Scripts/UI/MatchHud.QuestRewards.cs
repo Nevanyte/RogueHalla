@@ -449,7 +449,7 @@ namespace Roguehalla.Client
                 {
                     double total = _questSpans[i].Total(readyAt, serverTime);
                     var face = AbilityFaces.Spell(true, key.Value.Charges, readyAt, serverTime, total);
-                    tile.Show(face, QuestPresentation.RewardName(key.Value.Reward), _questSlotHints[i]);
+                    tile.Show(face, QuestSpellTileName(key.Value.Reward), _questSlotHints[i]);
                     tile.Cooldown(readyAt, total);
                 }
                 else
@@ -463,6 +463,19 @@ namespace Roguehalla.Client
             _questTilesFresh = false;
             if (changed || _questChoiceSpells.text.Length == 0)
                 Set(_questChoiceSpells, _questSlotEquipped[0] + "\n" + _questSlotEquipped[1]);
+        }
+
+        static string QuestSpellTileName(byte reward)
+        {
+            string name = QuestPresentation.RewardName(reward);
+            switch (name)
+            {
+                case "BlindRage": return "Blind\nRage";
+                case "StillMind": return "Still\nMind";
+                case "WallBuster": return "Wall\nBuster";
+                case "Forget-Me-Not Seed": return "Recall\nSeed";
+                default: return name;
+            }
         }
 
         /// <summary>The hint of a tile with no spell in it.</summary>
