@@ -72,6 +72,27 @@ Reducing the stack fee and the reward limits the amount of stat a player can red
 
 The board-only selection found 19 Bargain offers from seeds 161–200. The replay includes all 19, selected before reading any ROI, acceptance or combat outcome. The seeds are 161, 166, 167, 170, 174, 175, 176, 177, 179, 180, 182, 184, 188, 189, 190, 192, 197, 198 and 199.
 
+## Smaller-lot results
+
+Both builds offered The Bargain on all 19 selected boards. The smaller lot retained all 15 control payments and added two on seeds 177 and 197. All payouts in both cohorts spent stacks. No policy used a spare weapon and no Bargain attempt was lost to death. Neither cohort logged failed route spend. There were 17 focal deaths at 20→29 and 16 at 10→14, with zero before minute five in either cohort.
+
+| Measure | 20→29 control | 10→14 candidate |
+|---|---:|---:|
+| Claims / offers | 15/19 | 17/19 |
+| Mean route cost, neutral CE | 0.460 | 0.389 |
+| Median selected route, seconds | 18.175 | 11.775 |
+| Equal-stack payout / neutral route cost | 1.632× | 0.856× |
+| Fit payout / remaining nearest roster | 3.860× (2.341–6.976) | 1.974× (1.215–3.664) |
+| Fit payout / full nearest 12-stack camp | 2.886× (1.906–5.038) | 1.920× (1.190–3.473) |
+| Full-near paid routes below / within / above +25–50% | 2 / 1 / 12 | 3 / 0 / 14 |
+| Remaining-near paid routes below / within / above +25–50% | 1 / 0 / 14 | 4 / 1 / 12 |
+
+On the same 15 paid maps, full-near return fell from 2.886× to 1.861× and remaining-near return fell from 3.860× to 1.959×. A paired bootstrap draws 19 map seeds with replacement for each of 4,000 resamples (seed 205) and reuses the same draw for both payouts. The 95% intervals for the candidate minus control are −2.07 to −0.33 for full-near and −4.07 to −0.89 for remaining-near. Repricing outcomes by actual closest-camp fit confirms a substantial reduction while the pooled return still exceeds the target band.
+
+The four net nominal stacks pay below the average nearby farm alternative when both stats have equal value. The smaller lot is chiefly attractive when it converts spare growth into a useful stat. If a player chooses the weapon branch, the same 14-stack grant is weighed against the actual value of that weapon. This cohort establishes no field return for that branch.
+
+[20→29 receipts](bargain_lot_29_receipts.csv) · [10→14 receipts](bargain_lot_14_receipts.csv) · [20→29 summary](bargain_lot_29_summary.json) · [10→14 summary](bargain_lot_14_summary.json)
+
 ## Reproduction
 
 `quest_balance START END --board-only` records the five planning and ten raid offers and exits at raid setup. The first test cohort is every seed in 81–120 with The Bargain on the raid board, fixed before reading outcomes. Its 19 seeds are 81, 82, 83, 84, 85, 88, 89, 94, 95, 98, 101, 103, 105, 107, 108, 109, 111, 115 and 117. The additional confirmation board range is 121–160, with 17 eligible seeds (121, 123, 126, 127, 129, 131, 138, 139, 142, 144, 145, 146, 149, 151, 154, 155 and 156). Neither selection uses quote, travel, completion, payout or later raid outcomes.

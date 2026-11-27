@@ -162,10 +162,16 @@ def summarize(meta, matches, rates, rows):
             "including_failed_low_multiple": numerator / (denom + 1.4 * failed) if denom else None,
             "including_failed_high_multiple": numerator / (denom + .6 * failed) if denom else None,
         }
+    death_durations = [result["duration_s"] for m in matches for result in m["resolutions"]
+                       if result["outcome"] == "Died"]
     return dict(
         maps=len(matches), offers=sum("the_bargain" in m["raid"] for m in matches),
         accepted=sum(any(a["quest"] == "TheBargain" for a in m["attempts"]) for m in matches),
         paid=len(rows), priced=len(priced), failed_route_cost_neutral_ce=failed,
+        focal_deaths=len(death_durations),
+        focal_deaths_before_5m=sum(t < 300 for t in death_durations),
+        bargain_attempt_deaths=sum(a["quest"] == "TheBargain" and a["outcome"] == "death"
+                                     for m in matches for a in m["attempts"]),
         payments=Counter(row["payment"] for row in rows),
         received=Counter(row.get("received_stat", "unidentified") for row in rows),
         timings=route, opportunity=summaries,
