@@ -3,7 +3,7 @@
 use super::*;
 use serde_json::json;
 
-fn probe(arena: &Arc<Arena>, seed: u64) -> Sim {
+pub(super) fn probe(arena: &Arc<Arena>, seed: u64) -> Sim {
     Sim::reset_active(
         config(),
         arena.clone(),

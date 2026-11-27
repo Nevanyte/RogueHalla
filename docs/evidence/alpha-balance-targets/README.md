@@ -12,6 +12,8 @@ For all 25 quests the [required-value table](quests/required_value.csv) also giv
 
 ## Faction farming
 
+In a same-origin solo comparison using ordinary payouts, stat-aware farming earned 78% more build-valued stats per second than choosing the nearest camp. Forty opportunities per faction yielded 38% for Fire, 30% for Sentenced, 156% for Plague, 102% for Frost and 99% for Holy. Earned kits scored 70.1% in full-health, seat-swapped duels across 164 pairs that completed both legs. [Measured travel, camp income and duel outcomes](farm-decisions/README.md)
+
 A route must buy a more useful stat quickly enough to repay the walk. For two choices with expected useful payouts F and N and total travel-plus-clear times t and u, the targeted route’s premium is (F / N) × (u / t) − 1. At the same stack count, if the nearest stat has 60% of the preferred stat’s value, a targeted route lasting 1.11–1.33 times as long earns 25–50% more value per second. If the nearest camp already pays the preferred stat, taking it is an appropriate result. Full-match comparisons additionally include deaths, choice of subsequent camps and the damage the earned inventory can actually deal. [Route experiments](farming/README.md)
 
 ## Camps, player fights and raid duration

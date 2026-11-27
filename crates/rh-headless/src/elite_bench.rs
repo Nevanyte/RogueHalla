@@ -6,6 +6,8 @@
 //! provide the same API. It must not be added to `lib.rs` (rh-server depends on rh-headless).
 #[path = "elite_bench/duelist.rs"]
 mod duelist;
+#[path = "elite_bench/farm_legs.rs"]
+mod farm_legs;
 #[path = "elite_bench/pace_pairs.rs"]
 mod pace_pairs;
 
@@ -401,6 +403,8 @@ struct Fought {
     ticks: u32,
     first_hit: Option<u32>,
     first_camp_hit: Option<u32>,
+    earned: Vec<(MobTypeId, u64)>,
+    credited_clears: u16,
     hp_start: f64,
     hp_left: f64,
     dealt: f64,
@@ -459,6 +463,7 @@ fn fight(
     if let Some(b) = build {
         apply(&mut sim, me, b).map_err(|e| format!("a sampled build was refused: {e:?}"))?;
     }
+    let starting_farm = sim.players()[0].farm;
     let hp_start = sim.players()[0].vitals.hp;
     // The camp's members (ids), for engagement: damage between the fighter and one of them.
     let members: Vec<PlayerId> = sim
@@ -479,6 +484,8 @@ fn fight(
         ticks: max_ticks,
         first_hit: None,
         first_camp_hit: None,
+        earned: Vec::new(),
+        credited_clears: 0,
         hp_start,
         hp_left: hp_start,
         dealt: 0.,
@@ -628,6 +635,16 @@ fn fight(
         }
     }
     m.attack_dist_mean = (m.attack_ticks > 0).then(|| dist_sum / f64::from(m.attack_ticks));
+    m.credited_clears = env.sim.players()[0].camps_cleared;
+    for ty in FactionId::ALL.into_iter().flat_map(normal_types_of) {
+        let gain = env.sim.players()[0]
+            .farm
+            .count(ty.id)
+            .saturating_sub(starting_farm.count(ty.id));
+        if gain > 0 {
+            m.earned.push((ty.id, gain));
+        }
+    }
     Ok(m)
 }
 
@@ -881,6 +898,9 @@ struct Job<'a> {
 /// unreadable sample.
 pub fn run(args: &[String]) -> Result<Output, String> {
     if let [flag, seed] = args {
+        if flag == "--farm-legs" {
+            return farm_legs::run(seed.parse().map_err(|_| "invalid seed")?);
+        }
         if flag == "--pace-pairs" {
             return pace_pairs::run(seed.parse().map_err(|_| "invalid seed")?);
         }
