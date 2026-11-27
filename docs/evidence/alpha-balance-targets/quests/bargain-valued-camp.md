@@ -34,6 +34,19 @@ Candidate 23 was predeclared from the initial calibration, and 22 was added befo
 
 [29-stack receipts](bargain_heldout_29_receipts.csv) · [23-stack receipts](bargain_heldout_23_receipts.csv) · [22-stack receipts](bargain_heldout_22_receipts.csv)
 
+## Confirmation price fixed before the second holdout
+
+At fixed observed choices and routes, a 20-stack reward leaves the neutral stack count unchanged. A 21-stack reward adds one nominal stack. Either can improve the build by exchanging a weaker stat for a used stat. The native valuation prices the swap itself, as well as the additional nominal stacks.
+
+| Previously observed choices | Candidate payout | Remaining closest roster | Full closest 12-stack camp |
+|---|---:|---:|---:|
+| 27-map calibration, observed at 29 | 20 | 1.149× | 1.032× |
+| 27-map calibration, observed at 29 | 21 | 1.364× | 1.225× |
+| First holdout, pooled actual 22/23 payments | 20 | 1.084× | 1.136× |
+| First holdout, pooled actual 22/23 payments | 21 | 1.274× | 1.335× |
+
+The confirmation compares **21 vs 29** on all 17 preselected offer boards in the untouched 121–160 range. The 21-stack candidate is closer to the target under both nearest-camp assumptions in both inputs above. The checkout's runtime stays at 29 while those independent replays run.
+
 ## Reproduction
 
 `quest_balance START END --board-only` records the five planning and ten raid offers and exits at raid setup. The first test cohort is every seed in 81–120 with The Bargain on the raid board, fixed before reading outcomes. Its 19 seeds are 81, 82, 83, 84, 85, 88, 89, 94, 95, 98, 101, 103, 105, 107, 108, 109, 111, 115 and 117. The additional confirmation board range is 121–160, with 17 eligible seeds (121, 123, 126, 127, 129, 131, 138, 139, 142, 144, 145, 146, 149, 151, 154, 155 and 156). Neither selection uses quote, travel, completion, payout or later raid outcomes.
