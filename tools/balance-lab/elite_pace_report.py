@@ -4,16 +4,38 @@ import collections
 import csv
 import json
 from pathlib import Path
+import math
+import random
 from statistics import median
+
+
+def map_interval(pairs):
+    by_seed = collections.defaultdict(list)
+    for normal, elite in pairs:
+        if normal["clear_s"] is not None and normal["clear_s"] > 0 and elite["clear_s"] is not None:
+            by_seed[normal["seed"]].append(elite["clear_s"] / normal["clear_s"])
+    maps = sorted(by_seed)
+    if len(maps) < 2:
+        return None, None
+    rng = random.Random(763)
+    samples = []
+    for _ in range(1000):
+        selected = rng.choices(maps, k=len(maps))
+        samples.append(median([v for seed in selected for v in by_seed[seed]]))
+    samples.sort()
+    return samples[math.ceil(.025 * len(samples)) - 1], samples[math.ceil(.975 * len(samples)) - 1]
 
 
 def summarize(pairs):
     normals = [n["clear_s"] for n, _ in pairs if n["clear_s"] is not None]
     elites = [e["clear_s"] for _, e in pairs if e["clear_s"] is not None]
-    matched = [(n["clear_s"], e["clear_s"]) for n, e in pairs if n["clear_s"] and e["clear_s"]]
+    matched = [(n["clear_s"], e["clear_s"]) for n, e in pairs if n["clear_s"] is not None and n["clear_s"] > 0 and e["clear_s"] is not None]
     ratios = sorted(e / n for n, e in matched)
+    low, high = map_interval(pairs)
     return dict(
-        pairs=len(pairs), normal_clears=len(normals), elite_clears=len(elites),
+        contributing_maps=len({n["seed"] for n, e in pairs if n["clear_s"] is not None and n["clear_s"] > 0 and e["clear_s"] is not None}),
+        ratio_ci_low=low, ratio_ci_high=high, pairs=len(pairs), normal_clears=len(normals), elite_clears=len(elites),
+        normal_zero_tick_clears=normals.count(0), elite_zero_tick_clears=elites.count(0),
         normal_deaths=sum(n["outcome"] == "died" for n, _ in pairs),
         elite_deaths=sum(e["outcome"] == "died" for _, e in pairs),
         matched_clears=len(matched), median_normal_s=median(normals) if normals else None,
