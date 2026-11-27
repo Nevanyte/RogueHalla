@@ -1,4 +1,5 @@
 //! A generated board, normal seat actions and observed objectives for every catalog quest.
+mod capture;
 mod full_slots;
 mod probe_tests;
 mod spells;
@@ -20,6 +21,7 @@ struct Raid {
     quest: QuestId,
     offer: u32,
     giver: Vec2,
+    capture: Option<capture::Capture>,
 }
 
 fn new_raid(gen: &pipeline::Pipeline<'_>, secrets: Secrets) -> Sim {
@@ -115,6 +117,7 @@ impl Raid {
             quest,
             offer,
             giver,
+            capture: None,
         }
     }
 
@@ -137,6 +140,7 @@ impl Raid {
 
     fn accept(&mut self) {
         self.arrange(self.seat, self.giver);
+        self.capture_frame("offered");
         let (handle, view) = self.entry();
         assert!(
             view.rows.iter().any(|r| r.handle == handle && r.can_accept),
@@ -145,15 +149,17 @@ impl Raid {
         );
         let cmd = self.observer.resolve_accept(&self.sim, handle);
         self.sim.submit(self.seat, cmd).unwrap();
-        self.sim.step();
+        self.step();
         assert!(
             is_accepted(&self.sim.w, self.seat, self.offer),
             "{:?}",
             self.quest
         );
+        self.capture_frame("accepted");
     }
 
     fn action(&mut self, action: u8, target: u8) {
+        self.capture_ready();
         let (handle, view) = self.entry();
         let option = view
             .actions
@@ -171,7 +177,7 @@ impl Raid {
             .resolve_interact(&self.sim, handle, action, target)
             .unwrap();
         self.sim.submit(self.seat, cmd).unwrap();
-        self.sim.step();
+        self.step();
     }
 
     fn action_near(&mut self, action: u8, target: u8, index: u8) {
@@ -201,11 +207,20 @@ impl Raid {
         player.motion.slip = None;
     }
 
+    fn step(&mut self) {
+        let events = self.sim.step();
+        if let Some(capture) = &mut self.capture {
+            capture.events = events;
+            self.capture_ready();
+            self.capture_settled();
+        }
+    }
+
     fn raw(&mut self, cmd: RawCommand) {
         self.sim
             .submit(self.seat, validate_input(cmd).unwrap())
             .unwrap();
-        self.sim.step();
+        self.step();
     }
 
     /// Steps covering `ticks` legacy 50 ms ticks of wall-clock time at this raid's step.
@@ -216,7 +231,7 @@ impl Raid {
 
     fn steps(&mut self, ticks: usize) {
         for _ in 0..ticks {
-            self.sim.step();
+            self.step();
         }
     }
 
@@ -317,7 +332,7 @@ impl Raid {
     fn defeat_regional(&mut self, victim: PlayerId) {
         // Keep the native actor and its camp ID. Isolate the ranged test
         // target from terrain and unrelated opponents.
-        let (at, ranged_from) = self.open_cast_site();
+        let (at, ranged_from) = self.open_cast_site(90.);
         let melee = self.quest == ABoneToPick;
         let from = if melee { at } else { ranged_from };
         let nearby: Vec<_> = self
@@ -534,15 +549,16 @@ impl Raid {
                 let n = offer(&self.sim.w, self.offer).unwrap().tokens.len();
                 for i in 0..n {
                     self.arrange(self.seat, self.objective(i as u8));
-                    self.sim.step();
+                    self.step();
                 }
             }
             TheBargain => self.spare_trades(),
         }
         if !is_completed(&self.sim.w, self.seat, self.offer) {
             let turn_in = self.objective(0);
+            self.capture_ready();
             self.arrange(self.seat, turn_in);
-            self.sim.step();
+            self.step();
             assert!(
                 ready(&self.sim.w, self.seat, self.offer)
                     || is_completed(&self.sim.w, self.seat, self.offer),
@@ -647,7 +663,7 @@ impl Raid {
 
         let command = witness.resolve_accept(&self.sim, handle);
         self.sim.submit(self.witness, command).unwrap();
-        self.sim.step();
+        self.step();
         assert!(is_accepted(&self.sim.w, self.witness, self.offer));
 
         let bytes = serde_json::to_vec(&self.sim).unwrap();
@@ -767,25 +783,27 @@ impl Raid {
                     .any(|s| s.award == rewards::Award::StillMind));
             }
         }
+        self.capture_settled();
         if reward.kind() != RewardKind::Permanent {
             self.verify_spell(award);
+            self.capture_cast_frame("end");
         }
     }
 }
 
 #[test]
 fn all_twenty_five_quests_accept_exercise_their_objective_and_turn_in() {
-    sweep_every_quest(crate::constants::LEGACY_TICK_MS as u32);
+    sweep_every_quest(crate::constants::LEGACY_TICK_MS as u32, None);
 }
 
 /// The same sweep at the live server's default step (40 Hz): every quest's timers, channels, attacks and turn-ins hold
 /// when each step is 25 ms.
 #[test]
 fn all_twenty_five_quests_complete_at_the_live_40_hz_step() {
-    sweep_every_quest(25);
+    sweep_every_quest(25, None);
 }
 
-fn sweep_every_quest(tick_ms: u32) {
+fn sweep_every_quest(tick_ms: u32, capture_directory: Option<&std::path::Path>) {
     let fixed = coliseum::fixed_layout();
     let generator = pipeline::Pipeline::new(&fixed);
     let mut uncovered = [true; 25];
@@ -809,11 +827,18 @@ fn sweep_every_quest(tick_ms: u32) {
                         sim.clone()
                     };
                     let mut raid = Raid::new(world, quest);
+                    if capture_directory.is_some() {
+                        raid.capture = Some(capture::Capture::new(raid.seat));
+                    }
                     raid.compare_open_boards();
                     raid.accept();
                     raid.deliver();
                     raid.receipt();
+                    let capture = raid.capture.take();
                     raid.finish_as_second_owner();
+                    if let Some((directory, capture)) = capture_directory.zip(capture) {
+                        capture.write(directory, raid.sim.arena(), quest, seed);
+                    }
                 });
                 if result.is_err() {
                     failed.push(quest);
@@ -827,6 +852,17 @@ fn sweep_every_quest(tick_ms: u32) {
         }
     }
     panic!("catalog sweep missed quests: {uncovered:?}");
+}
+
+#[test]
+#[ignore = "opt-in local export for the Unity playthrough"]
+fn capture_authoritative_quest_outcomes() {
+    let directory = std::env::var_os("RH_QUEST_NATIVE_CAPTURE")
+        .expect("set RH_QUEST_NATIVE_CAPTURE to an absolute output directory");
+    let directory = std::path::Path::new(&directory);
+    assert!(directory.is_absolute());
+    std::fs::create_dir_all(directory).unwrap();
+    sweep_every_quest(25, Some(directory));
 }
 
 #[test]
