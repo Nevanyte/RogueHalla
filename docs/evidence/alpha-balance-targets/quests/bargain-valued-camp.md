@@ -30,7 +30,7 @@ The same 14 of 19 offered maps settled at all three payouts. Each settled paymen
 
 At 29 the bot received 12 AP, one AD and one armor reward. At 23 it took nine AP, four AD and one armor reward. At 22 it took eight AP, five AD and one armor reward. Median selected time fell from 23.025 seconds to 22.100 and 21.200 seconds, respectively. Lower payouts reduced the net return in the same units. The lower time and changed alternative camp pay diluted that effect. Both cheaper quotes still exceeded the 25–50% cohort band under the authored closest-camp valuation.
 
-Candidate 23 was predeclared from the initial calibration, and 22 was added before reading the held-out outcomes when the completed calibration put 22 closer to 1.375× for a full near camp. The checkout maintained its 29-stack runtime during these alternative replays. The confirmation board outcomes remain untouched.
+Candidate 23 was predeclared from the initial calibration, and 22 was added before reading the held-out outcomes when the completed calibration put 22 closer to 1.375× for a full near camp. The checkout maintained its 29-stack runtime during these alternative replays. The confirmation board outcomes remained untouched until the next price was fixed.
 
 [29-stack receipts](bargain_heldout_29_receipts.csv) · [23-stack receipts](bargain_heldout_23_receipts.csv) · [22-stack receipts](bargain_heldout_22_receipts.csv)
 
@@ -45,7 +45,26 @@ At fixed observed choices and routes, a 20-stack reward leaves the neutral stack
 | First holdout, pooled actual 22/23 payments | 20 | 1.084× | 1.136× |
 | First holdout, pooled actual 22/23 payments | 21 | 1.274× | 1.335× |
 
-The confirmation compares **21 vs 29** on all 17 preselected offer boards in the untouched 121–160 range. The 21-stack candidate is closer to the target under both nearest-camp assumptions in both inputs above. The checkout's runtime stays at 29 while those independent replays run.
+The confirmation compares **21 vs 29** on all 17 preselected offer boards in the untouched 121–160 range. The 21-stack candidate is closer to the target under both nearest-camp assumptions in both inputs above. The checkout kept its 29-stack runtime during the independent replays.
+
+## Confirmation on the untouched offer boards
+
+All 17 offers were replayed to the normal endpoint. The 21-stack case paid on 10 maps, each also paying at 29. Both prices used only stack payments. The 21-stack case spent 0.146 neutral CE on routes that yielded no payout. The 29-stack case had zero such cost. The table includes that time at neutral weight and gives 95% percentile intervals from 2,000 resamples of map seeds.
+
+| Measure | 29-stack control | 21-stack candidate |
+|---|---:|---:|
+| Claims / offers | 14/17 | 10/17 |
+| Mean route cost including failed spend, neutral CE | 0.518 | 0.317 |
+| Median selected route time, seconds | 23.600 | 19.200 |
+| Equal-stat payout / neutral route spend | 1.447× | 0.262× |
+| Fit payout / remaining nearby roster | 2.798× (2.042–4.300) | 2.386× (1.343–4.565) |
+| Fit payout / full nearby 12-stack camp | 2.905× (2.214–4.057) | 2.595× (1.548–4.336) |
+| Full-near paid routes below / within / above 25–50% | 1 / 0 / 13 | 1 / 1 / 8 |
+| Remaining-near paid routes below / within / above 25–50% | 1 / 2 / 11 | 2 / 0 / 8 |
+
+Weighting failed routes at 0.6–1.4 of neutral changes the 21-stack full-near return to 2.543–2.649×, and the remaining-near return to 2.343–2.432×. The 21-stack candidate reduced the aggregate fit return and still exceeded the target. The policy selected cheaper routes and concentrated on swaps it valued more. At 21 the median fitted return for completed full-near routes was 3.694×. A flat payout reduction alone failed to produce a 25–50% premium in this test. The 29-stack runtime remains the checkpoint rule.
+
+[29-stack confirmation receipts](bargain_confirmation_29_receipts.csv) · [21-stack confirmation receipts](bargain_confirmation_21_receipts.csv) · [29-stack summary](bargain_confirmation_29_summary.json) · [21-stack summary](bargain_confirmation_21_summary.json)
 
 ## Reproduction
 

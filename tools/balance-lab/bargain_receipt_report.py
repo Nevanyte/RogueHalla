@@ -4,6 +4,8 @@ import csv
 import json
 from collections import Counter
 from pathlib import Path
+import random
+from statistics import median, quantiles
 
 from quest_economy import measure, read
 
@@ -107,10 +109,40 @@ def report(meta, matches, baseline, payout, fee):
         }
 
 
+def seed_interval(matches, paid, failed_costs, key):
+    by_seed = {row["seed"]: row for row in paid}
+    costs_and_returns = []
+    for match in matches:
+        seed = match["seed"]
+        row = by_seed.get(seed)
+        cost = (row[key] if row else 0.) + failed_costs[seed]
+        gain = row["policy_fit_net_ce"] if row else 0.
+        costs_and_returns.append((cost, gain))
+    if len(costs_and_returns) < 5:
+        return None
+    rng = random.Random(4020)
+    trials = []
+    for _ in range(2000):
+        picked = rng.choices(costs_and_returns, k=len(costs_and_returns))
+        cost = sum(c for c, _ in picked)
+        if cost:
+            trials.append(sum(v for _, v in picked) / cost)
+    if len(trials) < 2:
+        return None
+    points = quantiles(trials, n=40, method="inclusive")
+    return [points[0], points[-1]]
+
+
 def summarize(meta, matches, rates, rows):
     route = next(r for r in measure(meta, matches, rates) if r["quest"] == "the_bargain")
     priced = [row for row in rows if row.get("nearby_route_fit_ce") is not None and "policy_fit_net_ce" in row]
     failed = route["unsuccessful_only_route_cost_total"]
+    failed_costs = {
+        m["seed"]: next(
+            r["unsuccessful_only_route_cost_total"]
+            for r in measure(meta, [m], rates) if r["quest"] == "the_bargain"
+        ) for m in matches
+    }
     summaries = {}
     for basis, key in (("neutral", "route_cost_ce"), ("remaining_nearby", "nearby_route_fit_ce"),
                        ("full_nearby", "full_nearby_route_fit_ce")):
@@ -118,7 +150,12 @@ def summarize(meta, matches, rates, rows):
         numerator = sum(row["policy_fit_net_ce"] for row in priced)
         # Failed routes have no settlement loadout. Sensitivity covers the full
         # native stat-fit range (0.6–1.4 times neutral), holding clear rate fixed.
+        ratios = [row["policy_fit_net_ce"] / row[key] for row in priced if row[key]]
         summaries[basis] = {
+            "spread_below_in_above": [sum(x < 1.25 for x in ratios), sum(1.25 <= x <= 1.5 for x in ratios),
+                                      sum(x > 1.5 for x in ratios)],
+            "median_paid_multiple": median(ratios) if ratios else None,
+            "map_bootstrap_95pct": seed_interval(matches, priced, failed_costs, key),
             "paid_route_cost_ce": denom, "fit_gain_ce": numerator,
             "multiple_before_failed_spend": numerator / denom if denom else None,
             "multiple_including_failed_neutral": numerator / (denom + failed) if denom else None,
