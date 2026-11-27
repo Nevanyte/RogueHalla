@@ -321,8 +321,8 @@ pub struct SimConfig {
         deserialize_with = "read_tick_ms"
     )]
     pub tick_ms: u32,
-    /// The live raid pacing rules. Legacy adds no hash word, preserving previous replays.
-    #[serde(default)]
+    /// Omit the legacy setting to preserve the original checkpoint bytes and state digests.
+    #[serde(default, skip_serializing_if = "CombatPace::is_legacy")]
     pub combat_pace: CombatPace,
 }
 
@@ -332,6 +332,12 @@ pub enum CombatPace {
     #[default]
     Legacy,
     Raid,
+}
+
+impl CombatPace {
+    fn is_legacy(&self) -> bool {
+        *self == Self::Legacy
+    }
 }
 
 impl serde::Serialize for CombatPace {

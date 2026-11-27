@@ -147,7 +147,7 @@ macro_rules! widen {
     )*};
 }
 
-impl<const CHECK: bool> ser::Serializer for &mut HashSer<CHECK> {
+impl<'a, const CHECK: bool> ser::Serializer for &'a mut HashSer<CHECK> {
     type Ok = ();
     type Error = HashError;
     type SerializeSeq = Self;
@@ -155,7 +155,7 @@ impl<const CHECK: bool> ser::Serializer for &mut HashSer<CHECK> {
     type SerializeTupleStruct = Self;
     type SerializeTupleVariant = Self;
     type SerializeMap = Self;
-    type SerializeStruct = Self;
+    type SerializeStruct = HashStruct<'a, CHECK>;
     type SerializeStructVariant = Self;
 
     widen!(serialize_u8 u8, serialize_u16 u16, serialize_u32 u32, serialize_u64 u64,
@@ -279,8 +279,15 @@ impl<const CHECK: bool> ser::Serializer for &mut HashSer<CHECK> {
         Ok(self)
     }
     #[inline(always)]
-    fn serialize_struct(self, _: &'static str, _: usize) -> Result<Self, HashError> {
-        Ok(self)
+    fn serialize_struct(
+        self,
+        name: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeStruct, HashError> {
+        Ok(HashStruct {
+            hasher: self,
+            is_sim_config: CHECK && name == "SimConfig",
+        })
     }
     fn serialize_struct_variant(
         self,
@@ -326,20 +333,26 @@ impl<const CHECK: bool> ser::SerializeMap for &mut HashSer<CHECK> {
     }
 }
 
-impl<const CHECK: bool> ser::SerializeStruct for &mut HashSer<CHECK> {
+pub(crate) struct HashStruct<'a, const CHECK: bool> {
+    hasher: &'a mut HashSer<CHECK>,
+    is_sim_config: bool,
+}
+
+impl<const CHECK: bool> ser::SerializeStruct for HashStruct<'_, CHECK> {
     type Ok = ();
     type Error = HashError;
     #[inline(always)]
     fn serialize_field<T: ?Sized + Serialize>(&mut self, key: &'static str, v: &T) -> R {
         if CHECK {
-            self.at = key;
+            self.hasher.at = key;
         }
-        v.serialize(&mut **self)
+        v.serialize(&mut *self.hasher)
     }
     fn skip_field(&mut self, key: &'static str) -> R {
-        if CHECK {
-            self.at = key;
-            self.violation("skipped field (skip_serializing_if)");
+        // Legacy pacing writes no digest word and preserves the older checkpoint's JSON shape.
+        if CHECK && !(self.is_sim_config && key == "combat_pace") {
+            self.hasher.at = key;
+            self.hasher.violation("skipped field (skip_serializing_if)");
         }
         Ok(())
     }
@@ -398,7 +411,7 @@ impl Sim {
     }
 
     /// Validates that the serialized checkpoint is hashable without ambiguity and checkpoint-safe: no non-finite float (a
-    /// sentinel is an `Option`), no `skip_serializing_if` or `flatten` anywhere, no sequence of unknown length. `Err` names
+    /// sentinel is an `Option`), no `skip_serializing_if` or `flatten` in the world, no sequence of unknown length. `Err` names
     /// the first violation and the field it was found at. A permanent test runs this over real matches.
     pub fn check_layout(&self) -> Result<(), String> {
         check_of(self)
@@ -639,6 +652,16 @@ mod tests {
         let e = check_of(&Skips { maybe: None }).unwrap_err();
         assert!(e.contains("skipped field") && e.contains("maybe"), "{e}");
         assert!(check_of(&Skips { maybe: Some(1) }).is_ok());
+        #[derive(serde::Serialize)]
+        struct OtherConfig {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            combat_pace: Option<u8>,
+        }
+        let e = check_of(&OtherConfig { combat_pace: None }).unwrap_err();
+        assert!(
+            e.contains("skipped field") && e.contains("combat_pace"),
+            "{e}"
+        );
         #[derive(serde::Serialize)]
         struct Inner {
             a: u8,

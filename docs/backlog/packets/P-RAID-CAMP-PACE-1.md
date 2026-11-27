@@ -22,7 +22,7 @@ Normal camp defense, config and content identity under rh-sim, explicit config l
 
 ## 6. Contracts
 
-C-TICK uses milliseconds of active raid time. C-RNG gains no draw. C-INPUT and C-OBS keep combat decisions in the server. The default pace serializes as a unit and adds no word to the statics digest. The live profile uses its own tag. Pacing numbers are registered content.
+C-TICK uses milliseconds of active raid time. C-RNG gains no draw. C-INPUT and C-OBS keep combat decisions in the server. A legacy config omits the pace field, preserving its original checkpoint bytes and statics digest. An explicit null from an interim checkpoint also restores the legacy setting. The live profile uses its own tag. Pacing numbers are registered content.
 
 ## 7. Behavior to preserve
 

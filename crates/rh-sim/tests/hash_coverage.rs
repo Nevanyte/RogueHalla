@@ -2115,6 +2115,7 @@ fn every_serialized_leaf_of_a_match_changes_the_state_hash() {
     for path in [
         "world.players.*.core.modifiers.holds",
         "statics.config.walk_hints",
+        "statics.config.combat_pace",
         "world.players.*.card_runtime.fight.start",
         "world.players.*.card_runtime.fight.last",
         "world.factions.taxed.*.victim",
@@ -2205,6 +2206,7 @@ fn every_serialized_leaf_of_a_match_changes_the_state_hash() {
     for path in [
         "world.players.*.core.modifiers.holds",
         "statics.config.walk_hints",
+        "statics.config.combat_pace",
         "world.players.*.card_runtime.fight.start",
         "world.players.*.card_runtime.fight.last",
         "world.factions.taxed.*.victim",
@@ -2215,7 +2217,7 @@ fn every_serialized_leaf_of_a_match_changes_the_state_hash() {
     ] {
         assert!(
             perturbed.iter().any(|actual| actual.as_str() == path),
-            "native29 leaf needs an accepted hash-changing edit: {path}"
+            "required leaf needs an accepted hash-changing edit: {path}"
         );
     }
     let validated_optional: BTreeSet<&String> = all.validated_optional.iter().collect();
