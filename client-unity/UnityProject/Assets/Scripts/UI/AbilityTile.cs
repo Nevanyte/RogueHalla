@@ -58,9 +58,10 @@ namespace Roguehalla.Client
                 img.rectTransform.pivot = new Vector2(1f, 1f); img.rectTransform.anchoredPosition = new Vector2(-4f, -3f);
             }
 
-            _key = HudUi.Label(HudUi.At(_root, "Key", 5, 4, 30, 12), "Label", keyCap, theme.SizeTiny, theme.TextSecondary);
-            _nameBox = HudUi.Box(_root, "Name", HudAnchor.Center, 0, 0, 60, 26);
-            _name = HudUi.Label(_nameBox, "Label", "", theme.SizeTiny, theme.TextPrimary, TextAlignmentOptions.Center, wrap: true);
+            _key = HudUi.Label(HudUi.At(_root, "Key", 5, 4, 30, 12), "Label", keyCap, 12f, theme.TextSecondary);
+            // Keep the full two-line height between the reserved icon and charge bands.
+            _nameBox = HudUi.Box(_root, "Name", HudAnchor.Center, 0, -1.5f, 60, 29);
+            _name = HudUi.Label(_nameBox, "Label", "", 12f, theme.TextPrimary, TextAlignmentOptions.Center, wrap: true);
             _seconds = HudUi.Label(HudUi.Box(_root, "Seconds", HudAnchor.Center, 0, 0, 40, 20), "Label", "", 15f, theme.TextPrimary,
                 TextAlignmentOptions.Center, true);
             _badge = HudUi.Label(HudUi.Box(_root, "Charges", HudAnchor.BottomRight, 2, 2, 20, 14), "Label", "", theme.SizeSmall, theme.Accent,

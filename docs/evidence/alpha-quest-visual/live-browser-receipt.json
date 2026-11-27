@@ -1,0 +1,387 @@
+{
+  "planning_count": 5,
+  "raid_count": 10,
+  "viewports_and_screens": {
+    "main-menu": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "tick": 0.73
+    },
+    "settings": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "tick": 2.2
+    },
+    "planning": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 3,
+      "tick": 35.46
+    },
+    "planning-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 3,
+      "tick": 36.93
+    },
+    "raid-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 80.56
+    },
+    "journal-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 81.63
+    },
+    "map-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 82.48
+    },
+    "controls-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 83.35
+    },
+    "mechanics-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 83.9
+    },
+    "build-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 84.65
+    },
+    "journal": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 86.79
+    },
+    "map": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 87.61
+    },
+    "settings-large": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 89.31
+    },
+    "journal-large-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 91.48
+    },
+    "map-large-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 92.35
+    },
+    "controls-large-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 93.19
+    },
+    "live-offer": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 101.2
+    },
+    "live-accepted": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 101.9
+    },
+    "live-ready": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 118.53
+    },
+    "live-settled": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 134.34
+    },
+    "live-cast": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 134.76
+    }
+  },
+  "liveQuest": {
+    "def": "lost_brother",
+    "stages": [
+      {
+        "name": "offer",
+        "player": {
+          "id": 1,
+          "x": 2279.8,
+          "y": 4184.5,
+          "sx": 720,
+          "sy": 525,
+          "hp": 950,
+          "maxHp": 950,
+          "faction": 0,
+          "bounty": 0,
+          "kills": 0,
+          "gv": 0,
+          "status": 1,
+          "effects": 0,
+          "sig": 0,
+          "weapon": 5,
+          "hunt": -1,
+          "lock": -1
+        },
+        "quest": {
+          "handle": 4,
+          "def": "lost_brother",
+          "giver": {
+            "x": 2288,
+            "y": 4176
+          },
+          "state": 1,
+          "expiresAt": 0,
+          "participants": [],
+          "carrier": null,
+          "carrierActor": null,
+          "doneBy": null,
+          "canAccept": true,
+          "ownerAccepted": false,
+          "ownerCompleted": false,
+          "ownerReady": false,
+          "ownerProgress": 0,
+          "ownerVisited": 0,
+          "name": "Lost Brother",
+          "giverLabel": "Rime quest giver",
+          "brief": "Fetch a named relic from another zone.",
+          "objective": "Fetch a named relic from another zone.",
+          "reward": "BlindRage and StillMind draughts: one of each, claimable separately."
+        },
+        "spells": []
+      },
+      {
+        "name": "accepted",
+        "player": {
+          "id": 1,
+          "x": 2279.8,
+          "y": 4184.5,
+          "sx": 720,
+          "sy": 525,
+          "hp": 950,
+          "maxHp": 950,
+          "faction": 0,
+          "bounty": 0,
+          "kills": 0,
+          "gv": 0,
+          "status": 1,
+          "effects": 0,
+          "sig": 0,
+          "weapon": 5,
+          "hunt": -1,
+          "lock": -1
+        },
+        "quest": {
+          "handle": 4,
+          "def": "lost_brother",
+          "giver": {
+            "x": 2288,
+            "y": 4176
+          },
+          "state": 1,
+          "expiresAt": 169915.0507119828,
+          "participants": [],
+          "carrier": null,
+          "carrierActor": null,
+          "doneBy": null,
+          "canAccept": false,
+          "ownerAccepted": true,
+          "ownerCompleted": false,
+          "ownerReady": false,
+          "ownerProgress": 0,
+          "ownerVisited": 0,
+          "name": "Lost Brother",
+          "giverLabel": "Rime quest giver",
+          "brief": "Fetch a named relic from another zone.",
+          "objective": "Fetch a named relic from another zone.",
+          "reward": "BlindRage and StillMind draughts: one of each, claimable separately."
+        },
+        "spells": []
+      },
+      {
+        "name": "ready",
+        "player": {
+          "id": 1,
+          "x": 2060.6,
+          "y": 948.1,
+          "sx": 720,
+          "sy": 525,
+          "hp": 950,
+          "maxHp": 950,
+          "faction": 0,
+          "bounty": 0,
+          "kills": 0,
+          "gv": 0,
+          "status": 1,
+          "effects": 0,
+          "sig": 0,
+          "weapon": 5,
+          "hunt": -1,
+          "lock": -1
+        },
+        "quest": {
+          "handle": 4,
+          "def": "lost_brother",
+          "giver": {
+            "x": 2288,
+            "y": 4176
+          },
+          "state": 1,
+          "expiresAt": 169915.0507119828,
+          "participants": [],
+          "carrier": null,
+          "carrierActor": null,
+          "doneBy": null,
+          "canAccept": false,
+          "ownerAccepted": true,
+          "ownerCompleted": false,
+          "ownerReady": true,
+          "ownerProgress": 1,
+          "ownerVisited": 0,
+          "name": "Lost Brother",
+          "giverLabel": "Rime quest giver",
+          "brief": "Fetch a named relic from another zone.",
+          "objective": "Fetch a named relic from another zone.",
+          "reward": "BlindRage and StillMind draughts: one of each, claimable separately."
+        },
+        "spells": []
+      },
+      {
+        "name": "settled",
+        "player": {
+          "id": 1,
+          "x": 2279.8,
+          "y": 4184.5,
+          "sx": 720,
+          "sy": 525,
+          "hp": 950,
+          "maxHp": 950,
+          "faction": 0,
+          "bounty": 0,
+          "kills": 0,
+          "gv": 0,
+          "status": 1,
+          "effects": 0,
+          "sig": 0,
+          "weapon": 5,
+          "hunt": -1,
+          "lock": -1
+        },
+        "spells": [
+          {
+            "slot": 0,
+            "reward": 21,
+            "charges": 1,
+            "readyAt": 126775
+          },
+          {
+            "slot": 1,
+            "reward": 22,
+            "charges": 1,
+            "readyAt": 126775
+          }
+        ]
+      },
+      {
+        "name": "cast",
+        "player": {
+          "id": 1,
+          "x": 2279.8,
+          "y": 4184.5,
+          "sx": 720,
+          "sy": 525,
+          "hp": 950,
+          "maxHp": 950,
+          "faction": 0,
+          "bounty": 0,
+          "kills": 0,
+          "gv": 0,
+          "status": 1,
+          "effects": 0,
+          "sig": 0,
+          "weapon": 5,
+          "hunt": -1,
+          "lock": -1
+        },
+        "spells": [
+          {
+            "slot": 1,
+            "reward": 22,
+            "charges": 1,
+            "readyAt": 126775
+          }
+        ]
+      }
+    ]
+  }
+}

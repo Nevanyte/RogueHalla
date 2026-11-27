@@ -60,9 +60,9 @@ namespace Roguehalla.Net.Ui
         public const int EventMax = 3;
         public const float PillHeight = 24f, PillGap = 4f, LaneMaxWidth = 460f, TopCentreGap = 8f;
         // left column
-        public const float TrackerWidth = 260f, TrackerHeader = 18f, TrackerRow = 38f, TrackerGap = 8f;
+        public const float TrackerWidth = 304f, TrackerHeader = 18f, TrackerRow = 38f, TrackerGap = 8f;
         public const int TrackerMaxRows = 3;
-        public const float OfferWidth = 280f, OfferMinHeight = 96f;
+        public const float OfferWidth = 324f, OfferMinHeight = 96f;
         // the middle of the screen that every region keeps out of
         public const float CombatZoneWidthShare = .46f, CombatZoneHeightShare = .44f;
 

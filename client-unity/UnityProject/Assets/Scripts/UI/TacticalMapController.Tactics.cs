@@ -17,9 +17,10 @@ namespace Roguehalla.Client
         // Contacts: two ints per non-self actor in sample order (faction + 1, 0 when none; kind, 255 when unnamed). -1 count = invalid.
         int[] _tacContacts = new int[0];
         int _tacContactCount = -1;
-        // Quests: the strings the text appends, in order, plus the offer count (-1 = invalid, so the first pass after a bind writes).
+        // Quests and traders: the strings last presented, kept to avoid rewriting a steady scroll on every snapshot.
         List<string> _tacQuests = new List<string>(), _tacQuestsNow = new List<string>();
-        int _tacOfferCount = -1;
+        QuestView _tacGuideView;
+        string _tacGuideCopy;
         readonly StringBuilder _tacText = new StringBuilder();
         readonly List<(int Faction, int Kind, int Count)> _tacGroups = new List<(int Faction, int Kind, int Count)>();
         static string[] _weaponKeys;
@@ -122,27 +123,23 @@ namespace Roguehalla.Client
         void PresentQuestsText()
         {
             var now = _tacQuestsNow; now.Clear();
-            int offers = 0;
             var qs = _bound.Collections.Quests;
-            if (qs != null && qs.Available)
-                for (int i = 0; i < qs.Rows.Count; i++)
-                {
-                    var row = qs.Rows[i];
-                    if (!QuestPresentation.ShowsOffer(row)) continue;
-                    offers++; now.Add(row.GiverLabel); now.Add(row.Name);
-                }
+            if (!ReferenceEquals(qs, _tacGuideView) || _tacGuideCopy == null)
+            {
+                _tacGuideView = qs;
+                _tacGuideCopy = QuestMapGuide.Copy(qs);
+            }
+            now.Add(_tacGuideCopy);
             var trade = _bound.Collections.Trade;
             if (trade != null && trade.Available)
                 for (int i = 0; i < trade.Merchants.Count; i++) now.Add(trade.Merchants[i].Name);
-            bool same = offers == _tacOfferCount && now.Count == _tacQuests.Count;
+            bool same = now.Count == _tacQuests.Count;
             for (int i = 0; same && i < now.Count; i++) same = string.Equals(now[i], _tacQuests[i]);
             if (same) return;
-            _tacQuestsNow = _tacQuests; _tacQuests = now; _tacOfferCount = offers;
+            _tacQuestsNow = _tacQuests; _tacQuests = now;
             var quests = _tacText; quests.Length = 0;
-            int at = 0;
-            for (int i = 0; i < offers; i++, at += 2) quests.Append(now[at]).Append(": ").Append(now[at + 1]).Append('\n');
-            for (; at < now.Count; at++) quests.Append(now[at]).Append(" · trader\n");
-            if (quests.Length == 0) quests.Append("No quest givers or traders delivered.");
+            quests.Append(now[0]);
+            for (int i = 1; i < now.Count; i++) quests.Append("\n\n").Append(now[i]).Append(" · trader");
             _questsText.text = Trimmed(quests);
         }
     }

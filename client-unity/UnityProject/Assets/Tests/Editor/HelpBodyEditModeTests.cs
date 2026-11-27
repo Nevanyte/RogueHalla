@@ -14,6 +14,7 @@ namespace Roguehalla.Client.Tests
     /// </summary>
     public sealed class HelpBodyEditModeTests
     {
+        const float ExpectedBodySize = 16f;
         const BindingFlags NP = BindingFlags.Instance | BindingFlags.NonPublic;
         static readonly MethodInfo OnEnableMethod = typeof(MythicTextScale).GetMethod("OnEnable", NP);
         static readonly string[] Tabs = { "ControlsScroll", "MechanicsScroll" };
@@ -46,7 +47,7 @@ namespace Roguehalla.Client.Tests
             var body = Body(rig.Help, tab);
             Assert.That(body.gameObject.activeInHierarchy, Is.True, tab + " body is active in the hierarchy (set-up) " + at);
             Assert.That(body.isOrthographic, Is.True, tab + " body has woken (set-up) " + at);
-            Assert.That(body.fontSize, Is.EqualTo(UiTheme.Current.SizeBody * Mathf.Clamp(scale, .85f, 1.5f)).Within(.01f), tab + " body stands at base size x text scale " + at);
+            Assert.That(body.fontSize, Is.EqualTo(ExpectedBodySize * Mathf.Clamp(scale, .85f, 1.5f)).Within(.01f), tab + " body stands at base size x text scale " + at);
         }
 
         // ---------------------------------------------------------------------------------------------------------------- 9
@@ -88,7 +89,7 @@ namespace Roguehalla.Client.Tests
                     var body = Body(rig.Help, tab); var scroll = ScrollOf(rig.Help, tab);
                     float margin = ScrollIndicator.Width + ScrollIndicator.Inset + 1f;
                     Assert.That(body.margin.z, Is.EqualTo(margin).Within(.01f), tab + ": no line ends under the position cue");
-                    float wanted = UiTheme.Current.SizeBody * Mathf.Clamp(scale, .85f, 1.5f);
+                    float wanted = ExpectedBodySize * Mathf.Clamp(scale, .85f, 1.5f);
                     float keep = body.fontSize;
                     body.fontSize = wanted;
                     float preferred = body.GetPreferredValues(body.text, body.rectTransform.rect.width - body.margin.z, 0f).y;
@@ -110,10 +111,10 @@ namespace Roguehalla.Client.Tests
                 WakeAndUpdate(rig.Help);
                 var body = Body(rig.Help, "ControlsScroll");
                 float h1 = body.rectTransform.rect.height;
-                Assert.That(body.fontSize, Is.EqualTo(UiTheme.Current.SizeBody).Within(.01f), "the body stands at 13 on the opening, before the change");
+                Assert.That(body.fontSize, Is.EqualTo(ExpectedBodySize).Within(.01f), "the body uses the readable base size on opening");
                 rig.Own.SetTextScale(1.5f);
                 SettingsRig.Update();
-                Assert.That(body.fontSize, Is.EqualTo(UiTheme.Current.SizeBody * 1.5f).Within(.01f), "the open body follows the text size: 19.5");
+                Assert.That(body.fontSize, Is.EqualTo(ExpectedBodySize * 1.5f).Within(.01f), "the open body follows the enlarged text size");
                 Assert.That(body.rectTransform.rect.height, Is.GreaterThan(h1), "and its box grows with the text");
             }
         }

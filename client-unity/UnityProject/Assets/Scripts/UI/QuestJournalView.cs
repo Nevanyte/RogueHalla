@@ -77,21 +77,21 @@ namespace Roguehalla.Client
             _card = _root;
             MythicUi.Text(_card, "JournalTitle", "QUEST JOURNAL", new Vector2(.035f, .925f), new Vector2(.66f, .995f), 27, ShowcasePalette.Gold, heading: true);
             _close = FlowWindowClose.Create(_card, "CloseJournal", Close);
-            _state = MythicUi.Text(_card, "JournalState", "Waiting for quest data…", new Vector2(.035f, .74f), new Vector2(.965f, .80f), 16, ShowcasePalette.MutedText);
-            _scroll = CreateScroll(_card, new Vector2(.035f, .05f), new Vector2(.43f, .73f), out _content);
-            var detail = MythicUi.Panel(_card, "QuestDetail", new Vector2(.455f, .05f), new Vector2(.965f, .73f), ShowcasePalette.PanelRaised); // a lifted slate well, not the near-black sunken token
+            _state = MythicUi.Text(_card, "JournalState", "Waiting for quest data…", new Vector2(.035f, .81f), new Vector2(.965f, .875f), 17, ShowcasePalette.MutedText);
+            _scroll = CreateScroll(_card, new Vector2(.035f, .045f), new Vector2(.365f, .80f), out _content);
+            var detail = MythicUi.Panel(_card, "QuestDetail", new Vector2(.385f, .045f), new Vector2(.965f, .80f), ShowcasePalette.PanelRaised); // a lifted slate well, not the near-black sunken token
             MythicUi.Text(detail, "DetailHeading", "QUEST DETAILS", new Vector2(.025f, .885f), new Vector2(.975f, .99f), 19, ShowcasePalette.Text);
             _detailScroll = CreateReadingScroll(detail, new Vector2(.025f, .20f), new Vector2(.975f, .87f), out _detailContent);
             _textFrame = (RectTransform)_detailScroll.transform;
-            _detailName = CreateQuestField(_detailContent, "QuestName", "QUEST NAME", 18, ShowcasePalette.Text);
-            _objective = CreateQuestField(_detailContent, "QuestObjective", "OBJECTIVE", 17, ShowcasePalette.Text);
-            _giver = CreateQuestField(_detailContent, "QuestGiver", "GIVER", 16, ShowcasePalette.Gold);
-            _brief = CreateQuestField(_detailContent, "QuestBrief", "BRIEF", 17, ShowcasePalette.MutedText);
-            _reward = CreateQuestField(_detailContent, "QuestReward", "REWARD", 16, ShowcasePalette.Text);
-            _participants = CreateQuestField(_detailContent, "QuestParticipants", "PARTICIPANTS", 15, ShowcasePalette.Text);
-            _status = MythicUi.Text(detail, "QuestStatus", "", new Vector2(.025f, .115f), new Vector2(.975f, .20f), 15, ShowcasePalette.MutedText);
+            _detailName = CreateQuestField(_detailContent, "QuestName", "QUEST NAME", 21, ShowcasePalette.Text);
+            _objective = CreateQuestField(_detailContent, "QuestObjective", "OBJECTIVE", 20, ShowcasePalette.Text);
+            _giver = CreateQuestField(_detailContent, "QuestGiver", "GIVER", 17, ShowcasePalette.Gold);
+            _brief = CreateQuestField(_detailContent, "QuestBrief", "BRIEF", 18, ShowcasePalette.MutedText);
+            _reward = CreateQuestField(_detailContent, "QuestReward", "REWARD", 19, ShowcasePalette.Text);
+            _participants = CreateQuestField(_detailContent, "QuestParticipants", "PARTICIPANTS", 16, ShowcasePalette.Text);
+            _status = MythicUi.Text(detail, "QuestStatus", "", new Vector2(.025f, .13f), new Vector2(.975f, .20f), 15, ShowcasePalette.MutedText);
             _track = MythicUi.Button(detail, "TrackQuest", "TRACK OBJECTIVE", new Vector2(.035f, .025f), new Vector2(.48f, .12f), ToggleTrack, MythicUi.ButtonStyle.Secondary);
-            _acceptHint = MythicUi.Text(detail, "AcceptHint", "", new Vector2(.52f, .025f), new Vector2(.965f, .12f), 13, ShowcasePalette.MutedText, TextAlignmentOptions.Center);
+            _acceptHint = MythicUi.Text(detail, "AcceptHint", "", new Vector2(.52f, .025f), new Vector2(.965f, .12f), 15, ShowcasePalette.MutedText, TextAlignmentOptions.Center);
             _acceptHint.enableWordWrapping = true;
             _acceptHint.gameObject.SetActive(false);
             _accept = MythicUi.Button(detail, "AcceptQuest", "ACCEPT QUEST", new Vector2(.52f, .025f), new Vector2(.965f, .12f), () => { }, MythicUi.ButtonStyle.Primary);
@@ -296,12 +296,12 @@ namespace Roguehalla.Client
             {
                 int rowIndex = _rows.Count;
                 var root = MythicUi.Panel(_content, "QuestRow" + rowIndex, Vector2.zero, Vector2.one, ShowcasePalette.PanelRaised);
-                var le = root.gameObject.AddComponent<UnityEngine.UI.LayoutElement>(); le.minHeight = 62; le.preferredHeight = 70;
+                var le = root.gameObject.AddComponent<UnityEngine.UI.LayoutElement>(); le.minHeight = 68; le.preferredHeight = 76;
                 var button = root.gameObject.AddComponent<UnityEngine.UI.Button>(); button.targetGraphic = root.GetComponent<UnityEngine.UI.Image>();
                 root.GetComponent<UnityEngine.UI.Image>().color = Color.white; // the colour block below is the fill (a token times a token painted rows black)
                 var colors = button.colors; colors.normalColor = ShowcasePalette.PanelRaised; colors.highlightedColor = MythicUi.HoverFill;
                 colors.selectedColor = MythicUi.SelectedFill; button.colors = colors;
-                var label = MythicUi.Text(root, "QuestRowLabel", "", Vector2.zero, Vector2.one, 14, ShowcasePalette.Text);
+                var label = MythicUi.Text(root, "QuestRowLabel", "", Vector2.zero, Vector2.one, 16, ShowcasePalette.Text);
                 label.margin = new Vector4(12, 5, 8, 5); label.alignment = TextAlignmentOptions.MidlineLeft;
                 _rows.Add(new Row { Root = root, Button = button, Label = label });
             }

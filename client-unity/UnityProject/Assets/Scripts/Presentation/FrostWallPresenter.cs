@@ -131,6 +131,10 @@ namespace Roguehalla.Client
             _preview = new QuadMesh("Frost wall preview", _container, PvQuads, OverlayOrder, true, _owned);
         }
 
+        // Both barriers use the wall collection. The authority sends a zero radius and two endpoints
+        // for the Frost Wish, and a positive radius centred on the Warden's ring.
+        public static bool IsQuestCage(AreaView field) => field.Kind == AreaKind.Wall && field.Radius > 0f;
+
         // ---- standing walls ----
         /// <summary>The wall rows of <paramref name="fields"/> (Kind Wall) at server render time <paramref name="renderMs"/>. A wall is kept
         /// per <see cref="AreaKey"/>; one the state no longer lists is gone.</summary>
@@ -144,7 +148,7 @@ namespace Roguehalla.Client
                 for (int i = 0; i < fields.Count; i++)
                 {
                     var f = fields[i];
-                    if (f.Kind != AreaKind.Wall || f.Tiles == null || f.Tiles.Length == 0) continue;
+                    if (f.Kind != AreaKind.Wall || IsQuestCage(f) || f.Tiles == null || f.Tiles.Length == 0) continue;
                     Wall w = null;
                     for (int k = 0; k < _walls.Count; k++) if (_walls[k].Key.Equals(f.Key)) { w = _walls[k]; break; }
                     if (w == null) { w = new Wall { Key = f.Key }; _walls.Add(w); BuildWall(w, f.Tiles); }

@@ -1,0 +1,824 @@
+{
+  "planning": {
+    "unknownCount": 5,
+    "displayUnknownCount": 5,
+    "ownerRoster": null,
+    "roster": [],
+    "rows": [
+      {
+        "handle": 1,
+        "def": "smugglers_run",
+        "giver": {
+          "x": 3984,
+          "y": 3920
+        },
+        "state": 0,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Smuggler's Run",
+        "giverLabel": "Gallows quest giver",
+        "brief": "Carry your parcel back to the giver while publicly marked on every map.",
+        "objective": "Carry your parcel back to the giver while publicly marked on every map.",
+        "reward": "Shoulder Charge: a ground dash that knocks back the first enemy hit."
+      },
+      {
+        "handle": 2,
+        "def": "ember_walk",
+        "giver": {
+          "x": 4176,
+          "y": 1904
+        },
+        "state": 0,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Ember Walk",
+        "giverLabel": "Scorch quest giver",
+        "brief": "Collect three tokens on burning ember ground in the Scorch.",
+        "objective": "Collect three tokens on burning ember ground in the Scorch.",
+        "reward": "Spell Shield: blocks the next spell."
+      },
+      {
+        "handle": 3,
+        "def": "feed_or_hunt",
+        "giver": {
+          "x": 816,
+          "y": 2480
+        },
+        "state": 0,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Feed or Hunt",
+        "giverLabel": "Warren quest giver",
+        "brief": "Feed a regional creature three zone items instead of hunting its kind.",
+        "objective": "Feed a regional creature three zone items instead of hunting its kind.",
+        "reward": "+12% damage as a zone stat."
+      },
+      {
+        "handle": 4,
+        "def": "even_skeletons_get_cold",
+        "giver": {
+          "x": 1840,
+          "y": 912
+        },
+        "state": 0,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Even Skeletons Get Cold",
+        "giverLabel": "Rime quest giver",
+        "brief": "Deliver a coat to a scout in the next zone.",
+        "objective": "Deliver a coat to a scout in the next zone.",
+        "reward": "Warm Coat: immune to chill and bog slow."
+      },
+      {
+        "handle": 5,
+        "def": "letters",
+        "giver": {
+          "x": 2096,
+          "y": 3728
+        },
+        "state": 0,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Letters",
+        "giverLabel": "Sanctum quest giver",
+        "brief": "Carry a token between givers in opposite zones before the next coliseum lock; it expires at that lock and can be retried.",
+        "objective": "Carry a token between givers in opposite zones before the next coliseum lock; it expires at that lock and can be retried.",
+        "reward": "Forget-Me-Not Seed: mark a spot and teleport back later."
+      }
+    ],
+    "objectives": [],
+    "spells": [],
+    "pending": [],
+    "drops": [],
+    "actions": []
+  },
+  "raid": {
+    "unknownCount": 0,
+    "displayUnknownCount": 0,
+    "ownerRoster": null,
+    "roster": [],
+    "rows": [
+      {
+        "handle": 1,
+        "def": "smugglers_run",
+        "giver": {
+          "x": 3984,
+          "y": 3920
+        },
+        "state": 1,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Smuggler's Run",
+        "giverLabel": "Gallows quest giver",
+        "brief": "Carry your parcel back to the giver while publicly marked on every map.",
+        "objective": "Carry your parcel back to the giver while publicly marked on every map.",
+        "reward": "Shoulder Charge: a ground dash that knocks back the first enemy hit."
+      },
+      {
+        "handle": 6,
+        "def": "two_banners",
+        "giver": {
+          "x": 5072,
+          "y": 5072
+        },
+        "state": 1,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Two Banners",
+        "giverLabel": "Gallows quest giver",
+        "brief": "Choose one of two opposing banner deliveries between the Gallows giver and a rival outpost; your choice does not close either branch for others.",
+        "objective": "Choose one of two opposing banner deliveries between the Gallows giver and a rival outpost; your choice does not close either branch for others.",
+        "reward": "Warhorn: taunts and gains a buff per enemy taunted."
+      },
+      {
+        "handle": 2,
+        "def": "ember_walk",
+        "giver": {
+          "x": 4176,
+          "y": 1904
+        },
+        "state": 1,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Ember Walk",
+        "giverLabel": "Scorch quest giver",
+        "brief": "Collect three tokens on burning ember ground in the Scorch.",
+        "objective": "Collect three tokens on burning ember ground in the Scorch.",
+        "reward": "Spell Shield: blocks the next spell."
+      },
+      {
+        "handle": 7,
+        "def": "the_burning_crown",
+        "giver": {
+          "x": 5072,
+          "y": 48
+        },
+        "state": 1,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "The Burning Crown",
+        "giverLabel": "Scorch quest giver",
+        "brief": "Carry the crown back to its giver; it grows your stats, burns you, is shown on every map, and drops on death.",
+        "objective": "Carry the crown back to its giver; it grows your stats, burns you, is shown on every map, and drops on death.",
+        "reward": "Crown power: stats accumulated while carrying."
+      },
+      {
+        "handle": 8,
+        "def": "a_cruel_joke",
+        "giver": {
+          "x": 48,
+          "y": 80
+        },
+        "state": 1,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "A Cruel Joke",
+        "giverLabel": "Warren quest giver",
+        "brief": "Scare three quest givers away; they flee for 60 seconds for you alone, then return.",
+        "objective": "Scare three quest givers away; they flee for 60 seconds for you alone, then return.",
+        "reward": "Swap-Stick: swaps weapons with a target for 10 seconds."
+      },
+      {
+        "handle": 3,
+        "def": "feed_or_hunt",
+        "giver": {
+          "x": 816,
+          "y": 2480
+        },
+        "state": 1,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Feed or Hunt",
+        "giverLabel": "Warren quest giver",
+        "brief": "Feed a regional creature three zone items instead of hunting its kind.",
+        "objective": "Feed a regional creature three zone items instead of hunting its kind.",
+        "reward": "+12% damage as a zone stat."
+      },
+      {
+        "handle": 9,
+        "def": "rime_hunt",
+        "giver": {
+          "x": 3792,
+          "y": 48
+        },
+        "state": 1,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Rime Hunt",
+        "giverLabel": "Rime quest giver",
+        "brief": "Clear one Frost camp of ranged mobs on the ice.",
+        "objective": "Clear one Frost camp of ranged mobs on the ice.",
+        "reward": "Tornado: pulls, with strength that scales with max HP."
+      },
+      {
+        "handle": 4,
+        "def": "even_skeletons_get_cold",
+        "giver": {
+          "x": 1840,
+          "y": 912
+        },
+        "state": 1,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Even Skeletons Get Cold",
+        "giverLabel": "Rime quest giver",
+        "brief": "Deliver a coat to a scout in the next zone.",
+        "objective": "Deliver a coat to a scout in the next zone.",
+        "reward": "Warm Coat: immune to chill and bog slow."
+      },
+      {
+        "handle": 5,
+        "def": "letters",
+        "giver": {
+          "x": 2096,
+          "y": 3728
+        },
+        "state": 1,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Letters",
+        "giverLabel": "Sanctum quest giver",
+        "brief": "Carry a token between givers in opposite zones before the next coliseum lock; it expires at that lock and can be retried.",
+        "objective": "Carry a token between givers in opposite zones before the next coliseum lock; it expires at that lock and can be retried.",
+        "reward": "Forget-Me-Not Seed: mark a spot and teleport back later."
+      },
+      {
+        "handle": 10,
+        "def": "trade_up",
+        "giver": {
+          "x": 48,
+          "y": 5072
+        },
+        "state": 1,
+        "expiresAt": 0,
+        "participants": [],
+        "carrier": null,
+        "carrierActor": null,
+        "doneBy": null,
+        "canAccept": false,
+        "ownerAccepted": false,
+        "ownerCompleted": false,
+        "ownerReady": false,
+        "ownerProgress": 0,
+        "ownerVisited": 0,
+        "name": "Trade Up",
+        "giverLabel": "Sanctum quest giver",
+        "brief": "Barter your parcel with three wandering traders in turn.",
+        "objective": "Barter your parcel with three wandering traders in turn.",
+        "reward": "Escalating permanent stats; cash out at any step."
+      }
+    ],
+    "objectives": [],
+    "spells": [],
+    "pending": [],
+    "drops": [],
+    "actions": []
+  },
+  "shots": {
+    "main-menu": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "tick": 0.71
+    },
+    "settings": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "tick": 2.25
+    },
+    "planning": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 3,
+      "tick": 35.47
+    },
+    "planning-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 3,
+      "tick": 36.95
+    },
+    "raid-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 80.65
+    },
+    "journal-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 81.48
+    },
+    "map-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 82.32
+    },
+    "controls-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 83.32
+    },
+    "mechanics-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 83.82
+    },
+    "build-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 84.72
+    },
+    "journal": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 86.82
+    },
+    "map": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 87.66
+    },
+    "settings-large": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 89.37
+    },
+    "journal-large-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 91.5
+    },
+    "map-large-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 92.4
+    },
+    "controls-large-720": {
+      "size": {
+        "width": 1280,
+        "height": 720
+      },
+      "phase": 1,
+      "tick": 93.4
+    },
+    "live-offer": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 104.23
+    },
+    "live-accepted": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 104.9
+    },
+    "live-settled": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 118.61
+    },
+    "live-seed-planted": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 119
+    },
+    "live-away-from-seed": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 121.21
+    },
+    "live-cast": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "phase": 1,
+      "tick": 121.61
+    }
+  },
+  "errors": [],
+  "liveQuest": {
+    "def": "letters",
+    "stages": [
+      {
+        "name": "offer",
+        "player": {
+          "id": 1,
+          "x": 2094.4,
+          "y": 3729.4,
+          "sx": 720,
+          "sy": 525,
+          "hp": 950,
+          "maxHp": 950,
+          "faction": 0,
+          "bounty": 0,
+          "kills": 0,
+          "gv": 0,
+          "status": 1,
+          "effects": 0,
+          "sig": 0,
+          "weapon": 5,
+          "hunt": -1,
+          "lock": -1
+        },
+        "quest": {
+          "handle": 5,
+          "def": "letters",
+          "giver": {
+            "x": 2096,
+            "y": 3728
+          },
+          "state": 1,
+          "expiresAt": 0,
+          "participants": [],
+          "carrier": null,
+          "carrierActor": null,
+          "doneBy": null,
+          "canAccept": true,
+          "ownerAccepted": false,
+          "ownerCompleted": false,
+          "ownerReady": false,
+          "ownerProgress": 0,
+          "ownerVisited": 0,
+          "name": "Letters",
+          "giverLabel": "Sanctum quest giver",
+          "brief": "Carry a token between givers in opposite zones before the next coliseum lock; it expires at that lock and can be retried.",
+          "objective": "Carry a token between givers in opposite zones before the next coliseum lock; it expires at that lock and can be retried.",
+          "reward": "Forget-Me-Not Seed: mark a spot and teleport back later."
+        },
+        "spells": []
+      },
+      {
+        "name": "accepted",
+        "player": {
+          "id": 1,
+          "x": 2094.4,
+          "y": 3729.4,
+          "sx": 720,
+          "sy": 525,
+          "hp": 950,
+          "maxHp": 950,
+          "faction": 0,
+          "bounty": 0,
+          "kills": 0,
+          "gv": 0,
+          "status": 1,
+          "effects": 0,
+          "sig": 0,
+          "weapon": 5,
+          "hunt": -1,
+          "lock": -1
+        },
+        "quest": {
+          "handle": 5,
+          "def": "letters",
+          "giver": {
+            "x": 2096,
+            "y": 3728
+          },
+          "state": 1,
+          "expiresAt": 0,
+          "participants": [],
+          "carrier": null,
+          "carrierActor": null,
+          "doneBy": null,
+          "canAccept": false,
+          "ownerAccepted": true,
+          "ownerCompleted": false,
+          "ownerReady": false,
+          "ownerProgress": 0,
+          "ownerVisited": 0,
+          "name": "Letters",
+          "giverLabel": "Sanctum quest giver",
+          "brief": "Carry a token between givers in opposite zones before the next coliseum lock; it expires at that lock and can be retried.",
+          "objective": "Carry a token between givers in opposite zones before the next coliseum lock; it expires at that lock and can be retried.",
+          "reward": "Forget-Me-Not Seed: mark a spot and teleport back later."
+        },
+        "spells": []
+      },
+      {
+        "name": "settled",
+        "player": {
+          "id": 1,
+          "x": 1824.7,
+          "y": 863.9,
+          "sx": 720,
+          "sy": 525,
+          "hp": 950,
+          "maxHp": 950,
+          "faction": 0,
+          "bounty": 0,
+          "kills": 0,
+          "gv": 0,
+          "status": 1,
+          "effects": 0,
+          "sig": 0,
+          "weapon": 5,
+          "hunt": -1,
+          "lock": -1
+        },
+        "spells": [
+          {
+            "slot": 0,
+            "reward": 12,
+            "charges": 1,
+            "readyAt": 113475
+          }
+        ]
+      },
+      {
+        "name": "seed-planted",
+        "player": {
+          "id": 1,
+          "x": 1824.7,
+          "y": 863.9,
+          "sx": 720,
+          "sy": 525,
+          "hp": 950,
+          "maxHp": 950,
+          "faction": 0,
+          "bounty": 0,
+          "kills": 0,
+          "gv": 0,
+          "status": 1,
+          "effects": 0,
+          "sig": 0,
+          "weapon": 5,
+          "hunt": -1,
+          "lock": -1
+        },
+        "spells": [
+          {
+            "slot": 0,
+            "reward": 12,
+            "charges": 1,
+            "readyAt": 113475
+          }
+        ],
+        "seed": {
+          "kind": 15,
+          "ability": 0,
+          "owner": null,
+          "subject": null,
+          "x": 1824.6591796875,
+          "y": 863.8683471679688,
+          "x2": 1824.6591796875,
+          "y2": 863.8683471679688,
+          "r": 0,
+          "vx": 0,
+          "vy": 0,
+          "startedAt": 0,
+          "endsAt": 0
+        }
+      },
+      {
+        "name": "away-from-seed",
+        "player": {
+          "id": 1,
+          "x": 1845.7,
+          "y": 698.1,
+          "sx": 720,
+          "sy": 525,
+          "hp": 950,
+          "maxHp": 950,
+          "faction": 0,
+          "bounty": 0,
+          "kills": 0,
+          "gv": 0,
+          "status": 1,
+          "effects": 0,
+          "sig": 0,
+          "weapon": 5,
+          "hunt": -1,
+          "lock": -1
+        },
+        "spells": [
+          {
+            "slot": 0,
+            "reward": 12,
+            "charges": 1,
+            "readyAt": 113475
+          }
+        ],
+        "seed": {
+          "kind": 15,
+          "ability": 0,
+          "owner": null,
+          "subject": null,
+          "x": 1824.6591796875,
+          "y": 863.8683471679688,
+          "x2": 1824.6591796875,
+          "y2": 863.8683471679688,
+          "r": 0,
+          "vx": 0,
+          "vy": 0,
+          "startedAt": 0,
+          "endsAt": 0
+        }
+      },
+      {
+        "name": "cast",
+        "player": {
+          "id": 1,
+          "x": 1824.7,
+          "y": 863.9,
+          "sx": 718.1,
+          "sy": 536.6,
+          "hp": 950,
+          "maxHp": 950,
+          "faction": 0,
+          "bounty": 0,
+          "kills": 0,
+          "gv": 0,
+          "status": 1,
+          "effects": 0,
+          "sig": 0,
+          "weapon": 5,
+          "hunt": -1,
+          "lock": -1
+        },
+        "spells": []
+      }
+    ]
+  }
+}

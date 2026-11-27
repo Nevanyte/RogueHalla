@@ -224,7 +224,8 @@ namespace Roguehalla.Client
                         bool tracked = TrackedQuest.HasValue && row.Handle.Equals(TrackedQuest.Value);
                         bool board = QuestPresentation.IsBoardRow(row);
                         bool publicMark = board && row.Carrier.HasValue && (!row.OwnerAccepted || row.OwnerCompleted);
-                        if (!publicMark && (!QuestPresentation.ShowsOffer(row) || !tracked && !(board && row.OwnerAccepted))) continue;
+                        // Every accepted quest's delivered objective is navigable; the tracked one is emphasized, but the others remain visible.
+                        if (!publicMark && (!QuestPresentation.ShowsOffer(row) || !tracked && !row.OwnerAccepted)) continue;
                         _delivered.Add(new DeliveredPoint
                         {
                             At = new Vector2((float)objective.X, (float)objective.Y),
@@ -539,8 +540,8 @@ namespace Roguehalla.Client
                 if (!rectTransform.rect.Contains(p)) continue;
                 switch (point.Kind)
                 {
-                    case PointKind.Objective: Marker(vh, p, 11f * s, MapGlyph.Cross, theme.TextPrimary, ink); break;
-                    case PointKind.TrackedObjective: Marker(vh, p, 13f * s, MapGlyph.Cross, theme.Accent, ink); break;
+                    case PointKind.Objective: Marker(vh, p, 13f * s, MapGlyph.Cross, theme.TextPrimary, ink); break;
+                    case PointKind.TrackedObjective: Marker(vh, p, 16f * s, MapGlyph.Cross, theme.Accent, ink); break;
                     case PointKind.PublicObjective: Marker(vh, p, 14f * s, MapGlyph.Ring, theme.Accent, ink); break;
                     case PointKind.QuestReward: Marker(vh, p, 9f * s, MapGlyph.Square, theme.Accent, ink); break;
                     case PointKind.RebirthEgg: Marker(vh, p, 10f * s, MapGlyph.DiamondRing, theme.TextPrimary, ink); break;

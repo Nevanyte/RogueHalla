@@ -167,7 +167,7 @@ namespace Roguehalla.Client
             var legendText = _counterGuide.LegendRoot.GetComponentInChildren<TMP_Text>();
             legendText.text = "Arrows point to the weapon each one counters. + advantage, ! threat."; FixSize(legendText, 10f);
             _questHeading = HudUi.Label(_counterRail, "QuestHeading", "QUESTS & TRADERS", 13f, theme.Accent, TextAlignmentOptions.TopLeft, false, UiFontRole.Display);
-            _questsText = MythicUi.ScrollText(_counterRail, "QuestList", "", Vector2.zero, Vector2.one, 7.7f);
+            _questsText = MythicUi.ScrollText(_counterRail, "QuestList", "", Vector2.zero, Vector2.one, 11.5f);
             _questScroll = (RectTransform)_questsText.transform.parent.parent;
 
             // Legacy minimap: a square 12/12 from the bottom-right corner, no button strip, frame ring is the border (drawn rect = hit rect).
@@ -294,7 +294,8 @@ namespace Roguehalla.Client
                 _contactScroll.anchorMin = Vector2.zero; _contactScroll.anchorMax = Vector2.one;
                 _contactScroll.offsetMin = new Vector2(8f, 112f); _contactScroll.offsetMax = new Vector2(-8f, -(viewY + 22f));
                 float rw = L.Right.W, rh = L.Right.H;
-                float sq = Mathf.Max(80f, Mathf.Min(rw - 20f, rh * .48f));
+                float sq = Mathf.Max(80f, Mathf.Min(rw - 20f, rh * .40f));
+                FixSize(_questsText, 11.5f * ts);
                 var diagram = (RectTransform)_counterGuide.WheelRoot.parent;
                 HudUi.Place(diagram, HudAnchor.TopLeft, (rw - sq) / 2f, 34f, sq, sq);
                 // The legend takes the height its text needs (two to four lines once a weapon is highlighted); the quests heading follows it.
@@ -327,7 +328,7 @@ namespace Roguehalla.Client
         {
             UnsubscribeMapFacts();
             ReleaseTransient(); _selections = new PlanningSelections(); _planTotalMs = 0d; _bound = session; _storageKey = null; _routeStorageDirty = false; _route.Clear(); _route.SetStart(null);
-            MarkNews(); _lastContactsSnapshot = -1; _tacContactCount = _tacOfferCount = -1; _contacts.Clear(); _contactsText.text = "";
+            MarkNews(); _lastContactsSnapshot = -1; _tacContactCount = -1; _contacts.Clear(); _contactsText.text = "";
             if (_bound != null)
             {
                 _bound.SnapshotReceived += MapSnapshotChanged;

@@ -1,11 +1,13 @@
 //! Exercise each awarded spell through validated casts in a generated raid.
 use super::*;
 use crate::quests::board::rewards::{effects, Award};
+use crate::quests::board::tuning::TOP25;
 use crate::status_runtime::{self, StatusKind};
 
 impl Raid {
     fn cast_input(&mut self, slot: usize, at: Vec2, target: Option<PlayerId>) {
         use crate::abilities::Slot;
+        self.begin_cast_capture();
         self.raw(RawCommand::Cast {
             slot: if slot == 0 { Slot::Q } else { Slot::E },
             x: at.x,
@@ -14,6 +16,7 @@ impl Raid {
             t: None,
             seq: None,
         });
+        self.capture_cast_frame("start");
     }
 
     fn use_spell(&mut self, award: Award, at: Vec2, target: Option<PlayerId>) {
@@ -24,24 +27,36 @@ impl Raid {
             .unwrap();
         self.cast_input(slot, at, target);
         let after = rewards::owned_spells(&self.sim.w, self.seat)[slot];
-        assert!(
-            after.is_none_or(|s| s.charges < spells[slot].unwrap().charges
-                || s.ready_at > self.sim.w.server_time),
-            "{:?}: {award:?} was not used by the seat's validated cast",
-            self.quest
-        );
+        let before = spells[slot].unwrap();
+        if let Some(after) = after {
+            assert_eq!(after.award, award);
+            assert_eq!(
+                after.charges + 1,
+                before.charges,
+                "{award:?} must consume one charge"
+            );
+            assert!(
+                after.ready_at > self.sim.w.server_time,
+                "{award:?} must begin recharging"
+            );
+        } else {
+            assert_eq!(
+                before.charges, 1,
+                "{award:?} only leaves the slot on a final charge"
+            );
+        }
     }
 
-    pub(super) fn open_cast_site(&self) -> (Vec2, Vec2) {
+    pub(super) fn open_cast_site(&self, offset: f64) -> (Vec2, Vec2) {
         let map = self.sim.collision_map();
         let data = map.layers().unwrap().data();
         let c = data.coliseum.centre;
         let from = Vec2::new(c.x, c.y);
         let to = [
-            Vec2::new(90., 0.),
-            Vec2::new(0., 90.),
-            Vec2::new(-90., 0.),
-            Vec2::new(0., -90.),
+            Vec2::new(offset, 0.),
+            Vec2::new(0., offset),
+            Vec2::new(-offset, 0.),
+            Vec2::new(0., -offset),
         ]
         .into_iter()
         .map(|d| Vec2::new(from.x + d.x, from.y + d.y))
@@ -60,7 +75,13 @@ impl Raid {
 
     pub(super) fn verify_spell(&mut self, award: Award) {
         use Award::*;
-        let (from, to) = self.open_cast_site();
+        // Leave at least one live 25 ms sample between the projectile launch and its impact.
+        let offset = if matches!(award, Hook | Bolas) {
+            180.
+        } else {
+            90.
+        };
+        let (from, to) = self.open_cast_site(offset);
         let rival = [self.opponent, self.bot]
             .into_iter()
             .find(|&id| self.sim.w.player(id).is_some_and(|p| p.standing()))
@@ -82,13 +103,47 @@ impl Raid {
             WardensCage => {
                 self.use_spell(award, from, None);
                 let w = &self.sim.w;
-                assert!(w
-                    .abilities
-                    .as_ref()
-                    .unwrap()
+                let abilities = w.abilities.as_ref().unwrap();
+                let fence = abilities
                     .fields
                     .iter()
-                    .any(|f| effects::is_cage(w, f)));
+                    .find(|field| effects::is_cage(w, field))
+                    .unwrap();
+                let barrier = abilities
+                    .barriers
+                    .0
+                    .iter()
+                    .find(|barrier| barrier.field == fence.id)
+                    .unwrap();
+                let held = crate::barriers::held(w);
+                let map = crate::barriers::body_map(&self.sim.k, &held, w.rt.gates_locked);
+                assert!(!barrier.cells.is_empty());
+                for &cell in &barrier.cells {
+                    let x = i64::from(cell % map.w);
+                    let y = i64::from(cell / map.w);
+                    let at = Vec2::new(
+                        crate::map::tile_to_world_center(x),
+                        crate::map::tile_to_world_center(y),
+                    );
+                    assert!(!crate::geometry::circle_clear(
+                        map,
+                        at,
+                        0.,
+                        crate::map::MASK_MOVE
+                    ));
+                    assert!(!crate::geometry::circle_clear(
+                        map,
+                        at,
+                        0.,
+                        crate::map::MASK_MELEE
+                    ));
+                    assert!(crate::geometry::circle_clear(
+                        map,
+                        at,
+                        0.,
+                        crate::map::MASK_SIGHT
+                    ));
+                }
             }
             Hook => {
                 self.use_spell(award, to, None);
@@ -108,6 +163,14 @@ impl Raid {
                     distance(caster.pos(), to) < distance(from, to),
                     "Shoulder Charge did not close ground toward its target"
                 );
+                assert!(
+                    self.has_status(rival, StatusKind::Stun),
+                    "Charge contact must stun"
+                );
+                assert!(
+                    distance(self.sim.w.player(rival).unwrap().pos(), from) > distance(to, from),
+                    "Charge contact must knock the victim away"
+                );
             }
             Tornado => {
                 let max = self.sim.w.player(self.seat).unwrap().vitals.max_hp * 0.5;
@@ -116,7 +179,13 @@ impl Raid {
                 victim.vitals.max_hp = max;
                 victim.vitals.hp = max;
                 self.use_spell(award, from, None);
-                self.legacy_steps(14);
+                self.legacy_steps(11);
+                assert_eq!(
+                    self.sim.w.player(rival).unwrap().pos(),
+                    to,
+                    "Tornado must wait for impact"
+                );
+                self.legacy_steps(3);
                 assert!(
                     distance(self.sim.w.player(rival).unwrap().pos(), from)
                         < distance(to, from) - 1.
@@ -130,7 +199,15 @@ impl Raid {
                 victim.vitals.immune_until = now;
                 let hp = victim.vitals.hp;
                 self.use_spell(award, to, None);
-                self.legacy_steps(25);
+                let mut hit = false;
+                for _ in 0..self.sim.k.steps_of_legacy_ticks(25) {
+                    self.step();
+                    if !hit && self.sim.w.player(rival).unwrap().vitals.hp < hp {
+                        self.capture_cast_frame("hit");
+                        hit = true;
+                    }
+                }
+                assert!(hit);
                 assert!(self.sim.w.player(rival).unwrap().vitals.hp < hp);
             }
             LanternWard | ScoutFalcon => {
@@ -154,8 +231,22 @@ impl Raid {
                 assert!(!self.sim.can_see_point(rival, to));
             }
             Warhorn => {
+                let now = self.sim.w.server_time;
+                self.sim
+                    .w
+                    .players
+                    .get_mut(rival)
+                    .unwrap()
+                    .vitals
+                    .immune_until = now;
                 self.use_spell(award, from, None);
                 assert_eq!(effects::taunt(&self.sim.w, rival), Some(self.seat));
+                self.legacy_steps(4);
+                assert!(
+                    distance(self.sim.w.player(rival).unwrap().pos(), from) < distance(to, from)
+                );
+                assert!(effects::damage_factor(&self.sim.w, self.seat) >= 1.2);
+                assert!(effects::damage_taken_factor(&self.sim.w, self.seat) <= 0.85);
             }
             Smite => {
                 let target = self
@@ -198,6 +289,24 @@ impl Raid {
             SpellShield => {
                 self.use_spell(award, from, None);
                 assert!(effects::shielding(&self.sim.w, self.seat));
+                let owner = self.seat;
+                self.equip_fixture(rival, Bolas);
+                let cast = validate_input(RawCommand::Cast {
+                    slot: crate::abilities::Slot::Q,
+                    x: from.x,
+                    y: from.y,
+                    id: None,
+                    t: None,
+                    seq: None,
+                })
+                .unwrap();
+                self.sim.submit(rival, cast).unwrap();
+                self.legacy_steps(4);
+                assert!(!self.has_status(owner, StatusKind::Root));
+                assert!(!effects::shielding(&self.sim.w, owner));
+                let shield = rewards::owned_spells(&self.sim.w, owner)[0].unwrap();
+                assert_eq!(shield.charges, 1);
+                assert!(shield.ready_at <= self.sim.w.server_time);
             }
             RebirthEgg => {
                 self.arrange(self.seat, self.giver);
@@ -217,12 +326,19 @@ impl Raid {
                 self.seat = rival;
                 self.strike(owner, true);
                 self.seat = owner;
+                assert!(!self.sim.w.player(owner).unwrap().standing());
+                self.capture_cast_frame("death");
                 self.legacy_steps(65);
                 let revived = self.sim.w.player(owner).unwrap();
                 assert_eq!(revived.standing(), survivors > 3);
                 if survivors > 3 {
                     assert!(distance(revived.pos(), self.giver) < 5.);
                     assert_eq!(revived.active_weapon(), gear);
+                    assert!(
+                        (TOP25.egg_hatch_hp_share..=TOP25.egg_hatch_hp_share + 0.02)
+                            .contains(&(revived.vitals.hp / revived.vitals.max_hp)),
+                        "Hatch must restore about 40% maximum health"
+                    );
                 }
                 assert!(!self.sim.w.rebirth_eggs.iter().any(|e| e.owner == owner));
             }
@@ -232,6 +348,7 @@ impl Raid {
                     .position(|s| s.is_some_and(|s| s.award == award))
                     .unwrap();
                 self.cast_input(slot, from, None);
+                self.capture_cast_frame("end");
                 self.arrange(self.seat, to);
                 self.use_spell(award, from, None);
                 assert!(distance(self.sim.w.player(self.seat).unwrap().pos(), from) < 5.);
@@ -239,34 +356,68 @@ impl Raid {
             SwapStick => {
                 let swap = validate_input(RawCommand::Swap { slot: Some(1) }).unwrap();
                 self.sim.submit(rival, swap).unwrap();
-                self.sim.step();
+                self.step();
                 let before = self.sim.w.player(rival).unwrap().active_weapon();
+                let own_weapon = self.sim.w.player(self.seat).unwrap().active_weapon();
                 self.use_spell(award, to, Some(rival));
                 assert_eq!(
                     self.sim.w.player(self.seat).unwrap().active_weapon(),
                     before
                 );
+                assert_eq!(
+                    self.sim.w.player(rival).unwrap().active_weapon(),
+                    own_weapon
+                );
+                self.capture_cast_frame("effect");
+                self.steps((TOP25.swap_ms / self.sim.k.tick_ms()) as usize);
+                assert_eq!(
+                    self.sim.w.player(self.seat).unwrap().active_weapon(),
+                    own_weapon
+                );
+                assert_eq!(self.sim.w.player(rival).unwrap().active_weapon(), before);
             }
             Cleanse => {
                 self.root_fixture_target(self.seat, rival);
-                let rooted = |w: &World, id| {
-                    status_runtime::has(
-                        &w.player(id).unwrap().statuses.instances,
-                        StatusKind::Root,
-                        w.server_time,
-                    )
-                };
-                assert!(rooted(&self.sim.w, self.seat));
+                self.fixture_status(self.seat, rival, StatusKind::Stun);
+                assert!(self.has_status(self.seat, StatusKind::Root));
+                assert!(self.has_status(self.seat, StatusKind::Stun));
                 self.use_spell(award, from, None);
-                assert!(!rooted(&self.sim.w, self.seat));
+                assert!(!self.has_status(self.seat, StatusKind::Root));
+                assert!(!self.has_status(self.seat, StatusKind::Stun));
             }
             Stasis => {
                 self.use_spell(award, from, None);
                 assert!(effects::stasis(&self.sim.w, self.seat));
+                self.raw(RawCommand::Move {
+                    x: to.x,
+                    y: to.y,
+                    seq: None,
+                });
+                self.legacy_steps(4);
+                assert_eq!(self.sim.w.player(self.seat).unwrap().pos(), from);
+                self.capture_cast_frame("effect");
+                self.steps((TOP25.stasis_ms / self.sim.k.tick_ms()) as usize);
+                assert!(!effects::stasis(&self.sim.w, self.seat));
+                self.raw(RawCommand::Move {
+                    x: to.x,
+                    y: to.y,
+                    seq: None,
+                });
+                self.legacy_steps(4);
+                assert!(
+                    distance(self.sim.w.player(self.seat).unwrap().pos(), to) < distance(from, to)
+                );
             }
             Bolas => {
                 self.use_spell(award, to, None);
-                self.legacy_steps(4);
+                let mut rooted = false;
+                for _ in 0..self.sim.k.steps_of_legacy_ticks(4) {
+                    self.step();
+                    if !rooted && self.has_status(rival, StatusKind::Root) {
+                        self.capture_cast_frame("hit");
+                        rooted = true;
+                    }
+                }
                 let target = self.sim.w.player(rival).unwrap();
                 assert!(status_runtime::has(
                     &target.statuses.instances,
@@ -278,6 +429,7 @@ impl Raid {
             BlindRage => {
                 self.use_spell(award, from, None);
                 assert_eq!(effects::attack_rate(&self.sim.w, self.seat), 1.2);
+                self.capture_cast_frame("end");
                 self.fixture_status(self.seat, rival, StatusKind::Stun);
                 let seat = self.seat;
                 let stunned = |w: &World| {
@@ -303,6 +455,32 @@ impl Raid {
             }
             _ => panic!("{award:?} is not a quest spell under test"),
         }
+    }
+
+    fn has_status(&self, id: PlayerId, kind: StatusKind) -> bool {
+        status_runtime::has(
+            &self.sim.w.player(id).unwrap().statuses.instances,
+            kind,
+            self.sim.w.server_time,
+        )
+    }
+
+    fn equip_fixture(&mut self, id: PlayerId, award: Award) {
+        let now = self.sim.w.server_time;
+        let state = self
+            .sim
+            .w
+            .quests
+            .as_mut()
+            .unwrap()
+            .rewards
+            .as_mut()
+            .unwrap();
+        assert!(!state.owners.iter().any(|owner| owner.id == id));
+        state.owners.push(Default::default());
+        let owner = state.owners.last_mut().unwrap();
+        owner.id = id;
+        owner.slots[0] = Some(rewards::Owned::new(award, now));
     }
 
     fn bust_wall(&mut self) {
@@ -352,8 +530,17 @@ impl Raid {
             let before = self.sim.w.destroyed_terrain.cells.len();
             self.cast_input(0, at, None);
             if self.sim.w.destroyed_terrain.cells.len() > before {
+                let x = crate::map::world_to_tile(at.x);
+                let y = crate::map::world_to_tile(at.y);
+                let index = y as u32 * self.sim.arena().map.w + x as u32;
+                assert!(self.sim.w.destroyed_terrain.cells.contains(&index));
+                assert_eq!(
+                    self.sim.collision_map().tile(x, y),
+                    Some(crate::map::TILE_FLOOR)
+                );
                 return;
             }
+            self.discard_cast_capture();
         }
         panic!("WallBuster found no editable interior wall");
     }

@@ -13,6 +13,9 @@ use tokio::{
 
 const QUEST: &str = "stay_a_while";
 
+#[path = "top25_playthrough/capture.rs"]
+mod capture;
+
 #[path = "top25_playthrough/spell_cooldowns.rs"]
 mod spell_cooldowns;
 
