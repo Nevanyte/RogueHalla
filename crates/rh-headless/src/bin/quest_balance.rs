@@ -61,6 +61,7 @@ fn play(seed: u64, observe_bargain: bool) -> Result<serde_json::Value, String> {
     let mut attempts: Vec<Attempt> = Vec::new();
     let mut notices = Vec::new();
     let mut bargain_receipts = Vec::new();
+    let mut bargain_nearby = Vec::new();
     let mut prelock_seconds = 0.;
     let mut without_open_seconds = 0.;
     let mut without_open_camps = 0u32;
@@ -175,6 +176,11 @@ fn play(seed: u64, observe_bargain: bool) -> Result<serde_json::Value, String> {
                 let index = current_leg
                     .filter(|&index| route_legs[index].quest == def)
                     .unwrap_or_else(|| {
+                        if observe_bargain && def == "the_bargain" {
+                            if let Some(camp) = bargain::nearby_camp(sim, player, age) {
+                                bargain_nearby.push(camp);
+                            }
+                        }
                         route_legs.push(route::Leg {
                             quest: def.to_owned(),
                             start_s: age,
@@ -321,7 +327,7 @@ fn play(seed: u64, observe_bargain: bool) -> Result<serde_json::Value, String> {
         "state_hash": format!("{:016x}", env.sim.state_hash()),
         "winner": env.sim.winner(), "resolutions": resolutions, "raid_ended_event": raid_ended_event,
         "planning": planning, "raid": raid, "attempts": attempts, "notices": notices,
-        "bargain_receipts": bargain_receipts,
+        "bargain_receipts": bargain_receipts, "bargain_nearby": bargain_nearby,
         "prelock_seconds": prelock_seconds, "focal_camps": focal_camps,
         "standing_prelock_seconds": eligible_farm_seconds,
         "without_open_seconds": without_open_seconds, "without_open_camps": without_open_camps,

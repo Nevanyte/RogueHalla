@@ -6,6 +6,10 @@ from pathlib import Path
 from quest_economy import measure, read
 
 
+STAT_ORDER = ("damage", "movement", "max_hp", "ability_power", "armor",
+              "shield", "attack_damage", "attack_speed", "lifesteal")
+
+
 def prices(receipt, payout, fee):
     changes = receipt["changes"]
     credits = [item for item in changes if item["stack_change"] > 0]
@@ -35,6 +39,33 @@ def prices(receipt, payout, fee):
     }
 
 
+def opportunity(meta, match, baseline, receipt):
+    alternatives = {row["start_s"]: row for row in match.get("bargain_nearby", [])}
+    weights = receipt.get("per_stack_policy_weights")
+    if not weights:
+        return {}
+    normalizer = receipt["neutral_policy_weight"]
+    valued = 0.
+    first = None
+    for leg in match["quest_goal_legs"]:
+        if leg["quest"] != "the_bargain" or leg["start_s"] > receipt["age_s"]:
+            continue
+        alternative = alternatives.get(leg["start_s"])
+        if not alternative:
+            return {}
+        first = first or alternative
+        cost = next(row for row in measure(meta, [{**match, "quest_goal_legs": [leg]}], baseline)
+                    if row["quest"] == "the_bargain")["expected_cost_per_paid_camp_mean"]
+        weight = weights[STAT_ORDER.index(alternative["paid_stat"])] / normalizer
+        # The baseline route cost is denominated in a 12-stack normal camp.
+        # The closest live normal roster has its own remaining stack count.
+        valued += cost * (alternative["alive"] * 3 / 12) * weight
+    if first is None:
+        return {}
+    return {"nearby_first_stat": first["paid_stat"], "nearby_first_alive": first["alive"],
+            "nearby_first_distance": first["distance"], "nearby_route_fit_ce": valued}
+
+
 def report(meta, matches, baseline, payout, fee):
     for match in matches:
         receipts = match["bargain_receipts"]
@@ -49,12 +80,22 @@ def report(meta, matches, baseline, payout, fee):
         cost = route["expected_cost_per_paid_camp_mean"]
         assert cost is not None
         result = prices(receipt, payout, fee)
+        alternative = opportunity(meta, match, baseline, receipt)
+        fit_cost = alternative.get("nearby_route_fit_ce")
+        net = result.get("policy_fit_net_ce")
+        fit_output = result.get("fit_output_ce")
+        fit_input = result.get("fit_input_ce")
+        fit_multiple = net / fit_cost if net is not None and fit_cost else None
+        # Sensitivity assumes the same choice would still be taken at a different price.
+        payout_target = ((1.375 * fit_cost + fit_input) / fit_output * payout
+                         if fit_cost and fit_input is not None and fit_output else None)
         yield {
             "seed": match["seed"], "faction": match["faction"],
             "active_weapon": receipt["held_before"][receipt["active_before"]] or "Fists",
-            "paid_age_s": receipt["age_s"], "route_cost_ce": cost, **result,
+            "paid_age_s": receipt["age_s"], "route_cost_ce": cost, **result, **alternative,
             "equal_multiple": result["equal_net_ce"] / cost if cost and "equal_net_ce" in result else None,
-            "policy_fit_multiple": result["policy_fit_net_ce"] / cost if cost and "policy_fit_net_ce" in result else None,
+            "policy_fit_multiple": net / cost if cost and net is not None else None,
+            "nearby_fit_multiple": fit_multiple, "same_trade_37_5pct_payout": payout_target,
         }
 
 
@@ -70,7 +111,9 @@ def main():
     _, rates = read([args.farm_reference], {})
     columns = ("seed", "faction", "active_weapon", "paid_age_s", "route_cost_ce", "payment",
                "received_stat", "equal_net_ce", "policy_fit_net_ce", "fit_input_ce",
-               "fit_output_ce", "equal_multiple", "policy_fit_multiple")
+               "fit_output_ce", "equal_multiple", "policy_fit_multiple",
+               "nearby_first_stat", "nearby_first_alive", "nearby_first_distance", "nearby_route_fit_ce",
+               "nearby_fit_multiple", "same_trade_37_5pct_payout")
     with args.output.open("w", newline="") as out:
         writer = csv.DictWriter(out, fieldnames=columns, lineterminator="\n")
         writer.writeheader()

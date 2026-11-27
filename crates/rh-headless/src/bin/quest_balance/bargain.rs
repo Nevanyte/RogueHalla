@@ -3,7 +3,7 @@ use rh_policy::bots::raid::{percept::Me, quest::decide::stat_worth_at, values::P
 use rh_sim::mob_catalog::MobTypeId;
 use rh_sim::modifiers::{farm::DEFINITION, Farm};
 use rh_sim::state::Player;
-use rh_sim::{FactionId, Vec2, WeaponId};
+use rh_sim::{FactionId, Sim, Vec2, WeaponId};
 use serde::Serialize;
 
 const FAMILIES: [(MobTypeId, &str); 9] = [
@@ -45,6 +45,50 @@ pub struct StatChange {
 }
 
 #[derive(Serialize)]
+pub struct NearbyCamp {
+    start_s: f64,
+    camp: usize,
+    distance: f64,
+    paid_stat: &'static str,
+    alive: u32,
+}
+
+pub fn nearby_camp(sim: &Sim, player: &Player, start_s: f64) -> Option<NearbyCamp> {
+    let definitions = &sim.arena().map.layers()?.data().camps;
+    let (camp, distance, roster) = sim
+        .camp_rosters()
+        .iter()
+        .zip(definitions)
+        .enumerate()
+        .filter(|(_, (live, _))| live.elite.is_none() && live.alive > 0)
+        .map(|(index, (live, sample))| {
+            let distance = (player.body.x - sample.x).hypot(player.body.y - sample.y);
+            (index, distance, live)
+        })
+        .min_by(|a, b| a.1.total_cmp(&b.1))?;
+    let paid_mob = sim
+        .camp_buffs()
+        .get(camp)
+        .copied()
+        .flatten()
+        .unwrap_or(roster.mob_type);
+    let family = DEFINITION.rows.iter().find(|row| row.mob == paid_mob)?.stat;
+    let (_, paid_stat) = FAMILIES.iter().find(|(representative, _)| {
+        DEFINITION
+            .rows
+            .iter()
+            .any(|row| row.mob == *representative && row.stat == family)
+    })?;
+    Some(NearbyCamp {
+        start_s,
+        camp,
+        distance,
+        paid_stat,
+        alive: roster.alive,
+    })
+}
+
+#[derive(Serialize)]
 pub struct Receipt {
     age_s: f64,
     offer: u32,
@@ -52,6 +96,7 @@ pub struct Receipt {
     held_after: [Option<WeaponId>; 2],
     active_before: u8,
     changes: Vec<StatChange>,
+    per_stack_policy_weights: [f64; 9],
     neutral_policy_weight: f64,
     spare_weapon_policy_cost_ce: f64,
 }
@@ -74,6 +119,7 @@ pub fn receipt(before: Snapshot, after: Snapshot, age_s: f64, offer: u32) -> Rec
         healing_until: None,
     };
     let prices = &Prices::LOCAL;
+    let per_stack_policy_weights = std::array::from_fn(|i| stat_worth_at(prices, i as u8, &me));
     let changes = FAMILIES
         .into_iter()
         .enumerate()
@@ -92,7 +138,7 @@ pub fn receipt(before: Snapshot, after: Snapshot, age_s: f64, offer: u32) -> Rec
             (stack_change != 0).then(|| StatChange {
                 stat,
                 stack_change,
-                per_stack_policy_weight: stat_worth_at(prices, index as u8, &me),
+                per_stack_policy_weight: per_stack_policy_weights[index],
             })
         })
         .collect();
@@ -103,6 +149,7 @@ pub fn receipt(before: Snapshot, after: Snapshot, age_s: f64, offer: u32) -> Rec
         held_after: after.weapons,
         active_before: before.slot,
         changes,
+        per_stack_policy_weights,
         neutral_policy_weight: prices.neutral_stat,
         spare_weapon_policy_cost_ce: prices.spare_weapon,
     }
