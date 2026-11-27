@@ -28,6 +28,7 @@ required-features = ["bench"]
 bench = ["rh-sim/bench"]
 # Elite mode of camp_bench: minute-5 builds through rh-sim's trusted build setup. Opt-in; never in rh-server.
 elite-bench = ["rh-sim/trusted-build-setup"]
+strategy-route-lab = ["rh-policy/strategy-route-lab"]
 
 [lints]
 workspace = true

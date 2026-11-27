@@ -125,6 +125,7 @@ fn frame(
             zone: c.zone,
             elite_spot: if elite.is_some() { 0 } else { -1 },
             mob_type: 0,
+            reward_stat: None,
             elite: elite.map(|_| MobTypeId::Executioner),
             alive: adds.len() as u32 + u32::from(elite.is_some()),
             state: 0,

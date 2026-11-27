@@ -128,6 +128,7 @@ fn frame(off: Vec2, weapon: WeaponId, lock: Option<&str>) -> Frame {
             zone: c.zone,
             elite_spot: 0,
             mob_type: 0,
+            reward_stat: None,
             elite: Some(MobTypeId::Executioner),
             alive: 2,
             state: 0,

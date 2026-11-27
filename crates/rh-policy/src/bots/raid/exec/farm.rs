@@ -13,6 +13,9 @@ use crate::bots::raid::values::DeathModel;
 use crate::bots::types::{Intent, IntentBody, IntentTiming, OwnerLock, PRIORITY_COMBAT};
 use rh_sim::{FactionId, Vec2, WeaponId};
 
+#[cfg(feature = "strategy-route-lab")]
+mod lab_route;
+
 /// A melee lock is clicked inside this (HumanBot's compatibility front end).
 pub const MELEE_LOCK_U: f64 = 40.;
 /// A mob of another camp this close that is fighting is fought first: it is on us.
@@ -30,6 +33,16 @@ const NO_CONTACT_MS: f64 = 20_000.;
 /// With no held lock on a mob it may keep, a member is the same one next think when it stands within this of where the
 /// last one was (npc keys live one frame).
 const TRACK_U: f64 = 80.;
+
+/// Experimental camp choice. Only built into explicit headless lab runs.
+#[cfg(feature = "strategy-route-lab")]
+#[derive(Clone, Copy, Debug)]
+pub enum LabRoute {
+    TargetBuild(usize),
+    LocalTarget(usize),
+    Nearest,
+    RandomNearby(u64),
+}
 
 /// The share of max hp clearing `members` members costs, each a duel the bot keeps `share` of its hp in. `members` is
 /// in whole members' worth of hp (a member at half hp counts one half). Priced by `model` (`Prices::death`).
@@ -62,6 +75,10 @@ pub fn members_left(p: &crate::bots::raid::percept::RaidPercept, camp: &CampSeen
 /// member it fights stood, the camps it gave up on.
 #[derive(Default)]
 pub struct Farm {
+    #[cfg(feature = "strategy-route-lab")]
+    lab_route: Option<LabRoute>,
+    #[cfg(feature = "strategy-route-lab")]
+    random_pick: Option<u32>,
     shares: Vec<((FactionId, FactionId), f64)>,
     /// Where the member it fights stood at the last think.
     target: Option<Vec2>,
@@ -85,6 +102,13 @@ struct Quiet {
 }
 
 impl Farm {
+    #[cfg(feature = "strategy-route-lab")]
+    pub fn with_lab_route(route: LabRoute) -> Self {
+        Self {
+            lab_route: Some(route),
+            ..Self::default()
+        }
+    }
     /// The shared planning duel's share (public content, exact): the lab's player prices camps by the rules, not by
     /// Knowledge's per-bot error (which swings a three-member camp's death term several-fold).
     fn share(&mut self, me: FactionId, region: FactionId) -> f64 {
@@ -160,7 +184,13 @@ impl Executor for Farm {
         &[GoalKind::Farm]
     }
     fn reset(&mut self) {
+        #[cfg(feature = "strategy-route-lab")]
+        let route = self.lab_route;
         *self = Self::default();
+        #[cfg(feature = "strategy-route-lab")]
+        {
+            self.lab_route = route;
+        }
     }
     fn observe(&mut self, cx: &mut Cx<'_>) {
         // Contact with the held camp, every frame: a hit taken, or the camp's members left falling (a hit dealt or a
@@ -215,6 +245,8 @@ impl Executor for Farm {
                 .map(|c| (dist(at, c.at), c))
                 .collect();
         order.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.index.cmp(&b.1.index)));
+        #[cfg(feature = "strategy-route-lab")]
+        self.choose_lab(cx, &mut order, at, me, now);
         let horizon = cx.tier_params().route.horizon as usize;
         let camps: Vec<(usize, u32, Vec2, rh_sim::mapdata::Zone, u32, f64)> = order
             .iter()

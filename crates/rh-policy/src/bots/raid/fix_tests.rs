@@ -241,6 +241,7 @@ fn scene(members: &[(Vec2, f64)], owner_off: Vec2, hp_share: f64) -> Scene {
             zone: c.zone,
             elite_spot: -1,
             mob_type: 0,
+            reward_stat: None,
             elite: None,
             alive: members.len() as u32,
             state: 0,

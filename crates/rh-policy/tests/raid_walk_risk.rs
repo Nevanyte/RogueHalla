@@ -101,6 +101,7 @@ fn camp(index: u32, at: Vec2, zone: Zone, alive: u32) -> CampSeen {
         zone,
         elite_spot: -1,
         mob_type: 0,
+        reward_stat: None,
         elite: None,
         alive,
         state: 0,

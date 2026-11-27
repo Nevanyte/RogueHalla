@@ -78,6 +78,7 @@ fn scene(arena: &Arena, at: Vec2, weapon: WeaponId, mob: &MobSeen) -> Scene {
             zone: c.zone,
             elite_spot: c.elite_spot,
             mob_type: 0,
+            reward_stat: None,
             elite: None,
             alive: u32::from(i as u32 == CAMP),
             state: 0,
