@@ -106,3 +106,16 @@ One simulated human joined each production-code server room. All seven fill bots
 ## Reproduction
 
 The [lab commands](../../../tools/balance-lab/README.md#faction-farming-and-fight-timing) build the measurement binaries, run all arms and regenerate the CSVs and timing chart. The [packet](../../backlog/packets/P-RAID-ROUTE-TTK-1.md) describes the baseline and the held-out comparison. The [earlier ten-build study](../../../testing/FARM_ROUTE_PROOF.md) used an older farming and combat model.
+
+## Packet hand-off
+
+| Item | Record |
+| --- | --- |
+| Packet | P-RAID-ROUTE-TTK-1, Phase 2 item 11 |
+| Branch | `codex/alpha-gameplay-restoration`; measured code `6e2b2d4dc`, published results `d09cca6fc` |
+| Gate | Full local gate passed with Postgres, 2,743 C# tests, 2,846 Unity tests, parity, headless and release checks. The evidence-only revision passed the quick gate. |
+| Changed | The two headless observers, opt-in farm policy and tests, paired duel bench, balance analysis, packet and this evidence folder. `git diff --name-only c1d65623d..d09cca6fc` lists every path. |
+| D-rules | D1 uses the historical build weights and loose outcome comparison. D2 uses authoritative generated raids, real server rooms and input-driven duels. D5, D6 and D9 are unaffected. |
+| Deviations and shared records | None. |
+| Legacy doubts | The historical four-step farming planner and its model of travel and contest use different encounter assumptions from the measured greedy route. |
+| Limits and risks | Human tactics, Internet play and late field duels need separate evidence. Sparse late survivors, fixed duel weapons and per-seed build assignment qualify the comparison. Platform-specific source recaptures, performance proof, cross-architecture determinism, CI browser proof and a fresh Unity Web build remain outside the local gate. |
