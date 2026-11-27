@@ -34,6 +34,6 @@ fn public_rules_hold_todays_numbers() {
     assert_eq!((r.fort_ms, r.meditate_ms), (35_000., 30_000.));
     assert_eq!((r.contact_range, r.fort_range), (64., 72.));
     assert_eq!((r.bargain_cost, r.bargain_stacks), (20, 28));
-    assert_eq!(r.trade_up_stacks, [10, 22, 32]);
+    assert_eq!(r.trade_up_stacks, [10, 22, 29]);
     assert_eq!((r.route_pace, r.route_slack_ms), (1500., 15_000.));
 }

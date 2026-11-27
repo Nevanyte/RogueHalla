@@ -243,7 +243,7 @@ fn crown_damage_follows_the_crown_and_caps_at_48_without_double_payment() {
 
 #[test]
 fn trade_up_all_three_cash_outs_raise_max_hp() {
-    for (stage, stacks) in [(1, 10), (2, 22), (3, 32)] {
+    for (stage, stacks) in [(1, 10), (2, 22), (3, 29)] {
         let mut sim = practice(QuestId::TradeUp);
         let id = sim.w.players[0].id;
         let base = sim.w.players[0].vitals.max_hp;
@@ -337,10 +337,10 @@ fn feed_or_hunt_boosts_the_owners_landed_damage() {
         ));
     });
     close(before, 100.);
-    assert_eq!(sim.w.player(id).unwrap().farm.count(EmberImp), 6);
+    assert_eq!(sim.w.player(id).unwrap().farm.count(EmberImp), 12);
     close(
         damage(&mut sim, id, rival, WeaponId::Sword, [0., 0., 1.]),
-        106.,
+        112.,
     );
     close(
         damage(&mut sim, rival, id, WeaponId::Sword, [0., 0., 1.]),

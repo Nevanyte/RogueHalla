@@ -357,7 +357,7 @@ pub const DEFINITIONS: [BoardDef; 25] = [
         "Feed or Hunt",
         "Warren quest giver",
         "Feed a regional creature three zone items instead of hunting its kind.",
-        "+6% damage as a zone stat.",
+        "+12% damage as a zone stat.",
         FeedOrHuntDamage,
         Some(50_000),
         3,

@@ -100,6 +100,7 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--follow", action="store_true", help="both fighters approach again past 96 units of separation")
+    parser.add_argument("--reward", action="append", help="measure only the named reward ID; repeat for multiple")
     parser.add_argument("--cost-ladder", action="store_true", help="stress-test selected immediate rewards against 2, 4 and 8 preferred camps")
     args = parser.parse_args()
     binary = args.binary.resolve()
@@ -108,6 +109,12 @@ def main():
     catalog = json.loads(subprocess.check_output([str(binary), "--pvp", "--reward-catalog"]))
     ref = Path(__file__).resolve().parents[2] / "docs/evidence/raid-routing-ttk/stat_summary.csv"
     cases = list(scenarios(args.group, catalog, ref, args.cost_ladder))
+    if args.reward:
+        selected = set(args.reward)
+        cases = [(label, pair) for label, pair in cases if label["reward"] in selected]
+        missing = selected - {label["reward"] for label, _ in cases}
+        if missing:
+            parser.error(f"reward IDs are not in this screen: {', '.join(sorted(missing))}")
     if args.follow:
         for _, pair in cases:
             pair["follow_displacement"] = True

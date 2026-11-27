@@ -525,6 +525,9 @@ impl Raid {
                 for i in 1..=3 {
                     self.action_near(3, i, i);
                     self.action_near(3, 0, 0);
+                    if i < 3 {
+                        assert!(!is_completed(&self.sim.w, self.seat, self.offer));
+                    }
                 }
             }
             BarrowRun | Watchtowers | PilgrimsPath => {
@@ -741,8 +744,8 @@ impl Raid {
                     assert!(p.weapon.weapon1.is_none());
                     assert_eq!(p.farm.count(EmberImp), 28);
                 }
-                TradeUp => assert_eq!(p.farm.count(Penitent), 32),
-                FeedOrHunt => assert_eq!(p.farm.count(EmberImp), 6),
+                TradeUp => assert_eq!(p.farm.count(Penitent), 29),
+                FeedOrHunt => assert_eq!(p.farm.count(EmberImp), 12),
                 LetHimCook => {
                     assert!(rewards::permanent::chef_row(&self.sim.w, self.seat).is_some())
                 }

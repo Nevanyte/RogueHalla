@@ -4,7 +4,23 @@ from collections import defaultdict
 import csv
 import json
 from pathlib import Path
-from statistics import median
+from statistics import median, quantiles
+
+
+# Explicit scenario inputs for routes the stock policy does not play. Each range is
+# marginal action time (seconds), not an objective deadline. See the evidence ledger.
+REFERENCE_NORMAL_CLEARS_PER_MINUTE = 1.5
+DESIGNED_ROUTES = {
+    "the_warden": (65, 130, 0),
+    "bounty_hunter": (30, 90, 0),
+    "the_burning_crown": (55, 90, 0),
+    "elite_slayer": (25, 65, 0),
+    "a_bone_to_pick": (35, 65, 0),
+    "feed_or_hunt": (30, 65, 0),
+    "rime_hunt": (35, 80, 1),
+    "whispers_in_the_brush": (20, 45, 0),
+    "gatecrasher": (20, 60, 0),
+}
 
 
 def read(paths, baseline):
@@ -93,6 +109,21 @@ def measure(meta, matches, rate_matches):
     for q in meta["catalog"]:
         trials = observations[q["id"]]
         failed = failed_normal_equivalents[q["id"]]
+        measured_costs = [row[3] for row in trials]
+        if len(measured_costs) > 1:
+            lo, _, hi = quantiles(measured_costs, n=4, method="inclusive")
+            cost_basis = "field_iqr"
+        elif measured_costs:
+            lo = hi = measured_costs[0]
+            cost_basis = "single_field_sample"
+        elif q["id"] in DESIGNED_ROUTES:
+            start, end, concurrent = DESIGNED_ROUTES[q["id"]]
+            rate_per_s = REFERENCE_NORMAL_CLEARS_PER_MINUTE / 60
+            lo, hi = max(0., start * rate_per_s - concurrent), max(0., end * rate_per_s - concurrent)
+            cost_basis = "designed_scenario"
+        else:
+            lo = hi = None
+            cost_basis = "unavailable"
         stages = [sum(row[4] == stage for row in trials) for stage in (1, 2, 3)]
         stage_three = [row[3] for row in trials if row[4] == 3]
 
@@ -103,6 +134,9 @@ def measure(meta, matches, rate_matches):
             approach_s_p50=mid(0), objective_s_p50=mid(1), route_s_p50=round(
                 median(row[0] + row[1] for row in trials), 3) if trials else None,
             concurrent_normal_clears=sum(row[2] for row in trials),
+            cost_basis=cost_basis,
+            net_cost_range_low_ce=round(lo, 3) if lo is not None else None,
+            net_cost_range_high_ce=round(hi, 3) if hi is not None else None,
             route_cost_normal_camps_p50=mid(3),
             unsuccessful_only_route_cost_total=round(failed, 3),
             expected_cost_per_paid_camp_mean=round(
