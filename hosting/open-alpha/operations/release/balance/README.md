@@ -81,6 +81,42 @@ separately. Native and frontend selections are separate atomic operations, with
 a brief maintenance interval between them. Stop the playtest window while
 cutting over so new admissions cannot arrive in this interval.
 
+## Change the selected quest release's queue
+
+These commands apply to the selected quest release with the four-seat signature
+landmark preset. RaidBot fills the missing seats at 45 seconds from the first
+human admission. Planning starts two seconds later. Eight humans advance to
+planning as soon as the eighth arrives.
+
+```sh
+sudo python3 -B balance_release.py stage-queue check
+sudo python3 -B balance_release.py stage-queue raid
+sudo python3 -B balance_release.py stage-queue check
+```
+
+Verify staging with ordinary clients before changing production. Check that the
+first human gets the full queue window, that bots fill the missing seats at the
+deadline, and that eight humans skip the rest of the wait. Close the verification
+sessions before proceeding. Production requires the same release and exact
+RaidBot queue settings in healthy staging.
+
+```sh
+sudo python3 -B balance_release.py production-queue check
+sudo python3 -B balance_release.py production-queue raid
+sudo python3 -B balance_release.py production-queue check
+```
+
+Queue changes restart only the target Source after checking for rooms, seats,
+and people waiting in the hub, then verify the selected executable, database
+readiness, and both capture writers. They retain the paired Web release and the
+signature-landmark pool.
+
+Use `stage-queue restore` or `production-queue restore` to put that target back on
+its exact four-seat, two-second configuration on the quest build. Retry restore
+after occupants leave if the operator reports occupancy or a pending recovery.
+Restore the queue baseline before using the paired release's loader or rollback
+commands below.
+
 ## Recovery
 
 ```sh

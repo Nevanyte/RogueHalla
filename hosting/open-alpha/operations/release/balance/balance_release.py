@@ -833,9 +833,8 @@ def set_front(host, name, expected):
     host.verify_edge(name, expected)
 
 
-def effective_target(host, record):
+def effective_source(host, record, candidates):
     old_argv = tuple(record["oldArgv"])
-    new_argv = tuple(record["newArgv"])
     state = host.unit_state()
     if record["transient"]:
         require(not present(host.override), "Persistent override exists on a transient target")
@@ -846,15 +845,27 @@ def effective_target(host, record):
         require(not host.transient_kind() and host.fingerprints() == record["unitFiles"],
                 "Target systemd configuration changed outside the rollout")
         if present(host.override):
-            require(read_trusted(host.override) == override_bytes(new_argv), "Unknown balance override")
+            require(read_trusted(host.override) in {override_bytes(argv) for argv in candidates},
+                    "Unknown balance override")
     if state.stopped:
         return None
+    require(state.active == "active" and state.pid > 0, "Source service is transitioning")
     exe, args = host.running(state.pid)
-    require(exe == Path(args[0]) and args in {old_argv, new_argv}, "Unknown running Source command")
+    require(args in {old_argv, *candidates} and exe == Path(args[0]), "Unknown running Source command")
     require(host.loaded() == args, "Loaded service selection differs from the running source")
     if not record["transient"]:
-        require(present(host.override) == (args == new_argv), "Durable override disagrees with the running Source")
-    return NEW if args == new_argv else OLD
+        require(present(host.override) == (args in candidates), "Durable override disagrees with the running Source")
+        if args in candidates:
+            require(read_trusted(host.override) == override_bytes(args), "Durable override differs from loaded Source")
+    return args
+
+
+def effective_target(host, record):
+    candidate = tuple(record["newArgv"])
+    current = effective_source(host, record, (candidate,))
+    if current is None:
+        return None
+    return NEW if current == candidate else OLD
 
 
 def select_source(host, record, build, sleep):
@@ -882,6 +893,10 @@ def verify_selected(host, record, manifest):
     require(record["phase"] == "selected" and effective_target(host, record) == NEW,
             "Candidate paired release has not been selected")
     healthy(host, NEW, tuple(record["newArgv"]))
+    verify_candidate_front(host, manifest)
+
+
+def verify_candidate_front(host, manifest):
     index = host.front_bytes("index.html")
     require(index in {new_front(host, mode, "index.html") for mode in ("split", "same-origin")},
             "Selected homepage does not belong to the running candidate")
@@ -892,8 +907,87 @@ def verify_selected(host, record, manifest):
     host.verify_assets(manifest)
 
 
+def queue_commands(host, record):
+    require(record is not None and record["phase"] == "selected" and
+            record["botMode"] == "preserve" and record["signatureLandmarks"],
+            "Select the signed quest release with its four-seat landmark preset first")
+    baseline = tuple(record["newArgv"])
+    require(not any(arg.split("=", 1)[0] in {"--lobby-timing", "--bot-wait-seconds"} for arg in baseline),
+            "Baseline already has explicit matchmaking timing")
+    raid = candidate_command(host, tuple(record["oldArgv"]), "raid")
+    return baseline, raid + ("--lobby-timing", "matchmaking", "--bot-wait-seconds", "45")
+
+
+def queue_current(host, record, candidates):
+    current = effective_source(host, record, candidates)
+    require(current is None or current in candidates, "Quest Source must already be selected")
+    if not record["transient"]:
+        require(present(host.override), "Quest Source override is missing")
+    return current
+
+
+def select_queue(host, record, candidates, target, sleep):
+    current = queue_current(host, record, candidates)
+    if current != target:
+        if current is not None:
+            drain(host, NEW, current, sleep, allow_bad_identity=True)
+        require(queue_current(host, record, candidates) is None, "Quest Source is still running")
+        if not record["transient"]:
+            trusted(host.drop_dir, directory=True)
+            atomic_write(host.override, override_bytes(target), 0o644)
+        host.start(target, record["transient"])
+    wait(lambda: healthy(host, NEW, target), 60, sleep)
+
+
+def require_staged_raid(host, record, manifest):
+    stage = Host("stage", host.root, host.gid)
+    staged = load_record(stage)
+    candidates = queue_commands(stage, staged)
+    require(staged["manifest"] == record["manifest"] and staged["archive"] == record["archive"] and
+            queue_current(stage, staged, candidates) == candidates[1],
+            "The same quest artifact must run the RaidBot queue in staging first")
+    healthy(stage, NEW, candidates[1])
+    verify_candidate_front(stage, manifest)
+
+
+def queue(host, action, sleep=time.sleep):
+    record = load_record(host)
+    candidates = queue_commands(host, record)
+    baseline, raid = candidates
+    manifest, digest = inspect_manifest(host.release)
+    require(record["manifest"] == digest, "Installed quest artifact differs from the selected release")
+    current = queue_current(host, record, candidates)
+    if action == "restore":
+        select_queue(host, record, candidates, baseline, sleep)
+        return "QUEST_QUEUE_BASELINE_READY fillTarget=4 fillSeconds=2"
+
+    require(current is not None, "Quest Source is stopped. Restore the baseline before enabling the RaidBot queue.")
+    healthy(host, NEW, current)
+    verify_candidate_front(host, manifest)
+    if action == "check":
+        empty(host)
+        return f"QUEST_QUEUE_CHECK current={'raid' if current == raid else 'baseline'} lobby=empty"
+
+    if host.kind == "production":
+        require_staged_raid(host, record, manifest)
+    if current != raid:
+        empty(host)
+        try:
+            select_queue(host, record, candidates, raid, sleep)
+            verify_candidate_front(host, manifest)
+        except FAILURES as error:
+            try:
+                select_queue(host, record, candidates, baseline, sleep)
+            except FAILURES as restore_error:
+                raise Guard(f"RaidBot queue did not finish ({safe_message(error)}). "
+                            f"Same-build restore is pending ({safe_message(restore_error)}).") from None
+            raise Guard(f"RaidBot queue rejected ({safe_message(error)}). Four-seat quest queue restored.") from None
+    return "QUEST_QUEUE_RAID_READY fillTarget=8 botWaitSeconds=45 startAfterBotsSeconds=2"
+
+
 def recover(host, record, sleep):
     verify_front(host, record)
+    effective_target(host, record)
     save_record(host, record, "reverting")
     select_source(host, record, OLD, sleep)
     set_front(host, "alpha-gameplay-data.html", old_front(record, "alpha-gameplay-data.html"))
@@ -1020,6 +1114,8 @@ def main():
             commands.add_parser(kind + "-" + action)
         route = commands.add_parser(kind + "-loader")
         route.add_argument("mode", choices=("split", "same-origin"))
+        lobby = commands.add_parser(kind + "-queue")
+        lobby.add_argument("mode", choices=("check", "raid", "restore"))
     options = parser.parse_args()
     try:
         if options.action == "archive-check":
@@ -1038,6 +1134,9 @@ def main():
         if action == "status":
             status(host)
             return
+        if action == "queue" and options.mode == "check":
+            print(queue(host, options.mode))
+            return
         with host.locked():
             if action == "apply":
                 prior_index = options.prior_index_sha256 if kind == "stage" else LIVE_INDEX_SHA
@@ -1045,6 +1144,8 @@ def main():
                             options.bots, check_hash(prior_index), signature_landmarks=options.signature_landmarks))
             elif action == "rollback":
                 print(rollback(host))
+            elif action == "queue":
+                print(queue(host, options.mode))
             else:
                 print(fallback(host, options.mode))
     except FAILURES as error:
