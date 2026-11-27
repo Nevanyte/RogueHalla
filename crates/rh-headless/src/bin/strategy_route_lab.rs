@@ -101,7 +101,7 @@ fn main() {
                 balance_lab::match_setup(&opts, seed).expect("certified map");
             cfg.sim.tick_ms = 25;
             if arm.starts_with("focus-") {
-                cfg.sim.camp_buffs = rh_sim::CampBuffRule::ThemedFocus;
+                cfg.sim.camp_buffs = cfg.sim.camp_buffs.with_faction_focus();
             }
             let assignments = assign_seats(seed, agents.len());
             let cohort = (seed - 1) as usize;

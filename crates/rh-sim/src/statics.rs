@@ -565,6 +565,16 @@ pub enum CampBuffRule {
     ThemedFocus,
 }
 
+impl CampBuffRule {
+    /// Enable the optional faction reward on a themed board. Legacy camp allocation stays historical.
+    pub fn with_faction_focus(self) -> Self {
+        match self {
+            Self::Themed => Self::ThemedFocus,
+            other => other,
+        }
+    }
+}
+
 /// What `CampBuffRule::Themed` writes to a serializer that is not human-readable (the state hasher). JSON keeps
 /// `"themed"`.
 const CAMP_BUFFS_THEMED_TAG: &str = "camp_buffs=themed";
