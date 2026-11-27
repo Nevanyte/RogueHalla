@@ -24,7 +24,7 @@ SCORES = {"target": 1.0, "other": 0.0, "simultaneous": 0.5, "timeout": 0.5}
 
 def write_csv(path, rows):
     with path.open("w", newline="") as output:
-        writer = csv.DictWriter(output, fieldnames=rows[0])
+        writer = csv.DictWriter(output, fieldnames=rows[0], lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 

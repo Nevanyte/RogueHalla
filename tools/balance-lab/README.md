@@ -172,3 +172,24 @@ duel equivalence (P-BAL-LAB-2); their entries carry no number.
 To change one number, edit its line in `inputs.json`, keep the JSON valid, and run
 `cargo test -p rh-headless --test balance_inputs --test balance_eval`. The `balance_inputs` test tables pin each number
 exactly, so a design change edits both files in the same reviewed change.
+
+## Faction farming and fight timing
+
+The [raid routing and TTK report](../../docs/evidence/raid-routing-ttk/README.md) compares the ten authored builds against nearest-camp and random-nearby farming. Run from the project root. Each route seed reuses the map, focal seat, build and seven opposing RaidBots. The fourth arm runs the current unmodified RaidBot. The lab feature is enabled only for the route experiment.
+
+```sh
+mkdir -p .agent-runs/route-repro
+cargo build --locked --release -p rh-headless --features strategy-route-lab,elite-bench --bins
+target/release/strategy_route_lab 100 1 > .agent-runs/route-repro/primary.jsonl 2> .agent-runs/route-repro/results.jsonl
+target/release/strategy_route_lab 10 1 live > .agent-runs/route-repro/live.jsonl 2> .agent-runs/route-repro/live-results.jsonl
+target/release/strategy_route_lab 60 41 local-target > .agent-runs/route-repro/bounded.jsonl 2> .agent-runs/route-repro/bounded-results.jsonl
+cat .agent-runs/route-repro/primary.jsonl .agent-runs/route-repro/live.jsonl .agent-runs/route-repro/bounded.jsonl > .agent-runs/route-repro/snapshots.jsonl
+cat .agent-runs/route-repro/results.jsonl .agent-runs/route-repro/live-results.jsonl .agent-runs/route-repro/bounded-results.jsonl > .agent-runs/route-repro/resolutions.jsonl
+python3 tools/balance-lab/route_comparison.py .agent-runs/route-repro/snapshots.jsonl target/release/camp_bench .agent-runs/route-repro --resolutions .agent-runs/route-repro/resolutions.jsonl
+python3 tools/balance-lab/route_comparison.py .agent-runs/route-repro/snapshots.jsonl target/release/camp_bench .agent-runs/route-repro/bounded --target-arm local-target --resolutions .agent-runs/route-repro/resolutions.jsonl
+python3 tools/balance-lab/farm_stat_screen.py target/release/camp_bench .agent-runs/route-repro
+target/release/strategy_ttk --seeds 1..41 --out .agent-runs/route-repro/field
+python3 tools/balance-lab/field_ttk_report.py .agent-runs/route-repro .agent-runs/route-repro/field/field-ttk.json --chart
+```
+
+The farm comparison uses the same weapon and faction on both sides, runs each kit on both sides and records simultaneous kills and timeouts. The first comparison carries the mob stacks and credited camp clears actually earned by that raid minute. The second gives both kits the lower stack budget and clear count, retaining each route's stat proportions with largest-remainder rounding. Each exchange uses either attacks alone or attacks with the faction Wish. Both commander seats start with one zombie. The separate nine-stat screen exchanges the next twelve earned stacks for each alternative at two fixed baseline investments.
