@@ -162,3 +162,15 @@ fn warhorn_taunted_enemies_walk_to_and_attack_the_caster_who_gets_a_large_buff()
     assert!(taunt(&sim.w, b).is_none());
     assert!(!sim.player(b).unwrap().weapon.held);
 }
+
+#[test]
+fn a_warhorn_without_a_target_keeps_its_charge_and_ready_time() {
+    let mut sim = room_with([false; 3], 25);
+    let id = sim.players()[2].id;
+    let at = sim.player(id).unwrap().pos();
+    let ready = sim.w.server_time;
+    cast(&mut sim, id, Award::Warhorn, at, None);
+    let slot = inventory::owned_spells(&sim.w, id)[0].expect("Warhorn remains equipped");
+    assert_eq!(slot.charges, 1);
+    assert_eq!(slot.ready_at, ready);
+}

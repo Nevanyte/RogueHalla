@@ -227,18 +227,27 @@ impl Raid {
     }
 
     fn root_fixture_target(&mut self, id: PlayerId, by: PlayerId) {
-        use crate::status_runtime::{self, StatusApply, StatusKind, StatusSource};
+        self.fixture_status(id, by, crate::status_runtime::StatusKind::Root);
+    }
+
+    fn fixture_status(
+        &mut self,
+        id: PlayerId,
+        by: PlayerId,
+        kind: crate::status_runtime::StatusKind,
+    ) {
+        use crate::status_runtime::{self, StatusApply, StatusSource};
         let now = self.sim.w.server_time;
         let ix = self.sim.w.fighter_idx(id).unwrap();
         status_runtime::apply(
             &mut self.sim.w.core_mut(ix).statuses,
             now,
             StatusApply {
-                kind: StatusKind::Root,
+                kind,
                 source: StatusSource {
                     id: Some(by),
                     owner_id: Some(by),
-                    name: "Fixture root".into(),
+                    name: "Fixture status".into(),
                 },
                 ms: 2_000.,
                 ability: None,
@@ -516,6 +525,9 @@ impl Raid {
                 for i in 1..=3 {
                     self.action_near(3, i, i);
                     self.action_near(3, 0, 0);
+                    if i < 3 {
+                        assert!(!is_completed(&self.sim.w, self.seat, self.offer));
+                    }
                 }
             }
             BarrowRun | Watchtowers | PilgrimsPath => {
@@ -730,10 +742,10 @@ impl Raid {
                 TheBurningCrown => assert_eq!(p.farm.count(EmberImp), 1),
                 TheBargain => {
                     assert!(p.weapon.weapon1.is_none());
-                    assert_eq!(p.farm.count(EmberImp), 24);
+                    assert_eq!(p.farm.count(EmberImp), 11);
                 }
-                TradeUp => assert_eq!(p.farm.count(Penitent), 54),
-                FeedOrHunt => assert_eq!(p.farm.count(EmberImp), 6),
+                TradeUp => assert_eq!(p.farm.count(Penitent), 29),
+                FeedOrHunt => assert_eq!(p.farm.count(EmberImp), 12),
                 LetHimCook => {
                     assert!(rewards::permanent::chef_row(&self.sim.w, self.seat).is_some())
                 }
@@ -841,6 +853,6 @@ fn a_published_lifesteal_trade_can_be_submitted_and_settled() {
     assert!(is_completed(&raid.sim.w, raid.seat, raid.offer));
     let farm = &raid.sim.w.player(raid.seat).unwrap().farm;
     assert_eq!(farm.count(RotMonk), 0);
-    assert_eq!(farm.count(PlagueRat), previous + 24);
+    assert_eq!(farm.count(PlagueRat), previous + 11);
     assert!(!is_completed(&raid.sim.w, raid.witness, raid.offer));
 }

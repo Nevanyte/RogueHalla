@@ -24,7 +24,11 @@ namespace Roguehalla.Client
         public void Initialize(string pageUrl, string explicitApiBase = null)
         {
             if (Flow != null) throw new InvalidOperationException("The account coordinator is already initialized for this page.");
-            AccountEndpoint endpoint = AccountEndpoint.FromPage(pageUrl, explicitApiBase);
+            Initialize(AccountEndpoint.FromPage(pageUrl, explicitApiBase));
+        }
+
+        internal void Initialize(AccountEndpoint endpoint)
+        {
             var transport = GetComponent<UnityAccountTransport>();
             if (transport == null) transport = gameObject.AddComponent<UnityAccountTransport>();
             Initialize(endpoint, transport, new PlayerPrefsAccountCredentials());

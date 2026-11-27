@@ -13,7 +13,7 @@ pub(super) fn check_camp_buffs(k: &MatchStatic, w: &World) -> Result<(), String>
     match k.config.camp_buffs {
         crate::CampBuffRule::Legacy if buffs.is_empty() => Ok(()),
         crate::CampBuffRule::Legacy => Err("a Legacy camp buff rule carries no buff row".into()),
-        crate::CampBuffRule::Themed => {
+        crate::CampBuffRule::Themed | crate::CampBuffRule::ThemedFocus => {
             if buffs.len() != rt.camps.len() {
                 return Err(format!(
                     "{} camp buffs for {} camps: one per camp under Themed",

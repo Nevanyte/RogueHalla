@@ -103,7 +103,7 @@ impl Env {
         let mut arena = Arc::new(cfg.arena);
         // Source runs seat through Sim's ordinary lobby construction. Immediate
         // scenarios also need the final arena before deriving explicit spawns.
-        if cfg.sim.top25_quests
+        if cfg.sim.quest_board.enabled()
             && cfg.sim.quests
             && !cfg.sim.training
             && !matches!(cfg.sim.lifecycle, rh_sim::ArenaMode::Source(_))

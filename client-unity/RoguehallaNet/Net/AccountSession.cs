@@ -33,7 +33,7 @@ namespace Roguehalla.Net
         public OwnedAccount Current { get { lock (_lock) return _current; } }
         public AccountEndpoint Endpoint => _endpoint;
 
-        string CredentialKey(string normalizedName) => _endpoint.StorageScope + "\0" + normalizedName;
+        string CredentialKey(string normalizedName) => _endpoint.CredentialStorageScope + "\0" + normalizedName;
 
         /// <summary>Non-secret recovery status independent of the current menu selection. Page-only ownership cannot survive a reload.</summary>
         public AccountCredentialRecovery CredentialRecoveryFor(string name)
@@ -116,7 +116,7 @@ namespace Roguehalla.Net
                 string stored = null;
                 lock (_lock) if (_confirmed.TryGetValue(CredentialKey(name), out var recovered)) stored = recovered.Token;
                 if (stored == null)
-                    try { stored = _credentials.Read(_endpoint.StorageScope, name); } catch { /* Storage may be blocked. */ }
+                    try { stored = _credentials.Read(_endpoint.CredentialStorageScope, name); } catch { /* Storage may be blocked. */ }
                 if (!ValidToken(stored)) stored = null;
                 bool rejected;
                 lock (_lock) rejected = _rejected.Contains(name);
@@ -136,7 +136,7 @@ namespace Roguehalla.Net
                 var confirmed = new ConfirmedCredential { Token = reply.token };
                 lock (_lock) _confirmed[key] = confirmed;
                 bool saved = false;
-                try { saved = _credentials.WriteConfirmed(_endpoint.StorageScope, name, reply.token); } catch { /* Keep usable session ownership. */ }
+                try { saved = _credentials.WriteConfirmed(_endpoint.CredentialStorageScope, name, reply.token); } catch { /* Keep usable session ownership. */ }
                 lock (_lock) { confirmed.Persistent = saved; _rejected.Remove(name); }
                 return new AccountOpenResult(new OwnedAccount(reply, saved), AccountFailure.None);
             }

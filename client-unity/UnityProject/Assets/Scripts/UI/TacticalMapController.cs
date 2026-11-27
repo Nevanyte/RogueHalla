@@ -33,15 +33,11 @@ namespace Roguehalla.Client
         TacticalMapSurface _large, _mini;
         TacticalMapMarks _largeMarks, _miniMarks;
         QuestHandle? _trackedQuest;
-        TMP_Text _title, _status, _routeText, _contactsText;
-        readonly UnityEngine.UI.Button[] _spawns = new UnityEngine.UI.Button[2];
-        readonly UnityEngine.UI.Button[] _boons = new UnityEngine.UI.Button[2];
-        UnityEngine.UI.Button _ready;
+        TMP_Text _title, _routeText, _contactsText;
         readonly RouteState _route = new RouteState();
         readonly UiInputGate _mapKeys = new UiInputGate();
-        readonly PlanningSelections _selections = new PlanningSelections();
+        PlanningSelections _selections = new PlanningSelections();
         readonly MinimapGesture _miniGesture = new MinimapGesture();
-        readonly UnityEngine.UI.Button[] _spawnMarks = new UnityEngine.UI.Button[2];
         readonly List<InterpActor> _contacts = new List<InterpActor>();
         RoutePlanSnapshot _routePlan;
         IReadOnlyList<RoutePoint> _routePoints = Array.Empty<RoutePoint>();
@@ -50,6 +46,8 @@ namespace Roguehalla.Client
         int _lastContactsSnapshot = -1;
         WeaponCounterGuide _counterGuide;
         RectTransform _contactRail, _counterRail;
+        RectTransform _planningQuestBox;
+        TMP_Text _planningQuestsText;
         bool _routeStorageDirty;
         double _nextPaint, _nextPath;
         bool _largeFresh, _miniFresh;
@@ -68,7 +66,7 @@ namespace Roguehalla.Client
 
         RectTransform _stage, _titleRect, _frameRect, _legendRect, _keyRoot, _zoneLegend, _planBar, _questScroll, _contactScroll;
         Image _planBarFill;
-        TMP_Text _hint, _timer, _questsText, _inViewHeading, _questHeading, _planHeading;
+        TMP_Text _hint, _timer, _questsText, _inViewHeading, _questHeading;
         UnityEngine.UI.Button _close, _undo, _clear;
         readonly RectTransform[] _chips = new RectTransform[MapZones.Count + 1];
         readonly MinimapGesture _largeGesture = new MinimapGesture();
@@ -117,13 +115,6 @@ namespace Roguehalla.Client
             _large = mapRect.gameObject.AddComponent<TacticalMapSurface>(); _large.LayoutOwnsRect = true; _large.Initialize();
             _largeMarks = _large.GetComponentInChildren<TacticalMapMarks>(); _largeMarks.Large = true;
             _large.Pressed = LargePress; _large.Dragged = LargeDrag; _large.PointerReleased = LargeRelease; _large.Aborted = ReleaseLarge;
-            for (byte i = 0; i < 2; i++)
-            {
-                byte pick = i;
-                _spawnMarks[i] = HudUi.Button(_large.transform, "SpawnMarker" + i, (i + 1).ToString(), HudAnchor.Center, 0, 0, 52, 28, () => PickSpawn(pick), 12f);
-                _spawnMarks[i].gameObject.SetActive(false);
-            }
-
             // Zone legend under the map (Tab): icon + name per zone, so zones read without colour.
             _legendRect = HudUi.Box(_panel, "ZoneLegend", HudAnchor.TopLeft, 0, 0, 100, 30);
             _zoneLegend = _legendRect;
@@ -137,20 +128,18 @@ namespace Roguehalla.Client
                 _chips[r] = chip;
             }
 
-            _planningRail = HudUi.Box(_panel, "PlanningDecisions", HudAnchor.TopLeft, 0, 0, 340, 400);
-            HudUi.Surface(_planningRail, theme.Surface, theme.CornerRadiusLarge, theme.Border, true, true);
-            _ready = HudUi.Button(_planningRail, "Ready", "READY", HudAnchor.TopLeft, 12, 12, 316, 46, Ready, 14f);
-            _planHeading = HudUi.Label(_planningRail, "SpawnHeading", "CHOOSE YOUR SPAWN  ·  keys 1 / 2", 11f, theme.TextSecondary, TextAlignmentOptions.MidlineLeft);
-            for (int i = 0; i < 2; i++)
-            {
-                byte pick = (byte)i;
-                _spawns[i] = HudUi.Button(_planningRail, "Spawn" + i, (i + 1) + " · SPAWN", HudAnchor.TopLeft, 12, 0, 316, 56, () => PickSpawn(pick), 13f);
-                _boons[i] = HudUi.Button(_planningRail, "Boon" + i, "BOON", HudAnchor.TopLeft, 12, 0, 316, 40, () => PickBoon(pick), 12f);
-            }
+            BuildPlanningRail(theme);
+            _planningQuestBox = HudUi.Box(_panel, "PlanningQuests", HudAnchor.TopLeft, 0, 0, 260, 240);
+            HudUi.Surface(_planningQuestBox, theme.SurfaceRaised, theme.CornerRadiusSmall, theme.Border, false, false);
+            var planningQuestHeading = HudUi.Label(_planningQuestBox, "Heading", "KNOWN QUESTS", 11f, theme.Accent, TextAlignmentOptions.MidlineLeft, false, UiFontRole.Display);
+            HudUi.Place(planningQuestHeading.rectTransform, HudAnchor.TopLeft, 8f, 5f, 244f, 16f);
+            _planningQuestsText = MythicUi.ScrollText(_planningQuestBox, "QuestList", "Waiting for public quest list…", Vector2.zero, Vector2.one, 12.5f);
+            var planningQuestTextRect = (RectTransform)_planningQuestsText.transform.parent.parent;
+            planningQuestTextRect.anchorMin = Vector2.zero; planningQuestTextRect.anchorMax = Vector2.one;
+            planningQuestTextRect.offsetMin = new Vector2(8f, 6f); planningQuestTextRect.offsetMax = new Vector2(-8f, -24f);
             _routeText = HudUi.Label(_panel, "RouteSummary", "Click the map to add a route stop", 11f, theme.TextSecondary, TextAlignmentOptions.TopLeft, false, UiFontRole.Body, true);
             _undo = HudUi.Button(_panel, "UndoRoute", "Undo stop", HudAnchor.TopLeft, 0, 0, 100, 26, () => { _route.Undo(); _routeStorageDirty = true; _nextPath = 0; MarkNews(); }, 11f);
             _clear = HudUi.Button(_panel, "ClearRoute", "Clear route", HudAnchor.TopLeft, 0, 0, 100, 26, () => { _route.Clear(); _routeStorageDirty = true; _nextPath = 0; MarkNews(); }, 11f);
-            _status = HudUi.Label(_panel, "MapStatus", "", 12f, theme.TextSecondary, TextAlignmentOptions.TopLeft, false, UiFontRole.Body, true);
 
             // Tab columns: left = map key + contacts in view, right = weapon guide + quests/traders.
             _runRail = MythicUi.Rect(_panel, "TacticalInformation", Vector2.zero, Vector2.one);
@@ -257,10 +246,13 @@ namespace Roguehalla.Client
             SyncStage();
             var size = _stage != null ? _stage.sizeDelta : _panel.rect.size;
             if (size.x < 2f || size.y < 2f) size = new Vector2(1280f, 800f);
-            var mode = IsPlanning ? MapScreenMode.Planning : MapScreenMode.Tab; float ts = TextScale();
+            var plan = IsPlanning ? _bound.Collections.Plan : null;
+            var mode = plan != null ? MapScreenMode.Planning : MapScreenMode.Tab;
+            int choices = PlanningChoices(plan);
+            float ts = TextScale();
             float px = _panel.lossyScale.x;
-            if (!force && size == _layoutSize && mode == _layoutMode && Mathf.Approximately(ts, _layoutScale) && Mathf.Approximately(px, _layoutPx)) return;
-            _layoutSize = size; _layoutMode = mode; _layoutScale = ts; _layoutPx = px;
+            if (!force && size == _layoutSize && mode == _layoutMode && choices == _layoutChoices && Mathf.Approximately(ts, _layoutScale) && Mathf.Approximately(px, _layoutPx)) return;
+            _layoutSize = size; _layoutMode = mode; _layoutChoices = choices; _layoutScale = ts; _layoutPx = px;
             MarkNews();
             var L = _layout = MapScreenLayout.Compute(size.x, size.y, mode, ts);
             bool tab = mode == MapScreenMode.Tab;
@@ -275,7 +267,10 @@ namespace Roguehalla.Client
             _timer.gameObject.SetActive(!tab); _planBar.gameObject.SetActive(!tab);
             _planBar.sizeDelta = new Vector2(L.Title.W, 3f);
             if (!tab) { _hint.gameObject.SetActive(false); _phaseLabel.gameObject.SetActive(false); }
-            _zoneLegend.gameObject.SetActive(tab); _planningRail.gameObject.SetActive(!tab); _runRail.gameObject.SetActive(tab);
+            _zoneLegend.gameObject.SetActive(tab); _planningRail.gameObject.SetActive(!tab); _planningQuestBox.gameObject.SetActive(!tab); _runRail.gameObject.SetActive(tab);
+            var routeScale = _routeText.GetComponent<MythicTextScale>();
+            routeScale.BaseSize = tab ? 11f : 15f;
+            routeScale.Apply(ts);
             if (tab)
             {
                 Put(_legendRect, L.Legend);
@@ -320,31 +315,18 @@ namespace Roguehalla.Client
             }
             else
             {
-                float f = Mathf.Clamp(L.Right.H / 520f, .72f, 1f);
-                float y = 12f;
-                HudUi.Place(_ready.GetComponent<RectTransform>(), HudAnchor.TopLeft, 12f, y, 316f, 46f * f); y += 46f * f + 12f;
-                HudUi.Place(_planHeading.rectTransform, HudAnchor.TopLeft, 12f, y, 316f, 16f); y += 20f;
-                for (int i = 0; i < 2; i++) { HudUi.Place(_spawns[i].GetComponent<RectTransform>(), HudAnchor.TopLeft, 12f, y, 316f, 56f * f); y += 56f * f + 6f; }
-                y += 8f;
-                for (int i = 0; i < 2; i++) { HudUi.Place(_boons[i].GetComponent<RectTransform>(), HudAnchor.TopLeft, 12f, y, 316f, 40f * f); y += 40f * f + 6f; }
-                y += 10f;
-                float bw = 154f;
-                HudUi.Place(_undo.GetComponent<RectTransform>(), HudAnchor.TopLeft, L.Right.X + 12f, L.Right.Y + y, bw, 28f);
-                HudUi.Place(_clear.GetComponent<RectTransform>(), HudAnchor.TopLeft, L.Right.X + 12f + bw + 8f, L.Right.Y + y, bw, 28f);
-                y += 38f;
-                // The card hugs its content (legacy side column), never a tall empty panel.
-                float cardH = Mathf.Min(L.Right.H, y + 76f);
-                Put((RectTransform)_planningRail, new MapRect(L.Right.X, L.Right.Y, L.Right.W, cardH));
-                Put(_status.rectTransform, new MapRect(L.Right.X + 12f, L.Right.Y + y, 316f, Mathf.Max(30f, cardH - y - 10f)));
-                _status.gameObject.SetActive(true);
-                Put((RectTransform)_routeText.transform, L.Legend);
+                ApplyPlanningLayout(L, choices);
+                const float questHeight = 240f;
+                float height = Mathf.Min(questHeight, L.Left.H);
+                float top = L.Left.Y + (L.Left.H - height) / 2f;
+                Put(_planningQuestBox, new MapRect(L.Left.X, top, L.Left.W, height));
             }
         }
 
         public void Bind(Session session)
         {
             UnsubscribeMapFacts();
-            ReleaseTransient(); _selections.Update(null, false, Now * 1000); _bound = session; _storageKey = null; _routeStorageDirty = false; _route.Clear(); _route.SetStart(null);
+            ReleaseTransient(); _selections = new PlanningSelections(); _planTotalMs = 0d; _bound = session; _storageKey = null; _routeStorageDirty = false; _route.Clear(); _route.SetStart(null);
             MarkNews(); _lastContactsSnapshot = -1; _tacContactCount = _tacOfferCount = -1; _contacts.Clear(); _contactsText.text = "";
             if (_bound != null)
             {
@@ -497,8 +479,8 @@ namespace Roguehalla.Client
                 replanned = true;
                 _routePlan = _route.PlanAhead(_bound.TerrainMap, new RouteGeometry(Tile, _bound.OwnFoot, PreviewSpeed), plan == null && me != null ? new RoutePoint(me.X, me.Y) : _route.Start);
                 _routePoints = _routePlan.Points;
-                _routeText.text = (_route.Waypoints.Count - _route.NextIndex) + "/12 stops · " + (_routePlan.Start.HasValue ? _routePlan.EtaSeconds.ToString("0") + "s base-speed walk" : "choose a spawn for ETA") +
-                    (_routePlan.Unreachable.Count > 0 ? " · " + _routePlan.Unreachable.Count + " unreachable" : "") + "\nClick the map to add a stop.";
+                _routeText.text = (_route.Waypoints.Count - _route.NextIndex) + "/12 stops · " + (_routePlan.Start.HasValue ? _routePlan.EtaSeconds.ToString("0") + "s base-speed walk" : plan != null ? "ETA after spawn assignment" : "choose a spawn for ETA") +
+                    (_routePlan.Unreachable.Count > 0 ? " · " + _routePlan.Unreachable.Count + " unreachable" : "") + (plan != null ? "\nClick the map to add a private route stop." : "\nClick the map to add a stop.");
             }
             SaveRoute();
             if (IsOpen && !(news && _largeFresh && !replanned)) PresentLarge();
@@ -510,44 +492,26 @@ namespace Roguehalla.Client
             var point = gesture.Tick(Now * 1000);
             if (point.HasValue && !SubmitMapMove(point, true)) gesture.Unsend();
         }
-        void PresentPlan(PlanView plan)
+        internal static string PlanningQuestCopy(Roguehalla.Net.QuestView quests, MapBlob map)
         {
-            bool connected = _bound.State == SessionState.InMatch;
-            UpdateSelections();
-            double remainingMs = Math.Max(0d, plan.EndsAt - _bound.ServerTimeMs);
-            if (remainingMs > _planTotalMs) _planTotalMs = remainingMs;
-            _title.text = "PLAN YOUR RUN";
-            _timer.text = Math.Ceiling(remainingMs / 1000d) + "s";
-            _planBarFill.rectTransform.anchorMax = new Vector2(_planTotalMs > 0d ? (float)Math.Min(1d, remainingMs / _planTotalMs) : 0f, 1f);
-            for (byte i = 0; i < 2; i++)
+            if (quests == null || !quests.Available) return "Waiting for the public quest list…";
+            var copy = new StringBuilder();
+            foreach (var row in quests.Rows)
             {
-                var option = i == 0 ? plan.Option0 : plan.Option1;
-                bool taken = i == 0 ? plan.Taken0 : plan.Taken1;
-                var label = _spawns[i].GetComponentInChildren<TMP_Text>();
-                label.text = (i + 1) + " · SPAWN " + (i + 1) + (plan.Pick == i ? " · SELECTED" : taken ? " · TAKEN" : _selections.PendingSpawn == i ? " · PENDING" : "") +
-                    (option.HasValue ? "\n" + ShowcasePalette.GetFactionName(option.Value.Zone - 1) : "");
-                _spawnMarks[i].gameObject.SetActive(option.HasValue);
-                if (option.HasValue)
-                {
-                    var at = new Vector2(option.Value.X / (_bound.Map.W * Tile), 1 - option.Value.Y / (_bound.Map.H * Tile));
-                    var marker = (RectTransform)_spawnMarks[i].transform;
-                    marker.anchorMin = marker.anchorMax = at; marker.anchoredPosition = Vector2.zero;
-                    _spawnMarks[i].GetComponentInChildren<TMP_Text>().text = (i + 1) + (plan.Pick == i ? " [S]" : taken ? " [X]" : "");
-                }
-                _spawns[i].interactable = _selections.CanPickSpawn(i);
-                _spawnMarks[i].interactable = _spawns[i].interactable;
-                _boons[i].gameObject.SetActive(i < plan.Boons.Count);
-                if (i < plan.Boons.Count)
-                {
-                    _boons[i].GetComponentInChildren<TMP_Text>().text = plan.Boons[i] + (plan.Boon == i ? " · SELECTED" : _selections.PendingBoon == i ? " · PENDING" : "");
-                    _boons[i].interactable = _selections.CanPickBoon(i);
-                }
+                string name = string.IsNullOrWhiteSpace(row.Name) ? "Unnamed quest" : row.Name.Trim();
+                string zone = "";
+                int tx = map != null && map.W > 0 ? Mathf.FloorToInt((float)(row.GiverX / Tile)) : -1;
+                int ty = map != null && map.H > 0 ? Mathf.FloorToInt((float)(row.GiverY / Tile)) : -1;
+                if (map != null && map.Regions != null && map.Regions.Length == map.W * map.H && (uint)tx < (uint)map.W && (uint)ty < (uint)map.H)
+                    zone = MapZones.Name(map.Regions[ty * map.W + tx]);
+                copy.Append("• ").Append(name);
+                if (!string.IsNullOrEmpty(zone)) copy.Append("  ·  ").Append(zone);
+                copy.AppendLine();
             }
-            _ready.GetComponentInChildren<TMP_Text>().text = plan.Ready ? "READY · CONFIRMED" : _selections.PendingReady ? "READY · PENDING" : connected ? "READY" : "RECONNECTING";
-            _ready.interactable = _selections.CanReady;
-            var picked = plan.Pick == 0 ? plan.Option0 : plan.Pick == 1 ? plan.Option1 : null;
-            if (picked.HasValue) _route.SetStart(new RoutePoint(picked.Value.X, picked.Value.Y));
-            _status.text = !string.IsNullOrEmpty(_selections.Feedback) ? _selections.Feedback : connected ? "Choose spawn + boon, then Ready · your route stays private." : "Reconnecting · wait for the server plan.";
+            if (quests.Rows.Count == 0) copy.AppendLine("No quests are public yet.");
+            if (quests.UnknownCount > 0) copy.Append(quests.UnknownCount).Append(" more revealed at raid start");
+            else if (quests.Rows.Count == 0) copy.Append("The public list will appear when received.");
+            return copy.ToString().TrimEnd();
         }
         /// <summary>The zone chip of the region under the player gets the gold frame.</summary>
         void RefreshOwnZone()

@@ -1,0 +1,133 @@
+reward,title,baseline,alternative,build_n,combat_seeds,seat_exchanges,point_score,mean_hp_margin_pct,reward_uses,timeouts,simultaneous
+bastion,Bastion,72,no_extra_farm,10,3,60,0.85,3.386853627938016,0,0,12
+bastion,Bastion,72,one_preferred_camp,10,3,60,0.0,-15.640430602765843,0,0,0
+bastion,Bastion,180,no_extra_farm,10,3,60,0.9,3.3490902239368876,0,0,6
+bastion,Bastion,180,one_preferred_camp,10,3,60,0.0,-12.279918278314533,0,0,0
+bestOffense,Best Offense,72,no_extra_farm,10,3,60,0.8,3.163965471074002,0,0,18
+bestOffense,Best Offense,72,one_preferred_camp,10,3,60,0.0,-16.158432310095634,0,0,0
+bestOffense,Best Offense,180,no_extra_farm,10,3,60,0.9,3.3282382284892313,0,0,6
+bestOffense,Best Offense,180,one_preferred_camp,10,3,60,0.0,-12.723095926113789,0,0,0
+calluses,Calluses,72,no_extra_farm,10,3,60,0.8,3.163965471074002,0,0,18
+calluses,Calluses,72,one_preferred_camp,10,3,60,0.0,-16.158432310095634,0,0,0
+calluses,Calluses,180,no_extra_farm,10,3,60,0.9,3.3282382284892313,0,0,6
+calluses,Calluses,180,one_preferred_camp,10,3,60,0.0,-12.723095926113789,0,0,0
+committed,Committed,72,no_extra_farm,10,3,60,1.0,32.484945864618886,0,0,0
+committed,Committed,72,one_preferred_camp,10,3,60,1.0,21.451642979640834,0,0,0
+committed,Committed,180,no_extra_farm,10,3,60,1.0,31.231625252559464,0,0,0
+committed,Committed,180,one_preferred_camp,10,3,60,1.0,19.718337420625744,0,0,0
+corpseHoarder,Corpse Hoarder,72,no_extra_farm,2,3,12,1.0,5.345261551229365,0,0,0
+corpseHoarder,Corpse Hoarder,72,one_preferred_camp,2,3,12,0.0,-26.60003013895345,0,0,0
+corpseHoarder,Corpse Hoarder,180,no_extra_farm,2,3,12,0.75,4.090145068448375,0,0,0
+corpseHoarder,Corpse Hoarder,180,one_preferred_camp,2,3,12,0.0,-20.91540411779323,0,0,0
+eighthStrike,Eighth Strike,72,no_extra_farm,10,3,60,1.0,11.447368345553597,0,0,0
+eighthStrike,Eighth Strike,72,one_preferred_camp,10,3,60,0.1,-6.9019837812031595,0,0,0
+eighthStrike,Eighth Strike,180,no_extra_farm,10,3,60,1.0,9.82789340503716,0,0,0
+eighthStrike,Eighth Strike,180,one_preferred_camp,10,3,60,0.15,-3.994248051899956,0,0,6
+executionersLedger,Executioner's Ledger,72,no_extra_farm,10,3,60,0.8,3.163965471074002,0,0,18
+executionersLedger,Executioner's Ledger,72,one_preferred_camp,10,3,60,0.0,-16.158432310095634,0,0,0
+executionersLedger,Executioner's Ledger,180,no_extra_farm,10,3,60,0.9,3.3282382284892313,0,0,6
+executionersLedger,Executioner's Ledger,180,one_preferred_camp,10,3,60,0.0,-12.723095926113789,0,0,0
+eyeForAnEye,Eye for an Eye,72,no_extra_farm,10,3,60,0.9,4.756403786247147,0,0,12
+eyeForAnEye,Eye for an Eye,72,one_preferred_camp,10,3,60,0.0,-13.89831538976518,0,0,0
+eyeForAnEye,Eye for an Eye,180,no_extra_farm,10,3,60,0.95,5.31706330632076,0,0,0
+eyeForAnEye,Eye for an Eye,180,one_preferred_camp,10,3,60,0.0,-10.509037795967847,0,0,0
+fistsOfFury,Fists of Fury,72,no_extra_farm,10,3,60,0.9,4.756403786247147,0,0,12
+fistsOfFury,Fists of Fury,72,one_preferred_camp,10,3,60,0.0,-13.89831538976518,0,0,0
+fistsOfFury,Fists of Fury,180,no_extra_farm,10,3,60,0.95,5.31706330632076,0,0,0
+fistsOfFury,Fists of Fury,180,one_preferred_camp,10,3,60,0.0,-10.509037795967847,0,0,0
+gambler,Gambler,72,no_extra_farm,10,3,60,0.9666666666666667,14.612164887896165,0,0,4
+gambler,Gambler,72,one_preferred_camp,10,3,60,0.21666666666666667,-5.769854640623847,0,0,6
+gambler,Gambler,180,no_extra_farm,10,3,60,0.875,8.628853780574214,0,0,7
+gambler,Gambler,180,one_preferred_camp,10,3,60,0.21666666666666667,-7.7254836782233145,0,0,10
+glacier,Glacier,72,no_extra_farm,2,3,12,0.5,0.0,0,0,12
+glacier,Glacier,72,one_preferred_camp,2,3,12,0.0,-16.37502553799805,0,0,0
+glacier,Glacier,180,no_extra_farm,2,3,12,1.0,2.268722941257789,0,0,0
+glacier,Glacier,180,one_preferred_camp,2,3,12,0.0,-4.308686185382262,0,0,0
+hazardWalker,Hazard Walker,72,no_extra_farm,10,3,60,0.8,3.163965471074002,0,0,18
+hazardWalker,Hazard Walker,72,one_preferred_camp,10,3,60,0.0,-16.158432310095634,0,0,0
+hazardWalker,Hazard Walker,180,no_extra_farm,10,3,60,0.9,3.3282382284892313,0,0,6
+hazardWalker,Hazard Walker,180,one_preferred_camp,10,3,60,0.0,-12.723095926113789,0,0,0
+hemorrhage,Hemorrhage,72,no_extra_farm,10,3,60,0.95,9.464067481176855,0,0,6
+hemorrhage,Hemorrhage,72,one_preferred_camp,10,3,60,0.0,-9.624078172079201,0,0,0
+hemorrhage,Hemorrhage,180,no_extra_farm,10,3,60,1.0,8.769964805072307,0,0,0
+hemorrhage,Hemorrhage,180,one_preferred_camp,10,3,60,0.1,-6.804789190037203,0,0,12
+hereComesTheBoom,Here Comes the Boom,72,no_extra_farm,10,3,60,0.2,-32.35869047029486,0,0,0
+hereComesTheBoom,Here Comes the Boom,72,one_preferred_camp,10,3,60,0.15,-44.42243841616043,0,0,6
+hereComesTheBoom,Here Comes the Boom,180,no_extra_farm,10,3,60,0.0,-36.94858181966079,0,0,0
+hereComesTheBoom,Here Comes the Boom,180,one_preferred_camp,10,3,60,0.0,-45.33171350862672,0,0,0
+machineGun,Machine Gun,72,no_extra_farm,10,3,60,1.0,45.723303598974155,0,0,0
+machineGun,Machine Gun,72,one_preferred_camp,10,3,60,1.0,35.42559975650591,0,0,0
+machineGun,Machine Gun,180,no_extra_farm,10,3,60,1.0,39.23153506529362,0,0,0
+machineGun,Machine Gun,180,one_preferred_camp,10,3,60,1.0,28.26156103069045,0,0,0
+markedMan,Marked Man,72,no_extra_farm,10,3,60,0.8,3.163965471074002,0,0,18
+markedMan,Marked Man,72,one_preferred_camp,10,3,60,0.0,-16.158432310095634,0,0,0
+markedMan,Marked Man,180,no_extra_farm,10,3,60,0.9,3.3282382284892313,0,0,6
+markedMan,Marked Man,180,one_preferred_camp,10,3,60,0.0,-12.723095926113789,0,0,0
+marksmansTally,Marksman's Tally,72,no_extra_farm,10,3,60,0.8,3.163965471074002,0,0,18
+marksmansTally,Marksman's Tally,72,one_preferred_camp,10,3,60,0.0,-16.158432310095634,0,0,0
+marksmansTally,Marksman's Tally,180,no_extra_farm,10,3,60,0.9,3.3282382284892313,0,0,6
+marksmansTally,Marksman's Tally,180,one_preferred_camp,10,3,60,0.0,-12.723095926113789,0,0,0
+overflow,Overflow,72,no_extra_farm,10,3,60,0.8,3.163965471074002,0,0,18
+overflow,Overflow,72,one_preferred_camp,10,3,60,0.0,-16.158432310095634,0,0,0
+overflow,Overflow,180,no_extra_farm,10,3,60,0.9,3.3286881827104517,0,0,6
+overflow,Overflow,180,one_preferred_camp,10,3,60,0.0,-12.71496560677476,0,0,0
+overkill,Overkill,72,no_extra_farm,10,3,60,0.9,4.659393654067849,0,0,12
+overkill,Overkill,72,one_preferred_camp,10,3,60,0.0,-13.944428002906905,0,0,0
+overkill,Overkill,180,no_extra_farm,10,3,60,0.95,5.308505935970339,0,0,0
+overkill,Overkill,180,one_preferred_camp,10,3,60,0.0,-10.525864669484536,0,0,0
+pathfinder,Pathfinder,72,no_extra_farm,10,3,60,0.8,3.163965471074002,0,0,18
+pathfinder,Pathfinder,72,one_preferred_camp,10,3,60,0.0,-16.158432310095634,0,0,0
+pathfinder,Pathfinder,180,no_extra_farm,10,3,60,0.9,3.3282382284892313,0,0,6
+pathfinder,Pathfinder,180,one_preferred_camp,10,3,60,0.0,-12.723095926113789,0,0,0
+plantYourFeet,Plant Your Feet,72,no_extra_farm,10,3,60,1.0,17.009058746238466,0,0,0
+plantYourFeet,Plant Your Feet,72,one_preferred_camp,10,3,60,0.45,0.1855803239253881,0,0,6
+plantYourFeet,Plant Your Feet,180,no_extra_farm,10,3,60,1.0,14.548032271569063,0,0,0
+plantYourFeet,Plant Your Feet,180,one_preferred_camp,10,3,60,0.55,0.9543777437079699,0,0,18
+pocketSand,Pocket Sand,72,no_extra_farm,10,3,60,0.8,3.163965471074002,0,0,18
+pocketSand,Pocket Sand,72,one_preferred_camp,10,3,60,0.0,-16.158432310095634,0,0,0
+pocketSand,Pocket Sand,180,no_extra_farm,10,3,60,0.9,3.3282382284892313,0,0,6
+pocketSand,Pocket Sand,180,one_preferred_camp,10,3,60,0.0,-12.723095926113789,0,0,0
+raceToZero,A Race to 0,72,no_extra_farm,10,3,60,0.95,3.8516411738922405,0,0,6
+raceToZero,A Race to 0,72,one_preferred_camp,10,3,60,0.1,-6.864681065145313,0,0,12
+raceToZero,A Race to 0,180,no_extra_farm,10,3,60,0.775,2.517130081705133,0,0,27
+raceToZero,A Race to 0,180,one_preferred_camp,10,3,60,0.15,-3.4069111574233295,0,0,18
+secondWind,Second Wind,72,no_extra_farm,10,3,60,1.0,28.89144195160206,0,0,0
+secondWind,Second Wind,72,one_preferred_camp,10,3,60,0.7,5.758999164069076,0,0,0
+secondWind,Second Wind,180,no_extra_farm,10,3,60,1.0,28.654348244450844,0,0,0
+secondWind,Second Wind,180,one_preferred_camp,10,3,60,0.8,9.151565812674493,0,0,0
+siphon,Siphon,72,no_extra_farm,10,3,60,0.9,11.050812892093562,0,0,12
+siphon,Siphon,72,one_preferred_camp,10,3,60,0.1,-9.324486876355977,0,0,0
+siphon,Siphon,180,no_extra_farm,10,3,60,1.0,11.516822172138863,0,0,0
+siphon,Siphon,180,one_preferred_camp,10,3,60,0.3,-5.456766782663587,0,0,6
+slowBurn,Slow Burn,72,no_extra_farm,10,3,60,0.6,-0.0347830618475365,0,0,24
+slowBurn,Slow Burn,72,one_preferred_camp,10,3,60,0.0,-18.183473864843773,0,0,0
+slowBurn,Slow Burn,180,no_extra_farm,10,3,60,0.6,0.22423644649425395,0,0,0
+slowBurn,Slow Burn,180,one_preferred_camp,10,3,60,0.0,-15.157572890034038,0,0,0
+spikedShell,Spiked Shell,72,no_extra_farm,10,3,60,0.9,7.0176851475913145,0,0,12
+spikedShell,Spiked Shell,72,one_preferred_camp,10,3,60,0.1,-10.587892883151552,0,0,0
+spikedShell,Spiked Shell,180,no_extra_farm,10,3,60,0.95,8.077425740486918,0,0,0
+spikedShell,Spiked Shell,180,one_preferred_camp,10,3,60,0.1,-3.7963901690861594,0,0,0
+stoked,Stoked,72,no_extra_farm,2,3,12,0.75,0.34561227031180175,0,0,6
+stoked,Stoked,72,one_preferred_camp,2,3,12,0.0,-5.7431583437291405,0,0,0
+stoked,Stoked,180,no_extra_farm,2,3,12,0.75,0.5206862442003011,0,0,6
+stoked,Stoked,180,one_preferred_camp,2,3,12,0.0,-4.887035294353347,0,0,0
+tankEngine,Tank Engine,72,no_extra_farm,10,3,60,0.95,6.320139270150657,0,0,6
+tankEngine,Tank Engine,72,one_preferred_camp,10,3,60,0.1,-12.213248677832247,0,0,0
+tankEngine,Tank Engine,180,no_extra_farm,10,3,60,0.95,6.665250335783938,0,0,0
+tankEngine,Tank Engine,180,one_preferred_camp,10,3,60,0.1,-9.878101421615222,0,0,0
+thirdTimesTheCharm,Third Time's the Charm,72,no_extra_farm,10,3,60,0.9,4.756403786247147,0,0,12
+thirdTimesTheCharm,Third Time's the Charm,72,one_preferred_camp,10,3,60,0.0,-13.89831538976518,0,0,0
+thirdTimesTheCharm,Third Time's the Charm,180,no_extra_farm,10,3,60,0.95,5.31706330632076,0,0,0
+thirdTimesTheCharm,Third Time's the Charm,180,one_preferred_camp,10,3,60,0.0,-10.509037795967847,0,0,0
+trophyHunter,Trophy Hunter,72,no_extra_farm,2,3,12,1.0,2.013649596318703,0,0,0
+trophyHunter,Trophy Hunter,72,one_preferred_camp,2,3,12,0.0,-10.272168932381742,0,0,0
+trophyHunter,Trophy Hunter,180,no_extra_farm,2,3,12,1.0,1.1248294093449864,0,0,0
+trophyHunter,Trophy Hunter,180,one_preferred_camp,2,3,12,0.0,-9.193244321964695,0,0,0
+wishEngine,Wish Engine,72,no_extra_farm,10,3,60,0.8,3.163965471074002,0,0,18
+wishEngine,Wish Engine,72,one_preferred_camp,10,3,60,0.0,-16.158432310095634,0,0,0
+wishEngine,Wish Engine,180,no_extra_farm,10,3,60,0.9,3.3282382284892313,0,0,6
+wishEngine,Wish Engine,180,one_preferred_camp,10,3,60,0.0,-12.723095926113789,0,0,0
+wishfulThinking,Wishful Thinking,72,no_extra_farm,10,3,60,0.9,4.756403786247147,0,0,12
+wishfulThinking,Wishful Thinking,72,one_preferred_camp,10,3,60,0.0,-13.89831538976518,0,0,0
+wishfulThinking,Wishful Thinking,180,no_extra_farm,10,3,60,0.95,5.31706330632076,0,0,0
+wishfulThinking,Wishful Thinking,180,one_preferred_camp,10,3,60,0.0,-10.509037795967847,0,0,0

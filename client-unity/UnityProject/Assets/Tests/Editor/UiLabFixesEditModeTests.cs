@@ -117,8 +117,6 @@ namespace Roguehalla.Client.Tests
         [Test] public void A_merchant_is_drawn_from_a_catalog_look_with_goods_and_the_shadow_pair_of_any_figure()
         {
             var catalog = Resources.Load<ShowcaseCatalog>("Showcase/Catalog"); Assert.IsNotNull(catalog);
-            Assert.AreNotEqual(WorldMarks.LookKey(TradeKind.Stats), WorldMarks.LookKey(TradeKind.Barter), "the two kinds do not share one body");
-            foreach (var kind in new[] { TradeKind.Stats, TradeKind.Barter }) Assert.IsNotNull(catalog.Find(WorldMarks.LookKey(kind)), "catalog look for " + kind);
             var root = new GameObject("marks");
             try
             {
@@ -128,7 +126,8 @@ namespace Roguehalla.Client.Tests
                 typeof(CollectionsView).GetMethod("Apply", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, new object[] { state });
                 marks.Update(view, null);
                 var figure = root.transform.Find("Trader/Trader figure").GetComponent<SpriteRenderer>();
-                Assert.AreNotEqual(ShowcaseIdentityAssets.GetFactionSilhouette(-1), figure.sprite, "a real figure, not the neutral silhouette");
+                Assert.AreSame(Resources.Load<Sprite>("StormInk/Actors/BarterMerchant"), figure.sprite);
+                Assert.AreSame(Resources.Load<Sprite>("StormInk/Props/TradeBarrel"), root.transform.Find("Trader/Trader goods").GetComponent<SpriteRenderer>().sprite);
                 Assert.IsTrue(root.transform.Find("Trader/Trader goods").GetComponent<SpriteRenderer>().enabled, "the stall's goods stand beside it");
                 Assert.IsTrue(root.transform.Find("Trader/Trader contact shadow").GetComponent<SpriteRenderer>().enabled, "shadowed like any figure");
                 Assert.AreEqual(1.2f, root.transform.Find("Trader").localScale.x, 1e-4f, "the observed actors' scale");

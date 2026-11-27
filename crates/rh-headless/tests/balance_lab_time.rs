@@ -614,6 +614,17 @@ fn the_real_report_holds_the_identities_between_seats_and_the_world() {
         n(&w["kill_secs"], "n"),
         "the camp fight seconds split into normal and elite without loss"
     );
+    let bands = w["normal_clear_secs_by_minute"]
+        .as_object()
+        .expect("raid time bands");
+    assert_eq!(
+        bands
+            .values()
+            .map(|v| v["samples"].as_array().unwrap().len() as u64)
+            .sum::<u64>(),
+        n(&w["kill_secs_normal"], "n"),
+        "every timed normal clear appears once in its raid band"
+    );
     let split = w["kill_secs_normal"]["sum"].as_f64().expect("sum")
         + w["kill_secs_elite"]["sum"].as_f64().expect("sum");
     assert!((split - w["kill_secs"]["sum"].as_f64().expect("sum")).abs() < 1e-6);

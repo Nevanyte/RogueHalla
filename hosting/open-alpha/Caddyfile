@@ -34,6 +34,31 @@
 		}
 		respond @invalid_visitor 400
 
+		@versioned_web path_regexp ^/alpha-web/[0-9a-f]{40}/(Build|TemplateData|StreamingAssets|Licenses)/.+$
+		handle @versioned_web {
+			route {
+				uri strip_prefix /alpha-web
+				root * {$RH_ALPHA_WEB_RELEASES:/var/empty}
+				@sidecar path_regexp \.(br|gz)$
+				respond @sidecar 404
+				@immutable {
+					method GET HEAD
+					file
+				}
+				header @immutable >Cache-Control "public, max-age=31536000, immutable"
+				header X-Content-Type-Options nosniff
+				@versioned_data path_regexp /Build/[^/]+\.data$
+				header @versioned_data Content-Type application/octet-stream
+				@versioned_wasm path_regexp /Build/[^/]+\.wasm$
+				header @versioned_wasm Content-Type application/wasm
+				file_server {
+					precompressed br gzip
+				}
+			}
+		}
+		@reserved_web path /alpha-web /alpha-web/*
+		respond @reserved_web 404
+
 		@source path /ws /info /ping /healthz /readyz /api /api/*
 		handle @source {
 			header >Cache-Control "no-store"

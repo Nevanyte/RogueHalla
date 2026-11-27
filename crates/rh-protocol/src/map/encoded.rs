@@ -9,6 +9,7 @@ pub struct EncodedMap {
     pub(super) h: u16,
     pub(super) layer_hash: u32,
     pub(super) semantic_hash: u32,
+    pub(super) anchor_count: usize,
     pub(super) body: Box<[u8]>,
 }
 impl EncodedMap {
@@ -91,8 +92,14 @@ impl EncodedMap {
             h,
             layer_hash: collision_hash,
             semantic_hash,
+            anchor_count: public.anchors.len(),
             body: out.finish().into_boxed_slice(),
         })
+    }
+
+    /// Number of zone landmarks in the validated Welcome prefix.
+    pub fn anchor_count(&self) -> usize {
+        self.anchor_count
     }
 
     pub fn static_bytes(&self) -> &[u8] {

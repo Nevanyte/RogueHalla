@@ -1,0 +1,5 @@
+[Unit]
+Description=RogueHalla services without direct instance metadata access
+
+[Slice]
+IPAddressDeny=169.254.169.254/32 fd00:ec2::254/128

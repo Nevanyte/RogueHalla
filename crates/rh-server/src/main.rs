@@ -8,8 +8,10 @@
 //!       [--control 127.0.0.1:7778] [--map parity/maps/seed1.map.json] [--max-rooms 16] [--fill-bots 8]
 //!       [--min-players 1] [--lobby-seconds 10] [--fill-seconds 3] [--lobby-timing legacy|matchmaking] [--bot-wait-seconds 13] [--auth dev|static:<file>]
 //!       [--database-url postgres://... [--instance-id id]]   (build with --features postgres)
+//!       [--alpha-metrics-dir <dir> --alpha-metrics-key-file <file>] [--alpha-replay-dir <dir>]
+//!       [--alpha-capture-recipient <age1...>]   (source-arena only, either stream opts in separately)
 //!       [--bot-learning off|single-writer]   (default off; single-writer needs PostgreSQL and its exclusive lease)
-//!       [--bot-brain off|full]   (default off: fill bots play HumanBot; full seats the ported Brain, HumanBot as its fallback)
+//!       [--bot-brain off|full|raid]   (HumanBot by default, or a budgeted BrainBot/RaidBot with HumanBot fallback)
 //!       [--new-profiles-per-hour 30] [--new-profiles-per-ip-per-hour 10] [--passcode-fails-per-minute 6]
 //!       [--passcode-fails-per-minute-all 40] [--shop-burst 6] [--shop-per-second 3]
 //!       [--lookup-burst 40] [--lookup-per-second 20] [--api-db-concurrency 6] [--api-timeout-secs 10]
@@ -99,6 +101,14 @@ async fn main() {
     let training = runtime
         .as_ref()
         .is_some_and(|p| p.profile == rh_server::runtime::Profile::Training);
+    let source_arena = runtime
+        .as_ref()
+        .is_some_and(|p| p.profile == rh_server::runtime::Profile::SourceArena);
+    let capture = rh_server::alpha_capture::CaptureOptions::from_args(&args, source_arena)
+        .unwrap_or_else(|e| {
+            eprintln!("[server] invalid alpha capture settings: {e}");
+            std::process::exit(2);
+        });
     let first_playable = first_playable_settings(&args).unwrap_or_else(|e| {
         eprintln!("[server] invalid first-playable settings: {e}");
         std::process::exit(2);
@@ -172,7 +182,8 @@ async fn main() {
             walk_hints: None,
             regen: false,
             quests: false,
-            top25_quests: false,
+            combat_pace: rh_sim::CombatPace::Legacy,
+            quest_board: rh_sim::statics::QuestBoard::Off,
             training: false,
             dummies: false,
             hazards: rh_sim::terrain::Mode::Off,
@@ -281,6 +292,7 @@ async fn main() {
         None => (Persistence::memory(), auth),
         Some(url) => durable(&url, &args).await,
     };
+    let capture = capture.start(!matches!(auth, Auth::Dev));
     if hosted.require_admit && matches!(auth, Auth::Dev) {
         // An admit names a callsign and authenticates nobody; with dev auth any client may claim an admitted seat.
         eprintln!(
@@ -377,7 +389,7 @@ async fn main() {
         eprintln!("[server] invalid lobby timing: {e}");
         std::process::exit(2);
     });
-    // P-BOT-BRAIN-LIVE-1: `--bot-brain full` seats the ported Brain (degraded fair profile) for fill bots; off by default.
+    // The alpha can explicitly select RaidBot or the ported Brain; both use the real fill-seat contract.
     bot_fill.brain = rh_server::bot_fill::bot_brain_flag(&args).unwrap_or_else(|e| {
         eprintln!("[server] invalid bot brain: {e}");
         std::process::exit(2);
@@ -469,6 +481,7 @@ async fn main() {
         Arc::new(auth),
         lifecycle.clone(),
     );
+    director.install_alpha_capture(capture);
     // The record caller and the next lobby's bias snapshot come from the live store (P-BOTS-5).
     #[cfg(feature = "postgres")]
     if let Some(live) = &learning {
@@ -551,7 +564,11 @@ async fn main() {
     tokio::spawn(async move {
         lc.terminated.notified().await;
         // Results still being written survive the shutdown (bounded: a dead database cannot hold the process forever).
-        if !writes.wait_for_writes(write_wait).await {
+        let (result_writes_done, ()) = tokio::join!(
+            writes.wait_for_writes(write_wait),
+            writes.flush_alpha_capture(),
+        );
+        if !result_writes_done {
             eprintln!("[server] exiting with result writes still pending");
         }
         let shutdown = || h2.graceful_shutdown(Some(HTTP_SHUTDOWN_GRACE));

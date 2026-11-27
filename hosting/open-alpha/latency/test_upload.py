@@ -1,0 +1,196 @@
+"""Verify the capture uploader's local validation and ciphertext upload contract offline."""
+
+import base64
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import unittest
+import sys
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
+
+UPLOADER = Path(__file__).resolve().with_name("upload-capture.sh")
+BROKER_SPEC = importlib.util.spec_from_file_location(
+    "broker", UPLOADER.with_name("broker-capture-credentials.py")
+)
+BROKER = importlib.util.module_from_spec(BROKER_SPEC)
+BROKER_SPEC.loader.exec_module(BROKER)
+ACCOUNT = "111111111111"
+REPLAY = f"replay-{'1' * 32}.json.age"
+METRICS = f"metrics-{'2' * 32}-5.json.age"
+ENVELOPE = b"age-encryption.org/v1\n-> X25519 " + b"A" * 43 + b"\nplaceholder-ciphertext"
+AWS_STUB = """#!/usr/bin/env python3
+import json
+import os
+from pathlib import Path
+import sys
+
+args = sys.argv[1:]
+Path(os.environ["AWS_SPY"]).write_text(json.dumps(args))
+key = args[args.index("--key") + 1]
+log = os.environ.get("AWS_CALL_LOG")
+if log:
+    with Path(log).open("a") as calls:
+        print(key, file=calls)
+if os.environ["AWS_OUTCOME"] == "precondition" or key.endswith(os.environ.get("AWS_FAIL_KEY", "missing")):
+    sys.exit(254)
+print("wrong-checksum" if os.environ["AWS_OUTCOME"] == "wrong"
+      else args[args.index("--checksum-sha256") + 1])
+"""
+
+
+class UploadContract(unittest.TestCase):
+    def setUp(self):
+        scratch = tempfile.TemporaryDirectory(prefix="rh-alpha-upload-")
+        self.addCleanup(scratch.cleanup)
+        self.scratch = Path(scratch.name)
+        aws = self.scratch / "aws"
+        aws.write_text(AWS_STUB)
+        aws.chmod(0o700)
+        self.spy = self.scratch / "aws-spy"
+        self.env = dict(os.environ, AWS_SPY=str(self.spy), AWS_PROFILE="test-role",
+                        PATH=f"{self.scratch}{os.pathsep}{os.environ['PATH']}")
+
+    def upload(self, artifact, environment="staging", outcome="ok"):
+        return subprocess.run(
+            [str(UPLOADER), "test-private-bucket", ACCOUNT, environment, str(artifact)],
+            capture_output=True, text=True, env=dict(self.env, AWS_OUTCOME=outcome),
+        )
+
+    def test_committed_captures_use_scoped_immutable_checked_put(self):
+        checksum = base64.b64encode(hashlib.sha256(ENVELOPE).digest()).decode()
+        for name, environment in ((REPLAY, "staging"), (METRICS, "live")):
+            artifact = self.scratch / name
+            artifact.write_bytes(ENVELOPE)
+            result = self.upload(artifact, environment)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, f"{checksum} {environment}/{name}\n")
+            args = json.loads(self.spy.read_text())
+            self.assertEqual(args[:4], ["--profile", "test-role", "s3api", "put-object"])
+            for flag, value in (
+                ("--region", "ca-west-1"), ("--expected-bucket-owner", ACCOUNT),
+                ("--key", f"{environment}/{name}"), ("--body", str(artifact)),
+                ("--if-none-match", "*"), ("--server-side-encryption", "AES256"),
+                ("--checksum-algorithm", "SHA256"), ("--checksum-sha256", checksum),
+            ):
+                self.assertEqual(args[args.index(flag) + 1], value)
+            self.assertEqual(artifact.read_bytes(), ENVELOPE)
+
+    def test_ignores_plaintext_uncommitted_symlink_and_unsupported_environment(self):
+        plaintext = self.scratch / REPLAY
+        plaintext.write_bytes(b'{"profileToken":"stub"}')
+        partial = self.scratch / f".{REPLAY}.partial"
+        partial.write_bytes(ENVELOPE)
+        symlink = self.scratch / METRICS
+        symlink.symlink_to(partial)
+        valid = self.scratch / REPLAY.replace("1", "3")
+        valid.write_bytes(ENVELOPE)
+        for artifact, environment in ((plaintext, "staging"), (partial, "staging"),
+                                      (symlink, "staging"), (valid, "unreviewed")):
+            self.assertEqual(self.upload(artifact, environment).returncode, 2)
+            self.assertFalse(self.spy.exists())
+
+    def test_periodic_sweep_resumes_without_losing_unconfirmed_objects(self):
+        replay, metrics, state = (self.scratch / name for name in ("replay", "metrics", "state"))
+        for directory in (replay, metrics, state):
+            directory.mkdir()
+        files = [replay / f"replay-{number:032x}.json.age" for number in range(1, 11)]
+        files.append(metrics / METRICS)
+        for file in files:
+            file.write_bytes(ENVELOPE)
+        (replay / f".{REPLAY}.partial").write_bytes(ENVELOPE)
+        call_log = self.scratch / "call-log"
+        env = dict(self.env, STATE_DIRECTORY=str(state), RH_CAPTURE_BUCKET="test-private-bucket",
+                   RH_CAPTURE_OWNER=ACCOUNT, AWS_CALL_LOG=str(call_log), AWS_OUTCOME="ok",
+                   AWS_FAIL_KEY=files[0].name)
+        command = [sys.executable, str(UPLOADER.with_name("sweep-capture.py")),
+                   "staging", str(replay), str(metrics)]
+
+        first_run = subprocess.run(command, capture_output=True, text=True, env=env)
+        self.assertEqual(first_run.returncode, 1, first_run.stderr)
+        self.assertIn("confirmed=7 unresolved=1 queued=4", first_run.stdout)
+        self.assertEqual(len(call_log.read_text().splitlines()), 8)
+        self.assertTrue(files[0].exists())
+        self.assertTrue(all(not file.exists() for file in files[1:8]))
+        self.assertTrue(all(file.exists() for file in files[8:]))
+
+        second_run = subprocess.run(command, capture_output=True, text=True, env=env)
+        self.assertEqual(second_run.returncode, 1, second_run.stderr)
+        self.assertIn("confirmed=3 unresolved=1 queued=1", second_run.stdout)
+        self.assertEqual(call_log.read_text().splitlines()[8:],
+                         [f"staging/{file.name}" for file in [*files[8:], files[0]]])
+        self.assertEqual(files[0].read_bytes(), ENVELOPE)
+        self.assertTrue((replay / f".{REPLAY}.partial").exists())
+        self.assertTrue(all(not file.exists() for file in files[1:]))
+
+    def test_ambiguous_or_wrong_receipt_preserves_local_ciphertext(self):
+        artifact = self.scratch / REPLAY
+        artifact.write_bytes(ENVELOPE)
+        for outcome in ("wrong", "precondition"):
+            result = self.upload(artifact, outcome=outcome)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertEqual(artifact.read_bytes(), ENVELOPE)
+
+
+class CredentialBrokerContract(unittest.TestCase):
+    def test_fixed_sts_session_and_private_atomically_published_credentials(self):
+        expiry = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+        role = f"arn:aws:iam::{ACCOUNT}:role/capture-staging"
+        credentials = dict(AccessKeyId="stub-key", SecretAccessKey="stub-secret",
+                           SessionToken="stub-token", Expiration=expiry)
+        reply = subprocess.CompletedProcess([], 0, json.dumps(credentials).encode())
+        with patch.object(BROKER.subprocess, "run", return_value=reply) as aws_call:
+            payload = BROKER.assume(Path("/vendor/aws"), "staging", role)
+        arguments = aws_call.call_args.args[0]
+        self.assertEqual(arguments[0:3], ["/vendor/aws", "sts", "assume-role"])
+        self.assertEqual(arguments[arguments.index("--role-arn") + 1], role)
+        self.assertEqual(arguments[arguments.index("--duration-seconds") + 1], "900")
+        self.assertEqual(aws_call.call_args.kwargs["env"]["AWS_CONFIG_FILE"], "/dev/null")
+        self.assertEqual(payload, dict(credentials, Version=1))
+
+        with tempfile.TemporaryDirectory() as scratch, patch.object(BROKER.os, "chown"), \
+                patch.object(BROKER.os, "fchown"):
+            root = Path(scratch)
+            BROKER.publish(root, "staging", 123, payload)
+            path = root / "staging" / "credential.json"
+            self.assertEqual(path.stat().st_mode & 0o777, 0o440)
+            self.assertEqual(path.parent.stat().st_mode & 0o777, 0o750)
+            self.assertEqual([p.name for p in path.parent.iterdir()], ["credential.json"])
+            self.assertEqual(json.loads(path.read_text()), payload)
+            self.assertFalse((root / "live").exists())
+
+    def test_staging_only_refresh_removes_stale_live_file_and_assumes_only_staging(self):
+        role = f"arn:aws:iam::{ACCOUNT}:role/capture-staging"
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            stale = root / "live" / "credential.json"
+            stale.parent.mkdir()
+            stale.write_text("stale-test-value")
+            with patch.object(BROKER, "CREDENTIALS", root), \
+                    patch.object(BROKER.os, "geteuid", return_value=0), \
+                    patch.object(BROKER, "configuration", return_value=(
+                        Path("/vendor/aws"), {"staging": (role, 123)}
+                    )), \
+                    patch.object(BROKER, "assume", return_value={"Version": 1}) as assume, \
+                    patch.object(BROKER, "publish") as publish:
+                self.assertEqual(BROKER.main(), 0)
+            self.assertFalse(stale.exists())
+            assume.assert_called_once_with(Path("/vendor/aws"), "staging", role)
+            publish.assert_called_once_with(root, "staging", 123, {"Version": 1})
+
+    def test_rejects_overlong_sts_session(self):
+        expiry = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        reply = subprocess.CompletedProcess([], 0, json.dumps({"Expiration": expiry}).encode())
+        with patch.object(BROKER.subprocess, "run", return_value=reply):
+            with self.assertRaisesRegex(ValueError, "invalid STS expiry"):
+                BROKER.assume(Path("/vendor/aws"), "staging",
+                              f"arn:aws:iam::{ACCOUNT}:role/capture-staging")
+
+
+if __name__ == "__main__":
+    unittest.main()

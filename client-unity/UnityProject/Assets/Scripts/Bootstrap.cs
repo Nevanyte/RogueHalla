@@ -1,6 +1,6 @@
 // Builds the scene from code so the project needs no authored scene content: it runs
-// in any (even empty) scene. Optional operator targets: ?server=wss://host/arena/ws&trainingServer=wss://host/training/ws
-// Both owned targets must share the configured account API origin. Mode is never encoded in Hello.
+// in any (even empty) scene. Managed Web releases use pinned routes. Development pages may
+// supply ?server=wss://host/arena/ws&trainingServer=wss://host/training/ws on their configured account origin.
 using System;
 using UnityEngine;
 using Roguehalla.Net;
@@ -17,7 +17,9 @@ namespace Roguehalla.Client
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")] static extern string RhPage_GetSearch();
+        [DllImport("__Internal")] static extern int RhPage_UseSplitBackend();
         static string Search() { return RhPage_GetSearch(); }
+        static bool UseSplitBackend() => RhPage_UseSplitBackend() == 1;
 #elif UNITY_EDITOR
         static string Search()
         {
@@ -27,6 +29,9 @@ namespace Roguehalla.Client
         }
 #else
         static string Search() { return ""; }
+#endif
+#if !UNITY_WEBGL || UNITY_EDITOR
+        static bool UseSplitBackend() => false;
 #endif
 
         public static string Query(string search, string key, string fallback)
@@ -94,12 +99,8 @@ namespace Roguehalla.Client
             mc.Arena = arena;
             mc.Cam = cam;
             go.AddComponent<ShowcaseSoundscape>().Initialize(mc);
-            mc.PageUrl = Uri.TryCreate(Application.absoluteURL, UriKind.Absolute, out var pageUri) ? pageUri.GetLeftPart(UriPartial.Path) : "";
-            string defaultWs = DefaultUrl;
-            try { defaultWs = AccountConnectionPolicy.DefaultMatchUrl(mc.PageUrl); } catch (ArgumentException) { }
-            mc.Url = Query(s, "server", defaultWs);
-            mc.TrainingUrl = Query(s, "trainingServer", "");
-            mc.AccountApi = Query(s, "accountApi", Application.isEditor ? "http://127.0.0.1:7777/api" : "");
+            Uri.TryCreate(Application.absoluteURL, UriKind.Absolute, out var pageUri);
+            ConfigureNetwork(mc, pageUri?.GetLeftPart(UriPartial.Path) ?? "", s, UseSplitBackend());
             mc.Profile = Query(s, "profile", PlayerPrefs.GetString("rh.ui.profile", ""));
             mc.DiagnosticRequested = Query(s, "diagnostic", "0") == "1";
             // Diagnostics only: ?pausepredict=0 turns the attack pause mirror off on a loopback page (including the practice page, which is
@@ -113,6 +114,25 @@ namespace Roguehalla.Client
             mc.AutoJoin = mc.IsDiagnostic && Query(s, "auto", "1") == "1";
             // Diagnostics only: a loopback page may ask for the read-only state mirror the UI scenario harness steers by.
             if (Query(s, "scenario.probe", "0") == "1" && pageUri != null && pageUri.IsLoopback) go.AddComponent<ScenarioProbe>().Initialize(mc);
+        }
+
+        static void ConfigureNetwork(MatchClient client, string pageUrl, string search, bool splitBackend)
+        {
+            client.PageUrl = pageUrl;
+            client.SplitHostedBackend = splitBackend;
+            if (AccountConnectionPolicy.TryGetHostedRoute(pageUrl, splitBackend, out _, out var hostedMatchUrl))
+            {
+                client.Url = hostedMatchUrl;
+                client.TrainingUrl = "";
+                client.AccountApi = "";
+                return;
+            }
+
+            string defaultWs = DefaultUrl;
+            try { defaultWs = AccountConnectionPolicy.DefaultMatchUrl(pageUrl); } catch (ArgumentException) { }
+            client.Url = Query(search, "server", defaultWs);
+            client.TrainingUrl = Query(search, "trainingServer", "");
+            client.AccountApi = Query(search, "accountApi", Application.isEditor ? "http://127.0.0.1:7777/api" : "");
         }
     }
 }

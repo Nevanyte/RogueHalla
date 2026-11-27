@@ -101,6 +101,7 @@ fn camp(index: u32, at: Vec2, zone: Zone, alive: u32) -> CampSeen {
         zone,
         elite_spot: -1,
         mob_type: 0,
+        reward_stat: None,
         elite: None,
         alive,
         state: 0,
@@ -574,9 +575,8 @@ fn bartered(acts: &[Act], target: u8) -> bool {
     })
 }
 
-/// RED on the base. Trade Up at progress 1, an idle five-member camp 256 u from the next trader: the seat barters (stage two)
-/// and the candidate is worth the next stage's share, 5.6 x 30/54 = 3.11 (within 2 %). Base: the camp's 0.36 outweighs the
-/// next stage's extra (1.87), the seat cashes out at 12 stacks, and the candidate is not that value either.
+/// An idle camp near the next trader still lets the bot barter at stage two.
+/// Its candidate is worth the next stage's share (within 2%).
 #[test]
 fn trade_up_goes_on_past_an_idle_camp_at_progress_one() {
     let (c, acts) = trade_up_scene(1, FactionId::Holy, true);
@@ -585,7 +585,8 @@ fn trade_up_goes_on_past_an_idle_camp_at_progress_one() {
         bartered(&acts, 1),
         "no barter sent with an idle camp near the trader: {acts:?}"
     );
-    let next_stage = Prices::LOCAL.reward_value("trade_up") * 30. / 54.;
+    let [_, second, third] = rh_sim::quests::public_rules().trade_up_stacks;
+    let next_stage = Prices::LOCAL.reward_value("trade_up") * second as f64 / third as f64;
     assert!(
         within(c.value, next_stage, 0.02),
         "going on is worth {} not the next stage's {next_stage}",
@@ -593,13 +594,13 @@ fn trade_up_goes_on_past_an_idle_camp_at_progress_one() {
     );
 }
 
-/// RED on the base (the whole route, 5.6, is the going-on value there). The same without any camp: the candidate is the
-/// next stage's worth, at progress 1 and at progress 2 (5.6 x 54/54 = 5.6 at the last stage), and the seat barters.
+/// Without a camp, the candidate is still worth the next stage at both progress 1 and 2.
 #[test]
 fn trade_up_going_on_is_worth_the_next_stage_not_the_whole_route() {
     let (c1, a1) = trade_up_scene(1, FactionId::Holy, false);
     assert!(bartered(&a1, 1), "{a1:?}");
-    let want1 = Prices::LOCAL.reward_value("trade_up") * 30. / 54.;
+    let [_, second, third] = rh_sim::quests::public_rules().trade_up_stacks;
+    let want1 = Prices::LOCAL.reward_value("trade_up") * second as f64 / third as f64;
     assert!(
         within(c1.value, want1, 0.02),
         "progress 1: {} vs {want1}",

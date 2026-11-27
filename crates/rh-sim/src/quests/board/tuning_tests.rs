@@ -174,6 +174,19 @@ fn every_field_sits_in_its_range() {
         0.5,
         "Chef's Kiss raises the lowest stat by 5-50%"
     );
+    range!(chef_bonus_cap, 0.10, 0.5, "Chef's Kiss has a bounded gain");
+    range!(
+        chef_move_share,
+        0.05,
+        0.3,
+        "Chef's Kiss has a separate movement scale"
+    );
+    range!(
+        chef_move_cap,
+        t.chef_move_share,
+        t.chef_bonus_cap,
+        "movement has a lower cap"
+    );
     range!(
         helm_bypass,
         0.05,
@@ -467,7 +480,10 @@ fn reward_text_numbers_match_tuning() {
         (
             LetHimCook,
             "reward",
-            format!("+{}% to your lowest stat", percent(t.chef_bonus_share)),
+            format!(
+                "+{}% to your least-grown stat, capped at {}% of its starting value. If it is move speed, gain +{}% capped at {}% of starting speed",
+                percent(t.chef_bonus_share), percent(t.chef_bonus_cap), percent(t.chef_move_share), percent(t.chef_move_cap),
+            ),
         ),
         (
             TuberEats,

@@ -10,6 +10,7 @@ namespace Roguehalla.Client
     {
         public string PageUrl = "", AccountApi = "", PendingSignInKey = "";
         public string TrainingUrl = "";
+        internal bool SplitHostedBackend { get; set; }
         public bool DiagnosticRequested;
         /// <summary>Loopback pages only (<c>?pausepredict=0</c>): the walk does not mirror the server attack pause.</summary>
         public bool PausePredictionOff;
@@ -25,11 +26,18 @@ namespace Roguehalla.Client
         public MatchLaunchMode SelectedLaunchMode { get; private set; } = MatchLaunchMode.Arena;
         public bool IsDiagnostic => AccountConnectionPolicy.AllowsDiagnostic(PageUrl, Url, DiagnosticRequested, Application.isEditor);
 
+        internal AccountEndpoint ResolveAccountEndpoint()
+        {
+            if (AccountConnectionPolicy.TryGetHostedRoute(PageUrl, SplitHostedBackend, out var endpoint, out _))
+                return endpoint ?? throw new ArgumentException("The managed game page requires its canonical HTTPS origin.");
+            return AccountEndpoint.FromPage(PageUrl, AccountApi);
+        }
+
         public MatchLaunchTarget LaunchTarget(MatchLaunchMode mode)
         {
             if (_launchEndpoint == null)
             {
-                try { _launchEndpoint = AccountEndpoint.FromPage(PageUrl, string.IsNullOrEmpty(AccountApi) ? null : AccountApi); }
+                try { _launchEndpoint = ResolveAccountEndpoint(); }
                 catch (ArgumentException) { }
             }
             if (_launchConfig == null || !ReferenceEquals(_configuredEndpoint, _launchEndpoint) || _configuredArena != Url || _configuredTraining != TrainingUrl)
@@ -66,9 +74,9 @@ namespace Roguehalla.Client
             if (IsDiagnostic) return;
             try
             {
-                _launchEndpoint = AccountEndpoint.FromPage(PageUrl, string.IsNullOrEmpty(AccountApi) ? null : AccountApi);
+                _launchEndpoint = ResolveAccountEndpoint();
                 AccountOwner = gameObject.AddComponent<AccountCoordinator>();
-                AccountOwner.Initialize(PageUrl, string.IsNullOrEmpty(AccountApi) ? null : AccountApi);
+                AccountOwner.Initialize(_launchEndpoint);
                 AccountFlow.SelectName(Profile);
             }
             catch (ArgumentException) { AccountUiError = "The account service address is not configured correctly."; }

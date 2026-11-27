@@ -17,6 +17,7 @@ namespace Roguehalla.Client
         readonly List<uint> _remove = new List<uint>();
         readonly List<OverheadElement> _barLayout = new List<OverheadElement>();
         readonly ShowcaseCatalog _catalog;
+        Sprite _questArchivist;
         int _stamp;
         const float ActorVisualScale = 1.2f;
         /// <summary>The faction footprint outline sits at this fraction of the sprite's half-size (FactionIndicators textures).</summary>
@@ -328,9 +329,16 @@ namespace Roguehalla.Client
                 a.Body.transform.localScale = new Vector3(mirror ? -height : height, height, height);
                 a.Body.transform.localPosition = new Vector3(Mathf.Sin(fallAngle * Mathf.Deg2Rad) * height * fall * .45f, paintedWand ? -.02f : paintedPox ? -.04f : .08f, 0);
             }
+            else if (neutral)
+            {
+                if (_questArchivist == null) _questArchivist = Resources.Load<Sprite>("StormInk/Actors/QuestArchivist");
+                a.Body.sprite = _questArchivist;
+                a.Body.transform.localScale = Vector3.one * 1.55f;
+                a.Body.transform.localPosition = new Vector3(0, .08f, 0);
+            }
             else
             {
-                a.Body.sprite = neutral ? ShowcaseIdentityAssets.GetFactionSilhouette(-1) : ShowcaseSprites.Get("rune");
+                a.Body.sprite = ShowcaseSprites.Get("rune");
                 a.Body.transform.localScale = new Vector3(.8f, 1.35f, 1);
                 a.Body.transform.localPosition = new Vector3(0, .55f, 0);
             }

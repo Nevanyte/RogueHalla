@@ -2,6 +2,7 @@ using System;
 using Roguehalla.Net.Ui;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Roguehalla.Client
@@ -18,6 +19,8 @@ namespace Roguehalla.Client
         // Panel metrics (HUD units).
         public const float PanelX = 12f, PanelY = 12f, PanelW = 330f, PanelH = 640f, Pad = 14f, Inner = PanelW - 2f * Pad;
         public const float Gutter = 12f, HeroH = 104f;
+        const float SplitPlayWidth = 190f;
+        internal const string FirstRunCallsignHint = "Choose a callsign.\nThen select Start Run.";
 
         public RectTransform Root { get; private set; }
         public RectTransform Stage { get; private set; }
@@ -145,7 +148,7 @@ namespace Roguehalla.Client
             for (int i = 0; i < 5; i++) { BuildHouseCard(theme, i, y + i * 52f); }
             y += 5 * 52f + 4f;
 
-            Play = LaunchUi.Button(Panel, "Join", Pad, y, 190f, 48f, LaunchUi.Look.Primary, () => { if (!_cancelMode) PlayRequested?.Invoke(); });
+            Play = LaunchUi.Button(Panel, "Join", Pad, y, SplitPlayWidth, 48f, LaunchUi.Look.Primary, () => { if (!_cancelMode) PlayRequested?.Invoke(); });
             _playIcon = LaunchUi.Icon(Play.transform, "PlayIcon", LaunchIcon.Play, 16f, 14f, 20f, theme.OutlineDark);
             PlayLabel = LaunchUi.Text(Play.transform, "Label", 44f, 0f, 140f, 48f, "START RUN", 17f, theme.OutlineDark, TextAlignmentOptions.MidlineLeft, true, UiFontRole.Display);
             PlayLabel.characterSpacing = 1.5f;
@@ -189,7 +192,11 @@ namespace Roguehalla.Client
             _recordCaption.characterSpacing = 1f;
             _recordBig = LaunchUi.Text(card, "RecordBalance", 10f, 18f, 130f, 34f, "", 28f, theme.Accent, TextAlignmentOptions.MidlineLeft, true, UiFontRole.Display);
             _recordSmall = LaunchUi.Text(card, "RecordDetail", 120f, 10f, Inner - 130f, 40f, "", 12f, theme.TextSecondary, TextAlignmentOptions.MidlineRight, false, UiFontRole.Body, true);
-            RecordText = LaunchUi.Text(card, "ProfileSummary", 10f, 4f, Inner - 20f, 48f, "", 12.5f, theme.TextSecondary, TextAlignmentOptions.MidlineLeft, false, UiFontRole.Body, true);
+            RecordText = LaunchUi.Text(card, "ProfileSummary", 10f, 2f, Inner - 20f, 52f, "", 19f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, false, UiFontRole.Body, true);
+            // Measure against the card's real text area; the shared label helper adds room for single-line overflow.
+            RecordText.rectTransform.offsetMin = RecordText.rectTransform.offsetMax = Vector2.zero;
+            // Even at the smallest HUD scale, keep the first instruction at readable body size.
+            RecordText.GetComponent<MythicTextScale>().MinSize = 15f / HudLayout.ScaleMin;
         }
 
         Button Pill(Transform parent, string name, float x, float y, float w, string label, LaunchIcon icon, Action click, float size = 12f)
@@ -250,13 +257,14 @@ namespace Roguehalla.Client
         {
             _recordBig.text = ""; _recordSmall.text = ""; _recordCaption.gameObject.SetActive(false);
             RecordText.text = hint;
+            RecordText.GetComponent<MythicTextScale>().Refit();
         }
 
         /// <summary>
         /// Start Run's state: a label and whether it is usable. While a launch is connecting the Training slot becomes a Cancel button
         /// (and stays clickable even though the rest of the menu is locked).
         /// </summary>
-        public void SetPlay(string label, bool interactable, bool connecting)
+        public void SetPlay(string label, bool interactable, bool connecting, bool trainingOffered = true, bool trainingReady = true)
         {
             if (PlayLabel.text != label) PlayLabel.text = label;
             Play.interactable = interactable && !connecting;
@@ -267,7 +275,21 @@ namespace Roguehalla.Client
             _cancelMode = connecting;
             string training = connecting ? "CANCEL" : "TRAINING";
             if (TrainingLabel.text != training) TrainingLabel.text = training;
+            Training.interactable = connecting || (trainingOffered && trainingReady);
             TrainingLabel.color = Training.interactable ? (Color)theme.TextPrimary : theme.TextSecondary;
+
+            bool secondaryVisible = connecting || trainingOffered;
+            if (Training.gameObject.activeSelf == secondaryVisible) return;
+            var events = EventSystem.current;
+            bool secondaryHadFocus = events != null && events.currentSelectedGameObject == Training.gameObject;
+            Training.gameObject.SetActive(secondaryVisible);
+            if (secondaryHadFocus && !secondaryVisible)
+                events.SetSelectedGameObject(Play.IsInteractable() ? Play.gameObject : null);
+            float playWidth = secondaryVisible ? SplitPlayWidth : Inner;
+            ((RectTransform)Play.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, playWidth);
+            float offset = (playWidth - SplitPlayWidth) * .5f;
+            _playIcon.rectTransform.anchoredPosition = new Vector2(16f + offset, -14f);
+            ((RectTransform)PlayLabel.transform.parent).anchoredPosition = new Vector2(44f + offset, 0f);
         }
 
         /// <summary>Shows one explanatory line under the actions: a status (account or launch problem) wins over the availability reason.</summary>

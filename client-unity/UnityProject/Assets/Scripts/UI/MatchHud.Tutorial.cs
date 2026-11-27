@@ -26,6 +26,7 @@ namespace Roguehalla.Client
             _tutView = gameObject.AddComponent<TutorialView>();
             _tutView.Initialize(_stage, _chromeStage, StartTutorialFromWelcome, SkipTutorialFromWelcome, SkipTutorial, CloseTutorialDone);
             _modernSettings.ReplayTutorialRequested += ReplayTutorial;
+            _modernSettings.SetReplayTutorialAvailable(CanLaunchTraining);
         }
 
         AccountFullProfile TutorialProfile { get { return _client?.AccountFlow?.Snapshot?.FullProfile; } }
@@ -79,14 +80,16 @@ namespace Roguehalla.Client
         void StartTutorialFromWelcome()
         {
             var profile = TutorialProfile;
-            _tutDismissedFor = profile?.Name;
-            if (TutorialMarkerRules.WelcomeAction(profile?.Tutorial, TutorialFlow.Version) == "Resume") _tutFlow.ResumeAt(profile.Tutorial.Step);
+            if (profile == null || !StartTraining()) return;
+            _tutDismissedFor = profile.Name;
+            if (TutorialMarkerRules.WelcomeAction(profile.Tutorial, TutorialFlow.Version) == "Resume") _tutFlow.ResumeAt(profile.Tutorial.Step);
             else _tutFlow.Restart();
-            if (TutorialMarkerRules.ShouldArm(StartTraining())) BeginTutorialRun();
+            BeginTutorialRun();
         }
 
         void SkipTutorialFromWelcome()
         {
+            if (!_tutView.WelcomeShown || !CanLaunchTraining) return;
             _tutDismissedFor = TutorialProfile?.Name;
             _tutFlow.Skip(); _tutArmed = false; SaveTutorial("skipped");
         }
@@ -99,9 +102,9 @@ namespace Roguehalla.Client
         /// <summary>Settings "Replay tutorial": start over and launch Training (or continue in the current practice session).</summary>
         void ReplayTutorial()
         {
+            if (!(TutorialMenuVisible ? StartTraining() : _client != null && _client.ConfirmedPractice)) return;
             _tutFlow.Restart(); _tutDoneDismissed = false;
-            bool launched = TutorialMenuVisible ? StartTraining() : _client != null && _client.ConfirmedPractice;
-            if (TutorialMarkerRules.ShouldArm(launched)) BeginTutorialRun();
+            BeginTutorialRun();
         }
 
         // Close only hides the Done card: never Skip, never save "skipped" (the stored "done" must survive).
@@ -149,8 +152,11 @@ namespace Roguehalla.Client
             TickFirstRunHint();
             if (_tutView == null) return;
             var profile = TutorialProfile;
+            bool practice = _client != null && _client.ConfirmedPractice;
+            bool canLaunch = CanLaunchTraining;
+            _modernSettings.SetReplayTutorialAvailable(practice || canLaunch);
             bool inMatch = _session != null && _session.State == SessionState.InMatch;
-            bool welcome = profile != null && !_tutArmed && _tutDismissedFor != profile.Name &&
+            bool welcome = canLaunch && profile != null && !_tutArmed && _tutDismissedFor != profile.Name &&
                 TutorialMarkerRules.WelcomeVisible(profile.TutorialDue, TutorialMenuVisible, false, inMatch);
             if (welcome != _tutView.WelcomeShown)
             {
@@ -160,7 +166,6 @@ namespace Roguehalla.Client
                     "\nNothing in Training is recorded. Press H anytime for controls; replay it from Settings.");
             }
 
-            bool practice = _client != null && _client.ConfirmedPractice;
             if (!practice) _tutDoneDismissed = true; // practice ended: the Done card is gone until a restart
             bool card = TutorialMarkerRules.CardVisible(practice, _trainingWindowFocused,
                 TrainingHigherPanelVisible, _tutArmed && _tutFlow.Running);

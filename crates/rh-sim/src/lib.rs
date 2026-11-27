@@ -92,7 +92,9 @@ pub mod terrain;
 pub mod traders;
 #[cfg(feature = "trusted-build-setup")]
 pub mod trusted_build;
-pub use statics::{AugmentRule, CampBuffRule, EliteRule, FactionMode, FrostWish, RegenInCombat};
+pub use statics::{
+    AugmentRule, CampBuffRule, CombatPace, EliteRule, FactionMode, FrostWish, RegenInCombat,
+};
 pub use store::{EntityId, Store};
 
 pub use systems::signatures::LandedHit;

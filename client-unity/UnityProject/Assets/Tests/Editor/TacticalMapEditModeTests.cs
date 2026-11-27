@@ -63,6 +63,51 @@ namespace Roguehalla.Client.Tests
             Assert.AreEqual(0, MinimapMarks().ContactCount, "the minimap must use the same current delivered contact set");
         }
 
+        [TestCase(800f, 900f)]
+        [TestCase(1280f, 720f)]
+        [TestCase(1440f, 900f)]
+        public void PlanningScreenListsFivePublicQuestsAndKeepsFiveUnknownUntilRaidStart(float width, float height)
+        {
+            CreateController(_session);
+            ((RectTransform)_uiRoot.transform).sizeDelta = new Vector2(width, height);
+            var known = new[] { "Ashen Oath", "Broken Crown", "Cypress Debt", "Frostbound Key", "Last Benediction" };
+            var rows = new WireQuestRow[known.Length];
+            for (int i = 0; i < rows.Length; i++)
+                rows[i] = new WireQuestRow { Handle = new QuestHandle((uint)(i + 1)), Def = "fixture-" + i,
+                    State = QuestRowState.Preview, Name = known[i], GiverLabel = "Keeper", Brief = "Brief", Objective = "Objective",
+                    Reward = "Reward", CanAccept = false };
+            var quests = new QuestsState { Available = true, View = new WireQuestView { UnknownCount = 5, Rows = rows } };
+            _transport.Deliver(new ServerMsg.Snapshot { Tick = 1, ServerTimeOverrideMs = 100, Phase = (byte)MatchPhase.Planning,
+                Me = new WireSelf { Id = 1, X = 32, Y = 32, Hp = 100, MaxHp = 100, Status = 1, Weapon = 0 } });
+            _transport.Deliver(new ServerMsg.State { Tick = 1, Items = new StateItem[] {
+                new PlanState { Value = new WirePlan { EndsAt = 45000, Spawn0 = 0, Spawn1 = 1,
+                    Boons = new[] { "First boon", "Second boon" },
+                    Option0 = new WirePlanOption { Index = 0, X = 32, Y = 32, Zone = 1 },
+                    Option1 = new WirePlanOption { Index = 1, X = 64, Y = 64, Zone = 2 } } }, quests } });
+            _controller.Tick();
+
+            var text = _uiRoot.transform.Find("TacticalMap/PlanningQuests/QuestList/Viewport/Content")
+                .GetComponent<TMPro.TMP_Text>().text;
+            foreach (string name in known) StringAssert.Contains(name, text);
+            StringAssert.Contains("5 more revealed at raid start", text);
+            StringAssert.DoesNotContain("Hidden", text);
+            Canvas.ForceUpdateCanvases();
+            var textNode = _uiRoot.transform.Find("TacticalMap/PlanningQuests/QuestList/Viewport/Content").GetComponent<TMPro.TMP_Text>();
+            var viewport = (RectTransform)textNode.transform.parent;
+            var questPanel = (RectTransform)_uiRoot.transform.Find("TacticalMap/PlanningQuests");
+            var decisions = (RectTransform)_uiRoot.transform.Find("TacticalMap/PlanningDecisions");
+            var status = _uiRoot.transform.Find("TacticalMap/MapStatus").GetComponent<TMPro.TMP_Text>();
+            StringAssert.Contains("Choose a spawn", status.text);
+            var questCorners = new Vector3[4];
+            var decisionCorners = new Vector3[4];
+            questPanel.GetWorldCorners(questCorners);
+            decisions.GetWorldCorners(decisionCorners);
+            Assert.That(questCorners[2].x, Is.LessThan(decisionCorners[0].x),
+                "the quest board and the planning decisions must remain separately usable");
+            Assert.That(textNode.preferredHeight, Is.LessThanOrEqualTo(viewport.rect.height + .5f),
+                "all five names and the raid-start count fit without clipping in the ordinary planning layout");
+        }
+
         [Test]
         public void DisconnectAndRebindClearMarksAndRefreshSingleObservedContactRail()
         {
@@ -144,6 +189,22 @@ namespace Roguehalla.Client.Tests
             var mesh = canvasRenderer.GetMesh();
             Assert.IsNotNull(mesh);
             Assert.Greater(mesh.vertexCount, 0, "the delivered contact must produce renderable vertices");
+        }
+
+        [Test]
+        public void PlanWithoutABoonOffersOnlyActionsThisPlayerCanTake()
+        {
+            CreateController(_session);
+            _transport.Deliver(new ServerMsg.Snapshot { Tick = 1, Phase = 3 });
+            _transport.Deliver(new ServerMsg.State { Tick = 1, Items = new StateItem[] {
+                new PlanState { Value = new WirePlan { EndsAt = 45000, Spawn0 = 0, Spawn1 = 1,
+                    Option0 = new WirePlanOption { Index = 0, X = 16, Y = 16, Zone = 1 },
+                    Option1 = new WirePlanOption { Index = 1, X = 48, Y = 48, Zone = 2 } } }
+            } });
+            _controller.Tick();
+            string guidance = _uiRoot.transform.Find("TacticalMap/MapStatus").GetComponent<TMPro.TMP_Text>().text.ToLowerInvariant();
+            StringAssert.Contains("spawn", guidance);
+            StringAssert.DoesNotContain("boon", guidance, "This server offered no boon in the player's plan.");
         }
 
         void CreateController(Session session)

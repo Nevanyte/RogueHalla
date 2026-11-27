@@ -81,11 +81,8 @@ async fn public_quest_frame_keeps_zero_charge_spell_and_drop_reacquire_valid() {
         "fixed seed board during planning",
         |room, a, b| {
             room.sim().phase() == Phase::Planning
-                && a.board.rows.len() == 10
-                && b.board.rows.len() == 10
-                && quest_row(a, "ember_walk").is_some()
-                && quest_row(a, "two_banners").is_some()
-                && quest_row(a, "barrow_run").is_some()
+                && a.board.rows.len() == 5
+                && b.board.rows.len() == 5
         },
     );
     until(
@@ -94,7 +91,12 @@ async fn public_quest_frame_keeps_zero_charge_spell_and_drop_reacquire_valid() {
         &mut b,
         80,
         "raid must start",
-        |room, _, _| room.sim().phase() == Phase::Active,
+        |room, a, _| {
+            room.sim().phase() == Phase::Active
+                && quest_row(a, "ember_walk").is_some()
+                && quest_row(a, "two_banners").is_some()
+                && quest_row(a, "barrow_run").is_some()
+        },
     );
 
     // Complete Ember Walk from the public objective markers and current public action choices.
@@ -245,6 +247,15 @@ async fn public_quest_frame_keeps_zero_charge_spell_and_drop_reacquire_valid() {
                 action.quest == barrow_handle && action.action == 8 && action.target == 0
             })
         },
+    );
+    // Give Warhorn a visible enemy at the turn-in before starting the shield cooldown.
+    // Both seats travel using the same encoded movement input as a player.
+    move_a_to(
+        &mut room,
+        &mut b,
+        &mut a,
+        barrow_giver,
+        "bring the other seat into Warhorn range",
     );
     let shield = a
         .board

@@ -1,0 +1,18 @@
+# Alpha gameplay and balance hand-off
+
+| Packet field | Result |
+|---|---|
+| PACKET | P-ALPHA-BALANCE-TARGETS-1, Phase 2 item 11. The [packet](../../backlog/packets/P-ALPHA-BALANCE-TARGETS-1.md) records the owner's requested targets and test cohorts. |
+| BRANCH | `codex/alpha-gameplay-restoration`, full validation revision `f72822473`. The release uses content `cb811d19ebed6dfe`, protocol 24. |
+| GATE | PASS (full), including both PostgreSQL suites, C#, Rust, JavaScript and 2,846/2,846 Unity EditMode tests. The legacy report matched 109 compared scenarios and 300 pathfinding queries and listed 13 capture-only scenarios. The ordinary Unity Web build and staged and final Chromium runs passed separately. Full gate log: `.agent-runs/gate/20261127T002139-codex-alpha-gameplay-restoration-full.log`. The platform-specific witness captures, Valgrind performance proof and cross-architecture run are CI-only. |
+| CHANGED | Authoritative elite defenses, quest prices, grant rules, quest and policy assertions, player-visible reward descriptions, six generated content-identity copies, offline camp, PvP, farm and quest observers, and their evidence. For the exact 196-file measurement and implementation diff, run `git diff --name-only d09cca6fc f72822473`. The earlier [quest](../../backlog/packets/P-ALPHA-QUEST-RESTORE-1.md) and [zone art](../../backlog/packets/P-ALPHA-ZONE-ART-1.md) packets describe the visual restoration already present in this branch. |
+| D-RULES | D1 uses legacy code and retained captures for existing mechanics, with the owner's intentional price and pacing differences recorded. D2 uses same-gear 40 Hz duels, 800 post-opening elite pairs, actual input-route trials and matched full rooms. D5 covers an actual Unity browser planning and raid start and full headless room completions. D6 browser probes logged their normal client close. D9 keeps outcomes in Rust and displays server-reported rules in Unity. |
+| DEVIATIONS | [DEV-043](../../DEVIATIONS.md) lists the selected elite defense and quest price changes. |
+| SHARED RECORDS | Proposed coordinator checkpoint for `docs/MIGRATION.md` with the branch revision, gate verdict, preview identity and links to this report. |
+| LEGACY DOUBTS | The old one-stack and current three-stack ordinary camp rewards price routes differently. This comparison uses the actual three-stack payouts, observed outside-quest clear rates and native accepted inputs. |
+| NOT ESTABLISHED | Typical healthy human PvP time, a 25–50% premium for every build and quest, or the public host's bot flags. The public server exposes its content identity. The nine quests beyond the stock bot objective set have fewer natural-play cost observations. |
+| RISKS | One field Plague bow killed a full-health shield user in 4.35 s. Uncontested stat routes overshot the premium for Plague, Frost and Holy. Long Feed or Hunt trips paid below the target. Late farm-kit duels had only eight surviving pairs at minute twenty. |
+
+[Playable local preview](http://localhost:8888/) · [Browser and build verification](local-preview/README.md) · [Balance results](README.md)
+
+The supplemental release checks passed 881 active policy tests, three server Top 25 playthrough tests and 68 balance-lab tests. Four existing tests in the policy suite were ignored. All three normal-room survival checks and the real elite-to-chest checks passed on the selected content. After the full-gate revision, a reporting change standardized CSV newlines. The four affected tables retain their numerical values and both generated quest count tables reproduced byte for byte. The local working tree passed the range-wide whitespace check.

@@ -197,14 +197,36 @@ namespace Roguehalla.Client
             }
         }
 
-        /// <summary>Whether the arena stairs and the training door can be used, with the reason shown when they cannot.</summary>
-        public void SetPlayAvailable(bool arena, string arenaReason, string arenaHint, bool training, string trainingReason, string trainingHint)
+        /// <summary>Whether the arena stairs and the offered training door can be used, with the reason shown when they cannot.</summary>
+        public void SetPlayAvailable(bool arena, string arenaReason, string arenaHint, bool training, string trainingReason, string trainingHint, bool trainingOffered = true)
         {
             foreach (var s in _stations)
             {
                 if (s.Kind == Kind.Arena) { s.Available = arena; s.Reason = arenaReason ?? ""; s.OffHint = arenaHint; RefreshStation(s); }
-                else if (s.Kind == Kind.Training) { s.Available = training; s.Reason = trainingReason ?? ""; s.OffHint = trainingHint; RefreshStation(s); }
+                else if (s.Kind == Kind.Training)
+                {
+                    SetTrainingVisible(s, trainingOffered);
+                    s.Available = training && trainingOffered;
+                    s.Reason = trainingReason ?? "";
+                    s.OffHint = trainingHint;
+                    if (trainingOffered) RefreshStation(s);
+                }
             }
+        }
+
+        void SetTrainingVisible(Station station, bool visible)
+        {
+            var control = station.Button.gameObject;
+            if (control.activeSelf == visible) return;
+            if (!visible)
+            {
+                if (_walkTarget == station || Nearest() == station) SetPrompt(DefaultHint);
+                if (_walkTarget == station) _walkTarget = null;
+                var events = EventSystem.current;
+                if (events != null && events.currentSelectedGameObject == control) events.SetSelectedGameObject(null);
+            }
+            control.SetActive(visible);
+            if (visible) { Settle(); UpdateAvatar(); }
         }
 
         public void SetFaction(int faction)
@@ -346,6 +368,7 @@ namespace Roguehalla.Client
 
         void Press(Station s)
         {
+            if (!s.Button.gameObject.activeSelf) return;
             // A pointer or keyboard press on a station: the keyboard uses it directly, a mouse click walks there first (legacy).
             bool keyboard = Keyboard.current != null && (Keyboard.current.enterKey.wasPressedThisFrame || Keyboard.current.spaceKey.wasPressedThisFrame || Keyboard.current.numpadEnterKey.wasPressedThisFrame);
             if (keyboard || Distance(s) <= Reach) { _walkTarget = null; Activate(s); return; }
@@ -379,7 +402,7 @@ namespace Roguehalla.Client
             Station best = null; float bestDistance = Reach;
             foreach (var s in _stations)
             {
-                if (s.Button == null) continue;
+                if (s.Button == null || !s.Button.gameObject.activeSelf) continue;
                 float d = Distance(s);
                 if (d <= bestDistance) { best = s; bestDistance = d; }
             }
@@ -442,7 +465,7 @@ namespace Roguehalla.Client
             for (int pass = 0; pass < 2; pass++)
                 foreach (var s in _stations)
                 {
-                    if (!s.Solid) continue;
+                    if (!s.Solid || !s.Button.gameObject.activeSelf) continue;
                     float cx = Mathf.Clamp(p.x, s.X - s.W / 2f, s.X + s.W / 2f), cy = Mathf.Clamp(p.y, s.Y - s.H / 2f, s.Y + s.H / 2f);
                     var d = new Vector2(p.x - cx, p.y - cy); float len = d.magnitude;
                     if (len >= AvatarRadius) continue;

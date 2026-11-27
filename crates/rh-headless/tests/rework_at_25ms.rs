@@ -205,8 +205,9 @@ fn a_rework_world_at_25_ms_restores_every_checkpoint() {
     // before the floor (seed 5 at step 1670, every bot but one dead to mobs about 30 s into the raid; seed 8 at 2042),
     // and they end early under origin's own live config too (augments and elites Legacy, quests on: steps 1599 and 2145),
     // so the short matches are the quest trajectory, not the rework. 9 and 12 are the next seeds after the set that reach
-    // the floor with `live_content()` (steps 3117 and 4800); 10 ends at 2351, and 11 is refused as `invalid mob rewind`
-    // at step 3191 (the known P-MOB-REWIND-RESTORE-1 defect).
+    // the floor with `live_content()` (steps 3117 and 4800). In that earlier trajectory, 10 ended at 2351 and seed 11's
+    // checkpoint at step 3191 was refused as `invalid mob rewind`. P-MOB-REWIND-RESTORE-1 fixes that validation;
+    // seed 11 was verified separately while keeping this eight-seed cohort.
     for seed in [1u64, 2, 3, 4, 6, 7, 9, 12] {
         let r = run(seed);
         wishes += r.wishes;

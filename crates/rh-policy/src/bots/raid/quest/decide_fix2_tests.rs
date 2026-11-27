@@ -644,14 +644,15 @@ fn decide_holds_no_timing_literal_for_the_bargain() {
 
 #[test]
 fn guard_the_bargain_row_is_a_switch_not_a_cap() {
-    // A table that prices the quest at 0.01 keeps the quest on at the trade's full gain (34/30), as the owner decided for
-    // P-RAID-Q3-fix; a cap at the row would make it 0.01.
+    // Lowering the value of the switch still offers the actual trade at its full gain.
     let thin = Prices {
         reward_rows: &[("the_bargain", 0.01)],
         ..Prices::LOCAL
     };
     let (_, value, _) = bargain_candidate(&thin, false);
-    assert!((value - 34. / 30.).abs() < 1e-9, "{value}");
+    let rules = rh_sim::quests::public_rules();
+    let expected = (3.5 * rules.bargain_stacks as f64 - 2.5 * rules.bargain_cost as f64) / 30.;
+    assert!((value - expected).abs() < 1e-9, "{value}");
 }
 
 #[test]

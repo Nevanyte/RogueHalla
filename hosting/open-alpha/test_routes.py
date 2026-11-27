@@ -22,6 +22,7 @@ HOST = "alpha-stage.example.test"
 ORIGIN = f"https://{HOST}"
 VISITOR = "2001:db8::24"
 KEY = "dGhlIHNhbXBsZSBub25jZQ=="
+WEB_RELEASE = "0123456789abcdef0123456789abcdef01234567"
 
 
 class Source(BaseHTTPRequestHandler):
@@ -114,6 +115,8 @@ class RouteContract(unittest.TestCase):
             dest = web / name
             dest.parent.mkdir(exist_ok=True, parents=True)
             dest.write_bytes(content)
+        releases = temp / "versions"
+        shutil.copytree(web, releases / WEB_RELEASE)
 
         source = ThreadingHTTPServer(("127.0.0.1", 0), Source)
         cls.addClassCleanup(source.server_close)
@@ -122,7 +125,8 @@ class RouteContract(unittest.TestCase):
         cls.addClassCleanup(thread.join, 5)
         cls.addClassCleanup(source.shutdown)
         env = dict(os.environ, RH_ALPHA_HOST=HOST, RH_ALPHA_INGRESS_SOCKET=cls.endpoint,
-                   RH_ALPHA_SOURCE=f"127.0.0.1:{source.server_port}", RH_ALPHA_WEB_ROOT=str(web))
+                   RH_ALPHA_SOURCE=f"127.0.0.1:{source.server_port}", RH_ALPHA_WEB_ROOT=str(web),
+                   RH_ALPHA_WEB_RELEASES=str(releases))
         log = (temp / "caddy.log").open("w+")
         cls.addClassCleanup(log.close)
         proxy = subprocess.Popen(
@@ -182,6 +186,22 @@ class RouteContract(unittest.TestCase):
                 self.assertEqual((seen["method"], seen["path"], seen["body"]), (method, path, body or ""))
                 self.assertEqual((seen["origin"], seen["token"], seen["passcode"]),
                                  (ORIGIN, "oracle-token", "oracle-passcode"))
+
+    def test_versioned_web_cache_and_allowlist(self):
+        version = f"/alpha-web/{WEB_RELEASE}"
+        status, headers, data = self.request(version + "/Build/Web.wasm",
+                                             **{"Accept-Encoding": "gzip"})
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Cache-Control"], "public, max-age=31536000, immutable")
+        self.assertEqual(headers["Content-Type"], "application/wasm")
+        self.assertEqual(headers["Content-Encoding"], "gzip")
+        self.assertEqual(gzip.decompress(data), b"\0asm\1\0\0\0")
+        for denied in (version + "/probe", version + "/Build/Web.wasm.gz",
+                       version + "/Build/missing.data", "/alpha-web/head/Build/Web.wasm"):
+            with self.subTest(path=denied):
+                status, headers, _ = self.request(denied)
+                self.assertEqual(status, 404)
+                self.assertNotIn("immutable", headers.get("Cache-Control", ""))
 
     def test_uses_only_canonical_tunnel_visitor_ip(self):
         for address, canonical in [("198.51.100.24", "198.51.100.24"),

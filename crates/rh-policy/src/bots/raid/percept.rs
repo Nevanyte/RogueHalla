@@ -62,6 +62,8 @@ pub struct CampSeen {
     pub elite_spot: i32,
     /// The camp's normal mob type (`MobTypeId as u8`).
     pub mob_type: u8,
+    /// The visible HUD reward stat, including an off-theme buff.
+    pub reward_stat: Option<u8>,
     /// The camp's elite type, when it has one.
     pub elite: Option<MobTypeId>,
     pub alive: u32,
@@ -271,6 +273,7 @@ impl RaidPercept {
                 zone: c.zone,
                 elite_spot: c.elite_spot,
                 mob_type: w.mob_type,
+                reward_stat: w.reward.map(|r| r.stat),
                 elite: w
                     .elite
                     .and_then(|e| MobTypeId::ALL.get(usize::from(e)).copied()),

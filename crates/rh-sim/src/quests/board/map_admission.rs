@@ -107,7 +107,7 @@ fn plan(arena: &Arena, secrets: Secrets) -> Result<Vec<placement::BoardSite>, St
     if arena.spawns.is_empty() {
         return Err("quest board requires a fallback spawn".into());
     }
-    placement::plan_with_fallback(&arena.map, &arena.spawns, &mut || random.next_f64())
+    placement::plan_with_fallback(&arena.map, &arena.spawns, true, &mut || random.next_f64())
 }
 
 fn unlit_bays(data: &crate::mapdata::LayerData, sites: &[placement::BoardSite]) -> Vec<usize> {

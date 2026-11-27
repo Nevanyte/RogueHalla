@@ -78,7 +78,7 @@ namespace Roguehalla.Net.Tests
             Assert.AreEqual("Offer · not in reach", QuestJournalCopy.Status(Quest(Row(10)), false, false, -1));
 
             // progress in seconds for a dwell quest, the time left after it
-            Assert.AreEqual("Accepted · 12 / 45 s · 2:14 left",
+            Assert.AreEqual("Accepted · 12 / 35 s · 2:14 left",
                 QuestJournalCopy.Status(Quest(Row(11, accepted: true, def: "hold_the_fort", progress: 12)), false, false, 134));
             Assert.AreEqual("Accepted · 5 / 30 s", QuestJournalCopy.Status(Quest(Row(12, accepted: true, def: "stay_a_while", progress: 5)), false, false, -1));
             Assert.AreEqual("Accepted · 2 progress · 0:09 left", QuestJournalCopy.Status(Quest(Row(13, accepted: true, progress: 2)), false, false, 9));

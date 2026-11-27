@@ -128,7 +128,7 @@ pub struct BotFillConfig {
     pub brain: BotBrain,
 }
 
-/// The fill bots' decision core (`--bot-brain off|full`).
+/// The fill bots' decision core (`--bot-brain off|full|raid`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum BotBrain {
     /// HumanBot, its scripted fallback and no decision budget: today's live fill bot, byte for byte.
@@ -137,13 +137,25 @@ pub enum BotBrain {
     /// The ported legacy Brain on the degraded fair profile (BrainBot), HumanBot as its fault fallback, and a
     /// wall-clock budget per decision ([`BRAIN_DECISION_BUDGET`]) so a slow Brain faults over instead of stalling a room.
     Full,
+    /// The raid policy on a real fill seat, subject to the same input and time limits as BrainBot.
+    Raid,
+}
+
+impl BotBrain {
+    pub(crate) fn policy_name(self) -> &'static str {
+        match self {
+            Self::Off => "human",
+            Self::Full => "brain",
+            Self::Raid => "raid",
+        }
+    }
 }
 
 /// The live per-decision wall-clock budget of a Brain seat: past it the seat faults and HumanBot plays on. A fault
 /// detector only (never a decision input), far above the measured release cost (p99 under 2 ms per seat).
 pub const BRAIN_DECISION_BUDGET: std::time::Duration = std::time::Duration::from_millis(40);
 
-/// `--bot-brain off|full` (absent: off).
+/// `--bot-brain off|full|raid` (absent: off).
 pub fn bot_brain_flag(args: &[String]) -> Result<BotBrain, String> {
     let mut found = None;
     for (i, arg) in args.iter().enumerate() {
@@ -159,7 +171,8 @@ pub fn bot_brain_flag(args: &[String]) -> Result<BotBrain, String> {
             found = Some(match value {
                 "off" => BotBrain::Off,
                 "full" => BotBrain::Full,
-                _ => return Err("--bot-brain must be off or full".into()),
+                "raid" => BotBrain::Raid,
+                _ => return Err("--bot-brain must be off, full, or raid".into()),
             });
         }
     }

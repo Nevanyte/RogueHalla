@@ -1,6 +1,7 @@
 //! Spawning a room: bot learning and fill policy hooks, the room task itself, and the lease renewal tasks that outlive an admission.
 
 use super::*;
+use tokio::sync::OwnedMutexGuard;
 
 /// CPU-heavy map preparation is bounded across simultaneous new rooms.
 static QUEST_MAP_WORKERS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(2);
@@ -12,6 +13,22 @@ pub(super) struct PreparedRoom {
 }
 
 impl Director {
+    pub fn install_alpha_capture(&self, capture: crate::alpha_capture::Capture) {
+        let _ = self.alpha_capture.set(capture);
+    }
+
+    pub(crate) fn alpha_capture_health(&self) -> Option<serde_json::Value> {
+        self.alpha_capture
+            .get()
+            .map(crate::alpha_capture::Capture::health)
+    }
+
+    pub async fn flush_alpha_capture(&self) {
+        if let Some(capture) = self.alpha_capture.get() {
+            capture.flush().await;
+        }
+    }
+
     /// Installs the P-BOTS-5 record caller (the live learning store). The server calls it once at startup; tests install
     /// a probe sink. Learning stays off (the NO_BIAS zeros) when nothing is installed.
     pub fn install_learning(&self, sink: Arc<dyn LearningSink>) {
@@ -86,7 +103,7 @@ impl Director {
     }
 
     pub(crate) fn needs_board_room(&self) -> bool {
-        self.cfg.sim.top25_quests && self.cfg.sim.quests && !self.cfg.sim.training
+        self.cfg.sim.quest_board.enabled() && self.cfg.sim.quests && !self.cfg.sim.training
     }
 
     /// New board room preparation may regenerate geography and must run
@@ -105,11 +122,16 @@ impl Director {
     pub(super) async fn prepare_board_room_async(
         &self,
         fill_bots_to: usize,
-    ) -> Result<PreparedRoom, String> {
+        opening_guard: OwnedMutexGuard<()>,
+    ) -> Result<(PreparedRoom, OwnedMutexGuard<()>), String> {
         let director = self.me.upgrade().ok_or("director is closed")?;
-        tokio::task::spawn_blocking(move || director.prepare_board_room(fill_bots_to))
-            .await
-            .map_err(|_| "quest map worker failed".to_owned())?
+        // A canceled admission cannot stop a running blocking worker. Keep the guard with that worker until it exits.
+        tokio::task::spawn_blocking(move || {
+            let room = director.prepare_board_room(fill_bots_to)?;
+            Ok((room, opening_guard))
+        })
+        .await
+        .map_err(|_| "quest map worker failed".to_owned())?
     }
 
     /// Legacy rooms retain the existing shared-map fast path.
@@ -181,6 +203,9 @@ impl Director {
             linger: self.cfg.linger,
         };
         let mut room = Room::try_new(id, rc, self.reports.clone(), tokio::time::Instant::now())?;
+        if let Some(capture) = self.alpha_capture.get() {
+            room = room.with_alpha_capture(capture);
+        }
         if let Some(fill) = fill {
             room = room.with_bot_fill(fill).with_bot_names(self.bot_names());
             if let Some(sink) = self.learning.lock_recover().clone() {

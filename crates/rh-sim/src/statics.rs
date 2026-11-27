@@ -91,8 +91,8 @@ impl MatchStatic {
             Vec::new()
         };
         let hazards = crate::terrain::Hazards::of(&arena.map, config.hazards);
-        let quest_deal = (config.top25_quests && config.quests && !config.training)
-            .then(|| crate::quests::board::deal(&arena.map, secrets));
+        let quest_deal = (config.quest_board.enabled() && config.quests && !config.training)
+            .then(|| crate::quests::board::deal(&arena.map, secrets, config.quest_board.spread()));
         let digest = crate::hash::hash_of(0, &(&config, &*arena));
         let cards = crate::cards::Tuning::of(&config);
         Self {
@@ -251,9 +251,9 @@ pub struct SimConfig {
     /// The K1 quest module (legacy config.quests): a config switch so a test/experiment can turn it off.
     #[serde(default)]
     pub quests: bool,
-    /// Private zoned draw. Old configs omit this field and retain the K1 digest.
-    #[serde(default, serialize_with = "serialize_quest_board")]
-    pub top25_quests: bool,
+    /// Private Top 25 board mode. The old JSON key and false/true encodings remain stable.
+    #[serde(default, rename = "top25_quests")]
+    pub quest_board: QuestBoard,
     /// A training world (legacy `SimConfig.training`, `sim/training.ts`): the run never ends and nothing is recorded —
     /// no patience timer, teleport, sudden death, results or GV, and a fighter who goes down is revived. It implies the
     /// practice setup (`dummies`) and a world with no planning and no arena lifecycle.
@@ -321,6 +321,50 @@ pub struct SimConfig {
         deserialize_with = "read_tick_ms"
     )]
     pub tick_ms: u32,
+    /// Omit the legacy setting to preserve the original checkpoint bytes and state digests.
+    #[serde(default, skip_serializing_if = "CombatPace::is_legacy")]
+    pub combat_pace: CombatPace,
+}
+
+/// Authoritative pacing for player fights and normal camp progression.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CombatPace {
+    #[default]
+    Legacy,
+    Raid,
+}
+
+impl CombatPace {
+    fn is_legacy(&self) -> bool {
+        *self == Self::Legacy
+    }
+}
+
+impl serde::Serialize for CombatPace {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Legacy => s.serialize_unit(),
+            Self::Raid if s.is_human_readable() => s.serialize_str("raid"),
+            Self::Raid => s.serialize_str("combat_pace=raid"),
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CombatPace {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let raid = if d.is_human_readable() {
+            "raid"
+        } else {
+            "combat_pace=raid"
+        };
+        match Option::<String>::deserialize(d)?.as_deref() {
+            None => Ok(Self::Legacy),
+            Some(value) if value == raid => Ok(Self::Raid),
+            Some(value) => Err(serde::de::Error::custom(format!(
+                "unknown combat pace {value:?}"
+            ))),
+        }
+    }
 }
 
 /// `SimConfig::augments` (P-AUG-RULES-1). `Legacy` serializes as nothing (JSON `null`; the hashing serializer folds no
@@ -517,11 +561,24 @@ pub enum CampBuffRule {
     #[default]
     Legacy,
     Themed,
+    /// Themed camps with a distinct-camp focus reward after an eligible clear.
+    ThemedFocus,
+}
+
+impl CampBuffRule {
+    /// Enable the optional faction reward on a themed board. Legacy camp allocation stays historical.
+    pub fn with_faction_focus(self) -> Self {
+        match self {
+            Self::Themed => Self::ThemedFocus,
+            other => other,
+        }
+    }
 }
 
 /// What `CampBuffRule::Themed` writes to a serializer that is not human-readable (the state hasher). JSON keeps
 /// `"themed"`.
 const CAMP_BUFFS_THEMED_TAG: &str = "camp_buffs=themed";
+const CAMP_BUFFS_THEMED_FOCUS_TAG: &str = "camp_buffs=themed_focus";
 
 impl serde::Serialize for CampBuffRule {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -529,6 +586,8 @@ impl serde::Serialize for CampBuffRule {
             Self::Legacy => s.serialize_unit(),
             Self::Themed if s.is_human_readable() => s.serialize_str("themed"),
             Self::Themed => s.serialize_str(CAMP_BUFFS_THEMED_TAG),
+            Self::ThemedFocus if s.is_human_readable() => s.serialize_str("themed_focus"),
+            Self::ThemedFocus => s.serialize_str(CAMP_BUFFS_THEMED_FOCUS_TAG),
         }
     }
 }
@@ -541,8 +600,10 @@ impl<'de> serde::Deserialize<'de> for CampBuffRule {
             None => Ok(Self::Legacy),
             Some("themed") if human => Ok(Self::Themed),
             Some(CAMP_BUFFS_THEMED_TAG) if !human => Ok(Self::Themed),
+            Some("themed_focus") if human => Ok(Self::ThemedFocus),
+            Some(CAMP_BUFFS_THEMED_FOCUS_TAG) if !human => Ok(Self::ThemedFocus),
             Some(other) => Err(serde::de::Error::custom(format!(
-                "camp_buffs must be null or \"themed\", not {other:?}"
+                "camp_buffs must be null, \"themed\" or \"themed_focus\", not {other:?}"
             ))),
         }
     }
@@ -639,7 +700,7 @@ impl SimConfig {
             mob_mode: crate::mob_runtime::MobMode::Pve,
             regen: true,
             quests: true,
-            top25_quests: true,
+            quest_board: QuestBoard::Spread,
             walk_hints: Some(true),
             hitboxes: Self::live_hitboxes(),
             // Owner decision 2026-11-10 (legacy f8cd956e): passive regeneration out of combat only (P-REGEN-COMBAT-1).
@@ -653,6 +714,7 @@ impl SimConfig {
             // (P-AUG-RULES-1; the tables equal legacy until the content packets fill them).
             augments: AugmentRule::Rework,
             elites: EliteRule::Rework,
+            combat_pace: CombatPace::Raid,
             ..Self::default()
         }
     }
@@ -676,7 +738,7 @@ impl Default for SimConfig {
             mob_mode: crate::mob_runtime::MobMode::Off,
             regen: false,
             quests: false,
-            top25_quests: false,
+            quest_board: QuestBoard::Off,
             training: false,
             dummies: false,
             walk_hints: None,
@@ -688,20 +750,77 @@ impl Default for SimConfig {
             augments: AugmentRule::Legacy,
             elites: EliteRule::Legacy,
             tick_ms: legacy_tick_ms(),
+            combat_pace: CombatPace::Legacy,
         }
     }
 }
 
-fn serialize_quest_board<S: serde::Serializer>(
-    enabled: &bool,
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
-    if serializer.is_human_readable() {
-        serializer.serialize_bool(*enabled)
-    } else if *enabled {
-        serializer.serialize_str("quests=top25")
-    } else {
-        serializer.serialize_unit()
+/// Top 25 board configuration: disabled, legacy placement, or five-zone spread placement.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum QuestBoard {
+    #[default]
+    Off,
+    Legacy,
+    Spread,
+}
+
+impl QuestBoard {
+    pub fn enabled(self) -> bool {
+        self != Self::Off
+    }
+
+    pub fn spread(self) -> bool {
+        self == Self::Spread
+    }
+}
+
+impl serde::Serialize for QuestBoard {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if serializer.is_human_readable() {
+            match self {
+                Self::Off => serializer.serialize_bool(false),
+                Self::Legacy => serializer.serialize_bool(true),
+                Self::Spread => serializer.serialize_str("spread"),
+            }
+        } else {
+            use serde::ser::SerializeTuple;
+            match self {
+                Self::Off => serializer.serialize_unit(),
+                Self::Legacy => serializer.serialize_str("quests=top25"),
+                Self::Spread => {
+                    let mut words = serializer.serialize_tuple(2)?;
+                    words.serialize_element("quests=top25")?;
+                    words.serialize_element("quests=spread_givers")?;
+                    words.end()
+                }
+            }
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for QuestBoard {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct BoardVisitor;
+        impl serde::de::Visitor<'_> for BoardVisitor {
+            type Value = QuestBoard;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("false, true, or spread")
+            }
+            fn visit_bool<E: serde::de::Error>(self, value: bool) -> Result<Self::Value, E> {
+                Ok(if value {
+                    QuestBoard::Legacy
+                } else {
+                    QuestBoard::Off
+                })
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                match value {
+                    "spread" => Ok(QuestBoard::Spread),
+                    _ => Err(E::unknown_variant(value, &["spread"])),
+                }
+            }
+        }
+        deserializer.deserialize_any(BoardVisitor)
     }
 }
 

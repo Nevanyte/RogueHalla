@@ -57,6 +57,67 @@ namespace Roguehalla.Net.Tests
             Assert.AreEqual("http://127.0.0.1:7777/api/", AccountEndpoint.FromPage(null, "http://127.0.0.1:7777/api").StorageScope);
         }
 
+        [TestCase("play.roguehalla.com", "game.roguehalla.com")]
+        [TestCase("alpha-staging.roguehalla.com", "latency-staging.roguehalla.com")]
+        public async Task HostedCutoverAndRollbackRecoverTheSameSavedAccount(string pageHost, string backendHost)
+        {
+            string page = "https://" + pageHost + "/index.html";
+            var priorEndpoint = AccountEndpoint.FromPage(page);
+            var credentials = new Credentials();
+            string saved = new string('a', 64);
+            credentials.WriteConfirmed(priorEndpoint.StorageScope, "alice", saved);
+
+            foreach (bool split in new[] { true, false })
+            {
+                Assert.IsTrue(AccountConnectionPolicy.TryGetHostedRoute(page, split, out var endpoint, out var matchUrl));
+                string targetHost = split ? backendHost : pageHost;
+                Assert.AreEqual("https://" + targetHost + "/api/", endpoint.StorageScope);
+                Assert.AreEqual(priorEndpoint.StorageScope, endpoint.CredentialStorageScope);
+                Assert.AreEqual("wss://" + targetHost + "/ws", matchUrl);
+
+                var transport = new Transport();
+                var flow = new AccountHubFlow(new AccountSession(endpoint, transport, credentials));
+                string wrongHost = split ? pageHost : backendHost;
+                Assert.IsNull(await flow.PrepareJoinAsync("Alice", "wss://" + wrongHost + "/ws"));
+                Assert.IsEmpty(transport.Requests);
+
+                var join = flow.PrepareJoinAsync("Alice", matchUrl);
+                var request = transport.Requests.Single();
+                Assert.AreEqual("https://" + targetHost + "/api/profile/Alice", request.Url);
+                Assert.AreEqual(saved, request.Token);
+                request.Completion.SetResult(new AccountHttpResponse(200, Reply("Alice", saved, created: false)));
+                var intent = await join;
+                Assert.IsTrue(flow.CanJoin(intent));
+                Assert.AreEqual(matchUrl, intent.MatchUrl);
+            }
+            Assert.AreEqual(1, credentials.Tokens.Count);
+            Assert.AreEqual(3, credentials.Writes);
+        }
+
+        [TestCase("http://play.roguehalla.com/")]
+        [TestCase("https://alpha-staging.roguehalla.com:444/")]
+        [TestCase("https://play.roguehalla.com./")]
+        [TestCase("https://owner@alpha-staging.roguehalla.com/")]
+        public void NonCanonicalManagedOriginsCannotRoute(string page)
+        {
+            Assert.IsTrue(AccountConnectionPolicy.TryGetHostedRoute(page, true, out var endpoint, out var matchUrl));
+            Assert.IsNull(endpoint);
+            Assert.IsEmpty(matchUrl);
+        }
+
+        [TestCase("http://127.0.0.1:7777/")]
+        [TestCase("https://play.roguehalla.com.example/")]
+        [TestCase("https://roguehalla.com/")]
+        [TestCase("https://latency-staging.roguehalla.com/")]
+        public void SplitReleaseFlagDoesNotApplyToOtherPages(string page)
+        {
+            Assert.IsFalse(AccountConnectionPolicy.TryGetHostedRoute(page, true, out var endpoint, out var matchUrl));
+            Assert.IsNull(endpoint);
+            Assert.IsEmpty(matchUrl);
+            var directEndpoint = AccountEndpoint.FromPage(page);
+            Assert.AreEqual(directEndpoint.StorageScope, directEndpoint.CredentialStorageScope);
+        }
+
         [TestCase("wss://game.example/ws")]
         [TestCase("https://owner:secret@game.example/api")]
         [TestCase("https://game.example/api?token=private")]

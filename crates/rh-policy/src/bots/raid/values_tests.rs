@@ -34,7 +34,7 @@ const REWARDS: [(&str, f64); 25] = [
     ("gatecrasher", 2.5),
     ("letters", 2.0),
     ("stay_a_while", 2.0),
-    ("trade_up", 5.6),
+    ("trade_up", 3.0),
 ];
 
 /// Augments by `CardId::as_str`: workbook Augment_Value "Total value V (CE)", scaled for the live Augment_Tuning.

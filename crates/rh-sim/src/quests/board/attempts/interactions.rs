@@ -244,7 +244,9 @@ pub(crate) fn interact(cx: &mut Cx, owner: PlayerId, offer_id: u32, action: u8, 
             };
             a.achieve(1);
         }
-        (6, StayAWhile) if near(cx.k, cx.w, pos, o.at, TOP25.contact_range) => {
+        (6, StayAWhile)
+            if a.meditation.is_none() && near(cx.k, cx.w, pos, o.at, TOP25.contact_range) =>
+        {
             let a = board_mut(cx.w).unwrap().get_mut(owner, offer_id).unwrap();
             a.meditation = Some(pos);
             a.dwell_ms = 0.;
@@ -356,7 +358,7 @@ pub(crate) fn objective_for_owner(
     index: u8,
 ) -> Option<Vec2> {
     let a = attempt(w, owner, offer_id)?;
-    if a.completed || a.pending.is_some() {
+    if a.completed {
         return None;
     }
     let o = offer(w, offer_id)?;

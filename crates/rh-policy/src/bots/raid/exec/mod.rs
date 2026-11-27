@@ -4,6 +4,11 @@ pub mod chest;
 pub mod combat;
 pub mod elite;
 pub mod farm;
+
+#[cfg(feature = "strategy-route-lab")]
+pub fn registry_with_lab_route(route: farm::LabRoute) -> Vec<Box<dyn super::goal::Executor>> {
+    registry_with_farm(farm::Farm::with_lab_route(route))
+}
 pub mod held;
 pub mod spell;
 pub mod sustain;
@@ -16,9 +21,13 @@ use super::goal::Executor;
 /// and `ride_along` in this order: the order is behaviour (it fixes the arbiter stream's draw order and which
 /// ride-along intent wins a channel).
 pub fn registry() -> Vec<Box<dyn Executor>> {
+    registry_with_farm(farm::Farm::default())
+}
+
+fn registry_with_farm(farm: farm::Farm) -> Vec<Box<dyn Executor>> {
     vec![
         Box::new(sustain::Sustain::default()),
-        Box::new(farm::Farm::default()),
+        Box::new(farm),
         Box::new(chest::Chest::default()),
         Box::new(elite::Elite::default()),
         Box::new(super::quest::walker::Walker::default()),

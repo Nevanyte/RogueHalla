@@ -21,6 +21,7 @@ pub(crate) mod consumables;
 mod consumables_source_tests;
 pub(crate) mod credit;
 pub(crate) mod displace;
+pub(crate) mod farm_focus;
 pub(crate) mod fields;
 pub(crate) mod fire;
 pub(crate) mod fire_roam;
