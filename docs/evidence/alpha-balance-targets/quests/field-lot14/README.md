@@ -1,4 +1,4 @@
-# Quest claims and prices in eighty unselected rooms
+# Quest claims and prices on the 10-for-14 preview
 
 Every generated map from seed 601 through 680 ran to match end under protocol 24 and content `13a89cbaff80132f`. One account-eligible RaidBot and seven fill bots played in each authoritative 40 Hz room. The observer recorded the account-eligible seat. Every board showed five distinct quests in planning, one per zone. Each showed ten distinct quests after raid start, two per zone, including all five previously shown.
 
@@ -27,7 +27,7 @@ The archived observations omit terminal state hashes. The second archive contain
 From the repository root, run the following commands.
 
 ```sh
-base=docs/evidence/alpha-balance-targets/quests/final-field
+base=docs/evidence/alpha-balance-targets/quests/field-lot14
 gzip -dc "$base/observations.jsonl.gz" > /tmp/quest-final-rooms.jsonl
 gzip -dc "$base/reference.jsonl.gz" > /tmp/quest-final-rates.jsonl
 python3 tools/balance-lab/quest_balance_report.py /tmp/quest-final-rooms.jsonl \

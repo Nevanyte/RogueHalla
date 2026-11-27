@@ -1,4 +1,4 @@
-# Room timings on the final local build
+# Room timings on the 10-for-14 preview
 
 All twelve generated maps (seeds 1–12) ran to match end with the final quest prices, post-opening elite defenses, ordinary three-stack farming and the stock RaidBot chooser. Each 40 Hz room had one account-eligible seat driven by RaidBot and seven fill bots. The two observers agreed on termination and terminal tick for every map. The content identity is `13a89cbaff80132f` under protocol 24.
 
@@ -31,7 +31,7 @@ The median duration was 1268.50 (12) seconds. The shortest room ended after 800 
 
 [Age and participation groups](timings.csv) · [Individual raids](matches.csv) · [Encounter outcomes](outcomes.csv) · [Replay data for both cohorts](raw.json.gz)
 
-Run `python3 tools/balance-lab/field_pacing_compare.py /tmp/raid-final --seeds 1..13 --read-archive docs/evidence/alpha-balance-targets/final-field/raw.json.gz` to reproduce the three CSVs. The [earlier checkpoint](../field/README.md#reproduce) gives the commands for collecting equivalent runs from source.
+Run `python3 tools/balance-lab/field_pacing_compare.py /tmp/raid-final --seeds 1..13 --read-archive docs/evidence/alpha-balance-targets/field-lot14/raw.json.gz` to reproduce the three CSVs. The [earlier checkpoint](../field/README.md#reproduce) gives the commands for collecting equivalent runs from source.
 
 Run `python3 tools/balance-lab/field_pacing_plot.py /tmp/raid-final/timings.csv docs/evidence/raid-routing-ttk/route_summary.csv /tmp/raid-times.png` to regenerate the figure.
 
