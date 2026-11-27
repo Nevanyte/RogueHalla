@@ -1,0 +1,290 @@
+{
+  "contentHash": "cb811d19ebed6dfe",
+  "databaseMigrations": {
+    "files": {
+      "0001_init.sql": {
+        "bytes": 5383,
+        "sha256": "648eab54a3c537c7c475e67f165e0c7bd5d8258ef5b8f49f174bb72385de8b15"
+      },
+      "0002_bot_stats.sql": {
+        "bytes": 1828,
+        "sha256": "65969b76314bab094c6314f694e2773a3933e1d06b83d54bd6bac52f7e9a5bd5"
+      },
+      "0003_purchases_profile_index.sql": {
+        "bytes": 789,
+        "sha256": "ba1e89032bf17211e60edfebd926772a78d02b0f953c8c133cf732c44b898e71"
+      }
+    },
+    "gitTree": "0d6df349d6cc79b6e627c58a22589dedbcdfbf85"
+  },
+  "files": {
+    "loaders/live-same-origin.html": {
+      "bytes": 9596,
+      "sha256": "98f6facc2c5f92f735a26d71609f59faeb39e012814614d39f0d58cfa1cff273"
+    },
+    "loaders/live-split.html": {
+      "bytes": 9644,
+      "sha256": "67e95373d0ebbaa15cac215386c55b61048052d80d4a647f74209626227e987d"
+    },
+    "loaders/staging-same-origin.html": {
+      "bytes": 9605,
+      "sha256": "7257c1cc72db7bfe7ebabdefe50381f45547cc167a7dbf397c22a2e8f572cacd"
+    },
+    "loaders/staging-split.html": {
+      "bytes": 9675,
+      "sha256": "6bcd792145f50ce871f3d1cf39a916a331ffa31669ea895927f1b9e1feeb6a08"
+    },
+    "rh-headless": {
+      "bytes": 81368080,
+      "sha256": "8a7974840fa15e0e4d60f5084d859767aa84d4ad4fafb4fb29345b9a337ba359"
+    },
+    "rh-server": {
+      "bytes": 160786376,
+      "sha256": "e482dbc6411027f32ce0595014f4599a5d01455e6b2eba1d6146fa602625bf87"
+    },
+    "seed1.map.json": {
+      "bytes": 319166,
+      "sha256": "7c95efad61f47942d10921d7f1bc16acb43306f370cf368e0693a69d456441e7"
+    },
+    "web/Build/Web.data": {
+      "bytes": 75721709,
+      "sha256": "194bac2674ea2c904e5384f411809206b55275ff1767da12fa8584ec85297110"
+    },
+    "web/Build/Web.data.br": {
+      "bytes": 55073474,
+      "sha256": "1bfa737920bcdee0eb1bf369cbe0fa5af6b6916e469a4d2b54643cb1abce360c"
+    },
+    "web/Build/Web.framework.js": {
+      "bytes": 361377,
+      "sha256": "73d7fe6c0731b32d8e76cf820cbbbd12f08579cb3d58981825dc2568799f4f4d"
+    },
+    "web/Build/Web.framework.js.br": {
+      "bytes": 75549,
+      "sha256": "773d4128d4f4a19963badbbde7da45e82c2a6c6413757c71f16a6957ae358860"
+    },
+    "web/Build/Web.loader.js": {
+      "bytes": 26694,
+      "sha256": "513fdd1de200c9dd986ca1cbec3f95d4d54acc2cb3c6b2d58d57f87908f235ce"
+    },
+    "web/Build/Web.loader.js.br": {
+      "bytes": 8119,
+      "sha256": "9acf52a6b53a9e2a614a09f6e8d9e44981df510ff27676bbc3dd0a326f539762"
+    },
+    "web/Build/Web.wasm": {
+      "bytes": 51607150,
+      "sha256": "bea32e685dc2fe8ecaddeef65e56b91a38939248d182d8469e7c3c4bc048ee32"
+    },
+    "web/Build/Web.wasm.br": {
+      "bytes": 9385194,
+      "sha256": "20d5d20faac4d9d98d7a55a410f927088ddf7025a7588011543a3d80efe67250"
+    },
+    "web/Licenses/Atmosphere-Audio-Credits.txt": {
+      "bytes": 2081,
+      "sha256": "584a57b33d4f20058816bfa099f4e007fbd87bd536a8f8b61cd62c9572634d9a"
+    },
+    "web/Licenses/CinzelDecorative-OFL.txt": {
+      "bytes": 4393,
+      "sha256": "1e5d6660366ddcfca4f2fc10e2acfba9fa4d97d40aec80d7dbfd41d730a420ae"
+    },
+    "web/Licenses/EmojiOne-Attribution.txt": {
+      "bytes": 185,
+      "sha256": "4b65f8960e4f4c5c8b35fd139e369265e9bb45667fc16461b2ba01188d464d93"
+    },
+    "web/Licenses/Flare-Audio-Notice.txt": {
+      "bytes": 1130,
+      "sha256": "64e2de64656079009cfda050f49e1de5075167a387c403f17555c6c651d9b516"
+    },
+    "web/Licenses/Flare-CC-BY-SA-3.0.txt": {
+      "bytes": 22240,
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+    },
+    "web/Licenses/Flare-Credits.txt": {
+      "bytes": 3510,
+      "sha256": "8b0985009dd04911b851553a35941e6862f1df66a6864f9b2a5c7ff330574fbc"
+    },
+    "web/Licenses/FlareAudioExpansion-CREDITS_CAPTURE.txt": {
+      "bytes": 14306,
+      "sha256": "786be32ae9a35d6878819c7d8c7eef4fab9fab4d6f282de57fc19bdba93c16aa"
+    },
+    "web/Licenses/FlareAudioExpansion-LICENSE.txt": {
+      "bytes": 22240,
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+    },
+    "web/Licenses/FlareExpansion-CREDITS.md": {
+      "bytes": 1737,
+      "sha256": "15e28829f725db91b009ca5a1454426600dcf42bbbcbbe3b405804aa84313745"
+    },
+    "web/Licenses/FlareExpansion-CREDITS_CAPTURE.txt": {
+      "bytes": 14306,
+      "sha256": "786be32ae9a35d6878819c7d8c7eef4fab9fab4d6f282de57fc19bdba93c16aa"
+    },
+    "web/Licenses/FlareExpansion-LICENSE.txt": {
+      "bytes": 22240,
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+    },
+    "web/Licenses/FlareProps-CREDITS_CAPTURE.txt": {
+      "bytes": 14306,
+      "sha256": "786be32ae9a35d6878819c7d8c7eef4fab9fab4d6f282de57fc19bdba93c16aa"
+    },
+    "web/Licenses/FlareProps-LICENSE.txt": {
+      "bytes": 22240,
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+    },
+    "web/Licenses/LiberationSans-OFL.txt": {
+      "bytes": 4469,
+      "sha256": "37f8552e9a874ec10710dc0ede6a9adf168e6609fbd02a507f35629373b85a48"
+    },
+    "web/Licenses/Nunito-OFL.txt": {
+      "bytes": 4385,
+      "sha256": "580df76c95a1ec5ab878ceb25bb3d85c6a076804e9c970c8c6972aea775fdf65"
+    },
+    "web/Licenses/Roguehalla-MIT.txt": {
+      "bytes": 1080,
+      "sha256": "385298d673f01f328553f49d75680ab30254c09d2295171c929fa61efe84b103"
+    },
+    "web/Licenses/Third-Party-Assets.md": {
+      "bytes": 4143,
+      "sha256": "fc711bc7edaa4c832d63bfd3d2e899bc52191b31a0bc3943017b4dde2bb1042a"
+    },
+    "web/Licenses/Unity-Companion.md": {
+      "bytes": 461,
+      "sha256": "6550a14445e6c2116213b2419c4c28b75be4b99039afc8d091ced3192624390c"
+    },
+    "web/Licenses/index.html": {
+      "bytes": 5978,
+      "sha256": "8f86107a2aad41e3682c19575ad214e166c43c13c6f76c35fa4239e9ada6d02f"
+    },
+    "web/StreamingAssets/Audio/amb_fire.mp3": {
+      "bytes": 300973,
+      "sha256": "c7361e3221ac5b38982dd7d40619e22af96db631202b597682aacd4503d53182"
+    },
+    "web/StreamingAssets/Audio/amb_frost.mp3": {
+      "bytes": 36196,
+      "sha256": "7155d41ae2e0fb66c8569f339711c698620aa7df14fef816f21ad5a5b493822a"
+    },
+    "web/StreamingAssets/Audio/amb_holy.mp3": {
+      "bytes": 313930,
+      "sha256": "3ef040bfba052b0b6f41400f4176cf5176a13485bf7aee7d0918ef96afe37e3f"
+    },
+    "web/StreamingAssets/Audio/amb_plague.mp3": {
+      "bytes": 464604,
+      "sha256": "6e9544d8c1e7b9e40c8cc25a9498a63408a201d6ac062bffecb5f5740919416f"
+    },
+    "web/StreamingAssets/Audio/amb_sentenced.mp3": {
+      "bytes": 80500,
+      "sha256": "9949d1997187e2ca229bb42fa62e44f99bd59396ae4d20953bdce011bf37cd34"
+    },
+    "web/StreamingAssets/Audio/music_coliseum.mp3": {
+      "bytes": 1301620,
+      "sha256": "1d5f155ba8b6c48568689a6787c427202c81874d3465a14ba311db06d5b3f74a"
+    },
+    "web/StreamingAssets/Audio/music_fire.mp3": {
+      "bytes": 1499106,
+      "sha256": "4dea25173c5d9edf13154ae129ac8cda866da21ce494c4c0f45d6535e0920459"
+    },
+    "web/StreamingAssets/Audio/music_frost.mp3": {
+      "bytes": 1107792,
+      "sha256": "787f7fb32c577078a1c4645de7bff294bd1968570c398ec69070d8b6e0cb86bc"
+    },
+    "web/StreamingAssets/Audio/music_holy.mp3": {
+      "bytes": 1336729,
+      "sha256": "564066e878d242adfe01cc61b706162c09c7d0fd7af4e7e8adbcd3885be7730f"
+    },
+    "web/StreamingAssets/Audio/music_plague.mp3": {
+      "bytes": 1499106,
+      "sha256": "78d4a4b8d75a9ebaf9f545c9367f45832a3a2b4ede32366c6121ae04b39e82fb"
+    },
+    "web/StreamingAssets/Audio/music_sentenced.mp3": {
+      "bytes": 766214,
+      "sha256": "6617ddc5f81ef982d6650d54fdc468e897855c6ee4221b35bcc7aa37eddacb66"
+    },
+    "web/alpha-gameplay-data.html": {
+      "bytes": 1137,
+      "sha256": "88d3fef37c428a72ec9f42e37ce9841c91bcdf5df1e9ef544cb0f8dddb51c7a4"
+    },
+    "web/index.html": {
+      "bytes": 9353,
+      "sha256": "1ce45721054d22ee88950df4a1efa2bce4f9ab6e347e2087bd8ea0f2de804cb0"
+    }
+  },
+  "map": {
+    "fallback": "seed1.map.json",
+    "mapPool": true,
+    "source": "crates/rh-sim/src/mapdata/fixtures/seed1.map.json",
+    "startupProfiles": [
+      "existing off",
+      "raid with signature landmarks"
+    ]
+  },
+  "native": {
+    "build": "c39bc1b77faff41cc66ba034aecc565dea364b48",
+    "builder": "rust:1.97.0-bookworm@sha256:8fa55b2f3ddf97471ab6a767bfa3f37e6bad0986ba823e75fea57e2a2a5c3073",
+    "builderGlibc": "2.36",
+    "captureSmoke": [
+      "metrics",
+      "replays"
+    ],
+    "elfBuildIds": {
+      "rh-headless": "a9fe2e1316fa7d7ad3c264ce4eb6e4740a7b8d35",
+      "rh-server": "38c9e39aa2d5a3a2f6f7c9539abdc85a2d35cf71"
+    },
+    "features": [
+      "postgres"
+    ],
+    "maximumGlibcSymbol": "2.34",
+    "postgres": 16,
+    "rustc": "1.97.0",
+    "rustcCommit": "2d8144b7880597b6e6d3dfd63a9a9efae3f533d3",
+    "server": "rh-server",
+    "target": "x86_64-unknown-linux-gnu",
+    "verifier": "rh-headless",
+    "verifierSmoke": {
+      "build": "c39bc1b77faff41cc66ba034aecc565dea364b48",
+      "contentHash": "same",
+      "finalHash": "12d7549a7df90f18",
+      "matchId": "",
+      "recordedBuild": "c39bc1b77faff41cc66ba034aecc565dea364b48",
+      "steps": 600,
+      "verified": true
+    }
+  },
+  "protocol": 24,
+  "releaseSource": "c39bc1b77faff41cc66ba034aecc565dea364b48",
+  "sourceTree": "66aa161c3bee0672d0ed1d1d5cbf6e8b5b2553b7",
+  "web": {
+    "assetPrefix": "/alpha-web/c39bc1b77faff41cc66ba034aecc565dea364b48/",
+    "bakedContentHash": "cb811d19ebed6dfe",
+    "brotliQuality": 11,
+    "browserSmoke": {
+      "assets": [
+        "/alpha-web/c39bc1b77faff41cc66ba034aecc565dea364b48/Build/Web.data",
+        "/alpha-web/c39bc1b77faff41cc66ba034aecc565dea364b48/Build/Web.framework.js",
+        "/alpha-web/c39bc1b77faff41cc66ba034aecc565dea364b48/Build/Web.loader.js",
+        "/alpha-web/c39bc1b77faff41cc66ba034aecc565dea364b48/Build/Web.wasm"
+      ],
+      "planning": {
+        "count": 5,
+        "hidden": 5,
+        "phase": "planning",
+        "unique": 5
+      },
+      "raid": {
+        "count": 10,
+        "hidden": 0,
+        "phase": "raid",
+        "unique": 10
+      },
+      "welcome": {
+        "content": "cb811d19ebed6dfe",
+        "protocol": 24,
+        "tickRate": 40
+      }
+    },
+    "notice": "both",
+    "sourceTree": "66aa161c3bee0672d0ed1d1d5cbf6e8b5b2553b7",
+    "templateData": "generated inline",
+    "unity": "6000.0.85f2",
+    "verifiedBuildSource": "c39bc1b77faff41cc66ba034aecc565dea364b48"
+  },
+  "webNotice": "both"
+}
