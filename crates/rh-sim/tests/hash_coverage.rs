@@ -741,12 +741,12 @@ fn frost_wall_state() -> (&'static str, Sim) {
     ("frost wall standing (switch on)", sim)
 }
 
-/// `SimConfig::camp_buffs = Themed` (P-CAMP-BUFF-THEMES-1, the live profiles), config only (no camps on the practice
-/// arena): serializes as `"themed"`; restoring it as `null` (`Legacy`) must change the hash.
-fn camp_buffs_themed_state() -> (&'static str, Sim) {
+/// Exercise both live farming rules so restoring either field to its legacy value changes the hash.
+fn raid_farming_rules_state() -> (&'static str, Sim) {
     let mut sim = Sim::reset_active(
         SimConfig {
             camp_buffs: rh_sim::CampBuffRule::Themed,
+            combat_pace: rh_sim::CombatPace::Raid,
             ..Default::default()
         },
         practice_arena(),
@@ -762,11 +762,11 @@ fn camp_buffs_themed_state() -> (&'static str, Sim) {
         }],
     );
     sim.step();
-    assert_eq!(
-        serde_json::to_value(&sim).unwrap()["statics"]["config"]["camp_buffs"],
-        serde_json::json!("themed")
-    );
-    ("camp buffs themed (live profiles, config only)", sim)
+    let checkpoint = serde_json::to_value(&sim).unwrap();
+    let config = &checkpoint["statics"]["config"];
+    assert_eq!(config["camp_buffs"], serde_json::json!("themed"));
+    assert_eq!(config["combat_pace"], serde_json::json!("raid"));
+    ("themed camp buffs and raid combat pace", sim)
 }
 
 /// `SimConfig::camp_buffs = Themed` on the one-camp PvE fixture (P-CAMP-BUFF-THEMES-1): the world carries
@@ -1121,7 +1121,7 @@ fn scenarios() -> Vec<(&'static str, Sim)> {
     states.push(practice_contributors_state());
     states.push(mob_spacing_off_state());
     states.push(regen_in_combat_off_state());
-    states.push(camp_buffs_themed_state());
+    states.push(raid_farming_rules_state());
     states.push(camp_buffs_themed_mob_state());
     states.push(frost_wall_state());
     states.push(augment_elite_rework_state());

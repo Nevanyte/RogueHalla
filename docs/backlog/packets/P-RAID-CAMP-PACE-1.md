@@ -18,7 +18,7 @@ This packet. Existing gameplay and lab entry points receive the implementation a
 
 ## 5. Exclusive write scope
 
-Normal camp defense, config and content identity under rh-sim, explicit config literals across crates, the live runtime characterization, normal-clear timing in the headless balance lab, progression and deviation documentation, the Unity Help Guide camp description, the release-only headless test in section 9, and this packet. The paired PvP packet owns the shared ledger call site. Refresh all six content hash copies only with `scripts/regolden-content.sh`, including its generated ability tape and hitbox fixture. The binary protocol and captured source inputs stay intact.
+Normal camp defense, config and content identity under rh-sim, explicit config literals across crates, the checkpoint hash-coverage scenario, the live runtime characterization, normal-clear timing in the headless balance lab, progression and deviation documentation, the Unity Help Guide camp description, the release-only headless test in section 9, and this packet. The paired PvP packet owns the shared ledger call site. Refresh all six content hash copies only with `scripts/regolden-content.sh`, including its generated ability tape and hitbox fixture. The binary protocol and captured source inputs stay intact.
 
 ## 6. Contracts
 
@@ -34,7 +34,7 @@ At the opening, repeated equal player strikes kill the same normal mob in the sa
 
 ## 9. Validation
 
-Run the `normal_camp_raid_pacing_preserves` rh-sim unit test, the `augment_rules` statics-identity tests, `balance_lab_time`, and paired eight-seat RaidBot matches. The release-only `raid_camp_clear` test (rh-headless, feature `elite-bench`) plays 144 input-driven camp fights across four raid ages. Opening pairs agree exactly. Fights that start at minute five can span the beginning of the ramp. Compare the same full-raid seeds before and after. Run the full gate with PostgreSQL and Unity. The pre-change test failed on the minute-ten full-health kill.
+Run the `normal_camp_raid_pacing_preserves` rh-sim unit test, the `augment_rules` statics-identity tests, `balance_lab_time`, and paired eight-seat RaidBot matches. The release-only `raid_camp_clear` test (rh-headless, feature `elite-bench`) plays 144 input-driven camp fights across four raid ages. Opening pairs agree exactly. Fights that start at minute five can span the beginning of the ramp. Compare the same full-raid seeds before and after. The checkpoint perturbation suite covers both live farming options and requires that switching either to its legacy value changes the restored state hash. Run the full gate with PostgreSQL and Unity. The pre-change test failed on the minute-ten full-health kill.
 
 ## 10. Risk and tier
 
