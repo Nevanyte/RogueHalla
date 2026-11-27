@@ -66,8 +66,8 @@ pub(super) fn run(seed: u64) -> Result<Output, String> {
                     rows.push(json!({"seed":seed, "minute":minute,"camp_type":label,"camp":scene.camp,
                         "boss":boss.as_str(),"elite_base":elite.mob_type.as_str(),"normal_base":normal.0.mob_type.as_str(),
                         "zone":zone.as_str(),"faction":faction.as_str(),"weapon":weapon.as_str(),"camps":camps,
-                        "outcome":m.outcome,"first_hit_tick":m.first_hit,"end_tick":m.ticks,
-                        "clear_s":m.first_hit.filter(|_| m.outcome=="cleared").map(|t| f64::from(m.ticks-t)*0.025)}));
+                        "outcome":m.outcome,"first_any_hit_tick":m.first_hit,"first_hit_tick":m.first_camp_hit,"end_tick":m.ticks,
+                        "clear_s":m.first_camp_hit.filter(|_| m.outcome=="cleared").map(|t| f64::from(m.ticks-t)*0.025)}));
                 }
             }
         }

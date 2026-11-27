@@ -400,6 +400,7 @@ struct Fought {
     engaged: bool,
     ticks: u32,
     first_hit: Option<u32>,
+    first_camp_hit: Option<u32>,
     hp_start: f64,
     hp_left: f64,
     dealt: f64,
@@ -477,6 +478,7 @@ fn fight(
         engaged: who == Who::Brawler,
         ticks: max_ticks,
         first_hit: None,
+        first_camp_hit: None,
         hp_start,
         hp_left: hp_start,
         dealt: 0.,
@@ -498,6 +500,7 @@ fn fight(
     let mut dist_sum = 0.;
     let mut touched = false;
     let mut healed = 0.;
+    let mut companions = Vec::new();
     for tick in 1..=max_ticks {
         let cmds = policy.decide(&obs[0]);
         for c in &cmds {
@@ -529,7 +532,31 @@ fn fight(
                 }
             }
         }
+        // A Wish or stray swing can hit a different camp before the intended encounter.
+        // Resolve the first positive hit against this roster, including the fighter's companions.
+        if raid_minute.is_some() && m.first_camp_hit.is_none() {
+            companions.clear();
+            companions.extend(
+                env.sim
+                    .mobs()
+                    .iter()
+                    .filter(|b| b.owner == Some(me))
+                    .map(|b| b.core.id),
+            );
+        }
         let out = env.step(&[cmds]);
+        if raid_minute.is_some()
+            && m.first_camp_hit.is_none()
+            && env.sim.landed_hits().iter().any(|hit| {
+                hit.amount > 0.
+                    && members.contains(&hit.victim)
+                    && hit
+                        .by
+                        .is_some_and(|id| id == me || companions.contains(&id))
+            })
+        {
+            m.first_camp_hit = Some(tick);
+        }
         let mut tally = |victim: PlayerId, by: Option<PlayerId>, amount: f64| {
             if victim == me {
                 m.taken += amount;
