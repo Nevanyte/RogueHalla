@@ -23,7 +23,7 @@ The previous stock medians were 14.50 (683) seconds for ordinary clears, 13.82 (
 
 The fewest recorded damage events on any of the 655 ordinary clears was three. None of the 55 minute 10–15 clears took four seconds or less. Under the 30-second contact-gap definition, the 43 first-pull clears in that interval took a median 25.50 seconds. One input can cause several damage events.
 
-Twenty-three of 24 qualifying player final blows involved multiple hostile owners or other damage. On map 4 a full-health player died to one hostile owner in 4.35 seconds at raid age 13:59, before the gates locked. A single qualifying clean fight cannot estimate the typical duration.
+Twenty-three of 24 qualifying player final blows involved multiple hostile owners or other damage. On map 4 a full-health player died to one hostile owner in 4.35 seconds at raid age 13:59, before the gates locked. Both players started at full health. A Plague bow with 240 farm stacks faced a Holy shield with 129. Of 1,471 settled damage, 754 came from Disease, 711 from direct bow hits and 6 from secondary damage. The bow user also held Machine Gun, Committed and Plant Your Feet. A read-only replay reproduced every original episode and the terminal result on that map. One such fight establishes a burst case and leaves its frequency uncertain. [Loadouts and all 418 damage events](map4-pvp.json.gz)
 
 ## Room end and bot survival
 
