@@ -59,7 +59,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert(receipt[key], 'No ' + key + ' quest board reached the browser.');
   }
   try {
-    await page.goto(origin, { waitUntil: 'load' });
+    await page.goto(origin.href, { waitUntil: 'load' });
     await page.waitForFunction(() => document.getElementById('unity-loading-bar')?.style.display === 'none',
       null, { timeout: 120000 });
     await page.waitForFunction(() => window.__rhProbe?.ui?.length > 5);
