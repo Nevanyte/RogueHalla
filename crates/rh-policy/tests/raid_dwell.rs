@@ -1,5 +1,5 @@
 //! P-RAID-Q2 oracle (loose proof, docs/backlog/packets/P-RAID-Q2.md): a `RaidBot` seated as a HUMAN (`bot: false`) on the
-//! live content world with a quest board, started a short walk from the giver of a dwell quest (`hold_the_fort`: 45 s in
+//! live content world with a quest board, started a short walk from the giver of a dwell quest (`hold_the_fort`: uncontested occupation in
 //! a Gallows guard house; `stay_a_while`: a 30 s meditation channel at the monk), accepts it, dwells and completes it, and
 //! accepts nothing outside the walker and dwell lists; its commands are all accepted by the sim; a seed replays exactly.
 //! A second player standing in the guard house contests the hold: the bot must not sit there for ever.
@@ -22,7 +22,7 @@ const HOLD_SEEDS: [u64; 5] = [2, 3, 4, 9, 12];
 const STAY_SEEDS: [u64; 5] = [2, 5, 13, 22, 24];
 /// Seeds that deal both (the default-price sweep, where the dwell and walker quests compete).
 const BOTH_SEEDS: [u64; 4] = [13, 14, 19, 24];
-/// 120 s of sim time: a 45 s hold plus the walks (about 3 s each way) leaves a wide margin; neither quest has a timer.
+/// 120 s of sim time covers the dwell and travel. Neither quest has a timer.
 const MAX_TICKS: u32 = 2_400;
 const START_DIST: f64 = 160.;
 const READ_EVERY: u32 = 4;
@@ -395,12 +395,16 @@ fn dwell_scenes_offer_the_quest_at_the_giver_and_not_at_the_start() {
 
 #[test]
 fn a_scripted_dwell_completes_each_scene() {
-    for (def, seeds) in [("hold_the_fort", HOLD_SEEDS), ("stay_a_while", STAY_SEEDS)] {
+    let rules = rh_sim::quests::public_rules();
+    for (def, seeds, dwell_ms) in [
+        ("hold_the_fort", HOLD_SEEDS, rules.fort_ms),
+        ("stay_a_while", STAY_SEEDS, rules.meditate_ms),
+    ] {
+        // The completed row disappears; the last sampled row sees the penultimate whole second.
+        let full = (dwell_ms / 1_000.) as u32 - 1;
         let mut done = Vec::new();
         for seed in seeds {
             let (j, _) = scripted_run(&scene(seed, def, false));
-            // The row shows the server's dwell clock in whole seconds: a finished dwell showed the full time.
-            let full = if def == "hold_the_fort" { 44 } else { 29 };
             if j.completed.contains(def) && j.max_progress >= full {
                 done.push(seed);
             }

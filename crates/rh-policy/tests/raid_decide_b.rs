@@ -14,7 +14,7 @@ use rh_policy::bots::raid::values::{DeathModel, Prices, SustainPrices};
 use rh_policy::bots::{PersonaId, RaidBot, TierId};
 use rh_policy::{drive_seats_with, feed_seats, scripted, MatchStart, Policy, Seat, SeatStats};
 use rh_sim::mob_catalog::MobTypeId;
-use rh_sim::quests::board::catalog::QuestId;
+use rh_sim::quests::{board::catalog::QuestId, public_rules};
 use rh_sim::{
     Arena, ArenaMode, Event, FactionId, ItemObserver, Observation, Placement, PlayerId,
     PublicCommand, QuestAttemptProbe, Secrets, SightCache, Sim, SimConfig, Vec2, WeaponId,
@@ -894,7 +894,7 @@ fn a_table_that_makes_every_camp_deadly_does_not_stop_two_banners() {
 // ---------------------------------------------------------------------------------------------------------------
 
 /// The control barters at ticks about 251, 541 and 781 (the three traders, from 160 u from the giver) and the third barter
-/// pays by itself at 54 stacks, on every seed of `TRADE_SEEDS`; the deadline is 95 900 ms after the sim started (about
+/// pays by itself on every seed of `TRADE_SEEDS`; the deadline is 95 900 ms after the sim started (about
 /// 1 900 ticks): **the route fits the timer with 56 s to spare on all six seeds** (measured on `coord/int-87`). A
 /// seed where it does not fit does not exist among the seeds that deal the quest (1-24), and a doctored timer is not allowed,
 /// so the "cash out because the timer will not allow the next trader" case cannot be a live scene; the live scenes pin
@@ -914,8 +914,8 @@ struct Trade {
     /// The highest barter progress seen.
     progress: u8,
     paid: Option<u32>,
-    /// The barter progress of the attempt when it was paid: the stage banked (1, 2 or 3 pay 12, 30 or 54 Penitent stacks,
-    /// `rewards/permanent.rs:176-185`; the stacks are not read here: a camp of Penitents adds its own).
+    /// The barter progress at settlement identifies the banked stage.
+    /// The bot's ending stacks can also include normal farming.
     banked: u8,
     died: Option<u32>,
     /// Progress was seen, nothing was paid, and the seat never died: the timer (or an abandon) took it.
@@ -955,29 +955,30 @@ fn trade_run(seed: u64, prices: Prices) -> Run {
     seat(s, QuestId::TradeUp, raid(prices), TRADE_TICKS)
 }
 
-/// Guard (green on the stub): the scene is playable. The scripted control reaches stage three (54 stacks) on every seed well
-/// before the deadline, and a control that cashes out after one barter is paid 12 stacks.
+/// Every stage pays its published amount in a real scripted turn-in.
 #[test]
-fn guard_a_scripted_control_plays_trade_up_to_stage_three_or_cashes_out_after_one() {
+fn guard_a_scripted_control_plays_trade_up_at_each_cash_out_stage() {
+    let payouts = public_rules().trade_up_stacks;
     for seed in TRADE_SEEDS {
-        let full = scripted_trade(seed, 3, 3_000).expect("a seed that deals trade_up");
-        let (tick, stacks) = full.paid.unwrap_or((u32::MAX, 0));
-        assert!(
-            stacks == 54 && f64::from(tick) * 50. < full.deadline - 30_000.,
-            "seed {seed}: the full route paid {stacks} at tick {tick}, deadline {} ms: {full:?}",
-            full.deadline
-        );
-        let one = scripted_trade(seed, 1, 3_000).expect("a seed that deals trade_up");
-        assert_eq!(
-            one.paid.map(|p| p.1),
-            Some(12),
-            "seed {seed}: cashing out after one barter: {one:?}"
-        );
-        assert_eq!(
-            (full.progress_at_pay, one.progress_at_pay),
-            (3, 1),
-            "seed {seed}: the probe's progress at the pay is the stage banked"
-        );
+        for (index, expected) in payouts.into_iter().enumerate() {
+            let stage = (index + 1) as u8;
+            let run = scripted_trade(seed, stage, 3_000).expect("a seed that deals trade_up");
+            let (tick, stacks) = run.paid.unwrap_or((u32::MAX, 0));
+            assert_eq!(stacks, expected, "seed {seed}, stage {stage}: {run:?}");
+            assert_eq!(run.progress_at_pay, stage, "seed {seed}: {run:?}");
+            assert_eq!(
+                run.barters.len(),
+                usize::from(stage),
+                "seed {seed}: {run:?}"
+            );
+            if stage == 3 {
+                assert!(
+                    f64::from(tick) * 50. < run.deadline - 30_000.,
+                    "seed {seed}: the full route paid at tick {tick}, deadline {} ms: {run:?}",
+                    run.deadline
+                );
+            }
+        }
     }
 }
 
@@ -1029,7 +1030,7 @@ fn raid_bot_plays_trade_up_banks_a_stage_and_never_loses_progress_to_its_timer()
     );
     assert!(
         !three.is_empty(),
-        "no seed reached stage three (54 stacks) though the route fits the timer on all of them: {report:?}"
+        "no seed reached stage three though the route fits the timer on all of them: {report:?}"
     );
 }
 
