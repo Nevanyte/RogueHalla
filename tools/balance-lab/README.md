@@ -213,6 +213,8 @@ for seed in 2 11 21 31 41 71; do
     target/release/augment_field "$seed" "$((seed + 1))" > "$d/exposure-$seed.jsonl"
 done
 python3 tools/balance-lab/augment_field_report.py "$d/augments.jsonl" --catalog "$d/catalog.json" --baseline "$d/quests.jsonl" --elite-events "$d/elites.json" --exposure "$d"/exposure-*.jsonl --expect-seeds 1..81 --csv "$d/augment_growth.csv" > "$d/utility.json"
+python3 tools/balance-lab/elite_loadout_report.py "$d/augments.jsonl" "$d/timing/field-ttk.json" "$d/elite_loadouts.csv"
+python3 tools/balance-lab/elite_pair_timing.py target/release/camp_bench "$d/pair_ttk_samples.csv" "$d/paired_cards_ttk.csv"
 python3 tools/balance-lab/reward_matchups.py augments target/release/camp_bench "$d"
 python3 tools/balance-lab/reward_matchups.py augments target/release/camp_bench "$d" --cost-ladder
 python3 tools/balance-lab/reward_matchups.py quests target/release/camp_bench "$d"

@@ -10,7 +10,6 @@ unresolved-seat counts. The trace does not distinguish standing from downed.
 
 import argparse
 import csv
-import glob
 import json
 import math
 from pathlib import Path
@@ -177,11 +176,11 @@ def report(rows, resolution, roster_size):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="augment-field/1 JSONL cohort")
-    parser.add_argument("field_dir", type=Path, help="directory containing field-final-*/field-ttk.json")
+    parser.add_argument("field", type=Path, help="field-ttk.json or a directory of field-final-* shards")
     parser.add_argument("output", type=Path, help="checkpoint CSV destination")
     args = parser.parse_args()
     _, rows = load(args.input)
-    paths = [Path(path) for path in glob.glob(str(args.field_dir / "field-final-*" / "field-ttk.json"))]
+    paths = [args.field] if args.field.is_file() else sorted(args.field.glob("field-final-*/field-ttk.json"))
     resolution, roster_size = load_field(paths)
     records = report(rows, resolution, roster_size)
     args.output.parent.mkdir(parents=True, exist_ok=True)
