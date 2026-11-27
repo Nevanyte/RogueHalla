@@ -30,6 +30,8 @@ class Guest(op.Host):
         self.next_fault = None
         self.fault = None
         self.occupied = False
+        self.waiting_only = False
+        self.private_seats = 0
         self.actions = []
         for path in (self.front, self.versions, self.prior, self.drop_dir):
             path.mkdir(parents=True, exist_ok=True)
@@ -102,12 +104,13 @@ class Guest(op.Host):
         if url == "/readyz":
             return {"ok": self.fault != "storage", "storage": "ok" if self.fault != "storage" else "down", "state": "ready"}
         if url == "/api/lobby":
+            waiting = self.occupied or self.waiting_only
             return {
                 "arenaAvailable": True, "arenaLimit": 2, "arenaRoomCount": 0, "rooms": [],
-                "waiting": ["guest"] if self.occupied else [], "onlineCount": int(self.occupied),
+                "waiting": ["guest"] if waiting else [], "onlineCount": int(waiting),
             }
         if url == "/control/info":
-            return {"state": "ready", "rooms": 0, "maxRooms": 2, "players": int(self.occupied)}
+            return {"state": "ready", "rooms": 0, "maxRooms": 2, "players": self.private_seats + int(self.occupied)}
         assert url == "/control/health"
         writers = {"configured": True, "started": self.fault != "capture", "startFailed": False, "writerUnavailable": 0}
         return {"state": "ready", "v": 1, "rooms": 0, "build": op.NEW if candidate else op.OLD,
@@ -255,6 +258,100 @@ class ReleaseTest(unittest.TestCase):
         self.assertEqual(production.program, production.prior_argv)
         self.assertEqual(production.front_bytes("index.html"), b"old root")
         self.assertTrue(self.stage.candidate)
+
+    def test_quest_queue_switch_and_restore_only_restart_the_selected_build(self):
+        production = Guest("production", self.root)
+        self.patch("Host", lambda kind, root, gid: self.stage)
+        self.apply(signature_landmarks=True)
+        self.apply(production, signature_landmarks=True)
+        stage_start = self.stage.program
+        live_start = production.program
+        journal = production.state.read_bytes()
+        index = production.front_bytes("index.html")
+        notice = production.front_bytes("alpha-gameplay-data.html")
+        prod_actions = list(production.actions)
+
+        with self.assertRaisesRegex(op.Guard, "staging first"):
+            op.queue(production, "raid")
+        self.assertEqual(production.actions, prod_actions)
+
+        for guest in (self.stage, production):
+            start = guest.program
+            self.assertEqual(op.queue(guest, "check"), "QUEST_QUEUE_CHECK current=baseline lobby=empty")
+            self.assertIn("fillTarget=8 botWaitSeconds=45", op.queue(guest, "raid"))
+            self.assertEqual(guest.program[0], start[0])
+            self.assertIn("--signature-landmarks", guest.program)
+            for flag, value in (("--fill-bots", "8"), ("--bot-brain", "raid"),
+                                ("--lobby-timing", "matchmaking"), ("--bot-wait-seconds", "45")):
+                self.assertEqual(guest.program[guest.program.index(flag) + 1], value)
+            self.assertEqual(op.queue(guest, "check"), "QUEST_QUEUE_CHECK current=raid lobby=empty")
+            actions = list(guest.actions)
+            op.queue(guest, "raid")
+            self.assertEqual(guest.actions, actions)
+            with self.assertRaisesRegex(op.Guard, "Unknown"):
+                self.rollback(guest)
+            self.assertEqual(op.load_record(guest)["phase"], "selected")
+            self.assertEqual(guest.actions, actions)
+
+        op.queue(production, "restore")
+        op.queue(self.stage, "restore")
+        self.assertEqual(self.stage.program, stage_start)
+        self.assertEqual(production.program, live_start)
+        self.assertEqual(production.state.read_bytes(), journal)
+        self.assertEqual(production.front_bytes("index.html"), index)
+        self.assertEqual(production.front_bytes("alpha-gameplay-data.html"), notice)
+        self.assertEqual(production.actions[len(prod_actions):], ["drain-new", "start-new"] * 2)
+
+    def test_quest_queue_leaves_waiting_players_and_active_admissions_in_place(self):
+        self.apply(signature_landmarks=True)
+        guest = self.stage
+        actions = list(guest.actions)
+        guest.waiting_only = True
+        for mode in ("check", "raid"):
+            with self.assertRaisesRegex(op.Guard, "occupied"):
+                op.queue(guest, mode)
+        self.assertEqual(guest.actions, actions)
+        guest.waiting_only = False
+        guest.private_seats = 1
+        with self.assertRaisesRegex(op.Guard, "Authoritative admission"):
+            op.queue(guest, "raid")
+        self.assertEqual(guest.actions, actions)
+        guest.private_seats = 0
+        op.queue(guest, "raid")
+        actions = list(guest.actions)
+        guest.occupied = True
+        with self.assertRaisesRegex(op.Guard, "occupied"):
+            op.queue(guest, "restore")
+        self.assertEqual(guest.actions, actions)
+
+    def test_quest_queue_failed_start_recovers_the_same_build(self):
+        self.apply(signature_landmarks=True)
+        guest = self.stage
+        original = guest.program
+        start = guest.start
+
+        def fail_first_raid_start(argv, transient):
+            guest.next_fault = "start" if "raid" in argv else None
+            start(argv, transient)
+
+        with patch.object(guest, "start", side_effect=fail_first_raid_start):
+            with self.assertRaisesRegex(op.Guard, "Four-seat quest queue restored"):
+                op.queue(guest, "raid", sleep=lambda _: None)
+        self.assertEqual(guest.program, original)
+        self.assertEqual(guest.actions[-3:], ["drain-new", "start-new", "start-new"])
+
+    def test_quest_queue_production_restore_from_stopped_raid_override(self):
+        production = Guest("production", self.root)
+        self.patch("Host", lambda kind, root, gid: self.stage)
+        self.apply(signature_landmarks=True)
+        self.apply(production, signature_landmarks=True)
+        baseline = production.program
+        op.queue(self.stage, "raid")
+        op.queue(production, "raid")
+        production.program = None
+        self.assertIn("BASELINE_READY", op.queue(production, "restore"))
+        self.assertEqual(production.program, baseline)
+        self.assertEqual(production.override.read_bytes(), op.override_bytes(baseline))
 
     def test_corrupt_archive_and_traversal_are_refused_before_drain(self):
         saved = self.archive_sha
