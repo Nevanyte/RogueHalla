@@ -101,8 +101,13 @@ def summarize(meta, matches, catalog):
         "observed_elite_drops_with_chooser": sum(bool(c["could_choose"]) for c in visible),
         "all_picks_by_source": dict(collections.Counter({
             source: sum(count for (kind, _), count in picks.items() if kind == source)
-            for source in {kind for (kind, _) in picks}
+            for source in sorted({kind for (kind, _) in picks})
         })),
+        "elite_card_offers": sum(offered.values()),
+        "elite_named_card_picks": sum(picks["elite", card] for card in names),
+        "elite_observed_options_outside_catalog": {
+            card: n for card, n in sorted(offered.items()) if card not in names
+        },
         "cards": rows,
     }
 
@@ -121,6 +126,7 @@ def main():
         start, end = map(int, args.expect_seeds.split(".."))
         if sorted(matches) != list(range(start, end)):
             parser.error("trace files do not cover the requested seed range")
+    matches = dict(sorted(matches.items()))
     report = summarize(meta, matches, json.loads(args.catalog.read_text()))
     if args.csv:
         with args.csv.open("w", newline="") as output:
