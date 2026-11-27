@@ -21,6 +21,8 @@ The right panel uses the earlier independent farm-kit study. Both seats carried 
 
 The previous stock medians were 14.50 (683) seconds for ordinary clears, 13.82 (311) for elite clears and 8.60 (29) for player final blows.
 
+Across the 657 final ordinary clears, the fewest recorded damage events in one clear was three. During minutes 10–15, one of 62 clears took at most four seconds. That was a return to a partially cleared camp. First pulls in that window took a median 22.38 seconds under the 30-second contact definition. One weapon action can produce several damage events.
+
 ## Room end and bot survival
 
 The median duration was 1268.50 (12) seconds. The shortest room ended after 800 seconds. The twelve rooms recorded 84 deaths, including 4 before five minutes, 17 before ten and 53 in sudden death. At the production room entry point, one human connection and seven RaidBots started three more matches. At 150 seconds all three humans were standing and the bot counts were 7/7, 6/7 and 7/7. On the first map a bot killed an elite at 145.6 seconds and picked a chest upgrade at 147.5 seconds. [Production room tests](../../../../crates/rh-server/src/room/tests/bot_fill.rs)
