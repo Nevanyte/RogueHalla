@@ -1180,8 +1180,8 @@ impl World {
         {
             if let Some(camp) = self.regional_camp(self.core(ix).id) {
                 extra = crate::mob_runtime::normal_camp_defense(elapsed);
-                if camp.elite.is_some() {
-                    extra *= crate::constants::RAID_ELITE_CAMP_DEFENSE_SHARE;
+                if let Some(boss) = camp.elite {
+                    extra *= crate::mob_runtime::elite_camp_defense_share(boss);
                 }
             }
         }
@@ -1196,16 +1196,20 @@ impl World {
         pace: crate::CombatPace,
     ) -> f64 {
         let elapsed = self.server_time - self.raid_started_at;
-        if pace != crate::CombatPace::Raid
-            || elapsed <= crate::constants::RAID_CAMP_OPENING_MS
-            || !attacker
-                .and_then(|id| self.regional_camp(id))
-                .is_some_and(|camp| camp.elite.is_some())
-        {
+        if pace != crate::CombatPace::Raid || elapsed <= crate::constants::RAID_CAMP_OPENING_MS {
             return 1.;
         }
+        let Some(boss) = attacker
+            .and_then(|id| self.regional_camp(id))
+            .and_then(|camp| camp.elite)
+        else {
+            return 1.;
+        };
         let half = crate::constants::RAID_ELITE_CAMP_DAMAGE_HALF_DEFENSE;
-        half / (half + crate::mob_runtime::normal_camp_defense(elapsed))
+        let scale = (crate::mob_runtime::elite_camp_defense_share(boss)
+            / crate::constants::RAID_ELITE_CAMP_DEFENSE_SHARE)
+            .max(1.);
+        half / (half + crate::mob_runtime::normal_camp_defense(elapsed) * scale)
     }
     /// Source scaledFaction -> mobFaction -> mobTypeFaction -> pacedFaction order for point-damage params.
     fn point_damage(&self, ix: FighterIx, raw: f64, execute: bool) -> f64 {
