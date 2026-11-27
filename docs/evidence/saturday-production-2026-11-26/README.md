@@ -59,7 +59,7 @@ The staged Unity Web, native Source and replay verifier share build `e85db4eb11c
 - Two ordinary Chrome Unity clients received the same authoritative Welcome map with all five landmarks: Fire volcano, Sentenced church, Plague bog tree, Frost cave and Holy hall. Both confirmed Ready, moved 17 authoritative units and chose Leave. The lobby cleared. Each received 151 of 151 game pongs. Seat medians were 11.047 and 10.902 ms, and p95 values were 13.951 and 12.867 ms.
 - Two cold bursts of eight authenticated Chrome protocol clients reached active play in two rooms. All 16 received authoritative input acknowledgements. All 720 game pings returned over 45 seconds, with 12.2 ms median RTT, 15.1 ms p95 and 28.8 ms maximum. The rooms cleared afterward.
 - A separate staging match with two humans and two bots finished, delivered both Results and cleared the arena. Private storage received one age-encrypted replay with AES256 storage encryption and two encrypted player-metrics objects. The retrieved replay checksum matched. The paired verifier matched the build and content, verified all 5,855 recorded steps and reproduced final state hash `bf8d225d0f257049`.
-- A separate local check used the exact sealed Unity client with a normally generated signature map. The High preset at 1920×1080 rendered all five landmarks and the Plague peat, grass and water surfaces. The visual sweep recorded 12 captures with zero reported errors.
+- A separate local check used the exact sealed Unity client with a normally generated signature map. The High preset at 1920×1080 rendered all five landmarks and the Plague peat, grass and water surfaces. The visual sweep recorded 12 captures with zero reported errors. [Six-panel landmark gallery rendered locally with the exact shipped Unity package](signature-landmarks.jpg)
 
 ### Cold startup and foreground rendering
 
@@ -72,3 +72,45 @@ The external 144 Hz display was unavailable during the rehearsal. A separate 60-
 Before enabling signature landmarks, a cold Chrome retry reached authoritative movement in 37.945 seconds on a modeled 20 Mbit/s link with 40 ms latency. In a separate two-seat Unity run, each client received all 151 game pongs. Median RTT was 10.055 and 10.486 ms, with p95 of 13.279 and 15.746 ms. Both seats moved authoritatively and the arena cleared after browser shutdown. One seat's ordinary Leave frame was absent from the receipt.
 
 The earlier Apple M5 Pro foreground sample used Ultra at 960×600 for 306.066 seconds in active staged gameplay. It recorded 36,713 Unity canvas draws, 119.948 draws per second and a draw-interval p95 of 9.30 ms and p99 of 9.70 ms. Peak sampled renderer RSS was 1.470 GB. GPU and browser process memory were measured separately, and complete tab memory was unresolved. The sample establishes canvas draw cadence on that hardware. Native 2560×1440 at 144 Hz in a full Ultra fight and the weak-hardware Phaser comparison remain unverified.
+
+## November 27 quest release selected on production
+
+The paired release operator selected Unity Web and native Source build `e85db4eb11ca7087a9e45f6b847d002d4a06a54b` on production. The previous Source build was `a553eb1231df4171bba587488f43018429aaecca`. The selected pair uses protocol 24 and content hash `cb811d19ebed6dfe`. The selected production HTML SHA-256 is `a8a90cb1ac50f3cd1268a9c6beeb05ed7a004a77cd62c49332ef9bc3f8bb0bb6`. The live Source was active with two available rooms, a four-participant fill target, a two-second fill window, signature-landmark maps and both capture writers running. [Release manifest and operator](../../../hosting/open-alpha/operations/release/balance/README.md)
+
+The public homepage, gameplay data notice and versioned Brotli loader matched the release. The direct gameplay endpoint reported the paired protocol and content hash, and PostgreSQL reported ready. The production target was healthy. Capture delivery, database backup, game-target and host alarms were all OK. Both credential and upload timers were active, and the last upload service run succeeded. Both new-build capture writers started with zero reported failures or drops.
+
+The owner approved a 45-second cold-start ceiling for this alpha. All three landmark-mode staging trials above fell within the approved alpha ceiling. Physical 144 Hz sign-off was deferred. The weak-hardware comparison remains open.
+
+### First production Unity smoke
+
+Two ordinary Chrome Unity clients received the five signature landmarks, confirmed Ready and moved 17 authoritative units. The server acknowledgement times were 93.265 and 113.664 ms. Both seats sent ordinary Leave and the lobby cleared.
+
+| Seat | Game pongs | Median RTT | Mean RTT | p95 RTT |
+|---|---:|---:|---:|---:|
+| A | 151 / 151 | 10.930 ms | 17.089 ms | 59.851 ms |
+| B | 151 / 151 | 10.929 ms | 17.113 ms | 60.769 ms |
+
+The run had zero missed replies. Both seats exceeded the mean RTT limit of less than 15 ms and the p95 limit of 45 ms.
+
+Both encrypted seat metrics from this smoke reached private storage. Both objects were nonempty and had S3 checksums and AES256 storage encryption. At review, all four S3 public-access blocks were enabled, the bucket policy was nonpublic and the live prefix had a 14-day expiration. The five-minute CloudWatch point for 19:40 UTC showed 5.8% average and 7.6% maximum host CPU. That aggregate does not identify the source of the RTT tail.
+
+### Completed production match
+
+In a separate four-seat match with two humans and two fill bots, both ordinary Unity clients moved and received authoritative acknowledgements. Both received MatchEnded at tick 2,795 and their own Results. The room cleared. The winning human's win bonus was withheld under the existing rule that requires at least three human starters. The test helper's expectation of an awarded bonus did not fit this two-human setup.
+
+Private storage received two more encrypted player metrics and one 497,042-byte encrypted replay with AES256 storage encryption. The downloaded ciphertext matched its recorded checksum. The paired verifier reproduced all 2,795 steps and final state hash `c0cd57f2fbcd7d0c`, with matching build and content.
+
+### Foreground latency diagnostic
+
+A separate single-seat Unity run confirmed 17 units of authoritative movement and received all 115 game pongs before the round ended. Median, mean and p95 RTT were 10.699, 10.909 and 12.131 ms. The shorter single-seat run provides a separate observation from the full two-seat sample.
+
+### Production paired latency recheck
+
+A later two-seat run met both live RTT limits. Both ordinary Unity clients sent Leave, and the lobby cleared.
+
+| Seat | Game pongs | Median RTT | Mean RTT | p95 RTT |
+|---|---:|---:|---:|---:|
+| A | 151 / 151 | 10.906 ms | 10.964 ms | 12.124 ms |
+| B | 151 / 151 | 10.583 ms | 10.903 ms | 13.371 ms |
+
+The first run's RTT tail did not recur in this recheck. The cause of that tail remains unresolved.
