@@ -49,7 +49,7 @@ fn pve_config_with(hitboxes: crate::archetype::HitboxMode) -> SimConfig {
 }
 
 /// The normal constructor + real joins + ordinary raid-start step for the admitted five-faction seed1 profile.
-fn pve_world(factions: &[FactionId]) -> (Sim, Vec<PlayerId>) {
+pub(super) fn pve_world(factions: &[FactionId]) -> (Sim, Vec<PlayerId>) {
     pve_world_with(factions, crate::archetype::HitboxMode::LegacyCircle)
 }
 
