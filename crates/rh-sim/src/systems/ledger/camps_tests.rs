@@ -182,7 +182,7 @@ fn the_pass_snapshot_is_read_per_attacker_and_cleared_after_the_pass() {
 
 #[test]
 fn the_scratch_capacity_is_prepared_by_reserve_actors_past_eight_actors() {
-    let mut s = TickScratch::default();
+    let mut s = TickScratch::for_config(&SimConfig::default());
     // The private diagnostic bench supports more than the eight real seats: reserve_actors prepares the snapshot
     // capacity for the actual actor count, so the pass-start extend never allocates or resizes in the hot pass.
     s.reserve_actors(crate::constants::MAX_PLAYERS + 4);

@@ -121,8 +121,13 @@ namespace Roguehalla.Net.Ui
                 var frame = new MapRect(x, title.Bottom + Gap / 2f, fw, fw);
                 var note = new MapRect(x, frame.Bottom + Gap / 2f, fw, PlanningNoteHeight);
                 float sideTop = note.Bottom + Gap;
-                var column = new MapRect(Pad, sideTop, avail, Math.Max(80f, h - Pad - sideTop));
-                return new MapScreenLayout(MapScreenMode.Planning, true, title, frame, note, new MapRect(0, 0, 0, 0), column, new MapRect(Pad, y, avail, h - y - Pad));
+                float railWidth = Math.Max(0f, avail - Gap);
+                float questWidth = Math.Min(PlanningQuestColumn, (float)Math.Floor(railWidth / 3f));
+                float railHeight = Math.Max(80f, h - Pad - sideTop);
+                var quests = new MapRect(Pad, sideTop, questWidth, railHeight);
+                var decisions = new MapRect(quests.Right + Gap, sideTop, railWidth - questWidth, railHeight);
+                return new MapScreenLayout(MapScreenMode.Planning, true, title, frame, note, quests, decisions,
+                    new MapRect(Pad, y, avail, h - y - Pad));
             }
             float fixedH = PlanningTitleHeight + Gap + Gap + PlanningNoteHeight + FramePad * 2f;
             float sideMax = (float)Math.Floor(Math.Min(h - ChromeClear - Pad - fixedH,

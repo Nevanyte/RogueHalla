@@ -19,7 +19,7 @@ namespace Roguehalla.Client
         TacticalMapController _map;
         UiDisplayPreferences _prefs;
         Action _close, _leave;
-        RectTransform _root, _content;
+        RectTransform _root, _content, _tutorialHeading, _tutorialRow;
         ScrollRect _scroll;
         ScrollIndicator _cue;
         Button _quality, _closeButton, _reset, _leaveButton;
@@ -93,9 +93,9 @@ namespace Roguehalla.Client
             SegmentedRow("Minimap size");
             Heading("Controls");
             _quickCast = SwitchRow("Quick cast", () => _prefs.SetQuickCast(!_prefs.QuickCast), "Abilities you aim (Frost Wall) cast at the cursor the moment you press the key. Off: the key shows where it lands and a click places it.");
-            Heading("Tutorial");
-            var replay = ControlRow("Training walkthrough", RowHeight);
-            HudUi.Button(replay, "ReplayTutorial", "Replay tutorial", HudAnchor.MiddleRight, 0, 0, 120f, 22f, () => { CloseByUser(); ReplayTutorialRequested?.Invoke(); }, theme.SizeSmall, theme.CornerRadiusSmall);
+            _tutorialHeading = Heading("Tutorial");
+            _tutorialRow = ControlRow("Training walkthrough", RowHeight);
+            HudUi.Button(_tutorialRow, "ReplayTutorial", "Replay tutorial", HudAnchor.MiddleRight, 0, 0, 120f, 22f, () => { CloseByUser(); ReplayTutorialRequested?.Invoke(); }, theme.SizeSmall, theme.CornerRadiusSmall);
             FooterRow();
 
             _cue = new ScrollIndicator(_scroll, scrollRect);
@@ -178,13 +178,26 @@ namespace Roguehalla.Client
 
         // ---- rows
 
-        void Heading(string text)
+        public void SetReplayTutorialAvailable(bool available)
+        {
+            if (_tutorialRow.gameObject.activeSelf == available) return;
+            var events = EventSystem.current;
+            var selected = events?.currentSelectedGameObject;
+            if (!available && selected != null && selected.transform.IsChildOf(_tutorialRow))
+                events.SetSelectedGameObject(_closeButton.gameObject);
+            _tutorialHeading.gameObject.SetActive(available);
+            _tutorialRow.gameObject.SetActive(available);
+            if (IsVisible) Fit(_root.sizeDelta.x);
+        }
+
+        RectTransform Heading(string text)
         {
             var theme = UiTheme.Current;
             var row = Row("Heading", 24f);
             var label = HudUi.Label(row, "SectionLabel", text.ToUpperInvariant(), theme.SizeSmall, theme.TextSecondary, TextAlignmentOptions.BottomLeft, true);
             label.characterSpacing = 2f;
             label.rectTransform.offsetMin = new Vector2(0, 3);
+            return row;
         }
 
         RectTransform Row(string name, float height)

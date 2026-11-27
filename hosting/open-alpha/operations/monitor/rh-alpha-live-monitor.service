@@ -1,0 +1,14 @@
+[Unit]
+Description=Publish live game recording and database backup health
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/rh-alpha/saturday-ops/health.py
+TimeoutStartSec=85
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ReadWritePaths=/var/lib/rh-alpha-monitor
+UMask=0077

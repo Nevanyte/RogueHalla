@@ -254,7 +254,7 @@ impl<'de> Visitor<'de> for CheckpointVisitor<'_> {
         if let Some(run) = w.practice.as_mut() {
             run.prepare(seated);
         }
-        let mut scratch = TickScratch::default();
+        let mut scratch = TickScratch::for_config(&k.config);
         scratch.reserve_actors(w.fighter_count());
         if let Err(why) = crate::systems::sentenced::prepare(&k, &mut w, &mut scratch) {
             return Err(self.refuse(CheckpointError::Malformed(why.into())));

@@ -109,6 +109,33 @@ namespace Roguehalla.Client.Tests
         }
 
         [Test]
+        public void UnofferedTrainingHasNoControlPromptOrSolidFootprint()
+        {
+            int trained = 0;
+            _view.TrainingRequested = () => trained++;
+            var training = Station("Training");
+            _view.PlaceAvatar(704, 288);
+            _view.ReadInput(false);
+            Assert.That(_view.Prompt, Does.Contain("Enter training"));
+            training.onClick.Invoke();
+            Assert.That(trained, Is.EqualTo(1));
+
+            _view.SetPlayAvailable(true, "", "", false, "", "", trainingOffered: false);
+            Assert.That(training.IsActive(), Is.False);
+            Assert.That(_view.Prompt, Is.EqualTo(HubAtriumView.DefaultHint));
+            _view.PlaceAvatar(786, 288);
+            _view.ReadInput(false);
+            Assert.That(_view.AvatarPosition.x, Is.EqualTo(786).Within(.01f));
+            Assert.That(_view.Prompt, Is.EqualTo(HubAtriumView.DefaultHint));
+            training.onClick.Invoke();
+            Assert.That(trained, Is.EqualTo(1));
+
+            _view.SetPlayAvailable(true, "", "", true, "", "", trainingOffered: true);
+            Assert.That(training.IsActive(), Is.True);
+            Assert.That(Vector2.Distance(_view.AvatarPosition, new Vector2(786, 288)), Is.GreaterThan(HubAtriumView.AvatarRadius));
+        }
+
+        [Test]
         public void RoomScalesToTheAreaItIsGiven()
         {
             _view.ApplyArea(0, 0, 450, 400);

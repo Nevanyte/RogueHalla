@@ -1,0 +1,518 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Private production backup storage and alerts for the RogueHalla alpha host.",
+  "Metadata": {
+    "AWSToolsMetrics": {
+      "AWSAgentToolkit": "aws-cloudformation@3"
+    },
+    "com.aws.cloudformation.Context": {
+      "arch": "An existing guest uploads encrypted backups and emits health samples. An existing EC2 instance and ALB publish infrastructure metrics.",
+      "must": [
+        "Deploy in the region of the existing production host and ALB. The guest backup and monitor recipes target ca-west-1.",
+        "Preserve storage and its TLS and create-only bucket policy. Keep the off-host reader independent of the instance role."
+      ],
+      "ref": [
+        "README.md"
+      ]
+    }
+  },
+  "Parameters": {
+    "GuestRoleName": {
+      "Type": "String",
+      "AllowedPattern": "[A-Za-z0-9_+=,.@-]{1,64}",
+      "Description": "Existing same-account instance role name without IAM path."
+    },
+    "GuestRolePath": {
+      "Type": "String",
+      "Default": "/",
+      "AllowedPattern": "/(?:[A-Za-z0-9_+=,.@-]+/)*",
+      "Description": "IAM path of the existing instance role, including the leading and trailing slash."
+    },
+    "HostInstanceId": {
+      "Type": "AWS::EC2::Instance::Id",
+      "Description": "Production guest providing EC2 status check metrics."
+    },
+    "LoadBalancerFullName": {
+      "Type": "String",
+      "AllowedPattern": "app/[A-Za-z0-9-]+/[a-f0-9]+",
+      "Description": "LoadBalancer CloudWatch dimension (ARN suffix)."
+    },
+    "TargetGroupFullName": {
+      "Type": "String",
+      "AllowedPattern": "targetgroup/[A-Za-z0-9-]+/[a-f0-9]+",
+      "Description": "TargetGroup CloudWatch dimension (ARN suffix)."
+    }
+  },
+  "Resources": {
+    "Storage": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "BucketName": {
+          "Fn::Sub": "roguehalla-alpha-db-backups-${AWS::AccountId}-${AWS::Region}"
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": true,
+          "RestrictPublicBuckets": true
+        },
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            }
+          ]
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        },
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "Id": "ExpireBackup",
+              "Prefix": "live/",
+              "Status": "Enabled",
+              "ExpirationInDays": 14,
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 1
+              },
+              "AbortIncompleteMultipartUpload": {
+                "DaysAfterInitiation": 1
+              }
+            },
+            {
+              "Id": "ExpiredDeleteMarkers",
+              "Status": "Enabled",
+              "ExpiredObjectDeleteMarker": true
+            }
+          ]
+        }
+      },
+      "Metadata": {
+        "com.aws.cloudformation.Context": {
+          "why": "Recover account data independently of host availability.",
+          "must": [
+            "Retain on delete and replacement. Expire live data after 14 days."
+          ]
+        }
+      }
+    },
+    "StoragePolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "Bucket": {
+          "Ref": "Storage"
+        },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "TLS",
+              "Effect": "Deny",
+              "Action": "s3:*",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "Storage",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Sub": "${Storage.Arn}/*"
+                }
+              ],
+              "Principal": "*",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false"
+                }
+              }
+            },
+            {
+              "Sid": "RequireEncryption",
+              "Effect": "Deny",
+              "Action": "s3:PutObject",
+              "Resource": {
+                "Fn::Sub": "${Storage.Arn}/*"
+              },
+              "Principal": "*",
+              "Condition": {
+                "StringNotEquals": {
+                  "s3:x-amz-server-side-encryption": "AES256"
+                }
+              }
+            },
+            {
+              "Sid": "CreateOnly",
+              "Effect": "Deny",
+              "Action": "s3:PutObject",
+              "Resource": {
+                "Fn::Sub": "${Storage.Arn}/*"
+              },
+              "Principal": "*",
+              "Condition": {
+                "StringNotEquals": {
+                  "s3:if-none-match": "*"
+                }
+              }
+            },
+            {
+              "Sid": "HostIsWriteOnly",
+              "Effect": "Deny",
+              "Principal": "*",
+              "NotAction": "s3:PutObject",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "Storage",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Sub": "${Storage.Arn}/*"
+                }
+              ],
+              "Condition": {
+                "ArnEquals": {
+                  "aws:PrincipalArn": {
+                    "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role${GuestRolePath}${GuestRoleName}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "Metadata": {
+        "com.aws.cloudformation.Context": {
+          "why": "Enforce the guest write-only boundary independently of other guest role grants.",
+          "must": [
+            "Require TLS, SSE-S3 and conditional creation. Keep the policy with the retained bucket."
+          ]
+        }
+      }
+    },
+    "OperationsPolicy": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "RogueHallaAlphaCreateBackupAndReportHealth",
+        "Roles": [
+          {
+            "Ref": "GuestRoleName"
+          }
+        ],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "Backup",
+              "Effect": "Allow",
+              "Action": "s3:PutObject",
+              "Resource": {
+                "Fn::Sub": "${Storage.Arn}/live/*"
+              }
+            },
+            {
+              "Sid": "OperationalMetrics",
+              "Effect": "Allow",
+              "Action": "cloudwatch:PutMetricData",
+              "Resource": "*",
+              "Condition": {
+                "StringEquals": {
+                  "cloudwatch:namespace": "RogueHalla/AlphaOperations"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "Metadata": {
+        "com.aws.cloudformation.Context": {
+          "why": "Give the existing guest its backup and health publishing capability.",
+          "must": [
+            "No backup read or deletion. Scope health publishing by namespace."
+          ]
+        }
+      }
+    },
+    "Alerts": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "TopicName": "roguehalla-alpha-operations"
+      },
+      "Metadata": {
+        "com.aws.cloudformation.Context": {
+          "why": "Deliver both alarm and recovery notifications to a private operator-managed subscription.",
+          "must": [
+            "Keep recipient addresses outside this template."
+          ]
+        }
+      }
+    },
+    "NotifyPolicy": {
+      "Type": "AWS::SNS::TopicPolicy",
+      "Properties": {
+        "Topics": [
+          {
+            "Ref": "Alerts"
+          }
+        ],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "CloudWatchAlarmNotifications",
+              "Effect": "Allow",
+              "Action": "sns:Publish",
+              "Resource": {
+                "Ref": "Alerts"
+              },
+              "Principal": {
+                "Service": "cloudwatch.amazonaws.com"
+              },
+              "Condition": {
+                "StringEquals": {
+                  "aws:SourceAccount": {
+                    "Ref": "AWS::AccountId"
+                  }
+                },
+                "ArnLike": {
+                  "aws:SourceArn": {
+                    "Fn::Sub": "arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:roguehalla-alpha-*"
+                  }
+                }
+              }
+            },
+            {
+              "Sid": "OwnAccount",
+              "Effect": "Allow",
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:SetTopicAttributes",
+                "SNS:Subscribe",
+                "SNS:ListSubscriptionsByTopic",
+                "SNS:Publish",
+                "SNS:DeleteTopic"
+              ],
+              "Resource": {
+                "Ref": "Alerts"
+              },
+              "Principal": {
+                "AWS": {
+                  "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "Metadata": {
+        "com.aws.cloudformation.Context": {
+          "why": "Permit same-account CloudWatch alarms to deliver notifications.",
+          "must": [
+            "Keep publication scoped by source account and alarm ARN."
+          ]
+        }
+      }
+    },
+    "Host": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "DependsOn": "NotifyPolicy",
+      "Properties": {
+        "AlarmName": "roguehalla-alpha-host",
+        "AlarmDescription": "Calgary production EC2 failed a host or instance status check or stopped reporting.",
+        "Namespace": "AWS/EC2",
+        "MetricName": "StatusCheckFailed",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "HostInstanceId"
+            }
+          }
+        ],
+        "Period": 60,
+        "Statistic": "Maximum",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Threshold": 1,
+        "EvaluationPeriods": 3,
+        "DatapointsToAlarm": 2,
+        "TreatMissingData": "breaching",
+        "AlarmActions": [
+          {
+            "Ref": "Alerts"
+          }
+        ],
+        "OKActions": [
+          {
+            "Ref": "Alerts"
+          }
+        ]
+      },
+      "Metadata": {
+        "com.aws.cloudformation.Context": {
+          "why": "Notify the operator when host availability is degraded.",
+          "must": [
+            "Evaluate missing data as breaching."
+          ]
+        }
+      }
+    },
+    "Target": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "DependsOn": "NotifyPolicy",
+      "Properties": {
+        "AlarmName": "roguehalla-alpha-game-target",
+        "AlarmDescription": "Calgary production load balancer has no healthy game target.",
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "HealthyHostCount",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": {
+              "Ref": "LoadBalancerFullName"
+            }
+          },
+          {
+            "Name": "TargetGroup",
+            "Value": {
+              "Ref": "TargetGroupFullName"
+            }
+          }
+        ],
+        "Period": 60,
+        "Statistic": "Maximum",
+        "ComparisonOperator": "LessThanThreshold",
+        "Threshold": 1,
+        "EvaluationPeriods": 3,
+        "DatapointsToAlarm": 2,
+        "TreatMissingData": "breaching",
+        "AlarmActions": [
+          {
+            "Ref": "Alerts"
+          }
+        ],
+        "OKActions": [
+          {
+            "Ref": "Alerts"
+          }
+        ]
+      },
+      "Metadata": {
+        "com.aws.cloudformation.Context": {
+          "why": "Notify the operator when the direct game ingress has no healthy target.",
+          "must": [
+            "Use the production target group and load balancer dimensions."
+          ]
+        }
+      }
+    },
+    "Capture": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "DependsOn": "NotifyPolicy",
+      "Properties": {
+        "AlarmName": "roguehalla-alpha-capture-delivery",
+        "AlarmDescription": "The live capture writer, uploader, or its monitoring heartbeat failed. Check the encrypted spools and timer.",
+        "Namespace": "RogueHalla/AlphaOperations",
+        "MetricName": "CaptureHealthy",
+        "Dimensions": [
+          {
+            "Name": "Environment",
+            "Value": "production"
+          }
+        ],
+        "Period": 300,
+        "Statistic": "Minimum",
+        "ComparisonOperator": "LessThanThreshold",
+        "Threshold": 1,
+        "EvaluationPeriods": 2,
+        "DatapointsToAlarm": 2,
+        "TreatMissingData": "breaching",
+        "AlarmActions": [
+          {
+            "Ref": "Alerts"
+          }
+        ],
+        "OKActions": [
+          {
+            "Ref": "Alerts"
+          }
+        ]
+      },
+      "Metadata": {
+        "com.aws.cloudformation.Context": {
+          "why": "Notify the operator if the capture writers or uploader fail.",
+          "must": [
+            "Match guest metric namespace, dimension and heartbeat cadence."
+          ]
+        }
+      }
+    },
+    "Backup": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "DependsOn": "NotifyPolicy",
+      "Properties": {
+        "AlarmName": "roguehalla-alpha-database-backup",
+        "AlarmDescription": "No recent successful hourly off-host database backup or missing monitoring heartbeat.",
+        "Namespace": "RogueHalla/AlphaOperations",
+        "MetricName": "BackupHealthy",
+        "Dimensions": [
+          {
+            "Name": "Environment",
+            "Value": "production"
+          }
+        ],
+        "Period": 300,
+        "Statistic": "Minimum",
+        "ComparisonOperator": "LessThanThreshold",
+        "Threshold": 1,
+        "EvaluationPeriods": 2,
+        "DatapointsToAlarm": 2,
+        "TreatMissingData": "breaching",
+        "AlarmActions": [
+          {
+            "Ref": "Alerts"
+          }
+        ],
+        "OKActions": [
+          {
+            "Ref": "Alerts"
+          }
+        ]
+      },
+      "Metadata": {
+        "com.aws.cloudformation.Context": {
+          "why": "Notify the operator if the last successful backup is stale.",
+          "must": [
+            "Match guest metric namespace, dimension and heartbeat cadence."
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "Bucket": {
+      "Value": {
+        "Ref": "Storage"
+      }
+    },
+    "Topic": {
+      "Value": {
+        "Ref": "Alerts"
+      }
+    }
+  }
+}
