@@ -75,7 +75,7 @@ The earlier Apple M5 Pro foreground sample used Ultra at 960×600 for 306.066 se
 
 ## November 27 quest release selected on production
 
-The paired release operator selected Unity Web and native Source build `e85db4eb11ca7087a9e45f6b847d002d4a06a54b` on production. The previous Source build was `a553eb1231df4171bba587488f43018429aaecca`. The selected pair uses protocol 24 and content hash `cb811d19ebed6dfe`. The selected production HTML SHA-256 is `a8a90cb1ac50f3cd1268a9c6beeb05ed7a004a77cd62c49332ef9bc3f8bb0bb6`. The live Source was active with two available rooms, a four-participant fill target, a two-second fill window, signature-landmark maps and both capture writers running. [Release manifest and operator](../../../hosting/open-alpha/operations/release/balance/README.md)
+The paired release operator selected Unity Web and native Source build `e85db4eb11ca7087a9e45f6b847d002d4a06a54b` on production. The previous Source build was `a553eb1231df4171bba587488f43018429aaecca`. The selected pair uses protocol 24 and content hash `cb811d19ebed6dfe`. The selected production HTML SHA-256 is `a8a90cb1ac50f3cd1268a9c6beeb05ed7a004a77cd62c49332ef9bc3f8bb0bb6`. At the initial cutover, Source had two available rooms, a four-participant fill target, a two-second fill window, signature-landmark maps and both capture writers running. The following production runs used this initial queue. [Release manifest and operator](../../../hosting/open-alpha/operations/release/balance/README.md)
 
 The public homepage, gameplay data notice and versioned Brotli loader matched the release. The direct gameplay endpoint reported the paired protocol and content hash, and PostgreSQL reported ready. The production target was healthy. Capture delivery, database backup, game-target and host alarms were all OK. Both credential and upload timers were active, and the last upload service run succeeded. Both new-build capture writers started with zero reported failures or drops.
 
@@ -98,7 +98,7 @@ Both encrypted seat metrics from this smoke reached private storage. Both object
 
 In a separate four-seat match with two humans and two fill bots, both ordinary Unity clients moved and received authoritative acknowledgements. Both received MatchEnded at tick 2,795 and their own Results. The room cleared. The winning human's win bonus was withheld under the existing rule that requires at least three human starters. The test helper's expectation of an awarded bonus did not fit this two-human setup.
 
-Private storage received two more encrypted player metrics and one 497,042-byte encrypted replay with AES256 storage encryption. The downloaded ciphertext matched its recorded checksum. The paired verifier reproduced all 2,795 steps and final state hash `c0cd57f2fbcd7d0c`, with matching build and content.
+Private storage received two more encrypted player metrics and one 497,042-byte encrypted replay with AES256 storage encryption. The downloaded ciphertext matched its recorded checksum. The paired verifier reproduced all 2,795 steps and final state hash `c0cd57f2fbcd7d0c`, with matching build and content. The validated trajectory contained 5,584 human position samples and 1,022 human game commands.
 
 ### Foreground latency diagnostic
 
@@ -114,3 +114,39 @@ A later two-seat run met both live RTT limits. Both ordinary Unity clients sent 
 | B | 151 / 151 | 10.583 ms | 10.903 ms | 13.371 ms |
 
 The first run's RTT tail did not recur in this recheck. The cause of that tail remains unresolved.
+
+## November 27 RaidBot queue selected on production
+
+Calgary production switched the selected `e85db4eb11ca7087a9e45f6b847d002d4a06a54b` release in place after checking that the lobby was empty. The running Source uses `--bot-brain raid --fill-bots 8 --lobby-timing matchmaking --bot-wait-seconds 45`. The Unity Web release, protocol 24, content hash `cb811d19ebed6dfe`, two-room capacity, signature-landmark maps, and capture configuration carried forward.
+
+The server gives humans a 45-second queue window from the first admission. When the window expires, RaidBot fills the missing seats and Planning begins two seconds later. Eight human arrivals advance to Planning immediately. Planning has its own 45-second deadline and can advance to Active earlier after the Ready conditions are met.
+
+### Hosted staging rehearsal
+
+Seventeen authenticated seats joined directly over Chrome WebSockets across three scenarios on the same build. Phase times below use the logical server clock from Welcome and the authoritative phase snapshots.
+
+| Scenario | Queue result | First Welcome to Planning | Eighth Welcome to Planning | Planning to Active | Active pongs | Active RTT mean / p95 |
+|---|---|---:|---:|---:|---:|---:|
+| Solo | Seven bots first appeared on the roster at 45.025 s | 47.000 s | — | 8.350 s | 60 / 60 | 10.74 / 13.20 ms |
+| Eighth human joined later | Eight humans, zero bots | 28.125 s | 25 ms | 50 ms | 192 / 192 | 11.20 / 13.50 ms |
+| Eight humans joined in a burst | Eight humans, zero bots | 50 ms | 25 ms | 50 ms | 192 / 192 | 11.15 / 13.10 ms |
+
+The solo run reached Active 55.350 seconds after admission. The server journal confirmed seven RaidBot selections and zero policy fallbacks, and the client saw a nearby bot move at least 16 world units. The reported p99 simulation step took 7.167 ms against the 25 ms tick budget, with zero dropped steps. Private storage returned the solo participant's encrypted metric with a checksum and AES256 server-side encryption. All scenarios cleared the lobby with ordinary Leave during Active. The operator then rehearsed restoring the original four-seat, two-second queue and reselecting RaidBot on the same build before enabling production.
+
+### Completed staging match
+
+A separate match with two human QA seats and six RaidBots reached MatchEnded after 1,088 seconds of Active play. A RaidBot won and both humans tied for second. The server journal confirmed all six RaidBot policy selections with zero fallbacks through the finish. Both clients received Results. Each confirmed 162 gameplay input acknowledgements and recorded 1,072 samples of its own authoritative position. All 2,282 combined game pings returned, and the lobby cleared after ordinary cleanup.
+
+Private storage held both encrypted player metrics and the 1,853,931-byte encrypted replay. The replay's ciphertext checksum matched and its storage encryption was SSE-S3. The capture prefixes had an active 14-day expiration policy. The shipped Linux verifier reproduced all 45,679 ticks and final hash `85940fe4867e8517`.
+
+A separate export from the same Rust source verified every tick again and extracted 91,356 human position rows and 326 human game commands. All 2,144 browser position samples matched the corresponding actor and tick, with a maximum absolute coordinate difference of 0.0051 world units. The browser recorded coordinates to two decimal places.
+
+### Live Unity verification
+
+One ordinary Chrome Unity client still saw one human and zero bots at 44.597 seconds. It first saw all seven bots at 45.111 seconds and entered Planning at 47.161 seconds. The server acknowledged movement in Active. All 151 game pings returned, with an 11.220 ms median, a 14.873 ms mean and a 36.215 ms p95. The client exited cleanly and the lobby cleared.
+
+The production journal confirmed seven RaidBot selections and zero policy fallbacks. The p99 simulation step took 16.383 ms against the 25 ms tick budget, with zero dropped steps. The player's encrypted metrics reached private storage, and all four operational alarms reported OK at readback.
+
+### Operator verification
+
+All 18 offline release-operator tests, the local quick gate, and GitHub Hosting validate passed for the queue change. A fresh full gate reached workspace test linking after passing both Clippy modes and the C# suite. The Mac ran out of disk space during linking. The original `e85db4eb1` full gate passed with both PostgreSQL suites and 2,863 Unity EditMode tests. The queue change leaves the tested Rust, Unity, wire, and parity inputs byte-identical. [Quest release gate](https://github.com/Nevanyte/RogueHalla/pull/96) · [Queue operator](https://github.com/Nevanyte/RogueHalla/pull/102) · [Hosting validate](https://github.com/Nevanyte/RogueHalla/actions/runs/46061642319/job/140717060398)
