@@ -21,7 +21,7 @@ import tempfile
 import time
 
 OLD = "a553eb1231df4171bba587488f43018429aaecca"
-NEW = "c39bc1b77faff41cc66ba034aecc565dea364b48"
+NEW = "0fac6aa75e9bcbc55b701b732e1169702c194d8f"
 OLD_CONTENT = "8a4bf0ce37b406f2"
 NEW_CONTENT = "cb811d19ebed6dfe"
 OLD_NATIVE_SHA = "2c93c36124cd3999b1ca1e2a1a7df068fa92cc2ed18ca6e2d5b7877b20280039"

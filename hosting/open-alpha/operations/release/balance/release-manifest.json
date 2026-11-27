@@ -20,39 +20,39 @@
   "files": {
     "loaders/live-same-origin.html": {
       "bytes": 9596,
-      "sha256": "98f6facc2c5f92f735a26d71609f59faeb39e012814614d39f0d58cfa1cff273"
+      "sha256": "cf23e06661848a9557f68a93e7244f56f7f67f4e0bf15fc567ffe24135d87b28"
     },
     "loaders/live-split.html": {
       "bytes": 9644,
-      "sha256": "67e95373d0ebbaa15cac215386c55b61048052d80d4a647f74209626227e987d"
+      "sha256": "72273f801ffef3a993b426b01642e15c4d6ddcf27a1fe6f78595d2a2d289b40b"
     },
     "loaders/staging-same-origin.html": {
       "bytes": 9605,
-      "sha256": "7257c1cc72db7bfe7ebabdefe50381f45547cc167a7dbf397c22a2e8f572cacd"
+      "sha256": "16daa3a0194083b44d42ee16d0977c0c9b69d644afbcb719b7f9935c55477aff"
     },
     "loaders/staging-split.html": {
       "bytes": 9675,
-      "sha256": "6bcd792145f50ce871f3d1cf39a916a331ffa31669ea895927f1b9e1feeb6a08"
+      "sha256": "5371aabf334716c0c14f8d899dace7b9b5ea87ef3f36c4738f669744bd37cf44"
     },
     "rh-headless": {
-      "bytes": 81368080,
-      "sha256": "8a7974840fa15e0e4d60f5084d859767aa84d4ad4fafb4fb29345b9a337ba359"
+      "bytes": 81384192,
+      "sha256": "c58902885dd7a72d71347c4e292ba0c5474ffae6ffa15aa42868bbc666b2dfed"
     },
     "rh-server": {
-      "bytes": 160786376,
-      "sha256": "e482dbc6411027f32ce0595014f4599a5d01455e6b2eba1d6146fa602625bf87"
+      "bytes": 160800824,
+      "sha256": "bb12632c4a477864ba66d6fcc1b33fb0d1da1679a6ecac07fbb9d82dd183ea36"
     },
     "seed1.map.json": {
       "bytes": 319166,
       "sha256": "7c95efad61f47942d10921d7f1bc16acb43306f370cf368e0693a69d456441e7"
     },
     "web/Build/Web.data": {
-      "bytes": 75721709,
-      "sha256": "194bac2674ea2c904e5384f411809206b55275ff1767da12fa8584ec85297110"
+      "bytes": 75721705,
+      "sha256": "3c607b96b0209b30a35f6a47e0db1cc67820a325cfa56a30971d6b08a24a914a"
     },
     "web/Build/Web.data.br": {
-      "bytes": 55073474,
-      "sha256": "1bfa737920bcdee0eb1bf369cbe0fa5af6b6916e469a4d2b54643cb1abce360c"
+      "bytes": 55040376,
+      "sha256": "0565f73ff48a0301f0461e49ecf67433387dc050bd2ba53338bc7663bacdfac1"
     },
     "web/Build/Web.framework.js": {
       "bytes": 361377,
@@ -217,7 +217,7 @@
     ]
   },
   "native": {
-    "build": "c39bc1b77faff41cc66ba034aecc565dea364b48",
+    "build": "0fac6aa75e9bcbc55b701b732e1169702c194d8f",
     "builder": "rust:1.97.0-bookworm@sha256:8fa55b2f3ddf97471ab6a767bfa3f37e6bad0986ba823e75fea57e2a2a5c3073",
     "builderGlibc": "2.36",
     "captureSmoke": [
@@ -225,8 +225,8 @@
       "replays"
     ],
     "elfBuildIds": {
-      "rh-headless": "a9fe2e1316fa7d7ad3c264ce4eb6e4740a7b8d35",
-      "rh-server": "38c9e39aa2d5a3a2f6f7c9539abdc85a2d35cf71"
+      "rh-headless": "8b1537cfb2c56a08ad4ff2f899d48733e990d1c2",
+      "rh-server": "8cab7f0fdb6f6ef929e0684a34eb20bf88af1148"
     },
     "features": [
       "postgres"
@@ -239,28 +239,58 @@
     "target": "x86_64-unknown-linux-gnu",
     "verifier": "rh-headless",
     "verifierSmoke": {
-      "build": "c39bc1b77faff41cc66ba034aecc565dea364b48",
+      "build": "0fac6aa75e9bcbc55b701b732e1169702c194d8f",
       "contentHash": "same",
       "finalHash": "12d7549a7df90f18",
       "matchId": "",
-      "recordedBuild": "c39bc1b77faff41cc66ba034aecc565dea364b48",
+      "recordedBuild": "0fac6aa75e9bcbc55b701b732e1169702c194d8f",
       "steps": 600,
       "verified": true
     }
   },
   "protocol": 24,
-  "releaseSource": "c39bc1b77faff41cc66ba034aecc565dea364b48",
-  "sourceTree": "66aa161c3bee0672d0ed1d1d5cbf6e8b5b2553b7",
+  "releaseSource": "0fac6aa75e9bcbc55b701b732e1169702c194d8f",
+  "sourceTree": "8ca01cda75ee89dc33e4a79cb8fe8479783376dc",
   "web": {
-    "assetPrefix": "/alpha-web/c39bc1b77faff41cc66ba034aecc565dea364b48/",
+    "assetPrefix": "/alpha-web/0fac6aa75e9bcbc55b701b732e1169702c194d8f/",
     "bakedContentHash": "cb811d19ebed6dfe",
     "brotliQuality": 11,
+    "brotliVerification": [
+      {
+        "brotliBytes": 55040376,
+        "file": "Web.data",
+        "rawBytes": 75721705,
+        "rawSha256": "3c607b96b0209b30a35f6a47e0db1cc67820a325cfa56a30971d6b08a24a914a",
+        "reused": false
+      },
+      {
+        "brotliBytes": 75549,
+        "file": "Web.framework.js",
+        "rawBytes": 361377,
+        "rawSha256": "73d7fe6c0731b32d8e76cf820cbbbd12f08579cb3d58981825dc2568799f4f4d",
+        "reused": true
+      },
+      {
+        "brotliBytes": 8119,
+        "file": "Web.loader.js",
+        "rawBytes": 26694,
+        "rawSha256": "513fdd1de200c9dd986ca1cbec3f95d4d54acc2cb3c6b2d58d57f87908f235ce",
+        "reused": true
+      },
+      {
+        "brotliBytes": 9385194,
+        "file": "Web.wasm",
+        "rawBytes": 51607150,
+        "rawSha256": "bea32e685dc2fe8ecaddeef65e56b91a38939248d182d8469e7c3c4bc048ee32",
+        "reused": true
+      }
+    ],
     "browserSmoke": {
       "assets": [
-        "/alpha-web/c39bc1b77faff41cc66ba034aecc565dea364b48/Build/Web.data",
-        "/alpha-web/c39bc1b77faff41cc66ba034aecc565dea364b48/Build/Web.framework.js",
-        "/alpha-web/c39bc1b77faff41cc66ba034aecc565dea364b48/Build/Web.loader.js",
-        "/alpha-web/c39bc1b77faff41cc66ba034aecc565dea364b48/Build/Web.wasm"
+        "/alpha-web/0fac6aa75e9bcbc55b701b732e1169702c194d8f/Build/Web.data",
+        "/alpha-web/0fac6aa75e9bcbc55b701b732e1169702c194d8f/Build/Web.framework.js",
+        "/alpha-web/0fac6aa75e9bcbc55b701b732e1169702c194d8f/Build/Web.loader.js",
+        "/alpha-web/0fac6aa75e9bcbc55b701b732e1169702c194d8f/Build/Web.wasm"
       ],
       "planning": {
         "count": 5,
@@ -281,10 +311,12 @@
       }
     },
     "notice": "both",
-    "sourceTree": "66aa161c3bee0672d0ed1d1d5cbf6e8b5b2553b7",
+    "sourceTree": "8ca01cda75ee89dc33e4a79cb8fe8479783376dc",
     "templateData": "generated inline",
     "unity": "6000.0.85f2",
-    "verifiedBuildSource": "c39bc1b77faff41cc66ba034aecc565dea364b48"
+    "unityInputTree": "59d09906405c19f50afe085738cb60616c543848",
+    "verifiedBuildSource": "0fac6aa75e9bcbc55b701b732e1169702c194d8f",
+    "warmUnityBase": "c39bc1b77faff41cc66ba034aecc565dea364b48"
   },
   "webNotice": "both"
 }

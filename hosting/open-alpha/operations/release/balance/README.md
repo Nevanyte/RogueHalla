@@ -1,7 +1,7 @@
 # Saturday balance release and rollback
 
 The operator selects the paired Rust server and Unity Web build
-`c39bc1b77faff41cc66ba034aecc565dea364b48`, protocol 24, content
+`0fac6aa75e9bcbc55b701b732e1169702c194d8f`, protocol 24, content
 `cb811d19ebed6dfe`. It uses existing source services, both capture writers and
 the existing Caddy Unix sockets. It writes an immutable native release directory
 and a separate immutable Web directory for each target. Staging's transient
@@ -10,7 +10,7 @@ durable Source receives a single new ExecStart drop-in. The existing preview,
 old Unity trees, profile stores, spools, original systemd files, tunnels, ALB
 and DNS remain available. The operator selects the active index and gameplay data notice for the target.
 
-The release archive contains 47 payload files and the manifest. The archive is 212,490,939 bytes and has SHA-256 `36d22a7454f377b6c1ddb0e817b961df5aac4bba411fed67e5d6105a90585d51`. The manifest records the per-file bytes and SHA-256, the Linux server and replay verifier identity, and the Unity build. [Release manifest](release-manifest.json)
+The release archive contains 47 payload files and the manifest. The archive is 212,488,764 bytes and has SHA-256 `7692afe9e220780f74ed1d6481097070105419eed587fd2c211d17459c47e061`. The manifest records the per-file bytes and SHA-256, the Linux server and replay verifier identity, and the Unity build. [Release manifest](release-manifest.json)
 
 ## Local verification
 
