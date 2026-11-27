@@ -18,6 +18,22 @@ Changing the reward while holding the 22 trades and their routes fixed prices 23
 
 [Calibration receipts](bargain_calibration_receipts.csv) · [Calibration totals](bargain_calibration_summary.json)
 
+## Held-out payout comparisons
+
+The same 14 of 19 offered maps settled at all three payouts. Each settled payment consumed 20 stacks, with no observed spare-weapon exchange. The remaining five never accepted, and there was zero measurable failed goal time in this sample. The test priced whichever route and output the policy actually chose in each build.
+
+| Payout | Mean route cost, neutral CE | Fitted net return per payout, CE | Remaining nearest roster | Full nearest 12-stack camp | Full-near below / within / above requested band |
+|---:|---:|---:|---:|---:|---:|
+| 29 | 0.620 | 1.419 | 2.224× | 2.126× | 1 / 1 / 12 |
+| 23 | 0.543 | 0.955 | 1.543× | 1.618× | 3 / 0 / 11 |
+| 22 | 0.505 | 0.893 | 1.574× | 1.648× | 2 / 1 / 11 |
+
+At 29 the bot received 12 AP, one AD and one armor reward. At 23 it took nine AP, four AD and one armor reward. At 22 it took eight AP, five AD and one armor reward. Median selected time fell from 23.025 seconds to 22.100 and 21.200 seconds, respectively. Lower payouts reduced the net return in the same units. The lower time and changed alternative camp pay diluted that effect. Both cheaper quotes still exceeded the 25–50% cohort band under the authored closest-camp valuation.
+
+Candidate 23 was predeclared from the initial calibration, and 22 was added before reading the held-out outcomes when the completed calibration put 22 closer to 1.375× for a full near camp. The checkout maintained its 29-stack runtime during these alternative replays. The confirmation board outcomes remain untouched.
+
+[29-stack receipts](bargain_heldout_29_receipts.csv) · [23-stack receipts](bargain_heldout_23_receipts.csv) · [22-stack receipts](bargain_heldout_22_receipts.csv)
+
 ## Reproduction
 
 `quest_balance START END --board-only` records the five planning and ten raid offers and exits at raid setup. The first test cohort is every seed in 81–120 with The Bargain on the raid board, fixed before reading outcomes. Its 19 seeds are 81, 82, 83, 84, 85, 88, 89, 94, 95, 98, 101, 103, 105, 107, 108, 109, 111, 115 and 117. The additional confirmation board range is 121–160, with 17 eligible seeds (121, 123, 126, 127, 129, 131, 138, 139, 142, 144, 145, 146, 149, 151, 154, 155 and 156). Neither selection uses quote, travel, completion, payout or later raid outcomes.

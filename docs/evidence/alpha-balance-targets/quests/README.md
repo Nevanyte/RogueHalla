@@ -46,7 +46,9 @@ Before accepting, estimate walk time from the visible map and giver, allow time 
 | Let Him Cook when a useful damage, HP or attack-speed stat is the weakest and has about ten earned stacks, with an efficient way through the three ingredient zones. | 2.75 | 73.3–88 s | 110 s |
 | Feed or Hunt when three Warren items and the intended creature make a compact route and damage is useful. | 1.0 | 26.7–32 s | 40 s |
 
-The 90% input valuation is a planning example. Logs do not identify which Bargain payment branch or stat was selected. With a spare weapon, subtract its actual replacement and option value from the 29-stack payout before applying the same timing rule. These conditions can guide a player before seeing a completion time. The observed all-route average includes unsuccessful route work. Counts below assign only observed payouts to bins and do not infer which input or output a player could value in advance.
+A subsequent receipt study prices actual exchanged stats and nearby camp alternatives using the same authored fit weights. The 29-, 23- and 22-stack runs on fresh offer-selected maps all exceeded the target under that valuation. [Measured Bargain trades and nearby camp comparison](bargain-valued-camp.md)
+
+The 90% input valuation is a planning example. The original timing-only logs do not identify which Bargain payment branch or stat was selected. The later receipt study captures both. With a spare weapon, subtract its actual replacement and option value from the 29-stack payout before applying the same timing rule. These conditions can guide a player before seeing a completion time. The observed all-route average includes unsuccessful route work. Counts below assign only observed payouts to bins and do not infer which input or output a player could value in advance.
 
 | Observed cohort | Payout | Below +25% | +25–50% | Above +50% |
 |---|---:|---:|---:|---:|
