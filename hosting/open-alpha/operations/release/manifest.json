@@ -1,0 +1,324 @@
+{
+  "baseline": "af79fa027ec56ecc6f718ecd4bf43e0577061b02",
+  "baselineFiles": {
+    "Build/Web.data": {
+      "bytes": 75443747,
+      "sha256": "8b8141e0a038140fdd022172d5aafed64f503d43699c83f7e7ff5bb6461bee24"
+    },
+    "Build/Web.data.br": {
+      "bytes": 54848462,
+      "sha256": "e14be48ffba5ffa06b11660adae484bf70977c35122070db1a0f46cb59fd9aac"
+    },
+    "Build/Web.framework.js": {
+      "bytes": 361377,
+      "sha256": "73d7fe6c0731b32d8e76cf820cbbbd12f08579cb3d58981825dc2568799f4f4d"
+    },
+    "Build/Web.framework.js.br": {
+      "bytes": 75549,
+      "sha256": "08dcd947a10a8fc8e2dd238141a0d0434e94f04e4276b98d615b7296b3490b4b"
+    },
+    "Build/Web.loader.js": {
+      "bytes": 26694,
+      "sha256": "52287a69d88f5832d409854ce905ea4b805f606e9a2dd64a4955e5b21468bc9d"
+    },
+    "Build/Web.loader.js.br": {
+      "bytes": 8120,
+      "sha256": "dab089d3b25949afe1d2444031ec546ab86479e373df91a34ba903db3cd47d23"
+    },
+    "Build/Web.wasm": {
+      "bytes": 51594420,
+      "sha256": "090c9c5985142f15a0dd285de87054ea8f870a95ed0f076986e567c3fae423c8"
+    },
+    "Build/Web.wasm.br": {
+      "bytes": 9381534,
+      "sha256": "e5cc6aba8b98482002ac7cf082b2d500eb97ffc7d251b819f5cf57d9a32d736f"
+    },
+    "Licenses/Atmosphere-Audio-Credits.txt": {
+      "bytes": 2081,
+      "sha256": "584a57b33d4f20058816bfa099f4e007fbd87bd536a8f8b61cd62c9572634d9a"
+    },
+    "Licenses/CinzelDecorative-OFL.txt": {
+      "bytes": 4393,
+      "sha256": "1e5d6660366ddcfca4f2fc10e2acfba9fa4d97d40aec80d7dbfd41d730a420ae"
+    },
+    "Licenses/EmojiOne-Attribution.txt": {
+      "bytes": 185,
+      "sha256": "4b65f8960e4f4c5c8b35fd139e369265e9bb45667fc16461b2ba01188d464d93"
+    },
+    "Licenses/Flare-Audio-Notice.txt": {
+      "bytes": 1130,
+      "sha256": "64e2de64656079009cfda050f49e1de5075167a387c403f17555c6c651d9b516"
+    },
+    "Licenses/Flare-CC-BY-SA-3.0.txt": {
+      "bytes": 22240,
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+    },
+    "Licenses/Flare-Credits.txt": {
+      "bytes": 3510,
+      "sha256": "8b0985009dd04911b851553a35941e6862f1df66a6864f9b2a5c7ff330574fbc"
+    },
+    "Licenses/FlareAudioExpansion-CREDITS_CAPTURE.txt": {
+      "bytes": 14306,
+      "sha256": "786be32ae9a35d6878819c7d8c7eef4fab9fab4d6f282de57fc19bdba93c16aa"
+    },
+    "Licenses/FlareAudioExpansion-LICENSE.txt": {
+      "bytes": 22240,
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+    },
+    "Licenses/FlareExpansion-CREDITS.md": {
+      "bytes": 1737,
+      "sha256": "15e28829f725db91b009ca5a1454426600dcf42bbbcbbe3b405804aa84313745"
+    },
+    "Licenses/FlareExpansion-CREDITS_CAPTURE.txt": {
+      "bytes": 14306,
+      "sha256": "786be32ae9a35d6878819c7d8c7eef4fab9fab4d6f282de57fc19bdba93c16aa"
+    },
+    "Licenses/FlareExpansion-LICENSE.txt": {
+      "bytes": 22240,
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+    },
+    "Licenses/FlareProps-CREDITS_CAPTURE.txt": {
+      "bytes": 14306,
+      "sha256": "786be32ae9a35d6878819c7d8c7eef4fab9fab4d6f282de57fc19bdba93c16aa"
+    },
+    "Licenses/FlareProps-LICENSE.txt": {
+      "bytes": 22240,
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+    },
+    "Licenses/LiberationSans-OFL.txt": {
+      "bytes": 4469,
+      "sha256": "37f8552e9a874ec10710dc0ede6a9adf168e6609fbd02a507f35629373b85a48"
+    },
+    "Licenses/Nunito-OFL.txt": {
+      "bytes": 4385,
+      "sha256": "580df76c95a1ec5ab878ceb25bb3d85c6a076804e9c970c8c6972aea775fdf65"
+    },
+    "Licenses/Roguehalla-MIT.txt": {
+      "bytes": 1080,
+      "sha256": "385298d673f01f328553f49d75680ab30254c09d2295171c929fa61efe84b103"
+    },
+    "Licenses/Third-Party-Assets.md": {
+      "bytes": 4143,
+      "sha256": "fc711bc7edaa4c832d63bfd3d2e899bc52191b31a0bc3943017b4dde2bb1042a"
+    },
+    "Licenses/Unity-Companion.md": {
+      "bytes": 461,
+      "sha256": "6550a14445e6c2116213b2419c4c28b75be4b99039afc8d091ced3192624390c"
+    },
+    "Licenses/index.html": {
+      "bytes": 5978,
+      "sha256": "8f86107a2aad41e3682c19575ad214e166c43c13c6f76c35fa4239e9ada6d02f"
+    },
+    "StreamingAssets/Audio/amb_fire.mp3": {
+      "bytes": 300973,
+      "sha256": "c7361e3221ac5b38982dd7d40619e22af96db631202b597682aacd4503d53182"
+    },
+    "StreamingAssets/Audio/amb_frost.mp3": {
+      "bytes": 36196,
+      "sha256": "7155d41ae2e0fb66c8569f339711c698620aa7df14fef816f21ad5a5b493822a"
+    },
+    "StreamingAssets/Audio/amb_holy.mp3": {
+      "bytes": 313930,
+      "sha256": "3ef040bfba052b0b6f41400f4176cf5176a13485bf7aee7d0918ef96afe37e3f"
+    },
+    "StreamingAssets/Audio/amb_plague.mp3": {
+      "bytes": 464604,
+      "sha256": "6e9544d8c1e7b9e40c8cc25a9498a63408a201d6ac062bffecb5f5740919416f"
+    },
+    "StreamingAssets/Audio/amb_sentenced.mp3": {
+      "bytes": 80500,
+      "sha256": "9949d1997187e2ca229bb42fa62e44f99bd59396ae4d20953bdce011bf37cd34"
+    },
+    "StreamingAssets/Audio/music_coliseum.mp3": {
+      "bytes": 1301620,
+      "sha256": "1d5f155ba8b6c48568689a6787c427202c81874d3465a14ba311db06d5b3f74a"
+    },
+    "StreamingAssets/Audio/music_fire.mp3": {
+      "bytes": 1499106,
+      "sha256": "4dea25173c5d9edf13154ae129ac8cda866da21ce494c4c0f45d6535e0920459"
+    },
+    "StreamingAssets/Audio/music_frost.mp3": {
+      "bytes": 1107792,
+      "sha256": "787f7fb32c577078a1c4645de7bff294bd1968570c398ec69070d8b6e0cb86bc"
+    },
+    "StreamingAssets/Audio/music_holy.mp3": {
+      "bytes": 1336729,
+      "sha256": "564066e878d242adfe01cc61b706162c09c7d0fd7af4e7e8adbcd3885be7730f"
+    },
+    "StreamingAssets/Audio/music_plague.mp3": {
+      "bytes": 1499106,
+      "sha256": "78d4a4b8d75a9ebaf9f545c9367f45832a3a2b4ede32366c6121ae04b39e82fb"
+    },
+    "StreamingAssets/Audio/music_sentenced.mp3": {
+      "bytes": 766214,
+      "sha256": "6617ddc5f81ef982d6650d54fdc468e897855c6ee4221b35bcc7aa37eddacb66"
+    }
+  },
+  "baselineLoader": {
+    "bytes": 9644,
+    "sha256": "62ea3729584476d45c3deacaee0dea318008b7ea36415db652c907a07b2cccd2"
+  },
+  "candidate": "9e41ed5e77c812ae170398fc86a1c331a68af9d9",
+  "candidateFiles": {
+    "Build/Web.data": {
+      "bytes": 75434753,
+      "sha256": "4970c63280989eb4a59063a084ede9770d66bc318d6a08832539f65e67b6b055"
+    },
+    "Build/Web.data.br": {
+      "bytes": 54827246,
+      "sha256": "e8360dd578ce2500721b0945ee574cbf16573c80877e68c3c674b049486efa36"
+    },
+    "Build/Web.framework.js": {
+      "bytes": 361377,
+      "sha256": "73d7fe6c0731b32d8e76cf820cbbbd12f08579cb3d58981825dc2568799f4f4d"
+    },
+    "Build/Web.framework.js.br": {
+      "bytes": 75549,
+      "sha256": "773d4128d4f4a19963badbbde7da45e82c2a6c6413757c71f16a6957ae358860"
+    },
+    "Build/Web.loader.js": {
+      "bytes": 26694,
+      "sha256": "16b47b9cda672b8b6bc45f6a0f936d493a3d33b7448fffe52adb71cb6401ba3d"
+    },
+    "Build/Web.loader.js.br": {
+      "bytes": 8121,
+      "sha256": "5790e23fb01e8c1e3f6330ba5ba232e5683e48a9a247af5d39dd1bce628707ce"
+    },
+    "Build/Web.wasm": {
+      "bytes": 51599642,
+      "sha256": "e9e4ed3bf75ae59abbc8e5b99d3cc8051c47eaaf1417a2b1ffde231665fa5f6b"
+    },
+    "Build/Web.wasm.br": {
+      "bytes": 9394509,
+      "sha256": "c89596fe9094e53b8b3be3ba196c17d21f8325e289f526d72994ed0686f49861"
+    },
+    "Licenses/Atmosphere-Audio-Credits.txt": {
+      "bytes": 2081,
+      "sha256": "584a57b33d4f20058816bfa099f4e007fbd87bd536a8f8b61cd62c9572634d9a"
+    },
+    "Licenses/CinzelDecorative-OFL.txt": {
+      "bytes": 4393,
+      "sha256": "1e5d6660366ddcfca4f2fc10e2acfba9fa4d97d40aec80d7dbfd41d730a420ae"
+    },
+    "Licenses/EmojiOne-Attribution.txt": {
+      "bytes": 185,
+      "sha256": "4b65f8960e4f4c5c8b35fd139e369265e9bb45667fc16461b2ba01188d464d93"
+    },
+    "Licenses/Flare-Audio-Notice.txt": {
+      "bytes": 1130,
+      "sha256": "64e2de64656079009cfda050f49e1de5075167a387c403f17555c6c651d9b516"
+    },
+    "Licenses/Flare-CC-BY-SA-3.0.txt": {
+      "bytes": 22240,
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+    },
+    "Licenses/Flare-Credits.txt": {
+      "bytes": 3510,
+      "sha256": "8b0985009dd04911b851553a35941e6862f1df66a6864f9b2a5c7ff330574fbc"
+    },
+    "Licenses/FlareAudioExpansion-CREDITS_CAPTURE.txt": {
+      "bytes": 14306,
+      "sha256": "786be32ae9a35d6878819c7d8c7eef4fab9fab4d6f282de57fc19bdba93c16aa"
+    },
+    "Licenses/FlareAudioExpansion-LICENSE.txt": {
+      "bytes": 22240,
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+    },
+    "Licenses/FlareExpansion-CREDITS.md": {
+      "bytes": 1737,
+      "sha256": "15e28829f725db91b009ca5a1454426600dcf42bbbcbbe3b405804aa84313745"
+    },
+    "Licenses/FlareExpansion-CREDITS_CAPTURE.txt": {
+      "bytes": 14306,
+      "sha256": "786be32ae9a35d6878819c7d8c7eef4fab9fab4d6f282de57fc19bdba93c16aa"
+    },
+    "Licenses/FlareExpansion-LICENSE.txt": {
+      "bytes": 22240,
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+    },
+    "Licenses/FlareProps-CREDITS_CAPTURE.txt": {
+      "bytes": 14306,
+      "sha256": "786be32ae9a35d6878819c7d8c7eef4fab9fab4d6f282de57fc19bdba93c16aa"
+    },
+    "Licenses/FlareProps-LICENSE.txt": {
+      "bytes": 22240,
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+    },
+    "Licenses/LiberationSans-OFL.txt": {
+      "bytes": 4469,
+      "sha256": "37f8552e9a874ec10710dc0ede6a9adf168e6609fbd02a507f35629373b85a48"
+    },
+    "Licenses/Nunito-OFL.txt": {
+      "bytes": 4385,
+      "sha256": "580df76c95a1ec5ab878ceb25bb3d85c6a076804e9c970c8c6972aea775fdf65"
+    },
+    "Licenses/Roguehalla-MIT.txt": {
+      "bytes": 1080,
+      "sha256": "385298d673f01f328553f49d75680ab30254c09d2295171c929fa61efe84b103"
+    },
+    "Licenses/Third-Party-Assets.md": {
+      "bytes": 4143,
+      "sha256": "fc711bc7edaa4c832d63bfd3d2e899bc52191b31a0bc3943017b4dde2bb1042a"
+    },
+    "Licenses/Unity-Companion.md": {
+      "bytes": 461,
+      "sha256": "6550a14445e6c2116213b2419c4c28b75be4b99039afc8d091ced3192624390c"
+    },
+    "Licenses/index.html": {
+      "bytes": 5978,
+      "sha256": "8f86107a2aad41e3682c19575ad214e166c43c13c6f76c35fa4239e9ada6d02f"
+    },
+    "StreamingAssets/Audio/amb_fire.mp3": {
+      "bytes": 300973,
+      "sha256": "c7361e3221ac5b38982dd7d40619e22af96db631202b597682aacd4503d53182"
+    },
+    "StreamingAssets/Audio/amb_frost.mp3": {
+      "bytes": 36196,
+      "sha256": "7155d41ae2e0fb66c8569f339711c698620aa7df14fef816f21ad5a5b493822a"
+    },
+    "StreamingAssets/Audio/amb_holy.mp3": {
+      "bytes": 313930,
+      "sha256": "3ef040bfba052b0b6f41400f4176cf5176a13485bf7aee7d0918ef96afe37e3f"
+    },
+    "StreamingAssets/Audio/amb_plague.mp3": {
+      "bytes": 464604,
+      "sha256": "6e9544d8c1e7b9e40c8cc25a9498a63408a201d6ac062bffecb5f5740919416f"
+    },
+    "StreamingAssets/Audio/amb_sentenced.mp3": {
+      "bytes": 80500,
+      "sha256": "9949d1997187e2ca229bb42fa62e44f99bd59396ae4d20953bdce011bf37cd34"
+    },
+    "StreamingAssets/Audio/music_coliseum.mp3": {
+      "bytes": 1301620,
+      "sha256": "1d5f155ba8b6c48568689a6787c427202c81874d3465a14ba311db06d5b3f74a"
+    },
+    "StreamingAssets/Audio/music_fire.mp3": {
+      "bytes": 1499106,
+      "sha256": "4dea25173c5d9edf13154ae129ac8cda866da21ce494c4c0f45d6535e0920459"
+    },
+    "StreamingAssets/Audio/music_frost.mp3": {
+      "bytes": 1107792,
+      "sha256": "787f7fb32c577078a1c4645de7bff294bd1968570c398ec69070d8b6e0cb86bc"
+    },
+    "StreamingAssets/Audio/music_holy.mp3": {
+      "bytes": 1336729,
+      "sha256": "564066e878d242adfe01cc61b706162c09c7d0fd7af4e7e8adbcd3885be7730f"
+    },
+    "StreamingAssets/Audio/music_plague.mp3": {
+      "bytes": 1499106,
+      "sha256": "78d4a4b8d75a9ebaf9f545c9367f45832a3a2b4ede32366c6121ae04b39e82fb"
+    },
+    "StreamingAssets/Audio/music_sentenced.mp3": {
+      "bytes": 766214,
+      "sha256": "6617ddc5f81ef982d6650d54fdc468e897855c6ee4221b35bcc7aa37eddacb66"
+    }
+  },
+  "candidateLoader": {
+    "bytes": 9644,
+    "sha256": "83bbc43c1acb398fa6dbf54f15fe239e03611ae2fc54e52b438efad8371f5f5f"
+  },
+  "notice": {
+    "bytes": 1137,
+    "sha256": "88d3fef37c428a72ec9f42e37ce9841c91bcdf5df1e9ef544cb0f8dddb51c7a4"
+  }
+}

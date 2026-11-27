@@ -1,0 +1,38 @@
+rule backup_write_boundary {
+    let bucket_policy = Resources.StoragePolicy.Properties.PolicyDocument.Statement
+    let tls = %bucket_policy[ Sid == "TLS" ]
+    let encryption = %bucket_policy[ Sid == "RequireEncryption" ]
+    let creation = %bucket_policy[ Sid == "CreateOnly" ]
+    let writer = %bucket_policy[ Sid == "HostIsWriteOnly" ]
+    %tls !empty
+    %encryption !empty
+    %creation !empty
+    %writer !empty
+    %tls.Effect == "Deny"
+    %tls.Condition.Bool."aws:SecureTransport" == "false"
+    %encryption.Effect == "Deny"
+    %encryption.Condition.StringNotEquals."s3:x-amz-server-side-encryption" == "AES256"
+    %creation.Effect == "Deny"
+    %creation.Condition.StringNotEquals."s3:if-none-match" == "*"
+    %writer.Effect == "Deny"
+    %writer.NotAction == "s3:PutObject"
+    %writer.Condition.ArnEquals."aws:PrincipalArn" exists
+
+    let host_policy = Resources.OperationsPolicy.Properties.PolicyDocument.Statement
+    Resources.OperationsPolicy.Properties.PolicyDocument.Statement[*].Action IN ["s3:PutObject", "cloudwatch:PutMetricData"]
+    %host_policy[ Sid == "OperationalMetrics" ].Condition.StringEquals."cloudwatch:namespace" == "RogueHalla/AlphaOperations"
+}
+
+rule alarm_delivery {
+    let alarms = Resources.*[ Type == "AWS::CloudWatch::Alarm" ]
+    %alarms !empty
+    %alarms.Properties.TreatMissingData == "breaching"
+    %alarms.Properties.AlarmActions[*].Ref == "Alerts"
+    %alarms.Properties.OKActions[*].Ref == "Alerts"
+
+    let notifications = Resources.NotifyPolicy.Properties.PolicyDocument.Statement[ Sid == "CloudWatchAlarmNotifications" ]
+    %notifications !empty
+    %notifications.Principal.Service == "cloudwatch.amazonaws.com"
+    %notifications.Condition.StringEquals."aws:SourceAccount".Ref == "AWS::AccountId"
+    %notifications.Condition.ArnLike."aws:SourceArn" exists
+}

@@ -1,0 +1,11 @@
+[Unit]
+Description=Sample live game recording and database backup health
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=60s
+AccuracySec=5s
+Unit=rh-alpha-live-monitor.service
+
+[Install]
+WantedBy=timers.target
