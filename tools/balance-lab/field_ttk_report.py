@@ -43,7 +43,7 @@ def chart(summary, path):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4.2), constrained_layout=True)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.2), constrained_layout=True, sharey=True)
     for ax, group, title, color in zip(axes, ("camp", "pvp"), ("Normal camp clears", "Player kills"), ("#177765", "#814376")):
         selected = [r for r in summary if r["group"] == group]
         for i, row in enumerate(selected):
@@ -57,7 +57,8 @@ def chart(summary, path):
         ax.set_ylim(bottom=0)
         ax.set_title(title, loc="left", fontweight="bold")
         ax.set_xlabel("Raid minutes at first contact", labelpad=25)
-        ax.set_ylabel("Seconds, median and middle 50%")
+        if group == "camp":
+            ax.set_ylabel("Seconds, median and middle 50%")
         ax.grid(axis="y", alpha=0.20)
         ax.spines[["right", "top"]].set_visible(False)
     fig.savefig(path, dpi=165)
@@ -88,9 +89,12 @@ def main():
         kills = [r for r in batch if r["outcome"] in ("death_clean", "death_mixed")]
         clean = [r for r in kills if r["outcome"] == "death_clean"]
         fresh = [r for r in camps if r["prior_pull"] is False]
+        healthy = [r for r in kills if (r["start_hp_fraction"] or 0) >= 0.90]
+        wounded = [r for r in kills if r["start_hp_fraction"] is not None and r["start_hp_fraction"] < 0.90]
         full = [r for r in clean if not r["gates_locked_start"] and (r["start_hp_fraction"] or 0) >= 0.90]
         for name, records in (("camp", camps), ("camp_first_pull", fresh), ("pvp", kills),
                               ("pvp_single_attacker", clean), ("pvp_single_healthy_prelock", full),
+                              ("pvp_start_at_least_90pct", healthy), ("pvp_start_below_90pct", wounded),
                               ("pvp_mixed", [r for r in kills if r["outcome"] == "death_mixed"])):
             summary.append(summarize(band, name, records))
     args.output.mkdir(parents=True, exist_ok=True)
