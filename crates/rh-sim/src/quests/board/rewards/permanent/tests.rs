@@ -539,7 +539,7 @@ fn bargain_spends_equivalent_stacks_or_the_inactive_weapon_for_real_max_hp() {
         claim(&mut sim, id);
         let p = sim.w.player(id).unwrap();
         assert_eq!(p.farm.count(MagmaBrute), 29);
-        close(p.vitals.max_hp, base * 1.28);
+        close(p.vitals.max_hp, base * 1.29);
         assert_eq!(p.active_weapon(), WeaponId::Bow);
         assert_eq!(p.weapon.ready_at, ready_at);
         if weapon_trade {

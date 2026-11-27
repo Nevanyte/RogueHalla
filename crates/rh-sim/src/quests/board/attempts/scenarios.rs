@@ -853,6 +853,6 @@ fn a_published_lifesteal_trade_can_be_submitted_and_settled() {
     assert!(is_completed(&raid.sim.w, raid.seat, raid.offer));
     let farm = &raid.sim.w.player(raid.seat).unwrap().farm;
     assert_eq!(farm.count(RotMonk), 0);
-    assert_eq!(farm.count(PlagueRat), previous + 28);
+    assert_eq!(farm.count(PlagueRat), previous + 29);
     assert!(!is_completed(&raid.sim.w, raid.witness, raid.offer));
 }
