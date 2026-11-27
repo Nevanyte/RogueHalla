@@ -5,7 +5,7 @@ use rh_headless::{
 };
 use rh_sim::cards::{native, CardId};
 use rh_sim::reward_chests::{OptionId, RewardChestObserver, RewardChestView, DEFINITION};
-use rh_sim::{Event, Phase, PlayerId, Sim, Vec2};
+use rh_sim::{Event, Phase, PlayerId, Sim, Vec2, WeaponId};
 use serde::Serialize;
 use serde_json::json;
 use std::collections::{BTreeMap, BTreeSet};
@@ -63,7 +63,22 @@ struct Growth {
     standing_s: f64,
     ended_s: f64,
     still_held: bool,
+    trigger_exposure: Option<TriggerExposure>,
     rows: Vec<Row>,
+}
+
+#[derive(Default, Serialize)]
+struct TriggerExposure {
+    required_weapon_standing_s: f64,
+    qualifying_events: u32,
+}
+
+fn exposure_weapon(card: CardId) -> Option<WeaponId> {
+    match card {
+        CardId::Bastion => Some(WeaponId::Shield),
+        CardId::Calluses => Some(WeaponId::Fists),
+        _ => None,
+    }
 }
 
 #[derive(Serialize)]
@@ -153,8 +168,17 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
         let step_s = f64::from(sim.tick_ms()) / 1000.;
         let mut taken = Vec::new();
         let mut dropped = false;
+        let mut trigger_events = Vec::new();
         for e in env.last_events() {
             match e {
+                Event::Block { id, .. } => trigger_events.push((*id, CardId::Bastion)),
+                Event::Hit {
+                    by: Some(by),
+                    weapon: Some(WeaponId::Fists),
+                    passive: false,
+                    amount,
+                    ..
+                } if *amount > 0. => trigger_events.push((*by, CardId::Calluses)),
                 Event::Death { id, by, .. } if by.is_some() => {
                     if let Some((camp, at)) = elites
                         .get(id)
@@ -257,6 +281,8 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
                                 .unwrap_or("unresolved"),
                             ended_s: age,
                             still_held: true,
+                            trigger_exposure: exposure_weapon(card)
+                                .map(|_| TriggerExposure::default()),
                             rows: rows().map(Row::new).collect(),
                         });
                         growth.len() - 1
@@ -265,12 +291,28 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
                     if already_held && previous_standing[seat] {
                         g.standing_s += step_s;
                     }
+                    if let Some(exposure) = g.trigger_exposure.as_mut() {
+                        if already_held
+                            && player.standing()
+                            && exposure_weapon(card) == Some(player.active_weapon())
+                        {
+                            exposure.required_weapon_standing_s += step_s;
+                        }
+                    }
                     g.ended_s = age;
                     for (sample, row) in rows().zip(&mut g.rows) {
                         row.sample(sample);
                     }
                 }
                 previous_standing[seat] = player.standing();
+            }
+        }
+        for pair in trigger_events {
+            if let Some(exposure) = held
+                .get(&pair)
+                .and_then(|&i| growth[i].trigger_exposure.as_mut())
+            {
+                exposure.qualifying_events += 1;
             }
         }
         if p.terminated || p.truncated {

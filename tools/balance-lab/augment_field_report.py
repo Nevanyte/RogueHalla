@@ -98,6 +98,7 @@ def summarize(meta, matches, catalog):
         elite_holders = [h for h in all_holders if h["source"] == "elite"]
         rows.append({
             "id": card, "name": name, "native": card in meta["native"],
+            "native_readout_available": card in READOUT_UNITS,
             "elite_offered": offered[card],
             "elite_offered_with_sampled_chooser": eligible[card],
             "elite_picked": picks["elite", card],
@@ -130,11 +131,46 @@ def summarize(meta, matches, catalog):
     }
 
 
+def trigger_exposure(matches):
+    cards = ("bastion", "calluses")
+    samples = collections.defaultdict(list)
+    for seed, row in matches.items():
+        for h in row["growth"]:
+            if h["card"] in cards and h["source"] == "elite":
+                samples[h["card"]].append({
+                    "seed": seed,
+                    "seat": h["seat"],
+                    "holder_standing_s": h["standing_s"],
+                    **h["trigger_exposure"],
+                })
+    return {
+        "seeds": sorted(matches),
+        "cards": {
+            card: {
+                "holders": len(samples[card]),
+                "holders_with_required_weapon": sum(
+                    s["required_weapon_standing_s"] > 0 for s in samples[card]
+                ),
+                "required_weapon_standing_s": round(sum(
+                    s["required_weapon_standing_s"] for s in samples[card]
+                ), 3),
+                "holders_with_qualifying_events": sum(
+                    s["qualifying_events"] > 0 for s in samples[card]
+                ),
+                "qualifying_events": sum(s["qualifying_events"] for s in samples[card]),
+                "samples": samples[card],
+            }
+            for card in cards
+        },
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("traces", nargs="+", type=Path)
     parser.add_argument("--catalog", required=True, type=Path)
     parser.add_argument("--baseline", required=True, type=Path)
+    parser.add_argument("--exposure", nargs="+", type=Path)
     parser.add_argument("--csv", type=Path)
     parser.add_argument("--expect-seeds", help="required half-open seed range, e.g. 1..81")
     args = parser.parse_args()
@@ -146,6 +182,11 @@ def main():
             parser.error("trace files do not cover the requested seed range")
     matches = dict(sorted(matches.items()))
     report = summarize(meta, matches, json.loads(args.catalog.read_text()))
+    if args.exposure:
+        exposure_meta, exposure_matches = load_traces(args.exposure)
+        assert exposure_meta == meta
+        verify(exposure_matches, args.baseline)
+        report["trigger_exposure"] = trigger_exposure(dict(sorted(exposure_matches.items())))
     if args.csv:
         with args.csv.open("w", newline="") as output:
             writer = csv.DictWriter(output, fieldnames=report["cards"][0])
