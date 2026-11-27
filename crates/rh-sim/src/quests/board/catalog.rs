@@ -324,7 +324,7 @@ pub const DEFINITIONS: [BoardDef; 25] = [
         "The Bargain",
         "Warren quest giver",
         "Strike a bargain at the hag: pay stat stacks or a weapon.",
-        "Convert 10 stacks into 14 of a stat you choose, or trade your spare weapon for the same 14 stacks.",
+        "Convert 8 stacks into 11 of a stat you choose, or trade your spare weapon for the same 11 stacks.",
         TheBargain,
         None,
         1,

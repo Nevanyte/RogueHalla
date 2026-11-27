@@ -267,7 +267,11 @@ fn a_stats_worth_follows_the_weapon_in_hand_and_the_faction() {
 #[test]
 fn the_spare_weapon_goes_for_the_stat_worth_most_to_the_build() {
     // A sword with a spare axe: attack damage (6) is the best stat.
-    let got = bargain_trade(&Prices::LOCAL, &sword(), &weapon_trades());
+    let cheap = Prices {
+        spare_weapon: 0.75,
+        ..Prices::LOCAL
+    };
+    let got = bargain_trade(&cheap, &sword(), &weapon_trades());
     assert_eq!(got, Some((7, 6)));
 }
 
@@ -310,7 +314,7 @@ fn no_trade_is_made_when_none_improves() {
 #[test]
 fn the_weapon_trade_or_the_stack_trade_is_taken_by_what_it_costs() {
     let s = sword();
-    // Ten neutral armor stacks cost less than the usual spare weapon.
+    // A lot of neutral armor stacks costs less than the usual spare weapon.
     let armor_or_weapon = [(5, 4 * 9 + 6), (7, 6)];
     assert_eq!(
         bargain_trade(&Prices::LOCAL, &s, &armor_or_weapon),

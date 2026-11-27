@@ -513,18 +513,17 @@ fn a_stats_worth_follows_the_neutral_and_fit_prices() {
 
 #[test]
 fn the_spare_weapons_price_decides_whether_it_is_traded() {
-    // Attack damage buys more value than a neutral stat for a sword. The dear weapons stay.
+    // At the regular spare price, even the preferred stat does not cover the weapon.
     let me = me_with(sword(), Vec2::new(0., 0.));
-    assert_eq!(bargain_trade(&Prices::LOCAL, &me, &[(7, 6)]), Some((7, 6)));
-    let dear = Prices {
-        spare_weapon: 3.4,
+    assert_eq!(bargain_trade(&Prices::LOCAL, &me, &[(7, 6)]), None);
+    let between = Prices {
+        spare_weapon: 1.1,
         ..Prices::LOCAL
     };
-    assert_eq!(bargain_trade(&dear, &me, &[(7, 6)]), None);
-    // Trading a spare for a neutral stat only pays if the spare is cheap.
-    assert_eq!(bargain_trade(&Prices::LOCAL, &me, &[(7, 0)]), None);
+    assert_eq!(bargain_trade(&between, &me, &[(7, 6)]), Some((7, 6)));
+    assert_eq!(bargain_trade(&between, &me, &[(7, 0)]), None);
     let cheap = Prices {
-        spare_weapon: 1.,
+        spare_weapon: 0.75,
         ..Prices::LOCAL
     };
     assert_eq!(bargain_trade(&cheap, &me, &[(7, 0)]), Some((7, 0)));
@@ -657,12 +656,16 @@ fn the_bargains_candidate_is_worth_the_gain_of_the_stack_trade() {
 #[test]
 fn the_bargains_candidate_is_worth_the_gain_of_the_weapon_trade() {
     let rules = rh_sim::quests::public_rules();
-    let expected = 3.5 * rules.bargain_stacks as f64 / 30. - 1.5;
+    let prices = Prices {
+        spare_weapon: 0.75,
+        ..Prices::LOCAL
+    };
+    let expected = 3.5 * rules.bargain_stacks as f64 / 30. - prices.spare_weapon;
     let two = [Some(WeaponId::Sword), Some(WeaponId::Axe)];
-    let got = bargain_value(&Prices::LOCAL, two, 0);
+    let got = bargain_value(&prices, two, 0);
     assert!(close(got, expected), "{got:?}");
     let stack_gain = (3.5 * rules.bargain_stacks as f64 - 2.5 * rules.bargain_cost as f64) / 30.;
-    let got = bargain_value(&Prices::LOCAL, two, rules.bargain_cost as u32);
+    let got = bargain_value(&prices, two, rules.bargain_cost as u32);
     assert!(close(got, stack_gain), "{got:?}");
 }
 
