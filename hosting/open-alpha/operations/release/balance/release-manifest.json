@@ -20,27 +20,27 @@
   "files": {
     "loaders/live-same-origin.html": {
       "bytes": 9596,
-      "sha256": "cf23e06661848a9557f68a93e7244f56f7f67f4e0bf15fc567ffe24135d87b28"
+      "sha256": "86406bea3bd056cefdfded4a6af6e2774949ee8a3359fe2509c42660ee43e970"
     },
     "loaders/live-split.html": {
       "bytes": 9644,
-      "sha256": "72273f801ffef3a993b426b01642e15c4d6ddcf27a1fe6f78595d2a2d289b40b"
+      "sha256": "1aba41521206cc2051cf36cb42e786b6cadfa1d00ac6b6d4ec6ea0b8ce59f410"
     },
     "loaders/staging-same-origin.html": {
       "bytes": 9605,
-      "sha256": "16daa3a0194083b44d42ee16d0977c0c9b69d644afbcb719b7f9935c55477aff"
+      "sha256": "bbb1f520f2f47e41c240c300f8bc886a3bff295d6980b76997d4e7aaa86ed1a1"
     },
     "loaders/staging-split.html": {
       "bytes": 9675,
-      "sha256": "5371aabf334716c0c14f8d899dace7b9b5ea87ef3f36c4738f669744bd37cf44"
+      "sha256": "a785ea04519b3f490f3103ca3329c1404dc68ea8ce427d962261efcdd74bac5a"
     },
     "rh-headless": {
-      "bytes": 81384192,
-      "sha256": "c58902885dd7a72d71347c4e292ba0c5474ffae6ffa15aa42868bbc666b2dfed"
+      "bytes": 81389224,
+      "sha256": "43470b13ce906a4f36af6e50f5805284ea030a4640e074cdb288c5692b78eb1f"
     },
     "rh-server": {
-      "bytes": 160800824,
-      "sha256": "bb12632c4a477864ba66d6fcc1b33fb0d1da1679a6ecac07fbb9d82dd183ea36"
+      "bytes": 160805920,
+      "sha256": "0db6dcdc830af385f8d44bb025114d575c3c2e5d80e93e27467e738605399c31"
     },
     "seed1.map.json": {
       "bytes": 319166,
@@ -48,11 +48,11 @@
     },
     "web/Build/Web.data": {
       "bytes": 75721705,
-      "sha256": "3c607b96b0209b30a35f6a47e0db1cc67820a325cfa56a30971d6b08a24a914a"
+      "sha256": "381be641d9bb2d4de7904e84452a6d5ad337a535ca3dedc9964e62ff7db0707e"
     },
     "web/Build/Web.data.br": {
-      "bytes": 55040376,
-      "sha256": "0565f73ff48a0301f0461e49ecf67433387dc050bd2ba53338bc7663bacdfac1"
+      "bytes": 55042812,
+      "sha256": "d1005b9648dc7a3776656c6e015e1c49d88f188bb687ac7bc2f7425c00dd7640"
     },
     "web/Build/Web.framework.js": {
       "bytes": 361377,
@@ -217,16 +217,35 @@
     ]
   },
   "native": {
-    "build": "0fac6aa75e9bcbc55b701b732e1169702c194d8f",
+    "build": "3f0740ad84519c84af47604e0c0b758bc20efa88",
     "builder": "rust:1.97.0-bookworm@sha256:8fa55b2f3ddf97471ab6a767bfa3f37e6bad0986ba823e75fea57e2a2a5c3073",
     "builderGlibc": "2.36",
     "captureSmoke": [
       "metrics",
       "replays"
     ],
+    "completedMatchSmoke": {
+      "acknowledgedMoves": 2,
+      "build": "3f0740ad84519c84af47604e0c0b758bc20efa88",
+      "contentHash": "cb811d19ebed6dfe",
+      "encryptedMetricsFiles": 2,
+      "encryptedReplayFiles": 1,
+      "protocol": 24,
+      "recordedBuild": "3f0740ad84519c84af47604e0c0b758bc20efa88",
+      "result": {
+        "durationSeconds": 0,
+        "outcome": 0,
+        "place": 1,
+        "players": 2,
+        "withheld": true
+      },
+      "steps": 94,
+      "tickRate": 40,
+      "verified": true
+    },
     "elfBuildIds": {
-      "rh-headless": "8b1537cfb2c56a08ad4ff2f899d48733e990d1c2",
-      "rh-server": "8cab7f0fdb6f6ef929e0684a34eb20bf88af1148"
+      "rh-headless": "523cb3906f5d695ea6b170a9982694c021f21006",
+      "rh-server": "efd48799d6decdef0950ff391562923fe9621af3"
     },
     "features": [
       "postgres"
@@ -239,28 +258,28 @@
     "target": "x86_64-unknown-linux-gnu",
     "verifier": "rh-headless",
     "verifierSmoke": {
-      "build": "0fac6aa75e9bcbc55b701b732e1169702c194d8f",
+      "build": "3f0740ad84519c84af47604e0c0b758bc20efa88",
       "contentHash": "same",
       "finalHash": "12d7549a7df90f18",
       "matchId": "",
-      "recordedBuild": "0fac6aa75e9bcbc55b701b732e1169702c194d8f",
+      "recordedBuild": "3f0740ad84519c84af47604e0c0b758bc20efa88",
       "steps": 600,
       "verified": true
     }
   },
   "protocol": 24,
-  "releaseSource": "0fac6aa75e9bcbc55b701b732e1169702c194d8f",
-  "sourceTree": "8ca01cda75ee89dc33e4a79cb8fe8479783376dc",
+  "releaseSource": "3f0740ad84519c84af47604e0c0b758bc20efa88",
+  "sourceTree": "3f4e3dbf5354c678f83df50a7b01b3414b32bd55",
   "web": {
-    "assetPrefix": "/alpha-web/0fac6aa75e9bcbc55b701b732e1169702c194d8f/",
+    "assetPrefix": "/alpha-web/3f0740ad84519c84af47604e0c0b758bc20efa88/",
     "bakedContentHash": "cb811d19ebed6dfe",
     "brotliQuality": 11,
     "brotliVerification": [
       {
-        "brotliBytes": 55040376,
+        "brotliBytes": 55042812,
         "file": "Web.data",
         "rawBytes": 75721705,
-        "rawSha256": "3c607b96b0209b30a35f6a47e0db1cc67820a325cfa56a30971d6b08a24a914a",
+        "rawSha256": "381be641d9bb2d4de7904e84452a6d5ad337a535ca3dedc9964e62ff7db0707e",
         "reused": false
       },
       {
@@ -287,10 +306,10 @@
     ],
     "browserSmoke": {
       "assets": [
-        "/alpha-web/0fac6aa75e9bcbc55b701b732e1169702c194d8f/Build/Web.data",
-        "/alpha-web/0fac6aa75e9bcbc55b701b732e1169702c194d8f/Build/Web.framework.js",
-        "/alpha-web/0fac6aa75e9bcbc55b701b732e1169702c194d8f/Build/Web.loader.js",
-        "/alpha-web/0fac6aa75e9bcbc55b701b732e1169702c194d8f/Build/Web.wasm"
+        "/alpha-web/3f0740ad84519c84af47604e0c0b758bc20efa88/Build/Web.data",
+        "/alpha-web/3f0740ad84519c84af47604e0c0b758bc20efa88/Build/Web.framework.js",
+        "/alpha-web/3f0740ad84519c84af47604e0c0b758bc20efa88/Build/Web.loader.js",
+        "/alpha-web/3f0740ad84519c84af47604e0c0b758bc20efa88/Build/Web.wasm"
       ],
       "planning": {
         "count": 5,
@@ -311,12 +330,12 @@
       }
     },
     "notice": "both",
-    "sourceTree": "8ca01cda75ee89dc33e4a79cb8fe8479783376dc",
+    "sourceTree": "3f4e3dbf5354c678f83df50a7b01b3414b32bd55",
     "templateData": "generated inline",
     "unity": "6000.0.85f2",
     "unityInputTree": "59d09906405c19f50afe085738cb60616c543848",
-    "verifiedBuildSource": "0fac6aa75e9bcbc55b701b732e1169702c194d8f",
-    "warmUnityBase": "c39bc1b77faff41cc66ba034aecc565dea364b48"
+    "verifiedBuildSource": "3f0740ad84519c84af47604e0c0b758bc20efa88",
+    "warmUnityBase": "0fac6aa75e9bcbc55b701b732e1169702c194d8f"
   },
   "webNotice": "both"
 }

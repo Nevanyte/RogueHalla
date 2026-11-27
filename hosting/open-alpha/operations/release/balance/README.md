@@ -1,7 +1,7 @@
 # Saturday balance release and rollback
 
 The operator selects the paired Rust server and Unity Web build
-`0fac6aa75e9bcbc55b701b732e1169702c194d8f`, protocol 24, content
+`3f0740ad84519c84af47604e0c0b758bc20efa88`, protocol 24, content
 `cb811d19ebed6dfe`. It uses existing source services, both capture writers and
 the existing Caddy Unix sockets. It writes an immutable native release directory
 and a separate immutable Web directory for each target. Staging's transient
@@ -10,7 +10,7 @@ durable Source receives a single new ExecStart drop-in. The existing preview,
 old Unity trees, profile stores, spools, original systemd files, tunnels, ALB
 and DNS remain available. The operator selects the active index and gameplay data notice for the target.
 
-The release archive contains 47 payload files and the manifest. The archive is 212,488,764 bytes and has SHA-256 `7692afe9e220780f74ed1d6481097070105419eed587fd2c211d17459c47e061`. The manifest records the per-file bytes and SHA-256, the Linux server and replay verifier identity, and the Unity build. [Release manifest](release-manifest.json)
+The release archive contains 47 payload files and the manifest. The archive is 212,485,598 bytes and has SHA-256 `a08927925e0aac5379ef2b22ca1ff221eef08ff51fc8d39a1ccb85f4569150c1`. The manifest records the per-file bytes and SHA-256, the Linux server and replay verifier identity, and the Unity build. [Release manifest](release-manifest.json)
 
 ## Local verification
 
@@ -80,7 +80,7 @@ existing source processes and check the same candidate's assets and route.
 
 ## Verify a completed replay
 
-Use the packaged Linux amd64 `rh-headless` for a recording whose `build` is `0fac6aa75e9bcbc55b701b732e1169702c194d8f`. Its SHA-256 is `c58902885dd7a72d71347c4e292ba0c5474ffae6ffa15aa42868bbc666b2dfed`. Check the encrypted object's checksum before decryption. On the authorized analysis machine, set `verifier` to the absolute path to that binary, `identity` to the local age identity and `replay` to the encrypted object. Run in Bash with the reviewed Linux image already present.
+Use the packaged Linux amd64 `rh-headless` for a recording whose `build` is `3f0740ad84519c84af47604e0c0b758bc20efa88`. Its SHA-256 is `43470b13ce906a4f36af6e50f5805284ea030a4640e074cdb288c5692b78eb1f`. Check the encrypted object's checksum before decryption. On the authorized analysis machine, set `verifier` to the absolute path to that binary, `identity` to the local age identity and `replay` to the encrypted object. Run in Bash with the reviewed Linux image already present.
 
 ```bash
 set -o pipefail
@@ -90,7 +90,7 @@ age --decrypt -i "$identity" "$replay" |
     -v "$verifier:/opt/rh-headless:ro" --entrypoint /opt/rh-headless \
     rust:1.97.0-bookworm --verify-replay /dev/stdin |
   jq -ec 'select(.verified and .steps > 0 and .contentHash == "same" and
-    .build == "0fac6aa75e9bcbc55b701b732e1169702c194d8f" and .recordedBuild == .build)
+    .build == "3f0740ad84519c84af47604e0c0b758bc20efa88" and .recordedBuild == .build)
     | {build, steps, finalHash, verified}'
 ```
 
