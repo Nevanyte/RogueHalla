@@ -630,7 +630,7 @@ def prior_command(host, argv, native_sha):
     return map_path
 
 
-def candidate_command(host, old_argv, bot_mode):
+def candidate_command(host, old_argv, bot_mode, signature_landmarks=False):
     argv = list(old_argv)
     argv[0] = str(host.release / "rh-server")
     argv[flag(argv, "--map")] = str(host.release / "seed1.map.json")
@@ -640,6 +640,7 @@ def candidate_command(host, old_argv, bot_mode):
             argv[flag(argv, "--bot-brain", "off")] = "raid"
         else:
             argv.extend(("--bot-brain", "raid"))
+    if signature_landmarks or bot_mode == "raid":
         argv.append("--signature-landmarks")
     return tuple(argv)
 
@@ -751,7 +752,7 @@ def safe_message(error):
 STAGE_INDEX_SHA = "888ca9d75d52cdcd637b97439aebaaaad63486ee091e30d802e4182d67d64c2d"
 
 
-def snapshot(host, mode, archive_sha, manifest_sha, prior_index_sha):
+def snapshot(host, mode, archive_sha, manifest_sha, prior_index_sha, signature_landmarks):
     require(not present(host.override), "An unowned balance override is already installed")
     old_argv = host.loaded()
     old_map = prior_command(host, old_argv, OLD_NATIVE_SHA)
@@ -766,9 +767,9 @@ def snapshot(host, mode, archive_sha, manifest_sha, prior_index_sha):
     host.verify_edge("alpha-gameplay-data.html", old_notice)
     transient = host.transient_kind()
     return {
-        "v": 1, "target": host.kind, "phase": "prepared", "botMode": mode,
+        "v": 1, "target": host.kind, "phase": "prepared", "botMode": mode, "signatureLandmarks": signature_landmarks,
         "archive": archive_sha, "manifest": manifest_sha, "priorIndex": prior_index_sha,
-        "oldArgv": list(old_argv), "newArgv": list(candidate_command(host, old_argv, mode)),
+        "oldArgv": list(old_argv), "newArgv": list(candidate_command(host, old_argv, mode, signature_landmarks)),
         "oldIndex": base64.b64encode(old_index).decode(),
         "oldNotice": base64.b64encode(old_notice).decode(),
         "candidateFront": {
@@ -791,9 +792,13 @@ def load_record(host):
             record.get("phase") in {"prepared", "switching", "selected", "reverting", "restored"} and
             record.get("botMode") in {"preserve", "raid"} and type(record.get("transient")) is bool,
             "Unknown rollout journal state")
+    # In the first journal format only the RaidBot preset selected signature maps.
+    landmarks = record.setdefault("signatureLandmarks", record["botMode"] == "raid")
+    require(type(landmarks) is bool and (record["botMode"] != "raid" or landmarks),
+            "Invalid landmark selection in rollout journal")
     old_argv = tuple(record["oldArgv"])
     prior_command(host, old_argv, OLD_NATIVE_SHA)
-    require(tuple(record["newArgv"]) == candidate_command(host, old_argv, record["botMode"]),
+    require(tuple(record["newArgv"]) == candidate_command(host, old_argv, record["botMode"], landmarks),
             "Recorded candidate command is inconsistent")
     require(hexdigest(old_front(record, "index.html")) == record["priorIndex"], "Recorded prior loader checksum mismatch")
     check_hash(record["archive"])
@@ -896,26 +901,33 @@ def recover(host, record, sleep):
     save_record(host, record, "restored")
 
 
-def apply(host, archive, archive_sha, mode, prior_index_sha, sleep=time.sleep):
+def apply(host, archive, archive_sha, mode, prior_index_sha, sleep=time.sleep, *, signature_landmarks=False):
+    signature_landmarks = signature_landmarks or mode == "raid"
     manifest, manifest_sha = install_archive(archive, archive_sha, host.releases)
     if host.kind == "production":
         stage = Host("stage", host.root, host.gid)
         stage_record = load_record(stage)
         require(stage_record is not None and stage_record["manifest"] == manifest_sha and
-                stage_record["archive"] == archive_sha and stage_record["botMode"] == mode,
-                "The same archive and bot policy must pass staging first")
+                stage_record["archive"] == archive_sha and stage_record["botMode"] == mode and
+                stage_record["signatureLandmarks"] == signature_landmarks,
+                "The same archive, bot policy and landmark selection must pass staging first")
         verify_selected(stage, stage_record, manifest)
 
     record = load_record(host)
-    if record is None:
-        record = snapshot(host, mode, archive_sha, manifest_sha, prior_index_sha)
-    else:
+    if record is not None:
         require((record["archive"], record["manifest"], record["botMode"], record["priorIndex"]) ==
                 (archive_sha, manifest_sha, mode, prior_index_sha), "Apply differs from the reviewed journal")
-        require(record["phase"] != "reverting", "Complete the explicit rollback before applying again")
-        if record["phase"] == "selected":
-            verify_selected(host, record, manifest)
-            return "PAIRED_ALREADY_SELECTED"
+        if record["signatureLandmarks"] != signature_landmarks:
+            require(record["phase"] == "restored", "Landmark selection differs from the reviewed journal; roll back first")
+            # Capture the restored source command, loader and unit fingerprints again.
+            record = None
+        else:
+            require(record["phase"] != "reverting", "Complete the explicit rollback before applying again")
+            if record["phase"] == "selected":
+                verify_selected(host, record, manifest)
+                return "PAIRED_ALREADY_SELECTED"
+    if record is None:
+        record = snapshot(host, mode, archive_sha, manifest_sha, prior_index_sha, signature_landmarks)
 
     publish_web(host.release, host.versions, manifest, host.gid)
     host.verify_assets(manifest)
@@ -999,6 +1011,8 @@ def main():
         install.add_argument("archive", type=Path)
         install.add_argument("archive_sha256")
         install.add_argument("--bots", choices=("preserve", "raid"), required=True)
+        install.add_argument("--signature-landmarks", action="store_true",
+                             help="Generate signature landmarks on pooled maps with the selected bot policy")
         if kind == "stage":
             install.add_argument("--prior-index-sha256", default=STAGE_INDEX_SHA,
                                  help="reviewed expected hash of the current staging root homepage")
@@ -1028,7 +1042,7 @@ def main():
             if action == "apply":
                 prior_index = options.prior_index_sha256 if kind == "stage" else LIVE_INDEX_SHA
                 print(apply(host, options.archive.absolute(), check_hash(options.archive_sha256),
-                            options.bots, check_hash(prior_index)))
+                            options.bots, check_hash(prior_index), signature_landmarks=options.signature_landmarks))
             elif action == "rollback":
                 print(rollback(host))
             else:

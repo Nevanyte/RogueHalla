@@ -3,7 +3,7 @@
 ## ID and outcome
 
 Preserve the operational recipes and evidence from the November 26–27 production alpha. Serves Phase 4 item 18 (single-host operation and D6 review), item 20 (budget-scaled capacity evidence), and the rollback portion of Phase 5 item 21. Covers a production alpha rehearsal within those items. The #96 follow-up retains the sealed quest candidate and its
-guarded operator under the existing operations write scope.
+guarded operator under the existing operations write scope. The owner requested signature maps with the existing four-seat fill. The operator regression covers an earlier journal, an occupied or selected target, policy matching between environments, and restoration of the prior pair.
 
 ## Dependencies
 

@@ -46,22 +46,29 @@ commands only if production independently requires recovery.
 ```sh
 sudo python3 balance_release.py stage-status
 sudo python3 balance_release.py production-status
-sudo python3 balance_release.py stage-apply "$absolute_archive" "$archive_sha256" --bots preserve
+sudo python3 balance_release.py stage-apply "$absolute_archive" "$archive_sha256" --bots preserve --signature-landmarks
 sudo python3 balance_release.py stage-status
 ```
 
-Choose `--bots preserve` for the baseline four-fill policy or `--bots raid` for
-eight fill seats, RaidBot and signature landmarks. Both retain two rooms, each accepting up to eight humans, and the two-second fill window. Use the same choice for staging and production. The stage command uses the independently
+For the landmark alpha, use `--bots preserve --signature-landmarks` on both
+targets. The pool generates the Sentenced church, Plague bog tree, Holy hall,
+Fire volcano and Frost cave. The arena fills to four total participants.
+When changing a previously selected staging release, wait for an empty lobby,
+run `stage-rollback`, and verify the prior loader and Source before applying
+the new map selection. The journal retains the original rollback destination.
+
+The earlier `--bots preserve` invocation uses the baseline maps. The existing
+`--bots raid` selection fills to eight, enables RaidBot, and includes the landmarks. Both retain two rooms, each accepting up to eight humans, and the two-second fill window. Use the same choice for staging and production. The stage command uses the independently
 verified SHA-256 of the current staging root. A reviewed alternate prior
 homepage can be passed explicitly with `--prior-index-sha256`. The preview loader is separate from the staging root. Use the staging root's
 verified baseline bytes for that argument.
 
 Verify the staging root in Unity, including admission, authoritative movement,
 capture, and clearing the lobby. Production requires a separate command and a
-selected staging record with the same archive and bot policy.
+selected staging record with the same archive, bot policy and landmark choice.
 
 ```sh
-sudo python3 balance_release.py production-apply "$absolute_archive" "$archive_sha256" --bots preserve
+sudo python3 balance_release.py production-apply "$absolute_archive" "$archive_sha256" --bots preserve --signature-landmarks
 sudo python3 balance_release.py production-status
 ```
 
