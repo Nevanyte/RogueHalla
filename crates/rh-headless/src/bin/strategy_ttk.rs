@@ -90,6 +90,15 @@ fn hostile_owner(victim: PlayerId, owner: Option<PlayerId>) -> Option<PlayerId> 
 fn camp_damage_is_counted(elite: bool, owner: Option<PlayerId>, amount: f64) -> bool {
     !elite && owner.is_some() && amount > 0.
 }
+fn normal_camp_totals(rosters: impl IntoIterator<Item = (u32, u32, bool)>) -> BTreeMap<u32, u32> {
+    rosters
+        .into_iter()
+        .filter_map(|(camp, alive, elite)| (!elite).then_some((camp, alive)))
+        .collect()
+}
+fn camp_is_partial(alive: u32, total: u32) -> bool {
+    alive > 0 && total > 0 && alive < total
+}
 struct HitContext<'a> {
     mob_facts: &'a BTreeMap<PlayerId, MobFact>,
     partial_pending: &'a mut BTreeSet<u32>,
@@ -167,8 +176,10 @@ fn record_hit(
                     .get(&fact.camp)
                     .copied()
                     .unwrap_or(0);
-                let partial = alive > 0
-                    && alive < context.camp_total.get(&fact.camp).copied().unwrap_or(alive);
+                let partial = camp_is_partial(
+                    alive,
+                    context.camp_total.get(&fact.camp).copied().unwrap_or(alive),
+                );
                 partial && context.partial_pending.remove(&fact.camp)
             };
             let w = camps.entry(fact.camp).or_insert(Window {
@@ -250,18 +261,15 @@ fn run() -> Result<(), String> {
         let mut camps = BTreeMap::<u32, Window>::new();
         let mut pv = BTreeMap::<PlayerId, Window>::new();
         let mut partial_pending = BTreeSet::<u32>::new();
-        let mut camp_total = BTreeMap::<u32, u32>::new();
-        for m in env.sim.mobs() {
-            if m.owner.is_none()
-                && env
-                    .sim
-                    .camp_rosters()
-                    .get(m.camp as usize)
-                    .is_some_and(|r| r.elite.is_none())
-            {
-                *camp_total.entry(m.camp).or_default() += 1;
-            }
-        }
+        // Camp rosters exist during Env::new, while their Mob actors are spawned only after
+        // RaidStarted. Use the canonical roster size rather than counting the pre-spawn mobs.
+        let camp_total = normal_camp_totals(
+            env.sim
+                .camp_rosters()
+                .iter()
+                .enumerate()
+                .map(|(i, r)| (i as u32, r.alive, r.elite.is_some())),
+        );
         let mut mob_facts = BTreeMap::<PlayerId, MobFact>::new();
         let mut resolved = Vec::new();
         let mut raid_ended_event = false;
@@ -330,7 +338,7 @@ fn run() -> Result<(), String> {
                 .collect();
             for camp in abandoned {
                 if env.sim.camp_rosters().get(camp as usize).is_some_and(|r| {
-                    r.alive > 0 && r.alive < camp_total.get(&camp).copied().unwrap_or(r.alive)
+                    camp_is_partial(r.alive, camp_total.get(&camp).copied().unwrap_or(r.alive))
                 }) {
                     partial_pending.insert(camp);
                 }
@@ -626,6 +634,15 @@ mod tests {
         assert!(camp_damage_is_counted(false, Some(PlayerId(2)), 1.));
         let (n, p25, median, p75) = quant(&mut [0.]);
         assert_eq!((n, p25, median, p75), (1, Some(0.), Some(0.), Some(0.)));
+    }
+    #[test]
+    fn pre_spawn_roster_size_preserves_partial_pull_marker() {
+        // Env::new has no mob actors yet, but CampRoster already contains the full spot count.
+        let totals = normal_camp_totals([(0, 3, false), (1, 2, true)]);
+        assert_eq!(totals, BTreeMap::from([(0, 3)]));
+        assert!(!camp_is_partial(3, totals[&0]));
+        assert!(camp_is_partial(2, totals[&0]));
+        assert!(!camp_is_partial(0, totals[&0]));
     }
     #[test]
     fn distinct_attack_owners_flag_third_party_contact() {
