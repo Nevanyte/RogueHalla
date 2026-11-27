@@ -193,16 +193,35 @@ namespace Roguehalla.Net.Tests
         }
 
         [Test]
-        public void PlanningHasOneLegacyWidthDecisionColumnBesideTheMap()
+        public void PlanningWideLayoutFlanksTheMapWithQuestAndDecisionColumns()
         {
             var l = MapScreenLayout.Compute(1422, 800, MapScreenMode.Planning);
             Assert.IsFalse(l.Stacked);
+            Assert.AreEqual(MapScreenLayout.PlanningQuestColumn, l.Left.W);
             Assert.AreEqual(340f, l.Right.W);
-            Assert.AreEqual(0f, l.Left.W);
             Assert.GreaterOrEqual(l.Title.Y, MapScreenLayout.ChromeClear, "clears the top-right chrome buttons");
-            Assert.IsFalse(l.Right.Overlaps(l.Frame));
+            Assert.IsFalse(l.Left.Overlaps(l.Frame)); Assert.IsFalse(l.Right.Overlaps(l.Frame));
+            Assert.IsFalse(l.Left.Overlaps(l.Right));
             Assert.IsTrue(l.Body.Within(1422, 800));
             Assert.GreaterOrEqual(l.Map.W, 260f);
+        }
+
+        [Test]
+        public void PlanningQuestAndDecisionColumnsFitCommonDesktopStages()
+        {
+            var compact = MapScreenLayout.Compute(1280, 720, MapScreenMode.Planning);
+            var large = MapScreenLayout.Compute(1440, 900, MapScreenMode.Planning);
+            foreach (var layout in new[] { compact, large })
+            {
+                Assert.IsFalse(layout.Stacked);
+                Assert.IsFalse(layout.Left.Overlaps(layout.Frame));
+                Assert.IsFalse(layout.Right.Overlaps(layout.Frame));
+                Assert.IsFalse(layout.Left.Overlaps(layout.Right));
+            }
+            Assert.IsTrue(compact.Left.Within(1280, 720)); Assert.IsTrue(compact.Right.Within(1280, 720));
+            Assert.IsTrue(large.Left.Within(1440, 900)); Assert.IsTrue(large.Right.Within(1440, 900));
+            Assert.AreEqual(260f, compact.Left.W); Assert.AreEqual(340f, compact.Right.W);
+            Assert.AreEqual(260f, large.Left.W); Assert.AreEqual(340f, large.Right.W);
         }
 
         [Test]
@@ -295,8 +314,8 @@ namespace Roguehalla.Net.Tests
             AssertRect(n.Body.X, n.Body.Y, n.Body.W, n.Body.H, n.Sheet, "420x700 Sheet is Body"); AssertRect(n.Title.X, n.Title.Y, n.Title.W, n.Title.H, n.Header, "420x700 Header is Title");
             var p = MapScreenLayout.Compute(1422, 800, MapScreenMode.Planning);
             Assert.IsFalse(p.Stacked);
-            AssertRect(221, 44, 628, 40, p.Title, "planning Title"); AssertRect(221, 96, 628, 628, p.Frame, "planning Frame");
-            AssertRect(221, 736, 628, 52, p.Legend, "planning Legend"); AssertRect(0, 0, 0, 0, p.Left, "planning Left"); AssertRect(861, 44, 340, 744, p.Right, "planning Right");
+            AssertRect(357, 44, 628, 40, p.Title, "planning Title"); AssertRect(357, 96, 628, 628, p.Frame, "planning Frame");
+            AssertRect(357, 736, 628, 52, p.Legend, "planning Legend"); AssertRect(85, 44, 260, 744, p.Left, "planning quest rail"); AssertRect(997, 44, 340, 744, p.Right, "planning Right");
             AssertRect(p.Body.X, p.Body.Y, p.Body.W, p.Body.H, p.Sheet, "planning Sheet is Body"); AssertRect(p.Title.X, p.Title.Y, p.Title.W, p.Title.H, p.Header, "planning Header is Title");
         }
     }

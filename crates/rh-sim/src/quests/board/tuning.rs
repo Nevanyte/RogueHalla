@@ -46,6 +46,9 @@ pub(crate) struct Top25Tuning {
     pub(crate) bargain_stacks: u64,
     pub(crate) feed_damage_stacks: u64,
     pub(crate) chef_bonus_share: f64,
+    pub(crate) chef_bonus_cap: f64,
+    pub(crate) chef_move_share: f64,
+    pub(crate) chef_move_cap: f64,
     pub(crate) helm_bypass: f64,
     // Spell effects.
     pub(crate) stasis_ms: f64,
@@ -132,7 +135,7 @@ pub(crate) struct Top25Tuning {
 }
 
 pub(crate) static TOP25: Top25Tuning = Top25Tuning {
-    fort_ms: 45_000.,
+    fort_ms: 35_000.,
     meditate_ms: 30_000.,
     crown_burn_rate: 0.01,
     crown_power_cap: 48,
@@ -142,7 +145,7 @@ pub(crate) static TOP25: Top25Tuning = Top25Tuning {
     giver_flee_ms: 60_000.,
     quest_respawn_ms: 25_000.,
     warden_hp_multiplier: 3.,
-    bargain_cost: 20,
+    bargain_cost: 8,
     route_pace: 1500.,
     route_slack_ms: 15_000.,
     hook_cooldown_ms: 45_000.,
@@ -156,10 +159,13 @@ pub(crate) static TOP25: Top25Tuning = Top25Tuning {
     scout_falcon_cooldown_ms: 35_000.,
     bolas_cooldown_ms: 18_000.,
     lantern_ward_charges: 2,
-    trade_up_stacks: [12, 30, 54],
-    bargain_stacks: 24,
-    feed_damage_stacks: 6,
-    chef_bonus_share: 0.20,
+    trade_up_stacks: [10, 22, 29],
+    bargain_stacks: 11,
+    feed_damage_stacks: 12,
+    chef_bonus_share: 0.30,
+    chef_bonus_cap: 0.35,
+    chef_move_share: 0.20,
+    chef_move_cap: 0.24,
     helm_bypass: 0.20,
     stasis_ms: 2500.,
     shield_ms: 1500.,
@@ -241,6 +247,8 @@ pub struct QuestPublicRules {
     pub bargain_cost: u64,
     /// The Bargain: stacks received (the reward text says it).
     pub bargain_stacks: u64,
+    /// Trade Up: Penitent stacks paid at the three cash-out stages.
+    pub trade_up_stacks: [u64; 3],
     /// Route deadline: ms of deadline per second of walk at `PLAYER_SPEED`.
     pub route_pace: f64,
     /// Route deadline: ms added on top of the paced walk.
@@ -258,6 +266,7 @@ pub fn public_rules() -> QuestPublicRules {
         fort_range: TOP25.fort_range,
         bargain_cost: TOP25.bargain_cost,
         bargain_stacks: TOP25.bargain_stacks,
+        trade_up_stacks: TOP25.trade_up_stacks,
         route_pace: TOP25.route_pace,
         route_slack_ms: TOP25.route_slack_ms,
     }

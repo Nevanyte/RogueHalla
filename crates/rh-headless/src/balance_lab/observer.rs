@@ -91,6 +91,9 @@ pub struct Observer {
     /// Chests of elite deaths still to be recognised, picked or expired.
     chest_watch: Vec<ChestWatch>,
     camp_count: usize,
+    /// Persistent per-viewer bindings, as in a live room: quest handles are never reused when the five planning rows
+    /// expand to ten raid rows. Disposable `rh_sim::observe` previews restart the handle counter every sample.
+    views: Vec<rh_sim::ItemObserver>,
     quests: Vec<SeatQuests>,
     /// Every step's chest facts, tallied at the end by `chest_picks::tally_chests`.
     chest_steps: Vec<ChestStep>,
@@ -126,6 +129,7 @@ impl Observer {
                 .iter()
                 .map(|p| (!p.seat.bot).then(SeatTally::default))
                 .collect(),
+            views: ids.iter().copied().map(rh_sim::ItemObserver::new).collect(),
             quests: ids.iter().map(|_| SeatQuests::default()).collect(),
             chest_steps: Vec::new(),
             cur_chests: ChestStep::default(),
@@ -200,7 +204,10 @@ impl Observer {
         if sample {
             let now = sim.server_time();
             for seat in 0..self.ids.len() {
-                let obs = rh_sim::observe(sim, self.ids[seat], events);
+                let mut obs = Observation::default();
+                self.views[seat]
+                    .observe_into(sim, events, &mut obs, None)
+                    .expect("trusted balance-lab observation");
                 self.observation(seat, &obs, now);
             }
         }
@@ -572,12 +579,18 @@ impl Observer {
             self.cur_time[seat].camps_normal += 1;
         }
         if let Some(first) = self.camp_first_hit.get(&(camp, seat_id)) {
-            let secs = f64::from(tick - first) / 20.;
+            let secs = f64::from(tick - first) * f64::from(sim.tick_ms()) / 1000.;
             w.kill_secs.add(secs);
             if elite {
                 w.kill_secs_elite.add(secs);
             } else {
                 w.kill_secs_normal.add(secs);
+                let first_ms = sim.server_time() - secs * 1000.;
+                let band = ((first_ms - sim.raid_started_at()).max(0.) / 300_000.) as u32 * 5;
+                w.normal_clear_secs_by_minute
+                    .entry(band)
+                    .or_default()
+                    .add(secs);
             }
         }
         for k in firsts {

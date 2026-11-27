@@ -4,7 +4,7 @@
 //! downed list; reads the ledger, the action-order ranks and the tick-start bounties from the tick scratch.
 
 use crate::constants::*;
-use crate::content::{mitigate_shares, pvp_factor, WeaponId};
+use crate::content::{mitigate_shares, WeaponId};
 use crate::events::Event;
 use crate::fighter::FighterIx;
 use crate::quests::board::rewards::permanent;
@@ -13,6 +13,8 @@ use crate::scratch::{TickScratch, NONE};
 use crate::state::{Packet, PlayerId, World};
 use crate::statics::MatchStatic;
 use crate::systems::{credit, settle, weapons, Cx};
+
+mod pvp;
 
 /// One hit of the tick ledger. Ordinary weapon rows retain IDs; status rows additionally
 /// retain the immutable source snapshot through shared handles, without cloning string bytes.
@@ -391,6 +393,9 @@ fn apply_inner(
         dot_sums,
         mark_denials,
         camps_at_pass_start,
+        raid_pvp_factors,
+        raid_hit_cap_shares,
+        performed,
         ..
     } = &mut **s;
     // Freeze the canonical per-player camps count ONCE for this pass, before any victim or deferred payout can increment it:
@@ -404,6 +409,10 @@ fn apply_inner(
     if ledger.is_empty() {
         camps_at_pass_start.clear();
         return;
+    }
+    let raid_pacing = k.config.pvp_rules && k.config.combat_pace == crate::CombatPace::Raid;
+    if raid_pacing {
+        raid_pvp_factors.resize(w.players.len(), None);
     }
     let camps = camps_at_pass_start.as_slice();
     // Group by victim in order of first appearance (legacy Map insertion order): each entry is chained on its victim's
@@ -568,27 +577,17 @@ fn apply_inner(
         // Already multiplied entries (returned damage, a splash) only take the victim's Race to 0 (G4).
         let final_entry = e.passive || e.derived;
         races.push(if final_entry { taken } else { dealt * taken });
-        let credited = e.by.and_then(|id| w.credited_player(id));
+        let pvp = pvp::factor(k, w, e, vix, raid_pvp_factors);
+        if raid_pacing {
+            let cap = if vix.is_some_and(|v| w.is_player(v)) {
+                pvp::hit_cap_share(w, e, performed)
+            } else {
+                f64::INFINITY
+            };
+            raid_hit_cap_shares.push(cap);
+        }
         mults.push(
-            farm_mult
-                * gambler
-                * warhorn
-                * (if final_entry { taken } else { dealt * taken })
-                * (if k.config.pvp_rules
-                    && !e.arena
-                    && e.ability.is_none()
-                    && vix
-                        .zip(credited)
-                        .is_some_and(|(v, b)| w.is_player(v) && w.player(b).is_some())
-                {
-                    pvp_factor(
-                        w.players[w.idx(credited.expect("checked player attacker")).unwrap()]
-                            .build
-                            .power(),
-                    )
-                } else {
-                    1.0
-                }),
+            farm_mult * gambler * warhorn * (if final_entry { taken } else { dealt * taken }) * pvp,
         );
     }
     w.pay.items.clear();
@@ -643,18 +642,28 @@ fn apply_inner(
             continue;
         };
         apply_victim(
-            &mut pass, &mut bufs, vi, ledger, mults, races, deny_parts, entry_rank,
+            &mut pass,
+            &mut bufs,
+            vi,
+            ledger,
+            mults,
+            races,
+            deny_parts,
+            entry_rank,
+            raid_hit_cap_shares,
         );
     }
     pay_all_with(pass.k, pass.w, pass.ev, pf, pass.stats);
     ledger.clear();
     camps_at_pass_start.clear();
+    raid_pvp_factors.clear();
+    raid_hit_cap_shares.clear();
 }
 
 /// P-AUG-NATIVE-1b: an entry that, once landed, is an `Event::Hit` with a weapon and `passive: false` (the native hit
-/// hooks' events and Bastion's burst carrier): not arena, not a damage-over-time, not a signature, not returned.
+/// hooks' events and Bastion's burst carrier): not arena, damage-over-time, signature, returned or derived.
 fn weapon_hit(e: &Entry) -> bool {
-    !e.arena && !e.is_dot() && e.sig.is_none() && e.weapon.is_some() && !e.passive
+    !e.arena && !e.is_dot() && e.sig.is_none() && e.weapon.is_some() && !e.passive && !e.derived
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -667,14 +676,16 @@ fn apply_victim(
     races: &[f64],
     deny_parts: &mut Vec<f64>,
     entry_rank: &[u32],
+    raid_hit_cap_shares: &[f64],
 ) {
     let ix = FighterIx::of_slot(vi);
     let player = pass.w.is_player(ix);
     let v = pass.w.core(ix).id;
+    let victim_max_hp = pass.w.core(ix).vitals.max_hp;
     if !pass.w.standing(ix) || crate::quests::board::rewards::effects::stasis(pass.w, v) {
         return;
     }
-    let defense = pass.w.defense(ix);
+    let defense = pass.w.defense(ix, pass.k.config.combat_pace);
     // The armor mirror was folded after last tick's damage pass. A shred reaching
     // its boundary now still affects this hit; an axe in this pass takes effect afterwards.
     let (armor, shield) = defense.map_or((0., 0.), |(base_armor, base_shield)| {
@@ -717,7 +728,19 @@ fn apply_victim(
         raws.push(raw_source);
         let raw_damage = if friendly_mobs { 0. } else { raw_source };
         let s = permanent::damage_shares(pass.w, e);
-        mitigate_shares(raw_damage, &s, armor, shield)
+        let mut damage = mitigate_shares(raw_damage, &s, armor, shield);
+        if player && !e.arena && !pass.k.config.training {
+            damage *= pass
+                .w
+                .elite_camp_attack_scale(e.by, pass.k.config.combat_pace);
+        }
+        raid_hit_cap_shares.get(k).map_or(damage, |share| {
+            if share.is_finite() {
+                damage.min(victim_max_hp * share)
+            } else {
+                damage
+            }
+        })
     }));
     // P-AUG-NATIVE-1b (Bastion): a holder's first landed weapon hit on this victim carries its stored-block burst, added
     // after the victim's mitigation and the outgoing multipliers (stored blocks are already mitigated damage) and before
@@ -756,9 +779,8 @@ fn apply_victim(
         }
     }
     if player && pass.k.config.pvp_rules {
-        let cap = PVP_HIT_CAP_SHARE * pass.w.core(ix).vitals.max_hp;
-        let budget =
-            PVP_DOT_CAP_SHARE * pass.w.core(ix).vitals.max_hp * (pass.k.tick_ms() / 1000.0);
+        let cap = PVP_HIT_CAP_SHARE * victim_max_hp;
+        let budget = PVP_DOT_CAP_SHARE * victim_max_hp * (pass.k.tick_ms() / 1000.0);
         dot_sums.clear();
         for (j, &index) in idxs.iter().enumerate() {
             let e = &ledger[index];

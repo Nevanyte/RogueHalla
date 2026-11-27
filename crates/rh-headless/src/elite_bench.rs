@@ -6,6 +6,10 @@
 //! provide the same API. It must not be added to `lib.rs` (rh-server depends on rh-headless).
 #[path = "elite_bench/duelist.rs"]
 mod duelist;
+#[path = "elite_bench/farm_legs.rs"]
+mod farm_legs;
+#[path = "elite_bench/pace_pairs.rs"]
+mod pace_pairs;
 
 use duelist::Duelist;
 use rh_headless::{load_arena, Agent, AgentSpec, Env, EnvConfig};
@@ -336,6 +340,10 @@ fn floor_line(arena: &Arena, a: Vec2, b: Vec2) -> bool {
 fn scene_for(probe: &Sim, arena: &Arena, elite: MobTypeId) -> Option<Scene> {
     let rosters = probe.camp_rosters();
     let camp = rosters.iter().position(|r| r.elite == Some(elite))? as u32;
+    scene_at(probe, arena, camp)
+}
+
+fn scene_at(probe: &Sim, arena: &Arena, camp: u32) -> Option<Scene> {
     let members: Vec<(Vec2, Option<MobTypeId>)> = probe
         .mobs()
         .iter()
@@ -394,6 +402,9 @@ struct Fought {
     engaged: bool,
     ticks: u32,
     first_hit: Option<u32>,
+    first_camp_hit: Option<u32>,
+    earned: Vec<(MobTypeId, u64)>,
+    credited_clears: u16,
     hp_start: f64,
     hp_left: f64,
     dealt: f64,
@@ -423,6 +434,7 @@ fn fight(
     build: Option<&TrustedBuild>,
     max_ticks: u32,
     who: Who,
+    raid_minute: Option<u32>,
 ) -> Result<Fought, String> {
     let placement = [Placement {
         profile: "fighter".into(),
@@ -433,16 +445,25 @@ fn fight(
         weapon0: Some(weapon),
         weapon1: None,
     }];
+    let mut rules = config();
+    if raid_minute.is_some() {
+        rules.tick_ms = 25;
+        rules.hazards = rh_sim::terrain::Mode::Off;
+    }
     let mut sim = Sim::reset_active(
-        config(),
+        rules.clone(),
         arena.clone(),
         Secrets::from_seed(seed),
         &placement,
     );
+    if let Some(minute) = raid_minute {
+        rh_sim::trusted_build::set_fresh_raid_age(&mut sim, minute);
+    }
     let me: PlayerId = sim.players()[0].id;
     if let Some(b) = build {
         apply(&mut sim, me, b).map_err(|e| format!("a sampled build was refused: {e:?}"))?;
     }
+    let starting_farm = sim.players()[0].farm;
     let hp_start = sim.players()[0].vitals.hp;
     // The camp's members (ids), for engagement: damage between the fighter and one of them.
     let members: Vec<PlayerId> = sim
@@ -453,7 +474,7 @@ fn fight(
         .collect();
     let mut policy: Box<dyn Policy> = match who {
         Who::Brawler => Box::new(Brawler::new(1)),
-        Who::Duelist => Box::new(Duelist::new(scene.centre, scene.types.clone(), config())),
+        Who::Duelist => Box::new(Duelist::new(scene.centre, scene.types.clone(), rules)),
     };
     policy.reset(&MatchStart::of(&sim, me, seed));
     let (mut env, mut obs) = Env::from_external_checkpoint(sim, max_ticks).expect("checkpoint");
@@ -462,6 +483,9 @@ fn fight(
         engaged: who == Who::Brawler,
         ticks: max_ticks,
         first_hit: None,
+        first_camp_hit: None,
+        earned: Vec::new(),
+        credited_clears: 0,
         hp_start,
         hp_left: hp_start,
         dealt: 0.,
@@ -483,6 +507,7 @@ fn fight(
     let mut dist_sum = 0.;
     let mut touched = false;
     let mut healed = 0.;
+    let mut companions = Vec::new();
     for tick in 1..=max_ticks {
         let cmds = policy.decide(&obs[0]);
         for c in &cmds {
@@ -514,7 +539,31 @@ fn fight(
                 }
             }
         }
+        // A Wish or stray swing can hit a different camp before the intended encounter.
+        // Resolve the first positive hit against this roster, including the fighter's companions.
+        if raid_minute.is_some() && m.first_camp_hit.is_none() {
+            companions.clear();
+            companions.extend(
+                env.sim
+                    .mobs()
+                    .iter()
+                    .filter(|b| b.owner == Some(me))
+                    .map(|b| b.core.id),
+            );
+        }
         let out = env.step(&[cmds]);
+        if raid_minute.is_some()
+            && m.first_camp_hit.is_none()
+            && env.sim.landed_hits().iter().any(|hit| {
+                hit.amount > 0.
+                    && members.contains(&hit.victim)
+                    && hit
+                        .by
+                        .is_some_and(|id| id == me || companions.contains(&id))
+            })
+        {
+            m.first_camp_hit = Some(tick);
+        }
         let mut tally = |victim: PlayerId, by: Option<PlayerId>, amount: f64| {
             if victim == me {
                 m.taken += amount;
@@ -586,6 +635,16 @@ fn fight(
         }
     }
     m.attack_dist_mean = (m.attack_ticks > 0).then(|| dist_sum / f64::from(m.attack_ticks));
+    m.credited_clears = env.sim.players()[0].camps_cleared;
+    for ty in FactionId::ALL.into_iter().flat_map(normal_types_of) {
+        let gain = env.sim.players()[0]
+            .farm
+            .count(ty.id)
+            .saturating_sub(starting_farm.count(ty.id));
+        if gain > 0 {
+            m.earned.push((ty.id, gain));
+        }
+    }
     Ok(m)
 }
 
@@ -838,6 +897,14 @@ struct Job<'a> {
 /// whenever it reported, even if every fighter died or every fight was cut off; `Err` only for bad arguments or an
 /// unreadable sample.
 pub fn run(args: &[String]) -> Result<Output, String> {
+    if let [flag, seed] = args {
+        if flag == "--farm-legs" {
+            return farm_legs::run(seed.parse().map_err(|_| "invalid seed")?);
+        }
+        if flag == "--pace-pairs" {
+            return pace_pairs::run(seed.parse().map_err(|_| "invalid seed")?);
+        }
+    }
     let value = |n: &str| -> Result<Option<&str>, String> {
         match args.iter().position(|a| a == n) {
             None => Ok(None),
@@ -1032,6 +1099,7 @@ pub fn run(args: &[String]) -> Result<Output, String> {
                                 Some(j.build),
                                 max_ticks,
                                 j.who,
+                                None,
                             ),
                         ));
                     }

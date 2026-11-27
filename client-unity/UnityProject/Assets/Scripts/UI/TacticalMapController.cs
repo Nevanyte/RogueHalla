@@ -46,6 +46,8 @@ namespace Roguehalla.Client
         int _lastContactsSnapshot = -1;
         WeaponCounterGuide _counterGuide;
         RectTransform _contactRail, _counterRail;
+        RectTransform _planningQuestBox;
+        TMP_Text _planningQuestsText;
         bool _routeStorageDirty;
         double _nextPaint, _nextPath;
         bool _largeFresh, _miniFresh;
@@ -127,6 +129,14 @@ namespace Roguehalla.Client
             }
 
             BuildPlanningRail(theme);
+            _planningQuestBox = HudUi.Box(_panel, "PlanningQuests", HudAnchor.TopLeft, 0, 0, 260, 240);
+            HudUi.Surface(_planningQuestBox, theme.SurfaceRaised, theme.CornerRadiusSmall, theme.Border, false, false);
+            var planningQuestHeading = HudUi.Label(_planningQuestBox, "Heading", "KNOWN QUESTS", 11f, theme.Accent, TextAlignmentOptions.MidlineLeft, false, UiFontRole.Display);
+            HudUi.Place(planningQuestHeading.rectTransform, HudAnchor.TopLeft, 8f, 5f, 244f, 16f);
+            _planningQuestsText = MythicUi.ScrollText(_planningQuestBox, "QuestList", "Waiting for public quest list…", Vector2.zero, Vector2.one, 12.5f);
+            var planningQuestTextRect = (RectTransform)_planningQuestsText.transform.parent.parent;
+            planningQuestTextRect.anchorMin = Vector2.zero; planningQuestTextRect.anchorMax = Vector2.one;
+            planningQuestTextRect.offsetMin = new Vector2(8f, 6f); planningQuestTextRect.offsetMax = new Vector2(-8f, -24f);
             _routeText = HudUi.Label(_panel, "RouteSummary", "Click the map to add a route stop", 11f, theme.TextSecondary, TextAlignmentOptions.TopLeft, false, UiFontRole.Body, true);
             _undo = HudUi.Button(_panel, "UndoRoute", "Undo stop", HudAnchor.TopLeft, 0, 0, 100, 26, () => { _route.Undo(); _routeStorageDirty = true; _nextPath = 0; MarkNews(); }, 11f);
             _clear = HudUi.Button(_panel, "ClearRoute", "Clear route", HudAnchor.TopLeft, 0, 0, 100, 26, () => { _route.Clear(); _routeStorageDirty = true; _nextPath = 0; MarkNews(); }, 11f);
@@ -257,7 +267,7 @@ namespace Roguehalla.Client
             _timer.gameObject.SetActive(!tab); _planBar.gameObject.SetActive(!tab);
             _planBar.sizeDelta = new Vector2(L.Title.W, 3f);
             if (!tab) { _hint.gameObject.SetActive(false); _phaseLabel.gameObject.SetActive(false); }
-            _zoneLegend.gameObject.SetActive(tab); _planningRail.gameObject.SetActive(!tab); _runRail.gameObject.SetActive(tab);
+            _zoneLegend.gameObject.SetActive(tab); _planningRail.gameObject.SetActive(!tab); _planningQuestBox.gameObject.SetActive(!tab); _runRail.gameObject.SetActive(tab);
             var routeScale = _routeText.GetComponent<MythicTextScale>();
             routeScale.BaseSize = tab ? 11f : 15f;
             routeScale.Apply(ts);
@@ -303,7 +313,14 @@ namespace Roguehalla.Client
                 HudUi.Place(_clear.GetComponent<RectTransform>(), HudAnchor.TopLeft, L.Left.X + 18f + bw, L.Left.Bottom - 54f, bw, 28f);
                 _status.gameObject.SetActive(false);
             }
-            else ApplyPlanningLayout(L, choices);
+            else
+            {
+                ApplyPlanningLayout(L, choices);
+                const float questHeight = 240f;
+                float height = Mathf.Min(questHeight, L.Left.H);
+                float top = L.Left.Y + (L.Left.H - height) / 2f;
+                Put(_planningQuestBox, new MapRect(L.Left.X, top, L.Left.W, height));
+            }
         }
 
         public void Bind(Session session)
@@ -474,6 +491,27 @@ namespace Roguehalla.Client
         {
             var point = gesture.Tick(Now * 1000);
             if (point.HasValue && !SubmitMapMove(point, true)) gesture.Unsend();
+        }
+        internal static string PlanningQuestCopy(Roguehalla.Net.QuestView quests, MapBlob map)
+        {
+            if (quests == null || !quests.Available) return "Waiting for the public quest list…";
+            var copy = new StringBuilder();
+            foreach (var row in quests.Rows)
+            {
+                string name = string.IsNullOrWhiteSpace(row.Name) ? "Unnamed quest" : row.Name.Trim();
+                string zone = "";
+                int tx = map != null && map.W > 0 ? Mathf.FloorToInt((float)(row.GiverX / Tile)) : -1;
+                int ty = map != null && map.H > 0 ? Mathf.FloorToInt((float)(row.GiverY / Tile)) : -1;
+                if (map != null && map.Regions != null && map.Regions.Length == map.W * map.H && (uint)tx < (uint)map.W && (uint)ty < (uint)map.H)
+                    zone = MapZones.Name(map.Regions[ty * map.W + tx]);
+                copy.Append("• ").Append(name);
+                if (!string.IsNullOrEmpty(zone)) copy.Append("  ·  ").Append(zone);
+                copy.AppendLine();
+            }
+            if (quests.Rows.Count == 0) copy.AppendLine("No quests are public yet.");
+            if (quests.UnknownCount > 0) copy.Append(quests.UnknownCount).Append(" more revealed at raid start");
+            else if (quests.Rows.Count == 0) copy.Append("The public list will appear when received.");
+            return copy.ToString().TrimEnd();
         }
         /// <summary>The zone chip of the region under the player gets the gold frame.</summary>
         void RefreshOwnZone()

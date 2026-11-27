@@ -51,11 +51,17 @@ namespace Roguehalla.Client
         }
         public bool OfferOpen { get { return _offerCard != null && _offerCard.IsOpen; } }
 
-        /// <summary>The HUD's answer to F when there is nothing to pick up: closes an open offer card, else opens the offer in reach.</summary>
+        /// <summary>The HUD's answer to F when there is nothing to pick up: closes an open offer, then prioritizes nearby quest actions over new offers.</summary>
         public bool TryInteract()
         {
             if (_offerCard == null) return false;
             if (_offerCard.IsOpen) { CloseOffer(); return true; }
+            if (!_questChoice.HasValue && _nearbyQuestCount > 0 && OfferGatesHold(_session)
+                && _questActionLauncher.gameObject.activeInHierarchy)
+            {
+                OpenQuestActions();
+                return true;
+            }
             return OpenOffer();
         }
 

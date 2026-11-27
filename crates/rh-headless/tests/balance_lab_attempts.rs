@@ -385,6 +385,19 @@ fn raid_bots_complete_quests_and_every_attempt_is_in_one_bucket() {
 }
 
 #[test]
+fn each_viewing_seat_counts_all_ten_raid_offers_once() {
+    let r: Value = serde_json::from_str(jobs1()).expect("json");
+    let rows = r["quests"]["by_quest"].as_array().expect("by_quest");
+    let dealt: u64 = rows.iter().map(|q| n(q, "dealt")).sum();
+    let viewing_seats = (SEEDS.end - SEEDS.start) * 8;
+    assert_eq!(dealt, viewing_seats * 10);
+    assert!(
+        rows.iter().all(|q| n(q, "dealt") <= viewing_seats),
+        "a quest can be dealt at most once to each seat in each match"
+    );
+}
+
+#[test]
 fn the_report_with_samples_is_byte_identical_for_jobs_1_and_4() {
     let (one, four) = (jobs1(), &report(4));
     assert!(

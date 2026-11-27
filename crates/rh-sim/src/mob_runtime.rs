@@ -554,6 +554,30 @@ impl EliteTuning {
     }
 }
 
+/// Additional physical and magical defense on normal regional mobs. True damage bypasses both.
+pub(crate) fn normal_camp_defense(elapsed_ms: f64) -> f64 {
+    use crate::constants::*;
+    let mid = ((elapsed_ms - RAID_CAMP_OPENING_MS) / (RAID_CAMP_MIDGAME_MS - RAID_CAMP_OPENING_MS))
+        .clamp(0., 1.);
+    let late = ((elapsed_ms - RAID_CAMP_MIDGAME_MS)
+        / (RAID_CAMP_LATEGAME_MS - RAID_CAMP_MIDGAME_MS))
+        .clamp(0., 1.);
+    mid * RAID_CAMP_MIDGAME_DEFENSE
+        + late * (RAID_CAMP_LATEGAME_DEFENSE - RAID_CAMP_MIDGAME_DEFENSE)
+}
+
+/// Relative to the ordinary raid defense ramp. A camp's boss and escorts use the same row.
+pub(crate) fn elite_camp_defense_share(boss: MobTypeId) -> f64 {
+    use crate::constants::*;
+    use MobTypeId::*;
+    match boss {
+        Archon => RAID_ELITE_ARCHON_DEFENSE_SHARE,
+        GlacialWarden | BloodSaint => RAID_ELITE_WARDEN_SAINT_DEFENSE_SHARE,
+        AvalancheTroll | PoxBehemoth => RAID_ELITE_TROLL_BEHEMOTH_DEFENSE_SHARE,
+        _ => RAID_ELITE_CAMP_DEFENSE_SHARE,
+    }
+}
+
 /// Source mobTypeFaction HP only (an elite's `k` and hp multiplier from the world's elite numbers). Full faction sheets
 /// remain the combat stage's responsibility.
 pub fn spawn_hp(elites: &EliteTuning, region: FactionId, elite: bool, ty: MobTypeId) -> f64 {

@@ -285,11 +285,11 @@ fn check_independent_completion(tick_ms: u32) {
         &mut a,
         &mut b,
         20,
-        "both receive ten offers during planning",
+        "both receive five offers during planning",
         |room, a, b| {
             room.sim().phase() == Phase::Planning
-                && a.board.rows.len() == 10
-                && b.board.rows.len() == 10
+                && a.board.rows.len() == 5
+                && b.board.rows.len() == 5
         },
     );
     let public = |c: &Client| {
@@ -300,7 +300,6 @@ fn check_independent_completion(tick_ms: u32) {
             .collect::<Vec<_>>()
     };
     assert_eq!(public(&a), public(&b));
-    let at = a.quest().unwrap().giver;
     until(
         &mut room,
         &mut a,
@@ -309,6 +308,7 @@ fn check_independent_completion(tick_ms: u32) {
         "raid must start",
         |room, _, _| room.sim().phase() == Phase::Active,
     );
+    let at = a.quest().unwrap().giver;
     let a_start = a.pos(&room);
     let b_start = b.pos(&room);
     a.move_to(&mut room, at);

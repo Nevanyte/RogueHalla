@@ -1,0 +1,5 @@
+variant,damage_stacks,reward,title,baseline,alternative,build_n,combat_seeds,seat_exchanges,point_score,mean_hp_margin_pct,reward_uses,timeouts,simultaneous
+baseline,6,FeedOrHuntDamage,Feed or Hunt,180,no_extra_farm,10,3,60,1.0,7.018902753228313,0,0,0
+baseline,6,FeedOrHuntDamage,Feed or Hunt,180,one_preferred_camp,10,3,60,0.05,-8.667449060921019,0,0,6
+tuned,12,FeedOrHuntDamage,Feed or Hunt,180,no_extra_farm,10,3,60,1.0,12.30998393485901,0,0,0
+tuned,12,FeedOrHuntDamage,Feed or Hunt,180,one_preferred_camp,10,3,60,0.3,-2.4671494078507825,0,0,30

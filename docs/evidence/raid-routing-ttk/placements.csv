@@ -1,0 +1,4 @@
+strategy,comparator,assigned,both_resolved,target_better,same_place,other_better,target_first,other_first,mean_places_gained
+target,nearest,100,82,40,14,28,10,3,0.6219512195121951
+target,random5,100,81,30,19,32,10,3,0.25925925925925924
+target,live,10,10,2,0,8,0,1,-0.8

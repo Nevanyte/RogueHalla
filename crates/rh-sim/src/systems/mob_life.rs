@@ -603,7 +603,12 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
             &w.players[i].build,
             crate::modifiers::farm::DEFINITION.kill_stacks,
         );
-        let gained = crate::modifiers::grant_mob_stat(k, w, id, paid, amount);
+        let focus_bonus = if super::farm_focus::enabled(k.config.camp_buffs) {
+            super::farm_focus::bonus(w, id, a.camp, paid)
+        } else {
+            0
+        };
+        let gained = crate::modifiers::grant_mob_stat(k, w, id, paid, amount + focus_bonus);
         if let (true, Some(carry)) = (gained > 0, carry) {
             if let Some(slot) = w.players[i]
                 .build
@@ -615,15 +620,16 @@ pub(crate) fn pay(k: &MatchStatic, w: &mut World, ev: &mut Vec<Event>, a: Award)
         }
         if gained > 0 {
             let count = w.players[i].farm.count(paid);
-            ev.push(Event::Toast {
-                to: Some(id),
-                text: match buff {
-                    Some(_) => crate::modifiers::farm_text::grant_notice_from(
-                        a.mob_type, paid, gained, count,
-                    ),
-                    None => crate::modifiers::farm_text::grant_notice(paid, gained, count),
-                },
-            });
+            let mut text = match buff {
+                Some(_) => {
+                    crate::modifiers::farm_text::grant_notice_from(a.mob_type, paid, gained, count)
+                }
+                None => crate::modifiers::farm_text::grant_notice(paid, gained, count),
+            };
+            if focus_bonus > 0 {
+                text.push_str(" (Focus route +3)");
+            }
+            ev.push(Event::Toast { to: Some(id), text });
         }
     }
     if !w.pay.mob_settled.contains(&id) {

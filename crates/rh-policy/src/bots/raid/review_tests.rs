@@ -113,6 +113,7 @@ fn scene(mobs: &[(String, Vec2, Option<u32>, bool)]) -> Scene {
             zone: c.zone,
             elite_spot: -1,
             mob_type: 0,
+            reward_stat: None,
             elite: None,
             alive: 3,
             state: 0,
