@@ -77,7 +77,7 @@ sudo python3 /opt/rh-alpha/saturday-ops/set-live-native.py rollback
 
 A blocked drain or changed identity requires investigation before any further switch. Verify the chosen loader SHA-256, compressed WASM, public storage readiness and direct game protocol/content identity. Use two browser sessions to confirm authoritative spawn, Ready and movement, then confirm both players leave and the lobby clears. Trigger a completed run when checking replay delivery. Review the Source disconnect classifications after the smoke and record any unexpected closure, affected layer, code or timeout, and recent RTT. Both immutable Unity revisions and the backup receipt remain available for inspection.
 
-The paired balance release has a separate staging switch, production switch, and rollback. Check which build the live server and homepage select before using either rollback procedure. [Balance release and rollback](release/balance/README.md)
+The paired quest candidate uses separate staging and production switches and per-build rollback journals. Check the selected Source and homepage before applying or rolling back a release. The current runbook links the prior balance operator to restore staging if it still selects that build. [Quest release and rollback](release/balance/README.md)
 
 ## Local validation
 
