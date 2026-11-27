@@ -446,13 +446,22 @@ fn normal_camp_raid_pacing_preserves_the_opening_and_slows_late_kills() {
     );
 
     let mut sim = pve_sim_with_pace(Raid, arena());
-    sim.w.server_time = sim.w.raid_started_at + 1_200_000.;
-    assert!(
-        sim.camp_rosters()[0].elite.is_some(),
-        "fixture has an elite and its escorts"
-    );
-    for mob in sim.mobs() {
-        let ix = sim.w.fighter_idx(mob.core.id).unwrap();
-        assert_eq!(sim.w.defense(ix, Raid), sim.w.defense(ix, Legacy));
+    assert!(sim.camp_rosters()[0].elite.is_some());
+    for minute in [5, 20] {
+        sim.w.server_time = sim.w.raid_started_at + f64::from(minute) * 60_000.;
+        for mob in sim.mobs().iter().filter(|m| m.camp == 0) {
+            let ix = sim.w.fighter_idx(mob.core.id).unwrap();
+            let (old_armor, old_shield) = sim.w.defense(ix, Legacy).unwrap();
+            let (armor, shield) = sim.w.defense(ix, Raid).unwrap();
+            let outgoing = sim.w.elite_camp_attack_scale(Some(mob.core.id), Raid);
+            if minute == 5 {
+                assert_eq!((armor, shield), (old_armor, old_shield));
+                assert_eq!(outgoing, 1.);
+            } else {
+                assert!(armor > old_armor && shield > old_shield);
+                assert!(outgoing > 0. && outgoing < 1.);
+            }
+            assert_eq!(sim.w.elite_camp_attack_scale(Some(mob.core.id), Legacy), 1.);
+        }
     }
 }

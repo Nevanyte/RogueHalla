@@ -1159,26 +1159,53 @@ impl World {
         }
         Some(f)
     }
+    fn regional_camp(&self, id: PlayerId) -> Option<&crate::mob_runtime::CampRoster> {
+        let mob = self.mobs.get(id)?;
+        if mob.kind != crate::mob_runtime::MobKind::Regional
+            || mob.zombie.is_some()
+            || mob.owner.is_some()
+        {
+            return None;
+        }
+        self.mob_runtime.as_ref()?.camps.get(mob.camp as usize)
+    }
+
     pub(crate) fn defense(&self, ix: FighterIx, pace: crate::CombatPace) -> Option<(f64, f64)> {
         let base = self.faction_spec(ix)?;
         let elapsed = self.server_time - self.raid_started_at;
+        let mut extra = 0.;
         if pace == crate::CombatPace::Raid
             && elapsed > crate::constants::RAID_CAMP_OPENING_MS
             && !self.is_player(ix)
-            && self.mobs.get(self.core(ix).id).is_some_and(|m| {
-                m.kind == crate::mob_runtime::MobKind::Regional
-                    && m.zombie.is_none()
-                    && self
-                        .mob_runtime
-                        .as_ref()
-                        .and_then(|rt| rt.camps.get(m.camp as usize))
-                        .is_some_and(|camp| camp.elite.is_none())
-            })
         {
-            let extra = crate::mob_runtime::normal_camp_defense(elapsed);
-            return Some((base.armor + extra, base.shield + extra));
+            if let Some(camp) = self.regional_camp(self.core(ix).id) {
+                extra = crate::mob_runtime::normal_camp_defense(elapsed);
+                if camp.elite.is_some() {
+                    extra *= crate::constants::RAID_ELITE_CAMP_DEFENSE_SHARE;
+                }
+            }
         }
-        Some((base.armor, base.shield))
+        Some((base.armor + extra, base.shield + extra))
+    }
+
+    /// A developed elite camp takes longer to clear. Scale its outgoing hits as the
+    /// defensive ramp grows so that this added exposure does not multiply the death risk.
+    pub(crate) fn elite_camp_attack_scale(
+        &self,
+        attacker: Option<PlayerId>,
+        pace: crate::CombatPace,
+    ) -> f64 {
+        let elapsed = self.server_time - self.raid_started_at;
+        if pace != crate::CombatPace::Raid
+            || elapsed <= crate::constants::RAID_CAMP_OPENING_MS
+            || !attacker
+                .and_then(|id| self.regional_camp(id))
+                .is_some_and(|camp| camp.elite.is_some())
+        {
+            return 1.;
+        }
+        let half = crate::constants::RAID_ELITE_CAMP_DAMAGE_HALF_DEFENSE;
+        half / (half + crate::mob_runtime::normal_camp_defense(elapsed))
     }
     /// Source scaledFaction -> mobFaction -> mobTypeFaction -> pacedFaction order for point-damage params.
     fn point_damage(&self, ix: FighterIx, raw: f64, execute: bool) -> f64 {

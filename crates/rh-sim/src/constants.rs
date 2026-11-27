@@ -690,4 +690,6 @@ content! {
     RAID_PVP_WEAPON_CAP_HP_PER_SEC: f64 = 0.18, "share of max hp per second";
     RAID_PVP_BACKLASH_CAP_HP_PER_SEC: f64 = 0.025, "share of max hp per second";
     RAID_PVP_MARK_CAP_HP_PER_SEC: f64 = RAID_PVP_WEAPON_CAP_HP_PER_SEC / 3., "share of max hp per second";
+    RAID_ELITE_CAMP_DEFENSE_SHARE: f64 = 0.75, "share of normal camp age defense";
+    RAID_ELITE_CAMP_DAMAGE_HALF_DEFENSE: f64 = 360., "normal camp age defense";
 }

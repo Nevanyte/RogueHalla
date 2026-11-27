@@ -6,6 +6,8 @@
 //! provide the same API. It must not be added to `lib.rs` (rh-server depends on rh-headless).
 #[path = "elite_bench/duelist.rs"]
 mod duelist;
+#[path = "elite_bench/pace_pairs.rs"]
+mod pace_pairs;
 
 use duelist::Duelist;
 use rh_headless::{load_arena, Agent, AgentSpec, Env, EnvConfig};
@@ -336,6 +338,10 @@ fn floor_line(arena: &Arena, a: Vec2, b: Vec2) -> bool {
 fn scene_for(probe: &Sim, arena: &Arena, elite: MobTypeId) -> Option<Scene> {
     let rosters = probe.camp_rosters();
     let camp = rosters.iter().position(|r| r.elite == Some(elite))? as u32;
+    scene_at(probe, arena, camp)
+}
+
+fn scene_at(probe: &Sim, arena: &Arena, camp: u32) -> Option<Scene> {
     let members: Vec<(Vec2, Option<MobTypeId>)> = probe
         .mobs()
         .iter()
@@ -423,6 +429,7 @@ fn fight(
     build: Option<&TrustedBuild>,
     max_ticks: u32,
     who: Who,
+    raid_minute: Option<u32>,
 ) -> Result<Fought, String> {
     let placement = [Placement {
         profile: "fighter".into(),
@@ -433,12 +440,20 @@ fn fight(
         weapon0: Some(weapon),
         weapon1: None,
     }];
+    let mut rules = config();
+    if raid_minute.is_some() {
+        rules.tick_ms = 25;
+        rules.hazards = rh_sim::terrain::Mode::Off;
+    }
     let mut sim = Sim::reset_active(
-        config(),
+        rules.clone(),
         arena.clone(),
         Secrets::from_seed(seed),
         &placement,
     );
+    if let Some(minute) = raid_minute {
+        rh_sim::trusted_build::set_fresh_raid_age(&mut sim, minute);
+    }
     let me: PlayerId = sim.players()[0].id;
     if let Some(b) = build {
         apply(&mut sim, me, b).map_err(|e| format!("a sampled build was refused: {e:?}"))?;
@@ -453,7 +468,7 @@ fn fight(
         .collect();
     let mut policy: Box<dyn Policy> = match who {
         Who::Brawler => Box::new(Brawler::new(1)),
-        Who::Duelist => Box::new(Duelist::new(scene.centre, scene.types.clone(), config())),
+        Who::Duelist => Box::new(Duelist::new(scene.centre, scene.types.clone(), rules)),
     };
     policy.reset(&MatchStart::of(&sim, me, seed));
     let (mut env, mut obs) = Env::from_external_checkpoint(sim, max_ticks).expect("checkpoint");
@@ -838,6 +853,11 @@ struct Job<'a> {
 /// whenever it reported, even if every fighter died or every fight was cut off; `Err` only for bad arguments or an
 /// unreadable sample.
 pub fn run(args: &[String]) -> Result<Output, String> {
+    if let [flag, seed] = args {
+        if flag == "--pace-pairs" {
+            return pace_pairs::run(seed.parse().map_err(|_| "invalid seed")?);
+        }
+    }
     let value = |n: &str| -> Result<Option<&str>, String> {
         match args.iter().position(|a| a == n) {
             None => Ok(None),
@@ -1032,6 +1052,7 @@ pub fn run(args: &[String]) -> Result<Output, String> {
                                 Some(j.build),
                                 max_ticks,
                                 j.who,
+                                None,
                             ),
                         ));
                     }

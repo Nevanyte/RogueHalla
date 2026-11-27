@@ -59,6 +59,13 @@ pub enum BuildRefusal {
     SlotsFull(RewardId),
 }
 
+/// Set the raid-age origin of a fresh, lifecycle-free bench before its first command.
+/// Camp pacing then reads the ordinary raid clock while the entire test roster starts at full health.
+pub fn set_fresh_raid_age(sim: &mut Sim, minute: u32) {
+    assert_eq!(sim.k.config.lifecycle, crate::ArenaMode::Off);
+    sim.w.raid_started_at = sim.w.server_time - f64::from(minute) * 60_000.;
+}
+
 /// Adds `build` to the seated fighter `id`, between steps only: all or nothing, then one re-fold and max hp following.
 pub fn apply(sim: &mut Sim, id: PlayerId, build: &TrustedBuild) -> Result<(), BuildRefusal> {
     let i = sim.w.idx(id).ok_or(BuildRefusal::NoSuchPlayer(id))?;

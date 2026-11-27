@@ -728,7 +728,12 @@ fn apply_victim(
         raws.push(raw_source);
         let raw_damage = if friendly_mobs { 0. } else { raw_source };
         let s = permanent::damage_shares(pass.w, e);
-        let damage = mitigate_shares(raw_damage, &s, armor, shield);
+        let mut damage = mitigate_shares(raw_damage, &s, armor, shield);
+        if player && !e.arena && !pass.k.config.training {
+            damage *= pass
+                .w
+                .elite_camp_attack_scale(e.by, pass.k.config.combat_pace);
+        }
         raid_hit_cap_shares.get(k).map_or(damage, |share| {
             if share.is_finite() {
                 damage.min(victim_max_hp * share)
