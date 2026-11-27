@@ -1,0 +1,11 @@
+[Unit]
+Description=Run RogueHalla encrypted off-host backup hourly
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5min
+Persistent=true
+Unit=rh-alpha-live-backup.service
+
+[Install]
+WantedBy=timers.target
