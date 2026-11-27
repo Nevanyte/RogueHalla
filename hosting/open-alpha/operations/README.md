@@ -77,6 +77,8 @@ sudo python3 /opt/rh-alpha/saturday-ops/set-live-native.py rollback
 
 A blocked drain or changed identity requires investigation before any further switch. Verify the chosen loader SHA-256, compressed WASM, public storage readiness and direct game protocol/content identity. Use two browser sessions to confirm authoritative spawn, Ready and movement, then confirm both players leave and the lobby clears. Trigger a completed run when checking replay delivery. Review the Source disconnect classifications after the smoke and record any unexpected closure, affected layer, code or timeout, and recent RTT. Both immutable Unity revisions and the backup receipt remain available for inspection.
 
+The paired balance release has a separate staging switch, production switch, and rollback. Check which build the live server and homepage select before using either rollback procedure. [Balance release and rollback](release/balance/README.md)
+
 ## Local validation
 
 Run from the repository root.
@@ -90,6 +92,7 @@ python3 -B monitor/test_health.py
 python3 -B release/test-live-native.py
 python3 -B release/test-live-fill.py
 python3 -B release/test_promotion.py
+python3 -B release/balance/test_balance_release.py
 cfn-lint -r ca-west-1 -t stack.cfn.json
 cfn-guard validate --rules operations.guard --data stack.cfn.json --output-format json
 cfn-guard validate --rules ../latency/ingress.guard --data stack.cfn.json --output-format json
