@@ -79,6 +79,9 @@ def growth_rows(card, holders):
 
 def summarize(meta, matches, catalog):
     names = {entry["id"]: entry["name"] for entry in catalog["augments"]}
+    factions = collections.defaultdict(set)
+    for entry in catalog["augments"]:
+        factions[entry["id"]].add(entry["faction"])
     drop_rows = [drop for trace in matches.values() for drop in trace["drops"]]
     visible = [drop["seen"] for drop in drop_rows if drop["seen"] is not None]
     offered = collections.Counter(o for chest in visible for o in chest["options"])
@@ -99,6 +102,7 @@ def summarize(meta, matches, catalog):
         rows.append({
             "id": card, "name": name, "native": card in meta["native"],
             "native_readout_available": card in READOUT_UNITS,
+            "empty_build_factions": " ".join(sorted(factions[card])),
             "elite_offered": offered[card],
             "elite_offered_with_sampled_chooser": eligible[card],
             "elite_picked": picks["elite", card],
@@ -165,11 +169,38 @@ def trigger_exposure(matches):
     }
 
 
+def audit_pick_indices(matches, paths):
+    baseline = {}
+    for path in paths:
+        for row in json.loads(path.read_text())["seeds"]:
+            assert row["seed"] not in baseline
+            baseline[row["seed"]] = row["chest_picks"]
+    counts = collections.Counter()
+    for seed, match in matches.items():
+        local = match["picks"]
+        paired = baseline[seed]
+        assert len(local) == len(paired), seed
+        known_sources = {p["chest"]: p["source"] for p in local if p["source"] != "unresolved"}
+        for pick, event in zip(local, paired):
+            assert (pick["chest"], pick["age_s"], pick["seat"]) == (
+                event["chest"], event["age_s"], event["seat"] + 1
+            ), seed
+            if event["pick"] == -1:
+                assert pick["option"] is None
+                counts["skip_" + known_sources.get(pick["chest"], "unresolved")] += 1
+            elif pick["option"] is None:
+                counts["unresolved_non_skip"] += 1
+            else:
+                counts["named_non_skip"] += 1
+    return dict(sorted(counts.items()))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("traces", nargs="+", type=Path)
     parser.add_argument("--catalog", required=True, type=Path)
     parser.add_argument("--baseline", required=True, type=Path)
+    parser.add_argument("--elite-events", nargs="+", type=Path)
     parser.add_argument("--exposure", nargs="+", type=Path)
     parser.add_argument("--csv", type=Path)
     parser.add_argument("--expect-seeds", help="required half-open seed range, e.g. 1..81")
@@ -182,6 +213,8 @@ def main():
             parser.error("trace files do not cover the requested seed range")
     matches = dict(sorted(matches.items()))
     report = summarize(meta, matches, json.loads(args.catalog.read_text()))
+    if args.elite_events:
+        report["chest_taken_event_audit"] = audit_pick_indices(matches, args.elite_events)
     if args.exposure:
         exposure_meta, exposure_matches = load_traces(args.exposure)
         assert exposure_meta == meta
