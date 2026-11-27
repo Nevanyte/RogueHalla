@@ -77,3 +77,21 @@ rollback. There is no forced stop. To switch transport while retaining the
 candidate build, use `stage-loader same-origin` or `production-loader same-origin`
 and return using the corresponding `split` action. Loader actions preserve
 existing source processes and check the same candidate's assets and route.
+
+## Verify a completed replay
+
+Use the packaged Linux amd64 `rh-headless` for a recording whose `build` is `0fac6aa75e9bcbc55b701b732e1169702c194d8f`. Its SHA-256 is `c58902885dd7a72d71347c4e292ba0c5474ffae6ffa15aa42868bbc666b2dfed`. Check the encrypted object's checksum before decryption. On the authorized analysis machine, set `verifier` to the absolute path to that binary, `identity` to the local age identity and `replay` to the encrypted object. Run in Bash with the reviewed Linux image already present.
+
+```bash
+set -o pipefail
+age --decrypt -i "$identity" "$replay" |
+  docker run --rm -i --pull never --platform linux/amd64 --network none --read-only \
+    --cap-drop ALL --security-opt no-new-privileges \
+    -v "$verifier:/opt/rh-headless:ro" --entrypoint /opt/rh-headless \
+    rust:1.97.0-bookworm --verify-replay /dev/stdin |
+  jq -ec 'select(.verified and .steps > 0 and .contentHash == "same" and
+    .build == "0fac6aa75e9bcbc55b701b732e1169702c194d8f" and .recordedBuild == .build)
+    | {build, steps, finalHash, verified}'
+```
+
+The stream stays in the pipeline. A successful receipt checks every recorded step against the corresponding simulation. For earlier recordings, select the verifier matching the build recorded in the file.
