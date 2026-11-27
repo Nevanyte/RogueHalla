@@ -223,7 +223,7 @@ def main():
     report = summarize(catalog, matches)
     if args.csv:
         with args.csv.open("w", newline="") as output:
-            writer = csv.DictWriter(output, fieldnames=report["quests"][0])
+            writer = csv.DictWriter(output, fieldnames=report["quests"][0], lineterminator="\n")
             writer.writeheader()
             writer.writerows(report["quests"])
     print(json.dumps(report, indent=2))
