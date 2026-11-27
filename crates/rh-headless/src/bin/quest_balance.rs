@@ -1,4 +1,6 @@
 //! Read-only quest funnel and reward-use trace for one eligible RaidBot in the stock 40 Hz field cohort.
+#[path = "quest_balance/bargain.rs"]
+mod bargain;
 #[path = "quest_balance/route.rs"]
 mod route;
 
@@ -37,7 +39,7 @@ struct RewardNotice<'a> {
     text: &'a str,
 }
 
-fn play(seed: u64) -> Result<serde_json::Value, String> {
+fn play(seed: u64, observe_bargain: bool) -> Result<serde_json::Value, String> {
     let opts = Options {
         max_ticks: 72_000,
         seats: (0..SEATS).map(|s| (s, SeatPolicy::Raid)).collect(),
@@ -58,6 +60,7 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
     let mut active = BTreeMap::<u32, (usize, u16)>::new();
     let mut attempts: Vec<Attempt> = Vec::new();
     let mut notices = Vec::new();
+    let mut bargain_receipts = Vec::new();
     let mut prelock_seconds = 0.;
     let mut without_open_seconds = 0.;
     let mut without_open_camps = 0u32;
@@ -73,6 +76,8 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
     let mut normal_outside_bands = [[0u64; 2]; 3];
     let (progress, age) = loop {
         let previous_camps = focal_camps;
+        let before_bargain = (observe_bargain && raid.iter().any(|def| def == "the_bargain"))
+            .then(|| bargain::Snapshot::read(env.sim.player(id).expect("focal seat")));
         let p = env.advance(&[]);
         let sim = &env.sim;
         let now = sim.server_time();
@@ -101,6 +106,7 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
             }
         }
         let mut received = false;
+        let mut bargain_received = false;
         let mut choice = false;
         for event in env.last_events() {
             match event {
@@ -124,6 +130,7 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
                     text,
                 } if *owner == id => {
                     received |= text.starts_with("Reward received: ");
+                    bargain_received |= text == "Reward received: The Bargain";
                     choice |= text == "Quest reward choice resolved";
                     if text.starts_with("Used ")
                         || text.starts_with("Reward received:")
@@ -240,6 +247,16 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
                 a.outcome = "pending";
             }
             if row.completed {
+                if row.quest == QuestId::TheBargain && bargain_received {
+                    if let Some(before) = before_bargain {
+                        bargain_receipts.push(bargain::receipt(
+                            before,
+                            bargain::Snapshot::read(player),
+                            age,
+                            row.offer,
+                        ));
+                    }
+                }
                 a.settled_s = Some(age);
                 a.outcome = "settled";
                 a.reward = Some(if received {
@@ -304,6 +321,7 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
         "state_hash": format!("{:016x}", env.sim.state_hash()),
         "winner": env.sim.winner(), "resolutions": resolutions, "raid_ended_event": raid_ended_event,
         "planning": planning, "raid": raid, "attempts": attempts, "notices": notices,
+        "bargain_receipts": bargain_receipts,
         "prelock_seconds": prelock_seconds, "focal_camps": focal_camps,
         "standing_prelock_seconds": eligible_farm_seconds,
         "without_open_seconds": without_open_seconds, "without_open_camps": without_open_camps,
@@ -347,8 +365,12 @@ fn catalog() -> serde_json::Value {
 
 fn main() -> Result<(), String> {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    let [lo, hi] = args.as_slice() else {
-        return Err("usage: quest_balance FIRST_SEED EXCLUSIVE_END".into());
+    let (lo, hi, observe_bargain) = match args.as_slice() {
+        [lo, hi] => (lo, hi, false),
+        [lo, hi, flag] if flag == "--bargain-receipts" => (lo, hi, true),
+        _ => {
+            return Err("usage: quest_balance FIRST_SEED EXCLUSIVE_END [--bargain-receipts]".into())
+        }
     };
     let lo = lo.parse::<u64>().map_err(|_| "invalid first seed")?;
     let hi = hi.parse::<u64>().map_err(|_| "invalid exclusive end")?;
@@ -357,7 +379,7 @@ fn main() -> Result<(), String> {
     }
     println!("{}", catalog());
     for seed in lo..hi {
-        println!("{}", play(seed)?);
+        println!("{}", play(seed, observe_bargain)?);
     }
     Ok(())
 }
