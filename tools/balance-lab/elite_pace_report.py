@@ -45,10 +45,42 @@ def summarize(pairs):
     )
 
 
+def write_chart(rows, path):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    ages = [r for r in rows if r["boss"] == "all" and r["minute"] > 5]
+    x = list(range(len(ages)))
+    fig, (times, ratios) = plt.subplots(1, 2, figsize=(9.8, 3.6), layout="constrained")
+    for kind, label, color in [("normal", "Ordinary camp", "#386787"), ("elite", "Elite camp", "#94502e")]:
+        times.plot(x, [r[f"median_{kind}_s"] for r in ages], "o-", color=color, label=label)
+    times.set(ylabel="First camp hit to full clear (seconds)", ylim=(0, None), title="Median solo clear time")
+    times.legend(frameon=False)
+    ratios.axhspan(1.7, 2.3, color="#dcebdd", label="Target range")
+    ratios.axhline(2, color="#67836f", lw=1, ls="--")
+    for i, row in enumerate(ages):
+        y = row["median_within_pair_ratio"]
+        if row["ratio_ci_low"] is not None:
+            ratios.vlines(i, row["ratio_ci_low"], row["ratio_ci_high"], color="#3c4d61", lw=2)
+        ratios.plot(i, y, "o", color="#1e3753")
+        ratios.annotate(f"{y:.2f}×", (i, y), xytext=(8, 0), textcoords="offset points", va="center", fontsize=9)
+    ratios.set(ylabel="Elite / ordinary time", title="Same player and equipment", xlim=(-0.35, len(x)-0.45))
+    ratios.legend(frameon=False, loc="lower left")
+    for ax in (times, ratios):
+        ax.set_xticks(x, [str(r["minute"]) for r in ages])
+        ax.set_xlabel("Raid minute at encounter start")
+        ax.grid(axis="y", alpha=0.16)
+        ax.spines[["top", "right"]].set_visible(False)
+    fig.savefig(path, dpi=155, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     parser.add_argument("inputs", type=Path, nargs="+")
+    parser.add_argument("--chart", type=Path, help="render the post-opening median and map uncertainty")
     args = parser.parse_args()
     by_pair = collections.defaultdict(dict)
     for path in args.inputs:
@@ -69,6 +101,8 @@ def main():
         writer = csv.DictWriter(stream, fieldnames=rows[0], lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
+    if args.chart:
+        write_chart(rows, args.chart)
     for r in rows:
         if r["boss"] == "all":
             print({k: round(v, 3) if isinstance(v, float) else v for k, v in r.items()})

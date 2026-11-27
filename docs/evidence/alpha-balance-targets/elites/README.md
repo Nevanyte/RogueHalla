@@ -14,7 +14,9 @@ Four generated maps supplied 80 matched attempts per starting age. Each map supp
 | 15 | 0.85× | 2.26× | 1.97× |
 | 20 | 0.74× | 2.27× | 1.89× |
 
-These are medians of the elite-to-normal duration ratios for pairs that cleared both. At minute ten the old rules produced 65 elite clears and 13 deaths in 80 attempts. Giving elites the same defensive ramp as normal camps produced 22 clears and 55 deaths. The selected curve produced 58 clears and 18 deaths. The remaining attempts ended without a clear or death. [Baseline trial](calibration_before.csv) · [Full-defense trial](calibration_full_defense.csv) · [Selected trial](calibration_selected.csv)
+The exploratory table used the fighter’s first logged hit as its start. A stray hit can land on another mob. We subsequently replayed the original and selected pilot rules with the clock starting on the first positive settled hit to the selected camp. Fight outcomes and end ticks reproduced exactly. Both held-out tables below use the corrected clock, including damage from owned companions. [Pilot baseline on settled camp contact](calibration_before_settled.csv) · [Selected pilot on settled camp contact](calibration_selected_settled.csv)
+
+The ratios are medians for pairs that cleared both. At minute ten the old rules produced 65 elite clears and 13 deaths in 80 attempts. Giving elites the same defensive ramp as normal camps produced 22 clears and 55 deaths. The selected curve produced 58 clears and 18 deaths. The remaining attempts ended without a clear or death. [Baseline trial](calibration_before.csv) · [Full-defense trial](calibration_full_defense.csv) · [Selected trial](calibration_selected.csv)
 
 ## First held-out cohort
 
@@ -22,9 +24,9 @@ The common 75% defense ramp passed the prespecified aggregate band on ten new ge
 
 | Start | Previous ratio | Common ramp | 95% map-bootstrap interval, common ramp | Matched completions |
 | ---: | ---: | ---: | ---: | ---: |
-| 6 min | 1.75× | 2.24× | 2.18–2.36 | 119 |
-| 10 min | 1.01× | 2.10× | 2.01–2.20 | 124 |
-| 15 min | 0.85× | 2.01× | 1.88–2.12 | 166 |
+| 6 min | 1.74× | 2.21× | 2.18–2.33 | 119 |
+| 10 min | 1.00× | 2.06× | 2.01–2.15 | 124 |
+| 15 min | 0.84× | 1.98× | 1.87–2.10 | 166 |
 | 20 min | 0.74× | 1.93× | 1.85–2.00 | 171 |
 
 All ordinary camp rows and all opening rows were identical to the earlier rules. In 200 minute-ten elite attempts the common ramp took elite deaths from 39 to 61 and full clears from 158 to 134. The remaining cases timed out or failed to engage. [Original rules](heldout_before.csv) · [Common ramp](heldout_selected.csv)
@@ -35,23 +37,25 @@ Ten further maps (41–50) supplied 200 paired solo attempts per age. The prespe
 
 | Start | Normal clear median | Elite clear median | Median paired ratio | 95% map interval | Both cleared | Elite deaths |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 6 min | 14.64 s | 30.85 s | 2.14× | 1.96–2.32 | 127/200 | 70 |
+| 6 min | 14.59 s | 30.85 s | 2.15× | 1.96–2.32 | 127/200 | 70 |
 | 10 min | 20.46 s | 41.80 s | 2.02× | 1.88–2.18 | 144/200 | 44 |
-| 15 min | 11.39 s | 22.45 s | 2.00× | 1.84–2.08 | 167/200 | 22 |
-| 20 min | 11.58 s | 21.25 s | 1.93× | 1.80–2.05 | 170/200 | 17 |
+| 15 min | 11.39 s | 22.25 s | 2.00× | 1.84–2.08 | 167/200 | 22 |
+| 20 min | 11.53 s | 21.05 s | 1.93× | 1.80–2.04 | 170/200 | 17 |
 
-Absolute medians include every clear of that camp type. The paired ratio compares the same fighter on the two camps and requires a positive normal time. The remaining elite attempts include clears paired with an unsuccessful ordinary attempt, timeouts and attempts that never engaged. The CSV records every denominator. The opening rows and ordinary camp rows were identical under the common and type-specific rules on all ten maps. [Final rules](heldout_by_type.csv) · [Common-rule control on the same maps](heldout_common_by_type.csv)
+![Elite clear duration and paired ratio by starting minute](clear-times.png)
+
+The corrected clock changed the start on 20 of the 2,000 final-map attempts, including nine clears. Every end tick and outcome matched the original run. Absolute medians include every clear of that camp type. The paired ratio compares the same fighter on the two camps and requires a positive normal time. The remaining elite attempts include clears paired with an unsuccessful ordinary attempt, timeouts and attempts that never engaged. The CSV records every denominator. The opening rows and ordinary camp rows were identical under the common and type-specific rules on all ten maps. [Final rules](heldout_by_type.csv) · [Common-rule control on the same maps](heldout_common_by_type.csv)
 
 | Boss | Common rule | Final rule |
 | --- | ---: | ---: |
 | Archon | 1.42× | 2.18× |
-| Ash Drake | 1.80× | 1.80× |
+| Ash Drake | 2.00× | 2.00× |
 | Avalanche Troll | 2.59× | 2.06× |
 | Blood Saint | 1.82× | 2.13× |
 | Executioner | 1.65× | 1.65× |
 | Gaoler | 2.05× | 2.05× |
 | Glacial Warden | 1.88× | 2.37× |
-| Pox Behemoth | 2.31× | 1.74× |
+| Pox Behemoth | 2.30× | 1.72× |
 | Rat Ogre | 2.21× | 2.27× |
 | Wyrmling | 1.73× | 1.73× |
 
