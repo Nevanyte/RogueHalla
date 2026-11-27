@@ -1,8 +1,9 @@
 """Paired post-five earned-value intervals from route-lab snapshots.
 
 Usage: python3 post_five_eval.py TRIAL.jsonl CONTROL.jsonl OUT.json
-The minute-five full state hashes must agree on every assigned seed. Dead players'
-fixed inventories count; intervals after a match ends are excluded explicitly.
+Minute-five state hashes must agree when supplied; public opening fields are
+checked for sanitized archives. Dead players' fixed inventories count;
+intervals after a match ends are excluded explicitly.
 """
 import argparse
 import json
@@ -50,7 +51,7 @@ def main():
                             'alive', 'stacks', 'camp_clears', 'movement_distance_u',
                             'moved_ticks', 'ticks')))
         if not x['reached'] or not y['reached'] or not same_opening:
-            raise ValueError(f'opening full state mismatch at seed {seed}')
+            raise ValueError(f'opening mismatch at seed {seed}')
     pairs=[]
     for seed in seeds:
         for start,end in [(5,10),(10,15)]:
