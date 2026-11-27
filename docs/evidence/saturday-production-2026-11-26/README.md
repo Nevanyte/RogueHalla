@@ -56,12 +56,18 @@ The final local gate passed with PostgreSQL and 2,860 of 2,860 Unity tests. All 
 
 The staged Unity Web, native Source and replay verifier share build `e85db4eb11ca7087a9e45f6b847d002d4a06a54b`, protocol 24 and content hash `cb811d19ebed6dfe` at 40 Hz. The quest merge `173ad1b05` has the identical Git tree. The release manifest and guarded operator were retained in PR #97. PR #98 added independent signature-landmark selection for the same artifacts. Staging selected it with the standard bot policy, four total participants as the fill target, a two-second fill window and two available rooms. Production still served Web `9e41ed5e77` and native `a553eb123` when these receipts were recorded. [Quest merge](https://github.com/Nevanyte/RogueHalla/pull/96) · [Release manifest and operator](https://github.com/Nevanyte/RogueHalla/pull/97) · [Landmark selection](https://github.com/Nevanyte/RogueHalla/pull/98)
 
-- Both normal staging players received the same five authoritative Welcome footprints for the Fire volcano, Sentenced church, Plague bog tree, Frost cave and Holy hall.
+- Two ordinary Chrome Unity clients received the same authoritative Welcome map with all five landmarks: Fire volcano, Sentenced church, Plague bog tree, Frost cave and Holy hall. Both confirmed Ready, moved 17 authoritative units and chose Leave. The lobby cleared. Each received 151 of 151 game pongs. Seat medians were 11.047 and 10.902 ms, and p95 values were 13.951 and 12.867 ms.
 - Two cold bursts of eight authenticated Chrome protocol clients reached active play in two rooms. All 16 received authoritative input acknowledgements. All 720 game pings returned over 45 seconds, with 12.2 ms median RTT, 15.1 ms p95 and 28.8 ms maximum. The rooms cleared afterward.
 - A separate staging match with two humans and two bots finished, delivered both Results and cleared the arena. Private storage received one age-encrypted replay with AES256 storage encryption and two encrypted player-metrics objects. The retrieved replay checksum matched. The paired verifier matched the build and content, verified all 5,855 recorded steps and reproduced final state hash `bf8d225d0f257049`.
 - A separate local check used the exact sealed Unity client with a normally generated signature map. The High preset at 1920×1080 rendered all five landmarks and the Plague peat, grass and water surfaces. The visual sweep recorded 12 captures with zero reported errors.
 
-### Earlier quest staging selections and remaining performance checks
+### Cold startup and foreground rendering
+
+With landmarks enabled, three cold Chrome trials on the Apple M5 Pro took 40.644, 40.855 and 43.062 seconds to reach server-confirmed movement at a modeled 20 Mbit/s downstream and 40 ms latency. The range was 40.644–43.062 seconds and the median was 40.855 seconds. **Zero of three met the approved 40-second target.**
+
+The external 144 Hz display was unavailable during the rehearsal. A separate 60-second Chrome comparison on the M5 Pro’s built-in Retina display used a verified 2560×1440 Ultra backbuffer. Browser frame cadence averaged 120.004 frames per second, with p95 of 10.20 ms, p99 of 10.40 ms and a 1% low of 96.128 FPS. The fight delivered 203 authoritative hit effects. Physical 144 Hz presentation and weak-laptop performance remain unverified.
+
+### Earlier quest staging selections
 
 Before enabling signature landmarks, a cold Chrome retry reached authoritative movement in 37.945 seconds on a modeled 20 Mbit/s link with 40 ms latency. In a separate two-seat Unity run, each client received all 151 game pongs. Median RTT was 10.055 and 10.486 ms, with p95 of 13.279 and 15.746 ms. Both seats moved authoritatively and the arena cleared after browser shutdown. One seat's ordinary Leave frame was absent from the receipt.
 
