@@ -185,8 +185,8 @@ class ReleaseTest(unittest.TestCase):
                 bundle.addfile(extra)
         self.archive_sha = op.file_digest(self.archive)
 
-    def apply(self, guest=None, mode="preserve"):
-        return op.apply(guest or self.stage, self.archive, self.archive_sha, mode, self.old_index_sha, lambda _: None)
+    def apply(self, guest=None, mode="preserve", **options):
+        return op.apply(guest or self.stage, self.archive, self.archive_sha, mode, self.old_index_sha, lambda _: None, **options)
 
     def rollback(self, guest=None):
         return op.rollback(guest or self.stage, sleep=lambda _: None)
@@ -207,6 +207,34 @@ class ReleaseTest(unittest.TestCase):
         self.assertEqual(self.stage.front_bytes("index.html"), b"old root")
         self.assertEqual(self.stage.front_bytes("alpha-gameplay-data.html"), b"old notice")
         self.assertEqual(self.apply(), "PAIRED_RELEASE_SELECTED")
+
+    def test_landmarks_preserve_fill_and_require_the_same_staged_selection(self):
+        production = Guest("production", self.root)
+        self.patch("Host", lambda kind, root, gid: self.stage)
+        self.apply()
+        # The running rehearsal was journalled by the operator before landmark selection existed.
+        old_record = op.load_record(self.stage)
+        old_record.pop("signatureLandmarks", None)
+        op.save_record(self.stage, old_record, "selected")
+        with self.assertRaisesRegex(op.Guard, "reviewed journal"):
+            self.apply(signature_landmarks=True)
+        self.assertNotIn("--signature-landmarks", self.stage.program)
+        with self.assertRaisesRegex(op.Guard, "staging first"):
+            self.apply(production, signature_landmarks=True)
+        self.rollback()
+        self.assertEqual(self.apply(signature_landmarks=True), "PAIRED_RELEASE_SELECTED")
+        self.assertEqual(self.apply(signature_landmarks=True), "PAIRED_ALREADY_SELECTED")
+        with self.assertRaisesRegex(op.Guard, "staging first"):
+            self.apply(production)
+        self.apply(production, signature_landmarks=True)
+        for guest in (self.stage, production):
+            self.assertEqual(guest.program.count("--signature-landmarks"), 1)
+            self.assertIn("--map-pool", guest.program)
+            for key, value in (("--fill-bots", "4"), ("--fill-seconds", "2"), ("--max-rooms", "2")):
+                self.assertEqual(guest.program[guest.program.index(key) + 1], value)
+            self.assertNotIn("raid", guest.program)
+        self.rollback(production)
+        self.assertEqual(production.program, production.prior_argv)
 
     def test_raid_and_production_override_are_paired_and_reversible(self):
         production = Guest("production", self.root)
