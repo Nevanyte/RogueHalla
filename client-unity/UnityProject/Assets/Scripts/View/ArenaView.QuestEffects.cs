@@ -1,3 +1,4 @@
+// Renders authoritative quest barriers and transient world cues using the arena artwork pool.
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
 using UnityEngine;

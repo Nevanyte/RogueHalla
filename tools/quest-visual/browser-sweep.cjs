@@ -22,7 +22,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const receipt = { planning: null, raid: null, shots: {}, errors: [] };
-  let tickRate = 40, latestQuests, mapWidth = 5120, mapHeight = 5120;
+  let tickRate = 40, latestQuests, latestFields = [], mapWidth = 5120, mapHeight = 5120;
   page.on('pageerror', error => receipt.errors.push(String(error)));
   page.on('requestfailed', request => receipt.errors.push(request.failure()?.errorText || 'request failed'));
   page.on('console', message => { if (message.type() === 'error') receipt.errors.push(message.text().slice(0, 300)); });
@@ -34,6 +34,8 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
         tickRate = message.tickRate; mapWidth = message.map.w * 32; mapHeight = message.map.h * 32;
       }
       if (message.t !== 'state') return;
+      const fields = message.items.find(item => item.key === 3);
+      if (fields) latestFields = fields.value;
       const quests = message.items.find(item => item.key === 10)?.value;
       if (quests) latestQuests = quests;
       if (quests?.rows.length === 5 && !receipt.planning) receipt.planning = quests;
@@ -156,7 +158,8 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
       };
       const stage = async name => {
         const state = await probe();
-        receipt.liveQuest.stages.push({ name, player: state.me, quest: row(), spells: latestQuests.spells });
+        receipt.liveQuest.stages.push({ name, player: state.me, quest: row(), spells: latestQuests.spells,
+          seed: latestFields.find(field => field.kind === 15) });
         await shot('live-' + name);
       };
       const viewport = page.viewportSize();
@@ -205,11 +208,34 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
         'The real room did not grant the expected spell.');
       await stage('settled');
       const spell = latestQuests.spells.find(s => s.reward === expectedReward);
+      const key = spell.slot === 0 ? 'Shift' : 'q';
       await page.mouse.move(720, 410);
-      await page.keyboard.press(spell.slot === 0 ? 'Shift' : 'q', { delay: 110 });
+      await page.keyboard.press(key, { delay: 110 });
+      let seed;
+      if (target.def === 'letters') {
+        await realWait(() => latestFields.some(field => field.kind === 15), 8000, 'No seed appeared after planting.');
+        seed = latestFields.find(field => field.kind === 15);
+        await stage('seed-planted');
+        for (const direction of ['d', 'w', 'a', 's']) {
+          await page.keyboard.press(direction, { delay: 650 });
+          await pause(300);
+          const player = (await probe()).me;
+          if (Math.hypot(player.x - seed.x, player.y - seed.y) > 40) break;
+        }
+        const away = (await probe()).me;
+        assert(Math.hypot(away.x - seed.x, away.y - seed.y) > 40, 'Move away before testing recall.');
+        await stage('away-from-seed');
+        await page.keyboard.press(key, { delay: 110 });
+      }
       await realWait(() => latestQuests.spells.every(item => item.reward !== expectedReward ||
         item.charges !== spell.charges || item.readyAt !== spell.readyAt), 8000,
         'Casting did not change the expected spell stock or cooldown.');
+      if (seed) {
+        await page.waitForFunction(({ x, y }) => {
+          const p = window.__rhProbe?.me;
+          return p && Math.hypot(p.x - x, p.y - y) < 12;
+        }, { x: seed.x, y: seed.y }, { timeout: 6000 });
+      }
       await stage('cast');
     }
   } catch (error) {
