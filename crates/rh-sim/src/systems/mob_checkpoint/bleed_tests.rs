@@ -14,7 +14,7 @@ use crate::{
 };
 use serde_json::{json, Value};
 
-fn seed1_arena() -> crate::Arena {
+pub(super) fn seed1_arena() -> crate::Arena {
     let export: crate::mapdata::MapExport =
         serde_json::from_str(include_str!("../../mapdata/fixtures/seed1.map.json"))
             .expect("admitted seed1 map fixture");
@@ -26,7 +26,7 @@ fn seed1_arena() -> crate::Arena {
 }
 
 /// The same PvE profile with the hitbox mode chosen before the Sim is constructed (never flipped afterwards).
-fn pve_config_with(hitboxes: crate::archetype::HitboxMode) -> SimConfig {
+pub(super) fn pve_config_with(hitboxes: crate::archetype::HitboxMode) -> SimConfig {
     SimConfig {
         hitboxes,
         abilities: crate::abilities::Mode::Off,
@@ -49,7 +49,7 @@ fn pve_config_with(hitboxes: crate::archetype::HitboxMode) -> SimConfig {
 }
 
 /// The normal constructor + real joins + ordinary raid-start step for the admitted five-faction seed1 profile.
-pub(super) fn pve_world(factions: &[FactionId]) -> (Sim, Vec<PlayerId>) {
+fn pve_world(factions: &[FactionId]) -> (Sim, Vec<PlayerId>) {
     pve_world_with(factions, crate::archetype::HitboxMode::LegacyCircle)
 }
 
