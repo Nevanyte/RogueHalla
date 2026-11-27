@@ -62,7 +62,7 @@ All 17 offers were replayed to the normal endpoint. The 21-stack case paid on 10
 | Full-near paid routes below / within / above 25–50% | 1 / 0 / 13 | 1 / 1 / 8 |
 | Remaining-near paid routes below / within / above 25–50% | 1 / 2 / 11 | 2 / 0 / 8 |
 
-Weighting failed routes at 0.6–1.4 of neutral changes the 21-stack full-near return to 2.543–2.649×, and the remaining-near return to 2.343–2.432×. The 21-stack candidate reduced the aggregate fit return and still exceeded the target. The policy selected cheaper routes and concentrated on swaps it valued more. At 21 the median fitted return for completed full-near routes was 3.694×. A flat payout reduction alone failed to produce a 25–50% premium in this test. The 29-stack runtime remains the checkpoint rule.
+Weighting failed routes at 0.6–1.4 of neutral changes the 21-stack full-near return to 2.543–2.649×, and the remaining-near return to 2.343–2.432×. The 21-stack candidate reduced the aggregate fit return and still exceeded the target. The policy selected cheaper routes and concentrated on swaps it valued more. At 21 the median fitted return for completed full-near routes was 3.694×. A flat payout reduction alone failed to produce a 25–50% premium in this test. The checkpoint kept the 29-stack rule through that test.
 
 [29-stack confirmation receipts](bargain_confirmation_29_receipts.csv) · [21-stack confirmation receipts](bargain_confirmation_21_receipts.csv) · [29-stack summary](bargain_confirmation_29_summary.json) · [21-stack summary](bargain_confirmation_21_summary.json)
 
@@ -89,7 +89,7 @@ Both builds offered The Bargain on all 19 selected boards. The smaller lot retai
 
 On the same 15 paid maps, full-near return fell from 2.886× to 1.861× and remaining-near return fell from 3.860× to 1.959×. A paired bootstrap draws 19 map seeds with replacement for each of 4,000 resamples (seed 205) and reuses the same draw for both payouts. The 95% intervals for the candidate minus control are −2.07 to −0.33 for full-near and −4.07 to −0.89 for remaining-near. Repricing outcomes by actual closest-camp fit confirms a substantial reduction while the pooled return still exceeds the target band.
 
-The four net nominal stacks pay below the average nearby farm alternative when both stats have equal value. The smaller lot is chiefly attractive when it converts spare growth into a useful stat. If a player chooses the weapon branch, the same 14-stack grant is weighed against the actual value of that weapon. This cohort establishes no field return for that branch.
+The four net nominal stacks pay below the average nearby farm alternative when both stats have equal value. The smaller lot is chiefly attractive when it converts spare growth into a useful stat. If a player chooses the weapon branch, the same 14-stack grant is weighed against the actual value of that weapon. This cohort establishes no field return for that branch. The local candidate adopted 10→14 after this comparison, preserving both payment methods.
 
 [20→29 receipts](bargain_lot_29_receipts.csv) · [10→14 receipts](bargain_lot_14_receipts.csv) · [20→29 summary](bargain_lot_29_summary.json) · [10→14 summary](bargain_lot_14_summary.json)
 
