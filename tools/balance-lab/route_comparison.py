@@ -71,7 +71,7 @@ def paired_inputs(path, target_arm):
                         target_clears=None, other_clears=None, target_movement_u=None,
                         other_movement_u=None, target_moving_s=None, other_moving_s=None,
                         weapon_score=None, wish_score=None,
-                        weapon_verdicts=None, wish_verdicts=None, landed_wishes=None,
+                        weapon_verdicts=None, wish_verdicts=None, landed_wishes=None, mirror_ttk_s=None,
                         matched_stacks=None, mix_weapon_score=None, mix_wish_score=None)
             cases.append(case)
             if case["target_status"] != "alive" or case["other_status"] != "alive":
@@ -126,6 +126,9 @@ def summarize(rows):
                    either_run_ended=sum("ended" in (r["target_status"], r["other_status"]) for r in cases))
         for col in ("weapon_score", "wish_score"):
             out[col] = statistics.mean(r[col] for r in paired) if paired else None
+        timed = sorted(r["mirror_ttk_s"] for r in paired if r["mirror_ttk_s"] is not None)
+        out["mirror_ttk_maps"] = len(timed)
+        out["median_mirror_ttk_s"] = statistics.median(timed) if timed else None
         mix = [r for r in paired if r["mix_wish_score"] is not None]
         out["mix_pairs"] = len(mix)
         for col in ("mix_weapon_score", "mix_wish_score"):
@@ -188,6 +191,8 @@ def main():
         if case["id"] in results:
             row = results[case["id"]]
             case["landed_wishes"] = sum(row["landed_wishes"])
+            times = [t / 1000 for t in row["victim_contact_to_death_ms"] if t is not None]
+            case["mirror_ttk_s"] = statistics.mean(times) if times else None
             for label, key in (("weapon", "weapon_only"), ("wish", "with_wishes")):
                 case[label + "_score"] = statistics.mean(SCORES[v] for v in row[key])
                 case[label + "_verdicts"] = "|".join(row[key])

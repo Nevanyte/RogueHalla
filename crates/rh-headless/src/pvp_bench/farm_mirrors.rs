@@ -103,7 +103,8 @@ enum Verdict {
     Timeout,
 }
 
-fn exchange(mut sim: Sim, target_seat: usize, wishes: bool) -> (Verdict, u32) {
+fn exchange(mut sim: Sim, target_seat: usize, wishes: bool) -> (Verdict, u32, Option<u32>) {
+    let mut first_hit = [None; 2];
     let mut landed_wishes = 0;
     let mut events = Vec::new();
     let ids = [sim.players()[0].id, sim.players()[1].id];
@@ -147,16 +148,33 @@ fn exchange(mut sim: Sim, target_seat: usize, wishes: bool) -> (Verdict, u32) {
                 |event| matches!(event, rh_sim::Event::Death { id: victim, .. } if *victim == id),
             )
         };
+        for (i, &id) in ids.iter().enumerate() {
+            if first_hit[i].is_none()
+                && sim.landed_hits().iter().any(|hit| {
+                    hit.victim == id && hit.amount > 0. && hit.by.is_some_and(|by| by != id)
+                })
+            {
+                first_hit[i] = Some(step);
+            }
+        }
         let t = !died(ids[target_seat]);
         let o = !died(ids[1 - target_seat]);
-        match (t, o) {
-            (false, false) => return (Verdict::Simultaneous, landed_wishes),
-            (true, false) => return (Verdict::Target, landed_wishes),
-            (false, true) => return (Verdict::Other, landed_wishes),
-            (true, true) => {}
-        }
+        let (outcome, start) = match (t, o) {
+            (false, false) => (
+                Verdict::Simultaneous,
+                first_hit.iter().flatten().min().copied(),
+            ),
+            (true, false) => (Verdict::Target, first_hit[1 - target_seat]),
+            (false, true) => (Verdict::Other, first_hit[target_seat]),
+            (true, true) => continue,
+        };
+        return (
+            outcome,
+            landed_wishes,
+            start.map(|at| (step - at) * step_ms),
+        );
     }
-    (Verdict::Timeout, landed_wishes)
+    (Verdict::Timeout, landed_wishes, None)
 }
 
 #[derive(Serialize)]
@@ -165,6 +183,7 @@ struct Outcomes {
     weapon_only: [Verdict; 2],
     with_wishes: [Verdict; 2],
     landed_wishes: [u32; 2],
+    victim_contact_to_death_ms: [Option<u32>; 2],
 }
 
 fn compare(arena: &Arc<Arena>, pair: Pair) -> Result<Outcomes, String> {
@@ -173,11 +192,16 @@ fn compare(arena: &Arc<Arena>, pair: Pair) -> Result<Outcomes, String> {
         weapon_only: [Verdict::Timeout; 2],
         with_wishes: [Verdict::Timeout; 2],
         landed_wishes: [0; 2],
+        victim_contact_to_death_ms: [None; 2],
     };
     for seat in 0..2 {
         let sim = scene(arena, &pair, seat)?;
         out.weapon_only[seat] = exchange(sim.clone(), seat, false).0;
-        (out.with_wishes[seat], out.landed_wishes[seat]) = exchange(sim, seat, true);
+        (
+            out.with_wishes[seat],
+            out.landed_wishes[seat],
+            out.victim_contact_to_death_ms[seat],
+        ) = exchange(sim, seat, true);
     }
     Ok(out)
 }
@@ -222,5 +246,9 @@ mod tests {
         assert_eq!(results.weapon_only, [Verdict::Target; 2]);
         assert_eq!(results.with_wishes, [Verdict::Target; 2]);
         assert!(results.landed_wishes.iter().all(|&n| n > 0));
+        assert!(results
+            .victim_contact_to_death_ms
+            .iter()
+            .all(|t| t.is_some_and(|ms| ms > 0 && ms < TIME_LIMIT_MS)));
     }
 }
