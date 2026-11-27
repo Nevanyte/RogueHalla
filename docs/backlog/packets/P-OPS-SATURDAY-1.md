@@ -2,7 +2,8 @@
 
 ## ID and outcome
 
-Preserve the operational recipes and evidence from the November 26–27 production alpha. Serves Phase 4 item 18 (single-host operation and D6 review), item 20 (budget-scaled capacity evidence), and the rollback portion of Phase 5 item 21. Covers a production alpha rehearsal within those items.
+Preserve the operational recipes and evidence from the November 26–27 production alpha. Serves Phase 4 item 18 (single-host operation and D6 review), item 20 (budget-scaled capacity evidence), and the rollback portion of Phase 5 item 21. Covers a production alpha rehearsal within those items. The #96 follow-up retains the sealed quest candidate and its
+guarded operator under the existing operations write scope.
 
 ## Dependencies
 
@@ -35,9 +36,11 @@ Keep the control interface on loopback, capture and account backups private, and
 - Negative checks catch stale or missing backup signals, stuck capture delivery, missing writers, unsafe native state, and damaged or unrecognized homepage assets before the guarded switch.
 - CloudFormation schema and Guard checks cover storage protections, scoped publishing and alarm notification wiring. The evidence records live browser and latency results, recovery proof and delivery confirmation with private data excluded.
 
+- The quest archive verifies against the committed manifest and the pinned operator's offline archive checks. The previous balance operator and its journal remain available for restoring a stage-selected balance pair.
+
 ## Validation commands
 
-Run the local checks listed in the [operations runbook](../../../hosting/open-alpha/operations/README.md#local-validation).
+Run the local checks listed in the [operations runbook](../../../hosting/open-alpha/operations/README.md#local-validation). Validate the sealed quest archive with the SHA-256 in the [quest release runbook](../../../hosting/open-alpha/operations/release/balance/README.md#local-verification).
 
 ## Risk and suggested model tier
 

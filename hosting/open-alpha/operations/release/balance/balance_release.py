@@ -21,7 +21,7 @@ import tempfile
 import time
 
 OLD = "a553eb1231df4171bba587488f43018429aaecca"
-NEW = "3f0740ad84519c84af47604e0c0b758bc20efa88"
+NEW = "e85db4eb11ca7087a9e45f6b847d002d4a06a54b"
 OLD_CONTENT = "8a4bf0ce37b406f2"
 NEW_CONTENT = "cb811d19ebed6dfe"
 OLD_NATIVE_SHA = "2c93c36124cd3999b1ca1e2a1a7df068fa92cc2ed18ca6e2d5b7877b20280039"
@@ -34,7 +34,7 @@ WEB_FRONT = {"index.html", "alpha-gameplay-data.html", "favicon.ico"}
 NATIVES = {"rh-server", "rh-headless", "seed1.map.json"}
 LOADERS = {f"loaders/{site}-{mode}.html" for site in ("staging", "live") for mode in ("split", "same-origin")}
 MANIFEST = "release-manifest.json"
-OVERRIDE = "99-saturday-balance.conf"
+OVERRIDE = "99-saturday-quest.conf"
 COMMAND_RE = re.compile(r"\{ path=(.*?) ; argv\[\]=(.*?) ; ignore_errors=no ;")
 MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
 MAX_EXPANDED_BYTES = 2 * 1024 * 1024 * 1024
@@ -363,7 +363,7 @@ class Host:
         self.releases = self.base / "releases"
         self.release = self.releases / NEW
         self.prior = self.releases / OLD
-        self.state_dir = self.base / "balance-operator"
+        self.state_dir = self.base / ("balance-operator-" + NEW)
         self.state = self.state_dir / (kind + ".json")
         self.drop_dir = root / "etc/systemd/system" / (self.target.unit + ".d")
         self.override = self.drop_dir / OVERRIDE
