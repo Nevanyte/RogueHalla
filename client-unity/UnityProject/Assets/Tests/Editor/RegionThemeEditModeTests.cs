@@ -306,6 +306,37 @@ namespace Roguehalla.Client.Tests
             Assert.That(Luminance(fenced), Is.LessThan(Luminance(floor)), "the fence tile ground " + (Color32)fenced + " must be darker than open floor " + floor);
         }
 
+        [Test]
+        public void SentencedFenceRailOrientationFollowsItsDeliveredRunAndChurchAxisAtCorners()
+        {
+            const int w = 7, h = 7;
+            var tiles = new byte[w * h]; var terrain = new byte[w * h]; var regions = new byte[w * h];
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+            {
+                bool border = x == 0 || y == 0 || x == w - 1 || y == h - 1;
+                tiles[y * w + x] = border ? MapBlob.Wall : MapBlob.Floor;
+                regions[y * w + x] = (byte)RegionId.Sentenced;
+            }
+            for (int x = 1; x <= 3; x++) { tiles[2 * w + x] = MapBlob.Low; terrain[2 * w + x] = (byte)TerrainKind.Fence; }
+            for (int y = 3; y <= 5; y++) { tiles[y * w + 5] = MapBlob.Low; terrain[y * w + 5] = (byte)TerrainKind.Fence; }
+            tiles[5 * w + 1] = MapBlob.Low; terrain[5 * w + 1] = (byte)TerrainKind.Fence;
+            var map = new MapBlob(w, h, tiles, terrain, regions, MapBlob.GroundTerrainAll);
+            var method = typeof(RegionWalls).GetMethod("FenceRunsVertical", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            Assert.That(method, Is.Not.Null, "RegionWalls must classify orientation from the delivered fence run");
+            Assert.That((bool)method.Invoke(null, new object[] { map, 2, 2 }), Is.False, "horizontal rail run stays horizontal");
+            Assert.That((bool)method.Invoke(null, new object[] { map, 5, 4 }), Is.True, "vertical rail run rotates to follow y");
+            Assert.That((bool)method.Invoke(null, new object[] { map, 1, 5 }), Is.False, "isolated tile keeps the horizontal fallback");
+
+            var cornerTiles = new byte[w * h]; var cornerTerrain = new byte[w * h];
+            cornerTiles[3 * w + 3] = MapBlob.Low; cornerTerrain[3 * w + 3] = (byte)TerrainKind.Fence;
+            cornerTiles[3 * w + 2] = MapBlob.Low; cornerTerrain[3 * w + 2] = (byte)TerrainKind.Fence;
+            cornerTiles[4 * w + 3] = MapBlob.Low; cornerTerrain[4 * w + 3] = (byte)TerrainKind.Fence;
+            var church = new MapAnchor((byte)RegionId.Sentenced, MapBlob.AnchorKindChurch, new MapTile(3, 3), new MapRect(2, 2, 3, 3), 4, null);
+            var corner = new MapBlob(w, h, cornerTiles, cornerTerrain, regions, MapBlob.GroundTerrainAll)
+                .WithPublic(null, null, null, null, null, null, new[] { church });
+            Assert.That((bool)method.Invoke(null, new object[] { corner, 3, 3 }), Is.True, "a tied churchyard corner follows the local anchor front axis");
+        }
+
         // ---- batching (no GPU) -----------------------------------------------------------------------------------------------------
 
         [Test]

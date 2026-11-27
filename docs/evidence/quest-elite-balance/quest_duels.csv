@@ -1,0 +1,35 @@
+reward,title,baseline,alternative,build_n,combat_seeds,seat_exchanges,point_score,mean_hp_margin_pct,reward_uses,timeouts,simultaneous
+BlindRageAndStillMind,Lost Brother,180,no_extra_farm,10,3,60,0.95,7.630002621666169,60,0,0
+BlindRageAndStillMind,Lost Brother,180,one_preferred_camp,10,3,60,0.0,-10.283186760756848,60,0,0
+Bolas,A Bone to Pick,180,no_extra_farm,10,3,60,0.5,0.0,60,0,54
+Bolas,A Bone to Pick,180,one_preferred_camp,10,3,60,0.0,-14.954868660060859,60,0,0
+BreakersHelm,Tuber Eats,180,no_extra_farm,10,3,60,0.65,5.366626956003751,0,0,36
+BreakersHelm,Tuber Eats,180,one_preferred_camp,10,3,60,0.2,-8.35313871631704,0,0,0
+ChefsKiss,Let Him Cook,180,no_extra_farm,10,3,60,0.5,0.0,0,0,54
+ChefsKiss,Let Him Cook,180,one_preferred_camp,10,3,60,0.0,-14.954868660060859,0,0,0
+CrownPower/full,The Burning Crown,180,no_extra_farm,10,3,60,1.0,33.05343374538139,0,0,0
+CrownPower/full,The Burning Crown,180,one_preferred_camp,10,3,60,1.0,25.200245797994203,0,0,0
+FeedOrHuntDamage,Feed or Hunt,180,no_extra_farm,10,3,60,1.0,7.018902753228313,0,0,0
+FeedOrHuntDamage,Feed or Hunt,180,one_preferred_camp,10,3,60,0.05,-8.667449060921019,0,0,6
+Hook,Bounty Hunter,180,no_extra_farm,10,3,60,0.5,0.0,60,0,54
+Hook,Bounty Hunter,180,one_preferred_camp,10,3,60,0.0,-14.954868660060859,60,0,0
+ShoulderCharge,Smuggler's Run,180,no_extra_farm,10,3,60,0.65,9.453665020668815,111,0,12
+ShoulderCharge,Smuggler's Run,180,one_preferred_camp,10,3,60,0.1,-10.143167745009517,111,0,0
+SpellShield,Ember Walk,180,no_extra_farm,10,3,60,0.5,0.0,60,0,54
+SpellShield,Ember Walk,180,one_preferred_camp,10,3,60,0.0,-14.954868660060859,60,0,0
+Stasis,Stay A While,180,no_extra_farm,10,3,60,0.9,7.73399564309819,60,0,0
+Stasis,Stay A While,180,one_preferred_camp,10,3,60,0.125,-11.320339017925107,60,0,3
+Tornado,Rime Hunt,180,no_extra_farm,10,3,60,0.5,0.0,96,0,54
+Tornado,Rime Hunt,180,one_preferred_camp,10,3,60,0.0,-14.954868660060859,84,0,0
+TradeUp/stage1,Trade Up,180,no_extra_farm,10,3,60,1.0,11.312152876236631,0,0,0
+TradeUp/stage1,Trade Up,180,one_preferred_camp,10,3,60,0.2,-6.185600546346533,0,0,18
+TradeUp/stage2,Trade Up,180,no_extra_farm,10,3,60,1.0,23.387248715112165,0,0,0
+TradeUp/stage2,Trade Up,180,one_preferred_camp,10,3,60,1.0,10.888150846496504,0,0,0
+TradeUp/stage3,Trade Up,180,no_extra_farm,10,3,60,1.0,33.05683686493312,0,0,0
+TradeUp/stage3,Trade Up,180,one_preferred_camp,10,3,60,1.0,25.249857442804583,0,0,0
+Turret,Hold the Fort,180,no_extra_farm,10,3,60,0.8,6.355424392720687,60,0,24
+Turret,Hold the Fort,180,one_preferred_camp,10,3,60,0.15,-8.177115327386701,60,0,6
+WardensCage,The Warden,180,no_extra_farm,10,3,60,0.5,0.0,60,0,54
+WardensCage,The Warden,180,one_preferred_camp,10,3,60,0.0,-14.954868660060859,60,0,0
+Warhorn,Two Banners,180,no_extra_farm,10,3,60,1.0,10.924225009559226,60,0,0
+Warhorn,Two Banners,180,one_preferred_camp,10,3,60,0.1,-7.36974760838329,60,0,6

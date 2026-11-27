@@ -77,6 +77,11 @@ fn no_goal() -> RaidGoal {
 }
 
 impl RaidBot {
+    #[cfg(feature = "strategy-route-lab")]
+    pub fn with_lab_route(mut self, route: super::exec::farm::LabRoute) -> Self {
+        self.executors = exec::registry_with_lab_route(route);
+        self
+    }
     pub fn new(tier: TierId, persona: PersonaId) -> Self {
         Self {
             tier,

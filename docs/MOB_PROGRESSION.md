@@ -31,6 +31,8 @@ Each credited normal kill grants `MOB_KILL_STACKS` (3) whole stacks of its type,
 
 Defense (armor) pays 1.25 a stack and Soul Defense (magic resist) 1.5 (`DEFENSE_PER_STACK`, `SOUL_DEFENSE_PER_STACK`; they were 1): a counter to the damage type it answers, never the kill to take against a mixed field, and the most they can pay before a random route's incidental D/SD kills out-farm a build (testing/FARM_ROUTE_PROOF.md).
 
+In live raids, ordinary camps start with the same defenses for the first five minutes of active play. Their armor and magic resistance then rise gradually, reaching 240 extra points at minute ten and 420 at minute twenty. Elite bosses and their escorts use a share of that bonus determined by the boss. The default is 75%, Archon gains 155%, Glacial Warden and Blood Saint gain 100%, and Avalanche Troll and Pox Behemoth gain 42%. At the default or lower share, elite damage to players scales by 360 / (360 + the ordinary age bonus). For a larger share, multiply the age bonus in that denominator by the boss’s share divided by 75%. Each elite retains its own base health, attacks and starting defenses. True damage bypasses armor and magic resistance.
+
 The current map has ten camps per zone (160 x 160 tiles). Bag rosters guarantee all four normal types, and respawning preserves the roster. Fully cleared camps return after three minutes. Personal stat progress survives respawns and coliseum rounds. Dummy, quest-NPC, and training mob kills pay no progression.
 
 The HUD shows earned totals for owned types and exposes all twenty in an expandable catalog. Camp and planning tooltips describe the reward before a pull. The server credits the existing whole-fight damage winner and remains authoritative over all progression.

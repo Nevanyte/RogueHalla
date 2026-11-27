@@ -103,7 +103,7 @@ impl Director {
     }
 
     pub(crate) fn needs_board_room(&self) -> bool {
-        self.cfg.sim.top25_quests && self.cfg.sim.quests && !self.cfg.sim.training
+        self.cfg.sim.quest_board.enabled() && self.cfg.sim.quests && !self.cfg.sim.training
     }
 
     /// New board room preparation may regenerate geography and must run

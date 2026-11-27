@@ -185,7 +185,8 @@ pub fn match_setup(opts: &Options, seed: u64) -> Result<(EnvConfig, Vec<AgentSpe
     ))
 }
 
-fn generated_arena(seed: u64) -> Result<rh_sim::Arena, String> {
+/// Admitted arena from the certified generator used by field runs and matched solo trials.
+pub fn generated_arena(seed: u64) -> Result<rh_sim::Arena, String> {
     use rh_sim::mapgen::{coliseum, pipeline};
     let layout = coliseum::fixed_layout();
     let generator = pipeline::Pipeline::new(&layout);

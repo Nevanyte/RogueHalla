@@ -28,9 +28,9 @@ pub(crate) struct Deal {
     pub stream: Sfc32,
 }
 
-pub(crate) fn deal(map: &TileMap, secrets: Secrets) -> Result<Deal, String> {
+pub(crate) fn deal(map: &TileMap, secrets: Secrets, spread: bool) -> Result<Deal, String> {
     let mut stream = Sfc32::from_words(super::live::quest_salt(secrets.reward_salt));
-    let sites = placement::plan(map, &mut || stream.next_f64())?;
+    let sites = placement::plan_with_fallback(map, &[], spread, &mut || stream.next_f64())?;
     let placements = sites
         .into_iter()
         .map(|site| Placement {

@@ -513,27 +513,26 @@ fn a_stats_worth_follows_the_neutral_and_fit_prices() {
 
 #[test]
 fn the_spare_weapons_price_decides_whether_it_is_traded() {
-    // A sword's attack damage: 24 * 3.5 / 30 = 2.8 camp-equivalents for the weapon.
+    // At the regular spare price, even the preferred stat does not cover the weapon.
     let me = me_with(sword(), Vec2::new(0., 0.));
-    assert_eq!(bargain_trade(&Prices::LOCAL, &me, &[(7, 6)]), Some((7, 6)));
-    let dear = Prices {
-        spare_weapon: 2.9,
+    assert_eq!(bargain_trade(&Prices::LOCAL, &me, &[(7, 6)]), None);
+    let between = Prices {
+        spare_weapon: 1.1,
         ..Prices::LOCAL
     };
-    assert_eq!(bargain_trade(&dear, &me, &[(7, 6)]), None);
-    // For a neutral stat the weapon returns 24 * 2.5 / 30 = 2.0: worth trading at 1.5 (the flat price today), not at 2.5.
-    assert_eq!(bargain_trade(&Prices::LOCAL, &me, &[(7, 0)]), Some((7, 0)));
-    let pricey = Prices {
-        spare_weapon: 2.5,
+    assert_eq!(bargain_trade(&between, &me, &[(7, 6)]), Some((7, 6)));
+    assert_eq!(bargain_trade(&between, &me, &[(7, 0)]), None);
+    let cheap = Prices {
+        spare_weapon: 0.75,
         ..Prices::LOCAL
     };
-    assert_eq!(bargain_trade(&pricey, &me, &[(7, 0)]), None);
+    assert_eq!(bargain_trade(&cheap, &me, &[(7, 0)]), Some((7, 0)));
 }
 
 #[test]
 fn the_fit_prices_decide_whether_a_stack_trade_is_taken() {
-    // Twenty damage stacks (2.5) into attack damage (3.5 for a sword): taken on LOCAL; with the match worth less than the
-    // mismatch the received stat is worth 1.5 and the 24-for-20 swap loses.
+    // Damage stacks (2.5) into attack damage (3.5 for a sword): taken on LOCAL; with the match worth less than the
+    // mismatch the received stat is worth 1.5 and the swap loses.
     let me = me_with(sword(), Vec2::new(0., 0.));
     assert_eq!(bargain_trade(&Prices::LOCAL, &me, &[(5, 6)]), Some((5, 6)));
     let against = Prices {
@@ -648,26 +647,34 @@ fn close(a: Option<f64>, b: f64) -> bool {
 
 #[test]
 fn the_bargains_candidate_is_worth_the_gain_of_the_stack_trade() {
-    // 20 damage stacks (2.5) into a sword's attack damage (3.5): (24 * 3.5 - 20 * 2.5) / 30 = 1.1333, not the table's 2.7.
-    let got = bargain_value(&Prices::LOCAL, sword(), 20);
-    assert!(close(got, 34. / 30.), "{got:?}");
+    let rules = rh_sim::quests::public_rules();
+    let expected = (3.5 * rules.bargain_stacks as f64 - 2.5 * rules.bargain_cost as f64) / 30.;
+    let got = bargain_value(&Prices::LOCAL, sword(), rules.bargain_cost as u32);
+    assert!(close(got, expected), "{got:?}");
 }
 
 #[test]
 fn the_bargains_candidate_is_worth_the_gain_of_the_weapon_trade() {
-    // The spare weapon (1.5) for attack damage: 24 * 3.5 / 30 - 1.5 = 1.3. With stacks too, the larger gain is the value.
+    let rules = rh_sim::quests::public_rules();
+    let prices = Prices {
+        spare_weapon: 0.75,
+        ..Prices::LOCAL
+    };
+    let expected = 3.5 * rules.bargain_stacks as f64 / 30. - prices.spare_weapon;
     let two = [Some(WeaponId::Sword), Some(WeaponId::Axe)];
-    let got = bargain_value(&Prices::LOCAL, two, 0);
-    assert!(close(got, 1.3), "{got:?}");
-    let got = bargain_value(&Prices::LOCAL, two, 20);
-    assert!(close(got, 1.3), "{got:?}");
+    let got = bargain_value(&prices, two, 0);
+    assert!(close(got, expected), "{got:?}");
+    let stack_gain = (3.5 * rules.bargain_stacks as f64 - 2.5 * rules.bargain_cost as f64) / 30.;
+    let got = bargain_value(&prices, two, rules.bargain_cost as u32);
+    assert!(close(got, stack_gain), "{got:?}");
 }
 
 #[test]
 fn a_small_trade_is_not_priced_as_the_table_row() {
-    // A spare weapon priced at 2.5 for attack damage gains 2.8 - 2.5 = 0.3: the candidate is worth 0.3, not 2.7.
+    // Set the spare value just below the return to check that a small positive trade keeps its own price.
+    let full = 3.5 * rh_sim::quests::public_rules().bargain_stacks as f64 / 30.;
     let dear = Prices {
-        spare_weapon: 2.5,
+        spare_weapon: full - 0.3,
         ..Prices::LOCAL
     };
     let two = [Some(WeaponId::Sword), Some(WeaponId::Axe)];
@@ -685,5 +692,6 @@ fn a_table_that_prices_the_bargain_at_nothing_proposes_none_and_so_does_a_build_
         ..Prices::LOCAL
     };
     assert_eq!(bargain_value(&off, two, 20), None);
-    assert_eq!(bargain_value(&Prices::LOCAL, sword(), 19), None);
+    let short = (rh_sim::quests::public_rules().bargain_cost - 1) as u32;
+    assert_eq!(bargain_value(&Prices::LOCAL, sword(), short), None);
 }

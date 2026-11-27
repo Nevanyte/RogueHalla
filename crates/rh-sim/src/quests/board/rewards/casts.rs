@@ -78,8 +78,8 @@ pub(super) fn cast(
         now,
     );
     if silenced
-        || (!cleanse
-            && (stunned || effects::taunt(cx.w, id).is_some() || effects::pulled(cx.w, id)))
+        || (stunned && !matches!(award, Award::Cleanse | Award::StillMind))
+        || (!cleanse && (effects::taunt(cx.w, id).is_some() || effects::pulled(cx.w, id)))
         || p.statuses.cast.is_some()
         || cx
             .w

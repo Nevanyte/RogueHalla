@@ -1302,6 +1302,10 @@ fn the_bot_brain_flag_defaults_off_and_takes_off_or_full() {
     let args = |s: &str| s.split_whitespace().map(String::from).collect::<Vec<_>>();
     assert_eq!(bot_brain_flag(&args("--fill-bots 8")), Ok(BotBrain::Off));
     assert_eq!(BotFillConfig::default().brain, BotBrain::Off);
+    assert_eq!(
+        bot_brain_flag(&args("--bot-brain raid")),
+        Ok(BotBrain::Raid)
+    );
     assert_eq!(bot_brain_flag(&args("--bot-brain off")), Ok(BotBrain::Off));
     assert_eq!(
         bot_brain_flag(&args("--bot-brain full")),

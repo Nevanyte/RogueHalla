@@ -68,6 +68,11 @@ pub struct Farm {
     corpse_stacks: u8,
 }
 impl Farm {
+    /// Each of the 20 source counters is bounded to the largest exact JavaScript integer.
+    pub(crate) fn normal_stacks(&self) -> u64 {
+        self.counts.iter().sum()
+    }
+
     pub fn count(&self, id: M) -> u64 {
         DEFINITION
             .rows

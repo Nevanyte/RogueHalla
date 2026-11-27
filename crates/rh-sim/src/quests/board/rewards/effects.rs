@@ -347,6 +347,7 @@ pub(super) fn cast(
         }
         Award::Turret => return terrain::deploy(cx, id, from, aim, DeploymentKind::Turret),
         Award::Warhorn => {
+            let mut targeted = false;
             let mut count: u8 = 0;
             for i in 0..cx.w.fighter_count() {
                 let j = FighterIx::of_slot(i);
@@ -360,6 +361,7 @@ pub(super) fn cast(
                         MASK_SIGHT,
                     )
                 {
+                    targeted = true;
                     let victim = t.id;
                     if !defended(cx.w, victim) {
                         stop_attacking(cx, victim);
@@ -373,6 +375,9 @@ pub(super) fn cast(
                         count = count.saturating_add(1);
                     }
                 }
+            }
+            if !targeted {
+                return false;
             }
             if count > 0 {
                 set_buff(cx.w, id, TOP25.warhorn_ms, Buff::Warhorn { count });

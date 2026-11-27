@@ -217,6 +217,23 @@ fn shield_blocks_one_bolas_and_refunds_then_cleanse_removes_second_root() {
 }
 
 #[test]
+fn cleanse_breaks_a_forced_pull_before_the_next_displacement() {
+    let mut sim = room();
+    let (owner, rival) = players(&sim);
+    let at = position(&sim, owner);
+    let to = position(&sim, rival);
+    control(&mut sim.w, owner, TOP25.hook_pull_ms, Control::Pull { to });
+    assert!(pulled(&sim.w, owner));
+    let mut without_cleanse = sim.clone();
+    without_cleanse.step();
+    assert_ne!(position(&without_cleanse, owner), at);
+
+    cast(&mut sim, owner, Award::Cleanse, at, None);
+    assert!(!pulled(&sim.w, owner));
+    assert_eq!(position(&sim, owner), at);
+}
+
+#[test]
 fn hook_pulls_first_contact_and_charge_moves_and_staggers() {
     let mut sim = room();
     let (owner, rival) = players(&sim);

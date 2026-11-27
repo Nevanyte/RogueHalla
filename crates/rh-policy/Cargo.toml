@@ -11,6 +11,9 @@ license.workspace = true
 rh-protocol = { path = "../rh-protocol" }
 rh-sim = { path = "../rh-sim" }
 
+[features]
+strategy-route-lab = []
+
 [lints]
 workspace = true
 

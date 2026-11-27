@@ -169,6 +169,11 @@ fn opposing_banners_pay_only_at_the_destination_of_each_delivery() {
         interact(cx, returning, 900, 3, 0);
         system(cx);
         assert!(pending(cx.w, outbound, 900).is_some());
+        assert_eq!(
+            objective_for_owner(cx.w, outbound, 900, 0),
+            Some(outpost),
+            "a deferred reward still points to its remote turn-in"
+        );
         assert!(
             pending(cx.w, returning, 900).is_none(),
             "taking the rival banner starts the return trip"
@@ -724,4 +729,19 @@ fn bounty_hunter_marks_humans_and_bots_alike() {
     });
     assert_eq!(board(&sim.w).unwrap().bounty, Some(bot));
     assert_eq!(validate(&sim.k, &sim.w), Ok(()));
+}
+
+#[test]
+fn a_repeated_meditate_request_preserves_progress() {
+    let mut sim = scenario(&[QuestId::StayAWhile], [false; 2]);
+    let [owner, _] = owners(&sim.w);
+    run(&mut sim, |cx| {
+        accept(cx, 0, owner);
+        interact(cx, owner, 900, 6, 0);
+        system(cx);
+        let elapsed = attempt(cx.w, owner, 900).unwrap().dwell_ms;
+        assert!(elapsed > 0.);
+        interact(cx, owner, 900, 6, 0);
+        assert_eq!(attempt(cx.w, owner, 900).unwrap().dwell_ms, elapsed);
+    });
 }

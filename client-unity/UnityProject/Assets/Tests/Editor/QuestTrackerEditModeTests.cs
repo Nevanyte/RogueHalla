@@ -196,7 +196,7 @@ namespace Roguehalla.Client.Tests
             Assert.AreEqual("Hold the Fort", Label("Name").text);
             Assert.AreEqual("Stay inside the ring", Label("Objective").text);
             Assert.AreEqual("2:14", Label("Clock").text);
-            Assert.AreEqual("12 / 45 s", Label("Progress").text);
+            Assert.AreEqual("12 / 35 s", Label("Progress").text);
             Assert.AreEqual("QUESTS", Label("Title").text);
             Assert.AreEqual("J · log", Label("More").text);
         }
@@ -375,7 +375,7 @@ namespace Roguehalla.Client.Tests
             Assert.IsFalse(view.Root.gameObject.activeSelf, "the new session has no quest");
             Assert.AreEqual(0, view.Rows);
             foreach (var t in view.Root.GetComponentsInChildren<TMP_Text>(true))
-                foreach (string old in new[] { "Hold the Fort", "Stay inside the ring", "2:14", "12 / 45 s" })
+                foreach (string old in new[] { "Hold the Fort", "Stay inside the ring", "2:14", "12 / 35 s" })
                     Assert.AreNotEqual(old, t.text, t.name + " still holds a text of the old session");
         }
 

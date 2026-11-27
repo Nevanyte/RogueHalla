@@ -551,3 +551,251 @@ fn bot_refused_is_delivery_intake_only_and_line_drops_are_separate() {
         "intake refusal is not a line drop"
     );
 }
+
+/// Release-mode acceptance for the open-alpha policy, including the normal network publication and input budgets.
+#[test]
+#[ignore = "multi-minute source raids; run in release mode"]
+fn alpha_raid_bot_plays_and_survives_on_real_fill_seats() {
+    use rh_sim::Event;
+    let args: Vec<_> = "--runtime source-arena --map seed1 --map-pool --signature-landmarks --min-players 2 --fill-bots 8 --bot-brain raid"
+        .split_whitespace().map(String::from).collect();
+    let source = crate::runtime::Settings::from_args(&args).unwrap().unwrap();
+    let tick = Duration::from_millis(25);
+    for seed in [3, 11, 17] {
+        let start = Instant::now();
+        let secrets = Secrets::from_seed(seed);
+        let map = crate::map_pool::for_quest_board(
+            MapAssets::new(source_arena()).unwrap(),
+            secrets,
+            source.styled_maker(),
+        )
+        .unwrap();
+        let mut config = cfg(tick);
+        config.sim = source.sim();
+        config.sim.tick_ms = 25;
+        config.fixed_secrets = Some(secrets);
+        config.fixed_bot_seed = Some(seed);
+        config.arena = map.arena;
+        config.welcome_map = map.welcome_map;
+        config.record = true;
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let mut room = Room::new([11; 16], config, tx, start).with_bot_fill(BotFillConfig {
+            fill_to: source.fill_bots,
+            brain: crate::bot_fill::bot_brain_flag(&args).unwrap(),
+            ..Default::default()
+        });
+        let outbox = Arc::new(Outbox::default());
+        let human = room
+            .join("Explorer".into(), None, outbox.clone(), 1, 1, None)
+            .unwrap()
+            .player;
+        let mut frames = Vec::new();
+        let mut at = start;
+        for _ in 0..8000 {
+            at += tick;
+            assert!(room.wake(at));
+            frames.clear();
+            assert!(outbox.drain_into(&mut frames).close.is_none());
+            if room.sim.phase() == Phase::Active {
+                break;
+            }
+        }
+        assert_eq!(room.sim.phase(), Phase::Active);
+        assert_eq!(room.bots.len(), 7);
+        let spawn: Vec<_> = room
+            .bots
+            .iter()
+            .map(|s| room.sim.player(s.player()).unwrap().pos())
+            .collect();
+        let mut moved = [false; 7];
+        let mut steps_us = Vec::new();
+        let mut mob_kills = 0;
+        let mut elite_kills = 0;
+        let mut chest_picks = 0;
+        let mut elite_ids = std::collections::BTreeSet::new();
+        let mut first_death = None;
+        for i in 1..=6000 {
+            // Death events can arrive after the victim has left the mob roster.
+            elite_ids.extend(
+                room.sim
+                    .mobs()
+                    .iter()
+                    .filter(|m| m.elite)
+                    .map(|m| m.core.id),
+            );
+            at += tick;
+            let before = std::time::Instant::now();
+            assert!(room.wake(at));
+            steps_us.push(before.elapsed().as_micros());
+            frames.clear();
+            assert!(outbox.drain_into(&mut frames).close.is_none());
+            for (j, seat) in room.bots.iter().enumerate() {
+                let pos = room.sim.player(seat.player()).unwrap().pos();
+                moved[j] |= (pos.x - spawn[j].x).abs() + (pos.y - spawn[j].y).abs() > 64.;
+            }
+            for e in &room.wake_events {
+                match e {
+                    Event::Death {
+                        id, by: Some(by), ..
+                    } if room.sim.player(*id).is_none()
+                        && room.sim.player(*by).is_some_and(|p| p.seat.bot) =>
+                    {
+                        mob_kills += 1;
+                        if elite_ids.contains(id) {
+                            elite_kills += 1;
+                        }
+                    }
+                    Event::ChestTaken { by, .. }
+                        if room.sim.player(*by).is_some_and(|p| p.seat.bot) =>
+                    {
+                        chest_picks += 1;
+                    }
+                    Event::Resolved { result, .. } if result.outcome == rh_sim::Outcome::Died => {
+                        first_death.get_or_insert(i);
+                    }
+                    _ => {}
+                }
+            }
+            if room.sim.phase() != Phase::Active {
+                break;
+            }
+        }
+        steps_us.sort_unstable();
+        let survivors = room
+            .bots
+            .iter()
+            .filter(|s| room.sim.player(s.player()).unwrap().standing())
+            .count();
+        let human_alive = room.sim.player(human).unwrap().standing();
+        eprintln!("raid seed {seed}: {} active ticks, human alive {human_alive}, {survivors}/7 bots standing, first death {first_death:?}, {mob_kills} mob kills including {elite_kills} elites, {chest_picks} chest picks, moved {moved:?}, room wake p99 {} us", steps_us.len(), steps_us[(steps_us.len()-1)*99/100]);
+        assert_eq!(
+            steps_us.len(),
+            6000,
+            "seed {seed}: raid ended before 150 seconds"
+        );
+        assert!(
+            human_alive && survivors >= 4 && mob_kills > 0 && moved.into_iter().all(|m| m),
+            "seed {seed}: human and bots must survive and bots must play"
+        );
+        for seat in &room.bots {
+            assert_eq!(seat.fault, None, "seed {seed} seat {:?}", seat.player());
+            assert!(seat.stats.accepted > 0);
+        }
+        if seed == 3 {
+            let replay = &room.recorder.as_ref().unwrap().replay;
+            let (replayed, _) = rh_sim::replay::run_replay(replay).unwrap();
+            assert_eq!(replayed.state_hash(), room.sim.state_hash());
+        }
+    }
+}
+
+/// A longer operator diagnostic: the short survival bar above stops before any elite kill in its three seeds.
+#[test]
+#[ignore = "ten-minute Source Arena RaidBot sample; run explicitly in release"]
+fn alpha_raid_bot_reaches_elite_and_chest_gameplay() {
+    use rh_sim::Event;
+    let args: Vec<_> = "--runtime source-arena --map seed1 --map-pool --signature-landmarks --min-players 2 --fill-bots 8 --bot-brain raid"
+        .split_whitespace().map(String::from).collect();
+    let source = crate::runtime::Settings::from_args(&args).unwrap().unwrap();
+    let tick = Duration::from_millis(25);
+    for seed in [3, 11, 17] {
+        let start = Instant::now();
+        let secrets = Secrets::from_seed(seed);
+        let map = crate::map_pool::for_quest_board(
+            MapAssets::new(source_arena()).unwrap(),
+            secrets,
+            source.styled_maker(),
+        )
+        .unwrap();
+        let mut config = cfg(tick);
+        config.sim = source.sim();
+        config.sim.tick_ms = 25;
+        config.fixed_secrets = Some(secrets);
+        config.fixed_bot_seed = Some(seed);
+        config.arena = map.arena;
+        config.welcome_map = map.welcome_map;
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let mut room = Room::new([12; 16], config, tx, start).with_bot_fill(BotFillConfig {
+            fill_to: source.fill_bots,
+            brain: crate::bot_fill::bot_brain_flag(&args).unwrap(),
+            ..Default::default()
+        });
+        let outbox = Arc::new(Outbox::default());
+        let human = room
+            .join("Explorer".into(), None, outbox.clone(), 1, 1, None)
+            .unwrap()
+            .player;
+        let mut frames = Vec::new();
+        let mut at = start;
+        for _ in 0..8000 {
+            at += tick;
+            assert!(room.wake(at));
+            frames.clear();
+            assert!(outbox.drain_into(&mut frames).close.is_none());
+            if room.sim.phase() == Phase::Active {
+                break;
+            }
+        }
+        assert_eq!(room.sim.phase(), Phase::Active);
+        assert_eq!(room.bots.len(), 7);
+        let mut elite_ids = std::collections::BTreeSet::new();
+        let mut first_elite = None;
+        let mut first_chest = None;
+        let mut first_chest_after_elite = None;
+        for i in 1..=24_000 {
+            elite_ids.extend(
+                room.sim
+                    .mobs()
+                    .iter()
+                    .filter(|m| m.elite)
+                    .map(|m| m.core.id),
+            );
+            at += tick;
+            if !room.wake(at) {
+                break;
+            }
+            frames.clear();
+            if outbox.drain_into(&mut frames).close.is_some() {
+                break;
+            }
+            for event in &room.wake_events {
+                match event {
+                    Event::Death {
+                        id, by: Some(by), ..
+                    } if elite_ids.contains(id)
+                        && room.sim.player(*by).is_some_and(|p| p.seat.bot) =>
+                    {
+                        first_elite.get_or_insert((i, room.sim.player(human).unwrap().standing()));
+                    }
+                    Event::ChestTaken { by, .. }
+                        if room.sim.player(*by).is_some_and(|p| p.seat.bot) =>
+                    {
+                        first_chest.get_or_insert((i, room.sim.player(human).unwrap().standing()));
+                        if first_elite.is_some() {
+                            first_chest_after_elite
+                                .get_or_insert((i, room.sim.player(human).unwrap().standing()));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            if first_elite.is_some() && first_chest_after_elite.is_some() {
+                break;
+            }
+            if room.sim.phase() != Phase::Active {
+                break;
+            }
+        }
+        eprintln!("raid seed {seed}: first elite kill {first_elite:?}, first bot chest pick {first_chest:?}, first chest pick after elite {first_chest_after_elite:?} (tick at 25 ms, human standing at event)");
+        if let (Some(elite), Some(chest)) = (first_elite, first_chest_after_elite) {
+            assert!(
+                elite.1 && chest.1,
+                "human survives to elite and post-elite chest play"
+            );
+            return;
+        }
+    }
+    panic!(
+        "no sampled room reached both elite and post-elite chest play within ten active minutes"
+    );
+}

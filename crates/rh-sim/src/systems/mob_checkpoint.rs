@@ -553,7 +553,11 @@ pub(crate) fn validate(
         if h.is_empty()
             || h.iter()
                 .any(|s| !near(s.x, s.y) || !(0. ..=w.server_time).contains(&s.t))
-            || h.windows(2).any(|s| s[1].t - s[0].t < k.tick_ms())
+            // Displacement can reset a mob during actions before movement records the same tick's position.
+            // As for players, only the first pair can share a timestamp after that reset.
+            || h.windows(2).enumerate().any(|(i, s)| {
+                s[1].t - s[0].t < k.tick_ms() && !(i == 0 && s[1].t == s[0].t)
+            })
         {
             return Err("invalid mob rewind".into());
         }
@@ -563,3 +567,5 @@ pub(crate) fn validate(
 
 #[cfg(test)]
 mod bleed_tests;
+#[cfg(test)]
+mod rewind_tests;

@@ -585,7 +585,7 @@ async fn source_endpoint_playthrough(seed: u64) -> bool {
             && c.plan.is_some()
             && c.quests
                 .as_ref()
-                .is_some_and(|board| board.unknown_count == 0 && board.rows.len() == 10)
+                .is_some_and(|board| board.unknown_count == 5 && board.rows.len() == 5)
     };
     alice.until(planning_board).await;
     bob.until(planning_board).await;

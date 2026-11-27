@@ -576,3 +576,39 @@ fn board_uses_a_new_welcome_for_regenerated_signature_geometry() {
         .iter()
         .any(|f| f.kind == rh_sim::mapdata::FeatureKind::Volcano));
 }
+
+#[test]
+fn a_board_ready_pool_fallback_still_gets_the_requested_landmarks() {
+    let secrets = rh_sim::Secrets {
+        order_salt: 7,
+        spawn_seed: 0,
+        reward_salt: [1, 2, 3, 4],
+    };
+    let mut style = StyledMaker {
+        signature: false,
+        grand_coliseum: true,
+    };
+    let base = for_quest_board(configured(), secrets, style).unwrap();
+    assert_eq!(
+        rh_sim::quests::board::map_admission::needs_repair(&base.arena, secrets),
+        Ok(false)
+    );
+    style.signature = true;
+    let fixed = for_quest_board(base, secrets, style).unwrap();
+    let mut writer = rh_protocol::Writer::default();
+    fixed
+        .welcome_map
+        .write_with_mode(&mut writer, rh_protocol::GroundMode::Map);
+    let bytes = writer.finish();
+    let blob = rh_protocol::map::MapBlob::read(&mut rh_protocol::Reader::new(&bytes)).unwrap();
+    assert_eq!(
+        blob.public.anchors.len(),
+        5,
+        "every zone must announce its landmark"
+    );
+    let reused = for_quest_board(fixed.clone(), secrets, style).unwrap();
+    assert!(std::sync::Arc::ptr_eq(
+        &reused.welcome_map,
+        &fixed.welcome_map
+    ));
+}

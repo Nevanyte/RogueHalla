@@ -1,0 +1,641 @@
+seed,ticks,terminated,truncated,bot,duration_s,gates_locked,killed_by,killed_by_bot,kills,outcome,place,players,seat
+1,53629,True,False,True,29,False,Bloatfly,False,0,Died,8,8,3
+1,53629,True,False,True,670,False,sudden death,False,0,Died,7,8,5
+1,53629,True,False,True,778,False,bot1,True,0,Died,6,8,6
+1,53629,True,False,True,969,False,sudden death,False,0,Died,5,8,7
+1,53629,True,False,False,1082,False,sudden death,False,0,Died,4,8,0
+1,53629,True,False,True,1211,False,sudden death,False,0,Died,3,8,4
+1,53629,True,False,True,1328,False,sudden death,False,0,Died,2,8,2
+1,53629,True,False,True,1328,False,,False,0,Won,1,8,1
+2,53740,True,False,False,667,False,sudden death,False,0,Died,8,8,0
+2,53740,True,False,True,807,False,bot5,True,0,Died,7,8,2
+2,53740,True,False,True,856,False,bot4,True,0,Died,6,8,7
+2,53740,True,False,True,964,False,sudden death,False,0,Died,5,8,6
+2,53740,True,False,True,1089,False,sudden death,False,0,Died,4,8,1
+2,53740,True,False,True,1210,False,sudden death,False,0,Died,3,8,4
+2,53740,True,False,True,1331,False,sudden death,False,0,Died,2,8,3
+2,53740,True,False,True,1331,False,,False,0,Won,1,8,5
+3,44064,True,False,True,540,False,bot4,True,0,Died,8,8,6
+3,44064,True,False,False,589,False,bot7,True,0,Died,7,8,0
+3,44064,True,False,True,666,False,sudden death,False,0,Died,6,8,5
+3,44064,True,False,True,721,False,Rot Monk,False,0,Died,5,8,3
+3,44064,True,False,True,894,False,Plague Rat,False,0,Died,4,8,1
+3,44064,True,False,True,971,False,sudden death,False,1,Died,3,8,7
+3,44064,True,False,True,1089,False,sudden death,False,0,Died,2,8,2
+3,44064,True,False,True,1089,False,,False,0,Won,1,8,4
+4,48824,True,False,True,563,False,bot3,True,0,Died,8,8,2
+4,48824,True,False,True,573,False,bot7,True,0,Died,7,8,1
+4,48824,True,False,True,664,False,sudden death,False,0,Died,6,8,4
+4,48824,True,False,False,770,False,Acolyte,False,0,Died,5,8,0
+4,48824,True,False,True,969,False,sudden death,False,0,Died,4,8,7
+4,48824,True,False,True,1083,False,sudden death,False,0,Died,3,8,6
+4,48824,True,False,True,1208,False,sudden death,False,0,Died,2,8,5
+4,48824,True,False,True,1208,False,,False,0,Won,1,8,3
+5,48785,True,False,False,496,False,bot7,True,0,Died,8,8,0
+5,48785,True,False,True,668,False,sudden death,False,0,Died,7,8,6
+5,48785,True,False,True,966,False,sudden death,False,0,Died,6,8,3
+5,48785,True,False,True,986,False,bot7,True,0,Died,5,8,5
+5,48785,True,False,True,987,False,bot7,True,0,Died,4,8,4
+5,48785,True,False,True,1086,False,sudden death,False,0,Died,3,8,1
+5,48785,True,False,True,1208,False,sudden death,False,1,Died,2,8,7
+5,48785,True,False,True,1208,False,,False,0,Won,1,8,2
+6,48895,True,False,False,668,False,sudden death,False,0,Died,8,8,0
+6,48895,True,False,True,685,False,bot6,True,0,Died,7,8,7
+6,48895,True,False,True,750,False,bot2,True,0,Died,6,8,5
+6,48895,True,False,True,800,False,bot6,True,0,Died,5,8,3
+6,48895,True,False,True,967,False,sudden death,False,0,Died,4,8,1
+6,48895,True,False,True,1090,False,sudden death,False,0,Died,3,8,6
+6,48895,True,False,True,1211,False,sudden death,False,0,Died,2,8,2
+6,48895,True,False,True,1211,False,,False,0,Won,1,8,4
+7,43977,True,False,True,229,False,The Barrow Archer,False,0,Died,8,8,5
+7,43977,True,False,True,389,False,bot3,True,0,Died,7,8,1
+7,43977,True,False,True,666,False,sudden death,False,0,Died,6,8,7
+7,43977,True,False,True,729,False,bot4,True,0,Died,5,8,2
+7,43977,True,False,True,872,False,bot3,True,0,Died,4,8,6
+7,43977,True,False,True,968,False,sudden death,False,0,Died,3,8,4
+7,43977,True,False,False,1088,False,sudden death,False,0,Died,2,8,0
+7,43977,True,False,True,1088,False,,False,0,Won,1,8,3
+8,53781,True,False,True,106,False,Miasma Witch,False,0,Died,8,8,7
+8,53781,True,False,True,577,False,bot4,True,0,Died,7,8,6
+8,53781,True,False,True,667,False,sudden death,False,0,Died,6,8,5
+8,53781,True,False,True,964,False,sudden death,False,0,Died,5,8,3
+8,53781,True,False,True,1086,False,sudden death,False,0,Died,4,8,1
+8,53781,True,False,False,1210,False,sudden death,False,0,Died,3,8,0
+8,53781,True,False,True,1331,False,sudden death,False,0,Died,2,8,4
+8,53781,True,False,True,1331,False,,False,0,Won,1,8,2
+9,48988,True,False,False,232,False,bot3,True,0,Died,8,8,0
+9,48988,True,False,True,283,False,bot3,True,0,Died,7,8,7
+9,48988,True,False,True,664,False,sudden death,False,0,Died,6,8,5
+9,48988,True,False,True,747,False,bot4,True,0,Died,5,8,2
+9,48988,True,False,True,971,False,sudden death,False,0,Died,4,8,4
+9,48988,True,False,True,1091,False,sudden death,False,1,Died,3,8,3
+9,48988,True,False,True,1211,False,sudden death,False,0,Died,2,8,6
+9,48988,True,False,True,1211,False,,False,0,Won,1,8,1
+10,44185,True,False,True,163,False,Bailiff,False,0,Died,8,8,5
+10,44185,True,False,True,504,False,bot1,True,0,Died,7,8,3
+10,44185,True,False,True,588,False,bot6,True,0,Died,6,8,1
+10,44185,True,False,True,668,False,sudden death,False,0,Died,5,8,4
+10,44185,True,False,True,824,False,bot7,True,0,Died,4,8,6
+10,44185,True,False,True,967,False,sudden death,False,0,Died,3,8,2
+10,44185,True,False,False,1091,False,sudden death,False,0,Died,2,8,0
+10,44185,True,False,True,1091,False,,False,0,Won,1,8,7
+11,44117,True,False,True,378,False,bot3,True,0,Died,8,8,1
+11,44117,True,False,True,577,False,bot3,True,0,Died,7,8,4
+11,44117,True,False,True,665,False,sudden death,False,0,Died,6,8,3
+11,44117,True,False,False,727,False,bot6,True,0,Died,5,8,0
+11,44117,True,False,True,786,False,bot6,True,0,Died,4,8,5
+11,44117,True,False,True,967,False,sudden death,False,0,Died,3,8,2
+11,44117,True,False,True,1089,False,sudden death,False,0,Died,2,8,7
+11,44117,True,False,True,1089,False,,False,1,Won,1,8,6
+12,53701,True,False,True,473,False,bot5,True,0,Died,8,8,6
+12,53701,True,False,True,666,False,sudden death,False,0,Died,7,8,2
+12,53701,True,False,True,677,False,bot1,True,0,Died,6,8,7
+12,53701,True,False,True,968,False,sudden death,False,0,Died,5,8,4
+12,53701,True,False,True,1088,False,sudden death,False,0,Died,4,8,1
+12,53701,True,False,False,1211,False,sudden death,False,0,Died,3,8,0
+12,53701,True,False,True,1331,False,sudden death,False,0,Died,2,8,5
+12,53701,True,False,True,1331,False,,False,0,Won,1,8,3
+13,48892,True,False,True,440,False,bot4,True,0,Died,8,8,7
+13,48892,True,False,False,441,False,bot4,True,0,Died,7,8,0
+13,48892,True,False,True,463,False,bot4,True,0,Died,6,8,2
+13,48892,True,False,True,668,False,sudden death,False,0,Died,5,8,1
+13,48892,True,False,True,969,False,sudden death,False,0,Died,4,8,6
+13,48892,True,False,True,1090,False,sudden death,False,0,Died,3,8,5
+13,48892,True,False,True,1209,False,sudden death,False,0,Died,2,8,3
+13,48892,True,False,True,1209,False,,False,1,Won,1,8,4
+14,44079,True,False,True,53,False,Zealot,False,0,Died,8,8,1
+14,44079,True,False,True,220,False,bot3,True,0,Died,7,8,5
+14,44079,True,False,True,542,False,bot6,True,0,Died,6,8,3
+14,44079,True,False,True,667,False,sudden death,False,0,Died,5,8,4
+14,44079,True,False,True,763,False,bot6,True,0,Died,4,8,2
+14,44079,True,False,True,968,False,sudden death,False,0,Died,3,8,6
+14,44079,True,False,False,1089,False,sudden death,False,0,Died,2,8,0
+14,44079,True,False,True,1089,False,,False,0,Won,1,8,7
+15,53704,True,False,True,668,False,sudden death,False,0,Died,8,8,3
+15,53704,True,False,False,774,False,bot1,True,0,Died,7,8,0
+15,53704,True,False,True,850,False,bot5,True,0,Died,6,8,2
+15,53704,True,False,True,971,False,sudden death,False,0,Died,5,8,6
+15,53704,True,False,True,1087,False,sudden death,False,0,Died,4,8,7
+15,53704,True,False,True,1208,False,sudden death,False,0,Died,3,8,4
+15,53704,True,False,True,1331,False,sudden death,False,1,Died,2,8,1
+15,53704,True,False,True,1331,False,,False,0,Won,1,8,5
+16,53814,True,False,True,156,False,Rot Monk,False,0,Died,8,8,3
+16,53814,True,False,True,670,False,sudden death,False,0,Died,7,8,6
+16,53814,True,False,True,835,False,bot4,True,0,Died,6,8,5
+16,53814,True,False,True,968,False,sudden death,False,0,Died,5,8,1
+16,53814,True,False,True,1088,False,sudden death,False,0,Died,4,8,7
+16,53814,True,False,True,1207,False,sudden death,False,0,Died,3,8,2
+16,53814,True,False,False,1331,False,sudden death,False,0,Died,2,8,0
+16,53814,True,False,True,1331,False,,False,0,Won,1,8,4
+17,44074,True,False,True,28,False,Bloatfly,False,0,Died,8,8,2
+17,44074,True,False,True,504,False,bot6,True,0,Died,7,8,7
+17,44074,True,False,True,667,False,sudden death,False,0,Died,6,8,6
+17,44074,True,False,True,678,False,bot3,True,0,Died,5,8,1
+17,44074,True,False,True,740,False,bot5,True,0,Died,4,8,3
+17,44074,True,False,False,971,False,sudden death,False,0,Died,3,8,0
+17,44074,True,False,True,1088,False,sudden death,False,0,Died,2,8,4
+17,44074,True,False,True,1088,False,,False,0,Won,1,8,5
+18,39292,True,False,True,93,False,Rot Monk,False,0,Died,8,8,1
+18,39292,True,False,True,250,False,bot7,True,0,Died,7,8,6
+18,39292,True,False,True,577,False,bot4,True,0,Died,6,8,2
+18,39292,True,False,True,579,False,bot4,True,0,Died,5,8,7
+18,39292,True,False,True,669,False,sudden death,False,0,Died,4,8,5
+18,39292,True,False,True,685,False,bot4,True,0,Died,3,8,3
+18,39292,True,False,False,968,False,sudden death,False,0,Died,2,8,0
+18,39292,True,False,True,968,False,,False,0,Won,1,8,4
+19,58366,True,False,True,495,False,bot6,True,0,Died,8,8,5
+19,58366,True,False,True,667,False,sudden death,False,0,Died,7,8,4
+19,58366,True,False,True,968,False,sudden death,False,0,Died,6,8,7
+19,58366,True,False,True,1089,False,sudden death,False,0,Died,5,8,1
+19,58366,True,False,True,1205,False,sudden death,False,0,Died,4,8,2
+19,58366,True,False,False,1327,False,sudden death,False,0,Died,3,8,0
+19,58366,True,False,True,1448,False,sudden death,False,0,Died,2,8,3
+19,58366,True,False,True,1448,False,,False,0,Won,1,8,6
+20,48995,True,False,True,410,False,bot1,True,0,Died,8,8,2
+20,48995,True,False,True,667,False,sudden death,False,0,Died,7,8,4
+20,48995,True,False,True,760,False,bot7,True,0,Died,6,8,5
+20,48995,True,False,False,885,False,bot1,True,0,Died,5,8,0
+20,48995,True,False,True,965,False,sudden death,False,0,Died,4,8,3
+20,48995,True,False,True,1084,False,sudden death,False,0,Died,3,8,6
+20,48995,True,False,True,1211,False,sudden death,False,0,Died,2,8,7
+20,48995,True,False,True,1211,False,,False,1,Won,1,8,1
+21,53821,True,False,True,217,False,Rot Monk,False,0,Died,8,8,5
+21,53821,True,False,True,578,False,bot6,True,0,Died,7,8,2
+21,53821,True,False,True,669,False,sudden death,False,0,Died,6,8,6
+21,53821,True,False,False,969,False,sudden death,False,0,Died,5,8,0
+21,53821,True,False,True,1088,False,sudden death,False,0,Died,4,8,7
+21,53821,True,False,True,1207,False,sudden death,False,0,Died,3,8,3
+21,53821,True,False,True,1331,False,sudden death,False,0,Died,2,8,1
+21,53821,True,False,True,1331,False,,False,0,Won,1,8,4
+22,44013,True,False,True,39,False,Pardoner,False,0,Died,8,8,2
+22,44013,True,False,True,422,False,The Barrow Archer,False,0,Died,7,8,5
+22,44013,True,False,True,548,False,bot3,True,0,Died,6,8,1
+22,44013,True,False,True,664,False,sudden death,False,0,Died,5,8,4
+22,44013,True,False,True,722,False,Pardoner,False,0,Died,4,8,3
+22,44013,True,False,True,970,False,sudden death,False,0,Died,3,8,6
+22,44013,True,False,False,1087,False,sudden death,False,0,Died,2,8,0
+22,44013,True,False,True,1087,False,,False,0,Won,1,8,7
+23,53699,True,False,True,669,False,sudden death,False,0,Died,8,8,5
+23,53699,True,False,True,707,False,bot6,True,0,Died,7,8,1
+23,53699,True,False,False,718,False,bot3,True,0,Died,6,8,0
+23,53699,True,False,True,968,False,sudden death,False,0,Died,5,8,7
+23,53699,True,False,True,1088,False,sudden death,False,0,Died,4,8,6
+23,53699,True,False,True,1208,False,sudden death,False,0,Died,3,8,4
+23,53699,True,False,True,1328,False,sudden death,False,1,Died,2,8,3
+23,53699,True,False,True,1328,False,,False,0,Won,1,8,2
+24,44279,True,False,True,112,False,bot7,True,0,Died,8,8,4
+24,44279,True,False,True,537,False,bot2,True,0,Died,7,8,6
+24,44279,True,False,True,666,False,sudden death,False,0,Died,6,8,7
+24,44279,True,False,True,693,False,bot2,True,0,Died,5,8,1
+24,44279,True,False,True,750,False,bot5,True,0,Died,4,8,3
+24,44279,True,False,False,966,False,sudden death,False,0,Died,3,8,0
+24,44279,True,False,True,1092,False,sudden death,False,0,Died,2,8,5
+24,44279,True,False,True,1092,False,,False,0,Won,1,8,2
+25,48868,True,False,True,286,False,The Barrow Archer,False,0,Died,8,8,4
+25,48868,True,False,True,489,False,bot3,True,0,Died,7,8,2
+25,48868,True,False,True,670,False,sudden death,False,0,Died,6,8,1
+25,48868,True,False,True,695,False,bot3,True,0,Died,5,8,7
+25,48868,True,False,True,971,False,sudden death,False,0,Died,4,8,5
+25,48868,True,False,False,1090,False,sudden death,False,0,Died,3,8,0
+25,48868,True,False,True,1209,False,sudden death,False,0,Died,2,8,6
+25,48868,True,False,True,1209,False,,False,0,Won,1,8,3
+26,44032,True,False,True,151,False,bot1,True,0,Died,8,8,4
+26,44032,True,False,True,315,False,Rat Ogre,False,0,Died,7,8,5
+26,44032,True,False,True,378,False,bot6,True,0,Died,6,8,1
+26,44032,True,False,True,503,False,Bailiff,False,0,Died,5,8,3
+26,44032,True,False,True,664,False,sudden death,False,0,Died,4,8,2
+26,44032,True,False,False,964,False,sudden death,False,0,Died,3,8,0
+26,44032,True,False,True,1087,False,sudden death,False,0,Died,2,8,7
+26,44032,True,False,True,1087,False,,False,0,Won,1,8,6
+27,43975,True,False,True,566,False,Plague Rat,False,0,Died,8,8,2
+27,43975,True,False,True,593,False,bot3,True,0,Died,7,8,4
+27,43975,True,False,True,667,False,sudden death,False,0,Died,6,8,7
+27,43975,True,False,True,876,False,bot3,True,0,Died,5,8,5
+27,43975,True,False,True,969,False,sudden death,False,0,Died,4,8,6
+27,43975,True,False,False,981,False,bot1,True,0,Died,3,8,0
+27,43975,True,False,True,1085,False,sudden death,False,1,Died,2,8,1
+27,43975,True,False,True,1085,False,,False,0,Won,1,8,3
+28,53558,True,False,True,436,False,bot0,False,0,Died,8,8,7
+28,53558,True,False,True,669,False,sudden death,False,0,Died,7,8,3
+28,53558,True,False,True,897,False,bot0,False,0,Died,6,8,2
+28,53558,True,False,True,968,False,sudden death,False,0,Died,5,8,1
+28,53558,True,False,True,1085,False,sudden death,False,0,Died,4,8,5
+28,53558,True,False,True,1206,False,sudden death,False,0,Died,3,8,6
+28,53558,True,False,True,1327,False,sudden death,False,0,Died,2,8,4
+28,53558,True,False,False,1327,False,,False,0,Won,1,8,0
+29,48784,True,False,True,340,False,bot0,False,0,Died,8,8,4
+29,48784,True,False,False,668,False,sudden death,False,0,Died,7,8,0
+29,48784,True,False,True,773,False,bot1,True,0,Died,6,8,6
+29,48784,True,False,True,966,False,sudden death,False,0,Died,5,8,5
+29,48784,True,False,True,1090,False,sudden death,False,0,Died,4,8,3
+29,48784,True,False,True,1206,False,sudden death,False,0,Died,2,8,2
+29,48784,True,False,True,1206,False,sudden death,False,0,Died,2,8,7
+29,48784,True,False,True,1206,False,,False,0,Won,1,8,1
+30,48865,True,False,False,547,False,bot2,True,0,Died,8,8,0
+30,48865,True,False,True,669,False,sudden death,False,0,Died,7,8,3
+30,48865,True,False,True,684,False,bot5,True,0,Died,6,8,7
+30,48865,True,False,True,789,False,Penitent,False,0,Died,5,8,1
+30,48865,True,False,True,971,False,sudden death,False,0,Died,4,8,5
+30,48865,True,False,True,1089,False,sudden death,False,1,Died,3,8,2
+30,48865,True,False,True,1207,False,sudden death,False,0,Died,2,8,4
+30,48865,True,False,True,1207,False,,False,0,Won,1,8,6
+31,44178,True,False,True,274,False,The Barrow Archer,False,0,Died,8,8,6
+31,44178,True,False,True,667,False,sudden death,False,0,Died,7,8,7
+31,44178,True,False,True,699,False,bot1,True,0,Died,6,8,5
+31,44178,True,False,True,806,False,Rot Monk,False,0,Died,5,8,3
+31,44178,True,False,True,871,False,bot0,False,0,Died,4,8,2
+31,44178,True,False,False,968,False,sudden death,False,0,Died,3,8,0
+31,44178,True,False,True,1091,False,sudden death,False,0,Died,2,8,4
+31,44178,True,False,True,1091,False,,False,0,Won,1,8,1
+32,44136,True,False,True,203,False,bot0,False,0,Died,8,8,1
+32,44136,True,False,True,269,False,Pox Behemoth,False,0,Died,7,8,7
+32,44136,True,False,False,485,False,bot2,True,0,Died,6,8,0
+32,44136,True,False,True,500,False,bot6,True,1,Died,5,8,2
+32,44136,True,False,True,671,False,sudden death,False,0,Died,4,8,5
+32,44136,True,False,True,971,False,sudden death,False,0,Died,3,8,6
+32,44136,True,False,True,1091,False,sudden death,False,0,Died,2,8,3
+32,44136,True,False,True,1091,False,,False,0,Won,1,8,4
+33,58580,True,False,True,575,False,bot4,True,0,Died,8,8,3
+33,58580,True,False,True,667,False,sudden death,False,0,Died,7,8,5
+33,58580,True,False,True,966,False,sudden death,False,0,Died,6,8,6
+33,58580,True,False,True,1087,False,sudden death,False,0,Died,5,8,1
+33,58580,True,False,False,1207,False,sudden death,False,0,Died,4,8,0
+33,58580,True,False,True,1333,False,sudden death,False,0,Died,3,8,2
+33,58580,True,False,True,1451,False,sudden death,False,0,Died,2,8,7
+33,58580,True,False,True,1451,False,,False,0,Won,1,8,4
+34,58460,True,False,True,600,False,bot6,True,0,Died,8,8,1
+34,58460,True,False,True,621,False,bot4,True,0,Died,7,8,5
+34,58460,True,False,True,969,False,sudden death,False,0,Died,6,8,2
+34,58460,True,False,False,1085,False,sudden death,False,0,Died,5,8,0
+34,58460,True,False,True,1208,False,sudden death,False,0,Died,4,8,4
+34,58460,True,False,True,1326,False,sudden death,False,0,Died,3,8,7
+34,58460,True,False,True,1450,False,sudden death,False,0,Died,2,8,3
+34,58460,True,False,True,1450,False,,False,0,Won,1,8,6
+35,39383,True,False,True,124,False,bot3,True,0,Died,8,8,4
+35,39383,True,False,True,467,False,bot2,True,0,Died,7,8,5
+35,39383,True,False,True,511,False,bot7,True,0,Died,6,8,1
+35,39383,True,False,True,573,False,bot7,True,0,Died,5,8,2
+35,39383,True,False,True,663,False,sudden death,False,0,Died,4,8,3
+35,39383,True,False,True,803,False,bot7,True,0,Died,3,8,6
+35,39383,True,False,False,973,False,sudden death,False,0,Died,2,8,0
+35,39383,True,False,True,973,False,,False,0,Won,1,8,7
+36,44062,True,False,True,447,False,bot6,True,0,Died,8,8,4
+36,44062,True,False,True,454,False,bot6,True,0,Died,7,8,1
+36,44062,True,False,True,505,False,bot6,True,0,Died,6,8,3
+36,44062,True,False,True,667,False,sudden death,False,0,Died,5,8,2
+36,44062,True,False,False,803,False,Acolyte,False,0,Died,4,8,0
+36,44062,True,False,True,963,False,sudden death,False,0,Died,3,8,5
+36,44062,True,False,True,1087,False,sudden death,False,0,Died,2,8,7
+36,44062,True,False,True,1087,False,,False,0,Won,1,8,6
+37,44161,True,False,True,458,False,Plague Rat,False,0,Died,8,8,2
+37,44161,True,False,True,669,False,sudden death,False,0,Died,7,8,5
+37,44161,True,False,True,715,False,bot1,True,0,Died,6,8,7
+37,44161,True,False,True,792,False,bot3,True,0,Died,5,8,6
+37,44161,True,False,True,839,False,bot3,True,0,Died,4,8,4
+37,44161,True,False,True,967,False,sudden death,False,0,Died,3,8,1
+37,44161,True,False,True,1091,False,sudden death,False,0,Died,2,8,3
+37,44161,True,False,False,1091,False,,False,0,Won,1,8,0
+38,53827,True,False,True,517,False,bot4,True,0,Died,8,8,2
+38,53827,True,False,True,525,False,bot3,True,0,Died,7,8,1
+38,53827,True,False,True,667,False,sudden death,False,0,Died,6,8,3
+38,53827,True,False,True,968,False,sudden death,False,0,Died,5,8,6
+38,53827,True,False,True,1082,False,sudden death,False,0,Died,4,8,5
+38,53827,True,False,False,1211,False,sudden death,False,0,Died,3,8,0
+38,53827,True,False,True,1331,False,sudden death,False,0,Died,2,8,4
+38,53827,True,False,True,1331,False,,False,0,Won,1,8,7
+39,58323,True,False,True,665,False,sudden death,False,0,Died,8,8,5
+39,58323,True,False,False,859,False,bot6,True,0,Died,7,8,0
+39,58323,True,False,True,968,False,sudden death,False,0,Died,6,8,1
+39,58323,True,False,True,1088,False,sudden death,False,1,Died,5,8,6
+39,58323,True,False,True,1206,False,sudden death,False,0,Died,4,8,7
+39,58323,True,False,True,1328,False,sudden death,False,0,Died,3,8,3
+39,58323,True,False,True,1446,False,sudden death,False,0,Died,2,8,4
+39,58323,True,False,True,1446,False,,False,0,Won,1,8,2
+40,44068,True,False,True,51,False,Pardoner,False,0,Died,8,8,4
+40,44068,True,False,True,190,False,bot7,True,0,Died,7,8,1
+40,44068,True,False,False,412,False,bot2,True,0,Died,6,8,0
+40,44068,True,False,True,670,False,sudden death,False,0,Died,5,8,3
+40,44068,True,False,True,891,False,bot7,True,1,Died,4,8,2
+40,44068,True,False,True,971,False,sudden death,False,0,Died,3,8,6
+40,44068,True,False,True,1089,False,sudden death,False,0,Died,2,8,5
+40,44068,True,False,True,1089,False,,False,0,Won,1,8,7
+41,48903,True,False,False,669,False,sudden death,False,0,Died,8,8,0
+41,48903,True,False,True,678,False,bot6,True,0,Died,7,8,2
+41,48903,True,False,True,681,False,bot6,True,0,Died,6,8,7
+41,48903,True,False,True,799,False,bot6,True,0,Died,5,8,1
+41,48903,True,False,True,971,False,sudden death,False,0,Died,4,8,5
+41,48903,True,False,True,1086,False,sudden death,False,0,Died,3,8,3
+41,48903,True,False,True,1211,False,sudden death,False,0,Died,2,8,6
+41,48903,True,False,True,1211,False,,False,0,Won,1,8,4
+42,44151,True,False,True,31,False,Rot Monk,False,0,Died,8,8,2
+42,44151,True,False,True,193,False,Pox Behemoth,False,0,Died,7,8,4
+42,44151,True,False,True,410,False,bot3,True,0,Died,6,8,7
+42,44151,True,False,True,669,False,sudden death,False,0,Died,5,8,1
+42,44151,True,False,True,798,False,bot5,True,0,Died,4,8,6
+42,44151,True,False,True,968,False,sudden death,False,0,Died,3,8,5
+42,44151,True,False,False,1091,False,sudden death,False,0,Died,2,8,0
+42,44151,True,False,True,1091,False,,False,0,Won,1,8,3
+43,63351,True,False,True,667,False,sudden death,False,0,Died,8,8,3
+43,63351,True,False,False,968,False,sudden death,False,0,Died,7,8,0
+43,63351,True,False,True,1086,False,sudden death,False,0,Died,6,8,6
+43,63351,True,False,True,1211,False,sudden death,False,0,Died,5,8,5
+43,63351,True,False,True,1327,False,sudden death,False,0,Died,4,8,1
+43,63351,True,False,True,1447,False,sudden death,False,0,Died,3,8,7
+43,63351,True,False,True,1571,False,sudden death,False,0,Died,2,8,2
+43,63351,True,False,True,1571,False,,False,0,Won,1,8,4
+44,44188,True,False,True,374,False,Executioner,False,0,Died,8,8,1
+44,44188,True,False,True,668,False,sudden death,False,0,Died,7,8,4
+44,44188,True,False,True,679,False,bot3,True,0,Died,6,8,5
+44,44188,True,False,True,803,False,bot6,True,0,Died,5,8,7
+44,44188,True,False,False,865,False,bot2,True,0,Died,4,8,0
+44,44188,True,False,True,969,False,sudden death,False,0,Died,3,8,3
+44,44188,True,False,True,1093,False,sudden death,False,0,Died,2,8,6
+44,44188,True,False,True,1093,False,,False,1,Won,1,8,2
+45,53823,True,False,False,467,False,bot5,True,0,Died,8,8,0
+45,53823,True,False,True,581,False,bot5,True,0,Died,7,8,4
+45,53823,True,False,True,669,False,sudden death,False,0,Died,6,8,2
+45,53823,True,False,True,965,False,sudden death,False,0,Died,5,8,6
+45,53823,True,False,True,1087,False,sudden death,False,0,Died,4,8,3
+45,53823,True,False,True,1209,False,sudden death,False,0,Died,3,8,7
+45,53823,True,False,True,1331,False,sudden death,False,0,Died,2,8,1
+45,53823,True,False,True,1331,False,,False,1,Won,1,8,5
+46,48738,True,False,True,37,False,Plague Rat,False,0,Died,8,8,3
+46,48738,True,False,False,668,False,sudden death,False,0,Died,7,8,0
+46,48738,True,False,True,967,False,sudden death,False,0,Died,6,8,5
+46,48738,True,False,True,1083,False,sudden death,False,0,Died,5,8,2
+46,48738,True,False,True,1104,False,bot6,True,0,Died,4,8,4
+46,48738,True,False,True,1137,False,bot6,True,0,Died,3,8,1
+46,48738,True,False,True,1207,False,sudden death,False,0,Died,2,8,7
+46,48738,True,False,True,1207,False,,False,0,Won,1,8,6
+47,40099,True,False,True,423,False,bot0,False,0,Died,8,8,2
+47,40099,True,False,True,439,False,bot1,True,0,Died,7,8,7
+47,40099,True,False,True,483,False,Rot Monk,False,0,Died,6,8,4
+47,40099,True,False,True,568,False,bot0,False,0,Died,5,8,1
+47,40099,True,False,True,670,False,sudden death,False,0,Died,4,8,6
+47,40099,True,False,True,971,False,sudden death,False,0,Died,3,8,5
+47,40099,True,False,True,991,False,bot0,False,0,Died,2,8,3
+47,40099,True,False,False,991,False,,False,0,Won,1,8,0
+48,48936,True,False,True,508,False,bot4,True,0,Died,8,8,2
+48,48936,True,False,True,557,False,bot4,True,0,Died,7,8,7
+48,48936,True,False,True,667,False,sudden death,False,0,Died,6,8,1
+48,48936,True,False,False,818,False,bot4,True,0,Died,5,8,0
+48,48936,True,False,True,963,False,sudden death,False,0,Died,4,8,6
+48,48936,True,False,True,1088,False,sudden death,False,0,Died,3,8,5
+48,48936,True,False,True,1209,False,sudden death,False,0,Died,2,8,3
+48,48936,True,False,True,1209,False,,False,1,Won,1,8,4
+49,58488,True,False,False,664,False,sudden death,False,0,Died,8,8,0
+49,58488,True,False,True,967,False,sudden death,False,0,Died,7,8,5
+49,58488,True,False,True,1007,False,bot6,True,0,Died,6,8,7
+49,58488,True,False,True,1088,False,sudden death,False,0,Died,5,8,4
+49,58488,True,False,True,1207,False,sudden death,False,0,Died,4,8,3
+49,58488,True,False,True,1331,False,sudden death,False,0,Died,3,8,2
+49,58488,True,False,True,1449,False,sudden death,False,0,Died,2,8,1
+49,58488,True,False,True,1449,False,,False,0,Won,1,8,6
+50,53663,True,False,False,213,False,bot7,True,0,Died,8,8,0
+50,53663,True,False,True,667,False,sudden death,False,0,Died,7,8,1
+50,53663,True,False,True,681,False,bot2,True,0,Died,6,8,6
+50,53663,True,False,True,967,False,sudden death,False,0,Died,5,8,3
+50,53663,True,False,True,1086,False,sudden death,False,1,Died,4,8,7
+50,53663,True,False,True,1207,False,sudden death,False,0,Died,3,8,4
+50,53663,True,False,True,1327,False,sudden death,False,0,Died,2,8,2
+50,53663,True,False,True,1327,False,,False,0,Won,1,8,5
+51,48916,True,False,True,385,False,bot6,True,0,Died,8,8,1
+51,48916,True,False,True,475,False,bot7,True,0,Died,7,8,3
+51,48916,True,False,False,663,False,sudden death,False,0,Died,6,8,0
+51,48916,True,False,True,779,False,bot6,True,0,Died,5,8,4
+51,48916,True,False,True,967,False,sudden death,False,0,Died,4,8,5
+51,48916,True,False,True,1087,False,sudden death,False,0,Died,3,8,7
+51,48916,True,False,True,1209,False,sudden death,False,0,Died,2,8,2
+51,48916,True,False,True,1209,False,,False,0,Won,1,8,6
+52,41101,True,False,True,41,False,Rot Monk,False,0,Died,8,8,7
+52,41101,True,False,True,385,False,bot5,True,0,Died,7,8,3
+52,41101,True,False,True,432,False,bot1,True,0,Died,6,8,6
+52,41101,True,False,False,492,False,bot5,True,0,Died,5,8,0
+52,41101,True,False,True,662,False,sudden death,False,0,Died,4,8,2
+52,41101,True,False,True,968,False,sudden death,False,0,Died,3,8,1
+52,41101,True,False,True,1014,False,bot5,True,0,Died,2,8,4
+52,41101,True,False,True,1014,False,,False,1,Won,1,8,5
+53,48807,True,False,True,222,False,bot7,True,0,Died,8,8,2
+53,48807,True,False,True,338,False,Miasma Witch,False,0,Died,7,8,6
+53,48807,True,False,True,664,False,sudden death,False,0,Died,6,8,3
+53,48807,True,False,True,835,False,Penitent,False,0,Died,5,8,4
+53,48807,True,False,True,967,False,sudden death,False,0,Died,4,8,5
+53,48807,True,False,True,1088,False,sudden death,False,0,Died,3,8,1
+53,48807,True,False,False,1208,False,sudden death,False,0,Died,2,8,0
+53,48807,True,False,True,1208,False,,False,0,Won,1,8,7
+54,48956,True,False,True,28,False,Bloatfly,False,0,Died,8,8,5
+54,48956,True,False,False,382,False,Rot Monk,False,0,Died,7,8,0
+54,48956,True,False,True,668,False,sudden death,False,0,Died,6,8,4
+54,48956,True,False,True,694,False,bot1,True,0,Died,5,8,6
+54,48956,True,False,True,968,False,sudden death,False,0,Died,4,8,3
+54,48956,True,False,True,1085,False,sudden death,False,0,Died,3,8,2
+54,48956,True,False,True,1209,False,sudden death,False,0,Died,2,8,7
+54,48956,True,False,True,1209,False,,False,0,Won,1,8,1
+55,39194,True,False,True,293,False,bot2,True,0,Died,8,8,4
+55,39194,True,False,False,581,False,bot2,True,0,Died,7,8,0
+55,39194,True,False,True,669,False,sudden death,False,0,Died,6,8,1
+55,39194,True,False,True,691,False,bot2,True,0,Died,5,8,3
+55,39194,True,False,True,803,False,bot2,True,0,Died,4,8,7
+55,39194,True,False,True,835,False,bot2,True,0,Died,3,8,5
+55,39194,True,False,True,966,False,sudden death,False,0,Died,2,8,6
+55,39194,True,False,True,966,False,,False,1,Won,1,8,2
+56,39171,True,False,True,478,False,bot6,True,0,Died,8,8,5
+56,39171,True,False,True,503,False,bot6,True,0,Died,7,8,4
+56,39171,True,False,True,668,False,sudden death,False,0,Died,6,8,3
+56,39171,True,False,True,794,False,bot6,True,0,Died,5,8,1
+56,39171,True,False,True,798,False,Seraph Shard,False,0,Died,4,8,2
+56,39171,True,False,True,867,False,bot6,True,0,Died,3,8,7
+56,39171,True,False,False,967,False,sudden death,False,0,Died,2,8,0
+56,39171,True,False,True,967,False,,False,0,Won,1,8,6
+57,49003,True,False,True,437,False,Bloatfly,False,0,Died,8,8,2
+57,49003,True,False,True,667,False,sudden death,False,0,Died,7,8,3
+57,49003,True,False,True,686,False,bot0,False,0,Died,6,8,6
+57,49003,True,False,True,792,False,bot5,True,0,Died,5,8,4
+57,49003,True,False,False,966,False,sudden death,False,0,Died,4,8,0
+57,49003,True,False,True,1089,False,sudden death,False,0,Died,3,8,7
+57,49003,True,False,True,1211,False,sudden death,False,0,Died,2,8,1
+57,49003,True,False,True,1211,False,,False,0,Won,1,8,5
+58,53622,True,False,True,389,False,Plague Rat,False,0,Died,8,8,6
+58,53622,True,False,True,491,False,bot2,True,0,Died,7,8,7
+58,53622,True,False,True,668,False,sudden death,False,0,Died,6,8,1
+58,53622,True,False,True,969,False,sudden death,False,0,Died,5,8,3
+58,53622,True,False,True,1085,False,sudden death,False,0,Died,4,8,5
+58,53622,True,False,False,1205,False,sudden death,False,0,Died,3,8,0
+58,53622,True,False,True,1328,False,sudden death,False,0,Died,2,8,2
+58,53622,True,False,True,1328,False,,False,0,Won,1,8,4
+59,39188,True,False,True,185,False,bot3,True,0,Died,8,8,1
+59,39188,True,False,True,402,False,bot3,True,0,Died,7,8,2
+59,39188,True,False,True,520,False,bot7,True,0,Died,6,8,6
+59,39188,True,False,True,525,False,bot3,True,0,Died,5,8,7
+59,39188,True,False,False,665,False,sudden death,False,0,Died,4,8,0
+59,39188,True,False,True,968,False,sudden death,False,0,Died,2,8,4
+59,39188,True,False,True,968,False,sudden death,False,0,Died,2,8,5
+59,39188,True,False,True,968,False,,False,0,Won,1,8,3
+60,49064,True,False,True,97,False,Bloatfly,False,0,Died,8,8,4
+60,49064,True,False,False,236,False,The Barrow Archer,False,0,Died,7,8,0
+60,49064,True,False,True,540,False,bot5,True,0,Died,6,8,7
+60,49064,True,False,True,667,False,sudden death,False,0,Died,5,8,6
+60,49064,True,False,True,968,False,sudden death,False,0,Died,4,8,2
+60,49064,True,False,True,1086,False,sudden death,False,0,Died,3,8,3
+60,49064,True,False,True,1213,False,sudden death,False,0,Died,2,8,1
+60,49064,True,False,True,1213,False,,False,1,Won,1,8,5
+61,48957,True,False,True,226,False,bot6,True,0,Died,8,8,2
+61,48957,True,False,False,382,False,Executioner,False,0,Died,7,8,0
+61,48957,True,False,True,669,False,sudden death,False,0,Died,6,8,1
+61,48957,True,False,True,716,False,bot6,True,0,Died,5,8,3
+61,48957,True,False,True,968,False,sudden death,False,0,Died,4,8,7
+61,48957,True,False,True,1089,False,sudden death,False,0,Died,3,8,6
+61,48957,True,False,True,1209,False,sudden death,False,1,Died,2,8,5
+61,48957,True,False,True,1209,False,,False,0,Won,1,8,4
+62,58570,True,False,False,667,False,sudden death,False,0,Died,8,8,0
+62,58570,True,False,True,675,False,bot5,True,0,Died,7,8,2
+62,58570,True,False,True,962,False,sudden death,False,0,Died,6,8,1
+62,58570,True,False,True,1090,False,sudden death,False,0,Died,5,8,6
+62,58570,True,False,True,1207,False,sudden death,False,0,Died,4,8,4
+62,58570,True,False,True,1328,False,sudden death,False,0,Died,3,8,7
+62,58570,True,False,True,1451,False,sudden death,False,0,Died,2,8,5
+62,58570,True,False,True,1451,False,,False,0,Won,1,8,3
+63,49000,True,False,True,176,False,Miasma Witch,False,0,Died,8,8,3
+63,49000,True,False,True,565,False,Rot Monk,False,0,Died,7,8,1
+63,49000,True,False,False,668,False,sudden death,False,0,Died,6,8,0
+63,49000,True,False,True,791,False,bot7,True,0,Died,5,8,2
+63,49000,True,False,True,967,False,sudden death,False,0,Died,4,8,4
+63,49000,True,False,True,1088,False,sudden death,False,0,Died,3,8,6
+63,49000,True,False,True,1212,False,sudden death,False,0,Died,2,8,5
+63,49000,True,False,True,1212,False,,False,0,Won,1,8,7
+64,43994,True,False,True,135,False,bot4,True,0,Died,8,8,5
+64,43994,True,False,False,419,False,bot3,True,0,Died,7,8,0
+64,43994,True,False,True,556,False,bot3,True,0,Died,6,8,2
+64,43994,True,False,True,666,False,sudden death,False,0,Died,5,8,4
+64,43994,True,False,True,781,False,bot6,True,0,Died,4,8,1
+64,43994,True,False,True,971,False,sudden death,False,1,Died,3,8,3
+64,43994,True,False,True,1086,False,sudden death,False,0,Died,2,8,7
+64,43994,True,False,True,1086,False,,False,0,Won,1,8,6
+65,30070,True,False,True,35,False,Pardoner,False,0,Died,8,8,4
+65,30070,True,False,True,234,False,bot7,True,0,Died,7,8,5
+65,30070,True,False,False,386,False,bot1,True,0,Died,6,8,0
+65,30070,True,False,True,506,False,Ice Golem,False,0,Died,5,8,2
+65,30070,True,False,True,517,False,bot6,True,0,Died,4,8,7
+65,30070,True,False,True,671,False,sudden death,False,1,Died,3,8,1
+65,30070,True,False,True,740,False,bot6,True,0,Died,2,8,3
+65,30070,True,False,True,740,False,,False,0,Won,1,8,6
+66,44107,True,False,True,93,False,Bloatfly,False,0,Died,8,8,7
+66,44107,True,False,True,404,False,bot4,True,0,Died,7,8,1
+66,44107,True,False,True,523,False,bot5,True,0,Died,6,8,6
+66,44107,True,False,True,526,False,bot4,True,0,Died,5,8,3
+66,44107,True,False,True,667,False,sudden death,False,0,Died,4,8,5
+66,44107,True,False,True,967,False,sudden death,False,0,Died,3,8,2
+66,44107,True,False,False,1091,False,sudden death,False,0,Died,2,8,0
+66,44107,True,False,True,1091,False,,False,0,Won,1,8,4
+67,48698,True,False,True,89,False,Archon,False,0,Died,8,8,4
+67,48698,True,False,True,667,False,sudden death,False,0,Died,7,8,7
+67,48698,True,False,False,750,False,bot3,True,0,Died,6,8,0
+67,48698,True,False,True,785,False,Rot Monk,False,0,Died,5,8,6
+67,48698,True,False,True,969,False,sudden death,False,0,Died,4,8,2
+67,48698,True,False,True,1086,False,sudden death,False,0,Died,3,8,1
+67,48698,True,False,True,1206,False,sudden death,False,0,Died,2,8,5
+67,48698,True,False,True,1206,False,,False,1,Won,1,8,3
+68,53771,True,False,True,668,False,sudden death,False,0,Died,8,8,4
+68,53771,True,False,True,724,False,bot7,True,0,Died,7,8,2
+68,53771,True,False,True,724,False,bot5,True,0,Died,6,8,6
+68,53771,True,False,False,965,False,sudden death,False,0,Died,5,8,0
+68,53771,True,False,True,1084,False,sudden death,False,0,Died,4,8,3
+68,53771,True,False,True,1208,False,sudden death,False,0,Died,3,8,1
+68,53771,True,False,True,1331,False,sudden death,False,0,Died,2,8,7
+68,53771,True,False,True,1331,False,,False,0,Won,1,8,5
+69,44229,True,False,True,437,False,bot1,True,0,Died,8,8,6
+69,44229,True,False,True,513,False,bot1,True,0,Died,7,8,4
+69,44229,True,False,True,524,False,Miasma Witch,False,0,Died,6,8,5
+69,44229,True,False,True,666,False,sudden death,False,0,Died,5,8,3
+69,44229,True,False,True,696,False,bot2,True,0,Died,4,8,7
+69,44229,True,False,False,969,False,sudden death,False,0,Died,3,8,0
+69,44229,True,False,True,1091,False,sudden death,False,0,Died,2,8,1
+69,44229,True,False,True,1091,False,,False,0,Won,1,8,2
+70,63211,True,False,True,670,False,sudden death,False,0,Died,8,8,2
+70,63211,True,False,True,964,False,sudden death,False,0,Died,7,8,6
+70,63211,True,False,True,1083,False,sudden death,False,0,Died,6,8,1
+70,63211,True,False,True,1204,False,sudden death,False,0,Died,5,8,4
+70,63211,True,False,True,1327,False,sudden death,False,0,Died,4,8,3
+70,63211,True,False,True,1451,False,sudden death,False,0,Died,3,8,5
+70,63211,True,False,True,1567,False,sudden death,False,0,Died,2,8,7
+70,63211,True,False,False,1567,False,,False,0,Won,1,8,0
+71,58633,True,False,True,38,False,Plague Rat,False,0,Died,8,8,4
+71,58633,True,False,True,666,False,sudden death,False,0,Died,7,8,2
+71,58633,True,False,True,967,False,sudden death,False,0,Died,6,8,6
+71,58633,True,False,True,1088,False,sudden death,False,0,Died,5,8,5
+71,58633,True,False,False,1204,False,sudden death,False,0,Died,4,8,0
+71,58633,True,False,True,1330,False,sudden death,False,0,Died,3,8,3
+71,58633,True,False,True,1451,False,sudden death,False,0,Died,2,8,7
+71,58633,True,False,True,1451,False,,False,0,Won,1,8,1
+72,39411,True,False,True,149,False,bot5,True,0,Died,8,8,7
+72,39411,True,False,True,188,False,bot5,True,0,Died,7,8,2
+72,39411,True,False,True,281,False,bot5,True,0,Died,6,8,3
+72,39411,True,False,False,356,False,Frostbow Sentry,False,0,Died,5,8,0
+72,39411,True,False,True,358,False,bot5,True,0,Died,4,8,4
+72,39411,True,False,True,663,False,sudden death,False,0,Died,3,8,6
+72,39411,True,False,True,971,False,sudden death,False,0,Died,2,8,1
+72,39411,True,False,True,971,False,,False,0,Won,1,8,5
+73,48988,True,False,True,453,False,bot0,False,0,Died,8,8,5
+73,48988,True,False,True,669,False,sudden death,False,0,Died,7,8,6
+73,48988,True,False,True,739,False,bot4,True,0,Died,6,8,3
+73,48988,True,False,True,971,False,sudden death,False,0,Died,5,8,7
+73,48988,True,False,False,1088,False,sudden death,False,0,Died,4,8,0
+73,48988,True,False,True,1111,False,bot1,True,0,Died,3,8,4
+73,48988,True,False,True,1211,False,sudden death,False,0,Died,2,8,2
+73,48988,True,False,True,1211,False,,False,0,Won,1,8,1
+74,44130,True,False,True,159,False,bot3,True,0,Died,8,8,5
+74,44130,True,False,True,439,False,bot3,True,0,Died,7,8,7
+74,44130,True,False,False,467,False,Warren Forager,False,0,Died,6,8,0
+74,44130,True,False,True,564,False,bot1,True,0,Died,5,8,2
+74,44130,True,False,True,671,False,sudden death,False,0,Died,4,8,1
+74,44130,True,False,True,970,False,sudden death,False,0,Died,3,8,4
+74,44130,True,False,True,1091,False,sudden death,False,0,Died,2,8,3
+74,44130,True,False,True,1091,False,,False,0,Won,1,8,6
+75,53614,True,False,True,207,False,Plague Rat,False,0,Died,8,8,4
+75,53614,True,False,False,668,False,sudden death,False,0,Died,7,8,0
+75,53614,True,False,True,688,False,bot2,True,0,Died,6,8,5
+75,53614,True,False,True,968,False,sudden death,False,0,Died,5,8,1
+75,53614,True,False,True,1088,False,sudden death,False,0,Died,4,8,6
+75,53614,True,False,True,1208,False,sudden death,False,0,Died,3,8,3
+75,53614,True,False,True,1327,False,sudden death,False,0,Died,2,8,7
+75,53614,True,False,True,1327,False,,False,0,Won,1,8,2
+76,53642,True,False,True,129,False,Bloatfly,False,0,Died,8,8,3
+76,53642,True,False,True,496,False,bot1,True,0,Died,7,8,4
+76,53642,True,False,True,671,False,sudden death,False,0,Died,6,8,2
+76,53642,True,False,True,967,False,sudden death,False,0,Died,5,8,6
+76,53642,True,False,True,1088,False,sudden death,False,0,Died,4,8,5
+76,53642,True,False,True,1208,False,sudden death,False,0,Died,3,8,1
+76,53642,True,False,True,1327,False,sudden death,False,0,Died,2,8,7
+76,53642,True,False,False,1327,False,,False,0,Won,1,8,0
+77,53743,True,False,True,33,False,Rot Monk,False,0,Died,8,8,2
+77,53743,True,False,True,284,False,Bloatfly,False,0,Died,7,8,7
+77,53743,True,False,True,667,False,sudden death,False,0,Died,6,8,1
+77,53743,True,False,True,962,False,sudden death,False,0,Died,5,8,6
+77,53743,True,False,True,1087,False,sudden death,False,0,Died,4,8,4
+77,53743,True,False,False,1211,False,sudden death,False,0,Died,3,8,0
+77,53743,True,False,True,1331,False,sudden death,False,0,Died,2,8,5
+77,53743,True,False,True,1331,False,,False,0,Won,1,8,3
+78,44039,True,False,True,207,False,Pox Behemoth,False,0,Died,8,8,2
+78,44039,True,False,True,415,False,bot4,True,0,Died,7,8,6
+78,44039,True,False,False,667,False,sudden death,False,0,Died,6,8,0
+78,44039,True,False,True,672,False,bot4,True,0,Died,5,8,1
+78,44039,True,False,True,873,False,bot4,True,0,Died,4,8,3
+78,44039,True,False,True,970,False,sudden death,False,0,Died,3,8,5
+78,44039,True,False,True,1087,False,sudden death,False,0,Died,2,8,7
+78,44039,True,False,True,1087,False,,False,0,Won,1,8,4
+79,48834,True,False,True,391,False,bot0,False,0,Died,8,8,3
+79,48834,True,False,False,492,False,Miasma Witch,False,0,Died,7,8,0
+79,48834,True,False,True,506,False,bot6,True,0,Died,6,8,1
+79,48834,True,False,True,670,False,sudden death,False,0,Died,5,8,5
+79,48834,True,False,True,966,False,sudden death,False,0,Died,4,8,2
+79,48834,True,False,True,1089,False,sudden death,False,0,Died,3,8,4
+79,48834,True,False,True,1207,False,sudden death,False,0,Died,2,8,7
+79,48834,True,False,True,1207,False,,False,0,Won,1,8,6
+80,44007,True,False,True,90,False,bot2,True,0,Died,8,8,4
+80,44007,True,False,False,149,False,Pox Behemoth,False,0,Died,7,8,0
+80,44007,True,False,True,462,False,bot7,True,0,Died,6,8,3
+80,44007,True,False,True,554,False,bot7,True,0,Died,5,8,6
+80,44007,True,False,True,665,False,sudden death,False,0,Died,4,8,7
+80,44007,True,False,True,969,False,sudden death,False,0,Died,3,8,2
+80,44007,True,False,True,1086,False,sudden death,False,0,Died,2,8,5
+80,44007,True,False,True,1086,False,,False,0,Won,1,8,1

@@ -79,7 +79,7 @@ namespace Roguehalla.Net.Ui
         }
         public static int DwellSeconds(string def)
         {
-            return def == "hold_the_fort" ? 45 : def == "stay_a_while" ? 30 : 0;
+            return def == "hold_the_fort" ? 35 : def == "stay_a_while" ? 30 : 0;
         }
         /// <summary>text when it is at most maxChars long; else its first maxChars - 1 characters, trailing spaces
         /// removed, and "…". Null gives "".</summary>

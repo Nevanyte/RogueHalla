@@ -328,6 +328,29 @@ namespace Roguehalla.Client.Tests
         }
 
         [Test]
+        public void TwoGiversInOneZoneShowTheTwoQuestNamesBeforeAcceptance()
+        {
+            var view = Deliver(new CollectionsView(), Quests(new[] {
+                Row(71, "Ember Walk", "Scorch quest giver", 64, 80, accepted: false),
+                Row(72, "Elite Slayer", "Scorch quest giver", 960, 480, "elite_slayer", accepted: false)
+            }, Array.Empty<WireQuestObjective>()));
+            _marks.Update(view, null, Step);
+            Assert.That(Labels(_root.transform, MarkLabel, "Ember Walk").Count, Is.EqualTo(1));
+            Assert.That(Labels(_root.transform, MarkLabel, "Elite Slayer").Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RemoteTurnInUsesTheDeliveredEndpointAndRespectsFog()
+        {
+            var view = Deliver(new CollectionsView(), Quests(new[] { Row(71, "Letters", "Archivist", 64, 80, "letters", ready: true) }, new[] { Pt(71, 320, 240) }));
+            _marks.Update(view, null, Step);
+            Assert.That(Labels(_root.transform, MarkLabel, "Turn in here").Count, Is.EqualTo(1));
+            Assert.That(Labels(_root.transform, MarkLabel, "Archivist").Count, Is.EqualTo(1));
+            _marks.Update(view, (x, y) => x < 200, Step);
+            Assert.That(Labels(_root.transform, MarkLabel, "Turn in here").Count, Is.Zero);
+        }
+
+        [Test]
         public void TurnInNamesFadeLikeAnyOther()
         {
             var view = Deliver(new CollectionsView(), Quests(new[] { Row(71, "Ember Walk", "Scorch quest giver", 64, 80, ready: true) }, new WireQuestObjective[0]));
