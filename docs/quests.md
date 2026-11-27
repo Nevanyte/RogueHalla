@@ -2,7 +2,7 @@
 
 ## Normal Rust and Unity raids
 
-The server deals ten quests during planning. Each zone contributes two randomly selected quests from its pool of five, so each individual quest has a 40% chance of appearing in a match. Everyone sees the same offers. The server checks that the starting givers and required sites are reachable before admitting the map.
+The server deals ten quests during planning. Each zone contributes two randomly selected quests from its pool of five, so each individual quest has a 40% chance of appearing in a match. During planning everyone sees one named quest per zone. When the raid starts all ten offers and their givers become public. The second giver in each zone is placed away from the first on reachable ground. The server checks that the starting givers and required sites are reachable before admitting the map.
 
 | Starting zone | Quest pool |
 | --- | --- |

@@ -420,6 +420,7 @@ impl MapBlob {
             h: self.h,
             layer_hash: self.layer_hash,
             semantic_hash: self.semantic_hash,
+            anchor_count: self.public.anchors.len(),
             body: w.finish().into_boxed_slice(),
         })
     }

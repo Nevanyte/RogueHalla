@@ -54,6 +54,10 @@ credited (`camps_normal`, `camps_elite`), `deaths`, `quests_completed`, `elite_k
 best-damage seat, the elite's killing-blow seat, the lab's own death and quest-completion counts, so the seats' sums
 equal the world totals.
 
+`world.normal_clear_secs_by_minute` retains every normal-camp duration in seconds, grouped by the raid minute at the
+start of each five-minute interval (0, 5, 10 and so on). It measures the credited seat's first landed hit through the
+clear. A fight interrupted by walking or another engagement can have a long elapsed time.
+
 A camp is elite when the observer has seen its elite alive: a camp whose elite nobody saw counts as normal
 (`camps_credited_normal`, `kill_secs_normal`; the elite share is the difference, `kill_secs_elite`). `kill_secs.n` can be
 below `camps_credited`. `world.elite_kills_credited` is every elite death the sim credits to a seat (the seats'
@@ -168,3 +172,64 @@ duel equivalence (P-BAL-LAB-2); their entries carry no number.
 To change one number, edit its line in `inputs.json`, keep the JSON valid, and run
 `cargo test -p rh-headless --test balance_inputs --test balance_eval`. The `balance_inputs` test tables pin each number
 exactly, so a design change edits both files in the same reviewed change.
+
+## Faction farming and fight timing
+
+The [raid routing and TTK report](../../docs/evidence/raid-routing-ttk/README.md) compares the ten authored builds against nearest-camp and random-nearby farming. Run from the project root. Each route seed reuses the map, focal seat, build and seven opposing RaidBots. The fourth arm runs the current unmodified RaidBot. The lab feature is enabled only for the route experiment.
+
+```sh
+mkdir -p .agent-runs/route-repro
+cargo build --locked --release -p rh-headless --features strategy-route-lab,elite-bench --bins
+target/release/strategy_route_lab 100 1 > .agent-runs/route-repro/primary.jsonl 2> .agent-runs/route-repro/results.jsonl
+target/release/strategy_route_lab 10 1 live > .agent-runs/route-repro/live.jsonl 2> .agent-runs/route-repro/live-results.jsonl
+target/release/strategy_route_lab 60 41 local-target > .agent-runs/route-repro/bounded.jsonl 2> .agent-runs/route-repro/bounded-results.jsonl
+cat .agent-runs/route-repro/primary.jsonl .agent-runs/route-repro/live.jsonl .agent-runs/route-repro/bounded.jsonl > .agent-runs/route-repro/snapshots.jsonl
+cat .agent-runs/route-repro/results.jsonl .agent-runs/route-repro/live-results.jsonl .agent-runs/route-repro/bounded-results.jsonl > .agent-runs/route-repro/resolutions.jsonl
+python3 tools/balance-lab/route_comparison.py .agent-runs/route-repro/snapshots.jsonl target/release/camp_bench .agent-runs/route-repro --resolutions .agent-runs/route-repro/resolutions.jsonl
+python3 tools/balance-lab/route_comparison.py .agent-runs/route-repro/snapshots.jsonl target/release/camp_bench .agent-runs/route-repro/bounded --target-arm local-target --resolutions .agent-runs/route-repro/resolutions.jsonl
+python3 tools/balance-lab/farm_stat_screen.py target/release/camp_bench .agent-runs/route-repro
+target/release/strategy_ttk --seeds 1..81 --out .agent-runs/route-repro/field
+python3 tools/balance-lab/field_ttk_report.py .agent-runs/route-repro .agent-runs/route-repro/field/field-ttk.json --chart
+```
+
+The farm comparison uses the same weapon and faction on both sides, runs each kit on both sides and records simultaneous kills and timeouts. The first comparison carries the mob stacks and credited camp clears actually earned by that raid minute. The second gives both kits the lower stack budget and clear count, retaining each route's stat proportions with largest-remainder rounding. Each exchange uses either attacks alone or attacks with the faction Wish. Both commander seats start with one zombie. The Wish-enabled exchange also times first damage on the first fighter to die through their death. Timeouts stay unmeasured. The separate nine-stat screen exchanges the next twelve earned stacks for each alternative at two fixed baseline investments.
+
+## Quest and elite balance
+
+The [quest and elite report](../../docs/evidence/quest-elite-balance/README.md) uses the same 80 seeded 40 Hz raids as the farming study. Run these commands from the repository root. The optional six-seed replay measures time spent using the weapon required for Bastion or Calluses. The normal and elite field series use the same 10-second break in contact to end an encounter.
+
+```sh
+d=.agent-runs/quest-elite-repro
+mkdir -p "$d"
+cargo build --locked --release -p rh-headless --features elite-bench --bins
+target/release/quest_balance 1 81 > "$d/quests.jsonl"
+target/release/strategy_ttk --seeds 1..81 --out "$d/timing"
+python3 tools/balance-lab/quest_balance_report.py "$d/quests.jsonl" --expect-seeds 1..81 --field "$d/timing/field-ttk.json" --csv "$d/quest_funnel.csv" > "$d/quest-summary.json"
+target/release/elite_field --seeds 1..81 --out "$d/elites.json"
+python3 tools/balance-lab/elite_field_report.py "$d/elite-report" "$d/elites.json" --chart
+target/release/augment_field 1 81 > "$d/augments.jsonl"
+target/release/camp_bench --pvp --reward-catalog > "$d/catalog.json"
+for seed in 2 11 21 31 41 71; do
+    target/release/augment_field "$seed" "$((seed + 1))" > "$d/exposure-$seed.jsonl"
+done
+python3 tools/balance-lab/augment_field_report.py "$d/augments.jsonl" --catalog "$d/catalog.json" --baseline "$d/quests.jsonl" --elite-events "$d/elites.json" --exposure "$d"/exposure-*.jsonl --expect-seeds 1..81 --csv "$d/augment_growth.csv" > "$d/utility.json"
+python3 tools/balance-lab/elite_loadout_report.py "$d/augments.jsonl" "$d/timing/field-ttk.json" "$d/elite_loadouts.csv"
+python3 tools/balance-lab/elite_pair_timing.py target/release/camp_bench "$d/pair_ttk_samples.csv" "$d/paired_cards_ttk.csv"
+python3 tools/balance-lab/reward_matchups.py augments target/release/camp_bench "$d"
+python3 tools/balance-lab/reward_matchups.py augments target/release/camp_bench "$d" --cost-ladder
+python3 tools/balance-lab/reward_matchups.py quests target/release/camp_bench "$d"
+python3 tools/balance-lab/reward_matchups.py quests target/release/camp_bench "$d" --follow
+python3 tools/balance-lab/reward_matchups.py quests target/release/camp_bench "$d" --follow --cost-ladder
+target/release/camp_bench --elite --fighter duelist --seed 1 --seeds 3 --jobs 4 --weapon sword,bow > "$d/controlled-elites.json"
+python3 tools/balance-lab/elite_solo_report.py "$d/controlled-elites.json" "$d/elite_solo.csv"
+cargo test --locked --release -p rh-sim --lib all_twenty_five_quests_complete_at_the_live_40_hz_step
+cargo test --locked --release -p rh-headless --features elite-bench --bin camp_bench farm_mirrors::tests
+```
+
+The solo elite bench uses its existing 20 Hz fixture and a 90-second cutoff. The 40 Hz field measurements are the primary timings for the playable alpha. The reward comparisons read the previously measured preferred stat for each build from the [farming screen](../../docs/evidence/raid-routing-ttk/stat_summary.csv). A single-camp alternative credits twelve preferred-stat stacks and a clear. The cost ladder repeats the comparison for two, four and eight such clears.
+
+## Controlled solo elite clear times
+
+Build `camp_bench` with `elite-bench` as above. For seed 21, `target/release/camp_bench --elite --pace-pairs 21 > seed21.json` generates fresh, paired camps. Run it for seeds 21 through 30 in a dedicated directory, then, from the repository root, run `python3 tools/balance-lab/elite_pace_report.py .agent-runs/elite-pairs/summary.csv .agent-runs/elite-pairs/seed*.json` for files in `.agent-runs/elite-pairs`. The score divides elite by normal full-clear time within each pair where both camps cleared. Each row also records all attempts, successes and deaths so a slower camp that eliminates the fighter stays visible.
+
+The 40 Hz duel controller uses the same faction, weapon, normal-camp stat draw and map seed in both encounters. It selects a natural normal camp in the same zone, preferring the same base mob type. Fresh camps start at active minutes 0, 6, 10, 15 and 20 with the stat payouts from 6, 9, 15, 20 and 25 normal clears respectively. Both fighters start with zero prior clear-counter credit in this fixture. At minutes 15 and 20 both sides receive Machine Gun and Committed according to the late-loadout comparison. Both encounters start with a fresh player and full camp roster. The timer starts when the fighter first damages that roster, and the 180-second limit begins when the fighter starts its approach. The fighter uses its Wish, with terrain damage and natural regeneration disabled.

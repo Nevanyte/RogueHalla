@@ -1,0 +1,62 @@
+{
+  "hash": "cb811d19ebed6dfe",
+  "server_sha256": "c28298e4d828727127a906f280da856232e116095cc3653247105224dd926b0c",
+  "manifest_sha256": "6e1fd405867ccbbcc3ba7e668db698d228e30720dcf14e3f6635c7ae6fac6be1",
+  "prior_hash": "13a89cbaff80132f",
+  "previous_lobby": {
+    "onlineCount": 0,
+    "arenaRoomCount": 0
+  },
+  "ready": true,
+  "protocol": 24,
+  "web_assets": [
+    {
+      "name": "index.html",
+      "sha256": "70cb23c7e208481afb94a400bb14a11d177c1a6b1a4034a7d8b0ee1e4777e748"
+    },
+    {
+      "name": "Web.data",
+      "sha256": "4d6fe88cfcb9b7abd492c677b3892a98c7317e78e8f9ce4a2af6b1febf846c1b"
+    },
+    {
+      "name": "Web.framework.js",
+      "sha256": "73d7fe6c0731b32d8e76cf820cbbbd12f08579cb3d58981825dc2568799f4f4d"
+    },
+    {
+      "name": "Web.loader.js",
+      "sha256": "8a3045edd7edcc14072d8b8fe8696838f2a188027bfad4e28b8564f7a8d50f83"
+    },
+    {
+      "name": "Web.wasm",
+      "sha256": "5f90e03293263043f9a7810655646b702dfac7baa7479be30189447b7e727003"
+    }
+  ],
+  "staging": {
+    "report_sha256": "2d33c801fd6209595657750a54b83db1103e0646e9c3d05eb343580feff7edf6",
+    "planning": 5,
+    "planning_hidden": 5,
+    "raid": 10,
+    "raid_hidden": 0,
+    "page_errors": 0,
+    "decoder_errors": 0,
+    "console_errors": 0,
+    "failed_requests": 0,
+    "tuned_copy_seen": [
+      "Let Him Cook"
+    ]
+  },
+  "live": {
+    "report_sha256": "ba7a33f9b739520e75a3bcf60e06a833b56a0679a12b2a6beb965829ec5ba73d",
+    "planning": 5,
+    "planning_hidden": 5,
+    "raid": 10,
+    "raid_hidden": 0,
+    "page_errors": 0,
+    "decoder_errors": 0,
+    "console_errors": 0,
+    "failed_requests": 0,
+    "tuned_copy_seen": [
+      "Hold the Fort"
+    ]
+  }
+}

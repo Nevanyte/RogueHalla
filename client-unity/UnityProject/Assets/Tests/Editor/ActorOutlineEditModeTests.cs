@@ -71,6 +71,24 @@ namespace Roguehalla.Client.Tests
             Assert.That(SpriteOutline.SharedMaterial, Is.Not.Null);
         }
 
+        [Test] public void QuestGiversShareThePaintedArchivistAcrossFacings()
+        {
+            var archivist = Resources.Load<Sprite>("StormInk/Actors/QuestArchivist");
+            Assert.That(archivist, Is.Not.Null);
+            _presenter.Begin();
+            for (uint i = 0; i < 2; i++)
+                _presenter.Present(70 + i, 640 + i * 90, 640, i * Mathf.PI, 100, null, ActorStatus.Alive,
+                    null, ActorKind.QuestGiver, null, 0, 0, false);
+            _presenter.End();
+            for (int i = 0; i < 2; i++)
+            {
+                var body = Find(Root(i), "Authored character");
+                Assert.That(body.sprite, Is.SameAs(archivist));
+                Assert.That(body.sprite.pivot.y, Is.Zero);
+                Assert.That(body.transform.localScale.x, Is.EqualTo(body.transform.localScale.y));
+            }
+        }
+
         [Test] public void EveryActorKindHasAnOpaqueOutlineUnderItsBody()
         {
             var kinds = new[] { ActorKind.Player, ActorKind.RegionalMob, ActorKind.Zombie, ActorKind.TrainingDummy, ActorKind.QuestGiver };

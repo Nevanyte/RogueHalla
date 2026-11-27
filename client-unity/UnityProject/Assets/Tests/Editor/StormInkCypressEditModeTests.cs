@@ -76,6 +76,38 @@ namespace Roguehalla.Client.Tests
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }
 
+        [Test]
+        public void PlagueAnchorActivatesItsAuthoredGroundWashAcrossTheRegionGround()
+        {
+            var map = Map(0, AnchorCase.Valid, out _);
+            var root = new GameObject("Plague ground wash witness");
+            try
+            {
+                var plague = PlagueGround.Build(map);
+                Assert.That(plague.MudTiles + plague.GrassTiles + plague.WaterTiles, Is.GreaterThan(0), "Plague floor has its distinct mud, grass and shallow-water classification");
+                using var ground = RegionGround.Create(root.transform, map, 1f, plague: plague);
+                Assert.That(ground.Material.GetFloat("_StormMarshOn"), Is.EqualTo(1f), "the delivered cypress activates the authored watercolor marsh path");
+                Assert.That(ground.Material.GetTexture("_StormMarshWash"), Is.Not.Null, "active Plague ground must bind its ink wash");
+                Assert.That(ground.Material.GetTexture("_PlgTex"), Is.Not.Null, "the full map carries the Plague coverage plane");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void PlagueWithoutDeliveredAnchorKeepsTheGenericGroundFallback()
+        {
+            var map = Map(0, AnchorCase.Undelivered, out _);
+            var root = new GameObject("Plague fallback ground witness");
+            try
+            {
+                var plague = PlagueGround.Build(map);
+                using var ground = RegionGround.Create(root.transform, map, 1f, plague: plague);
+                Assert.That(ground.Material.GetFloat("_StormMarshOn"), Is.EqualTo(0f), "the authored cypress wash requires its delivered signature anchor");
+                Assert.That(ground.Material.GetTexture("_GroundTex"), Is.Not.Null, "the existing generic region ground remains available without the anchor");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
         public enum AnchorCase { Valid, Undelivered, WrongZone, OffMap, SmallFootprint, ThinTrunk }
 
         [TestCase(AnchorCase.Undelivered)]

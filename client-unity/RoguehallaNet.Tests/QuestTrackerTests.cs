@@ -121,16 +121,16 @@ namespace Roguehalla.Net.Tests
         [Test]
         public void Progress()
         {
-            var view = Quests(Row(1, ready: true, def: "hold_the_fort", progress: 45), Row(2, def: "hold_the_fort", progress: 12),
+            var view = Quests(Row(1, ready: true, def: "hold_the_fort", progress: 35), Row(2, def: "hold_the_fort", progress: 12),
                 Row(3, def: "stay_a_while", progress: 7), Row(4, def: "barrow_run", progress: 3), Row(5, def: "barrow_run", progress: 0));
             var rows = new Dictionary<uint, QuestRowView>();
             foreach (var r in view.Rows) rows[r.Handle.Value] = r;
             Assert.AreEqual("Turn in", QuestTracker.Progress(rows[1]));
-            Assert.AreEqual("12 / 45 s", QuestTracker.Progress(rows[2]));
+            Assert.AreEqual("12 / 35 s", QuestTracker.Progress(rows[2]));
             Assert.AreEqual("7 / 30 s", QuestTracker.Progress(rows[3]));
             Assert.AreEqual("3", QuestTracker.Progress(rows[4]));
             Assert.AreEqual("", QuestTracker.Progress(rows[5]));
-            Assert.AreEqual(45, QuestTracker.DwellSeconds("hold_the_fort"));
+            Assert.AreEqual(35, QuestTracker.DwellSeconds("hold_the_fort"));
             Assert.AreEqual(30, QuestTracker.DwellSeconds("stay_a_while"));
             Assert.AreEqual(0, QuestTracker.DwellSeconds("barrow_run"));
             Assert.AreEqual(0, QuestTracker.DwellSeconds(null));

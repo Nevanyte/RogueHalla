@@ -1,0 +1,100 @@
+{
+  "maps": 80,
+  "offers": 35,
+  "accepted": 29,
+  "paid": 29,
+  "priced": 29,
+  "failed_route_cost_neutral_ce": 0.0,
+  "focal_deaths": 74,
+  "focal_deaths_before_5m": 0,
+  "bargain_attempt_deaths": 0,
+  "payments": {
+    "armor": 2,
+    "max_hp": 13,
+    "ability_power": 4,
+    "attack_speed": 1,
+    "shield": 2,
+    "lifesteal": 4,
+    "movement": 1,
+    "attack_damage": 1,
+    "damage": 1
+  },
+  "received": {
+    "ability_power": 14,
+    "attack_damage": 10,
+    "armor": 5
+  },
+  "timings": {
+    "quest": "the_bargain",
+    "reward": "TheBargain",
+    "observations": 29,
+    "approach_s_p50": 10.35,
+    "objective_s_p50": 10.025,
+    "route_s_p50": 18.025,
+    "concurrent_normal_clears": 0,
+    "cost_basis": "field_iqr",
+    "net_cost_range_low_ce": 0.154,
+    "net_cost_range_high_ce": 0.633,
+    "route_cost_normal_camps_p50": 0.432,
+    "unsuccessful_only_route_cost_total": 0.0,
+    "expected_cost_per_paid_camp_mean": 0.475,
+    "trade_up_cashouts": null,
+    "trade_up_top_route_cost_mean": null
+  },
+  "opportunity": {
+    "neutral": {
+      "spread_below_in_above": [
+        9,
+        2,
+        18
+      ],
+      "median_paid_multiple": 1.9727891156462587,
+      "map_bootstrap_95pct": [
+        1.2368585146076225,
+        2.3840617965935325
+      ],
+      "paid_route_cost_ce": 13.764000000000001,
+      "fit_gain_ce": 23.066666666666674,
+      "multiple_before_failed_spend": 1.675869417804902,
+      "multiple_including_failed_neutral": 1.675869417804902,
+      "including_failed_low_multiple": 1.675869417804902,
+      "including_failed_high_multiple": 1.675869417804902
+    },
+    "remaining_nearby": {
+      "spread_below_in_above": [
+        9,
+        2,
+        18
+      ],
+      "median_paid_multiple": 2.54980079681275,
+      "map_bootstrap_95pct": [
+        1.1358953342597975,
+        2.5085625915273098
+      ],
+      "paid_route_cost_ce": 14.097450000000002,
+      "fit_gain_ce": 23.066666666666674,
+      "multiple_before_failed_spend": 1.63622972003211,
+      "multiple_including_failed_neutral": 1.63622972003211,
+      "including_failed_low_multiple": 1.63622972003211,
+      "including_failed_high_multiple": 1.63622972003211
+    },
+    "full_nearby": {
+      "spread_below_in_above": [
+        9,
+        3,
+        17
+      ],
+      "median_paid_multiple": 2.0356234096692116,
+      "map_bootstrap_95pct": [
+        1.2407393611689441,
+        2.4061731767238874
+      ],
+      "paid_route_cost_ce": 13.720600000000001,
+      "fit_gain_ce": 23.066666666666674,
+      "multiple_before_failed_spend": 1.6811704055702135,
+      "multiple_including_failed_neutral": 1.6811704055702135,
+      "including_failed_low_multiple": 1.6811704055702135,
+      "including_failed_high_multiple": 1.6811704055702135
+    }
+  }
+}

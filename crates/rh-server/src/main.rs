@@ -11,7 +11,7 @@
 //!       [--alpha-metrics-dir <dir> --alpha-metrics-key-file <file>] [--alpha-replay-dir <dir>]
 //!       [--alpha-capture-recipient <age1...>]   (source-arena only, either stream opts in separately)
 //!       [--bot-learning off|single-writer]   (default off; single-writer needs PostgreSQL and its exclusive lease)
-//!       [--bot-brain off|full]   (default off: fill bots play HumanBot; full seats the ported Brain, HumanBot as its fallback)
+//!       [--bot-brain off|full|raid]   (HumanBot by default, or a budgeted BrainBot/RaidBot with HumanBot fallback)
 //!       [--new-profiles-per-hour 30] [--new-profiles-per-ip-per-hour 10] [--passcode-fails-per-minute 6]
 //!       [--passcode-fails-per-minute-all 40] [--shop-burst 6] [--shop-per-second 3]
 //!       [--lookup-burst 40] [--lookup-per-second 20] [--api-db-concurrency 6] [--api-timeout-secs 10]
@@ -182,7 +182,8 @@ async fn main() {
             walk_hints: None,
             regen: false,
             quests: false,
-            top25_quests: false,
+            combat_pace: rh_sim::CombatPace::Legacy,
+            quest_board: rh_sim::statics::QuestBoard::Off,
             training: false,
             dummies: false,
             hazards: rh_sim::terrain::Mode::Off,
@@ -388,7 +389,7 @@ async fn main() {
         eprintln!("[server] invalid lobby timing: {e}");
         std::process::exit(2);
     });
-    // P-BOT-BRAIN-LIVE-1: `--bot-brain full` seats the ported Brain (degraded fair profile) for fill bots; off by default.
+    // The alpha can explicitly select RaidBot or the ported Brain; both use the real fill-seat contract.
     bot_fill.brain = rh_server::bot_fill::bot_brain_flag(&args).unwrap_or_else(|e| {
         eprintln!("[server] invalid bot brain: {e}");
         std::process::exit(2);

@@ -35,9 +35,20 @@ fn arena() -> crate::Arena {
     }
 }
 
+fn full_arena() -> crate::Arena {
+    let export: crate::mapdata::MapExport =
+        serde_json::from_str(include_str!("../mapdata/fixtures/seed1.map.json")).unwrap();
+    export.validate().unwrap().into_arena().unwrap()
+}
+
 fn sim() -> Sim {
+    sim_rule(crate::CampBuffRule::Legacy, 3)
+}
+
+fn sim_rule(camp_buffs: crate::CampBuffRule, seed: u64) -> Sim {
     let mut sim = Sim::new(
         SimConfig {
+            camp_buffs,
             consumables: true,
             initial_loot: true,
             mob_mode: MobMode::Pve,
@@ -45,8 +56,12 @@ fn sim() -> Sim {
             fill_seconds: 0.0,
             ..Default::default()
         },
-        arena(),
-        Secrets::from_seed(3),
+        if camp_buffs == crate::CampBuffRule::ThemedFocus {
+            full_arena()
+        } else {
+            arena()
+        },
+        Secrets::from_seed(seed),
     );
     for i in 0..3 {
         sim.add_player(&format!("p{i}"), Some(FactionId::Fire), false);
@@ -55,6 +70,98 @@ fn sim() -> Sim {
     assert!(sim.w.mob_runtime.is_some(), "the PvE world publishes camps");
     sim.w.server_time = 1000.0;
     sim
+}
+
+#[test]
+fn focus_clear_requires_near_eligible_contributor_and_is_single_use() {
+    let mut sim = (1..=100)
+        .map(|seed| sim_rule(crate::CampBuffRule::ThemedFocus, seed))
+        .find(|s| crate::systems::farm_focus::eligible_camp(&s.w, 0, FactionId::Fire))
+        .expect("one fixture roll must pay Fire damage");
+    sim.check_layout()
+        .expect("fresh focus world has valid layout");
+    let id = sim.w.players[0].id;
+    let first = 0;
+    let paid = {
+        let rt = sim.w.mob_runtime.as_ref().unwrap();
+        rt.buffs.0[first as usize].unwrap_or(rt.camps[first as usize].mob_type)
+    };
+    assert_eq!(
+        crate::systems::farm_focus::bonus(&sim.w, id, first, paid),
+        0
+    );
+    let at = centre(&sim, first);
+    place(&mut sim, 0, at);
+    sim.w.mob_runtime.as_mut().unwrap().life[first as usize]
+        .contributors
+        .push(id);
+    fire(&mut sim, first, &mut Vec::new());
+    assert_eq!(
+        sim.w.players[0].last_route_camp,
+        Some(crate::state::RouteOrigin(first))
+    );
+    sim.check_layout()
+        .expect("armed route has valid tagged layout");
+    let checkpoint = serde_json::to_value(&sim).unwrap();
+    assert_eq!(
+        checkpoint["statics"]["config"]["camp_buffs"],
+        "themed_focus"
+    );
+    let restored = Sim::restore(&checkpoint).expect("focus clear survives checkpoint validation");
+    assert_eq!(restored.state_hash(), sim.state_hash());
+    restored.check_layout().expect("restored route layout");
+    assert_eq!(
+        restored.w.players[0].last_route_camp,
+        Some(crate::state::RouteOrigin(first))
+    );
+    let mut without_focus = checkpoint.clone();
+    without_focus["world"]["players"][0]["last_route_camp"] = serde_json::Value::Null;
+    let without_focus = Sim::restore(&without_focus).expect("unarmed focus state is valid");
+    assert_ne!(without_focus.state_hash(), sim.state_hash());
+    without_focus.check_layout().expect("unarmed route layout");
+    let mut invalid = checkpoint.clone();
+    invalid["world"]["players"][0]["last_route_camp"] = serde_json::json!(u32::MAX);
+    assert!(
+        Sim::restore(&invalid).is_err(),
+        "unknown route origin is refused"
+    );
+    assert_eq!(
+        crate::systems::farm_focus::bonus(&sim.w, id, first, paid),
+        0
+    );
+    fire(&mut sim, first, &mut Vec::new());
+    assert_eq!(
+        sim.w.players[0].camps_cleared, 1,
+        "consumed contributors pay only once"
+    );
+    let far = far_point(&sim, first, centre(&sim, first));
+    place(&mut sim, 0, far);
+    sim.w.mob_runtime.as_mut().unwrap().life[first as usize]
+        .contributors
+        .push(id);
+    fire(&mut sim, first, &mut Vec::new());
+    assert_eq!(
+        sim.w.players[0].last_route_camp,
+        Some(crate::state::RouteOrigin(first)),
+        "remote clear is ineligible"
+    );
+}
+
+#[test]
+fn absent_route_origin_preserves_legacy_checkpoint_hash() {
+    let sim = sim();
+    sim.check_layout().expect("legacy world layout");
+    let before = sim.state_hash();
+    let mut old = serde_json::to_value(&sim).unwrap();
+    for p in old["world"]["players"].as_array_mut().unwrap() {
+        assert!(p.get("last_route_camp").is_none());
+        p.as_object_mut()
+            .unwrap()
+            .insert("last_route_camp".into(), serde_json::Value::Null);
+    }
+    let restored = Sim::restore(&old).expect("old unarmed world restores");
+    restored.check_layout().expect("restored old world layout");
+    assert_eq!(restored.state_hash(), before);
 }
 
 fn centre(sim: &Sim, camp: u32) -> Vec2 {

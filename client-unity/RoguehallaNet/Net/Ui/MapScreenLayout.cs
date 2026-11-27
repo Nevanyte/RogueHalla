@@ -18,14 +18,14 @@ namespace Roguehalla.Net.Ui
     /// <summary>
     /// Layout of the full-screen map (the held Tab map and the planning screen), modelled on legacy <c>planning.css</c> /
     /// <c>mapRoster.css</c>: the map is a square, flanked by two columns (Tab: roster/key on the left, weapon guide and quests on the
-    /// right; planning: one 340 wide decision column) and the whole block is centred, so there is no letterbox beside the square.
+    /// right; planning: a quest board on the left and a 340 wide decision column on the right). The block is centred, so there is no letterbox beside the square.
     /// Below 900 units wide the columns stack under the map. Pure; every number is in HUD units.
     /// </summary>
     public readonly struct MapScreenLayout
     {
         public const float SheetPad = 12f;
         public const float Pad = 12f, Gap = 12f, FramePad = 4f, TitleHeight = 34f, TabLegendHeight = 30f, PlanningTitleHeight = 40f, PlanningNoteHeight = 52f;
-        public const float StackBelow = 900f, ChromeClear = 44f, PlanningColumn = 340f;
+        public const float StackBelow = 900f, ChromeClear = 44f, PlanningColumn = 340f, PlanningQuestColumn = 260f;
         public const float MapMin = 240f, MapMax = 820f;
 
         public readonly MapScreenMode Mode;
@@ -42,7 +42,7 @@ namespace Roguehalla.Net.Ui
         public readonly MapRect Map;
         /// <summary>The strip under the map: the zone legend (Tab) or the route summary (planning).</summary>
         public readonly MapRect Legend;
-        /// <summary>Tab: roster/key column (the whole block starts below the top-right chrome, 44 units down). Planning: unused (zero width).</summary>
+        /// <summary>Tab: roster/key column (the whole block starts below the top-right chrome, 44 units down). Planning: the left public quest board.</summary>
         public readonly MapRect Left;
         /// <summary>Tab: weapon guide and quest column. Planning: the decision column.</summary>
         public readonly MapRect Right;
@@ -121,22 +121,30 @@ namespace Roguehalla.Net.Ui
                 var frame = new MapRect(x, title.Bottom + Gap / 2f, fw, fw);
                 var note = new MapRect(x, frame.Bottom + Gap / 2f, fw, PlanningNoteHeight);
                 float sideTop = note.Bottom + Gap;
-                var column = new MapRect(Pad, sideTop, avail, Math.Max(80f, h - Pad - sideTop));
-                return new MapScreenLayout(MapScreenMode.Planning, true, title, frame, note, new MapRect(0, 0, 0, 0), column, new MapRect(Pad, y, avail, h - y - Pad));
+                float railWidth = Math.Max(0f, avail - Gap);
+                float questWidth = Math.Min(PlanningQuestColumn, (float)Math.Floor(railWidth / 3f));
+                float railHeight = Math.Max(80f, h - Pad - sideTop);
+                var quests = new MapRect(Pad, sideTop, questWidth, railHeight);
+                var decisions = new MapRect(quests.Right + Gap, sideTop, railWidth - questWidth, railHeight);
+                return new MapScreenLayout(MapScreenMode.Planning, true, title, frame, note, quests, decisions,
+                    new MapRect(Pad, y, avail, h - y - Pad));
             }
             float fixedH = PlanningTitleHeight + Gap + Gap + PlanningNoteHeight + FramePad * 2f;
-            float sideMax = (float)Math.Floor(Math.Min(h - ChromeClear - Pad - fixedH, w - PlanningColumn - Pad * 2f - Gap - FramePad * 2f));
+            float sideMax = (float)Math.Floor(Math.Min(h - ChromeClear - Pad - fixedH,
+                w - PlanningQuestColumn - PlanningColumn - Pad * 2f - Gap * 2f - FramePad * 2f));
             float mapSide = Clamp(sideMax, 260f, 780f);
             float frameW = mapSide + FramePad * 2f;
-            float totalW = frameW + Gap + PlanningColumn;
+            float totalW = PlanningQuestColumn + Gap + frameW + Gap + PlanningColumn;
             float colH = PlanningTitleHeight + Gap + frameW + Gap + PlanningNoteHeight;
             float bx = (float)Math.Floor((w - totalW) / 2f);
             float by = (float)Math.Max(ChromeClear, Math.Floor((h - colH) / 2f + ChromeClear / 4f));
-            var title2 = new MapRect(bx, by, frameW, PlanningTitleHeight);
-            var frame2 = new MapRect(bx, by + PlanningTitleHeight + Gap, frameW, frameW);
-            var note2 = new MapRect(bx, frame2.Bottom + Gap, frameW, PlanningNoteHeight);
-            var column2 = new MapRect(bx + frameW + Gap, by, PlanningColumn, colH);
-            return new MapScreenLayout(MapScreenMode.Planning, false, title2, frame2, note2, new MapRect(0, 0, 0, 0), column2, new MapRect(bx, by, totalW, colH));
+            var left2 = new MapRect(bx, by, PlanningQuestColumn, colH);
+            float mapX = left2.Right + Gap;
+            var title2 = new MapRect(mapX, by, frameW, PlanningTitleHeight);
+            var frame2 = new MapRect(mapX, by + PlanningTitleHeight + Gap, frameW, frameW);
+            var note2 = new MapRect(mapX, frame2.Bottom + Gap, frameW, PlanningNoteHeight);
+            var column2 = new MapRect(frame2.Right + Gap, by, PlanningColumn, colH);
+            return new MapScreenLayout(MapScreenMode.Planning, false, title2, frame2, note2, left2, column2, new MapRect(bx, by, totalW, colH));
         }
     }
 }

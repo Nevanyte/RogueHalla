@@ -8,7 +8,7 @@
 //! - the three batch tables hold their own batches' cards, and no pool or offer reads them yet (P-WIRE19-A);
 //! - `trusted_build::apply` refuses a native card outside Rework; `MAX_FOLD_ROWS` covers every card of both tables.
 use super::exemplars_tests::{
-    attack, flight_range, give, hits, lane, seat, send, wait_ready, world,
+    attack, flight_range, give, hits, lane, seat, send, slot, wait_ready, world,
 };
 use super::hooks::{trace, NativeHook};
 use crate::cards::{CardId, CardRow};
@@ -184,6 +184,30 @@ fn ranged_hooks_fire_once_per_landed_hit_for_holders_only() {
             );
         }
     }
+}
+
+/// A wand's nearby splash is a derived ledger entry. It is publicly reported as damage, but it must not advance
+/// Eighth Strike or fire a second native hit hook (legacy `world.ts` derived and `cardHooks.ts` isWeaponHit).
+#[test]
+fn wand_splash_is_damage_but_not_a_second_native_weapon_hit() {
+    let mut sim = world(
+        AugmentRule::Rework,
+        &[
+            seat("holder", Vec2::new(300., 320.), Some(WeaponId::Wand), None),
+            seat("primary", Vec2::new(400., 320.), None, None),
+            seat("splash", Vec2::new(400., 344.), None, None),
+        ],
+    );
+    give(&mut sim, PlayerId(1), CardId::EighthStrike);
+    trace::take();
+    let ev = attack(&mut sim, PlayerId(1), 0., 40);
+    assert_eq!(hits(&ev, PlayerId(1), PlayerId(2)).len(), 1);
+    assert_eq!(hits(&ev, PlayerId(1), PlayerId(3)).len(), 1);
+    assert_eq!(
+        tally(&trace::take(), PlayerId(1)),
+        expect(&[(NativeHook::HitCount, 1)])
+    );
+    assert_eq!(slot(&sim, PlayerId(1), CardId::EighthStrike).counter, 1.);
 }
 
 /// Fists: a holder's punches fire `FistHit` and `HitCount` once each per landed hit; a non-holder's fire nothing.

@@ -117,6 +117,7 @@ fn frame(
                 zone: c.zone,
                 elite_spot: c.elite_spot,
                 mob_type: 0,
+                reward_stat: None,
                 elite: row.and_then(|r| r.1),
                 alive: row.map_or(0, |r| r.2),
                 state: 0,

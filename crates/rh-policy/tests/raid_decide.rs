@@ -14,6 +14,8 @@ use rh_policy::bots::{PersonaId, RaidBot, TierId};
 use rh_policy::{drive_seats_with, feed_seats, scripted, MatchStart, Policy, Seat, SeatStats};
 use rh_sim::abilities::Slot;
 use rh_sim::mob_catalog::MobTypeId;
+use rh_sim::mob_runtime::MobMode;
+use rh_sim::quests::{board::catalog::QuestId, public_rules};
 use rh_sim::trusted_build::{apply, TrustedBuild};
 use rh_sim::{
     Arena, ArenaMode, Event, FactionId, ItemObserver, Observation, Placement, PlayerId,
@@ -228,8 +230,17 @@ enum Stage {
 
 impl Script {
     fn new(seed: u64, start: Vec2, weapons: [Option<WeaponId>; 2]) -> Self {
+        Self::with_config(seed, start, weapons, config())
+    }
+
+    fn with_config(
+        seed: u64,
+        start: Vec2,
+        weapons: [Option<WeaponId>; 2],
+        config: SimConfig,
+    ) -> Self {
         let sim = Sim::reset_active(
-            config(),
+            config,
             arena_of(seed),
             Secrets::from_seed(seed),
             &placement(start, weapons),
@@ -625,7 +636,17 @@ fn bargain_world(seed: u64, gift: &Gift) -> Script {
     let giver = giver_of(seed, "the_bargain");
     let arena = arena_of(seed);
     let weapons = [Some(WeaponId::Sword), gift.spare.then_some(WeaponId::Axe)];
-    let mut s = Script::new(seed, start_near(&arena, giver), weapons);
+    // Keep the real board, public movement and turn-in. Normal mobs could fund
+    // a second, profitable trade or add stacks that obscure the exact receipt.
+    let mut s = Script::with_config(
+        seed,
+        start_near(&arena, giver),
+        weapons,
+        SimConfig {
+            mob_mode: MobMode::Off,
+            ..config()
+        },
+    );
     if !gift.stacks.is_empty() {
         apply(
             &mut s.sim,
@@ -640,14 +661,13 @@ fn bargain_world(seed: u64, gift: &Gift) -> Script {
     s
 }
 
-fn outcome(s: &Script, reads: &[Snap]) -> Outcome {
+fn outcome(s: &Script) -> Outcome {
     let player = s.sim.player(s.me).expect("seated");
-    let accepted = reads.iter().any(|r| r.accepted.contains("the_bargain"));
-    // The row leaves the view when the quest is paid; "completed" is an accepted row that is gone at the end.
-    let completed = accepted
-        && !reads
-            .last()
-            .is_some_and(|r| r.accepted.contains("the_bargain"));
+    let completed = s
+        .sim
+        .quest_attempts(s.me)
+        .iter()
+        .any(|attempt| attempt.quest == QuestId::TheBargain && attempt.completed);
     Outcome {
         completed,
         ember_imp: player.farm.count(MobTypeId::EmberImp),
@@ -659,12 +679,8 @@ fn outcome(s: &Script, reads: &[Snap]) -> Outcome {
 /// The control: no policy. Accept, walk to the hag, send `(action, target)` once it is offered.
 fn scripted_bargain(seed: u64, gift: &Gift, trade: (u8, u8)) -> Outcome {
     let mut s = bargain_world(seed, gift);
-    let mut reads = Vec::new();
     for tick in 0..BARGAIN_TICKS {
         let obs = s.step();
-        if let Some(snap) = Snap::of(tick, &obs) {
-            reads.push(snap);
-        }
         if tick % 5 != 0 {
             continue;
         }
@@ -705,19 +721,18 @@ fn scripted_bargain(seed: u64, gift: &Gift, trade: (u8, u8)) -> Outcome {
         };
         s.send(proposal);
     }
-    outcome(&s, &reads)
+    outcome(&s)
 }
 
-/// The Bargain scenes prove which trade the bot makes, not that The Bargain outbids the rest of the map. Since
-/// P-RAID-Q3-fix the candidate is worth the chosen trade's own gain (about 1.1 to 1.3 camp-equivalents), not the table
-/// row's 2.7, and under the default prices a richer quest outbids it on these maps (camps do not). This table keeps the
-/// scenes on the decision: The Bargain's row stays (it gates the candidate), every other quest and augment is 0.
+/// Isolate the trade decision from other quests and terrain loot. A spare worth
+/// less than the preferred reward makes the weapon-only scene exercise its offer.
 fn bargain_prices() -> Prices {
     Prices {
         reward_rows: &[("the_bargain", 2.7)],
         augment_rows: &[],
         reward_default: 0.,
         augment_default: 0.,
+        spare_weapon: 0.75,
         ..Prices::LOCAL
     }
 }
@@ -726,14 +741,13 @@ fn raid_bargain(seed: u64, gift: &Gift) -> (Outcome, Run) {
     let policy: Box<dyn Policy> =
         Box::new(RaidBot::new(TierId::Normal, PersonaId::Farmer).with_prices(bargain_prices()));
     let (run, s) = seat(bargain_world(seed, gift), policy, BARGAIN_TICKS);
-    (outcome(&s, &run.reads), run)
+    (outcome(&s), run)
 }
 
-/// 20 stacks of damage (`EmberImp`), no spare weapon: the one improving trade is damage for attack damage (a sword's
-/// best stat), action 5 with target 0 * 9 + 6.
+/// One lot of damage, with attack damage the sword's preferred return (action 5, target 6).
 fn stacks_gift() -> Gift {
     Gift {
-        stacks: vec![(MobTypeId::EmberImp, 20)],
+        stacks: vec![(MobTypeId::EmberImp, public_rules().bargain_cost)],
         spare: false,
     }
 }
@@ -744,38 +758,38 @@ fn weapon_gift() -> Gift {
         spare: true,
     }
 }
-/// 20 stacks of attack damage (`Pardoner`, the sword's best stat), no spare: no offered trade is an improvement.
+/// Only one lot of the sword’s preferred stat and no spare to exchange.
 fn best_stat_gift() -> Gift {
     Gift {
-        stacks: vec![(MobTypeId::Pardoner, 20)],
+        stacks: vec![(MobTypeId::Pardoner, public_rules().bargain_cost)],
         spare: false,
     }
 }
 
 #[test]
 fn a_scripted_bargain_trades_stacks_or_the_spare_weapon_on_every_seed() {
+    let rules = public_rules();
     for seed in BARGAIN_SEEDS {
         let a = scripted_bargain(seed, &stacks_gift(), (5, 6));
         assert!(
-            a.completed && a.ember_imp == 0 && a.pardoner == 24,
-            "seed {seed}: 20 damage stacks become 24 attack damage: {a:?}"
+            a.completed && a.ember_imp == 0 && a.pardoner == rules.bargain_stacks,
+            "seed {seed}: damage lot traded at the published price {rules:?}: {a:?}"
         );
         let b = scripted_bargain(seed, &weapon_gift(), (7, 6));
         assert!(
-            b.completed && !b.spare_weapon && b.pardoner == 24,
-            "seed {seed}: the spare weapon becomes 24 attack damage: {b:?}"
+            b.completed && !b.spare_weapon && b.pardoner == rules.bargain_stacks,
+            "seed {seed}: the spare weapon earns the published payout {rules:?}: {b:?}"
         );
     }
 }
 
 #[test]
-fn raid_bot_trades_twenty_stacks_into_the_stat_its_build_values_most() {
+fn raid_bot_trades_stacks_into_the_stat_its_build_values_most() {
     let mut done = Vec::new();
     let mut report = Vec::new();
     for seed in BARGAIN_SEEDS {
         let (o, run) = raid_bargain(seed, &stacks_gift());
-        // At least 24: a kill on the way can add the three stacks a normal mob pays.
-        if o.completed && o.ember_imp == 0 && o.pardoner >= 24 {
+        if o.completed && o.ember_imp == 0 && o.pardoner == public_rules().bargain_stacks {
             done.push(seed);
         }
         report.push((seed, o, run.stats));
@@ -791,7 +805,7 @@ fn raid_bot_trades_its_spare_weapon_for_the_stat_its_build_values_most() {
     let mut done = Vec::new();
     for seed in BARGAIN_SEEDS {
         let (o, _) = raid_bargain(seed, &weapon_gift());
-        if o.completed && !o.spare_weapon && o.pardoner >= 24 {
+        if o.completed && !o.spare_weapon && o.pardoner == public_rules().bargain_stacks {
             done.push(seed);
         }
     }
@@ -801,15 +815,18 @@ fn raid_bot_trades_its_spare_weapon_for_the_stat_its_build_values_most() {
     );
 }
 
-/// A guard that holds on the stub too: with its best stat the only one it has 20 of, no offered trade is an improvement
-/// and the bot must not trade (its stacks stay, the quest is never paid).
+/// The offered stat switches are at best value-neutral, so the preferred stacks stay in the build.
 #[test]
 fn raid_bot_makes_no_bargain_that_is_not_an_improvement() {
     for seed in BARGAIN_SEEDS {
         let (o, run) = raid_bargain(seed, &best_stat_gift());
+        let accepted = run
+            .reads
+            .iter()
+            .any(|read| read.accepted.contains("the_bargain"));
         assert!(
-            !o.completed && o.pardoner >= 20,
-            "seed {seed}: the bot traded away its best stat: {o:?} {run:?}"
+            !accepted && !o.completed && o.pardoner == public_rules().bargain_cost,
+            "seed {seed}: expected the bot to keep its best stat and skip the offer: {o:?}"
         );
     }
 }

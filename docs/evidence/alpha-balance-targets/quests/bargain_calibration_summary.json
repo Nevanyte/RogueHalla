@@ -1,0 +1,68 @@
+{
+  "maps": 27,
+  "offers": 27,
+  "accepted": 22,
+  "paid": 22,
+  "priced": 22,
+  "failed_route_cost_neutral_ce": 0.0,
+  "payments": {
+    "movement": 3,
+    "lifesteal": 4,
+    "max_hp": 6,
+    "armor": 2,
+    "ability_power": 1,
+    "shield": 3,
+    "damage": 1,
+    "attack_damage": 1,
+    "attack_speed": 1
+  },
+  "received": {
+    "ability_power": 8,
+    "attack_damage": 11,
+    "shield": 1,
+    "armor": 2
+  },
+  "timings": {
+    "quest": "the_bargain",
+    "reward": "TheBargain",
+    "observations": 22,
+    "approach_s_p50": 16.0,
+    "objective_s_p50": 10.125,
+    "route_s_p50": 23.8,
+    "concurrent_normal_clears": 0,
+    "cost_basis": "field_iqr",
+    "net_cost_range_low_ce": 0.287,
+    "net_cost_range_high_ce": 0.783,
+    "route_cost_normal_camps_p50": 0.568,
+    "unsuccessful_only_route_cost_total": 0.0,
+    "expected_cost_per_paid_camp_mean": 0.565,
+    "trade_up_cashouts": null,
+    "trade_up_top_route_cost_mean": null
+  },
+  "opportunity": {
+    "neutral": {
+      "paid_route_cost_ce": 12.44,
+      "fit_gain_ce": 35.83333333333333,
+      "multiple_before_failed_spend": 2.880493033226152,
+      "multiple_including_failed_neutral": 2.880493033226152,
+      "including_failed_low_multiple": 2.880493033226152,
+      "including_failed_high_multiple": 2.880493033226152
+    },
+    "remaining_nearby": {
+      "paid_route_cost_ce": 11.607850000000003,
+      "fit_gain_ce": 35.83333333333333,
+      "multiple_before_failed_spend": 3.0869914181638562,
+      "multiple_including_failed_neutral": 3.0869914181638562,
+      "including_failed_low_multiple": 3.0869914181638562,
+      "including_failed_high_multiple": 3.0869914181638562
+    },
+    "full_nearby": {
+      "paid_route_cost_ce": 12.923399999999999,
+      "fit_gain_ce": 35.83333333333333,
+      "multiple_before_failed_spend": 2.7727481416139197,
+      "multiple_including_failed_neutral": 2.7727481416139197,
+      "including_failed_low_multiple": 2.7727481416139197,
+      "including_failed_high_multiple": 2.7727481416139197
+    }
+  }
+}

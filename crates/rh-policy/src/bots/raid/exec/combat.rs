@@ -109,7 +109,32 @@ pub(crate) fn locks_from_here(
         in_hand.map(|w| rh_sim::content::weapon(w).shape),
         Some(rh_sim::content::Shape::Projectile { .. })
     );
-    !ranged || (mob.engaged && d <= DEFEND_U) || may_fight_from(&*cx.paths, camp, elite, cx.p.me.at)
+    // P-RAID-LOS-1: a ranged seat locks only with line of sight to the mob (a shot into a wall is wasted).
+    !ranged
+        || (shot_clear(cx.paths, cx.p.me.at, mob.at)
+            && ((mob.engaged && d <= DEFEND_U)
+                || may_fight_from(&*cx.paths, camp, elite, cx.p.me.at)))
+}
+
+/// Can a shot from `from` at a target standing at `at` fly clear of walls (P-RAID-LOS-1)? The sim cuts a projectile at a
+/// `MASK_SIGHT` wall on its GROUND path, and a homing shot flies its ground path at the target's ground point lifted by the
+/// shooter's chest (`PLAYER_CHEST`, south), so both the line to the target and the line to that lifted point must be clear.
+pub(crate) fn shot_clear(paths: &RoomPathService, from: Vec2, at: Vec2) -> bool {
+    paths.los(from, at)
+        && paths.los(
+            from,
+            Vec2::new(at.x, at.y + rh_sim::archetype::PLAYER_CHEST),
+        )
+}
+
+/// A fight point's shot is clear with a margin: from the point and from the four points a player radius off it, so a seat
+/// that stops a little short of the point (a tile corner, a wall hugging the cell) still has its shot.
+fn shot_clear_around(paths: &RoomPathService, q: Vec2, at: Vec2) -> bool {
+    let r = PLAYER_RADIUS;
+    shot_clear(paths, q, at)
+        && [(r, 0.), (-r, 0.), (0., r), (0., -r)]
+            .iter()
+            .all(|(dx, dy)| shot_clear(paths, Vec2::new(q.x + dx, q.y + dy), at))
 }
 
 /// What a fight executor does about its target this think (`Reach::engage`).
@@ -191,7 +216,7 @@ impl Reach {
         out
     }
 
-    /// The fight point nearest `from` (ties by scan order) within `range` of the target at `mob_at`.
+    /// The fight point nearest `from` (ties by scan order) within `range` of the target at `mob_at` and with line of sight to it.
     fn nearest(
         &mut self,
         paths: &RoomPathService,
@@ -201,11 +226,19 @@ impl Reach {
         mob_at: Vec2,
         range: f64,
     ) -> Option<Vec2> {
-        self.points(paths, camp, elite)
-            .iter()
-            .filter(|q| dist(**q, mob_at) <= range)
-            .min_by(|a, b| dist(**a, from).total_cmp(&dist(**b, from)))
-            .copied()
+        // Line of sight to the target depends on where it stands now: filtered at use, never cached by camp.
+        let mut best: Option<(f64, Vec2)> = None;
+        for q in self.points(paths, camp, elite) {
+            if dist(*q, mob_at) > range {
+                continue;
+            }
+            let dq = dist(*q, from);
+            if best.is_some_and(|(b, _)| dq >= b) || !shot_clear_around(paths, *q, mob_at) {
+                continue;
+            }
+            best = Some((dq, *q));
+        }
+        best.map(|(_, q)| q)
     }
 
     /// One think of the approach to `mob` (a target of camp `camp`, `elite` as in `may_fight_from`) with `in_hand`:
@@ -250,9 +283,15 @@ impl Reach {
             _ => (d, now),
         };
         self.progress = Some((best, since, now));
-        if d <= 2. * PLAYER_RADIUS || now - since >= STUCK_MS {
+        // Arrived (near the point, and with a clear shot from here), or the walk has stopped coming nearer.
+        if (d <= 2. * PLAYER_RADIUS && shot_clear(cx.paths, at, mob.at)) || now - since >= STUCK_MS
+        {
             return Engage::Lock;
         }
         step_toward(cx.paths, at, to).map_or(Engage::Lock, Engage::Move)
     }
 }
+
+#[cfg(test)]
+#[path = "combat_los_tests.rs"]
+mod los_tests;

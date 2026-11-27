@@ -167,6 +167,8 @@ pub struct World {
     /// Of `camps_credited`: camps not known to hold an elite (see NOTES).
     pub camps_credited_normal: u64,
     pub kill_secs_normal: Sum,
+    /// First hit to normal camp clear, grouped by the five-minute raid interval in which combat started.
+    pub normal_clear_secs_by_minute: BTreeMap<u32, SampledSum>,
     pub kill_secs_elite: Sum,
     /// Where every seat-step went.
     pub time: TimeBlock,
@@ -325,6 +327,8 @@ impl Merge for World {
         self.minutes.fold_in(o.minutes);
         self.camps_credited_normal += o.camps_credited_normal;
         self.kill_secs_normal.fold_in(o.kill_secs_normal);
+        self.normal_clear_secs_by_minute
+            .fold_in(o.normal_clear_secs_by_minute);
         self.kill_secs_elite.fold_in(o.kill_secs_elite);
         self.time.fold_in(o.time);
         self.elite_kills_credited += o.elite_kills_credited;

@@ -121,6 +121,7 @@ namespace Roguehalla.Client
                 plan.Ready ? "The arena starts when all connected\nplayers are ready or time runs out." :
                 plan.Pick.HasValue ? "Ready locks your plan." : "Ready locks your plan. If you skip the spawn choice, the server places you.";
             _status.text = _selections.Feedback.Length > 0 ? _selections.Feedback : PlanGuidance(plan, connected);
+            _planningQuestsText.text = PlanningQuestCopy(_bound.Collections.Quests, _bound.Map);
 
             var picked = plan.Pick == 0 ? plan.Option0 : plan.Pick == 1 ? plan.Option1 : null;
             RoutePoint? start = picked.HasValue ? new RoutePoint(picked.Value.X, picked.Value.Y) : (RoutePoint?)null;

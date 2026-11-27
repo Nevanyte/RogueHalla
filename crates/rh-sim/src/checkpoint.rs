@@ -680,6 +680,13 @@ pub(crate) fn check_world(k: &MatchStatic, w: &World) -> Result<(), String> {
     // Locked vision history becomes admissible with the complete Source arena lifecycle.
     let locked_vision = k.config.lifecycle.rules().is_some() && w.raid_started_at > 0.;
     for p in w.players.iter() {
+        if let Some(camp) = p.last_route_camp {
+            if k.config.camp_buffs != crate::CampBuffRule::ThemedFocus
+                || !crate::systems::farm_focus::normal_camp(w, camp.0)
+            {
+                return Err(format!("player {}: invalid last route camp", p.id.0));
+            }
+        }
         // Shape only: zero hints and zeroAll retain the previous direction byte.
         if p.walk_ticks > crate::systems::walk_hint::walk_hint_max_steps(k) {
             return Err(format!("player {}: invalid walk hint ticks", p.id.0));

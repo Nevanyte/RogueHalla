@@ -122,8 +122,9 @@ namespace Roguehalla.Client.Tests
             Assert.IsFalse(overlay.gameObject.activeSelf);
         }
 
-        [Test]
-        public void NearbyRewardPickupUsesTheOfferedHandleAndDropIndex()
+        [TestCase(true)]
+        [TestCase(false)]
+        public void NearbyRewardPickupUsesTheOfferedHandleAndDropIndex(bool keyboard)
         {
             var handle = new QuestHandle(71);
             var state = new QuestsState { Available = true, View = new WireQuestView() };
@@ -135,7 +136,8 @@ namespace Roguehalla.Client.Tests
 
             var launch = HudTestPaths.Find(_hud.transform, "MatchUI/HudStage/PlayerHUD/QuestRewards/QuestActionLauncher");
             Assert.IsTrue(launch.gameObject.activeInHierarchy);
-            launch.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            if (keyboard) Assert.That(_hud.TryInteract(), Is.True);
+            else launch.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             var overlay = HudTestPaths.Find(_hud.transform, "MatchUI/NearbyQuestActionsOverlay");
             Assert.IsTrue(overlay.gameObject.activeSelf);
             var action = overlay.Find("NearbyQuestActions/Actions/Viewport/Content/Action0");

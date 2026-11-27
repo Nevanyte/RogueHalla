@@ -36,12 +36,13 @@ pub(super) fn draw(random: &mut impl FnMut() -> f64) -> Vec<QuestId> {
 }
 
 pub fn plan(map: &TileMap, random: &mut impl FnMut() -> f64) -> Result<Vec<BoardSite>, String> {
-    plan_with_fallback(map, &[], random)
+    plan_with_fallback(map, &[], true, random)
 }
 
 pub(super) fn plan_with_fallback(
     map: &TileMap,
     fallback: &[Vec2],
+    spread: bool,
     random: &mut impl FnMut() -> f64,
 ) -> Result<Vec<BoardSite>, String> {
     let selected = draw(random);
@@ -64,10 +65,15 @@ pub(super) fn plan_with_fallback(
             objectives,
         });
     }
-    for entry in &mut board {
-        entry.giver = sites
-            .giver(entry.quest.home())
-            .map_err(|why| format!("quest board {:?}: {why}", entry.quest))?;
+    // The draw contributes a pair per region, in home-zone order.
+    for pair in board.chunks_exact_mut(2) {
+        let mut first = None;
+        for entry in pair {
+            entry.giver = sites
+                .giver(entry.quest.home(), first)
+                .map_err(|why| format!("quest board {:?}: {why}", entry.quest))?;
+            first = spread.then_some(entry.giver);
+        }
     }
     Ok(board)
 }
@@ -205,11 +211,20 @@ impl<'a> Sites<'a> {
         target: Vec2,
         accepts: impl Fn(usize, Vec2) -> bool,
     ) -> Option<usize> {
+        self.best_site(zone, |at| distance2(at, target), accepts)
+    }
+
+    fn best_site(
+        &self,
+        zone: FactionId,
+        score: impl Fn(Vec2) -> f64,
+        accepts: impl Fn(usize, Vec2) -> bool,
+    ) -> Option<usize> {
         (0..self.reachable.len())
             .filter(|&i| self.available(i, zone))
             .filter_map(|i| {
                 let at = self.point(i);
-                accepts(i, at).then(|| (i, distance2(at, target)))
+                accepts(i, at).then(|| (i, score(at)))
             })
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(i, _)| i)
@@ -240,40 +255,48 @@ impl<'a> Sites<'a> {
             .ok_or("missing destination region")
     }
 
-    fn giver(&mut self, zone: FactionId) -> Result<Vec2, &'static str> {
+    fn giver(&mut self, zone: FactionId, other: Option<Vec2>) -> Result<Vec2, &'static str> {
         let pole = self.pole(zone)?;
         // Prefer established neutral giver clearance. On a crowded map,
         // move within the home region while retaining dry, reachable ground,
         // three tiles from the next giver and clear of actual camp/loot sites.
-        let result = [8., 4., 2.]
-            .into_iter()
-            .find_map(|margin| {
-                self.nearest(zone, pole, |i, at| {
-                    self.data.terrain[i] == 0
-                        && self
-                            .data
-                            .spawn_pool
-                            .iter()
-                            .all(|s| distance2(at, Vec2::new(s.x, s.y)) >= sq(margin * TILE))
-                        && self
-                            .givers
-                            .iter()
-                            .all(|&p| distance2(at, p) >= sq(3. * TILE))
-                        && self
-                            .data
-                            .camps
-                            .iter()
-                            .filter(|c| !is_target_camp(&c.id))
-                            .all(|c| {
-                                distance2(at, Vec2::new(c.x, c.y)) >= sq(c.r + TILE)
-                                    && distance2(at, world(c.chest)) >= sq(2. * TILE)
-                                    && c.spots
-                                        .iter()
-                                        .all(|&p| distance2(at, world(p)) >= sq(2. * TILE))
-                            })
+        let result =
+            [8., 4., 2.]
+                .into_iter()
+                .find_map(|margin| {
+                    // Keep the known contact near the region pole. Put the raid's second contact
+                    // on the far side of the same connected region, subject to all clearance checks.
+                    self.best_site(
+                        zone,
+                        |at| match other {
+                            Some(first) => -distance2(at, first),
+                            None => distance2(at, pole),
+                        },
+                        |i, at| {
+                            self.data.terrain[i] == 0
+                                && self.data.spawn_pool.iter().all(|s| {
+                                    distance2(at, Vec2::new(s.x, s.y)) >= sq(margin * TILE)
+                                })
+                                && self
+                                    .givers
+                                    .iter()
+                                    .all(|&p| distance2(at, p) >= sq(3. * TILE))
+                                && self
+                                    .data
+                                    .camps
+                                    .iter()
+                                    .filter(|c| !is_target_camp(&c.id))
+                                    .all(|c| {
+                                        distance2(at, Vec2::new(c.x, c.y)) >= sq(c.r + TILE)
+                                            && distance2(at, world(c.chest)) >= sq(2. * TILE)
+                                            && c.spots
+                                                .iter()
+                                                .all(|&p| distance2(at, world(p)) >= sq(2. * TILE))
+                                    })
+                        },
+                    )
                 })
-            })
-            .ok_or("no reachable home giver site")?;
+                .ok_or("no reachable home giver site")?;
         let point = self.reserve(result);
         self.givers.push(point);
         Ok(point)

@@ -148,6 +148,44 @@ fn only(t: MobTypeId, n: u64) -> Vec<u64> {
 fn nothing() -> Vec<u64> {
     vec![0; MobTypeId::ALL.len()]
 }
+
+#[test]
+fn focus_normal_kill_pays_after_distinct_offstat_normal_clear() {
+    let (mut s, first, second) = (1..=40)
+        .find_map(|salt| {
+            let s = world(CampBuffRule::ThemedFocus, EliteRule::Legacy, salt);
+            let focus = (0..s.camp_rosters().len()).find(|&c| {
+                super::super::farm_focus::eligible_camp(&s.w, c as u32, FactionId::Holy)
+            });
+            let origin = (0..s.camp_rosters().len()).find(|&c| {
+                super::super::farm_focus::normal_camp(&s.w, c as u32)
+                    && !super::super::farm_focus::eligible_camp(&s.w, c as u32, FactionId::Holy)
+            });
+            origin.zip(focus).map(|(first, second)| (s, first, second))
+        })
+        .expect("fixture roll needs a non-focus origin and Holy attack-speed destination");
+    let first_player = ids(&s)[0];
+    let second_player = ids(&s)[1];
+    let paid = camp_stat(&s, second);
+    let mut ev = Vec::new();
+    let before = s.w.players[1].farm.count(paid);
+    let award = award_at(&s, second, false, second_player, &[]);
+    pay(&s.k, &mut s.w, &mut ev, award);
+    assert_eq!(s.w.players[1].farm.count(paid) - before, kill_stacks());
+    super::super::farm_focus::record_clear(&mut s.w, first_player, first as u32);
+    let before = s.w.players[0].farm.count(paid);
+    let award = award_at(&s, second, false, first_player, &[]);
+    pay(&s.k, &mut s.w, &mut ev, award);
+    assert_eq!(s.w.players[0].farm.count(paid) - before, kill_stacks() + 3);
+    let first_paid = camp_stat(&s, first);
+    let before = s.w.players[0].farm.count(first_paid);
+    let award = award_at(&s, first, false, first_player, &[]);
+    pay(&s.k, &mut s.w, &mut ev, award);
+    assert_eq!(
+        s.w.players[0].farm.count(first_paid) - before,
+        kill_stacks()
+    );
+}
 fn pay_award(s: &mut Sim, a: Award) -> Vec<Event> {
     let mut events = vec![];
     pay(&s.k, &mut s.w, &mut events, a);

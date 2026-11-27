@@ -9,7 +9,7 @@ use crate::sim::{Arena, Event, Placement, PlayerId, Secrets, Sim, SimConfig};
 
 /// Version 25 is the union of the Card feedback trusted report leaf (backend) and the protocol 16 / observation 24 projection
 /// (Unity), over the composed typed actor, giver, Frost and Sentenced state. Other formats are refused.
-/// 27 (origin, P-QUEST25-INTEGRATE): the Top 25 quest board's `SimConfig::top25_quests`. 28 (P-SYNC-ORIGIN-3): origin's
+/// 27 (origin, P-QUEST25-INTEGRATE): the Top 25 quest board's `SimConfig::quest_board` (JSON `top25_quests`). 28 (P-SYNC-ORIGIN-3): origin's
 /// 27 with the local 25's `SimConfig::augments` and `SimConfig::elites` (the augment and elite rework).
 pub const REPLAY_FORMAT: &str = "rh-replay/28";
 

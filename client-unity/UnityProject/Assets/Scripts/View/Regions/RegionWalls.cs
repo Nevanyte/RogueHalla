@@ -48,6 +48,48 @@ namespace Roguehalla.Client
                 new Vector2(cell.Min.x, cell.Min.y), new Vector2(cell.Max.x, cell.Min.y), new Vector2(cell.Max.x, cell.Max.y), new Vector2(cell.Min.x, cell.Max.y), col);
         }
 
+        void RectFence(float x0, float y0, float x1, float y1, RegionWallAtlas.Cell cell, Color32 col, bool vertical)
+        {
+            if (!vertical) { Rect(x0, y0, x1, y1, cell, col); return; }
+            // The atlas fence is authored with horizontal rails. Rotate its UVs for a connected north/south run.
+            Quad(new Vector3(x0, y0, 0), new Vector3(x1, y0, 0), new Vector3(x1, y1, 0), new Vector3(x0, y1, 0),
+                new Vector2(cell.Min.x, cell.Max.y), new Vector2(cell.Min.x, cell.Min.y), new Vector2(cell.Max.x, cell.Min.y), new Vector2(cell.Max.x, cell.Max.y), col);
+        }
+
+        internal static bool FenceRunsVertical(MapBlob map, int x, int y)
+        {
+            if (map == null || map.Terrain == null || map.Tiles == null || x < 0 || y < 0 || x >= map.W || y >= map.H) return false;
+            bool Fence(int tx, int ty) => tx >= 0 && ty >= 0 && tx < map.W && ty < map.H &&
+                map.Tiles[ty * map.W + tx] == MapBlob.Low && map.Terrain[ty * map.W + tx] == (byte)TerrainKind.Fence;
+            int horizontal = (Fence(x - 1, y) ? 1 : 0) + (Fence(x + 1, y) ? 1 : 0);
+            int vertical = (Fence(x, y - 1) ? 1 : 0) + (Fence(x, y + 1) ? 1 : 0);
+            if (vertical != horizontal) return vertical > horizontal;
+
+            int RunLength(int dx, int dy)
+            {
+                int length = 1;
+                for (int sign = -1; sign <= 1; sign += 2)
+                    for (int step = 1; Fence(x + dx * step * sign, y + dy * step * sign); step++) length++;
+                return length;
+            }
+            int horizontalRun = RunLength(1, 0), verticalRun = RunLength(0, 1);
+            if (horizontalRun != verticalRun) return verticalRun > horizontalRun;
+
+            // At a crossing or corner, the Sentenced lane grid follows the church's front axis.
+            if (map.Anchors != null)
+                foreach (var anchor in map.Anchors)
+                {
+                    if (anchor.Zone != (byte)RegionId.Sentenced || anchor.Kind != MapBlob.AnchorKindChurch) continue;
+                    var f = anchor.Footprint;
+                    int dx = x < f.X ? f.X - x : x >= f.X + f.W ? x - (f.X + f.W - 1) : 0;
+                    int dy = y < f.Y ? f.Y - y : y >= f.Y + f.H ? y - (f.Y + f.H - 1) : 0;
+                    if (dx + dy > 16) continue;
+                    int cardinal = (anchor.Front + 2) / 4 & 3;
+                    return cardinal == 1 || cardinal == 3;
+                }
+            return false;
+        }
+
         void Create(Transform parent, MapBlob map, float exposure)
         {
             var shader = Resources.Load<Shader>("Regions/RegionLitMesh");
@@ -125,8 +167,13 @@ namespace Roguehalla.Client
                         // Fences and low walls: one full-width cell, joined with neighbours. Contact shadow under it.
                         if (kind == (int)TerrainKind.Fence) { _kind = 4f; Rect(px0, py, px1, py + ArenaView.GroundSquash, RegionWallAtlas.FenceGround, new Color32(255, 255, 255, 255)); }   // darker ground under the fence (RegionWallAtlas.FenceTileGround)
                         _kind = 4f; Rect(px0, py - .26f, px1, py + .02f, contact, new Color32(255, 255, 255, 190)); _kind = 1f;
-                        Rect(px0 - .004f, py - 6f / RegionWallAtlas.TileW, px1 + .004f, py - 6f / RegionWallAtlas.TileW + RegionWallAtlas.LowH / (float)RegionWallAtlas.TileW,
-                            (kind == (int)TerrainKind.Fence ? RegionWallAtlas.LowFor(set, RegionWallAtlas.IronLevelFor(RegionOf(x, y))) : set.Low)[v % RegionWallAtlas.LowVariants], col);
+                        var lowCell = (kind == (int)TerrainKind.Fence ? RegionWallAtlas.LowFor(set, RegionWallAtlas.IronLevelFor(RegionOf(x, y))) : set.Low)[v % RegionWallAtlas.LowVariants];
+                        if (kind == (int)TerrainKind.Fence)
+                            RectFence(px0 - .004f, py - 6f / RegionWallAtlas.TileW, px1 + .004f, py - 6f / RegionWallAtlas.TileW + RegionWallAtlas.LowH / (float)RegionWallAtlas.TileW,
+                                lowCell, col, FenceRunsVertical(map, x, y));
+                        else
+                            Rect(px0 - .004f, py - 6f / RegionWallAtlas.TileW, px1 + .004f, py - 6f / RegionWallAtlas.TileW + RegionWallAtlas.LowH / (float)RegionWallAtlas.TileW,
+                                lowCell, col);
                         _kind = 0f; continue;
                     }
                     int faceV = inBlock ? bcol : templeWall ? ((x % 3) + 3) % 3 : v % RegionWallAtlas.FaceVariants, topV = inBlock ? bcol + 3 * brow : templeWall ? 4 : (v / 3) % RegionWallAtlas.TopVariants;

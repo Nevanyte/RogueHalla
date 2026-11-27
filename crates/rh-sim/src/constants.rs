@@ -36,6 +36,9 @@ macro_rules! content {
     (@val f64, $e:expr) => {
         ContentVal::F64($e)
     };
+    (@val u64, $e:expr) => {
+        ContentVal::U64($e)
+    };
     (@val u32, $e:expr) => {
         ContentVal::U64($e as u64)
     };
@@ -667,4 +670,29 @@ content! {
     /// Marked Man: the most stacks its counter carries to the next kill (P-AUG-NATIVE-5 decision 3): the half stack
     /// `MOB_KILL_STACKS x (REWORK_MARKED_MAN_STACK_MULT - 1)` leaves over; the counter is exactly 0 or this.
     REWORK_MARKED_MAN_CARRY_CAP: f64 = 0.5, "stacks";
+    /// Normal camp defenses ramp through these raid ages, measured from the start of active play.
+    RAID_CAMP_OPENING_MS: f64 = 300_000., "ms";
+    RAID_CAMP_MIDGAME_MS: f64 = 600_000., "ms";
+    RAID_CAMP_LATEGAME_MS: f64 = 1_200_000., "ms";
+    RAID_CAMP_MIDGAME_DEFENSE: f64 = 240., "armor and magic resist";
+    RAID_CAMP_LATEGAME_DEFENSE: f64 = 420., "armor and magic resist";
+    RAID_PVP_STARTER_FACTOR: f64 = 0.425, "multiplier";
+    RAID_PVP_FARMED_FACTOR: f64 = 0.95, "multiplier";
+    RAID_PVP_FARMED_STACKS: u64 = 288, "stacks";
+    RAID_PVP_CARD_POWER_HALF_BONUS: f64 = 6., "card power";
+    RAID_PVP_CARD_BONUS_LIMIT: f64 = 0.2, "share";
+    /// A matchup uses both faction weights symmetrically in either attack direction.
+    RAID_PVP_FIRE_WEIGHT: f64 = 0.574, "multiplier";
+    RAID_PVP_SENTENCED_WEIGHT: f64 = 0.964, "multiplier";
+    RAID_PVP_PLAGUE_WEIGHT: f64 = 0.90, "multiplier";
+    RAID_PVP_FROST_WEIGHT: f64 = 1.597, "multiplier";
+    RAID_PVP_HOLY_WEIGHT: f64 = 1.497, "multiplier";
+    RAID_PVP_WEAPON_CAP_HP_PER_SEC: f64 = 0.18, "share of max hp per second";
+    RAID_PVP_BACKLASH_CAP_HP_PER_SEC: f64 = 0.025, "share of max hp per second";
+    RAID_PVP_MARK_CAP_HP_PER_SEC: f64 = RAID_PVP_WEAPON_CAP_HP_PER_SEC / 3., "share of max hp per second";
+    RAID_ELITE_CAMP_DEFENSE_SHARE: f64 = 0.75, "share of normal camp age defense";
+    RAID_ELITE_CAMP_DAMAGE_HALF_DEFENSE: f64 = 360., "normal camp age defense";
+    RAID_ELITE_ARCHON_DEFENSE_SHARE: f64 = 1.55, "share of normal camp age defense";
+    RAID_ELITE_WARDEN_SAINT_DEFENSE_SHARE: f64 = 1., "share of normal camp age defense";
+    RAID_ELITE_TROLL_BEHEMOTH_DEFENSE_SHARE: f64 = 0.42, "share of normal camp age defense";
 }

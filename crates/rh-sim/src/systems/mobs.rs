@@ -122,7 +122,7 @@ fn initialize_body(
             rosters::roll_camp_types(&zones, &mut || w.reward_rng.next_f64()),
             Vec::new(),
         ),
-        crate::CampBuffRule::Themed => {
+        crate::CampBuffRule::Themed | crate::CampBuffRule::ThemedFocus => {
             let sites: Vec<_> = data
                 .camps
                 .iter()

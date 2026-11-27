@@ -1,0 +1,11 @@
+stacks,arm,tick_ms,builds,combat_seeds,seat_exchanges,target_wins,other_wins,simultaneous,timeouts,measured_ttk_n,median_victim_contact_to_death_ms,paired_ttk_n,median_paired_delta_from_neither_ms,median_landed_wishes
+72,committed_both,25,10,3,60,3,3,54,0,60,14850.0,60,-4712.5,2.0
+72,machine_gun_both,25,10,3,60,3,3,54,0,60,11912.5,60,-7687.5,2.0
+72,neither,25,10,3,60,3,3,54,0,60,19937.5,60,0.0,2.0
+72,pair_both,25,10,3,60,3,3,54,0,60,11650.0,60,-8412.5,2.0
+72,pair_target_only,25,10,3,60,60,0,0,0,60,9475.0,60,-9450.0,2.0
+180,committed_both,25,10,3,60,3,3,54,0,60,10625.0,60,-3237.5,2.0
+180,machine_gun_both,25,10,3,60,3,3,54,0,60,11925.0,60,-4262.5,2.0
+180,neither,25,10,3,60,3,3,54,0,60,14975.0,60,0.0,2.0
+180,pair_both,25,10,3,60,3,3,54,0,60,9800.0,60,-5850.0,2.0
+180,pair_target_only,25,10,3,60,60,0,0,0,60,9425.0,60,-5950.0,2.0

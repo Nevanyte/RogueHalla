@@ -149,7 +149,7 @@ impl Sim {
         secrets: Secrets,
         initialize: fn(&mut MatchStatic, &mut World) -> Result<(), &'static str>,
     ) -> Result<Self, &'static str> {
-        let arena = if config.top25_quests && config.quests && !config.training {
+        let arena = if config.quest_board.enabled() && config.quests && !config.training {
             crate::quests::board::map_admission::ensure(arena, secrets)
                 .map_err(|_| "map cannot host the selected quest board")?
         } else {

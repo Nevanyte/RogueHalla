@@ -77,6 +77,9 @@ fn reward(
     if near_camp(k, camp, centre, at) {
         let p = &mut w.players[i];
         p.camps_cleared = p.camps_cleared.saturating_add(1);
+        if !k.config.training && super::farm_focus::enabled(k.config.camp_buffs) {
+            super::farm_focus::record_clear(w, id, camp);
+        }
     }
     // A contributor that finished the camp from outside still earns the potion (legacy's own rule).
     if !potions::grant(w, ev, id, Size::Large) {
