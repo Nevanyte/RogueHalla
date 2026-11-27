@@ -69,7 +69,8 @@ def paired_inputs(path, target_arm):
                         build=target["build_id"], comparator=arm, target_status=status(target),
                         other_status=status(other), target_stacks=None, other_stacks=None,
                         target_clears=None, other_clears=None, target_movement_u=None,
-                        other_movement_u=None, weapon_score=None, wish_score=None,
+                        other_movement_u=None, target_moving_s=None, other_moving_s=None,
+                        weapon_score=None, wish_score=None,
                         weapon_verdicts=None, wish_verdicts=None, landed_wishes=None,
                         matched_stacks=None, mix_weapon_score=None, mix_wish_score=None)
             cases.append(case)
@@ -79,6 +80,7 @@ def paired_inputs(path, target_arm):
                 case[label + "_stacks"] = sum(n for _, n in row["stacks"])
                 case[label + "_clears"] = row["camp_clears"]
                 case[label + "_movement_u"] = row["movement_distance_u"]
+                case[label + "_moving_s"] = row["moved_ticks"] * 0.025
             def kit(row):
                 return {"stacks": row["stacks"], "clears": row["camp_clears"]}
             duel = dict(id=case_id, seed=seed, faction=target["faction"],
@@ -137,10 +139,36 @@ def summarize(rows):
         out["wish_seed_boot_low"], out["wish_seed_boot_high"] = ci
         out["wish_timeout_exchanges"] = sum(r["wish_verdicts"].split("|").count("timeout") for r in paired)
         out["wish_simultaneous_exchanges"] = sum(r["wish_verdicts"].split("|").count("simultaneous") for r in paired)
-        for key in ("stacks", "clears", "movement_u"):
+        for key in ("stacks", "clears", "movement_u", "moving_s"):
             out["median_paired_delta_" + key] = statistics.median(
                 r["target_" + key] - r["other_" + key] for r in paired) if paired else None
         yield out
+
+
+def raid_outcomes(path, target_arm):
+    """Compare focal placement on every paired map with two resolved seats."""
+    seeds = defaultdict(dict)
+    for line in path.read_text().splitlines():
+        row = json.loads(line)
+        arms = seeds[row["seed"]]
+        if row["arm"] in arms:
+            raise ValueError(f"duplicate match result: {row['arm']}, seed {row['seed']}")
+        arms[row["arm"]] = row["result"]
+    for comparator in (*ARMS, "live"):
+        if comparator == target_arm:
+            continue
+        cohort = [m for m in seeds.values() if target_arm in m and comparator in m]
+        if not cohort:
+            continue
+        pairs = [(m[target_arm], m[comparator]) for m in cohort
+                 if m[target_arm] is not None and m[comparator] is not None]
+        delta = [b["place"] - a["place"] for a, b in pairs]
+        yield dict(strategy=target_arm, comparator=comparator, assigned=len(cohort),
+                   both_resolved=len(pairs), target_better=sum(d > 0 for d in delta),
+                   same_place=sum(d == 0 for d in delta), other_better=sum(d < 0 for d in delta),
+                   target_first=sum(a["place"] == 1 for a, _ in pairs),
+                   other_first=sum(b["place"] == 1 for _, b in pairs),
+                   mean_places_gained=statistics.mean(delta) if delta else None)
 
 
 def main():
@@ -149,6 +177,7 @@ def main():
     args.add_argument("camp_bench", type=Path)
     args.add_argument("output", type=Path)
     args.add_argument("--target-arm", choices=("target", "local-target"), default="target")
+    args.add_argument("--resolutions", type=Path, help="one final focal result per arm and seed, as emitted to stderr")
     a = args.parse_args()
     cases, inputs = paired_inputs(a.snapshots, a.target_arm)
     if not cases:
@@ -167,6 +196,8 @@ def main():
                     case["mix_" + label + "_score"] = statistics.mean(SCORES[v] for v in mix[key])
     write_csv(a.output / "route_pairs.csv", cases)
     write_csv(a.output / "route_summary.csv", list(summarize(cases)))
+    if a.resolutions:
+        write_csv(a.output / "placements.csv", list(raid_outcomes(a.resolutions, a.target_arm)))
 
 
 if __name__ == "__main__":
