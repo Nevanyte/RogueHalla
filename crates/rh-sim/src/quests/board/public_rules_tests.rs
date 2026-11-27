@@ -29,8 +29,8 @@ fn public_rules_equal_the_table_fields_they_come_from() {
 fn public_rules_hold_todays_numbers() {
     // The numbers the bots carried by hand before this packet: this packet moves none of them.
     let r = public_rules();
-    assert_eq!((r.fort_ms, r.meditate_ms), (45_000., 30_000.));
+    assert_eq!((r.fort_ms, r.meditate_ms), (35_000., 30_000.));
     assert_eq!((r.contact_range, r.fort_range), (64., 72.));
-    assert_eq!((r.bargain_cost, r.bargain_stacks), (20, 24));
+    assert_eq!((r.bargain_cost, r.bargain_stacks), (20, 30));
     assert_eq!((r.route_pace, r.route_slack_ms), (1500., 15_000.));
 }

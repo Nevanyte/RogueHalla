@@ -276,7 +276,7 @@ pub struct Prices {
     /// The minutes from a Bargain's giver to its hag, priced before the quest is accepted (min; the hag is not in the view then).
     pub bargain_leg_minutes: f64,
     /// Trade Up (P-RAID-Q3b): each stage's share of the whole reward row, banked at one, two and three barters (the sim's
-    /// `trade_up_stacks` over its last: 12, 30, 54 of 54; the stage sizes are not a published rule, so a guard test
+    /// `trade_up_stacks` over its last: 10, 22, 34 of 34; the stage sizes are not a published rule, so a guard test
     /// reads them from the sim's source). Strictly increasing, the last at most 1.
     pub trade_up_stage_share: [f64; 3],
     /// A committed quest walk (Two Banners, Trade Up) is priced at most this share of Sustain's leave rate
@@ -358,7 +358,7 @@ impl Prices {
             ("gatecrasher", 2.5),
             ("letters", 2.0),
             ("stay_a_while", 2.0),
-            ("trade_up", 5.6),
+            ("trade_up", 3.5),
         ],
         augment_rows: &[
             ("markedMan", 7.0),
@@ -403,7 +403,7 @@ impl Prices {
         answer_minutes: 0.01,
         recharging_share: 0.5,
         bargain_leg_minutes: 0.5,
-        trade_up_stage_share: [12. / 54., 30. / 54., 1.],
+        trade_up_stage_share: [10. / 34., 22. / 34., 1.],
         quest_hold_share: 0.7,
         quest_death_rows: &[
             // Pilot of record (docs/evidence/balance-patch-2026-11/pilot/README.md, 40 matches, eight test bots): 7 attempts

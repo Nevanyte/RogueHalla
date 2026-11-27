@@ -1,0 +1,5 @@
+variant,stacks,alternative,seat_exchanges,score,mean_hp_margin_pct,timeouts
+baseline,54,two_preferred_camps,60,0.95,13.888325600644636,0
+baseline,54,four_preferred_camps,60,0.2,-11.537237224928884,0
+tuned,34,two_preferred_camps,60,0.35,-3.2173260602572986,0
+tuned,34,four_preferred_camps,60,0.05,-24.562782688244607,0

@@ -132,7 +132,7 @@ pub(crate) struct Top25Tuning {
 }
 
 pub(crate) static TOP25: Top25Tuning = Top25Tuning {
-    fort_ms: 45_000.,
+    fort_ms: 35_000.,
     meditate_ms: 30_000.,
     crown_burn_rate: 0.01,
     crown_power_cap: 48,
@@ -156,8 +156,8 @@ pub(crate) static TOP25: Top25Tuning = Top25Tuning {
     scout_falcon_cooldown_ms: 35_000.,
     bolas_cooldown_ms: 18_000.,
     lantern_ward_charges: 2,
-    trade_up_stacks: [12, 30, 54],
-    bargain_stacks: 24,
+    trade_up_stacks: [10, 22, 34],
+    bargain_stacks: 30,
     feed_damage_stacks: 6,
     chef_bonus_share: 0.20,
     helm_bypass: 0.20,

@@ -296,9 +296,12 @@ fn equal_best_stats_go_to_the_lowest_stat() {
 
 #[test]
 fn no_trade_is_made_when_none_improves() {
-    // The sword's best stat is the only one with 20 stacks: 24 of any other stat (2.5 each) is worth less than 20 of it.
-    assert_eq!(bargain_trade(&Prices::LOCAL, &sword(), &out_of(6)), None);
-    // The spare weapon is worth about twenty stacks of a poor stat: not 24 stacks of ability power (1.5) for a sword.
+    // Only ability power is offered for the sword's preferred attack damage. The larger gain still does not pay.
+    assert_eq!(
+        bargain_trade(&Prices::LOCAL, &sword(), &[(5, 6 * 9 + 3)]),
+        None
+    );
+    // The spare weapon also stays when the only return is ability power.
     assert_eq!(bargain_trade(&Prices::LOCAL, &sword(), &[(7, 3)]), None);
     // Nothing offered, nothing sent.
     assert_eq!(bargain_trade(&Prices::LOCAL, &sword(), &[]), None);

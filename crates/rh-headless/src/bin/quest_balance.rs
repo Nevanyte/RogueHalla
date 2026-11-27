@@ -1,7 +1,10 @@
 //! Read-only quest funnel and reward-use trace for one eligible RaidBot in the stock 40 Hz field cohort.
+#[path = "quest_balance/route.rs"]
+mod route;
+
 use rh_headless::{
     balance_lab::{match_setup, Options, SeatPolicy, SEATS},
-    Env,
+    Agent, Env,
 };
 use rh_policy::bots::raid::quest::decide::def_of_reward;
 use rh_sim::quest_view::{QuestObserver, RowState};
@@ -43,6 +46,10 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
     let (mut cfg, mut agents) = match_setup(&opts, seed)?;
     agents[0].bot = false;
     cfg.sim.tick_ms = 25;
+    let goal = route::Goal::default();
+    agents[0].agent = Agent::Policy {
+        policy: Box::new(route::ObserveGoal::new(seed, SEATS, goal.clone())),
+    };
     let mut env = Env::new(cfg, agents, seed);
     let id = env.sim.players()[0].id;
     let mut observer = QuestObserver::new(id);
@@ -59,6 +66,11 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
     let mut latest_death: Option<u32> = None;
     let mut resolutions = Vec::new();
     let mut raid_ended_event = false;
+    let mut route_legs: Vec<route::Leg> = Vec::new();
+    let mut current_leg: Option<usize> = None;
+    let mut normal_outside_s = 0.;
+    let mut normal_outside_clears = 0u64;
+    let mut normal_outside_bands = [[0u64; 2]; 3];
     let (progress, age) = loop {
         let previous_camps = focal_camps;
         let p = env.advance(&[]);
@@ -130,6 +142,56 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
                 }
                 _ => {}
             }
+        }
+        if phase == Phase::Active && !locked && player.standing() {
+            // The player's delta credits each nearby contributing standing player. If elite and normal
+            // camps closed on the same step, this public observer does not guess which was credited.
+            let mut normal_events = 0;
+            let mut elite_event = false;
+            for event in env.last_events() {
+                if let Event::CampCleared { camp } = event {
+                    if let Some(roster) = sim.camp_rosters().get(*camp as usize) {
+                        if roster.elite.is_some() {
+                            elite_event = true;
+                        } else {
+                            normal_events += 1;
+                        }
+                    }
+                }
+            }
+            let normal_credit = if !elite_event && normal_events > 0 {
+                u64::from(focal_camps.saturating_sub(previous_camps))
+            } else {
+                0
+            };
+            if let Some(def) = goal.lock().unwrap().as_deref() {
+                let index = current_leg
+                    .filter(|&index| route_legs[index].quest == def)
+                    .unwrap_or_else(|| {
+                        route_legs.push(route::Leg {
+                            quest: def.to_owned(),
+                            start_s: age,
+                            end_s: age,
+                            standing_s: 0.,
+                            normal_clears: 0,
+                        });
+                        route_legs.len() - 1
+                    });
+                let leg = &mut route_legs[index];
+                leg.end_s = age;
+                leg.standing_s += step_s;
+                leg.normal_clears += normal_credit;
+                current_leg = Some(index);
+            } else {
+                current_leg = None;
+                normal_outside_s += step_s;
+                normal_outside_clears += normal_credit;
+                let band = ((age / 300.) as usize).min(2);
+                normal_outside_bands[band][0] += 1;
+                normal_outside_bands[band][1] += normal_credit;
+            }
+        } else {
+            current_leg = None;
         }
         let rows = sim.quest_attempts(id);
         let equipped = if choice {
@@ -245,6 +307,8 @@ fn play(seed: u64) -> Result<serde_json::Value, String> {
         "prelock_seconds": prelock_seconds, "focal_camps": focal_camps,
         "standing_prelock_seconds": eligible_farm_seconds,
         "without_open_seconds": without_open_seconds, "without_open_camps": without_open_camps,
+        "quest_goal_legs": route_legs, "normal_outside_s": normal_outside_s,
+        "normal_outside_clears": normal_outside_clears, "normal_outside_bands": normal_outside_bands,
     }))
 }
 
