@@ -14,13 +14,10 @@ import json
 import math
 from pathlib import Path
 
-# MobTypeId::ALL order in crates/rh-sim/src/mob_catalog/mod.rs. Include zero-count types.
+# Elite variants in MobTypeId::ALL order. Keep possible zero-sample bosses in the report.
 ELITE_KINDS = (
-    "EmberImp", "CinderHound", "MagmaBrute", "FlameCaller", "Wyrmling", "AshDrake",
-    "Bailiff", "ChainWarden", "Inquisitor", "Pardoner", "Executioner", "Gaoler",
-    "PlagueRat", "Bloatfly", "RotMonk", "MiasmaWitch", "RatOgre", "PoxBehemoth",
-    "FrostWisp", "IceGolem", "RimeStalker", "FrostbowSentry", "GlacialWarden",
-    "AvalancheTroll", "Acolyte", "SeraphShard", "Penitent", "Zealot", "BloodSaint", "Archon",
+    "Wyrmling", "AshDrake", "Executioner", "Gaoler", "RatOgre", "PoxBehemoth",
+    "GlacialWarden", "AvalancheTroll", "BloodSaint", "Archon",
 )
 SEED_SET = set(range(1, 81))
 
@@ -47,10 +44,60 @@ def write_csv(path, rows, columns):
         writer.writerows(rows)
 
 
+def age_breakdown(camp_type, records):
+    rows = []
+    for start in (0, 5, 10, 15, 20):
+        band = [r for r in records if r["start_minute"] >= start
+                and (start == 20 or r["start_minute"] < start + 5)]
+        for group in ("all", "solo", "multiple"):
+            members = band if group == "all" else [
+                r for r in band if (len(r["participants"]) == 1) == (group == "solo")
+            ]
+            clears = [r["start_to_clear_s"] for r in members if r["start_to_clear_s"] is not None]
+            boss_times = [r["first_boss_to_kill_s"] for r in members if r["first_boss_to_kill_s"] is not None]
+            summary = {
+                "camp_type": camp_type, "minute_from": start, "minute_until": start + 5 if start < 20 else None,
+                "participants": group, "pulls": len(members),
+                "maps": len({r["seed"] for r in members}),
+                "pulls_with_participant_death": sum(bool(r["participant_deaths"]) for r in members),
+            }
+            for measure, times in (("full_clear", clears), ("boss_contact_to_kill", boss_times)):
+                summary.update({f"{measure}_{k}": v for k, v in distribution(times).items()})
+            rows.append(summary)
+    return rows
+
+
+def chart_clears(rows, path):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(8, 4.2), constrained_layout=True)
+    for camp, color, offset in (("elite", "#804266", -0.09), ("normal", "#187467", 0.09)):
+        sample = [r for r in rows if r["participants"] == "all" and r["camp_type"] == camp and r["full_clear_n"]]
+        x = [r["minute_from"] / 5 + offset for r in sample]
+        medians = [r["full_clear_median_s"] for r in sample]
+        ax.vlines(x, [r["full_clear_p25_s"] for r in sample], [r["full_clear_p75_s"] for r in sample],
+                  color=color, lw=2, alpha=0.65)
+        ax.plot(x, medians, "o-", color=color, label=camp.title() + " camp")
+    ax.set_title("Elite and normal camp clear times", loc="left", fontweight="bold")
+    ax.set_xticks(range(5), ["0–5", "5–10", "10–15", "15–20", "20+"])
+    ax.set_xlim(-0.35, 4.35)
+    ax.set_ylim(bottom=0)
+    ax.set_xlabel("Raid minutes at first damage")
+    ax.set_ylabel("Seconds to full clear (median and middle 50%)")
+    ax.legend(frameon=False)
+    ax.spines[["right", "top"]].set_visible(False)
+    ax.grid(axis="y", alpha=0.2)
+    fig.savefig(path, dpi=160)
+    plt.close(fig)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path, help="directory for summary.json and CSV tables")
     parser.add_argument("shards", type=Path, nargs="+", help="elite-field/1 shard JSON files")
+    parser.add_argument("--chart", action="store_true", help="render a clear-time chart with matplotlib")
     args = parser.parse_args()
 
     matches = []
@@ -75,6 +122,9 @@ def main():
 
     elite_rows = [episode for match in matches for episode in match["elites"]]
     normal_rows = [episode for match in matches for episode in match["normals"]]
+    unknown_kinds = {row["elite_kind"] for row in elite_rows} - set(ELITE_KINDS)
+    if unknown_kinds:
+        raise ValueError(f"unknown elite kinds: {unknown_kinds}")
     kind_rows = []
     for kind in ELITE_KINDS:
         records = [row for row in elite_rows if row["elite_kind"] == kind]
@@ -95,7 +145,7 @@ def main():
             "boss_kills": sum(row["boss_kill_s"] is not None for row in records),
             "full_clears": len(full_clear),
             "abandoned_10s": outcomes.get("abandoned_no_damage_10s", 0),
-            "participant_death_no_contact_10s": all_died,
+            "all_participants_died": all_died,
             "participant_death_episodes": len(death_episodes),
             "match_end_before_clear": outcomes.get("match_end_before_clear", 0),
             "timeout_open": outcomes.get("timeout_open", 0),
@@ -142,6 +192,7 @@ def main():
             "seeds": len({seed for seed, row in payouts if (row["seat"] == 0) == (status == "human_eligible_seat")}),
         })
 
+    age_rows = age_breakdown("elite", elite_rows) + age_breakdown("normal", normal_rows)
     ticks = [row["ticks"] for row in matches]
     chest_picks = [pick for match in matches for pick in match["chest_picks"]]
     summary = {
@@ -162,6 +213,7 @@ def main():
         "elite_attempts": sum(row["attempts"] for row in kind_rows),
         "normal_attempts": len(normal_rows),
         "elite_by_kind": kind_rows,
+        "camp_by_age": age_rows,
         "attempts_by_start_minute": minute_rows,
         "normal_farm_by_type": normal_type_rows,
         "elite_gv_payouts": {
@@ -185,6 +237,9 @@ def main():
     }
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    write_csv(args.output / "camp_by_age.csv", age_rows, list(age_rows[0]))
+    if args.chart:
+        chart_clears(age_rows, args.output / "camp_clear_times.png")
     elite_csv_rows = []
     for row in kind_rows:
         flat = {key: value for key, value in row.items() if not isinstance(value, dict)}
@@ -197,7 +252,7 @@ def main():
         elite_csv_rows.append(flat)
     write_csv(args.output / "elite_by_kind.csv", elite_csv_rows, [
         "elite_kind", "attempts", "seeds", "boss_kills", "full_clears", "abandoned_10s",
-        "participant_death_no_contact_10s", "participant_death_episodes", "match_end_before_clear", "timeout_open",
+        "all_participants_died", "participant_death_episodes", "match_end_before_clear", "timeout_open",
         "boss_kill_from_pull_n", "boss_kill_from_pull_p25_s", "boss_kill_from_pull_median_s", "boss_kill_from_pull_p75_s",
         "boss_contact_to_kill_n", "boss_contact_to_kill_p25_s", "boss_contact_to_kill_median_s", "boss_contact_to_kill_p75_s",
         "full_clear_from_pull_n", "full_clear_from_pull_p25_s", "full_clear_from_pull_median_s", "full_clear_from_pull_p75_s",

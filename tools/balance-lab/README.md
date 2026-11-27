@@ -193,3 +193,35 @@ python3 tools/balance-lab/field_ttk_report.py .agent-runs/route-repro .agent-run
 ```
 
 The farm comparison uses the same weapon and faction on both sides, runs each kit on both sides and records simultaneous kills and timeouts. The first comparison carries the mob stacks and credited camp clears actually earned by that raid minute. The second gives both kits the lower stack budget and clear count, retaining each route's stat proportions with largest-remainder rounding. Each exchange uses either attacks alone or attacks with the faction Wish. Both commander seats start with one zombie. The Wish-enabled exchange also times first damage on the first fighter to die through their death. Timeouts stay unmeasured. The separate nine-stat screen exchanges the next twelve earned stacks for each alternative at two fixed baseline investments.
+
+## Quest and elite balance
+
+The [quest and elite report](../../docs/evidence/quest-elite-balance/README.md) uses the same 80 seeded 40 Hz raids as the farming study. Run these commands from the repository root. The optional six-seed replay measures time spent using the weapon required for Bastion or Calluses. The normal and elite field series use the same 10-second break in contact to end an encounter.
+
+```sh
+d=.agent-runs/quest-elite-repro
+mkdir -p "$d"
+cargo build --locked --release -p rh-headless --features elite-bench --bins
+target/release/quest_balance 1 81 > "$d/quests.jsonl"
+target/release/strategy_ttk --seeds 1..81 --out "$d/timing"
+python3 tools/balance-lab/quest_balance_report.py "$d/quests.jsonl" --expect-seeds 1..81 --field "$d/timing/field-ttk.json" --csv "$d/quest_funnel.csv" > "$d/quest-summary.json"
+target/release/elite_field --seeds 1..81 --out "$d/elites.json"
+python3 tools/balance-lab/elite_field_report.py "$d/elite-report" "$d/elites.json" --chart
+target/release/augment_field 1 81 > "$d/augments.jsonl"
+target/release/camp_bench --pvp --reward-catalog > "$d/catalog.json"
+for seed in 2 11 21 31 41 71; do
+    target/release/augment_field "$seed" "$((seed + 1))" > "$d/exposure-$seed.jsonl"
+done
+python3 tools/balance-lab/augment_field_report.py "$d/augments.jsonl" --catalog "$d/catalog.json" --baseline "$d/quests.jsonl" --elite-events "$d/elites.json" --exposure "$d"/exposure-*.jsonl --expect-seeds 1..81 --csv "$d/augment_growth.csv" > "$d/utility.json"
+python3 tools/balance-lab/reward_matchups.py augments target/release/camp_bench "$d"
+python3 tools/balance-lab/reward_matchups.py augments target/release/camp_bench "$d" --cost-ladder
+python3 tools/balance-lab/reward_matchups.py quests target/release/camp_bench "$d"
+python3 tools/balance-lab/reward_matchups.py quests target/release/camp_bench "$d" --follow
+python3 tools/balance-lab/reward_matchups.py quests target/release/camp_bench "$d" --follow --cost-ladder
+target/release/camp_bench --elite --fighter duelist --seed 1 --seeds 3 --jobs 4 --weapon sword,bow > "$d/controlled-elites.json"
+python3 tools/balance-lab/elite_solo_report.py "$d/controlled-elites.json" "$d/elite_solo.csv"
+cargo test --locked --release -p rh-sim --lib all_twenty_five_quests_complete_at_the_live_40_hz_step
+cargo test --locked --release -p rh-headless --features elite-bench --bin camp_bench farm_mirrors::tests
+```
+
+The solo elite bench uses its existing 20 Hz fixture and a 90-second cutoff. The 40 Hz field measurements are the primary timings for the playable alpha. The reward comparisons read the previously measured preferred stat for each build from the [farming screen](../../docs/evidence/raid-routing-ttk/stat_summary.csv). A single-camp alternative credits twelve preferred-stat stacks and a clear. The cost ladder repeats the comparison for two, four and eight such clears.
