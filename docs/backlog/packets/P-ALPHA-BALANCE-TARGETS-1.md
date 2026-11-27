@@ -32,3 +32,5 @@ The owner set a target for well-chosen activities. Report any faction, quest, el
 
 ## 11. Traps
 A duel win rate is not a percentage return on time. Giving a route an extra stat only in the lab does not demonstrate its value in the game. Compare fresh camp clears separately from re-engagements, and late loadouts separately from early controls.
+
+For elite tuning, use generated maps 1–4 to size the curve and reserve maps 21–30 for its independent test. Score the median elite/normal time ratio within solo pairs that cleared both fresh rosters, at starting minutes 6, 10, 15 and 20. Treat 1.7–2.3 as “about 2×” (15% either side of the owner target). Also publish absolute times, deaths, unfinished pulls and boss-specific results. Both members of each pair use identical farm rolls, base gear and accepted player inputs under the same scripted policy. The normal control is in the boss's zone with the same normal mob type where available. Starting pulls at minute zero check the preserved opening.
