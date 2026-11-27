@@ -86,3 +86,15 @@ In six replays, the six Bastion holders logged zero standing seconds with Shield
 The field observers read authoritative post-step damage and reward events. Quest and augment replays reached identical final state hashes on all 80 maps. The elite replay matched the final field tick and terminal flags on all 80. The paired combat experiment uses two full-health, same-faction fighters with matching weapons and farm kits. Each occupies both starting seats. A win scores one point, a simultaneous death or timeout scores half. The pursuit comparison lets both fighters close again when displacement opens more than 96 units. In the original stationary comparison, 30 of 60 Shoulder Charge exchanges against one camp timed out; in the pursuit comparison, all 60 finished. The duel sample measures an immediate fight at full charges. Future uses of a reusable spell retain additional value outside that exchange.
 
 Combat quest rewards were installed through the authoritative grant and cast path. For Crown Power and Trade Up, whose grant size depends on actual quest progress, the duel reproduces the verified stack payout at the stated stage. The full 25-quest 40 Hz scenario test exercises the genuine turn-in paths. The Bargain needs a choice of input payment and payout, so its field costs and source mechanics are reported separately. [Reproduction commands](../../../tools/balance-lab/README.md#quest-and-elite-balance) · [Packet](../../backlog/packets/P-QUEST-ELITE-BALANCE-FIELD-1.md)
+
+## Packet hand-off
+
+| Field | Record |
+|---|---|
+| Packet and branch | P-QUEST-ELITE-BALANCE-FIELD-1, Phase 2 item 11. The measurement changes are on `codex/alpha-gameplay-restoration`, with the combined measurement record through `1f87e5dab`. |
+| Gate | The standalone local run at `13c8577ae` failed its parity-report step while gameplay identity was changing. The subsequent gameplay packet regenerated both affected content-identity fixtures with the documented command. The [integrated verification](../alpha-balance-targets/README.md) records the final gate on the combined change. |
+| Changed | Offline authoritative quest, camp and augment observers, controlled combat comparisons, analysis tooling, packet brief and this evidence directory. |
+| D-rules | D1 retains the shipped mechanics for the historical benchmark. D2 compares inputs and terminal outcomes, including mirrored equipment and conditional failures. D5, D6 and D9 have no changes in this measurement packet. |
+| Deviations and shared records | None in the measurement packet. Later runtime tuning is in DEV-043. |
+| Legacy doubts | Historical target-build weights and direct duels price different aspects of playing a raid. |
+| Limits and risks | One quest-eligible focal seat, nine objectives skipped by the stock executor, equipment-dependent cards, few healthy clean field duels, and conditional successful pulls. The controlled follow-up uses a camp-identity check on first contact. |
