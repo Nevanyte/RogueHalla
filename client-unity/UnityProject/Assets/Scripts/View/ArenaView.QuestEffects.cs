@@ -1,10 +1,10 @@
-// Renders authoritative quest barriers and transient world cues using the arena artwork pool.
 using Roguehalla.Net;
 using Roguehalla.Net.Protocol;
 using UnityEngine;
 
 namespace Roguehalla.Client
 {
+    /// <summary>Draws the delivered quest barriers and temporary world cues with pooled sprites.</summary>
     public sealed partial class ArenaView
     {
         Sprite _questCageFence;
