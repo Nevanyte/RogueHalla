@@ -19,3 +19,14 @@ Each arm recorded zero concurrent ordinary clears on these trades. Keeping the f
 [10-for-14 trade ledger](current.csv) · [8-for-11 trade ledger](candidate.csv) · [Control summary](current.json) · [Candidate summary](candidate.json) · [Control observations](current.jsonl.gz) · [Candidate observations](candidate.jsonl.gz)
 
 Use the same reporter and historical rate archive as the [unselected 10-for-14 cohort](../field-lot14/README.md). Decompress each observation archive and set `--fee 10 --payout 14` or `--fee 8 --payout 11` accordingly.
+
+## Return across both sets of boards
+
+The 80-map final cohort (seeds 601–680) contained 35 offers. The prospective draw (701–780) contained 29 more. Pooling the 160 boards and the actual cost of unsuccessful routes gives these descriptive totals. The earlier 10-for-14 observations from the first set had helped choose the candidate, so the prospective set remains its separate independent test.
+
+| Price | Paid / offered | Net build-valued gain in camp units | Full nearby cost | Return | Remaining-roster cost | Return |
+|---|---:|---:|---:|---:|---:|---:|
+| 10 for 14 | 51 / 64 | 40.167 | 24.716 | 1.625× | 23.850 | 1.684× |
+| 8 for 11 | 50 / 64 | 31.983 | 21.904 | 1.460× | 21.803 | 1.467× |
+
+Resampling 80 map seeds within each set, with replacement, preserves both sampling frames. The selected price has a 95% interval of 1.163–1.888× on the full nearby basis and 1.123–2.006× on the remaining basis (4,000 samples, seed 20261127). The underlying 35-offer cohort returned 1.676× and 1.702× at the selected price. Compute the point estimates by summing the reported fit gain across the two cohorts and dividing by the sum of paid route cost plus failed route spend. A board without Bargain contributes zero to both sums. [Actual final matched-map reward data](../final-field/README.md) · [Earlier matched-map reward data](../field-lot14/README.md)
