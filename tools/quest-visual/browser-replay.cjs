@@ -128,8 +128,17 @@ async function runCase(browser, entry) {
       if (frame.phase === 'offered' && expected?.canAccept) {
         const keyAvailable = await page.evaluate(() => window.__rhProbe.ui.some(o => o.n === 'QuestActionLauncher' && o.i));
         if (keyAvailable) {
-          await page.keyboard.press('f');
-          await pause(350);
+          await page.keyboard.press('f', { delay: 80 });
+          await pause(400);
+          const shown = await page.evaluate(() => window.__rhProbe.ui.some(o => o.n === 'Accept' && o.p === 'Footer' && o.i));
+          if (!shown) {
+            // F honours a weapon/reward pickup in reach. The dedicated quest
+            // button may still open the offer beside it.
+            const launcher = await page.evaluate(() => window.__rhProbe.ui.find(o => o.n === 'QuestActionLauncher' && o.i));
+            await page.mouse.click(launcher.x + launcher.w / 2, launcher.y + launcher.h / 2);
+            await page.waitForFunction(() => window.__rhProbe?.ui.some(o => o.n === 'Accept' && o.p === 'Footer' && o.i),
+              null, { timeout: 4000 });
+          }
           await page.screenshot({ path: path.join(directory, 'offer-card.png') });
           await page.keyboard.press('Enter', { delay: 80 });
           await pause(250);
