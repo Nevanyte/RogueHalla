@@ -486,7 +486,11 @@ namespace Roguehalla.Client
             {
                 // Zone, cloud and trail rows: drawn by the Wish presenter at exactly the delivered extents.
                 _wishFx.PresentAreas(collections.Fields);
-                foreach (var field in collections.Fields) PresentQuestCue(field);
+                foreach (var field in collections.Fields)
+                {
+                    if (FrostWallPresenter.IsQuestCage(field)) PresentQuestCage(field);
+                    else PresentQuestCue(field);
+                }
                 if (collections.Quests != null)
                     foreach (var reward in collections.Quests.Drops) PresentQuestReward(reward);
                 foreach (var p in collections.Props)
@@ -661,6 +665,33 @@ namespace Roguehalla.Client
 
         // The server's current collection determines which cues exist. These
         // pooled shapes use only the delivered locations and landing time.
+        Sprite _questCageFence;
+
+        void PresentQuestCage(AreaView cage)
+        {
+            if (cage.Tiles == null || cage.Tiles.Length == 0) return;
+            if (_questCageFence == null)
+            {
+                var texture = RegionWallAtlas.Atlas;
+                var cell = RegionWallAtlas.LowFor(RegionWallAtlas.SetFor(WallStyle.Timber), 2)[0];
+                var pixels = new Vector2(texture.width, texture.height);
+                var min = Vector2.Scale(cell.Min, pixels);
+                var size = Vector2.Scale(cell.Max - cell.Min, pixels);
+                _questCageFence = Sprite.Create(texture, new Rect(min, size), new Vector2(.5f, .42f), RegionWallAtlas.TileW);
+            }
+            foreach (var tile in cage.Tiles)
+            {
+                float x = tile.X * 32 + 16, y = tile.Y * 32 + 16;
+                int order = 2000 + Mathf.RoundToInt(y * .5f);
+                var position = WorldPoint(x, y);
+                Prop("shadow", position, new Vector2(.88f, .35f), Color.white, order);
+                bool vertical = Mathf.Abs(x - cage.X) > Mathf.Abs(y - cage.Y);
+                var scale = vertical ? new Vector2(GroundSquash, .78f) : new Vector2(1f, .78f);
+                var fence = Prop("stone", position + new Vector3(0, .12f), scale, Color.white, order + 3, overrideSprite: _questCageFence);
+                if (vertical) fence.transform.rotation = Quaternion.Euler(0, 0, 90);
+            }
+        }
+
         void PresentQuestCue(AreaView cue)
         {
             if ((byte)cue.Kind < FieldsState.KindQuestTurret) return;
@@ -735,7 +766,7 @@ namespace Roguehalla.Client
             }
         }
 
-        SpriteRenderer Prop(string sprite, Vector3 p, Vector2 scale, Color color, int order, WeaponId? groundWeapon = null)
+        SpriteRenderer Prop(string sprite, Vector3 p, Vector2 scale, Color color, int order, WeaponId? groundWeapon = null, Sprite overrideSprite = null)
         {
             SpriteRenderer r;
             int slot = _used++;
@@ -746,7 +777,7 @@ namespace Roguehalla.Client
                 _propArtistSources.Add(null);
             }
             else r = _props[slot];
-            r.gameObject.SetActive(true); r.sprite = ShowcaseSprites.Get(sprite); r.color = color; r.sortingOrder = order;
+            r.gameObject.SetActive(true); r.sprite = overrideSprite != null ? overrideSprite : ShowcaseSprites.Get(sprite); r.color = color; r.sortingOrder = order;
             if (groundWeapon.HasValue)
                 _propArtistSources[slot] = StormInkArtistSource.BindWeapon(_propArtistSources[slot], r, groundWeapon, 0, true);
             else
@@ -786,6 +817,11 @@ namespace Roguehalla.Client
             if (ShowcaseSettings.Current != null) ShowcaseSettings.Current.Changed -= ApplyQuality;
             if (_visionSession != null) _visionSession.EventsReceived -= OnVisionEvents;
             if (_frostWall != null) _frostWall.Dispose();
+            if (_questCageFence != null)
+            {
+                if (Application.isPlaying) Destroy(_questCageFence);
+                else DestroyImmediate(_questCageFence);
+            }
             if (_vignette != null) _vignette.Dispose();
             if (_visionFog != null) _visionFog.Dispose();
             if (_regionGround != null) _regionGround.Dispose();

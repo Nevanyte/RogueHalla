@@ -47,6 +47,19 @@ namespace Roguehalla.Client.Tests
         }
 
         [Test]
+        public void WardensFenceRingDoesNotDrawFrostIce()
+        {
+            var ring = Wall(Column(12, 7, 3));
+            ring.Radius = 112f;
+            Assert.That(FrostWallPresenter.IsQuestCage(ring), Is.True);
+            Assert.That(FrostWallPresenter.IsQuestCage(Zone()), Is.False);
+            Frame(new[] { ring, Wall(Column(14, 7, 2)) }, 2000);
+            Assert.That(_p.WallCount, Is.EqualTo(1));
+            Assert.That(_p.BlockCount, Is.EqualTo(2));
+            Assert.That(_p.BlockTile(0).X, Is.EqualTo(14));
+        }
+
+        [Test]
         public void AWallOfNTilesMakesNBlocksAtThoseTiles()
         {
             var tiles = Column(12, 7, 7);

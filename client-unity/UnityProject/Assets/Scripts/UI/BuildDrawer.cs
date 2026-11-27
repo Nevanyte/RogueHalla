@@ -44,14 +44,14 @@ namespace Roguehalla.Client
         {
             if (canvasRoot == null) throw new ArgumentNullException(nameof(canvasRoot));
             _onClose = onClose;
-            _root = MythicUi.Panel(canvasRoot, "BuildDrawer", new Vector2(.57f, .025f), new Vector2(.985f, .975f), ShowcasePalette.Panel);
+            _root = MythicUi.Panel(canvasRoot, "BuildDrawer", new Vector2(.53f, .025f), new Vector2(.985f, .975f), ShowcasePalette.Panel);
             MythicUi.Border(_root, ShowcasePalette.PanelStroke);
 
             MythicUi.Text(_root, "DrawerTitle", "FIELD LEDGER", new Vector2(.035f, .92f), new Vector2(.72f, .995f), 25, ShowcasePalette.Gold);
-            _countLabel = MythicUi.Text(_root, "CardCount", "80 cards · awaiting build", new Vector2(.73f, .92f), new Vector2(.87f, .995f), 15,
+            _countLabel = MythicUi.Text(_root, "CardCount", "80 cards · awaiting build", new Vector2(.59f, .92f), new Vector2(.845f, .995f), 15,
                 ShowcasePalette.MutedText, TextAlignmentOptions.MidlineRight);
-            var close = MythicUi.Button(_root, "Close", "CLOSE", new Vector2(.875f, .92f), new Vector2(.98f, .995f), Close, MythicUi.ButtonStyle.Quiet);
-            close.GetComponentInChildren<TMP_Text>().fontSize = 13;
+            MythicUi.Button(_root, "Close", "CLOSE", new Vector2(.855f, .92f), new Vector2(.98f, .995f), Close, MythicUi.ButtonStyle.Quiet,
+                fontSize: 14f);
 
             var summary = MythicUi.Panel(_root, "OwnerSummary", new Vector2(.025f, .805f), new Vector2(.975f, .91f), ShowcasePalette.PanelRaised);
             MythicUi.Icon(summary, "HealthGlyph", MythicGlyph.Health, new Vector2(.02f, .2f), new Vector2(.10f, .8f));
@@ -100,10 +100,10 @@ namespace Roguehalla.Client
             MythicUi.Icon(buttonRect, "CardGlyph", GlyphFor(display.Tags), new Vector2(.02f, .56f), new Vector2(.26f, .98f));
             MythicUi.Text(buttonRect, "CardTitle", display.Title, new Vector2(.27f, .69f), new Vector2(.96f, .97f), 15,
                 ShowcasePalette.Text);
-            MythicUi.Text(buttonRect, "CardDescription", display.Description, new Vector2(.04f, .26f), new Vector2(.96f, .66f), 12,
+            MythicUi.Text(buttonRect, "CardDescription", display.Description, new Vector2(.04f, .26f), new Vector2(.96f, .66f), 14,
                 ShowcasePalette.MutedText);
             string tags = string.IsNullOrWhiteSpace(display.Tags) ? "CARD" : PlayerWords.CardTags(display.Tags).ToUpperInvariant();
-            MythicUi.Text(buttonRect, "CardTags", tags, new Vector2(.04f, .05f), new Vector2(.70f, .24f), 10, ShowcasePalette.Gold);
+            MythicUi.Text(buttonRect, "CardTags", tags, new Vector2(.04f, .05f), new Vector2(.70f, .24f), 12, ShowcasePalette.Gold);
             _cardCounts[index] = MythicUi.Text(buttonRect, "OwnedCount", "×0", new Vector2(.72f, .035f), new Vector2(.97f, .21f), 14,
                 ShowcasePalette.Success, TextAlignmentOptions.MidlineRight);
         }

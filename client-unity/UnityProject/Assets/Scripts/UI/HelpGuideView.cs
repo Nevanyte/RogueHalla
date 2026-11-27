@@ -208,7 +208,7 @@ namespace Roguehalla.Client
             var dismiss = _root.gameObject.AddComponent<ModalDismissSurface>(); dismiss.Dismiss = CloseByUser;
             _card = HudUi.Box(_root, "HelpGuideCard", HudAnchor.Center, 0, 0, CardWidth, 640f);
             HudUi.Surface(_card, theme.Surface, theme.CornerRadiusLarge, theme.AccentDim, true, true);
-            HudUi.Label(HudUi.At(_card, "TitleRow", 20, 16, 400, 24), "HelpTitle", "CONTROLS & GUIDE", theme.SizeHeading, theme.TextPrimary, bold: true, role: UiFontRole.Display).characterSpacing = 2f;
+            HudUi.Label(HudUi.At(_card, "TitleRow", 20, 16, 400, 24), "HelpTitle", "CONTROLS & GUIDE", 21f, theme.TextPrimary, bold: true, role: UiFontRole.Display).characterSpacing = 2f;
             _closeButton = HudUi.Button(_card, "HelpClose", "x", HudAnchor.TopRight, 16f, 14f, 24f, 24f, CloseByUser, theme.SizeBody, theme.CornerRadiusSmall);
             _controlsTab = HudUi.Button(_card, "ControlsTab", "Controls", HudAnchor.TopLeft, 20f, 50f, 110f, 26f, () => ShowTab(HelpGuideTab.Controls), theme.SizeBody, theme.CornerRadiusSmall);
             _mechanicsTab = HudUi.Button(_card, "MechanicsTab", "Mechanics", HudAnchor.TopLeft, 136f, 50f, 110f, 26f, () => ShowTab(HelpGuideTab.Mechanics), theme.SizeBody, theme.CornerRadiusSmall);
@@ -220,7 +220,7 @@ namespace Roguehalla.Client
             SetVisible(false);
         }
 
-        const float CardWidth = 560f;
+        const float CardWidth = 640f;
         /// <summary>Width min(560, uiW - 24), height up to uiH - 24 (the card scrolls inside).</summary>
         public void ApplyViewport(HudViewport viewport)
         {
@@ -289,7 +289,7 @@ namespace Roguehalla.Client
             var viewport = MythicUi.Rect(frame, "Viewport", Vector2.zero, Vector2.one);
             var mask = viewport.gameObject.AddComponent<Image>(); mask.color = Color.clear; mask.raycastTarget = true;
             viewport.gameObject.AddComponent<RectMask2D>();
-            text = HudUi.Label(viewport, "Content", "", theme.SizeBody, theme.TextPrimary, TextAlignmentOptions.TopLeft, wrap: true);
+            text = HudUi.Label(viewport, "Content", "", 16f, theme.TextPrimary, TextAlignmentOptions.TopLeft, wrap: true);
             HudUi.Unfit(text);
             text.margin = new Vector4(0, 0, ScrollIndicator.Width + ScrollIndicator.Inset + 1f, 0);
             text.rectTransform.anchorMin = new Vector2(0, 1); text.rectTransform.anchorMax = new Vector2(1, 1); text.rectTransform.pivot = new Vector2(.5f, 1);

@@ -78,11 +78,11 @@ namespace Roguehalla.Client
             var fill = (RectTransform)_questActionLauncher.transform;
             fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.pivot = new Vector2(.5f, .5f);
             fill.offsetMin = fill.offsetMax = Vector2.zero;
-            _questActionCaption = HudUi.Label(fill, "Label", "", 11f, UiTheme.Current.TextPrimary, TextAlignmentOptions.Center);
+            _questActionCaption = HudUi.Label(fill, "Label", "", 14f, UiTheme.Current.TextPrimary, TextAlignmentOptions.Center);
             _offerCard = new QuestOfferCard(_hud, _acceptLatch, () => AcceptOffer(), CloseOffer);
 
             _questChoiceOverlay = MythicUi.Panel(_root, "QuestRewardChoiceOverlay", Vector2.zero, Vector2.one, new Color(0, 0, 0, .68f));
-            var card = MythicUi.Panel(_questChoiceOverlay, "QuestRewardChoice", new Vector2(.28f, .23f), new Vector2(.72f, .77f));
+            var card = MythicUi.Panel(_questChoiceOverlay, "QuestRewardChoice", new Vector2(.24f, .20f), new Vector2(.76f, .80f));
             _questChoiceTitle = MythicUi.Text(card, "Reward", "", new Vector2(.06f, .63f), new Vector2(.94f, .96f), 20,
                 ShowcasePalette.Gold, TextAlignmentOptions.Center, heading: true);
             _questChoiceSpells = MythicUi.Text(card, "Equipped", "", new Vector2(.06f, .48f), new Vector2(.94f, .63f), 14,
@@ -91,14 +91,14 @@ namespace Roguehalla.Client
             {
                 float y = .35f - i * .11f;
                 _questChoiceButtons[i] = MythicUi.Button(card, "RewardChoice" + i, "", new Vector2(.12f, y),
-                    new Vector2(.88f, y + .095f), () => { }, fontSize: 14);
+                    new Vector2(.88f, y + .095f), () => { }, fontSize: 16);
             }
             _questChoiceStatus = MythicUi.Text(card, "RewardStatus", "", new Vector2(.05f, .01f), new Vector2(.69f, .11f), 12);
             MythicUi.Button(card, "ChooseLater", "LATER", new Vector2(.72f, .012f), new Vector2(.96f, .10f),
                 CloseQuestRewardModal, MythicUi.ButtonStyle.Quiet, 12);
 
             _nearbyQuestOverlay = MythicUi.Panel(_root, "NearbyQuestActionsOverlay", Vector2.zero, Vector2.one, new Color(0, 0, 0, .68f));
-            var nearby = MythicUi.Panel(_nearbyQuestOverlay, "NearbyQuestActions", new Vector2(.29f, .25f), new Vector2(.71f, .75f));
+            var nearby = MythicUi.Panel(_nearbyQuestOverlay, "NearbyQuestActions", new Vector2(.25f, .21f), new Vector2(.75f, .79f));
             MythicUi.Text(nearby, "Title", "NEARBY QUEST ACTIONS", new Vector2(.04f, .83f), new Vector2(.73f, .98f),
                 18, ShowcasePalette.Gold, heading: true);
             MythicUi.Button(nearby, "Close", "CLOSE", new Vector2(.75f, .84f), new Vector2(.96f, .96f),

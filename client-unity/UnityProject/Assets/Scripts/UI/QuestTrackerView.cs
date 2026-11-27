@@ -36,17 +36,17 @@ namespace Roguehalla.Client
             _root = HudUi.Box(parent, "QuestTracker", HudAnchor.TopLeft, HudRegions.Margin, 0f, HudRegions.TrackerWidth, 0f);
             HudUi.Surface(_root, UiTheme.With(theme.Surface, HudUi.PlateAlpha), theme.CornerRadius, UiTheme.With(theme.Border, .6f), false);
             var header = HudUi.At(_root, "Header", 0f, 0f, HudRegions.TrackerWidth, HudRegions.TrackerHeader);
-            HudUi.Label(HudUi.At(header, "Title", 8f, 2f, 120f, 14f), "Label", "QUESTS", theme.SizeTiny, theme.Accent, TextAlignmentOptions.MidlineLeft, true);
-            _more = HudUi.Label(HudUi.At(header, "More", 132f, 2f, 120f, 14f), "Label", "", theme.SizeTiny, theme.TextSecondary, TextAlignmentOptions.MidlineRight);
+            HudUi.Label(HudUi.At(header, "Title", 8f, 2f, 120f, 15f), "Label", "QUESTS", 12f, theme.Accent, TextAlignmentOptions.MidlineLeft, true);
+            _more = HudUi.Label(HudUi.At(header, "More", 158f, 2f, 138f, 15f), "Label", "", 12f, theme.TextSecondary, TextAlignmentOptions.MidlineRight);
             for (int i = 0; i < _rowUi.Length; i++)
             {
                 var row = new RowUi { Box = HudUi.At(_root, "Row" + i, 0f, HudRegions.TrackerHeader + i * HudRegions.TrackerRow, HudRegions.TrackerWidth, HudRegions.TrackerRow) };
-                row.Name = HudUi.Label(HudUi.At(row.Box, "Name", 8f, 3f, 190f, 16f), "Label", "", theme.SizeSmall, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, true);
-                row.Clock = HudUi.Label(HudUi.At(row.Box, "Clock", 202f, 3f, 50f, 16f), "Label", "", theme.SizeSmall, theme.TextSecondary, TextAlignmentOptions.MidlineRight);
-                row.Objective = HudUi.Label(HudUi.At(row.Box, "Objective", 8f, 20f, 166f, 15f), "Label", "", theme.SizeTiny, theme.TextSecondary, TextAlignmentOptions.MidlineLeft);
-                row.Progress = HudUi.Label(HudUi.At(row.Box, "Progress", 178f, 20f, 74f, 15f), "Label", "", theme.SizeTiny, theme.TextSecondary, TextAlignmentOptions.MidlineRight);
-                row.Name.GetComponent<MythicTextScale>().MinSize = 8f;
-                row.Objective.GetComponent<MythicTextScale>().MinSize = 8f;
+                row.Name = HudUi.Label(HudUi.At(row.Box, "Name", 8f, 3f, 222f, 17f), "Label", "", 15f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, true);
+                row.Clock = HudUi.Label(HudUi.At(row.Box, "Clock", 234f, 3f, 62f, 17f), "Label", "", 14f, theme.TextSecondary, TextAlignmentOptions.MidlineRight);
+                row.Objective = HudUi.Label(HudUi.At(row.Box, "Objective", 8f, 20f, 204f, 15f), "Label", "", 13f, theme.TextSecondary, TextAlignmentOptions.MidlineLeft);
+                row.Progress = HudUi.Label(HudUi.At(row.Box, "Progress", 216f, 20f, 80f, 15f), "Label", "", 12f, theme.TextSecondary, TextAlignmentOptions.MidlineRight);
+                row.Name.GetComponent<MythicTextScale>().MinSize = 11f;
+                row.Objective.GetComponent<MythicTextScale>().MinSize = 11f;
                 row.Box.gameObject.SetActive(false);
                 _rowUi[i] = row;
             }

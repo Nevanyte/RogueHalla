@@ -261,10 +261,10 @@ namespace Roguehalla.Net.Tests
                         Assert.That(offer.Top, Is.GreaterThanOrEqualTo(plate - Eps), "offer under the plate chain" + tag);
                         Assert.That(tracker.Right, Is.LessThanOrEqualTo(zone.Left + Eps), "tracker left of the zone" + tag);
                         Assert.That(offer.Right, Is.LessThanOrEqualTo(zone.Left + Eps), "offer left of the zone" + tag);
-                        Assert.That(offer.Width, Is.EqualTo(280f).Within(Eps), "offer width" + tag);
+                        Assert.That(offer.Width, Is.EqualTo(324f).Within(Eps), "offer width" + tag);
                         if (rows > 0)
                         {
-                            Assert.That(tracker.Width, Is.EqualTo(260f).Within(Eps), "tracker width" + tag);
+                            Assert.That(tracker.Width, Is.EqualTo(304f).Within(Eps), "tracker width" + tag);
                             Assert.That(tracker.Overlaps(offer), Is.False, "tracker and offer disjoint" + tag);
                         }
                         Assert.That(offer.Bottom, Is.LessThanOrEqualTo(championTop - 8f + Eps), "offer ends 8 above the champion panel" + tag);
@@ -281,7 +281,7 @@ namespace Roguehalla.Net.Tests
                 var t = HudRegions.TrackerDock(200f, rows);
                 Assert.That(t.Anchor, Is.EqualTo(HudRegionAnchor.TopLeft));
                 Assert.That(t.X, Is.EqualTo(12f).Within(Eps));
-                Assert.That(t.Width, Is.EqualTo(260f).Within(Eps));
+                Assert.That(t.Width, Is.EqualTo(304f).Within(Eps));
                 Assert.That(t.Y, Is.InRange(200f - Eps, 208f + Eps), "starts at or just below the plate chain, within one TrackerGap");
                 Assert.That(t.Height, Is.InRange(18f + rows * 38f - Eps, 18f + rows * 46f + Eps), "rows " + rows);
             }
@@ -337,7 +337,7 @@ namespace Roguehalla.Net.Tests
             Assert.That(HudRegions.TrackerDock(200f, 9).Height, Is.GreaterThanOrEqualTo(18f + 3 * 38f - Eps));
             AssertSame(HudRegions.OfferCard(800f, 260f, 9, 220f, 602f), HudRegions.OfferCard(800f, 260f, 3, 220f, 602f), "offer rows 9");
             AssertSame(HudRegions.OfferCard(800f, 260f, -1, 220f, 602f), HudRegions.OfferCard(800f, 260f, 0, 220f, 602f), "offer rows -1");
-            Assert.That(HudRegions.OfferCard(800f, 260f, 0, 220f, 602f).Width, Is.EqualTo(280f).Within(Eps));
+            Assert.That(HudRegions.OfferCard(800f, 260f, 0, 220f, 602f).Width, Is.EqualTo(324f).Within(Eps));
         }
     }
 }

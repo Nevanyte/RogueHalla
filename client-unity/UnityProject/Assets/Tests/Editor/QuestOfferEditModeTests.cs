@@ -315,7 +315,7 @@ namespace Roguehalla.Client.Tests
             var card = Card();
             Assert.That(card, Is.Not.Null, "the card 'QuestOffer' exists under PlayerHUD");
             if (card == null) return null;
-            var t = card.Find(path);
+            var t = path.StartsWith("Footer/") ? card.Find(path) : card.Find("Description/Viewport/Content/" + path);
             Assert.That(t, Is.Not.Null, "the card has '" + path + "'");
             return t;
         }
@@ -333,7 +333,7 @@ namespace Roguehalla.Client.Tests
         {
             var card = Card();
             if (card == null) return false;
-            var box = card.Find(boxName);
+            var box = card.Find("Description/Viewport/Content/" + boxName);
             if (box == null || !box.gameObject.activeInHierarchy) return false;
             var label = box.Find("Label");
             return label != null && label.gameObject.activeInHierarchy && !string.IsNullOrEmpty(label.GetComponent<TMP_Text>().text);
@@ -629,7 +629,7 @@ namespace Roguehalla.Client.Tests
             if (card == null) return;
             var m = Measure(stage, (RectTransform)card);
             var expected = ExpectedCard();
-            Assert.That(m.Width, Is.EqualTo(HudRegions.OfferWidth).Within(Eps), "280 wide " + when);
+            Assert.That(m.Width, Is.EqualTo(HudRegions.OfferWidth).Within(Eps), "uses the shared offer width " + when);
             Assert.That(m.Left, Is.EqualTo(HudRegions.Margin).Within(Eps), "12 from the left " + when);
             Assert.That(m.Left, Is.EqualTo(expected.Left).Within(Eps), "left " + when);
             Assert.That(m.Top, Is.EqualTo(expected.Top).Within(Eps), "top " + when);
@@ -890,7 +890,8 @@ namespace Roguehalla.Client.Tests
                 label.enableAutoSizing = false;
                 var need = label.GetPreferredValues(label.text, Wraps(label) ? rect.width : 0f, 0f);
                 label.fontSize = keep; label.enableAutoSizing = auto;
-                if (need.x > rect.width * MythicTextScale.WidthShare + .01f || need.y > rect.height + .01f)
+                float widthShare = label.GetComponent<MythicTextScale>().FitBox ? MythicTextScale.WidthShare : 1f;
+                if (need.x > rect.width * widthShare + .01f || need.y > rect.height + .01f)
                     problems.Add(name + " '" + label.text + "' at " + keep + " needs " + need.x.ToString("0.#") + "x" + need.y.ToString("0.#")
                         + " of " + rect.width.ToString("0.#") + "x" + rect.height.ToString("0.#"));
             }
@@ -924,6 +925,14 @@ namespace Roguehalla.Client.Tests
             Frame();
             AssertLabelsFit("at text scale 1.5");
             Assert.That(_hud.OfferCard.WantedHeight, Is.GreaterThan(height), "bigger text wants a taller card");
+
+            _hud.OfferCard.Place(new HudRegion(HudRegionAnchor.TopLeft, 12f, 120f, HudRegions.OfferWidth, 148f));
+            var scroll = Card().Find("Description").GetComponent<UnityEngine.UI.ScrollRect>();
+            Assert.That(scroll.content.rect.height, Is.GreaterThan(scroll.viewport.rect.height));
+            Assert.That(scroll.vertical, Is.True, "the full copy scrolls in a crowded dock");
+            Assert.That(CardChild("Objective/Label").GetComponent<TMP_Text>().fontSize, Is.GreaterThanOrEqualTo(24f));
+            Assert.That(CardButton("Footer/Accept").gameObject.activeInHierarchy, Is.True);
+            AssertLabelsFit("with the body masked and actions pinned");
         }
 
         // ------------------------------------------------------------------ 15. the Ends and More lines

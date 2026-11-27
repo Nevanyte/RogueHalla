@@ -12,10 +12,13 @@ namespace Roguehalla.Client
     public sealed class QuestOfferCard
     {
         public const float GraceSeconds = .5f;
-        const float Pad = 12f, Gap = 4f, FooterHeight = 28f, InnerWidth = HudRegions.OfferWidth - Pad * 2f;
+        const float Pad = 14f, Gap = 6f, FooterHeight = 34f, InnerWidth = HudRegions.OfferWidth - Pad * 2f;
+        const float ScrollGutter = 10f, TextWidth = InnerWidth - ScrollGutter;
         const string AcceptCaption = "ACCEPT · Enter", AcceptingCaption = "ACCEPTING…";
 
-        readonly RectTransform _root, _footer;
+        readonly RectTransform _root, _footer, _body, _content;
+        readonly ScrollRect _scroller;
+        readonly ScrollIndicator _scrollIndicator;
         readonly HudFade _fade;
         readonly System.Action _onAccept, _onClose;
         readonly QuestAcceptLatch _latch;
@@ -43,29 +46,42 @@ namespace Roguehalla.Client
             var theme = UiTheme.Current;
             _root = HudUi.Box(parent, "QuestOffer", HudAnchor.TopLeft, HudRegions.Margin, 0f, HudRegions.OfferWidth, HudRegions.OfferMinHeight);
             HudUi.Surface(_root, UiTheme.With(theme.Surface, HudUi.PlateAlpha), theme.CornerRadiusLarge, theme.BorderStrong, true);
-            _sizes[Giver] = theme.SizeTiny; _sizes[Name] = 15f; _sizes[Objective] = theme.SizeSmall;
-            _sizes[Reward] = theme.SizeSmall; _sizes[Ends] = theme.SizeSmall; _sizes[More] = theme.SizeTiny;
-            Build(Giver, "Giver", theme.Accent, true, false);
+            _body = HudUi.At(_root, "Description", Pad, Pad, InnerWidth, 40f);
+            var viewport = HudUi.At(_body, "Viewport", 0f, 0f, InnerWidth, 40f);
+            HudUi.Fill(viewport, "ScrollTarget", Color.clear, true);
+            viewport.gameObject.AddComponent<RectMask2D>();
+            _content = HudUi.At(viewport, "Content", 0f, 0f, InnerWidth, 40f);
+            _scroller = _body.gameObject.AddComponent<ScrollRect>();
+            _scroller.viewport = viewport;
+            _scroller.content = _content;
+            _scroller.horizontal = false;
+            _scroller.movementType = ScrollRect.MovementType.Clamped;
+            _scroller.scrollSensitivity = 35f;
+            _body.gameObject.AddComponent<KeyboardScrollPane>().Initialize(_scroller);
+            _scrollIndicator = new ScrollIndicator(_scroller, _body);
+            _sizes[Giver] = 13f; _sizes[Name] = 21f; _sizes[Objective] = 16f;
+            _sizes[Reward] = 15f; _sizes[Ends] = 13f; _sizes[More] = 13f;
+            Build(Giver, "Giver", theme.Accent, true, true);
             Build(Name, "Name", theme.TextPrimary, true, true);
             Build(Objective, "Objective", theme.TextPrimary, false, true);
             Build(Reward, "Reward", theme.Accent, false, true);
-            Build(Ends, "Ends", theme.TextSecondary, false, false);
-            Build(More, "More", theme.TextSecondary, false, false);
+            Build(Ends, "Ends", theme.TextSecondary, false, true);
+            Build(More, "More", theme.TextSecondary, false, true);
             _footer = HudUi.At(_root, "Footer", Pad, 0f, InnerWidth, FooterHeight);
-            _accept = HudUi.Button(_footer, "Accept", AcceptCaption, HudAnchor.TopLeft, 0f, 0f, 168f, FooterHeight, () => { if (_onAccept != null) _onAccept(); });
+            _accept = HudUi.Button(_footer, "Accept", AcceptCaption, HudAnchor.TopLeft, 0f, 0f, 186f, FooterHeight, () => { if (_onAccept != null) _onAccept(); }, 15f);
             HudUi.ApplyColors(_accept, theme.AccentDim);
             _acceptLabel = _accept.GetComponentInChildren<TMP_Text>(true);
             _caption = AcceptCaption; _captionInteractable = true;
-            _close = HudUi.Button(_footer, "Close", "Esc · close", HudAnchor.TopLeft, 176f, 0f, 80f, FooterHeight, () => { if (_onClose != null) _onClose(); }, theme.SizeTiny);
+            _close = HudUi.Button(_footer, "Close", "Esc · close", HudAnchor.TopLeft, 194f, 0f, InnerWidth - 194f, FooterHeight, () => { if (_onClose != null) _onClose(); }, 13f);
             _fade = new HudFade(_root, true);
             _fade.Snap(false);
         }
 
         void Build(int index, string box, Color color, bool bold, bool wrap)
         {
-            _boxes[index] = HudUi.At(_root, box, Pad, 0f, InnerWidth, 14f);
-            var align = wrap ? TextAlignmentOptions.TopLeft : TextAlignmentOptions.MidlineLeft;
-            _labels[index] = HudUi.Label(_boxes[index], "Label", "", _sizes[index], color, align, bold, UiFontRole.Body, wrap);
+            _boxes[index] = HudUi.At(_content, box, 0f, 0f, TextWidth, 14f);
+            _labels[index] = HudUi.Unfit(HudUi.Label(_boxes[index], "Label", "", _sizes[index], color,
+                TextAlignmentOptions.TopLeft, bold, UiFontRole.Body, wrap));
         }
 
         public RectTransform Root { get { return _root; } }
@@ -82,6 +98,8 @@ namespace Roguehalla.Client
             if (offer == null) return;
             _open = true; _shown = offer.Handle; _reachOk = true; _lost = 0f;
             _fade.Set(true);
+            _scroller.StopMovement();
+            _scroller.verticalNormalizedPosition = 1f;
             Refresh(offer, inReach, serverMs);
         }
 
@@ -203,11 +221,6 @@ namespace Roguehalla.Client
             return true;
         }
 
-        float Size(int index)
-        {
-            return _sizes[index] * Mathf.Clamp(float.IsNaN(_scale) ? 1f : _scale, .85f, 1.5f);
-        }
-
         /// <summary>The height each label needs at the wanted size, and the card's total. Runs when a text, the More line or the scale changes.</summary>
         void Measure()
         {
@@ -216,19 +229,9 @@ namespace Roguehalla.Client
             {
                 if (!Shows(i)) { _heights[i] = 0f; continue; }
                 var label = _labels[i];
-                float size = Size(i), need;
-                bool wraps = label.textWrappingMode != TextWrappingModes.NoWrap;
-                if (wraps)
-                {
-                    float keep = label.fontSize; bool auto = label.enableAutoSizing;
-                    label.enableAutoSizing = false; label.fontSize = size;
-                    need = Mathf.Ceil(label.GetPreferredValues(label.text, InnerWidth, 0f).y);
-                    label.fontSize = keep; label.enableAutoSizing = auto;
-                    if (i == Name) need = Mathf.Min(need, Mathf.Ceil(size * 1.4f) * 2f);
-                }
-                else need = Mathf.Ceil(size * 1.4f);
-                _heights[i] = need;
-                total += need + Gap;
+                label.GetComponent<MythicTextScale>().Apply(_scale);
+                _heights[i] = Mathf.Ceil(label.GetPreferredValues(label.text, TextWidth, 0f).y);
+                total += _heights[i] + Gap;
             }
             _wanted = total;
             _dirty = true;
@@ -236,28 +239,24 @@ namespace Roguehalla.Client
 
         void Layout(float height)
         {
-            float textTotal = 0f, gaps = Pad * 2f + FooterHeight + Gap;
-            for (int i = 0; i < _heights.Length; i++)
-                if (Shows(i)) { textTotal += _heights[i]; gaps += Gap; }
-            float room = height - gaps;
-            float factor = textTotal > 0f && room < textTotal ? Mathf.Max(.2f, room / textTotal) : 1f;
-            float y = Pad;
+            float visible = Mathf.Max(1f, height - Pad * 2f - Gap - FooterHeight);
+            HudUi.Place(_body, HudAnchor.TopLeft, Pad, Pad, InnerWidth, visible);
+            HudUi.Place((RectTransform)_scroller.viewport, HudAnchor.TopLeft, 0f, 0f, InnerWidth, visible);
+            float y = 0f;
             for (int i = 0; i < _boxes.Length; i++)
             {
                 bool on = Shows(i);
-                if (_boxes[i].gameObject.activeSelf != on) _boxes[i].gameObject.SetActive(on);
+                _boxes[i].gameObject.SetActive(on);
                 if (!on) continue;
-                float h = _heights[i] * factor;
-                HudUi.Place(_boxes[i], HudAnchor.TopLeft, Pad, y, InnerWidth, h);
-                y += h + Gap;
+                HudUi.Place(_boxes[i], HudAnchor.TopLeft, 0f, y, TextWidth, _heights[i]);
+                y += _heights[i] + Gap;
             }
-            HudUi.Place(_footer, HudAnchor.TopLeft, Pad, Mathf.Max(y, height - Pad - FooterHeight), InnerWidth, FooterHeight);
-            float scale = float.IsNaN(_scale) ? 1f : _scale;
-            for (int i = 0; i < _labels.Length; i++)
-            {
-                var fit = _labels[i].GetComponent<MythicTextScale>();
-                if (fit != null && Shows(i)) fit.Apply(scale);
-            }
+            y = Mathf.Max(0f, y - Gap);
+            if (_content.rect.height != y) _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, y);
+            _scroller.vertical = y > visible;
+            if (!_scroller.vertical) _content.anchoredPosition = Vector2.zero;
+            _scrollIndicator.Refresh();
+            HudUi.Place(_footer, HudAnchor.TopLeft, Pad, height - Pad - FooterHeight, InnerWidth, FooterHeight);
         }
     }
 }

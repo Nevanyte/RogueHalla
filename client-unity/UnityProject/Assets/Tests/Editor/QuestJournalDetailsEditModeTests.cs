@@ -201,7 +201,7 @@ namespace Roguehalla.Client.Tests
             float[] bottom = { 0f, 50f, 99f, 99f, 0f };
             var detail = (RectTransform)Req(Detail);
             float h = detail.rect.height;
-            Assert.That(h, Is.EqualTo(583.8f).Within(1f), "rig: QuestDetail is 583.8 units high");
+            Assert.That(h, Is.GreaterThan(700f), "the enlarged detail pane leaves room for the objective and reward");
             for (int step = 0; step < counts.Length; step++)
             {
                 var actions = new List<WireQuestAction> { Act(_first, 1, 0, "Abandon") };
@@ -217,7 +217,7 @@ namespace Roguehalla.Client.Tests
                 Assert.That(scroll.yMin, Is.EqualTo(.20f * h + bottom[step]).Within(.5f), "scroll bottom " + at);
                 Assert.That(scroll.yMax, Is.EqualTo(.87f * h).Within(.5f), "scroll top " + at);
                 Assert.That(Local((RectTransform)Req(Detail + "/DetailHeading")).yMin, Is.GreaterThanOrEqualTo(scroll.yMax - .01f), "the heading lies above the scroll " + at);
-                AssertAnchors("QuestStatus", .025f, .115f, .975f, .20f);
+                AssertAnchors("QuestStatus", .025f, .13f, .975f, .20f);
                 AssertAnchors("TrackQuest", .035f, .025f, .48f, .12f);
                 AssertAnchors("AcceptQuest", .52f, .025f, .965f, .12f);
                 AssertAnchors("AcceptHint", .52f, .025f, .965f, .12f);
