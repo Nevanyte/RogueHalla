@@ -32,6 +32,10 @@ Ordinary room configurations, map generation, camp payouts, duel pacing, default
 
 The baseline lab did not measure victim contacts through death or export matched, elapsed-time farm kits for these routing alternatives. A matched seed fixes faction, build, map, focal seat and competitors. Snapshot fields distinguish surviving seats from eliminations and runs ending early. A timing control must exercise at least one incomplete contact and a completed episode. A combat control must distinguish a strong earned kit on either side. Performance claims use the paired sample and state its unit.
 
+### Follow-up fixed before inspecting the holdout
+
+Against the first eleven complete maps from seeds 1–40 the unconstrained route frequently spent longer moving than the nearest farmer. Test one bounded variant with the same build weights on seeds 41–100. It may bypass the closest eligible camp only when the alternative costs at most four additional seconds of estimated walking. Compare it to the earlier choices on exactly those same seeds. The primary minute-ten comparison and the equal-stack comparison both count one independent map per seed. The screen of nine single-stat alternatives uses a fixed 12-stack increment at 72 and 180 baseline stacks.
+
 ## 9. Validation
 
 Run both release measurement binaries, the mirror control and the analysis on their outputs. Run the full project gate with PostgreSQL and Unity. Save the exact commands, sample sizes, and measurement limitations alongside the findings.

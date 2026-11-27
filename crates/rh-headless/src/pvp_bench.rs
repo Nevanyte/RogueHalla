@@ -1,4 +1,7 @@
 //! Stand-and-fight player duels through actual weapon attacks and the damage ledger.
+#[path = "pvp_bench/farm_mirrors.rs"]
+mod farm_mirrors;
+
 use crate::elite_bench::{banked_camp_build, CAMP_STACKS};
 use rh_headless::balance_lab::{match_setup, Options, SeatPolicy, SEATS};
 use rh_headless::{load_arena, Env};
@@ -330,6 +333,9 @@ fn spike_controls(arena: &Arc<Arena>, verbose: bool) -> Vec<String> {
 }
 
 pub fn run(args: &[String], map: &str) -> Result<(), String> {
+    if args == ["--pvp", "--farm-mirrors"] {
+        return farm_mirrors::run();
+    }
     if args
         .iter()
         .any(|a| !matches!(a.as_str(), "--pvp" | "--verbose" | "--check" | "--sampled"))
