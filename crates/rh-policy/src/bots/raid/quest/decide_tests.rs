@@ -272,7 +272,7 @@ fn the_spare_weapon_goes_for_the_stat_worth_most_to_the_build() {
 }
 
 #[test]
-fn twenty_stacks_go_for_the_stat_worth_most_to_the_build() {
+fn stacks_go_for_the_stat_worth_most_to_the_build() {
     // Damage stacks (worth 2.5) into attack damage (3.5) for a sword.
     let got = bargain_trade(&Prices::LOCAL, &sword(), &out_of(0));
     assert_eq!(got, Some((5, 6)));
@@ -310,10 +310,18 @@ fn no_trade_is_made_when_none_improves() {
 #[test]
 fn the_weapon_trade_or_the_stack_trade_is_taken_by_what_it_costs() {
     let s = sword();
-    // Giving armor stacks (worth 2.5, 20 of them) costs more than the spare weapon: trade the weapon.
+    // Ten neutral armor stacks cost less than the usual spare weapon.
     let armor_or_weapon = [(5, 4 * 9 + 6), (7, 6)];
     assert_eq!(
         bargain_trade(&Prices::LOCAL, &s, &armor_or_weapon),
+        Some((5, 4 * 9 + 6))
+    );
+    let cheap_spare = Prices {
+        spare_weapon: 0.5,
+        ..Prices::LOCAL
+    };
+    assert_eq!(
+        bargain_trade(&cheap_spare, &s, &armor_or_weapon),
         Some((7, 6))
     );
     // Giving ability power stacks (1.5 each, useless to a sword) costs less than the weapon: trade the stacks.
