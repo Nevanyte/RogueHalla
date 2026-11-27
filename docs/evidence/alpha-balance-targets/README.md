@@ -28,6 +28,10 @@ Fixed-loadout full-health duels measured 25.20 s early, 9.43 s with a developed 
 
 The region boss also pays 12 camp-stat stacks to a qualifying contributor. In developed full-health duels, a freshly acquired Machine Gun won 80% against two preferred normal camps and scored 50% against four. Committed scored 80% and 30% on those comparisons. In symmetric fights, adding both cards to 180-stack kits reduced median duel time from 14.98 to 9.80 seconds. The card’s value, contributor reward and chance of surviving the extra elite exposure all affect the choice. [All 33 augment comparisons](../quest-elite-balance/README.md#elite-augments)
 
+## Public build identity
+
+At 05:23 UTC on 27 November, both the public page endpoint and game endpoint reported protocol 24, content hash `8a4bf0ce37b406f2` and ready status. That hash matches the baked client at pre-restoration commit `dbaa701be`. The public response does not advertise the bot brain or fill target. The local alpha’s eight-seat policy and survival checks run against the actual room code. [Published page identity](https://play.roguehalla.com/info) · [Published game identity](https://game.roguehalla.com/info)
+
 ## Planning, maps and presentation
 
 Planning reveals one named quest per zone. At raid start each zone reveals its second distinct quest. The placement check spreads the givers across the map and each uses the same painted archivist sprite. The Unity browser check saw five distinct names during planning and ten after the start. Map admission keeps the volcano, tree, cave, church and Holy temple landmarks, including on fallback maps. The zone art fixes cover Sentenced fence direction and the older colored props and Plague ground. [Quest restoration](../../backlog/packets/P-ALPHA-QUEST-RESTORE-1.md) · [Zone art](../../backlog/packets/P-ALPHA-ZONE-ART-1.md)
