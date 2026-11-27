@@ -221,7 +221,7 @@ namespace Roguehalla.Client
         }
 
         const float CardWidth = 640f;
-        /// <summary>Width min(560, uiW - 24), height up to uiH - 24 (the card scrolls inside).</summary>
+        /// <summary>Width up to 640 with viewport padding, with scrolling inside the card.</summary>
         public void ApplyViewport(HudViewport viewport)
         {
             if (_card == null) return;

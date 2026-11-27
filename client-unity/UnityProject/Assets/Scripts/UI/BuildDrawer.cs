@@ -103,8 +103,8 @@ namespace Roguehalla.Client
             MythicUi.Text(buttonRect, "CardDescription", display.Description, new Vector2(.04f, .26f), new Vector2(.96f, .66f), 14,
                 ShowcasePalette.MutedText);
             string tags = string.IsNullOrWhiteSpace(display.Tags) ? "CARD" : PlayerWords.CardTags(display.Tags).ToUpperInvariant();
-            MythicUi.Text(buttonRect, "CardTags", tags, new Vector2(.04f, .05f), new Vector2(.70f, .24f), 12, ShowcasePalette.Gold);
-            _cardCounts[index] = MythicUi.Text(buttonRect, "OwnedCount", "×0", new Vector2(.72f, .035f), new Vector2(.97f, .21f), 14,
+            MythicUi.Text(buttonRect, "CardTags", tags, new Vector2(.04f, .035f), new Vector2(.76f, .25f), 11, ShowcasePalette.Gold);
+            _cardCounts[index] = MythicUi.Text(buttonRect, "OwnedCount", "×0", new Vector2(.78f, .035f), new Vector2(.97f, .21f), 14,
                 ShowcasePalette.Success, TextAlignmentOptions.MidlineRight);
         }
 

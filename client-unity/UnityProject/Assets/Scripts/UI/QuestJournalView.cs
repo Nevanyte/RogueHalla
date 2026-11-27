@@ -73,7 +73,7 @@ namespace Roguehalla.Client
             if (canvasRoot == null) throw new ArgumentNullException(nameof(canvasRoot));
             _initialized = true; _onClose = onClose; _onTracked = onTracked;
             if (latch != null) _latch = latch;
-            _root = MythicUi.Panel(canvasRoot, "QuestJournal", new Vector2(.075f, .08f), new Vector2(.925f, .94f), ShowcasePalette.Panel);
+            _root = MythicUi.Panel(canvasRoot, "QuestJournal", new Vector2(.12f, .12f), new Vector2(.88f, .915f), ShowcasePalette.Panel);
             _card = _root;
             MythicUi.Text(_card, "JournalTitle", "QUEST JOURNAL", new Vector2(.035f, .925f), new Vector2(.66f, .995f), 27, ShowcasePalette.Gold, heading: true);
             _close = FlowWindowClose.Create(_card, "CloseJournal", Close);

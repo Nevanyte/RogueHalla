@@ -243,10 +243,10 @@ namespace Roguehalla.Client.Tests
                 new WireQuestSpell { Slot = 0, Reward = 21, Charges = 1, ReadyAt = 2000 },
                 new WireQuestSpell { Slot = 1, Reward = 22, Charges = 1, ReadyAt = 2000 }));
             Frame();
-            Assert.That(Tile(0).NameLabel.text, Is.EqualTo("Blind\nRage"));
-            Assert.That(Tile(1).NameLabel.text, Is.EqualTo("Still\nMind"));
-            Assert.That(Tile(0).Hint.Text, Does.Contain("BlindRage"));
-            Assert.That(Tile(1).Hint.Text, Does.Contain("StillMind"));
+            Assert.That(Tile(1).NameLabel.text, Is.EqualTo("Blind\nRage"));
+            Assert.That(Tile(2).NameLabel.text, Is.EqualTo("Still\nMind"));
+            Assert.That(Tile(1).Hint.Text, Does.Contain("BlindRage"));
+            Assert.That(Tile(2).Hint.Text, Does.Contain("StillMind"));
         }
 
         // ------------------------------------------------------------------ 2. the real cycle of a Lantern Ward
