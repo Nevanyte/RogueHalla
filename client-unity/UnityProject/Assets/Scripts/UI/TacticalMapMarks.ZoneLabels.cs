@@ -272,8 +272,8 @@ namespace Roguehalla.Client
         {
             switch (kind)
             {
-                case PointKind.Objective: return 11f;
-                case PointKind.TrackedObjective: return 13f;
+                case PointKind.Objective: return 13f;
+                case PointKind.TrackedObjective: return 16f;
                 case PointKind.PublicObjective: return 14f;
                 case PointKind.QuestReward: return 9f;
                 case PointKind.RebirthEgg: return 10f;

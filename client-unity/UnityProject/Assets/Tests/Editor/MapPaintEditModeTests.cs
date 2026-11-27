@@ -49,7 +49,7 @@ namespace Roguehalla.Client.Tests
         const int MapTiles = 16;
         static readonly Vector2 A = new Vector2(100f, 100f), B = new Vector2(300f, 120f);
         static readonly MapCamp[] Camps = { new MapCamp(256, 256, 8, 1) };
-        const string Fallback = "No quest givers or traders delivered.";
+        const string Fallback = "Quest directions arrive with the next server update.";
 
         GameObject _clientObject, _mapObject, _canvasObject, _arenaObject, _cameraObject;
         MatchClient _client;
@@ -242,16 +242,48 @@ namespace Roguehalla.Client.Tests
         public void ATrackedQuestPaintsOnce(bool open)
         {
             var handle = new QuestHandle(71);
-            _transport.Deliver(new ServerMsg.State { Tick = ++_tick, Items = new StateItem[] { QuestState(handle) } });
+            var state = QuestState(handle);
+            state.View.Rows[0].State = QuestRowState.Open;
+            state.View.Rows[0].OwnerAccepted = true;
+            _transport.Deliver(new ServerMsg.State { Tick = ++_tick, Items = new StateItem[] { state } });
             if (open) _map.SetOpen(true);
             Settle();
             var marks = (open ? _large : _mini).Marks;
-            Assert.That(marks.QuestObjectiveCount, Is.EqualTo(0), "premise: the quest is not tracked, so its objective is not drawn");
+            Assert.That(marks.QuestObjectiveCount, Is.EqualTo(1), "an accepted quest objective is shown before it is tracked");
             int c0 = Visible(open);
             _map.SetTrackedQuest(handle);
-            Assert.That(marks.QuestObjectiveCount, Is.EqualTo(1), "the tracked objective is on the visible surface at once");
+            Assert.That(marks.QuestObjectiveCount, Is.EqualTo(1), "tracking emphasizes the objective without dropping other navigation marks");
             Frame(5, false);
             Assert.That(Visible(open), Is.EqualTo(c0 + 1), "one present for the tracking, none from the Tick after it");
+        }
+
+        [Test]
+        public void MultipleAcceptedQuestObjectivesStayVisibleOnBothMapSurfaces()
+        {
+            var first = new QuestHandle(71);
+            var second = new QuestHandle(72);
+            var state = QuestState(first);
+            state.View.Rows[0].State = QuestRowState.Open;
+            state.View.Rows[0].OwnerAccepted = true;
+            var another = new WireQuestRow { Handle = second, Def = "fixture_two", GiverX = 280, GiverY = 180,
+                State = QuestRowState.Open, OwnerAccepted = true, Name = "Second quest", GiverLabel = "Another giver",
+                Brief = "", Objective = "Find the second mark", Reward = "" };
+            state.View.Rows = new[] { state.View.Rows[0], another };
+            state.View.Objectives = new[]
+            {
+                new WireQuestObjective { Quest = first, X = 200, Y = 220 },
+                new WireQuestObjective { Quest = second, X = 360, Y = 420 },
+            };
+            _transport.Deliver(new ServerMsg.State { Tick = ++_tick, Items = new StateItem[] { state } });
+            Settle();
+            Assert.That(_mini.Marks.QuestObjectiveCount, Is.EqualTo(2), "the minimap keeps both accepted quest destinations visible");
+            _map.SetOpen(true);
+            Settle();
+            Assert.That(_large.Marks.QuestObjectiveCount, Is.EqualTo(2), "the full map keeps both accepted quest destinations visible");
+            var directions = (TMP_Text)typeof(TacticalMapController).GetField("_questsText", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_map);
+            StringAssert.Contains("NEXT · native objective", directions.text);
+            StringAssert.Contains("NEXT · Find the second mark", directions.text);
+            StringAssert.Contains("MAP · 1 quest mark", directions.text);
         }
 
         /// <summary>Red: a new minimap size moves every pooled label, which only a present places: the next Tick paints.</summary>
@@ -479,20 +511,21 @@ namespace Roguehalla.Client.Tests
             Assert.That(_map.IsOpen, Is.True, "set-up: the Tab map is open");
             Assert.That(QuestsText(), Is.EqualTo(Fallback), "no quest and no trader");
             var handle = new QuestHandle(71);
-            _transport.Deliver(new ServerMsg.State { Tick = ++_tick, Items = new StateItem[] { QuestState(handle) } });
+            var offered = QuestState(handle); offered.View.Rows[0].State = QuestRowState.Open;
+            _transport.Deliver(new ServerMsg.State { Tick = ++_tick, Items = new StateItem[] { offered } });
             Frame(5, false);
-            Assert.That(QuestsText(), Is.EqualTo("same: same"), "a quest giver");
-            var renamed = QuestState(handle); renamed.View.Rows[0].Name = "Changed";
+            Assert.That(QuestsText(), Is.EqualTo("same\nACCEPT · Visit same"), "a quest giver");
+            var renamed = QuestState(handle); renamed.View.Rows[0].State = QuestRowState.Open; renamed.View.Rows[0].Name = "Changed";
             _transport.Deliver(new ServerMsg.State { Tick = ++_tick, Items = new StateItem[] { renamed } });
             Frame(5, false);
-            Assert.That(QuestsText(), Is.EqualTo("same: Changed"), "the quest's name changed");
+            Assert.That(QuestsText(), Is.EqualTo("Changed\nACCEPT · Visit same"), "the quest's name changed");
             _transport.Deliver(new ServerMsg.State { Tick = ++_tick, Items = new StateItem[] { renamed, OneMerchant() } });
             Frame(5, false);
-            Assert.That(QuestsText(), Is.EqualTo("same: Changed\nsame · trader"), "a trader arrived");
+            Assert.That(QuestsText(), Is.EqualTo("Changed\nACCEPT · Visit same\n\nsame · trader"), "a trader arrived");
             _transport.Deliver(new ServerMsg.State { Tick = ++_tick, Items = new StateItem[] {
                 new QuestsState { Available = true, View = new WireQuestView() }, new TradeState { Available = true, Value = new WireTradeView() } } });
             Frame(5, false);
-            Assert.That(QuestsText(), Is.EqualTo(Fallback), "both emptied");
+            Assert.That(QuestsText(), Is.EqualTo("No open quests delivered."), "both emptied");
         }
 
         /// <summary>Guard (named): the first opening after a bind, with nothing to list, reads the fallback line, not an empty text.</summary>
