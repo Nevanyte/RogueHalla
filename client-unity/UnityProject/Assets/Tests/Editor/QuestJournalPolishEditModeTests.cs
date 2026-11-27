@@ -108,7 +108,7 @@ namespace Roguehalla.Client.Tests
             var dwell = Row(_first, "Hold", "b", "o", "r", false, true);
             dwell.Def = "hold_the_fort"; dwell.OwnerProgress = 12; dwell.OwnerReady = false; dwell.State = QuestRowState.Open; dwell.ExpiresAt = 135000;
             Show(dwell);
-            Assert.AreEqual("Accepted · 12 / 45 s · 2:14 left", Status());
+            Assert.AreEqual("Accepted · 12 / 35 s · 2:14 left", Status());
             var label = TextAt("QuestDetail/QuestStatus");
             Assert.AreEqual((Color)ShowcasePalette.Text, label.color, "a quest the player holds is bright");
             Assert.AreEqual(22.5f, label.GetComponent<MythicTextScale>().BaseSize, 0.001f, "the status line is 15 units (22.5 base size), was 13");

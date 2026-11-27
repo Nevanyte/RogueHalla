@@ -243,7 +243,7 @@ fn crown_damage_follows_the_crown_and_caps_at_48_without_double_payment() {
 
 #[test]
 fn trade_up_all_three_cash_outs_raise_max_hp() {
-    for (stage, stacks) in [(1, 10), (2, 22), (3, 34)] {
+    for (stage, stacks) in [(1, 10), (2, 22), (3, 32)] {
         let mut sim = practice(QuestId::TradeUp);
         let id = sim.w.players[0].id;
         let base = sim.w.players[0].vitals.max_hp;
@@ -456,8 +456,8 @@ fn bargain_spends_equivalent_stacks_or_the_inactive_weapon_for_real_max_hp() {
         });
         claim(&mut sim, id);
         let p = sim.w.player(id).unwrap();
-        assert_eq!(p.farm.count(MagmaBrute), 30);
-        close(p.vitals.max_hp, base * 1.30);
+        assert_eq!(p.farm.count(MagmaBrute), 28);
+        close(p.vitals.max_hp, base * 1.28);
         assert_eq!(p.active_weapon(), WeaponId::Bow);
         assert_eq!(p.weapon.ready_at, ready_at);
         if weapon_trade {

@@ -739,9 +739,9 @@ impl Raid {
                 TheBurningCrown => assert_eq!(p.farm.count(EmberImp), 1),
                 TheBargain => {
                     assert!(p.weapon.weapon1.is_none());
-                    assert_eq!(p.farm.count(EmberImp), 30);
+                    assert_eq!(p.farm.count(EmberImp), 28);
                 }
-                TradeUp => assert_eq!(p.farm.count(Penitent), 34),
+                TradeUp => assert_eq!(p.farm.count(Penitent), 32),
                 FeedOrHunt => assert_eq!(p.farm.count(EmberImp), 6),
                 LetHimCook => {
                     assert!(rewards::permanent::chef_row(&self.sim.w, self.seat).is_some())
@@ -850,6 +850,6 @@ fn a_published_lifesteal_trade_can_be_submitted_and_settled() {
     assert!(is_completed(&raid.sim.w, raid.seat, raid.offer));
     let farm = &raid.sim.w.player(raid.seat).unwrap().farm;
     assert_eq!(farm.count(RotMonk), 0);
-    assert_eq!(farm.count(PlagueRat), previous + 30);
+    assert_eq!(farm.count(PlagueRat), previous + 28);
     assert!(!is_completed(&raid.sim.w, raid.witness, raid.offer));
 }

@@ -156,8 +156,8 @@ pub(crate) static TOP25: Top25Tuning = Top25Tuning {
     scout_falcon_cooldown_ms: 35_000.,
     bolas_cooldown_ms: 18_000.,
     lantern_ward_charges: 2,
-    trade_up_stacks: [10, 22, 34],
-    bargain_stacks: 30,
+    trade_up_stacks: [10, 22, 32],
+    bargain_stacks: 28,
     feed_damage_stacks: 6,
     chef_bonus_share: 0.20,
     helm_bypass: 0.20,
@@ -241,6 +241,8 @@ pub struct QuestPublicRules {
     pub bargain_cost: u64,
     /// The Bargain: stacks received (the reward text says it).
     pub bargain_stacks: u64,
+    /// Trade Up: Penitent stacks paid at the three cash-out stages.
+    pub trade_up_stacks: [u64; 3],
     /// Route deadline: ms of deadline per second of walk at `PLAYER_SPEED`.
     pub route_pace: f64,
     /// Route deadline: ms added on top of the paced walk.
@@ -258,6 +260,7 @@ pub fn public_rules() -> QuestPublicRules {
         fort_range: TOP25.fort_range,
         bargain_cost: TOP25.bargain_cost,
         bargain_stacks: TOP25.bargain_stacks,
+        trade_up_stacks: TOP25.trade_up_stacks,
         route_pace: TOP25.route_pace,
         route_slack_ms: TOP25.route_slack_ms,
     }

@@ -14,11 +14,17 @@ from route_comparison import SCORES, WEAPON, write_csv
 # explicit stack payouts here come from the existing real turn-in oracle, in the units it verifies.
 DIRECT_QUEST = {"Turret", "Hook", "ShoulderCharge", "Warhorn", "SpellShield", "ChefsKiss", "BreakersHelm",
                 "Bolas", "FeedOrHuntDamage", "Tornado", "BlindRageAndStillMind", "Stasis", "WardensCage"}
-STACK_CASES = {"TradeUp": (("stage1", "penitent", 12), ("stage2", "penitent", 30),
-                          ("stage3", "penitent", 54)), "CrownPower": (("full", "emberImp", 48),)}
+def trade_up_stacks(catalog):
+    # The frozen pre-tune reward catalog did not export this field. Its archived payout was 12/30/54.
+    return catalog.get("trade_up_stacks", (12, 30, 54))
 
 
 def scenarios(group, catalog, reference, cost_ladder):
+    stack_cases = {
+        "TradeUp": tuple((f"stage{i}", "penitent", n)
+                         for i, n in enumerate(trade_up_stacks(catalog), 1)),
+        "CrownPower": (("full", "emberImp", 48),),
+    }
     root = Path(__file__).resolve().parents[2]
     mob_by_stat = {}
     for row in json.loads((root / "testing/farm_route_data.json").read_text())["rewards"]:
@@ -39,7 +45,7 @@ def scenarios(group, catalog, reference, cost_ladder):
                 reward = row["reward"]
                 if reward in DIRECT_QUEST:
                     choices.append((reward, row["name"], {"rewards": [reward]}, None))
-                for label, mob, n in STACK_CASES.get(reward, ()):
+                for label, mob, n in stack_cases.get(reward, ()):
                     choices.append((reward + "/" + label, row["name"], {}, (mob, n)))
         for baseline in ((72, 180) if group == "augments" else (180,)):
             best_score = max(s for s, _ in prior[build, baseline])

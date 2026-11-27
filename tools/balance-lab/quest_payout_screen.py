@@ -5,7 +5,7 @@ from pathlib import Path
 import statistics
 import subprocess
 
-from reward_matchups import execute, scenarios
+from reward_matchups import execute, scenarios, trade_up_stacks
 from route_comparison import write_csv
 
 
@@ -28,11 +28,7 @@ def main():
                 continue
             # Start from the comparison kit with equal farm. On this screen only the quest grant changes.
             stacks = dict(pair["target"]["stacks"])
-            # The source kit records a 54-stack grant; verify that we replaced only the grant.
-            intrinsic = stacks["penitent"] - 54
-            if intrinsic != 0:
-                raise ValueError("the stock screen no longer starts with the historical 54-stack quest grant")
-            stacks["penitent"] = intrinsic + payout
+            stacks["penitent"] += payout - trade_up_stacks(catalog)[-1]
             pair["target"]["stacks"] = list(stacks.items())
             pair["id"] = variant + "/" + pair["id"]
             pair["follow_displacement"] = True

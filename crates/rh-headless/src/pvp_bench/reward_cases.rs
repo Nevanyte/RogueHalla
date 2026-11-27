@@ -30,7 +30,12 @@ pub(super) fn catalog() -> Result<(), String> {
             })
         })
         .collect();
-    let out = serde_json::json!({"augments":entries,"quests":quests});
+    let rules = rh_sim::quests::public_rules();
+    let out = serde_json::json!({
+        "augments": entries,
+        "quests": quests,
+        "trade_up_stacks": rules.trade_up_stacks,
+    });
     println!(
         "{}",
         serde_json::to_string(&out).map_err(|e| e.to_string())?
