@@ -69,10 +69,12 @@ namespace Roguehalla.Net
             return tx >= 0 && ty >= 0 && tx < _w && ty < _h && _map.Tiles[(int)(ty * _w + tx)] == MapBlob.Floor;
         }
 
-        bool Blocked(long tx, long ty)
+        bool Blocked(long tx, long ty) => Blocked(_map, tx, ty);
+
+        static bool Blocked(MapBlob map, long tx, long ty)
         {
-            if (tx < 0 || ty < 0 || tx >= _w || ty >= _h) return true;
-            return (_map.Tiles[(int)(ty * _w + tx)] & MoveMask) != 0;
+            if (tx < 0 || ty < 0 || tx >= map.W || ty >= map.H) return true;
+            return (map.Tiles[(int)(ty * map.W + tx)] & MoveMask) != 0;
         }
 
         bool SnapToFloor(double x, double y, out long sx, out long sy)
@@ -241,13 +243,15 @@ namespace Roguehalla.Net
             return true;
         }
 
+        bool RayBlocked(double x0, double y0, double x1, double y1) => MovementRayBlocked(_map, x0, y0, x1, y1);
+
         /// <summary>Grid traversal verdict (ray_blocked / ray_blocked_checked): same decisions as rh-sim geometry.rs.</summary>
-        bool RayBlocked(double x0, double y0, double x1, double y1)
+        public static bool MovementRayBlocked(MapBlob map, double x0, double y0, double x1, double y1)
         {
-            if (!Finite(x0 + y0 + x1 + y1)) return true;
+            if (map == null || !Finite(x0 + y0 + x1 + y1)) return true;
             long tx = FloorI64(x0 / Tile);
             long ty = FloorI64(y0 / Tile);
-            if (Blocked(tx, ty)) return true;
+            if (Blocked(map, tx, ty)) return true;
             double dx = x1 - x0;
             double dy = y1 - y0;
             if (dx * dx + dy * dy == 0.0) return false;
@@ -261,7 +265,7 @@ namespace Roguehalla.Net
                 if (t > 1.0) return false;
                 bool crossX = tMaxX <= t;
                 bool crossY = tMaxY <= t;
-                if (crossX && crossY && (Blocked(tx + stepX, ty) || Blocked(tx, ty + stepY))) return true;
+                if (crossX && crossY && (Blocked(map, tx + stepX, ty) || Blocked(map, tx, ty + stepY))) return true;
                 if (crossX)
                 {
                     tx += stepX;
@@ -272,7 +276,7 @@ namespace Roguehalla.Net
                     ty += stepY;
                     tMaxY = (Edge(ty, stepY) - y0) / dy;
                 }
-                if (Blocked(tx, ty)) return true;
+                if (Blocked(map, tx, ty)) return true;
             }
         }
 

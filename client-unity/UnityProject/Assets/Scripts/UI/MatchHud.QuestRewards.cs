@@ -51,7 +51,7 @@ namespace Roguehalla.Client
         }
         public bool OfferOpen { get { return _offerCard != null && _offerCard.IsOpen; } }
 
-        /// <summary>The HUD's answer to F when there is nothing to pick up: closes an open offer, then prioritizes nearby quest actions over new offers.</summary>
+        /// <summary>The HUD's answer to F when there is nothing to pick up: closes an open offer, then handles nearby quest actions, offers and traders in that order.</summary>
         public bool TryInteract()
         {
             if (_offerCard == null) return false;
@@ -62,7 +62,39 @@ namespace Roguehalla.Client
                 OpenQuestActions();
                 return true;
             }
-            return OpenOffer();
+            return OpenOffer() || OpenNearbyTrader();
+        }
+
+        // Match the Rust TRADER_RANGE and its movement ray, including standing walls and locked gates.
+        int NearbyTrader()
+        {
+            if (!OfferGatesHold(_session)) return -1;
+            var trade = _session.Collections.Trade;
+            if (trade?.Available != true) return -1;
+            const double reach = 112;
+            double best = reach * reach;
+            var me = _session.Me;
+            var map = _session.Motion?.WalkMap ?? _session.TerrainMap;
+            int nearest = -1;
+            for (int i = 0; i < trade.Merchants.Count; i++)
+            {
+                var merchant = trade.Merchants[i];
+                double dx = merchant.X - me.X, dy = merchant.Y - me.Y;
+                double distance = dx * dx + dy * dy;
+                if (distance > best || (nearest >= 0 && distance == best) ||
+                    Pathfinder.MovementRayBlocked(map, me.X, me.Y, merchant.X, merchant.Y)) continue;
+                nearest = i;
+                best = distance;
+            }
+            return nearest;
+        }
+
+        bool OpenNearbyTrader()
+        {
+            int row = NearbyTrader();
+            if (row < 0) return false;
+            ShowPlayerFlow(1);
+            return _traderDialog.SelectMerchant(row);
         }
 
         void CloseOffer() { if (_offerCard != null) _offerCard.Close(); }
@@ -160,7 +192,8 @@ namespace Roguehalla.Client
             }
 
             RefreshOffer(view, worldAvailable);
-            bool showHud = worldAvailable && WorldHudVisible && (_offerPrompt || QuestPresentation.HasRewardHud(view));
+            bool traderPrompt = !_questChoice.HasValue && _nearbyQuestCount == 0 && !_offerPromptLive && NearbyTrader() >= 0;
+            bool showHud = traderPrompt || (worldAvailable && WorldHudVisible && (_offerPrompt || QuestPresentation.HasRewardHud(view)));
             _questRewardHud.gameObject.SetActive(showHud);
             if (session != null) RefreshQuestTiles(view, session.ServerTimeMs);
             if (_questChoiceOverlay.gameObject.activeSelf)
@@ -171,11 +204,12 @@ namespace Roguehalla.Client
             }
             if (!showHud) { UpdatePromptLane(); return; }
 
-            int pendingCount = view.Pending.Count;
-            _questActionLauncher.gameObject.SetActive(_nearbyQuestCount > 0 || pendingCount > 0 || _offerPrompt);
+            int pendingCount = view?.Pending.Count ?? 0;
+            _questActionLauncher.gameObject.SetActive(_nearbyQuestCount > 0 || pendingCount > 0 || _offerPrompt || traderPrompt);
             bool others = _questChoice.HasValue || _nearbyQuestCount > 0;
-            _questActionLauncher.interactable = others || _offerPrompt && _offerPromptLive;
-            if (!others && _offerPrompt) Set(_questActionCaption, OfferCaption());
+            _questActionLauncher.interactable = others || traderPrompt || _offerPrompt && _offerPromptLive;
+            if (traderPrompt) Set(_questActionCaption, _pickup != null && _pickup.gameObject.activeSelf ? "Trade" : "F · Trade");
+            else if (!others && _offerPrompt) Set(_questActionCaption, OfferCaption());
             else Set(_questActionCaption, _questChoice.HasValue ? "Choose quest reward" :
                 _nearbyQuestCount > 0 ? NearbyActionsCaption() :
                 pendingCount > 0 ? "Return to turn in your reward" : "");
@@ -511,6 +545,7 @@ namespace Roguehalla.Client
                 UiFocusNavigation.Cycle(_nearbyQuestOverlay, false);
             }
             else if (_offerPrompt && _offerPromptLive) OpenOffer();
+            else OpenNearbyTrader();
         }
 
         void CloseQuestRewardModal()

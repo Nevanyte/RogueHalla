@@ -21,32 +21,66 @@ namespace Roguehalla.Client
         sealed class RowPool
         {
             readonly RectTransform _content;
+            readonly bool _leaderboardRows;
             readonly List<TMP_Text> _rows = new List<TMP_Text>();
-            public RowPool(RectTransform content) { _content = content; }
+            readonly List<TMP_Text> _details = new List<TMP_Text>();
+            public RowPool(RectTransform content, bool leaderboardRows) { _content = content; _leaderboardRows = leaderboardRows; }
             public void Set(IReadOnlyList<string> values)
             {
                 for (int i = 0; i < values.Count; i++)
                 {
-                    if (i == _rows.Count) _rows.Add(CreateRow(_content, i));
-                    TMP_Text row = _rows[i]; row.text = values[i]; row.gameObject.SetActive(true);
+                    if (i == _rows.Count)
+                    {
+                        _rows.Add(CreateRow(_content, i, _leaderboardRows, out TMP_Text detail));
+                        if (_leaderboardRows) _details.Add(detail);
+                    }
+                    TMP_Text row = _rows[i];
+                    if (_leaderboardRows)
+                    {
+                        int lineBreak = values[i].IndexOf('\n');
+                        row.text = lineBreak < 0 ? values[i] : values[i].Substring(0, lineBreak);
+                        TMP_Text detail = _details[i]; detail.text = lineBreak < 0 ? string.Empty : values[i].Substring(lineBreak + 1);
+                        detail.gameObject.SetActive(lineBreak >= 0);
+                    }
+                    else row.text = values[i];
+                    row.transform.parent.gameObject.SetActive(true);
                 }
                 for (int i = values.Count; i < _rows.Count; i++)
                 {
                     _rows[i].text = string.Empty;
-                    _rows[i].gameObject.SetActive(false);
+                    if (_leaderboardRows)
+                    {
+                        _details[i].text = string.Empty;
+                        _details[i].gameObject.SetActive(false);
+                    }
+                    _rows[i].transform.parent.gameObject.SetActive(false);
                 }
                 LayoutRebuilder.MarkLayoutForRebuild(_content);
             }
-            static TMP_Text CreateRow(Transform parent, int index)
+            static TMP_Text CreateRow(Transform parent, int index, bool leaderboardRows, out TMP_Text detail)
             {
+                detail = null;
                 var panel = MythicUi.Panel(parent, "ProgressRow" + index, Vector2.zero, Vector2.one,
                     index % 2 == 0 ? ShowcasePalette.PanelRaised : ShowcasePalette.Panel, false);
-                var layout = panel.gameObject.AddComponent<LayoutElement>(); layout.minHeight = 58; layout.preferredHeight = -1;
+                // Wrapped leaderboard names used to increase individual row heights at narrow widths.
+                var layout = panel.gameObject.AddComponent<LayoutElement>();
+                layout.minHeight = leaderboardRows ? 0 : 58; layout.preferredHeight = -1;
                 var stack = panel.gameObject.AddComponent<VerticalLayoutGroup>();
                 stack.padding = new RectOffset(14, 12, 8, 8); stack.childAlignment = TextAnchor.MiddleLeft;
                 stack.childControlWidth = true; stack.childControlHeight = true; stack.childForceExpandWidth = true; stack.childForceExpandHeight = false;
+                if (leaderboardRows)
+                {
+                    var name = MythicUi.Text(panel, "Value", "", Vector2.zero, Vector2.one, 16, ShowcasePalette.Text);
+                    name.enableAutoSizing = false; name.enableWordWrapping = false; name.overflowMode = TextOverflowModes.Ellipsis;
+                    name.alignment = TextAlignmentOptions.MidlineLeft; name.margin = Vector4.zero;
+                    detail = MythicUi.Text(panel, "Detail", "", Vector2.zero, Vector2.one, 16, ShowcasePalette.Text);
+                    detail.enableAutoSizing = false; detail.enableWordWrapping = false; detail.alignment = TextAlignmentOptions.MidlineLeft;
+                    detail.margin = Vector4.zero;
+                    return name;
+                }
                 var text = MythicUi.Text(panel, "Value", "", Vector2.zero, Vector2.one, 16, ShowcasePalette.Text);
-                text.enableAutoSizing = false; text.enableWordWrapping = true; text.alignment = TextAlignmentOptions.MidlineLeft;
+                text.enableAutoSizing = false; text.enableWordWrapping = true;
+                text.alignment = TextAlignmentOptions.MidlineLeft;
                 text.margin = Vector4.zero;
                 return text;
             }
@@ -98,8 +132,8 @@ namespace Roguehalla.Client
             {
                 int index = i;
                 _tabs[i] = MythicUi.Button(_card, "ProgressTab" + i, tabNames[i], new Vector2(.035f + i * .313f, .865f), new Vector2(.335f + i * .313f, .925f), () => Show((HubProgressTab)index), i == 0 ? MythicUi.ButtonStyle.Primary : MythicUi.ButtonStyle.Secondary);
-                _scrolls[i] = CreateScroll(_card, "ProgressScroll" + i, new Vector2(.035f, .075f), new Vector2(.965f, .85f), out var content);
-                _rows[i] = new RowPool(content);
+                _scrolls[i] = CreateScroll(_card, "ProgressScroll" + i, new Vector2(.035f, .075f), new Vector2(.965f, .85f), out var content, i == (int)HubProgressTab.Leaderboard);
+                _rows[i] = new RowPool(content, i == (int)HubProgressTab.Leaderboard);
             }
             _monthPrevious = MythicUi.Button(_card, "PreviousMonth", "‹", new Vector2(.035f, .015f), new Vector2(.09f, .07f), () => MoveMonth(-1), MythicUi.ButtonStyle.Quiet);
             _monthLabel = MythicUi.Text(_card, "SelectedMonth", "", new Vector2(.095f, .015f), new Vector2(.25f, .07f), 16, ShowcasePalette.MutedText, TextAlignmentOptions.Center);
@@ -393,7 +427,7 @@ namespace Roguehalla.Client
                 default: return "Leaderboard could not be loaded. Try again shortly.";
             }
         }
-        static ScrollRect CreateScroll(Transform parent, string name, Vector2 min, Vector2 max, out RectTransform content)
+        static ScrollRect CreateScroll(Transform parent, string name, Vector2 min, Vector2 max, out RectTransform content, bool leaderboardRows)
         {
             var frame = MythicUi.Rect(parent, name, min, max); var scroll = frame.gameObject.AddComponent<ScrollRect>();
             scroll.horizontal = false; scroll.vertical = true; scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 42; scroll.inertia = true;
@@ -401,8 +435,8 @@ namespace Roguehalla.Client
             var image = viewport.gameObject.AddComponent<Image>(); image.color = new Color(1, 1, 1, .01f); image.raycastTarget = true;
             viewport.gameObject.AddComponent<RectMask2D>();
             content = MythicUi.Rect(viewport, "Content", new Vector2(0, 1), new Vector2(1, 1)); content.pivot = new Vector2(.5f, 1);
-            var layout = content.gameObject.AddComponent<VerticalLayoutGroup>(); layout.childAlignment = TextAnchor.UpperCenter; layout.spacing = 8;
-            layout.padding = new RectOffset(8, 8, 8, 8); layout.childControlWidth = true; layout.childControlHeight = false; layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
+            var layout = content.gameObject.AddComponent<VerticalLayoutGroup>(); layout.childAlignment = TextAnchor.UpperCenter; layout.spacing = leaderboardRows ? 10 : 8;
+            layout.padding = new RectOffset(8, 8, 8, 8); layout.childControlWidth = true; layout.childControlHeight = leaderboardRows; layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
             content.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scroll.viewport = viewport; scroll.content = content; scroll.scrollSensitivity = 42;
             frame.gameObject.AddComponent<KeyboardScrollPane>().Initialize(scroll);

@@ -1,6 +1,6 @@
 // Weapon range guide (legacy WeaponRangeView): a faint shape on the ground under the local fighter showing the held weapon's reach: a lane
-// for a bow (range long, twice body half-width plus arrow radius wide), a circle for a wand, a fan for melee. Colour 0xb6e6ef, a fill, a soft
-// wide stroke and a thin stroke. One mesh with fixed topology, rewritten in place (no allocation per frame). Geometry is WeaponRange (library);
+// for a bow (range long, twice body half-width plus arrow radius wide), a circle for a wand, a fan for melee. A faint fill and
+// a light stroke with a dark backing keep the outline visible on both sand and stone. One mesh with fixed topology. Geometry is WeaponRange (library);
 // sizes come from the server's weapon table and archetype row. Presentation only: it decides nothing.
 using UnityEngine;
 using Roguehalla.Net.Protocol;
@@ -12,11 +12,12 @@ namespace Roguehalla.Client
     public sealed class WeaponRangePresenter
     {
         const int MaxPoints = 72, ArcSteps = 32, CircleSteps = 64;
-        // legacy WeaponRangeView.ts:6-8, 90-92: colour, fill alphas, stroke widths and alphas
+        // Legacy WeaponRangeView.ts:6-8, 90-92 supplies the colour and faint fill.
         const byte ColR = 0xb6, ColG = 0xe6, ColB = 0xef;
-        const float FillAlpha = .04f, CircleFillAlpha = .018f, SoftWidth = 6f, SoftAlpha = .055f, ThinWidth = 1f, ThinAlpha = .23f;
+        const float FillAlpha = .04f, CircleFillAlpha = .018f, SoftWidth = 6f, SoftAlpha = .055f;
+        const float DarkWidth = 3f, DarkAlpha = .72f, ThinWidth = 1.3f, ThinAlpha = .62f;
         const int Order = 1990; // above the ground, its decor and the floor art; under the hit zones (1999) and every actor (2000+)
-        const int FillVerts = 1 + MaxPoints, StripVerts = 2 * MaxPoints, TotalVerts = FillVerts + 2 * StripVerts;
+        const int FillVerts = 1 + MaxPoints, StripVerts = 2 * MaxPoints, TotalVerts = FillVerts + 3 * StripVerts;
 
         readonly GameObject _go; readonly Mesh _mesh; readonly MeshRenderer _renderer;
         readonly Vector3[] _v = new Vector3[TotalVerts]; readonly Color32[] _c = new Color32[TotalVerts];
@@ -77,9 +78,9 @@ namespace Roguehalla.Client
 
         static int[] BuildTriangles()
         {
-            var t = new int[MaxPoints * 3 + 2 * MaxPoints * 6]; int k = 0;
+            var t = new int[MaxPoints * 3 + 3 * MaxPoints * 6]; int k = 0;
             for (int i = 0; i < MaxPoints; i++) { t[k++] = 0; t[k++] = 1 + i; t[k++] = 1 + (i + 1) % MaxPoints; }
-            for (int s = 0; s < 2; s++)
+            for (int s = 0; s < 3; s++)
             {
                 int o = FillVerts + s * StripVerts;
                 for (int i = 0; i < MaxPoints; i++)
@@ -146,7 +147,9 @@ namespace Roguehalla.Client
             }
             FillBounds = new Bounds(new Vector3((minX + maxX) * .5f, (minY + maxY) * .5f, 0), new Vector3(maxX - minX, maxY - minY, 0));
             Strip(FillVerts, SoftWidth, Col(SoftAlpha));
-            Strip(FillVerts + StripVerts, ThinWidth, Col(ThinAlpha));
+            var ink = UiTheme.Current.OutlineDark;
+            Strip(FillVerts + StripVerts, DarkWidth, new Color32(ink.r, ink.g, ink.b, (byte)Mathf.RoundToInt(DarkAlpha * 255f)));
+            Strip(FillVerts + 2 * StripVerts, ThinWidth, Col(ThinAlpha));
             _mesh.SetVertices(_v); _mesh.SetColors(_c);
         }
 
