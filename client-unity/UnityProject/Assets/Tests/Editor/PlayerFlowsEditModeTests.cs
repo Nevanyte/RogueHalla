@@ -132,7 +132,9 @@ namespace Roguehalla.Client.Tests
             state.View.Actions = new[] {
                 new WireQuestAction { Quest = handle, Action = 9, Target = 37, Label = "Pick up WallBuster", Points = new[] { 64.0, 64.0 } },
             };
-            _transport.Deliver(new ServerMsg.State { Tick = 2, Items = new StateItem[] { state } });
+            _transport.Deliver(new ServerMsg.State { Tick = 2, Items = new StateItem[] {
+                state, new TradeState { Available = true, Value = new WireTradeView { Merchants = new[] {
+                    new WireMerchant { Kind = TradeKind.Barter, X = 64, Y = 64, Name = "Wandering Villager" } } } } } });
 
             var launch = HudTestPaths.Find(_hud.transform, "MatchUI/HudStage/PlayerHUD/QuestRewards/QuestActionLauncher");
             Assert.IsTrue(launch.gameObject.activeInHierarchy);
@@ -314,6 +316,56 @@ namespace Roguehalla.Client.Tests
                 if (i % 2 == 0) Assert.AreEqual((uint)i + 1, commands[i].QuestRef.Value);
                 else { Assert.AreEqual(TradeKind.Barter, commands[i].TradeKind); Assert.AreEqual(i % 3, commands[i].Pick); }
             }
+        }
+
+        [TestCase(TradeKind.Barter, "Wandering Villager", true)]
+        [TestCase(TradeKind.Barter, "Wandering Villager", false)]
+        [TestCase(TradeKind.Stats, "Soul Broker", true)]
+        [TestCase(TradeKind.Stats, "Soul Broker", false)]
+        public void NearbyTraderOpensTheRightRowWithoutBuying(TradeKind kind, string name, bool keyboard)
+        {
+            var other = kind == TradeKind.Barter ? TradeKind.Stats : TradeKind.Barter;
+            _transport.Deliver(new ServerMsg.State { Tick = 2, Items = new StateItem[] {
+                new TradeState { Available = true, Value = new WireTradeView { Merchants = new[] {
+                    new WireMerchant { Kind = other, X = 120, Y = 64, Name = "Further trader" },
+                    new WireMerchant { Kind = kind, X = 65, Y = 64, Name = name } } } } } });
+            var prompt = HudTestPaths.Find(_hud.transform, "MatchUI/HudStage/PlayerHUD/QuestRewards/QuestActionLauncher");
+            Assert.IsTrue(prompt.gameObject.activeInHierarchy);
+            StringAssert.Contains("Trade", prompt.GetComponentInChildren<TMP_Text>().text);
+            if (keyboard) WithKeyboard(keys =>
+            {
+                InputSystem.QueueStateEvent(keys, new KeyboardState(Key.F)); InputSystem.Update();
+                Invoke(_client, "ReadInput");
+            });
+            else prompt.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.IsTrue(_hud.TraderDialog.IsVisible);
+            Assert.AreEqual(1, _hud.TraderDialog.SelectedMerchantIndex);
+            _session.FlushInput();
+            Assert.AreEqual(0, _transport.Inputs().Count, "talking must not send a trade");
+        }
+
+        [TestCase(176, false, true)]
+        [TestCase(177, false, false)]
+        [TestCase(176, true, false)]
+        public void TraderInteractionRespectsReachAndMovementWalls(int x, bool blocked, bool opens)
+        {
+            if (blocked)
+            {
+                var tiles = new byte[1024];
+                tiles[2 * 32 + 3] = MapBlob.Low;
+                _transport.Drop();
+                _transport.Open();
+                _transport.Deliver(new ServerMsg.Welcome { Protocol = Wire.ProtocolVersion, MatchId = new byte[16],
+                    Session = new byte[16], PlayerId = 1, TickRate = 20, Map = new MapBlob(32, 32, tiles) });
+                _transport.Deliver(new ServerMsg.Snapshot { Tick = 1, ServerTimeOverrideMs = 50, Phase = 1,
+                    Me = new WireSelf { Id = 1, X = 64, Y = 64, Hp = 100, MaxHp = 100, Status = 1 } });
+            }
+            _transport.Deliver(new ServerMsg.State { Tick = 2, Items = new StateItem[] {
+                new TradeState { Available = true, Value = new WireTradeView { Merchants = new[] {
+                    new WireMerchant { Kind = TradeKind.Stats, X = x, Y = 64, Name = "Soul Broker" } } } } } });
+            Assert.AreEqual(blocked ? MapBlob.Low : MapBlob.Floor, _session.Motion.WalkMap.Tiles[2 * 32 + 3]);
+            Assert.AreEqual(opens, _hud.TryInteract());
+            Assert.AreEqual(opens, _hud.TraderDialog.IsVisible);
         }
 
         [Test]

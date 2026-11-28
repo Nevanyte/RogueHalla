@@ -8,6 +8,7 @@ using NUnit.Framework;
 using Roguehalla.Client;
 using Roguehalla.Net;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Roguehalla.Net.Tests
 {
@@ -64,6 +65,79 @@ namespace Roguehalla.Net.Tests
         {
             Assert.AreEqual("9,223,372,036,854,775,807", HubProgressView.FormatCount(long.MaxValue));
             Assert.AreEqual("9,223,372,036,854,775,807", HubProgressView.FormatCount(Profile().Gv));
+        }
+
+        [Test]
+        public void LeaderboardRowsKeepEvenSpacingAtNarrowViewportWithLongNames()
+        {
+            var root = new GameObject("Leaderboard spacing fixture", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                // 960x600 at HudLayout's .8 scale is a 1200x750 HUD-unit canvas.
+                root.GetComponent<RectTransform>().sizeDelta = new Vector2(1200, 750);
+                var viewObject = new GameObject("Progress view"); viewObject.transform.SetParent(root.transform, false);
+                var view = viewObject.AddComponent<HubProgressView>();
+                view.Initialize(root.transform, null);
+                view.ApplyViewport(HudLayout.Viewport(960, 600));
+                view.Show(HubProgressTab.Leaderboard);
+                view.SetVisible(true);
+
+                var entries = Enumerable.Range(0, 20)
+                    .Select(i => new AccountLeaderboardEntry("PlayerName" + i.ToString("D5"), 1000 + i,
+                        string.Concat(Enumerable.Repeat("Champion of the Obsidian Citadel and the Frozen Northern Frontier ", 4))))
+                    .ToArray();
+                Invoke(view, "RenderLeaderboard", new AccountLeaderboard("2026-10", entries,
+                    new[] { "2026-10" }, new AccountLeaderboardRank(777, 654321)));
+
+                Canvas.ForceUpdateCanvases();
+                var content = view.Root.Find("HubProgressCard/ProgressScroll2/Viewport/Content") as RectTransform;
+                Assert.That(content, Is.Not.Null);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+                Canvas.ForceUpdateCanvases();
+
+                var first = content.Find("ProgressRow0") as RectTransform;
+                var second = content.Find("ProgressRow1") as RectTransform;
+                var third = content.Find("ProgressRow2") as RectTransform;
+                Assert.That(first, Is.Not.Null); Assert.That(second, Is.Not.Null); Assert.That(third, Is.Not.Null);
+                Assert.That(first.rect.height, Is.GreaterThan(0));
+                Assert.That(second.rect.height, Is.GreaterThan(first.rect.height), "an entry card grows to fit its separate title and score lines");
+                Assert.That(third.rect.height, Is.EqualTo(second.rect.height).Within(.1f));
+                Assert.That(first.rect.width, Is.GreaterThan(600), "the narrow-viewport card receives a real layout width");
+                var firstCorners = new Vector3[4]; var secondCorners = new Vector3[4];
+                first.GetWorldCorners(firstCorners); second.GetWorldCorners(secondCorners);
+                Assert.That(firstCorners[0].y - secondCorners[1].y, Is.EqualTo(10).Within(.1f),
+                    "adjacent leaderboard cards have a real ten-unit world-space gap");
+                var rowText = second.Find("Value").GetComponent<TMPro.TMP_Text>();
+                Assert.That(rowText.gameObject.activeInHierarchy, Is.True);
+                Assert.That(rowText.text, Does.Contain("PlayerName"));
+                Assert.That(rowText.rectTransform.rect.width, Is.GreaterThan(500), "the text child is laid out inside the card");
+                Assert.That(rowText.rectTransform.rect.height, Is.GreaterThan(15), "the title text child has visible one-line height");
+                Assert.That(rowText.enableWordWrapping, Is.False, "the title cannot grow the card onto more lines");
+                var titleSize = rowText.GetPreferredValues(rowText.text);
+                Assert.That(titleSize.x, Is.GreaterThan(rowText.rectTransform.rect.width),
+                    "the extreme title exceeds its one-line box and exercises ellipsis");
+                Assert.That(titleSize.y, Is.LessThanOrEqualTo(rowText.rectTransform.rect.height), "the title line is not clipped vertically");
+                Assert.That(rowText.overflowMode, Is.EqualTo(TMPro.TextOverflowModes.Ellipsis));
+                var scoreText = second.Find("Detail").GetComponent<TMPro.TMP_Text>();
+                Assert.That(scoreText.text, Is.EqualTo("GV  ·  1,000"), "the score is preserved in its independent text widget");
+                Assert.That(scoreText.gameObject.activeSelf, Is.True);
+                Assert.That(scoreText.rectTransform.rect.width, Is.GreaterThan(500));
+                Assert.That(scoreText.rectTransform.rect.height, Is.GreaterThan(15));
+                var scoreSize = scoreText.GetPreferredValues(scoreText.text);
+                Assert.That(scoreSize.x, Is.LessThanOrEqualTo(scoreText.rectTransform.rect.width));
+                Assert.That(scoreSize.y, Is.LessThanOrEqualTo(scoreText.rectTransform.rect.height));
+
+                float fullHeight = content.rect.height;
+                Invoke(view, "RenderLeaderboard", new AccountLeaderboard("2026-10", new[] { entries[0] },
+                    new[] { "2026-10" }, null));
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+                Canvas.ForceUpdateCanvases();
+                Assert.That(Enumerable.Range(0, content.childCount).Count(i => content.GetChild(i).gameObject.activeSelf),
+                    Is.EqualTo(2), "shrinking the board hides the unused row cards from layout");
+                Assert.That(content.rect.height, Is.LessThan(fullHeight), "the scroll content shrinks with its active rows");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
         }
 
         [Test]
@@ -169,9 +243,22 @@ namespace Roguehalla.Net.Tests
             return rows.Select(row => row.text).ToList();
         }
 
-        static void AssertHasOwnerRank(HubProgressView view) =>
+        static List<string> AllLeaderboardDetailText(HubProgressView view)
+        {
+            var content = view.Root.Find("HubProgressCard/ProgressScroll2/Viewport/Content");
+            return content.GetComponentsInChildren<TMPro.TMP_Text>(true)
+                .Where(text => text.name == "Detail").Select(text => text.text).ToList();
+        }
+
+        static void AssertHasOwnerRank(HubProgressView view)
+        {
             Assert.IsTrue(AllLeaderboardRowText(view).Any(row => row.Contains("YOUR RANK")));
-        static void AssertNoOwnerRank(HubProgressView view, string message = null) =>
+            Assert.IsTrue(AllLeaderboardDetailText(view).Any(detail => detail.Contains("654,321")), "private GV detail is present while opted in");
+        }
+        static void AssertNoOwnerRank(HubProgressView view, string message = null)
+        {
             Assert.IsFalse(AllLeaderboardRowText(view).Any(row => row.Contains("YOUR RANK")), message);
+            Assert.IsFalse(AllLeaderboardDetailText(view).Any(detail => detail.Contains("654,321")), "private GV detail was cleared from the pooled row");
+        }
     }
 }
