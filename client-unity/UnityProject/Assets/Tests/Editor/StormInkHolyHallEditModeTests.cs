@@ -149,6 +149,38 @@ namespace Roguehalla.Client.Tests
             finally { if (view != null) view.Dispose(); UnityEngine.Object.DestroyImmediate(root); }
         }
 
+        [TestCase(0), TestCase(3)]
+        public void SignatureHallExcludesOutdoorClutterAndKeepsPaversAndPublicCover(int pose)
+        {
+            var hall = DeliveredHall(pose);
+            var rooms = TempleLayout.For(hall);
+            Assert.That(rooms.IsSignature, Is.True);
+            var floor = Enumerable.Range(Oy, Size).SelectMany(y => Enumerable.Range(Ox, Size).Select(x => (x, y)))
+                .Where(p => hall.At(p.x, p.y) == MapBlob.Floor && hall.Terrain[p.y * N + p.x] == 0)
+                .Take(5).ToArray();
+            MapProp Prop(byte kind, (int x, int y) cell) =>
+                new MapProp(kind, (ushort)(cell.x * 32 + 16), (ushort)(cell.y * 32 + 16), 0, 0);
+            var rows = new[]
+            {
+                Prop(42, floor[0]), Prop(45, floor[1]), Prop(46, floor[2]),
+                Prop(47, floor[3]), Prop(42, (Ox - 1, floor[0].y)),
+                Prop(45, (Ox - 1, floor[1].y + 1))
+            }.OrderBy(p => p.Y).ThenBy(p => p.X).ToArray();
+            var bushes = new byte[N * N];
+            bushes[floor[4].y * N + floor[4].x] = 1;
+
+            var delivered = hall.WithPublic(null, null, bushes, rows, null, null, hall.Anchors);
+            var placed = RegionProps.Scatter(delivered);
+            Assert.That(placed.Where(p => p.Shipped && rooms.Contains(p.Tx, p.Ty)).Select(p => p.Art),
+                Is.EqualTo(new[] { "holy.paver" }));
+            Assert.That(placed.Where(p => p.Shipped && !rooms.Contains(p.Tx, p.Ty)).Select(p => p.Art),
+                Is.EquivalentTo(new[] { "holy.rock", "holy.flowers" }));
+            Assert.That(placed.Any(p => p.ConcealmentCell && p.Tx == floor[4].x && p.Ty == floor[4].y), Is.True);
+
+            var fallback = hall.WithPublic(null, null, bushes, rows, null, null);
+            Assert.That(RegionProps.Scatter(fallback).Count(p => p.Shipped), Is.EqualTo(rows.Length));
+        }
+
         [Test]
         public void WithoutDeliveredHallAnchorLegacyTemplePropsRemainEnabled()
         {

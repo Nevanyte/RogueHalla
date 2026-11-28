@@ -247,9 +247,10 @@ namespace Roguehalla.Client
             return list;
         }
 
-        /// <summary>A map whose blob carries decoration: exactly the server's props (tile units), the fixed temple and coliseum furniture, and the real bushes. Nothing is rolled.</summary>
+        /// <summary>Uses delivered placements, fixed temple and coliseum furniture, and the real bushes on a dressed map.</summary>
         static void AddShipped(MapBlob map, List<Placement> list, ChurchLandmark.NaveFloor nave)
         {
+            var temple = TempleLayout.For(map);
             foreach (var p in map.Props)
             {
                 float x = p.X / 32f, y = p.Y / 32f;
@@ -258,13 +259,16 @@ namespace Roguehalla.Client
                 // Authored church furnishings are independent of the outdoor prop pass.
                 // Legacy placeholders and the separately appended real bush plane keep their existing cues.
                 if (nave.Contains(tx, ty) && art.StartsWith("sent.", System.StringComparison.Ordinal)) continue;
+                // The signature Hall has its own floor and furnishings. Keep outdoor ground clutter outside it.
+                if (temple.IsSignature && temple.Contains(tx, ty) &&
+                    (art == "holy.rock" || art == "holy.flowers" || art == "holy.grass")) continue;
                 list.Add(new Placement { Art = art, X = x, Y = y, Scale = 1f, Flip = false, Tx = tx, Ty = ty,
                     Kind = p.Kind, Variant = p.Variant, Flags = p.Flags, Shipped = true });
             }
             if (map.Regions != null && map.Regions.Length == map.W * map.H)
             {
                 int seed = unchecked((int)(map.LayerHash ^ (map.SemanticHash * 2654435761u)));
-                foreach (var d in TempleLayout.For(map).Props)
+                foreach (var d in temple.Props)
                     list.Add(new Placement { Art = d.Art, X = d.X, Y = d.Y, Scale = d.Scale, Flip = d.Flip, Tx = Mathf.FloorToInt(d.X), Ty = Mathf.FloorToInt(d.Y + (d.Bias > 0 ? 1.5f : 0f)), Bias = d.Bias });
                 ColiseumProps.Add(map, list, seed);
             }

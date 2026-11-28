@@ -16,7 +16,7 @@ namespace Roguehalla.Client
         /// <summary>Opacity of the dark edge line (the light one is <see cref="HitZoneModel.EdgeAlpha"/>): together they read on every ground (ActorOutlineEditModeTests).</summary>
         public const float EdgeDarkAlpha = .9f;
         const float EdgeLight = 1.3f, EdgeDark = 2.8f; // sim units: narrow light hairline over a dark edge
-        const float StrokeMs = 88f;
+        const float BrushMs = 88f, RimMs = HitZoneModel.SweepMs;
         // base fan (centre + rings) + 2 outline strips (dark, light) each = arc strip + two side strips
         const int FanVerts = 1 + Rings * (Arc + 1), StripVerts = 2 * (Arc + 1) + 8, TotalVerts = FanVerts + 2 * StripVerts;
 
@@ -210,10 +210,11 @@ namespace Roguehalla.Client
 
         void Write(Zone z, float age, bool reduced)
         {
-            float strokeFade = Mathf.Clamp01(1f - age / StrokeMs);
-            float bandAge = z.Windup ? age : age * HitZoneModel.SweepMs / StrokeMs;
+            float brushFade = Mathf.Clamp01(1f - age / BrushMs);
+            float bandAge = z.Windup ? age : age * HitZoneModel.SweepMs / BrushMs;
             float centre = HitZoneModel.BandCentre(bandAge, reduced);
-            float edgeFade = z.Windup ? 1f : .4f * strokeFade;
+            // Keep the confirmed outline readable for the legacy swing window. The separate moving brush still fades quickly.
+            float edgeFade = z.Windup ? 1f : Mathf.Clamp01((RimMs - age) / (RimMs - BrushMs));
             int vi = 0;
             z.V[vi] = P(z.Ox, z.Oy); z.C[vi++] = Tint(z.Windup ? .027f : 0f);
             for (int r = 1; r <= Rings; r++)
@@ -229,7 +230,7 @@ namespace Roguehalla.Client
                     z.V[vi] = P(px, py);
                     float band = HitZoneModel.BandWeight(k, centre);
                     float a = z.Windup ? .027f + (.017f + .026f * band) * rr
-                        : r == Rings && !reduced ? .36f * strokeFade * band : 0f;
+                        : r == Rings && !reduced ? .36f * brushFade * band : 0f;
                     z.C[vi++] = Tint(a);
                 }
             }

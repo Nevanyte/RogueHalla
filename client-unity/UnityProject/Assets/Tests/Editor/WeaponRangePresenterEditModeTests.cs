@@ -41,6 +41,23 @@ namespace Roguehalla.Client.Tests
         }
 
         [Test]
+        public void TheRangeGuideHasADarkBackingAndPaleEdgeForBrightAndDarkFloors()
+        {
+            var presenter = new WeaponRangePresenter(_root.transform);
+            presenter.Show(Bow, 17f, 0f, false, 2538, 2549);
+
+            const int fillVertices = 1 + 72;
+            const int stripVertices = 2 * 72;
+            var colors = presenter.Mesh.colors32;
+            var dark = colors[fillVertices + stripVertices];
+            var light = colors[fillVertices + 2 * stripVertices];
+            Assert.That(dark.a, Is.GreaterThanOrEqualTo(175));
+            Assert.That(light.a, Is.GreaterThanOrEqualTo(150));
+            Assert.That(light.g - dark.g, Is.GreaterThan(150));
+            Assert.That(colors[0].a, Is.LessThan(15), "the interior remains a faint wash");
+        }
+
+        [Test]
         public void ItIsShownOnlyForALivingFighterInAnActiveMatchWithAKnownWeapon()
         {
             Assert.IsTrue(WeaponRangePresenter.ShouldShow(true, true, true, false, 1f, 2f));

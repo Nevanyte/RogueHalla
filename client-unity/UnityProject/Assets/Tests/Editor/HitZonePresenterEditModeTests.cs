@@ -33,6 +33,27 @@ namespace Roguehalla.Client.Tests
             Assert.IsTrue(p.Swing(7, 0, 100, 100, 0, 20f)); Assert.AreEqual(children, _root.transform.childCount, "reused, not created");
         }
 
+        [TestCase(false), TestCase(true)]
+        public void AConfirmedSwingKeepsAHighContrastRimAfterTheShortBrushFades(bool reducedMotion)
+        {
+            Sword();
+            var presenter = Make();
+            Assert.That(presenter.Swing(7, 0, 2538, 2549, 0f, 1f), Is.True);
+
+            presenter.Tick(1.12f, reducedMotion);
+            var mesh = _root.GetComponentInChildren<MeshFilter>().sharedMesh;
+            const int fanVertices = 1 + 3 * 25;
+            const int stripVertices = 2 * 25 + 8;
+            var colors = mesh.colors32;
+            for (int i = 0; i < fanVertices; i++) Assert.That(colors[i].a, Is.Zero);
+            Assert.That(colors[fanVertices].a, Is.GreaterThanOrEqualTo(145));
+            Assert.That(colors[fanVertices + stripVertices].a, Is.GreaterThanOrEqualTo(95));
+
+            presenter.Tick(1.181f, reducedMotion);
+            Assert.That(mesh.colors32[fanVertices].a, Is.Zero);
+            Assert.That(mesh.colors32[fanVertices + stripVertices].a, Is.Zero);
+        }
+
         [Test]
         public void ZonesAreCapped()
         {
